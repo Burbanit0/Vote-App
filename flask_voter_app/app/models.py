@@ -2,6 +2,9 @@ from . import db
 from flask_bcrypt import Bcrypt
 from flask_jwt_extended import JWTManager
 
+bcrypt = Bcrypt()
+jwt = JWTManager()
+
 class Candidate(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     first_name = db.Column(db.String(100), nullable=False)
@@ -26,9 +29,6 @@ class Result(db.Model):
     candidate_id = db.Column(db.Integer, db.ForeignKey('candidate.id'), nullable=False)
     vote_count = db.Column(db.Integer, nullable=False)
     vote_type = db.Column(db.String(50), nullable=False)
-
-bcrypt = Bcrypt()
-jwt = JWTManager()
 
 class User(db.Model):
     id = db.Column(db.Integer, primary_key=True)
