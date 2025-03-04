@@ -7,3 +7,4 @@ SQLAlchemy==2.0.15
 python-dotenv==1.0.0
 Flask-Bcrypt
 Flask-JWT-Extended
+Faker

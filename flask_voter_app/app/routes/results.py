@@ -36,4 +36,23 @@ def get_majority():
 
 @bp.route('/condorcets', methods=['GET'])
 def get_condorcets():
-    return
+    
+    results = db.session.query(
+        Result,
+        Candidate.first_name,
+        Candidate.last_name
+    ).join(
+        Candidate, Result.candidate_id == Candidate.id
+    ).filter(Result.vote_type == "ordered"
+    ).all()
+
+    result_list = []
+    for result, first_name, last_name in results:
+        result_info = {
+            'candidate_id': result.candidate_id,
+            'candidate_name': f'{first_name} {last_name}',
+            'vote_type': result.vote_type,
+            'result': result.vote_count
+        }
+        result_list.append(result_info)
+    return jsonify(result_list)

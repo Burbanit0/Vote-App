@@ -1,5 +1,5 @@
 from flask import Blueprint, request, jsonify, current_app
-from ..models import Vote, Result, db
+from ..models import Vote, Result, Candidate, db
 
 bp = Blueprint('votes', __name__, url_prefix='/votes')
 
@@ -17,8 +17,8 @@ def update_results():
             ).filter(Vote.vote_type == vote_type[0]).group_by(Vote.candidate_id).all()
 
             # Store results in the result table
-            for candidate_id, vote_count in results:
-                result = Result(candidate_id=candidate_id, vote_count=vote_count, vote_type=vote_type[0])
+            for Candidate, vote_count in results:
+                result = Result(candidate_name=Candidate.first_name, vote_count=vote_count, vote_type=vote_type[0])
                 db.session.add(result)
 
         db.session.commit()
