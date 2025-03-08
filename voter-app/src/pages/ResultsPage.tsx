@@ -3,6 +3,7 @@ import React, { useEffect, useState } from 'react';
 import VoteResults from '../components/Vote/VoteResults';
 import { fetchAllResults } from '../services/api';
 import { Result } from '../types';
+import { Card, Col, Container, Row } from 'react-bootstrap';
 
 const ResultsPage: React.FC = () => {
   const [results, setResults] = useState<Result[]>([]);
@@ -17,10 +18,18 @@ const ResultsPage: React.FC = () => {
   }, []);
 
   return (
-    <div>
-      <h1>Voting Results</h1>
-      <VoteResults results={results} />
-    </div>
+    <Container className="mt-5">
+      <Row className="justify-content-center">
+        <Col md={8} lg={6}>
+          <Card className="text-center">
+            <Card.Header as="h1">Voting Results</Card.Header>
+            <Card.Body>
+              <VoteResults results={results} />
+            </Card.Body>
+          </Card>
+        </Col>
+      </Row>
+    </Container>
   );
 };
 

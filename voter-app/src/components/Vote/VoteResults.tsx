@@ -9,8 +9,6 @@ interface VoteResultsProps {
 
 const VoteResults: React.FC<VoteResultsProps> = ({ results }) => {
   return (
-    <div>
-      <h2>Voting Results</h2>
       <Container>
       <Row>
         {results.map(result => (
@@ -29,7 +27,6 @@ const VoteResults: React.FC<VoteResultsProps> = ({ results }) => {
         ))}
       </Row>
     </Container>
-    </div>
   );
 };
 
