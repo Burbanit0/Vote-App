@@ -1,5 +1,5 @@
 from flask import Blueprint, request, jsonify, current_app
-from ..models import Vote, Result, Candidate, db
+from ..models import Vote, Result, db
 
 bp = Blueprint('votes', __name__, url_prefix='/votes')
 

@@ -10,19 +10,18 @@ def register():
     username = data.get('username')
     password = data.get('password')
     role = data.get('role')
+    first_name = data.get('first_name')
+    last_name = data.get('last_name')
 
-    if not username or not password or role not in ['Voter', 'Admin']:
-        return jsonify({"message": "Invalid input"}), 400
+    # Validate input data
+    if not username or not password or not role:
+        return jsonify({'error': 'Missing required fields'}), 400
 
-    if User.query.filter_by(username=username).first():
-        return jsonify({"message": "Username already exists"}), 400
-
-    new_user = User(username=username, role=role)
-    new_user.set_password(password)
-    db.session.add(new_user)
-    db.session.commit()
-
-    return jsonify({"message": "User registered successfully"}), 201
+    try:
+        register_user(username, password, role, first_name, last_name)
+        return jsonify({'message': 'User registered successfully'}), 201
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
 
 @auth_bp.route('/login', methods=['POST'])
 def login():

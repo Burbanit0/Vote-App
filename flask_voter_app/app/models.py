@@ -1,41 +1,52 @@
 from . import db
 from flask_bcrypt import Bcrypt
 from flask_jwt_extended import JWTManager
+from sqlalchemy import Column, Integer, String, ForeignKey, DateTime, func
+from sqlalchemy.orm import relationship
 
 bcrypt = Bcrypt()
 jwt = JWTManager()
 
 class Candidate(db.Model):
-    id = db.Column(db.Integer, primary_key=True)
-    first_name = db.Column(db.String(100), nullable=False)
-    last_name = db.Column(db.String(100), nullable=False)
+    __tablename__ = 'candidates'
+    id = Column(Integer, primary_key=True)
+    first_name = Column(String(100), nullable=False)
+    last_name = Column(String(100), nullable=False)
 
 class Voter(db.Model):
-    id = db.Column(db.Integer, primary_key=True)
-    first_name = db.Column(db.String(100), nullable=False)
-    last_name = db.Column(db.String(100), nullable=False)
+    __tablename__ = 'voters'
+    id = Column(Integer, primary_key=True)
+    user_id = Column(Integer, ForeignKey('users.id'), nullable=False)
+    first_name = Column(String(100), nullable=False)
+    last_name = Column(String(100), nullable=False)
+    user = relationship("User", back_populates="voter")
+
 
 class Vote(db.Model):
-    id = db.Column(db.Integer, primary_key=True)
-    voter_id = db.Column(db.Integer, db.ForeignKey('voter.id'), nullable=False)
-    candidate_id = db.Column(db.Integer, db.ForeignKey('candidate.id'), nullable=False)
-    vote_type = db.Column(db.String(50), nullable=False)
-    rank = db.Column(db.Integer, nullable=True)
-    weight = db.Column(db.Float, nullable=True)
-    rating = db.Column(db.Integer, nullable=True)
+    __tablename__ = 'votes'
+    id = Column(Integer, primary_key=True)
+    voter_id = Column(Integer, ForeignKey('voters.id'), nullable=False)
+    candidate_id = Column(Integer, ForeignKey('candidates.id'), nullable=False)
+    vote_type = Column(String(50), nullable=False)
+    rank = Column(Integer, nullable=True)
+    weight = Column(db.Float, nullable=True)
+    rating = Column(Integer, nullable=True)
 
 class Result(db.Model):
-    id = db.Column(db.Integer, primary_key=True)
-    candidate_id = db.Column(db.Integer, db.ForeignKey('candidate.id'), nullable=False)
-    vote_count = db.Column(db.Integer, nullable=False)
-    vote_type = db.Column(db.String(50), nullable=False)
+    __tablename__ = 'results'
+    id = Column(Integer, primary_key=True)
+    candidate_id = Column(Integer, ForeignKey('candidates.id'), nullable=False)
+    vote_count = Column(Integer, nullable=False)
+    vote_type = Column(String(50), nullable=False)
 
 class User(db.Model):
-    id = db.Column(db.Integer, primary_key=True)
-    username = db.Column(db.String(50), unique=True, nullable=False)
-    password_hash = db.Column(db.String(128), nullable=False)
-    role = db.Column(db.String(10), nullable=False)
-    created_at = db.Column(db.DateTime, default=db.func.current_timestamp())
+    __tablename__ = 'users'
+    id = Column(db.Integer, primary_key=True)
+    username = Column(String(50), unique=True, nullable=False)
+    password_hash = Column(String(128), nullable=False)
+    role = Column(String(10), nullable=False)
+    created_at = Column(DateTime, default=db.func.current_timestamp())
+    voter = relationship("Voter", back_populates="user")
 
     def set_password(self, password):
         self.password_hash = bcrypt.generate_password_hash(password).decode('utf-8')
