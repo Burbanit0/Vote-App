@@ -31,6 +31,9 @@ export interface Voter {
 export interface User {
     id: number;
     access_token: string;
+    username: string;
     role: string;
+    created_at: string;
+    voter?: Voter;
 }
   
