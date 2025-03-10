@@ -1,102 +1,64 @@
-from app import create_app, db
-from app.models import Candidate, Voter, Vote
+from app import create_app, db  # Adjust the import according to your project structure
+from app.models import User, Voter, Candidate
+from flask_bcrypt import Bcrypt
 
-def init_db():
-    app = create_app()
+bcrypt = Bcrypt()
+
+def create_initial_data():
+    app = create_app()  # Create the Flask app instance
+
     with app.app_context():
-        # Create the database tables
+        # Create an admin user
         db.create_all()
 
-        # Add candidates
-        candidates = [
-            Candidate(first_name='Alice', last_name='Smith'),
-            Candidate(first_name='Bob', last_name='Johnson'),
-            Candidate(first_name='Charlie', last_name='Brown')
+        admin_user = User(
+            username='admin',
+            role='Admin'
+        )
+        admin_user.set_password('admin_password')
+        db.session.add(admin_user)
+
+        # Create voter users and their profiles
+        voter_users = [
+            {'username': 'voter1', 'password': 'voter1_password', 'first_name': 'John', 'last_name': 'Doe'},
+            {'username': 'voter2', 'password': 'voter2_password', 'first_name': 'Jane', 'last_name': 'Smith'},
+            {'username': 'voter3', 'password': 'voter3_password', 'first_name': 'Alice', 'last_name': 'Johnson'},
+            {'username': 'voter4', 'password': 'voter4_password', 'first_name': 'Bob', 'last_name': 'Brown'}
         ]
-        db.session.add_all(candidates)
+
+        for voter_data in voter_users:
+            voter_user = User(
+                username=voter_data['username'],
+                role='Voter'
+            )
+            voter_user.set_password(voter_data['password'])
+            db.session.add(voter_user)
+            db.session.flush()  # Flush to get the user ID
+
+            voter_profile = Voter(
+                user_id=voter_user.id,
+                first_name=voter_data['first_name'],
+                last_name=voter_data['last_name']
+            )
+            db.session.add(voter_profile)
+
+        # Create candidates
+        candidates = [
+            {'first_name': 'Candidate', 'last_name': 'One'},
+            {'first_name': 'Candidate', 'last_name': 'Two'},
+            {'first_name': 'Candidate', 'last_name': 'Three'}
+        ]
+
+        for candidate_data in candidates:
+            candidate = Candidate(
+                first_name=candidate_data['first_name'],
+                last_name=candidate_data['last_name']
+            )
+            db.session.add(candidate)
+
+        # Commit all changes to the database
         db.session.commit()
 
-        # Add voters and their choices
-        voters = []
-        for i in range(1, 11):
-            voter = Voter(first_name=f'Voter{i}', last_name=f'Last{i}')
-            db.session.add(voter)
-            db.session.commit()
-
-            # Assign votes to each voter
-            for j, candidate in enumerate(candidates):
-                vote_type = 'single' if j == 0 else 'multiple' if j == 1 else 'ordered'
-                vote = Vote(
-                    voter_id=voter.id,
-                    candidate_id=candidate.id,
-                    vote_type=vote_type,
-                    rank=j + 1 if vote_type == 'ordered' else None,
-                    weight=33.33 if vote_type == 'weighted' else None,
-                    rating=5 - j if vote_type == 'rated' else None
-                )
-                db.session.add(vote)
-            db.session.commit()
-
+# Call the function to create initial data
 if __name__ == '__main__':
-    init_db()
-
-
-import random
-from faker import Faker  # Using Faker to generate realistic names
-from sqlalchemy.orm import sessionmaker
-from sqlalchemy import create_engine
-from models import Candidate, Voter, Vote, Base  # Adjust the import according to your project structure
-
-# # Initialize Faker and database
-# fake = Faker()
-# engine = create_engine('sqlite:///election.db')
-# Session = sessionmaker(bind=engine)
-# session = Session()
-
-# # Create tables
-# Base.metadata.create_all(engine)
-
-# def generate_candidates(num_candidates):
-#     candidates = []
-#     for _ in range(num_candidates):
-#         first_name = fake.first_name()
-#         last_name = fake.last_name()
-#         candidate = Candidate(first_name=first_name, last_name=last_name)
-#         candidates.append(candidate)
-#         session.add(candidate)
-#     session.commit()
-#     return candidates
-
-# def generate_voters(num_voters):
-#     voters = []
-#     for _ in range(num_voters):
-#         first_name = fake.first_name()
-#         last_name = fake.last_name()
-#         voter = Voter(first_name=first_name, last_name=last_name)
-#         voters.append(voter)
-#         session.add(voter)
-#     session.commit()
-#     return voters
-
-# def simulate_voting(voters, candidates):
-#     vote_types = ['single', 'ranked']  # Add more vote types as needed
-#     for voter in voters:
-#         for vote_type in vote_types:
-#             if vote_type == 'single':
-#                 candidate = random.choice(candidates)
-#                 vote = Vote(voter_id=voter.id, candidate_id=candidate.id, vote_type=vote_type)
-#                 session.add(vote)
-#             elif vote_type == 'ranked':
-#                 ranked_candidates = candidates.copy()
-#                 random.shuffle(ranked_candidates)
-#                 for rank, candidate in enumerate(ranked_candidates, start=1):
-#                     vote = Vote(voter_id=voter.id, candidate_id=candidate.id, vote_type=vote_type, rank=rank)
-#                     session.add(vote)
-#     session.commit()
-
-# # Generate candidates and voters
-# candidates = generate_candidates(num_candidates=5)
-# voters = generate_voters(num_voters=100)
-
-# # Simulate voting
-# simulate_voting(voters, candidates)
+    create_initial_data()

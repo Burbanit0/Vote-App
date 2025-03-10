@@ -1,6 +1,8 @@
 from flask import Blueprint, request, jsonify
-from ..models import User, db
+from ..models import User
 from flask_jwt_extended import create_access_token, get_jwt_identity, jwt_required
+from flask_login import current_user
+
 
 auth_bp = Blueprint('auth', __name__, url_prefix='/api/auth')
 
@@ -45,3 +47,68 @@ def admin_only():
 
     # Admin-only logic here
     return jsonify({"message": "Welcome, Admin!"}), 200
+
+@auth_bp.route('/profile', methods=['GET'])
+@jwt_required()
+def get_profile():
+    # Retrieve the logged-in user's information using the primary key
+    current_user_identity = get_jwt_identity()
+
+    # Ensure current_user_identity is a dictionary and contains the user ID
+    if not isinstance(current_user_identity, dict) or 'id' not in current_user_identity:
+        return jsonify({"msg": "Invalid JWT payload"}), 400
+
+    current_user_id = current_user_identity['id']
+
+    # Convert current_user_id to an integer if necessary
+    current_user_id = int(current_user_id)
+
+    current_user = User.query.get(current_user_id)
+
+    if not current_user:
+        return jsonify({"msg": "User not found"}), 404
+
+    # Prepare the user data to be sent as JSON
+    user_data = {
+        'id': current_user.id,
+        'username': current_user.username,
+        'role': current_user.role,
+        'created_at': current_user.created_at.isoformat()  # Convert datetime to string
+    }
+
+    # Include voter information if available
+    if current_user.voter:
+        user_data['voter'] = {
+            'first_name': current_user.voter.first_name,
+            'last_name': current_user.voter.last_name
+        }
+
+    return jsonify(user_data)
+
+@auth_bp.route('/current_voter', methods=['GET'])
+@jwt_required()
+def get_profile():
+    # Retrieve the logged-in user's information using the primary key
+    current_user_identity = get_jwt_identity()
+
+    # Ensure current_user_identity is a dictionary and contains the user ID
+    if not isinstance(current_user_identity, dict) or 'id' not in current_user_identity:
+        return jsonify({"msg": "Invalid JWT payload"}), 400
+
+    current_user_id = current_user_identity['id']
+
+    # Convert current_user_id to an integer if necessary
+    current_user_id = int(current_user_id)
+
+    current_user = User.query.get(current_user_id)
+
+    if not current_user:
+        return jsonify({"msg": "User not found"}), 404
+    # Include voter information if available
+    if current_user.voter:
+        current_voter = {
+            'first_name': current_user.voter.first_name,
+            'last_name': current_user.voter.last_name
+        }
+
+    return jsonify(current_voter)

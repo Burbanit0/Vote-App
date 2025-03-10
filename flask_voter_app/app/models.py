@@ -46,7 +46,7 @@ class User(db.Model):
     password_hash = Column(String(128), nullable=False)
     role = Column(String(10), nullable=False)
     created_at = Column(DateTime, default=db.func.current_timestamp())
-    voter = relationship("Voter", back_populates="user")
+    voter = relationship("Voter", back_populates="user", uselist=False)
 
     def set_password(self, password):
         self.password_hash = bcrypt.generate_password_hash(password).decode('utf-8')
