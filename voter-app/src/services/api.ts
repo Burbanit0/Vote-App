@@ -186,9 +186,8 @@ export const loginUser = async (username: string, password: string) => {
       password,
     });
     // Extract the token and role from the response
-    const { access_token, role } = response.data;
-    console.log(role);
-    return { token: access_token, role: role };
+    const user = response.data;
+    return user;
   } catch (error) {
     console.error('Error logging in user:', error);
     throw error;

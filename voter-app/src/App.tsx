@@ -18,11 +18,11 @@ const AppContent: React.FC = () => {
   const location = useLocation();
 
   // Hide the Navbar on the Home page
-  const shouldShowNavbar = location.pathname !== '/';
+  const shouldShowNavbar =  ['/', '/login'];
 
   return (
     <div className="App">
-      {shouldShowNavbar && <Navbar />}
+      { !shouldShowNavbar.includes(location.pathname) && <Navbar />}
       <ErrorBoundary>
         <Routes>
           <Route path="/login" element={<Login />} />

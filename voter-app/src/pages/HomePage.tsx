@@ -1,9 +1,12 @@
 import React from 'react';
 import { Link } from 'react-router-dom';
 import { Container, Row, Col, Card, Button } from 'react-bootstrap';
+import { useAuth } from '../context/AuthContext';
 import 'bootstrap/dist/css/bootstrap.min.css';
 
 const HomePage: React.FC = () => {
+  const { user } = useAuth();
+
   return (
     <Container className="mt-5">
       <Row className="justify-content-center text-center mb-4">
@@ -13,6 +16,7 @@ const HomePage: React.FC = () => {
         </Col>
       </Row>
       <Row className="justify-content-center">
+        {user && user.role === "Admin" && (
         <Col md={6} lg={3} className="mb-4">
           <Card>
             <Card.Body>
@@ -24,6 +28,8 @@ const HomePage: React.FC = () => {
             </Card.Body>
           </Card>
         </Col>
+        )}
+        {user && user.role === "Admin" && (
         <Col md={6} lg={3} className="mb-4">
           <Card>
             <Card.Body>
@@ -35,6 +41,8 @@ const HomePage: React.FC = () => {
             </Card.Body>
           </Card>
         </Col>
+        )}
+        {user && user.role === "Voter" && (
         <Col md={6} lg={3} className="mb-4">
           <Card>
             <Card.Body>
@@ -46,6 +54,7 @@ const HomePage: React.FC = () => {
             </Card.Body>
           </Card>
         </Col>
+        )}
         <Col md={6} lg={3} className="mb-4">
           <Card>
             <Card.Body>
@@ -53,6 +62,17 @@ const HomePage: React.FC = () => {
               <Card.Text>See the results of the election.</Card.Text>
               <Link to="/results">
                 <Button variant="primary" className="w-100">Go to Results</Button>
+              </Link>
+            </Card.Body>
+          </Card>
+        </Col>
+        <Col md={6} lg={3} className="mb-4">
+          <Card>
+            <Card.Body>
+              <Card.Title>View Profile</Card.Title>
+              <Card.Text>See your profile.</Card.Text>
+              <Link to="/profile">
+                <Button variant="primary" className="w-100">Go to Profile</Button>
               </Link>
             </Card.Body>
           </Card>
