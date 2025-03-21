@@ -18,7 +18,6 @@ def register():
     # Validate input data
     if not username or not password or not role:
         return jsonify({'error': 'Missing required fields'}), 400
-
     try:
         register_user(username, password, role, first_name, last_name)
         return jsonify({'message': 'User registered successfully'}), 201
@@ -36,7 +35,12 @@ def login():
         return jsonify({"message": "Invalid credentials"}), 401
 
     access_token = create_access_token(identity={"id": user.id, "role": user.role})
-    return jsonify(access_token=access_token, role=user.role), 200
+    if (user.role == 'Admin'):
+        return jsonify(access_token=access_token, role=user.role)
+    else:
+        voter_data = {'id' :user.voter.id, 'first_name' : user.voter.first_name, 'last_name' : user.voter.last_name}
+        return jsonify(access_token=access_token, role=user.role, voter = voter_data), 200
+    
 
 @auth_bp.route('/admin-only', methods=['GET'])
 @jwt_required()
@@ -87,7 +91,7 @@ def get_profile():
 
 @auth_bp.route('/current_voter', methods=['GET'])
 @jwt_required()
-def get_profile():
+def get_current_profile():
     # Retrieve the logged-in user's information using the primary key
     current_user_identity = get_jwt_identity()
 
