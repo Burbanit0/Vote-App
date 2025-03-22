@@ -1,5 +1,6 @@
 from flask import Blueprint, jsonify
-from ..models import Result, Candidate, db
+from app.utils.utils import get_condorcet_winner
+from ..models import Result, Candidate, Vote, db
 
 bp = Blueprint('results', __name__, url_prefix='/results')
 
@@ -34,25 +35,18 @@ def get_majority():
         result_list.append(result_info)
     return jsonify(result_list)
 
-@bp.route('/condorcets', methods=['GET'])
-def get_condorcets():
+@bp.route('/condorcet', methods=['GET'])
+def get_condorcet():
+    all_votes = db.session.query(Vote).all()
+    print(all_votes)
+    winner = get_condorcet_winner(all_votes) ## return a candidate_id
+    candidates = db.session.query(Candidate).filter(Candidate.id == winner)
     
-    results = db.session.query(
-        Result,
-        Candidate.first_name,
-        Candidate.last_name
-    ).join(
-        Candidate, Result.candidate_id == Candidate.id
-    ).filter(Result.vote_type == "ordered"
-    ).all()
-
     result_list = []
-    for result, first_name, last_name in results:
-        result_info = {
-            'candidate_id': result.candidate_id,
-            'candidate_name': f'{first_name} {last_name}',
-            'vote_type': result.vote_type,
-            'result': result.vote_count
-        }
+    for candidate in candidates:
+        result_info = {'first_name' : candidate.first_name,
+                       'last_name' : candidate.last_name,
+                       'id' : candidate.id}
         result_list.append(result_info)
-    return jsonify(result_list)
+
+    return jsonify(result_list[0])

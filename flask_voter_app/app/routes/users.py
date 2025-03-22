@@ -1,8 +1,8 @@
 from flask import Blueprint, request, jsonify
+from app.utils.auth_utils import register_user
 from ..models import User
 from flask_jwt_extended import create_access_token, get_jwt_identity, jwt_required
 from flask_login import current_user
-
 
 auth_bp = Blueprint('auth', __name__, url_prefix='/api/auth')
 
@@ -116,3 +116,4 @@ def get_current_profile():
         }
 
     return jsonify(current_voter)
+
