@@ -228,3 +228,13 @@ export const fetchCondorcetWinner = async (): Promise<Candidate> => {
     throw error;
   }
 };
+
+export const fetchTwoRoundWinner = async (): Promise<Candidate> => {
+  try{
+    const response = await axios.get<Candidate>(`${API_BASE_URL}/results/two-round`);
+    return response.data;
+  } catch (error) {
+    console.error('Error fetching all results:', error);
+    throw error;
+  }
+};
