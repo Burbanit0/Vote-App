@@ -5,6 +5,7 @@ import { fetchAllResults } from '../services/api';
 import { Result } from '../types';
 import { Card, Col, Container, Row } from 'react-bootstrap';
 import Condorcet from '../components/Result/Condorcet';
+import TwoRoundWinner from '../components/Result/TwoRoundWinner';
 
 const ResultsPage: React.FC = () => {
   const [results, setResults] = useState<Result[]>([]);
@@ -34,6 +35,14 @@ const ResultsPage: React.FC = () => {
             <Card.Header as="h1">Voting Results</Card.Header>
             <Card.Body>
               <Condorcet />
+            </Card.Body>
+          </Card>
+        </Col>
+        <Col md={8} lg={6}>
+          <Card className="text-center">
+            <Card.Header as="h1">Voting Results</Card.Header>
+            <Card.Body>
+              <TwoRoundWinner />
             </Card.Body>
           </Card>
         </Col>

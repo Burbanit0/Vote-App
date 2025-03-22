@@ -1,34 +1,34 @@
 import React, { useEffect, useState } from 'react';
 import { Card, Container } from 'react-bootstrap';
-import { fetchCondorcetWinner } from '../../services/api';
+import { fetchTwoRoundWinner } from '../../services/api';
 import { Candidate } from '../../types';
 
-const Condorcet: React.FC = () => {
+const TwoRoundWinner: React.FC = () => {
     const [winner, setWinner] = useState<Candidate | null>(null);
     const [error, setError] = useState<string | null>(null);
-
+    
     useEffect(() => {
-        const loadCondorcetWinner = async () => {
+        const loadTwoRoundWinner = async () => {
             try {
-                const condorcetWinner = await fetchCondorcetWinner();
-                setWinner(condorcetWinner);
+                const twoRoundWinner = await fetchTwoRoundWinner();
+                setWinner(twoRoundWinner);
             } catch (error) {
-                setError('Failed to fetch the Condorcet winner:');
+                setError('Failed to fetch the Two Round winner:');
             }
         };
-
-        loadCondorcetWinner();
+    
+        loadTwoRoundWinner();
     }, []);
-
+    
     return (
         <Container>
             {error && <p style={{ color: 'red' }}>{error}</p>}
-            <h2>Condorcet Winner</h2>
+            <h2>Two Round Winner</h2>
             <Card>
                 <Card.Body>
                     <Card.Title>{winner?.id}</Card.Title>
                     <Card.Text>
-                        Congratulation to {winner?.first_name} {winner?.last_name} for being the Condorcet winner!
+                        Congratulation to {winner?.first_name} {winner?.last_name} for being the Two Round winner!
                     </Card.Text>
                 </Card.Body>
             </Card>
@@ -36,4 +36,4 @@ const Condorcet: React.FC = () => {
     );
 };
 
-export default Condorcet;
+export default TwoRoundWinner;
