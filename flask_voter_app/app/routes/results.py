@@ -1,5 +1,5 @@
 from flask import Blueprint, jsonify
-from app.utils.utils import get_condorcet_winner
+from app.utils.utils import get_condorcet_winner, get_two_round_winner
 from ..models import Result, Candidate, Vote, db
 
 bp = Blueprint('results', __name__, url_prefix='/results')
@@ -42,6 +42,22 @@ def get_condorcet():
     winner = get_condorcet_winner(all_votes) ## return a candidate_id
     candidates = db.session.query(Candidate).filter(Candidate.id == winner)
     
+    result_list = []
+    for candidate in candidates:
+        result_info = {'first_name' : candidate.first_name,
+                       'last_name' : candidate.last_name,
+                       'id' : candidate.id}
+        result_list.append(result_info)
+
+    return jsonify(result_list[0])
+
+@bp.route('/two-round', methods=['GET'])
+def two_round():
+    all_votes = db.session.query(Vote).all()
+    print(all_votes)
+    winner = get_two_round_winner(all_votes)
+    candidates = db.session.query(Candidate).filter(Candidate.id == winner)
+
     result_list = []
     for candidate in candidates:
         result_info = {'first_name' : candidate.first_name,
