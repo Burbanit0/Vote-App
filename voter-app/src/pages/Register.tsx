@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { registerUser } from '../services/api';
-import { Form, Button, Container, Row, Col } from 'react-bootstrap';
+import { Form, Button, Container, Row, Col, Alert } from 'react-bootstrap';
+import { AxiosError } from 'axios';
 
 const Register: React.FC = () => {
   const [username, setUsername] = useState('');
@@ -9,21 +10,31 @@ const Register: React.FC = () => {
   const [firstName, setFirstName] = useState('');
   const [lastName, setLastName] = useState('');
 
+  const [error, setError] = useState<string | null>(null);
+
+  interface ApiErrorResponse {
+    msg: string;
+  }
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    setError(null);
     try {
-      await registerUser(username, password, role);
-      alert('Registration successful!');
+      await registerUser(username, password, role, firstName, lastName);
+      
     } catch (error) {
-      alert('Registration failed. Please try again.');
+      const axiosError = error as AxiosError<ApiErrorResponse>;
+      setError(axiosError.response?.data?.msg ||'Registration failed. Please try again.');
+      return;
     }
+    setError('Registration successful!');
   };
 
   return (
     <Container className="mt-5">
       <Row className="justify-content-center">
         <Col md={6} lg={4}>
+        {error && <Alert variant="danger">{error}</Alert>}
           <Form onSubmit={handleSubmit}>
             <Form.Group controlId="formUsername">
               <Form.Label>Username</Form.Label>

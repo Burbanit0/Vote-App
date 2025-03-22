@@ -18,7 +18,7 @@ const AppContent: React.FC = () => {
   const location = useLocation();
 
   // Hide the Navbar on the Home page
-  const shouldShowNavbar =  ['/', '/login'];
+  const shouldShowNavbar =  ['/', '/login', '/register'];
 
   return (
     <div className="App">

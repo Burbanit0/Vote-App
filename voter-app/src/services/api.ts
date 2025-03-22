@@ -164,12 +164,14 @@ export const fetchAllResults = async (): Promise<Result[]> => {
 
 
 // Function to register a new user
-export const registerUser = async (username: string, password: string, role: 'Voter' | 'Admin') => {
+export const registerUser = async (username: string, password: string, role: 'Voter' | 'Admin', first_name:string, last_name:string) => {
   try {
     const response = await axios.post(`${API_BASE_URL}/api/auth/register`, {
       username,
       password,
       role,
+      first_name,
+      last_name
     });
     return response.data;
   } catch (error) {
@@ -214,5 +216,15 @@ export const fetchProfileData = async () => {
     return response.data;
   } catch (error) {
     throw new Error('Failed to fetch profile data. Please check your login status.');
+  }
+};
+
+export const fetchCondorcetWinner = async (): Promise<Candidate> => {
+  try {
+    const response = await axios.get<Candidate>(`${API_BASE_URL}/results/condorcet`);
+    return response.data;
+  } catch (error) {
+    console.error('Error fetching all results:', error);
+    throw error;
   }
 };
