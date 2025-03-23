@@ -34,11 +34,12 @@ def create_app():
     with app.app_context():
         db.create_all()  # Create tables
 
-    from .routes import candidates, voters, votes, results, users
+    from .routes import candidates, voters, votes, results, users, simulation
     app.register_blueprint(candidates.bp)
     app.register_blueprint(voters.bp)
     app.register_blueprint(votes.bp)
     app.register_blueprint(results.bp)
+    app.register_blueprint(simulation.bp)
     app.register_blueprint(users.auth_bp)
 
     return app
