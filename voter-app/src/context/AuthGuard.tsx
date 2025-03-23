@@ -3,11 +3,11 @@ import { Navigate } from 'react-router-dom';
 import { useAuth } from './AuthContext';
 
 const AuthGuard: React.FC<{ component: React.FC, role?: 'Voter' | 'Admin' }> = ({ component: Component, role }) => {
-  const { user } = useAuth();
+  const { user, loading } = useAuth();
 
-  // if (loading) {
-  //   return <div>Loading...</div>; // Render a loading indicator while fetching user data
-  // }
+  if (loading) {
+    return <div>Loading...</div>; // Render a loading indicator while fetching user data
+  }
 
   if (!user) {
     return <Navigate to="/login" />; // Redirect to login if no user is authenticated

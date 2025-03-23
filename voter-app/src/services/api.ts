@@ -238,3 +238,16 @@ export const fetchTwoRoundWinner = async (): Promise<Candidate> => {
     throw error;
   }
 };
+
+export const simulateVote = async (numVoters: number, numCandidates: number) => {
+  try {
+    const response = await axios.post(`${API_BASE_URL}/simulations`, {
+      num_voters: numVoters,
+      num_candidates: numCandidates,
+    });
+    return response.data;
+  } catch (error) {
+    console.error('Failed to simulate votes. Please try again.', error);
+    throw error;
+  }
+}

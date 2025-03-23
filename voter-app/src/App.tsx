@@ -7,7 +7,7 @@ import VotePage from './pages/VotePage';
 import ResultsPage from './pages/ResultsPage';
 import Navbar from './components/Navbar';
 import Profile from './components/Voter/Profile';
-import { AuthProvider } from './context/AuthContext';
+import SimulationPage from './pages/SimulationPage';
 import Login from './pages/Login';
 import Register from './pages/Register';
 import AuthGuard from './context/AuthGuard';
@@ -33,6 +33,7 @@ const AppContent: React.FC = () => {
           <Route path="/vote" element={<AuthGuard component={VotePage} role="Voter" />} />
           <Route path="/results" element={<AuthGuard component={ResultsPage} />} />
           <Route path="/profile" element={<AuthGuard component={Profile} />} />
+          <Route path="/simulation" element={<AuthGuard component={SimulationPage} />} />
         </Routes>
       </ErrorBoundary>
     </div>
@@ -41,11 +42,9 @@ const AppContent: React.FC = () => {
 
 const App: React.FC = () => {
   return (
-    <Router>
-      <AuthProvider>
-        <AppContent />
-      </AuthProvider>
-    </Router>
+        <Router>
+          <AppContent />
+        </Router>
   );
 };
 

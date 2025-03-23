@@ -5,13 +5,17 @@ import { useAuth } from '../context/AuthContext';
 import { Navbar as BootstrapNavbar, Nav, Button, Container } from 'react-bootstrap';
 
 const Navbar: React.FC = () => {
-  const { user, logout } = useAuth();
+  const { user, logout, loading } = useAuth();
   const navigate = useNavigate();
 
   const handleLogout = () => {
     logout();
     navigate('/login');
   };
+
+  if (loading) {
+    return <div>Loading...</div>; // Display a loading sp
+  }
 
   return (
     <BootstrapNavbar bg="light" expand="lg">
@@ -27,7 +31,10 @@ const Navbar: React.FC = () => {
               </>
             )}
             {user && user.role === 'Voter' && (
-              <Nav.Link href="/vote">Vote</Nav.Link>
+              <>
+                <Nav.Link href="/vote">Vote</Nav.Link>
+                <Nav.Link href="/simulation">Simulation</Nav.Link>
+              </>
             )}
             <Nav.Link href="/results">Results</Nav.Link>
             {user && (
