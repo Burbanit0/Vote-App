@@ -6,6 +6,7 @@ from flask_jwt_extended import JWTManager
 from flask_bcrypt import Bcrypt
 
 
+
 db = SQLAlchemy()
 migrate = Migrate()
 jwt = JWTManager()
@@ -34,12 +35,13 @@ def create_app():
     with app.app_context():
         db.create_all()  # Create tables
 
-    from .routes import candidates, voters, votes, results, users, simulation
+    from .routes import candidates, voters, votes, results, users, simulation, elections
     app.register_blueprint(candidates.bp)
     app.register_blueprint(voters.bp)
     app.register_blueprint(votes.bp)
     app.register_blueprint(results.bp)
     app.register_blueprint(simulation.bp)
     app.register_blueprint(users.auth_bp)
+    app.register_blueprint(elections.election_bp)
 
     return app

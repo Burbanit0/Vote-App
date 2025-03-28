@@ -53,3 +53,25 @@ class User(db.Model):
 
     def check_password(self, password):
         return bcrypt.check_password_hash(self.password_hash, password)
+    
+class Election(db.Model):
+    __tablename__ = 'elections'
+    id = Column(Integer, primary_key=True)
+    name = Column(String(100), nullable=False)
+    description = Column(String(255), nullable=True)
+    created_by = Column(Integer, ForeignKey('users.id'), nullable=False)
+    created_at = Column(DateTime, default=func.current_timestamp())
+
+# Relationships
+    voters = db.relationship('User', secondary='election_voter', backref=db.backref('elections', lazy='dynamic'))
+    candidates = db.relationship('Candidate', secondary='election_candidate', backref=db.backref('elections', lazy='dynamic'))
+
+election_voter = db.Table('election_voter',
+    Column('election_id', Integer, ForeignKey('elections.id'), primary_key=True),
+    Column('voter_id', Integer, ForeignKey('users.id'), primary_key=True)
+)
+
+election_candidate = db.Table('election_candidate',
+    Column('election_id', Integer, ForeignKey('elections.id'), primary_key=True),
+    Column('candidate_id', Integer, ForeignKey('candidates.id'), primary_key=True)
+)
