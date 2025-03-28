@@ -28,6 +28,7 @@ const Navbar: React.FC = () => {
               <>
                 <Nav.Link href="/candidates">Candidates</Nav.Link>
                 <Nav.Link href="/voters">Voters</Nav.Link>
+                <Nav.Link href="/elections">Elections</Nav.Link>
               </>
             )}
             {user && user.role === 'Voter' && (

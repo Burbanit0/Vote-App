@@ -36,4 +36,24 @@ export interface User {
     created_at: string;
     voter?: Voter;
 }
+
+export interface Election {
+    id : number;
+    name : string;
+    description : string;
+    voters: number[];
+    candidates: number[];
+    created_at: string;
+    created_by: number;
+}
+
+export interface Election_ {
+    id : number;
+    name : string;
+    description : string;
+    voters: User[];
+    candidates: Candidate[];
+    created_at: string;
+    created_by: number;
+}
   

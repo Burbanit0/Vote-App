@@ -1,5 +1,5 @@
 import axios from 'axios';
-import { Candidate, Voter, Vote, Result,  } from '../types';
+import { Candidate, Voter, Vote, Result, Election, Election_ } from '../types';
 
 const API_BASE_URL = 'http://localhost:4433';
 
@@ -200,7 +200,7 @@ export const loginUser = async (username: string, password: string) => {
 export const fetchProfileData = async () => {
   try {
     // Retrieve the JWT token from local storage
-    const token = localStorage.getItem('token');
+    const token = localStorage.getItem('access_token');
 
     if (!token) {
       throw new Error('No token found');
@@ -250,4 +250,83 @@ export const simulateVote = async (numVoters: number, numCandidates: number) => 
     console.error('Failed to simulate votes. Please try again.', error);
     throw error;
   }
+}
+
+export const createElection = async (name:string,description:string,voters: number[],candidates: number[]) => {
+  try {
+    const storedUserJSON = localStorage.getItem('user');
+    let token = "";    
+    let storedUser: { access_token: string; role: string } | null = null;
+
+    if (storedUserJSON !== null) {
+      storedUser = JSON.parse(storedUserJSON);
+    }
+
+    // Check if storedUser is not null before accessing its properties
+    if (storedUser !== null) {
+      token = storedUser.access_token;
+    } else {
+      console.error('User data not found in localStorage.');
+    }
+    const response = await axios.post(`${API_BASE_URL}/elections`, {
+      name : name,
+      description: description,
+      voters: voters,
+      candidates: candidates,
+    }, {headers: {
+      Authorization: `Bearer ${token}`,
+    }});
+    return response.data;
+  } catch(error) {
+    console.error('Failed to create a new election', error);
+    throw error;
+  }
+}
+
+export const fetchElections = async (): Promise<Election[]> => {
+  try{
+    const response = await axios.get<Election[]>(`${API_BASE_URL}/elections`);
+    return response.data;
+  } catch (error) {
+    console.error('Error fetching all elections:', error);
+    throw error;
+  }
+}
+
+export const fetchElectionById = async (id: number): Promise<Election_> => {
+  try {
+    const response = await axios.get<Election_>(`${API_BASE_URL}/elections/${id}`);
+    return response.data;
+  } catch (error) {
+    console.error('Error fetching the election:', error);
+    throw error;
+  }
+}
+
+export const addVoterToElection = async (id:number) => {
+  const storedUserJSON = localStorage.getItem('user');
+    let token = "";    
+    let storedUser: { access_token: string; role: string } | null = null;
+
+    if (storedUserJSON !== null) {
+      storedUser = JSON.parse(storedUserJSON);
+    }
+
+    // Check if storedUser is not null before accessing its properties
+    if (storedUser !== null) {
+      token = storedUser.access_token;
+    } else {
+      console.error('User data not found in localStorage.');
+    }
+    try {
+      const response = await axios.post(`${API_BASE_URL}/elections/${id}/add_voter`, {},
+        {headers: {
+          Authorization: `Bearer ${token}`,
+        }})
+      return response.data;
+    } catch (error)
+    {
+        console.error('Error adding the voter to the election', error);
+        throw error;
+    }
 }

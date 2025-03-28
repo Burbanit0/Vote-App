@@ -8,6 +8,8 @@ import ResultsPage from './pages/ResultsPage';
 import Navbar from './components/Navbar';
 import Profile from './components/Voter/Profile';
 import SimulationPage from './pages/SimulationPage';
+import ElectionPage from './pages/ElectionPage';
+import ElectionDetail from './pages/ElectionDetailPage';
 import Login from './pages/Login';
 import Register from './pages/Register';
 import AuthGuard from './context/AuthGuard';
@@ -30,6 +32,8 @@ const AppContent: React.FC = () => {
           <Route path="/" element={<AuthGuard component={HomePage} />} />
           <Route path="/candidates" element={<AuthGuard component={CandidatePage} role="Admin" />} />
           <Route path="/voters" element={<AuthGuard component={VoterPage} role="Admin" />} />
+          <Route path="/elections" element={<AuthGuard component={ElectionPage}/> } />
+          <Route path="/elections/:id" element={<AuthGuard component={ElectionDetail}/> } />
           <Route path="/vote" element={<AuthGuard component={VotePage} role="Voter" />} />
           <Route path="/results" element={<AuthGuard component={ResultsPage} />} />
           <Route path="/profile" element={<AuthGuard component={Profile} />} />
