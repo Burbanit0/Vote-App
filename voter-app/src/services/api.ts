@@ -330,3 +330,30 @@ export const addVoterToElection = async (id:number) => {
         throw error;
     }
 }
+
+export const fetchUserElectionList = async (id:number): Promise<Election[]> => {
+  const storedUserJSON = localStorage.getItem('user');
+  let token = "";    
+  let storedUser: { access_token: string; role: string } | null = null;
+
+  if (storedUserJSON !== null) {
+      storedUser = JSON.parse(storedUserJSON);
+  }
+
+    // Check if storedUser is not null before accessing its properties
+  if (storedUser !== null) {
+      token = storedUser.access_token;
+  } else {
+      console.error('User data not found in localStorage.');
+  }
+  try {
+    const response = await axios.get<Election[]>(`${API_BASE_URL}/elections/users/${id}/elections`,
+      {headers: {
+        Authorization: `Bearer ${token}`,
+      }});
+    return response.data;
+  } catch (error) {
+    console.error('Error fetching the elections for the user:', error);
+    throw(error);
+  }
+}
