@@ -51,12 +51,10 @@ def create_election():
 @jwt_required()
 def add_voter_to_election(election_id):
     current_user_identity = get_jwt_identity()
-    print(current_user_identity)
     if not isinstance(current_user_identity, dict) or 'id' not in current_user_identity:
         return jsonify({"msg": "Invalid JWT payload"}), 400
 
     current_user_id = current_user_identity['id']
-    print(current_user_id)
     # Convert current_user_id to an integer if necessary
     current_user_id = int(current_user_id)
 
@@ -143,9 +141,15 @@ def get_voters_for_election(id):
 @jwt_required()
 def get_elections_for_user(user_id):
     # Ensure the authenticated user is accessing their own elections
-    current_user_id = get_jwt_identity()
-    if current_user_id != user_id:
-        return jsonify({'message': 'Unauthorized access'}), 403
+    current_user_identity = get_jwt_identity()
+    if not isinstance(current_user_identity, dict) or 'id' not in current_user_identity:
+        return jsonify({"msg": "Invalid JWT payload"}), 400
+
+    current_user_id = current_user_identity['id']
+    # Convert current_user_id to an integer if necessary
+    current_user_id = int(current_user_id)
+    # if current_user_id != user_id:
+    #     return jsonify({'message': 'Unauthorized access'}), 403
 
     # Fetch the user from the database
     user = User.query.get_or_404(user_id)
@@ -167,7 +171,7 @@ def get_elections_for_user(user_id):
         'created_at': election.created_at
     } for election in all_elections])
 
-## Get 
+## Delete an election
 @election_bp.route('/<int:election_id>', methods=['DELETE'])
 def delete_election(election_id):
     election = Election.query.get_or_404(election_id)
