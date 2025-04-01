@@ -4,13 +4,14 @@ from flask_sqlalchemy import SQLAlchemy
 from flask_migrate import Migrate
 from flask_jwt_extended import JWTManager
 from flask_bcrypt import Bcrypt
-
+import redis
 
 
 db = SQLAlchemy()
 migrate = Migrate()
 jwt = JWTManager()
 bcrypt = Bcrypt()
+redis_client = redis.StrictRedis(host='redis', port=6379, db=0)
 
 def create_app():
     app = Flask(__name__)

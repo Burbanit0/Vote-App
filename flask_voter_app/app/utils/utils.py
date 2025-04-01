@@ -76,3 +76,4 @@ def get_two_round_winner(votes):
     # Determine the winner of the second round
     winner = max(second_round_votes, key=second_round_votes.get)
     return winner
+

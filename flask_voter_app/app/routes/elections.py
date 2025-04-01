@@ -2,6 +2,8 @@ from flask import Blueprint, request, jsonify
 from flask_jwt_extended import get_jwt_identity
 from ..models import Election, User, Candidate, db
 from flask_jwt_extended import get_jwt_identity, jwt_required
+from app import redis_client
+import json
 
 election_bp = Blueprint('elections', __name__, url_prefix='/elections')
 
@@ -75,8 +77,14 @@ def add_voter_to_election(election_id):
 #Get all elections
 @election_bp.route('/', methods=['GET'])
 def get_elections():
+    cache_key = 'elections_data'
+    cached_result = redis_client.get(cache_key)
+
+    if cached_result:
+        return jsonify(json.loads(cached_result))
+
     elections = Election.query.all()
-    return jsonify([{
+    data = [{
         'id': election.id,
         'name': election.name,
         'description': election.description,
@@ -91,7 +99,11 @@ def get_elections():
             'id': voter.id,
             'username': voter.username
         } for voter in election.voters]
-    } for election in elections])
+    } for election in elections]
+
+    redis_client.setex(cache_key, 3600, json.dumps(data))
+
+    return jsonify(data)
 
 # Get elelction by id
 @election_bp.route('/<int:election_id>', methods=['GET'])

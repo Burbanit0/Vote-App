@@ -10,3 +10,4 @@ Flask-Bcrypt
 Flask-JWT-Extended
 Faker
 auth
+redis
