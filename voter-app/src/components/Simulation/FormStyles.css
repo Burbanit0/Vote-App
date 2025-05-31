@@ -1,0 +1,41 @@
+.vote-form {
+    max-width: 100%; /* Adjust the width as needed */
+    margin: auto;
+    padding: 20px;
+}
+  
+.vote-form .mb-3 {
+  margin-bottom: 1.5rem;
+}
+  
+.vote-form .mt-3 {
+  margin-top: 1.5rem;
+}
+  
+.candidate-grid {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 1rem; /* Space between form groups */
+}
+  
+.candidate-group {
+  flex: 1 1 calc(33.333% - 1rem); /* Three items per row with gap */
+  box-sizing: border-box;
+  border: 1px solid #ddd;
+  padding: 15px;
+  border-radius: 5px;
+}
+
+.party-grid {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 1rem; /* Space between form groups */
+}
+    
+.party-group {
+  flex: 1 1 calc(33.333% - 1rem); /* Three items per row with gap */
+  box-sizing: border-box;
+  border: 1px solid #ddd;
+  padding: 15px;
+  border-radius: 5px;
+}

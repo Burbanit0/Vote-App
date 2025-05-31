@@ -29,13 +29,14 @@ const SimulationResult: React.FC<SimulationResultProps> = ({ result }) => {
                         Voter: {vote.voter_id}
                         Rank: {vote.rank}
                     </Card.Text>
-                    </Card.Body>
-                </Card>
+                </Card.Body>
+            </Card>
           </ListGroup.Item>
             ))}
         </ListGroup>
       </Card.Body>
     </Card>
+    
   );
 };
 
