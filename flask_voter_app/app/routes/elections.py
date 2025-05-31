@@ -89,7 +89,7 @@ def get_elections():
         'name': election.name,
         'description': election.description,
         'created_by': election.created_by,
-        'created_at': election.created_at,
+        # 'created_at': election.created_at,
         'candidates': [{
             'id': candidate.id,
             'first_name': candidate.first_name,

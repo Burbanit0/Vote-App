@@ -11,3 +11,4 @@ Flask-JWT-Extended
 Faker
 auth
 redis
+numpy

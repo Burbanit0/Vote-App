@@ -10,6 +10,7 @@ class Config:
     SQLALCHEMY_DATABASE_URI = 'postgresql://myuser:mypassword@db:5432/mydatabase'
     SQLALCHEMY_TRACK_MODIFICATIONS = False
 
+    REDIS_URL = 'redis://redis:6379'
     # Flask-CORS configuration
     CORS_HEADERS = 'Content-Type'
 

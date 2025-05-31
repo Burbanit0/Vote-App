@@ -11,7 +11,7 @@ db = SQLAlchemy()
 migrate = Migrate()
 jwt = JWTManager()
 bcrypt = Bcrypt()
-redis_client = redis.StrictRedis(host='redis', port=6379, db=0)
+redis_client = redis.StrictRedis.from_url('redis://redis:6379')
 
 def create_app():
     app = Flask(__name__)

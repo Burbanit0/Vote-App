@@ -31,13 +31,15 @@ services:
       - redis
     networks:
       - mynetwork
-    command: ["python", "-m", "unittest", "discover", "-s", "tests"]
+    # command: ["python", "-m", "unittest", "discover", "-s", "tests"]
 
   redis:
     image: redis:latest
     container_name: redis
     ports:
       - "6379:6379"
+    networks:
+      - mynetwork
     
 volumes:
   postgres_data:
