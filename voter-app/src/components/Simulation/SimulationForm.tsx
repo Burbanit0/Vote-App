@@ -3,6 +3,7 @@ import { Form, Button, Spinner, Accordion, Row, Col } from 'react-bootstrap';
 import './FormStyles.css'; 
 import { Scatterplot } from '../Chart/Scatterplot';
 import { Hexbin } from '../Chart/Hexbin';
+import { simulatePop } from '../../services/api';
 
 interface SimulationFormProps {
   numVoters: number;
@@ -44,13 +45,6 @@ const MIN_CANDIDATES = 1;
 const MAX_CANDIDATES = 10;
 const MAX_PARTIES =10;
 
-const gaussianRandom = (mean: number = 0, stdDev: number = 1) => {
-  let u = 1 - Math.random(); // Subtraction to flip [0, 1) to (0, 1]
-  let v = Math.random();
-  let z = Math.sqrt(-2.0 * Math.log(u)) * Math.cos(2.0 * Math.PI * v);
-  return z * stdDev + mean;
-};
-
 const SimulationForm: React.FC<SimulationFormProps> = ({
   numVoters,
   setNumVoters,
@@ -68,12 +62,13 @@ const SimulationForm: React.FC<SimulationFormProps> = ({
   const [allo, setAllo] = useState<number>(0);
   const [candidateData, setCandidateData] = useState<cData[]>([]);
   const [voterData, setVoterData] = useState<vData[]>([]);
+  const [error, setError] = useState<string | null>(null);
 
   const generateRandomData = (numCandidates: number): cData[] => {
     const candidateData = [];
     for (let i = 0; i < numCandidates; i++) {
-      const randomX = Math.random() * 2 - 1;
-      const randomY = Math.random() * 2 - 1;
+      const randomX = Math.random() * 10 - 5;
+      const randomY = Math.random() * 10 - 5;
 
       candidateData.push({
         group: `Candidate n${i + 1}`,
@@ -85,26 +80,22 @@ const SimulationForm: React.FC<SimulationFormProps> = ({
     return candidateData;
   };
 
-  const generateRandomVoterData = (numVoters: number) : vData[] => {
-    {
-      const data = [];
-      for (let i = 0; i < numVoters; i++) {
-
-        const x = gaussianRandom(0, 1);
-        const y = gaussianRandom(0, 1);
-        data.push({ x, y });
-      }
-      return data;
-    };
-  }
 
   useEffect(() => {
     setCandidateData(generateRandomData(numCandidates));
   }, [numCandidates])
 
   useEffect(() => {
-    setVoterData(generateRandomVoterData(numVoters));
-  }, [numVoters])
+    const loadVoterData = async () => {
+        try {
+            const votersData = await simulatePop(numVoters, averageAge);
+                setVoterData(votersData);
+        } catch (error) {
+            setError('Failed to fetch the voters data:');
+        }
+    };
+    loadVoterData();
+  }, [numVoters, averageAge])
 
   return (
     <Form className="vote-form">
@@ -178,7 +169,7 @@ const SimulationForm: React.FC<SimulationFormProps> = ({
             <Row>
               <Col></Col>
               <Col>
-                <Scatterplot data={candidateData} width={500} height={500} />
+                <Hexbin data={candidateData} width={400} height={400} />
               </Col>
               <Col></Col>
             </Row>

@@ -26,10 +26,10 @@ export const Scatterplot = ({ width, height, data }: ScatterplotProps) => {
   const [hovered, setHovered] = useState<InteractionData | null>(null);
 
   // Scales
-  const yScale = d3.scaleLinear().domain([-1, 1]).range([boundsHeight, 0]);
+  const yScale = d3.scaleLinear().domain([-5, 5]).range([boundsHeight, 0]);
   const xScale = d3
     .scaleLinear()
-    .domain([-1, 1])
+    .domain([-5, 5])
     .range([0, boundsWidth]);
   const allGroups = data.map((d) => String(d.group));
   const colorScale = d3
