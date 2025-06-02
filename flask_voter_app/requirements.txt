@@ -12,3 +12,6 @@ Faker
 auth
 redis
 numpy
+pandas
+scipy
+scikit-learn
