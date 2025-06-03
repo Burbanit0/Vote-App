@@ -34,8 +34,11 @@ jobs:
 
       - name: Run tests
         run: |
-          cd flask_voter_app || exit 1
-          python -m pytest tests -v || echo "Test failed" && exit 1
+          run: |
+          echo "Starting test session..."
+          cd flask_voter_app
+          python -m pytest tests -v
+          echo "Test session completed."
 
   #     - name: Run tests
   #       run: |
