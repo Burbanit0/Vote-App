@@ -26,10 +26,10 @@ jobs:
         run: |
           python -m pip install --upgrade pip
           pip install -r flask_voter_app/requirements.txt
+          pip install flake8
 
       - name: Lint code
         run: |
-          python install flake8
           flake8 flask_voter_app
 
       - name: Run tests
