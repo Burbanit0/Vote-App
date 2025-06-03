@@ -16,3 +16,4 @@ pandas
 scipy
 scikit-learn
 flake8
+pytest
