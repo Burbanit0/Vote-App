@@ -17,9 +17,12 @@ down_revision: Union[str, None] = '4ee4e7c3064f'
 branch_labels: Union[str, Sequence[str], None] = None
 depends_on: Union[str, Sequence[str], None] = None
 
+
 def table_exists(table_name, connection):
     inspector = Inspector.from_engine(connection)
     return inspector.has_table(table_name)
+
+
 def upgrade():
     connection = op.get_bind()
     # Drop dependent tables first
@@ -31,6 +34,7 @@ def upgrade():
     # Check if the voter table exists before dropping it
     if table_exists('voter', connection):
         op.drop_table('voter')
+
 
 def downgrade():
     # Recreate tables if needed
