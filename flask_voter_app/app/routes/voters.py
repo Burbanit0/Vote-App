@@ -3,10 +3,13 @@ from ..models import Voter, Vote, Candidate, db
 
 bp = Blueprint('voters', __name__, url_prefix='/voters')
 
+
 @bp.route('/', methods=['GET'])
 def get_voters():
     voters = Voter.query.all()
-    return jsonify([{'id': v.id, 'first_name': v.first_name, 'last_name': v.last_name} for v in voters])
+    return jsonify([{'id': v.id, 'first_name': v.first_name,
+                    'last_name': v.last_name} for v in voters])
+
 
 @bp.route('/', methods=['POST'])
 def create_voter():
@@ -21,7 +24,9 @@ def create_voter():
     db.session.add(new_voter)
     db.session.commit()
 
-    return jsonify({'id': new_voter.id, 'first_name': new_voter.first_name, 'last_name': new_voter.last_name}), 201
+    return jsonify({'id': new_voter.id, 'first_name': new_voter.first_name,
+                    'last_name': new_voter.last_name}), 201
+
 
 @bp.route('/<int:voter_id>', methods=['PUT'])
 def update_voter(voter_id):
@@ -38,7 +43,9 @@ def update_voter(voter_id):
 
     db.session.commit()
 
-    return jsonify({'id': voter.id, 'first_name': voter.first_name, 'last_name': voter.last_name})
+    return jsonify({'id': voter.id, 'first_name': voter.first_name,
+                    'last_name': voter.last_name})
+
 
 @bp.route('/<int:voter_id>', methods=['DELETE'])
 def delete_voter(voter_id):
@@ -48,11 +55,15 @@ def delete_voter(voter_id):
 
     return jsonify({'result': True})
 
-## for different types of votes
 
+# for different types of votes
 @bp.route('/<int:voter_id>/votes', methods=['GET'])
 def get_voter_votes(voter_id):
-    votes = db.session.query(Vote, Candidate).join(Candidate, Vote.candidate_id == Candidate.id).filter(Vote.voter_id == voter_id).all()
+    votes = db.session.query(Vote, Candidate).join(Candidate,
+                                                   Vote.candidate_id ==
+                                                   Candidate.id).filter(
+                                                       Vote.voter_id ==
+                                                       voter_id).all()
 
     vote_results = []
     for vote, candidate in votes:
@@ -71,6 +82,7 @@ def get_voter_votes(voter_id):
 
     return jsonify(vote_results)
 
+
 # API Endpoint to get voters with their single choice
 @bp.route('/single-choice', methods=['GET'])
 def get_voters_with_single_choice():
@@ -88,7 +100,7 @@ def get_voters_with_single_choice():
 
     # Prepare the response
     voter_list = []
-    for voter, id  in voters_with_choices:
+    for voter, id in voters_with_choices:
         voter_info = {
             'voter_id': voter.id,
             'voter_first_name': voter.first_name,
@@ -98,6 +110,7 @@ def get_voters_with_single_choice():
         voter_list.append(voter_info)
 
     return jsonify(voter_list)
+
 
 @bp.route('/multiple-choices', methods=['GET'])
 def get_voters_with_mutliple_choices():
@@ -109,12 +122,12 @@ def get_voters_with_mutliple_choices():
     ).join(
         Candidate, Vote.candidate_id == Candidate.id
     ).filter(
-        Vote.vote_type == 'multiple'  # Adjust the filter based on your vote type
+        Vote.vote_type == 'multiple'
     ).all()
 
     # Prepare the response
     voter_list = []
-    for voter, id  in voters_with_choices:
+    for voter, id in voters_with_choices:
         voter_info = {
             'voter_id': voter.id,
             'voter_first_name': voter.first_name,
@@ -124,6 +137,7 @@ def get_voters_with_mutliple_choices():
         voter_list.append(voter_info)
 
     return jsonify(voter_list)
+
 
 @bp.route('/ranked', methods=['GET'])
 def get_voters_with_ranked():
@@ -135,12 +149,12 @@ def get_voters_with_ranked():
     ).join(
         Candidate, Vote.candidate_id == Candidate.id
     ).filter(
-        Vote.vote_type == 'ordered'  # Adjust the filter based on your vote type
+        Vote.vote_type == 'ordered'
     ).all()
 
     # Prepare the response
     voter_list = []
-    for voter, id  in voters_with_ranked:
+    for voter, id in voters_with_ranked:
         voter_info = {
             'voter_id': voter.id,
             'voter_first_name': voter.first_name,
@@ -150,6 +164,7 @@ def get_voters_with_ranked():
         voter_list.append(voter_info)
 
     return jsonify(voter_list)
+
 
 @bp.route('/weighted', methods=['GET'])
 def get_voters_with_weight():
@@ -161,12 +176,12 @@ def get_voters_with_weight():
     ).join(
         Candidate, Vote.candidate_id == Candidate.id
     ).filter(
-        Vote.vote_type == 'weighted'  # Adjust the filter based on your vote type
+        Vote.vote_type == 'weighted'
     ).all()
 
     # Prepare the response
     voter_list = []
-    for voter, id  in voters_with_weight:
+    for voter, id in voters_with_weight:
         voter_info = {
             'voter_id': voter.id,
             'voter_first_name': voter.first_name,
@@ -176,6 +191,7 @@ def get_voters_with_weight():
         voter_list.append(voter_info)
 
     return jsonify(voter_list)
+
 
 @bp.route('/rate', methods=['GET'])
 def get_voters_with_rate():
@@ -192,7 +208,7 @@ def get_voters_with_rate():
 
     # Prepare the response
     voter_list = []
-    for voter, id  in voters_with_rated:
+    for voter, id in voters_with_rated:
         voter_info = {
             'voter_id': voter.id,
             'voter_first_name': voter.first_name,

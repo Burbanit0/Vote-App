@@ -3,7 +3,9 @@ from itertools import combinations
 import random
 from typing import List, Dict
 
-def simulate_votes(num_voters: int, num_candidates: int) -> List[Dict[str, int]]:
+
+def simulate_votes(num_voters: int, num_candidates: int) -> List[Dict[str,
+                                                                      int]]:
     """
     Simulate random votes for a given number of voters and candidates.
 
@@ -26,13 +28,15 @@ def simulate_votes(num_voters: int, num_candidates: int) -> List[Dict[str, int]]
 
     return votes
 
+
 def get_condorcet_winner(votes: List[Dict[str, int]]) -> int:
     """
     Determine the Condorcet winner from a set of votes.
 
     :param votes: A list of votes, where each vote is a dictionary with keys
                   'candidate_id', 'voter_id', and 'rank'.
-    :return: The ID of the Condorcet winner, or None if there is no Condorcet winner.
+    :return: The ID of the Condorcet winner, or None if there is no
+    Condorcet winner.
     """
     candidates = set(vote['candidate_id'] for vote in votes)
     voters = set(vote['voter_id'] for vote in votes)
@@ -40,8 +44,10 @@ def get_condorcet_winner(votes: List[Dict[str, int]]) -> int:
 
     for candidate_1, candidate_2 in combinations(candidates, 2):
         for voter in voters:
-            rank_1 = next((v['rank'] for v in votes if v['candidate_id'] == candidate_1 and v['voter_id'] == voter), None)
-            rank_2 = next((v['rank'] for v in votes if v['candidate_id'] == candidate_2 and v['voter_id'] == voter), None)
+            rank_1 = next((v['rank'] for v in votes if v['candidate_id'] ==
+                           candidate_1 and v['voter_id'] == voter), None)
+            rank_2 = next((v['rank'] for v in votes if v['candidate_id'] ==
+                           candidate_2 and v['voter_id'] == voter), None)
 
             if rank_1 is not None and rank_2 is not None:
                 if rank_1 < rank_2:
@@ -50,12 +56,14 @@ def get_condorcet_winner(votes: List[Dict[str, int]]) -> int:
                     wins[(candidate_2, candidate_1)] += 1
 
     for candidate in candidates:
-        if all(wins[(candidate, other)] > wins[(other, candidate)] for other in candidates if candidate != other):
+        if all(wins[(candidate, other)] > wins[(other, candidate)] for other
+               in candidates if candidate != other):
             return candidate
 
     return None
 
-def get_two_round_winner(votes : List[Dict[str, int]]) -> int:
+
+def get_two_round_winner(votes: List[Dict[str, int]]) -> int:
     """
     Determine the winner of a two-round system from a set of votes.
 
@@ -80,7 +88,8 @@ def get_two_round_winner(votes : List[Dict[str, int]]) -> int:
 
     # If no majority, proceed to the second round with the top two candidates
     top_two_candidates = first_choice_votes.most_common(2)
-    candidate_1, candidate_2 = top_two_candidates[0][0], top_two_candidates[1][0]
+    candidate_1, candidate_2 = top_two_candidates[0][0],
+    top_two_candidates[1][0]
 
     # Count the votes for the top two candidates in the second round
     second_round_votes = Counter()

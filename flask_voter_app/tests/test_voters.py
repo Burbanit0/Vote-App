@@ -1,8 +1,8 @@
-import unittest
-from flask import Flask
-from flask.testing import FlaskClient
-from app import create_app # Import your app factory function
-import json
+# import unittest
+# from flask import Flask
+# from flask.testing import FlaskClient
+# from app import create_app # Import your app factory function
+# import json
 
 # class VotersTestCase(unittest.TestCase):
 #     def setUp(self):
@@ -21,7 +21,8 @@ import json
 
 #     def test_get_voters_invalid_method(self):
 #         response = self.client.post('/voters')
-#         self.assertEqual(response.status_code, 405)  # Assuming POST is not allowed
+#         self.assertEqual(response.status_code, 405)
+#           # Assuming POST is not allowed
 
 # if __name__ == '__main__':
 #     unittest.main()

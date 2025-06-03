@@ -13,12 +13,18 @@ jwt = JWTManager()
 bcrypt = Bcrypt()
 redis_client = redis.StrictRedis.from_url('redis://redis:6379')
 
+
 def create_app():
     app = Flask(__name__)
     app.config.from_object('config.Config')
     bcrypt.init_app(app)
     jwt.init_app(app)
-    CORS(app, resources={r"/*": {"origins": "*", "supports_credentials": True, "methods": ["GET", "POST", "OPTIONS"], "allow_headers": ["Content-Type", "Authorization"]}})
+    CORS(app, resources={r"/*": {"origins": "*", "supports_credentials": True,
+                                            "methods": ["GET", "POST",
+                                                        "OPTIONS"],
+                                            "allow_headers":
+                                            ["Content-Type", "Authorization"]}
+                         })
 
     @app.before_request
     def handle_options():
@@ -26,8 +32,10 @@ def create_app():
             response = app.make_default_options_response()
             headers = response.headers
             headers['Access-Control-Allow-Origin'] = 'http://localhost:3000'
-            headers['Access-Control-Allow-Methods'] = 'GET, POST, PUT, DELETE, OPTIONS'
-            headers['Access-Control-Allow-Headers'] = 'Content-Type, Authorization'
+            headers['Access-Control-Allow-Methods'] = 'GET, POST, PUT, ' \
+                'DELETE, OPTIONS'
+            headers['Access-Control-Allow-Headers'] = 'Content-Type, ' \
+                'Authorization'
             return response
 
     db.init_app(app)
@@ -36,7 +44,8 @@ def create_app():
     with app.app_context():
         db.create_all()  # Create tables
 
-    from .routes import candidates, voters, votes, results, users, simulation, elections
+    from .routes import candidates, voters, votes, results, users, \
+        simulation, elections
     app.register_blueprint(candidates.bp)
     app.register_blueprint(voters.bp)
     app.register_blueprint(votes.bp)

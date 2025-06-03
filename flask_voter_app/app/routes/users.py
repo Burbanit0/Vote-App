@@ -1,9 +1,11 @@
 from flask import Blueprint, request, jsonify
 from app.utils.auth_utils import register_user
 from ..models import User
-from flask_jwt_extended import create_access_token, get_jwt_identity, jwt_required
+from flask_jwt_extended import create_access_token, get_jwt_identity, \
+    jwt_required
 
 auth_bp = Blueprint('auth', __name__, url_prefix='/api/auth')
+
 
 @auth_bp.route('/register', methods=['POST'])
 def register():
@@ -23,6 +25,7 @@ def register():
     except Exception as e:
         return jsonify({'error': str(e)}), 500
 
+
 @auth_bp.route('/login', methods=['POST'])
 def login():
     data = request.get_json()
@@ -33,13 +36,17 @@ def login():
     if not user or not user.check_password(password):
         return jsonify({"message": "Invalid credentials"}), 401
 
-    access_token = create_access_token(identity={"id": user.id, "role": user.role})
+    access_token = create_access_token(identity={"id": user.id,
+                                                 "role": user.role})
     if (user.role == 'Admin'):
         return jsonify(access_token=access_token, role=user.role)
     else:
-        voter_data = {'id' :user.voter.id, 'first_name' : user.voter.first_name, 'last_name' : user.voter.last_name}
-        return jsonify(access_token=access_token, role=user.role, voter = voter_data), 200
-    
+        voter_data = {'id': user.voter.id,
+                      'first_name': user.voter.first_name,
+                      'last_name': user.voter.last_name}
+        return jsonify(access_token=access_token, role=user.role,
+                       voter=voter_data), 200
+
 
 @auth_bp.route('/admin-only', methods=['GET'])
 @jwt_required()
@@ -51,6 +58,7 @@ def admin_only():
     # Admin-only logic here
     return jsonify({"message": "Welcome, Admin!"}), 200
 
+
 @auth_bp.route('/profile', methods=['GET'])
 @jwt_required()
 def get_profile():
@@ -58,7 +66,8 @@ def get_profile():
     current_user_identity = get_jwt_identity()
 
     # Ensure current_user_identity is a dictionary and contains the user ID
-    if not isinstance(current_user_identity, dict) or 'id' not in current_user_identity:
+    if not isinstance(current_user_identity, dict) or \
+            'id' not in current_user_identity:
         return jsonify({"msg": "Invalid JWT payload"}), 400
 
     current_user_id = current_user_identity['id']
@@ -76,7 +85,7 @@ def get_profile():
         'id': current_user.id,
         'username': current_user.username,
         'role': current_user.role,
-        'created_at': current_user.created_at.isoformat()  # Convert datetime to string
+        'created_at': current_user.created_at.isoformat()
     }
 
     # Include voter information if available
@@ -88,6 +97,7 @@ def get_profile():
 
     return jsonify(user_data)
 
+
 @auth_bp.route('/current_voter', methods=['GET'])
 @jwt_required()
 def get_current_profile():
@@ -95,7 +105,8 @@ def get_current_profile():
     current_user_identity = get_jwt_identity()
 
     # Ensure current_user_identity is a dictionary and contains the user ID
-    if not isinstance(current_user_identity, dict) or 'id' not in current_user_identity:
+    if not isinstance(current_user_identity, dict) or \
+            'id' not in current_user_identity:
         return jsonify({"msg": "Invalid JWT payload"}), 400
 
     current_user_id = current_user_identity['id']
@@ -116,9 +127,10 @@ def get_current_profile():
 
     return jsonify(current_voter)
 
+
 @auth_bp.route('/', methods=['GET'])
 def get_users():
     users = User.query.all()
     return jsonify([{
-        'id' : user.id,
+        'id': user.id,
     } for user in users])

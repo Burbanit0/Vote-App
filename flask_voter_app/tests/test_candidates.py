@@ -1,8 +1,8 @@
-import unittest
-from flask import Flask
-from flask.testing import FlaskClient
-from app import create_app
-import json
+# import unittest
+# from flask import Flask
+# from flask.testing import FlaskClient
+# from app import create_app
+# import json
 
 # class CandidatesTestCase(unittest.TestCase):
 #     def setUp(self):
@@ -19,7 +19,7 @@ import json
 #             self.assertIn('id', candidate)
 #             self.assertIn('first_name', candidate)
 #             self.assertIn('last_name', candidate)
-    
+
 #     def test_get_candidates_invalid_method(self):
 #         response = self.client.post('/candidates')
 #         self.assertEqual(response.status_code, 405)

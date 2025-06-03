@@ -1,7 +1,7 @@
 from logging.config import fileConfig
 from sqlalchemy import engine_from_config, pool
 from alembic import context
-from app.models import db # Import your SQLAlchemy Base
+from app.models import db  # Import your SQLAlchemy Base
 
 
 # Interpret the config file for Python logging.
@@ -9,6 +9,7 @@ fileConfig(context.config.config_file_name)
 
 # Add your model's MetaData object here
 target_metadata = db.metadata
+
 
 # Other configurations...
 def run_migrations_offline():
@@ -34,6 +35,7 @@ def run_migrations_offline():
     with context.begin_transaction():
         context.run_migrations()
 
+
 def run_migrations_online():
     """Run migrations in 'online' mode.
 
@@ -55,6 +57,7 @@ def run_migrations_online():
 
         with context.begin_transaction():
             context.run_migrations()
+
 
 if context.is_offline_mode():
     run_migrations_offline()

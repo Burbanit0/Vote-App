@@ -1,13 +1,14 @@
 from flask import Blueprint, request, jsonify
 from flask_jwt_extended import get_jwt_identity
 from ..models import Election, User, Candidate, db
-from flask_jwt_extended import get_jwt_identity, jwt_required
+from flask_jwt_extended import jwt_required
 from app import redis_client
 import json
 
 election_bp = Blueprint('elections', __name__, url_prefix='/elections')
 
-# Create an election 
+
+# Create an election
 @election_bp.route('/', methods=['POST'])
 @jwt_required()
 def create_election():
@@ -20,8 +21,9 @@ def create_election():
     current_user_identity = get_jwt_identity()
     if not name:
         return jsonify({'error': 'Name is required'}), 400
-    
-    if not isinstance(current_user_identity, dict) or 'id' not in current_user_identity:
+
+    if not isinstance(current_user_identity, dict) or\
+            'id' not in current_user_identity:
         return jsonify({"msg": "Invalid JWT payload"}), 400
 
     current_user_id = current_user_identity['id']
@@ -29,7 +31,8 @@ def create_election():
     # Convert current_user_id to an integer if necessary
     current_user_id = int(current_user_id)
 
-    new_election = Election(name=name, description=description, created_by=current_user_id)
+    new_election = Election(name=name, description=description,
+                            created_by=current_user_id)
     db.session.add(new_election)
     db.session.commit()
 
@@ -46,14 +49,17 @@ def create_election():
 
     db.session.commit()
 
-    return jsonify({'message': 'Election created successfully', 'election_id': new_election.id}), 201
+    return jsonify({'message': 'Election created successfully',
+                    'election_id': new_election.id}), 201
+
 
 # Add the current user as a voter
 @election_bp.route('/<int:election_id>/add_voter', methods=['POST'])
 @jwt_required()
 def add_voter_to_election(election_id):
     current_user_identity = get_jwt_identity()
-    if not isinstance(current_user_identity, dict) or 'id' not in current_user_identity:
+    if not isinstance(current_user_identity, dict) or\
+            'id' not in current_user_identity:
         return jsonify({"msg": "Invalid JWT payload"}), 400
 
     current_user_id = current_user_identity['id']
@@ -66,15 +72,18 @@ def add_voter_to_election(election_id):
 
     # Check if the user is already a voter in the election
     if user in election.voters:
-        return jsonify({'message': 'You are already a voter in this election.'}), 400
+        return jsonify({
+            'message': 'You are already a voter in this election.'}), 400
 
     # Add the user as a voter to the election
     election.voters.append(user)
     db.session.commit()
 
-    return jsonify({'message': 'You have been added as a voter to the election.'}), 200
+    return jsonify({
+        'message': 'You have been added as a voter to the election.'}), 200
 
-#Get all elections
+
+# Get all elections
 @election_bp.route('/', methods=['GET'])
 def get_elections():
     cache_key = 'elections_data'
@@ -105,12 +114,13 @@ def get_elections():
 
     return jsonify(data)
 
+
 # Get elelction by id
 @election_bp.route('/<int:election_id>', methods=['GET'])
 def get_election_by_id(election_id):
     election = Election.query.get(election_id)
     if not election:
-        return jsonify({"msg":"No election found with this id"}), 404
+        return jsonify({"msg": "No election found with this id"}), 404
     return jsonify({
         'id': election.id,
         'name': election.name,
@@ -127,7 +137,8 @@ def get_election_by_id(election_id):
             'username': voter.username
         } for voter in election.voters]}), 200
 
-## Get candidates for an election
+
+# Get candidates for an election
 @election_bp.route('/elections/<int:id>/candidates', methods=['GET'])
 def get_candidates_for_election(id):
     election = Election.query.get_or_404(id)
@@ -138,7 +149,8 @@ def get_candidates_for_election(id):
         'last_name': candidate.last_name
     } for candidate in candidates])
 
-## Get voters for an election
+
+# Get voters for an election
 @election_bp.route('/elections/<int:id>/voters', methods=['GET'])
 def get_voters_for_election(id):
     election = Election.query.get_or_404(id)
@@ -148,13 +160,15 @@ def get_voters_for_election(id):
         'username': voter.username
     } for voter in voters])
 
-## Get all election of a user
+
+# Get all election of a user
 @election_bp.route('/users/<int:user_id>/elections', methods=['GET'])
 @jwt_required()
 def get_elections_for_user(user_id):
     # Ensure the authenticated user is accessing their own elections
     current_user_identity = get_jwt_identity()
-    if not isinstance(current_user_identity, dict) or 'id' not in current_user_identity:
+    if not isinstance(current_user_identity, dict) or \
+            'id' not in current_user_identity:
         return jsonify({"msg": "Invalid JWT payload"}), 400
 
     current_user_id = current_user_identity['id']
@@ -183,14 +197,16 @@ def get_elections_for_user(user_id):
         'created_at': election.created_at
     } for election in all_elections])
 
-## Delete an election
+
+# Delete an election
 @election_bp.route('/<int:election_id>', methods=['DELETE'])
 def delete_election(election_id):
     election = Election.query.get_or_404(election_id)
     db.session.delete(election)
     db.session.commit()
 
-    return jsonify({'result':True})
+    return jsonify({'result': True})
+
 
 @election_bp.route('/elections/<int:election_id>', methods=['PUT'])
 def update_election(election_id):

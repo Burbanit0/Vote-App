@@ -1,11 +1,10 @@
 import os
 import subprocess
-from sqlalchemy import create_engine
-from sqlalchemy.orm import sessionmaker
 
 # Database configuration
 DATABASE_URI = 'postgresql://yourusername:yourpassword@yourhost/yourdbname'
 BACKUP_DIR = '/path/to/backup/directory'
+
 
 # Create a backup of the database
 def backup_database(backup_dir=BACKUP_DIR, db_uri=DATABASE_URI):
@@ -35,6 +34,7 @@ def backup_database(backup_dir=BACKUP_DIR, db_uri=DATABASE_URI):
         print(f"Error during backup: {result.stderr}")
     else:
         print(f"Backup completed successfully: {backup_file}")
+
 
 # Example usage
 backup_database()

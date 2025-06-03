@@ -1,8 +1,9 @@
-from app import create_app, db  # Adjust the import according to your project structure
+from app import create_app, db
 from app.models import User, Voter, Candidate
 from flask_bcrypt import Bcrypt
 
 bcrypt = Bcrypt()
+
 
 def create_initial_data():
     app = create_app()  # Create the Flask app instance
@@ -20,10 +21,14 @@ def create_initial_data():
 
         # Create voter users and their profiles
         voter_users = [
-            {'username': 'voter1', 'password': 'voter1_password', 'first_name': 'John', 'last_name': 'Doe'},
-            {'username': 'voter2', 'password': 'voter2_password', 'first_name': 'Jane', 'last_name': 'Smith'},
-            {'username': 'voter3', 'password': 'voter3_password', 'first_name': 'Alice', 'last_name': 'Johnson'},
-            {'username': 'voter4', 'password': 'voter4_password', 'first_name': 'Bob', 'last_name': 'Brown'}
+            {'username': 'voter1', 'password': 'voter1_password',
+             'first_name': 'John', 'last_name': 'Doe'},
+            {'username': 'voter2', 'password': 'voter2_password',
+             'first_name': 'Jane', 'last_name': 'Smith'},
+            {'username': 'voter3', 'password': 'voter3_password',
+             'first_name': 'Alice', 'last_name': 'Johnson'},
+            {'username': 'voter4', 'password': 'voter4_password',
+             'first_name': 'Bob', 'last_name': 'Brown'}
         ]
 
         for voter_data in voter_users:
@@ -58,6 +63,7 @@ def create_initial_data():
 
         # Commit all changes to the database
         db.session.commit()
+
 
 # Call the function to create initial data
 if __name__ == '__main__':

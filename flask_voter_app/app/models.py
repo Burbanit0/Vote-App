@@ -7,11 +7,13 @@ from sqlalchemy.orm import relationship
 bcrypt = Bcrypt()
 jwt = JWTManager()
 
+
 class Candidate(db.Model):
     __tablename__ = 'candidates'
     id = Column(Integer, primary_key=True)
     first_name = Column(String(100), nullable=False)
     last_name = Column(String(100), nullable=False)
+
 
 class Voter(db.Model):
     __tablename__ = 'voters'
@@ -32,12 +34,14 @@ class Vote(db.Model):
     weight = Column(db.Float, nullable=True)
     rating = Column(Integer, nullable=True)
 
+
 class Result(db.Model):
     __tablename__ = 'results'
     id = Column(Integer, primary_key=True)
     candidate_id = Column(Integer, ForeignKey('candidates.id'), nullable=False)
     vote_count = Column(Integer, nullable=False)
     vote_type = Column(String(50), nullable=False)
+
 
 class User(db.Model):
     __tablename__ = 'users'
@@ -49,11 +53,13 @@ class User(db.Model):
     voter = relationship("Voter", back_populates="user", uselist=False)
 
     def set_password(self, password):
-        self.password_hash = bcrypt.generate_password_hash(password).decode('utf-8')
+        self.password_hash = bcrypt.generate_password_hash(password).decode(
+            'utf-8')
 
     def check_password(self, password):
         return bcrypt.check_password_hash(self.password_hash, password)
-    
+
+
 class Election(db.Model):
     __tablename__ = 'elections'
     id = Column(Integer, primary_key=True)
@@ -63,15 +69,26 @@ class Election(db.Model):
     created_at = Column(DateTime, default=func.current_timestamp())
 
 # Relationships
-    voters = db.relationship('User', secondary='election_voter', backref=db.backref('elections', lazy='dynamic'))
-    candidates = db.relationship('Candidate', secondary='election_candidate', backref=db.backref('elections', lazy='dynamic'))
+    voters = db.relationship('User', secondary='election_voter',
+                             backref=db.backref('elections', lazy='dynamic'))
+    candidates = db.relationship('Candidate', secondary='election_candidate',
+                                 backref=db.backref('elections',
+                                                    lazy='dynamic'))
+
 
 election_voter = db.Table('election_voter',
-    Column('election_id', Integer, ForeignKey('elections.id'), primary_key=True),
-    Column('voter_id', Integer, ForeignKey('users.id'), primary_key=True)
-)
+                          Column('election_id', Integer,
+                                 ForeignKey('elections.id'),
+                                 primary_key=True),
+                          Column('voter_id', Integer, ForeignKey('users.id'),
+                                 primary_key=True)
+                          )
 
 election_candidate = db.Table('election_candidate',
-    Column('election_id', Integer, ForeignKey('elections.id'), primary_key=True),
-    Column('candidate_id', Integer, ForeignKey('candidates.id'), primary_key=True)
-)
+                              Column('election_id', Integer,
+                                     ForeignKey('elections.id'),
+                                     primary_key=True),
+                              Column('candidate_id', Integer,
+                                     ForeignKey('candidates.id'),
+                                     primary_key=True)
+                              )
