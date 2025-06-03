@@ -15,4 +15,4 @@ numpy
 pandas
 scipy
 scikit-learn
-flak8
+flake8
