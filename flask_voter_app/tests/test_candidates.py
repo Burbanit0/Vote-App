@@ -1,8 +1,11 @@
 # import unittest
-# from flask import Flask
-# from flask.testing import FlaskClient
-# from app import create_app
+# import sys
+# import os
 # import json
+# sys.path.append(os.path.abspath(os.path.join(
+# os.path.dirname(__file__), '..')))
+# from app import create_app
+
 
 # class CandidatesTestCase(unittest.TestCase):
 #     def setUp(self):
@@ -24,5 +27,9 @@
 #         response = self.client.post('/candidates')
 #         self.assertEqual(response.status_code, 405)
 
+
 # if __name__ == '__main__':
 #     unittest.main()
+
+def test_example():
+    assert 1 + 1 == 2
