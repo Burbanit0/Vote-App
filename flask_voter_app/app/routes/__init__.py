@@ -1,13 +1,12 @@
 from flask import Blueprint
-
-# Create a Blueprint for the routes package
-routes_bp = Blueprint('routes', __name__)
-
 # Import the Blueprints from the routes module
 from .candidates import bp as candidates_bp
 from .voters import bp as voters_bp
 from .votes import bp as votes_bp
 from .elections import election_bp as election_bp
+# Create a Blueprint for the routes package
+routes_bp = Blueprint('routes', __name__)
+
 
 # Register the Blueprints with the routes Blueprint
 @routes_bp.record
