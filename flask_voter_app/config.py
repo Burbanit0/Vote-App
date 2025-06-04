@@ -37,3 +37,4 @@ class ProductionConfig(Config):
     DEBUG = False
     SQLALCHEMY_DATABASE_URI = \
         'postgresql://username:password@localhost:5432/mydatabase'
+    SQLALCHEMY_TRACK_MODIFICATIONS = False

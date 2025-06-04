@@ -14,9 +14,9 @@ bcrypt = Bcrypt()
 redis_client = redis.StrictRedis.from_url('redis://redis:6379')
 
 
-def create_app():
+def create_app(config_object='config.Config'):
     app = Flask(__name__)
-    app.config.from_object('config.Config')
+    app.config.from_object(config_object)
     bcrypt.init_app(app)
     jwt.init_app(app)
     CORS(app, resources={r"/*": {"origins": "*", "supports_credentials": True,
@@ -39,6 +39,7 @@ def create_app():
             return response
 
     db.init_app(app)
+
     migrate.init_app(app, db)
 
     with app.app_context():

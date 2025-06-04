@@ -9,14 +9,16 @@ sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 import pytest # noqa
 from app import create_app, db # noqa
 from app.models import Candidate, Result # noqa
+from config import TestingConfig # noqa
 
 
 @pytest.fixture
 def app():
-    app = create_app()
-    app.config['TESTING'] = True
-    app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///:memory:'
-    app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
+    app = create_app(TestingConfig)
+
+    # app.config['TESTING'] = True
+    # app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///:memory:'
+    # app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 
     with app.app_context():
         db.create_all()
