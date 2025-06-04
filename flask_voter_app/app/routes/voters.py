@@ -14,18 +14,23 @@ def get_voters():
 @bp.route('/', methods=['POST'])
 def create_voter():
     data = request.get_json()
+    user_id = data.get('user_id')
     first_name = data.get('first_name')
     last_name = data.get('last_name')
 
-    if not first_name or not last_name:
-        return jsonify({'error': 'First name and last name are required'}), 400
+    if not first_name or not last_name or not user_id:
+        return jsonify({
+            'error': 'First name and last name and user id are required'}), 400
 
-    new_voter = Voter(first_name=first_name, last_name=last_name)
+    new_voter = Voter(first_name=first_name, last_name=last_name,
+                      user_id=user_id)
     db.session.add(new_voter)
     db.session.commit()
 
-    return jsonify({'id': new_voter.id, 'first_name': new_voter.first_name,
-                    'last_name': new_voter.last_name}), 201
+    return jsonify({'id': new_voter.id,
+                    'first_name': new_voter.first_name,
+                    'last_name': new_voter.last_name,
+                    'user_id': new_voter.user_id}), 201
 
 
 @bp.route('/<int:voter_id>', methods=['PUT'])
