@@ -2,7 +2,7 @@
 import React, { useState } from 'react';
 import { createVoter } from '../../services/api';
 import { Voter } from '../../types';
-import { Button, Form } from 'react-bootstrap';
+import { Button, Form, Container, Row, Col} from 'react-bootstrap';
 
 interface VoterFormProps {
   setVoters: React.Dispatch<React.SetStateAction<Voter[]>>;
@@ -21,28 +21,35 @@ const VoterForm: React.FC<VoterFormProps> = ({ setVoters }) => {
   };
 
   return (
-    <Form onSubmit={handleSubmit}>
-      <Form.Group>
-        <Form.Label>First Name</Form.Label>
-        <Form.Control type="text"
-          value={firstName}
-          onChange={(e) => setFirstName(e.target.value)}
-          placeholder="Voter First name"
-          required>
-        </Form.Control>
-      </Form.Group>
-      <Form.Group>
-        <Form.Label>Last Name</Form.Label>
-        <Form.Control
-          type="text"
-          value={lastName}
-          onChange={(e) => setLastName(e.target.value)}
-          placeholder="Voter Last name"
-          required>
-          </Form.Control>
-      </Form.Group>
-      <Button type="submit">Add Voter</Button>
-    </Form>
+    <Container className="mt-5">
+      <Row className="justify-content-center">
+        <Col md={6} lg={4}>
+          <Form onSubmit={handleSubmit}>
+            <Form.Group>
+              <Form.Label>First Name</Form.Label>
+              <Form.Control
+                type="text"
+                value={firstName}
+                onChange={(e) => setFirstName(e.target.value)}
+                placeholder="Voter First name"
+                required
+              />
+            </Form.Group>
+            <Form.Group>
+              <Form.Label>Last Name</Form.Label>
+              <Form.Control
+                type="text"
+                value={lastName}
+                onChange={(e) => setLastName(e.target.value)}
+                placeholder="Voter Last name"
+                required
+              />
+            </Form.Group>
+            <Button type="submit" className="mt-3">Add Voter</Button>
+          </Form>
+        </Col>
+      </Row>
+    </Container>
   );
 };
 

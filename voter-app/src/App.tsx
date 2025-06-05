@@ -6,22 +6,25 @@ import VoterPage from './pages/VoterPage';
 import VotePage from './pages/VotePage';
 import ResultsPage from './pages/ResultsPage';
 import Navbar from './components/Navbar';
-import { AuthProvider } from './context/AuthContext';
+import SimulationPage from './pages/SimulationPage';
+import ElectionPage from './pages/ElectionPage';
+import ElectionDetail from './pages/ElectionDetailPage';
 import Login from './pages/Login';
 import Register from './pages/Register';
 import AuthGuard from './context/AuthGuard';
 import ErrorBoundary from './components/Route/ErrorBoundary';
 import 'bootstrap/dist/css/bootstrap.min.css';
+import ProfilePage from './pages/ProfilePage';
 
 const AppContent: React.FC = () => {
   const location = useLocation();
 
   // Hide the Navbar on the Home page
-  const shouldShowNavbar = location.pathname !== '/';
+  const shouldShowNavbar =  ['/login', '/register'];
 
   return (
     <div className="App">
-      {shouldShowNavbar && <Navbar />}
+      { !shouldShowNavbar.includes(location.pathname) && <Navbar />}
       <ErrorBoundary>
         <Routes>
           <Route path="/login" element={<Login />} />
@@ -29,8 +32,12 @@ const AppContent: React.FC = () => {
           <Route path="/" element={<AuthGuard component={HomePage} />} />
           <Route path="/candidates" element={<AuthGuard component={CandidatePage} role="Admin" />} />
           <Route path="/voters" element={<AuthGuard component={VoterPage} role="Admin" />} />
+          <Route path="/elections" element={<AuthGuard component={ElectionPage}/> } />
+          <Route path="/elections/:id" element={<AuthGuard component={ElectionDetail}/> } />
           <Route path="/vote" element={<AuthGuard component={VotePage} role="Voter" />} />
           <Route path="/results" element={<AuthGuard component={ResultsPage} />} />
+          <Route path="/profile" element={<AuthGuard component={ProfilePage} />} />
+          <Route path="/simulation" element={<AuthGuard component={SimulationPage} />} />
         </Routes>
       </ErrorBoundary>
     </div>
@@ -39,11 +46,9 @@ const AppContent: React.FC = () => {
 
 const App: React.FC = () => {
   return (
-    <Router>
-      <AuthProvider>
-        <AppContent />
-      </AuthProvider>
-    </Router>
+        <Router>
+          <AppContent />
+        </Router>
   );
 };
 

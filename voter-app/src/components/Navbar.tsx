@@ -1,9 +1,11 @@
+// src/components/Navbar.tsx
 import React from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
+import { Navbar as BootstrapNavbar, Nav, Button, Container } from 'react-bootstrap';
 
 const Navbar: React.FC = () => {
-  const { user, logout } = useAuth();
+  const { user, logout, loading } = useAuth();
   const navigate = useNavigate();
 
   const handleLogout = () => {
@@ -11,31 +13,46 @@ const Navbar: React.FC = () => {
     navigate('/login');
   };
 
+  if (loading) {
+    return <div>Loading...</div>; // Display a loading sp
+  }
+
   return (
-    <nav className="navbar navbar-expand-lg navbar-light bg-light">
-      <a className="navbar-brand" href="/">Voting System</a>
-      <div className="collapse navbar-collapse" id="navbarNav">
-        <ul className="navbar-nav">
-          {user && user.role === 'Admin' && (
-            <>
-              <li className="nav-item"><a className="nav-link" href="/candidates">Candidates</a></li>
-              <li className="nav-item"><a className="nav-link" href="/voters">Voters</a></li>
-            </>
-          )}
-          {user && user.role === 'Voter' && (
-            <li className="nav-item"><a className="nav-link" href="/vote">Vote</a></li>
-          )}
-          <li className="nav-item"><a className="nav-link" href="/results">Results</a></li>
-          <li className="nav-item">
-            {user ? (
-              <button className="btn btn-outline-primary" onClick={handleLogout}>Logout</button>
-            ) : (
-              <button className="btn btn-outline-primary" onClick={() => navigate('/login')}>Login</button>
+    <BootstrapNavbar bg="light" expand="lg">
+      <Container>
+        <BootstrapNavbar.Brand href="/">Voting System</BootstrapNavbar.Brand>
+        <BootstrapNavbar.Toggle aria-controls="basic-navbar-nav" />
+        <BootstrapNavbar.Collapse id="basic-navbar-nav">
+          <Nav className="me-auto">
+            {user && user.role === 'Admin' && (
+              <>
+                <Nav.Link href="/candidates">Candidates</Nav.Link>
+                <Nav.Link href="/voters">Voters</Nav.Link>
+                <Nav.Link href="/vote">Vote</Nav.Link>
+                <Nav.Link href="/elections">Elections</Nav.Link>
+              </>
             )}
-          </li>
-        </ul>
-      </div>
-    </nav>
+            {user && user.role === 'Voter' && (
+              <>
+                {/* <Nav.Link href="/vote">Vote</Nav.Link> */}
+                <Nav.Link href="/simulation">Simulation</Nav.Link>
+              </>
+            )}
+            {/* <Nav.Link href="/results">Results</Nav.Link> */}
+            {user && (
+              <Nav.Link href="/profile">Profile</Nav.Link>
+            )}
+          </Nav>
+          <Nav>
+            {user ? (
+              <Button variant="outline-primary" onClick={handleLogout}>Logout</Button>
+            ) : (
+              <Button variant="outline-primary" onClick={() => navigate('/login')}>Login</Button>
+            )}
+          </Nav>
+        </BootstrapNavbar.Collapse>
+      </Container>
+    </BootstrapNavbar>
   );
 };
 

@@ -2,6 +2,7 @@
 import React, { useState } from 'react';
 import { createCandidate } from '../../services/api';
 import { Candidate } from '../../types';
+import { Button, Form, Container, Row, Col} from 'react-bootstrap';
 
 interface CandidateFormProps {
   setCandidates: React.Dispatch<React.SetStateAction<Candidate[]>>;
@@ -20,23 +21,35 @@ const CandidateForm: React.FC<CandidateFormProps> = ({ setCandidates }) => {
   };
 
   return (
-    <form onSubmit={handleSubmit}>
-      <input
-        type="text"
-        value={firstName}
-        onChange={(e) => setFirstName(e.target.value)}
-        placeholder="First Name"
-        required
-      />
-      <input
-        type="text"
-        value={lastName}
-        onChange={(e) => setLastName(e.target.value)}
-        placeholder="Last Name"
-        required
-      />
-      <button type="submit">Add Candidate</button>
-    </form>
+    <Container className="mt-5">
+    <Row className="justify-content-center">
+      <Col md={6} lg={4}>
+        <Form onSubmit={handleSubmit}>
+          <Form.Group>
+            <Form.Label>First Name</Form.Label>
+            <Form.Control
+              type="text"
+              value={firstName}
+              onChange={(e) => setFirstName(e.target.value)}
+              placeholder="Candidate First name"
+              required
+            />
+          </Form.Group>
+          <Form.Group>
+            <Form.Label>Last Name</Form.Label>
+            <Form.Control
+              type="text"
+              value={lastName}
+              onChange={(e) => setLastName(e.target.value)}
+              placeholder="Candidate Last name"
+              required
+            />
+          </Form.Group>
+          <Button type="submit" className="mt-3">Add Candidate</Button>
+        </Form>
+      </Col>
+    </Row>
+  </Container>
   );
 };
 

@@ -1,41 +1,70 @@
 from app import create_app, db
-from app.models import Candidate, Voter, Vote
+from app.models import User, Voter, Candidate
+from flask_bcrypt import Bcrypt
 
-def init_db():
-    app = create_app()
+bcrypt = Bcrypt()
+
+
+def create_initial_data():
+    app = create_app()  # Create the Flask app instance
+
     with app.app_context():
-        # Create the database tables
+        # Create an admin user
         db.create_all()
 
-        # Add candidates
-        candidates = [
-            Candidate(first_name='Alice', last_name='Smith'),
-            Candidate(first_name='Bob', last_name='Johnson'),
-            Candidate(first_name='Charlie', last_name='Brown')
+        admin_user = User(
+            username='admin',
+            role='Admin'
+        )
+        admin_user.set_password('admin_password')
+        db.session.add(admin_user)
+
+        # Create voter users and their profiles
+        voter_users = [
+            {'username': 'voter1', 'password': 'voter1_password',
+             'first_name': 'John', 'last_name': 'Doe'},
+            {'username': 'voter2', 'password': 'voter2_password',
+             'first_name': 'Jane', 'last_name': 'Smith'},
+            {'username': 'voter3', 'password': 'voter3_password',
+             'first_name': 'Alice', 'last_name': 'Johnson'},
+            {'username': 'voter4', 'password': 'voter4_password',
+             'first_name': 'Bob', 'last_name': 'Brown'}
         ]
-        db.session.add_all(candidates)
+
+        for voter_data in voter_users:
+            voter_user = User(
+                username=voter_data['username'],
+                role='Voter'
+            )
+            voter_user.set_password(voter_data['password'])
+            db.session.add(voter_user)
+            db.session.flush()  # Flush to get the user ID
+
+            voter_profile = Voter(
+                user_id=voter_user.id,
+                first_name=voter_data['first_name'],
+                last_name=voter_data['last_name']
+            )
+            db.session.add(voter_profile)
+
+        # Create candidates
+        candidates = [
+            {'first_name': 'Candidate', 'last_name': 'One'},
+            {'first_name': 'Candidate', 'last_name': 'Two'},
+            {'first_name': 'Candidate', 'last_name': 'Three'}
+        ]
+
+        for candidate_data in candidates:
+            candidate = Candidate(
+                first_name=candidate_data['first_name'],
+                last_name=candidate_data['last_name']
+            )
+            db.session.add(candidate)
+
+        # Commit all changes to the database
         db.session.commit()
 
-        # Add voters and their choices
-        voters = []
-        for i in range(1, 11):
-            voter = Voter(first_name=f'Voter{i}', last_name=f'Last{i}')
-            db.session.add(voter)
-            db.session.commit()
 
-            # Assign votes to each voter
-            for j, candidate in enumerate(candidates):
-                vote_type = 'single' if j == 0 else 'multiple' if j == 1 else 'ordered'
-                vote = Vote(
-                    voter_id=voter.id,
-                    candidate_id=candidate.id,
-                    vote_type=vote_type,
-                    rank=j + 1 if vote_type == 'ordered' else None,
-                    weight=33.33 if vote_type == 'weighted' else None,
-                    rating=5 - j if vote_type == 'rated' else None
-                )
-                db.session.add(vote)
-            db.session.commit()
-
+# Call the function to create initial data
 if __name__ == '__main__':
-    init_db()
+    create_initial_data()

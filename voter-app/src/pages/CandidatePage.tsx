@@ -2,7 +2,7 @@
 import React, { useEffect, useState } from 'react';
 import CandidateForm from '../components/Candidate/CandidateForm';
 import CandidateList from '../components/Candidate/CandidateList';
-import { fetchCandidates } from '../services/api';
+import { deleteCandidate, fetchCandidates } from '../services/api';
 import { Candidate } from '../types';
 
 const CandidatePage: React.FC = () => {
@@ -17,11 +17,16 @@ const CandidatePage: React.FC = () => {
     loadCandidates();
   }, []);
 
+  const deleteCandidate_ = async (candidateId: number) => {
+    await deleteCandidate(candidateId);
+    setCandidates(candidates.filter(candidate => candidate.id !== candidateId));
+  };
+
   return (
     <div>
       <h1>Manage Candidates</h1>
       <CandidateForm setCandidates={setCandidates} />
-      <CandidateList candidates={candidates} setCandidates={setCandidates}/>
+      <CandidateList candidates={candidates} handleDelete={deleteCandidate_}/>
     </div>
   );
 };

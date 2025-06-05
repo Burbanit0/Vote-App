@@ -1,11 +1,14 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { useAuth } from './../context/AuthContext';
-import { loginUser } from './../services/api';
+import { useAuth } from '../context/AuthContext';
+import { loginUser } from '../services/api';
+import { Form, Button, Container, Row, Col, Alert } from 'react-bootstrap';
+import 'bootstrap/dist/css/bootstrap.min.css';
 
 const Login: React.FC = () => {
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
+  const [error, setError] = useState<string | null>(null);
   const { login } = useAuth();
   const navigate = useNavigate();
 
@@ -13,12 +16,11 @@ const Login: React.FC = () => {
     e.preventDefault();
     try {
       const userData = await loginUser(username, password);
-      console.log(userData);
       login(userData);
       alert('Login successful!');
       navigate('/'); // Redirect to home or another page after login
     } catch (error) {
-      alert('Login failed. Please check your credentials.');
+      setError('Login failed. Please check your credentials.');
     }
   };
 
@@ -27,26 +29,42 @@ const Login: React.FC = () => {
   };
 
   return (
-    <div>
-      <form onSubmit={handleSubmit}>
-        <input
-          type="text"
-          value={username}
-          onChange={(e) => setUsername(e.target.value)}
-          placeholder="Username"
-          required
-        />
-        <input
-          type="password"
-          value={password}
-          onChange={(e) => setPassword(e.target.value)}
-          placeholder="Password"
-          required
-        />
-        <button type="submit">Login</button>
-      </form>
-      <button onClick={handleRegisterClick}>Don't have an account? Register</button>
-    </div>
+    <Container className="mt-5">
+      <Row className="justify-content-center">
+        <Col md={6} lg={4}>
+          <h2 className="text-center mb-4">Login</h2>
+          {error && <Alert variant="danger">{error}</Alert>}
+          <Form onSubmit={handleSubmit}>
+            <Form.Group controlId="formUsername">
+              <Form.Label>Username</Form.Label>
+              <Form.Control
+                type="text"
+                value={username}
+                onChange={(e) => setUsername(e.target.value)}
+                placeholder="Enter username"
+                required
+              />
+            </Form.Group>
+            <Form.Group controlId="formPassword">
+              <Form.Label>Password</Form.Label>
+              <Form.Control
+                type="password"
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                placeholder="Password"
+                required
+              />
+            </Form.Group>
+            <Button variant="primary" type="submit" className="mt-3 w-100">
+              Login
+            </Button>
+          </Form>
+          <Button variant="link" onClick={handleRegisterClick} className="mt-3">
+            Don't have an account? Register
+          </Button>
+        </Col>
+      </Row>
+    </Container>
   );
 };
 

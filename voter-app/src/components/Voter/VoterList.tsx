@@ -2,7 +2,7 @@
 import React from 'react';
 import { Voter } from '../../types';
 import { deleteVoter } from '../../services/api';
-import { ListGroup, Button } from 'react-bootstrap';
+import { ListGroup, Button, Container, Row, Col, ButtonGroup } from 'react-bootstrap';
 
 interface VoterListProps {
   voters: Voter[];
@@ -16,18 +16,30 @@ const VoterList: React.FC<VoterListProps> = ({ voters, setVoters }) => {
   };
 
   return (
-    <div>
-      <h2>Voter List</h2>
-      <ListGroup>
-        {voters.map((voter) => (
-          <ListGroup.Item key={voter.id}>
-            {voter.first_name} {voter.last_name}
-            <Button variant="danger" onClick={() => handleDelete(voter.id)}>Delete</Button>
-            {/* Add Update Button and Logic Here */}
-          </ListGroup.Item>
-        ))}
-      </ListGroup>
-    </div>
+    <Container className="mt-5">
+      <Row className="justify-content-center">
+        <Col md={8} lg={6}>
+          <h2>Voter List</h2>
+          <ListGroup>
+            {voters.map((voter) => (
+              <ListGroup.Item key={voter.id} className="d-flex justify-content-between align-items-center">
+                <span>{voter.first_name} {voter.last_name}</span>
+                <div>
+                  <ButtonGroup>
+                    <Button variant="primary" size='sm'>
+                      Update
+                    </Button>
+                    <Button variant="danger" size="sm" onClick={() => handleDelete(voter.id)}>
+                      Delete
+                    </Button>
+                  </ButtonGroup>
+                </div>
+              </ListGroup.Item>
+            ))}
+          </ListGroup>
+        </Col>
+      </Row>
+    </Container>
   );
 };
 

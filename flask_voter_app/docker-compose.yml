@@ -12,6 +12,8 @@ services:
       - "5432:5432"
     volumes:
       - postgres_data:/var/lib/postgresql/data
+    networks:
+      - mynetwork
 
   web:
     build: .
@@ -19,12 +21,28 @@ services:
     environment:
       - FLASK_ENV=development
       - DATABASE_URL=postgresql://myuser:mypassword@db:5432/mydatabase
+      - REDIS_URL=redis://redis:6379
     ports:
       - "4433:4433"
     volumes:
       - .:/app
     depends_on:
       - db
+      - redis
+    networks:
+      - mynetwork
+    # command: ["python", "-m", "unittest", "discover", "-s", "tests"]
 
+  redis:
+    image: redis:latest
+    container_name: redis
+    ports:
+      - "6379:6379"
+    networks:
+      - mynetwork
+    
 volumes:
   postgres_data:
+
+networks:
+  mynetwork:

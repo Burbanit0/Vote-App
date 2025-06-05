@@ -1,12 +1,28 @@
 from flask import Blueprint, request, jsonify
 from ..models import Candidate, Result, db
+from app import redis_client
+import json
 
 bp = Blueprint('candidates', __name__, url_prefix='/candidates')
 
+
 @bp.route('/', methods=['GET'])
 def get_candidates():
+    cache_key = 'candidates_data'
+
+    cached_result = redis_client.get(cache_key)
+
+    if cached_result:
+        return jsonify(json.loads(cached_result))
+
     candidates = Candidate.query.all()
-    return jsonify([{'id': c.id, 'first_name': c.first_name, 'last_name': c.last_name} for c in candidates])
+    data = [{'id': c.id, 'first_name': c.first_name,
+             'last_name': c.last_name} for c in candidates]
+
+    redis_client.setex(cache_key, 3600, json.dumps(data))
+
+    return jsonify(data)
+
 
 @bp.route('/', methods=['POST'])
 def create_candidate():
@@ -21,7 +37,10 @@ def create_candidate():
     db.session.add(new_candidate)
     db.session.commit()
 
-    return jsonify({'id': new_candidate.id, 'first_name': new_candidate.first_name, 'last_name': new_candidate.last_name}), 201
+    return jsonify({'id': new_candidate.id,
+                    'first_name': new_candidate.first_name,
+                    'last_name': new_candidate.last_name}), 201
+
 
 @bp.route('/<int:candidate_id>', methods=['PUT'])
 def update_candidate(candidate_id):
@@ -38,7 +57,9 @@ def update_candidate(candidate_id):
 
     db.session.commit()
 
-    return jsonify({'id': candidate.id, 'first_name': candidate.first_name, 'last_name': candidate.last_name})
+    return jsonify({'id': candidate.id, 'first_name': candidate.first_name,
+                    'last_name': candidate.last_name})
+
 
 @bp.route('/<int:candidate_id>', methods=['DELETE'])
 def delete_candidate(candidate_id):
@@ -47,6 +68,7 @@ def delete_candidate(candidate_id):
     db.session.commit()
 
     return jsonify({'result': True})
+
 
 # API Endpoint to get results for a specific candidate
 @bp.route('/<int:candidate_id>/results', methods=['GET'])
