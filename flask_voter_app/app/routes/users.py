@@ -36,8 +36,8 @@ def login():
     if not user or not user.check_password(password):
         return jsonify({"message": "Invalid credentials"}), 401
 
-    access_token = create_access_token(identity={"id": user.id,
-                                                 "role": user.role})
+    access_token = create_access_token(identity=user.id,
+                                       additional_claims={"role": user.role})
     if (user.role == 'Admin'):
         return jsonify(access_token=access_token, role=user.role)
     else:
@@ -51,7 +51,12 @@ def login():
 @auth_bp.route('/admin-only', methods=['GET'])
 @jwt_required()
 def admin_only():
-    current_user = User.query.get(get_jwt_identity())
+    current_user_id = get_jwt_identity()  # This returns just the user ID
+    # Use the user ID to get the user
+    current_user = User.query.get(current_user_id)
+    # Optionally, you can access additional claims like the role
+    # current_user_role = get_jwt()["role"]
+
     if current_user.role != 'Admin':
         return jsonify({"message": "Access denied"}), 403
 
@@ -65,15 +70,8 @@ def get_profile():
     # Retrieve the logged-in user's information using the primary key
     current_user_identity = get_jwt_identity()
 
-    # Ensure current_user_identity is a dictionary and contains the user ID
-    if not isinstance(current_user_identity, dict) or \
-            'id' not in current_user_identity:
-        return jsonify({"msg": "Invalid JWT payload"}), 400
-
-    current_user_id = current_user_identity['id']
-
     # Convert current_user_id to an integer if necessary
-    current_user_id = int(current_user_id)
+    current_user_id = int(current_user_identity)
 
     current_user = User.query.get(current_user_id)
 
@@ -104,15 +102,8 @@ def get_current_profile():
     # Retrieve the logged-in user's information using the primary key
     current_user_identity = get_jwt_identity()
 
-    # Ensure current_user_identity is a dictionary and contains the user ID
-    if not isinstance(current_user_identity, dict) or \
-            'id' not in current_user_identity:
-        return jsonify({"msg": "Invalid JWT payload"}), 400
-
-    current_user_id = current_user_identity['id']
-
     # Convert current_user_id to an integer if necessary
-    current_user_id = int(current_user_id)
+    current_user_id = int(current_user_identity)
 
     current_user = User.query.get(current_user_id)
 

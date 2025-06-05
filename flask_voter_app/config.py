@@ -28,8 +28,9 @@ class DevelopmentConfig(Config):
 class TestingConfig(Config):
     """Testing configuration."""
     TESTING = True
-    # Use in-memory SQLite for testing
     SQLALCHEMY_DATABASE_URI = 'sqlite:///:memory:'
+    SECRET_KEY = os.environ.get('SECRET_KEY') or 'your_default_secret_key'
+    JWT_VERIFY_SUB = False
 
 
 class ProductionConfig(Config):
