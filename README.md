@@ -17,3 +17,14 @@
     ``npm install ``
     ``npm start``
 
+
+### Todo list on the project
+
+    better models for the simulation
+
+    better test coverage front and back 
+
+    better ci/cd
+
+    test others architecture 
+    
