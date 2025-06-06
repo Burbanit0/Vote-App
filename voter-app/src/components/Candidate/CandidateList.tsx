@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { Container, Row, Col, ListGroup, Button, ButtonGroup, Modal, Form } from 'react-bootstrap';
 import 'bootstrap/dist/css/bootstrap.min.css';
-import { updateCandidate } from '../../services/api';
+import { updateCandidate } from '../../services/';
 
 // Define the type for handleDelete
 type HandleDeleteType = (id: number) => void;

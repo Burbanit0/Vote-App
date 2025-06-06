@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { Card, Container } from 'react-bootstrap';
-import { fetchTwoRoundWinner } from '../../services/api';
+import { fetchTwoRoundWinner } from '../../services/';
 import { Candidate } from '../../types';
 
 const TwoRoundWinner: React.FC = () => {

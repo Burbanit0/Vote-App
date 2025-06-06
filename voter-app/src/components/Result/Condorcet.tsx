@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { Card, Container } from 'react-bootstrap';
-import { fetchCondorcetWinner } from '../../services/api';
+import { fetchCondorcetWinner } from '../../services/';
 import { Candidate } from '../../types';
 
 const Condorcet: React.FC = () => {
