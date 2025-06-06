@@ -1,13 +1,14 @@
-name: CI/CD Pipeline
+name: Backend CI/CD Pipeline
 
 on:
   push:
-    branches:
-      - main
-      - develop
+    branches: [ develop, main ]
+    paths:
+      - 'flask_voter_app/**'
   pull_request:
-    branches:
-      - main
+    branches: [ develop ]
+    paths:
+      - 'flask_voter_app/**'
 
 jobs:
   build:
