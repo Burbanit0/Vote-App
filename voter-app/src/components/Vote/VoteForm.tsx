@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { Button, Form, Container, Alert } from 'react-bootstrap';
-import { fetchCandidates, castVote } from '../../services/api'; // Adjust the import path as needed
+import { fetchCandidates, castVote } from '../../services';
 import { Candidate } from '../../types';
 import { useAuth } from '../../context/AuthContext';
 import { AxiosError } from 'axios';

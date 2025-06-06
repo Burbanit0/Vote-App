@@ -1,6 +1,6 @@
 // src/components/Candidate/CandidateForm.tsx
 import React, { useState } from 'react';
-import { createCandidate } from '../../services/api';
+import { createCandidate } from '../../services/';
 import { Candidate } from '../../types';
 import { Button, Form, Container, Row, Col} from 'react-bootstrap';
 

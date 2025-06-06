@@ -1,8 +1,8 @@
 // src/components/ElectionDetailPage.tsx
-import React, { useEffect, useState } from 'react';
-import { useParams } from 'react-router-dom';
+import { useEffect, useState } from 'react';
+import { useParams, Link } from 'react-router-dom';
 import { Container, Row, Col, Card, Button, Alert } from 'react-bootstrap';
-import { fetchElectionById, addVoterToElection } from '../services/api';
+import { fetchElectionById, addVoterToElection } from '../services/';
 import { Election_ } from '../types';
 
 const ElectionDetail = () => {
@@ -31,17 +31,12 @@ const ElectionDetail = () => {
       const response = await fetchElectionById(id);
       setElection(response);
     } catch (error) {
-      console.error('Error adding voter to election:', error);
       setError('Failed to add the voter to the list.')
       fetchElectionById(id);
     }
  }
   if (loading) {
     return <div>Loading...</div>;
-  }
-
-  if (error) {
-    return <div>{error}</div>
   }
 
 
@@ -64,9 +59,11 @@ const ElectionDetail = () => {
           <h3>Candidates:</h3>
           <ul className="list-group">
             {election?.candidates?.map(candidate => (
-              <li key={candidate.id} className="list-group-item">
-                {candidate.first_name} {candidate.last_name}
-              </li>
+              <Link to={`/candidates/${candidate.id}`} style={{ textDecoration: 'none', color: 'inherit' }}>
+                <li key={candidate.id} className="list-group-item">
+                  {candidate.first_name} {candidate.last_name}
+                </li>
+              </Link>
             ))}
           </ul>
         </Col>

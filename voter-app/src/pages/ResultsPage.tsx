@@ -1,7 +1,7 @@
 // src/pages/ResultsPage.tsx
 import React, { useEffect, useState } from 'react';
 import VoteResults from '../components/Vote/VoteResults';
-import { fetchAllResults } from '../services/api';
+import { fetchAllResults } from '../services/';
 import { Result } from '../types';
 import { Card, Col, Container, Row } from 'react-bootstrap';
 import Condorcet from '../components/Result/Condorcet';

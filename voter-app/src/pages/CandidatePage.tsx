@@ -2,7 +2,7 @@
 import React, { useEffect, useState } from 'react';
 import CandidateForm from '../components/Candidate/CandidateForm';
 import CandidateList from '../components/Candidate/CandidateList';
-import { deleteCandidate, fetchCandidates } from '../services/api';
+import { deleteCandidate, fetchCandidates } from '../services/';
 import { Candidate } from '../types';
 
 const CandidatePage: React.FC = () => {

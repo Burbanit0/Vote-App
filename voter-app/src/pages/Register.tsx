@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { registerUser } from '../services/api';
+import { registerUser } from '../services/';
 import { Form, Button, Container, Row, Col, Alert } from 'react-bootstrap';
 import { AxiosError } from 'axios';
 
