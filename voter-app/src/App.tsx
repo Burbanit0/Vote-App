@@ -13,9 +13,9 @@ import Login from './pages/Login';
 import Register from './pages/Register';
 import AuthGuard from './context/AuthGuard';
 import ErrorBoundary from './components/Route/ErrorBoundary';
-import 'bootstrap/dist/css/bootstrap.min.css';
 import ProfilePage from './pages/ProfilePage';
 import CandidateDetail from './pages/CandidateDetailPage';
+import 'bootstrap/dist/css/bootstrap.min.css';
 
 const AppContent: React.FC = () => {
   const location = useLocation();
