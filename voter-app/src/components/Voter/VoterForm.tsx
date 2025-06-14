@@ -1,6 +1,6 @@
 // src/components/Voter/VoterForm.tsx
 import React, { useState } from 'react';
-import { createVoter } from '../../services/api';
+import { createVoter } from '../../services/';
 import { Voter } from '../../types';
 import { Button, Form, Container, Row, Col} from 'react-bootstrap';
 

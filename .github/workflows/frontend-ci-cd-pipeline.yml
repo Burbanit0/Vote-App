@@ -16,7 +16,7 @@ jobs:
 
     strategy:
       matrix:
-        node-version: [19.8.1] # Specify the Node.js versions you want to test against
+        node-version: [24.2.0] # Specify the Node.js versions you want to test against
 
     steps:
     - name: Checkout code

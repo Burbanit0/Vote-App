@@ -1,7 +1,7 @@
 // src/components/Voter/VoterList.tsx
 import React from 'react';
 import { Voter } from '../../types';
-import { deleteVoter } from '../../services/api';
+import { deleteVoter } from '../../services/';
 import { ListGroup, Button, Container, Row, Col, ButtonGroup } from 'react-bootstrap';
 
 interface VoterListProps {

@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { Container, Form, Button, Alert } from 'react-bootstrap';
-import { createElection } from '../../services/api';
+import { createElection } from '../../services/';
 
 const ElectionForm: React.FC = () => {
   const [name, setName] = useState('');

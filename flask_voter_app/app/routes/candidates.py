@@ -42,6 +42,18 @@ def create_candidate():
                     'last_name': new_candidate.last_name}), 201
 
 
+@bp.route('/<int:candidate_id>', methods=['GET'])
+def get_candidate_by_id(candidate_id):
+    candidate = Candidate.query.get(candidate_id)
+    if not candidate:
+        return jsonify({"msg": "No candidate found with this id"}), 404
+    return jsonify({
+        'id': candidate.id,
+        'first_name': candidate.first_name,
+        'last_name': candidate.last_name
+    }), 200
+
+
 @bp.route('/<int:candidate_id>', methods=['PUT'])
 def update_candidate(candidate_id):
     data = request.get_json()

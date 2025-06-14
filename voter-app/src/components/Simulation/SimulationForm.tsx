@@ -1,9 +1,8 @@
 import React, { useEffect, useState } from 'react';
 import { Form, Button, Spinner, Accordion, Row, Col } from 'react-bootstrap';
-import './FormStyles.css'; 
-import { Scatterplot } from '../Chart/Scatterplot';
+import './FormStyles.css';
 import { Hexbin } from '../Chart/Hexbin';
-import { simulatePop } from '../../services/api';
+import { simulatePop } from '../../services/';
 
 interface SimulationFormProps {
   numVoters: number;

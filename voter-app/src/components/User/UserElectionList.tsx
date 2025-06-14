@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from "react";
 import { Election } from '../../types';
-import { fetchUserElectionList } from "../../services/api";
+import { fetchUserElectionList } from "../../services/";
 import { useAuth } from "../../context/AuthContext";
 import { Col, Container, Row } from "react-bootstrap";
 import ElectionCard from "../Election/ElectionCard";

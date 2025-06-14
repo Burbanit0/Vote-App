@@ -4,7 +4,7 @@ import React, { useState } from 'react';
 import { Container, Alert } from 'react-bootstrap';
 import SimulationForm from '../components/Simulation/SimulationForm';
 import SimulationResult from '../components/Simulation/SimulationResult';
-import { simulateVote } from '../services/api';
+import { simulateVote } from '../services/';
 const SimulateVotesPage: React.FC = () => {
     const [numVoters, setNumVoters] = useState(10);
     const [numCandidates, setNumCandidates] = useState(3);

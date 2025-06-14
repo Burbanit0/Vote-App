@@ -13,8 +13,9 @@ import Login from './pages/Login';
 import Register from './pages/Register';
 import AuthGuard from './context/AuthGuard';
 import ErrorBoundary from './components/Route/ErrorBoundary';
-import 'bootstrap/dist/css/bootstrap.min.css';
 import ProfilePage from './pages/ProfilePage';
+import CandidateDetail from './pages/CandidateDetailPage';
+import 'bootstrap/dist/css/bootstrap.min.css';
 
 const AppContent: React.FC = () => {
   const location = useLocation();
@@ -31,6 +32,7 @@ const AppContent: React.FC = () => {
           <Route path="/register" element={<Register />} />
           <Route path="/" element={<AuthGuard component={HomePage} />} />
           <Route path="/candidates" element={<AuthGuard component={CandidatePage} role="Admin" />} />
+          <Route path="/candidates/:id" element={<AuthGuard component={CandidateDetail} />} />
           <Route path="/voters" element={<AuthGuard component={VoterPage} role="Admin" />} />
           <Route path="/elections" element={<AuthGuard component={ElectionPage}/> } />
           <Route path="/elections/:id" element={<AuthGuard component={ElectionDetail}/> } />

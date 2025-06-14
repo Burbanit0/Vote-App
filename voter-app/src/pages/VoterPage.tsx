@@ -2,7 +2,7 @@
 import React, { useEffect, useState } from 'react';
 import VoterForm from '../components/Voter/VoterForm';
 import VoterList from '../components/Voter/VoterList';
-import { fetchVoters } from '../services/api';
+import { fetchVoters } from '../services/';
 import { Voter } from '../types';
 
 const VoterPage: React.FC = () => {
