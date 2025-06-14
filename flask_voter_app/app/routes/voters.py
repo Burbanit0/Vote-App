@@ -11,6 +11,18 @@ def get_voters():
                     'last_name': v.last_name} for v in voters])
 
 
+@bp.route('/<int:voter_id>', methods=['GET'])
+def get_voter_by_id(voter_id):
+    voter = Voter.query.get(voter_id)
+    if not voter:
+        return jsonify({"msg": "No voter found with this id"}), 404
+    return jsonify({
+        'id': voter.id,
+        'first_name': voter.first_name,
+        'last_name': voter.last_name
+    }), 200
+
+
 @bp.route('/', methods=['POST'])
 def create_voter():
     data = request.get_json()
