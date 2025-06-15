@@ -7,7 +7,9 @@ bp = Blueprint('voters', __name__, url_prefix='/voters')
 @bp.route('/', methods=['GET'])
 def get_voters():
     voters = Voter.query.all()
-    return jsonify([{'id': v.id, 'first_name': v.first_name,
+    return jsonify([{'id': v.id,
+                     'user_id': v.user_id,
+                     'first_name': v.first_name,
                     'last_name': v.last_name} for v in voters])
 
 
@@ -18,6 +20,7 @@ def get_voter_by_id(voter_id):
         return jsonify({"msg": "No voter found with this id"}), 404
     return jsonify({
         'id': voter.id,
+        'user_id': voter.user_id,
         'first_name': voter.first_name,
         'last_name': voter.last_name
     }), 200

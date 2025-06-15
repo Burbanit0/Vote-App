@@ -42,6 +42,7 @@ def login():
         return jsonify(access_token=access_token, role=user.role)
     else:
         voter_data = {'id': user.voter.id,
+                      'user_id': user.voter.user_id,
                       'first_name': user.voter.first_name,
                       'last_name': user.voter.last_name}
         return jsonify(access_token=access_token, role=user.role,
