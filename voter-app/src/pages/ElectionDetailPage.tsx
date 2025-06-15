@@ -71,9 +71,11 @@ const ElectionDetail = () => {
           <h3>Voters:</h3>
           <ul className="list-group">
             {election?.voters?.map(voter => (
-              <li key={voter.id} className="list-group-item">
-                {voter.username}
-              </li>
+              <Link to={`/voters/${voter.id}`} style={{ textDecoration: 'none', color: 'inherit'}}>
+                <li key={voter.id} className="list-group-item">
+                  {voter.username}
+                </li>
+              </Link>
             ))}
           </ul>
           {error && <Alert variant="danger">{error}</Alert>}
