@@ -24,6 +24,7 @@ export interface Vote {
 
 export interface Voter {
     id: number;
+    user_id?: number;
     first_name: string;
     last_name: string;
 }

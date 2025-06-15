@@ -15,8 +15,10 @@ const UserElectionList: React.FC = () => {
         const fetchUserElection = async () => {
           if (user?.voter) {
             try {
-              const response = await fetchUserElectionList(user.voter.id);
-              setElections(response);
+              if (user.voter.user_id) {
+                const response = await fetchUserElectionList(user.voter?.user_id);
+                setElections(response);
+              }
             } catch (err) {
               setError('Failed to fetch elections.');
             } finally {
@@ -26,7 +28,6 @@ const UserElectionList: React.FC = () => {
             setLoading(false);
           }
         };
-    
         fetchUserElection();
       }, [user]);
     
