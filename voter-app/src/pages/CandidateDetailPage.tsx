@@ -1,7 +1,7 @@
 // src/components/ElectionDetailPage.tsx
 import { useEffect, useState } from 'react';
-import { useParams, Link } from 'react-router-dom';
-import { Container, Row, Col, Card, Button, Alert } from 'react-bootstrap';
+import { useParams } from 'react-router-dom';
+import { Container, Row, Col, Card, Alert } from 'react-bootstrap';
 import { fetchCandidateById } from '../services/';
 import { Candidate } from '../types';
 
@@ -31,6 +31,7 @@ const CandidateDetail = () => {
 
   return (
     <Container>
+      {error && <Alert variant="danger">{error}</Alert>}
       <Row>
         <Col>
           <Card>

@@ -14,6 +14,17 @@ export const fetchVoters = async (): Promise<Voter[]> => {
   }
 };
 
+// Function to fetch a voter by id
+export const fetchVoterById = async (voterId: number): Promise<Voter> => {
+  try {
+    const response = await axios.get<Voter>(`${API_BASE_URL}/voters/${voterId}`);
+    return response.data;
+  } catch (error) {
+    console.error(`Error fetching voter with ID ${voterId}:`, error);
+    throw error;
+  }
+}
+
 // Function to create a new voter
 export const createVoter = async (voterData: Omit<Voter, 'id'>): Promise<Voter> => {
   try {

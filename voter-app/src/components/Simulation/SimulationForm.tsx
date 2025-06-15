@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { Form, Button, Spinner, Accordion, Row, Col } from 'react-bootstrap';
+import { Form, Button, Spinner, Accordion, Row, Col, Alert } from 'react-bootstrap';
 import './FormStyles.css';
 import { Hexbin } from '../Chart/Hexbin';
 import { simulatePop } from '../../services/';
@@ -12,14 +12,14 @@ interface SimulationFormProps {
   simulateVotes: () => void;
   loading: boolean;
 }
-interface party {
-  name:string;
-}
+// interface party {
+//   name:string;
+// }
 
-interface candidate {
-  name: string;
-  party: party;
-}
+// interface candidate {
+//   name: string;
+//   party: party;
+// }
 
 interface cData {
   group: string;
@@ -35,10 +35,10 @@ interface vData {
   //size: number;
 }
 
-interface formData {
-  candidates: candidate[];
-  parties: party[]
-}
+// interface formData {
+//   candidates: candidate[];
+//   parties: party[]
+// }
 
 const MIN_CANDIDATES = 1;
 const MAX_CANDIDATES = 10;
@@ -53,7 +53,7 @@ const SimulationForm: React.FC<SimulationFormProps> = ({
   loading,
 }) => {
   
-  const [candidates, setCandidates] = useState<[]>([]);
+//  const [candidates, setCandidates] = useState<[]>([]);
   const [numParties, setNumParties] = useState<number>(0);
   const [showParties, setShowParties] = useState(false);
   const [partyName, setPartyName] = useState<string>("");
@@ -89,6 +89,7 @@ const SimulationForm: React.FC<SimulationFormProps> = ({
         try {
             const votersData = await simulatePop(numVoters, averageAge);
                 setVoterData(votersData);
+                setError(null);
         } catch (error) {
             setError('Failed to fetch the voters data:');
         }
@@ -103,6 +104,7 @@ const SimulationForm: React.FC<SimulationFormProps> = ({
           <Accordion.Header>Voters Information</Accordion.Header>
           <Accordion.Body>
             <Row>
+              {error && <Alert variant="danger">{error}</Alert>}
               <Col>
                 <Form.Group controlId="formNumVoters" className="mb-3">
                   <Form.Label>Number of Voters:</Form.Label>
