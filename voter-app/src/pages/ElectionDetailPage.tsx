@@ -41,10 +41,10 @@ const ElectionDetail = () => {
 
 
   return (
-    <Container>
+    <Container className='mt-4'>
       <Row>
         <Col>
-          <Card>
+          <Card className='mt-2'>
             <Card.Body>
               <Card.Title>{election?.name}</Card.Title>
               <Card.Text>{election?.description}</Card.Text>
@@ -59,8 +59,8 @@ const ElectionDetail = () => {
           <h3>Candidates:</h3>
           <ul className="list-group">
             {election?.candidates?.map(candidate => (
-              <Link to={`/candidates/${candidate.id}`} style={{ textDecoration: 'none', color: 'inherit' }}>
-                <li key={candidate.id} className="list-group-item">
+              <Link key={candidate.id} to={`/candidates/${candidate.id}`} style={{ textDecoration: 'none', color: 'inherit' }}>
+                <li className="list-group-item rounded mb-2 border">
                   {candidate.first_name} {candidate.last_name}
                 </li>
               </Link>
@@ -71,8 +71,8 @@ const ElectionDetail = () => {
           <h3>Voters:</h3>
           <ul className="list-group">
             {election?.voters?.map(voter => (
-              <Link to={`/voters/${voter.id}`} style={{ textDecoration: 'none', color: 'inherit'}}>
-                <li key={voter.id} className="list-group-item">
+              <Link key={voter.id} to={`/voters/${voter.id}`} style={{ textDecoration: 'none', color: 'inherit'}}>
+                <li className="list-group-item rounded mb-2 border">
                   {voter.username}
                 </li>
               </Link>

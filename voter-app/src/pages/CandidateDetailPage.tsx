@@ -30,11 +30,11 @@ const CandidateDetail = () => {
 
 
   return (
-    <Container>
+    <Container className='mt-4'>
       {error && <Alert variant="danger">{error}</Alert>}
       <Row>
         <Col>
-          <Card>
+          <Card className='mt-2'>
             <Card.Body>
               <Card.Title>{candidate?.first_name}</Card.Title>
               <Card.Text>{candidate?.last_name}</Card.Text>
