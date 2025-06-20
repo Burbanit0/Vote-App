@@ -25,6 +25,7 @@ def get_all_elections():
         'id': election.id,
         'name': election.name,
         'description': election.description,
+        'created_by': election.created_by,
         'created_at': election.created_at.isoformat()
     } for election in elections])
 
@@ -79,7 +80,8 @@ def get_election(election_id):
         'id': election.id,
         'name': election.name,
         'description': election.description,
-        'created_at': election.created_at.isoformat()
+        'created_at': election.created_at.isoformat(),
+        'created_by': election.created_by
     })
 
 
