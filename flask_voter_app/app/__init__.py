@@ -45,14 +45,12 @@ def create_app(config_object='config.Config'):
     with app.app_context():
         db.create_all()  # Create tables
 
-    from .routes import candidates, voters, votes, results, users, \
-        simulation, elections
-    app.register_blueprint(candidates.bp)
-    app.register_blueprint(voters.bp)
+    from .routes import votes, users, \
+        simulation, elections, parties
     app.register_blueprint(votes.bp)
-    app.register_blueprint(results.bp)
     app.register_blueprint(simulation.bp)
     app.register_blueprint(users.auth_bp)
+    app.register_blueprint(parties.bp)
     app.register_blueprint(elections.election_bp)
 
     return app

@@ -1,135 +1,286 @@
 from flask import Blueprint, request, jsonify
 from flask_jwt_extended import get_jwt_identity
-from ..models import Election, User, Candidate, db
+from app import db
+from ..models import Election, User, ElectionRole, user_election_roles
 from flask_jwt_extended import jwt_required
-from app import redis_client
-import json
+from app.utils.decorators import (
+    admin_required,
+    election_organizer_required,
+    candidate_eligible_required,
+    organizer_eligible_required,
+    not_candidate_in_election,
+    not_organizer_in_election
+)
+# from app import redis_client
+# import json
 
 election_bp = Blueprint('elections', __name__, url_prefix='/elections')
 
 
-# Create an election
+@election_bp.route('/', methods=['GET'])
+def get_all_elections():
+    """Get all elections"""
+    elections = Election.query.all()
+    return jsonify([{
+        'id': election.id,
+        'name': election.name,
+        'description': election.description,
+        'created_at': election.created_at.isoformat()
+    } for election in elections])
+
+
 @election_bp.route('/', methods=['POST'])
 @jwt_required()
+@organizer_eligible_required
+@not_candidate_in_election
 def create_election():
+    """Create a new election"""
+    current_user_id = get_jwt_identity()
+
     data = request.get_json()
     name = data.get('name')
     description = data.get('description')
-    voter_ids = data.get('voters', [])
-    candidate_ids = data.get('candidates', [])
 
-    current_user_identity = get_jwt_identity()
     if not name:
-        return jsonify({'error': 'Name is required'}), 400
+        return jsonify({'message': 'Name is required'}), 400
 
-    # Convert current_user_id to an integer if necessary
-    current_user_id = int(current_user_identity)
+    election = Election(
+        name=name,
+        description=description,
+        created_by=current_user_id
+    )
 
-    new_election = Election(name=name, description=description,
-                            created_by=current_user_id)
-    db.session.add(new_election)
-    db.session.commit()
+    # Add the creator as an organizer
+    db.session.execute(
+        user_election_roles.insert().values(
+            user_id=current_user_id,
+            election_id=election.id,
+            role=ElectionRole.ORGANIZER
+        )
+    )
 
-    # Add voters and candidates to the election
-    for voter_id in voter_ids:
-        voter = User.query.get(voter_id)
-        if voter:
-            new_election.voters.append(voter)
-
-    for candidate_id in candidate_ids:
-        candidate = Candidate.query.get(candidate_id)
-        if candidate:
-            new_election.candidates.append(candidate)
-
-    db.session.commit()
-
-    return jsonify({'message': 'Election created successfully',
-                    'election_id': new_election.id}), 201
-
-
-# Add the current user as a voter
-@election_bp.route('/<int:election_id>/add_voter', methods=['POST'])
-@jwt_required()
-def add_voter_to_election(election_id):
-    current_user_identity = get_jwt_identity()
-
-    # Convert current_user_id to an integer if necessary
-    current_user_id = int(current_user_identity)
-
-    # Fetch the election and user from the database
-    election = Election.query.get_or_404(election_id)
-    user = User.query.get_or_404(current_user_id)
-
-    # Check if the user is already a voter in the election
-    if user in election.voters:
-        return jsonify({
-            'message': 'You are already a voter in this election.'}), 400
-
-    # Add the user as a voter to the election
-    election.voters.append(user)
+    db.session.add(election)
     db.session.commit()
 
     return jsonify({
-        'message': 'You have been added as a voter to the election.'}), 200
-
-
-# Get all elections
-@election_bp.route('/', methods=['GET'])
-def get_elections():
-    cache_key = 'elections_data'
-    cached_result = redis_client.get(cache_key)
-
-    if cached_result:
-        return jsonify(json.loads(cached_result))
-
-    elections = Election.query.all()
-    data = [{
         'id': election.id,
         'name': election.name,
         'description': election.description,
-        'created_by': election.created_by,
-        # 'created_at': election.created_at,
-        'candidates': [{
-            'id': candidate.id,
-            'first_name': candidate.first_name,
-            'last_name': candidate.last_name
-        } for candidate in election.candidates],
-        'voters': [{
-            'id': voter.id,
-            'username': voter.username
-        } for voter in election.voters]
-    } for election in elections]
-
-    redis_client.setex(cache_key, 3600, json.dumps(data))
-
-    return jsonify(data)
+        'created_at': election.created_at.isoformat()
+    }), 201
 
 
-# Get elelction by id
+# Get election by id
 @election_bp.route('/<int:election_id>', methods=['GET'])
-def get_election_by_id(election_id):
-    election = Election.query.get(election_id)
-    if not election:
-        return jsonify({"msg": "No election found with this id"}), 404
+def get_election(election_id):
+    """Get a specific election"""
+    election = Election.query.get_or_404(election_id)
     return jsonify({
         'id': election.id,
         'name': election.name,
         'description': election.description,
-        'created_by': election.created_by,
-        'created_at': election.created_at,
-        'candidates': [{
-            'id': candidate.id,
-            'first_name': candidate.first_name,
-            'last_name': candidate.last_name
-        } for candidate in election.candidates],
-        'voters': [{
-            'id': voter.id,
-            'username': voter.username
-        } for voter in election.voters]}), 200
+        'created_at': election.created_at.isoformat()
+    })
+
+
+@election_bp.route('/<int:election_id>/participants', methods=['GET'])
+@election_organizer_required
+def get_election_participants(election_id):
+    """Get all participants in an election with their roles"""
+    participants = db.session.query(
+        User,
+        user_election_roles.c.role
+    ).join(
+        user_election_roles,
+        (user_election_roles.c.user_id == User.id) &
+        (user_election_roles.c.election_id == election_id)
+    ).all()
+
+    return jsonify([{
+        'user_id': user.id,
+        'username': user.username,
+        'first_name': user.first_name,
+        'last_name': user.last_name,
+        'role': role.value
+    } for user, role in participants])
+
+
+@election_bp.route('/<int:election_id>/participate', methods=['POST'])
+@jwt_required()
+def participate_in_election(election_id):
+    """Mark the current user as participating in an election as a voter"""
+    user_id = get_jwt_identity()
+    user = User.query.get_or_404(user_id)
+
+    # Check if the election exists
+    # election = Election.query.get_or_404(election_id)
+
+    # Check if the user is already participating in this election
+    existing_participation = db.session.query(
+        user_election_roles
+    ).filter(
+        user_election_roles.c.user_id == user_id,
+        user_election_roles.c.election_id == election_id
+    ).first()
+
+    if not existing_participation:
+        # Add the user as a voter to this election
+        db.session.execute(
+            user_election_roles.insert().values(
+                user_id=user_id,
+                election_id=election_id,
+                role=ElectionRole.VOTER
+            )
+        )
+
+        # Update participation metrics
+        user.elections_participated += 1
+        db.session.commit()
+
+    return jsonify({
+        'message': 'Successfully marked as participating in election',
+        'election_id': election_id
+    })
+
+
+@election_bp.route('/<int:election_id>/register-candidate', methods=['POST'])
+@jwt_required()
+@candidate_eligible_required
+@not_organizer_in_election
+def register_as_candidate(election_id):
+    """Register the current user as a candidate in an election"""
+    user_id = get_jwt_identity()
+    user = User.query.get_or_404(user_id)
+
+    # Check if the election exists
+    # election = Election.query.get_or_404(election_id)
+
+    # Check if the user is already a candidate in this election
+    existing_candidate_role = db.session.query(
+        user_election_roles
+    ).filter(
+        user_election_roles.c.user_id == user_id,
+        user_election_roles.c.election_id == election_id,
+        user_election_roles.c.role == ElectionRole.CANDIDATE
+    ).first()
+
+    if existing_candidate_role:
+        return jsonify({
+            'message': 'User is already a candidate in this election'
+        }), 400
+
+    # Check if the user is already participating in this election
+    existing_participation = db.session.query(
+        user_election_roles
+    ).filter(
+        user_election_roles.c.user_id == user_id,
+        user_election_roles.c.election_id == election_id
+    ).first()
+
+    if not existing_participation:
+        # If not already participating, add as voter first
+        db.session.execute(
+            user_election_roles.insert().values(
+                user_id=user_id,
+                election_id=election_id,
+                role=ElectionRole.VOTER
+            )
+        )
+        user.elections_participated += 1
+
+    # Update the role to candidate
+    db.session.execute(
+        user_election_roles.update()
+        .where(
+            (user_election_roles.c.user_id == user_id) &
+            (user_election_roles.c.election_id == election_id)
+        )
+        .values(role=ElectionRole.CANDIDATE)
+    )
+
+    db.session.commit()
+
+    return jsonify({
+        'message': 'Successfully registered as candidate in election',
+        'election_id': election_id
+    })
+
+
+@election_bp.route('/<int:election_id>/register-organizer', methods=['POST'])
+@jwt_required()
+@admin_required
+@organizer_eligible_required
+@not_candidate_in_election
+def register_as_organizer(election_id):
+    """Register a user as an organizer in an election - admin only"""
+    # current_user_id = get_jwt_identity()
+    # current_user = User.query.get_or_404(current_user_id)
+
+    data = request.get_json()
+    user_id = data.get('user_id')
+
+    if not user_id:
+        return jsonify({'message': 'User ID is required'}), 400
+
+    user = User.query.get_or_404(user_id)
+
+    # Check if the election exists
+    # election = Election.query.get_or_404(election_id)
+
+    # Check if the user is already an organizer in this election
+    existing_organizer_role = db.session.query(
+        user_election_roles
+    ).filter(
+        user_election_roles.c.user_id == user_id,
+        user_election_roles.c.election_id == election_id,
+        user_election_roles.c.role == ElectionRole.ORGANIZER
+    ).first()
+
+    if existing_organizer_role:
+        return jsonify({
+            'message': 'User is already an organizer in this election'
+        }), 400
+
+    # Check if the user is already participating in this election
+    existing_participation = db.session.query(
+        user_election_roles
+    ).filter(
+        user_election_roles.c.user_id == user_id,
+        user_election_roles.c.election_id == election_id
+    ).first()
+
+    if not existing_participation:
+        # If not already participating, add as voter first
+        db.session.execute(
+            user_election_roles.insert().values(
+                user_id=user_id,
+                election_id=election_id,
+                role=ElectionRole.VOTER
+            )
+        )
+        user.elections_participated += 1
+
+    # Update the role to organizer
+    db.session.execute(
+        user_election_roles.update()
+        .where(
+            (user_election_roles.c.user_id == user_id) &
+            (user_election_roles.c.election_id == election_id)
+        )
+        .values(role=ElectionRole.ORGANIZER)
+    )
+
+    db.session.commit()
+
+    return jsonify({
+        'message': 'Successfully registered user as organizer in election',
+        'user_id': user_id,
+        'election_id': election_id
+    })
 
 
 # Get candidates for an election
-@election_bp.route('/elections/<int:id>/candidates', methods=['GET'])
+@election_bp.route('/<int:id>/candidates', methods=['GET'])
 def get_candidates_for_election(id):
     election = Election.query.get_or_404(id)
     candidates = election.candidates
@@ -141,7 +292,7 @@ def get_candidates_for_election(id):
 
 
 # Get voters for an election
-@election_bp.route('/elections/<int:id>/voters', methods=['GET'])
+@election_bp.route('/<int:id>/voters', methods=['GET'])
 def get_voters_for_election(id):
     election = Election.query.get_or_404(id)
     voters = election.voters
