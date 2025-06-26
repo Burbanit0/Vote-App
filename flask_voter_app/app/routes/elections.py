@@ -1,11 +1,10 @@
 from flask import Blueprint, request, jsonify
-from flask_jwt_extended import get_jwt_identity
+from flask_jwt_extended import get_jwt_identity, jwt_required
 from app import db
 from ..models import Election, User, ElectionRole, user_election_roles
-from flask_jwt_extended import jwt_required
 from app.utils.decorators import (
     admin_required,
-    election_organizer_required,
+    # election_organizer_required,
     candidate_eligible_required,
     organizer_eligible_required,
     not_candidate_in_election,
@@ -86,7 +85,7 @@ def get_election(election_id):
 
 
 @election_bp.route('/<int:election_id>/participants', methods=['GET'])
-@election_organizer_required
+# @election_organizer_required
 def get_election_participants(election_id):
     """Get all participants in an election with their roles"""
     participants = db.session.query(
@@ -103,7 +102,7 @@ def get_election_participants(election_id):
         'username': user.username,
         'first_name': user.first_name,
         'last_name': user.last_name,
-        'role': role.value
+        'role': role.value if hasattr(role, 'value') else str(role)
     } for user, role in participants])
 
 
@@ -308,33 +307,40 @@ def get_voters_for_election(id):
 @election_bp.route('/users/<int:user_id>/elections', methods=['GET'])
 @jwt_required()
 def get_elections_for_user(user_id):
-    # Ensure the authenticated user is accessing their own elections
-    current_user_identity = get_jwt_identity()
+    try:
+        # Ensure the authenticated user is accessing their own elections
+        current_user_id = int(get_jwt_identity())
+        # Convert current_user_id to an integer if necessary
+        if current_user_id != user_id:
+            return jsonify({'message': 'Unauthorized access'}), 403
 
-    # Convert current_user_id to an integer if necessary
-    current_user_id = int(current_user_identity)
-    if current_user_id != user_id:
-        return jsonify({'message': 'Unauthorized access'}), 403
+        # Fetch the user from the database
+        user = User.query.get(user_id)
+        if not user:
+            return jsonify({'message': 'User not found'}), 404
 
-    # Fetch the user from the database
-    user = User.query.get_or_404(user_id)
+        # Fetch elections where the user is a participant (voter, candidate,
+        # or organizer)
+        participant_elections = db.session.query(Election).join(
+            user_election_roles,
+            (user_election_roles.c.election_id == Election.id) &
+            (user_election_roles.c.user_id == user_id)
+        ).all()
 
-    # Fetch elections created by the user
-    created_elections = Election.query.filter_by(created_by=user_id).all()
+        # Combine and deduplicate elections
+        all_elections = list(set(participant_elections))
 
-    # Fetch elections where the user is a voter
-    voted_elections = user.elections.all()
-
-    # Combine and deduplicate elections
-    all_elections = list(set(created_elections + voted_elections))
-
-    return jsonify([{
-        'id': election.id,
-        'name': election.name,
-        'description': election.description,
-        'created_by': election.created_by,
-        'created_at': election.created_at
-    } for election in all_elections])
+        return jsonify([{
+            'id': election.id,
+            'name': election.name,
+            'description': election.description,
+            'created_by': election.created_by,
+            'created_at': election.created_at.isoformat()
+            if election.created_at
+            else None
+        } for election in all_elections])
+    except Exception as e:
+        return jsonify({'message': str(e)}), 500
 
 
 # Delete an election

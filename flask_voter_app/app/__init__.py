@@ -16,6 +16,7 @@ redis_client = redis.StrictRedis.from_url('redis://redis:6379')
 
 def create_app(config_object='config.Config'):
     app = Flask(__name__)
+    app.debug = True
     app.config.from_object(config_object)
     bcrypt.init_app(app)
     jwt.init_app(app)

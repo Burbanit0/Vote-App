@@ -9,8 +9,6 @@ RUN apt-get update && apt-get install -y \
     libpq-dev \
     && rm -rf /var/lib/apt/lists/*
 
-COPY entrypoint.sh /entrypoint.sh
-RUN chmod +x /entrypoint.sh
 # Copy the requirements file into the container
 COPY requirements.txt .
 
@@ -28,5 +26,4 @@ ENV FLASK_ENV=development
 EXPOSE 4433
 
 # Command to run the application
-ENTRYPOINT [ "/entrypoint.sh" ]
 CMD ["flask", "run", "--host=0.0.0.0", "--port=4433"]
