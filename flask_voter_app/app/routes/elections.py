@@ -1,4 +1,5 @@
 from flask import Blueprint, request, jsonify
+from sqlalchemy import or_
 from flask_jwt_extended import get_jwt_identity, jwt_required
 from app import db
 from ..models import Election, User, ElectionRole, user_election_roles
@@ -19,14 +20,37 @@ election_bp = Blueprint('elections', __name__, url_prefix='/elections')
 @election_bp.route('/', methods=['GET'])
 def get_all_elections():
     """Get all elections"""
-    elections = Election.query.all()
-    return jsonify([{
-        'id': election.id,
-        'name': election.name,
-        'description': election.description,
-        'created_by': election.created_by,
-        'created_at': election.created_at.isoformat()
-    } for election in elections])
+    # Get pagination parameters
+    page = request.args.get('page', 1, type=int)
+    per_page = request.args.get('per_page', 10, type=int)
+
+    # Get search term
+    search_term = request.args.get('search', '', type=str)
+
+    query = Election.query
+    if search_term:
+        query = query.filter(
+            or_(
+                Election.name.ilike(f'%{search_term}%'),
+                Election.description.ilike(f'%{search_term}%')
+            )
+        )
+    paginated_elections = query.paginate(page=page, per_page=per_page,
+                                         error_out=False)
+
+    return jsonify({
+        'elections': [{
+            'id': election.id,
+            'name': election.name,
+            'description': election.description,
+            'created_at': election.created_at.isoformat()
+            if election.created_at else None
+        } for election in paginated_elections.items],
+        'total': paginated_elections.total,
+        'pages': paginated_elections.pages,
+        'current_page': paginated_elections.page,
+        'per_page': paginated_elections.per_page
+    })
 
 
 @election_bp.route('/', methods=['POST'])
@@ -66,7 +90,8 @@ def create_election():
         'id': election.id,
         'name': election.name,
         'description': election.description,
-        'created_at': election.created_at.isoformat()
+        'created_at': election.created_at.isoformat(),
+        'created_by': election.created_by
     }), 201
 
 
@@ -277,6 +302,40 @@ def register_as_organizer(election_id):
         'message': 'Successfully registered user as organizer in election',
         'user_id': user_id,
         'election_id': election_id
+    })
+
+
+# Check if a user is participating at the election
+@election_bp.route('/<int:election_id>/participation',
+                   methods=['GET'])
+@jwt_required()
+def check_election_participation(election_id):
+    """Check if the current user is participating in an election"""
+    current_user_id = get_jwt_identity()
+
+    # Check if the user has any role in this election
+    is_participant = db.session.query(
+        db.session.query(user_election_roles)
+        .filter(
+            user_election_roles.c.user_id == current_user_id,
+            user_election_roles.c.election_id == election_id
+        )
+        .exists()
+    ).scalar()
+
+    # Get the user's role if they are participating
+    user_role = None
+    if is_participant:
+        role = db.session.query(user_election_roles.c.role).filter(
+            user_election_roles.c.user_id == current_user_id,
+            user_election_roles.c.election_id == election_id
+        ).scalar()
+
+        user_role = role.value if role else str(role)
+
+    return jsonify({
+        'is_participant': is_participant,
+        'role': user_role
     })
 
 

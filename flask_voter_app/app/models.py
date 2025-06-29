@@ -58,6 +58,10 @@ class User(db.Model):
     bio = Column(Text, nullable=True)
     profile_picture = Column(String(200), nullable=True)
 
+    # Relationship to party
+    party_id = Column(Integer, ForeignKey('parties.id'), nullable=True)
+    party = relationship("Party", back_populates="members")
+
     # Relationship to elections with roles
     election_roles = relationship(
         "Election",
@@ -89,6 +93,11 @@ class Party(db.Model):
     id = Column(Integer, primary_key=True)
     name = Column(String(100), nullable=False, unique=True)
     description = Column(db.Text, nullable=True)
+    founded_date = Column(DateTime)
+    logo_url = Column(String(255))
+
+    # Relationship to User (one-to-many)
+    members = relationship("User", back_populates="party")
 
     def __repr__(self):
         return f'<Party {self.name}>'
