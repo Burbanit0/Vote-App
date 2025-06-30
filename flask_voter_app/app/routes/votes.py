@@ -6,6 +6,7 @@ from app.models import Vote, User, ElectionRole, Result, \
 from app import db
 from datetime import datetime
 from app.utils.decorators import election_organizer_required
+from ..services.participation_service import ParticipationService
 from sqlalchemy import func
 
 bp = Blueprint('votes', __name__, url_prefix='/votes')
@@ -45,13 +46,12 @@ def cast_vote(election_id):
             'message': 'Candidate not found or not participating '
             'in this election'}), 404
 
-    # Check if the user is a voter in this election
+    # Check if the user is participating to this election
     voter_role = db.session.query(
         user_election_roles
     ).filter(
         user_election_roles.c.user_id == user_id,
         user_election_roles.c.election_id == election_id,
-        user_election_roles.c.role == ElectionRole.VOTER
     ).first()
 
     if not voter_role:
@@ -84,6 +84,8 @@ def cast_vote(election_id):
 
     # Update voting metrics
     user.elections_voted_in += 1
+
+    ParticipationService.handle_vote_cast(user_id, election_id)
     db.session.commit()
 
     return jsonify({

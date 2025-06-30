@@ -4,7 +4,7 @@ from . import db
 from flask_bcrypt import Bcrypt
 from flask_jwt_extended import JWTManager
 from sqlalchemy import Column, Integer, String, ForeignKey, DateTime, \
-    Text, Enum, func
+    Text, Enum, Boolean, func
 from sqlalchemy.orm import relationship
 
 bcrypt = Bcrypt()
@@ -46,6 +46,8 @@ class User(db.Model):
     password_hash = Column(String(128), nullable=False)
     role = Column(String(10), nullable=False)  # 'Admin' or 'User'
     created_at = Column(DateTime, default=func.current_timestamp())
+
+    participation_points = Column(Integer, default=0)
 
     # Track participation metrics
     elections_participated = Column(Integer, default=0)
@@ -110,6 +112,9 @@ class Election(db.Model):
     description = Column(String(255), nullable=True)
     created_by = Column(Integer, ForeignKey('users.id'), nullable=False)
     created_at = Column(DateTime, default=func.current_timestamp())
+    start_date = Column(DateTime, nullable=True)
+    end_date = Column(DateTime, nullable=True)
+    processed = Column(Boolean, default=False)
 
     # Relationship to participants with roles
     participants = relationship(

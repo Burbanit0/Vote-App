@@ -300,3 +300,54 @@ def get_user(user_id):
         'elections_voted_in': user.elections_voted_in,
         'participation_details': participation_details
     })
+
+
+@auth_bp.route('/users/me/permissions', methods=['GET'])
+@jwt_required()
+def get_user_permissions():
+    """Get the current user's permissions"""
+    current_user_id = get_jwt_identity()
+    user = User.query.get_or_404(current_user_id)
+
+    # Calculate if user can create elections
+    can_create_elections = (
+        user.role == 'Admin' or
+        user.participation_points >= 100
+    )
+
+    return jsonify({
+        'is_admin': user.role == 'Admin',
+        'participation_points': user.participation_points,
+        'can_create_elections': can_create_elections
+    })
+
+
+@auth_bp.route('/users/me/participation', methods=['GET'])
+@jwt_required()
+def get_participation_data():
+    """Get the current user's participation data"""
+    current_user_id = get_jwt_identity()
+    user = User.query.get_or_404(current_user_id)
+
+    # Determine level based on points
+    if user.participation_points >= 1000:
+        level = 'Legend'
+        next_level = 1000
+    elif user.participation_points >= 500:
+        level = 'Master'
+        next_level = 1000
+    elif user.participation_points >= 200:
+        level = 'Expert'
+        next_level = 500
+    elif user.participation_points >= 50:
+        level = 'Active'
+        next_level = 200
+    else:
+        level = 'Beginner'
+        next_level = 50
+
+    return jsonify({
+        'points': user.participation_points,
+        'level': level,
+        'nextLevel': next_level
+    })

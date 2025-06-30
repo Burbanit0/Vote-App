@@ -3,6 +3,7 @@ from sqlalchemy import or_
 from flask_jwt_extended import get_jwt_identity, jwt_required
 from app import db
 from ..models import Election, User, ElectionRole, user_election_roles
+from ..services.participation_service import ParticipationService
 from app.utils.decorators import (
     admin_required,
     # election_organizer_required,
@@ -64,6 +65,7 @@ def create_election():
     data = request.get_json()
     name = data.get('name')
     description = data.get('description')
+    created_at = data.get('created_at')
 
     if not name:
         return jsonify({'message': 'Name is required'}), 400
@@ -71,7 +73,8 @@ def create_election():
     election = Election(
         name=name,
         description=description,
-        created_by=current_user_id
+        created_by=current_user_id,
+        created_at=created_at
     )
 
     # Add the creator as an organizer
@@ -134,20 +137,22 @@ def get_election_participants(election_id):
 @election_bp.route('/<int:election_id>/participate', methods=['POST'])
 @jwt_required()
 def participate_in_election(election_id):
-    """Mark the current user as participating in an election as a voter"""
+    """Mark the current user as participating in an election"""
     user_id = get_jwt_identity()
     user = User.query.get_or_404(user_id)
-
-    # Check if the election exists
-    # election = Election.query.get_or_404(election_id)
+    data = request.get_json()
+    role = data.get('role', 'voter')
+    if role not in ['voter', 'candidate', 'organizer']:
+        return jsonify({'message': 'Invalid role'}), 400
 
     # Check if the user is already participating in this election
     existing_participation = db.session.query(
-        user_election_roles
-    ).filter(
-        user_election_roles.c.user_id == user_id,
-        user_election_roles.c.election_id == election_id
-    ).first()
+        db.session.query(user_election_roles
+                         ).filter(
+            user_election_roles.c.user_id == user_id,
+            user_election_roles.c.election_id == election_id
+        ).exists()
+    ).scalar()
 
     if not existing_participation:
         # Add the user as a voter to this election
@@ -161,11 +166,17 @@ def participate_in_election(election_id):
 
         # Update participation metrics
         user.elections_participated += 1
+        ParticipationService.handle_election_participation(user_id,
+                                                           election_id, role)
         db.session.commit()
+    else:
+        return jsonify({'message': 
+                        'User is already participating in this election'}), 400
 
     return jsonify({
-        'message': 'Successfully marked as participating in election',
-        'election_id': election_id
+        'message': f'Successfully joined the election as a {role}',
+        'election_id': election_id,
+        'role': role
     })
 
 
@@ -337,29 +348,6 @@ def check_election_participation(election_id):
         'is_participant': is_participant,
         'role': user_role
     })
-
-
-# Get candidates for an election
-@election_bp.route('/<int:id>/candidates', methods=['GET'])
-def get_candidates_for_election(id):
-    election = Election.query.get_or_404(id)
-    candidates = election.candidates
-    return jsonify([{
-        'id': candidate.id,
-        'first_name': candidate.first_name,
-        'last_name': candidate.last_name
-    } for candidate in candidates])
-
-
-# Get voters for an election
-@election_bp.route('/<int:id>/voters', methods=['GET'])
-def get_voters_for_election(id):
-    election = Election.query.get_or_404(id)
-    voters = election.voters
-    return jsonify([{
-        'id': voter.id,
-        'username': voter.username
-    } for voter in voters])
 
 
 # Get all election of a user
