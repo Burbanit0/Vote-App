@@ -171,3 +171,5 @@ cython_debug/
 .pypirc
 .DS_Store
 flask_voter_app/seed.py
+
+flask_voter_app/migrations
