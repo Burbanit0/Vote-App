@@ -2,7 +2,7 @@
 from flask import Blueprint, request, jsonify, current_app
 from flask_jwt_extended import jwt_required, get_jwt_identity
 from app.models import Vote, User, ElectionRole, Result, \
-    user_election_roles
+    Election, user_election_roles
 from app import db
 from datetime import datetime
 from app.utils.decorators import election_organizer_required
@@ -17,21 +17,25 @@ bp = Blueprint('votes', __name__, url_prefix='/votes')
 def cast_vote(election_id):
     """Cast a vote in an election"""
     user_id = get_jwt_identity()
-    user = User.query.get_or_404(user_id)
-
     data = request.get_json()
+
     candidate_id = data.get('candidate_id')
-    vote_type = data.get('vote_type', 'standard')
-    rank = data.get('rank')
-    weight = data.get('weight')
-    rating = data.get('rating')
+    # vote_type = data.get('vote_type', 'standard')
+    # rank = data.get('rank')
+    # weight = data.get('weight')
+    # rating = data.get('rating')
 
     if not candidate_id:
         return jsonify({'message': 'Candidate ID is required'}), 400
 
     # Check if the election exists
-    # election = Election.query.get_or_404(election_id)
+    election = Election.query.get_or_404(election_id)
+    if not election or election.start_date > datetime.utcnow():
+        return jsonify({'message': 'Election has not started yet'}), 400
 
+    if election.end_date <= datetime.utcnow():
+        return jsonify({'message': 'Election has already ended'}), 400
+    
     # Check if the candidate exists and is a candidate in this election
     candidate_role = db.session.query(
         user_election_roles
@@ -73,19 +77,19 @@ def cast_vote(election_id):
         voter_id=user_id,
         candidate_id=candidate_id,
         election_id=election_id,
-        vote_type=vote_type,
-        rank=rank,
-        weight=weight,
-        rating=rating,
+        # vote_type=vote_type,
+        # rank=rank,
+        # weight=weight,
+        # rating=rating,
         cast_at=datetime.utcnow()
     )
 
-    db.session.add(vote)
-
-    # Update voting metrics
-    user.elections_voted_in += 1
-
+    user = User.query.get(user_id)
+    if user:
+        user.add_voted_election(election_id)
     ParticipationService.handle_vote_cast(user_id, election_id)
+
+    db.session.add(vote)
     db.session.commit()
 
     return jsonify({

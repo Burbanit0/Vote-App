@@ -1,8 +1,9 @@
 from flask import Blueprint, request, jsonify
-from sqlalchemy import or_
+import datetime
 from flask_jwt_extended import get_jwt_identity, jwt_required
 from app import db
-from ..models import Election, User, ElectionRole, user_election_roles
+from sqlalchemy.sql import func
+from ..models import Election, User, ElectionRole, Vote, user_election_roles
 from ..services.participation_service import ParticipationService
 from app.utils.decorators import (
     admin_required,
@@ -20,33 +21,64 @@ election_bp = Blueprint('elections', __name__, url_prefix='/elections')
 
 @election_bp.route('/', methods=['GET'])
 def get_all_elections():
-    """Get all elections"""
-    # Get pagination parameters
+    """Get filtered and sorted elections with organizer details"""
     page = request.args.get('page', 1, type=int)
     per_page = request.args.get('per_page', 10, type=int)
+    search = request.args.get('search', '', type=str)
+    sort_by = request.args.get('sort_by', 'name', type=str)
+    sort_dir = request.args.get('sort_dir', 'asc', type=str)
 
-    # Get search term
-    search_term = request.args.get('search', '', type=str)
+    # Base query with join
+    query = db.session.query(
+        Election,
+        User.first_name,
+        User.last_name
+    ).join(
+        User, Election.created_by == User.id
+    )
 
-    query = Election.query
-    if search_term:
+    # Apply search filter if provided
+    if search:
         query = query.filter(
-            or_(
-                Election.name.ilike(f'%{search_term}%'),
-                Election.description.ilike(f'%{search_term}%')
-            )
+            (Election.name.ilike(f'%{search}%')) |
+            (Election.description.ilike(f'%{search}%'))
         )
+
+    # Apply sorting
+    if sort_by == 'name':
+        if sort_dir == 'desc':
+            query = query.order_by(Election.name.desc())
+        else:
+            query = query.order_by(Election.name.asc())
+    elif sort_by == 'date':
+        if sort_dir == 'desc':
+            query = query.order_by(Election.start_date.desc())
+        else:
+            query = query.order_by(Election.start_date.asc())
+
+    # Paginate the results
     paginated_elections = query.paginate(page=page, per_page=per_page,
                                          error_out=False)
 
+    # Format the results
+    formatted_elections = [{
+        'id': election.id,
+        'name': election.name,
+        'description': election.description,
+        'start_date': election.start_date.isoformat()
+        if election.start_date else None,
+        'end_date': election.end_date.isoformat()
+        if election.end_date else None,
+        'created_at': election.created_at,
+        'created_by': {
+            'id': election.created_by,
+            'first_name': first_name,
+            'last_name': last_name
+        },
+    } for election, first_name, last_name in paginated_elections.items]
+
     return jsonify({
-        'elections': [{
-            'id': election.id,
-            'name': election.name,
-            'description': election.description,
-            'created_at': election.created_at.isoformat()
-            if election.created_at else None
-        } for election in paginated_elections.items],
+        'elections': formatted_elections,
         'total': paginated_elections.total,
         'pages': paginated_elections.pages,
         'current_page': paginated_elections.page,
@@ -102,14 +134,33 @@ def create_election():
 @election_bp.route('/<int:election_id>', methods=['GET'])
 def get_election(election_id):
     """Get a specific election"""
-    election = Election.query.get_or_404(election_id)
-    return jsonify({
-        'id': election.id,
-        'name': election.name,
-        'description': election.description,
-        'created_at': election.created_at.isoformat(),
-        'created_by': election.created_by
-    })
+    election = db.session.query(
+        Election,
+        User.first_name,
+        User.last_name
+    ).join(
+        User, Election.created_by == User.id
+    ).filter(
+        Election.id == election_id
+    ).first_or_404(description='Election not found')
+
+    formatted_election = {
+        'id': election[0].id,
+        'name': election[0].name,
+        'description': election[0].description,
+        'start_date': election[0].start_date.isoformat()
+        if election[0].start_date else None,
+        'end_date': election[0].end_date.isoformat()
+        if election[0].end_date else None,
+        'created_at': election[0].created_at,
+        'created_by': {
+            'id': election[0].created_by,
+            'first_name': election[1],
+            'last_name': election[2]
+        },
+    }
+
+    return jsonify(formatted_election)
 
 
 @election_bp.route('/<int:election_id>/participants', methods=['GET'])
@@ -170,7 +221,7 @@ def participate_in_election(election_id):
                                                            election_id, role)
         db.session.commit()
     else:
-        return jsonify({'message': 
+        return jsonify({'message':
                         'User is already participating in this election'}), 400
 
     return jsonify({
@@ -390,6 +441,35 @@ def get_elections_for_user(user_id):
         return jsonify({'message': str(e)}), 500
 
 
+@election_bp.route('/<int:election_id>/cancel-participation', methods=['POST'])
+@jwt_required()
+def cancel_participation(election_id):
+    """Cancel participation in an election"""
+    current_user_id = get_jwt_identity()
+
+    # Check if election has started
+    election = Election.query.get(election_id)
+    if not election or election.start_date <= datetime.utcnow():
+        return jsonify({'message':
+                        'Cannot cancel participation after '
+                        'election has started'}), 400
+
+    # Remove user from election
+    db.session.execute(
+        user_election_roles.delete().where(
+            user_election_roles.c.user_id == current_user_id,
+            user_election_roles.c.election_id == election_id
+        )
+    )
+
+    db.session.commit()
+
+    return jsonify({
+        'message': 'Successfully canceled participation in election',
+        'election_id': election_id
+    })
+
+
 # Delete an election
 @election_bp.route('/<int:election_id>', methods=['DELETE'])
 def delete_election(election_id):
@@ -410,3 +490,76 @@ def update_election(election_id):
 
     db.session.commit()
     return jsonify({'message': 'Election updated successfully'})
+
+
+@election_bp.route('/<int:election_id>/results', methods=['GET'])
+@jwt_required()
+def get_election_results(election_id):
+    """Get results for an election"""
+    election = Election.query.get_or_404(election_id)
+
+    # Check if election has ended
+    if election.end_date > datetime.utcnow():
+        return jsonify({'message': 'Election has not ended yet'}), 400
+
+    # Get all voting methods used in this election
+    voting_methods = db.session.query(Vote.vote_type).filter(
+        Vote.election_id == election_id
+    ).distinct().all()
+
+    results = {}
+
+    # Get overall results
+    overall_results = db.session.query(
+        User.username,
+        func.count(Vote.id).label('vote_count')
+    ).join(
+        Vote, Vote.candidate_id == User.id
+    ).filter(
+        Vote.election_id == election_id
+    ).group_by(
+        User.username
+    ).order_by(
+        func.count(Vote.id).desc()
+    ).all()
+
+    results['overall'] = [{
+        'candidate': candidate,
+        'votes': votes
+    } for candidate, votes in overall_results]
+
+    # Get results by voting method
+    for method in voting_methods:
+        method_results = db.session.query(
+            User.username,
+            func.count(Vote.id).label('vote_count')
+        ).join(
+            Vote, Vote.candidate_id == User.id
+        ).filter(
+            Vote.election_id == election_id,
+            Vote.vote_type == method[0]
+        ).group_by(
+            User.username
+        ).order_by(
+            func.count(Vote.id).desc()
+        ).all()
+
+        results[method[0]] = [{
+            'candidate': candidate,
+            'votes': votes
+        } for candidate, votes in method_results]
+
+    # Get total votes
+    total_votes = db.session.query(func.count(Vote.id)).filter(
+        Vote.election_id == election_id
+    ).scalar()
+
+    return jsonify({
+        'election_id': election_id,
+        'election_name': election.name,
+        'results': results,
+        'total_votes': total_votes,
+        'voting_method': election.voting_method,
+        'start_date': election.start_date.isoformat(),
+        'end_date': election.end_date.isoformat()
+    })

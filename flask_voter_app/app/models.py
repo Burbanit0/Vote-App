@@ -4,7 +4,7 @@ from . import db
 from flask_bcrypt import Bcrypt
 from flask_jwt_extended import JWTManager
 from sqlalchemy import Column, Integer, String, ForeignKey, DateTime, \
-    Text, Enum, Boolean, func
+    Text, Enum, Boolean, ARRAY, func
 from sqlalchemy.orm import relationship
 
 bcrypt = Bcrypt()
@@ -51,7 +51,7 @@ class User(db.Model):
 
     # Track participation metrics
     elections_participated = Column(Integer, default=0)
-    elections_voted_in = Column(Integer, default=0)
+    elections_voted_in = db.Column(ARRAY(Integer), default=[])
     last_participation_date = Column(DateTime, nullable=True)
 
     # Basic profile information
@@ -78,9 +78,10 @@ class User(db.Model):
         self.elections_participated += 1
         self.last_participation_date = datetime.utcnow()
 
-    def increment_votes_cast(self):
-        """Increment the number of elections the user has voted in"""
-        self.elections_voted_in += 1
+    def add_voted_election(self, election_id):
+        """Add an election ID to the user's elections_voted_in list"""
+        if election_id not in self.elections_voted_in:
+            self.elections_voted_in = self.elections_voted_in + [election_id]
 
     def set_password(self, password):
         self.password_hash = bcrypt.generate_password_hash(password).decode(
@@ -151,7 +152,8 @@ class Vote(db.Model):
     voter_id = Column(Integer, ForeignKey('users.id'), nullable=False)
     candidate_id = Column(Integer, ForeignKey('users.id'), nullable=False)
     election_id = Column(Integer, ForeignKey('elections.id'), nullable=False)
-    vote_type = Column(String(50), nullable=False)
+    vote_type = Column(String(50), nullable=True)
+    cast_at = Column(DateTime, default=func.current_timestamp())
     rank = Column(Integer, nullable=True)
     weight = Column(db.Float, nullable=True)
     rating = Column(Integer, nullable=True)

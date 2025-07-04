@@ -29,7 +29,20 @@ def register():
         return jsonify({'message': 'Username already exists'}), 400
     try:
         register_user(username, password, role, first_name, last_name)
-        return jsonify({'message': 'User registered successfully'}), 201
+
+        user = User.query.filter_by(username=username).first()
+
+        access_token = create_access_token(identity=str(user.id))
+
+        return jsonify({
+            'access_token': access_token,
+            'user_id': user.id,
+            'username': user.username,
+            'role': user.role,
+            'first_name': user.first_name,
+            'last_name': user.last_name
+        }), 201
+
     except Exception as e:
         return jsonify({'error': str(e)}), 500
 
