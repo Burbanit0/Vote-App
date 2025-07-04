@@ -16,7 +16,7 @@ const ElectionCard: React.FC<ElectionCardProps> = ({ election }) => {
         <Card.Body>
             <Card.Title>{election.name}</Card.Title>
             <Card.Text>{election.description}</Card.Text>
-            <Card.Text>Created by: {election.created_by}</Card.Text>
+            <Card.Text>Created by: {election.created_by.first_name} {election.created_by.last_name}</Card.Text>
             <Card.Text>Created at: {new Date(election.created_at).toLocaleString()}</Card.Text>
         </Card.Body>
         </Card>
