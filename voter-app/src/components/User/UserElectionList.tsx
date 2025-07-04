@@ -7,16 +7,16 @@ import ElectionCard from "../Election/ElectionCard";
 
 const UserElectionList: React.FC = () => {
     const { user } = useAuth();
-    const[elections, setElections] = useState<Election[]>([]);
+    const[elections, setElections] = useState<Election[]| null>([]);
     const[loading, setLoading] = useState<boolean>(true);
     const[error, setError] = useState<string | null>(null);
 
     useEffect(() => {
         const fetchUserElection = async () => {
-          if (user?.voter) {
+          if (user) {
             try {
-              if (user.voter.user_id) {
-                const response = await fetchUserElectionList(user.voter?.user_id);
+              if (user.user_id) {
+                const response = await fetchUserElectionList(user.user_id);
                 setElections(response);
               }
             } catch (err) {
@@ -43,8 +43,8 @@ const UserElectionList: React.FC = () => {
     return (
         <Container>
             <h2>Elections</h2>
-            <Row>
-                {elections.map((election) => (
+            <Row className="mt-4">
+                {elections?.map((election) => (
                 <Col key={election.id} md={4}>
                     <ElectionCard election={election} />
                 </Col>
