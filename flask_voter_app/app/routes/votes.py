@@ -35,7 +35,7 @@ def cast_vote(election_id):
 
     if election.end_date <= datetime.utcnow():
         return jsonify({'message': 'Election has already ended'}), 400
-    
+
     # Check if the candidate exists and is a candidate in this election
     candidate_role = db.session.query(
         user_election_roles
