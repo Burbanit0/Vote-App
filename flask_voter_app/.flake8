@@ -1,0 +1,10 @@
+[flake8]
+exclude =
+    dist,
+    build,
+    node_modules,
+    *.min.py,
+    *.config.py,
+    migrations,
+    tests
+    venv

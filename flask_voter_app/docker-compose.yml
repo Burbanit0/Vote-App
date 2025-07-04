@@ -14,8 +14,14 @@ services:
       - postgres_data:/var/lib/postgresql/data
     networks:
       - mynetwork
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U myuser -d mydatabase"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
 
   web:
+    restart: always
     build: .
     container_name: flask_app
     environment:
