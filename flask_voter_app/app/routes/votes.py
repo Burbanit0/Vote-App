@@ -1,7 +1,148 @@
+# app/api/votes.py
 from flask import Blueprint, request, jsonify, current_app
-from ..models import Vote, Result, db
+from flask_jwt_extended import jwt_required, get_jwt_identity
+from app.models import Vote, User, ElectionRole, Result, \
+    Election, user_election_roles
+from app import db
+from datetime import datetime
+from app.utils.decorators import election_organizer_required
+from ..services.participation_service import ParticipationService
+from sqlalchemy import func
 
 bp = Blueprint('votes', __name__, url_prefix='/votes')
+
+
+@bp.route('/elections/<int:election_id>', methods=['POST'])
+@jwt_required()
+def cast_vote(election_id):
+    """Cast a vote in an election"""
+    user_id = get_jwt_identity()
+    data = request.get_json()
+
+    candidate_id = data.get('candidate_id')
+    # vote_type = data.get('vote_type', 'standard')
+    # rank = data.get('rank')
+    # weight = data.get('weight')
+    # rating = data.get('rating')
+
+    if not candidate_id:
+        return jsonify({'message': 'Candidate ID is required'}), 400
+
+    # Check if the election exists
+    election = Election.query.get_or_404(election_id)
+    if not election or election.start_date > datetime.utcnow():
+        return jsonify({'message': 'Election has not started yet'}), 400
+
+    if election.end_date <= datetime.utcnow():
+        return jsonify({'message': 'Election has already ended'}), 400
+
+    # Check if the candidate exists and is a candidate in this election
+    candidate_role = db.session.query(
+        user_election_roles
+    ).filter(
+        user_election_roles.c.user_id == candidate_id,
+        user_election_roles.c.election_id == election_id,
+        user_election_roles.c.role == ElectionRole.CANDIDATE
+    ).first()
+
+    if not candidate_role:
+        return jsonify({
+            'message': 'Candidate not found or not participating '
+            'in this election'}), 404
+
+    # Check if the user is participating to this election
+    voter_role = db.session.query(
+        user_election_roles
+    ).filter(
+        user_election_roles.c.user_id == user_id,
+        user_election_roles.c.election_id == election_id,
+    ).first()
+
+    if not voter_role:
+        return jsonify({
+            'message': 'User is not a voter in this election'}), 403
+
+    # Check if user has already voted in this election
+    has_voted = db.session.query(
+        db.session.query(user_election_roles)
+        .filter(
+            user_election_roles.c.user_id == user_id,
+            user_election_roles.c.election_id == election_id,
+            user_election_roles.c.has_voted is True
+        )
+        .exists()
+    ).scalar()
+
+    if has_voted:
+        return jsonify({'message':
+                        'User has already voted in this election'}), 400
+
+    # Create the vote
+    vote = Vote(
+        voter_id=user_id,
+        candidate_id=candidate_id,
+        election_id=election_id,
+        # vote_type=vote_type,
+        # rank=rank,
+        # weight=weight,
+        # rating=rating,
+        cast_at=datetime.utcnow()
+    )
+
+    db.session.execute(
+        user_election_roles.update()
+        .where(
+            user_election_roles.c.user_id == user_id,
+            user_election_roles.c.election_id == election_id
+        )
+        .values(has_voted=True)
+    )
+
+    ParticipationService.handle_vote_cast(user_id, election_id)
+
+    db.session.add(vote)
+    db.session.commit()
+
+    return jsonify({
+        'message': 'Vote cast successfully',
+        'vote_id': vote.id
+    })
+
+
+@bp.route('/elections/<int:election_id>/results', methods=['GET'])
+@election_organizer_required
+def get_election_results(election_id):
+    """Get results for an election - organizer or admin only"""
+    # Get all votes for this election
+    votes = db.session.query(
+        Vote.candidate_id,
+        User.first_name,
+        User.last_name,
+        func.count(Vote.id).label('vote_count')
+    ).join(
+        User, Vote.candidate_id == User.id
+    ).filter(
+        Vote.election_id == election_id
+    ).group_by(
+        Vote.candidate_id,
+        User.first_name,
+        User.last_name
+    ).all()
+
+    # Format results
+    results = [{
+        'candidate_id': candidate_id,
+        'candidate_name': f"{first_name} {last_name}",
+        'vote_count': vote_count
+    } for candidate_id, first_name, last_name, vote_count in votes]
+
+    # Sort by vote count descending
+    results.sort(key=lambda x: x['vote_count'], reverse=True)
+
+    return jsonify({
+        'election_id': election_id,
+        'results': results
+    })
 
 
 def update_results():

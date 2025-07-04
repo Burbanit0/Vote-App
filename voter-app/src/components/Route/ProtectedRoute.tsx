@@ -1,23 +1,22 @@
+// components/ProtectedRoute.tsx
 import React from 'react';
 import { Navigate } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
 
-const ProtectedRoute: React.FC<{ component: React.FC, role: 'Voter' | 'Admin' }> = ({ component: Component, role }) => {
+interface ProtectedRouteProps {
+  children: React.ReactNode;
+}
+
+const ProtectedRoute: React.FC<ProtectedRouteProps> = ({ children }) => {
   const { user } = useAuth();
 
-  // if (loading) {
-  //   return <div>Loading...</div>; // Render a loading indicator while fetching user data
-  // }
-
   if (!user) {
-    return <Navigate to="/login" />; // Redirect to login if no user is authenticated
+    // User is not authenticated, redirect to login
+    return <Navigate to="/login" />;
   }
 
-  if (user.role !== role) {
-    return <Navigate to="/" />; // Redirect to home or another page if the role doesn't match
-  }
-
-  return <Component />;
+  // User is authenticated, render the children
+  return <>{children}</>;
 };
 
 export default ProtectedRoute;
