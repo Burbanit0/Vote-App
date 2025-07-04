@@ -1,6 +1,7 @@
 from flask import Blueprint, request, jsonify
 from app.utils.auth_utils import register_user
-from ..models import User, ElectionRole, Vote, user_election_roles
+from ..models import User, ElectionRole, Vote, \
+    get_elections_user_has_voted_in, user_election_roles
 from flask_jwt_extended import create_access_token, get_jwt_identity, \
     jwt_required
 from ..utils.decorators import admin_required
@@ -32,10 +33,8 @@ def register():
 
         user = User.query.filter_by(username=username).first()
 
-        access_token = create_access_token(identity=str(user.id))
-
         return jsonify({
-            'access_token': access_token,
+            'message': 'User registered successfully',
             'user_id': user.id,
             'username': user.username,
             'role': user.role,
@@ -364,3 +363,22 @@ def get_participation_data():
         'level': level,
         'nextLevel': next_level
     })
+
+
+@auth_bp.route('/users/me/voted-elections', methods=['GET'])
+@jwt_required()
+def get_voted_elections():
+    """Get elections that the current user has voted in"""
+    current_user_id = get_jwt_identity()
+
+    elections = get_elections_user_has_voted_in(current_user_id)
+
+    return jsonify([{
+        'id': election.id,
+        'name': election.name,
+        'description': election.description,
+        'start_date': election.start_date.isoformat()
+        if election.start_date else None,
+        'end_date': election.end_date.isoformat()
+        if election.end_date else None
+    } for election in elections])

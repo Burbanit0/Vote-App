@@ -33,10 +33,15 @@ def test_register_user(app, client):
         response = client.post('/api/auth/register', json={
             'username': 'testuser',
             'password': 'testpass',
-            'role': 'Voter',
+            'role': 'User',
             'first_name': 'John',
             'last_name': 'Doe'
         })
         assert response.status_code == 201
         assert json.loads(response.data) == {'message':
-                                             'User registered successfully'}
+                                             'User registered successfully',
+                                             'username': 'testuser',
+                                             'user_id': 1,
+                                             'role': 'User',
+                                             'first_name': 'John',
+                                             'last_name': 'Doe'}

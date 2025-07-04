@@ -62,15 +62,20 @@ def cast_vote(election_id):
         return jsonify({
             'message': 'User is not a voter in this election'}), 403
 
-    # Check if the user has already voted in this election
-    existing_vote = Vote.query.filter_by(
-        voter_id=user_id,
-        election_id=election_id
-    ).first()
+    # Check if user has already voted in this election
+    has_voted = db.session.query(
+        db.session.query(user_election_roles)
+        .filter(
+            user_election_roles.c.user_id == user_id,
+            user_election_roles.c.election_id == election_id,
+            user_election_roles.c.has_voted is True
+        )
+        .exists()
+    ).scalar()
 
-    if existing_vote:
-        return jsonify({
-            'message': 'User has already voted in this election'}), 400
+    if has_voted:
+        return jsonify({'message':
+                        'User has already voted in this election'}), 400
 
     # Create the vote
     vote = Vote(
@@ -84,9 +89,15 @@ def cast_vote(election_id):
         cast_at=datetime.utcnow()
     )
 
-    user = User.query.get(user_id)
-    if user:
-        user.add_voted_election(election_id)
+    db.session.execute(
+        user_election_roles.update()
+        .where(
+            user_election_roles.c.user_id == user_id,
+            user_election_roles.c.election_id == election_id
+        )
+        .values(has_voted=True)
+    )
+
     ParticipationService.handle_vote_cast(user_id, election_id)
 
     db.session.add(vote)

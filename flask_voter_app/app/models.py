@@ -4,7 +4,7 @@ from . import db
 from flask_bcrypt import Bcrypt
 from flask_jwt_extended import JWTManager
 from sqlalchemy import Column, Integer, String, ForeignKey, DateTime, \
-    Text, Enum, Boolean, ARRAY, func
+    Text, Enum, Boolean, func
 from sqlalchemy.orm import relationship
 
 bcrypt = Bcrypt()
@@ -33,6 +33,9 @@ user_election_roles = db.Table('user_election_roles',
                                Column('role',
                                       election_role_enum,
                                       nullable=False),
+                               Column('has_voted', Boolean,
+                                      default=False,
+                                      nullable=False),
                                Column('additional_data',
                                       Text,
                                       nullable=True)  # For role-specific data
@@ -51,7 +54,6 @@ class User(db.Model):
 
     # Track participation metrics
     elections_participated = Column(Integer, default=0)
-    elections_voted_in = db.Column(ARRAY(Integer), default=[])
     last_participation_date = Column(DateTime, nullable=True)
 
     # Basic profile information
@@ -77,11 +79,6 @@ class User(db.Model):
         """Increment the user's participation count"""
         self.elections_participated += 1
         self.last_participation_date = datetime.utcnow()
-
-    def add_voted_election(self, election_id):
-        """Add an election ID to the user's elections_voted_in list"""
-        if election_id not in self.elections_voted_in:
-            self.elections_voted_in = self.elections_voted_in + [election_id]
 
     def set_password(self, password):
         self.password_hash = bcrypt.generate_password_hash(password).decode(
@@ -175,3 +172,29 @@ class Result(db.Model):
     # Relationships
     candidate = relationship("User")
     election = relationship("Election")
+
+
+def get_elections_user_has_voted_in(user_id):
+    """Get elections where a user has voted"""
+    elections = db.session.query(Election).join(
+        user_election_roles,
+        user_election_roles.c.election_id == Election.id
+    ).filter(
+        user_election_roles.c.user_id == user_id,
+        user_election_roles.c.has_voted is True
+    ).all()
+
+    return elections
+
+
+def has_user_voted_in_election(user_id, election_id):
+    """Check if a user has voted in a specific election"""
+    return db.session.query(
+        db.session.query(user_election_roles)
+        .filter(
+            user_election_roles.c.user_id == user_id,
+            user_election_roles.c.election_id == election_id,
+            user_election_roles.c.has_voted is True
+        )
+        .exists()
+    ).scalar()
