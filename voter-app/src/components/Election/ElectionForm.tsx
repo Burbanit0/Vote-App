@@ -6,13 +6,14 @@ const ElectionForm: React.FC = () => {
   const [name, setName] = useState('');
   const [description, setDescription] = useState('');
   const [startDate, setStartDate] = useState('');
+  const [endDate, setEndDate] = useState('');
   const [error, setError] = useState<string | null>(null);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError(null);
     try {
-      await createElection(name,description, startDate);
+      await createElection(name,description, startDate, endDate);
     } catch (error) {
       setError('Failed to create election.');
     }

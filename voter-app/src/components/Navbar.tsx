@@ -24,23 +24,12 @@ const Navbar: React.FC = () => {
         <BootstrapNavbar.Toggle aria-controls="basic-navbar-nav" />
         <BootstrapNavbar.Collapse id="basic-navbar-nav">
           <Nav className="me-auto">
-            {user && user.role === 'Admin' && (
+            {user && (
               <>
-                <Nav.Link href="/candidates">Candidates</Nav.Link>
-                <Nav.Link href="/voters">Voters</Nav.Link>
-                <Nav.Link href="/vote">Vote</Nav.Link>
-                <Nav.Link href="/elections">Elections</Nav.Link>
-              </>
-            )}
-            {user && user.role === 'Voter' && (
-              <>
-                {/* <Nav.Link href="/vote">Vote</Nav.Link> */}
+                <Nav.Link href="/parties">Parties</Nav.Link>
+                <Nav.Link href="/profile">Profile</Nav.Link>
                 <Nav.Link href="/simulation">Simulation</Nav.Link>
               </>
-            )}
-            {/* <Nav.Link href="/results">Results</Nav.Link> */}
-            {user && (
-              <Nav.Link href="/profile">Profile</Nav.Link>
             )}
           </Nav>
           <Nav>

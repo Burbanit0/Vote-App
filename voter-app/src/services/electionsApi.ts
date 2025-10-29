@@ -1,9 +1,9 @@
 import axios from 'axios';
-import { Election, Election_, PaginatedResponse, Participant, ParticipationStatus } from '../types';
+import { Election, Election_, PaginatedResponse, Participant, ParticipationStatus, UpdateElectionData } from '../types';
 
 const API_BASE_URL = 'http://localhost:4433';
 
-export const createElection = async (name: string, description: string, startDate: string) => {
+export const createElection = async (name: string, description: string, startDate: string, endDate: string) => {
   try {
     const storedUserJSON = localStorage.getItem('user');
     let token = "";
@@ -21,8 +21,10 @@ export const createElection = async (name: string, description: string, startDat
     const response = await axios.post(`${API_BASE_URL}/elections`, {
       name: name,
       description: description,
-      create_at: startDate,
-      created_by: storedUser?.user_id
+      create_at: Date.now(),
+      start_date: startDate,
+      end_date: endDate,
+      created_by: storedUser?.user_id,
     }, {
       headers: {
         Authorization: `Bearer ${token}`,
@@ -35,14 +37,15 @@ export const createElection = async (name: string, description: string, startDat
   }
 }
 
-export const fetchAllElections = async (currentPage: number, searchTerm:string, sortBy:string, sortDir:string): Promise<PaginatedResponse> => {
+export const fetchAllElections = async (currentPage: number, searchTerm:string, sortBy:string, sortDir:string, status:string): Promise<PaginatedResponse> => {
   try {
     const response = await axios.get<PaginatedResponse>(`${API_BASE_URL}/elections`, {
       params:{
         page: currentPage,
         search: searchTerm,
         sort_by: sortBy,
-        sort_dir: sortDir
+        sort_dir: sortDir,
+        status: status,
       }
     });
     return response.data;
@@ -223,7 +226,7 @@ export const cancelElectionParticipation = async (election_id:number) => {
 }
 
 export const fetchElectionResults = async (election_id:number) => {
-  const storedUserJSON = localStorage.getItem('user');
+      const storedUserJSON = localStorage.getItem('user');
       let token = "";
       let storedUser: { access_token: string } | null = null;
 
@@ -243,6 +246,54 @@ export const fetchElectionResults = async (election_id:number) => {
         return response.data;
       } catch(error) {
         console.error('Failed to fetch the result for the election :', error)
+        throw(error);
+      }
+}
+
+export const updateElection = async (electionId: number, electionData: UpdateElectionData): Promise<Election> => {
+      const storedUserJSON = localStorage.getItem('user');
+      let token = "";
+      let storedUser: { access_token: string } | null = null;
+
+      if (storedUserJSON !== null) {
+        storedUser = JSON.parse(storedUserJSON);
+      }
+      if (storedUser !== null) {
+        token = storedUser.access_token;
+      } else {
+        console.error('User data not found in localStorage.');
+      }
+      try {
+        const response = await axios.put(`${API_BASE_URL}/elections/${electionId}`, electionData, 
+          { headers: { Authorization: `Bearer ${token}` } }
+        );
+        return response.data.election;
+      } catch(error) {
+        console.error('Failed to update the election:', error)
+        throw(error);
+      }
+}
+
+export const deleteElection = async (electionId: number) => {
+      const storedUserJSON = localStorage.getItem('user');
+      let token = "";
+      let storedUser: { access_token: string } | null = null;
+
+      if (storedUserJSON !== null) {
+        storedUser = JSON.parse(storedUserJSON);
+      }
+      if (storedUser !== null) {
+        token = storedUser.access_token;
+      } else {
+        console.error('User data not found in localStorage.');
+      }
+      try {
+        const response = await axios.delete(`${API_BASE_URL}/elections/${electionId}`,
+          { headers: { Authorization: `Bearer ${token}` } }
+        );
+        return response.data;
+      } catch(error) {
+        console.error('Failed to delete the election:', error)
         throw(error);
       }
 }

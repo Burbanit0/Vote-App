@@ -1,13 +1,14 @@
 // src/components/ElectionDetailPage.tsx
 import { useEffect, useState } from 'react';
 import { useParams, Link } from 'react-router-dom';
-import { Container, Row, Col, Card, Button, Alert, Spinner } from 'react-bootstrap';
+import { Container, Row, Col, Card, Button, Alert, Spinner, Accordion } from 'react-bootstrap';
 import { fetchElectionById, addVoterToElection, fetchParticipants, addCandidateToElection } from '../services/';
 import { Election_, Participant } from '../types';
 import ElectionResults from '../components/Election/ElectionResult';
 import useElectionParticipation from '../hooks/useElectionParticipation';
 import VoterDashBoard from '../components/User/VoterDashBoard';
 import CandidateDashBoard from '../components/User/CandidateDashBoard';
+import OrganizerDashBoard from '../components/User/OrganizerDashBoard';
 
 const ElectionDetail: React.FC = () => {
   const { id } = useParams<{ id: string }>();
@@ -126,6 +127,8 @@ const ElectionDetail: React.FC = () => {
               <Card.Text>{election?.description}</Card.Text>
               <Card.Text>Created at: {election?.created_at ? new Date(election.created_at).toLocaleString() : 'N/A'}</Card.Text>
               <Card.Text>Organizer: {election?.created_by?.first_name} {election?.created_by?.last_name}</Card.Text>
+              <Card.Text>Start the: {election?.start_date ? new Date(election.start_date).toLocaleString() : 'N/A'} </Card.Text>
+              <Card.Text>End the: {election?.end_date ? new Date(election.end_date).toLocaleString() : 'N/A'} </Card.Text>
             </Card.Body>
           </Card>
         </Col>
@@ -180,24 +183,47 @@ const ElectionDetail: React.FC = () => {
           <div>
             <h4>Participant View</h4>
             <p>You are participating in this election as a {role}.</p>
-            {/* Add participant-specific content here */}
             {role === 'candidate' && (
-            <div>
-                <h5>Candidate Dashboard</h5>
-                <CandidateDashBoard election={election} candidates={participants?.filter(participant => participant.role === "candidate")}/>
-            </div>
+            <Accordion defaultActiveKey="0" className="mb-3">
+                <Accordion.Item eventKey="0">
+                  <Accordion.Header>
+                    <div className="d-flex justify-content-between align-items-center w-100">
+                      <h5 className="mb-0">Candidates</h5>
+                    </div>
+                  </Accordion.Header>
+                  <Accordion.Body>
+                    <CandidateDashBoard election={election} candidates={participants?.filter(participant => participant.role === "candidate")} />
+                  </Accordion.Body>
+                </Accordion.Item>
+              </Accordion>
             )}
             {role === 'voter' && (
-            <div>
-                <h5>Voter Dashboard</h5>
-                <VoterDashBoard election={election} candidates={participants?.filter(participant => participant.role === "candidate")}/>
-            </div>
+            <Accordion defaultActiveKey="1" className="mb-3">
+              <Accordion.Item eventKey="1">
+                <Accordion.Header>
+                  <div className="d-flex justify-content-between align-items-center w-100">
+                    <h5 className="mb-0">Voters</h5>
+                  </div>
+                </Accordion.Header>
+                <Accordion.Body>
+                  <VoterDashBoard election={election} candidates={participants?.filter(participant => participant.role === "candidate")}/>
+                </Accordion.Body>
+              </Accordion.Item>
+            </Accordion>
             )}
             {role === 'organizer' && (
-            <div>
-                <h5>Organizer Dashboard</h5>
-                {/* Organizer-specific content */}
-            </div>
+              <Accordion defaultActiveKey="2" className="mb-3">
+                <Accordion.Item eventKey="2">
+                  <Accordion.Header>
+                    <div className="d-flex justify-content-between align-items-center w-100">
+                      <h5 className="mb-0">Organizers</h5>
+                    </div>
+                  </Accordion.Header>
+                  <Accordion.Body>
+                    <OrganizerDashBoard election={election} candidates={participants?.filter(participant => participant.role === "candidate")} />
+                  </Accordion.Body>
+                </Accordion.Item>
+              </Accordion>
             )}
             </div>
             ) : (

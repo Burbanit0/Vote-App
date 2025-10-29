@@ -1,20 +1,18 @@
-// CreateElectionModal.tsx
+// CreatePartyModal.tsx
 import React, { useState } from 'react';
 import { Modal, Button, Form, Alert } from 'react-bootstrap';
 import axios from 'axios';
-import { createElection } from '../../services';
+import { createParty } from '../../services';
 
-interface CreateElectionModalProps {
+interface CreatePartyModalProps {
   show: boolean;
   onHide: () => void;
-  onElectionCreated: () => void;
+  onPartyCreated: () => void;
 }
 
-const CreateElectionModal: React.FC<CreateElectionModalProps> = ({ show, onHide, onElectionCreated }) => {
+const CreatePartyModal: React.FC<CreatePartyModalProps> = ({ show, onHide, onPartyCreated }) => {
   const [name, setName] = useState('');
   const [description, setDescription] = useState('');
-  const [startDate, setStartDate] = useState('');
-  const [endDate, setEndDate] = useState('');
   const [error, setError] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
@@ -24,21 +22,19 @@ const CreateElectionModal: React.FC<CreateElectionModalProps> = ({ show, onHide,
     setIsSubmitting(true);
 
     try {
-      await createElection(name, description, startDate, endDate);
+      await createParty(name, description,);
       // Reset form
       setName('');
       setDescription('');
-      setStartDate('');
-      setEndDate('');
 
       // Notify parent component
-      onElectionCreated();
+      onPartyCreated();
 
       // Close modal
       onHide();
     } catch (err) {
       if (axios.isAxiosError(err)) {
-        setError(err.response?.data?.message || 'Failed to create election');
+        setError(err.response?.data?.message || 'Failed to create party');
       } else {
         setError('An unexpected error occurred');
       }
@@ -50,13 +46,13 @@ const CreateElectionModal: React.FC<CreateElectionModalProps> = ({ show, onHide,
   return (
     <Modal show={show} onHide={onHide} size="lg">
       <Modal.Header closeButton>
-        <Modal.Title>Create New Election</Modal.Title>
+        <Modal.Title>Create New Party</Modal.Title>
       </Modal.Header>
       <Modal.Body>
         {error && <Alert variant="danger">{error}</Alert>}
         <Form onSubmit={handleSubmit}>
           <Form.Group className="mb-3">
-            <Form.Label>Election Name</Form.Label>
+            <Form.Label>Party Name</Form.Label>
             <Form.Control
               type="text"
               value={name}
@@ -74,26 +70,6 @@ const CreateElectionModal: React.FC<CreateElectionModalProps> = ({ show, onHide,
               onChange={(e) => setDescription(e.target.value)}
             />
           </Form.Group>
-
-          <Form.Group className="mb-3">
-            <Form.Label>Start Date</Form.Label>
-            <Form.Control
-              type="datetime-local"
-              value={startDate}
-              onChange={(e) => setStartDate(e.target.value)}
-              required
-            />
-          </Form.Group>
-
-          <Form.Group className="mb-3">
-            <Form.Label>End Date</Form.Label>
-            <Form.Control
-              type="datetime-local"
-              value={endDate}
-              onChange={(e) => setEndDate(e.target.value)}
-              required
-            />
-          </Form.Group>
         </Form>
       </Modal.Body>
       <Modal.Footer>
@@ -106,11 +82,11 @@ const CreateElectionModal: React.FC<CreateElectionModalProps> = ({ show, onHide,
               <span className="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span>
               Creating...
             </>
-          ) : 'Create Election'}
+          ) : 'Create Party'}
         </Button>
       </Modal.Footer>
     </Modal>
   );
 };
 
-export default CreateElectionModal;
+export default CreatePartyModal;

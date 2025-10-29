@@ -1,10 +1,12 @@
 // src/components/Profile.tsx
 
 import React, { useState, useEffect } from 'react';
-import { Card, Container, Alert } from 'react-bootstrap';
+import { Card, Container, Alert, ListGroup } from 'react-bootstrap';
 import { useAuth } from '../../context/AuthContext';
 import { Profile_ } from '../../types';
 import { fetchProfileData } from '../../services';
+import PartyMembership from '../Party/PartyMembership';
+import profilePicture from '../../../src/assets/profile_picture/profile_picture_user3.jpg'
 
 
 const Profile: React.FC = () => {
@@ -45,15 +47,25 @@ const Profile: React.FC = () => {
 
   return (
     <Container className="mt-5">
-      <h1 className="text-center mb-4">User Profile</h1>
       <Card>
         <Card.Body>
-          <Card.Title>{profile?.username}</Card.Title>
+          <Card.Title className='text-center'>{profile?.username}</Card.Title>
           {profile && (
             <div>
-              <Card.Text><strong>First Name:</strong> {profile.first_name}</Card.Text>
-              <Card.Text><strong>Last Name:</strong> {profile.last_name}</Card.Text>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
+                <div>
+                  <Card.Img src={profilePicture} style={{ maxWidth: '100px' }} />
+                </div>
+                <div>
+                  <Card.Text><strong>First Name:</strong> {profile.first_name}</Card.Text>
+                  <Card.Text><strong>Last Name:</strong> {profile.last_name}</Card.Text>
+                </div>
+              </div>
+              <div>
+                <PartyMembership />
+              </div>
             </div>
+            
           )}
         </Card.Body>
       </Card>
@@ -62,9 +74,30 @@ const Profile: React.FC = () => {
           <Card.Title>Participation details</Card.Title>
           {profile?.participation_details && (
             <div>
-              <Card.Text><strong>Voted at:</strong> {profile.participation_details.voter} </Card.Text>
-              <Card.Text><strong>Candidated at:</strong> {profile.participation_details.candidate} </Card.Text>
-              <Card.Text><strong>Organized:</strong> {profile.participation_details.organizer} </Card.Text>
+              <ListGroup>
+                <Card.Text>Voter: </Card.Text>
+                {profile?.participation_details.voter.length > 0 ? (
+                  profile?.participation_details.voter.map((voter) => (
+                    <ListGroup.Item>{voter}</ListGroup.Item>
+                  ))
+                ) : (<Card.Text>None</Card.Text>)}
+              </ListGroup>
+              <ListGroup>
+                <Card.Text>Candidate: </Card.Text>
+                {profile?.participation_details.candidate.length > 0 ? (
+                  profile?.participation_details.candidate.map((candidate) => (
+                    <ListGroup.Item>{candidate}</ListGroup.Item>
+                  ))
+                ) : (<Card.Text>None</Card.Text>)}
+              </ListGroup>
+              <ListGroup>
+                <Card.Text>Organizer: </Card.Text>
+                {profile?.participation_details.organizer.length > 0 ? (
+                  profile?.participation_details.organizer.map((organizer) => (
+                    <ListGroup.Item>{organizer}</ListGroup.Item>
+                  ))
+                ) : (<Card.Text>None</Card.Text>)}
+              </ListGroup>
             </div>
           )}
         </Card.Body>

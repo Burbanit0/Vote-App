@@ -145,3 +145,31 @@ export const fetchPartyById = async (id: number): Promise<Party> => {
     throw error;
   }
 }
+
+export const fetchUserParty = async (): Promise<Party> => {
+    const storedUserJSON = localStorage.getItem('user');
+    let token = "";
+    let storedUser: { access_token: string; role: string } | null = null;
+    if (storedUserJSON !== null) {
+        storedUser = JSON.parse(storedUserJSON);
+    }
+    if (storedUser !== null) {
+        token = storedUser.access_token;
+    } else {
+        console.error('User data not found in localStorage.');
+    }
+    try {
+        const response = await axios.get<Party>(
+            `${API_BASE_URL}/api/auth/users/me/party`, 
+            {
+                headers: {
+                    Authorization: `Bearer ${token}`,
+                }
+            }
+        );
+        return response.data;
+    } catch (error) {
+        console.error('Error fetching the party:', error);
+        throw error;
+    }
+}
