@@ -25,6 +25,7 @@ def get_all_elections():
     page = request.args.get('page', 1, type=int)
     per_page = request.args.get('per_page', 10, type=int)
     search = request.args.get('search', '', type=str)
+    status = request.args.get('status', '', type=str)
     sort_by = request.args.get('sort_by', 'name', type=str)
     sort_dir = request.args.get('sort_dir', 'asc', type=str)
 
@@ -42,6 +43,11 @@ def get_all_elections():
         query = query.filter(
             (Election.name.ilike(f'%{search}%')) |
             (Election.description.ilike(f'%{search}%'))
+        )
+
+    if status != 'all':
+        query = query.filter(
+            Election.status.ilike(f'%{status}')
         )
 
     # Apply sorting
@@ -65,6 +71,7 @@ def get_all_elections():
         'id': election.id,
         'name': election.name,
         'description': election.description,
+        'status': election.status,
         'start_date': election.start_date.isoformat()
         if election.start_date else None,
         'end_date': election.end_date.isoformat()
@@ -88,8 +95,6 @@ def get_all_elections():
 
 @election_bp.route('/', methods=['POST'])
 @jwt_required()
-@organizer_eligible_required
-@not_candidate_in_election
 def create_election():
     """Create a new election"""
     current_user_id = get_jwt_identity()
@@ -97,6 +102,8 @@ def create_election():
     data = request.get_json()
     name = data.get('name')
     description = data.get('description')
+    start_date = data.get('start_date')
+    end_date = data.get('end_date')
     created_at = data.get('created_at')
 
     if not name:
@@ -105,9 +112,14 @@ def create_election():
     election = Election(
         name=name,
         description=description,
+        start_date=start_date,
+        end_date=end_date,
         created_by=current_user_id,
         created_at=created_at
     )
+
+    db.session.add(election)
+    db.session.commit()
 
     # Add the creator as an organizer
     db.session.execute(
@@ -118,13 +130,14 @@ def create_election():
         )
     )
 
-    db.session.add(election)
     db.session.commit()
 
     return jsonify({
         'id': election.id,
         'name': election.name,
         'description': election.description,
+        'start_date': election.start_date.isoformat(),
+        'end_date': election.end_date.isoformat(),
         'created_at': election.created_at.isoformat(),
         'created_by': election.created_by
     }), 201
@@ -148,6 +161,7 @@ def get_election(election_id):
         'id': election[0].id,
         'name': election[0].name,
         'description': election[0].description,
+        'status': election[0].status,
         'start_date': election[0].start_date.isoformat()
         if election[0].start_date else None,
         'end_date': election[0].end_date.isoformat()
@@ -432,7 +446,12 @@ def get_elections_for_user(user_id):
             'id': election.id,
             'name': election.name,
             'description': election.description,
-            'created_by': election.created_by,
+            'status': election.status,
+            'created_by': {
+                'id': election.created_by,
+                'first_name': user.first_name,
+                'last_name': user.last_name,
+            },
             'created_at': election.created_at.isoformat()
             if election.created_at
             else None
@@ -472,6 +491,8 @@ def cancel_participation(election_id):
 
 # Delete an election
 @election_bp.route('/<int:election_id>', methods=['DELETE'])
+# add a decorator to check that the user is an organizer
+@jwt_required()
 def delete_election(election_id):
     election = Election.query.get_or_404(election_id)
     db.session.delete(election)
@@ -480,16 +501,59 @@ def delete_election(election_id):
     return jsonify({'result': True})
 
 
-@election_bp.route('/elections/<int:election_id>', methods=['PUT'])
+@election_bp.route('/<int:election_id>', methods=['PUT'])
+@jwt_required
+# decorator to check that the user is the organizator of the election
 def update_election(election_id):
-    data = request.get_json()
+    """Update an election"""
     election = Election.query.get_or_404(election_id)
+    data = request.get_json()
 
-    election.name = data.get('name', election.name)
-    election.description = data.get('description', election.description)
+    # Validate and update fields
+    if 'name' in data:
+        if not data['name']:
+            return jsonify({'message': 'Name cannot be empty'}), 400
+        election.name = data['name']
+
+    if 'description' in data:
+        election.description = data['description']
+
+    if 'start_date' in data:
+        try:
+            start_date = datetime.fromisoformat(data['start_date'])
+            if start_date < datetime.utcnow():
+                return jsonify({'message':
+                                'Start date cannot be in the past'}), 400
+            election.start_date = start_date
+        except ValueError:
+            return jsonify({'message':
+                            'Invalid start date format.'}), 400
+
+    if 'end_date' in data:
+        try:
+            end_date = datetime.fromisoformat(data['end_date'])
+            if election.start_date and end_date < election.start_date:
+                return jsonify({'message':
+                                'End date cannot be before start date'}), 400
+            election.end_date = end_date
+        except ValueError:
+            return jsonify({'message':
+                            'Invalid end date format.'}), 400
 
     db.session.commit()
-    return jsonify({'message': 'Election updated successfully'})
+
+    return jsonify({
+        'message': 'Election updated successfully',
+        'election': {
+            'id': election.id,
+            'name': election.name,
+            'description': election.description,
+            'start_date': election.start_date.isoformat()
+            if election.start_date else None,
+            'end_date': election.end_date.isoformat()
+            if election.end_date else None,
+        }
+    })
 
 
 @election_bp.route('/<int:election_id>/results', methods=['GET'])

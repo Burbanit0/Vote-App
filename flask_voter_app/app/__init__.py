@@ -42,9 +42,12 @@ def create_app(config_object='config.Config'):
     db.init_app(app)
 
     migrate.init_app(app, db)
-
+    
     with app.app_context():
         db.create_all()  # Create tables
+
+    from .tasks.scheduler import init_scheduler
+    init_scheduler(app)
 
     from .routes import votes, users, \
         simulation, elections, parties

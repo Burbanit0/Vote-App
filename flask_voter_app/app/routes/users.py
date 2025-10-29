@@ -1,6 +1,6 @@
 from flask import Blueprint, request, jsonify
 from app.utils.auth_utils import register_user
-from ..models import User, ElectionRole, Vote, \
+from ..models import User, ElectionRole, Vote, Party, Election, \
     get_elections_user_has_voted_in, user_election_roles
 from flask_jwt_extended import create_access_token, get_jwt_identity, \
     jwt_required
@@ -137,7 +137,8 @@ def get_profile():
     }
 
     for election_id, role in participation:
-        participation_details[role.value].append(election_id)
+        election = Election.query.get(election_id)
+        participation_details[role.value].append(election.name)
 
     # Get elections where user has voted
     voted_elections = db.session.query(
@@ -152,9 +153,9 @@ def get_profile():
         'first_name': current_user.first_name,
         'last_name': current_user.last_name,
         'role': current_user.role,
+        'party_id': current_user.party_id,
         'is_admin': current_user.role == 'Admin',
         'elections_participated': current_user.elections_participated,
-        'elections_voted_in': current_user.elections_voted_in,
         'participation_details': participation_details,
         'voted_in_elections':
         [election_id for (election_id,) in voted_elections]
@@ -201,7 +202,6 @@ def get_participation_requirements():
         },
         'organizer_requirements': {
             'minimum_elections_participated': 15,
-            'minimum_elections_voted_in': 5,
             'current_elections_as_organizer': organizer_elections,
             'eligible_for_organizer': user.elections_participated >= 15
             and voted_elections_count >= 5
@@ -269,7 +269,6 @@ def get_all_users():
         'last_name': user.last_name,
         'role': user.role,
         'elections_participated': user.elections_participated,
-        'elections_voted_in': user.elections_voted_in
     } for user in users])
 
 
@@ -308,8 +307,8 @@ def get_user(user_id):
         'first_name': user.first_name,
         'last_name': user.last_name,
         'role': user.role,
+        'party_id': user.party_id,
         'elections_participated': user.elections_participated,
-        'elections_voted_in': user.elections_voted_in,
         'participation_details': participation_details
     })
 
@@ -382,3 +381,27 @@ def get_voted_elections():
         'end_date': election.end_date.isoformat()
         if election.end_date else None
     } for election in elections])
+
+
+@auth_bp.route('/users/me/party', methods=['GET'])
+@jwt_required()
+def get_user_party():
+
+    current_user_id = get_jwt_identity()
+
+    user = User.query.get(current_user_id)
+
+    if not user:
+        return jsonify({'message': 'User not found'}), 404
+
+    party = Party.query.get(user.party_id)
+
+    if not party:
+        return jsonify({'message':
+                        'This user is not a member of a party'}), 404
+
+    return jsonify({
+        'id': party.id,
+        'name': party.name,
+        'description': party.description
+    })
