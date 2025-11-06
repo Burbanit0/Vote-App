@@ -57,8 +57,9 @@ export interface Election {
     candidates: number[];
     created_at: string;
     created_by: Voter;
-    start_date: number;
-    status: 'active' | 'completed' | 'upcoming';
+    start_date: string;
+    end_date: string;
+    status: string;
 }
 
 export interface Election_ {
@@ -128,4 +129,12 @@ export interface ParticipationData {
   points: number;
   nextLevel: number;
   level: string;
+}
+
+export interface UpdateElectionData {
+  name?: string;
+  description?: string;
+  start_date?: string;
+  end_date?: string;
+  voting_method?: string;
 }

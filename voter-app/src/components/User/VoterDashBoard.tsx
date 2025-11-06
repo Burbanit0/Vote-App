@@ -82,10 +82,10 @@ const VoterDashBoard: React.FC<VoterDashBoardProps> = ({election, candidates}) =
                     <ListGroup>
                         {candidates?.map(candidate => (
                         <ListGroup.Item
-                            key={candidate.id}
+                            key={candidate.user_id}
                             action
-                            active={selectedCandidate === candidate.id}
-                            onClick={() => setSelectedCandidate(candidate.id)}
+                            active={selectedCandidate === candidate.user_id}
+                            onClick={() => setSelectedCandidate(candidate.user_id)}
                         >
                             {candidate.first_name} {candidate.last_name}
                         </ListGroup.Item>

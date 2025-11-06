@@ -46,6 +46,9 @@ def create_app(config_object='config.Config'):
     with app.app_context():
         db.create_all()  # Create tables
 
+    from .tasks.scheduler import init_scheduler
+    init_scheduler(app)
+
     from .routes import votes, users, \
         simulation, elections, parties
     app.register_blueprint(votes.bp)

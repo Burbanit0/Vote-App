@@ -12,14 +12,6 @@ interface SimulationFormProps {
   simulateVotes: () => void;
   loading: boolean;
 }
-// interface party {
-//   name:string;
-// }
-
-// interface candidate {
-//   name: string;
-//   party: party;
-// }
 
 interface cData {
   group: string;
@@ -29,16 +21,10 @@ interface cData {
 }
 
 interface vData {
-  // group: string;
   x:number;
   y:number;
-  //size: number;
 }
 
-// interface formData {
-//   candidates: candidate[];
-//   parties: party[]
-// }
 
 const MIN_CANDIDATES = 1;
 const MAX_CANDIDATES = 10;

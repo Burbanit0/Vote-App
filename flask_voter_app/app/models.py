@@ -113,6 +113,7 @@ class Election(db.Model):
     start_date = Column(DateTime, nullable=True)
     end_date = Column(DateTime, nullable=True)
     processed = Column(Boolean, default=False)
+    status = Column(String(100), nullable=True)
 
     # Relationship to participants with roles
     participants = relationship(

@@ -50,7 +50,6 @@ const PartyMembers: React.FC = () => {
           <thead>
             <tr>
               <th>Username</th>
-              <th>Email</th>
               <th>Name</th>
             </tr>
           </thead>

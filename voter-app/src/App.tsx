@@ -7,7 +7,6 @@ import ErrorBoundary from './components/Route/ErrorBoundary';
 
 import HomePage from './pages/HomePage';
 import SimulationPage from './pages/SimulationPage';
-import ElectionPage from './pages/ElectionPage';
 import ElectionDetail from './pages/ElectionDetailPage';
 import Login from './pages/Login';
 import Register from './pages/Register';
@@ -39,7 +38,6 @@ const AppContent: React.FC = () => {
 
           <Route path="/" element={<AuthGuard component={HomePage} />} />
 
-          <Route path="/elections" element={<AuthGuard component={ElectionPage}/> } />
           <Route path="/create_election" element={<AuthGuard component={ElectionForm}/> } />
           <Route path="/elections/:id" element={<AuthGuard component={ElectionDetail}/> } />
 

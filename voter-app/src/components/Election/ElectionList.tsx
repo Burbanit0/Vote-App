@@ -13,7 +13,7 @@ const ElectionList: React.FC = () => {
   const [elections, setElections] = useState<Election[]>([]);
   const [searchTerm, setSearchTerm] = useState('');
   const [currentPage, setCurrentPage] = useState(1);
-  const [totalPages, seetTotalPages] = useState(1);
+  const [totalPages, setTotalPages] = useState(1);
   const [loading, setLoading] = useState<boolean>(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -36,9 +36,9 @@ const ElectionList: React.FC = () => {
     setLoading(true);
     setError(null);
     try {
-      const response = await fetchAllElections(currentPage, searchTerm, sortBy, sortDirection); // Adjust the URL as needed
+      const response = await fetchAllElections(currentPage, searchTerm, sortBy, sortDirection, filter); // Adjust the URL as needed
       setElections(response.elections);
-      seetTotalPages(response.pages);
+      setTotalPages(response.pages);
     } catch (err) {
       setError('Failed to fetch elections.');
     } finally {
@@ -48,7 +48,7 @@ const ElectionList: React.FC = () => {
 
   useEffect(() => {
     fetchElections();
-  }, [currentPage, searchTerm]);
+  }, [currentPage, searchTerm, filter, sortBy]);
 
   const handleSearch = (e: React.FormEvent) => {
     e.preventDefault();
@@ -142,7 +142,7 @@ const ElectionList: React.FC = () => {
             title={`Sort by: ${sortBy} (${sortDirection})`}
             variant="outline-secondary"
           >
-            <Dropdown.Item onClick={() => { setSortBy('name'); setSortDirection('asc'); }}>Name (A-Z)</Dropdown.Item>
+            <Dropdown.Item onClick={() => { setSortBy('name'); setSortDirection('asc');  }}>Name (A-Z)</Dropdown.Item>
             <Dropdown.Item onClick={() => { setSortBy('name'); setSortDirection('desc'); }}>Name (Z-A)</Dropdown.Item>
             <Dropdown.Item onClick={() => { setSortBy('date'); setSortDirection('asc'); }}>Date (Oldest)</Dropdown.Item>
             <Dropdown.Item onClick={() => { setSortBy('date'); setSortDirection('desc'); }}>Date (Newest)</Dropdown.Item>
@@ -198,22 +198,13 @@ const ElectionList: React.FC = () => {
 
       {/* Elections List */}
       {elections.length > 0 ? (
-        elections.map((election) => (
-          <Card key={election.id} className="mb-3">
-            <Card.Body>
-              <Row>
-                <Col md={9}>
-                  <ElectionCard election={election}/>
-                </Col>
-                <Col md={3} className="d-flex align-items-center">
-                  {/* <span className={`badge bg-${getStatusBadgeVariant(election.status)}`}>
-                    {election.status.charAt(0).toUpperCase() + election.status.slice(1)}
-                  </span> */}
-                </Col>
-              </Row>
-            </Card.Body>
-          </Card>
-        ))
+        <Row className="mt-4">
+          {elections.map((election) => (
+            <Col key={election.id} md={4}>
+              <ElectionCard election={election}/>
+            </Col>
+          ))}
+        </Row>
       ) : (
         !loading && (
           <Row>
