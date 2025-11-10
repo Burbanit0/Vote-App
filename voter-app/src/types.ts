@@ -1,11 +1,4 @@
 // src/types.ts
-export interface Candidate {
-    id: number;
-    username: string;
-    first_name: string;
-    last_name: string;
-    results?: Result[];
-}
 
 export interface Party {
   id: number;
@@ -137,4 +130,75 @@ export interface UpdateElectionData {
   start_date?: string;
   end_date?: string;
   voting_method?: string;
+}
+
+export type Candidate = string;
+
+export interface ScoreVote {
+  voter_id: number;
+  scores: Record<Candidate, number>;
+}
+
+export interface ScoreVotingResult {
+  method: string;
+  winner?: Candidate;
+  details: any;
+}
+
+export interface ScoreVotingResults {
+  simple_score: ScoreVotingResult;
+  star_voting: ScoreVotingResult;
+  median_voting: ScoreVotingResult;
+  mean_median_hybrid: ScoreVotingResult;
+  variance_based: ScoreVotingResult;
+  score_distribution: ScoreVotingResult;
+  bayesian_regret: ScoreVotingResult;
+}
+
+export interface ScoreVotingComparisonProps {
+  scores: ScoreVote[];
+  candidates: Candidate[];
+  results: ScoreVotingResults;
+}
+
+export interface CandidateSimu {
+  id: number;
+  name: string;
+  party: string;
+  party_lean: number;
+  policies: Record<string, number>;
+  charisma: number;
+  scandals: number;
+  campaign_funds: number;
+  experience: number;
+  popularity: number;
+}
+
+export type Gender = 'male' | 'female';
+export type Region = 'urban' | 'suburban' | 'rural';
+export type Income = 'low' | 'middle' | 'high';
+export type PartySimu = 'Green' | 'Conservative' | 'Liberal' | 'Independent';
+export type Education = "none"| "high_school"| "bachelor"| "master"| "phd";
+export type Employement = "employed"| "unemployed" | "self_employed" | "retired";
+export type Family = "single"| "with_children" | "retired";
+export type Ethnicity = "native"| "immigrant";
+export type Religion = "religious"| "non_religious";
+
+export interface VoterSimu {
+  id: number;
+  age: number;
+  region: Region;
+  income: Income;
+  gender: Gender;
+  education: Education;
+  employment_status: Employement;
+  religion: Religion;
+  family_status: Family;
+  ethnicity_immigration: Ethnicity;
+  political_lean: number;
+  issue_priorities: Record<string, number>;
+  party_loyalty: number;
+  preferred_party: PartySimu;
+  likelihood_to_vote: number;
+  mood: number;
 }
