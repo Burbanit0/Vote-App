@@ -4,10 +4,10 @@ from flask_jwt_extended import jwt_required
 from app.models import Party, User
 from app import db
 
-bp = Blueprint('parties', __name__, url_prefix='/parties')
+party_bp = Blueprint('parties', __name__, url_prefix='/parties')
 
 
-@bp.route('/', methods=['GET'])
+@party_bp.route('/', methods=['GET'])
 def get_all_parties():
     """Get all political parties"""
     parties = Party.query.all()
@@ -18,7 +18,7 @@ def get_all_parties():
     } for party in parties])
 
 
-@bp.route('/', methods=['POST'])
+@party_bp.route('/', methods=['POST'])
 @jwt_required()
 def create_party():
     """Create a new political party"""
@@ -47,7 +47,7 @@ def create_party():
     }), 201
 
 
-@bp.route('/<int:party_id>', methods=['GET'])
+@party_bp.route('/<int:party_id>', methods=['GET'])
 def get_party(party_id):
     """Get a specific party"""
     party = Party.query.get_or_404(party_id)
@@ -58,7 +58,7 @@ def get_party(party_id):
     })
 
 
-@bp.route('/<int:party_id>', methods=['PUT'])
+@party_bp.route('/<int:party_id>', methods=['PUT'])
 @jwt_required()
 def update_party(party_id):
     """Update a political party"""
@@ -87,7 +87,7 @@ def update_party(party_id):
 
 
 # Assign a user to a party
-@bp.route('/<int:user_id>/assign-party', methods=['POST'])
+@party_bp.route('/<int:user_id>/assign-party', methods=['POST'])
 @jwt_required()
 def assign_user_to_party(user_id):
     data = request.get_json()
@@ -116,7 +116,7 @@ def assign_user_to_party(user_id):
 
 
 # Remove a user from a party
-@bp.route('/<int:user_id>/remove-party', methods=['POST'])
+@party_bp.route('/<int:user_id>/remove-party', methods=['POST'])
 @jwt_required()
 def remove_user_from_party(user_id):
     user = User.query.get_or_404(user_id)
@@ -136,7 +136,7 @@ def remove_user_from_party(user_id):
 
 
 # Get all users in a party
-@bp.route('/<int:party_id>/users', methods=['GET'])
+@party_bp.route('/<int:party_id>/users', methods=['GET'])
 @jwt_required()
 def get_party_users(party_id):
     party = Party.query.get_or_404(party_id)

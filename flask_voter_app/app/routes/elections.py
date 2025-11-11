@@ -5,6 +5,7 @@ from app import db
 from sqlalchemy.sql import func
 from ..models import Election, User, ElectionRole, Vote, user_election_roles
 from ..services.participation_service import ParticipationService
+from ..services.election_service import ElectionService
 from app.utils.decorators import (
     admin_required,
     # election_organizer_required,
@@ -29,68 +30,9 @@ def get_all_elections():
     sort_by = request.args.get('sort_by', 'name', type=str)
     sort_dir = request.args.get('sort_dir', 'asc', type=str)
 
-    # Base query with join
-    query = db.session.query(
-        Election,
-        User.first_name,
-        User.last_name
-    ).join(
-        User, Election.created_by == User.id
-    )
-
-    # Apply search filter if provided
-    if search:
-        query = query.filter(
-            (Election.name.ilike(f'%{search}%')) |
-            (Election.description.ilike(f'%{search}%'))
-        )
-
-    if status != 'all':
-        query = query.filter(
-            Election.status.ilike(f'%{status}')
-        )
-
-    # Apply sorting
-    if sort_by == 'name':
-        if sort_dir == 'desc':
-            query = query.order_by(Election.name.desc())
-        else:
-            query = query.order_by(Election.name.asc())
-    elif sort_by == 'date':
-        if sort_dir == 'desc':
-            query = query.order_by(Election.start_date.desc())
-        else:
-            query = query.order_by(Election.start_date.asc())
-
-    # Paginate the results
-    paginated_elections = query.paginate(page=page, per_page=per_page,
-                                         error_out=False)
-
-    # Format the results
-    formatted_elections = [{
-        'id': election.id,
-        'name': election.name,
-        'description': election.description,
-        'status': election.status,
-        'start_date': election.start_date.isoformat()
-        if election.start_date else None,
-        'end_date': election.end_date.isoformat()
-        if election.end_date else None,
-        'created_at': election.created_at,
-        'created_by': {
-            'id': election.created_by,
-            'first_name': first_name,
-            'last_name': last_name
-        },
-    } for election, first_name, last_name in paginated_elections.items]
-
-    return jsonify({
-        'elections': formatted_elections,
-        'total': paginated_elections.total,
-        'pages': paginated_elections.pages,
-        'current_page': paginated_elections.page,
-        'per_page': paginated_elections.per_page
-    })
+    result = ElectionService.get_all_elections(page, per_page, search, status,
+                                               sort_by, sort_dir)
+    return jsonify(result)
 
 
 @election_bp.route('/', methods=['POST'])
@@ -104,43 +46,13 @@ def create_election():
     description = data.get('description')
     start_date = data.get('start_date')
     end_date = data.get('end_date')
-    created_at = data.get('created_at')
 
     if not name:
         return jsonify({'message': 'Name is required'}), 400
 
-    election = Election(
-        name=name,
-        description=description,
-        start_date=start_date,
-        end_date=end_date,
-        created_by=current_user_id,
-        created_at=created_at
-    )
-
-    db.session.add(election)
-    db.session.commit()
-
-    # Add the creator as an organizer
-    db.session.execute(
-        user_election_roles.insert().values(
-            user_id=current_user_id,
-            election_id=election.id,
-            role=ElectionRole.ORGANIZER
-        )
-    )
-
-    db.session.commit()
-
-    return jsonify({
-        'id': election.id,
-        'name': election.name,
-        'description': election.description,
-        'start_date': election.start_date.isoformat(),
-        'end_date': election.end_date.isoformat(),
-        'created_at': election.created_at.isoformat(),
-        'created_by': election.created_by
-    }), 201
+    result = ElectionService.create_election(name, description, start_date,
+                                             end_date, current_user_id)
+    return jsonify(result), 201
 
 
 # Get election by id

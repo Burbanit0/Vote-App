@@ -9,10 +9,10 @@ from app.utils.decorators import election_organizer_required
 from ..services.participation_service import ParticipationService
 from sqlalchemy import func
 
-bp = Blueprint('votes', __name__, url_prefix='/votes')
+vote_bp = Blueprint('votes', __name__, url_prefix='/votes')
 
 
-@bp.route('/elections/<int:election_id>', methods=['POST'])
+@vote_bp.route('/elections/<int:election_id>', methods=['POST'])
 @jwt_required()
 def cast_vote(election_id):
     """Cast a vote in an election"""
@@ -109,7 +109,7 @@ def cast_vote(election_id):
     })
 
 
-@bp.route('/elections/<int:election_id>/results', methods=['GET'])
+@vote_bp.route('/elections/<int:election_id>/results', methods=['GET'])
 @election_organizer_required
 def get_election_results(election_id):
     """Get results for an election - organizer or admin only"""
@@ -169,7 +169,7 @@ def update_results():
 
 
 # POST routes
-@bp.route('/', methods=['POST'])
+@vote_bp.route('/', methods=['POST'])
 def create_vote():
     data = request.get_json()
     voter_id = data.get('voter_id')
@@ -221,7 +221,7 @@ def create_vote():
 
 
 # PUT routes
-@bp.route('/<int:vote_id>', methods=['PUT'])
+@vote_bp.route('/<int:vote_id>', methods=['PUT'])
 def update_vote(vote_id):
     data = request.get_json()
     vote_type = data.get('vote_type')
@@ -254,7 +254,7 @@ def update_vote(vote_id):
 
 
 # DELETE routes:
-@bp.route('/<int:vote_id>', methods=['DELETE'])
+@vote_bp.route('/<int:vote_id>', methods=['DELETE'])
 def delete_vote(vote_id):
     vote = Vote.query.get_or_404(vote_id)
     db.session.delete(vote)
@@ -263,7 +263,7 @@ def delete_vote(vote_id):
     return jsonify({'result': True})
 
 
-@bp.route('/voter/<int:voter_id>', methods=['DELETE'])
+@vote_bp.route('/voter/<int:voter_id>', methods=['DELETE'])
 def delete_voter_votes(voter_id):
     # Find all votes for the specified voter
     votes = Vote.query.filter_by(voter_id=voter_id).all()
@@ -280,7 +280,7 @@ def delete_voter_votes(voter_id):
 
 
 # GET routes:
-@bp.route('/', methods=['GET'])
+@vote_bp.route('/', methods=['GET'])
 def get_votes():
     votes = Vote.query.all()
     return jsonify([{
@@ -294,7 +294,7 @@ def get_votes():
     } for v in votes])
 
 
-@bp.route('/voter/<int:voter_id>', methods=['GET'])
+@vote_bp.route('/voter/<int:voter_id>', methods=['GET'])
 def get_voter_votes(voter_id):
     # Query the database for all votes associated with the specified voter
     votes = Vote.query.filter_by(voter_id=voter_id).all()
@@ -317,7 +317,7 @@ def get_voter_votes(voter_id):
     return jsonify(votes_data), 200
 
 
-@bp.route('/candidate/<int:candidate_id>', methods=['GET'])
+@vote_bp.route('/candidate/<int:candidate_id>', methods=['GET'])
 def get_candidate_votes(candidate_id):
     # Query the database for all votes associated with the specified candidate
     votes = Vote.query.filter_by(candidate_id=candidate_id).all()

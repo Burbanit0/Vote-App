@@ -16,10 +16,10 @@ from app.utils.simulation_score_utils import get_mean_median_hybrid_winner, \
     get_simple_score_winner, get_star_voting_winner, get_variance_based_winner
 
 
-bp = Blueprint('simulations', __name__, url_prefix='/simulations')
+simulation_bp = Blueprint('simulations', __name__, url_prefix='/simulations')
 
 
-@bp.route('/', methods=['POST'])
+@simulation_bp.route('/', methods=['POST'])
 def simulate_votes_route():
     data = request.get_json()
     form_data = data.get('formData')
@@ -174,7 +174,7 @@ def simulate_votes_route():
     return jsonify(response), 200
 
 
-@bp.route('/simulate_voters', methods=['POST'])
+@simulation_bp.route('/simulate_voters', methods=['POST'])
 def simulate_voters_repartitions():
     """
     Simulate voters with their profiles
@@ -234,7 +234,7 @@ def simulate_voters_repartitions():
     return jsonify({"voters": voters})
 
 
-@bp.route('/simulate_candidates', methods=['POST'])
+@simulation_bp.route('/simulate_candidates', methods=['POST'])
 def simulate_candidates_repartitions():
     """
     Simulate political candidates with their profiles
@@ -295,7 +295,7 @@ def simulate_candidates_repartitions():
     })
 
 
-@bp.route('/get_closest_candidate', methods=['POST'])
+@simulation_bp.route('/get_closest_candidate', methods=['POST'])
 def get_closest_candidates():
     data = request.get_json()
     candidates = data.get('candidates')
@@ -313,7 +313,7 @@ def get_closest_candidates():
     return jsonify(response), 200
 
 
-@bp.route('/simulate_utility', methods=['POST'])
+@simulation_bp.route('/simulate_utility', methods=['POST'])
 def simulate_utility():
     """
     Simulate utility scores between voters and candidates.
@@ -363,7 +363,7 @@ def simulate_utility():
         }), 500
 
 
-@bp.route('/calculate_utility', methods=['POST'])
+@simulation_bp.route('/calculate_utility', methods=['POST'])
 def calculate_single_utility():
     """
     Calculate utility for a specific voter-candidate pair.
@@ -415,7 +415,7 @@ def calculate_single_utility():
         }), 500
 
 
-@bp.route('/get_utility_matrix', methods=['POST'])
+@simulation_bp.route('/get_utility_matrix', methods=['POST'])
 def get_utility_matrix():
     """
     Get utility matrix for a set of voters and candidates.
@@ -498,7 +498,8 @@ def get_utility_matrix():
                     for candidate in candidates
                 }
             },
-            "message": f"Utility matrix calculated for {len(voters)} voters and {len(candidates)} candidates"
+            "message": f"""Utility matrix calculated for
+                    {len(voters)} voters and {len(candidates)} candidates"""
         })
 
     except Exception as e:
@@ -509,7 +510,7 @@ def get_utility_matrix():
         }), 500
 
 
-@bp.route('/get_voter_segments', methods=['POST'])
+@simulation_bp.route('/get_voter_segments', methods=['POST'])
 def get_voter_segments():
     """
     Get utility analysis by voter segments.
@@ -612,20 +613,24 @@ def get_voter_segments():
                 ]
                 if voter_utilities:
                     # Find max utility for this voter
-                    max_utility = max(voter_utilities, key=lambda x: x["utility"])
+                    max_utility = max(voter_utilities,
+                                      key=lambda x: x["utility"])
                     segment_utilities.append(max_utility)
 
             if not segment_utilities:
                 continue
 
             # Calculate segment stats
-            avg_utility = sum(u["utility"] for u in segment_utilities) / len(segment_utilities)
+            avg_utility = sum(
+                u["utility"] for u in segment_utilities
+                ) / len(segment_utilities)
 
             # Find top candidate for this segment
             candidate_votes = {}
             for u in segment_utilities:
                 candidate_id = u["candidate_id"]
-                candidate_votes[candidate_id] = candidate_votes.get(candidate_id, 0) + 1
+                candidate_votes[candidate_id] = candidate_votes.get(
+                    candidate_id, 0) + 1
 
             if candidate_votes:
                 top_candidate_id = max(candidate_votes.items(), key=lambda x: x[1])[0]
@@ -648,7 +653,7 @@ def get_voter_segments():
                 "top_candidate": {
                     "id": top_candidate["id"] if top_candidate else None,
                     "name": top_candidate["name"] if top_candidate else "None",
-                    "party": top_candidate["party"] if top_candidate else "None",
+                    "party": top_candidate["party"] if (top_candidate) else "None",
                     "utility": round(top_utility, 4) if top_candidate else 0
                 } if top_candidate else None,
                 "utility_distribution": [
@@ -659,7 +664,8 @@ def get_voter_segments():
         return jsonify({
             "success": True,
             "segments": segments,
-            "message": f"Segment analysis completed for {len(segments)} segments"
+            "message": f"""Segment analysis completed
+                        for {len(segments)} segments"""
         })
 
     except Exception as e:
