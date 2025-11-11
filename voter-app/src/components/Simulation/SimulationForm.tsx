@@ -1,256 +1,312 @@
-import React, { useEffect, useState } from 'react';
-import { Form, Button, Spinner, Accordion, Row, Col, Alert } from 'react-bootstrap';
-import './FormStyles.css';
-import { Hexbin } from '../Chart/Hexbin';
-import { simulatePop } from '../../services/';
+import React, { ChangeEvent } from 'react';
+import { Form, Button, Container, Row, Col, Card, Accordion, Table, OverlayTrigger, Tooltip, Spinner } from 'react-bootstrap';
+
+type Candidate = string;
+type SimulationType = string;
+
+type DemographicCategory = 'age' | 'gender' | 'location' | 'education' | 'income' | 'ideology';
+
+type DemographicSubCategory = {
+  [key: string]: number;
+};
+
+type InfluenceWeights = {
+  [category: string]: {
+    [subCategory: string]: {
+      [candidate: string]: number;
+    };
+  };
+};
+
+export interface SimulationFormData {
+  simulationType: SimulationType[];
+  populationSize: number;
+  candidates: Candidate[];
+  turnoutRate: number;
+  demographics: Record<DemographicCategory, DemographicSubCategory>;
+  influenceWeights: InfluenceWeights;
+}
 
 interface SimulationFormProps {
-  numVoters: number;
-  setNumVoters: (value: number) => void;
-  numCandidates: number;
-  setNumCandidates: (value: number) => void;
   simulateVotes: () => void;
   loading: boolean;
+  formData: SimulationFormData;
+  setFormData: (value:SimulationFormData) => void;
 }
-
-interface cData {
-  group: string;
-  x: number;
-  y: number;
-  size: number;
-}
-
-interface vData {
-  x:number;
-  y:number;
-}
-
-
-const MIN_CANDIDATES = 1;
-const MAX_CANDIDATES = 10;
-const MAX_PARTIES =10;
 
 const SimulationForm: React.FC<SimulationFormProps> = ({
-  numVoters,
-  setNumVoters,
-  numCandidates,
-  setNumCandidates,
   simulateVotes,
   loading,
-}) => {
-  
-//  const [candidates, setCandidates] = useState<[]>([]);
-  const [numParties, setNumParties] = useState<number>(0);
-  const [showParties, setShowParties] = useState(false);
-  const [partyName, setPartyName] = useState<string>("");
-  const [averageAge, setAverageAge] = useState<number>(0);
-  const [allo, setAllo] = useState<number>(0);
-  const [candidateData, setCandidateData] = useState<cData[]>([]);
-  const [voterData, setVoterData] = useState<vData[]>([]);
-  const [error, setError] = useState<string | null>(null);
+  formData,
+  setFormData
+  }) => {
 
-  const generateRandomData = (numCandidates: number): cData[] => {
-    const candidateData = [];
-    for (let i = 0; i < numCandidates; i++) {
-      const randomX = Math.random() * 10 - 5;
-      const randomY = Math.random() * 10 - 5;
-
-      candidateData.push({
-        group: `Candidate n${i + 1}`,
-        x: parseFloat(randomX.toFixed(2)), // Random value between -1 and 1
-        y: parseFloat(randomY.toFixed(2)), // Random value between -1 and 1
-        size: Math.random() * 400, // Random size for visualization
-      });
+  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const { name, value, checked } = e.target;
+    if (name === "simulationType") {
+        let updatedTypes = [...formData.simulationType];
+        if (checked) {
+            updatedTypes.push(value);
+        } else {
+            updatedTypes = updatedTypes.filter(type => type !== value);
+        }
+        setFormData({ ...formData, simulationType: updatedTypes });
+    } else {
+    setFormData({ ...formData, [name]: name === 'populationSize' || name === 'turnoutRate' ? parseFloat(value) : value });
     }
-    return candidateData;
   };
 
+  const handleDemographicChange = (category: DemographicCategory, subCategory: string, e: React.ChangeEvent<HTMLInputElement>) => {
+    const newDemographics = { ...formData.demographics };
+    newDemographics[category][subCategory] = parseFloat(e.target.value);
+    setFormData({ ...formData, demographics: newDemographics });
+  };
 
-  useEffect(() => {
-    setCandidateData(generateRandomData(numCandidates));
-  }, [numCandidates])
+  const handleInfluenceWeightChange = (
+    category: string,
+    subCategory: string,
+    candidate: string,
+    e: React.ChangeEvent<HTMLInputElement>
+  ) => {
+    const newInfluenceWeights = { ...formData.influenceWeights };
+    if (!newInfluenceWeights[category]) {
+      newInfluenceWeights[category] = {};
+    }
+    if (!newInfluenceWeights[category][subCategory]) {
+      newInfluenceWeights[category][subCategory] = {};
+    }
+    newInfluenceWeights[category][subCategory][candidate] = parseFloat(e.target.value);
+    setFormData({ ...formData, influenceWeights: newInfluenceWeights });
+  };
 
-  useEffect(() => {
-    const loadVoterData = async () => {
-        try {
-            const votersData = await simulatePop(numVoters, averageAge);
-                setVoterData(votersData);
-                setError(null);
-        } catch (error) {
-            setError('Failed to fetch the voters data:');
-        }
-    };
-    loadVoterData();
-  }, [numVoters, averageAge])
+  const handleCandidateChange = (index: number, e: ChangeEvent<HTMLInputElement>) => {
+    const newCandidates = [...formData.candidates];
+    newCandidates[index] = e.target.value;
+    setFormData({ ...formData, candidates: newCandidates });
+  };
+
+  const addCandidate = () => {
+    setFormData({ ...formData, candidates: [...formData.candidates, ''] });
+  };
+
+  const removeCandidate = () => {
+    if (formData.candidates.length > 1) { // Ensure at least one candidate remains
+        const newCandidates = [...formData.candidates];
+        newCandidates.pop(); // Remove the last candidate
+        setFormData({ ...formData, candidates: newCandidates });
+    } else {
+        alert("You must have at least one candidate.");
+    }
+  };
+
+  const renderWeightTooltip = (candidate: string) => (
+    <Tooltip id={`tooltip-${candidate}`}>
+      Set the influence weight for <strong>{candidate}</strong>. Higher values mean this group is more likely to prefer this candidate.
+    </Tooltip>
+  );
 
   return (
-    <Form className="vote-form">
-      <Accordion defaultActiveKey="0">
-        <Accordion.Item eventKey="0">
-          <Accordion.Header>Voters Information</Accordion.Header>
-          <Accordion.Body>
-            <Row>
-              {error && <Alert variant="danger">{error}</Alert>}
-              <Col>
-                <Form.Group controlId="formNumVoters" className="mb-3">
-                  <Form.Label>Number of Voters:</Form.Label>
-                  <Form.Control
-                    type="number"
-                    value={numVoters}
-                    onChange={(e) => setNumVoters(Number(e.target.value))}
-                  />
-                </Form.Group>
-              </Col>
-              <Col>
-                <Form.Group>
-                  <Form.Label>Average age of voters</Form.Label>
-                  <Form.Control 
-                    type="number"
-                    value={averageAge}
-                    onChange={(e) => setAverageAge(Number(e.target.value))}
-                  />
-                </Form.Group>
-              </Col>
-              <Col>
-                <Form.Group>
-                  <Form.Label>Allo</Form.Label>
-                  <Form.Control
-                    type="number"
-                    value={allo}
-                    onChange={(e) => setAllo(Number(e.target.value))}
-                  />
-                </Form.Group>
-              </Col>
-            </Row>
-            <Row>
-              <Col></Col>
-              <Col>
-                <Hexbin data={voterData} width={400} height={400} />
-              </Col>
-              <Col></Col>
-            </Row>
-          </Accordion.Body>
-        </Accordion.Item>
-        <Accordion.Item eventKey="1">
-          <Accordion.Header> Candidates </Accordion.Header>
-          <Accordion.Body>
-            <Form.Group controlId="formNumCandidates" className="mb-3">
-              <Form.Label>Number of Candidates:</Form.Label>
-              <Form.Control
-                type="number"
-                value={numCandidates}
-                onChange={(e) => setNumCandidates(Number(e.target.value))}
-                min= {MIN_CANDIDATES}
-                max= {MAX_CANDIDATES}
-              />
-            </Form.Group>
-            <Form.Group className='mb-3'>
-              <Form.Check 
-                type="checkbox" 
-                id="isCheck" 
-                label="Is the number of candidates different of the number of political parties"
-                checked={showParties}
-                onChange={(e) => setShowParties(e.target.checked)}
+    <Container className="mt-4">
+      <Card>
+        <Card.Header as="h4">Voting Simulation Form</Card.Header>
+        <Card.Body>
+          <Form className="vote-form">
+            <Form.Group as={Row} className="mb-3">
+              <Form.Label column sm={2}>Simulation Type</Form.Label>
+              <Col sm={10}>
+                <Form.Check
+                type="checkbox"
+                id="simulationType-votes"
+                name="simulationType"
+                value="votes"
+                label="Standard Votes"
+                checked={formData.simulationType.includes("votes")}
+                onChange={handleInputChange}
                 />
-            </Form.Group>
-            <Row>
-              <Col></Col>
-              <Col>
-                <Hexbin data={candidateData} width={400} height={400} />
+                <Form.Check
+                type="checkbox"
+                id="simulationType-ranked"
+                name="simulationType"
+                value="ranked"
+                label="Ranked Choice"
+                checked={formData.simulationType.includes("ranked")}
+                onChange={handleInputChange}
+                />
+                <Form.Check
+                type="checkbox"
+                id="simulationType-scores"
+                name="simulationType"
+                value="scores"
+                label="Score-Based (0-5)"
+                checked={formData.simulationType.includes("scores")}
+                onChange={handleInputChange}
+                />
               </Col>
-              <Col></Col>
-            </Row>
-          </Accordion.Body>
-        </Accordion.Item>
-      {showParties ? (
-        <Accordion.Item eventKey="2">
-          <Accordion.Header>Parties configuration</Accordion.Header>
-          <Accordion.Body>
-            <div>
-              <Form.Group className='mb-3'>
-                <Form.Label>Number of political parties</Form.Label>
-                <Form.Control
-                type="number"
-                value={numParties}
-                onChange={(e) => setNumParties(Number(e.target.value))}
-                min={MIN_CANDIDATES}
-                max={MAX_PARTIES}
-              />
-              </Form.Group>
-              <div className='party-grid'>
-                {Array.from({ length: numParties}, (_, index)  => (
-                  <div key={index} className='party-group mb-3'>
-                    <Form.Group >
-                      <Form.Label>Party n°{index}</Form.Label>                  
-                    </Form.Group>
-                    <Form.Group controlId={`formPartyPlatform${index}`}>
-                      <Form.Label>Name of the party:</Form.Label>
-                      <Form.Control
-                        type="text"
-                        value={partyName[index] || ''}
-                        onChange={(e) => setPartyName((e.target.value))}
-                      />
-                    </Form.Group>  
-                  </div>
-                ))}
-              </div>
-            </div>
-          </Accordion.Body>
-        </Accordion.Item>
-      ): (
-        <Accordion.Item eventKey="3">
-          <Accordion.Header>Parties config</Accordion.Header>
-          <Accordion.Body>
-            <div className='party-grid'>
-              {Array.from({ length: numCandidates}, (_, index)  => (
-                  <div key={index} className='party-group mb-3'>
-                    <Form.Group >
-                      <Form.Label>Party n°{index}</Form.Label>                  
-                    </Form.Group>
-                    <Form.Group controlId={`formPartyPlatform${index}`}>
-                      <Form.Label>Name of the party:</Form.Label>
-                      <Form.Control
-                        type="text"
-                        value={partyName[index] || ''}
-                        onChange={(e) => setPartyName((e.target.value))}
-                      />
-                    </Form.Group>  
-                  </div>
-                ))}
-            </div>
-          </Accordion.Body>
-        </Accordion.Item>
-      )}
-        <Accordion.Item eventKey="4">
-          <Accordion.Header>Candidates description</Accordion.Header>
-          <Accordion.Body>
-            <Form.Group className='mb-3'>
-              <Form.Label>Description of the candidates</Form.Label>
             </Form.Group>
-            <div className='candidate-grid'>
-              {Array.from({ length: numCandidates}, (_, index)  => (
-                <div key={index} className='candidate-group mb-3'>
-                  <Form.Group >
-                    <Form.Label>Candidate n°{index}</Form.Label>  
-                  </Form.Group>
-                  <Form.Group controlId={`formCandidatePlatform${index}`}>
-                    <Form.Label>Candidate party:</Form.Label>
-                    <Form.Select>
-                      {Array.from({length: numParties}, (_, index) => (
-                          <option> Partie n°{index} </option>
-                      ))}
-                    </Form.Select>
-                  </Form.Group>  
-                </div>
-              ))}
-            </div>
-          </Accordion.Body>
-        </Accordion.Item>
-      </Accordion>
-      <Button variant="primary" onClick={simulateVotes} disabled={loading} className="mt-3">
-        {loading ? <Spinner animation="border" size="sm" /> : 'Simulate Votes'}
-      </Button>
-    </Form>
+
+            <Form.Group as={Row} className="mb-3">
+              <Form.Label column sm={2}>Population Size</Form.Label>
+              <Col sm={10}>
+                <Form.Control
+                  type="number"
+                  name="populationSize"
+                  value={formData.populationSize}
+                  onChange={() => handleInputChange}
+                />
+              </Col>
+            </Form.Group>
+
+            <Form.Group as={Row} className="mb-3">
+              <Form.Label column sm={2}>Turnout Rate</Form.Label>
+              <Col sm={10}>
+                <Form.Control
+                  type="number"
+                  step="0.01"
+                  name="turnoutRate"
+                  value={formData.turnoutRate}
+                  onChange={() => handleInputChange}
+                />
+              </Col>
+            </Form.Group>
+
+            <Form.Group as={Row} className="mb-3">
+              <Form.Label column sm={2}>Candidates</Form.Label>
+              <Col sm={10}>
+                {formData.candidates.map((candidate: Candidate, index: number) => (
+                  <Form.Control
+                    key={index}
+                    type="text"
+                    value={candidate}
+                    onChange={(e: ChangeEvent<HTMLInputElement>) => handleCandidateChange(index, e)}
+                    className="mb-2"
+                  />
+                ))}
+                <Button variant="secondary" onClick={addCandidate}>Add Candidate</Button>
+                <Button variant="danger" 
+                        onClick={removeCandidate} 
+                        disabled={formData.candidates.length <= 1}>
+                    Remove last Candidate
+                </Button>
+              </Col>
+            </Form.Group>
+
+            <Card className="mb-3">
+                <Card.Header as="h5">Demographics</Card.Header>
+                <Card.Body>
+                <Accordion defaultActiveKey="0">
+                {Object.entries(formData.demographics).map(([category, subCategories], index) => (
+                    <Accordion.Item eventKey={index.toString()} key={category}>
+                        <Accordion.Header>
+                            {category.charAt(0).toUpperCase() + category.slice(1)}
+                        </Accordion.Header>
+                        <Accordion.Body>
+                            <Form.Group as={Row} className="mb-3" key={category}>
+                                {Object.entries(subCategories).map(([subCategory, value]) => (
+                                    <Form.Group as={Row}>
+                                        <Form.Label column sm={2}> 
+                                            {subCategory} 
+                                        </Form.Label>
+                                        <Col sm={10}>
+                                            <Form.Control
+                                            key={subCategory}
+                                            type="number"
+                                            step="0.01"
+                                            placeholder={subCategory}
+                                            value={value}
+                                            onChange={(e: ChangeEvent<HTMLInputElement>) => handleDemographicChange(category as DemographicCategory, subCategory, e)}
+                                            className="mb-2"
+                                            />
+                                        </Col>
+                                    </Form.Group>
+                                ))}
+                            </Form.Group>
+                        </Accordion.Body>
+                    </Accordion.Item>
+                ))}
+                </Accordion>
+                </Card.Body>
+            </Card>
+
+            <Card className="mb-3">
+              <Card.Header as="h5" className="bg-light">Influence Weights</Card.Header>
+              <Card.Body>
+                <Accordion defaultActiveKey="0">
+                  {Object.entries(formData.influenceWeights).map(([category, subCategories], index) => (
+                    <Accordion.Item eventKey={index.toString()} key={category}>
+                      <Accordion.Header>
+                        {category.charAt(0).toUpperCase() + category.slice(1)}
+                      </Accordion.Header>
+                      <Accordion.Body>
+                        {Object.entries(subCategories).map(([subCategory, candidates]) => (
+                          <Accordion>
+                            <Accordion.Header>
+                                <strong>{subCategory.charAt(0).toUpperCase() + subCategory.slice(1)}</strong>
+                            </Accordion.Header>
+                            <Accordion.Body>
+                                <Card key={subCategory} className="mb-3">
+                                <Card.Body>
+                                <Table bordered hover>
+                                    <thead>
+                                    <tr>
+                                        <th>Candidate</th>
+                                        <th>Weight</th>
+                                        <th>Description</th>
+                                    </tr>
+                                    </thead>
+                                    <tbody>
+                                    {formData.candidates.map((candidate: Candidate) => (
+                                        <tr key={candidate}>
+                                        <td>{candidate}</td>
+                                        <td>
+                                            <Col className='mt-2'>
+                                                <OverlayTrigger
+                                                placement="top"
+                                                overlay={renderWeightTooltip(candidate)}
+                                                >
+                                                <Form.Range
+                                                    min="0.1"
+                                                    max="5"
+                                                    step="0.1"
+                                                    value={candidates[candidate] || 1.0}
+                                                    onChange={(e) => handleInfluenceWeightChange(category, subCategory, candidate, e)}
+                                                />
+                                                </OverlayTrigger>
+                                            </Col>
+                                            <Col className='mt-2'>
+                                                <Form.Text>
+                                                    {candidates[candidate]?.toFixed(1) || '1.0'}
+                                                </Form.Text>
+                                            </Col>
+                                            
+                                        </td>
+                                        <td>
+                                            {candidate === 'No Vote' ?
+                                            'Likelihood of abstaining or casting a blank vote.' :
+                                            `Influence of ${subCategory} ${category} on ${candidate}'s preference.`}
+                                        </td>
+                                        </tr>
+                                    ))}
+                                    </tbody>
+                                </Table>
+                                </Card.Body>
+                                </Card>
+                            </Accordion.Body>
+                            </Accordion>
+                          
+                        ))}
+                      </Accordion.Body>
+                    </Accordion.Item>
+                  ))}
+                </Accordion>
+              </Card.Body>
+            </Card>
+            <Button variant="primary" onClick={simulateVotes} disabled={loading} className="mt-3">
+              {loading ? <Spinner animation="border" size="sm" /> : 'Run Simulation'}
+            </Button>
+          </Form>
+        </Card.Body>
+      </Card>
+    </Container>
   );
 };
 
