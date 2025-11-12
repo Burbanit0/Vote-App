@@ -6,8 +6,10 @@ scheduler = APScheduler()
 
 
 def init_scheduler(app):
-    scheduler.init_app(app)
-    scheduler.start()
+    global scheduler
+    if not scheduler.running:
+        scheduler.init_app(app)
+        scheduler.start()
 
     @scheduler.task('cron', id='update_election_statuses', hour=0, minute=0)
     def scheduled_update():

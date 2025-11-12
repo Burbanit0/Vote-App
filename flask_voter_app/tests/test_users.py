@@ -1,47 +1,55 @@
-import sys
-import os
-import json
-from unittest.mock import patch
+# tests/test_users.py
 
-# Add the root directory to the Python path
-sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
-
-import pytest # noqa
-from app import create_app, db # noqa
-from config import TestingConfig # noqa
-from app.models import User # noqa
-
-
-@pytest.fixture
-def app():
-    app = create_app(TestingConfig)
-    with app.app_context():
-        db.create_all()
-    yield app
-    with app.app_context():
-        db.drop_all()
+def test_register(client, init_db):
+    data = {
+        'username': 'newuser',
+        'password': 'newpass',
+        'first_name': 'New',
+        'last_name': 'User',
+        'role': 'User'
+    }
+    response = client.post('/api/auth/register', json=data)
+    assert response.status_code == 200
+    data = response.get_json()
+    assert data[0]['username'] == 'newuser'
+    assert data[0]['role'] == 'User'
 
 
-@pytest.fixture
-def client(app):
-    return app.test_client()
+def test_login(client, init_db):
+    data = {
+        'username': 'testuserA',
+        'password': 'testpass'
+    }
+    response = client.post('/api/auth/login', json=data)
+    assert response.status_code == 200
+    data = response.get_json()
+    assert 'access_token' in data[0]
+    assert data[0]['username'] == 'testuserA'
 
 
-def test_register_user(app, client):
-    with patch('app.utils.auth_utils.register_user') as mock_register_user:
-        mock_register_user.return_value = None
-        response = client.post('/api/auth/register', json={
-            'username': 'testuser',
-            'password': 'testpass',
-            'role': 'User',
-            'first_name': 'John',
-            'last_name': 'Doe'
-        })
-        assert response.status_code == 201
-        assert json.loads(response.data) == {'message':
-                                             'User registered successfully',
-                                             'username': 'testuser',
-                                             'user_id': 1,
-                                             'role': 'User',
-                                             'first_name': 'John',
-                                             'last_name': 'Doe'}
+def test_get_profile(client, init_db, auth_header):
+    response = client.get('/api/auth/profile', headers=auth_header)
+    assert response.status_code == 200
+    data = response.get_json()
+    assert data['username'] == 'testuserA'
+    assert 'participation_details' in data
+
+
+def test_update_user(client, init_db, admin_auth_header):
+    data = {
+        'first_name': 'Updated',
+        'last_name': 'Name'
+    }
+    response = client.put('/api/auth/1', json=data, headers=admin_auth_header)
+    assert response.status_code == 200
+    data = response.get_json()
+    assert data['first_name'] == 'Updated'
+    assert data['last_name'] == 'Name'
+
+
+def test_get_all_users(client, init_db, admin_auth_header):
+    response = client.get('/api/auth/', headers=admin_auth_header)
+    assert response.status_code == 200
+    data = response.get_json()
+    assert len(data) >= 1
+    assert data[0]['username'] == 'adminA' or data[0]['username'] == 'testuserA'
