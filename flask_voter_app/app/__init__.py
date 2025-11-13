@@ -4,6 +4,7 @@ from flask_sqlalchemy import SQLAlchemy
 from flask_migrate import Migrate
 from flask_jwt_extended import JWTManager
 from flask_bcrypt import Bcrypt
+from flask_apscheduler import APScheduler
 import redis
 
 
@@ -12,9 +13,11 @@ migrate = Migrate()
 jwt = JWTManager()
 bcrypt = Bcrypt()
 redis_client = redis.StrictRedis.from_url('redis://redis:6379')
+scheduler = APScheduler()  # Global scheduler variable
 
 
 def create_app(config_object='config.Config'):
+    global scheduler
     app = Flask(__name__)
     app.debug = True
     app.config.from_object(config_object)
@@ -40,14 +43,14 @@ def create_app(config_object='config.Config'):
             return response
 
     db.init_app(app)
-
     migrate.init_app(app, db)
 
     with app.app_context():
         db.create_all()  # Create tables
 
-    from .tasks.scheduler import init_scheduler
-    init_scheduler(app)
+    if not scheduler.running:
+        scheduler.init_app(app)
+        scheduler.start()
 
     from .routes import votes, users, \
         simulation, elections, parties

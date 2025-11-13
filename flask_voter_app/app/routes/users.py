@@ -1,10 +1,11 @@
 from flask import Blueprint, request, jsonify
 from app.utils.auth_utils import register_user
-from ..models import User, ElectionRole, Vote, Party, Election, \
+from ..models import User, ElectionRole, Vote, Party, \
     get_elections_user_has_voted_in, user_election_roles
-from flask_jwt_extended import create_access_token, get_jwt_identity, \
+from flask_jwt_extended import get_jwt_identity, \
     jwt_required
 from ..utils.decorators import admin_required
+from ..services.user_service import UserService
 from app import db
 
 auth_bp = Blueprint('auth', __name__, url_prefix='/api/auth')
@@ -19,31 +20,9 @@ def register():
     last_name = data.get('last_name')
     role = data.get('role', 'User')
 
-    # Validate input data
-    if not username or not password:
-        return jsonify({'error': 'Missing required fields'}), 400
-
-    if role not in ['User', 'Admin']:
-        return jsonify({'message': 'Invalid role specified'}), 400
-
-    if User.query.filter_by(username=username).first():
-        return jsonify({'message': 'Username already exists'}), 400
-    try:
-        register_user(username, password, role, first_name, last_name)
-
-        user = User.query.filter_by(username=username).first()
-
-        return jsonify({
-            'message': 'User registered successfully',
-            'user_id': user.id,
-            'username': user.username,
-            'role': user.role,
-            'first_name': user.first_name,
-            'last_name': user.last_name
-        }), 201
-
-    except Exception as e:
-        return jsonify({'error': str(e)}), 500
+    result = UserService.register(username, password, first_name, last_name,
+                                  role)
+    return jsonify(result)
 
 
 @auth_bp.route('/register/voter', methods=['POST'])
@@ -74,24 +53,8 @@ def login():
     username = data.get('username')
     password = data.get('password')
 
-    if not username or not password:
-        return jsonify({'message': 'Username and password are required'}), 400
-
-    user = User.query.filter_by(username=username).first()
-
-    if not user or not user.check_password(password):
-        return jsonify({"message": "Invalid credentials"}), 401
-
-    access_token = create_access_token(identity=str(user.id))
-
-    return jsonify({
-        'access_token': access_token,
-        'user_id': user.id,
-        'username': user.username,
-        'role': user.role,
-        'first_name': user.first_name,
-        'last_name': user.last_name
-    }), 200
+    result = UserService.login(username, password)
+    return jsonify(result)
 
 
 @auth_bp.route('/admin-only', methods=['GET'])
@@ -119,47 +82,8 @@ def get_profile():
 
     # Convert current_user_id to an integer if necessary
     current_user_id = int(current_user_identity)
-
-    current_user = User.query.get_or_404(current_user_id)
-
-    # Get participation details
-    participation = db.session.query(
-        user_election_roles.c.election_id,
-        user_election_roles.c.role
-    ).filter(
-        user_election_roles.c.user_id == current_user_id
-    ).all()
-
-    participation_details = {
-        'voter': [],
-        'candidate': [],
-        'organizer': []
-    }
-
-    for election_id, role in participation:
-        election = Election.query.get(election_id)
-        participation_details[role.value].append(election.name)
-
-    # Get elections where user has voted
-    voted_elections = db.session.query(
-        Vote.election_id
-    ).filter(
-        Vote.voter_id == current_user_id
-    ).distinct().all()
-
-    return jsonify({
-        'id': current_user.id,
-        'username': current_user.username,
-        'first_name': current_user.first_name,
-        'last_name': current_user.last_name,
-        'role': current_user.role,
-        'party_id': current_user.party_id,
-        'is_admin': current_user.role == 'Admin',
-        'elections_participated': current_user.elections_participated,
-        'participation_details': participation_details,
-        'voted_in_elections':
-        [election_id for (election_id,) in voted_elections]
-    })
+    result = UserService.get_profile(current_user_id)
+    return jsonify(result)
 
 
 @auth_bp.route('/participation', methods=['GET'])

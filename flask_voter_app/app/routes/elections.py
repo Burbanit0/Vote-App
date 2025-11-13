@@ -1,5 +1,5 @@
 from flask import Blueprint, request, jsonify
-import datetime
+from datetime import datetime, timezone
 from flask_jwt_extended import get_jwt_identity, jwt_required
 from app import db
 from sqlalchemy.sql import func
@@ -380,7 +380,7 @@ def cancel_participation(election_id):
 
     # Check if election has started
     election = Election.query.get(election_id)
-    if not election or election.start_date <= datetime.utcnow():
+    if not election or election.start_date.replace(tzinfo=timezone.utc) <= datetime.now(timezone.utc):
         return jsonify({'message':
                         'Cannot cancel participation after '
                         'election has started'}), 400
@@ -403,10 +403,18 @@ def cancel_participation(election_id):
 
 # Delete an election
 @election_bp.route('/<int:election_id>', methods=['DELETE'])
-# add a decorator to check that the user is an organizer
 @jwt_required()
 def delete_election(election_id):
+    """Delete an election"""
     election = Election.query.get_or_404(election_id)
+
+    # Delete related records in user_election_roles
+    db.session.execute(
+        user_election_roles.delete().where(
+            user_election_roles.c.election_id == election_id
+        )
+    )
+
     db.session.delete(election)
     db.session.commit()
 
@@ -414,11 +422,14 @@ def delete_election(election_id):
 
 
 @election_bp.route('/<int:election_id>', methods=['PUT'])
-@jwt_required
+@jwt_required()
 # decorator to check that the user is the organizator of the election
 def update_election(election_id):
     """Update an election"""
-    election = Election.query.get_or_404(election_id)
+    election = db.session.get(Election, election_id)
+    if election is None:
+        return jsonify({'message': 'Election not found'}), 404
+
     data = request.get_json()
 
     # Validate and update fields
@@ -433,7 +444,7 @@ def update_election(election_id):
     if 'start_date' in data:
         try:
             start_date = datetime.fromisoformat(data['start_date'])
-            if start_date < datetime.utcnow():
+            if start_date < datetime.now(timezone.utc):
                 return jsonify({'message':
                                 'Start date cannot be in the past'}), 400
             election.start_date = start_date
@@ -474,14 +485,17 @@ def get_election_results(election_id):
     """Get results for an election"""
     election = Election.query.get_or_404(election_id)
 
+    if election.end_date.tzinfo is None:
+        election.end_date = election.end_date.replace(tzinfo=timezone.utc)
+
     # Check if election has ended
-    if election.end_date > datetime.utcnow():
+    if election.end_date > datetime.now(timezone.utc):
         return jsonify({'message': 'Election has not ended yet'}), 400
 
     # Get all voting methods used in this election
-    voting_methods = db.session.query(Vote.vote_type).filter(
-        Vote.election_id == election_id
-    ).distinct().all()
+    # voting_methods = db.session.query(Vote.vote_type).filter(
+    #     Vote.election_id == election_id
+    # ).distinct().all()
 
     results = {}
 
@@ -505,25 +519,25 @@ def get_election_results(election_id):
     } for candidate, votes in overall_results]
 
     # Get results by voting method
-    for method in voting_methods:
-        method_results = db.session.query(
-            User.username,
-            func.count(Vote.id).label('vote_count')
-        ).join(
-            Vote, Vote.candidate_id == User.id
-        ).filter(
-            Vote.election_id == election_id,
-            Vote.vote_type == method[0]
-        ).group_by(
-            User.username
-        ).order_by(
-            func.count(Vote.id).desc()
-        ).all()
+    # for method in voting_methods:
+    #     method_results = db.session.query(
+    #         User.username,
+    #         func.count(Vote.id).label('vote_count')
+    #     ).join(
+    #         Vote, Vote.candidate_id == User.id
+    #     ).filter(
+    #         Vote.election_id == election_id,
+    #         Vote.vote_type == method[0]
+    #     ).group_by(
+    #         User.username
+    #     ).order_by(
+    #         func.count(Vote.id).desc()
+    #     ).all()
 
-        results[method[0]] = [{
-            'candidate': candidate,
-            'votes': votes
-        } for candidate, votes in method_results]
+    #     results[method[0]] = [{
+    #         'candidate': candidate,
+    #         'votes': votes
+    #     } for candidate, votes in method_results]
 
     # Get total votes
     total_votes = db.session.query(func.count(Vote.id)).filter(
@@ -535,7 +549,7 @@ def get_election_results(election_id):
         'election_name': election.name,
         'results': results,
         'total_votes': total_votes,
-        'voting_method': election.voting_method,
+        # 'voting_method': election.voting_method,
         'start_date': election.start_date.isoformat(),
         'end_date': election.end_date.isoformat()
     })

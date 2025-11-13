@@ -10,7 +10,7 @@ class Config:
 
     # Database configuration
     SQLALCHEMY_DATABASE_URI = \
-        'postgresql://myuser:mypassword@db:5432/mydatabase'
+        'postgresql://myuser:mypassword@localhost:5432/mydatabase'
     SQLALCHEMY_TRACK_MODIFICATIONS = False
 
     # JWT Configuration
