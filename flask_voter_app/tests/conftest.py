@@ -4,13 +4,13 @@ import random
 from flask_jwt_extended import create_access_token
 from datetime import datetime, timedelta, timezone
 from app import db, create_app, scheduler
-from app.models import User
+from app.models import User, Party
 from flask_bcrypt import generate_password_hash
 
 
 @pytest.fixture(scope='function')
 def app():
-    app = create_app()
+    app = create_app(config_object="config.TestingConfig")
     app.config['TESTING'] = True
     app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///:memory:'
     app.config['JWT_SECRET_KEY'] = 'test-secret-key'
@@ -30,6 +30,12 @@ def app():
 def client(app):
     with app.test_client() as client:
         yield client
+
+
+@pytest.fixture(scope='function')
+def db_session(app):
+    with app.app_context():
+        yield db.session
 
 
 @pytest.fixture(scope='function')
@@ -88,3 +94,12 @@ def admin_auth_header(client, app):
         user = User.query.filter_by(username='adminA').first()
         access_token = create_access_token(identity=str(user.id))
         return {'Authorization': f'Bearer {access_token}'}
+
+
+@pytest.fixture
+def party(db_session, user):
+    party = Party(name='Test Party', description='A test party',
+                  created_by=user.id)
+    db_session.add(party)
+    db_session.commit()
+    return party

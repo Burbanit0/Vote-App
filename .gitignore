@@ -173,3 +173,5 @@ cython_debug/
 flask_voter_app/seed.py
 
 flask_voter_app/migrations
+
+.vscode/
