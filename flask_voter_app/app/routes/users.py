@@ -1,63 +1,65 @@
 from flask import Blueprint, request, jsonify
 from app.utils.auth_utils import register_user
-from ..models import User, ElectionRole, Vote, Party, \
-    get_elections_user_has_voted_in, user_election_roles
-from flask_jwt_extended import get_jwt_identity, \
-    jwt_required
+from ..models import (
+    User,
+    ElectionRole,
+    Vote,
+    Party,
+    get_elections_user_has_voted_in,
+    user_election_roles,
+)
+from flask_jwt_extended import get_jwt_identity, jwt_required
 from ..utils.decorators import admin_required
 from ..services.user_service import UserService
 from app import db
 
-auth_bp = Blueprint('auth', __name__, url_prefix='/api/auth')
+auth_bp = Blueprint("auth", __name__, url_prefix="/api/auth")
 
 
-@auth_bp.route('/register', methods=['POST'])
+@auth_bp.route("/register", methods=["POST"])
 def register():
     data = request.get_json()
-    username = data.get('username')
-    password = data.get('password')
-    first_name = data.get('first_name')
-    last_name = data.get('last_name')
-    role = data.get('role', 'User')
+    username = data.get("username")
+    password = data.get("password")
+    first_name = data.get("first_name")
+    last_name = data.get("last_name")
+    role = data.get("role", "User")
 
-    result = UserService.register(username, password, first_name, last_name,
-                                  role)
+    result = UserService.register(username, password, first_name, last_name, role)
     return jsonify(result)
 
 
-@auth_bp.route('/register/voter', methods=['POST'])
+@auth_bp.route("/register/voter", methods=["POST"])
 def register_voter():
     data = request.get_json()
-    username = data.get('username')
-    password = data.get('password')
-    first_name = data.get('first_name')
-    last_name = data.get('last_name')
+    username = data.get("username")
+    password = data.get("password")
+    first_name = data.get("first_name")
+    last_name = data.get("last_name")
 
     if not username or not password:
-        return jsonify({'message': 'Username and password are required'}), 400
+        return jsonify({"message": "Username and password are required"}), 400
 
     if User.query.filter_by(username=username).first():
-        return jsonify({'message': 'Username already exists'}), 400
+        return jsonify({"message": "Username already exists"}), 400
 
     # Voter registration always creates a User with role 'User'
-    register_user(username, password, first_name, last_name, role='User')
+    register_user(username, password, first_name, last_name, role="User")
 
-    return jsonify({
-        'message': 'User registered successfully'
-    }), 201
+    return jsonify({"message": "User registered successfully"}), 201
 
 
-@auth_bp.route('/login', methods=['POST'])
+@auth_bp.route("/login", methods=["POST"])
 def login():
     data = request.get_json()
-    username = data.get('username')
-    password = data.get('password')
+    username = data.get("username")
+    password = data.get("password")
 
     result = UserService.login(username, password)
     return jsonify(result)
 
 
-@auth_bp.route('/admin-only', methods=['GET'])
+@auth_bp.route("/admin-only", methods=["GET"])
 @admin_required
 @jwt_required()
 def admin_only():
@@ -67,14 +69,14 @@ def admin_only():
     # Optionally, you can access additional claims like the role
     # current_user_role = get_jwt()["role"]
 
-    if current_user.role != 'Admin':
+    if current_user.role != "Admin":
         return jsonify({"message": "Access denied"}), 403
 
     # Admin-only logic here
     return jsonify({"message": "Welcome, Admin!"}), 200
 
 
-@auth_bp.route('/profile', methods=['GET'])
+@auth_bp.route("/profile", methods=["GET"])
 @jwt_required()
 def get_profile():
     # Retrieve the logged-in user's information using the primary key
@@ -86,7 +88,7 @@ def get_profile():
     return jsonify(result)
 
 
-@auth_bp.route('/participation', methods=['GET'])
+@auth_bp.route("/participation", methods=["GET"])
 @jwt_required()
 def get_participation_requirements():
     """Get participation requirements and current status"""
@@ -94,46 +96,53 @@ def get_participation_requirements():
     user = User.query.get_or_404(user_id)
 
     # Get elections where user is a candidate
-    candidate_elections = db.session.query(
-        user_election_roles.c.election_id
-    ).filter(
-        user_election_roles.c.user_id == user_id,
-        user_election_roles.c.role == ElectionRole.CANDIDATE
-    ).count()
+    candidate_elections = (
+        db.session.query(user_election_roles.c.election_id)
+        .filter(
+            user_election_roles.c.user_id == user_id,
+            user_election_roles.c.role == ElectionRole.CANDIDATE,
+        )
+        .count()
+    )
 
     # Get elections where user is an organizer
-    organizer_elections = db.session.query(
-        user_election_roles.c.election_id
-    ).filter(
-        user_election_roles.c.user_id == user_id,
-        user_election_roles.c.role == ElectionRole.ORGANIZER
-    ).count()
+    organizer_elections = (
+        db.session.query(user_election_roles.c.election_id)
+        .filter(
+            user_election_roles.c.user_id == user_id,
+            user_election_roles.c.role == ElectionRole.ORGANIZER,
+        )
+        .count()
+    )
 
     # Get elections where user has voted
-    voted_elections_count = db.session.query(
-        Vote.election_id
-    ).filter(
-        Vote.voter_id == user_id
-    ).distinct().count()
+    voted_elections_count = (
+        db.session.query(Vote.election_id)
+        .filter(Vote.voter_id == user_id)
+        .distinct()
+        .count()
+    )
 
-    return jsonify({
-        'current_participation': user.elections_participated,
-        'current_votes_cast': voted_elections_count,
-        'candidate_requirements': {
-            'minimum_elections_participated': 10,
-            'current_elections_as_candidate': candidate_elections,
-            'eligible_for_candidate': user.elections_participated >= 10
-        },
-        'organizer_requirements': {
-            'minimum_elections_participated': 15,
-            'current_elections_as_organizer': organizer_elections,
-            'eligible_for_organizer': user.elections_participated >= 15
-            and voted_elections_count >= 5
+    return jsonify(
+        {
+            "current_participation": user.elections_participated,
+            "current_votes_cast": voted_elections_count,
+            "candidate_requirements": {
+                "minimum_elections_participated": 10,
+                "current_elections_as_candidate": candidate_elections,
+                "eligible_for_candidate": user.elections_participated >= 10,
+            },
+            "organizer_requirements": {
+                "minimum_elections_participated": 15,
+                "current_elections_as_organizer": organizer_elections,
+                "eligible_for_organizer": user.elections_participated >= 15
+                and voted_elections_count >= 5,
+            },
         }
-    })
+    )
 
 
-@auth_bp.route('/<int:user_id>', methods=['PUT'])
+@auth_bp.route("/<int:user_id>", methods=["PUT"])
 @jwt_required()
 @admin_required
 def update_user(user_id):
@@ -142,61 +151,70 @@ def update_user(user_id):
     current_user = User.query.get(current_user_id)
 
     # Admins can update any user, regular users can only update themselves
-    if current_user.role != 'Admin' and current_user_id != user_id:
-        return jsonify({'message': 'Unauthorized'}), 403
+    if current_user.role != "Admin" and current_user_id != user_id:
+        return jsonify({"message": "Unauthorized"}), 403
 
     user = User.query.get_or_404(user_id)
     data = request.get_json()
 
-    if 'username' in data:
-        if data['username'] != user.username and User.query.filter_by(
-                        username=data['username']).first():
-            return jsonify({'message': 'Username already exists'}), 400
-        user.username = data['username']
+    if "username" in data:
+        if (
+            data["username"] != user.username
+            and User.query.filter_by(username=data["username"]).first()
+        ):
+            return jsonify({"message": "Username already exists"}), 400
+        user.username = data["username"]
 
-    if 'first_name' in data:
-        user.first_name = data['first_name']
+    if "first_name" in data:
+        user.first_name = data["first_name"]
 
-    if 'last_name' in data:
-        user.last_name = data['last_name']
+    if "last_name" in data:
+        user.last_name = data["last_name"]
 
-    if 'password' in data:
-        user.password_hash = User.set_password(data['password'])
+    if "password" in data:
+        user.password_hash = User.set_password(data["password"])
 
     # Only admins can change roles
-    if current_user.role == 'Admin' and 'role' in data:
-        if data['role'] not in ['User', 'Admin']:
-            return jsonify({'message': 'Invalid role specified'}), 400
-        user.role = data['role']
+    if current_user.role == "Admin" and "role" in data:
+        if data["role"] not in ["User", "Admin"]:
+            return jsonify({"message": "Invalid role specified"}), 400
+        user.role = data["role"]
 
     db.session.commit()
 
-    return jsonify({
-        'id': user.id,
-        'username': user.username,
-        'first_name': user.first_name,
-        'last_name': user.last_name,
-        'role': user.role
-    })
+    return jsonify(
+        {
+            "id": user.id,
+            "username": user.username,
+            "first_name": user.first_name,
+            "last_name": user.last_name,
+            "role": user.role,
+        }
+    )
 
 
-@auth_bp.route('/', methods=['GET'])
+@auth_bp.route("/", methods=["GET"])
 @jwt_required()
 @admin_required
 def get_all_users():
     """Get all users - admin only endpoint"""
     users = User.query.all()
-    return jsonify([{
-        'id': user.id,
-        'username': user.username,
-        'first_name': user.first_name,
-        'last_name': user.last_name,
-        'role': user.role,
-        'elections_participated': user.elections_participated,
-    } for user in users])
+    return jsonify(
+        [
+            {
+                "id": user.id,
+                "username": user.username,
+                "first_name": user.first_name,
+                "last_name": user.last_name,
+                "role": user.role,
+                "elections_participated": user.elections_participated,
+            }
+            for user in users
+        ]
+    )
 
 
-@auth_bp.route('/<int:user_id>', methods=['GET'])
+@auth_bp.route("/<int:user_id>", methods=["GET"])
 @jwt_required()
 def get_user(user_id):
     """Get a specific user"""
@@ -209,35 +227,32 @@ def get_user(user_id):
     #     return jsonify({'message': 'Unauthorized'}), 403
 
     # Get participation details
-    participation = db.session.query(
-        user_election_roles.c.election_id,
-        user_election_roles.c.role
-    ).filter(
-        user_election_roles.c.user_id == user_id
-    ).all()
+    participation = (
+        db.session.query(user_election_roles.c.election_id, user_election_roles.c.role)
+        .filter(user_election_roles.c.user_id == user_id)
+        .all()
+    )
 
-    participation_details = {
-        'voter': [],
-        'candidate': [],
-        'organizer': []
-    }
+    participation_details = {"voter": [], "candidate": [], "organizer": []}
 
     for election_id, role in participation:
         participation_details[role.value].append(election_id)
 
-    return jsonify({
-        'id': user.id,
-        'username': user.username,
-        'first_name': user.first_name,
-        'last_name': user.last_name,
-        'role': user.role,
-        'party_id': user.party_id,
-        'elections_participated': user.elections_participated,
-        'participation_details': participation_details
-    })
+    return jsonify(
+        {
+            "id": user.id,
+            "username": user.username,
+            "first_name": user.first_name,
+            "last_name": user.last_name,
+            "role": user.role,
+            "party_id": user.party_id,
+            "elections_participated": user.elections_participated,
+            "participation_details": participation_details,
+        }
+    )
 
 
-@auth_bp.route('/users/me/permissions', methods=['GET'])
+@auth_bp.route("/users/me/permissions", methods=["GET"])
 @jwt_required()
 def get_user_permissions():
     """Get the current user's permissions"""
@@ -245,19 +260,18 @@ def get_user_permissions():
     user = User.query.get_or_404(current_user_id)
 
     # Calculate if user can create elections
-    can_create_elections = (
-        user.role == 'Admin' or
-        user.participation_points >= 100
+    can_create_elections = user.role == "Admin" or user.participation_points >= 100
+
+    return jsonify(
+        {
+            "is_admin": user.role == "Admin",
+            "participation_points": user.participation_points,
+            "can_create_elections": can_create_elections,
+        }
     )
 
-    return jsonify({
-        'is_admin': user.role == 'Admin',
-        'participation_points': user.participation_points,
-        'can_create_elections': can_create_elections
-    })
 
-
-@auth_bp.route('/users/me/participation', methods=['GET'])
+@auth_bp.route("/users/me/participation", methods=["GET"])
 @jwt_required()
 def get_participation_data():
     """Get the current user's participation data"""
@@ -266,29 +280,27 @@ def get_participation_data():
 
     # Determine level based on points
     if user.participation_points >= 1000:
-        level = 'Legend'
+        level = "Legend"
         next_level = 1000
     elif user.participation_points >= 500:
-        level = 'Master'
+        level = "Master"
         next_level = 1000
     elif user.participation_points >= 200:
-        level = 'Expert'
+        level = "Expert"
         next_level = 500
     elif user.participation_points >= 50:
-        level = 'Active'
+        level = "Active"
         next_level = 200
     else:
-        level = 'Beginner'
+        level = "Beginner"
         next_level = 50
 
-    return jsonify({
-        'points': user.participation_points,
-        'level': level,
-        'nextLevel': next_level
-    })
+    return jsonify(
+        {"points": user.participation_points, "level": level, "nextLevel": next_level}
+    )
 
 
-@auth_bp.route('/users/me/voted-elections', methods=['GET'])
+@auth_bp.route("/users/me/voted-elections", methods=["GET"])
 @jwt_required()
 def get_voted_elections():
     """Get elections that the current user has voted in"""
@@ -296,18 +308,25 @@ def get_voted_elections():
 
     elections = get_elections_user_has_voted_in(current_user_id)
 
-    return jsonify([{
-        'id': election.id,
-        'name': election.name,
-        'description': election.description,
-        'start_date': election.start_date.isoformat()
-        if election.start_date else None,
-        'end_date': election.end_date.isoformat()
-        if election.end_date else None
-    } for election in elections])
+    return jsonify(
+        [
+            {
+                "id": election.id,
+                "name": election.name,
+                "description": election.description,
+                "start_date": (
+                    election.start_date.isoformat() if election.start_date else None
+                ),
+                "end_date": (
+                    election.end_date.isoformat() if election.end_date else None
+                ),
+            }
+            for election in elections
+        ]
+    )
 
 
-@auth_bp.route('/users/me/party', methods=['GET'])
+@auth_bp.route("/users/me/party", methods=["GET"])
 @jwt_required()
 def get_user_party():
 
@@ -316,16 +335,13 @@ def get_user_party():
     user = User.query.get(current_user_id)
 
     if not user:
-        return jsonify({'message': 'User not found'}), 404
+        return jsonify({"message": "User not found"}), 404
 
     party = Party.query.get(user.party_id)
 
     if not party:
-        return jsonify({'message':
-                        'This user is not a member of a party'}), 404
+        return jsonify({"message": "This user is not a member of a party"}), 404
 
-    return jsonify({
-        'id': party.id,
-        'name': party.name,
-        'description': party.description
-    })
+    return jsonify(
+        {"id": party.id, "name": party.name, "description": party.description}
+    )

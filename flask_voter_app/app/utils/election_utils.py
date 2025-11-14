@@ -18,15 +18,23 @@ def get_election_status(election):
     now = datetime.now(timezone.utc)
 
     # Ensure election dates are timezone-aware
-    start_date = election.start_date.replace(tzinfo=timezone.utc) if election.start_date.tzinfo is None else election.start_date
-    end_date = election.end_date.replace(tzinfo=timezone.utc) if election.end_date.tzinfo is None else election.end_date
+    start_date = (
+        election.start_date.replace(tzinfo=timezone.utc)
+        if election.start_date.tzinfo is None
+        else election.start_date
+    )
+    end_date = (
+        election.end_date.replace(tzinfo=timezone.utc)
+        if election.end_date.tzinfo is None
+        else election.end_date
+    )
 
     if end_date < now:
-        return 'completed'
+        return "completed"
     elif start_date <= now <= end_date:
-        return 'ongoing'
+        return "ongoing"
     else:
-        return 'upcoming'
+        return "upcoming"
 
 
 def is_election_ongoing(election):
@@ -41,8 +49,16 @@ def is_election_ongoing(election):
     """
     now = datetime.now(timezone.utc)
     # Ensure election dates are timezone-aware
-    start_date = election.start_date.replace(tzinfo=timezone.utc) if election.start_date.tzinfo is None else election.start_date
-    end_date = election.end_date.replace(tzinfo=timezone.utc) if election.end_date.tzinfo is None else election.end_date
+    start_date = (
+        election.start_date.replace(tzinfo=timezone.utc)
+        if election.start_date.tzinfo is None
+        else election.start_date
+    )
+    end_date = (
+        election.end_date.replace(tzinfo=timezone.utc)
+        if election.end_date.tzinfo is None
+        else election.end_date
+    )
 
     return start_date <= now <= end_date
 
@@ -59,7 +75,11 @@ def is_election_upcoming(election):
     """
     now = datetime.now(timezone.utc)
     # Ensure election dates are timezone-aware
-    start_date = election.start_date.replace(tzinfo=timezone.utc) if election.start_date.tzinfo is None else election.start_date
+    start_date = (
+        election.start_date.replace(tzinfo=timezone.utc)
+        if election.start_date.tzinfo is None
+        else election.start_date
+    )
 
     return start_date > now
 
@@ -76,7 +96,11 @@ def is_election_completed(election):
     """
     now = datetime.now(timezone.utc)
     # Ensure election dates are timezone-aware
-    end_date = election.end_date.replace(tzinfo=timezone.utc) if election.end_date.tzinfo is None else election.end_date
+    end_date = (
+        election.end_date.replace(tzinfo=timezone.utc)
+        if election.end_date.tzinfo is None
+        else election.end_date
+    )
 
     return end_date < now
 

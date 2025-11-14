@@ -26,8 +26,22 @@ def get_condorcet_winner(votes):
         for voter in voters:
             # Find the ranks of candidate_1 and candidate_2
             # for the current voter
-            rank_1 = next((v.rank for v in votes if v.candidate_id == candidate_1 and v.voter_id == voter), None)
-            rank_2 = next((v.rank for v in votes if v.candidate_id == candidate_2 and v.voter_id == voter), None)
+            rank_1 = next(
+                (
+                    v.rank
+                    for v in votes
+                    if v.candidate_id == candidate_1 and v.voter_id == voter
+                ),
+                None,
+            )
+            rank_2 = next(
+                (
+                    v.rank
+                    for v in votes
+                    if v.candidate_id == candidate_2 and v.voter_id == voter
+                ),
+                None,
+            )
 
             if rank_1 is not None and rank_2 is not None:
                 if rank_1 < rank_2:
@@ -37,8 +51,11 @@ def get_condorcet_winner(votes):
 
     # Check if there is a Condorcet winner
     for candidate in candidates:
-        if all(wins[(candidate, other)] > wins[(other, candidate)]
-                for other in candidates if candidate != other):
+        if all(
+            wins[(candidate, other)] > wins[(other, candidate)]
+            for other in candidates
+            if candidate != other
+        ):
             return candidate
 
     # If no Condorcet winner is found
@@ -71,7 +88,7 @@ def get_two_round_winner(votes):
 
     # If no majority, proceed to the second round with the top two candidates
     top_two_candidates = first_choice_votes.most_common(2)
-    candidate_1, candidate_2 = top_two_candidates[0][0],
+    candidate_1, candidate_2 = (top_two_candidates[0][0],)
     top_two_candidates[1][0]
 
     # Count the votes for the top two candidates in the second round
@@ -89,22 +106,21 @@ def bucklin_voting(votes):
     # Group votes by candidate_id and rank
     candidate_votes = defaultdict(lambda: defaultdict(int))
     for vote in votes:
-        candidate_id = vote['candidate_id']
-        rank = vote['rank']
+        candidate_id = vote["candidate_id"]
+        rank = vote["rank"]
         candidate_votes[candidate_id][rank] += 1
 
     # Determine the total number of voters
-    total_voters = len(set(vote['voter_id'] for vote in votes))
+    total_voters = len(set(vote["voter_id"] for vote in votes))
 
     # Determine the majority threshold
     majority = total_voters // 2 + 1
 
     # Accumulate votes by rank
     accumulated_votes = defaultdict(int)
-    for rank in sorted(set(vote['rank'] for vote in votes)):
+    for rank in sorted(set(vote["rank"] for vote in votes)):
         for candidate_id in candidate_votes:
-            accumulated_votes[candidate_id] += \
-                candidate_votes[candidate_id][rank]
+            accumulated_votes[candidate_id] += candidate_votes[candidate_id][rank]
             if accumulated_votes[candidate_id] >= majority:
                 return candidate_id
 
@@ -118,11 +134,11 @@ def two_round_system(votes):
     # Group votes by candidate_id and count their first-choice votes
     first_choice_votes = defaultdict(int)
     for vote in votes:
-        if vote['rank'] == 1:
-            first_choice_votes[vote['candidate_id']] += 1
+        if vote["rank"] == 1:
+            first_choice_votes[vote["candidate_id"]] += 1
 
     # Determine the total number of voters
-    total_voters = len(set(vote['voter_id'] for vote in votes))
+    total_voters = len(set(vote["voter_id"] for vote in votes))
 
     # Determine the majority threshold
     majority = total_voters // 2 + 1
@@ -136,14 +152,13 @@ def two_round_system(votes):
         return first_round_results[0][0], []
 
     # If no majority, proceed to the second round with the top two candidates
-    top_two_candidates = [candidate_id for candidate_id, _
-                          in first_round_results[:2]]
+    top_two_candidates = [candidate_id for candidate_id, _ in first_round_results[:2]]
 
     # Count votes for the top two candidates in the second round
     second_round_votes = defaultdict(int)
     for vote in votes:
-        if vote['candidate_id'] in top_two_candidates:
-            second_round_votes[vote['candidate_id']] += 1
+        if vote["candidate_id"] in top_two_candidates:
+            second_round_votes[vote["candidate_id"]] += 1
 
     # Determine the winner of the second round
     second_round_winner = max(second_round_votes, key=second_round_votes.get)
@@ -155,17 +170,15 @@ def schulze_method(votes):
     # Group votes by voter_id
     voter_preferences = defaultdict(list)
     for vote in votes:
-        voter_preferences[vote['voter_id']].append((vote['candidate_id'],
-                                                    vote['rank']))
+        voter_preferences[vote["voter_id"]].append((vote["candidate_id"], vote["rank"]))
 
     # Sort preferences by rank for each voter
     for voter_id in voter_preferences:
         voter_preferences[voter_id].sort(key=lambda x: x[1])
 
     # Extract unique candidate IDs
-    candidates = sorted(set(vote['candidate_id'] for vote in votes))
-    candidate_indices = {candidate: index for index, candidate
-                         in enumerate(candidates)}
+    candidates = sorted(set(vote["candidate_id"] for vote in votes))
+    candidate_indices = {candidate: index for index, candidate in enumerate(candidates)}
 
     # Initialize the pairwise preference matrix
     num_candidates = len(candidates)
@@ -177,8 +190,10 @@ def schulze_method(votes):
             for j in range(i + 1, len(preferences)):
                 pref_candidate = preferences[i][0]
                 less_pref_candidate = preferences[j][0]
-                preference_matrix[candidate_indices[pref_candidate],
-                                  candidate_indices[less_pref_candidate]] += 1
+                preference_matrix[
+                    candidate_indices[pref_candidate],
+                    candidate_indices[less_pref_candidate],
+                ] += 1
 
     # Calculate the strength of preferences
     strength_matrix = np.zeros((num_candidates, num_candidates), dtype=int)
@@ -192,13 +207,12 @@ def schulze_method(votes):
     for i, j in combinations(range(num_candidates), 2):
         if strength_matrix[i, j] == 0 and strength_matrix[j, i] == 0:
             strength_matrix[i, j] = strength_matrix[j, i] = max(
-                preference_matrix[i, j], preference_matrix[j, i])
+                preference_matrix[i, j], preference_matrix[j, i]
+            )
 
     for i, k, j in combinations(range(num_candidates), 3):
-        if strength_matrix[i, j] < min(strength_matrix[i, k],
-                                       strength_matrix[k, j]):
-            strength_matrix[i, j] = min(strength_matrix[i, k],
-                                        strength_matrix[k, j])
+        if strength_matrix[i, j] < min(strength_matrix[i, k], strength_matrix[k, j]):
+            strength_matrix[i, j] = min(strength_matrix[i, k], strength_matrix[k, j])
 
     # Determine the winner
     wins = np.sum(strength_matrix > strength_matrix.T, axis=1)
@@ -214,14 +228,16 @@ def score_voting(votes):
     candidate_counts = defaultdict(int)
 
     for vote in votes:
-        candidate_id = vote['candidate_id']
-        rating = vote['rating']
+        candidate_id = vote["candidate_id"]
+        rating = vote["rating"]
         candidate_scores[candidate_id] += rating
         candidate_counts[candidate_id] += 1
 
     # Calculate average scores
-    average_scores = {candidate: total_score / candidate_counts[candidate]
-                      for candidate, total_score in candidate_scores.items()}
+    average_scores = {
+        candidate: total_score / candidate_counts[candidate]
+        for candidate, total_score in candidate_scores.items()
+    }
 
     # Determine the winner
     winner = max(average_scores, key=average_scores.get)
