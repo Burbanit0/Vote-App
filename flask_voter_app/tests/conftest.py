@@ -10,7 +10,7 @@ from flask_bcrypt import generate_password_hash
 
 @pytest.fixture(scope='function')
 def app():
-    app = create_app()
+    app = create_app(config_object="config.TestingConfig")
     app.config['TESTING'] = True
     app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///:memory:'
     app.config['JWT_SECRET_KEY'] = 'test-secret-key'
