@@ -19,8 +19,10 @@ class Elector:
 
 def simulate_election(num_electors, num_choices, influence_matrix, num_steps):
     # Initialize electors with random preferences
-    electors = [Elector(random.randint(0, num_choices - 1), num_choices)
-                for _ in range(num_electors)]
+    electors = [
+        Elector(random.randint(0, num_choices - 1), num_choices)
+        for _ in range(num_electors)
+    ]
 
     for step in range(num_steps):
         # Each elector interacts with another random elector
@@ -37,14 +39,17 @@ def simulate_election(num_electors, num_choices, influence_matrix, num_steps):
 # Example usage
 num_electors = 1000
 num_choices = 3  # Number of choices (e.g., candidates)
-influence_matrix = np.array([
-    [0.1, 0.2, 0.3],  # Probability of changing from choice 0 to others
-    [0.2, 0.1, 0.4],  # Probability of changing from choice 1 to others
-    [0.3, 0.4, 0.1]   # Probability of changing from choice 2 to others
-])
+influence_matrix = np.array(
+    [
+        [0.1, 0.2, 0.3],  # Probability of changing from choice 0 to others
+        [0.2, 0.1, 0.4],  # Probability of changing from choice 1 to others
+        [0.3, 0.4, 0.1],  # Probability of changing from choice 2 to others
+    ]
+)
 num_steps = 10
 
-preference_counts = simulate_election(num_electors, num_choices,
-                                      influence_matrix, num_steps)
+preference_counts = simulate_election(
+    num_electors, num_choices, influence_matrix, num_steps
+)
 
 print("Final preference counts:", preference_counts)

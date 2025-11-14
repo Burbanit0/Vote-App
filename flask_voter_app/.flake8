@@ -1,4 +1,6 @@
 [flake8]
+max-line-length = 88
+ignore = F824, W503, E203
 exclude =
     dist,
     build,

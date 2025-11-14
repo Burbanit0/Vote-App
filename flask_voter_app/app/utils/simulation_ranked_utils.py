@@ -20,7 +20,7 @@ def get_condorcet_winner(votes: list) -> str:
 
     for vote in votes:
         if is_dict_format:
-            candidates.update(vote['ranking'])
+            candidates.update(vote["ranking"])
         else:
             candidates.update(vote)
 
@@ -30,12 +30,16 @@ def get_condorcet_winner(votes: list) -> str:
     for candidate_1, candidate_2 in combinations(candidates, 2):
         for vote in votes:
             if is_dict_format:
-                ranking = vote['ranking']
+                ranking = vote["ranking"]
             else:
                 ranking = vote
 
-            rank_1 = ranking.index(candidate_1) if candidate_1 in ranking else float('inf')
-            rank_2 = ranking.index(candidate_2) if candidate_2 in ranking else float('inf')
+            rank_1 = (
+                ranking.index(candidate_1) if candidate_1 in ranking else float("inf")
+            )
+            rank_2 = (
+                ranking.index(candidate_2) if candidate_2 in ranking else float("inf")
+            )
 
             if rank_1 < rank_2:
                 wins[(candidate_1, candidate_2)] += 1
@@ -44,9 +48,11 @@ def get_condorcet_winner(votes: list) -> str:
 
     # Check for a Condorcet winner
     for candidate in candidates:
-        if all(wins.get((candidate, other), 0) > wins.get((other, candidate),
-                                                          0)
-               for other in candidates if other != candidate):
+        if all(
+            wins.get((candidate, other), 0) > wins.get((other, candidate), 0)
+            for other in candidates
+            if other != candidate
+        ):
             return candidate
 
     return None
@@ -65,7 +71,7 @@ def get_two_round_winner(votes: list) -> str:
     first_choice_votes = Counter()
     for vote in votes:
         if is_dict_format:
-            ranking = vote['ranking']
+            ranking = vote["ranking"]
         else:
             ranking = vote
 
@@ -82,14 +88,15 @@ def get_two_round_winner(votes: list) -> str:
             return candidate
 
     # If no majority, proceed to the second round with the top two candidates
-    top_two_candidates = [candidate for candidate, _ in
-                          first_choice_votes.most_common(2)]
+    top_two_candidates = [
+        candidate for candidate, _ in first_choice_votes.most_common(2)
+    ]
 
     # Count the votes for the top two candidates in the second round
     second_round_votes = Counter()
     for vote in votes:
         if is_dict_format:
-            ranking = vote['ranking']
+            ranking = vote["ranking"]
         else:
             ranking = vote
 
@@ -116,7 +123,7 @@ def get_borda_winner(votes: list) -> str:
     candidates = set()
     for vote in votes:
         if is_dict_format:
-            ranking = vote['ranking']
+            ranking = vote["ranking"]
         else:
             ranking = vote
         candidates.update(ranking)
@@ -125,7 +132,7 @@ def get_borda_winner(votes: list) -> str:
 
     for vote in votes:
         if is_dict_format:
-            ranking = vote['ranking']
+            ranking = vote["ranking"]
         else:
             ranking = vote
 
@@ -149,7 +156,7 @@ def get_plurality_winner(votes: list) -> str:
     first_choice_votes = Counter()
     for vote in votes:
         if is_dict_format:
-            ranking = vote['ranking']
+            ranking = vote["ranking"]
         else:
             ranking = vote
 
@@ -173,7 +180,7 @@ def get_approval_winner(votes: list, approval_threshold: int = 2) -> str:
 
     for vote in votes:
         if is_dict_format:
-            ranking = vote['ranking']
+            ranking = vote["ranking"]
         else:
             ranking = vote
 
@@ -197,7 +204,7 @@ def get_irv_winner(votes: list) -> str:
     candidates = set()
     for vote in votes:
         if is_dict_format:
-            ranking = vote['ranking']
+            ranking = vote["ranking"]
         else:
             ranking = vote
         candidates.update(ranking)
@@ -207,7 +214,7 @@ def get_irv_winner(votes: list) -> str:
         votes_count = Counter()
         for vote in votes:
             if is_dict_format:
-                ranking = vote['ranking']
+                ranking = vote["ranking"]
             else:
                 ranking = vote
 
@@ -247,7 +254,7 @@ def get_coombs_winner(votes: list) -> str:
     candidates = set()
     for vote in votes:
         if is_dict_format:
-            ranking = vote['ranking']
+            ranking = vote["ranking"]
         else:
             ranking = vote
         candidates.update(ranking)
@@ -257,7 +264,7 @@ def get_coombs_winner(votes: list) -> str:
         last_choices = Counter()
         for vote in votes:
             if is_dict_format:
-                ranking = vote['ranking']
+                ranking = vote["ranking"]
             else:
                 ranking = vote
 
@@ -269,8 +276,7 @@ def get_coombs_winner(votes: list) -> str:
 
         # Eliminate candidate(s) with most last-place votes
         max_last_choices = max(last_choices.values())
-        eliminated = [c for c, v in last_choices.items()
-                      if v == max_last_choices]
+        eliminated = [c for c, v in last_choices.items() if v == max_last_choices]
 
         # If tie for elimination, eliminate all tied candidates
         for candidate in eliminated:
@@ -292,7 +298,7 @@ def get_score_winner(votes: list) -> str:
 
     for vote in votes:
         if is_dict_format:
-            ranking = vote['ranking']
+            ranking = vote["ranking"]
         else:
             ranking = vote
 
@@ -317,7 +323,7 @@ def get_kemeny_young_winner(votes: list) -> str:
     candidates = set()
     for vote in votes:
         if is_dict_format:
-            ranking = vote['ranking']
+            ranking = vote["ranking"]
         else:
             ranking = vote
         candidates.update(ranking)
@@ -340,14 +346,14 @@ def get_kemeny_young_winner(votes: list) -> str:
         return distance
 
     # Calculate the total distance for each possible ranking
-    min_distance = float('inf')
+    min_distance = float("inf")
     best_ranking = None
 
     for candidate_ranking in all_rankings:
         total_distance = 0
         for vote in votes:
             if is_dict_format:
-                ranking = vote['ranking']
+                ranking = vote["ranking"]
             else:
                 ranking = vote
             total_distance += ranking_distance(candidate_ranking, ranking)
@@ -371,23 +377,23 @@ def get_bucklin_winner(votes: list) -> str:
     candidates = set()
     for vote in votes:
         if is_dict_format:
-            ranking = vote['ranking']
+            ranking = vote["ranking"]
         else:
             ranking = vote
         candidates.update(ranking)
 
-    max_rank = max(len(vote['ranking'] if is_dict_format else vote) for vote in votes)
+    max_rank = max(len(vote["ranking"] if is_dict_format else vote) for vote in votes)
 
     for rank in range(1, max_rank + 1):
         votes_count = Counter()
         for vote in votes:
             if is_dict_format:
-                ranking = vote['ranking']
+                ranking = vote["ranking"]
             else:
                 ranking = vote
 
             if len(ranking) >= rank:
-                votes_count[ranking[rank-1]] += 1
+                votes_count[ranking[rank - 1]] += 1
 
         majority = len(votes) / 2
         winners = [c for c, v in votes_count.items() if v > majority]
@@ -412,7 +418,7 @@ def get_minimax_winner(votes: list) -> str:
     candidates = set()
     for vote in votes:
         if is_dict_format:
-            ranking = vote['ranking']
+            ranking = vote["ranking"]
         else:
             ranking = vote
         candidates.update(ranking)
@@ -422,21 +428,23 @@ def get_minimax_winner(votes: list) -> str:
     for c1, c2 in combinations(candidates, 2):
         for vote in votes:
             if is_dict_format:
-                ranking = vote['ranking']
+                ranking = vote["ranking"]
             else:
                 ranking = vote
 
-            pos1 = ranking.index(c1) if c1 in ranking else float('inf')
-            pos2 = ranking.index(c2) if c2 in ranking else float('inf')
+            pos1 = ranking.index(c1) if c1 in ranking else float("inf")
+            pos2 = ranking.index(c2) if c2 in ranking else float("inf")
             if pos2 < pos1:  # c2 is preferred over c1
                 opposition[(c1, c2)] += 1
 
     # Find the maximum opposition for each candidate
     max_opposition = {}
     for candidate in candidates:
-        max_opposition[candidate] = max(opposition.get((candidate, other), 0)
-                                        for other in candidates
-                                        if other != candidate)
+        max_opposition[candidate] = max(
+            opposition.get((candidate, other), 0)
+            for other in candidates
+            if other != candidate
+        )
 
     # Return the candidate with the smallest maximum opposition
     return min(max_opposition.items(), key=lambda x: x[1])[0]
@@ -454,7 +462,7 @@ def get_schulze_winner(votes: list) -> str:
     candidates = set()
     for vote in votes:
         if is_dict_format:
-            ranking = vote['ranking']
+            ranking = vote["ranking"]
         else:
             ranking = vote
         candidates.update(ranking)
@@ -464,12 +472,12 @@ def get_schulze_winner(votes: list) -> str:
     for c1, c2 in combinations(candidates, 2):
         for vote in votes:
             if is_dict_format:
-                ranking = vote['ranking']
+                ranking = vote["ranking"]
             else:
                 ranking = vote
 
-            pos1 = ranking.index(c1) if c1 in ranking else float('inf')
-            pos2 = ranking.index(c2) if c2 in ranking else float('inf')
+            pos1 = ranking.index(c1) if c1 in ranking else float("inf")
+            pos2 = ranking.index(c2) if c2 in ranking else float("inf")
             if pos1 < pos2:
                 pref[c1][c2] += 1
 
@@ -480,7 +488,9 @@ def get_schulze_winner(votes: list) -> str:
             strength[c1][c2] = pref[c1][c2]
 
     for c1, c2, c3 in permutations(candidates, 3):
-        strength[c1][c2] = max(strength[c1][c2], min(strength[c1][c3], strength[c3][c2]))
+        strength[c1][c2] = max(
+            strength[c1][c2], min(strength[c1][c3], strength[c3][c2])
+        )
 
     # Find the Schulze winner
     wins = defaultdict(int)

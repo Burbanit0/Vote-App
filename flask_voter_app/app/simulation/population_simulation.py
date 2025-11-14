@@ -46,7 +46,7 @@ def generate_coordinates(age):
     x = max(-5, min(5, x))
     y = max(-5, min(5, y))
 
-    return ({'x': x, 'y': y})
+    return {"x": x, "y": y}
 
 
 def simulate_population(nb_voters, avg_age):
@@ -67,8 +67,10 @@ def generate_coord_candidates(nb_candidates):
 def assign_voters_to_candidates(voters, candidates):
     assignements = []
     for voter in voters:
-        distances = [np.linalg.norm(np.array(voter) - np.array(candidate)) for
-                     candidate in candidates]
+        distances = [
+            np.linalg.norm(np.array(voter) - np.array(candidate))
+            for candidate in candidates
+        ]
 
         closest_candidate_index = np.argmin(distances)
 
