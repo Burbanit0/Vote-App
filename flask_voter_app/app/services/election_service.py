@@ -1,6 +1,7 @@
 # flask_voter_app/app/services/election_service.py
 from app import db
 from app.models import Election, User, ElectionRole, user_election_roles
+from dateutil import parser
 
 
 class ElectionService:
@@ -69,6 +70,10 @@ class ElectionService:
 
     @staticmethod
     def create_election(name, description, start_date, end_date, created_by):
+        if isinstance(start_date, str):
+            start_date = parser.isoparse(start_date)
+        if isinstance(end_date, str):
+            end_date = parser.isoparse(end_date)
         election = Election(
             name=name,
             description=description,
