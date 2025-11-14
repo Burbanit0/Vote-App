@@ -1,11 +1,10 @@
 # app/api/votes.py
 from flask import Blueprint, request, jsonify, current_app
 from flask_jwt_extended import jwt_required, get_jwt_identity
-from app.models import Vote, User, Result
+from app.models import Vote, Result
 from app import db
 from app.utils.decorators import election_organizer_required
 from ..services.vote_service import VoteService
-from sqlalchemy import func
 
 vote_bp = Blueprint('votes', __name__, url_prefix='/votes')
 

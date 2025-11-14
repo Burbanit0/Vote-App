@@ -26,10 +26,8 @@ def get_condorcet_winner(votes):
         for voter in voters:
             # Find the ranks of candidate_1 and candidate_2
             # for the current voter
-            rank_1 = next((v.rank for v in votes if v.candidate_id ==
-                           candidate_1 and v.voter_id == voter), None)
-            rank_2 = next((v.rank for v in votes if v.candidate_id ==
-                           candidate_2 and v.voter_id == voter), None)
+            rank_1 = next((v.rank for v in votes if v.candidate_id == candidate_1 and v.voter_id == voter), None)
+            rank_2 = next((v.rank for v in votes if v.candidate_id == candidate_2 and v.voter_id == voter), None)
 
             if rank_1 is not None and rank_2 is not None:
                 if rank_1 < rank_2:
