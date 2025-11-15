@@ -6,6 +6,21 @@ __pycache__/
 # C extensions
 *.so
 
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# Dependencies
+/node_modules
+/.pnp
+.pnp.js
+
+# Build output
+/build
+/dist
+
 # Distribution / packaging
 .Python
 build/
