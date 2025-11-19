@@ -536,8 +536,7 @@ const UtilityVisualization: React.FC = () => {
                               cy="50%"
                               outerRadius={80}
                               fill="#8884d8"
-                              label={({ name, topCandidate }) =>
-                                `${name}\nPréfère: ${topCandidate}`}
+                              label
                             >
                               {prepareVoterSegmentsData().map((_, index) => (
                                 <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
