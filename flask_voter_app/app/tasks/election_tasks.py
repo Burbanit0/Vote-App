@@ -11,8 +11,7 @@ def handle_completed_elections():
     with app.app_context():
         # Find elections that have ended but haven't been processed
         completed_elections = Election.query.filter(
-            Election.end_date < datetime.utcnow(),
-            Election.processed is False
+            Election.end_date < datetime.utcnow(), Election.processed is False
         ).all()
 
         for election in completed_elections:
