@@ -4,17 +4,17 @@ import { VoterSimu, CandidateSimu } from '../types';
 
 const API_BASE_URL = 'http://localhost:4433';
 
-export const simulateVote = async (formData:SimulationFormData) => {
+export const simulateVote = async (formData: SimulationFormData) => {
   try {
     const response = await axios.post(`${API_BASE_URL}/simulations`, {
-      formData:formData,
+      formData: formData,
     });
     return response.data;
   } catch (error) {
     console.error('Failed to simulate votes. Please try again.', error);
     throw error;
   }
-}
+};
 
 export const simulateVoters = async (numVoters: number) => {
   try {
@@ -26,62 +26,78 @@ export const simulateVoters = async (numVoters: number) => {
     console.error('Failed to create voters', error);
     throw error;
   }
-}
+};
 
-export const simulateCandidates = async (numCandidates: number, issues :string[], parties: string[]) => {
+export const simulateCandidates = async (
+  numCandidates: number,
+  issues: string[],
+  parties: string[]
+) => {
   try {
-  const response = await axios.post(`${API_BASE_URL}/simulations/simulate_candidates`, {
-        num_candidates: numCandidates,
-        issues: issues,
-        parties: parties
-      });
-      return response.data;
+    const response = await axios.post(`${API_BASE_URL}/simulations/simulate_candidates`, {
+      num_candidates: numCandidates,
+      issues: issues,
+      parties: parties,
+    });
+    return response.data;
   } catch (error) {
     console.error('Failed to create candidates', error);
     throw error;
   }
-}
+};
 
 // Pour simuler une analyse complète
-export const simulateUtility = async (issues: string[], voters: VoterSimu[], candidates:CandidateSimu[] ) => {
+export const simulateUtility = async (
+  issues: string[],
+  voters: VoterSimu[],
+  candidates: CandidateSimu[]
+) => {
   try {
     const response = await axios.post(`${API_BASE_URL}/simulations/simulate_utility`, {
       voters: voters,
       candidates: candidates,
-      issues: issues
+      issues: issues,
     });
     return response.data;
   } catch (error) {
-    console.error("Error simulating utility:", error);
+    console.error('Error simulating utility:', error);
   }
 };
 
 // Pour obtenir une matrice d'utilité
-export const getUtilityMatrix = async (voters: VoterSimu[], candidates: CandidateSimu[], issues:string[]) => {
+export const getUtilityMatrix = async (
+  voters: VoterSimu[],
+  candidates: CandidateSimu[],
+  issues: string[]
+) => {
   try {
     const response = await axios.post(`${API_BASE_URL}/simulations/get_utility_matrix`, {
       voters: voters,
       candidates: candidates,
-      issues: issues
+      issues: issues,
     });
     return response.data;
   } catch (error) {
-    console.error("Error getting utility matrix:", error);
+    console.error('Error getting utility matrix:', error);
   }
 };
 
 // Pour analyser par segments
-export const getVoterSegments = async (voters: VoterSimu[], candidates: CandidateSimu[], issues:string[]) => {
+export const getVoterSegments = async (
+  voters: VoterSimu[],
+  candidates: CandidateSimu[],
+  issues: string[]
+) => {
   try {
     const response = await axios.post(`${API_BASE_URL}/simulations/get_voter_segments`, {
       voters: voters,
       candidates: candidates,
       issues: issues,
-      segments: ["young_female", "old_male", "high_edu", "urban"]
+      segments: ['young_female', 'old_male', 'high_edu', 'urban'],
     });
     return response.data;
   } catch (error) {
-    console.error("Error getting voter segments:", error);
+    console.error('Error getting voter segments:', error);
   }
 };
 
@@ -96,4 +112,4 @@ export const closestCandidate = async (voters: number[], candidates: number[]) =
     console.error('Failed to get the closest candidates', error);
     throw error;
   }
-}
+};

@@ -11,13 +11,7 @@ interface ScoreVotingComparisonProps {
 const ScoreVotingComparison: React.FC<ScoreVotingComparisonProps> = ({ scores, candidates }) => {
   const results = useScoreVotingResults(scores, candidates);
 
-  return (
-    <ScoreVotingVisualizations
-      scores={scores}
-      candidates={candidates}
-      results={results}
-    />
-  );
+  return <ScoreVotingVisualizations scores={scores} candidates={candidates} results={results} />;
 };
 
 export default ScoreVotingComparison;

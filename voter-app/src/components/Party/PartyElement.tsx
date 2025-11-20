@@ -6,7 +6,7 @@ import { fetchMembers } from '../../services/partiesApi';
 import { useParams } from 'react-router';
 
 const PartyMembers: React.FC = () => {
-  const { party_id } = useParams<{ party_id: string}>();
+  const { party_id } = useParams<{ party_id: string }>();
   const [members, setMembers] = useState<User[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -55,15 +55,19 @@ const PartyMembers: React.FC = () => {
           </thead>
           <tbody>
             {members.length > 0 ? (
-              members.map(member => (
+              members.map((member) => (
                 <tr key={member.id}>
                   <td>{member.username}</td>
-                  <td>{member.first_name} {member.last_name}</td>
+                  <td>
+                    {member.first_name} {member.last_name}
+                  </td>
                 </tr>
               ))
             ) : (
               <tr>
-                <td colSpan={3} className="text-center">No members found</td>
+                <td colSpan={3} className="text-center">
+                  No members found
+                </td>
               </tr>
             )}
           </tbody>

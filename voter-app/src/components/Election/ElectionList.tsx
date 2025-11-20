@@ -1,13 +1,25 @@
 // src/components/ElectionsList.tsx
 import React, { useEffect, useState, useCallback } from 'react';
-import { Container, Row, Col, Form, Pagination, InputGroup, ButtonGroup, Button, Spinner, Alert, Card, DropdownButton, Dropdown } from 'react-bootstrap';
+import {
+  Container,
+  Row,
+  Col,
+  Form,
+  Pagination,
+  InputGroup,
+  ButtonGroup,
+  Button,
+  Spinner,
+  Alert,
+  DropdownButton,
+  Dropdown,
+} from 'react-bootstrap';
 import { fetchAllElections } from '../../services/';
 import { Election } from '../../types';
 import { debounce } from 'lodash';
 import ElectionCard from './ElectionCard';
 import CreateElectionModal from './CreateElectionModal';
 import useUserPermissions from '../../hooks/useUserPermisions';
-
 
 const ElectionList: React.FC = () => {
   const [elections, setElections] = useState<Election[]>([]);
@@ -26,7 +38,7 @@ const ElectionList: React.FC = () => {
 
   const debouncedSearch = useCallback(
     debounce((term: string) => {
-      setSearchTerm(term)
+      setSearchTerm(term);
       setCurrentPage(1);
     }, 300),
     []
@@ -36,7 +48,13 @@ const ElectionList: React.FC = () => {
     setLoading(true);
     setError(null);
     try {
-      const response = await fetchAllElections(currentPage, searchTerm, sortBy, sortDirection, filter); // Adjust the URL as needed
+      const response = await fetchAllElections(
+        currentPage,
+        searchTerm,
+        sortBy,
+        sortDirection,
+        filter
+      ); // Adjust the URL as needed
       setElections(response.elections);
       setTotalPages(response.pages);
     } catch (err) {
@@ -54,7 +72,7 @@ const ElectionList: React.FC = () => {
     e.preventDefault();
     setCurrentPage(1);
     fetchElections();
-  }
+  };
 
   const toggleSortDirection = () => {
     setSortDirection(sortDirection === 'asc' ? 'desc' : 'asc');
@@ -65,7 +83,7 @@ const ElectionList: React.FC = () => {
     const items = [];
     const maxVisiblePages = 5; // Maximum number of page buttons to show
     let startPage = Math.max(1, currentPage - Math.floor(maxVisiblePages / 2));
-    let endPage = Math.min(totalPages, startPage + maxVisiblePages - 1);
+    const endPage = Math.min(totalPages, startPage + maxVisiblePages - 1);
 
     if (endPage - startPage + 1 < maxVisiblePages) {
       startPage = Math.max(1, endPage - maxVisiblePages + 1);
@@ -100,16 +118,13 @@ const ElectionList: React.FC = () => {
   };
 
   return (
-      <Container className="mt-4">
+    <Container className="mt-4">
       <Row className="mb-3">
         <Col>
           <div className="d-flex justify-content-between align-items-center">
             <h2>Elections</h2>
             {canCreateElections && (
-              <Button
-                variant="primary"
-                onClick={() => setShowCreateModal(true)}
-              >
+              <Button variant="primary" onClick={() => setShowCreateModal(true)}>
                 Create New Election
               </Button>
             )}
@@ -142,11 +157,46 @@ const ElectionList: React.FC = () => {
             title={`Sort by: ${sortBy} (${sortDirection})`}
             variant="outline-secondary"
           >
-            <Dropdown.Item onClick={() => { setSortBy('name'); setSortDirection('asc');  }}>Name (A-Z)</Dropdown.Item>
-            <Dropdown.Item onClick={() => { setSortBy('name'); setSortDirection('desc'); }}>Name (Z-A)</Dropdown.Item>
-            <Dropdown.Item onClick={() => { setSortBy('date'); setSortDirection('asc'); }}>Date (Oldest)</Dropdown.Item>
-            <Dropdown.Item onClick={() => { setSortBy('date'); setSortDirection('desc'); }}>Date (Newest)</Dropdown.Item>
-            <Dropdown.Item onClick={() => { setSortBy('status'); setSortDirection('asc'); }}>Status (A-Z)</Dropdown.Item>
+            <Dropdown.Item
+              onClick={() => {
+                setSortBy('name');
+                setSortDirection('asc');
+              }}
+            >
+              Name (A-Z)
+            </Dropdown.Item>
+            <Dropdown.Item
+              onClick={() => {
+                setSortBy('name');
+                setSortDirection('desc');
+              }}
+            >
+              Name (Z-A)
+            </Dropdown.Item>
+            <Dropdown.Item
+              onClick={() => {
+                setSortBy('date');
+                setSortDirection('asc');
+              }}
+            >
+              Date (Oldest)
+            </Dropdown.Item>
+            <Dropdown.Item
+              onClick={() => {
+                setSortBy('date');
+                setSortDirection('desc');
+              }}
+            >
+              Date (Newest)
+            </Dropdown.Item>
+            <Dropdown.Item
+              onClick={() => {
+                setSortBy('status');
+                setSortDirection('asc');
+              }}
+            >
+              Status (A-Z)
+            </Dropdown.Item>
           </DropdownButton>
         </Col>
         <Col md={3}>
@@ -178,7 +228,7 @@ const ElectionList: React.FC = () => {
           </ButtonGroup>
         </Col>
       </Row>
-      
+
       {/* Loading and Error States */}
       {loading && (
         <Row className="justify-content-center">
@@ -201,7 +251,7 @@ const ElectionList: React.FC = () => {
         <Row className="mt-4">
           {elections.map((election) => (
             <Col key={election.id} md={4}>
-              <ElectionCard election={election}/>
+              <ElectionCard election={election} />
             </Col>
           ))}
         </Row>
@@ -220,10 +270,7 @@ const ElectionList: React.FC = () => {
         <Row className="mt-4">
           <Col>
             <Pagination className="justify-content-center">
-              <Pagination.First
-                disabled={currentPage === 1}
-                onClick={() => setCurrentPage(1)}
-              />
+              <Pagination.First disabled={currentPage === 1} onClick={() => setCurrentPage(1)} />
               <Pagination.Prev
                 disabled={currentPage === 1}
                 onClick={() => setCurrentPage(currentPage - 1)}
@@ -252,7 +299,6 @@ const ElectionList: React.FC = () => {
         }}
       />
     </Container>
-      
   );
 };
 

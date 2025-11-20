@@ -5,22 +5,38 @@ import { useAuth } from './context/AuthContext';
 
 // Mock child components
 jest.mock('./components/Navbar', () => () => <div data-testid="navbar">Navbar</div>);
-jest.mock('./components/Election/ElectionForm', () => () => <div data-testid="election-form">ElectionForm</div>);
-jest.mock('./components/Route/ErrorBoundary', () => ({ children }: { children: React.ReactNode }) => <>{children}</>);
+jest.mock('./components/Election/ElectionForm', () => () => (
+  <div data-testid="election-form">ElectionForm</div>
+));
+jest.mock(
+  './components/Route/ErrorBoundary',
+  () =>
+    ({ children }: { children: React.ReactNode }) => <>{children}</>
+);
 jest.mock('./pages/HomePage', () => () => <div data-testid="home-page">HomePage</div>);
-jest.mock('./pages/SimulationPage', () => () => <div data-testid="simulation-page">SimulationPage</div>);
-jest.mock('./pages/ElectionDetailPage', () => () => <div data-testid="election-detail-page">ElectionDetailPage</div>);
+jest.mock('./pages/SimulationPage', () => () => (
+  <div data-testid="simulation-page">SimulationPage</div>
+));
+jest.mock('./pages/ElectionDetailPage', () => () => (
+  <div data-testid="election-detail-page">ElectionDetailPage</div>
+));
 jest.mock('./pages/Login', () => () => <div data-testid="login-page">Login</div>);
 jest.mock('./pages/Register', () => () => <div data-testid="register-page">Register</div>);
 jest.mock('./pages/ProfilePage', () => () => <div data-testid="profile-page">ProfilePage</div>);
-jest.mock('./pages/UserProfilePage', () => () => <div data-testid="user-profile-page">UserProfilePage</div>);
+jest.mock('./pages/UserProfilePage', () => () => (
+  <div data-testid="user-profile-page">UserProfilePage</div>
+));
 jest.mock('./pages/PartyPage', () => () => <div data-testid="party-page">PartyPage</div>);
-jest.mock('./pages/PartyDetailPage', () => () => <div data-testid="party-detail-page">PartyDetailPage</div>);
+jest.mock('./pages/PartyDetailPage', () => () => (
+  <div data-testid="party-detail-page">PartyDetailPage</div>
+));
 
 // Mock AuthGuard
-jest.mock('./context/AuthGuard', () => ({ component: Component }: { component: React.ComponentType }) => (
-  <Component />
-));
+jest.mock(
+  './context/AuthGuard',
+  () =>
+    ({ component: Component }: { component: React.ComponentType }) => <Component />
+);
 
 // Mock useAuth
 jest.mock('./context/AuthContext', () => ({

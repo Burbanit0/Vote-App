@@ -2,7 +2,12 @@
 import { useEffect, useState } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import { Container, Row, Col, Card, Button, Alert, Spinner, Accordion } from 'react-bootstrap';
-import { fetchElectionById, addVoterToElection, fetchParticipants, addCandidateToElection } from '../services/';
+import {
+  fetchElectionById,
+  addVoterToElection,
+  fetchParticipants,
+  addCandidateToElection,
+} from '../services/';
 import { Election_, Participant } from '../types';
 import ElectionResults from '../components/Election/ElectionResult';
 import useElectionParticipation from '../hooks/useElectionParticipation';
@@ -14,32 +19,35 @@ const ElectionDetail: React.FC = () => {
   const { id } = useParams<{ id: string }>();
   const electionId = id ? parseInt(id) : null;
   const [election, setElection] = useState<Election_ | null>(null);
-  const [participants, setParticipants] = useState<Participant[]| null>(null);
+  const [participants, setParticipants] = useState<Participant[] | null>(null);
   const [electionEnded, setElectionEnded] = useState(false);
   const [loading, setLoading] = useState<boolean>(true);
   const [loadingP, setLoadingP] = useState<boolean | null>(true);
   const [error, setError] = useState<string | null>(null);
 
-
-  const { is_participant, role, isLoading: isParticipationLoading, error: participationError } =
-    useElectionParticipation(electionId);
+  const {
+    is_participant,
+    role,
+    isLoading: isParticipationLoading,
+    error: participationError,
+  } = useElectionParticipation(electionId);
 
   useEffect(() => {
-    const fetchElection_ = async (id:number) => {
-        try {
-            const response = await fetchElectionById(id);
-            setElection(response);
-        } catch (error) {
-            setError('Failed to fetch the election.');
-        } finally {
-            setLoading(false);
-        }
-        };
-        fetchElection_(Number(id));
-    }, [id]);
-    
+    const fetchElection_ = async (id: number) => {
+      try {
+        const response = await fetchElectionById(id);
+        setElection(response);
+      } catch (error) {
+        setError('Failed to fetch the election.');
+      } finally {
+        setLoading(false);
+      }
+    };
+    fetchElection_(Number(id));
+  }, [id]);
+
   useEffect(() => {
-    const fetchParticipant_ = async (id:number) => {
+    const fetchParticipant_ = async (id: number) => {
       try {
         const response = await fetchParticipants(id);
         setParticipants(response);
@@ -54,42 +62,42 @@ const ElectionDetail: React.FC = () => {
 
   useEffect(() => {
     const checkElectionStatus = async () => {
-      if(!electionId) return;
+      if (!electionId) return;
       try {
-        if(election) {
+        if (election) {
           setElectionEnded(new Date(election.end_date) <= new Date());
         }
-      } catch(error) {
+      } catch (error) {
         console.error('Error checking election status:', error);
       }
-    }
+    };
   }, []);
 
-  const handleAddVoter = async (id:number) => {
+  const handleAddVoter = async (id: number) => {
     try {
-      await addVoterToElection(id)
+      await addVoterToElection(id);
       const response = await fetchElectionById(id);
       setElection(response);
     } catch (error) {
-      setError('Failed to add the voter to the list.')
+      setError('Failed to add the voter to the list.');
       fetchElectionById(id);
     }
-  }
+  };
 
-  const handleAddCandidate = async(id: number) => {
+  const handleAddCandidate = async (id: number) => {
     try {
-      await addCandidateToElection(id)
+      await addCandidateToElection(id);
       const response = await fetchElectionById(id);
       setElection(response);
     } catch (error) {
-      setError('Failed to add the candidate to the list.')
+      setError('Failed to add the candidate to the list.');
       fetchElectionById(id);
     }
-  }
+  };
 
   const handleVote = async (id: number) => {
-    console.log("Voted");
-  }
+    console.log('Voted');
+  };
 
   if (loading || isParticipationLoading || loadingP) {
     return (
@@ -118,17 +126,28 @@ const ElectionDetail: React.FC = () => {
   }
 
   return (
-    <Container className='mt-4'>
+    <Container className="mt-4">
       <Row>
         <Col>
-          <Card className='mt-2'>
+          <Card className="mt-2">
             <Card.Body>
               <Card.Title>{election?.name}</Card.Title>
               <Card.Text>{election?.description}</Card.Text>
-              <Card.Text>Created at: {election?.created_at ? new Date(election.created_at).toLocaleString() : 'N/A'}</Card.Text>
-              <Card.Text>Organizer: {election?.created_by?.first_name} {election?.created_by?.last_name}</Card.Text>
-              <Card.Text>Start the: {election?.start_date ? new Date(election.start_date).toLocaleString() : 'N/A'} </Card.Text>
-              <Card.Text>End the: {election?.end_date ? new Date(election.end_date).toLocaleString() : 'N/A'} </Card.Text>
+              <Card.Text>
+                Created at:{' '}
+                {election?.created_at ? new Date(election.created_at).toLocaleString() : 'N/A'}
+              </Card.Text>
+              <Card.Text>
+                Organizer: {election?.created_by?.first_name} {election?.created_by?.last_name}
+              </Card.Text>
+              <Card.Text>
+                Start the:{' '}
+                {election?.start_date ? new Date(election.start_date).toLocaleString() : 'N/A'}{' '}
+              </Card.Text>
+              <Card.Text>
+                End the:{' '}
+                {election?.end_date ? new Date(election.end_date).toLocaleString() : 'N/A'}{' '}
+              </Card.Text>
             </Card.Body>
           </Card>
         </Col>
@@ -137,13 +156,19 @@ const ElectionDetail: React.FC = () => {
         <Col>
           <h3>Organizer:</h3>
           <ul className="list-group">
-            {participants?.filter(participant => participant.role === "organizer").map(participant =>
-              <Link key={participant.user_id} to={`/users/${participant.user_id}`} style={{ textDecoration: 'none', color: 'inherit' }}>
-                <li className="list-group-item rounded mb-2 border">
-                  {participant.first_name} {participant.last_name}
-                </li>
-              </Link>
-            )}
+            {participants
+              ?.filter((participant) => participant.role === 'organizer')
+              .map((participant) => (
+                <Link
+                  key={participant.user_id}
+                  to={`/users/${participant.user_id}`}
+                  style={{ textDecoration: 'none', color: 'inherit' }}
+                >
+                  <li className="list-group-item rounded mb-2 border">
+                    {participant.first_name} {participant.last_name}
+                  </li>
+                </Link>
+              ))}
           </ul>
         </Col>
       </Row>
@@ -151,25 +176,37 @@ const ElectionDetail: React.FC = () => {
         <Col>
           <h3>Candidates:</h3>
           <ul className="list-group">
-            {participants?.filter(participant => participant.role === "candidate").map(participant =>
-              <Link key={participant.user_id} to={`/users/${participant.user_id}`} style={{ textDecoration: 'none', color: 'inherit' }}>
-                <li className="list-group-item rounded mb-2 border">
-                  {participant.first_name} {participant.last_name}
-                </li>
-              </Link>
-            )}
+            {participants
+              ?.filter((participant) => participant.role === 'candidate')
+              .map((participant) => (
+                <Link
+                  key={participant.user_id}
+                  to={`/users/${participant.user_id}`}
+                  style={{ textDecoration: 'none', color: 'inherit' }}
+                >
+                  <li className="list-group-item rounded mb-2 border">
+                    {participant.first_name} {participant.last_name}
+                  </li>
+                </Link>
+              ))}
           </ul>
         </Col>
         <Col>
           <h3>Voters:</h3>
           <ul className="list-group">
-            {participants?.filter(participant => participant.role === "voter").map(participant =>
-              <Link key={participant.user_id} to={`/users/${participant.user_id}`} style={{ textDecoration: 'none', color: 'inherit' }}>
-                <li className="list-group-item rounded mb-2 border">
-                  {participant.first_name} {participant.last_name}
-                </li>
-              </Link>
-            )}
+            {participants
+              ?.filter((participant) => participant.role === 'voter')
+              .map((participant) => (
+                <Link
+                  key={participant.user_id}
+                  to={`/users/${participant.user_id}`}
+                  style={{ textDecoration: 'none', color: 'inherit' }}
+                >
+                  <li className="list-group-item rounded mb-2 border">
+                    {participant.first_name} {participant.last_name}
+                  </li>
+                </Link>
+              ))}
           </ul>
           {error && <Alert variant="danger">{error}</Alert>}
         </Col>
@@ -180,24 +217,29 @@ const ElectionDetail: React.FC = () => {
         </div>
       )}
       {is_participant ? (
-          <div>
-            <h4>Participant View</h4>
-            <p>You are participating in this election as a {role}.</p>
-            {role === 'candidate' && (
+        <div>
+          <h4>Participant View</h4>
+          <p>You are participating in this election as a {role}.</p>
+          {role === 'candidate' && (
             <Accordion defaultActiveKey="0" className="mb-3">
-                <Accordion.Item eventKey="0">
-                  <Accordion.Header>
-                    <div className="d-flex justify-content-between align-items-center w-100">
-                      <h5 className="mb-0">Candidates</h5>
-                    </div>
-                  </Accordion.Header>
-                  <Accordion.Body>
-                    <CandidateDashBoard election={election} candidates={participants?.filter(participant => participant.role === "candidate")} />
-                  </Accordion.Body>
-                </Accordion.Item>
-              </Accordion>
-            )}
-            {role === 'voter' && (
+              <Accordion.Item eventKey="0">
+                <Accordion.Header>
+                  <div className="d-flex justify-content-between align-items-center w-100">
+                    <h5 className="mb-0">Candidates</h5>
+                  </div>
+                </Accordion.Header>
+                <Accordion.Body>
+                  <CandidateDashBoard
+                    election={election}
+                    candidates={participants?.filter(
+                      (participant) => participant.role === 'candidate'
+                    )}
+                  />
+                </Accordion.Body>
+              </Accordion.Item>
+            </Accordion>
+          )}
+          {role === 'voter' && (
             <Accordion defaultActiveKey="1" className="mb-3">
               <Accordion.Item eventKey="1">
                 <Accordion.Header>
@@ -206,42 +248,49 @@ const ElectionDetail: React.FC = () => {
                   </div>
                 </Accordion.Header>
                 <Accordion.Body>
-                  <VoterDashBoard election={election} candidates={participants?.filter(participant => participant.role === "candidate")}/>
+                  <VoterDashBoard
+                    election={election}
+                    candidates={participants?.filter(
+                      (participant) => participant.role === 'candidate'
+                    )}
+                  />
                 </Accordion.Body>
               </Accordion.Item>
             </Accordion>
-            )}
-            {role === 'organizer' && (
-              <Accordion defaultActiveKey="2" className="mb-3">
-                <Accordion.Item eventKey="2">
-                  <Accordion.Header>
-                    <div className="d-flex justify-content-between align-items-center w-100">
-                      <h5 className="mb-0">Organizers</h5>
-                    </div>
-                  </Accordion.Header>
-                  <Accordion.Body>
-                    <OrganizerDashBoard election={election} candidates={participants?.filter(participant => participant.role === "candidate")} />
-                  </Accordion.Body>
-                </Accordion.Item>
-              </Accordion>
-            )}
-            </div>
-            ) : (
-            <div>
-                <h4>Non-Participant View</h4>
-                <p>You are not currently participating in this election.</p>
-                <Button
-                    variant="primary"
-                    onClick={() => handleAddVoter(Number(id))}
-                >
-                Join Election 
-                </Button>
-                <Button
-                    variant="primary"
-                    onClick={() => handleAddCandidate(Number(id))}
-                > Join as a Candidate</Button>
-            </div>
-            )}
+          )}
+          {role === 'organizer' && (
+            <Accordion defaultActiveKey="2" className="mb-3">
+              <Accordion.Item eventKey="2">
+                <Accordion.Header>
+                  <div className="d-flex justify-content-between align-items-center w-100">
+                    <h5 className="mb-0">Organizers</h5>
+                  </div>
+                </Accordion.Header>
+                <Accordion.Body>
+                  <OrganizerDashBoard
+                    election={election}
+                    candidates={participants?.filter(
+                      (participant) => participant.role === 'candidate'
+                    )}
+                  />
+                </Accordion.Body>
+              </Accordion.Item>
+            </Accordion>
+          )}
+        </div>
+      ) : (
+        <div>
+          <h4>Non-Participant View</h4>
+          <p>You are not currently participating in this election.</p>
+          <Button variant="primary" onClick={() => handleAddVoter(Number(id))}>
+            Join Election
+          </Button>
+          <Button variant="primary" onClick={() => handleAddCandidate(Number(id))}>
+            {' '}
+            Join as a Candidate
+          </Button>
+        </div>
+      )}
     </Container>
   );
 };

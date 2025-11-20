@@ -2,7 +2,15 @@
 import React, { useState, useEffect } from 'react';
 import { Card, Tabs, Tab, Table, Alert, Spinner } from 'react-bootstrap';
 import { Bar } from 'react-chartjs-2';
-import { Chart as ChartJS, CategoryScale, LinearScale, BarElement, Title, Tooltip, Legend } from 'chart.js';
+import {
+  Chart as ChartJS,
+  CategoryScale,
+  LinearScale,
+  BarElement,
+  Title,
+  Tooltip,
+  Legend,
+} from 'chart.js';
 import { fetchElectionResults } from '../../services';
 
 // Register ChartJS components
@@ -30,7 +38,7 @@ const ElectionResults: React.FC<ElectionResultsProps> = ({ electionId }) => {
     votingMethod: '',
     totalVotes: 0,
     startDate: '',
-    endDate: ''
+    endDate: '',
   });
 
   useEffect(() => {
@@ -45,7 +53,7 @@ const ElectionResults: React.FC<ElectionResultsProps> = ({ electionId }) => {
           votingMethod: response.voting_method,
           totalVotes: response.total_votes,
           startDate: response.start_date,
-          endDate: response.end_date
+          endDate: response.end_date,
         });
       } catch (err) {
         setError('Failed to fetch election results');
@@ -90,7 +98,7 @@ const ElectionResults: React.FC<ElectionResultsProps> = ({ electionId }) => {
     );
   }
 
-  const votingMethods = Object.keys(results).filter(method => method !== 'overall');
+  const votingMethods = Object.keys(results).filter((method) => method !== 'overall');
 
   return (
     <Card>
@@ -98,9 +106,12 @@ const ElectionResults: React.FC<ElectionResultsProps> = ({ electionId }) => {
         <Card.Title>Election Results: {electionDetails.name}</Card.Title>
 
         <Card.Text className="mb-3">
-          <strong>Voting Method:</strong> {electionDetails.votingMethod}<br/>
-          <strong>Total Votes:</strong> {electionDetails.totalVotes}<br/>
-          <strong>Period:</strong> {new Date(electionDetails.startDate).toLocaleString()} to {new Date(electionDetails.endDate).toLocaleString()}
+          <strong>Voting Method:</strong> {electionDetails.votingMethod}
+          <br />
+          <strong>Total Votes:</strong> {electionDetails.totalVotes}
+          <br />
+          <strong>Period:</strong> {new Date(electionDetails.startDate).toLocaleString()} to{' '}
+          {new Date(electionDetails.endDate).toLocaleString()}
         </Card.Text>
 
         <Tabs defaultActiveKey="overall" id="results-tabs" className="mb-3">
@@ -131,37 +142,43 @@ const ElectionResults: React.FC<ElectionResultsProps> = ({ electionId }) => {
               <div style={{ height: '400px' }}>
                 <Bar
                   data={{
-                    labels: results['overall'].map(result => result.candidate),
-                    datasets: [{
-                      label: 'Votes',
-                      data: results['overall'].map(result => result.votes),
-                      backgroundColor: 'rgba(54, 162, 235, 0.5)',
-                      borderColor: 'rgba(54, 162, 235, 1)',
-                      borderWidth: 1
-                    }]
+                    labels: results['overall'].map((result) => result.candidate),
+                    datasets: [
+                      {
+                        label: 'Votes',
+                        data: results['overall'].map((result) => result.votes),
+                        backgroundColor: 'rgba(54, 162, 235, 0.5)',
+                        borderColor: 'rgba(54, 162, 235, 1)',
+                        borderWidth: 1,
+                      },
+                    ],
                   }}
                   options={{
                     responsive: true,
                     maintainAspectRatio: false,
                     scales: {
                       y: {
-                        beginAtZero: true
-                      }
+                        beginAtZero: true,
+                      },
                     },
                     plugins: {
                       title: {
                         display: true,
-                        text: 'Overall Voting Results'
-                      }
-                    }
+                        text: 'Overall Voting Results',
+                      },
+                    },
                   }}
                 />
               </div>
             </div>
           </Tab>
 
-          {votingMethods.map(method => (
-            <Tab key={method} eventKey={method} title={method.charAt(0).toUpperCase() + method.slice(1)}>
+          {votingMethods.map((method) => (
+            <Tab
+              key={method}
+              eventKey={method}
+              title={method.charAt(0).toUpperCase() + method.slice(1)}
+            >
               <div className="mt-3">
                 <h5>{method.charAt(0).toUpperCase() + method.slice(1)} Results</h5>
                 <div className="mb-4">
@@ -191,29 +208,31 @@ const ElectionResults: React.FC<ElectionResultsProps> = ({ electionId }) => {
                 <div style={{ height: '400px' }}>
                   <Bar
                     data={{
-                      labels: results[method].map(result => result.candidate),
-                      datasets: [{
-                        label: 'Votes',
-                        data: results[method].map(result => result.votes),
-                        backgroundColor: 'rgba(75, 192, 192, 0.5)',
-                        borderColor: 'rgba(75, 192, 192, 1)',
-                        borderWidth: 1
-                      }]
+                      labels: results[method].map((result) => result.candidate),
+                      datasets: [
+                        {
+                          label: 'Votes',
+                          data: results[method].map((result) => result.votes),
+                          backgroundColor: 'rgba(75, 192, 192, 0.5)',
+                          borderColor: 'rgba(75, 192, 192, 1)',
+                          borderWidth: 1,
+                        },
+                      ],
                     }}
                     options={{
                       responsive: true,
                       maintainAspectRatio: false,
                       scales: {
                         y: {
-                          beginAtZero: true
-                        }
+                          beginAtZero: true,
+                        },
                       },
                       plugins: {
                         title: {
                           display: true,
-                          text: `${method.charAt(0).toUpperCase() + method.slice(1)} Voting Results`
-                        }
-                      }
+                          text: `${method.charAt(0).toUpperCase() + method.slice(1)} Voting Results`,
+                        },
+                      },
                     }}
                   />
                 </div>

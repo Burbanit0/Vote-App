@@ -12,7 +12,7 @@ const preprocessRankingsForSankey = (rankings: RankingResult[]) => {
   });
 
   // Simulate instant-runoff rounds
-  const candidates = [...new Set(rankings.flatMap(r => r.ranking))];
+  const candidates = [...new Set(rankings.flatMap((r) => r.ranking))];
   let remainingCandidates = [...candidates];
   let currentRoundVotes: Record<string, number> = { ...firstChoices };
   const transitions: [string, string, number][] = [];
@@ -38,26 +38,28 @@ const preprocessRankingsForSankey = (rankings: RankingResult[]) => {
     if (!eliminated) break;
 
     // Remove eliminated candidate
-    remainingCandidates = remainingCandidates.filter(c => c !== eliminated);
+    remainingCandidates = remainingCandidates.filter((c) => c !== eliminated);
 
     // Calculate vote redistribution
     const nextRoundVotes: Record<string, number> = {};
 
     rankings.forEach(({ ranking }) => {
       // Find the highest-ranked remaining candidate for this voter
-      const nextChoice = ranking.find(c => remainingCandidates.includes(c));
+      const nextChoice = ranking.find((c) => remainingCandidates.includes(c));
 
       if (nextChoice) {
-        const currentChoice = ranking.find(c => c === eliminated) ||
-                             ranking.find(c => currentRoundVotes[c]);
+        const currentChoice =
+          ranking.find((c) => c === eliminated) || ranking.find((c) => currentRoundVotes[c]);
 
         if (currentChoice) {
-          const key = `R:${round-1}-${currentChoice}->R:${round}-${nextChoice}`;
-          const existing = transitions.find(t => t[0] === `R:${round-1}-${currentChoice}` && t[1] === `R:${round}-${nextChoice}`);
+          const key = `R:${round - 1}-${currentChoice}->R:${round}-${nextChoice}`;
+          const existing = transitions.find(
+            (t) => t[0] === `R:${round - 1}-${currentChoice}` && t[1] === `R:${round}-${nextChoice}`
+          );
           if (existing) {
             existing[2] += 1;
           } else {
-            transitions.push([`R:${round-1}-${currentChoice}`, `R:${round}-${nextChoice}`, 1]);
+            transitions.push([`R:${round - 1}-${currentChoice}`, `R:${round}-${nextChoice}`, 1]);
           }
         }
       }
@@ -66,7 +68,7 @@ const preprocessRankingsForSankey = (rankings: RankingResult[]) => {
     // Update votes for next round
     currentRoundVotes = {};
     rankings.forEach(({ ranking }) => {
-      const nextChoice = ranking.find(c => remainingCandidates.includes(c));
+      const nextChoice = ranking.find((c) => remainingCandidates.includes(c));
       if (nextChoice) {
         currentRoundVotes[nextChoice] = (currentRoundVotes[nextChoice] || 0) + 1;
       }
@@ -84,10 +86,7 @@ const preprocessRankingsForSankey = (rankings: RankingResult[]) => {
   }
 
   // Format data for Google Sankey
-  const data = [
-    ["From", "To", "Weight"],
-    ...transitions
-  ];
+  const data = [['From', 'To', 'Weight'], ...transitions];
 
   return data;
 };

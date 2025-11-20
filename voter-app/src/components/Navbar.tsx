@@ -34,9 +34,13 @@ const Navbar: React.FC = () => {
           </Nav>
           <Nav>
             {user ? (
-              <Button variant="outline-primary" onClick={handleLogout}>Logout</Button>
+              <Button variant="outline-primary" onClick={handleLogout}>
+                Logout
+              </Button>
             ) : (
-              <Button variant="outline-primary" onClick={() => navigate('/login')}>Login</Button>
+              <Button variant="outline-primary" onClick={() => navigate('/login')}>
+                Login
+              </Button>
             )}
           </Nav>
         </BootstrapNavbar.Collapse>

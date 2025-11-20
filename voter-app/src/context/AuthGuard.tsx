@@ -2,7 +2,10 @@ import React from 'react';
 import { Navigate } from 'react-router-dom';
 import { useAuth } from './AuthContext';
 
-const AuthGuard: React.FC<{ component: React.FC, role?: 'User' | 'Admin' }> = ({ component: Component, role }) => {
+const AuthGuard: React.FC<{ component: React.FC; role?: 'User' | 'Admin' }> = ({
+  component: Component,
+  role,
+}) => {
   const { user, loading } = useAuth();
 
   if (loading) {

@@ -38,14 +38,21 @@ describe('electionsApi', () => {
       const mockResponse = { id: 1, name: 'Test Election' };
       mockAxios.onPost('http://localhost:4433/elections').reply(200, mockResponse);
 
-      const result = await createElection('Test Election', 'Description', '2025-12-01', '2025-12-31');
+      const result = await createElection(
+        'Test Election',
+        'Description',
+        '2025-12-01',
+        '2025-12-31'
+      );
       expect(result).toEqual(mockResponse);
     });
 
     it('should throw an error if the request fails', async () => {
       mockAxios.onPost('http://localhost:4433/elections').reply(500);
 
-      await expect(createElection('Test Election', 'Description', '2025-12-01', '2025-12-31')).rejects.toThrow();
+      await expect(
+        createElection('Test Election', 'Description', '2025-12-01', '2025-12-31')
+      ).rejects.toThrow();
     });
   });
 
@@ -116,7 +123,9 @@ describe('electionsApi', () => {
   describe('addCandidateToElection', () => {
     it('should add a candidate to an election successfully', async () => {
       const mockResponse = { success: true };
-      mockAxios.onPost('http://localhost:4433/elections/1/register-candidate').reply(200, mockResponse);
+      mockAxios
+        .onPost('http://localhost:4433/elections/1/register-candidate')
+        .reply(200, mockResponse);
 
       const result = await addCandidateToElection(1);
       expect(result).toEqual(mockResponse);
@@ -164,7 +173,9 @@ describe('electionsApi', () => {
   describe('cancelElectionParticipation', () => {
     it('should cancel participation successfully', async () => {
       const mockResponse = { success: true };
-      mockAxios.onPost('http://localhost:4433/elections/1/cancel-participation').reply(200, mockResponse);
+      mockAxios
+        .onPost('http://localhost:4433/elections/1/cancel-participation')
+        .reply(200, mockResponse);
 
       const result = await cancelElectionParticipation(1);
       expect(result).toEqual(mockResponse);

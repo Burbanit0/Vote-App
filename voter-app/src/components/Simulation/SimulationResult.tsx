@@ -4,7 +4,15 @@ import { Radar } from 'react-chartjs-2';
 import { Chart } from 'react-google-charts';
 import preprocessForGoogleSankey from './SimulationSankey';
 import preprocessRadarData from './SimulationRadar';
-import { Chart as ChartJS, RadialLinearScale, PointElement, LineElement, Filler, Tooltip, Legend } from 'chart.js';
+import {
+  Chart as ChartJS,
+  RadialLinearScale,
+  PointElement,
+  LineElement,
+  Filler,
+  Tooltip,
+  Legend,
+} from 'chart.js';
 import VotingMethodsComparison from './VotingMethodsComparison';
 import ScoreVotingComparison from './ScoreVotingComparison';
 
@@ -95,7 +103,6 @@ interface SimulationResultProps {
   result: SimulationResponse | null;
 }
 
-
 const SimulationResult: React.FC<SimulationResultProps> = ({ result }) => {
   if (!result) return null;
 
@@ -143,14 +150,18 @@ const SimulationResult: React.FC<SimulationResultProps> = ({ result }) => {
             {/* Votes Simulation Results */}
             {hasVotes && (
               <>
-                <Card.Text as="h4" className="mt-4">Standard Voting Results</Card.Text>
+                <Card.Text as="h4" className="mt-4">
+                  Standard Voting Results
+                </Card.Text>
 
                 {result.votes && (
                   <>
                     <Card.Text as="h5">Sample Votes:</Card.Text>
                     <ul>
                       {result.votes.slice(0, 5).map((vote, index) => (
-                        <li key={index}>Voter {vote.voter_id}: {vote.preference}</li>
+                        <li key={index}>
+                          Voter {vote.voter_id}: {vote.preference}
+                        </li>
                       ))}
                     </ul>
                   </>
@@ -158,10 +169,14 @@ const SimulationResult: React.FC<SimulationResultProps> = ({ result }) => {
 
                 {result.tally && (
                   <>
-                    <Card.Text as="h5" className="mt-3">Vote Tally:</Card.Text>
+                    <Card.Text as="h5" className="mt-3">
+                      Vote Tally:
+                    </Card.Text>
                     <ul>
                       {Object.entries(result.tally).map(([candidate, count]) => (
-                        <li key={candidate}>{candidate}: {count} votes</li>
+                        <li key={candidate}>
+                          {candidate}: {count} votes
+                        </li>
                       ))}
                     </ul>
 
@@ -180,12 +195,26 @@ const SimulationResult: React.FC<SimulationResultProps> = ({ result }) => {
                                   options={{
                                     sankey: {
                                       node: {
-                                        colors: ["#a6cee3", "#1f78b4", "#b2df8a", "#33a02c", "#fb9a99", "#e31a1c"],
+                                        colors: [
+                                          '#a6cee3',
+                                          '#1f78b4',
+                                          '#b2df8a',
+                                          '#33a02c',
+                                          '#fb9a99',
+                                          '#e31a1c',
+                                        ],
                                         width: 20,
                                       },
                                       link: {
-                                        colorMode: "gradient",
-                                        colors: ["#a6cee3", "#1f78b4", "#b2df8a", "#33a02c", "#fb9a99", "#e31a1c"],
+                                        colorMode: 'gradient',
+                                        colors: [
+                                          '#a6cee3',
+                                          '#1f78b4',
+                                          '#b2df8a',
+                                          '#33a02c',
+                                          '#fb9a99',
+                                          '#e31a1c',
+                                        ],
                                       },
                                     },
                                   }}
@@ -227,33 +256,36 @@ const SimulationResult: React.FC<SimulationResultProps> = ({ result }) => {
                 )}
 
                 {/* Display all voting method winners in a table */}
-                {(
-                  result.condorcet_winner || result.two_round_winner || result.borda_winner ||
-                  result.plurality_winner || result.approval_winner || result.irv_winner ||
-                  result.coombs_winner || result.score_winner || result.kemeny_young_winner ||
-                  result.bucklin_winner || result.minimax_winner || result.schulze_winner
-                ) && (
+                {(result.condorcet_winner ||
+                  result.two_round_winner ||
+                  result.borda_winner ||
+                  result.plurality_winner ||
+                  result.approval_winner ||
+                  result.irv_winner ||
+                  result.coombs_winner ||
+                  result.score_winner ||
+                  result.kemeny_young_winner ||
+                  result.bucklin_winner ||
+                  result.minimax_winner ||
+                  result.schulze_winner) && (
                   <>
-                    <Card.Text as="h5" className="mt-4">Voting Method Winners:</Card.Text>
+                    <Card.Text as="h5" className="mt-4">
+                      Voting Method Winners:
+                    </Card.Text>
                     <VotingMethodsComparison
                       rankings={rankings}
                       candidates={candidates}
                       winners={winners}
                     />
-
                   </>
                 )}
                 {result.all_scores && result.all_scores.length > 0 && (
-                <Card>
-                  <Card.Body>
-                    <ScoreVotingComparison
-                      scores={result.all_scores}
-                      candidates={candidates}
-                    />
-                  </Card.Body>
-                </Card>
-               
-              )}
+                  <Card>
+                    <Card.Body>
+                      <ScoreVotingComparison scores={result.all_scores} candidates={candidates} />
+                    </Card.Body>
+                  </Card>
+                )}
               </>
             )}
           </Card.Body>

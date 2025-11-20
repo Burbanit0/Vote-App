@@ -7,64 +7,64 @@ export interface Party {
 }
 
 export interface PartyMembersProps {
-    partyId: number
+  partyId: number;
 }
 
 export interface Result {
-    candidate_id: number;
-    vote_type: string;
-    vote_count: number;
+  candidate_id: number;
+  vote_type: string;
+  vote_count: number;
 }
 
 export interface Vote {
-    candidate_id: number;
-    // vote_type: string;
-    // rank: number;
-    // weight: number;
-    // rating: number;
+  candidate_id: number;
+  // vote_type: string;
+  // rank: number;
+  // weight: number;
+  // rating: number;
 }
 
 export interface Voter {
-    id: number;
-    user_id?: number;
-    first_name: string;
-    last_name: string;
+  id: number;
+  user_id?: number;
+  first_name: string;
+  last_name: string;
 }
 
 export interface User {
-    id: number;
-    access_token: string;
-    username: string;
-    role: string;
-    created_at: string;
-    user_id: number;
-    first_name: string;
-    last_name: string;
+  id: number;
+  access_token: string;
+  username: string;
+  role: string;
+  created_at: string;
+  user_id: number;
+  first_name: string;
+  last_name: string;
 }
 
 export interface Election {
-    id : number;
-    name : string;
-    description : string;
-    voters: number[];
-    candidates: number[];
-    created_at: string;
-    created_by: Voter;
-    start_date: string;
-    end_date: string;
-    status: string;
+  id: number;
+  name: string;
+  description: string;
+  voters: number[];
+  candidates: number[];
+  created_at: string;
+  created_by: Voter;
+  start_date: string;
+  end_date: string;
+  status: string;
 }
 
 export interface Election_ {
-    id : number;
-    name : string;
-    description : string;
-    voters: User[];
-    candidates: Candidate[];
-    created_at: string;
-    created_by: Voter;
-    start_date: string;
-    end_date: string;
+  id: number;
+  name: string;
+  description: string;
+  voters: User[];
+  candidates: Candidate[];
+  created_at: string;
+  created_by: Voter;
+  start_date: string;
+  end_date: string;
 }
 
 export interface Participant {
@@ -77,45 +77,45 @@ export interface Participant {
 }
 
 export interface Profile_ {
-    id: number;
-    username: string;
-    first_name: string;
-    last_name: string;
-    role: string;
-    is_admin: boolean;
-    elections_participated: number;
-    elections_voted_in: number;
-    participation_details: ParticipationDetails;
-    voted_in_elections: number;
+  id: number;
+  username: string;
+  first_name: string;
+  last_name: string;
+  role: string;
+  is_admin: boolean;
+  elections_participated: number;
+  elections_voted_in: number;
+  participation_details: ParticipationDetails;
+  voted_in_elections: number;
 }
 
 export interface ParticipationDetails {
-    candidate: number[];
-    organizer: number[];
-    voter: number[];
+  candidate: number[];
+  organizer: number[];
+  voter: number[];
 }
 
 export interface PaginatedResponse {
-    elections: Election[];
-    total: number;
-    pages: number;
-    current_page: number;
-    per_page: number;
+  elections: Election[];
+  total: number;
+  pages: number;
+  current_page: number;
+  per_page: number;
 }
 
 export interface ParticipationStatus {
-    is_participant: boolean;
-    role: string | null;
-    isLoading: boolean;
-    error: string | null;
+  is_participant: boolean;
+  role: string | null;
+  isLoading: boolean;
+  error: string | null;
 }
 
 export interface UserPermissions {
-    is_admin: boolean;
-    participation_points: number;
-    canCreateElections: boolean;
-    is_loading: boolean;
-    error: string | null;
+  is_admin: boolean;
+  participation_points: number;
+  canCreateElections: boolean;
+  is_loading: boolean;
+  error: string | null;
 }
 
 export interface ParticipationData {
@@ -178,11 +178,11 @@ export type Gender = 'male' | 'female';
 export type Region = 'urban' | 'suburban' | 'rural';
 export type Income = 'low' | 'middle' | 'high';
 export type PartySimu = 'Green' | 'Conservative' | 'Liberal' | 'Independent';
-export type Education = "none"| "high_school"| "bachelor"| "master"| "phd";
-export type Employement = "employed"| "unemployed" | "self_employed" | "retired";
-export type Family = "single"| "with_children" | "retired";
-export type Ethnicity = "native"| "immigrant";
-export type Religion = "religious"| "non_religious";
+export type Education = 'none' | 'high_school' | 'bachelor' | 'master' | 'phd';
+export type Employement = 'employed' | 'unemployed' | 'self_employed' | 'retired';
+export type Family = 'single' | 'with_children' | 'retired';
+export type Ethnicity = 'native' | 'immigrant';
+export type Religion = 'religious' | 'non_religious';
 
 export interface VoterSimu {
   id: number;

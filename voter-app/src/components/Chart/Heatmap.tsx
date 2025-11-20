@@ -1,5 +1,5 @@
-import { useMemo } from "react";
-import * as d3 from "d3";
+import { useMemo } from 'react';
+import * as d3 from 'd3';
 
 const MARGIN = { top: 10, right: 10, bottom: 30, left: 30 };
 
@@ -20,19 +20,11 @@ export const Heatmap = ({ width, height, data }: HeatmapProps) => {
 
   // x and y scales
   const xScale = useMemo(() => {
-    return d3
-      .scaleBand()
-      .range([0, boundsWidth])
-      .domain(allXGroups)
-      .padding(0.1);
+    return d3.scaleBand().range([0, boundsWidth]).domain(allXGroups).padding(0.1);
   }, [data, width]);
 
   const yScale = useMemo(() => {
-    return d3
-      .scaleBand()
-      .range([boundsHeight, 0])
-      .domain(allYGroups)
-      .padding(0.1);
+    return d3.scaleBand().range([boundsHeight, 0]).domain(allYGroups).padding(0.1);
   }, [data, height]);
 
   const [min, max] = d3.extent(data.map((d) => d.value));
@@ -42,10 +34,7 @@ export const Heatmap = ({ width, height, data }: HeatmapProps) => {
   }
 
   // Color scale
-  const colorScale = d3
-    .scaleSequential()
-    .interpolator(d3.interpolateInferno)
-    .domain([min, max]);
+  const colorScale = d3.scaleSequential().interpolator(d3.interpolateInferno).domain([min, max]);
 
   // Build the rectangles
   const allRects = data.map((d, i) => {
@@ -60,7 +49,7 @@ export const Heatmap = ({ width, height, data }: HeatmapProps) => {
         opacity={1}
         fill={colorScale(d.value)}
         rx={5}
-        stroke={"white"}
+        stroke={'white'}
       />
     );
   });
@@ -103,7 +92,7 @@ export const Heatmap = ({ width, height, data }: HeatmapProps) => {
         <g
           width={boundsWidth}
           height={boundsHeight}
-          transform={`translate(${[MARGIN.left, MARGIN.top].join(",")})`}
+          transform={`translate(${[MARGIN.left, MARGIN.top].join(',')})`}
         >
           {allRects}
           {xLabels}

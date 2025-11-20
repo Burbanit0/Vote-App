@@ -10,7 +10,11 @@ interface CreateElectionModalProps {
   onElectionCreated: () => void;
 }
 
-const CreateElectionModal: React.FC<CreateElectionModalProps> = ({ show, onHide, onElectionCreated }) => {
+const CreateElectionModal: React.FC<CreateElectionModalProps> = ({
+  show,
+  onHide,
+  onElectionCreated,
+}) => {
   const [name, setName] = useState('');
   const [description, setDescription] = useState('');
   const [startDate, setStartDate] = useState('');
@@ -103,10 +107,16 @@ const CreateElectionModal: React.FC<CreateElectionModalProps> = ({ show, onHide,
         <Button variant="primary" type="submit" onClick={handleSubmit} disabled={isSubmitting}>
           {isSubmitting ? (
             <>
-              <span className="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span>
+              <span
+                className="spinner-border spinner-border-sm"
+                role="status"
+                aria-hidden="true"
+              ></span>
               Creating...
             </>
-          ) : 'Create Election'}
+          ) : (
+            'Create Election'
+          )}
         </Button>
       </Modal.Footer>
     </Modal>

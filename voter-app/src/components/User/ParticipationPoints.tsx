@@ -4,8 +4,6 @@ import { Card, ProgressBar, Alert } from 'react-bootstrap';
 import { ParticipationData } from '../../types';
 import { getParticipation } from '../../services';
 
-
-
 const ParticipationPoints: React.FC = () => {
   const [data, setData] = useState<ParticipationData | null>(null);
   const [isLoading, setIsLoading] = useState(true);
@@ -28,12 +26,18 @@ const ParticipationPoints: React.FC = () => {
 
   const getLevelColor = (level: string) => {
     switch (level.toLowerCase()) {
-      case 'beginner': return 'info';
-      case 'active': return 'primary';
-      case 'expert': return 'success';
-      case 'master': return 'warning';
-      case 'legend': return 'danger';
-      default: return 'secondary';
+      case 'beginner':
+        return 'info';
+      case 'active':
+        return 'primary';
+      case 'expert':
+        return 'success';
+      case 'master':
+        return 'warning';
+      case 'legend':
+        return 'danger';
+      default:
+        return 'secondary';
     }
   };
 
@@ -67,7 +71,9 @@ const ParticipationPoints: React.FC = () => {
           variant={getLevelColor(data.level)}
         />
         <Card.Text className="mt-2">
-          {progress >= 100 ? 'You reached this level!' : `You need ${data.nextLevel - data.points} more points to reach the next level.`}
+          {progress >= 100
+            ? 'You reached this level!'
+            : `You need ${data.nextLevel - data.points} more points to reach the next level.`}
         </Card.Text>
       </Card.Body>
     </Card>

@@ -5,7 +5,6 @@ import axios from 'axios';
 import { updateElection } from '../../services';
 import { Election, UpdateElectionData } from '../../types';
 
-
 interface UpdateElectionModalProps {
   show: boolean;
   onHide: () => void;
@@ -17,13 +16,13 @@ const UpdateElectionModal: React.FC<UpdateElectionModalProps> = ({
   show,
   onHide,
   election,
-  onElectionUpdated
+  onElectionUpdated,
 }) => {
   const [formData, setFormData] = useState<UpdateElectionData>({
     name: '',
     description: '',
     start_date: '',
-    end_date: ''
+    end_date: '',
   });
   const [error, setError] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -34,17 +33,19 @@ const UpdateElectionModal: React.FC<UpdateElectionModalProps> = ({
       setFormData({
         name: election.name,
         description: election.description || '',
-        start_date: election.start_date ? new Date(election.start_date).toISOString().slice(0, 16) : '',
-        end_date: election.end_date ? new Date(election.end_date).toISOString().slice(0, 16) : ''
+        start_date: election.start_date
+          ? new Date(election.start_date).toISOString().slice(0, 16)
+          : '',
+        end_date: election.end_date ? new Date(election.end_date).toISOString().slice(0, 16) : '',
       });
     }
   }, [election]);
 
-    const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
+  const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
     const { name, value } = e.target;
-    setFormData(prev => ({
+    setFormData((prev) => ({
       ...prev,
-      [name]: value
+      [name]: value,
     }));
   };
 
@@ -63,7 +64,8 @@ const UpdateElectionModal: React.FC<UpdateElectionModalProps> = ({
       // Only send fields that have changed
       const updateData: UpdateElectionData = {};
       if (formData.name !== election.name) updateData.name = formData.name;
-      if (formData.description !== election.description) updateData.description = formData.description;
+      if (formData.description !== election.description)
+        updateData.description = formData.description;
       if (formData.start_date !== election.start_date) updateData.start_date = formData.start_date;
       if (formData.end_date !== election.end_date) updateData.end_date = formData.end_date;
 
@@ -145,15 +147,14 @@ const UpdateElectionModal: React.FC<UpdateElectionModalProps> = ({
         <Button variant="secondary" onClick={onHide} disabled={isSubmitting}>
           Cancel
         </Button>
-        <Button
-          variant="primary"
-          type="submit"
-          onClick={handleSubmit}
-          disabled={isSubmitting}
-        >
+        <Button variant="primary" type="submit" onClick={handleSubmit} disabled={isSubmitting}>
           {isSubmitting ? (
             <>
-              <span className="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span>
+              <span
+                className="spinner-border spinner-border-sm"
+                role="status"
+                aria-hidden="true"
+              ></span>
               Updating...
             </>
           ) : (

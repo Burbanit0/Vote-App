@@ -45,10 +45,10 @@ interface VotingMethodsComparisonProps {
 const VotingMethodsComparison: React.FC<VotingMethodsComparisonProps> = ({
   rankings,
   candidates,
-  winners
+  winners,
 }) => {
   // List of all voting methods with their display names and keys
-   const votingMethods: VotingMethod[] = [
+  const votingMethods: VotingMethod[] = [
     { key: 'plurality', name: 'Plurality', winnerKey: 'plurality_winner' },
     { key: 'borda', name: 'Borda Count', winnerKey: 'borda_winner' },
     { key: 'irv', name: 'Instant Runoff Voting', winnerKey: 'irv_winner' },
@@ -60,7 +60,7 @@ const VotingMethodsComparison: React.FC<VotingMethodsComparisonProps> = ({
     { key: 'bucklin', name: 'Bucklin Voting', winnerKey: 'bucklin_winner' },
     { key: 'minimax', name: 'Minimax', winnerKey: 'minimax_winner' },
     { key: 'schulze', name: 'Schulze Method', winnerKey: 'schulze_winner' },
-    { key: 'kemeny_young', name: 'Kemeny-Young', winnerKey: 'kemeny_young_winner' }
+    { key: 'kemeny_young', name: 'Kemeny-Young', winnerKey: 'kemeny_young_winner' },
   ];
 
   return (
@@ -74,20 +74,21 @@ const VotingMethodsComparison: React.FC<VotingMethodsComparisonProps> = ({
         </div>
         <div className="card-body">
           <div className="row">
-            {votingMethods.map((method) => (
-              winners[method.winnerKey] && (
-                <div key={method.key} className="col-md-4 mb-3">
-                  <div className="card h-100">
-                    <div className="card-body">
-                      <h6 className="card-title">{method.name}</h6>
-                      <p className="card-text">
-                        <strong>Winner:</strong> {winners[method.winnerKey]}
-                      </p>
+            {votingMethods.map(
+              (method) =>
+                winners[method.winnerKey] && (
+                  <div key={method.key} className="col-md-4 mb-3">
+                    <div className="card h-100">
+                      <div className="card-body">
+                        <h6 className="card-title">{method.name}</h6>
+                        <p className="card-text">
+                          <strong>Winner:</strong> {winners[method.winnerKey]}
+                        </p>
+                      </div>
                     </div>
                   </div>
-                </div>
-              )
-            ))}
+                )
+            )}
           </div>
         </div>
       </div>

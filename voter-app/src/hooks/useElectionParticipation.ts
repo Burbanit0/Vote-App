@@ -8,13 +8,13 @@ const useElectionParticipation = (electionId: number | null) => {
     is_participant: false,
     role: null,
     isLoading: true,
-    error: null
+    error: null,
   });
 
   useEffect(() => {
     const checkParticipation = async () => {
       if (!electionId) {
-        setStatus(prev => ({ ...prev, isLoading: false }));
+        setStatus((prev) => ({ ...prev, isLoading: false }));
         return;
       }
 
@@ -25,14 +25,14 @@ const useElectionParticipation = (electionId: number | null) => {
           is_participant: response?.is_participant,
           role: response?.role,
           isLoading: false,
-          error: null
+          error: null,
         });
       } catch (error) {
         setStatus({
           is_participant: false,
           role: null,
           isLoading: false,
-          error: 'Failed to check participation status'
+          error: 'Failed to check participation status',
         });
       }
     };

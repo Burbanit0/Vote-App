@@ -25,29 +25,27 @@ const AppContent: React.FC = () => {
   const { user } = useAuth();
 
   // Hide the Navbar on the Home page
-  const shouldShowNavbar =  ['/login', '/register'];
+  const shouldShowNavbar = ['/login', '/register'];
 
   return (
     <div className="App">
-      { !shouldShowNavbar.includes(location.pathname) && <Navbar />}
+      {!shouldShowNavbar.includes(location.pathname) && <Navbar />}
       <ErrorBoundary>
         <Routes>
-
           <Route path="/login" element={!user ? <Login /> : <Navigate to="/" />} />
           <Route path="/register" element={!user ? <Register /> : <Navigate to="/" />} />
 
           <Route path="/" element={<AuthGuard component={HomePage} />} />
 
-          <Route path="/create_election" element={<AuthGuard component={ElectionForm}/> } />
-          <Route path="/elections/:id" element={<AuthGuard component={ElectionDetail}/> } />
+          <Route path="/create_election" element={<AuthGuard component={ElectionForm} />} />
+          <Route path="/elections/:id" element={<AuthGuard component={ElectionDetail} />} />
 
           <Route path="/profile" element={<AuthGuard component={ProfilePage} />} />
-          <Route path="users/:id" element={<AuthGuard component={UserProfilePage}/>} />
-          
+          <Route path="users/:id" element={<AuthGuard component={UserProfilePage} />} />
+
           <Route path="/parties" element={<AuthGuard component={PartyPage} />} />
           <Route path="/parties/:party_id" element={<AuthGuard component={PartyDetailPage} />} />
           <Route path="/simulation" element={<AuthGuard component={SimulationPage} />} />
-          
         </Routes>
       </ErrorBoundary>
     </div>
@@ -56,9 +54,9 @@ const AppContent: React.FC = () => {
 
 const App: React.FC = () => {
   return (
-        <Router>
-           <AppContent />
-        </Router>
+    <Router>
+      <AppContent />
+    </Router>
   );
 };
 

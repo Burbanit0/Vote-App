@@ -6,8 +6,7 @@ import { useAuth } from '../../context/AuthContext';
 import { Profile_ } from '../../types';
 import { fetchProfileData } from '../../services';
 import PartyMembership from '../Party/PartyMembership';
-import profilePicture from '../../../src/assets/profile_picture/profile_picture_user3.jpg'
-
+import profilePicture from '../../../src/assets/profile_picture/profile_picture_user3.jpg';
 
 const Profile: React.FC = () => {
   const { user } = useAuth();
@@ -34,7 +33,7 @@ const Profile: React.FC = () => {
   }
 
   if (error) {
-    return <div>{error}</div>
+    return <div>{error}</div>;
   }
 
   if (!user) {
@@ -49,7 +48,7 @@ const Profile: React.FC = () => {
     <Container className="mt-5">
       <Card>
         <Card.Body>
-          <Card.Title className='text-center'>{profile?.username}</Card.Title>
+          <Card.Title className="text-center">{profile?.username}</Card.Title>
           {profile && (
             <div>
               <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
@@ -57,19 +56,22 @@ const Profile: React.FC = () => {
                   <Card.Img src={profilePicture} style={{ maxWidth: '100px' }} />
                 </div>
                 <div>
-                  <Card.Text><strong>First Name:</strong> {profile.first_name}</Card.Text>
-                  <Card.Text><strong>Last Name:</strong> {profile.last_name}</Card.Text>
+                  <Card.Text>
+                    <strong>First Name:</strong> {profile.first_name}
+                  </Card.Text>
+                  <Card.Text>
+                    <strong>Last Name:</strong> {profile.last_name}
+                  </Card.Text>
                 </div>
               </div>
               <div>
                 <PartyMembership />
               </div>
             </div>
-            
           )}
         </Card.Body>
       </Card>
-      <Card className='mt-1'>
+      <Card className="mt-1">
         <Card.Body>
           <Card.Title>Participation details</Card.Title>
           {profile?.participation_details && (
@@ -78,25 +80,31 @@ const Profile: React.FC = () => {
                 <Card.Text>Voter: </Card.Text>
                 {profile?.participation_details.voter.length > 0 ? (
                   profile?.participation_details.voter.map((voter) => (
-                    <ListGroup.Item>{voter}</ListGroup.Item>
+                    <ListGroup.Item key={voter}>{voter}</ListGroup.Item>
                   ))
-                ) : (<Card.Text>None</Card.Text>)}
+                ) : (
+                  <Card.Text>None</Card.Text>
+                )}
               </ListGroup>
               <ListGroup>
                 <Card.Text>Candidate: </Card.Text>
                 {profile?.participation_details.candidate.length > 0 ? (
                   profile?.participation_details.candidate.map((candidate) => (
-                    <ListGroup.Item>{candidate}</ListGroup.Item>
+                    <ListGroup.Item key={candidate}>{candidate}</ListGroup.Item>
                   ))
-                ) : (<Card.Text>None</Card.Text>)}
+                ) : (
+                  <Card.Text>None</Card.Text>
+                )}
               </ListGroup>
               <ListGroup>
                 <Card.Text>Organizer: </Card.Text>
                 {profile?.participation_details.organizer.length > 0 ? (
                   profile?.participation_details.organizer.map((organizer) => (
-                    <ListGroup.Item>{organizer}</ListGroup.Item>
+                    <ListGroup.Item key={organizer}>{organizer}</ListGroup.Item>
                   ))
-                ) : (<Card.Text>None</Card.Text>)}
+                ) : (
+                  <Card.Text>None</Card.Text>
+                )}
               </ListGroup>
             </div>
           )}

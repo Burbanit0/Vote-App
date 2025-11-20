@@ -1,24 +1,60 @@
 import React, { useState } from 'react';
 import {
-  Card, Row, Col, Form, Button, Table, Alert,
-  Tabs, Tab, Spinner, Modal, Container
+  Card,
+  Row,
+  Col,
+  Form,
+  Button,
+  Table,
+  Alert,
+  Tabs,
+  Tab,
+  Spinner,
+  Modal,
+  Container,
 } from 'react-bootstrap';
 import {
-  BarChart, Bar, XAxis, YAxis, Tooltip, Legend, ResponsiveContainer,
-  RadarChart, PolarGrid, PolarAngleAxis, PolarRadiusAxis, Radar, Cell
+  BarChart,
+  Bar,
+  XAxis,
+  YAxis,
+  Tooltip,
+  Legend,
+  ResponsiveContainer,
+  RadarChart,
+  PolarGrid,
+  PolarAngleAxis,
+  PolarRadiusAxis,
+  Radar,
+  Cell,
 } from 'recharts';
 import { simulateCandidates } from '../../services';
 import { CandidateSimu } from '../../types';
 import { useSimulation } from '../../context/SimuContext';
 
-const COLORS = ['#0088FE', '#00C49F', '#FFBB28', '#FF8042', '#8884D8',
-               '#A4DE6C', '#D0ED57', '#FF6B6B', '#AA96DA', '#FF9FF3'];
+const COLORS = [
+  '#0088FE',
+  '#00C49F',
+  '#FFBB28',
+  '#FF8042',
+  '#8884D8',
+  '#A4DE6C',
+  '#D0ED57',
+  '#FF6B6B',
+  '#AA96DA',
+  '#FF9FF3',
+];
 
 const CandidatesVisualization: React.FC = () => {
   // State
   const { candidates, setCandidates, issues, setIssues } = useSimulation();
   const [numCandidates, setNumCandidates] = useState<number>(4);
-  const [parties, setParties] = useState<string[]>(["Green", "Conservative", "Liberal", "Independent"]);
+  const [parties, setParties] = useState<string[]>([
+    'Green',
+    'Conservative',
+    'Liberal',
+    'Independent',
+  ]);
   const [loading, setLoading] = useState<boolean>(false);
   const [error, setError] = useState<string | null>(null);
   const [showCandidateModal, setShowCandidateModal] = useState<boolean>(false);
@@ -30,11 +66,11 @@ const CandidatesVisualization: React.FC = () => {
     setLoading(true);
     setError(null);
     try {
-      const response = await simulateCandidates(numCandidates, issues, parties)
+      const response = await simulateCandidates(numCandidates, issues, parties);
       setCandidates(response.candidates);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to fetch candidates');
-      console.error("Error fetching candidates:", err);
+      console.error('Error fetching candidates:', err);
     } finally {
       setLoading(false);
     }
@@ -51,21 +87,24 @@ const CandidatesVisualization: React.FC = () => {
     if (candidates.length === 0) return [];
 
     const policyAverages: Record<string, number> = {};
-    issues.forEach(issue => {
-      policyAverages[issue] = candidates.reduce((sum, candidate) =>
-        sum + (candidate.policies[issue] || 0), 0) / candidates.length;
+    issues.forEach((issue) => {
+      policyAverages[issue] =
+        candidates.reduce((sum, candidate) => sum + (candidate.policies[issue] || 0), 0) /
+        candidates.length;
     });
 
-    return Object.entries(policyAverages).map(([issue, value]) => ({
-      name: issue.replace('_', ' '),
-      value: value * 100 // Convert to percentage
-    })).sort((a, b) => b.value - a.value);
+    return Object.entries(policyAverages)
+      .map(([issue, value]) => ({
+        name: issue.replace('_', ' '),
+        value: value * 100, // Convert to percentage
+      }))
+      .sort((a, b) => b.value - a.value);
   };
 
   const prepareCandidateComparison = () => {
-    return candidates.map(candidate => {
+    return candidates.map((candidate) => {
       const policyValues: Record<string, number> = {};
-      issues.forEach(issue => {
+      issues.forEach((issue) => {
         policyValues[issue] = (candidate.policies[issue] || 0) * 100;
       });
       return {
@@ -73,30 +112,33 @@ const CandidatesVisualization: React.FC = () => {
         ...policyValues,
         charisma: candidate.charisma * 100,
         popularity: candidate.popularity * 100,
-        experience: candidate.experience
+        experience: candidate.experience,
       };
     });
   };
 
   const preparePartyComparison = () => {
-    const partyData: Record<string, {count: number, policies: Record<string, number>, stats: Record<string, number>}> = {};
+    const partyData: Record<
+      string,
+      { count: number; policies: Record<string, number>; stats: Record<string, number> }
+    > = {};
 
     // Initialize
-    parties.forEach(party => {
+    parties.forEach((party) => {
       partyData[party] = {
         count: 0,
-        policies: Object.fromEntries(issues.map(issue => [issue, 0])),
-        stats: { charisma: 0, popularity: 0, experience: 0, scandals: 0, funds: 0 }
+        policies: Object.fromEntries(issues.map((issue) => [issue, 0])),
+        stats: { charisma: 0, popularity: 0, experience: 0, scandals: 0, funds: 0 },
       };
     });
 
     // Aggregate data
-    candidates.forEach(candidate => {
+    candidates.forEach((candidate) => {
       const party = candidate.party;
       if (partyData[party]) {
         partyData[party].count++;
-        issues.forEach(issue => {
-          partyData[party].policies[issue] += (candidate.policies[issue] || 0);
+        issues.forEach((issue) => {
+          partyData[party].policies[issue] += candidate.policies[issue] || 0;
         });
         partyData[party].stats.charisma += candidate.charisma;
         partyData[party].stats.popularity += candidate.popularity;
@@ -107,23 +149,25 @@ const CandidatesVisualization: React.FC = () => {
     });
 
     // Calculate averages
-    return Object.entries(partyData).map(([party, data]) => {
-      const avgPolicies: Record<string, number> = {};
-      issues.forEach(issue => {
-        avgPolicies[issue] = (data.policies[issue] / data.count) * 100;
-      });
+    return Object.entries(partyData)
+      .map(([party, data]) => {
+        const avgPolicies: Record<string, number> = {};
+        issues.forEach((issue) => {
+          avgPolicies[issue] = (data.policies[issue] / data.count) * 100;
+        });
 
-      return {
-        party,
-        count: data.count,
-        ...avgPolicies,
-        charisma: (data.stats.charisma / data.count) * 100,
-        popularity: (data.stats.popularity / data.count) * 100,
-        experience: data.stats.experience / data.count,
-        scandals: data.stats.scandals / data.count,
-        funds: data.stats.funds / data.count
-      };
-    }).filter(item => item.count > 0);
+        return {
+          party,
+          count: data.count,
+          ...avgPolicies,
+          charisma: (data.stats.charisma / data.count) * 100,
+          popularity: (data.stats.popularity / data.count) * 100,
+          experience: data.stats.experience / data.count,
+          scandals: data.stats.scandals / data.count,
+          funds: data.stats.funds / data.count,
+        };
+      })
+      .filter((item) => item.count > 0);
   };
 
   // Format number for display
@@ -136,7 +180,7 @@ const CandidatesVisualization: React.FC = () => {
     return new Intl.NumberFormat('fr-FR', {
       style: 'currency',
       currency: 'EUR',
-      minimumFractionDigits: 0
+      minimumFractionDigits: 0,
     }).format(value);
   };
 
@@ -168,7 +212,7 @@ const CandidatesVisualization: React.FC = () => {
                 <Form.Control
                   type="text"
                   value={issues.join(', ')}
-                  onChange={(e) => setIssues(e.target.value.split(',').map(i => i.trim()))}
+                  onChange={(e) => setIssues(e.target.value.split(',').map((i) => i.trim()))}
                   placeholder="economy, environment, healthcare, ..."
                 />
               </Form.Group>
@@ -178,7 +222,7 @@ const CandidatesVisualization: React.FC = () => {
                 <Form.Control
                   type="text"
                   value={parties.join(', ')}
-                  onChange={(e) => setParties(e.target.value.split(',').map(p => p.trim()))}
+                  onChange={(e) => setParties(e.target.value.split(',').map((p) => p.trim()))}
                   placeholder="Green, Conservative, Liberal, ..."
                 />
               </Form.Group>
@@ -188,10 +232,18 @@ const CandidatesVisualization: React.FC = () => {
               <Button variant="primary" type="submit" disabled={loading}>
                 {loading ? (
                   <>
-                    <Spinner as="span" animation="border" size="sm" role="status" aria-hidden="true" />
-                    {' '}Génération en cours...
+                    <Spinner
+                      as="span"
+                      animation="border"
+                      size="sm"
+                      role="status"
+                      aria-hidden="true"
+                    />{' '}
+                    Génération en cours...
                   </>
-                ) : 'Générer les candidats'}
+                ) : (
+                  'Générer les candidats'
+                )}
               </Button>
             </div>
           </Form>
@@ -207,11 +259,7 @@ const CandidatesVisualization: React.FC = () => {
 
       {/* Main Content */}
       {candidates.length > 0 ? (
-        <Tabs
-          activeKey={activeTab}
-          onSelect={(k) => setActiveTab(k || 'summary')}
-          className="mb-3"
-        >
+        <Tabs activeKey={activeTab} onSelect={(k) => setActiveTab(k || 'summary')} className="mb-3">
           {/* Summary Tab */}
           <Tab eventKey="summary" title="Résumé">
             <Card className="mb-4">
@@ -239,11 +287,17 @@ const CandidatesVisualization: React.FC = () => {
                         <tr key={index}>
                           <td>{candidate.name}</td>
                           <td>
-                            <span className={`badge bg-${
-                              candidate.party === 'Green' ? 'success' :
-                              candidate.party === 'Conservative' ? 'primary' :
-                              candidate.party === 'Liberal' ? 'warning' : 'secondary'
-                            }`}>
+                            <span
+                              className={`badge bg-${
+                                candidate.party === 'Green'
+                                  ? 'success'
+                                  : candidate.party === 'Conservative'
+                                    ? 'primary'
+                                    : candidate.party === 'Liberal'
+                                      ? 'warning'
+                                      : 'secondary'
+                              }`}
+                            >
                               {candidate.party}
                             </span>
                           </td>
@@ -254,7 +308,7 @@ const CandidatesVisualization: React.FC = () => {
                                 role="progressbar"
                                 style={{
                                   width: `${((candidate.party_lean + 1) / 2) * 100}%`,
-                                  backgroundColor: candidate.party_lean < 0 ? '#198754' : '#dc3545'
+                                  backgroundColor: candidate.party_lean < 0 ? '#198754' : '#dc3545',
                                 }}
                               >
                                 {formatNumber(candidate.party_lean, 2)}
@@ -285,7 +339,9 @@ const CandidatesVisualization: React.FC = () => {
                           </td>
                           <td>{candidate.experience} ans</td>
                           <td>
-                            <span className={`badge bg-${candidate.scandals > 0 ? 'danger' : 'secondary'}`}>
+                            <span
+                              className={`badge bg-${candidate.scandals > 0 ? 'danger' : 'secondary'}`}
+                            >
                               {candidate.scandals}
                             </span>
                           </td>
@@ -326,9 +382,17 @@ const CandidatesVisualization: React.FC = () => {
                           data={preparePolicyData()}
                           margin={{ top: 20, right: 30, left: 20, bottom: 5 }}
                         >
-                          <XAxis dataKey="name" angle={-45} textAnchor="end" height={100} interval={0} />
+                          <XAxis
+                            dataKey="name"
+                            angle={-45}
+                            textAnchor="end"
+                            height={100}
+                            interval={0}
+                          />
                           <YAxis />
-                          <Tooltip formatter={(value: number) => [`${value.toFixed(1)}%`, 'Importance']} />
+                          <Tooltip
+                            formatter={(value: number) => [`${value.toFixed(1)}%`, 'Importance']}
+                          />
                           <Legend />
                           <Bar dataKey="value" fill="#8884d8">
                             {preparePolicyData().map((_, index) => (
@@ -431,11 +495,17 @@ const CandidatesVisualization: React.FC = () => {
                           {preparePartyComparison().map((party, index) => (
                             <tr key={index}>
                               <td>
-                                <span className={`badge bg-${
-                                  party.party === 'Green' ? 'success' :
-                                  party.party === 'Conservative' ? 'primary' :
-                                  party.party === 'Liberal' ? 'warning' : 'secondary'
-                                }`}>
+                                <span
+                                  className={`badge bg-${
+                                    party.party === 'Green'
+                                      ? 'success'
+                                      : party.party === 'Conservative'
+                                        ? 'primary'
+                                        : party.party === 'Liberal'
+                                          ? 'warning'
+                                          : 'secondary'
+                                  }`}
+                                >
                                   {party.party}
                                 </span>
                               </td>
@@ -464,10 +534,10 @@ const CandidatesVisualization: React.FC = () => {
                     <div style={{ height: '300px' }}>
                       <ResponsiveContainer width="100%" height="100%">
                         <BarChart
-                          data={candidates.map(c => ({
+                          data={candidates.map((c) => ({
                             name: c.name.split(' ')[0],
                             charisma: c.charisma * 100,
-                            popularity: c.popularity * 100
+                            popularity: c.popularity * 100,
                           }))}
                           margin={{ top: 20, right: 30, left: 20, bottom: 5 }}
                         >
@@ -487,17 +557,11 @@ const CandidatesVisualization: React.FC = () => {
           </Tab>
         </Tabs>
       ) : (
-        <Alert variant="info">
-          Utilisez le formulaire ci-dessus pour générer des candidats.
-        </Alert>
+        <Alert variant="info">Utilisez le formulaire ci-dessus pour générer des candidats.</Alert>
       )}
 
       {/* Candidate Details Modal */}
-      <Modal
-        show={showCandidateModal}
-        onHide={() => setShowCandidateModal(false)}
-        size="lg"
-      >
+      <Modal show={showCandidateModal} onHide={() => setShowCandidateModal(false)} size="lg">
         {selectedCandidate && (
           <>
             <Modal.Header closeButton>
@@ -514,11 +578,17 @@ const CandidatesVisualization: React.FC = () => {
                           <tr>
                             <th>Parti:</th>
                             <td>
-                              <span className={`badge bg-${
-                                selectedCandidate.party === 'Green' ? 'success' :
-                                selectedCandidate.party === 'Conservative' ? 'primary' :
-                                selectedCandidate.party === 'Liberal' ? 'warning' : 'secondary'
-                              }`}>
+                              <span
+                                className={`badge bg-${
+                                  selectedCandidate.party === 'Green'
+                                    ? 'success'
+                                    : selectedCandidate.party === 'Conservative'
+                                      ? 'primary'
+                                      : selectedCandidate.party === 'Liberal'
+                                        ? 'warning'
+                                        : 'secondary'
+                                }`}
+                              >
                                 {selectedCandidate.party}
                               </span>
                             </td>
@@ -532,7 +602,8 @@ const CandidatesVisualization: React.FC = () => {
                                   role="progressbar"
                                   style={{
                                     width: `${((selectedCandidate.party_lean + 1) / 2) * 100}%`,
-                                    backgroundColor: selectedCandidate.party_lean < 0 ? '#198754' : '#dc3545'
+                                    backgroundColor:
+                                      selectedCandidate.party_lean < 0 ? '#198754' : '#dc3545',
                                   }}
                                 ></div>
                               </div>
@@ -571,14 +642,18 @@ const CandidatesVisualization: React.FC = () => {
                         <ResponsiveContainer width="100%" height="100%">
                           <BarChart
                             layout="vertical"
-                            data={Object.entries(selectedCandidate.policies).map(([issue, value]) => ({
-                              issue: issue.replace('_', ' '),
-                              value: value * 100
-                            })).sort((a, b) => b.value - a.value)}
+                            data={Object.entries(selectedCandidate.policies)
+                              .map(([issue, value]) => ({
+                                issue: issue.replace('_', ' '),
+                                value: value * 100,
+                              }))
+                              .sort((a, b) => b.value - a.value)}
                           >
                             <XAxis type="number" domain={[0, 100]} />
                             <YAxis dataKey="issue" type="category" width={120} />
-                            <Tooltip formatter={(value: number) => [`${value.toFixed(1)}%`, 'Priorité']} />
+                            <Tooltip
+                              formatter={(value: number) => [`${value.toFixed(1)}%`, 'Priorité']}
+                            />
                             <Bar dataKey="value" fill="#8884d8" />
                           </BarChart>
                         </ResponsiveContainer>
@@ -593,15 +668,18 @@ const CandidatesVisualization: React.FC = () => {
                       <h6>Profil Politique (Radar)</h6>
                       <div style={{ height: '400px' }}>
                         <ResponsiveContainer width="100%" height="100%">
-                          <RadarChart data={[{
-                            name: selectedCandidate.name,
-                            ...Object.fromEntries(
-                              Object.entries(selectedCandidate.policies).map(([issue, value]) => [
-                                issue.replace('_', ' '),
-                                value * 100
-                              ])
-                            )
-                          }]}>
+                          <RadarChart
+                            data={[
+                              {
+                                name: selectedCandidate.name,
+                                ...Object.fromEntries(
+                                  Object.entries(selectedCandidate.policies).map(
+                                    ([issue, value]) => [issue.replace('_', ' '), value * 100]
+                                  )
+                                ),
+                              },
+                            ]}
+                          >
                             <PolarGrid />
                             <PolarAngleAxis dataKey="name" />
                             <PolarRadiusAxis angle={30} domain={[0, 100]} />

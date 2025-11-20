@@ -61,7 +61,10 @@ const OrganizerDashboardBis: React.FC<OrganizerDashboardProps> = ({ data }) => {
                   </Link>
                 </ListGroup.Item>
                 <ListGroup.Item>
-                  <Link to={`/elections/${election.id}/candidates`} className="btn btn-secondary w-100">
+                  <Link
+                    to={`/elections/${election.id}/candidates`}
+                    className="btn btn-secondary w-100"
+                  >
                     Manage Candidates
                   </Link>
                 </ListGroup.Item>

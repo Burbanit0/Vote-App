@@ -4,7 +4,6 @@ import 'bootstrap/dist/css/bootstrap.min.css';
 import ElectionList from '../components/Election/ElectionList';
 
 const HomePage: React.FC = () => {
-
   return (
     <Container className="mt-5">
       <Row className="justify-content-center text-center mb-4">
@@ -14,7 +13,7 @@ const HomePage: React.FC = () => {
         </Col>
       </Row>
       <Row>
-        <ElectionList/>
+        <ElectionList />
       </Row>
     </Container>
   );

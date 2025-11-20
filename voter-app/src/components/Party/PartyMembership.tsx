@@ -6,7 +6,6 @@ import { useAuth } from '../../context/AuthContext';
 import { Party } from '../../types';
 import { fetchUserParty, removeUserFromParty } from '../../services/partiesApi';
 
-
 const PartyMembership: React.FC = () => {
   const { user } = useAuth();
   const [userParty, setUserParty] = useState<Party | null>(null);
@@ -31,7 +30,7 @@ const PartyMembership: React.FC = () => {
 
   const handleLeaveParty = async (partyId: number) => {
     try {
-      if(!user) return;
+      if (!user) return;
       setLoading(true);
       await removeUserFromParty(user.user_id, partyId);
       setUserParty(null);
@@ -47,17 +46,11 @@ const PartyMembership: React.FC = () => {
       <Card.Body>
         <div className="d-flex justify-content-between align-items-center mb-3">
           <Card.Title>Party Membership</Card.Title>
-          {
-            !userParty && (
-                <Button
-                    variant="primary"
-                    size="sm"
-                    onClick={() => setShowJoinModal(true)}
-                >
-                    Join a Party
-                </Button>
-            )
-          }
+          {!userParty && (
+            <Button variant="primary" size="sm" onClick={() => setShowJoinModal(true)}>
+              Join a Party
+            </Button>
+          )}
         </div>
         {error && <Alert variant="danger">{error}</Alert>}
 
@@ -66,24 +59,24 @@ const PartyMembership: React.FC = () => {
             <p>Loading party memberships...</p>
           </div>
         ) : userParty ? (
-            <div>
-                <div className="d-flex align-items-center">
-                  <div>
-                    <h6 className="mb-1">{userParty.name}</h6>
-                    <p className="mb-0 text-muted" style={{ fontSize: '0.8rem' }}>
-                      {userParty.description}
-                    </p>
-                  </div>
-                </div>
-                <Button
-                  variant="outline-danger"
-                  size="sm"
-                  onClick={() => handleLeaveParty(userParty.id)}
-                  disabled={loading}
-                >
-                  Leave
-                </Button>
+          <div>
+            <div className="d-flex align-items-center">
+              <div>
+                <h6 className="mb-1">{userParty.name}</h6>
+                <p className="mb-0 text-muted" style={{ fontSize: '0.8rem' }}>
+                  {userParty.description}
+                </p>
+              </div>
             </div>
+            <Button
+              variant="outline-danger"
+              size="sm"
+              onClick={() => handleLeaveParty(userParty.id)}
+              disabled={loading}
+            >
+              Leave
+            </Button>
+          </div>
         ) : (
           <p>You are not currently a member of any political party.</p>
         )}
