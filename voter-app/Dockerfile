@@ -6,15 +6,15 @@ WORKDIR /app
 # Copy package.json and package-lock.json
 COPY package*.json ./
 
-# Install Yarn if not already installed, or use the existing installation
-RUN npm install -g yarn || true
-RUN yarn install
+# Install dependencies
+RUN npm cache clean --force
+RUN npm install
 
 # Copy the rest of the application
 COPY . .
 
 # Build the application
-RUN yarn build
+RUN npm run build
 
 # Stage 2: Serve the app with Nginx
 FROM nginx:alpine
