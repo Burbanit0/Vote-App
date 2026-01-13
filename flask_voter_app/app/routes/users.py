@@ -56,7 +56,7 @@ def login():
     password = data.get("password")
 
     result = UserService.login(username, password)
-    return jsonify(result)
+    return result
 
 
 @auth_bp.route("/admin-only", methods=["GET"])

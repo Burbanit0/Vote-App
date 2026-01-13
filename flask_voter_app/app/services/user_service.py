@@ -1,4 +1,5 @@
 # app/services/user_service.py
+from flask import jsonify
 from app import db
 from app.models import User, Vote, Election, user_election_roles
 from app.utils.auth_utils import register_user
@@ -33,23 +34,23 @@ class UserService:
     @staticmethod
     def login(username, password):
         if not username or not password:
-            return {"message": "Username and password are required"}, 400
+            return jsonify({"message": "Username and password are required"}), 401
 
         user = User.query.filter_by(username=username).first()
         if not user or not user.check_password(password):
-            return {"message": "Invalid credentials"}, 401
+            return jsonify({"message": "Invalid credentials"}), 401
 
         from flask_jwt_extended import create_access_token
 
         access_token = create_access_token(identity=str(user.id))
-        return {
+        return jsonify({
             "access_token": access_token,
             "user_id": user.id,
             "username": user.username,
             "role": user.role,
             "first_name": user.first_name,
             "last_name": user.last_name,
-        }
+        }), 200
 
     @staticmethod
     def get_profile(user_id):
