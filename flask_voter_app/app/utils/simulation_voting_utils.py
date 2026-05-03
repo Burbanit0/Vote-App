@@ -249,14 +249,10 @@ def sample_education(age: int) -> str:
             "phd": base_probs["phd"] * 0.3,
         }
 
-    # Normaliser les probabilités pour qu'elles sommement à 1
-    if age >= 40:
-        total = sum(adjusted_probs.values())
-        normalized_probs = [v / total for v in adjusted_probs.values()]
-        return np.random.choice(list(adjusted_probs.keys()), p=normalized_probs)
-
-    # Pour les 30-39 ans, utiliser les probabilités de base
-    return np.random.choice(list(base_probs.keys()), p=list(base_probs.values()))
+    # Normaliser les probabilités pour qu'elles somment à 1
+    total = sum(adjusted_probs.values())
+    normalized_probs = [v / total for v in adjusted_probs.values()]
+    return np.random.choice(list(adjusted_probs.keys()), p=normalized_probs)
 
 
 def assign_issue_priorities(
@@ -430,11 +426,48 @@ def assign_issue_priorities(
             0.8, 0.95
         )  # Non-religious voters tend to be more progressive
 
-    return issue_priorities, political_lean
+    # Derive voter's ideological position on each issue from political_lean.
+    # political_lean is a multiplicative factor (~1.0 = neutral, <1 = progressive,
+    # >1 = conservative). Convert to [0,1] so it aligns with candidate policy scale.
+    political_lean_normalized = max(0.0, min(1.0, (political_lean - 0.5) / 1.5))
+    issue_positions = {
+        issue: max(0.0, min(1.0, political_lean_normalized + random.uniform(-0.15, 0.15)))
+        for issue in issue_priorities
+    }
+
+    return issue_priorities, political_lean, issue_positions
 
 
 # --- 1. Generate Voters and Candidates ---
-def create_voter(issues: List[str], voter_id: int) -> Voter:
+
+_IDEOLOGY_DISTRIBUTIONS = {"random", "centrist", "polarized", "left_skewed", "right_skewed"}
+
+
+def _sample_ideology_position(distribution: str) -> Optional[float]:
+    """
+    Return a political lean position in [0,1] drawn from the requested
+    distribution, or None for "random" (keep the demographically-derived value).
+
+      0 = fully progressive   1 = fully conservative
+    """
+    if distribution == "centrist":
+        return float(np.clip(np.random.normal(0.5, 0.1), 0.0, 1.0))
+    if distribution == "polarized":
+        if np.random.random() < 0.5:
+            return float(np.clip(np.random.normal(0.2, 0.08), 0.0, 1.0))
+        return float(np.clip(np.random.normal(0.8, 0.08), 0.0, 1.0))
+    if distribution == "left_skewed":
+        return float(np.random.beta(2, 5))
+    if distribution == "right_skewed":
+        return float(np.random.beta(5, 2))
+    return None  # "random" — keep the value derived from demographics
+
+
+def create_voter(
+    issues: List[str],
+    voter_id: int,
+    ideology_distribution: str = "random",
+) -> Voter:
     age = sample_age()
     gender = sample_gender()
     region = sample_region()
@@ -445,7 +478,7 @@ def create_voter(issues: List[str], voter_id: int) -> Voter:
     religion = sample_religion()
     ethnicity_immigration = sample_ethnicity_immigration()
 
-    issue_priorities, political_lean = assign_issue_priorities(
+    issue_priorities, political_lean, issue_positions = assign_issue_priorities(
         age,
         gender,
         region,
@@ -461,6 +494,20 @@ def create_voter(issues: List[str], voter_id: int) -> Voter:
     total = sum(issue_priorities.values())
     issue_priorities = {k: v / total for k, v in issue_priorities.items()}
 
+    # Normalized political lean on [0,1]: 0 = progressive, 1 = conservative.
+    # Stored alongside the original multiplicative value to avoid breaking existing code.
+    political_lean_normalized = max(0.0, min(1.0, (political_lean - 0.5) / 1.5))
+
+    # Override the demographic-derived lean with a controlled distribution when
+    # requested, then recompute issue_positions from the new base value.
+    overridden_lean = _sample_ideology_position(ideology_distribution)
+    if overridden_lean is not None:
+        political_lean_normalized = overridden_lean
+        issue_positions = {
+            issue: max(0.0, min(1.0, political_lean_normalized + random.uniform(-0.15, 0.15)))
+            for issue in issue_positions
+        }
+
     # L'éducation influence la probabilité de voter (effet plus marqué avec l'âge)
     education_vote_boost = {
         "none": 0.0,
@@ -474,8 +521,22 @@ def create_voter(issues: List[str], voter_id: int) -> Voter:
     if age > 60 and education in ["master", "phd"]:
         education_vote_boost += 0.1
 
+    party_loyalty = random.uniform(0, 1)
+
+    # Strategic propensity: educated, older, and party-loyal voters are more
+    # likely to vote tactically rather than by pure conviction.
+    strategic_propensity = 0.2
+    if education in ["master", "phd"]:
+        strategic_propensity += 0.1
+    if age > 45:
+        strategic_propensity += 0.1
+    strategic_propensity += 0.15 * party_loyalty
+    strategic_propensity += random.uniform(-0.05, 0.05)
+    strategic_propensity = max(0.0, min(0.8, strategic_propensity))
+    voting_style = "strategic" if random.random() < strategic_propensity else "sincere"
+
     return {
-        "id": voter_id,  # Ajouter l'ID ici
+        "id": voter_id,
         "age": age,
         "region": region,
         "income": income,
@@ -486,8 +547,10 @@ def create_voter(issues: List[str], voter_id: int) -> Voter:
         "ethnicity_immigration": ethnicity_immigration,
         "religion": religion,
         "political_lean": political_lean,
+        "political_lean_normalized": political_lean_normalized,
+        "issue_positions": issue_positions,
         "issue_priorities": issue_priorities,
-        "party_loyalty": random.uniform(0, 1),
+        "party_loyalty": party_loyalty,
         "preferred_party": random.choice(
             ["Green", "Conservative", "Liberal", "Independent"]
         ),
@@ -496,14 +559,30 @@ def create_voter(issues: List[str], voter_id: int) -> Voter:
             min(0.95, sample_likelihood_to_vote(age) + education_vote_boost)
         ),
         "mood": random.uniform(-1, 1),
+        "strategic_propensity": round(strategic_propensity, 4),
+        "voting_style": voting_style,
     }
 
 
 def create_candidate(
-    issues: List[str], candidate_id: int, name: str, party: str
+    issues: List[str],
+    candidate_id: int,
+    name: str,
+    party: str,
+    ideology_position: Optional[float] = None,
+    position_variance: float = 0.1,
 ) -> Dict:
-    """Create a candidate with random policies."""
-    # Map party to a political lean (-1 to 1)
+    """
+    Create a candidate with policy positions.
+
+    When ideology_position is provided (0 = progressive, 1 = conservative),
+    it is used directly as the base position for every policy issue, with
+    ± position_variance noise per issue.  This allows precise placement of
+    candidates in ideological space.
+
+    When ideology_position is None the position is derived from the party
+    lean as before, using the wider default variance of 0.2.
+    """
     party_leans = {
         "Green": -0.8,
         "Liberal": -0.3,
@@ -511,26 +590,36 @@ def create_candidate(
         "Independent": 0.0,
     }
 
-    # Create policies that align with party lean
-    policies = {}
-    for issue in issues:
-        # Base policy position influenced by party lean
-        base_position = (party_leans.get(party, 0) + 1) / 2  # Convert to 0-1 range
-        # Add some variation but keep it close to party line
-        variation = random.uniform(-0.2, 0.2)
-        policies[issue] = max(0, min(1, base_position + variation))
+    if ideology_position is not None:
+        # Explicit placement: use the provided position as base for all issues.
+        base_position = float(max(0.0, min(1.0, ideology_position)))
+        effective_variance = position_variance
+        # Derive a party_lean consistent with the explicit position.
+        effective_party_lean = (base_position * 2) - 1
+    else:
+        # Default: derive base position from party lean.
+        raw_lean = party_leans.get(party, 0.0)
+        base_position = (raw_lean + 1) / 2
+        effective_variance = 0.2
+        effective_party_lean = raw_lean
+
+    policies = {
+        issue: max(0.0, min(1.0, base_position + random.uniform(-effective_variance, effective_variance)))
+        for issue in issues
+    }
 
     return {
         "id": candidate_id,
         "name": name,
         "party": party,
-        "party_lean": party_leans.get(party, 0),
+        "party_lean": effective_party_lean,
+        "ideology_position": base_position,
         "policies": policies,
-        "charisma": random.uniform(0.5, 1.0),  # Candidates generally have some charisma
+        "charisma": random.uniform(0.5, 1.0),
         "scandals": random.randint(0, 2),
-        "campaign_funds": random.uniform(100000, 1000000),  # Adding campaign funds
-        "experience": random.randint(1, 20),  # Years of political experience
-        "popularity": random.uniform(0.3, 0.9),  # Base popularity
+        "campaign_funds": random.uniform(100000, 1000000),
+        "experience": random.randint(1, 20),
+        "popularity": random.uniform(0.3, 0.9),
     }
 
 
@@ -540,10 +629,13 @@ def calculate_utility(voter: Dict, candidate: Dict, issues: List[str]) -> Dict:
     Calculate the utility score for a voter-candidate pair.
     Returns a dictionary with the utility score and its breakdown.
     """
-    # Issue alignment
+    # Issue alignment: weighted sum of (1 - distance) between voter and candidate positions.
+    # voter["issue_positions"] is in [0,1]; candidate["policies"] is in [0,1].
     issue_score = sum(
-        voter["issue_priorities"].get(issue, 0) * candidate["policies"].get(issue, 0)
+        voter["issue_priorities"].get(issue, 0)
+        * (1 - abs(voter["issue_positions"].get(issue, 0.5) - candidate["policies"].get(issue, 0.5)))
         for issue in issues
+        if issue in voter["issue_priorities"]
     )
 
     # Gender-specific bonus
@@ -552,8 +644,10 @@ def calculate_utility(voter: Dict, candidate: Dict, issues: List[str]) -> Dict:
         gender_bonus = 0.1 * candidate["policies"]["gender_equality"]
         issue_score += gender_bonus
 
-    # Party loyalty
-    party_match = 1 - abs(voter["political_lean"] - candidate.get("party_lean", 0))
+    # Party loyalty — both values normalised to [0,1] so the distance is meaningful.
+    # candidate["party_lean"] is in [-1,1]; convert to [0,1] to match political_lean_normalized.
+    candidate_lean_normalized = (candidate.get("party_lean", 0) + 1) / 2
+    party_match = 1 - abs(voter["political_lean_normalized"] - candidate_lean_normalized)
     loyalty_bonus = voter["party_loyalty"] * party_match
 
     # Charisma and scandals (non-linear effect)
@@ -593,25 +687,204 @@ def calculate_utility(voter: Dict, candidate: Dict, issues: List[str]) -> Dict:
     }
 
 
-# --- 3. Voting Methods ---
+# --- 3. Strategic Voting Helpers ---
+
+def compute_sincere_ranking(
+    voter: Voter, candidates: List[Candidate], issues: List[str]
+) -> List[Candidate]:
+    """Return candidates sorted by true utility (descending)."""
+    return sorted(
+        candidates,
+        key=lambda c: -calculate_utility(voter, c, issues)["utility"],
+    )
+
+
+def compute_strategic_plurality_vote(
+    voter: Voter,
+    candidates: List[Candidate],
+    issues: List[str],
+    poll_standings: Dict[str, float],
+) -> Optional[str]:
+    """
+    Plurality tactical vote (Duverger): if the sincere first choice is not
+    viable (not in top-2 of polls), switch to the best viable candidate.
+    """
+    utilities = {
+        c["name"]: calculate_utility(voter, c, issues)["utility"] for c in candidates
+    }
+    top2 = sorted(poll_standings, key=poll_standings.get, reverse=True)[:2]
+    preferred = max(utilities, key=utilities.get)
+
+    if preferred in top2:
+        return preferred
+
+    viable_top2 = [name for name in top2 if name in utilities]
+    if not viable_top2:
+        return preferred
+    return max(viable_top2, key=lambda name: utilities[name])
+
+
+def compute_strategic_borda_vote(
+    voter: Voter,
+    candidates: List[Candidate],
+    issues: List[str],
+    poll_standings: Dict[str, float],
+) -> List[str]:
+    """
+    Borda burial strategy: rank the main poll threat last to minimise their
+    Borda points, while keeping the sincere order for all other candidates.
+    Falls back to sincere ranking if the preferred candidate already leads polls.
+    """
+    utilities = {
+        c["name"]: calculate_utility(voter, c, issues)["utility"] for c in candidates
+    }
+    preferred = max(utilities, key=utilities.get)
+    top_by_polls = sorted(poll_standings, key=poll_standings.get, reverse=True)
+
+    if top_by_polls and top_by_polls[0] == preferred:
+        return [c["name"] for c in compute_sincere_ranking(voter, candidates, issues)]
+
+    threat = next((c for c in top_by_polls if c != preferred), None)
+    sincere_order = [c["name"] for c in compute_sincere_ranking(voter, candidates, issues)]
+    others = [name for name in sincere_order if name != preferred and name != threat]
+
+    ranking = [preferred] + others
+    if threat:
+        ranking.append(threat)
+    return ranking
+
+
+def compute_strategic_irv_vote(
+    voter: Voter,
+    candidates: List[Candidate],
+    issues: List[str],
+    poll_standings: Dict[str, float],
+) -> List[str]:
+    """
+    IRV compromise strategy: if the preferred candidate is not viable (not in
+    top-2 of polls), promote the best top-2 candidate to first position while
+    keeping the sincere order for the rest.
+    """
+    utilities = {
+        c["name"]: calculate_utility(voter, c, issues)["utility"] for c in candidates
+    }
+    top2 = sorted(poll_standings, key=poll_standings.get, reverse=True)[:2]
+    preferred = max(utilities, key=utilities.get)
+
+    sincere = [c["name"] for c in compute_sincere_ranking(voter, candidates, issues)]
+    if preferred in top2:
+        return sincere
+
+    best_viable = max(
+        (c for c in top2 if c in utilities),
+        key=lambda c: utilities[c],
+        default=None,
+    )
+    if best_viable and best_viable in sincere:
+        sincere.remove(best_viable)
+        return [best_viable] + sincere
+    return sincere
+
+
+def compute_strategic_approval_vote(
+    voter: Voter,
+    candidates: List[Candidate],
+    issues: List[str],
+) -> List[str]:
+    """
+    Approval bullet-vote strategy: approve only the top candidate to maximise
+    concentration, unless the second candidate's utility is within 10 % of the
+    first's (too close to sacrifice).
+    Returns a list of approved candidate names (may be length 1 or 2).
+    """
+    utilities = {
+        c["name"]: calculate_utility(voter, c, issues)["utility"] for c in candidates
+    }
+    ranked = sorted(utilities, key=utilities.get, reverse=True)
+    if len(ranked) < 2:
+        return ranked
+
+    best, second = ranked[0], ranked[1]
+    best_u, second_u = utilities[best], utilities[second]
+
+    if best_u > 0 and second_u > 0 and second_u / best_u > 0.9:
+        return [best, second]
+    return [best]
+
+
+def compute_strategic_score_vote(
+    voter: Voter,
+    candidates: List[Candidate],
+    issues: List[str],
+    poll_standings: Dict[str, float],
+) -> Dict[str, int]:
+    """
+    Score exaggeration strategy: give the preferred candidate 5, the main poll
+    threat 0, and proportionally scaled scores (1–4) to everyone else.
+    """
+    utilities = {
+        c["name"]: calculate_utility(voter, c, issues)["utility"] for c in candidates
+    }
+    preferred = max(utilities, key=utilities.get)
+    top_by_polls = sorted(poll_standings, key=poll_standings.get, reverse=True)
+    threat = next((c for c in top_by_polls if c != preferred), None)
+
+    others = {
+        name: u
+        for name, u in utilities.items()
+        if name != preferred and name != threat
+    }
+
+    scores: Dict[str, int] = {preferred: 5}
+    if threat:
+        scores[threat] = 0
+
+    if others:
+        max_u = max(others.values())
+        min_u = min(others.values())
+        u_range = max_u - min_u
+        for name, u in others.items():
+            if u_range > 0:
+                scores[name] = 1 + round(3 * (u - min_u) / u_range)
+            else:
+                scores[name] = 2
+    return scores
+
+
+# --- 4. Voting Methods ---
+
+# Method groups used for strategic dispatch and sincere fallback.
+_PLURALITY_METHODS: frozenset = frozenset({"plurality"})
+_BORDA_METHODS: frozenset = frozenset({"borda"})
+_RANKED_METHODS: frozenset = frozenset({
+    "ranked", "irv", "condorcet", "schulze", "minimax",
+    "kemeny_young", "coombs", "bucklin", "two_round",
+})
+_APPROVAL_METHODS: frozenset = frozenset({"approval"})
+_SCORE_METHODS: frozenset = frozenset({
+    "score", "simple_score", "star_voting",
+    "median_voting", "mean_median_hybrid", "variance_based",
+})
+
+
 def vote_plurality(
     voter: Voter, candidates: List[Candidate], issues: List[str]
 ) -> Optional[str]:
-    utilities = {c["name"]: calculate_utility(voter, c, issues) for c in candidates}
+    utilities = {c["name"]: calculate_utility(voter, c, issues)["utility"] for c in candidates}
     max_utility = max(utilities.values())
     return max(utilities, key=utilities.get) if max_utility > 0.3 else None
 
 
 def vote_ranked(
     voter: Voter, candidates: List[Candidate], issues: List[str]
-) -> List[str]:
-    return sorted(candidates, key=lambda c: -calculate_utility(voter, c, issues))
+) -> List[Candidate]:
+    return sorted(candidates, key=lambda c: -calculate_utility(voter, c, issues)["utility"])
 
 
 def vote_score(
     voter: Voter, candidates: List[Candidate], issues: List[str]
 ) -> Dict[str, int]:
-    return {c["name"]: int(5 * calculate_utility(voter, c, issues)) for c in candidates}
+    return {c["name"]: int(5 * calculate_utility(voter, c, issues)["utility"]) for c in candidates}
 
 
 def simulate_vote(
@@ -619,28 +892,73 @@ def simulate_vote(
     candidates: List[Candidate],
     issues: List[str],
     method: str = "plurality",
+    poll_standings: Optional[Dict[str, float]] = None,
 ) -> Union[Optional[str], List[str], Dict[str, int]]:
     if random.random() > voter["likelihood_to_vote"]:
         return None
-    if method == "plurality":
+
+    is_strategic = voter.get("voting_style") == "strategic"
+
+    # ── Strategic dispatch ──────────────────────────────────────────────
+    if is_strategic:
+        # Approval needs no poll_standings (threshold is utility-based).
+        if method in _APPROVAL_METHODS:
+            return compute_strategic_approval_vote(voter, candidates, issues)
+
+        # All other strategic methods require poll_standings to identify threats.
+        if poll_standings is not None:
+            if method in _PLURALITY_METHODS:
+                return compute_strategic_plurality_vote(
+                    voter, candidates, issues, poll_standings
+                )
+            if method in _BORDA_METHODS:
+                return compute_strategic_borda_vote(
+                    voter, candidates, issues, poll_standings
+                )
+            if method in _RANKED_METHODS:
+                return compute_strategic_irv_vote(
+                    voter, candidates, issues, poll_standings
+                )
+            if method in _SCORE_METHODS:
+                return compute_strategic_score_vote(
+                    voter, candidates, issues, poll_standings
+                )
+        # No poll_standings available — fall through to sincere vote.
+
+    # ── Sincere fallback ────────────────────────────────────────────────
+    if method in _PLURALITY_METHODS:
         return vote_plurality(voter, candidates, issues)
-    elif method == "ranked":
+    if method in _BORDA_METHODS | _RANKED_METHODS | _APPROVAL_METHODS:
         return [c["name"] for c in vote_ranked(voter, candidates, issues)]
-    elif method == "score":
+    if method in _SCORE_METHODS:
         return vote_score(voter, candidates, issues)
-    else:
-        return None
+    return None
 
 
 # --- 4. Run Simulation ---
 def run_simulation(
-    num_voters: int = 1000, num_candidates: int = 3, method: str = "plurality"
+    num_voters: int = 1000,
+    num_candidates: int = 3,
+    method: str = "plurality",
+    ideology_distribution: str = "random",
+    seed: Optional[int] = None,
 ):
-    issues = ["economy", "environment", "healthcare"]
-    voters = [create_voter(issues) for _ in range(num_voters)]
+    if seed is not None:
+        random.seed(seed)
+        np.random.seed(seed)
+    voters = [
+        create_voter(issues, voter_id=i, ideology_distribution=ideology_distribution)
+        for i in range(num_voters)
+    ]
+    _party_cycle = ["Green", "Conservative", "Liberal", "Independent"]
     candidates = [
-        create_candidate(issues, f"Candidate {i+1}", party)
-        for i, party in enumerate(["Green", "Conservative", "Liberal"])
+        create_candidate(
+            issues,
+            candidate_id=i,
+            name=f"Candidate {i + 1}",
+            party=_party_cycle[i % len(_party_cycle)],
+        )
+        for i in range(num_candidates)
     ]
 
     results = []
@@ -651,7 +969,7 @@ def run_simulation(
                 "voter": voter,
                 "vote": vote,
                 "utilities": {
-                    c["name"]: calculate_utility(voter, c, issues) for c in candidates
+                    c["name"]: calculate_utility(voter, c, issues)["utility"] for c in candidates
                 },
             }
         )

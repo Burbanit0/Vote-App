@@ -184,7 +184,7 @@ def get_variance_based_winner(all_scores):
         else:
             mean = stats["sum"] / count
             variance = (stats["sum_sq"] / count) - (mean * mean)
-        std_dev = math.sqrt(variance) if variance >= 0 else 0
+        std_dev = math.sqrt(max(variance, 0.0))
 
         # Weighted score that balances mean and consistency (lower variance is better)
         weighted_score = mean - 0.5 * std_dev
