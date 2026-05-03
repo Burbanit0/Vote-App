@@ -1,0 +1,19 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(cd /d \"c:\\\\Users\\\\burba\\\\Vote-App\")",
+      "Bash(Get-Content \"flask_voter_app\\\\app\\\\utils\\\\simulation_ranked_utils.py\")",
+      "Bash(Measure-Object -Line)",
+      "PowerShell(\\(Get-Content \"c:\\\\Users\\\\burba\\\\Vote-App\\\\flask_voter_app\\\\app\\\\utils\\\\simulation_ranked_utils.py\" | Measure-Object -Line\\).Lines)",
+      "Bash(Get-ChildItem -Path \"c:\\\\Users\\\\burba\\\\Vote-App\" -Directory)",
+      "Bash(Select-Object Name)",
+      "Bash(Remove-Item \"C:\\\\Users\\\\burba\\\\Vote-App\\\\flask_voter_app\\\\app\\\\routes\\\\elections.py\" -Force)",
+      "Bash(Remove-Item \"C:\\\\Users\\\\burba\\\\Vote-App\\\\flask_voter_app\\\\app\\\\routes\\\\votes.py\" -Force)",
+      "Bash(Remove-Item \"C:\\\\Users\\\\burba\\\\Vote-App\\\\flask_voter_app\\\\app\\\\services\\\\election_service.py\" -Force)",
+      "Bash(Remove-Item \"C:\\\\Users\\\\burba\\\\Vote-App\\\\flask_voter_app\\\\app\\\\services\\\\vote_service.py\" -Force)",
+      "Bash(Remove-Item \"C:\\\\Users\\\\burba\\\\Vote-App\\\\flask_voter_app\\\\app\\\\services\\\\participation_service.py\" -Force)",
+      "Bash(git add *)",
+      "Bash(git commit -m ' *)"
+    ]
+  }
+}

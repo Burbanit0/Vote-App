@@ -1,7 +1,5 @@
-# app/services/user_service.py
 from flask import jsonify
-from app import db
-from app.models import User, Vote, Election, user_election_roles
+from app.models import User
 from app.utils.auth_utils import register_user
 
 
@@ -55,28 +53,6 @@ class UserService:
     @staticmethod
     def get_profile(user_id):
         user = User.query.get_or_404(user_id)
-
-        participation = (
-            db.session.query(
-                user_election_roles.c.election_id, user_election_roles.c.role
-            )
-            .filter(user_election_roles.c.user_id == user_id)
-            .all()
-        )
-
-        participation_details = {"voter": [], "candidate": [], "organizer": []}
-
-        for election_id, role in participation:
-            election = Election.query.get(election_id)
-            participation_details[role.value].append(election.name)
-
-        voted_elections = (
-            db.session.query(Vote.election_id)
-            .filter(Vote.voter_id == user_id)
-            .distinct()
-            .all()
-        )
-
         return {
             "id": user.id,
             "username": user.username,
@@ -85,7 +61,4 @@ class UserService:
             "role": user.role,
             "party_id": user.party_id,
             "is_admin": user.role == "Admin",
-            "elections_participated": user.elections_participated,
-            "participation_details": participation_details,
-            "voted_in_elections": [election_id for (election_id,) in voted_elections],
         }

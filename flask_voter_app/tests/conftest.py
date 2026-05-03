@@ -1,8 +1,6 @@
-# tests/conftest.py
 import pytest
-import random
 from flask_jwt_extended import create_access_token
-from datetime import datetime, timedelta, timezone
+from datetime import datetime, timezone
 from app import db, create_app, scheduler
 from app.models import User, Party
 from flask_bcrypt import generate_password_hash
@@ -15,7 +13,6 @@ def app():
     app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///:memory:'
     app.config['JWT_SECRET_KEY'] = 'test-secret-key'
 
-    # Ensure scheduler is not started in test environment
     if hasattr(app, 'scheduler') and app.scheduler.running:
         app.scheduler.shutdown()
 
@@ -43,11 +40,9 @@ def init_db(app):
     with app.app_context():
         db.session.begin()
 
-        # Create test users
         admin = User(
             username='adminA',
-            password_hash=generate_password_hash('adminpass').decode(
-                'utf-8'),
+            password_hash=generate_password_hash('adminpass').decode('utf-8'),
             role='Admin',
             first_name='Admin',
             last_name='User',
@@ -56,16 +51,13 @@ def init_db(app):
         db.session.add(admin)
 
         user = User(
-                username='testuserA',
-                password_hash=generate_password_hash('testpass').decode(
-                    'utf-8'),
-                role='User',
-                first_name='Test',
-                last_name='User',
-                created_at=datetime.now(timezone.utc) - timedelta(
-                    days=random.randint(1, 30)),
-                elections_participated=random.randint(0, 5),
-            )
+            username='testuserA',
+            password_hash=generate_password_hash('testpass').decode('utf-8'),
+            role='User',
+            first_name='Test',
+            last_name='User',
+            created_at=datetime.now(timezone.utc),
+        )
         db.session.add(user)
         db.session.commit()
         yield db
@@ -97,9 +89,8 @@ def admin_auth_header(client, app):
 
 
 @pytest.fixture
-def party(db_session, user):
-    party = Party(name='Test Party', description='A test party',
-                  created_by=user.id)
-    db_session.add(party)
+def party(db_session):
+    p = Party(name='Test Party', description='A test party')
+    db_session.add(p)
     db_session.commit()
-    return party
+    return p
