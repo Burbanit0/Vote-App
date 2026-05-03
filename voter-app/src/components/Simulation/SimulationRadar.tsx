@@ -5,16 +5,16 @@ interface RankingResult {
 
 const preprocessRankingsForRadar = (rankings: RankingResult[]) => {
   // Get all unique candidates
-  const candidates = [...new Set(rankings.flatMap(r => r.ranking))];
+  const candidates = [...new Set(rankings.flatMap((r) => r.ranking))];
 
   // Find the maximum ranking length (number of ranks)
-  const maxRank = Math.max(...rankings.map(r => r.ranking.length));
+  const maxRank = Math.max(...rankings.map((r) => r.ranking.length));
 
   // Initialize data structure to count votes per candidate and rank
   const candidateRankData: Record<string, Record<number, number>> = {};
 
   // Initialize the structure for each candidate
-  candidates.forEach(candidate => {
+  candidates.forEach((candidate) => {
     candidateRankData[candidate] = {};
     for (let rank = 1; rank <= maxRank; rank++) {
       candidateRankData[candidate][rank] = 0;
@@ -32,7 +32,7 @@ const preprocessRankingsForRadar = (rankings: RankingResult[]) => {
   // Normalize by total votes per candidate (to compare proportions)
   const normalizedData: Record<string, number[]> = {};
 
-  candidates.forEach(candidate => {
+  candidates.forEach((candidate) => {
     const totalVotes = Object.values(candidateRankData[candidate]).reduce((a, b) => a + b, 0);
     normalizedData[candidate] = [];
 
@@ -58,10 +58,10 @@ const preprocessRankingsForRadar = (rankings: RankingResult[]) => {
       label: candidate,
       data: normalizedData[candidate],
       ...generateColor(index),
-      pointBackgroundColor: `hsl(${index * 120 % 360}, 70%, 50%)`,
+      pointBackgroundColor: `hsl(${(index * 120) % 360}, 70%, 50%)`,
       pointBorderColor: '#fff',
       pointHoverBackgroundColor: '#fff',
-      pointHoverBorderColor: `hsl(${index * 120 % 360}, 70%, 50%)`,
+      pointHoverBorderColor: `hsl(${(index * 120) % 360}, 70%, 50%)`,
     })),
   };
 };

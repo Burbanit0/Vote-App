@@ -10,7 +10,7 @@ def get_simple_score_winner(all_scores):
     candidate_scores = defaultdict(lambda: {"sum": 0, "count": 0})
 
     for vote in all_scores:
-        for candidate, score in vote["scores"].items():
+        for candidate, score in vote.items():
             candidate_scores[candidate]["sum"] += score
             candidate_scores[candidate]["count"] += 1
 
@@ -38,7 +38,7 @@ def get_star_voting_winner(all_scores):
     candidate_scores = defaultdict(lambda: {"sum": 0, "count": 0})
 
     for vote in all_scores:
-        for candidate, score in vote["scores"].items():
+        for candidate, score in vote.items():
             candidate_scores[candidate]["sum"] += score
             candidate_scores[candidate]["count"] += 1
 
@@ -70,8 +70,8 @@ def get_star_voting_winner(all_scores):
     tied = 0
 
     for vote in all_scores:
-        score1 = vote["scores"].get(candidate1, 0)
-        score2 = vote["scores"].get(candidate2, 0)
+        score1 = vote.get(candidate1, 0)
+        score2 = vote.get(candidate2, 0)
 
         if score1 > score2:
             votes1 += 1
@@ -106,7 +106,7 @@ def get_median_voting_winner(all_scores):
     candidate_scores = defaultdict(list)
 
     for vote in all_scores:
-        for candidate, score in vote["scores"].items():
+        for candidate, score in vote.items():
             candidate_scores[candidate].append(score)
 
     medians = []
@@ -131,7 +131,7 @@ def get_mean_median_hybrid_winner(all_scores):
     candidate_stats = defaultdict(lambda: {"sum": 0, "count": 0, "scores": []})
 
     for vote in all_scores:
-        for candidate, score in vote["scores"].items():
+        for candidate, score in vote.items():
             candidate_stats[candidate]["sum"] += score
             candidate_stats[candidate]["count"] += 1
             candidate_stats[candidate]["scores"].append(score)
@@ -170,7 +170,7 @@ def get_variance_based_winner(all_scores):
     candidate_stats = defaultdict(lambda: {"sum": 0, "sum_sq": 0, "count": 0})
 
     for vote in all_scores:
-        for candidate, score in vote["scores"].items():
+        for candidate, score in vote.items():
             candidate_stats[candidate]["sum"] += score
             candidate_stats[candidate]["sum_sq"] += score * score
             candidate_stats[candidate]["count"] += 1
@@ -184,7 +184,7 @@ def get_variance_based_winner(all_scores):
         else:
             mean = stats["sum"] / count
             variance = (stats["sum_sq"] / count) - (mean * mean)
-        std_dev = math.sqrt(variance) if variance >= 0 else 0
+        std_dev = math.sqrt(max(variance, 0.0))
 
         # Weighted score that balances mean and consistency (lower variance is better)
         weighted_score = mean - 0.5 * std_dev
@@ -218,7 +218,7 @@ def get_score_distribution_analysis(all_scores):
     candidate_distributions = defaultdict(lambda: [0] * (len(bins) - 1))
 
     for vote in all_scores:
-        for candidate, score in vote["scores"].items():
+        for candidate, score in vote.items():
             # Find the appropriate bin
             for i in range(len(bins) - 1):
                 if bins[i] <= score < bins[i + 1]:
@@ -256,13 +256,13 @@ def calculate_bayesian_regret(all_scores):
     """
     candidates = set()
     for vote in all_scores:
-        candidates.update(vote["scores"].keys())
+        candidates.update(vote.keys())
     candidates = list(candidates)
 
     # Calculate utilities (normalized scores)
     utilities = defaultdict(list)
     for vote in all_scores:
-        for candidate, score in vote["scores"].items():
+        for candidate, score in vote.items():
             # Normalize to 0-1 range
             utilities[candidate].append(score / 5)
 
@@ -273,8 +273,8 @@ def calculate_bayesian_regret(all_scores):
 
         for vote in all_scores:
             # Find the utility of the voter's most preferred candidate
-            best_utility = max(vote["scores"].values()) / 5
-            current_utility = vote["scores"].get(candidate, 0) / 5
+            best_utility = max(vote.values()) / 5
+            current_utility = vote.get(candidate, 0) / 5
 
             # Regret is the difference between best possible and current
             total_regret += best_utility - current_utility

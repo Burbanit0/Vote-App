@@ -6,10 +6,7 @@ const AllTheProviders = ({ children }: { children: ReactNode }) => {
   return <AuthProvider>{children}</AuthProvider>;
 };
 
-const customRender = (
-  ui: React.ReactElement,
-  options?: Omit<RenderOptions, 'wrapper'>
-) =>
+const customRender = (ui: React.ReactElement, options?: Omit<RenderOptions, 'wrapper'>) =>
   render(ui, { wrapper: AllTheProviders, ...options });
 
 // Re-export everything from @testing-library/react

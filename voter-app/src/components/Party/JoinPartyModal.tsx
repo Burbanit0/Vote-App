@@ -5,7 +5,6 @@ import { useAuth } from '../../context/AuthContext';
 import { addUserFromParty, fetchAllParties } from '../../services/partiesApi';
 import { Party } from '../../types';
 
-
 interface JoinPartyModalProps {
   show: boolean;
   onHide: () => void;
@@ -79,7 +78,7 @@ const JoinPartyModal: React.FC<JoinPartyModalProps> = ({ show, onHide, onPartyJo
           <>
             <p>Select a political party to join:</p>
             <ListGroup className="mb-3">
-              {parties.map(party => (
+              {parties.map((party) => (
                 <ListGroup.Item
                   key={party.id}
                   action
@@ -104,11 +103,7 @@ const JoinPartyModal: React.FC<JoinPartyModalProps> = ({ show, onHide, onPartyJo
         <Button variant="secondary" onClick={onHide}>
           Close
         </Button>
-        <Button
-          variant="primary"
-          onClick={handleJoinParty}
-          disabled={!selectedParty || loading}
-        >
+        <Button variant="primary" onClick={handleJoinParty} disabled={!selectedParty || loading}>
           {loading ? (
             <>
               <Spinner

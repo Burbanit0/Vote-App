@@ -1,4 +1,4 @@
-import styles from "./tooltip.module.css";
+import styles from './tooltip.module.css';
 
 // Information needed to build the tooltip
 export type InteractionData = {

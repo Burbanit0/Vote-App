@@ -1,5 +1,5 @@
-import { useMemo } from "react";
-import { ScaleLinear } from "d3";
+import { useMemo } from 'react';
+import { ScaleLinear } from 'd3';
 
 type AxisBottomProps = {
   xScale: ScaleLinear<number, number>;
@@ -10,11 +10,7 @@ type AxisBottomProps = {
 // tick length
 const TICK_LENGTH = 10;
 
-export const AxisBottom = ({
-  xScale,
-  pixelsPerTick,
-  height,
-}: AxisBottomProps) => {
+export const AxisBottom = ({ xScale, pixelsPerTick, height }: AxisBottomProps) => {
   const range = xScale.range();
 
   const ticks = useMemo(() => {
@@ -37,15 +33,15 @@ export const AxisBottom = ({
             y2={-height - TICK_LENGTH}
             stroke="#D2D7D3"
             strokeWidth={0.5}
-            shapeRendering={"crispEdges"}
+            shapeRendering={'crispEdges'}
           />
           <text
             key={value}
             style={{
-              fontSize: "10px",
-              textAnchor: "middle",
-              transform: "translateY(20px)",
-              fill: "#D2D7D3",
+              fontSize: '10px',
+              textAnchor: 'middle',
+              transform: 'translateY(20px)',
+              fill: '#D2D7D3',
             }}
           >
             {value}

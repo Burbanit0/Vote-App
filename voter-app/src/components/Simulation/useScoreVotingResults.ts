@@ -2,8 +2,10 @@
 import { useMemo } from 'react';
 import { ScoreVote, ScoreVotingResults } from '../../types';
 
-
-export function useScoreVotingResults(scores: ScoreVote[], candidates: string[]): ScoreVotingResults {
+export function useScoreVotingResults(
+  scores: ScoreVote[],
+  candidates: string[]
+): ScoreVotingResults {
   return useMemo(() => {
     // 1. Simple Score Voting
     const simpleScoreResult = calculateSimpleScore(scores, candidates);
@@ -33,19 +35,22 @@ export function useScoreVotingResults(scores: ScoreVote[], candidates: string[])
       mean_median_hybrid: meanMedianHybridResult,
       variance_based: varianceBasedResult,
       score_distribution: scoreDistributionResult,
-      bayesian_regret: bayesianRegretResult
+      bayesian_regret: bayesianRegretResult,
     };
   }, [scores, candidates]);
 }
 
 function calculateSimpleScore(scores: ScoreVote[], candidates: string[]) {
-  const candidateScores = candidates.reduce((acc, candidate) => {
-    acc[candidate] = { sum: 0, count: 0 };
-    return acc;
-  }, {} as Record<string, { sum: number, count: number }>);
+  const candidateScores = candidates.reduce(
+    (acc, candidate) => {
+      acc[candidate] = { sum: 0, count: 0 };
+      return acc;
+    },
+    {} as Record<string, { sum: number; count: number }>
+  );
 
   scores.forEach(({ scores: voterScores }) => {
-    candidates.forEach(candidate => {
+    candidates.forEach((candidate) => {
       if (candidate in voterScores) {
         candidateScores[candidate].sum += voterScores[candidate];
         candidateScores[candidate].count++;
@@ -53,38 +58,44 @@ function calculateSimpleScore(scores: ScoreVote[], candidates: string[]) {
     });
   });
 
-  const averages = candidates.map(candidate => {
+  const averages = candidates.map((candidate) => {
     const { sum, count } = candidateScores[candidate];
     return {
       candidate,
-      average: count > 0 ? sum / count : 0
+      average: count > 0 ? sum / count : 0,
     };
   });
 
   // Sort by average score (descending)
   averages.sort((a, b) => b.average - a.average);
 
-  const details = averages.reduce((acc, { candidate, average }) => {
-    acc[candidate] = average;
-    return acc;
-  }, {} as Record<string, number>);
+  const details = averages.reduce(
+    (acc, { candidate, average }) => {
+      acc[candidate] = average;
+      return acc;
+    },
+    {} as Record<string, number>
+  );
 
   return {
     method: 'Simple Score',
     winner: averages.length > 0 ? averages[0].candidate : undefined,
-    details
+    details,
   };
 }
 
 function calculateSTARVoting(scores: ScoreVote[], candidates: string[]) {
   // First round: calculate average scores
-  const candidateScores = candidates.reduce((acc, candidate) => {
-    acc[candidate] = { sum: 0, count: 0 };
-    return acc;
-  }, {} as Record<string, { sum: number, count: number }>);
+  const candidateScores = candidates.reduce(
+    (acc, candidate) => {
+      acc[candidate] = { sum: 0, count: 0 };
+      return acc;
+    },
+    {} as Record<string, { sum: number; count: number }>
+  );
 
   scores.forEach(({ scores: voterScores }) => {
-    candidates.forEach(candidate => {
+    candidates.forEach((candidate) => {
       if (candidate in voterScores) {
         candidateScores[candidate].sum += voterScores[candidate];
         candidateScores[candidate].count++;
@@ -92,21 +103,24 @@ function calculateSTARVoting(scores: ScoreVote[], candidates: string[]) {
     });
   });
 
-  const averages = candidates.map(candidate => {
+  const averages = candidates.map((candidate) => {
     const { sum, count } = candidateScores[candidate];
     return {
       candidate,
-      average: count > 0 ? sum / count : 0
+      average: count > 0 ? sum / count : 0,
     };
   });
 
   // Sort by average score (descending)
   averages.sort((a, b) => b.average - a.average);
 
-  const firstRound = averages.reduce((acc, { candidate, average }) => {
-    acc[candidate] = average;
-    return acc;
-  }, {} as Record<string, number>);
+  const firstRound = averages.reduce(
+    (acc, { candidate, average }) => {
+      acc[candidate] = average;
+      return acc;
+    },
+    {} as Record<string, number>
+  );
 
   // Take top two candidates for runoff
   let runoffResult = null;
@@ -137,7 +151,7 @@ function calculateSTARVoting(scores: ScoreVote[], candidates: string[]) {
       votes1,
       votes2,
       tied,
-      total_voters: scores.length
+      total_voters: scores.length,
     };
 
     winner = votes1 > votes2 ? first.candidate : second.candidate;
@@ -148,34 +162,36 @@ function calculateSTARVoting(scores: ScoreVote[], candidates: string[]) {
     winner,
     details: {
       first_round: firstRound,
-      runoff: runoffResult
-    }
+      runoff: runoffResult,
+    },
   };
 }
 
 function calculateMedianVoting(scores: ScoreVote[], candidates: string[]) {
-  const candidateScores = candidates.reduce((acc, candidate) => {
-    acc[candidate] = [];
-    return acc;
-  }, {} as Record<string, number[]>);
+  const candidateScores = candidates.reduce(
+    (acc, candidate) => {
+      acc[candidate] = [];
+      return acc;
+    },
+    {} as Record<string, number[]>
+  );
 
   scores.forEach(({ scores: voterScores }) => {
-    candidates.forEach(candidate => {
+    candidates.forEach((candidate) => {
       if (candidate in voterScores) {
         candidateScores[candidate].push(voterScores[candidate]);
       }
     });
   });
 
-  const medians = candidates.map(candidate => {
+  const medians = candidates.map((candidate) => {
     const scoresList = candidateScores[candidate];
     if (scoresList.length === 0) return { candidate, median: 0 };
 
     scoresList.sort((a, b) => a - b);
     const mid = Math.floor(scoresList.length / 2);
-    const median = scoresList.length % 2 !== 0
-      ? scoresList[mid]
-      : (scoresList[mid - 1] + scoresList[mid]) / 2;
+    const median =
+      scoresList.length % 2 !== 0 ? scoresList[mid] : (scoresList[mid - 1] + scoresList[mid]) / 2;
 
     return { candidate, median };
   });
@@ -183,26 +199,32 @@ function calculateMedianVoting(scores: ScoreVote[], candidates: string[]) {
   // Sort by median score (descending)
   medians.sort((a, b) => b.median - a.median);
 
-  const details = medians.reduce((acc, { candidate, median }) => {
-    acc[candidate] = median;
-    return acc;
-  }, {} as Record<string, number>);
+  const details = medians.reduce(
+    (acc, { candidate, median }) => {
+      acc[candidate] = median;
+      return acc;
+    },
+    {} as Record<string, number>
+  );
 
   return {
     method: 'Median Voting',
     winner: medians.length > 0 ? medians[0].candidate : undefined,
-    details
+    details,
   };
 }
 
 function calculateMeanMedianHybrid(scores: ScoreVote[], candidates: string[]) {
-  const candidateStats = candidates.reduce((acc, candidate) => {
-    acc[candidate] = { sum: 0, count: 0, scores: [] as number[] };
-    return acc;
-  }, {} as Record<string, { sum: number, count: number, scores: number[] }>);
+  const candidateStats = candidates.reduce(
+    (acc, candidate) => {
+      acc[candidate] = { sum: 0, count: 0, scores: [] as number[] };
+      return acc;
+    },
+    {} as Record<string, { sum: number; count: number; scores: number[] }>
+  );
 
   scores.forEach(({ scores: voterScores }) => {
-    candidates.forEach(candidate => {
+    candidates.forEach((candidate) => {
       if (candidate in voterScores) {
         const score = voterScores[candidate];
         candidateStats[candidate].sum += score;
@@ -212,7 +234,7 @@ function calculateMeanMedianHybrid(scores: ScoreVote[], candidates: string[]) {
     });
   });
 
-  const results = candidates.map(candidate => {
+  const results = candidates.map((candidate) => {
     const { sum, count, scores } = candidateStats[candidate];
     const mean = count > 0 ? sum / count : 0;
 
@@ -222,9 +244,7 @@ function calculateMeanMedianHybrid(scores: ScoreVote[], candidates: string[]) {
 
     scores.sort((a, b) => a - b);
     const mid = Math.floor(scores.length / 2);
-    const median = scores.length % 2 !== 0
-      ? scores[mid]
-      : (scores[mid - 1] + scores[mid]) / 2;
+    const median = scores.length % 2 !== 0 ? scores[mid] : (scores[mid - 1] + scores[mid]) / 2;
 
     // Combined score (50% mean, 50% median)
     const combined = 0.5 * mean + 0.5 * median;
@@ -238,18 +258,21 @@ function calculateMeanMedianHybrid(scores: ScoreVote[], candidates: string[]) {
   return {
     method: 'Mean-Median Hybrid',
     winner: results.length > 0 ? results[0].candidate : undefined,
-    details: results
+    details: results,
   };
 }
 
 function calculateVarianceBased(scores: ScoreVote[], candidates: string[]) {
-  const candidateStats = candidates.reduce((acc, candidate) => {
-    acc[candidate] = { sum: 0, sumSq: 0, count: 0 };
-    return acc;
-  }, {} as Record<string, { sum: number, sumSq: number, count: number }>);
+  const candidateStats = candidates.reduce(
+    (acc, candidate) => {
+      acc[candidate] = { sum: 0, sumSq: 0, count: 0 };
+      return acc;
+    },
+    {} as Record<string, { sum: number; sumSq: number; count: number }>
+  );
 
   scores.forEach(({ scores: voterScores }) => {
-    candidates.forEach(candidate => {
+    candidates.forEach((candidate) => {
       if (candidate in voterScores) {
         const score = voterScores[candidate];
         candidateStats[candidate].sum += score;
@@ -259,12 +282,10 @@ function calculateVarianceBased(scores: ScoreVote[], candidates: string[]) {
     });
   });
 
-  const results = candidates.map(candidate => {
+  const results = candidates.map((candidate) => {
     const { sum, sumSq, count } = candidateStats[candidate];
     const mean = count > 0 ? sum / count : 0;
-    const variance = count > 1
-      ? (sumSq / count) - (mean * mean)
-      : 0;
+    const variance = count > 1 ? sumSq / count - mean * mean : 0;
     const stdDev = Math.sqrt(Math.max(0, variance));
 
     // Weighted score that balances mean and consistency (lower variance is better)
@@ -275,7 +296,7 @@ function calculateVarianceBased(scores: ScoreVote[], candidates: string[]) {
       mean,
       variance,
       stdDev,
-      weighted_score: weightedScore
+      weighted_score: weightedScore,
     };
   });
 
@@ -285,21 +306,24 @@ function calculateVarianceBased(scores: ScoreVote[], candidates: string[]) {
   return {
     method: 'Variance-Based',
     winner: results.length > 0 ? results[0].candidate : undefined,
-    details: results
+    details: results,
   };
 }
 
 function calculateScoreDistribution(scores: ScoreVote[], candidates: string[]) {
   // Define score bins (0-0.5, 0.5-1, ..., 4.5-5)
   const bins = [0, 0.5, 1, 1.5, 2, 2.5, 3, 3.5, 4, 4.5, 5];
-  const candidateDistributions = candidates.reduce((acc, candidate) => {
-    acc[candidate] = new Array(bins.length - 1).fill(0);
-    return acc;
-  }, {} as Record<string, number[]>);
+  const candidateDistributions = candidates.reduce(
+    (acc, candidate) => {
+      acc[candidate] = new Array(bins.length - 1).fill(0);
+      return acc;
+    },
+    {} as Record<string, number[]>
+  );
 
   // Count scores in each bin
   scores.forEach(({ scores: voterScores }) => {
-    candidates.forEach(candidate => {
+    candidates.forEach((candidate) => {
       if (candidate in voterScores) {
         const score = voterScores[candidate];
         // Find the appropriate bin
@@ -313,10 +337,10 @@ function calculateScoreDistribution(scores: ScoreVote[], candidates: string[]) {
     });
   });
 
-  const results = candidates.map(candidate => {
+  const results = candidates.map((candidate) => {
     const distribution = candidateDistributions[candidate];
     const total = distribution.reduce((a, b) => a + b, 0);
-    const percentages = distribution.map(count => total > 0 ? count / total : 0);
+    const percentages = distribution.map((count) => (total > 0 ? count / total : 0));
 
     // Find mode (most common score range)
     let maxIndex = 0;
@@ -334,25 +358,28 @@ function calculateScoreDistribution(scores: ScoreVote[], candidates: string[]) {
       distribution,
       percentages,
       total,
-      modeRange
+      modeRange,
     };
   });
 
   return {
     method: 'Score Distribution Analysis',
-    details: results
+    details: results,
   };
 }
 
 function calculateBayesianRegret(scores: ScoreVote[], candidates: string[]) {
   // Calculate utilities (normalized scores)
-  const utilities = candidates.reduce((acc, candidate) => {
-    acc[candidate] = [];
-    return acc;
-  }, {} as Record<string, number[]>);
+  const utilities = candidates.reduce(
+    (acc, candidate) => {
+      acc[candidate] = [];
+      return acc;
+    },
+    {} as Record<string, number[]>
+  );
 
   scores.forEach(({ scores: voterScores }) => {
-    candidates.forEach(candidate => {
+    candidates.forEach((candidate) => {
       if (candidate in voterScores) {
         // Normalize to 0-1 range
         utilities[candidate].push(voterScores[candidate] / 5);
@@ -361,7 +388,7 @@ function calculateBayesianRegret(scores: ScoreVote[], candidates: string[]) {
   });
 
   // Calculate expected regret for each candidate
-  const regrets = candidates.map(candidate => {
+  const regrets = candidates.map((candidate) => {
     let totalRegret = 0;
 
     scores.forEach(({ scores: voterScores }) => {
@@ -374,12 +401,13 @@ function calculateBayesianRegret(scores: ScoreVote[], candidates: string[]) {
     });
 
     const avgRegret = totalRegret / scores.length;
-    const avgUtility = utilities[candidate].reduce((a, b) => a + b, 0) / utilities[candidate].length;
+    const avgUtility =
+      utilities[candidate].reduce((a, b) => a + b, 0) / utilities[candidate].length;
 
     return {
       candidate,
       avgUtility,
-      avgRegret
+      avgRegret,
     };
   });
 
@@ -389,6 +417,6 @@ function calculateBayesianRegret(scores: ScoreVote[], candidates: string[]) {
   return {
     method: 'Bayesian Regret',
     winner: regrets.length > 0 ? regrets[0].candidate : undefined,
-    details: regrets
+    details: regrets,
   };
 }

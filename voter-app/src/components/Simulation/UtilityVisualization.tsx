@@ -1,18 +1,49 @@
 import React, { useState, useEffect } from 'react';
 import {
-  Container, Row, Col, Card, Table, Form, Button, Alert,
-  Tabs, Tab, Spinner, Modal, ProgressBar, Badge, Pagination
+  Container,
+  Row,
+  Col,
+  Card,
+  Table,
+  Form,
+  Button,
+  Alert,
+  Tabs,
+  Tab,
+  Spinner,
+  Modal,
+  ProgressBar,
+  Badge,
+  Pagination,
 } from 'react-bootstrap';
 import {
-  BarChart, Bar, XAxis, YAxis, Tooltip, Legend, ResponsiveContainer,
-  Cell, PieChart, Pie
+  BarChart,
+  Bar,
+  XAxis,
+  YAxis,
+  Tooltip,
+  Legend,
+  ResponsiveContainer,
+  Cell,
+  PieChart,
+  Pie,
 } from 'recharts';
 import { simulateUtility, getUtilityMatrix, getVoterSegments } from '../../services';
 import { CandidateSimu, VoterSimu } from '../../types';
 import { useSimulation } from '../../context/SimuContext';
 
-const COLORS = ['#0088FE', '#00C49F', '#FFBB28', '#FF8042', '#8884D8',
-               '#A4DE6C', '#D0ED57', '#FF6B6B', '#AA96DA', '#FF9FF3'];
+const COLORS = [
+  '#0088FE',
+  '#00C49F',
+  '#FFBB28',
+  '#FF8042',
+  '#8884D8',
+  '#A4DE6C',
+  '#D0ED57',
+  '#FF6B6B',
+  '#AA96DA',
+  '#FF9FF3',
+];
 
 interface UtilityResult {
   voterId: number;
@@ -78,11 +109,11 @@ const UtilityVisualization: React.FC = () => {
       if (result?.success) {
         setUtilityResults(result.utility_results || []);
       } else {
-        throw new Error(result?.message || "Unknown error");
+        throw new Error(result?.message || 'Unknown error');
       }
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to simulate utility data');
-      console.error("Error simulating utility:", err);
+      console.error('Error simulating utility:', err);
     } finally {
       setLoading(false);
     }
@@ -99,11 +130,11 @@ const UtilityVisualization: React.FC = () => {
         setUtilityMatrix(result.matrix || null);
         setUtilityStats(result.stats || null);
       } else {
-        throw new Error(result?.message || "Unknown error");
+        throw new Error(result?.message || 'Unknown error');
       }
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to calculate utility matrix');
-      console.error("Error calculating utility matrix:", err);
+      console.error('Error calculating utility matrix:', err);
     } finally {
       setLoading(false);
     }
@@ -119,11 +150,11 @@ const UtilityVisualization: React.FC = () => {
       if (result?.success) {
         setVoterSegments(result.segments || null);
       } else {
-        throw new Error(result?.message || "Unknown error");
+        throw new Error(result?.message || 'Unknown error');
       }
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to calculate voter segments');
-      console.error("Error calculating voter segments:", err);
+      console.error('Error calculating voter segments:', err);
     } finally {
       setLoading(false);
     }
@@ -147,17 +178,17 @@ const UtilityVisualization: React.FC = () => {
 
     try {
       return Object.entries(utilityStats.vote_shares).map(([candidateId, data]) => {
-        const candidate = candidates.find(c => c.id === parseInt(candidateId));
+        const candidate = candidates.find((c) => c.id === parseInt(candidateId));
         return {
           candidateId: parseInt(candidateId),
           candidateName: candidate?.name || `Candidate ${parseInt(candidateId) + 1}`,
           candidateParty: candidate?.party || 'Unknown',
           averageUtility: utilityStats.average_utility,
-          voteShare: (data.share * 100) || 0
+          voteShare: data.share * 100 || 0,
         };
       });
     } catch (e) {
-      console.error("Error preparing candidate performance data:", e);
+      console.error('Error preparing candidate performance data:', e);
       return [];
     }
   };
@@ -170,10 +201,10 @@ const UtilityVisualization: React.FC = () => {
         segment: segment.label,
         count: segment.count || 0,
         averageUtility: segment.average_utility || 0,
-        topCandidate: segment.top_candidate?.name || 'None'
+        topCandidate: segment.top_candidate?.name || 'None',
       }));
     } catch (e) {
-      console.error("Error preparing voter segments data:", e);
+      console.error('Error preparing voter segments data:', e);
       return [];
     }
   };
@@ -183,15 +214,17 @@ const UtilityVisualization: React.FC = () => {
 
     try {
       return utilityMatrix.candidate_ids.map((candidateId, candidateIndex) => {
-        const candidate = candidates.find(c => c.id === candidateId);
-        const candidateData = utilityMatrix.values.map(row => row[candidateIndex]);
+        const candidate = candidates.find((c) => c.id === candidateId);
+        const candidateData = utilityMatrix.values.map((row) => row[candidateIndex]);
 
-        const bins = Array(10).fill(0).map((_, i) => ({
-          bin: `${(i * 0.2).toFixed(1)}-${((i + 1) * 0.2).toFixed(1)}`,
-          count: 0
-        }));
+        const bins = Array(10)
+          .fill(0)
+          .map((_, i) => ({
+            bin: `${(i * 0.2).toFixed(1)}-${((i + 1) * 0.2).toFixed(1)}`,
+            count: 0,
+          }));
 
-        candidateData.forEach(utility => {
+        candidateData.forEach((utility) => {
           if (typeof utility === 'number') {
             const binIndex = Math.min(Math.floor(utility / 0.2), 9);
             bins[binIndex].count++;
@@ -201,23 +234,23 @@ const UtilityVisualization: React.FC = () => {
         return {
           candidateId,
           candidateName: candidate?.name || `Candidate ${candidateId + 1}`,
-          bins: bins.filter(b => b.count > 0)
+          bins: bins.filter((b) => b.count > 0),
         };
       });
     } catch (e) {
-      console.error("Error preparing utility distribution data:", e);
+      console.error('Error preparing utility distribution data:', e);
       return [];
     }
   };
 
   // Find utility result for specific voter-candidate pair
   const findUtilityResult = (voterId: number, candidateId: number) => {
-    return utilityResults.find(r => r.voterId === voterId && r.candidateId === candidateId);
+    return utilityResults.find((r) => r.voterId === voterId && r.candidateId === candidateId);
   };
 
   return (
     <Container className="my-4">
-      <h1 className="text-center mb-4">Analyse des Scores d'Utilité</h1>
+      <h1 className="text-center mb-4">Analyse des Scores d&apos;Utilité</h1>
 
       {/* Configuration Form */}
       <Card className="mb-4">
@@ -225,33 +258,46 @@ const UtilityVisualization: React.FC = () => {
           <Card.Title>Paramètres de Simulation</Card.Title>
         </Card.Header>
         <Card.Body>
-          <Form onSubmit={(e) => { e.preventDefault(); simulateData(); }}>
+          <Form
+            onSubmit={(e) => {
+              e.preventDefault();
+              simulateData();
+            }}
+          >
             <Row className="mb-3 align-items-center">
-                <Form.Group as={Col} md={3}>
-                    <Form.Label>Votants par page</Form.Label>
-                    <Form.Select
-                    value={votersPerPage}
-                    onChange={(e) => {
-                        setVotersPerPage(parseInt(e.target.value));
-                        setCurrentPage(1); // Réinitialiser à la première page
-                    }}
-                    >
-                    <option value="10">10</option>
-                    <option value="20">20</option>
-                    <option value="50">50</option>
-                    <option value="100">100</option>
-                    </Form.Select>
-                </Form.Group>
+              <Form.Group as={Col} md={3}>
+                <Form.Label>Votants par page</Form.Label>
+                <Form.Select
+                  value={votersPerPage}
+                  onChange={(e) => {
+                    setVotersPerPage(parseInt(e.target.value));
+                    setCurrentPage(1); // Réinitialiser à la première page
+                  }}
+                >
+                  <option value="10">10</option>
+                  <option value="20">20</option>
+                  <option value="50">50</option>
+                  <option value="100">100</option>
+                </Form.Select>
+              </Form.Group>
             </Row>
 
             <div className="d-grid gap-2 d-md-flex justify-content-md-end">
               <Button variant="primary" type="submit" disabled={loading}>
                 {loading ? (
                   <>
-                    <Spinner as="span" animation="border" size="sm" role="status" aria-hidden="true" />
-                    {' '}Chargement...
+                    <Spinner
+                      as="span"
+                      animation="border"
+                      size="sm"
+                      role="status"
+                      aria-hidden="true"
+                    />{' '}
+                    Chargement...
                   </>
-                ) : 'Générer et Analyser'}
+                ) : (
+                  'Générer et Analyser'
+                )}
               </Button>
             </div>
           </Form>
@@ -267,134 +313,145 @@ const UtilityVisualization: React.FC = () => {
 
       {/* Main Content */}
       {utilityResults.length > 0 ? (
-        <Tabs
-          activeKey={activeTab}
-          onSelect={(k) => setActiveTab(k || 'matrix')}
-          className="mb-3"
-        >
+        <Tabs activeKey={activeTab} onSelect={(k) => setActiveTab(k || 'matrix')} className="mb-3">
           {/* Utility Matrix */}
           <Tab eventKey="matrix" title="Matrice d'Utilité">
             <Card className="mb-4">
-                <Card.Header>
-                <Card.Title>Matrice des Scores d'Utilité</Card.Title>
-                </Card.Header>
-                <Card.Body>
+              <Card.Header>
+                <Card.Title>Matrice des Scores d&apos;Utilité</Card.Title>
+              </Card.Header>
+              <Card.Body>
                 {utilityMatrix ? (
-                    <>
+                  <>
                     <div className="table-responsive mb-3">
-                        <Table bordered hover>
+                      <Table bordered hover>
                         <thead>
-                            <tr>
+                          <tr>
                             <th>Votant\Candidat</th>
-                            {candidates.map(candidate => (
-                                <th key={candidate.id} className="text-center">
+                            {candidates.map((candidate) => (
+                              <th key={candidate.id} className="text-center">
                                 <div>{candidate.name.split(' ')[0]}</div>
-                                <Badge bg={
-                                    candidate.party === 'Green' ? 'success' :
-                                    candidate.party === 'Conservative' ? 'primary' :
-                                    candidate.party === 'Liberal' ? 'warning' : 'secondary'
-                                }>
-                                    {candidate.party}
+                                <Badge
+                                  bg={
+                                    candidate.party === 'Green'
+                                      ? 'success'
+                                      : candidate.party === 'Conservative'
+                                        ? 'primary'
+                                        : candidate.party === 'Liberal'
+                                          ? 'warning'
+                                          : 'secondary'
+                                  }
+                                >
+                                  {candidate.party}
                                 </Badge>
-                                </th>
+                              </th>
                             ))}
-                            </tr>
+                          </tr>
                         </thead>
                         <tbody>
-                            {getCurrentVoters().map(voter => (
+                          {getCurrentVoters().map((voter) => (
                             <tr key={voter.id}>
-                                <td>
+                              <td>
                                 <div>Votant {voter.id + 1}</div>
                                 <small className="text-muted">
-                                    {voter.age} ans, {voter.gender}, {voter.education}
+                                  {voter.age} ans, {voter.gender}, {voter.education}
                                 </small>
-                                </td>
-                                {candidates.map(candidate => {
-                                const utility = utilityMatrix.values[voter.id]?.[candidates.indexOf(candidate)] || 0;
+                              </td>
+                              {candidates.map((candidate) => {
+                                const utility =
+                                  utilityMatrix.values[voter.id]?.[candidates.indexOf(candidate)] ||
+                                  0;
                                 const result = findUtilityResult(voter.id, candidate.id);
                                 return (
-                                    <td
+                                  <td
                                     key={candidate.id}
                                     className="text-center"
                                     style={{
-                                        backgroundColor: `rgba(0, 123, 255, ${0.1 + 0.4 * utility})`,
-                                        cursor: 'pointer'
+                                      backgroundColor: `rgba(0, 123, 255, ${0.1 + 0.4 * utility})`,
+                                      cursor: 'pointer',
                                     }}
                                     onClick={() => {
-                                        setSelectedVoter(voter);
-                                        setSelectedCandidate(candidate);
-                                        setShowModal(true);
+                                      setSelectedVoter(voter);
+                                      setSelectedCandidate(candidate);
+                                      setShowModal(true);
                                     }}
-                                    >
+                                  >
                                     {utility.toFixed(2)}
-                                    {result?.willVote && (
-                                        <div className="text-success">✓</div>
-                                    )}
-                                    </td>
+                                    {result?.willVote && <div className="text-success">✓</div>}
+                                  </td>
                                 );
-                                })}
+                              })}
                             </tr>
-                            ))}
+                          ))}
                         </tbody>
-                        </Table>
+                      </Table>
                     </div>
 
                     {/* Ajoutez la pagination ici */}
                     <Pagination className="justify-content-center">
-                        <Pagination.First
-                            onClick={() => setCurrentPage(1)}
-                            disabled={currentPage === 1}
-                        />
-                        <Pagination.Prev
-                            onClick={() => setCurrentPage(prev => Math.max(1, prev - 1))}
-                            disabled={currentPage === 1}
-                        />
+                      <Pagination.First
+                        onClick={() => setCurrentPage(1)}
+                        disabled={currentPage === 1}
+                      />
+                      <Pagination.Prev
+                        onClick={() => setCurrentPage((prev) => Math.max(1, prev - 1))}
+                        disabled={currentPage === 1}
+                      />
 
-                        {/* Afficher max 5 pages autour de la page actuelle */}
-                        {Array.from({ length: Math.ceil(voters.length / votersPerPage) }, (_, i) => i + 1)
-                            .filter(number =>
+                      {/* Afficher max 5 pages autour de la page actuelle */}
+                      {Array.from(
+                        { length: Math.ceil(voters.length / votersPerPage) },
+                        (_, i) => i + 1
+                      )
+                        .filter(
+                          (number) =>
                             number === 1 ||
                             number === Math.ceil(voters.length / votersPerPage) ||
                             (number >= currentPage - 2 && number <= currentPage + 2)
-                            )
-                            .map(number => (
-                            <Pagination.Item
-                                key={number}
-                                active={number === currentPage}
-                                onClick={() => setCurrentPage(number)}
-                            >
-                                {number}
-                            </Pagination.Item>
-                            ))}
+                        )
+                        .map((number) => (
+                          <Pagination.Item
+                            key={number}
+                            active={number === currentPage}
+                            onClick={() => setCurrentPage(number)}
+                          >
+                            {number}
+                          </Pagination.Item>
+                        ))}
 
-                        {/* Ajouter "..." si nécessaire */}
-                        {currentPage + 2 < Math.ceil(voters.length / votersPerPage) - 1 && <Pagination.Ellipsis disabled />}
-                        {currentPage - 2 > 2 && <Pagination.Ellipsis disabled />}
+                      {/* Ajouter "..." si nécessaire */}
+                      {currentPage + 2 < Math.ceil(voters.length / votersPerPage) - 1 && (
+                        <Pagination.Ellipsis disabled />
+                      )}
+                      {currentPage - 2 > 2 && <Pagination.Ellipsis disabled />}
 
-                        <Pagination.Next
-                            onClick={() => setCurrentPage(prev => Math.min(Math.ceil(voters.length / votersPerPage), prev + 1))}
-                            disabled={currentPage === Math.ceil(voters.length / votersPerPage)}
-                        />
-                        <Pagination.Last
-                            onClick={() => setCurrentPage(Math.ceil(voters.length / votersPerPage))}
-                            disabled={currentPage === Math.ceil(voters.length / votersPerPage)}
-                        />
-                        </Pagination>
+                      <Pagination.Next
+                        onClick={() =>
+                          setCurrentPage((prev) =>
+                            Math.min(Math.ceil(voters.length / votersPerPage), prev + 1)
+                          )
+                        }
+                        disabled={currentPage === Math.ceil(voters.length / votersPerPage)}
+                      />
+                      <Pagination.Last
+                        onClick={() => setCurrentPage(Math.ceil(voters.length / votersPerPage))}
+                        disabled={currentPage === Math.ceil(voters.length / votersPerPage)}
+                      />
+                    </Pagination>
 
                     <div className="text-center mt-2">
-                        <small className="text-muted">
-                        Affichage des votants {currentPage * votersPerPage - votersPerPage + 1} à {
-                            Math.min(currentPage * votersPerPage, voters.length)
-                        } sur {voters.length}
-                        </small>
+                      <small className="text-muted">
+                        Affichage des votants {currentPage * votersPerPage - votersPerPage + 1} à{' '}
+                        {Math.min(currentPage * votersPerPage, voters.length)} sur {voters.length}
+                      </small>
                     </div>
-                    </>
+                  </>
                 ) : (
-                    <Alert variant="info">Calcul de la matrice en cours...</Alert>
+                  <Alert variant="info">Calcul de la matrice en cours...</Alert>
                 )}
-                </Card.Body>
+              </Card.Body>
             </Card>
-            </Tab>
+          </Tab>
 
           {/* Candidate Performance */}
           <Tab eventKey="performance" title="Performance des Candidats">
@@ -412,12 +469,19 @@ const UtilityVisualization: React.FC = () => {
                             data={prepareCandidatePerformance()}
                             margin={{ top: 20, right: 30, left: 20, bottom: 5 }}
                           >
-                            <XAxis dataKey="candidateName" angle={-45} textAnchor="end" height={100} interval={0} />
+                            <XAxis
+                              dataKey="candidateName"
+                              angle={-45}
+                              textAnchor="end"
+                              height={100}
+                              interval={0}
+                            />
                             <YAxis />
                             <Tooltip
                               formatter={(value: number, name: string) =>
-                                name.includes('Utility') ? formatNumber(value, 2) :
-                                formatPercentage(value)
+                                name.includes('Utility')
+                                  ? formatNumber(value, 2)
+                                  : formatPercentage(value)
                               }
                             />
                             <Legend />
@@ -452,16 +516,26 @@ const UtilityVisualization: React.FC = () => {
                           </thead>
                           <tbody>
                             {Object.entries(utilityStats.vote_shares).map(([candidateId, data]) => {
-                              const candidate = candidates.find(c => c.id === parseInt(candidateId));
+                              const candidate = candidates.find(
+                                (c) => c.id === parseInt(candidateId)
+                              );
                               return (
                                 <tr key={candidateId}>
-                                  <td>{candidate?.name || `Candidat ${parseInt(candidateId) + 1}`}</td>
                                   <td>
-                                    <Badge bg={
-                                      candidate?.party === 'Green' ? 'success' :
-                                      candidate?.party === 'Conservative' ? 'primary' :
-                                      candidate?.party === 'Liberal' ? 'warning' : 'secondary'
-                                    }>
+                                    {candidate?.name || `Candidat ${parseInt(candidateId) + 1}`}
+                                  </td>
+                                  <td>
+                                    <Badge
+                                      bg={
+                                        candidate?.party === 'Green'
+                                          ? 'success'
+                                          : candidate?.party === 'Conservative'
+                                            ? 'primary'
+                                            : candidate?.party === 'Liberal'
+                                              ? 'warning'
+                                              : 'secondary'
+                                      }
+                                    >
                                       {candidate?.party || 'Inconnu'}
                                     </Badge>
                                   </td>
@@ -495,7 +569,13 @@ const UtilityVisualization: React.FC = () => {
                             data={prepareVoterSegmentsData()}
                             margin={{ top: 20, right: 30, left: 20, bottom: 5 }}
                           >
-                            <XAxis dataKey="segment" angle={-45} textAnchor="end" height={100} interval={0} />
+                            <XAxis
+                              dataKey="segment"
+                              angle={-45}
+                              textAnchor="end"
+                              height={100}
+                              interval={0}
+                            />
                             <YAxis />
                             <Tooltip
                               formatter={(value: number, name: string) =>
@@ -525,10 +605,10 @@ const UtilityVisualization: React.FC = () => {
                         <ResponsiveContainer width="100%" height="100%">
                           <PieChart>
                             <Pie
-                              data={prepareVoterSegmentsData().map(seg => ({
+                              data={prepareVoterSegmentsData().map((seg) => ({
                                 name: seg.segment,
                                 value: seg.count,
-                                topCandidate: seg.topCandidate
+                                topCandidate: seg.topCandidate,
                               }))}
                               dataKey="value"
                               nameKey="name"
@@ -544,13 +624,16 @@ const UtilityVisualization: React.FC = () => {
                             </Pie>
                             <Tooltip
                               formatter={(value: number, name: string, props: any) => {
+                                // eslint-disable-next-line react/prop-types
                                 const segment = prepareVoterSegmentsData()[props.dataIndex];
-                                return segment ? [
-                                  `${segment.segment}`,
-                                  `Nombre: ${value}`,
-                                  `Préfère: ${segment.topCandidate}`,
-                                  `Utilité: ${formatNumber(segment.averageUtility, 2)}`
-                                ] : ['Données non disponibles'];
+                                return segment
+                                  ? [
+                                      `${segment.segment}`,
+                                      `Nombre: ${value}`,
+                                      `Préfère: ${segment.topCandidate}`,
+                                      `Utilité: ${formatNumber(segment.averageUtility, 2)}`,
+                                    ]
+                                  : ['Données non disponibles'];
                               }}
                             />
                             <Legend />
@@ -570,7 +653,7 @@ const UtilityVisualization: React.FC = () => {
           <Tab eventKey="distribution" title="Distribution des Scores">
             <Card>
               <Card.Header>
-                <Card.Title>Distribution des Scores d'Utilité par Candidat</Card.Title>
+                <Card.Title>Distribution des Scores d&apos;Utilité par Candidat</Card.Title>
               </Card.Header>
               <Card.Body>
                 {prepareUtilityDistribution().length > 0 ? (
@@ -593,7 +676,9 @@ const UtilityVisualization: React.FC = () => {
                           </ResponsiveContainer>
                         </div>
                       ) : (
-                        <Alert variant="info">Aucune donnée de distribution disponible pour ce candidat</Alert>
+                        <Alert variant="info">
+                          Aucune donnée de distribution disponible pour ce candidat
+                        </Alert>
                       )}
                     </div>
                   ))
@@ -606,21 +691,19 @@ const UtilityVisualization: React.FC = () => {
         </Tabs>
       ) : (
         <Alert variant="info">
-          Utilisez le formulaire ci-dessus pour générer des votants et des candidats et calculer les scores d'utilité.
+          Utilisez le formulaire ci-dessus pour générer des votants et des candidats et calculer les
+          scores d&apos;utilité.
         </Alert>
       )}
 
       {/* Utility Breakdown Modal */}
-      <Modal
-        show={showModal}
-        onHide={() => setShowModal(false)}
-        size="lg"
-      >
+      <Modal show={showModal} onHide={() => setShowModal(false)} size="lg">
         {selectedVoter && selectedCandidate && (
           <>
             <Modal.Header closeButton>
               <Modal.Title>
-                Détail du Score d'Utilité: Votant {selectedVoter.id + 1} → {selectedCandidate.name}
+                Détail du Score d&apos;Utilité: Votant {selectedVoter.id + 1} →{' '}
+                {selectedCandidate.name}
               </Modal.Title>
             </Modal.Header>
             <Modal.Body>
@@ -676,11 +759,17 @@ const UtilityVisualization: React.FC = () => {
                           <tr>
                             <th>Parti:</th>
                             <td>
-                              <Badge bg={
-                                selectedCandidate.party === 'Green' ? 'success' :
-                                selectedCandidate.party === 'Conservative' ? 'primary' :
-                                selectedCandidate.party === 'Liberal' ? 'warning' : 'secondary'
-                              }>
+                              <Badge
+                                bg={
+                                  selectedCandidate.party === 'Green'
+                                    ? 'success'
+                                    : selectedCandidate.party === 'Conservative'
+                                      ? 'primary'
+                                      : selectedCandidate.party === 'Liberal'
+                                        ? 'warning'
+                                        : 'secondary'
+                                }
+                              >
                                 {selectedCandidate.party}
                               </Badge>
                             </td>
@@ -706,23 +795,32 @@ const UtilityVisualization: React.FC = () => {
                 <Col md={12}>
                   <Card>
                     <Card.Body>
-                      <h6>Décomposition du Score d'Utilité</h6>
+                      <h6>Décomposition du Score d&apos;Utilité</h6>
                       {(() => {
                         const result = utilityResults.find(
-                          r => r.voterId === selectedVoter.id && r.candidateId === selectedCandidate.id
+                          (r) =>
+                            r.voterId === selectedVoter.id && r.candidateId === selectedCandidate.id
                         );
 
-                        if (!result) return <Alert variant="warning">Données d'utilité non disponibles</Alert>;
+                        if (!result)
+                          return (
+                            <Alert variant="warning">Données d&apos;utilité non disponibles</Alert>
+                          );
 
                         const data = Object.entries(result.breakdown)
                           .map(([key, value]) => ({
                             name: key.replace('_', ' '),
                             value,
-                            color: key === 'scandal_penalty' ? '#dc3545' :
-                                   key === 'gender_bonus' ? '#AA96DA' :
-                                   COLORS[Object.keys(result.breakdown).indexOf(key) % COLORS.length]
+                            color:
+                              key === 'scandal_penalty'
+                                ? '#dc3545'
+                                : key === 'gender_bonus'
+                                  ? '#AA96DA'
+                                  : COLORS[
+                                      Object.keys(result.breakdown).indexOf(key) % COLORS.length
+                                    ],
                           }))
-                          .filter(item => item.value !== 0);
+                          .filter((item) => item.value !== 0);
 
                         const total = data.reduce((sum, item) => sum + item.value, 0);
 
@@ -731,7 +829,9 @@ const UtilityVisualization: React.FC = () => {
                             <h4 className="text-center">
                               Score Total: {formatNumber(result.utility, 2)}
                               {result.willVote && (
-                                <Badge bg="success" className="ms-2">Votera pour ce candidat</Badge>
+                                <Badge bg="success" className="ms-2">
+                                  Votera pour ce candidat
+                                </Badge>
                               )}
                             </h4>
 
@@ -739,10 +839,7 @@ const UtilityVisualization: React.FC = () => {
                               <>
                                 <div style={{ height: '200px' }}>
                                   <ResponsiveContainer width="100%" height="100%">
-                                    <BarChart
-                                      layout="vertical"
-                                      data={data}
-                                    >
+                                    <BarChart layout="vertical" data={data}>
                                       <XAxis type="number" domain={[-0.5, 0.5]} />
                                       <YAxis dataKey="name" type="category" width={150} />
                                       <Tooltip
@@ -780,18 +877,21 @@ const UtilityVisualization: React.FC = () => {
                                           {item.name === 'issue_score' && '60%'}
                                           {item.name === 'loyalty_bonus' && '20%'}
                                           {item.name === 'charisma_effect' && '15%'}
-                                          {(item.name === 'scandal_penalty' || item.name === 'mood_effect' || item.name === 'gender_bonus') && 'Variable'}
+                                          {(item.name === 'scandal_penalty' ||
+                                            item.name === 'mood_effect' ||
+                                            item.name === 'gender_bonus') &&
+                                            'Variable'}
                                         </td>
-                                        <td>
-                                          {formatNumber(item.value / total * 100, 1)}%
-                                        </td>
+                                        <td>{formatNumber((item.value / total) * 100, 1)}%</td>
                                       </tr>
                                     ))}
                                   </tbody>
                                 </Table>
                               </>
                             ) : (
-                              <Alert variant="info">Aucune composante d'utilité disponible</Alert>
+                              <Alert variant="info">
+                                Aucune composante d&apos;utilité disponible
+                              </Alert>
                             )}
                           </>
                         );

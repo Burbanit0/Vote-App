@@ -1,8 +1,19 @@
 import React, { useState } from 'react';
 import { Card, Row, Col, Form } from 'react-bootstrap';
 import {
-  BarChart, Bar, XAxis, YAxis, Tooltip, Legend, ResponsiveContainer,
-  RadarChart, PolarGrid, PolarAngleAxis, PolarRadiusAxis, Radar, Cell
+  BarChart,
+  Bar,
+  XAxis,
+  YAxis,
+  Tooltip,
+  Legend,
+  ResponsiveContainer,
+  RadarChart,
+  PolarGrid,
+  PolarAngleAxis,
+  PolarRadiusAxis,
+  Radar,
+  Cell,
 } from 'recharts';
 
 interface IssuePrioritiesVisualizationProps {
@@ -21,11 +32,23 @@ interface IssuePrioritiesVisualizationProps {
   }>;
 }
 
-const COLORS = ['#0088FE', '#00C49F', '#FFBB28', '#FF8042', '#8884D8',
-               '#A4DE6C', '#D0ED57', '#FF6B6B', '#AA96DA', '#FF9FF3'];
+const COLORS = [
+  '#0088FE',
+  '#00C49F',
+  '#FFBB28',
+  '#FF8042',
+  '#8884D8',
+  '#A4DE6C',
+  '#D0ED57',
+  '#FF6B6B',
+  '#AA96DA',
+  '#FF9FF3',
+];
 
 const IssuePrioritiesVisualization: React.FC<IssuePrioritiesVisualizationProps> = ({ voters }) => {
-  const [selectedGroup, setSelectedGroup] = useState<'age' | 'region' | 'income' | 'gender' | 'education'>('education');
+  const [selectedGroup, setSelectedGroup] = useState<
+    'age' | 'region' | 'income' | 'gender' | 'education'
+  >('education');
   const [showRadar, setShowRadar] = useState(true);
 
   // Préparer les données pour le bar chart (moyennes par groupe)
@@ -40,45 +63,55 @@ const IssuePrioritiesVisualization: React.FC<IssuePrioritiesVisualizationProps> 
         { name: '35-44', min: 35, max: 44 },
         { name: '45-54', min: 45, max: 54 },
         { name: '55-64', min: 55, max: 64 },
-        { name: '65+', min: 65, max: 120 }
+        { name: '65+', min: 65, max: 120 },
       ];
 
-      const groupValues = ageGroups.map(g => g.name);
+      const groupValues = ageGroups.map((g) => g.name);
       const issues = Object.keys(voters[0].issue_priorities);
 
       return {
-        data: ageGroups.map(group => {
-          const groupVoters = voters.filter(voter => voter.age >= group.min && voter.age <= group.max);
-          if (groupVoters.length === 0) return null;
+        data: ageGroups
+          .map((group) => {
+            const groupVoters = voters.filter(
+              (voter) => voter.age >= group.min && voter.age <= group.max
+            );
+            if (groupVoters.length === 0) return null;
 
-          const avgPriorities: Record<string, number> = {};
-          issues.forEach(issue => {
-            avgPriorities[issue] = groupVoters.reduce((sum, voter) => sum + (voter.issue_priorities[issue] || 0), 0) / groupVoters.length;
-          });
+            const avgPriorities: Record<string, number> = {};
+            issues.forEach((issue) => {
+              avgPriorities[issue] =
+                groupVoters.reduce((sum, voter) => sum + (voter.issue_priorities[issue] || 0), 0) /
+                groupVoters.length;
+            });
 
-          return { group: group.name, ...avgPriorities };
-        }).filter(Boolean) as Array<Record<string, number> & { group: string }>,
-        issues
+            return { group: group.name, ...avgPriorities };
+          })
+          .filter(Boolean) as Array<Record<string, number> & { group: string }>,
+        issues,
       };
     }
 
     // Pour les autres groupes
-    const groupValues = [...new Set(voters.map(voter => voter[selectedGroup]))] as string[];
+    const groupValues = [...new Set(voters.map((voter) => voter[selectedGroup]))] as string[];
     const issues = Object.keys(voters[0].issue_priorities);
 
     return {
-      data: groupValues.map(groupValue => {
-        const groupVoters = voters.filter(voter => voter[selectedGroup] === groupValue);
-        if (groupVoters.length === 0) return null;
+      data: groupValues
+        .map((groupValue) => {
+          const groupVoters = voters.filter((voter) => voter[selectedGroup] === groupValue);
+          if (groupVoters.length === 0) return null;
 
-        const avgPriorities: Record<string, number> = {};
-        issues.forEach(issue => {
-          avgPriorities[issue] = groupVoters.reduce((sum, voter) => sum + (voter.issue_priorities[issue] || 0), 0) / groupVoters.length;
-        });
+          const avgPriorities: Record<string, number> = {};
+          issues.forEach((issue) => {
+            avgPriorities[issue] =
+              groupVoters.reduce((sum, voter) => sum + (voter.issue_priorities[issue] || 0), 0) /
+              groupVoters.length;
+          });
 
-        return { group: groupValue, ...avgPriorities };
-      }).filter(Boolean) as Array<Record<string, number> & { group: string }>,
-      issues
+          return { group: groupValue, ...avgPriorities };
+        })
+        .filter(Boolean) as Array<Record<string, number> & { group: string }>,
+      issues,
     };
   };
 
@@ -90,8 +123,10 @@ const IssuePrioritiesVisualization: React.FC<IssuePrioritiesVisualizationProps> 
 
     // Profil moyen
     const averageProfile: Record<string, number> = {};
-    issues.forEach(issue => {
-      averageProfile[issue] = voters.reduce((sum, voter) => sum + (voter.issue_priorities[issue] || 0), 0) / voters.length;
+    issues.forEach((issue) => {
+      averageProfile[issue] =
+        voters.reduce((sum, voter) => sum + (voter.issue_priorities[issue] || 0), 0) /
+        voters.length;
     });
 
     // Profils par groupe d'âge
@@ -99,23 +134,29 @@ const IssuePrioritiesVisualization: React.FC<IssuePrioritiesVisualizationProps> 
       { name: '18-29', min: 18, max: 29 },
       { name: '30-44', min: 30, max: 44 },
       { name: '45-59', min: 45, max: 59 },
-      { name: '60+', min: 60, max: 120 }
+      { name: '60+', min: 60, max: 120 },
     ];
 
-    const profiles = ageGroups.map(group => {
-      const groupVoters = voters.filter(voter => voter.age >= group.min && voter.age <= group.max);
-      if (groupVoters.length === 0) return null;
+    const profiles = ageGroups
+      .map((group) => {
+        const groupVoters = voters.filter(
+          (voter) => voter.age >= group.min && voter.age <= group.max
+        );
+        if (groupVoters.length === 0) return null;
 
-      const profile: Record<string, number> = {};
-      issues.forEach(issue => {
-        profile[issue] = groupVoters.reduce((sum, voter) => sum + (voter.issue_priorities[issue] || 0), 0) / groupVoters.length;
-      });
-      return { name: group.name, ...profile };
-    }).filter(Boolean) as Array<Record<string, number> & { name: string }>;
+        const profile: Record<string, number> = {};
+        issues.forEach((issue) => {
+          profile[issue] =
+            groupVoters.reduce((sum, voter) => sum + (voter.issue_priorities[issue] || 0), 0) /
+            groupVoters.length;
+        });
+        return { name: group.name, ...profile };
+      })
+      .filter(Boolean) as Array<Record<string, number> & { name: string }>;
 
     return {
       average: { name: 'Moyenne', ...averageProfile },
-      profiles
+      profiles,
     };
   };
 
@@ -126,10 +167,15 @@ const IssuePrioritiesVisualization: React.FC<IssuePrioritiesVisualizationProps> 
   const radarData = average ? [average, ...profiles] : [];
 
   // Données pour le bar chart simple
-  const priorityRanking = issues?.map(issue => ({
-    issue: issue.replace('_', ' '),
-    average: voters.reduce((sum, voter) => sum + (voter.issue_priorities[issue] || 0), 0) / voters.length
-  })).sort((a, b) => b.average - a.average) || [];
+  const priorityRanking =
+    issues
+      ?.map((issue) => ({
+        issue: issue.replace('_', ' '),
+        average:
+          voters.reduce((sum, voter) => sum + (voter.issue_priorities[issue] || 0), 0) /
+          voters.length,
+      }))
+      .sort((a, b) => b.average - a.average) || [];
 
   return (
     <Card className="mb-4">
@@ -138,13 +184,19 @@ const IssuePrioritiesVisualization: React.FC<IssuePrioritiesVisualizationProps> 
       </Card.Header>
       <Card.Body>
         <Form.Group as={Row} className="mb-3 align-items-center">
-          <Form.Label column sm={2}>Grouper par :</Form.Label>
+          <Form.Label column sm={2}>
+            Grouper par :
+          </Form.Label>
           <Col sm={3}>
             <Form.Select
               value={selectedGroup}
-              onChange={(e) => setSelectedGroup(e.target.value as 'age' | 'region' | 'income' | 'gender' | 'education')}
+              onChange={(e) =>
+                setSelectedGroup(
+                  e.target.value as 'age' | 'region' | 'income' | 'gender' | 'education'
+                )
+              }
             >
-              <option value="education">Niveau d'éducation</option>
+              <option value="education">Niveau d&apos;éducation</option>
               <option value="age">Âge</option>
               <option value="region">Région</option>
               <option value="income">Revenu</option>
@@ -167,13 +219,16 @@ const IssuePrioritiesVisualization: React.FC<IssuePrioritiesVisualizationProps> 
             <Card>
               <Card.Header>
                 <Card.Title>
-                  Priorités moyennes par {{
-                    age: 'groupe d\'âge',
-                    region: 'région',
-                    income: 'niveau de revenu',
-                    gender: 'genre',
-                    education: 'niveau d\'éducation'
-                  }[selectedGroup]}
+                  Priorités moyennes par{' '}
+                  {
+                    {
+                      age: "groupe d'âge",
+                      region: 'région',
+                      income: 'niveau de revenu',
+                      gender: 'genre',
+                      education: "niveau d'éducation",
+                    }[selectedGroup]
+                  }
                 </Card.Title>
               </Card.Header>
               <Card.Body>
@@ -188,7 +243,10 @@ const IssuePrioritiesVisualization: React.FC<IssuePrioritiesVisualizationProps> 
                         <XAxis type="number" domain={[0, 0.3]} />
                         <YAxis dataKey="group" type="category" />
                         <Tooltip
-                          formatter={(value: number) => [`${(value * 100).toFixed(1)}%`, 'Priorité']}
+                          formatter={(value: number) => [
+                            `${(value * 100).toFixed(1)}%`,
+                            'Priorité',
+                          ]}
                         />
                         <Legend />
                         {issues?.map((issue, index) => (
@@ -236,7 +294,10 @@ const IssuePrioritiesVisualization: React.FC<IssuePrioritiesVisualizationProps> 
                           ))}
                           <Legend />
                           <Tooltip
-                            formatter={(value: number) => [`${(value * 100).toFixed(1)}%`, 'Priorité']}
+                            formatter={(value: number) => [
+                              `${(value * 100).toFixed(1)}%`,
+                              'Priorité',
+                            ]}
                           />
                         </RadarChart>
                       </ResponsiveContainer>
@@ -276,7 +337,10 @@ const IssuePrioritiesVisualization: React.FC<IssuePrioritiesVisualizationProps> 
                           tickFormatter={(value) => `${(value * 100).toFixed(0)}%`}
                         />
                         <Tooltip
-                          formatter={(value: number) => [`${(value * 100).toFixed(1)}%`, 'Priorité moyenne']}
+                          formatter={(value: number) => [
+                            `${(value * 100).toFixed(1)}%`,
+                            'Priorité moyenne',
+                          ]}
                         />
                         <Bar dataKey="average">
                           {priorityRanking.map((_, index) => (

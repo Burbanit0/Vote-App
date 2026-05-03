@@ -22,7 +22,7 @@ const CreatePartyModal: React.FC<CreatePartyModalProps> = ({ show, onHide, onPar
     setIsSubmitting(true);
 
     try {
-      await createParty(name, description,);
+      await createParty(name, description);
       // Reset form
       setName('');
       setDescription('');
@@ -79,10 +79,16 @@ const CreatePartyModal: React.FC<CreatePartyModalProps> = ({ show, onHide, onPar
         <Button variant="primary" type="submit" onClick={handleSubmit} disabled={isSubmitting}>
           {isSubmitting ? (
             <>
-              <span className="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span>
+              <span
+                className="spinner-border spinner-border-sm"
+                role="status"
+                aria-hidden="true"
+              ></span>
               Creating...
             </>
-          ) : 'Create Party'}
+          ) : (
+            'Create Party'
+          )}
         </Button>
       </Modal.Footer>
     </Modal>

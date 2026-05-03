@@ -1,10 +1,31 @@
 // VotingMethodVisualizations.tsx
 import React from 'react';
-import { Card, ProgressBar, Table, Accordion, Badge } from 'react-bootstrap';
+import { Card, Table, Badge } from 'react-bootstrap';
 import { Bar, Radar } from 'react-chartjs-2';
-import { Chart as ChartJS, CategoryScale, LinearScale, BarElement, Title, Tooltip, Legend, PointElement, LineElement, RadialLinearScale } from 'chart.js';
+import {
+  Chart as ChartJS,
+  CategoryScale,
+  LinearScale,
+  BarElement,
+  Title,
+  Tooltip,
+  Legend,
+  PointElement,
+  LineElement,
+  RadialLinearScale,
+} from 'chart.js';
 
-ChartJS.register(CategoryScale, LinearScale, BarElement, Title, Tooltip, Legend, PointElement, LineElement, RadialLinearScale);
+ChartJS.register(
+  CategoryScale,
+  LinearScale,
+  BarElement,
+  Title,
+  Tooltip,
+  Legend,
+  PointElement,
+  LineElement,
+  RadialLinearScale
+);
 
 interface VotingMethodVisualizationProps {
   method: string;
@@ -12,21 +33,33 @@ interface VotingMethodVisualizationProps {
   candidates: string[];
 }
 
-const VotingMethodVisualizations: React.FC<VotingMethodVisualizationProps> = ({ method, rankings, candidates }) => {
+const VotingMethodVisualizations: React.FC<VotingMethodVisualizationProps> = ({
+  method,
+  rankings,
+  candidates,
+}) => {
   const renderMethodVisualization = () => {
     switch (method) {
       case 'plurality':
-        return <PluralityVisualization method={method} rankings={rankings} candidates={candidates} />;
+        return (
+          <PluralityVisualization method={method} rankings={rankings} candidates={candidates} />
+        );
       case 'borda':
         return <BordaVisualization method={method} rankings={rankings} candidates={candidates} />;
       case 'irv':
         return <IRVVisualization method={method} rankings={rankings} candidates={candidates} />;
       case 'approval':
-        return <ApprovalVisualization method={method} rankings={rankings} candidates={candidates} />;
+        return (
+          <ApprovalVisualization method={method} rankings={rankings} candidates={candidates} />
+        );
       case 'condorcet':
-        return <CondorcetVisualization method={method} rankings={rankings} candidates={candidates} />;
+        return (
+          <CondorcetVisualization method={method} rankings={rankings} candidates={candidates} />
+        );
       case 'two_round':
-        return <TwoRoundVisualization method={method} rankings={rankings} candidates={candidates} />;
+        return (
+          <TwoRoundVisualization method={method} rankings={rankings} candidates={candidates} />
+        );
       case 'coombs':
         return <CoombsVisualization method={method} rankings={rankings} candidates={candidates} />;
       case 'score':
@@ -38,7 +71,9 @@ const VotingMethodVisualizations: React.FC<VotingMethodVisualizationProps> = ({ 
       case 'schulze':
         return <SchulzeVisualization method={method} rankings={rankings} candidates={candidates} />;
       case 'kemeny_young':
-        return <KemenyYoungVisualization method={method} rankings={rankings} candidates={candidates} />;
+        return (
+          <KemenyYoungVisualization method={method} rankings={rankings} candidates={candidates} />
+        );
       default:
         return <div>Unknown voting method</div>;
     }
@@ -49,20 +84,24 @@ const VotingMethodVisualizations: React.FC<VotingMethodVisualizationProps> = ({ 
       <Card.Header>
         <h5>{method.charAt(0).toUpperCase() + method.slice(1)} Method Visualization</h5>
       </Card.Header>
-      <Card.Body>
-        {renderMethodVisualization()}
-      </Card.Body>
+      <Card.Body>{renderMethodVisualization()}</Card.Body>
     </Card>
   );
 };
 
 // 1. Plurality Visualization
-const PluralityVisualization: React.FC<VotingMethodVisualizationProps> = ({ rankings, candidates }) => {
+const PluralityVisualization: React.FC<VotingMethodVisualizationProps> = ({
+  rankings,
+  candidates,
+}) => {
   // Count first-choice votes
-  const firstChoiceCounts = candidates.reduce((acc, candidate) => {
-    acc[candidate] = 0;
-    return acc;
-  }, {} as Record<string, number>);
+  const firstChoiceCounts = candidates.reduce(
+    (acc, candidate) => {
+      acc[candidate] = 0;
+      return acc;
+    },
+    {} as Record<string, number>
+  );
 
   rankings.forEach(({ ranking }) => {
     if (ranking.length > 0) {
@@ -75,10 +114,16 @@ const PluralityVisualization: React.FC<VotingMethodVisualizationProps> = ({ rank
     datasets: [
       {
         label: 'First Choice Votes',
-        data: candidates.map(candidate => firstChoiceCounts[candidate]),
+        data: candidates.map((candidate) => firstChoiceCounts[candidate]),
         backgroundColor: [
-          '#FF6384', '#36A2EB', '#FFCE56', '#4BC0C0',
-          '#9966FF', '#FF9F40', '#8AC24A', '#EA5F89'
+          '#FF6384',
+          '#36A2EB',
+          '#FFCE56',
+          '#4BC0C0',
+          '#9966FF',
+          '#FF9F40',
+          '#8AC24A',
+          '#EA5F89',
         ],
       },
     ],
@@ -86,7 +131,10 @@ const PluralityVisualization: React.FC<VotingMethodVisualizationProps> = ({ rank
 
   return (
     <>
-      <p>Plurality counts only first-choice votes. The candidate with the most first-choice votes wins.</p>
+      <p>
+        Plurality counts only first-choice votes. The candidate with the most first-choice votes
+        wins.
+      </p>
       <Bar
         data={data}
         options={{
@@ -109,8 +157,8 @@ const PluralityVisualization: React.FC<VotingMethodVisualizationProps> = ({ rank
         }}
       />
       <Card.Text className="mt-3">
-        <strong>Winner:</strong> {candidates.reduce((a, b) =>
-          firstChoiceCounts[a] > firstChoiceCounts[b] ? a : b)}
+        <strong>Winner:</strong>{' '}
+        {candidates.reduce((a, b) => (firstChoiceCounts[a] > firstChoiceCounts[b] ? a : b))}
       </Card.Text>
     </>
   );
@@ -119,10 +167,13 @@ const PluralityVisualization: React.FC<VotingMethodVisualizationProps> = ({ rank
 // 2. Borda Count Visualization
 const BordaVisualization: React.FC<VotingMethodVisualizationProps> = ({ rankings, candidates }) => {
   const numCandidates = candidates.length;
-  const scores = candidates.reduce((acc, candidate) => {
-    acc[candidate] = 0;
-    return acc;
-  }, {} as Record<string, number>);
+  const scores = candidates.reduce(
+    (acc, candidate) => {
+      acc[candidate] = 0;
+      return acc;
+    },
+    {} as Record<string, number>
+  );
 
   rankings.forEach(({ ranking }) => {
     ranking.forEach((candidate, index) => {
@@ -136,10 +187,16 @@ const BordaVisualization: React.FC<VotingMethodVisualizationProps> = ({ rankings
     datasets: [
       {
         label: 'Borda Scores',
-        data: candidates.map(candidate => scores[candidate]),
+        data: candidates.map((candidate) => scores[candidate]),
         backgroundColor: [
-          '#FF6384', '#36A2EB', '#FFCE56', '#4BC0C0',
-          '#9966FF', '#FF9F40', '#8AC24A', '#EA5F89'
+          '#FF6384',
+          '#36A2EB',
+          '#FFCE56',
+          '#4BC0C0',
+          '#9966FF',
+          '#FF9F40',
+          '#8AC24A',
+          '#EA5F89',
         ],
       },
     ],
@@ -148,9 +205,9 @@ const BordaVisualization: React.FC<VotingMethodVisualizationProps> = ({ rankings
   return (
     <>
       <p>
-        Borda Count assigns points to each candidate based on their position in each voter's ranking.
-        A candidate in first place gets {numCandidates - 1} points, second place gets {numCandidates - 2} points,
-        and so on. The candidate with the most points wins.
+        Borda Count assigns points to each candidate based on their position in each voter&apos;s
+        ranking. A candidate in first place gets {numCandidates - 1} points, second place gets{' '}
+        {numCandidates - 2} points, and so on. The candidate with the most points wins.
       </p>
       <Bar
         data={data}
@@ -174,8 +231,7 @@ const BordaVisualization: React.FC<VotingMethodVisualizationProps> = ({ rankings
         }}
       />
       <Card.Text className="mt-3">
-        <strong>Winner:</strong> {candidates.reduce((a, b) =>
-          scores[a] > scores[b] ? a : b)}
+        <strong>Winner:</strong> {candidates.reduce((a, b) => (scores[a] > scores[b] ? a : b))}
       </Card.Text>
     </>
   );
@@ -195,15 +251,18 @@ const IRVVisualization: React.FC<VotingMethodVisualizationProps> = ({ rankings, 
 
   const simulateIRV = () => {
     let remainingCandidates = [...candidates];
-    let currentRound = 1;
-    let votes = {...currentVotes};
+    const currentRound = 1;
+    let votes = { ...currentVotes };
     let winnerFound = false;
 
     // Count first round votes
-    const firstRoundVotes = candidates.reduce((acc, candidate) => {
-      acc[candidate] = 0;
-      return acc;
-    }, {} as Record<string, number>);
+    const firstRoundVotes = candidates.reduce(
+      (acc, candidate) => {
+        acc[candidate] = 0;
+        return acc;
+      },
+      {} as Record<string, number>
+    );
 
     rankings.forEach(({ ranking }) => {
       for (const candidate of ranking) {
@@ -244,10 +303,10 @@ const IRVVisualization: React.FC<VotingMethodVisualizationProps> = ({ rankings, 
           .filter(([_, count]) => count === minVotes)
           .map(([candidate, _]) => candidate);
 
-        setEliminated(prev => [...prev, ...toEliminate]);
+        setEliminated((prev) => [...prev, ...toEliminate]);
 
         // Update remaining candidates
-        remainingCandidates = remainingCandidates.filter(c => !toEliminate.includes(c));
+        remainingCandidates = remainingCandidates.filter((c) => !toEliminate.includes(c));
 
         if (remainingCandidates.length === 1) {
           setWinner(remainingCandidates[0]);
@@ -255,10 +314,13 @@ const IRVVisualization: React.FC<VotingMethodVisualizationProps> = ({ rankings, 
         }
 
         // Count votes for next round
-        const nextRoundVotes = remainingCandidates.reduce((acc, candidate) => {
-          acc[candidate] = 0;
-          return acc;
-        }, {} as Record<string, number>);
+        const nextRoundVotes = remainingCandidates.reduce(
+          (acc, candidate) => {
+            acc[candidate] = 0;
+            return acc;
+          },
+          {} as Record<string, number>
+        );
 
         rankings.forEach(({ ranking }) => {
           for (const candidate of ranking) {
@@ -270,7 +332,7 @@ const IRVVisualization: React.FC<VotingMethodVisualizationProps> = ({ rankings, 
         });
 
         setCurrentVotes(nextRoundVotes);
-        setRound(prev => prev + 1);
+        setRound((prev) => prev + 1);
         votes = nextRoundVotes;
       }
     };
@@ -279,20 +341,26 @@ const IRVVisualization: React.FC<VotingMethodVisualizationProps> = ({ rankings, 
   };
 
   const colors = [
-    '#FF6384', '#36A2EB', '#FFCE56', '#4BC0C0',
-    '#9966FF', '#FF9F40', '#8AC24A', '#EA5F89'
+    '#FF6384',
+    '#36A2EB',
+    '#FFCE56',
+    '#4BC0C0',
+    '#9966FF',
+    '#FF9F40',
+    '#8AC24A',
+    '#EA5F89',
   ];
 
   const data = {
-    labels: candidates.filter(c => !eliminated.includes(c)),
+    labels: candidates.filter((c) => !eliminated.includes(c)),
     datasets: [
       {
         label: `Round ${round} Votes`,
         data: candidates
-          .filter(c => !eliminated.includes(c))
-          .map(candidate => currentVotes[candidate] || 0),
+          .filter((c) => !eliminated.includes(c))
+          .map((candidate) => currentVotes[candidate] || 0),
         backgroundColor: candidates
-          .filter(c => !eliminated.includes(c))
+          .filter((c) => !eliminated.includes(c))
           .map((_, i) => colors[i % colors.length]),
       },
     ],
@@ -301,10 +369,10 @@ const IRVVisualization: React.FC<VotingMethodVisualizationProps> = ({ rankings, 
   return (
     <>
       <p>
-        Instant Runoff Voting (IRV) simulates a series of runoff elections.
-        In each round, the candidate with the fewest votes is eliminated,
-        and their votes are redistributed to the remaining candidates based on voters' preferences.
-        This continues until one candidate has a majority.
+        Instant Runoff Voting (IRV) simulates a series of runoff elections. In each round, the
+        candidate with the fewest votes is eliminated, and their votes are redistributed to the
+        remaining candidates based on voters preferences. This continues until one candidate has a
+        majority.
       </p>
 
       {!winner ? (
@@ -336,7 +404,7 @@ const IRVVisualization: React.FC<VotingMethodVisualizationProps> = ({ rankings, 
               <Card.Header>Eliminated Candidates</Card.Header>
               <Card.Body>
                 <div className="d-flex flex-wrap gap-2">
-                  {eliminated.map(candidate => (
+                  {eliminated.map((candidate) => (
                     <Badge key={candidate} bg="secondary" className="p-2">
                       {candidate}
                     </Badge>
@@ -346,11 +414,7 @@ const IRVVisualization: React.FC<VotingMethodVisualizationProps> = ({ rankings, 
             </Card>
           )}
 
-          <button
-            className="btn btn-primary mt-3"
-            onClick={simulateIRV}
-            disabled={winner !== null}
-          >
+          <button className="btn btn-primary mt-3" onClick={simulateIRV} disabled={winner !== null}>
             Next Round
           </button>
         </>
@@ -376,18 +440,24 @@ const IRVVisualization: React.FC<VotingMethodVisualizationProps> = ({ rankings, 
 };
 
 // 4. Approval Voting Visualization
-const ApprovalVisualization: React.FC<VotingMethodVisualizationProps> = ({ rankings, candidates }) => {
+const ApprovalVisualization: React.FC<VotingMethodVisualizationProps> = ({
+  rankings,
+  candidates,
+}) => {
   const [approvalThreshold, setApprovalThreshold] = React.useState(2);
-  const approvalVotes = candidates.reduce((acc, candidate) => {
-    acc[candidate] = 0;
-    return acc;
-  }, {} as Record<string, number>);
+  const approvalVotes = candidates.reduce(
+    (acc, candidate) => {
+      acc[candidate] = 0;
+      return acc;
+    },
+    {} as Record<string, number>
+  );
 
   // Count approval votes
   rankings.forEach(({ ranking }) => {
     // Approve top N candidates
     const approved = ranking.slice(0, approvalThreshold);
-    approved.forEach(candidate => {
+    approved.forEach((candidate) => {
       approvalVotes[candidate]++;
     });
   });
@@ -397,10 +467,16 @@ const ApprovalVisualization: React.FC<VotingMethodVisualizationProps> = ({ ranki
     datasets: [
       {
         label: `Approval Votes (Top ${approvalThreshold})`,
-        data: candidates.map(candidate => approvalVotes[candidate]),
+        data: candidates.map((candidate) => approvalVotes[candidate]),
         backgroundColor: [
-          '#FF6384', '#36A2EB', '#FFCE56', '#4BC0C0',
-          '#9966FF', '#FF9F40', '#8AC24A', '#EA5F89'
+          '#FF6384',
+          '#36A2EB',
+          '#FFCE56',
+          '#4BC0C0',
+          '#9966FF',
+          '#FF9F40',
+          '#8AC24A',
+          '#EA5F89',
         ],
       },
     ],
@@ -409,9 +485,8 @@ const ApprovalVisualization: React.FC<VotingMethodVisualizationProps> = ({ ranki
   return (
     <>
       <p>
-        Approval Voting allows voters to approve of multiple candidates.
-        Each voter approves of their top {approvalThreshold} candidates,
-        and the candidate with the most approvals wins.
+        Approval Voting allows voters to approve of multiple candidates. Each voter approves of
+        their top {approvalThreshold} candidates, and the candidate with the most approvals wins.
       </p>
 
       <div className="mb-3">
@@ -453,22 +528,25 @@ const ApprovalVisualization: React.FC<VotingMethodVisualizationProps> = ({ ranki
       />
 
       <Card.Text className="mt-3">
-        <strong>Winner:</strong> {candidates.reduce((a, b) =>
-          approvalVotes[a] > approvalVotes[b] ? a : b)}
+        <strong>Winner:</strong>{' '}
+        {candidates.reduce((a, b) => (approvalVotes[a] > approvalVotes[b] ? a : b))}
       </Card.Text>
     </>
   );
 };
 
 // 5. Condorcet Method Visualization
-const CondorcetVisualization: React.FC<VotingMethodVisualizationProps> = ({ rankings, candidates }) => {
+const CondorcetVisualization: React.FC<VotingMethodVisualizationProps> = ({
+  rankings,
+  candidates,
+}) => {
   // Calculate pairwise comparisons
   const pairwiseResults: Record<string, Record<string, number>> = {};
 
   // Initialize the matrix
-  candidates.forEach(c1 => {
+  candidates.forEach((c1) => {
     pairwiseResults[c1] = {};
-    candidates.forEach(c2 => {
+    candidates.forEach((c2) => {
       if (c1 !== c2) {
         pairwiseResults[c1][c2] = 0;
       }
@@ -476,8 +554,8 @@ const CondorcetVisualization: React.FC<VotingMethodVisualizationProps> = ({ rank
   });
 
   // Count pairwise preferences
-  candidates.forEach(c1 => {
-    candidates.forEach(c2 => {
+  candidates.forEach((c1) => {
+    candidates.forEach((c2) => {
       if (c1 !== c2) {
         let count = 0;
         rankings.forEach(({ ranking }) => {
@@ -497,7 +575,10 @@ const CondorcetVisualization: React.FC<VotingMethodVisualizationProps> = ({ rank
   for (const candidate of candidates) {
     let isWinner = true;
     for (const other of candidates) {
-      if (candidate !== other && pairwiseResults[candidate][other] <= pairwiseResults[other][candidate]) {
+      if (
+        candidate !== other &&
+        pairwiseResults[candidate][other] <= pairwiseResults[other][candidate]
+      ) {
         isWinner = false;
         break;
       }
@@ -511,9 +592,9 @@ const CondorcetVisualization: React.FC<VotingMethodVisualizationProps> = ({ rank
   return (
     <>
       <p>
-        The Condorcet method compares candidates in pairwise contests.
-        A Condorcet winner is a candidate who would win a two-candidate election
-        against each of the other candidates. If such a candidate exists, they are the winner.
+        The Condorcet method compares candidates in pairwise contests. A Condorcet winner is a
+        candidate who would win a two-candidate election against each of the other candidates. If
+        such a candidate exists, they are the winner.
       </p>
 
       <Card.Text className="mt-3">
@@ -536,19 +617,20 @@ const CondorcetVisualization: React.FC<VotingMethodVisualizationProps> = ({ rank
             <thead>
               <tr>
                 <th></th>
-                {candidates.map(candidate => (
+                {candidates.map((candidate) => (
                   <th key={candidate}>{candidate}</th>
                 ))}
               </tr>
             </thead>
             <tbody>
-              {candidates.map(c1 => (
+              {candidates.map((c1) => (
                 <tr key={c1}>
                   <th>{c1}</th>
-                  {candidates.map(c2 => (
+                  {candidates.map((c2) => (
                     <td key={`${c1}-${c2}`}>
-                      {c1 === c2 ? '-' :
-                       `${pairwiseResults[c1][c2]} vs ${pairwiseResults[c2] ? pairwiseResults[c2][c1] : 0}`}
+                      {c1 === c2
+                        ? '-'
+                        : `${pairwiseResults[c1][c2]} vs ${pairwiseResults[c2] ? pairwiseResults[c2][c1] : 0}`}
                     </td>
                   ))}
                 </tr>
@@ -562,12 +644,18 @@ const CondorcetVisualization: React.FC<VotingMethodVisualizationProps> = ({ rank
 };
 
 // 6. Two-Round System Visualization
-const TwoRoundVisualization: React.FC<VotingMethodVisualizationProps> = ({ rankings, candidates }) => {
+const TwoRoundVisualization: React.FC<VotingMethodVisualizationProps> = ({
+  rankings,
+  candidates,
+}) => {
   // First round: count first-choice votes
-  const firstRoundVotes = candidates.reduce((acc, candidate) => {
-    acc[candidate] = 0;
-    return acc;
-  }, {} as Record<string, number>);
+  const firstRoundVotes = candidates.reduce(
+    (acc, candidate) => {
+      acc[candidate] = 0;
+      return acc;
+    },
+    {} as Record<string, number>
+  );
 
   rankings.forEach(({ ranking }) => {
     if (ranking.length > 0) {
@@ -579,9 +667,7 @@ const TwoRoundVisualization: React.FC<VotingMethodVisualizationProps> = ({ ranki
   const majority = totalVoters / 2;
 
   // Check for first-round winner
-  const firstRoundWinner = candidates.find(candidate =>
-    firstRoundVotes[candidate] > majority
-  );
+  const firstRoundWinner = candidates.find((candidate) => firstRoundVotes[candidate] > majority);
 
   let secondRoundCandidates: string[] = [];
   let secondRoundVotes: Record<string, number> = {};
@@ -594,10 +680,13 @@ const TwoRoundVisualization: React.FC<VotingMethodVisualizationProps> = ({ ranki
       .slice(0, 2);
 
     // Count second round votes
-    secondRoundVotes = secondRoundCandidates.reduce((acc, candidate) => {
-      acc[candidate] = 0;
-      return acc;
-    }, {} as Record<string, number>);
+    secondRoundVotes = secondRoundCandidates.reduce(
+      (acc, candidate) => {
+        acc[candidate] = 0;
+        return acc;
+      },
+      {} as Record<string, number>
+    );
 
     rankings.forEach(({ ranking }) => {
       for (const candidate of ranking) {
@@ -619,34 +708,40 @@ const TwoRoundVisualization: React.FC<VotingMethodVisualizationProps> = ({ ranki
     datasets: [
       {
         label: 'First Round Votes',
-        data: candidates.map(candidate => firstRoundVotes[candidate]),
+        data: candidates.map((candidate) => firstRoundVotes[candidate]),
         backgroundColor: [
-          '#FF6384', '#36A2EB', '#FFCE56', '#4BC0C0',
-          '#9966FF', '#FF9F40', '#8AC24A', '#EA5F89'
+          '#FF6384',
+          '#36A2EB',
+          '#FFCE56',
+          '#4BC0C0',
+          '#9966FF',
+          '#FF9F40',
+          '#8AC24A',
+          '#EA5F89',
         ],
       },
     ],
   };
 
-  const secondRoundData = secondRoundCandidates.length > 0 ? {
-    labels: secondRoundCandidates,
-    datasets: [
-      {
-        label: 'Second Round Votes',
-        data: secondRoundCandidates.map(candidate => secondRoundVotes[candidate]),
-        backgroundColor: [
-          '#FF6384', '#36A2EB'
-        ],
-      },
-    ],
-  } : null;
+  const secondRoundData =
+    secondRoundCandidates.length > 0
+      ? {
+          labels: secondRoundCandidates,
+          datasets: [
+            {
+              label: 'Second Round Votes',
+              data: secondRoundCandidates.map((candidate) => secondRoundVotes[candidate]),
+              backgroundColor: ['#FF6384', '#36A2EB'],
+            },
+          ],
+        }
+      : null;
 
   return (
     <>
       <p>
-        The Two-Round System has two rounds of voting. In the first round,
-        if a candidate receives a majority of votes, they win. If not,
-        the top two candidates proceed to a second round.
+        The Two-Round System has two rounds of voting. In the first round, if a candidate receives a
+        majority of votes, they win. If not, the top two candidates proceed to a second round.
       </p>
 
       <Card.Text className="mt-3">
@@ -675,9 +770,7 @@ const TwoRoundVisualization: React.FC<VotingMethodVisualizationProps> = ({ ranki
         }}
       />
 
-      <Card.Text className="mt-2">
-        Majority threshold: {majority} votes
-      </Card.Text>
+      <Card.Text className="mt-2">Majority threshold: {majority} votes</Card.Text>
 
       {firstRoundWinner ? (
         <div className="alert alert-success mt-3">
@@ -689,7 +782,7 @@ const TwoRoundVisualization: React.FC<VotingMethodVisualizationProps> = ({ ranki
           <Card.Text className="mt-3">
             <strong>Top Two Candidates Proceed to Second Round:</strong>
             <div className="d-flex flex-wrap gap-2 mt-1">
-              {secondRoundCandidates.map(candidate => (
+              {secondRoundCandidates.map((candidate) => (
                 <Badge key={candidate} bg="primary" className="p-2">
                   {candidate}
                 </Badge>
@@ -739,10 +832,13 @@ const TwoRoundVisualization: React.FC<VotingMethodVisualizationProps> = ({ ranki
 };
 
 // 7. Coombs' Method Visualization
-const CoombsVisualization: React.FC<VotingMethodVisualizationProps> = ({ rankings, candidates }) => {
+const CoombsVisualization: React.FC<VotingMethodVisualizationProps> = ({
+  rankings,
+  candidates,
+}) => {
   const [round, setRound] = React.useState(1);
   const [eliminated, setEliminated] = React.useState<string[]>([]);
-  const [currentVotes, setCurrentVotes] = React.useState<Record<string, number>>({});
+  const [, setCurrentVotes] = React.useState<Record<string, number>>({});
   const [winner, setWinner] = React.useState<string | null>(null);
   const [lastPlaceVotes, setLastPlaceVotes] = React.useState<Record<string, number>>({});
 
@@ -753,13 +849,11 @@ const CoombsVisualization: React.FC<VotingMethodVisualizationProps> = ({ ranking
 
   const simulateCoombs = () => {
     let remainingCandidates = [...candidates];
-    let currentRound = 1;
-    let votes = {...currentVotes};
-    let winnerFound = false;
+    const currentRound = 1;
     let lastPlace: Record<string, number> = {};
 
     // Count last place votes for first round
-    candidates.forEach(candidate => {
+    candidates.forEach((candidate) => {
       lastPlace[candidate] = 0;
     });
 
@@ -792,10 +886,10 @@ const CoombsVisualization: React.FC<VotingMethodVisualizationProps> = ({ ranking
         .filter(([_, count]) => count === maxLastVotes)
         .map(([candidate, _]) => candidate);
 
-      setEliminated(prev => [...prev, ...toEliminate]);
+      setEliminated((prev) => [...prev, ...toEliminate]);
 
       // Update remaining candidates
-      remainingCandidates = remainingCandidates.filter(c => !toEliminate.includes(c));
+      remainingCandidates = remainingCandidates.filter((c) => !toEliminate.includes(c));
 
       if (remainingCandidates.length === 1) {
         setWinner(remainingCandidates[0]);
@@ -803,10 +897,13 @@ const CoombsVisualization: React.FC<VotingMethodVisualizationProps> = ({ ranking
       }
 
       // Count last place votes for next round
-      lastPlace = remainingCandidates.reduce((acc, candidate) => {
-        acc[candidate] = 0;
-        return acc;
-      }, {} as Record<string, number>);
+      lastPlace = remainingCandidates.reduce(
+        (acc, candidate) => {
+          acc[candidate] = 0;
+          return acc;
+        },
+        {} as Record<string, number>
+      );
 
       rankings.forEach(({ ranking }) => {
         // Find the lowest-ranked remaining candidate
@@ -820,22 +917,28 @@ const CoombsVisualization: React.FC<VotingMethodVisualizationProps> = ({ ranking
       });
 
       setLastPlaceVotes(lastPlace);
-      setRound(prev => prev + 1);
+      setRound((prev) => prev + 1);
     };
 
     checkRound();
   };
 
   const colors = [
-    '#FF6384', '#36A2EB', '#FFCE56', '#4BC0C0',
-    '#9966FF', '#FF9F40', '#8AC24A', '#EA5F89'
+    '#FF6384',
+    '#36A2EB',
+    '#FFCE56',
+    '#4BC0C0',
+    '#9966FF',
+    '#FF9F40',
+    '#8AC24A',
+    '#EA5F89',
   ];
 
   return (
     <>
       <p>
-        Coombs' method eliminates candidates with the most last-place votes in each round,
-        until one candidate remains as the winner.
+        Coombs method eliminates candidates with the most last-place votes in each round, until one
+        candidate remains as the winner.
       </p>
 
       {!winner ? (
@@ -845,15 +948,15 @@ const CoombsVisualization: React.FC<VotingMethodVisualizationProps> = ({ ranking
             <Card.Body>
               <Bar
                 data={{
-                  labels: candidates.filter(c => !eliminated.includes(c)),
+                  labels: candidates.filter((c) => !eliminated.includes(c)),
                   datasets: [
                     {
                       label: 'Last Place Votes',
                       data: candidates
-                        .filter(c => !eliminated.includes(c))
-                        .map(candidate => lastPlaceVotes[candidate] || 0),
+                        .filter((c) => !eliminated.includes(c))
+                        .map((candidate) => lastPlaceVotes[candidate] || 0),
                       backgroundColor: candidates
-                        .filter(c => !eliminated.includes(c))
+                        .filter((c) => !eliminated.includes(c))
                         .map((_, i) => colors[i % colors.length]),
                     },
                   ],
@@ -885,7 +988,7 @@ const CoombsVisualization: React.FC<VotingMethodVisualizationProps> = ({ ranking
               <Card.Header>Eliminated Candidates</Card.Header>
               <Card.Body>
                 <div className="d-flex flex-wrap gap-2">
-                  {eliminated.map(candidate => (
+                  {eliminated.map((candidate) => (
                     <Badge key={candidate} bg="secondary" className="p-2">
                       {candidate}
                     </Badge>
@@ -906,7 +1009,7 @@ const CoombsVisualization: React.FC<VotingMethodVisualizationProps> = ({ ranking
       ) : (
         <div className="alert alert-success mt-3">
           <h5>Winner: {winner}</h5>
-          <p>Last remaining candidate after {round-1} rounds</p>
+          <p>Last remaining candidate after {round - 1} rounds</p>
           <button
             className="btn btn-secondary mt-2"
             onClick={() => {
@@ -929,7 +1032,7 @@ const ScoreVisualization: React.FC<VotingMethodVisualizationProps> = ({ rankings
   // Calculate average scores for each candidate
   const scoreData: Record<string, { scores: number[]; avg: number }> = {};
 
-  candidates.forEach(candidate => {
+  candidates.forEach((candidate) => {
     scoreData[candidate] = { scores: [], avg: 0 };
   });
 
@@ -944,7 +1047,7 @@ const ScoreVisualization: React.FC<VotingMethodVisualizationProps> = ({ rankings
   });
 
   // Calculate averages
-  candidates.forEach(candidate => {
+  candidates.forEach((candidate) => {
     const total = scoreData[candidate].scores.reduce((a, b) => a + b, 0);
     scoreData[candidate].avg = total / scoreData[candidate].scores.length;
   });
@@ -955,7 +1058,7 @@ const ScoreVisualization: React.FC<VotingMethodVisualizationProps> = ({ rankings
     datasets: [
       {
         label: 'Average Scores',
-        data: candidates.map(candidate => scoreData[candidate].avg),
+        data: candidates.map((candidate) => scoreData[candidate].avg),
         backgroundColor: 'rgba(54, 162, 235, 0.2)',
         borderColor: 'rgba(54, 162, 235, 1)',
         borderWidth: 2,
@@ -970,13 +1073,24 @@ const ScoreVisualization: React.FC<VotingMethodVisualizationProps> = ({ rankings
       label: candidate,
       data: Array.from({ length: 11 }, () => 0), // Initialize with zeros
       borderColor: [
-        '#FF6384', '#36A2EB', '#FFCE56', '#4BC0C0',
-        '#9966FF', '#FF9F40', '#8AC24A', '#EA5F89'
+        '#FF6384',
+        '#36A2EB',
+        '#FFCE56',
+        '#4BC0C0',
+        '#9966FF',
+        '#FF9F40',
+        '#8AC24A',
+        '#EA5F89',
       ][index % 8],
       backgroundColor: [
-        'rgba(255, 99, 132, 0.2)', 'rgba(54, 162, 235, 0.2)', 'rgba(255, 206, 86, 0.2)',
-        'rgba(75, 192, 192, 0.2)', 'rgba(153, 102, 255, 0.2)', 'rgba(255, 159, 64, 0.2)',
-        'rgba(138, 194, 74, 0.2)', 'rgba(234, 95, 137, 0.2)'
+        'rgba(255, 99, 132, 0.2)',
+        'rgba(54, 162, 235, 0.2)',
+        'rgba(255, 206, 86, 0.2)',
+        'rgba(75, 192, 192, 0.2)',
+        'rgba(153, 102, 255, 0.2)',
+        'rgba(255, 159, 64, 0.2)',
+        'rgba(138, 194, 74, 0.2)',
+        'rgba(234, 95, 137, 0.2)',
       ][index % 8],
       borderWidth: 1,
     })),
@@ -984,7 +1098,7 @@ const ScoreVisualization: React.FC<VotingMethodVisualizationProps> = ({ rankings
 
   // Bin scores into 0.5 increments
   candidates.forEach((candidate, index) => {
-    scoreData[candidate].scores.forEach(score => {
+    scoreData[candidate].scores.forEach((score) => {
       const binIndex = Math.floor(score * 2); // Convert to 0.5 bins
       if (binIndex >= 0 && binIndex < 11) {
         distributionData.datasets[index].data[binIndex]++;
@@ -995,9 +1109,9 @@ const ScoreVisualization: React.FC<VotingMethodVisualizationProps> = ({ rankings
   return (
     <>
       <p>
-        Score Voting allows voters to give each candidate a score (typically 0-5).
-        In this visualization, we convert rankings to scores where higher ranks get higher scores.
-        The candidate with the highest average score wins.
+        Score Voting allows voters to give each candidate a score (typically 0-5). In this
+        visualization, we convert rankings to scores where higher ranks get higher scores. The
+        candidate with the highest average score wins.
       </p>
 
       <div className="row">
@@ -1045,13 +1159,13 @@ const ScoreVisualization: React.FC<VotingMethodVisualizationProps> = ({ rankings
                     },
                     tooltip: {
                       callbacks: {
-                        label: function(context) {
+                        label: function (context) {
                           const label = context.dataset.label || '';
                           const value = context.raw as number;
                           return `${label}: ${value} votes`;
-                        }
-                      }
-                    }
+                        },
+                      },
+                    },
                   },
                   scales: {
                     x: {
@@ -1076,17 +1190,23 @@ const ScoreVisualization: React.FC<VotingMethodVisualizationProps> = ({ rankings
       </div>
 
       <Card.Text className="mt-3">
-        <strong>Winner:</strong> {candidates.reduce((a, b) =>
-          scoreData[a].avg > scoreData[b].avg ? a : b)}
-        <span> (Average score: {Math.max(...candidates.map(c => scoreData[c].avg)).toFixed(2)})</span>
+        <strong>Winner:</strong>{' '}
+        {candidates.reduce((a, b) => (scoreData[a].avg > scoreData[b].avg ? a : b))}
+        <span>
+          {' '}
+          (Average score: {Math.max(...candidates.map((c) => scoreData[c].avg)).toFixed(2)})
+        </span>
       </Card.Text>
     </>
   );
 };
 
 // 9. Bucklin Voting Visualization
-const BucklinVisualization: React.FC<VotingMethodVisualizationProps> = ({ rankings, candidates }) => {
-  const maxRounds = Math.max(...rankings.map(vote => vote.ranking.length));
+const BucklinVisualization: React.FC<VotingMethodVisualizationProps> = ({
+  rankings,
+  candidates,
+}) => {
+  const maxRounds = Math.max(...rankings.map((vote) => vote.ranking.length));
   const [currentRound, setCurrentRound] = React.useState(1);
   const [winner, setWinner] = React.useState<string | null>(null);
 
@@ -1094,10 +1214,13 @@ const BucklinVisualization: React.FC<VotingMethodVisualizationProps> = ({ rankin
   const roundVotes: Record<number, Record<string, number>> = {};
 
   for (let round = 1; round <= maxRounds; round++) {
-    roundVotes[round] = candidates.reduce((acc, candidate) => {
-      acc[candidate] = 0;
-      return acc;
-    }, {} as Record<string, number>);
+    roundVotes[round] = candidates.reduce(
+      (acc, candidate) => {
+        acc[candidate] = 0;
+        return acc;
+      },
+      {} as Record<string, number>
+    );
 
     rankings.forEach(({ ranking }) => {
       if (ranking.length >= round) {
@@ -1118,9 +1241,7 @@ const BucklinVisualization: React.FC<VotingMethodVisualizationProps> = ({ rankin
       setWinner(roundWinner[0]);
     } else if (currentRound === maxRounds) {
       // If no majority in final round, pick candidate with most votes
-      const finalRoundWinner = Object.entries(votes).reduce((a, b) =>
-        a[1] > b[1] ? a : b
-      )[0];
+      const finalRoundWinner = Object.entries(votes).reduce((a, b) => (a[1] > b[1] ? a : b))[0];
       setWinner(finalRoundWinner);
     }
   }, [currentRound, maxRounds, rankings.length, roundVotes]);
@@ -1130,10 +1251,16 @@ const BucklinVisualization: React.FC<VotingMethodVisualizationProps> = ({ rankin
     datasets: [
       {
         label: `Round ${currentRound} Votes`,
-        data: candidates.map(candidate => roundVotes[currentRound][candidate]),
+        data: candidates.map((candidate) => roundVotes[currentRound][candidate]),
         backgroundColor: [
-          '#FF6384', '#36A2EB', '#FFCE56', '#4BC0C0',
-          '#9966FF', '#FF9F40', '#8AC24A', '#EA5F89'
+          '#FF6384',
+          '#36A2EB',
+          '#FFCE56',
+          '#4BC0C0',
+          '#9966FF',
+          '#FF9F40',
+          '#8AC24A',
+          '#EA5F89',
         ],
       },
     ],
@@ -1142,9 +1269,9 @@ const BucklinVisualization: React.FC<VotingMethodVisualizationProps> = ({ rankin
   return (
     <>
       <p>
-        Bucklin Voting counts votes in rounds. In each round, it counts votes for candidates
-        ranked at that position or higher. If a candidate achieves a majority, they win.
-        Otherwise, it moves to the next round until a winner is found.
+        Bucklin Voting counts votes in rounds. In each round, it counts votes for candidates ranked
+        at that position or higher. If a candidate achieves a majority, they win. Otherwise, it
+        moves to the next round until a winner is found.
       </p>
 
       <div className="mb-3">
@@ -1198,13 +1325,16 @@ const BucklinVisualization: React.FC<VotingMethodVisualizationProps> = ({ rankin
 };
 
 // 10. Minimax Visualization
-const MinimaxVisualization: React.FC<VotingMethodVisualizationProps> = ({ rankings, candidates }) => {
+const MinimaxVisualization: React.FC<VotingMethodVisualizationProps> = ({
+  rankings,
+  candidates,
+}) => {
   // Calculate pairwise opposition
   const opposition: Record<string, Record<string, number>> = {};
 
-  candidates.forEach(c1 => {
+  candidates.forEach((c1) => {
     opposition[c1] = {};
-    candidates.forEach(c2 => {
+    candidates.forEach((c2) => {
       if (c1 !== c2) {
         opposition[c1][c2] = 0;
       }
@@ -1212,14 +1342,14 @@ const MinimaxVisualization: React.FC<VotingMethodVisualizationProps> = ({ rankin
   });
 
   // Count pairwise preferences
-  candidates.forEach(c1 => {
-    candidates.forEach(c2 => {
+  candidates.forEach((c1) => {
+    candidates.forEach((c2) => {
       if (c1 !== c2) {
-        let count = 0;
         rankings.forEach(({ ranking }) => {
           const pos1 = ranking.indexOf(c1);
           const pos2 = ranking.indexOf(c2);
-          if (pos2 < pos1) {  // c2 is preferred over c1
+          if (pos2 < pos1) {
+            // c2 is preferred over c1
             opposition[c1][c2]++;
           }
         });
@@ -1229,11 +1359,9 @@ const MinimaxVisualization: React.FC<VotingMethodVisualizationProps> = ({ rankin
 
   // Find the maximum opposition for each candidate
   const maxOpposition: Record<string, number> = {};
-  candidates.forEach(candidate => {
+  candidates.forEach((candidate) => {
     maxOpposition[candidate] = Math.max(
-      ...candidates
-        .filter(c => c !== candidate)
-        .map(other => opposition[candidate][other] || 0)
+      ...candidates.filter((c) => c !== candidate).map((other) => opposition[candidate][other] || 0)
     );
   });
 
@@ -1243,26 +1371,30 @@ const MinimaxVisualization: React.FC<VotingMethodVisualizationProps> = ({ rankin
     datasets: [
       {
         label: 'Maximum Opposition',
-        data: candidates.map(candidate => maxOpposition[candidate]),
+        data: candidates.map((candidate) => maxOpposition[candidate]),
         backgroundColor: [
-          '#FF6384', '#36A2EB', '#FFCE56', '#4BC0C0',
-          '#9966FF', '#FF9F40', '#8AC24A', '#EA5F89'
+          '#FF6384',
+          '#36A2EB',
+          '#FFCE56',
+          '#4BC0C0',
+          '#9966FF',
+          '#FF9F40',
+          '#8AC24A',
+          '#EA5F89',
         ],
       },
     ],
   };
 
   // Find the winner (candidate with smallest maximum opposition)
-  const winner = candidates.reduce((a, b) =>
-    maxOpposition[a] < maxOpposition[b] ? a : b
-  );
+  const winner = candidates.reduce((a, b) => (maxOpposition[a] < maxOpposition[b] ? a : b));
 
   return (
     <>
       <p>
-        The Minimax method finds the candidate with the smallest maximum opposition.
-        For each candidate, we find their worst pairwise defeat (the most votes against them
-        in any head-to-head comparison), and the candidate with the smallest such defeat wins.
+        The Minimax method finds the candidate with the smallest maximum opposition. For each
+        candidate, we find their worst pairwise defeat (the most votes against them in any
+        head-to-head comparison), and the candidate with the smallest such defeat wins.
       </p>
 
       <Card className="mt-3">
@@ -1273,19 +1405,20 @@ const MinimaxVisualization: React.FC<VotingMethodVisualizationProps> = ({ rankin
               <thead>
                 <tr>
                   <th></th>
-                  {candidates.map(candidate => (
+                  {candidates.map((candidate) => (
                     <th key={candidate}>{candidate}</th>
                   ))}
                 </tr>
               </thead>
               <tbody>
-                {candidates.map(c1 => (
+                {candidates.map((c1) => (
                   <tr key={c1}>
                     <th>{c1}</th>
-                    {candidates.map(c2 => (
+                    {candidates.map((c2) => (
                       <td key={`${c1}-${c2}`} className={c1 === c2 ? 'bg-light' : ''}>
-                        {c1 === c2 ? '-' :
-                         `${opposition[c1][c2]} vs ${opposition[c2] ? opposition[c2][c1] : 0}`}
+                        {c1 === c2
+                          ? '-'
+                          : `${opposition[c1][c2]} vs ${opposition[c2] ? opposition[c2][c1] : 0}`}
                       </td>
                     ))}
                   </tr>
@@ -1334,13 +1467,16 @@ const MinimaxVisualization: React.FC<VotingMethodVisualizationProps> = ({ rankin
 };
 
 // 11. Schulze Method Visualization
-const SchulzeVisualization: React.FC<VotingMethodVisualizationProps> = ({ rankings, candidates }) => {
+const SchulzeVisualization: React.FC<VotingMethodVisualizationProps> = ({
+  rankings,
+  candidates,
+}) => {
   // Calculate pairwise preferences
   const pref: Record<string, Record<string, number>> = {};
 
-  candidates.forEach(c1 => {
+  candidates.forEach((c1) => {
     pref[c1] = {};
-    candidates.forEach(c2 => {
+    candidates.forEach((c2) => {
       if (c1 !== c2) {
         pref[c1][c2] = 0;
       }
@@ -1348,8 +1484,8 @@ const SchulzeVisualization: React.FC<VotingMethodVisualizationProps> = ({ rankin
   });
 
   // Count pairwise preferences
-  candidates.forEach(c1 => {
-    candidates.forEach(c2 => {
+  candidates.forEach((c1) => {
+    candidates.forEach((c2) => {
       if (c1 !== c2) {
         rankings.forEach(({ ranking }) => {
           const pos1 = ranking.indexOf(c1);
@@ -1365,9 +1501,9 @@ const SchulzeVisualization: React.FC<VotingMethodVisualizationProps> = ({ rankin
   // Calculate the strength of the strongest paths
   const strength: Record<string, Record<string, number>> = {};
 
-  candidates.forEach(c1 => {
+  candidates.forEach((c1) => {
     strength[c1] = {};
-    candidates.forEach(c2 => {
+    candidates.forEach((c2) => {
       if (c1 !== c2) {
         strength[c1][c2] = pref[c1][c2];
       }
@@ -1375,10 +1511,10 @@ const SchulzeVisualization: React.FC<VotingMethodVisualizationProps> = ({ rankin
   });
 
   // Floyd-Warshall algorithm to find strongest paths
-  candidates.forEach(c1 => {
-    candidates.forEach(c2 => {
+  candidates.forEach((c1) => {
+    candidates.forEach((c2) => {
       if (c1 !== c2) {
-        candidates.forEach(c3 => {
+        candidates.forEach((c3) => {
           if (c1 !== c3 && c2 !== c3) {
             strength[c1][c2] = Math.max(
               strength[c1][c2],
@@ -1392,23 +1528,23 @@ const SchulzeVisualization: React.FC<VotingMethodVisualizationProps> = ({ rankin
 
   // Find the Schulze winner
   const wins: Record<string, number> = {};
-  candidates.forEach(candidate => {
+  candidates.forEach((candidate) => {
     wins[candidate] = 0;
   });
 
-  candidates.forEach(c1 => {
-    candidates.forEach(c2 => {
+  candidates.forEach((c1) => {
+    candidates.forEach((c2) => {
       if (c1 !== c2 && strength[c1][c2] > strength[c2][c1]) {
         wins[c1]++;
       }
     });
   });
 
-  const winner = candidates.reduce((a, b) => wins[a] > wins[b] ? a : b);
+  const winner = candidates.reduce((a, b) => (wins[a] > wins[b] ? a : b));
 
   // Prepare data for visualization
-  const matrixData = candidates.map(c1 =>
-    candidates.map(c2 => {
+  const matrixData = candidates.map((c1) =>
+    candidates.map((c2) => {
       if (c1 === c2) return '-';
       return strength[c1][c2];
     })
@@ -1417,9 +1553,9 @@ const SchulzeVisualization: React.FC<VotingMethodVisualizationProps> = ({ rankin
   return (
     <>
       <p>
-        The Schulze method is a Condorcet method that uses a complex path-finding algorithm
-        to determine the strongest paths between candidates. It always elects the Condorcet
-        winner when one exists, and provides a complete ranking of candidates.
+        The Schulze method is a Condorcet method that uses a complex path-finding algorithm to
+        determine the strongest paths between candidates. It always elects the Condorcet winner when
+        one exists, and provides a complete ranking of candidates.
       </p>
 
       <Card className="mt-3">
@@ -1430,7 +1566,7 @@ const SchulzeVisualization: React.FC<VotingMethodVisualizationProps> = ({ rankin
               <thead>
                 <tr>
                   <th></th>
-                  {candidates.map(candidate => (
+                  {candidates.map((candidate) => (
                     <th key={candidate}>{candidate}</th>
                   ))}
                 </tr>
@@ -1460,16 +1596,19 @@ const SchulzeVisualization: React.FC<VotingMethodVisualizationProps> = ({ rankin
 };
 
 // 12. Kemeny-Young Visualization
-const KemenyYoungVisualization: React.FC<VotingMethodVisualizationProps> = ({ rankings, candidates }) => {
+const KemenyYoungVisualization: React.FC<VotingMethodVisualizationProps> = ({
+  rankings,
+  candidates,
+}) => {
   // This is a simplified visualization as the full Kemeny-Young method
   // is computationally intensive for more than a few candidates
 
   // Calculate pairwise preferences
   const pref: Record<string, Record<string, number>> = {};
 
-  candidates.forEach(c1 => {
+  candidates.forEach((c1) => {
     pref[c1] = {};
-    candidates.forEach(c2 => {
+    candidates.forEach((c2) => {
       if (c1 !== c2) {
         pref[c1][c2] = 0;
       }
@@ -1477,8 +1616,8 @@ const KemenyYoungVisualization: React.FC<VotingMethodVisualizationProps> = ({ ra
   });
 
   // Count pairwise preferences
-  candidates.forEach(c1 => {
-    candidates.forEach(c2 => {
+  candidates.forEach((c1) => {
+    candidates.forEach((c2) => {
       if (c1 !== c2) {
         rankings.forEach(({ ranking }) => {
           const pos1 = ranking.indexOf(c1);
@@ -1498,9 +1637,9 @@ const KemenyYoungVisualization: React.FC<VotingMethodVisualizationProps> = ({ ra
   return (
     <>
       <p>
-        The Kemeny-Young method finds the ranking that minimizes the total disagreement
-        with all voters' rankings. It's computationally intensive but provides a consensus
-        ranking that best represents the voters' preferences.
+        The Kemeny-Young method finds the ranking that minimizes the total disagreement with all
+        voters rankings. It is computationally intensive but provides a consensus ranking that best
+        represents the voters preferences.
       </p>
 
       <Card className="mt-3">
@@ -1511,16 +1650,16 @@ const KemenyYoungVisualization: React.FC<VotingMethodVisualizationProps> = ({ ra
               <thead>
                 <tr>
                   <th></th>
-                  {candidates.map(candidate => (
+                  {candidates.map((candidate) => (
                     <th key={candidate}>{candidate}</th>
                   ))}
                 </tr>
               </thead>
               <tbody>
-                {candidates.map(c1 => (
+                {candidates.map((c1) => (
                   <tr key={c1}>
                     <th>{c1}</th>
-                    {candidates.map(c2 => (
+                    {candidates.map((c2) => (
                       <td key={`${c1}-${c2}`} className={c1 === c2 ? 'bg-light' : ''}>
                         {c1 === c2 ? '-' : pref[c1][c2]}
                       </td>
@@ -1535,8 +1674,8 @@ const KemenyYoungVisualization: React.FC<VotingMethodVisualizationProps> = ({ ra
 
       <div className="alert alert-info mt-3">
         <strong>Note:</strong> The full Kemeny-Young method requires computing the ranking with
-        minimal Kendall tau distance to all voter rankings, which is computationally intensive
-        and not visualized here. The table above shows the pairwise preference counts.
+        minimal Kendall tau distance to all voter rankings, which is computationally intensive and
+        not visualized here. The table above shows the pairwise preference counts.
       </div>
     </>
   );

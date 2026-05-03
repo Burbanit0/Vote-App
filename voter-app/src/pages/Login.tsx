@@ -60,7 +60,7 @@ const Login: React.FC = () => {
             </Button>
           </Form>
           <Button variant="link" onClick={handleRegisterClick} className="mt-3">
-            Don't have an account? Register
+            Don&apos;t have an account? Register
           </Button>
         </Col>
       </Row>

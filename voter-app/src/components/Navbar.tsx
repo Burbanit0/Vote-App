@@ -29,14 +29,19 @@ const Navbar: React.FC = () => {
                 <Nav.Link href="/parties">Parties</Nav.Link>
                 <Nav.Link href="/profile">Profile</Nav.Link>
                 <Nav.Link href="/simulation">Simulation</Nav.Link>
+                <Nav.Link href="/simulation/compare">Compare Methods</Nav.Link>
               </>
             )}
           </Nav>
           <Nav>
             {user ? (
-              <Button variant="outline-primary" onClick={handleLogout}>Logout</Button>
+              <Button variant="outline-primary" onClick={handleLogout}>
+                Logout
+              </Button>
             ) : (
-              <Button variant="outline-primary" onClick={() => navigate('/login')}>Login</Button>
+              <Button variant="outline-primary" onClick={() => navigate('/login')}>
+                Login
+              </Button>
             )}
           </Nav>
         </BootstrapNavbar.Collapse>

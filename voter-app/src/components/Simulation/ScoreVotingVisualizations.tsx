@@ -2,12 +2,32 @@
 import React from 'react';
 import { Card, Table, ProgressBar, Badge } from 'react-bootstrap';
 import { Bar, Radar, Doughnut } from 'react-chartjs-2';
-import { Chart as ChartJS, CategoryScale, LinearScale, BarElement, Title, Tooltip, Legend, PointElement, LineElement, RadialLinearScale, ArcElement } from 'chart.js';
+import {
+  Chart as ChartJS,
+  CategoryScale,
+  LinearScale,
+  BarElement,
+  Title,
+  Tooltip,
+  Legend,
+  PointElement,
+  LineElement,
+  RadialLinearScale,
+  ArcElement,
+} from 'chart.js';
 import { ScoreVote, ScoreVotingComparisonProps, ScoreVotingResult } from '../../types';
 
 ChartJS.register(
-  CategoryScale, LinearScale, BarElement, Title, Tooltip, Legend,
-  PointElement, LineElement, RadialLinearScale, ArcElement
+  CategoryScale,
+  LinearScale,
+  BarElement,
+  Title,
+  Tooltip,
+  Legend,
+  PointElement,
+  LineElement,
+  RadialLinearScale,
+  ArcElement
 );
 
 interface ScoreVotingVisualizationProps {
@@ -16,7 +36,11 @@ interface ScoreVotingVisualizationProps {
   result: ScoreVotingResult;
 }
 
-const ScoreVotingVisualizations: React.FC<ScoreVotingComparisonProps> = ({ scores, candidates, results }) => {
+const ScoreVotingVisualizations: React.FC<ScoreVotingComparisonProps> = ({
+  scores,
+  candidates,
+  results,
+}) => {
   return (
     <div className="score-voting-comparison">
       <h3 className="mb-4">Score-Based Voting Method Comparison</h3>
@@ -91,15 +115,22 @@ const ScoreVotingVisualizations: React.FC<ScoreVotingComparisonProps> = ({ score
 };
 
 // 1. Simple Score Visualization
-const SimpleScoreVisualization: React.FC<ScoreVotingVisualizationProps> = ({ scores, candidates, result }) => {
+const SimpleScoreVisualization: React.FC<ScoreVotingVisualizationProps> = ({
+  scores,
+  candidates,
+  result,
+}) => {
   // Calculate average scores for visualization
-  const candidateScores = candidates.reduce((acc, candidate) => {
-    acc[candidate] = { sum: 0, count: 0 };
-    return acc;
-  }, {} as Record<string, { sum: number, count: number }>);
+  const candidateScores = candidates.reduce(
+    (acc, candidate) => {
+      acc[candidate] = { sum: 0, count: 0 };
+      return acc;
+    },
+    {} as Record<string, { sum: number; count: number }>
+  );
 
   scores.forEach(({ scores: voterScores }) => {
-    candidates.forEach(candidate => {
+    candidates.forEach((candidate) => {
       if (candidate in voterScores) {
         candidateScores[candidate].sum += voterScores[candidate];
         candidateScores[candidate].count++;
@@ -107,7 +138,7 @@ const SimpleScoreVisualization: React.FC<ScoreVotingVisualizationProps> = ({ sco
     });
   });
 
-  const averages = candidates.map(candidate => {
+  const averages = candidates.map((candidate) => {
     const { sum, count } = candidateScores[candidate];
     return count > 0 ? sum / count : 0;
   });
@@ -119,8 +150,14 @@ const SimpleScoreVisualization: React.FC<ScoreVotingVisualizationProps> = ({ sco
         label: 'Average Score',
         data: averages,
         backgroundColor: [
-          '#FF6384', '#36A2EB', '#FFCE56', '#4BC0C0',
-          '#9966FF', '#FF9F40', '#8AC24A', '#EA5F89'
+          '#FF6384',
+          '#36A2EB',
+          '#FFCE56',
+          '#4BC0C0',
+          '#9966FF',
+          '#FF9F40',
+          '#8AC24A',
+          '#EA5F89',
         ],
       },
     ],
@@ -131,8 +168,8 @@ const SimpleScoreVisualization: React.FC<ScoreVotingVisualizationProps> = ({ sco
       <Card.Header>Simple Score Voting</Card.Header>
       <Card.Body>
         <p>
-          Simple Score Voting calculates the average score for each candidate.
-          The candidate with the highest average score wins.
+          Simple Score Voting calculates the average score for each candidate. The candidate with
+          the highest average score wins.
         </p>
 
         <div className="row">
@@ -192,7 +229,11 @@ const SimpleScoreVisualization: React.FC<ScoreVotingVisualizationProps> = ({ sco
 };
 
 // 2. STAR Voting Visualization
-const STARVotingVisualization: React.FC<ScoreVotingVisualizationProps> = ({ scores, candidates, result }) => {
+const STARVotingVisualization: React.FC<ScoreVotingVisualizationProps> = ({
+  scores,
+  candidates,
+  result,
+}) => {
   const details = result.details;
 
   // Prepare data for first round (average scores)
@@ -201,12 +242,18 @@ const STARVotingVisualization: React.FC<ScoreVotingVisualizationProps> = ({ scor
     datasets: [
       {
         label: 'Average Score',
-        data: candidates.map(candidate =>
+        data: candidates.map((candidate) =>
           details.first_round ? details.first_round[candidate] || 0 : 0
         ),
         backgroundColor: [
-          '#FF6384', '#36A2EB', '#FFCE56', '#4BC0C0',
-          '#9966FF', '#FF9F40', '#8AC24A', '#EA5F89'
+          '#FF6384',
+          '#36A2EB',
+          '#FFCE56',
+          '#4BC0C0',
+          '#9966FF',
+          '#FF9F40',
+          '#8AC24A',
+          '#EA5F89',
         ],
       },
     ],
@@ -233,8 +280,8 @@ const STARVotingVisualization: React.FC<ScoreVotingVisualizationProps> = ({ scor
       <Card.Header>STAR Voting (Score Then Automatic Runoff)</Card.Header>
       <Card.Body>
         <p>
-          STAR Voting first calculates average scores for all candidates.
-          Then it holds an automatic runoff between the top two scorers.
+          STAR Voting first calculates average scores for all candidates. Then it holds an automatic
+          runoff between the top two scorers.
         </p>
 
         <h6>First Round: Average Scores</h6>
@@ -273,7 +320,7 @@ const STARVotingVisualization: React.FC<ScoreVotingVisualizationProps> = ({ scor
                 </tr>
               </thead>
               <tbody>
-                {candidates.map(candidate => (
+                {candidates.map((candidate) => (
                   <tr key={candidate}>
                     <td>{candidate}</td>
                     <td>{(details.first_round?.[candidate] || 0).toFixed(2)}</td>
@@ -318,12 +365,12 @@ const STARVotingVisualization: React.FC<ScoreVotingVisualizationProps> = ({ scor
                     <Card.Title>Runoff Results</Card.Title>
                     <ul>
                       <li>
-                        {runoffData.labels[0]}: {details.runoff.votes1} votes
-                        ({((details.runoff.votes1 / scores.length) * 100).toFixed(1)}%)
+                        {runoffData.labels[0]}: {details.runoff.votes1} votes (
+                        {((details.runoff.votes1 / scores.length) * 100).toFixed(1)}%)
                       </li>
                       <li>
-                        {runoffData.labels[1]}: {details.runoff.votes2} votes
-                        ({((details.runoff.votes2 / scores.length) * 100).toFixed(1)}%)
+                        {runoffData.labels[1]}: {details.runoff.votes2} votes (
+                        {((details.runoff.votes2 / scores.length) * 100).toFixed(1)}%)
                       </li>
                       <li>Tied: {details.runoff.tied} votes</li>
                     </ul>
@@ -345,10 +392,14 @@ const STARVotingVisualization: React.FC<ScoreVotingVisualizationProps> = ({ scor
 };
 
 // 3. Median Voting Visualization
-const MedianVotingVisualization: React.FC<ScoreVotingVisualizationProps> = ({ scores, candidates, result }) => {
+const MedianVotingVisualization: React.FC<ScoreVotingVisualizationProps> = ({
+  scores,
+  candidates,
+  result,
+}) => {
   const details = result.details;
 
-  const medians = candidates.map(candidate => details[candidate] || 0);
+  const medians = candidates.map((candidate) => details[candidate] || 0);
 
   const data = {
     labels: candidates,
@@ -357,8 +408,14 @@ const MedianVotingVisualization: React.FC<ScoreVotingVisualizationProps> = ({ sc
         label: 'Median Score',
         data: medians,
         backgroundColor: [
-          '#FF6384', '#36A2EB', '#FFCE56', '#4BC0C0',
-          '#9966FF', '#FF9F40', '#8AC24A', '#EA5F89'
+          '#FF6384',
+          '#36A2EB',
+          '#FFCE56',
+          '#4BC0C0',
+          '#9966FF',
+          '#FF9F40',
+          '#8AC24A',
+          '#EA5F89',
         ],
       },
     ],
@@ -369,8 +426,8 @@ const MedianVotingVisualization: React.FC<ScoreVotingVisualizationProps> = ({ sc
       <Card.Header>Median Voting</Card.Header>
       <Card.Body>
         <p>
-          Median Voting selects the candidate with the highest median score.
-          The median is less sensitive to outliers than the mean.
+          Median Voting selects the candidate with the highest median score. The median is less
+          sensitive to outliers than the mean.
         </p>
 
         <div className="row">
@@ -408,7 +465,7 @@ const MedianVotingVisualization: React.FC<ScoreVotingVisualizationProps> = ({ sc
                 </tr>
               </thead>
               <tbody>
-                {candidates.map(candidate => (
+                {candidates.map((candidate) => (
                   <tr key={candidate}>
                     <td>{candidate}</td>
                     <td>{(details[candidate] || 0).toFixed(2)}</td>
@@ -430,7 +487,11 @@ const MedianVotingVisualization: React.FC<ScoreVotingVisualizationProps> = ({ sc
 };
 
 // 4. Mean-Median Hybrid Visualization
-const MeanMedianHybridVisualization: React.FC<ScoreVotingVisualizationProps> = ({ scores, candidates, result }) => {
+const MeanMedianHybridVisualization: React.FC<ScoreVotingVisualizationProps> = ({
+  scores,
+  candidates,
+  result,
+}) => {
   const details = result.details;
 
   const meanData = {
@@ -471,8 +532,8 @@ const MeanMedianHybridVisualization: React.FC<ScoreVotingVisualizationProps> = (
       <Card.Header>Mean-Median Hybrid</Card.Header>
       <Card.Body>
         <p>
-          This method combines both mean and median scores to balance
-          average performance with consistency.
+          This method combines both mean and median scores to balance average performance with
+          consistency.
         </p>
 
         <div className="row">
@@ -572,7 +633,11 @@ const MeanMedianHybridVisualization: React.FC<ScoreVotingVisualizationProps> = (
 };
 
 // 5. Variance-Based Visualization
-const VarianceBasedVisualization: React.FC<ScoreVotingVisualizationProps> = ({ scores, candidates, result }) => {
+const VarianceBasedVisualization: React.FC<ScoreVotingVisualizationProps> = ({
+  scores,
+  candidates,
+  result,
+}) => {
   const details = result.details;
 
   const meanData = {
@@ -613,9 +678,8 @@ const VarianceBasedVisualization: React.FC<ScoreVotingVisualizationProps> = ({ s
       <Card.Header>Variance-Based Voting</Card.Header>
       <Card.Body>
         <p>
-          This method considers both average scores and score consistency.
-          Candidates with high average scores and low variance (consistent scores)
-          are preferred.
+          This method considers both average scores and score consistency. Candidates with high
+          average scores and low variance (consistent scores) are preferred.
         </p>
 
         <div className="row">
@@ -715,23 +779,49 @@ const VarianceBasedVisualization: React.FC<ScoreVotingVisualizationProps> = ({ s
 };
 
 // 6. Score Distribution Visualization
-const ScoreDistributionVisualization: React.FC<ScoreVotingVisualizationProps> = ({ scores, candidates, result }) => {
+const ScoreDistributionVisualization: React.FC<ScoreVotingVisualizationProps> = ({
+  scores,
+  candidates,
+  result,
+}) => {
   const details = result.details;
 
   // Prepare data for radar chart (showing distribution percentages)
   const radarData = {
-    labels: ['0-0.5', '0.5-1', '1-1.5', '1.5-2', '2-2.5', '2.5-3', '3-3.5', '3.5-4', '4-4.5', '4.5-5'],
+    labels: [
+      '0-0.5',
+      '0.5-1',
+      '1-1.5',
+      '1.5-2',
+      '2-2.5',
+      '2.5-3',
+      '3-3.5',
+      '3.5-4',
+      '4-4.5',
+      '4.5-5',
+    ],
     datasets: candidates.map((candidate, index) => ({
       label: candidate,
       data: details.find((d: any) => d.candidate === candidate)?.percentages || [],
       borderColor: [
-        '#FF6384', '#36A2EB', '#FFCE56', '#4BC0C0',
-        '#9966FF', '#FF9F40', '#8AC24A', '#EA5F89'
+        '#FF6384',
+        '#36A2EB',
+        '#FFCE56',
+        '#4BC0C0',
+        '#9966FF',
+        '#FF9F40',
+        '#8AC24A',
+        '#EA5F89',
       ][index % 8],
       backgroundColor: [
-        'rgba(255, 99, 132, 0.2)', 'rgba(54, 162, 235, 0.2)', 'rgba(255, 206, 86, 0.2)',
-        'rgba(75, 192, 192, 0.2)', 'rgba(153, 102, 255, 0.2)', 'rgba(255, 159, 64, 0.2)',
-        'rgba(138, 194, 74, 0.2)', 'rgba(234, 95, 137, 0.2)'
+        'rgba(255, 99, 132, 0.2)',
+        'rgba(54, 162, 235, 0.2)',
+        'rgba(255, 206, 86, 0.2)',
+        'rgba(75, 192, 192, 0.2)',
+        'rgba(153, 102, 255, 0.2)',
+        'rgba(255, 159, 64, 0.2)',
+        'rgba(138, 194, 74, 0.2)',
+        'rgba(234, 95, 137, 0.2)',
       ][index % 8],
       borderWidth: 1,
     })),
@@ -742,9 +832,8 @@ const ScoreDistributionVisualization: React.FC<ScoreVotingVisualizationProps> = 
       <Card.Header>Score Distribution Analysis</Card.Header>
       <Card.Body>
         <p>
-          This analysis shows the distribution of scores for each candidate.
-          The radar chart below shows the percentage of scores in each range (0-0.5, 0.5-1, etc.)
-          for each candidate.
+          This analysis shows the distribution of scores for each candidate. The radar chart below
+          shows the percentage of scores in each range (0-0.5, 0.5-1, etc.) for each candidate.
         </p>
 
         <Radar
@@ -763,9 +852,9 @@ const ScoreDistributionVisualization: React.FC<ScoreVotingVisualizationProps> = 
                 max: 0.5, // Since we're showing percentages (0-1 normalized to 0-0.5)
                 ticks: {
                   stepSize: 0.1,
-                //   callback: function(value: number) {
-                //     return (value * 200).toFixed(0) + '%';
-                //   }
+                  //   callback: function(value: number) {
+                  //     return (value * 200).toFixed(0) + '%';
+                  //   }
                 },
               },
             },
@@ -796,7 +885,11 @@ const ScoreDistributionVisualization: React.FC<ScoreVotingVisualizationProps> = 
 };
 
 // 7. Bayesian Regret Visualization
-const BayesianRegretVisualization: React.FC<ScoreVotingVisualizationProps> = ({ scores, candidates, result }) => {
+const BayesianRegretVisualization: React.FC<ScoreVotingVisualizationProps> = ({
+  scores,
+  candidates,
+  result,
+}) => {
   const details = result.details;
 
   const regretData = {
@@ -826,8 +919,8 @@ const BayesianRegretVisualization: React.FC<ScoreVotingVisualizationProps> = ({ 
       <Card.Header>Bayesian Regret Analysis</Card.Header>
       <Card.Body>
         <p>
-          Bayesian Regret measures the expected disappointment voters would feel
-          if a particular candidate wins. A lower regret is better.
+          Bayesian Regret measures the expected disappointment voters would feel if a particular
+          candidate wins. A lower regret is better.
         </p>
 
         <div className="row">
@@ -905,7 +998,8 @@ const BayesianRegretVisualization: React.FC<ScoreVotingVisualizationProps> = ({ 
           <div className="alert alert-success mt-3">
             <strong>Bayesian Regret Winner:</strong> {result.winner}
             <p className="mb-0">
-              (Lowest Regret: {details.find((item: any) => item.candidate === result.winner)?.avgRegret.toFixed(3)})
+              (Lowest Regret:{' '}
+              {details.find((item: any) => item.candidate === result.winner)?.avgRegret.toFixed(3)})
             </p>
           </div>
         )}

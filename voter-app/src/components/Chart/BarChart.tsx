@@ -11,7 +11,7 @@ const BarChart: React.FC<BarChartProps> = ({ data }) => {
   useEffect(() => {
     if (data && ref.current) {
       // Clear previous rendering
-      d3.select(ref.current).selectAll("*").remove();
+      d3.select(ref.current).selectAll('*').remove();
 
       const svg = d3.select(ref.current);
       const margin = { top: 20, right: 30, bottom: 30, left: 40 };
@@ -31,27 +31,27 @@ const BarChart: React.FC<BarChartProps> = ({ data }) => {
         .range([height, 0]);
 
       svg
-        .append("g")
-        .attr("transform", `translate(${margin.left},${margin.top})`)
-        .selectAll(".bar")
+        .append('g')
+        .attr('transform', `translate(${margin.left},${margin.top})`)
+        .selectAll('.bar')
         .data(data)
         .enter()
-        .append("rect")
-        .attr("class", "bar")
-        .attr("x", (d) => x(d.label)!)
-        .attr("y", (d) => y(d.value))
-        .attr("width", x.bandwidth())
-        .attr("height", (d) => height - y(d.value))
-        .attr("fill", "steelblue");
+        .append('rect')
+        .attr('class', 'bar')
+        .attr('x', (d) => x(d.label)!)
+        .attr('y', (d) => y(d.value))
+        .attr('width', x.bandwidth())
+        .attr('height', (d) => height - y(d.value))
+        .attr('fill', 'steelblue');
 
       svg
-        .append("g")
-        .attr("transform", `translate(${margin.left},${height + margin.top})`)
+        .append('g')
+        .attr('transform', `translate(${margin.left},${height + margin.top})`)
         .call(d3.axisBottom(x));
 
       svg
-        .append("g")
-        .attr("transform", `translate(${margin.left},${margin.top})`)
+        .append('g')
+        .attr('transform', `translate(${margin.left},${margin.top})`)
         .call(d3.axisLeft(y));
     }
   }, [data]);

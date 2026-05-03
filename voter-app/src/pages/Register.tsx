@@ -30,10 +30,9 @@ const Register: React.FC = () => {
 
     if (password !== confirmPassword) {
       setError('Passwords do not match');
-
     }
     try {
-      const response  = await registerUser(username, password, role, firstName, lastName);
+      const response = await registerUser(username, password, role, firstName, lastName);
       setSuccess('Registration successful! Redirecting to homepage...');
       setIsLoading(false);
       if (response) {
@@ -42,11 +41,10 @@ const Register: React.FC = () => {
       setTimeout(() => {
         navigate('/');
       }, 1500);
-
     } catch (error) {
       const axiosError = error as AxiosError<ApiErrorResponse>;
-      setError(axiosError.response?.data?.msg ||'Registration failed. Please try again.');
-      setIsLoading(false)
+      setError(axiosError.response?.data?.msg || 'Registration failed. Please try again.');
+      setIsLoading(false);
       return;
     }
   };
@@ -55,7 +53,11 @@ const Register: React.FC = () => {
     <Container className="mt-5">
       <Row className="justify-content-center">
         <Col md={6} lg={4}>
-          {error && <Alert variant="danger" onClose={() => setError(null)} dismissible>{error}</Alert>}
+          {error && (
+            <Alert variant="danger" onClose={() => setError(null)} dismissible>
+              {error}
+            </Alert>
+          )}
           {success && <Alert variant="success">{success}</Alert>}
           <Form onSubmit={handleSubmit}>
             <Form.Group controlId="formUsername">
@@ -85,8 +87,8 @@ const Register: React.FC = () => {
                 value={confirmPassword}
                 onChange={(e) => setConfirmPassword(e.target.value)}
                 placeholder="Confirm Password"
-                required>
-              </Form.Control>
+                required
+              ></Form.Control>
             </Form.Group>
             <Form.Group controlId="formRole">
               <Form.Label>Role</Form.Label>
@@ -126,10 +128,16 @@ const Register: React.FC = () => {
             <Button variant="primary" type="submit" disabled={isLoading} className="mt-3 w-100">
               {isLoading ? (
                 <>
-                  <span className="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span>
+                  <span
+                    className="spinner-border spinner-border-sm"
+                    role="status"
+                    aria-hidden="true"
+                  ></span>
                   Registering...
                 </>
-              ) : 'Register'}
+              ) : (
+                'Register'
+              )}
             </Button>
           </Form>
         </Col>
@@ -138,4 +146,4 @@ const Register: React.FC = () => {
   );
 };
 
-export default Register
+export default Register;
