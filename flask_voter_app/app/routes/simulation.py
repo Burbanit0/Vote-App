@@ -34,6 +34,7 @@ from app.utils.simulation_score_utils import (
     get_variance_based_winner,
 )
 from app.utils.simulation_metrics import compare_all_methods, get_condorcet_matrix
+from app.utils.arrow_criteria import check_all_criteria
 
 
 simulation_bp = Blueprint("simulations", __name__, url_prefix="/simulations")
@@ -1221,3 +1222,36 @@ def sensitivity_analysis():
             })
 
     return jsonify({"variable": variable, "values": values, "results": results}), 200
+
+
+# ── /simulations/arrow-criteria ───────────────────────────────────────────
+
+@simulation_bp.route("/arrow-criteria", methods=["POST"])
+def arrow_criteria_route():
+    """
+    Empirically verify Arrow's impossibility theorem criteria for every
+    ranked voting method on a fresh simulated population.
+
+    Body: {
+        "num_voters": int,
+        "ideology_distribution": str,           // optional, default "random"
+        "candidates": [str, ...] | [dict, ...]
+    }
+    """
+    data = request.get_json() or {}
+    num_voters = int(data.get("num_voters", 300))
+    ideology_distribution = data.get("ideology_distribution", "random")
+    raw_candidates = data.get("candidates", ["Alice", "Bob", "Charlie"])
+
+    candidate_configs = _parse_candidate_configs(raw_candidates)
+    if len(candidate_configs) < 2:
+        return jsonify({"error": "At least 2 candidates required"}), 400
+
+    try:
+        voters, candidates, issues = _build_population(
+            candidate_configs, num_voters, ideology_distribution
+        )
+        result = check_all_criteria(voters, candidates, issues)
+        return jsonify(result), 200
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500

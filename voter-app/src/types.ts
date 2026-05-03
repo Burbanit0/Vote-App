@@ -142,6 +142,28 @@ export interface CondorcetMatrixResult {
   condorcet_cycles: string[][];
 }
 
+// --- Arrow criteria ---
+
+export interface MethodCriteria {
+  winner: string | null;
+  condorcet_winner: boolean | null;
+  condorcet_loser: boolean | null;
+  monotonicity: boolean | null;
+  iia: boolean | null;
+  iia_violation_rate: number | null;
+  majority: boolean | null;
+  reversal_symmetry: boolean | null;
+}
+
+export interface ArrowCriteriaResult {
+  methods: Record<string, MethodCriteria>;
+  summary: {
+    most_criteria_satisfied: string;
+    least_criteria_satisfied: string;
+    criteria_satisfaction_count: Record<string, number>;
+  };
+}
+
 // --- Simulation comparison ---
 
 export interface MethodComparison {
