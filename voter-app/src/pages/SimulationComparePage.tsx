@@ -15,6 +15,7 @@ import {
   Tabs,
 } from 'react-bootstrap';
 import CondorcetMatrix from '../components/Simulation/CondorcetMatrix';
+import ArrowCriteriaMatrix from '../components/Simulation/ArrowCriteriaMatrix';
 import {
   Bar,
   BarChart,
@@ -28,6 +29,7 @@ import {
   YAxis,
 } from 'recharts';
 import {
+  ArrowCriteriaResult,
   CondorcetMatrixResult,
   ScenarioDetail,
   ScenarioSummary,
@@ -36,6 +38,7 @@ import {
   StrategicImpactPoint,
 } from '../types';
 import {
+  getArrowCriteria,
   getCondorcetMatrix,
   getSensitivityAnalysis,
   runComparisonSimulation,
@@ -259,6 +262,7 @@ const SimulationComparePage: React.FC = () => {
   const [comparisonResults, setComparisonResults] = useState<SimulationCompareResult[]>([]);
   const [strategicData, setStrategicData] = useState<StrategicImpactPoint[]>([]);
   const [condorcetData, setCondorcetData] = useState<CondorcetMatrixResult | null>(null);
+  const [arrowData, setArrowData] = useState<ArrowCriteriaResult | null>(null);
   const [resultsB, setResultsB] = useState<SimulationCompareResult[] | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -544,22 +548,25 @@ const SimulationComparePage: React.FC = () => {
         ideology_distribution: configB.ideology_distribution,
       };
 
-      const [simResultsA, strategicResults, condorcetResult, simResultsB] = await Promise.all([
-        Promise.all(
-          Array.from({ length: numSimulations }, () => runComparisonSimulation(paramsA))
-        ),
-        runStrategicImpactAnalysis({ ...paramsA, strategic_percentages: STRATEGIC_PERCENTAGES }),
-        getCondorcetMatrix(paramsA),
-        scenarioCount === 2
-          ? Promise.all(
-              Array.from({ length: numSimulations }, () => runComparisonSimulation(paramsB))
-            )
-          : Promise.resolve(null),
-      ]);
+      const [simResultsA, strategicResults, condorcetResult, arrowResult, simResultsB] =
+        await Promise.all([
+          Promise.all(
+            Array.from({ length: numSimulations }, () => runComparisonSimulation(paramsA))
+          ),
+          runStrategicImpactAnalysis({ ...paramsA, strategic_percentages: STRATEGIC_PERCENTAGES }),
+          getCondorcetMatrix(paramsA),
+          getArrowCriteria(paramsA),
+          scenarioCount === 2
+            ? Promise.all(
+                Array.from({ length: numSimulations }, () => runComparisonSimulation(paramsB))
+              )
+            : Promise.resolve(null),
+        ]);
 
       setComparisonResults(simResultsA);
       setStrategicData(strategicResults);
       setCondorcetData(condorcetResult);
+      setArrowData(arrowResult);
       setResultsB(simResultsB);
     } catch {
       setError('Analysis failed. Make sure the backend is running and the endpoints exist.');
@@ -1027,7 +1034,26 @@ const SimulationComparePage: React.FC = () => {
             </Card>
           </Tab>
 
-          {/* ── Tab 5: Sensitivity Analysis ── */}
+          {/* ── Tab 5: Arrow Criteria ── */}
+          <Tab eventKey="arrow" title="Arrow Criteria">
+            <Card className="mb-4">
+              <Card.Header>
+                <strong>Arrow's Impossibility Criteria</strong>
+                <span className="text-muted ms-2" style={{ fontSize: '0.85rem' }}>
+                  — empirical verification on the simulated population (Scenario A)
+                </span>
+              </Card.Header>
+              <Card.Body>
+                {arrowData ? (
+                  <ArrowCriteriaMatrix result={arrowData} />
+                ) : (
+                  <Alert variant="info">No Arrow criteria data available.</Alert>
+                )}
+              </Card.Body>
+            </Card>
+          </Tab>
+
+          {/* ── Tab 6: Sensitivity Analysis ── */}
           <Tab eventKey="sensitivity" title="Sensitivity">
             <Card className="mb-4">
               <Card.Header>

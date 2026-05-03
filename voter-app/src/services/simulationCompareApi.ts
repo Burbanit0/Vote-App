@@ -1,5 +1,6 @@
 import axios from 'axios';
 import {
+  ArrowCriteriaResult,
   SimulationCompareResult,
   StrategicImpactPoint,
   CondorcetMatrixResult,
@@ -103,6 +104,22 @@ export const getSensitivityAnalysis = async (
     return response.data;
   } catch (error) {
     console.error('Failed to run sensitivity analysis', error);
+    throw error;
+  }
+};
+
+export const getArrowCriteria = async (
+  params: CompareParams
+): Promise<ArrowCriteriaResult> => {
+  try {
+    const response = await axios.post<ArrowCriteriaResult>(
+      `${API_BASE_URL}/simulations/arrow-criteria`,
+      params,
+      { headers: getAuthHeader() }
+    );
+    return response.data;
+  } catch (error) {
+    console.error('Failed to run Arrow criteria check', error);
     throw error;
   }
 };
