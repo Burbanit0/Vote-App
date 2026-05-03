@@ -365,6 +365,8 @@ def get_minimax_winner(votes: list) -> Optional[str]:
             pos2 = ranking.index(c2) if c2 in ranking else float("inf")
             if pos2 < pos1:
                 opposition[(c1, c2)] += 1
+            elif pos1 < pos2:
+                opposition[(c2, c1)] += 1
 
     if not candidates:
         return None
@@ -399,10 +401,13 @@ def get_schulze_winner(votes: list) -> Optional[str]:
             pos2 = ranking.index(c2) if c2 in ranking else float("inf")
             if pos1 < pos2:
                 pref[c1][c2] += 1
+            elif pos2 < pos1:
+                pref[c2][c1] += 1
 
     strength = defaultdict(lambda: defaultdict(int))
     for c1, c2 in combinations(candidates, 2):
         strength[c1][c2] = pref[c1][c2]
+        strength[c2][c1] = pref[c2][c1]
 
     for c1, c2, c3 in permutations(candidates, 3):
         strength[c1][c2] = max(strength[c1][c2], min(strength[c1][c3], strength[c3][c2]))
@@ -411,6 +416,8 @@ def get_schulze_winner(votes: list) -> Optional[str]:
     for c1, c2 in combinations(candidates, 2):
         if strength[c1][c2] > strength[c2][c1]:
             wins[c1] += 1
+        elif strength[c2][c1] > strength[c1][c2]:
+            wins[c2] += 1
 
     if not wins:
         return next(iter(candidates), None)
