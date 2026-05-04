@@ -5,7 +5,6 @@ import { Card, Container, Alert, ListGroup } from 'react-bootstrap';
 import { useAuth } from '../../context/AuthContext';
 import { Profile_ } from '../../types';
 import { fetchProfileData } from '../../services';
-import PartyMembership from '../Party/PartyMembership';
 import profilePicture from '../../../src/assets/profile_picture/profile_picture_user3.jpg';
 
 const Profile: React.FC = () => {
@@ -64,48 +63,6 @@ const Profile: React.FC = () => {
                   </Card.Text>
                 </div>
               </div>
-              <div>
-                <PartyMembership />
-              </div>
-            </div>
-          )}
-        </Card.Body>
-      </Card>
-      <Card className="mt-1">
-        <Card.Body>
-          <Card.Title>Participation details</Card.Title>
-          {profile?.participation_details && (
-            <div>
-              <ListGroup>
-                <Card.Text>Voter: </Card.Text>
-                {profile?.participation_details.voter.length > 0 ? (
-                  profile?.participation_details.voter.map((voter) => (
-                    <ListGroup.Item key={voter}>{voter}</ListGroup.Item>
-                  ))
-                ) : (
-                  <Card.Text>None</Card.Text>
-                )}
-              </ListGroup>
-              <ListGroup>
-                <Card.Text>Candidate: </Card.Text>
-                {profile?.participation_details.candidate.length > 0 ? (
-                  profile?.participation_details.candidate.map((candidate) => (
-                    <ListGroup.Item key={candidate}>{candidate}</ListGroup.Item>
-                  ))
-                ) : (
-                  <Card.Text>None</Card.Text>
-                )}
-              </ListGroup>
-              <ListGroup>
-                <Card.Text>Organizer: </Card.Text>
-                {profile?.participation_details.organizer.length > 0 ? (
-                  profile?.participation_details.organizer.map((organizer) => (
-                    <ListGroup.Item key={organizer}>{organizer}</ListGroup.Item>
-                  ))
-                ) : (
-                  <Card.Text>None</Card.Text>
-                )}
-              </ListGroup>
             </div>
           )}
         </Card.Body>

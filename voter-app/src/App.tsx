@@ -11,8 +11,6 @@ import Login from './pages/Login';
 import Register from './pages/Register';
 import ProfilePage from './pages/ProfilePage';
 import UserProfilePage from './pages/UserProfilePage';
-import PartyPage from './pages/PartyPage';
-import PartyDetailPage from './pages/PartyDetailPage';
 
 import { useAuth } from './context/AuthContext';
 import AuthGuard from './context/AuthGuard';
@@ -36,8 +34,6 @@ const AppContent: React.FC = () => {
           <Route path="/" element={<AuthGuard component={HomePage} />} />
           <Route path="/profile" element={<AuthGuard component={ProfilePage} />} />
           <Route path="users/:id" element={<AuthGuard component={UserProfilePage} />} />
-          <Route path="/parties" element={<AuthGuard component={PartyPage} />} />
-          <Route path="/parties/:party_id" element={<AuthGuard component={PartyDetailPage} />} />
           <Route path="/simulation" element={<AuthGuard component={SimulationPage} />} />
           <Route path="/simulation/compare" element={<AuthGuard component={SimulationComparePage} />} />
         </Routes>
