@@ -248,6 +248,113 @@ def compare_all_methods(voters: List[Dict], candidates: List[Dict], issues: List
     }
 
 
+def compare_all_methods_mc(
+    voters: List[Dict],
+    candidates: List[Dict],
+    issues: List[str],
+) -> Dict[str, Any]:
+    """
+    Lightweight version of compare_all_methods optimised for Monte Carlo runs.
+
+    Skips strategic_vulnerability (permutation search) which is O(n! × voters)
+    and would make 500-run MC unfeasibly slow. Returns winner, bayesian_regret,
+    majority_satisfaction, and condorcet_consistent for every method.
+    """
+    if not voters or not candidates:
+        return {"condorcet_winner": None, "methods": {}}
+
+    candidate_names = [c["name"] for c in candidates]
+
+    utilities: Dict[Any, Dict[str, float]] = {
+        voter["id"]: {
+            c["name"]: calculate_utility(voter, c, issues)["utility"]
+            for c in candidates
+        }
+        for voter in voters
+    }
+
+    rankings: List[List[str]] = [
+        sorted(candidate_names, key=lambda name: -utilities[v["id"]][name])
+        for v in voters
+    ]
+    score_votes: List[Dict[str, int]] = [
+        {
+            name: max(0, min(5, round(5 * utilities[v["id"]][name])))
+            for name in candidate_names
+        }
+        for v in voters
+    ]
+
+    condorcet_winner: Optional[str] = get_condorcet_winner(rankings)
+
+    def _regret(winner: Optional[str]) -> Optional[float]:
+        if not winner:
+            return None
+        return round(
+            sum(
+                max(utilities[v["id"]].values()) - utilities[v["id"]].get(winner, 0)
+                for v in voters
+            ) / len(voters),
+            6,
+        )
+
+    def _satisfaction(winner: Optional[str]) -> Optional[float]:
+        if not winner:
+            return None
+        return round(
+            sum(
+                1 for v in voters
+                if all(
+                    utilities[v["id"]].get(winner, 0) > utilities[v["id"]].get(other, 0)
+                    for other in candidate_names if other != winner
+                )
+            ) / len(voters),
+            4,
+        )
+
+    ranked_methods: Dict[str, Any] = {
+        "plurality":        get_plurality_winner,
+        "two_round":        get_two_round_winner,
+        "borda":            get_borda_winner,
+        "approval":         get_approval_winner,
+        "irv":              get_irv_winner,
+        "coombs":           get_coombs_winner,
+        "bucklin":          get_bucklin_winner,
+        "minimax":          get_minimax_winner,
+        "schulze":          get_schulze_winner,
+    }
+    score_methods: Dict[str, Any] = {
+        "simple_score":       get_simple_score_winner,
+        "star_voting":        get_star_voting_winner,
+        "median_voting":      get_median_voting_winner,
+        "mean_median_hybrid": get_mean_median_hybrid_winner,
+        "variance_based":     get_variance_based_winner,
+    }
+
+    methods_result: Dict[str, Dict] = {}
+
+    for name, fn in ranked_methods.items():
+        winner = fn(rankings)
+        methods_result[name] = {
+            "winner":                winner,
+            "bayesian_regret":       _regret(winner),
+            "majority_satisfaction": _satisfaction(winner),
+            "condorcet_consistent":  (winner == condorcet_winner) if condorcet_winner else None,
+        }
+
+    for name, fn in score_methods.items():
+        raw = fn(score_votes)
+        winner = raw.get("winner") if isinstance(raw, dict) else raw
+        methods_result[name] = {
+            "winner":                winner,
+            "bayesian_regret":       _regret(winner),
+            "majority_satisfaction": _satisfaction(winner),
+            "condorcet_consistent":  (winner == condorcet_winner) if condorcet_winner else None,
+        }
+
+    return {"condorcet_winner": condorcet_winner, "methods": methods_result}
+
+
 def get_condorcet_matrix(
     voters: List[Dict],
     candidates: List[Dict],

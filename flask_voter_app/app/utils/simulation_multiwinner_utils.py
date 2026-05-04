@@ -1,0 +1,278 @@
+"""
+simulation_multiwinner_utils.py
+Proportional and multi-winner voting methods.
+
+Arrow's theorem applies to single-winner ranked rules; these multi-winner
+methods satisfy different axiomatic properties and are designed to ensure
+representational proportionality rather than a single collective choice.
+"""
+import math
+from collections import defaultdict
+from typing import Dict, List, Optional, Any
+
+
+# ── Internal helpers ───────────────────────────────────────────────────────
+
+def _normalise_votes(party_votes: Dict[str, float]) -> Dict[str, float]:
+    """Return a copy with all values converted to floats (handles % inputs)."""
+    return {p: float(v) for p, v in party_votes.items() if float(v) > 0}
+
+
+# ── Single Transferable Vote ───────────────────────────────────────────────
+
+def get_stv_winners(votes: list, num_winners: int) -> List[str]:
+    """
+    Single Transferable Vote with Droop quota and fractional surplus transfer.
+
+    Each vote is either a list of candidate names (ranking) or a dict with a
+    'ranking' key (same format as simulation_ranked_utils).
+
+    Returns the ordered list of elected candidates.
+    """
+    if not votes or num_winners <= 0:
+        return []
+
+    # Normalise input
+    ballots: List[List[str]] = []
+    for v in votes:
+        if isinstance(v, dict):
+            ballots.append(list(v.get("ranking", [])))
+        else:
+            ballots.append(list(v))
+
+    n = len(ballots)
+    droop_quota = n // (num_winners + 1) + 1
+
+    # Pool: list of (weight, remaining_ranking)
+    pool: List[tuple] = [(1.0, r[:]) for r in ballots]
+
+    elected: List[str] = []
+    eliminated: set = set()
+
+    def _first_active(ranking: List[str], excl: set) -> Optional[str]:
+        return next((c for c in ranking if c not in excl), None)
+
+    while len(elected) < num_winners:
+        excluded = eliminated | set(elected)
+
+        # Tally first active choices
+        counts: Dict[str, float] = defaultdict(float)
+        for w, r in pool:
+            c = _first_active(r, excluded)
+            if c:
+                counts[c] += w
+
+        if not counts:
+            break
+
+        remaining_seats = num_winners - len(elected)
+
+        # If ≤ remaining seats left, elect them all
+        if len(counts) <= remaining_seats:
+            elected.extend(sorted(counts, key=lambda c: -counts[c]))
+            break
+
+        # Any candidate at or above quota?
+        above_quota = [(c, v) for c, v in counts.items() if v >= droop_quota]
+
+        if above_quota:
+            above_quota.sort(key=lambda x: -x[1])
+            winner, winner_votes = above_quota[0]
+
+            surplus = winner_votes - droop_quota
+            transfer_factor = surplus / winner_votes if winner_votes > 0 else 0.0
+
+            # Rebuild pool: ballots going to winner get multiplied by transfer_factor
+            prev_excluded = eliminated | set(elected)  # state BEFORE electing winner
+            new_pool: List[tuple] = []
+            for w, r in pool:
+                first = _first_active(r, prev_excluded)
+                new_r = [c for c in r if c != winner]
+                if not new_r:
+                    continue  # exhausted ballot
+                if first == winner:
+                    new_pool.append((w * transfer_factor, new_r))
+                else:
+                    new_pool.append((w, new_r))
+
+            pool = new_pool
+            elected.append(winner)
+
+        else:
+            # Eliminate candidate with fewest first-choice votes (tie-break: alphabetical)
+            min_v = min(counts.values())
+            loser = min(c for c, v in counts.items() if v == min_v)
+            eliminated.add(loser)
+            # Ballots referencing loser will skip them via _first_active
+
+    return elected[:num_winners]
+
+
+# ── Party-list methods ─────────────────────────────────────────────────────
+
+def get_dhondt_winners(party_votes: Dict[str, float], num_seats: int) -> Dict[str, int]:
+    """
+    D'Hondt highest averages method.
+    Divisor sequence: 1, 2, 3, 4, …  → favours larger parties slightly.
+    Used for French European elections, Spanish general elections, etc.
+    """
+    pv = _normalise_votes(party_votes)
+    seats: Dict[str, int] = {p: 0 for p in pv}
+    for _ in range(num_seats):
+        winner = max(pv, key=lambda p: pv[p] / (seats[p] + 1))
+        seats[winner] += 1
+    return seats
+
+
+def get_sainte_lague_winners(party_votes: Dict[str, float], num_seats: int) -> Dict[str, int]:
+    """
+    Sainte-Laguë highest averages method.
+    Divisor sequence: 1, 3, 5, 7, …  → more proportional than D'Hondt,
+    especially for small parties. Used in Norway, Sweden, New Zealand.
+    """
+    pv = _normalise_votes(party_votes)
+    seats: Dict[str, int] = {p: 0 for p in pv}
+    for _ in range(num_seats):
+        winner = max(pv, key=lambda p: pv[p] / (2 * seats[p] + 1))
+        seats[winner] += 1
+    return seats
+
+
+def get_largest_remainder_winners(
+    party_votes: Dict[str, float],
+    num_seats: int,
+    quota: str = "hare",
+) -> Dict[str, int]:
+    """
+    Largest remainder method.
+    - Hare quota  = total_votes / num_seats       (used in Israel, Ukraine)
+    - Droop quota = floor(total / (seats+1)) + 1  (used in some countries)
+
+    Each party gets floor(votes / quota) automatic seats; remaining seats
+    go to parties with the largest fractional remainders.
+    """
+    pv = _normalise_votes(party_votes)
+    total = sum(pv.values())
+    if total == 0 or num_seats <= 0:
+        return {p: 0 for p in pv}
+
+    q = total / num_seats if quota == "hare" else (total // (num_seats + 1) + 1)
+
+    auto: Dict[str, int] = {p: int(pv[p] / q) for p in pv}
+    remainders: Dict[str, float] = {p: (pv[p] / q) - auto[p] for p in pv}
+
+    remaining = num_seats - sum(auto.values())
+    for p in sorted(remainders, key=remainders.get, reverse=True)[:remaining]:
+        auto[p] += 1
+
+    return auto
+
+
+# ── Proportionality metrics ────────────────────────────────────────────────
+
+def compute_proportionality_metrics(
+    party_votes: Dict[str, float],
+    seats_won: Dict[str, int],
+) -> Dict[str, Any]:
+    """
+    Calculate standard proportionality metrics for a seat allocation.
+
+    Returns gallagher_index, largest_deviation, and the Laakso-Taagepera
+    effective number of parties (in votes and in seats).
+    """
+    total_votes = sum(party_votes.values())
+    total_seats = sum(seats_won.values())
+
+    if total_votes == 0 or total_seats == 0:
+        return {
+            "gallagher_index": None,
+            "largest_deviation": None,
+            "effective_parties_votes": None,
+            "effective_parties_seats": None,
+        }
+
+    all_parties = set(party_votes) | set(seats_won)
+    vote_pct = {p: party_votes.get(p, 0.0) / total_votes for p in all_parties}
+    seat_pct = {p: seats_won.get(p, 0) / total_seats for p in all_parties}
+
+    # Gallagher index (LSq): sqrt(0.5 × Σ(seat% − vote%)²)
+    gallagher = math.sqrt(
+        0.5 * sum((seat_pct[p] - vote_pct[p]) ** 2 for p in all_parties)
+    )
+
+    # Largest absolute deviation
+    deviations = {p: seat_pct[p] - vote_pct[p] for p in all_parties}
+    ld_party = max(deviations, key=lambda p: abs(deviations[p]))
+
+    # Laakso-Taagepera: 1 / Σp²
+    eff_votes = 1.0 / sum(v ** 2 for v in vote_pct.values() if v > 0)
+    eff_seats = 1.0 / sum(v ** 2 for v in seat_pct.values() if v > 0)
+
+    return {
+        "gallagher_index": round(gallagher, 4),
+        "largest_deviation": {
+            "party": ld_party,
+            "deviation": round(deviations[ld_party], 4),
+        },
+        "effective_parties_votes": round(eff_votes, 3),
+        "effective_parties_seats": round(eff_seats, 3),
+    }
+
+
+# ── Main comparison function ───────────────────────────────────────────────
+
+def compare_multiwinner_methods(
+    party_votes: Dict[str, float],
+    num_seats: int,
+    voter_rankings: Optional[List] = None,
+) -> Dict[str, Any]:
+    """
+    Run all proportional methods on the same vote distribution and return
+    seats + proportionality metrics for each, plus a ranking by Gallagher index.
+
+    party_votes  — {party_name: vote_count_or_pct}
+    num_seats    — total seats to fill
+    voter_rankings — optional ranked ballots for STV (same format as
+                     simulation_ranked_utils; candidates used as proxies)
+    """
+    pv = _normalise_votes(party_votes)
+    results: Dict[str, Any] = {}
+
+    # Party-list methods
+    for key, fn in [
+        ("dhondt",                  lambda: get_dhondt_winners(pv, num_seats)),
+        ("sainte_lague",            lambda: get_sainte_lague_winners(pv, num_seats)),
+        ("largest_remainder_hare",  lambda: get_largest_remainder_winners(pv, num_seats, "hare")),
+        ("largest_remainder_droop", lambda: get_largest_remainder_winners(pv, num_seats, "droop")),
+    ]:
+        seats = fn()
+        results[key] = {
+            "seats": seats,
+            "metrics": compute_proportionality_metrics(pv, seats),
+        }
+
+    # STV (individual rankings)
+    if voter_rankings:
+        stv_elected = get_stv_winners(voter_rankings, num_seats)
+        results["stv"] = {
+            "winners": stv_elected,
+            "seats": {},  # no party mapping without external lookup
+        }
+
+    # Comparison: rank by Gallagher index (lower = more proportional)
+    ranked = sorted(
+        [
+            (key, results[key]["metrics"]["gallagher_index"])
+            for key in ("dhondt", "sainte_lague", "largest_remainder_hare", "largest_remainder_droop")
+            if results[key]["metrics"].get("gallagher_index") is not None
+        ],
+        key=lambda x: x[1],
+    )
+
+    results["comparison"] = {
+        "most_proportional":  ranked[0][0]  if ranked else None,
+        "least_proportional": ranked[-1][0] if ranked else None,
+        "gallagher_ranking":  [m for m, _ in ranked],
+    }
+
+    return results

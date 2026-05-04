@@ -16,6 +16,10 @@ import {
 } from 'react-bootstrap';
 import CondorcetMatrix from '../components/Simulation/CondorcetMatrix';
 import ArrowCriteriaMatrix from '../components/Simulation/ArrowCriteriaMatrix';
+import BandwagonAnalysis from '../components/Simulation/BandwagonAnalysis';
+import MultiwinnerAnalysis from '../components/Simulation/MultiwinnerAnalysis';
+import RealElectionAnalysis from '../components/Simulation/RealElectionAnalysis';
+import MonteCarloResults from '../components/Simulation/MonteCarloResults';
 import {
   Bar,
   BarChart,
@@ -31,6 +35,8 @@ import {
 import {
   ArrowCriteriaResult,
   CondorcetMatrixResult,
+  RealElectionResult,
+  RealElectionSummary,
   ScenarioDetail,
   ScenarioSummary,
   SensitivityResult,
@@ -38,8 +44,10 @@ import {
   StrategicImpactPoint,
 } from '../types';
 import {
+  analyzeRealElection,
   getArrowCriteria,
   getCondorcetMatrix,
+  getRealElections,
   getSensitivityAnalysis,
   runComparisonSimulation,
   runStrategicImpactAnalysis,
@@ -322,6 +330,32 @@ const SimulationComparePage: React.FC = () => {
   const [showLoadModal, setShowLoadModal] = useState(false);
   const [scenarioList, setScenarioList] = useState<ScenarioSummary[]>([]);
   const [loadingList, setLoadingList] = useState(false);
+
+  // ── Real elections state ──
+  const [realElections, setRealElections] = useState<RealElectionSummary[]>([]);
+  const [selectedRealElection, setSelectedRealElection] = useState('');
+  const [realElectionResult, setRealElectionResult] = useState<RealElectionResult | null>(null);
+  const [realElectionLoading, setRealElectionLoading] = useState(false);
+
+  const handleOpenRealElections = async () => {
+    if (realElections.length > 0) return;
+    try {
+      const list = await getRealElections();
+      setRealElections(list);
+      if (list.length > 0) setSelectedRealElection(list[0].key);
+    } catch { /* silently ignore */ }
+  };
+
+  const handleAnalyzeRealElection = async () => {
+    if (!selectedRealElection) return;
+    setRealElectionLoading(true);
+    try {
+      const result = await analyzeRealElection(selectedRealElection, 1000);
+      setRealElectionResult(result);
+    } finally {
+      setRealElectionLoading(false);
+    }
+  };
 
   // ── Sensitivity state ──
   const [sensitivityVariable, setSensitivityVariable] = useState<
@@ -1053,7 +1087,98 @@ const SimulationComparePage: React.FC = () => {
             </Card>
           </Tab>
 
-          {/* ── Tab 6: Sensitivity Analysis ── */}
+          {/* ── Tab 6: Bandwagon ── */}
+          <Tab eventKey="bandwagon" title="Bandwagon">
+            <BandwagonAnalysis
+              baseParams={{
+                num_voters: configA.numVoters,
+                candidates: candidateNamesA,
+                ideology_distribution: configA.ideology_distribution,
+              }}
+            />
+          </Tab>
+
+          {/* ── Tab 7: Monte Carlo ── */}
+          <Tab eventKey="montecarlo" title="Monte Carlo">
+            <MonteCarloResults
+              baseParams={{
+                num_voters: configA.numVoters,
+                candidates: candidateNamesA,
+                ideology_distribution: configA.ideology_distribution,
+              }}
+            />
+          </Tab>
+
+          {/* ── Tab 8: Real Elections ── */}
+          <Tab
+            eventKey="real-elections"
+            title="Real Elections"
+            onEnter={handleOpenRealElections}
+          >
+            <Card className="mb-4">
+              <Card.Header>
+                <strong>Real Election Analysis</strong>
+                <span className="text-muted ms-2" style={{ fontSize: '0.85rem' }}>
+                  — what would each method have elected from real first-round results?
+                </span>
+              </Card.Header>
+              <Card.Body>
+                <Row className="g-3 align-items-end mb-4">
+                  <Col md={5}>
+                    <Form.Label className="small mb-1">Election</Form.Label>
+                    <Form.Select
+                      size="sm"
+                      value={selectedRealElection}
+                      onChange={(e) => {
+                        setSelectedRealElection(e.target.value);
+                        setRealElectionResult(null);
+                      }}
+                    >
+                      {realElections.length === 0 && (
+                        <option value="">Loading…</option>
+                      )}
+                      {realElections.map((e) => (
+                        <option key={e.key} value={e.key}>
+                          {e.country} — {e.name} ({e.year})
+                        </option>
+                      ))}
+                    </Form.Select>
+                  </Col>
+                  <Col md={2}>
+                    <Button
+                      variant="primary"
+                      size="sm"
+                      className="w-100"
+                      onClick={handleAnalyzeRealElection}
+                      disabled={realElectionLoading || !selectedRealElection}
+                    >
+                      {realElectionLoading ? (
+                        <><Spinner size="sm" className="me-2" />Running…</>
+                      ) : (
+                        'Analyse'
+                      )}
+                    </Button>
+                  </Col>
+                </Row>
+                {realElectionResult ? (
+                  <RealElectionAnalysis result={realElectionResult} />
+                ) : (
+                  !realElectionLoading && (
+                    <Alert variant="info" className="mb-0">
+                      Select an election above and click <strong>Analyse</strong>.
+                    </Alert>
+                  )
+                )}
+              </Card.Body>
+            </Card>
+          </Tab>
+
+          {/* ── Tab 8: Multi-winner ── */}
+          <Tab eventKey="multiwinner" title="Multi-winner">
+            <MultiwinnerAnalysis />
+          </Tab>
+
+          {/* ── Tab 8: Sensitivity Analysis ── */}
           <Tab eventKey="sensitivity" title="Sensitivity">
             <Card className="mb-4">
               <Card.Header>

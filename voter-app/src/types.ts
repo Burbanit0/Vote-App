@@ -1,15 +1,5 @@
 // src/types.ts
 
-export interface Party {
-  id: number;
-  name: string;
-  description: string;
-}
-
-export interface PartyMembersProps {
-  partyId: number;
-}
-
 export interface User {
   id: number;
   access_token: string;
@@ -82,6 +72,11 @@ export interface VoterSimu {
   voting_style: 'sincere' | 'strategic';
 }
 
+export interface ScoreVote {
+  voter_id: number;
+  scores: Record<string, number>;
+}
+
 export interface ScoreVotingResult {
   method: string;
   winner?: string;
@@ -96,6 +91,12 @@ export interface ScoreVotingResults {
   variance_based: ScoreVotingResult;
   score_distribution: ScoreVotingResult;
   bayesian_regret: ScoreVotingResult;
+}
+
+export interface ScoreVotingComparisonProps {
+  scores: ScoreVote[];
+  candidates: string[];
+  results: ScoreVotingResults;
 }
 
 // --- Simulation scenarios ---
@@ -140,6 +141,119 @@ export interface CondorcetMatrixResult {
   matrix: Record<string, Record<string, CondorcetDuel>>;
   condorcet_winner: string | null;
   condorcet_cycles: string[][];
+}
+
+// --- Monte Carlo ---
+
+export interface MethodMonteCarloStats {
+  winner_distribution: Record<string, number>;
+  most_common_winner: string | null;
+  winner_stability: number;
+  bayesian_regret_mean: number | null;
+  bayesian_regret_std: number | null;
+  bayesian_regret_ci_95: [number | null, number | null];
+  majority_satisfaction_mean: number | null;
+  majority_satisfaction_ci_95: [number | null, number | null];
+  condorcet_compliance_rate: number | null;
+}
+
+export interface MonteCarloResult {
+  num_runs: number;
+  num_voters_per_run: number;
+  config: Record<string, any>;
+  methods: Record<string, MethodMonteCarloStats>;
+  condorcet_winner_exists_rate: number;
+  inter_method_agreement: Record<string, number>;
+}
+
+// --- Real election analysis ---
+
+export interface RealElectionSummary {
+  key: string;
+  name: string;
+  year: number;
+  country: string;
+}
+
+export interface RealElectionDivergence {
+  method: string;
+  winner: string | null;
+  differs_from_plurality: boolean;
+}
+
+export interface RealElectionResult {
+  election: {
+    key: string;
+    name: string;
+    year: number;
+    country: string;
+    description: string;
+    source: string;
+    candidates: { name: string; party: string }[];
+  };
+  plurality_winner: string;
+  first_round_results: Record<string, number>;
+  methods: Record<string, string | null>;
+  divergences: RealElectionDivergence[];
+  summary: {
+    methods_with_different_winner: number;
+    total_methods_with_winner: number;
+  };
+}
+
+// --- Multi-winner proportional methods ---
+
+export interface ProportionalityMetrics {
+  gallagher_index: number | null;
+  largest_deviation: { party: string; deviation: number } | null;
+  effective_parties_votes: number | null;
+  effective_parties_seats: number | null;
+}
+
+export interface MethodSeats {
+  seats: Record<string, number>;
+  metrics: ProportionalityMetrics;
+}
+
+export interface MultiwinnerResult {
+  dhondt: MethodSeats;
+  sainte_lague: MethodSeats;
+  largest_remainder_hare: MethodSeats;
+  largest_remainder_droop: MethodSeats;
+  stv?: { winners: string[]; seats: Record<string, number> };
+  comparison: {
+    most_proportional: string | null;
+    least_proportional: string | null;
+    gallagher_ranking: string[];
+  };
+  party_votes: Record<string, number>;
+  num_seats: number;
+}
+
+// --- Bandwagon simulation ---
+
+export interface BandwagonMethodData {
+  winner: string | null;
+  bayesian_regret: number | null;
+}
+
+export interface BandwagonRound {
+  round: number;
+  poll_standings: Record<string, number>;
+  methods: Record<string, BandwagonMethodData>;
+  voter_lean_distribution: {
+    mean: number;
+    std: number;
+    polarization_index: number;
+  };
+}
+
+export interface BandwagonResult {
+  num_rounds: number;
+  influence_strength: number;
+  rounds: BandwagonRound[];
+  convergence_round: number | null;
+  amplification_by_method: Record<string, number>;
 }
 
 // --- Arrow criteria ---

@@ -535,6 +535,15 @@ def create_voter(
     strategic_propensity = max(0.0, min(0.8, strategic_propensity))
     voting_style = "strategic" if random.random() < strategic_propensity else "sincere"
 
+    # Social conformity: susceptibility to bandwagon / poll-driven preference shift.
+    # Beta(2,3) → peak near 0.25, most values between 0.1 and 0.6.
+    social_conformity = float(np.random.beta(2, 3))
+    if age < 30:
+        social_conformity += 0.1
+    if education in ["none", "high_school"]:
+        social_conformity += 0.05
+    social_conformity = max(0.0, min(0.8, social_conformity))
+
     return {
         "id": voter_id,
         "age": age,
@@ -561,6 +570,7 @@ def create_voter(
         "mood": random.uniform(-1, 1),
         "strategic_propensity": round(strategic_propensity, 4),
         "voting_style": voting_style,
+        "social_conformity": round(social_conformity, 4),
     }
 
 
@@ -849,6 +859,209 @@ def compute_strategic_score_vote(
             else:
                 scores[name] = 2
     return scores
+
+
+# --- 4. Social Influence ---
+
+def apply_social_influence(
+    voters: List[Voter],
+    poll_standings: Dict[str, float],
+    candidates: List[Candidate],
+    influence_strength: float = 0.3,
+) -> List[Voter]:
+    """
+    Shift each voter's ideological position slightly toward the poll leader,
+    proportional to their social_conformity and influence_strength.
+
+    Returns a new list of voter dicts (originals are never mutated).
+    """
+    if not poll_standings or not candidates:
+        return list(voters)
+
+    leader_name = max(poll_standings, key=poll_standings.get)
+    leader_position: float = next(
+        (c.get("ideology_position", 0.5) for c in candidates if c["name"] == leader_name),
+        0.5,
+    )
+
+    influenced: List[Voter] = []
+    for voter in voters:
+        sc = voter.get("social_conformity", 0.0)
+        if sc <= 0.0:
+            influenced.append(voter)
+            continue
+
+        original_lean = voter["political_lean_normalized"]
+        adjustment = sc * influence_strength * (leader_position - original_lean)
+        new_lean = max(0.0, min(1.0, original_lean + adjustment))
+
+        if abs(new_lean - original_lean) < 1e-7:
+            influenced.append(voter)
+            continue
+
+        new_positions = {
+            issue: max(0.0, min(1.0, new_lean + random.uniform(-0.15, 0.15)))
+            for issue in voter["issue_positions"]
+        }
+        influenced.append({**voter, "political_lean_normalized": new_lean, "issue_positions": new_positions})
+
+    return influenced
+
+
+def run_bandwagon_simulation(
+    num_voters: int = 300,
+    candidates: Optional[List[Candidate]] = None,
+    issues: Optional[List[str]] = None,
+    num_rounds: int = 5,
+    influence_strength: float = 0.3,
+    ideology_distribution: str = "random",
+    seed: Optional[int] = None,
+) -> Dict:
+    """
+    Simulate N rounds of bandwagon influence and track how each voting method
+    responds to cascading preference shifts.
+
+    Round 0 is the sincere baseline; each subsequent round applies
+    apply_social_influence() using the previous round's poll standings.
+    """
+    # Lazy-import to avoid circular dependency
+    from .simulation_ranked_utils import (
+        get_plurality_winner, get_borda_winner, get_irv_winner,
+        get_schulze_winner, get_condorcet_winner, get_two_round_winner,
+        get_approval_winner, get_coombs_winner, get_minimax_winner,
+        get_bucklin_winner, get_positional_score_winner,
+    )
+
+    _METHODS: Dict[str, Any] = {
+        "plurality":        get_plurality_winner,
+        "two_round":        get_two_round_winner,
+        "borda":            get_borda_winner,
+        "approval":         get_approval_winner,
+        "irv":              get_irv_winner,
+        "coombs":           get_coombs_winner,
+        "bucklin":          get_bucklin_winner,
+        "minimax":          get_minimax_winner,
+        "schulze":          get_schulze_winner,
+        "condorcet":        get_condorcet_winner,
+        "positional_score": get_positional_score_winner,
+    }
+
+    if seed is not None:
+        random.seed(seed)
+        np.random.seed(seed)
+
+    if issues is None:
+        issues = ["economy", "environment", "healthcare", "taxes", "social_welfare"]
+
+    if candidates is None:
+        candidates = [
+            create_candidate(issues, 0, "Alice", "Green"),
+            create_candidate(issues, 1, "Bob",   "Conservative"),
+            create_candidate(issues, 2, "Carol",  "Liberal"),
+        ]
+
+    current_voters: List[Voter] = [
+        create_voter(issues, i, ideology_distribution) for i in range(num_voters)
+    ]
+
+    def _compute_round_state(vts: List[Voter], rnd: int) -> Dict:
+        # Utilities and sincere rankings
+        utilities = {
+            v["id"]: {
+                c["name"]: calculate_utility(v, c, issues)["utility"] for c in candidates
+            }
+            for v in vts
+        }
+        candidate_names = [c["name"] for c in candidates]
+        rankings = [
+            sorted(candidate_names, key=lambda n: -utilities[v["id"]][n])
+            for v in vts
+        ]
+
+        # Poll standings from first-choice votes (normalised)
+        first_choices: Dict[str, int] = {}
+        for r in rankings:
+            if r:
+                first_choices[r[0]] = first_choices.get(r[0], 0) + 1
+        total_fc = sum(first_choices.values()) or 1
+        poll_standings = {k: round(v / total_fc, 4) for k, v in first_choices.items()}
+
+        # Winner + Bayesian regret per method
+        methods_data: Dict[str, Dict] = {}
+        for method_name, method_fn in _METHODS.items():
+            winner = method_fn(rankings)
+            if winner:
+                regret = round(
+                    sum(
+                        max(utilities[v["id"]].values()) - utilities[v["id"]].get(winner, 0)
+                        for v in vts
+                    ) / len(vts),
+                    6,
+                )
+            else:
+                regret = None
+            methods_data[method_name] = {"winner": winner, "bayesian_regret": regret}
+
+        # Lean distribution metrics
+        leans = [v["political_lean_normalized"] for v in vts]
+        mean_lean = float(np.mean(leans))
+        std_lean  = float(np.std(leans))
+        if 0.0 < mean_lean < 1.0:
+            pol_idx = min(1.0, std_lean / (mean_lean * (1.0 - mean_lean)))
+        else:
+            pol_idx = 0.0
+
+        return {
+            "round": rnd,
+            "poll_standings": poll_standings,
+            "methods": methods_data,
+            "voter_lean_distribution": {
+                "mean": round(mean_lean, 4),
+                "std":  round(std_lean, 4),
+                "polarization_index": round(pol_idx, 4),
+            },
+        }
+
+    rounds_data: List[Dict] = []
+
+    # Round 0 — sincere baseline
+    state = _compute_round_state(current_voters, 0)
+    rounds_data.append(state)
+
+    for rnd in range(1, num_rounds + 1):
+        current_voters = apply_social_influence(
+            current_voters,
+            rounds_data[-1]["poll_standings"],
+            candidates,
+            influence_strength,
+        )
+        state = _compute_round_state(current_voters, rnd)
+        rounds_data.append(state)
+
+    # Convergence round: first round where plurality winner stays constant
+    plurality_winners = [r["methods"]["plurality"]["winner"] for r in rounds_data]
+    convergence_round: Optional[int] = None
+    for i in range(len(plurality_winners) - 1):
+        if all(w == plurality_winners[i] for w in plurality_winners[i:]):
+            convergence_round = i
+            break
+
+    # Amplification: proportion of post-round-0 rounds where winner differs from round 0
+    amplification: Dict[str, float] = {}
+    for method in _METHODS:
+        r0_winner = rounds_data[0]["methods"][method]["winner"]
+        changes = sum(
+            1 for r in rounds_data[1:] if r["methods"][method]["winner"] != r0_winner
+        )
+        amplification[method] = round(changes / num_rounds, 4) if num_rounds > 0 else 0.0
+
+    return {
+        "num_rounds": num_rounds,
+        "influence_strength": influence_strength,
+        "rounds": rounds_data,
+        "convergence_round": convergence_round,
+        "amplification_by_method": amplification,
+    }
 
 
 # --- 4. Voting Methods ---
