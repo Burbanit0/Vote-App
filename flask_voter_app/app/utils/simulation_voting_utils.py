@@ -2,11 +2,24 @@ import random
 import numpy as np
 from typing import List, Dict, Optional, Union
 
+from .demographic_data import (
+    sample_age,
+    sample_gender,
+    sample_region,
+    sample_income,
+    sample_education,
+    sample_employment_status,
+    sample_family_status,
+    sample_religion,
+    sample_ethnicity_immigration,
+    sample_likelihood_to_vote,
+)
+
 # --- Define types for clarity ---
 Voter = Dict[str, Union[float, str, Dict[str, float]]]
 Candidate = Dict[str, Union[str, float, Dict[str, float]]]
 
-# Define issues
+# Policy issues used across all simulation functions
 issues = [
     "economy",
     "environment",
@@ -29,230 +42,6 @@ issues = [
     "jobs",
     "infrastructure",
 ]
-
-
-age_data = {
-    18: 416343 + 433377 + 395666 + 412560,
-    19: 395309 + 410714 + 375286 + 390002,
-    20: 385065 + 398993 + 370927 + 384532,
-    21: 372131 + 384384 + 357581 + 370258,
-    22: 370146 + 381869 + 362301 + 374177,
-    23: 360901 + 371731 + 356005 + 367951,
-    24: 347002 + 357849 + 346277 + 358614,
-    25: 345674 + 356195 + 345575 + 357966,
-    26: 362321 + 373660 + 363459 + 376224,
-    27: 366486 + 377772 + 372324 + 385366,
-    28: 373290 + 384835 + 383355 + 397080,
-    29: 374197 + 385034 + 391141 + 405038,
-    30: 379875 + 390899 + 395872 + 409842,
-    31: 381893 + 392786 + 399849 + 413955,
-    32: 387094 + 397979 + 407992 + 422167,
-    33: 387604 + 398786 + 406130 + 420790,
-    34: 385394 + 396435 + 403783 + 417815,
-    35: 380127 + 391214 + 400179 + 414133,
-    36: 405212 + 416777 + 423799 + 438390,
-    37: 409918 + 421707 + 427819 + 442482,
-    38: 415493 + 427643 + 433421 + 448307,
-    39: 393900 + 405581 + 409982 + 424441,
-    40: 387855 + 399149 + 400285 + 414208,
-    41: 392747 + 404816 + 399454 + 413671,
-    42: 378560 + 390441 + 389825 + 404350,
-    43: 391896 + 404346 + 398442 + 413722,
-    44: 413159 + 426173 + 419802 + 435157,
-    45: 435027 + 448213 + 444733 + 460384,
-    46: 445836 + 459886 + 453714 + 469527,
-    47: 443926 + 457822 + 450509 + 466462,
-    48: 435014 + 448697 + 442478 + 457896,
-    49: 427528 + 441572 + 437448 + 452879,
-    50: 420403 + 434971 + 434367 + 450472,
-    51: 418677 + 432749 + 431582 + 447421,
-    52: 427611 + 441979 + 441391 + 457665,
-    53: 428356 + 442828 + 443353 + 459310,
-    54: 430748 + 444960 + 448656 + 464153,
-    55: 424098 + 438142 + 444809 + 460412,
-    56: 408160 + 422099 + 429696 + 445047,
-    57: 408160 + 421161 + 430734 + 444896,
-    58: 403439 + 416331 + 430410 + 444709,
-    59: 398034 + 410415 + 429394 + 442263,
-    60: 388186 + 400042 + 420715 + 433635,
-    61: 384480 + 395817 + 418514 + 430912,
-    62: 379050 + 390345 + 415501 + 427893,
-    63: 371791 + 382395 + 412354 + 424094,
-    64: 370846 + 381146 + 410242 + 421875,
-    65: 361301 + 371165 + 402421 + 413428,
-    66: 365439 + 374781 + 407626 + 418007,
-    67: 356096 + 364694 + 398247 + 408050,
-    68: 366582 + 374817 + 412349 + 422019,
-    69: 356693 + 364312 + 404851 + 413673,
-    70: 354324 + 361485 + 400690 + 409072,
-    71: 343241 + 350179 + 393058 + 400876,
-    72: 320586 + 327085 + 371293 + 378561,
-    73: 236900 + 242793 + 279240 + 286325,
-    74: 228830 + 234112 + 272775 + 279055,
-    75: 219772 + 224687 + 263648 + 269401,
-    76: 199977 + 204674 + 242996 + 249057,
-    77: 173672 + 177799 + 216640 + 221914,
-    78: 175051 + 179151 + 225878 + 231318,
-    79: 178422 + 182015 + 234807 + 239598,
-    80: 168374 + 171854 + 227972 + 232663,
-    81: 157797 + 160969 + 221619 + 226088,
-    82: 150275 + 153145 + 218414 + 222853,
-    83: 136476 + 139041 + 209883 + 213902,
-    84: 129598 + 131872 + 207254 + 210980,
-    85: 114789 + 116712 + 192418 + 195596,
-}
-
-# Calculate the total population
-total_population = sum(age_data.values())
-
-# Calculate the probability for each age
-age_probabilities = [count / total_population for count in age_data.values()]
-ages = list(age_data.keys())
-
-
-def sample_age():
-    return int(random.choices(ages, weights=age_probabilities, k=1)[0])
-
-
-def sample_region():
-    return np.random.choice(["urban", "suburban", "rural"], p=[0.8, 0.15, 0.05])
-
-
-def sample_income():
-    # Use a gamma distribution which is better for right-skewed data like income
-    income_score = np.random.gamma(shape=2, scale=0.2)
-
-    if income_score < 0.3:
-        return "low"
-    elif income_score < 0.7:
-        return "middle"
-    else:
-        return "high"
-
-
-def sample_likelihood_to_vote(age):
-    # Base turnout: 50% + age effect + income effect
-    base = 0.5
-    age_effect = min(age / 100, 0.4)  # Older = more likely
-    income_effect = 0.1 if sample_income() == "high" else 0
-    return base + age_effect + income_effect
-
-
-def sample_political_lean():
-    # Mix of two normal distributions (left and right)
-    if np.random.random() < 0.5:
-        return np.random.normal(-0.5, 0.3)  # Left-leaning
-    else:
-        return np.random.normal(0.5, 0.3)  # Right-leaning
-
-
-def sample_employment_status():
-    # Probabilities based on typical employment distributions
-    probabilities = {
-        "employed": 0.6,  # 60% chance
-        "unemployed": 0.1,  # 10% chance
-        "self_employed": 0.1,  # 10% chance
-        "retired": 0.2,  # 20% chance
-    }
-    return random.choices(
-        population=list(probabilities.keys()), weights=list(probabilities.values()), k=1
-    )[0]
-
-
-def sample_family_status():
-    # Probabilities based on typical family structures
-    probabilities = {
-        "single": 0.3,  # 30% chance
-        "with_children": 0.4,  # 40% chance
-        "retired": 0.3,  # 30% chance (includes empty-nesters and elderly)
-    }
-    return random.choices(
-        population=list(probabilities.keys()), weights=list(probabilities.values()), k=1
-    )[0]
-
-
-def sample_ethnicity_immigration():
-    # Probabilities based on typical immigration rates in many Western countries
-    probabilities = {"native": 0.8, "immigrant": 0.2}  # 80% chance  # 20% chance
-    return random.choices(
-        population=list(probabilities.keys()), weights=list(probabilities.values()), k=1
-    )[0]
-
-
-def sample_religion():
-    # Probabilities based on global religious affiliation trends
-    probabilities = {"religious": 0.6, "non_religious": 0.4}  # 60% chance  # 40% chance
-    return random.choices(
-        population=list(probabilities.keys()), weights=list(probabilities.values()), k=1
-    )[0]
-
-
-def sample_gender():
-    return np.random.choice(
-        ["male", "female"], p=[0.49, 0.51]  # Slightly more females in many populations
-    )
-
-
-def sample_education(age: int) -> str:
-    """
-    Génère un niveau d'éducation en fonction de l'âge du voter.
-    Les personnes âgées ont généralement un niveau d'éducation plus bas,
-    et les jeunes n'ont pas encore eu le temps d'obtenir des diplômes avancés.
-    """
-    # Probabilités de base par niveau d'éducation (France, données approximatives)
-    base_probs = {
-        "none": 0.1,
-        "high_school": 0.4,
-        "bachelor": 0.3,
-        "master": 0.15,
-        "phd": 0.05,
-    }
-
-    # Ajustement des probabilités en fonction de l'âge
-    if age < 22:  # 18-21 ans (étudiants ou jeunes actifs)
-        # Les très jeunes n'ont pas encore eu le temps de faire des études longues
-        return np.random.choice(
-            ["high_school", "bachelor"],
-            p=[0.7, 0.3],  # 70% ont seulement le bac, 30% ont commencé un bachelor
-        )
-    elif age < 25:  # 22-24 ans
-        # Certains ont terminé un bachelor, peu ont un master
-        return np.random.choice(
-            ["high_school", "bachelor", "master"], p=[0.3, 0.6, 0.1]
-        )
-    elif age < 30:  # 25-29 ans
-        # Âge où beaucoup terminent leurs études supérieures
-        return np.random.choice(
-            ["high_school", "bachelor", "master", "phd"], p=[0.2, 0.4, 0.35, 0.05]
-        )
-    elif age < 40:  # 30-39 ans
-        # Âge où les gens ont généralement terminé leurs études
-        return np.random.choice(
-            ["high_school", "bachelor", "master", "phd"], p=[0.2, 0.4, 0.3, 0.1]
-        )
-    elif age < 60:  # 40-59 ans
-        # Génération avec un niveau d'éducation généralement plus élevé
-        adjusted_probs = {
-            "none": base_probs["none"] * 0.7,
-            "high_school": base_probs["high_school"] * 0.9,
-            "bachelor": base_probs["bachelor"] * 1.1,
-            "master": base_probs["master"] * 1.2,
-            "phd": base_probs["phd"] * 1.3,
-        }
-    else:  # 60+ ans
-        # Générations plus âgées avec un niveau d'éducation généralement plus bas
-        adjusted_probs = {
-            "none": base_probs["none"] * 2.0,
-            "high_school": base_probs["high_school"] * 1.3,
-            "bachelor": base_probs["bachelor"] * 0.7,
-            "master": base_probs["master"] * 0.5,
-            "phd": base_probs["phd"] * 0.3,
-        }
-
-    # Normaliser les probabilités pour qu'elles somment à 1
-    total = sum(adjusted_probs.values())
-    normalized_probs = [v / total for v in adjusted_probs.values()]
-    return np.random.choice(list(adjusted_probs.keys()), p=normalized_probs)
 
 
 def assign_issue_priorities(
