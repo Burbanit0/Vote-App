@@ -1,0 +1,267 @@
+"""
+simulation_compare.py — Method-comparison endpoints.
+
+Serves SimulationComparePage (/simulation/compare) tabs:
+Winner Matrix, Metrics, Strategic Impact, Condorcet Matrix,
+Arrow Criteria, Sensitivity.
+
+All endpoints use the spatial utility pipeline.
+"""
+from flask import Blueprint, request, jsonify
+
+from app.utils.simulation_voting_utils import calculate_utility, compute_strategic_plurality_vote
+from app.utils.simulation_ranked_utils import get_plurality_winner
+from app.utils.simulation_metrics import compare_all_methods, get_condorcet_matrix
+from app.utils.arrow_criteria import check_all_criteria
+from app.routes.simulation_helpers import _parse_candidate_configs, _build_population
+
+simulation_compare_bp = Blueprint("simulation_compare", __name__, url_prefix="/simulations")
+
+
+@simulation_compare_bp.route("/compare", methods=["POST"])
+def compare_methods():
+    """
+    Run compare_all_methods on a fresh population and return per-method metrics.
+
+    Body: {
+        "num_voters": int,
+        "ideology_distribution": str,          // optional, default "random"
+        "candidates": [str, ...] | [dict, ...]  // strings or full config dicts
+    }
+    Candidate dict format: {"name": str, "party": str, "ideology_position": float|null}
+    """
+    data = request.get_json() or {}
+    num_voters = int(data.get("num_voters", 500))
+    ideology_distribution = data.get("ideology_distribution", "random")
+    raw_candidates = data.get("candidates", ["Alice", "Bob", "Charlie"])
+
+    candidate_configs = _parse_candidate_configs(raw_candidates)
+    if len(candidate_configs) < 2:
+        return jsonify({"error": "At least 2 candidates required"}), 400
+
+    try:
+        voters, candidates, issues = _build_population(candidate_configs, num_voters, ideology_distribution)
+        result = compare_all_methods(voters, candidates, issues)
+        return jsonify(result), 200
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+
+@simulation_compare_bp.route("/strategic-impact", methods=["POST"])
+def strategic_impact():
+    """
+    Measure how bayesian_regret per method changes as the proportion of
+    strategic voters increases.
+
+    Body: {
+        "num_voters": int,
+        "ideology_distribution": str,
+        "candidates": [str, ...] | [dict, ...],
+        "strategic_percentages": [0, 10, 20, 30, 40, 50]
+    }
+    """
+    data = request.get_json() or {}
+    num_voters = int(data.get("num_voters", 500))
+    ideology_distribution = data.get("ideology_distribution", "random")
+    raw_candidates = data.get("candidates", ["Alice", "Bob", "Charlie"])
+    strategic_percentages = data.get("strategic_percentages", [0, 10, 20, 30, 40, 50])
+
+    candidate_configs = _parse_candidate_configs(raw_candidates)
+    if len(candidate_configs) < 2:
+        return jsonify({"error": "At least 2 candidates required"}), 400
+
+    try:
+        voters, candidates, issues = _build_population(candidate_configs, num_voters, ideology_distribution)
+
+        utilities = {
+            voter["id"]: {c["name"]: calculate_utility(voter, c, issues)["utility"] for c in candidates}
+            for voter in voters
+        }
+        sincere = compare_all_methods(voters, candidates, issues)
+        sorted_voters = sorted(voters, key=lambda v: -v.get("strategic_propensity", 0))
+
+        results = []
+        for pct in strategic_percentages:
+            n_strategic = int(len(voters) * pct / 100)
+            poll_standings = {}
+            for voter in voters:
+                u = utilities[voter["id"]]
+                first_choice = max(u, key=u.get)
+                poll_standings[first_choice] = poll_standings.get(first_choice, 0) + 1
+
+            plurality_votes = []
+            for i, voter in enumerate(sorted_voters):
+                u = utilities[voter["id"]]
+                if i < n_strategic:
+                    choice = compute_strategic_plurality_vote(voter, candidates, issues, poll_standings)
+                else:
+                    choice = max(u, key=u.get)
+                plurality_votes.append([choice] if choice else list(u.keys()))
+
+            plurality_winner = get_plurality_winner(plurality_votes)
+            if plurality_winner:
+                total = sum(
+                    max(utilities[v["id"]].values()) - utilities[v["id"]].get(plurality_winner, 0)
+                    for v in voters
+                )
+                plurality_regret = round(total / len(voters), 6)
+            else:
+                plurality_regret = None
+
+            methods_regret = {
+                method: (
+                    plurality_regret if method == "plurality"
+                    else method_data["bayesian_regret"]
+                )
+                for method, method_data in sincere["methods"].items()
+            }
+            results.append({"strategic_pct": pct, "methods": methods_regret})
+
+        return jsonify({"results": results}), 200
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+
+@simulation_compare_bp.route("/condorcet-matrix", methods=["POST"])
+def condorcet_matrix_route():
+    """
+    Build the full pairwise duel matrix for a fresh population.
+
+    Body: { "num_voters": int, "ideology_distribution": str, "candidates": [...] }
+    """
+    data = request.get_json() or {}
+    num_voters = int(data.get("num_voters", 500))
+    ideology_distribution = data.get("ideology_distribution", "random")
+    raw_candidates = data.get("candidates", ["Alice", "Bob", "Charlie"])
+
+    candidate_configs = _parse_candidate_configs(raw_candidates)
+    if len(candidate_configs) < 2:
+        return jsonify({"error": "At least 2 candidates required"}), 400
+
+    try:
+        voters, candidates, issues = _build_population(candidate_configs, num_voters, ideology_distribution)
+        result = get_condorcet_matrix(voters, candidates, issues)
+        return jsonify(result), 200
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+
+@simulation_compare_bp.route("/sensitivity", methods=["POST"])
+def sensitivity_analysis():
+    """
+    Vary one parameter and observe how winners and Bayesian regret change
+    across all voting methods.
+
+    Body: {
+        "base_config": { "num_voters": int, "candidates": [...], "ideology_distribution": str },
+        "variable": "ideology_distribution" | "num_voters" | "strategic_pct",
+        "values": [value, ...]
+    }
+    """
+    data = request.get_json() or {}
+    base = data.get("base_config", {})
+    variable = data.get("variable", "ideology_distribution")
+    values = data.get("values", [])
+
+    if not values:
+        return jsonify({"error": "No values provided"}), 400
+
+    base_num_voters = int(base.get("num_voters", 500))
+    base_ideology = base.get("ideology_distribution", "random")
+    raw_candidates = base.get("candidates", ["Alice", "Bob", "Charlie"])
+    candidate_configs = _parse_candidate_configs(raw_candidates)
+
+    if len(candidate_configs) < 2:
+        return jsonify({"error": "At least 2 candidates required"}), 400
+
+    results = []
+    for value in values:
+        try:
+            if variable == "ideology_distribution":
+                num_voters = base_num_voters
+                ideology = str(value)
+            elif variable == "num_voters":
+                num_voters = max(10, int(value))
+                ideology = base_ideology
+            else:
+                num_voters = base_num_voters
+                ideology = base_ideology
+
+            voters, candidates, issues = _build_population(candidate_configs, num_voters, ideology)
+            comparison = compare_all_methods(voters, candidates, issues)
+            winners = {m: d["winner"] for m, d in comparison["methods"].items()}
+            regrets = {m: d["bayesian_regret"] for m, d in comparison["methods"].items()}
+
+            if variable == "strategic_pct":
+                pct = float(value)
+                utilities = {
+                    voter["id"]: {c["name"]: calculate_utility(voter, c, issues)["utility"] for c in candidates}
+                    for voter in voters
+                }
+                sorted_voters = sorted(voters, key=lambda v: -v.get("strategic_propensity", 0))
+                n_strategic = int(len(voters) * pct / 100)
+                poll_standings: dict = {}
+                for voter in voters:
+                    u = utilities[voter["id"]]
+                    top = max(u, key=u.get)
+                    poll_standings[top] = poll_standings.get(top, 0) + 1
+
+                plurality_votes = []
+                for i, voter in enumerate(sorted_voters):
+                    u = utilities[voter["id"]]
+                    choice = (
+                        compute_strategic_plurality_vote(voter, candidates, issues, poll_standings)
+                        if i < n_strategic else max(u, key=u.get)
+                    )
+                    plurality_votes.append([choice] if choice else list(u.keys()))
+
+                plurality_winner = get_plurality_winner(plurality_votes)
+                winners["plurality"] = plurality_winner
+                if plurality_winner:
+                    total = sum(
+                        max(utilities[v["id"]].values()) - utilities[v["id"]].get(plurality_winner, 0)
+                        for v in voters
+                    )
+                    regrets["plurality"] = round(total / len(voters), 6)
+
+            results.append({
+                "value": value,
+                "condorcet_winner": comparison["condorcet_winner"],
+                "winners_by_method": winners,
+                "regret_by_method": regrets,
+            })
+
+        except Exception as exc:
+            results.append({
+                "value": value,
+                "condorcet_winner": None,
+                "winners_by_method": {},
+                "regret_by_method": {},
+                "error": str(exc),
+            })
+
+    return jsonify({"variable": variable, "values": values, "results": results}), 200
+
+
+@simulation_compare_bp.route("/arrow-criteria", methods=["POST"])
+def arrow_criteria_route():
+    """
+    Empirically verify Arrow's impossibility theorem criteria.
+
+    Body: { "num_voters": int, "ideology_distribution": str, "candidates": [...] }
+    """
+    data = request.get_json() or {}
+    num_voters = int(data.get("num_voters", 300))
+    ideology_distribution = data.get("ideology_distribution", "random")
+    raw_candidates = data.get("candidates", ["Alice", "Bob", "Charlie"])
+
+    candidate_configs = _parse_candidate_configs(raw_candidates)
+    if len(candidate_configs) < 2:
+        return jsonify({"error": "At least 2 candidates required"}), 400
+
+    try:
+        voters, candidates, issues = _build_population(candidate_configs, num_voters, ideology_distribution)
+        result = check_all_criteria(voters, candidates, issues)
+        return jsonify(result), 200
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
