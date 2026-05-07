@@ -1,6 +1,6 @@
 import datetime
 from . import db
-from sqlalchemy import Column, Integer, String, DateTime, Text, func, JSON
+from sqlalchemy import Column, Integer, String, ForeignKey, DateTime, Text, func, JSON
 
 from flask_bcrypt import Bcrypt
 
