@@ -18,8 +18,8 @@ def register():
     last_name = data.get("last_name")
     role = data.get("role", "User")
 
-    result = UserService.register(username, password, first_name, last_name, role)
-    return jsonify(result)
+    result, status = UserService.register(username, password, first_name, last_name, role)
+    return jsonify(result), status
 
 
 @auth_bp.route("/register/voter", methods=["POST"])
