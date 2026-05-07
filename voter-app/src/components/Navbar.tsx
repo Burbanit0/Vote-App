@@ -1,6 +1,6 @@
 // src/components/Navbar.tsx
 import React from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate } from 'react-router';
 import { useAuth } from '../context/AuthContext';
 import { Navbar as BootstrapNavbar, Nav, Button, Container } from 'react-bootstrap';
 
@@ -14,7 +14,7 @@ const Navbar: React.FC = () => {
   };
 
   if (loading) {
-    return <div>Loading...</div>; // Display a loading sp
+    return <div>Loading...</div>;
   }
 
   return (
@@ -26,8 +26,6 @@ const Navbar: React.FC = () => {
           <Nav className="me-auto">
             {user && (
               <>
-                <Nav.Link href="/parties">Parties</Nav.Link>
-                <Nav.Link href="/profile">Profile</Nav.Link>
                 <Nav.Link href="/simulation">Simulation</Nav.Link>
                 <Nav.Link href="/simulation/compare">Compare Methods</Nav.Link>
               </>

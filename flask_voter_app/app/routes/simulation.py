@@ -12,7 +12,7 @@ from app.utils.simulation_ranked_utils import (
     get_approval_winner,
     get_irv_winner,
     get_coombs_winner,
-    get_score_winner,
+    get_positional_score_winner,
     get_kemeny_young_winner,
     get_bucklin_winner,
     get_minimax_winner,
@@ -75,7 +75,7 @@ def simulate_votes_route():
         approval_winner = get_approval_winner(rankings)
         irv_winner = get_irv_winner(rankings)
         coombs_winner = get_coombs_winner(rankings)
-        score_winner = get_score_winner(rankings)
+        score_winner = get_positional_score_winner(rankings)
         kemeny_young_winner = get_kemeny_young_winner(rankings)
         bucklin_winner = get_bucklin_winner(rankings)
         minimax_winner = get_minimax_winner(rankings)
