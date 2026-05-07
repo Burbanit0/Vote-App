@@ -1,9 +1,39 @@
+"""
+simulation.py — Simulation blueprint.
+
+Two independent pipelines coexist here and serve different research tools:
+
+LEGACY PIPELINE  →  SimulationPage (/simulation)
+    Model : demographic influence-weights (user-configurable)
+    Stack : simul.py + population_simulation.py
+    Endpoints: POST /        POST /get_closest_candidate
+
+SPATIAL PIPELINE  →  SimulationComparePage (/simulation/compare)
+    Model : spatial utility (ideological positions, 20 policy issues)
+    Stack : simulation_voting_utils.py + simulation_metrics.py + …
+    Endpoints: POST /simulate_voters   POST /simulate_candidates
+               POST /simulate_utility  POST /get_utility_matrix
+               POST /get_voter_segments POST /calculate_utility
+               POST /compare           POST /strategic-impact
+               POST /condorcet-matrix  POST /sensitivity
+               POST /arrow-criteria    POST /bandwagon
+               POST /monte-carlo       POST /multiwinner
+               GET  /real-elections    POST /real-election
+
+The two pipelines are intentionally separate: they model voter behaviour
+differently and serve different research questions.
+"""
 from flask import Blueprint, request, jsonify
+
+# ── Legacy pipeline — demographic weight-based ────────────────────────────────
 from app.utils.simul import (
     simulate_voters,
     simulate_score_voters,
     simulate_ranked_voters,
 )
+from app.simulation.population_simulation import assign_voters_to_candidates
+
+# ── Shared voting-method functions (used by both pipelines) ───────────────────
 from app.utils.simulation_ranked_utils import (
     get_condorcet_winner,
     get_two_round_winner,
@@ -18,15 +48,6 @@ from app.utils.simulation_ranked_utils import (
     get_minimax_winner,
     get_schulze_winner,
 )
-from app.simulation.population_simulation import assign_voters_to_candidates
-from app.utils.simulation_voting_utils import (
-    calculate_utility,
-    create_voter,
-    create_candidate,
-    compute_strategic_plurality_vote,
-    apply_social_influence,
-    run_bandwagon_simulation,
-)
 from app.utils.simulation_score_utils import (
     get_mean_median_hybrid_winner,
     get_median_voting_winner,
@@ -34,6 +55,16 @@ from app.utils.simulation_score_utils import (
     get_simple_score_winner,
     get_star_voting_winner,
     get_variance_based_winner,
+)
+
+# ── Spatial pipeline — utility-based ─────────────────────────────────────────
+from app.utils.simulation_voting_utils import (
+    calculate_utility,
+    create_voter,
+    create_candidate,
+    compute_strategic_plurality_vote,
+    apply_social_influence,
+    run_bandwagon_simulation,
 )
 from app.utils.simulation_metrics import compare_all_methods, get_condorcet_matrix, compare_all_methods_mc
 from app.utils.arrow_criteria import check_all_criteria
@@ -44,6 +75,7 @@ from app.utils.real_election_data import analyze_real_election, list_elections
 simulation_bp = Blueprint("simulations", __name__, url_prefix="/simulations")
 
 
+# ── [Legacy] Main form simulation — used by SimulationPage.tsx ───────────────
 @simulation_bp.route("/", methods=["POST"])
 def simulate_votes_route():
     data = request.get_json()
@@ -374,6 +406,7 @@ def simulate_candidates_repartitions():
     )
 
 
+# ── [Legacy] 2-D spatial assignment — used by CandidatesVisualization.tsx ────
 @simulation_bp.route("/get_closest_candidate", methods=["POST"])
 def get_closest_candidates():
     data = request.get_json()
