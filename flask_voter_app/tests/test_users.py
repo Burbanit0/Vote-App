@@ -32,7 +32,7 @@ def test_get_profile(client, init_db, auth_header):
     assert response.status_code == 200
     data = response.get_json()
     assert data['username'] == 'testuserA'
-    assert 'participation_details' in data
+    assert 'is_admin' in data
 
 
 def test_update_user(client, init_db, admin_auth_header):

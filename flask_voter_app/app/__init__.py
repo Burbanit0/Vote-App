@@ -47,10 +47,9 @@ def create_app(config_object="config.Config"):
     with app.app_context():
         db.create_all()
 
-    from .routes import users, simulation, parties, scenarios
+    from .routes import users, simulation, scenarios
 
     app.register_blueprint(users.auth_bp)
-    app.register_blueprint(parties.party_bp)
     app.register_blueprint(simulation.simulation_bp)
     app.register_blueprint(scenarios.scenarios_bp)
 

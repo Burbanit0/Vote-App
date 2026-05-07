@@ -18,7 +18,6 @@ export interface Profile_ {
   last_name: string;
   role: string;
   is_admin: boolean;
-  party_id: number | null;
 }
 
 // --- Simulation types ---
