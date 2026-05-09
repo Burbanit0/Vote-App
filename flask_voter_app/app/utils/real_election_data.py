@@ -32,6 +32,20 @@ from .simulation_score_utils import (
 # ── Candidate ideological positions [0 = far-left, 1 = far-right] ─────────
 
 CANDIDATE_POSITIONS: Dict[str, Dict[str, float]] = {
+    "france_2022": {
+        "Macron":          0.52,  # LREM — centre libéral
+        "Le Pen":          0.88,  # RN — extrême-droite
+        "Mélenchon":       0.15,  # LFI — extrême-gauche
+        "Zemmour":         0.95,  # Reconquête — ultra-droite
+        "Pécresse":        0.70,  # LR — droite classique
+        "Jadot":           0.22,  # Verts — gauche écolo
+        "Lassalle":        0.50,  # Résistons — centre indépendant
+        "Dupont-Aignan":   0.80,  # DLF — national-conservateur
+        "Hidalgo":         0.28,  # PS — centre-gauche
+        "Roussel":         0.12,  # PCF — gauche radicale
+        "Poutou":          0.08,  # NPA — ultra-gauche
+        "Arthaud":         0.05,  # LO — ultra-gauche
+    },
     "france_2002": {
         "Chirac":        0.62,
         "Le Pen":        0.92,
@@ -52,6 +66,11 @@ CANDIDATE_POSITIONS: Dict[str, Dict[str, float]] = {
         "Bush":    0.70,
         "Perot":   0.52,
     },
+    "crisis_election": {
+        "GauchePop":     0.05,   # gauche populiste très à gauche
+        "CentreModéré":  0.50,   # centre faible
+        "DroitePop":     0.92,   # droite populiste très à droite
+    },
     "uk_2015": {
         "Conservative":     0.72,
         "Labour":           0.28,
@@ -66,6 +85,89 @@ CANDIDATE_POSITIONS: Dict[str, Dict[str, float]] = {
 # ── Real election data ─────────────────────────────────────────────────────
 
 REAL_ELECTIONS: Dict[str, Dict] = {
+    "crisis_election": {
+        "name":    "Élection de crise — cas pédagogique",
+        "year":    2027,
+        "country": "France (fictif)",
+        "description": (
+            "Scénario fictif calibré pour illustrer la capacité du vote blanc à "
+            "battre tous les candidats. L'électorat est bimodal et très polarisé : "
+            "deux candidats populistes aux extrêmes et un centre faible. "
+            "31 % des électeurs refusent tous les candidats — le vote blanc dépasse "
+            "chaque candidat en nombre de voix. Sous la règle compétitive, le vote "
+            "blanc gagne. Sous la règle du seuil 30 %, l'élection est invalidée. "
+            "Utilisez ce cas pour comprendre pourquoi la reconnaissance du vote blanc "
+            "exige une règle constitutionnelle claire sur ses conséquences."
+        ),
+        "candidates": [
+            {"name": "GauchePop",    "party": "Front Populaire Radical"},
+            {"name": "CentreModéré", "party": "Alliance du Centre"},
+            {"name": "DroitePop",    "party": "Rassemblement National-Souverainiste"},
+        ],
+        "results": {
+            "first_round": {
+                "GauchePop":    240_000,   # 24 % du total
+                "CentreModéré": 170_000,   # 17 % du total
+                "DroitePop":    280_000,   # 28 % du total
+                # Blank: 310 000 (31 %) est modélisé via estimated_blank_pct
+            },
+            "total_voters": 1_000_000,
+        },
+        "estimated_blank_pct": 0.31,
+        "source": "Scénario fictif — cas pédagogique Vote Lab",
+    },
+
+    "france_2022": {
+        "name":    "Élection présidentielle française — 1er tour",
+        "year":    2022,
+        "country": "France",
+        "description": (
+            "Le premier tour de 2022 est marqué par la fragmentation extrême de "
+            "l'offre politique et la montée du vote de contestation. Avec 12 candidats, "
+            "l'effet spoiler est massif à gauche (Mélenchon, Jadot, Hidalgo, Roussel, "
+            "Poutou, Arthaud se partagent ~31 % des voix) et à droite "
+            "(Le Pen, Zemmour, Pécresse, Dupont-Aignan représentent ~37 %). "
+            "Sous la pluralité, Macron et Le Pen se qualifient au second tour. "
+            "Sous IRV ou Schulze, Mélenchon ou Macron selon la structure des préférences "
+            "auraient pu s'imposer différemment. Le vote blanc représentait environ "
+            "2,5 % des votes exprimés (blancs + nuls), insuffisant pour déclencher "
+            "un seuil constitutionnel mais illustratif d'une insatisfaction croissante."
+        ),
+        "candidates": [
+            {"name": "Macron",        "party": "LREM (centre libéral)"},
+            {"name": "Le Pen",        "party": "RN (extrême-droite)"},
+            {"name": "Mélenchon",     "party": "LFI (extrême-gauche)"},
+            {"name": "Zemmour",       "party": "Reconquête (ultra-droite)"},
+            {"name": "Pécresse",      "party": "LR (droite classique)"},
+            {"name": "Jadot",         "party": "Verts (gauche écolo)"},
+            {"name": "Lassalle",      "party": "Résistons (centre indép.)"},
+            {"name": "Roussel",       "party": "PCF (gauche radicale)"},
+            {"name": "Dupont-Aignan", "party": "DLF (national-conservateur)"},
+            {"name": "Hidalgo",       "party": "PS (centre-gauche)"},
+            {"name": "Poutou",        "party": "NPA (ultra-gauche)"},
+            {"name": "Arthaud",       "party": "LO (ultra-gauche)"},
+        ],
+        "results": {
+            "first_round": {
+                "Macron":        9_747_500,
+                "Le Pen":        8_102_500,
+                "Mélenchon":     7_682_500,
+                "Zemmour":       2_474_500,
+                "Pécresse":      1_673_000,
+                "Jadot":         1_620_500,
+                "Lassalle":      1_095_500,
+                "Roussel":         798_000,
+                "Dupont-Aignan":   721_000,
+                "Hidalgo":         612_500,
+                "Poutou":          269_500,
+                "Arthaud":         196_000,
+            },
+            "total_voters": 35_000_000,
+        },
+        "estimated_blank_pct": 0.025,
+        "source": "Ministère de l'Intérieur — résultats officiels 10 avril 2022",
+    },
+
     "france_2002": {
         "name":        "French Presidential Election — 1st round",
         "year":        2002,
@@ -111,6 +213,7 @@ REAL_ELECTIONS: Dict[str, Dict] = {
             },
             "total_voters": 28498471,
         },
+        "estimated_blank_pct": 0.034,
         "source": "Conseil constitutionnel — résultats officiels 21 avril 2002",
     },
 
@@ -140,6 +243,7 @@ REAL_ELECTIONS: Dict[str, Dict] = {
             },
             "total_voters": 103755784,
         },
+        "estimated_blank_pct": 0.008,
         "source": "Federal Election Commission — Official 1992 Presidential Results",
     },
 
@@ -176,6 +280,7 @@ REAL_ELECTIONS: Dict[str, Dict] = {
             },
             "total_voters": 30731610,
         },
+        "estimated_blank_pct": 0.007,
         "source": "Electoral Commission — 2015 UK Parliamentary general election results",
     },
 }
@@ -321,15 +426,53 @@ def analyze_real_election(
         c: round(100.0 * v / total_votes, 2) for c, v in first_round.items()
     }
 
+    # ── Blank vote analysis ────────────────────────────────────────────────────
+    estimated_blank_pct = election_data.get("estimated_blank_pct", 0.0)
+    max_candidate_pct   = max(first_round_pct.values())
+
+    # COMPETITIVE: blank wins if its share exceeds every candidate's share.
+    # The blank share is expressed in the same scale as first_round_pct (percent, 0-100).
+    blank_pct_as_display = round(estimated_blank_pct * 100, 2)
+    blank_wins_competitive = blank_pct_as_display > max_candidate_pct
+
+    blank_vote_analysis: Dict[str, Any] = {
+        "estimated_blank_pct": estimated_blank_pct,
+        "competitive": {
+            "blank_wins":  blank_wins_competitive,
+            "winner":      "Blank" if blank_wins_competitive else plurality_winner,
+            "triggered":   blank_wins_competitive,
+            "consequence": (
+                "Le vote blanc obtient plus de voix que tout candidat — "
+                "crise constitutionnelle, aucun élu légitime."
+                if blank_wins_competitive else
+                f"Le vote blanc ({blank_pct_as_display:.1f}%) reste inférieur "
+                f"au candidat en tête ({plurality_winner} : {max_candidate_pct:.1f}%). "
+                "Le résultat ne change pas."
+            ),
+        },
+        "threshold_30": {
+            "triggered":   estimated_blank_pct >= 0.30,
+            "winner":      None if estimated_blank_pct >= 0.30 else plurality_winner,
+            "consequence": (
+                f"Le vote blanc dépasse 30 % — élection invalidée, "
+                "nouvelles candidatures requises."
+                if estimated_blank_pct >= 0.30 else
+                f"Le vote blanc ({blank_pct_as_display:.1f}%) reste sous le seuil de 30 %. "
+                "Le résultat est maintenu."
+            ),
+        },
+    }
+
     return {
         "election": {
-            "key":         election_name,
-            "name":        election_data["name"],
-            "year":        election_data["year"],
-            "country":     election_data["country"],
-            "description": election_data["description"],
-            "source":      election_data["source"],
-            "candidates":  election_data["candidates"],
+            "key":                 election_name,
+            "name":                election_data["name"],
+            "year":                election_data["year"],
+            "country":             election_data["country"],
+            "description":         election_data["description"],
+            "source":              election_data["source"],
+            "candidates":          election_data["candidates"],
+            "estimated_blank_pct": estimated_blank_pct,
         },
         "plurality_winner":    plurality_winner,
         "first_round_results": first_round_pct,
@@ -339,6 +482,7 @@ def analyze_real_election(
             "methods_with_different_winner": n_different,
             "total_methods_with_winner":     n_total,
         },
+        "blank_vote_analysis": blank_vote_analysis,
     }
 
 

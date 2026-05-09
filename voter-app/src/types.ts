@@ -180,6 +180,19 @@ export interface RealElectionDivergence {
   differs_from_plurality: boolean;
 }
 
+export interface BlankVoteRuleOutcome {
+  blank_wins?: boolean;
+  winner: string | null;
+  triggered: boolean;
+  consequence: string;
+}
+
+export interface BlankVoteAnalysis {
+  estimated_blank_pct: number;
+  competitive: BlankVoteRuleOutcome;
+  threshold_30: BlankVoteRuleOutcome;
+}
+
 export interface RealElectionResult {
   election: {
     key: string;
@@ -189,6 +202,7 @@ export interface RealElectionResult {
     description: string;
     source: string;
     candidates: { name: string; party: string }[];
+    estimated_blank_pct?: number;
   };
   plurality_winner: string;
   first_round_results: Record<string, number>;
@@ -198,6 +212,7 @@ export interface RealElectionResult {
     methods_with_different_winner: number;
     total_methods_with_winner: number;
   };
+  blank_vote_analysis?: BlankVoteAnalysis;
 }
 
 // --- Multi-winner proportional methods ---
