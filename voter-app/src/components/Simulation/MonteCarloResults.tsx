@@ -25,6 +25,7 @@ import {
 } from 'recharts';
 import { MonteCarloResult } from '../../types';
 import { getMonteCarlo, MonteCarloParams } from '../../services/simulationCompareApi';
+import ResponsiveTable from '../shared/ResponsiveTable';
 
 // ── Constants ──────────────────────────────────────────────────────────────
 
@@ -300,7 +301,7 @@ const MonteCarloResults: React.FC<Props> = ({ baseParams }) => {
                   </span>
                 ))}
               </div>
-              <div style={{ overflowX: 'auto' }}>
+              <ResponsiveTable>
                 <Table bordered size="sm" className="text-center" style={{ minWidth: 400 }}>
                   <thead className="table-light">
                     <tr>
@@ -337,7 +338,7 @@ const MonteCarloResults: React.FC<Props> = ({ baseParams }) => {
                     ))}
                   </tbody>
                 </Table>
-              </div>
+              </ResponsiveTable>
             </Card.Body>
           </Card>
 

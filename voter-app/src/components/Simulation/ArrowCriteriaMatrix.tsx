@@ -2,6 +2,7 @@ import React from 'react';
 import { Alert, Badge, Table } from 'react-bootstrap';
 import { ArrowCriteriaResult, MethodCriteria } from '../../types';
 import MethodTooltip from '../shared/MethodTooltip';
+import ResponsiveTable from '../shared/ResponsiveTable';
 
 // ── Constants ──────────────────────────────────────────────────────────────
 
@@ -122,7 +123,7 @@ const ArrowCriteriaMatrix: React.FC<Props> = ({ result }) => {
         <small className="text-muted ms-2">Survolez les cellules IIA pour voir le taux de violation.</small>
       </div>
 
-      <div style={{ overflowX: 'auto' }}>
+      <ResponsiveTable>
         <Table bordered size="sm" className="text-center" style={{ minWidth: 600 }}>
           <thead className="table-light">
             <tr>
@@ -199,7 +200,7 @@ const ArrowCriteriaMatrix: React.FC<Props> = ({ result }) => {
             </tr>
           </tfoot>
         </Table>
-      </div>
+      </ResponsiveTable>
 
       {summary && (
         <div className="d-flex gap-3 mt-3 flex-wrap">

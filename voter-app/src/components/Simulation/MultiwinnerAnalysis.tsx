@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import ResponsiveTable from '../shared/ResponsiveTable';
 import {
   Alert,
   Badge,
@@ -284,6 +285,7 @@ const MultiwinnerAnalysis: React.FC = () => {
           <Card className="mb-4">
             <Card.Header><strong>Proportionality Metrics</strong></Card.Header>
             <Card.Body className="p-0">
+              <ResponsiveTable>
               <Table bordered size="sm" className="mb-0">
                 <thead className="table-light">
                   <tr>
@@ -344,6 +346,7 @@ const MultiwinnerAnalysis: React.FC = () => {
                   })}
                 </tbody>
               </Table>
+              </ResponsiveTable>
             </Card.Body>
           </Card>
 
@@ -351,6 +354,7 @@ const MultiwinnerAnalysis: React.FC = () => {
           <Card>
             <Card.Header><strong>Seat Breakdown Detail</strong></Card.Header>
             <Card.Body className="p-0">
+              <ResponsiveTable>
               <Table bordered size="sm" className="mb-0 text-center">
                 <thead className="table-light">
                   <tr>
@@ -415,6 +419,7 @@ const MultiwinnerAnalysis: React.FC = () => {
                   </tr>
                 </tbody>
               </Table>
+              </ResponsiveTable>
             </Card.Body>
           </Card>
         </>
