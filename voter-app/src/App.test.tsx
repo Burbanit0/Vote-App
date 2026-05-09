@@ -3,12 +3,15 @@ import { render, screen } from '@testing-library/react';
 import App from './App';
 import { useAuth } from './context/AuthContext';
 
+// ── Component mocks ────────────────────────────────────────────────────────
+
 jest.mock('./components/Navbar', () => () => <div data-testid="navbar">Navbar</div>);
 jest.mock(
   './components/Route/ErrorBoundary',
   () =>
     ({ children }: { children: React.ReactNode }) => <>{children}</>
 );
+
 jest.mock('./pages/HomePage', () => () => <div data-testid="home-page">HomePage</div>);
 jest.mock('./pages/SimulationPage', () => () => (
   <div data-testid="simulation-page">SimulationPage</div>
@@ -16,13 +19,22 @@ jest.mock('./pages/SimulationPage', () => () => (
 jest.mock('./pages/SimulationComparePage', () => () => (
   <div data-testid="simulation-compare-page">SimulationComparePage</div>
 ));
+jest.mock('./pages/ScenarioBuilderPage', () => () => (
+  <div data-testid="scenario-builder-page">ScenarioBuilderPage</div>
+));
+jest.mock('./pages/ConstitutionalCrisisPage', () => () => (
+  <div data-testid="constitutional-crisis-page">ConstitutionalCrisisPage</div>
+));
 jest.mock('./pages/Login', () => () => <div data-testid="login-page">Login</div>);
 jest.mock('./pages/Register', () => () => <div data-testid="register-page">Register</div>);
-jest.mock('./pages/ProfilePage', () => () => <div data-testid="profile-page">ProfilePage</div>);
+jest.mock('./pages/ProfilePage', () => () => (
+  <div data-testid="profile-page">ProfilePage</div>
+));
 jest.mock('./pages/UserProfilePage', () => () => (
   <div data-testid="user-profile-page">UserProfilePage</div>
 ));
 
+// AuthGuard: render the wrapped component directly (skip auth logic in tests)
 jest.mock(
   './context/AuthGuard',
   () =>
@@ -32,6 +44,8 @@ jest.mock(
 jest.mock('./context/AuthContext', () => ({
   useAuth: jest.fn(),
 }));
+
+// ── Tests ──────────────────────────────────────────────────────────────────
 
 describe('App', () => {
   const mockUseAuth = useAuth as jest.Mock;
@@ -44,68 +58,84 @@ describe('App', () => {
     jest.clearAllMocks();
   });
 
-  it('does not render Navbar on /login and /register routes', () => {
+  // Navbar visibility
+  it('hides Navbar on /login', () => {
     window.history.pushState({}, '', '/login');
     render(<App />);
     expect(screen.queryByTestId('navbar')).not.toBeInTheDocument();
+  });
 
+  it('hides Navbar on /register', () => {
     window.history.pushState({}, '', '/register');
     render(<App />);
     expect(screen.queryByTestId('navbar')).not.toBeInTheDocument();
   });
 
-  it('renders Navbar on other routes', () => {
+  it('shows Navbar on all other routes', () => {
     window.history.pushState({}, '', '/');
     render(<App />);
     expect(screen.getByTestId('navbar')).toBeInTheDocument();
   });
 
-  it('renders Login page when not authenticated and on /login route', () => {
+  // Auth routes
+  it('renders Login when unauthenticated on /login', () => {
     mockUseAuth.mockReturnValue({ user: null });
     window.history.pushState({}, '', '/login');
     render(<App />);
     expect(screen.getByTestId('login-page')).toBeInTheDocument();
   });
 
-  it('redirects to home page when authenticated and accessing /login', () => {
+  it('redirects to / when authenticated user visits /login', () => {
     mockUseAuth.mockReturnValue({ user: { name: 'Test User' } });
     window.history.pushState({}, '', '/login');
     render(<App />);
     expect(screen.getByTestId('home-page')).toBeInTheDocument();
   });
 
-  it('renders HomePage when authenticated and on / route', () => {
-    mockUseAuth.mockReturnValue({ user: { name: 'Test User' } });
+  // Public routes (no account required)
+  it('renders HomePage on / — public route', () => {
     window.history.pushState({}, '', '/');
     render(<App />);
     expect(screen.getByTestId('home-page')).toBeInTheDocument();
   });
 
-  it('renders ProfilePage for /profile route', () => {
+  it('renders ScenarioBuilderPage on /scenario-builder', () => {
+    window.history.pushState({}, '', '/scenario-builder');
+    render(<App />);
+    expect(screen.getByTestId('scenario-builder-page')).toBeInTheDocument();
+  });
+
+  it('renders SimulationComparePage on /simulation/compare', () => {
+    window.history.pushState({}, '', '/simulation/compare');
+    render(<App />);
+    expect(screen.getByTestId('simulation-compare-page')).toBeInTheDocument();
+  });
+
+  it('renders ConstitutionalCrisisPage on /constitutional-crisis', () => {
+    window.history.pushState({}, '', '/constitutional-crisis');
+    render(<App />);
+    expect(screen.getByTestId('constitutional-crisis-page')).toBeInTheDocument();
+  });
+
+  // Auth-protected routes
+  it('renders ProfilePage on /profile', () => {
     mockUseAuth.mockReturnValue({ user: { name: 'Test User' } });
     window.history.pushState({}, '', '/profile');
     render(<App />);
     expect(screen.getByTestId('profile-page')).toBeInTheDocument();
   });
 
-  it('renders UserProfilePage for /users/:id route', () => {
+  it('renders UserProfilePage on /users/:id', () => {
     mockUseAuth.mockReturnValue({ user: { name: 'Test User' } });
     window.history.pushState({}, '', '/users/1');
     render(<App />);
     expect(screen.getByTestId('user-profile-page')).toBeInTheDocument();
   });
 
-  it('renders SimulationPage for /simulation route', () => {
+  it('renders SimulationPage on /simulation', () => {
     mockUseAuth.mockReturnValue({ user: { name: 'Test User' } });
     window.history.pushState({}, '', '/simulation');
     render(<App />);
     expect(screen.getByTestId('simulation-page')).toBeInTheDocument();
-  });
-
-  it('renders SimulationComparePage for /simulation/compare route', () => {
-    mockUseAuth.mockReturnValue({ user: { name: 'Test User' } });
-    window.history.pushState({}, '', '/simulation/compare');
-    render(<App />);
-    expect(screen.getByTestId('simulation-compare-page')).toBeInTheDocument();
   });
 });
