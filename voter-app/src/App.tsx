@@ -8,6 +8,7 @@ import HomePage from './pages/HomePage';
 import SimulationPage from './pages/SimulationPage';
 import SimulationComparePage from './pages/SimulationComparePage';
 import ScenarioBuilderPage from './pages/ScenarioBuilderPage';
+import ConstitutionalCrisisPage from './pages/ConstitutionalCrisisPage';
 import Login from './pages/Login';
 import Register from './pages/Register';
 import ProfilePage from './pages/ProfilePage';
@@ -38,6 +39,7 @@ const AppContent: React.FC = () => {
           <Route path="/simulation" element={<AuthGuard component={SimulationPage} />} />
           <Route path="/simulation/compare" element={<AuthGuard component={SimulationComparePage} />} />
           <Route path="/scenario-builder" element={<AuthGuard component={ScenarioBuilderPage} />} />
+          <Route path="/constitutional-crisis" element={<AuthGuard component={ConstitutionalCrisisPage} />} />
         </Routes>
       </ErrorBoundary>
     </div>

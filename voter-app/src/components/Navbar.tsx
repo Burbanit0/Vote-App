@@ -29,6 +29,7 @@ const Navbar: React.FC = () => {
                 <Nav.Link href="/simulation">Simulation</Nav.Link>
                 <Nav.Link href="/simulation/compare">Comparer les méthodes</Nav.Link>
                 <Nav.Link href="/scenario-builder">Constructeur de scénario</Nav.Link>
+                <Nav.Link href="/constitutional-crisis">Crise constitutionnelle</Nav.Link>
               </>
             )}
           </Nav>

@@ -263,6 +263,56 @@ export interface ScenarioResult {
   };
 }
 
+// ── Constitutional crisis ──────────────────────────────────────────────────
+
+export interface ConstitutionalParams {
+  initial_election: {
+    candidates: ScenarioCandidate[];
+    electorate: { num_voters: number; ideology_preset: string; dissatisfaction_rate: number };
+    blank_rule: string;
+  };
+  blank_triggered: boolean;
+  scenario_type: 'new_election' | 'provisional' | 'dissolution';
+  params: Record<string, unknown>;
+}
+
+export interface ConstitutionalResult {
+  scenario_type: string;
+  // Scenario A
+  round1?: ScenarioResult['with_blank'];
+  round2?: ScenarioResult['with_blank'];
+  round2_candidate_names?: string[];
+  // Scenario B
+  before_drift?: ScenarioResult['with_blank'];
+  after_drift?: ScenarioResult['with_blank'];
+  drift_applied?: number;
+  duration?: number;
+  // Scenario C
+  initial_methods?: ScenarioResult['without_blank'];
+  multiwinner?: Record<string, unknown>;
+  uninominal_winner?: string | null;
+  party_votes?: Record<string, number>;
+  num_seats?: number;
+  // Common
+  conclusion: string;
+}
+
+export const runConstitutionalScenario = async (
+  params: ConstitutionalParams
+): Promise<ConstitutionalResult> => {
+  try {
+    const response = await axios.post<ConstitutionalResult>(
+      `${API_BASE_URL}/simulations/constitutional-scenario`,
+      params,
+      { headers: getAuthHeader() }
+    );
+    return response.data;
+  } catch (error) {
+    console.error('Failed to run constitutional scenario', error);
+    throw error;
+  }
+};
+
 export const runScenario = async (params: ScenarioParams): Promise<ScenarioResult> => {
   try {
     const response = await axios.post<ScenarioResult>(

@@ -16,22 +16,12 @@ from app.utils.simulation_ranked_utils import get_plurality_winner
 from app.utils.simulation_metrics import compare_all_methods, get_condorcet_matrix
 from app.utils.arrow_criteria import check_all_criteria
 from app.utils.blank_vote_rules import BlankVoteRule, apply_blank_rule
-from app.routes.simulation_helpers import _parse_candidate_configs, _build_population, _DEFAULT_ISSUES
-
-# Issue categories used to map 3 user positions → 20-issue policy dict
-_ECONOMY_ISSUES = {"economy", "taxes", "business_regulation", "jobs", "minimum_wage", "infrastructure", "technology_innovation"}
-_ENV_ISSUES = {"environment", "climate_change", "agriculture", "public_transport"}
-_SOCIAL_ISSUES = {"social_welfare", "healthcare", "education", "gender_equality", "housing", "immigration", "crime_safety", "defense", "pensions"}
-
-_PRESET_TO_DISTRIBUTION = {
-    "polarized": "polarized",
-    "centrist": "centrist",
-    "left": "left_skewed",
-    "right": "right_skewed",
-    "random": "random",
-}
-
-_SCENARIO_METHODS = ["plurality", "irv", "borda", "schulze", "approval"]
+from app.routes.simulation_helpers import (
+    _parse_candidate_configs, _build_population, _DEFAULT_ISSUES,
+    _ECONOMY_ISSUES, _ENV_ISSUES, _SOCIAL_ISSUES,
+    _PRESET_TO_DISTRIBUTION, _SCENARIO_METHODS,
+    _build_scenario_candidates, _build_scenario_voters,
+)
 
 simulation_compare_bp = Blueprint("simulation_compare", __name__, url_prefix="/simulations")
 

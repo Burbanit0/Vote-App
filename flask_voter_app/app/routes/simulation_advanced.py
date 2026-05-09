@@ -12,11 +12,18 @@ from concurrent.futures import ThreadPoolExecutor, as_completed
 
 from flask import Blueprint, request, jsonify
 
-from app.utils.simulation_voting_utils import run_bandwagon_simulation
+import random as _rng2
+
+from app.utils.simulation_voting_utils import run_bandwagon_simulation, calculate_utility
 from app.utils.simulation_metrics import compare_all_methods_mc
 from app.utils.simulation_multiwinner_utils import compare_multiwinner_methods
 from app.utils.real_election_data import analyze_real_election, list_elections
-from app.routes.simulation_helpers import _parse_candidate_configs, _build_population
+from app.utils.blank_vote_rules import BlankVoteRule
+from app.routes.simulation_helpers import (
+    _parse_candidate_configs, _build_population, _DEFAULT_ISSUES,
+    _build_scenario_candidates, _build_scenario_voters, _run_five_methods,
+    _SCENARIO_METHODS,
+)
 
 simulation_advanced_bp = Blueprint("simulation_advanced", __name__, url_prefix="/simulations")
 
@@ -269,3 +276,173 @@ def real_election_analyze():
         return jsonify({"error": str(e)}), 404
     except Exception as e:
         return jsonify({"error": str(e)}), 500
+
+
+# ── /simulations/constitutional-scenario ──────────────────────────────────
+
+def _blank_wins_any(result: dict) -> bool:
+    return any(d.get("winner") == "Blank" for d in result.get("methods", {}).values())
+
+
+def _conclude_new_election(r1: dict, r2: dict, n_round2: int) -> str:
+    blank_pct = round(r1.get("blank_pct", 0) * 100)
+    r2_winners = [d["winner"] for d in r2["methods"].values() if d.get("winner") and d["winner"] != "Blank"]
+    from collections import Counter
+    winner2 = Counter(r2_winners).most_common(1)[0][0] if r2_winners else "personne"
+    changed = sum(1 for m in r1["methods"] if r1["methods"][m].get("winner") != r2["methods"].get(m, {}).get("winner"))
+    txt = (f"Dans ce scénario, le vote blanc ({blank_pct}% des voix) a provoqué une nouvelle élection. "
+           f"Au second tour avec {n_round2} candidat(s), {winner2} a remporté l'élection pour la majorité des méthodes. ")
+    txt += (f"{changed}/5 méthodes ont produit un résultat différent entre les deux tours — "
+            "la pression du vote blanc a effectivement renouvelé l'offre politique." if changed > 0
+            else "Malgré le renouvellement des candidats, les résultats n'ont pas changé — "
+            "l'électorat reste fondamentalement insatisfait.")
+    return txt
+
+
+def _conclude_provisional(before: dict, after: dict, drift: float, duration: int) -> str:
+    b_pct = round(before.get("blank_pct", 0) * 100)
+    a_pct = round(after.get("blank_pct", 0) * 100)
+    changed = sum(1 for m in before["methods"] if before["methods"][m].get("winner") != after["methods"].get(m, {}).get("winner"))
+    txt = (f"Après {duration} mois de gouvernement provisoire, l'électorat a dérivé de ±{round(drift * 100, 1)}% "
+           f"sur l'axe idéologique. Le vote blanc est passé de {b_pct}% à {a_pct}%. ")
+    txt += (f"{changed}/5 méthodes ont changé de vainqueur : la dérive a modifié le rapport de force politique." if changed > 0
+            else "Aucun changement de vainqueur : l'électorat reste structurellement défavorable aux candidats proposés, "
+            "indépendamment du temps écoulé.")
+    return txt
+
+
+def _conclude_dissolution(multi: dict, plural_winner: str, num_seats: int) -> str:
+    comp = multi.get("comparison", {})
+    most_prop = comp.get("most_proportional", "sainte_lague")
+    gallagher = multi.get(most_prop, {}).get("metrics", {}).get("gallagher_index")
+    dhondt_seats = multi.get("dhondt", {}).get("seats", {}).get(plural_winner, 0)
+    g_str = f"{gallagher:.3f}" if gallagher is not None else "?"
+    return (f"Dans une assemblée de {num_seats} sièges, la méthode {most_prop.replace('_', ' ')} "
+            f"produit la représentation la plus équitable (Gallagher = {g_str}). "
+            f"En scrutin uninominal, {plural_winner} aurait dominé. "
+            f"En D'Hondt, {plural_winner} obtient {dhondt_seats} siège(s) — "
+            "illustrant comment la dissolution vers une assemblée proportionnelle redistribue le pouvoir.")
+
+
+@simulation_advanced_bp.route("/constitutional-scenario", methods=["POST"])
+def constitutional_scenario():
+    """
+    Simulate the constitutional aftermath of a blank-vote victory.
+
+    Body: {
+        "initial_election": {
+            "candidates": [...],     // 3-issue frontend format
+            "electorate": {...},
+            "blank_rule": str        // default "competitive"
+        },
+        "blank_triggered": bool,
+        "scenario_type": "new_election" | "provisional" | "dissolution",
+        "params": {
+            // new_election: { "new_candidates": [...] }
+            // provisional:  { "provisional_duration": 3|6, "drift_magnitude": 0.05 }
+            // dissolution:  { "num_seats": 100 }
+        }
+    }
+    """
+    data          = request.get_json() or {}
+    initial       = data.get("initial_election", {})
+    scenario_type = data.get("scenario_type", "new_election")
+    params        = data.get("params", {})
+
+    issues = _DEFAULT_ISSUES
+    try:
+        blank_rule = BlankVoteRule(initial.get("blank_rule", "competitive"))
+    except ValueError:
+        blank_rule = BlankVoteRule.COMPETITIVE
+
+    cands_raw = initial.get("candidates", [])
+    electorate = initial.get("electorate", {})
+
+    real_candidates = _build_scenario_candidates(cands_raw, issues)
+    if len(real_candidates) < 2:
+        return jsonify({"error": "At least 2 real candidates required"}), 400
+
+    # ── Scenario A — New election ──────────────────────────────────────────
+    if scenario_type == "new_election":
+        voters_r1 = _build_scenario_voters(electorate, issues)
+        r1 = _run_five_methods(voters_r1, real_candidates, issues, blank_vote=True, blank_rule=blank_rule)
+
+        new_cands_raw = params.get("new_candidates", cands_raw)
+        new_candidates = _build_scenario_candidates(new_cands_raw, issues)
+        if len(new_candidates) < 2:
+            new_candidates = real_candidates  # fallback
+
+        # Round 2 voters: same electorate but halved dissatisfaction (pressure released)
+        base_dissat = float(electorate.get("dissatisfaction_rate", 0.2))
+        voters_r2 = _build_scenario_voters(electorate, issues, dissatisfaction_override=base_dissat * 0.5)
+        r2 = _run_five_methods(voters_r2, new_candidates, issues, blank_vote=True, blank_rule=blank_rule)
+
+        return jsonify({
+            "scenario_type": "new_election",
+            "round1": r1,
+            "round2": r2,
+            "round2_candidate_names": [c["name"] for c in new_candidates],
+            "conclusion": _conclude_new_election(r1, r2, len(new_candidates)),
+        }), 200
+
+    # ── Scenario B — Provisional government ───────────────────────────────
+    elif scenario_type == "provisional":
+        duration  = int(params.get("provisional_duration", 3))
+        drift     = max(0.0, min(0.3, float(params.get("drift_magnitude", 0.05))))
+
+        voters = _build_scenario_voters(electorate, issues)
+        before = _run_five_methods(voters, real_candidates, issues, blank_vote=True, blank_rule=blank_rule)
+
+        # Apply ideological drift to voters
+        for v in voters:
+            shift = _rng2.uniform(-drift, drift)
+            v["political_lean_normalized"] = max(0.0, min(1.0, v["political_lean_normalized"] + shift))
+            for iss in v.get("issue_positions", {}):
+                v["issue_positions"][iss] = max(0.0, min(1.0, v["issue_positions"][iss] + shift * 0.5))
+
+        after = _run_five_methods(voters, real_candidates, issues, blank_vote=True, blank_rule=blank_rule)
+
+        return jsonify({
+            "scenario_type": "provisional",
+            "before_drift":  before,
+            "after_drift":   after,
+            "drift_applied": drift,
+            "duration":      duration,
+            "conclusion":    _conclude_provisional(before, after, drift, duration),
+        }), 200
+
+    # ── Scenario C — Dissolution ───────────────────────────────────────────
+    elif scenario_type == "dissolution":
+        num_seats = max(10, int(params.get("num_seats", 100)))
+
+        voters = _build_scenario_voters(electorate, issues)
+        initial_result = _run_five_methods(voters, real_candidates, issues, blank_vote=False)
+
+        # Derive party votes from first-choice utilities
+        from collections import Counter
+        utils_map = {
+            v["id"]: {c["name"]: calculate_utility(v, c, issues)["utility"] for c in real_candidates}
+            for v in voters
+        }
+        rankings = [sorted([c["name"] for c in real_candidates], key=lambda n: -utils_map[v["id"]][n]) for v in voters]
+        first_choices = Counter(r[0] for r in rankings if r)
+        party_votes = {name: count for name, count in first_choices.items()}
+
+        multi = compare_multiwinner_methods(party_votes=party_votes, num_seats=num_seats)
+        multi["party_votes"] = party_votes
+        multi["num_seats"]   = num_seats
+
+        plural_winner = initial_result["methods"].get("plurality", {}).get("winner")
+
+        return jsonify({
+            "scenario_type":   "dissolution",
+            "initial_methods": initial_result,
+            "multiwinner":     multi,
+            "uninominal_winner": plural_winner,
+            "party_votes":     party_votes,
+            "num_seats":       num_seats,
+            "conclusion":      _conclude_dissolution(multi, plural_winner or "?", num_seats),
+        }), 200
+
+    else:
+        return jsonify({"error": f"Unknown scenario_type '{scenario_type}'"}), 400
