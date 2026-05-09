@@ -1,22 +1,36 @@
 import React from 'react';
 import { render, screen } from '@testing-library/react';
 import '@testing-library/jest-dom';
-import HomePage from './HomePage'; // Adjust the import path as necessary
+import { MemoryRouter } from 'react-router';
+import HomePage from './HomePage';
 
-// Mock the ElectionList component
-jest.mock('../components/Election/ElectionList', () => () => (
-  <div data-testid="election-list">ElectionList</div>
-));
+// HomePage uses useNavigate, so it must be wrapped in a router.
+const renderWithRouter = (ui: React.ReactElement) =>
+  render(<MemoryRouter>{ui}</MemoryRouter>);
 
 describe('HomePage', () => {
-  it('renders the welcome message and ElectionList component', () => {
-    render(<HomePage />);
+  it('renders the main title', () => {
+    renderWithRouter(<HomePage />);
+    expect(screen.getByText('Voting Methods Sandbox')).toBeInTheDocument();
+  });
 
-    // Check if the welcome message is rendered
-    expect(screen.getByText('Welcome to the Voting System')).toBeInTheDocument();
-    expect(screen.getByText('Here are the lists of the elections ongoing')).toBeInTheDocument();
+  it('renders the subtitle', () => {
+    renderWithRouter(<HomePage />);
+    expect(
+      screen.getByText(/research tool for studying/i)
+    ).toBeInTheDocument();
+  });
 
-    // Check if the ElectionList component is rendered
-    expect(screen.getByTestId('election-list')).toBeInTheDocument();
+  it('renders the 3 feature cards', () => {
+    renderWithRouter(<HomePage />);
+    expect(screen.getByText('15 Voting Methods')).toBeInTheDocument();
+    expect(screen.getByText('Strategic Voting')).toBeInTheDocument();
+    expect(screen.getByText('Scenario Analysis')).toBeInTheDocument();
+  });
+
+  it('renders the navigation buttons', () => {
+    renderWithRouter(<HomePage />);
+    expect(screen.getByText('Run Simulation')).toBeInTheDocument();
+    expect(screen.getByText('Compare Methods')).toBeInTheDocument();
   });
 });
