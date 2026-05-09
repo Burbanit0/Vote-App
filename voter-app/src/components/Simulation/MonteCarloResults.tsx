@@ -29,28 +29,28 @@ import { getMonteCarlo, MonteCarloParams } from '../../services/simulationCompar
 // ── Constants ──────────────────────────────────────────────────────────────
 
 const METHOD_LABELS: Record<string, string> = {
-  plurality:            'Plurality',
-  two_round:            'Two-Round',
+  plurality:            'Pluralité',
+  two_round:            'Deux tours',
   borda:                'Borda',
-  approval:             'Approval',
+  approval:             'Approbation',
   irv:                  'IRV',
   coombs:               "Coombs'",
   bucklin:              'Bucklin',
   minimax:              'Minimax',
   schulze:              'Schulze',
-  simple_score:         'Simple Score',
+  simple_score:         'Score simple',
   star_voting:          'STAR',
-  median_voting:        'Median Score',
-  mean_median_hybrid:   'Mean-Median',
-  variance_based:       'Variance-Based',
+  median_voting:        'Score médian',
+  mean_median_hybrid:   'Moy.-Médiane',
+  variance_based:       'Variance',
 };
 
 const IDEOLOGY_OPTIONS = [
-  { value: 'random',      label: 'Random' },
-  { value: 'centrist',    label: 'Centrist' },
-  { value: 'polarized',   label: 'Polarized' },
-  { value: 'left_skewed', label: 'Left-skewed' },
-  { value: 'right_skewed', label: 'Right-skewed' },
+  { value: 'random',       label: 'Aléatoire' },
+  { value: 'centrist',     label: 'Centriste' },
+  { value: 'polarized',    label: 'Polarisée' },
+  { value: 'left_skewed',  label: 'Majorité gauche' },
+  { value: 'right_skewed', label: 'Majorité droite' },
 ];
 
 const CANDIDATE_PALETTE = ['#4e79a7', '#f28e2b', '#e15759', '#76b7b2', '#59a14f', '#edc948'];
@@ -94,7 +94,7 @@ const MonteCarloResults: React.FC<Props> = ({ baseParams }) => {
       };
       setResult(await getMonteCarlo(params));
     } catch {
-      setError('Monte Carlo failed. Make sure the backend is running.');
+      setError('Simulation Monte Carlo échouée. Vérifiez que le backend est démarré.');
     } finally {
       setLoading(false);
     }
@@ -177,12 +177,12 @@ const MonteCarloResults: React.FC<Props> = ({ baseParams }) => {
     <div>
       {/* Config */}
       <Card className="mb-4">
-        <Card.Header><strong>Monte Carlo Configuration</strong></Card.Header>
+        <Card.Header><strong>Configuration Monte Carlo</strong></Card.Header>
         <Card.Body>
           <Row className="g-3 align-items-end">
             <Col md={3}>
               <Form.Label className="small mb-1">
-                Runs: <strong>{numRuns}</strong>
+                Simulations : <strong>{numRuns}</strong>
               </Form.Label>
               <Form.Range
                 min={20} max={500} step={10} value={numRuns}
@@ -190,7 +190,7 @@ const MonteCarloResults: React.FC<Props> = ({ baseParams }) => {
               />
             </Col>
             <Col md={2}>
-              <Form.Label className="small mb-1">Voters / run</Form.Label>
+              <Form.Label className="small mb-1">Électeurs / simulation</Form.Label>
               <Form.Control
                 size="sm" type="number" min={50} max={500} value={numVoters}
                 onChange={(e) => setNumVoters(Number(e.target.value))}
@@ -210,14 +210,14 @@ const MonteCarloResults: React.FC<Props> = ({ baseParams }) => {
             <Col md={2}>
               <Button variant="primary" size="sm" className="w-100" onClick={runMC} disabled={loading}>
                 {loading
-                  ? <><Spinner size="sm" className="me-2" />Running…</>
-                  : 'Run Monte Carlo'}
+                  ? <><Spinner size="sm" className="me-2" />Simulation…</>
+                  : 'Lancer Monte Carlo'}
               </Button>
             </Col>
           </Row>
           <p className="text-muted small mt-2 mb-0">
-            Uses Scenario A candidate list. Strategic vulnerability is skipped for speed.
-            Each run generates a fresh population — results show statistical distributions.
+            Utilise la liste de candidats du Scénario A. La vulnérabilité stratégique est ignorée pour la vitesse.
+            Chaque simulation génère une population fraîche — les résultats montrent des distributions statistiques.
           </p>
         </Card.Body>
       </Card>
@@ -226,27 +226,27 @@ const MonteCarloResults: React.FC<Props> = ({ baseParams }) => {
 
       {!result && !loading && (
         <Alert variant="info">
-          Configure above and click <strong>Run Monte Carlo</strong>.
-          ~{Math.round(numRuns * numVoters / 1000 * 2)} sec estimated.
+          Configurez ci-dessus et cliquez sur <strong>Lancer Monte Carlo</strong>.
+          ~{Math.round(numRuns * numVoters / 1000 * 2)} sec estimées.
         </Alert>
       )}
 
       {result && (
         <>
           <Alert variant="secondary" className="py-2 mb-4">
-            <strong>{result.num_runs} runs</strong> ·{' '}
-            {result.num_voters_per_run} voters/run ·{' '}
-            Condorcet winner exists in{' '}
+            <strong>{result.num_runs} simulations</strong> ·{' '}
+            {result.num_voters_per_run} électeurs/sim ·{' '}
+            Vainqueur de Condorcet dans{' '}
             <strong>{(result.condorcet_winner_exists_rate * 100).toFixed(0)}%</strong>{' '}
-            of runs
+            des simulations
           </Alert>
 
           {/* 1. Regret bar chart with CI error bars */}
           <Card className="mb-4">
             <Card.Header>
-              <strong>Bayesian Regret with 95% Confidence Intervals</strong>
+              <strong>Régret bayésien avec intervalles de confiance à 95%</strong>
               <span className="text-muted ms-2" style={{ fontSize: '0.85rem' }}>
-                — error bars = ±1.96 σ / √n
+                — barres d'erreur = ±1.96 σ / √n
               </span>
             </Card.Header>
             <Card.Body>
@@ -262,7 +262,7 @@ const MonteCarloResults: React.FC<Props> = ({ baseParams }) => {
                   />
                   <YAxis tick={{ fontSize: 10 }} />
                   <Tooltip formatter={(v: number) => v.toFixed(4)} />
-                  <Bar dataKey="regret" name="Bayesian Regret" fill="#4e79a7">
+                  <Bar dataKey="regret" name="Régret bayésien" fill="#4e79a7">
                     {regretBarData.map((_, i) => (
                       <Cell key={i} fill="#4e79a7" />
                     ))}
@@ -282,9 +282,9 @@ const MonteCarloResults: React.FC<Props> = ({ baseParams }) => {
           {/* 2. Inter-method agreement heatmap */}
           <Card className="mb-4">
             <Card.Header>
-              <strong>Inter-Method Agreement</strong>
+              <strong>Accord inter-méthodes</strong>
               <span className="text-muted ms-2" style={{ fontSize: '0.85rem' }}>
-                — % of runs where both methods elected the same winner
+                — % des simulations où les deux méthodes élisent le même vainqueur
               </span>
             </Card.Header>
             <Card.Body>
@@ -304,7 +304,7 @@ const MonteCarloResults: React.FC<Props> = ({ baseParams }) => {
                 <Table bordered size="sm" className="text-center" style={{ minWidth: 400 }}>
                   <thead className="table-light">
                     <tr>
-                      <th style={{ minWidth: 120, textAlign: 'left' }}>Method</th>
+                      <th style={{ minWidth: 120, textAlign: 'left' }}>Méthode</th>
                       {agreementMethodNames.map((m) => (
                         <th key={m} style={{ minWidth: 80, fontSize: '0.75rem' }}>
                           {METHOD_LABELS[m] ?? m}
@@ -344,21 +344,21 @@ const MonteCarloResults: React.FC<Props> = ({ baseParams }) => {
           {/* 3. Stability table */}
           <Card>
             <Card.Header>
-              <strong>Winner Stability</strong>
+              <strong>Stabilité du vainqueur</strong>
               <span className="text-muted ms-2" style={{ fontSize: '0.85rem' }}>
-                — sorted most stable first (lowest Shannon entropy)
+                — triée du plus stable au moins stable (entropie de Shannon minimale)
               </span>
             </Card.Header>
             <Card.Body className="p-0">
               <Table bordered size="sm" className="mb-0">
                 <thead className="table-light">
                   <tr>
-                    <th style={{ minWidth: 150 }}>Method</th>
-                    <th className="text-center">Most frequent winner</th>
-                    <th className="text-center" style={{ minWidth: 80 }}>% of runs</th>
-                    <th style={{ minWidth: 160 }}>Stability</th>
-                    <th className="text-center" title="% of runs where Condorcet winner (when exists) was elected">
-                      Condorcet compliance
+                    <th style={{ minWidth: 150 }}>Méthode</th>
+                    <th className="text-center">Vainqueur le plus fréquent</th>
+                    <th className="text-center" style={{ minWidth: 80 }}>% des sim.</th>
+                    <th style={{ minWidth: 160 }}>Stabilité</th>
+                    <th className="text-center" title="% des simulations où le vainqueur de Condorcet (quand il existe) a été élu">
+                      Conformité Condorcet
                     </th>
                   </tr>
                 </thead>

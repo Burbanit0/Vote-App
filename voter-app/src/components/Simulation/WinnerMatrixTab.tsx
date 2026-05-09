@@ -28,7 +28,7 @@ const WinnerMatrixTable: React.FC<TableProps> = ({ results, allMethodNames, colo
     <Table bordered hover size="sm" style={{ minWidth: 500 }}>
       <thead className="table-light">
         <tr>
-          <th style={{ minWidth: 130 }}>Method</th>
+          <th style={{ minWidth: 130 }}>Méthode</th>
           {results.map((_, i) => (
             <th key={i} className="text-center" style={{ minWidth: 72 }}>#{i + 1}</th>
           ))}
@@ -47,7 +47,7 @@ const WinnerMatrixTable: React.FC<TableProps> = ({ results, allMethodNames, colo
                   className="text-center"
                   style={onCellClick ? { cursor: 'pointer' } : undefined}
                   onClick={onCellClick ? () => onCellClick(method, i) : undefined}
-                  title={onCellClick ? 'Click for details' : undefined}
+                  title={onCellClick ? 'Cliquez pour les détails' : undefined}
                 >
                   {winner ? (
                     <Badge style={{ backgroundColor: colorMap[winner] ?? '#999', fontSize: '0.72rem' }}>
@@ -96,8 +96,8 @@ const WinnerMatrixTab: React.FC<Props> = ({
       .sort((a, b) => (a.winnerA !== a.winnerB ? 0 : 1) - (b.winnerA !== b.winnerB ? 0 : 1));
   }, [allMethodNames, comparisonResults, resultsB]);
 
-  const labelA = `Scenario A — ${configA.candidateInput} (${IDEOLOGY_OPTIONS.find((o) => o.value === configA.ideology_distribution)?.label ?? configA.ideology_distribution})`;
-  const labelB = `Scenario B — ${configB.candidateInput} (${IDEOLOGY_OPTIONS.find((o) => o.value === configB.ideology_distribution)?.label ?? configB.ideology_distribution})`;
+  const labelA = `Scénario A — ${configA.candidateInput} (${IDEOLOGY_OPTIONS.find((o) => o.value === configA.ideology_distribution)?.label ?? configA.ideology_distribution})`;
+  const labelB = `Scénario B — ${configB.candidateInput} (${IDEOLOGY_OPTIONS.find((o) => o.value === configB.ideology_distribution)?.label ?? configB.ideology_distribution})`;
 
   // Colour legend
   const legend = (
@@ -110,7 +110,7 @@ const WinnerMatrixTab: React.FC<Props> = ({
       ))}
       {comparisonResults.some((r) =>
         Object.values(r.methods).some((m) => m.condorcet_consistent === false)
-      ) && <small className="text-muted">* = Condorcet winner not elected</small>}
+      ) && <small className="text-muted">* = Vainqueur de Condorcet non élu</small>}
     </div>
   );
 
@@ -138,18 +138,18 @@ const WinnerMatrixTab: React.FC<Props> = ({
 
           <Card>
             <Card.Header>
-              <strong>Differences</strong>
+              <strong>Différences</strong>
               <span className="text-muted ms-2" style={{ fontSize: '0.85rem' }}>
-                — most frequent winner per method across {numSimulations} runs
+                — vainqueur le plus fréquent par méthode sur {numSimulations} simulations
               </span>
             </Card.Header>
             <Card.Body className="p-0">
               <Table bordered size="sm" className="mb-0">
                 <thead className="table-light">
                   <tr>
-                    <th style={{ minWidth: 140 }}>Method</th>
-                    <th className="text-center">Scenario A winner</th>
-                    <th className="text-center">Scenario B winner</th>
+                    <th style={{ minWidth: 140 }}>Méthode</th>
+                    <th className="text-center">Vainqueur scénario A</th>
+                    <th className="text-center">Vainqueur scénario B</th>
                     <th className="text-center" style={{ width: 60 }}></th>
                   </tr>
                 </thead>
@@ -191,7 +191,7 @@ const WinnerMatrixTab: React.FC<Props> = ({
               onCellClick={(m, i) => setDrilldownTarget({ methodKey: m, simIndex: i })}
             />
             <small className="text-muted d-block mt-2">
-              Click any cell to see details for that method &amp; simulation run.
+              Cliquez sur une cellule pour voir les détails de cette méthode et cette simulation.
             </small>
           </Card.Body>
         </Card>
@@ -217,20 +217,20 @@ const WinnerMatrixTab: React.FC<Props> = ({
             </Modal.Header>
             <Modal.Body>
               <div className="text-center mb-4">
-                <div className="text-muted small mb-1">Winner</div>
+                <div className="text-muted small mb-1">Vainqueur</div>
                 {winner ? (
                   <Badge style={{ backgroundColor: candidateColorMap[winner] ?? '#999', fontSize: '1.1rem', padding: '0.45em 1.1em' }}>
                     {winner}
                   </Badge>
-                ) : <span className="text-muted">No winner</span>}
+                ) : <span className="text-muted">Aucun vainqueur</span>}
               </div>
 
               <Table bordered size="sm" className="mb-3">
                 <tbody>
                   {[
-                    { label: 'Bayesian Regret', value: m.bayesian_regret != null ? m.bayesian_regret.toFixed(4) : '—', note: 'lower = better' },
-                    { label: 'Majority Satisfaction', value: m.majority_satisfaction != null ? `${(m.majority_satisfaction * 100).toFixed(1)} %` : '—', note: 'higher = better' },
-                    { label: 'Strategic Vulnerability', value: m.strategic_vulnerability != null ? `${(m.strategic_vulnerability * 100).toFixed(1)} %` : '—', note: 'lower = better' },
+                    { label: 'Régret bayésien', value: m.bayesian_regret != null ? m.bayesian_regret.toFixed(4) : '—', note: 'plus bas = mieux' },
+                    { label: 'Satisfaction majoritaire', value: m.majority_satisfaction != null ? `${(m.majority_satisfaction * 100).toFixed(1)} %` : '—', note: 'plus haut = mieux' },
+                    { label: 'Vulnérabilité stratégique', value: m.strategic_vulnerability != null ? `${(m.strategic_vulnerability * 100).toFixed(1)} %` : '—', note: 'plus bas = mieux' },
                   ].map(({ label, value, note }) => (
                     <tr key={label}>
                       <td className="fw-semibold" style={{ width: '40%' }}>{label}</td>
@@ -243,10 +243,10 @@ const WinnerMatrixTab: React.FC<Props> = ({
 
               {r.condorcet_winner ? (
                 m.condorcet_consistent ? (
-                  <Alert variant="success" className="py-2 mb-3">✓ Elected the Condorcet winner</Alert>
+                  <Alert variant="success" className="py-2 mb-3">✓ A élu le vainqueur de Condorcet</Alert>
                 ) : (
                   <Alert variant="warning" className="py-2 mb-3">
-                    ✗ The Condorcet winner was{' '}
+                    ✗ Le vainqueur de Condorcet était{' '}
                     <strong>
                       <Badge style={{ backgroundColor: candidateColorMap[r.condorcet_winner] ?? '#999' }}>
                         {r.condorcet_winner}
@@ -256,17 +256,17 @@ const WinnerMatrixTab: React.FC<Props> = ({
                 )
               ) : (
                 <Alert variant="secondary" className="py-2 mb-3">
-                  No Condorcet winner in this simulation (cycle or tie at the top).
+                  Aucun vainqueur de Condorcet dans cette simulation (cycle ou égalité en tête).
                 </Alert>
               )}
 
               <p className="text-muted small mb-0" style={{ lineHeight: 1.6 }}>
                 <strong>{METHOD_LABELS[methodKey] || methodKey}: </strong>
-                {METHOD_DESCRIPTIONS[methodKey] ?? 'No description available.'}
+                {METHOD_DESCRIPTIONS[methodKey] ?? 'Aucune description disponible.'}
               </p>
             </Modal.Body>
             <Modal.Footer>
-              <Button variant="secondary" onClick={() => setDrilldownTarget(null)}>Close</Button>
+              <Button variant="secondary" onClick={() => setDrilldownTarget(null)}>Fermer</Button>
             </Modal.Footer>
           </Modal>
         );

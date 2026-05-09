@@ -43,16 +43,16 @@ const TAB_ORDER = [
 ];
 
 const TAB_LABELS: Record<string, string> = {
-  winners:        'Matrice des vainqueurs',
-  metrics:        'Métriques comparatives',
-  strategic:      'Impact stratégique',
-  condorcet:      'Matrice de Condorcet',
-  arrow:          "Critères d'Arrow",
-  bandwagon:      'Effet bandwagon',
-  montecarlo:     'Monte Carlo',
+  winners:          'Matrice des vainqueurs',
+  metrics:          'Métriques',
+  strategic:        'Impact stratégique',
+  condorcet:        'Matrice de Condorcet',
+  arrow:            "Critères d'Arrow",
+  bandwagon:        'Effet bandwagon',
+  montecarlo:       'Monte Carlo',
   'real-elections': 'Élections réelles',
-  multiwinner:    'Multi-gagnants',
-  sensitivity:    'Analyse de sensibilité',
+  multiwinner:      'Multi-gagnants',
+  sensitivity:      'Sensibilité',
 };
 
 // ── Report generation ──────────────────────────────────────────────────────
@@ -289,8 +289,8 @@ const SimulationComparePage: React.FC = () => {
 
   // ── Run analysis ──
   const runAnalysis = async () => {
-    if (candidateNamesA.length < 2) { setError('Scenario A needs at least 2 candidate names.'); return; }
-    if (scenarioCount === 2 && candidateNamesB.length < 2) { setError('Scenario B needs at least 2 candidate names.'); return; }
+    if (candidateNamesA.length < 2) { setError('Le scénario A nécessite au moins 2 candidats.'); return; }
+    if (scenarioCount === 2 && candidateNamesB.length < 2) { setError('Le scénario B nécessite au moins 2 candidats.'); return; }
     setLoading(true); setError(null);
     try {
       const paramsA = { num_voters: configA.numVoters, candidates: candidateNamesA, ideology_distribution: configA.ideology_distribution };
@@ -309,7 +309,7 @@ const SimulationComparePage: React.FC = () => {
       setArrowData(arrowResult);
       setResultsB(simResultsB);
     } catch {
-      setError('Analysis failed. Make sure the backend is running and the endpoints exist.');
+      setError('Analyse échouée. Vérifiez que le backend est démarré et les endpoints accessibles.');
     } finally {
       setLoading(false);
     }
@@ -448,20 +448,20 @@ const SimulationComparePage: React.FC = () => {
       {PresentationOverlay}
 
       <Container className="py-4">
-        <h2 className="mb-1">Comparative Voting Methods Analysis</h2>
+        <h2 className="mb-1">Analyse comparative des méthodes de vote</h2>
         <p className="text-muted mb-3">
-          Run multiple simulations on the same population and compare how each voting method
-          performs. Add a second scenario to study the spoiler effect or IIA violations.
+          Lancez plusieurs simulations sur la même population et comparez comment chaque méthode de vote
+          se comporte. Ajoutez un second scénario pour étudier l'effet spoiler ou les violations de l'IIA.
         </p>
 
         <div className="d-flex gap-2 mb-4 flex-wrap">
-          <Button variant="outline-secondary" size="sm" onClick={handleOpenLoadModal}>📂 Load scenario</Button>
+          <Button variant="outline-secondary" size="sm" onClick={handleOpenLoadModal}>📂 Charger</Button>
           <Button variant={linkCopied ? 'success' : 'outline-info'} size="sm" onClick={copyShareLink}>
             {linkCopied ? '✓ Lien copié !' : '🔗 Partager'}
           </Button>
           {hasResults && (
             <>
-              <Button variant="outline-success" size="sm" onClick={() => { setSaveName(''); setShowSaveModal(true); }}>💾 Save</Button>
+              <Button variant="outline-success" size="sm" onClick={() => { setSaveName(''); setShowSaveModal(true); }}>💾 Sauvegarder</Button>
               <Button variant="outline-primary" size="sm" onClick={exportJSON}>⬇ JSON</Button>
               <Button variant="outline-primary" size="sm" onClick={exportCSV}>⬇ CSV</Button>
               <Button variant="outline-warning" size="sm" onClick={exportReport}>📄 Rapport PDF</Button>
@@ -477,20 +477,20 @@ const SimulationComparePage: React.FC = () => {
           <Card.Header className="d-flex align-items-center justify-content-between">
             <strong>Configuration</strong>
             {scenarioCount === 1 ? (
-              <Button size="sm" variant="outline-secondary" onClick={() => setScenarioCount(2)}>+ Add scenario B</Button>
+              <Button size="sm" variant="outline-secondary" onClick={() => setScenarioCount(2)}>+ Ajouter le scénario B</Button>
             ) : (
-              <Button size="sm" variant="outline-danger" onClick={() => { setScenarioCount(1); setResultsB(null); }}>− Remove scenario B</Button>
+              <Button size="sm" variant="outline-danger" onClick={() => { setScenarioCount(1); setResultsB(null); }}>− Supprimer le scénario B</Button>
             )}
           </Card.Header>
           <Card.Body>
             <Row className="g-3 align-items-end mb-3">
               <Col md={4}>
-                <Form.Label>Simulations per scenario: <strong>{numSimulations}</strong></Form.Label>
+                <Form.Label>Simulations par scénario : <strong>{numSimulations}</strong></Form.Label>
                 <Form.Range min={5} max={20} value={numSimulations} onChange={(e) => setNumSimulations(Number(e.target.value))} />
               </Col>
               <Col md={2}>
                 <Button variant="primary" className="w-100" onClick={runAnalysis} disabled={loading}>
-                  {loading ? <><Spinner size="sm" className="me-2" />Running…</> : 'Run Analysis'}
+                  {loading ? <><Spinner size="sm" className="me-2" />Analyse…</> : 'Lancer l\'analyse'}
                 </Button>
               </Col>
             </Row>
@@ -498,8 +498,8 @@ const SimulationComparePage: React.FC = () => {
               <ScenarioConfigRow config={configA} onChange={(p) => setConfigA((c) => ({ ...c, ...p }))} />
             ) : (
               <Row className="g-3">
-                <Col md={6}><ScenarioConfigRow config={configA} onChange={(p) => setConfigA((c) => ({ ...c, ...p }))} label="Scenario A" /></Col>
-                <Col md={6}><ScenarioConfigRow config={configB} onChange={(p) => setConfigB((c) => ({ ...c, ...p }))} label="Scenario B" /></Col>
+                <Col md={6}><ScenarioConfigRow config={configA} onChange={(p) => setConfigA((c) => ({ ...c, ...p }))} label="Scénario A" /></Col>
+                <Col md={6}><ScenarioConfigRow config={configB} onChange={(p) => setConfigB((c) => ({ ...c, ...p }))} label="Scénario B" /></Col>
               </Row>
             )}
           </Card.Body>
@@ -507,7 +507,7 @@ const SimulationComparePage: React.FC = () => {
 
         {error && <Alert variant="danger">{error}</Alert>}
         {!hasResults && !loading && (
-          <Alert variant="info">Configure the simulation above and click <strong>Run Analysis</strong> to generate results.</Alert>
+          <Alert variant="info">Configurez la simulation ci-dessus et cliquez sur <strong>Lancer l'analyse</strong> pour générer des résultats.</Alert>
         )}
 
         {hasResults && (
@@ -516,32 +516,32 @@ const SimulationComparePage: React.FC = () => {
             onSelect={(k) => { if (k) { setActiveTab(k); if (presentationMode) setPresentationTabIndex(TAB_ORDER.indexOf(k)); }}}
             className="mb-3"
           >
-            <Tab eventKey="winners" title={scenarioCount === 2 ? 'Scenario Comparison' : 'Winner Matrix'}>
+            <Tab eventKey="winners" title={scenarioCount === 2 ? 'Comparaison de scénarios' : 'Matrice des vainqueurs'}>
               <WinnerMatrixTab comparisonResults={comparisonResults} resultsB={resultsB} allMethodNames={allMethodNames} candidateColorMap={candidateColorMap} configA={configA} configB={configB} numSimulations={numSimulations} scenarioCount={scenarioCount} />
             </Tab>
-            <Tab eventKey="metrics" title="Metrics">
+            <Tab eventKey="metrics" title="Métriques">
               <MetricsTab comparisonResults={comparisonResults} allMethodNames={allMethodNames} numSimulations={numSimulations} />
             </Tab>
-            <Tab eventKey="strategic" title="Strategic Impact">
+            <Tab eventKey="strategic" title="Impact stratégique">
               <StrategicImpactTab strategicData={strategicData} allMethodNames={allMethodNames} />
             </Tab>
-            <Tab eventKey="condorcet" title="Condorcet Matrix">
+            <Tab eventKey="condorcet" title="Matrice de Condorcet">
               <Card className="mb-4">
-                <Card.Header><strong>Condorcet Matrix</strong><span className="text-muted ms-2" style={{ fontSize: '0.85rem' }}>— pairwise head-to-head preferences (Scenario A)</span></Card.Header>
-                <Card.Body>{condorcetData ? <CondorcetMatrix result={condorcetData} /> : <Alert variant="info">No Condorcet data available.</Alert>}</Card.Body>
+                <Card.Header><strong>Matrice de Condorcet</strong><span className="text-muted ms-2" style={{ fontSize: '0.85rem' }}>— préférences pairwise dans la population (Scénario A)</span></Card.Header>
+                <Card.Body>{condorcetData ? <CondorcetMatrix result={condorcetData} /> : <Alert variant="info">Pas de données Condorcet disponibles.</Alert>}</Card.Body>
               </Card>
             </Tab>
-            <Tab eventKey="arrow" title="Arrow Criteria">
+            <Tab eventKey="arrow" title="Critères d'Arrow">
               <Card className="mb-4">
-                <Card.Header><strong>Arrow's Impossibility Criteria</strong><span className="text-muted ms-2" style={{ fontSize: '0.85rem' }}>— empirical verification (Scenario A)</span></Card.Header>
-                <Card.Body>{arrowData ? <ArrowCriteriaMatrix result={arrowData} /> : <Alert variant="info">No Arrow criteria data available.</Alert>}</Card.Body>
+                <Card.Header><strong>Critères d'impossibilité d'Arrow</strong><span className="text-muted ms-2" style={{ fontSize: '0.85rem' }}>— vérification empirique (Scénario A)</span></Card.Header>
+                <Card.Body>{arrowData ? <ArrowCriteriaMatrix result={arrowData} /> : <Alert variant="info">Pas de données Arrow disponibles.</Alert>}</Card.Body>
               </Card>
             </Tab>
             <Tab eventKey="bandwagon" title="Bandwagon"><BandwagonAnalysis baseParams={baseParamsA} /></Tab>
             <Tab eventKey="montecarlo" title="Monte Carlo"><MonteCarloResults baseParams={baseParamsA} /></Tab>
-            <Tab eventKey="real-elections" title="Real Elections"><RealElectionsTab /></Tab>
-            <Tab eventKey="multiwinner" title="Multi-winner"><MultiwinnerAnalysis /></Tab>
-            <Tab eventKey="sensitivity" title="Sensitivity"><SensitivityTab baseConfig={{ numVoters: configA.numVoters, candidates: candidateNamesA, ideology_distribution: configA.ideology_distribution }} /></Tab>
+            <Tab eventKey="real-elections" title="Élections réelles"><RealElectionsTab /></Tab>
+            <Tab eventKey="multiwinner" title="Multi-gagnants"><MultiwinnerAnalysis /></Tab>
+            <Tab eventKey="sensitivity" title="Sensibilité"><SensitivityTab baseConfig={{ numVoters: configA.numVoters, candidates: candidateNamesA, ideology_distribution: configA.ideology_distribution }} /></Tab>
           </Tabs>
         )}
 

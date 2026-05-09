@@ -27,17 +27,17 @@ import { getBandwagonAnalysis, BandwagonParams } from '../../services/simulation
 // ── Constants ──────────────────────────────────────────────────────────────
 
 const METHOD_LABELS: Record<string, string> = {
-  plurality:        'Plurality',
-  two_round:        'Two-Round',
+  plurality:        'Pluralité',
+  two_round:        'Deux tours',
   borda:            'Borda',
-  approval:         'Approval',
+  approval:         'Approbation',
   irv:              'IRV',
   coombs:           "Coombs'",
   bucklin:          'Bucklin',
   minimax:          'Minimax',
   schulze:          'Schulze',
   condorcet:        'Condorcet',
-  positional_score: 'Positional Score',
+  positional_score: 'Score positionnel',
 };
 
 const CANDIDATE_COLORS = [
@@ -90,7 +90,7 @@ const BandwagonAnalysis: React.FC<Props> = ({ baseParams }) => {
       const data = await getBandwagonAnalysis(params);
       setResult(data);
     } catch {
-      setError('Simulation failed. Make sure the backend is running.');
+      setError('Simulation échouée. Vérifiez que le backend est démarré.');
     } finally {
       setLoading(false);
     }
@@ -125,12 +125,12 @@ const BandwagonAnalysis: React.FC<Props> = ({ baseParams }) => {
     <div>
       {/* Controls */}
       <Card className="mb-4">
-        <Card.Header><strong>Bandwagon Simulation Controls</strong></Card.Header>
+        <Card.Header><strong>Paramètres de la simulation bandwagon</strong></Card.Header>
         <Card.Body>
           <Row className="g-3 align-items-end">
             <Col md={3}>
               <Form.Label className="small mb-1">
-                Rounds: <strong>{numRounds}</strong>
+                Tours : <strong>{numRounds}</strong>
               </Form.Label>
               <Form.Range
                 min={2} max={12} value={numRounds}
@@ -139,10 +139,10 @@ const BandwagonAnalysis: React.FC<Props> = ({ baseParams }) => {
             </Col>
             <Col md={4}>
               <Form.Label className="small mb-1">
-                Influence strength:{' '}
+                Force d'influence :{' '}
                 <strong>{influenceStrength.toFixed(2)}</strong>
                 <span className="text-muted ms-1">
-                  ({influenceStrength < 0.2 ? 'weak' : influenceStrength < 0.5 ? 'moderate' : 'strong'})
+                  ({influenceStrength < 0.2 ? 'faible' : influenceStrength < 0.5 ? 'modérée' : 'forte'})
                 </span>
               </Form.Label>
               <Form.Range
@@ -158,16 +158,16 @@ const BandwagonAnalysis: React.FC<Props> = ({ baseParams }) => {
                 disabled={loading}
               >
                 {loading ? (
-                  <><Spinner size="sm" className="me-2" />Running…</>
+                  <><Spinner size="sm" className="me-2" />Simulation…</>
                 ) : (
-                  'Run'
+                  'Lancer'
                 )}
               </Button>
             </Col>
           </Row>
           <p className="text-muted small mt-2 mb-0">
-            Simulates how poll standings feed back into voter preferences round by round.
-            Uses Scenario A configuration. Higher influence strength = stronger bandwagon.
+            Simule comment les sondages influencent les préférences des électeurs tour par tour.
+            Utilise la configuration du Scénario A. Force d'influence plus élevée = effet bandwagon plus fort.
           </p>
         </Card.Body>
       </Card>
@@ -176,7 +176,7 @@ const BandwagonAnalysis: React.FC<Props> = ({ baseParams }) => {
 
       {!result && !loading && (
         <Alert variant="info">
-          Adjust the parameters and click <strong>Run</strong> to simulate the bandwagon effect.
+          Ajustez les paramètres et cliquez sur <strong>Lancer</strong> pour simuler l'effet bandwagon.
         </Alert>
       )}
 
@@ -185,20 +185,20 @@ const BandwagonAnalysis: React.FC<Props> = ({ baseParams }) => {
           {/* Convergence info */}
           {result.convergence_round !== null ? (
             <Alert variant="success" className="py-2 mb-4">
-              Plurality winner stabilised at <strong>round {result.convergence_round}</strong>.
+              Le vainqueur en pluralité s'est stabilisé au <strong>tour {result.convergence_round}</strong>.
             </Alert>
           ) : (
             <Alert variant="warning" className="py-2 mb-4">
-              Plurality winner did not converge within {result.num_rounds} rounds.
+              Pas de convergence du vainqueur en pluralité sur {result.num_rounds} tours.
             </Alert>
           )}
 
           {/* Chart 1: Poll standings evolution */}
           <Card className="mb-4">
             <Card.Header>
-              <strong>Poll Standings Evolution</strong>
+              <strong>Évolution des sondages</strong>
               <span className="text-muted ms-2" style={{ fontSize: '0.85rem' }}>
-                — how first-choice support shifts across rounds
+                — comment le soutien de premier choix évolue tour par tour
               </span>
             </Card.Header>
             <Card.Body>
@@ -232,9 +232,9 @@ const BandwagonAnalysis: React.FC<Props> = ({ baseParams }) => {
           {/* Chart 2: Bayesian regret per method */}
           <Card className="mb-4">
             <Card.Header>
-              <strong>Bayesian Regret Across Rounds</strong>
+              <strong>Régret bayésien par tour</strong>
               <span className="text-muted ms-2" style={{ fontSize: '0.85rem' }}>
-                — flat lines resist bandwagon; rising lines amplify it
+                — lignes plates = résistance au bandwagon ; lignes montantes = amplification
               </span>
             </Card.Header>
             <Card.Body>
@@ -268,22 +268,22 @@ const BandwagonAnalysis: React.FC<Props> = ({ baseParams }) => {
           {/* Table: amplification summary */}
           <Card>
             <Card.Header>
-              <strong>Resistance Summary</strong>
+              <strong>Résumé de résistance</strong>
               <span className="text-muted ms-2" style={{ fontSize: '0.85rem' }}>
-                — proportion of rounds where the winner differs from round 0
+                — proportion de tours où le vainqueur diffère du tour 0
               </span>
             </Card.Header>
             <Card.Body className="p-0">
               <Table bordered size="sm" className="mb-0">
                 <thead className="table-light">
                   <tr>
-                    <th style={{ minWidth: 150 }}>Method</th>
+                    <th style={{ minWidth: 150 }}>Méthode</th>
                     <th className="text-center" style={{ minWidth: 120 }}>
                       Amplification
                     </th>
                     <th className="text-center">Verdict</th>
                     <th className="text-center" style={{ minWidth: 100 }}>
-                      R0 winner
+                      Vainqueur R0
                     </th>
                   </tr>
                 </thead>
