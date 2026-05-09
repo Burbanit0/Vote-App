@@ -1,5 +1,6 @@
 import React, { useMemo } from 'react';
 import { Alert, Card } from 'react-bootstrap';
+import { useChartTheme } from '../../hooks/useChartTheme';
 import {
   CartesianGrid,
   Legend,
@@ -19,6 +20,7 @@ interface Props {
 }
 
 const StrategicImpactTab: React.FC<Props> = ({ strategicData, allMethodNames }) => {
+  const ct = useChartTheme();
   const chartData = useMemo(
     () =>
       strategicData.map((point) => ({
@@ -46,16 +48,17 @@ const StrategicImpactTab: React.FC<Props> = ({ strategicData, allMethodNames }) 
         {strategicData.length > 0 ? (
           <ResponsiveContainer width="100%" height={420}>
             <LineChart data={chartData} margin={{ top: 5, right: 20, bottom: 20, left: 10 }}>
-              <CartesianGrid strokeDasharray="3 3" />
+              <CartesianGrid strokeDasharray="3 3" stroke={ct.gridStroke} />
               <XAxis
                 dataKey="pct"
-                label={{ value: 'Strategic voters (%)', position: 'insideBottom', offset: -10, fontSize: 12 }}
+                tick={{ fill: ct.tickFill }}
+                label={{ value: 'Strategic voters (%)', position: 'insideBottom', offset: -10, fontSize: 12, fill: ct.tickFill }}
               />
               <YAxis
-                label={{ value: 'Bayesian Regret', angle: -90, position: 'insideLeft', fontSize: 12 }}
-                tick={{ fontSize: 11 }}
+                tick={{ fontSize: 11, fill: ct.tickFill }}
+                label={{ value: 'Bayesian Regret', angle: -90, position: 'insideLeft', fontSize: 12, fill: ct.tickFill }}
               />
-              <Tooltip formatter={(v: number) => (v !== null ? v.toFixed(4) : '—')} />
+              <Tooltip formatter={(v: number) => (v !== null ? v.toFixed(4) : '—')} contentStyle={ct.tooltipStyle} />
               <Legend verticalAlign="bottom" wrapperStyle={{ paddingTop: 20, fontSize: 11 }} />
               {allMethodNames.map((method) => (
                 <Line

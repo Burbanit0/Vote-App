@@ -24,6 +24,7 @@ import {
 import { BandwagonResult } from '../../types';
 import { getBandwagonAnalysis, BandwagonParams } from '../../services/simulationCompareApi';
 import SkeletonCard from '../shared/SkeletonCard';
+import { useChartTheme } from '../../hooks/useChartTheme';
 
 // ── Constants ──────────────────────────────────────────────────────────────
 
@@ -73,6 +74,7 @@ interface CompareBaseParams {
 }
 
 const BandwagonAnalysis: React.FC<Props> = ({ baseParams }) => {
+  const ct = useChartTheme();
   const [numRounds, setNumRounds] = useState(6);
   const [influenceStrength, setInfluenceStrength] = useState(0.3);
   const [result, setResult] = useState<BandwagonResult | null>(null);
@@ -211,14 +213,14 @@ const BandwagonAnalysis: React.FC<Props> = ({ baseParams }) => {
             <Card.Body>
               <ResponsiveContainer width="100%" height={300}>
                 <LineChart data={pollChartData} margin={{ top: 5, right: 20, bottom: 10, left: 10 }}>
-                  <CartesianGrid strokeDasharray="3 3" />
-                  <XAxis dataKey="round" tick={{ fontSize: 11 }} />
+                  <CartesianGrid strokeDasharray="3 3" stroke={ct.gridStroke} />
+                  <XAxis dataKey="round" tick={{ fontSize: 11, fill: ct.tickFill }} />
                   <YAxis
                     tickFormatter={(v) => `${(v * 100).toFixed(0)}%`}
                     domain={[0, 1]}
                     tick={{ fontSize: 11 }}
                   />
-                  <Tooltip formatter={(v: number) => `${(v * 100).toFixed(1)}%`} />
+                  <Tooltip formatter={(v: number) => `${(v * 100).toFixed(1)}%`} contentStyle={ct.tooltipStyle} />
                   <Legend wrapperStyle={{ fontSize: 11 }} />
                   <ReferenceLine y={0.5} stroke="#ccc" strokeDasharray="4 2" />
                   {candidateNames.map((name, i) => (
@@ -247,10 +249,10 @@ const BandwagonAnalysis: React.FC<Props> = ({ baseParams }) => {
             <Card.Body>
               <ResponsiveContainer width="100%" height={320}>
                 <LineChart data={regretChartData} margin={{ top: 5, right: 20, bottom: 20, left: 10 }}>
-                  <CartesianGrid strokeDasharray="3 3" />
-                  <XAxis dataKey="round" tick={{ fontSize: 11 }} />
-                  <YAxis tick={{ fontSize: 11 }} />
-                  <Tooltip formatter={(v: number) => (v != null ? v.toFixed(4) : '—')} />
+                  <CartesianGrid strokeDasharray="3 3" stroke={ct.gridStroke} />
+                  <XAxis dataKey="round" tick={{ fontSize: 11, fill: ct.tickFill }} />
+                  <YAxis tick={{ fontSize: 11, fill: ct.tickFill }} />
+                  <Tooltip formatter={(v: number) => (v != null ? v.toFixed(4) : '—')} contentStyle={ct.tooltipStyle} />
                   <Legend
                     verticalAlign="bottom"
                     wrapperStyle={{ paddingTop: 10, fontSize: 10 }}

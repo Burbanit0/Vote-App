@@ -2,6 +2,7 @@ import React from 'react';
 import { useNavigate } from 'react-router';
 import { useAuth } from '../context/AuthContext';
 import { Badge, Button, Container, Nav, Navbar as BootstrapNavbar, OverlayTrigger, Tooltip } from 'react-bootstrap';
+import { useTheme } from '../context/ThemeContext';
 
 const NAV_LINKS = [
   { href: '/scenario-builder',      label: 'Simulateur' },
@@ -12,6 +13,7 @@ const NAV_LINKS = [
 const Navbar: React.FC = () => {
   const { user, logout, loading } = useAuth();
   const navigate = useNavigate();
+  const { theme, toggleTheme } = useTheme();
 
   const handleLogout = () => {
     logout();
@@ -57,6 +59,23 @@ const Navbar: React.FC = () => {
 
           {/* Right side */}
           <Nav className="align-items-lg-center gap-2">
+            {/* Dark mode toggle */}
+            <OverlayTrigger
+              trigger={['hover', 'focus']}
+              placement="bottom"
+              overlay={<Tooltip id="tip-theme">{theme === 'dark' ? 'Passer en mode clair' : 'Passer en mode sombre'}</Tooltip>}
+            >
+              <Button
+                variant="link"
+                size="sm"
+                onClick={toggleTheme}
+                aria-label={theme === 'dark' ? 'Passer en mode clair' : 'Passer en mode sombre'}
+                style={{ fontSize: '1.1rem', padding: '2px 6px', color: 'inherit', textDecoration: 'none' }}
+              >
+                {theme === 'dark' ? '☀️' : '🌙'}
+              </Button>
+            </OverlayTrigger>
+
             {/* Tour help button */}
             <OverlayTrigger
               trigger={['hover', 'focus']}

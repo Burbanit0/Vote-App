@@ -27,6 +27,7 @@ import { MonteCarloResult } from '../../types';
 import { getMonteCarlo, MonteCarloParams } from '../../services/simulationCompareApi';
 import ResponsiveTable from '../shared/ResponsiveTable';
 import SkeletonCard from '../shared/SkeletonCard';
+import { useChartTheme } from '../../hooks/useChartTheme';
 
 // ── Constants ──────────────────────────────────────────────────────────────
 
@@ -59,7 +60,12 @@ const CANDIDATE_PALETTE = ['#4e79a7', '#f28e2b', '#e15759', '#76b7b2', '#59a14f'
 
 // ── Helpers ────────────────────────────────────────────────────────────────
 
-function cellStyle(rate: number): React.CSSProperties {
+function cellStyle(rate: number, isDark: boolean): React.CSSProperties {
+  if (isDark) {
+    if (rate >= 0.8) return { backgroundColor: '#1a3a2a', color: '#75b798' };
+    if (rate >= 0.5) return { backgroundColor: '#332b00', color: '#c0964e' };
+    return { backgroundColor: '#3a1a1e', color: '#ea868f' };
+  }
   if (rate >= 0.8) return { backgroundColor: '#d4edda', color: '#155724' };
   if (rate >= 0.5) return { backgroundColor: '#fff3cd', color: '#856404' };
   return { backgroundColor: '#f8d7da', color: '#721c24' };
@@ -77,6 +83,7 @@ interface Props {
 }
 
 const MonteCarloResults: React.FC<Props> = ({ baseParams }) => {
+  const ct = useChartTheme();
   const [numRuns, setNumRuns] = useState(100);
   const [numVoters, setNumVoters] = useState(baseParams.num_voters ?? 150);
   const [ideologyDist, setIdeologyDist] = useState(baseParams.ideology_distribution ?? 'random');
@@ -260,16 +267,16 @@ const MonteCarloResults: React.FC<Props> = ({ baseParams }) => {
             <Card.Body>
               <ResponsiveContainer width="100%" height={360}>
                 <BarChart data={regretBarData} margin={{ bottom: 80, left: 10, right: 10 }}>
-                  <CartesianGrid strokeDasharray="3 3" />
+                  <CartesianGrid strokeDasharray="3 3" stroke={ct.gridStroke} />
                   <XAxis
                     dataKey="method"
-                    tick={{ fontSize: 10 }}
+                    tick={{ fontSize: 10, fill: ct.tickFill }}
                     angle={-45}
                     textAnchor="end"
                     interval={0}
                   />
-                  <YAxis tick={{ fontSize: 10 }} />
-                  <Tooltip formatter={(v: number) => v.toFixed(4)} />
+                  <YAxis tick={{ fontSize: 10, fill: ct.tickFill }} />
+                  <Tooltip formatter={(v: number) => v.toFixed(4)} contentStyle={ct.tooltipStyle} />
                   <Bar dataKey="regret" name="Régret bayésien" fill="#4e79a7">
                     {regretBarData.map((_, i) => (
                       <Cell key={i} fill="#4e79a7" />
@@ -336,7 +343,7 @@ const MonteCarloResults: React.FC<Props> = ({ baseParams }) => {
                             );
                           }
                           return (
-                            <td key={colMethod} style={rate != null ? cellStyle(rate) : undefined}>
+                            <td key={colMethod} style={rate != null ? cellStyle(rate, ct.isDark) : undefined}>
                               {rate != null ? `${(rate * 100).toFixed(0)}%` : '?'}
                             </td>
                           );

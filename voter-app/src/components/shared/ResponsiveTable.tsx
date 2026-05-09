@@ -9,18 +9,19 @@ if (typeof document !== 'undefined' && !document.getElementById(STYLE_ID)) {
   const style = document.createElement('style');
   style.id = STYLE_ID;
   style.textContent = `
-    /* Sticky first column */
+    /* Sticky first column — uses Bootstrap CSS variable so it works in dark mode */
     .rsp-table thead th:first-child,
     .rsp-table tbody td:first-child,
     .rsp-table tfoot td:first-child {
       position: sticky;
       left: 0;
-      background-color: white;
+      background-color: var(--bs-table-bg, var(--bs-body-bg, white));
       z-index: 2;
       box-shadow: 2px 0 4px rgba(0, 0, 0, 0.06);
     }
     .rsp-table thead th:first-child {
-      z-index: 3; /* above body cells */
+      z-index: 3;
+      background-color: var(--bs-table-bg, var(--bs-body-bg, white));
     }
 
     /* Compact layout on mobile — equivalent to Bootstrap table-sm */

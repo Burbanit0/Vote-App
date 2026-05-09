@@ -120,7 +120,7 @@ const ActionCard: React.FC<{
 );
 
 const StatCard: React.FC<{ value: React.ReactNode; label: string; sub?: string }> = ({ value, label, sub }) => (
-  <div className="text-center px-3 py-4 rounded-3" style={{ backgroundColor: '#f8f9fa' }}>
+  <div className="text-center px-3 py-4 rounded-3" style={{ backgroundColor: 'var(--bs-secondary-bg)' }}>
     <div style={{ fontSize: '2.4rem', fontWeight: 800, color: '#0d6efd', lineHeight: 1 }}>
       {value}
     </div>

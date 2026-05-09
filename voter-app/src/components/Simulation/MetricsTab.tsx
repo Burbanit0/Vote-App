@@ -3,6 +3,7 @@ import { Card } from 'react-bootstrap';
 import { Bar, BarChart, CartesianGrid, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts';
 import { SimulationCompareResult } from '../../types';
 import { METHOD_LABELS } from './simulationConstants';
+import { useChartTheme } from '../../hooks/useChartTheme';
 
 function avg(values: number[]): number {
   return values.length === 0 ? 0 : values.reduce((a, b) => a + b, 0) / values.length;
@@ -19,6 +20,7 @@ interface Props {
 }
 
 const MetricsTab: React.FC<Props> = ({ comparisonResults, allMethodNames, numSimulations }) => {
+  const ct = useChartTheme();
   const metricsData = useMemo(() => {
     if (!comparisonResults.length) return [];
     return allMethodNames.map((method) => {
@@ -55,10 +57,10 @@ const MetricsTab: React.FC<Props> = ({ comparisonResults, allMethodNames, numSim
         </div>
         <ResponsiveContainer width="100%" height={380}>
           <BarChart data={metricsData} margin={{ bottom: 90, left: 10, right: 10 }}>
-            <CartesianGrid strokeDasharray="3 3" />
-            <XAxis dataKey="method" tick={{ fontSize: 11 }} angle={-45} textAnchor="end" interval={0} />
-            <YAxis domain={[0, 1]} tick={{ fontSize: 11 }} />
-            <Tooltip formatter={(v: number) => v.toFixed(3)} />
+            <CartesianGrid strokeDasharray="3 3" stroke={ct.gridStroke} />
+            <XAxis dataKey="method" tick={{ fontSize: 11, fill: ct.tickFill }} angle={-45} textAnchor="end" interval={0} />
+            <YAxis domain={[0, 1]} tick={{ fontSize: 11, fill: ct.tickFill }} />
+            <Tooltip formatter={(v: number) => v.toFixed(3)} contentStyle={ct.tooltipStyle} />
             <Bar dataKey="Régret bayésien" fill="#e15759" />
             <Bar dataKey="Satisfaction majoritaire" fill="#59a14f" />
             <Bar dataKey="Vulnérabilité stratégique" fill="#f28e2b" />

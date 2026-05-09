@@ -15,7 +15,7 @@ if (typeof document !== 'undefined' && !document.getElementById(STYLE_ID)) {
       animation: skeleton-pulse 1.6s ease-in-out infinite;
     }
     .skeleton-line {
-      background-color: #dee2e6;
+      background-color: var(--bs-border-color, #dee2e6);
       border-radius: 4px;
     }
   `;
@@ -51,7 +51,7 @@ interface Props {
 const SkeletonCard: React.FC<Props> = ({ height = 180, width = '100%' }) => (
   <div
     className="skeleton-pulse rounded border"
-    style={{ width, height, backgroundColor: '#f8f9fa', padding: '0.75rem', overflow: 'hidden' }}
+    style={{ width, height, backgroundColor: 'var(--bs-secondary-bg, #f8f9fa)', padding: '0.75rem', overflow: 'hidden' }}
     role="status"
     aria-label="Chargement…"
   >
