@@ -1,11 +1,11 @@
 import React from 'react';
 import { useNavigate } from 'react-router';
 import { useAuth } from '../context/AuthContext';
-import { Badge, Button, Container, Nav, Navbar as BootstrapNavbar } from 'react-bootstrap';
+import { Badge, Button, Container, Nav, Navbar as BootstrapNavbar, OverlayTrigger, Tooltip } from 'react-bootstrap';
 
 const NAV_LINKS = [
-  { href: '/scenario-builder',     label: 'Simulateur' },
-  { href: '/simulation/compare',   label: 'Méthodes' },
+  { href: '/scenario-builder',      label: 'Simulateur' },
+  { href: '/simulation/compare',    label: 'Méthodes' },
   { href: '/constitutional-crisis', label: 'Vote Blanc' },
 ];
 
@@ -21,7 +21,13 @@ const Navbar: React.FC = () => {
   if (loading) return null;
 
   return (
-    <BootstrapNavbar bg="white" expand="lg" className="border-bottom shadow-sm" sticky="top">
+    <BootstrapNavbar
+      data-tour="navbar"
+      bg="white"
+      expand="lg"
+      className="border-bottom shadow-sm"
+      sticky="top"
+    >
       <Container>
         {/* Brand */}
         <BootstrapNavbar.Brand href="/" className="d-flex align-items-center gap-2 fw-bold" style={{ fontSize: '1.15rem' }}>
@@ -51,6 +57,33 @@ const Navbar: React.FC = () => {
 
           {/* Right side */}
           <Nav className="align-items-lg-center gap-2">
+            {/* Tour help button */}
+            <OverlayTrigger
+              trigger={['hover', 'focus']}
+              placement="bottom"
+              overlay={<Tooltip id="tip-tour">Lancer le tour guidé</Tooltip>}
+            >
+              <Nav.Link
+                href="/?tour=1"
+                className="d-flex align-items-center justify-content-center"
+                style={{
+                  width: 30,
+                  height: 30,
+                  borderRadius: '50%',
+                  border: '1.5px solid #6c757d',
+                  color: '#6c757d',
+                  fontWeight: 700,
+                  fontSize: '0.85rem',
+                  lineHeight: 1,
+                  padding: 0,
+                  flexShrink: 0,
+                }}
+                aria-label="Tour guidé"
+              >
+                ?
+              </Nav.Link>
+            </OverlayTrigger>
+
             {user ? (
               <>
                 <Nav.Link href="/profile" className="text-muted small">

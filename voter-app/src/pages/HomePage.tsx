@@ -1,6 +1,7 @@
-import React, { useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useState } from 'react';
 import { Badge, Button, Card, Col, Container, Row, Spinner } from 'react-bootstrap';
 import { runComparisonSimulation } from '../services/simulationCompareApi';
+import OnboardingTour from '../components/shared/OnboardingTour';
 
 // ── Election thumbnails ─────────────────────────────────────────────────────
 
@@ -164,11 +165,37 @@ const ElectionCard: React.FC<{ election: typeof ELECTIONS[0] }> = ({ election })
 
 const HomePage: React.FC = () => {
   const stats = useQuickStats();
+  const [tourRun, setTourRun] = useState(false);
+
+  const startTour = useCallback(() => {
+    localStorage.removeItem('tour_completed'); // allow re-run
+    setTourRun(false);
+    setTimeout(() => setTourRun(true), 100);
+  }, []);
+
+  const handleTourFinish = useCallback(() => setTourRun(false), []);
+
+  // Auto-start on first visit or when ?tour=1 is in the URL
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const forced = params.get('tour') === '1';
+    const completed = localStorage.getItem('tour_completed');
+    if (forced || !completed) {
+      const t = setTimeout(() => setTourRun(true), 600);
+      return () => clearTimeout(t);
+    }
+  }, []);
 
   return (
     <div>
+      <OnboardingTour run={tourRun} onFinish={handleTourFinish} />
+
       {/* ── Hero ── */}
-      <div style={{ background: 'linear-gradient(135deg, #0d6efd 0%, #0a58ca 100%)', color: 'white' }} className="py-5">
+      <div
+        data-tour="hero"
+        style={{ background: 'linear-gradient(135deg, #0d6efd 0%, #0a58ca 100%)', color: 'white' }}
+        className="py-5"
+      >
         <Container>
           <Row className="justify-content-center text-center py-4">
             <Col md={8} lg={7}>
@@ -193,6 +220,15 @@ const HomePage: React.FC = () => {
                     Comparer les méthodes
                   </Button>
                 </a>
+                <Button
+                  variant="outline-light"
+                  size="lg"
+                  className="px-4"
+                  onClick={startTour}
+                  style={{ opacity: 0.85 }}
+                >
+                  🎓 Démarrer le tour
+                </Button>
               </div>
             </Col>
           </Row>
@@ -212,7 +248,7 @@ const HomePage: React.FC = () => {
               highlight
             />
           </Col>
-          <Col md={4}>
+          <Col md={4} data-tour="compare-card">
             <ActionCard
               emoji="⚖️"
               title="Comparer les méthodes"
@@ -222,7 +258,7 @@ const HomePage: React.FC = () => {
               variant="outline-primary"
             />
           </Col>
-          <Col md={4}>
+          <Col md={4} data-tour="blank-vote-card">
             <ActionCard
               emoji="⬜"
               title="Et si le vote blanc comptait ?"
@@ -297,7 +333,7 @@ const HomePage: React.FC = () => {
         </div>
 
         {/* ── Historical elections ── */}
-        <div>
+        <div data-tour="elections-section">
           <h2 className="fw-bold text-center mb-1">Élections historiques analysées</h2>
           <p className="text-muted text-center mb-4">
             Cliquez pour voir comment chaque méthode aurait modifié le résultat
