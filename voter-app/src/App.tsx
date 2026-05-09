@@ -16,6 +16,7 @@ import UserProfilePage from './pages/UserProfilePage';
 
 import { useAuth } from './context/AuthContext';
 import AuthGuard from './context/AuthGuard';
+import { ToastProvider } from './components/shared/ToastNotification';
 
 import 'bootstrap/dist/css/bootstrap.min.css';
 
@@ -51,9 +52,11 @@ const AppContent: React.FC = () => {
 };
 
 const App: React.FC = () => (
-  <Router>
-    <AppContent />
-  </Router>
+  <ToastProvider>
+    <Router>
+      <AppContent />
+    </Router>
+  </ToastProvider>
 );
 
 export default App;

@@ -5,6 +5,7 @@ import ElectorateConfig, { ElectorateState } from '../components/ScenarioBuilder
 import BlankVoteRuleSelector, { BlankRule } from '../components/ScenarioBuilder/BlankVoteRuleSelector';
 import { runScenario, ScenarioResult } from '../services/simulationCompareApi';
 import { copyShareURL, decodeShareConfig, readShareParam } from '../utils/shareUtils';
+import { useToast } from '../components/shared/ToastNotification';
 
 // ── Constants ──────────────────────────────────────────────────────────────
 
@@ -181,8 +182,8 @@ const ScenarioBuilderPage: React.FC = () => {
   const [blankRule, setBlankRule] = useState<BlankRule>('symbolic');
   const [results, setResults] = useState<ScenarioResult | null>(null);
   const [loading, setLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
   const [linkCopied, setLinkCopied] = useState(false);
+  const toast = useToast();
 
   // Restore config from URL on mount
   useEffect(() => {
@@ -212,7 +213,6 @@ const ScenarioBuilderPage: React.FC = () => {
 
   const run = async () => {
     setLoading(true);
-    setError(null);
     try {
       const data = await runScenario({
         candidates: candidates.map((c) => ({
@@ -232,7 +232,7 @@ const ScenarioBuilderPage: React.FC = () => {
       setResults(data);
       setStep(3);
     } catch {
-      setError('La simulation a échoué. Vérifiez que le backend est démarré.');
+      toast.error('La simulation a échoué. Vérifiez que le backend est démarré.');
     } finally {
       setLoading(false);
     }
@@ -259,7 +259,7 @@ const ScenarioBuilderPage: React.FC = () => {
         <Card.Body>{stepContent[step]}</Card.Body>
       </Card>
 
-      {error && <Alert variant="danger">{error}</Alert>}
+
 
       {step < 2 && realCandidates.length < 2 && (
         <Alert variant="warning" className="py-2">

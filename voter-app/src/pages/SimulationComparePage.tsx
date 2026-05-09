@@ -1,5 +1,7 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { Alert, Badge, Button, Card, Col, Container, Form, OverlayTrigger, Row, Spinner, Tab, Tabs, Tooltip } from 'react-bootstrap';
+import { useToast } from '../components/shared/ToastNotification';
+import SkeletonCard from '../components/shared/SkeletonCard';
 import CondorcetMatrix from '../components/Simulation/CondorcetMatrix';
 import ArrowCriteriaMatrix from '../components/Simulation/ArrowCriteriaMatrix';
 import BandwagonAnalysis from '../components/Simulation/BandwagonAnalysis';
@@ -219,7 +221,7 @@ const SimulationComparePage: React.FC = () => {
   const [arrowData, setArrowData] = useState<ArrowCriteriaResult | null>(null);
   const [resultsB, setResultsB] = useState<SimulationCompareResult[] | null>(null);
   const [loading, setLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+  const toast = useToast();
 
   // ── Save / Load modal state ──
   const [showSaveModal, setShowSaveModal] = useState(false);
@@ -289,9 +291,9 @@ const SimulationComparePage: React.FC = () => {
 
   // ── Run analysis ──
   const runAnalysis = async () => {
-    if (candidateNamesA.length < 2) { setError('Le scénario A nécessite au moins 2 candidats.'); return; }
-    if (scenarioCount === 2 && candidateNamesB.length < 2) { setError('Le scénario B nécessite au moins 2 candidats.'); return; }
-    setLoading(true); setError(null);
+    if (candidateNamesA.length < 2) { toast.error('Le scénario A nécessite au moins 2 candidats.'); return; }
+    if (scenarioCount === 2 && candidateNamesB.length < 2) { toast.error('Le scénario B nécessite au moins 2 candidats.'); return; }
+    setLoading(true);
     try {
       const paramsA = { num_voters: configA.numVoters, candidates: candidateNamesA, ideology_distribution: configA.ideology_distribution };
       const [simResultsA, strategicResults, condorcetResult, arrowResult, simResultsB] = await Promise.all([
@@ -309,7 +311,7 @@ const SimulationComparePage: React.FC = () => {
       setArrowData(arrowResult);
       setResultsB(simResultsB);
     } catch {
-      setError('Analyse échouée. Vérifiez que le backend est démarré et les endpoints accessibles.');
+      toast.error('Analyse échouée. Vérifiez que le backend est démarré et les endpoints accessibles.');
     } finally {
       setLoading(false);
     }
@@ -362,6 +364,7 @@ const SimulationComparePage: React.FC = () => {
     try {
       await saveScenario(saveName.trim(), { numSimulations, configA, configB, scenarioCount }, { comparisonResults, strategicData, condorcetData, resultsB });
       setShowSaveModal(false); setSaveName('');
+      toast.success('Scénario sauvegardé ✓');
     } finally { setSaving(false); }
   };
 
@@ -385,6 +388,7 @@ const SimulationComparePage: React.FC = () => {
       if ('resultsB' in res) setResultsB(res.resultsB);
     }
     setShowLoadModal(false);
+    toast.success('Scénario chargé ✓');
   };
 
   const handleDelete = async (id: number) => {
@@ -505,7 +509,13 @@ const SimulationComparePage: React.FC = () => {
           </Card.Body>
         </Card>
 
-        {error && <Alert variant="danger">{error}</Alert>}
+        {loading && (
+          <Row className="g-3 mb-4">
+            {[0, 1, 2].map((i) => (
+              <Col key={i} md={4}><SkeletonCard height={180} /></Col>
+            ))}
+          </Row>
+        )}
         {!hasResults && !loading && (
           <Alert variant="info">Configurez la simulation ci-dessus et cliquez sur <strong>Lancer l'analyse</strong> pour générer des résultats.</Alert>
         )}

@@ -23,6 +23,7 @@ import {
 } from 'recharts';
 import { BandwagonResult } from '../../types';
 import { getBandwagonAnalysis, BandwagonParams } from '../../services/simulationCompareApi';
+import SkeletonCard from '../shared/SkeletonCard';
 
 // ── Constants ──────────────────────────────────────────────────────────────
 
@@ -173,6 +174,12 @@ const BandwagonAnalysis: React.FC<Props> = ({ baseParams }) => {
       </Card>
 
       {error && <Alert variant="danger">{error}</Alert>}
+
+      {loading && (
+        <Row className="g-3 mb-2">
+          {[240, 300, 180].map((h, i) => <Col key={i} md={4}><SkeletonCard height={h} /></Col>)}
+        </Row>
+      )}
 
       {!result && !loading && (
         <Alert variant="info">

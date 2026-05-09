@@ -26,6 +26,7 @@ import {
 import { MonteCarloResult } from '../../types';
 import { getMonteCarlo, MonteCarloParams } from '../../services/simulationCompareApi';
 import ResponsiveTable from '../shared/ResponsiveTable';
+import SkeletonCard from '../shared/SkeletonCard';
 
 // ── Constants ──────────────────────────────────────────────────────────────
 
@@ -224,6 +225,12 @@ const MonteCarloResults: React.FC<Props> = ({ baseParams }) => {
       </Card>
 
       {error && <Alert variant="danger">{error}</Alert>}
+
+      {loading && (
+        <Row className="g-3 mb-2">
+          {[220, 300, 200].map((h, i) => <Col key={i} md={4}><SkeletonCard height={h} /></Col>)}
+        </Row>
+      )}
 
       {!result && !loading && (
         <Alert variant="info">
