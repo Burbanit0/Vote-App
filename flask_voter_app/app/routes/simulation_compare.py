@@ -13,6 +13,7 @@ from app.utils.simulation_voting_utils import calculate_utility, compute_strateg
 from app.utils.simulation_ranked_utils import get_plurality_winner
 from app.utils.simulation_metrics import compare_all_methods, get_condorcet_matrix
 from app.utils.arrow_criteria import check_all_criteria
+from app.utils.blank_vote_rules import BlankVoteRule, apply_blank_rule
 from app.routes.simulation_helpers import _parse_candidate_configs, _build_population
 
 simulation_compare_bp = Blueprint("simulation_compare", __name__, url_prefix="/simulations")
@@ -24,24 +25,54 @@ def compare_methods():
     Run compare_all_methods on a fresh population and return per-method metrics.
 
     Body: {
-        "num_voters": int,
-        "ideology_distribution": str,          // optional, default "random"
-        "candidates": [str, ...] | [dict, ...]  // strings or full config dicts
+        "num_voters":             int,
+        "ideology_distribution":  str,               // default "random"
+        "candidates":             [str|dict, ...],
+        "blank_vote":             bool,              // default false
+        "blank_rule":             str                // "symbolic" | "competitive"
+                                                     // | "threshold_30"
+                                                     // | "majority_required"
     }
-    Candidate dict format: {"name": str, "party": str, "ideology_position": float|null}
+
+    When blank_vote=true, each method result includes a "blank_rule_applied"
+    field showing the constitutional outcome under the requested rule.
     """
     data = request.get_json() or {}
-    num_voters = int(data.get("num_voters", 500))
+    num_voters            = int(data.get("num_voters", 500))
     ideology_distribution = data.get("ideology_distribution", "random")
-    raw_candidates = data.get("candidates", ["Alice", "Bob", "Charlie"])
+    raw_candidates        = data.get("candidates", ["Alice", "Bob", "Charlie"])
+    blank_vote            = bool(data.get("blank_vote", False))
+    blank_rule_str        = data.get("blank_rule", BlankVoteRule.SYMBOLIC.value)
 
     candidate_configs = _parse_candidate_configs(raw_candidates)
     if len(candidate_configs) < 2:
         return jsonify({"error": "At least 2 candidates required"}), 400
 
     try:
-        voters, candidates, issues = _build_population(candidate_configs, num_voters, ideology_distribution)
-        result = compare_all_methods(voters, candidates, issues)
+        blank_rule = BlankVoteRule(blank_rule_str)
+    except ValueError:
+        return jsonify({"error": f"Unknown blank_rule '{blank_rule_str}'"}), 400
+
+    try:
+        voters, candidates, issues = _build_population(
+            candidate_configs, num_voters, ideology_distribution
+        )
+        result = compare_all_methods(
+            voters, candidates, issues,
+            blank_vote=blank_vote,
+        )
+
+        if blank_vote:
+            blank_pct = result.get("blank_pct", 0.0)
+            for method_data in result["methods"].values():
+                winner = method_data.get("winner")
+                rule_result = apply_blank_rule(
+                    winner=winner,
+                    blank_pct=blank_pct,
+                    rule=blank_rule,
+                )
+                method_data["blank_rule_applied"] = rule_result
+
         return jsonify(result), 200
     except Exception as e:
         return jsonify({"error": str(e)}), 500

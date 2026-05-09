@@ -333,6 +333,12 @@ def create_voter(
         social_conformity += 0.05
     social_conformity = max(0.0, min(0.8, social_conformity))
 
+    # Blank-vote threshold: minimum utility a candidate must provide for the
+    # voter to rank them above "none of the above".  Beta(3, 5) → mean ≈ 0.375,
+    # most values in [0.15, 0.65] — the majority of voters only cast a blank
+    # when genuinely unsatisfied with every real candidate.
+    blank_threshold = float(np.random.beta(3, 5))
+
     return {
         "id": voter_id,
         "age": age,
@@ -360,6 +366,7 @@ def create_voter(
         "strategic_propensity": round(strategic_propensity, 4),
         "voting_style": voting_style,
         "social_conformity": round(social_conformity, 4),
+        "blank_threshold": round(blank_threshold, 4),
     }
 
 

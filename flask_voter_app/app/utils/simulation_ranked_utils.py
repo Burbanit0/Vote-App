@@ -13,7 +13,7 @@ def _get_ranking(vote, is_dict: bool) -> list:
     return vote["ranking"] if is_dict else vote
 
 
-def get_condorcet_winner(votes: list) -> Optional[str]:
+def get_condorcet_winner(votes: list, blank_candidate_name: str = "") -> Optional[str]:
     """
     Determine the Condorcet winner from a set of rankings.
     :param votes: A list of rankings, where each ranking is either:
@@ -51,7 +51,7 @@ def get_condorcet_winner(votes: list) -> Optional[str]:
     return None
 
 
-def get_two_round_winner(votes: list) -> Optional[str]:
+def get_two_round_winner(votes: list, blank_candidate_name: str = "") -> Optional[str]:
     """
     Determine the winner of a two-round system from a set of rankings.
     :param votes: A list of rankings (see get_condorcet_winner for format)
@@ -87,7 +87,7 @@ def get_two_round_winner(votes: list) -> Optional[str]:
     return max(second_round_votes, key=second_round_votes.get)
 
 
-def get_borda_winner(votes: list) -> Optional[str]:
+def get_borda_winner(votes: list, blank_candidate_name: str = "") -> Optional[str]:
     """
     Determine the Borda count winner from a set of rankings.
     :param votes: A list of rankings (see get_condorcet_winner for format)
@@ -107,7 +107,7 @@ def get_borda_winner(votes: list) -> Optional[str]:
     return max(scores.items(), key=lambda x: x[1])[0]
 
 
-def get_plurality_winner(votes: list) -> Optional[str]:
+def get_plurality_winner(votes: list, blank_candidate_name: str = "") -> Optional[str]:
     """
     Determine the plurality winner from a set of rankings.
     :param votes: A list of rankings (see get_condorcet_winner for format)
@@ -130,6 +130,7 @@ def get_approval_winner(
     votes: list,
     approval_threshold: int = 2,
     utility_scores: dict = None,
+    blank_candidate_name: str = "",
 ) -> Optional[str]:
     """
     Determine the approval voting winner from a set of rankings.
@@ -184,7 +185,7 @@ def get_approval_winner_sincere(utility_scores: dict) -> str:
     return get_approval_winner(votes, utility_scores=utility_scores)
 
 
-def get_irv_winner(votes: list) -> Optional[str]:
+def get_irv_winner(votes: list, blank_candidate_name: str = "") -> Optional[str]:
     """
     Determine the Instant Runoff Voting winner from a set of rankings.
     :param votes: A list of rankings (see get_condorcet_winner for format)
@@ -221,7 +222,7 @@ def get_irv_winner(votes: list) -> Optional[str]:
     return candidates.pop() if candidates else None
 
 
-def get_coombs_winner(votes: list) -> Optional[str]:
+def get_coombs_winner(votes: list, blank_candidate_name: str = "") -> Optional[str]:
     """
     Determine the Coombs' method winner from a set of rankings.
     :param votes: A list of rankings (see get_condorcet_winner for format)
@@ -317,7 +318,7 @@ def get_kemeny_young_winner(votes: list) -> Optional[str]:
     return best_ranking[0] if best_ranking else None
 
 
-def get_bucklin_winner(votes: list) -> Optional[str]:
+def get_bucklin_winner(votes: list, blank_candidate_name: str = "") -> Optional[str]:
     """
     Determine the Bucklin voting winner from a set of rankings.
     :param votes: A list of rankings (see get_condorcet_winner for format)
@@ -344,7 +345,7 @@ def get_bucklin_winner(votes: list) -> Optional[str]:
     return max(votes_count.items(), key=lambda x: x[1])[0] if votes_count else None
 
 
-def get_minimax_winner(votes: list) -> Optional[str]:
+def get_minimax_winner(votes: list, blank_candidate_name: str = "") -> Optional[str]:
     """
     Determine the Minimax winner from a set of rankings.
     :param votes: A list of rankings (see get_condorcet_winner for format)
@@ -380,7 +381,7 @@ def get_minimax_winner(votes: list) -> Optional[str]:
     return min(max_opposition.items(), key=lambda x: x[1])[0]
 
 
-def get_schulze_winner(votes: list) -> Optional[str]:
+def get_schulze_winner(votes: list, blank_candidate_name: str = "") -> Optional[str]:
     """
     Determine the Schulze method winner from a set of rankings.
     :param votes: A list of rankings (see get_condorcet_winner for format)

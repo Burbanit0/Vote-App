@@ -28,14 +28,46 @@ from .simulation_score_utils import (
 _STRATEGIC_SAMPLE = 100
 
 
-def compare_all_methods(voters: List[Dict], candidates: List[Dict], issues: List[str]) -> Dict[str, Any]:
+def _insert_blank(
+    sorted_names: List[str],
+    voter_utils: Dict[str, float],
+    blank_threshold: float,
+    blank_name: str,
+) -> List[str]:
+    """
+    Insert the blank candidate into an already-sorted ranking.
+
+    Blank is placed immediately after all candidates whose utility exceeds
+    the voter's blank_threshold.  Candidates below the threshold are ranked
+    after blank — expressing "I'd accept these over nothing, but barely."
+
+    Example: threshold=0.5, utils={A:0.7, B:0.4, C:0.2}
+             sorted = [A, B, C]  →  [A, Blank, B, C]
+    """
+    pos = sum(1 for n in sorted_names if voter_utils[n] > blank_threshold)
+    return sorted_names[:pos] + [blank_name] + sorted_names[pos:]
+
+
+def compare_all_methods(
+    voters: List[Dict],
+    candidates: List[Dict],
+    issues: List[str],
+    blank_vote: bool = False,
+    blank_candidate_name: str = "Blank",
+) -> Dict[str, Any]:
     """
     Run every available voting method on the same population and return a
     structured comparison report.
 
+    When blank_vote=True, each voter's ranking includes a "Blank" candidate
+    inserted at the position determined by their blank_threshold field.
+    Score-based methods run on real candidates only (blank is rank-based
+    by nature — it has no scorable platform).
+
     Returns:
         {
             "condorcet_winner": str | None,
+            "blank_pct":        float | None,   # only when blank_vote=True
             "methods": {
                 "<method_name>": {
                     "winner": str | None,
@@ -43,8 +75,7 @@ def compare_all_methods(voters: List[Dict], candidates: List[Dict], issues: List
                     "condorcet_consistent": bool | None,
                     "majority_satisfaction": float | None,
                     "strategic_vulnerability": float | None,
-                },
-                ...
+                }, ...
             }
         }
     """
@@ -65,11 +96,31 @@ def compare_all_methods(voters: List[Dict], candidates: List[Dict], issues: List
     # ------------------------------------------------------------------
     # 2. Build sincere rankings — each voter's candidates sorted by
     #    utility descending. Used by all ranked methods.
+    #    When blank_vote=True, the blank candidate is spliced in at the
+    #    position corresponding to each voter's blank_threshold.
     # ------------------------------------------------------------------
-    rankings: List[List[str]] = [
-        sorted(utilities[v["id"]].keys(), key=lambda name: -utilities[v["id"]][name])
-        for v in voters
-    ]
+    candidate_names = [c["name"] for c in candidates]
+
+    if blank_vote:
+        rankings: List[List[str]] = [
+            _insert_blank(
+                sorted(candidate_names, key=lambda n: -utilities[v["id"]][n]),
+                utilities[v["id"]],
+                v.get("blank_threshold", 0.375),
+                blank_candidate_name,
+            )
+            for v in voters
+        ]
+        blank_pct = round(
+            sum(1 for r in rankings if r and r[0] == blank_candidate_name) / len(voters),
+            4,
+        )
+    else:
+        rankings = [
+            sorted(utilities[v["id"]].keys(), key=lambda name: -utilities[v["id"]][name])
+            for v in voters
+        ]
+        blank_pct = None
 
     # ------------------------------------------------------------------
     # 3. Build score votes — utility mapped to integer 0-5.
@@ -242,10 +293,13 @@ def compare_all_methods(voters: List[Dict], candidates: List[Dict], issues: List
         winner = result.get("winner") if isinstance(result, dict) else result
         methods_result[name] = _build_metrics_score(fn, winner)
 
-    return {
+    result: Dict[str, Any] = {
         "condorcet_winner": condorcet_winner,
         "methods": methods_result,
     }
+    if blank_vote:
+        result["blank_pct"] = blank_pct
+    return result
 
 
 def compare_all_methods_mc(
