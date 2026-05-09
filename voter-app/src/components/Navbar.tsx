@@ -27,7 +27,8 @@ const Navbar: React.FC = () => {
             {user && (
               <>
                 <Nav.Link href="/simulation">Simulation</Nav.Link>
-                <Nav.Link href="/simulation/compare">Compare Methods</Nav.Link>
+                <Nav.Link href="/simulation/compare">Comparer les méthodes</Nav.Link>
+                <Nav.Link href="/scenario-builder">Constructeur de scénario</Nav.Link>
               </>
             )}
           </Nav>

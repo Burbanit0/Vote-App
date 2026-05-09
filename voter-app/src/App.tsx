@@ -7,6 +7,7 @@ import ErrorBoundary from './components/Route/ErrorBoundary';
 import HomePage from './pages/HomePage';
 import SimulationPage from './pages/SimulationPage';
 import SimulationComparePage from './pages/SimulationComparePage';
+import ScenarioBuilderPage from './pages/ScenarioBuilderPage';
 import Login from './pages/Login';
 import Register from './pages/Register';
 import ProfilePage from './pages/ProfilePage';
@@ -36,6 +37,7 @@ const AppContent: React.FC = () => {
           <Route path="users/:id" element={<AuthGuard component={UserProfilePage} />} />
           <Route path="/simulation" element={<AuthGuard component={SimulationPage} />} />
           <Route path="/simulation/compare" element={<AuthGuard component={SimulationComparePage} />} />
+          <Route path="/scenario-builder" element={<AuthGuard component={ScenarioBuilderPage} />} />
         </Routes>
       </ErrorBoundary>
     </div>

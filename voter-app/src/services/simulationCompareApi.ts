@@ -222,3 +222,57 @@ export const analyzeRealElection = async (
     throw error;
   }
 };
+
+// ── Scenario builder ───────────────────────────────────────────────────────
+
+export interface ScenarioCandidate {
+  name: string;
+  ideology: number;
+  positions: { economy: number; environment: number; social: number };
+  is_blank?: boolean;
+}
+
+export interface ScenarioParams {
+  candidates: ScenarioCandidate[];
+  electorate: { num_voters: number; ideology_preset: string; dissatisfaction_rate: number };
+  blank_rule: string;
+  methods: string[];
+}
+
+export interface ScenarioMethodResult {
+  winner: string | null;
+  bayesian_regret: number | null;
+  blank_rule_applied?: {
+    winner: string | null;
+    blank_triggered: boolean;
+    consequence: string;
+    blank_pct: number;
+    rule: string;
+  };
+}
+
+export interface ScenarioResult {
+  without_blank: {
+    condorcet_winner: string | null;
+    methods: Record<string, Pick<ScenarioMethodResult, 'winner' | 'bayesian_regret'>>;
+  };
+  with_blank: {
+    condorcet_winner: string | null;
+    blank_pct: number;
+    methods: Record<string, ScenarioMethodResult>;
+  };
+}
+
+export const runScenario = async (params: ScenarioParams): Promise<ScenarioResult> => {
+  try {
+    const response = await axios.post<ScenarioResult>(
+      `${API_BASE_URL}/simulations/scenario`,
+      params,
+      { headers: getAuthHeader() }
+    );
+    return response.data;
+  } catch (error) {
+    console.error('Failed to run scenario', error);
+    throw error;
+  }
+};

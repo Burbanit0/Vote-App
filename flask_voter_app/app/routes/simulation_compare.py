@@ -9,12 +9,29 @@ All endpoints use the spatial utility pipeline.
 """
 from flask import Blueprint, request, jsonify
 
-from app.utils.simulation_voting_utils import calculate_utility, compute_strategic_plurality_vote
+import random as _rng
+
+from app.utils.simulation_voting_utils import calculate_utility, compute_strategic_plurality_vote, create_voter
 from app.utils.simulation_ranked_utils import get_plurality_winner
 from app.utils.simulation_metrics import compare_all_methods, get_condorcet_matrix
 from app.utils.arrow_criteria import check_all_criteria
 from app.utils.blank_vote_rules import BlankVoteRule, apply_blank_rule
-from app.routes.simulation_helpers import _parse_candidate_configs, _build_population
+from app.routes.simulation_helpers import _parse_candidate_configs, _build_population, _DEFAULT_ISSUES
+
+# Issue categories used to map 3 user positions → 20-issue policy dict
+_ECONOMY_ISSUES = {"economy", "taxes", "business_regulation", "jobs", "minimum_wage", "infrastructure", "technology_innovation"}
+_ENV_ISSUES = {"environment", "climate_change", "agriculture", "public_transport"}
+_SOCIAL_ISSUES = {"social_welfare", "healthcare", "education", "gender_equality", "housing", "immigration", "crime_safety", "defense", "pensions"}
+
+_PRESET_TO_DISTRIBUTION = {
+    "polarized": "polarized",
+    "centrist": "centrist",
+    "left": "left_skewed",
+    "right": "right_skewed",
+    "random": "random",
+}
+
+_SCENARIO_METHODS = ["plurality", "irv", "borda", "schulze", "approval"]
 
 simulation_compare_bp = Blueprint("simulation_compare", __name__, url_prefix="/simulations")
 
@@ -296,3 +313,106 @@ def arrow_criteria_route():
         return jsonify(result), 200
     except Exception as e:
         return jsonify({"error": str(e)}), 500
+
+
+# ── /simulations/scenario ─────────────────────────────────────────────────
+
+@simulation_compare_bp.route("/scenario", methods=["POST"])
+def run_scenario():
+    """
+    Run a citizen-configured scenario through voting methods with and without blank vote.
+
+    Body: {
+        "candidates": [
+            { "name": str, "ideology": float [-1,1],
+              "positions": {"economy": float, "environment": float, "social": float},
+              "is_blank": bool }
+        ],
+        "electorate": {
+            "num_voters": int,
+            "ideology_preset": "polarized"|"centrist"|"left"|"right"|"random",
+            "dissatisfaction_rate": float [0,1]
+        },
+        "blank_rule": str,
+        "methods": [str, ...]
+    }
+    """
+    data = request.get_json() or {}
+    candidates_raw    = data.get("candidates", [])
+    electorate        = data.get("electorate", {})
+    blank_rule_str    = data.get("blank_rule", BlankVoteRule.SYMBOLIC.value)
+    requested_methods = data.get("methods", _SCENARIO_METHODS)
+
+    num_voters           = max(10, int(electorate.get("num_voters", 500)))
+    ideology_preset      = electorate.get("ideology_preset", "random")
+    dissatisfaction_rate = max(0.0, min(1.0, float(electorate.get("dissatisfaction_rate", 0.2))))
+    ideology_dist        = _PRESET_TO_DISTRIBUTION.get(ideology_preset, "random")
+
+    try:
+        blank_rule = BlankVoteRule(blank_rule_str)
+    except ValueError:
+        return jsonify({"error": f"Unknown blank_rule '{blank_rule_str}'"}), 400
+
+    # Build candidates from 3 user-defined issue positions
+    issues = _DEFAULT_ISSUES
+    real_candidates = []
+
+    for i, c in enumerate(candidates_raw):
+        if c.get("is_blank"):
+            continue  # blank placeholder — handled via blank_vote flag
+        ideology  = max(-1.0, min(1.0, float(c.get("ideology", 0.0))))
+        pos       = (ideology + 1) / 2  # [-1, 1] → [0, 1]
+        positions = c.get("positions", {})
+        eco_pos   = max(0.0, min(1.0, float(positions.get("economy",     pos))))
+        env_pos   = max(0.0, min(1.0, float(positions.get("environment", 1 - pos))))
+        soc_pos   = max(0.0, min(1.0, float(positions.get("social",      1 - pos))))
+
+        policies = {
+            iss: eco_pos if iss in _ECONOMY_ISSUES
+                 else env_pos if iss in _ENV_ISSUES
+                 else soc_pos if iss in _SOCIAL_ISSUES
+                 else 0.5
+            for iss in issues
+        }
+        real_candidates.append({
+            "id": i, "name": c.get("name", f"Candidate {i + 1}"),
+            "party": "Independent", "party_lean": ideology,
+            "ideology_position": pos, "policies": policies,
+            "charisma": 0.7, "scandals": 0,
+            "campaign_funds": 500_000, "experience": 10, "popularity": 0.6,
+        })
+
+    if len(real_candidates) < 2:
+        return jsonify({"error": "At least 2 real candidates required"}), 400
+
+    voters = [
+        create_voter(issues, i, ideology_distribution=ideology_dist)
+        for i in range(num_voters)
+    ]
+    if dissatisfaction_rate > 0:
+        for voter in voters:
+            extra = dissatisfaction_rate * _rng.betavariate(2, 2)
+            voter["blank_threshold"] = min(0.95, voter["blank_threshold"] + extra)
+
+    try:
+        result_no_blank   = compare_all_methods(voters, real_candidates, issues, blank_vote=False)
+        result_with_blank = compare_all_methods(voters, real_candidates, issues, blank_vote=True)
+    except Exception as e:
+        return jsonify({"error": f"Simulation failed: {e}"}), 500
+
+    blank_pct = result_with_blank.get("blank_pct", 0.0)
+    for method_data in result_with_blank["methods"].values():
+        method_data["blank_rule_applied"] = apply_blank_rule(
+            winner=method_data.get("winner"), blank_pct=blank_pct, rule=blank_rule,
+        )
+
+    def _filter(result: dict) -> dict:
+        return {
+            "condorcet_winner": result.get("condorcet_winner"),
+            "methods": {m: result["methods"][m] for m in requested_methods if m in result["methods"]},
+        }
+
+    return jsonify({
+        "without_blank": _filter(result_no_blank),
+        "with_blank":    {**_filter(result_with_blank), "blank_pct": blank_pct},
+    }), 200
