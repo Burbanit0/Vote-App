@@ -265,12 +265,13 @@ def real_election_analyze():
     data          = request.get_json() or {}
     election_name = data.get("election_name", "")
     num_voters    = int(data.get("num_voters", 1000))
+    blank_vote    = bool(data.get("blank_vote", False))
 
     if not election_name:
         return jsonify({"error": "election_name is required"}), 400
 
     try:
-        result = analyze_real_election(election_name, num_voters)
+        result = analyze_real_election(election_name, num_voters, blank_vote=blank_vote)
         return jsonify(result), 200
     except ValueError as e:
         return jsonify({"error": str(e)}), 404

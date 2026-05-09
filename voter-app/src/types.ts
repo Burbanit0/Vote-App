@@ -207,6 +207,7 @@ export interface RealElectionResult {
   plurality_winner: string;
   first_round_results: Record<string, number>;
   methods: Record<string, string | null>;
+  methods_with_blank?: Record<string, string | null>;
   divergences: RealElectionDivergence[];
   summary: {
     methods_with_different_winner: number;

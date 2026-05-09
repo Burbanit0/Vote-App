@@ -208,12 +208,13 @@ export const getRealElections = async (): Promise<RealElectionSummary[]> => {
 
 export const analyzeRealElection = async (
   electionName: string,
-  numVoters: number = 1000
+  numVoters: number = 1000,
+  blankVote: boolean = false,
 ): Promise<RealElectionResult> => {
   try {
     const response = await axios.post<RealElectionResult>(
       `${API_BASE_URL}/simulations/real-election`,
-      { election_name: electionName, num_voters: numVoters },
+      { election_name: electionName, num_voters: numVoters, blank_vote: blankVote },
       { headers: getAuthHeader() }
     );
     return response.data;

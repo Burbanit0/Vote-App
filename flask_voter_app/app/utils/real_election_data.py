@@ -342,32 +342,63 @@ def _ranking_to_score_dict(ranking: List[str]) -> Dict[str, float]:
 
 # ── Analysis ───────────────────────────────────────────────────────────────
 
+def _run_methods(
+    ranked_methods: Dict[str, Any],
+    score_methods: Dict[str, Any],
+    rankings: List[List[str]],
+    blank_candidate_name: str = "",
+) -> Dict[str, Optional[str]]:
+    """Execute all methods on rankings and return {method_name: winner}."""
+    all_scores = [_ranking_to_score_dict(r) for r in rankings]
+    winners: Dict[str, Optional[str]] = {}
+    for name, fn in ranked_methods.items():
+        winners[name] = fn(rankings, blank_candidate_name=blank_candidate_name) if blank_candidate_name else fn(rankings)
+    for name, fn in score_methods.items():
+        # Score methods run on real candidates only (blank is rank-based by nature).
+        # Rebuild scores excluding blank from the mapping to avoid division artefacts.
+        scores_without_blank = [
+            {c: v for c, v in s.items() if c != blank_candidate_name}
+            for s in all_scores
+        ] if blank_candidate_name else all_scores
+        result = fn(scores_without_blank)
+        winners[name] = result.get("winner") if isinstance(result, dict) else result
+    return winners
+
+
 def analyze_real_election(
     election_name: str,
     num_voters: int = 1000,
+    blank_vote: bool = False,
 ) -> Dict[str, Any]:
     """
     Run every available voting method on a synthetic population derived
     from a real election's first-round results.
 
+    When blank_vote=True, "Blank" is inserted as a first-choice candidate
+    for a fraction of voters proportional to estimated_blank_pct.  All
+    voters who did NOT choose blank still rank it last.  The results are
+    returned in a separate field "methods_with_blank" so the caller can
+    compare side-by-side.
+
     Returns the winner per method, plus a list of divergences from the
     real plurality outcome.
     """
+    import random as _rng
+
     if election_name not in REAL_ELECTIONS:
         raise ValueError(f"Unknown election: {election_name!r}. "
                          f"Available: {list(REAL_ELECTIONS)}")
 
-    election_data = REAL_ELECTIONS[election_name]
-    first_round   = election_data["results"]["first_round"]
-    n_candidates  = len(first_round)
+    election_data    = REAL_ELECTIONS[election_name]
+    first_round      = election_data["results"]["first_round"]
+    n_candidates     = len(first_round)
 
-    rankings   = convert_to_rankings(election_name, election_data, num_voters)
-    all_scores = [_ranking_to_score_dict(r) for r in rankings]
+    rankings = convert_to_rankings(election_name, election_data, num_voters)
 
     # Real plurality winner (most first-round votes)
     plurality_winner = max(first_round, key=first_round.get)
 
-    # Ranked methods
+    # Ranked methods — blank_candidate_name is passed when blank is active
     ranked_methods: Dict[str, Any] = {
         "plurality":        get_plurality_winner,
         "two_round":        get_two_round_winner,
@@ -387,31 +418,21 @@ def analyze_real_election(
         ranked_methods["kemeny_young"] = get_kemeny_young_winner
 
     score_methods: Dict[str, Any] = {
-        "simple_score":      get_simple_score_winner,
-        "star_voting":       get_star_voting_winner,
-        "median_voting":     get_median_voting_winner,
+        "simple_score":       get_simple_score_winner,
+        "star_voting":        get_star_voting_winner,
+        "median_voting":      get_median_voting_winner,
         "mean_median_hybrid": get_mean_median_hybrid_winner,
-        "variance_based":    get_variance_based_winner,
+        "variance_based":     get_variance_based_winner,
     }
 
-    winners: Dict[str, Optional[str]] = {}
-
-    for name, fn in ranked_methods.items():
-        result = fn(rankings)
-        winners[name] = result
-
-    for name, fn in score_methods.items():
-        result = fn(all_scores)
-        if isinstance(result, dict):
-            winners[name] = result.get("winner")
-        else:
-            winners[name] = result
+    # ── Run without blank (baseline) ──────────────────────────────────────
+    winners = _run_methods(ranked_methods, score_methods, rankings)
 
     divergences = [
         {
-            "method":                  method,
-            "winner":                  winner,
-            "differs_from_plurality":  winner != plurality_winner,
+            "method":                 method,
+            "winner":                 winner,
+            "differs_from_plurality": winner != plurality_winner,
         }
         for method, winner in sorted(winners.items())
     ]
@@ -419,6 +440,35 @@ def analyze_real_election(
     # Summary counts
     n_different = sum(1 for d in divergences if d["differs_from_plurality"] and d["winner"])
     n_total     = sum(1 for d in divergences if d["winner"] is not None)
+
+    # ── Run with blank (optional) ─────────────────────────────────────────
+    winners_with_blank: Optional[Dict[str, Optional[str]]] = None
+
+    if blank_vote:
+        blank_name = "Blank"
+        blank_pct  = election_data.get("estimated_blank_pct", 0.0)
+        n_blank    = min(round(num_voters * blank_pct), len(rankings))
+
+        # Deep-copy rankings and insert blank
+        blank_rankings = [list(r) for r in rankings]
+
+        if n_blank > 0:
+            first_indices = set(_rng.sample(range(len(blank_rankings)), n_blank))
+        else:
+            first_indices = set()
+
+        for i, r in enumerate(blank_rankings):
+            if i in first_indices:
+                # This voter prefers blank over every candidate
+                blank_rankings[i] = [blank_name] + r
+            else:
+                # This voter ranks blank last (chose a real candidate)
+                blank_rankings[i] = r + [blank_name]
+
+        winners_with_blank = _run_methods(
+            ranked_methods, score_methods, blank_rankings,
+            blank_candidate_name=blank_name,
+        )
 
     # First-round percentages for display
     total_votes = sum(first_round.values())
@@ -477,6 +527,7 @@ def analyze_real_election(
         "plurality_winner":    plurality_winner,
         "first_round_results": first_round_pct,
         "methods":             winners,
+        "methods_with_blank":  winners_with_blank,   # None when blank_vote=False
         "divergences":         divergences,
         "summary": {
             "methods_with_different_winner": n_different,
