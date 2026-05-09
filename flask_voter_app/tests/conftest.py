@@ -1,8 +1,8 @@
 import pytest
 from flask_jwt_extended import create_access_token
 from datetime import datetime, timezone
-from app import db, create_app, scheduler
-from app.models import User, Party
+from app import db, create_app
+from app.models import User
 from flask_bcrypt import generate_password_hash
 
 
@@ -12,9 +12,6 @@ def app():
     app.config['TESTING'] = True
     app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///:memory:'
     app.config['JWT_SECRET_KEY'] = 'test-secret-key'
-
-    if hasattr(app, 'scheduler') and app.scheduler.running:
-        app.scheduler.shutdown()
 
     with app.app_context():
         db.create_all()
@@ -65,13 +62,6 @@ def init_db(app):
         db.session.remove()
 
 
-@pytest.fixture(scope='session', autouse=True)
-def shutdown_scheduler():
-    yield
-    if scheduler.running:
-        scheduler.shutdown()
-
-
 @pytest.fixture
 def auth_header(client, app):
     with app.app_context():
@@ -86,11 +76,3 @@ def admin_auth_header(client, app):
         user = User.query.filter_by(username='adminA').first()
         access_token = create_access_token(identity=str(user.id))
         return {'Authorization': f'Bearer {access_token}'}
-
-
-@pytest.fixture
-def party(db_session):
-    p = Party(name='Test Party', description='A test party')
-    db_session.add(p)
-    db_session.commit()
-    return p

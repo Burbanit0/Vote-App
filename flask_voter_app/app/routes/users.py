@@ -1,6 +1,6 @@
 from flask import Blueprint, request, jsonify
 from app.utils.auth_utils import register_user
-from ..models import User, Party
+from ..models import User
 from flask_jwt_extended import get_jwt_identity, jwt_required
 from ..utils.decorators import admin_required
 from ..services.user_service import UserService
@@ -18,8 +18,8 @@ def register():
     last_name = data.get("last_name")
     role = data.get("role", "User")
 
-    result = UserService.register(username, password, first_name, last_name, role)
-    return jsonify(result)
+    result, status = UserService.register(username, password, first_name, last_name, role)
+    return jsonify(result), status
 
 
 @auth_bp.route("/register/voter", methods=["POST"])
@@ -143,21 +143,4 @@ def get_user(user_id):
         "first_name": user.first_name,
         "last_name": user.last_name,
         "role": user.role,
-        "party_id": user.party_id,
     })
-
-
-@auth_bp.route("/users/me/party", methods=["GET"])
-@jwt_required()
-def get_user_party():
-    current_user_id = get_jwt_identity()
-    user = User.query.get(current_user_id)
-
-    if not user:
-        return jsonify({"message": "User not found"}), 404
-
-    party = Party.query.get(user.party_id)
-    if not party:
-        return jsonify({"message": "This user is not a member of a party"}), 404
-
-    return jsonify({"id": party.id, "name": party.name, "description": party.description})

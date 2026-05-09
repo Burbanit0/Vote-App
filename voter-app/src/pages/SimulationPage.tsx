@@ -52,7 +52,7 @@ const SimulateVotesPage: React.FC = () => {
       const response = await simulateVote(formData);
       setResult(response);
     } catch (error) {
-      setError('Failed to simulate votes. Please try again.');
+      setError('Simulation échouée. Veuillez réessayer.');
     } finally {
       setLoading(false);
     }
@@ -60,10 +60,10 @@ const SimulateVotesPage: React.FC = () => {
 
   return (
     <Container>
-      <h2 className="my-4">Simulate Votes</h2>
+      <h2 className="my-4">Simuler les votes</h2>
       <Tabs defaultActiveKey="Form" id="uncontrolled-tab-example" className="mb-3">
-        <Tab eventKey="Form" title="Form">
-          Tab content for Home
+        <Tab eventKey="Form" title="Formulaire">
+
           <SimulationForm
             simulateVotes={simulateVotes}
             loading={loading}
@@ -76,16 +76,16 @@ const SimulateVotesPage: React.FC = () => {
             </Alert>
           )}
         </Tab>
-        <Tab eventKey="Voters" title="Voters">
+        <Tab eventKey="Voters" title="Électeurs">
           <VoterVisualization />
         </Tab>
-        <Tab eventKey="Candidates" title="Candidates">
+        <Tab eventKey="Candidates" title="Candidats">
           <CandidatesVisualization />
         </Tab>
-        <Tab eventKey="Utility" title="Utility">
+        <Tab eventKey="Utility" title="Utilité">
           <UtilityVisualization />
         </Tab>
-        <Tab eventKey="Result" title="Result">
+        <Tab eventKey="Result" title="Résultat">
           <SimulationResult result={result} />
         </Tab>
       </Tabs>

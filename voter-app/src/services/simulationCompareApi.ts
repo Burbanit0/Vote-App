@@ -1,6 +1,11 @@
 import axios from 'axios';
 import {
   ArrowCriteriaResult,
+  BandwagonResult,
+  MonteCarloResult,
+  MultiwinnerResult,
+  RealElectionResult,
+  RealElectionSummary,
   SimulationCompareResult,
   StrategicImpactPoint,
   CondorcetMatrixResult,
@@ -108,6 +113,28 @@ export const getSensitivityAnalysis = async (
   }
 };
 
+export interface BandwagonParams extends CompareParams {
+  num_rounds?: number;
+  influence_strength?: number;
+  seed?: number | null;
+}
+
+export const getBandwagonAnalysis = async (
+  params: BandwagonParams
+): Promise<BandwagonResult> => {
+  try {
+    const response = await axios.post<BandwagonResult>(
+      `${API_BASE_URL}/simulations/bandwagon`,
+      params,
+      { headers: getAuthHeader() }
+    );
+    return response.data;
+  } catch (error) {
+    console.error('Failed to run bandwagon simulation', error);
+    throw error;
+  }
+};
+
 export const getArrowCriteria = async (
   params: CompareParams
 ): Promise<ArrowCriteriaResult> => {
@@ -120,6 +147,183 @@ export const getArrowCriteria = async (
     return response.data;
   } catch (error) {
     console.error('Failed to run Arrow criteria check', error);
+    throw error;
+  }
+};
+
+export interface MultiwinnerParams {
+  party_votes: Record<string, number>;
+  num_seats: number;
+  mode?: 'proportional' | 'stv';
+}
+
+export const getMultiwinner = async (
+  params: MultiwinnerParams
+): Promise<MultiwinnerResult> => {
+  try {
+    const response = await axios.post<MultiwinnerResult>(
+      `${API_BASE_URL}/simulations/multiwinner`,
+      params,
+      { headers: getAuthHeader() }
+    );
+    return response.data;
+  } catch (error) {
+    console.error('Failed to run multi-winner analysis', error);
+    throw error;
+  }
+};
+
+export interface MonteCarloParams extends CompareParams {
+  num_runs?: number;
+}
+
+export const getMonteCarlo = async (
+  params: MonteCarloParams
+): Promise<MonteCarloResult> => {
+  try {
+    const response = await axios.post<MonteCarloResult>(
+      `${API_BASE_URL}/simulations/monte-carlo`,
+      params,
+      { headers: getAuthHeader() }
+    );
+    return response.data;
+  } catch (error) {
+    console.error('Failed to run Monte Carlo simulation', error);
+    throw error;
+  }
+};
+
+export const getRealElections = async (): Promise<RealElectionSummary[]> => {
+  try {
+    const response = await axios.get<RealElectionSummary[]>(
+      `${API_BASE_URL}/simulations/real-elections`,
+      { headers: getAuthHeader() }
+    );
+    return response.data;
+  } catch (error) {
+    console.error('Failed to fetch real elections list', error);
+    throw error;
+  }
+};
+
+export const analyzeRealElection = async (
+  electionName: string,
+  numVoters: number = 1000,
+  blankVote: boolean = false,
+): Promise<RealElectionResult> => {
+  try {
+    const response = await axios.post<RealElectionResult>(
+      `${API_BASE_URL}/simulations/real-election`,
+      { election_name: electionName, num_voters: numVoters, blank_vote: blankVote },
+      { headers: getAuthHeader() }
+    );
+    return response.data;
+  } catch (error) {
+    console.error('Failed to analyse real election', error);
+    throw error;
+  }
+};
+
+// ── Scenario builder ───────────────────────────────────────────────────────
+
+export interface ScenarioCandidate {
+  name: string;
+  ideology: number;
+  positions: { economy: number; environment: number; social: number };
+  is_blank?: boolean;
+}
+
+export interface ScenarioParams {
+  candidates: ScenarioCandidate[];
+  electorate: { num_voters: number; ideology_preset: string; dissatisfaction_rate: number };
+  blank_rule: string;
+  methods: string[];
+}
+
+export interface ScenarioMethodResult {
+  winner: string | null;
+  bayesian_regret: number | null;
+  blank_rule_applied?: {
+    winner: string | null;
+    blank_triggered: boolean;
+    consequence: string;
+    blank_pct: number;
+    rule: string;
+  };
+}
+
+export interface ScenarioResult {
+  without_blank: {
+    condorcet_winner: string | null;
+    methods: Record<string, Pick<ScenarioMethodResult, 'winner' | 'bayesian_regret'>>;
+  };
+  with_blank: {
+    condorcet_winner: string | null;
+    blank_pct: number;
+    methods: Record<string, ScenarioMethodResult>;
+  };
+}
+
+// ── Constitutional crisis ──────────────────────────────────────────────────
+
+export interface ConstitutionalParams {
+  initial_election: {
+    candidates: ScenarioCandidate[];
+    electorate: { num_voters: number; ideology_preset: string; dissatisfaction_rate: number };
+    blank_rule: string;
+  };
+  blank_triggered: boolean;
+  scenario_type: 'new_election' | 'provisional' | 'dissolution';
+  params: Record<string, unknown>;
+}
+
+export interface ConstitutionalResult {
+  scenario_type: string;
+  // Scenario A
+  round1?: ScenarioResult['with_blank'];
+  round2?: ScenarioResult['with_blank'];
+  round2_candidate_names?: string[];
+  // Scenario B
+  before_drift?: ScenarioResult['with_blank'];
+  after_drift?: ScenarioResult['with_blank'];
+  drift_applied?: number;
+  duration?: number;
+  // Scenario C
+  initial_methods?: ScenarioResult['without_blank'];
+  multiwinner?: Record<string, unknown>;
+  uninominal_winner?: string | null;
+  party_votes?: Record<string, number>;
+  num_seats?: number;
+  // Common
+  conclusion: string;
+}
+
+export const runConstitutionalScenario = async (
+  params: ConstitutionalParams
+): Promise<ConstitutionalResult> => {
+  try {
+    const response = await axios.post<ConstitutionalResult>(
+      `${API_BASE_URL}/simulations/constitutional-scenario`,
+      params,
+      { headers: getAuthHeader() }
+    );
+    return response.data;
+  } catch (error) {
+    console.error('Failed to run constitutional scenario', error);
+    throw error;
+  }
+};
+
+export const runScenario = async (params: ScenarioParams): Promise<ScenarioResult> => {
+  try {
+    const response = await axios.post<ScenarioResult>(
+      `${API_BASE_URL}/simulations/scenario`,
+      params,
+      { headers: getAuthHeader() }
+    );
+    return response.data;
+  } catch (error) {
+    console.error('Failed to run scenario', error);
     throw error;
   }
 };

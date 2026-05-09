@@ -7,12 +7,12 @@ import ErrorBoundary from './components/Route/ErrorBoundary';
 import HomePage from './pages/HomePage';
 import SimulationPage from './pages/SimulationPage';
 import SimulationComparePage from './pages/SimulationComparePage';
+import ScenarioBuilderPage from './pages/ScenarioBuilderPage';
+import ConstitutionalCrisisPage from './pages/ConstitutionalCrisisPage';
 import Login from './pages/Login';
 import Register from './pages/Register';
 import ProfilePage from './pages/ProfilePage';
 import UserProfilePage from './pages/UserProfilePage';
-import PartyPage from './pages/PartyPage';
-import PartyDetailPage from './pages/PartyDetailPage';
 
 import { useAuth } from './context/AuthContext';
 import AuthGuard from './context/AuthGuard';
@@ -30,16 +30,20 @@ const AppContent: React.FC = () => {
       {!shouldHideNavbar.includes(location.pathname) && <Navbar />}
       <ErrorBoundary>
         <Routes>
-          <Route path="/login" element={!user ? <Login /> : <Navigate to="/" />} />
+          {/* Auth routes */}
+          <Route path="/login"    element={!user ? <Login />    : <Navigate to="/" />} />
           <Route path="/register" element={!user ? <Register /> : <Navigate to="/" />} />
 
-          <Route path="/" element={<AuthGuard component={HomePage} />} />
-          <Route path="/profile" element={<AuthGuard component={ProfilePage} />} />
-          <Route path="users/:id" element={<AuthGuard component={UserProfilePage} />} />
-          <Route path="/parties" element={<AuthGuard component={PartyPage} />} />
-          <Route path="/parties/:party_id" element={<AuthGuard component={PartyDetailPage} />} />
+          {/* Public routes — accessible without account */}
+          <Route path="/"                    element={<HomePage />} />
+          <Route path="/scenario-builder"    element={<AuthGuard component={ScenarioBuilderPage}    requireAuth={false} />} />
+          <Route path="/simulation/compare"  element={<AuthGuard component={SimulationComparePage} requireAuth={false} />} />
+          <Route path="/constitutional-crisis" element={<AuthGuard component={ConstitutionalCrisisPage} requireAuth={false} />} />
+
+          {/* Auth-protected routes */}
+          <Route path="/profile"    element={<AuthGuard component={ProfilePage} />} />
+          <Route path="users/:id"   element={<AuthGuard component={UserProfilePage} />} />
           <Route path="/simulation" element={<AuthGuard component={SimulationPage} />} />
-          <Route path="/simulation/compare" element={<AuthGuard component={SimulationComparePage} />} />
         </Routes>
       </ErrorBoundary>
     </div>

@@ -1,256 +1,210 @@
-import React, { useMemo, useState } from 'react';
-import {
-  Alert,
-  Badge,
-  Button,
-  Card,
-  Col,
-  Container,
-  Form,
-  Modal,
-  Row,
-  Spinner,
-  Tab,
-  Table,
-  Tabs,
-} from 'react-bootstrap';
+import React, { useEffect, useMemo, useState } from 'react';
+import { Alert, Badge, Button, Card, Col, Container, Form, OverlayTrigger, Row, Spinner, Tab, Tabs, Tooltip } from 'react-bootstrap';
 import CondorcetMatrix from '../components/Simulation/CondorcetMatrix';
 import ArrowCriteriaMatrix from '../components/Simulation/ArrowCriteriaMatrix';
+import BandwagonAnalysis from '../components/Simulation/BandwagonAnalysis';
+import MultiwinnerAnalysis from '../components/Simulation/MultiwinnerAnalysis';
+import MonteCarloResults from '../components/Simulation/MonteCarloResults';
+import WinnerMatrixTab from '../components/Simulation/WinnerMatrixTab';
+import MetricsTab from '../components/Simulation/MetricsTab';
+import StrategicImpactTab from '../components/Simulation/StrategicImpactTab';
+import SensitivityTab from '../components/Simulation/SensitivityTab';
+import RealElectionsTab from '../components/Simulation/RealElectionsTab';
+import ScenarioModals from '../components/Simulation/ScenarioModals';
+import ScenarioConfigRow from '../components/Simulation/ScenarioConfigRow';
 import {
-  Bar,
-  BarChart,
-  CartesianGrid,
-  Legend,
-  Line,
-  LineChart,
-  ResponsiveContainer,
-  Tooltip,
-  XAxis,
-  YAxis,
-} from 'recharts';
+  CANDIDATE_PALETTE,
+  METHOD_LABELS,
+  ScenarioConfig,
+  STRATEGIC_PERCENTAGES,
+} from '../components/Simulation/simulationConstants';
 import {
   ArrowCriteriaResult,
   CondorcetMatrixResult,
   ScenarioDetail,
   ScenarioSummary,
-  SensitivityResult,
   SimulationCompareResult,
   StrategicImpactPoint,
 } from '../types';
 import {
   getArrowCriteria,
   getCondorcetMatrix,
-  getSensitivityAnalysis,
   runComparisonSimulation,
   runStrategicImpactAnalysis,
 } from '../services/simulationCompareApi';
-import {
-  deleteScenario,
-  getScenario,
-  listScenarios,
-  saveScenario,
-} from '../services/scenariosApi';
+import { deleteScenario, getScenario, listScenarios, saveScenario } from '../services/scenariosApi';
+import { copyShareURL, decodeShareConfig, readShareParam } from '../utils/shareUtils';
 
-// ── Constants ──────────────────────────────────────────────────────────────
+// ── Presentation mode ──────────────────────────────────────────────────────
 
-const CANDIDATE_PALETTE = ['#4e79a7', '#f28e2b', '#e15759', '#76b7b2', '#59a14f', '#edc948'];
-
-const METHOD_LABELS: Record<string, string> = {
-  plurality: 'Plurality',
-  two_round: 'Two-Round',
-  borda: 'Borda',
-  approval: 'Approval',
-  irv: 'IRV',
-  coombs: "Coombs'",
-  bucklin: 'Bucklin',
-  minimax: 'Minimax',
-  schulze: 'Schulze',
-  kemeny_young: 'Kemeny-Young',
-  simple_score: 'Simple Score',
-  star_voting: 'STAR',
-  median_voting: 'Median Score',
-  mean_median_hybrid: 'Mean-Median',
-  variance_based: 'Variance-Based',
-};
-
-const METHOD_LINE_COLORS: Record<string, string> = {
-  plurality: '#e15759',
-  two_round: '#f28e2b',
-  borda: '#4e79a7',
-  approval: '#76b7b2',
-  irv: '#59a14f',
-  coombs: '#edc948',
-  bucklin: '#b07aa1',
-  minimax: '#ff9da7',
-  schulze: '#9c755f',
-  kemeny_young: '#bab0ac',
-  simple_score: '#86bcb6',
-  star_voting: '#e05c5c',
-  median_voting: '#499894',
-  mean_median_hybrid: '#f1ce63',
-  variance_based: '#d37295',
-};
-
-const STRATEGIC_PERCENTAGES = [0, 10, 20, 30, 40, 50];
-
-const METHOD_DESCRIPTIONS: Record<string, string> = {
-  plurality:
-    'Each voter votes for one candidate; the most votes wins. Simple, but vulnerable to vote-splitting: a similar candidate entering the race can reverse the outcome (spoiler effect).',
-  two_round:
-    'If no candidate reaches a majority in round 1, the top two face a runoff. Reduces vote-splitting but still incentivises strategic voting in the first round.',
-  borda:
-    'Voters rank all candidates; each rank earns points (last = 0). Totals decide the winner. Rewards broad appeal, but susceptible to the "burial" strategy: placing a strong rival last to minimise their score.',
-  approval:
-    'Voters approve any number of candidates; the most-approved wins. Eliminates the spoiler effect. The strategic challenge is calibrating how many candidates to approve.',
-  irv:
-    'Instant Runoff Voting: the weakest candidate (fewest first choices) is eliminated each round until someone has a majority. Can still incentivise compromise voting when your preferred candidate is not viable.',
-  coombs:
-    "Like IRV but eliminates the candidate with the most last-place votes each round. Tends to elect more centrist winners than standard IRV.",
-  bucklin:
-    'Voters rank candidates. Approval is expanded rank-by-rank until a majority is reached. A hybrid between ranked and approval voting.',
-  minimax:
-    "Minimises the maximum pairwise opposition: the winner is the candidate whose worst head-to-head defeat is the least bad. A Condorcet-extension method.",
-  schulze:
-    'Finds the strongest chain of pairwise victories (Floyd–Warshall path strength). Satisfies Condorcet, monotonicity, and many other criteria. Widely used in online elections.',
-  kemeny_young:
-    'Finds the complete ranking minimising the total Kendall-tau distance from all voter rankings. Computationally expensive (O(n!) candidates) but theoretically very robust.',
-  simple_score:
-    'Voters assign a numeric score to each candidate; the highest average wins. High expressivity, but exaggeration (giving 5 to your favourite, 0 to the rest) is the dominant strategy.',
-  star_voting:
-    'Score Then Automatic Runoff: the two highest-scoring candidates face a pairwise runoff. Combines score expressivity with resistance to strategic polarisation.',
-  median_voting:
-    'The winner has the highest median score. Inherently resistant to exaggeration — one extreme voter cannot shift the median as easily as the mean.',
-  mean_median_hybrid:
-    '50 % mean + 50 % median composite score. Balances expressivity and resistance to strategic manipulation.',
-  variance_based:
-    'Score = mean − 0.5 × std_dev. Penalises polarising candidates who score high with some voters but low with others, favouring consistent broad support.',
-};
-
-const IDEOLOGY_OPTIONS = [
-  { value: 'random', label: 'Random' },
-  { value: 'centrist', label: 'Centrist' },
-  { value: 'polarized', label: 'Polarized' },
-  { value: 'left_skewed', label: 'Left-skewed' },
-  { value: 'right_skewed', label: 'Right-skewed' },
+const TAB_ORDER = [
+  'winners', 'metrics', 'strategic', 'condorcet', 'arrow',
+  'bandwagon', 'montecarlo', 'real-elections', 'multiwinner', 'sensitivity',
 ];
 
-// ── Helpers ────────────────────────────────────────────────────────────────
+const TAB_LABELS: Record<string, string> = {
+  winners:          'Matrice des vainqueurs',
+  metrics:          'Métriques',
+  strategic:        'Impact stratégique',
+  condorcet:        'Matrice de Condorcet',
+  arrow:            "Critères d'Arrow",
+  bandwagon:        'Effet bandwagon',
+  montecarlo:       'Monte Carlo',
+  'real-elections': 'Élections réelles',
+  multiwinner:      'Multi-gagnants',
+  sensitivity:      'Sensibilité',
+};
 
-function avg(values: number[]): number {
-  if (values.length === 0) return 0;
-  return values.reduce((a, b) => a + b, 0) / values.length;
+// ── Report generation ──────────────────────────────────────────────────────
+
+function buildConclusion(
+  results: SimulationCompareResult[],
+  methodNames: string[],
+): string {
+  if (!results.length) return 'Aucun résultat disponible.';
+
+  const avg = (vals: number[]) => vals.reduce((a, b) => a + b, 0) / (vals.length || 1);
+
+  const regret = methodNames
+    .map((m) => ({ m, v: avg(results.map((r) => r.methods[m]?.bayesian_regret ?? 0)) }))
+    .filter((x) => x.v > 0)
+    .sort((a, b) => a.v - b.v);
+
+  const vuln = methodNames
+    .map((m) => ({ m, v: avg(results.map((r) => r.methods[m]?.strategic_vulnerability ?? 0)) }))
+    .filter((x) => x.v > 0)
+    .sort((a, b) => b.v - a.v);
+
+  const condorcet = methodNames
+    .map((m) => ({ m, v: avg(results.map((r) => (r.methods[m]?.condorcet_consistent === true ? 1 : 0))) }))
+    .sort((a, b) => b.v - a.v);
+
+  const parts: string[] = [];
+
+  if (regret.length) {
+    const best = regret[0], worst = regret[regret.length - 1];
+    parts.push(
+      `Méthode la plus robuste (regret bayésien moyen le plus bas) : ` +
+      `${METHOD_LABELS[best.m] ?? best.m} (${best.v.toFixed(4)}).`
+    );
+    if (worst.m !== best.m) {
+      parts.push(
+        `Méthode la moins robuste : ` +
+        `${METHOD_LABELS[worst.m] ?? worst.m} (${worst.v.toFixed(4)}).`
+      );
+    }
+  }
+
+  if (vuln.length) {
+    const v = vuln[0];
+    parts.push(
+      `Méthode la plus vulnérable au vote stratégique : ` +
+      `${METHOD_LABELS[v.m] ?? v.m} (${(v.v * 100).toFixed(1)}% des électeurs peuvent l'influencer).`
+    );
+  }
+
+  if (condorcet.length && condorcet[0].v > 0) {
+    const c = condorcet[0];
+    parts.push(
+      `Méthode la plus cohérente avec le critère de Condorcet : ` +
+      `${METHOD_LABELS[c.m] ?? c.m} (${(c.v * 100).toFixed(0)}% de cohérence).`
+    );
+  }
+
+  return parts.join('\n\n');
 }
 
-function round(value: number, decimals = 3): number {
-  return Math.round(value * 10 ** decimals) / 10 ** decimals;
-}
+function buildReportHTML(
+  configA: ScenarioConfig,
+  numSimulations: number,
+  results: SimulationCompareResult[],
+  methodNames: string[],
+  conclusion: string,
+  date: string,
+): string {
+  // Winners table rows
+  const methodRows = methodNames.map((m) => {
+    const winners = results.map((r) => r.methods[m]?.winner ?? '—');
+    const mostCommon = winners.reduce<Record<string, number>>((acc, w) => ({ ...acc, [w]: (acc[w] ?? 0) + 1 }), {});
+    const dominant = Object.entries(mostCommon).sort((a, b) => b[1] - a[1])[0];
+    const avg = results.reduce((a, r) => a + (r.methods[m]?.bayesian_regret ?? 0), 0) / results.length;
+    return `<tr><td>${METHOD_LABELS[m] ?? m}</td><td>${dominant?.[0] ?? '—'} (${dominant?.[1]}/${results.length})</td><td>${avg.toFixed(4)}</td></tr>`;
+  }).join('');
 
-/** Most frequent winner for a given method across N simulation runs. */
-function mostCommonWinner(results: SimulationCompareResult[], method: string): string | null {
-  const winners = results
-    .map((r) => r.methods[method]?.winner)
-    .filter((w): w is string => !!w);
-  if (!winners.length) return null;
-  const counts = winners.reduce(
-    (acc, w) => ({ ...acc, [w]: (acc[w] ?? 0) + 1 }),
-    {} as Record<string, number>
-  );
-  return Object.entries(counts).sort((a, b) => b[1] - a[1])[0][0];
-}
+  return `<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="utf-8" />
+  <title>Vote Lab — Rapport de simulation ${date}</title>
+  <style>
+    * { box-sizing: border-box; }
+    body { font-family: 'Georgia', serif; margin: 0; padding: 2cm; color: #333; font-size: 11pt; }
+    h1 { font-size: 20pt; color: #0d6efd; margin-bottom: 0.2cm; }
+    h2 { font-size: 14pt; color: #444; border-bottom: 1px solid #dee2e6; padding-bottom: 4px; margin-top: 1cm; }
+    .meta { color: #6c757d; font-size: 9pt; margin-bottom: 0.8cm; }
+    table { width: 100%; border-collapse: collapse; font-size: 10pt; margin: 0.4cm 0; }
+    th { background: #f8f9fa; text-align: left; padding: 6px 8px; border: 1px solid #dee2e6; }
+    td { padding: 5px 8px; border: 1px solid #dee2e6; }
+    tr:nth-child(even) { background: #f8f9fa; }
+    .conclusion { background: #e8f4e8; border-left: 4px solid #198754; padding: 0.5cm; white-space: pre-line; font-size: 10pt; }
+    .config-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 0.3cm; margin: 0.4cm 0; }
+    .config-item { background: #f8f9fa; padding: 0.3cm; border-radius: 4px; }
+    .config-item strong { display: block; font-size: 9pt; color: #6c757d; }
+    @media print {
+      body { padding: 1cm; }
+      .no-print { display: none; }
+      @page { margin: 1.5cm; size: A4; }
+    }
+  </style>
+</head>
+<body>
+  <button class="no-print" onclick="window.print()" style="position:fixed;top:1rem;right:1rem;padding:0.5rem 1.2rem;background:#0d6efd;color:white;border:none;border-radius:6px;cursor:pointer;font-size:14px;">🖨️ Imprimer / Sauvegarder PDF</button>
 
-// ── Sub-components ─────────────────────────────────────────────────────────
+  <h1>🗳️ Vote Lab — Rapport de simulation</h1>
+  <div class="meta">Généré le ${date} · ${numSimulations} simulations · ${methodNames.length} méthodes analysées</div>
 
-interface WinnerMatrixTableProps {
-  results: SimulationCompareResult[];
-  allMethodNames: string[];
-  colorMap: Record<string, string>;
-  label?: string;
-  onCellClick?: (methodKey: string, simIndex: number) => void;
-}
-
-const WinnerMatrixTable: React.FC<WinnerMatrixTableProps> = ({
-  results,
-  allMethodNames,
-  colorMap,
-  label,
-  onCellClick,
-}) => (
-  <div style={{ overflowX: 'auto' }}>
-    {label && (
-      <p className="fw-semibold text-center mb-2" style={{ fontSize: '0.9rem' }}>
-        {label}
-      </p>
-    )}
-    <Table bordered hover size="sm" style={{ minWidth: 500 }}>
-      <thead className="table-light">
-        <tr>
-          <th style={{ minWidth: 130 }}>Method</th>
-          {results.map((_, i) => (
-            <th key={i} className="text-center" style={{ minWidth: 72 }}>
-              #{i + 1}
-            </th>
-          ))}
-        </tr>
-      </thead>
-      <tbody>
-        {allMethodNames.map((method) => (
-          <tr key={method}>
-            <td>
-              <strong>{METHOD_LABELS[method] || method}</strong>
-            </td>
-            {results.map((r, i) => {
-              const winner = r.methods[method]?.winner;
-              const notCondorcet =
-                r.condorcet_winner && r.methods[method]?.condorcet_consistent === false;
-              return (
-                <td
-                  key={i}
-                  className="text-center"
-                  style={onCellClick ? { cursor: 'pointer' } : undefined}
-                  onClick={onCellClick ? () => onCellClick(method, i) : undefined}
-                  title={onCellClick ? 'Click for details' : undefined}
-                >
-                  {winner ? (
-                    <Badge
-                      style={{
-                        backgroundColor: colorMap[winner] ?? '#999',
-                        fontSize: '0.72rem',
-                      }}
-                    >
-                      {winner}
-                      {notCondorcet ? ' *' : ''}
-                    </Badge>
-                  ) : (
-                    <span className="text-muted">—</span>
-                  )}
-                </td>
-              );
-            })}
-          </tr>
-        ))}
-      </tbody>
-    </Table>
+  <h2>Configuration</h2>
+  <div class="config-grid">
+    <div class="config-item"><strong>Candidats</strong>${configA.candidateInput}</div>
+    <div class="config-item"><strong>Électeurs / simulation</strong>${configA.numVoters.toLocaleString()}</div>
+    <div class="config-item"><strong>Distribution idéologique</strong>${configA.ideology_distribution}</div>
+    <div class="config-item"><strong>Nombre de simulations</strong>${numSimulations}</div>
   </div>
-);
 
-// ── Main component ─────────────────────────────────────────────────────────
+  <h2>Vainqueurs par méthode</h2>
+  <table>
+    <thead><tr><th>Méthode</th><th>Vainqueur dominant (n/N)</th><th>Regret bayésien moyen</th></tr></thead>
+    <tbody>${methodRows}</tbody>
+  </table>
 
-interface ScenarioConfig {
-  numVoters: number;
-  candidateInput: string;
-  ideology_distribution: string;
+  <h2>Analyse et conclusions</h2>
+  <div class="conclusion">${conclusion}</div>
+
+  <div class="meta" style="margin-top:1cm;">
+    Vote Lab · Outil de recherche sur les méthodes de vote ·
+    Modèle spatial de vote avec utilité bayésienne et vote stratégique
+  </div>
+</body>
+</html>`;
+}
+
+// ── Page ───────────────────────────────────────────────────────────────────
+
+interface SharedConfig {
+  n: number;
+  sc: 1 | 2;
+  a: { nv: number; c: string; id: string };
+  b?: { nv: number; c: string; id: string };
 }
 
 const SimulationComparePage: React.FC = () => {
-  // ── Scenario A config ──
+  // ── Scenario config ──
   const [numSimulations, setNumSimulations] = useState(10);
   const [configA, setConfigA] = useState<ScenarioConfig>({
     numVoters: 500,
     candidateInput: 'Alice, Bob, Charlie',
     ideology_distribution: 'random',
   });
-
-  // ── Scenario B config ──
   const [scenarioCount, setScenarioCount] = useState<1 | 2>(1);
   const [configB, setConfigB] = useState<ScenarioConfig>({
     numVoters: 500,
@@ -267,55 +221,7 @@ const SimulationComparePage: React.FC = () => {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  // ── Drill-down state ──
-  const [drilldownTarget, setDrilldownTarget] = useState<{
-    methodKey: string;
-    simIndex: number;
-  } | null>(null);
-
-  // ── Export helpers ──
-  const _exportDate = new Date().toISOString().slice(0, 10);
-
-  const exportJSON = () => {
-    const blob = new Blob(
-      [JSON.stringify({ comparisonResults, strategicData }, null, 2)],
-      { type: 'application/json' }
-    );
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = `simulation_results_${_exportDate}.json`;
-    a.click();
-    URL.revokeObjectURL(url);
-  };
-
-  const exportCSV = () => {
-    const header =
-      'simulation_id,method,winner,bayesian_regret,majority_satisfaction,' +
-      'strategic_vulnerability,condorcet_consistent\n';
-    const rows = comparisonResults.flatMap((r, idx) =>
-      Object.entries(r.methods).map(([method, m]) =>
-        [
-          idx + 1,
-          method,
-          m.winner ?? '',
-          m.bayesian_regret ?? '',
-          m.majority_satisfaction ?? '',
-          m.strategic_vulnerability ?? '',
-          m.condorcet_consistent ?? '',
-        ].join(',')
-      )
-    );
-    const blob = new Blob([header + rows.join('\n')], { type: 'text/csv' });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = `simulation_results_${_exportDate}.csv`;
-    a.click();
-    URL.revokeObjectURL(url);
-  };
-
-  // ── Scenario save / load state ──
+  // ── Save / Load modal state ──
   const [showSaveModal, setShowSaveModal] = useState(false);
   const [saveName, setSaveName] = useState('');
   const [saving, setSaving] = useState(false);
@@ -323,28 +229,50 @@ const SimulationComparePage: React.FC = () => {
   const [scenarioList, setScenarioList] = useState<ScenarioSummary[]>([]);
   const [loadingList, setLoadingList] = useState(false);
 
-  // ── Sensitivity state ──
-  const [sensitivityVariable, setSensitivityVariable] = useState<
-    'ideology_distribution' | 'num_voters' | 'strategic_pct'
-  >('ideology_distribution');
-  const [sensitivityValuesInput, setSensitivityValuesInput] = useState(
-    'random, centrist, polarized, left_skewed, right_skewed'
-  );
-  const [sensitivityData, setSensitivityData] = useState<SensitivityResult | null>(null);
-  const [sensitivityLoading, setSensitivityLoading] = useState(false);
+  // ── UI state ──
+  const [activeTab, setActiveTab] = useState('winners');
+  const [presentationMode, setPresentationMode] = useState(false);
+  const [presentationTabIndex, setPresentationTabIndex] = useState(0);
+  const [linkCopied, setLinkCopied] = useState(false);
+
+  // ── Restore config from URL on mount ──
+  useEffect(() => {
+    const raw = readShareParam();
+    if (!raw) return;
+    const cfg = decodeShareConfig<SharedConfig>(raw);
+    if (!cfg) return;
+    if (cfg.n) setNumSimulations(cfg.n);
+    if (cfg.sc) setScenarioCount(cfg.sc);
+    if (cfg.a) setConfigA({ numVoters: cfg.a.nv, candidateInput: cfg.a.c, ideology_distribution: cfg.a.id });
+    if (cfg.b) setConfigB({ numVoters: cfg.b.nv, candidateInput: cfg.b.c, ideology_distribution: cfg.b.id });
+  }, []);
+
+  // ── Keyboard navigation for presentation mode ──
+  useEffect(() => {
+    if (!presentationMode) return;
+    const handler = (e: KeyboardEvent) => {
+      if (e.key === 'ArrowRight') setPresentationTabIndex((i) => Math.min(i + 1, TAB_ORDER.length - 1));
+      if (e.key === 'ArrowLeft')  setPresentationTabIndex((i) => Math.max(i - 1, 0));
+      if (e.key === 'Escape')     setPresentationMode(false);
+    };
+    window.addEventListener('keydown', handler);
+    return () => window.removeEventListener('keydown', handler);
+  }, [presentationMode]);
+
+  // Keep active tab in sync with presentation tab
+  useEffect(() => {
+    if (presentationMode) setActiveTab(TAB_ORDER[presentationTabIndex]);
+  }, [presentationMode, presentationTabIndex]);
 
   // ── Derived ──
   const candidateNamesA = useMemo(
     () => configA.candidateInput.split(',').map((s) => s.trim()).filter(Boolean),
     [configA.candidateInput]
   );
-
   const candidateNamesB = useMemo(
     () => configB.candidateInput.split(',').map((s) => s.trim()).filter(Boolean),
     [configB.candidateInput]
   );
-
-  // Shared color map: same candidate name always gets the same color across A and B.
   const candidateColorMap = useMemo(() => {
     const names = new Set<string>();
     [...comparisonResults, ...(resultsB ?? [])].forEach((r) =>
@@ -354,157 +282,96 @@ const SimulationComparePage: React.FC = () => {
       [...names].map((name, i) => [name, CANDIDATE_PALETTE[i % CANDIDATE_PALETTE.length]])
     );
   }, [comparisonResults, resultsB]);
-
   const allMethodNames = useMemo(
     () => (comparisonResults.length > 0 ? Object.keys(comparisonResults[0].methods) : []),
     [comparisonResults]
   );
 
-  const metricsData = useMemo(() => {
-    if (!comparisonResults.length) return [];
-    return allMethodNames.map((method) => {
-      const values = comparisonResults.map((r) => r.methods[method]);
-      return {
-        method: METHOD_LABELS[method] || method,
-        'Bayesian Regret': round(avg(values.map((v) => v.bayesian_regret ?? 0))),
-        'Majority Satisfaction': round(avg(values.map((v) => v.majority_satisfaction ?? 0))),
-        'Strategic Vulnerability': round(avg(values.map((v) => v.strategic_vulnerability ?? 0))),
-      };
-    });
-  }, [comparisonResults, allMethodNames]);
-
-  const strategicChartData = useMemo(
-    () =>
-      strategicData.map((point) => ({
-        pct: `${point.strategic_pct}%`,
-        ...Object.fromEntries(
-          Object.entries(point.methods).map(([m, v]) => [METHOD_LABELS[m] || m, v])
-        ),
-      })),
-    [strategicData]
-  );
-
-  /** Side-by-side winner diff table, sorted: disagreements first. */
-  const diffData = useMemo(() => {
-    if (!resultsB || !allMethodNames.length) return [];
-    return allMethodNames
-      .map((method) => ({
-        method,
-        winnerA: mostCommonWinner(comparisonResults, method),
-        winnerB: mostCommonWinner(resultsB, method),
-      }))
-      .sort((a, b) => {
-        const aDiffers = a.winnerA !== a.winnerB ? 0 : 1;
-        const bDiffers = b.winnerA !== b.winnerB ? 0 : 1;
-        return aDiffers - bDiffers;
-      });
-  }, [allMethodNames, comparisonResults, resultsB]);
-
-  // ── Sensitivity derived data ──
-
-  const sensitivityMethodNames = useMemo(
-    () =>
-      sensitivityData?.results.length
-        ? Object.keys(sensitivityData.results[0].winners_by_method)
-        : [],
-    [sensitivityData]
-  );
-
-  const sensitivityColorMap = useMemo(() => {
-    if (!sensitivityData) return {} as Record<string, string>;
-    const names = new Set<string>();
-    sensitivityData.results.forEach((r) =>
-      Object.values(r.winners_by_method).forEach((w) => { if (w) names.add(w); })
-    );
-    return Object.fromEntries(
-      [...names].map((n, i) => [n, CANDIDATE_PALETTE[i % CANDIDATE_PALETTE.length]])
-    );
-  }, [sensitivityData]);
-
-  const sensitivityLineData = useMemo(
-    () =>
-      (sensitivityData?.results ?? []).map((r) => ({
-        label: String(r.value),
-        ...Object.fromEntries(
-          sensitivityMethodNames.map((m) => [
-            METHOD_LABELS[m] || m,
-            r.regret_by_method[m] ?? null,
-          ])
-        ),
-      })),
-    [sensitivityData, sensitivityMethodNames]
-  );
-
-  // ── Default values per variable ──
-
-  const DEFAULT_SENSITIVITY_VALUES: Record<string, string> = {
-    ideology_distribution: 'random, centrist, polarized, left_skewed, right_skewed',
-    num_voters: '100, 250, 500, 1000, 2000',
-    strategic_pct: '0, 10, 20, 30, 40, 50',
-  };
-
-  // ── Run ──
-
-  const runSensitivity = async () => {
-    const raw = sensitivityValuesInput.split(',').map((s) => s.trim()).filter(Boolean);
-    if (!raw.length) return;
-    const parsedValues: (string | number)[] =
-      sensitivityVariable === 'ideology_distribution'
-        ? raw
-        : raw.map(Number).filter((n) => !isNaN(n));
-    if (!parsedValues.length) return;
-
-    setSensitivityLoading(true);
+  // ── Run analysis ──
+  const runAnalysis = async () => {
+    if (candidateNamesA.length < 2) { setError('Le scénario A nécessite au moins 2 candidats.'); return; }
+    if (scenarioCount === 2 && candidateNamesB.length < 2) { setError('Le scénario B nécessite au moins 2 candidats.'); return; }
+    setLoading(true); setError(null);
     try {
-      const result = await getSensitivityAnalysis({
-        base_config: {
-          num_voters: configA.numVoters,
-          candidates: candidateNamesA,
-          ideology_distribution: configA.ideology_distribution,
-        },
-        variable: sensitivityVariable,
-        values: parsedValues,
-      });
-      setSensitivityData(result);
+      const paramsA = { num_voters: configA.numVoters, candidates: candidateNamesA, ideology_distribution: configA.ideology_distribution };
+      const [simResultsA, strategicResults, condorcetResult, arrowResult, simResultsB] = await Promise.all([
+        Promise.all(Array.from({ length: numSimulations }, () => runComparisonSimulation(paramsA))),
+        runStrategicImpactAnalysis({ ...paramsA, strategic_percentages: STRATEGIC_PERCENTAGES }),
+        getCondorcetMatrix(paramsA),
+        getArrowCriteria(paramsA),
+        scenarioCount === 2
+          ? Promise.all(Array.from({ length: numSimulations }, () => runComparisonSimulation({ num_voters: configB.numVoters, candidates: candidateNamesB, ideology_distribution: configB.ideology_distribution })))
+          : Promise.resolve(null),
+      ]);
+      setComparisonResults(simResultsA);
+      setStrategicData(strategicResults);
+      setCondorcetData(condorcetResult);
+      setArrowData(arrowResult);
+      setResultsB(simResultsB);
     } catch {
-      // Swallow — error visible in the tab itself
+      setError('Analyse échouée. Vérifiez que le backend est démarré et les endpoints accessibles.');
     } finally {
-      setSensitivityLoading(false);
+      setLoading(false);
     }
   };
 
-  // ── Scenario handlers ──
+  // ── Export ──
+  const exportDate = new Date().toISOString().slice(0, 10);
 
+  const exportJSON = () => {
+    const blob = new Blob([JSON.stringify({ comparisonResults, strategicData }, null, 2)], { type: 'application/json' });
+    const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = `simulation_results_${exportDate}.json`; a.click();
+  };
+
+  const exportCSV = () => {
+    const header = 'simulation_id,method,winner,bayesian_regret,majority_satisfaction,strategic_vulnerability,condorcet_consistent\n';
+    const rows = comparisonResults.flatMap((r, idx) =>
+      Object.entries(r.methods).map(([method, m]) =>
+        [idx + 1, method, m.winner ?? '', m.bayesian_regret ?? '', m.majority_satisfaction ?? '', m.strategic_vulnerability ?? '', m.condorcet_consistent ?? ''].join(',')
+      )
+    );
+    const blob = new Blob([header + rows.join('\n')], { type: 'text/csv' });
+    const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = `simulation_results_${exportDate}.csv`; a.click();
+  };
+
+  const exportReport = () => {
+    const conclusion = buildConclusion(comparisonResults, allMethodNames);
+    const html = buildReportHTML(configA, numSimulations, comparisonResults, allMethodNames, conclusion, exportDate);
+    const win = window.open('', '_blank');
+    if (!win) return;
+    win.document.write(html);
+    win.document.close();
+  };
+
+  // ── Share link ──
+  const copyShareLink = async () => {
+    const cfg: SharedConfig = {
+      n: numSimulations, sc: scenarioCount,
+      a: { nv: configA.numVoters, c: configA.candidateInput, id: configA.ideology_distribution },
+      ...(scenarioCount === 2 ? { b: { nv: configB.numVoters, c: configB.candidateInput, id: configB.ideology_distribution } } : {}),
+    };
+    await copyShareURL(cfg);
+    setLinkCopied(true);
+    setTimeout(() => setLinkCopied(false), 2000);
+  };
+
+  // ── Scenario persistence ──
   const handleSave = async () => {
     if (!saveName.trim()) return;
     setSaving(true);
     try {
-      await saveScenario(
-        saveName.trim(),
-        { numSimulations, configA, configB, scenarioCount },
-        { comparisonResults, strategicData, condorcetData, resultsB }
-      );
-      setShowSaveModal(false);
-      setSaveName('');
-    } finally {
-      setSaving(false);
-    }
+      await saveScenario(saveName.trim(), { numSimulations, configA, configB, scenarioCount }, { comparisonResults, strategicData, condorcetData, resultsB });
+      setShowSaveModal(false); setSaveName('');
+    } finally { setSaving(false); }
   };
 
   const handleOpenLoadModal = async () => {
-    setShowLoadModal(true);
-    setLoadingList(true);
-    try {
-      const list = await listScenarios();
-      setScenarioList(list);
-    } finally {
-      setLoadingList(false);
-    }
+    setShowLoadModal(true); setLoadingList(true);
+    try { setScenarioList(await listScenarios()); } finally { setLoadingList(false); }
   };
 
   const handleLoad = async (scenario: ScenarioDetail) => {
-    const cfg = scenario.config as any;
-    const res = scenario.results as any;
+    const cfg = scenario.config as any; const res = scenario.results as any;
     if (cfg) {
       if (cfg.numSimulations != null) setNumSimulations(cfg.numSimulations);
       if (cfg.configA) setConfigA(cfg.configA);
@@ -525,925 +392,189 @@ const SimulationComparePage: React.FC = () => {
     setScenarioList((prev) => prev.filter((s) => s.id !== id));
   };
 
-  const runAnalysis = async () => {
-    if (candidateNamesA.length < 2) {
-      setError('Scenario A needs at least 2 candidate names.');
-      return;
-    }
-    if (scenarioCount === 2 && candidateNamesB.length < 2) {
-      setError('Scenario B needs at least 2 candidate names.');
-      return;
-    }
-    setLoading(true);
-    setError(null);
-    try {
-      const paramsA = {
-        num_voters: configA.numVoters,
-        candidates: candidateNamesA,
-        ideology_distribution: configA.ideology_distribution,
-      };
-      const paramsB = {
-        num_voters: configB.numVoters,
-        candidates: candidateNamesB,
-        ideology_distribution: configB.ideology_distribution,
-      };
-
-      const [simResultsA, strategicResults, condorcetResult, arrowResult, simResultsB] =
-        await Promise.all([
-          Promise.all(
-            Array.from({ length: numSimulations }, () => runComparisonSimulation(paramsA))
-          ),
-          runStrategicImpactAnalysis({ ...paramsA, strategic_percentages: STRATEGIC_PERCENTAGES }),
-          getCondorcetMatrix(paramsA),
-          getArrowCriteria(paramsA),
-          scenarioCount === 2
-            ? Promise.all(
-                Array.from({ length: numSimulations }, () => runComparisonSimulation(paramsB))
-              )
-            : Promise.resolve(null),
-        ]);
-
-      setComparisonResults(simResultsA);
-      setStrategicData(strategicResults);
-      setCondorcetData(condorcetResult);
-      setArrowData(arrowResult);
-      setResultsB(simResultsB);
-    } catch {
-      setError('Analysis failed. Make sure the backend is running and the endpoints exist.');
-    } finally {
-      setLoading(false);
-    }
-  };
-
   const hasResults = comparisonResults.length > 0;
+  const baseParamsA = { num_voters: configA.numVoters, candidates: candidateNamesA, ideology_distribution: configA.ideology_distribution };
 
-  // ── Shared config form row ──
-  const ConfigRow = ({
-    config,
-    onChange,
-    label,
-  }: {
-    config: ScenarioConfig;
-    onChange: (patch: Partial<ScenarioConfig>) => void;
-    label?: string;
-  }) => (
-    <Row className="g-2 align-items-end">
-      {label && (
-        <Col xs={12}>
-          <span className="fw-semibold text-muted small">{label}</span>
-        </Col>
-      )}
-      <Col md={4}>
-        <Form.Label className="small mb-1">Candidates (comma-separated)</Form.Label>
-        <Form.Control
-          size="sm"
-          type="text"
-          value={config.candidateInput}
-          onChange={(e) => onChange({ candidateInput: e.target.value })}
-          placeholder="Alice, Bob, Charlie"
-        />
-      </Col>
-      <Col md={3}>
-        <Form.Label className="small mb-1">Voters</Form.Label>
-        <Form.Control
-          size="sm"
-          type="number"
-          min={100}
-          max={2000}
-          step={100}
-          value={config.numVoters}
-          onChange={(e) => onChange({ numVoters: Number(e.target.value) })}
-        />
-      </Col>
-      <Col md={3}>
-        <Form.Label className="small mb-1">Electorate distribution</Form.Label>
-        <Form.Select
-          size="sm"
-          value={config.ideology_distribution}
-          onChange={(e) => onChange({ ideology_distribution: e.target.value })}
-        >
-          {IDEOLOGY_OPTIONS.map((o) => (
-            <option key={o.value} value={o.value}>
-              {o.label}
-            </option>
-          ))}
-        </Form.Select>
-      </Col>
-    </Row>
-  );
-
-  // ── Render ──
-  return (
-    <Container className="py-4">
-      <h2 className="mb-1">Comparative Voting Methods Analysis</h2>
-      <p className="text-muted mb-3">
-        Run multiple simulations on the same population and compare how each voting method
-        performs. Add a second scenario to study the spoiler effect or IIA violations.
-      </p>
-
-      <div className="d-flex gap-2 mb-4">
-        <Button
-          variant="outline-secondary"
-          size="sm"
-          onClick={handleOpenLoadModal}
-        >
-          📂 Load scenario
+  // ── Presentation mode overlay ──────────────────────────────────────────────
+  const PresentationOverlay = presentationMode ? (
+    <div style={{ position: 'fixed', inset: 0, zIndex: 9999, background: 'white', display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
+      {/* Header */}
+      <div className="d-flex align-items-center justify-content-between px-4 py-2" style={{ background: '#0d6efd', color: 'white', flexShrink: 0 }}>
+        <div className="d-flex align-items-center gap-2">
+          <span className="fw-semibold">🎓 Mode présentation</span>
+          <Badge bg="light" text="dark">{presentationTabIndex + 1} / {TAB_ORDER.length}</Badge>
+        </div>
+        <span className="fw-bold" style={{ fontSize: '1rem' }}>{TAB_LABELS[TAB_ORDER[presentationTabIndex]]}</span>
+        <Button variant="outline-light" size="sm" onClick={() => setPresentationMode(false)}>
+          ✕ Quitter <kbd style={{ fontSize: '0.7rem', opacity: 0.7 }}>Échap</kbd>
         </Button>
-        {hasResults && (
-          <>
-            <Button
-              variant="outline-success"
-              size="sm"
-              onClick={() => { setSaveName(''); setShowSaveModal(true); }}
-            >
-              💾 Save
-            </Button>
-            <Button variant="outline-primary" size="sm" onClick={exportJSON}>
-              ⬇ JSON
-            </Button>
-            <Button variant="outline-primary" size="sm" onClick={exportCSV}>
-              ⬇ CSV
-            </Button>
-          </>
-        )}
       </div>
 
-      {/* ── Configuration ── */}
-      <Card className="mb-4">
-        <Card.Header className="d-flex align-items-center justify-content-between">
-          <strong>Configuration</strong>
-          {scenarioCount === 1 ? (
-            <Button
-              size="sm"
-              variant="outline-secondary"
-              onClick={() => setScenarioCount(2)}
-            >
-              + Add scenario B
-            </Button>
-          ) : (
-            <Button
-              size="sm"
-              variant="outline-danger"
-              onClick={() => { setScenarioCount(1); setResultsB(null); }}
-            >
-              − Remove scenario B
-            </Button>
-          )}
-        </Card.Header>
-        <Card.Body>
-          <Row className="g-3 align-items-end mb-3">
-            <Col md={4}>
-              <Form.Label>
-                Simulations per scenario: <strong>{numSimulations}</strong>
-              </Form.Label>
-              <Form.Range
-                min={5}
-                max={20}
-                value={numSimulations}
-                onChange={(e) => setNumSimulations(Number(e.target.value))}
-              />
-            </Col>
-            <Col md={2}>
-              <Button
-                variant="primary"
-                className="w-100"
-                onClick={runAnalysis}
-                disabled={loading}
-              >
-                {loading ? (
-                  <>
-                    <Spinner size="sm" className="me-2" />
-                    Running…
-                  </>
-                ) : (
-                  'Run Analysis'
-                )}
-              </Button>
-            </Col>
-          </Row>
+      {/* Content — mirrors the controlled Tabs below via shared state */}
+      <div style={{ flex: 1, overflow: 'auto', padding: '1.5rem' }}>
+        {/* The <Tabs> below is controlled and already shows the right tab. We show it by scroll. */}
+        <div className="text-muted text-center py-3 small">
+          Le contenu s'affiche dans la zone principale (faites défiler si nécessaire)
+        </div>
+      </div>
 
-          {scenarioCount === 1 ? (
-            <ConfigRow
-              config={configA}
-              onChange={(p) => setConfigA((c) => ({ ...c, ...p }))}
-            />
-          ) : (
-            <Row className="g-3">
-              <Col md={6}>
-                <ConfigRow
-                  config={configA}
-                  onChange={(p) => setConfigA((c) => ({ ...c, ...p }))}
-                  label="Scenario A"
-                />
+      {/* Footer navigation */}
+      <div className="d-flex align-items-center justify-content-between px-4 py-3 border-top" style={{ flexShrink: 0 }}>
+        <Button variant="outline-secondary" disabled={presentationTabIndex === 0} onClick={() => setPresentationTabIndex((i) => i - 1)}>
+          ← Précédent
+        </Button>
+        <div className="d-flex gap-1">
+          {TAB_ORDER.map((t, i) => (
+            <span
+              key={t}
+              title={TAB_LABELS[t]}
+              onClick={() => setPresentationTabIndex(i)}
+              style={{ cursor: 'pointer', fontSize: '0.65rem', color: i === presentationTabIndex ? '#0d6efd' : '#dee2e6' }}
+            >
+              ●
+            </span>
+          ))}
+        </div>
+        <Button variant="outline-secondary" disabled={presentationTabIndex === TAB_ORDER.length - 1} onClick={() => setPresentationTabIndex((i) => i + 1)}>
+          Suivant →
+        </Button>
+      </div>
+    </div>
+  ) : null;
+
+  // ── Render ──────────────────────────────────────────────────────────────────
+  return (
+    <>
+      {PresentationOverlay}
+
+      <Container className="py-4">
+        <h2 className="mb-1">Analyse comparative des méthodes de vote</h2>
+        <p className="text-muted mb-3">
+          Lancez plusieurs simulations sur la même population et comparez comment chaque méthode de vote
+          se comporte. Ajoutez un second scénario pour étudier l'effet spoiler ou les violations de l'IIA.
+        </p>
+
+        <div className="d-flex gap-2 mb-4 flex-wrap">
+          <Button variant="outline-secondary" size="sm" onClick={handleOpenLoadModal}>📂 Charger</Button>
+          <Button variant={linkCopied ? 'success' : 'outline-info'} size="sm" onClick={copyShareLink}>
+            {linkCopied ? '✓ Lien copié !' : '🔗 Partager'}
+          </Button>
+          {hasResults && (
+            <>
+              <Button variant="outline-success" size="sm" onClick={() => { setSaveName(''); setShowSaveModal(true); }}>💾 Sauvegarder</Button>
+              <Button variant="outline-primary" size="sm" onClick={exportJSON}>⬇ JSON</Button>
+              <Button variant="outline-primary" size="sm" onClick={exportCSV}>⬇ CSV</Button>
+              <Button variant="outline-warning" size="sm" onClick={exportReport}>📄 Rapport PDF</Button>
+              <Button variant="outline-dark" size="sm" onClick={() => { setPresentationTabIndex(0); setPresentationMode(true); }}>
+                🎓 Présentation
+              </Button>
+            </>
+          )}
+        </div>
+
+        {/* ── Configuration ── */}
+        <Card className="mb-4">
+          <Card.Header className="d-flex align-items-center justify-content-between">
+            <strong>Configuration</strong>
+            {scenarioCount === 1 ? (
+              <Button size="sm" variant="outline-secondary" onClick={() => setScenarioCount(2)}>+ Ajouter le scénario B</Button>
+            ) : (
+              <Button size="sm" variant="outline-danger" onClick={() => { setScenarioCount(1); setResultsB(null); }}>− Supprimer le scénario B</Button>
+            )}
+          </Card.Header>
+          <Card.Body>
+            <Row className="g-3 align-items-end mb-3">
+              <Col md={4}>
+                <Form.Label>Simulations par scénario : <strong>{numSimulations}</strong></Form.Label>
+                <Form.Range min={5} max={20} value={numSimulations} onChange={(e) => setNumSimulations(Number(e.target.value))} />
               </Col>
-              <Col md={6}>
-                <ConfigRow
-                  config={configB}
-                  onChange={(p) => setConfigB((c) => ({ ...c, ...p }))}
-                  label="Scenario B"
-                />
+              <Col md={2}>
+                <Button variant="primary" className="w-100" onClick={runAnalysis} disabled={loading}>
+                  {loading ? <><Spinner size="sm" className="me-2" />Analyse…</> : 'Lancer l\'analyse'}
+                </Button>
               </Col>
             </Row>
-          )}
-        </Card.Body>
-      </Card>
-
-      {error && <Alert variant="danger">{error}</Alert>}
-
-      {!hasResults && !loading && (
-        <Alert variant="info">
-          Configure the simulation above and click <strong>Run Analysis</strong> to generate
-          results.
-        </Alert>
-      )}
-
-      {hasResults && (
-        <Tabs defaultActiveKey="winners" className="mb-3">
-
-          {/* ── Tab 1: Winner Matrix ── */}
-          <Tab eventKey="winners" title={scenarioCount === 2 ? 'Scenario Comparison' : 'Winner Matrix'}>
-            {/* Colour legend */}
-            <div className="mb-3 d-flex gap-3 flex-wrap align-items-center">
-              {Object.entries(candidateColorMap).map(([name, color]) => (
-                <span key={name} className="d-flex align-items-center gap-1">
-                  <span
-                    style={{
-                      display: 'inline-block',
-                      width: 12,
-                      height: 12,
-                      borderRadius: 3,
-                      backgroundColor: color,
-                    }}
-                  />
-                  <small>{name}</small>
-                </span>
-              ))}
-              {comparisonResults.some((r) =>
-                Object.values(r.methods).some((m) => m.condorcet_consistent === false)
-              ) && (
-                <small className="text-muted">* = Condorcet winner not elected</small>
-              )}
-            </div>
-
-            {scenarioCount === 2 && resultsB ? (
-              <>
-                {/* Side-by-side matrices */}
-                <Row className="g-3 mb-4">
-                  <Col md={6}>
-                    <WinnerMatrixTable
-                      results={comparisonResults}
-                      allMethodNames={allMethodNames}
-                      colorMap={candidateColorMap}
-                      label={`Scenario A — ${configA.candidateInput} (${IDEOLOGY_OPTIONS.find(o => o.value === configA.ideology_distribution)?.label ?? configA.ideology_distribution})`}
-                      onCellClick={(m, i) => setDrilldownTarget({ methodKey: m, simIndex: i })}
-                    />
-                  </Col>
-                  <Col md={6}>
-                    <WinnerMatrixTable
-                      results={resultsB}
-                      allMethodNames={allMethodNames}
-                      colorMap={candidateColorMap}
-                      label={`Scenario B — ${configB.candidateInput} (${IDEOLOGY_OPTIONS.find(o => o.value === configB.ideology_distribution)?.label ?? configB.ideology_distribution})`}
-                    />
-                  </Col>
-                </Row>
-
-                {/* Differences table */}
-                <Card>
-                  <Card.Header>
-                    <strong>Differences</strong>
-                    <span className="text-muted ms-2" style={{ fontSize: '0.85rem' }}>
-                      — most frequent winner per method across {numSimulations} runs
-                    </span>
-                  </Card.Header>
-                  <Card.Body className="p-0">
-                    <Table bordered size="sm" className="mb-0">
-                      <thead className="table-light">
-                        <tr>
-                          <th style={{ minWidth: 140 }}>Method</th>
-                          <th className="text-center">Scenario A winner</th>
-                          <th className="text-center">Scenario B winner</th>
-                          <th className="text-center" style={{ width: 60 }}></th>
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {diffData.map(({ method, winnerA, winnerB }) => {
-                          const differs = winnerA !== winnerB;
-                          return (
-                            <tr
-                              key={method}
-                              style={differs ? { backgroundColor: '#fff8e1' } : undefined}
-                            >
-                              <td>
-                                <strong>{METHOD_LABELS[method] || method}</strong>
-                              </td>
-                              <td className="text-center">
-                                {winnerA ? (
-                                  <Badge
-                                    style={{
-                                      backgroundColor: candidateColorMap[winnerA] ?? '#999',
-                                    }}
-                                  >
-                                    {winnerA}
-                                  </Badge>
-                                ) : (
-                                  <span className="text-muted">—</span>
-                                )}
-                              </td>
-                              <td className="text-center">
-                                {winnerB ? (
-                                  <Badge
-                                    style={{
-                                      backgroundColor: candidateColorMap[winnerB] ?? '#999',
-                                    }}
-                                  >
-                                    {winnerB}
-                                  </Badge>
-                                ) : (
-                                  <span className="text-muted">—</span>
-                                )}
-                              </td>
-                              <td className="text-center fw-bold" style={{ fontSize: '1.1rem' }}>
-                                {differs ? (
-                                  <span style={{ color: '#dc3545' }}>✗</span>
-                                ) : (
-                                  <span style={{ color: '#198754' }}>✓</span>
-                                )}
-                              </td>
-                            </tr>
-                          );
-                        })}
-                      </tbody>
-                    </Table>
-                  </Card.Body>
-                </Card>
-              </>
+            {scenarioCount === 1 ? (
+              <ScenarioConfigRow config={configA} onChange={(p) => setConfigA((c) => ({ ...c, ...p }))} />
             ) : (
-              /* Single scenario matrix */
-              <Card>
-                <Card.Body style={{ overflowX: 'auto' }}>
-                  <WinnerMatrixTable
-                    results={comparisonResults}
-                    allMethodNames={allMethodNames}
-                    colorMap={candidateColorMap}
-                    onCellClick={(m, i) => setDrilldownTarget({ methodKey: m, simIndex: i })}
-                  />
-                  <small className="text-muted d-block mt-2">
-                    Click any cell to see details for that method &amp; simulation run.
-                  </small>
-                </Card.Body>
-              </Card>
+              <Row className="g-3">
+                <Col md={6}><ScenarioConfigRow config={configA} onChange={(p) => setConfigA((c) => ({ ...c, ...p }))} label="Scénario A" /></Col>
+                <Col md={6}><ScenarioConfigRow config={configB} onChange={(p) => setConfigB((c) => ({ ...c, ...p }))} label="Scénario B" /></Col>
+              </Row>
             )}
-          </Tab>
+          </Card.Body>
+        </Card>
 
-          {/* ── Tab 2: Comparative Metrics ── */}
-          <Tab eventKey="metrics" title="Metrics">
-            <Card className="mb-4">
-              <Card.Header>
-                <strong>Comparative Metrics</strong>
-                <span className="text-muted ms-2" style={{ fontSize: '0.85rem' }}>
-                  — averaged across {numSimulations} simulations (Scenario A)
-                </span>
-              </Card.Header>
-              <Card.Body>
-                <div className="d-flex gap-4 mb-3 flex-wrap">
-                  {[
-                    { label: 'Bayesian Regret', color: '#e15759', note: 'lower is better' },
-                    { label: 'Majority Satisfaction', color: '#59a14f', note: 'higher is better' },
-                    { label: 'Strategic Vulnerability', color: '#f28e2b', note: 'lower is better' },
-                  ].map(({ label, color, note }) => (
-                    <span key={label} className="d-flex align-items-center gap-1">
-                      <span
-                        style={{
-                          display: 'inline-block',
-                          width: 14,
-                          height: 14,
-                          borderRadius: 2,
-                          backgroundColor: color,
-                        }}
-                      />
-                      <small>
-                        {label} <span className="text-muted">({note})</span>
-                      </small>
-                    </span>
-                  ))}
-                </div>
-                <ResponsiveContainer width="100%" height={380}>
-                  <BarChart data={metricsData} margin={{ bottom: 90, left: 10, right: 10 }}>
-                    <CartesianGrid strokeDasharray="3 3" />
-                    <XAxis
-                      dataKey="method"
-                      tick={{ fontSize: 11 }}
-                      angle={-45}
-                      textAnchor="end"
-                      interval={0}
-                    />
-                    <YAxis domain={[0, 1]} tick={{ fontSize: 11 }} />
-                    <Tooltip formatter={(v: number) => v.toFixed(3)} />
-                    <Bar dataKey="Bayesian Regret" fill="#e15759" />
-                    <Bar dataKey="Majority Satisfaction" fill="#59a14f" />
-                    <Bar dataKey="Strategic Vulnerability" fill="#f28e2b" />
-                  </BarChart>
-                </ResponsiveContainer>
-              </Card.Body>
-            </Card>
-          </Tab>
-
-          {/* ── Tab 3: Strategic Impact ── */}
-          <Tab eventKey="strategic" title="Strategic Impact">
-            <Card className="mb-4">
-              <Card.Header>
-                <strong>Strategic Voting Impact on Bayesian Regret</strong>
-                <span className="text-muted ms-2" style={{ fontSize: '0.85rem' }}>
-                  — how each method degrades as the proportion of strategic voters increases
-                </span>
-              </Card.Header>
-              <Card.Body>
-                <p className="text-muted small mb-3">
-                  Methods whose line rises steeply are more vulnerable to tactical voting.
-                  Flat lines indicate resistance to strategic manipulation.
-                </p>
-                {strategicData.length > 0 ? (
-                  <ResponsiveContainer width="100%" height={420}>
-                    <LineChart
-                      data={strategicChartData}
-                      margin={{ top: 5, right: 20, bottom: 20, left: 10 }}
-                    >
-                      <CartesianGrid strokeDasharray="3 3" />
-                      <XAxis
-                        dataKey="pct"
-                        label={{
-                          value: 'Strategic voters (%)',
-                          position: 'insideBottom',
-                          offset: -10,
-                          fontSize: 12,
-                        }}
-                      />
-                      <YAxis
-                        label={{
-                          value: 'Bayesian Regret',
-                          angle: -90,
-                          position: 'insideLeft',
-                          fontSize: 12,
-                        }}
-                        tick={{ fontSize: 11 }}
-                      />
-                      <Tooltip
-                        formatter={(v: number) => (v !== null ? v.toFixed(4) : '—')}
-                      />
-                      <Legend
-                        verticalAlign="bottom"
-                        wrapperStyle={{ paddingTop: 20, fontSize: 11 }}
-                      />
-                      {allMethodNames.map((method) => (
-                        <Line
-                          key={method}
-                          type="monotone"
-                          dataKey={METHOD_LABELS[method] || method}
-                          stroke={METHOD_LINE_COLORS[method] ?? '#999'}
-                          strokeWidth={method === 'plurality' ? 2.5 : 1.5}
-                          dot={false}
-                          activeDot={{ r: 4 }}
-                        />
-                      ))}
-                    </LineChart>
-                  </ResponsiveContainer>
-                ) : (
-                  <Alert variant="info">No strategic impact data available.</Alert>
-                )}
-              </Card.Body>
-            </Card>
-          </Tab>
-
-          {/* ── Tab 4: Condorcet Matrix ── */}
-          <Tab eventKey="condorcet" title="Condorcet Matrix">
-            <Card className="mb-4">
-              <Card.Header>
-                <strong>Condorcet Matrix</strong>
-                <span className="text-muted ms-2" style={{ fontSize: '0.85rem' }}>
-                  — pairwise head-to-head preferences across the population (Scenario A)
-                </span>
-              </Card.Header>
-              <Card.Body>
-                {condorcetData ? (
-                  <CondorcetMatrix result={condorcetData} />
-                ) : (
-                  <Alert variant="info">No Condorcet data available.</Alert>
-                )}
-              </Card.Body>
-            </Card>
-          </Tab>
-
-          {/* ── Tab 5: Arrow Criteria ── */}
-          <Tab eventKey="arrow" title="Arrow Criteria">
-            <Card className="mb-4">
-              <Card.Header>
-                <strong>Arrow's Impossibility Criteria</strong>
-                <span className="text-muted ms-2" style={{ fontSize: '0.85rem' }}>
-                  — empirical verification on the simulated population (Scenario A)
-                </span>
-              </Card.Header>
-              <Card.Body>
-                {arrowData ? (
-                  <ArrowCriteriaMatrix result={arrowData} />
-                ) : (
-                  <Alert variant="info">No Arrow criteria data available.</Alert>
-                )}
-              </Card.Body>
-            </Card>
-          </Tab>
-
-          {/* ── Tab 6: Sensitivity Analysis ── */}
-          <Tab eventKey="sensitivity" title="Sensitivity">
-            <Card className="mb-4">
-              <Card.Header>
-                <strong>Sensitivity Analysis</strong>
-                <span className="text-muted ms-2" style={{ fontSize: '0.85rem' }}>
-                  — vary one parameter and observe how winners change (uses Scenario A config)
-                </span>
-              </Card.Header>
-              <Card.Body>
-                {/* ── Config form ── */}
-                <Row className="g-3 align-items-end mb-4">
-                  <Col md={3}>
-                    <Form.Label className="small mb-1">Variable</Form.Label>
-                    <Form.Select
-                      size="sm"
-                      value={sensitivityVariable}
-                      onChange={(e) => {
-                        const v = e.target.value as typeof sensitivityVariable;
-                        setSensitivityVariable(v);
-                        setSensitivityValuesInput(DEFAULT_SENSITIVITY_VALUES[v] ?? '');
-                      }}
-                    >
-                      <option value="ideology_distribution">Electorate distribution</option>
-                      <option value="num_voters">Number of voters</option>
-                      <option value="strategic_pct">Strategic voter %</option>
-                    </Form.Select>
-                  </Col>
-                  <Col md={6}>
-                    <Form.Label className="small mb-1">
-                      Values to test{' '}
-                      <span className="text-muted">
-                        (comma-separated
-                        {sensitivityVariable !== 'ideology_distribution' ? ', numbers' : ''})
-                      </span>
-                    </Form.Label>
-                    <Form.Control
-                      size="sm"
-                      type="text"
-                      value={sensitivityValuesInput}
-                      onChange={(e) => setSensitivityValuesInput(e.target.value)}
-                    />
-                  </Col>
-                  <Col md={3}>
-                    <Button
-                      variant="primary"
-                      size="sm"
-                      className="w-100"
-                      onClick={runSensitivity}
-                      disabled={sensitivityLoading}
-                    >
-                      {sensitivityLoading ? (
-                        <>
-                          <Spinner size="sm" className="me-2" />
-                          Running…
-                        </>
-                      ) : (
-                        'Run Sensitivity'
-                      )}
-                    </Button>
-                  </Col>
-                </Row>
-
-                {sensitivityData && (
-                  <>
-                    {/* ── Heatmap ── */}
-                    <p className="fw-semibold mb-2">Winner heatmap</p>
-                    <div style={{ overflowX: 'auto' }} className="mb-4">
-                      <Table bordered size="sm" className="text-center" style={{ minWidth: 400 }}>
-                        <thead className="table-light">
-                          <tr>
-                            <th style={{ minWidth: 130, textAlign: 'left' }}>Method</th>
-                            {sensitivityData.results.map((r) => (
-                              <th key={String(r.value)} style={{ minWidth: 90 }}>
-                                {String(r.value)}
-                              </th>
-                            ))}
-                          </tr>
-                        </thead>
-                        <tbody>
-                          {sensitivityMethodNames.map((method) => {
-                            const winners = sensitivityData.results.map(
-                              (r) => r.winners_by_method[method] ?? null
-                            );
-                            const allSame = winners.every((w) => w === winners[0]);
-                            return (
-                              <tr
-                                key={method}
-                                style={!allSame ? { backgroundColor: '#fff8e1' } : undefined}
-                              >
-                                <td className="text-start ps-2">
-                                  <strong>{METHOD_LABELS[method] || method}</strong>
-                                </td>
-                                {winners.map((winner, ci) => (
-                                  <td key={ci}>
-                                    {winner ? (
-                                      <Badge
-                                        style={{
-                                          backgroundColor:
-                                            sensitivityColorMap[winner] ?? '#999',
-                                          fontSize: '0.72rem',
-                                        }}
-                                      >
-                                        {winner}
-                                      </Badge>
-                                    ) : (
-                                      <span className="text-muted">—</span>
-                                    )}
-                                  </td>
-                                ))}
-                              </tr>
-                            );
-                          })}
-                        </tbody>
-                      </Table>
-                    </div>
-                    <small className="text-muted d-block mb-4">
-                      Highlighted rows indicate methods where the winner changes across values.
-                    </small>
-
-                    {/* ── Regret line chart ── */}
-                    <p className="fw-semibold mb-2">Bayesian Regret by value</p>
-                    <ResponsiveContainer width="100%" height={380}>
-                      <LineChart
-                        data={sensitivityLineData}
-                        margin={{ top: 5, right: 20, bottom: 40, left: 10 }}
-                      >
-                        <CartesianGrid strokeDasharray="3 3" />
-                        <XAxis
-                          dataKey="label"
-                          tick={{ fontSize: 10 }}
-                          angle={-30}
-                          textAnchor="end"
-                          interval={0}
-                        />
-                        <YAxis tick={{ fontSize: 11 }} />
-                        <Tooltip
-                          formatter={(v: number) => (v !== null ? v.toFixed(4) : '—')}
-                        />
-                        <Legend
-                          verticalAlign="bottom"
-                          wrapperStyle={{ paddingTop: 10, fontSize: 10 }}
-                        />
-                        {sensitivityMethodNames.map((method) => (
-                          <Line
-                            key={method}
-                            type="monotone"
-                            dataKey={METHOD_LABELS[method] || method}
-                            stroke={METHOD_LINE_COLORS[method] ?? '#999'}
-                            strokeWidth={method === 'plurality' ? 2.5 : 1.5}
-                            dot={{ r: 3 }}
-                            connectNulls
-                          />
-                        ))}
-                      </LineChart>
-                    </ResponsiveContainer>
-                  </>
-                )}
-
-                {!sensitivityData && !sensitivityLoading && (
-                  <Alert variant="info" className="mb-0">
-                    Select a variable, adjust the values and click{' '}
-                    <strong>Run Sensitivity</strong>.
-                  </Alert>
-                )}
-              </Card.Body>
-            </Card>
-          </Tab>
-
-        </Tabs>
-      )}
-      {/* ── Drill-down modal ── */}
-      {drilldownTarget && (() => {
-        const { methodKey, simIndex } = drilldownTarget;
-        const r = comparisonResults[simIndex];
-        const m = r?.methods[methodKey];
-        if (!r || !m) return null;
-        const winner = m.winner;
-
-        return (
-          <Modal
-            show
-            centered
-            size="lg"
-            onHide={() => setDrilldownTarget(null)}
-          >
-            <Modal.Header closeButton>
-              <Modal.Title>
-                {METHOD_LABELS[methodKey] || methodKey}
-                <span className="text-muted fw-normal ms-2" style={{ fontSize: '1rem' }}>
-                  — Simulation #{simIndex + 1}
-                </span>
-              </Modal.Title>
-            </Modal.Header>
-            <Modal.Body>
-
-              {/* a) Winner */}
-              <div className="text-center mb-4">
-                <div className="text-muted small mb-1">Winner</div>
-                {winner ? (
-                  <Badge
-                    style={{
-                      backgroundColor: candidateColorMap[winner] ?? '#999',
-                      fontSize: '1.1rem',
-                      padding: '0.45em 1.1em',
-                    }}
-                  >
-                    {winner}
-                  </Badge>
-                ) : (
-                  <span className="text-muted">No winner</span>
-                )}
-              </div>
-
-              {/* b) Metrics table */}
-              <Table bordered size="sm" className="mb-3">
-                <tbody>
-                  {[
-                    {
-                      label: 'Bayesian Regret',
-                      value: m.bayesian_regret != null ? m.bayesian_regret.toFixed(4) : '—',
-                      note: 'lower = better',
-                    },
-                    {
-                      label: 'Majority Satisfaction',
-                      value:
-                        m.majority_satisfaction != null
-                          ? `${(m.majority_satisfaction * 100).toFixed(1)} %`
-                          : '—',
-                      note: 'higher = better',
-                    },
-                    {
-                      label: 'Strategic Vulnerability',
-                      value:
-                        m.strategic_vulnerability != null
-                          ? `${(m.strategic_vulnerability * 100).toFixed(1)} %`
-                          : '—',
-                      note: 'lower = better',
-                    },
-                  ].map(({ label, value, note }) => (
-                    <tr key={label}>
-                      <td className="fw-semibold" style={{ width: '40%' }}>
-                        {label}
-                      </td>
-                      <td>{value}</td>
-                      <td className="text-muted small">{note}</td>
-                    </tr>
-                  ))}
-                </tbody>
-              </Table>
-
-              {/* c) Condorcet comparison */}
-              {r.condorcet_winner ? (
-                m.condorcet_consistent ? (
-                  <Alert variant="success" className="py-2 mb-3">
-                    ✓ Elected the Condorcet winner
-                  </Alert>
-                ) : (
-                  <Alert variant="warning" className="py-2 mb-3">
-                    ✗ The Condorcet winner was{' '}
-                    <strong>
-                      <Badge
-                        style={{
-                          backgroundColor: candidateColorMap[r.condorcet_winner] ?? '#999',
-                        }}
-                      >
-                        {r.condorcet_winner}
-                      </Badge>
-                    </strong>
-                  </Alert>
-                )
-              ) : (
-                <Alert variant="secondary" className="py-2 mb-3">
-                  No Condorcet winner in this simulation (cycle or tie at the top).
-                </Alert>
-              )}
-
-              {/* d) Method description */}
-              <p className="text-muted small mb-0" style={{ lineHeight: 1.6 }}>
-                <strong>{METHOD_LABELS[methodKey] || methodKey}: </strong>
-                {METHOD_DESCRIPTIONS[methodKey] ?? 'No description available.'}
-              </p>
-            </Modal.Body>
-            <Modal.Footer>
-              <Button variant="secondary" onClick={() => setDrilldownTarget(null)}>
-                Close
-              </Button>
-            </Modal.Footer>
-          </Modal>
-        );
-      })()}
-
-      {/* ── Save modal ── */}
-    <Modal show={showSaveModal} onHide={() => setShowSaveModal(false)} centered>
-      <Modal.Header closeButton>
-        <Modal.Title>Save scenario</Modal.Title>
-      </Modal.Header>
-      <Modal.Body>
-        <Form.Label>Scenario name</Form.Label>
-        <Form.Control
-          type="text"
-          value={saveName}
-          onChange={(e) => setSaveName(e.target.value)}
-          onKeyDown={(e) => { if (e.key === 'Enter') handleSave(); }}
-          placeholder="My scenario"
-          autoFocus
-        />
-      </Modal.Body>
-      <Modal.Footer>
-        <Button variant="secondary" onClick={() => setShowSaveModal(false)}>
-          Cancel
-        </Button>
-        <Button
-          variant="success"
-          onClick={handleSave}
-          disabled={saving || !saveName.trim()}
-        >
-          {saving ? <><Spinner size="sm" className="me-2" />Saving…</> : 'Save'}
-        </Button>
-      </Modal.Footer>
-    </Modal>
-
-    {/* ── Load modal ── */}
-    <Modal
-      show={showLoadModal}
-      onHide={() => setShowLoadModal(false)}
-      size="lg"
-      centered
-    >
-      <Modal.Header closeButton>
-        <Modal.Title>Load scenario</Modal.Title>
-      </Modal.Header>
-      <Modal.Body style={{ maxHeight: '60vh', overflowY: 'auto' }}>
-        {loadingList ? (
-          <div className="text-center py-3">
-            <Spinner />
-          </div>
-        ) : scenarioList.length === 0 ? (
-          <Alert variant="info" className="mb-0">
-            No saved scenarios yet. Run an analysis and click{' '}
-            <strong>Save scenario</strong> to save one.
-          </Alert>
-        ) : (
-          <Table bordered hover size="sm">
-            <thead className="table-light">
-              <tr>
-                <th>Name</th>
-                <th>Saved</th>
-                <th style={{ width: 160 }}></th>
-              </tr>
-            </thead>
-            <tbody>
-              {scenarioList.map((s) => (
-                <tr key={s.id}>
-                  <td className="align-middle">{s.name}</td>
-                  <td className="align-middle text-muted small">
-                    {new Date(s.created_at).toLocaleString()}
-                  </td>
-                  <td className="text-center">
-                    <Button
-                      size="sm"
-                      variant="outline-primary"
-                      className="me-2"
-                      onClick={() =>
-                        getScenario(s.id).then((detail) => handleLoad(detail))
-                      }
-                    >
-                      Load
-                    </Button>
-                    <Button
-                      size="sm"
-                      variant="outline-danger"
-                      onClick={() => handleDelete(s.id)}
-                    >
-                      ✕
-                    </Button>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </Table>
+        {error && <Alert variant="danger">{error}</Alert>}
+        {!hasResults && !loading && (
+          <Alert variant="info">Configurez la simulation ci-dessus et cliquez sur <strong>Lancer l'analyse</strong> pour générer des résultats.</Alert>
         )}
-      </Modal.Body>
-      <Modal.Footer>
-        <Button variant="secondary" onClick={() => setShowLoadModal(false)}>
-          Close
-        </Button>
-      </Modal.Footer>
-    </Modal>
 
-    </Container>
+        {hasResults && (
+          <Tabs
+            activeKey={activeTab}
+            onSelect={(k) => { if (k) { setActiveTab(k); if (presentationMode) setPresentationTabIndex(TAB_ORDER.indexOf(k)); }}}
+            className="mb-3"
+          >
+            <Tab eventKey="winners" title={scenarioCount === 2 ? 'Comparaison de scénarios' : 'Matrice des vainqueurs'}>
+              <WinnerMatrixTab comparisonResults={comparisonResults} resultsB={resultsB} allMethodNames={allMethodNames} candidateColorMap={candidateColorMap} configA={configA} configB={configB} numSimulations={numSimulations} scenarioCount={scenarioCount} />
+            </Tab>
+            <Tab eventKey="metrics" title="Métriques">
+              <MetricsTab comparisonResults={comparisonResults} allMethodNames={allMethodNames} numSimulations={numSimulations} />
+            </Tab>
+            <Tab eventKey="strategic" title="Impact stratégique">
+              <StrategicImpactTab strategicData={strategicData} allMethodNames={allMethodNames} />
+            </Tab>
+            <Tab eventKey="condorcet" title="Matrice de Condorcet">
+              <Card className="mb-4">
+                <Card.Header><strong>Matrice de Condorcet</strong><span className="text-muted ms-2" style={{ fontSize: '0.85rem' }}>— préférences pairwise dans la population (Scénario A)</span></Card.Header>
+                <Card.Body>{condorcetData ? <CondorcetMatrix result={condorcetData} /> : <Alert variant="info">Pas de données Condorcet disponibles.</Alert>}</Card.Body>
+              </Card>
+            </Tab>
+            <Tab eventKey="arrow" title={
+              <span>
+                Critères d'Arrow{' '}
+                <OverlayTrigger trigger={['hover','focus']} placement="bottom" overlay={<Tooltip id="tip-tab-arrow">Le théorème d'impossibilité d'Arrow (1951) démontre qu'aucune méthode de vote classée ne peut satisfaire tous les critères de fairness simultanément avec 3+ candidats. Cet onglet vérifie empiriquement lesquels chaque méthode respecte.</Tooltip>}>
+                  <span tabIndex={0} onClick={(e) => e.stopPropagation()} style={{ fontSize: '0.75em', color: '#6c757d', cursor: 'help' }}>ⓘ</span>
+                </OverlayTrigger>
+              </span>
+            }>
+              <Card className="mb-4">
+                <Card.Header><strong>Critères d'impossibilité d'Arrow</strong><span className="text-muted ms-2" style={{ fontSize: '0.85rem' }}>— vérification empirique (Scénario A)</span></Card.Header>
+                <Card.Body>{arrowData ? <ArrowCriteriaMatrix result={arrowData} /> : <Alert variant="info">Pas de données Arrow disponibles.</Alert>}</Card.Body>
+              </Card>
+            </Tab>
+            <Tab eventKey="bandwagon" title={
+              <span>
+                Effet bandwagon{' '}
+                <OverlayTrigger trigger={['hover','focus']} placement="bottom" overlay={<Tooltip id="tip-tab-bandwagon">Simule l'effet de conformité sociale : chaque tour, les électeurs s'alignent légèrement sur le candidat en tête des sondages. Mesure quelles méthodes résistent ou amplifient cet effet.</Tooltip>}>
+                  <span tabIndex={0} onClick={(e) => e.stopPropagation()} style={{ fontSize: '0.75em', color: '#6c757d', cursor: 'help' }}>ⓘ</span>
+                </OverlayTrigger>
+              </span>
+            }><BandwagonAnalysis baseParams={baseParamsA} /></Tab>
+            <Tab eventKey="montecarlo" title="Monte Carlo"><MonteCarloResults baseParams={baseParamsA} /></Tab>
+            <Tab eventKey="real-elections" title="Élections réelles"><RealElectionsTab /></Tab>
+            <Tab eventKey="multiwinner" title="Multi-gagnants"><MultiwinnerAnalysis /></Tab>
+            <Tab eventKey="sensitivity" title={
+              <span>
+                Sensibilité{' '}
+                <OverlayTrigger trigger={['hover','focus']} placement="bottom" overlay={<Tooltip id="tip-tab-sensitivity">Fait varier un paramètre (distribution idéologique, nombre d'électeurs, % de votes stratégiques) et observe comment les vainqueurs changent selon les méthodes. Révèle la robustesse de chaque méthode aux variations contextuelles.</Tooltip>}>
+                  <span tabIndex={0} onClick={(e) => e.stopPropagation()} style={{ fontSize: '0.75em', color: '#6c757d', cursor: 'help' }}>ⓘ</span>
+                </OverlayTrigger>
+              </span>
+            }><SensitivityTab baseConfig={{ numVoters: configA.numVoters, candidates: candidateNamesA, ideology_distribution: configA.ideology_distribution }} /></Tab>
+          </Tabs>
+        )}
+
+        <ScenarioModals
+          showSaveModal={showSaveModal} setShowSaveModal={setShowSaveModal}
+          saveName={saveName} setSaveName={setSaveName} saving={saving} handleSave={handleSave}
+          showLoadModal={showLoadModal} setShowLoadModal={setShowLoadModal}
+          scenarioList={scenarioList} loadingList={loadingList}
+          handleLoad={handleLoad} handleDelete={handleDelete}
+        />
+      </Container>
+    </>
   );
 };
 

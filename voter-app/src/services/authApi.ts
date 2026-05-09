@@ -1,5 +1,5 @@
 import axios from 'axios';
-import { ParticipationData, Profile_, UserPermissions } from '../types';
+import { Profile_ } from '../types';
 
 const API_BASE_URL = 'http://localhost:4433';
 
@@ -104,69 +104,5 @@ export const fetchUserProfile = async (id: number): Promise<Profile_> => {
   } catch (error) {
     console.error('Error fetching the user profile', error);
     throw new Error('Failed to fetch profile data. Please check your login status.');
-  }
-};
-
-export const checkPermissions = async (): Promise<UserPermissions> => {
-  const storedUserJSON = localStorage.getItem('user');
-  let token = '';
-  let storedUser: { access_token: string } | null = null;
-
-  if (storedUserJSON !== null) {
-    storedUser = JSON.parse(storedUserJSON);
-  }
-
-  if (storedUser !== null) {
-    token = storedUser.access_token;
-  } else {
-    console.error('User data not found in localStorage.');
-  }
-
-  if (!token) {
-    throw new Error('No token found');
-  }
-
-  try {
-    const response = await axios.get(`${API_BASE_URL}/api/auth/users/me/permissions`, {
-      headers: {
-        Authorization: `Bearer ${token}`,
-      },
-    });
-    return response.data;
-  } catch (error) {
-    console.error('Error fetching the user permission', error);
-    throw error;
-  }
-};
-
-export const getParticipation = async (): Promise<ParticipationData> => {
-  const storedUserJSON = localStorage.getItem('user');
-  let token = '';
-  let storedUser: { access_token: string } | null = null;
-
-  if (storedUserJSON !== null) {
-    storedUser = JSON.parse(storedUserJSON);
-  }
-
-  if (storedUser !== null) {
-    token = storedUser.access_token;
-  } else {
-    console.error('User data not found in localStorage.');
-  }
-
-  if (!token) {
-    throw new Error('No token found');
-  }
-
-  try {
-    const response = await axios.get(`${API_BASE_URL}/api/auth/users/me/participation`, {
-      headers: {
-        Authorization: `Bearer ${token}`,
-      },
-    });
-    return response.data;
-  } catch (error) {
-    console.error('Error fetching the user participation', error);
-    throw error;
   }
 };

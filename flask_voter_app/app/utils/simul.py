@@ -125,46 +125,7 @@ def simulate_ranked_voters(
 def simulate_score_voters(
     population_size, candidates, demographics, influence_weights, turnout_rate
 ):
-    voters = []
-    for voter_id in range(population_size):
-        # Assign demographics
-        age = random.choices(
-            list(demographics["age"].keys()), weights=demographics["age"].values()
-        )[0]
-        gender = random.choices(
-            list(demographics["gender"].keys()), weights=demographics["gender"].values()
-        )[0]
-        location = random.choices(
-            list(demographics["location"].keys()),
-            weights=demographics["location"].values(),
-        )[0]
-        education = random.choices(
-            list(demographics["education"].keys()),
-            weights=demographics["education"].values(),
-        )[0]
-        income = random.choices(
-            list(demographics["income"].keys()), weights=demographics["income"].values()
-        )[0]
-        ideology = random.choices(
-            list(demographics["ideology"].keys()),
-            weights=demographics["ideology"].values(),
-        )[0]
-
-        # Determine if the voter turns out
-        turnout = random.random() < turnout_rate
-
-        voters.append(
-            {
-                "id": voter_id,
-                "age": age,
-                "gender": gender,
-                "location": location,
-                "education": education,
-                "income": income,
-                "ideology": ideology,
-                "turnout": turnout,
-            }
-        )
+    voters = init(population_size, demographics, turnout_rate)
 
     # Assign scores (0-5) to each candidate for each voter
     for voter in voters:

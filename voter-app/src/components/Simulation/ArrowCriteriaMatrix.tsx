@@ -1,53 +1,32 @@
 import React from 'react';
 import { Alert, Badge, Table } from 'react-bootstrap';
 import { ArrowCriteriaResult, MethodCriteria } from '../../types';
+import MethodTooltip from '../shared/MethodTooltip';
 
 // ── Constants ──────────────────────────────────────────────────────────────
 
-const METHOD_LABELS: Record<string, string> = {
-  plurality:        'Plurality',
-  two_round:        'Two-Round',
-  borda:            'Borda',
-  approval:         'Approval',
-  irv:              'IRV',
-  coombs:           "Coombs'",
-  bucklin:          'Bucklin',
-  minimax:          'Minimax',
-  schulze:          'Schulze',
-  kemeny_young:     'Kemeny-Young',
-  condorcet:        'Condorcet',
-  positional_score: 'Positional Score',
-};
-
 const CRITERIA_LABELS: Record<string, string> = {
-  condorcet_winner:  'Condorcet Winner',
-  condorcet_loser:   'Condorcet Loser',
-  monotonicity:      'Monotonicity',
+  condorcet_winner:  'Vainqueur Condorcet',
+  condorcet_loser:   'Perdant Condorcet',
+  monotonicity:      'Monotonie',
   iia:               'IIA',
-  majority:          'Majority',
-  reversal_symmetry: 'Reversal Sym.',
+  majority:          'Majorité',
+  reversal_symmetry: 'Symétrie inv.',
 };
 
 const CRITERIA_DESCRIPTIONS: Record<string, string> = {
   condorcet_winner:
-    'Condorcet Winner Criterion: if a candidate beats every other candidate ' +
-    'in pairwise duels, that candidate must win.',
+    'Critère du vainqueur de Condorcet : si un candidat bat chacun des autres en duel direct, cette méthode doit l\'élire.',
   condorcet_loser:
-    'Condorcet Loser Criterion: a candidate who loses every pairwise duel ' +
-    'must never be elected.',
+    'Critère du perdant de Condorcet : un candidat qui perd chaque duel direct ne doit jamais être élu.',
   monotonicity:
-    'Monotonicity: ranking a candidate higher in some ballots (without ' +
-    'changing other ballots) cannot cause that candidate to lose.',
+    'Monotonie : classer un candidat plus haut dans certains bulletins (sans autre changement) ne doit pas le faire perdre.',
   iia:
-    'Independence of Irrelevant Alternatives (IIA): removing a non-winning ' +
-    "candidate should not change the winner. Arrow's theorem proves this is " +
-    'incompatible with the other criteria in ranked methods.',
+    'Indépendance des alternatives non pertinentes (IIA) : supprimer un candidat non-vainqueur ne doit pas changer le vainqueur. Arrow démontre que l\'IIA est incompatible avec les autres critères.',
   majority:
-    'Majority Criterion: if a candidate is ranked first by more than 50% ' +
-    'of voters, that candidate must win.',
+    'Critère de majorité : si un candidat est classé premier par plus de 50% des électeurs, il doit gagner.',
   reversal_symmetry:
-    'Reversal Symmetry: if all voter preferences are reversed (best↔worst), ' +
-    'the original winner should not win the reversed election.',
+    'Symétrie de renversement : si toutes les préférences sont inversées (meilleur↔pire), le vainqueur original ne doit pas gagner l\'élection renversée.',
 };
 
 const CRITERIA_KEYS = [
@@ -75,7 +54,6 @@ const CriterionCell: React.FC<CellProps> = ({ value, violationRate }) => {
     );
   }
 
-  // Orange "~" for soft violations: IIA violated but at a low rate (< 20%)
   const isSoftViolation =
     value === false && violationRate !== undefined && violationRate !== null && violationRate < 0.2;
 
@@ -85,7 +63,7 @@ const CriterionCell: React.FC<CellProps> = ({ value, violationRate }) => {
 
   const tooltip =
     value === false && violationRate !== null && violationRate !== undefined
-      ? `IIA violation rate: ${(violationRate * 100).toFixed(0)}%`
+      ? `Taux de violation IIA : ${(violationRate * 100).toFixed(0)}%`
       : undefined;
 
   return (
@@ -115,7 +93,7 @@ const ArrowCriteriaMatrix: React.FC<Props> = ({ result }) => {
   const methodNames = Object.keys(methods);
 
   if (!methodNames.length) {
-    return <Alert variant="info">No data available.</Alert>;
+    return <Alert variant="info">Aucune donnée disponible.</Alert>;
   }
 
   const scoreOf = (name: string) =>
@@ -123,51 +101,33 @@ const ArrowCriteriaMatrix: React.FC<Props> = ({ result }) => {
 
   return (
     <div>
-      {/* Arrow's theorem reminder */}
       <Alert variant="warning" className="py-2 mb-3">
-        <strong>Arrow's Impossibility Theorem (1951)</strong> — No ranked voting
-        rule can simultaneously satisfy all of these criteria when there are 3 or
-        more candidates. Every method below violates at least one.
+        <strong>Théorème d'impossibilité d'Arrow (1951)</strong> — Aucune méthode de vote classée
+        ne peut satisfaire simultanément tous ces critères avec 3 candidats ou plus.
+        Chaque méthode ci-dessous en viole au moins un.
       </Alert>
 
-      {/* Reading guide */}
       <div className="d-flex gap-3 mb-3 flex-wrap">
         {[
-          { bg: '#d4edda', color: '#155724', label: '✓ Satisfied' },
-          { bg: '#f8d7da', color: '#721c24', label: '✗ Violated' },
-          {
-            bg: '#fff3cd',
-            color: '#856404',
-            label: '~ Violated (rate < 20%)',
-          },
-          { bg: '#f8f9fa', color: '#6c757d', label: 'N/A (not testable)' },
+          { bg: '#d4edda', color: '#155724', label: '✓ Satisfait' },
+          { bg: '#f8d7da', color: '#721c24', label: '✗ Violé' },
+          { bg: '#fff3cd', color: '#856404', label: '~ Violé (taux < 20%)' },
+          { bg: '#f8f9fa', color: '#6c757d', label: 'N/A (non testable)' },
         ].map(({ bg, color, label }) => (
           <span key={label} className="d-flex align-items-center gap-1">
-            <span
-              style={{
-                display: 'inline-block',
-                width: 16,
-                height: 16,
-                backgroundColor: bg,
-                border: `1px solid ${color}`,
-                borderRadius: 2,
-              }}
-            />
+            <span style={{ display: 'inline-block', width: 16, height: 16, backgroundColor: bg, border: `1px solid ${color}`, borderRadius: 2 }} />
             <small style={{ color }}>{label}</small>
           </span>
         ))}
-        <small className="text-muted ms-2">
-          Hover IIA cells to see the violation rate.
-        </small>
+        <small className="text-muted ms-2">Survolez les cellules IIA pour voir le taux de violation.</small>
       </div>
 
-      {/* Matrix table */}
       <div style={{ overflowX: 'auto' }}>
         <Table bordered size="sm" className="text-center" style={{ minWidth: 600 }}>
           <thead className="table-light">
             <tr>
-              <th style={{ minWidth: 140, textAlign: 'left' }}>Method</th>
-              <th style={{ minWidth: 60 }}>Winner</th>
+              <th style={{ minWidth: 140, textAlign: 'left' }}>Méthode</th>
+              <th style={{ minWidth: 60 }}>Vainqueur</th>
               {CRITERIA_KEYS.map((key) => (
                 <th
                   key={key}
@@ -189,21 +149,14 @@ const ArrowCriteriaMatrix: React.FC<Props> = ({ result }) => {
               const isWorst = method === summary?.least_criteria_satisfied;
 
               return (
-                <tr
-                  key={method}
-                  style={isBest ? { outline: '2px solid #198754' } : undefined}
-                >
+                <tr key={method} style={isBest ? { outline: '2px solid #198754' } : undefined}>
                   <td className="text-start ps-2 fw-semibold">
-                    {METHOD_LABELS[method] || method}
+                    <MethodTooltip method={method} />
                     {isBest && (
-                      <Badge bg="success" className="ms-2" style={{ fontSize: '0.65rem' }}>
-                        best
-                      </Badge>
+                      <Badge bg="success" className="ms-2" style={{ fontSize: '0.65rem' }}>mieux</Badge>
                     )}
                     {isWorst && !isBest && (
-                      <Badge bg="danger" className="ms-2" style={{ fontSize: '0.65rem' }}>
-                        worst
-                      </Badge>
+                      <Badge bg="danger" className="ms-2" style={{ fontSize: '0.65rem' }}>moins bien</Badge>
                     )}
                   </td>
                   <td className="text-center">
@@ -229,16 +182,13 @@ const ArrowCriteriaMatrix: React.FC<Props> = ({ result }) => {
             })}
           </tbody>
 
-          {/* Score row */}
           <tfoot>
             <tr className="table-light">
               <td colSpan={2} className="text-start ps-2 fw-semibold small">
-                Criteria satisfied
+                Critères satisfaits
               </td>
               {CRITERIA_KEYS.map((key) => {
-                const satisfiedCount = methodNames.filter(
-                  (m) => methods[m][key] === true
-                ).length;
+                const satisfiedCount = methodNames.filter((m) => methods[m][key] === true).length;
                 return (
                   <td key={key} className="text-center small text-muted">
                     {satisfiedCount}/{methodNames.length}
@@ -251,28 +201,25 @@ const ArrowCriteriaMatrix: React.FC<Props> = ({ result }) => {
         </Table>
       </div>
 
-      {/* Summary */}
       {summary && (
         <div className="d-flex gap-3 mt-3 flex-wrap">
           <Alert variant="success" className="py-2 mb-0 flex-grow-1">
-            <strong>Most criteria:</strong>{' '}
-            {METHOD_LABELS[summary.most_criteria_satisfied] || summary.most_criteria_satisfied}
+            <strong>Plus de critères satisfaits :</strong>{' '}
+            <MethodTooltip method={summary.most_criteria_satisfied} />
             {' '}({scoreOf(summary.most_criteria_satisfied)}/6)
           </Alert>
           <Alert variant="danger" className="py-2 mb-0 flex-grow-1">
-            <strong>Fewest criteria:</strong>{' '}
-            {METHOD_LABELS[summary.least_criteria_satisfied] || summary.least_criteria_satisfied}
+            <strong>Moins de critères satisfaits :</strong>{' '}
+            <MethodTooltip method={summary.least_criteria_satisfied} />
             {' '}({scoreOf(summary.least_criteria_satisfied)}/6)
           </Alert>
         </div>
       )}
 
       <p className="text-muted small mt-3 mb-0">
-        Results are empirical — each criterion is verified on the simulated population,
-        not formally proved. N/A means the criterion could not be tested with this
-        population (e.g. monotonicity when no voter ranks the winner 2nd).
-        IIA is tested by removing each non-winning candidate and checking if the winner
-        changes; the violation rate is the proportion of removals that caused a change.
+        Résultats empiriques — chaque critère est vérifié sur la population simulée, pas démontré formellement.
+        N/A signifie que le critère ne pouvait pas être testé sur cette population.
+        L'IIA est testée en supprimant chaque candidat non-vainqueur et en vérifiant si le vainqueur change.
       </p>
     </div>
   );

@@ -59,6 +59,5 @@ class UserService:
             "first_name": user.first_name,
             "last_name": user.last_name,
             "role": user.role,
-            "party_id": user.party_id,
             "is_admin": user.role == "Admin",
         }

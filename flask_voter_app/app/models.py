@@ -1,7 +1,6 @@
 import datetime
 from . import db
 from sqlalchemy import Column, Integer, String, ForeignKey, DateTime, Text, func, JSON
-from sqlalchemy.orm import relationship
 
 from flask_bcrypt import Bcrypt
 
@@ -21,28 +20,11 @@ class User(db.Model):
     bio = Column(Text, nullable=True)
     profile_picture = Column(String(200), nullable=True)
 
-    party_id = Column(Integer, ForeignKey("parties.id"), nullable=True)
-    party = relationship("Party", back_populates="members")
-
     def set_password(self, password):
         self.password_hash = bcrypt.generate_password_hash(password).decode("utf-8")
 
     def check_password(self, password):
         return bcrypt.check_password_hash(self.password_hash, password)
-
-
-class Party(db.Model):
-    __tablename__ = "parties"
-    id = Column(Integer, primary_key=True)
-    name = Column(String(100), nullable=False, unique=True)
-    description = Column(db.Text, nullable=True)
-    founded_date = Column(DateTime)
-    logo_url = Column(String(255))
-
-    members = relationship("User", back_populates="party")
-
-    def __repr__(self):
-        return f"<Party {self.name}>"
 
 
 class SimulationScenario(db.Model):
@@ -53,7 +35,7 @@ class SimulationScenario(db.Model):
     name = Column(String(100), nullable=False)
     config = Column(JSON, nullable=False)
     results = Column(JSON, nullable=True)
-    created_at = Column(DateTime, default=datetime.datetime.utcnow)
+    created_at = Column(DateTime, default=lambda: datetime.datetime.now(datetime.timezone.utc))
 
     user = db.relationship("User", backref=db.backref("simulation_scenarios", lazy=True))
 
