@@ -1,9 +1,10 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { Alert, Badge, Button, Card, Col, Container, Row, Spinner, Table } from 'react-bootstrap';
 import CandidateEditor, { CandidateConfig, newCandidate, newBlankCandidate } from '../components/ScenarioBuilder/CandidateEditor';
 import ElectorateConfig, { ElectorateState } from '../components/ScenarioBuilder/ElectorateConfig';
 import BlankVoteRuleSelector, { BlankRule } from '../components/ScenarioBuilder/BlankVoteRuleSelector';
 import { runScenario, ScenarioResult } from '../services/simulationCompareApi';
+import { copyShareURL, decodeShareConfig, readShareParam } from '../utils/shareUtils';
 
 // ── Constants ──────────────────────────────────────────────────────────────
 
@@ -181,6 +182,24 @@ const ScenarioBuilderPage: React.FC = () => {
   const [results, setResults] = useState<ScenarioResult | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [linkCopied, setLinkCopied] = useState(false);
+
+  // Restore config from URL on mount
+  useEffect(() => {
+    const raw = readShareParam();
+    if (!raw) return;
+    const cfg = decodeShareConfig<{ candidates?: CandidateConfig[]; electorate?: ElectorateState; blankRule?: BlankRule }>(raw);
+    if (!cfg) return;
+    if (cfg.candidates) setCandidates(cfg.candidates);
+    if (cfg.electorate) setElectorate(cfg.electorate);
+    if (cfg.blankRule) setBlankRule(cfg.blankRule);
+  }, []);
+
+  const copyShareLink = async () => {
+    await copyShareURL({ candidates, electorate, blankRule });
+    setLinkCopied(true);
+    setTimeout(() => setLinkCopied(false), 2000);
+  };
 
   const realCandidates = candidates.filter((c) => !c.isBlank);
   const hasBlankCandidate = candidates.some((c) => c.isBlank);
@@ -262,12 +281,12 @@ const ScenarioBuilderPage: React.FC = () => {
           )}
         </div>
         <div>
+          <div className="d-flex gap-2">
+          <Button variant={linkCopied ? 'success' : 'outline-info'} size="sm" onClick={copyShareLink}>
+            {linkCopied ? '✓ Lien copié !' : '🔗 Partager'}
+          </Button>
           {step < 2 && (
-            <Button
-              variant="primary"
-              onClick={() => setStep((s) => s + 1)}
-              disabled={!canProceed[step]}
-            >
+            <Button variant="primary" onClick={() => setStep((s) => s + 1)} disabled={!canProceed[step]}>
               Suivant →
             </Button>
           )}
@@ -276,6 +295,7 @@ const ScenarioBuilderPage: React.FC = () => {
               {loading ? <><Spinner size="sm" className="me-2" />Simulation en cours…</> : '▶ Lancer la simulation'}
             </Button>
           )}
+        </div>
         </div>
       </div>
     </Container>
