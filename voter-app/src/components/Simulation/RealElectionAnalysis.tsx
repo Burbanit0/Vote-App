@@ -1,5 +1,6 @@
 import React from 'react';
 import { Alert, Badge, Card, Col, Form, Row, Spinner, Table } from 'react-bootstrap';
+import MethodTooltip from '../shared/MethodTooltip';
 import { RealElectionResult } from '../../types';
 
 const METHOD_LABELS: Record<string, string> = {
@@ -93,7 +94,7 @@ const BlankComparisonTable: React.FC<{
                       : undefined
                   }
                 >
-                  <td className="ps-2 fw-semibold">{METHOD_LABELS[method] ?? method}</td>
+                  <td className="ps-2 fw-semibold"><MethodTooltip method={method} /></td>
                   <td className="text-center">
                     {w1 ? (
                       <Badge bg={w1 === pluralityWinner ? 'primary' : 'secondary'}>{w1}</Badge>
@@ -233,7 +234,7 @@ const RealElectionAnalysis: React.FC<Props> = ({
             <tbody>
               {sorted.map(({ method, winner, differs_from_plurality }) => (
                 <tr key={method} style={differs_from_plurality ? { backgroundColor: '#fff3cd' } : undefined}>
-                  <td className="ps-2 fw-semibold">{METHOD_LABELS[method] ?? method}</td>
+                  <td className="ps-2 fw-semibold"><MethodTooltip method={method} /></td>
                   <td className="text-center">
                     {winner ? (
                       <Badge bg={winner === plurality_winner ? 'primary' : differs_from_plurality ? 'warning' : 'secondary'} text={differs_from_plurality ? 'dark' : undefined}>

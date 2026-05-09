@@ -9,6 +9,7 @@ import {
   ScenarioConfig,
   mostCommonWinner,
 } from './simulationConstants';
+import MethodTooltip from '../shared/MethodTooltip';
 
 // ── WinnerMatrixTable ───────────────────────────────────────────────────────
 
@@ -37,7 +38,7 @@ const WinnerMatrixTable: React.FC<TableProps> = ({ results, allMethodNames, colo
       <tbody>
         {allMethodNames.map((method) => (
           <tr key={method}>
-            <td><strong>{METHOD_LABELS[method] || method}</strong></td>
+            <td><strong><MethodTooltip method={method} /></strong></td>
             {results.map((r, i) => {
               const winner = r.methods[method]?.winner;
               const notCondorcet = r.condorcet_winner && r.methods[method]?.condorcet_consistent === false;
@@ -158,7 +159,7 @@ const WinnerMatrixTab: React.FC<Props> = ({
                     const differs = winnerA !== winnerB;
                     return (
                       <tr key={method} style={differs ? { backgroundColor: '#fff8e1' } : undefined}>
-                        <td><strong>{METHOD_LABELS[method] || method}</strong></td>
+                        <td><strong><MethodTooltip method={method} /></strong></td>
                         <td className="text-center">
                           {winnerA ? (
                             <Badge style={{ backgroundColor: candidateColorMap[winnerA] ?? '#999' }}>{winnerA}</Badge>
@@ -209,7 +210,7 @@ const WinnerMatrixTab: React.FC<Props> = ({
           <Modal show centered size="lg" onHide={() => setDrilldownTarget(null)}>
             <Modal.Header closeButton>
               <Modal.Title>
-                {METHOD_LABELS[methodKey] || methodKey}
+                <MethodTooltip method={methodKey} />
                 <span className="text-muted fw-normal ms-2" style={{ fontSize: '1rem' }}>
                   — Simulation #{simIndex + 1}
                 </span>
@@ -261,7 +262,7 @@ const WinnerMatrixTab: React.FC<Props> = ({
               )}
 
               <p className="text-muted small mb-0" style={{ lineHeight: 1.6 }}>
-                <strong>{METHOD_LABELS[methodKey] || methodKey}: </strong>
+                <strong><MethodTooltip method={methodKey} />: </strong>
                 {METHOD_DESCRIPTIONS[methodKey] ?? 'Aucune description disponible.'}
               </p>
             </Modal.Body>

@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import { Alert, Badge, Button, Card, Col, Container, Form, Row, Spinner, Tab, Tabs } from 'react-bootstrap';
+import { Alert, Badge, Button, Card, Col, Container, Form, OverlayTrigger, Row, Spinner, Tab, Tabs, Tooltip } from 'react-bootstrap';
 import CondorcetMatrix from '../components/Simulation/CondorcetMatrix';
 import ArrowCriteriaMatrix from '../components/Simulation/ArrowCriteriaMatrix';
 import BandwagonAnalysis from '../components/Simulation/BandwagonAnalysis';
@@ -531,17 +531,38 @@ const SimulationComparePage: React.FC = () => {
                 <Card.Body>{condorcetData ? <CondorcetMatrix result={condorcetData} /> : <Alert variant="info">Pas de données Condorcet disponibles.</Alert>}</Card.Body>
               </Card>
             </Tab>
-            <Tab eventKey="arrow" title="Critères d'Arrow">
+            <Tab eventKey="arrow" title={
+              <span>
+                Critères d'Arrow{' '}
+                <OverlayTrigger trigger={['hover','focus']} placement="bottom" overlay={<Tooltip id="tip-tab-arrow">Le théorème d'impossibilité d'Arrow (1951) démontre qu'aucune méthode de vote classée ne peut satisfaire tous les critères de fairness simultanément avec 3+ candidats. Cet onglet vérifie empiriquement lesquels chaque méthode respecte.</Tooltip>}>
+                  <span tabIndex={0} onClick={(e) => e.stopPropagation()} style={{ fontSize: '0.75em', color: '#6c757d', cursor: 'help' }}>ⓘ</span>
+                </OverlayTrigger>
+              </span>
+            }>
               <Card className="mb-4">
                 <Card.Header><strong>Critères d'impossibilité d'Arrow</strong><span className="text-muted ms-2" style={{ fontSize: '0.85rem' }}>— vérification empirique (Scénario A)</span></Card.Header>
                 <Card.Body>{arrowData ? <ArrowCriteriaMatrix result={arrowData} /> : <Alert variant="info">Pas de données Arrow disponibles.</Alert>}</Card.Body>
               </Card>
             </Tab>
-            <Tab eventKey="bandwagon" title="Bandwagon"><BandwagonAnalysis baseParams={baseParamsA} /></Tab>
+            <Tab eventKey="bandwagon" title={
+              <span>
+                Effet bandwagon{' '}
+                <OverlayTrigger trigger={['hover','focus']} placement="bottom" overlay={<Tooltip id="tip-tab-bandwagon">Simule l'effet de conformité sociale : chaque tour, les électeurs s'alignent légèrement sur le candidat en tête des sondages. Mesure quelles méthodes résistent ou amplifient cet effet.</Tooltip>}>
+                  <span tabIndex={0} onClick={(e) => e.stopPropagation()} style={{ fontSize: '0.75em', color: '#6c757d', cursor: 'help' }}>ⓘ</span>
+                </OverlayTrigger>
+              </span>
+            }><BandwagonAnalysis baseParams={baseParamsA} /></Tab>
             <Tab eventKey="montecarlo" title="Monte Carlo"><MonteCarloResults baseParams={baseParamsA} /></Tab>
             <Tab eventKey="real-elections" title="Élections réelles"><RealElectionsTab /></Tab>
             <Tab eventKey="multiwinner" title="Multi-gagnants"><MultiwinnerAnalysis /></Tab>
-            <Tab eventKey="sensitivity" title="Sensibilité"><SensitivityTab baseConfig={{ numVoters: configA.numVoters, candidates: candidateNamesA, ideology_distribution: configA.ideology_distribution }} /></Tab>
+            <Tab eventKey="sensitivity" title={
+              <span>
+                Sensibilité{' '}
+                <OverlayTrigger trigger={['hover','focus']} placement="bottom" overlay={<Tooltip id="tip-tab-sensitivity">Fait varier un paramètre (distribution idéologique, nombre d'électeurs, % de votes stratégiques) et observe comment les vainqueurs changent selon les méthodes. Révèle la robustesse de chaque méthode aux variations contextuelles.</Tooltip>}>
+                  <span tabIndex={0} onClick={(e) => e.stopPropagation()} style={{ fontSize: '0.75em', color: '#6c757d', cursor: 'help' }}>ⓘ</span>
+                </OverlayTrigger>
+              </span>
+            }><SensitivityTab baseConfig={{ numVoters: configA.numVoters, candidates: candidateNamesA, ideology_distribution: configA.ideology_distribution }} /></Tab>
           </Tabs>
         )}
 

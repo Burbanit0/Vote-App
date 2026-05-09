@@ -3,21 +3,23 @@ import { SimulationCompareResult } from '../../types';
 export const CANDIDATE_PALETTE = ['#4e79a7', '#f28e2b', '#e15759', '#76b7b2', '#59a14f', '#edc948'];
 
 export const METHOD_LABELS: Record<string, string> = {
-  plurality: 'Plurality',
-  two_round: 'Two-Round',
-  borda: 'Borda',
-  approval: 'Approval',
-  irv: 'IRV',
-  coombs: "Coombs'",
-  bucklin: 'Bucklin',
-  minimax: 'Minimax',
-  schulze: 'Schulze',
-  kemeny_young: 'Kemeny-Young',
-  simple_score: 'Simple Score',
-  star_voting: 'STAR',
-  median_voting: 'Median Score',
-  mean_median_hybrid: 'Mean-Median',
-  variance_based: 'Variance-Based',
+  plurality:          'Pluralité',
+  two_round:          'Deux tours',
+  borda:              'Borda',
+  approval:           'Approbation',
+  irv:                'IRV',
+  coombs:             "Coombs'",
+  bucklin:            'Bucklin',
+  minimax:            'Minimax',
+  schulze:            'Schulze',
+  kemeny_young:       'Kemeny-Young',
+  condorcet:          'Condorcet',
+  positional_score:   'Score positionnel',
+  simple_score:       'Score simple',
+  star_voting:        'STAR',
+  median_voting:      'Score médian',
+  mean_median_hybrid: 'Moy.-Médiane',
+  variance_based:     'Variance',
 };
 
 export const METHOD_LINE_COLORS: Record<string, string> = {
@@ -39,6 +41,46 @@ export const METHOD_LINE_COLORS: Record<string, string> = {
 };
 
 export const STRATEGIC_PERCENTAGES = [0, 10, 20, 30, 40, 50];
+
+export const METHOD_PROS: Record<string, string> = {
+  plurality:          'Simple et universellement compris — un électeur, une voix.',
+  two_round:          'Garantit que le vainqueur affronte un adversaire direct au second tour.',
+  borda:              'Récompense les candidats largement appréciés, pas seulement les premiers choix.',
+  approval:           'Élimine l\'effet spoiler — approuver plusieurs candidats ne pénalise personne.',
+  irv:                'Garantit un vainqueur avec soutien majoritaire après éliminations successives.',
+  coombs:             'Élit des candidats plus centristes qu\'IRV en éliminant d\'abord le plus rejeté.',
+  bucklin:            'Hybride classement/approbation qui converge rapidement vers un vainqueur majoritaire.',
+  minimax:            'Le vainqueur est celui dont la pire défaite pairwise est la moins mauvaise.',
+  schulze:            'Satisfait Condorcet, monotonie et de nombreux autres critères — très robuste.',
+  kemeny_young:       'Théoriquement optimal : maximise le consensus global sur le classement complet.',
+  condorcet:          'Élit le candidat qui bat chacun des autres en duel direct, s\'il existe.',
+  positional_score:   'Attribue des points selon la position dans les classements — simple et expressif.',
+  simple_score:       'Très expressif — les électeurs nuancent leur soutien avec des notes chiffrées.',
+  star_voting:        'Combine expressivité du score et résistance à la polarisation via un second tour automatique.',
+  median_voting:      'Résistant à l\'exagération — un électeur extrême ne déplace pas la médiane.',
+  mean_median_hybrid: 'Equilibre l\'expressivité de la moyenne et la robustesse de la médiane (50/50).',
+  variance_based:     'Pénalise les candidats polarisants — favorise un soutien large et régulier.',
+};
+
+export const METHOD_CONS: Record<string, string> = {
+  plurality:          'Crée l\'effet spoiler : un candidat similaire peut faire perdre votre favori.',
+  two_round:          'Incite au vote stratégique dès le premier tour pour "se qualifier".',
+  borda:              'Vulnérable au "vote enterrement" : placer délibérément un rival en dernière position.',
+  approval:           'Le résultat dépend du seuil d\'approbation que chaque électeur se fixe.',
+  irv:                'Non-monotone : promouvoir un candidat peut paradoxalement le faire perdre.',
+  coombs:             'Sensible aux cycles de Condorcet et aux résultats contre-intuitifs.',
+  bucklin:            'Peu utilisé en pratique et peu étudié empiriquement.',
+  minimax:            'Ne satisfait pas toujours le critère du vainqueur de Condorcet.',
+  schulze:            'Complexe à expliquer aux électeurs et difficile à auditer manuellement.',
+  kemeny_young:       'Calcul exponentiel O(n!) — inutilisable dès 6 candidats ou plus.',
+  condorcet:          'N\'a pas toujours de vainqueur — les cycles rendent la décision impossible.',
+  positional_score:   'Le résultat dépend du nombre de candidats (ajout d\'un candidat modifie les scores).',
+  simple_score:       'La stratégie dominante est l\'exagération : 5 au préféré, 0 à tous les autres.',
+  star_voting:        'Moins intuitif que le vote classique — deux étapes à expliquer aux électeurs.',
+  median_voting:      'Peut élire un candidat avec médiane haute mais peu de supporters enthousiastes.',
+  mean_median_hybrid: 'La pondération 50/50 est arbitraire et difficile à justifier démocratiquement.',
+  variance_based:     'Contre-intuitif : un candidat aimé passionnément par certains peut être pénalisé.',
+};
 
 export const METHOD_DESCRIPTIONS: Record<string, string> = {
   plurality:
