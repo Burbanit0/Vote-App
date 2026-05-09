@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router';
 import { useAuth } from '../context/AuthContext';
 import { Badge, Button, Container, Nav, Navbar as BootstrapNavbar, OverlayTrigger, Tooltip } from 'react-bootstrap';
 import { useTheme } from '../context/ThemeContext';
+import { useExpertMode } from '../context/ExpertModeContext';
 
 const NAV_LINKS = [
   { href: '/scenario-builder',      label: 'Simulateur' },
@@ -14,6 +15,7 @@ const Navbar: React.FC = () => {
   const { user, logout, loading } = useAuth();
   const navigate = useNavigate();
   const { theme, toggleTheme } = useTheme();
+  const { expertMode, setExpertMode } = useExpertMode();
 
   const handleLogout = () => {
     logout();
@@ -59,6 +61,29 @@ const Navbar: React.FC = () => {
 
           {/* Right side */}
           <Nav className="align-items-lg-center gap-2">
+            {/* Expert / Débutant toggle */}
+            <OverlayTrigger
+              trigger={['hover', 'focus']}
+              placement="bottom"
+              overlay={
+                <Tooltip id="tip-expert">
+                  {expertMode
+                    ? 'Passer en mode débutant (5 onglets, 5 méthodes)'
+                    : 'Passer en mode expert (10 onglets, 15 méthodes)'}
+                </Tooltip>
+              }
+            >
+              <Button
+                variant={expertMode ? 'primary' : 'outline-secondary'}
+                size="sm"
+                onClick={() => setExpertMode(!expertMode)}
+                aria-label={expertMode ? 'Mode expert actif' : 'Mode débutant actif'}
+                style={{ fontSize: '0.75rem', padding: '3px 10px', fontWeight: 600 }}
+              >
+                {expertMode ? 'Expert' : 'Débutant'}
+              </Button>
+            </OverlayTrigger>
+
             {/* Dark mode toggle */}
             <OverlayTrigger
               trigger={['hover', 'focus']}

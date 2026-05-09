@@ -36,6 +36,7 @@ import {
 } from '../services/simulationCompareApi';
 import { deleteScenario, getScenario, listScenarios, saveScenario } from '../services/scenariosApi';
 import { copyShareURL, decodeShareConfig, readShareParam } from '../utils/shareUtils';
+import { useExpertMode } from '../context/ExpertModeContext';
 
 // ── Presentation mode ──────────────────────────────────────────────────────
 
@@ -43,6 +44,10 @@ const TAB_ORDER = [
   'winners', 'metrics', 'strategic', 'condorcet', 'arrow',
   'bandwagon', 'montecarlo', 'real-elections', 'multiwinner', 'sensitivity',
 ];
+
+const BEGINNER_TABS = ['winners', 'metrics', 'strategic', 'real-elections', 'montecarlo'];
+
+const BEGINNER_METHODS = ['plurality', 'borda', 'irv', 'schulze', 'approval'];
 
 const TAB_LABELS: Record<string, string> = {
   winners:          'Matrice des vainqueurs',
@@ -222,6 +227,7 @@ const SimulationComparePage: React.FC = () => {
   const [resultsB, setResultsB] = useState<SimulationCompareResult[] | null>(null);
   const [loading, setLoading] = useState(false);
   const toast = useToast();
+  const { expertMode, setExpertMode } = useExpertMode();
 
   // ── Save / Load modal state ──
   const [showSaveModal, setShowSaveModal] = useState(false);
@@ -284,10 +290,13 @@ const SimulationComparePage: React.FC = () => {
       [...names].map((name, i) => [name, CANDIDATE_PALETTE[i % CANDIDATE_PALETTE.length]])
     );
   }, [comparisonResults, resultsB]);
-  const allMethodNames = useMemo(
-    () => (comparisonResults.length > 0 ? Object.keys(comparisonResults[0].methods) : []),
-    [comparisonResults]
-  );
+  const allMethodNames = useMemo(() => {
+    if (!comparisonResults.length) return [];
+    const all = Object.keys(comparisonResults[0].methods);
+    return expertMode ? all : all.filter((m) => BEGINNER_METHODS.includes(m));
+  }, [comparisonResults, expertMode]);
+
+  const visibleTabs = expertMode ? TAB_ORDER : BEGINNER_TABS;
 
   // ── Run analysis ──
   const runAnalysis = async () => {
@@ -520,6 +529,17 @@ const SimulationComparePage: React.FC = () => {
           <Alert variant="info">Configurez la simulation ci-dessus et cliquez sur <strong>Lancer l'analyse</strong> pour générer des résultats.</Alert>
         )}
 
+        {hasResults && !expertMode && (
+          <Alert variant="secondary" className="py-2 mb-3 d-flex align-items-center justify-content-between flex-wrap gap-2">
+            <span>
+              <strong>Mode débutant actif</strong> — {BEGINNER_METHODS.length} méthodes sur {comparisonResults.length > 0 ? Object.keys(comparisonResults[0].methods).length : 15} affichées · {BEGINNER_TABS.length} onglets sur {TAB_ORDER.length}
+            </span>
+            <Button variant="outline-secondary" size="sm" onClick={() => setExpertMode(true)}>
+              Passer en mode Expert →
+            </Button>
+          </Alert>
+        )}
+
         {hasResults && (
           <Tabs
             activeKey={activeTab}
@@ -535,44 +555,54 @@ const SimulationComparePage: React.FC = () => {
             <Tab eventKey="strategic" title="Impact stratégique">
               <StrategicImpactTab strategicData={strategicData} allMethodNames={allMethodNames} />
             </Tab>
-            <Tab eventKey="condorcet" title="Matrice de Condorcet">
-              <Card className="mb-4">
-                <Card.Header><strong>Matrice de Condorcet</strong><span className="text-muted ms-2" style={{ fontSize: '0.85rem' }}>— préférences pairwise dans la population (Scénario A)</span></Card.Header>
-                <Card.Body>{condorcetData ? <CondorcetMatrix result={condorcetData} /> : <Alert variant="info">Pas de données Condorcet disponibles.</Alert>}</Card.Body>
-              </Card>
-            </Tab>
-            <Tab eventKey="arrow" title={
-              <span>
-                Critères d'Arrow{' '}
-                <OverlayTrigger trigger={['hover','focus']} placement="bottom" overlay={<Tooltip id="tip-tab-arrow">Le théorème d'impossibilité d'Arrow (1951) démontre qu'aucune méthode de vote classée ne peut satisfaire tous les critères de fairness simultanément avec 3+ candidats. Cet onglet vérifie empiriquement lesquels chaque méthode respecte.</Tooltip>}>
-                  <span tabIndex={0} onClick={(e) => e.stopPropagation()} style={{ fontSize: '0.75em', color: '#6c757d', cursor: 'help' }}>ⓘ</span>
-                </OverlayTrigger>
-              </span>
-            }>
-              <Card className="mb-4">
-                <Card.Header><strong>Critères d'impossibilité d'Arrow</strong><span className="text-muted ms-2" style={{ fontSize: '0.85rem' }}>— vérification empirique (Scénario A)</span></Card.Header>
-                <Card.Body>{arrowData ? <ArrowCriteriaMatrix result={arrowData} /> : <Alert variant="info">Pas de données Arrow disponibles.</Alert>}</Card.Body>
-              </Card>
-            </Tab>
-            <Tab eventKey="bandwagon" title={
-              <span>
-                Effet bandwagon{' '}
-                <OverlayTrigger trigger={['hover','focus']} placement="bottom" overlay={<Tooltip id="tip-tab-bandwagon">Simule l'effet de conformité sociale : chaque tour, les électeurs s'alignent légèrement sur le candidat en tête des sondages. Mesure quelles méthodes résistent ou amplifient cet effet.</Tooltip>}>
-                  <span tabIndex={0} onClick={(e) => e.stopPropagation()} style={{ fontSize: '0.75em', color: '#6c757d', cursor: 'help' }}>ⓘ</span>
-                </OverlayTrigger>
-              </span>
-            }><BandwagonAnalysis baseParams={baseParamsA} /></Tab>
+            {visibleTabs.includes('condorcet') && (
+              <Tab eventKey="condorcet" title="Matrice de Condorcet">
+                <Card className="mb-4">
+                  <Card.Header><strong>Matrice de Condorcet</strong><span className="text-muted ms-2" style={{ fontSize: '0.85rem' }}>— préférences pairwise dans la population (Scénario A)</span></Card.Header>
+                  <Card.Body>{condorcetData ? <CondorcetMatrix result={condorcetData} /> : <Alert variant="info">Pas de données Condorcet disponibles.</Alert>}</Card.Body>
+                </Card>
+              </Tab>
+            )}
+            {visibleTabs.includes('arrow') && (
+              <Tab eventKey="arrow" title={
+                <span>
+                  Critères d'Arrow{' '}
+                  <OverlayTrigger trigger={['hover','focus']} placement="bottom" overlay={<Tooltip id="tip-tab-arrow">Le théorème d'impossibilité d'Arrow (1951) démontre qu'aucune méthode de vote classée ne peut satisfaire tous les critères de fairness simultanément avec 3+ candidats.</Tooltip>}>
+                    <span tabIndex={0} onClick={(e) => e.stopPropagation()} style={{ fontSize: '0.75em', color: '#6c757d', cursor: 'help' }}>ⓘ</span>
+                  </OverlayTrigger>
+                </span>
+              }>
+                <Card className="mb-4">
+                  <Card.Header><strong>Critères d'impossibilité d'Arrow</strong><span className="text-muted ms-2" style={{ fontSize: '0.85rem' }}>— vérification empirique (Scénario A)</span></Card.Header>
+                  <Card.Body>{arrowData ? <ArrowCriteriaMatrix result={arrowData} /> : <Alert variant="info">Pas de données Arrow disponibles.</Alert>}</Card.Body>
+                </Card>
+              </Tab>
+            )}
+            {visibleTabs.includes('bandwagon') && (
+              <Tab eventKey="bandwagon" title={
+                <span>
+                  Effet bandwagon{' '}
+                  <OverlayTrigger trigger={['hover','focus']} placement="bottom" overlay={<Tooltip id="tip-tab-bandwagon">Simule l'effet de conformité sociale : les électeurs s'alignent sur le candidat en tête des sondages.</Tooltip>}>
+                    <span tabIndex={0} onClick={(e) => e.stopPropagation()} style={{ fontSize: '0.75em', color: '#6c757d', cursor: 'help' }}>ⓘ</span>
+                  </OverlayTrigger>
+                </span>
+              }><BandwagonAnalysis baseParams={baseParamsA} /></Tab>
+            )}
             <Tab eventKey="montecarlo" title="Monte Carlo"><MonteCarloResults baseParams={baseParamsA} /></Tab>
             <Tab eventKey="real-elections" title="Élections réelles"><RealElectionsTab /></Tab>
-            <Tab eventKey="multiwinner" title="Multi-gagnants"><MultiwinnerAnalysis /></Tab>
-            <Tab eventKey="sensitivity" title={
-              <span>
-                Sensibilité{' '}
-                <OverlayTrigger trigger={['hover','focus']} placement="bottom" overlay={<Tooltip id="tip-tab-sensitivity">Fait varier un paramètre (distribution idéologique, nombre d'électeurs, % de votes stratégiques) et observe comment les vainqueurs changent selon les méthodes. Révèle la robustesse de chaque méthode aux variations contextuelles.</Tooltip>}>
-                  <span tabIndex={0} onClick={(e) => e.stopPropagation()} style={{ fontSize: '0.75em', color: '#6c757d', cursor: 'help' }}>ⓘ</span>
-                </OverlayTrigger>
-              </span>
-            }><SensitivityTab baseConfig={{ numVoters: configA.numVoters, candidates: candidateNamesA, ideology_distribution: configA.ideology_distribution }} /></Tab>
+            {visibleTabs.includes('multiwinner') && (
+              <Tab eventKey="multiwinner" title="Multi-gagnants"><MultiwinnerAnalysis /></Tab>
+            )}
+            {visibleTabs.includes('sensitivity') && (
+              <Tab eventKey="sensitivity" title={
+                <span>
+                  Sensibilité{' '}
+                  <OverlayTrigger trigger={['hover','focus']} placement="bottom" overlay={<Tooltip id="tip-tab-sensitivity">Fait varier un paramètre et observe comment les vainqueurs changent selon les méthodes.</Tooltip>}>
+                    <span tabIndex={0} onClick={(e) => e.stopPropagation()} style={{ fontSize: '0.75em', color: '#6c757d', cursor: 'help' }}>ⓘ</span>
+                  </OverlayTrigger>
+                </span>
+              }><SensitivityTab baseConfig={{ numVoters: configA.numVoters, candidates: candidateNamesA, ideology_distribution: configA.ideology_distribution }} /></Tab>
+            )}
           </Tabs>
         )}
 

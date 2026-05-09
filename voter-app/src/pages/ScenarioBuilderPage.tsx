@@ -6,6 +6,7 @@ import BlankVoteRuleSelector, { BlankRule } from '../components/ScenarioBuilder/
 import { runScenario, ScenarioResult } from '../services/simulationCompareApi';
 import { copyShareURL, decodeShareConfig, readShareParam } from '../utils/shareUtils';
 import { useToast } from '../components/shared/ToastNotification';
+import { useExpertMode } from '../context/ExpertModeContext';
 
 // ── Constants ──────────────────────────────────────────────────────────────
 
@@ -184,6 +185,7 @@ const ScenarioBuilderPage: React.FC = () => {
   const [loading, setLoading] = useState(false);
   const [linkCopied, setLinkCopied] = useState(false);
   const toast = useToast();
+  const { expertMode } = useExpertMode();
 
   // Restore config from URL on mount
   useEffect(() => {
@@ -240,7 +242,7 @@ const ScenarioBuilderPage: React.FC = () => {
 
   const stepContent = [
     <CandidateEditor key="ce" candidates={candidates} onChange={setCandidates} />,
-    <ElectorateConfig key="el" config={electorate} onChange={(p) => setElectorate((e) => ({ ...e, ...p }))} />,
+    <ElectorateConfig key="el" config={electorate} onChange={(p) => setElectorate((e) => ({ ...e, ...p }))} expertMode={expertMode} />,
     <BlankVoteRuleSelector key="bv" selected={blankRule} onChange={setBlankRule} hasBlankCandidate={hasBlankCandidate} />,
     results ? <ResultsView key="res" results={results} candidates={candidates} blankRule={blankRule} /> : null,
   ];

@@ -17,6 +17,7 @@ import UserProfilePage from './pages/UserProfilePage';
 import { useAuth } from './context/AuthContext';
 import AuthGuard from './context/AuthGuard';
 import { ThemeProvider, useTheme } from './context/ThemeContext';
+import { ExpertModeProvider } from './context/ExpertModeContext';
 import { ToastProvider } from './components/shared/ToastNotification';
 
 import 'bootstrap/dist/css/bootstrap.min.css';
@@ -55,11 +56,13 @@ const AppContent: React.FC = () => {
 
 const App: React.FC = () => (
   <ThemeProvider>
-    <ToastProvider>
-      <Router>
-        <AppContent />
-      </Router>
-    </ToastProvider>
+    <ExpertModeProvider>
+      <ToastProvider>
+        <Router>
+          <AppContent />
+        </Router>
+      </ToastProvider>
+    </ExpertModeProvider>
   </ThemeProvider>
 );
 
