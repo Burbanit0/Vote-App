@@ -1,0 +1,87 @@
+# Vote Lab — Pre-commit hooks
+# Install: pip install pre-commit && pre-commit install && pre-commit install --hook-type pre-push
+# Run manually: pre-commit run --all-files
+
+# ── Default stages ────────────────────────────────────────────────────────────
+default_stages: [pre-commit]
+
+repos:
+
+  # ── General file hygiene ───────────────────────────────────────────────────
+  - repo: https://github.com/pre-commit/pre-commit-hooks
+    rev: v5.0.0
+    hooks:
+      - id: trailing-whitespace
+      - id: end-of-file-fixer
+      - id: check-yaml
+      - id: check-json
+        exclude: tsconfig.*\.json$   # tsconfig allows comments
+      - id: check-merge-conflict
+      - id: check-added-large-files
+        args: ['--maxkb=500']
+      - id: detect-private-key       # no real private keys committed
+
+  # ── Secret scanning ────────────────────────────────────────────────────────
+  - repo: https://github.com/Yelp/detect-secrets
+    rev: v1.5.0
+    hooks:
+      - id: detect-secrets
+        args: ['--baseline', '.secrets.baseline']
+        exclude: (\.env\.example|package-lock\.json)
+
+  # ── Python security (SAST) ─────────────────────────────────────────────────
+  - repo: https://github.com/PyCQA/bandit
+    rev: 1.8.3
+    hooks:
+      - id: bandit
+        args: ['-r', 'flask_voter_app/app', '-ll', '--skip', 'B104,B311']
+        # B104: binding 0.0.0.0 (expected in Docker), B311: random (not crypto use)
+        pass_filenames: false
+
+  # ── Python linting ─────────────────────────────────────────────────────────
+  - repo: https://github.com/PyCQA/flake8
+    rev: 7.2.0
+    hooks:
+      - id: flake8
+        args: ['--config=flask_voter_app/.flake8']
+        files: flask_voter_app/.*\.py$
+
+  # ── Frontend linting ───────────────────────────────────────────────────────
+  - repo: local
+    hooks:
+      - id: eslint
+        name: ESLint (frontend)
+        language: system
+        entry: bash -c 'cd voter-app && npm run lint'
+        files: voter-app/src/.*\.(ts|tsx|js|jsx)$
+        pass_filenames: false
+
+  # ── Dependency security audit ──────────────────────────────────────────────
+  - repo: local
+    hooks:
+      - id: npm-audit
+        name: npm audit (high+ CVEs)
+        language: system
+        entry: bash -c 'cd voter-app && npm audit --audit-level=high'
+        files: voter-app/package(-lock)?\.json$
+        pass_filenames: false
+
+# ── Pre-push hooks (slower — run only before git push) ────────────────────────
+  - repo: local
+    hooks:
+      - id: frontend-tests-coverage
+        name: Frontend tests + coverage thresholds
+        language: system
+        entry: bash -c 'cd voter-app && npm test -- --coverage'
+        pass_filenames: false
+        stages: [pre-push]
+
+      - id: backend-tests-coverage
+        name: Backend tests + coverage
+        language: system
+        entry: bash -c 'cd flask_voter_app && python -m pytest tests -v --cov=app --cov-fail-under=30'
+        pass_filenames: false
+        stages: [pre-push]
+        env:
+          FLASK_ENV: testing
+          JWT_SECRET_KEY: pre-push-test-secret

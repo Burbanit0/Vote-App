@@ -1,0 +1,14 @@
+# ── Vote Lab — Dev-only dependencies ─────────────────────────────────────────
+# Install with: pip install -r flask_voter_app/requirements-dev.txt
+
+# Tests
+pytest==8.3.5
+pytest-cov==6.1.0
+
+# Security
+bandit==1.8.3        # Python SAST (static analysis)
+pip-audit==2.9.0     # Dependency CVE scan
+
+# Code quality
+flake8==7.2.0
+mypy==1.16.0         # Static type checking

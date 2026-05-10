@@ -12,14 +12,13 @@ on:
 
 jobs:
   test:
+    name: Tests + Coverage + Security
     runs-on: ubuntu-latest
 
     steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
+      - uses: actions/checkout@v4
 
-      - name: Set up Node.js
-        uses: actions/setup-node@v4
+      - uses: actions/setup-node@v4
         with:
           node-version: '20'
           cache: 'npm'
@@ -32,13 +31,17 @@ jobs:
       - name: Lint
         run: npm run lint
         working-directory: ./voter-app
-        continue-on-error: true   # lint warnings don't block the build
+        continue-on-error: true
 
-      - name: Run tests
-        run: npm test
+      - name: Security — npm audit (high CVEs block)
+        run: npm audit --audit-level=high
+        working-directory: ./voter-app
+
+      - name: Tests with coverage
+        run: npm test -- --coverage --coverageReporters=text,lcov
         working-directory: ./voter-app
         env:
-          CI: 'true'             # disables Jest watch mode as a fallback
+          CI: 'true'
 
       - name: Build
         run: npm run build
