@@ -17,7 +17,6 @@ import {
   CartesianGrid,
   Cell,
   ErrorBar,
-  Legend,
   ResponsiveContainer,
   Tooltip,
   XAxis,
@@ -25,6 +24,9 @@ import {
 } from 'recharts';
 import { MonteCarloResult } from '../../types';
 import { getMonteCarlo, MonteCarloParams } from '../../services/simulationCompareApi';
+import ResponsiveTable from '../shared/ResponsiveTable';
+import SkeletonCard from '../shared/SkeletonCard';
+import { useChartTheme } from '../../hooks/useChartTheme';
 
 // ── Constants ──────────────────────────────────────────────────────────────
 
@@ -57,7 +59,12 @@ const CANDIDATE_PALETTE = ['#4e79a7', '#f28e2b', '#e15759', '#76b7b2', '#59a14f'
 
 // ── Helpers ────────────────────────────────────────────────────────────────
 
-function cellStyle(rate: number): React.CSSProperties {
+function cellStyle(rate: number, isDark: boolean): React.CSSProperties {
+  if (isDark) {
+    if (rate >= 0.8) return { backgroundColor: '#1a3a2a', color: '#75b798' };
+    if (rate >= 0.5) return { backgroundColor: '#332b00', color: '#c0964e' };
+    return { backgroundColor: '#3a1a1e', color: '#ea868f' };
+  }
   if (rate >= 0.8) return { backgroundColor: '#d4edda', color: '#155724' };
   if (rate >= 0.5) return { backgroundColor: '#fff3cd', color: '#856404' };
   return { backgroundColor: '#f8d7da', color: '#721c24' };
@@ -75,6 +82,8 @@ interface Props {
 }
 
 const MonteCarloResults: React.FC<Props> = ({ baseParams }) => {
+  const ct = useChartTheme();
+  const [sortByRegret, setSortByRegret] = useState(false);
   const [numRuns, setNumRuns] = useState(100);
   const [numVoters, setNumVoters] = useState(baseParams.num_voters ?? 150);
   const [ideologyDist, setIdeologyDist] = useState(baseParams.ideology_distribution ?? 'random');
@@ -102,7 +111,7 @@ const MonteCarloResults: React.FC<Props> = ({ baseParams }) => {
 
   // ── Derived ────────────────────────────────────────────────────────────
 
-  const methodNames = result ? Object.keys(result.methods) : [];
+  const methodNames = useMemo(() => (result ? Object.keys(result.methods) : []), [result]);
 
   // All unique candidate names seen across winner distributions
   const candidateNames = useMemo(() => {
@@ -119,18 +128,17 @@ const MonteCarloResults: React.FC<Props> = ({ baseParams }) => {
     [candidateNames]
   );
 
-  // Bar chart data: regret mean + error value
-  const regretBarData = useMemo(
-    () =>
-      methodNames.map((m) => {
-        const s = result!.methods[m];
-        const ci = s.bayesian_regret_ci_95;
-        const mean = s.bayesian_regret_mean ?? 0;
-        const errorVal = ci[1] != null ? ci[1] - mean : 0;
-        return { method: METHOD_LABELS[m] ?? m, regret: mean, errorVal };
-      }),
-    [result, methodNames]
-  );
+  // Bar chart data: regret mean + error value, optionally sorted
+  const regretBarData = useMemo(() => {
+    const data = methodNames.map((m) => {
+      const s = result!.methods[m];
+      const ci = s.bayesian_regret_ci_95;
+      const mean = s.bayesian_regret_mean ?? 0;
+      const errorVal = ci[1] != null ? ci[1] - mean : 0;
+      return { method: METHOD_LABELS[m] ?? m, regret: mean, errorVal };
+    });
+    return sortByRegret ? [...data].sort((a, b) => a.regret - b.regret) : data;
+  }, [result, methodNames, sortByRegret]);
 
   // Stability table sorted ascending (most stable first)
   const stabilityRows = useMemo(
@@ -224,6 +232,12 @@ const MonteCarloResults: React.FC<Props> = ({ baseParams }) => {
 
       {error && <Alert variant="danger">{error}</Alert>}
 
+      {loading && (
+        <Row className="g-3 mb-2">
+          {[220, 300, 200].map((h, i) => <Col key={i} md={4}><SkeletonCard height={h} /></Col>)}
+        </Row>
+      )}
+
       {!result && !loading && (
         <Alert variant="info">
           Configurez ci-dessus et cliquez sur <strong>Lancer Monte Carlo</strong>.
@@ -243,34 +257,44 @@ const MonteCarloResults: React.FC<Props> = ({ baseParams }) => {
 
           {/* 1. Regret bar chart with CI error bars */}
           <Card className="mb-4">
-            <Card.Header>
-              <strong>Régret bayésien avec intervalles de confiance à 95%</strong>
-              <span className="text-muted ms-2" style={{ fontSize: '0.85rem' }}>
-                — barres d'erreur = ±1.96 σ / √n
-              </span>
+            <Card.Header className="d-flex align-items-center justify-content-between flex-wrap gap-2">
+              <div>
+                <strong>Régret bayésien avec intervalles de confiance à 95%</strong>
+                <span className="text-muted ms-2" style={{ fontSize: '0.85rem' }}>
+                  — barres d'erreur = ±1.96 σ / √n
+                </span>
+              </div>
+              <Button
+                size="sm"
+                variant={sortByRegret ? 'secondary' : 'outline-secondary'}
+                onClick={() => setSortByRegret(!sortByRegret)}
+                style={{ fontSize: '0.78rem' }}
+              >
+                {sortByRegret ? '↕ Ordre original' : '↑ Trier par regret'}
+              </Button>
             </Card.Header>
             <Card.Body>
-              <ResponsiveContainer width="100%" height={360}>
-                <BarChart data={regretBarData} margin={{ bottom: 80, left: 10, right: 10 }}>
-                  <CartesianGrid strokeDasharray="3 3" />
+              <ResponsiveContainer width="100%" height={380}>
+                <BarChart data={regretBarData} margin={{ top: 10, bottom: 80, left: 10, right: 10 }}>
+                  <CartesianGrid strokeDasharray="3 3" stroke={ct.gridStroke} />
                   <XAxis
                     dataKey="method"
-                    tick={{ fontSize: 10 }}
+                    tick={{ fontSize: 10, fill: ct.tickFill }}
                     angle={-45}
                     textAnchor="end"
                     interval={0}
                   />
-                  <YAxis tick={{ fontSize: 10 }} />
-                  <Tooltip formatter={(v: number) => v.toFixed(4)} />
+                  <YAxis tick={{ fontSize: 10, fill: ct.tickFill }} />
+                  <Tooltip formatter={(v: number) => v.toFixed(4)} contentStyle={ct.tooltipStyle} />
                   <Bar dataKey="regret" name="Régret bayésien" fill="#4e79a7">
                     {regretBarData.map((_, i) => (
                       <Cell key={i} fill="#4e79a7" />
                     ))}
                     <ErrorBar
                       dataKey="errorVal"
-                      width={4}
-                      strokeWidth={2}
-                      stroke="#dc3545"
+                      width={6}
+                      strokeWidth={3}
+                      stroke="#e15759"
                       direction="y"
                     />
                   </Bar>
@@ -300,7 +324,7 @@ const MonteCarloResults: React.FC<Props> = ({ baseParams }) => {
                   </span>
                 ))}
               </div>
-              <div style={{ overflowX: 'auto' }}>
+              <ResponsiveTable>
                 <Table bordered size="sm" className="text-center" style={{ minWidth: 400 }}>
                   <thead className="table-light">
                     <tr>
@@ -328,7 +352,7 @@ const MonteCarloResults: React.FC<Props> = ({ baseParams }) => {
                             );
                           }
                           return (
-                            <td key={colMethod} style={rate != null ? cellStyle(rate) : undefined}>
+                            <td key={colMethod} style={rate != null ? cellStyle(rate, ct.isDark) : undefined}>
                               {rate != null ? `${(rate * 100).toFixed(0)}%` : '?'}
                             </td>
                           );
@@ -337,7 +361,7 @@ const MonteCarloResults: React.FC<Props> = ({ baseParams }) => {
                     ))}
                   </tbody>
                 </Table>
-              </div>
+              </ResponsiveTable>
             </Card.Body>
           </Card>
 

@@ -8,9 +8,12 @@ export interface ElectorateState {
   dissatisfactionRate: number; // [0, 1]
 }
 
+const BEGINNER_PRESETS: ElectorateState['ideologyPreset'][] = ['polarized', 'centrist', 'random'];
+
 interface Props {
   config: ElectorateState;
   onChange: (patch: Partial<ElectorateState>) => void;
+  expertMode?: boolean;
 }
 
 // ── Distribution curve data ────────────────────────────────────────────────
@@ -63,8 +66,10 @@ const PRESETS: Record<ElectorateState['ideologyPreset'], { label: string; color:
 
 // ── Component ──────────────────────────────────────────────────────────────
 
-const ElectorateConfig: React.FC<Props> = ({ config, onChange }) => {
-  const selected = PRESETS[config.ideologyPreset];
+const ElectorateConfig: React.FC<Props> = ({ config, onChange, expertMode = false }) => {
+  const visiblePresetKeys = expertMode
+    ? (Object.keys(PRESETS) as ElectorateState['ideologyPreset'][])
+    : BEGINNER_PRESETS;
 
   const dissatisfactionLabel = useMemo(() => {
     const pct = Math.round(config.dissatisfactionRate * 100);
@@ -100,7 +105,7 @@ const ElectorateConfig: React.FC<Props> = ({ config, onChange }) => {
       {/* Ideology preset */}
       <p className="fw-semibold mb-2">Distribution idéologique</p>
       <Row className="g-2 mb-4">
-        {(Object.entries(PRESETS) as [ElectorateState['ideologyPreset'], typeof PRESETS[keyof typeof PRESETS]][]).map(([key, preset]) => (
+        {(Object.entries(PRESETS) as [ElectorateState['ideologyPreset'], typeof PRESETS[keyof typeof PRESETS]][]).filter(([key]) => visiblePresetKeys.includes(key)).map(([key, preset]) => (
           <Col xs={6} md={4} key={key}>
             <Card
               className={`h-100 ${config.ideologyPreset === key ? 'border-primary' : ''}`}
@@ -138,8 +143,13 @@ const ElectorateConfig: React.FC<Props> = ({ config, onChange }) => {
         ))}
       </Row>
 
-      {/* Dissatisfaction rate */}
-      <Card>
+      {/* Dissatisfaction rate — expert only */}
+      {!expertMode && (
+        <small className="text-muted d-block mb-3">
+          ℹ️ Le taux d'insatisfaction et deux distributions supplémentaires sont disponibles en <strong>mode Expert</strong>.
+        </small>
+      )}
+      <Card style={expertMode ? undefined : { display: 'none' }}>
         <Card.Body>
           <Form.Label>
             Taux d'insatisfaction générale

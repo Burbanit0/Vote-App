@@ -1,5 +1,7 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { Alert, Badge, Button, Card, Col, Container, Form, OverlayTrigger, Row, Spinner, Tab, Tabs, Tooltip } from 'react-bootstrap';
+import { useToast } from '../components/shared/ToastNotification';
+import SkeletonCard from '../components/shared/SkeletonCard';
 import CondorcetMatrix from '../components/Simulation/CondorcetMatrix';
 import ArrowCriteriaMatrix from '../components/Simulation/ArrowCriteriaMatrix';
 import BandwagonAnalysis from '../components/Simulation/BandwagonAnalysis';
@@ -32,8 +34,10 @@ import {
   runComparisonSimulation,
   runStrategicImpactAnalysis,
 } from '../services/simulationCompareApi';
-import { deleteScenario, getScenario, listScenarios, saveScenario } from '../services/scenariosApi';
-import { copyShareURL, decodeShareConfig, readShareParam } from '../utils/shareUtils';
+import { deleteScenario, listScenarios, saveScenario } from '../services/scenariosApi';
+import { buildShareURL, copyShareURL, decodeShareConfig, encodeShareConfig, readShareParam } from '../utils/shareUtils';
+import { useExpertMode } from '../context/ExpertModeContext';
+import { useMetaTags } from '../hooks/useMetaTags';
 
 // ── Presentation mode ──────────────────────────────────────────────────────
 
@@ -41,6 +45,10 @@ const TAB_ORDER = [
   'winners', 'metrics', 'strategic', 'condorcet', 'arrow',
   'bandwagon', 'montecarlo', 'real-elections', 'multiwinner', 'sensitivity',
 ];
+
+const BEGINNER_TABS = ['winners', 'metrics', 'strategic', 'real-elections', 'montecarlo'];
+
+const BEGINNER_METHODS = ['plurality', 'borda', 'irv', 'schulze', 'approval'];
 
 const TAB_LABELS: Record<string, string> = {
   winners:          'Matrice des vainqueurs',
@@ -121,6 +129,7 @@ function buildReportHTML(
   methodNames: string[],
   conclusion: string,
   date: string,
+  shareUrl: string = '',
 ): string {
   // Winners table rows
   const methodRows = methodNames.map((m) => {
@@ -180,9 +189,11 @@ function buildReportHTML(
   <h2>Analyse et conclusions</h2>
   <div class="conclusion">${conclusion}</div>
 
-  <div class="meta" style="margin-top:1cm;">
+  <div class="meta" style="margin-top:1cm; border-top:1px solid #dee2e6; padding-top:0.5cm;">
     Vote Lab · Outil de recherche sur les méthodes de vote ·
     Modèle spatial de vote avec utilité bayésienne et vote stratégique
+    ${shareUrl ? `<br/><strong>Lien permanent :</strong>
+    <a href="${shareUrl}" style="color:#0d6efd; word-break:break-all;">${shareUrl}</a>` : ''}
   </div>
 </body>
 </html>`;
@@ -219,7 +230,8 @@ const SimulationComparePage: React.FC = () => {
   const [arrowData, setArrowData] = useState<ArrowCriteriaResult | null>(null);
   const [resultsB, setResultsB] = useState<SimulationCompareResult[] | null>(null);
   const [loading, setLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+  const toast = useToast();
+  const { expertMode, setExpertMode } = useExpertMode();
 
   // ── Save / Load modal state ──
   const [showSaveModal, setShowSaveModal] = useState(false);
@@ -234,6 +246,7 @@ const SimulationComparePage: React.FC = () => {
   const [presentationMode, setPresentationMode] = useState(false);
   const [presentationTabIndex, setPresentationTabIndex] = useState(0);
   const [linkCopied, setLinkCopied] = useState(false);
+  const [reportCopied, setReportCopied] = useState(false);
 
   // ── Restore config from URL on mount ──
   useEffect(() => {
@@ -282,16 +295,19 @@ const SimulationComparePage: React.FC = () => {
       [...names].map((name, i) => [name, CANDIDATE_PALETTE[i % CANDIDATE_PALETTE.length]])
     );
   }, [comparisonResults, resultsB]);
-  const allMethodNames = useMemo(
-    () => (comparisonResults.length > 0 ? Object.keys(comparisonResults[0].methods) : []),
-    [comparisonResults]
-  );
+  const allMethodNames = useMemo(() => {
+    if (!comparisonResults.length) return [];
+    const all = Object.keys(comparisonResults[0].methods);
+    return expertMode ? all : all.filter((m) => BEGINNER_METHODS.includes(m));
+  }, [comparisonResults, expertMode]);
+
+  const visibleTabs = expertMode ? TAB_ORDER : BEGINNER_TABS;
 
   // ── Run analysis ──
   const runAnalysis = async () => {
-    if (candidateNamesA.length < 2) { setError('Le scénario A nécessite au moins 2 candidats.'); return; }
-    if (scenarioCount === 2 && candidateNamesB.length < 2) { setError('Le scénario B nécessite au moins 2 candidats.'); return; }
-    setLoading(true); setError(null);
+    if (candidateNamesA.length < 2) { toast.error('Le scénario A nécessite au moins 2 candidats.'); return; }
+    if (scenarioCount === 2 && candidateNamesB.length < 2) { toast.error('Le scénario B nécessite au moins 2 candidats.'); return; }
+    setLoading(true);
     try {
       const paramsA = { num_voters: configA.numVoters, candidates: candidateNamesA, ideology_distribution: configA.ideology_distribution };
       const [simResultsA, strategicResults, condorcetResult, arrowResult, simResultsB] = await Promise.all([
@@ -309,7 +325,7 @@ const SimulationComparePage: React.FC = () => {
       setArrowData(arrowResult);
       setResultsB(simResultsB);
     } catch {
-      setError('Analyse échouée. Vérifiez que le backend est démarré et les endpoints accessibles.');
+      toast.error('Analyse échouée. Vérifiez que le backend est démarré et les endpoints accessibles.');
     } finally {
       setLoading(false);
     }
@@ -336,7 +352,12 @@ const SimulationComparePage: React.FC = () => {
 
   const exportReport = () => {
     const conclusion = buildConclusion(comparisonResults, allMethodNames);
-    const html = buildReportHTML(configA, numSimulations, comparisonResults, allMethodNames, conclusion, exportDate);
+    const cfgUrl = buildShareURL({
+      n: numSimulations, sc: scenarioCount,
+      a: { nv: configA.numVoters, c: configA.candidateInput, id: configA.ideology_distribution },
+      ...(scenarioCount === 2 ? { b: { nv: configB.numVoters, c: configB.candidateInput, id: configB.ideology_distribution } } : {}),
+    });
+    const html = buildReportHTML(configA, numSimulations, comparisonResults, allMethodNames, conclusion, exportDate, cfgUrl);
     const win = window.open('', '_blank');
     if (!win) return;
     win.document.write(html);
@@ -362,6 +383,7 @@ const SimulationComparePage: React.FC = () => {
     try {
       await saveScenario(saveName.trim(), { numSimulations, configA, configB, scenarioCount }, { comparisonResults, strategicData, condorcetData, resultsB });
       setShowSaveModal(false); setSaveName('');
+      toast.success('Scénario sauvegardé ✓');
     } finally { setSaving(false); }
   };
 
@@ -385,6 +407,7 @@ const SimulationComparePage: React.FC = () => {
       if ('resultsB' in res) setResultsB(res.resultsB);
     }
     setShowLoadModal(false);
+    toast.success('Scénario chargé ✓');
   };
 
   const handleDelete = async (id: number) => {
@@ -394,6 +417,48 @@ const SimulationComparePage: React.FC = () => {
 
   const hasResults = comparisonResults.length > 0;
   const baseParamsA = { num_voters: configA.numVoters, candidates: candidateNamesA, ideology_distribution: configA.ideology_distribution };
+
+  // ── Simulation summary (for meta tags + report sharing) ───────────────────
+  const simulationSummary = useMemo(() => {
+    if (!hasResults || !allMethodNames.length) return null;
+    const avg = (vals: number[]) => vals.reduce((a, b) => a + b, 0) / (vals.length || 1);
+    const bestM = allMethodNames
+      .map((m) => ({ m, v: avg(comparisonResults.map((r) => r.methods[m]?.bayesian_regret ?? 0)) }))
+      .filter((x) => x.v > 0)
+      .sort((a, b) => a.v - b.v)[0]?.m ?? null;
+    const divergences = allMethodNames.filter((m) => {
+      const ws = new Set(comparisonResults.map((r) => r.methods[m]?.winner).filter(Boolean));
+      return ws.size > 1;
+    }).length;
+    return { bestM, divergences };
+  }, [hasResults, allMethodNames, comparisonResults]);
+
+  // ── Meta tags — updated after simulation ──────────────────────────────────
+  useMetaTags({
+    title: simulationSummary?.bestM
+      ? `${configA.candidateInput} — ${METHOD_LABELS[simulationSummary.bestM] ?? simulationSummary.bestM} plus robuste — Vote Lab`
+      : 'Vote Lab — Analyse comparative des méthodes de vote',
+    description: hasResults
+      ? `${allMethodNames.length} méthodes sur ${configA.numVoters} électeurs. ${simulationSummary?.divergences ?? 0} méthodes divergent sur le vainqueur.`
+      : '15 méthodes de vote comparées. Regret bayésien, Condorcet, vulnérabilité stratégique.',
+  });
+
+  // ── Share report handler ──────────────────────────────────────────────────
+  const shareReport = async () => {
+    const cfg: SharedConfig = {
+      n: numSimulations, sc: scenarioCount,
+      a: { nv: configA.numVoters, c: configA.candidateInput, id: configA.ideology_distribution },
+      ...(scenarioCount === 2 ? { b: { nv: configB.numVoters, c: configB.candidateInput, id: configB.ideology_distribution } } : {}),
+    };
+    const summary = simulationSummary
+      ? { b: simulationSummary.bestM, d: simulationSummary.divergences }
+      : {};
+    const encoded = encodeShareConfig({ ...cfg, rs: summary });
+    const url = `${window.location.origin}${window.location.pathname}?cfg=${encoded}`;
+    await navigator.clipboard.writeText(url);
+    setReportCopied(true);
+    setTimeout(() => setReportCopied(false), 2500);
+  };
 
   // ── Presentation mode overlay ──────────────────────────────────────────────
   const PresentationOverlay = presentationMode ? (
@@ -465,6 +530,13 @@ const SimulationComparePage: React.FC = () => {
               <Button variant="outline-primary" size="sm" onClick={exportJSON}>⬇ JSON</Button>
               <Button variant="outline-primary" size="sm" onClick={exportCSV}>⬇ CSV</Button>
               <Button variant="outline-warning" size="sm" onClick={exportReport}>📄 Rapport PDF</Button>
+              <Button
+                variant={reportCopied ? 'success' : 'outline-secondary'}
+                size="sm"
+                onClick={shareReport}
+              >
+                {reportCopied ? '✓ Lien rapport copié !' : '📤 Partager ce rapport'}
+              </Button>
               <Button variant="outline-dark" size="sm" onClick={() => { setPresentationTabIndex(0); setPresentationMode(true); }}>
                 🎓 Présentation
               </Button>
@@ -505,9 +577,26 @@ const SimulationComparePage: React.FC = () => {
           </Card.Body>
         </Card>
 
-        {error && <Alert variant="danger">{error}</Alert>}
+        {loading && (
+          <Row className="g-3 mb-4">
+            {[0, 1, 2].map((i) => (
+              <Col key={i} md={4}><SkeletonCard height={180} /></Col>
+            ))}
+          </Row>
+        )}
         {!hasResults && !loading && (
           <Alert variant="info">Configurez la simulation ci-dessus et cliquez sur <strong>Lancer l'analyse</strong> pour générer des résultats.</Alert>
+        )}
+
+        {hasResults && !expertMode && (
+          <Alert variant="secondary" className="py-2 mb-3 d-flex align-items-center justify-content-between flex-wrap gap-2">
+            <span>
+              <strong>Mode débutant actif</strong> — {BEGINNER_METHODS.length} méthodes sur {comparisonResults.length > 0 ? Object.keys(comparisonResults[0].methods).length : 15} affichées · {BEGINNER_TABS.length} onglets sur {TAB_ORDER.length}
+            </span>
+            <Button variant="outline-secondary" size="sm" onClick={() => setExpertMode(true)}>
+              Passer en mode Expert →
+            </Button>
+          </Alert>
         )}
 
         {hasResults && (
@@ -525,44 +614,54 @@ const SimulationComparePage: React.FC = () => {
             <Tab eventKey="strategic" title="Impact stratégique">
               <StrategicImpactTab strategicData={strategicData} allMethodNames={allMethodNames} />
             </Tab>
-            <Tab eventKey="condorcet" title="Matrice de Condorcet">
-              <Card className="mb-4">
-                <Card.Header><strong>Matrice de Condorcet</strong><span className="text-muted ms-2" style={{ fontSize: '0.85rem' }}>— préférences pairwise dans la population (Scénario A)</span></Card.Header>
-                <Card.Body>{condorcetData ? <CondorcetMatrix result={condorcetData} /> : <Alert variant="info">Pas de données Condorcet disponibles.</Alert>}</Card.Body>
-              </Card>
-            </Tab>
-            <Tab eventKey="arrow" title={
-              <span>
-                Critères d'Arrow{' '}
-                <OverlayTrigger trigger={['hover','focus']} placement="bottom" overlay={<Tooltip id="tip-tab-arrow">Le théorème d'impossibilité d'Arrow (1951) démontre qu'aucune méthode de vote classée ne peut satisfaire tous les critères de fairness simultanément avec 3+ candidats. Cet onglet vérifie empiriquement lesquels chaque méthode respecte.</Tooltip>}>
-                  <span tabIndex={0} onClick={(e) => e.stopPropagation()} style={{ fontSize: '0.75em', color: '#6c757d', cursor: 'help' }}>ⓘ</span>
-                </OverlayTrigger>
-              </span>
-            }>
-              <Card className="mb-4">
-                <Card.Header><strong>Critères d'impossibilité d'Arrow</strong><span className="text-muted ms-2" style={{ fontSize: '0.85rem' }}>— vérification empirique (Scénario A)</span></Card.Header>
-                <Card.Body>{arrowData ? <ArrowCriteriaMatrix result={arrowData} /> : <Alert variant="info">Pas de données Arrow disponibles.</Alert>}</Card.Body>
-              </Card>
-            </Tab>
-            <Tab eventKey="bandwagon" title={
-              <span>
-                Effet bandwagon{' '}
-                <OverlayTrigger trigger={['hover','focus']} placement="bottom" overlay={<Tooltip id="tip-tab-bandwagon">Simule l'effet de conformité sociale : chaque tour, les électeurs s'alignent légèrement sur le candidat en tête des sondages. Mesure quelles méthodes résistent ou amplifient cet effet.</Tooltip>}>
-                  <span tabIndex={0} onClick={(e) => e.stopPropagation()} style={{ fontSize: '0.75em', color: '#6c757d', cursor: 'help' }}>ⓘ</span>
-                </OverlayTrigger>
-              </span>
-            }><BandwagonAnalysis baseParams={baseParamsA} /></Tab>
+            {visibleTabs.includes('condorcet') && (
+              <Tab eventKey="condorcet" title="Matrice de Condorcet">
+                <Card className="mb-4">
+                  <Card.Header><strong>Matrice de Condorcet</strong><span className="text-muted ms-2" style={{ fontSize: '0.85rem' }}>— préférences pairwise dans la population (Scénario A)</span></Card.Header>
+                  <Card.Body>{condorcetData ? <CondorcetMatrix result={condorcetData} /> : <Alert variant="info">Pas de données Condorcet disponibles.</Alert>}</Card.Body>
+                </Card>
+              </Tab>
+            )}
+            {visibleTabs.includes('arrow') && (
+              <Tab eventKey="arrow" title={
+                <span>
+                  Critères d'Arrow{' '}
+                  <OverlayTrigger trigger={['hover','focus']} placement="bottom" overlay={<Tooltip id="tip-tab-arrow">Le théorème d'impossibilité d'Arrow (1951) démontre qu'aucune méthode de vote classée ne peut satisfaire tous les critères de fairness simultanément avec 3+ candidats.</Tooltip>}>
+                    <span tabIndex={0} onClick={(e) => e.stopPropagation()} style={{ fontSize: '0.75em', color: '#6c757d', cursor: 'help' }}>ⓘ</span>
+                  </OverlayTrigger>
+                </span>
+              }>
+                <Card className="mb-4">
+                  <Card.Header><strong>Critères d'impossibilité d'Arrow</strong><span className="text-muted ms-2" style={{ fontSize: '0.85rem' }}>— vérification empirique (Scénario A)</span></Card.Header>
+                  <Card.Body>{arrowData ? <ArrowCriteriaMatrix result={arrowData} /> : <Alert variant="info">Pas de données Arrow disponibles.</Alert>}</Card.Body>
+                </Card>
+              </Tab>
+            )}
+            {visibleTabs.includes('bandwagon') && (
+              <Tab eventKey="bandwagon" title={
+                <span>
+                  Effet bandwagon{' '}
+                  <OverlayTrigger trigger={['hover','focus']} placement="bottom" overlay={<Tooltip id="tip-tab-bandwagon">Simule l'effet de conformité sociale : les électeurs s'alignent sur le candidat en tête des sondages.</Tooltip>}>
+                    <span tabIndex={0} onClick={(e) => e.stopPropagation()} style={{ fontSize: '0.75em', color: '#6c757d', cursor: 'help' }}>ⓘ</span>
+                  </OverlayTrigger>
+                </span>
+              }><BandwagonAnalysis baseParams={baseParamsA} /></Tab>
+            )}
             <Tab eventKey="montecarlo" title="Monte Carlo"><MonteCarloResults baseParams={baseParamsA} /></Tab>
             <Tab eventKey="real-elections" title="Élections réelles"><RealElectionsTab /></Tab>
-            <Tab eventKey="multiwinner" title="Multi-gagnants"><MultiwinnerAnalysis /></Tab>
-            <Tab eventKey="sensitivity" title={
-              <span>
-                Sensibilité{' '}
-                <OverlayTrigger trigger={['hover','focus']} placement="bottom" overlay={<Tooltip id="tip-tab-sensitivity">Fait varier un paramètre (distribution idéologique, nombre d'électeurs, % de votes stratégiques) et observe comment les vainqueurs changent selon les méthodes. Révèle la robustesse de chaque méthode aux variations contextuelles.</Tooltip>}>
-                  <span tabIndex={0} onClick={(e) => e.stopPropagation()} style={{ fontSize: '0.75em', color: '#6c757d', cursor: 'help' }}>ⓘ</span>
-                </OverlayTrigger>
-              </span>
-            }><SensitivityTab baseConfig={{ numVoters: configA.numVoters, candidates: candidateNamesA, ideology_distribution: configA.ideology_distribution }} /></Tab>
+            {visibleTabs.includes('multiwinner') && (
+              <Tab eventKey="multiwinner" title="Multi-gagnants"><MultiwinnerAnalysis /></Tab>
+            )}
+            {visibleTabs.includes('sensitivity') && (
+              <Tab eventKey="sensitivity" title={
+                <span>
+                  Sensibilité{' '}
+                  <OverlayTrigger trigger={['hover','focus']} placement="bottom" overlay={<Tooltip id="tip-tab-sensitivity">Fait varier un paramètre et observe comment les vainqueurs changent selon les méthodes.</Tooltip>}>
+                    <span tabIndex={0} onClick={(e) => e.stopPropagation()} style={{ fontSize: '0.75em', color: '#6c757d', cursor: 'help' }}>ⓘ</span>
+                  </OverlayTrigger>
+                </span>
+              }><SensitivityTab baseConfig={{ numVoters: configA.numVoters, candidates: candidateNamesA, ideology_distribution: configA.ideology_distribution }} /></Tab>
+            )}
           </Tabs>
         )}
 

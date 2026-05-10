@@ -197,7 +197,7 @@ const UtilityVisualization: React.FC = () => {
     if (!voterSegments) return [];
 
     try {
-      return Object.entries(voterSegments).map(([key, segment]) => ({
+      return Object.entries(voterSegments).map(([, segment]) => ({
         segment: segment.label,
         count: segment.count || 0,
         averageUtility: segment.average_utility || 0,
@@ -623,7 +623,7 @@ const UtilityVisualization: React.FC = () => {
                               ))}
                             </Pie>
                             <Tooltip
-                              formatter={(value: number, name: string, props: any) => {
+                              formatter={(value: number, _name: string, props: any) => {
                                 // eslint-disable-next-line react/prop-types
                                 const segment = prepareVoterSegmentsData()[props.dataIndex];
                                 return segment
@@ -845,7 +845,7 @@ const UtilityVisualization: React.FC = () => {
                                       <Tooltip
                                         formatter={(value: number) => formatNumber(value, 3)}
                                       />
-                                      {data.map((item, index) => (
+                                      {data.map((item) => (
                                         <Bar
                                           key={item.name}
                                           dataKey="value"

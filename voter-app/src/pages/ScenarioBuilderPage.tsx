@@ -1,10 +1,13 @@
 import React, { useEffect, useState } from 'react';
-import { Alert, Badge, Button, Card, Col, Container, Row, Spinner, Table } from 'react-bootstrap';
+import { Alert, Badge, Button, Card, Container, Form, Modal, Spinner, Table } from 'react-bootstrap';
 import CandidateEditor, { CandidateConfig, newCandidate, newBlankCandidate } from '../components/ScenarioBuilder/CandidateEditor';
 import ElectorateConfig, { ElectorateState } from '../components/ScenarioBuilder/ElectorateConfig';
 import BlankVoteRuleSelector, { BlankRule } from '../components/ScenarioBuilder/BlankVoteRuleSelector';
 import { runScenario, ScenarioResult } from '../services/simulationCompareApi';
-import { copyShareURL, decodeShareConfig, readShareParam } from '../utils/shareUtils';
+import { buildShareURL, copyShareURL, decodeShareConfig, readShareParam } from '../utils/shareUtils';
+import { useToast } from '../components/shared/ToastNotification';
+import { useExpertMode } from '../context/ExpertModeContext';
+import { useMetaTags } from '../hooks/useMetaTags';
 
 // ── Constants ──────────────────────────────────────────────────────────────
 
@@ -181,8 +184,35 @@ const ScenarioBuilderPage: React.FC = () => {
   const [blankRule, setBlankRule] = useState<BlankRule>('symbolic');
   const [results, setResults] = useState<ScenarioResult | null>(null);
   const [loading, setLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
   const [linkCopied, setLinkCopied] = useState(false);
+  const [showShareModal, setShowShareModal] = useState(false);
+  const [urlCopied, setUrlCopied] = useState(false);
+  const toast = useToast();
+  const { expertMode } = useExpertMode();
+
+  // ── Meta tags ──────────────────────────────────────────────────────────────
+  const realCandidateNames = candidates.filter((c) => !c.isBlank).map((c) => c.name).join(', ');
+  useMetaTags({
+    title: results
+      ? `Élection simulée : ${realCandidateNames} — Vote Lab`
+      : 'Constructeur de scénario électoral — Vote Lab',
+    description: results
+      ? `${Object.keys(results.without_blank.methods).length} méthodes comparées sur ${electorate.numVoters} électeurs avec le vote blanc.`
+      : 'Configurez vos candidats, votre électorat et testez 5 méthodes de vote avec le vote blanc.',
+  });
+
+  // ── Share URL + Twitter text for results modal ─────────────────────────────
+  const shareUrl = buildShareURL({ candidates, electorate, blankRule });
+  const divergentLabels = results
+    ? Object.entries(results.without_blank.methods)
+        .filter(([m, d]) => m !== 'plurality' && d.winner !== results.without_blank.methods['plurality']?.winner && d.winner)
+        .map(([, d]) => d.winner)
+        .filter((w, i, arr) => arr.indexOf(w) === i)
+        .slice(0, 2)
+    : [];
+  const twitterText = results
+    ? `J'ai simulé une élection avec Vote Lab — résultat : ${divergentLabels.length >= 2 ? `${divergentLabels[0]} et ${divergentLabels[1]} élisent des vainqueurs différents` : 'les méthodes de vote changent le résultat'} ! ${shareUrl}`
+    : `Testez comment votre bulletin change tout sur Vote Lab ! ${shareUrl}`;
 
   // Restore config from URL on mount
   useEffect(() => {
@@ -212,7 +242,6 @@ const ScenarioBuilderPage: React.FC = () => {
 
   const run = async () => {
     setLoading(true);
-    setError(null);
     try {
       const data = await runScenario({
         candidates: candidates.map((c) => ({
@@ -232,7 +261,7 @@ const ScenarioBuilderPage: React.FC = () => {
       setResults(data);
       setStep(3);
     } catch {
-      setError('La simulation a échoué. Vérifiez que le backend est démarré.');
+      toast.error('La simulation a échoué. Vérifiez que le backend est démarré.');
     } finally {
       setLoading(false);
     }
@@ -240,7 +269,7 @@ const ScenarioBuilderPage: React.FC = () => {
 
   const stepContent = [
     <CandidateEditor key="ce" candidates={candidates} onChange={setCandidates} />,
-    <ElectorateConfig key="el" config={electorate} onChange={(p) => setElectorate((e) => ({ ...e, ...p }))} />,
+    <ElectorateConfig key="el" config={electorate} onChange={(p) => setElectorate((e) => ({ ...e, ...p }))} expertMode={expertMode} />,
     <BlankVoteRuleSelector key="bv" selected={blankRule} onChange={setBlankRule} hasBlankCandidate={hasBlankCandidate} />,
     results ? <ResultsView key="res" results={results} candidates={candidates} blankRule={blankRule} /> : null,
   ];
@@ -259,7 +288,7 @@ const ScenarioBuilderPage: React.FC = () => {
         <Card.Body>{stepContent[step]}</Card.Body>
       </Card>
 
-      {error && <Alert variant="danger">{error}</Alert>}
+
 
       {step < 2 && realCandidates.length < 2 && (
         <Alert variant="warning" className="py-2">
@@ -285,6 +314,11 @@ const ScenarioBuilderPage: React.FC = () => {
           <Button variant={linkCopied ? 'success' : 'outline-info'} size="sm" onClick={copyShareLink}>
             {linkCopied ? '✓ Lien copié !' : '🔗 Partager'}
           </Button>
+          {step === 3 && results && (
+            <Button variant="outline-primary" size="sm" onClick={() => setShowShareModal(true)}>
+              📤 Partager ces résultats
+            </Button>
+          )}
           {step < 2 && (
             <Button variant="primary" onClick={() => setStep((s) => s + 1)} disabled={!canProceed[step]}>
               Suivant →
@@ -298,6 +332,48 @@ const ScenarioBuilderPage: React.FC = () => {
         </div>
         </div>
       </div>
+
+      {/* ── Share results modal ── */}
+      <Modal show={showShareModal} onHide={() => setShowShareModal(false)} centered>
+        <Modal.Header closeButton>
+          <Modal.Title>📤 Partager ces résultats</Modal.Title>
+        </Modal.Header>
+        <Modal.Body>
+          <Form.Label className="fw-semibold small">Lien permanent</Form.Label>
+          <div className="d-flex gap-2 mb-3">
+            <Form.Control size="sm" readOnly value={shareUrl} style={{ fontSize: '0.78rem' }} />
+            <Button
+              size="sm"
+              variant={urlCopied ? 'success' : 'outline-secondary'}
+              onClick={async () => {
+                await navigator.clipboard.writeText(shareUrl);
+                setUrlCopied(true);
+                setTimeout(() => setUrlCopied(false), 2000);
+              }}
+            >
+              {urlCopied ? '✓' : '📋'}
+            </Button>
+          </div>
+          <Form.Label className="fw-semibold small">Texte pour Twitter / X</Form.Label>
+          <Form.Control
+            as="textarea"
+            rows={4}
+            readOnly
+            value={twitterText}
+            style={{ fontSize: '0.82rem', resize: 'none' }}
+          />
+          <div className="mt-3 d-flex gap-2">
+            <a
+              href={`https://twitter.com/intent/tweet?text=${encodeURIComponent(twitterText)}`}
+              target="_blank"
+              rel="noopener noreferrer"
+            >
+              <Button variant="outline-dark" size="sm">𝕏 Ouvrir sur Twitter →</Button>
+            </a>
+          </div>
+        </Modal.Body>
+      </Modal>
+
     </Container>
   );
 };

@@ -1,5 +1,5 @@
 import React from 'react';
-import { Alert, Badge, Card, Col, Form, Row, Spinner, Table } from 'react-bootstrap';
+import { Alert, Badge, Card, Form, Spinner, Table } from 'react-bootstrap';
 import MethodTooltip from '../shared/MethodTooltip';
 import { RealElectionResult } from '../../types';
 

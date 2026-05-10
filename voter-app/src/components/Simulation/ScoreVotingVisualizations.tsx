@@ -1,7 +1,7 @@
 // ScoreVotingVisualizations.tsx
 import React from 'react';
-import { Card, Table, ProgressBar, Badge } from 'react-bootstrap';
-import { Bar, Radar, Doughnut } from 'react-chartjs-2';
+import { Card, Table } from 'react-bootstrap';
+import { Bar, Radar } from 'react-chartjs-2';
 import {
   Chart as ChartJS,
   CategoryScale,

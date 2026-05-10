@@ -2,14 +2,22 @@ import React, { useMemo, useState } from 'react';
 import { Alert, Badge, Button, Card, Col, Modal, Row, Table } from 'react-bootstrap';
 import { SimulationCompareResult } from '../../types';
 import {
-  CANDIDATE_PALETTE,
   IDEOLOGY_OPTIONS,
   METHOD_DESCRIPTIONS,
-  METHOD_LABELS,
   ScenarioConfig,
   mostCommonWinner,
 } from './simulationConstants';
 import MethodTooltip from '../shared/MethodTooltip';
+import ResponsiveTable from '../shared/ResponsiveTable';
+
+const WINNER_BADGE_STYLE: React.CSSProperties = {
+  maxWidth: 80,
+  overflow: 'hidden',
+  textOverflow: 'ellipsis',
+  whiteSpace: 'nowrap',
+  display: 'inline-block',
+  verticalAlign: 'middle',
+};
 
 // ── WinnerMatrixTable ───────────────────────────────────────────────────────
 
@@ -22,7 +30,7 @@ interface TableProps {
 }
 
 const WinnerMatrixTable: React.FC<TableProps> = ({ results, allMethodNames, colorMap, label, onCellClick }) => (
-  <div style={{ overflowX: 'auto' }}>
+  <ResponsiveTable>
     {label && (
       <p className="fw-semibold text-center mb-2" style={{ fontSize: '0.9rem' }}>{label}</p>
     )}
@@ -51,7 +59,7 @@ const WinnerMatrixTable: React.FC<TableProps> = ({ results, allMethodNames, colo
                   title={onCellClick ? 'Cliquez pour les détails' : undefined}
                 >
                   {winner ? (
-                    <Badge style={{ backgroundColor: colorMap[winner] ?? '#999', fontSize: '0.72rem' }}>
+                    <Badge style={{ backgroundColor: colorMap[winner] ?? '#999', fontSize: '0.72rem', ...WINNER_BADGE_STYLE }}>
                       {winner}{notCondorcet ? ' *' : ''}
                     </Badge>
                   ) : (
@@ -64,7 +72,7 @@ const WinnerMatrixTable: React.FC<TableProps> = ({ results, allMethodNames, colo
         ))}
       </tbody>
     </Table>
-  </div>
+  </ResponsiveTable>
 );
 
 // ── WinnerMatrixTab ─────────────────────────────────────────────────────────
@@ -145,6 +153,7 @@ const WinnerMatrixTab: React.FC<Props> = ({
               </span>
             </Card.Header>
             <Card.Body className="p-0">
+              <ResponsiveTable>
               <Table bordered size="sm" className="mb-0">
                 <thead className="table-light">
                   <tr>
@@ -162,12 +171,12 @@ const WinnerMatrixTab: React.FC<Props> = ({
                         <td><strong><MethodTooltip method={method} /></strong></td>
                         <td className="text-center">
                           {winnerA ? (
-                            <Badge style={{ backgroundColor: candidateColorMap[winnerA] ?? '#999' }}>{winnerA}</Badge>
+                            <Badge style={{ backgroundColor: candidateColorMap[winnerA] ?? '#999', ...WINNER_BADGE_STYLE }}>{winnerA}</Badge>
                           ) : <span className="text-muted">—</span>}
                         </td>
                         <td className="text-center">
                           {winnerB ? (
-                            <Badge style={{ backgroundColor: candidateColorMap[winnerB] ?? '#999' }}>{winnerB}</Badge>
+                            <Badge style={{ backgroundColor: candidateColorMap[winnerB] ?? '#999', ...WINNER_BADGE_STYLE }}>{winnerB}</Badge>
                           ) : <span className="text-muted">—</span>}
                         </td>
                         <td className="text-center fw-bold" style={{ fontSize: '1.1rem' }}>
@@ -180,12 +189,13 @@ const WinnerMatrixTab: React.FC<Props> = ({
                   })}
                 </tbody>
               </Table>
+              </ResponsiveTable>
             </Card.Body>
           </Card>
         </>
       ) : (
         <Card>
-          <Card.Body style={{ overflowX: 'auto' }}>
+          <Card.Body>
             <WinnerMatrixTable
               results={comparisonResults} allMethodNames={allMethodNames}
               colorMap={candidateColorMap}

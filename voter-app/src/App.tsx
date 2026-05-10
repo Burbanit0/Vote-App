@@ -16,17 +16,21 @@ import UserProfilePage from './pages/UserProfilePage';
 
 import { useAuth } from './context/AuthContext';
 import AuthGuard from './context/AuthGuard';
+import { ThemeProvider, useTheme } from './context/ThemeContext';
+import { ExpertModeProvider } from './context/ExpertModeContext';
+import { ToastProvider } from './components/shared/ToastNotification';
 
 import 'bootstrap/dist/css/bootstrap.min.css';
 
 const AppContent: React.FC = () => {
   const location = useLocation();
   const { user } = useAuth();
+  const { theme } = useTheme();
 
   const shouldHideNavbar = ['/login', '/register'];
 
   return (
-    <div className="App">
+    <div className="App" data-bs-theme={theme}>
       {!shouldHideNavbar.includes(location.pathname) && <Navbar />}
       <ErrorBoundary>
         <Routes>
@@ -35,9 +39,9 @@ const AppContent: React.FC = () => {
           <Route path="/register" element={!user ? <Register /> : <Navigate to="/" />} />
 
           {/* Public routes — accessible without account */}
-          <Route path="/"                    element={<HomePage />} />
-          <Route path="/scenario-builder"    element={<AuthGuard component={ScenarioBuilderPage}    requireAuth={false} />} />
-          <Route path="/simulation/compare"  element={<AuthGuard component={SimulationComparePage} requireAuth={false} />} />
+          <Route path="/"                      element={<HomePage />} />
+          <Route path="/scenario-builder"      element={<AuthGuard component={ScenarioBuilderPage}      requireAuth={false} />} />
+          <Route path="/simulation/compare"    element={<AuthGuard component={SimulationComparePage}   requireAuth={false} />} />
           <Route path="/constitutional-crisis" element={<AuthGuard component={ConstitutionalCrisisPage} requireAuth={false} />} />
 
           {/* Auth-protected routes */}
@@ -51,9 +55,15 @@ const AppContent: React.FC = () => {
 };
 
 const App: React.FC = () => (
-  <Router>
-    <AppContent />
-  </Router>
+  <ThemeProvider>
+    <ExpertModeProvider>
+      <ToastProvider>
+        <Router>
+          <AppContent />
+        </Router>
+      </ToastProvider>
+    </ExpertModeProvider>
+  </ThemeProvider>
 );
 
 export default App;

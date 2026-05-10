@@ -1,17 +1,21 @@
 import React from 'react';
 import { useNavigate } from 'react-router';
 import { useAuth } from '../context/AuthContext';
-import { Badge, Button, Container, Nav, Navbar as BootstrapNavbar } from 'react-bootstrap';
+import { Badge, Button, Container, Nav, Navbar as BootstrapNavbar, OverlayTrigger, Tooltip } from 'react-bootstrap';
+import { useTheme } from '../context/ThemeContext';
+import { useExpertMode } from '../context/ExpertModeContext';
 
 const NAV_LINKS = [
-  { href: '/scenario-builder',     label: 'Simulateur' },
-  { href: '/simulation/compare',   label: 'Méthodes' },
+  { href: '/scenario-builder',      label: 'Simulateur' },
+  { href: '/simulation/compare',    label: 'Méthodes' },
   { href: '/constitutional-crisis', label: 'Vote Blanc' },
 ];
 
 const Navbar: React.FC = () => {
   const { user, logout, loading } = useAuth();
   const navigate = useNavigate();
+  const { theme, toggleTheme } = useTheme();
+  const { expertMode, setExpertMode } = useExpertMode();
 
   const handleLogout = () => {
     logout();
@@ -21,7 +25,13 @@ const Navbar: React.FC = () => {
   if (loading) return null;
 
   return (
-    <BootstrapNavbar bg="white" expand="lg" className="border-bottom shadow-sm" sticky="top">
+    <BootstrapNavbar
+      data-tour="navbar"
+      expand="lg"
+      className="border-bottom shadow-sm"
+      sticky="top"
+      style={{ backgroundColor: 'var(--bs-body-bg)', borderColor: 'var(--bs-border-color)' }}
+    >
       <Container>
         {/* Brand */}
         <BootstrapNavbar.Brand href="/" className="d-flex align-items-center gap-2 fw-bold" style={{ fontSize: '1.15rem' }}>
@@ -51,6 +61,73 @@ const Navbar: React.FC = () => {
 
           {/* Right side */}
           <Nav className="align-items-lg-center gap-2">
+            {/* Expert / Débutant toggle */}
+            <OverlayTrigger
+              trigger={['hover', 'focus']}
+              placement="bottom"
+              overlay={
+                <Tooltip id="tip-expert">
+                  {expertMode
+                    ? 'Passer en mode débutant (5 onglets, 5 méthodes)'
+                    : 'Passer en mode expert (10 onglets, 15 méthodes)'}
+                </Tooltip>
+              }
+            >
+              <Button
+                variant={expertMode ? 'primary' : 'outline-secondary'}
+                size="sm"
+                onClick={() => setExpertMode(!expertMode)}
+                aria-label={expertMode ? 'Mode expert actif' : 'Mode débutant actif'}
+                style={{ fontSize: '0.75rem', padding: '3px 10px', fontWeight: 600 }}
+              >
+                {expertMode ? 'Expert' : 'Débutant'}
+              </Button>
+            </OverlayTrigger>
+
+            {/* Dark mode toggle */}
+            <OverlayTrigger
+              trigger={['hover', 'focus']}
+              placement="bottom"
+              overlay={<Tooltip id="tip-theme">{theme === 'dark' ? 'Passer en mode clair' : 'Passer en mode sombre'}</Tooltip>}
+            >
+              <Button
+                variant="link"
+                size="sm"
+                onClick={toggleTheme}
+                aria-label={theme === 'dark' ? 'Passer en mode clair' : 'Passer en mode sombre'}
+                style={{ fontSize: '1.1rem', padding: '2px 6px', color: 'inherit', textDecoration: 'none' }}
+              >
+                {theme === 'dark' ? '☀️' : '🌙'}
+              </Button>
+            </OverlayTrigger>
+
+            {/* Tour help button */}
+            <OverlayTrigger
+              trigger={['hover', 'focus']}
+              placement="bottom"
+              overlay={<Tooltip id="tip-tour">Lancer le tour guidé</Tooltip>}
+            >
+              <Nav.Link
+                href="/?tour=1"
+                className="d-flex align-items-center justify-content-center"
+                style={{
+                  width: 30,
+                  height: 30,
+                  borderRadius: '50%',
+                  border: '1.5px solid var(--bs-secondary-color, #6c757d)',
+                  color: 'var(--bs-secondary-color, #6c757d)',
+                  fontWeight: 700,
+                  fontSize: '0.85rem',
+                  lineHeight: 1,
+                  padding: 0,
+                  flexShrink: 0,
+                }}
+                aria-label="Tour guidé"
+              >
+                ?
+              </Nav.Link>
+            </OverlayTrigger>
+
             {user ? (
               <>
                 <Nav.Link href="/profile" className="text-muted small">

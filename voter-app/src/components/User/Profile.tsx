@@ -1,7 +1,7 @@
 // src/components/Profile.tsx
 
 import React, { useState, useEffect } from 'react';
-import { Card, Container, Alert, ListGroup } from 'react-bootstrap';
+import { Card, Container, Alert } from 'react-bootstrap';
 import { useAuth } from '../../context/AuthContext';
 import { Profile_ } from '../../types';
 import { fetchProfileData } from '../../services';

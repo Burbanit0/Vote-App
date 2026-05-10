@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { Alert, Badge, Button, Card, Col, Container, Row, Spinner, Tab, Tabs } from 'react-bootstrap';
+import { useToast } from '../components/shared/ToastNotification';
 import CandidateEditor, { CandidateConfig, newCandidate, newBlankCandidate } from '../components/ScenarioBuilder/CandidateEditor';
 import ElectorateConfig, { ElectorateState } from '../components/ScenarioBuilder/ElectorateConfig';
 import ScenarioAPanel from '../components/ConstitutionalCrisis/ScenarioAPanel';
@@ -86,7 +87,7 @@ const ConstitutionalCrisisPage: React.FC = () => {
   // Initial simulation
   const [initResult, setInitResult]   = useState<ScenarioResult | null>(null);
   const [initLoading, setInitLoading] = useState(false);
-  const [initError, setInitError]     = useState<string | null>(null);
+  const toast = useToast();
 
   // Scenario results
   const [resA, setResA] = useState<ConstitutionalResult | null>(null);
@@ -111,7 +112,6 @@ const ConstitutionalCrisisPage: React.FC = () => {
 
   const runInitial = async () => {
     setInitLoading(true);
-    setInitError(null);
     setInitResult(null);
     try {
       const r = await runScenario({
@@ -122,7 +122,7 @@ const ConstitutionalCrisisPage: React.FC = () => {
       });
       setInitResult(r);
     } catch {
-      setInitError('Simulation échouée. Vérifiez que le backend est démarré.');
+      toast.error('Simulation échouée. Vérifiez que le backend est démarré.');
     } finally {
       setInitLoading(false);
     }
@@ -196,7 +196,7 @@ const ConstitutionalCrisisPage: React.FC = () => {
         </Card.Body>
       </Card>
 
-      {initError && <Alert variant="danger">{initError}</Alert>}
+
 
       {!initResult && !initLoading && (
         <Alert variant="info">

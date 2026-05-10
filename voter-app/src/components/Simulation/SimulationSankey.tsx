@@ -33,7 +33,7 @@ const preprocessRankingsForSankey = (rankings: RankingResult[]) => {
     const minVotes = Math.min(...Object.values(votesThisRound));
     const eliminated = Object.entries(votesThisRound)
       .filter(([candidate]) => remainingCandidates.includes(candidate))
-      .find(([_, votes]) => votes === minVotes)?.[0];
+      .find(([, votes]) => votes === minVotes)?.[0];
 
     if (!eliminated) break;
 
@@ -41,8 +41,6 @@ const preprocessRankingsForSankey = (rankings: RankingResult[]) => {
     remainingCandidates = remainingCandidates.filter((c) => c !== eliminated);
 
     // Calculate vote redistribution
-    const nextRoundVotes: Record<string, number> = {};
-
     rankings.forEach(({ ranking }) => {
       // Find the highest-ranked remaining candidate for this voter
       const nextChoice = ranking.find((c) => remainingCandidates.includes(c));
@@ -52,7 +50,6 @@ const preprocessRankingsForSankey = (rankings: RankingResult[]) => {
           ranking.find((c) => c === eliminated) || ranking.find((c) => currentRoundVotes[c]);
 
         if (currentChoice) {
-          const key = `R:${round - 1}-${currentChoice}->R:${round}-${nextChoice}`;
           const existing = transitions.find(
             (t) => t[0] === `R:${round - 1}-${currentChoice}` && t[1] === `R:${round}-${nextChoice}`
           );
