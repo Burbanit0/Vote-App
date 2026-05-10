@@ -2,10 +2,8 @@ import React, { useMemo, useState } from 'react';
 import { Alert, Badge, Button, Card, Col, Modal, Row, Table } from 'react-bootstrap';
 import { SimulationCompareResult } from '../../types';
 import {
-  CANDIDATE_PALETTE,
   IDEOLOGY_OPTIONS,
   METHOD_DESCRIPTIONS,
-  METHOD_LABELS,
   ScenarioConfig,
   mostCommonWinner,
 } from './simulationConstants';

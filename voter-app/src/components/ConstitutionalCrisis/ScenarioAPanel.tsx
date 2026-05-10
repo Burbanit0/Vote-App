@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
-import { Alert, Badge, Button, Card, Col, Row, Spinner, Table } from 'react-bootstrap';
-import CandidateEditor, { CandidateConfig, newCandidate } from '../ScenarioBuilder/CandidateEditor';
+import { Alert, Badge, Button, Card, Spinner, Table } from 'react-bootstrap';
+import CandidateEditor, { CandidateConfig } from '../ScenarioBuilder/CandidateEditor';
 import { ConstitutionalResult, ScenarioMethodResult } from '../../services/simulationCompareApi';
 
 const METHOD_LABELS: Record<string, string> = {

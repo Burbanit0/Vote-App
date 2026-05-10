@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { Badge, Button, Card, Col, Form, Row, Spinner, Table } from 'react-bootstrap';
-import { Bar, BarChart, CartesianGrid, Cell, Legend, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts';
+import { Bar, BarChart, CartesianGrid, Legend, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts';
 import { ConstitutionalResult } from '../../services/simulationCompareApi';
 
 const COLORS = ['#4e79a7', '#e15759', '#59a14f', '#f28e2b', '#76b7b2', '#edc948'];

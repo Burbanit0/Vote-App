@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { Alert, Badge, Button, Card, Col, Form, Row, Spinner } from 'react-bootstrap';
+import { Alert, Button, Card, Col, Form, Row, Spinner } from 'react-bootstrap';
 import { RealElectionResult, RealElectionSummary } from '../../types';
 import { analyzeRealElection, getRealElections } from '../../services/simulationCompareApi';
 import RealElectionAnalysis from './RealElectionAnalysis';

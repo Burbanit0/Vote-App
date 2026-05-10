@@ -108,7 +108,6 @@ const SimulationResult: React.FC<SimulationResultProps> = ({ result }) => {
 
   const hasVotes = result.simulation_type.includes('votes');
   const hasRanked = result.simulation_type.includes('ranked');
-  const hasScores = result.simulation_type.includes('scores');
 
   const rankings = result.rankings || [];
   const candidates = result.metadata.candidates;

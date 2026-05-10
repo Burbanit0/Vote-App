@@ -17,7 +17,6 @@ import {
   CartesianGrid,
   Cell,
   ErrorBar,
-  Legend,
   ResponsiveContainer,
   Tooltip,
   XAxis,
@@ -28,7 +27,6 @@ import { getMonteCarlo, MonteCarloParams } from '../../services/simulationCompar
 import ResponsiveTable from '../shared/ResponsiveTable';
 import SkeletonCard from '../shared/SkeletonCard';
 import { useChartTheme } from '../../hooks/useChartTheme';
-import EmptyChart from '../shared/EmptyChart';
 
 // ── Constants ──────────────────────────────────────────────────────────────
 
@@ -113,7 +111,7 @@ const MonteCarloResults: React.FC<Props> = ({ baseParams }) => {
 
   // ── Derived ────────────────────────────────────────────────────────────
 
-  const methodNames = result ? Object.keys(result.methods) : [];
+  const methodNames = useMemo(() => (result ? Object.keys(result.methods) : []), [result]);
 
   // All unique candidate names seen across winner distributions
   const candidateNames = useMemo(() => {

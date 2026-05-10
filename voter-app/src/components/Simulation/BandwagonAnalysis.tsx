@@ -25,7 +25,6 @@ import { BandwagonResult } from '../../types';
 import { getBandwagonAnalysis, BandwagonParams } from '../../services/simulationCompareApi';
 import SkeletonCard from '../shared/SkeletonCard';
 import { useChartTheme } from '../../hooks/useChartTheme';
-import EmptyChart from '../shared/EmptyChart';
 
 // ── Constants ──────────────────────────────────────────────────────────────
 

@@ -67,7 +67,6 @@ const PRESETS: Record<ElectorateState['ideologyPreset'], { label: string; color:
 // ── Component ──────────────────────────────────────────────────────────────
 
 const ElectorateConfig: React.FC<Props> = ({ config, onChange, expertMode = false }) => {
-  const selected = PRESETS[config.ideologyPreset];
   const visiblePresetKeys = expertMode
     ? (Object.keys(PRESETS) as ElectorateState['ideologyPreset'][])
     : BEGINNER_PRESETS;

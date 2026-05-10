@@ -66,7 +66,6 @@ const IssuePrioritiesVisualization: React.FC<IssuePrioritiesVisualizationProps> 
         { name: '65+', min: 65, max: 120 },
       ];
 
-      const groupValues = ageGroups.map((g) => g.name);
       const issues = Object.keys(voters[0].issue_priorities);
 
       return {
