@@ -34,9 +34,10 @@ import {
   runComparisonSimulation,
   runStrategicImpactAnalysis,
 } from '../services/simulationCompareApi';
-import { deleteScenario, getScenario, listScenarios, saveScenario } from '../services/scenariosApi';
-import { copyShareURL, decodeShareConfig, readShareParam } from '../utils/shareUtils';
+import { deleteScenario, listScenarios, saveScenario } from '../services/scenariosApi';
+import { buildShareURL, copyShareURL, decodeShareConfig, encodeShareConfig, readShareParam } from '../utils/shareUtils';
 import { useExpertMode } from '../context/ExpertModeContext';
+import { useMetaTags } from '../hooks/useMetaTags';
 
 // ── Presentation mode ──────────────────────────────────────────────────────
 
@@ -128,6 +129,7 @@ function buildReportHTML(
   methodNames: string[],
   conclusion: string,
   date: string,
+  shareUrl: string = '',
 ): string {
   // Winners table rows
   const methodRows = methodNames.map((m) => {
@@ -187,9 +189,11 @@ function buildReportHTML(
   <h2>Analyse et conclusions</h2>
   <div class="conclusion">${conclusion}</div>
 
-  <div class="meta" style="margin-top:1cm;">
+  <div class="meta" style="margin-top:1cm; border-top:1px solid #dee2e6; padding-top:0.5cm;">
     Vote Lab · Outil de recherche sur les méthodes de vote ·
     Modèle spatial de vote avec utilité bayésienne et vote stratégique
+    ${shareUrl ? `<br/><strong>Lien permanent :</strong>
+    <a href="${shareUrl}" style="color:#0d6efd; word-break:break-all;">${shareUrl}</a>` : ''}
   </div>
 </body>
 </html>`;
@@ -242,6 +246,7 @@ const SimulationComparePage: React.FC = () => {
   const [presentationMode, setPresentationMode] = useState(false);
   const [presentationTabIndex, setPresentationTabIndex] = useState(0);
   const [linkCopied, setLinkCopied] = useState(false);
+  const [reportCopied, setReportCopied] = useState(false);
 
   // ── Restore config from URL on mount ──
   useEffect(() => {
@@ -347,7 +352,12 @@ const SimulationComparePage: React.FC = () => {
 
   const exportReport = () => {
     const conclusion = buildConclusion(comparisonResults, allMethodNames);
-    const html = buildReportHTML(configA, numSimulations, comparisonResults, allMethodNames, conclusion, exportDate);
+    const cfgUrl = buildShareURL({
+      n: numSimulations, sc: scenarioCount,
+      a: { nv: configA.numVoters, c: configA.candidateInput, id: configA.ideology_distribution },
+      ...(scenarioCount === 2 ? { b: { nv: configB.numVoters, c: configB.candidateInput, id: configB.ideology_distribution } } : {}),
+    });
+    const html = buildReportHTML(configA, numSimulations, comparisonResults, allMethodNames, conclusion, exportDate, cfgUrl);
     const win = window.open('', '_blank');
     if (!win) return;
     win.document.write(html);
@@ -407,6 +417,48 @@ const SimulationComparePage: React.FC = () => {
 
   const hasResults = comparisonResults.length > 0;
   const baseParamsA = { num_voters: configA.numVoters, candidates: candidateNamesA, ideology_distribution: configA.ideology_distribution };
+
+  // ── Simulation summary (for meta tags + report sharing) ───────────────────
+  const simulationSummary = useMemo(() => {
+    if (!hasResults || !allMethodNames.length) return null;
+    const avg = (vals: number[]) => vals.reduce((a, b) => a + b, 0) / (vals.length || 1);
+    const bestM = allMethodNames
+      .map((m) => ({ m, v: avg(comparisonResults.map((r) => r.methods[m]?.bayesian_regret ?? 0)) }))
+      .filter((x) => x.v > 0)
+      .sort((a, b) => a.v - b.v)[0]?.m ?? null;
+    const divergences = allMethodNames.filter((m) => {
+      const ws = new Set(comparisonResults.map((r) => r.methods[m]?.winner).filter(Boolean));
+      return ws.size > 1;
+    }).length;
+    return { bestM, divergences };
+  }, [hasResults, allMethodNames, comparisonResults]);
+
+  // ── Meta tags — updated after simulation ──────────────────────────────────
+  useMetaTags({
+    title: simulationSummary?.bestM
+      ? `${configA.candidateInput} — ${METHOD_LABELS[simulationSummary.bestM] ?? simulationSummary.bestM} plus robuste — Vote Lab`
+      : 'Vote Lab — Analyse comparative des méthodes de vote',
+    description: hasResults
+      ? `${allMethodNames.length} méthodes sur ${configA.numVoters} électeurs. ${simulationSummary?.divergences ?? 0} méthodes divergent sur le vainqueur.`
+      : '15 méthodes de vote comparées. Regret bayésien, Condorcet, vulnérabilité stratégique.',
+  });
+
+  // ── Share report handler ──────────────────────────────────────────────────
+  const shareReport = async () => {
+    const cfg: SharedConfig = {
+      n: numSimulations, sc: scenarioCount,
+      a: { nv: configA.numVoters, c: configA.candidateInput, id: configA.ideology_distribution },
+      ...(scenarioCount === 2 ? { b: { nv: configB.numVoters, c: configB.candidateInput, id: configB.ideology_distribution } } : {}),
+    };
+    const summary = simulationSummary
+      ? { b: simulationSummary.bestM, d: simulationSummary.divergences }
+      : {};
+    const encoded = encodeShareConfig({ ...cfg, rs: summary });
+    const url = `${window.location.origin}${window.location.pathname}?cfg=${encoded}`;
+    await navigator.clipboard.writeText(url);
+    setReportCopied(true);
+    setTimeout(() => setReportCopied(false), 2500);
+  };
 
   // ── Presentation mode overlay ──────────────────────────────────────────────
   const PresentationOverlay = presentationMode ? (
@@ -478,6 +530,13 @@ const SimulationComparePage: React.FC = () => {
               <Button variant="outline-primary" size="sm" onClick={exportJSON}>⬇ JSON</Button>
               <Button variant="outline-primary" size="sm" onClick={exportCSV}>⬇ CSV</Button>
               <Button variant="outline-warning" size="sm" onClick={exportReport}>📄 Rapport PDF</Button>
+              <Button
+                variant={reportCopied ? 'success' : 'outline-secondary'}
+                size="sm"
+                onClick={shareReport}
+              >
+                {reportCopied ? '✓ Lien rapport copié !' : '📤 Partager ce rapport'}
+              </Button>
               <Button variant="outline-dark" size="sm" onClick={() => { setPresentationTabIndex(0); setPresentationMode(true); }}>
                 🎓 Présentation
               </Button>

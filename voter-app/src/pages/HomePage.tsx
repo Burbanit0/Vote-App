@@ -2,6 +2,7 @@ import React, { useCallback, useEffect, useState } from 'react';
 import { Badge, Button, Card, Col, Container, Row, Spinner } from 'react-bootstrap';
 import { runComparisonSimulation } from '../services/simulationCompareApi';
 import OnboardingTour from '../components/shared/OnboardingTour';
+import { useMetaTags } from '../hooks/useMetaTags';
 
 // ── Election thumbnails ─────────────────────────────────────────────────────
 
@@ -164,6 +165,11 @@ const ElectionCard: React.FC<{ election: typeof ELECTIONS[0] }> = ({ election })
 // ── Main page ───────────────────────────────────────────────────────────────
 
 const HomePage: React.FC = () => {
+  useMetaTags({
+    title: 'Vote Lab — Testez comment votre bulletin de vote change tout',
+    description: '15 méthodes de vote, données électorales réelles, vote blanc intégré. Simulez des élections et explorez les paradoxes du vote.',
+  });
+
   const stats = useQuickStats();
   const [tourRun, setTourRun] = useState(false);
 
