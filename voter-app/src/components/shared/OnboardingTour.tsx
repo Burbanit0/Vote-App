@@ -1,10 +1,11 @@
 import React, { useCallback } from 'react';
-// react-joyride v3 types are not fully compatible with React 19 —
-// suppress via 'any' casts until an updated version is released.
+// react-joyride v3 types are not fully compatible with React 19.
+// We load the module dynamically and handle both default and named exports.
 // eslint-disable-next-line @typescript-eslint/no-require-imports
-const Joyride = require('react-joyride').default;
-// eslint-disable-next-line @typescript-eslint/no-require-imports
-const { STATUS } = require('react-joyride');
+const _jrModule = require('react-joyride');
+// react-joyride may export the component as default or as the module itself
+const Joyride: React.ComponentType<any> = (_jrModule.default ?? _jrModule) as React.ComponentType<any>;
+const STATUS: Record<string, string> = _jrModule.STATUS ?? _jrModule.default?.STATUS ?? { FINISHED: 'finished', SKIPPED: 'skipped' };
 
 // ── Tour steps ─────────────────────────────────────────────────────────────
 
@@ -121,10 +122,11 @@ const OnboardingTour: React.FC<Props> = ({ run, onFinish }) => {
     [onFinish]
   );
 
-  const JoyrideAny = Joyride as any;
+  // Safety check: do not render if the Joyride module failed to load
+  if (!Joyride || typeof Joyride !== 'function') return null;
 
   return (
-    <JoyrideAny
+    <Joyride
       run={run}
       steps={STEPS}
       callback={handleCallback}
