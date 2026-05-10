@@ -1,3 +1,5 @@
+import os
+
 from flask import Flask, request
 from flask_cors import CORS
 from flask_sqlalchemy import SQLAlchemy
@@ -11,19 +13,35 @@ db = SQLAlchemy()
 migrate = Migrate()
 jwt = JWTManager()
 bcrypt = Bcrypt()
-redis_client = redis.StrictRedis.from_url("redis://redis:6379")
+redis_client = redis.StrictRedis.from_url(
+    os.environ.get('REDIS_URL', 'redis://redis:6379')
+)
 
 
 def create_app(config_object="config.Config"):
     app = Flask(__name__)
     app.config.from_object(config_object)
+
+    # ── Production safety check ────────────────────────────────────────────
+    if os.environ.get('FLASK_ENV') == 'production':
+        required = ['SECRET_KEY', 'JWT_SECRET_KEY', 'DATABASE_URL']
+        missing = [k for k in required if not os.environ.get(k)]
+        if missing:
+            raise RuntimeError(
+                f"FLASK_ENV=production requires these env vars: {missing}"
+            )
+
     bcrypt.init_app(app)
     jwt.init_app(app)
+
+    # ── CORS — origins come from config, never wildcard ────────────────────
+    allowed_origins = app.config.get('CORS_ORIGINS', ['http://localhost:3000'])
+
     CORS(
         app,
         resources={
             r"/*": {
-                "origins": "*",
+                "origins": allowed_origins,
                 "supports_credentials": True,
                 "methods": ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
                 "allow_headers": ["Content-Type", "Authorization"],
@@ -34,9 +52,12 @@ def create_app(config_object="config.Config"):
     @app.before_request
     def handle_options():
         if request.method == "OPTIONS":
+            # Use the first allowed origin for preflight; real browsers send Origin header
+            origin = request.headers.get("Origin", "")
+            allow_origin = origin if origin in allowed_origins else allowed_origins[0]
             response = app.make_default_options_response()
             headers = response.headers
-            headers["Access-Control-Allow-Origin"] = "http://localhost:3000"
+            headers["Access-Control-Allow-Origin"]  = allow_origin
             headers["Access-Control-Allow-Methods"] = "GET, POST, PUT, DELETE, OPTIONS"
             headers["Access-Control-Allow-Headers"] = "Content-Type, Authorization"
             return response

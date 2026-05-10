@@ -1,4 +1,6 @@
 from flask import Blueprint, request, jsonify
+from flask_limiter import Limiter
+from flask_limiter.util import get_remote_address
 from app.utils.auth_utils import register_user
 from ..models import User
 from flask_jwt_extended import get_jwt_identity, jwt_required
@@ -8,8 +10,12 @@ from app import db
 
 auth_bp = Blueprint("auth", __name__, url_prefix="/api/auth")
 
+# Rate limiter — shared instance, applied per-route
+_limiter = Limiter(key_func=get_remote_address)
+
 
 @auth_bp.route("/register", methods=["POST"])
+@_limiter.limit("10 per hour")
 def register():
     data = request.get_json()
     username = data.get("username")
@@ -41,6 +47,7 @@ def register_voter():
 
 
 @auth_bp.route("/login", methods=["POST"])
+@_limiter.limit("20 per hour; 5 per minute")
 def login():
     data = request.get_json()
     username = data.get("username")
