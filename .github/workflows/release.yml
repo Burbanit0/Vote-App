@@ -1,0 +1,117 @@
+name: 🚀 Release Vote Lab
+
+on:
+  workflow_dispatch:
+    inputs:
+      version_type:
+        description: 'Type de version'
+        required: true
+        default: 'patch'
+        type: choice
+        options:
+          - patch    # 1.0.0 → 1.0.1  (bugfix)
+          - minor    # 1.0.0 → 1.1.0  (nouvelle feature)
+          - major    # 1.0.0 → 2.0.0  (changement majeur)
+      release_notes:
+        description: 'Notes de release (optionnel — GitHub génère les siennes sinon)'
+        required: false
+        type: string
+
+jobs:
+  # ── 1. CI — tests must pass before any release ─────────────────────────────
+  ci-frontend:
+    name: Tests frontend
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+          cache-dependency-path: voter-app/package-lock.json
+      - run: npm ci
+        working-directory: ./voter-app
+      - run: npm test
+        working-directory: ./voter-app
+        env:
+          CI: 'true'
+
+  ci-backend:
+    name: Tests backend
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+          cache: 'pip'
+          cache-dependency-path: flask_voter_app/requirements.txt
+      - run: |
+          pip install -r flask_voter_app/requirements.txt
+          pip install pytest pytest-cov
+      - run: python -m pytest flask_voter_app/tests -v
+        env:
+          FLASK_ENV: testing
+          JWT_SECRET_KEY: ci-test-secret
+
+  # ── 2. Release — only if both CI jobs pass ─────────────────────────────────
+  release:
+    name: Créer la release
+    needs: [ci-frontend, ci-backend]
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write   # needed to push tags and create releases
+
+    steps:
+      - name: Checkout main
+        uses: actions/checkout@v4
+        with:
+          ref: main
+          fetch-depth: 0
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+          cache-dependency-path: voter-app/package-lock.json
+
+      - name: Bump version in package.json
+        id: bump
+        working-directory: ./voter-app
+        run: |
+          npm version ${{ inputs.version_type }} --no-git-tag-version
+          VERSION=$(node -p "require('./package.json').version")
+          echo "version=v${VERSION}" >> $GITHUB_OUTPUT
+          echo "Bumped to v${VERSION}"
+
+      - name: Configure git identity
+        run: |
+          git config user.name  "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+
+      - name: Commit + tag + push
+        run: |
+          VERSION="${{ steps.bump.outputs.version }}"
+          git add voter-app/package.json voter-app/package-lock.json
+          git commit -m "chore: bump to ${VERSION} [skip ci]"
+          git tag -a "${VERSION}" -m "Release ${VERSION}"
+          git push origin main --follow-tags
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ steps.bump.outputs.version }}
+          name: "🗳️ Vote Lab ${{ steps.bump.outputs.version }}"
+          body: |
+            ## Vote Lab ${{ steps.bump.outputs.version }}
+
+            ${{ inputs.release_notes != '' && inputs.release_notes || 'Voir les commits ci-dessous pour le détail des changements.' }}
+
+            ---
+            **Liens**
+            - 📖 [Méthodologie de recherche](research/METHODOLOGY.md)
+            - 🐛 [Signaler un bug](../../issues/new)
+          generate_release_notes: true   # GitHub auto-generates changelog from commits
+          make_latest: true
