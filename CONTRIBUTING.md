@@ -1,62 +1,145 @@
-# Vote Lab — Qualité & contribution
+# Vote Lab — Stratégie de branches & qualité
+
+## Modèle de branches
+
+```
+main          ← branche officielle, dernière version release
+  ↑ PR develop → main uniquement (via workflow Release)
+develop       ← branche d'intégration
+  ↑ PR feature/* | fix/* | hotfix/* | ... → develop
+feature/xxx   ← nouvelle fonctionnalité
+fix/xxx       ← correction de bug
+hotfix/xxx    ← correctif urgent
+```
+
+**Règle absolue** : on ne push jamais directement sur `main` ni `develop`.
+Tout changement passe par une PR soumise à validation CI.
+
+---
+
+## Nommage des branches
+
+| Préfixe | Quand l'utiliser |
+|---|---|
+| `feature/` ou `feat/` | Nouvelle fonctionnalité |
+| `fix/` ou `bugfix/` | Correction de bug |
+| `hotfix/` | Correctif urgent |
+| `refactor/` | Refactoring sans changement visible |
+| `chore/` | Mise à jour dépendances, configuration |
+| `docs/` | Documentation uniquement |
+| `test/` | Ajout / amélioration de tests |
+| `ci/` | Modifications de la CI/CD |
+| `perf/` | Amélioration de performance |
+| `security/` | Correctif sécurité |
+
+**Exemple :** `git checkout -b feature/vote-blanc-toggle`
+
+---
+
+## Workflow complet
+
+### 1. Créer une branche depuis develop
+
+```bash
+git checkout develop && git pull origin develop
+git checkout -b feature/ma-feature
+```
+
+### 2. Développer & commiter
+
+Les hooks pre-commit vérifient à chaque `git commit` :
+- Secrets / credentials, sécurité Python (bandit), linting, npm audit
+
+Et à chaque `git push` :
+- Tests frontend + coverage >= 30%
+- Tests backend + coverage >= 30%
+
+### 3. Ouvrir une PR vers develop
+
+```bash
+git push origin feature/ma-feature
+# Ouvrir la PR : feature/ma-feature -> develop
+```
+
+**La CI vérifie automatiquement :**
+
+| Vérification | Bloque la PR si... |
+|---|---|
+| Branch Policy | Branche source sans préfixe valide |
+| Frontend CI | Tests échouent ou coverage < 30% |
+| Backend CI | Tests échouent ou coverage < 30% |
+| npm audit | CVE haute détectée |
+
+### 4. Release : develop → main
+
+Uniquement via le workflow **Release Vote Lab** :
+- GitHub → Actions → "Release Vote Lab" → Run workflow
+- Choisir `patch`, `minor` ou `major`
+
+Aucune PR vers `main` n'est acceptée depuis une branche autre que `develop`.
+
+---
 
 ## Setup local (une seule fois)
 
 ```bash
-# 1. Backend
-pip install -r flask_voter_app/requirements.txt
+# Dev tools
 pip install -r flask_voter_app/requirements-dev.txt
-
-# 2. Frontend
 cd voter-app && npm install
 
-# 3. Hooks pre-commit + pre-push (obligatoire)
+# Hooks git (obligatoire)
 pip install pre-commit
-pre-commit install                        # hooks sur git commit
-pre-commit install --hook-type pre-push   # hooks sur git push
+pre-commit install
+pre-commit install --hook-type pre-push
 ```
 
-## Ce qui se passe à chaque commit
-
-| Vérification | Outil | Bloque ? |
-|---|---|---|
-| Espaces en fin de ligne, encodage | pre-commit-hooks | ✓ |
-| Conflits de merge oubliés | pre-commit-hooks | ✓ |
-| Secrets / credentials | detect-secrets | ✓ |
-| Python SAST (injections, mauvaises pratiques) | bandit | ✓ |
-| Python linting | flake8 | ✓ |
-| TypeScript/React linting | eslint | ✓ |
-| Vulnérabilités npm (high+) | npm audit | ✓ |
-
-## Ce qui se passe à chaque push
-
-| Vérification | Outil | Seuil |
-|---|---|---|
-| Tests frontend + coverage | jest | ≥ 30% lignes |
-| Tests backend + coverage | pytest-cov | ≥ 30% lignes |
-
-## Ce que la CI vérifie (sur chaque PR)
-
-- Tout ce qui est ci-dessus
-- Build Vite complet
-- `pip-audit` (CVE Python)
-- Bandit en mode rapport
-
-## Augmenter les seuils de coverage
-
-Modifier dans :
-- `voter-app/jest.config.cjs` → `coverageThreshold.global`
-- `.github/workflows/backend-ci-cd-pipeline.yml` → `--cov-fail-under=X`
-- `.pre-commit-config.yaml` → `--cov-fail-under=X`
-
-## Créer la baseline detect-secrets (si nouveaux fichiers)
+### Setup admin (droits admin GitHub requis)
 
 ```bash
-detect-secrets scan --update .secrets.baseline
+bash scripts/setup-branch-protection.sh
 ```
 
-## Lancer tous les hooks manuellement
+---
+
+## Ce qui se passe automatiquement
+
+| Quand | Vérification | Bloque |
+|---|---|---|
+| `git commit` | detect-secrets, bandit, flake8, eslint, npm audit | Oui |
+| `git push` | Tests + coverage (front + back) | Oui |
+| PR ouverte | Branch Policy, CI complète, build | Oui |
+
+---
+
+## Titre de PR — Conventional Commits
+
+```
+type(scope): description courte
+```
+
+Types valides : `feat`, `fix`, `refactor`, `docs`, `test`, `chore`, `ci`, `security`, `perf`
+
+**Exemple :** `feat(blank-vote): add threshold_30 rule to scenario builder`
+
+---
+
+## Seuils qualité
+
+| Métrique | Seuil | Fichier |
+|---|---|---|
+| Coverage frontend (lines) | 30% | `voter-app/jest.config.cjs` |
+| Coverage backend | 30% | `backend-ci-cd-pipeline.yml` |
+| npm audit severity | high | `npm audit --audit-level=high` |
+| Bandit severity | medium+ | `-ll` dans args bandit |
+
+---
+
+## Commandes utiles
 
 ```bash
-pre-commit run --all-files
+pre-commit run --all-files                              # lancer tous les hooks
+detect-secrets scan --update .secrets.baseline         # mettre a jour la baseline
+cd voter-app && npm test -- --coverage                 # coverage frontend
+cd flask_voter_app && python -m pytest tests --cov=app  # coverage backend
+pip-audit --requirement flask_voter_app/requirements.txt # CVE Python
 ```

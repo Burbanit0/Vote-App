@@ -1,0 +1,95 @@
+name: Branch Policy
+
+on:
+  pull_request:
+    branches: [develop, main]
+    types: [opened, synchronize, reopened, edited]
+
+jobs:
+  validate-source:
+    name: Validate branch source and naming
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Check branch naming (PRs to develop)
+        if: github.base_ref == 'develop'
+        run: |
+          SOURCE="${{ github.head_ref }}"
+          ALLOWED="^(feature|feat|fix|bugfix|hotfix|refactor|chore|docs|test|ci|perf)/.+"
+
+          echo "Source branch : $SOURCE"
+          echo "Target branch : develop"
+
+          if [[ ! "$SOURCE" =~ $ALLOWED ]]; then
+            echo ""
+            echo "❌  La branche '$SOURCE' ne peut pas merger dans develop."
+            echo ""
+            echo "Préfixes autorisés :"
+            echo "  feature/  feat/     → nouvelle fonctionnalité"
+            echo "  fix/      bugfix/   → correction de bug"
+            echo "  hotfix/             → correction urgente"
+            echo "  refactor/ chore/    → refactoring / maintenance"
+            echo "  docs/     test/     → documentation / tests"
+            echo "  ci/       perf/     → CI/CD / performance"
+            echo ""
+            echo "Exemple : feature/vote-blanc-toggle"
+            exit 1
+          fi
+
+          echo "✅  Branche valide pour develop : $SOURCE"
+
+      - name: Check source is develop (PRs to main)
+        if: github.base_ref == 'main'
+        run: |
+          SOURCE="${{ github.head_ref }}"
+          echo "Source branch : $SOURCE"
+          echo "Target branch : main"
+
+          if [ "$SOURCE" != "develop" ]; then
+            echo ""
+            echo "❌  Seule la branche 'develop' peut merger dans 'main'."
+            echo "    Branche reçue : '$SOURCE'"
+            echo ""
+            echo "Pour déployer une release :"
+            echo "  1. Vérifier que develop passe tous les tests"
+            echo "  2. Ouvrir une PR develop → main"
+            echo "  3. Lancer le workflow '🚀 Release Vote Lab'"
+            exit 1
+          fi
+
+          echo "✅  Source autorisée pour main : $SOURCE"
+
+      - name: Validate PR title format
+        env:
+          PR_TITLE: ${{ github.event.pull_request.title }}
+        run: |
+          # Conventional commits format: type(scope): description
+          PATTERN="^(feat|fix|docs|chore|refactor|test|ci|perf|style|revert|build|hotfix|security)(\(.+\))?: .{5,}"
+
+          echo "Titre de la PR : $PR_TITLE"
+
+          if [[ ! "$PR_TITLE" =~ $PATTERN ]]; then
+            echo ""
+            echo "⚠️  Le titre de la PR ne respecte pas le format Conventional Commits."
+            echo ""
+            echo "Format attendu : type(scope): description (min 5 car.)"
+            echo ""
+            echo "Types valides :"
+            echo "  feat     → nouvelle fonctionnalité"
+            echo "  fix      → correction de bug"
+            echo "  docs     → documentation"
+            echo "  refactor → refactoring sans changement de comportement"
+            echo "  test     → ajout/modification de tests"
+            echo "  chore    → maintenance, dépendances"
+            echo "  ci       → CI/CD"
+            echo "  perf     → performance"
+            echo "  security → correctif sécurité"
+            echo ""
+            echo "Exemples :"
+            echo "  feat(blank-vote): add competitive rule to scenario builder"
+            echo "  fix(navbar): dark mode background not adapting to theme"
+            echo "  ci: add pre-commit hooks and coverage thresholds"
+            # Warning only — does not block (remove 'exit 1' to enforce)
+          else
+            echo "✅  Titre de PR valide."
+          fi
