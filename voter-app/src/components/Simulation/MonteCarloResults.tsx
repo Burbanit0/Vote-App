@@ -28,6 +28,7 @@ import { getMonteCarlo, MonteCarloParams } from '../../services/simulationCompar
 import ResponsiveTable from '../shared/ResponsiveTable';
 import SkeletonCard from '../shared/SkeletonCard';
 import { useChartTheme } from '../../hooks/useChartTheme';
+import EmptyChart from '../shared/EmptyChart';
 
 // ── Constants ──────────────────────────────────────────────────────────────
 
@@ -84,6 +85,7 @@ interface Props {
 
 const MonteCarloResults: React.FC<Props> = ({ baseParams }) => {
   const ct = useChartTheme();
+  const [sortByRegret, setSortByRegret] = useState(false);
   const [numRuns, setNumRuns] = useState(100);
   const [numVoters, setNumVoters] = useState(baseParams.num_voters ?? 150);
   const [ideologyDist, setIdeologyDist] = useState(baseParams.ideology_distribution ?? 'random');
@@ -128,18 +130,17 @@ const MonteCarloResults: React.FC<Props> = ({ baseParams }) => {
     [candidateNames]
   );
 
-  // Bar chart data: regret mean + error value
-  const regretBarData = useMemo(
-    () =>
-      methodNames.map((m) => {
-        const s = result!.methods[m];
-        const ci = s.bayesian_regret_ci_95;
-        const mean = s.bayesian_regret_mean ?? 0;
-        const errorVal = ci[1] != null ? ci[1] - mean : 0;
-        return { method: METHOD_LABELS[m] ?? m, regret: mean, errorVal };
-      }),
-    [result, methodNames]
-  );
+  // Bar chart data: regret mean + error value, optionally sorted
+  const regretBarData = useMemo(() => {
+    const data = methodNames.map((m) => {
+      const s = result!.methods[m];
+      const ci = s.bayesian_regret_ci_95;
+      const mean = s.bayesian_regret_mean ?? 0;
+      const errorVal = ci[1] != null ? ci[1] - mean : 0;
+      return { method: METHOD_LABELS[m] ?? m, regret: mean, errorVal };
+    });
+    return sortByRegret ? [...data].sort((a, b) => a.regret - b.regret) : data;
+  }, [result, methodNames, sortByRegret]);
 
   // Stability table sorted ascending (most stable first)
   const stabilityRows = useMemo(
@@ -258,15 +259,25 @@ const MonteCarloResults: React.FC<Props> = ({ baseParams }) => {
 
           {/* 1. Regret bar chart with CI error bars */}
           <Card className="mb-4">
-            <Card.Header>
-              <strong>Régret bayésien avec intervalles de confiance à 95%</strong>
-              <span className="text-muted ms-2" style={{ fontSize: '0.85rem' }}>
-                — barres d'erreur = ±1.96 σ / √n
-              </span>
+            <Card.Header className="d-flex align-items-center justify-content-between flex-wrap gap-2">
+              <div>
+                <strong>Régret bayésien avec intervalles de confiance à 95%</strong>
+                <span className="text-muted ms-2" style={{ fontSize: '0.85rem' }}>
+                  — barres d'erreur = ±1.96 σ / √n
+                </span>
+              </div>
+              <Button
+                size="sm"
+                variant={sortByRegret ? 'secondary' : 'outline-secondary'}
+                onClick={() => setSortByRegret(!sortByRegret)}
+                style={{ fontSize: '0.78rem' }}
+              >
+                {sortByRegret ? '↕ Ordre original' : '↑ Trier par regret'}
+              </Button>
             </Card.Header>
             <Card.Body>
-              <ResponsiveContainer width="100%" height={360}>
-                <BarChart data={regretBarData} margin={{ bottom: 80, left: 10, right: 10 }}>
+              <ResponsiveContainer width="100%" height={380}>
+                <BarChart data={regretBarData} margin={{ top: 10, bottom: 80, left: 10, right: 10 }}>
                   <CartesianGrid strokeDasharray="3 3" stroke={ct.gridStroke} />
                   <XAxis
                     dataKey="method"
@@ -283,9 +294,9 @@ const MonteCarloResults: React.FC<Props> = ({ baseParams }) => {
                     ))}
                     <ErrorBar
                       dataKey="errorVal"
-                      width={4}
-                      strokeWidth={2}
-                      stroke="#dc3545"
+                      width={6}
+                      strokeWidth={3}
+                      stroke="#e15759"
                       direction="y"
                     />
                   </Bar>

@@ -25,6 +25,7 @@ import { BandwagonResult } from '../../types';
 import { getBandwagonAnalysis, BandwagonParams } from '../../services/simulationCompareApi';
 import SkeletonCard from '../shared/SkeletonCard';
 import { useChartTheme } from '../../hooks/useChartTheme';
+import EmptyChart from '../shared/EmptyChart';
 
 // ── Constants ──────────────────────────────────────────────────────────────
 
@@ -121,6 +122,19 @@ const BandwagonAnalysis: React.FC<Props> = ({ baseParams }) => {
       Object.entries(r.methods).map(([m, d]) => [METHOD_LABELS[m] ?? m, d.bayesian_regret])
     ),
   })) ?? [];
+
+  // Breakpoints: rounds where the poll leader changes
+  const pollBreakpoints: { round: string; to: string }[] = result
+    ? result.rounds.slice(1).reduce<{ round: string; to: string }[]>((acc, r, i) => {
+        const prev = result.rounds[i].poll_standings;
+        const curr = r.poll_standings;
+        const prevLeader = Object.entries(prev).sort((a, b) => b[1] - a[1])[0]?.[0];
+        const currLeader = Object.entries(curr).sort((a, b) => b[1] - a[1])[0]?.[0];
+        if (prevLeader !== currLeader && currLeader)
+          acc.push({ round: `R${r.round}`, to: currLeader });
+        return acc;
+      }, [])
+    : [];
 
   // ── Render ─────────────────────────────────────────────────────────────
 
@@ -222,7 +236,22 @@ const BandwagonAnalysis: React.FC<Props> = ({ baseParams }) => {
                   />
                   <Tooltip formatter={(v: number) => `${(v * 100).toFixed(1)}%`} contentStyle={ct.tooltipStyle} />
                   <Legend wrapperStyle={{ fontSize: 11 }} />
-                  <ReferenceLine y={0.5} stroke="#ccc" strokeDasharray="4 2" />
+                  <ReferenceLine y={0.5} stroke={ct.refStroke} strokeDasharray="4 2" />
+                  {/* Breakpoint annotations — rounds where poll leader changes */}
+                  {pollBreakpoints.map((bp) => (
+                    <ReferenceLine
+                      key={bp.round}
+                      x={bp.round}
+                      stroke="#f28e2b"
+                      strokeDasharray="3 2"
+                      label={{
+                        value: `↝ ${bp.to}`,
+                        fontSize: 8,
+                        fill: '#f28e2b',
+                        position: 'insideTopRight',
+                      }}
+                    />
+                  ))}
                   {candidateNames.map((name, i) => (
                     <Line
                       key={name}
@@ -257,18 +286,22 @@ const BandwagonAnalysis: React.FC<Props> = ({ baseParams }) => {
                     verticalAlign="bottom"
                     wrapperStyle={{ paddingTop: 10, fontSize: 10 }}
                   />
-                  {methodNames.map((method, i) => (
+                  {methodNames.map((method, i) => {
+                    const isPlurality = method === 'plurality';
+                    return (
                     <Line
                       key={method}
                       type="monotone"
                       dataKey={METHOD_LABELS[method] ?? method}
-                      stroke={METHOD_COLORS[i % METHOD_COLORS.length]}
-                      strokeWidth={method === 'plurality' ? 2.5 : 1.5}
+                      stroke={isPlurality ? '#dc3545' : METHOD_COLORS[i % METHOD_COLORS.length]}
+                      strokeWidth={isPlurality ? 3 : 1.5}
                       dot={false}
-                      activeDot={{ r: 4 }}
+                      activeDot={{ r: isPlurality ? 5 : 3 }}
                       connectNulls
+                      zIndex={isPlurality ? 10 : 1}
                     />
-                  ))}
+                    );
+                  })}
                 </LineChart>
               </ResponsiveContainer>
             </Card.Body>
