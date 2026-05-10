@@ -43,5 +43,3 @@ jobs:
       - name: Build
         run: npm run build
         working-directory: ./voter-app
-        env:
-          CI: 'false'            # CRA treats warnings as errors when CI=true; relax for build
