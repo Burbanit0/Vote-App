@@ -27,10 +27,10 @@ const Navbar: React.FC = () => {
   return (
     <BootstrapNavbar
       data-tour="navbar"
-      bg="white"
       expand="lg"
       className="border-bottom shadow-sm"
       sticky="top"
+      style={{ backgroundColor: 'var(--bs-body-bg)', borderColor: 'var(--bs-border-color)' }}
     >
       <Container>
         {/* Brand */}
@@ -114,8 +114,8 @@ const Navbar: React.FC = () => {
                   width: 30,
                   height: 30,
                   borderRadius: '50%',
-                  border: '1.5px solid #6c757d',
-                  color: '#6c757d',
+                  border: '1.5px solid var(--bs-secondary-color, #6c757d)',
+                  color: 'var(--bs-secondary-color, #6c757d)',
                   fontWeight: 700,
                   fontSize: '0.85rem',
                   lineHeight: 1,
