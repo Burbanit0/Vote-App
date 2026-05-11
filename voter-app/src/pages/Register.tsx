@@ -3,6 +3,7 @@ import { registerUser } from '../services/';
 import { Form, Button, Container, Row, Col, Alert } from 'react-bootstrap';
 import { AxiosError } from 'axios';
 import { useNavigate } from 'react-router';
+import { useTranslation } from 'react-i18next';
 
 const Register: React.FC = () => {
   const [username, setUsername] = useState('');
@@ -11,16 +12,13 @@ const Register: React.FC = () => {
   const [role, setRole] = useState<'User' | 'Admin'>('User');
   const [firstName, setFirstName] = useState('');
   const [lastName, setLastName] = useState('');
-
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(false);
-
   const navigate = useNavigate();
+  const { t } = useTranslation();
 
-  interface ApiErrorResponse {
-    msg: string;
-  }
+  interface ApiErrorResponse { msg: string; }
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -29,23 +27,20 @@ const Register: React.FC = () => {
     setIsLoading(true);
 
     if (password !== confirmPassword) {
-      setError('Passwords do not match');
+      setError(t('auth.passwordMismatch'));
+      setIsLoading(false);
+      return;
     }
     try {
       const response = await registerUser(username, password, role, firstName, lastName);
-      setSuccess('Registration successful! Redirecting to homepage...');
+      setSuccess(t('auth.registerSuccess'));
       setIsLoading(false);
-      if (response) {
-        localStorage.setItem('user', JSON.stringify(response));
-      }
-      setTimeout(() => {
-        navigate('/');
-      }, 1500);
-    } catch (error) {
-      const axiosError = error as AxiosError<ApiErrorResponse>;
-      setError(axiosError.response?.data?.msg || 'Registration failed. Please try again.');
+      if (response) localStorage.setItem('user', JSON.stringify(response));
+      setTimeout(() => navigate('/'), 1500);
+    } catch (err) {
+      const axiosError = err as AxiosError<ApiErrorResponse>;
+      setError(axiosError.response?.data?.msg || t('auth.registerFailed'));
       setIsLoading(false);
-      return;
     }
   };
 
@@ -53,6 +48,7 @@ const Register: React.FC = () => {
     <Container className="mt-5">
       <Row className="justify-content-center">
         <Col md={6} lg={4}>
+          <h2 className="text-center mb-4">{t('auth.registerTitle')}</h2>
           {error && (
             <Alert variant="danger" onClose={() => setError(null)} dismissible>
               {error}
@@ -60,84 +56,41 @@ const Register: React.FC = () => {
           )}
           {success && <Alert variant="success">{success}</Alert>}
           <Form onSubmit={handleSubmit}>
-            <Form.Group controlId="formUsername">
-              <Form.Label>Username</Form.Label>
-              <Form.Control
-                type="text"
-                value={username}
-                onChange={(e) => setUsername(e.target.value)}
-                placeholder="Enter username"
-                required
-              />
+            <Form.Group controlId="formUsername" className="mb-3">
+              <Form.Label>{t('auth.usernameLabel')}</Form.Label>
+              <Form.Control type="text" value={username} onChange={(e) => setUsername(e.target.value)} placeholder={t('auth.usernamePlaceholder')} required />
             </Form.Group>
-            <Form.Group controlId="formPassword">
-              <Form.Label>Password</Form.Label>
-              <Form.Control
-                type="password"
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                placeholder="Password"
-                required
-              />
+            <Form.Group controlId="formPassword" className="mb-3">
+              <Form.Label>{t('auth.passwordLabel')}</Form.Label>
+              <Form.Control type="password" value={password} onChange={(e) => setPassword(e.target.value)} placeholder={t('auth.passwordPlaceholder')} required />
             </Form.Group>
-            <Form.Group>
-              <Form.Label>Confirm Password</Form.Label>
-              <Form.Control
-                type="password"
-                value={confirmPassword}
-                onChange={(e) => setConfirmPassword(e.target.value)}
-                placeholder="Confirm Password"
-                required
-              ></Form.Control>
+            <Form.Group className="mb-3">
+              <Form.Label>{t('auth.confirmPassword')}</Form.Label>
+              <Form.Control type="password" value={confirmPassword} onChange={(e) => setConfirmPassword(e.target.value)} placeholder={t('auth.confirmPasswordPlaceholder')} required />
             </Form.Group>
-            <Form.Group controlId="formRole">
-              <Form.Label>Role</Form.Label>
-              <Form.Control
-                as="select"
-                value={role}
-                onChange={(e) => setRole(e.target.value as 'User' | 'Admin')}
-              >
+            <Form.Group controlId="formRole" className="mb-3">
+              <Form.Label>{t('auth.roleLabel')}</Form.Label>
+              <Form.Control as="select" value={role} onChange={(e) => setRole(e.target.value as 'User' | 'Admin')}>
                 <option value="User">User</option>
                 <option value="Admin">Admin</option>
               </Form.Control>
             </Form.Group>
             {role === 'User' && (
               <>
-                <Form.Group controlId="formFirstName">
-                  <Form.Label>First Name</Form.Label>
-                  <Form.Control
-                    type="text"
-                    value={firstName}
-                    onChange={(e) => setFirstName(e.target.value)}
-                    placeholder="Enter first name"
-                    required
-                  />
+                <Form.Group controlId="formFirstName" className="mb-3">
+                  <Form.Label>{t('auth.firstNameLabel')}</Form.Label>
+                  <Form.Control type="text" value={firstName} onChange={(e) => setFirstName(e.target.value)} placeholder={t('auth.firstNamePlaceholder')} required />
                 </Form.Group>
-                <Form.Group controlId="formLastName">
-                  <Form.Label>Last Name</Form.Label>
-                  <Form.Control
-                    type="text"
-                    value={lastName}
-                    onChange={(e) => setLastName(e.target.value)}
-                    placeholder="Enter last name"
-                    required
-                  />
+                <Form.Group controlId="formLastName" className="mb-3">
+                  <Form.Label>{t('auth.lastNameLabel')}</Form.Label>
+                  <Form.Control type="text" value={lastName} onChange={(e) => setLastName(e.target.value)} placeholder={t('auth.lastNamePlaceholder')} required />
                 </Form.Group>
               </>
             )}
             <Button variant="primary" type="submit" disabled={isLoading} className="mt-3 w-100">
               {isLoading ? (
-                <>
-                  <span
-                    className="spinner-border spinner-border-sm"
-                    role="status"
-                    aria-hidden="true"
-                  ></span>
-                  Registering...
-                </>
-              ) : (
-                'Register'
-              )}
+                <><span className="spinner-border spinner-border-sm me-2" role="status" aria-hidden="true" />{t('auth.registering')}</>
+              ) : t('auth.registerBtn')}
             </Button>
           </Form>
         </Col>
