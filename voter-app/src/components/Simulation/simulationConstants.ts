@@ -1,12 +1,21 @@
+import { useTranslation } from 'react-i18next';
 import { SimulationCompareResult } from '../../types';
 
 export const CANDIDATE_PALETTE = ['#4e79a7', '#f28e2b', '#e15759', '#76b7b2', '#59a14f', '#edc948'];
 
+// Static keys — used as fallback IDs and in non-React contexts (report generation, CSV export)
+export const METHOD_KEYS = [
+  'plurality', 'two_round', 'borda', 'approval', 'irv', 'coombs', 'bucklin',
+  'minimax', 'schulze', 'kemeny_young', 'condorcet', 'positional_score',
+  'simple_score', 'star_voting', 'median_voting', 'mean_median_hybrid', 'variance_based',
+] as const;
+
+// Fallback labels used in non-React contexts (report HTML, CSV, buildConclusion)
 export const METHOD_LABELS: Record<string, string> = {
-  plurality:          'Pluralité',
-  two_round:          'Deux tours',
+  plurality:          'Plurality',
+  two_round:          'Two-Round',
   borda:              'Borda',
-  approval:           'Approbation',
+  approval:           'Approval',
   irv:                'IRV',
   coombs:             "Coombs'",
   bucklin:            'Bucklin',
@@ -14,12 +23,12 @@ export const METHOD_LABELS: Record<string, string> = {
   schulze:            'Schulze',
   kemeny_young:       'Kemeny-Young',
   condorcet:          'Condorcet',
-  positional_score:   'Score positionnel',
-  simple_score:       'Score simple',
+  positional_score:   'Positional score',
+  simple_score:       'Simple score',
   star_voting:        'STAR',
-  median_voting:      'Score médian',
-  mean_median_hybrid: 'Moy.-Médiane',
-  variance_based:     'Variance',
+  median_voting:      'Median score',
+  mean_median_hybrid: 'Mean-Median',
+  variance_based:     'Variance-based',
 };
 
 export const METHOD_LINE_COLORS: Record<string, string> = {
@@ -42,46 +51,31 @@ export const METHOD_LINE_COLORS: Record<string, string> = {
 
 export const STRATEGIC_PERCENTAGES = [0, 10, 20, 30, 40, 50];
 
-export const METHOD_PROS: Record<string, string> = {
-  plurality:          'Simple et universellement compris — un électeur, une voix.',
-  two_round:          'Garantit que le vainqueur affronte un adversaire direct au second tour.',
-  borda:              'Récompense les candidats largement appréciés, pas seulement les premiers choix.',
-  approval:           'Élimine l\'effet spoiler — approuver plusieurs candidats ne pénalise personne.',
-  irv:                'Garantit un vainqueur avec soutien majoritaire après éliminations successives.',
-  coombs:             'Élit des candidats plus centristes qu\'IRV en éliminant d\'abord le plus rejeté.',
-  bucklin:            'Hybride classement/approbation qui converge rapidement vers un vainqueur majoritaire.',
-  minimax:            'Le vainqueur est celui dont la pire défaite pairwise est la moins mauvaise.',
-  schulze:            'Satisfait Condorcet, monotonie et de nombreux autres critères — très robuste.',
-  kemeny_young:       'Théoriquement optimal : maximise le consensus global sur le classement complet.',
-  condorcet:          'Élit le candidat qui bat chacun des autres en duel direct, s\'il existe.',
-  positional_score:   'Attribue des points selon la position dans les classements — simple et expressif.',
-  simple_score:       'Très expressif — les électeurs nuancent leur soutien avec des notes chiffrées.',
-  star_voting:        'Combine expressivité du score et résistance à la polarisation via un second tour automatique.',
-  median_voting:      'Résistant à l\'exagération — un électeur extrême ne déplace pas la médiane.',
-  mean_median_hybrid: 'Equilibre l\'expressivité de la moyenne et la robustesse de la médiane (50/50).',
-  variance_based:     'Pénalise les candidats polarisants — favorise un soutien large et régulier.',
-};
+// ── Translated method metadata hook ───────────────────────────────────────────
+// Use this inside React components instead of the static constants below.
 
-export const METHOD_CONS: Record<string, string> = {
-  plurality:          'Crée l\'effet spoiler : un candidat similaire peut faire perdre votre favori.',
-  two_round:          'Incite au vote stratégique dès le premier tour pour "se qualifier".',
-  borda:              'Vulnérable au "vote enterrement" : placer délibérément un rival en dernière position.',
-  approval:           'Le résultat dépend du seuil d\'approbation que chaque électeur se fixe.',
-  irv:                'Non-monotone : promouvoir un candidat peut paradoxalement le faire perdre.',
-  coombs:             'Sensible aux cycles de Condorcet et aux résultats contre-intuitifs.',
-  bucklin:            'Peu utilisé en pratique et peu étudié empiriquement.',
-  minimax:            'Ne satisfait pas toujours le critère du vainqueur de Condorcet.',
-  schulze:            'Complexe à expliquer aux électeurs et difficile à auditer manuellement.',
-  kemeny_young:       'Calcul exponentiel O(n!) — inutilisable dès 6 candidats ou plus.',
-  condorcet:          'N\'a pas toujours de vainqueur — les cycles rendent la décision impossible.',
-  positional_score:   'Le résultat dépend du nombre de candidats (ajout d\'un candidat modifie les scores).',
-  simple_score:       'La stratégie dominante est l\'exagération : 5 au préféré, 0 à tous les autres.',
-  star_voting:        'Moins intuitif que le vote classique — deux étapes à expliquer aux électeurs.',
-  median_voting:      'Peut élire un candidat avec médiane haute mais peu de supporters enthousiastes.',
-  mean_median_hybrid: 'La pondération 50/50 est arbitraire et difficile à justifier démocratiquement.',
-  variance_based:     'Contre-intuitif : un candidat aimé passionnément par certains peut être pénalisé.',
-};
+export function useMethodLabels(): Record<string, string> {
+  const { t } = useTranslation();
+  return Object.fromEntries(
+    METHOD_KEYS.map((k) => [k, t(`methods.${k}.label`, { defaultValue: METHOD_LABELS[k] })])
+  );
+}
 
+export function useMethodPros(): Record<string, string> {
+  const { t } = useTranslation();
+  return Object.fromEntries(
+    METHOD_KEYS.map((k) => [k, t(`methods.${k}.pro`, { defaultValue: '' })])
+  );
+}
+
+export function useMethodCons(): Record<string, string> {
+  const { t } = useTranslation();
+  return Object.fromEntries(
+    METHOD_KEYS.map((k) => [k, t(`methods.${k}.con`, { defaultValue: '' })])
+  );
+}
+
+// Descriptions stay in English (they're already English in the original constants)
 export const METHOD_DESCRIPTIONS: Record<string, string> = {
   plurality:
     'Each voter votes for one candidate; the most votes wins. Simple, but vulnerable to vote-splitting: a similar candidate entering the race can reverse the outcome (spoiler effect).',
@@ -115,12 +109,53 @@ export const METHOD_DESCRIPTIONS: Record<string, string> = {
     'Score = mean − 0.5 × std_dev. Penalises polarising candidates who score high with some voters but low with others, favouring consistent broad support.',
 };
 
+// Keep static pros/cons as English fallbacks for non-React contexts
+export const METHOD_PROS: Record<string, string> = {
+  plurality:          'Simple and universally understood — one voter, one vote.',
+  two_round:          'Ensures the winner faces a direct opponent in the runoff.',
+  borda:              'Rewards broadly appreciated candidates, not just first choices.',
+  approval:           'Eliminates the spoiler effect — approving multiple candidates penalises nobody.',
+  irv:                'Guarantees a winner with majority support after successive eliminations.',
+  coombs:             'Elects more centrist candidates than IRV by eliminating the most-rejected first.',
+  bucklin:            'Ranking/approval hybrid that quickly converges to a majority winner.',
+  minimax:            'The winner is the candidate whose worst pairwise defeat is the least bad.',
+  schulze:            'Satisfies Condorcet, monotonicity and many other criteria — very robust.',
+  kemeny_young:       'Theoretically optimal: maximises global consensus on the complete ranking.',
+  condorcet:          'Elects the candidate who beats each other in a direct duel, if one exists.',
+  positional_score:   'Assigns points by rank position — simple and expressive.',
+  simple_score:       'Very expressive — voters nuance their support with numeric ratings.',
+  star_voting:        'Combines score expressivity with resistance to polarisation via automatic runoff.',
+  median_voting:      'Resistant to exaggeration — one extreme voter cannot shift the median as easily.',
+  mean_median_hybrid: 'Balances the expressivity of the mean and robustness of the median (50/50).',
+  variance_based:     'Penalises polarising candidates — favours broad and consistent support.',
+};
+
+export const METHOD_CONS: Record<string, string> = {
+  plurality:          'Creates the spoiler effect: a similar candidate can make your favourite lose.',
+  two_round:          'Incentivises strategic voting in round 1 to "qualify".',
+  borda:              'Vulnerable to "burial": deliberately ranking a rival last to minimise their score.',
+  approval:           'The result depends on the approval threshold each voter sets for themselves.',
+  irv:                'Non-monotone: promoting a candidate can paradoxically make them lose.',
+  coombs:             'Sensitive to Condorcet cycles and counter-intuitive outcomes.',
+  bucklin:            'Rarely used in practice and little studied empirically.',
+  minimax:            'Does not always satisfy the Condorcet winner criterion.',
+  schulze:            'Complex to explain to voters and hard to audit manually.',
+  kemeny_young:       'Exponential O(n!) computation — unusable with 6 or more candidates.',
+  condorcet:          'Does not always have a winner — cycles make the decision impossible.',
+  positional_score:   'Result depends on the number of candidates (adding one shifts all scores).',
+  simple_score:       'Dominant strategy is exaggeration: 5 to your favourite, 0 to everyone else.',
+  star_voting:        'Less intuitive than classic voting — two steps to explain to voters.',
+  median_voting:      'Can elect a candidate with a high median but few enthusiastic supporters.',
+  mean_median_hybrid: 'The 50/50 weighting is arbitrary and hard to justify democratically.',
+  variance_based:     'Counter-intuitive: a passionately loved candidate can be penalised.',
+};
+
 export const IDEOLOGY_OPTIONS = [
-  { value: 'random', label: 'Random' },
-  { value: 'centrist', label: 'Centrist' },
-  { value: 'polarized', label: 'Polarized' },
-  { value: 'left_skewed', label: 'Left-skewed' },
-  { value: 'right_skewed', label: 'Right-skewed' },
+  { value: 'random',      labelKey: 'ideology.random' },
+  { value: 'centrist',    labelKey: 'ideology.centrist' },
+  { value: 'polarized',   labelKey: 'ideology.polarized' },
+  { value: 'left_skewed', labelKey: 'ideology.left_skewed' },
+  { value: 'right_skewed',labelKey: 'ideology.right_skewed' },
 ];
 
 export interface ScenarioConfig {

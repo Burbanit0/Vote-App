@@ -38,6 +38,8 @@ import { deleteScenario, listScenarios, saveScenario } from '../services/scenari
 import { buildShareURL, copyShareURL, decodeShareConfig, encodeShareConfig, readShareParam } from '../utils/shareUtils';
 import { useExpertMode } from '../context/ExpertModeContext';
 import { useMetaTags } from '../hooks/useMetaTags';
+import { useTranslation } from 'react-i18next';
+import { useMethodLabels } from '../components/Simulation/simulationConstants';
 
 // ── Presentation mode ──────────────────────────────────────────────────────
 
@@ -50,18 +52,6 @@ const BEGINNER_TABS = ['winners', 'metrics', 'strategic', 'real-elections', 'mon
 
 const BEGINNER_METHODS = ['plurality', 'borda', 'irv', 'schulze', 'approval'];
 
-const TAB_LABELS: Record<string, string> = {
-  winners:          'Matrice des vainqueurs',
-  metrics:          'Métriques',
-  strategic:        'Impact stratégique',
-  condorcet:        'Matrice de Condorcet',
-  arrow:            "Critères d'Arrow",
-  bandwagon:        'Effet bandwagon',
-  montecarlo:       'Monte Carlo',
-  'real-elections': 'Élections réelles',
-  multiwinner:      'Multi-gagnants',
-  sensitivity:      'Sensibilité',
-};
 
 // ── Report generation ──────────────────────────────────────────────────────
 
@@ -209,6 +199,22 @@ interface SharedConfig {
 }
 
 const SimulationComparePage: React.FC = () => {
+  const { t } = useTranslation();
+  const methodLabels = useMethodLabels();
+
+  const TAB_LABELS: Record<string, string> = {
+    winners:          t('simulation.tabs.winners'),
+    metrics:          t('simulation.tabs.metrics'),
+    strategic:        t('simulation.tabs.strategic'),
+    condorcet:        t('simulation.tabs.condorcet'),
+    arrow:            t('simulation.tabs.arrow'),
+    bandwagon:        t('simulation.tabs.bandwagon'),
+    montecarlo:       t('simulation.tabs.montecarlo'),
+    'real-elections': t('simulation.tabs.realElections'),
+    multiwinner:      t('simulation.tabs.multiwinner'),
+    sensitivity:      t('simulation.tabs.sensitivity'),
+  };
+
   // ── Scenario config ──
   const [numSimulations, setNumSimulations] = useState(10);
   const [configA, setConfigA] = useState<ScenarioConfig>({
@@ -305,8 +311,8 @@ const SimulationComparePage: React.FC = () => {
 
   // ── Run analysis ──
   const runAnalysis = async () => {
-    if (candidateNamesA.length < 2) { toast.error('Le scénario A nécessite au moins 2 candidats.'); return; }
-    if (scenarioCount === 2 && candidateNamesB.length < 2) { toast.error('Le scénario B nécessite au moins 2 candidats.'); return; }
+    if (candidateNamesA.length < 2) { toast.error(t('simulation.errMinCandA')); return; }
+    if (scenarioCount === 2 && candidateNamesB.length < 2) { toast.error(t('simulation.errMinCandB')); return; }
     setLoading(true);
     try {
       const paramsA = { num_voters: configA.numVoters, candidates: candidateNamesA, ideology_distribution: configA.ideology_distribution };
@@ -325,7 +331,7 @@ const SimulationComparePage: React.FC = () => {
       setArrowData(arrowResult);
       setResultsB(simResultsB);
     } catch {
-      toast.error('Analyse échouée. Vérifiez que le backend est démarré et les endpoints accessibles.');
+      toast.error(t('simulation.errBackend'));
     } finally {
       setLoading(false);
     }
@@ -383,7 +389,7 @@ const SimulationComparePage: React.FC = () => {
     try {
       await saveScenario(saveName.trim(), { numSimulations, configA, configB, scenarioCount }, { comparisonResults, strategicData, condorcetData, resultsB });
       setShowSaveModal(false); setSaveName('');
-      toast.success('Scénario sauvegardé ✓');
+      toast.success(t('simulation.scenarioSaved'));
     } finally { setSaving(false); }
   };
 
@@ -407,7 +413,7 @@ const SimulationComparePage: React.FC = () => {
       if ('resultsB' in res) setResultsB(res.resultsB);
     }
     setShowLoadModal(false);
-    toast.success('Scénario chargé ✓');
+    toast.success(t('simulation.scenarioLoaded'));
   };
 
   const handleDelete = async (id: number) => {
@@ -436,11 +442,11 @@ const SimulationComparePage: React.FC = () => {
   // ── Meta tags — updated after simulation ──────────────────────────────────
   useMetaTags({
     title: simulationSummary?.bestM
-      ? `${configA.candidateInput} — ${METHOD_LABELS[simulationSummary.bestM] ?? simulationSummary.bestM} plus robuste — Vote Lab`
-      : 'Vote Lab — Analyse comparative des méthodes de vote',
+      ? `${configA.candidateInput} — ${methodLabels[simulationSummary.bestM] ?? simulationSummary.bestM} — Vote Lab`
+      : `Vote Lab — ${t('simulation.pageTitle')}`,
     description: hasResults
-      ? `${allMethodNames.length} méthodes sur ${configA.numVoters} électeurs. ${simulationSummary?.divergences ?? 0} méthodes divergent sur le vainqueur.`
-      : '15 méthodes de vote comparées. Regret bayésien, Condorcet, vulnérabilité stratégique.',
+      ? `${allMethodNames.length} methods · ${configA.numVoters} voters · ${simulationSummary?.divergences ?? 0} divergences`
+      : '15 voting methods compared. Bayesian regret, Condorcet, strategic vulnerability.',
   });
 
   // ── Share report handler ──────────────────────────────────────────────────
@@ -466,12 +472,12 @@ const SimulationComparePage: React.FC = () => {
       {/* Header */}
       <div className="d-flex align-items-center justify-content-between px-4 py-2" style={{ background: '#0d6efd', color: 'white', flexShrink: 0 }}>
         <div className="d-flex align-items-center gap-2">
-          <span className="fw-semibold">🎓 Mode présentation</span>
+          <span className="fw-semibold">{t('simulation.presentationMode')}</span>
           <Badge bg="light" text="dark">{presentationTabIndex + 1} / {TAB_ORDER.length}</Badge>
         </div>
         <span className="fw-bold" style={{ fontSize: '1rem' }}>{TAB_LABELS[TAB_ORDER[presentationTabIndex]]}</span>
         <Button variant="outline-light" size="sm" onClick={() => setPresentationMode(false)}>
-          ✕ Quitter <kbd style={{ fontSize: '0.7rem', opacity: 0.7 }}>Échap</kbd>
+          ✕ {t('simulation.quit')} <kbd style={{ fontSize: '0.7rem', opacity: 0.7 }}>{t('simulation.quitHint')}</kbd>
         </Button>
       </div>
 
@@ -486,7 +492,7 @@ const SimulationComparePage: React.FC = () => {
       {/* Footer navigation */}
       <div className="d-flex align-items-center justify-content-between px-4 py-3 border-top" style={{ flexShrink: 0 }}>
         <Button variant="outline-secondary" disabled={presentationTabIndex === 0} onClick={() => setPresentationTabIndex((i) => i - 1)}>
-          ← Précédent
+          {t('simulation.prev')}
         </Button>
         <div className="d-flex gap-1">
           {TAB_ORDER.map((t, i) => (
@@ -501,7 +507,7 @@ const SimulationComparePage: React.FC = () => {
           ))}
         </div>
         <Button variant="outline-secondary" disabled={presentationTabIndex === TAB_ORDER.length - 1} onClick={() => setPresentationTabIndex((i) => i + 1)}>
-          Suivant →
+          {t('simulation.next')}
         </Button>
       </div>
     </div>
@@ -513,32 +519,25 @@ const SimulationComparePage: React.FC = () => {
       {PresentationOverlay}
 
       <Container className="py-4">
-        <h2 className="mb-1">Analyse comparative des méthodes de vote</h2>
-        <p className="text-muted mb-3">
-          Lancez plusieurs simulations sur la même population et comparez comment chaque méthode de vote
-          se comporte. Ajoutez un second scénario pour étudier l'effet spoiler ou les violations de l'IIA.
-        </p>
+        <h2 className="mb-1">{t('simulation.pageTitle')}</h2>
+        <p className="text-muted mb-3">{t('simulation.pageSubtitle')}</p>
 
         <div className="d-flex gap-2 mb-4 flex-wrap">
-          <Button variant="outline-secondary" size="sm" onClick={handleOpenLoadModal}>📂 Charger</Button>
+          <Button variant="outline-secondary" size="sm" onClick={handleOpenLoadModal}>{t('simulation.load')}</Button>
           <Button variant={linkCopied ? 'success' : 'outline-info'} size="sm" onClick={copyShareLink}>
-            {linkCopied ? '✓ Lien copié !' : '🔗 Partager'}
+            {linkCopied ? t('simulation.linkCopied') : t('simulation.share')}
           </Button>
           {hasResults && (
             <>
-              <Button variant="outline-success" size="sm" onClick={() => { setSaveName(''); setShowSaveModal(true); }}>💾 Sauvegarder</Button>
-              <Button variant="outline-primary" size="sm" onClick={exportJSON}>⬇ JSON</Button>
-              <Button variant="outline-primary" size="sm" onClick={exportCSV}>⬇ CSV</Button>
-              <Button variant="outline-warning" size="sm" onClick={exportReport}>📄 Rapport PDF</Button>
-              <Button
-                variant={reportCopied ? 'success' : 'outline-secondary'}
-                size="sm"
-                onClick={shareReport}
-              >
-                {reportCopied ? '✓ Lien rapport copié !' : '📤 Partager ce rapport'}
+              <Button variant="outline-success" size="sm" onClick={() => { setSaveName(''); setShowSaveModal(true); }}>{t('simulation.save')}</Button>
+              <Button variant="outline-primary" size="sm" onClick={exportJSON}>{t('simulation.exportJson')}</Button>
+              <Button variant="outline-primary" size="sm" onClick={exportCSV}>{t('simulation.exportCsv')}</Button>
+              <Button variant="outline-warning" size="sm" onClick={exportReport}>{t('simulation.exportPdf')}</Button>
+              <Button variant={reportCopied ? 'success' : 'outline-secondary'} size="sm" onClick={shareReport}>
+                {reportCopied ? t('simulation.reportCopied') : t('simulation.shareReport')}
               </Button>
               <Button variant="outline-dark" size="sm" onClick={() => { setPresentationTabIndex(0); setPresentationMode(true); }}>
-                🎓 Présentation
+                {t('simulation.presentation')}
               </Button>
             </>
           )}
@@ -547,22 +546,22 @@ const SimulationComparePage: React.FC = () => {
         {/* ── Configuration ── */}
         <Card className="mb-4">
           <Card.Header className="d-flex align-items-center justify-content-between">
-            <strong>Configuration</strong>
+            <strong>{t('simulation.configTitle')}</strong>
             {scenarioCount === 1 ? (
-              <Button size="sm" variant="outline-secondary" onClick={() => setScenarioCount(2)}>+ Ajouter le scénario B</Button>
+              <Button size="sm" variant="outline-secondary" onClick={() => setScenarioCount(2)}>{t('simulation.addScenarioB')}</Button>
             ) : (
-              <Button size="sm" variant="outline-danger" onClick={() => { setScenarioCount(1); setResultsB(null); }}>− Supprimer le scénario B</Button>
+              <Button size="sm" variant="outline-danger" onClick={() => { setScenarioCount(1); setResultsB(null); }}>{t('simulation.removeScenarioB')}</Button>
             )}
           </Card.Header>
           <Card.Body>
             <Row className="g-3 align-items-end mb-3">
               <Col md={4}>
-                <Form.Label>Simulations par scénario : <strong>{numSimulations}</strong></Form.Label>
+                <Form.Label>{t('simulation.simulationsLabel')} <strong>{numSimulations}</strong></Form.Label>
                 <Form.Range min={5} max={20} value={numSimulations} onChange={(e) => setNumSimulations(Number(e.target.value))} />
               </Col>
               <Col md={2}>
                 <Button variant="primary" className="w-100" onClick={runAnalysis} disabled={loading}>
-                  {loading ? <><Spinner size="sm" className="me-2" />Analyse…</> : 'Lancer l\'analyse'}
+                  {loading ? <><Spinner size="sm" className="me-2" />{t('simulation.running')}</> : t('simulation.runAnalysis')}
                 </Button>
               </Col>
             </Row>
@@ -570,8 +569,8 @@ const SimulationComparePage: React.FC = () => {
               <ScenarioConfigRow config={configA} onChange={(p) => setConfigA((c) => ({ ...c, ...p }))} />
             ) : (
               <Row className="g-3">
-                <Col md={6}><ScenarioConfigRow config={configA} onChange={(p) => setConfigA((c) => ({ ...c, ...p }))} label="Scénario A" /></Col>
-                <Col md={6}><ScenarioConfigRow config={configB} onChange={(p) => setConfigB((c) => ({ ...c, ...p }))} label="Scénario B" /></Col>
+                <Col md={6}><ScenarioConfigRow config={configA} onChange={(p) => setConfigA((c) => ({ ...c, ...p }))} label={t('simulation.scenarioA')} /></Col>
+                <Col md={6}><ScenarioConfigRow config={configB} onChange={(p) => setConfigB((c) => ({ ...c, ...p }))} label={t('simulation.scenarioB')} /></Col>
               </Row>
             )}
           </Card.Body>
@@ -585,16 +584,21 @@ const SimulationComparePage: React.FC = () => {
           </Row>
         )}
         {!hasResults && !loading && (
-          <Alert variant="info">Configurez la simulation ci-dessus et cliquez sur <strong>Lancer l'analyse</strong> pour générer des résultats.</Alert>
+          <Alert variant="info" dangerouslySetInnerHTML={{ __html: t('simulation.noResults') }} />
         )}
 
         {hasResults && !expertMode && (
           <Alert variant="secondary" className="py-2 mb-3 d-flex align-items-center justify-content-between flex-wrap gap-2">
             <span>
-              <strong>Mode débutant actif</strong> — {BEGINNER_METHODS.length} méthodes sur {comparisonResults.length > 0 ? Object.keys(comparisonResults[0].methods).length : 15} affichées · {BEGINNER_TABS.length} onglets sur {TAB_ORDER.length}
+              <strong>{t('simulation.beginnerBanner')}</strong> — {t('simulation.beginnerBannerDetail', {
+                shown: BEGINNER_METHODS.length,
+                total: comparisonResults.length > 0 ? Object.keys(comparisonResults[0].methods).length : 15,
+                shownTabs: BEGINNER_TABS.length,
+                totalTabs: TAB_ORDER.length,
+              })}
             </span>
             <Button variant="outline-secondary" size="sm" onClick={() => setExpertMode(true)}>
-              Passer en mode Expert →
+              {t('simulation.switchExpert')}
             </Button>
           </Alert>
         )}
@@ -605,58 +609,58 @@ const SimulationComparePage: React.FC = () => {
             onSelect={(k) => { if (k) { setActiveTab(k); if (presentationMode) setPresentationTabIndex(TAB_ORDER.indexOf(k)); }}}
             className="mb-3"
           >
-            <Tab eventKey="winners" title={scenarioCount === 2 ? 'Comparaison de scénarios' : 'Matrice des vainqueurs'}>
+            <Tab eventKey="winners" title={scenarioCount === 2 ? t('simulation.tabs.scenarioComparison') : t('simulation.tabs.winners')}>
               <WinnerMatrixTab comparisonResults={comparisonResults} resultsB={resultsB} allMethodNames={allMethodNames} candidateColorMap={candidateColorMap} configA={configA} configB={configB} numSimulations={numSimulations} scenarioCount={scenarioCount} />
             </Tab>
-            <Tab eventKey="metrics" title="Métriques">
+            <Tab eventKey="metrics" title={t('simulation.tabs.metrics')}>
               <MetricsTab comparisonResults={comparisonResults} allMethodNames={allMethodNames} numSimulations={numSimulations} />
             </Tab>
-            <Tab eventKey="strategic" title="Impact stratégique">
+            <Tab eventKey="strategic" title={t('simulation.tabs.strategic')}>
               <StrategicImpactTab strategicData={strategicData} allMethodNames={allMethodNames} />
             </Tab>
             {visibleTabs.includes('condorcet') && (
-              <Tab eventKey="condorcet" title="Matrice de Condorcet">
+              <Tab eventKey="condorcet" title={t('simulation.tabs.condorcet')}>
                 <Card className="mb-4">
-                  <Card.Header><strong>Matrice de Condorcet</strong><span className="text-muted ms-2" style={{ fontSize: '0.85rem' }}>— préférences pairwise dans la population (Scénario A)</span></Card.Header>
-                  <Card.Body>{condorcetData ? <CondorcetMatrix result={condorcetData} /> : <Alert variant="info">Pas de données Condorcet disponibles.</Alert>}</Card.Body>
+                  <Card.Header><strong>{t('simulation.condorcetHeader')}</strong><span className="text-muted ms-2" style={{ fontSize: '0.85rem' }}>{t('simulation.condorcetSubtitle')}</span></Card.Header>
+                  <Card.Body>{condorcetData ? <CondorcetMatrix result={condorcetData} /> : <Alert variant="info">{t('simulation.condorcetNoData')}</Alert>}</Card.Body>
                 </Card>
               </Tab>
             )}
             {visibleTabs.includes('arrow') && (
               <Tab eventKey="arrow" title={
                 <span>
-                  Critères d'Arrow{' '}
-                  <OverlayTrigger trigger={['hover','focus']} placement="bottom" overlay={<Tooltip id="tip-tab-arrow">Le théorème d'impossibilité d'Arrow (1951) démontre qu'aucune méthode de vote classée ne peut satisfaire tous les critères de fairness simultanément avec 3+ candidats.</Tooltip>}>
+                  {t('simulation.tabs.arrow')}{' '}
+                  <OverlayTrigger trigger={['hover','focus']} placement="bottom" overlay={<Tooltip id="tip-tab-arrow">{t('simulation.tabTips.arrow')}</Tooltip>}>
                     <span tabIndex={0} onClick={(e) => e.stopPropagation()} style={{ fontSize: '0.75em', color: '#6c757d', cursor: 'help' }}>ⓘ</span>
                   </OverlayTrigger>
                 </span>
               }>
                 <Card className="mb-4">
-                  <Card.Header><strong>Critères d'impossibilité d'Arrow</strong><span className="text-muted ms-2" style={{ fontSize: '0.85rem' }}>— vérification empirique (Scénario A)</span></Card.Header>
-                  <Card.Body>{arrowData ? <ArrowCriteriaMatrix result={arrowData} /> : <Alert variant="info">Pas de données Arrow disponibles.</Alert>}</Card.Body>
+                  <Card.Header><strong>{t('simulation.arrowHeader')}</strong><span className="text-muted ms-2" style={{ fontSize: '0.85rem' }}>{t('simulation.arrowSubtitle')}</span></Card.Header>
+                  <Card.Body>{arrowData ? <ArrowCriteriaMatrix result={arrowData} /> : <Alert variant="info">{t('simulation.arrowNoData')}</Alert>}</Card.Body>
                 </Card>
               </Tab>
             )}
             {visibleTabs.includes('bandwagon') && (
               <Tab eventKey="bandwagon" title={
                 <span>
-                  Effet bandwagon{' '}
-                  <OverlayTrigger trigger={['hover','focus']} placement="bottom" overlay={<Tooltip id="tip-tab-bandwagon">Simule l'effet de conformité sociale : les électeurs s'alignent sur le candidat en tête des sondages.</Tooltip>}>
+                  {t('simulation.tabs.bandwagon')}{' '}
+                  <OverlayTrigger trigger={['hover','focus']} placement="bottom" overlay={<Tooltip id="tip-tab-bandwagon">{t('simulation.tabTips.bandwagon')}</Tooltip>}>
                     <span tabIndex={0} onClick={(e) => e.stopPropagation()} style={{ fontSize: '0.75em', color: '#6c757d', cursor: 'help' }}>ⓘ</span>
                   </OverlayTrigger>
                 </span>
               }><BandwagonAnalysis baseParams={baseParamsA} /></Tab>
             )}
-            <Tab eventKey="montecarlo" title="Monte Carlo"><MonteCarloResults baseParams={baseParamsA} /></Tab>
-            <Tab eventKey="real-elections" title="Élections réelles"><RealElectionsTab /></Tab>
+            <Tab eventKey="montecarlo" title={t('simulation.tabs.montecarlo')}><MonteCarloResults baseParams={baseParamsA} /></Tab>
+            <Tab eventKey="real-elections" title={t('simulation.tabs.realElections')}><RealElectionsTab /></Tab>
             {visibleTabs.includes('multiwinner') && (
-              <Tab eventKey="multiwinner" title="Multi-gagnants"><MultiwinnerAnalysis /></Tab>
+              <Tab eventKey="multiwinner" title={t('simulation.tabs.multiwinner')}><MultiwinnerAnalysis /></Tab>
             )}
             {visibleTabs.includes('sensitivity') && (
               <Tab eventKey="sensitivity" title={
                 <span>
-                  Sensibilité{' '}
-                  <OverlayTrigger trigger={['hover','focus']} placement="bottom" overlay={<Tooltip id="tip-tab-sensitivity">Fait varier un paramètre et observe comment les vainqueurs changent selon les méthodes.</Tooltip>}>
+                  {t('simulation.tabs.sensitivity')}{' '}
+                  <OverlayTrigger trigger={['hover','focus']} placement="bottom" overlay={<Tooltip id="tip-tab-sensitivity">{t('simulation.tabTips.sensitivity')}</Tooltip>}>
                     <span tabIndex={0} onClick={(e) => e.stopPropagation()} style={{ fontSize: '0.75em', color: '#6c757d', cursor: 'help' }}>ⓘ</span>
                   </OverlayTrigger>
                 </span>
