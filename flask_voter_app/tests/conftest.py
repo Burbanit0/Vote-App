@@ -1,9 +1,33 @@
+import sys
+from unittest.mock import MagicMock
+
 import pytest
 from flask_jwt_extended import create_access_token
 from datetime import datetime, timezone
 from app import db, create_app
 from app.models import User
 from flask_bcrypt import generate_password_hash
+
+# ── Graceful flask_limiter handling ──────────────────────────────────────────
+# If flask_limiter is not installed, mock the module so that
+# app/routes/users.py can still be imported without ImportError.
+try:
+    from flask_limiter import Limiter  # noqa: F401
+    HAS_LIMITER = True
+except ImportError:
+    HAS_LIMITER = False
+
+    mock_limiter_util = MagicMock()
+    mock_limiter_util.get_remote_address = MagicMock(return_value='127.0.0.1')
+
+    mock_limiter_mod = MagicMock()
+    mock_limiter_mod.Limiter = MagicMock(
+        return_value=MagicMock(limit=lambda x: lambda f: f)
+    )
+    mock_limiter_mod.util = mock_limiter_util
+
+    sys.modules['flask_limiter'] = mock_limiter_mod
+    sys.modules['flask_limiter.util'] = mock_limiter_util
 
 
 @pytest.fixture(scope='function')
