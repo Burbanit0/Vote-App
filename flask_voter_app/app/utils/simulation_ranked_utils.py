@@ -253,7 +253,7 @@ def get_coombs_winner(votes: list, blank_candidate_name: str = "") -> Optional[s
     return candidates.pop() if candidates else None
 
 
-def get_positional_score_winner(votes: list) -> Optional[str]:
+def get_positional_score_winner(votes: list, **kwargs) -> Optional[str]:
     """
     Determine the winner using positional scoring derived from rankings.
     Each candidate receives a score proportional to their rank position
@@ -279,7 +279,7 @@ def get_positional_score_winner(votes: list) -> Optional[str]:
 get_score_winner = get_positional_score_winner
 
 
-def get_kemeny_young_winner(votes: list) -> Optional[str]:
+def get_kemeny_young_winner(votes: list, **kwargs) -> Optional[str]:
     """
     Determine the Kemeny-Young winner from a set of rankings.
     :param votes: A list of rankings (see get_condorcet_winner for format)

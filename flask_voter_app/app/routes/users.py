@@ -42,7 +42,7 @@ def register_voter():
     if User.query.filter_by(username=username).first():
         return jsonify({"message": "Username already exists"}), 400
 
-    register_user(username, password, first_name, last_name, role="User")
+    register_user(username, password, "User", first_name, last_name)
     return jsonify({"message": "User registered successfully"}), 201
 
 
