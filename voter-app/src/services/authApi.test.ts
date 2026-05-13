@@ -14,6 +14,10 @@ describe('authApi', () => {
     localStorage.clear();
   });
 
+  afterEach(() => {
+    jest.restoreAllMocks();
+  });
+
   describe('registerUser', () => {
     it('returns user data on successful registration', async () => {
       mockAxios.onPost(`${BASE}/api/auth/register`).reply(200, mockUser);
@@ -22,6 +26,7 @@ describe('authApi', () => {
     });
 
     it('throws on registration error', async () => {
+      jest.spyOn(console, 'error').mockImplementation(() => {});
       mockAxios.onPost(`${BASE}/api/auth/register`).reply(400, { message: 'Username taken' });
       await expect(registerUser('alice', 'secret', 'User', 'A', 'S')).rejects.toThrow();
     });
@@ -35,6 +40,7 @@ describe('authApi', () => {
     });
 
     it('throws on wrong password (401)', async () => {
+      jest.spyOn(console, 'error').mockImplementation(() => {});
       mockAxios.onPost(`${BASE}/api/auth/login`).reply(401, { message: 'Invalid credentials' });
       await expect(loginUser('alice', 'wrong')).rejects.toThrow();
     });
@@ -54,6 +60,7 @@ describe('authApi', () => {
     });
 
     it('throws when no token in localStorage', async () => {
+      jest.spyOn(console, 'error').mockImplementation(() => {});
       localStorage.removeItem('user');
       await expect(fetchProfileData()).rejects.toThrow('No token found');
     });
@@ -73,6 +80,7 @@ describe('authApi', () => {
     });
 
     it('throws when no token in localStorage', async () => {
+      jest.spyOn(console, 'error').mockImplementation(() => {});
       localStorage.removeItem('user');
       await expect(fetchUserProfile(1)).rejects.toThrow('No token found');
     });
