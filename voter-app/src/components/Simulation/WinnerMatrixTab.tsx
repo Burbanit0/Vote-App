@@ -105,8 +105,8 @@ const WinnerMatrixTab: React.FC<Props> = ({
       .sort((a, b) => (a.winnerA !== a.winnerB ? 0 : 1) - (b.winnerA !== b.winnerB ? 0 : 1));
   }, [allMethodNames, comparisonResults, resultsB]);
 
-  const labelA = `Scénario A — ${configA.candidateInput} (${IDEOLOGY_OPTIONS.find((o) => o.value === configA.ideology_distribution)?.label ?? configA.ideology_distribution})`;
-  const labelB = `Scénario B — ${configB.candidateInput} (${IDEOLOGY_OPTIONS.find((o) => o.value === configB.ideology_distribution)?.label ?? configB.ideology_distribution})`;
+  const labelA = `Scénario A — ${configA.candidateInput} (${IDEOLOGY_OPTIONS.find((o) => o.value === configA.ideology_distribution)?.labelKey ?? configA.ideology_distribution})`;
+  const labelB = `Scénario B — ${configB.candidateInput} (${IDEOLOGY_OPTIONS.find((o) => o.value === configB.ideology_distribution)?.labelKey ?? configB.ideology_distribution})`;
 
   // Colour legend
   const legend = (

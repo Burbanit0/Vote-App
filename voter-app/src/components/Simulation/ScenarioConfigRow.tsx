@@ -46,7 +46,7 @@ const ScenarioConfigRow: React.FC<Props> = ({ config, onChange, label }) => (
       >
         {IDEOLOGY_OPTIONS.map((o) => (
           <option key={o.value} value={o.value}>
-            {o.label}
+            {o.labelKey}
           </option>
         ))}
       </Form.Select>

@@ -1,40 +1,7 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { useIsMobile } from '../../hooks/useIsMobile';
 
-// ── Inject sticky-column + compact-mobile CSS once ─────────────────────────
-
 const STYLE_ID = 'responsive-table-styles';
-
-if (typeof document !== 'undefined' && !document.getElementById(STYLE_ID)) {
-  const style = document.createElement('style');
-  style.id = STYLE_ID;
-  style.textContent = `
-    /* Sticky first column — uses Bootstrap CSS variable so it works in dark mode */
-    .rsp-table thead th:first-child,
-    .rsp-table tbody td:first-child,
-    .rsp-table tfoot td:first-child {
-      position: sticky;
-      left: 0;
-      background-color: var(--bs-table-bg, var(--bs-body-bg, white));
-      z-index: 2;
-      box-shadow: 2px 0 4px rgba(0, 0, 0, 0.06);
-    }
-    .rsp-table thead th:first-child {
-      z-index: 3;
-      background-color: var(--bs-table-bg, var(--bs-body-bg, white));
-    }
-
-    /* Compact layout on mobile — equivalent to Bootstrap table-sm */
-    @media (max-width: 767px) {
-      .rsp-table table th,
-      .rsp-table table td {
-        padding: 0.25rem 0.35rem;
-        font-size: 0.8rem;
-      }
-    }
-  `;
-  document.head.appendChild(style);
-}
 
 // ── Component ──────────────────────────────────────────────────────────────
 
@@ -55,6 +22,29 @@ const ResponsiveTable: React.FC<Props> = ({ children, className }) => {
   const containerRef = useRef<HTMLDivElement>(null);
   const [showHint, setShowHint] = useState(false);
   const isMobile = useIsMobile();
+
+  useEffect(() => {
+    if (!document.getElementById(STYLE_ID)) {
+      const style = document.createElement('style');
+      style.id = STYLE_ID;
+      style.textContent = `
+        .rsp-table thead th:first-child,
+        .rsp-table tbody td:first-child,
+        .rsp-table tfoot td:first-child {
+          position: sticky; left: 0;
+          background-color: var(--bs-table-bg, var(--bs-body-bg, white));
+          z-index: 2; box-shadow: 2px 0 4px rgba(0,0,0,0.06);
+        }
+        .rsp-table thead th:first-child { z-index: 3; }
+        @media (max-width: 767px) {
+          .rsp-table table th, .rsp-table table td {
+            padding: 0.25rem 0.35rem; font-size: 0.8rem;
+          }
+        }
+      `;
+      document.head.appendChild(style);
+    }
+  }, []);
 
   useEffect(() => {
     const el = containerRef.current;
