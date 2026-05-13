@@ -4,6 +4,7 @@ module.exports = {
   setupFilesAfterEnv: ['<rootDir>/src/setupTests.ts'],
   moduleNameMapper: {
     '\\.(css|less|sass|scss)$': 'identity-obj-proxy',
+    '\\.(jpg|jpeg|png|gif|webp|svg)$': '<rootDir>/src/__mocks__/fileMock.ts',
   },
   moduleFileExtensions: ['ts', 'tsx', 'js', 'jsx'],
   transform: {
@@ -26,13 +27,13 @@ module.exports = {
     '!src/**/*.stories.{ts,tsx}',
   ],
   coverageReporters: ['text', 'lcov', 'html'],
-  // Minimum thresholds — increase progressively as test suite grows
+  // Minimum thresholds
   coverageThreshold: {
     global: {
       branches:   20,
       functions:  25,
-      lines:      30,
-      statements: 30,
+      lines:      50,
+      statements: 50,
     },
   },
 };
