@@ -1,0 +1,18 @@
+[build-system]
+requires = ["setuptools"]
+build-backend = "setuptools.backends._legacy:_Backend"
+
+[tool.pytest.ini_options]
+minversion = "7.0"
+testpaths = ["tests"]
+addopts = "--cov=app --cov-report=term --cov-report=html --cov-fail-under=30 -v"
+
+[tool.coverage.run]
+source = ["app"]
+omit = ["app/simulation/*"]
+
+[tool.coverage.report]
+show_missing = true
+skip_covered = true
+precision = 0
+fail_under = 30
