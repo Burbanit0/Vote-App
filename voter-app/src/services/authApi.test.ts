@@ -1,0 +1,80 @@
+import axios from 'axios';
+import MockAdapter from 'axios-mock-adapter';
+import { registerUser, loginUser, fetchProfileData, fetchUserProfile } from './authApi';
+
+const mockAxios = new MockAdapter(axios);
+const BASE = 'http://localhost:4433';
+
+const mockToken = 'test-jwt-token';
+const mockUser = { id: 1, username: 'alice', role: 'User', access_token: mockToken };
+
+describe('authApi', () => {
+  beforeEach(() => {
+    mockAxios.reset();
+    localStorage.clear();
+  });
+
+  describe('registerUser', () => {
+    it('returns user data on successful registration', async () => {
+      mockAxios.onPost(`${BASE}/api/auth/register`).reply(200, mockUser);
+      const result = await registerUser('alice', 'secret', 'User', 'Alice', 'Smith');
+      expect(result).toEqual(mockUser);
+    });
+
+    it('throws on registration error', async () => {
+      mockAxios.onPost(`${BASE}/api/auth/register`).reply(400, { message: 'Username taken' });
+      await expect(registerUser('alice', 'secret', 'User', 'A', 'S')).rejects.toThrow();
+    });
+  });
+
+  describe('loginUser', () => {
+    it('returns user data on successful login', async () => {
+      mockAxios.onPost(`${BASE}/api/auth/login`).reply(200, mockUser);
+      const result = await loginUser('alice', 'secret');
+      expect(result).toEqual(mockUser);
+    });
+
+    it('throws on wrong password (401)', async () => {
+      mockAxios.onPost(`${BASE}/api/auth/login`).reply(401, { message: 'Invalid credentials' });
+      await expect(loginUser('alice', 'wrong')).rejects.toThrow();
+    });
+  });
+
+  describe('fetchProfileData', () => {
+    it('returns profile with auth header', async () => {
+      localStorage.setItem('user', JSON.stringify({ access_token: mockToken }));
+      const profile = { id: 1, username: 'alice', role: 'User' };
+      mockAxios.onGet(`${BASE}/api/auth/profile`).reply((config: any) => {
+        const auth = config.headers?.Authorization;
+        if (auth === `Bearer ${mockToken}`) return [200, profile];
+        return [401, { message: 'Unauthorized' }];
+      });
+      const result = await fetchProfileData();
+      expect(result).toEqual(profile);
+    });
+
+    it('throws when no token in localStorage', async () => {
+      localStorage.removeItem('user');
+      await expect(fetchProfileData()).rejects.toThrow('No token found');
+    });
+  });
+
+  describe('fetchUserProfile', () => {
+    it('returns profile for given user id', async () => {
+      localStorage.setItem('user', JSON.stringify({ access_token: mockToken }));
+      const profile = { id: 2, username: 'bob', role: 'Admin' };
+      mockAxios.onGet(`${BASE}/api/auth/2`).reply((config: any) => {
+        const auth = config.headers?.Authorization;
+        if (auth === `Bearer ${mockToken}`) return [200, profile];
+        return [401, { message: 'Unauthorized' }];
+      });
+      const result = await fetchUserProfile(2);
+      expect(result).toEqual(profile);
+    });
+
+    it('throws when no token in localStorage', async () => {
+      localStorage.removeItem('user');
+      await expect(fetchUserProfile(1)).rejects.toThrow('No token found');
+    });
+  });
+});
