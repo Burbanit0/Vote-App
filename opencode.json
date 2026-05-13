@@ -1,0 +1,11 @@
+{
+  "$schema": "https://opencode.ai/config.json",
+  "instructions": ["AGENTS.md"],
+  "permission": {
+    "bash": "ask",
+    "edit": "ask",
+    "write": "ask",
+    "lsp": "allow"
+  },
+  "lsp": true
+}
