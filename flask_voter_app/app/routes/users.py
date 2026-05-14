@@ -1,7 +1,6 @@
 from flask import Blueprint, request, jsonify
 from flask_limiter import Limiter
 from flask_limiter.util import get_remote_address
-from app.utils.auth_utils import register_user
 from app.utils.response_utils import error_response, success_response
 from ..models import User
 from flask_jwt_extended import get_jwt_identity, jwt_required
@@ -29,6 +28,7 @@ def register():
 
 
 @auth_bp.route("/register/voter", methods=["POST"])
+@_limiter.limit("10 per hour")
 def register_voter():
     data = request.get_json()
     username = data.get("username")
@@ -36,14 +36,7 @@ def register_voter():
     first_name = data.get("first_name")
     last_name = data.get("last_name")
 
-    if not username or not password:
-        return error_response("Username and password are required", 400)
-
-    if User.query.filter_by(username=username).first():
-        return error_response("Username already exists", 400)
-
-    register_user(username, password, "User", first_name, last_name)
-    return success_response({"message": "User registered successfully"}, 201)
+    return UserService.register(username, password, first_name, last_name, role="User")
 
 
 @auth_bp.route("/login", methods=["POST"])
