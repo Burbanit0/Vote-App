@@ -16,6 +16,7 @@ import {
 import { StrategicImpactPoint } from '../../types';
 import { METHOD_LABELS, METHOD_LINE_COLORS } from './simulationConstants';
 import EmptyChart from '../shared/EmptyChart';
+import { useTranslation } from 'react-i18next';
 
 interface Props {
   strategicData: StrategicImpactPoint[];
@@ -23,6 +24,7 @@ interface Props {
 }
 
 const StrategicImpactTab: React.FC<Props> = ({ strategicData, allMethodNames }) => {
+  const { t } = useTranslation();
   const ct = useChartTheme();
 
   const chartData = useMemo(
@@ -48,16 +50,20 @@ const StrategicImpactTab: React.FC<Props> = ({ strategicData, allMethodNames }) 
   return (
     <Card className="mb-4">
       <Card.Header>
-        <strong>Impact du vote stratégique sur le régret bayésien</strong>
+        <strong>{t('simulation.strategicImpactTitle')}</strong>
         <span className="text-muted ms-2" style={{ fontSize: '0.85rem' }}>
-          — dégradation de chaque méthode à mesure que le % de votes stratégiques augmente
+          {t('simulation.strategicImpactSubtitle')}
         </span>
       </Card.Header>
       <Card.Body>
         <p className="text-muted small mb-3">
-          Les lignes qui montent fortement sont vulnérables au vote tactique.
-          Les lignes plates résistent à la manipulation.{' '}
-          <strong style={{ color: '#dc3545' }}>Pluralité</strong> est mise en avant (rouge, plus épaisse).
+          {t('simulation.strategicRise')}
+          {' '}
+          {t('simulation.strategicFlat')}
+          {' '}
+          <strong style={{ color: '#dc3545' }}>{t('methods.plurality.label')}</strong>
+          {' '}
+          {t('simulation.strategicHighlighted')}
         </p>
 
         {strategicData.length === 0 ? (
@@ -80,7 +86,7 @@ const StrategicImpactTab: React.FC<Props> = ({ strategicData, allMethodNames }) 
                 strokeDasharray="4 2"
                 strokeOpacity={0.7}
                 label={{
-                  value: 'seuil acceptable (0.05)',
+                  value: t('simulation.acceptableThreshold'),
                   fontSize: 9,
                   fill: '#198754',
                   position: 'insideBottomRight',
@@ -92,7 +98,7 @@ const StrategicImpactTab: React.FC<Props> = ({ strategicData, allMethodNames }) 
                 y={maxRegret * 0.92}
                 stroke="transparent"
                 label={{
-                  value: 'Méthodes vulnérables →',
+                  value: t('simulation.vulnerableMethods'),
                   fontSize: 9,
                   fill: '#dc3545',
                   position: 'insideTopLeft',
@@ -102,7 +108,7 @@ const StrategicImpactTab: React.FC<Props> = ({ strategicData, allMethodNames }) 
                 y={0.01}
                 stroke="transparent"
                 label={{
-                  value: '← Méthodes résistantes',
+                  value: t('simulation.resistantMethods'),
                   fontSize: 9,
                   fill: '#198754',
                   position: 'insideBottomLeft',
@@ -112,11 +118,11 @@ const StrategicImpactTab: React.FC<Props> = ({ strategicData, allMethodNames }) 
               <XAxis
                 dataKey="pct"
                 tick={{ fill: ct.tickFill }}
-                label={{ value: 'Électeurs stratégiques (%)', position: 'insideBottom', offset: -15, fontSize: 12, fill: ct.tickFill }}
+                label={{ value: t('simulation.strategicVotersAxis'), position: 'insideBottom', offset: -15, fontSize: 12, fill: ct.tickFill }}
               />
               <YAxis
                 tick={{ fontSize: 11, fill: ct.tickFill }}
-                label={{ value: 'Régret bayésien', angle: -90, position: 'insideLeft', fontSize: 12, fill: ct.tickFill }}
+                label={{ value: t('simulation.bayesianRegret'), angle: -90, position: 'insideLeft', fontSize: 12, fill: ct.tickFill }}
               />
               <Tooltip formatter={(v: number) => (v !== null ? v.toFixed(4) : '—')} contentStyle={ct.tooltipStyle} />
               <Legend verticalAlign="bottom" wrapperStyle={{ paddingTop: 24, fontSize: 11 }} />

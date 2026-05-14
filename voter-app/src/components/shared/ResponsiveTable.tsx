@@ -1,4 +1,5 @@
 import React, { useEffect, useRef, useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import { useIsMobile } from '../../hooks/useIsMobile';
 
 const STYLE_ID = 'responsive-table-styles';
@@ -19,6 +20,7 @@ interface Props {
  * - "← Faites défiler →" hint shown when the table overflows its container
  */
 const ResponsiveTable: React.FC<Props> = ({ children, className }) => {
+  const { t } = useTranslation();
   const containerRef = useRef<HTMLDivElement>(null);
   const [showHint, setShowHint] = useState(false);
   const isMobile = useIsMobile();
@@ -84,7 +86,7 @@ const ResponsiveTable: React.FC<Props> = ({ children, className }) => {
           style={{ fontSize: '0.72rem', padding: '2px 0 4px', userSelect: 'none' }}
           aria-hidden="true"
         >
-          ← Faites défiler →
+          {t('common.scrollHint')}
         </div>
       )}
     </>

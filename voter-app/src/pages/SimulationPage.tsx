@@ -5,11 +5,13 @@ import { Container, Alert, Tabs, Tab } from 'react-bootstrap';
 import SimulationForm, { SimulationFormData } from '../components/Simulation/SimulationForm';
 import SimulationResult, { SimulationResponse } from '../components/Simulation/SimulationResult';
 import { simulateVote } from '../services';
+import { useTranslation } from 'react-i18next';
 import VoterVisualization from '../components/Simulation/VoterVisualization';
 import CandidatesVisualization from '../components/Simulation/CandidatesVisualization';
 import UtilityVisualization from '../components/Simulation/UtilityVisualization';
 
 const SimulateVotesPage: React.FC = () => {
+  const { t } = useTranslation();
   const [result, setResult] = useState<SimulationResponse | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
@@ -52,7 +54,7 @@ const SimulateVotesPage: React.FC = () => {
       const response = await simulateVote(formData);
       setResult(response);
     } catch (error) {
-      setError('Simulation échouée. Veuillez réessayer.');
+      setError(t('simulation.errSimFailed'));
     } finally {
       setLoading(false);
     }
@@ -60,9 +62,9 @@ const SimulateVotesPage: React.FC = () => {
 
   return (
     <Container>
-      <h2 className="my-4">Simuler les votes</h2>
+      <h2 className="my-4">{t('simulation.pageTitleLegacy')}</h2>
       <Tabs defaultActiveKey="Form" id="uncontrolled-tab-example" className="mb-3">
-        <Tab eventKey="Form" title="Formulaire">
+        <Tab eventKey="Form" title={t('simulation.tabForm')}>
 
           <SimulationForm
             simulateVotes={simulateVotes}
@@ -76,16 +78,16 @@ const SimulateVotesPage: React.FC = () => {
             </Alert>
           )}
         </Tab>
-        <Tab eventKey="Voters" title="Électeurs">
+        <Tab eventKey="Voters" title={t('simulation.tabVoters')}>
           <VoterVisualization />
         </Tab>
-        <Tab eventKey="Candidates" title="Candidats">
+        <Tab eventKey="Candidates" title={t('simulation.tabCandidates')}>
           <CandidatesVisualization />
         </Tab>
-        <Tab eventKey="Utility" title="Utilité">
+        <Tab eventKey="Utility" title={t('simulation.tabUtility')}>
           <UtilityVisualization />
         </Tab>
-        <Tab eventKey="Result" title="Résultat">
+        <Tab eventKey="Result" title={t('simulation.tabResult')}>
           <SimulationResult result={result} />
         </Tab>
       </Tabs>

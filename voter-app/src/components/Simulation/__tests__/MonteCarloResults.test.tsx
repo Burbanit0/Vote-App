@@ -31,8 +31,8 @@ jest.mock('../../../services/simulationCompareApi', () => ({
 describe('MonteCarloResults', () => {
   it('renders config form and initial prompt', () => {
     render(<MonteCarloResults baseParams={{}} />);
-    expect(screen.getByRole('button', { name: /Lancer Monte Carlo/ })).toBeInTheDocument();
-    expect(screen.getByText(/Configuration Monte Carlo/)).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /Run Monte Carlo/ })).toBeInTheDocument();
+    expect(screen.getByText(/Monte Carlo Configuration/)).toBeInTheDocument();
   });
 
   it('renders results when getMonteCarlo resolves', async () => {
@@ -59,8 +59,8 @@ describe('MonteCarloResults', () => {
     });
 
     render(<MonteCarloResults baseParams={{}} />);
-    fireEvent.click(screen.getByRole('button', { name: /Lancer Monte Carlo/ }));
+    fireEvent.click(screen.getByRole('button', { name: /Run Monte Carlo/ }));
 
-    expect(await screen.findByText(/Condorcet dans/)).toBeInTheDocument();
+    expect(await screen.findByText(/Condorcet winner in/)).toBeInTheDocument();
   });
 });

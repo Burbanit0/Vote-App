@@ -1,5 +1,6 @@
 import React, { useMemo, useState } from 'react';
 import { Button, Card } from 'react-bootstrap';
+import { useTranslation } from 'react-i18next';
 import {
   CartesianGrid,
   ReferenceLine,
@@ -25,22 +26,10 @@ const CANDIDATE_PALETTE = [
   '#b07aa1', '#ff9da7', '#86bcb6', '#4e79a7',
 ];
 
-const METHOD_LABELS: Record<string, string> = {
-  plurality: 'Plurality',
-  two_round: 'Two-Round',
-  borda: 'Borda',
-  approval: 'Approval',
-  irv: 'IRV',
-  coombs: "Coombs'",
-  bucklin: 'Bucklin',
-  minimax: 'Minimax',
-  schulze: 'Schulze',
-  kemeny_young: 'Kemeny-Young',
-  simple_score: 'Simple Score',
-  star_voting: 'STAR',
-  median_voting: 'Median Score',
-  mean_median_hybrid: 'Mean-Median',
-  variance_based: 'Variance-Based',
+const getMethodLabel = (t: (key: string) => string, method: string): string => {
+  const key = `methods.${method}.label`;
+  const label = t(key);
+  return label !== key ? label : method;
 };
 
 // ── Types (inline — no extra files needed) ─────────────────────────────────
@@ -141,6 +130,7 @@ const IdeologicalSpaceChart: React.FC<Props> = ({
   winnersByMethod,
   selectedMethod: initialMethod,
 }) => {
+  const { t } = useTranslation();
   const [activeMethod, setActiveMethod] = useState<string | undefined>(
     () => initialMethod ?? (winnersByMethod ? Object.keys(winnersByMethod)[0] : undefined)
   );
@@ -242,7 +232,7 @@ const IdeologicalSpaceChart: React.FC<Props> = ({
   return (
     <Card>
       <Card.Header>
-        <strong>Espace idéologique 2D</strong>
+        <strong>{t('simulation.ideologicalSpace.title')}</strong>
         {winnersByMethod && (
           <div className="mt-2 d-flex flex-wrap gap-1">
             {Object.entries(winnersByMethod).map(([method, winner]) => (
@@ -252,7 +242,7 @@ const IdeologicalSpaceChart: React.FC<Props> = ({
                 variant={activeMethod === method ? 'primary' : 'outline-secondary'}
                 onClick={() => setActiveMethod(method)}
               >
-                {METHOD_LABELS[method] ?? method}
+                {getMethodLabel(t, method)}
                 {winner && (
                   <span
                     className="ms-1 badge"
@@ -274,10 +264,10 @@ const IdeologicalSpaceChart: React.FC<Props> = ({
       <Card.Body>
         {/* Voter colour legend */}
         <div className="d-flex gap-4 mb-3 flex-wrap align-items-center">
-          <span className="fw-semibold small text-muted">Voters :</span>
+          <span className="fw-semibold small text-muted">{t('simulation.ideologicalSpace.voters')}</span>
           {[
-            { label: 'Sincère', color: VOTER_SINCERE },
-            { label: 'Stratégique', color: VOTER_STRATEGIC },
+            { label: t('simulation.ideologicalSpace.sincere'), color: VOTER_SINCERE },
+            { label: t('simulation.ideologicalSpace.strategic'), color: VOTER_STRATEGIC },
           ].map(({ label, color }) => (
             <span key={label} className="d-flex align-items-center gap-1">
               <svg width={12} height={12}>
@@ -287,7 +277,7 @@ const IdeologicalSpaceChart: React.FC<Props> = ({
             </span>
           ))}
 
-          <span className="fw-semibold small text-muted ms-3">Candidats :</span>
+          <span className="fw-semibold small text-muted ms-3">{t('simulation.ideologicalSpace.candidates')}</span>
           {candidates.map((c) => (
             <span key={c.name} className="d-flex align-items-center gap-1">
               <svg width={12} height={12}>
@@ -316,7 +306,7 @@ const IdeologicalSpaceChart: React.FC<Props> = ({
               tickCount={6}
               tick={{ fontSize: 10 }}
               label={{
-                value: '← Progressiste | Conservateur →',
+                value: t('simulation.ideologicalSpace.xAxis'),
                 position: 'insideBottom',
                 offset: -20,
                 fontSize: 11,
@@ -331,7 +321,7 @@ const IdeologicalSpaceChart: React.FC<Props> = ({
               tickCount={5}
               tick={{ fontSize: 10 }}
               label={{
-                value: '← Économique | Culturel →',
+                value: t('simulation.ideologicalSpace.yAxis'),
                 angle: -90,
                 position: 'insideLeft',
                 offset: 15,
@@ -363,14 +353,12 @@ const IdeologicalSpaceChart: React.FC<Props> = ({
         </ResponsiveContainer>
 
         <p className="text-muted small mt-1 mb-0">
-          Chaque point représente un voter. Les grands cercles sont les candidats. La position X
-          est l'orientation idéologique globale ; l'axe Y mesure l'écart entre positions
-          culturelles et économiques.
+          {t('simulation.ideologicalSpace.description')}
           {winnersByMethod && activeMethod && (
             <>
               {' '}
-              Le candidat étoilé est le vainqueur selon{' '}
-              <strong>{METHOD_LABELS[activeMethod] ?? activeMethod}</strong>.
+              {t('simulation.ideologicalSpace.winnerDescription')}{' '}
+              <strong>{getMethodLabel(t, activeMethod)}</strong>.
             </>
           )}
         </p>

@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { Card, Row, Col, Form } from 'react-bootstrap';
+import { useTranslation } from 'react-i18next';
 import {
   BarChart,
   Bar,
@@ -46,6 +47,7 @@ const COLORS = [
 ];
 
 const IssuePrioritiesVisualization: React.FC<IssuePrioritiesVisualizationProps> = ({ voters }) => {
+  const { t } = useTranslation();
   const [selectedGroup, setSelectedGroup] = useState<
     'age' | 'region' | 'income' | 'gender' | 'education'
   >('education');
@@ -179,12 +181,12 @@ const IssuePrioritiesVisualization: React.FC<IssuePrioritiesVisualizationProps> 
   return (
     <Card className="mb-4">
       <Card.Header>
-        <Card.Title>Analyse des Priorités par Enjeux</Card.Title>
+        <Card.Title>{t('simulation.issuePriorities.title')}</Card.Title>
       </Card.Header>
       <Card.Body>
         <Form.Group as={Row} className="mb-3 align-items-center">
           <Form.Label column sm={2}>
-            Grouper par :
+            {t('simulation.issuePriorities.groupBy')}
           </Form.Label>
           <Col sm={3}>
             <Form.Select
@@ -195,18 +197,18 @@ const IssuePrioritiesVisualization: React.FC<IssuePrioritiesVisualizationProps> 
                 )
               }
             >
-              <option value="education">Niveau d&apos;éducation</option>
-              <option value="age">Âge</option>
-              <option value="region">Région</option>
-              <option value="income">Revenu</option>
-              <option value="gender">Genre</option>
+              <option value="education">{t('simulation.issuePriorities.groupEducation')}</option>
+              <option value="age">{t('simulation.issuePriorities.groupAge')}</option>
+              <option value="region">{t('simulation.issuePriorities.groupRegion')}</option>
+              <option value="income">{t('simulation.issuePriorities.groupIncome')}</option>
+              <option value="gender">{t('simulation.issuePriorities.groupGender')}</option>
             </Form.Select>
           </Col>
           <Col sm={3}>
             <Form.Check
               type="switch"
               id="radar-switch"
-              label="Afficher le radar"
+              label={t('simulation.issuePriorities.showRadar')}
               checked={showRadar}
               onChange={() => setShowRadar(!showRadar)}
             />
@@ -218,16 +220,14 @@ const IssuePrioritiesVisualization: React.FC<IssuePrioritiesVisualizationProps> 
             <Card>
               <Card.Header>
                 <Card.Title>
-                  Priorités moyennes par{' '}
-                  {
-                    {
-                      age: "groupe d'âge",
-                      region: 'région',
-                      income: 'niveau de revenu',
-                      gender: 'genre',
-                      education: "niveau d'éducation",
-                    }[selectedGroup]
-                  }
+                  {t('simulation.issuePriorities.avgPrioritiesBy')}{' '}
+                  {{
+                    age: t('simulation.issuePriorities.byAgeGroup'),
+                    region: t('simulation.issuePriorities.byRegion'),
+                    income: t('simulation.issuePriorities.byIncome'),
+                    gender: t('simulation.issuePriorities.byGender'),
+                    education: t('simulation.issuePriorities.byEducation'),
+                  }[selectedGroup]}
                 </Card.Title>
               </Card.Header>
               <Card.Body>
@@ -244,7 +244,7 @@ const IssuePrioritiesVisualization: React.FC<IssuePrioritiesVisualizationProps> 
                         <Tooltip
                           formatter={(value: number) => [
                             `${(value * 100).toFixed(1)}%`,
-                            'Priorité',
+                            t('simulation.issuePriorities.priority'),
                           ]}
                         />
                         <Legend />
@@ -271,7 +271,7 @@ const IssuePrioritiesVisualization: React.FC<IssuePrioritiesVisualizationProps> 
             <Col md={6}>
               <Card>
                 <Card.Header>
-                  <Card.Title>Profils de priorités par âge</Card.Title>
+                  <Card.Title>{t('simulation.issuePriorities.ageProfilesTitle')}</Card.Title>
                 </Card.Header>
                 <Card.Body>
                   {radarData.length > 0 ? (
@@ -295,14 +295,14 @@ const IssuePrioritiesVisualization: React.FC<IssuePrioritiesVisualizationProps> 
                           <Tooltip
                             formatter={(value: number) => [
                               `${(value * 100).toFixed(1)}%`,
-                              'Priorité',
-                            ]}
-                          />
-                        </RadarChart>
+                            t('simulation.issuePriorities.priority'),
+                          ]}
+                        />
+                      </RadarChart>
                       </ResponsiveContainer>
                     </div>
                   ) : (
-                    <p className="text-center text-muted">Pas de données disponibles</p>
+                  <p className="text-center text-muted">{t('simulation.issuePriorities.noData')}</p>
                   )}
                 </Card.Body>
               </Card>
@@ -314,7 +314,7 @@ const IssuePrioritiesVisualization: React.FC<IssuePrioritiesVisualizationProps> 
           <Col md={12}>
             <Card>
               <Card.Header>
-                <Card.Title>Classement des priorités (moyenne globale)</Card.Title>
+                <Card.Title>{t('simulation.issuePriorities.globalRankingTitle')}</Card.Title>
               </Card.Header>
               <Card.Body>
                 {priorityRanking.length > 0 ? (
@@ -338,7 +338,7 @@ const IssuePrioritiesVisualization: React.FC<IssuePrioritiesVisualizationProps> 
                         <Tooltip
                           formatter={(value: number) => [
                             `${(value * 100).toFixed(1)}%`,
-                            'Priorité moyenne',
+                            t('simulation.issuePriorities.avgPriority'),
                           ]}
                         />
                         <Bar dataKey="average">

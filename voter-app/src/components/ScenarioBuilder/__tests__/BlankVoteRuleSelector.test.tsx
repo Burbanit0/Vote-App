@@ -11,22 +11,22 @@ describe('BlankVoteRuleSelector', () => {
 
   it('renders all rule cards', () => {
     render(<BlankVoteRuleSelector {...defaultProps} />);
-    expect(screen.getByText('Symbolique')).toBeInTheDocument();
-    expect(screen.getByText('Compétitif')).toBeInTheDocument();
-    expect(screen.getByText('Seuil 30%')).toBeInTheDocument();
-    expect(screen.getByText('Majorité requise')).toBeInTheDocument();
+    expect(screen.getByText('Symbolic')).toBeInTheDocument();
+    expect(screen.getByText('Competitive')).toBeInTheDocument();
+    expect(screen.getByText('30% Threshold')).toBeInTheDocument();
+    expect(screen.getByText('Majority required')).toBeInTheDocument();
   });
 
   it('calls onChange when clicking a rule', () => {
     const onChange = jest.fn();
     render(<BlankVoteRuleSelector {...defaultProps} onChange={onChange} />);
-    fireEvent.click(screen.getByText('Compétitif'));
+    fireEvent.click(screen.getByText('Competitive'));
     expect(onChange).toHaveBeenCalledWith('competitive');
   });
 
   it('shows warning when hasBlankCandidate is false', () => {
     render(<BlankVoteRuleSelector {...defaultProps} hasBlankCandidate={false} />);
-    expect(screen.getByText(/Vous n'avez pas ajouté le Vote Blanc/)).toBeInTheDocument();
+    expect(screen.getByText(/have not added the Blank Vote/)).toBeInTheDocument();
   });
 
   it('shows checkmark on selected rule', () => {
@@ -36,6 +36,6 @@ describe('BlankVoteRuleSelector', () => {
 
   it('shows selected rule label in footer', () => {
     render(<BlankVoteRuleSelector {...defaultProps} selected="competitive" />);
-    expect(screen.getByText(/Règle sélectionnée/)).toBeInTheDocument();
+    expect(screen.getByText(/Selected rule/)).toBeInTheDocument();
   });
 });

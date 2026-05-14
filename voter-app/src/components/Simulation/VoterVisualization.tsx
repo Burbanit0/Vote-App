@@ -12,6 +12,7 @@ import {
   ResponsiveContainer,
 } from 'recharts';
 import { Container, Row, Col, Form, Button, Card } from 'react-bootstrap';
+import { useTranslation } from 'react-i18next';
 import { simulateVoters } from '../../services';
 import IssuePrioritiesVisualization from './IssuePrioritiesVisualization';
 import { Region, Income, PartySimu, Family, Ethnicity, Religion, Employement } from '../../types';
@@ -31,6 +32,7 @@ interface CrossTabulationData {
 const COLORS = ['#0088FE', '#00C49F', '#FFBB28', '#FF8042', '#8884D8'];
 
 const VoterVisualization: React.FC = () => {
+  const { t } = useTranslation();
   const { voters, setVoters } = useSimulation();
   const [numVoters, setNumVoters] = useState<number>(1000);
   const [loading, setLoading] = useState<boolean>(false);
@@ -294,13 +296,13 @@ const VoterVisualization: React.FC = () => {
 
   return (
     <Container className="my-4">
-      <h1 className="text-center mb-4">Voter Population Visualization</h1>
+      <h1 className="text-center mb-4">{t('simulation.voterViz.pageTitle')}</h1>
 
       <Card className="mb-4">
         <Card.Body>
           <Form.Group as={Row} className="align-items-center">
             <Form.Label column sm="2">
-              Number of Voters:
+              {t('simulation.voterViz.numVoters')}
             </Form.Label>
             <Col sm="4">
               <Form.Control
@@ -313,7 +315,7 @@ const VoterVisualization: React.FC = () => {
             </Col>
             <Col sm="2">
               <Button variant="primary" onClick={handleUpdate} disabled={loading}>
-                {loading ? 'Loading...' : 'Update'}
+                {loading ? t('simulation.voterViz.loading') : t('simulation.voterViz.update')}
               </Button>
             </Col>
           </Form.Group>
@@ -324,7 +326,7 @@ const VoterVisualization: React.FC = () => {
         <Col md={6}>
           <Card>
             <Card.Header>
-              <Card.Title>Age Distribution</Card.Title>
+              <Card.Title>{t('simulation.voterViz.ageDist')}</Card.Title>
             </Card.Header>
             <Card.Body>
               <div style={{ height: '300px' }}>
@@ -345,7 +347,7 @@ const VoterVisualization: React.FC = () => {
         <Col md={6}>
           <Card>
             <Card.Header>
-              <Card.Title>Gender Distribution</Card.Title>
+              <Card.Title>{t('simulation.voterViz.genderDist')}</Card.Title>
             </Card.Header>
             <Card.Body>
               <div style={{ height: '300px' }}>
@@ -379,7 +381,7 @@ const VoterVisualization: React.FC = () => {
         <Col md={6}>
           <Card>
             <Card.Header>
-              <Card.Title>Region Distribution</Card.Title>
+              <Card.Title>{t('simulation.voterViz.regionDist')}</Card.Title>
             </Card.Header>
             <Card.Body>
               <div style={{ height: '300px' }}>
@@ -411,7 +413,7 @@ const VoterVisualization: React.FC = () => {
         <Col md={6}>
           <Card>
             <Card.Header>
-              <Card.Title>Income Distribution</Card.Title>
+              <Card.Title>{t('simulation.voterViz.incomeDist')}</Card.Title>
             </Card.Header>
             <Card.Body>
               <div style={{ height: '300px' }}>
@@ -445,7 +447,7 @@ const VoterVisualization: React.FC = () => {
         <Col md={6}>
           <Card>
             <Card.Header>
-              <Card.Title>Political Lean Distribution</Card.Title>
+              <Card.Title>{t('simulation.voterViz.politicalLean')}</Card.Title>
             </Card.Header>
             <Card.Body>
               <div style={{ height: '300px' }}>
@@ -466,7 +468,7 @@ const VoterVisualization: React.FC = () => {
         <Col md={6}>
           <Card>
             <Card.Header>
-              <Card.Title>Party Preference Distribution</Card.Title>
+              <Card.Title>{t('simulation.voterViz.partyPref')}</Card.Title>
             </Card.Header>
             <Card.Body>
               <div style={{ height: '300px' }}>
@@ -499,7 +501,7 @@ const VoterVisualization: React.FC = () => {
         <Col md={6}>
           <Card>
             <Card.Header>
-              <Card.Title>Education Distribution</Card.Title>
+              <Card.Title>{t('simulation.voterViz.educationDist')}</Card.Title>
             </Card.Header>
             <Card.Body>
               <div style={{ height: '300px' }}>
@@ -531,7 +533,7 @@ const VoterVisualization: React.FC = () => {
         <Col md={6}>
           <Card>
             <Card.Header>
-              <Card.Title>Job Status</Card.Title>
+              <Card.Title>{t('simulation.voterViz.jobStatus')}</Card.Title>
             </Card.Header>
             <Card.Body>
               <div style={{ height: '300px' }}>
@@ -564,7 +566,7 @@ const VoterVisualization: React.FC = () => {
         <Col md={6}>
           <Card>
             <Card.Header>
-              <Card.Title>Statut Familial</Card.Title>
+              <Card.Title>{t('simulation.voterViz.familyStatus')}</Card.Title>
             </Card.Header>
             <Card.Body>
               <div style={{ height: '300px' }}>
@@ -598,7 +600,7 @@ const VoterVisualization: React.FC = () => {
         <Col md={6}>
           <Card>
             <Card.Header>
-              <Card.Title>Ethnicity et Immigration</Card.Title>
+              <Card.Title>{t('simulation.voterViz.ethnicityImmigration')}</Card.Title>
             </Card.Header>
             <Card.Body>
               <div style={{ height: '300px' }}>
@@ -628,7 +630,7 @@ const VoterVisualization: React.FC = () => {
         <Col md={6}>
           <Card>
             <Card.Header>
-              <Card.Title>Religion</Card.Title>
+              <Card.Title>{t('simulation.voterViz.religion')}</Card.Title>
             </Card.Header>
             <Card.Body>
               <div style={{ height: '300px' }}>
@@ -658,7 +660,7 @@ const VoterVisualization: React.FC = () => {
         <Col md={12}>
           <Card>
             <Card.Header>
-              <Card.Title>Employment × Family status</Card.Title>
+              <Card.Title>{t('simulation.voterViz.employmentXFamily')}</Card.Title>
             </Card.Header>
             <Card.Body>
               <div style={{ height: '400px' }}>
@@ -692,7 +694,7 @@ const VoterVisualization: React.FC = () => {
         <Col md={12}>
           <Card>
             <Card.Header>
-              <Card.Title>Ethnicity × Religion</Card.Title>
+              <Card.Title>{t('simulation.voterViz.ethnicityXReligion')}</Card.Title>
             </Card.Header>
             <Card.Body>
               <div style={{ height: '400px' }}>
@@ -727,19 +729,19 @@ const VoterVisualization: React.FC = () => {
         <Col md={12}>
           <Card>
             <Card.Header>
-              <Card.Title>Resume Demographic</Card.Title>
+              <Card.Title>{t('simulation.voterViz.resumeDemographic')}</Card.Title>
             </Card.Header>
             <Card.Body>
               <div className="table-responsive">
                 <table className="table table-striped table-bordered">
                   <thead>
                     <tr>
-                      <th>Category</th>
-                      <th>Employed</th>
-                      <th>Jobless</th>
-                      <th>Independant</th>
-                      <th>Retired</th>
-                      <th>Total</th>
+                      <th>{t('simulation.voterViz.category')}</th>
+                      <th>{t('simulation.voterViz.employed')}</th>
+                      <th>{t('simulation.voterViz.unemployed')}</th>
+                      <th>{t('simulation.voterViz.selfEmployed')}</th>
+                      <th>{t('simulation.voterViz.retired')}</th>
+                      <th>{t('simulation.voterViz.total')}</th>
                     </tr>
                   </thead>
                   <tbody>

@@ -31,12 +31,12 @@ describe('ScenarioAPanel', () => {
 
   it('renders run button enabled when candidates exist', () => {
     render(<ScenarioAPanel initialCandidates={initialCandidates} result={null} loading={false} onRun={jest.fn()} />);
-    expect(screen.getByText(/Simuler le 2ème tour/)).toBeInTheDocument();
+    expect(screen.getByText(/Simulate round 2/)).toBeInTheDocument();
   });
 
   it('shows loading spinner when loading', () => {
     render(<ScenarioAPanel initialCandidates={initialCandidates} result={null} loading={true} onRun={jest.fn()} />);
-    expect(screen.getByText(/Simulation…/)).toBeInTheDocument();
+    expect(screen.getByText(/Simulating…/)).toBeInTheDocument();
   });
 
   it('renders results when provided', () => {

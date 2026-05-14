@@ -1,4 +1,5 @@
 import React from 'react';
+import { useTranslation } from 'react-i18next';
 
 interface Props {
   message?: string;
@@ -10,15 +11,18 @@ interface Props {
  * Mimics a bar chart outline in muted Bootstrap grey.
  */
 const EmptyChart: React.FC<Props> = ({
-  message = 'Lancez une simulation pour afficher les données',
+  message,
   height = 200,
-}) => (
-  <div
-    className="d-flex flex-column align-items-center justify-content-center"
-    style={{ height, gap: '0.75rem' }}
-    role="img"
-    aria-label={message}
-  >
+}) => {
+  const { t } = useTranslation();
+  const displayMessage = message ?? t('common.emptyChart');
+  return (
+    <div
+      className="d-flex flex-column align-items-center justify-content-center"
+      style={{ height, gap: '0.75rem' }}
+      role="img"
+      aria-label={displayMessage}
+    >
     <svg width={110} height={72} viewBox="0 0 110 72" aria-hidden="true">
       {/* Y axis */}
       <line x1={8} y1={6} x2={8} y2={64} stroke="var(--bs-border-color, #dee2e6)" strokeWidth={1.5} />
@@ -48,9 +52,10 @@ const EmptyChart: React.FC<Props> = ({
     </svg>
 
     <p className="text-muted mb-0" style={{ fontSize: '0.85rem', textAlign: 'center', maxWidth: 260 }}>
-      {message}
+      {displayMessage}
     </p>
   </div>
-);
+  );
+};
 
 export default EmptyChart;

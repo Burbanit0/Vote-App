@@ -1,27 +1,10 @@
-import React from 'react';
+import React, { useMemo } from 'react';
 import { Alert, Badge, Card, Form, Spinner, Table } from 'react-bootstrap';
+import { useTranslation } from 'react-i18next';
 import MethodTooltip from '../shared/MethodTooltip';
 import { RealElectionResult } from '../../types';
 
-const METHOD_LABELS: Record<string, string> = {
-  plurality:          'Pluralité',
-  two_round:          'Deux tours',
-  borda:              'Borda',
-  approval:           'Approbation',
-  irv:                'IRV',
-  coombs:             "Coombs'",
-  bucklin:            'Bucklin',
-  minimax:            'Minimax',
-  schulze:            'Schulze',
-  condorcet:          'Condorcet',
-  kemeny_young:       'Kemeny-Young',
-  positional_score:   'Score positionnel',
-  simple_score:       'Score simple',
-  star_voting:        'STAR',
-  median_voting:      'Score médian',
-  mean_median_hybrid: 'Moy.-Médiane',
-  variance_based:     'Variance',
-};
+const CANDIDATE_PALETTE = ['#4e79a7', '#f28e2b', '#e15759', '#76b7b2', '#59a14f', '#edc948'];
 
 interface Props {
   result: RealElectionResult;
@@ -37,6 +20,7 @@ const BlankComparisonTable: React.FC<{
   methodsWithBlank: Record<string, string | null>;
   pluralityWinner: string;
 }> = ({ methods, methodsWithBlank, pluralityWinner }) => {
+  const { t } = useTranslation();
   const methodNames = Object.keys(methods);
   const crisisCount = methodNames.filter((m) => methodsWithBlank[m] === 'Blank').length;
   const changedCount = methodNames.filter((m) => methods[m] !== methodsWithBlank[m]).length;
@@ -47,17 +31,17 @@ const BlankComparisonTable: React.FC<{
       <div className="d-flex gap-2 mb-3 flex-wrap align-items-center">
         {crisisCount > 0 && (
           <Badge bg="danger" style={{ fontSize: '0.82rem' }}>
-            🚨 Crise constitutionnelle — {crisisCount} méthode{crisisCount > 1 ? 's' : ''} élit le Vote Blanc
+            {t('simulation.realCrisis', { count: crisisCount, plural: crisisCount > 1 ? 's' : '' })}
           </Badge>
         )}
         {changedCount > 0 && (
           <Badge bg="warning" text="dark" style={{ fontSize: '0.82rem' }}>
-            ⚠️ {changedCount}/{methodNames.length} méthodes changent de vainqueur
+            {t('simulation.realChanged', { count: changedCount, total: methodNames.length })}
           </Badge>
         )}
         {changedCount === 0 && (
           <Badge bg="success" style={{ fontSize: '0.82rem' }}>
-            ✓ Aucun changement de vainqueur — le vote blanc ne modifie pas l'issue
+            {t('simulation.realNoChange')}
           </Badge>
         )}
       </div>
@@ -67,14 +51,14 @@ const BlankComparisonTable: React.FC<{
         <Table bordered size="sm">
           <thead className="table-light">
             <tr>
-              <th style={{ minWidth: 150 }}>Méthode</th>
+              <th style={{ minWidth: 150 }}>{t('common.method')}</th>
               <th className="text-center" style={{ minWidth: 130 }}>
-                Sans vote blanc<br /><small className="fw-normal text-muted">(résultat officiel)</small>
+                {t('simulation.realWithoutBlank')}<br /><small className="fw-normal text-muted">{t('simulation.realOfficialResult')}</small>
               </th>
               <th className="text-center" style={{ minWidth: 150 }}>
-                Avec vote blanc reconnu<br /><small className="fw-normal text-muted">(simulation)</small>
+                {t('simulation.realWithBlank')}<br /><small className="fw-normal text-muted">{t('simulation.realSimulation')}</small>
               </th>
-              <th className="text-center" style={{ minWidth: 100 }}>Changement ?</th>
+              <th className="text-center" style={{ minWidth: 100 }}>{t('simulation.changed')}</th>
             </tr>
           </thead>
           <tbody>
@@ -104,7 +88,7 @@ const BlankComparisonTable: React.FC<{
                   </td>
                   <td className="text-center">
                     {isCrisis ? (
-                      <Badge bg="danger">⬜ Vote Blanc</Badge>
+                      <Badge bg="danger">{t('simulation.blankBadge')}</Badge>
                     ) : w2 ? (
                       <Badge bg={changed ? 'warning' : 'secondary'} text={changed ? 'dark' : undefined}>{w2}</Badge>
                     ) : (
@@ -127,7 +111,7 @@ const BlankComparisonTable: React.FC<{
         </Table>
       </div>
       <small className="text-muted">
-        🔴 Fond rouge = Vote Blanc élu (crise) · 🟡 Fond jaune = vainqueur modifié
+        {t('simulation.realLegend')}
       </small>
     </div>
   );
@@ -141,11 +125,32 @@ const RealElectionAnalysis: React.FC<Props> = ({
   blankLoading,
   onToggleBlankVote,
 }) => {
+  const { t } = useTranslation();
   const { election, plurality_winner, first_round_results, divergences, summary } = result;
 
   const nDifferent = summary.methods_with_different_winner;
   const nTotal     = summary.total_methods_with_winner;
   const blankPct   = election.estimated_blank_pct ?? 0;
+
+  const METHOD_LABELS: Record<string, string> = useMemo(() => ({
+    plurality:          t('methods.plurality.label'),
+    two_round:          t('methods.two_round.label'),
+    borda:              t('methods.borda.label'),
+    approval:           t('methods.approval.label'),
+    irv:                t('methods.irv.label'),
+    coombs:             t('methods.coombs.label'),
+    bucklin:            t('methods.bucklin.label'),
+    minimax:            t('methods.minimax.label'),
+    schulze:            t('methods.schulze.label'),
+    condorcet:          t('methods.condorcet.label'),
+    kemeny_young:       t('methods.kemeny_young.label'),
+    positional_score:   t('methods.positional_score.label'),
+    simple_score:       t('methods.simple_score.label'),
+    star_voting:        t('methods.star_voting.label'),
+    median_voting:      t('methods.median_voting.label'),
+    mean_median_hybrid: t('methods.mean_median_hybrid.label'),
+    variance_based:     t('methods.variance_based.label'),
+  }), [t]);
 
   const sorted = [...divergences].sort((a, b) => {
     if (a.differs_from_plurality !== b.differs_from_plurality)
@@ -174,9 +179,9 @@ const RealElectionAnalysis: React.FC<Props> = ({
       {/* ── First-round results ── */}
       <Card className="mb-4">
         <Card.Header>
-          <strong>Résultats du premier tour</strong>
+          <strong>{t('simulation.firstRoundResults')}</strong>
           <span className="text-muted ms-2" style={{ fontSize: '0.85rem' }}>
-            — votes réels utilisés pour générer les bulletins synthétiques
+            {t('simulation.firstRoundDesc')}
           </span>
         </Card.Header>
         <Card.Body>
@@ -190,7 +195,7 @@ const RealElectionAnalysis: React.FC<Props> = ({
                   <div key={candidate} className="d-flex align-items-center gap-2">
                     <span style={{ minWidth: 150, fontWeight: isPlurality ? 700 : 400, fontSize: '0.85rem' }}>
                       {candidate}
-                      {isPlurality && <Badge bg="primary" className="ms-1" style={{ fontSize: '0.65rem' }}>1er</Badge>}
+                      {isPlurality && <Badge bg="primary" className="ms-1" style={{ fontSize: '0.65rem' }}>{t('simulation.firstPlace')}</Badge>}
                     </span>
                     <div style={{ flex: 1, height: 14, backgroundColor: '#e9ecef', borderRadius: 3, overflow: 'hidden' }}>
                       <div style={{ height: '100%', width: `${(pct / maxPct) * 100}%`, backgroundColor: isPlurality ? '#0d6efd' : '#6ea8fe', borderRadius: 3 }} />
@@ -207,28 +212,33 @@ const RealElectionAnalysis: React.FC<Props> = ({
       {/* ── Summary banner ── */}
       {nDifferent > 0 ? (
         <Alert variant="warning" className="py-2 mb-4">
-          <strong>{nDifferent} méthode{nDifferent > 1 ? 's' : ''} sur {nTotal}</strong> auraient élu un vainqueur différent de la pluralité ({plurality_winner}).
-          {nDifferent > nTotal / 2 ? ' La majorité des méthodes diverge — fort signal d\'effet spoiler.' : ''}
+          <span dangerouslySetInnerHTML={{ __html: t('simulation.realSummaryDiff', {
+            count: nDifferent,
+            plural: nDifferent > 1 ? 's' : '',
+            total: nTotal,
+            plurality_winner,
+          })}} />
+          {nDifferent > nTotal / 2 ? t('simulation.realSummaryMajorityDiverges') : ''}
         </Alert>
       ) : (
         <Alert variant="success" className="py-2 mb-4">
-          Toutes les méthodes s'accordent : <strong>{plurality_winner}</strong> gagne sous chaque règle de vote.
+          <span dangerouslySetInnerHTML={{ __html: t('simulation.realSummaryAllAgree', { pluralityWinner: plurality_winner }) }} />
         </Alert>
       )}
 
       {/* ── Methods comparison table ── */}
       <Card className="mb-4">
         <Card.Header>
-          <strong>Comparaison des méthodes</strong>
-          <span className="text-muted ms-2" style={{ fontSize: '0.85rem' }}>— divergences en premier</span>
+          <strong>{t('simulation.comparisonMethods')}</strong>
+          <span className="text-muted ms-2" style={{ fontSize: '0.85rem' }}>{t('simulation.comparisonMethodsDesc')}</span>
         </Card.Header>
         <Card.Body className="p-0">
           <Table bordered size="sm" className="mb-0">
             <thead className="table-light">
               <tr>
-                <th style={{ minWidth: 160 }}>Méthode de vote</th>
-                <th className="text-center" style={{ minWidth: 130 }}>Vainqueur élu</th>
-                <th className="text-center" style={{ minWidth: 90 }}>vs. Pluralité</th>
+                <th style={{ minWidth: 160 }}>{t('simulation.methodLabel')}</th>
+                <th className="text-center" style={{ minWidth: 130 }}>{t('simulation.winnerElected')}</th>
+                <th className="text-center" style={{ minWidth: 90 }}>{t('simulation.vsPlurality')}</th>
               </tr>
             </thead>
             <tbody>
@@ -241,7 +251,7 @@ const RealElectionAnalysis: React.FC<Props> = ({
                         {winner}
                       </Badge>
                     ) : (
-                      <span className="text-muted small">Aucun vainqueur</span>
+                      <span className="text-muted small">{t('simulation.noWinner')}</span>
                     )}
                   </td>
                   <td className="text-center fw-bold" style={{ fontSize: '1.1rem' }}>
@@ -260,10 +270,10 @@ const RealElectionAnalysis: React.FC<Props> = ({
       <Card className={blankVoteEnabled ? 'border-warning' : ''}>
         <Card.Header className="d-flex align-items-center justify-content-between">
           <div className="d-flex align-items-center gap-3">
-            <strong>⬜ Simuler avec vote blanc reconnu</strong>
+            <strong>{t('simulation.simulateBlank')}</strong>
             {blankPct > 0 && (
               <span className="text-muted small">
-                Taux historique : {Math.round(blankPct * 100 * 10) / 10}% des bulletins
+                {t('simulation.historicalRate', { pct: Math.round(blankPct * 100 * 10) / 10 })}
               </span>
             )}
           </div>
@@ -273,7 +283,7 @@ const RealElectionAnalysis: React.FC<Props> = ({
               id="blank-vote-toggle"
               checked={blankVoteEnabled}
               onChange={(e) => onToggleBlankVote(e.target.checked)}
-              label={blankVoteEnabled ? 'Activé' : 'Désactivé'}
+              label={blankVoteEnabled ? t('simulation.enabled') : t('simulation.disabled')}
               disabled={blankLoading}
             />
           </div>
@@ -288,21 +298,18 @@ const RealElectionAnalysis: React.FC<Props> = ({
           ) : blankLoading ? (
             <div className="text-center py-3 text-muted">
               <Spinner size="sm" className="me-2" />
-              Simulation du vote blanc en cours…
+              {t('simulation.blankSimulationRunning')}
             </div>
           ) : (
             <p className="text-muted mb-0 small">
-              Activez ce toggle pour relancer l'analyse en insérant le vote blanc comme candidat à part entière.
-              Les {Math.round(blankPct * 100 * 10) / 10 || '?'}% d'électeurs ayant voté blanc en réalité
-              le classeront en premier ; tous les autres le classeront en dernier.
+              {t('simulation.blankToggleInfo', { pct: Math.round(blankPct * 100 * 10) / 10 || '?' })}
             </p>
           )}
         </Card.Body>
       </Card>
 
       <p className="text-muted small mt-3 mb-0">
-        Les bulletins sont synthétiques — générés depuis les scores réels via un modèle de proximité idéologique.
-        Chaque électeur ayant voté X classe les autres candidats par distance idéologique croissante à X.
+        {t('simulation.realFooter')}
       </p>
     </div>
   );
