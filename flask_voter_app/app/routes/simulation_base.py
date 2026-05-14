@@ -38,6 +38,7 @@ from app.utils.simulation_score_utils import (
 
 # Spatial pipeline
 from app.utils.simulation_voting_utils import calculate_utility, create_voter, create_candidate
+from app.constants import DEFAULT_ISSUES
 
 simulation_base_bp = Blueprint("simulation_base", __name__, url_prefix="/simulations")
 
@@ -159,13 +160,7 @@ def simulate_votes_route():
 def simulate_voters_repartitions():
     data = request.json
     num_voters = data.get("num_voters", 1000)
-    issues = [
-        "economy", "environment", "healthcare", "education", "taxes",
-        "social_welfare", "agriculture", "public_transport", "defense",
-        "gender_equality", "pensions", "climate_change", "housing",
-        "immigration", "crime_safety", "technology_innovation",
-        "minimum_wage", "business_regulation", "jobs", "infrastructure",
-    ]
+    issues = DEFAULT_ISSUES
     voters = [create_voter(issues, i) for i in range(num_voters)]
     return jsonify({"voters": voters})
 
@@ -174,13 +169,7 @@ def simulate_voters_repartitions():
 def simulate_candidates_repartitions():
     data = request.json
     num_candidates = data.get("num_candidates", 4)
-    issues = data.get("issues", [
-        "economy", "environment", "healthcare", "education", "taxes",
-        "social_welfare", "agriculture", "public_transport", "defense",
-        "gender_equality", "pensions", "climate_change", "housing",
-        "immigration", "crime_safety", "technology_innovation",
-        "minimum_wage", "business_regulation", "jobs", "infrastructure",
-    ])
+    issues = data.get("issues", DEFAULT_ISSUES)
     default_parties = ["Green", "Conservative", "Liberal", "Independent"]
     parties = data.get("parties", default_parties)
     if num_candidates > len(parties):
@@ -216,13 +205,7 @@ def simulate_utility():
         data = request.json
         voters = data.get("voters")
         candidates = data.get("candidates")
-        issues = data.get("issues", [
-            "economy", "environment", "healthcare", "education", "taxes",
-            "social_welfare", "agriculture", "public_transport", "defense",
-            "gender_equality", "pensions", "climate_change", "housing",
-            "immigration", "crime_safety", "technology_innovation",
-            "minimum_wage", "business_regulation", "jobs", "infrastructure",
-        ])
+        issues = data.get("issues", DEFAULT_ISSUES)
         utility_results = [
             calculate_utility(voter, candidate, issues)
             for voter in voters
@@ -239,13 +222,7 @@ def calculate_single_utility():
         data = request.json
         voter = data.get("voter")
         candidate = data.get("candidate")
-        issues = data.get("issues", [
-            "economy", "environment", "healthcare", "education", "taxes",
-            "social_welfare", "agriculture", "public_transport", "defense",
-            "gender_equality", "pensions", "climate_change", "housing",
-            "immigration", "crime_safety", "technology_innovation",
-            "minimum_wage", "business_regulation", "jobs", "infrastructure",
-        ])
+        issues = data.get("issues", DEFAULT_ISSUES)
         if not voter or not candidate:
             return jsonify({"success": False, "error": "Voter and candidate data are required"}), 400
         result = calculate_utility(voter, candidate, issues)
@@ -260,13 +237,7 @@ def get_utility_matrix():
         data = request.json
         voters = data.get("voters", [])
         candidates = data.get("candidates", [])
-        issues = data.get("issues", [
-            "economy", "environment", "healthcare", "education", "taxes",
-            "social_welfare", "agriculture", "public_transport", "defense",
-            "gender_equality", "pensions", "climate_change", "housing",
-            "immigration", "crime_safety", "technology_innovation",
-            "minimum_wage", "business_regulation", "jobs", "infrastructure",
-        ])
+        issues = data.get("issues", DEFAULT_ISSUES)
         if not voters or not candidates:
             return jsonify({"success": False, "error": "Voters and candidates are required"}), 400
 
@@ -316,13 +287,7 @@ def get_voter_segments():
         data = request.json
         voters = data.get("voters", [])
         candidates = data.get("candidates", [])
-        issues = data.get("issues", [
-            "economy", "environment", "healthcare", "education", "taxes",
-            "social_welfare", "agriculture", "public_transport", "defense",
-            "gender_equality", "pensions", "climate_change", "housing",
-            "immigration", "crime_safety", "technology_innovation",
-            "minimum_wage", "business_regulation", "jobs", "infrastructure",
-        ])
+        issues = data.get("issues", DEFAULT_ISSUES)
         segment_types = data.get("segments", ["young_female", "old_male", "high_edu", "low_income", "urban", "rural"])
 
         if not voters or not candidates:

@@ -19,8 +19,9 @@ from app.utils.simulation_metrics import compare_all_methods_mc
 from app.utils.simulation_multiwinner_utils import compare_multiwinner_methods
 from app.utils.real_election_data import analyze_real_election, list_elections
 from app.utils.blank_vote_rules import BlankVoteRule
+from app.constants import DEFAULT_ISSUES
 from app.routes.simulation_helpers import (
-    _parse_candidate_configs, _build_population, _DEFAULT_ISSUES,
+    _parse_candidate_configs, _build_population,
     _build_scenario_candidates, _build_scenario_voters, _run_five_methods,
     _SCENARIO_METHODS,
 )
@@ -350,7 +351,7 @@ def constitutional_scenario():
     scenario_type = data.get("scenario_type", "new_election")
     params        = data.get("params", {})
 
-    issues = _DEFAULT_ISSUES
+    issues = DEFAULT_ISSUES
     try:
         blank_rule = BlankVoteRule(initial.get("blank_rule", "competitive"))
     except ValueError:

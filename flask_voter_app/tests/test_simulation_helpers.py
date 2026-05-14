@@ -1,6 +1,7 @@
 """Tests for simulation_helpers route-level helpers."""
 
 import pytest
+from app.constants import DEFAULT_ISSUES
 from app.routes.simulation_helpers import (
     _build_scenario_candidates,
     _build_scenario_voters,
@@ -8,14 +9,6 @@ from app.routes.simulation_helpers import (
     _build_population,
     _run_five_methods,
 )
-
-_DEFAULT_ISSUES = [
-    "economy", "environment", "healthcare", "education", "taxes",
-    "social_welfare", "agriculture", "public_transport", "defense",
-    "gender_equality", "pensions", "climate_change", "housing",
-    "immigration", "crime_safety", "technology_innovation",
-    "minimum_wage", "business_regulation", "jobs", "infrastructure",
-]
 
 
 class TestBuildScenarioCandidates:
@@ -25,25 +18,25 @@ class TestBuildScenarioCandidates:
             {"name": "Blank", "is_blank": True},
             {"name": "Bob", "ideology": -0.5, "is_blank": False},
         ]
-        result = _build_scenario_candidates(raw, _DEFAULT_ISSUES)
+        result = _build_scenario_candidates(raw, DEFAULT_ISSUES)
         assert len(result) == 2
         assert result[0]["name"] == "Alice"
         assert result[1]["name"] == "Bob"
 
     def test_clamps_ideology_to_minus_one_to_one(self):
         raw = [{"name": "X", "ideology": -5.0}]
-        result = _build_scenario_candidates(raw, _DEFAULT_ISSUES)
+        result = _build_scenario_candidates(raw, DEFAULT_ISSUES)
         assert result[0]["ideology_position"] == 0.0  # (-1 + 1) / 2
 
     def test_uses_defaults_when_fields_missing(self):
         raw = [{}]
-        result = _build_scenario_candidates(raw, _DEFAULT_ISSUES)
+        result = _build_scenario_candidates(raw, DEFAULT_ISSUES)
         assert result[0]["name"] == "Candidate 1"
         assert result[0]["ideology_position"] == 0.5
 
     def test_uses_custom_positions(self):
         raw = [{"name": "A", "ideology": 0.0, "positions": {"economy": 0.8, "environment": 0.2, "social": 0.3}}]
-        result = _build_scenario_candidates(raw, _DEFAULT_ISSUES)
+        result = _build_scenario_candidates(raw, DEFAULT_ISSUES)
         assert result[0]["policies"]["economy"] == 0.8
         assert result[0]["policies"]["environment"] == 0.2
         assert result[0]["policies"]["social_welfare"] == 0.3
@@ -52,23 +45,23 @@ class TestBuildScenarioCandidates:
 class TestBuildScenarioVoters:
     def test_returns_expected_number_of_voters(self):
         electorate = {"num_voters": 50, "ideology_preset": "centrist", "dissatisfaction_rate": 0.1}
-        voters = _build_scenario_voters(electorate, _DEFAULT_ISSUES)
+        voters = _build_scenario_voters(electorate, DEFAULT_ISSUES)
         assert len(voters) == 50
 
     def test_minimum_ten_voters(self):
         electorate = {"num_voters": 3}
-        voters = _build_scenario_voters(electorate, _DEFAULT_ISSUES)
+        voters = _build_scenario_voters(electorate, DEFAULT_ISSUES)
         assert len(voters) == 10
 
     def test_dissatisfaction_override(self):
         electorate = {"num_voters": 20, "dissatisfaction_rate": 0.0}
-        voters = _build_scenario_voters(electorate, _DEFAULT_ISSUES, dissatisfaction_override=0.5)
+        voters = _build_scenario_voters(electorate, DEFAULT_ISSUES, dissatisfaction_override=0.5)
         for v in voters:
             assert v["blank_threshold"] > 0
 
     def test_zero_dissatisfaction_does_not_increase_threshold(self):
         electorate = {"num_voters": 20, "dissatisfaction_rate": 0.0}
-        voters = _build_scenario_voters(electorate, _DEFAULT_ISSUES)
+        voters = _build_scenario_voters(electorate, DEFAULT_ISSUES)
         # With 0 dissatisfaction, no extra is added to blank_threshold.
         # Values come from create_voter's np.random.beta(3, 5).
         assert len(voters) == 20

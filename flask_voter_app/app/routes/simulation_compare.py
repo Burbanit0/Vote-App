@@ -17,11 +17,11 @@ from app.utils.simulation_metrics import compare_all_methods, get_condorcet_matr
 from app.utils.arrow_criteria import check_all_criteria
 from app.utils.blank_vote_rules import BlankVoteRule, apply_blank_rule
 from app.routes.simulation_helpers import (
-    _parse_candidate_configs, _build_population, _DEFAULT_ISSUES,
-    _ECONOMY_ISSUES, _ENV_ISSUES, _SOCIAL_ISSUES,
+    _parse_candidate_configs, _build_population,
     _PRESET_TO_DISTRIBUTION, _SCENARIO_METHODS,
     _build_scenario_candidates, _build_scenario_voters,
 )
+from app.constants import DEFAULT_ISSUES, ECONOMY_ISSUES, ENV_ISSUES, SOCIAL_ISSUES
 
 simulation_compare_bp = Blueprint("simulation_compare", __name__, url_prefix="/simulations")
 
@@ -344,7 +344,7 @@ def run_scenario():
         return jsonify({"error": f"Unknown blank_rule '{blank_rule_str}'"}), 400
 
     # Build candidates from 3 user-defined issue positions
-    issues = _DEFAULT_ISSUES
+    issues = DEFAULT_ISSUES
     real_candidates = []
 
     for i, c in enumerate(candidates_raw):
@@ -358,9 +358,9 @@ def run_scenario():
         soc_pos   = max(0.0, min(1.0, float(positions.get("social",      1 - pos))))
 
         policies = {
-            iss: eco_pos if iss in _ECONOMY_ISSUES
-                 else env_pos if iss in _ENV_ISSUES
-                 else soc_pos if iss in _SOCIAL_ISSUES
+            iss: eco_pos if iss in ECONOMY_ISSUES
+                 else env_pos if iss in ENV_ISSUES
+                 else soc_pos if iss in SOCIAL_ISSUES
                  else 0.5
             for iss in issues
         }

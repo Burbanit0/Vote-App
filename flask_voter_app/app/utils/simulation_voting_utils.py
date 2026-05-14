@@ -2,6 +2,8 @@ import random
 import numpy as np
 from typing import List, Dict, Optional, Union
 
+from app.constants import DEFAULT_ISSUES
+
 from .demographic_data import (
     sample_age,
     sample_gender,
@@ -18,31 +20,6 @@ from .demographic_data import (
 # --- Define types for clarity ---
 Voter = Dict[str, Union[float, str, Dict[str, float]]]
 Candidate = Dict[str, Union[str, float, Dict[str, float]]]
-
-# Policy issues used across all simulation functions
-issues = [
-    "economy",
-    "environment",
-    "healthcare",
-    "education",
-    "taxes",
-    "social_welfare",
-    "agriculture",
-    "public_transport",
-    "defense",
-    "gender_equality",
-    "pensions",
-    "climate_change",
-    "housing",
-    "immigration",
-    "crime_safety",
-    "technology_innovation",
-    "minimum_wage",
-    "business_regulation",
-    "jobs",
-    "infrastructure",
-]
-
 
 def assign_issue_priorities(
     age,
@@ -956,13 +933,13 @@ def run_simulation(
         random.seed(seed)
         np.random.seed(seed)
     voters = [
-        create_voter(issues, voter_id=i, ideology_distribution=ideology_distribution)
+        create_voter(DEFAULT_ISSUES, voter_id=i, ideology_distribution=ideology_distribution)
         for i in range(num_voters)
     ]
     _party_cycle = ["Green", "Conservative", "Liberal", "Independent"]
     candidates = [
         create_candidate(
-            issues,
+            DEFAULT_ISSUES,
             candidate_id=i,
             name=f"Candidate {i + 1}",
             party=_party_cycle[i % len(_party_cycle)],
@@ -972,13 +949,13 @@ def run_simulation(
 
     results = []
     for voter in voters:
-        vote = simulate_vote(voter, candidates, issues, method)
+        vote = simulate_vote(voter, candidates, DEFAULT_ISSUES, method)
         results.append(
             {
                 "voter": voter,
                 "vote": vote,
                 "utilities": {
-                    c["name"]: calculate_utility(voter, c, issues)["utility"] for c in candidates
+                    c["name"]: calculate_utility(voter, c, DEFAULT_ISSUES)["utility"] for c in candidates
                 },
             }
         )
