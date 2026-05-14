@@ -1,7 +1,7 @@
 from functools import wraps
-from flask import jsonify
 from flask_jwt_extended import verify_jwt_in_request, get_jwt_identity
 from app.models import User
+from app.utils.response_utils import error_response
 
 
 def admin_required(fn):
@@ -12,7 +12,7 @@ def admin_required(fn):
         user = User.query.get(user_id)
 
         if not user or user.role != "Admin":
-            return jsonify({"message": "Admin access required"}), 403
+            return error_response("Admin access required", 403)
 
         return fn(*args, **kwargs)
 

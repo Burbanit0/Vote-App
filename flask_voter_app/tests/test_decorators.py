@@ -13,7 +13,7 @@ class TestAdminRequiredDecorator:
         response = client.get("/api/auth/", headers=auth_header)
         assert response.status_code == 403
         body = response.get_json()
-        assert "Admin access required" in body.get("message", "")
+        assert "Admin access required" in body.get("error", "")
 
     def test_no_token_rejected_from_admin_endpoint(self, client, init_db):
         response = client.get("/api/auth/")

@@ -2,6 +2,7 @@ from flask import Blueprint, request, jsonify
 from flask_limiter import Limiter
 from flask_limiter.util import get_remote_address
 from app.utils.auth_utils import register_user
+from app.utils.response_utils import error_response, success_response
 from ..models import User
 from flask_jwt_extended import get_jwt_identity, jwt_required
 from ..utils.decorators import admin_required
@@ -24,8 +25,7 @@ def register():
     last_name = data.get("last_name")
     role = data.get("role", "User")
 
-    result, status = UserService.register(username, password, first_name, last_name, role)
-    return jsonify(result), status
+    return UserService.register(username, password, first_name, last_name, role)
 
 
 @auth_bp.route("/register/voter", methods=["POST"])
@@ -37,13 +37,13 @@ def register_voter():
     last_name = data.get("last_name")
 
     if not username or not password:
-        return jsonify({"message": "Username and password are required"}), 400
+        return error_response("Username and password are required", 400)
 
     if User.query.filter_by(username=username).first():
-        return jsonify({"message": "Username already exists"}), 400
+        return error_response("Username already exists", 400)
 
     register_user(username, password, "User", first_name, last_name)
-    return jsonify({"message": "User registered successfully"}), 201
+    return success_response({"message": "User registered successfully"}, 201)
 
 
 @auth_bp.route("/login", methods=["POST"])
@@ -65,9 +65,9 @@ def admin_only():
     current_user = User.query.get(current_user_id)
 
     if current_user.role != "Admin":
-        return jsonify({"message": "Access denied"}), 403
+        return error_response("Access denied", 403)
 
-    return jsonify({"message": "Welcome, Admin!"}), 200
+    return success_response({"message": "Welcome, Admin!"}, 200)
 
 
 @auth_bp.route("/profile", methods=["GET"])
@@ -86,7 +86,7 @@ def update_user(user_id):
     current_user = User.query.get(current_user_id)
 
     if current_user.role != "Admin" and current_user_id != user_id:
-        return jsonify({"message": "Unauthorized"}), 403
+        return error_response("Unauthorized", 403)
 
     user = User.query.get_or_404(user_id)
     data = request.get_json()
@@ -96,7 +96,7 @@ def update_user(user_id):
             data["username"] != user.username
             and User.query.filter_by(username=data["username"]).first()
         ):
-            return jsonify({"message": "Username already exists"}), 400
+            return error_response("Username already exists", 400)
         user.username = data["username"]
 
     if "first_name" in data:
@@ -110,7 +110,7 @@ def update_user(user_id):
 
     if current_user.role == "Admin" and "role" in data:
         if data["role"] not in ["User", "Admin"]:
-            return jsonify({"message": "Invalid role specified"}), 400
+            return error_response("Invalid role specified", 400)
         user.role = data["role"]
 
     db.session.commit()

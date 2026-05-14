@@ -29,7 +29,8 @@ def test_register_duplicate_username_returns_400(client, init_db):
     response = client.post('/api/auth/register', json=payload)
     assert response.status_code == 400
     body = response.get_json()
-    assert any(k in body for k in ('message', 'error'))
+    assert body.get('error') == 'Username already exists'
+    assert body.get('code') == 400
 
 
 # ── Login ──────────────────────────────────────────────────────────────────
@@ -118,14 +119,14 @@ def test_register_voter(client, init_db):
 def test_register_voter_missing_fields_returns_400(client, init_db):
     response = client.post('/api/auth/register/voter', json={'username': 'nopass'})
     assert response.status_code == 400
-    assert 'message' in response.get_json()
+    assert 'error' in response.get_json()
 
 
 def test_register_voter_duplicate_username_returns_400(client, init_db):
     payload = {'username': 'testuserA', 'password': 'anypass'}
     response = client.post('/api/auth/register/voter', json=payload)
     assert response.status_code == 400
-    assert 'message' in response.get_json()
+    assert 'error' in response.get_json()
 
 
 # ── Admin-only endpoint ─────────────────────────────────────────────────────
@@ -186,7 +187,7 @@ def test_update_user_duplicate_username_returns_400(client, init_db, admin_auth_
     payload = {'username': 'testuserA'}  # testuserA already exists
     response = client.put('/api/auth/1', json=payload, headers=admin_auth_header)
     assert response.status_code == 400
-    assert 'message' in response.get_json()
+    assert 'error' in response.get_json()
 
 
 def test_update_user_role_by_admin(client, init_db, admin_auth_header):
@@ -200,4 +201,4 @@ def test_update_user_invalid_role_returns_400(client, init_db, admin_auth_header
     payload = {'role': 'SuperAdmin'}
     response = client.put('/api/auth/2', json=payload, headers=admin_auth_header)
     assert response.status_code == 400
-    assert 'message' in response.get_json()
+    assert 'error' in response.get_json()
