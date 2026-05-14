@@ -17,7 +17,7 @@ SPATIAL pipeline (simulation_voting_utils.py):
     POST /simulations/get_utility_matrix
     POST /simulations/get_voter_segments
 """
-from flask import Blueprint, request, jsonify
+from flask import Blueprint, request, jsonify, make_response
 
 # Legacy pipeline
 from app.utils.simul import simulate_voters, simulate_score_voters, simulate_ranked_voters
@@ -93,8 +93,13 @@ def simulate_votes_route():
         star_voting_winner = get_star_voting_winner(all_scores)
         variance_based_winner = get_variance_based_winner(all_scores)
 
+    deprecation_warning = (
+        "This legacy endpoint will be removed in a future version. "
+        "Use /simulations/compare or the spatial pipeline endpoints."
+    )
     response = {
         "simulation_type": simulation_type,
+        "deprecation_warning": deprecation_warning,
         "metadata": {
             "population_size": population_size,
             "candidates": candidates,
@@ -153,7 +158,9 @@ def simulate_votes_route():
         if name in locals():
             response[name] = locals()[name]
 
-    return jsonify(response), 200
+    resp = make_response(jsonify(response), 200)
+    resp.headers["X-Deprecation-Warning"] = deprecation_warning
+    return resp
 
 
 @simulation_base_bp.route("/simulate_voters", methods=["POST"])

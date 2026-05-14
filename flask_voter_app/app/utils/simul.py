@@ -1,3 +1,11 @@
+"""
+⚠️ DEPRECATED — Legacy influence-weight pipeline.
+
+Replaced by the spatial utility model in simulation_voting_utils.py.
+This module is kept for backward compatibility with SimulationPage.tsx.
+Target removal: future release.
+"""
+
 import random
 from collections import defaultdict
 
