@@ -61,7 +61,7 @@ describe('SimulationPage', () => {
   it('renders the simulation form on initial load', () => {
     render(<SimulationPage />);
     expect(screen.getByTestId('simulate-btn')).toBeInTheDocument();
-    expect(screen.getByText('Simuler les votes')).toBeInTheDocument();
+    expect(screen.getByText('Simulate votes')).toBeInTheDocument();
   });
 
   it('calls simulateVote when the form is submitted', async () => {
@@ -98,7 +98,7 @@ describe('SimulationPage', () => {
 
     await waitFor(() => {
       expect(
-        screen.getByText('Simulation échouée. Veuillez réessayer.')
+        screen.getByText('Simulation failed. Please try again.')
       ).toBeInTheDocument();
     });
   });

@@ -65,14 +65,14 @@ beforeEach(() => {
 describe('BandwagonAnalysis', () => {
   it('renders input controls', () => {
     render(<BandwagonAnalysis baseParams={{}} />);
-    expect(screen.getByText(/Paramètres de la simulation bandwagon/)).toBeInTheDocument();
-    expect(screen.getAllByText(/Force d'influence/).length).toBeGreaterThanOrEqual(1);
-    expect(screen.getByRole('button', { name: /Lancer/ })).toBeInTheDocument();
+    expect(screen.getByText(/Bandwagon simulation settings/)).toBeInTheDocument();
+    expect(screen.getAllByText(/Influence strength/).length).toBeGreaterThanOrEqual(1);
+    expect(screen.getByRole('button', { name: /Run/ })).toBeInTheDocument();
   });
 
   it('shows info alert before running simulation', () => {
     render(<BandwagonAnalysis baseParams={{}} />);
-    expect(screen.getByText(/Ajustez les paramètres/)).toBeInTheDocument();
+    expect(screen.getByText(/Adjust the parameters/)).toBeInTheDocument();
   });
 
   it('renders convergence alert when simulation completes', async () => {
@@ -80,13 +80,13 @@ describe('BandwagonAnalysis', () => {
 
     render(<BandwagonAnalysis baseParams={{}} />);
 
-    const launchButton = screen.getByRole('button', { name: /Lancer/ });
+    const launchButton = screen.getByRole('button', { name: /Run/ });
     await act(async () => {
       launchButton.click();
     });
 
     await waitFor(() => {
-      expect(screen.getByText(/stabilisé au/)).toBeInTheDocument();
+      expect(screen.getByText(/stabilized at round/)).toBeInTheDocument();
     });
   });
 
@@ -95,14 +95,14 @@ describe('BandwagonAnalysis', () => {
 
     render(<BandwagonAnalysis baseParams={{}} />);
 
-    const launchButton = screen.getByRole('button', { name: /Lancer/ });
+    const launchButton = screen.getByRole('button', { name: /Run/ });
     await act(async () => {
       launchButton.click();
     });
 
     await waitFor(() => {
-      expect(screen.getByText(/Évolution des sondages/)).toBeInTheDocument();
-      expect(screen.getByText(/Régret bayésien par tour/)).toBeInTheDocument();
+      expect(screen.getByText(/Poll standings evolution/)).toBeInTheDocument();
+      expect(screen.getByText(/Bayesian regret per round/)).toBeInTheDocument();
     });
   });
 
@@ -111,13 +111,13 @@ describe('BandwagonAnalysis', () => {
 
     render(<BandwagonAnalysis baseParams={{}} />);
 
-    const launchButton = screen.getByRole('button', { name: /Lancer/ });
+    const launchButton = screen.getByRole('button', { name: /Run/ });
     await act(async () => {
       launchButton.click();
     });
 
     await waitFor(() => {
-      expect(screen.getByText(/Résumé de résistance/)).toBeInTheDocument();
+      expect(screen.getByText(/Resistance summary/)).toBeInTheDocument();
       expect(screen.getByText(/Amplification/)).toBeInTheDocument();
     });
   });
@@ -127,13 +127,13 @@ describe('BandwagonAnalysis', () => {
 
     render(<BandwagonAnalysis baseParams={{}} />);
 
-    const launchButton = screen.getByRole('button', { name: /Lancer/ });
+    const launchButton = screen.getByRole('button', { name: /Run/ });
     await act(async () => {
       launchButton.click();
     });
 
     await waitFor(() => {
-      expect(screen.getByText('Pluralité')).toBeInTheDocument();
+      expect(screen.getByText('Plurality')).toBeInTheDocument();
       expect(screen.getByText('IRV')).toBeInTheDocument();
     });
   });
@@ -147,13 +147,13 @@ describe('BandwagonAnalysis', () => {
 
     render(<BandwagonAnalysis baseParams={{}} />);
 
-    const launchButton = screen.getByRole('button', { name: /Lancer/ });
+    const launchButton = screen.getByRole('button', { name: /Run/ });
     await act(async () => {
       launchButton.click();
     });
 
     await waitFor(() => {
-      expect(screen.getByText(/Pas de convergence/)).toBeInTheDocument();
+      expect(screen.getByText(/No plurality winner convergence/)).toBeInTheDocument();
     });
   });
 
@@ -162,13 +162,13 @@ describe('BandwagonAnalysis', () => {
 
     render(<BandwagonAnalysis baseParams={{}} />);
 
-    const launchButton = screen.getByRole('button', { name: /Lancer/ });
+    const launchButton = screen.getByRole('button', { name: /Run/ });
     await act(async () => {
       launchButton.click();
     });
 
     await waitFor(() => {
-      expect(screen.getByText(/Simulation échouée/)).toBeInTheDocument();
+      expect(screen.getByText(/Bandwagon simulation failed/)).toBeInTheDocument();
     });
   });
 });

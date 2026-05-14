@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useMemo, useState } from 'react';
 import {
   Alert,
   Badge,
@@ -21,26 +21,13 @@ import {
   XAxis,
   YAxis,
 } from 'recharts';
+import { useTranslation } from 'react-i18next';
 import { BandwagonResult } from '../../types';
 import { getBandwagonAnalysis, BandwagonParams } from '../../services/simulationCompareApi';
 import SkeletonCard from '../shared/SkeletonCard';
 import { useChartTheme } from '../../hooks/useChartTheme';
 
 // ── Constants ──────────────────────────────────────────────────────────────
-
-const METHOD_LABELS: Record<string, string> = {
-  plurality:        'Pluralité',
-  two_round:        'Deux tours',
-  borda:            'Borda',
-  approval:         'Approbation',
-  irv:              'IRV',
-  coombs:           "Coombs'",
-  bucklin:          'Bucklin',
-  minimax:          'Minimax',
-  schulze:          'Schulze',
-  condorcet:        'Condorcet',
-  positional_score: 'Score positionnel',
-};
 
 const CANDIDATE_COLORS = [
   '#4e79a7', '#f28e2b', '#e15759', '#76b7b2',
@@ -52,14 +39,6 @@ const METHOD_COLORS = [
   '#76b7b2', '#edc948', '#b07aa1', '#9c755f',
   '#bab0ac', '#86bcb6', '#499894',
 ];
-
-// ── Helpers ────────────────────────────────────────────────────────────────
-
-function amplificationLabel(rate: number): { label: string; variant: string } {
-  if (rate <= 0.1) return { label: 'Résiste',              variant: 'success' };
-  if (rate <= 0.3) return { label: 'Amplifie légèrement',  variant: 'warning' };
-  return              { label: 'Amplifie fortement',        variant: 'danger'  };
-}
 
 // ── Component ──────────────────────────────────────────────────────────────
 
@@ -74,12 +53,33 @@ interface CompareBaseParams {
 }
 
 const BandwagonAnalysis: React.FC<Props> = ({ baseParams }) => {
+  const { t } = useTranslation();
   const ct = useChartTheme();
   const [numRounds, setNumRounds] = useState(6);
   const [influenceStrength, setInfluenceStrength] = useState(0.3);
   const [result, setResult] = useState<BandwagonResult | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  const METHOD_LABELS: Record<string, string> = useMemo(() => ({
+    plurality:        t('methods.plurality.label'),
+    two_round:        t('methods.two_round.label'),
+    borda:            t('methods.borda.label'),
+    approval:         t('methods.approval.label'),
+    irv:              t('methods.irv.label'),
+    coombs:           t('methods.coombs.label'),
+    bucklin:          t('methods.bucklin.label'),
+    minimax:          t('methods.minimax.label'),
+    schulze:          t('methods.schulze.label'),
+    condorcet:        t('methods.condorcet.label'),
+    positional_score: t('methods.positional_score.label'),
+  }), [t]);
+
+  function amplificationLabel(rate: number): { label: string; variant: string } {
+    if (rate <= 0.1) return { label: t('simulation.bandwagonResists'), variant: 'success' };
+    if (rate <= 0.3) return { label: t('simulation.bandwagonAmplifiesSlight'), variant: 'warning' };
+    return              { label: t('simulation.bandwagonAmplifiesStrong'), variant: 'danger'  };
+  }
 
   const runSimulation = async () => {
     setLoading(true);
@@ -93,7 +93,7 @@ const BandwagonAnalysis: React.FC<Props> = ({ baseParams }) => {
       const data = await getBandwagonAnalysis(params);
       setResult(data);
     } catch {
-      setError('Simulation échouée. Vérifiez que le backend est démarré.');
+      setError(t('simulation.errBandwagon'));
     } finally {
       setLoading(false);
     }
@@ -135,18 +135,23 @@ const BandwagonAnalysis: React.FC<Props> = ({ baseParams }) => {
       }, [])
     : [];
 
+  const influenceLabel =
+    influenceStrength < 0.2 ? t('simulation.influence.weak')
+    : influenceStrength < 0.5 ? t('simulation.influence.moderate')
+    : t('simulation.influence.strong');
+
   // ── Render ─────────────────────────────────────────────────────────────
 
   return (
     <div>
       {/* Controls */}
       <Card className="mb-4">
-        <Card.Header><strong>Paramètres de la simulation bandwagon</strong></Card.Header>
+        <Card.Header><strong>{t('simulation.bandwagonConfig')}</strong></Card.Header>
         <Card.Body>
           <Row className="g-3 align-items-end">
             <Col md={3}>
               <Form.Label className="small mb-1">
-                Tours : <strong>{numRounds}</strong>
+                {t('simulation.rounds')} : <strong>{numRounds}</strong>
               </Form.Label>
               <Form.Range
                 min={2} max={12} value={numRounds}
@@ -155,10 +160,10 @@ const BandwagonAnalysis: React.FC<Props> = ({ baseParams }) => {
             </Col>
             <Col md={4}>
               <Form.Label className="small mb-1">
-                Force d'influence :{' '}
+                {t('simulation.influenceStrength')} :{' '}
                 <strong>{influenceStrength.toFixed(2)}</strong>
                 <span className="text-muted ms-1">
-                  ({influenceStrength < 0.2 ? 'faible' : influenceStrength < 0.5 ? 'modérée' : 'forte'})
+                  ({influenceLabel})
                 </span>
               </Form.Label>
               <Form.Range
@@ -174,16 +179,15 @@ const BandwagonAnalysis: React.FC<Props> = ({ baseParams }) => {
                 disabled={loading}
               >
                 {loading ? (
-                  <><Spinner size="sm" className="me-2" />Simulation…</>
+                  <><Spinner size="sm" className="me-2" />{t('simulation.runningEllipsis')}</>
                 ) : (
-                  'Lancer'
+                  t('common.run')
                 )}
               </Button>
             </Col>
           </Row>
           <p className="text-muted small mt-2 mb-0">
-            Simule comment les sondages influencent les préférences des électeurs tour par tour.
-            Utilise la configuration du Scénario A. Force d'influence plus élevée = effet bandwagon plus fort.
+            {t('simulation.bandwagonInfo')}
           </p>
         </Card.Body>
       </Card>
@@ -198,7 +202,7 @@ const BandwagonAnalysis: React.FC<Props> = ({ baseParams }) => {
 
       {!result && !loading && (
         <Alert variant="info">
-          Ajustez les paramètres et cliquez sur <strong>Lancer</strong> pour simuler l'effet bandwagon.
+          <span dangerouslySetInnerHTML={{ __html: t('simulation.bandwagonPrompt') }} />
         </Alert>
       )}
 
@@ -207,20 +211,20 @@ const BandwagonAnalysis: React.FC<Props> = ({ baseParams }) => {
           {/* Convergence info */}
           {result.convergence_round !== null ? (
             <Alert variant="success" className="py-2 mb-4">
-              Le vainqueur en pluralité s'est stabilisé au <strong>tour {result.convergence_round}</strong>.
+              <span dangerouslySetInnerHTML={{ __html: t('simulation.bandwagonConverged', { round: result.convergence_round }) }} />
             </Alert>
           ) : (
             <Alert variant="warning" className="py-2 mb-4">
-              Pas de convergence du vainqueur en pluralité sur {result.num_rounds} tours.
+              {t('simulation.bandwagonNoConvergence', { numRounds: result.num_rounds })}
             </Alert>
           )}
 
           {/* Chart 1: Poll standings evolution */}
           <Card className="mb-4">
             <Card.Header>
-              <strong>Évolution des sondages</strong>
+              <strong>{t('simulation.pollEvolution')}</strong>
               <span className="text-muted ms-2" style={{ fontSize: '0.85rem' }}>
-                — comment le soutien de premier choix évolue tour par tour
+                {t('simulation.pollEvolutionDesc')}
               </span>
             </Card.Header>
             <Card.Body>
@@ -269,9 +273,9 @@ const BandwagonAnalysis: React.FC<Props> = ({ baseParams }) => {
           {/* Chart 2: Bayesian regret per method */}
           <Card className="mb-4">
             <Card.Header>
-              <strong>Régret bayésien par tour</strong>
+              <strong>{t('simulation.bayesianRegretPerRound')}</strong>
               <span className="text-muted ms-2" style={{ fontSize: '0.85rem' }}>
-                — lignes plates = résistance au bandwagon ; lignes montantes = amplification
+                {t('simulation.bayesianRegretPerRoundDesc')}
               </span>
             </Card.Header>
             <Card.Body>
@@ -309,22 +313,22 @@ const BandwagonAnalysis: React.FC<Props> = ({ baseParams }) => {
           {/* Table: amplification summary */}
           <Card>
             <Card.Header>
-              <strong>Résumé de résistance</strong>
+              <strong>{t('simulation.amplificationSummary')}</strong>
               <span className="text-muted ms-2" style={{ fontSize: '0.85rem' }}>
-                — proportion de tours où le vainqueur diffère du tour 0
+                {t('simulation.amplificationSummaryDesc')}
               </span>
             </Card.Header>
             <Card.Body className="p-0">
               <Table bordered size="sm" className="mb-0">
                 <thead className="table-light">
                   <tr>
-                    <th style={{ minWidth: 150 }}>Méthode</th>
+                    <th style={{ minWidth: 150 }}>{t('common.method')}</th>
                     <th className="text-center" style={{ minWidth: 120 }}>
-                      Amplification
+                      {t('simulation.amplification')}
                     </th>
-                    <th className="text-center">Verdict</th>
+                    <th className="text-center">{t('simulation.verdict')}</th>
                     <th className="text-center" style={{ minWidth: 100 }}>
-                      Vainqueur R0
+                      {t('simulation.winnerR0')}
                     </th>
                   </tr>
                 </thead>

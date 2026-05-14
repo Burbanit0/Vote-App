@@ -1,26 +1,28 @@
 import React from 'react';
 import { Navigate, Link } from 'react-router';
 import { Button } from 'react-bootstrap';
+import { useTranslation } from 'react-i18next';
 import { useAuth } from './AuthContext';
 
-const PublicBanner: React.FC = () => (
-  <div
-    style={{ backgroundColor: '#cff4fc', borderBottom: '1px solid #9eeaf9', position: 'sticky', top: 56, zIndex: 900 }}
-    className="py-2 px-3 d-flex justify-content-between align-items-center flex-wrap gap-2"
-  >
-    <span className="small text-info-emphasis">
-      <strong>Mode lecture</strong> — Connectez-vous pour sauvegarder vos scénarios et accéder à l'historique.
-    </span>
-    <div className="d-flex gap-2">
-      <Link to="/login">
-        <Button variant="outline-info" size="sm">Se connecter</Button>
-      </Link>
-      <Link to="/register">
-        <Button variant="info" size="sm">Créer un compte</Button>
-      </Link>
+const PublicBanner: React.FC = () => {
+  const { t } = useTranslation();
+  return (
+    <div
+      style={{ backgroundColor: '#cff4fc', borderBottom: '1px solid #9eeaf9', position: 'sticky', top: 56, zIndex: 900 }}
+      className="py-2 px-3 d-flex justify-content-between align-items-center flex-wrap gap-2"
+    >
+      <span className="small text-info-emphasis" dangerouslySetInnerHTML={{ __html: t('auth.readOnlyBanner') }} />
+      <div className="d-flex gap-2">
+        <Link to="/login">
+          <Button variant="outline-info" size="sm">{t('auth.loginBtn')}</Button>
+        </Link>
+        <Link to="/register">
+          <Button variant="info" size="sm">{t('auth.signup')}</Button>
+        </Link>
+      </div>
     </div>
-  </div>
-);
+  );
+};
 
 interface Props {
   component: React.FC;
@@ -30,8 +32,9 @@ interface Props {
 
 const AuthGuard: React.FC<Props> = ({ component: Component, role, requireAuth = true }) => {
   const { user, loading } = useAuth();
+  const { t } = useTranslation();
 
-  if (loading) return <div className="p-4 text-center text-muted">Chargement…</div>;
+  if (loading) return <div className="p-4 text-center text-muted">{t('common.loading')}</div>;
 
   if (!user && requireAuth) return <Navigate to="/login" />;
 

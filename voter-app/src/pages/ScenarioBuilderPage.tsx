@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { Alert, Badge, Button, Card, Container, Form, Modal, Spinner, Table } from 'react-bootstrap';
+import { useTranslation } from 'react-i18next';
 import CandidateEditor, { CandidateConfig, newCandidate, newBlankCandidate } from '../components/ScenarioBuilder/CandidateEditor';
 import ElectorateConfig, { ElectorateState } from '../components/ScenarioBuilder/ElectorateConfig';
 import BlankVoteRuleSelector, { BlankRule } from '../components/ScenarioBuilder/BlankVoteRuleSelector';
@@ -9,25 +10,13 @@ import { useToast } from '../components/shared/ToastNotification';
 import { useExpertMode } from '../context/ExpertModeContext';
 import { useMetaTags } from '../hooks/useMetaTags';
 
-// ── Constants ──────────────────────────────────────────────────────────────
-
-const STEPS = ['Candidats', 'Électorat', 'Règle vote blanc', 'Résultats'];
-
-const METHOD_LABELS: Record<string, string> = {
-  plurality: 'Scrutin uninominal',
-  irv: 'Scrutin préférentiel (IRV)',
-  borda: 'Méthode de Borda',
-  schulze: 'Méthode de Schulze',
-  approval: 'Vote par approbation',
-};
-
 const CANDIDATE_COLORS = ['#4e79a7', '#e15759', '#59a14f', '#f28e2b', '#76b7b2', '#edc948'];
 
 // ── Step indicator ─────────────────────────────────────────────────────────
 
-const StepIndicator: React.FC<{ step: number }> = ({ step }) => (
+const StepIndicator: React.FC<{ step: number; steps: string[] }> = ({ step, steps }) => (
   <div className="d-flex align-items-center mb-4">
-    {STEPS.map((label, i) => (
+    {steps.map((label, i) => (
       <React.Fragment key={i}>
         <div className="d-flex flex-column align-items-center">
           <div
@@ -44,7 +33,7 @@ const StepIndicator: React.FC<{ step: number }> = ({ step }) => (
             {label}
           </small>
         </div>
-        {i < STEPS.length - 1 && (
+        {i < steps.length - 1 && (
           <div style={{ flex: 1, height: 2, backgroundColor: i < step ? '#198754' : '#dee2e6', margin: '0 4px', marginBottom: 20 }} />
         )}
       </React.Fragment>
@@ -54,9 +43,9 @@ const StepIndicator: React.FC<{ step: number }> = ({ step }) => (
 
 // ── Results display ────────────────────────────────────────────────────────
 
-const WinnerBadge: React.FC<{ winner: string | null; colorMap: Record<string, string> }> = ({ winner, colorMap }) => {
+const WinnerBadge: React.FC<{ winner: string | null; colorMap: Record<string, string>; t: (k: string) => string }> = ({ winner, colorMap, t }) => {
   if (!winner) return <span className="text-muted">—</span>;
-  if (winner === 'Blank') return <Badge bg="warning" text="dark">⬜ Vote Blanc</Badge>;
+  if (winner === 'Blank') return <Badge bg="warning" text="dark">{t('scenario.blankVoteBadge')}</Badge>;
   return (
     <Badge style={{ backgroundColor: colorMap[winner] ?? '#999', fontSize: '0.75rem' }}>{winner}</Badge>
   );
@@ -65,8 +54,8 @@ const WinnerBadge: React.FC<{ winner: string | null; colorMap: Record<string, st
 const ResultsView: React.FC<{
   results: ScenarioResult;
   candidates: CandidateConfig[];
-  blankRule: BlankRule;
-}> = ({ results, candidates, blankRule }) => {
+  t: (k: string, opts?: any) => string;
+}> = ({ results, candidates, t }) => {
   const colorMap: Record<string, string> = Object.fromEntries(
     candidates.filter((c) => !c.isBlank).map((c, i) => [c.name, CANDIDATE_COLORS[i % CANDIDATE_COLORS.length]])
   );
@@ -90,26 +79,26 @@ const ResultsView: React.FC<{
           <div style={{ fontSize: '1.6rem', fontWeight: 700, color: '#e15759' }}>
             {Math.round(results.with_blank.blank_pct * 100)}%
           </div>
-          <small className="text-muted">Électeurs votent blanc</small>
+          <small className="text-muted">{t('scenario.votersBlank')}</small>
         </Card>
         <Card className="text-center px-3 py-2" style={{ minWidth: 140 }}>
           <div style={{ fontSize: '1.6rem', fontWeight: 700, color: '#f28e2b' }}>
             {resultChangedCount}/{methods.length}
           </div>
-          <small className="text-muted">Résultats modifiés</small>
+          <small className="text-muted">{t('scenario.resultsChanged')}</small>
         </Card>
         <Card className="text-center px-3 py-2" style={{ minWidth: 140 }}>
           <div style={{ fontSize: '1.6rem', fontWeight: 700, color: '#dc3545' }}>
             {blankTriggeredCount}/{methods.length}
           </div>
-          <small className="text-muted">Crises déclenchées</small>
+          <small className="text-muted">{t('scenario.blankTriggered')}</small>
         </Card>
         {results.without_blank.condorcet_winner && (
           <Card className="text-center px-3 py-2" style={{ minWidth: 140 }}>
             <div style={{ fontSize: '0.95rem', fontWeight: 700 }}>
-              <WinnerBadge winner={results.without_blank.condorcet_winner} colorMap={colorMap} />
+              <WinnerBadge winner={results.without_blank.condorcet_winner} colorMap={colorMap} t={t} />
             </div>
-            <small className="text-muted">Vainqueur de Condorcet</small>
+            <small className="text-muted">{t('scenario.winnerCondorcet')}</small>
           </Card>
         )}
       </div>
@@ -119,11 +108,11 @@ const ResultsView: React.FC<{
         <Table bordered size="sm">
           <thead className="table-light">
             <tr>
-              <th style={{ minWidth: 160 }}>Méthode</th>
-              <th className="text-center" style={{ minWidth: 120 }}>Sans vote blanc</th>
-              <th className="text-center" style={{ minWidth: 120 }}>Avec vote blanc</th>
-              <th className="text-center" style={{ minWidth: 90 }}>% blanc</th>
-              <th style={{ minWidth: 200 }}>Conséquence</th>
+              <th style={{ minWidth: 160 }}>{t('scenario.methodHeader')}</th>
+              <th className="text-center" style={{ minWidth: 120 }}>{t('scenario.withoutBlank')}</th>
+              <th className="text-center" style={{ minWidth: 120 }}>{t('scenario.withBlank')}</th>
+              <th className="text-center" style={{ minWidth: 90 }}>{t('scenario.blankPctCol')}</th>
+              <th style={{ minWidth: 200 }}>{t('scenario.consequenceCol')}</th>
             </tr>
           </thead>
           <tbody>
@@ -136,12 +125,12 @@ const ResultsView: React.FC<{
 
               return (
                 <tr key={method} style={triggered ? { backgroundColor: '#fff8e1' } : winnerChanged ? { backgroundColor: '#e8f4e8' } : undefined}>
-                  <td className="fw-semibold ps-2">{METHOD_LABELS[method] ?? method}</td>
+                  <td className="fw-semibold ps-2">{t(`scenario.methods.${method}` as const)}</td>
                   <td className="text-center">
-                    <WinnerBadge winner={noBlank?.winner ?? null} colorMap={colorMap} />
+                    <WinnerBadge winner={noBlank?.winner ?? null} colorMap={colorMap} t={t} />
                   </td>
                   <td className="text-center">
-                    <WinnerBadge winner={rule?.winner ?? null} colorMap={colorMap} />
+                    <WinnerBadge winner={rule?.winner ?? null} colorMap={colorMap} t={t} />
                     {triggered && <span className="ms-1">🚨</span>}
                   </td>
                   <td className="text-center">
@@ -158,7 +147,7 @@ const ResultsView: React.FC<{
       </div>
 
       <small className="text-muted d-block mt-2">
-        🟡 Fond jaune = crise déclenchée &nbsp;·&nbsp; 🟢 Fond vert = résultat modifié par le vote blanc
+        {t('scenario.legendYellowGreen')}
       </small>
     </div>
   );
@@ -167,6 +156,8 @@ const ResultsView: React.FC<{
 // ── Main page ──────────────────────────────────────────────────────────────
 
 const ScenarioBuilderPage: React.FC = () => {
+  const { t } = useTranslation();
+  const steps = t('scenario.steps', { returnObjects: true }) as string[];
   const [step, setStep] = useState(0);
 
   const [candidates, setCandidates] = useState<CandidateConfig[]>([
@@ -194,11 +185,11 @@ const ScenarioBuilderPage: React.FC = () => {
   const realCandidateNames = candidates.filter((c) => !c.isBlank).map((c) => c.name).join(', ');
   useMetaTags({
     title: results
-      ? `Élection simulée : ${realCandidateNames} — Vote Lab`
-      : 'Constructeur de scénario électoral — Vote Lab',
+      ? `${t('scenario.metaTitle')} : ${realCandidateNames}`
+      : t('scenario.metaTitle'),
     description: results
-      ? `${Object.keys(results.without_blank.methods).length} méthodes comparées sur ${electorate.numVoters} électeurs avec le vote blanc.`
-      : 'Configurez vos candidats, votre électorat et testez 5 méthodes de vote avec le vote blanc.',
+      ? t('scenario.metaResultDesc', { n: Object.keys(results.without_blank.methods).length, voters: electorate.numVoters.toLocaleString() })
+      : t('scenario.metaDesc'),
   });
 
   // ── Share URL + Twitter text for results modal ─────────────────────────────
@@ -211,8 +202,8 @@ const ScenarioBuilderPage: React.FC = () => {
         .slice(0, 2)
     : [];
   const twitterText = results
-    ? `J'ai simulé une élection avec Vote Lab — résultat : ${divergentLabels.length >= 2 ? `${divergentLabels[0]} et ${divergentLabels[1]} élisent des vainqueurs différents` : 'les méthodes de vote changent le résultat'} ! ${shareUrl}`
-    : `Testez comment votre bulletin change tout sur Vote Lab ! ${shareUrl}`;
+    ? t('scenario.twitterTextResult', { winners: divergentLabels.length >= 2 ? t('scenario.twitterTextResultDiff', { a: divergentLabels[0], b: divergentLabels[1] }) : t('scenario.twitterTextResultMethods'), url: shareUrl })
+    : t('scenario.twitterTextGeneric', { url: shareUrl });
 
   // Restore config from URL on mount
   useEffect(() => {
@@ -261,7 +252,7 @@ const ScenarioBuilderPage: React.FC = () => {
       setResults(data);
       setStep(3);
     } catch {
-      toast.error('La simulation a échoué. Vérifiez que le backend est démarré.');
+      toast.error(t('scenario.scenarioError'));
     } finally {
       setLoading(false);
     }
@@ -271,28 +262,26 @@ const ScenarioBuilderPage: React.FC = () => {
     <CandidateEditor key="ce" candidates={candidates} onChange={setCandidates} />,
     <ElectorateConfig key="el" config={electorate} onChange={(p) => setElectorate((e) => ({ ...e, ...p }))} expertMode={expertMode} />,
     <BlankVoteRuleSelector key="bv" selected={blankRule} onChange={setBlankRule} hasBlankCandidate={hasBlankCandidate} />,
-    results ? <ResultsView key="res" results={results} candidates={candidates} blankRule={blankRule} /> : null,
+    results ? <ResultsView key="res" results={results} candidates={candidates} t={t} /> : null,
   ];
 
   return (
     <Container className="py-4" style={{ maxWidth: 900 }}>
-      <h2 className="mb-1">Constructeur de scénario électoral</h2>
+      <h2 className="mb-1">{t('scenario.pageTitle')}</h2>
       <p className="text-muted mb-4">
-        Configurez une élection réaliste et observez comment la méthode de vote — et la reconnaissance du vote blanc — changent le résultat.
+        {t('scenario.pageSubtitle')}
       </p>
 
-      <StepIndicator step={step} />
+      <StepIndicator step={step} steps={steps} />
 
       <Card className="mb-4">
-        <Card.Header className="fw-semibold">{STEPS[step]}</Card.Header>
+        <Card.Header className="fw-semibold">{steps[step]}</Card.Header>
         <Card.Body>{stepContent[step]}</Card.Body>
       </Card>
 
-
-
       {step < 2 && realCandidates.length < 2 && (
         <Alert variant="warning" className="py-2">
-          Ajoutez au moins 2 candidats réels pour continuer.
+          {t('scenario.errMinCandidates')}
         </Alert>
       )}
 
@@ -300,33 +289,33 @@ const ScenarioBuilderPage: React.FC = () => {
         <div>
           {step > 0 && step < 3 && (
             <Button variant="outline-secondary" onClick={() => setStep((s) => s - 1)}>
-              ← Retour
+              {t('scenario.back')}
             </Button>
           )}
           {step === 3 && (
             <Button variant="outline-secondary" onClick={() => { setStep(0); setResults(null); }}>
-              ↺ Recommencer
+              {t('scenario.reset')}
             </Button>
           )}
         </div>
         <div>
           <div className="d-flex gap-2">
           <Button variant={linkCopied ? 'success' : 'outline-info'} size="sm" onClick={copyShareLink}>
-            {linkCopied ? '✓ Lien copié !' : '🔗 Partager'}
+            {linkCopied ? t('scenario.linkCopied') : t('scenario.shareLink')}
           </Button>
           {step === 3 && results && (
             <Button variant="outline-primary" size="sm" onClick={() => setShowShareModal(true)}>
-              📤 Partager ces résultats
+              {t('scenario.shareResultsButton')}
             </Button>
           )}
           {step < 2 && (
             <Button variant="primary" onClick={() => setStep((s) => s + 1)} disabled={!canProceed[step]}>
-              Suivant →
+              {t('scenario.next')}
             </Button>
           )}
           {step === 2 && (
             <Button variant="success" onClick={run} disabled={loading}>
-              {loading ? <><Spinner size="sm" className="me-2" />Simulation en cours…</> : '▶ Lancer la simulation'}
+              {loading ? <><Spinner size="sm" className="me-2" />{t('scenario.simulationRunning')}</> : t('scenario.runSimulation')}
             </Button>
           )}
         </div>
@@ -336,10 +325,10 @@ const ScenarioBuilderPage: React.FC = () => {
       {/* ── Share results modal ── */}
       <Modal show={showShareModal} onHide={() => setShowShareModal(false)} centered>
         <Modal.Header closeButton>
-          <Modal.Title>📤 Partager ces résultats</Modal.Title>
+          <Modal.Title>{t('scenario.shareResultsTitle')}</Modal.Title>
         </Modal.Header>
         <Modal.Body>
-          <Form.Label className="fw-semibold small">Lien permanent</Form.Label>
+          <Form.Label className="fw-semibold small">{t('scenario.permanentLink')}</Form.Label>
           <div className="d-flex gap-2 mb-3">
             <Form.Control size="sm" readOnly value={shareUrl} style={{ fontSize: '0.78rem' }} />
             <Button
@@ -354,7 +343,7 @@ const ScenarioBuilderPage: React.FC = () => {
               {urlCopied ? '✓' : '📋'}
             </Button>
           </div>
-          <Form.Label className="fw-semibold small">Texte pour Twitter / X</Form.Label>
+          <Form.Label className="fw-semibold small">{t('scenario.twitterTextLabel')}</Form.Label>
           <Form.Control
             as="textarea"
             rows={4}
@@ -368,7 +357,7 @@ const ScenarioBuilderPage: React.FC = () => {
               target="_blank"
               rel="noopener noreferrer"
             >
-              <Button variant="outline-dark" size="sm">𝕏 Ouvrir sur Twitter →</Button>
+              <Button variant="outline-dark" size="sm">{t('scenario.openOnTwitter')}</Button>
             </a>
           </div>
         </Modal.Body>

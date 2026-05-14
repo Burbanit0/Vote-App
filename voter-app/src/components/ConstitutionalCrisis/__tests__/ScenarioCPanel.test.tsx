@@ -16,13 +16,13 @@ jest.mock('recharts', () => ({
 describe('ScenarioCPanel', () => {
   it('renders seat count slider', () => {
     render(<ScenarioCPanel result={null} loading={false} onRun={jest.fn()} />);
-    expect(screen.getByText(/Nombre de sièges/)).toBeInTheDocument();
+    expect(screen.getByText(/Number of assembly seats/)).toBeInTheDocument();
     expect(screen.getByText('100')).toBeInTheDocument();
   });
 
   it('renders run button', () => {
     render(<ScenarioCPanel result={null} loading={false} onRun={jest.fn()} />);
-    expect(screen.getByText(/Composer l'assemblée/)).toBeInTheDocument();
+    expect(screen.getByText(/Form the assembly/)).toBeInTheDocument();
   });
 
   it('renders results with chart and table', () => {
@@ -51,6 +51,6 @@ describe('ScenarioCPanel', () => {
       conclusion: 'Test',
     };
     render(<ScenarioCPanel result={result as any} loading={false} onRun={jest.fn()} />);
-    expect(screen.getAllByText(/Scrutin uninominal/).length).toBeGreaterThanOrEqual(1);
+    expect(screen.getAllByText(/Plurality/).length).toBeGreaterThanOrEqual(1);
   });
 });

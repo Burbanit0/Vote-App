@@ -52,7 +52,7 @@ const emptyResult: ArrowCriteriaResult = {
 describe('ArrowCriteriaMatrix', () => {
   it('renders Arrow impossibility alert', () => {
     render(<ArrowCriteriaMatrix result={fullResult} />);
-    expect(screen.getByText(/Théorème d'impossibilité d'Arrow/)).toBeInTheDocument();
+    expect(screen.getByText(/Arrow's impossibility theorem/)).toBeInTheDocument();
   });
 
   it('renders method rows from result', () => {
@@ -63,8 +63,8 @@ describe('ArrowCriteriaMatrix', () => {
 
   it('shows best and worst badges', () => {
     render(<ArrowCriteriaMatrix result={fullResult} />);
-    expect(screen.getByText('mieux')).toBeInTheDocument();
-    expect(screen.getByText('moins bien')).toBeInTheDocument();
+    expect(screen.getByText('better')).toBeInTheDocument();
+    expect(screen.getByText('worse')).toBeInTheDocument();
   });
 
   it('shows score per method', () => {
@@ -75,19 +75,19 @@ describe('ArrowCriteriaMatrix', () => {
 
   it('shows empty state when no methods', () => {
     render(<ArrowCriteriaMatrix result={emptyResult} />);
-    expect(screen.getByText('Aucune donnée disponible.')).toBeInTheDocument();
+    expect(screen.getByText('No data available.')).toBeInTheDocument();
   });
 
   it('renders criteria labels', () => {
     render(<ArrowCriteriaMatrix result={fullResult} />);
-    expect(screen.getByText('Vainqueur Condorcet')).toBeInTheDocument();
-    expect(screen.getByText('Monotonie')).toBeInTheDocument();
+    expect(screen.getByText('Condorcet winner')).toBeInTheDocument();
+    expect(screen.getByText('Monotonicity')).toBeInTheDocument();
     expect(screen.getByText('IIA')).toBeInTheDocument();
   });
 
   it('renders legend items', () => {
     render(<ArrowCriteriaMatrix result={fullResult} />);
-    expect(screen.getByText(/✓ Satisfait/)).toBeInTheDocument();
-    expect(screen.getByText(/✗ Violé/)).toBeInTheDocument();
+    expect(screen.getByText(/✓ Satisfied/)).toBeInTheDocument();
+    expect(screen.getByText(/✗ Violated/)).toBeInTheDocument();
   });
 });

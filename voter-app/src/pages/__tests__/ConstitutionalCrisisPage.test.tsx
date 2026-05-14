@@ -73,7 +73,7 @@ describe('ConstitutionalCrisisPage', () => {
 
   it('renders the page title', () => {
     render(<ConstitutionalCrisisPage />);
-    expect(screen.getByText('Simulateur de crise constitutionnelle')).toBeInTheDocument();
+    expect(screen.getByText('Constitutional crisis simulator')).toBeInTheDocument();
   });
 
   it('shows CandidateEditor and ElectorateConfig', () => {
@@ -84,7 +84,7 @@ describe('ConstitutionalCrisisPage', () => {
 
   it('shows info alert before initial simulation', () => {
     render(<ConstitutionalCrisisPage />);
-    expect(screen.getByText(/Configurez l'élection/)).toBeInTheDocument();
+    expect(screen.getByText(/Configure the election/)).toBeInTheDocument();
   });
 
   it('calls runScenario when simulate button is clicked', async () => {
@@ -94,7 +94,7 @@ describe('ConstitutionalCrisisPage', () => {
     });
 
     render(<ConstitutionalCrisisPage />);
-    fireEvent.click(screen.getByRole('button', { name: /Simuler/ }));
+    fireEvent.click(screen.getByRole('button', { name: /Simulate/ }));
 
     await waitFor(() => {
       expect(runScenario).toHaveBeenCalledTimes(1);
@@ -108,10 +108,10 @@ describe('ConstitutionalCrisisPage', () => {
     });
 
     render(<ConstitutionalCrisisPage />);
-    fireEvent.click(screen.getByRole('button', { name: /Simuler/ }));
+    fireEvent.click(screen.getByRole('button', { name: /Simulate/ }));
 
     await waitFor(() => {
-      expect(screen.getByText(/Vote blanc victorieux/)).toBeInTheDocument();
+      expect(screen.getByText(/Blank vote wins/)).toBeInTheDocument();
     });
   });
 
@@ -122,12 +122,12 @@ describe('ConstitutionalCrisisPage', () => {
     });
 
     render(<ConstitutionalCrisisPage />);
-    fireEvent.click(screen.getByRole('button', { name: /Simuler/ }));
+    fireEvent.click(screen.getByRole('button', { name: /Simulate/ }));
 
     await waitFor(() => {
-      expect(screen.getByText(/Nouvelle élection/)).toBeInTheDocument();
-      expect(screen.getByText(/Gouvernement provisoire/)).toBeInTheDocument();
-      expect(screen.getByText(/Dissolution proportionnelle/)).toBeInTheDocument();
+      expect(screen.getByText(/New election/)).toBeInTheDocument();
+      expect(screen.getByText(/Provisional government/)).toBeInTheDocument();
+      expect(screen.getByText(/Proportional dissolution/)).toBeInTheDocument();
     });
   });
 });

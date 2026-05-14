@@ -1,5 +1,6 @@
-import React from 'react';
+import React, { useMemo } from 'react';
 import { Badge, Button, Card, Col, Form, Row } from 'react-bootstrap';
+import { useTranslation } from 'react-i18next';
 
 export interface CandidateConfig {
   id: string;
@@ -34,22 +35,31 @@ export function newBlankCandidate(): CandidateConfig {
   return { id: `blank${++_idCounter}`, name: 'Vote Blanc', ideology: 0, economy: 0.5, environment: 0.5, social: 0.5, isBlank: true };
 }
 
-const IDEOLOGY_LABELS = ['Extrême gauche', 'Gauche', 'Centre-gauche', 'Centre', 'Centre-droit', 'Droite', 'Extrême droite'];
-
-function ideologyLabel(v: number): string {
-  const idx = Math.round((v + 1) / 2 * (IDEOLOGY_LABELS.length - 1));
-  return IDEOLOGY_LABELS[Math.max(0, Math.min(IDEOLOGY_LABELS.length - 1, idx))];
-}
-
-function ideologyColor(v: number): string {
-  const t = (v + 1) / 2;
-  const r = Math.round(220 * t);
-  const b = Math.round(220 * (1 - t));
-  return `rgb(${r},60,${b})`;
-}
-
 const CandidateEditor: React.FC<Props> = ({ candidates, onChange }) => {
+  const { t } = useTranslation();
   const hasBlank = candidates.some((c) => c.isBlank);
+
+  const IDEOLOGY_LABELS = useMemo(() => [
+    t('ideology.extremeLeft'),
+    t('ideology.left'),
+    t('ideology.centerLeft'),
+    t('ideology.center'),
+    t('ideology.centerRight'),
+    t('ideology.right'),
+    t('ideology.extremeRight'),
+  ], [t]);
+
+  function ideologyLabel(v: number): string {
+    const idx = Math.round((v + 1) / 2 * (IDEOLOGY_LABELS.length - 1));
+    return IDEOLOGY_LABELS[Math.max(0, Math.min(IDEOLOGY_LABELS.length - 1, idx))];
+  }
+
+  function ideologyColor(v: number): string {
+    const t = (v + 1) / 2;
+    const r = Math.round(220 * t);
+    const b = Math.round(220 * (1 - t));
+    return `rgb(${r},60,${b})`;
+  }
 
   const update = (id: string, patch: Partial<CandidateConfig>) => {
     onChange(candidates.map((c) => (c.id === id ? { ...c, ...patch } : c)));
@@ -80,7 +90,7 @@ const CandidateEditor: React.FC<Props> = ({ candidates, onChange }) => {
   return (
     <div>
       <p className="text-muted small mb-3">
-        Définissez les candidats de votre élection. Le curseur idéologique pré-remplit les positions ; vous pouvez les ajuster.
+        {t('scenario.candidateEditorIntro')}
       </p>
 
       {candidates.map((c) => (
@@ -89,8 +99,8 @@ const CandidateEditor: React.FC<Props> = ({ candidates, onChange }) => {
             {c.isBlank ? (
               <div className="d-flex align-items-center justify-content-between">
                 <div className="d-flex align-items-center gap-2">
-                  <Badge bg="warning" text="dark" style={{ fontSize: '0.85rem' }}>⬜ Vote Blanc</Badge>
-                  <small className="text-muted">Exprime un refus actif de tous les candidats</small>
+                  <Badge bg="warning" text="dark" style={{ fontSize: '0.85rem' }}>{t('scenario.blankVoteBadge')}</Badge>
+                  <small className="text-muted">{t('scenario.blankDescription')}</small>
                 </div>
                 <Button variant="outline-danger" size="sm" onClick={() => remove(c.id)}>✕</Button>
               </div>
@@ -100,19 +110,19 @@ const CandidateEditor: React.FC<Props> = ({ candidates, onChange }) => {
                   <Col md={5}>
                     <Form.Control
                       size="sm"
-                      placeholder="Nom du candidat"
+                      placeholder={t('scenario.candidateNamePlaceholder')}
                       value={c.name}
                       onChange={(e) => update(c.id, { name: e.target.value })}
                     />
                   </Col>
                   <Col md={6}>
                     <div className="d-flex align-items-center gap-2">
-                      <small className="text-nowrap" style={{ color: '#3c3cdc', minWidth: 50 }}>Gauche</small>
+                      <small className="text-nowrap" style={{ color: '#3c3cdc', minWidth: 50 }}>{t('scenario.left')}</small>
                       <Form.Range
                         min={-1} max={1} step={0.05} value={c.ideology}
                         onChange={(e) => onIdeologyChange(c.id, Number(e.target.value))}
                       />
-                      <small className="text-nowrap" style={{ color: '#dc3c3c', minWidth: 50, textAlign: 'right' }}>Droite</small>
+                      <small className="text-nowrap" style={{ color: '#dc3c3c', minWidth: 50, textAlign: 'right' }}>{t('scenario.right')}</small>
                     </div>
                     <div className="text-center mt-1">
                       <Badge style={{ backgroundColor: ideologyColor(c.ideology), fontSize: '0.72rem' }}>
@@ -127,13 +137,13 @@ const CandidateEditor: React.FC<Props> = ({ candidates, onChange }) => {
 
                 <Row className="g-3">
                   <Col md={4}>
-                    <Slider label="💰 Économie (libéral → interventionniste)" value={c.economy} onChange={(v) => update(c.id, { economy: v })} />
+                    <Slider label={t('scenario.economySlider')} value={c.economy} onChange={(v) => update(c.id, { economy: v })} />
                   </Col>
                   <Col md={4}>
-                    <Slider label="🌿 Environnement (faible → fort)" value={c.environment} onChange={(v) => update(c.id, { environment: v })} />
+                    <Slider label={t('scenario.environmentSlider')} value={c.environment} onChange={(v) => update(c.id, { environment: v })} />
                   </Col>
                   <Col md={4}>
-                    <Slider label="🤝 Social (libéral → solidaire)" value={c.social} onChange={(v) => update(c.id, { social: v })} />
+                    <Slider label={t('scenario.socialSlider')} value={c.social} onChange={(v) => update(c.id, { social: v })} />
                   </Col>
                 </Row>
               </>
@@ -144,11 +154,11 @@ const CandidateEditor: React.FC<Props> = ({ candidates, onChange }) => {
 
       <div className="d-flex gap-2">
         <Button variant="outline-primary" size="sm" onClick={() => onChange([...candidates, newCandidate()])}>
-          + Ajouter un candidat
+          {t('scenario.addCandidate')}
         </Button>
         {!hasBlank && (
           <Button variant="outline-warning" size="sm" onClick={() => onChange([...candidates, newBlankCandidate()])}>
-            ⬜ + Vote Blanc
+            {t('scenario.addBlank')}
           </Button>
         )}
       </div>

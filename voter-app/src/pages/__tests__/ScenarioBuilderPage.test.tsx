@@ -66,11 +66,11 @@ describe('ScenarioBuilderPage', () => {
 
   it('renders the page title and step indicator', () => {
     render(<ScenarioBuilderPage />);
-    expect(screen.getByText('Constructeur de scénario électoral')).toBeInTheDocument();
-    expect(screen.getAllByText('Candidats').length).toBeGreaterThanOrEqual(1);
-    expect(screen.getAllByText('Électorat').length).toBeGreaterThanOrEqual(1);
-    expect(screen.getAllByText('Règle vote blanc').length).toBeGreaterThanOrEqual(1);
-    expect(screen.getAllByText('Résultats').length).toBeGreaterThanOrEqual(1);
+    expect(screen.getByText('Election scenario builder')).toBeInTheDocument();
+    expect(screen.getAllByText('Candidates').length).toBeGreaterThanOrEqual(1);
+    expect(screen.getAllByText('Electorate').length).toBeGreaterThanOrEqual(1);
+    expect(screen.getAllByText('Blank vote rule').length).toBeGreaterThanOrEqual(1);
+    expect(screen.getAllByText('Results').length).toBeGreaterThanOrEqual(1);
   });
 
   it('shows CandidateEditor on step 0', () => {
@@ -78,16 +78,16 @@ describe('ScenarioBuilderPage', () => {
     expect(screen.getByTestId('candidate-editor')).toBeInTheDocument();
   });
 
-  it('shows ElectorateConfig after clicking Suivant', () => {
+  it('shows ElectorateConfig after clicking Next', () => {
     render(<ScenarioBuilderPage />);
-    fireEvent.click(screen.getByText('Suivant →'));
+    fireEvent.click(screen.getByText('Next →'));
     expect(screen.getByTestId('electorate-config')).toBeInTheDocument();
   });
 
-  it('shows BlankVoteRuleSelector after second Suivant', () => {
+  it('shows BlankVoteRuleSelector after second Next', () => {
     render(<ScenarioBuilderPage />);
-    fireEvent.click(screen.getByText('Suivant →'));
-    fireEvent.click(screen.getByText('Suivant →'));
+    fireEvent.click(screen.getByText('Next →'));
+    fireEvent.click(screen.getByText('Next →'));
     expect(screen.getByTestId('blank-rule-selector')).toBeInTheDocument();
   });
 
@@ -108,9 +108,9 @@ describe('ScenarioBuilderPage', () => {
     (runScenario as jest.Mock).mockResolvedValue(mockResult);
 
     render(<ScenarioBuilderPage />);
-    fireEvent.click(screen.getByText('Suivant →'));
-    fireEvent.click(screen.getByText('Suivant →'));
-    fireEvent.click(screen.getByText('▶ Lancer la simulation'));
+    fireEvent.click(screen.getByText('Next →'));
+    fireEvent.click(screen.getByText('Next →'));
+    fireEvent.click(screen.getByText('▶ Run simulation'));
 
     await waitFor(() => {
       expect(runScenario).toHaveBeenCalledTimes(1);
@@ -122,14 +122,14 @@ describe('ScenarioBuilderPage', () => {
 
   it('does not show candidate warning when 2+ real candidates exist', () => {
     render(<ScenarioBuilderPage />);
-    expect(screen.queryByText(/Ajoutez au moins 2 candidats réels/)).toBeNull();
+    expect(screen.queryByText(/Add at least 2 real candidates/)).toBeNull();
   });
 
   it('allows going back to previous step', () => {
     render(<ScenarioBuilderPage />);
-    fireEvent.click(screen.getByText('Suivant →'));
+    fireEvent.click(screen.getByText('Next →'));
     expect(screen.getByTestId('electorate-config')).toBeInTheDocument();
-    fireEvent.click(screen.getByText('← Retour'));
+    fireEvent.click(screen.getByText('← Back'));
     expect(screen.getByTestId('candidate-editor')).toBeInTheDocument();
   });
 });

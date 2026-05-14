@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { Alert, Badge, Button, Card, Col, Container, Row, Spinner, Tab, Tabs } from 'react-bootstrap';
+import { useTranslation } from 'react-i18next';
 import { useToast } from '../components/shared/ToastNotification';
 import CandidateEditor, { CandidateConfig, newCandidate, newBlankCandidate } from '../components/ScenarioBuilder/CandidateEditor';
 import ElectorateConfig, { ElectorateState } from '../components/ScenarioBuilder/ElectorateConfig';
@@ -31,6 +32,7 @@ function toApiElectorate(e: ElectorateState) {
 // ── Initial results banner ─────────────────────────────────────────────────
 
 const InitialResultsBanner: React.FC<{ results: ScenarioResult; candidates: CandidateConfig[] }> = ({ results, candidates }) => {
+  const { t } = useTranslation();
   const colorMap = Object.fromEntries(
     candidates.filter((c) => !c.isBlank).map((c, i) => [c.name, COLORS[i % COLORS.length]])
   );
@@ -41,10 +43,10 @@ const InitialResultsBanner: React.FC<{ results: ScenarioResult; candidates: Cand
     <Card className={`mb-4 border-${blankWins ? 'danger' : 'success'}`}>
       <Card.Header className={`bg-${blankWins ? 'danger' : 'success'} text-white`}>
         <strong>
-          {blankWins ? '🚨 Vote blanc victorieux — scénarios constitutionnels disponibles' : '✓ Vote blanc non décisif'}
+          {blankWins ? t('crisis.blankWins') : t('crisis.blankNotDecisive')}
         </strong>
         <span className="ms-3 fw-normal" style={{ fontSize: '0.9rem' }}>
-          {Math.round(blankPct * 100)}% des électeurs ont voté blanc
+          {t('crisis.blanksVoted', { pct: Math.round(blankPct * 100) })}
         </span>
       </Card.Header>
       <Card.Body className="py-2">
@@ -55,7 +57,7 @@ const InitialResultsBanner: React.FC<{ results: ScenarioResult; candidates: Cand
               <div key={m} style={{ fontSize: '0.82rem' }}>
                 <span className="text-muted">{m} → </span>
                 {effective === 'Blank' || effective == null ? (
-                  <Badge bg="warning" text="dark">⬜ Vote Blanc</Badge>
+                  <Badge bg="warning" text="dark">{t('common.blankBadge')}</Badge>
                 ) : (
                   <Badge style={{ backgroundColor: colorMap[effective] ?? '#999' }}>{effective}</Badge>
                 )}
@@ -72,6 +74,7 @@ const InitialResultsBanner: React.FC<{ results: ScenarioResult; candidates: Cand
 // ── Main page ──────────────────────────────────────────────────────────────
 
 const ConstitutionalCrisisPage: React.FC = () => {
+  const { t } = useTranslation();
   // Initial election config
   const [candidates, setCandidates] = useState<CandidateConfig[]>([
     newCandidate('Alice', -0.4),
@@ -122,7 +125,7 @@ const ConstitutionalCrisisPage: React.FC = () => {
       });
       setInitResult(r);
     } catch {
-      toast.error('Simulation échouée. Vérifiez que le backend est démarré.');
+      toast.error(t('crisis.errSimFailed'));
     } finally {
       setInitLoading(false);
     }
@@ -169,27 +172,25 @@ const ConstitutionalCrisisPage: React.FC = () => {
 
   return (
     <Container className="py-4" style={{ maxWidth: 960 }}>
-      <h2 className="mb-1">Simulateur de crise constitutionnelle</h2>
-      <p className="text-muted mb-4">
-        Que se passe-t-il <em>après</em> que le vote blanc a gagné ? Trois modèles constitutionnels pour explorer les conséquences.
-      </p>
+      <h2 className="mb-1">{t('crisis.pageTitle')}</h2>
+      <p className="text-muted mb-4" dangerouslySetInnerHTML={{ __html: t('crisis.pageSubtitle') }} />
 
       {/* Initial election config */}
       <Card className="mb-4">
         <Card.Header className="fw-semibold d-flex justify-content-between align-items-center">
-          Configuration de l'élection initiale
+          {t('crisis.initialConfig')}
           <Button variant="primary" size="sm" onClick={runInitial} disabled={initLoading || realCandidates.length < 2}>
-            {initLoading ? <><Spinner size="sm" className="me-2" />Simulation…</> : '▶ Simuler l\'élection initiale'}
+            {initLoading ? <><Spinner size="sm" className="me-2" />{t('crisis.simulating')}</> : t('crisis.simulateInitial')}
           </Button>
         </Card.Header>
         <Card.Body>
           <Row className="g-4">
             <Col md={7}>
-              <p className="fw-semibold small text-muted mb-2">Candidats</p>
+              <p className="fw-semibold small text-muted mb-2">{t('common.candidates')}</p>
               <CandidateEditor candidates={candidates} onChange={setCandidates} />
             </Col>
             <Col md={5}>
-              <p className="fw-semibold small text-muted mb-2">Électorat</p>
+              <p className="fw-semibold small text-muted mb-2">{t('common.electorate')}</p>
               <ElectorateConfig config={electorate} onChange={(p) => setElectorate((e) => ({ ...e, ...p }))} />
             </Col>
           </Row>
@@ -200,9 +201,7 @@ const ConstitutionalCrisisPage: React.FC = () => {
 
       {!initResult && !initLoading && (
         <Alert variant="info">
-          Configurez l'élection et cliquez <strong>Simuler l'élection initiale</strong>.
-          Pour que les scénarios constitutionnels se déclenchent, le taux d'insatisfaction doit être assez élevé
-          et le vote blanc doit être victorieux.
+          <span dangerouslySetInnerHTML={{ __html: t('crisis.configHint') }} />
         </Alert>
       )}
 
@@ -212,8 +211,7 @@ const ConstitutionalCrisisPage: React.FC = () => {
 
           {!blankWins && (
             <Alert variant="warning">
-              Le vote blanc n'a pas gagné dans cette configuration. Augmentez le taux d'insatisfaction
-              ou réduisez l'offre politique pour déclencher un scénario de crise.
+              {t('crisis.blankNotWon')}
             </Alert>
           )}
 
@@ -221,7 +219,7 @@ const ConstitutionalCrisisPage: React.FC = () => {
             <Tabs defaultActiveKey="A" className="mb-3">
               <Tab
                 eventKey="A"
-                title={<span>🗳️ A — Nouvelle élection</span>}
+                title={<span>{t('crisis.tabA')}</span>}
               >
                 <Card>
                   <Card.Body>
@@ -237,7 +235,7 @@ const ConstitutionalCrisisPage: React.FC = () => {
 
               <Tab
                 eventKey="B"
-                title={<span>⏱️ B — Gouvernement provisoire</span>}
+                title={<span>{t('crisis.tabB')}</span>}
               >
                 <Card>
                   <Card.Body>
@@ -253,7 +251,7 @@ const ConstitutionalCrisisPage: React.FC = () => {
 
               <Tab
                 eventKey="C"
-                title={<span>🏛️ C — Dissolution proportionnelle</span>}
+                title={<span>{t('crisis.tabC')}</span>}
               >
                 <Card>
                   <Card.Body>

@@ -9,6 +9,7 @@ import {
 } from './simulationConstants';
 import MethodTooltip from '../shared/MethodTooltip';
 import ResponsiveTable from '../shared/ResponsiveTable';
+import { useTranslation } from 'react-i18next';
 
 const WINNER_BADGE_STYLE: React.CSSProperties = {
   maxWidth: 80,
@@ -29,15 +30,17 @@ interface TableProps {
   onCellClick?: (methodKey: string, simIndex: number) => void;
 }
 
-const WinnerMatrixTable: React.FC<TableProps> = ({ results, allMethodNames, colorMap, label, onCellClick }) => (
-  <ResponsiveTable>
+const WinnerMatrixTable: React.FC<TableProps> = ({ results, allMethodNames, colorMap, label, onCellClick }) => {
+  const { t } = useTranslation();
+  return (
+    <ResponsiveTable>
     {label && (
       <p className="fw-semibold text-center mb-2" style={{ fontSize: '0.9rem' }}>{label}</p>
     )}
     <Table bordered hover size="sm" style={{ minWidth: 500 }}>
       <thead className="table-light">
         <tr>
-          <th style={{ minWidth: 130 }}>Méthode</th>
+          <th style={{ minWidth: 130 }}>{t('common.method')}</th>
           {results.map((_, i) => (
             <th key={i} className="text-center" style={{ minWidth: 72 }}>#{i + 1}</th>
           ))}
@@ -56,7 +59,7 @@ const WinnerMatrixTable: React.FC<TableProps> = ({ results, allMethodNames, colo
                   className="text-center"
                   style={onCellClick ? { cursor: 'pointer' } : undefined}
                   onClick={onCellClick ? () => onCellClick(method, i) : undefined}
-                  title={onCellClick ? 'Cliquez pour les détails' : undefined}
+                  title={onCellClick ? t('simulation.clickForDetails') : undefined}
                 >
                   {winner ? (
                     <Badge style={{ backgroundColor: colorMap[winner] ?? '#999', fontSize: '0.72rem', ...WINNER_BADGE_STYLE }}>
@@ -73,7 +76,8 @@ const WinnerMatrixTable: React.FC<TableProps> = ({ results, allMethodNames, colo
       </tbody>
     </Table>
   </ResponsiveTable>
-);
+  );
+};
 
 // ── WinnerMatrixTab ─────────────────────────────────────────────────────────
 
@@ -92,6 +96,7 @@ const WinnerMatrixTab: React.FC<Props> = ({
   comparisonResults, resultsB, allMethodNames, candidateColorMap,
   configA, configB, numSimulations, scenarioCount,
 }) => {
+  const { t } = useTranslation();
   const [drilldownTarget, setDrilldownTarget] = useState<{ methodKey: string; simIndex: number } | null>(null);
 
   const diffData = useMemo(() => {
@@ -105,8 +110,8 @@ const WinnerMatrixTab: React.FC<Props> = ({
       .sort((a, b) => (a.winnerA !== a.winnerB ? 0 : 1) - (b.winnerA !== b.winnerB ? 0 : 1));
   }, [allMethodNames, comparisonResults, resultsB]);
 
-  const labelA = `Scénario A — ${configA.candidateInput} (${IDEOLOGY_OPTIONS.find((o) => o.value === configA.ideology_distribution)?.labelKey ?? configA.ideology_distribution})`;
-  const labelB = `Scénario B — ${configB.candidateInput} (${IDEOLOGY_OPTIONS.find((o) => o.value === configB.ideology_distribution)?.labelKey ?? configB.ideology_distribution})`;
+  const labelA = `${t('simulation.scenarioA')} — ${configA.candidateInput} (${IDEOLOGY_OPTIONS.find((o) => o.value === configA.ideology_distribution)?.labelKey ?? configA.ideology_distribution})`;
+  const labelB = `${t('simulation.scenarioB')} — ${configB.candidateInput} (${IDEOLOGY_OPTIONS.find((o) => o.value === configB.ideology_distribution)?.labelKey ?? configB.ideology_distribution})`;
 
   // Colour legend
   const legend = (
@@ -119,7 +124,7 @@ const WinnerMatrixTab: React.FC<Props> = ({
       ))}
       {comparisonResults.some((r) =>
         Object.values(r.methods).some((m) => m.condorcet_consistent === false)
-      ) && <small className="text-muted">* = Vainqueur de Condorcet non élu</small>}
+      ) && <small className="text-muted">{t('simulation.notCondorcet')}</small>}
     </div>
   );
 
@@ -147,9 +152,9 @@ const WinnerMatrixTab: React.FC<Props> = ({
 
           <Card>
             <Card.Header>
-              <strong>Différences</strong>
+              <strong>{t('simulation.differences')}</strong>
               <span className="text-muted ms-2" style={{ fontSize: '0.85rem' }}>
-                — vainqueur le plus fréquent par méthode sur {numSimulations} simulations
+                {t('simulation.mostFrequentWinner', { n: numSimulations })}
               </span>
             </Card.Header>
             <Card.Body className="p-0">
@@ -157,9 +162,9 @@ const WinnerMatrixTab: React.FC<Props> = ({
               <Table bordered size="sm" className="mb-0">
                 <thead className="table-light">
                   <tr>
-                    <th style={{ minWidth: 140 }}>Méthode</th>
-                    <th className="text-center">Vainqueur scénario A</th>
-                    <th className="text-center">Vainqueur scénario B</th>
+                    <th style={{ minWidth: 140 }}>{t('common.method')}</th>
+                    <th className="text-center">{t('simulation.winnerScenarioA')}</th>
+                    <th className="text-center">{t('simulation.winnerScenarioB')}</th>
                     <th className="text-center" style={{ width: 60 }}></th>
                   </tr>
                 </thead>
@@ -202,7 +207,7 @@ const WinnerMatrixTab: React.FC<Props> = ({
               onCellClick={(m, i) => setDrilldownTarget({ methodKey: m, simIndex: i })}
             />
             <small className="text-muted d-block mt-2">
-              Cliquez sur une cellule pour voir les détails de cette méthode et cette simulation.
+              {t('simulation.clickCellHint')}
             </small>
           </Card.Body>
         </Card>
@@ -228,20 +233,20 @@ const WinnerMatrixTab: React.FC<Props> = ({
             </Modal.Header>
             <Modal.Body>
               <div className="text-center mb-4">
-                <div className="text-muted small mb-1">Vainqueur</div>
+                <div className="text-muted small mb-1">{t('simulation.winner')}</div>
                 {winner ? (
                   <Badge style={{ backgroundColor: candidateColorMap[winner] ?? '#999', fontSize: '1.1rem', padding: '0.45em 1.1em' }}>
                     {winner}
                   </Badge>
-                ) : <span className="text-muted">Aucun vainqueur</span>}
+                ) : <span className="text-muted">{t('simulation.noWinner')}</span>}
               </div>
 
               <Table bordered size="sm" className="mb-3">
                 <tbody>
                   {[
-                    { label: 'Régret bayésien', value: m.bayesian_regret != null ? m.bayesian_regret.toFixed(4) : '—', note: 'plus bas = mieux' },
-                    { label: 'Satisfaction majoritaire', value: m.majority_satisfaction != null ? `${(m.majority_satisfaction * 100).toFixed(1)} %` : '—', note: 'plus haut = mieux' },
-                    { label: 'Vulnérabilité stratégique', value: m.strategic_vulnerability != null ? `${(m.strategic_vulnerability * 100).toFixed(1)} %` : '—', note: 'plus bas = mieux' },
+                    { label: t('simulation.bayesianRegret'), value: m.bayesian_regret != null ? m.bayesian_regret.toFixed(4) : '—', note: t('simulation.lowerBetter') },
+                    { label: t('simulation.majoritySatisfaction'), value: m.majority_satisfaction != null ? `${(m.majority_satisfaction * 100).toFixed(1)} %` : '—', note: t('simulation.higherBetter') },
+                    { label: t('simulation.strategicVulnerability'), value: m.strategic_vulnerability != null ? `${(m.strategic_vulnerability * 100).toFixed(1)} %` : '—', note: t('simulation.lowerBetter') },
                   ].map(({ label, value, note }) => (
                     <tr key={label}>
                       <td className="fw-semibold" style={{ width: '40%' }}>{label}</td>
@@ -253,31 +258,31 @@ const WinnerMatrixTab: React.FC<Props> = ({
               </Table>
 
               {r.condorcet_winner ? (
-                m.condorcet_consistent ? (
-                  <Alert variant="success" className="py-2 mb-3">✓ A élu le vainqueur de Condorcet</Alert>
+                  m.condorcet_consistent ? (
+                    <Alert variant="success" className="py-2 mb-3">{t('simulation.electedCondorcet')}</Alert>
+                  ) : (
+                    <Alert variant="warning" className="py-2 mb-3">
+                      {t('simulation.condorcetWas')}
+                      <strong>
+                        <Badge style={{ backgroundColor: candidateColorMap[r.condorcet_winner] ?? '#999' }}>
+                          {r.condorcet_winner}
+                        </Badge>
+                      </strong>
+                    </Alert>
+                  )
                 ) : (
-                  <Alert variant="warning" className="py-2 mb-3">
-                    ✗ Le vainqueur de Condorcet était{' '}
-                    <strong>
-                      <Badge style={{ backgroundColor: candidateColorMap[r.condorcet_winner] ?? '#999' }}>
-                        {r.condorcet_winner}
-                      </Badge>
-                    </strong>
+                  <Alert variant="secondary" className="py-2 mb-3">
+                    {t('simulation.noCondorcetWinner')}
                   </Alert>
-                )
-              ) : (
-                <Alert variant="secondary" className="py-2 mb-3">
-                  Aucun vainqueur de Condorcet dans cette simulation (cycle ou égalité en tête).
-                </Alert>
-              )}
+                )}
 
               <p className="text-muted small mb-0" style={{ lineHeight: 1.6 }}>
                 <strong><MethodTooltip method={methodKey} />: </strong>
-                {METHOD_DESCRIPTIONS[methodKey] ?? 'Aucune description disponible.'}
+                {METHOD_DESCRIPTIONS[methodKey] ?? t('simulation.noDescription')}
               </p>
             </Modal.Body>
             <Modal.Footer>
-              <Button variant="secondary" onClick={() => setDrilldownTarget(null)}>Fermer</Button>
+              <Button variant="secondary" onClick={() => setDrilldownTarget(null)}>{t('common.close')}</Button>
             </Modal.Footer>
           </Modal>
         );

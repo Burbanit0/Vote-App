@@ -24,36 +24,36 @@ describe('ElectorateConfig', () => {
 
   it('renders ideology presets', () => {
     render(<ElectorateConfig config={defaultConfig} onChange={onChange} />);
-    expect(screen.getByText('Centriste')).toBeInTheDocument();
-    expect(screen.getByText('Polarisée')).toBeInTheDocument();
-    expect(screen.getByText('Aléatoire')).toBeInTheDocument();
+    expect(screen.getByText('Centrist')).toBeInTheDocument();
+    expect(screen.getByText('Polarized')).toBeInTheDocument();
+    expect(screen.getByText('Random')).toBeInTheDocument();
   });
 
   it('renders expert presets in expert mode', () => {
     render(<ElectorateConfig config={defaultConfig} onChange={onChange} expertMode />);
-    expect(screen.getByText('Majorité gauche')).toBeInTheDocument();
-    expect(screen.getByText('Majorité droite')).toBeInTheDocument();
+    expect(screen.getByText('Left-leaning majority')).toBeInTheDocument();
+    expect(screen.getByText('Right-leaning majority')).toBeInTheDocument();
   });
 
   it('calls onChange when clicking a preset', () => {
     const onChange = jest.fn();
     render(<ElectorateConfig config={defaultConfig} onChange={onChange} />);
-    fireEvent.click(screen.getByText('Polarisée'));
+    fireEvent.click(screen.getByText('Polarized'));
     expect(onChange).toHaveBeenCalledWith({ ideologyPreset: 'polarized' });
   });
 
   it('shows dissatisfaction in expert mode', () => {
     render(<ElectorateConfig config={defaultConfig} onChange={onChange} expertMode />);
-    expect(screen.getByText(/Taux d'insatisfaction générale/)).toBeInTheDocument();
+    expect(screen.getByText(/General dissatisfaction rate/)).toBeInTheDocument();
   });
 
   it('shows dissatisfaction label for low values', () => {
     render(<ElectorateConfig config={{ ...defaultConfig, dissatisfactionRate: 0.1 }} onChange={onChange} expertMode />);
-    expect(screen.getByText(/Électorat satisfait/)).toBeInTheDocument();
+    expect(screen.getByText(/Electorate satisfied/)).toBeInTheDocument();
   });
 
   it('shows dissatisfaction label for high values', () => {
     render(<ElectorateConfig config={{ ...defaultConfig, dissatisfactionRate: 0.8 }} onChange={onChange} expertMode />);
-    expect(screen.getByText(/Crise de représentation/)).toBeInTheDocument();
+    expect(screen.getByText(/Representation crisis/)).toBeInTheDocument();
   });
 });

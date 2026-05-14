@@ -1,12 +1,9 @@
 import React, { useState } from 'react';
 import { Alert, Badge, Button, Card, Spinner, Table } from 'react-bootstrap';
+import { useTranslation } from 'react-i18next';
 import CandidateEditor, { CandidateConfig } from '../ScenarioBuilder/CandidateEditor';
 import { ConstitutionalResult, ScenarioMethodResult } from '../../services/simulationCompareApi';
 
-const METHOD_LABELS: Record<string, string> = {
-  plurality: 'Scrutin uninominal', irv: 'IRV', borda: 'Borda',
-  schulze: 'Schulze', approval: 'Approbation',
-};
 const COLORS = ['#4e79a7', '#e15759', '#59a14f', '#f28e2b', '#76b7b2', '#edc948'];
 
 interface Props {
@@ -17,12 +14,14 @@ interface Props {
 }
 
 function WinnerBadge({ winner, colorMap }: { winner: string | null; colorMap: Record<string, string> }) {
+  const { t } = useTranslation();
   if (!winner) return <span className="text-muted">—</span>;
-  if (winner === 'Blank') return <Badge bg="warning" text="dark">⬜ Vote Blanc</Badge>;
+  if (winner === 'Blank') return <Badge bg="warning" text="dark">{t('common.blankBadge')}</Badge>;
   return <Badge style={{ backgroundColor: colorMap[winner] ?? '#999', fontSize: '0.75rem' }}>{winner}</Badge>;
 }
 
 const ScenarioAPanel: React.FC<Props> = ({ initialCandidates, result, loading, onRun }) => {
+  const { t } = useTranslation();
   const realInitial = initialCandidates.filter((c) => !c.isBlank);
   const [round2Candidates, setRound2Candidates] = useState<CandidateConfig[]>(
     realInitial.map((c) => ({ ...c }))
@@ -53,24 +52,20 @@ const ScenarioAPanel: React.FC<Props> = ({ initialCandidates, result, loading, o
 
   return (
     <div>
-      <p className="text-muted small mb-3">
-        Le vote blanc provoque une nouvelle élection. Les candidats ayant perdu face au blanc doivent
-        <strong> modifier leur position idéologique d'au moins 8%</strong> pour se représenter.
-      </p>
+      <p className="text-muted small mb-3" dangerouslySetInnerHTML={{ __html: t('crisis.scenarioADesc') }} />
 
       {/* Round 2 candidate editor */}
       <Card className="mb-3">
         <Card.Header className="fw-semibold">
-          Candidats du 2ème tour
+          {t('crisis.scenarioAEditors')}
           {stillBlocked.length > 0 && (
-            <Badge bg="danger" className="ms-2">{stillBlocked.length} candidat(s) doit(vent) changer de position</Badge>
+            <Badge bg="danger" className="ms-2">{t('crisis.scenarioABlocked', { count: stillBlocked.length })}</Badge>
           )}
         </Card.Header>
         <Card.Body>
           {stillBlocked.length > 0 && (
             <Alert variant="warning" className="py-2 mb-3" style={{ fontSize: '0.85rem' }}>
-              ⚠️ {stillBlocked.join(', ')} — ayant perdu face au vote blanc, {stillBlocked.length > 1 ? 'ils doivent' : 'il doit'} déplacer
-              le curseur idéologique d'au moins 8% pour pouvoir se représenter.
+              {t('crisis.scenarioAAlert', { names: stillBlocked.join(', '), must: stillBlocked.length > 1 ? 'ils doivent' : 'il doit' })}
             </Alert>
           )}
           <CandidateEditor candidates={round2Candidates} onChange={setRound2Candidates} />
@@ -79,10 +74,10 @@ const ScenarioAPanel: React.FC<Props> = ({ initialCandidates, result, loading, o
 
       <div className="mb-4">
         <Button variant="success" onClick={() => onRun(round2Candidates)} disabled={loading || !canRun}>
-          {loading ? <><Spinner size="sm" className="me-2" />Simulation…</> : '▶ Simuler le 2ème tour'}
+          {loading ? <><Spinner size="sm" className="me-2" />{t('crisis.simulating')}</> : t('crisis.runRound2')}
         </Button>
         {!canRun && stillBlocked.length > 0 && (
-          <small className="text-danger ms-3">Déplacez les curseurs des candidats bloqués avant de continuer.</small>
+          <small className="text-danger ms-3">{t('crisis.scenarioAHint')}</small>
         )}
       </div>
 
@@ -92,10 +87,10 @@ const ScenarioAPanel: React.FC<Props> = ({ initialCandidates, result, loading, o
           <Table bordered size="sm" className="mb-3">
             <thead className="table-light">
               <tr>
-                <th style={{ minWidth: 160 }}>Méthode</th>
-                <th className="text-center">1er tour</th>
-                <th className="text-center">2ème tour</th>
-                <th className="text-center">Changement ?</th>
+                <th style={{ minWidth: 160 }}>{t('common.method')}</th>
+                <th className="text-center">{t('crisis.round1')}</th>
+                <th className="text-center">{t('crisis.round2')}</th>
+                <th className="text-center">{t('common.changed')}</th>
               </tr>
             </thead>
             <tbody>
@@ -105,11 +100,11 @@ const ScenarioAPanel: React.FC<Props> = ({ initialCandidates, result, loading, o
                 const changed = w1 !== w2;
                 return (
                   <tr key={m} style={changed ? { backgroundColor: '#e8f4e8' } : undefined}>
-                    <td className="ps-2 fw-semibold">{METHOD_LABELS[m] ?? m}</td>
+                    <td className="ps-2 fw-semibold">{t(`methods.${m}.label`)}</td>
                     <td className="text-center"><WinnerBadge winner={w1} colorMap={colorMap} /></td>
                     <td className="text-center"><WinnerBadge winner={w2} colorMap={colorMap} /></td>
                     <td className="text-center">
-                      {changed ? <span style={{ color: '#198754' }}>✓ Nouveau vainqueur</span> : <span className="text-muted">Identique</span>}
+                      {changed ? <span style={{ color: '#198754' }}>{t('crisis.newWinner')}</span> : <span className="text-muted">{t('crisis.same')}</span>}
                     </td>
                   </tr>
                 );
@@ -119,7 +114,7 @@ const ScenarioAPanel: React.FC<Props> = ({ initialCandidates, result, loading, o
 
           <Card className="border-0" style={{ backgroundColor: '#f8f9fa' }}>
             <Card.Body>
-              <small className="fw-semibold">📋 Analyse :</small>
+              <small className="fw-semibold">{t('crisis.analysis')}</small>
               <p className="mb-0 mt-1 text-muted" style={{ fontSize: '0.85rem' }}>{result.conclusion}</p>
             </Card.Body>
           </Card>

@@ -45,26 +45,26 @@ describe('HomePage', () => {
   it('renders the hero title', async () => {
     await renderPage();
     expect(
-      screen.getByText('Testez comment votre bulletin de vote change tout')
+      screen.getByText('See how your ballot changes everything')
     ).toBeInTheDocument();
   });
 
   it('renders the 3 action cards', async () => {
     await renderPage();
-    expect(screen.getByText('Simuler une élection')).toBeInTheDocument();
-    expect(screen.getAllByText('Comparer les méthodes').length).toBeGreaterThanOrEqual(1);
-    expect(screen.getByText('Et si le vote blanc comptait ?')).toBeInTheDocument();
+    expect(screen.getByText('Simulate an election')).toBeInTheDocument();
+    expect(screen.getAllByText('Compare methods').length).toBeGreaterThanOrEqual(1);
+    expect(screen.getByText('What if blank votes counted?')).toBeInTheDocument();
   });
 
   it('renders the stats section', async () => {
     await renderPage();
-    expect(screen.getByText('méthodes de vote comparées')).toBeInTheDocument();
+    expect(screen.getByText('voting methods compared')).toBeInTheDocument();
   });
 
   it('renders the historical elections section', async () => {
     await renderPage();
-    expect(screen.getByText('Élections historiques analysées')).toBeInTheDocument();
-    expect(screen.getAllByText(/Présidentielle/).length).toBeGreaterThanOrEqual(1);
+    expect(screen.getByText('Historical elections analyzed')).toBeInTheDocument();
+    expect(screen.getAllByText(/Presidential/).length).toBeGreaterThanOrEqual(1);
   });
 
   it('shows disagreeing methods count after API resolves', async () => {

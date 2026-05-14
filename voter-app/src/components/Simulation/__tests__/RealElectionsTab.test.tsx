@@ -1,5 +1,7 @@
 import React from 'react';
 import { render, screen, waitFor, fireEvent } from '@testing-library/react';
+import { I18nextProvider } from 'react-i18next';
+import i18n from '../../../i18n';
 import RealElectionsTab from '../RealElectionsTab';
 import { getRealElections, analyzeRealElection } from '../../../services/simulationCompareApi';
 
@@ -24,6 +26,8 @@ const mockResult = {
   summary: { methods_with_different_winner: 1, total_methods_with_winner: 2 },
 };
 
+const renderWithI18n = (ui: React.ReactElement) => render(<I18nextProvider i18n={i18n}>{ui}</I18nextProvider>);
+
 describe('RealElectionsTab', () => {
   beforeEach(() => {
     jest.clearAllMocks();
@@ -35,7 +39,7 @@ describe('RealElectionsTab', () => {
   });
 
   it('loads election list on mount', async () => {
-    render(<RealElectionsTab />);
+    renderWithI18n(<RealElectionsTab />);
     await waitFor(() => {
       expect(getRealElections).toHaveBeenCalled();
     });
@@ -45,21 +49,21 @@ describe('RealElectionsTab', () => {
   });
 
   it('shows info alert before analysis', async () => {
-    render(<RealElectionsTab />);
+    renderWithI18n(<RealElectionsTab />);
     await waitFor(() => {
-      expect(screen.getByText(/Sélectionnez une élection/)).toBeInTheDocument();
+      expect(screen.getByText(/Select an election/)).toBeInTheDocument();
     });
   });
 
   it('renders analysis on button click', async () => {
     (analyzeRealElection as jest.Mock).mockResolvedValue(mockResult);
-    render(<RealElectionsTab />);
+    renderWithI18n(<RealElectionsTab />);
 
     await waitFor(() => {
       expect(screen.getByText(/Présidentielle 2022/)).toBeInTheDocument();
     });
 
-    const buttons = screen.getAllByText('Analyser');
+    const buttons = screen.getAllByText('Analyze');
     const analyseButton = buttons.find((btn) => btn.tagName === 'BUTTON' || btn.closest('button'));
     fireEvent.click(analyseButton || buttons[0]);
 
@@ -73,18 +77,18 @@ describe('RealElectionsTab', () => {
 
   it('shows loading state during analysis', async () => {
     (analyzeRealElection as jest.Mock).mockReturnValue(new Promise(() => {}));
-    render(<RealElectionsTab />);
+    renderWithI18n(<RealElectionsTab />);
 
     await waitFor(() => {
       expect(screen.getByText(/Présidentielle 2022/)).toBeInTheDocument();
     });
 
-    const buttons = screen.getAllByText('Analyser');
+    const buttons = screen.getAllByText('Analyze');
     const analyseButton = buttons.find((btn) => btn.tagName === 'BUTTON' || btn.closest('button'));
     fireEvent.click(analyseButton || buttons[0]);
 
     await waitFor(() => {
-      expect(screen.getByText(/Analyse…/)).toBeInTheDocument();
+      expect(screen.getByText(/Analyzing/)).toBeInTheDocument();
     });
   });
 });
