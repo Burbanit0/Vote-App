@@ -3,6 +3,7 @@ from flask_jwt_extended import jwt_required, get_jwt_identity
 
 from app import db
 from app.models import SimulationScenario
+from app.utils.response_utils import error_response, success_response
 
 scenarios_bp = Blueprint("scenarios", __name__, url_prefix="/api/scenarios")
 
@@ -27,7 +28,7 @@ def create_scenario():
     data = request.get_json() or {}
     name = data.get("name", "").strip()
     if not name:
-        return jsonify({"error": "Name is required"}), 400
+        return error_response("Name is required", 400)
 
     scenario = SimulationScenario(
         user_id=user_id,
@@ -48,7 +49,7 @@ def get_scenario(scenario_id):
         id=scenario_id, user_id=user_id
     ).first()
     if not scenario:
-        return jsonify({"error": "Not found"}), 404
+        return error_response("Not found", 404)
     return jsonify(scenario.to_detail()), 200
 
 
@@ -60,7 +61,7 @@ def delete_scenario(scenario_id):
         id=scenario_id, user_id=user_id
     ).first()
     if not scenario:
-        return jsonify({"error": "Not found"}), 404
+        return error_response("Not found", 404)
     db.session.delete(scenario)
     db.session.commit()
-    return jsonify({"message": "Deleted"}), 200
+    return success_response({"message": "Deleted"}, 200)
