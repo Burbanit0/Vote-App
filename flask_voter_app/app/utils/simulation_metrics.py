@@ -1,5 +1,5 @@
 from itertools import permutations
-from typing import Dict, List, Optional, Any
+from typing import Any, Callable, Dict, List, Optional
 
 from .simulation_voting_utils import calculate_utility
 from .simulation_ranked_utils import (
@@ -33,7 +33,7 @@ def _insert_blank(
     voter_utils: Dict[str, float],
     blank_threshold: float,
     blank_name: str,
-) -> List[str]:
+) -> List[str]:  # noqa: E501
     """
     Insert the blank candidate into an already-sorted ranking.
 
@@ -49,8 +49,8 @@ def _insert_blank(
 
 
 def compare_all_methods(
-    voters: List[Dict],
-    candidates: List[Dict],
+    voters: List[Dict[str, Any]],
+    candidates: List[Dict[str, Any]],
     issues: List[str],
     blank_vote: bool = False,
     blank_candidate_name: str = "Blank",
@@ -171,7 +171,7 @@ def compare_all_methods(
         return winner_name == condorcet_winner
 
     def _strategic_vulnerability_ranked(
-        method_fn, winner_name: Optional[str]
+        method_fn: Callable[..., Optional[str]], winner_name: Optional[str]
     ) -> Optional[float]:
         """
         Proportion of sampled voters who can improve their outcome by
@@ -204,7 +204,7 @@ def compare_all_methods(
         return round(vulnerable / len(sample), 4)
 
     def _strategic_vulnerability_score(
-        method_fn, winner_name: Optional[str]
+        method_fn: Callable[..., Any], winner_name: Optional[str]
     ) -> Optional[float]:
         """
         Proportion of sampled voters who can improve their outcome via
@@ -236,7 +236,9 @@ def compare_all_methods(
                 vulnerable += 1
         return round(vulnerable / len(sample), 4)
 
-    def _build_metrics_ranked(method_fn, winner_name: Optional[str]) -> Dict:
+    def _build_metrics_ranked(
+        method_fn: Callable[..., Optional[str]], winner_name: Optional[str]
+    ) -> Dict[str, Any]:
         return {
             "winner": winner_name,
             "bayesian_regret": _bayesian_regret(winner_name),
@@ -245,7 +247,9 @@ def compare_all_methods(
             "strategic_vulnerability": _strategic_vulnerability_ranked(method_fn, winner_name),
         }
 
-    def _build_metrics_score(method_fn, winner_name: Optional[str]) -> Dict:
+    def _build_metrics_score(
+        method_fn: Callable[..., Any], winner_name: Optional[str]
+    ) -> Dict[str, Any]:
         return {
             "winner": winner_name,
             "bayesian_regret": _bayesian_regret(winner_name),
@@ -257,7 +261,7 @@ def compare_all_methods(
     # ------------------------------------------------------------------
     # Method registries
     # ------------------------------------------------------------------
-    ranked_methods: Dict[str, Any] = {
+    ranked_methods: Dict[str, Callable[..., Optional[str]]] = {
         "plurality": get_plurality_winner,
         "two_round": get_two_round_winner,
         "borda": get_borda_winner,
@@ -271,7 +275,7 @@ def compare_all_methods(
         "kemeny_young": get_kemeny_young_winner,
     }
 
-    score_methods: Dict[str, Any] = {
+    score_methods: Dict[str, Callable[..., Any]] = {
         "simple_score": get_simple_score_winner,
         "star_voting": get_star_voting_winner,
         "median_voting": get_median_voting_winner,
@@ -282,29 +286,29 @@ def compare_all_methods(
     # ------------------------------------------------------------------
     # Run all methods
     # ------------------------------------------------------------------
-    methods_result: Dict[str, Dict] = {}
+    methods_result: Dict[str, Dict[str, Any]] = {}
 
     for name, fn in ranked_methods.items():
         winner = fn(rankings)
         methods_result[name] = _build_metrics_ranked(fn, winner)
 
     for name, fn in score_methods.items():
-        result = fn(score_votes)
-        winner = result.get("winner") if isinstance(result, dict) else result
+        raw = fn(score_votes)
+        winner = raw.get("winner") if isinstance(raw, dict) else raw
         methods_result[name] = _build_metrics_score(fn, winner)
 
-    result: Dict[str, Any] = {
+    output: Dict[str, Any] = {
         "condorcet_winner": condorcet_winner,
         "methods": methods_result,
     }
     if blank_vote:
-        result["blank_pct"] = blank_pct
-    return result
+        output["blank_pct"] = blank_pct
+    return output
 
 
 def compare_all_methods_mc(
-    voters: List[Dict],
-    candidates: List[Dict],
+    voters: List[Dict[str, Any]],
+    candidates: List[Dict[str, Any]],
     issues: List[str],
 ) -> Dict[str, Any]:
     """
@@ -366,7 +370,7 @@ def compare_all_methods_mc(
             4,
         )
 
-    ranked_methods: Dict[str, Any] = {
+    ranked_methods_mc: Dict[str, Callable[..., Optional[str]]] = {
         "plurality":        get_plurality_winner,
         "two_round":        get_two_round_winner,
         "borda":            get_borda_winner,
@@ -377,7 +381,7 @@ def compare_all_methods_mc(
         "minimax":          get_minimax_winner,
         "schulze":          get_schulze_winner,
     }
-    score_methods: Dict[str, Any] = {
+    score_methods_mc: Dict[str, Callable[..., Any]] = {
         "simple_score":       get_simple_score_winner,
         "star_voting":        get_star_voting_winner,
         "median_voting":      get_median_voting_winner,
@@ -385,33 +389,33 @@ def compare_all_methods_mc(
         "variance_based":     get_variance_based_winner,
     }
 
-    methods_result: Dict[str, Dict] = {}
+    methods_result_mc: Dict[str, Dict[str, Any]] = {}
 
-    for name, fn in ranked_methods.items():
+    for name, fn in ranked_methods_mc.items():
         winner = fn(rankings)
-        methods_result[name] = {
+        methods_result_mc[name] = {
             "winner":                winner,
             "bayesian_regret":       _regret(winner),
             "majority_satisfaction": _satisfaction(winner),
             "condorcet_consistent":  (winner == condorcet_winner) if condorcet_winner else None,
         }
 
-    for name, fn in score_methods.items():
-        raw = fn(score_votes)
-        winner = raw.get("winner") if isinstance(raw, dict) else raw
-        methods_result[name] = {
+    for name, fn in score_methods_mc.items():
+        raw_mc = fn(score_votes)
+        winner = raw_mc.get("winner") if isinstance(raw_mc, dict) else raw_mc
+        methods_result_mc[name] = {
             "winner":                winner,
             "bayesian_regret":       _regret(winner),
             "majority_satisfaction": _satisfaction(winner),
             "condorcet_consistent":  (winner == condorcet_winner) if condorcet_winner else None,
         }
 
-    return {"condorcet_winner": condorcet_winner, "methods": methods_result}
+    return {"condorcet_winner": condorcet_winner, "methods": methods_result_mc}
 
 
 def get_condorcet_matrix(
-    voters: List[Dict],
-    candidates: List[Dict],
+    voters: List[Dict[str, Any]],
+    candidates: List[Dict[str, Any]],
     issues: List[str],
 ) -> Dict[str, Any]:
     """
@@ -493,7 +497,7 @@ def get_condorcet_matrix(
     # Condorcet cycles: find triples A > B > C > A.
     # Normalise each cycle to start with the lexicographically smallest name
     # to deduplicate rotations (A>B>C == B>C>A == C>A>B).
-    seen: set = set()
+    seen: set[tuple[str, ...]] = set()
     cycles: List[List[str]] = []
     for a in candidate_names:
         for b in candidate_names:

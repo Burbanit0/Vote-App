@@ -7,7 +7,9 @@ Arrow Criteria, Sensitivity.
 
 All endpoints use the spatial utility pipeline.
 """
-from flask import Blueprint, request, jsonify
+from typing import Any, Dict, Optional
+
+from flask import Blueprint, Response, request, jsonify
 
 import random as _rng
 
@@ -27,7 +29,7 @@ simulation_compare_bp = Blueprint("simulation_compare", __name__, url_prefix="/s
 
 
 @simulation_compare_bp.route("/compare", methods=["POST"])
-def compare_methods():
+def compare_methods() -> tuple[Response, int]:
     """
     Run compare_all_methods on a fresh population and return per-method metrics.
 
@@ -86,7 +88,7 @@ def compare_methods():
 
 
 @simulation_compare_bp.route("/strategic-impact", methods=["POST"])
-def strategic_impact():
+def strategic_impact() -> tuple[Response, int]:
     """
     Measure how bayesian_regret per method changes as the proportion of
     strategic voters increases.
@@ -121,19 +123,20 @@ def strategic_impact():
         results = []
         for pct in strategic_percentages:
             n_strategic = int(len(voters) * pct / 100)
-            poll_standings = {}
+            poll_standings: Dict[str, float] = {}
             for voter in voters:
                 u = utilities[voter["id"]]
-                first_choice = max(u, key=u.get)
-                poll_standings[first_choice] = poll_standings.get(first_choice, 0) + 1
+                first_choice: str = max(u, key=lambda k: u[k])
+                poll_standings[first_choice] = poll_standings.get(first_choice, 0.0) + 1.0
 
             plurality_votes = []
             for i, voter in enumerate(sorted_voters):
                 u = utilities[voter["id"]]
+                choice: Optional[str]
                 if i < n_strategic:
                     choice = compute_strategic_plurality_vote(voter, candidates, issues, poll_standings)
                 else:
-                    choice = max(u, key=u.get)
+                    choice = max(u, key=lambda k: u[k])
                 plurality_votes.append([choice] if choice else list(u.keys()))
 
             plurality_winner = get_plurality_winner(plurality_votes)
@@ -161,7 +164,7 @@ def strategic_impact():
 
 
 @simulation_compare_bp.route("/condorcet-matrix", methods=["POST"])
-def condorcet_matrix_route():
+def condorcet_matrix_route() -> tuple[Response, int]:
     """
     Build the full pairwise duel matrix for a fresh population.
 
@@ -185,7 +188,7 @@ def condorcet_matrix_route():
 
 
 @simulation_compare_bp.route("/sensitivity", methods=["POST"])
-def sensitivity_analysis():
+def sensitivity_analysis() -> tuple[Response, int]:
     """
     Vary one parameter and observe how winners and Bayesian regret change
     across all voting methods.
@@ -238,18 +241,18 @@ def sensitivity_analysis():
                 }
                 sorted_voters = sorted(voters, key=lambda v: -v.get("strategic_propensity", 0))
                 n_strategic = int(len(voters) * pct / 100)
-                poll_standings: dict = {}
+                poll_standings_s: Dict[str, float] = {}
                 for voter in voters:
                     u = utilities[voter["id"]]
-                    top = max(u, key=u.get)
-                    poll_standings[top] = poll_standings.get(top, 0) + 1
+                    top: str = max(u, key=lambda k: u[k])
+                    poll_standings_s[top] = poll_standings_s.get(top, 0.0) + 1.0
 
                 plurality_votes = []
                 for i, voter in enumerate(sorted_voters):
                     u = utilities[voter["id"]]
                     choice = (
-                        compute_strategic_plurality_vote(voter, candidates, issues, poll_standings)
-                        if i < n_strategic else max(u, key=u.get)
+                        compute_strategic_plurality_vote(voter, candidates, issues, poll_standings_s)
+                        if i < n_strategic else max(u, key=lambda k: u[k])
                     )
                     plurality_votes.append([choice] if choice else list(u.keys()))
 
@@ -282,7 +285,7 @@ def sensitivity_analysis():
 
 
 @simulation_compare_bp.route("/arrow-criteria", methods=["POST"])
-def arrow_criteria_route():
+def arrow_criteria_route() -> tuple[Response, int]:
     """
     Empirically verify Arrow's impossibility theorem criteria.
 
@@ -308,7 +311,7 @@ def arrow_criteria_route():
 # ── /simulations/scenario ─────────────────────────────────────────────────
 
 @simulation_compare_bp.route("/scenario", methods=["POST"])
-def run_scenario():
+def run_scenario() -> tuple[Response, int]:
     """
     Run a citizen-configured scenario through voting methods with and without blank vote.
 
@@ -396,7 +399,7 @@ def run_scenario():
             winner=method_data.get("winner"), blank_pct=blank_pct, rule=blank_rule,
         )
 
-    def _filter(result: dict) -> dict:
+    def _filter(result: Dict[str, Any]) -> Dict[str, Any]:
         return {
             "condorcet_winner": result.get("condorcet_winner"),
             "methods": {m: result["methods"][m] for m in requested_methods if m in result["methods"]},

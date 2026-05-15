@@ -14,7 +14,7 @@ Four constitutional frameworks are modelled:
                         pairwise duel (majority prefers winner over "none").
 """
 from enum import Enum
-from typing import Optional
+from typing import Any, Dict, Optional
 
 
 class BlankVoteRule(Enum):
@@ -24,7 +24,7 @@ class BlankVoteRule(Enum):
     MAJORITY_REQUIRED = "majority_required"
 
 
-_CONSEQUENCES: dict = {
+_CONSEQUENCES: Dict[BlankVoteRule, Dict[bool, str]] = {
     BlankVoteRule.SYMBOLIC: {
         True:  "Election invalidated: the blank cannot be elected under current law. "
                "The runner-up among real candidates wins.",
@@ -55,7 +55,7 @@ def apply_blank_rule(
     rule: BlankVoteRule,
     blank_name: str = "Blank",
     blank_vs_winner_pct: float = 0.0,
-) -> dict:
+) -> Dict[str, Any]:
     """
     Apply a constitutional blank-vote rule to an election result.
 
