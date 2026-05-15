@@ -70,6 +70,7 @@ def create_app(config_object="config.Config"):
 
     from .routes import users, simulation_base, simulation_compare, simulation_advanced, scenarios, simulation_whatif, simulation_campaign
     from .routes.api_public import api_public_bp, write_openapi_json, init_api_limiter
+    from .routes.gallery import gallery_bp
 
     app.register_blueprint(users.auth_bp)
     app.register_blueprint(simulation_base.simulation_base_bp)
@@ -79,6 +80,7 @@ def create_app(config_object="config.Config"):
     app.register_blueprint(simulation_whatif.whatif_bp)
     app.register_blueprint(simulation_campaign.campaign_bp)
     app.register_blueprint(api_public_bp)
+    app.register_blueprint(gallery_bp)
 
     # ── Bind the public-API rate limiter to this app ───────────────────────
     init_api_limiter(app)

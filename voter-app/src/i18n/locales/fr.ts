@@ -9,6 +9,7 @@ const fr = {
     blankContagion: 'Contagion',
     regimesInternationaux: 'Régimes mondiaux',
     apiDocs: 'API',
+    gallery: 'Galerie',
     expert: 'Expert',
     beginner: 'Débutant',
     expertTip: 'Passer en mode débutant (5 onglets, 5 méthodes)',

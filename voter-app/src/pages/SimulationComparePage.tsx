@@ -7,6 +7,7 @@ import ArrowCriteriaMatrix from '../components/Simulation/ArrowCriteriaMatrix';
 import BandwagonAnalysis from '../components/Simulation/BandwagonAnalysis';
 import ManipulabilityChart from '../components/Simulation/ManipulabilityChart';
 import InformationModelPanel from '../components/Simulation/InformationModelPanel';
+import GalleryShareModal from '../components/shared/GalleryShareModal';
 import MultiwinnerAnalysis from '../components/Simulation/MultiwinnerAnalysis';
 import MonteCarloResults from '../components/Simulation/MonteCarloResults';
 import WinnerMatrixTab from '../components/Simulation/WinnerMatrixTab';
@@ -302,6 +303,7 @@ const SimulationComparePage: React.FC = () => {
 
   // ── UI state ──
   const [activeTab, setActiveTab] = useState('winners');
+  const [showGalleryShare, setShowGalleryShare] = useState(false);
   const [presentationMode, setPresentationMode] = useState(false);
   const [presentationTabIndex, setPresentationTabIndex] = useState(0);
   const [linkCopied, setLinkCopied] = useState(false);
@@ -660,6 +662,9 @@ const SimulationComparePage: React.FC = () => {
               <Button variant="outline-dark" size="sm" onClick={() => { setPresentationTabIndex(0); setPresentationMode(true); }}>
                 {t('simulation.presentation')}
               </Button>
+              <Button variant="outline-success" size="sm" onClick={() => setShowGalleryShare(true)}>
+                💾 Galerie
+              </Button>
               {expertMode && (
                 <Dropdown>
                   <Dropdown.Toggle variant="outline-secondary" size="sm" id="academic-export-dropdown">
@@ -868,6 +873,12 @@ const SimulationComparePage: React.FC = () => {
           </Tabs>
         )}
 
+        <GalleryShareModal
+          show={showGalleryShare}
+          onHide={() => setShowGalleryShare(false)}
+          params={{ candidates: candidateNamesA, num_voters: configA.numVoters, ideology_distribution: configA.ideology_distribution }}
+          resultsSummary={comparisonResults.length > 0 ? { condorcet_winner: comparisonResults[0].condorcet_winner, winners: Object.fromEntries(Object.entries(comparisonResults[0].methods).map(([m, d]) => [m, d.winner])) } : {}}
+        />
         <ScenarioModals
           showSaveModal={showSaveModal} setShowSaveModal={setShowSaveModal}
           saveName={saveName} setSaveName={setSaveName} saving={saving} handleSave={handleSave}
