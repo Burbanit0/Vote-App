@@ -7,7 +7,9 @@ Arrow Criteria, Sensitivity.
 
 All endpoints use the spatial utility pipeline.
 """
-from flask import Blueprint, request, jsonify
+from typing import Any, Dict, Optional
+
+from flask import Blueprint, Response, request, jsonify
 
 import random as _rng
 
@@ -17,17 +19,17 @@ from app.utils.simulation_metrics import compare_all_methods, get_condorcet_matr
 from app.utils.arrow_criteria import check_all_criteria
 from app.utils.blank_vote_rules import BlankVoteRule, apply_blank_rule
 from app.routes.simulation_helpers import (
-    _parse_candidate_configs, _build_population, _DEFAULT_ISSUES,
-    _ECONOMY_ISSUES, _ENV_ISSUES, _SOCIAL_ISSUES,
+    _parse_candidate_configs, _build_population,
     _PRESET_TO_DISTRIBUTION, _SCENARIO_METHODS,
     _build_scenario_candidates, _build_scenario_voters,
 )
+from app.constants import DEFAULT_ISSUES, ECONOMY_ISSUES, ENV_ISSUES, SOCIAL_ISSUES
 
 simulation_compare_bp = Blueprint("simulation_compare", __name__, url_prefix="/simulations")
 
 
 @simulation_compare_bp.route("/compare", methods=["POST"])
-def compare_methods():
+def compare_methods() -> tuple[Response, int]:
     """
     Run compare_all_methods on a fresh population and return per-method metrics.
 
@@ -86,7 +88,7 @@ def compare_methods():
 
 
 @simulation_compare_bp.route("/strategic-impact", methods=["POST"])
-def strategic_impact():
+def strategic_impact() -> tuple[Response, int]:
     """
     Measure how bayesian_regret per method changes as the proportion of
     strategic voters increases.
@@ -121,19 +123,20 @@ def strategic_impact():
         results = []
         for pct in strategic_percentages:
             n_strategic = int(len(voters) * pct / 100)
-            poll_standings = {}
+            poll_standings: Dict[str, float] = {}
             for voter in voters:
                 u = utilities[voter["id"]]
-                first_choice = max(u, key=u.get)
-                poll_standings[first_choice] = poll_standings.get(first_choice, 0) + 1
+                first_choice: str = max(u, key=lambda k: u[k])
+                poll_standings[first_choice] = poll_standings.get(first_choice, 0.0) + 1.0
 
             plurality_votes = []
             for i, voter in enumerate(sorted_voters):
                 u = utilities[voter["id"]]
+                choice: Optional[str]
                 if i < n_strategic:
                     choice = compute_strategic_plurality_vote(voter, candidates, issues, poll_standings)
                 else:
-                    choice = max(u, key=u.get)
+                    choice = max(u, key=lambda k: u[k])
                 plurality_votes.append([choice] if choice else list(u.keys()))
 
             plurality_winner = get_plurality_winner(plurality_votes)
@@ -161,7 +164,7 @@ def strategic_impact():
 
 
 @simulation_compare_bp.route("/condorcet-matrix", methods=["POST"])
-def condorcet_matrix_route():
+def condorcet_matrix_route() -> tuple[Response, int]:
     """
     Build the full pairwise duel matrix for a fresh population.
 
@@ -185,7 +188,7 @@ def condorcet_matrix_route():
 
 
 @simulation_compare_bp.route("/sensitivity", methods=["POST"])
-def sensitivity_analysis():
+def sensitivity_analysis() -> tuple[Response, int]:
     """
     Vary one parameter and observe how winners and Bayesian regret change
     across all voting methods.
@@ -238,18 +241,18 @@ def sensitivity_analysis():
                 }
                 sorted_voters = sorted(voters, key=lambda v: -v.get("strategic_propensity", 0))
                 n_strategic = int(len(voters) * pct / 100)
-                poll_standings: dict = {}
+                poll_standings_s: Dict[str, float] = {}
                 for voter in voters:
                     u = utilities[voter["id"]]
-                    top = max(u, key=u.get)
-                    poll_standings[top] = poll_standings.get(top, 0) + 1
+                    top: str = max(u, key=lambda k: u[k])
+                    poll_standings_s[top] = poll_standings_s.get(top, 0.0) + 1.0
 
                 plurality_votes = []
                 for i, voter in enumerate(sorted_voters):
                     u = utilities[voter["id"]]
                     choice = (
-                        compute_strategic_plurality_vote(voter, candidates, issues, poll_standings)
-                        if i < n_strategic else max(u, key=u.get)
+                        compute_strategic_plurality_vote(voter, candidates, issues, poll_standings_s)
+                        if i < n_strategic else max(u, key=lambda k: u[k])
                     )
                     plurality_votes.append([choice] if choice else list(u.keys()))
 
@@ -282,7 +285,7 @@ def sensitivity_analysis():
 
 
 @simulation_compare_bp.route("/arrow-criteria", methods=["POST"])
-def arrow_criteria_route():
+def arrow_criteria_route() -> tuple[Response, int]:
     """
     Empirically verify Arrow's impossibility theorem criteria.
 
@@ -308,7 +311,7 @@ def arrow_criteria_route():
 # ── /simulations/scenario ─────────────────────────────────────────────────
 
 @simulation_compare_bp.route("/scenario", methods=["POST"])
-def run_scenario():
+def run_scenario() -> tuple[Response, int]:
     """
     Run a citizen-configured scenario through voting methods with and without blank vote.
 
@@ -344,7 +347,7 @@ def run_scenario():
         return jsonify({"error": f"Unknown blank_rule '{blank_rule_str}'"}), 400
 
     # Build candidates from 3 user-defined issue positions
-    issues = _DEFAULT_ISSUES
+    issues = DEFAULT_ISSUES
     real_candidates = []
 
     for i, c in enumerate(candidates_raw):
@@ -358,9 +361,9 @@ def run_scenario():
         soc_pos   = max(0.0, min(1.0, float(positions.get("social",      1 - pos))))
 
         policies = {
-            iss: eco_pos if iss in _ECONOMY_ISSUES
-                 else env_pos if iss in _ENV_ISSUES
-                 else soc_pos if iss in _SOCIAL_ISSUES
+            iss: eco_pos if iss in ECONOMY_ISSUES
+                 else env_pos if iss in ENV_ISSUES
+                 else soc_pos if iss in SOCIAL_ISSUES
                  else 0.5
             for iss in issues
         }
@@ -396,7 +399,7 @@ def run_scenario():
             winner=method_data.get("winner"), blank_pct=blank_pct, rule=blank_rule,
         )
 
-    def _filter(result: dict) -> dict:
+    def _filter(result: Dict[str, Any]) -> Dict[str, Any]:
         return {
             "condorcet_winner": result.get("condorcet_winner"),
             "methods": {m: result["methods"][m] for m in requested_methods if m in result["methods"]},
@@ -405,4 +408,120 @@ def run_scenario():
     return jsonify({
         "without_blank": _filter(result_no_blank),
         "with_blank":    {**_filter(result_with_blank), "blank_pct": blank_pct},
+    }), 200
+
+
+# ── /simulations/manipulability ──────────────────────────────────────────────
+
+_MANIPULABILITY_METHODS = [
+    "plurality", "borda", "irv", "two_round", "approval",
+    "schulze", "coombs", "bucklin", "minimax",
+]
+
+
+@simulation_compare_bp.route("/manipulability", methods=["GET"])
+def manipulability_analysis() -> tuple[Response, int]:
+    """
+    Estimate the Gibbard-Satterthwaite manipulability index for multiple
+    voting methods on a synthetic population.
+
+    Query params:
+        num_candidates : int  (2–8,  default 4)
+        num_voters     : int  (50–2000, default 500)
+        methods        : str  comma-separated method keys or "all" (default)
+        num_trials     : int  voters sampled per method (default 200)
+        ideology       : str  ideology_distribution (default "random")
+
+    Response (200):
+    {
+        "num_candidates": 4,
+        "num_voters":     500,
+        "results": [
+            {
+                "method":               "plurality",
+                "manipulability_rate":  28.5,   // % of sampled voters
+                "average_gain":         1.2,    // average rank improvement
+                "num_manipulators":     57,
+                "num_sampled":          200,
+                "examples":             [...]
+            },
+            ...
+        ]   // sorted by manipulability_rate descending
+    }
+    """
+    try:
+        num_candidates  = max(2, min(8,    int(request.args.get("num_candidates", 4))))
+        num_voters      = max(50, min(2000, int(request.args.get("num_voters",     500))))
+        num_trials_arg  = max(10, min(500,  int(request.args.get("num_trials",     200))))
+        ideology_dist   = request.args.get("ideology", "random")
+        methods_arg     = request.args.get("methods", "all")
+    except (TypeError, ValueError) as e:
+        return jsonify({"error": f"Invalid query parameter: {e}"}), 400
+
+    # ── Build synthetic population ─────────────────────────────────────────
+    _NAMES = ["Alice", "Bob", "Carol", "Dave", "Eve", "Frank", "Grace", "Hugo"]
+    candidate_names = _NAMES[:num_candidates]
+    candidate_configs = [
+        {"name": n, "party": "Independent", "ideology_position": None}
+        for n in candidate_names
+    ]
+
+    try:
+        voters, candidates, issues = _build_population(
+            candidate_configs, num_voters, ideology_dist
+        )
+    except Exception as exc:
+        return jsonify({"error": f"Population build failed: {exc}"}), 500
+
+    # ── Build sincere rankings ─────────────────────────────────────────────
+    utilities: Dict[Any, Dict[str, float]] = {
+        v["id"]: {
+            c["name"]: calculate_utility(v, c, issues)["utility"]
+            for c in candidates
+        }
+        for v in voters
+    }
+    rankings: list[list[str]] = [
+        sorted(candidate_names, key=lambda n: -utilities[v["id"]][n])
+        for v in voters
+    ]
+
+    # ── Select methods ─────────────────────────────────────────────────────
+    if methods_arg.strip().lower() == "all":
+        target_methods = _MANIPULABILITY_METHODS
+    else:
+        target_methods = [m.strip() for m in methods_arg.split(",") if m.strip()]
+        if not target_methods:
+            return jsonify({"error": "No valid methods specified"}), 400
+
+    # ── Compute manipulability per method ──────────────────────────────────
+    from app.utils.gibbard_satterthwaite import compute_manipulability_index
+
+    results = []
+    for method in target_methods:
+        try:
+            result = compute_manipulability_index(method, rankings, num_trials=num_trials_arg)
+            results.append(result)
+        except Exception as exc:
+            results.append({
+                "method": method,
+                "manipulability_rate": None,
+                "average_gain": 0.0,
+                "num_manipulators": 0,
+                "num_sampled": 0,
+                "examples": [],
+                "error": str(exc),
+            })
+
+    # Sort: unknown/error last, then by rate descending
+    results.sort(
+        key=lambda r: (r.get("manipulability_rate") is None, -(r.get("manipulability_rate") or 0)),
+    )
+
+    return jsonify({
+        "num_candidates": num_candidates,
+        "num_voters":     num_voters,
+        "ideology":       ideology_dist,
+        "num_trials":     num_trials_arg,
+        "results":        results,
     }), 200

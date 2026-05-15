@@ -1,6 +1,7 @@
 import React, { useMemo } from 'react';
 import { Card, Col, Form, Row } from 'react-bootstrap';
 import { Area, AreaChart, ResponsiveContainer, XAxis } from 'recharts';
+import { useTranslation } from 'react-i18next';
 
 export interface ElectorateState {
   numVoters: number;
@@ -31,65 +32,70 @@ function makeCurve(fn: (x: number) => number) {
   return xs.map((x, i) => ({ x: x.toFixed(2), y: max > 0 ? raw[i] / max : 0.5 }));
 }
 
-const PRESETS: Record<ElectorateState['ideologyPreset'], { label: string; color: string; desc: string; data: ReturnType<typeof makeCurve> }> = {
-  polarized: {
-    label: 'Polarisée',
-    color: '#e15759',
-    desc: 'Deux camps opposés, peu de centristes',
-    data: makeCurve((x) => normalPDF(x, -0.65, 0.2) + normalPDF(x, 0.65, 0.2)),
-  },
-  centrist: {
-    label: 'Centriste',
-    color: '#59a14f',
-    desc: 'La majorité des électeurs au centre',
-    data: makeCurve((x) => normalPDF(x, 0, 0.25)),
-  },
-  left: {
-    label: 'Majorité gauche',
-    color: '#4e79a7',
-    desc: 'Électorat penché à gauche',
-    data: makeCurve((x) => normalPDF(x, -0.35, 0.3)),
-  },
-  right: {
-    label: 'Majorité droite',
-    color: '#f28e2b',
-    desc: 'Électorat penché à droite',
-    data: makeCurve((x) => normalPDF(x, 0.35, 0.3)),
-  },
-  random: {
-    label: 'Aléatoire',
-    color: '#76b7b2',
-    desc: 'Distribution uniforme sans tendance',
-    data: makeCurve(() => 1),
-  },
-};
-
 // ── Component ──────────────────────────────────────────────────────────────
 
 const ElectorateConfig: React.FC<Props> = ({ config, onChange, expertMode = false }) => {
+  const { t } = useTranslation();
+
+  const PRESETS = useMemo(() => {
+    const presets = {
+      polarized: {
+        color: '#e15759',
+        label: t('ideology.polarized'),
+        desc: t('ideology.polarizedDesc'),
+        data: makeCurve((x) => normalPDF(x, -0.65, 0.2) + normalPDF(x, 0.65, 0.2)),
+      },
+      centrist: {
+        color: '#59a14f',
+        label: t('ideology.centrist'),
+        desc: t('ideology.centristDesc'),
+        data: makeCurve((x) => normalPDF(x, 0, 0.25)),
+      },
+      left: {
+        color: '#4e79a7',
+        label: t('ideology.left'),
+        desc: t('ideology.leftDesc'),
+        data: makeCurve((x) => normalPDF(x, -0.35, 0.3)),
+      },
+      right: {
+        color: '#f28e2b',
+        label: t('ideology.right'),
+        desc: t('ideology.rightDesc'),
+        data: makeCurve((x) => normalPDF(x, 0.35, 0.3)),
+      },
+      random: {
+        color: '#76b7b2',
+        label: t('ideology.random'),
+        desc: t('ideology.randomDesc'),
+        data: makeCurve(() => 1),
+      },
+    } as const;
+    return presets;
+  }, [t]);
+
   const visiblePresetKeys = expertMode
     ? (Object.keys(PRESETS) as ElectorateState['ideologyPreset'][])
     : BEGINNER_PRESETS;
 
   const dissatisfactionLabel = useMemo(() => {
     const pct = Math.round(config.dissatisfactionRate * 100);
-    if (pct < 15) return `${pct}% — Électorat satisfait des candidats`;
-    if (pct < 40) return `${pct}% — Insatisfaction modérée`;
-    if (pct < 65) return `${pct}% — Insatisfaction élevée`;
-    return `${pct}% — Crise de représentation`;
-  }, [config.dissatisfactionRate]);
+    if (pct < 15) return t('scenario.dissatisfactionLabels.satisfied', { pct });
+    if (pct < 40) return t('scenario.dissatisfactionLabels.moderate', { pct });
+    if (pct < 65) return t('scenario.dissatisfactionLabels.high', { pct });
+    return t('scenario.dissatisfactionLabels.crisis', { pct });
+  }, [config.dissatisfactionRate, t]);
 
   return (
     <div>
       <p className="text-muted small mb-3">
-        Définissez la taille et la structure idéologique de votre électorat.
+        {t('scenario.electorateIntro')}
       </p>
 
       {/* Voter count */}
       <Card className="mb-4">
         <Card.Body>
           <Form.Label>
-            Nombre d'électeurs : <strong>{config.numVoters.toLocaleString()}</strong>
+            {t('scenario.numVoters', { n: config.numVoters.toLocaleString() })}
           </Form.Label>
           <Form.Range
             min={100} max={10000} step={100} value={config.numVoters}
@@ -97,13 +103,13 @@ const ElectorateConfig: React.FC<Props> = ({ config, onChange, expertMode = fals
           />
           <div className="d-flex justify-content-between">
             <small className="text-muted">100</small>
-            <small className="text-muted">10 000</small>
+            <small className="text-muted">{t('scenario.voterRangeMax')}</small>
           </div>
         </Card.Body>
       </Card>
 
       {/* Ideology preset */}
-      <p className="fw-semibold mb-2">Distribution idéologique</p>
+      <p className="fw-semibold mb-2">{t('scenario.ideologyDistribution')}</p>
       <Row className="g-2 mb-4">
         {(Object.entries(PRESETS) as [ElectorateState['ideologyPreset'], typeof PRESETS[keyof typeof PRESETS]][]).filter(([key]) => visiblePresetKeys.includes(key)).map(([key, preset]) => (
           <Col xs={6} md={4} key={key}>
@@ -133,8 +139,8 @@ const ElectorateConfig: React.FC<Props> = ({ config, onChange, expertMode = fals
                   </AreaChart>
                 </ResponsiveContainer>
                 <div className="d-flex justify-content-between mt-1">
-                  <small style={{ fontSize: '0.65rem', color: '#6c757d' }}>← G</small>
-                  <small style={{ fontSize: '0.65rem', color: '#6c757d' }}>D →</small>
+                  <small style={{ fontSize: '0.65rem', color: '#6c757d' }}>{t('scenario.leftShort')}</small>
+                  <small style={{ fontSize: '0.65rem', color: '#6c757d' }}>{t('scenario.rightShort')}</small>
                 </div>
                 <small className="text-muted d-block mt-1" style={{ fontSize: '0.72rem' }}>{preset.desc}</small>
               </Card.Body>
@@ -146,15 +152,15 @@ const ElectorateConfig: React.FC<Props> = ({ config, onChange, expertMode = fals
       {/* Dissatisfaction rate — expert only */}
       {!expertMode && (
         <small className="text-muted d-block mb-3">
-          ℹ️ Le taux d'insatisfaction et deux distributions supplémentaires sont disponibles en <strong>mode Expert</strong>.
+          <span dangerouslySetInnerHTML={{ __html: t('scenario.expertModeHint') }} />
         </small>
       )}
       <Card style={expertMode ? undefined : { display: 'none' }}>
         <Card.Body>
           <Form.Label>
-            Taux d'insatisfaction générale
+            {t('scenario.dissatisfactionRate')}
             <span className="text-muted ms-2" style={{ fontSize: '0.85rem' }}>
-              — influence la probabilité de vote blanc
+              {t('scenario.dissatisfactionSubtitle')}
             </span>
           </Form.Label>
           <Form.Range
@@ -164,7 +170,7 @@ const ElectorateConfig: React.FC<Props> = ({ config, onChange, expertMode = fals
           <small className="text-muted">{dissatisfactionLabel}</small>
           <div className="mt-2">
             <small className="text-info">
-              ℹ️ Plus l'insatisfaction est haute, plus les électeurs placeront "Vote Blanc" en tête de leur classement.
+              {t('scenario.dissatisfactionHint')}
             </small>
           </div>
         </Card.Body>

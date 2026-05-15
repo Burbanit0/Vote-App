@@ -13,9 +13,11 @@
     "chart.js": "^4.5.0",
     "d3": "^7.9.0",
     "d3-hexbin": "^0.2.2",
+    "html2canvas": "^1.4.1",
     "i18next": "^26.1.0",
     "i18next-browser-languagedetector": "^8.2.1",
     "jest-environment-jsdom": "^30.0.0",
+    "jspdf": "^4.2.1",
     "react": "^19.0.0",
     "react-bootstrap": "^2.10.9",
     "react-chartjs-2": "^5.3.0",
@@ -36,7 +38,10 @@
     "preview": "vite preview",
     "test": "jest --watchAll=false",
     "prettier-format": "prettier --config .prettierrc 'src/**/*.ts' --write",
-    "lint": "eslint . --ext .js,.jsx,.ts,.tsx"
+    "lint": "eslint . --ext .js,.jsx,.ts,.tsx",
+    "test:e2e": "playwright test",
+    "test:e2e:ui": "playwright test --ui",
+    "test:a11y": "playwright test tests/e2e/accessibility.spec.ts"
   },
   "eslintConfig": {
     "extends": [
@@ -57,11 +62,13 @@
     ]
   },
   "devDependencies": {
+    "@axe-core/playwright": "^4.11.3",
     "@babel/core": "^7.27.4",
     "@babel/preset-env": "^7.27.2",
     "@babel/preset-react": "^7.27.1",
     "@babel/preset-typescript": "^7.27.1",
     "@istanbuljs/nyc-config-typescript": "^1.0.2",
+    "@playwright/test": "^1.60.0",
     "@testing-library/jest-dom": "^6.6.3",
     "@testing-library/react": "^16.3.0",
     "@types/axios-mock-adapter": "^1.9.0",
@@ -78,6 +85,7 @@
     "eslint": "^9.39.1",
     "eslint-config-prettier": "^10.1.8",
     "eslint-plugin-jest": "^29.1.0",
+    "eslint-plugin-jsx-a11y": "^6.10.2",
     "eslint-plugin-prettier": "^5.5.4",
     "eslint-plugin-react": "^7.37.5",
     "eslint-plugin-react-hooks": "^7.0.1",

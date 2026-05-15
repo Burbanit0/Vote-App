@@ -1,4 +1,5 @@
 import React from 'react';
+import { useTranslation } from 'react-i18next';
 
 // Inject CSS animation once at module load
 const STYLE_ID = 'skeleton-card-styles';
@@ -48,13 +49,15 @@ interface Props {
  * Animated placeholder that mimics a Card with a header and 3 text lines.
  * Use while API data is loading to prevent layout shift.
  */
-const SkeletonCard: React.FC<Props> = ({ height = 180, width = '100%' }) => (
-  <div
-    className="skeleton-pulse rounded border"
-    style={{ width, height, backgroundColor: 'var(--bs-secondary-bg, #f8f9fa)', padding: '0.75rem', overflow: 'hidden' }}
-    role="status"
-    aria-label="Chargement…"
-  >
+const SkeletonCard: React.FC<Props> = ({ height = 180, width = '100%' }) => {
+  const { t } = useTranslation();
+  return (
+    <div
+      className="skeleton-pulse rounded border"
+      style={{ width, height, backgroundColor: 'var(--bs-secondary-bg, #f8f9fa)', padding: '0.75rem', overflow: 'hidden' }}
+      role="status"
+      aria-label={t('common.loading')}
+    >
     {/* Card header simulation */}
     <SkeletonLine width="55%" height={16} />
     <div style={{ height: 1, backgroundColor: '#dee2e6', margin: '10px 0 14px' }} />
@@ -63,6 +66,7 @@ const SkeletonCard: React.FC<Props> = ({ height = 180, width = '100%' }) => (
     <SkeletonLine width="75%" />
     <SkeletonLine width="82%" />
   </div>
-);
+  );
+};
 
 export default SkeletonCard;

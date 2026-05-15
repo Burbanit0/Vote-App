@@ -1,15 +1,10 @@
 import React, { useState } from 'react';
 import { Badge, Button, Card, Col, Form, Row, Spinner, Table } from 'react-bootstrap';
 import { Bar, BarChart, CartesianGrid, Legend, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts';
+import { useTranslation } from 'react-i18next';
 import { ConstitutionalResult } from '../../services/simulationCompareApi';
 
 const COLORS = ['#4e79a7', '#e15759', '#59a14f', '#f28e2b', '#76b7b2', '#edc948'];
-
-const METHOD_LABELS_MULTI: Record<string, string> = {
-  dhondt: "D'Hondt",
-  sainte_lague: 'Sainte-Laguë',
-  largest_remainder_hare: 'LR-Hare',
-};
 
 interface Props {
   result: ConstitutionalResult | null;
@@ -18,6 +13,7 @@ interface Props {
 }
 
 const ScenarioCPanel: React.FC<Props> = ({ result, loading, onRun }) => {
+  const { t } = useTranslation();
   const [numSeats, setNumSeats] = useState(100);
 
   const multi = result?.multiwinner as Record<string, any> | undefined;
@@ -25,6 +21,12 @@ const ScenarioCPanel: React.FC<Props> = ({ result, loading, onRun }) => {
   const parties = Object.keys(partyVotes);
   const colorMap = Object.fromEntries(parties.map((p, i) => [p, COLORS[i % COLORS.length]]));
   const totalVotes = Object.values(partyVotes).reduce((a, b) => a + b, 0);
+
+  const METHOD_LABELS_MULTI: Record<string, string> = {
+    dhondt: t('crisis.method.dhondt'),
+    sainte_lague: t('crisis.method.sainte_lague'),
+    largest_remainder_hare: t('crisis.method.largest_remainder_hare'),
+  };
 
   // Stacked bar chart data: one entry per proportional method
   const chartData = Object.entries(METHOD_LABELS_MULTI).map(([key, label]) => {
@@ -40,8 +42,7 @@ const ScenarioCPanel: React.FC<Props> = ({ result, loading, onRun }) => {
   return (
     <div>
       <p className="text-muted small mb-3">
-        Face à la crise, le parlement est dissous et remplacé par une assemblée constituante proportionnelle.
-        Comparez comment les différentes méthodes de scrutin proportionnel répartissent les sièges.
+        {t('crisis.scenarioCDesc')}
       </p>
 
       <Row className="g-3 mb-4">
@@ -49,7 +50,7 @@ const ScenarioCPanel: React.FC<Props> = ({ result, loading, onRun }) => {
           <Card>
             <Card.Body>
               <Form.Label>
-                Nombre de sièges à l'assemblée : <strong>{numSeats}</strong>
+                <span dangerouslySetInnerHTML={{ __html: t('crisis.scenarioCSeats', { n: numSeats }) }} />
               </Form.Label>
               <Form.Range min={10} max={500} step={10} value={numSeats} onChange={(e) => setNumSeats(Number(e.target.value))} />
               <div className="d-flex justify-content-between">
@@ -61,7 +62,7 @@ const ScenarioCPanel: React.FC<Props> = ({ result, loading, onRun }) => {
         <Col md={7}>
           <Card>
             <Card.Body>
-              <small className="fw-semibold text-muted d-block mb-2">Distribution des votes au 1er tour</small>
+              <small className="fw-semibold text-muted d-block mb-2">{t('crisis.scenarioCVoteDist')}</small>
               <div className="d-flex flex-wrap gap-2">
                 {parties.map((p) => (
                   <span key={p} className="d-flex align-items-center gap-1">
@@ -77,7 +78,7 @@ const ScenarioCPanel: React.FC<Props> = ({ result, loading, onRun }) => {
 
       <div className="mb-4">
         <Button variant="success" onClick={() => onRun(numSeats)} disabled={loading}>
-          {loading ? <><Spinner size="sm" className="me-2" />Simulation…</> : '▶ Composer l\'assemblée'}
+          {loading ? <><Spinner size="sm" className="me-2" />{t('crisis.simulating')}</> : t('crisis.runAssembly')}
         </Button>
       </div>
 
@@ -85,14 +86,14 @@ const ScenarioCPanel: React.FC<Props> = ({ result, loading, onRun }) => {
         <>
           {/* Stacked bar chart */}
           <Card className="mb-4">
-            <Card.Header><strong>Répartition des sièges par méthode proportionnelle</strong></Card.Header>
+            <Card.Header><strong>{t('crisis.seatDistribution')}</strong></Card.Header>
             <Card.Body>
               <ResponsiveContainer width="100%" height={250}>
                 <BarChart data={chartData} layout="vertical" margin={{ left: 80, right: 30 }}>
                   <CartesianGrid strokeDasharray="3 3" />
                   <XAxis type="number" domain={[0, numSeats]} tick={{ fontSize: 11 }} />
                   <YAxis type="category" dataKey="method" tick={{ fontSize: 11 }} width={80} />
-                  <Tooltip formatter={(v: number) => `${v} siège(s)`} />
+                  <Tooltip formatter={(v: number) => `${v} ${t('crisis.seats')}`} />
                   <Legend wrapperStyle={{ fontSize: 11 }} />
                   {parties.map((p) => (
                     <Bar key={p} dataKey={p} stackId="a" fill={colorMap[p]} />
@@ -106,15 +107,15 @@ const ScenarioCPanel: React.FC<Props> = ({ result, loading, onRun }) => {
           <Table bordered size="sm" className="mb-3">
             <thead className="table-light">
               <tr>
-                <th>Méthode</th>
+                <th>{t('common.method')}</th>
                 {parties.map((p) => (
                   <th key={p} className="text-center">
                     <span style={{ display: 'inline-block', width: 10, height: 10, backgroundColor: colorMap[p], borderRadius: 2, marginRight: 4 }} />
                     {p}
                   </th>
                 ))}
-                <th className="text-center">Gallagher</th>
-                <th className="text-center">Plus proportionnel ?</th>
+                <th className="text-center">{t('crisis.gallagher')}</th>
+                <th className="text-center">{t('crisis.mostProportional')}</th>
               </tr>
             </thead>
             <tbody>
@@ -138,27 +139,27 @@ const ScenarioCPanel: React.FC<Props> = ({ result, loading, onRun }) => {
               {/* Uninominal comparison */}
               {result?.uninominal_winner && (
                 <tr style={{ backgroundColor: '#fff8e1' }}>
-                  <td className="fw-semibold ps-2 text-warning-emphasis">Scrutin uninominal</td>
+                  <td className="fw-semibold ps-2 text-warning-emphasis">{t('methods.plurality.label')}</td>
                   {parties.map((p) => (
                     <td key={p} className="text-center text-muted">
                       {p === result.uninominal_winner ? numSeats : 0}
                     </td>
                   ))}
                   <td className="text-center">
-                    <Badge bg="danger">Très élevé</Badge>
+                    <Badge bg="danger">{t('crisis.veryHigh')}</Badge>
                   </td>
-                  <td className="text-center"><span className="text-danger">✗ Spoiler effect</span></td>
+                  <td className="text-center"><span className="text-danger">{t('crisis.spoilerEffect')}</span></td>
                 </tr>
               )}
             </tbody>
           </Table>
           <small className="text-muted d-block mb-3">
-            Gallagher ≈ 0 = proportionnel parfait · {'>'}0.10 = fort biais · Scrutin uninominal = 100% des sièges au vainqueur (simulation)
+            {t('crisis.gallagherFootnote')}
           </small>
 
           <Card className="border-0" style={{ backgroundColor: '#f8f9fa' }}>
             <Card.Body>
-              <small className="fw-semibold">📋 Analyse :</small>
+              <small className="fw-semibold">{t('crisis.analysis')}</small>
               <p className="mb-0 mt-1 text-muted" style={{ fontSize: '0.85rem' }}>{result?.conclusion}</p>
             </Card.Body>
           </Card>

@@ -47,6 +47,12 @@ jobs:
         run: pip-audit --requirement flask_voter_app/requirements.txt
         continue-on-error: true   # informational for now
 
+      # ── Type checking ─────────────────────────────────────────────────────
+      - name: Mypy (strict type checking on utils/ and routes/)
+        run: |
+          cd flask_voter_app
+          python -m mypy app/utils/ app/routes/ --config-file mypy.ini
+
       # ── Tests + Coverage ───────────────────────────────────────────────────
       - name: Tests with coverage (30% minimum)
         env:

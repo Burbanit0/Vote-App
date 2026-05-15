@@ -16,6 +16,7 @@ import {
   Badge,
   Pagination,
 } from 'react-bootstrap';
+import { useTranslation } from 'react-i18next';
 import {
   BarChart,
   Bar,
@@ -78,6 +79,7 @@ interface VoterSegment {
 }
 
 const UtilityVisualization: React.FC = () => {
+  const { t } = useTranslation();
   // State with proper initial values
   const [currentPage, setCurrentPage] = useState(1);
   const { voters, candidates, issues } = useSimulation();
@@ -250,12 +252,12 @@ const UtilityVisualization: React.FC = () => {
 
   return (
     <Container className="my-4">
-      <h1 className="text-center mb-4">Analyse des Scores d&apos;Utilité</h1>
+      <h1 className="text-center mb-4">{t('simulation.utilityViz.pageTitle')}</h1>
 
       {/* Configuration Form */}
       <Card className="mb-4">
         <Card.Header>
-          <Card.Title>Paramètres de Simulation</Card.Title>
+          <Card.Title>{t('simulation.utilityViz.configTitle')}</Card.Title>
         </Card.Header>
         <Card.Body>
           <Form
@@ -266,12 +268,12 @@ const UtilityVisualization: React.FC = () => {
           >
             <Row className="mb-3 align-items-center">
               <Form.Group as={Col} md={3}>
-                <Form.Label>Votants par page</Form.Label>
+                <Form.Label>{t('simulation.utilityViz.votersPerPage')}</Form.Label>
                 <Form.Select
                   value={votersPerPage}
                   onChange={(e) => {
                     setVotersPerPage(parseInt(e.target.value));
-                    setCurrentPage(1); // Réinitialiser à la première page
+                    setCurrentPage(1);
                   }}
                 >
                   <option value="10">10</option>
@@ -293,10 +295,10 @@ const UtilityVisualization: React.FC = () => {
                       role="status"
                       aria-hidden="true"
                     />{' '}
-                    Chargement...
+                    {t('common.loading')}
                   </>
                 ) : (
-                  'Générer et Analyser'
+                  t('simulation.utilityViz.generateAnalyze')
                 )}
               </Button>
             </div>
@@ -315,10 +317,10 @@ const UtilityVisualization: React.FC = () => {
       {utilityResults.length > 0 ? (
         <Tabs activeKey={activeTab} onSelect={(k) => setActiveTab(k || 'matrix')} className="mb-3">
           {/* Utility Matrix */}
-          <Tab eventKey="matrix" title="Matrice d'Utilité">
+          <Tab eventKey="matrix" title={t('simulation.utilityViz.matrixTab')}>
             <Card className="mb-4">
               <Card.Header>
-                <Card.Title>Matrice des Scores d&apos;Utilité</Card.Title>
+                <Card.Title>{t('simulation.utilityViz.matrixTitle')}</Card.Title>
               </Card.Header>
               <Card.Body>
                 {utilityMatrix ? (
@@ -327,7 +329,7 @@ const UtilityVisualization: React.FC = () => {
                       <Table bordered hover>
                         <thead>
                           <tr>
-                            <th>Votant\Candidat</th>
+                            <th>{t('simulation.utilityViz.voterCandidateHeader')}</th>
                             {candidates.map((candidate) => (
                               <th key={candidate.id} className="text-center">
                                 <div>{candidate.name.split(' ')[0]}</div>
@@ -352,7 +354,7 @@ const UtilityVisualization: React.FC = () => {
                           {getCurrentVoters().map((voter) => (
                             <tr key={voter.id}>
                               <td>
-                                <div>Votant {voter.id + 1}</div>
+                                <div>{t('simulation.utilityViz.voterLabel')} {voter.id + 1}</div>
                                 <small className="text-muted">
                                   {voter.age} ans, {voter.gender}, {voter.education}
                                 </small>
@@ -387,7 +389,7 @@ const UtilityVisualization: React.FC = () => {
                       </Table>
                     </div>
 
-                    {/* Ajoutez la pagination ici */}
+                    
                     <Pagination className="justify-content-center">
                       <Pagination.First
                         onClick={() => setCurrentPage(1)}
@@ -398,7 +400,7 @@ const UtilityVisualization: React.FC = () => {
                         disabled={currentPage === 1}
                       />
 
-                      {/* Afficher max 5 pages autour de la page actuelle */}
+                      
                       {Array.from(
                         { length: Math.ceil(voters.length / votersPerPage) },
                         (_, i) => i + 1
@@ -419,7 +421,7 @@ const UtilityVisualization: React.FC = () => {
                           </Pagination.Item>
                         ))}
 
-                      {/* Ajouter "..." si nécessaire */}
+                      
                       {currentPage + 2 < Math.ceil(voters.length / votersPerPage) - 1 && (
                         <Pagination.Ellipsis disabled />
                       )}
@@ -440,26 +442,23 @@ const UtilityVisualization: React.FC = () => {
                     </Pagination>
 
                     <div className="text-center mt-2">
-                      <small className="text-muted">
-                        Affichage des votants {currentPage * votersPerPage - votersPerPage + 1} à{' '}
-                        {Math.min(currentPage * votersPerPage, voters.length)} sur {voters.length}
-                      </small>
+                      <small className="text-muted"> </small>
                     </div>
                   </>
                 ) : (
-                  <Alert variant="info">Calcul de la matrice en cours...</Alert>
+                  <Alert variant="info">{t('common.loading')}</Alert>
                 )}
               </Card.Body>
             </Card>
           </Tab>
 
           {/* Candidate Performance */}
-          <Tab eventKey="performance" title="Performance des Candidats">
+          <Tab eventKey="performance" title={t('simulation.utilityViz.performanceTab')}>
             <Row>
               <Col md={6}>
                 <Card className="mb-4">
                   <Card.Header>
-                    <Card.Title>Performance Moyenne des Candidats</Card.Title>
+                    <Card.Title>{t('simulation.utilityViz.candidatePerformanceTitle')}</Card.Title>
                   </Card.Header>
                   <Card.Body>
                     {prepareCandidatePerformance().length > 0 ? (
@@ -485,13 +484,13 @@ const UtilityVisualization: React.FC = () => {
                               }
                             />
                             <Legend />
-                            <Bar dataKey="averageUtility" name="Utilité moyenne" fill="#8884d8" />
-                            <Bar dataKey="voteShare" name="Part des voix" fill="#82ca9d" />
+                            <Bar dataKey="averageUtility" name={t('simulation.utilityViz.avgUtilityLabel')} fill="#1a56cc" />
+                            <Bar dataKey="voteShare" name={t('simulation.utilityViz.voteShareLabel')} fill="#1b5e20" />
                           </BarChart>
                         </ResponsiveContainer>
                       </div>
                     ) : (
-                      <Alert variant="info">Aucune donnée de performance disponible</Alert>
+                      <Alert variant="info">{t('simulation.utilityViz.noPerformanceData')}</Alert>
                     )}
                   </Card.Body>
                 </Card>
@@ -500,18 +499,18 @@ const UtilityVisualization: React.FC = () => {
               <Col md={6}>
                 <Card className="mb-4">
                   <Card.Header>
-                    <Card.Title>Statistiques Globales</Card.Title>
+                    <Card.Title>{t('simulation.utilityViz.globalStatsTitle')}</Card.Title>
                   </Card.Header>
                   <Card.Body>
                     {utilityStats && (
                       <>
-                        <h5>Utilité Moyenne: {formatNumber(utilityStats.average_utility, 2)}</h5>
+                        <h5>{t('simulation.utilityViz.avgUtilityDisplay')} {formatNumber(utilityStats.average_utility, 2)}</h5>
                         <Table striped bordered hover className="mt-3">
                           <thead>
                             <tr>
-                              <th>Candidat</th>
-                              <th>Parti</th>
-                              <th>Part des voix</th>
+                              <th>{t('simulation.utilityViz.candidateCol')}</th>
+                              <th>{t('simulation.utilityViz.partyCol')}</th>
+                              <th>{t('simulation.utilityViz.voteShareCol')}</th>
                             </tr>
                           </thead>
                           <tbody>
@@ -522,7 +521,7 @@ const UtilityVisualization: React.FC = () => {
                               return (
                                 <tr key={candidateId}>
                                   <td>
-                                    {candidate?.name || `Candidat ${parseInt(candidateId) + 1}`}
+                                    {candidate?.name || `${t('simulation.utilityViz.candidateCol')} ${parseInt(candidateId) + 1}`}
                                   </td>
                                   <td>
                                     <Badge
@@ -536,7 +535,7 @@ const UtilityVisualization: React.FC = () => {
                                               : 'secondary'
                                       }
                                     >
-                                      {candidate?.party || 'Inconnu'}
+                                      {candidate?.party || t('common.noData')}
                                     </Badge>
                                   </td>
                                   <td>{formatPercentage(data.share)}</td>
@@ -554,12 +553,12 @@ const UtilityVisualization: React.FC = () => {
           </Tab>
 
           {/* Voter Segments */}
-          <Tab eventKey="segments" title="Segments de Votants">
+          <Tab eventKey="segments" title={t('simulation.utilityViz.segmentsTab')}>
             <Row>
               <Col md={6}>
                 <Card className="mb-4">
                   <Card.Header>
-                    <Card.Title>Utilité par Segment</Card.Title>
+                    <Card.Title>{t('simulation.utilityViz.utilityBySegmentTitle')}</Card.Title>
                   </Card.Header>
                   <Card.Body>
                     {prepareVoterSegmentsData().length > 0 ? (
@@ -579,11 +578,11 @@ const UtilityVisualization: React.FC = () => {
                             <YAxis />
                             <Tooltip
                               formatter={(value: number, name: string) =>
-                                name === 'Utilité moyenne' ? formatNumber(value, 2) : value
+                                name === t('simulation.utilityViz.avgUtilityLabel') ? formatNumber(value, 2) : value
                               }
                             />
                             <Legend />
-                            <Bar dataKey="averageUtility" name="Utilité moyenne" fill="#8884d8" />
+                            <Bar dataKey="averageUtility" name={t('simulation.utilityViz.avgUtilityLabel')} fill="#1a56cc" />
                           </BarChart>
                         </ResponsiveContainer>
                       </div>
@@ -597,7 +596,7 @@ const UtilityVisualization: React.FC = () => {
               <Col md={6}>
                 <Card className="mb-4">
                   <Card.Header>
-                    <Card.Title>Candidat Préféré par Segment</Card.Title>
+                    <Card.Title>{t('simulation.utilityViz.preferredCandidateTitle')}</Card.Title>
                   </Card.Header>
                   <Card.Body>
                     {prepareVoterSegmentsData().length > 0 ? (
@@ -615,7 +614,7 @@ const UtilityVisualization: React.FC = () => {
                               cx="50%"
                               cy="50%"
                               outerRadius={80}
-                              fill="#8884d8"
+                              fill="#1a56cc"
                               label
                             >
                               {prepareVoterSegmentsData().map((_, index) => (
@@ -629,11 +628,11 @@ const UtilityVisualization: React.FC = () => {
                                 return segment
                                   ? [
                                       `${segment.segment}`,
-                                      `Nombre: ${value}`,
-                                      `Préfère: ${segment.topCandidate}`,
-                                      `Utilité: ${formatNumber(segment.averageUtility, 2)}`,
+                                      `${t('simulation.utilityViz.countLabel')}: ${value}`,
+                                      `${t('simulation.utilityViz.prefersLabel')} ${segment.topCandidate}`,
+                                      `${t('simulation.utilityViz.utilityLabel')}: ${formatNumber(segment.averageUtility, 2)}`,
                                     ]
-                                  : ['Données non disponibles'];
+                                  : [t('simulation.utilityViz.dataNotAvailable')];
                               }}
                             />
                             <Legend />
@@ -650,10 +649,10 @@ const UtilityVisualization: React.FC = () => {
           </Tab>
 
           {/* Utility Distribution */}
-          <Tab eventKey="distribution" title="Distribution des Scores">
+              <Tab eventKey="distribution" title={t('simulation.utilityViz.distributionTab')}>
             <Card>
               <Card.Header>
-                <Card.Title>Distribution des Scores d&apos;Utilité par Candidat</Card.Title>
+                <Card.Title>{t('simulation.utilityViz.distributionSubtitle')}</Card.Title>
               </Card.Header>
               <Card.Body>
                 {prepareUtilityDistribution().length > 0 ? (
@@ -676,24 +675,19 @@ const UtilityVisualization: React.FC = () => {
                           </ResponsiveContainer>
                         </div>
                       ) : (
-                        <Alert variant="info">
-                          Aucune donnée de distribution disponible pour ce candidat
-                        </Alert>
+                        <Alert variant="info">{t('simulation.utilityViz.noDistributionForCandidate')}</Alert>
                       )}
                     </div>
                   ))
                 ) : (
-                  <Alert variant="info">Aucune donnée de distribution disponible</Alert>
+                  <Alert variant="info">{t('simulation.utilityViz.noDistributionData')}</Alert>
                 )}
               </Card.Body>
             </Card>
           </Tab>
         </Tabs>
       ) : (
-        <Alert variant="info">
-          Utilisez le formulaire ci-dessus pour générer des votants et des candidats et calculer les
-          scores d&apos;utilité.
-        </Alert>
+        <Alert variant="info">{t('simulation.utilityViz.emptyState')}</Alert>
       )}
 
       {/* Utility Breakdown Modal */}
@@ -702,8 +696,7 @@ const UtilityVisualization: React.FC = () => {
           <>
             <Modal.Header closeButton>
               <Modal.Title>
-                Détail du Score d&apos;Utilité: Votant {selectedVoter.id + 1} →{' '}
-                {selectedCandidate.name}
+                {t('simulation.utilityViz.modalUtilityDetail', { voterId: selectedVoter.id + 1, candidateName: selectedCandidate.name })}
               </Modal.Title>
             </Modal.Header>
             <Modal.Body>
@@ -711,27 +704,27 @@ const UtilityVisualization: React.FC = () => {
                 <Col md={6}>
                   <Card className="mb-3">
                     <Card.Body>
-                      <h6>Profil du Votant</h6>
+                      <h6>{t('simulation.utilityViz.voterProfile')}</h6>
                       <Table borderless size="sm">
                         <tbody>
                           <tr>
-                            <th>Âge:</th>
+                            <th>{t('simulation.utilityViz.age')}</th>
                             <td>{selectedVoter.age} ans</td>
                           </tr>
                           <tr>
-                            <th>Genre:</th>
+                            <th>{t('simulation.utilityViz.gender')}</th>
                             <td>{selectedVoter.gender}</td>
                           </tr>
                           <tr>
-                            <th>Éducation:</th>
+                            <th>{t('simulation.utilityViz.education')}</th>
                             <td>{selectedVoter.education}</td>
                           </tr>
                           <tr>
-                            <th>Revenu:</th>
+                            <th>{t('simulation.utilityViz.income')}</th>
                             <td>{selectedVoter.income}</td>
                           </tr>
                           <tr>
-                            <th>Région:</th>
+                            <th>{t('simulation.utilityViz.region')}</th>
                             <td>{selectedVoter.region}</td>
                           </tr>
                           <tr>
@@ -753,11 +746,11 @@ const UtilityVisualization: React.FC = () => {
                 <Col md={6}>
                   <Card className="mb-3">
                     <Card.Body>
-                      <h6>Profil du Candidat</h6>
+                      <h6>{t('simulation.utilityViz.candidateProfile')}</h6>
                       <Table borderless size="sm">
                         <tbody>
                           <tr>
-                            <th>Parti:</th>
+                            <th>{t('simulation.utilityViz.party')}</th>
                             <td>
                               <Badge
                                 bg={
@@ -795,7 +788,7 @@ const UtilityVisualization: React.FC = () => {
                 <Col md={12}>
                   <Card>
                     <Card.Body>
-                      <h6>Décomposition du Score d&apos;Utilité</h6>
+                      <h6>{t('simulation.utilityViz.utilityBreakdown')}</h6>
                       {(() => {
                         const result = utilityResults.find(
                           (r) =>
@@ -804,7 +797,7 @@ const UtilityVisualization: React.FC = () => {
 
                         if (!result)
                           return (
-                            <Alert variant="warning">Données d&apos;utilité non disponibles</Alert>
+                            <Alert variant="warning">{t('simulation.utilityViz.utilityDataNotAvailable')}</Alert>
                           );
 
                         const data = Object.entries(result.breakdown)
@@ -826,14 +819,18 @@ const UtilityVisualization: React.FC = () => {
 
                         return (
                           <>
-                            <h4 className="text-center">
-                              Score Total: {formatNumber(result.utility, 2)}
-                              {result.willVote && (
-                                <Badge bg="success" className="ms-2">
-                                  Votera pour ce candidat
-                                </Badge>
-                              )}
-                            </h4>
+                              <h4 className="text-center">
+                                {t('simulation.utilityViz.totalScore')} {formatNumber(result.utility, 2)}
+                                {result.willVote ? (
+                                  <Badge bg="success" className="ms-2">
+                                    {t('simulation.utilityViz.willVote')}
+                                  </Badge>
+                                ) : (
+                                  <Badge bg="danger" className="ms-2">
+                                    {t('simulation.utilityViz.willNotVote')}
+                                  </Badge>
+                                )}
+                              </h4>
 
                             {data.length > 0 ? (
                               <>
@@ -862,10 +859,10 @@ const UtilityVisualization: React.FC = () => {
                                 <Table striped bordered className="mt-3">
                                   <thead>
                                     <tr>
-                                      <th>Composante</th>
-                                      <th>Valeur</th>
-                                      <th>Poids</th>
-                                      <th>Contribution</th>
+                                      <th>{t('simulation.utilityViz.component')}</th>
+                                      <th>{t('simulation.utilityViz.value')}</th>
+                                      <th>{t('simulation.utilityViz.weight')}</th>
+                                      <th>{t('simulation.utilityViz.contribution')}</th>
                                     </tr>
                                   </thead>
                                   <tbody>
@@ -889,9 +886,7 @@ const UtilityVisualization: React.FC = () => {
                                 </Table>
                               </>
                             ) : (
-                              <Alert variant="info">
-                                Aucune composante d&apos;utilité disponible
-                              </Alert>
+                                <Alert variant="info">{t('simulation.utilityViz.noComponents')}</Alert>
                             )}
                           </>
                         );

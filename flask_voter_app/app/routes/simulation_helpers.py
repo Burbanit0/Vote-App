@@ -10,10 +10,7 @@ from app.utils.simulation_voting_utils import create_voter, create_candidate
 from app.utils.simulation_metrics import compare_all_methods
 from app.utils.blank_vote_rules import BlankVoteRule, apply_blank_rule
 
-# ── Issue categories — mapping 3 citizen-facing positions → 20 policy issues ─
-_ECONOMY_ISSUES = {"economy", "taxes", "business_regulation", "jobs", "minimum_wage", "infrastructure", "technology_innovation"}
-_ENV_ISSUES     = {"environment", "climate_change", "agriculture", "public_transport"}
-_SOCIAL_ISSUES  = {"social_welfare", "healthcare", "education", "gender_equality", "housing", "immigration", "crime_safety", "defense", "pensions"}
+from app.constants import DEFAULT_ISSUES, ECONOMY_ISSUES, ENV_ISSUES, SOCIAL_ISSUES
 
 _PRESET_TO_DISTRIBUTION = {
     "polarized": "polarized",
@@ -42,9 +39,9 @@ def _build_scenario_candidates(candidates_raw: list, issues: list) -> list:
         env = max(0.0, min(1.0, float(positions.get("environment", 1 - pos))))
         soc = max(0.0, min(1.0, float(positions.get("social",      1 - pos))))
         policies = {
-            iss: eco if iss in _ECONOMY_ISSUES
-                 else env if iss in _ENV_ISSUES
-                 else soc if iss in _SOCIAL_ISSUES
+            iss: eco if iss in ECONOMY_ISSUES
+                 else env if iss in ENV_ISSUES
+                 else soc if iss in SOCIAL_ISSUES
                  else 0.5
             for iss in issues
         }
@@ -105,13 +102,6 @@ def _run_five_methods(
             )
     return filtered
 
-_DEFAULT_ISSUES = [
-    "economy", "environment", "healthcare", "education", "taxes",
-    "social_welfare", "agriculture", "public_transport", "defense",
-    "gender_equality", "pensions", "climate_change", "housing",
-    "immigration", "crime_safety", "technology_innovation",
-    "minimum_wage", "business_regulation", "jobs", "infrastructure",
-]
 
 _PARTY_CYCLE = ["Green", "Conservative", "Liberal", "Independent"]
 
@@ -155,7 +145,7 @@ def _build_population(
     candidate_configs — output of _parse_candidate_configs().
     Returns (voters, candidates, issues).
     """
-    issues = _DEFAULT_ISSUES
+    issues = DEFAULT_ISSUES
     candidates = [
         create_candidate(
             issues,

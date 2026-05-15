@@ -30,15 +30,15 @@ const baseProps = {
 describe('WinnerMatrixTab', () => {
   it('renders winner matrix table', () => {
     render(<WinnerMatrixTab {...baseProps} />);
-    expect(screen.getByText('plurality')).toBeInTheDocument();
+    expect(screen.getAllByText('plurality').length).toBeGreaterThanOrEqual(1);
   });
 
   it('renders scenario comparison when scenarioCount is 2', () => {
     const props = { ...baseProps, scenarioCount: 2 as const, resultsB: [...mockResults] };
     render(<WinnerMatrixTab {...props} />);
-    expect(screen.getByText(/Scénario A/)).toBeInTheDocument();
-    expect(screen.getByText(/Scénario B/)).toBeInTheDocument();
-    expect(screen.getByText(/Différences/)).toBeInTheDocument();
+    expect(screen.getByText(/Scenario A/)).toBeInTheDocument();
+    expect(screen.getByText(/Scenario B/)).toBeInTheDocument();
+    expect(screen.getByText(/Differences/)).toBeInTheDocument();
   });
 
   it('renders color legend', () => {

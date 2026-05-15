@@ -43,30 +43,30 @@ describe('CandidateEditor', () => {
   it('renders blank candidate card', () => {
     const withBlank = [...defaultCandidates, newBlankCandidate()];
     render(<CandidateEditor candidates={withBlank} onChange={jest.fn()} />);
-    expect(screen.getByText(/Vote Blanc/)).toBeInTheDocument();
+    expect(screen.getByText(/Blank Vote/)).toBeInTheDocument();
   });
 
   it('shows add candidate button', () => {
     render(<CandidateEditor candidates={defaultCandidates} onChange={jest.fn()} />);
-    expect(screen.getByText('+ Ajouter un candidat')).toBeInTheDocument();
+    expect(screen.getByText('+ Add a candidate')).toBeInTheDocument();
   });
 
   it('shows blank vote add button when no blank candidate', () => {
     render(<CandidateEditor candidates={defaultCandidates} onChange={jest.fn()} />);
-    expect(screen.getByText(/Vote Blanc/)).toBeInTheDocument();
+    expect(screen.getByText(/Blank Vote/)).toBeInTheDocument();
   });
 
   it('does not show blank vote add button when blank candidate exists', () => {
     const withBlank = [...defaultCandidates, newBlankCandidate()];
     render(<CandidateEditor candidates={withBlank} onChange={jest.fn()} />);
-    const blankButtons = screen.getAllByText(/Vote Blanc/);
+    const blankButtons = screen.getAllByText(/Blank Vote/);
     expect(blankButtons.length).toBe(1);
   });
 
   it('calls onChange when adding a candidate', () => {
     const onChange = jest.fn();
     render(<CandidateEditor candidates={defaultCandidates} onChange={onChange} />);
-    fireEvent.click(screen.getByText('+ Ajouter un candidat'));
+    fireEvent.click(screen.getByText('+ Add a candidate'));
     expect(onChange).toHaveBeenCalledWith(
       expect.arrayContaining([expect.objectContaining({ name: '' })])
     );

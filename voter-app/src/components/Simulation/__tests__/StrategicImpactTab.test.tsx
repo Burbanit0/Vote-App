@@ -48,14 +48,14 @@ describe('StrategicImpactTab', () => {
     render(
       <StrategicImpactTab strategicData={mockData} allMethodNames={['plurality', 'irv']} />
     );
-    expect(screen.getByText(/Impact du vote stratégique/)).toBeInTheDocument();
+    expect(screen.getByText(/Impact of strategic voting on Bayesian regret/)).toBeInTheDocument();
   });
 
   it('renders description text', () => {
     render(
       <StrategicImpactTab strategicData={mockData} allMethodNames={['plurality']} />
     );
-    expect(screen.getByText(/vulnérables au vote tactique/)).toBeInTheDocument();
+    expect(screen.getByText(/vulnerable to tactical voting/)).toBeInTheDocument();
   });
 
   it('renders EmptyChart when no data', () => {

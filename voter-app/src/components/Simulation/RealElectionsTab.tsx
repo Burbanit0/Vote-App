@@ -1,10 +1,12 @@
 import React, { useEffect, useState } from 'react';
 import { Alert, Button, Card, Col, Form, Row, Spinner } from 'react-bootstrap';
+import { useTranslation } from 'react-i18next';
 import { RealElectionResult, RealElectionSummary } from '../../types';
 import { analyzeRealElection, getRealElections } from '../../services/simulationCompareApi';
 import RealElectionAnalysis from './RealElectionAnalysis';
 
 const RealElectionsTab: React.FC = () => {
+  const { t } = useTranslation();
   const [elections, setElections] = useState<RealElectionSummary[]>([]);
   const [selected, setSelected] = useState('');
   const [result, setResult] = useState<RealElectionResult | null>(null);
@@ -46,21 +48,21 @@ const RealElectionsTab: React.FC = () => {
   return (
     <Card className="mb-4">
       <Card.Header>
-        <strong>Analyse des élections réelles</strong>
+        <strong>{t('simulation.realElections.title')}</strong>
         <span className="text-muted ms-2" style={{ fontSize: '0.85rem' }}>
-          — quelle méthode aurait élu un vainqueur différent ?
+          {t('simulation.realElections.subtitle')}
         </span>
       </Card.Header>
       <Card.Body>
         <Row className="g-3 align-items-end mb-4">
           <Col md={5}>
-            <Form.Label className="small mb-1">Élection</Form.Label>
+            <Form.Label className="small mb-1">{t('simulation.realElections.electionLabel')}</Form.Label>
             <Form.Select
               size="sm"
               value={selected}
               onChange={(e) => { setSelected(e.target.value); setResult(null); setBlankVote(false); }}
             >
-              {elections.length === 0 && <option value="">Chargement…</option>}
+              {elections.length === 0 && <option value="">{t('simulation.realElections.loadingOption')}</option>}
               {elections.map((e) => (
                 <option key={e.key} value={e.key}>
                   {e.country} — {e.name} ({e.year})
@@ -74,7 +76,7 @@ const RealElectionsTab: React.FC = () => {
               onClick={() => handleAnalyze(false)}
               disabled={loading || !selected}
             >
-              {loading ? <><Spinner size="sm" className="me-2" />Analyse…</> : 'Analyser'}
+              {loading ? <><Spinner size="sm" className="me-2" />{t('simulation.realElections.analyzing')}</> : t('simulation.realElections.analyze')}
             </Button>
           </Col>
         </Row>
@@ -88,9 +90,8 @@ const RealElectionsTab: React.FC = () => {
           />
         ) : (
           !loading && (
-            <Alert variant="info" className="mb-0">
-              Sélectionnez une élection ci-dessus et cliquez sur <strong>Analyser</strong>.
-            </Alert>
+            <Alert variant="info" className="mb-0"><span dangerouslySetInnerHTML={{ __html: t('simulation.realElections.prompt') }} /></Alert>
+
           )
         )}
       </Card.Body>

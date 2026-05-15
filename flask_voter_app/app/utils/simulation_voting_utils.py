@@ -1,6 +1,9 @@
 import random
+from collections import Counter
 import numpy as np
-from typing import List, Dict, Optional, Union
+from typing import Any, Dict, List, Optional, Tuple, Union
+
+from app.constants import DEFAULT_ISSUES
 
 from .demographic_data import (
     sample_age,
@@ -16,45 +19,22 @@ from .demographic_data import (
 )
 
 # --- Define types for clarity ---
-Voter = Dict[str, Union[float, str, Dict[str, float]]]
-Candidate = Dict[str, Union[str, float, Dict[str, float]]]
-
-# Policy issues used across all simulation functions
-issues = [
-    "economy",
-    "environment",
-    "healthcare",
-    "education",
-    "taxes",
-    "social_welfare",
-    "agriculture",
-    "public_transport",
-    "defense",
-    "gender_equality",
-    "pensions",
-    "climate_change",
-    "housing",
-    "immigration",
-    "crime_safety",
-    "technology_innovation",
-    "minimum_wage",
-    "business_regulation",
-    "jobs",
-    "infrastructure",
-]
-
+# Dict[str, Any] is used because voter and candidate dicts are assembled
+# from many sources (demographics, ideology model, etc.) with heterogeneous values.
+Voter = Dict[str, Any]
+Candidate = Dict[str, Any]
 
 def assign_issue_priorities(
-    age,
-    gender,
-    region,
-    education,
-    income,
-    employment_status,
-    family_status,
-    ethnicity_immigration,
-    religion,
-):
+    age: int,
+    gender: str,
+    region: str,
+    education: str,
+    income: str,
+    employment_status: str,
+    family_status: str,
+    ethnicity_immigration: str,
+    religion: str,
+) -> Tuple[Dict[str, float], float, Dict[str, float]]:
     issue_priorities = {
         "economy": 0.5,
         "environment": 0.5,
@@ -377,7 +357,7 @@ def create_candidate(
     party: str,
     ideology_position: Optional[float] = None,
     position_variance: float = 0.1,
-) -> Dict:
+) -> Dict[str, Any]:
     """
     Create a candidate with policy positions.
 
@@ -430,7 +410,7 @@ def create_candidate(
 
 
 # --- 2. Utility Calculation ---
-def calculate_utility(voter: Dict, candidate: Dict, issues: List[str]) -> Dict:
+def calculate_utility(voter: Dict[str, Any], candidate: Dict[str, Any], issues: List[str]) -> Dict[str, Any]:
     """
     Calculate the utility score for a voter-candidate pair.
     Returns a dictionary with the utility score and its breakdown.
@@ -515,11 +495,11 @@ def compute_strategic_plurality_vote(
     Plurality tactical vote (Duverger): if the sincere first choice is not
     viable (not in top-2 of polls), switch to the best viable candidate.
     """
-    utilities = {
-        c["name"]: calculate_utility(voter, c, issues)["utility"] for c in candidates
+    utilities: Dict[str, float] = {
+        str(c["name"]): float(calculate_utility(voter, c, issues)["utility"]) for c in candidates
     }
-    top2 = sorted(poll_standings, key=poll_standings.get, reverse=True)[:2]
-    preferred = max(utilities, key=utilities.get)
+    top2 = sorted(poll_standings, key=lambda k: poll_standings[k], reverse=True)[:2]
+    preferred: str = max(utilities, key=lambda k: utilities[k])
 
     if preferred in top2:
         return preferred
@@ -541,20 +521,20 @@ def compute_strategic_borda_vote(
     Borda points, while keeping the sincere order for all other candidates.
     Falls back to sincere ranking if the preferred candidate already leads polls.
     """
-    utilities = {
-        c["name"]: calculate_utility(voter, c, issues)["utility"] for c in candidates
+    utilities_b: Dict[str, float] = {
+        str(c["name"]): float(calculate_utility(voter, c, issues)["utility"]) for c in candidates
     }
-    preferred = max(utilities, key=utilities.get)
-    top_by_polls = sorted(poll_standings, key=poll_standings.get, reverse=True)
+    preferred_b: str = max(utilities_b, key=lambda k: utilities_b[k])
+    top_by_polls = sorted(poll_standings, key=lambda k: poll_standings[k], reverse=True)
 
-    if top_by_polls and top_by_polls[0] == preferred:
-        return [c["name"] for c in compute_sincere_ranking(voter, candidates, issues)]
+    if top_by_polls and top_by_polls[0] == preferred_b:
+        return [str(c["name"]) for c in compute_sincere_ranking(voter, candidates, issues)]
 
-    threat = next((c for c in top_by_polls if c != preferred), None)
-    sincere_order = [c["name"] for c in compute_sincere_ranking(voter, candidates, issues)]
-    others = [name for name in sincere_order if name != preferred and name != threat]
+    threat = next((c for c in top_by_polls if c != preferred_b), None)
+    sincere_order = [str(c["name"]) for c in compute_sincere_ranking(voter, candidates, issues)]
+    others = [name for name in sincere_order if name != preferred_b and name != threat]
 
-    ranking = [preferred] + others
+    ranking = [preferred_b] + others
     if threat:
         ranking.append(threat)
     return ranking
@@ -571,19 +551,19 @@ def compute_strategic_irv_vote(
     top-2 of polls), promote the best top-2 candidate to first position while
     keeping the sincere order for the rest.
     """
-    utilities = {
-        c["name"]: calculate_utility(voter, c, issues)["utility"] for c in candidates
+    utilities_i: Dict[str, float] = {
+        str(c["name"]): float(calculate_utility(voter, c, issues)["utility"]) for c in candidates
     }
-    top2 = sorted(poll_standings, key=poll_standings.get, reverse=True)[:2]
-    preferred = max(utilities, key=utilities.get)
+    top2 = sorted(poll_standings, key=lambda k: poll_standings[k], reverse=True)[:2]
+    preferred_i: str = max(utilities_i, key=lambda k: utilities_i[k])
 
-    sincere = [c["name"] for c in compute_sincere_ranking(voter, candidates, issues)]
-    if preferred in top2:
+    sincere = [str(c["name"]) for c in compute_sincere_ranking(voter, candidates, issues)]
+    if preferred_i in top2:
         return sincere
 
     best_viable = max(
-        (c for c in top2 if c in utilities),
-        key=lambda c: utilities[c],
+        (c for c in top2 if c in utilities_i),
+        key=lambda c: utilities_i[c],
         default=None,
     )
     if best_viable and best_viable in sincere:
@@ -603,15 +583,15 @@ def compute_strategic_approval_vote(
     first's (too close to sacrifice).
     Returns a list of approved candidate names (may be length 1 or 2).
     """
-    utilities = {
-        c["name"]: calculate_utility(voter, c, issues)["utility"] for c in candidates
+    utilities_a: Dict[str, float] = {
+        str(c["name"]): float(calculate_utility(voter, c, issues)["utility"]) for c in candidates
     }
-    ranked = sorted(utilities, key=utilities.get, reverse=True)
+    ranked: List[str] = sorted(utilities_a, key=lambda k: utilities_a[k], reverse=True)
     if len(ranked) < 2:
         return ranked
 
     best, second = ranked[0], ranked[1]
-    best_u, second_u = utilities[best], utilities[second]
+    best_u, second_u = utilities_a[best], utilities_a[second]
 
     if best_u > 0 and second_u > 0 and second_u / best_u > 0.9:
         return [best, second]
@@ -628,20 +608,20 @@ def compute_strategic_score_vote(
     Score exaggeration strategy: give the preferred candidate 5, the main poll
     threat 0, and proportionally scaled scores (1–4) to everyone else.
     """
-    utilities = {
-        c["name"]: calculate_utility(voter, c, issues)["utility"] for c in candidates
+    utilities_s: Dict[str, float] = {
+        str(c["name"]): float(calculate_utility(voter, c, issues)["utility"]) for c in candidates
     }
-    preferred = max(utilities, key=utilities.get)
-    top_by_polls = sorted(poll_standings, key=poll_standings.get, reverse=True)
-    threat = next((c for c in top_by_polls if c != preferred), None)
+    preferred_s: str = max(utilities_s, key=lambda k: utilities_s[k])
+    top_by_polls = sorted(poll_standings, key=lambda k: poll_standings[k], reverse=True)
+    threat = next((c for c in top_by_polls if c != preferred_s), None)
 
     others = {
         name: u
-        for name, u in utilities.items()
-        if name != preferred and name != threat
+        for name, u in utilities_s.items()
+        if name != preferred_s and name != threat
     }
 
-    scores: Dict[str, int] = {preferred: 5}
+    scores: Dict[str, int] = {preferred_s: 5}
     if threat:
         scores[threat] = 0
 
@@ -674,7 +654,7 @@ def apply_social_influence(
     if not poll_standings or not candidates:
         return list(voters)
 
-    leader_name = max(poll_standings, key=poll_standings.get)
+    leader_name: str = max(poll_standings, key=lambda k: poll_standings[k])
     leader_position: float = next(
         (c.get("ideology_position", 0.5) for c in candidates if c["name"] == leader_name),
         0.5,
@@ -712,7 +692,7 @@ def run_bandwagon_simulation(
     influence_strength: float = 0.3,
     ideology_distribution: str = "random",
     seed: Optional[int] = None,
-) -> Dict:
+) -> Dict[str, Any]:
     """
     Simulate N rounds of bandwagon influence and track how each voting method
     responds to cascading preference shifts.
@@ -760,9 +740,9 @@ def run_bandwagon_simulation(
         create_voter(issues, i, ideology_distribution) for i in range(num_voters)
     ]
 
-    def _compute_round_state(vts: List[Voter], rnd: int) -> Dict:
+    def _compute_round_state(vts: List[Voter], rnd: int) -> Dict[str, Any]:
         # Utilities and sincere rankings
-        utilities = {
+        utilities: Dict[Any, Dict[str, float]] = {
             v["id"]: {
                 c["name"]: calculate_utility(v, c, issues)["utility"] for c in candidates
             }
@@ -783,7 +763,7 @@ def run_bandwagon_simulation(
         poll_standings = {k: round(v / total_fc, 4) for k, v in first_choices.items()}
 
         # Winner + Bayesian regret per method
-        methods_data: Dict[str, Dict] = {}
+        methods_data: Dict[str, Dict[str, Any]] = {}
         for method_name, method_fn in _METHODS.items():
             winner = method_fn(rankings)
             if winner:
@@ -818,7 +798,7 @@ def run_bandwagon_simulation(
             },
         }
 
-    rounds_data: List[Dict] = []
+    rounds_data: List[Dict[str, Any]] = []
 
     # Round 0 — sincere baseline
     state = _compute_round_state(current_voters, 0)
@@ -863,14 +843,14 @@ def run_bandwagon_simulation(
 # --- 4. Voting Methods ---
 
 # Method groups used for strategic dispatch and sincere fallback.
-_PLURALITY_METHODS: frozenset = frozenset({"plurality"})
-_BORDA_METHODS: frozenset = frozenset({"borda"})
-_RANKED_METHODS: frozenset = frozenset({
+_PLURALITY_METHODS: frozenset[str] = frozenset({"plurality"})
+_BORDA_METHODS: frozenset[str] = frozenset({"borda"})
+_RANKED_METHODS: frozenset[str] = frozenset({
     "ranked", "irv", "condorcet", "schulze", "minimax",
     "kemeny_young", "coombs", "bucklin", "two_round",
 })
-_APPROVAL_METHODS: frozenset = frozenset({"approval"})
-_SCORE_METHODS: frozenset = frozenset({
+_APPROVAL_METHODS: frozenset[str] = frozenset({"approval"})
+_SCORE_METHODS: frozenset[str] = frozenset({
     "score", "simple_score", "star_voting",
     "median_voting", "mean_median_hybrid", "variance_based",
 })
@@ -879,9 +859,11 @@ _SCORE_METHODS: frozenset = frozenset({
 def vote_plurality(
     voter: Voter, candidates: List[Candidate], issues: List[str]
 ) -> Optional[str]:
-    utilities = {c["name"]: calculate_utility(voter, c, issues)["utility"] for c in candidates}
-    max_utility = max(utilities.values())
-    return max(utilities, key=utilities.get) if max_utility > 0.3 else None
+    utilities_p: Dict[str, float] = {
+        str(c["name"]): float(calculate_utility(voter, c, issues)["utility"]) for c in candidates
+    }
+    max_utility = max(utilities_p.values())
+    return max(utilities_p, key=lambda k: utilities_p[k]) if max_utility > 0.3 else None
 
 
 def vote_ranked(
@@ -951,18 +933,18 @@ def run_simulation(
     method: str = "plurality",
     ideology_distribution: str = "random",
     seed: Optional[int] = None,
-):
+) -> List[Dict[str, Any]]:
     if seed is not None:
         random.seed(seed)
         np.random.seed(seed)
     voters = [
-        create_voter(issues, voter_id=i, ideology_distribution=ideology_distribution)
+        create_voter(DEFAULT_ISSUES, voter_id=i, ideology_distribution=ideology_distribution)
         for i in range(num_voters)
     ]
     _party_cycle = ["Green", "Conservative", "Liberal", "Independent"]
     candidates = [
         create_candidate(
-            issues,
+            DEFAULT_ISSUES,
             candidate_id=i,
             name=f"Candidate {i + 1}",
             party=_party_cycle[i % len(_party_cycle)],
@@ -972,13 +954,13 @@ def run_simulation(
 
     results = []
     for voter in voters:
-        vote = simulate_vote(voter, candidates, issues, method)
+        vote = simulate_vote(voter, candidates, DEFAULT_ISSUES, method)
         results.append(
             {
                 "voter": voter,
                 "vote": vote,
                 "utilities": {
-                    c["name"]: calculate_utility(voter, c, issues)["utility"] for c in candidates
+                    c["name"]: calculate_utility(voter, c, DEFAULT_ISSUES)["utility"] for c in candidates
                 },
             }
         )
@@ -986,12 +968,10 @@ def run_simulation(
 
 
 # --- 5. Analyze Results ---
-def analyze_results(results: List[Dict]):
+def analyze_results(results: List[Dict[str, Any]]) -> None:
     votes = [r["vote"] for r in results if r["vote"] is not None]
     print(f"Turnout: {len(votes) / len(results):.1%}")
     if isinstance(votes[0], str):  # Plurality
-        from collections import Counter
-
         print("Plurality results:", Counter(votes))
     elif isinstance(votes[0], list):  # Ranked
         print("Ranked-choice first preferences:", Counter(v[0] for v in votes))

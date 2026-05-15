@@ -15,6 +15,7 @@ import { SimulationCompareResult } from '../../types';
 import { METHOD_LABELS } from './simulationConstants';
 import { useChartTheme } from '../../hooks/useChartTheme';
 import EmptyChart from '../shared/EmptyChart';
+import { useTranslation } from 'react-i18next';
 
 function avg(values: number[]): number {
   return values.length === 0 ? 0 : values.reduce((a, b) => a + b, 0) / values.length;
@@ -31,7 +32,14 @@ interface Props {
 }
 
 const MetricsTab: React.FC<Props> = ({ comparisonResults, allMethodNames, numSimulations }) => {
+  const { t } = useTranslation();
   const ct = useChartTheme();
+
+  const bayesianKey = t('simulation.bayesianRegret');
+  const satisfactionKey = t('simulation.majoritySatisfaction');
+  const vulnerabilityKey = t('simulation.strategicVulnerability');
+  const lowerBetter = t('simulation.lowerBetter');
+  const higherBetter = t('simulation.higherBetter');
 
   const metricsData = useMemo(() => {
     if (!comparisonResults.length) return [];
@@ -39,9 +47,9 @@ const MetricsTab: React.FC<Props> = ({ comparisonResults, allMethodNames, numSim
       const values = comparisonResults.map((r) => r.methods[method]);
       return {
         method: METHOD_LABELS[method] || method,
-        'Régret bayésien':        round(avg(values.map((v) => v.bayesian_regret ?? 0))),
-        'Satisfaction majoritaire': round(avg(values.map((v) => v.majority_satisfaction ?? 0))),
-        'Vulnérabilité stratégique': round(avg(values.map((v) => v.strategic_vulnerability ?? 0))),
+        [bayesianKey]:        round(avg(values.map((v) => v.bayesian_regret ?? 0))),
+        [satisfactionKey]: round(avg(values.map((v) => v.majority_satisfaction ?? 0))),
+        [vulnerabilityKey]: round(avg(values.map((v) => v.strategic_vulnerability ?? 0))),
       };
     });
   }, [comparisonResults, allMethodNames]);
@@ -50,23 +58,23 @@ const MetricsTab: React.FC<Props> = ({ comparisonResults, allMethodNames, numSim
   const medianRegret = useMemo(() => {
     if (!metricsData.length) return null;
     const sorted = [...metricsData]
-      .map((d) => d['Régret bayésien'])
+      .map((d) => d[bayesianKey] as number)
       .sort((a, b) => a - b);
     return sorted[Math.floor(sorted.length / 2)];
   }, [metricsData]);
 
   const METRICS = [
-    { key: 'Régret bayésien',         color: '#e15759', note: 'plus bas = mieux' },
-    { key: 'Satisfaction majoritaire', color: '#59a14f', note: 'plus haut = mieux' },
-    { key: 'Vulnérabilité stratégique', color: '#f28e2b', note: 'plus bas = mieux' },
+    { key: bayesianKey,         color: '#e15759', note: lowerBetter },
+    { key: satisfactionKey, color: '#59a14f', note: higherBetter },
+    { key: vulnerabilityKey, color: '#f28e2b', note: lowerBetter },
   ];
 
   return (
     <Card className="mb-4">
       <Card.Header>
-        <strong>Métriques comparatives</strong>
+        <strong>{t('simulation.comparativeMetrics')}</strong>
         <span className="text-muted ms-2" style={{ fontSize: '0.85rem' }}>
-          — moyenne sur {numSimulations} simulations (Scénario A)
+          {t('simulation.metricsSubtitle', { n: numSimulations })}
         </span>
       </Card.Header>
       <Card.Body>
@@ -102,7 +110,7 @@ const MetricsTab: React.FC<Props> = ({ comparisonResults, allMethodNames, numSim
                   stroke="#6c757d"
                   strokeDasharray="5 3"
                   label={{
-                    value: `médiane: ${medianRegret.toFixed(3)}`,
+                    value: `${t('simulation.median')}: ${medianRegret.toFixed(3)}`,
                     fontSize: 9,
                     fill: '#6c757d',
                     position: 'insideTopRight',

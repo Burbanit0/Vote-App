@@ -3,32 +3,7 @@ import { Alert, Badge, Table } from 'react-bootstrap';
 import { ArrowCriteriaResult, MethodCriteria } from '../../types';
 import MethodTooltip from '../shared/MethodTooltip';
 import ResponsiveTable from '../shared/ResponsiveTable';
-
-// ── Constants ──────────────────────────────────────────────────────────────
-
-const CRITERIA_LABELS: Record<string, string> = {
-  condorcet_winner:  'Vainqueur Condorcet',
-  condorcet_loser:   'Perdant Condorcet',
-  monotonicity:      'Monotonie',
-  iia:               'IIA',
-  majority:          'Majorité',
-  reversal_symmetry: 'Symétrie inv.',
-};
-
-const CRITERIA_DESCRIPTIONS: Record<string, string> = {
-  condorcet_winner:
-    'Critère du vainqueur de Condorcet : si un candidat bat chacun des autres en duel direct, cette méthode doit l\'élire.',
-  condorcet_loser:
-    'Critère du perdant de Condorcet : un candidat qui perd chaque duel direct ne doit jamais être élu.',
-  monotonicity:
-    'Monotonie : classer un candidat plus haut dans certains bulletins (sans autre changement) ne doit pas le faire perdre.',
-  iia:
-    'Indépendance des alternatives non pertinentes (IIA) : supprimer un candidat non-vainqueur ne doit pas changer le vainqueur. Arrow démontre que l\'IIA est incompatible avec les autres critères.',
-  majority:
-    'Critère de majorité : si un candidat est classé premier par plus de 50% des électeurs, il doit gagner.',
-  reversal_symmetry:
-    'Symétrie de renversement : si toutes les préférences sont inversées (meilleur↔pire), le vainqueur original ne doit pas gagner l\'élection renversée.',
-};
+import { useTranslation } from 'react-i18next';
 
 const CRITERIA_KEYS = [
   'condorcet_winner',
@@ -90,12 +65,31 @@ interface Props {
 }
 
 const ArrowCriteriaMatrix: React.FC<Props> = ({ result }) => {
+  const { t } = useTranslation();
   const { methods, summary } = result;
   const methodNames = Object.keys(methods);
 
   if (!methodNames.length) {
-    return <Alert variant="info">Aucune donnée disponible.</Alert>;
+    return <Alert variant="info">{t('simulation.noData')}</Alert>;
   }
+
+  const CRITERIA_LABELS: Record<string, string> = {
+    condorcet_winner:  t('simulation.criteria.condorcetWinner'),
+    condorcet_loser:   t('simulation.criteria.condorcetLoser'),
+    monotonicity:      t('simulation.criteria.monotonicity'),
+    iia:               t('simulation.criteria.iia'),
+    majority:          t('simulation.criteria.majority'),
+    reversal_symmetry: t('simulation.criteria.reversalSymmetry'),
+  };
+
+  const CRITERIA_DESCRIPTIONS: Record<string, string> = {
+    condorcet_winner: t('simulation.criteriaDesc.condorcetWinner'),
+    condorcet_loser: t('simulation.criteriaDesc.condorcetLoser'),
+    monotonicity: t('simulation.criteriaDesc.monotonicity'),
+    iia: t('simulation.criteriaDesc.iia'),
+    majority: t('simulation.criteriaDesc.majority'),
+    reversal_symmetry: t('simulation.criteriaDesc.reversalSymmetry'),
+  };
 
   const scoreOf = (name: string) =>
     summary?.criteria_satisfaction_count?.[name] ?? 0;
@@ -103,32 +97,31 @@ const ArrowCriteriaMatrix: React.FC<Props> = ({ result }) => {
   return (
     <div>
       <Alert variant="warning" className="py-2 mb-3">
-        <strong>Théorème d'impossibilité d'Arrow (1951)</strong> — Aucune méthode de vote classée
-        ne peut satisfaire simultanément tous ces critères avec 3 candidats ou plus.
-        Chaque méthode ci-dessous en viole au moins un.
+        <strong>{t('simulation.arrowTheorem')}</strong> — {t('simulation.arrowExplanation')}
+        {' '}{t('simulation.arrowEachMethod')}
       </Alert>
 
       <div className="d-flex gap-3 mb-3 flex-wrap">
         {[
-          { bg: '#d4edda', color: '#155724', label: '✓ Satisfait' },
-          { bg: '#f8d7da', color: '#721c24', label: '✗ Violé' },
-          { bg: '#fff3cd', color: '#856404', label: '~ Violé (taux < 20%)' },
-          { bg: '#f8f9fa', color: '#6c757d', label: 'N/A (non testable)' },
+          { bg: '#d4edda', color: '#155724', label: t('simulation.criteriaStatus.satisfied') },
+          { bg: '#f8d7da', color: '#721c24', label: t('simulation.criteriaStatus.violated') },
+          { bg: '#fff3cd', color: '#856404', label: t('simulation.criteriaStatus.softViolated') },
+          { bg: '#f8f9fa', color: '#6c757d', label: t('simulation.criteriaStatus.notTestable') },
         ].map(({ bg, color, label }) => (
           <span key={label} className="d-flex align-items-center gap-1">
             <span style={{ display: 'inline-block', width: 16, height: 16, backgroundColor: bg, border: `1px solid ${color}`, borderRadius: 2 }} />
             <small style={{ color }}>{label}</small>
           </span>
         ))}
-        <small className="text-muted ms-2">Survolez les cellules IIA pour voir le taux de violation.</small>
+        <small className="text-muted ms-2">{t('simulation.hoverIIA')}</small>
       </div>
 
       <ResponsiveTable>
         <Table bordered size="sm" className="text-center" style={{ minWidth: 600 }}>
           <thead className="table-light">
             <tr>
-              <th style={{ minWidth: 140, textAlign: 'left' }}>Méthode</th>
-              <th style={{ minWidth: 60 }}>Vainqueur</th>
+              <th style={{ minWidth: 140, textAlign: 'left' }}>{t('common.method')}</th>
+              <th style={{ minWidth: 60 }}>{t('simulation.winner')}</th>
               {CRITERIA_KEYS.map((key) => (
                 <th
                   key={key}
@@ -154,10 +147,10 @@ const ArrowCriteriaMatrix: React.FC<Props> = ({ result }) => {
                   <td className="text-start ps-2 fw-semibold">
                     <MethodTooltip method={method} />
                     {isBest && (
-                      <Badge bg="success" className="ms-2" style={{ fontSize: '0.65rem' }}>mieux</Badge>
+                      <Badge bg="success" className="ms-2" style={{ fontSize: '0.65rem' }}>{t('simulation.better')}</Badge>
                     )}
                     {isWorst && !isBest && (
-                      <Badge bg="danger" className="ms-2" style={{ fontSize: '0.65rem' }}>moins bien</Badge>
+                      <Badge bg="danger" className="ms-2" style={{ fontSize: '0.65rem' }}>{t('simulation.worse')}</Badge>
                     )}
                   </td>
                   <td className="text-center">
@@ -186,7 +179,7 @@ const ArrowCriteriaMatrix: React.FC<Props> = ({ result }) => {
           <tfoot>
             <tr className="table-light">
               <td colSpan={2} className="text-start ps-2 fw-semibold small">
-                Critères satisfaits
+                {t('simulation.criteriaSatisfied')}
               </td>
               {CRITERIA_KEYS.map((key) => {
                 const satisfiedCount = methodNames.filter((m) => methods[m][key] === true).length;
@@ -205,12 +198,12 @@ const ArrowCriteriaMatrix: React.FC<Props> = ({ result }) => {
       {summary && (
         <div className="d-flex gap-3 mt-3 flex-wrap">
           <Alert variant="success" className="py-2 mb-0 flex-grow-1">
-            <strong>Plus de critères satisfaits :</strong>{' '}
+            <strong>{t('simulation.mostCriteria')}</strong>{' '}
             <MethodTooltip method={summary.most_criteria_satisfied} />
             {' '}({scoreOf(summary.most_criteria_satisfied)}/6)
           </Alert>
           <Alert variant="danger" className="py-2 mb-0 flex-grow-1">
-            <strong>Moins de critères satisfaits :</strong>{' '}
+            <strong>{t('simulation.leastCriteria')}</strong>{' '}
             <MethodTooltip method={summary.least_criteria_satisfied} />
             {' '}({scoreOf(summary.least_criteria_satisfied)}/6)
           </Alert>
@@ -218,9 +211,7 @@ const ArrowCriteriaMatrix: React.FC<Props> = ({ result }) => {
       )}
 
       <p className="text-muted small mt-3 mb-0">
-        Résultats empiriques — chaque critère est vérifié sur la population simulée, pas démontré formellement.
-        N/A signifie que le critère ne pouvait pas être testé sur cette population.
-        L'IIA est testée en supprimant chaque candidat non-vainqueur et en vérifiant si le vainqueur change.
+        {t('simulation.criteriaNote')}
       </p>
     </div>
   );

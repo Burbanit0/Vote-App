@@ -92,6 +92,20 @@ Backend tests use `TestingConfig` → SQLite in-memory. No Docker required for u
 - Pre-push: frontend + backend tests with coverage ≥ 30%
 - PR template at `.github/PULL_REQUEST_TEMPLATE.md`
 
+### Agent workflow for changes
+
+When making a significant change, the agent must follow this sequence:
+
+1. **Create a feature branch** from `develop` with the appropriate prefix
+2. **Implement** the change, maintaining existing tests and writing new ones as needed
+3. **Run all relevant tests** and confirm they pass (frontend: `npm test`, backend: `FLASK_ENV=testing JWT_SECRET_KEY=test python -m pytest tests -v`)
+4. **Update `README.md`** if the change affects architecture, API, or commands
+5. **Commit** with a conventional commit message (`type(scope): description`)
+6. **Merge** the feature branch into `develop` with `--no-ff`
+7. **Delete** the feature branch
+8. **Push** `develop` to remote
+9. **Wait for user approval** at each git step (branch, commit, merge, push) due to `ask` permissions
+
 ## CI/CD
 
 Path-triggered workflows:

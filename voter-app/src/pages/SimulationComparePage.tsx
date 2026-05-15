@@ -5,6 +5,7 @@ import SkeletonCard from '../components/shared/SkeletonCard';
 import CondorcetMatrix from '../components/Simulation/CondorcetMatrix';
 import ArrowCriteriaMatrix from '../components/Simulation/ArrowCriteriaMatrix';
 import BandwagonAnalysis from '../components/Simulation/BandwagonAnalysis';
+import ManipulabilityChart from '../components/Simulation/ManipulabilityChart';
 import MultiwinnerAnalysis from '../components/Simulation/MultiwinnerAnalysis';
 import MonteCarloResults from '../components/Simulation/MonteCarloResults';
 import WinnerMatrixTab from '../components/Simulation/WinnerMatrixTab';
@@ -46,20 +47,53 @@ import { useMethodLabels } from '../components/Simulation/simulationConstants';
 const TAB_ORDER = [
   'winners', 'metrics', 'strategic', 'condorcet', 'arrow',
   'bandwagon', 'montecarlo', 'real-elections', 'multiwinner', 'sensitivity',
+  'manipulability',
 ];
 
-const BEGINNER_TABS = ['winners', 'metrics', 'strategic', 'real-elections', 'montecarlo'];
+const BEGINNER_TABS = ['winners', 'metrics', 'strategic', 'real-elections', 'montecarlo', 'manipulability'];
 
 const BEGINNER_METHODS = ['plurality', 'borda', 'irv', 'schulze', 'approval'];
 
 
 // ── Report generation ──────────────────────────────────────────────────────
 
+interface ConclusionLabels {
+  noResults: string;
+  mostRobust: string;
+  leastRobust: string;
+  mostVulnerable: string;
+  mostCondorcet: string;
+  vulnerableSuffix: string;
+  condorcetSuffix: string;
+}
+
+interface ReportLabels {
+  lang: string;
+  title: string;
+  printSave: string;
+  generated: string;
+  simulations: string;
+  methodsAnalyzed: string;
+  configTitle: string;
+  candidates: string;
+  votersPerSim: string;
+  ideologyDist: string;
+  numSimulations: string;
+  winnersByMethod: string;
+  method: string;
+  dominantWinner: string;
+  avgBayesianRegret: string;
+  analysisConclusions: string;
+  footer: string;
+  permanentLink: string;
+}
+
 function buildConclusion(
   results: SimulationCompareResult[],
   methodNames: string[],
+  labels: ConclusionLabels,
 ): string {
-  if (!results.length) return 'Aucun résultat disponible.';
+  if (!results.length) return labels.noResults;
 
   const avg = (vals: number[]) => vals.reduce((a, b) => a + b, 0) / (vals.length || 1);
 
@@ -82,12 +116,12 @@ function buildConclusion(
   if (regret.length) {
     const best = regret[0], worst = regret[regret.length - 1];
     parts.push(
-      `Méthode la plus robuste (regret bayésien moyen le plus bas) : ` +
+      labels.mostRobust +
       `${METHOD_LABELS[best.m] ?? best.m} (${best.v.toFixed(4)}).`
     );
     if (worst.m !== best.m) {
       parts.push(
-        `Méthode la moins robuste : ` +
+        labels.leastRobust +
         `${METHOD_LABELS[worst.m] ?? worst.m} (${worst.v.toFixed(4)}).`
       );
     }
@@ -96,16 +130,16 @@ function buildConclusion(
   if (vuln.length) {
     const v = vuln[0];
     parts.push(
-      `Méthode la plus vulnérable au vote stratégique : ` +
-      `${METHOD_LABELS[v.m] ?? v.m} (${(v.v * 100).toFixed(1)}% des électeurs peuvent l'influencer).`
+      labels.mostVulnerable +
+      `${METHOD_LABELS[v.m] ?? v.m} (${(v.v * 100).toFixed(1)}${labels.vulnerableSuffix}).`
     );
   }
 
   if (condorcet.length && condorcet[0].v > 0) {
     const c = condorcet[0];
     parts.push(
-      `Méthode la plus cohérente avec le critère de Condorcet : ` +
-      `${METHOD_LABELS[c.m] ?? c.m} (${(c.v * 100).toFixed(0)}% de cohérence).`
+      labels.mostCondorcet +
+      `${METHOD_LABELS[c.m] ?? c.m} (${(c.v * 100).toFixed(0)}${labels.condorcetSuffix}).`
     );
   }
 
@@ -119,9 +153,9 @@ function buildReportHTML(
   methodNames: string[],
   conclusion: string,
   date: string,
+  labels: ReportLabels,
   shareUrl: string = '',
 ): string {
-  // Winners table rows
   const methodRows = methodNames.map((m) => {
     const winners = results.map((r) => r.methods[m]?.winner ?? '—');
     const mostCommon = winners.reduce<Record<string, number>>((acc, w) => ({ ...acc, [w]: (acc[w] ?? 0) + 1 }), {});
@@ -131,10 +165,10 @@ function buildReportHTML(
   }).join('');
 
   return `<!DOCTYPE html>
-<html lang="fr">
+<html lang="${labels.lang}">
 <head>
   <meta charset="utf-8" />
-  <title>Vote Lab — Rapport de simulation ${date}</title>
+  <title>${labels.title} ${date}</title>
   <style>
     * { box-sizing: border-box; }
     body { font-family: 'Georgia', serif; margin: 0; padding: 2cm; color: #333; font-size: 11pt; }
@@ -157,32 +191,31 @@ function buildReportHTML(
   </style>
 </head>
 <body>
-  <button class="no-print" onclick="window.print()" style="position:fixed;top:1rem;right:1rem;padding:0.5rem 1.2rem;background:#0d6efd;color:white;border:none;border-radius:6px;cursor:pointer;font-size:14px;">🖨️ Imprimer / Sauvegarder PDF</button>
+  <button class="no-print" onclick="window.print()" style="position:fixed;top:1rem;right:1rem;padding:0.5rem 1.2rem;background:#0d6efd;color:white;border:none;border-radius:6px;cursor:pointer;font-size:14px;">${labels.printSave}</button>
 
-  <h1>🗳️ Vote Lab — Rapport de simulation</h1>
-  <div class="meta">Généré le ${date} · ${numSimulations} simulations · ${methodNames.length} méthodes analysées</div>
+  <h1>🗳️ ${labels.title}</h1>
+  <div class="meta">${labels.generated} ${date} · ${numSimulations} ${labels.simulations} · ${methodNames.length} ${labels.methodsAnalyzed}</div>
 
-  <h2>Configuration</h2>
+  <h2>${labels.configTitle}</h2>
   <div class="config-grid">
-    <div class="config-item"><strong>Candidats</strong>${configA.candidateInput}</div>
-    <div class="config-item"><strong>Électeurs / simulation</strong>${configA.numVoters.toLocaleString()}</div>
-    <div class="config-item"><strong>Distribution idéologique</strong>${configA.ideology_distribution}</div>
-    <div class="config-item"><strong>Nombre de simulations</strong>${numSimulations}</div>
+    <div class="config-item"><strong>${labels.candidates}</strong>${configA.candidateInput}</div>
+    <div class="config-item"><strong>${labels.votersPerSim}</strong>${configA.numVoters.toLocaleString()}</div>
+    <div class="config-item"><strong>${labels.ideologyDist}</strong>${configA.ideology_distribution}</div>
+    <div class="config-item"><strong>${labels.numSimulations}</strong>${numSimulations}</div>
   </div>
 
-  <h2>Vainqueurs par méthode</h2>
+  <h2>${labels.winnersByMethod}</h2>
   <table>
-    <thead><tr><th>Méthode</th><th>Vainqueur dominant (n/N)</th><th>Regret bayésien moyen</th></tr></thead>
+    <thead><tr><th>${labels.method}</th><th>${labels.dominantWinner}</th><th>${labels.avgBayesianRegret}</th></tr></thead>
     <tbody>${methodRows}</tbody>
   </table>
 
-  <h2>Analyse et conclusions</h2>
+  <h2>${labels.analysisConclusions}</h2>
   <div class="conclusion">${conclusion}</div>
 
   <div class="meta" style="margin-top:1cm; border-top:1px solid #dee2e6; padding-top:0.5cm;">
-    Vote Lab · Outil de recherche sur les méthodes de vote ·
-    Modèle spatial de vote avec utilité bayésienne et vote stratégique
-    ${shareUrl ? `<br/><strong>Lien permanent :</strong>
+    ${labels.footer}
+    ${shareUrl ? `<br/><strong>${labels.permanentLink}</strong>
     <a href="${shareUrl}" style="color:#0d6efd; word-break:break-all;">${shareUrl}</a>` : ''}
   </div>
 </body>
@@ -213,6 +246,7 @@ const SimulationComparePage: React.FC = () => {
     'real-elections': t('simulation.tabs.realElections'),
     multiwinner:      t('simulation.tabs.multiwinner'),
     sensitivity:      t('simulation.tabs.sensitivity'),
+    manipulability:   t('simulation.tabs.manipulability'),
   };
 
   // ── Scenario config ──
@@ -357,13 +391,42 @@ const SimulationComparePage: React.FC = () => {
   };
 
   const exportReport = () => {
-    const conclusion = buildConclusion(comparisonResults, allMethodNames);
+    const conclusionLabels: ConclusionLabels = {
+      noResults: t('simulation.conclusionNoResults'),
+      mostRobust: t('simulation.conclusionMostRobust'),
+      leastRobust: t('simulation.conclusionLeastRobust'),
+      mostVulnerable: t('simulation.conclusionMostVulnerable'),
+      mostCondorcet: t('simulation.conclusionMostCondorcet'),
+      vulnerableSuffix: t('simulation.conclusionVulnerableSuffix'),
+      condorcetSuffix: t('simulation.conclusionCondorcetSuffix'),
+    };
+    const reportLabels: ReportLabels = {
+      lang: t('simulation.report.lang'),
+      title: t('simulation.report.title'),
+      printSave: t('simulation.report.printSave'),
+      generated: t('simulation.report.generated'),
+      simulations: t('simulation.report.simulations'),
+      methodsAnalyzed: t('simulation.report.methodsAnalyzed'),
+      configTitle: t('simulation.report.configTitle'),
+      candidates: t('simulation.report.candidates'),
+      votersPerSim: t('simulation.report.votersPerSim'),
+      ideologyDist: t('simulation.report.ideologyDist'),
+      numSimulations: t('simulation.report.numSimulations'),
+      winnersByMethod: t('simulation.report.winnersByMethod'),
+      method: t('simulation.report.method'),
+      dominantWinner: t('simulation.report.dominantWinner'),
+      avgBayesianRegret: t('simulation.report.avgBayesianRegret'),
+      analysisConclusions: t('simulation.report.analysisConclusions'),
+      footer: t('simulation.report.footer'),
+      permanentLink: t('simulation.report.permanentLink'),
+    };
+    const conclusion = buildConclusion(comparisonResults, allMethodNames, conclusionLabels);
     const cfgUrl = buildShareURL({
       n: numSimulations, sc: scenarioCount,
       a: { nv: configA.numVoters, c: configA.candidateInput, id: configA.ideology_distribution },
       ...(scenarioCount === 2 ? { b: { nv: configB.numVoters, c: configB.candidateInput, id: configB.ideology_distribution } } : {}),
     });
-    const html = buildReportHTML(configA, numSimulations, comparisonResults, allMethodNames, conclusion, exportDate, cfgUrl);
+    const html = buildReportHTML(configA, numSimulations, comparisonResults, allMethodNames, conclusion, exportDate, reportLabels, cfgUrl);
     const win = window.open('', '_blank');
     if (!win) return;
     win.document.write(html);
@@ -485,7 +548,7 @@ const SimulationComparePage: React.FC = () => {
       <div style={{ flex: 1, overflow: 'auto', padding: '1.5rem' }}>
         {/* The <Tabs> below is controlled and already shows the right tab. We show it by scroll. */}
         <div className="text-muted text-center py-3 small">
-          Le contenu s'affiche dans la zone principale (faites défiler si nécessaire)
+          {t('simulation.presentationContent')}
         </div>
       </div>
 
@@ -556,8 +619,8 @@ const SimulationComparePage: React.FC = () => {
           <Card.Body>
             <Row className="g-3 align-items-end mb-3">
               <Col md={4}>
-                <Form.Label>{t('simulation.simulationsLabel')} <strong>{numSimulations}</strong></Form.Label>
-                <Form.Range min={5} max={20} value={numSimulations} onChange={(e) => setNumSimulations(Number(e.target.value))} />
+                <Form.Label htmlFor="sim-count-slider">{t('simulation.simulationsLabel')} <strong>{numSimulations}</strong></Form.Label>
+                <Form.Range id="sim-count-slider" min={5} max={20} value={numSimulations} onChange={(e) => setNumSimulations(Number(e.target.value))} aria-valuemin={5} aria-valuemax={20} aria-valuenow={numSimulations} />
               </Col>
               <Col md={2}>
                 <Button variant="primary" className="w-100" onClick={runAnalysis} disabled={loading}>
@@ -569,8 +632,8 @@ const SimulationComparePage: React.FC = () => {
               <ScenarioConfigRow config={configA} onChange={(p) => setConfigA((c) => ({ ...c, ...p }))} />
             ) : (
               <Row className="g-3">
-                <Col md={6}><ScenarioConfigRow config={configA} onChange={(p) => setConfigA((c) => ({ ...c, ...p }))} label={t('simulation.scenarioA')} /></Col>
-                <Col md={6}><ScenarioConfigRow config={configB} onChange={(p) => setConfigB((c) => ({ ...c, ...p }))} label={t('simulation.scenarioB')} /></Col>
+                <Col md={6}><ScenarioConfigRow config={configA} onChange={(p) => setConfigA((c) => ({ ...c, ...p }))} label={t('simulation.scenarioA')} idPrefix="scenario-a" /></Col>
+                <Col md={6}><ScenarioConfigRow config={configB} onChange={(p) => setConfigB((c) => ({ ...c, ...p }))} label={t('simulation.scenarioB')} idPrefix="scenario-b" /></Col>
               </Row>
             )}
           </Card.Body>
@@ -584,7 +647,9 @@ const SimulationComparePage: React.FC = () => {
           </Row>
         )}
         {!hasResults && !loading && (
-          <Alert variant="info" dangerouslySetInnerHTML={{ __html: t('simulation.noResults') }} />
+          <Alert variant="info">
+            <span dangerouslySetInnerHTML={{ __html: t('simulation.noResults') }} />
+          </Alert>
         )}
 
         {hasResults && !expertMode && (
@@ -666,6 +731,26 @@ const SimulationComparePage: React.FC = () => {
                 </span>
               }><SensitivityTab baseConfig={{ numVoters: configA.numVoters, candidates: candidateNamesA, ideology_distribution: configA.ideology_distribution }} /></Tab>
             )}
+            <Tab eventKey="manipulability" title={
+              <span>
+                {t('simulation.tabs.manipulability')}{' '}
+                <OverlayTrigger
+                  trigger={['hover','focus']}
+                  placement="bottom"
+                  overlay={<Tooltip id="tip-tab-manip">{t('simulation.tabTips.manipulability')}</Tooltip>}
+                >
+                  <span tabIndex={0} onClick={(e) => e.stopPropagation()} style={{ fontSize: '0.75em', color: '#6c757d', cursor: 'help' }}>ⓘ</span>
+                </OverlayTrigger>
+              </span>
+            }>
+              <ManipulabilityChart
+                baseParams={{
+                  num_candidates: candidateNamesA.length,
+                  num_voters: configA.numVoters,
+                  ideology_distribution: configA.ideology_distribution,
+                }}
+              />
+            </Tab>
           </Tabs>
         )}
 

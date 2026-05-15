@@ -7,15 +7,15 @@ const candidateNames = ['Alice', 'Bob', 'Charlie'];
 describe('ScenarioBPanel', () => {
   it('renders duration and drift controls', () => {
     render(<ScenarioBPanel candidateNames={candidateNames} result={null} loading={false} onRun={jest.fn()} />);
-    expect(screen.getByText('3 mois')).toBeInTheDocument();
-    expect(screen.getByText('6 mois')).toBeInTheDocument();
-    expect(screen.getByText(/Amplitude de la dérive/)).toBeInTheDocument();
+    expect(screen.getByText('3 months')).toBeInTheDocument();
+    expect(screen.getByText('6 months')).toBeInTheDocument();
+    expect(screen.getByText(/Ideological drift amplitude/)).toBeInTheDocument();
   });
 
   it('calls onRun with correct params', () => {
     const onRun = jest.fn();
     render(<ScenarioBPanel candidateNames={candidateNames} result={null} loading={false} onRun={onRun} />);
-    fireEvent.click(screen.getByText(/Simuler après la période provisoire/));
+    fireEvent.click(screen.getByText(/Simulate after provisional period/));
     expect(onRun).toHaveBeenCalledWith(3, 0.05);
   });
 

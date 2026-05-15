@@ -9,8 +9,9 @@ All endpoints use the spatial utility pipeline.
 import math
 from collections import defaultdict
 from concurrent.futures import ThreadPoolExecutor, as_completed
+from typing import Any, Dict, List, Optional
 
-from flask import Blueprint, request, jsonify
+from flask import Blueprint, Response, request, jsonify
 
 import random as _rng2
 
@@ -19,8 +20,9 @@ from app.utils.simulation_metrics import compare_all_methods_mc
 from app.utils.simulation_multiwinner_utils import compare_multiwinner_methods
 from app.utils.real_election_data import analyze_real_election, list_elections
 from app.utils.blank_vote_rules import BlankVoteRule
+from app.constants import DEFAULT_ISSUES
 from app.routes.simulation_helpers import (
-    _parse_candidate_configs, _build_population, _DEFAULT_ISSUES,
+    _parse_candidate_configs, _build_population,
     _build_scenario_candidates, _build_scenario_voters, _run_five_methods,
     _SCENARIO_METHODS,
 )
@@ -29,7 +31,7 @@ simulation_advanced_bp = Blueprint("simulation_advanced", __name__, url_prefix="
 
 
 @simulation_advanced_bp.route("/bandwagon", methods=["POST"])
-def bandwagon_route():
+def bandwagon_route() -> tuple[Response, int]:
     """
     Simulate cascading social influence across N rounds and measure how
     each voting method amplifies or resists bandwagon effects.
@@ -72,7 +74,7 @@ def bandwagon_route():
 
 
 @simulation_advanced_bp.route("/monte-carlo", methods=["POST"])
-def monte_carlo_route():
+def monte_carlo_route() -> tuple[Response, int]:
     """
     Run compare_all_methods_mc() N times in parallel and aggregate
     statistical distributions for each voting method.
@@ -94,7 +96,7 @@ def monte_carlo_route():
     if len(candidate_configs) < 2:
         return jsonify({"error": "At least 2 candidates required"}), 400
 
-    def _single_run(_):
+    def _single_run(_: Any) -> Dict[str, Any]:
         voters, candidates, issues = _build_population(candidate_configs, num_voters, ideology_dist)
         return compare_all_methods_mc(voters, candidates, issues)
 
@@ -108,13 +110,13 @@ def monte_carlo_route():
         method_names = list(run_results[0]["methods"].keys())
         n_candidates = len(candidate_configs)
 
-        winner_counts  = {m: defaultdict(int) for m in method_names}
-        regrets        = {m: [] for m in method_names}
-        satisfactions  = {m: [] for m in method_names}
+        winner_counts: Dict[str, Any]    = {m: defaultdict(int) for m in method_names}
+        regrets:       Dict[str, List[float]] = {m: [] for m in method_names}
+        satisfactions: Dict[str, List[float]] = {m: [] for m in method_names}
         condorcet_hits = {m: 0 for m in method_names}
         condorcet_runs = {m: 0 for m in method_names}
-        agreement_counts: dict = defaultdict(int)
-        agreement_total: dict = defaultdict(int)
+        agreement_counts: Dict[str, int] = defaultdict(int)
+        agreement_total:  Dict[str, int] = defaultdict(int)
         condorcet_exists = 0
 
         for run in run_results:
@@ -144,7 +146,7 @@ def monte_carlo_route():
                     if run_winners.get(m1) and run_winners[m1] == run_winners.get(m2):
                         agreement_counts[key] += 1
 
-        def _ci95(values):
+        def _ci95(values: List[float]) -> List[Optional[float]]:
             if len(values) < 2:
                 return [None, None]
             mu = sum(values) / len(values)
@@ -152,7 +154,7 @@ def monte_carlo_route():
             margin = 1.96 * math.sqrt(var) / math.sqrt(len(values))
             return [round(mu - margin, 6), round(mu + margin, 6)]
 
-        def _entropy(dist, n_cand):
+        def _entropy(dist: Dict[str, float], n_cand: int) -> float:
             e = -sum(p * math.log2(p) for p in dist.values() if p > 0)
             max_e = math.log2(n_cand) if n_cand > 1 else 1.0
             return round(e / max_e if max_e > 0 else 0.0, 4)
@@ -160,7 +162,7 @@ def monte_carlo_route():
         methods_stats = {}
         for m in method_names:
             dist = {c: round(cnt / num_runs, 4) for c, cnt in winner_counts[m].items()}
-            most_common = max(winner_counts[m], key=winner_counts[m].get) if winner_counts[m] else None
+            most_common: Optional[str] = max(winner_counts[m], key=lambda k: winner_counts[m][k]) if winner_counts[m] else None
             regs = regrets[m]
             sats = satisfactions[m]
             reg_mean = round(sum(regs) / len(regs), 6) if regs else None
@@ -204,7 +206,7 @@ def monte_carlo_route():
 
 
 @simulation_advanced_bp.route("/multiwinner", methods=["POST"])
-def multiwinner_route():
+def multiwinner_route() -> tuple[Response, int]:
     """
     Compare proportional multi-winner methods on a given vote distribution.
 
@@ -250,13 +252,13 @@ def multiwinner_route():
 
 
 @simulation_advanced_bp.route("/real-elections", methods=["GET"])
-def real_elections_list():
+def real_elections_list() -> tuple[Response, int]:
     """Return the list of available historical elections."""
     return jsonify(list_elections()), 200
 
 
 @simulation_advanced_bp.route("/real-election", methods=["POST"])
-def real_election_analyze():
+def real_election_analyze() -> tuple[Response, int]:
     """
     Analyse a real historical election under every voting method.
 
@@ -281,11 +283,11 @@ def real_election_analyze():
 
 # ── /simulations/constitutional-scenario ──────────────────────────────────
 
-def _blank_wins_any(result: dict) -> bool:
+def _blank_wins_any(result: Dict[str, Any]) -> bool:
     return any(d.get("winner") == "Blank" for d in result.get("methods", {}).values())
 
 
-def _conclude_new_election(r1: dict, r2: dict, n_round2: int) -> str:
+def _conclude_new_election(r1: Dict[str, Any], r2: Dict[str, Any], n_round2: int) -> str:
     blank_pct = round(r1.get("blank_pct", 0) * 100)
     r2_winners = [d["winner"] for d in r2["methods"].values() if d.get("winner") and d["winner"] != "Blank"]
     from collections import Counter
@@ -300,7 +302,7 @@ def _conclude_new_election(r1: dict, r2: dict, n_round2: int) -> str:
     return txt
 
 
-def _conclude_provisional(before: dict, after: dict, drift: float, duration: int) -> str:
+def _conclude_provisional(before: Dict[str, Any], after: Dict[str, Any], drift: float, duration: int) -> str:
     b_pct = round(before.get("blank_pct", 0) * 100)
     a_pct = round(after.get("blank_pct", 0) * 100)
     changed = sum(1 for m in before["methods"] if before["methods"][m].get("winner") != after["methods"].get(m, {}).get("winner"))
@@ -312,7 +314,7 @@ def _conclude_provisional(before: dict, after: dict, drift: float, duration: int
     return txt
 
 
-def _conclude_dissolution(multi: dict, plural_winner: str, num_seats: int) -> str:
+def _conclude_dissolution(multi: Dict[str, Any], plural_winner: str, num_seats: int) -> str:
     comp = multi.get("comparison", {})
     most_prop = comp.get("most_proportional", "sainte_lague")
     gallagher = multi.get(most_prop, {}).get("metrics", {}).get("gallagher_index")
@@ -326,7 +328,7 @@ def _conclude_dissolution(multi: dict, plural_winner: str, num_seats: int) -> st
 
 
 @simulation_advanced_bp.route("/constitutional-scenario", methods=["POST"])
-def constitutional_scenario():
+def constitutional_scenario() -> tuple[Response, int]:
     """
     Simulate the constitutional aftermath of a blank-vote victory.
 
@@ -350,7 +352,7 @@ def constitutional_scenario():
     scenario_type = data.get("scenario_type", "new_election")
     params        = data.get("params", {})
 
-    issues = _DEFAULT_ISSUES
+    issues = DEFAULT_ISSUES
     try:
         blank_rule = BlankVoteRule(initial.get("blank_rule", "competitive"))
     except ValueError:
@@ -427,7 +429,7 @@ def constitutional_scenario():
         }
         rankings = [sorted([c["name"] for c in real_candidates], key=lambda n: -utils_map[v["id"]][n]) for v in voters]
         first_choices = Counter(r[0] for r in rankings if r)
-        party_votes = {name: count for name, count in first_choices.items()}
+        party_votes: Dict[str, float] = {str(name): float(count) for name, count in first_choices.items()}
 
         multi = compare_multiwinner_methods(party_votes=party_votes, num_seats=num_seats)
         multi["party_votes"] = party_votes

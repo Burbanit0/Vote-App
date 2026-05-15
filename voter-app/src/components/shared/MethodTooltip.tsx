@@ -1,5 +1,5 @@
-import React from 'react';
-import { OverlayTrigger, Tooltip } from 'react-bootstrap';
+import React, { useRef, useState } from 'react';
+import { Overlay, Tooltip } from 'react-bootstrap';
 import { useMethodCons, useMethodLabels, useMethodPros } from '../Simulation/simulationConstants';
 import { METHOD_DESCRIPTIONS } from '../Simulation/simulationConstants';
 
@@ -8,19 +8,45 @@ interface Props {
   children?: React.ReactNode;
 }
 
+/**
+ * Wraps a method name in an accessible tooltip.
+ *
+ * Keyboard behaviour (WCAG 2.1 SC 2.1.1):
+ *   - Tab        → focuses the trigger
+ *   - Enter / Space → toggles the tooltip
+ *   - Escape     → closes the tooltip and returns focus
+ */
 const MethodTooltip: React.FC<Props> = ({ method, children }) => {
   const methodLabels = useMethodLabels();
-  const methodPros = useMethodPros();
-  const methodCons = useMethodCons();
+  const methodPros   = useMethodPros();
+  const methodCons   = useMethodCons();
 
-  const label = children ?? methodLabels[method] ?? method;
+  const label       = children ?? methodLabels[method] ?? method;
   const description = METHOD_DESCRIPTIONS[method];
-  const pro = methodPros[method];
-  const con = methodCons[method];
+  const pro         = methodPros[method];
+  const con         = methodCons[method];
+
+  const [show, setShow]   = useState(false);
+  const triggerRef        = useRef<HTMLSpanElement>(null);
 
   if (!description) return <span>{label}</span>;
 
-  const tooltip = (
+  const open  = () => setShow(true);
+  const close = () => setShow(false);
+
+  const handleKeyDown = (e: React.KeyboardEvent<HTMLSpanElement>) => {
+    if (e.key === 'Enter' || e.key === ' ') {
+      e.preventDefault();
+      setShow((prev) => !prev);
+    }
+    if (e.key === 'Escape') {
+      e.preventDefault();
+      close();
+      triggerRef.current?.blur();
+    }
+  };
+
+  const tooltipContent = (
     <Tooltip id={`tip-${method}`} style={{ maxWidth: 300 }}>
       <div className="text-start p-1" style={{ fontSize: '0.82rem' }}>
         <div className="fw-bold mb-1" style={{ fontSize: '0.9rem' }}>
@@ -31,12 +57,12 @@ const MethodTooltip: React.FC<Props> = ({ method, children }) => {
         </div>
         {pro && (
           <div style={{ color: '#a8d5a2' }}>
-            <span className="fw-semibold">✓ </span>{pro}
+            <span className="fw-semibold" aria-hidden="true">✓ </span>{pro}
           </div>
         )}
         {con && (
           <div style={{ color: '#f5a5a5', marginTop: 3 }}>
-            <span className="fw-semibold">✗ </span>{con}
+            <span className="fw-semibold" aria-hidden="true">✗ </span>{con}
           </div>
         )}
       </div>
@@ -44,28 +70,38 @@ const MethodTooltip: React.FC<Props> = ({ method, children }) => {
   );
 
   return (
-    <OverlayTrigger
-      trigger={['hover', 'focus']}
-      placement="top"
-      overlay={tooltip}
-      delay={{ show: 250, hide: 100 }}
-    >
+    <>
       <span
+        ref={triggerRef}
         tabIndex={0}
         role="button"
-        aria-label={`Definition: ${methodLabels[method] ?? method}`}
+        aria-label={`${methodLabels[method] ?? method} — definition`}
+        aria-expanded={show}
+        aria-haspopup="true"
         style={{
           cursor: 'help',
           borderBottom: '1px dashed #adb5bd',
           display: 'inline',
           outline: 'none',
         }}
-        onFocus={(e) => (e.currentTarget.style.borderBottomColor = '#0d6efd')}
-        onBlur={(e) => (e.currentTarget.style.borderBottomColor = '#adb5bd')}
+        onMouseEnter={open}
+        onMouseLeave={close}
+        onFocus={open}
+        onBlur={close}
+        onKeyDown={handleKeyDown}
+        onClick={() => setShow((prev) => !prev)}
       >
         {label}
       </span>
-    </OverlayTrigger>
+
+      <Overlay
+        target={triggerRef.current}
+        show={show}
+        placement="top"
+      >
+        {tooltipContent}
+      </Overlay>
+    </>
   );
 };
 

@@ -3,47 +3,7 @@ import { Badge, Button, Card, Col, Container, Row, Spinner } from 'react-bootstr
 import { runComparisonSimulation } from '../services/simulationCompareApi';
 import OnboardingTour from '../components/shared/OnboardingTour';
 import { useMetaTags } from '../hooks/useMetaTags';
-
-// ── Election thumbnails ─────────────────────────────────────────────────────
-
-const ELECTIONS = [
-  {
-    key: 'crisis_election',
-    flag: '🚨',
-    name: 'Élection de crise',
-    year: 2027,
-    country: 'France (fictif)',
-    finding: 'Le vote blanc gagne — crise constitutionnelle simulée',
-    badge: { text: 'Cas pédagogique', bg: 'danger' },
-  },
-  {
-    key: 'france_2022',
-    flag: '🇫🇷',
-    name: 'Présidentielle',
-    year: 2022,
-    country: 'France',
-    finding: '12 candidats, fragmentation extrême — qui aurait gagné sous Schulze ?',
-    badge: null,
-  },
-  {
-    key: 'france_2002',
-    flag: '🇫🇷',
-    name: 'Présidentielle',
-    year: 2002,
-    country: 'France',
-    finding: "Jospin éliminé par Le Pen — 11 méthodes sur 15 l'auraient sauvé",
-    badge: { text: 'Cas classique', bg: 'warning' },
-  },
-  {
-    key: 'us_1992',
-    flag: '🇺🇸',
-    name: 'Présidentielle',
-    year: 1992,
-    country: 'États-Unis',
-    finding: 'Perot : 18.9% des voix, gagnant potentiel de Condorcet éliminé',
-    badge: null,
-  },
-];
+import { useTranslation } from 'react-i18next';
 
 // ── Dynamic stats hook ──────────────────────────────────────────────────────
 
@@ -91,6 +51,16 @@ function useQuickStats(): QuickStats {
 
 // ── Sub-components ──────────────────────────────────────────────────────────
 
+interface ElectionData {
+  key: string;
+  flag: string;
+  name: string;
+  year: number;
+  country: string;
+  finding: string;
+  badge: { text: string; bg: string } | null;
+}
+
 const ActionCard: React.FC<{
   emoji: string;
   title: string;
@@ -130,7 +100,7 @@ const StatCard: React.FC<{ value: React.ReactNode; label: string; sub?: string }
   </div>
 );
 
-const ElectionCard: React.FC<{ election: typeof ELECTIONS[0] }> = ({ election }) => (
+const ElectionCard: React.FC<{ election: ElectionData; analyzeLink: string }> = ({ election, analyzeLink }) => (
   <a href="/simulation/compare" style={{ textDecoration: 'none' }}>
     <Card className="h-100 border-0 shadow-sm" style={{ cursor: 'pointer', transition: 'transform 0.15s' }}
       onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.transform = 'translateY(-2px)'; }}
@@ -156,7 +126,7 @@ const ElectionCard: React.FC<{ election: typeof ELECTIONS[0] }> = ({ election })
         </p>
       </Card.Body>
       <Card.Footer className="bg-transparent border-0 pt-0 pb-2 px-3">
-        <small className="text-primary">Analyser →</small>
+        <small className="text-primary">{analyzeLink}</small>
       </Card.Footer>
     </Card>
   </a>
@@ -165,30 +135,70 @@ const ElectionCard: React.FC<{ election: typeof ELECTIONS[0] }> = ({ election })
 // ── Main page ───────────────────────────────────────────────────────────────
 
 const HomePage: React.FC = () => {
+  const { t } = useTranslation();
+
   useMetaTags({
-    title: 'Vote Lab — Testez comment votre bulletin de vote change tout',
-    description: '15 méthodes de vote, données électorales réelles, vote blanc intégré. Simulez des élections et explorez les paradoxes du vote.',
+    title: `Vote Lab — ${t('home.heroTitle')}`,
+    description: t('home.heroParagraph'),
   });
 
   const stats = useQuickStats();
   const [tourRun, setTourRun] = useState(false);
 
+  const ELECTIONS: ElectionData[] = [
+    {
+      key: 'crisis_election',
+      flag: '🚨',
+      name: t('home.realElection_crisisName'),
+      year: 2027,
+      country: t('home.realElection_france'),
+      finding: t('home.realElection_blankCrisis'),
+      badge: { text: t('home.realElection_pedagogical'), bg: 'danger' },
+    },
+    {
+      key: 'france_2022',
+      flag: '🇫🇷',
+      name: t('home.realElection_presName'),
+      year: 2022,
+      country: 'France',
+      finding: t('home.realElection_fragmented'),
+      badge: null,
+    },
+    {
+      key: 'france_2002',
+      flag: '🇫🇷',
+      name: t('home.realElection_presName'),
+      year: 2002,
+      country: 'France',
+      finding: t('home.realElection_2002'),
+      badge: { text: t('home.realElection_classic'), bg: 'warning' },
+    },
+    {
+      key: 'us_1992',
+      flag: '🇺🇸',
+      name: t('home.realElection_presName'),
+      year: 1992,
+      country: t('home.realElection_usa'),
+      finding: t('home.realElection_perot'),
+      badge: null,
+    },
+  ];
+
   const startTour = useCallback(() => {
-    localStorage.removeItem('tour_completed'); // allow re-run
+    localStorage.removeItem('tour_completed');
     setTourRun(false);
     setTimeout(() => setTourRun(true), 100);
   }, []);
 
   const handleTourFinish = useCallback(() => setTourRun(false), []);
 
-  // Auto-start on first visit or when ?tour=1 is in the URL
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
     const forced = params.get('tour') === '1';
     const completed = localStorage.getItem('tour_completed');
     if (forced || !completed) {
-      const t = setTimeout(() => setTourRun(true), 600);
-      return () => clearTimeout(t);
+      const t2 = setTimeout(() => setTourRun(true), 600);
+      return () => clearTimeout(t2);
     }
   }, []);
 
@@ -206,24 +216,23 @@ const HomePage: React.FC = () => {
           <Row className="justify-content-center text-center py-4">
             <Col md={8} lg={7}>
               <div style={{ fontSize: '0.9rem', fontWeight: 600, letterSpacing: '0.1em', opacity: 0.8 }} className="mb-3 text-uppercase">
-                Laboratoire civique de la démocratie
+                {t('home.heroBadge')}
               </div>
               <h1 className="mb-3 fw-bold" style={{ fontSize: 'clamp(1.8rem, 4vw, 2.8rem)', lineHeight: 1.2 }}>
-                Testez comment votre bulletin de vote change tout
+                {t('home.heroTitle')}
               </h1>
               <p className="mb-4 opacity-75" style={{ fontSize: '1.05rem' }}>
-                15 méthodes de vote, des données électorales réelles, et une question fondamentale :
-                et si le vote blanc pouvait réellement changer le résultat ?
+                {t('home.heroParagraph')}
               </p>
               <div className="d-flex gap-3 justify-content-center flex-wrap">
                 <a href="/scenario-builder">
                   <Button variant="light" size="lg" className="fw-semibold px-4">
-                    🗳️ Simuler une élection
+                    {t('home.ctaSimulate')}
                   </Button>
                 </a>
                 <a href="/simulation/compare">
                   <Button variant="outline-light" size="lg" className="px-4">
-                    Comparer les méthodes
+                    {t('home.ctaCompare')}
                   </Button>
                 </a>
                 <Button
@@ -233,7 +242,7 @@ const HomePage: React.FC = () => {
                   onClick={startTour}
                   style={{ opacity: 0.85 }}
                 >
-                  🎓 Démarrer le tour
+                  {t('home.ctaTour')}
                 </Button>
               </div>
             </Col>
@@ -247,30 +256,30 @@ const HomePage: React.FC = () => {
           <Col md={4}>
             <ActionCard
               emoji="🗳️"
-              title="Simuler une élection"
-              description="Créez vos candidats, configurez l'électorat, ajoutez le vote blanc. Comparez comment 5 méthodes élisent des vainqueurs différents sur le même population."
+              title={t('home.cardSimulateTitle')}
+              description={t('home.cardSimulateDesc')}
               href="/scenario-builder"
-              buttonText="Construire mon scénario"
+              buttonText={t('home.cardSimulateButton')}
               highlight
             />
           </Col>
           <Col md={4} data-tour="compare-card">
             <ActionCard
               emoji="⚖️"
-              title="Comparer les méthodes"
-              description="Pluralité, Borda, IRV, Schulze, Approbation — analysez leurs différences sur 15 dimensions : regret bayésien, critère de Condorcet, vulnérabilité stratégique."
+              title={t('home.cardCompareTitle')}
+              description={t('home.cardCompareDesc')}
               href="/simulation/compare"
-              buttonText="Lancer la comparaison"
+              buttonText={t('home.cardCompareButton')}
               variant="outline-primary"
             />
           </Col>
           <Col md={4} data-tour="blank-vote-card">
             <ActionCard
               emoji="⬜"
-              title="Et si le vote blanc comptait ?"
-              description="Que se passe-t-il si le vote blanc gagne ? Explorez 3 scénarios constitutionnels : nouvelle élection, gouvernement provisoire, dissolution proportionnelle."
+              title={t('home.cardBlankTitle')}
+              description={t('home.cardBlankDesc')}
               href="/constitutional-crisis"
-              buttonText="Explorer les scénarios"
+              buttonText={t('home.cardBlankButton')}
               variant="outline-warning"
             />
           </Col>
@@ -278,9 +287,9 @@ const HomePage: React.FC = () => {
 
         {/* ── Pourquoi ça compte ── */}
         <div className="mb-5">
-          <h2 className="fw-bold text-center mb-1">Pourquoi ça compte</h2>
+          <h2 className="fw-bold text-center mb-1">{t('home.whySectionTitle')}</h2>
           <p className="text-muted text-center mb-4">
-            Statistiques calculées en temps réel sur une simulation aléatoire
+            {t('home.whySectionSubtitle')}
           </p>
           <Row className="g-3">
             <Col md={4}>
@@ -294,21 +303,21 @@ const HomePage: React.FC = () => {
                     '?'
                   )
                 }
-                label="méthodes désaccord avec la pluralité"
+                label={t('home.statDisagree')}
                 sub={
                   stats.loading
-                    ? 'Simulation en cours…'
+                    ? t('home.statLoading')
                     : stats.disagreeingMethods !== null
-                    ? `Sur ${stats.totalMethods} méthodes testées avec 200 électeurs et 3 candidats`
-                    : 'Backend non disponible'
+                    ? t('home.statDisagreeSub', { total: stats.totalMethods })
+                    : t('home.statBackendDown')
                 }
               />
             </Col>
             <Col md={4}>
               <StatCard
                 value="15"
-                label="méthodes de vote comparées"
-                sub="Pluralité, Borda, IRV, Schulze, STAR, Condorcet, Médiane, Variance et plus"
+                label={t('home.statMethodsCompared')}
+                sub={t('home.statMethodsSub')}
               />
             </Col>
             <Col md={4}>
@@ -322,39 +331,39 @@ const HomePage: React.FC = () => {
                     '?'
                   )
                 }
-                label={stats.condorcetExists === false ? 'Pas de vainqueur de Condorcet' : 'Vainqueur de Condorcet'}
+                label={stats.condorcetExists === false ? t('home.statNoCondorcet') : t('home.statCondorcetExists')}
                 sub={
                   stats.condorcetExists === false
-                    ? 'Cycle détecté — la méthode de vote change le résultat'
+                    ? t('home.statCycle')
                     : stats.condorcetExists === true
-                    ? 'Un candidat bat tous les autres en duel direct'
-                    : 'En attente de simulation…'
+                    ? t('home.statCondorcetDesc')
+                    : t('home.statWaiting')
                 }
               />
             </Col>
           </Row>
           <p className="text-muted text-center mt-3" style={{ fontSize: '0.8rem' }}>
-            Rechargez la page pour une nouvelle simulation aléatoire
+            {t('home.reloadPrompt')}
           </p>
         </div>
 
         {/* ── Historical elections ── */}
         <div data-tour="elections-section">
-          <h2 className="fw-bold text-center mb-1">Élections historiques analysées</h2>
+          <h2 className="fw-bold text-center mb-1">{t('home.historicalTitle')}</h2>
           <p className="text-muted text-center mb-4">
-            Cliquez pour voir comment chaque méthode aurait modifié le résultat
+            {t('home.historicalSubtitle')}
           </p>
           <Row className="g-3">
             {ELECTIONS.map((e) => (
               <Col key={e.key} xs={12} sm={6} md={3}>
-                <ElectionCard election={e} />
+                <ElectionCard election={e} analyzeLink={t('home.analyzeLink')} />
               </Col>
             ))}
           </Row>
           <div className="text-center mt-3">
             <a href="/simulation/compare">
               <Button variant="link" className="text-muted">
-                Ouvrir l'onglet "Élections réelles" pour analyser →
+                {t('home.historicalLink')}
               </Button>
             </a>
           </div>
@@ -366,12 +375,13 @@ const HomePage: React.FC = () => {
         <Container>
           <div className="d-flex justify-content-between align-items-center flex-wrap gap-2">
             <span className="text-muted small">
-              🗳️ <strong>Vote Lab</strong> — Laboratoire civique open-source
+              🗳️ <strong>Vote Lab</strong>
+              {t('home.footer')}
             </span>
             <div className="d-flex gap-3">
-              <a href="/simulation" className="text-muted small">Outil avancé (connexion requise)</a>
-              <a href="/login" className="text-muted small">Connexion</a>
-              <a href="/register" className="text-muted small">Créer un compte</a>
+              <a href="/simulation" className="text-muted small">{t('home.footerAdvanced')}</a>
+              <a href="/login" className="text-muted small">{t('home.footerLogin')}</a>
+              <a href="/register" className="text-muted small">{t('home.footerSignup')}</a>
             </div>
           </div>
         </Container>

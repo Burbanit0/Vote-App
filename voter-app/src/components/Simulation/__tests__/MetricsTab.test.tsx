@@ -44,7 +44,7 @@ describe('MetricsTab', () => {
         numSimulations={1}
       />
     );
-    expect(screen.getByText(/Métriques comparatives/)).toBeInTheDocument();
+    expect(screen.getByText(/Comparative metrics/)).toBeInTheDocument();
   });
 
   it('renders simulation count in header', () => {
@@ -66,9 +66,9 @@ describe('MetricsTab', () => {
         numSimulations={1}
       />
     );
-    expect(screen.getByText(/Régret bayésien/)).toBeInTheDocument();
-    expect(screen.getByText(/Satisfaction majoritaire/)).toBeInTheDocument();
-    expect(screen.getByText(/Vulnérabilité stratégique/)).toBeInTheDocument();
+    expect(screen.getByText(/Bayesian regret/)).toBeInTheDocument();
+    expect(screen.getByText(/Majority satisfaction/)).toBeInTheDocument();
+    expect(screen.getByText(/Strategic vulnerability/)).toBeInTheDocument();
   });
 
   it('shows EmptyChart when no comparison results', () => {

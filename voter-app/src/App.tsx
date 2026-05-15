@@ -3,12 +3,16 @@ import { BrowserRouter as Router, Route, Routes, useLocation, Navigate } from 'r
 
 import Navbar from './components/Navbar';
 import ErrorBoundary from './components/Route/ErrorBoundary';
+import { TeacherBanner, TeacherCaptureButton } from './components/teacher/TeacherBanner';
 
 import HomePage from './pages/HomePage';
 import SimulationPage from './pages/SimulationPage';
 import SimulationComparePage from './pages/SimulationComparePage';
 import ScenarioBuilderPage from './pages/ScenarioBuilderPage';
 import ConstitutionalCrisisPage from './pages/ConstitutionalCrisisPage';
+import QuizPage from './pages/QuizPage';
+import WhatIfPage from './pages/WhatIfPage';
+import TeacherPresentationPage from './pages/TeacherPresentationPage';
 import Login from './pages/Login';
 import Register from './pages/Register';
 import ProfilePage from './pages/ProfilePage';
@@ -19,6 +23,7 @@ import AuthGuard from './context/AuthGuard';
 import { ThemeProvider, useTheme } from './context/ThemeContext';
 import { ExpertModeProvider } from './context/ExpertModeContext';
 import { ToastProvider } from './components/shared/ToastNotification';
+import { TeacherModeProvider } from './context/TeacherModeContext';
 
 import 'bootstrap/dist/css/bootstrap.min.css';
 
@@ -30,8 +35,13 @@ const AppContent: React.FC = () => {
   const shouldHideNavbar = ['/login', '/register'];
 
   return (
-    <div className="App" data-bs-theme={theme}>
-      {!shouldHideNavbar.includes(location.pathname) && <Navbar />}
+    <div id="teacher-capture-root" className="App" data-bs-theme={theme}>
+      {!shouldHideNavbar.includes(location.pathname) && (
+        <>
+          <TeacherBanner />
+          <Navbar />
+        </>
+      )}
       <ErrorBoundary>
         <Routes>
           {/* Auth routes */}
@@ -43,6 +53,9 @@ const AppContent: React.FC = () => {
           <Route path="/scenario-builder"      element={<AuthGuard component={ScenarioBuilderPage}      requireAuth={false} />} />
           <Route path="/simulation/compare"    element={<AuthGuard component={SimulationComparePage}   requireAuth={false} />} />
           <Route path="/constitutional-crisis" element={<AuthGuard component={ConstitutionalCrisisPage} requireAuth={false} />} />
+          <Route path="/quiz"                  element={<QuizPage />} />
+          <Route path="/what-if"              element={<WhatIfPage />} />
+          <Route path="/teacher/presentation" element={<TeacherPresentationPage />} />
 
           {/* Auth-protected routes */}
           <Route path="/profile"    element={<AuthGuard component={ProfilePage} />} />
@@ -50,6 +63,9 @@ const AppContent: React.FC = () => {
           <Route path="/simulation" element={<AuthGuard component={SimulationPage} />} />
         </Routes>
       </ErrorBoundary>
+
+      {/* Floating capture button — visible only when teacher mode is active */}
+      <TeacherCaptureButton />
     </div>
   );
 };
@@ -57,11 +73,13 @@ const AppContent: React.FC = () => {
 const App: React.FC = () => (
   <ThemeProvider>
     <ExpertModeProvider>
-      <ToastProvider>
-        <Router>
-          <AppContent />
-        </Router>
-      </ToastProvider>
+      <TeacherModeProvider>
+        <ToastProvider>
+          <Router>
+            <AppContent />
+          </Router>
+        </ToastProvider>
+      </TeacherModeProvider>
     </ExpertModeProvider>
   </ThemeProvider>
 );

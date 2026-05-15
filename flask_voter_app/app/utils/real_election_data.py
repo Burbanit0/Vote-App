@@ -84,7 +84,7 @@ CANDIDATE_POSITIONS: Dict[str, Dict[str, float]] = {
 
 # ── Real election data ─────────────────────────────────────────────────────
 
-REAL_ELECTIONS: Dict[str, Dict] = {
+REAL_ELECTIONS: Dict[str, Any] = {
     "crisis_election": {
         "name":    "Élection de crise — cas pédagogique",
         "year":    2027,
@@ -290,7 +290,7 @@ REAL_ELECTIONS: Dict[str, Dict] = {
 
 def convert_to_rankings(
     election_name: str,
-    election_data: Dict,
+    election_data: Dict[str, Any],
     num_voters: int = 1000,
 ) -> List[List[str]]:
     """
@@ -396,7 +396,7 @@ def analyze_real_election(
     rankings = convert_to_rankings(election_name, election_data, num_voters)
 
     # Real plurality winner (most first-round votes)
-    plurality_winner = max(first_round, key=first_round.get)
+    plurality_winner: str = max(first_round, key=lambda k: first_round[k])
 
     # Ranked methods — blank_candidate_name is passed when blank is active
     ranked_methods: Dict[str, Any] = {
@@ -537,7 +537,7 @@ def analyze_real_election(
     }
 
 
-def list_elections() -> List[Dict]:
+def list_elections() -> List[Dict[str, Any]]:
     """Return summary metadata for all available elections."""
     return [
         {
