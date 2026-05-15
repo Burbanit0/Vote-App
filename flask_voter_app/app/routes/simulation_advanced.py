@@ -449,3 +449,53 @@ def constitutional_scenario() -> tuple[Response, int]:
 
     else:
         return jsonify({"error": f"Unknown scenario_type '{scenario_type}'"}), 400
+
+
+# ── /simulations/blank-contagion ─────────────────────────────────────────────
+
+@simulation_advanced_bp.route("/blank-contagion", methods=["POST"])
+def blank_contagion_route() -> tuple[Response, int]:
+    """
+    Run a SIS blank-vote contagion simulation.
+
+    Body: {
+        "num_voters":          int,    // 10 – 1 000 (default 300)
+        "initial_blank_rate":  float,  // 0 – 1     (default 0.1)
+        "contagion_rate":      float,  // β          (default 0.3)
+        "recovery_rate":       float,  // γ          (default 0.15)
+        "num_rounds":          int,    // 1 – 50    (default 15)
+        "network_type":        str,    // "random" | "clustered" | "small-world"
+        "seed":                int | null
+    }
+    """
+    from app.utils.blank_contagion import simulate_blank_contagion
+
+    data = request.get_json() or {}
+
+    try:
+        num_voters         = max(10,  min(1_000, int(data.get("num_voters",         300))))
+        initial_blank_rate = max(0.0, min(1.0,   float(data.get("initial_blank_rate", 0.10))))
+        contagion_rate     = max(0.0, min(1.0,   float(data.get("contagion_rate",    0.30))))
+        recovery_rate      = max(0.0, min(1.0,   float(data.get("recovery_rate",     0.15))))
+        num_rounds         = max(1,   min(50,    int(data.get("num_rounds",          15))))
+        network_type       = str(data.get("network_type", "random"))
+        seed_raw           = data.get("seed")
+        seed               = int(seed_raw) if seed_raw is not None else None
+    except (TypeError, ValueError) as exc:
+        return jsonify({"error": f"Invalid parameter: {exc}"}), 400
+
+    try:
+        result = simulate_blank_contagion(
+            num_voters=num_voters,
+            initial_blank_rate=initial_blank_rate,
+            contagion_rate=contagion_rate,
+            recovery_rate=recovery_rate,
+            num_rounds=num_rounds,
+            network_type=network_type,
+            seed=seed,
+        )
+        return jsonify(result), 200
+    except ValueError as exc:
+        return jsonify({"error": str(exc)}), 400
+    except Exception as exc:
+        return jsonify({"error": str(exc)}), 500

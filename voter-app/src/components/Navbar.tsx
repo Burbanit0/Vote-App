@@ -18,6 +18,7 @@ const NAV_LINKS = [
   { href: '/quiz',                  key: 'nav.quiz' },
   { href: '/what-if',              key: 'nav.whatIf' },
   { href: '/campaign',             key: 'nav.campaign' },
+  { href: '/blank-contagion',      key: 'nav.blankContagion' },
 ];
 
 const LS_PASS = 'votelab_teacher_pass';

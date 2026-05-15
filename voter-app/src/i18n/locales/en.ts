@@ -8,6 +8,7 @@ const en: TranslationKeys = {
     quiz: 'Quiz',
     whatIf: 'What if…',
     campaign: 'Campaign',
+    blankContagion: 'Contagion',
     expert: 'Expert',
     beginner: 'Beginner',
     expertTip: 'Switch to beginner mode (5 tabs, 5 methods)',
