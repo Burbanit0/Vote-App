@@ -46,6 +46,16 @@ repos:
         args: ['--config=flask_voter_app/.flake8']
         files: flask_voter_app/.*\.py$
 
+  # ── Python type checking ───────────────────────────────────────────────────
+  - repo: local
+    hooks:
+      - id: mypy
+        name: mypy (type checking)
+        language: system
+        entry: bash -c 'cd flask_voter_app && python -m mypy app/utils/ app/routes/ --config-file mypy.ini'
+        files: flask_voter_app/.*\.py$
+        pass_filenames: false
+
   # ── Frontend linting ───────────────────────────────────────────────────────
   - repo: local
     hooks:
