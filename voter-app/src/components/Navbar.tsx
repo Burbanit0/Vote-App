@@ -12,6 +12,7 @@ const NAV_LINKS = [
   { href: '/simulation/compare',    key: 'nav.methods' },
   { href: '/constitutional-crisis', key: 'nav.blankVote' },
   { href: '/quiz',                  key: 'nav.quiz' },
+  { href: '/what-if',              key: 'nav.whatIf' },
 ];
 
 const Navbar: React.FC = () => {

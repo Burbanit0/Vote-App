@@ -4,6 +4,7 @@ const fr = {
     methods: 'Méthodes',
     blankVote: 'Vote Blanc',
     quiz: 'Quiz',
+    whatIf: 'Et si…',
     expert: 'Expert',
     beginner: 'Débutant',
     expertTip: 'Passer en mode débutant (5 onglets, 5 méthodes)',
