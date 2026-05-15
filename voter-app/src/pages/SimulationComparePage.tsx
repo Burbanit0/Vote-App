@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import { Alert, Badge, Button, Card, Col, Container, Form, OverlayTrigger, Row, Spinner, Tab, Tabs, Tooltip } from 'react-bootstrap';
+import { Alert, Badge, Button, Card, Col, Container, Dropdown, Form, OverlayTrigger, Row, Spinner, Tab, Tabs, Tooltip } from 'react-bootstrap';
 import { useToast } from '../components/shared/ToastNotification';
 import SkeletonCard from '../components/shared/SkeletonCard';
 import CondorcetMatrix from '../components/Simulation/CondorcetMatrix';
@@ -42,6 +42,13 @@ import { deleteScenario, listScenarios, saveScenario } from '../services/scenari
 import { buildShareURL, copyShareURL, decodeShareConfig, encodeShareConfig, readShareParam } from '../utils/shareUtils';
 import { useExpertMode } from '../context/ExpertModeContext';
 import { useMetaTags } from '../hooks/useMetaTags';
+import {
+  generateLatexTable,
+  generateLatexReport,
+  generateFullBibtex,
+  downloadText,
+  SimulationExportParams,
+} from '../utils/latexExport';
 import { useTranslation } from 'react-i18next';
 import { useMethodLabels } from '../components/Simulation/simulationConstants';
 
@@ -456,6 +463,34 @@ const SimulationComparePage: React.FC = () => {
     win.document.close();
   };
 
+  // ── Academic export (LaTeX / BibTeX) ──
+  const academicExportParams = (): SimulationExportParams => ({
+    config:         configA,
+    numSimulations,
+    methodCount:    allMethodNames.length,
+    date:           exportDate,
+    shareUrl:       `${window.location.origin}${window.location.pathname}`,
+  });
+
+  const exportLatexTable = () => {
+    const content = generateLatexTable(comparisonResults, methodLabels);
+    downloadText(content, `votelab_table_${exportDate}.tex`, 'text/x-tex');
+  };
+
+  const exportLatexReportFull = () => {
+    const content = generateLatexReport(
+      academicExportParams(),
+      comparisonResults,
+      methodLabels,
+    );
+    downloadText(content, `votelab_report_${exportDate}.tex`, 'text/x-tex');
+  };
+
+  const exportBibtexFull = () => {
+    const content = generateFullBibtex(allMethodNames, academicExportParams());
+    downloadText(content, `votelab_references_${exportDate}.bib`, 'text/plain');
+  };
+
   // ── Share link ──
   const copyShareLink = async () => {
     const cfg: SharedConfig = {
@@ -625,6 +660,29 @@ const SimulationComparePage: React.FC = () => {
               <Button variant="outline-dark" size="sm" onClick={() => { setPresentationTabIndex(0); setPresentationMode(true); }}>
                 {t('simulation.presentation')}
               </Button>
+              {expertMode && (
+                <Dropdown>
+                  <Dropdown.Toggle variant="outline-secondary" size="sm" id="academic-export-dropdown">
+                    🎓 Export académique
+                  </Dropdown.Toggle>
+                  <Dropdown.Menu>
+                    <Dropdown.Header style={{ fontSize: '0.75rem' }}>LaTeX / BibTeX</Dropdown.Header>
+                    <Dropdown.Item onClick={exportLatexTable}>
+                      📄 Tableau LaTeX
+                      <div className="text-muted" style={{ fontSize: '0.72rem' }}>votelab_table.tex</div>
+                    </Dropdown.Item>
+                    <Dropdown.Item onClick={exportLatexReportFull}>
+                      📑 Rapport complet LaTeX
+                      <div className="text-muted" style={{ fontSize: '0.72rem' }}>votelab_report.tex + bibliographie</div>
+                    </Dropdown.Item>
+                    <Dropdown.Divider />
+                    <Dropdown.Item onClick={exportBibtexFull}>
+                      📚 Citation BibTeX
+                      <div className="text-muted" style={{ fontSize: '0.72rem' }}>votelab_references.bib</div>
+                    </Dropdown.Item>
+                  </Dropdown.Menu>
+                </Dropdown>
+              )}
             </>
           )}
         </div>
