@@ -10,6 +10,7 @@ const en: TranslationKeys = {
     campaign: 'Campaign',
     blankContagion: 'Contagion',
     regimesInternationaux: 'Global Regimes',
+    apiDocs: 'API',
     expert: 'Expert',
     beginner: 'Beginner',
     expertTip: 'Switch to beginner mode (5 tabs, 5 methods)',

@@ -69,6 +69,7 @@ def create_app(config_object="config.Config"):
         db.create_all()
 
     from .routes import users, simulation_base, simulation_compare, simulation_advanced, scenarios, simulation_whatif, simulation_campaign
+    from .routes.api_public import api_public_bp, write_openapi_json, init_api_limiter
 
     app.register_blueprint(users.auth_bp)
     app.register_blueprint(simulation_base.simulation_base_bp)
@@ -77,5 +78,16 @@ def create_app(config_object="config.Config"):
     app.register_blueprint(scenarios.scenarios_bp)
     app.register_blueprint(simulation_whatif.whatif_bp)
     app.register_blueprint(simulation_campaign.campaign_bp)
+    app.register_blueprint(api_public_bp)
+
+    # ── Bind the public-API rate limiter to this app ───────────────────────
+    init_api_limiter(app)
+
+    # ── Generate openapi.json at startup ───────────────────────────────────
+    openapi_path = os.path.join(os.path.dirname(__file__), "..", "openapi.json")
+    try:
+        write_openapi_json(os.path.abspath(openapi_path))
+    except OSError:
+        pass   # non-critical: spec is also served dynamically at /api/v1/openapi.json
 
     return app

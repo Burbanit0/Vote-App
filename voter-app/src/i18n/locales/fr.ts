@@ -8,6 +8,7 @@ const fr = {
     campaign: 'Campagne',
     blankContagion: 'Contagion',
     regimesInternationaux: 'Régimes mondiaux',
+    apiDocs: 'API',
     expert: 'Expert',
     beginner: 'Débutant',
     expertTip: 'Passer en mode débutant (5 onglets, 5 méthodes)',
