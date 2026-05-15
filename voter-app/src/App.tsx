@@ -14,6 +14,7 @@ import QuizPage from './pages/QuizPage';
 import WhatIfPage from './pages/WhatIfPage';
 import CampaignSimulatorPage from './pages/CampaignSimulatorPage';
 import BlankContagionPage from './pages/BlankContagionPage';
+import InternationalRegimesPage from './pages/InternationalRegimesPage';
 import TeacherPresentationPage from './pages/TeacherPresentationPage';
 import Login from './pages/Login';
 import Register from './pages/Register';
@@ -59,6 +60,7 @@ const AppContent: React.FC = () => {
           <Route path="/what-if"              element={<WhatIfPage />} />
           <Route path="/campaign"             element={<CampaignSimulatorPage />} />
           <Route path="/blank-contagion"      element={<BlankContagionPage />} />
+          <Route path="/regimes-internationaux" element={<InternationalRegimesPage />} />
           <Route path="/teacher/presentation" element={<TeacherPresentationPage />} />
 
           {/* Auth-protected routes */}

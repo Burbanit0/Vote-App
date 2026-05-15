@@ -7,6 +7,7 @@ const fr = {
     whatIf: 'Et si…',
     campaign: 'Campagne',
     blankContagion: 'Contagion',
+    regimesInternationaux: 'Régimes mondiaux',
     expert: 'Expert',
     beginner: 'Débutant',
     expertTip: 'Passer en mode débutant (5 onglets, 5 méthodes)',
