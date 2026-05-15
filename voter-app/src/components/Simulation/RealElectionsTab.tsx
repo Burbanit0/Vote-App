@@ -1,9 +1,10 @@
 import React, { useEffect, useState } from 'react';
-import { Alert, Button, Card, Col, Form, Row, Spinner } from 'react-bootstrap';
+import { Alert, Button, Card, Col, Form, Row, Spinner, Tab, Tabs } from 'react-bootstrap';
 import { useTranslation } from 'react-i18next';
 import { RealElectionResult, RealElectionSummary } from '../../types';
 import { analyzeRealElection, getRealElections } from '../../services/simulationCompareApi';
 import RealElectionAnalysis from './RealElectionAnalysis';
+import BlankVoteTimeSeries from '../research/BlankVoteTimeSeries';
 
 const RealElectionsTab: React.FC = () => {
   const { t } = useTranslation();
@@ -41,7 +42,7 @@ const RealElectionsTab: React.FC = () => {
 
   const handleToggleBlankVote = async (enabled: boolean) => {
     setBlankVote(enabled);
-    if (!result) return; // no analysis yet
+    if (!result) return;
     await handleAnalyze(enabled);
   };
 
@@ -54,46 +55,71 @@ const RealElectionsTab: React.FC = () => {
         </span>
       </Card.Header>
       <Card.Body>
-        <Row className="g-3 align-items-end mb-4">
-          <Col md={5}>
-            <Form.Label className="small mb-1">{t('simulation.realElections.electionLabel')}</Form.Label>
-            <Form.Select
-              size="sm"
-              value={selected}
-              onChange={(e) => { setSelected(e.target.value); setResult(null); setBlankVote(false); }}
-            >
-              {elections.length === 0 && <option value="">{t('simulation.realElections.loadingOption')}</option>}
-              {elections.map((e) => (
-                <option key={e.key} value={e.key}>
-                  {e.country} — {e.name} ({e.year})
-                </option>
-              ))}
-            </Form.Select>
-          </Col>
-          <Col md={2}>
-            <Button
-              variant="primary" size="sm" className="w-100"
-              onClick={() => handleAnalyze(false)}
-              disabled={loading || !selected}
-            >
-              {loading ? <><Spinner size="sm" className="me-2" />{t('simulation.realElections.analyzing')}</> : t('simulation.realElections.analyze')}
-            </Button>
-          </Col>
-        </Row>
+        <Tabs defaultActiveKey="analysis" className="mb-3">
+          {/* ── Tab 1: Election analysis ── */}
+          <Tab eventKey="analysis" title="Analyse de l'élection">
+            <Row className="g-3 align-items-end mb-4">
+              <Col md={5}>
+                <Form.Label htmlFor="real-election-select" className="small mb-1">
+                  {t('simulation.realElections.electionLabel')}
+                </Form.Label>
+                <Form.Select
+                  id="real-election-select"
+                  size="sm"
+                  value={selected}
+                  onChange={(e) => { setSelected(e.target.value); setResult(null); setBlankVote(false); }}
+                >
+                  {elections.length === 0 && (
+                    <option value="">{t('simulation.realElections.loadingOption')}</option>
+                  )}
+                  {elections.map((e) => (
+                    <option key={e.key} value={e.key}>
+                      {e.country} — {e.name} ({e.year})
+                    </option>
+                  ))}
+                </Form.Select>
+              </Col>
+              <Col md={2}>
+                <Button
+                  variant="primary" size="sm" className="w-100"
+                  onClick={() => handleAnalyze(false)}
+                  disabled={loading || !selected}
+                >
+                  {loading
+                    ? <><Spinner size="sm" className="me-2" />{t('simulation.realElections.analyzing')}</>
+                    : t('simulation.realElections.analyze')}
+                </Button>
+              </Col>
+            </Row>
 
-        {result ? (
-          <RealElectionAnalysis
-            result={result}
-            blankVoteEnabled={blankVote}
-            blankLoading={blankLoading}
-            onToggleBlankVote={handleToggleBlankVote}
-          />
-        ) : (
-          !loading && (
-            <Alert variant="info" className="mb-0"><span dangerouslySetInnerHTML={{ __html: t('simulation.realElections.prompt') }} /></Alert>
+            {result ? (
+              <RealElectionAnalysis
+                result={result}
+                blankVoteEnabled={blankVote}
+                blankLoading={blankLoading}
+                onToggleBlankVote={handleToggleBlankVote}
+              />
+            ) : (
+              !loading && (
+                <Alert variant="info" className="mb-0">
+                  <span dangerouslySetInnerHTML={{ __html: t('simulation.realElections.prompt') }} />
+                </Alert>
+              )
+            )}
+          </Tab>
 
-          )
-        )}
+          {/* ── Tab 2: Time series ── */}
+          <Tab
+            eventKey="timeseries"
+            title={
+              <span>
+                📈 Évolution historique
+              </span>
+            }
+          >
+            <BlankVoteTimeSeries />
+          </Tab>
+        </Tabs>
       </Card.Body>
     </Card>
   );

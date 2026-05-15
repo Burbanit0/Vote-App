@@ -204,6 +204,28 @@ export const getMonteCarlo = async (
   }
 };
 
+export interface BlankHistoryPoint {
+  year: number;
+  blank_pct: number;
+  context: string;
+}
+
+export interface BlankHistoryResult {
+  country: string;
+  display_name: string;
+  note: string;
+  series: BlankHistoryPoint[];
+}
+
+export const getBlankHistory = async (
+  country: string,
+): Promise<BlankHistoryResult> => {
+  const response = await axios.get<BlankHistoryResult>(
+    `${API_BASE_URL}/simulations/blank-history?country=${encodeURIComponent(country)}`,
+  );
+  return response.data;
+};
+
 export const getRealElections = async (): Promise<RealElectionSummary[]> => {
   try {
     const response = await axios.get<RealElectionSummary[]>(

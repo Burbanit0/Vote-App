@@ -257,6 +257,44 @@ def real_elections_list() -> tuple[Response, int]:
     return jsonify(list_elections()), 200
 
 
+@simulation_advanced_bp.route("/blank-history", methods=["GET"])
+def blank_history_route() -> tuple[Response, int]:
+    """
+    Return the blank-vote time series for a country.
+
+    Query params:
+        country : str  — "france" | "colombia" | "uruguay"
+
+    Response (200):
+    {
+        "country":      str,
+        "display_name": str,
+        "note":         str,
+        "series":       [{"year": int, "blank_pct": float, "context": str}, ...]
+    }
+
+    Returns 404 when the country key is not recognised.
+    """
+    from app.utils.real_election_data import get_blank_history, list_blank_history_countries
+
+    country_key = request.args.get("country", "").strip()
+
+    if not country_key:
+        return jsonify({
+            "error":     "Missing 'country' query parameter.",
+            "available": list_blank_history_countries(),
+        }), 400
+
+    data = get_blank_history(country_key)
+    if data is None:
+        return jsonify({
+            "error":     f"Unknown country '{country_key}'.",
+            "available": list_blank_history_countries(),
+        }), 404
+
+    return jsonify(data), 200
+
+
 @simulation_advanced_bp.route("/real-election", methods=["POST"])
 def real_election_analyze() -> tuple[Response, int]:
     """
