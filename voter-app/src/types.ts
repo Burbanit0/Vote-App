@@ -303,9 +303,19 @@ export interface MethodComparison {
   strategic_vulnerability: number | null;
 }
 
+export interface InformationModelResult {
+  enabled: boolean;
+  sincere_winner?: string | null;
+  perceived_winner?: string | null;
+  information_gap?: number;
+  sincere_condorcet_winner?: string | null;
+  winners_differ?: boolean;
+}
+
 export interface SimulationCompareResult {
   condorcet_winner: string | null;
   methods: Record<string, MethodComparison>;
+  information_model?: InformationModelResult;
 }
 
 export interface StrategicImpactPoint {

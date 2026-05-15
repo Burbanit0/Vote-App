@@ -25,10 +25,21 @@ function getAuthHeader(): Record<string, string> {
   }
 }
 
+export interface InformationModelConfig {
+  enabled: boolean;
+  media_bias: Record<string, number>;   // str(candidate_idx) → [-1, 1]
+  voter_segments: {
+    low_info: number;
+    medium_info: number;
+    high_info: number;
+  };
+}
+
 export interface CompareParams {
   num_voters?: number;
   candidates?: string[];
   ideology_distribution?: string;
+  information_model?: InformationModelConfig;
 }
 
 export interface StrategicImpactParams extends CompareParams {
