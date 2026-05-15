@@ -5,6 +5,7 @@ const en: TranslationKeys = {
     simulator: 'Simulator',
     methods: 'Methods',
     blankVote: 'Blank Vote',
+    quiz: 'Quiz',
     expert: 'Expert',
     beginner: 'Beginner',
     expertTip: 'Switch to beginner mode (5 tabs, 5 methods)',
