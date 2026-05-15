@@ -490,6 +490,7 @@ const fr = {
       borda: 'Méthode de Borda',
       schulze: 'Méthode de Schulze',
       approval: 'Vote par approbation',
+      quadratic: 'Vote Quadratique',
     },
     blankVoteBadge: '⬜ Vote Blanc',
     blankName: 'Vote Blanc',
@@ -708,6 +709,7 @@ const fr = {
     median_voting:      { label: 'Score médian',       pro: 'Résistant à l\'exagération — un électeur extrême ne déplace pas la médiane.',                                                        con: 'Peut élire un candidat avec médiane haute mais peu de supporters enthousiastes.' },
     mean_median_hybrid: { label: 'Moy.-Médiane',       pro: 'Equilibre l\'expressivité de la moyenne et la robustesse de la médiane (50/50).',                                                    con: 'La pondération 50/50 est arbitraire et difficile à justifier démocratiquement.' },
     variance_based:     { label: 'Variance',           pro: 'Pénalise les candidats polarisants — favorise un soutien large et régulier.',                                                        con: 'Contre-intuitif : un candidat aimé passionnément par certains peut être pénalisé.' },
+    quadratic:          { label: 'Vote Quadratique',   pro: 'Exprime l\'intensité des préférences — un électeur peut allouer plus de crédits à son choix fort, réduisant la tyrannie de la majorité.', con: 'Si les crédits peuvent être achetés avec de l\'argent, favorise fortement les plus riches.' },
   },
 
   ideology: {

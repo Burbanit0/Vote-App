@@ -247,7 +247,7 @@ const ScenarioBuilderPage: React.FC = () => {
           dissatisfaction_rate: electorate.dissatisfactionRate,
         },
         blank_rule: blankRule,
-        methods: ['plurality', 'irv', 'borda', 'schulze', 'approval'],
+        methods: ['plurality', 'irv', 'borda', 'schulze', 'approval', 'quadratic'],
       });
       setResults(data);
       setStep(3);

@@ -492,6 +492,7 @@ const en: TranslationKeys = {
       borda: 'Borda count',
       schulze: 'Schulze method',
       approval: 'Approval voting',
+      quadratic: 'Quadratic Voting',
     },
     blankVoteBadge: '⬜ Blank Vote',
     blankName: 'Blank Vote',
@@ -710,6 +711,7 @@ const en: TranslationKeys = {
     median_voting:      { label: 'Median score',       pro: 'Resistant to exaggeration — one extreme voter cannot shift the median as easily.',                                                    con: 'Can elect a candidate with a high median but few enthusiastic supporters.' },
     mean_median_hybrid: { label: 'Mean-Median',        pro: 'Balances the expressivity of the mean and robustness of the median (50/50).',                                                        con: 'The 50/50 weighting is arbitrary and hard to justify democratically.' },
     variance_based:     { label: 'Variance-based',     pro: 'Penalises polarising candidates — favours broad and consistent support.',                                                             con: 'Counter-intuitive: a passionately loved candidate can be penalised.' },
+    quadratic:          { label: 'Quadratic Vote',     pro: 'Expresses preference intensity — voters can allocate more credits to their strongly-felt choices, reducing majority tyranny.',           con: 'If credits can be purchased with money, wealthy voters gain disproportionate influence.' },
   },
 
   ideology: {
