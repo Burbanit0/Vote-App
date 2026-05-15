@@ -19,7 +19,7 @@ Three network topologies are supported (stdlib + numpy only, no networkx):
 """
 from __future__ import annotations
 
-from typing import Optional
+from typing import Any, Optional
 
 import numpy as np
 
@@ -107,7 +107,7 @@ def simulate_blank_contagion(
     num_rounds: int = 10,
     network_type: str = "random",
     seed: Optional[int] = None,
-) -> dict:
+) -> dict[str, Any]:
     """
     Simulate blank-vote spreading via a synchronous SIS epidemic model.
 
@@ -157,7 +157,7 @@ def simulate_blank_contagion(
         adj = _build_random(n, rng)
 
     # Pre-convert adjacency lists to numpy arrays for fast indexing
-    adj_np: list[np.ndarray] = [np.array(nb, dtype=np.int32) for nb in adj]
+    adj_np: list[np.ndarray[Any, np.dtype[np.int32]]] = [np.array(nb, dtype=np.int32) for nb in adj]
 
     # ── Initial state — 0 = susceptible (S), 1 = infected (I / blank) ───────
     state = np.zeros(n, dtype=np.int8)
