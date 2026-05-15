@@ -21,6 +21,7 @@ const NAV_LINKS = [
   { href: '/blank-contagion',      key: 'nav.blankContagion' },
   { href: '/regimes-internationaux', key: 'nav.regimesInternationaux' },
   { href: '/api-docs',               key: 'nav.apiDocs' },
+  { href: '/galerie',                key: 'nav.gallery' },
 ];
 
 const LS_PASS = 'votelab_teacher_pass';

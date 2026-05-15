@@ -16,6 +16,7 @@ import CampaignSimulatorPage from './pages/CampaignSimulatorPage';
 import BlankContagionPage from './pages/BlankContagionPage';
 import InternationalRegimesPage from './pages/InternationalRegimesPage';
 import ApiDocsPage from './pages/ApiDocsPage';
+import ScenarioGalleryPage from './pages/ScenarioGalleryPage';
 import TeacherPresentationPage from './pages/TeacherPresentationPage';
 import Login from './pages/Login';
 import Register from './pages/Register';

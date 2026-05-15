@@ -11,6 +11,7 @@ const en: TranslationKeys = {
     blankContagion: 'Contagion',
     regimesInternationaux: 'Global Regimes',
     apiDocs: 'API',
+    gallery: 'Gallery',
     expert: 'Expert',
     beginner: 'Beginner',
     expertTip: 'Switch to beginner mode (5 tabs, 5 methods)',
