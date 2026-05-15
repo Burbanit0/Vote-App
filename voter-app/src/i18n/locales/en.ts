@@ -279,11 +279,13 @@ const en: TranslationKeys = {
       realElections: 'Real elections',
       multiwinner: 'Multi-winner',
       sensitivity: 'Sensitivity',
+      manipulability: 'Manipulability',
     },
     tabTips: {
       arrow: "Arrow's impossibility theorem (1951) shows that no ranked voting method can satisfy all fairness criteria simultaneously with 3+ candidates.",
       bandwagon: 'Simulates social conformity: voters align with the leading candidate in the polls.',
       sensitivity: 'Varies one parameter and observes how winners change across methods.',
+      manipulability: "Estimates the manipulation rate of each method (Gibbard-Satterthwaite theorem): % of voters who can improve their outcome by not voting sincerely.",
     },
     condorcetHeader: 'Condorcet matrix',
     condorcetSubtitle: '— pairwise preferences in the population (Scenario A)',

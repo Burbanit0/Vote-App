@@ -5,6 +5,7 @@ import SkeletonCard from '../components/shared/SkeletonCard';
 import CondorcetMatrix from '../components/Simulation/CondorcetMatrix';
 import ArrowCriteriaMatrix from '../components/Simulation/ArrowCriteriaMatrix';
 import BandwagonAnalysis from '../components/Simulation/BandwagonAnalysis';
+import ManipulabilityChart from '../components/Simulation/ManipulabilityChart';
 import MultiwinnerAnalysis from '../components/Simulation/MultiwinnerAnalysis';
 import MonteCarloResults from '../components/Simulation/MonteCarloResults';
 import WinnerMatrixTab from '../components/Simulation/WinnerMatrixTab';
@@ -46,9 +47,10 @@ import { useMethodLabels } from '../components/Simulation/simulationConstants';
 const TAB_ORDER = [
   'winners', 'metrics', 'strategic', 'condorcet', 'arrow',
   'bandwagon', 'montecarlo', 'real-elections', 'multiwinner', 'sensitivity',
+  'manipulability',
 ];
 
-const BEGINNER_TABS = ['winners', 'metrics', 'strategic', 'real-elections', 'montecarlo'];
+const BEGINNER_TABS = ['winners', 'metrics', 'strategic', 'real-elections', 'montecarlo', 'manipulability'];
 
 const BEGINNER_METHODS = ['plurality', 'borda', 'irv', 'schulze', 'approval'];
 
@@ -244,6 +246,7 @@ const SimulationComparePage: React.FC = () => {
     'real-elections': t('simulation.tabs.realElections'),
     multiwinner:      t('simulation.tabs.multiwinner'),
     sensitivity:      t('simulation.tabs.sensitivity'),
+    manipulability:   t('simulation.tabs.manipulability'),
   };
 
   // ── Scenario config ──
@@ -728,6 +731,26 @@ const SimulationComparePage: React.FC = () => {
                 </span>
               }><SensitivityTab baseConfig={{ numVoters: configA.numVoters, candidates: candidateNamesA, ideology_distribution: configA.ideology_distribution }} /></Tab>
             )}
+            <Tab eventKey="manipulability" title={
+              <span>
+                {t('simulation.tabs.manipulability')}{' '}
+                <OverlayTrigger
+                  trigger={['hover','focus']}
+                  placement="bottom"
+                  overlay={<Tooltip id="tip-tab-manip">{t('simulation.tabTips.manipulability')}</Tooltip>}
+                >
+                  <span tabIndex={0} onClick={(e) => e.stopPropagation()} style={{ fontSize: '0.75em', color: '#6c757d', cursor: 'help' }}>ⓘ</span>
+                </OverlayTrigger>
+              </span>
+            }>
+              <ManipulabilityChart
+                baseParams={{
+                  num_candidates: candidateNamesA.length,
+                  num_voters: configA.numVoters,
+                  ideology_distribution: configA.ideology_distribution,
+                }}
+              />
+            </Tab>
           </Tabs>
         )}
 

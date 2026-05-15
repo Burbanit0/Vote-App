@@ -409,3 +409,119 @@ def run_scenario() -> tuple[Response, int]:
         "without_blank": _filter(result_no_blank),
         "with_blank":    {**_filter(result_with_blank), "blank_pct": blank_pct},
     }), 200
+
+
+# ── /simulations/manipulability ──────────────────────────────────────────────
+
+_MANIPULABILITY_METHODS = [
+    "plurality", "borda", "irv", "two_round", "approval",
+    "schulze", "coombs", "bucklin", "minimax",
+]
+
+
+@simulation_compare_bp.route("/manipulability", methods=["GET"])
+def manipulability_analysis() -> tuple[Response, int]:
+    """
+    Estimate the Gibbard-Satterthwaite manipulability index for multiple
+    voting methods on a synthetic population.
+
+    Query params:
+        num_candidates : int  (2–8,  default 4)
+        num_voters     : int  (50–2000, default 500)
+        methods        : str  comma-separated method keys or "all" (default)
+        num_trials     : int  voters sampled per method (default 200)
+        ideology       : str  ideology_distribution (default "random")
+
+    Response (200):
+    {
+        "num_candidates": 4,
+        "num_voters":     500,
+        "results": [
+            {
+                "method":               "plurality",
+                "manipulability_rate":  28.5,   // % of sampled voters
+                "average_gain":         1.2,    // average rank improvement
+                "num_manipulators":     57,
+                "num_sampled":          200,
+                "examples":             [...]
+            },
+            ...
+        ]   // sorted by manipulability_rate descending
+    }
+    """
+    try:
+        num_candidates  = max(2, min(8,    int(request.args.get("num_candidates", 4))))
+        num_voters      = max(50, min(2000, int(request.args.get("num_voters",     500))))
+        num_trials_arg  = max(10, min(500,  int(request.args.get("num_trials",     200))))
+        ideology_dist   = request.args.get("ideology", "random")
+        methods_arg     = request.args.get("methods", "all")
+    except (TypeError, ValueError) as e:
+        return jsonify({"error": f"Invalid query parameter: {e}"}), 400
+
+    # ── Build synthetic population ─────────────────────────────────────────
+    _NAMES = ["Alice", "Bob", "Carol", "Dave", "Eve", "Frank", "Grace", "Hugo"]
+    candidate_names = _NAMES[:num_candidates]
+    candidate_configs = [
+        {"name": n, "party": "Independent", "ideology_position": None}
+        for n in candidate_names
+    ]
+
+    try:
+        voters, candidates, issues = _build_population(
+            candidate_configs, num_voters, ideology_dist
+        )
+    except Exception as exc:
+        return jsonify({"error": f"Population build failed: {exc}"}), 500
+
+    # ── Build sincere rankings ─────────────────────────────────────────────
+    utilities: Dict[Any, Dict[str, float]] = {
+        v["id"]: {
+            c["name"]: calculate_utility(v, c, issues)["utility"]
+            for c in candidates
+        }
+        for v in voters
+    }
+    rankings: list[list[str]] = [
+        sorted(candidate_names, key=lambda n: -utilities[v["id"]][n])
+        for v in voters
+    ]
+
+    # ── Select methods ─────────────────────────────────────────────────────
+    if methods_arg.strip().lower() == "all":
+        target_methods = _MANIPULABILITY_METHODS
+    else:
+        target_methods = [m.strip() for m in methods_arg.split(",") if m.strip()]
+        if not target_methods:
+            return jsonify({"error": "No valid methods specified"}), 400
+
+    # ── Compute manipulability per method ──────────────────────────────────
+    from app.utils.gibbard_satterthwaite import compute_manipulability_index
+
+    results = []
+    for method in target_methods:
+        try:
+            result = compute_manipulability_index(method, rankings, num_trials=num_trials_arg)
+            results.append(result)
+        except Exception as exc:
+            results.append({
+                "method": method,
+                "manipulability_rate": None,
+                "average_gain": 0.0,
+                "num_manipulators": 0,
+                "num_sampled": 0,
+                "examples": [],
+                "error": str(exc),
+            })
+
+    # Sort: unknown/error last, then by rate descending
+    results.sort(
+        key=lambda r: (r.get("manipulability_rate") is None, -(r.get("manipulability_rate") or 0)),
+    )
+
+    return jsonify({
+        "num_candidates": num_candidates,
+        "num_voters":     num_voters,
+        "ideology":       ideology_dist,
+        "num_trials":     num_trials_arg,
+        "results":        results,
+    }), 200

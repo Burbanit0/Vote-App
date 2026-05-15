@@ -277,11 +277,13 @@ const fr = {
       realElections: 'Élections réelles',
       multiwinner: 'Multi-gagnants',
       sensitivity: 'Sensibilité',
+      manipulability: 'Manipulabilité',
     },
     tabTips: {
       arrow: "Le théorème d'impossibilité d'Arrow (1951) démontre qu'aucune méthode de vote classée ne peut satisfaire tous les critères de fairness simultanément avec 3+ candidats.",
       bandwagon: "Simule l'effet de conformité sociale : les électeurs s'alignent sur le candidat en tête des sondages.",
       sensitivity: 'Fait varier un paramètre et observe comment les vainqueurs changent selon les méthodes.',
+      manipulability: "Estime le taux de manipulation de chaque méthode (théorème de Gibbard-Satterthwaite) : % d'électeurs qui peuvent améliorer leur résultat en ne votant pas sincèrement.",
     },
     condorcetHeader: 'Matrice de Condorcet',
     condorcetSubtitle: '— préférences pairwise dans la population (Scénario A)',
