@@ -6,6 +6,7 @@ const en: TranslationKeys = {
     methods: 'Methods',
     blankVote: 'Blank Vote',
     quiz: 'Quiz',
+    whatIf: 'What if…',
     expert: 'Expert',
     beginner: 'Beginner',
     expertTip: 'Switch to beginner mode (5 tabs, 5 methods)',
