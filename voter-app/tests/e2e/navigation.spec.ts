@@ -1,4 +1,5 @@
 import { test, expect } from '@playwright/test';
+import { AxeBuilder } from '@axe-core/playwright';
 
 // Public routes accessible without authentication
 const PUBLIC_ROUTES = [
@@ -39,6 +40,19 @@ test.describe('Navigation — all public routes load', () => {
       await page.waitForLoadState('domcontentloaded');
 
       expect(criticalErrors).toHaveLength(0);
+
+      // axe accessibility audit — fail on critical/serious violations only
+      const a11y = await new AxeBuilder({ page })
+        .withTags(['wcag2a', 'wcag2aa'])
+        .disableRules(['color-contrast'])
+        .analyze();
+      const blocking = a11y.violations.filter(
+        (v) => v.impact === 'critical' || v.impact === 'serious',
+      );
+      expect(
+        blocking.map((v) => `${v.id}: ${v.description}`),
+        `a11y violations on ${path}`,
+      ).toEqual([]);
     });
   }
 

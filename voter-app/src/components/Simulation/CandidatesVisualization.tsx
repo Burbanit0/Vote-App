@@ -396,7 +396,7 @@ const CandidatesVisualization: React.FC = () => {
                             formatter={(value: number) => [`${value.toFixed(1)}%`, t('simulation.candidatesViz.importance')]}
                           />
                           <Legend />
-                          <Bar dataKey="value" fill="#8884d8">
+                          <Bar dataKey="value" fill="#1a56cc">
                             {preparePolicyData().map((_, index) => (
                               <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
                             ))}
@@ -547,8 +547,8 @@ const CandidatesVisualization: React.FC = () => {
                           <YAxis />
                           <Tooltip />
                           <Legend />
-                          <Bar dataKey="charisma" fill="#8884d8" name={t('simulation.candidatesViz.charisma')} />
-                          <Bar dataKey="popularity" fill="#82ca9d" name={t('simulation.candidatesViz.popularity')} />
+                          <Bar dataKey="charisma" fill="#1a56cc" name={t('simulation.candidatesViz.charisma')} />
+                          <Bar dataKey="popularity" fill="#1b5e20" name={t('simulation.candidatesViz.popularity')} />
                         </BarChart>
                       </ResponsiveContainer>
                     </div>
@@ -656,7 +656,7 @@ const CandidatesVisualization: React.FC = () => {
                             <Tooltip
                               formatter={(value: number) => [`${value.toFixed(1)}%`, t('simulation.candidatesViz.priority')]}
                             />
-                            <Bar dataKey="value" fill="#8884d8" />
+                            <Bar dataKey="value" fill="#1a56cc" />
                           </BarChart>
                         </ResponsiveContainer>
                       </div>
