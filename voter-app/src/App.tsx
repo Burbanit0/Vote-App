@@ -12,6 +12,7 @@ import ScenarioBuilderPage from './pages/ScenarioBuilderPage';
 import ConstitutionalCrisisPage from './pages/ConstitutionalCrisisPage';
 import QuizPage from './pages/QuizPage';
 import WhatIfPage from './pages/WhatIfPage';
+import CampaignSimulatorPage from './pages/CampaignSimulatorPage';
 import TeacherPresentationPage from './pages/TeacherPresentationPage';
 import Login from './pages/Login';
 import Register from './pages/Register';
@@ -55,6 +56,7 @@ const AppContent: React.FC = () => {
           <Route path="/constitutional-crisis" element={<AuthGuard component={ConstitutionalCrisisPage} requireAuth={false} />} />
           <Route path="/quiz"                  element={<QuizPage />} />
           <Route path="/what-if"              element={<WhatIfPage />} />
+          <Route path="/campaign"             element={<CampaignSimulatorPage />} />
           <Route path="/teacher/presentation" element={<TeacherPresentationPage />} />
 
           {/* Auth-protected routes */}

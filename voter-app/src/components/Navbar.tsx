@@ -17,6 +17,7 @@ const NAV_LINKS = [
   { href: '/constitutional-crisis', key: 'nav.blankVote' },
   { href: '/quiz',                  key: 'nav.quiz' },
   { href: '/what-if',              key: 'nav.whatIf' },
+  { href: '/campaign',             key: 'nav.campaign' },
 ];
 
 const LS_PASS = 'votelab_teacher_pass';

@@ -68,7 +68,7 @@ def create_app(config_object="config.Config"):
     with app.app_context():
         db.create_all()
 
-    from .routes import users, simulation_base, simulation_compare, simulation_advanced, scenarios, simulation_whatif
+    from .routes import users, simulation_base, simulation_compare, simulation_advanced, scenarios, simulation_whatif, simulation_campaign
 
     app.register_blueprint(users.auth_bp)
     app.register_blueprint(simulation_base.simulation_base_bp)
@@ -76,5 +76,6 @@ def create_app(config_object="config.Config"):
     app.register_blueprint(simulation_advanced.simulation_advanced_bp)
     app.register_blueprint(scenarios.scenarios_bp)
     app.register_blueprint(simulation_whatif.whatif_bp)
+    app.register_blueprint(simulation_campaign.campaign_bp)
 
     return app

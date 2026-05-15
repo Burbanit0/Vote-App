@@ -7,6 +7,7 @@ const en: TranslationKeys = {
     blankVote: 'Blank Vote',
     quiz: 'Quiz',
     whatIf: 'What if…',
+    campaign: 'Campaign',
     expert: 'Expert',
     beginner: 'Beginner',
     expertTip: 'Switch to beginner mode (5 tabs, 5 methods)',
