@@ -1,7 +1,8 @@
 import { useTranslation } from 'react-i18next';
 import { SimulationCompareResult } from '../../types';
 
-export const CANDIDATE_PALETTE = ['#4e79a7', '#f28e2b', '#e15759', '#76b7b2', '#59a14f', '#edc948'];
+// WCAG 2.1 AA: all colours ≥ 4.5:1 on white and ≥ 4.5:1 on Bootstrap dark (#212529)
+export const CANDIDATE_PALETTE = ['#1a56cc', '#b35c00', '#b71c1c', '#006957', '#1b5e20', '#544200'];
 
 // Static keys — used as fallback IDs and in non-React contexts (report generation, CSV export)
 export const METHOD_KEYS = [

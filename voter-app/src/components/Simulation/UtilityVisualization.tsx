@@ -484,8 +484,8 @@ const UtilityVisualization: React.FC = () => {
                               }
                             />
                             <Legend />
-                            <Bar dataKey="averageUtility" name={t('simulation.utilityViz.avgUtilityLabel')} fill="#8884d8" />
-                            <Bar dataKey="voteShare" name={t('simulation.utilityViz.voteShareLabel')} fill="#82ca9d" />
+                            <Bar dataKey="averageUtility" name={t('simulation.utilityViz.avgUtilityLabel')} fill="#1a56cc" />
+                            <Bar dataKey="voteShare" name={t('simulation.utilityViz.voteShareLabel')} fill="#1b5e20" />
                           </BarChart>
                         </ResponsiveContainer>
                       </div>
@@ -582,7 +582,7 @@ const UtilityVisualization: React.FC = () => {
                               }
                             />
                             <Legend />
-                            <Bar dataKey="averageUtility" name={t('simulation.utilityViz.avgUtilityLabel')} fill="#8884d8" />
+                            <Bar dataKey="averageUtility" name={t('simulation.utilityViz.avgUtilityLabel')} fill="#1a56cc" />
                           </BarChart>
                         </ResponsiveContainer>
                       </div>
@@ -614,7 +614,7 @@ const UtilityVisualization: React.FC = () => {
                               cx="50%"
                               cy="50%"
                               outerRadius={80}
-                              fill="#8884d8"
+                              fill="#1a56cc"
                               label
                             >
                               {prepareVoterSegmentsData().map((_, index) => (

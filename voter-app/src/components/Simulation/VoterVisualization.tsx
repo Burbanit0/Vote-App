@@ -336,7 +336,7 @@ const VoterVisualization: React.FC = () => {
                     <YAxis />
                     <Tooltip />
                     <Legend />
-                    <Bar dataKey="count" fill="#8884d8" />
+                    <Bar dataKey="count" fill="#1a56cc" />
                   </BarChart>
                 </ResponsiveContainer>
               </div>
@@ -360,7 +360,7 @@ const VoterVisualization: React.FC = () => {
                       cx="50%"
                       cy="50%"
                       outerRadius={80}
-                      fill="#8884d8"
+                      fill="#1a56cc"
                       label
                     >
                       {genderData().map((_, index) => (
@@ -394,7 +394,7 @@ const VoterVisualization: React.FC = () => {
                       cx="50%"
                       cy="50%"
                       outerRadius={80}
-                      fill="#8884d8"
+                      fill="#1a56cc"
                       label
                     >
                       {regionData().map((_, index) => (
@@ -426,7 +426,7 @@ const VoterVisualization: React.FC = () => {
                       cx="50%"
                       cy="50%"
                       outerRadius={80}
-                      fill="#8884d8"
+                      fill="#1a56cc"
                       label
                     >
                       {incomeData().map((_, index) => (
@@ -481,7 +481,7 @@ const VoterVisualization: React.FC = () => {
                       cx="50%"
                       cy="50%"
                       outerRadius={80}
-                      fill="#8884d8"
+                      fill="#1a56cc"
                       label
                     >
                       {partyData().map((_, index) => (
@@ -514,7 +514,7 @@ const VoterVisualization: React.FC = () => {
                       cx="50%"
                       cy="50%"
                       outerRadius={80}
-                      fill="#8884d8"
+                      fill="#1a56cc"
                       label
                     >
                       {educationData().map((_, index) => (
@@ -677,7 +677,7 @@ const VoterVisualization: React.FC = () => {
                       }
                     />
                     <Legend />
-                    <Bar dataKey="count" fill="#8884d8">
+                    <Bar dataKey="count" fill="#1a56cc">
                       {employmentFamilyData.map((_, index) => (
                         <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
                       ))}
@@ -711,7 +711,7 @@ const VoterVisualization: React.FC = () => {
                       }
                     />
                     <Legend />
-                    <Bar dataKey="count" fill="#82ca9d" name="Count">
+                    <Bar dataKey="count" fill="#1b5e20" name="Count">
                       {ethnicityReligionData.map((_, index) => (
                         <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
                       ))}

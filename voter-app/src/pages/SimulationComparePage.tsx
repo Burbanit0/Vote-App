@@ -616,8 +616,8 @@ const SimulationComparePage: React.FC = () => {
           <Card.Body>
             <Row className="g-3 align-items-end mb-3">
               <Col md={4}>
-                <Form.Label>{t('simulation.simulationsLabel')} <strong>{numSimulations}</strong></Form.Label>
-                <Form.Range min={5} max={20} value={numSimulations} onChange={(e) => setNumSimulations(Number(e.target.value))} />
+                <Form.Label htmlFor="sim-count-slider">{t('simulation.simulationsLabel')} <strong>{numSimulations}</strong></Form.Label>
+                <Form.Range id="sim-count-slider" min={5} max={20} value={numSimulations} onChange={(e) => setNumSimulations(Number(e.target.value))} aria-valuemin={5} aria-valuemax={20} aria-valuenow={numSimulations} />
               </Col>
               <Col md={2}>
                 <Button variant="primary" className="w-100" onClick={runAnalysis} disabled={loading}>
@@ -629,8 +629,8 @@ const SimulationComparePage: React.FC = () => {
               <ScenarioConfigRow config={configA} onChange={(p) => setConfigA((c) => ({ ...c, ...p }))} />
             ) : (
               <Row className="g-3">
-                <Col md={6}><ScenarioConfigRow config={configA} onChange={(p) => setConfigA((c) => ({ ...c, ...p }))} label={t('simulation.scenarioA')} /></Col>
-                <Col md={6}><ScenarioConfigRow config={configB} onChange={(p) => setConfigB((c) => ({ ...c, ...p }))} label={t('simulation.scenarioB')} /></Col>
+                <Col md={6}><ScenarioConfigRow config={configA} onChange={(p) => setConfigA((c) => ({ ...c, ...p }))} label={t('simulation.scenarioA')} idPrefix="scenario-a" /></Col>
+                <Col md={6}><ScenarioConfigRow config={configB} onChange={(p) => setConfigB((c) => ({ ...c, ...p }))} label={t('simulation.scenarioB')} idPrefix="scenario-b" /></Col>
               </Row>
             )}
           </Card.Body>

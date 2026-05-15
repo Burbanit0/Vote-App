@@ -4,26 +4,28 @@ import { useIsMobile } from '../../hooks/useIsMobile';
 
 const STYLE_ID = 'responsive-table-styles';
 
-// ── Component ──────────────────────────────────────────────────────────────
-
 interface Props {
   children: React.ReactNode;
   className?: string;
+  /** Accessible label for the table region (for screen readers navigating landmarks). */
+  'aria-label'?: string;
 }
 
 /**
  * Responsive table wrapper.
  *
- * - Horizontal scroll with touch-friendly momentum scrolling on iOS
- * - First column sticky (header + body + footer cells)
- * - Compact font/padding on mobile (< 768 px)
- * - "← Faites défiler →" hint shown when the table overflows its container
+ * Accessibility (WCAG 2.1 AA):
+ *   - The scroll container has role="region" + aria-label so screen-reader
+ *     users know they are entering a scrollable area.
+ *   - The "← Scroll →" overflow hint is aria-hidden (purely decorative).
+ *   - The inner wrapper has role="group" to avoid conflicting with the
+ *     semantic <table> element inside children.
  */
-const ResponsiveTable: React.FC<Props> = ({ children, className }) => {
+const ResponsiveTable: React.FC<Props> = ({ children, className, 'aria-label': ariaLabel }) => {
   const { t } = useTranslation();
   const containerRef = useRef<HTMLDivElement>(null);
-  const [showHint, setShowHint] = useState(false);
-  const isMobile = useIsMobile();
+  const [showHint, setShowHint]   = useState(false);
+  const isMobile                  = useIsMobile();
 
   useEffect(() => {
     if (!document.getElementById(STYLE_ID)) {
@@ -55,7 +57,6 @@ const ResponsiveTable: React.FC<Props> = ({ children, className }) => {
     const check = () => setShowHint(el.scrollWidth > el.clientWidth + 4);
     check();
 
-    // Re-check when content or viewport size changes
     const ro = typeof ResizeObserver !== 'undefined'
       ? new ResizeObserver(check)
       : null;
@@ -68,10 +69,13 @@ const ResponsiveTable: React.FC<Props> = ({ children, className }) => {
     <>
       <div
         ref={containerRef}
+        role="region"
+        aria-label={ariaLabel ?? t('common.tableRegionLabel', { defaultValue: 'Data table' })}
+        tabIndex={0}
         className={className}
         style={{
           overflowX: 'auto',
-          WebkitOverflowScrolling: 'touch' as any,
+          WebkitOverflowScrolling: 'touch' as React.CSSProperties['WebkitOverflowScrolling'],
           position: 'relative',
         }}
       >
