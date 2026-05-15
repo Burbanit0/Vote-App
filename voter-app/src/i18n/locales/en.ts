@@ -9,6 +9,7 @@ const en: TranslationKeys = {
     whatIf: 'What if…',
     campaign: 'Campaign',
     blankContagion: 'Contagion',
+    regimesInternationaux: 'Global Regimes',
     expert: 'Expert',
     beginner: 'Beginner',
     expertTip: 'Switch to beginner mode (5 tabs, 5 methods)',
