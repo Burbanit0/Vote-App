@@ -7,9 +7,11 @@ Used by the /what-if frontend page.
 """
 from __future__ import annotations
 
-from flask import Blueprint, jsonify, request
+from typing import Any, Dict
 
-from app.utils.simulation_voting_utils import create_voter, create_candidate
+from flask import Blueprint, jsonify, request, Response
+
+from app.utils.simulation_voting_utils import Voter, create_voter, create_candidate
 from app.utils.simulation_metrics import compare_all_methods
 from app.constants import DEFAULT_ISSUES
 
@@ -17,7 +19,7 @@ whatif_bp = Blueprint("simulation_whatif", __name__, url_prefix="/simulations")
 
 # ── Supported variant parameters ───────────────────────────────────────────
 
-_VARIANT_PARAMS: dict[str, dict] = {
+_VARIANT_PARAMS: dict[str, dict[str, Any]] = {
     "num_voters":    {"min": 100,  "max": 10_000, "cast": lambda v: max(10, min(10_000, int(v)))},
     "num_candidates":{"min": 2,    "max": 8,      "cast": lambda v: max(2, min(8, int(v)))},
     "blank_pct":     {"min": 0.0,  "max": 0.5,    "cast": lambda v: max(0.0, min(0.5, float(v)))},
@@ -46,7 +48,7 @@ def _build_what_if_population(
     num_candidates: int,
     ideology_dist: str,
     blank_pct: float,
-) -> tuple[list, list, list]:
+) -> tuple[list[Voter], list[Dict[str, Any]], list[str]]:
     """
     Create voters and candidates for one what-if simulation run.
     When blank_pct > 0, the first round(num_voters * blank_pct) voters
@@ -77,7 +79,7 @@ def _build_what_if_population(
 
 
 @whatif_bp.route("/what-if", methods=["POST"])
-def what_if() -> tuple:
+def what_if() -> tuple[Response, int]:
     """
     Compare winners across methods while varying a single parameter.
 
@@ -166,7 +168,7 @@ def what_if() -> tuple:
             })
             continue
 
-        methods_out: dict = {}
+        methods_out: dict[str, dict[str, Any]] = {}
         for method_key, md in sim.get("methods", {}).items():
             winner  = md.get("winner")
             # majority_satisfaction ∈ [0, 1]: fraction of voters who
