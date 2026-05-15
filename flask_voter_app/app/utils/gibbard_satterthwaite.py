@@ -42,7 +42,7 @@ def _get_ranked_method(method_name: str) -> Optional[Callable[..., Optional[str]
         get_positional_score_winner,
     )
 
-    _RANKED_METHODS: dict[str, Callable] = {
+    _RANKED_METHODS: dict[str, Callable[..., Any]] = {
         "plurality":        get_plurality_winner,
         "borda":            get_borda_winner,
         "irv":              get_irv_winner,
