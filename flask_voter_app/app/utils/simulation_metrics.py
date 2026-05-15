@@ -22,6 +22,7 @@ from .simulation_score_utils import (
     get_mean_median_hybrid_winner,
     get_variance_based_winner,
 )
+from .quadratic_voting import apply_quadratic_voting
 
 # Maximum number of voters sampled when computing strategic_vulnerability.
 # Kept low because each call reruns the full election for every permutation.
@@ -296,6 +297,23 @@ def compare_all_methods(
         raw = fn(score_votes)
         winner = raw.get("winner") if isinstance(raw, dict) else raw
         methods_result[name] = _build_metrics_score(fn, winner)
+
+    # ── Quadratic Voting — uses raw float utilities, not 0-5 scaled ──────────
+    qv_utilities: List[Dict[str, float]] = [
+        dict(utilities[v["id"]]) for v in voters
+    ]
+    qv_result = apply_quadratic_voting(qv_utilities, budget=100)
+    qv_winner: Optional[str] = qv_result.get("winner")
+    methods_result["quadratic"] = {
+        "winner":                qv_winner,
+        "bayesian_regret":       _bayesian_regret(qv_winner),
+        "condorcet_consistent":  _condorcet_consistent(qv_winner),
+        "majority_satisfaction": _majority_satisfaction(qv_winner),
+        "strategic_vulnerability": None,   # QV strategic behaviour is complex
+        "qv_scores":             qv_result.get("scores"),
+        "qv_credits_used":       qv_result.get("total_credits_used"),
+        "qv_credit_distribution": qv_result.get("credit_distribution"),
+    }
 
     output: Dict[str, Any] = {
         "condorcet_winner": condorcet_winner,

@@ -9,6 +9,7 @@ export const METHOD_KEYS = [
   'plurality', 'two_round', 'borda', 'approval', 'irv', 'coombs', 'bucklin',
   'minimax', 'schulze', 'kemeny_young', 'condorcet', 'positional_score',
   'simple_score', 'star_voting', 'median_voting', 'mean_median_hybrid', 'variance_based',
+  'quadratic',
 ] as const;
 
 // Fallback labels used in non-React contexts (report HTML, CSV, buildConclusion)
@@ -30,6 +31,7 @@ export const METHOD_LABELS: Record<string, string> = {
   median_voting:      'Median score',
   mean_median_hybrid: 'Mean-Median',
   variance_based:     'Variance-based',
+  quadratic:          'Quadratic Vote',
 };
 
 export const METHOD_LINE_COLORS: Record<string, string> = {
@@ -48,6 +50,7 @@ export const METHOD_LINE_COLORS: Record<string, string> = {
   median_voting: '#499894',
   mean_median_hybrid: '#f1ce63',
   variance_based: '#d37295',
+  quadratic:      '#7c3aed',
 };
 
 export const STRATEGIC_PERCENTAGES = [0, 10, 20, 30, 40, 50];
@@ -108,6 +111,11 @@ export const METHOD_DESCRIPTIONS: Record<string, string> = {
     '50 % mean + 50 % median composite score. Balances expressivity and resistance to strategic manipulation.',
   variance_based:
     'Score = mean − 0.5 × std_dev. Penalises polarising candidates who score high with some voters but low with others, favouring consistent broad support.',
+  quadratic:
+    'Each voter has a fixed credit budget (100). Casting v votes for a candidate costs v² credits. ' +
+    'The optimal allocation is votes[c] ∝ √budget × utility[c] / Σutility. ' +
+    'This exponential cost makes extreme preferences expensive, reducing the "tyranny of the majority" ' +
+    'while allowing voters to express intensity. Proposed by Lalley & Weyl (2018) and popularised in "Radical Markets" (Posner & Weyl, 2018).',
 };
 
 // Keep static pros/cons as English fallbacks for non-React contexts
@@ -129,6 +137,7 @@ export const METHOD_PROS: Record<string, string> = {
   median_voting:      'Resistant to exaggeration — one extreme voter cannot shift the median as easily.',
   mean_median_hybrid: 'Balances the expressivity of the mean and robustness of the median (50/50).',
   variance_based:     'Penalises polarising candidates — favours broad and consistent support.',
+  quadratic:          'Expresses preference intensity — voters allocate more credits to their strongly-felt choices, reducing majority tyranny.',
 };
 
 export const METHOD_CONS: Record<string, string> = {
@@ -149,6 +158,7 @@ export const METHOD_CONS: Record<string, string> = {
   median_voting:      'Can elect a candidate with a high median but few enthusiastic supporters.',
   mean_median_hybrid: 'The 50/50 weighting is arbitrary and hard to justify democratically.',
   variance_based:     'Counter-intuitive: a passionately loved candidate can be penalised.',
+  quadratic:          'If credits can be purchased with money, wealthy voters gain disproportionate influence — equal budgets are essential.',
 };
 
 export const IDEOLOGY_OPTIONS = [
