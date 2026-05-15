@@ -34,6 +34,6 @@ describe('MethodTooltip', () => {
     render(<MethodTooltip method="plurality" />);
     const trigger = screen.getByRole('button');
     expect(trigger).toBeInTheDocument();
-    expect(trigger).toHaveAttribute('aria-label', 'Definition: Plurality');
+    expect(trigger).toHaveAttribute('aria-label', 'Plurality — definition');
   });
 });

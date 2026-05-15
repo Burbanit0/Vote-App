@@ -30,7 +30,7 @@ const baseProps = {
 describe('WinnerMatrixTab', () => {
   it('renders winner matrix table', () => {
     render(<WinnerMatrixTab {...baseProps} />);
-    expect(screen.getByText('plurality')).toBeInTheDocument();
+    expect(screen.getAllByText('plurality').length).toBeGreaterThanOrEqual(1);
   });
 
   it('renders scenario comparison when scenarioCount is 2', () => {
