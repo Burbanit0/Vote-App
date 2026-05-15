@@ -6,6 +6,7 @@ import CondorcetMatrix from '../components/Simulation/CondorcetMatrix';
 import ArrowCriteriaMatrix from '../components/Simulation/ArrowCriteriaMatrix';
 import BandwagonAnalysis from '../components/Simulation/BandwagonAnalysis';
 import ManipulabilityChart from '../components/Simulation/ManipulabilityChart';
+import InformationModelPanel from '../components/Simulation/InformationModelPanel';
 import MultiwinnerAnalysis from '../components/Simulation/MultiwinnerAnalysis';
 import MonteCarloResults from '../components/Simulation/MonteCarloResults';
 import WinnerMatrixTab from '../components/Simulation/WinnerMatrixTab';
@@ -34,7 +35,9 @@ import {
   getCondorcetMatrix,
   runComparisonSimulation,
   runStrategicImpactAnalysis,
+  InformationModelConfig,
 } from '../services/simulationCompareApi';
+import { InformationModelResult } from '../types';
 import { deleteScenario, listScenarios, saveScenario } from '../services/scenariosApi';
 import { buildShareURL, copyShareURL, decodeShareConfig, encodeShareConfig, readShareParam } from '../utils/shareUtils';
 import { useExpertMode } from '../context/ExpertModeContext';
@@ -47,7 +50,7 @@ import { useMethodLabels } from '../components/Simulation/simulationConstants';
 const TAB_ORDER = [
   'winners', 'metrics', 'strategic', 'condorcet', 'arrow',
   'bandwagon', 'montecarlo', 'real-elections', 'multiwinner', 'sensitivity',
-  'manipulability',
+  'manipulability', 'advanced',
 ];
 
 const BEGINNER_TABS = ['winners', 'metrics', 'strategic', 'real-elections', 'montecarlo', 'manipulability'];
@@ -247,6 +250,7 @@ const SimulationComparePage: React.FC = () => {
     multiwinner:      t('simulation.tabs.multiwinner'),
     sensitivity:      t('simulation.tabs.sensitivity'),
     manipulability:   t('simulation.tabs.manipulability'),
+    advanced:         t('simulation.tabs.advanced'),
   };
 
   // ── Scenario config ──
@@ -272,6 +276,14 @@ const SimulationComparePage: React.FC = () => {
   const [loading, setLoading] = useState(false);
   const toast = useToast();
   const { expertMode, setExpertMode } = useExpertMode();
+
+  // ── Information model state ──
+  const [infoModel, setInfoModel] = useState<InformationModelConfig>({
+    enabled: false,
+    media_bias: {},
+    voter_segments: { low_info: 0.3, medium_info: 0.5, high_info: 0.2 },
+  });
+  const [infoResult, setInfoResult] = useState<InformationModelResult | undefined>(undefined);
 
   // ── Save / Load modal state ──
   const [showSaveModal, setShowSaveModal] = useState(false);
@@ -349,7 +361,12 @@ const SimulationComparePage: React.FC = () => {
     if (scenarioCount === 2 && candidateNamesB.length < 2) { toast.error(t('simulation.errMinCandB')); return; }
     setLoading(true);
     try {
-      const paramsA = { num_voters: configA.numVoters, candidates: candidateNamesA, ideology_distribution: configA.ideology_distribution };
+      const paramsA = {
+        num_voters: configA.numVoters,
+        candidates: candidateNamesA,
+        ideology_distribution: configA.ideology_distribution,
+        ...(infoModel.enabled ? { information_model: infoModel } : {}),
+      };
       const [simResultsA, strategicResults, condorcetResult, arrowResult, simResultsB] = await Promise.all([
         Promise.all(Array.from({ length: numSimulations }, () => runComparisonSimulation(paramsA))),
         runStrategicImpactAnalysis({ ...paramsA, strategic_percentages: STRATEGIC_PERCENTAGES }),
@@ -363,6 +380,12 @@ const SimulationComparePage: React.FC = () => {
       setStrategicData(strategicResults);
       setCondorcetData(condorcetResult);
       setArrowData(arrowResult);
+      // Capture information model result from first simulation run
+      if (infoModel.enabled && simResultsA.length > 0) {
+        setInfoResult(simResultsA[0].information_model);
+      } else {
+        setInfoResult(undefined);
+      }
       setResultsB(simResultsB);
     } catch {
       toast.error(t('simulation.errBackend'));
@@ -751,6 +774,39 @@ const SimulationComparePage: React.FC = () => {
                 }}
               />
             </Tab>
+            {/* ── Advanced / Information Model tab (expert only) ── */}
+            {visibleTabs.includes('advanced') && (
+              <Tab eventKey="advanced" title={
+                <span>
+                  {t('simulation.tabs.advanced')}{' '}
+                  <OverlayTrigger
+                    trigger={['hover','focus']}
+                    placement="bottom"
+                    overlay={<Tooltip id="tip-tab-advanced">{t('simulation.tabTips.advanced')}</Tooltip>}
+                  >
+                    <span tabIndex={0} onClick={(e) => e.stopPropagation()} style={{ fontSize: '0.75em', color: '#6c757d', cursor: 'help' }}>ⓘ</span>
+                  </OverlayTrigger>
+                </span>
+              }>
+                <Card className="mb-3">
+                  <Card.Header><strong>🧪 Modèle d'information asymétrique</strong></Card.Header>
+                  <Card.Body>
+                    <InformationModelPanel
+                      candidateNames={candidateNamesA}
+                      config={infoModel}
+                      onChange={setInfoModel}
+                      result={infoResult}
+                    />
+                    {!infoResult && infoModel.enabled && (
+                      <Alert variant="info" className="mt-3 mb-0 py-2" style={{ fontSize: '0.85rem' }}>
+                        Cliquez sur <strong>Lancer l'analyse</strong> pour exécuter la simulation
+                        avec le modèle d'information activé.
+                      </Alert>
+                    )}
+                  </Card.Body>
+                </Card>
+              </Tab>
+            )}
           </Tabs>
         )}
 
