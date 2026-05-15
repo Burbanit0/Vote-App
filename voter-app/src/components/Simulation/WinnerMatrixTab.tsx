@@ -1,4 +1,4 @@
-import React, { useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { Alert, Badge, Button, Card, Col, Modal, Row, Table } from 'react-bootstrap';
 import { SimulationCompareResult } from '../../types';
 import {
@@ -9,6 +9,12 @@ import {
 } from './simulationConstants';
 import MethodTooltip from '../shared/MethodTooltip';
 import ResponsiveTable from '../shared/ResponsiveTable';
+import AnimatedVoteCount, {
+  generateDemoBallots,
+  VoteMethod,
+} from '../pedagogy/AnimatedVoteCount';
+import { useExpertMode } from '../../context/ExpertModeContext';
+import { CANDIDATE_PALETTE } from './simulationConstants';
 import { useTranslation } from 'react-i18next';
 
 const WINNER_BADGE_STYLE: React.CSSProperties = {
@@ -20,6 +26,25 @@ const WINNER_BADGE_STYLE: React.CSSProperties = {
   verticalAlign: 'middle',
 };
 
+// Methods we can animate (others shown as simplified in AnimatedVoteCount)
+const ANIMATABLE_METHODS = new Set<VoteMethod>([
+  'plurality', 'borda', 'irv', 'two-round', 'approval', 'schulze', 'star',
+]);
+
+function toVoteMethod(key: string): VoteMethod | null {
+  // Map backend method keys to VoteMethod literals
+  const map: Record<string, VoteMethod> = {
+    plurality:   'plurality',
+    borda:       'borda',
+    irv:         'irv',
+    two_round:   'two-round',
+    approval:    'approval',
+    schulze:     'schulze',
+    star_voting: 'star',
+  };
+  return map[key] ?? null;
+}
+
 // ── WinnerMatrixTable ───────────────────────────────────────────────────────
 
 interface TableProps {
@@ -28,54 +53,84 @@ interface TableProps {
   colorMap: Record<string, string>;
   label?: string;
   onCellClick?: (methodKey: string, simIndex: number) => void;
+  onAnimateClick?: (methodKey: string) => void;
 }
 
-const WinnerMatrixTable: React.FC<TableProps> = ({ results, allMethodNames, colorMap, label, onCellClick }) => {
+const WinnerMatrixTable: React.FC<TableProps> = ({
+  results, allMethodNames, colorMap, label, onCellClick, onAnimateClick,
+}) => {
   const { t } = useTranslation();
   return (
     <ResponsiveTable>
-    {label && (
-      <p className="fw-semibold text-center mb-2" style={{ fontSize: '0.9rem' }}>{label}</p>
-    )}
-    <Table bordered hover size="sm" style={{ minWidth: 500 }}>
-      <thead className="table-light">
-        <tr>
-          <th style={{ minWidth: 130 }}>{t('common.method')}</th>
-          {results.map((_, i) => (
-            <th key={i} className="text-center" style={{ minWidth: 72 }}>#{i + 1}</th>
-          ))}
-        </tr>
-      </thead>
-      <tbody>
-        {allMethodNames.map((method) => (
-          <tr key={method}>
-            <td><strong><MethodTooltip method={method} /></strong></td>
-            {results.map((r, i) => {
-              const winner = r.methods[method]?.winner;
-              const notCondorcet = r.condorcet_winner && r.methods[method]?.condorcet_consistent === false;
-              return (
-                <td
-                  key={i}
-                  className="text-center"
-                  style={onCellClick ? { cursor: 'pointer' } : undefined}
-                  onClick={onCellClick ? () => onCellClick(method, i) : undefined}
-                  title={onCellClick ? t('simulation.clickForDetails') : undefined}
-                >
-                  {winner ? (
-                    <Badge style={{ backgroundColor: colorMap[winner] ?? '#999', fontSize: '0.72rem', ...WINNER_BADGE_STYLE }}>
-                      {winner}{notCondorcet ? ' *' : ''}
-                    </Badge>
-                  ) : (
-                    <span className="text-muted">—</span>
-                  )}
-                </td>
-              );
-            })}
+      {label && (
+        <p className="fw-semibold text-center mb-2" style={{ fontSize: '0.9rem' }}>{label}</p>
+      )}
+      <Table bordered hover size="sm" style={{ minWidth: 500 }}>
+        <thead className="table-light">
+          <tr>
+            <th style={{ minWidth: 160 }}>{t('common.method')}</th>
+            {results.map((_, i) => (
+              <th key={i} className="text-center" style={{ minWidth: 72 }}>#{i + 1}</th>
+            ))}
           </tr>
-        ))}
-      </tbody>
-    </Table>
-  </ResponsiveTable>
+        </thead>
+        <tbody>
+          {allMethodNames.map((method) => {
+            const voteMethod = toVoteMethod(method);
+            const canAnimate = voteMethod && ANIMATABLE_METHODS.has(voteMethod);
+            return (
+              <tr key={method}>
+                <td>
+                  <div className="d-flex align-items-center gap-1 flex-wrap">
+                    <strong><MethodTooltip method={method} /></strong>
+                    {canAnimate && onAnimateClick && (
+                      <Button
+                        variant="link"
+                        size="sm"
+                        className="p-0 text-primary"
+                        style={{ fontSize: '0.7rem', textDecoration: 'none', whiteSpace: 'nowrap' }}
+                        onClick={() => onAnimateClick(method)}
+                        title="Voir le décompte animé"
+                        aria-label={`Voir le décompte animé pour ${method}`}
+                      >
+                        🎬 Animer
+                      </Button>
+                    )}
+                  </div>
+                </td>
+                {results.map((r, i) => {
+                  const winner = r.methods[method]?.winner;
+                  const notCondorcet = r.condorcet_winner && r.methods[method]?.condorcet_consistent === false;
+                  return (
+                    <td
+                      key={i}
+                      className="text-center"
+                      style={onCellClick ? { cursor: 'pointer' } : undefined}
+                      onClick={onCellClick ? () => onCellClick(method, i) : undefined}
+                      title={onCellClick ? t('simulation.clickForDetails') : undefined}
+                    >
+                      {winner ? (
+                        <Badge
+                          style={{
+                            backgroundColor: colorMap[winner] ?? '#999',
+                            fontSize: '0.72rem',
+                            ...WINNER_BADGE_STYLE,
+                          }}
+                        >
+                          {winner}{notCondorcet ? ' *' : ''}
+                        </Badge>
+                      ) : (
+                        <span className="text-muted">—</span>
+                      )}
+                    </td>
+                  );
+                })}
+              </tr>
+            );
+          })}
+        </tbody>
+      </Table>
+    </ResponsiveTable>
   );
 };
 
@@ -96,9 +151,50 @@ const WinnerMatrixTab: React.FC<Props> = ({
   comparisonResults, resultsB, allMethodNames, candidateColorMap,
   configA, configB, numSimulations, scenarioCount,
 }) => {
-  const { t } = useTranslation();
+  const { t }                           = useTranslation();
+  const { expertMode }                  = useExpertMode();
   const [drilldownTarget, setDrilldownTarget] = useState<{ methodKey: string; simIndex: number } | null>(null);
+  const [animateMethod, setAnimateMethod]     = useState<string | null>(null);
 
+  // ── Auto-open Plurality animation in beginner mode ────────────────────────
+  const hasAutoOpened = useRef(false);
+  useEffect(() => {
+    if (
+      !expertMode &&
+      comparisonResults.length > 0 &&
+      !hasAutoOpened.current &&
+      allMethodNames.includes('plurality')
+    ) {
+      hasAutoOpened.current = true;
+      setAnimateMethod('plurality');
+    }
+  }, [comparisonResults.length, expertMode, allMethodNames]);
+
+  // ── Build animation props from the first simulation result ────────────────
+  const animProps = useMemo(() => {
+    if (!animateMethod || !comparisonResults.length) return null;
+
+    const voteMethod = toVoteMethod(animateMethod);
+    if (!voteMethod) return null;
+
+    const firstResult = comparisonResults[0];
+    const winner      = firstResult?.methods[animateMethod]?.winner ?? '';
+    const candidateNames = configA.candidateInput
+      .split(',')
+      .map((s) => s.trim())
+      .filter(Boolean);
+
+    const candidates = candidateNames.map((name, i) => ({
+      name,
+      color: candidateColorMap[name] ?? CANDIDATE_PALETTE[i % CANDIDATE_PALETTE.length],
+    }));
+
+    const ballots = generateDemoBallots(candidateNames, winner);
+
+    return { voteMethod, candidates, ballots };
+  }, [animateMethod, comparisonResults, configA.candidateInput, candidateColorMap]);
+
+  // ── Helpers ───────────────────────────────────────────────────────────────
   const diffData = useMemo(() => {
     if (!resultsB || !allMethodNames.length) return [];
     return allMethodNames
@@ -113,7 +209,6 @@ const WinnerMatrixTab: React.FC<Props> = ({
   const labelA = `${t('simulation.scenarioA')} — ${configA.candidateInput} (${IDEOLOGY_OPTIONS.find((o) => o.value === configA.ideology_distribution)?.labelKey ?? configA.ideology_distribution})`;
   const labelB = `${t('simulation.scenarioB')} — ${configB.candidateInput} (${IDEOLOGY_OPTIONS.find((o) => o.value === configB.ideology_distribution)?.labelKey ?? configB.ideology_distribution})`;
 
-  // Colour legend
   const legend = (
     <div className="mb-3 d-flex gap-3 flex-wrap align-items-center">
       {Object.entries(candidateColorMap).map(([name, color]) => (
@@ -123,7 +218,7 @@ const WinnerMatrixTab: React.FC<Props> = ({
         </span>
       ))}
       {comparisonResults.some((r) =>
-        Object.values(r.methods).some((m) => m.condorcet_consistent === false)
+        Object.values(r.methods).some((m) => m.condorcet_consistent === false),
       ) && <small className="text-muted">{t('simulation.notCondorcet')}</small>}
     </div>
   );
@@ -140,6 +235,7 @@ const WinnerMatrixTab: React.FC<Props> = ({
                 results={comparisonResults} allMethodNames={allMethodNames}
                 colorMap={candidateColorMap} label={labelA}
                 onCellClick={(m, i) => setDrilldownTarget({ methodKey: m, simIndex: i })}
+                onAnimateClick={(m) => setAnimateMethod(m)}
               />
             </Col>
             <Col md={6}>
@@ -159,41 +255,41 @@ const WinnerMatrixTab: React.FC<Props> = ({
             </Card.Header>
             <Card.Body className="p-0">
               <ResponsiveTable>
-              <Table bordered size="sm" className="mb-0">
-                <thead className="table-light">
-                  <tr>
-                    <th style={{ minWidth: 140 }}>{t('common.method')}</th>
-                    <th className="text-center">{t('simulation.winnerScenarioA')}</th>
-                    <th className="text-center">{t('simulation.winnerScenarioB')}</th>
-                    <th className="text-center" style={{ width: 60 }}></th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {diffData.map(({ method, winnerA, winnerB }) => {
-                    const differs = winnerA !== winnerB;
-                    return (
-                      <tr key={method} style={differs ? { backgroundColor: '#fff8e1' } : undefined}>
-                        <td><strong><MethodTooltip method={method} /></strong></td>
-                        <td className="text-center">
-                          {winnerA ? (
-                            <Badge style={{ backgroundColor: candidateColorMap[winnerA] ?? '#999', ...WINNER_BADGE_STYLE }}>{winnerA}</Badge>
-                          ) : <span className="text-muted">—</span>}
-                        </td>
-                        <td className="text-center">
-                          {winnerB ? (
-                            <Badge style={{ backgroundColor: candidateColorMap[winnerB] ?? '#999', ...WINNER_BADGE_STYLE }}>{winnerB}</Badge>
-                          ) : <span className="text-muted">—</span>}
-                        </td>
-                        <td className="text-center fw-bold" style={{ fontSize: '1.1rem' }}>
-                          {differs
-                            ? <span style={{ color: '#dc3545' }}>✗</span>
-                            : <span style={{ color: '#198754' }}>✓</span>}
-                        </td>
-                      </tr>
-                    );
-                  })}
-                </tbody>
-              </Table>
+                <Table bordered size="sm" className="mb-0">
+                  <thead className="table-light">
+                    <tr>
+                      <th style={{ minWidth: 140 }}>{t('common.method')}</th>
+                      <th className="text-center">{t('simulation.winnerScenarioA')}</th>
+                      <th className="text-center">{t('simulation.winnerScenarioB')}</th>
+                      <th className="text-center" style={{ width: 60 }}></th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {diffData.map(({ method, winnerA, winnerB }) => {
+                      const differs = winnerA !== winnerB;
+                      return (
+                        <tr key={method} style={differs ? { backgroundColor: '#fff8e1' } : undefined}>
+                          <td><strong><MethodTooltip method={method} /></strong></td>
+                          <td className="text-center">
+                            {winnerA ? (
+                              <Badge style={{ backgroundColor: candidateColorMap[winnerA] ?? '#999', ...WINNER_BADGE_STYLE }}>{winnerA}</Badge>
+                            ) : <span className="text-muted">—</span>}
+                          </td>
+                          <td className="text-center">
+                            {winnerB ? (
+                              <Badge style={{ backgroundColor: candidateColorMap[winnerB] ?? '#999', ...WINNER_BADGE_STYLE }}>{winnerB}</Badge>
+                            ) : <span className="text-muted">—</span>}
+                          </td>
+                          <td className="text-center fw-bold" style={{ fontSize: '1.1rem' }}>
+                            {differs
+                              ? <span style={{ color: '#dc3545' }}>✗</span>
+                              : <span style={{ color: '#198754' }}>✓</span>}
+                          </td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </Table>
               </ResponsiveTable>
             </Card.Body>
           </Card>
@@ -205,6 +301,7 @@ const WinnerMatrixTab: React.FC<Props> = ({
               results={comparisonResults} allMethodNames={allMethodNames}
               colorMap={candidateColorMap}
               onCellClick={(m, i) => setDrilldownTarget({ methodKey: m, simIndex: i })}
+              onAnimateClick={(m) => setAnimateMethod(m)}
             />
             <small className="text-muted d-block mt-2">
               {t('simulation.clickCellHint')}
@@ -213,7 +310,7 @@ const WinnerMatrixTab: React.FC<Props> = ({
         </Card>
       )}
 
-      {/* Drill-down modal */}
+      {/* ── Drill-down modal ─────────────────────────────────────────────── */}
       {drilldownTarget && (() => {
         const { methodKey, simIndex } = drilldownTarget;
         const r = comparisonResults[simIndex];
@@ -258,23 +355,23 @@ const WinnerMatrixTab: React.FC<Props> = ({
               </Table>
 
               {r.condorcet_winner ? (
-                  m.condorcet_consistent ? (
-                    <Alert variant="success" className="py-2 mb-3">{t('simulation.electedCondorcet')}</Alert>
-                  ) : (
-                    <Alert variant="warning" className="py-2 mb-3">
-                      {t('simulation.condorcetWas')}
-                      <strong>
-                        <Badge style={{ backgroundColor: candidateColorMap[r.condorcet_winner] ?? '#999' }}>
-                          {r.condorcet_winner}
-                        </Badge>
-                      </strong>
-                    </Alert>
-                  )
+                m.condorcet_consistent ? (
+                  <Alert variant="success" className="py-2 mb-3">{t('simulation.electedCondorcet')}</Alert>
                 ) : (
-                  <Alert variant="secondary" className="py-2 mb-3">
-                    {t('simulation.noCondorcetWinner')}
+                  <Alert variant="warning" className="py-2 mb-3">
+                    {t('simulation.condorcetWas')}
+                    <strong>
+                      <Badge style={{ backgroundColor: candidateColorMap[r.condorcet_winner] ?? '#999' }}>
+                        {r.condorcet_winner}
+                      </Badge>
+                    </strong>
                   </Alert>
-                )}
+                )
+              ) : (
+                <Alert variant="secondary" className="py-2 mb-3">
+                  {t('simulation.noCondorcetWinner')}
+                </Alert>
+              )}
 
               <p className="text-muted small mb-0" style={{ lineHeight: 1.6 }}>
                 <strong><MethodTooltip method={methodKey} />: </strong>
@@ -282,11 +379,58 @@ const WinnerMatrixTab: React.FC<Props> = ({
               </p>
             </Modal.Body>
             <Modal.Footer>
+              {toVoteMethod(methodKey) && (
+                <Button
+                  variant="outline-primary"
+                  onClick={() => {
+                    setDrilldownTarget(null);
+                    setAnimateMethod(methodKey);
+                  }}
+                >
+                  🎬 Voir le décompte animé
+                </Button>
+              )}
               <Button variant="secondary" onClick={() => setDrilldownTarget(null)}>{t('common.close')}</Button>
             </Modal.Footer>
           </Modal>
         );
       })()}
+
+      {/* ── AnimatedVoteCount modal ──────────────────────────────────────── */}
+      {animateMethod && animProps && (
+        <Modal
+          show
+          centered
+          size="lg"
+          onHide={() => setAnimateMethod(null)}
+          aria-label="Décompte animé des votes"
+        >
+          <Modal.Header closeButton>
+            <Modal.Title>
+              🎬 Décompte animé —{' '}
+              <MethodTooltip method={animateMethod} />
+            </Modal.Title>
+          </Modal.Header>
+          <Modal.Body>
+            <AnimatedVoteCount
+              method={animProps.voteMethod}
+              candidates={animProps.candidates}
+              ballots={animProps.ballots}
+              speed={expertMode ? 'normal' : 'slow'}
+            />
+            {!expertMode && (
+              <Alert variant="info" className="mt-3 py-2 mb-0" style={{ fontSize: '0.82rem' }}>
+                💡 <strong>Mode débutant</strong> — cette simulation utilise des bulletins
+                représentatifs générés pour illustrer le fonctionnement de la méthode.
+                Les vrais bulletins sont calculés côté serveur avec un modèle d'utilité spatial.
+              </Alert>
+            )}
+          </Modal.Body>
+          <Modal.Footer>
+            <Button variant="secondary" onClick={() => setAnimateMethod(null)}>{t('common.close')}</Button>
+          </Modal.Footer>
+        </Modal>
+      )}
     </>
   );
 };
