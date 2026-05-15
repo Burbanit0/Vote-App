@@ -20,6 +20,7 @@ const NAV_LINKS = [
   { href: '/campaign',             key: 'nav.campaign' },
   { href: '/blank-contagion',      key: 'nav.blankContagion' },
   { href: '/regimes-internationaux', key: 'nav.regimesInternationaux' },
+  { href: '/api-docs',               key: 'nav.apiDocs' },
 ];
 
 const LS_PASS = 'votelab_teacher_pass';
