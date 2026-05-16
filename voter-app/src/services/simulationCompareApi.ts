@@ -2,6 +2,7 @@ import axios from 'axios';
 import {
   ArrowCriteriaResult,
   BandwagonResult,
+  IdeologyMapResult,
   MonteCarloResult,
   MultiwinnerResult,
   RealElectionResult,
@@ -200,6 +201,31 @@ export const getMonteCarlo = async (
     return response.data;
   } catch (error) {
     console.error('Failed to run Monte Carlo simulation', error);
+    throw error;
+  }
+};
+
+export interface IdeologyMapParams {
+  num_voters: number;
+  candidates: { name: string; x: number; y: number }[];
+  ideology: string;
+  seed: number;
+  method_a: string;
+  method_b: string;
+}
+
+export const getIdeologyMap = async (
+  params: IdeologyMapParams
+): Promise<IdeologyMapResult> => {
+  try {
+    const response = await axios.post<IdeologyMapResult>(
+      `${API_BASE_URL}/simulations/ideology-map`,
+      params,
+      { headers: getAuthHeader() }
+    );
+    return response.data;
+  } catch (error) {
+    console.error('Failed to fetch ideology map', error);
     throw error;
   }
 };
