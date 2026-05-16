@@ -736,3 +736,204 @@ def campaign_sensitivity() -> tuple[Response, int]:
         "most_stable_method":  most_stable,
         "least_stable_method": least_stable,
     }), 200
+
+
+# ── Combined effects (2³ factorial) ──────────────────────────────────────────
+
+@election_bp.route("/combined-effects", methods=["POST"])
+def combined_effects() -> tuple[Response, int]:
+    """
+    POST /api/election/combined-effects
+
+    2×2×2 factorial analysis: runs the same electorate under all 8 combinations
+    of blank-vote / campaign / information-model ON-OFF to isolate and compare
+    each factor's contribution to method divergence.
+    """
+    import copy
+    from app.utils.simulation_ranked_utils import get_condorcet_winner
+
+    data = request.get_json() or {}
+
+    num_voters      = max(10, min(200, int(data.get("num_voters",  150))))
+    ideology        = str(data.get("ideology",   "random"))
+    seed            = int(data.get("seed",        42))
+    cand_specs      = data.get("candidates", [
+        {"name": "Alice", "x": -0.5, "y": -0.2},
+        {"name": "Bob",   "x":  0.5, "y":  0.2},
+        {"name": "Carol", "x":  0.0, "y":  0.3},
+    ])[:6]
+
+    blank_cfg       = data.get("blank_vote", {}) or {}
+    blank_rule_str  = str(blank_cfg.get("rule", "symbolic"))
+    contagion_cfg   = blank_cfg.get("contagion", {}) or {}
+    contagion_on    = bool(contagion_cfg.get("enabled", False))
+
+    info_cfg        = data.get("information_model", {}) or {}
+
+    campaign_cfg    = data.get("campaign", {}) or {}
+    num_days        = max(7,  min(60, int(campaign_cfg.get("num_days",        28))))
+    polling_effect  = max(0.0, min(1.0, float(campaign_cfg.get("polling_effect", 0.35))))
+
+    if len(cand_specs) < 2:
+        return jsonify({"error": "At least 2 candidates required"}), 400
+
+    try:
+        blank_rule = BlankVoteRule(blank_rule_str)
+    except ValueError:
+        blank_rule = BlankVoteRule.SYMBOLIC
+
+    _random.seed(seed)
+    _np.random.seed(seed)
+
+    issues = DEFAULT_ISSUES
+    candidates, voters, true_utilities, cand_names = _build_base_electorate(
+        cand_specs, num_voters, ideology, seed, issues
+    )
+
+    # ── Pre-compute campaign-adjusted utilities ────────────────────────────
+    camp       = simulate_campaign(
+        num_candidates=len(candidates),
+        num_voters=num_voters,
+        num_days=num_days,
+        events=[],
+        seed=seed,
+    )
+    camp_cands   = camp.get("candidates", [])
+    daily_scores = camp.get("daily_scores", {})
+    final_shares: Dict[str, float] = {}
+    for camp_idx, camp_name in enumerate(camp_cands):
+        if camp_idx < len(cand_names):
+            shares_list = daily_scores.get(camp_name, [50.0])
+            final_shares[cand_names[camp_idx]] = shares_list[-1] / 100.0
+
+    campaign_utilities: Dict[Any, Dict[str, float]] = {}
+    for v in voters:
+        campaign_utilities[v["id"]] = {}
+        for c_name in cand_names:
+            share   = final_shares.get(c_name, 1.0 / len(cand_names))
+            u       = true_utilities[v["id"]][c_name]
+            blended = u * (1.0 - polling_effect * 0.4) + share * (polling_effect * 0.4)
+            campaign_utilities[v["id"]][c_name] = max(0.0, min(1.0, blended))
+
+    # ── Pre-compute information-adjusted utilities ─────────────────────────
+    raw_bias   = info_cfg.get("media_bias", {}) or {}
+    media_bias = {
+        str(i): float(raw_bias.get(c["name"], 0.0))
+        for i, c in enumerate(candidates)
+    }
+    vseg = info_cfg.get("voter_segments") or {}
+    voter_segments = {
+        "low_info":    float(vseg.get("low_info",    0.3)),
+        "medium_info": float(vseg.get("medium_info", 0.5)),
+        "high_info":   float(vseg.get("high_info",   0.2)),
+    }
+
+    def _apply_info(
+        base: Dict[Any, Dict[str, float]]
+    ) -> Dict[Any, Dict[str, float]]:
+        mat  = [[base[v["id"]][c["name"]] for c in candidates] for v in voters]
+        perc = apply_information_asymmetry(mat, media_bias, voter_segments, seed=seed)
+        return {
+            v["id"]: {c["name"]: perc[idx][j] for j, c in enumerate(candidates)}
+            for idx, v in enumerate(voters)
+        }
+
+    info_utilities: Dict[Any, Dict[str, float]]      = _apply_info(true_utilities)
+    camp_info_utilities: Dict[Any, Dict[str, float]] = _apply_info(campaign_utilities)
+
+    # ── Pre-compute blank-vote adjusted voters ────────────────────────────
+    blank_voters = copy.deepcopy(voters)
+    if contagion_on:
+        beta    = max(0.0, min(1.0, float(contagion_cfg.get("beta",  0.15))))
+        gamma   = max(0.0, min(1.0, float(contagion_cfg.get("gamma", 0.10))))
+        net_map = {"random": "random", "watts_strogatz": "small-world", "block": "clustered"}
+        net     = net_map.get(str(contagion_cfg.get("network", "random")), "random")
+        contagion_result = simulate_blank_contagion(
+            num_voters=num_voters, initial_blank_rate=0.05,
+            contagion_rate=beta, recovery_rate=gamma,
+            num_rounds=10, network_type=net, seed=seed,
+        )
+        reduction = contagion_result.get("final_blank_rate", 0.05) * 0.4
+        for v in blank_voters:
+            v["blank_threshold"] = max(0.05, v["blank_threshold"] - reduction)
+
+    # (campaign_on, info_on) → utilities dict
+    utility_map: Dict[tuple[bool, bool], Dict[Any, Dict[str, float]]] = {
+        (False, False): true_utilities,
+        (False, True):  info_utilities,
+        (True,  False): campaign_utilities,
+        (True,  True):  camp_info_utilities,
+    }
+
+    # ── Run 8 combinations ────────────────────────────────────────────────
+    combinations: list[Dict[str, Any]] = []
+
+    for blank_on in (False, True):
+        for campaign_on_flag in (False, True):
+            for info_on in (False, True):
+                combo_id = (
+                    f"blank={'on' if blank_on else 'off'},"
+                    f"campaign={'on' if campaign_on_flag else 'off'},"
+                    f"info={'on' if info_on else 'off'}"
+                )
+                cur_utils  = utility_map[(campaign_on_flag, info_on)]
+                cur_voters = blank_voters if blank_on else voters
+
+                methods_out = _snapshot_election_winners(
+                    cur_voters, candidates, cur_utils, issues,
+                    blank_enabled=blank_on, blank_rule=blank_rule,
+                )
+
+                # Condorcet winner from adjusted rankings
+                rankings_c: list[list[str]] = [
+                    sorted(cand_names, key=lambda n: -cur_utils[v["id"]][n])
+                    for v in cur_voters
+                ]
+                condorcet_w = get_condorcet_winner(rankings_c)
+
+                pl_md  = methods_out.get("plurality", {})
+                pl_win = (pl_md.get("winner_after_rule") or pl_md.get("winner")) \
+                         if blank_on else pl_md.get("winner")
+
+                combinations.append({
+                    "id":                     combo_id,
+                    "blank":                  blank_on,
+                    "campaign":               campaign_on_flag,
+                    "information_model":      info_on,
+                    "plurality_winner":       pl_win,
+                    "condorcet_winner":       condorcet_w,
+                    "inter_method_agreement": _inter_method_agreement(methods_out),
+                    "winner_differs_from_base": False,
+                })
+
+    base_winner = combinations[0]["plurality_winner"]
+    for combo in combinations:
+        combo["winner_differs_from_base"] = combo["plurality_winner"] != base_winner
+
+    # ── Factor impact (agreement delta per factor) ────────────────────────
+    def _factor_delta(key: str) -> float:
+        on_  = [c["inter_method_agreement"] for c in combinations if     c[key]]
+        off_ = [c["inter_method_agreement"] for c in combinations if not c[key]]
+        avg_on  = sum(on_)  / len(on_)  if on_  else 0.0
+        avg_off = sum(off_) / len(off_) if off_ else 0.0
+        return round(avg_on - avg_off, 4)
+
+    factor_deltas: Dict[str, float] = {
+        "blank":             _factor_delta("blank"),
+        "campaign":          _factor_delta("campaign"),
+        "information_model": _factor_delta("information_model"),
+    }
+    most_disruptive  = min(factor_deltas, key=lambda k: factor_deltas[k])
+    least_disruptive = max(factor_deltas, key=lambda k: factor_deltas[k])
+    max_disrup_combo = min(
+        combinations, key=lambda c: c["inter_method_agreement"]
+    )["id"]
+
+    return jsonify({
+        "base_winner":                base_winner,
+        "combinations":               combinations,
+        "factor_deltas":              {k: round(v * 100, 1) for k, v in factor_deltas.items()},
+        "most_disruptive_factor":     most_disruptive,
+        "least_disruptive_factor":    least_disruptive,
+        "max_disruption_combination": max_disrup_combo,
+    }), 200
