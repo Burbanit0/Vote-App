@@ -13,7 +13,7 @@ from __future__ import annotations
 import csv
 import io
 import random as _random
-from typing import Any
+from typing import Any, cast
 
 import numpy as _np
 
@@ -182,7 +182,7 @@ def export_json() -> Response | tuple[Response, int]:
 
     rows = _generate_rows(num_scenarios, num_candidates, num_voters, seed, ideology)
 
-    return jsonify({
+    return cast(Response, jsonify({
         "meta": {
             "num_scenarios":  num_scenarios,
             "num_candidates": num_candidates,
@@ -193,4 +193,4 @@ def export_json() -> Response | tuple[Response, int]:
         },
         "columns": CSV_COLUMNS,
         "rows":    rows,
-    })
+    }))

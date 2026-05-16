@@ -54,7 +54,7 @@ def get_scenario(scenario_id: int) -> tuple[Response, int]:
     scenario = db.session.get(GalleryScenario, scenario_id)
     if scenario is None:
         return jsonify({"error": "Scenario not found"}), 404
-    scenario.views += 1
+    scenario.views += 1  # type: ignore[assignment]
     db.session.commit()
     return jsonify(scenario.to_dict(include_params=True)), 200
 

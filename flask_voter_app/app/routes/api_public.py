@@ -71,7 +71,7 @@ def _build_simple_population(
     num_voters: int,
     num_candidates: int,
     ideology: str = "random",
-) -> tuple[list, list, list]:
+) -> tuple[list[Any], list[Any], list[Any]]:
     """Create a synthetic population for API simulations."""
     issues     = DEFAULT_ISSUES
     names      = _CANDIDATE_NAMES[:num_candidates]
