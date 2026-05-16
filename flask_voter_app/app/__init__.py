@@ -70,6 +70,13 @@ def create_app(config_object="config.Config"):
     with app.app_context():
         db.create_all()
 
+    # ── SocketIO event handlers — must import *before* socketio.init_app()
+    #    so that @socketio.on() decorators populate self.handlers when
+    #    self.server is still None.  Otherwise handlers are registered only
+    #    on the first Server instance and silently lost on subsequent
+    #    create_app() calls (e.g. during testing).
+    from .events import simulation_events  # noqa: F401
+
     # ── SocketIO (eventlet async_mode) ─────────────────────────────────────
     socketio.init_app(
         app,
@@ -99,9 +106,6 @@ def create_app(config_object="config.Config"):
     app.register_blueprint(api_public_bp)
     app.register_blueprint(gallery_bp)
     app.register_blueprint(export_bp)
-
-    # ── SocketIO event handlers (imported to register them) ────────────────
-    from .events import simulation_events  # noqa: F401
 
     # ── Public-API rate limiter ─────────────────────────────────────────────
     init_api_limiter(app)
