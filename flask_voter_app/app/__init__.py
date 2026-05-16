@@ -109,8 +109,11 @@ def create_app(config_object="config.Config"):
     app.register_blueprint(export_bp)
     app.register_blueprint(election_bp)
 
-    # ── Public-API rate limiter ─────────────────────────────────────────────
+    # ── Rate limiters ───────────────────────────────────────────────────────
+    from .extensions import init_simulation_limiter
+
     init_api_limiter(app)
+    init_simulation_limiter(app)
 
     # ── Generate openapi.json at startup ────────────────────────────────────
     openapi_path = os.path.join(os.path.dirname(__file__), "..", "openapi.json")

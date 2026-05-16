@@ -21,6 +21,7 @@ from app.utils.simulation_multiwinner_utils import compare_multiwinner_methods
 from app.utils.real_election_data import analyze_real_election, list_elections
 from app.utils.blank_vote_rules import BlankVoteRule
 from app.constants import DEFAULT_ISSUES
+from app.extensions import sim_limiter
 from app.routes.simulation_helpers import (
     _parse_candidate_configs, _build_population,
     _build_scenario_candidates, _build_scenario_voters, _run_five_methods,
@@ -31,6 +32,7 @@ simulation_advanced_bp = Blueprint("simulation_advanced", __name__, url_prefix="
 
 
 @simulation_advanced_bp.route("/bandwagon", methods=["POST"])
+@sim_limiter.limit("30 per minute")
 def bandwagon_route() -> tuple[Response, int]:
     """
     Simulate cascading social influence across N rounds and measure how
@@ -74,6 +76,7 @@ def bandwagon_route() -> tuple[Response, int]:
 
 
 @simulation_advanced_bp.route("/monte-carlo", methods=["POST"])
+@sim_limiter.limit("10 per minute")
 def monte_carlo_route() -> tuple[Response, int]:
     """
     Run compare_all_methods_mc() N times in parallel and aggregate
@@ -206,6 +209,7 @@ def monte_carlo_route() -> tuple[Response, int]:
 
 
 @simulation_advanced_bp.route("/multiwinner", methods=["POST"])
+@sim_limiter.limit("30 per minute")
 def multiwinner_route() -> tuple[Response, int]:
     """
     Compare proportional multi-winner methods on a given vote distribution.
@@ -252,12 +256,14 @@ def multiwinner_route() -> tuple[Response, int]:
 
 
 @simulation_advanced_bp.route("/real-elections", methods=["GET"])
+@sim_limiter.limit("60 per minute")
 def real_elections_list() -> tuple[Response, int]:
     """Return the list of available historical elections."""
     return jsonify(list_elections()), 200
 
 
 @simulation_advanced_bp.route("/blank-history", methods=["GET"])
+@sim_limiter.limit("60 per minute")
 def blank_history_route() -> tuple[Response, int]:
     """
     Return the blank-vote time series for a country.
@@ -296,6 +302,7 @@ def blank_history_route() -> tuple[Response, int]:
 
 
 @simulation_advanced_bp.route("/real-election", methods=["POST"])
+@sim_limiter.limit("30 per minute")
 def real_election_analyze() -> tuple[Response, int]:
     """
     Analyse a real historical election under every voting method.
@@ -366,6 +373,7 @@ def _conclude_dissolution(multi: Dict[str, Any], plural_winner: str, num_seats: 
 
 
 @simulation_advanced_bp.route("/constitutional-scenario", methods=["POST"])
+@sim_limiter.limit("20 per minute")
 def constitutional_scenario() -> tuple[Response, int]:
     """
     Simulate the constitutional aftermath of a blank-vote victory.
@@ -492,6 +500,7 @@ def constitutional_scenario() -> tuple[Response, int]:
 # ── /simulations/blank-contagion ─────────────────────────────────────────────
 
 @simulation_advanced_bp.route("/blank-contagion", methods=["POST"])
+@sim_limiter.limit("20 per minute")
 def blank_contagion_route() -> tuple[Response, int]:
     """
     Run a SIS blank-vote contagion simulation.

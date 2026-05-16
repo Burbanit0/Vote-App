@@ -14,6 +14,7 @@ from sqlalchemy import cast, Text
 
 from app import db
 from app.models import GalleryScenario
+from app.extensions import sim_limiter
 
 gallery_bp = Blueprint("gallery", __name__, url_prefix="/api/scenarios/gallery")
 
@@ -33,6 +34,7 @@ def _tag_filter(query: Any, tag: str) -> Any:
 # ── GET /api/scenarios/gallery/featured ──────────────────────────────────────
 
 @gallery_bp.route("/featured", methods=["GET"])
+@sim_limiter.limit("60 per minute")
 def get_featured() -> tuple[Response, int]:
     """Return the 6 featured scenarios (highest views among is_featured=True)."""
     limit = min(int(request.args.get("limit", 6)), 20)
@@ -49,6 +51,7 @@ def get_featured() -> tuple[Response, int]:
 # ── GET /api/scenarios/gallery/<id> ──────────────────────────────────────────
 
 @gallery_bp.route("/<int:scenario_id>", methods=["GET"])
+@sim_limiter.limit("60 per minute")
 def get_scenario(scenario_id: int) -> tuple[Response, int]:
     """Return full scenario details and increment the view counter."""
     scenario = db.session.get(GalleryScenario, scenario_id)
@@ -62,6 +65,7 @@ def get_scenario(scenario_id: int) -> tuple[Response, int]:
 # ── GET /api/scenarios/gallery/ ──────────────────────────────────────────────
 
 @gallery_bp.route("/", methods=["GET"])
+@sim_limiter.limit("60 per minute")
 def list_gallery() -> tuple[Response, int]:
     """
     Paginated gallery list.
@@ -112,6 +116,7 @@ def list_gallery() -> tuple[Response, int]:
 # ── POST /api/scenarios/gallery/ ─────────────────────────────────────────────
 
 @gallery_bp.route("/", methods=["POST"])
+@sim_limiter.limit("20 per minute")
 def create_gallery_scenario() -> tuple[Response, int]:
     """
     Save a simulation scenario to the public gallery.

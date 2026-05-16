@@ -4,12 +4,14 @@ from flask_jwt_extended import jwt_required, get_jwt_identity
 from app import db
 from app.models import SimulationScenario
 from app.utils.response_utils import error_response, success_response
+from app.extensions import sim_limiter
 
 scenarios_bp = Blueprint("scenarios", __name__, url_prefix="/api/scenarios")
 
 
 @scenarios_bp.route("/", methods=["GET"])
 @jwt_required()
+@sim_limiter.limit("60 per minute")
 def list_scenarios():
     user_id = int(get_jwt_identity())
     scenarios = (
@@ -23,6 +25,7 @@ def list_scenarios():
 
 @scenarios_bp.route("/", methods=["POST"])
 @jwt_required()
+@sim_limiter.limit("30 per minute")
 def create_scenario():
     user_id = int(get_jwt_identity())
     data = request.get_json() or {}
@@ -43,6 +46,7 @@ def create_scenario():
 
 @scenarios_bp.route("/<int:scenario_id>", methods=["GET"])
 @jwt_required()
+@sim_limiter.limit("60 per minute")
 def get_scenario(scenario_id):
     user_id = int(get_jwt_identity())
     scenario = SimulationScenario.query.filter_by(
@@ -55,6 +59,7 @@ def get_scenario(scenario_id):
 
 @scenarios_bp.route("/<int:scenario_id>", methods=["DELETE"])
 @jwt_required()
+@sim_limiter.limit("30 per minute")
 def delete_scenario(scenario_id):
     user_id = int(get_jwt_identity())
     scenario = SimulationScenario.query.filter_by(
