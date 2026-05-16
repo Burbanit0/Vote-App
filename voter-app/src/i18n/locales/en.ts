@@ -91,6 +91,8 @@ const en: TranslationKeys = {
     votersLabel: 'Voters',
     distributionLabel: 'Electorate distribution',
     runAnalysis: 'Run analysis',
+    refresh: '↺ Refresh',
+    recalculating: 'Updating…',
     running: 'Running…',
     load: '📂 Load',
     share: '🔗 Share',
