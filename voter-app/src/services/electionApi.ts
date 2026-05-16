@@ -106,6 +106,38 @@ export interface CampaignSensitivityParams {
   snapshot_days: (number | 'final')[];
 }
 
+// ── Combined effects types ────────────────────────────────────────────────────
+
+export interface CombinedEffectsCombination {
+  id:                      string;
+  blank:                   boolean;
+  campaign:                boolean;
+  information_model:       boolean;
+  plurality_winner:        string | null;
+  condorcet_winner:        string | null;
+  inter_method_agreement:  number;
+  winner_differs_from_base: boolean;
+}
+
+export interface CombinedEffectsResult {
+  base_winner:               string | null;
+  combinations:              CombinedEffectsCombination[];
+  factor_deltas:             Record<string, number>;  // % points
+  most_disruptive_factor:    string;
+  least_disruptive_factor:   string;
+  max_disruption_combination: string;
+}
+
+export async function fetchCombinedEffects(
+  params: Record<string, unknown>
+): Promise<CombinedEffectsResult> {
+  const response = await axios.post<CombinedEffectsResult>(
+    `${API_BASE}/api/election/combined-effects`,
+    params
+  );
+  return response.data;
+}
+
 export async function fetchCampaignSensitivity(
   params: CampaignSensitivityParams
 ): Promise<CampaignSensitivityResult> {

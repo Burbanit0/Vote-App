@@ -14,6 +14,7 @@ import MonteCarloResults from '../components/Simulation/MonteCarloResults';
 import ManipulabilityChart from '../components/Simulation/ManipulabilityChart';
 import BlankVoteDivergencePanel from '../components/shared/BlankVoteDivergencePanel';
 import CampaignSensitivityPanel from '../components/shared/CampaignSensitivityPanel';
+import CombinedEffectsMatrix from '../components/shared/CombinedEffectsMatrix';
 
 const COLORS: Record<string, string> = {
   Green: '#007A33', Liberal: '#005CAB', Conservative: '#C8590A', Independent: '#6c757d',
@@ -421,6 +422,9 @@ const ElectionLabPage: React.FC = () => {
                 </Tab>
                 <Tab eventKey="campaign-sensitivity" title={`📈 ${t('electionLab.tabCampaignSensitivity')}`}>
                   <CampaignSensitivityPanel />
+                </Tab>
+                <Tab eventKey="combined-effects" title={`🔬 ${t('electionLab.tabCombinedEffects')}`}>
+                  <CombinedEffectsMatrix />
                 </Tab>
               </Tabs>
             </div>
