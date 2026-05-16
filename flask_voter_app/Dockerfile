@@ -26,4 +26,4 @@ ENV FLASK_ENV=development
 EXPOSE 4433
 
 # Command to run the application
-CMD ["flask", "run", "--host=0.0.0.0", "--port=4433"]
+CMD ["python", "-u", "run.py"]
