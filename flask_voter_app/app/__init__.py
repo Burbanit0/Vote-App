@@ -6,13 +6,16 @@ from flask_sqlalchemy import SQLAlchemy
 from flask_migrate import Migrate
 from flask_jwt_extended import JWTManager
 from flask_bcrypt import Bcrypt
+from flask_socketio import SocketIO
 import redis
 
 
-db = SQLAlchemy()
-migrate = Migrate()
-jwt = JWTManager()
-bcrypt = Bcrypt()
+db       = SQLAlchemy()
+migrate  = Migrate()
+jwt      = JWTManager()
+bcrypt   = Bcrypt()
+socketio = SocketIO()          # initialised in create_app()
+
 redis_client = redis.StrictRedis.from_url(
     os.environ.get('REDIS_URL', 'redis://redis:6379')
 )
@@ -25,7 +28,7 @@ def create_app(config_object="config.Config"):
     # ── Production safety check ────────────────────────────────────────────
     if os.environ.get('FLASK_ENV') == 'production':
         required = ['SECRET_KEY', 'JWT_SECRET_KEY', 'DATABASE_URL']
-        missing = [k for k in required if not os.environ.get(k)]
+        missing  = [k for k in required if not os.environ.get(k)]
         if missing:
             raise RuntimeError(
                 f"FLASK_ENV=production requires these env vars: {missing}"
@@ -41,10 +44,10 @@ def create_app(config_object="config.Config"):
         app,
         resources={
             r"/*": {
-                "origins": allowed_origins,
+                "origins":              allowed_origins,
                 "supports_credentials": True,
-                "methods": ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
-                "allow_headers": ["Content-Type", "Authorization"],
+                "methods":              ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
+                "allow_headers":        ["Content-Type", "Authorization"],
             }
         },
     )
@@ -52,11 +55,10 @@ def create_app(config_object="config.Config"):
     @app.before_request
     def handle_options():
         if request.method == "OPTIONS":
-            # Use the first allowed origin for preflight; real browsers send Origin header
-            origin = request.headers.get("Origin", "")
+            origin       = request.headers.get("Origin", "")
             allow_origin = origin if origin in allowed_origins else allowed_origins[0]
-            response = app.make_default_options_response()
-            headers = response.headers
+            response     = app.make_default_options_response()
+            headers      = response.headers
             headers["Access-Control-Allow-Origin"]  = allow_origin
             headers["Access-Control-Allow-Methods"] = "GET, POST, PUT, DELETE, OPTIONS"
             headers["Access-Control-Allow-Headers"] = "Content-Type, Authorization"
@@ -68,9 +70,24 @@ def create_app(config_object="config.Config"):
     with app.app_context():
         db.create_all()
 
-    from .routes import users, simulation_base, simulation_compare, simulation_advanced, scenarios, simulation_whatif, simulation_campaign
+    # ── SocketIO (eventlet async_mode) ─────────────────────────────────────
+    socketio.init_app(
+        app,
+        cors_allowed_origins=allowed_origins,
+        async_mode="eventlet",
+        logger=False,
+        engineio_logger=False,
+    )
+
+    # ── Blueprints ──────────────────────────────────────────────────────────
+    from .routes import (
+        users, simulation_base, simulation_compare,
+        simulation_advanced, scenarios, simulation_whatif,
+        simulation_campaign,
+    )
     from .routes.api_public import api_public_bp, write_openapi_json, init_api_limiter
-    from .routes.gallery import gallery_bp
+    from .routes.gallery    import gallery_bp
+    from .routes.export     import export_bp
 
     app.register_blueprint(users.auth_bp)
     app.register_blueprint(simulation_base.simulation_base_bp)
@@ -81,15 +98,19 @@ def create_app(config_object="config.Config"):
     app.register_blueprint(simulation_campaign.campaign_bp)
     app.register_blueprint(api_public_bp)
     app.register_blueprint(gallery_bp)
+    app.register_blueprint(export_bp)
 
-    # ── Bind the public-API rate limiter to this app ───────────────────────
+    # ── SocketIO event handlers (imported to register them) ────────────────
+    from .events import simulation_events  # noqa: F401
+
+    # ── Public-API rate limiter ─────────────────────────────────────────────
     init_api_limiter(app)
 
-    # ── Generate openapi.json at startup ───────────────────────────────────
+    # ── Generate openapi.json at startup ────────────────────────────────────
     openapi_path = os.path.join(os.path.dirname(__file__), "..", "openapi.json")
     try:
         write_openapi_json(os.path.abspath(openapi_path))
     except OSError:
-        pass   # non-critical: spec is also served dynamically at /api/v1/openapi.json
+        pass
 
     return app
