@@ -6,11 +6,13 @@ from __future__ import annotations
 from flask import Blueprint, Response, jsonify, request
 
 from app.utils.campaign_dynamics import simulate_campaign
+from app.extensions import sim_limiter
 
 campaign_bp = Blueprint("simulation_campaign", __name__, url_prefix="/simulations")
 
 
 @campaign_bp.route("/campaign", methods=["POST"])
+@sim_limiter.limit("20 per minute")
 def campaign_route() -> tuple[Response, int]:
     """
     Run a day-by-day campaign simulation.

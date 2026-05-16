@@ -14,6 +14,7 @@ from flask import Blueprint, jsonify, request, Response
 from app.utils.simulation_voting_utils import Voter, create_voter, create_candidate
 from app.utils.simulation_metrics import compare_all_methods
 from app.constants import DEFAULT_ISSUES
+from app.extensions import sim_limiter
 
 whatif_bp = Blueprint("simulation_whatif", __name__, url_prefix="/simulations")
 
@@ -79,6 +80,7 @@ def _build_what_if_population(
 
 
 @whatif_bp.route("/what-if", methods=["POST"])
+@sim_limiter.limit("20 per minute")
 def what_if() -> tuple[Response, int]:
     """
     Compare winners across methods while varying a single parameter.

@@ -40,12 +40,15 @@ from app.utils.simulation_score_utils import (
 from app.utils.simulation_voting_utils import calculate_utility, create_voter, create_candidate
 from app.constants import DEFAULT_ISSUES
 
+from app.extensions import sim_limiter
+
 simulation_base_bp = Blueprint("simulation_base", __name__, url_prefix="/simulations")
 
 
 # ── [Legacy] Main form simulation — used by SimulationPage.tsx ───────────────
 
 @simulation_base_bp.route("/", methods=["POST"])
+@sim_limiter.limit("30 per minute")
 def simulate_votes_route():
     data = request.get_json()
     if not data:
@@ -164,6 +167,7 @@ def simulate_votes_route():
 
 
 @simulation_base_bp.route("/simulate_voters", methods=["POST"])
+@sim_limiter.limit("60 per minute")
 def simulate_voters_repartitions():
     data = request.json
     num_voters = data.get("num_voters", 1000)
@@ -173,6 +177,7 @@ def simulate_voters_repartitions():
 
 
 @simulation_base_bp.route("/simulate_candidates", methods=["POST"])
+@sim_limiter.limit("60 per minute")
 def simulate_candidates_repartitions():
     data = request.json
     num_candidates = data.get("num_candidates", 4)
@@ -197,6 +202,7 @@ def simulate_candidates_repartitions():
 # ── [Legacy] 2-D spatial assignment — used by CandidatesVisualization.tsx ────
 
 @simulation_base_bp.route("/get_closest_candidate", methods=["POST"])
+@sim_limiter.limit("60 per minute")
 def get_closest_candidates():
     data = request.get_json()
     candidates = data.get("candidates")
@@ -207,6 +213,7 @@ def get_closest_candidates():
 
 
 @simulation_base_bp.route("/simulate_utility", methods=["POST"])
+@sim_limiter.limit("30 per minute")
 def simulate_utility():
     try:
         data = request.json
@@ -224,6 +231,7 @@ def simulate_utility():
 
 
 @simulation_base_bp.route("/calculate_utility", methods=["POST"])
+@sim_limiter.limit("60 per minute")
 def calculate_single_utility():
     try:
         data = request.json
@@ -239,6 +247,7 @@ def calculate_single_utility():
 
 
 @simulation_base_bp.route("/get_utility_matrix", methods=["POST"])
+@sim_limiter.limit("30 per minute")
 def get_utility_matrix():
     try:
         data = request.json
@@ -289,6 +298,7 @@ def get_utility_matrix():
 
 
 @simulation_base_bp.route("/get_voter_segments", methods=["POST"])
+@sim_limiter.limit("30 per minute")
 def get_voter_segments():
     try:
         data = request.json
