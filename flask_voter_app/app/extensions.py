@@ -1,3 +1,4 @@
+from flask import Flask
 from flask_limiter import Limiter
 from flask_limiter.util import get_remote_address
 
@@ -8,5 +9,5 @@ sim_limiter = Limiter(
 )
 
 
-def init_simulation_limiter(app):
+def init_simulation_limiter(app: Flask) -> None:
     sim_limiter.init_app(app)
