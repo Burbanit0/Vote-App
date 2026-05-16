@@ -28,6 +28,8 @@ import AuthGuard from './context/AuthGuard';
 import { ThemeProvider, useTheme } from './context/ThemeContext';
 import { ExpertModeProvider } from './context/ExpertModeContext';
 import { ToastProvider } from './components/shared/ToastNotification';
+import UpdatePrompt from './components/shared/UpdatePrompt';
+import OfflineBanner from './components/shared/OfflineBanner';
 import { TeacherModeProvider } from './context/TeacherModeContext';
 
 import 'bootstrap/dist/css/bootstrap.min.css';
@@ -41,6 +43,7 @@ const AppContent: React.FC = () => {
 
   return (
     <div id="teacher-capture-root" className="App" data-bs-theme={theme}>
+      <OfflineBanner />
       {!shouldHideNavbar.includes(location.pathname) && (
         <>
           <TeacherBanner />
@@ -75,6 +78,9 @@ const AppContent: React.FC = () => {
 
       {/* Floating capture button — visible only when teacher mode is active */}
       <TeacherCaptureButton />
+
+      {/* PWA update toast */}
+      <UpdatePrompt />
     </div>
   );
 };
