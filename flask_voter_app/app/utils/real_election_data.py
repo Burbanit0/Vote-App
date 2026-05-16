@@ -548,3 +548,241 @@ def list_elections() -> List[Dict[str, Any]]:
         }
         for key, data in REAL_ELECTIONS.items()
     ]
+
+
+# ── Blank-vote time series ─────────────────────────────────────────────────────
+#
+# Data sources:
+#   France     : Ministère de l'Intérieur (résultats officiels 1er tour).
+#                Avant 2017 : blanc+nul comptés ensemble.
+#                Depuis 2017 (loi du 21/02/2014) : blanc séparé du nul.
+#   Colombie   : Registraduría Nacional del Estado Civil.
+#   Uruguay    : Corte Electoral del Uruguay.
+#
+# All figures are approximate percentages of votes cast (not registered voters).
+
+BLANK_VOTE_HISTORY: Dict[str, Dict[str, Any]] = {
+    "france": {
+        "display_name": "France — Élections présidentielles (1er tour)",
+        "note": (
+            "Avant la loi du 21 février 2014 (applicable depuis 2017), "
+            "les bulletins blancs et nuls étaient comptabilisés ensemble. "
+            "Les données antérieures à 2017 représentent donc le total blanc+nul."
+        ),
+        "series": [
+            {
+                "year": 1981,
+                "blank_pct": 0.8,
+                "context": (
+                    "Alternance historique Giscard/Mitterrand. Contexte apaisé, "
+                    "taux de blanc+nul très bas — bipolarisation claire de l'électorat."
+                ),
+            },
+            {
+                "year": 1988,
+                "blank_pct": 0.5,
+                "context": (
+                    "Réélection de Mitterrand face à Chirac. Campagne sans surprise, "
+                    "taux de vote blanc+nul minimal."
+                ),
+            },
+            {
+                "year": 1995,
+                "blank_pct": 0.6,
+                "context": (
+                    "Victoire de Chirac face à Jospin. Lionel Jospin qualifié au 2nd tour, "
+                    "élection lisible — taux bas."
+                ),
+            },
+            {
+                "year": 2002,
+                "blank_pct": 3.4,
+                "context": (
+                    "Choc du 21 avril : Jean-Marie Le Pen (FN) devance Jospin au 1er tour. "
+                    "Fragmentation extrême (16 candidats). Montée du vote blanc+nul "
+                    "témoignant d'un fort mécontentement malgré la surprise."
+                ),
+            },
+            {
+                "year": 2007,
+                "blank_pct": 1.4,
+                "context": (
+                    "Sarkozy vs Royal — forte mobilisation, record de participation (83.8%). "
+                    "Bipolarisation retrouvée, taux de blanc+nul en recul."
+                ),
+            },
+            {
+                "year": 2012,
+                "blank_pct": 1.8,
+                "context": (
+                    "Hollande vs Sarkozy. 10 candidats au 1er tour. "
+                    "Légère hausse du blanc+nul, contexte de crise économique."
+                ),
+            },
+            {
+                "year": 2017,
+                "blank_pct": 2.5,
+                "context": (
+                    "Première élection après la loi de 2014 séparant blanc et nul. "
+                    "Macron (LREM) vs Le Pen au 2nd tour. Les 2.5% représentent les seuls "
+                    "bulletins blancs, excluant les nuls (1.1%). Signe de rejet de l'offre politique."
+                ),
+            },
+            {
+                "year": 2022,
+                "blank_pct": 2.2,
+                "context": (
+                    "Macron réélu face à Le Pen. Taux de vote blanc stable, contexte de guerre "
+                    "en Ukraine et tensions sociales. Le vote blanc représente ~2.2% "
+                    "des suffrages exprimés au 2nd tour (11.5% avec les nuls)."
+                ),
+            },
+        ],
+    },
+
+    "colombia": {
+        "display_name": "Colombie — Élections présidentielles",
+        "note": (
+            "Le 'voto en blanco' colombien est constitutionnellement reconnu depuis 1994 "
+            "(Ley 134). S'il dépasse 50% des voix valides, l'élection est annulée et de "
+            "nouvelles candidatures sont ouvertes. Un fort mouvement civil l'a promu en 2014."
+        ),
+        "series": [
+            {
+                "year": 2002,
+                "blank_pct": 1.6,
+                "context": (
+                    "Uribe élu avec 53% au 1er tour (cas unique dans l'histoire colombienne). "
+                    "Taux de voto en blanco modeste dans un contexte de forte polarisation "
+                    "autour de la politique de sécurité."
+                ),
+            },
+            {
+                "year": 2010,
+                "blank_pct": 3.2,
+                "context": (
+                    "Juan Manuel Santos élu (candidat d'Uribe). Montée du voto en blanco "
+                    "portée par des mouvements civiques contestant l'héritage du gouvernement."
+                ),
+            },
+            {
+                "year": 2014,
+                "blank_pct": 5.9,
+                "context": (
+                    "Record historique. Des organisations civiques lancent la campagne "
+                    "'Voto en Blanco' pour protester contre l'offre politique. Santos réélu "
+                    "avec 51% au 2nd tour malgré ce taux. Dans la commune de Bello (Antioquia), "
+                    "le blanc l'avait emporté en 2013 (précédent constitutionnel)."
+                ),
+            },
+            {
+                "year": 2018,
+                "blank_pct": 3.9,
+                "context": (
+                    "Iván Duque (droite) élu. Taux en recul par rapport à 2014 mais toujours "
+                    "significatif, reflétant la méfiance persistante envers les partis traditionnels."
+                ),
+            },
+            {
+                "year": 2022,
+                "blank_pct": 0.8,
+                "context": (
+                    "Gustavo Petro — premier président de gauche de l'histoire colombienne. "
+                    "Forte mobilisation des électeurs autour d'une offre politique inédite, "
+                    "taux de voto en blanco en forte baisse."
+                ),
+            },
+        ],
+    },
+
+    "uruguay": {
+        "display_name": "Uruguay — Élections présidentielles",
+        "note": (
+            "En Uruguay, le vote blanc ('voto en blanco') est constitutionnellement compétitif : "
+            "s'il obtient plus de voix que tout candidat, de nouvelles candidatures sont ouvertes "
+            "(Constitution 1966, Art. 77). Ce mécanisme n'a jamais été déclenché à l'échelle nationale."
+        ),
+        "series": [
+            {
+                "year": 2004,
+                "blank_pct": 1.2,
+                "context": (
+                    "Tabaré Vázquez (Frente Amplio) remporte la présidentielle avec 51.7% — "
+                    "première victoire de la gauche. Taux de blanc stable, élection historique."
+                ),
+            },
+            {
+                "year": 2009,
+                "blank_pct": 1.4,
+                "context": (
+                    "José Mujica (Frente Amplio) élu. Uruguay en pleine croissance économique. "
+                    "Taux de vote blanc légèrement en hausse, signe de diversification de l'offre."
+                ),
+            },
+            {
+                "year": 2014,
+                "blank_pct": 1.5,
+                "context": (
+                    "Tabaré Vázquez réélu pour un 2nd mandat. Uruguay figure parmi les démocraties "
+                    "les plus stables d'Amérique latine — taux de blanc stable et bas."
+                ),
+            },
+            {
+                "year": 2019,
+                "blank_pct": 1.0,
+                "context": (
+                    "Luis Lacalle Pou (centre-droit) élu au 2nd tour avec 48.8%. "
+                    "Alternance politique, taux de blanc en légère baisse, "
+                    "élection très disputée (moins de 1.5% d'écart)."
+                ),
+            },
+        ],
+    },
+}
+
+# Country key → canonical BLANK_VOTE_HISTORY key
+_COUNTRY_ALIASES: Dict[str, str] = {
+    "france":   "france",
+    "fr":       "france",
+    "colombia": "colombia",
+    "co":       "colombia",
+    "uruguay":  "uruguay",
+    "uy":       "uruguay",
+}
+
+
+def get_blank_history(country_key: str) -> Optional[Dict[str, Any]]:
+    """
+    Return the blank-vote time series for a country.
+
+    Parameters
+    ----------
+    country_key : str
+        Case-insensitive key (e.g. "france", "colombia", "uruguay").
+
+    Returns
+    -------
+    dict  on success (series sorted ascending by year)
+    None  if the country is not found
+    """
+    canonical = _COUNTRY_ALIASES.get(country_key.lower().strip())
+    if canonical is None:
+        return None
+
+    data = BLANK_VOTE_HISTORY[canonical]
+    sorted_series = sorted(data["series"], key=lambda p: p["year"])
+
+    return {
+        "country":      canonical,
+        "display_name": data["display_name"],
+        "note":         data["note"],
+        "series":       sorted_series,
+    }
+
+
+def list_blank_history_countries() -> List[Dict[str, str]]:
+    """Return available country keys and display names."""
+    return [
+        {"key": key, "display_name": val["display_name"]}
+        for key, val in BLANK_VOTE_HISTORY.items()
+    ]

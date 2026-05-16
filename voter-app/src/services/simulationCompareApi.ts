@@ -25,10 +25,21 @@ function getAuthHeader(): Record<string, string> {
   }
 }
 
+export interface InformationModelConfig {
+  enabled: boolean;
+  media_bias: Record<string, number>;   // str(candidate_idx) → [-1, 1]
+  voter_segments: {
+    low_info: number;
+    medium_info: number;
+    high_info: number;
+  };
+}
+
 export interface CompareParams {
   num_voters?: number;
   candidates?: string[];
   ideology_distribution?: string;
+  information_model?: InformationModelConfig;
 }
 
 export interface StrategicImpactParams extends CompareParams {
@@ -191,6 +202,28 @@ export const getMonteCarlo = async (
     console.error('Failed to run Monte Carlo simulation', error);
     throw error;
   }
+};
+
+export interface BlankHistoryPoint {
+  year: number;
+  blank_pct: number;
+  context: string;
+}
+
+export interface BlankHistoryResult {
+  country: string;
+  display_name: string;
+  note: string;
+  series: BlankHistoryPoint[];
+}
+
+export const getBlankHistory = async (
+  country: string,
+): Promise<BlankHistoryResult> => {
+  const response = await axios.get<BlankHistoryResult>(
+    `${API_BASE_URL}/simulations/blank-history?country=${encodeURIComponent(country)}`,
+  );
+  return response.data;
 };
 
 export const getRealElections = async (): Promise<RealElectionSummary[]> => {

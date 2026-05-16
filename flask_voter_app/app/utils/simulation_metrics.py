@@ -22,6 +22,7 @@ from .simulation_score_utils import (
     get_mean_median_hybrid_winner,
     get_variance_based_winner,
 )
+from .quadratic_voting import apply_quadratic_voting
 
 # Maximum number of voters sampled when computing strategic_vulnerability.
 # Kept low because each call reruns the full election for every permutation.
@@ -54,6 +55,7 @@ def compare_all_methods(
     issues: List[str],
     blank_vote: bool = False,
     blank_candidate_name: str = "Blank",
+    override_utilities: Optional[Dict[Any, Dict[str, float]]] = None,
 ) -> Dict[str, Any]:
     """
     Run every available voting method on the same population and return a
@@ -85,13 +87,18 @@ def compare_all_methods(
     # ------------------------------------------------------------------
     # 1. Pre-compute utilities for every (voter, candidate) pair.
     #    utilities[voter_id][candidate_name] = float
+    #    When override_utilities is provided (e.g. from the information
+    #    asymmetry model), skip calculate_utility() and use it directly.
     # ------------------------------------------------------------------
-    utilities: Dict[Any, Dict[str, float]] = {}
-    for voter in voters:
-        voter_utils = {}
-        for c in candidates:
-            voter_utils[c["name"]] = calculate_utility(voter, c, issues)["utility"]
-        utilities[voter["id"]] = voter_utils
+    if override_utilities is not None:
+        utilities: Dict[Any, Dict[str, float]] = override_utilities
+    else:
+        utilities = {}
+        for voter in voters:
+            voter_utils = {}
+            for c in candidates:
+                voter_utils[c["name"]] = calculate_utility(voter, c, issues)["utility"]
+            utilities[voter["id"]] = voter_utils
 
     # ------------------------------------------------------------------
     # 2. Build sincere rankings — each voter's candidates sorted by
@@ -296,6 +303,23 @@ def compare_all_methods(
         raw = fn(score_votes)
         winner = raw.get("winner") if isinstance(raw, dict) else raw
         methods_result[name] = _build_metrics_score(fn, winner)
+
+    # ── Quadratic Voting — uses raw float utilities, not 0-5 scaled ──────────
+    qv_utilities: List[Dict[str, float]] = [
+        dict(utilities[v["id"]]) for v in voters
+    ]
+    qv_result = apply_quadratic_voting(qv_utilities, budget=100)
+    qv_winner: Optional[str] = qv_result.get("winner")
+    methods_result["quadratic"] = {
+        "winner":                qv_winner,
+        "bayesian_regret":       _bayesian_regret(qv_winner),
+        "condorcet_consistent":  _condorcet_consistent(qv_winner),
+        "majority_satisfaction": _majority_satisfaction(qv_winner),
+        "strategic_vulnerability": None,   # QV strategic behaviour is complex
+        "qv_scores":             qv_result.get("scores"),
+        "qv_credits_used":       qv_result.get("total_credits_used"),
+        "qv_credit_distribution": qv_result.get("credit_distribution"),
+    }
 
     output: Dict[str, Any] = {
         "condorcet_winner": condorcet_winner,

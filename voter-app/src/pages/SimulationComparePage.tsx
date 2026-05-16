@@ -1,11 +1,14 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import { Alert, Badge, Button, Card, Col, Container, Form, OverlayTrigger, Row, Spinner, Tab, Tabs, Tooltip } from 'react-bootstrap';
+import { Alert, Badge, Button, Card, Col, Container, Dropdown, Form, OverlayTrigger, Row, Spinner, Tab, Tabs, Tooltip } from 'react-bootstrap';
 import { useToast } from '../components/shared/ToastNotification';
 import SkeletonCard from '../components/shared/SkeletonCard';
 import CondorcetMatrix from '../components/Simulation/CondorcetMatrix';
 import ArrowCriteriaMatrix from '../components/Simulation/ArrowCriteriaMatrix';
 import BandwagonAnalysis from '../components/Simulation/BandwagonAnalysis';
 import ManipulabilityChart from '../components/Simulation/ManipulabilityChart';
+import InformationModelPanel from '../components/Simulation/InformationModelPanel';
+import GalleryShareModal from '../components/shared/GalleryShareModal';
+import DatasetExportModal from '../components/shared/DatasetExportModal';
 import MultiwinnerAnalysis from '../components/Simulation/MultiwinnerAnalysis';
 import MonteCarloResults from '../components/Simulation/MonteCarloResults';
 import WinnerMatrixTab from '../components/Simulation/WinnerMatrixTab';
@@ -34,11 +37,20 @@ import {
   getCondorcetMatrix,
   runComparisonSimulation,
   runStrategicImpactAnalysis,
+  InformationModelConfig,
 } from '../services/simulationCompareApi';
+import { InformationModelResult } from '../types';
 import { deleteScenario, listScenarios, saveScenario } from '../services/scenariosApi';
 import { buildShareURL, copyShareURL, decodeShareConfig, encodeShareConfig, readShareParam } from '../utils/shareUtils';
 import { useExpertMode } from '../context/ExpertModeContext';
 import { useMetaTags } from '../hooks/useMetaTags';
+import {
+  generateLatexTable,
+  generateLatexReport,
+  generateFullBibtex,
+  downloadText,
+  SimulationExportParams,
+} from '../utils/latexExport';
 import { useTranslation } from 'react-i18next';
 import { useMethodLabels } from '../components/Simulation/simulationConstants';
 
@@ -47,7 +59,7 @@ import { useMethodLabels } from '../components/Simulation/simulationConstants';
 const TAB_ORDER = [
   'winners', 'metrics', 'strategic', 'condorcet', 'arrow',
   'bandwagon', 'montecarlo', 'real-elections', 'multiwinner', 'sensitivity',
-  'manipulability',
+  'manipulability', 'advanced',
 ];
 
 const BEGINNER_TABS = ['winners', 'metrics', 'strategic', 'real-elections', 'montecarlo', 'manipulability'];
@@ -247,6 +259,7 @@ const SimulationComparePage: React.FC = () => {
     multiwinner:      t('simulation.tabs.multiwinner'),
     sensitivity:      t('simulation.tabs.sensitivity'),
     manipulability:   t('simulation.tabs.manipulability'),
+    advanced:         t('simulation.tabs.advanced'),
   };
 
   // ── Scenario config ──
@@ -273,6 +286,14 @@ const SimulationComparePage: React.FC = () => {
   const toast = useToast();
   const { expertMode, setExpertMode } = useExpertMode();
 
+  // ── Information model state ──
+  const [infoModel, setInfoModel] = useState<InformationModelConfig>({
+    enabled: false,
+    media_bias: {},
+    voter_segments: { low_info: 0.3, medium_info: 0.5, high_info: 0.2 },
+  });
+  const [infoResult, setInfoResult] = useState<InformationModelResult | undefined>(undefined);
+
   // ── Save / Load modal state ──
   const [showSaveModal, setShowSaveModal] = useState(false);
   const [saveName, setSaveName] = useState('');
@@ -283,6 +304,8 @@ const SimulationComparePage: React.FC = () => {
 
   // ── UI state ──
   const [activeTab, setActiveTab] = useState('winners');
+  const [showGalleryShare,    setShowGalleryShare]    = useState(false);
+  const [showDatasetExport,   setShowDatasetExport]   = useState(false);
   const [presentationMode, setPresentationMode] = useState(false);
   const [presentationTabIndex, setPresentationTabIndex] = useState(0);
   const [linkCopied, setLinkCopied] = useState(false);
@@ -349,7 +372,12 @@ const SimulationComparePage: React.FC = () => {
     if (scenarioCount === 2 && candidateNamesB.length < 2) { toast.error(t('simulation.errMinCandB')); return; }
     setLoading(true);
     try {
-      const paramsA = { num_voters: configA.numVoters, candidates: candidateNamesA, ideology_distribution: configA.ideology_distribution };
+      const paramsA = {
+        num_voters: configA.numVoters,
+        candidates: candidateNamesA,
+        ideology_distribution: configA.ideology_distribution,
+        ...(infoModel.enabled ? { information_model: infoModel } : {}),
+      };
       const [simResultsA, strategicResults, condorcetResult, arrowResult, simResultsB] = await Promise.all([
         Promise.all(Array.from({ length: numSimulations }, () => runComparisonSimulation(paramsA))),
         runStrategicImpactAnalysis({ ...paramsA, strategic_percentages: STRATEGIC_PERCENTAGES }),
@@ -363,6 +391,12 @@ const SimulationComparePage: React.FC = () => {
       setStrategicData(strategicResults);
       setCondorcetData(condorcetResult);
       setArrowData(arrowResult);
+      // Capture information model result from first simulation run
+      if (infoModel.enabled && simResultsA.length > 0) {
+        setInfoResult(simResultsA[0].information_model);
+      } else {
+        setInfoResult(undefined);
+      }
       setResultsB(simResultsB);
     } catch {
       toast.error(t('simulation.errBackend'));
@@ -431,6 +465,34 @@ const SimulationComparePage: React.FC = () => {
     if (!win) return;
     win.document.write(html);
     win.document.close();
+  };
+
+  // ── Academic export (LaTeX / BibTeX) ──
+  const academicExportParams = (): SimulationExportParams => ({
+    config:         configA,
+    numSimulations,
+    methodCount:    allMethodNames.length,
+    date:           exportDate,
+    shareUrl:       `${window.location.origin}${window.location.pathname}`,
+  });
+
+  const exportLatexTable = () => {
+    const content = generateLatexTable(comparisonResults, methodLabels);
+    downloadText(content, `votelab_table_${exportDate}.tex`, 'text/x-tex');
+  };
+
+  const exportLatexReportFull = () => {
+    const content = generateLatexReport(
+      academicExportParams(),
+      comparisonResults,
+      methodLabels,
+    );
+    downloadText(content, `votelab_report_${exportDate}.tex`, 'text/x-tex');
+  };
+
+  const exportBibtexFull = () => {
+    const content = generateFullBibtex(allMethodNames, academicExportParams());
+    downloadText(content, `votelab_references_${exportDate}.bib`, 'text/plain');
   };
 
   // ── Share link ──
@@ -602,6 +664,37 @@ const SimulationComparePage: React.FC = () => {
               <Button variant="outline-dark" size="sm" onClick={() => { setPresentationTabIndex(0); setPresentationMode(true); }}>
                 {t('simulation.presentation')}
               </Button>
+              <Button variant="outline-success" size="sm" onClick={() => setShowGalleryShare(true)}>
+                💾 Galerie
+              </Button>
+              {expertMode && (
+                <Button variant="outline-info" size="sm" onClick={() => setShowDatasetExport(true)}>
+                  📊 {t('export.modalTitle')}
+                </Button>
+              )}
+              {expertMode && (
+                <Dropdown>
+                  <Dropdown.Toggle variant="outline-secondary" size="sm" id="academic-export-dropdown">
+                    🎓 Export académique
+                  </Dropdown.Toggle>
+                  <Dropdown.Menu>
+                    <Dropdown.Header style={{ fontSize: '0.75rem' }}>LaTeX / BibTeX</Dropdown.Header>
+                    <Dropdown.Item onClick={exportLatexTable}>
+                      📄 Tableau LaTeX
+                      <div className="text-muted" style={{ fontSize: '0.72rem' }}>votelab_table.tex</div>
+                    </Dropdown.Item>
+                    <Dropdown.Item onClick={exportLatexReportFull}>
+                      📑 Rapport complet LaTeX
+                      <div className="text-muted" style={{ fontSize: '0.72rem' }}>votelab_report.tex + bibliographie</div>
+                    </Dropdown.Item>
+                    <Dropdown.Divider />
+                    <Dropdown.Item onClick={exportBibtexFull}>
+                      📚 Citation BibTeX
+                      <div className="text-muted" style={{ fontSize: '0.72rem' }}>votelab_references.bib</div>
+                    </Dropdown.Item>
+                  </Dropdown.Menu>
+                </Dropdown>
+              )}
             </>
           )}
         </div>
@@ -751,9 +844,53 @@ const SimulationComparePage: React.FC = () => {
                 }}
               />
             </Tab>
+            {/* ── Advanced / Information Model tab (expert only) ── */}
+            {visibleTabs.includes('advanced') && (
+              <Tab eventKey="advanced" title={
+                <span>
+                  {t('simulation.tabs.advanced')}{' '}
+                  <OverlayTrigger
+                    trigger={['hover','focus']}
+                    placement="bottom"
+                    overlay={<Tooltip id="tip-tab-advanced">{t('simulation.tabTips.advanced')}</Tooltip>}
+                  >
+                    <span tabIndex={0} onClick={(e) => e.stopPropagation()} style={{ fontSize: '0.75em', color: '#6c757d', cursor: 'help' }}>ⓘ</span>
+                  </OverlayTrigger>
+                </span>
+              }>
+                <Card className="mb-3">
+                  <Card.Header><strong>🧪 Modèle d'information asymétrique</strong></Card.Header>
+                  <Card.Body>
+                    <InformationModelPanel
+                      candidateNames={candidateNamesA}
+                      config={infoModel}
+                      onChange={setInfoModel}
+                      result={infoResult}
+                    />
+                    {!infoResult && infoModel.enabled && (
+                      <Alert variant="info" className="mt-3 mb-0 py-2" style={{ fontSize: '0.85rem' }}>
+                        Cliquez sur <strong>Lancer l'analyse</strong> pour exécuter la simulation
+                        avec le modèle d'information activé.
+                      </Alert>
+                    )}
+                  </Card.Body>
+                </Card>
+              </Tab>
+            )}
           </Tabs>
         )}
 
+        <DatasetExportModal
+          show={showDatasetExport}
+          onHide={() => setShowDatasetExport(false)}
+          defaultCandidates={candidateNamesA}
+        />
+        <GalleryShareModal
+          show={showGalleryShare}
+          onHide={() => setShowGalleryShare(false)}
+          params={{ candidates: candidateNamesA, num_voters: configA.numVoters, ideology_distribution: configA.ideology_distribution }}
+          resultsSummary={comparisonResults.length > 0 ? { condorcet_winner: comparisonResults[0].condorcet_winner, winners: Object.fromEntries(Object.entries(comparisonResults[0].methods).map(([m, d]) => [m, d.winner])) } : {}}
+        />
         <ScenarioModals
           showSaveModal={showSaveModal} setShowSaveModal={setShowSaveModal}
           saveName={saveName} setSaveName={setSaveName} saving={saving} handleSave={handleSave}

@@ -12,6 +12,11 @@ import ScenarioBuilderPage from './pages/ScenarioBuilderPage';
 import ConstitutionalCrisisPage from './pages/ConstitutionalCrisisPage';
 import QuizPage from './pages/QuizPage';
 import WhatIfPage from './pages/WhatIfPage';
+import CampaignSimulatorPage from './pages/CampaignSimulatorPage';
+import BlankContagionPage from './pages/BlankContagionPage';
+import InternationalRegimesPage from './pages/InternationalRegimesPage';
+import ApiDocsPage from './pages/ApiDocsPage';
+import ScenarioGalleryPage from './pages/ScenarioGalleryPage';
 import TeacherPresentationPage from './pages/TeacherPresentationPage';
 import Login from './pages/Login';
 import Register from './pages/Register';
@@ -23,6 +28,8 @@ import AuthGuard from './context/AuthGuard';
 import { ThemeProvider, useTheme } from './context/ThemeContext';
 import { ExpertModeProvider } from './context/ExpertModeContext';
 import { ToastProvider } from './components/shared/ToastNotification';
+import UpdatePrompt from './components/shared/UpdatePrompt';
+import OfflineBanner from './components/shared/OfflineBanner';
 import { TeacherModeProvider } from './context/TeacherModeContext';
 
 import 'bootstrap/dist/css/bootstrap.min.css';
@@ -36,6 +43,7 @@ const AppContent: React.FC = () => {
 
   return (
     <div id="teacher-capture-root" className="App" data-bs-theme={theme}>
+      <OfflineBanner />
       {!shouldHideNavbar.includes(location.pathname) && (
         <>
           <TeacherBanner />
@@ -55,6 +63,10 @@ const AppContent: React.FC = () => {
           <Route path="/constitutional-crisis" element={<AuthGuard component={ConstitutionalCrisisPage} requireAuth={false} />} />
           <Route path="/quiz"                  element={<QuizPage />} />
           <Route path="/what-if"              element={<WhatIfPage />} />
+          <Route path="/campaign"             element={<CampaignSimulatorPage />} />
+          <Route path="/blank-contagion"      element={<BlankContagionPage />} />
+          <Route path="/regimes-internationaux" element={<InternationalRegimesPage />} />
+          <Route path="/api-docs"              element={<ApiDocsPage />} />
           <Route path="/teacher/presentation" element={<TeacherPresentationPage />} />
 
           {/* Auth-protected routes */}
@@ -66,6 +78,9 @@ const AppContent: React.FC = () => {
 
       {/* Floating capture button — visible only when teacher mode is active */}
       <TeacherCaptureButton />
+
+      {/* PWA update toast */}
+      <UpdatePrompt />
     </div>
   );
 };

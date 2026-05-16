@@ -27,6 +27,16 @@ jest.mock('../../../hooks/useChartTheme', () => ({
 jest.mock('../../../services/simulationCompareApi', () => ({
   getMonteCarlo: jest.fn(),
 }));
+jest.mock('../../../hooks/useMonteCarloStream', () => ({
+  useMonteCarloStream: () => ({
+    progress: 0, iteration: 0, total: 0, condorcetRate: 0,
+    partialResults: {}, isRunning: false, complete: null, error: null,
+    regretHistory: {}, agreementHistory: [], ciHalfLatest: {}, iterationCheckpoints: [],
+    start: jest.fn(), stop: jest.fn(), reset: jest.fn(),
+  }),
+}));
+jest.mock('../MonteCarloLiveChart', () => () => null);
+jest.mock('../MonteCarloConvergencePanel', () => () => null);
 
 describe('MonteCarloResults', () => {
   it('renders config form and initial prompt', () => {
@@ -35,7 +45,7 @@ describe('MonteCarloResults', () => {
     expect(screen.getByText(/Monte Carlo Configuration/)).toBeInTheDocument();
   });
 
-  it('renders results when getMonteCarlo resolves', async () => {
+  it('renders results when getMonteCarlo resolves (standard mode)', async () => {
     const { getMonteCarlo } = jest.requireMock('../../../services/simulationCompareApi');
     (getMonteCarlo as jest.Mock).mockResolvedValue({
       num_runs: 50,
@@ -59,8 +69,12 @@ describe('MonteCarloResults', () => {
     });
 
     render(<MonteCarloResults baseParams={{}} />);
-    fireEvent.click(screen.getByRole('button', { name: /Run Monte Carlo/ }));
 
+    // Disable streaming to use the HTTP path
+    const streamingToggle = screen.getByRole('checkbox', { name: /Real-time streaming|Streaming temps réel/i });
+    fireEvent.click(streamingToggle);
+
+    fireEvent.click(screen.getByRole('button', { name: /Run Monte Carlo/ }));
     expect(await screen.findByText(/Condorcet winner in/)).toBeInTheDocument();
   });
 });

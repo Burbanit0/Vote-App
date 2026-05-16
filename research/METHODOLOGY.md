@@ -265,4 +265,68 @@ Le théorème d'impossibilité d'Arrow (1951) garantit qu'aucune méthode de vot
 
 ---
 
+## 6. Vote Quadratique (Quadratic Voting)
+
+### 6.1 Principe
+
+Le **Vote Quadratique** (QV) est un mécanisme de vote proposé par Lalley & Weyl (2018) et popularisé dans l'ouvrage *Radical Markets* (Posner & Weyl, 2018). Il vise à résoudre le problème fondamental de la démocratie majoritaire : la *tyrannie de la majorité* — une majorité peu investie peut toujours l'emporter sur une minorité passionnée.
+
+Dans le QV, chaque électeur dispose d'un **budget de crédits** (par exemple 100). Le coût d'un vote n'est pas linéaire mais **quadratique** :
+
+| Votes exprimés pour un candidat | Crédits dépensés |
+|---|---|
+| 1 | 1 |
+| 2 | 4 |
+| 3 | 9 |
+| v | v² |
+
+Ce coût croissant rend les préférences extrêmes coûteuses : pour doubler son expression, un électeur doit quadrupler ses dépenses. Il est donc rationnel de répartir ses crédits sur plusieurs candidats plutôt que de les concentrer.
+
+### 6.2 Allocation optimale
+
+Pour un électeur avec des utilités sincères u[c] ∈ [0, 1] et un budget B, l'allocation optimale est :
+
+```
+votes[c] = floor( √B × u[c] / Σᵢ u[i] )
+```
+
+Après cette allocation initiale, les crédits restants sont redistribués par un algorithme glouton : à chaque étape, le candidat recevant le prochain vote est celui qui maximise le ratio `u[c] / (2·votes[c] + 1)` (coût marginal d'un vote supplémentaire).
+
+### 6.3 Implémentation dans Vote Lab
+
+Le fichier `flask_voter_app/app/utils/quadratic_voting.py` implémente `apply_quadratic_voting(utilities, budget=100)` :
+
+1. **Entrée** : `utilities` — liste de dicts `{candidate_name: float}` — les utilités sincères de chaque électeur issues du modèle spatial.
+2. **Allocation par électeur** : allocation initiale par la formule optimale, puis redistribution gloutonne des crédits restants.
+3. **Agrégation** : somme des votes QV par candidat ; le vainqueur est le candidat avec le plus grand total.
+4. **Métriques supplémentaires** : `total_credits_used` (budget moyen utilisé), `credit_distribution` (crédits moyens par candidat), `gini_coefficient` (concentration).
+
+La méthode est intégrée dans `compare_all_methods()` sous la clé `"quadratic"`. Comme l'analyse de vulnérabilité stratégique du QV est complexe (elle impliquerait de raisonner sur la redistribution des crédits), `strategic_vulnerability` est fixé à `None` pour cette méthode.
+
+### 6.4 Propriétés théoriques
+
+| Propriété | QV |
+|---|---|
+| Exprime l'intensité | ✅ — crédits proportionnels à la force de la préférence |
+| Réduit la tyrannie de la majorité | ✅ — une minorité passionnée peut surpasser une majorité indifférente |
+| Satisfait Condorcet | ❌ — non garanti |
+| Robustesse à l'exagération | ✅ — le coût quadratique décourage les allocations extrêmes |
+| Applicable avec argent réel | ⚠️ — si les crédits peuvent être achetés, favorise les plus riches |
+
+### 6.5 Visualisation
+
+Le composant `QuadraticBudgetViz.tsx` affiche :
+- Un diagramme en barres horizontales des crédits moyens par candidat
+- L'**indice de Gini des crédits** (0 = équirépartition, 1 = concentration maximale)
+- Les crédits non utilisés (un budget non épuisé peut signaler des préférences uniformes)
+
+### 6.6 Références
+
+- **Lalley, S. & Weyl, E. G.** (2018). Quadratic Voting: How Mechanism Design Can Radicalize Democracy. *AEA Papers and Proceedings*, 108, 33–37. https://doi.org/10.1257/pandp.20181002
+- **Posner, E. A. & Weyl, E. G.** (2018). *Radical Markets: Uprooting Capitalism and Democracy for a Just Society*. Princeton University Press. ISBN 978-0-691-17718-7.
+- **Weyl, E. G.** (2017). The Robustness of Quadratic Voting. *Public Choice*, 172(1–2), 75–107.
+- **Cavaille, C. & Ferwerda, J.** (2023). How Preference for Fairness and Reciprocity Shape Support for Quadratic Voting. *Journal of Political Institutions and Political Economy*, 4(1).
+
+---
+
 *Vote Lab · Code source disponible sur GitHub · Contributions bienvenues*

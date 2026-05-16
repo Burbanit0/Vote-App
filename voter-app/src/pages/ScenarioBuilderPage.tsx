@@ -7,6 +7,7 @@ import BlankVoteRuleSelector, { BlankRule } from '../components/ScenarioBuilder/
 import { runScenario, ScenarioResult } from '../services/simulationCompareApi';
 import { buildShareURL, copyShareURL, decodeShareConfig, readShareParam } from '../utils/shareUtils';
 import { useToast } from '../components/shared/ToastNotification';
+import GalleryShareModal from '../components/shared/GalleryShareModal';
 import { useExpertMode } from '../context/ExpertModeContext';
 import { useMetaTags } from '../hooks/useMetaTags';
 
@@ -177,6 +178,7 @@ const ScenarioBuilderPage: React.FC = () => {
   const [loading, setLoading] = useState(false);
   const [linkCopied, setLinkCopied] = useState(false);
   const [showShareModal, setShowShareModal] = useState(false);
+  const [showGalleryShare, setShowGalleryShare] = useState(false);
   const [urlCopied, setUrlCopied] = useState(false);
   const toast = useToast();
   const { expertMode } = useExpertMode();
@@ -247,7 +249,7 @@ const ScenarioBuilderPage: React.FC = () => {
           dissatisfaction_rate: electorate.dissatisfactionRate,
         },
         blank_rule: blankRule,
-        methods: ['plurality', 'irv', 'borda', 'schulze', 'approval'],
+        methods: ['plurality', 'irv', 'borda', 'schulze', 'approval', 'quadratic'],
       });
       setResults(data);
       setStep(3);
@@ -308,6 +310,11 @@ const ScenarioBuilderPage: React.FC = () => {
               {t('scenario.shareResultsButton')}
             </Button>
           )}
+          {step === 3 && results && (
+            <Button variant="outline-success" size="sm" onClick={() => setShowGalleryShare(true)}>
+              💾 Galerie
+            </Button>
+          )}
           {step < 2 && (
             <Button variant="primary" onClick={() => setStep((s) => s + 1)} disabled={!canProceed[step]}>
               {t('scenario.next')}
@@ -323,6 +330,21 @@ const ScenarioBuilderPage: React.FC = () => {
       </div>
 
       {/* ── Share results modal ── */}
+      <GalleryShareModal
+        show={showGalleryShare}
+        onHide={() => setShowGalleryShare(false)}
+        params={{
+          candidates: candidates.filter((c) => !c.isBlank).map((c) => c.name),
+          blank_rule: blankRule,
+          num_voters: electorate.numVoters,
+        }}
+        resultsSummary={results ? {
+          condorcet_winner: results.without_blank.condorcet_winner,
+          blank_pct: results.with_blank.blank_pct,
+          winners: Object.fromEntries(Object.entries(results.without_blank.methods).map(([m, d]) => [m, d.winner])),
+        } : {}}
+        suggestedTags={blankRule !== 'symbolic' ? ['vote-blanc'] : []}
+      />
       <Modal show={showShareModal} onHide={() => setShowShareModal(false)} centered>
         <Modal.Header closeButton>
           <Modal.Title>{t('scenario.shareResultsTitle')}</Modal.Title>

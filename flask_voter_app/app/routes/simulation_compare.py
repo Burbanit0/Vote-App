@@ -18,6 +18,7 @@ from app.utils.simulation_ranked_utils import get_plurality_winner
 from app.utils.simulation_metrics import compare_all_methods, get_condorcet_matrix
 from app.utils.arrow_criteria import check_all_criteria
 from app.utils.blank_vote_rules import BlankVoteRule, apply_blank_rule
+from app.utils.information_model import apply_information_asymmetry, compute_information_gap
 from app.routes.simulation_helpers import (
     _parse_candidate_configs, _build_population,
     _PRESET_TO_DISTRIBUTION, _SCENARIO_METHODS,
@@ -38,13 +39,19 @@ def compare_methods() -> tuple[Response, int]:
         "ideology_distribution":  str,               // default "random"
         "candidates":             [str|dict, ...],
         "blank_vote":             bool,              // default false
-        "blank_rule":             str                // "symbolic" | "competitive"
-                                                     // | "threshold_30"
-                                                     // | "majority_required"
+        "blank_rule":             str,               // "symbolic" | ...
+        "information_model": {                        // optional
+            "enabled":        bool,
+            "media_bias":     {"0": float, ...},     // candidate_idx → [-1, 1]
+            "voter_segments": {"low_info": float, "medium_info": float, "high_info": float}
+        }
     }
 
-    When blank_vote=true, each method result includes a "blank_rule_applied"
-    field showing the constitutional outcome under the requested rule.
+    When information_model.enabled=true, utilities are distorted before
+    voting.  The response includes:
+        information_model.sincere_winner   — plurality winner on TRUE utilities
+        information_model.perceived_winner — plurality winner on PERCEIVED utilities
+        information_model.information_gap  — mean absolute utility distortion
     """
     data = request.get_json() or {}
     num_voters            = int(data.get("num_voters", 500))
@@ -52,6 +59,8 @@ def compare_methods() -> tuple[Response, int]:
     raw_candidates        = data.get("candidates", ["Alice", "Bob", "Charlie"])
     blank_vote            = bool(data.get("blank_vote", False))
     blank_rule_str        = data.get("blank_rule", BlankVoteRule.SYMBOLIC.value)
+    info_cfg              = data.get("information_model", {}) or {}
+    info_enabled          = bool(info_cfg.get("enabled", False))
 
     candidate_configs = _parse_candidate_configs(raw_candidates)
     if len(candidate_configs) < 2:
@@ -66,10 +75,70 @@ def compare_methods() -> tuple[Response, int]:
         voters, candidates, issues = _build_population(
             candidate_configs, num_voters, ideology_distribution
         )
-        result = compare_all_methods(
-            voters, candidates, issues,
-            blank_vote=blank_vote,
-        )
+
+        # ── Compute true utilities once ────────────────────────────────────
+        true_utils_dict: Dict[Any, Dict[str, float]] = {
+            v["id"]: {c["name"]: calculate_utility(v, c, issues)["utility"] for c in candidates}
+            for v in voters
+        }
+
+        if info_enabled:
+            # ── Build true utility matrix [voter_idx][cand_idx] ───────────
+            candidate_names = [c["name"] for c in candidates]
+            voter_ids       = [v["id"] for v in voters]
+            true_matrix     = [
+                [true_utils_dict[vid][cn] for cn in candidate_names]
+                for vid in voter_ids
+            ]
+
+            media_bias    = info_cfg.get("media_bias", {})
+            voter_segs    = info_cfg.get("voter_segments", {
+                "low_info": 0.3, "medium_info": 0.5, "high_info": 0.2,
+            })
+
+            # ── Apply information asymmetry ────────────────────────────────
+            perc_matrix = apply_information_asymmetry(
+                true_matrix, media_bias, voter_segs,
+            )
+            perc_dict: Dict[Any, Dict[str, float]] = {
+                vid: {cn: perc_matrix[i][j] for j, cn in enumerate(candidate_names)}
+                for i, vid in enumerate(voter_ids)
+            }
+
+            # ── Sincere result (true utilities) ────────────────────────────
+            sincere_sim = compare_all_methods(
+                voters, candidates, issues,
+                blank_vote=blank_vote,
+                override_utilities=true_utils_dict,
+            )
+            sincere_winner = sincere_sim["methods"].get("plurality", {}).get("winner")
+            sincere_condorcet = sincere_sim.get("condorcet_winner")
+
+            # ── Perceived result (distorted utilities) ─────────────────────
+            result = compare_all_methods(
+                voters, candidates, issues,
+                blank_vote=blank_vote,
+                override_utilities=perc_dict,
+            )
+            perceived_winner = result["methods"].get("plurality", {}).get("winner")
+
+            gap = compute_information_gap(true_matrix, perc_matrix)
+
+            result["information_model"] = {
+                "enabled":                True,
+                "sincere_winner":         sincere_winner,
+                "perceived_winner":       perceived_winner,
+                "information_gap":        gap,
+                "sincere_condorcet_winner": sincere_condorcet,
+                "winners_differ":         sincere_winner != perceived_winner,
+            }
+        else:
+            result = compare_all_methods(
+                voters, candidates, issues,
+                blank_vote=blank_vote,
+                override_utilities=true_utils_dict,
+            )
+            result["information_model"] = {"enabled": False}
 
         if blank_vote:
             blank_pct = result.get("blank_pct", 0.0)

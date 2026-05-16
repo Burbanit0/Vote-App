@@ -1,6 +1,6 @@
 import datetime
 from . import db
-from sqlalchemy import Column, Integer, String, ForeignKey, DateTime, Text, func, JSON
+from sqlalchemy import Boolean, Column, Integer, String, ForeignKey, DateTime, Text, func, JSON, cast
 
 from flask_bcrypt import Bcrypt
 
@@ -49,3 +49,38 @@ class SimulationScenario(db.Model):
 
     def to_detail(self) -> dict:
         return {**self.to_summary(), "results": self.results}
+
+
+class GalleryScenario(db.Model):
+    """
+    Public gallery of interesting simulation scenarios.
+
+    Accessible without authentication.  Admin sets is_featured=True
+    to promote a scenario to the "En vedette" section.
+    """
+    __tablename__ = "gallery_scenarios"
+
+    id          = Column(Integer, primary_key=True)
+    title       = Column(String(200), nullable=False)
+    description = Column(Text, nullable=False)
+    params          = Column(JSON, nullable=False, default=dict)
+    results_summary = Column(JSON, nullable=False, default=dict)
+    tags        = Column(JSON, nullable=False, default=list)   # stored as JSON array
+    created_at  = Column(DateTime, default=lambda: datetime.datetime.now(datetime.timezone.utc))
+    views       = Column(Integer, default=0, nullable=False)
+    is_featured = Column(Boolean, default=False, nullable=False)
+
+    def to_dict(self, include_params: bool = False) -> dict:
+        data: dict = {
+            "id":              self.id,
+            "title":           self.title,
+            "description":     self.description,
+            "tags":            self.tags or [],
+            "views":           self.views,
+            "is_featured":     self.is_featured,
+            "created_at":      self.created_at.isoformat() if self.created_at else None,
+            "results_summary": self.results_summary or {},
+        }
+        if include_params:
+            data["params"] = self.params or {}
+        return data
