@@ -323,6 +323,29 @@ export interface StrategicImpactPoint {
   methods: Record<string, number | null>;
 }
 
+// ── Vote steps ────────────────────────────────────────────────────────────────
+
+export interface IRVRound {
+  round: number;
+  scores?: Record<string, number>;
+  eliminated?: string | null;
+  transfers?: Record<string, number> | null;
+  winner?: string;
+}
+
+export interface BordaStep {
+  rank: number;
+  points_awarded: number;
+  tally: Record<string, number>;
+}
+
+export type VoteStepsResult =
+  | { method: 'irv';      rounds: IRVRound[] }
+  | { method: 'borda';    num_candidates: number; steps: BordaStep[]; winner: string | null }
+  | { method: 'plurality'; first_choices: Record<string, number>; winner: string | null }
+  | { method: 'schulze';  duel_matrix: Record<string, Record<string, number>>; path_matrix: Record<string, Record<string, number>>; winner: string | null }
+  | { method: 'approval'; threshold_used: number; approval_scores: Record<string, number>; winner: string | null };
+
 // ── Ideology map ──────────────────────────────────────────────────────────────
 
 export interface IdeologyMapVoter {
