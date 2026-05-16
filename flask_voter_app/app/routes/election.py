@@ -293,3 +293,196 @@ def simulate() -> tuple[Response, int]:
         "inter_method_agreement": _inter_method_agreement(methods_out),
         "condorcet_exists":      condorcet_winner is not None,
     }), 200
+
+
+# ── Shared helpers for divergence analysis ────────────────────────────────────
+
+def _build_base_electorate(
+    cand_specs: list,
+    num_voters: int,
+    ideology: str,
+    seed: int,
+    issues: list,
+) -> tuple:
+    """
+    Build candidates, voters, and true utilities from spec.
+    Returns (candidates, voters, true_utilities, cand_names).
+    """
+    import copy
+
+    cand_names = [str(s.get("name", f"C{i}")) for i, s in enumerate(cand_specs)]
+
+    candidates = [
+        _build_candidate_from_xy(
+            i,
+            cand_names[i],
+            max(-1.0, min(1.0, float(s.get("x", 0.0)))),
+            max(-1.0, min(1.0, float(s.get("y", 0.0)))),
+            issues,
+        )
+        for i, s in enumerate(cand_specs)
+    ]
+
+    voters = [
+        create_voter(issues, i, ideology_distribution=ideology)
+        for i in range(num_voters)
+    ]
+
+    true_utilities: Dict[Any, Dict[str, float]] = {
+        v["id"]: {c["name"]: calculate_utility(v, c, issues)["utility"] for c in candidates}
+        for v in voters
+    }
+
+    return candidates, voters, true_utilities, cand_names
+
+
+def _run_methods_on_electorate(
+    voters: list,
+    candidates: list,
+    utilities: Dict[Any, Dict[str, float]],
+    issues: list,
+    blank_enabled: bool,
+    blank_rule: BlankVoteRule,
+) -> Dict[str, Any]:
+    """
+    Run compare_all_methods and optionally apply blank-vote rule.
+    Returns structured dict: { method_name: { winner, winner_after_rule, ... } }.
+    """
+    result        = compare_all_methods(
+        voters, candidates, issues,
+        blank_vote=blank_enabled,
+        override_utilities=utilities,
+    )
+    condorcet_winner = result.get("condorcet_winner")
+    blank_pct        = result.get("blank_pct") or 0.0
+    methods_data     = result.get("methods", {})
+
+    methods_out: Dict[str, Any] = {}
+    for method_name, md in methods_data.items():
+        winner = md.get("winner")
+        entry: Dict[str, Any] = {"winner": winner}
+        if blank_enabled:
+            rule_result = apply_blank_rule(winner=winner, blank_pct=blank_pct, rule=blank_rule)
+            entry["winner_after_rule"] = rule_result.get("winner")
+            entry["blank_triggered"]   = rule_result.get("blank_triggered", False)
+        methods_out[method_name] = entry
+
+    return {
+        "methods":               methods_out,
+        "inter_method_agreement": _inter_method_agreement(methods_out),
+        "condorcet_winner":      condorcet_winner,
+        "blank_rate":            round(blank_pct, 4),
+    }
+
+
+# ── Divergence endpoint ───────────────────────────────────────────────────────
+
+@election_bp.route("/divergence", methods=["POST"])
+def divergence() -> tuple[Response, int]:
+    """
+    POST /api/election/divergence
+
+    Runs the same electorate twice — without and with blank vote — to isolate
+    the effect of blank-vote rules on inter-method agreement.
+
+    Campaign is intentionally skipped so we measure only the blank-vote effect.
+    """
+    data = request.get_json() or {}
+
+    num_voters  = max(10, min(500, int(data.get("num_voters", 200))))
+    ideology    = str(data.get("ideology", "random"))
+    seed        = int(data.get("seed", 42))
+    cand_specs  = data.get("candidates", [
+        {"name": "Alice", "x": -0.5, "y": -0.2},
+        {"name": "Bob",   "x":  0.5, "y":  0.2},
+        {"name": "Carol", "x":  0.0, "y":  0.3},
+    ])[:6]
+
+    blank_cfg      = data.get("blank_vote", {}) or {}
+    blank_rule_str = str(blank_cfg.get("rule", "symbolic"))
+    contagion_cfg  = blank_cfg.get("contagion", {}) or {}
+    contagion_on   = bool(contagion_cfg.get("enabled", False))
+
+    if len(cand_specs) < 2:
+        return jsonify({"error": "At least 2 candidates required"}), 400
+
+    try:
+        blank_rule = BlankVoteRule(blank_rule_str)
+    except ValueError:
+        blank_rule = BlankVoteRule.SYMBOLIC
+
+    # ── Seed (same electorate for both runs) ──────────────────────────────
+    _random.seed(seed)
+    _np.random.seed(seed)
+
+    issues = DEFAULT_ISSUES
+    candidates, voters, true_utilities, cand_names = _build_base_electorate(
+        cand_specs, num_voters, ideology, seed, issues
+    )
+
+    # ── Run A: without blank vote ─────────────────────────────────────────
+    import copy
+    voters_a = copy.deepcopy(voters)
+    run_a = _run_methods_on_electorate(
+        voters_a, candidates, true_utilities, issues,
+        blank_enabled=False, blank_rule=BlankVoteRule.SYMBOLIC,
+    )
+
+    # ── Run B: with blank vote (optional contagion) ───────────────────────
+    voters_b = copy.deepcopy(voters)
+
+    if contagion_on:
+        beta    = max(0.0, min(1.0, float(contagion_cfg.get("beta",  0.15))))
+        gamma   = max(0.0, min(1.0, float(contagion_cfg.get("gamma", 0.10))))
+        net_map = {"random": "random", "watts_strogatz": "small-world", "block": "clustered"}
+        net     = net_map.get(str(contagion_cfg.get("network", "random")), "random")
+        contagion_result = simulate_blank_contagion(
+            num_voters=num_voters, initial_blank_rate=0.05,
+            contagion_rate=beta, recovery_rate=gamma,
+            num_rounds=10, network_type=net, seed=seed,
+        )
+        reduction = contagion_result.get("final_blank_rate", 0.05) * 0.4
+        for v in voters_b:
+            v["blank_threshold"] = max(0.05, v["blank_threshold"] - reduction)
+
+    run_b = _run_methods_on_electorate(
+        voters_b, candidates, true_utilities, issues,
+        blank_enabled=True, blank_rule=blank_rule,
+    )
+
+    # ── Compute divergence metrics ────────────────────────────────────────
+    all_methods   = sorted(run_a["methods"].keys())
+    methods_changed: list[str] = []
+
+    for method in all_methods:
+        winner_a = run_a["methods"].get(method, {}).get("winner")
+        # For run B, compare effective winner (after rule) if available
+        md_b   = run_b["methods"].get(method, {})
+        winner_b = md_b.get("winner_after_rule", md_b.get("winner"))
+        if winner_a != winner_b:
+            methods_changed.append(method)
+
+    delta_agreement = round(
+        run_b["inter_method_agreement"] - run_a["inter_method_agreement"], 4
+    )
+    pct_changed = round(
+        len(methods_changed) / len(all_methods), 4
+    ) if all_methods else 0.0
+
+    return jsonify({
+        "without_blank": {
+            "methods":               run_a["methods"],
+            "inter_method_agreement": run_a["inter_method_agreement"],
+            "condorcet_winner":      run_a["condorcet_winner"],
+        },
+        "with_blank": {
+            "methods":               run_b["methods"],
+            "inter_method_agreement": run_b["inter_method_agreement"],
+            "condorcet_winner":      run_b["condorcet_winner"],
+            "blank_rate":            run_b["blank_rate"],
+        },
+        "delta_agreement":     delta_agreement,
+        "methods_changed":     methods_changed,
+        "pct_methods_changed": pct_changed,
+        "blank_rule":          blank_rule_str,
+    }), 200
