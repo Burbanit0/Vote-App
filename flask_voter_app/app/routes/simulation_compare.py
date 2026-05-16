@@ -27,11 +27,13 @@ from app.routes.simulation_helpers import (
     _build_scenario_candidates, _build_scenario_voters,
 )
 from app.constants import DEFAULT_ISSUES, ECONOMY_ISSUES, ENV_ISSUES, SOCIAL_ISSUES
+from app.extensions import sim_limiter
 
 simulation_compare_bp = Blueprint("simulation_compare", __name__, url_prefix="/simulations")
 
 
 @simulation_compare_bp.route("/compare", methods=["POST"])
+@sim_limiter.limit("30 per minute")
 def compare_methods() -> tuple[Response, int]:
     """
     Run compare_all_methods on a fresh population and return per-method metrics.
@@ -80,7 +82,7 @@ def compare_methods() -> tuple[Response, int]:
 
         # ── Compute true utilities once ────────────────────────────────────
         true_utils_dict: Dict[Any, Dict[str, float]] = {
-            v["id"]: {c["name"]: calculate_utility(v, c, issues)["utility"] for c in candidates}
+            v["id"]: {str(c["name"]): calculate_utility(v, c, issues)["utility"] for c in candidates}
             for v in voters
         }
 
@@ -159,6 +161,7 @@ def compare_methods() -> tuple[Response, int]:
 
 
 @simulation_compare_bp.route("/strategic-impact", methods=["POST"])
+@sim_limiter.limit("30 per minute")
 def strategic_impact() -> tuple[Response, int]:
     """
     Measure how bayesian_regret per method changes as the proportion of
@@ -235,6 +238,7 @@ def strategic_impact() -> tuple[Response, int]:
 
 
 @simulation_compare_bp.route("/condorcet-matrix", methods=["POST"])
+@sim_limiter.limit("30 per minute")
 def condorcet_matrix_route() -> tuple[Response, int]:
     """
     Build the full pairwise duel matrix for a fresh population.
@@ -259,6 +263,7 @@ def condorcet_matrix_route() -> tuple[Response, int]:
 
 
 @simulation_compare_bp.route("/sensitivity", methods=["POST"])
+@sim_limiter.limit("30 per minute")
 def sensitivity_analysis() -> tuple[Response, int]:
     """
     Vary one parameter and observe how winners and Bayesian regret change
@@ -356,6 +361,7 @@ def sensitivity_analysis() -> tuple[Response, int]:
 
 
 @simulation_compare_bp.route("/arrow-criteria", methods=["POST"])
+@sim_limiter.limit("30 per minute")
 def arrow_criteria_route() -> tuple[Response, int]:
     """
     Empirically verify Arrow's impossibility theorem criteria.
@@ -382,6 +388,7 @@ def arrow_criteria_route() -> tuple[Response, int]:
 # ── /simulations/scenario ─────────────────────────────────────────────────
 
 @simulation_compare_bp.route("/scenario", methods=["POST"])
+@sim_limiter.limit("30 per minute")
 def run_scenario() -> tuple[Response, int]:
     """
     Run a citizen-configured scenario through voting methods with and without blank vote.
@@ -491,6 +498,7 @@ _MANIPULABILITY_METHODS = [
 
 
 @simulation_compare_bp.route("/manipulability", methods=["GET"])
+@sim_limiter.limit("30 per minute")
 def manipulability_analysis() -> tuple[Response, int]:
     """
     Estimate the Gibbard-Satterthwaite manipulability index for multiple
@@ -604,7 +612,7 @@ _VOTE_STEPS_METHODS = {"irv", "borda", "plurality", "schulze", "approval"}
 _PARTY_CYCLE_STEPS  = ["Green", "Conservative", "Liberal", "Independent"]
 
 
-def _irv_steps(rankings: list, n_voters: int) -> list:
+def _irv_steps(rankings: list[list[str]], n_voters: int) -> list[dict[str, Any]]:
     """
     Return a list of round dicts for IRV animation.
 
@@ -618,13 +626,13 @@ def _irv_steps(rankings: list, n_voters: int) -> list:
     """
     from collections import Counter
 
-    rounds: list        = []
-    active: set         = {c for r in rankings for c in r}
-    last_eliminated     = None
-    last_transfers      = None
+    rounds: list[dict[str, Any]] = []
+    active: set[str]             = {c for r in rankings for c in r}
+    last_eliminated: Optional[str]                  = None
+    last_transfers:  Optional[dict[str, float]]     = None
 
     while True:
-        counts: Counter = Counter()
+        counts: Counter[str] = Counter()
         for r in rankings:
             for c in r:
                 if c in active:
@@ -649,7 +657,7 @@ def _irv_steps(rankings: list, n_voters: int) -> list:
         eliminated = next(c for c in sorted(active) if counts.get(c, 0) == min_c)
 
         # Compute vote transfers from eliminated candidate
-        transfers: Counter = Counter()
+        transfers: Counter[str] = Counter()
         for r in rankings:
             active_r = [c for c in r if c in active]
             if active_r and active_r[0] == eliminated:
@@ -667,14 +675,14 @@ def _irv_steps(rankings: list, n_voters: int) -> list:
     return rounds
 
 
-def _borda_steps(rankings: list) -> tuple:
+def _borda_steps(
+    rankings: list[list[str]],
+) -> tuple[list[dict[str, Any]], Optional[str]]:
     """Return (steps_list, winner) for Borda animation (one step per rank)."""
-    from collections import defaultdict
-
     all_candidates = sorted({c for r in rankings for c in r})
     n = max((len(r) for r in rankings), default=0)
-    cumulative: dict = {c: 0 for c in all_candidates}
-    steps: list = []
+    cumulative: dict[str, int] = {c: 0 for c in all_candidates}
+    steps: list[dict[str, Any]] = []
 
     for rank_idx in range(n):
         points = n - 1 - rank_idx
@@ -687,19 +695,21 @@ def _borda_steps(rankings: list) -> tuple:
             "tally":          dict(cumulative),
         })
 
-    winner = max(cumulative, key=cumulative.get) if cumulative else None
+    winner: Optional[str] = max(cumulative, key=lambda k: cumulative[k]) if cumulative else None
     return steps, winner
 
 
-def _schulze_matrices(rankings: list, candidate_names: list) -> tuple:
+def _schulze_matrices(
+    rankings: list[list[str]],
+    candidate_names: list[str],
+) -> tuple[dict[str, dict[str, float]], dict[str, dict[str, float]], Optional[str]]:
     """Return (duel_pct, path_pct, winner) for Schulze animation."""
-    from collections import defaultdict
     from itertools import combinations, permutations
 
     n       = len(rankings) or 1
     cands   = candidate_names
 
-    pref: dict = {c1: {c2: 0 for c2 in cands if c2 != c1} for c1 in cands}
+    pref: dict[str, dict[str, int]] = {c1: {c2: 0 for c2 in cands if c2 != c1} for c1 in cands}
     for c1, c2 in combinations(cands, 2):
         for r in rankings:
             try:
@@ -714,23 +724,26 @@ def _schulze_matrices(rankings: list, candidate_names: list) -> tuple:
     duel_pct = {c1: {c2: round(pref[c1][c2] / n, 4) for c2 in cands if c2 != c1} for c1 in cands}
 
     # Strongest-path (Floyd-Warshall style)
-    strength: dict = {c1: {c2: pref[c1][c2] for c2 in cands if c2 != c1} for c1 in cands}
+    strength: dict[str, dict[str, int]] = {c1: {c2: pref[c1][c2] for c2 in cands if c2 != c1} for c1 in cands}
     for c1, c2, c3 in permutations(cands, 3):
         strength[c1][c2] = max(strength[c1][c2], min(strength[c1][c3], strength[c3][c2]))
 
     path_pct = {c1: {c2: round(strength[c1][c2] / n, 4) for c2 in cands if c2 != c1} for c1 in cands}
 
-    wins: dict = {c: 0 for c in cands}
+    wins: dict[str, int] = {c: 0 for c in cands}
     for c1, c2 in combinations(cands, 2):
         if strength[c1][c2] > strength[c2][c1]:
             wins[c1] += 1
         elif strength[c2][c1] > strength[c1][c2]:
             wins[c2] += 1
-    winner = max(wins, key=wins.get) if any(wins.values()) else (cands[0] if cands else None)
+    winner: Optional[str] = (
+        max(wins, key=lambda k: wins[k]) if any(wins.values()) else (cands[0] if cands else None)
+    )
     return duel_pct, path_pct, winner
 
 
 @simulation_compare_bp.route("/vote-steps", methods=["POST"])
+@sim_limiter.limit("30 per minute")
 def vote_steps() -> tuple[Response, int]:
     """
     POST /simulations/vote-steps
@@ -781,12 +794,17 @@ def vote_steps() -> tuple[Response, int]:
     ]
     voters = [create_voter(issues, i, ideology_distribution=ideology) for i in range(num_voters)]
 
-    cand_names = [c["name"] for c in candidates]
+    cand_names: list[str] = [str(c["name"]) for c in candidates]
     utilities: Dict[Any, Dict[str, float]] = {
-        v["id"]: {c["name"]: calculate_utility(v, c, issues)["utility"] for c in candidates}
+        v["id"]: {str(c["name"]): calculate_utility(v, c, issues)["utility"] for c in candidates}
         for v in voters
     }
-    rankings = [sorted(cand_names, key=lambda n, vid=v["id"]: -utilities[vid][n]) for v in voters]
+
+    # Build rankings without default-argument lambda (mypy-safe closure)
+    rankings: list[list[str]] = []
+    for v in voters:
+        vid = v["id"]
+        rankings.append(sorted(cand_names, key=lambda n: -utilities[vid][n]))
 
     if method == "irv":
         return jsonify({"method": "irv", "rounds": _irv_steps(rankings, num_voters)}), 200
@@ -797,18 +815,18 @@ def vote_steps() -> tuple[Response, int]:
                         "steps": steps, "winner": winner}), 200
 
     if method == "plurality":
-        fc = Counter(r[0] for r in rankings if r)
+        fc: Counter[str] = Counter(r[0] for r in rankings if r)
         pct = {c: round(fc.get(c, 0) / num_voters, 4) for c in cand_names}
-        winner = max(pct, key=pct.get) if pct else None
-        return jsonify({"method": "plurality", "first_choices": pct, "winner": winner}), 200
+        winner_p: Optional[str] = max(pct, key=lambda k: pct[k]) if pct else None
+        return jsonify({"method": "plurality", "first_choices": pct, "winner": winner_p}), 200
 
     if method == "schulze":
-        duel, path, winner = _schulze_matrices(rankings, cand_names)
+        duel, path, winner_s = _schulze_matrices(rankings, cand_names)
         return jsonify({"method": "schulze", "duel_matrix": duel,
-                        "path_matrix": path, "winner": winner}), 200
+                        "path_matrix": path, "winner": winner_s}), 200
 
     # approval
-    approval: Counter = Counter()
+    approval: Counter[str] = Counter()
     threshold = 0.5
     for v in voters:
         u = utilities[v["id"]]
@@ -816,9 +834,9 @@ def vote_steps() -> tuple[Response, int]:
             if score >= threshold:
                 approval[cname] += 1
     approval_pct = {c: round(approval.get(c, 0) / num_voters, 4) for c in cand_names}
-    winner = max(approval_pct, key=approval_pct.get) if approval_pct else None
+    winner_a: Optional[str] = max(approval_pct, key=lambda k: approval_pct[k]) if approval_pct else None
     return jsonify({"method": "approval", "threshold_used": threshold,
-                    "approval_scores": approval_pct, "winner": winner}), 200
+                    "approval_scores": approval_pct, "winner": winner_a}), 200
 
 
 # ── Ideology map ──────────────────────────────────────────────────────────────
@@ -831,7 +849,7 @@ def _build_map_candidate(
     name: str,
     x: float,  # economy axis [-1, 1]
     y: float,  # social axis  [-1, 1]
-    issues: list,
+    issues: list[str],
 ) -> Dict[str, Any]:
     """
     Build a candidate dict from explicit 2D ideological coordinates.
@@ -871,6 +889,7 @@ def _build_map_candidate(
 
 
 @simulation_compare_bp.route("/ideology-map", methods=["POST"])
+@sim_limiter.limit("30 per minute")
 def ideology_map() -> tuple[Response, int]:
     """
     POST /simulations/ideology-map
