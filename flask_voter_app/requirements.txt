@@ -14,13 +14,6 @@ Werkzeug==3.1.8
 Jinja2==3.1.6
 MarkupSafe==3.0.3
 
-# Flask transitive deps — pinned to resolve Dependabot CVEs:
-#   GHSA-87hc-h4r5-73f7 + GHSA-29vq-49wr-vm6x (Werkzeug)
-#   GHSA-cpwx-vrp4-4pq7 + GHSA-q2x7-8rv6-6q7h (Jinja2)
-Werkzeug==3.1.8
-Jinja2==3.1.6
-MarkupSafe==3.0.3
-
 # Database
 SQLAlchemy==2.0.41
 psycopg2-binary==2.9.10
