@@ -13,9 +13,11 @@ from flask import Blueprint, Response, request, jsonify
 
 import random as _rng
 
+import numpy as _np
+
 from app.utils.simulation_voting_utils import calculate_utility, compute_strategic_plurality_vote, create_voter
 from app.utils.simulation_ranked_utils import get_plurality_winner
-from app.utils.simulation_metrics import compare_all_methods, get_condorcet_matrix
+from app.utils.simulation_metrics import compare_all_methods, compare_all_methods_mc, get_condorcet_matrix
 from app.utils.arrow_criteria import check_all_criteria
 from app.utils.blank_vote_rules import BlankVoteRule, apply_blank_rule
 from app.utils.information_model import apply_information_asymmetry, compute_information_gap
@@ -594,3 +596,162 @@ def manipulability_analysis() -> tuple[Response, int]:
         "num_trials":     num_trials_arg,
         "results":        results,
     }), 200
+
+
+# ── Ideology map ──────────────────────────────────────────────────────────────
+
+_IDEOLOGY_MAP_PARTIES = ["Green", "Liberal", "Conservative", "Independent"]
+
+
+def _build_map_candidate(
+    i: int,
+    name: str,
+    x: float,  # economy axis [-1, 1]
+    y: float,  # social axis  [-1, 1]
+    issues: list,
+) -> Dict[str, Any]:
+    """
+    Build a candidate dict from explicit 2D ideological coordinates.
+
+    X maps to economy dimension: -1 = far left, +1 = far right.
+    Y maps to social dimension:  -1 = very liberal, +1 = very conservative.
+    All issue positions derived deterministically (no noise) for stable
+    real-time drag behaviour.
+    """
+    econ_pos = (x + 1) / 2          # [0, 1]
+    soc_pos  = (y + 1) / 2          # [0, 1]
+    env_pos  = 1.0 - econ_pos        # left = more environment spending
+
+    policies = {
+        issue: (
+            econ_pos if issue in ECONOMY_ISSUES else
+            env_pos  if issue in ENV_ISSUES      else
+            soc_pos  if issue in SOCIAL_ISSUES   else
+            (econ_pos + soc_pos) / 2
+        )
+        for issue in issues
+    }
+
+    return {
+        "id":               i,
+        "name":             name,
+        "party":            _IDEOLOGY_MAP_PARTIES[i % len(_IDEOLOGY_MAP_PARTIES)],
+        "party_lean":       x,          # already in [-1, 1]
+        "ideology_position": econ_pos,
+        "policies":         policies,
+        "charisma":         0.7,
+        "scandals":         0,
+        "campaign_funds":   500_000,
+        "experience":       10,
+        "popularity":       0.6,
+    }
+
+
+@simulation_compare_bp.route("/ideology-map", methods=["POST"])
+def ideology_map() -> tuple[Response, int]:
+    """
+    POST /simulations/ideology-map
+
+    Compute 2D ideological map: voters coloured by which method's winner
+    they prefer (method_a vs method_b).  Candidates are passed with explicit
+    (x, y) positions so the client can drag them and call this endpoint to
+    re-colour the voter dots without regenerating the electorate.
+
+    Body:
+        num_voters  int               [50, 500]
+        candidates  [{name, x, y}]    x/y in [-1, 1]
+        ideology    str               voter distribution
+        seed        int               fixes the electorate
+        method_a    str
+        method_b    str
+    """
+    data         = request.get_json() or {}
+    num_voters   = max(10, min(500, int(data.get("num_voters",  200))))
+    candidate_specs = data.get("candidates", [])
+    ideology     = str(data.get("ideology",   "random"))
+    seed         = int(data.get("seed",        42))
+    method_a     = str(data.get("method_a",   "plurality"))
+    method_b     = str(data.get("method_b",   "schulze"))
+
+    if len(candidate_specs) < 2:
+        return jsonify({"error": "At least 2 candidates required"}), 400
+
+    # Seed both PRNGs so the electorate is deterministic
+    _rng.seed(seed)
+    _np.random.seed(seed)
+
+    issues = DEFAULT_ISSUES
+
+    # Build candidates from explicit positions (no randomness in policy values)
+    candidates: list[Dict[str, Any]] = []
+    for i, spec in enumerate(candidate_specs[:8]):
+        x    = max(-1.0, min(1.0, float(spec.get("x", 0.0))))
+        y    = max(-1.0, min(1.0, float(spec.get("y", 0.0))))
+        name = str(spec.get("name", f"Candidate {i + 1}"))
+        candidates.append(_build_map_candidate(i, name, x, y, issues))
+
+    # Build fixed electorate (seed controls this)
+    voters = [create_voter(issues, i, ideology_distribution=ideology) for i in range(num_voters)]
+
+    # Lightweight method comparison
+    result          = compare_all_methods_mc(voters, candidates, issues)
+    condorcet_winner = result.get("condorcet_winner")
+    methods_data    = result.get("methods", {})
+
+    winner_a: Optional[str] = (methods_data.get(method_a) or {}).get("winner")
+    winner_b: Optional[str] = (methods_data.get(method_b) or {}).get("winner")
+
+    # Pre-compute all voter utilities in one pass
+    voter_utils: list[Dict[str, float]] = [
+        {c["name"]: calculate_utility(voter, c, issues)["utility"] for c in candidates}
+        for voter in voters
+    ]
+
+    # Build voter data for the map
+    voter_data: list[Dict[str, Any]] = []
+    prefers_a_count = 0
+
+    for voter, utils in zip(voters, voter_utils):
+        util_a = utils.get(winner_a, 0.0) if winner_a else 0.0
+        util_b = utils.get(winner_b, 0.0) if winner_b else 0.0
+        prefers_a = util_a >= util_b
+        if prefers_a:
+            prefers_a_count += 1
+
+        # Map voter issue positions to 2D coordinates
+        ip      = voter.get("issue_positions", {})
+        voter_x = round(2.0 * ip.get("economy",        0.5) - 1.0, 3)
+        voter_y = round(2.0 * ip.get("social_welfare",  0.5) - 1.0, 3)
+
+        voter_data.append({
+            "id":              voter["id"],
+            "x":               voter_x,
+            "y":               voter_y,
+            "utility_winner_a": round(util_a, 4),
+            "utility_winner_b": round(util_b, 4),
+            "prefers_a":       prefers_a,
+        })
+
+    pct_a = round(prefers_a_count / num_voters, 4)
+    pct_b = round(1.0 - pct_a, 4)
+
+    return jsonify({
+        "voters":     voter_data,
+        "candidates": [
+            {
+                "name":  c["name"],
+                "x":     round(2.0 * c["ideology_position"] - 1.0, 3),
+                "y":     round(2.0 * c["policies"].get("social_welfare", 0.5) - 1.0, 3),
+                "party": c["party"],
+            }
+            for c in candidates
+        ],
+        "winner_a":             winner_a,
+        "winner_b":             winner_b,
+        "method_a":             method_a,
+        "method_b":             method_b,
+        "condorcet_winner":     condorcet_winner,
+        "pct_better_off_with_a": pct_a,
+        "pct_better_off_with_b": pct_b,
+    }), 200
+

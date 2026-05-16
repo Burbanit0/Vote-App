@@ -322,3 +322,33 @@ export interface StrategicImpactPoint {
   strategic_pct: number;
   methods: Record<string, number | null>;
 }
+
+// ── Ideology map ──────────────────────────────────────────────────────────────
+
+export interface IdeologyMapVoter {
+  id: number;
+  x: number;
+  y: number;
+  utility_winner_a: number;
+  utility_winner_b: number;
+  prefers_a: boolean;
+}
+
+export interface IdeologyMapCandidate {
+  name: string;
+  x: number;
+  y: number;
+  party: string;
+}
+
+export interface IdeologyMapResult {
+  voters: IdeologyMapVoter[];
+  candidates: IdeologyMapCandidate[];
+  winner_a: string | null;
+  winner_b: string | null;
+  method_a: string;
+  method_b: string;
+  condorcet_winner: string | null;
+  pct_better_off_with_a: number;
+  pct_better_off_with_b: number;
+}
