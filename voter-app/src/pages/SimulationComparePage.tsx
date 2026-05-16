@@ -57,6 +57,8 @@ import { useTranslation } from 'react-i18next';
 import { useMethodLabels } from '../components/Simulation/simulationConstants';
 import { useDebouncedSimulation } from '../hooks/useDebouncedSimulation';
 import LiveBadge from '../components/shared/LiveBadge';
+import { useElection } from '../context/ElectionContext';
+import { useNavigate } from 'react-router';
 
 // ── Presentation mode ──────────────────────────────────────────────────────
 
@@ -290,6 +292,8 @@ const SimulationComparePage: React.FC = () => {
   const [analysisLoading,  setAnalysisLoading]  = useState(false);
   const toast = useToast();
   const { expertMode, setExpertMode } = useExpertMode();
+  const { setConfig: setElectionConfig } = useElection();
+  const navigate = useNavigate();
 
   // ── Information model state ──
   const [infoModel, setInfoModel] = useState<InformationModelConfig>({
@@ -685,6 +689,19 @@ const SimulationComparePage: React.FC = () => {
               </Button>
               <Button variant="outline-success" size="sm" onClick={() => setShowGalleryShare(true)}>
                 💾 Galerie
+              </Button>
+              <Button
+                variant="outline-dark" size="sm"
+                onClick={() => {
+                  setElectionConfig({
+                    candidates: candidateNamesA.map((name, i) => ({ name, x: (i - 1) * 0.4, y: 0 })),
+                    num_voters: configA.numVoters,
+                    ideology: configA.ideology_distribution,
+                  });
+                  navigate('/election-lab');
+                }}
+              >
+                🔬 {t('electionLab.openInLab')}
               </Button>
               {expertMode && (
                 <Button variant="outline-info" size="sm" onClick={() => setShowDatasetExport(true)}>

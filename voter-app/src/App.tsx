@@ -18,6 +18,7 @@ import InternationalRegimesPage from './pages/InternationalRegimesPage';
 import ApiDocsPage from './pages/ApiDocsPage';
 import ScenarioGalleryPage from './pages/ScenarioGalleryPage';
 import TeacherPresentationPage from './pages/TeacherPresentationPage';
+import ElectionLabPage from './pages/ElectionLabPage';
 import Login from './pages/Login';
 import Register from './pages/Register';
 import ProfilePage from './pages/ProfilePage';
@@ -28,6 +29,7 @@ import AuthGuard from './context/AuthGuard';
 import { ThemeProvider, useTheme } from './context/ThemeContext';
 import { ExpertModeProvider } from './context/ExpertModeContext';
 import { ToastProvider } from './components/shared/ToastNotification';
+import { ElectionProvider } from './context/ElectionContext';
 import UpdatePrompt from './components/shared/UpdatePrompt';
 import OfflineBanner from './components/shared/OfflineBanner';
 import { TeacherModeProvider } from './context/TeacherModeContext';
@@ -68,6 +70,7 @@ const AppContent: React.FC = () => {
           <Route path="/regimes-internationaux" element={<InternationalRegimesPage />} />
           <Route path="/api-docs"              element={<ApiDocsPage />} />
           <Route path="/teacher/presentation" element={<TeacherPresentationPage />} />
+          <Route path="/election-lab"         element={<ElectionLabPage />} />
 
           {/* Auth-protected routes */}
           <Route path="/profile"    element={<AuthGuard component={ProfilePage} />} />
@@ -88,13 +91,15 @@ const AppContent: React.FC = () => {
 const App: React.FC = () => (
   <ThemeProvider>
     <ExpertModeProvider>
-      <TeacherModeProvider>
-        <ToastProvider>
-          <Router>
-            <AppContent />
-          </Router>
-        </ToastProvider>
-      </TeacherModeProvider>
+      <ElectionProvider>
+        <TeacherModeProvider>
+          <ToastProvider>
+            <Router>
+              <AppContent />
+            </Router>
+          </ToastProvider>
+        </TeacherModeProvider>
+      </ElectionProvider>
     </ExpertModeProvider>
   </ThemeProvider>
 );

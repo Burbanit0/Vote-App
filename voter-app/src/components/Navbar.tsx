@@ -20,6 +20,7 @@ const NAV_LINKS = [
   { href: '/campaign',             key: 'nav.campaign' },
   { href: '/blank-contagion',      key: 'nav.blankContagion' },
   { href: '/regimes-internationaux', key: 'nav.regimesInternationaux' },
+  { href: '/election-lab',           key: 'nav.electionLab' },
   { href: '/api-docs',               key: 'nav.apiDocs' },
   { href: '/galerie',                key: 'nav.gallery' },
 ];
