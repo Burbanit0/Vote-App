@@ -95,6 +95,7 @@ def create_app(config_object="config.Config"):
     from .routes.api_public import api_public_bp, write_openapi_json, init_api_limiter
     from .routes.gallery    import gallery_bp
     from .routes.export     import export_bp
+    from .routes.election   import election_bp
 
     app.register_blueprint(users.auth_bp)
     app.register_blueprint(simulation_base.simulation_base_bp)
@@ -106,6 +107,7 @@ def create_app(config_object="config.Config"):
     app.register_blueprint(api_public_bp)
     app.register_blueprint(gallery_bp)
     app.register_blueprint(export_bp)
+    app.register_blueprint(election_bp)
 
     # ── Public-API rate limiter ─────────────────────────────────────────────
     init_api_limiter(app)
