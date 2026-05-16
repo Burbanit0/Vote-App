@@ -221,6 +221,9 @@ def handle_start_monte_carlo(data: dict[str, Any]) -> None:
                 "regret_ci_half":         {m: ci_half_now[m] for m in method_names},
                 "iteration_checkpoints":  list(iteration_checkpoints),
             })
+            # Yield to the eventlet event loop so the message is actually
+            # flushed to the client before the next batch of iterations runs.
+            socketio.sleep(0)
 
     # ── Final result (unchanged format) ──────────────────────────────────
     final: dict[str, Any] = {}
