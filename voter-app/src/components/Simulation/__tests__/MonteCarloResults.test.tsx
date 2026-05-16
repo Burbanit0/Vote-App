@@ -31,10 +31,12 @@ jest.mock('../../../hooks/useMonteCarloStream', () => ({
   useMonteCarloStream: () => ({
     progress: 0, iteration: 0, total: 0, condorcetRate: 0,
     partialResults: {}, isRunning: false, complete: null, error: null,
+    regretHistory: {}, agreementHistory: [], ciHalfLatest: {}, iterationCheckpoints: [],
     start: jest.fn(), stop: jest.fn(), reset: jest.fn(),
   }),
 }));
 jest.mock('../MonteCarloLiveChart', () => () => null);
+jest.mock('../MonteCarloConvergencePanel', () => () => null);
 
 describe('MonteCarloResults', () => {
   it('renders config form and initial prompt', () => {

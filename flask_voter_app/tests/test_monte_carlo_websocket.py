@@ -246,3 +246,65 @@ def test_disconnect_cleans_stop_flag(ws_app):
     assert real_sid not in _stop_flags, (
         "disconnect handler should clean up _stop_flags"
     )
+
+
+# ── Convergence fields ────────────────────────────────────────────────────────
+
+def test_progress_contains_convergence_fields(sio_client):
+    """Each progress event must carry regret_history, agreement_rate, regret_ci_half."""
+    received = emit_mc(sio_client, num_iterations=100)
+    progress = next((m for m in received if m["name"] == "monte_carlo_progress"), None)
+    assert progress is not None, "No progress event received"
+
+    data = progress["args"][0]
+    assert "regret_history"        in data, "Missing 'regret_history'"
+    assert "agreement_rate"        in data, "Missing 'agreement_rate'"
+    assert "regret_ci_half"        in data, "Missing 'regret_ci_half'"
+    assert "iteration_checkpoints" in data, "Missing 'iteration_checkpoints'"
+
+
+def test_regret_history_grows_between_events(sio_client):
+    """regret_history[method] must be longer in later progress events."""
+    received = emit_mc(sio_client, num_iterations=150)
+    progress_events = [m for m in received if m["name"] == "monte_carlo_progress"]
+    assert len(progress_events) >= 2, (
+        "Need at least 2 progress events — try num_iterations >= 100"
+    )
+
+    first_data  = progress_events[0]["args"][0]
+    second_data = progress_events[1]["args"][0]
+
+    first_history  = first_data["regret_history"]
+    second_history = second_data["regret_history"]
+
+    assert isinstance(first_history, dict) and len(first_history) > 0
+    for method in first_history:
+        assert method in second_history, f"Method '{method}' missing in second event"
+        assert len(second_history[method]) > len(first_history[method]), (
+            f"regret_history[{method!r}] did not grow: "
+            f"{len(first_history[method])} → {len(second_history[method])}"
+        )
+
+
+def test_agreement_rate_is_probability(sio_client):
+    """agreement_rate must be a float in [0, 1]."""
+    received = emit_mc(sio_client, num_iterations=100)
+    for msg in received:
+        if msg["name"] != "monte_carlo_progress":
+            continue
+        rate = msg["args"][0].get("agreement_rate")
+        assert rate is not None, "agreement_rate missing"
+        assert isinstance(rate, (int, float)), f"agreement_rate not numeric: {rate!r}"
+        assert 0.0 <= rate <= 1.0, f"agreement_rate out of [0,1]: {rate}"
+
+
+def test_complete_event_unchanged(sio_client):
+    """monte_carlo_complete must NOT contain the new convergence keys (backward compat)."""
+    received = emit_mc(sio_client)
+    complete = next((m for m in received if m["name"] == "monte_carlo_complete"), None)
+    assert complete is not None
+    data = complete["args"][0]
+    # These keys belong only to progress events, not complete
+    assert "regret_history"  not in data
+    assert "agreement_rate"  not in data
+    assert "regret_ci_half"  not in data
