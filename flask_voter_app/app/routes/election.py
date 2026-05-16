@@ -27,6 +27,7 @@ from app.utils.blank_vote_rules        import BlankVoteRule, apply_blank_rule
 from app.utils.blank_contagion         import simulate_blank_contagion
 from app.utils.campaign_dynamics       import simulate_campaign
 from app.utils.information_model       import apply_information_asymmetry
+from app.extensions import sim_limiter
 
 election_bp = Blueprint("election", __name__, url_prefix="/api/election")
 
@@ -485,4 +486,253 @@ def divergence() -> tuple[Response, int]:
         "methods_changed":     methods_changed,
         "pct_methods_changed": pct_changed,
         "blank_rule":          blank_rule_str,
+    }), 200
+
+
+# ── Campaign sensitivity ──────────────────────────────────────────────────────
+
+def _snapshot_election_winners(
+    voters:     list[Dict[str, Any]],
+    candidates: list[Dict[str, Any]],
+    utilities:  Dict[Any, Dict[str, float]],
+    issues:     list[str],
+    blank_enabled: bool,
+    blank_rule: BlankVoteRule,
+) -> Dict[str, Dict[str, Any]]:
+    """
+    Run all voting methods from pre-computed utilities.
+
+    Lighter than compare_all_methods() — skips strategic_vulnerability so
+    calling it once per snapshot day is tractable.
+    """
+    import copy
+    from app.utils.simulation_ranked_utils import (
+        get_condorcet_winner,
+        get_plurality_winner, get_two_round_winner, get_borda_winner,
+        get_approval_winner, get_irv_winner, get_coombs_winner,
+        get_bucklin_winner, get_minimax_winner, get_schulze_winner,
+    )
+    from app.utils.simulation_score_utils import (
+        get_simple_score_winner, get_star_voting_winner,
+        get_median_voting_winner, get_mean_median_hybrid_winner,
+        get_variance_based_winner,
+    )
+
+    cand_names = [str(c["name"]) for c in candidates]
+    n          = len(voters) or 1
+
+    # Build sincere rankings and score votes from the provided utilities
+    rankings: list[list[str]] = [
+        sorted(cand_names, key=lambda name: -utilities[v["id"]][name])
+        for v in voters
+    ]
+    score_votes: list[dict[str, int]] = [
+        {name: max(0, min(5, round(5 * utilities[v["id"]][name]))) for name in cand_names}
+        for v in voters
+    ]
+
+    # Majority satisfaction helper (vote_share proxy)
+    def _satisfaction(winner: Optional[str]) -> float:
+        if not winner:
+            return 0.0
+        return round(sum(
+            1 for v in voters
+            if all(
+                utilities[v["id"]].get(winner, 0) > utilities[v["id"]].get(other, 0)
+                for other in cand_names if other != winner
+            )
+        ) / n, 4)
+
+    # blank_pct: voters whose first ranking choice is the blank slot
+    blank_pct = 0.0
+    if blank_enabled:
+        blank_pct = round(sum(
+            1 for v, r in zip(voters, rankings)
+            if max(utilities[v["id"]].values(), default=0.0) < v.get("blank_threshold", 0.375)
+        ) / n, 4)
+
+    ranked: dict[str, Any] = {
+        "plurality":   get_plurality_winner(rankings),
+        "two_round":   get_two_round_winner(rankings),
+        "borda":       get_borda_winner(rankings),
+        "approval":    get_approval_winner(rankings),
+        "irv":         get_irv_winner(rankings),
+        "coombs":      get_coombs_winner(rankings),
+        "bucklin":     get_bucklin_winner(rankings),
+        "minimax":     get_minimax_winner(rankings),
+        "schulze":     get_schulze_winner(rankings),
+    }
+    scored: dict[str, Any] = {
+        "simple_score":       (get_simple_score_winner(score_votes) or {}).get("winner")
+                              if isinstance(get_simple_score_winner(score_votes), dict)
+                              else get_simple_score_winner(score_votes),
+        "star_voting":        (get_star_voting_winner(score_votes) or {}).get("winner")
+                              if isinstance(get_star_voting_winner(score_votes), dict)
+                              else get_star_voting_winner(score_votes),
+        "median_voting":      get_median_voting_winner(score_votes),
+        "mean_median_hybrid": get_mean_median_hybrid_winner(score_votes),
+        "variance_based":     get_variance_based_winner(score_votes),
+    }
+
+    methods_out: Dict[str, Dict[str, Any]] = {}
+    for method, winner in {**ranked, **scored}.items():
+        # score methods may return dicts
+        if isinstance(winner, dict):
+            winner = winner.get("winner")
+        entry: Dict[str, Any] = {
+            "winner":     winner,
+            "vote_share": _satisfaction(winner),
+        }
+        if blank_enabled:
+            rule_res = apply_blank_rule(winner=winner, blank_pct=blank_pct, rule=blank_rule)
+            entry["winner_after_rule"] = rule_res.get("winner")
+        methods_out[method] = entry
+
+    return methods_out
+
+
+@election_bp.route("/campaign-sensitivity", methods=["POST"])
+def campaign_sensitivity() -> tuple[Response, int]:
+    """
+    POST /api/election/campaign-sensitivity
+
+    Runs the same electorate at multiple campaign "snapshots" to measure how
+    the polling effect changes which method elects which winner over time.
+
+    Body:
+        ...ElectionConfig fields...
+        snapshot_days: [0, 7, 14, 21, 28, "final"]   (optional)
+    """
+    import copy
+
+    data = request.get_json() or {}
+
+    num_voters      = max(10, min(200, int(data.get("num_voters",  150))))  # cap for speed
+    ideology        = str(data.get("ideology",   "random"))
+    seed            = int(data.get("seed",        42))
+    cand_specs      = data.get("candidates", [
+        {"name": "Alice", "x": -0.5, "y": -0.2},
+        {"name": "Bob",   "x":  0.5, "y":  0.2},
+        {"name": "Carol", "x":  0.0, "y":  0.3},
+    ])[:6]
+
+    campaign_cfg   = data.get("campaign", {}) or {}
+    num_days       = max(7,  min(60, int(campaign_cfg.get("num_days",        30))))
+    polling_effect = max(0.0, min(1.0, float(campaign_cfg.get("polling_effect", 0.3))))
+
+    blank_cfg      = data.get("blank_vote", {}) or {}
+    blank_enabled  = bool(blank_cfg.get("enabled", False))
+    blank_rule_str = str(blank_cfg.get("rule", "symbolic"))
+    contagion_cfg  = blank_cfg.get("contagion", {}) or {}
+    contagion_on   = bool(contagion_cfg.get("enabled", False))
+
+    raw_snaps      = data.get("snapshot_days", [0, 7, 14, 21, 28, "final"])
+
+    if len(cand_specs) < 2:
+        return jsonify({"error": "At least 2 candidates required"}), 400
+
+    try:
+        blank_rule = BlankVoteRule(blank_rule_str)
+    except ValueError:
+        blank_rule = BlankVoteRule.SYMBOLIC
+
+    # ── Seed and build base electorate ────────────────────────────────────
+    _random.seed(seed)
+    _np.random.seed(seed)
+
+    issues = DEFAULT_ISSUES
+    candidates, voters, true_utilities, cand_names = _build_base_electorate(
+        cand_specs, num_voters, ideology, seed, issues
+    )
+
+    # ── Apply blank-vote contagion once (threshold adjustments) ───────────
+    if contagion_on and blank_enabled:
+        beta    = max(0.0, min(1.0, float(contagion_cfg.get("beta",  0.15))))
+        gamma   = max(0.0, min(1.0, float(contagion_cfg.get("gamma", 0.10))))
+        net_map = {"random": "random", "watts_strogatz": "small-world", "block": "clustered"}
+        net     = net_map.get(str(contagion_cfg.get("network", "random")), "random")
+        contagion_result = simulate_blank_contagion(
+            num_voters=num_voters, initial_blank_rate=0.05,
+            contagion_rate=beta, recovery_rate=gamma,
+            num_rounds=10, network_type=net, seed=seed,
+        )
+        reduction = contagion_result.get("final_blank_rate", 0.05) * 0.4
+        for v in voters:
+            v["blank_threshold"] = max(0.05, v["blank_threshold"] - reduction)
+
+    # ── Run campaign to get day-by-day polling shares ─────────────────────
+    camp       = simulate_campaign(
+        num_candidates=len(candidates),
+        num_voters=num_voters,
+        num_days=num_days,
+        events=[],
+        seed=seed,
+    )
+    camp_cands   = camp.get("candidates", [])   # internal campaign candidate names
+    daily_scores = camp.get("daily_scores", {})  # {camp_name: [pct_day0, …]}
+
+    # Resolve snapshot days (convert "final" → num_days)
+    resolved: list[int] = []
+    for d in raw_snaps:
+        resolved.append(num_days if d == "final" else min(int(d), num_days))
+    snapshot_days = sorted(set(resolved))
+
+    # ── Snapshot loop ─────────────────────────────────────────────────────
+    snapshots: list[Dict[str, Any]] = []
+    for day in snapshot_days:
+        # Get polling shares for this specific day
+        day_shares: Dict[str, float] = {}
+        for camp_idx, camp_name in enumerate(camp_cands):
+            if camp_idx < len(cand_names):
+                our_name    = cand_names[camp_idx]
+                shares_list = daily_scores.get(camp_name, [50.0])
+                pct         = shares_list[min(day, len(shares_list) - 1)]
+                day_shares[our_name] = pct / 100.0
+
+        # Blend true utilities with day-specific polling shares
+        day_utilities: Dict[Any, Dict[str, float]] = {}
+        for v in voters:
+            day_utilities[v["id"]] = {}
+            for c_name in cand_names:
+                share   = day_shares.get(c_name, 1.0 / len(cand_names))
+                u       = true_utilities[v["id"]][c_name]
+                blended = u * (1.0 - polling_effect * 0.4) + share * (polling_effect * 0.4)
+                day_utilities[v["id"]][c_name] = max(0.0, min(1.0, blended))
+
+        methods_out = _snapshot_election_winners(
+            voters, candidates, day_utilities, issues, blank_enabled, blank_rule
+        )
+
+        snapshots.append({
+            "day":                   day,
+            "methods":               methods_out,
+            "inter_method_agreement": _inter_method_agreement(methods_out),
+        })
+
+    # ── Stability metrics ─────────────────────────────────────────────────
+    all_methods = sorted(snapshots[0]["methods"].keys()) if snapshots else []
+    n_snaps     = len(snapshots)
+
+    method_stability: Dict[str, Any] = {}
+    for method in all_methods:
+        winners = [s["methods"].get(method, {}).get("winner") for s in snapshots]
+        changes = sum(1 for i in range(1, len(winners)) if winners[i] != winners[i - 1])
+        final_w = winners[-1] if winners else None
+        score   = round(1.0 - (changes / (n_snaps - 1)), 4) if n_snaps > 1 else 1.0
+        method_stability[method] = {
+            "winner_changes": changes,
+            "final_winner":   final_w,
+            "stability_score": score,
+        }
+
+    most_stable  = max(method_stability, key=lambda m: method_stability[m]["stability_score"]) \
+                   if method_stability else None
+    least_stable = min(method_stability, key=lambda m: method_stability[m]["stability_score"]) \
+                   if method_stability else None
+
+    return jsonify({
+        "snapshots":           snapshots,
+        "method_stability":    method_stability,
+        "most_stable_method":  most_stable,
+        "least_stable_method": least_stable,
     }), 200
