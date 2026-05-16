@@ -1,0 +1,129 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "VoteLab Simulation Dataset",
+  "description": "One row per (scenario, voting method). Each scenario is generated with a fixed seed for reproducibility. Use the same seed to regenerate identical data.",
+  "version": "1.0",
+  "endpoint": {
+    "csv":  "POST /api/export/simulation-dataset",
+    "json": "POST /api/export/simulation-dataset-json"
+  },
+  "request_body": {
+    "num_scenarios":  { "type": "integer", "minimum": 1, "maximum": 1000, "default": 100 },
+    "num_candidates": { "type": "integer", "minimum": 2, "maximum": 8,    "default": 4   },
+    "num_voters":     { "type": "integer", "minimum": 10,"maximum": 2000, "default": 200  },
+    "seed":           { "type": "integer", "default": 42, "description": "Global random seed for reproducibility" },
+    "ideology":       { "type": "string",  "enum": ["random","centrist","polarized","left_skewed","right_skewed"], "default": "random" }
+  },
+  "columns": [
+    {
+      "name": "scenario_id",
+      "type": "integer",
+      "description": "1-based scenario index. All rows with the same scenario_id share the same electorate.",
+      "example": 1
+    },
+    {
+      "name": "num_candidates",
+      "type": "integer",
+      "description": "Number of candidates in this scenario (fixed across all rows from the same request).",
+      "example": 4
+    },
+    {
+      "name": "num_voters",
+      "type": "integer",
+      "description": "Number of voters in this scenario (fixed across all rows from the same request).",
+      "example": 200
+    },
+    {
+      "name": "method",
+      "type": "string",
+      "description": "Voting method used. One of: plurality, two_round, borda, approval, irv, coombs, bucklin, minimax, schulze, simple_score, star_voting, median_voting, mean_median_hybrid, variance_based.",
+      "example": "schulze"
+    },
+    {
+      "name": "winner",
+      "type": "string",
+      "description": "Name of the candidate elected by this method in this scenario. Empty string if no winner (rare edge case).",
+      "example": "Alice"
+    },
+    {
+      "name": "winner_score",
+      "type": "number",
+      "description": "Majority satisfaction of the winner: fraction of voters who strictly prefer the winner over every other candidate. Range [0, 1].",
+      "example": 0.62
+    },
+    {
+      "name": "condorcet_exists",
+      "type": "integer",
+      "description": "1 if a Condorcet winner exists in this scenario, 0 otherwise.",
+      "example": 1
+    },
+    {
+      "name": "condorcet_winner",
+      "type": "string",
+      "description": "Name of the Condorcet winner, or empty string if none exists.",
+      "example": "Bob"
+    },
+    {
+      "name": "bayesian_regret",
+      "type": "number",
+      "description": "Bayesian regret of the method's winner: mean utility loss across all voters compared to the utilitarian optimum. Lower is better.",
+      "example": 0.042318
+    },
+    {
+      "name": "blank_rate",
+      "type": "number",
+      "description": "Fraction of voters who cast a blank vote. Always 0 in the current export (blank vote modelling is not enabled here).",
+      "example": 0
+    },
+    {
+      "name": "blank_rule",
+      "type": "string",
+      "description": "Blank vote rule applied. Always 'none' in the current export.",
+      "example": "none"
+    },
+    {
+      "name": "plurality_winner",
+      "type": "string",
+      "description": "Winner under plurality voting in this scenario. Repeated for every (scenario, method) row to enable cross-method comparison without joining.",
+      "example": "Alice"
+    },
+    {
+      "name": "borda_winner",
+      "type": "string",
+      "description": "Winner under Borda count in this scenario.",
+      "example": "Bob"
+    },
+    {
+      "name": "irv_winner",
+      "type": "string",
+      "description": "Winner under Instant-Runoff Voting (IRV) in this scenario.",
+      "example": "Alice"
+    },
+    {
+      "name": "schulze_winner",
+      "type": "string",
+      "description": "Winner under the Schulze method in this scenario.",
+      "example": "Bob"
+    },
+    {
+      "name": "approval_winner",
+      "type": "string",
+      "description": "Winner under approval voting in this scenario.",
+      "example": "Carol"
+    },
+    {
+      "name": "methods_agree",
+      "type": "integer",
+      "description": "1 if plurality, borda, irv, schulze, and approval all elect the same winner; 0 if at least one method differs.",
+      "example": 0
+    }
+  ],
+  "notes": [
+    "The spatial utility model places voters and candidates on a multidimensional policy space (economy, environment, social).",
+    "Voter ideology follows the requested distribution (random, centrist, polarized, left_skewed, right_skewed).",
+    "Reproducibility: the same (num_scenarios, num_candidates, num_voters, seed, ideology) always produces identical rows.",
+    "strategic_vulnerability is excluded from the export for speed — it is O(n! × voters) and would make large exports infeasible.",
+    "Python usage: pd.read_csv(io.StringIO(response.text)) after a POST to /api/export/simulation-dataset.",
+    "R usage: read.csv(text = httr::content(resp, 'text')) after httr::POST('/api/export/simulation-dataset', body=payload, encode='json')."
+  ]
+}

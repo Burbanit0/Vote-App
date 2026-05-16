@@ -7,6 +7,8 @@ Flask-Bcrypt==1.0.1
 Flask-JWT-Extended==4.7.3
 Flask-Limiter==4.1.1       # rate limiting on auth endpoints
 flask-openapi3==4.1.0      # OpenAPI 3.0 documentation generation
+flask-socketio==5.5.1      # WebSocket streaming for long simulations
+eventlet==0.40.1           # Async backend for flask-socketio
 
 # Flask transitive deps — pinned to resolve Dependabot CVEs:
 #   GHSA-68rp-wp8r-4726 (Flask), GHSA-87hc-h4r5-73f7 + GHSA-29vq-49wr-vm6x (Werkzeug),
