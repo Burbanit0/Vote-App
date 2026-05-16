@@ -965,26 +965,6 @@ def run_simulation(
             }
         )
     return results
-
-
-# --- 5. Analyze Results ---
-def analyze_results(results: List[Dict[str, Any]]) -> None:
-    votes = [r["vote"] for r in results if r["vote"] is not None]
-    print(f"Turnout: {len(votes) / len(results):.1%}")
-    if isinstance(votes[0], str):  # Plurality
-        print("Plurality results:", Counter(votes))
-    elif isinstance(votes[0], list):  # Ranked
-        print("Ranked-choice first preferences:", Counter(v[0] for v in votes))
-    elif isinstance(votes[0], dict):  # Score
-        scores = {c: sum(v.get(c, 0) for v in votes) for c in votes[0].keys()}
-        print("Score voting totals:", scores)
-
-
-# --- 6. Example Usage ---
-if __name__ == "__main__":
-    results = run_simulation(num_voters=1000, method="plurality")
-    analyze_results(results)
-    # Save results for visualization
     import json
 
     with open("election_results.json", "w") as f:
