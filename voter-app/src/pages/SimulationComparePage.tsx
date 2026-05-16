@@ -12,6 +12,7 @@ import DatasetExportModal from '../components/shared/DatasetExportModal';
 import MultiwinnerAnalysis from '../components/Simulation/MultiwinnerAnalysis';
 import MonteCarloResults from '../components/Simulation/MonteCarloResults';
 import IdeologyMapChart from '../components/Simulation/IdeologyMapChart';
+import VoteStepAnimator from '../components/Simulation/VoteStepAnimator';
 import WinnerMatrixTab from '../components/Simulation/WinnerMatrixTab';
 import MetricsTab from '../components/Simulation/MetricsTab';
 import StrategicImpactTab from '../components/Simulation/StrategicImpactTab';
@@ -60,12 +61,12 @@ import LiveBadge from '../components/shared/LiveBadge';
 // ── Presentation mode ──────────────────────────────────────────────────────
 
 const TAB_ORDER = [
-  'winners', 'ideology-map', 'metrics', 'strategic', 'condorcet', 'arrow',
+  'winners', 'ideology-map', 'animation', 'metrics', 'strategic', 'condorcet', 'arrow',
   'bandwagon', 'montecarlo', 'real-elections', 'multiwinner', 'sensitivity',
   'manipulability', 'advanced',
 ];
 
-const BEGINNER_TABS = ['winners', 'ideology-map', 'metrics', 'strategic', 'real-elections', 'montecarlo', 'manipulability'];
+const BEGINNER_TABS = ['winners', 'ideology-map', 'animation', 'metrics', 'strategic', 'real-elections', 'montecarlo', 'manipulability'];
 
 const BEGINNER_METHODS = ['plurality', 'borda', 'irv', 'schulze', 'approval'];
 
@@ -253,6 +254,7 @@ const SimulationComparePage: React.FC = () => {
   const TAB_LABELS: Record<string, string> = {
     winners:          t('simulation.tabs.winners'),
     'ideology-map':   t('simulation.tabs.ideologyMap'),
+    animation:        t('simulation.tabs.animation'),
     metrics:          t('simulation.tabs.metrics'),
     strategic:        t('simulation.tabs.strategic'),
     condorcet:        t('simulation.tabs.condorcet'),
@@ -800,6 +802,9 @@ const SimulationComparePage: React.FC = () => {
             </Tab>
             <Tab eventKey="ideology-map" title={t('simulation.tabs.ideologyMap')}>
               <IdeologyMapChart defaultCandidates={candidateNamesA} />
+            </Tab>
+            <Tab eventKey="animation" title={t('simulation.tabs.animation')}>
+              <VoteStepAnimator defaultCandidates={candidateNamesA} />
             </Tab>
             <Tab eventKey="metrics" title={t('simulation.tabs.metrics')}>
               <MetricsTab comparisonResults={comparisonResults} allMethodNames={allMethodNames} numSimulations={numSimulations} />

@@ -15,7 +15,7 @@ import random as _rng
 
 import numpy as _np
 
-from app.utils.simulation_voting_utils import calculate_utility, compute_strategic_plurality_vote, create_voter
+from app.utils.simulation_voting_utils import calculate_utility, compute_strategic_plurality_vote, create_candidate, create_voter
 from app.utils.simulation_ranked_utils import get_plurality_winner
 from app.utils.simulation_metrics import compare_all_methods, compare_all_methods_mc, get_condorcet_matrix
 from app.utils.arrow_criteria import check_all_criteria
@@ -596,6 +596,229 @@ def manipulability_analysis() -> tuple[Response, int]:
         "num_trials":     num_trials_arg,
         "results":        results,
     }), 200
+
+
+# ── Vote-steps (step-by-step counting animation) ──────────────────────────────
+
+_VOTE_STEPS_METHODS = {"irv", "borda", "plurality", "schulze", "approval"}
+_PARTY_CYCLE_STEPS  = ["Green", "Conservative", "Liberal", "Independent"]
+
+
+def _irv_steps(rankings: list, n_voters: int) -> list:
+    """
+    Return a list of round dicts for IRV animation.
+
+    Each non-final round:
+        { "round": N, "scores": {name: pct}, "eliminated": name|null, "transfers": {name: pct}|null }
+    Final round:
+        { "round": N, "winner": name }
+
+    The "eliminated" / "transfers" fields on round N describe what happened
+    at the *end of round N-1* (i.e. why the scores changed from N-1 to N).
+    """
+    from collections import Counter
+
+    rounds: list        = []
+    active: set         = {c for r in rankings for c in r}
+    last_eliminated     = None
+    last_transfers      = None
+
+    while True:
+        counts: Counter = Counter()
+        for r in rankings:
+            for c in r:
+                if c in active:
+                    counts[c] += 1
+                    break
+
+        total = sum(counts.values()) or 1
+        scores = {c: round(counts.get(c, 0) / total, 4) for c in sorted(active)}
+        rnum = len(rounds) + 1
+
+        # Majority winner?
+        winner = next((c for c, v in counts.items() if v * 2 > total), None)
+        if winner or len(active) == 1:
+            winner = winner or next(iter(active))
+            rounds.append({"round": rnum, "scores": scores,
+                           "eliminated": last_eliminated, "transfers": last_transfers})
+            rounds.append({"round": rnum + 1, "winner": winner})
+            break
+
+        # Find eliminated (lowest first-choice count, alphabetical tiebreak)
+        min_c = min(counts.get(c, 0) for c in active)
+        eliminated = next(c for c in sorted(active) if counts.get(c, 0) == min_c)
+
+        # Compute vote transfers from eliminated candidate
+        transfers: Counter = Counter()
+        for r in rankings:
+            active_r = [c for c in r if c in active]
+            if active_r and active_r[0] == eliminated:
+                rest = [c for c in active_r[1:] if c != eliminated]
+                if rest:
+                    transfers[rest[0]] += 1
+        transfer_pct = {c: round(v / n_voters, 4) for c, v in transfers.items()} if transfers else None
+
+        rounds.append({"round": rnum, "scores": scores,
+                       "eliminated": last_eliminated, "transfers": last_transfers})
+        active.remove(eliminated)
+        last_eliminated = eliminated
+        last_transfers  = transfer_pct
+
+    return rounds
+
+
+def _borda_steps(rankings: list) -> tuple:
+    """Return (steps_list, winner) for Borda animation (one step per rank)."""
+    from collections import defaultdict
+
+    all_candidates = sorted({c for r in rankings for c in r})
+    n = max((len(r) for r in rankings), default=0)
+    cumulative: dict = {c: 0 for c in all_candidates}
+    steps: list = []
+
+    for rank_idx in range(n):
+        points = n - 1 - rank_idx
+        for r in rankings:
+            if rank_idx < len(r):
+                cumulative[r[rank_idx]] += points
+        steps.append({
+            "rank":           rank_idx + 1,
+            "points_awarded": points,
+            "tally":          dict(cumulative),
+        })
+
+    winner = max(cumulative, key=cumulative.get) if cumulative else None
+    return steps, winner
+
+
+def _schulze_matrices(rankings: list, candidate_names: list) -> tuple:
+    """Return (duel_pct, path_pct, winner) for Schulze animation."""
+    from collections import defaultdict
+    from itertools import combinations, permutations
+
+    n       = len(rankings) or 1
+    cands   = candidate_names
+
+    pref: dict = {c1: {c2: 0 for c2 in cands if c2 != c1} for c1 in cands}
+    for c1, c2 in combinations(cands, 2):
+        for r in rankings:
+            try:
+                p1, p2 = r.index(c1), r.index(c2)
+                if p1 < p2:
+                    pref[c1][c2] += 1
+                else:
+                    pref[c2][c1] += 1
+            except ValueError:
+                pass
+
+    duel_pct = {c1: {c2: round(pref[c1][c2] / n, 4) for c2 in cands if c2 != c1} for c1 in cands}
+
+    # Strongest-path (Floyd-Warshall style)
+    strength: dict = {c1: {c2: pref[c1][c2] for c2 in cands if c2 != c1} for c1 in cands}
+    for c1, c2, c3 in permutations(cands, 3):
+        strength[c1][c2] = max(strength[c1][c2], min(strength[c1][c3], strength[c3][c2]))
+
+    path_pct = {c1: {c2: round(strength[c1][c2] / n, 4) for c2 in cands if c2 != c1} for c1 in cands}
+
+    wins: dict = {c: 0 for c in cands}
+    for c1, c2 in combinations(cands, 2):
+        if strength[c1][c2] > strength[c2][c1]:
+            wins[c1] += 1
+        elif strength[c2][c1] > strength[c1][c2]:
+            wins[c2] += 1
+    winner = max(wins, key=wins.get) if any(wins.values()) else (cands[0] if cands else None)
+    return duel_pct, path_pct, winner
+
+
+@simulation_compare_bp.route("/vote-steps", methods=["POST"])
+def vote_steps() -> tuple[Response, int]:
+    """
+    POST /simulations/vote-steps
+
+    Returns per-step intermediate data for animating how a single method
+    counts the same set of ballots.
+
+    Body:
+        method    str   irv | borda | plurality | schulze | approval
+        num_voters int
+        candidates [str]
+        ideology   str
+        seed       int
+    """
+    from collections import Counter
+
+    data          = request.get_json() or {}
+    method        = str(data.get("method",    "plurality")).lower()
+    num_voters    = max(10, min(500, int(data.get("num_voters", 100))))
+    raw_cands     = [str(c) for c in data.get("candidates", ["Alice", "Bob", "Charlie"])][:8]
+    ideology      = str(data.get("ideology",  "random"))
+    seed          = int(data.get("seed",       42))
+
+    if len(raw_cands) < 2:
+        return jsonify({"error": "At least 2 candidates required"}), 400
+    if method not in _VOTE_STEPS_METHODS:
+        return jsonify({"error": f"method must be one of: {', '.join(sorted(_VOTE_STEPS_METHODS))}"}), 400
+
+    _rng.seed(seed)
+    _np.random.seed(seed)
+
+    issues     = DEFAULT_ISSUES
+    candidates = [
+        {
+            "id": i, "name": name,
+            "party": _PARTY_CYCLE_STEPS[i % len(_PARTY_CYCLE_STEPS)],
+            "party_lean": 0.0, "ideology_position": 0.5,
+            "policies": {iss: 0.5 for iss in issues},
+            "charisma": 0.7, "scandals": 0,
+            "campaign_funds": 500_000, "experience": 10, "popularity": 0.6,
+        }
+        for i, name in enumerate(raw_cands)
+    ]
+    # Override with proper create_candidate for realistic utilities
+    candidates = [
+        create_candidate(issues, i, name, _PARTY_CYCLE_STEPS[i % len(_PARTY_CYCLE_STEPS)])
+        for i, name in enumerate(raw_cands)
+    ]
+    voters = [create_voter(issues, i, ideology_distribution=ideology) for i in range(num_voters)]
+
+    cand_names = [c["name"] for c in candidates]
+    utilities: Dict[Any, Dict[str, float]] = {
+        v["id"]: {c["name"]: calculate_utility(v, c, issues)["utility"] for c in candidates}
+        for v in voters
+    }
+    rankings = [sorted(cand_names, key=lambda n, vid=v["id"]: -utilities[vid][n]) for v in voters]
+
+    if method == "irv":
+        return jsonify({"method": "irv", "rounds": _irv_steps(rankings, num_voters)}), 200
+
+    if method == "borda":
+        steps, winner = _borda_steps(rankings)
+        return jsonify({"method": "borda", "num_candidates": len(cand_names),
+                        "steps": steps, "winner": winner}), 200
+
+    if method == "plurality":
+        fc = Counter(r[0] for r in rankings if r)
+        pct = {c: round(fc.get(c, 0) / num_voters, 4) for c in cand_names}
+        winner = max(pct, key=pct.get) if pct else None
+        return jsonify({"method": "plurality", "first_choices": pct, "winner": winner}), 200
+
+    if method == "schulze":
+        duel, path, winner = _schulze_matrices(rankings, cand_names)
+        return jsonify({"method": "schulze", "duel_matrix": duel,
+                        "path_matrix": path, "winner": winner}), 200
+
+    # approval
+    approval: Counter = Counter()
+    threshold = 0.5
+    for v in voters:
+        u = utilities[v["id"]]
+        for cname, score in u.items():
+            if score >= threshold:
+                approval[cname] += 1
+    approval_pct = {c: round(approval.get(c, 0) / num_voters, 4) for c in cand_names}
+    winner = max(approval_pct, key=approval_pct.get) if approval_pct else None
+    return jsonify({"method": "approval", "threshold_used": threshold,
+                    "approval_scores": approval_pct, "winner": winner}), 200
 
 
 # ── Ideology map ──────────────────────────────────────────────────────────────
