@@ -28,3 +28,43 @@ export async function simulateElection(config: ElectionConfig): Promise<Election
   const response = await axios.post<ElectionResult>(`${API_BASE}/api/election/simulate`, config);
   return response.data;
 }
+
+// ── Divergence types ──────────────────────────────────────────────────────────
+
+export interface DivergenceMethodResult {
+  winner:           string | null;
+  winner_after_rule?: string | null;
+  blank_triggered?:  boolean;
+}
+
+export interface DivergenceRunResult {
+  methods:               Record<string, DivergenceMethodResult>;
+  inter_method_agreement: number;
+  condorcet_winner:      string | null;
+  blank_rate?:           number;
+}
+
+export interface DivergenceResult {
+  without_blank:       DivergenceRunResult;
+  with_blank:          DivergenceRunResult;
+  delta_agreement:     number;
+  methods_changed:     string[];
+  pct_methods_changed: number;
+  blank_rule:          string;
+}
+
+export interface DivergenceParams {
+  candidates:  { name: string; x: number; y: number }[];
+  num_voters:  number;
+  ideology:    string;
+  seed:        number;
+  blank_vote:  {
+    rule:      string;
+    contagion: { enabled: boolean; beta: number; gamma: number; network: string };
+  };
+}
+
+export async function fetchDivergence(params: DivergenceParams): Promise<DivergenceResult> {
+  const response = await axios.post<DivergenceResult>(`${API_BASE}/api/election/divergence`, params);
+  return response.data;
+}

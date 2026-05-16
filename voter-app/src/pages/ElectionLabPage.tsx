@@ -12,6 +12,7 @@ import IdeologyMapChart from '../components/Simulation/IdeologyMapChart';
 import VoteStepAnimator from '../components/Simulation/VoteStepAnimator';
 import MonteCarloResults from '../components/Simulation/MonteCarloResults';
 import ManipulabilityChart from '../components/Simulation/ManipulabilityChart';
+import BlankVoteDivergencePanel from '../components/shared/BlankVoteDivergencePanel';
 
 const COLORS: Record<string, string> = {
   Green: '#007A33', Liberal: '#005CAB', Conservative: '#C8590A', Independent: '#6c757d',
@@ -413,6 +414,9 @@ const ElectionLabPage: React.FC = () => {
                 </Tab>
                 <Tab eventKey="manipulability" title={`⚡ ${t('electionLab.tabManipulability')}`}>
                   <ManipulabilityChart baseParams={baseParams} />
+                </Tab>
+                <Tab eventKey="blank-divergence" title={`📊 ${t('electionLab.tabBlankDivergence')}`}>
+                  <BlankVoteDivergencePanel />
                 </Tab>
               </Tabs>
             </div>
