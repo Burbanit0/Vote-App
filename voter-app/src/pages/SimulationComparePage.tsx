@@ -8,6 +8,7 @@ import BandwagonAnalysis from '../components/Simulation/BandwagonAnalysis';
 import ManipulabilityChart from '../components/Simulation/ManipulabilityChart';
 import InformationModelPanel from '../components/Simulation/InformationModelPanel';
 import GalleryShareModal from '../components/shared/GalleryShareModal';
+import DatasetExportModal from '../components/shared/DatasetExportModal';
 import MultiwinnerAnalysis from '../components/Simulation/MultiwinnerAnalysis';
 import MonteCarloResults from '../components/Simulation/MonteCarloResults';
 import WinnerMatrixTab from '../components/Simulation/WinnerMatrixTab';
@@ -303,7 +304,8 @@ const SimulationComparePage: React.FC = () => {
 
   // ── UI state ──
   const [activeTab, setActiveTab] = useState('winners');
-  const [showGalleryShare, setShowGalleryShare] = useState(false);
+  const [showGalleryShare,    setShowGalleryShare]    = useState(false);
+  const [showDatasetExport,   setShowDatasetExport]   = useState(false);
   const [presentationMode, setPresentationMode] = useState(false);
   const [presentationTabIndex, setPresentationTabIndex] = useState(0);
   const [linkCopied, setLinkCopied] = useState(false);
@@ -666,6 +668,11 @@ const SimulationComparePage: React.FC = () => {
                 💾 Galerie
               </Button>
               {expertMode && (
+                <Button variant="outline-info" size="sm" onClick={() => setShowDatasetExport(true)}>
+                  📊 {t('export.modalTitle')}
+                </Button>
+              )}
+              {expertMode && (
                 <Dropdown>
                   <Dropdown.Toggle variant="outline-secondary" size="sm" id="academic-export-dropdown">
                     🎓 Export académique
@@ -873,6 +880,11 @@ const SimulationComparePage: React.FC = () => {
           </Tabs>
         )}
 
+        <DatasetExportModal
+          show={showDatasetExport}
+          onHide={() => setShowDatasetExport(false)}
+          defaultCandidates={candidateNamesA}
+        />
         <GalleryShareModal
           show={showGalleryShare}
           onHide={() => setShowGalleryShare(false)}

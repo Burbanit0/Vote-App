@@ -28,6 +28,8 @@ import { getMonteCarlo, MonteCarloParams } from '../../services/simulationCompar
 import ResponsiveTable from '../shared/ResponsiveTable';
 import SkeletonCard from '../shared/SkeletonCard';
 import { useChartTheme } from '../../hooks/useChartTheme';
+import { useMonteCarloStream } from '../../hooks/useMonteCarloStream';
+import MonteCarloLiveChart from './MonteCarloLiveChart';
 
 const CANDIDATE_PALETTE = ['#4e79a7', '#f28e2b', '#e15759', '#76b7b2', '#59a14f', '#edc948'];
 
@@ -65,6 +67,9 @@ const MonteCarloResults: React.FC<Props> = ({ baseParams }) => {
   const [result, setResult] = useState<MonteCarloResult | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [useStreaming, setUseStreaming] = useState(true);
+
+  const stream = useMonteCarloStream();
 
   const METHOD_LABELS: Record<string, string> = useMemo(() => ({
     plurality:            t('methods.plurality.label'),
@@ -92,8 +97,21 @@ const MonteCarloResults: React.FC<Props> = ({ baseParams }) => {
   ];
 
   const runMC = async () => {
-    setLoading(true);
+    setResult(null);
     setError(null);
+
+    if (useStreaming) {
+      stream.reset();
+      stream.start({
+        num_iterations: numRuns,
+        num_voters: numVoters,
+        candidates: baseParams.candidates,
+        ideology: ideologyDist,
+      });
+      return;
+    }
+
+    setLoading(true);
     try {
       const params: MonteCarloParams = {
         num_runs: numRuns,
@@ -216,11 +234,25 @@ const MonteCarloResults: React.FC<Props> = ({ baseParams }) => {
               </Form.Select>
             </Col>
             <Col md={2}>
-              <Button variant="primary" size="sm" className="w-100" onClick={runMC} disabled={loading}>
+              <Button
+                variant="primary" size="sm" className="w-100"
+                onClick={runMC}
+                disabled={loading || stream.isRunning}
+              >
                 {loading
                   ? <><Spinner size="sm" className="me-2" />{t('simulation.runningEllipsis')}</>
                   : t('simulation.runMonteCarlo')}
               </Button>
+            </Col>
+            <Col md={2} className="d-flex align-items-end">
+              <Form.Check
+                type="switch"
+                id="streaming-toggle"
+                label={<span className="small">{t('simulation.useStreaming')}</span>}
+                checked={useStreaming}
+                onChange={(e) => setUseStreaming(e.target.checked)}
+                disabled={loading || stream.isRunning}
+              />
             </Col>
           </Row>
           <p className="text-muted small mt-2 mb-0">
@@ -229,7 +261,7 @@ const MonteCarloResults: React.FC<Props> = ({ baseParams }) => {
         </Card.Body>
       </Card>
 
-      {error && <Alert variant="danger">{error}</Alert>}
+      {(error || stream.error) && <Alert variant="danger">{error ?? stream.error}</Alert>}
 
       {loading && (
         <Row className="g-3 mb-2">
@@ -237,7 +269,19 @@ const MonteCarloResults: React.FC<Props> = ({ baseParams }) => {
         </Row>
       )}
 
-      {!result && !loading && (
+      {/* Live streaming chart */}
+      <MonteCarloLiveChart
+        isRunning={stream.isRunning}
+        progress={stream.progress}
+        iteration={stream.iteration}
+        total={stream.total}
+        condorcetRate={stream.condorcetRate}
+        partialResults={stream.partialResults}
+        error={null}
+        onStop={() => stream.stop()}
+      />
+
+      {!result && !loading && !stream.isRunning && stream.iteration === 0 && (
         <Alert variant="info">
           <span dangerouslySetInnerHTML={{ __html: t('simulation.monteCarloPrompt', { sec: Math.round(numRuns * numVoters / 1000 * 2) }) }} />
         </Alert>
