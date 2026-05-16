@@ -36,7 +36,7 @@ _PARTY_CYCLE = ["Green", "Liberal", "Conservative", "Independent"]
 # ── Helpers ───────────────────────────────────────────────────────────────────
 
 def _build_candidate_from_xy(
-    i: int, name: str, x: float, y: float, issues: list
+    i: int, name: str, x: float, y: float, issues: list[str]
 ) -> Dict[str, Any]:
     """Build a candidate dict from explicit 2D ideological position."""
     econ_pos = (x + 1) / 2
@@ -298,17 +298,17 @@ def simulate() -> tuple[Response, int]:
 # ── Shared helpers for divergence analysis ────────────────────────────────────
 
 def _build_base_electorate(
-    cand_specs: list,
+    cand_specs: list[dict[str, Any]],
     num_voters: int,
     ideology: str,
     seed: int,
-    issues: list,
-) -> tuple:
+    issues: list[str],
+) -> tuple[list[Dict[str, Any]], list[Dict[str, Any]], Dict[Any, Dict[str, float]], list[str]]:
     """
     Build candidates, voters, and true utilities from spec.
     Returns (candidates, voters, true_utilities, cand_names).
     """
-    import copy
+    import copy  # noqa: F401 — kept for symmetry, not actually needed here
 
     cand_names = [str(s.get("name", f"C{i}")) for i, s in enumerate(cand_specs)]
 
@@ -337,10 +337,10 @@ def _build_base_electorate(
 
 
 def _run_methods_on_electorate(
-    voters: list,
-    candidates: list,
+    voters: list[Dict[str, Any]],
+    candidates: list[Dict[str, Any]],
     utilities: Dict[Any, Dict[str, float]],
-    issues: list,
+    issues: list[str],
     blank_enabled: bool,
     blank_rule: BlankVoteRule,
 ) -> Dict[str, Any]:
