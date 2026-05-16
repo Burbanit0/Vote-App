@@ -562,16 +562,18 @@ def _snapshot_election_winners(
         "minimax":     get_minimax_winner(rankings),
         "schulze":     get_schulze_winner(rankings),
     }
+    def _sw(raw: Any) -> Optional[str]:
+        """Extract winner string from a score-method result (dict or str)."""
+        if isinstance(raw, dict):
+            return str(raw["winner"]) if raw.get("winner") is not None else None
+        return str(raw) if raw is not None else None
+
     scored: dict[str, Any] = {
-        "simple_score":       (get_simple_score_winner(score_votes) or {}).get("winner")
-                              if isinstance(get_simple_score_winner(score_votes), dict)
-                              else get_simple_score_winner(score_votes),
-        "star_voting":        (get_star_voting_winner(score_votes) or {}).get("winner")
-                              if isinstance(get_star_voting_winner(score_votes), dict)
-                              else get_star_voting_winner(score_votes),
-        "median_voting":      get_median_voting_winner(score_votes),
-        "mean_median_hybrid": get_mean_median_hybrid_winner(score_votes),
-        "variance_based":     get_variance_based_winner(score_votes),
+        "simple_score":       _sw(get_simple_score_winner(score_votes)),       # type: ignore[no-untyped-call]
+        "star_voting":        _sw(get_star_voting_winner(score_votes)),        # type: ignore[no-untyped-call]
+        "median_voting":      get_median_voting_winner(score_votes),            # type: ignore[no-untyped-call]
+        "mean_median_hybrid": get_mean_median_hybrid_winner(score_votes),      # type: ignore[no-untyped-call]
+        "variance_based":     get_variance_based_winner(score_votes),          # type: ignore[no-untyped-call]
     }
 
     methods_out: Dict[str, Dict[str, Any]] = {}
