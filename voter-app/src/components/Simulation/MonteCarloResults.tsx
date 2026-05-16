@@ -30,6 +30,7 @@ import SkeletonCard from '../shared/SkeletonCard';
 import { useChartTheme } from '../../hooks/useChartTheme';
 import { useMonteCarloStream } from '../../hooks/useMonteCarloStream';
 import MonteCarloLiveChart from './MonteCarloLiveChart';
+import MonteCarloConvergencePanel from './MonteCarloConvergencePanel';
 
 const CANDIDATE_PALETTE = ['#4e79a7', '#f28e2b', '#e15759', '#76b7b2', '#59a14f', '#edc948'];
 
@@ -279,6 +280,16 @@ const MonteCarloResults: React.FC<Props> = ({ baseParams }) => {
         partialResults={stream.partialResults}
         error={null}
         onStop={() => stream.stop()}
+      />
+
+      {/* Convergence panels — visible from first progress event */}
+      <MonteCarloConvergencePanel
+        regretHistory={stream.regretHistory}
+        agreementHistory={stream.agreementHistory}
+        ciHalfLatest={stream.ciHalfLatest}
+        iterationCheckpoints={stream.iterationCheckpoints}
+        iteration={stream.iteration}
+        isRunning={stream.isRunning}
       />
 
       {!result && !loading && !stream.isRunning && stream.iteration === 0 && (

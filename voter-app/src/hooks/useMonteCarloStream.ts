@@ -13,6 +13,11 @@ export interface StreamProgress {
   total: number;
   partial_results: Record<string, MethodStreamStats>;
   condorcet_exists_rate: number;
+  // Convergence fields
+  regret_history: Record<string, number[]>;
+  agreement_rate: number;
+  regret_ci_half: Record<string, number | null>;
+  iteration_checkpoints: number[];
 }
 
 export interface StreamComplete {
@@ -39,6 +44,11 @@ interface State {
   isRunning: boolean;
   complete: StreamComplete | null;
   error: string | null;
+  // Convergence state
+  regretHistory: Record<string, number[]>;
+  agreementHistory: number[];
+  ciHalfLatest: Record<string, number | null>;
+  iterationCheckpoints: number[];
 }
 
 const INITIAL: State = {
@@ -50,6 +60,10 @@ const INITIAL: State = {
   isRunning: false,
   complete: null,
   error: null,
+  regretHistory: {},
+  agreementHistory: [],
+  ciHalfLatest: {},
+  iterationCheckpoints: [],
 };
 
 export function useMonteCarloStream() {
@@ -83,20 +97,25 @@ export function useMonteCarloStream() {
     socket.on('monte_carlo_progress', (data: StreamProgress) => {
       setState((s) => ({
         ...s,
-        iteration: data.iteration,
-        total: data.total,
-        progress: Math.round((data.iteration / data.total) * 100),
-        partialResults: data.partial_results,
-        condorcetRate: data.condorcet_exists_rate,
+        iteration:            data.iteration,
+        total:                data.total,
+        progress:             Math.round((data.iteration / data.total) * 100),
+        partialResults:       data.partial_results,
+        condorcetRate:        data.condorcet_exists_rate,
+        // Convergence: backend sends full accumulated history each time
+        regretHistory:        data.regret_history        ?? s.regretHistory,
+        agreementHistory:     [...s.agreementHistory, data.agreement_rate ?? 0],
+        ciHalfLatest:         data.regret_ci_half        ?? s.ciHalfLatest,
+        iterationCheckpoints: data.iteration_checkpoints ?? s.iterationCheckpoints,
       }));
     });
 
     socket.on('monte_carlo_complete', (data: StreamComplete) => {
       setState((s) => ({
         ...s,
-        isRunning: false,
-        progress: 100,
-        complete: data,
+        isRunning:    false,
+        progress:     100,
+        complete:     data,
         condorcetRate: data.condorcet_exists_rate,
       }));
       socket.disconnect();
