@@ -89,6 +89,8 @@ const fr = {
     votersLabel: 'Électeurs',
     distributionLabel: "Distribution de l'électorat",
     runAnalysis: "Lancer l'analyse",
+    refresh: '↺ Actualiser',
+    recalculating: 'Recalcul…',
     running: 'Analyse…',
     load: '📂 Charger',
     share: '🔗 Partager',
