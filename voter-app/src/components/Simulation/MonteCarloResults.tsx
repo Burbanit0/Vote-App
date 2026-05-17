@@ -22,7 +22,7 @@ import {
   XAxis,
   YAxis,
 } from 'recharts';
-import { useTranslation } from 'react-i18next';
+import { Trans, useTranslation } from 'react-i18next';
 import { MonteCarloResult } from '../../types';
 import { getMonteCarlo, MonteCarloParams } from '../../services/simulationCompareApi';
 import ResponsiveTable from '../shared/ResponsiveTable';
@@ -294,18 +294,18 @@ const MonteCarloResults: React.FC<Props> = ({ baseParams }) => {
 
       {!result && !loading && !stream.isRunning && stream.iteration === 0 && (
         <Alert variant="info">
-          <span dangerouslySetInnerHTML={{ __html: t('simulation.monteCarloPrompt', { sec: Math.round(numRuns * numVoters / 1000 * 2) }) }} />
+          <Trans i18nKey="simulation.monteCarloPrompt" values={{ sec: Math.round(numRuns * numVoters / 1000 * 2) }} />
         </Alert>
       )}
 
       {result && (
         <>
           <Alert variant="secondary" className="py-2 mb-4">
-            <span dangerouslySetInnerHTML={{ __html: t('simulation.monteCarloSummary', {
+            <Trans i18nKey="simulation.monteCarloSummary" values={{
               numRuns: result.num_runs,
               numVoters: result.num_voters_per_run,
               pct: (result.condorcet_winner_exists_rate * 100).toFixed(0),
-            })}} />
+            }} />
           </Alert>
 
           {/* 1. Regret bar chart with CI error bars */}

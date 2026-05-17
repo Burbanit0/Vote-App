@@ -5,9 +5,19 @@ from app.utils.response_utils import error_response, success_response
 
 class UserService:
     @staticmethod
+    def _validate_password_strength(password: str) -> str | None:
+        if len(password) < 8:
+            return "Password must be at least 8 characters long"
+        return None
+
+    @staticmethod
     def register(username, password, first_name, last_name, role="User"):
         if not username or not password:
             return error_response("Missing required fields", 400)
+
+        pw_error = UserService._validate_password_strength(password)
+        if pw_error:
+            return error_response(pw_error, 400)
 
         if role not in ["User", "Admin"]:
             return error_response("Invalid role specified", 400)

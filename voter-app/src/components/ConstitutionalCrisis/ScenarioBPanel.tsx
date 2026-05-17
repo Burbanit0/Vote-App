@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { Badge, Button, Card, Col, Form, Row, Spinner, Table } from 'react-bootstrap';
-import { useTranslation } from 'react-i18next';
+import { Trans, useTranslation } from 'react-i18next';
 import { ConstitutionalResult, ScenarioMethodResult } from '../../services/simulationCompareApi';
 
 const COLORS = ['#4e79a7', '#e15759', '#59a14f', '#f28e2b', '#76b7b2', '#edc948'];
@@ -59,7 +59,7 @@ const ScenarioBPanel: React.FC<Props> = ({ candidateNames, result, loading, onRu
           <Card>
             <Card.Body>
               <Form.Label className="fw-semibold">
-                <span dangerouslySetInnerHTML={{ __html: t('crisis.scenarioBDrift', { pct: (drift * 100).toFixed(0) }) }} />
+                <Trans i18nKey="crisis.scenarioBDrift" values={{ pct: (drift * 100).toFixed(0) }} />
                 <span className="text-muted ms-2" style={{ fontSize: '0.82rem' }}>{driftLabel}</span>
               </Form.Label>
               <Form.Range min={0} max={0.2} step={0.01} value={drift} onChange={(e) => setDrift(Number(e.target.value))} />

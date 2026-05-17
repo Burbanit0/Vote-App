@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { Badge, Button, Card, Col, Form, Row, Spinner, Table } from 'react-bootstrap';
 import { Bar, BarChart, CartesianGrid, Legend, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts';
-import { useTranslation } from 'react-i18next';
+import { Trans, useTranslation } from 'react-i18next';
 import { ConstitutionalResult } from '../../services/simulationCompareApi';
 
 const COLORS = ['#4e79a7', '#e15759', '#59a14f', '#f28e2b', '#76b7b2', '#edc948'];
@@ -50,7 +50,7 @@ const ScenarioCPanel: React.FC<Props> = ({ result, loading, onRun }) => {
           <Card>
             <Card.Body>
               <Form.Label>
-                <span dangerouslySetInnerHTML={{ __html: t('crisis.scenarioCSeats', { n: numSeats }) }} />
+                <Trans i18nKey="crisis.scenarioCSeats" values={{ n: numSeats }} />
               </Form.Label>
               <Form.Range min={10} max={500} step={10} value={numSeats} onChange={(e) => setNumSeats(Number(e.target.value))} />
               <div className="d-flex justify-content-between">

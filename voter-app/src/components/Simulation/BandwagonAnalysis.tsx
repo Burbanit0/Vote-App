@@ -21,7 +21,7 @@ import {
   XAxis,
   YAxis,
 } from 'recharts';
-import { useTranslation } from 'react-i18next';
+import { Trans, useTranslation } from 'react-i18next';
 import { BandwagonResult } from '../../types';
 import { getBandwagonAnalysis, BandwagonParams } from '../../services/simulationCompareApi';
 import SkeletonCard from '../shared/SkeletonCard';
@@ -202,7 +202,7 @@ const BandwagonAnalysis: React.FC<Props> = ({ baseParams }) => {
 
       {!result && !loading && (
         <Alert variant="info">
-          <span dangerouslySetInnerHTML={{ __html: t('simulation.bandwagonPrompt') }} />
+          <Trans i18nKey="simulation.bandwagonPrompt" />
         </Alert>
       )}
 
@@ -211,7 +211,7 @@ const BandwagonAnalysis: React.FC<Props> = ({ baseParams }) => {
           {/* Convergence info */}
           {result.convergence_round !== null ? (
             <Alert variant="success" className="py-2 mb-4">
-              <span dangerouslySetInnerHTML={{ __html: t('simulation.bandwagonConverged', { round: result.convergence_round }) }} />
+              <Trans i18nKey="simulation.bandwagonConverged" values={{ round: result.convergence_round }} />
             </Alert>
           ) : (
             <Alert variant="warning" className="py-2 mb-4">

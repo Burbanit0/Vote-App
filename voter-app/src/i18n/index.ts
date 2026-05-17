@@ -19,7 +19,7 @@ i18n
       caches: ['localStorage'],
       lookupLocalStorage: 'votelab_lang',
     },
-    interpolation: { escapeValue: false },
+    interpolation: { escapeValue: true },
   });
 
 export default i18n;

@@ -53,7 +53,7 @@ import {
   downloadText,
   SimulationExportParams,
 } from '../utils/latexExport';
-import { useTranslation } from 'react-i18next';
+import { Trans, useTranslation } from 'react-i18next';
 import { useMethodLabels } from '../components/Simulation/simulationConstants';
 import { useDebouncedSimulation } from '../hooks/useDebouncedSimulation';
 import LiveBadge from '../components/shared/LiveBadge';
@@ -784,7 +784,7 @@ const SimulationComparePage: React.FC = () => {
         )}
         {!hasResults && !liveSimulation.loading && (
           <Alert variant="info">
-            <span dangerouslySetInnerHTML={{ __html: t('simulation.noResults') }} />
+            <Trans i18nKey="simulation.noResults" />
           </Alert>
         )}
 

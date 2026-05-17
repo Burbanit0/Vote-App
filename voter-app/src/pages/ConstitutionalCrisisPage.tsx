@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { Alert, Badge, Button, Card, Col, Container, Row, Spinner, Tab, Tabs } from 'react-bootstrap';
-import { useTranslation } from 'react-i18next';
+import { Trans, useTranslation } from 'react-i18next';
 import { useToast } from '../components/shared/ToastNotification';
 import CandidateEditor, { CandidateConfig, newCandidate, newBlankCandidate } from '../components/ScenarioBuilder/CandidateEditor';
 import ElectorateConfig, { ElectorateState } from '../components/ScenarioBuilder/ElectorateConfig';
@@ -173,7 +173,7 @@ const ConstitutionalCrisisPage: React.FC = () => {
   return (
     <Container className="py-4" style={{ maxWidth: 960 }}>
       <h2 className="mb-1">{t('crisis.pageTitle')}</h2>
-      <p className="text-muted mb-4" dangerouslySetInnerHTML={{ __html: t('crisis.pageSubtitle') }} />
+      <p className="text-muted mb-4"><Trans i18nKey="crisis.pageSubtitle" /></p>
 
       {/* Initial election config */}
       <Card className="mb-4">
@@ -201,7 +201,7 @@ const ConstitutionalCrisisPage: React.FC = () => {
 
       {!initResult && !initLoading && (
         <Alert variant="info">
-          <span dangerouslySetInnerHTML={{ __html: t('crisis.configHint') }} />
+          <Trans i18nKey="crisis.configHint" />
         </Alert>
       )}
 
