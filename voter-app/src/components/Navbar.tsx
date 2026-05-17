@@ -68,6 +68,7 @@ const Navbar: React.FC = () => {
   const { expertMode, setExpertMode } = useExpertMode();
   const { teacherMode, setTeacherMode, slides } = useTeacherMode();
   const { t } = useTranslation();
+  const [navExpanded, setNavExpanded] = useState(false);
 
   // ── Teacher mode password modal ──────────────────────────────────────────
   const [showPassModal, setShowPassModal] = useState(false);
@@ -110,6 +111,8 @@ const Navbar: React.FC = () => {
       <BootstrapNavbar
         data-tour="navbar"
         expand="lg"
+        expanded={navExpanded}
+        onToggle={setNavExpanded}
         className="border-bottom shadow-sm"
         sticky="top"
         style={{ backgroundColor: 'var(--bs-body-bg)', borderColor: 'var(--bs-border-color)' }}
@@ -120,6 +123,7 @@ const Navbar: React.FC = () => {
             href="/"
             className="d-flex align-items-center gap-2 fw-bold me-4"
             style={{ fontSize: '1.1rem' }}
+            onClick={() => setNavExpanded(false)}
           >
             <span style={{ fontSize: '1.2rem' }}>🗳️</span>
             Vote Lab
@@ -128,7 +132,10 @@ const Navbar: React.FC = () => {
             </Badge>
           </BootstrapNavbar.Brand>
 
-          <BootstrapNavbar.Toggle aria-controls="votelab-nav" />
+          <BootstrapNavbar.Toggle
+            aria-controls="votelab-nav"
+            aria-expanded={navExpanded}
+          />
 
           <BootstrapNavbar.Collapse id="votelab-nav">
             {/* ── Main nav ── */}
@@ -138,6 +145,7 @@ const Navbar: React.FC = () => {
                 href="/election-lab"
                 className="fw-semibold px-3 py-1 rounded"
                 active={currentPath === '/election-lab'}
+                onClick={() => setNavExpanded(false)}
                 style={{
                   background:  currentPath === '/election-lab'
                     ? 'var(--bs-primary)'

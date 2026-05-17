@@ -1077,6 +1077,7 @@ const en: TranslationKeys = {
     tabPipeline:              'Pipeline',
     tabCombinedEffects:       'Combined effects',
     tabCoalition:             'Coalition',
+    tabSelect:                'Choose a tab',
     tabDistricts:             'Districts',
     tabPrimary:               'Primaries',
     tabJury:                  'Jury theorem',

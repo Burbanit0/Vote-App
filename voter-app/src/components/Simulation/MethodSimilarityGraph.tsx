@@ -336,9 +336,9 @@ const MethodSimilarityGraph: React.FC<MethodSimilarityGraphProps> = ({
         viewBox={`0 0 ${W} ${height}`}
         width="100%"
         style={{ display: 'block', cursor: dragRef.current.id ? 'grabbing' : 'default', userSelect: 'none' }}
-        onMouseMove={handleSvgMouseMove}
-        onMouseUp={handleSvgMouseUp}
-        onMouseLeave={handleSvgMouseUp}
+        onPointerMove={handleSvgMouseMove as unknown as React.PointerEventHandler<SVGSVGElement>}
+        onPointerUp={handleSvgMouseUp}
+        onPointerLeave={handleSvgMouseUp}
         aria-label={t('graph.ariaLabel')}
         data-testid="similarity-graph"
       >
@@ -381,10 +381,13 @@ const MethodSimilarityGraph: React.FC<MethodSimilarityGraphProps> = ({
                   stroke={isHovered ? '#212529' : '#fff'}
                   strokeWidth={isHovered ? 2.5 : 1.5}
                   opacity={hoveredNode && !isHovered ? 0.5 : 1}
-                  style={{ cursor: 'grab', transition: 'opacity 0.3s, r 0.2s' }}
-                  onMouseDown={(e) => handleNodeMouseDown(e, n.id)}
-                  onMouseEnter={() => setHoveredNode(n.id)}
-                  onMouseLeave={() => setHoveredNode(null)}
+                  style={{ cursor: 'grab', transition: 'opacity 0.3s, r 0.2s', touchAction: 'none' }}
+                  onPointerDown={(e) => {
+                    (e.target as Element).setPointerCapture(e.pointerId);
+                    handleNodeMouseDown(e as unknown as React.MouseEvent<SVGCircleElement>, n.id);
+                  }}
+                  onPointerEnter={() => setHoveredNode(n.id)}
+                  onPointerLeave={() => setHoveredNode(null)}
                 />
                 <text
                   x={p.x} y={p.y + 1}

@@ -4,6 +4,7 @@ import {
 } from 'react-bootstrap';
 import IdeologyHeatmap from './IdeologyHeatmap';
 import MedianVoterLayer, { MedianVoterLegend } from './MedianVoterLayer';
+import { useDragTouch } from '../../hooks/useDragTouch';
 import { useTranslation } from 'react-i18next';
 import { IdeologyMapResult, IdeologyMapVoter } from '../../types';
 import { getIdeologyMap, IdeologyMapParams } from '../../services/simulationCompareApi';
@@ -166,36 +167,32 @@ const IdeologyMapChart: React.FC<Props> = ({ defaultCandidates }) => {
   useEffect(() => { fetchMap(candidatePositions); }, // eslint-disable-next-line
   [numVoters, ideology, seed, methodA, methodB]);
 
-  // ── Drag handlers (window-level to capture fast movement)
-  useEffect(() => {
-    if (draggingIdx === null) return;
-
-    const onMove = (e: MouseEvent) => {
-      if (!svgRef.current) return;
-      const { x, y } = svgToDomain(e.clientX, e.clientY, svgRef.current.getBoundingClientRect());
+  // ── Unified mouse + touch drag via useDragTouch ───────────────────────────
+  useDragTouch(svgRef, {
+    onStart: (_x, _y) => { /* index tracked via handleCandidatePointerDown */ },
+    onMove:  (x, y) => {
+      if (draggingIdx === null) return;
       setCandidatePositions((prev) =>
         prev.map((c, i) => (i === draggingIdx ? { ...c, x, y } : c))
       );
-    };
-
-    const onUp = () => {
+    },
+    onEnd: () => {
       setDraggingIdx(null);
-      // Trigger API call 150ms after drop
       setTimeout(() => {
         setCandidatePositions((current) => { fetchMap(current); return current; });
       }, 150);
-    };
-
-    window.addEventListener('mousemove', onMove);
-    window.addEventListener('mouseup',  onUp);
-    return () => {
-      window.removeEventListener('mousemove', onMove);
-      window.removeEventListener('mouseup',  onUp);
-    };
-  }, [draggingIdx, fetchMap]);
+    },
+    toDomain: svgToDomain,
+  });
 
   const handleCandidateMouseDown = (e: React.MouseEvent, idx: number) => {
     e.preventDefault();
+    setDraggingIdx(idx);
+    setTooltip(null);
+  };
+
+  const handleCandidateTouchStart = (e: React.TouchEvent, idx: number) => {
+    e.stopPropagation();
     setDraggingIdx(idx);
     setTooltip(null);
   };
@@ -451,8 +448,9 @@ const IdeologyMapChart: React.FC<Props> = ({ defaultCandidates }) => {
                   <g
                     key={cp.name}
                     transform={`translate(${cx},${cy})`}
-                    style={{ cursor: draggingIdx === idx ? 'grabbing' : 'grab' }}
+                    style={{ cursor: draggingIdx === idx ? 'grabbing' : 'grab', touchAction: 'none' }}
                     onMouseDown={(e) => handleCandidateMouseDown(e, idx)}
+                    onTouchStart={(e) => handleCandidateTouchStart(e, idx)}
                   >
                     {/* Highlight ring for winners */}
                     {(isWinnerA || isWinnerB) && (
