@@ -910,6 +910,8 @@ const fr = {
     noImpactMessage:    'Le vote blanc n\'a pas modifié le vainqueur d\'aucune méthode avec cette configuration.',
   },
   insight: {
+    donutCenter:    'méthodes',
+    donutSingle:    '{{total}}/{{total}} méthodes — accord total',
     title:          'Analyse de l\'élection',
     loading:        'Analyse en cours…',
     error:          'Impossible de générer l\'analyse.',

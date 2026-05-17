@@ -4,6 +4,7 @@ import { useTranslation } from 'react-i18next';
 import i18n from '../../i18n';
 import { ElectionResult, InterpretResult, interpretElection } from '../../services/electionApi';
 import LiveBadge from './LiveBadge';
+import MethodGroupDonut from './MethodGroupDonut';
 
 // ── Colour helpers ────────────────────────────────────────────────────────────
 
@@ -92,40 +93,18 @@ const ElectionInsightPanel: React.FC<Props> = ({ result }) => {
           {insight.headline}
         </p>
 
-        {/* Method groups as badge rows */}
-        {insight.method_groups.length > 1 && (
-          <div className="mb-3">
-            {insight.method_groups.map((group, idx) => (
-              <div key={group.winner} className="d-flex align-items-start gap-2 mb-1 flex-wrap">
-                <span
-                  className="fw-semibold"
-                  style={{
-                    color:     CANDIDATE_COLORS[idx % CANDIDATE_COLORS.length],
-                    minWidth:  90,
-                    fontSize:  '0.8rem',
-                    paddingTop: 2,
-                  }}
-                >
-                  {t('insight.team')} {group.winner} ({Math.round(group.pct * 100)}%)
-                </span>
-                <div className="d-flex gap-1 flex-wrap">
-                  {group.methods.map((m) => (
-                    <Badge
-                      key={m}
-                      style={{
-                        background: CANDIDATE_COLORS[idx % CANDIDATE_COLORS.length],
-                        fontSize:   '0.68rem',
-                        opacity:    0.85,
-                      }}
-                    >
-                      {m}
-                    </Badge>
-                  ))}
-                </div>
-              </div>
-            ))}
-          </div>
-        )}
+        {/* Method groups — donut chart + optional divergence text */}
+        <div className="d-flex align-items-start gap-3 mb-3 flex-wrap">
+          <MethodGroupDonut
+            methodGroups={insight.method_groups}
+            totalMethods={Object.keys(result.methods).length}
+          />
+          {insight.method_groups.length > 1 && (
+            <div style={{ flex: 1, minWidth: 120, fontSize: '0.8rem' }} className="text-muted">
+              {insight.divergence_reason}
+            </div>
+          )}
+        </div>
 
         {/* B) Condorcet analysis ─────────────────────────────────────── */}
         <div
