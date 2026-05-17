@@ -12,6 +12,7 @@ import DatasetExportModal from '../components/shared/DatasetExportModal';
 import MultiwinnerAnalysis from '../components/Simulation/MultiwinnerAnalysis';
 import MonteCarloResults from '../components/Simulation/MonteCarloResults';
 import IdeologyMapChart from '../components/Simulation/IdeologyMapChart';
+import MethodRadarChart from '../components/Simulation/MethodRadarChart';
 import VoteStepAnimator from '../components/Simulation/VoteStepAnimator';
 import WinnerMatrixTab from '../components/Simulation/WinnerMatrixTab';
 import MetricsTab from '../components/Simulation/MetricsTab';
@@ -63,12 +64,12 @@ import { useNavigate } from 'react-router';
 // ── Presentation mode ──────────────────────────────────────────────────────
 
 const TAB_ORDER = [
-  'winners', 'ideology-map', 'animation', 'metrics', 'strategic', 'condorcet', 'arrow',
+  'winners', 'ideology-map', 'animation', 'radar', 'metrics', 'strategic', 'condorcet', 'arrow',
   'bandwagon', 'montecarlo', 'real-elections', 'multiwinner', 'sensitivity',
   'manipulability', 'advanced',
 ];
 
-const BEGINNER_TABS = ['winners', 'ideology-map', 'animation', 'metrics', 'strategic', 'real-elections', 'montecarlo', 'manipulability'];
+const BEGINNER_TABS = ['winners', 'ideology-map', 'animation', 'radar', 'metrics', 'strategic', 'real-elections', 'montecarlo', 'manipulability'];
 
 const BEGINNER_METHODS = ['plurality', 'borda', 'irv', 'schulze', 'approval'];
 
@@ -257,6 +258,7 @@ const SimulationComparePage: React.FC = () => {
     winners:          t('simulation.tabs.winners'),
     'ideology-map':   t('simulation.tabs.ideologyMap'),
     animation:        t('simulation.tabs.animation'),
+    radar:            t('simulation.tabs.radar'),
     metrics:          t('simulation.tabs.metrics'),
     strategic:        t('simulation.tabs.strategic'),
     condorcet:        t('simulation.tabs.condorcet'),
@@ -822,6 +824,9 @@ const SimulationComparePage: React.FC = () => {
             </Tab>
             <Tab eventKey="animation" title={t('simulation.tabs.animation')}>
               <VoteStepAnimator defaultCandidates={candidateNamesA} />
+            </Tab>
+            <Tab eventKey="radar" title={t('simulation.tabs.radar')}>
+              <MethodRadarChart comparisonResults={comparisonResults} allMethodNames={allMethodNames} />
             </Tab>
             <Tab eventKey="metrics" title={t('simulation.tabs.metrics')}>
               <MetricsTab comparisonResults={comparisonResults} allMethodNames={allMethodNames} numSimulations={numSimulations} />
