@@ -34,6 +34,7 @@ from app.utils.simulation_ranked_utils import (
     get_schulze_winner,
 )
 from app.utils.blank_vote_rules        import BlankVoteRule, apply_blank_rule
+from app.utils.simulation_multiwinner_utils import get_stv_result, get_dhondt_winners
 from app.utils.blank_contagion         import simulate_blank_contagion
 from app.utils.campaign_dynamics       import simulate_campaign
 from app.utils.information_model       import apply_information_asymmetry
@@ -2806,4 +2807,97 @@ def abstention() -> tuple[Response, int]:
         "winner_changed":  winner_changed,
         "turnout_by_camp": turnout_by_camp,
         "candidates":      [{"name": c["name"]} for c in candidates],
+    }), 200
+
+
+# ── STV endpoint ──────────────────────────────────────────────────────────────
+
+@election_bp.route("/stv", methods=["POST"])
+@sim_limiter.limit("10 per minute")
+def stv_endpoint() -> tuple[Response, int]:
+    """
+    POST /api/election/stv
+
+    Run STV (Single Transferable Vote) on a simulated electorate and
+    compare the seat allocation against D'Hondt proportional and FPTP
+    (top-N by first-choice votes).
+
+    Returns the full round-by-round STV audit trail plus the two
+    comparison parliaments and a distortion index.
+    """
+    data      = request.get_json() or {}
+    num_voters = max(50,  min(1000, int(data.get("num_voters",  300))))
+    ideology   = str(data.get("ideology",  "random"))
+    seed       = int(data.get("seed",        42))
+    num_seats  = max(2,  min(10,  int(data.get("num_seats",     5))))
+    quota_type = str(data.get("quota_type", "droop"))
+    cand_specs = data.get("candidates", [
+        {"name": "Alice", "x": -0.5, "y": -0.2},
+        {"name": "Bob",   "x":  0.5, "y":  0.2},
+        {"name": "Carol", "x":  0.0, "y":  0.3},
+        {"name": "Dave",  "x": -0.2, "y":  0.5},
+    ])[:8]
+
+    if len(cand_specs) < 2:
+        return jsonify({"error": "At least 2 candidates required"}), 400
+    if num_seats >= len(cand_specs):
+        return jsonify({"error": "num_seats must be less than number of candidates"}), 400
+
+    _random.seed(seed)
+    _np.random.seed(seed)
+    issues = DEFAULT_ISSUES
+
+    candidates, voters, true_utilities, cand_names = _build_base_electorate(
+        cand_specs, num_voters, ideology, seed, issues
+    )
+
+    # Build full ranked ballots (sincere, by utility)
+    rankings: list[list[str]] = []
+    for v in voters:
+        uid = v["id"]
+        rankings.append(
+            sorted(true_utilities[uid].keys(), key=lambda k: -true_utilities[uid][k])
+        )
+
+    # ── STV ────────────────────────────────────────────────────────────────
+    stv_raw = get_stv_result(rankings, num_seats, quota_type)
+
+    # ── D'Hondt (from first-choice vote shares) ───────────────────────────
+    first_choice: Counter[str] = Counter(r[0] for r in rankings if r)
+    total = len(rankings) or 1
+    vote_shares = {n: first_choice.get(n, 0) / total for n in cand_names}
+    dhondt_seats = get_dhondt_winners(vote_shares, num_seats)
+
+    # ── FPTP multi-seat (top-N by first-choice votes) ─────────────────────
+    top_n    = sorted(cand_names, key=lambda c: -first_choice.get(c, 0))[:num_seats]
+    fptp_seats: Dict[str, int] = {c: (1 if c in top_n else 0) for c in cand_names}
+
+    # ── Distortion metrics ────────────────────────────────────────────────
+    stv_seat_dict: Dict[str, int] = {c: (1 if c in stv_raw["elected"] else 0) for c in cand_names}
+
+    def _seat_distortion(a: Dict[str, int], b: Dict[str, int]) -> float:
+        return sum(abs(a.get(c, 0) - b.get(c, 0)) for c in cand_names) / 2
+
+    return jsonify({
+        "stv": {
+            "elected":  stv_raw["elected"],
+            "quota":    stv_raw["quota"],
+            "rounds":   stv_raw["rounds"],
+            "seats":    stv_seat_dict,
+        },
+        "dhondt": {
+            "seats":    dhondt_seats,
+            "elected":  [c for c, s in sorted(dhondt_seats.items(), key=lambda kv: -kv[1]) if s > 0],
+        },
+        "fptp": {
+            "seats":    fptp_seats,
+            "elected":  top_n,
+        },
+        "vote_shares":           {n: round(vote_shares[n], 4) for n in cand_names},
+        "num_seats":             num_seats,
+        "quota":                 stv_raw["quota"],
+        "quota_type":            quota_type,
+        "distortion_stv_dhondt": round(_seat_distortion(stv_seat_dict, dhondt_seats), 3),
+        "distortion_stv_fptp":   round(_seat_distortion(stv_seat_dict, fptp_seats), 3),
+        "candidates":            cand_names,
     }), 200
