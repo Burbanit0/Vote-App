@@ -17,6 +17,18 @@ jest.mock('../context/AuthContext', () => ({
 
 jest.mock('../services/authApi', () => ({
   loginUser: jest.fn(),
+  googleLogin: jest.fn(),
+}));
+
+jest.mock('@react-oauth/google', () => ({
+  GoogleLogin: ({ onSuccess }: { onSuccess: (resp: { credential: string }) => void }) => (
+    <button
+      data-testid="google-login-btn"
+      onClick={() => onSuccess({ credential: 'mock-credential' })}
+    >
+      Google
+    </button>
+  ),
 }));
 
 describe('Login', () => {
@@ -24,6 +36,7 @@ describe('Login', () => {
 
   beforeEach(() => {
     jest.clearAllMocks();
+    process.env.VITE_GOOGLE_CLIENT_ID = 'test-client-id';
     (useAuth as jest.Mock).mockReturnValue({ login: mockLogin, user: null });
   });
 

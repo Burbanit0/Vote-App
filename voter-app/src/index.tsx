@@ -6,15 +6,20 @@ import App from './App';
 import reportWebVitals from './reportWebVitals';
 import { AuthProvider } from './context/AuthContext';
 import { SimulationProvider } from './context/SimuContext';
+import { GoogleOAuthProvider } from '@react-oauth/google';
+
+const googleClientId = process.env.VITE_GOOGLE_CLIENT_ID || '';
 
 const root = ReactDOM.createRoot(document.getElementById('root') as HTMLElement);
 root.render(
   <React.StrictMode>
-    <AuthProvider>
-      <SimulationProvider>
-        <App />
-      </SimulationProvider>
-    </AuthProvider>
+    <GoogleOAuthProvider clientId={googleClientId}>
+      <AuthProvider>
+        <SimulationProvider>
+          <App />
+        </SimulationProvider>
+      </AuthProvider>
+    </GoogleOAuthProvider>
   </React.StrictMode>
 );
 
