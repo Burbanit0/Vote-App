@@ -1,0 +1,189 @@
+import React from 'react';
+import { render, screen, fireEvent, waitFor, act } from '@testing-library/react';
+import { MemoryRouter } from 'react-router';
+import JuryTheoremPanel from '../JuryTheoremPanel';
+
+jest.mock('axios', () => ({ post: jest.fn() }));
+const { post: mockPost } = jest.requireMock('axios') as { post: jest.Mock };
+
+jest.mock('recharts', () => {
+  const React = require('react');
+  return {
+    LineChart:           ({ children }: any) => <div data-testid="line-chart">{children}</div>,
+    Line:                ({ dataKey, name }: any) => <div data-testid={`line-${dataKey ?? name}`} />,
+    BarChart:            ({ children }: any) => <div data-testid="bar-chart">{children}</div>,
+    Bar:                 ({ children }: any) => <div>{children}</div>,
+    Cell:                () => null,
+    XAxis:               () => null,
+    YAxis:               () => null,
+    Tooltip:             () => null,
+    Legend:              () => null,
+    ReferenceLine:       () => null,
+    CartesianGrid:       () => null,
+    ResponsiveContainer: ({ children }: any) => <div style={{ width: 400, height: 300 }}>{children}</div>,
+  };
+});
+
+// ── Fixture ───────────────────────────────────────────────────────────────────
+
+function makeData(bestMethod = 'schulze'): { data: any } {
+  const methods = {
+    plurality: { accuracy: 0.85, beats_majority: true,  beats_theory: false },
+    borda:     { accuracy: 0.88, beats_majority: true,  beats_theory: false },
+    irv:       { accuracy: 0.87, beats_majority: true,  beats_theory: false },
+    approval:  { accuracy: 0.89, beats_majority: true,  beats_theory: false },
+    schulze:   { accuracy: 0.92, beats_majority: true,  beats_theory: true  },
+  };
+
+  const curvePoints = Array.from({ length: 20 }, (_, i) => ({
+    competence:  0.51 + i * (0.48 / 19),
+    theoretical: 0.51 + i * 0.02,
+    plurality:   0.52 + i * 0.02,
+    borda:       0.53 + i * 0.02,
+    irv:         0.52 + i * 0.02,
+    approval:    0.53 + i * 0.02,
+    schulze:     0.54 + i * 0.02,
+  }));
+
+  return {
+    data: {
+      theoretical_accuracy: 0.89,
+      methods,
+      best_method:          bestMethod,
+      worst_method:         'plurality',
+      voter_competence:     0.70,
+      num_voters:           100,
+      competence_curve:     curvePoints,
+      pedagogical_note:     'Avec P=0.7 et 100 électeurs, la théorie prédit 89%. Schulze atteint 92%.',
+      pedagogical_note_en:  'With P=0.7 and 100 voters, theory predicts 89%. Schulze reaches 92%.',
+    },
+  };
+}
+
+function renderPanel() {
+  return render(
+    <MemoryRouter>
+      <JuryTheoremPanel />
+    </MemoryRouter>
+  );
+}
+
+beforeEach(() => {
+  jest.clearAllMocks();
+  localStorage.clear();
+  jest.useFakeTimers();
+});
+
+afterEach(() => {
+  jest.useRealTimers();
+});
+
+// ── Tests ─────────────────────────────────────────────────────────────────────
+
+describe('JuryTheoremPanel', () => {
+  it('renders simulate button', () => {
+    renderPanel();
+    expect(screen.getByRole('button', { name: /simuler|simulate/i })).toBeInTheDocument();
+  });
+
+  it('shows competence slider', () => {
+    renderPanel();
+    expect(screen.getByTestId('competence-slider')).toBeInTheDocument();
+  });
+
+  it('shows prompt before running', () => {
+    renderPanel();
+    expect(screen.getByRole('alert')).toBeInTheDocument();
+  });
+
+  it('calls axios.post on button click', async () => {
+    mockPost.mockResolvedValue(makeData());
+    renderPanel();
+    fireEvent.click(screen.getByRole('button', { name: /simuler|simulate/i }));
+    await waitFor(() => expect(mockPost).toHaveBeenCalledTimes(1));
+    expect(mockPost).toHaveBeenCalledWith(
+      expect.stringContaining('/api/election/jury'),
+      expect.objectContaining({ voter_competence: 0.70 }),
+    );
+  });
+
+  it('renders competence curve LineChart after data loads', async () => {
+    mockPost.mockResolvedValue(makeData());
+    renderPanel();
+    fireEvent.click(screen.getByRole('button', { name: /simuler|simulate/i }));
+    await waitFor(() => expect(screen.getByTestId('competence-curve-chart')).toBeInTheDocument());
+    jest.runAllTimers();
+  });
+
+  it('renders accuracy BarChart after data loads', async () => {
+    mockPost.mockResolvedValue(makeData());
+    renderPanel();
+    fireEvent.click(screen.getByRole('button', { name: /simuler|simulate/i }));
+    await waitFor(() => expect(screen.getByTestId('accuracy-bar-chart')).toBeInTheDocument());
+    jest.runAllTimers();
+  });
+
+  it('shows theory accuracy badge', async () => {
+    mockPost.mockResolvedValue(makeData());
+    renderPanel();
+    fireEvent.click(screen.getByRole('button', { name: /simuler|simulate/i }));
+    await waitFor(() => expect(screen.getByTestId('theory-badge')).toBeInTheDocument());
+    jest.runAllTimers();
+  });
+
+  it('shows best method badge', async () => {
+    mockPost.mockResolvedValue(makeData('schulze'));
+    renderPanel();
+    fireEvent.click(screen.getByRole('button', { name: /simuler|simulate/i }));
+    await waitFor(() => {
+      const badge = screen.getByTestId('best-method-badge');
+      expect(badge.textContent).toContain('schulze');
+    });
+    jest.runAllTimers();
+  });
+
+  it('shows method-level badges', async () => {
+    mockPost.mockResolvedValue(makeData());
+    renderPanel();
+    fireEvent.click(screen.getByRole('button', { name: /simuler|simulate/i }));
+    await waitFor(() => {
+      expect(screen.getByTestId('method-badge-plurality')).toBeInTheDocument();
+      expect(screen.getByTestId('method-badge-schulze')).toBeInTheDocument();
+    });
+    jest.runAllTimers();
+  });
+
+  it('shows pedagogical note', async () => {
+    mockPost.mockResolvedValue(makeData());
+    renderPanel();
+    fireEvent.click(screen.getByRole('button', { name: /simuler|simulate/i }));
+    await waitFor(() => expect(screen.getByTestId('pedagogical-note')).toBeInTheDocument());
+    jest.runAllTimers();
+  });
+
+  it('competence slider triggers debounced API call', async () => {
+    mockPost.mockResolvedValue(makeData());
+    renderPanel();
+
+    // Initial data load first
+    fireEvent.click(screen.getByRole('button', { name: /simuler|simulate/i }));
+    await waitFor(() => expect(mockPost).toHaveBeenCalledTimes(1));
+
+    // Slider change → debounce → API call after DEBOUNCE_MS
+    fireEvent.change(screen.getByTestId('competence-slider'), { target: { value: '0.8' } });
+    // Before debounce fires: no extra call yet
+    expect(mockPost).toHaveBeenCalledTimes(1);
+
+    // Advance fake timers past debounce
+    act(() => { jest.advanceTimersByTime(450); });
+    await waitFor(() => expect(mockPost).toHaveBeenCalledTimes(2));
+    expect(mockPost.mock.calls[1][1]).toMatchObject({ voter_competence: 0.8 });
+  });
+
+  it('shows error on API failure', async () => {
+    mockPost.mockRejectedValue(new Error('Network error'));
+    renderPanel();
+    fireEvent.click(screen.getByRole('button', { name: /simuler|simulate/i }));
+    await waitFor(() => expect(screen.getByText(/Erreur|Error/i)).toBeInTheDocument());
+  });
+});

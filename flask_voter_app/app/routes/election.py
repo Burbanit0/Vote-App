@@ -13,9 +13,10 @@ logical order:
 """
 from __future__ import annotations
 
+import math
 import random as _random
 from collections import Counter
-from typing import Any, Dict, Optional
+from typing import Any, Dict, List, Optional
 
 import eventlet
 from eventlet import tpool
@@ -2419,4 +2420,205 @@ def historical_replay() -> tuple[Response, int]:
             "pedagogical_note":    note_fr,
             "pedagogical_note_en": note_en,
         },
+    }), 200
+
+
+# ── Jury theorem endpoint ─────────────────────────────────────────────────────
+
+def _jury_theoretical(n: int, p: float) -> float:
+    """
+    Condorcet jury theorem: probability that majority is correct.
+    P = Σ C(n,k) p^k (1-p)^(n-k)  for k = ceil((n+1)/2) … n
+    """
+    threshold = n // 2 + 1
+    acc = 0.0
+    q   = 1.0 - p
+    for k in range(threshold, n + 1):
+        acc += math.comb(n, k) * (p ** k) * (q ** (n - k))
+    return min(1.0, acc)
+
+
+def _generate_jury_ballots(
+    num_voters: int,
+    options: List[str],
+    correct_idx: int,
+    competence: float,
+    rng: _random.Random,
+) -> List[List[str]]:
+    """
+    Each voter independently ranks options.
+    With probability `competence` they rank the correct option first;
+    with probability 1-competence they rank a random wrong option first.
+    The remainder of the ranking is shuffled uniformly.
+    """
+    correct = options[correct_idx]
+    wrong   = [o for o in options if o != correct]
+    ballots: List[List[str]] = []
+
+    for _ in range(num_voters):
+        rest = list(options)
+        if rng.random() < competence:
+            first = correct
+        else:
+            first = rng.choice(wrong)
+        rest.remove(first)
+        rng.shuffle(rest)
+        ballots.append([first] + rest)
+
+    return ballots
+
+
+def _jury_approval_winner(
+    ballots: List[List[str]],
+    num_options: int,
+) -> Optional[str]:
+    """Approval: each voter approves top ceil(num_options/2) of their ranking."""
+    top_k = max(1, (num_options + 1) // 2)
+    counts: Counter[str] = Counter()
+    for b in ballots:
+        for opt in b[:top_k]:
+            counts[opt] += 1
+    return counts.most_common(1)[0][0] if counts else None
+
+
+_JURY_METHODS = ["plurality", "borda", "irv", "approval", "schulze"]
+
+
+def _run_jury_simulation(
+    num_voters:   int,
+    options:      List[str],
+    correct_idx:  int,
+    competence:   float,
+    num_sims:     int,
+    rng:          _random.Random,
+) -> Dict[str, float]:
+    """
+    Run num_sims Monte Carlo trials.
+    Returns {method: accuracy_fraction}.
+    """
+    correct   = options[correct_idx]
+    successes: Dict[str, int] = {m: 0 for m in _JURY_METHODS}
+
+    for _ in range(num_sims):
+        ballots = _generate_jury_ballots(num_voters, options, correct_idx, competence, rng)
+
+        winners = {
+            "plurality": get_plurality_winner(ballots),
+            "borda":     get_borda_winner(ballots),
+            "irv":       get_irv_winner(ballots),
+            "approval":  _jury_approval_winner(ballots, len(options)),
+            "schulze":   get_schulze_winner(ballots),
+        }
+
+        for m, w in winners.items():
+            if w == correct:
+                successes[m] += 1
+
+    return {m: round(successes[m] / num_sims, 4) for m in _JURY_METHODS}
+
+
+@election_bp.route("/jury", methods=["POST"])
+@sim_limiter.limit("10 per minute")
+def jury() -> tuple[Response, int]:
+    """
+    POST /api/election/jury
+
+    Simulate the Condorcet Jury Theorem: voters with individual
+    competence p > 0.5 aggregate collectively toward the "truth".
+
+    Returns:
+      - Per-method accuracy from Monte Carlo
+      - Theoretical majority-rule accuracy (Condorcet formula)
+      - Pre-computed competence curve (20 points × 5 methods) for the chart
+    """
+    data              = request.get_json() or {}
+    num_voters        = max(10, min(500, int(data.get("num_voters",        100))))
+    num_options       = max(2,  min(5,   int(data.get("num_options",         2))))
+    correct_idx       = max(0,  min(num_options - 1,
+                                    int(data.get("correct_option_index",    0))))
+    voter_competence  = max(0.50, min(1.0, float(data.get("voter_competence",  0.70))))
+    num_simulations   = max(50,  min(500,  int(data.get("num_simulations",   200))))
+    seed              = int(data.get("seed", 42))
+
+    options = [f"Option {i}" for i in range(num_options)]
+    rng     = _random.Random(seed)
+
+    # ── Main simulation ───────────────────────────────────────────────────
+    accuracies = _run_jury_simulation(
+        num_voters, options, correct_idx, voter_competence, num_simulations, rng
+    )
+
+    theoretical = _jury_theoretical(num_voters, voter_competence)
+    majority_acc = accuracies.get("plurality", 0.0)
+
+    methods_out: Dict[str, Any] = {}
+    for m, acc in accuracies.items():
+        methods_out[m] = {
+            "accuracy":       acc,
+            "beats_majority": acc > majority_acc or m == "plurality",
+            "beats_theory":   acc > theoretical,
+        }
+
+    best_method  = max(accuracies, key=lambda k: accuracies[k])
+    worst_method = min(accuracies, key=lambda k: accuracies[k])
+
+    # ── Competence curve (20 points, 100 sims each for speed) ────────────
+    curve_rng = _random.Random(seed + 1)
+    curve_sims = max(50, min(150, num_simulations // 2))
+    curve_points: List[Dict[str, Any]] = []
+    for step in range(20):
+        p = 0.51 + step * (0.48 / 19)   # 0.51 → 0.99
+        pt_acc = _run_jury_simulation(
+            num_voters, options, correct_idx, round(p, 3), curve_sims, curve_rng
+        )
+        point: Dict[str, Any] = {
+            "competence": round(p, 3),
+            "theoretical": round(_jury_theoretical(num_voters, p), 4),
+        }
+        point.update({m: pt_acc[m] for m in _JURY_METHODS})
+        curve_points.append(point)
+
+    # ── Pedagogical note ──────────────────────────────────────────────────
+    pct_theory = round(theoretical * 100, 1)
+    pct_best   = round(accuracies[best_method] * 100, 1)
+    delta      = round((accuracies[best_method] - theoretical) * 100, 1)
+    if delta > 0:
+        note_fr = (
+            f"Avec P={voter_competence} et {num_voters} électeurs, "
+            f"la théorie prédit {pct_theory}%. "
+            f"{best_method.capitalize()} atteint {pct_best}% "
+            f"(+{delta}% vs théorie) — il agrège mieux l'information collective "
+            f"que la simple majorité."
+        )
+        note_en = (
+            f"With P={voter_competence} and {num_voters} voters, "
+            f"theory predicts {pct_theory}%. "
+            f"{best_method.capitalize()} reaches {pct_best}% "
+            f"(+{delta}% vs theory) — it aggregates collective information "
+            f"better than simple majority."
+        )
+    else:
+        note_fr = (
+            f"Avec P={voter_competence} et {num_voters} électeurs, "
+            f"la théorie prédit {pct_theory}%. "
+            f"Aucune méthode ne dépasse la prédiction théorique — "
+            f"la majorité reste la meilleure agrégation dans ce scénario."
+        )
+        note_en = (
+            f"With P={voter_competence} and {num_voters} voters, "
+            f"theory predicts {pct_theory}%. "
+            f"No method exceeds the theoretical prediction — "
+            f"majority rule is the best aggregation in this scenario."
+        )
+
+    return jsonify({
+        "theoretical_accuracy": round(theoretical, 4),
+        "methods":              methods_out,
+        "best_method":          best_method,
+        "worst_method":         worst_method,
+        "voter_competence":     voter_competence,
+        "num_voters":           num_voters,
+        "competence_curve":     curve_points,
+        "pedagogical_note":     note_fr,
+        "pedagogical_note_en":  note_en,
     }), 200
