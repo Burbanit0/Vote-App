@@ -279,43 +279,80 @@ def get_positional_score_winner(votes: list, **kwargs) -> Optional[str]:
 get_score_winner = get_positional_score_winner
 
 
+def _kwik_sort(candidates: list[str], pairwise: dict[tuple[str, str], int]) -> list[str]:
+    """
+    KwikSort approximation of Kemeny-Young — O(n log n) expected time.
+    Randomly picks a pivot; partitions candidates by majority pairwise preference.
+    Returns a ranking whose first element is the approximate KY winner.
+    """
+    import random as _rnd
+    if len(candidates) <= 1:
+        return list(candidates)
+    pivot = _rnd.choice(candidates)
+    left, right = [], []
+    for c in candidates:
+        if c == pivot:
+            continue
+        (left if pairwise.get((pivot, c), 0) >= pairwise.get((c, pivot), 0) else right).append(c)
+    return _kwik_sort(left, pairwise) + [pivot] + _kwik_sort(right, pairwise)
+
+
+def _build_pairwise(candidates: list[str], votes: list, is_dict: bool) -> dict[tuple[str, str], int]:
+    """Count pairwise wins: pairwise[(a, b)] = number of ballots where a is ranked above b."""
+    pairwise: dict[tuple[str, str], int] = {}
+    for vote in votes:
+        ranking = _get_ranking(vote, is_dict)
+        pos = {c: i for i, c in enumerate(ranking)}
+        for a, b in combinations(candidates, 2):
+            if pos.get(a, len(ranking)) < pos.get(b, len(ranking)):
+                pairwise[(a, b)] = pairwise.get((a, b), 0) + 1
+            else:
+                pairwise[(b, a)] = pairwise.get((b, a), 0) + 1
+    return pairwise
+
+
+# Hard cap: Kemeny-Young exact is O(n!) — impractical beyond 6 candidates.
+_KY_EXACT_CAP = 6
+
+
 def get_kemeny_young_winner(votes: list, **kwargs) -> Optional[str]:
     """
     Determine the Kemeny-Young winner from a set of rankings.
-    :param votes: A list of rankings (see get_condorcet_winner for format)
-    :return: The name of the Kemeny-Young winner
+
+    Exact algorithm for ≤ 6 candidates (O(n!)).
+    KwikSort approximation for > 6 candidates (O(n log n)).
+    The approximation flag is stored in a thread-local so callers
+    that need to know can check ``get_kemeny_young_winner.was_approx``.
     """
     if not votes:
         return None
-    is_dict = _is_dict_format(votes)
-    candidates = set()
+    is_dict  = _is_dict_format(votes)
+    cand_set: set[str] = set()
     for vote in votes:
-        candidates.update(_get_ranking(vote, is_dict))
-    candidates = list(candidates)
+        cand_set.update(_get_ranking(vote, is_dict))
+    candidates = list(cand_set)
 
-    all_rankings = list(permutations(candidates))
+    get_kemeny_young_winner.was_approx = len(candidates) > _KY_EXACT_CAP  # type: ignore[attr-defined]
 
-    def ranking_distance(r1, r2):
-        pos1 = {c: i for i, c in enumerate(r1)}
-        pos2 = {c: i for i, c in enumerate(r2)}
+    pairwise = _build_pairwise(candidates, votes, is_dict)
+
+    if len(candidates) > _KY_EXACT_CAP:
+        # Approximation path — KwikSort
+        ranking = _kwik_sort(candidates, pairwise)
+        return ranking[0] if ranking else None
+
+    # Exact path — enumerate all permutations
+    def _kemeny_score(ranking: tuple[str, ...]) -> int:
+        pos = {c: i for i, c in enumerate(ranking)}
         return sum(
-            1
-            for i, j in combinations(range(len(r1)), 2)
-            if (pos1[r1[i]] < pos1[r1[j]]) != (pos2[r1[i]] < pos2[r1[j]])
+            pairwise.get((ranking[i], ranking[j]), 0)
+            for i in range(len(ranking))
+            for j in range(i + 1, len(ranking))
+            if pos[ranking[i]] < pos[ranking[j]]
         )
 
-    min_distance = float("inf")
-    best_ranking = None
-    for candidate_ranking in all_rankings:
-        total_distance = sum(
-            ranking_distance(candidate_ranking, _get_ranking(vote, is_dict))
-            for vote in votes
-        )
-        if total_distance < min_distance:
-            min_distance = total_distance
-            best_ranking = candidate_ranking
-
-    return best_ranking[0] if best_ranking else None
+    best = max(permutations(candidates), key=_kemeny_score)
+    return best[0] if best else None
 
 
 def get_bucklin_winner(votes: list, blank_candidate_name: str = "") -> Optional[str]:

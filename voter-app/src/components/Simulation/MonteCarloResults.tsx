@@ -33,6 +33,7 @@ import MonteCarloLiveChart from './MonteCarloLiveChart';
 import MonteCarloRaceChart from './MonteCarloRaceChart';
 import MonteCarloConvergencePanel from './MonteCarloConvergencePanel';
 import MethodSimilarityGraph, { flatToMatrix, partialResultsToMatrix } from './MethodSimilarityGraph';
+import { useSimulationWorker } from '../../hooks/useSimulationWorker';
 import MetricTooltip from '../shared/MetricTooltip';
 
 const CANDIDATE_PALETTE = ['#4e79a7', '#f28e2b', '#e15759', '#76b7b2', '#59a14f', '#edc948'];
@@ -64,12 +65,14 @@ interface Props {
 const MonteCarloResults: React.FC<Props> = ({ baseParams }) => {
   const { t } = useTranslation();
   const ct = useChartTheme();
+  const { dispatch: workerDispatch } = useSimulationWorker();
   const [sortByRegret, setSortByRegret] = useState(false);
   const [numRuns, setNumRuns] = useState(100);
   const [numVoters, setNumVoters] = useState(baseParams.num_voters ?? 150);
   const [ideologyDist, setIdeologyDist] = useState(baseParams.ideology_distribution ?? 'random');
   const [result, setResult] = useState<MonteCarloResult | null>(null);
   const [loading, setLoading] = useState(false);
+  const [streamMatrix, setStreamMatrix] = useState<Record<string, Record<string, number>>>({});
   const [error, setError] = useState<string | null>(null);
   const [useStreaming, setUseStreaming] = useState(true);
 
@@ -130,6 +133,15 @@ const MonteCarloResults: React.FC<Props> = ({ baseParams }) => {
       setLoading(false);
     }
   };
+
+  // ── Offload matrix computation to worker on each streaming tick ───────
+  React.useEffect(() => {
+    const keys = Object.keys(stream.partialResults);
+    if (keys.length < 2) return;
+    workerDispatch('COMPUTE_MATRIX', { partialResults: stream.partialResults })
+      .then(({ matrix }) => setStreamMatrix(matrix))
+      .catch(() => setStreamMatrix(partialResultsToMatrix(stream.partialResults)));
+  }, [stream.partialResults, workerDispatch]);
 
   // ── Derived ────────────────────────────────────────────────────────────
 
@@ -314,7 +326,7 @@ const MonteCarloResults: React.FC<Props> = ({ baseParams }) => {
           </Card.Header>
           <Card.Body>
             <MethodSimilarityGraph
-              agreementMatrix={partialResultsToMatrix(stream.partialResults)}
+              agreementMatrix={streamMatrix}
             />
           </Card.Body>
         </Card>

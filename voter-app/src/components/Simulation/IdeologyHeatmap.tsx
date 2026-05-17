@@ -8,9 +8,10 @@
  *   4. Candidate ★ markers rendered on top (draggable via parent)
  *   5. CSS transition on rect fill for smooth recoloring after drag
  */
-import React, { useMemo } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Badge } from 'react-bootstrap';
+import { useSimulationWorker } from '../../hooks/useSimulationWorker';
 
 // ── Constants ─────────────────────────────────────────────────────────────────
 
@@ -145,13 +146,39 @@ export interface IdeologyHeatmapProps {
 const IdeologyHeatmap = React.forwardRef<SVGSVGElement, IdeologyHeatmapProps>(
   ({ voters, candidates, colors, onCandidateMouseDown, draggingIdx, gridN = GRID_N }, ref) => {
     const { t } = useTranslation();
+    const { dispatch, isComputing } = useSimulationWorker();
 
     const candColors = colors ?? candidates.map((_, i) => CANDIDATE_COLORS[i % CANDIDATE_COLORS.length]);
 
-    const { cells, metrics } = useMemo(
-      () => computeGrid(voters, candidates, gridN),
-      [voters, candidates, gridN],
-    );
+    // ── Async grid computation via Web Worker ─────────────────────────────
+    const [cells, setCells]     = useState<GridCell[]>([]);
+    const [metrics, setMetrics] = useState<HeatmapMetrics>({
+      maxContestedCell:  null,
+      fortressCell:      null,
+      fortressCandidate: null,
+      maxDensity:        1,
+    });
+    const abortRef = useRef<string | null>(null);  // track last dispatch id to ignore stale results
+
+    useEffect(() => {
+      const dispatchId = `${Date.now()}`;
+      abortRef.current = dispatchId;
+
+      dispatch('COMPUTE_HEATMAP', { voters, candidates, gridN })
+        .then(({ cells: c, metrics: m }) => {
+          if (abortRef.current !== dispatchId) return;  // stale — discard
+          setCells(c);
+          setMetrics(m);
+        })
+        .catch(() => {
+          // Fallback: compute synchronously if worker unavailable
+          const result = computeGrid(voters, candidates, gridN);
+          if (abortRef.current === dispatchId) {
+            setCells(result.cells);
+            setMetrics(result.metrics);
+          }
+        });
+    }, [voters, candidates, gridN, dispatch]);
 
     // Contour lines: adjacent cells with different winners
     const contourLines = useMemo(() => {
@@ -199,8 +226,35 @@ const IdeologyHeatmap = React.forwardRef<SVGSVGElement, IdeologyHeatmapProps>(
             cursor: draggingIdx != null ? 'grabbing' : 'crosshair',
           }}
         >
+          {/* ── Skeleton while computing ── */}
+          {isComputing && cells.length === 0 && (
+            <g data-testid="heatmap-skeleton" opacity={0.4}>
+              {Array.from({ length: GRID_N * GRID_N }, (_, k) => {
+                const i = k % GRID_N;
+                const j = Math.floor(k / GRID_N);
+                const { x, y, w, h } = cellRect(i, j);
+                return (
+                  <rect
+                    key={k} x={x} y={y} width={w} height={h}
+                    fill="#dee2e6"
+                  >
+                    <animate
+                      attributeName="fill-opacity"
+                      values="0.3;0.7;0.3" dur="1.6s"
+                      begin={`${(i + j) * 0.02}s`}
+                      repeatCount="indefinite"
+                    />
+                  </rect>
+                );
+              })}
+            </g>
+          )}
+
           {/* ── Heatmap cells ── */}
-          <g data-testid="heatmap-cells">
+          <g
+            data-testid="heatmap-cells"
+            style={{ opacity: isComputing ? 0.6 : 1, transition: 'opacity 0.3s' }}
+          >
             {cells.map((cell) => {
               const { x, y, w, h } = cellRect(cell.i, cell.j);
               const opacity = cell.density === 0
