@@ -54,6 +54,12 @@ export default defineConfig(({ mode }) => {
     server: {
       port: 3000,
       open: true,
+      proxy: {
+        '/api/election': {
+          target: 'http://localhost:4433',
+          changeOrigin: true,
+        },
+      },
     },
     preview: {
       port: 3000,

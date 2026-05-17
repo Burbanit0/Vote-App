@@ -1,3 +1,5 @@
+import os
+
 from flask import Blueprint, request, jsonify
 from flask_limiter import Limiter
 from flask_limiter.util import get_remote_address
@@ -12,7 +14,8 @@ from app.extensions import sim_limiter
 auth_bp = Blueprint("auth", __name__, url_prefix="/api/auth")
 
 # Rate limiter — shared instance, applied per-route
-_limiter = Limiter(key_func=get_remote_address)
+_AUTH_STORAGE = os.environ.get('REDIS_URL') or 'memory://'
+_limiter = Limiter(key_func=get_remote_address, storage_uri=_AUTH_STORAGE)
 
 
 @auth_bp.route("/register", methods=["POST"])
