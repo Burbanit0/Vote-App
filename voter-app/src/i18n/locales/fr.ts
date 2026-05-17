@@ -1167,6 +1167,15 @@ const fr = {
     colGroupBlank:    'Vote blanc',
   },
 
+  methodRace: {
+    viewCandidates: 'Candidats',
+    viewMethods:    'Méthodes',
+    majority50:     'Ligne 50 % (majorité)',
+    stable80:       'Seuil stabilité 80 %',
+    liveHint:       'Mise à jour en temps réel',
+    ariaLabel:      'Course des méthodes de vote — stabilité en temps réel',
+  },
+
   heatmap: {
     viewMode:      'Vue',
     mode_points:   'Points',
