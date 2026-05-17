@@ -23,7 +23,12 @@ from flask import Blueprint, Response, jsonify, request
 from app.constants import DEFAULT_ISSUES, ECONOMY_ISSUES, ENV_ISSUES, SOCIAL_ISSUES
 from app.utils.simulation_voting_utils import calculate_utility, create_candidate, create_voter
 from app.utils.simulation_metrics      import compare_all_methods
-from app.utils.simulation_ranked_utils import get_plurality_winner, get_condorcet_winner
+from app.utils.simulation_ranked_utils import (
+    get_plurality_winner,
+    get_condorcet_winner,
+    get_irv_winner,
+    get_approval_winner_sincere,
+)
 from app.utils.blank_vote_rules        import BlankVoteRule, apply_blank_rule
 from app.utils.blank_contagion         import simulate_blank_contagion
 from app.utils.campaign_dynamics       import simulate_campaign
@@ -1734,4 +1739,259 @@ def districts() -> tuple[Response, int]:
         "fptp_winner":            fptp_winner,
         "proportional_winner":    proportional_winner,
         "num_districts":          num_districts,
+    }), 200
+
+
+# ── Primary endpoint ──────────────────────────────────────────────────────────
+
+def _build_primary_candidate(
+    i: int, name: str, ideology_pos: float, issues: list[str]
+) -> Dict[str, Any]:
+    """Build a candidate dict from a 1-D ideology position in [-1, 1]."""
+    x = float(ideology_pos)
+    return _build_candidate_from_xy(i, name, x, 0.0, issues)
+
+
+def _run_primary(
+    primary_candidates: list[Dict[str, Any]],
+    party_voters: list[Dict[str, Any]],
+    utilities: Dict[Any, Dict[str, float]],
+    method: str,
+) -> Dict[str, Any]:
+    """
+    Run a single party primary among party_voters.
+
+    Returns {winner, runner_up, vote_shares}.
+    """
+    cand_names = [c["name"] for c in primary_candidates]
+    if not party_voters or not cand_names:
+        return {"winner": cand_names[0] if cand_names else "", "runner_up": None, "vote_shares": {}}
+
+    rankings: list[list[str]] = []
+    for v in party_voters:
+        uid = v["id"]
+        u = {n: utilities.get(uid, {}).get(n, 0.0) for n in cand_names}
+        rankings.append(sorted(u.keys(), key=lambda n: -u[n]))
+
+    # First-choice counts
+    first: Counter[str] = Counter(r[0] for r in rankings if r)
+    total = len(party_voters) or 1
+    vote_shares = {n: round(first.get(n, 0) / total, 4) for n in cand_names}
+
+    if method == "irv":
+        winner = get_irv_winner(rankings)
+    elif method == "approval":
+        uid_utilities = {v["id"]: {n: utilities.get(v["id"], {}).get(n, 0.0) for n in cand_names}
+                         for v in party_voters}
+        winner = get_approval_winner_sincere(uid_utilities)
+    else:  # plurality (default)
+        winner = get_plurality_winner(rankings)
+
+    winner = winner or (cand_names[0] if cand_names else "")
+
+    sorted_by_share = sorted(cand_names, key=lambda n: -vote_shares.get(n, 0))
+    runner_up = next((n for n in sorted_by_share if n != winner), None)
+
+    return {"winner": winner, "runner_up": runner_up, "vote_shares": vote_shares}
+
+
+@election_bp.route("/primary", methods=["POST"])
+@sim_limiter.limit("15 per minute")
+def primary() -> tuple[Response, int]:
+    """
+    POST /api/election/primary
+
+    Two-round system:
+      Round 1 — each party holds an internal primary among its partisan voters.
+               The primary winner becomes that party's general-election candidate.
+      Round 2 — general election among one candidate per party.
+
+    Also computes what would have happened if party centres (not primary winners)
+    had run directly ("without_primaries_winner").
+    """
+    data = request.get_json() or {}
+
+    parties_raw        = data.get("parties", [])
+    general_num_voters = max(50, min(2000, int(data.get("general_num_voters", 500))))
+    general_ideology   = str(data.get("general_ideology", "random"))
+    primary_method     = str(data.get("primary_method", "plurality"))
+    general_method     = str(data.get("general_method",  "plurality"))
+    seed               = int(data.get("seed", 42))
+
+    if len(parties_raw) < 2:
+        return jsonify({"error": "At least 2 parties required"}), 400
+
+    for p in parties_raw:
+        if len(p.get("primary_candidates", [])) < 2:
+            return jsonify({"error": f"Party '{p.get('name')}' needs at least 2 primary candidates"}), 400
+
+    _random.seed(seed)
+    _np.random.seed(seed)
+    issues = DEFAULT_ISSUES
+
+    # ── Build all primary candidates (flat list, per party) ───────────────
+    all_primary_candidates: list[Dict[str, Any]] = []
+    party_meta: list[Dict[str, Any]] = []
+    cand_offset = 0
+
+    for party in parties_raw:
+        pname      = str(party.get("name", "Party"))
+        pcenter    = float(party.get("ideology_center", 0.0))
+        pvoters_pct = max(0.05, min(1.0, float(party.get("primary_voters_pct", 0.3))))
+        prim_specs = party.get("primary_candidates", [])
+
+        prim_cands = [
+            _build_primary_candidate(
+                cand_offset + i,
+                str(s.get("name", f"{pname}_C{i}")),
+                max(-1.0, min(1.0, float(s.get("ideology_position", pcenter)))),
+                issues,
+            )
+            for i, s in enumerate(prim_specs)
+        ]
+        all_primary_candidates.extend(prim_cands)
+        party_meta.append({
+            "name":         pname,
+            "center":       pcenter,
+            "voters_pct":   pvoters_pct,
+            "prim_cands":   prim_cands,
+        })
+        cand_offset += len(prim_specs)
+
+    # ── Build the general electorate ──────────────────────────────────────
+    _random.seed(seed)
+    _np.random.seed(seed)
+    general_voters = [
+        create_voter(issues, i, ideology_distribution=general_ideology)
+        for i in range(general_num_voters)
+    ]
+
+    # Pre-compute utilities for ALL candidates against ALL general voters
+    all_utils: Dict[Any, Dict[str, float]] = {
+        v["id"]: {
+            c["name"]: calculate_utility(v, c, issues)["utility"]
+            for c in all_primary_candidates
+        }
+        for v in general_voters
+    }
+
+    # ── Per-party primary ─────────────────────────────────────────────────
+    primaries_out: list[Dict[str, Any]] = []
+    general_ballot_cands: list[Dict[str, Any]] = []
+
+    for pm in party_meta:
+        pcenter = pm["center"]
+
+        # Partisan voters: closest general voters to the party centre
+        # Sort by distance and take top (voters_pct * total)
+        def _dist_to_center(v: Dict[str, Any]) -> float:
+            econ: float = float(v["issue_positions"].get("economy", 0.5))
+            diff: float = econ - (pcenter + 1.0) / 2.0
+            return diff if diff >= 0.0 else -diff
+
+        sorted_voters = sorted(general_voters, key=_dist_to_center)
+        n_primary = max(2, int(len(general_voters) * pm["voters_pct"]))
+        party_voters = sorted_voters[:n_primary]
+
+        prim_result = _run_primary(pm["prim_cands"], party_voters, all_utils, primary_method)
+        winner_name = prim_result["winner"]
+
+        # Find winner candidate object
+        winner_cand = next(
+            (c for c in pm["prim_cands"] if c["name"] == winner_name),
+            pm["prim_cands"][0],
+        )
+        general_ballot_cands.append(winner_cand)
+
+        # Primary distortion: |position of winner - centre of party|
+        winner_pos = round(2.0 * winner_cand["ideology_position"] - 1.0, 3)
+        distortion = round(abs(winner_pos - pcenter), 4)
+
+        primaries_out.append({
+            "party":       pm["name"],
+            "winner":      winner_name,
+            "runner_up":   prim_result["runner_up"],
+            "distortion":  distortion,
+            "winner_pos":  winner_pos,
+            "party_center": pcenter,
+            "vote_shares": prim_result["vote_shares"],
+            "num_primary_voters": len(party_voters),
+        })
+
+    # ── General election ──────────────────────────────────────────────────
+    gen_utils: Dict[Any, Dict[str, float]] = {
+        v["id"]: {c["name"]: all_utils[v["id"]][c["name"]] for c in general_ballot_cands}
+        for v in general_voters
+    }
+
+    gen_rankings: list[list[str]] = []
+    for v in general_voters:
+        uid = v["id"]
+        gen_rankings.append(
+            sorted(gen_utils[uid].keys(), key=lambda n: -gen_utils[uid][n])
+        )
+
+    first_gen: Counter[str] = Counter(r[0] for r in gen_rankings if r)
+    total_gen = len(general_voters) or 1
+    gen_vote_shares = {
+        c["name"]: round(first_gen.get(c["name"], 0) / total_gen, 4)
+        for c in general_ballot_cands
+    }
+
+    if general_method == "irv":
+        general_winner_name = get_irv_winner(gen_rankings)
+    elif general_method == "approval":
+        general_winner_name = get_approval_winner_sincere(gen_utils)
+    else:
+        general_winner_name = get_plurality_winner(gen_rankings)
+    general_winner_name = general_winner_name or general_ballot_cands[0]["name"]
+
+    sorted_gen = sorted(general_ballot_cands, key=lambda c: -gen_vote_shares.get(c["name"], 0))
+    general_runner_up = next((c["name"] for c in sorted_gen if c["name"] != general_winner_name), None)
+
+    # ── Median voter distance ─────────────────────────────────────────────
+    winner_cand_obj = next(
+        (c for c in general_ballot_cands if c["name"] == general_winner_name),
+        general_ballot_cands[0],
+    )
+    winner_econ = winner_cand_obj["ideology_position"]
+    median_econ = float(_np.median([v["issue_positions"].get("economy", 0.5) for v in general_voters]))
+    median_voter_distance = round(abs(winner_econ - median_econ), 4)
+
+    # ── Without-primaries: party centres run directly ─────────────────────
+    center_cands = [
+        _build_primary_candidate(i, f"{pm['name']}Centre", pm["center"], issues)
+        for i, pm in enumerate(party_meta)
+    ]
+    center_utils: Dict[Any, Dict[str, float]] = {
+        v["id"]: {c["name"]: calculate_utility(v, c, issues)["utility"] for c in center_cands}
+        for v in general_voters
+    }
+    center_rankings: list[list[str]] = []
+    for v in general_voters:
+        uid = v["id"]
+        center_rankings.append(
+            sorted(center_utils[uid].keys(), key=lambda n: -center_utils[uid][n])
+        )
+
+    if general_method == "irv":
+        no_primary_winner = get_irv_winner(center_rankings)
+    elif general_method == "approval":
+        no_primary_winner = get_approval_winner_sincere(center_utils)
+    else:
+        no_primary_winner = get_plurality_winner(center_rankings)
+
+    # Map back from "PartyNameCentre" → party name
+    if no_primary_winner:
+        party_name_map = {f"{pm['name']}Centre": pm["name"] for pm in party_meta}
+        no_primary_winner = party_name_map.get(no_primary_winner, no_primary_winner)
+
+    return jsonify({
+        "primaries":              primaries_out,
+        "general_ballot":         [c["name"] for c in general_ballot_cands],
+        "general_winner":         general_winner_name,
+        "general_runner_up":      general_runner_up,
+        "general_vote_shares":    gen_vote_shares,
+        "median_voter_distance":  median_voter_distance,
+        "without_primaries_winner": no_primary_winner,
     }), 200
