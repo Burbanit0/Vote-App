@@ -1092,6 +1092,8 @@ const en: TranslationKeys = {
     numVoters:         'Voters',
     ideology:          'Distribution',
     showLosers:        'Highlight low-utility voters (< 30%)',
+    showVoronoi:       'Show win zones',
+    voronoiLegend:     'Win zones',
     regenerate:        'Regenerate voters',
     loading:           'Computing…',
     error:             'Computation failed. Is the backend running?',

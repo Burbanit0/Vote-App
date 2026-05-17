@@ -1,10 +1,11 @@
-import React, { useCallback, useEffect, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   Badge, Button, Card, Col, Form, ProgressBar, Row, Spinner,
 } from 'react-bootstrap';
 import { useTranslation } from 'react-i18next';
 import { IdeologyMapResult, IdeologyMapVoter } from '../../types';
 import { getIdeologyMap, IdeologyMapParams } from '../../services/simulationCompareApi';
+import { buildVoronoiPaths } from '../../utils/voronoiRegions';
 
 // ── Constants ─────────────────────────────────────────────────────────────────
 
@@ -24,6 +25,12 @@ const PARTY_COLORS: Record<string, string> = {
   Conservative: '#C8590A',
   Independent:  '#6c757d',
 };
+
+// Palette for Voronoi regions — distinct from voter-dot colors (blue/orange)
+const VORONOI_COLORS = [
+  '#9C3A00', '#264653', '#7B2D8B', '#005f73',
+  '#B71C1C', '#6A0DAD', '#2A9D8F', '#E76F51',
+];
 
 const METHODS = [
   'plurality','two_round','borda','approval','irv','coombs','bucklin',
@@ -100,6 +107,7 @@ const IdeologyMapChart: React.FC<Props> = ({ defaultCandidates }) => {
   const [ideology,     setIdeology]     = useState('random');
   const [seed,         setSeed]         = useState(42);
   const [showLosers,   setShowLosers]   = useState(false);
+  const [showVoronoi,  setShowVoronoi]  = useState(false);
 
   // ── Candidate positions (draggable)
   const initCandidates = useCallback((): CandidatePos[] => {
@@ -204,6 +212,12 @@ const IdeologyMapChart: React.FC<Props> = ({ defaultCandidates }) => {
     return 2.5 + u * 3;  // 2.5 → 5.5px
   };
 
+  // ── Voronoi regions (updated in real time during drag) ──────────────────
+  const voronoiPaths = useMemo(() => {
+    if (!showVoronoi || candidatePositions.length < 2) return [];
+    return buildVoronoiPaths(candidatePositions, SVG_W, SVG_H, domainToSvg);
+  }, [showVoronoi, candidatePositions]);
+
   const voters     = mapData?.voters     ?? [];
   const candidates = mapData?.candidates ?? candidatePositions.map((c) => ({ ...c, party: 'Independent' }));
   const winnerA    = mapData?.winner_a   ?? null;
@@ -264,6 +278,14 @@ const IdeologyMapChart: React.FC<Props> = ({ defaultCandidates }) => {
               label={<span className="small">{t('ideologyMap.showLosers')}</span>}
               checked={showLosers}
               onChange={(e) => setShowLosers(e.target.checked)}
+              className="mb-2"
+            />
+            <Form.Check
+              type="switch"
+              id="show-voronoi-toggle"
+              label={<span className="small">{t('ideologyMap.showVoronoi')}</span>}
+              checked={showVoronoi}
+              onChange={(e) => setShowVoronoi(e.target.checked)}
               className="mb-3"
             />
 
@@ -324,6 +346,23 @@ const IdeologyMapChart: React.FC<Props> = ({ defaultCandidates }) => {
               <text x={SVG_W - MARGIN} y={SVG_H - 8} textAnchor="end" fontSize={10} fill="#6c757d">{t('ideologyMap.axisRight')}</text>
               <text x={8} y={MARGIN + 4} fontSize={10} fill="#6c757d" transform={`rotate(-90 8 ${MARGIN + 4})`}>{t('ideologyMap.axisLiberal')}</text>
               <text x={8} y={SVG_H - MARGIN} fontSize={10} fill="#6c757d" transform={`rotate(-90 8 ${SVG_H - MARGIN})`}>{t('ideologyMap.axisConservative')}</text>
+
+              {/* Voronoi regions — rendered UNDER voter dots */}
+              {voronoiPaths.map((region, idx) =>
+                region.path ? (
+                  <path
+                    key={region.name}
+                    d={region.path}
+                    fill={VORONOI_COLORS[idx % VORONOI_COLORS.length]}
+                    fillOpacity={0.12}
+                    stroke={VORONOI_COLORS[idx % VORONOI_COLORS.length]}
+                    strokeWidth={1.5}
+                    strokeOpacity={0.4}
+                    style={{ transition: 'fill 0.3s, stroke 0.3s', pointerEvents: 'none' }}
+                    data-testid={`voronoi-region-${region.name}`}
+                  />
+                ) : null
+              )}
 
               {/* Voter dots */}
               {voters.map((v) => (
@@ -401,6 +440,25 @@ const IdeologyMapChart: React.FC<Props> = ({ defaultCandidates }) => {
                 </span>
               )}
             </div>
+
+            {/* Voronoi legend */}
+            {showVoronoi && candidatePositions.length > 0 && (
+              <div className="d-flex align-items-center gap-2 flex-wrap mt-2" style={{ fontSize: '0.75rem' }}>
+                <span className="text-muted fw-semibold">{t('ideologyMap.voronoiLegend')}:</span>
+                {candidatePositions.map((cp, idx) => (
+                  <Badge
+                    key={cp.name}
+                    style={{
+                      background:  VORONOI_COLORS[idx % VORONOI_COLORS.length],
+                      fontSize:    '0.68rem',
+                      opacity:     voronoiPaths.find((r) => r.name === cp.name)?.path ? 1 : 0.4,
+                    }}
+                  >
+                    {cp.name}
+                  </Badge>
+                ))}
+              </div>
+            )}
 
             {/* ── Stats panel ── */}
             {mapData && (

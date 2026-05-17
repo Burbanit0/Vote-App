@@ -1090,6 +1090,8 @@ const fr = {
     numVoters:         'Électeurs',
     ideology:          'Distribution',
     showLosers:        'Afficher les perdants (utilité < 30%)',
+    showVoronoi:       'Afficher les zones de victoire',
+    voronoiLegend:     'Zones de victoire',
     regenerate:        'Régénérer les électeurs',
     loading:           'Calcul…',
     error:             'Erreur lors du calcul. Le backend est-il démarré ?',
