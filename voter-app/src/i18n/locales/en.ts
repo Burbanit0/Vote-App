@@ -912,6 +912,8 @@ const en: TranslationKeys = {
     noImpactMessage:    'Blank vote did not change the winner for any method with this configuration.',
   },
   insight: {
+    donutCenter:    'methods',
+    donutSingle:    '{{total}}/{{total}} methods — full agreement',
     title:          'Election analysis',
     loading:        'Analysing…',
     error:          'Unable to generate analysis.',
