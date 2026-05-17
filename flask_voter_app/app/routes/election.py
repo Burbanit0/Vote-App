@@ -28,6 +28,8 @@ from app.utils.simulation_ranked_utils import (
     get_condorcet_winner,
     get_irv_winner,
     get_approval_winner_sincere,
+    get_borda_winner,
+    get_schulze_winner,
 )
 from app.utils.blank_vote_rules        import BlankVoteRule, apply_blank_rule
 from app.utils.blank_contagion         import simulate_blank_contagion
@@ -1994,4 +1996,228 @@ def primary() -> tuple[Response, int]:
         "general_vote_shares":    gen_vote_shares,
         "median_voter_distance":  median_voter_distance,
         "without_primaries_winner": no_primary_winner,
+    }), 200
+
+
+# ── Adaptive voting endpoint ──────────────────────────────────────────────────
+
+_METHOD_WINNERS: Dict[str, Any] = {
+    "plurality": get_plurality_winner,
+    "irv":       get_irv_winner,
+    "borda":     get_borda_winner,
+    "schulze":   get_schulze_winner,
+}
+
+
+def _compute_winner(
+    rankings: list[list[str]],
+    utilities: Dict[Any, Dict[str, float]],
+    method: str,
+) -> Optional[str]:
+    """Dispatch to the correct winner function for the given method."""
+    if method == "approval":
+        return get_approval_winner_sincere(utilities)
+    fn = _METHOD_WINNERS.get(method, get_plurality_winner)
+    result: Optional[str] = fn(rankings)
+    return result
+
+
+def _tactical_vote(
+    voter_id: Any,
+    sincere_ranking: list[str],
+    utilities: Dict[str, float],
+    polls: Dict[str, float],
+    strategic_threshold: float,
+) -> list[str]:
+    """
+    Compute a tactical ranking for one strategic voter.
+
+    A voter becomes tactical when their 1st choice polls below
+    `strategic_threshold` (as a fraction).  They then move the
+    viable candidate with the highest personal utility to the top.
+    Viable = polls ≥ strategic_threshold.  Ties broken by utility.
+    """
+    first_choice = sincere_ranking[0] if sincere_ranking else ""
+    if polls.get(first_choice, 0) >= strategic_threshold:
+        return sincere_ranking  # already competitive — stay sincere
+
+    viable = [n for n in sincere_ranking if polls.get(n, 0) >= strategic_threshold]
+    if not viable:
+        return sincere_ranking  # no viable alternative — stay sincere
+
+    # Best viable = highest utility among viable candidates
+    best = max(viable, key=lambda n: utilities.get(n, 0.0))
+    if best == first_choice:
+        return sincere_ranking
+
+    new_ranking = [best] + [n for n in sincere_ranking if n != best]
+    return new_ranking
+
+
+@election_bp.route("/adaptive", methods=["POST"])
+@sim_limiter.limit("10 per minute")
+def adaptive() -> tuple[Response, int]:
+    """
+    POST /api/election/adaptive
+
+    Simulate N rounds of adaptive voting:
+      Round 0 — sincere vote (no polls yet)
+      Round k — strategic voters whose 1st choice polls below
+                strategic_threshold switch to their best viable alternative.
+
+    Supports: plurality, irv, borda, schulze, approval.
+    Tracks convergence (winner stable for 2 consecutive rounds).
+    """
+    data = request.get_json() or {}
+
+    num_voters          = max(50, min(1000, int(data.get("num_voters",          300))))
+    ideology            = str(data.get("ideology",            "random"))
+    seed                = int(data.get("seed",                 42))
+    num_rounds          = max(1,  min(10,  int(data.get("num_rounds",           5))))
+    method              = str(data.get("method",              "plurality"))
+    strategic_threshold = max(0.0, min(1.0, float(data.get("strategic_threshold", 0.15))))
+    cand_specs          = data.get("candidates", [
+        {"name": "Alice", "x": -0.5, "y": -0.2},
+        {"name": "Bob",   "x":  0.5, "y":  0.2},
+        {"name": "Carol", "x":  0.0, "y":  0.3},
+    ])[:6]
+
+    if len(cand_specs) < 2:
+        return jsonify({"error": "At least 2 candidates required"}), 400
+
+    _random.seed(seed)
+    _np.random.seed(seed)
+    issues = DEFAULT_ISSUES
+
+    candidates, voters, true_utilities, cand_names = _build_base_electorate(
+        cand_specs, num_voters, ideology, seed, issues
+    )
+
+    # Each voter's sincere ranking (fixed for the whole simulation)
+    sincere_rankings: Dict[Any, list[str]] = {}
+    for v in voters:
+        uid = v["id"]
+        sincere_rankings[uid] = sorted(
+            true_utilities[uid].keys(), key=lambda n: -true_utilities[uid][n]
+        )
+
+    # ── Round 0: sincere vote ─────────────────────────────────────────────
+    rounds_out: list[Dict[str, Any]] = []
+    polls: Dict[str, float] = {n: 1.0 / len(cand_names) for n in cand_names}
+    previous_winner: Optional[str] = None
+    converged       = False
+    convergence_round: Optional[int] = None
+    stable_count    = 0
+
+    # Compute global sincere winner (used for drift comparison at the end)
+    sincere_all_rankings = [sincere_rankings[v["id"]] for v in voters]
+    sincere_final_winner = _compute_winner(sincere_all_rankings, true_utilities, method)
+
+    # Voter snapshot for ideology overlay (max 200 points)
+    snap_indices = list(range(min(200, len(voters))))
+
+    for rnd in range(num_rounds):
+        # Determine effective ranking for each voter this round
+        effective_rankings: list[list[str]] = []
+        n_strategic = 0
+
+        for v in voters:
+            uid       = v["id"]
+            propensity: float = float(v.get("strategic_propensity", 0.2))
+            roll: float = float(_random.random())
+            if rnd > 0 and propensity > roll:
+                tactical = _tactical_vote(
+                    uid, sincere_rankings[uid], true_utilities[uid], polls, strategic_threshold
+                )
+                effective_rankings.append(tactical)
+                if tactical[0] != sincere_rankings[uid][0]:
+                    n_strategic += 1
+            else:
+                effective_rankings.append(sincere_rankings[uid])
+
+        # Run the chosen method
+        eff_utils: Dict[Any, Dict[str, float]] = {
+            v["id"]: true_utilities[v["id"]] for v in voters
+        }
+        winner = _compute_winner(effective_rankings, eff_utils, method)
+
+        # Vote shares from first-choice counts
+        first_choice_counts: Counter[str] = Counter(
+            r[0] for r in effective_rankings if r
+        )
+        total = len(voters) or 1
+        vote_shares = {n: round(first_choice_counts.get(n, 0) / total, 4) for n in cand_names}
+
+        # Sincere vote shares (always from round-0 sincere vote for reference)
+        sincere_fc: Counter[str] = Counter(
+            sincere_rankings[v["id"]][0] for v in voters
+            if sincere_rankings[v["id"]]
+        )
+        sincere_shares = {n: round(sincere_fc.get(n, 0) / total, 4) for n in cand_names}
+
+        # Voter snapshot (strategic change indicator)
+        voter_snaps = []
+        for i in snap_indices:
+            v   = voters[i]
+            uid = v["id"]
+            eff = effective_rankings[i] if i < len(effective_rankings) else sincere_rankings[uid]
+            sx  = round(2.0 * v["issue_positions"].get("economy",       0.5) - 1.0, 3)
+            sy  = round(2.0 * v["issue_positions"].get("social_welfare", 0.5) - 1.0, 3)
+            voter_snaps.append({
+                "id":            uid,
+                "x":             sx,
+                "y":             sy,
+                "sincere_vote":  sincere_rankings[uid][0] if sincere_rankings[uid] else "",
+                "effective_vote": eff[0] if eff else "",
+                "tactical":      eff[0] != sincere_rankings[uid][0] if eff else False,
+            })
+
+        rounds_out.append({
+            "round":               rnd,
+            "vote_shares":         vote_shares,
+            "sincere_shares":      sincere_shares,
+            "winner":              winner,
+            "sincere_winner":      sincere_final_winner,
+            "strategic_voters_pct": round(n_strategic / total, 4),
+            "voter_snapshot":      voter_snaps,
+        })
+
+        # Update polls for next round
+        polls = vote_shares
+
+        # Convergence check: winner stable for 2 consecutive rounds
+        if winner == previous_winner:
+            stable_count += 1
+            if stable_count >= 2 and not converged:
+                converged = True
+                convergence_round = rnd - 1
+        else:
+            stable_count = 0
+        previous_winner = winner
+
+    # ── Strategic drift ────────────────────────────────────────────────────
+    # Ideological distance between sincere winner and final winner
+    def _ideology_pos(name: str) -> float:
+        c = next((c for c in candidates if c["name"] == name), None)
+        return round(2.0 * c["ideology_position"] - 1.0, 3) if c else 0.0
+
+    final_winner = rounds_out[-1]["winner"] if rounds_out else sincere_final_winner
+    if sincere_final_winner and final_winner:
+        strategic_drift = round(
+            abs(_ideology_pos(final_winner) - _ideology_pos(sincere_final_winner)), 4
+        )
+    else:
+        strategic_drift = 0.0
+
+    return jsonify({
+        "rounds":             rounds_out,
+        "converged":          converged,
+        "convergence_round":  convergence_round,
+        "final_winner":       final_winner,
+        "sincere_winner":     sincere_final_winner,
+        "strategic_drift":    strategic_drift,
+        "candidates":         [
+            {"name": c["name"], "x": _ideology_pos(c["name"])}
+            for c in candidates
+        ],
     }), 200
