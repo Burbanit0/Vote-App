@@ -32,6 +32,7 @@ import { useMonteCarloStream } from '../../hooks/useMonteCarloStream';
 import MonteCarloLiveChart from './MonteCarloLiveChart';
 import MonteCarloRaceChart from './MonteCarloRaceChart';
 import MonteCarloConvergencePanel from './MonteCarloConvergencePanel';
+import MethodSimilarityGraph, { flatToMatrix, partialResultsToMatrix } from './MethodSimilarityGraph';
 import MetricTooltip from '../shared/MetricTooltip';
 
 const CANDIDATE_PALETTE = ['#4e79a7', '#f28e2b', '#e15759', '#76b7b2', '#59a14f', '#edc948'];
@@ -302,6 +303,23 @@ const MonteCarloResults: React.FC<Props> = ({ baseParams }) => {
         isRunning={stream.isRunning}
       />
 
+      {/* Similarity graph — shown once streaming has partial results */}
+      {Object.keys(stream.partialResults).length > 1 && (
+        <Card className="mb-4">
+          <Card.Header>
+            <strong>{t('graph.title')}</strong>
+            <span className="text-muted ms-2" style={{ fontSize: '0.85rem' }}>
+              {t('graph.subtitle')}
+            </span>
+          </Card.Header>
+          <Card.Body>
+            <MethodSimilarityGraph
+              agreementMatrix={partialResultsToMatrix(stream.partialResults)}
+            />
+          </Card.Body>
+        </Card>
+      )}
+
       {!result && !loading && !stream.isRunning && stream.iteration === 0 && (
         <Alert variant="info">
           <Trans i18nKey="simulation.monteCarloPrompt" values={{ sec: Math.round(numRuns * numVoters / 1000 * 2) }} />
@@ -429,7 +447,22 @@ const MonteCarloResults: React.FC<Props> = ({ baseParams }) => {
             </Card.Body>
           </Card>
 
-          {/* 3. Stability table */}
+          {/* 3. Similarity graph */}
+          <Card className="mb-4">
+            <Card.Header>
+              <strong>{t('graph.title')}</strong>
+              <span className="text-muted ms-2" style={{ fontSize: '0.85rem' }}>
+                {t('graph.subtitle')}
+              </span>
+            </Card.Header>
+            <Card.Body>
+              <MethodSimilarityGraph
+                agreementMatrix={flatToMatrix(result.inter_method_agreement)}
+              />
+            </Card.Body>
+          </Card>
+
+          {/* 4. Stability table */}
           <Card>
             <Card.Header>
               <strong>{t('simulation.winnerStability')}</strong>

@@ -1167,6 +1167,23 @@ const fr = {
     colGroupBlank:    'Vote blanc',
   },
 
+  graph: {
+    title:        'Graphe de similarité des méthodes',
+    subtitle:     'Méthodes qui convergent souvent vers le même vainqueur — plus proche = plus similaire',
+    openButton:   'Graphe de similarité',
+    threshold:    'Seuil d\'affichage',
+    edges:        'arête(s)',
+    methods:      'méthode(s)',
+    maxAgreement: 'Accord max',
+    groupByFamily: 'Regrouper par famille',
+    dragHint:     'Glisser les nœuds pour repositionner',
+    noData:       'Aucune donnée d\'accord disponible',
+    ariaLabel:    'Graphe de similarité des méthodes de vote',
+    family_ranked:  'Classement (ranked)',
+    family_score:   'Score',
+    family_special: 'Spécial',
+  },
+
   adaptive: {
     prompt:              'Simulez comment les électeurs tactiques adaptent leur vote à chaque round en observant les sondages du tour précédent.',
     run:                 'Simuler',
