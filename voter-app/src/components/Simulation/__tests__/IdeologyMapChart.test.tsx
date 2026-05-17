@@ -81,18 +81,62 @@ describe('IdeologyMapChart', () => {
     });
   });
 
-  it('shows "show losers" toggle', async () => {
+  it('shows "show losers" toggle (unchecked by default)', async () => {
     render(<IdeologyMapChart defaultCandidates={['Alice', 'Bob']} />);
-    const toggle = screen.getByRole('checkbox');
+    // Multiple checkboxes now: losers + voronoi — target by id
+    const toggle = document.getElementById('show-losers-toggle') as HTMLInputElement;
     expect(toggle).toBeInTheDocument();
     expect(toggle).not.toBeChecked();
   });
 
   it('checking "show losers" toggle changes its state', async () => {
     render(<IdeologyMapChart defaultCandidates={['Alice', 'Bob']} />);
-    const toggle = screen.getByRole('checkbox');
+    const toggle = document.getElementById('show-losers-toggle') as HTMLInputElement;
     fireEvent.click(toggle);
     expect(toggle).toBeChecked();
+  });
+
+  it('Voronoi toggle is OFF by default', async () => {
+    render(<IdeologyMapChart defaultCandidates={['Alice', 'Bob']} />);
+    const toggle = document.getElementById('show-voronoi-toggle') as HTMLInputElement;
+    expect(toggle).toBeInTheDocument();
+    expect(toggle).not.toBeChecked();
+  });
+
+  it('activating Voronoi toggle renders SVG region paths', async () => {
+    const { container } = render(<IdeologyMapChart defaultCandidates={['Alice', 'Bob']} />);
+    await waitFor(() => expect(getIdeologyMap).toHaveBeenCalled());
+
+    // No voronoi paths before toggle
+    expect(container.querySelector('[data-testid^="voronoi-region"]')).toBeNull();
+
+    const toggle = document.getElementById('show-voronoi-toggle') as HTMLInputElement;
+    fireEvent.click(toggle);
+
+    // After toggle: paths should appear for 2 candidates
+    await waitFor(() => {
+      const paths = container.querySelectorAll('[data-testid^="voronoi-region"]');
+      expect(paths.length).toBeGreaterThan(0);
+    });
+  });
+
+  it('Voronoi legend shows candidate badges when toggle is ON', async () => {
+    render(<IdeologyMapChart defaultCandidates={['Alice', 'Bob']} />);
+    await waitFor(() => expect(getIdeologyMap).toHaveBeenCalled());
+
+    // Before toggle: candidate name badges from the voronoi legend are absent
+    // (they'd only appear inside the legend div, not as star labels)
+    const toggle = document.getElementById('show-voronoi-toggle') as HTMLInputElement;
+    expect(toggle).not.toBeChecked();
+
+    fireEvent.click(toggle);
+    expect(toggle).toBeChecked();
+
+    // After toggle: legend section renders (contains candidate name badges)
+    await waitFor(() => {
+      expect(screen.getAllByText('Alice').length).toBeGreaterThan(0);
+      expect(screen.getAllByText('Bob').length).toBeGreaterThan(0);
+    });
   });
 
   it('renders regenerate button', async () => {
