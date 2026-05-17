@@ -20,6 +20,8 @@ import ElectionPipelineAnimator from '../components/shared/ElectionPipelineAnima
 import HistoricalReferencePanel from '../components/shared/HistoricalReferencePanel';
 import MetricTooltip from '../components/shared/MetricTooltip';
 import ElectionInsightPanel from '../components/shared/ElectionInsightPanel';
+import CoalitionPanel from '../components/shared/CoalitionPanel';
+import DistrictMap from '../components/shared/DistrictMap';
 
 const COLORS: Record<string, string> = {
   Green: '#007A33', Liberal: '#005CAB', Conservative: '#C8590A', Independent: '#6c757d',
@@ -494,6 +496,12 @@ const ElectionLabPage: React.FC = () => {
                 </Tab>
                 <Tab eventKey="combined-effects" title={`🔬 ${t('electionLab.tabCombinedEffects')}`}>
                   <CombinedEffectsMatrix />
+                </Tab>
+                <Tab eventKey="coalition" title={`🏛 ${t('electionLab.tabCoalition')}`}>
+                  <CoalitionPanel />
+                </Tab>
+                <Tab eventKey="districts" title={`🗺 ${t('electionLab.tabDistricts')}`}>
+                  <DistrictMap />
                 </Tab>
               </Tabs>
             </div>

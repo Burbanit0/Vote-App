@@ -23,6 +23,7 @@ from flask import Blueprint, Response, jsonify, request
 from app.constants import DEFAULT_ISSUES, ECONOMY_ISSUES, ENV_ISSUES, SOCIAL_ISSUES
 from app.utils.simulation_voting_utils import calculate_utility, create_candidate, create_voter
 from app.utils.simulation_metrics      import compare_all_methods
+from app.utils.simulation_ranked_utils import get_plurality_winner, get_condorcet_winner
 from app.utils.blank_vote_rules        import BlankVoteRule, apply_blank_rule
 from app.utils.blank_contagion         import simulate_blank_contagion
 from app.utils.campaign_dynamics       import simulate_campaign
@@ -1394,4 +1395,343 @@ def simulate_pipeline() -> tuple[Response, int]:
         "steps":      steps,
         "candidates": cands_out,
         "num_steps":  len(steps),
+    }), 200
+
+
+# ── Coalition endpoint ────────────────────────────────────────────────────────
+
+def _dhondt(vote_shares: Dict[str, float], total_seats: int) -> Dict[str, int]:
+    """D'Hondt proportional seat allocation.
+
+    vote_shares: {party_name: fraction_of_vote}  (values sum ≈ 1)
+    Returns {party_name: seats_awarded}.
+    """
+    seats: Dict[str, int] = {p: 0 for p in vote_shares}
+    for _ in range(total_seats):
+        quotients = {p: vote_shares[p] / (seats[p] + 1) for p in vote_shares}
+        winner = max(quotients, key=lambda k: quotients[k])
+        seats[winner] += 1
+    return seats
+
+
+def _greedy_coalition(
+    seats: Dict[str, int],
+    positions: Dict[str, float],
+    threshold: int,
+) -> Dict[str, Any]:
+    """
+    Greedy coalition formation starting from the plurality party.
+    Iteratively adds the ideologically closest available party until the
+    coalition reaches `threshold` seats.
+
+    Returns {parties, seats, coalition_spread, government_possible}.
+    """
+    total = sum(seats.values())
+    if total == 0:
+        return {"parties": [], "seats": 0, "coalition_spread": 0.0, "government_possible": False}
+
+    sorted_parties = sorted(seats.keys(), key=lambda p: -seats[p])
+    coalition: list[str] = [sorted_parties[0]]
+    coalition_seats = seats[sorted_parties[0]]
+    remaining = [p for p in sorted_parties[1:]]
+
+    while coalition_seats < threshold and remaining:
+        # Closest ideologically to current coalition centre
+        centre = sum(positions[p] for p in coalition) / len(coalition)
+        closest = min(remaining, key=lambda p: abs(positions[p] - centre))
+        coalition.append(closest)
+        coalition_seats += seats[closest]
+        remaining.remove(closest)
+
+    pos_vals = [positions[p] for p in coalition]
+    spread = (
+        float(_np.var(pos_vals)) if len(pos_vals) > 1 else 0.0
+    )
+
+    return {
+        "parties":            coalition,
+        "seats":              coalition_seats,
+        "coalition_spread":   round(spread, 4),
+        "government_possible": coalition_seats >= threshold,
+    }
+
+
+@election_bp.route("/coalition", methods=["POST"])
+@sim_limiter.limit("20 per minute")
+def coalition() -> tuple[Response, int]:
+    """
+    POST /api/election/coalition
+
+    Compute D'Hondt seat allocation from election vote shares, then
+    form a minimal government coalition per winning method, returning:
+      - per-method seat allocation + coalition
+      - coalition_spread per method (ideological variance of coalition)
+      - pedagogical summary comparing coalition centrism across methods
+    """
+    data = request.get_json() or {}
+
+    num_voters  = max(10, min(1000, int(data.get("num_voters",  300))))
+    ideology    = str(data.get("ideology",   "random"))
+    seed        = int(data.get("seed",        42))
+    cand_specs  = data.get("candidates", [
+        {"name": "Alice", "x": -0.5, "y": -0.2},
+        {"name": "Bob",   "x":  0.5, "y":  0.2},
+        {"name": "Carol", "x":  0.0, "y":  0.3},
+    ])[:6]
+    total_seats          = max(10, min(1000, int(data.get("total_seats",          100))))
+    government_threshold = max(0.0, min(1.0, float(data.get("government_threshold", 0.5))))
+
+    if len(cand_specs) < 2:
+        return jsonify({"error": "At least 2 candidates required"}), 400
+
+    _random.seed(seed)
+    _np.random.seed(seed)
+
+    issues = DEFAULT_ISSUES
+    candidates, voters, true_utilities, cand_names = _build_base_electorate(
+        cand_specs, num_voters, ideology, seed, issues
+    )
+
+    # Candidate ideological position (x axis, [-1, 1])
+    positions: Dict[str, float] = {
+        c["name"]: round(2.0 * c["ideology_position"] - 1.0, 3)
+        for c in candidates
+    }
+
+    result_mc = compare_all_methods(
+        voters, candidates, issues,
+        blank_vote=False,
+        override_utilities=true_utilities,
+    )
+    methods_data: Dict[str, Any] = result_mc.get("methods", {})
+
+    seat_threshold = int(_np.ceil(total_seats * government_threshold))
+
+    methods_out: list[Dict[str, Any]] = []
+    for method_name, md in sorted(methods_data.items()):
+        winner = md.get("winner") or ""
+        scores: Dict[str, float] = md.get("scores") or {}
+
+        # Derive vote-share proxy from scores (normalise to sum=1)
+        if scores:
+            total_score = sum(scores.values()) or 1.0
+            vote_shares = {n: scores[n] / total_score for n in cand_names if n in scores}
+        else:
+            # Fallback: winner gets 1, others share remainder
+            n = len(cand_names)
+            vote_shares = {name: (0.6 if name == winner else 0.4 / max(n - 1, 1))
+                           for name in cand_names}
+
+        seats_alloc = _dhondt(vote_shares, total_seats)
+        coal        = _greedy_coalition(seats_alloc, positions, seat_threshold)
+
+        methods_out.append({
+            "method":             method_name,
+            "winner":             winner,
+            "seats":              seats_alloc,
+            "vote_shares":        {n: round(v, 4) for n, v in vote_shares.items()},
+            "coalition_parties":  coal["parties"],
+            "coalition_seats":    coal["seats"],
+            "coalition_spread":   coal["coalition_spread"],
+            "government_possible": coal["government_possible"],
+        })
+
+    # ── Summary across methods ─────────────────────────────────────────────
+    possible = [m for m in methods_out if m["government_possible"]]
+    spreads  = {m["method"]: m["coalition_spread"] for m in possible}
+    most_centrist_method  = min(spreads, key=lambda k: spreads[k]) if spreads else None
+    most_divergent_method = max(spreads, key=lambda k: spreads[k]) if spreads else None
+
+    return jsonify({
+        "methods":               methods_out,
+        "candidates":            [
+            {"name": c["name"], "x": positions[c["name"]]}
+            for c in candidates
+        ],
+        "total_seats":           total_seats,
+        "seat_threshold":        seat_threshold,
+        "most_centrist_method":  most_centrist_method,
+        "most_divergent_method": most_divergent_method,
+        "inter_method_agreement": _inter_method_agreement(
+            {m["method"]: {"winner": m["coalition_parties"][0] if m["coalition_parties"] else ""}
+             for m in methods_out}
+        ),
+    }), 200
+
+
+# ── Districts endpoint ────────────────────────────────────────────────────────
+
+def _run_district_fptp(
+    cand_names: list[str],
+    candidates: list[Dict[str, Any]],
+    num_voters: int,
+    ideology_center: float,
+    ideology_variance: float,
+    issues: list[str],
+    seed: int,
+) -> Dict[str, Any]:
+    """
+    Simulate one district.
+
+    ideology_center shifts the entire voter distribution along the x axis
+    by displacing economy-related issue positions.  Returns winner (FPTP)
+    and raw first-choice vote counts that can be turned into shares.
+    """
+    _random.seed(seed)
+    _np.random.seed(seed)
+
+    voters = [create_voter(issues, i, ideology_distribution="random") for i in range(num_voters)]
+
+    # Shift every voter's economy position by ideology_center (clamped to [0,1])
+    shift = ideology_center * 0.3          # max shift ≈ 0.3 to keep results legible
+    for v in voters:
+        old_econ = v["issue_positions"].get("economy", 0.5)
+        v["issue_positions"]["economy"] = max(0.0, min(1.0, old_econ + shift))
+
+    utilities: Dict[Any, Dict[str, float]] = {
+        v["id"]: {c["name"]: calculate_utility(v, c, issues)["utility"] for c in candidates}
+        for v in voters
+    }
+
+    rankings: list[list[str]] = []
+    for v in voters:
+        uid = v["id"]
+        rankings.append(sorted(utilities[uid].keys(), key=lambda n: -utilities[uid][n]))
+
+    # First-choice counts → vote shares
+    first_choice: Counter[str] = Counter()
+    for r in rankings:
+        if r:
+            first_choice[r[0]] += 1
+
+    total = len(voters) or 1
+    vote_shares = {n: round(first_choice.get(n, 0) / total, 4) for n in cand_names}
+    winner = get_plurality_winner(rankings)
+
+    return {"winner": winner, "vote_shares": vote_shares}
+
+
+@election_bp.route("/districts", methods=["POST"])
+@sim_limiter.limit("10 per minute")
+def districts() -> tuple[Response, int]:
+    """
+    POST /api/election/districts
+
+    Simulate N districts with locally shifted ideology distributions.
+    Each district elects its winner by FPTP (plurality).
+    National parliament:
+      - FPTP:         sum of district wins
+      - Proportional: D'Hondt on aggregated national vote shares
+    Also computes national Condorcet winner from all voters pooled.
+    """
+    data = request.get_json() or {}
+
+    num_districts            = max(5,   min(50,  int(data.get("num_districts",            10))))
+    voters_per_district      = max(50,  min(500, int(data.get("voters_per_district",      100))))
+    district_ideology_variance = max(0.0, min(1.0, float(data.get("district_ideology_variance", 0.3))))
+    seed                     = int(data.get("seed", 42))
+    cand_specs               = data.get("candidates", [
+        {"name": "Alice", "x": -0.5, "y": -0.2},
+        {"name": "Bob",   "x":  0.5, "y":  0.2},
+        {"name": "Carol", "x":  0.0, "y":  0.3},
+    ])[:6]
+
+    if len(cand_specs) < 2:
+        return jsonify({"error": "At least 2 candidates required"}), 400
+
+    issues = DEFAULT_ISSUES
+    _random.seed(seed)
+    _np.random.seed(seed)
+
+    cand_names = [str(s.get("name", f"C{i}")) for i, s in enumerate(cand_specs)]
+    candidates = [
+        _build_candidate_from_xy(
+            i,
+            cand_names[i],
+            max(-1.0, min(1.0, float(s.get("x", 0.0)))),
+            max(-1.0, min(1.0, float(s.get("y", 0.0)))),
+            issues,
+        )
+        for i, s in enumerate(cand_specs)
+    ]
+
+    # Generate district ideology centers: N samples from N(0, variance)
+    _np.random.seed(seed)
+    ideology_centers = _np.random.normal(0.0, district_ideology_variance, num_districts).tolist()
+
+    # ── Per-district simulation ────────────────────────────────────────────
+    district_results: list[Dict[str, Any]] = []
+    national_vote_totals: Dict[str, float] = {n: 0.0 for n in cand_names}
+
+    for i, center in enumerate(ideology_centers):
+        res = _run_district_fptp(
+            cand_names, candidates, voters_per_district,
+            float(center), district_ideology_variance, issues,
+            seed=seed + i + 1,
+        )
+        district_results.append({
+            "id":              i,
+            "ideology_center": round(float(center), 3),
+            "winner_fptp":     res["winner"],
+            "vote_shares":     res["vote_shares"],
+        })
+        for n in cand_names:
+            national_vote_totals[n] += res["vote_shares"].get(n, 0.0)
+
+    # ── FPTP parliament: count district wins ───────────────────────────────
+    parliament_fptp: Dict[str, int] = {n: 0 for n in cand_names}
+    for dr in district_results:
+        w = dr["winner_fptp"]
+        if w and w in parliament_fptp:
+            parliament_fptp[w] += 1
+
+    # ── National vote shares (average across districts) ───────────────────
+    national_vote_share: Dict[str, float] = {
+        n: round(national_vote_totals[n] / num_districts, 4) for n in cand_names
+    }
+
+    # ── Proportional parliament: D'Hondt on national shares ───────────────
+    parliament_proportional = _dhondt(national_vote_share, num_districts)
+
+    # ── National Condorcet: quick pairwise from aggregated vote shares ─────
+    # Build a representative ranking from national vote shares (sorted desc)
+    # and compute Condorcet winner heuristically via pairwise dominance.
+    sorted_by_share = sorted(cand_names, key=lambda n: -national_vote_share.get(n, 0))
+
+    def _beats(a: str, b: str) -> bool:
+        # In aggregate, a beats b in district-by-district pairwise
+        a_wins = sum(
+            1 for dr in district_results
+            if dr["vote_shares"].get(a, 0) > dr["vote_shares"].get(b, 0)
+        )
+        return a_wins > num_districts / 2
+
+    condorcet_national: Optional[str] = None
+    for cand in sorted_by_share:
+        if all(_beats(cand, other) for other in cand_names if other != cand):
+            condorcet_national = cand
+            break
+
+    # ── Distortion index ──────────────────────────────────────────────────
+    # Average absolute difference between seat share and vote share, per candidate
+    total_seats = num_districts
+    distortion_vals = [
+        abs(parliament_fptp[n] / total_seats - national_vote_share.get(n, 0))
+        for n in cand_names
+    ]
+    distortion = round(sum(distortion_vals) / max(len(distortion_vals), 1), 4)
+
+    fptp_winner         = max(parliament_fptp,         key=lambda k: parliament_fptp[k])
+    proportional_winner = max(parliament_proportional, key=lambda k: parliament_proportional[k])
+
+    return jsonify({
+        "districts":              district_results,
+        "parliament_fptp":        parliament_fptp,
+        "parliament_proportional": parliament_proportional,
+        "national_vote_share":    national_vote_share,
+        "distortion":             distortion,
+        "condorcet_winner_national": condorcet_national,
+        "fptp_winner":            fptp_winner,
+        "proportional_winner":    proportional_winner,
+        "num_districts":          num_districts,
     }), 200
