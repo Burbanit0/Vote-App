@@ -16,6 +16,7 @@ import ManipulabilityChart from '../components/Simulation/ManipulabilityChart';
 import BlankVoteDivergencePanel from '../components/shared/BlankVoteDivergencePanel';
 import CampaignSensitivityPanel from '../components/shared/CampaignSensitivityPanel';
 import CombinedEffectsMatrix from '../components/shared/CombinedEffectsMatrix';
+import ElectionPipelineAnimator from '../components/shared/ElectionPipelineAnimator';
 import HistoricalReferencePanel from '../components/shared/HistoricalReferencePanel';
 import MetricTooltip from '../components/shared/MetricTooltip';
 import ElectionInsightPanel from '../components/shared/ElectionInsightPanel';
@@ -487,6 +488,9 @@ const ElectionLabPage: React.FC = () => {
                 </Tab>
                 <Tab eventKey="campaign-sensitivity" title={`📈 ${t('electionLab.tabCampaignSensitivity')}`}>
                   <CampaignSensitivityPanel />
+                </Tab>
+                <Tab eventKey="pipeline" title={`🎬 ${t('electionLab.tabPipeline')}`}>
+                  <ElectionPipelineAnimator />
                 </Tab>
                 <Tab eventKey="combined-effects" title={`🔬 ${t('electionLab.tabCombinedEffects')}`}>
                   <CombinedEffectsMatrix />

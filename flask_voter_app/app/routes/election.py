@@ -1130,3 +1130,266 @@ def interpret() -> tuple[Response, int]:
         "pedagogical_note":   pedagogical_note,
         "key_facts":          key_facts,
     }), 200
+
+
+# ── Pipeline animation ────────────────────────────────────────────────────────
+
+def _voter_snap(
+    voters: list[Dict[str, Any]],
+    utilities: Dict[Any, Dict[str, float]],
+    blank_enabled: bool = False,
+) -> list[Dict[str, Any]]:
+    """Capture a voter snapshot with current preference and blank status."""
+    snaps: list[Dict[str, Any]] = []
+    for v in voters:
+        u = utilities.get(v["id"], {})
+        pref: Optional[str] = max(u, key=lambda k: u[k]) if u else None
+        is_blank = blank_enabled and (max(u.values(), default=0.0) < v.get("blank_threshold", 0.375))
+        snaps.append({
+            "id":         v["id"],
+            "x":          round(2.0 * v["issue_positions"].get("economy",       0.5) - 1.0, 3),
+            "y":          round(2.0 * v["issue_positions"].get("social_welfare", 0.5) - 1.0, 3),
+            "preference": pref,
+            "is_blank":   is_blank,
+        })
+    return snaps
+
+
+def _count_changed(prev: list[Dict[str, Any]], curr: list[Dict[str, Any]]) -> int:
+    prev_map = {s["id"]: (s["preference"], s["is_blank"]) for s in prev}
+    return sum(
+        1 for s in curr
+        if (s["preference"], s["is_blank"]) != prev_map.get(s["id"], (None, False))
+    )
+
+
+@election_bp.route("/simulate-pipeline", methods=["POST"])
+def simulate_pipeline() -> tuple[Response, int]:
+    """
+    POST /api/election/simulate-pipeline
+
+    Runs the election simulation and returns intermediate voter snapshots for
+    each model stage, enabling step-by-step animation in the frontend.
+
+    Steps returned (only active models generate a step):
+      base        — always
+      campaign    — if campaign.enabled
+      contagion   — if blank_vote.contagion.enabled AND blank_vote.enabled
+      information — if information_model.enabled
+      results     — always (final winners)
+    """
+    import copy
+
+    data = request.get_json() or {}
+
+    num_voters     = max(10, min(200, int(data.get("num_voters",  150))))
+    ideology       = str(data.get("ideology",   "random"))
+    seed           = int(data.get("seed",        42))
+    cand_specs     = data.get("candidates", [
+        {"name": "Alice", "x": -0.5, "y": -0.2},
+        {"name": "Bob",   "x":  0.5, "y":  0.2},
+        {"name": "Carol", "x":  0.0, "y":  0.3},
+    ])[:6]
+
+    blank_cfg      = data.get("blank_vote", {}) or {}
+    blank_enabled  = bool(blank_cfg.get("enabled", False))
+    blank_rule_str = str(blank_cfg.get("rule", "symbolic"))
+    contagion_cfg  = blank_cfg.get("contagion", {}) or {}
+    contagion_on   = bool(contagion_cfg.get("enabled", False))
+
+    info_cfg       = data.get("information_model", {}) or {}
+    info_enabled   = bool(info_cfg.get("enabled", False))
+
+    campaign_cfg   = data.get("campaign", {}) or {}
+    campaign_on    = bool(campaign_cfg.get("enabled", False))
+    num_days       = max(7,  min(60, int(campaign_cfg.get("num_days",        30))))
+    polling_effect = max(0.0, min(1.0, float(campaign_cfg.get("polling_effect", 0.3))))
+
+    if len(cand_specs) < 2:
+        return jsonify({"error": "At least 2 candidates required"}), 400
+
+    _random.seed(seed)
+    _np.random.seed(seed)
+
+    issues = DEFAULT_ISSUES
+    candidates, voters, true_utilities, cand_names = _build_base_electorate(
+        cand_specs, num_voters, ideology, seed, issues
+    )
+
+    cands_out = [
+        {
+            "name":  c["name"],
+            "x":     round(2.0 * c["ideology_position"] - 1.0, 3),
+            "y":     round(2.0 * c["policies"].get("social_welfare", 0.5) - 1.0, 3),
+            "party": c["party"],
+        }
+        for c in candidates
+    ]
+
+    steps:    list[Dict[str, Any]] = []
+    prev_snap: list[Dict[str, Any]] = []
+    current_utilities: Dict[Any, Dict[str, float]] = dict(true_utilities)
+
+    # ── Step 1: Base electorate ───────────────────────────────────────────
+    base_snap = _voter_snap(voters, true_utilities, blank_enabled)
+    steps.append({
+        "id":      "base",
+        "label":   {"fr": "Électeurs créés",        "en": "Voters created"},
+        "desc":    {"fr": f"{num_voters} électeurs générés avec distribution « {ideology} ».",
+                    "en": f"{num_voters} voters generated with « {ideology} » distribution."},
+        "voters":  base_snap,
+        "metrics": {"num_voters": num_voters, "ideology": ideology},
+    })
+    prev_snap = base_snap
+
+    # ── Step 2: Campaign ──────────────────────────────────────────────────
+    if campaign_on:
+        camp         = simulate_campaign(
+            num_candidates=len(candidates), num_voters=num_voters,
+            num_days=num_days, events=[], seed=seed,
+        )
+        camp_cands   = camp.get("candidates", [])
+        daily_scores = camp.get("daily_scores", {})
+        final_shares: Dict[str, float] = {}
+        for ci, camp_name in enumerate(camp_cands):
+            if ci < len(cand_names):
+                shares = daily_scores.get(camp_name, [50.0])
+                final_shares[cand_names[ci]] = shares[-1] / 100.0
+
+        for v in voters:
+            for c_name in cand_names:
+                share   = final_shares.get(c_name, 1.0 / len(cand_names))
+                u       = current_utilities[v["id"]][c_name]
+                blended = u * (1.0 - polling_effect * 0.4) + share * (polling_effect * 0.4)
+                current_utilities[v["id"]][c_name] = max(0.0, min(1.0, blended))
+
+        camp_snap = _voter_snap(voters, current_utilities, blank_enabled)
+        changed   = _count_changed(prev_snap, camp_snap)
+        steps.append({
+            "id":    "campaign",
+            "label": {"fr": "Effet de campagne",    "en": "Campaign effect"},
+            "desc":  {
+                "fr": f"Campagne de {num_days} jours (bandwagon {round(polling_effect * 100)}%). "
+                      f"{changed} électeur(s) ont changé de préférence.",
+                "en": f"{num_days}-day campaign (bandwagon {round(polling_effect * 100)}%). "
+                      f"{changed} voter(s) changed preference.",
+            },
+            "voters":  camp_snap,
+            "metrics": {"changed": changed, "polling_effect": polling_effect},
+        })
+        prev_snap = camp_snap
+
+    # ── Step 3: Blank-vote contagion ──────────────────────────────────────
+    if contagion_on and blank_enabled:
+        beta    = max(0.0, min(1.0, float(contagion_cfg.get("beta",  0.15))))
+        gamma   = max(0.0, min(1.0, float(contagion_cfg.get("gamma", 0.10))))
+        net_map = {"random": "random", "watts_strogatz": "small-world", "block": "clustered"}
+        net     = net_map.get(str(contagion_cfg.get("network", "random")), "random")
+        cont_r  = simulate_blank_contagion(
+            num_voters=num_voters, initial_blank_rate=0.05,
+            contagion_rate=beta, recovery_rate=gamma,
+            num_rounds=10, network_type=net, seed=seed,
+        )
+        final_blank = cont_r.get("final_blank_rate", 0.05)
+        reduction   = final_blank * 0.4
+        for v in voters:
+            v["blank_threshold"] = max(0.05, v["blank_threshold"] - reduction)
+
+        cont_snap   = _voter_snap(voters, current_utilities, blank_enabled=True)
+        blank_count = sum(1 for s in cont_snap if s["is_blank"])
+        steps.append({
+            "id":    "contagion",
+            "label": {"fr": "Vote blanc contagieux", "en": "Blank-vote contagion"},
+            "desc":  {
+                "fr": f"SIS (β={beta:.2f}, γ={gamma:.2f}) — taux final : "
+                      f"{round(final_blank * 100, 1)} %. "
+                      f"{blank_count} électeur(s) votent blanc.",
+                "en": f"SIS (β={beta:.2f}, γ={gamma:.2f}) — final rate: "
+                      f"{round(final_blank * 100, 1)} %. "
+                      f"{blank_count} voter(s) cast blank.",
+            },
+            "voters":  cont_snap,
+            "metrics": {"blank_rate": round(final_blank, 4), "blank_count": blank_count},
+        })
+        prev_snap = cont_snap
+
+    # ── Step 4: Information model ─────────────────────────────────────────
+    effective_utilities: Dict[Any, Dict[str, float]] = current_utilities
+    if info_enabled:
+        raw_bias   = info_cfg.get("media_bias", {}) or {}
+        media_bias = {
+            str(i): float(raw_bias.get(c["name"], 0.0))
+            for i, c in enumerate(candidates)
+        }
+        vseg = info_cfg.get("voter_segments") or {}
+        voter_segments = {
+            "low_info":    float(vseg.get("low_info",    0.3)),
+            "medium_info": float(vseg.get("medium_info", 0.5)),
+            "high_info":   float(vseg.get("high_info",   0.2)),
+        }
+        true_list = [[current_utilities[v["id"]][c["name"]] for c in candidates] for v in voters]
+        perceived  = apply_information_asymmetry(true_list, media_bias, voter_segments, seed=seed)
+        effective_utilities = {
+            v["id"]: {c["name"]: perceived[idx][j] for j, c in enumerate(candidates)}
+            for idx, v in enumerate(voters)
+        }
+
+        info_snap = _voter_snap(voters, effective_utilities, blank_enabled)
+        changed   = _count_changed(prev_snap, info_snap)
+        steps.append({
+            "id":    "information",
+            "label": {"fr": "Modèle d'information",   "en": "Information model"},
+            "desc":  {
+                "fr": f"Biais médias appliqué. {changed} électeur(s) ont changé de préférence perçue.",
+                "en": f"Media bias applied. {changed} voter(s) changed perceived preference.",
+            },
+            "voters":  info_snap,
+            "metrics": {"changed": changed},
+        })
+        prev_snap = info_snap
+
+    # ── Step 5: Results ───────────────────────────────────────────────────
+    result_mc       = compare_all_methods(
+        voters, candidates, issues,
+        blank_vote=blank_enabled,
+        override_utilities=effective_utilities,
+    )
+    condorcet_w     = result_mc.get("condorcet_winner")
+    blank_pct       = result_mc.get("blank_pct") or 0.0
+    methods_data    = result_mc.get("methods", {})
+    agreement       = _inter_method_agreement(methods_data)
+
+    winner_map: Dict[str, list[str]] = {}
+    for m, md in methods_data.items():
+        w = md.get("winner")
+        if w:
+            winner_map.setdefault(w, []).append(m)
+
+    steps.append({
+        "id":    "results",
+        "label": {"fr": "Résultats électoraux",   "en": "Election results"},
+        "desc":  {
+            "fr": f"Accord inter-méthodes : {round(agreement * 100)} %. "
+                  + (f"Vainqueur de Condorcet : {condorcet_w}." if condorcet_w
+                     else "Pas de vainqueur de Condorcet."),
+            "en": f"Inter-method agreement: {round(agreement * 100)} %. "
+                  + (f"Condorcet winner: {condorcet_w}." if condorcet_w
+                     else "No Condorcet winner."),
+        },
+        "voters":  prev_snap,
+        "metrics": {
+            "inter_method_agreement": round(agreement, 4),
+            "condorcet_winner":       condorcet_w,
+            "blank_rate":             round(blank_pct, 4),
+        },
+        "winner_groups": [
+            {"winner": w, "methods": ms, "pct": round(len(ms) / max(len(methods_data), 1), 4)}
+            for w, ms in sorted(winner_map.items(), key=lambda kv: -len(kv[1]))
+        ],
+    })
+
+    return jsonify({
+        "steps":      steps,
+        "candidates": cands_out,
+        "num_steps":  len(steps),
+    }), 200
