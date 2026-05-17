@@ -20,6 +20,7 @@ import ScenarioGalleryPage from './pages/ScenarioGalleryPage';
 import TeacherPresentationPage from './pages/TeacherPresentationPage';
 import ElectionLabPage from './pages/ElectionLabPage';
 import Login from './pages/Login';
+import OAuthCallback from './pages/OAuthCallback';
 import Register from './pages/Register';
 import ProfilePage from './pages/ProfilePage';
 import UserProfilePage from './pages/UserProfilePage';
@@ -55,8 +56,9 @@ const AppContent: React.FC = () => {
       <ErrorBoundary>
         <Routes>
           {/* Auth routes */}
-          <Route path="/login"    element={!user ? <Login />    : <Navigate to="/" />} />
-          <Route path="/register" element={!user ? <Register /> : <Navigate to="/" />} />
+          <Route path="/login"         element={!user ? <Login />         : <Navigate to="/" />} />
+          <Route path="/register"      element={!user ? <Register />      : <Navigate to="/" />} />
+          <Route path="/oauth/callback" element={<OAuthCallback />} />
 
           {/* Public routes — accessible without account */}
           <Route path="/"                      element={<HomePage />} />

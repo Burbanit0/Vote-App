@@ -168,6 +168,102 @@ def test_get_user_without_token_returns_401(client, init_db):
     assert response.status_code == 401
 
 
+# ── Social auth (Google / GitHub) ────────────────────────────────────────────
+
+def test_google_login_new_user(client, init_db, app):
+    """Google login creates a new user when google_id is unknown."""
+    from unittest.mock import patch
+
+    app.config["GOOGLE_CLIENT_ID"] = "test-client-id"
+
+    fake_info = {
+        "sub": "google123",
+        "email": "newuser@gmail.com",
+        "given_name": "New",
+        "family_name": "User",
+    }
+
+    with patch("google.oauth2.id_token.verify_oauth2_token", return_value=fake_info):
+        response = client.post("/api/auth/google", json={"token": "fake-token"})
+
+    assert response.status_code == 200
+    body = response.get_json()
+    assert "access_token" in body
+    assert body["username"] == "newuser"
+    assert body["role"] == "User"
+
+
+def test_google_login_existing_user(client, init_db, app):
+    """Google login returns token for an already-linked google_id."""
+    from app import db
+    from app.models import User
+    from unittest.mock import patch
+
+    app.config["GOOGLE_CLIENT_ID"] = "test-client-id"
+
+    # Seed a user with google_id
+    user = User(
+        username="gogouser",
+        google_id="google_existing",
+        email="existing@gmail.com",
+        first_name="Go",
+        last_name="User",
+        role="User",
+        password_hash="*",
+    )
+    with app.app_context():
+        db.session.add(user)
+        db.session.commit()
+
+    fake_info = {
+        "sub": "google_existing",
+        "email": "existing@gmail.com",
+        "given_name": "Go",
+        "family_name": "User",
+    }
+
+    with patch("google.oauth2.id_token.verify_oauth2_token", return_value=fake_info):
+        response = client.post("/api/auth/google", json={"token": "fake-token"})
+
+    assert response.status_code == 200
+    body = response.get_json()
+    assert body["username"] == "gogouser"
+
+
+def test_google_login_invalid_token_returns_401(client, init_db, app):
+    """Google login with invalid/expired token returns 401."""
+    from unittest.mock import patch
+
+    app.config["GOOGLE_CLIENT_ID"] = "test-client-id"
+
+    with patch("google.oauth2.id_token.verify_oauth2_token", side_effect=ValueError("Invalid token")):
+        response = client.post("/api/auth/google", json={"token": "bad-token"})
+
+    assert response.status_code == 401
+    assert "error" in response.get_json()
+
+
+def test_google_login_missing_token_returns_400(client, init_db, app):
+    app.config["GOOGLE_CLIENT_ID"] = "test-client-id"
+    response = client.post("/api/auth/google", json={})
+    assert response.status_code == 400
+    assert "error" in response.get_json()
+
+
+def test_google_login_not_configured_returns_501(client, init_db, app):
+    """Google login returns 501 when GOOGLE_CLIENT_ID is not set."""
+    from unittest.mock import patch
+    app.config["GOOGLE_CLIENT_ID"] = ""
+    with patch("google.oauth2.id_token.verify_oauth2_token"):
+        response = client.post("/api/auth/google", json={"token": "anything"})
+    assert response.status_code == 501
+
+
+def test_github_callback_missing_code_returns_400(client, init_db):
+    response = client.get("/api/auth/github/callback")
+    assert response.status_code == 400
+
+
 # ── Update user — additional paths ──────────────────────────────────────────
 
 def test_update_user_password(client, init_db, admin_auth_header):

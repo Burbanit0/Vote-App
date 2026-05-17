@@ -20,6 +20,10 @@ class User(db.Model):
     bio = Column(Text, nullable=True)
     profile_picture = Column(String(200), nullable=True)
 
+    google_id = Column(String(100), nullable=True, unique=True)
+    github_id = Column(String(100), nullable=True, unique=True)
+    email = Column(String(120), nullable=True)
+
     def set_password(self, password):
         self.password_hash = bcrypt.generate_password_hash(password).decode("utf-8")
 

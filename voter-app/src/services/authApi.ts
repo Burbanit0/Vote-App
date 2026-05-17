@@ -75,6 +75,18 @@ export const fetchProfileData = async () => {
   }
 };
 
+export const googleLogin = async (credential: string) => {
+  try {
+    const response = await axios.post(`${API_BASE_URL}/api/auth/google`, {
+      token: credential,
+    });
+    return response.data;
+  } catch (error) {
+    console.error('Error logging in with Google:', error);
+    throw error;
+  }
+};
+
 export const fetchUserProfile = async (id: number): Promise<Profile_> => {
   const storedUserJSON = localStorage.getItem('user');
   let token = '';

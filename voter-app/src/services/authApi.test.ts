@@ -1,6 +1,6 @@
 import axios from 'axios';
 import MockAdapter from 'axios-mock-adapter';
-import { registerUser, loginUser, fetchProfileData, fetchUserProfile } from './authApi';
+import { registerUser, loginUser, googleLogin, fetchProfileData, fetchUserProfile } from './authApi';
 
 const mockAxios = new MockAdapter(axios);
 const BASE = 'http://localhost:4433';
@@ -43,6 +43,21 @@ describe('authApi', () => {
       jest.spyOn(console, 'error').mockImplementation(() => {});
       mockAxios.onPost(`${BASE}/api/auth/login`).reply(401, { message: 'Invalid credentials' });
       await expect(loginUser('alice', 'wrong')).rejects.toThrow();
+    });
+  });
+
+  describe('googleLogin', () => {
+    it('returns user data on successful Google login', async () => {
+      const mockUser = { access_token: 'jwt', username: 'googler', role: 'User' };
+      mockAxios.onPost(`${BASE}/api/auth/google`).reply(200, mockUser);
+      const result = await googleLogin('google-credential-token');
+      expect(result).toEqual(mockUser);
+    });
+
+    it('throws on Google login error', async () => {
+      jest.spyOn(console, 'error').mockImplementation(() => {});
+      mockAxios.onPost(`${BASE}/api/auth/google`).reply(401, { message: 'Invalid token' });
+      await expect(googleLogin('bad-token')).rejects.toThrow();
     });
   });
 
