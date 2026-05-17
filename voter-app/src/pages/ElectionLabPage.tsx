@@ -27,6 +27,7 @@ import PrimarySimulator from '../components/shared/PrimarySimulator';
 import HistoricalReplay from '../components/shared/HistoricalReplay';
 import JuryTheoremPanel from '../components/shared/JuryTheoremPanel';
 import AdaptiveVotingPanel from '../components/shared/AdaptiveVotingPanel';
+import AbstentionPanel from '../components/shared/AbstentionPanel';
 
 const COLORS: Record<string, string> = {
   Green: '#007A33', Liberal: '#005CAB', Conservative: '#C8590A', Independent: '#6c757d',
@@ -515,6 +516,7 @@ const ElectionLabPage: React.FC = () => {
                   { key: 'replay',             icon: '📺', label: t('electionLab.tabReplay') },
                   { key: 'jury',               icon: '⚖️', label: t('electionLab.tabJury') },
                   { key: 'adaptive',           icon: '⚙',  label: t('electionLab.tabAdaptive') },
+                  { key: 'abstention',         icon: '📉', label: t('electionLab.tabAbstention') },
                 ];
 
                 const tabContent: Record<string, React.ReactNode> = {
@@ -535,6 +537,7 @@ const ElectionLabPage: React.FC = () => {
                   'replay':               <HistoricalReplay />,
                   'jury':                 <JuryTheoremPanel />,
                   'adaptive':             <AdaptiveVotingPanel />,
+                  'abstention':           <AbstentionPanel />,
                 };
 
                 const currentIdx = TABS.findIndex((tab) => tab.key === activeTab);
