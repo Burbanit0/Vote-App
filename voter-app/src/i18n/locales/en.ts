@@ -1169,6 +1169,23 @@ const en: TranslationKeys = {
     colGroupBlank:    'Blank vote',
   },
 
+  graph: {
+    title:        'Method similarity graph',
+    subtitle:     'Methods that frequently agree on the same winner — closer = more similar',
+    openButton:   'Similarity graph',
+    threshold:    'Display threshold',
+    edges:        'edge(s)',
+    methods:      'method(s)',
+    maxAgreement: 'Max agreement',
+    groupByFamily: 'Group by family',
+    dragHint:     'Drag nodes to reposition',
+    noData:       'No agreement data available',
+    ariaLabel:    'Voting method similarity graph',
+    family_ranked:  'Ranked',
+    family_score:   'Score',
+    family_special: 'Special',
+  },
+
   adaptive: {
     prompt:              'Simulate how tactical voters adapt their vote each round by observing the previous round\'s polls.',
     run:                 'Simulate',
