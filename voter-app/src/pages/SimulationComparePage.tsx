@@ -11,6 +11,9 @@ import GalleryShareModal from '../components/shared/GalleryShareModal';
 import DatasetExportModal from '../components/shared/DatasetExportModal';
 import MultiwinnerAnalysis from '../components/Simulation/MultiwinnerAnalysis';
 import MonteCarloResults from '../components/Simulation/MonteCarloResults';
+import IdeologyMapChart from '../components/Simulation/IdeologyMapChart';
+import MethodRadarChart from '../components/Simulation/MethodRadarChart';
+import VoteStepAnimator from '../components/Simulation/VoteStepAnimator';
 import WinnerMatrixTab from '../components/Simulation/WinnerMatrixTab';
 import MetricsTab from '../components/Simulation/MetricsTab';
 import StrategicImpactTab from '../components/Simulation/StrategicImpactTab';
@@ -51,18 +54,22 @@ import {
   downloadText,
   SimulationExportParams,
 } from '../utils/latexExport';
-import { useTranslation } from 'react-i18next';
+import { Trans, useTranslation } from 'react-i18next';
 import { useMethodLabels } from '../components/Simulation/simulationConstants';
+import { useDebouncedSimulation } from '../hooks/useDebouncedSimulation';
+import LiveBadge from '../components/shared/LiveBadge';
+import { useElection } from '../context/ElectionContext';
+import { useNavigate } from 'react-router';
 
 // ── Presentation mode ──────────────────────────────────────────────────────
 
 const TAB_ORDER = [
-  'winners', 'metrics', 'strategic', 'condorcet', 'arrow',
+  'winners', 'ideology-map', 'animation', 'radar', 'metrics', 'strategic', 'condorcet', 'arrow',
   'bandwagon', 'montecarlo', 'real-elections', 'multiwinner', 'sensitivity',
   'manipulability', 'advanced',
 ];
 
-const BEGINNER_TABS = ['winners', 'metrics', 'strategic', 'real-elections', 'montecarlo', 'manipulability'];
+const BEGINNER_TABS = ['winners', 'ideology-map', 'animation', 'radar', 'metrics', 'strategic', 'real-elections', 'montecarlo', 'manipulability'];
 
 const BEGINNER_METHODS = ['plurality', 'borda', 'irv', 'schulze', 'approval'];
 
@@ -249,6 +256,9 @@ const SimulationComparePage: React.FC = () => {
 
   const TAB_LABELS: Record<string, string> = {
     winners:          t('simulation.tabs.winners'),
+    'ideology-map':   t('simulation.tabs.ideologyMap'),
+    animation:        t('simulation.tabs.animation'),
+    radar:            t('simulation.tabs.radar'),
     metrics:          t('simulation.tabs.metrics'),
     strategic:        t('simulation.tabs.strategic'),
     condorcet:        t('simulation.tabs.condorcet'),
@@ -276,15 +286,16 @@ const SimulationComparePage: React.FC = () => {
     ideology_distribution: 'random',
   });
 
-  // ── Results ──
-  const [comparisonResults, setComparisonResults] = useState<SimulationCompareResult[]>([]);
-  const [strategicData, setStrategicData] = useState<StrategicImpactPoint[]>([]);
-  const [condorcetData, setCondorcetData] = useState<CondorcetMatrixResult | null>(null);
-  const [arrowData, setArrowData] = useState<ArrowCriteriaResult | null>(null);
-  const [resultsB, setResultsB] = useState<SimulationCompareResult[] | null>(null);
-  const [loading, setLoading] = useState(false);
+  // ── Auxiliary results (strategic / Condorcet / Arrow — manual only) ──
+  const [strategicData,    setStrategicData]    = useState<StrategicImpactPoint[]>([]);
+  const [condorcetData,    setCondorcetData]    = useState<CondorcetMatrixResult | null>(null);
+  const [arrowData,        setArrowData]        = useState<ArrowCriteriaResult | null>(null);
+  const [resultsB,         setResultsB]         = useState<SimulationCompareResult[] | null>(null);
+  const [analysisLoading,  setAnalysisLoading]  = useState(false);
   const toast = useToast();
   const { expertMode, setExpertMode } = useExpertMode();
+  const { setConfig: setElectionConfig } = useElection();
+  const navigate = useNavigate();
 
   // ── Information model state ──
   const [infoModel, setInfoModel] = useState<InformationModelConfig>({
@@ -349,6 +360,19 @@ const SimulationComparePage: React.FC = () => {
     () => configB.candidateInput.split(',').map((s) => s.trim()).filter(Boolean),
     [configB.candidateInput]
   );
+
+  // ── Live simulation — placed after candidateNamesA + infoModel are defined ──
+  const liveSimulation = useDebouncedSimulation(
+    {
+      num_voters:            configA.numVoters,
+      candidates:            candidateNamesA,
+      ideology_distribution: configA.ideology_distribution,
+      ...(infoModel.enabled ? { information_model: infoModel } : {}),
+    },
+    numSimulations,
+  );
+  const comparisonResults = liveSimulation.results;
+
   const candidateColorMap = useMemo(() => {
     const names = new Set<string>();
     [...comparisonResults, ...(resultsB ?? [])].forEach((r) =>
@@ -370,38 +394,38 @@ const SimulationComparePage: React.FC = () => {
   const runAnalysis = async () => {
     if (candidateNamesA.length < 2) { toast.error(t('simulation.errMinCandA')); return; }
     if (scenarioCount === 2 && candidateNamesB.length < 2) { toast.error(t('simulation.errMinCandB')); return; }
-    setLoading(true);
+
+    // Trigger comparison results immediately (no debounce wait)
+    liveSimulation.runNow();
+
+    // Run auxiliary analyses (strategic / Condorcet / Arrow)
+    setAnalysisLoading(true);
     try {
       const paramsA = {
-        num_voters: configA.numVoters,
-        candidates: candidateNamesA,
+        num_voters:            configA.numVoters,
+        candidates:            candidateNamesA,
         ideology_distribution: configA.ideology_distribution,
         ...(infoModel.enabled ? { information_model: infoModel } : {}),
       };
-      const [simResultsA, strategicResults, condorcetResult, arrowResult, simResultsB] = await Promise.all([
-        Promise.all(Array.from({ length: numSimulations }, () => runComparisonSimulation(paramsA))),
+      const [strategicResults, condorcetResult, arrowResult, simResultsB] = await Promise.all([
         runStrategicImpactAnalysis({ ...paramsA, strategic_percentages: STRATEGIC_PERCENTAGES }),
         getCondorcetMatrix(paramsA),
         getArrowCriteria(paramsA),
         scenarioCount === 2
-          ? Promise.all(Array.from({ length: numSimulations }, () => runComparisonSimulation({ num_voters: configB.numVoters, candidates: candidateNamesB, ideology_distribution: configB.ideology_distribution })))
+          ? Promise.all(Array.from({ length: numSimulations }, () =>
+              runComparisonSimulation({ num_voters: configB.numVoters, candidates: candidateNamesB, ideology_distribution: configB.ideology_distribution })
+            ))
           : Promise.resolve(null),
       ]);
-      setComparisonResults(simResultsA);
       setStrategicData(strategicResults);
       setCondorcetData(condorcetResult);
       setArrowData(arrowResult);
-      // Capture information model result from first simulation run
-      if (infoModel.enabled && simResultsA.length > 0) {
-        setInfoResult(simResultsA[0].information_model);
-      } else {
-        setInfoResult(undefined);
-      }
+      setInfoResult(infoModel.enabled ? liveSimulation.results[0]?.information_model : undefined);
       setResultsB(simResultsB);
     } catch {
       toast.error(t('simulation.errBackend'));
     } finally {
-      setLoading(false);
+      setAnalysisLoading(false);
     }
   };
 
@@ -532,7 +556,8 @@ const SimulationComparePage: React.FC = () => {
       if (cfg.scenarioCount) setScenarioCount(cfg.scenarioCount);
     }
     if (res) {
-      if (res.comparisonResults) setComparisonResults(res.comparisonResults);
+      // comparison results will be re-run automatically by useDebouncedSimulation
+      // when configA changes above
       if (res.strategicData) setStrategicData(res.strategicData);
       if ('condorcetData' in res) setCondorcetData(res.condorcetData);
       if ('resultsB' in res) setResultsB(res.resultsB);
@@ -667,6 +692,19 @@ const SimulationComparePage: React.FC = () => {
               <Button variant="outline-success" size="sm" onClick={() => setShowGalleryShare(true)}>
                 💾 Galerie
               </Button>
+              <Button
+                variant="outline-dark" size="sm"
+                onClick={() => {
+                  setElectionConfig({
+                    candidates: candidateNamesA.map((name, i) => ({ name, x: (i - 1) * 0.4, y: 0 })),
+                    num_voters: configA.numVoters,
+                    ideology: configA.ideology_distribution,
+                  });
+                  navigate('/election-lab');
+                }}
+              >
+                🔬 {t('electionLab.openInLab')}
+              </Button>
               {expertMode && (
                 <Button variant="outline-info" size="sm" onClick={() => setShowDatasetExport(true)}>
                   📊 {t('export.modalTitle')}
@@ -716,8 +754,14 @@ const SimulationComparePage: React.FC = () => {
                 <Form.Range id="sim-count-slider" min={5} max={20} value={numSimulations} onChange={(e) => setNumSimulations(Number(e.target.value))} aria-valuemin={5} aria-valuemax={20} aria-valuenow={numSimulations} />
               </Col>
               <Col md={2}>
-                <Button variant="primary" className="w-100" onClick={runAnalysis} disabled={loading}>
-                  {loading ? <><Spinner size="sm" className="me-2" />{t('simulation.running')}</> : t('simulation.runAnalysis')}
+                <Button
+                  variant="primary" className="w-100"
+                  onClick={runAnalysis}
+                  disabled={analysisLoading || liveSimulation.loading}
+                >
+                  {analysisLoading
+                    ? <><Spinner size="sm" className="me-2" />{t('simulation.running')}</>
+                    : comparisonResults.length > 0 ? t('simulation.refresh') : t('simulation.runAnalysis')}
                 </Button>
               </Col>
             </Row>
@@ -732,16 +776,17 @@ const SimulationComparePage: React.FC = () => {
           </Card.Body>
         </Card>
 
-        {loading && (
+        {/* Skeleton only on very first load (no results yet) */}
+        {liveSimulation.loading && !hasResults && (
           <Row className="g-3 mb-4">
             {[0, 1, 2].map((i) => (
               <Col key={i} md={4}><SkeletonCard height={180} /></Col>
             ))}
           </Row>
         )}
-        {!hasResults && !loading && (
+        {!hasResults && !liveSimulation.loading && (
           <Alert variant="info">
-            <span dangerouslySetInnerHTML={{ __html: t('simulation.noResults') }} />
+            <Trans i18nKey="simulation.noResults" />
           </Alert>
         )}
 
@@ -762,6 +807,10 @@ const SimulationComparePage: React.FC = () => {
         )}
 
         {hasResults && (
+          <div style={{ opacity: liveSimulation.loading ? 0.65 : 1, transition: 'opacity 0.25s' }}>
+          <div className="d-flex align-items-center gap-2 mb-2">
+            <LiveBadge loading={liveSimulation.loading} />
+          </div>
           <Tabs
             activeKey={activeTab}
             onSelect={(k) => { if (k) { setActiveTab(k); if (presentationMode) setPresentationTabIndex(TAB_ORDER.indexOf(k)); }}}
@@ -769,6 +818,15 @@ const SimulationComparePage: React.FC = () => {
           >
             <Tab eventKey="winners" title={scenarioCount === 2 ? t('simulation.tabs.scenarioComparison') : t('simulation.tabs.winners')}>
               <WinnerMatrixTab comparisonResults={comparisonResults} resultsB={resultsB} allMethodNames={allMethodNames} candidateColorMap={candidateColorMap} configA={configA} configB={configB} numSimulations={numSimulations} scenarioCount={scenarioCount} />
+            </Tab>
+            <Tab eventKey="ideology-map" title={t('simulation.tabs.ideologyMap')}>
+              <IdeologyMapChart defaultCandidates={candidateNamesA} />
+            </Tab>
+            <Tab eventKey="animation" title={t('simulation.tabs.animation')}>
+              <VoteStepAnimator defaultCandidates={candidateNamesA} />
+            </Tab>
+            <Tab eventKey="radar" title={t('simulation.tabs.radar')}>
+              <MethodRadarChart comparisonResults={comparisonResults} allMethodNames={allMethodNames} />
             </Tab>
             <Tab eventKey="metrics" title={t('simulation.tabs.metrics')}>
               <MetricsTab comparisonResults={comparisonResults} allMethodNames={allMethodNames} numSimulations={numSimulations} />
@@ -878,6 +936,7 @@ const SimulationComparePage: React.FC = () => {
               </Tab>
             )}
           </Tabs>
+          </div>
         )}
 
         <DatasetExportModal

@@ -1,5 +1,5 @@
-import React, { useMemo } from 'react';
-import { Card } from 'react-bootstrap';
+import React, { useMemo, useState } from 'react';
+import { Button, Card, Modal } from 'react-bootstrap';
 import {
   Bar,
   BarChart,
@@ -15,6 +15,8 @@ import { SimulationCompareResult } from '../../types';
 import { METHOD_LABELS } from './simulationConstants';
 import { useChartTheme } from '../../hooks/useChartTheme';
 import EmptyChart from '../shared/EmptyChart';
+import MetricTooltip from '../shared/MetricTooltip';
+import MethodSimilarityGraph from './MethodSimilarityGraph';
 import { useTranslation } from 'react-i18next';
 
 function avg(values: number[]): number {
@@ -34,6 +36,7 @@ interface Props {
 const MetricsTab: React.FC<Props> = ({ comparisonResults, allMethodNames, numSimulations }) => {
   const { t } = useTranslation();
   const ct = useChartTheme();
+  const [showGraph, setShowGraph] = useState(false);
 
   const bayesianKey = t('simulation.bayesianRegret');
   const satisfactionKey = t('simulation.majoritySatisfaction');
@@ -54,6 +57,24 @@ const MetricsTab: React.FC<Props> = ({ comparisonResults, allMethodNames, numSim
     });
   }, [comparisonResults, allMethodNames]);
 
+  // Pairwise agreement matrix derived from simulation results
+  const agreementMatrix = useMemo(() => {
+    if (!comparisonResults.length) return {} as Record<string, Record<string, number>>;
+    const matrix: Record<string, Record<string, number>> = {};
+    const n = comparisonResults.length;
+    for (const a of allMethodNames) {
+      matrix[a] = {};
+      for (const b of allMethodNames) {
+        if (a === b) { matrix[a][b] = 1; continue; }
+        const agree = comparisonResults.filter(
+          (r) => r.methods[a]?.winner != null && r.methods[a]?.winner === r.methods[b]?.winner
+        ).length;
+        matrix[a][b] = Math.round((agree / n) * 100) / 100;
+      }
+    }
+    return matrix;
+  }, [comparisonResults, allMethodNames]);
+
   // Median of Bayesian Regret — used as a reference line
   const medianRegret = useMemo(() => {
     if (!metricsData.length) return null;
@@ -64,25 +85,40 @@ const MetricsTab: React.FC<Props> = ({ comparisonResults, allMethodNames, numSim
   }, [metricsData]);
 
   const METRICS = [
-    { key: bayesianKey,         color: '#e15759', note: lowerBetter },
-    { key: satisfactionKey, color: '#59a14f', note: higherBetter },
-    { key: vulnerabilityKey, color: '#f28e2b', note: lowerBetter },
+    { key: bayesianKey,     metricId: 'bayesian_regret'       as const, color: '#e15759', note: lowerBetter },
+    { key: satisfactionKey, metricId: 'majority_satisfaction' as const, color: '#59a14f', note: higherBetter },
+    { key: vulnerabilityKey,metricId: 'manipulability'        as const, color: '#f28e2b', note: lowerBetter },
   ];
 
   return (
+    <>
     <Card className="mb-4">
-      <Card.Header>
-        <strong>{t('simulation.comparativeMetrics')}</strong>
-        <span className="text-muted ms-2" style={{ fontSize: '0.85rem' }}>
-          {t('simulation.metricsSubtitle', { n: numSimulations })}
-        </span>
+      <Card.Header className="d-flex align-items-center justify-content-between flex-wrap gap-2">
+        <div>
+          <strong>{t('simulation.comparativeMetrics')}</strong>
+          <span className="text-muted ms-2" style={{ fontSize: '0.85rem' }}>
+            {t('simulation.metricsSubtitle', { n: numSimulations })}
+          </span>
+        </div>
+        {comparisonResults.length > 0 && (
+          <Button
+            size="sm"
+            variant="outline-secondary"
+            onClick={() => setShowGraph(true)}
+            data-testid="open-graph-btn"
+            style={{ fontSize: '0.78rem' }}
+          >
+            🕸 {t('graph.openButton')}
+          </Button>
+        )}
       </Card.Header>
       <Card.Body>
         <div className="d-flex gap-4 mb-3 flex-wrap">
-          {METRICS.map(({ key, color, note }) => (
+          {METRICS.map(({ key, metricId, color, note }) => (
             <span key={key} className="d-flex align-items-center gap-1">
               <span style={{ display: 'inline-block', width: 14, height: 14, borderRadius: 2, backgroundColor: color }} />
               <small>{key} <span className="text-muted">({note})</span></small>
+              <MetricTooltip metric={metricId} placement="bottom" />
             </span>
           ))}
         </div>
@@ -133,6 +169,17 @@ const MetricsTab: React.FC<Props> = ({ comparisonResults, allMethodNames, numSim
         )}
       </Card.Body>
     </Card>
+
+      {/* Similarity graph modal */}
+      <Modal show={showGraph} onHide={() => setShowGraph(false)} size="xl" centered>
+        <Modal.Header closeButton>
+          <Modal.Title style={{ fontSize: '1rem' }}>{t('graph.title')}</Modal.Title>
+        </Modal.Header>
+        <Modal.Body>
+          <MethodSimilarityGraph agreementMatrix={agreementMatrix} height={440} />
+        </Modal.Body>
+      </Modal>
+    </>
   );
 };
 

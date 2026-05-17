@@ -5,20 +5,18 @@ import Navbar from './Navbar';
 import { useAuth } from '../context/AuthContext';
 import { useTheme } from '../context/ThemeContext';
 import { useExpertMode } from '../context/ExpertModeContext';
+import { useTeacherMode } from '../context/TeacherModeContext';
 
-jest.mock('../context/AuthContext', () => ({
-  useAuth: jest.fn(),
+jest.mock('../context/AuthContext',        () => ({ useAuth:        jest.fn() }));
+jest.mock('../context/ThemeContext',       () => ({ useTheme:       jest.fn() }));
+jest.mock('../context/ExpertModeContext',  () => ({ useExpertMode:  jest.fn() }));
+jest.mock('../context/TeacherModeContext', () => ({ useTeacherMode: jest.fn() }));
+jest.mock('../i18n', () => ({
+  default: { language: 'en', changeLanguage: jest.fn() },
 }));
 
-jest.mock('../context/ThemeContext', () => ({
-  useTheme: jest.fn(),
-}));
-
-jest.mock('../context/ExpertModeContext', () => ({
-  useExpertMode: jest.fn(),
-}));
-
-function renderNavbar() {
+function renderNavbar(user: { username: string; role: string } | null = null) {
+  (useAuth as jest.Mock).mockReturnValue({ user, logout: jest.fn(), loading: false });
   return render(
     <MemoryRouter>
       <Navbar />
@@ -31,37 +29,54 @@ describe('Navbar', () => {
     jest.clearAllMocks();
     (useTheme as jest.Mock).mockReturnValue({ theme: 'light', toggleTheme: jest.fn() });
     (useExpertMode as jest.Mock).mockReturnValue({ expertMode: false, setExpertMode: jest.fn() });
-  });
-
-  it('renders navigation links', () => {
-    (useAuth as jest.Mock).mockReturnValue({ user: null, logout: jest.fn(), loading: false });
-    renderNavbar();
-    expect(screen.getByText('Simulator')).toBeInTheDocument();
-    expect(screen.getByText('Methods')).toBeInTheDocument();
-    expect(screen.getByText('Blank Vote')).toBeInTheDocument();
-  });
-
-  it('shows login and register buttons when not authenticated', () => {
-    (useAuth as jest.Mock).mockReturnValue({ user: null, logout: jest.fn(), loading: false });
-    renderNavbar();
-    expect(screen.getByText('Log in')).toBeInTheDocument();
-    expect(screen.getByText('Create account')).toBeInTheDocument();
-  });
-
-  it('shows username and logout when authenticated', () => {
-    (useAuth as jest.Mock).mockReturnValue({
-      user: { username: 'alice' },
-      logout: jest.fn(),
-      loading: false,
+    (useTeacherMode as jest.Mock).mockReturnValue({
+      teacherMode: false, setTeacherMode: jest.fn(), slides: [],
     });
+  });
+
+  it('renders the Vote Lab brand', () => {
     renderNavbar();
-    expect(screen.getByText('👤 alice')).toBeInTheDocument();
-    expect(screen.getByText('Log out')).toBeInTheDocument();
+    expect(screen.getByText('Vote Lab')).toBeInTheDocument();
+  });
+
+  it('renders Election Lab link (may include emoji)', () => {
+    renderNavbar();
+    // The link may render as "🔬 Election Lab" — match by partial text
+    expect(screen.getByText(/Election Lab/i)).toBeInTheDocument();
+  });
+
+  it('renders Learn and Explore dropdown toggles', () => {
+    renderNavbar();
+    expect(screen.getByText(/learn|apprendre/i)).toBeInTheDocument();
+    expect(screen.getByText(/explore|explorer/i)).toBeInTheDocument();
+  });
+
+  it('shows settings toggle when not authenticated', () => {
+    renderNavbar();
+    // The user/settings dropdown toggle should be visible
+    expect(screen.getByRole('button', { name: /user-settings-dropdown|settings|préférences/i })
+      ?? screen.getByText(/settings|préférences/i)
+    ).toBeTruthy();
+  });
+
+  it('shows username in toggle button when authenticated', () => {
+    renderNavbar({ username: 'alice', role: 'User' });
+    // Username appears in the dropdown toggle button
+    expect(screen.getByText('alice')).toBeInTheDocument();
+  });
+
+  it('renders dropdown toggle differently for logged-in vs guest', () => {
+    const { unmount } = renderNavbar({ username: 'bob', role: 'User' });
+    expect(screen.getByText('bob')).toBeInTheDocument();
+    unmount();
+
+    renderNavbar();
+    expect(screen.queryByText('bob')).not.toBeInTheDocument();
   });
 
   it('returns null while loading', () => {
     (useAuth as jest.Mock).mockReturnValue({ user: null, logout: jest.fn(), loading: true });
-    const { container } = renderNavbar();
+    const { container } = render(<MemoryRouter><Navbar /></MemoryRouter>);
     expect(container.innerHTML).toBe('');
   });
 });

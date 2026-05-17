@@ -322,3 +322,56 @@ export interface StrategicImpactPoint {
   strategic_pct: number;
   methods: Record<string, number | null>;
 }
+
+// ── Vote steps ────────────────────────────────────────────────────────────────
+
+export interface IRVRound {
+  round: number;
+  scores?: Record<string, number>;
+  eliminated?: string | null;
+  transfers?: Record<string, number> | null;
+  winner?: string;
+}
+
+export interface BordaStep {
+  rank: number;
+  points_awarded: number;
+  tally: Record<string, number>;
+}
+
+export type VoteStepsResult =
+  | { method: 'irv';      rounds: IRVRound[] }
+  | { method: 'borda';    num_candidates: number; steps: BordaStep[]; winner: string | null }
+  | { method: 'plurality'; first_choices: Record<string, number>; winner: string | null }
+  | { method: 'schulze';  duel_matrix: Record<string, Record<string, number>>; path_matrix: Record<string, Record<string, number>>; winner: string | null }
+  | { method: 'approval'; threshold_used: number; approval_scores: Record<string, number>; winner: string | null };
+
+// ── Ideology map ──────────────────────────────────────────────────────────────
+
+export interface IdeologyMapVoter {
+  id: number;
+  x: number;
+  y: number;
+  utility_winner_a: number;
+  utility_winner_b: number;
+  prefers_a: boolean;
+}
+
+export interface IdeologyMapCandidate {
+  name: string;
+  x: number;
+  y: number;
+  party: string;
+}
+
+export interface IdeologyMapResult {
+  voters: IdeologyMapVoter[];
+  candidates: IdeologyMapCandidate[];
+  winner_a: string | null;
+  winner_b: string | null;
+  method_a: string;
+  method_b: string;
+  condorcet_winner: string | null;
+  pct_better_off_with_a: number;
+  pct_better_off_with_b: number;
+}

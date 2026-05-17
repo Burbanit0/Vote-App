@@ -20,6 +20,7 @@ import numpy as _np
 from flask import Blueprint, Response, jsonify, request
 
 from app.constants import DEFAULT_ISSUES
+from app.extensions import sim_limiter
 from app.utils.simulation_metrics import compare_all_methods_mc
 from app.utils.simulation_voting_utils import create_candidate, create_voter
 
@@ -120,6 +121,7 @@ def _generate_rows(
 
 
 @export_bp.route("/simulation-dataset", methods=["POST"])
+@sim_limiter.limit("10 per minute")
 def export_csv() -> Response | tuple[Response, int]:
     """
     POST /api/export/simulation-dataset
@@ -159,6 +161,7 @@ def export_csv() -> Response | tuple[Response, int]:
 
 
 @export_bp.route("/simulation-dataset-json", methods=["POST"])
+@sim_limiter.limit("10 per minute")
 def export_json() -> Response | tuple[Response, int]:
     """
     POST /api/export/simulation-dataset-json

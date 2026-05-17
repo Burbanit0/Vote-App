@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { Alert, Badge, Button, Card, Spinner, Table } from 'react-bootstrap';
-import { useTranslation } from 'react-i18next';
+import { Trans, useTranslation } from 'react-i18next';
 import CandidateEditor, { CandidateConfig } from '../ScenarioBuilder/CandidateEditor';
 import { ConstitutionalResult, ScenarioMethodResult } from '../../services/simulationCompareApi';
 
@@ -52,7 +52,7 @@ const ScenarioAPanel: React.FC<Props> = ({ initialCandidates, result, loading, o
 
   return (
     <div>
-      <p className="text-muted small mb-3" dangerouslySetInnerHTML={{ __html: t('crisis.scenarioADesc') }} />
+      <p className="text-muted small mb-3"><Trans i18nKey="crisis.scenarioADesc" /></p>
 
       {/* Round 2 candidate editor */}
       <Card className="mb-3">

@@ -22,7 +22,7 @@ import {
   XAxis,
   YAxis,
 } from 'recharts';
-import { useTranslation } from 'react-i18next';
+import { Trans, useTranslation } from 'react-i18next';
 import { MonteCarloResult } from '../../types';
 import { getMonteCarlo, MonteCarloParams } from '../../services/simulationCompareApi';
 import ResponsiveTable from '../shared/ResponsiveTable';
@@ -30,7 +30,10 @@ import SkeletonCard from '../shared/SkeletonCard';
 import { useChartTheme } from '../../hooks/useChartTheme';
 import { useMonteCarloStream } from '../../hooks/useMonteCarloStream';
 import MonteCarloLiveChart from './MonteCarloLiveChart';
+import MonteCarloRaceChart from './MonteCarloRaceChart';
 import MonteCarloConvergencePanel from './MonteCarloConvergencePanel';
+import MethodSimilarityGraph, { flatToMatrix, partialResultsToMatrix } from './MethodSimilarityGraph';
+import MetricTooltip from '../shared/MetricTooltip';
 
 const CANDIDATE_PALETTE = ['#4e79a7', '#f28e2b', '#e15759', '#76b7b2', '#59a14f', '#edc948'];
 
@@ -282,6 +285,14 @@ const MonteCarloResults: React.FC<Props> = ({ baseParams }) => {
         onStop={() => stream.stop()}
       />
 
+      {/* Race chart — visible once checkpoints exist */}
+      <MonteCarloRaceChart
+        regretHistory={stream.regretHistory}
+        iterationCheckpoints={stream.iterationCheckpoints}
+        partialResults={stream.partialResults}
+        isRunning={stream.isRunning}
+      />
+
       {/* Convergence panels — visible from first progress event */}
       <MonteCarloConvergencePanel
         regretHistory={stream.regretHistory}
@@ -292,20 +303,37 @@ const MonteCarloResults: React.FC<Props> = ({ baseParams }) => {
         isRunning={stream.isRunning}
       />
 
+      {/* Similarity graph — shown once streaming has partial results */}
+      {Object.keys(stream.partialResults).length > 1 && (
+        <Card className="mb-4">
+          <Card.Header>
+            <strong>{t('graph.title')}</strong>
+            <span className="text-muted ms-2" style={{ fontSize: '0.85rem' }}>
+              {t('graph.subtitle')}
+            </span>
+          </Card.Header>
+          <Card.Body>
+            <MethodSimilarityGraph
+              agreementMatrix={partialResultsToMatrix(stream.partialResults)}
+            />
+          </Card.Body>
+        </Card>
+      )}
+
       {!result && !loading && !stream.isRunning && stream.iteration === 0 && (
         <Alert variant="info">
-          <span dangerouslySetInnerHTML={{ __html: t('simulation.monteCarloPrompt', { sec: Math.round(numRuns * numVoters / 1000 * 2) }) }} />
+          <Trans i18nKey="simulation.monteCarloPrompt" values={{ sec: Math.round(numRuns * numVoters / 1000 * 2) }} />
         </Alert>
       )}
 
       {result && (
         <>
           <Alert variant="secondary" className="py-2 mb-4">
-            <span dangerouslySetInnerHTML={{ __html: t('simulation.monteCarloSummary', {
+            <Trans i18nKey="simulation.monteCarloSummary" values={{
               numRuns: result.num_runs,
               numVoters: result.num_voters_per_run,
               pct: (result.condorcet_winner_exists_rate * 100).toFixed(0),
-            })}} />
+            }} />
           </Alert>
 
           {/* 1. Regret bar chart with CI error bars */}
@@ -313,6 +341,7 @@ const MonteCarloResults: React.FC<Props> = ({ baseParams }) => {
             <Card.Header className="d-flex align-items-center justify-content-between flex-wrap gap-2">
               <div>
                 <strong>{t('simulation.bayesianRegretCI')}</strong>
+                  <MetricTooltip metric="bayesian_regret" placement="bottom" />
                 <span className="text-muted ms-2" style={{ fontSize: '0.85rem' }}>
                   {t('simulation.bayesianRegretCIDesc')}
                 </span>
@@ -418,7 +447,22 @@ const MonteCarloResults: React.FC<Props> = ({ baseParams }) => {
             </Card.Body>
           </Card>
 
-          {/* 3. Stability table */}
+          {/* 3. Similarity graph */}
+          <Card className="mb-4">
+            <Card.Header>
+              <strong>{t('graph.title')}</strong>
+              <span className="text-muted ms-2" style={{ fontSize: '0.85rem' }}>
+                {t('graph.subtitle')}
+              </span>
+            </Card.Header>
+            <Card.Body>
+              <MethodSimilarityGraph
+                agreementMatrix={flatToMatrix(result.inter_method_agreement)}
+              />
+            </Card.Body>
+          </Card>
+
+          {/* 4. Stability table */}
           <Card>
             <Card.Header>
               <strong>{t('simulation.winnerStability')}</strong>

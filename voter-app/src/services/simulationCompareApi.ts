@@ -2,7 +2,9 @@ import axios from 'axios';
 import {
   ArrowCriteriaResult,
   BandwagonResult,
+  IdeologyMapResult,
   MonteCarloResult,
+  VoteStepsResult,
   MultiwinnerResult,
   RealElectionResult,
   RealElectionSummary,
@@ -202,6 +204,48 @@ export const getMonteCarlo = async (
     console.error('Failed to run Monte Carlo simulation', error);
     throw error;
   }
+};
+
+export interface IdeologyMapParams {
+  num_voters: number;
+  candidates: { name: string; x: number; y: number }[];
+  ideology: string;
+  seed: number;
+  method_a: string;
+  method_b: string;
+}
+
+export const getIdeologyMap = async (
+  params: IdeologyMapParams
+): Promise<IdeologyMapResult> => {
+  try {
+    const response = await axios.post<IdeologyMapResult>(
+      `${API_BASE_URL}/simulations/ideology-map`,
+      params,
+      { headers: getAuthHeader() }
+    );
+    return response.data;
+  } catch (error) {
+    console.error('Failed to fetch ideology map', error);
+    throw error;
+  }
+};
+
+export interface VoteStepsParams {
+  method: string;
+  num_voters: number;
+  candidates: string[];
+  ideology: string;
+  seed: number;
+}
+
+export const getVoteSteps = async (params: VoteStepsParams): Promise<VoteStepsResult> => {
+  const response = await axios.post<VoteStepsResult>(
+    `${API_BASE_URL}/simulations/vote-steps`,
+    params,
+    { headers: getAuthHeader() }
+  );
+  return response.data;
 };
 
 export interface BlankHistoryPoint {

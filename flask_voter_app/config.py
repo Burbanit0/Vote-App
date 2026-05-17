@@ -38,6 +38,12 @@ class Config:
         if o.strip()
     ]
 
+    # ── OAuth ─────────────────────────────────────────────────────────────────
+    GOOGLE_CLIENT_ID = os.environ.get('GOOGLE_CLIENT_ID', '')
+    GITHUB_CLIENT_ID = os.environ.get('GITHUB_CLIENT_ID', '')
+    GITHUB_CLIENT_SECRET = os.environ.get('GITHUB_CLIENT_SECRET', '')
+    BASE_URL = os.environ.get('BASE_URL', 'http://localhost:4433')
+
     # ── Debug ─────────────────────────────────────────────────────────────────
     DEBUG = os.environ.get('DEBUG', 'false').lower() == 'true'
 
@@ -53,19 +59,10 @@ class TestingConfig(Config):
 
 
 class ProductionConfig(Config):
-    """Production — validates that secrets are real values, not defaults."""
+    """Production configuration.
+
+    Validation of required secrets is handled in create_app()
+    (app/__init__.py) so it actually runs on every startup.
+    """
 
     DEBUG = False
-
-    def __init__(self):
-        weak = {
-            'SECRET_KEY':     ('dev-secret-CHANGE-IN-PROD',),
-            'JWT_SECRET_KEY': ('dev-jwt-secret-CHANGE-IN-PROD',),
-        }
-        for var, bad_defaults in weak.items():
-            val = os.environ.get(var, '')
-            if not val or val in bad_defaults:
-                raise RuntimeError(
-                    f"FLASK_ENV=production requires a strong '{var}' "
-                    f"environment variable (current value is missing or a default)."
-                )

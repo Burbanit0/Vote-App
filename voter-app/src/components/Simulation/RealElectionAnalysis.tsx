@@ -1,6 +1,6 @@
 import React, { useMemo } from 'react';
 import { Alert, Badge, Card, Form, Spinner, Table } from 'react-bootstrap';
-import { useTranslation } from 'react-i18next';
+import { Trans, useTranslation } from 'react-i18next';
 import MethodTooltip from '../shared/MethodTooltip';
 import { RealElectionResult } from '../../types';
 
@@ -212,17 +212,17 @@ const RealElectionAnalysis: React.FC<Props> = ({
       {/* ── Summary banner ── */}
       {nDifferent > 0 ? (
         <Alert variant="warning" className="py-2 mb-4">
-          <span dangerouslySetInnerHTML={{ __html: t('simulation.realSummaryDiff', {
+          <Trans i18nKey="simulation.realSummaryDiff" values={{
             count: nDifferent,
             plural: nDifferent > 1 ? 's' : '',
             total: nTotal,
             plurality_winner,
-          })}} />
+          }} />
           {nDifferent > nTotal / 2 ? t('simulation.realSummaryMajorityDiverges') : ''}
         </Alert>
       ) : (
         <Alert variant="success" className="py-2 mb-4">
-          <span dangerouslySetInnerHTML={{ __html: t('simulation.realSummaryAllAgree', { pluralityWinner: plurality_winner }) }} />
+          <Trans i18nKey="simulation.realSummaryAllAgree" values={{ pluralityWinner: plurality_winner }} />
         </Alert>
       )}
 

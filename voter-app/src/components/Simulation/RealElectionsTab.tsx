@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { Alert, Button, Card, Col, Form, Row, Spinner, Tab, Tabs } from 'react-bootstrap';
-import { useTranslation } from 'react-i18next';
+import { Trans, useTranslation } from 'react-i18next';
 import { RealElectionResult, RealElectionSummary } from '../../types';
 import { analyzeRealElection, getRealElections } from '../../services/simulationCompareApi';
 import RealElectionAnalysis from './RealElectionAnalysis';
@@ -102,7 +102,7 @@ const RealElectionsTab: React.FC = () => {
             ) : (
               !loading && (
                 <Alert variant="info" className="mb-0">
-                  <span dangerouslySetInnerHTML={{ __html: t('simulation.realElections.prompt') }} />
+                  <Trans i18nKey="simulation.realElections.prompt" />
                 </Alert>
               )
             )}

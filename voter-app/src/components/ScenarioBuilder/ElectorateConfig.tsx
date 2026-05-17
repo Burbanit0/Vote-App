@@ -1,7 +1,7 @@
 import React, { useMemo } from 'react';
 import { Card, Col, Form, Row } from 'react-bootstrap';
 import { Area, AreaChart, ResponsiveContainer, XAxis } from 'recharts';
-import { useTranslation } from 'react-i18next';
+import { Trans, useTranslation } from 'react-i18next';
 
 export interface ElectorateState {
   numVoters: number;
@@ -152,7 +152,7 @@ const ElectorateConfig: React.FC<Props> = ({ config, onChange, expertMode = fals
       {/* Dissatisfaction rate — expert only */}
       {!expertMode && (
         <small className="text-muted d-block mb-3">
-          <span dangerouslySetInnerHTML={{ __html: t('scenario.expertModeHint') }} />
+          <Trans i18nKey="scenario.expertModeHint" />
         </small>
       )}
       <Card style={expertMode ? undefined : { display: 'none' }}>

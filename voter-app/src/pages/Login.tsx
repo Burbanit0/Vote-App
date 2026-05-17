@@ -1,10 +1,12 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
-import { loginUser } from '../services/';
+import { googleLogin, loginUser } from '../services/';
 import { Form, Button, Container, Row, Col, Alert } from 'react-bootstrap';
 import { useTranslation } from 'react-i18next';
-import 'bootstrap/dist/css/bootstrap.min.css';
+import { GoogleLogin, type CredentialResponse } from '@react-oauth/google';
+
+const API_BASE_URL = process.env.VITE_API_URL || 'http://localhost:4433';
 
 const Login: React.FC = () => {
   const [username, setUsername] = useState('');
@@ -24,6 +26,19 @@ const Login: React.FC = () => {
       setError(t('auth.loginFailed'));
     }
   };
+
+  const handleGoogleSuccess = async (response: CredentialResponse) => {
+    if (!response.credential) return;
+    try {
+      const userData = await googleLogin(response.credential);
+      login(userData);
+      navigate('/');
+    } catch {
+      setError('Google login failed.');
+    }
+  };
+
+  const hasGoogleClientId = process.env.VITE_GOOGLE_CLIENT_ID;
 
   return (
     <Container className="mt-5">
@@ -56,6 +71,31 @@ const Login: React.FC = () => {
               {t('auth.loginBtn')}
             </Button>
           </Form>
+
+          <div className="mt-4 mb-3 text-center text-muted small">— or —</div>
+
+          {hasGoogleClientId && (
+            <div className="d-flex justify-content-center mb-2">
+              <GoogleLogin
+                onSuccess={handleGoogleSuccess}
+                onError={() => setError('Google login failed.')}
+                size="large"
+                theme="outline"
+                text="signin_with"
+                shape="rectangular"
+                width="100%"
+              />
+            </div>
+          )}
+
+          <Button
+            variant="dark"
+            className="w-100"
+            onClick={() => window.location.href = `${API_BASE_URL}/api/auth/github`}
+          >
+            Sign in with GitHub
+          </Button>
+
           <Button variant="link" onClick={() => navigate('/register')} className="mt-3">
             {t('auth.noAccount')}
           </Button>
