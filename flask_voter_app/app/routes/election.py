@@ -100,7 +100,7 @@ def simulate() -> tuple[Response, int]:
     data = request.get_json() or {}
     try:
         with eventlet.Timeout(120):
-            body, status = tpool.execute(_simulate_worker, data)  # type: ignore[return-value]
+            body, status = tpool.execute(_simulate_worker, data)
         return jsonify(body), status
     except eventlet.timeout.Timeout:
         current_app.logger.warning("simulate() timed out after 120s")
@@ -110,7 +110,7 @@ def simulate() -> tuple[Response, int]:
         return jsonify({"error": f"Internal error: {exc}"}), 500
 
 
-def _simulate_worker(data: dict) -> tuple[dict, int]:
+def _simulate_worker(data: Dict[str, Any]) -> tuple[Dict[str, Any], int]:
     """Run simulation in a real OS thread so eventlet greenlets stay responsive."""
 
     # ── Parse params ──────────────────────────────────────────────────────
@@ -2236,4 +2236,187 @@ def adaptive() -> tuple[Response, int]:
             {"name": c["name"], "x": _ideology_pos(c["name"])}
             for c in candidates
         ],
+    }), 200
+
+
+# ── Historical replay ─────────────────────────────────────────────────────────
+
+_REPLAY_SCENARIOS: Dict[str, Dict[str, Any]] = {
+    "france2002": {
+        "name":       "France 2002 — 1er tour",
+        "ideology":   "left_skewed",
+        "num_voters": 400,
+        "real_winner": "Chirac",
+        "candidates": [
+            {"name": "Chirac",  "x":  0.30, "y":  0.10},
+            {"name": "Jospin",  "x": -0.30, "y": -0.10},
+            {"name": "Le Pen",  "x":  0.85, "y":  0.20},
+            {"name": "Bayrou",  "x":  0.05, "y":  0.00},
+        ],
+    },
+    "usa1992": {
+        "name":       "USA 1992",
+        "ideology":   "centrist",
+        "num_voters": 400,
+        "real_winner": "Clinton",
+        "candidates": [
+            {"name": "Clinton", "x": -0.20, "y":  0.00},
+            {"name": "Bush",    "x":  0.30, "y":  0.10},
+            {"name": "Perot",   "x":  0.00, "y": -0.10},
+        ],
+    },
+    "germany2021": {
+        "name":       "Allemagne 2021",
+        "ideology":   "centrist",
+        "num_voters": 400,
+        "real_winner": "Scholz (SPD)",
+        "candidates": [
+            {"name": "Scholz (SPD)",     "x": -0.20, "y": -0.10},
+            {"name": "Laschet (CDU)",    "x":  0.20, "y":  0.00},
+            {"name": "Baerbock (Verts)", "x": -0.45, "y":  0.35},
+            {"name": "Lindner (FDP)",    "x":  0.40, "y": -0.15},
+            {"name": "Weidel (AfD)",     "x":  0.75, "y":  0.10},
+        ],
+    },
+    "condorcet_cycle": {
+        "name":       "Cycle de Condorcet",
+        "ideology":   "polarized",
+        "num_voters": 300,
+        "real_winner": "—",
+        "candidates": [
+            {"name": "Alice", "x":  0.00, "y":  0.55},
+            {"name": "Bob",   "x": -0.55, "y": -0.30},
+            {"name": "Carol", "x":  0.55, "y": -0.30},
+        ],
+    },
+}
+
+
+@election_bp.route("/historical-replay", methods=["POST"])
+@sim_limiter.limit("10 per minute")
+def historical_replay() -> tuple[Response, int]:
+    """
+    POST /api/election/historical-replay
+
+    Simulate a historical election scenario day by day with optional
+    candidate position overrides. Returns per-day vote shares and winners.
+    """
+    data        = request.get_json() or {}
+    scenario_id = str(data.get("scenario_id", "france2002"))
+    overrides   = data.get("overrides", [])
+    num_days    = max(1, min(60, int(data.get("num_days", 30))))
+    seed        = int(data.get("seed", 42))
+
+    cfg = _REPLAY_SCENARIOS.get(scenario_id)
+    if not cfg:
+        return jsonify({"error": f"Unknown scenario: {scenario_id}"}), 400
+
+    _random.seed(seed)
+    _np.random.seed(seed)
+    issues = DEFAULT_ISSUES
+
+    # Apply user overrides to candidate positions
+    override_map: Dict[str, Dict[str, float]] = {
+        o["name"]: {"x": float(o["x"]), "y": float(o["y"])}
+        for o in overrides if "name" in o
+    }
+    cand_specs: list[Dict[str, Any]] = [
+        {**c, **override_map[c["name"]]} if c["name"] in override_map else c
+        for c in cfg["candidates"]
+    ]
+
+    candidates, voters, base_utilities, cand_names = _build_base_electorate(
+        cand_specs, int(cfg["num_voters"]), str(cfg["ideology"]), seed, issues
+    )
+
+    # ── Day-by-day Brownian campaign simulation ────────────────────────────
+    sigma = 0.018
+    current_u: Dict[Any, Dict[str, float]] = {
+        v["id"]: dict(base_utilities[v["id"]]) for v in voters
+    }
+    n_cands   = len(cand_names)
+    days_out: list[Dict[str, Any]] = []
+
+    for day in range(num_days + 1):
+        if day > 0:
+            shocks = {n: float(_np.random.normal(0, sigma)) for n in cand_names}
+            for v in voters:
+                uid = v["id"]
+                for n in cand_names:
+                    current_u[uid][n] = float(
+                        max(0.01, min(0.99, current_u[uid][n] + shocks[n]))
+                    )
+
+        # First-choice vote shares
+        fc: Counter[str] = Counter()
+        for v in voters:
+            uid  = v["id"]
+            best = max(current_u[uid], key=lambda k: current_u[uid][k])
+            fc[best] += 1
+        total      = len(voters) or 1
+        vote_shares = {n: round(fc.get(n, 0) / total, 4) for n in cand_names}
+
+        # Rankings for Condorcet / Borda
+        rankings: list[list[str]] = []
+        for v in voters:
+            uid = v["id"]
+            rankings.append(
+                sorted(current_u[uid].keys(), key=lambda k: -current_u[uid][k])
+            )
+
+        condorcet_w  = get_condorcet_winner(rankings)
+        winner_fptp  = max(vote_shares, key=lambda k: vote_shares[k])
+        borda_scores: Dict[str, float] = {n: 0.0 for n in cand_names}
+        for r in rankings:
+            for i, name in enumerate(r):
+                borda_scores[name] += n_cands - 1 - i
+        winner_borda = max(borda_scores, key=lambda k: borda_scores[k])
+
+        days_out.append({
+            "day":              day,
+            "vote_shares":      vote_shares,
+            "winner_fptp":      winner_fptp,
+            "winner_condorcet": condorcet_w,
+            "winner_borda":     winner_borda,
+        })
+
+    final_day   = days_out[-1]
+    real_winner = str(cfg["real_winner"])
+    differs     = final_day["winner_fptp"] != real_winner
+
+    if differs and override_map:
+        moved   = ", ".join(override_map.keys())
+        note_fr = (f"En déplaçant {moved}, le vainqueur FPTP devient "
+                   f"{final_day['winner_fptp']} au lieu de {real_winner}. "
+                   "Le repositionnement idéologique a suffi à réécrire l'histoire.")
+        note_en = (f"By moving {moved}, the FPTP winner becomes "
+                   f"{final_day['winner_fptp']} instead of {real_winner}. "
+                   "The ideological shift was enough to rewrite history.")
+    elif differs:
+        note_fr = (f"La simulation donne {final_day['winner_fptp']} "
+                   f"(contre {real_winner} historiquement).")
+        note_en = (f"The simulation gives {final_day['winner_fptp']} "
+                   f"(vs {real_winner} historically).")
+    else:
+        note_fr = (f"La simulation converge vers {real_winner}, comme dans l'histoire réelle. "
+                   "Déplacez un candidat pour explorer des scénarios alternatifs.")
+        note_en = (f"The simulation converges on {real_winner}, matching historical reality. "
+                   "Move a candidate to explore alternative scenarios.")
+
+    return jsonify({
+        "scenario": {"id": scenario_id, "name": cfg["name"], "real_winner": real_winner},
+        "candidates": [
+            {"name": c["name"], "x": float(c["x"]), "y": float(c["y"]),
+             "modified": c["name"] in override_map}
+            for c in cand_specs
+        ],
+        "days":  days_out,
+        "final": {
+            "winner_fptp":         final_day["winner_fptp"],
+            "winner_condorcet":    final_day["winner_condorcet"],
+            "winner_borda":        final_day["winner_borda"],
+            "differs_from_real":   differs,
+            "pedagogical_note":    note_fr,
+            "pedagogical_note_en": note_en,
+        },
     }), 200

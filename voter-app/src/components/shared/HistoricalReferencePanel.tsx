@@ -1,6 +1,7 @@
 import React from 'react';
-import { Alert, Badge, Card, Col, Row, Table } from 'react-bootstrap';
+import { Alert, Badge, Button, Card, Col, Row, Table } from 'react-bootstrap';
 import { useTranslation } from 'react-i18next';
+import { useNavigate } from 'react-router';
 import { useElection } from '../../context/ElectionContext';
 import { ElectionResult } from '../../services/electionApi';
 import { HISTORICAL_SCENARIOS } from '../../data/historicalScenarios';
@@ -24,6 +25,7 @@ interface Props {
 const HistoricalReferencePanel: React.FC<Props> = ({ result }) => {
   const { t }           = useTranslation();
   const { scenarioMeta } = useElection();
+  const navigate        = useNavigate();
 
   if (!scenarioMeta) return null;
 
@@ -46,17 +48,28 @@ const HistoricalReferencePanel: React.FC<Props> = ({ result }) => {
         <Badge bg={variant} style={{ fontSize: '0.65rem' }}>
           {t('scenarios.phenomenon')}: {data.phenomenon}
         </Badge>
-        {data.reference && (
-          <a
-            href={data.reference}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="ms-auto text-muted"
-            style={{ fontSize: '0.72rem' }}
+        <div className="ms-auto d-flex gap-2 align-items-center">
+          <Button
+            size="sm"
+            variant="outline-primary"
+            style={{ fontSize: '0.7rem', padding: '2px 8px' }}
+            onClick={() => navigate('/election-lab#replay')}
+            data-testid="open-replay-btn"
           >
-            Wikipedia ↗
-          </a>
-        )}
+            📺 {t('replay.openReplay')}
+          </Button>
+          {data.reference && (
+            <a
+              href={data.reference}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="text-muted"
+              style={{ fontSize: '0.72rem' }}
+            >
+              Wikipedia ↗
+            </a>
+          )}
+        </div>
       </Card.Header>
 
       <Card.Body className="p-3">

@@ -23,6 +23,7 @@ import ElectionInsightPanel from '../components/shared/ElectionInsightPanel';
 import CoalitionPanel from '../components/shared/CoalitionPanel';
 import DistrictMap from '../components/shared/DistrictMap';
 import PrimarySimulator from '../components/shared/PrimarySimulator';
+import HistoricalReplay from '../components/shared/HistoricalReplay';
 import AdaptiveVotingPanel from '../components/shared/AdaptiveVotingPanel';
 
 const COLORS: Record<string, string> = {
@@ -507,6 +508,9 @@ const ElectionLabPage: React.FC = () => {
                 </Tab>
                 <Tab eventKey="primary" title={`🗳 ${t('electionLab.tabPrimary')}`}>
                   <PrimarySimulator />
+                </Tab>
+                <Tab eventKey="replay" title={`📺 ${t('electionLab.tabReplay')}`}>
+                  <HistoricalReplay />
                 </Tab>
                 <Tab eventKey="adaptive" title={`⚙ ${t('electionLab.tabAdaptive')}`}>
                   <AdaptiveVotingPanel />
