@@ -21,6 +21,7 @@ import HistoricalReferencePanel from '../components/shared/HistoricalReferencePa
 import MetricTooltip from '../components/shared/MetricTooltip';
 import ElectionInsightPanel from '../components/shared/ElectionInsightPanel';
 import CoalitionPanel from '../components/shared/CoalitionPanel';
+import DuelModePanel from '../components/shared/DuelModePanel';
 import DistrictMap from '../components/shared/DistrictMap';
 import PrimarySimulator from '../components/shared/PrimarySimulator';
 import HistoricalReplay from '../components/shared/HistoricalReplay';
@@ -329,9 +330,12 @@ const ElectionLabPage: React.FC = () => {
 
   const { config, applyScenario, resetConfig, scenarioNames, scenarioMeta } = useElection();
 
-  const [result,  setResult]  = useState<ElectionResult | null>(null);
-  const [loading, setLoading] = useState(false);
-  const [error,   setError]   = useState<string | null>(null);
+  const [result,    setResult]    = useState<ElectionResult | null>(null);
+  const [loading,   setLoading]   = useState(false);
+  const [error,     setError]     = useState<string | null>(null);
+  const [duelMode,  setDuelMode]  = useState(false);
+  const [duelMethA, setDuelMethA] = useState('plurality');
+  const [duelMethB, setDuelMethB] = useState('schulze');
   const runIdRef              = useRef(0);
 
   const runSimulation = useCallback(async () => {
@@ -471,11 +475,36 @@ const ElectionLabPage: React.FC = () => {
 
           {result && (
             <div style={{ opacity: loading ? 0.65 : 1, transition: 'opacity 0.25s' }}>
+              {/* Mode Duel toggle */}
+              <div className="d-flex justify-content-end mb-2">
+                <Button
+                  size="sm"
+                  variant={duelMode ? 'danger' : 'outline-secondary'}
+                  onClick={() => setDuelMode(!duelMode)}
+                  data-testid="duel-toggle"
+                  style={{ fontSize: '0.78rem' }}
+                >
+                  ⚔ {duelMode ? t('duel.exitDuel') : t('duel.enterDuel')}
+                </Button>
+              </div>
+
               <Tabs defaultActiveKey="results" className="mb-3">
                 <Tab eventKey="results" title={`📊 ${t('electionLab.tabResults')}`}>
-                  <ResultsTab result={result} t={t} />
-                  <ElectionInsightPanel result={result} />
-                  <HistoricalReferencePanel result={result} />
+                  {duelMode ? (
+                    <DuelModePanel
+                      result={result}
+                      methodA={duelMethA}
+                      methodB={duelMethB}
+                      onMethodAChange={setDuelMethA}
+                      onMethodBChange={setDuelMethB}
+                    />
+                  ) : (
+                    <>
+                      <ResultsTab result={result} t={t} />
+                      <ElectionInsightPanel result={result} />
+                      <HistoricalReferencePanel result={result} />
+                    </>
+                  )}
                 </Tab>
                 <Tab eventKey="map" title={`🗺 ${t('electionLab.tabMap')}`}>
                   <IdeologyMapChart defaultCandidates={candidateNames} />

@@ -64,6 +64,7 @@ const en: TranslationKeys = {
       divergeHint:      'The voting method changes the outcome for this election. Explore why in the Lab.',
       agree:            '✓ Both methods agree on this scenario.',
       explore:          '🔬 Explore in detail →',
+      lowerRegret:      'lower regret',
       scenarioFrance2002: 'France 2002',
       scenarioUSA1992:    'USA 1992',
       scenarioConsensus:  'Consensus',
@@ -1173,6 +1174,21 @@ const en: TranslationKeys = {
     colGroupWinners:  'Winners by method',
     colGroupQuality:  'Quality metrics',
     colGroupBlank:    'Blank vote',
+  },
+
+  duel: {
+    enterDuel:           'Duel mode',
+    exitDuel:            'Exit duel',
+    winner:              'Winner',
+    converge:            'Both methods agree',
+    diverge:             'Methods diverge',
+    sameElectorate:      'Same electorate, same seed',
+    openFull:            'See full duel',
+    pedagogicalAgree:    '{{method}} and the other method agree on {{winner}} — a rare and valuable consensus.',
+    pedagogicalCondorcet:'{{miss}} misses the Condorcet winner ({{cw}}) and elects {{winner}} instead. {{hit}} satisfies the Condorcet criterion.',
+    pedagogicalRegret:   '{{mA}} elects {{winA}}, {{mB}} elects {{winB}}. {{better}} minimises Bayesian Regret ({{regret}}) — it better maximises collective welfare.',
+    pedagogicalBlank:    '{{mA}} elects {{winA}}, {{mB}} elects {{winB}}. The high blank vote rate ({{pct}}%) destabilises both methods differently.',
+    pedagogicalDefault:  '{{mA}} elects {{winA}}, {{mB}} elects {{winB}}. With the same electorate, the counting method alone changes the winner.',
   },
 
   jury: {
