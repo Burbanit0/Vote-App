@@ -16,6 +16,7 @@ import ManipulabilityChart from '../components/Simulation/ManipulabilityChart';
 import BlankVoteDivergencePanel from '../components/shared/BlankVoteDivergencePanel';
 import CampaignSensitivityPanel from '../components/shared/CampaignSensitivityPanel';
 import CombinedEffectsMatrix from '../components/shared/CombinedEffectsMatrix';
+import HistoricalReferencePanel from '../components/shared/HistoricalReferencePanel';
 
 const COLORS: Record<string, string> = {
   Green: '#007A33', Liberal: '#005CAB', Conservative: '#C8590A', Independent: '#6c757d',
@@ -310,7 +311,7 @@ const ElectionLabPage: React.FC = () => {
     description: 'Simulation unifiée : combinez campagne, vote blanc, modèle d\'information et comparez toutes les méthodes de vote sur une même élection.',
   });
 
-  const { config, applyScenario, resetConfig, scenarioNames } = useElection();
+  const { config, applyScenario, resetConfig, scenarioNames, scenarioMeta } = useElection();
 
   const [result,  setResult]  = useState<ElectionResult | null>(null);
   const [loading, setLoading] = useState(false);
@@ -344,10 +345,28 @@ const ElectionLabPage: React.FC = () => {
       {/* Header */}
       <div className="d-flex align-items-center justify-content-between mb-2 flex-wrap gap-2">
         <div>
-          <h2 className="mb-0 fw-bold">🔬 {t('electionLab.title')}</h2>
-          <p className="text-muted mb-0" style={{ fontSize: '0.85rem' }}>
-            {t('electionLab.subtitle')}
-          </p>
+          <h2 className="mb-0 fw-bold d-flex align-items-center gap-2 flex-wrap">
+            🔬 {t('electionLab.title')}
+            {scenarioMeta && (
+              <Badge bg="primary" style={{ fontSize: '0.6rem', fontWeight: 600 }}>
+                🗳️ {scenarioMeta.name}
+              </Badge>
+            )}
+          </h2>
+          {scenarioMeta ? (
+            <div className="d-flex align-items-center gap-2 flex-wrap mt-1">
+              <Badge bg="secondary" style={{ fontSize: '0.62rem' }}>
+                {scenarioMeta.phenomenon}
+              </Badge>
+              <span className="text-muted" style={{ fontSize: '0.8rem' }}>
+                {scenarioMeta.description}
+              </span>
+            </div>
+          ) : (
+            <p className="text-muted mb-0" style={{ fontSize: '0.85rem' }}>
+              {t('electionLab.subtitle')}
+            </p>
+          )}
         </div>
         <div className="d-flex gap-2 flex-wrap">
           <Dropdown>
@@ -439,6 +458,7 @@ const ElectionLabPage: React.FC = () => {
               <Tabs defaultActiveKey="results" className="mb-3">
                 <Tab eventKey="results" title={`📊 ${t('electionLab.tabResults')}`}>
                   <ResultsTab result={result} t={t} />
+                  <HistoricalReferencePanel result={result} />
                 </Tab>
                 <Tab eventKey="map" title={`🗺 ${t('electionLab.tabMap')}`}>
                   <IdeologyMapChart defaultCandidates={candidateNames} />
