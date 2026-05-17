@@ -1,5 +1,5 @@
 import React from 'react';
-import { render, screen, fireEvent, waitFor } from '@testing-library/react';
+import { render, screen, fireEvent, waitFor, act } from '@testing-library/react';
 import { MemoryRouter } from 'react-router';
 import AdaptiveVotingPanel from '../AdaptiveVotingPanel';
 import { ElectionProvider } from '../../../context/ElectionContext';
@@ -104,7 +104,7 @@ describe('AdaptiveVotingPanel', () => {
     await waitFor(() => {
       expect(screen.getByTestId('race-chart')).toBeInTheDocument();
     });
-    jest.runAllTimers();
+    act(() => { jest.runAllTimers(); });
   });
 
   it('shows convergence badge', async () => {
@@ -114,7 +114,7 @@ describe('AdaptiveVotingPanel', () => {
     await waitFor(() => {
       expect(screen.getByTestId('convergence-badge')).toBeInTheDocument();
     });
-    jest.runAllTimers();
+    act(() => { jest.runAllTimers(); });
   });
 
   it('shows final winner badge', async () => {
@@ -124,7 +124,7 @@ describe('AdaptiveVotingPanel', () => {
     await waitFor(() => {
       expect(screen.getByTestId('final-winner-badge')).toBeInTheDocument();
     });
-    jest.runAllTimers();
+    act(() => { jest.runAllTimers(); });
   });
 
   it('shows sincere winner badge', async () => {
@@ -134,7 +134,7 @@ describe('AdaptiveVotingPanel', () => {
     await waitFor(() => {
       expect(screen.getByTestId('sincere-winner-badge')).toBeInTheDocument();
     });
-    jest.runAllTimers();
+    act(() => { jest.runAllTimers(); });
   });
 
   it('shows drift badge when winner changed and drift > 0.15', async () => {
@@ -144,7 +144,7 @@ describe('AdaptiveVotingPanel', () => {
     await waitFor(() => {
       expect(screen.getByTestId('drift-badge')).toBeInTheDocument();
     });
-    jest.runAllTimers();
+    act(() => { jest.runAllTimers(); });
   });
 
   it('renders ideology overlay SVG', async () => {
@@ -154,7 +154,7 @@ describe('AdaptiveVotingPanel', () => {
     await waitFor(() => {
       expect(screen.getByTestId('ideology-overlay')).toBeInTheDocument();
     });
-    jest.runAllTimers();
+    act(() => { jest.runAllTimers(); });
   });
 
   it('shows warning alert when tacticals changed the winner', async () => {
@@ -165,7 +165,7 @@ describe('AdaptiveVotingPanel', () => {
       const warnings = document.querySelectorAll('.alert-warning');
       expect(warnings.length).toBeGreaterThan(0);
     });
-    jest.runAllTimers();
+    act(() => { jest.runAllTimers(); });
   });
 
   it('shows replay button after data loads', async () => {
@@ -175,7 +175,7 @@ describe('AdaptiveVotingPanel', () => {
     await waitFor(() => {
       expect(screen.getByRole('button', { name: /replay|rejouer/i })).toBeInTheDocument();
     });
-    jest.runAllTimers();
+    act(() => { jest.runAllTimers(); });
   });
 
   it('shows error on API failure', async () => {

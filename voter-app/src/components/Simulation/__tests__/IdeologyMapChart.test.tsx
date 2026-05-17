@@ -1,5 +1,5 @@
 import React from 'react';
-import { render, screen, fireEvent, waitFor } from '@testing-library/react';
+import { render, screen, fireEvent, waitFor, act } from '@testing-library/react';
 import IdeologyMapChart from '../IdeologyMapChart';
 
 jest.mock('../../../services/simulationCompareApi', () => ({
@@ -34,24 +34,27 @@ beforeEach(() => {
 });
 
 describe('IdeologyMapChart', () => {
-  it('renders method selects and voter slider', async () => {
-    render(<IdeologyMapChart defaultCandidates={['Alice', 'Bob']} />);
+  // Helper: render and wait until the initial API call's state updates have settled
+  async function renderAndSettle(candidates = ['Alice', 'Bob']) {
+    const result = render(<IdeologyMapChart defaultCandidates={candidates} />);
     await waitFor(() => expect(getIdeologyMap).toHaveBeenCalled());
+    await act(async () => {}); // flush setMapData / setLoading microtasks
+    return result;
+  }
 
-    // Method selects
+  it('renders method selects and voter slider', async () => {
+    await renderAndSettle();
     const selects = screen.getAllByRole('combobox');
     expect(selects.length).toBeGreaterThanOrEqual(2);
   });
 
   it('renders the SVG canvas', async () => {
-    const { container } = render(<IdeologyMapChart defaultCandidates={['Alice', 'Bob']} />);
-    await waitFor(() => expect(getIdeologyMap).toHaveBeenCalled());
+    const { container } = await renderAndSettle();
     expect(container.querySelector('svg')).toBeInTheDocument();
   });
 
   it('calls getIdeologyMap on mount with correct default methods', async () => {
-    render(<IdeologyMapChart defaultCandidates={['Alice', 'Bob']} />);
-    await waitFor(() => expect(getIdeologyMap).toHaveBeenCalledTimes(1));
+    await renderAndSettle();
     const params = getIdeologyMap.mock.calls[0][0];
     expect(params.method_a).toBe('plurality');
     expect(params.method_b).toBe('schulze');
@@ -59,22 +62,19 @@ describe('IdeologyMapChart', () => {
   });
 
   it('re-fetches when method A select changes', async () => {
-    render(<IdeologyMapChart defaultCandidates={['Alice', 'Bob']} />);
-    await waitFor(() => expect(getIdeologyMap).toHaveBeenCalledTimes(1));
+    await renderAndSettle();
 
-    // Change method A to borda
     const [selectA] = screen.getAllByRole('combobox');
     fireEvent.change(selectA, { target: { value: 'borda' } });
 
     await waitFor(() => expect(getIdeologyMap).toHaveBeenCalledTimes(2));
+    await act(async () => {}); // flush state from second fetch
     const params = getIdeologyMap.mock.calls[1][0];
     expect(params.method_a).toBe('borda');
   });
 
   it('renders winner info after data loads', async () => {
-    render(<IdeologyMapChart defaultCandidates={['Alice', 'Bob']} />);
-    await waitFor(() => expect(getIdeologyMap).toHaveBeenCalled());
-    // Stats panel shows pct values once data loads
+    await renderAndSettle();
     await waitFor(() => {
       const elements = screen.getAllByText(/plurality/i);
       expect(elements.length).toBeGreaterThan(0);
@@ -82,30 +82,28 @@ describe('IdeologyMapChart', () => {
   });
 
   it('shows "show losers" toggle (unchecked by default)', async () => {
-    render(<IdeologyMapChart defaultCandidates={['Alice', 'Bob']} />);
-    // Multiple checkboxes now: losers + voronoi — target by id
+    await act(async () => { render(<IdeologyMapChart defaultCandidates={['Alice', 'Bob']} />); });
     const toggle = document.getElementById('show-losers-toggle') as HTMLInputElement;
     expect(toggle).toBeInTheDocument();
     expect(toggle).not.toBeChecked();
   });
 
   it('checking "show losers" toggle changes its state', async () => {
-    render(<IdeologyMapChart defaultCandidates={['Alice', 'Bob']} />);
+    await act(async () => { render(<IdeologyMapChart defaultCandidates={['Alice', 'Bob']} />); });
     const toggle = document.getElementById('show-losers-toggle') as HTMLInputElement;
     fireEvent.click(toggle);
     expect(toggle).toBeChecked();
   });
 
   it('Voronoi toggle is OFF by default', async () => {
-    render(<IdeologyMapChart defaultCandidates={['Alice', 'Bob']} />);
+    await act(async () => { render(<IdeologyMapChart defaultCandidates={['Alice', 'Bob']} />); });
     const toggle = document.getElementById('show-voronoi-toggle') as HTMLInputElement;
     expect(toggle).toBeInTheDocument();
     expect(toggle).not.toBeChecked();
   });
 
   it('activating Voronoi toggle renders SVG region paths', async () => {
-    const { container } = render(<IdeologyMapChart defaultCandidates={['Alice', 'Bob']} />);
-    await waitFor(() => expect(getIdeologyMap).toHaveBeenCalled());
+    const { container } = await renderAndSettle();
 
     // No voronoi paths before toggle
     expect(container.querySelector('[data-testid^="voronoi-region"]')).toBeNull();
@@ -121,8 +119,7 @@ describe('IdeologyMapChart', () => {
   });
 
   it('Voronoi legend shows candidate badges when toggle is ON', async () => {
-    render(<IdeologyMapChart defaultCandidates={['Alice', 'Bob']} />);
-    await waitFor(() => expect(getIdeologyMap).toHaveBeenCalled());
+    await renderAndSettle();
 
     // Before toggle: candidate name badges from the voronoi legend are absent
     // (they'd only appear inside the legend div, not as star labels)
@@ -140,18 +137,18 @@ describe('IdeologyMapChart', () => {
   });
 
   it('renders regenerate button', async () => {
-    render(<IdeologyMapChart defaultCandidates={['Alice', 'Bob']} />);
+    await act(async () => { render(<IdeologyMapChart defaultCandidates={['Alice', 'Bob']} />); });
     expect(screen.getByText(/Régénérer|Regenerate/i)).toBeInTheDocument();
   });
 
   it('clicking regenerate triggers a new API call with different seed', async () => {
-    render(<IdeologyMapChart defaultCandidates={['Alice', 'Bob']} />);
-    await waitFor(() => expect(getIdeologyMap).toHaveBeenCalledTimes(1));
+    await renderAndSettle();
     const seedBefore = getIdeologyMap.mock.calls[0][0].seed;
 
     fireEvent.click(screen.getByText(/Régénérer|Regenerate/i));
 
     await waitFor(() => expect(getIdeologyMap).toHaveBeenCalledTimes(2));
+    await act(async () => {});
     const seedAfter = getIdeologyMap.mock.calls[1][0].seed;
     expect(seedAfter).not.toBe(seedBefore);
   });
@@ -159,6 +156,7 @@ describe('IdeologyMapChart', () => {
   it('passes defaultCandidates as initial candidate positions', async () => {
     render(<IdeologyMapChart defaultCandidates={['Alice', 'Bob', 'Carol']} />);
     await waitFor(() => expect(getIdeologyMap).toHaveBeenCalledTimes(1));
+    await act(async () => {});
     const params = getIdeologyMap.mock.calls[0][0];
     expect(params.candidates).toHaveLength(3);
     expect(params.candidates.map((c: any) => c.name)).toEqual(['Alice', 'Bob', 'Carol']);
