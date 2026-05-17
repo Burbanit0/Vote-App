@@ -85,7 +85,7 @@ describe('ElectionLabPage', () => {
       (el) => el.closest('button') !== null
     );
     fireEvent.click(btn!.closest('button')!);
-    await waitFor(() => expect(screen.getByText(/plurality/i)).toBeInTheDocument());
+    await waitFor(() => expect(screen.getAllByText(/plurality/i).length).toBeGreaterThan(0));
   });
 
   it('applying scenario france2022 loads 5 candidates', async () => {

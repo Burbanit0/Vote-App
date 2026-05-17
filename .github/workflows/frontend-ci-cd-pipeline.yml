@@ -38,7 +38,7 @@ jobs:
         working-directory: ./voter-app
 
       - name: Tests with coverage
-        run: npm test -- --coverage --coverageReporters=text,lcov
+        run: npm test -- --coverage --coverageReporters=text --coverageReporters=lcov
         working-directory: ./voter-app
         env:
           CI: 'true'

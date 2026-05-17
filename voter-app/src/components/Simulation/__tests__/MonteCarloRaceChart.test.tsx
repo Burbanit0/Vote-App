@@ -84,16 +84,19 @@ describe('MonteCarloRaceChart', () => {
     expect(screen.getAllByText(/Course des candidats|Candidate race/i).length).toBeGreaterThan(0);
   });
 
-  it('shows radio buttons for view toggle', () => {
+  it('shows three view toggle buttons', () => {
     renderChart();
-    const radios = screen.getAllByRole('radio');
-    expect(radios.length).toBe(2);
+    expect(screen.getByTestId('view-candidates')).toBeInTheDocument();
+    expect(screen.getByTestId('view-one-method')).toBeInTheDocument();
+    expect(screen.getByTestId('view-methods-race')).toBeInTheDocument();
   });
 
-  it('"All methods" radio is selected by default', () => {
+  it('Candidates button is active by default', () => {
     renderChart();
-    const allRadio = screen.getByLabelText(/Toutes les méthodes|All methods/i);
-    expect(allRadio).toBeChecked();
+    const candidatesBtn = screen.getByTestId('view-candidates');
+    const methodBtn     = screen.getByTestId('view-one-method');
+    expect(candidatesBtn.className).toContain('btn-secondary');
+    expect(methodBtn.className).toContain('btn-outline-secondary');
   });
 
   it('switching to method view shows method dropdown', () => {
@@ -101,8 +104,7 @@ describe('MonteCarloRaceChart', () => {
     // No dropdown before toggle
     expect(screen.queryByRole('combobox')).toBeNull();
 
-    const methodRadio = screen.getByLabelText(/Méthode spécifique|Specific method/i);
-    fireEvent.click(methodRadio);
+    fireEvent.click(screen.getByTestId('view-one-method'));
 
     // Dropdown now present
     expect(screen.getByRole('combobox')).toBeInTheDocument();
@@ -110,7 +112,7 @@ describe('MonteCarloRaceChart', () => {
 
   it('method dropdown contains all available methods', () => {
     renderChart();
-    fireEvent.click(screen.getByLabelText(/Méthode spécifique|Specific method/i));
+    fireEvent.click(screen.getByTestId('view-one-method'));
 
     const dropdown = screen.getByRole('combobox');
     const options  = Array.from(dropdown.querySelectorAll('option')).map((o) => o.textContent);
