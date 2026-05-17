@@ -22,6 +22,7 @@ import MetricTooltip from '../components/shared/MetricTooltip';
 import ElectionInsightPanel from '../components/shared/ElectionInsightPanel';
 import CoalitionPanel from '../components/shared/CoalitionPanel';
 import DistrictMap from '../components/shared/DistrictMap';
+import PrimarySimulator from '../components/shared/PrimarySimulator';
 
 const COLORS: Record<string, string> = {
   Green: '#007A33', Liberal: '#005CAB', Conservative: '#C8590A', Independent: '#6c757d',
@@ -502,6 +503,9 @@ const ElectionLabPage: React.FC = () => {
                 </Tab>
                 <Tab eventKey="districts" title={`🗺 ${t('electionLab.tabDistricts')}`}>
                   <DistrictMap />
+                </Tab>
+                <Tab eventKey="primary" title={`🗳 ${t('electionLab.tabPrimary')}`}>
+                  <PrimarySimulator />
                 </Tab>
               </Tabs>
             </div>
