@@ -1082,6 +1082,7 @@ const en: TranslationKeys = {
     tabPrimary:               'Primaries',
     tabAbstention:            'Abstention',
     tabSTV:                   'STV',
+    tabGerrymander:           'Gerrymandering',
     tabJury:                  'Jury theorem',
     tabReplay:                'Historical replay',
     tabAdaptive:              'Tactical voting',
@@ -1177,6 +1178,25 @@ const en: TranslationKeys = {
     colGroupWinners:  'Winners by method',
     colGroupQuality:  'Quality metrics',
     colGroupBlank:    'Blank vote',
+  },
+
+  gerrymander: {
+    prompt:            'Draw constituency boundaries by clicking the grid, then simulate the impact on representation.',
+    run:               'Simulate',
+    error:             'Simulation error.',
+    numDistricts:      'Number of districts',
+    autoRedraw:        'Fair redistricting',
+    gerryOptimal:      'Optimal gerrymandering',
+    gridHint:          'Click = change district · Drag = paint multiple cells',
+    district:          'District',
+    labelGerry:        'Current map',
+    labelProp:         'Proportional',
+    neutral:           'Neutral',
+    perfect:           'Perfect',
+    index:             'Gerrymandering index',
+    distortion:        'Distortion',
+    pedagogicalGerry:  '⚠ With this map, {{winner}} wins {{seatPct}}% of seats with only {{votePct}}% of votes (gerrymandering index: {{index}}%).',
+    pedagogicalFair:   '✓ This map is close to proportional — {{winner}} gets seats reflecting their actual vote share.',
   },
 
   stv: {

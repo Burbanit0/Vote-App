@@ -2901,3 +2901,185 @@ def stv_endpoint() -> tuple[Response, int]:
         "distortion_stv_fptp":   round(_seat_distortion(stv_seat_dict, fptp_seats), 3),
         "candidates":            cand_names,
     }), 200
+
+
+# ── Gerrymandering endpoint ───────────────────────────────────────────────────
+
+def _closest_district(
+    vx: float, vy: float,
+    districts: List[Dict[str, Any]],
+) -> int:
+    """Return the id of the district whose centroid is closest to (vx, vy)."""
+    best_id: int = int(districts[0]["id"])
+    best_dist = float("inf")
+    for d in districts:
+        b   = d["bounds"]
+        cx  = (b["x_min"] + b["x_max"]) / 2
+        cy  = (b["y_min"] + b["y_max"]) / 2
+        dist = (vx - cx) ** 2 + (vy - cy) ** 2
+        if dist < best_dist:
+            best_dist = dist
+            best_id   = int(d["id"])
+    return best_id
+
+
+@election_bp.route("/gerrymander", methods=["POST"])
+@sim_limiter.limit("10 per minute")
+def gerrymander() -> tuple[Response, int]:
+    """
+    POST /api/election/gerrymander
+
+    Assign voters to user-defined rectangular districts, run FPTP in each,
+    aggregate a parliament, and compare with D'Hondt proportional.
+
+    A voter is assigned to the district whose bounds contains them.
+    If a voter falls in no district (or multiple), they go to the nearest.
+    """
+    data       = request.get_json() or {}
+    num_voters = max(50,  min(1000, int(data.get("num_voters",  300))))
+    ideology   = str(data.get("ideology",  "random"))
+    seed       = int(data.get("seed",        42))
+    cand_specs = data.get("candidates", [
+        {"name": "Alice", "x": -0.5, "y": -0.2},
+        {"name": "Bob",   "x":  0.5, "y":  0.2},
+    ])[:6]
+    districts_raw: List[Dict[str, Any]] = data.get("districts", [])
+
+    if len(cand_specs) < 2:
+        return jsonify({"error": "At least 2 candidates required"}), 400
+    if not districts_raw:
+        return jsonify({"error": "At least 1 district required"}), 400
+
+    _random.seed(seed)
+    _np.random.seed(seed)
+    issues = DEFAULT_ISSUES
+
+    candidates, voters, true_utilities, cand_names = _build_base_electorate(
+        cand_specs, num_voters, ideology, seed, issues
+    )
+
+    # Map each voter's 2-D position
+    voter_positions: Dict[Any, tuple[float, float]] = {
+        v["id"]: (
+            round(2.0 * v["issue_positions"].get("economy", 0.5) - 1.0, 3),
+            round(2.0 * v["issue_positions"].get("social_welfare", 0.5) - 1.0, 3),
+        )
+        for v in voters
+    }
+
+    # Each voter's preferred candidate (highest true utility)
+    voter_preferred: Dict[Any, str] = {
+        v["id"]: max(true_utilities[v["id"]], key=lambda k: true_utilities[v["id"]][k])
+        for v in voters
+    }
+
+    # ── Assign voters to districts ────────────────────────────────────────
+    # district_id → list of voter ids
+    district_members: Dict[int, List[Any]] = {d["id"]: [] for d in districts_raw}
+    unassigned: List[Any] = []
+
+    for v in voters:
+        uid = v["id"]
+        vx, vy = voter_positions[uid]
+        matched = [
+            d for d in districts_raw
+            if d["bounds"]["x_min"] <= vx <= d["bounds"]["x_max"]
+            and d["bounds"]["y_min"] <= vy <= d["bounds"]["y_max"]
+        ]
+        if len(matched) == 1:
+            district_members[matched[0]["id"]].append(uid)
+        elif len(matched) > 1:
+            # Multiple districts overlap — pick the smallest area
+            def _area(d: Dict[str, Any]) -> float:
+                b = d["bounds"]
+                return float(b["x_max"] - b["x_min"]) * float(b["y_max"] - b["y_min"])
+            best = min(matched, key=_area)
+            district_members[best["id"]].append(uid)
+        else:
+            unassigned.append(uid)
+
+    # Assign unmatched voters to nearest district
+    for uid in unassigned:
+        vx, vy = voter_positions[uid]
+        nearest = _closest_district(vx, vy, districts_raw)
+        district_members[nearest].append(uid)
+
+    # ── Per-district FPTP ─────────────────────────────────────────────────
+    district_results: List[Dict[str, Any]] = []
+    parliament_gerry: Dict[str, int] = {n: 0 for n in cand_names}
+
+    national_fc:    Counter[str] = Counter()
+    national_total: int          = 0
+
+    for d in districts_raw:
+        members = district_members[d["id"]]
+        if not members:
+            district_results.append({
+                "id": d["id"], "num_voters": 0,
+                "winner": None, "vote_shares": {},
+            })
+            continue
+
+        fc: Counter[str] = Counter(voter_preferred[uid] for uid in members)
+        total = len(members)
+        vote_shares = {n: round(fc.get(n, 0) / total, 4) for n in cand_names}
+        winner = max(fc, key=lambda k: fc[k])
+
+        district_results.append({
+            "id":          d["id"],
+            "num_voters":  total,
+            "winner":      winner,
+            "vote_shares": vote_shares,
+        })
+        parliament_gerry[winner] = parliament_gerry.get(winner, 0) + 1
+        national_fc    += fc
+        national_total += total
+
+    # ── National D'Hondt ──────────────────────────────────────────────────
+    national_shares: Dict[str, float] = {
+        n: round(national_fc.get(n, 0) / max(national_total, 1), 4)
+        for n in cand_names
+    }
+    num_total_seats = len(districts_raw)
+    parliament_prop  = _dhondt(national_shares, num_total_seats)
+
+    # ── Distortion & gerrymander index ────────────────────────────────────
+    distortion_vals = [
+        abs(parliament_gerry.get(n, 0) / num_total_seats - national_shares.get(n, 0))
+        for n in cand_names
+    ]
+    distortion = round(sum(distortion_vals) / max(len(distortion_vals), 1), 4)
+
+    # Gerrymander index: how far from proportional is the leading party?
+    leading         = max(parliament_gerry, key=lambda k: parliament_gerry[k])
+    gerry_seat_pct  = parliament_gerry.get(leading, 0) / max(num_total_seats, 1)
+    gerry_vote_pct  = national_shares.get(leading, 0)
+    # Normalise to [0, 1]: 0 = seat% == vote%, 1 = seat% >> vote%
+    gerrymander_index = round(
+        max(0.0, min(1.0, (gerry_seat_pct - gerry_vote_pct) / max(gerry_vote_pct, 0.01))),
+        4,
+    )
+
+    # Voter snapshot for the map (capped at 500 for performance)
+    snap_voters = [
+        {
+            "id":        v["id"],
+            "x":         voter_positions[v["id"]][0],
+            "y":         voter_positions[v["id"]][1],
+            "preferred": voter_preferred[v["id"]],
+        }
+        for v in voters[:500]
+    ]
+
+    return jsonify({
+        "districts":              district_results,
+        "voters":                 snap_voters,
+        "parliament_gerrymander": parliament_gerry,
+        "parliament_proportional": parliament_prop,
+        "national_vote_share":    national_shares,
+        "distortion":             distortion,
+        "gerrymander_index":      gerrymander_index,
+        "winner":                 leading,
+        "candidates":             cand_names,
+        "num_seats":              num_total_seats,
+    }), 200

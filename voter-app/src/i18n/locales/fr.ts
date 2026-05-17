@@ -1080,6 +1080,7 @@ const fr = {
     tabPrimary:               'Primaires',
     tabAbstention:            'Abstention',
     tabSTV:                   'STV',
+    tabGerrymander:           'Gerrymandering',
     tabJury:                  'Théorème du jury',
     tabReplay:                'Replay historique',
     tabAdaptive:              'Vote tactique',
@@ -1175,6 +1176,25 @@ const fr = {
     colGroupWinners:  'Vainqueurs par méthode',
     colGroupQuality:  'Métriques de qualité',
     colGroupBlank:    'Vote blanc',
+  },
+
+  gerrymander: {
+    prompt:            'Dessinez les frontières des circonscriptions en cliquant sur la grille, puis simulez l\'impact sur la représentation.',
+    run:               'Simuler',
+    error:             'Erreur lors de la simulation.',
+    numDistricts:      'Nombre de circonscriptions',
+    autoRedraw:        'Redécoupage équitable',
+    gerryOptimal:      'Gerrymandering optimal',
+    gridHint:          'Clic = changer de circonscription · Glisser = peindre plusieurs cellules',
+    district:          'Circo',
+    labelGerry:        'Découpage actuel',
+    labelProp:         'Proportionnel',
+    neutral:           'Neutre',
+    perfect:           'Parfait',
+    index:             'Indice de gerrymandering',
+    distortion:        'Distorsion',
+    pedagogicalGerry:  '⚠ Avec ce découpage, {{winner}} remporte {{seatPct}}% des sièges avec seulement {{votePct}}% des voix (indice de gerrymandering : {{index}}%).',
+    pedagogicalFair:   '✓ Ce découpage est proche du proportionnel — {{winner}} obtient des sièges reflétant son poids électoral réel.',
   },
 
   stv: {
