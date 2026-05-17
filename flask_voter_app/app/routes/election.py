@@ -17,8 +17,10 @@ import random as _random
 from collections import Counter
 from typing import Any, Dict, Optional
 
+import eventlet
+from eventlet import tpool
 import numpy as _np
-from flask import Blueprint, Response, jsonify, request
+from flask import Blueprint, Response, current_app, jsonify, request
 
 from app.constants import DEFAULT_ISSUES, ECONOMY_ISSUES, ENV_ISSUES, SOCIAL_ISSUES
 from app.utils.simulation_voting_utils import calculate_utility, create_candidate, create_voter
@@ -96,6 +98,20 @@ def simulate() -> tuple[Response, int]:
     Unified simulation that chains all Vote Lab models in logical order.
     """
     data = request.get_json() or {}
+    try:
+        with eventlet.Timeout(120):
+            body, status = tpool.execute(_simulate_worker, data)  # type: ignore[return-value]
+        return jsonify(body), status
+    except eventlet.timeout.Timeout:
+        current_app.logger.warning("simulate() timed out after 120s")
+        return jsonify({"error": "Simulation timed out"}), 503
+    except Exception as exc:
+        current_app.logger.exception("simulate() crashed")
+        return jsonify({"error": f"Internal error: {exc}"}), 500
+
+
+def _simulate_worker(data: dict) -> tuple[dict, int]:
+    """Run simulation in a real OS thread so eventlet greenlets stay responsive."""
 
     # ── Parse params ──────────────────────────────────────────────────────
     num_voters   = max(10, min(1000, int(data.get("num_voters",  300))))
@@ -122,7 +138,7 @@ def simulate() -> tuple[Response, int]:
     polling_effect  = max(0.0, min(1.0, float(campaign_cfg.get("polling_effect", 0.3))))
 
     if len(cand_specs) < 2:
-        return jsonify({"error": "At least 2 candidates required"}), 400
+        return {"error": "At least 2 candidates required"}, 400
 
     # ── Seed both PRNGs ───────────────────────────────────────────────────
     _random.seed(seed)
@@ -292,7 +308,7 @@ def simulate() -> tuple[Response, int]:
         for c in candidates
     ]
 
-    return jsonify({
+    return {
         "config":                data,
         "voters_snapshot":       voters_snapshot,
         "candidates":            candidates_out,
@@ -302,7 +318,7 @@ def simulate() -> tuple[Response, int]:
         "campaign_trajectory":   campaign_trajectory,
         "inter_method_agreement": _inter_method_agreement(methods_out),
         "condorcet_exists":      condorcet_winner is not None,
-    }), 200
+    }, 200
 
 
 # ── Shared helpers for divergence analysis ────────────────────────────────────

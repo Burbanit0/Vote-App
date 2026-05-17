@@ -1,6 +1,8 @@
+import logging
 import os
+import time
 
-from flask import Flask, request
+from flask import Flask, g, request
 from flask_cors import CORS
 from flask_sqlalchemy import SQLAlchemy
 from flask_migrate import Migrate
@@ -24,6 +26,10 @@ redis_client = redis.StrictRedis.from_url(
 def create_app(config_object="config.Config"):
     app = Flask(__name__)
     app.config.from_object(config_object)
+
+    # ── Logging ────────────────────────────────────────────────────────────
+    logging.basicConfig(level=logging.INFO, format="[%(asctime)s] %(levelname)s %(message)s")
+    app.logger.setLevel(logging.INFO)
 
     # ── Production safety check ────────────────────────────────────────────
     if os.environ.get('FLASK_ENV') == 'production':
@@ -65,6 +71,10 @@ def create_app(config_object="config.Config"):
     )
 
     @app.before_request
+    def set_timing():
+        g.start = time.perf_counter()
+
+    @app.before_request
     def handle_options():
         if request.method == "OPTIONS":
             origin       = request.headers.get("Origin", "")
@@ -75,6 +85,14 @@ def create_app(config_object="config.Config"):
             headers["Access-Control-Allow-Methods"] = "GET, POST, PUT, DELETE, OPTIONS"
             headers["Access-Control-Allow-Headers"] = "Content-Type, Authorization"
             return response
+
+    @app.after_request
+    def log_request(response):
+        start = getattr(g, "start", None)
+        if start is not None:
+            dur = time.perf_counter() - start
+            app.logger.info("%s %s -> %s (%.3fs)", request.method, request.path, response.status_code, dur)
+        return response
 
     db.init_app(app)
     migrate.init_app(app, db)

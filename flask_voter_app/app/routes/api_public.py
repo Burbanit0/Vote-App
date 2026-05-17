@@ -27,11 +27,10 @@ from app.constants import DEFAULT_ISSUES
 api_public_bp = Blueprint("public_api", __name__, url_prefix="/api/v1")
 
 # ── Module-level limiter — init_app() called in create_app() ──────────────────
-# Using storage_uri="memory://" as a safe default; create_app overrides via
-# RATELIMIT_STORAGE_URL config if needed.
+_API_STORAGE = os.environ.get('REDIS_URL') or 'memory://'
 _api_limiter = Limiter(
     key_func=get_remote_address,
-    storage_uri="memory://",
+    storage_uri=_API_STORAGE,
     default_limits=[],
 )
 
