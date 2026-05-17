@@ -1,4 +1,5 @@
 import React, { useCallback, useRef, useState } from 'react';
+import { useNavigate } from 'react-router';
 import {
   Accordion, Alert, Badge, Button, Card, Col, Container,
   Dropdown, Form, Row, Spinner, Tab, Table, Tabs,
@@ -288,8 +289,22 @@ const ParameterPanel: React.FC<{ t: (k: string) => string }> = ({ t }) => {
 
 // ── Main page ─────────────────────────────────────────────────────────────────
 
+// ── Sub-simulation shortcuts ──────────────────────────────────────────────────
+
+const SUB_SIMS = [
+  { href: '/scenario-builder',      icon: '🎮', key: 'electionLab.subSimulator' },
+  { href: '/simulation/compare',    icon: '⚖️', key: 'electionLab.subCompare' },
+  { href: '/campaign',              icon: '📅', key: 'electionLab.subCampaign' },
+  { href: '/constitutional-crisis', icon: '□',  key: 'electionLab.subBlank' },
+  { href: '/blank-contagion',       icon: '🦠', key: 'electionLab.subContagion' },
+  { href: '/what-if',               icon: '🔮', key: 'electionLab.subWhatIf' },
+] as const;
+
+// ── Main page ─────────────────────────────────────────────────────────────────
+
 const ElectionLabPage: React.FC = () => {
   const { t } = useTranslation();
+  const navigate = useNavigate();
   useMetaTags({
     title: 'Election Lab — Vote Lab',
     description: 'Simulation unifiée : combinez campagne, vote blanc, modèle d\'information et comparez toutes les méthodes de vote sur une même élection.',
@@ -327,15 +342,14 @@ const ElectionLabPage: React.FC = () => {
   return (
     <Container fluid className="py-4" style={{ maxWidth: 1400 }}>
       {/* Header */}
-      <div className="d-flex align-items-center justify-content-between mb-3 flex-wrap gap-2">
+      <div className="d-flex align-items-center justify-content-between mb-2 flex-wrap gap-2">
         <div>
-          <h2 className="mb-1 fw-bold">🔬 {t('electionLab.title')}</h2>
-          <p className="text-muted mb-0" style={{ fontSize: '0.88rem' }}>
+          <h2 className="mb-0 fw-bold">🔬 {t('electionLab.title')}</h2>
+          <p className="text-muted mb-0" style={{ fontSize: '0.85rem' }}>
             {t('electionLab.subtitle')}
           </p>
         </div>
         <div className="d-flex gap-2 flex-wrap">
-          {/* Scenario dropdown */}
           <Dropdown>
             <Dropdown.Toggle variant="outline-secondary" size="sm">
               📋 {t('electionLab.scenario')}
@@ -353,6 +367,27 @@ const ElectionLabPage: React.FC = () => {
             </Dropdown.Menu>
           </Dropdown>
         </div>
+      </div>
+
+      {/* Sub-simulation shortcuts */}
+      <div
+        className="d-flex align-items-center gap-2 flex-wrap mb-3 p-2 rounded"
+        style={{ background: 'var(--bs-secondary-bg, #f8f9fa)', fontSize: '0.78rem' }}
+      >
+        <span className="text-muted fw-semibold" style={{ whiteSpace: 'nowrap' }}>
+          {t('electionLab.goDeeper')} :
+        </span>
+        {SUB_SIMS.map(({ href, icon, key }) => (
+          <Button
+            key={href}
+            variant="outline-secondary"
+            size="sm"
+            onClick={() => navigate(href)}
+            style={{ fontSize: '0.76rem', padding: '2px 8px', whiteSpace: 'nowrap' }}
+          >
+            {icon} {t(key)} ↗
+          </Button>
+        ))}
       </div>
 
       <Row className="g-3">
