@@ -18,6 +18,7 @@ import CampaignSensitivityPanel from '../components/shared/CampaignSensitivityPa
 import CombinedEffectsMatrix from '../components/shared/CombinedEffectsMatrix';
 import HistoricalReferencePanel from '../components/shared/HistoricalReferencePanel';
 import MetricTooltip from '../components/shared/MetricTooltip';
+import ElectionInsightPanel from '../components/shared/ElectionInsightPanel';
 
 const COLORS: Record<string, string> = {
   Green: '#007A33', Liberal: '#005CAB', Conservative: '#C8590A', Independent: '#6c757d',
@@ -466,6 +467,7 @@ const ElectionLabPage: React.FC = () => {
               <Tabs defaultActiveKey="results" className="mb-3">
                 <Tab eventKey="results" title={`📊 ${t('electionLab.tabResults')}`}>
                   <ResultsTab result={result} t={t} />
+                  <ElectionInsightPanel result={result} />
                   <HistoricalReferencePanel result={result} />
                 </Tab>
                 <Tab eventKey="map" title={`🗺 ${t('electionLab.tabMap')}`}>

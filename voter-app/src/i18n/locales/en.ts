@@ -865,6 +865,17 @@ const en: TranslationKeys = {
     highImpactMessage:  'Blank vote changes the winner for {{pct}}% of methods. Methods {{methods}} are particularly sensitive.',
     noImpactMessage:    'Blank vote did not change the winner for any method with this configuration.',
   },
+  insight: {
+    title:          'Election analysis',
+    loading:        'Analysing…',
+    error:          'Unable to generate analysis.',
+    team:           'Team',
+    bestMethod:     'Most fair method (minimal regret)',
+    worstMethod:    'Least representative method',
+    consensusLabel: '✓ Broad consensus',
+    moderateLabel:  '⚠ Moderate divergence',
+    strongLabel:    '🚨 Strong divergence',
+  },
   metrics: {
     info: 'Metric information',
     bayesian_regret: {

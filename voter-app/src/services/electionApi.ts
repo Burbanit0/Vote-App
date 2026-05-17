@@ -138,6 +138,37 @@ export async function fetchCombinedEffects(
   return response.data;
 }
 
+// ── Interpret types ───────────────────────────────────────────────────────────
+
+export interface MethodGroup {
+  winner:  string;
+  methods: string[];
+  pct:     number;
+}
+
+export interface InterpretResult {
+  headline:           string;
+  condorcet_analysis: string;
+  divergence_reason:  string;
+  method_groups:      MethodGroup[];
+  best_by_regret:     string | null;
+  worst_by_regret:    string | null;
+  blank_analysis:     string | null;
+  pedagogical_note:   string;
+  key_facts:          string[];
+}
+
+export async function interpretElection(
+  simulateResult: ElectionResult,
+  lang: 'fr' | 'en' = 'fr'
+): Promise<InterpretResult> {
+  const response = await axios.post<InterpretResult>(
+    `${API_BASE}/api/election/interpret`,
+    { ...simulateResult, lang }
+  );
+  return response.data;
+}
+
 export async function fetchCampaignSensitivity(
   params: CampaignSensitivityParams
 ): Promise<CampaignSensitivityResult> {
