@@ -17,6 +17,8 @@ import { useChartTheme } from '../../hooks/useChartTheme';
 import EmptyChart from '../shared/EmptyChart';
 import MetricTooltip from '../shared/MetricTooltip';
 import MethodSimilarityGraph from './MethodSimilarityGraph';
+import MajorityJudgmentChart from './MajorityJudgmentChart';
+import type { MJResult } from './MajorityJudgmentChart';
 import { useTranslation } from 'react-i18next';
 
 function avg(values: number[]): number {
@@ -169,6 +171,33 @@ const MetricsTab: React.FC<Props> = ({ comparisonResults, allMethodNames, numSim
         )}
       </Card.Body>
     </Card>
+
+      {/* Majority Judgment visualization — shown when MJ is in the results */}
+      {(() => {
+        const mjResult = comparisonResults[0]?.methods?.['majority_judgment'] as (Record<string, unknown> & { mj_grade_distributions?: Record<string, number[]>; mj_grades?: Record<string, Record<string, number>>; mj_medians?: Record<string, string>; mj_scores?: Record<string, number>; winner?: string | null }) | undefined;
+        if (!mjResult?.mj_grade_distributions) return null;
+        const allCandidates = Object.keys(mjResult.mj_grade_distributions);
+        const mjData: MJResult = {
+          winner:             mjResult.winner ?? null,
+          grades:             mjResult.mj_grades ?? {},
+          medians:            mjResult.mj_medians ?? {},
+          scores:             mjResult.mj_scores ?? {},
+          grade_distributions: mjResult.mj_grade_distributions,
+        };
+        return (
+          <Card className="mb-4" data-testid="mj-card">
+            <Card.Header>
+              <strong>{t('mj.chartTitle')}</strong>
+              <span className="text-muted ms-2" style={{ fontSize: '0.85rem' }}>
+                {t('mj.chartSubtitle')}
+              </span>
+            </Card.Header>
+            <Card.Body>
+              <MajorityJudgmentChart mjResult={mjData} candidates={allCandidates} />
+            </Card.Body>
+          </Card>
+        );
+      })()}
 
       {/* Similarity graph modal */}
       <Modal show={showGraph} onHide={() => setShowGraph(false)} size="xl" centered>
