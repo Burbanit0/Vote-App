@@ -18,7 +18,6 @@ import random as _random
 from collections import Counter
 from typing import Any, Dict, List, Optional
 
-import eventlet
 from eventlet import tpool
 import numpy as _np
 from flask import Blueprint, Response, current_app, jsonify, request
@@ -100,12 +99,8 @@ def simulate() -> tuple[Response, int]:
     """
     data = request.get_json() or {}
     try:
-        with eventlet.Timeout(120):
-            body, status = tpool.execute(_simulate_worker, data)
+        body, status = tpool.execute(_simulate_worker, data)
         return jsonify(body), status
-    except eventlet.timeout.Timeout:
-        current_app.logger.warning("simulate() timed out after 120s")
-        return jsonify({"error": "Simulation timed out"}), 503
     except Exception as exc:
         current_app.logger.exception("simulate() crashed")
         return jsonify({"error": f"Internal error: {exc}"}), 500
@@ -2621,4 +2616,194 @@ def jury() -> tuple[Response, int]:
         "competence_curve":     curve_points,
         "pedagogical_note":     note_fr,
         "pedagogical_note_en":  note_en,
+    }), 200
+
+
+# ── Differential abstention endpoint ─────────────────────────────────────────
+
+def _sigmoid(x: float) -> float:
+    """Numerically stable sigmoid."""
+    return 1.0 / (1.0 + float(_np.exp(-min(max(x, -30.0), 30.0))))
+
+
+def _abstention_prob(
+    poll_gap:             float,
+    utility_gap:          float,
+    demobilization_factor: float,
+    poll_influence:        float,
+) -> float:
+    """
+    P(abstention) for one voter in one round.
+
+    Scales to 0 when demobilization_factor=0 (guaranteed no abstention).
+    Uses a sigmoid of the combined demobilization signal, multiplied by
+    demobilization_factor and poll_influence as outer scale factors.
+
+    poll_gap    = fraction of voters NOT preferring the same candidate as v
+                  (high → v's candidate is trailing in the polls)
+    utility_gap = 1 - max_utility of v (high → v is indifferent to outcome)
+    """
+    if demobilization_factor <= 0.0:
+        return 0.0
+    # Inner signal: shifts sigmoid so neutral inputs give ~0.2 probability
+    signal = poll_gap * 3.0 + utility_gap * 1.5 - 1.0
+    p = demobilization_factor * _sigmoid(signal) * poll_influence
+    return max(0.0, min(1.0, p))
+
+
+@election_bp.route("/abstention", methods=["POST"])
+@sim_limiter.limit("10 per minute")
+def abstention() -> tuple[Response, int]:
+    """
+    POST /api/election/abstention
+
+    Simulate differential abstention over num_rounds of polling.
+    Each round, voters whose preferred candidate is trailing abstain
+    with a probability proportional to demobilization_factor and poll_influence.
+
+    Round 0 is always sincere (no polls yet → no abstention).
+    Subsequent rounds use the previous round's vote shares as polls.
+    """
+    data = request.get_json() or {}
+
+    num_voters             = max(50,  min(1000, int(data.get("num_voters", 300))))
+    ideology               = str(data.get("ideology", "random"))
+    seed                   = int(data.get("seed", 42))
+    demobilization_factor  = max(0.0, min(1.0, float(data.get("demobilization_factor", 0.5))))
+    poll_influence         = max(0.0, min(1.0, float(data.get("poll_influence", 0.8))))
+    num_rounds             = max(1, min(5, int(data.get("num_rounds", 3))))
+    cand_specs             = data.get("candidates", [
+        {"name": "Alice", "x": -0.5, "y": -0.2},
+        {"name": "Bob",   "x":  0.5, "y":  0.2},
+        {"name": "Carol", "x":  0.0, "y":  0.3},
+    ])[:6]
+
+    if len(cand_specs) < 2:
+        return jsonify({"error": "At least 2 candidates required"}), 400
+
+    _random.seed(seed)
+    _np.random.seed(seed)
+    issues = DEFAULT_ISSUES
+
+    candidates, voters, true_utilities, cand_names = _build_base_electorate(
+        cand_specs, num_voters, ideology, seed, issues
+    )
+
+    # Voter positions for the abstention_map (SVG ideology overlay)
+    voter_positions: list[Dict[str, Any]] = [
+        {
+            "id": v["id"],
+            "x":  round(2.0 * v["issue_positions"].get("economy", 0.5) - 1.0, 3),
+            "y":  round(2.0 * v["issue_positions"].get("social_welfare", 0.5) - 1.0, 3),
+        }
+        for v in voters
+    ]
+
+    # Each voter's preferred candidate (highest true utility)
+    voter_preferred: Dict[Any, str] = {
+        v["id"]: max(true_utilities[v["id"]], key=lambda k: true_utilities[v["id"]][k])
+        for v in voters
+    }
+
+    # Round 0: sincere vote (no polls → no abstention)
+    sincere_fc: Counter[str] = Counter(voter_preferred.values())
+    total_sincere = len(voters) or 1
+    polls: Dict[str, float] = {n: sincere_fc.get(n, 0) / total_sincere for n in cand_names}
+
+    def _run_round_fptp(active_voters: list[Dict[str, Any]]) -> str:
+        fc: Counter[str] = Counter(voter_preferred[v["id"]] for v in active_voters)
+        return max(fc, key=lambda k: fc[k]) if fc else cand_names[0]
+
+    def _run_round_condorcet(active_voters: list[Dict[str, Any]]) -> Optional[str]:
+        rankings = [
+            sorted(true_utilities[v["id"]].keys(), key=lambda k: -true_utilities[v["id"]][k])
+            for v in active_voters
+        ]
+        return get_condorcet_winner(rankings)
+
+    sincere_winner = _run_round_fptp(voters)
+
+    rounds_out: list[Dict[str, Any]] = []
+
+    for rnd in range(num_rounds + 1):
+        if rnd == 0:
+            # Sincere round — everyone votes
+            active   = voters
+            abs_probs = {v["id"]: 0.0 for v in voters}
+            abstained = set[Any]()
+        else:
+            # Determine P(abstention) for each voter from last-round polls
+            abs_probs = {}
+            abstained = set()
+            for v in voters:
+                uid      = v["id"]
+                pref     = voter_preferred[uid]
+                poll_gap = max(0.0, 1.0 - polls.get(pref, 0.0))
+                max_util = max(true_utilities[uid].values(), default=0.5)
+                util_gap = max(0.0, 1.0 - max_util)
+                p        = _abstention_prob(poll_gap, util_gap,
+                                             demobilization_factor, poll_influence)
+                abs_probs[uid] = round(p, 4)
+                if _random.random() < p:
+                    abstained.add(uid)
+            active = [v for v in voters if v["id"] not in abstained]
+
+        # Vote shares among active voters
+        fc: Counter[str] = Counter()
+        for v in active:
+            fc[voter_preferred[v["id"]]] += 1
+        total_active = len(active) or 1
+        vote_shares = {n: round(fc.get(n, 0) / total_active, 4) for n in cand_names}
+
+        winner_fptp      = _run_round_fptp(active)
+        winner_condorcet = _run_round_condorcet(active)
+
+        # Build abstention_map (max 300 voters for performance)
+        snap_indices = list(range(min(300, len(voters))))
+        abs_map = [
+            {
+                **voter_positions[i],
+                "preferred":        voter_preferred[voters[i]["id"]],
+                "abstained":        voters[i]["id"] in abstained,
+                "prob_abstention":  abs_probs.get(voters[i]["id"], 0.0),
+            }
+            for i in snap_indices
+        ]
+
+        rounds_out.append({
+            "round":          rnd,
+            "turnout":        round(len(active) / (len(voters) or 1), 4),
+            "vote_shares":    vote_shares,
+            "winner_fptp":    winner_fptp,
+            "winner_condorcet": winner_condorcet,
+            "abstention_map": abs_map,
+        })
+
+        # Update polls for next round
+        polls = vote_shares
+
+    final_winner   = rounds_out[-1]["winner_fptp"]
+    winner_changed = final_winner != sincere_winner
+
+    # Turnout by camp (average participation rate per preferred candidate)
+    camp_votes:  Dict[str, int] = {n: 0 for n in cand_names}
+    camp_total:  Dict[str, int] = {n: 0 for n in cand_names}
+    last_abs_map = rounds_out[-1]["abstention_map"]
+    for p in last_abs_map:
+        pref = p["preferred"]
+        camp_total[pref] = camp_total.get(pref, 0) + 1
+        if not p["abstained"]:
+            camp_votes[pref] = camp_votes.get(pref, 0) + 1
+    turnout_by_camp = {
+        n: round(camp_votes.get(n, 0) / max(camp_total.get(n, 1), 1), 4)
+        for n in cand_names
+    }
+
+    return jsonify({
+        "rounds":          rounds_out,
+        "sincere_winner":  sincere_winner,
+        "final_winner":    final_winner,
+        "winner_changed":  winner_changed,
+        "turnout_by_camp": turnout_by_camp,
+        "candidates":      [{"name": c["name"]} for c in candidates],
     }), 200
