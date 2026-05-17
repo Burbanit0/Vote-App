@@ -1106,9 +1106,11 @@ def interpret() -> tuple[Response, int]:
     # ── 8. Key facts ──────────────────────────────────────────────────────
     key_facts: list[str] = []
     if top_group:
+        top_pct:     float     = top_group["pct"]      # type: ignore[assignment]
+        top_methods: list[str] = top_group["methods"]  # type: ignore[assignment]
         key_facts.append(T["fact_pct"].format(
-            pct=round(top_group["pct"] * 100, 0).__int__(),
-            n=len(top_group["methods"]),
+            pct=int(round(top_pct * 100, 0)),
+            n=len(top_methods),
             total=n_methods,
             winner=top_group["winner"],
         ))
