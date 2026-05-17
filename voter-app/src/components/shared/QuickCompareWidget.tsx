@@ -1,5 +1,6 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { Badge, Button, Col, Form, Row, Spinner } from 'react-bootstrap';
+import { ElectionResult } from '../../services/electionApi';
 import { useNavigate } from 'react-router';
 import { useTranslation } from 'react-i18next';
 import { useElection } from '../../context/ElectionContext';
@@ -93,6 +94,8 @@ const QuickCompareWidget: React.FC = () => {
   const [methodB,    setMethodB]     = useState('schulze');
   const [winnerA,    setWinnerA]     = useState<string | null>(null);
   const [winnerB,    setWinnerB]     = useState<string | null>(null);
+  const [regretA,    setRegretA]     = useState<number | null>(null);
+  const [regretB,    setRegretB]     = useState<number | null>(null);
   const [loading,    setLoading]     = useState(false);
   const [hasResult,  setHasResult]   = useState(false);
 
@@ -108,6 +111,8 @@ const QuickCompareWidget: React.FC = () => {
       if (runIdRef.current !== myRun) return;
       setWinnerA(res.methods[mA]?.winner ?? '—');
       setWinnerB(res.methods[mB]?.winner ?? '—');
+      setRegretA(res.methods[mA]?.bayesian_regret ?? null);
+      setRegretB(res.methods[mB]?.bayesian_regret ?? null);
       setHasResult(true);
     } catch {
       if (runIdRef.current === myRun) { setWinnerA(null); setWinnerB(null); }
@@ -283,9 +288,35 @@ const QuickCompareWidget: React.FC = () => {
 
             {hasResult && (
               <div className="text-center">
-                <Button variant="primary" onClick={handleExplore} data-testid="explore-button">
-                  {t('home.widget.explore')}
-                </Button>
+                {/* Regret delta badge */}
+                {regretA != null && regretB != null && (
+                  <div className="mb-2">
+                    <Badge
+                      bg={regretA < regretB ? 'success' : 'secondary'}
+                      data-testid="regret-delta-badge"
+                      style={{ fontSize: '0.72rem' }}
+                    >
+                      Regret Δ: {Math.abs(regretA - regretB).toFixed(4)}
+                      {' '}({regretA < regretB ? methodA : methodB} {t('home.widget.lowerRegret')})
+                    </Badge>
+                  </div>
+                )}
+                <div className="d-flex gap-2 justify-content-center flex-wrap">
+                  <Button variant="primary" onClick={handleExplore} data-testid="explore-button">
+                    {t('home.widget.explore')}
+                  </Button>
+                  {differ && (
+                    <Button
+                      variant="outline-danger"
+                      size="sm"
+                      onClick={() => { handleExplore(); }}
+                      data-testid="full-duel-button"
+                      style={{ fontSize: '0.8rem' }}
+                    >
+                      ⚔ {t('duel.openFull')} →
+                    </Button>
+                  )}
+                </div>
               </div>
             )}
           </>

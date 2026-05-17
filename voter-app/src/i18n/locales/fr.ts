@@ -62,6 +62,7 @@ const fr = {
       divergeHint:      'La méthode de vote change le résultat sur cette élection. Explorez pourquoi dans le Lab.',
       agree:            '✓ Ces deux méthodes s\'accordent sur ce scénario.',
       explore:          '🔬 Explorer en détail →',
+      lowerRegret:      'régret plus bas',
       scenarioFrance2002: 'France 2002',
       scenarioUSA1992:    'USA 1992',
       scenarioConsensus:  'Consensus',
@@ -1171,6 +1172,21 @@ const fr = {
     colGroupWinners:  'Vainqueurs par méthode',
     colGroupQuality:  'Métriques de qualité',
     colGroupBlank:    'Vote blanc',
+  },
+
+  duel: {
+    enterDuel:           'Mode Duel',
+    exitDuel:            'Quitter le duel',
+    winner:              'Vainqueur',
+    converge:            'Les deux méthodes convergent',
+    diverge:             'Méthodes divergentes',
+    sameElectorate:      'Même électorat, même seed',
+    openFull:            'Voir le duel complet',
+    pedagogicalAgree:    '{{method}} et l\'autre méthode s\'accordent sur {{winner}} — cas de consensus rare et précieux.',
+    pedagogicalCondorcet:'{{miss}} rate le vainqueur de Condorcet ({{cw}}) et élit {{winner}} à la place. {{hit}} est conforme au critère de Condorcet.',
+    pedagogicalRegret:   '{{mA}} élit {{winA}}, {{mB}} élit {{winB}}. La méthode {{better}} minimise le régret bayésien ({{regret}}) — elle maximise mieux le bien-être collectif.',
+    pedagogicalBlank:    '{{mA}} élit {{winA}}, {{mB}} élit {{winB}}. Le taux de vote blanc élevé ({{pct}}%) déstabilise les deux méthodes différemment.',
+    pedagogicalDefault:  '{{mA}} élit {{winA}}, {{mB}} élit {{winB}}. Avec le même électorat, la méthode de décompte suffit à changer le vainqueur.',
   },
 
   jury: {
