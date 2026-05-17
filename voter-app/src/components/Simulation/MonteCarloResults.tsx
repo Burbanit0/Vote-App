@@ -30,6 +30,7 @@ import SkeletonCard from '../shared/SkeletonCard';
 import { useChartTheme } from '../../hooks/useChartTheme';
 import { useMonteCarloStream } from '../../hooks/useMonteCarloStream';
 import MonteCarloLiveChart from './MonteCarloLiveChart';
+import MonteCarloRaceChart from './MonteCarloRaceChart';
 import MonteCarloConvergencePanel from './MonteCarloConvergencePanel';
 import MetricTooltip from '../shared/MetricTooltip';
 
@@ -281,6 +282,14 @@ const MonteCarloResults: React.FC<Props> = ({ baseParams }) => {
         partialResults={stream.partialResults}
         error={null}
         onStop={() => stream.stop()}
+      />
+
+      {/* Race chart — visible once checkpoints exist */}
+      <MonteCarloRaceChart
+        regretHistory={stream.regretHistory}
+        iterationCheckpoints={stream.iterationCheckpoints}
+        partialResults={stream.partialResults}
+        isRunning={stream.isRunning}
       />
 
       {/* Convergence panels — visible from first progress event */}
