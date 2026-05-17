@@ -2,7 +2,7 @@
 # Install with: pip install -r flask_voter_app/requirements-dev.txt
 
 # Tests
-pytest==8.3.5
+pytest==9.0.3
 pytest-cov==6.1.0
 
 # Security
