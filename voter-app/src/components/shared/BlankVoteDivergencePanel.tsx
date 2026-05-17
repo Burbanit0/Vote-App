@@ -8,6 +8,7 @@ import {
 } from 'recharts';
 import { useTranslation } from 'react-i18next';
 import { useElection } from '../../context/ElectionContext';
+import MetricTooltip from './MetricTooltip';
 import { fetchDivergence, DivergenceResult, DivergenceRunResult } from '../../services/electionApi';
 import { useChartTheme } from '../../hooks/useChartTheme';
 import LiveBadge from './LiveBadge';
@@ -35,9 +36,11 @@ const MethodColumn: React.FC<{
         {/* Accord badge */}
         <div className="text-center mb-2">
           <Badge
+            className="d-inline-flex align-items-center gap-1"
             style={{ fontSize: '0.82rem', background: agreement >= 80 ? C.green : agreement >= 60 ? C.orange : C.red }}
           >
             {t('divergence.agreement')}: {agreement}%
+            <MetricTooltip metric="method_agreement" placement="bottom" />
           </Badge>
         </div>
 
@@ -168,6 +171,7 @@ const BlankVoteDivergencePanel: React.FC = () => {
           {/* Delta badge */}
           <div className="d-flex justify-content-center mb-3">
             <Badge
+              className="d-inline-flex align-items-center gap-1"
               style={{
                 fontSize: '0.95rem', padding: '8px 16px',
                 background: deltaPositive ? C.green : (deltaPct >= 5 ? C.red : C.gray),
@@ -176,6 +180,7 @@ const BlankVoteDivergencePanel: React.FC = () => {
               Δ {t('divergence.agreement')}{' '}
               {deltaPositive ? '+' : '−'}{deltaPct}%
               {' '}
+              <MetricTooltip metric="delta_agreement" placement="bottom" />
               {deltaPositive
                 ? `(${t('divergence.moreAgreement')})`
                 : deltaPct >= 5 ? `(${t('divergence.moreDivergence')})` : ''}

@@ -17,6 +17,7 @@ import BlankVoteDivergencePanel from '../components/shared/BlankVoteDivergencePa
 import CampaignSensitivityPanel from '../components/shared/CampaignSensitivityPanel';
 import CombinedEffectsMatrix from '../components/shared/CombinedEffectsMatrix';
 import HistoricalReferencePanel from '../components/shared/HistoricalReferencePanel';
+import MetricTooltip from '../components/shared/MetricTooltip';
 
 const COLORS: Record<string, string> = {
   Green: '#007A33', Liberal: '#005CAB', Conservative: '#C8590A', Independent: '#6c757d',
@@ -32,8 +33,9 @@ const ResultsTab: React.FC<{ result: ElectionResult; t: (k: string) => string }>
     <div>
       {/* Summary badges */}
       <div className="d-flex gap-2 flex-wrap mb-3">
-        <Badge bg="primary">
+        <Badge bg="primary" className="d-inline-flex align-items-center gap-1">
           {t('electionLab.methodAgreement')}: {Math.round(result.inter_method_agreement * 100)}%
+          <MetricTooltip metric="method_agreement" placement="bottom" />
         </Badge>
         {result.condorcet_winner && (
           <Badge bg="success">Condorcet: {result.condorcet_winner} ✓</Badge>
@@ -51,8 +53,14 @@ const ResultsTab: React.FC<{ result: ElectionResult; t: (k: string) => string }>
             <th>{t('common.method')}</th>
             <th>{t('electionLab.winner')}</th>
             {hasBlank && <th>{t('electionLab.winnerWithBlank')}</th>}
-            <th>{t('simulation.bayesianRegret')}</th>
-            <th>Condorcet ✓</th>
+            <th className="d-flex align-items-center gap-1">
+              {t('simulation.bayesianRegret')}
+              <MetricTooltip metric="bayesian_regret" placement="bottom" />
+            </th>
+            <th>
+              Condorcet ✓
+              <MetricTooltip metric="condorcet_compliance" placement="bottom" />
+            </th>
           </tr>
         </thead>
         <tbody>

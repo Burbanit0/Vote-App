@@ -31,6 +31,7 @@ import { useChartTheme } from '../../hooks/useChartTheme';
 import { useMonteCarloStream } from '../../hooks/useMonteCarloStream';
 import MonteCarloLiveChart from './MonteCarloLiveChart';
 import MonteCarloConvergencePanel from './MonteCarloConvergencePanel';
+import MetricTooltip from '../shared/MetricTooltip';
 
 const CANDIDATE_PALETTE = ['#4e79a7', '#f28e2b', '#e15759', '#76b7b2', '#59a14f', '#edc948'];
 
@@ -313,6 +314,7 @@ const MonteCarloResults: React.FC<Props> = ({ baseParams }) => {
             <Card.Header className="d-flex align-items-center justify-content-between flex-wrap gap-2">
               <div>
                 <strong>{t('simulation.bayesianRegretCI')}</strong>
+                  <MetricTooltip metric="bayesian_regret" placement="bottom" />
                 <span className="text-muted ms-2" style={{ fontSize: '0.85rem' }}>
                   {t('simulation.bayesianRegretCIDesc')}
                 </span>
