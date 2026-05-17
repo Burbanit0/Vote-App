@@ -1,4 +1,5 @@
 from itertools import permutations
+import random
 from typing import Any, Callable, Dict, List, Optional
 
 from .simulation_voting_utils import calculate_utility
@@ -26,7 +27,8 @@ from .quadratic_voting import apply_quadratic_voting
 
 # Maximum number of voters sampled when computing strategic_vulnerability.
 # Kept low because each call reruns the full election for every permutation.
-_STRATEGIC_SAMPLE = 100
+_STRATEGIC_SAMPLE = 15
+_MAX_STRATEGIC_PERMS = 100
 
 
 def _insert_blank(
@@ -184,10 +186,10 @@ def compare_all_methods(
         Proportion of sampled voters who can improve their outcome by
         submitting a non-sincere ranking.
 
-        For each sampled voter, every permutation of their sincere ranking
-        is tried. If any permutation changes the winner to a candidate the
-        voter prefers over the current winner, the voter is counted as
-        'vulnerable'.
+        For each sampled voter, up to 200 random permutations of their
+        sincere ranking are tried. If any permutation changes the winner
+        to a candidate the voter prefers over the current winner, the
+        voter is counted as 'vulnerable'.
         """
         if not winner_name:
             return None
@@ -197,9 +199,12 @@ def compare_all_methods(
             u = utilities[voter["id"]]
             current_winner_u = u.get(winner_name, 0)
             sincere = rankings[i]
-            # All rankings except this voter's.
             others = rankings[:i] + rankings[i + 1:]
-            for perm in permutations(sincere):
+            # Cap permutations to avoid factorial explosion
+            perms = list(permutations(sincere))
+            if len(perms) > _MAX_STRATEGIC_PERMS:
+                perms = random.sample(perms, _MAX_STRATEGIC_PERMS)
+            for perm in perms:
                 new_winner = method_fn(others + [list(perm)])
                 if (
                     new_winner
@@ -297,7 +302,10 @@ def compare_all_methods(
 
     for name, fn in ranked_methods.items():
         winner = fn(rankings)
-        methods_result[name] = _build_metrics_ranked(fn, winner)
+        entry = _build_metrics_ranked(fn, winner)
+        if name == "kemeny_young":
+            entry["kemeny_exact"] = not getattr(fn, "was_approx", False)
+        methods_result[name] = entry
 
     for name, fn in score_methods.items():
         raw = fn(score_votes)
