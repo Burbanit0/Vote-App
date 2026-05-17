@@ -1078,6 +1078,7 @@ const en: TranslationKeys = {
     tabCoalition:             'Coalition',
     tabDistricts:             'Districts',
     tabPrimary:               'Primaries',
+    tabReplay:                'Historical replay',
     tabAdaptive:              'Tactical voting',
     goDeeper:                 'Go deeper',
     subSimulator:             'Simulator',
@@ -1167,6 +1168,24 @@ const en: TranslationKeys = {
     colGroupWinners:  'Winners by method',
     colGroupQuality:  'Quality metrics',
     colGroupBlank:    'Blank vote',
+  },
+
+  replay: {
+    run:          'Simulate',
+    simulating:   'Simulating…',
+    error:        'Error loading replay.',
+    numDays:      'Campaign length (days)',
+    applyDrag:    'Replay with these positions',
+    dragHint:     'Drag a candidate to rewrite history',
+    day:          'Day',
+    voteShares:   'Voting intentions',
+    realResult:   'Historical result',
+    simResult:    'Simulation',
+    differs:      'History rewritten',
+    play:         'Play',
+    pause:        'Pause',
+    tabTitle:     'Historical replay',
+    openReplay:   'Replay this election →',
   },
 
   methodRace: {

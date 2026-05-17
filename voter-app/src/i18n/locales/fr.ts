@@ -1076,6 +1076,7 @@ const fr = {
     tabCoalition:             'Coalition',
     tabDistricts:             'Circonscriptions',
     tabPrimary:               'Primaires',
+    tabReplay:                'Replay historique',
     tabAdaptive:              'Vote tactique',
     goDeeper:                 'Aller plus loin',
     subSimulator:             'Simulateur',
@@ -1165,6 +1166,24 @@ const fr = {
     colGroupWinners:  'Vainqueurs par méthode',
     colGroupQuality:  'Métriques de qualité',
     colGroupBlank:    'Vote blanc',
+  },
+
+  replay: {
+    run:          'Simuler',
+    simulating:   'Simulation…',
+    error:        'Erreur lors du chargement.',
+    numDays:      'Durée de campagne (jours)',
+    applyDrag:    'Rejouer avec ces positions',
+    dragHint:     'Glissez un candidat pour réécrire l\'histoire',
+    day:          'Jour',
+    voteShares:   'Intentions de vote',
+    realResult:   'Résultat historique',
+    simResult:    'Simulation',
+    differs:      'Histoire réécrite',
+    play:         'Jouer',
+    pause:        'Pause',
+    tabTitle:     'Replay historique',
+    openReplay:   'Rejouer cette élection →',
   },
 
   methodRace: {
