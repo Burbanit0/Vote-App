@@ -242,12 +242,14 @@ const PartyEditor: React.FC<PartyEditorProps> = ({ parties, onChange, t }) => {
               min={-1} max={1} step={0.05} value={party.ideology_center}
               onChange={(e) => updateParty(pIdx, { ideology_center: Number(e.target.value) })}
               className="mb-1"
+              style={{ minHeight: 44 }}
             />
             <div className="text-muted mb-1" style={{ fontSize: '0.72rem' }}>
               {t('primary.primaryVotersPct')}: {Math.round(party.primary_voters_pct * 100)}%
               <Form.Range
                 min={0.05} max={0.6} step={0.05} value={party.primary_voters_pct}
                 onChange={(e) => updateParty(pIdx, { primary_voters_pct: Number(e.target.value) })}
+                style={{ minHeight: 44 }}
               />
             </div>
             <div className="ps-2">

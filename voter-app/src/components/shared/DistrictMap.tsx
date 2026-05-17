@@ -125,13 +125,17 @@ interface DistrictGridProps {
 }
 
 const DistrictGrid: React.FC<DistrictGridProps> = ({ districts, candidateNames, revealedCount }) => {
-  const n = districts.length;
-  const cols = Math.min(10, Math.ceil(Math.sqrt(n * 2)));
+  const n       = districts.length;
+  // On narrow viewports the SVG scales down via width="100%"; we cap columns
+  // to 5 on mobile by checking if window exists (SSR-safe)
+  const isMobile = typeof window !== 'undefined' && window.innerWidth < 768;
+  const CELL    = isMobile ? 48 : 32;
+  const cols    = isMobile ? Math.min(5, Math.ceil(Math.sqrt(n))) : Math.min(10, Math.ceil(Math.sqrt(n * 2)));
 
   return (
     <svg
       data-testid="district-grid"
-      viewBox={`0 0 ${cols * 32} ${Math.ceil(n / cols) * 32}`}
+      viewBox={`0 0 ${cols * CELL} ${Math.ceil(n / cols) * CELL}`}
       width="100%"
       style={{ maxWidth: 480, display: 'block', margin: '0 auto' }}
     >
@@ -153,10 +157,10 @@ const DistrictGrid: React.FC<DistrictGridProps> = ({ districts, candidateNames, 
         return (
           <g key={d.id}>
             <rect
-              x={col * 32 + 1}
-              y={row * 32 + 1}
-              width={30}
-              height={30}
+              x={col * CELL + 1}
+              y={row * CELL + 1}
+              width={CELL - 2}
+              height={CELL - 2}
               rx={4}
               fill={revealed ? color : ideoBg}
               stroke={revealed ? '#fff' : '#ced4da'}
@@ -168,8 +172,8 @@ const DistrictGrid: React.FC<DistrictGridProps> = ({ districts, candidateNames, 
             </rect>
             {revealed && (
               <text
-                x={col * 32 + 16}
-                y={row * 32 + 16}
+                x={col * CELL + CELL / 2}
+                y={row * CELL + CELL / 2}
                 textAnchor="middle"
                 dominantBaseline="central"
                 fontSize={9}

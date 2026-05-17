@@ -1075,6 +1075,7 @@ const fr = {
     tabPipeline:              'Pipeline',
     tabCombinedEffects:       'Effets combinés',
     tabCoalition:             'Coalition',
+    tabSelect:                'Choisir un onglet',
     tabDistricts:             'Circonscriptions',
     tabPrimary:               'Primaires',
     tabJury:                  'Théorème du jury',

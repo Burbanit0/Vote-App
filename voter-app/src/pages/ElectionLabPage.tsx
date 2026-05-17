@@ -336,6 +336,15 @@ const ElectionLabPage: React.FC = () => {
   const [duelMode,  setDuelMode]  = useState(false);
   const [duelMethA, setDuelMethA] = useState('plurality');
   const [duelMethB, setDuelMethB] = useState('schulze');
+  const [activeTab, setActiveTab] = useState('results');
+  const [isMobile,  setIsMobile]  = useState(() => window.innerWidth < 768);
+
+  React.useEffect(() => {
+    const mq = window.matchMedia('(max-width: 767px)');
+    const handler = (e: MediaQueryListEvent) => setIsMobile(e.matches);
+    mq.addEventListener('change', handler);
+    return () => mq.removeEventListener('change', handler);
+  }, []);
   const runIdRef              = useRef(0);
 
   const runSimulation = useCallback(async () => {
@@ -488,67 +497,105 @@ const ElectionLabPage: React.FC = () => {
                 </Button>
               </div>
 
-              <Tabs defaultActiveKey="results" className="mb-3">
-                <Tab eventKey="results" title={`📊 ${t('electionLab.tabResults')}`}>
-                  {duelMode ? (
-                    <DuelModePanel
-                      result={result}
-                      methodA={duelMethA}
-                      methodB={duelMethB}
-                      onMethodAChange={setDuelMethA}
-                      onMethodBChange={setDuelMethB}
-                    />
-                  ) : (
-                    <>
-                      <ResultsTab result={result} t={t} />
-                      <ElectionInsightPanel result={result} />
-                      <HistoricalReferencePanel result={result} />
-                    </>
-                  )}
-                </Tab>
-                <Tab eventKey="map" title={`🗺 ${t('electionLab.tabMap')}`}>
-                  <IdeologyMapChart defaultCandidates={candidateNames} />
-                </Tab>
-                <Tab eventKey="animation" title={`▶ ${t('electionLab.tabAnimation')}`}>
-                  <VoteStepAnimator defaultCandidates={candidateNames} />
-                </Tab>
-                <Tab eventKey="montecarlo" title={`🎲 ${t('electionLab.tabMonteCarlo')}`}>
-                  <MonteCarloResults baseParams={baseParams} />
-                </Tab>
-                <Tab eventKey="manipulability" title={`⚡ ${t('electionLab.tabManipulability')}`}>
-                  <ManipulabilityChart baseParams={baseParams} />
-                </Tab>
-                <Tab eventKey="blank-divergence" title={`📊 ${t('electionLab.tabBlankDivergence')}`}>
-                  <BlankVoteDivergencePanel />
-                </Tab>
-                <Tab eventKey="campaign-sensitivity" title={`📈 ${t('electionLab.tabCampaignSensitivity')}`}>
-                  <CampaignSensitivityPanel />
-                </Tab>
-                <Tab eventKey="pipeline" title={`🎬 ${t('electionLab.tabPipeline')}`}>
-                  <ElectionPipelineAnimator />
-                </Tab>
-                <Tab eventKey="combined-effects" title={`🔬 ${t('electionLab.tabCombinedEffects')}`}>
-                  <CombinedEffectsMatrix />
-                </Tab>
-                <Tab eventKey="coalition" title={`🏛 ${t('electionLab.tabCoalition')}`}>
-                  <CoalitionPanel />
-                </Tab>
-                <Tab eventKey="districts" title={`🗺 ${t('electionLab.tabDistricts')}`}>
-                  <DistrictMap />
-                </Tab>
-                <Tab eventKey="primary" title={`🗳 ${t('electionLab.tabPrimary')}`}>
-                  <PrimarySimulator />
-                </Tab>
-                <Tab eventKey="replay" title={`📺 ${t('electionLab.tabReplay')}`}>
-                  <HistoricalReplay />
-                </Tab>
-                <Tab eventKey="jury" title={`⚖️ ${t('electionLab.tabJury')}`}>
-                  <JuryTheoremPanel />
-                </Tab>
-                <Tab eventKey="adaptive" title={`⚙ ${t('electionLab.tabAdaptive')}`}>
-                  <AdaptiveVotingPanel />
-                </Tab>
-              </Tabs>
+              {/* ── Adaptive tab navigation ── */}
+              {(() => {
+                const TABS = [
+                  { key: 'results',            icon: '📊', label: t('electionLab.tabResults') },
+                  { key: 'map',                icon: '🗺', label: t('electionLab.tabMap') },
+                  { key: 'animation',          icon: '▶',  label: t('electionLab.tabAnimation') },
+                  { key: 'montecarlo',         icon: '🎲', label: t('electionLab.tabMonteCarlo') },
+                  { key: 'manipulability',     icon: '⚡', label: t('electionLab.tabManipulability') },
+                  { key: 'blank-divergence',   icon: '📊', label: t('electionLab.tabBlankDivergence') },
+                  { key: 'campaign-sensitivity',icon: '📈', label: t('electionLab.tabCampaignSensitivity') },
+                  { key: 'pipeline',           icon: '🎬', label: t('electionLab.tabPipeline') },
+                  { key: 'combined-effects',   icon: '🔬', label: t('electionLab.tabCombinedEffects') },
+                  { key: 'coalition',          icon: '🏛', label: t('electionLab.tabCoalition') },
+                  { key: 'districts',          icon: '🗺', label: t('electionLab.tabDistricts') },
+                  { key: 'primary',            icon: '🗳', label: t('electionLab.tabPrimary') },
+                  { key: 'replay',             icon: '📺', label: t('electionLab.tabReplay') },
+                  { key: 'jury',               icon: '⚖️', label: t('electionLab.tabJury') },
+                  { key: 'adaptive',           icon: '⚙',  label: t('electionLab.tabAdaptive') },
+                ];
+
+                const tabContent: Record<string, React.ReactNode> = {
+                  'results':              duelMode
+                    ? <DuelModePanel result={result} methodA={duelMethA} methodB={duelMethB} onMethodAChange={setDuelMethA} onMethodBChange={setDuelMethB} />
+                    : <><ResultsTab result={result} t={t} /><ElectionInsightPanel result={result} /><HistoricalReferencePanel result={result} /></>,
+                  'map':                  <IdeologyMapChart defaultCandidates={candidateNames} />,
+                  'animation':            <VoteStepAnimator defaultCandidates={candidateNames} />,
+                  'montecarlo':           <MonteCarloResults baseParams={baseParams} />,
+                  'manipulability':       <ManipulabilityChart baseParams={baseParams} />,
+                  'blank-divergence':     <BlankVoteDivergencePanel />,
+                  'campaign-sensitivity': <CampaignSensitivityPanel />,
+                  'pipeline':             <ElectionPipelineAnimator />,
+                  'combined-effects':     <CombinedEffectsMatrix />,
+                  'coalition':            <CoalitionPanel />,
+                  'districts':            <DistrictMap />,
+                  'primary':              <PrimarySimulator />,
+                  'replay':               <HistoricalReplay />,
+                  'jury':                 <JuryTheoremPanel />,
+                  'adaptive':             <AdaptiveVotingPanel />,
+                };
+
+                const currentIdx = TABS.findIndex((tab) => tab.key === activeTab);
+
+                if (isMobile) {
+                  return (
+                    <div data-testid="mobile-tab-nav">
+                      <Form.Select
+                        size="sm"
+                        value={activeTab}
+                        onChange={(e) => setActiveTab(e.target.value)}
+                        className="mb-3"
+                        style={{ fontSize: '0.85rem' }}
+                        aria-label={t('electionLab.tabSelect')}
+                        data-testid="tab-select"
+                      >
+                        {TABS.map((tab) => (
+                          <option key={tab.key} value={tab.key}>
+                            {tab.icon} {tab.label}
+                          </option>
+                        ))}
+                      </Form.Select>
+                      <div className="d-flex justify-content-between align-items-center mb-2">
+                        <Button
+                          variant="outline-secondary" size="sm"
+                          disabled={currentIdx <= 0}
+                          onClick={() => setActiveTab(TABS[currentIdx - 1]?.key ?? activeTab)}
+                          aria-label="Onglet précédent"
+                        >‹</Button>
+                        <span className="text-muted" style={{ fontSize: '0.72rem' }}>
+                          {currentIdx + 1} / {TABS.length}
+                        </span>
+                        <Button
+                          variant="outline-secondary" size="sm"
+                          disabled={currentIdx >= TABS.length - 1}
+                          onClick={() => setActiveTab(TABS[currentIdx + 1]?.key ?? activeTab)}
+                          aria-label="Onglet suivant"
+                        >›</Button>
+                      </div>
+                      {tabContent[activeTab]}
+                    </div>
+                  );
+                }
+
+                return (
+                  <Tabs
+                    activeKey={activeTab}
+                    onSelect={(k) => k && setActiveTab(k)}
+                    className="mb-3 flex-nowrap overflow-auto"
+                    data-testid="desktop-tab-nav"
+                    style={{ flexWrap: 'nowrap' }}
+                  >
+                    {TABS.map((tab) => (
+                      <Tab key={tab.key} eventKey={tab.key}
+                        title={<span style={{ whiteSpace: 'nowrap' }}>{tab.icon} {tab.label}</span>}>
+                        {activeTab === tab.key && tabContent[tab.key]}
+                      </Tab>
+                    ))}
+                  </Tabs>
+                );
+              })()}
             </div>
           )}
         </Col>

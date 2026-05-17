@@ -1,6 +1,7 @@
 import React, {
   useCallback, useEffect, useRef, useState,
 } from 'react';
+import { useDragTouch } from '../../hooks/useDragTouch';
 import axios from 'axios';
 import { useTranslation } from 'react-i18next';
 import {
@@ -82,25 +83,17 @@ interface IdeologyMapProps {
 }
 
 const IdeologyMap: React.FC<IdeologyMapProps> = ({ candidates, onMove, candidateNames }) => {
-  const svgRef     = useRef<SVGSVGElement>(null);
+  const svgRef      = useRef<SVGSVGElement>(null);
   const draggingRef = useRef<string | null>(null);
 
-  const onMouseMove = useCallback((e: MouseEvent) => {
-    if (!draggingRef.current || !svgRef.current) return;
-    const { x, y } = svgToDomain(e.clientX, e.clientY, svgRef.current.getBoundingClientRect());
-    onMove(draggingRef.current, x, y);
-  }, [onMove]);
-
-  const onMouseUp = useCallback(() => { draggingRef.current = null; }, []);
-
-  useEffect(() => {
-    window.addEventListener('mousemove', onMouseMove);
-    window.addEventListener('mouseup',  onMouseUp);
-    return () => {
-      window.removeEventListener('mousemove', onMouseMove);
-      window.removeEventListener('mouseup',  onMouseUp);
-    };
-  }, [onMouseMove, onMouseUp]);
+  useDragTouch(svgRef, {
+    onStart: () => {},
+    onMove:  (x, y) => {
+      if (draggingRef.current) onMove(draggingRef.current, x, y);
+    },
+    onEnd: () => { draggingRef.current = null; },
+    toDomain: svgToDomain,
+  });
 
   return (
     <svg
@@ -127,8 +120,9 @@ const IdeologyMap: React.FC<IdeologyMapProps> = ({ candidates, onMove, candidate
           <g
             key={c.name}
             transform={`translate(${cx},${cy})`}
-            style={{ cursor: 'grab' }}
+            style={{ cursor: 'grab', touchAction: 'none' }}
             onMouseDown={(e) => { e.preventDefault(); draggingRef.current = c.name; }}
+            onTouchStart={(e) => { e.stopPropagation(); draggingRef.current = c.name; }}
             data-testid={`candidate-star-${c.name}`}
           >
             {c.modified && (
