@@ -80,6 +80,7 @@ def _inter_method_agreement(methods_data: Dict[str, Any]) -> float:
 # ── Endpoint ──────────────────────────────────────────────────────────────────
 
 @election_bp.route("/simulate", methods=["POST"])
+@sim_limiter.limit("20 per minute")
 def simulate() -> tuple[Response, int]:
     """
     POST /api/election/simulate
@@ -379,6 +380,7 @@ def _run_methods_on_electorate(
 # ── Divergence endpoint ───────────────────────────────────────────────────────
 
 @election_bp.route("/divergence", methods=["POST"])
+@sim_limiter.limit("20 per minute")
 def divergence() -> tuple[Response, int]:
     """
     POST /api/election/divergence

@@ -6,7 +6,7 @@
 def test_register(client, init_db):
     payload = {
         'username': 'newuser',
-        'password': 'newpass',
+        'password': 'newpass12',
         'first_name': 'New',
         'last_name': 'User',
         'role': 'User',
@@ -21,7 +21,7 @@ def test_register(client, init_db):
 def test_register_duplicate_username_returns_400(client, init_db):
     payload = {
         'username': 'testuserA',  # already seeded by init_db
-        'password': 'anypass',
+        'password': 'anypass12',
         'first_name': 'Dup',
         'last_name': 'User',
         'role': 'User',

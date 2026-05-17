@@ -53,19 +53,10 @@ class TestingConfig(Config):
 
 
 class ProductionConfig(Config):
-    """Production — validates that secrets are real values, not defaults."""
+    """Production configuration.
+
+    Validation of required secrets is handled in create_app()
+    (app/__init__.py) so it actually runs on every startup.
+    """
 
     DEBUG = False
-
-    def __init__(self):
-        weak = {
-            'SECRET_KEY':     ('dev-secret-CHANGE-IN-PROD',),
-            'JWT_SECRET_KEY': ('dev-jwt-secret-CHANGE-IN-PROD',),
-        }
-        for var, bad_defaults in weak.items():
-            val = os.environ.get(var, '')
-            if not val or val in bad_defaults:
-                raise RuntimeError(
-                    f"FLASK_ENV=production requires a strong '{var}' "
-                    f"environment variable (current value is missing or a default)."
-                )

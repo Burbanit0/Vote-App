@@ -1,7 +1,7 @@
 import React from 'react';
 import { Navigate, Link } from 'react-router';
 import { Button } from 'react-bootstrap';
-import { useTranslation } from 'react-i18next';
+import { Trans, useTranslation } from 'react-i18next';
 import { useAuth } from './AuthContext';
 
 const PublicBanner: React.FC = () => {
@@ -11,7 +11,7 @@ const PublicBanner: React.FC = () => {
       style={{ backgroundColor: '#cff4fc', borderBottom: '1px solid #9eeaf9', position: 'sticky', top: 56, zIndex: 900 }}
       className="py-2 px-3 d-flex justify-content-between align-items-center flex-wrap gap-2"
     >
-      <span className="small text-info-emphasis" dangerouslySetInnerHTML={{ __html: t('auth.readOnlyBanner') }} />
+      <span className="small text-info-emphasis"><Trans i18nKey="auth.readOnlyBanner" /></span>
       <div className="d-flex gap-2">
         <Link to="/login">
           <Button variant="outline-info" size="sm">{t('auth.loginBtn')}</Button>

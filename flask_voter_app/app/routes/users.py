@@ -7,6 +7,7 @@ from flask_jwt_extended import get_jwt_identity, jwt_required
 from ..utils.decorators import admin_required
 from ..services.user_service import UserService
 from app import db
+from app.extensions import sim_limiter
 
 auth_bp = Blueprint("auth", __name__, url_prefix="/api/auth")
 
@@ -53,6 +54,7 @@ def login():
 @auth_bp.route("/admin-only", methods=["GET"])
 @admin_required
 @jwt_required()
+@sim_limiter.limit("30 per minute")
 def admin_only():
     current_user_id = get_jwt_identity()
     current_user = User.query.get(current_user_id)
@@ -65,6 +67,7 @@ def admin_only():
 
 @auth_bp.route("/profile", methods=["GET"])
 @jwt_required()
+@sim_limiter.limit("60 per minute")
 def get_profile():
     current_user_id = int(get_jwt_identity())
     result = UserService.get_profile(current_user_id)
@@ -74,6 +77,7 @@ def get_profile():
 @auth_bp.route("/<int:user_id>", methods=["PUT"])
 @jwt_required()
 @admin_required
+@sim_limiter.limit("30 per minute")
 def update_user(user_id):
     current_user_id = get_jwt_identity()
     current_user = User.query.get(current_user_id)
@@ -119,6 +123,7 @@ def update_user(user_id):
 @auth_bp.route("/", methods=["GET"])
 @jwt_required()
 @admin_required
+@sim_limiter.limit("30 per minute")
 def get_all_users():
     users = User.query.all()
     return jsonify([
@@ -135,6 +140,7 @@ def get_all_users():
 
 @auth_bp.route("/<int:user_id>", methods=["GET"])
 @jwt_required()
+@sim_limiter.limit("60 per minute")
 def get_user(user_id):
     user = User.query.get_or_404(user_id)
     return jsonify({

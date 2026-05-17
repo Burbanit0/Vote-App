@@ -33,6 +33,18 @@ def create_app(config_object="config.Config"):
             raise RuntimeError(
                 f"FLASK_ENV=production requires these env vars: {missing}"
             )
+        # Also reject default/weak placeholder values
+        weak_defaults = {
+            'SECRET_KEY':     ('dev-secret-CHANGE-IN-PROD',),
+            'JWT_SECRET_KEY': ('dev-jwt-secret-CHANGE-IN-PROD',),
+        }
+        for var, bad_vals in weak_defaults.items():
+            val = os.environ.get(var, '')
+            if not val or val in bad_vals:
+                raise RuntimeError(
+                    f"FLASK_ENV=production requires a strong '{var}' "
+                    f"environment variable (current value is missing or a default)."
+                )
 
     bcrypt.init_app(app)
     jwt.init_app(app)
@@ -114,6 +126,13 @@ def create_app(config_object="config.Config"):
 
     init_api_limiter(app)
     init_simulation_limiter(app)
+
+    # Initialise the auth-bp limiter (Flask-Limiter docs recommend
+    # init_app even for module-level instances used via decorators).
+    app.config.setdefault("RATELIMIT_ENABLED", True)
+    from .routes.users import _limiter as _auth_limiter
+
+    _auth_limiter.init_app(app)
 
     # ── Generate openapi.json at startup ────────────────────────────────────
     openapi_path = os.path.join(os.path.dirname(__file__), "..", "openapi.json")
