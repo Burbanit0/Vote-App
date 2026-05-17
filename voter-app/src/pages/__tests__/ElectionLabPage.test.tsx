@@ -5,7 +5,8 @@ import ElectionLabPage from '../ElectionLabPage';
 import { ElectionProvider } from '../../context/ElectionContext';
 
 jest.mock('../../services/electionApi', () => ({
-  simulateElection: jest.fn(),
+  simulateElection:   jest.fn(),
+  interpretElection:  jest.fn(),
 }));
 
 jest.mock('../../components/Simulation/IdeologyMapChart',    () => () => <div data-testid="ideology-map" />);
@@ -13,8 +14,9 @@ jest.mock('../../components/Simulation/VoteStepAnimator',    () => () => <div da
 jest.mock('../../components/Simulation/MonteCarloResults',   () => () => <div data-testid="monte-carlo" />);
 jest.mock('../../components/Simulation/ManipulabilityChart', () => () => <div data-testid="manipulability" />);
 
-const { simulateElection } = jest.requireMock('../../services/electionApi') as {
-  simulateElection: jest.Mock;
+const { simulateElection, interpretElection } = jest.requireMock('../../services/electionApi') as {
+  simulateElection:  jest.Mock;
+  interpretElection: jest.Mock;
 };
 
 const MOCK_RESULT = {
@@ -45,6 +47,12 @@ function renderPage() {
 beforeEach(() => {
   jest.clearAllMocks();
   simulateElection.mockResolvedValue(MOCK_RESULT);
+  interpretElection.mockResolvedValue({
+    headline: 'Test headline', condorcet_analysis: 'Condorcet ok',
+    divergence_reason: '', method_groups: [], best_by_regret: 'schulze',
+    worst_by_regret: 'plurality', blank_analysis: null,
+    pedagogical_note: 'Note', key_facts: [],
+  });
   localStorage.clear();
 });
 

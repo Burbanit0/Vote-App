@@ -941,3 +941,192 @@ def combined_effects() -> tuple[Response, int]:
         "least_disruptive_factor":    least_disruptive,
         "max_disruption_combination": max_disrup_combo,
     }), 200
+
+
+# ── Interpret endpoint ────────────────────────────────────────────────────────
+
+# Translation templates keyed by language
+_T: Dict[str, Dict[str, str]] = {
+    "fr": {
+        "consensus":         "✓ Large consensus : {pct}% des méthodes élisent {winner}.",
+        "moderate_diverg":   "⚠ Divergence modérée : {n_groups} vainqueurs différents ({pct}% d'accord).",
+        "strong_diverg":     "🚨 Forte divergence : seulement {pct}% des méthodes s'accordent.",
+        "no_condorcet":      "Il n'existe pas de vainqueur de Condorcet dans cette configuration : les préférences sont cycliques (paradoxe d'Arrow) et les méthodes ne peuvent pas toutes s'accorder.",
+        "condorcet_exists":  "{winner} est le vainqueur de Condorcet — il bat tous les autres candidats en duel direct.",
+        "condorcet_spoiler": "Le vainqueur de Condorcet ({cw}) diffère du vainqueur à la pluralité ({pw}) : c'est un effet spoiler classique où la fragmentation du vote défavorise le candidat préféré par la majorité.",
+        "high_blank":        "Le vote blanc élevé ({pct}%) fragilise la légitimité du vainqueur. Sous la règle '{rule}', ce taux peut invalider l'élection.",
+        "best_regret":       "La méthode {method} minimise le régret bayésien ({score:.4f}) : elle maximise le bien-être collectif.",
+        "worst_regret":      "La méthode {method} présente le régret bayésien le plus élevé ({score:.4f}) : elle 'rate' davantage le vrai consensus.",
+        "ped_condorcet":     "Ce résultat illustre le critère de Condorcet (1785) : une méthode 'conforme' élit toujours le candidat préféré par la majorité en comparaison binaire. La pluralité ne respecte pas ce critère.",
+        "ped_arrow":         "Ce résultat illustre le théorème d'impossibilité d'Arrow (1951) : avec des préférences cycliques, aucune méthode ne peut produire un résultat socialement cohérent sans sacrifier un critère de fairness.",
+        "ped_consensus":     "Ce résultat illustre un cas idéal : quand un vainqueur de Condorcet existe et que l'électorat est peu polarisé, la plupart des méthodes convergent vers le même résultat.",
+        "fact_pct":          "{pct}% des méthodes ({n}/{total}) élisent {winner}.",
+        "fact_condorcet_y":  "Le vainqueur de Condorcet est {winner}.",
+        "fact_condorcet_n":  "Il n'existe pas de vainqueur de Condorcet (cycle de préférences).",
+        "fact_best":         "La méthode la plus 'juste' (régret bayésien minimal) : {method}.",
+        "team":              "Équipe {winner}",
+    },
+    "en": {
+        "consensus":         "✓ Broad consensus: {pct}% of methods elect {winner}.",
+        "moderate_diverg":   "⚠ Moderate divergence: {n_groups} different winners ({pct}% agreement).",
+        "strong_diverg":     "🚨 Strong divergence: only {pct}% of methods agree.",
+        "no_condorcet":      "There is no Condorcet winner in this configuration: preferences cycle (Arrow's paradox) and methods cannot all agree.",
+        "condorcet_exists":  "{winner} is the Condorcet winner — they beat every other candidate in direct head-to-head matchups.",
+        "condorcet_spoiler": "The Condorcet winner ({cw}) differs from the plurality winner ({pw}): a classic spoiler effect where vote fragmentation hurts the majority's preferred candidate.",
+        "high_blank":        "The high blank-vote rate ({pct}%) undermines the winner's legitimacy. Under the '{rule}' rule, this rate may invalidate the election.",
+        "best_regret":       "Method {method} minimises Bayesian Regret ({score:.4f}): it maximises collective welfare.",
+        "worst_regret":      "Method {method} has the highest Bayesian Regret ({score:.4f}): it deviates most from the true consensus.",
+        "ped_condorcet":     "This result illustrates the Condorcet criterion (1785): a 'compliant' method always elects the candidate preferred by the majority in pairwise comparisons. Plurality does not satisfy this criterion.",
+        "ped_arrow":         "This result illustrates Arrow's impossibility theorem (1951): with cyclical preferences, no method can produce a socially coherent result without sacrificing a fairness criterion.",
+        "ped_consensus":     "This result illustrates an ideal case: when a Condorcet winner exists and the electorate is not highly polarised, most methods converge on the same outcome.",
+        "fact_pct":          "{pct}% of methods ({n}/{total}) elect {winner}.",
+        "fact_condorcet_y":  "The Condorcet winner is {winner}.",
+        "fact_condorcet_n":  "No Condorcet winner exists (preference cycle).",
+        "fact_best":         "Most 'fair' method (minimal Bayesian Regret): {method}.",
+        "team":              "Team {winner}",
+    },
+}
+
+
+@election_bp.route("/interpret", methods=["POST"])
+def interpret() -> tuple[Response, int]:
+    """
+    POST /api/election/interpret
+
+    Deterministic text interpretation of a /simulate result.
+    No new simulation — pure rule-based analysis.
+
+    Body: { ...ElectionResult, lang: 'fr' | 'en' }
+    """
+    data = request.get_json() or {}
+    lang = str(data.get("lang", "fr")) if str(data.get("lang", "fr")) in ("fr", "en") else "fr"
+    T    = _T[lang]
+
+    methods_raw        = data.get("methods", {}) or {}
+    condorcet_winner   = data.get("condorcet_winner")
+    condorcet_exists   = bool(data.get("condorcet_exists", condorcet_winner is not None))
+    inter_agreement    = float(data.get("inter_method_agreement", 0.0))
+    blank_rate         = float(data.get("blank_rate", 0.0))
+    blank_rule         = str((data.get("config") or {}).get("blank_vote", {}).get("rule", "symbolic"))
+
+    if not methods_raw:
+        return jsonify({"error": "No methods data provided"}), 400
+
+    # ── 1. Group methods by effective winner ──────────────────────────────
+    winner_to_methods: Dict[str, list[str]] = {}
+    for method_name, md in methods_raw.items():
+        if not isinstance(md, dict):
+            continue
+        # Prefer winner_after_rule if blank vote applied
+        effective = md.get("winner_after_rule") or md.get("winner")
+        if not effective:
+            continue
+        winner_to_methods.setdefault(str(effective), []).append(method_name)
+
+    n_methods = len(methods_raw)
+    method_groups = [
+        {
+            "winner":  winner,
+            "methods": sorted(methods),
+            "pct":     round(len(methods) / n_methods, 4) if n_methods else 0.0,
+        }
+        for winner, methods in sorted(
+            winner_to_methods.items(),
+            key=lambda kv: -len(kv[1])
+        )
+    ]
+
+    plurality_winner = winner_to_methods.get("plurality", [""])[0] if "plurality" in {
+        method: md.get("winner") for method, md in methods_raw.items()
+    } else (method_groups[0]["winner"] if method_groups else None)
+
+    # Recompute plurality winner properly
+    pl_md = methods_raw.get("plurality", {})
+    plurality_winner = pl_md.get("winner_after_rule") or pl_md.get("winner") if pl_md else None
+
+    # ── 2. Headline ───────────────────────────────────────────────────────
+    pct_int = round(inter_agreement * 100)
+    top_group = method_groups[0] if method_groups else None
+    top_winner = top_group["winner"] if top_group else "?"
+
+    if inter_agreement > 0.85:
+        headline = T["consensus"].format(pct=pct_int, winner=top_winner)
+    elif inter_agreement >= 0.5:
+        headline = T["moderate_diverg"].format(n_groups=len(method_groups), pct=pct_int)
+    else:
+        headline = T["strong_diverg"].format(pct=pct_int)
+
+    # ── 3. Condorcet analysis ─────────────────────────────────────────────
+    if not condorcet_exists:
+        condorcet_analysis = T["no_condorcet"]
+    elif condorcet_winner and plurality_winner and condorcet_winner != plurality_winner:
+        condorcet_analysis = T["condorcet_spoiler"].format(
+            cw=condorcet_winner, pw=plurality_winner
+        )
+    else:
+        condorcet_analysis = T["condorcet_exists"].format(
+            winner=condorcet_winner or top_winner
+        )
+
+    # ── 4. Divergence reason ──────────────────────────────────────────────
+    if len(method_groups) <= 1:
+        divergence_reason = condorcet_analysis
+    elif not condorcet_exists:
+        divergence_reason = T["no_condorcet"]
+    else:
+        divergence_reason = T["condorcet_spoiler"].format(
+            cw=condorcet_winner or "?", pw=plurality_winner or "?"
+        ) if condorcet_winner and plurality_winner and condorcet_winner != plurality_winner \
+          else condorcet_analysis
+
+    # ── 5. Best / worst method by Bayesian Regret ─────────────────────────
+    regrets: Dict[str, float] = {}
+    for m, md in methods_raw.items():
+        if isinstance(md, dict) and md.get("bayesian_regret") is not None:
+            regrets[m] = float(md["bayesian_regret"])
+
+    best_by_regret  = min(regrets, key=lambda k: regrets[k]) if regrets else None
+    worst_by_regret = max(regrets, key=lambda k: regrets[k]) if regrets else None
+
+    # ── 6. Blank analysis ─────────────────────────────────────────────────
+    blank_analysis: Optional[str] = None
+    if blank_rate > 0.2:
+        blank_analysis = T["high_blank"].format(
+            pct=round(blank_rate * 100, 1), rule=blank_rule
+        )
+
+    # ── 7. Pedagogical note ───────────────────────────────────────────────
+    if not condorcet_exists:
+        pedagogical_note = T["ped_arrow"]
+    elif inter_agreement > 0.85:
+        pedagogical_note = T["ped_consensus"]
+    else:
+        pedagogical_note = T["ped_condorcet"]
+
+    # ── 8. Key facts ──────────────────────────────────────────────────────
+    key_facts: list[str] = []
+    if top_group:
+        key_facts.append(T["fact_pct"].format(
+            pct=round(top_group["pct"] * 100, 0).__int__(),
+            n=len(top_group["methods"]),
+            total=n_methods,
+            winner=top_group["winner"],
+        ))
+    if condorcet_exists and condorcet_winner:
+        key_facts.append(T["fact_condorcet_y"].format(winner=condorcet_winner))
+    else:
+        key_facts.append(T["fact_condorcet_n"])
+    if best_by_regret:
+        key_facts.append(T["fact_best"].format(method=best_by_regret))
+
+    return jsonify({
+        "headline":           headline,
+        "condorcet_analysis": condorcet_analysis,
+        "divergence_reason":  divergence_reason,
+        "method_groups":      method_groups,
+        "best_by_regret":     best_by_regret,
+        "worst_by_regret":    worst_by_regret,
+        "blank_analysis":     blank_analysis,
+        "pedagogical_note":   pedagogical_note,
+        "key_facts":          key_facts,
+    }), 200

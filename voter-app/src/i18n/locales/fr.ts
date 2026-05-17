@@ -863,6 +863,17 @@ const fr = {
     highImpactMessage:  'Le vote blanc modifie le vainqueur pour {{pct}}% des méthodes. Les méthodes {{methods}} sont particulièrement sensibles.',
     noImpactMessage:    'Le vote blanc n\'a pas modifié le vainqueur d\'aucune méthode avec cette configuration.',
   },
+  insight: {
+    title:          'Analyse de l\'élection',
+    loading:        'Analyse en cours…',
+    error:          'Impossible de générer l\'analyse.',
+    team:           'Équipe',
+    bestMethod:     'Méthode la plus juste (régret minimal)',
+    worstMethod:    'Méthode la moins représentative',
+    consensusLabel: '✓ Large consensus',
+    moderateLabel:  '⚠ Divergence modérée',
+    strongLabel:    '🚨 Forte divergence',
+  },
   metrics: {
     info: 'Informations sur la métrique',
     bayesian_regret: {
