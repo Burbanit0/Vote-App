@@ -1169,6 +1169,15 @@ const en: TranslationKeys = {
     colGroupBlank:    'Blank vote',
   },
 
+  methodRace: {
+    viewCandidates: 'Candidates',
+    viewMethods:    'Methods',
+    majority50:     '50% majority line',
+    stable80:       '80% stability threshold',
+    liveHint:       'Updating live',
+    ariaLabel:      'Voting method race — live stability',
+  },
+
   heatmap: {
     viewMode:      'View',
     mode_points:   'Points',

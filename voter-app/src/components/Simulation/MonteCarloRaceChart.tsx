@@ -1,5 +1,6 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
-import { Badge, Card, Form } from 'react-bootstrap';
+import { Badge, ButtonGroup, Button, Card, Form } from 'react-bootstrap';
+import MethodRaceBar from './MethodRaceBar';
 import {
   Area, AreaChart, CartesianGrid, ReferenceLine,
   ResponsiveContainer, Tooltip, XAxis, YAxis,
@@ -23,13 +24,14 @@ interface HistoryPoint {
   byMethod:   Record<string, Record<string, number>>;  // method → {candidate: pct}
 }
 
-type ViewMode = 'all' | 'method';
+type ViewMode = 'all' | 'method' | 'methods-race';
 
 interface Props {
   regretHistory:        Record<string, number[]>;
   iterationCheckpoints: number[];
   partialResults:       Record<string, MethodStreamStats>;
   isRunning:            boolean;
+  defaultView?:         'candidates' | 'methods';
 }
 
 // ── Tooltip ───────────────────────────────────────────────────────────────────
@@ -59,11 +61,14 @@ const MonteCarloRaceChart: React.FC<Props> = ({
   iterationCheckpoints,
   partialResults,
   isRunning,
+  defaultView = 'candidates',
 }) => {
   const { t }  = useTranslation();
   const ct     = useChartTheme();
 
-  const [view,           setView]           = useState<ViewMode>('all');
+  const [view,           setView]           = useState<ViewMode>(
+    defaultView === 'methods' ? 'methods-race' : 'all',
+  );
   const [selectedMethod, setSelectedMethod] = useState<string>('');
 
   // ── Accumulate history snapshots ──────────────────────────────────────────
@@ -164,28 +169,35 @@ const MonteCarloRaceChart: React.FC<Props> = ({
           <div className="text-muted" style={{ fontSize: '0.75rem' }}>{t('simulation.raceDesc')}</div>
         </div>
         <div className="d-flex align-items-center gap-2 flex-wrap">
-          {/* View toggle */}
-          <div className="d-flex gap-1">
-            <Form.Check
-              type="radio"
-              id="race-view-all"
-              name="race-view"
-              label={<span style={{ fontSize: '0.78rem' }}>{t('simulation.raceAllMethods')}</span>}
-              checked={view === 'all'}
-              onChange={() => setView('all')}
-            />
-            <Form.Check
-              type="radio"
-              id="race-view-method"
-              name="race-view"
-              label={<span style={{ fontSize: '0.78rem' }}>{t('simulation.raceOneMethod')}</span>}
-              checked={view === 'method'}
-              onChange={() => setView('method')}
-              className="ms-2"
-            />
-          </div>
+          {/* View toggle — candidates race / single method / methods race */}
+          <ButtonGroup size="sm">
+            <Button
+              variant={view === 'all' ? 'secondary' : 'outline-secondary'}
+              onClick={() => setView('all')}
+              style={{ fontSize: '0.75rem' }}
+              data-testid="view-candidates"
+            >
+              {t('methodRace.viewCandidates')}
+            </Button>
+            <Button
+              variant={view === 'method' ? 'secondary' : 'outline-secondary'}
+              onClick={() => setView('method')}
+              style={{ fontSize: '0.75rem' }}
+              data-testid="view-one-method"
+            >
+              {t('simulation.raceOneMethod')}
+            </Button>
+            <Button
+              variant={view === 'methods-race' ? 'secondary' : 'outline-secondary'}
+              onClick={() => setView('methods-race')}
+              style={{ fontSize: '0.75rem' }}
+              data-testid="view-methods-race"
+            >
+              {t('methodRace.viewMethods')}
+            </Button>
+          </ButtonGroup>
 
-          {/* Method selector (only in method view) */}
+          {/* Method selector (only in single-method view) */}
           {view === 'method' && (
             <Form.Select
               size="sm"
@@ -199,7 +211,7 @@ const MonteCarloRaceChart: React.FC<Props> = ({
           )}
 
           {/* Final winner badge */}
-          {finalWinner && !isRunning && (
+          {finalWinner && !isRunning && view !== 'methods-race' && (
             <Badge bg="success" style={{ fontSize: '0.72rem' }}>
               🏆 {t('simulation.raceFinalWinner', { winner: finalWinner })}
             </Badge>
@@ -208,58 +220,64 @@ const MonteCarloRaceChart: React.FC<Props> = ({
       </Card.Header>
 
       <Card.Body className="p-2">
-        <ResponsiveContainer width="100%" height={220}>
-          <AreaChart data={chartData} margin={{ top: 8, right: 16, bottom: 8, left: 8 }}>
-            <CartesianGrid strokeDasharray="3 3" stroke={ct.gridStroke} />
-            <XAxis
-              dataKey="iter"
-              tick={{ fontSize: 10, fill: ct.tickFill }}
-              label={{ value: t('simulation.convergenceIter'), position: 'insideBottomRight', offset: -4, fontSize: 10, fill: ct.tickFill }}
-            />
-            <YAxis
-              domain={[0, 100]}
-              unit="%"
-              tick={{ fontSize: 10, fill: ct.tickFill }}
-              width={42}
-            />
-            <Tooltip content={<RaceTooltip t={t} />} />
-            <ReferenceLine
-              y={50}
-              stroke={ct.gridStroke}
-              strokeDasharray="4 2"
-              strokeWidth={1.5}
-              label={{ value: t('simulation.raceMajority'), position: 'insideTopLeft', fontSize: 9, fill: ct.tickFill }}
-            />
-            {candidates.map((cand, idx) => {
-              const color = RACE_COLORS[idx % RACE_COLORS.length];
-              return (
-                <Area
-                  key={cand}
-                  type="monotone"
-                  dataKey={cand}
-                  name={cand}
-                  stroke={color}
-                  strokeWidth={2}
-                  fill={color}
-                  fillOpacity={0.08}
-                  dot={false}
-                  isAnimationActive={false}
+        {view === 'methods-race' ? (
+          <MethodRaceBar partialResults={partialResults} isRunning={isRunning} />
+        ) : (
+          <>
+            <ResponsiveContainer width="100%" height={220}>
+              <AreaChart data={chartData} margin={{ top: 8, right: 16, bottom: 8, left: 8 }}>
+                <CartesianGrid strokeDasharray="3 3" stroke={ct.gridStroke} />
+                <XAxis
+                  dataKey="iter"
+                  tick={{ fontSize: 10, fill: ct.tickFill }}
+                  label={{ value: t('simulation.convergenceIter'), position: 'insideBottomRight', offset: -4, fontSize: 10, fill: ct.tickFill }}
                 />
-              );
-            })}
-          </AreaChart>
-        </ResponsiveContainer>
+                <YAxis
+                  domain={[0, 100]}
+                  unit="%"
+                  tick={{ fontSize: 10, fill: ct.tickFill }}
+                  width={42}
+                />
+                <Tooltip content={<RaceTooltip t={t} />} />
+                <ReferenceLine
+                  y={50}
+                  stroke={ct.gridStroke}
+                  strokeDasharray="4 2"
+                  strokeWidth={1.5}
+                  label={{ value: t('simulation.raceMajority'), position: 'insideTopLeft', fontSize: 9, fill: ct.tickFill }}
+                />
+                {candidates.map((cand, idx) => {
+                  const color = RACE_COLORS[idx % RACE_COLORS.length];
+                  return (
+                    <Area
+                      key={cand}
+                      type="monotone"
+                      dataKey={cand}
+                      name={cand}
+                      stroke={color}
+                      strokeWidth={2}
+                      fill={color}
+                      fillOpacity={0.08}
+                      dot={false}
+                      isAnimationActive={false}
+                    />
+                  );
+                })}
+              </AreaChart>
+            </ResponsiveContainer>
 
-        {/* Candidate legend */}
-        <div className="d-flex gap-3 mt-1 flex-wrap" style={{ fontSize: '0.72rem' }}>
-          {candidates.map((cand, idx) => (
-            <span key={cand} className="d-flex align-items-center gap-1">
-              <span style={{ width: 10, height: 10, borderRadius: 2, background: RACE_COLORS[idx % RACE_COLORS.length], display: 'inline-block' }} />
-              {cand}
-              {!isRunning && finalWinner === cand && ' 🏆'}
-            </span>
-          ))}
-        </div>
+            {/* Candidate legend */}
+            <div className="d-flex gap-3 mt-1 flex-wrap" style={{ fontSize: '0.72rem' }}>
+              {candidates.map((cand, idx) => (
+                <span key={cand} className="d-flex align-items-center gap-1">
+                  <span style={{ width: 10, height: 10, borderRadius: 2, background: RACE_COLORS[idx % RACE_COLORS.length], display: 'inline-block' }} />
+                  {cand}
+                  {!isRunning && finalWinner === cand && ' 🏆'}
+                </span>
+              ))}
+            </div>
+          </>
+        )}
       </Card.Body>
     </Card>
   );
