@@ -14,6 +14,7 @@ import {
 } from '../../services/electionApi';
 import { useChartTheme } from '../../hooks/useChartTheme';
 import LiveBadge from './LiveBadge';
+import CampaignSwimlane from './CampaignSwimlane';
 
 // ── Constants ─────────────────────────────────────────────────────────────────
 
@@ -324,15 +325,21 @@ const CampaignSensitivityPanel: React.FC = () => {
 
       {result && (
         <Row className="g-3">
-          {/* A) Winner timeline */}
+          {/* A) Swimlane — winner timeline */}
           <Col xs={12}>
             <Card>
               <Card.Header className="py-2">
-                <strong style={{ fontSize: '0.85rem' }}>{t('campaign.timelineTitle')}</strong>
-                <div className="text-muted" style={{ fontSize: '0.75rem' }}>{t('campaign.timelineDesc')}</div>
+                <strong style={{ fontSize: '0.85rem' }}>{t('campaign.swimlaneTitle')}</strong>
+                <div className="text-muted" style={{ fontSize: '0.75rem' }}>{t('campaign.swimlaneDesc')}</div>
               </Card.Header>
               <Card.Body className="p-2">
-                <WinnerTimeline result={result} ct={ct} t={t} />
+                <CampaignSwimlane
+                  snapshots={result.snapshots}
+                  methodStability={result.method_stability}
+                  candidates={[...new Set(result.snapshots.flatMap((s) =>
+                    Object.values(s.methods).map((m) => m.winner).filter((w): w is string => !!w)
+                  ))]}
+                />
               </Card.Body>
             </Card>
           </Col>
