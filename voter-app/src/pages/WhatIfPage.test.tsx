@@ -195,14 +195,11 @@ describe('WhatIfPage — API integration', () => {
     render(<WhatIfPage />);
     fireEvent.click(screen.getByRole('button', { name: /Lancer/i }));
 
+    // Merge both assertions into one waitFor so the act() wrapper covers both
     await waitFor(() => {
       expect(mockRunWhatIf).toHaveBeenCalledWith(
         expect.objectContaining({ variant_param: 'num_voters' }),
       );
-    });
-
-    // Chart container should appear
-    await waitFor(() => {
       expect(screen.getByText(/Score de majorité/i)).toBeInTheDocument();
     });
   });
