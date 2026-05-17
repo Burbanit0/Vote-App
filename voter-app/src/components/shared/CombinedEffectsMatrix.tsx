@@ -15,6 +15,7 @@ import {
 } from '../../services/electionApi';
 import { useChartTheme } from '../../hooks/useChartTheme';
 import LiveBadge from './LiveBadge';
+import MetricTooltip from './MetricTooltip';
 
 // ── Colour helpers ────────────────────────────────────────────────────────────
 
@@ -299,7 +300,10 @@ const CombinedEffectsMatrix: React.FC = () => {
           <Col xs={12} lg={6}>
             <Card className="h-100">
               <Card.Header className="py-2">
-                <strong style={{ fontSize: '0.85rem' }}>{t('combined.factorTitle')}</strong>
+                <strong style={{ fontSize: '0.85rem' }} className="d-inline-flex align-items-center gap-1">
+                  {t('combined.factorTitle')}
+                  <MetricTooltip metric="delta_agreement" placement="bottom" />
+                </strong>
                 <div className="text-muted" style={{ fontSize: '0.75rem' }}>{t('combined.factorDesc')}</div>
               </Card.Header>
               <Card.Body className="p-2">

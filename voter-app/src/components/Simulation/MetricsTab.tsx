@@ -15,6 +15,7 @@ import { SimulationCompareResult } from '../../types';
 import { METHOD_LABELS } from './simulationConstants';
 import { useChartTheme } from '../../hooks/useChartTheme';
 import EmptyChart from '../shared/EmptyChart';
+import MetricTooltip from '../shared/MetricTooltip';
 import { useTranslation } from 'react-i18next';
 
 function avg(values: number[]): number {
@@ -64,9 +65,9 @@ const MetricsTab: React.FC<Props> = ({ comparisonResults, allMethodNames, numSim
   }, [metricsData]);
 
   const METRICS = [
-    { key: bayesianKey,         color: '#e15759', note: lowerBetter },
-    { key: satisfactionKey, color: '#59a14f', note: higherBetter },
-    { key: vulnerabilityKey, color: '#f28e2b', note: lowerBetter },
+    { key: bayesianKey,     metricId: 'bayesian_regret'       as const, color: '#e15759', note: lowerBetter },
+    { key: satisfactionKey, metricId: 'majority_satisfaction' as const, color: '#59a14f', note: higherBetter },
+    { key: vulnerabilityKey,metricId: 'manipulability'        as const, color: '#f28e2b', note: lowerBetter },
   ];
 
   return (
@@ -79,10 +80,11 @@ const MetricsTab: React.FC<Props> = ({ comparisonResults, allMethodNames, numSim
       </Card.Header>
       <Card.Body>
         <div className="d-flex gap-4 mb-3 flex-wrap">
-          {METRICS.map(({ key, color, note }) => (
+          {METRICS.map(({ key, metricId, color, note }) => (
             <span key={key} className="d-flex align-items-center gap-1">
               <span style={{ display: 'inline-block', width: 14, height: 14, borderRadius: 2, backgroundColor: color }} />
               <small>{key} <span className="text-muted">({note})</span></small>
+              <MetricTooltip metric={metricId} placement="bottom" />
             </span>
           ))}
         </div>
