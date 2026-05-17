@@ -1,7 +1,8 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
-  Badge, Button, Card, Col, Form, ProgressBar, Row, Spinner,
+  Badge, Button, ButtonGroup, Card, Col, Form, ProgressBar, Row, Spinner,
 } from 'react-bootstrap';
+import IdeologyHeatmap from './IdeologyHeatmap';
 import { useTranslation } from 'react-i18next';
 import { IdeologyMapResult, IdeologyMapVoter } from '../../types';
 import { getIdeologyMap, IdeologyMapParams } from '../../services/simulationCompareApi';
@@ -108,6 +109,7 @@ const IdeologyMapChart: React.FC<Props> = ({ defaultCandidates }) => {
   const [seed,         setSeed]         = useState(42);
   const [showLosers,   setShowLosers]   = useState(false);
   const [showVoronoi,  setShowVoronoi]  = useState(false);
+  const [viewMode,     setViewMode]     = useState<'points' | 'heatmap' | 'both'>('points');
 
   // ── Candidate positions (draggable)
   const initCandidates = useCallback((): CandidatePos[] => {
@@ -289,6 +291,24 @@ const IdeologyMapChart: React.FC<Props> = ({ defaultCandidates }) => {
               className="mb-3"
             />
 
+            {/* View mode toggle */}
+            <div className="mb-3">
+              <Form.Label className="small mb-1">{t('heatmap.viewMode')}</Form.Label>
+              <ButtonGroup size="sm" className="w-100">
+                {(['points', 'heatmap', 'both'] as const).map((mode) => (
+                  <Button
+                    key={mode}
+                    variant={viewMode === mode ? 'secondary' : 'outline-secondary'}
+                    onClick={() => setViewMode(mode)}
+                    data-testid={`view-mode-${mode}`}
+                    style={{ fontSize: '0.75rem' }}
+                  >
+                    {t(`heatmap.mode_${mode}`)}
+                  </Button>
+                ))}
+              </ButtonGroup>
+            </div>
+
             <Button
               variant="outline-secondary" size="sm" className="w-100"
               onClick={regenerateSeed}
@@ -312,7 +332,20 @@ const IdeologyMapChart: React.FC<Props> = ({ defaultCandidates }) => {
           <Card.Body className="p-2">
             {error && <div className="text-danger small mb-2">{error}</div>}
 
-            <svg
+            {/* ── Heatmap view ── */}
+            {(viewMode === 'heatmap' || viewMode === 'both') && (
+              <div className={viewMode === 'both' ? 'mb-3' : ''} data-testid="heatmap-container">
+                <IdeologyHeatmap
+                  voters={voters.map((v) => ({ id: v.id, x: v.x, y: v.y }))}
+                  candidates={candidatePositions}
+                  onCandidateMouseDown={handleCandidateMouseDown}
+                  draggingIdx={draggingIdx}
+                />
+              </div>
+            )}
+
+            {/* ── Scatter (points) view ── */}
+            {(viewMode === 'points' || viewMode === 'both') && <svg
               ref={svgRef}
               viewBox={`0 0 ${SVG_W} ${SVG_H}`}
               width="100%"
@@ -421,7 +454,7 @@ const IdeologyMapChart: React.FC<Props> = ({ defaultCandidates }) => {
                   </g>
                 );
               })}
-            </svg>
+            </svg>}
 
             {/* Legend */}
             <div className="d-flex gap-3 mt-1 flex-wrap" style={{ fontSize: '0.75rem' }}>

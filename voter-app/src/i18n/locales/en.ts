@@ -1169,6 +1169,16 @@ const en: TranslationKeys = {
     colGroupBlank:    'Blank vote',
   },
 
+  heatmap: {
+    viewMode:      'View',
+    mode_points:   'Points',
+    mode_heatmap:  'Heatmap',
+    mode_both:     'Both',
+    mostContested: 'Most contested zone',
+    fortress:      'Fortress',
+    opacityHint:   '— opacity ∝ density',
+  },
+
   graph: {
     title:        'Method similarity graph',
     subtitle:     'Methods that frequently agree on the same winner — closer = more similar',

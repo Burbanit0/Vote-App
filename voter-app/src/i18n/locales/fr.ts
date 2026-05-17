@@ -1167,6 +1167,16 @@ const fr = {
     colGroupBlank:    'Vote blanc',
   },
 
+  heatmap: {
+    viewMode:      'Vue',
+    mode_points:   'Points',
+    mode_heatmap:  'Carte de chaleur',
+    mode_both:     'Les deux',
+    mostContested: 'Zone la plus contestée',
+    fortress:      'Forteresse',
+    opacityHint:   '— opacité ∝ densité',
+  },
+
   graph: {
     title:        'Graphe de similarité des méthodes',
     subtitle:     'Méthodes qui convergent souvent vers le même vainqueur — plus proche = plus similaire',
