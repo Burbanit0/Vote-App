@@ -3,6 +3,7 @@ import {
   Badge, Button, ButtonGroup, Card, Col, Form, ProgressBar, Row, Spinner,
 } from 'react-bootstrap';
 import IdeologyHeatmap from './IdeologyHeatmap';
+import MedianVoterLayer, { MedianVoterLegend } from './MedianVoterLayer';
 import { useTranslation } from 'react-i18next';
 import { IdeologyMapResult, IdeologyMapVoter } from '../../types';
 import { getIdeologyMap, IdeologyMapParams } from '../../services/simulationCompareApi';
@@ -110,6 +111,7 @@ const IdeologyMapChart: React.FC<Props> = ({ defaultCandidates }) => {
   const [showLosers,   setShowLosers]   = useState(false);
   const [showVoronoi,  setShowVoronoi]  = useState(false);
   const [viewMode,     setViewMode]     = useState<'points' | 'heatmap' | 'both'>('points');
+  const [showMedian,   setShowMedian]   = useState(false);
 
   // ── Candidate positions (draggable)
   const initCandidates = useCallback((): CandidatePos[] => {
@@ -288,7 +290,16 @@ const IdeologyMapChart: React.FC<Props> = ({ defaultCandidates }) => {
               label={<span className="small">{t('ideologyMap.showVoronoi')}</span>}
               checked={showVoronoi}
               onChange={(e) => setShowVoronoi(e.target.checked)}
+              className="mb-2"
+            />
+            <Form.Check
+              type="switch"
+              id="show-median-toggle"
+              label={<span className="small">{t('ideologyMap.showMedian')}</span>}
+              checked={showMedian}
+              onChange={(e) => setShowMedian(e.target.checked)}
               className="mb-3"
+              data-testid="show-median-toggle"
             />
 
             {/* View mode toggle */}
@@ -417,6 +428,18 @@ const IdeologyMapChart: React.FC<Props> = ({ defaultCandidates }) => {
                 />
               ))}
 
+              {/* Median voter layer — after dots, before candidate stars */}
+              {showMedian && voters.length > 0 && (
+                <MedianVoterLayer
+                  voters={voters.map(v => ({ x: v.x, y: v.y }))}
+                  candidates={candidatePositions}
+                  winnerA={winnerA}
+                  winnerB={winnerB}
+                  methodA={methodA}
+                  methodB={methodB}
+                />
+              )}
+
               {/* Candidates (draggable stars) */}
               {candidatePositions.map((cp, idx) => {
                 const cx = domainToSvg(cp.x, 'x');
@@ -455,6 +478,18 @@ const IdeologyMapChart: React.FC<Props> = ({ defaultCandidates }) => {
                 );
               })}
             </svg>}
+
+            {/* Median voter legend (when active) */}
+            {showMedian && voters.length > 0 && (
+              <MedianVoterLegend
+                voters={voters.map(v => ({ x: v.x, y: v.y }))}
+                candidates={candidatePositions}
+                winnerA={winnerA}
+                winnerB={winnerB}
+                methodA={methodA}
+                methodB={methodB}
+              />
+            )}
 
             {/* Legend */}
             <div className="d-flex gap-3 mt-1 flex-wrap" style={{ fontSize: '0.75rem' }}>
