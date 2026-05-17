@@ -1079,6 +1079,7 @@ const fr = {
     tabDistricts:             'Circonscriptions',
     tabPrimary:               'Primaires',
     tabAbstention:            'Abstention',
+    tabSTV:                   'STV',
     tabJury:                  'Théorème du jury',
     tabReplay:                'Replay historique',
     tabAdaptive:              'Vote tactique',
@@ -1174,6 +1175,23 @@ const fr = {
     colGroupWinners:  'Vainqueurs par méthode',
     colGroupQuality:  'Métriques de qualité',
     colGroupBlank:    'Vote blanc',
+  },
+
+  stv: {
+    prompt:          'Configurez les sièges et le quota pour simuler le STV irlandais/australien et le comparer à D\'Hondt et FPTP.',
+    run:             'Simuler le STV',
+    error:           'Erreur lors de la simulation.',
+    numSeats:        'Nombre de sièges',
+    quotaType:       'Type de quota',
+    quotaLabel:      'Quota',
+    votes:           'voix',
+    seats:           'siège(s)',
+    stepperTitle:    'Rounds STV',
+    comparisonTitle: 'Comparaison STV · D\'Hondt · FPTP',
+    voteShareVsSeats: 'Voix nationales vs sièges STV',
+    action_elect:      '✓ Élu',
+    action_auto_elect: '✓ Élu (auto)',
+    action_eliminate:  '✗ Éliminé',
   },
 
   abstention: {

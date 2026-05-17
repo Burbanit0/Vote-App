@@ -108,6 +108,152 @@ def get_stv_winners(votes: list, num_winners: int) -> List[str]:
     return elected[:num_winners]
 
 
+# ── STV with full round-by-round detail ──────────────────────────────────────
+
+def get_stv_result(
+    votes:      List[List[str]],
+    num_seats:  int,
+    quota_type: str = "droop",
+) -> Dict[str, Any]:
+    """
+    STV (Single Transferable Vote) with complete per-round audit trail.
+
+    Parameters
+    ----------
+    votes      : List of full candidate rankings (each = one ballot).
+    num_seats  : Number of seats to fill.
+    quota_type : "droop" (default) or "hare".
+
+    Returns
+    -------
+    {
+        "elected": List[str],       # elected candidates in order
+        "quota":   int,
+        "rounds": [
+            {
+                "round":     int,
+                "action":    "elect" | "eliminate" | "auto_elect",
+                "candidate": str,
+                "tallies":   {str: float},   # after transfers
+                "transfers": {str: float},   # new votes received this round
+            }
+        ]
+    }
+    """
+    if not votes or num_seats <= 0:
+        return {"elected": [], "quota": 0, "rounds": []}
+
+    n = len(votes)
+    if quota_type == "hare":
+        quota: int = max(1, n // num_seats)
+    else:  # droop
+        quota = n // (num_seats + 1) + 1
+
+    # Pool: each entry is (weight: float, ranking: List[str])
+    pool: List[tuple] = [(1.0, list(r)) for r in votes]
+
+    elected:   List[str] = []
+    eliminated: set      = set()
+    rounds:    List[Dict[str, Any]] = []
+    round_num  = 0
+
+    def _tally() -> Dict[str, float]:
+        excluded = eliminated | set(elected)
+        counts: Dict[str, float] = defaultdict(float)
+        for w, r in pool:
+            first = next((c for c in r if c not in excluded), None)
+            if first:
+                counts[first] += w
+        return dict(counts)
+
+    while len(elected) < num_seats:
+        excluded     = eliminated | set(elected)
+        counts       = _tally()
+
+        if not counts:
+            break
+
+        remaining_seats = num_seats - len(elected)
+
+        # All active candidates (with or without current votes)
+        all_candidate_names = sorted({c for r in votes for c in r})
+        active_candidates   = [c for c in all_candidate_names if c not in excluded]
+
+        # Auto-elect when active candidates ≤ remaining seats
+        if len(active_candidates) <= remaining_seats:
+            for c in sorted(active_candidates, key=lambda x: -counts.get(x, 0)):
+                if c not in elected:
+                    rounds.append({
+                        "round":     round_num,
+                        "action":    "auto_elect",
+                        "candidate": c,
+                        "tallies":   dict(counts),
+                        "transfers": {},
+                    })
+                    elected.append(c)
+                    round_num += 1
+            break
+
+        above_quota = [(c, v) for c, v in counts.items() if v >= quota]
+
+        if above_quota:
+            above_quota.sort(key=lambda x: (-x[1], x[0]))
+            winner, winner_votes = above_quota[0]
+            surplus         = winner_votes - quota
+            transfer_factor = surplus / winner_votes if winner_votes > 0 else 0.0
+
+            prev_excl     = eliminated | set(elected)
+            transfers: Dict[str, float] = defaultdict(float)
+            new_pool:  List[tuple]      = []
+
+            for w, r in pool:
+                first = next((c for c in r if c not in prev_excl), None)
+                new_r = [c for c in r if c != winner]
+                if not new_r:
+                    continue
+                if first == winner:
+                    new_w = w * transfer_factor
+                    new_pool.append((new_w, new_r))
+                    # Next active candidate after winner receives these votes
+                    next_c = next((c for c in new_r if c not in prev_excl and c != winner), None)
+                    if next_c:
+                        transfers[next_c] += new_w
+                else:
+                    new_pool.append((w, new_r))
+
+            pool = new_pool
+            elected.append(winner)
+
+            # Recompute tallies after transfer
+            new_counts = _tally()
+            rounds.append({
+                "round":     round_num,
+                "action":    "elect",
+                "candidate": winner,
+                "tallies":   dict(new_counts),
+                "transfers": dict(transfers),
+            })
+            round_num += 1
+
+        else:
+            # Eliminate: candidate with fewest votes (tie-break alphabetical)
+            min_v = min(counts.values())
+            loser = min(c for c, v in counts.items() if v == min_v)
+            eliminated.add(loser)
+
+            new_counts = _tally()
+            rounds.append({
+                "round":     round_num,
+                "action":    "eliminate",
+                "candidate": loser,
+                "tallies":   dict(new_counts),
+                "transfers": {},
+            })
+            round_num += 1
+
+    return {"elected": elected[:num_seats], "quota": quota, "rounds": rounds}
+
+
 # ── Party-list methods ─────────────────────────────────────────────────────
 
 def get_dhondt_winners(party_votes: Dict[str, float], num_seats: int) -> Dict[str, int]:
