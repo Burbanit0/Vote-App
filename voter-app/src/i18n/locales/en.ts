@@ -1177,6 +1177,21 @@ const en: TranslationKeys = {
     colGroupBlank:    'Blank vote',
   },
 
+  mj: {
+    excellent:       'Excellent',
+    trèsBien:        'Very Good',
+    bien:            'Good',
+    assezBien:       'Acceptable',
+    passable:        'Poor',
+    àRejeter:        'To Reject',
+    median:          'Median',
+    winner:          'MJ Winner',
+    chartTitle:      'Majority Judgment — Balinski & Laraki (2010)',
+    chartSubtitle:   'Grade distribution · vertical line = median grade',
+    medianLineHint:  'Vertical line = median grade for each candidate',
+    chartAriaLabel:  'Majority Judgment chart — grade distribution',
+  },
+
   duel: {
     enterDuel:           'Duel mode',
     exitDuel:            'Exit duel',

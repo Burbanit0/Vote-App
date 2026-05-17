@@ -22,6 +22,7 @@ from .simulation_score_utils import (
     get_median_voting_winner,
     get_mean_median_hybrid_winner,
     get_variance_based_winner,
+    get_majority_judgment_winner,
 )
 from .quadratic_voting import apply_quadratic_voting
 
@@ -311,6 +312,22 @@ def compare_all_methods(
         raw = fn(score_votes)
         winner = raw.get("winner") if isinstance(raw, dict) else raw
         methods_result[name] = _build_metrics_score(fn, winner)
+
+    # ── Majority Judgment — uses raw float utilities, not 0-5 scaled ──────────
+    mj_utility_scores: List[Dict[str, float]] = [
+        dict(utilities[v["id"]]) for v in voters
+    ]
+    mj_raw: Dict[str, Any]   = get_majority_judgment_winner(mj_utility_scores)
+    mj_winner: Optional[str] = str(mj_raw["winner"]) if mj_raw.get("winner") else None
+    mj_entry = _build_metrics_score(
+        lambda sv: {"winner": mj_winner},
+        mj_winner,
+    )
+    mj_entry["mj_grades"]             = mj_raw.get("grades", {})
+    mj_entry["mj_medians"]            = mj_raw.get("medians", {})
+    mj_entry["mj_scores"]             = mj_raw.get("scores", {})
+    mj_entry["mj_grade_distributions"] = mj_raw.get("grade_distributions", {})
+    methods_result["majority_judgment"] = mj_entry
 
     # ── Quadratic Voting — uses raw float utilities, not 0-5 scaled ──────────
     qv_utilities: List[Dict[str, float]] = [

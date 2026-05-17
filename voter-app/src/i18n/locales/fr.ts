@@ -1175,6 +1175,21 @@ const fr = {
     colGroupBlank:    'Vote blanc',
   },
 
+  mj: {
+    excellent:       'Excellent',
+    trèsBien:        'Très Bien',
+    bien:            'Bien',
+    assezBien:       'Assez Bien',
+    passable:        'Passable',
+    àRejeter:        'À Rejeter',
+    median:          'Médiane',
+    winner:          'Vainqueur MJ',
+    chartTitle:      'Jugement Majoritaire — Balinski & Laraki (2010)',
+    chartSubtitle:   'Distribution des notes · trait vertical = note médiane',
+    medianLineHint:  'Trait vertical = note médiane de chaque candidat',
+    chartAriaLabel:  'Graphe de Jugement Majoritaire — distribution des notes',
+  },
+
   duel: {
     enterDuel:           'Mode Duel',
     exitDuel:            'Quitter le duel',

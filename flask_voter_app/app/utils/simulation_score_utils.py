@@ -1,4 +1,5 @@
 from collections import defaultdict
+from typing import Dict, List, Optional
 import math
 import statistics
 
@@ -301,6 +302,157 @@ def calculate_bayesian_regret(all_scores):
         "method": "Bayesian Regret",
         "winner": regrets[0]["candidate"] if regrets else None,
         "details": regrets,
+    }
+
+
+# ── Majority Judgment ─────────────────────────────────────────────────────────
+
+DEFAULT_MJ_GRADES: List[str] = [
+    "À Rejeter",    # 0 — worst
+    "Passable",     # 1
+    "Assez Bien",   # 2
+    "Bien",         # 3
+    "Très Bien",    # 4
+    "Excellent",    # 5 — best
+]
+
+# Utility thresholds (lower bound inclusive) for each grade (ascending)
+_MJ_THRESHOLDS: List[float] = [0.0, 0.17, 0.33, 0.50, 0.67, 0.83]
+
+
+def _utility_to_grade(utility: float) -> int:
+    """Convert a utility score in [0, 1] to a grade index in [0, 5]."""
+    for i in range(len(_MJ_THRESHOLDS) - 1, -1, -1):
+        if utility >= _MJ_THRESHOLDS[i]:
+            return i
+    return 0
+
+
+def _mj_median_grade(grade_list: List[int]) -> int:
+    """
+    Majority Judgment median: the grade at index ceil(n/2) - 1 when sorted.
+    For odd n: exact middle.  For even n: lower median (conservative choice).
+    """
+    if not grade_list:
+        return 0
+    n = len(grade_list)
+    sorted_grades = sorted(grade_list)
+    return sorted_grades[(n - 1) // 2]
+
+
+def _mj_majority_gauge(grade_list: List[int], median: int) -> tuple[float, float]:
+    """
+    Compute p (fraction strictly above median) and q (fraction strictly below).
+    Used for tiebreaking: if p > q the candidate has a "superior majority".
+    """
+    n = len(grade_list) or 1
+    p = sum(1 for g in grade_list if g > median) / n
+    q = sum(1 for g in grade_list if g < median) / n
+    return p, q
+
+
+def get_majority_judgment_winner(
+    utility_scores: List[Dict[str, float]],
+    grade_labels:   List[str] = DEFAULT_MJ_GRADES,
+) -> Dict[str, object]:
+    """
+    Majority Judgment (Balinski & Laraki, 2010).
+
+    Each voter grades each candidate on a 6-level ordinal scale derived
+    from their utility score in [0, 1].  The winner is the candidate with
+    the highest median grade.  Ties are broken by the majority-gauge rule:
+    the candidate whose "superior majority" (fraction above median) exceeds
+    their "inferior majority" (fraction below median) wins.  If still tied,
+    one median is removed from each tied candidate and the process repeats.
+
+    Parameters
+    ----------
+    utility_scores : List[Dict[str, float]]
+        One dict per voter, mapping candidate name → utility in [0, 1].
+    grade_labels : List[str]
+        Ordered label list, index 0 = worst, index N-1 = best.
+
+    Returns
+    -------
+    {
+        "winner":  str | None,
+        "grades":  {candidate: {grade_label: count}},
+        "medians": {candidate: str},
+        "scores":  {candidate: float},   # continuous score for comparison
+        "grade_distributions": {candidate: [count_grade0, …, count_gradeN]}
+    }
+    """
+    if not utility_scores:
+        return {"winner": None, "grades": {}, "medians": {}, "scores": {},
+                "grade_distributions": {}}
+
+    candidate_names: List[str] = list(utility_scores[0].keys())
+
+    # 1. Build grade lists per candidate
+    all_grades: Dict[str, List[int]] = {c: [] for c in candidate_names}
+    for voter_utils in utility_scores:
+        for c, u in voter_utils.items():
+            all_grades[c].append(_utility_to_grade(u))
+
+    # 2. Compute median + gauge for each candidate
+    medians: Dict[str, int]           = {}
+    gauges:  Dict[str, tuple[float, float]] = {}
+    for c in candidate_names:
+        med         = _mj_median_grade(all_grades[c])
+        medians[c]  = med
+        gauges[c]   = _mj_majority_gauge(all_grades[c], med)
+
+    # 3. Rank candidates: primary = median (desc), secondary = p-q (desc)
+    def _sort_key(c: str) -> tuple[int, float]:
+        p, q = gauges[c]
+        return (medians[c], p - q)
+
+    ranking = sorted(candidate_names, key=_sort_key, reverse=True)
+
+    # 4. Iterative tiebreak if top-2 are still equal after gauge
+    if len(ranking) >= 2:
+        a, b = ranking[0], ranking[1]
+        if _sort_key(a) == _sort_key(b):
+            # Drop one median grade from each and retry (single step suffices
+            # for almost all practical cases)
+            for cand in (a, b):
+                g = all_grades[cand]
+                med = medians[cand]
+                idx = next((i for i, x in enumerate(sorted(g)) if x == med), None)
+                if idx is not None:
+                    g_sorted = sorted(g)
+                    g_sorted.pop(idx)
+                    all_grades[cand] = g_sorted
+            medians = {c: _mj_median_grade(all_grades[c]) for c in (a, b)}
+            gauges  = {c: _mj_majority_gauge(all_grades[c], medians[c]) for c in (a, b)}
+            if _sort_key(b) > _sort_key(a):
+                ranking[0], ranking[1] = b, a
+
+    winner: Optional[str] = ranking[0] if ranking else None
+
+    # 5. Build grade distribution dicts for frontend visualisation
+    n_grades = len(grade_labels)
+    grade_distributions: Dict[str, List[int]] = {}
+    grades_labeled:      Dict[str, Dict[str, int]] = {}
+    scores_out:          Dict[str, float] = {}
+
+    for c in candidate_names:
+        dist = [0] * n_grades
+        for g in all_grades[c]:
+            if 0 <= g < n_grades:
+                dist[g] += 1
+        grade_distributions[c] = dist
+        grades_labeled[c]      = {grade_labels[i]: dist[i] for i in range(n_grades)}
+        # Continuous score: weighted average of grade indices
+        n = len(all_grades[c]) or 1
+        scores_out[c] = round(sum(g * cnt for g, cnt in enumerate(dist)) / n, 4)
+
+    return {
+        "winner":             winner,
+        "grades":             grades_labeled,
+        "medians":            {c: grade_labels[medians[c]] for c in candidate_names},
+        "scores":             scores_out,
+        "grade_distributions": grade_distributions,
     }
 
 
