@@ -50,6 +50,136 @@ def login():
     return result
 
 
+@auth_bp.route("/google", methods=["POST"])
+def google_login():
+    """Exchange a Google ID token for a Vote Lab JWT."""
+    from flask import current_app
+    from google.oauth2 import id_token as google_id_token
+    from google.auth.transport import requests as google_requests
+
+    data = request.get_json()
+    token = data.get("token")
+    if not token:
+        return error_response("Missing token", 400)
+
+    client_id = current_app.config.get("GOOGLE_CLIENT_ID")
+    if not client_id:
+        return error_response("Google login not configured", 501)
+
+    try:
+        info = google_id_token.verify_oauth2_token(token, google_requests.Request(), client_id)
+    except ValueError:
+        return error_response("Invalid Google token", 401)
+
+    google_sub = info.get("sub")
+    email = info.get("email")
+    first_name = info.get("given_name", "")
+    last_name = info.get("family_name", "")
+
+    user, _ = UserService.social_login_or_register(
+        provider_id=google_sub, email=email,
+        first_name=first_name, last_name=last_name,
+        provider="google",
+    )
+
+    from flask_jwt_extended import create_access_token
+    access_token = create_access_token(identity=str(user.id))
+    return success_response({
+        "access_token": access_token,
+        "user_id": user.id,
+        "username": user.username,
+        "role": user.role,
+        "first_name": user.first_name,
+        "last_name": user.last_name,
+    }, 200)
+
+
+@auth_bp.route("/github", methods=["GET"])
+def github_redirect():
+    """Redirect user to GitHub OAuth consent page."""
+    from flask import current_app, redirect
+
+    client_id = current_app.config.get("GITHUB_CLIENT_ID")
+    if not client_id:
+        return error_response("GitHub login not configured", 501)
+
+    base_url = current_app.config.get("BASE_URL", "http://localhost:4433")
+    redirect_uri = f"{base_url}/api/auth/github/callback"
+    github_url = (
+        f"https://github.com/login/oauth/authorize"
+        f"?client_id={client_id}"
+        f"&redirect_uri={redirect_uri}"
+        f"&scope=read:user"
+    )
+    return redirect(github_url)
+
+
+@auth_bp.route("/github/callback", methods=["GET"])
+def github_callback():
+    """Handle GitHub OAuth callback — exchange code for token, fetch user, login."""
+    from flask import current_app, redirect as flask_redirect
+    import requests as http_requests
+
+    code = request.args.get("code")
+    if not code:
+        return error_response("Missing authorization code", 400)
+
+    client_id = current_app.config.get("GITHUB_CLIENT_ID")
+    client_secret = current_app.config.get("GITHUB_CLIENT_SECRET")
+    base_url = current_app.config.get("BASE_URL", "http://localhost:4433")
+
+    # Exchange code for access token
+    token_resp = http_requests.post(
+        "https://github.com/login/oauth/access_token",
+        json={
+            "client_id": client_id,
+            "client_secret": client_secret,
+            "code": code,
+        },
+        headers={"Accept": "application/json"},
+    )
+    token_data = token_resp.json()
+    github_token = token_data.get("access_token")
+    if not github_token:
+        return error_response("Failed to exchange GitHub code for token", 400)
+
+    # Fetch user info from GitHub API
+    user_resp = http_requests.get(
+        "https://api.github.com/user",
+        headers={"Authorization": f"Bearer {github_token}", "Accept": "application/json"},
+    )
+    github_user = user_resp.json()
+    github_id = str(github_user.get("id"))
+    email = github_user.get("email") or ""
+    name = (github_user.get("name") or "").split(" ", 1)
+    first_name = name[0] if name else ""
+    last_name = name[1] if len(name) > 1 else ""
+
+    # If no public email, fetch emails endpoint
+    if not email:
+        emails_resp = http_requests.get(
+            "https://api.github.com/user/emails",
+            headers={"Authorization": f"Bearer {github_token}", "Accept": "application/json"},
+        )
+        for e in emails_resp.json():
+            if e.get("primary"):
+                email = e.get("email", "")
+                break
+
+    user, _ = UserService.social_login_or_register(
+        provider_id=github_id, email=email,
+        first_name=first_name, last_name=last_name,
+        provider="github",
+    )
+
+    from flask_jwt_extended import create_access_token
+    access_token = create_access_token(identity=str(user.id))
+
+    # Redirect back to frontend with token in URL
+    frontend_url = "http://localhost:3000"
+    return flask_redirect(f"{frontend_url}/oauth/callback?token={access_token}")
+
+
 @auth_bp.route("/admin-only", methods=["GET"])
 @admin_required
 @jwt_required()

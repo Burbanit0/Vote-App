@@ -38,6 +38,12 @@ class Config:
         if o.strip()
     ]
 
+    # ── OAuth ─────────────────────────────────────────────────────────────────
+    GOOGLE_CLIENT_ID = os.environ.get('GOOGLE_CLIENT_ID', '')
+    GITHUB_CLIENT_ID = os.environ.get('GITHUB_CLIENT_ID', '')
+    GITHUB_CLIENT_SECRET = os.environ.get('GITHUB_CLIENT_SECRET', '')
+    BASE_URL = os.environ.get('BASE_URL', 'http://localhost:4433')
+
     # ── Debug ─────────────────────────────────────────────────────────────────
     DEBUG = os.environ.get('DEBUG', 'false').lower() == 'true'
 
