@@ -1082,6 +1082,7 @@ const fr = {
     tabSTV:                   'STV',
     tabGerrymander:           'Gerrymandering',
     tabHotelling:             'Hotelling-Downs',
+    tabPolarization:          'Polarisation',
     tabJury:                  'Théorème du jury',
     tabReplay:                'Replay historique',
     tabAdaptive:              'Vote tactique',
@@ -1177,6 +1178,22 @@ const fr = {
     colGroupWinners:  'Vainqueurs par méthode',
     colGroupQuality:  'Métriques de qualité',
     colGroupBlank:    'Vote blanc',
+  },
+
+  polarization: {
+    prompt:        'Calculez l\'indice de polarisation d\'Esteban-Ray pour chaque distribution idéologique et observez son impact sur la qualité démocratique.',
+    run:           'Calculer',
+    error:         'Erreur lors de la simulation.',
+    computing:     'Simulation en cours… (peut prendre 15-30 secondes)',
+    ideologies:    'Distributions à comparer',
+    numSims:       'Simulations par idéologie',
+    findings:      'Résultats clés',
+    scatterTitle:  'Polarisation vs taux d\'existence du vainqueur de Condorcet',
+    heatmapTitle:  'Régret bayésien par méthode et niveau de polarisation',
+    highRegret:    'Régret élevé',
+    lowRegret:     'Régret faible',
+    trendNote:     'Tendance : −{{slope}}pp de taux Condorcet par unité de polarisation',
+    threshold:     '⚠ P≥{{p}} : CW absent dans {{pct}}% des cas',
   },
 
   hotelling: {

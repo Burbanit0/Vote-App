@@ -1084,6 +1084,7 @@ const en: TranslationKeys = {
     tabSTV:                   'STV',
     tabGerrymander:           'Gerrymandering',
     tabHotelling:             'Hotelling-Downs',
+    tabPolarization:          'Polarization',
     tabJury:                  'Jury theorem',
     tabReplay:                'Historical replay',
     tabAdaptive:              'Tactical voting',
@@ -1179,6 +1180,22 @@ const en: TranslationKeys = {
     colGroupWinners:  'Winners by method',
     colGroupQuality:  'Quality metrics',
     colGroupBlank:    'Blank vote',
+  },
+
+  polarization: {
+    prompt:        'Compute the Esteban-Ray polarization index for each ideology distribution and observe its impact on democratic quality.',
+    run:           'Compute',
+    error:         'Simulation error.',
+    computing:     'Simulating… (may take 15-30 seconds)',
+    ideologies:    'Distributions to compare',
+    numSims:       'Simulations per ideology',
+    findings:      'Key findings',
+    scatterTitle:  'Polarization vs Condorcet winner existence rate',
+    heatmapTitle:  'Bayesian Regret by method and polarization level',
+    highRegret:    'High regret',
+    lowRegret:     'Low regret',
+    trendNote:     'Trend: −{{slope}}pp Condorcet rate per unit of polarization',
+    threshold:     '⚠ P≥{{p}}: CW absent in {{pct}}% of cases',
   },
 
   hotelling: {

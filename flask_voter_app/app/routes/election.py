@@ -3299,3 +3299,215 @@ def hotelling() -> tuple[Response, int]:
         "candidates":        cand_names,
         "method":            method,
     }), 200
+
+
+# ── Polarization endpoint ──────────────────────────────────────────────────────
+
+def _esteban_ray_index(positions: List[float], n_bins: int = 20) -> float:
+    """
+    Esteban-Ray (1994) polarization index P = Σᵢ Σⱼ πᵢ² πⱼ |yᵢ - yⱼ|
+    discretised into n_bins equal-width bins over [-1, 1].
+    """
+    if not positions:
+        return 0.0
+
+    bins     = _np.linspace(-1.0, 1.0, n_bins + 1)
+    counts, _ = _np.histogram(positions, bins=bins)
+    total    = counts.sum() or 1
+    pi       = counts / total                          # bin proportions
+    centres  = (bins[:-1] + bins[1:]) / 2.0           # bin centres
+
+    p = 0.0
+    for i in range(n_bins):
+        if pi[i] == 0:
+            continue
+        for j in range(n_bins):
+            if pi[j] == 0:
+                continue
+            p += float(pi[i] ** 2 * pi[j] * abs(centres[i] - centres[j]))
+    return round(p, 6)
+
+
+def _winner_entropy(winners: List[Optional[str]]) -> float:
+    """Normalised Shannon entropy of winner distribution ∈ [0, 1]."""
+    valid = [w for w in winners if w]
+    if not valid:
+        return 1.0
+    counts = Counter(valid)
+    total  = len(valid)
+    probs  = [c / total for c in counts.values()]
+    import math as _math
+    entropy = -sum(p * _math.log2(p) for p in probs if p > 0)
+    max_e   = _math.log2(len(counts)) if len(counts) > 1 else 1.0
+    return round(entropy / max_e if max_e > 0 else 0.0, 4)
+
+
+@election_bp.route("/polarization", methods=["POST"])
+@sim_limiter.limit("5 per minute")
+def polarization() -> tuple[Response, int]:
+    """
+    POST /api/election/polarization
+
+    For each ideology in ideology_range, generate an electorate, compute the
+    Esteban-Ray polarization index, then run num_simulations Monte Carlo
+    elections and track Condorcet rate, inter-method agreement, winner
+    stability, and Bayesian Regret by method.
+    """
+    data           = request.get_json() or {}
+    num_voters     = max(50,  min(300, int(data.get("num_voters",   150))))
+    seed           = int(data.get("seed", 42))
+    num_simulations = max(5, min(50,  int(data.get("num_simulations", 20))))
+    ideology_range: List[str] = data.get(
+        "ideology_range",
+        ["centrist", "random", "left_skewed", "right_skewed", "polarized"],
+    )
+    cand_specs = data.get("candidates", [
+        {"name": "Alice", "x": -0.5, "y": -0.2},
+        {"name": "Bob",   "x":  0.5, "y":  0.2},
+        {"name": "Carol", "x":  0.0, "y":  0.3},
+    ])[:4]
+
+    if len(cand_specs) < 2:
+        return jsonify({"error": "At least 2 candidates required"}), 400
+
+    issues = DEFAULT_ISSUES
+    results: List[Dict[str, Any]] = []
+
+    for ideology in ideology_range:
+        _random.seed(seed)
+        _np.random.seed(seed)
+
+        # ── Build reference electorate to compute polarization index ──────
+        candidates, voters, true_utilities, cand_names = _build_base_electorate(
+            cand_specs, num_voters, ideology, seed, issues
+        )
+
+        economy_positions: List[float] = [
+            float(2.0 * v["issue_positions"].get("economy", 0.5) - 1.0)
+            for v in voters
+        ]
+        pol_index = _esteban_ray_index(economy_positions)
+
+        # ── Monte Carlo simulations ────────────────────────────────────────
+        condorcet_count   = 0
+        agreement_sum     = 0.0
+        # Per-method: collect regrets and winner lists
+        method_regrets:  Dict[str, List[float]] = {}
+        method_winners:  Dict[str, List[Optional[str]]] = {}
+        global_winners:  List[Optional[str]] = []
+
+        for sim_idx in range(num_simulations):
+            sim_seed = seed + sim_idx + 1
+            _random.seed(sim_seed)
+            _np.random.seed(sim_seed)
+
+            _, sim_voters, sim_utils, _ = _build_base_electorate(
+                cand_specs, num_voters, ideology, sim_seed, issues
+            )
+
+            mc_result = compare_all_methods(
+                sim_voters, candidates, issues,
+                blank_vote=False,
+                override_utilities=sim_utils,
+            )
+
+            cw = mc_result.get("condorcet_winner")
+            if cw:
+                condorcet_count += 1
+
+            methods_data: Dict[str, Any] = mc_result.get("methods", {})
+
+            # Agreement: fraction of methods electing the most common winner
+            winners_this = [
+                md.get("winner") for md in methods_data.values() if md.get("winner")
+            ]
+            if winners_this:
+                most_common_count = Counter(winners_this).most_common(1)[0][1]
+                agreement_sum += most_common_count / len(winners_this)
+                global_winners.append(Counter(winners_this).most_common(1)[0][0])
+            else:
+                global_winners.append(None)
+
+            for method_name, md in methods_data.items():
+                if method_name not in method_regrets:
+                    method_regrets[method_name]  = []
+                    method_winners[method_name]  = []
+                r = md.get("bayesian_regret")
+                if r is not None:
+                    method_regrets[method_name].append(float(r))
+                method_winners[method_name].append(md.get("winner"))
+
+        condorcet_rate  = round(condorcet_count / num_simulations, 4)
+        agreement_rate  = round(agreement_sum / num_simulations, 4)
+        winner_stability = _winner_entropy(global_winners)
+
+        # Best/worst method by average Bayesian Regret
+        avg_regrets: Dict[str, float] = {
+            m: round(sum(v) / len(v), 6)
+            for m, v in method_regrets.items() if v
+        }
+        best_method  = min(avg_regrets, key=lambda k: avg_regrets[k]) if avg_regrets else ""
+        worst_method = max(avg_regrets, key=lambda k: avg_regrets[k]) if avg_regrets else ""
+
+        results.append({
+            "ideology":          ideology,
+            "polarization_index": pol_index,
+            "condorcet_rate":    condorcet_rate,
+            "agreement_rate":    agreement_rate,
+            "winner_stability":  winner_stability,
+            "best_method":       best_method,
+            "worst_method":      worst_method,
+            "method_regrets":    avg_regrets,
+        })
+
+    # ── Key findings ───────────────────────────────────────────────────────
+    results_sorted = sorted(results, key=lambda r: r["polarization_index"])
+
+    findings: List[str] = []
+
+    # 1. Condorcet threshold
+    low_cw = [r for r in results_sorted if r["condorcet_rate"] < 0.5]
+    if low_cw:
+        threshold = low_cw[0]["polarization_index"]
+        pct       = round((1 - low_cw[0]["condorcet_rate"]) * 100)
+        findings.append(
+            f"À partir de P ≈ {threshold:.2f}, le vainqueur de Condorcet disparaît "
+            f"dans {pct}% des simulations."
+        )
+
+    # 2. Most robust method under high polarization
+    high_pol = [r for r in results_sorted if r["polarization_index"] > 0.2]
+    if high_pol:
+        all_best: Counter[str] = Counter(r["best_method"] for r in high_pol if r["best_method"])
+        if all_best:
+            robust = all_best.most_common(1)[0][0]
+            # Compare to worst
+            all_worst: Counter[str] = Counter(r["worst_method"] for r in high_pol if r["worst_method"])
+            fragile = all_worst.most_common(1)[0][0] if all_worst else ""
+            findings.append(
+                f"{robust.capitalize()} est la méthode la plus robuste dans les "
+                f"électorats polarisés — régret bayésien moyen inférieur à {fragile}."
+            )
+
+    # 3. Agreement drops
+    if len(results_sorted) >= 2:
+        first_agree = results_sorted[0]["agreement_rate"]
+        last_agree  = results_sorted[-1]["agreement_rate"]
+        if last_agree < first_agree - 0.1:
+            delta = round((first_agree - last_agree) * 100, 1)
+            findings.append(
+                f"L'accord inter-méthodes chute de {delta} points de pourcentage "
+                "entre l'électorat le moins et le plus polarisé."
+            )
+
+    if not findings:
+        findings.append(
+            "Les résultats montrent que la polarisation affecte la qualité "
+            "démocratique mesurée par l'accord inter-méthodes et l'existence "
+            "d'un vainqueur de Condorcet."
+        )
+
+    return jsonify({
+        "results":      results,
+        "key_findings": findings,
+    }), 200
