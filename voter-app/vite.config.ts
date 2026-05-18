@@ -55,9 +55,16 @@ export default defineConfig(({ mode }) => {
       port: 3000,
       open: true,
       proxy: {
-        '/api/election': {
+        // Route all /api/* calls through Vite so a single port suffices
+        // (needed when sharing via ngrok — the browser can't reach :4433)
+        '/api': {
           target: 'http://localhost:4433',
           changeOrigin: true,
+        },
+        '/socket.io': {
+          target: 'http://localhost:4433',
+          changeOrigin: true,
+          ws: true,
         },
       },
     },
