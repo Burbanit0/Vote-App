@@ -3083,3 +3083,219 @@ def gerrymander() -> tuple[Response, int]:
         "candidates":             cand_names,
         "num_seats":              num_total_seats,
     }), 200
+
+
+# ── Hotelling-Downs equilibrium ────────────────────────────────────────────────
+
+def _hotelling_utility(
+    voters_xy: _np.ndarray,      # shape (N, 2)
+    cand_xy:   _np.ndarray,      # shape (C, 2)
+) -> _np.ndarray:
+    """
+    Proximity-based utility matrix U[i, j] for voter i and candidate j.
+    U = 1 - 0.5 * euclidean_distance / sqrt(2)  → ∈ [~0.3, 1.0]
+    """
+    diff = voters_xy[:, None, :] - cand_xy[None, :, :]   # (N, C, 2)
+    dist = _np.sqrt((diff ** 2).sum(axis=2))              # (N, C)
+    result: _np.ndarray = 1.0 - 0.5 * dist / _np.sqrt(2)
+    return result
+
+
+def _hotelling_score(
+    utilities: _np.ndarray,   # (N, C) — utility matrix
+    method:    str,
+    cand_idx:  int,
+) -> float:
+    """
+    Score for candidate cand_idx under the given method.
+    Returns a continuous value in [0, 1] suitable for gradient ascent.
+    """
+    N, C = utilities.shape
+    if N == 0 or C == 0:
+        return 0.0
+
+    score: float
+    if method in ("plurality", "irv"):
+        winners = utilities.argmax(axis=1)
+        score = int((winners == cand_idx).sum()) / N
+
+    elif method == "borda":
+        ranks  = _np.argsort(-utilities, axis=1)
+        points = _np.zeros((N, C))
+        for k in range(C):
+            points[_np.arange(N), ranks[:, k]] = C - 1 - k
+        total_possible = N * (C - 1)
+        score = int(points[:, cand_idx].sum()) / max(total_possible, 1)
+
+    elif method == "approval":
+        means    = utilities.mean(axis=1, keepdims=True)
+        approved = utilities > means
+        score = int(approved[:, cand_idx].sum()) / N
+
+    else:
+        winners = utilities.argmax(axis=1)
+        score = int((winners == cand_idx).sum()) / N
+
+    return score
+
+
+@election_bp.route("/hotelling", methods=["POST"])
+@sim_limiter.limit("10 per minute")
+def hotelling() -> tuple[Response, int]:
+    """
+    POST /api/election/hotelling
+
+    Simulate Hotelling-Downs Nash equilibrium: each candidate iteratively
+    moves in the direction (±x, ±y) that maximises their vote score.
+    Converges when no candidate can improve by moving.
+    """
+    data           = request.get_json() or {}
+    num_voters     = max(50,  min(500, int(data.get("num_voters",   200))))
+    ideology       = str(data.get("ideology",   "random"))
+    seed           = int(data.get("seed",         42))
+    method         = str(data.get("method",     "plurality"))
+    num_iterations = max(1,  min(20,  int(data.get("num_iterations", 10))))
+    step_size      = max(0.01, min(0.15, float(data.get("step_size",   0.05))))
+    cand_specs     = data.get("candidates", [
+        {"name": "Alice", "x": -0.5, "y": -0.2},
+        {"name": "Bob",   "x":  0.5, "y":  0.2},
+        {"name": "Carol", "x":  0.0, "y":  0.3},
+    ])[:6]
+
+    if len(cand_specs) < 2:
+        return jsonify({"error": "At least 2 candidates required"}), 400
+
+    _random.seed(seed)
+    _np.random.seed(seed)
+    issues = DEFAULT_ISSUES
+
+    # ── Build fixed electorate ─────────────────────────────────────────────
+    candidates, voters, _, cand_names = _build_base_electorate(
+        cand_specs, num_voters, ideology, seed, issues
+    )
+
+    # Voter 2-D positions (fixed throughout)
+    voters_xy = _np.array([
+        [
+            2.0 * v["issue_positions"].get("economy", 0.5) - 1.0,
+            2.0 * v["issue_positions"].get("social_welfare", 0.5) - 1.0,
+        ]
+        for v in voters
+    ])  # (N, 2)
+
+    # Initial candidate positions
+    cand_xy = _np.array([
+        [max(-1.0, min(1.0, float(s.get("x", 0.0)))),
+         max(-1.0, min(1.0, float(s.get("y", 0.0))))]
+        for s in cand_specs
+    ])  # (C, 2)
+
+    N = len(voters)
+    C = len(cand_names)
+    DIRS = _np.array([[step_size, 0], [-step_size, 0],
+                      [0, step_size], [0, -step_size]])
+
+    # ── Iterative Nash ─────────────────────────────────────────────────────
+    iterations_out: list[Dict[str, Any]] = []
+    converged_set: set[str] = set()
+
+    for step in range(num_iterations):
+        utilities = _hotelling_utility(voters_xy, cand_xy)
+
+        scores: Dict[str, float] = {
+            cand_names[j]: round(_hotelling_score(utilities, method, j), 4)
+            for j in range(C)
+        }
+
+        # Record snapshot before moving
+        iterations_out.append({
+            "step":               step,
+            "candidates":         [
+                {"name": cand_names[j], "x": round(float(cand_xy[j, 0]), 4),
+                 "y": round(float(cand_xy[j, 1]), 4)}
+                for j in range(C)
+            ],
+            "scores":             scores,
+            "converged_candidates": sorted(converged_set),
+        })
+
+        moved_any = False
+        for j in range(C):
+            if cand_names[j] in converged_set:
+                continue
+
+            current_score = _hotelling_score(utilities, method, j)
+            best_score    = current_score
+            best_delta    = _np.zeros(2)
+
+            for delta in DIRS:
+                new_pos = _np.clip(cand_xy[j] + delta, -1.0, 1.0)
+                trial   = cand_xy.copy()
+                trial[j] = new_pos
+                trial_u  = _hotelling_utility(voters_xy, trial)
+                s        = _hotelling_score(trial_u, method, j)
+                if s > best_score + 1e-6:
+                    best_score = s
+                    best_delta = delta
+
+            if _np.any(best_delta != 0):
+                cand_xy[j] = _np.clip(cand_xy[j] + best_delta, -1.0, 1.0)
+                moved_any = True
+            else:
+                converged_set.add(cand_names[j])
+
+        if len(converged_set) == C:
+            break
+
+    # Final snapshot
+    utilities = _hotelling_utility(voters_xy, cand_xy)
+    final_scores = {
+        cand_names[j]: round(_hotelling_score(utilities, method, j), 4)
+        for j in range(C)
+    }
+    iterations_out.append({
+        "step":               len(iterations_out),
+        "candidates":         [
+            {"name": cand_names[j], "x": round(float(cand_xy[j, 0]), 4),
+             "y": round(float(cand_xy[j, 1]), 4)}
+            for j in range(C)
+        ],
+        "scores":             final_scores,
+        "converged_candidates": sorted(converged_set),
+    })
+
+    final_positions = iterations_out[-1]["candidates"]
+    converged       = len(converged_set) == C
+    convergence_step: Optional[int] = (
+        next((i["step"] for i in iterations_out if len(i["converged_candidates"]) == C), None)
+    )
+
+    # Classify equilibrium type
+    xs = [p["x"] for p in final_positions]
+    spread = max(xs) - min(xs) if xs else 0
+    if spread < 0.15:
+        eq_type = "center_convergence"
+    elif converged and spread >= 0.15:
+        eq_type = "dispersed"
+    else:
+        eq_type = "unstable"
+
+    # Voter snapshot (max 200 for performance)
+    voter_snaps = [
+        {
+            "x": round(float(voters_xy[i, 0]), 3),
+            "y": round(float(voters_xy[i, 1]), 3),
+        }
+        for i in range(min(200, N))
+    ]
+
+    return jsonify({
+        "iterations":        iterations_out,
+        "converged":         converged,
+        "convergence_step":  convergence_step,
+        "final_positions":   final_positions,
+        "equilibrium_type":  eq_type,
+        "voters":            voter_snaps,
+        "candidates":        cand_names,
+        "method":            method,
+    }), 200
