@@ -31,6 +31,7 @@ import AbstentionPanel from '../components/shared/AbstentionPanel';
 import STVPanel from '../components/shared/STVPanel';
 import GerrymanderMap from '../components/shared/GerrymanderMap';
 import HotellingPanel from '../components/shared/HotellingPanel';
+import PolarizationPanel from '../components/shared/PolarizationPanel';
 
 const COLORS: Record<string, string> = {
   Green: '#007A33', Liberal: '#005CAB', Conservative: '#C8590A', Independent: '#6c757d',
@@ -523,6 +524,7 @@ const ElectionLabPage: React.FC = () => {
                   { key: 'stv',                icon: '🔄', label: t('electionLab.tabSTV') },
                   { key: 'gerrymander',        icon: '🗺', label: t('electionLab.tabGerrymander') },
                   { key: 'hotelling',           icon: '⚖️', label: t('electionLab.tabHotelling') },
+                  { key: 'polarization',       icon: '📊', label: t('electionLab.tabPolarization') },
                 ];
 
                 const tabContent: Record<string, React.ReactNode> = {
@@ -547,6 +549,7 @@ const ElectionLabPage: React.FC = () => {
                   'stv':                  <STVPanel />,
                   'gerrymander':          <GerrymanderMap />,
                   'hotelling':            <HotellingPanel />,
+                  'polarization':         <PolarizationPanel />,
                 };
 
                 const currentIdx = TABS.findIndex((tab) => tab.key === activeTab);
