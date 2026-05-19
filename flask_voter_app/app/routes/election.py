@@ -4143,3 +4143,201 @@ def information_cascade() -> tuple[Response, int]:
         "comparison_runs":        comparison_runs,
         "candidates":             cand_names,
     }), 200
+
+
+# ── Behavioral Biases ─────────────────────────────────────────────────────────
+
+@election_bp.route("/behavioral-biases", methods=["POST"])
+@sim_limiter.limit("10 per minute")
+def behavioral_biases() -> tuple[Response, int]:
+    """
+    POST /api/election/behavioral-biases
+
+    Model three empirical voting biases and their impact on election outcomes:
+      1. Expressive voting (Fiorina 1976): voters boost their ideal candidate ×10,
+         inflating the approval threshold so they behave like bullet voters.
+      2. Bullet voting: approval voters approve only their top choice, collapsing
+         Approval Voting to Plurality for those voters.
+      3. Primacy effect (Krosnick 1991): the first-listed candidate gains a vote
+         bonus proportional to primacy_bonus.
+    """
+    import copy as _copy
+
+    data              = request.get_json() or {}
+    num_voters        = max(50,  min(500,  int(data.get("num_voters",         200))))
+    ideology          = str(data.get("ideology",           "random"))
+    seed              = int(data.get("seed",                42))
+    expressive_pct    = max(0.0, min(1.0, float(data.get("expressive_pct",    0.2))))
+    bullet_pct        = max(0.0, min(1.0, float(data.get("bullet_voting_pct", 0.2))))
+    primacy_bonus     = max(0.0, min(0.2, float(data.get("primacy_bonus",     0.02))))
+    candidate_order   = [str(n) for n in data.get("candidate_order", [])]
+    primary_method    = str(data.get("method", "plurality"))
+    cand_specs        = data.get("candidates", [
+        {"name": "Alice", "x": -0.5, "y": -0.2},
+        {"name": "Bob",   "x":  0.5, "y":  0.2},
+        {"name": "Carol", "x":  0.0, "y":  0.1},
+    ])[:6]
+
+    if len(cand_specs) < 2:
+        return jsonify({"error": "At least 2 candidates required"}), 400
+
+    _random.seed(seed)
+    _np.random.seed(seed)
+    issues = DEFAULT_ISSUES
+
+    candidates, voters, sincere_utilities, cand_names = _build_base_electorate(
+        cand_specs, num_voters, ideology, seed, issues
+    )
+
+    # ── Resolve candidate order for primacy ───────────────────────────────
+    name_set = set(cand_names)
+    ordered_names: list[str] = [n for n in candidate_order if n in name_set]
+    if len(ordered_names) != len(cand_names):
+        ordered_names = list(cand_names)
+    first_listed = ordered_names[0]
+
+    # ── Select affected voter subsets ─────────────────────────────────────
+    all_ids       = [v["id"] for v in voters]
+    rng           = _random.Random(seed)
+    exp_count     = round(expressive_pct * num_voters)
+    bullet_count  = round(bullet_pct     * num_voters)
+    primacy_count = round(primacy_bonus  * num_voters)
+
+    expressive_ids = set(rng.sample(all_ids, min(exp_count,     len(all_ids))))
+    bullet_ids     = set(rng.sample(all_ids, min(bullet_count,  len(all_ids))))
+    primacy_ids    = set(rng.sample(all_ids, min(primacy_count, len(all_ids))))
+
+    # ── Build biased utilities ────────────────────────────────────────────
+    biased_utilities: Dict[Any, Dict[str, float]] = _copy.deepcopy(sincere_utilities)
+
+    for v in voters:
+        vid = v["id"]
+        u   = biased_utilities[vid]
+        # Expressive: emotional attachment inflates ideal candidate utility ×10
+        if vid in expressive_ids:
+            ideal = max(u, key=lambda k: u[k])
+            u[ideal] = u[ideal] * 10.0
+        # Primacy: position bias nudges voter toward first-listed candidate
+        if vid in primacy_ids:
+            curr_max        = max(u.values())
+            u[first_listed] = curr_max + 0.1
+
+    # ── Fast winner computation (no strategic-vulnerability overhead) ──────
+    from app.utils.simulation_ranked_utils import (
+        get_borda_winner as _borda,
+        get_irv_winner   as _irv,
+        get_schulze_winner as _schulze,
+    )
+    from app.utils.simulation_score_utils import (
+        get_star_voting_winner        as _star,
+        get_majority_judgment_winner  as _mj,
+    )
+
+    def _compute_winners(utils: Dict[Any, Dict[str, float]]) -> Dict[str, Optional[str]]:
+        rnk = [
+            sorted(utils[v["id"]].keys(), key=lambda n: -utils[v["id"]][n])
+            for v in voters
+        ]
+        sv = [
+            {n: max(0, min(5, round(5 * val))) for n, val in utils[v["id"]].items()}
+            for v in voters
+        ]
+        out: Dict[str, Optional[str]] = {}
+        for mname, fn in [("plurality", get_plurality_winner),
+                           ("borda",    _borda),
+                           ("irv",      _irv),
+                           ("schulze",  _schulze)]:
+            try:
+                out[mname] = fn(rnk)
+            except Exception:
+                out[mname] = None
+        try:
+            raw = _star(sv)
+            out["star_voting"] = raw.get("winner") if isinstance(raw, dict) else raw
+        except Exception:
+            out["star_voting"] = None
+        try:
+            mj_utils = [dict(utils[v["id"]]) for v in voters]
+            mj_raw   = _mj(mj_utils)
+            out["majority_judgment"] = str(mj_raw["winner"]) if mj_raw.get("winner") else None
+        except Exception:
+            out["majority_judgment"] = None
+        return out
+
+    # ── Approval with bullet voting ───────────────────────────────────────
+    def _approval_winner(utils: Dict[Any, Dict[str, float]], bids: set) -> str:
+        tally: Counter = Counter()
+        for v in voters:
+            vid = v["id"]
+            u   = utils[vid]
+            if not u:
+                continue
+            if vid in bids:
+                tally[max(u, key=lambda k: u[k])] += 1
+            else:
+                threshold = sum(u.values()) / len(u)
+                for cname, val in u.items():
+                    if val > threshold:
+                        tally[cname] += 1
+        return max(tally, key=tally.__getitem__) if tally else cand_names[0]
+
+    sincere_winners  = _compute_winners(sincere_utilities)
+    biased_winners   = _compute_winners(biased_utilities)
+
+    # Approval computed separately for both runs
+    sincere_winners["approval"] = _approval_winner(sincere_utilities, set())
+    biased_winners["approval"]  = _approval_winner(biased_utilities,  bullet_ids)
+
+    # ── Method sensitivity table ──────────────────────────────────────────
+    TRACKED = ["plurality", "approval", "borda", "irv",
+               "schulze", "star_voting", "majority_judgment"]
+    method_sensitivity: Dict[str, Dict[str, Optional[str]]] = {
+        m: {"sincere": sincere_winners.get(m), "biased": biased_winners.get(m)}
+        for m in TRACKED
+        if sincere_winners.get(m) or biased_winners.get(m)
+    }
+
+    # ── Headline comparison ───────────────────────────────────────────────
+    sincere_winner = sincere_winners.get(primary_method) or cand_names[0]
+    biased_winner  = biased_winners.get(primary_method)  or cand_names[0]
+    winner_changed = sincere_winner != biased_winner
+
+    # ── Pedagogical note ──────────────────────────────────────────────────
+    changed_methods = [m for m, d in method_sensitivity.items()
+                       if d["sincere"] != d["biased"]]
+    if winner_changed:
+        note = (
+            f"Ces biais comportementaux changent le vainqueur de {sincere_winner}"
+            f" à {biased_winner} sous la méthode '{primary_method}'. "
+            f"{len(changed_methods)} méthode(s) affectée(s) : "
+            f"{', '.join(changed_methods[:4])}."
+        )
+    else:
+        if changed_methods:
+            note = (
+                f"Le vainqueur sincère ({sincere_winner}) est maintenu sous '{primary_method}', "
+                f"mais {len(changed_methods)} autre(s) méthode(s) changent de vainqueur "
+                f"sous ces biais : {', '.join(changed_methods[:4])}."
+            )
+        else:
+            note = (
+                f"Aucune méthode ne change de vainqueur malgré ces biais comportementaux. "
+                f"L'électorat est suffisamment homogène pour résister aux distorsions."
+            )
+
+    return jsonify({
+        "sincere_winner":   sincere_winner,
+        "biased_winner":    biased_winner,
+        "winner_changed":   winner_changed,
+        "vote_breakdown": {
+            "expressive_voters": exp_count,
+            "bullet_voters":     bullet_count,
+            "primacy_affected":  primacy_count,
+            "first_listed":      first_listed,
+            "candidate_order":   ordered_names,
+        },
+        "method_sensitivity":    method_sensitivity,
+        "bullet_immune_methods": ["majority_judgment", "star_voting",
+                                  "borda", "irv", "schulze"],
+        "pedagogical_note":      note,
+    }), 200
