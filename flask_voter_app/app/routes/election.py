@@ -3813,3 +3813,213 @@ def quadratic_funding() -> tuple[Response, int]:
         "budget_per_voter":      budget_per_voter,
         "pedagogical_note":      note,
     }), 200
+
+
+# ── Affective polarization endpoint ──────────────────────────────────────────
+
+def _apply_affective(
+    sincere_utilities: Dict[Any, Dict[str, float]],
+    voter_camps:       Dict[Any, str],        # voter_id → "left" | "right" | "centre"
+    candidate_camps:   Dict[str, str],        # cand_name → camp
+    hostility:         float,
+) -> Dict[Any, Dict[str, float]]:
+    """
+    Apply affective polarization: penalise candidates from the opposing camp.
+    U_affective(v, c) =
+        U_sincere(v, c)                          if c is in voter v's camp
+        U_sincere(v, c) × (1 - hostility)        if c is in the opposing camp
+    """
+    affective: Dict[Any, Dict[str, float]] = {}
+    for vid, utils in sincere_utilities.items():
+        v_camp    = voter_camps.get(vid, "centre")
+        new_utils = {}
+        for cname, u in utils.items():
+            c_camp = candidate_camps.get(cname, "centre")
+            if c_camp == "centre" or v_camp == "centre" or c_camp == v_camp:
+                new_utils[cname] = u
+            else:
+                new_utils[cname] = u * (1.0 - hostility)
+        affective[vid] = new_utils
+    return affective
+
+
+def _run_all_on_utilities(
+    voters:     List[Dict[str, Any]],
+    candidates: List[Dict[str, Any]],
+    issues:     List[str],
+    utilities:  Dict[Any, Dict[str, float]],
+) -> Dict[str, Any]:
+    """Run compare_all_methods with pre-computed utilities."""
+    return compare_all_methods(
+        voters, candidates, issues,
+        blank_vote=False,
+        override_utilities=utilities,
+    )
+
+
+@election_bp.route("/affective-polarization", methods=["POST"])
+@sim_limiter.limit("5 per minute")
+def affective_polarization() -> tuple[Response, int]:
+    """
+    POST /api/election/affective-polarization
+
+    Simulate Affective Polarization (Iyengar et al., 2019):
+    voters penalise candidates from the opposing political camp proportionally
+    to an affect_hostility parameter ∈ [0, 1].
+
+    Returns sincere vs affective results, method sensitivities, and an
+    affect curve showing how agreement/Condorcet rates evolve with hostility.
+    """
+    data             = request.get_json() or {}
+    num_voters       = max(50,  min(500, int(data.get("num_voters",   200))))
+    ideology         = str(data.get("ideology",    "random"))
+    seed             = int(data.get("seed",          42))
+    affect_hostility = max(0.0, min(1.0, float(data.get("affect_hostility", 0.5))))
+    camp_threshold   = max(0.0, min(1.0, float(data.get("camp_threshold",   0.1))))
+    num_simulations  = max(5,   min(50,  int(data.get("num_simulations",    20))))
+    cand_specs       = data.get("candidates", [
+        {"name": "Alice", "x": -0.5, "y": -0.2},
+        {"name": "Bob",   "x":  0.5, "y":  0.2},
+        {"name": "Carol", "x":  0.0, "y":  0.1},
+    ])[:6]
+
+    if len(cand_specs) < 2:
+        return jsonify({"error": "At least 2 candidates required"}), 400
+
+    _random.seed(seed)
+    _np.random.seed(seed)
+    issues = DEFAULT_ISSUES
+
+    candidates, voters, sincere_utilities, cand_names = _build_base_electorate(
+        cand_specs, num_voters, ideology, seed, issues
+    )
+
+    # ── Assign camps ──────────────────────────────────────────────────────
+    def _x_pos(cand: Dict[str, Any]) -> float:
+        val: float = round(2.0 * float(cand["ideology_position"]) - 1.0, 3)
+        return val
+
+    candidate_camps: Dict[str, str] = {}
+    for c in candidates:
+        x = _x_pos(c)
+        if x < -camp_threshold:
+            candidate_camps[c["name"]] = "left"
+        elif x > camp_threshold:
+            candidate_camps[c["name"]] = "right"
+        else:
+            candidate_camps[c["name"]] = "centre"
+
+    voter_camps: Dict[Any, str] = {}
+    for v in voters:
+        uid      = v["id"]
+        best     = max(sincere_utilities[uid], key=lambda k: sincere_utilities[uid][k])
+        voter_camps[uid] = candidate_camps.get(best, "centre")
+
+    # ── Affective utilities ────────────────────────────────────────────────
+    affective_utilities = _apply_affective(
+        sincere_utilities, voter_camps, candidate_camps, affect_hostility
+    )
+
+    # ── Run elections ──────────────────────────────────────────────────────
+    sincere_mc  = _run_all_on_utilities(voters, candidates, issues, sincere_utilities)
+    affective_mc = _run_all_on_utilities(voters, candidates, issues, affective_utilities)
+
+    sincere_winners  = {m: md.get("winner") for m, md in sincere_mc.get("methods", {}).items()}
+    affective_winners = {m: md.get("winner") for m, md in affective_mc.get("methods", {}).items()}
+
+    sincere_cw  = sincere_mc.get("condorcet_winner")
+    affective_cw = affective_mc.get("condorcet_winner")
+
+    winner_changed = any(
+        sincere_winners.get(m) != affective_winners.get(m)
+        for m in sincere_winners
+    )
+    condorcet_violation = (sincere_cw != affective_cw)
+
+    # ── Method sensitivity via Monte Carlo ─────────────────────────────────
+    method_changes: Counter[str] = Counter()
+    for sim_idx in range(num_simulations):
+        s = seed + sim_idx + 1
+        _random.seed(s); _np.random.seed(s)
+        _, sv, su, _ = _build_base_electorate(cand_specs, num_voters, ideology, s, issues)
+        vcamps = {}
+        for v in sv:
+            uid  = v["id"]
+            best = max(su[uid], key=lambda k: su[uid][k])
+            vcamps[uid] = candidate_camps.get(best, "centre")
+        au = _apply_affective(su, vcamps, candidate_camps, affect_hostility)
+        sm = _run_all_on_utilities(sv, candidates, issues, su)
+        am = _run_all_on_utilities(sv, candidates, issues, au)
+        for m in sm.get("methods", {}):
+            if sm["methods"][m].get("winner") != am.get("methods", {}).get(m, {}).get("winner"):
+                method_changes[m] += 1
+
+    method_sensitivity = {
+        m: round(method_changes.get(m, 0) / num_simulations, 4)
+        for m in sincere_winners
+    }
+
+    # ── Affect curve (hostility 0 → 1 in 11 steps) ────────────────────────
+    _random.seed(seed); _np.random.seed(seed)
+    affect_curve: List[Dict[str, Any]] = []
+    for step in range(11):
+        h = round(step / 10, 1)
+        au_step = _apply_affective(sincere_utilities, voter_camps, candidate_camps, h)
+        mc_step = _run_all_on_utilities(voters, candidates, issues, au_step)
+        methods_step = mc_step.get("methods", {})
+        winners_step = [md.get("winner") for md in methods_step.values() if md.get("winner")]
+        cw_exists    = mc_step.get("condorcet_winner") is not None
+        if winners_step:
+            most_common_count = Counter(winners_step).most_common(1)[0][1]
+            agr = most_common_count / len(winners_step)
+        else:
+            agr = 0.0
+        affect_curve.append({
+            "hostility":      h,
+            "condorcet_rate": 1.0 if cw_exists else 0.0,
+            "agreement_rate": round(agr, 4),
+        })
+
+    # ── Voter snapshot for the map ─────────────────────────────────────────
+    voter_snaps = [
+        {
+            "id":        v["id"],
+            "x":         round(2.0 * v["issue_positions"].get("economy", 0.5) - 1.0, 3),
+            "y":         round(2.0 * v["issue_positions"].get("social_welfare", 0.5) - 1.0, 3),
+            "camp":      voter_camps.get(v["id"], "centre"),
+            "sincere_pref":   max(sincere_utilities[v["id"]], key=lambda k: sincere_utilities[v["id"]][k]),
+            "affective_pref": max(affective_utilities[v["id"]], key=lambda k: affective_utilities[v["id"]][k]),
+        }
+        for v in voters[:300]
+    ]
+
+    # ── Pedagogical note ───────────────────────────────────────────────────
+    changed_methods = [m for m in sincere_winners
+                       if sincere_winners[m] != affective_winners[m]]
+    if winner_changed:
+        note = (
+            f"La polarisation affective ({affect_hostility:.0%} d'hostilité) "
+            f"change le vainqueur dans {len(changed_methods)} méthode(s) sur {len(sincere_winners)}. "
+            f"Les méthodes les plus sensibles : {', '.join(sorted(changed_methods, key=lambda m: -method_sensitivity[m])[:3])}."
+        )
+    else:
+        note = (
+            f"Avec {affect_hostility:.0%} d'hostilité inter-partisane, "
+            "aucune méthode ne change de vainqueur — "
+            "l'électorat reste suffisamment consensuel pour résister à la polarisation affective."
+        )
+
+    return jsonify({
+        "sincere_results":     sincere_winners,
+        "affective_results":   affective_winners,
+        "winner_changed":      winner_changed,
+        "condorcet_violation": condorcet_violation,
+        "sincere_cw":          sincere_cw,
+        "affective_cw":        affective_cw,
+        "method_sensitivity":  method_sensitivity,
+        "affect_curve":        affect_curve,
+        "candidate_camps":     candidate_camps,
+        "voters":              voter_snaps,
+        "candidates":          [{"name": c["name"], "x": _x_pos(c)} for c in candidates],
+        "pedagogical_note":    note,
+    }), 200
