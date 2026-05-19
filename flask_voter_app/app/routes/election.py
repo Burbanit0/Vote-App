@@ -34,7 +34,10 @@ from app.utils.simulation_ranked_utils import (
     get_schulze_winner,
 )
 from app.utils.blank_vote_rules        import BlankVoteRule, apply_blank_rule
-from app.utils.simulation_multiwinner_utils import get_stv_result, get_dhondt_winners
+from app.utils.simulation_multiwinner_utils import (
+    get_stv_result, get_dhondt_winners,
+    get_spav_result, get_phragmen_result,
+)
 from app.utils.blank_contagion         import simulate_blank_contagion
 from app.utils.campaign_dynamics       import simulate_campaign
 from app.utils.information_model       import apply_information_asymmetry
@@ -3082,6 +3085,124 @@ def gerrymander() -> tuple[Response, int]:
         "winner":                 leading,
         "candidates":             cand_names,
         "num_seats":              num_total_seats,
+    }), 200
+
+
+# ── Multi-winner compare endpoint ─────────────────────────────────────────────
+
+@election_bp.route("/multiwinner_compare", methods=["POST"])
+@sim_limiter.limit("10 per minute")
+def multiwinner_compare() -> tuple[Response, int]:
+    """
+    POST /api/election/multiwinner_compare
+
+    Simulate the same electorate under 5 multi-winner methods:
+    STV, D'Hondt, SPAV, Phragmén, and FPTP (top-N).
+    Returns seats allocated by each method, distortion vs proportional,
+    and a per-method representation index.
+    """
+    data       = request.get_json() or {}
+    num_voters = max(50,  min(500, int(data.get("num_voters",  200))))
+    ideology   = str(data.get("ideology",  "random"))
+    seed       = int(data.get("seed",        42))
+    num_seats  = max(2,  min(10,  int(data.get("num_seats",    5))))
+    cand_specs = data.get("candidates", [
+        {"name": "Alice", "x": -0.5, "y": -0.2},
+        {"name": "Bob",   "x":  0.5, "y":  0.2},
+        {"name": "Carol", "x":  0.0, "y":  0.3},
+        {"name": "Dave",  "x": -0.2, "y":  0.5},
+    ])[:8]
+
+    if len(cand_specs) < 2:
+        return jsonify({"error": "At least 2 candidates required"}), 400
+    if num_seats >= len(cand_specs):
+        return jsonify({"error": "num_seats must be less than number of candidates"}), 400
+
+    _random.seed(seed)
+    _np.random.seed(seed)
+    issues = DEFAULT_ISSUES
+
+    candidates, voters, true_utilities, cand_names = _build_base_electorate(
+        cand_specs, num_voters, ideology, seed, issues
+    )
+
+    # ── Build ballots ──────────────────────────────────────────────────────
+    # Full rankings for STV
+    rankings: List[List[str]] = []
+    for v in voters:
+        uid = v["id"]
+        rankings.append(
+            sorted(true_utilities[uid].keys(), key=lambda k: -true_utilities[uid][k])
+        )
+
+    # Approval ballots: approve candidates above own mean utility
+    approval_ballots: List[List[str]] = []
+    for v in voters:
+        uid        = v["id"]
+        u          = true_utilities[uid]
+        threshold  = sum(u.values()) / max(len(u), 1)
+        approved   = [c for c in cand_names if u.get(c, 0) > threshold]
+        if not approved:                          # always approve at least 1st choice
+            approved = [max(u, key=lambda k: u[k])]
+        approval_ballots.append(approved)
+
+    # First-choice vote shares for D'Hondt / FPTP
+    first_choice: Counter[str] = Counter(r[0] for r in rankings if r)
+    total_voters  = len(voters) or 1
+    vote_shares   = {n: first_choice.get(n, 0) / total_voters for n in cand_names}
+
+    # ── Run all methods ────────────────────────────────────────────────────
+    stv_raw    = get_stv_result(rankings, num_seats, "droop")
+    dhondt_raw = get_dhondt_winners(vote_shares, num_seats)
+    spav_raw   = get_spav_result(approval_ballots, num_seats)
+    phrag_raw  = get_phragmen_result(approval_ballots, num_seats)
+    top_n      = sorted(cand_names, key=lambda c: -first_choice.get(c, 0))[:num_seats]
+
+    def _to_seat_dict(elected: List[str]) -> Dict[str, int]:
+        d: Dict[str, int] = {c: 0 for c in cand_names}
+        for c in elected:
+            d[c] = d.get(c, 0) + 1
+        return d
+
+    methods: Dict[str, Dict[str, Any]] = {
+        "stv":     {"seats": _to_seat_dict(stv_raw["elected"]),    "elected": stv_raw["elected"]},
+        "dhondt":  {"seats": dhondt_raw,                           "elected": [c for c, s in sorted(dhondt_raw.items(), key=lambda kv: -kv[1]) if s > 0]},
+        "spav":    {"seats": _to_seat_dict(spav_raw["elected"]),   "elected": spav_raw["elected"]},
+        "phragmen":{"seats": _to_seat_dict(phrag_raw["elected"]),  "elected": phrag_raw["elected"]},
+        "fptp":    {"seats": _to_seat_dict(top_n),                 "elected": top_n},
+    }
+
+    # ── Distortion metrics ─────────────────────────────────────────────────
+    prop_seats = _dhondt(vote_shares, num_seats)   # proportional reference
+
+    for method_name, mdata in methods.items():
+        seat_dict = mdata["seats"]
+        dist_vals = [
+            abs(seat_dict.get(c, 0) / num_seats - vote_shares.get(c, 0))
+            for c in cand_names
+        ]
+        mdata["distortion"]          = round(sum(dist_vals) / max(len(dist_vals), 1), 4)
+        mdata["seat_vs_votes"]       = {
+            c: {
+                "seats":     seat_dict.get(c, 0),
+                "seat_pct":  round(seat_dict.get(c, 0) / num_seats, 4),
+                "vote_pct":  round(vote_shares.get(c, 0), 4),
+                "delta":     round(seat_dict.get(c, 0) / num_seats - vote_shares.get(c, 0), 4),
+            }
+            for c in cand_names
+        }
+
+    best_method  = min(methods, key=lambda m: methods[m]["distortion"])
+    worst_method = max(methods, key=lambda m: methods[m]["distortion"])
+
+    return jsonify({
+        "methods":      methods,
+        "vote_shares":  {n: round(vote_shares[n], 4) for n in cand_names},
+        "proportional_reference": prop_seats,
+        "num_seats":    num_seats,
+        "candidates":   cand_names,
+        "best_method":  best_method,
+        "worst_method": worst_method,
     }), 200
 
 

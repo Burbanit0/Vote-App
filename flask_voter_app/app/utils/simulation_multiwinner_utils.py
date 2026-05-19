@@ -422,3 +422,154 @@ def compare_multiwinner_methods(
     }
 
     return results
+
+
+# ── SPAV ──────────────────────────────────────────────────────────────────────
+
+def get_spav_result(
+    approval_ballots: List[List[str]],
+    num_seats:        int,
+) -> Dict[str, Any]:
+    """
+    Sequential Proportional Approval Voting (SPAV).
+
+    Each ballot is a list of approved candidate names.
+    After each seat is filled, the weight of ballots that approved the winner
+    is divided by (1 + number_of_elected_already_approved_by_that_ballot).
+
+    Satisfies Proportional Justified Representation (PJR).
+
+    Returns
+    -------
+    {
+        "elected":  List[str],
+        "rounds": [{"round": int, "winner": str, "scores": {cand: float}, "weights": [float]}]
+    }
+    """
+    if not approval_ballots or num_seats <= 0:
+        return {"elected": [], "rounds": []}
+
+    # Derive candidate set from ballots
+    all_cands: List[str] = []
+    for b in approval_ballots:
+        for c in b:
+            if c not in all_cands:
+                all_cands.append(c)
+
+    n          = len(approval_ballots)
+    weights    = [1.0] * n           # each ballot starts with weight 1
+    elected:   List[str] = []
+    rounds:    List[Dict[str, Any]] = []
+
+    for seat in range(num_seats):
+        remaining = [c for c in all_cands if c not in elected]
+        if not remaining:
+            break
+
+        # Compute weighted approval score for each remaining candidate
+        scores: Dict[str, float] = {c: 0.0 for c in remaining}
+        for i, ballot in enumerate(approval_ballots):
+            for c in ballot:
+                if c in remaining:
+                    scores[c] += weights[i]
+
+        winner = max(remaining, key=lambda c: (scores[c], -all_cands.index(c)))
+        elected.append(winner)
+
+        rounds.append({
+            "round":   seat,
+            "winner":  winner,
+            "scores":  {c: round(scores[c], 4) for c in remaining},
+            "weights": [round(w, 4) for w in weights],
+        })
+
+        # Update weights: divide by (1 + number of elected already approved)
+        for i, ballot in enumerate(approval_ballots):
+            elected_in_ballot = sum(1 for c in elected if c in ballot)
+            weights[i] = 1.0 / (1 + elected_in_ballot) if elected_in_ballot > 0 else weights[i]
+
+    return {"elected": elected, "rounds": rounds}
+
+
+# ── Phragmén ──────────────────────────────────────────────────────────────────
+
+def get_phragmen_result(
+    approval_ballots: List[List[str]],
+    num_seats:        int,
+) -> Dict[str, Any]:
+    """
+    Phragmén's sequential approval method (1894), "load" variant.
+
+    Each ballot accumulates a "load" equal to the sum of loads of elected
+    candidates it approved. The algorithm selects the candidate whose election
+    minimises the maximum load on any ballot that approves them.
+
+    Satisfies the maximin property: minimises the maximum load across ballots.
+    Fairness guarantee stronger than D'Hondt for minority protection.
+
+    Returns
+    -------
+    {
+        "elected":  List[str],
+        "rounds": [{"round": int, "winner": str, "max_load": float, "loads": [float]}]
+    }
+    """
+    if not approval_ballots or num_seats <= 0:
+        return {"elected": [], "rounds": []}
+
+    all_cands: List[str] = []
+    for b in approval_ballots:
+        for c in b:
+            if c not in all_cands:
+                all_cands.append(c)
+
+    n       = len(approval_ballots)
+    loads   = [0.0] * n              # cumulative load per ballot
+    elected: List[str] = []
+    rounds:  List[Dict[str, Any]] = []
+
+    for seat in range(num_seats):
+        remaining = [c for c in all_cands if c not in elected]
+        if not remaining:
+            break
+
+        best_candidate: Optional[str] = None
+        best_max_load  = math.inf
+        best_new_loads: List[float] = loads[:]
+
+        for c in remaining:
+            supporters = [i for i, b in enumerate(approval_ballots) if c in b]
+            if not supporters:
+                continue
+
+            # Each supporter's new load = old_load + 1/|supporters|
+            load_increment = 1.0 / len(supporters)
+            new_max = max(
+                (loads[i] + load_increment for i in supporters),
+                default=0.0,
+            )
+
+            if new_max < best_max_load or (
+                new_max == best_max_load
+                and (best_candidate is None or c < best_candidate)
+            ):
+                best_max_load   = new_max
+                best_candidate  = c
+                best_new_loads  = loads[:]
+                for i in supporters:
+                    best_new_loads[i] += load_increment
+
+        if best_candidate is None:
+            break
+
+        elected.append(best_candidate)
+        loads = best_new_loads
+
+        rounds.append({
+            "round":    seat,
+            "winner":   best_candidate,
+            "max_load": round(best_max_load, 4),
+            "loads":    [round(l, 4) for l in loads],
+        })
+
+    return {"elected": elected, "rounds": rounds}

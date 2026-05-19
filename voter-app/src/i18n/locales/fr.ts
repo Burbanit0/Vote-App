@@ -1081,6 +1081,7 @@ const fr = {
     tabAbstention:            'Abstention',
     tabSTV:                   'STV',
     tabGerrymander:           'Gerrymandering',
+    tabMultiwinner:           'Multi-gagnants',
     tabHotelling:             'Hotelling-Downs',
     tabPolarization:          'Polarisation',
     tabJury:                  'Théorème du jury',
@@ -1277,6 +1278,20 @@ const fr = {
     campSuffix:        '(camp)',
     turnoutByRound:    'Participation par round et par camp',
     finalTurnoutByCamp: 'Participation finale par camp',
+  },
+
+  multiwinner: {
+    prompt:            'Simulez la même élection sous 5 méthodes multi-gagnantes et comparez la représentation proportionnelle obtenue.',
+    run:               'Comparer',
+    error:             'Erreur lors de la simulation.',
+    numSeats:          'Nombre de sièges',
+    method:            'Méthode',
+    distortion:        'Distorsion',
+    proportional:      'Référence proportionnelle',
+    mostPR:            '+ proportionnel',
+    tableHint:         'Vert = surreprésenté · Rouge = sous-représenté · pp = points de pourcentage d\'écart',
+    pedagogicalPR:     '{{best}} est la méthode la plus proportionnelle ({{bestDist}}pp d\'écart vs vote national). {{worst}} produit la plus forte distorsion ({{worstDist}}pp). SPAV et Phragmén garantissent mathématiquement la représentation proportionnelle que FPTP ne peut offrir.',
+    pedagogicalGeneral:'{{best}} est la méthode la plus proche du vote proportionnel sur cet électorat.',
   },
 
   ev: {
