@@ -1083,6 +1083,7 @@ const fr = {
     tabSTV:                   'STV',
     tabGerrymander:           'Gerrymandering',
     tabMultiwinner:           'Multi-gagnants',
+    tabAffective:             'Polarisation affective',
     tabHotelling:             'Hotelling-Downs',
     tabPolarization:          'Polarisation',
     tabJury:                  'Théorème du jury',
@@ -1281,6 +1282,31 @@ const fr = {
     finalTurnoutByCamp: 'Participation finale par camp',
   },
 
+  affect: {
+    prompt:             'Simulez comment la haine inter-partisane (polarisation affective) modifie les résultats électoraux.',
+    run:                'Simuler',
+    error:              'Erreur lors de la simulation.',
+    hostilitySlider:    "Niveau d'hostilité inter-partisane",
+    numSims:            'Simulations MC',
+    winnerChanged:      "Vainqueur modifié par l'affect",
+    winnerUnchanged:    "Vainqueur stable malgré l'affect",
+    condorcetViolation: 'Violation du critère de Condorcet',
+    methodsChanged:     'méthodes affectées',
+    mapTitle:           'Carte idéologique — impact de la polarisation',
+    mapHint:            'Points rouges = électeurs qui ont changé de vote',
+    camp_left:          'Camp gauche',
+    camp_right:         'Camp droite',
+    camp_centre:        'Centre',
+    changedVote:        'Vote modifié',
+    curveTitle:         "Courbe d'affect — taux Condorcet et accord inter-méthodes",
+    condorcetRate:      'Taux Condorcet',
+    agreementRate:      'Accord inter-méthodes',
+    methodTableTitle:   'Sensibilité par méthode de vote',
+    sincereWinner:      'Vainqueur sincère',
+    affectiveWinner:    'Vainqueur affectif',
+    sensitivity:        'Sensibilité',
+  },
+
   qf: {
     pageTitle:      'Quadratic Funding — Financement des biens communs',
     pageSubtitle:   'Simulez comment QF amplifie les projets soutenus par beaucoup de petits donateurs plutôt que par quelques gros, et comparez avec le vote classique.',
@@ -1300,9 +1326,6 @@ const fr = {
     insightTitle:   'L\'intuition derrière QF',
     insight1:       'Même dépense totale, résultat radicalement différent :',
     insight2:       'QF pèse le NOMBRE de donateurs, pas seulement le montant total.',
-  },
-  nav: {
-    quadraticFunding: 'Quadratic Funding',
   },
 
   multiwinner: {

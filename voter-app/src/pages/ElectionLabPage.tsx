@@ -31,6 +31,7 @@ import AbstentionPanel from '../components/shared/AbstentionPanel';
 import STVPanel from '../components/shared/STVPanel';
 import GerrymanderMap from '../components/shared/GerrymanderMap';
 import MultiwinnerCompare from '../components/shared/MultiwinnerCompare';
+import AffectivePolarizationPanel from '../components/shared/AffectivePolarizationPanel';
 import HotellingPanel from '../components/shared/HotellingPanel';
 import PolarizationPanel from '../components/shared/PolarizationPanel';
 
@@ -525,6 +526,7 @@ const ElectionLabPage: React.FC = () => {
                   { key: 'stv',                icon: '🔄', label: t('electionLab.tabSTV') },
                   { key: 'gerrymander',        icon: '🗺', label: t('electionLab.tabGerrymander') },
                   { key: 'multiwinner',         icon: '🏛', label: t('electionLab.tabMultiwinner') },
+                  { key: 'affective',           icon: '💔', label: t('electionLab.tabAffective') },
                   { key: 'hotelling',           icon: '⚖️', label: t('electionLab.tabHotelling') },
                   { key: 'polarization',       icon: '📊', label: t('electionLab.tabPolarization') },
                 ];
@@ -551,6 +553,7 @@ const ElectionLabPage: React.FC = () => {
                   'stv':                  <STVPanel />,
                   'gerrymander':          <GerrymanderMap />,
                   'multiwinner':          <MultiwinnerCompare />,
+                  'affective':            <AffectivePolarizationPanel />,
                   'hotelling':            <HotellingPanel />,
                   'polarization':         <PolarizationPanel />,
                 };
