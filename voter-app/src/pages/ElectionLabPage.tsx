@@ -34,6 +34,7 @@ import MultiwinnerCompare from '../components/shared/MultiwinnerCompare';
 import AffectivePolarizationPanel from '../components/shared/AffectivePolarizationPanel';
 import CascadePanel from '../components/shared/CascadePanel';
 import BehavioralBiasPanel from '../components/shared/BehavioralBiasPanel';
+import LiquidDemocracyPanel from '../components/shared/LiquidDemocracyPanel';
 import HotellingPanel from '../components/shared/HotellingPanel';
 import PolarizationPanel from '../components/shared/PolarizationPanel';
 
@@ -533,6 +534,7 @@ const ElectionLabPage: React.FC = () => {
                   { key: 'polarization',       icon: '📊', label: t('electionLab.tabPolarization') },
                   { key: 'cascade',            icon: '📡', label: t('electionLab.tabCascade') },
                   { key: 'behavioral',         icon: '🧠', label: t('electionLab.tabBehavioral') },
+                  { key: 'liquid',             icon: '💧', label: t('electionLab.tabLiquid') },
                 ];
 
                 const tabContent: Record<string, React.ReactNode> = {
@@ -562,6 +564,7 @@ const ElectionLabPage: React.FC = () => {
                   'polarization':         <PolarizationPanel />,
                   'cascade':              <CascadePanel />,
                   'behavioral':           <BehavioralBiasPanel />,
+                  'liquid':               <LiquidDemocracyPanel />,
                 };
 
                 const currentIdx = TABS.findIndex((tab) => tab.key === activeTab);

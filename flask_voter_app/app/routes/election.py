@@ -4341,3 +4341,240 @@ def behavioral_biases() -> tuple[Response, int]:
                                   "borda", "irv", "schulze"],
         "pedagogical_note":      note,
     }), 200
+
+
+# ── Liquid Democracy ──────────────────────────────────────────────────────────
+
+@election_bp.route("/liquid-democracy", methods=["POST"])
+@sim_limiter.limit("10 per minute")
+def liquid_democracy() -> tuple[Response, int]:
+    """
+    POST /api/election/liquid-democracy
+
+    Simulate Liquid Democracy (transitive delegation):
+    each voter either votes directly or delegates to a representative
+    who may further delegate (up to max_chain_length hops).
+    Cycles are detected and forced to vote directly.
+    Compare weighted liquid result with unweighted direct vote.
+    """
+    data             = request.get_json() or {}
+    num_voters       = max(2,  min(500, int(data.get("num_voters",            100))))
+    ideology         = str(data.get("ideology",              "random"))
+    seed             = int(data.get("seed",                   42))
+    delegation_prob  = max(0.0, min(1.0, float(data.get("delegation_probability", 0.5))))
+    strategy         = str(data.get("delegation_strategy",   "nearest"))
+    max_chain        = max(1,   min(20,  int(data.get("max_chain_length",          5))))
+    cand_specs       = data.get("candidates", [
+        {"name": "Alice", "x": -0.5, "y": -0.2},
+        {"name": "Bob",   "x":  0.5, "y":  0.2},
+        {"name": "Carol", "x":  0.0, "y":  0.1},
+    ])[:6]
+
+    if len(cand_specs) < 2:
+        return jsonify({"error": "At least 2 candidates required"}), 400
+
+    _random.seed(seed)
+    _np.random.seed(seed)
+    issues = DEFAULT_ISSUES
+
+    candidates, voters, sincere_utilities, cand_names = _build_base_electorate(
+        cand_specs, num_voters, ideology, seed, issues
+    )
+    all_ids: list[int] = [v["id"] for v in voters]
+
+    # ── Voter ideology positions (for nearest-delegate lookup) ─────────────
+    def _vpos(v: Dict[str, Any]) -> tuple[float, float]:
+        return (
+            round(2.0 * v["issue_positions"].get("economy",        0.5) - 1.0, 3),
+            round(2.0 * v["issue_positions"].get("social_welfare", 0.5) - 1.0, 3),
+        )
+
+    voter_positions: Dict[int, tuple[float, float]] = {
+        v["id"]: _vpos(v) for v in voters
+    }
+
+    rng = _random.Random(seed)
+
+    # ── Delegate picker per strategy ──────────────────────────────────────
+    def _pick_delegate(voter_id: int) -> int:
+        others = [v for v in all_ids if v != voter_id]
+        if not others:
+            return voter_id
+        if strategy == "nearest":
+            vx, vy = voter_positions[voter_id]
+            return min(others, key=lambda o: (voter_positions[o][0] - vx) ** 2
+                                           + (voter_positions[o][1] - vy) ** 2)
+        if strategy == "most_competent":
+            return max(others, key=lambda o: max(sincere_utilities[o].values()))
+        return rng.choice(others)  # "random"
+
+    # ── Build delegation graph ────────────────────────────────────────────
+    delegations: Dict[int, int] = {
+        vid: _pick_delegate(vid)
+        for vid in all_ids
+        if rng.random() < delegation_prob
+    }
+
+    # ── Cycle detection (functional graph — each node has ≤1 outgoing edge) ─
+    def _detect_cycles(delg: Dict[int, int]) -> set:
+        in_cycle: set = set()
+        visited:  set = set()
+        for start in list(delg.keys()):
+            if start in visited:
+                continue
+            path: list[int]      = []
+            path_pos: Dict[int, int] = {}
+            cur = start
+            while cur not in visited and cur not in path_pos and cur in delg:
+                path_pos[cur] = len(path)
+                path.append(cur)
+                cur = delg[cur]
+            if cur in path_pos:
+                for node in path[path_pos[cur]:]:
+                    in_cycle.add(node)
+            visited.update(path)
+        return in_cycle
+
+    in_cycle = _detect_cycles(delegations)
+
+    # ── Resolve delegation chains ─────────────────────────────────────────
+    effective:     Dict[int, int] = {}
+    chain_lengths: Dict[int, int] = {}
+
+    for vid in all_ids:
+        if vid not in delegations or vid in in_cycle:
+            effective[vid] = vid
+            continue
+        cur, steps = vid, 0
+        while cur in delegations and cur not in in_cycle and steps < max_chain:
+            cur = delegations[cur]
+            steps += 1
+        if cur not in delegations or cur in in_cycle:
+            effective[vid] = cur
+            chain_lengths[vid] = steps
+        else:
+            effective[vid] = vid   # max chain exhausted → vote directly
+
+    # ── Voting weights ────────────────────────────────────────────────────
+    weights: Counter = Counter(effective.values())
+
+    # ── Liquid winner (weighted plurality) ────────────────────────────────
+    liquid_tally: Counter = Counter()
+    for vid, w in weights.items():
+        choice = max(sincere_utilities[vid], key=lambda k: sincere_utilities[vid][k])
+        liquid_tally[choice] += w
+    liquid_winner: str = (
+        max(liquid_tally, key=liquid_tally.__getitem__) if liquid_tally else cand_names[0]
+    )
+
+    # ── Direct winner (unweighted baseline) ──────────────────────────────
+    direct_tally: Counter = Counter()
+    for v in voters:
+        choice = max(sincere_utilities[v["id"]], key=lambda k: sincere_utilities[v["id"]][k])
+        direct_tally[choice] += 1
+    direct_winner: str = (
+        max(direct_tally, key=direct_tally.__getitem__) if direct_tally else cand_names[0]
+    )
+
+    winner_changed = liquid_winner != direct_winner
+
+    # ── Statistics ────────────────────────────────────────────────────────
+    def _gini(vals: List[Any]) -> float:
+        n = len(vals)
+        if n == 0:
+            return 0.0
+        s     = sorted(float(v) for v in vals)
+        total = sum(s)
+        if total == 0.0:
+            return 0.0
+        cumsum = sum((i + 1) * v for i, v in enumerate(s))
+        return round(abs(2.0 * cumsum / (n * total) - (n + 1) / n), 4)
+
+    all_w           = [weights.get(vid, 0) for vid in all_ids]
+    gini            = _gini(all_w)
+    lengths         = list(chain_lengths.values())
+    direct_count    = sum(1 for vid in all_ids if effective[vid] == vid)
+    delegator_count = sum(1 for vid in all_ids if effective[vid] != vid)
+
+    chain_stats: Dict[str, Any] = {
+        "mean": round(sum(lengths) / len(lengths), 2) if lengths else 0.0,
+        "max":  max(lengths) if lengths else 0,
+    }
+
+    # ── Super voters ──────────────────────────────────────────────────────
+    super_voters = [
+        {
+            "id":     vid,
+            "weight": w,
+            "x":      voter_positions[vid][0],
+            "y":      voter_positions[vid][1],
+            "choice": max(sincere_utilities[vid], key=lambda k: sincere_utilities[vid][k]),
+        }
+        for vid, w in sorted(weights.items(), key=lambda x: -x[1])[:10]
+        if w >= 2
+    ]
+
+    # ── Delegation graph (raw edges for visualisation, ≤ 500) ─────────────
+    delegation_graph_out = [
+        {"from": d, "to": t} for d, t in delegations.items()
+    ][:500]
+
+    # ── Gini curve (11 steps 0 → 1) ──────────────────────────────────────
+    gini_curve: list[Dict[str, Any]] = []
+    for step in range(11):
+        p = round(step / 10, 1)
+        g_rng = _random.Random(seed)
+        g_delg: Dict[int, int] = {
+            vid: _pick_delegate(vid)
+            for vid in all_ids
+            if g_rng.random() < p
+        }
+        g_cycle    = _detect_cycles(g_delg)
+        g_eff: Dict[int, int] = {}
+        for vid in all_ids:
+            if vid not in g_delg or vid in g_cycle:
+                g_eff[vid] = vid
+            else:
+                cur, st = vid, 0
+                while cur in g_delg and cur not in g_cycle and st < max_chain:
+                    cur = g_delg[cur]
+                    st += 1
+                g_eff[vid] = cur if (cur not in g_delg or cur in g_cycle) else vid
+        g_w = Counter(g_eff.values())
+        gini_curve.append({"probability": p, "gini": _gini([g_w.get(v, 0) for v in all_ids])})
+
+    # ── Pedagogical note ──────────────────────────────────────────────────
+    total_w  = sum(weights.values())
+    top3_w   = sum(w for _, w in sorted(weights.items(), key=lambda x: -x[1])[:3])
+    top3_pct = round(100 * top3_w / total_w) if total_w else 0
+    if winner_changed:
+        note = (
+            f"Avec {round(delegation_prob * 100)}% de délégation ({strategy}), "
+            f"3 super-votants concentrent {top3_pct}% du poids électoral (Gini={gini}). "
+            f"La Liquid Democracy change le vainqueur : {direct_winner} → {liquid_winner}."
+        )
+    else:
+        note = (
+            f"Avec {round(delegation_prob * 100)}% de délégation ({strategy}), "
+            f"{top3_pct}% du poids va aux 3 premiers super-votants (Gini={gini}). "
+            f"Le vainqueur reste {liquid_winner} malgré la concentration."
+        )
+
+    return jsonify({
+        "weighted_results":   {c: int(liquid_tally.get(c, 0)) for c in cand_names},
+        "direct_voters":      direct_count,
+        "delegators":         delegator_count,
+        "super_voters":       super_voters,
+        "delegation_graph":   delegation_graph_out,
+        "cycles_detected":    len(in_cycle),
+        "cycle_voter_ids":    list(in_cycle),
+        "chain_stats":        chain_stats,
+        "gini_curve":         gini_curve,
+        "comparison": {
+            "liquid_winner":  liquid_winner,
+            "direct_winner":  direct_winner,
+            "winner_changed": winner_changed,
+        },
+        "gini_voting_weight": gini,
+        "pedagogical_note":   note,
+    }), 200
