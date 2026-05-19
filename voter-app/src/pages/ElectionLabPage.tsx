@@ -32,6 +32,7 @@ import STVPanel from '../components/shared/STVPanel';
 import GerrymanderMap from '../components/shared/GerrymanderMap';
 import MultiwinnerCompare from '../components/shared/MultiwinnerCompare';
 import AffectivePolarizationPanel from '../components/shared/AffectivePolarizationPanel';
+import CascadePanel from '../components/shared/CascadePanel';
 import HotellingPanel from '../components/shared/HotellingPanel';
 import PolarizationPanel from '../components/shared/PolarizationPanel';
 
@@ -529,6 +530,7 @@ const ElectionLabPage: React.FC = () => {
                   { key: 'affective',           icon: '💔', label: t('electionLab.tabAffective') },
                   { key: 'hotelling',           icon: '⚖️', label: t('electionLab.tabHotelling') },
                   { key: 'polarization',       icon: '📊', label: t('electionLab.tabPolarization') },
+                  { key: 'cascade',            icon: '📡', label: t('electionLab.tabCascade') },
                 ];
 
                 const tabContent: Record<string, React.ReactNode> = {
@@ -556,6 +558,7 @@ const ElectionLabPage: React.FC = () => {
                   'affective':            <AffectivePolarizationPanel />,
                   'hotelling':            <HotellingPanel />,
                   'polarization':         <PolarizationPanel />,
+                  'cascade':              <CascadePanel />,
                 };
 
                 const currentIdx = TABS.findIndex((tab) => tab.key === activeTab);

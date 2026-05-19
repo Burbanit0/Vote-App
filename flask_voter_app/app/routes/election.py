@@ -4023,3 +4023,123 @@ def affective_polarization() -> tuple[Response, int]:
         "candidates":          [{"name": c["name"], "x": _x_pos(c)} for c in candidates],
         "pedagogical_note":    note,
     }), 200
+
+
+# ── Information Cascade ───────────────────────────────────────────────────────
+
+@election_bp.route("/cascade", methods=["POST"])
+@sim_limiter.limit("10 per minute")
+def information_cascade() -> tuple[Response, int]:
+    """
+    POST /api/election/cascade
+
+    Simulate sequential voting with information cascades (Bikhchandani et al., 1992):
+    each voter sees the last `observation_window` votes and may follow the public
+    signal instead of their sincere preference with probability `cascade_strength`.
+    """
+    data               = request.get_json() or {}
+    num_voters         = max(20,  min(500,  int(data.get("num_voters",         100))))
+    ideology           = str(data.get("ideology",          "random"))
+    seed               = int(data.get("seed",               42))
+    cascade_strength   = max(0.0, min(1.0, float(data.get("cascade_strength",  0.5))))
+    observation_window = max(0,   min(50,  int(data.get("observation_window",  10))))
+    cand_specs         = data.get("candidates", [
+        {"name": "Alice", "x": -0.5, "y": -0.2},
+        {"name": "Bob",   "x":  0.5, "y":  0.2},
+        {"name": "Carol", "x":  0.0, "y":  0.1},
+    ])[:6]
+
+    if len(cand_specs) < 2:
+        return jsonify({"error": "At least 2 candidates required"}), 400
+
+    _random.seed(seed)
+    _np.random.seed(seed)
+    issues = DEFAULT_ISSUES
+
+    candidates, voters, sincere_utilities, cand_names = _build_base_electorate(
+        cand_specs, num_voters, ideology, seed, issues
+    )
+
+    def _sincere_choice(voter_id: Any) -> str:
+        return max(sincere_utilities[voter_id], key=lambda k: sincere_utilities[voter_id][k])
+
+    def _run_cascade(
+        strength: float, rng: _random.Random
+    ) -> tuple[list[Dict[str, Any]], str, Optional[int], float]:
+        """Run one cascade pass. Returns (sequence, winner, cascade_start_at, cascade_rate)."""
+        votes: list[str] = []
+        sequence: list[Dict[str, Any]] = []
+        cascade_start: Optional[int] = None
+        cascade_count = 0
+
+        for v in voters:
+            vid     = v["id"]
+            sincere = _sincere_choice(vid)
+            followed = False
+
+            if observation_window > 0 and votes and strength > 0:
+                window      = votes[-observation_window:]
+                pub_signal  = Counter(window).most_common(1)[0][0]
+                if rng.random() < strength and pub_signal != sincere:
+                    actual_vote = pub_signal
+                    followed    = True
+                else:
+                    actual_vote = sincere
+            else:
+                actual_vote = sincere
+
+            if followed:
+                cascade_count += 1
+                if cascade_start is None:
+                    cascade_start = vid
+
+            votes.append(actual_vote)
+            sequence.append({
+                "voter_id":        vid,
+                "sincere_choice":  sincere,
+                "actual_vote":     actual_vote,
+                "followed_cascade": followed,
+            })
+
+        winner: str = Counter(votes).most_common(1)[0][0] if votes else cand_names[0]
+        rate: float = round(cascade_count / len(voters), 4) if voters else 0.0
+        return sequence, winner, cascade_start, rate
+
+    # ── Main run ───────────────────────────────────────────────────────────
+    rng  = _random.Random(seed)
+    vote_sequence, cascade_winner, cascade_start_at, _ = _run_cascade(cascade_strength, rng)
+
+    # Sincere winner (strength = 0, no randomness needed)
+    sincere_votes   = [_sincere_choice(v["id"]) for v in voters]
+    sincere_winner: str = Counter(sincere_votes).most_common(1)[0][0]
+
+    cascade_occurred = (cascade_winner != sincere_winner)
+
+    # ── Strength curve (11 steps 0 → 1) ───────────────────────────────────
+    cascade_strength_curve: list[Dict[str, Any]] = []
+    for step in range(11):
+        s        = round(step / 10, 1)
+        step_rng = _random.Random(seed)
+        _, w, _, cr = _run_cascade(s, step_rng)
+        cascade_strength_curve.append({
+            "strength":     s,
+            "winner":       w,
+            "cascade_rate": cr,
+        })
+
+    # ── Comparison runs (strength 0, 0.5, 1.0) ────────────────────────────
+    comparison_runs = [c for c in cascade_strength_curve if c["strength"] in (0.0, 0.5, 1.0)]
+
+    # Trim sequence for large electorates (keep first 300 for timeline)
+    visible_sequence = vote_sequence[:300]
+
+    return jsonify({
+        "sincere_winner":         sincere_winner,
+        "cascade_winner":         cascade_winner,
+        "cascade_occurred":       cascade_occurred,
+        "vote_sequence":          visible_sequence,
+        "cascade_start_at":       cascade_start_at,
+        "cascade_strength_curve": cascade_strength_curve,
+        "comparison_runs":        comparison_runs,
+        "candidates":             cand_names,
+    }), 200
