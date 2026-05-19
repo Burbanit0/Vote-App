@@ -19,6 +19,7 @@ import ApiDocsPage from './pages/ApiDocsPage';
 import ScenarioGalleryPage from './pages/ScenarioGalleryPage';
 import TeacherPresentationPage from './pages/TeacherPresentationPage';
 import ElectionLabPage from './pages/ElectionLabPage';
+import QuadraticFundingPage from './pages/QuadraticFundingPage';
 import Login from './pages/Login';
 import OAuthCallback from './pages/OAuthCallback';
 import Register from './pages/Register';
@@ -73,6 +74,7 @@ const AppContent: React.FC = () => {
           <Route path="/api-docs"              element={<ApiDocsPage />} />
           <Route path="/teacher/presentation" element={<TeacherPresentationPage />} />
           <Route path="/election-lab"         element={<ElectionLabPage />} />
+          <Route path="/quadratic-funding" element={<QuadraticFundingPage />} />
 
           {/* Auth-protected routes */}
           <Route path="/profile"    element={<AuthGuard component={ProfilePage} />} />
