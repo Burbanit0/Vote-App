@@ -3632,3 +3632,184 @@ def polarization() -> tuple[Response, int]:
         "results":      results,
         "key_findings": findings,
     }), 200
+
+
+# ── Quadratic Funding endpoint ─────────────────────────────────────────────────
+
+def _gini(values: List[float]) -> float:
+    """Normalised Gini coefficient for a list of non-negative values ∈ [0,1]."""
+    n = len(values)
+    if n <= 1:
+        return 0.0
+    total = sum(values)
+    if total == 0.0:
+        return 0.0
+    sv = sorted(values)
+    cum = sum((2 * (i + 1) - n - 1) * x for i, x in enumerate(sv))
+    return round(cum / (n * total), 4)
+
+
+@election_bp.route("/quadratic-funding", methods=["POST"])
+@sim_limiter.limit("10 per minute")
+def quadratic_funding() -> tuple[Response, int]:
+    """
+    POST /api/election/quadratic-funding
+
+    Simulate Quadratic Funding (Buterin, Hitzig & Weyl, 2019) for public goods
+    allocation and compare with 1-person-1-vote and proportional mechanisms.
+
+    Each voter distributes their budget proportionally to their utility for
+    each project (based on ideological proximity). The matching pool is then
+    distributed according to the selected mechanism.
+
+    QF formula: matching(P) ∝ (Σᵢ √c_ip)²
+    This amplifies projects with many small donors over those with few large ones.
+    """
+    data             = request.get_json() or {}
+    num_voters       = max(20,  min(500, int(data.get("num_voters",   100))))
+    ideology         = str(data.get("ideology",   "random"))
+    seed             = int(data.get("seed",         42))
+    budget_per_voter = max(1.0, min(1000.0, float(data.get("budget_per_voter", 100.0))))
+    matching_pool    = max(0.0, float(data.get("matching_pool", 10000.0)))
+    projects_raw     = data.get("projects", [
+        {"name": "Éducation",    "x": -0.4},
+        {"name": "Santé",        "x":  0.0},
+        {"name": "Infrastructure","x":  0.5},
+        {"name": "Environnement","x": -0.6},
+    ])
+    projects_raw = projects_raw[:8]
+
+    if len(projects_raw) < 2:
+        return jsonify({"error": "At least 2 projects required"}), 400
+
+    _random.seed(seed)
+    _np.random.seed(seed)
+
+    project_names: List[str] = [str(p.get("name", f"Project {i}")) for i, p in enumerate(projects_raw)]
+    project_xs:   List[float] = [max(-1.0, min(1.0, float(p.get("x", 0.0)))) for p in projects_raw]
+
+    # ── Generate electorate ────────────────────────────────────────────────
+    issues = DEFAULT_ISSUES
+    dummy_cands = [
+        {"name": f"_P{i}", "x": project_xs[i], "y": 0.0}
+        for i in range(len(project_names))
+    ]
+    _, voters, true_utilities, _ = _build_base_electorate(
+        dummy_cands, num_voters, ideology, seed, issues
+    )
+    # Map dummy candidate names back to project names
+    proj_utilities: Dict[Any, Dict[str, float]] = {
+        v["id"]: {project_names[j]: true_utilities[v["id"]][f"_P{j}"]
+                  for j in range(len(project_names))}
+        for v in voters
+    }
+
+    # ── Individual contributions (proportional to utility) ─────────────────
+    # c_ip = utility(v,p) / Σ_p utility(v,p) * budget_per_voter
+    contributions: Dict[str, float] = {p: 0.0 for p in project_names}
+
+    # Per-voter, per-project contributions matrix (for QF)
+    voter_contribs: List[Dict[str, float]] = []
+    for v in voters:
+        uid = v["id"]
+        u   = proj_utilities[uid]
+        total_u = sum(u.values()) or 1.0
+        vc: Dict[str, float] = {}
+        for p in project_names:
+            c = u.get(p, 0.0) / total_u * budget_per_voter
+            vc[p]               = c
+            contributions[p]   += c
+        voter_contribs.append(vc)
+
+    total_private = sum(contributions.values()) or 1.0
+
+    # ── QF allocation ──────────────────────────────────────────────────────
+    qf_scores: Dict[str, float] = {}
+    for p in project_names:
+        sqrt_sum = sum(_np.sqrt(max(0.0, vc[p])) for vc in voter_contribs)
+        qf_scores[p] = float(sqrt_sum ** 2)
+
+    total_qf = sum(qf_scores.values()) or 1.0
+    qf_matching: Dict[str, float] = {
+        p: qf_scores[p] / total_qf * matching_pool for p in project_names
+    }
+
+    # ── 1P1V allocation ────────────────────────────────────────────────────
+    vote_counts: Counter[str] = Counter()
+    for v in voters:
+        uid = v["id"]
+        u   = proj_utilities[uid]
+        fav = max(u, key=lambda k: u[k])
+        vote_counts[fav] += 1
+
+    n_voters = len(voters) or 1
+    p1v1_matching: Dict[str, float] = {
+        p: vote_counts.get(p, 0) / n_voters * matching_pool for p in project_names
+    }
+
+    # ── Proportional allocation ────────────────────────────────────────────
+    prop_matching: Dict[str, float] = {
+        p: contributions[p] / total_private * matching_pool for p in project_names
+    }
+
+    # ── Assemble project results ───────────────────────────────────────────
+    projects_out: List[Dict[str, Any]] = []
+    for p in project_names:
+        priv = round(contributions[p], 2)
+        mtch = round(qf_matching[p],   2)
+        projects_out.append({
+            "name":            p,
+            "private_funding": priv,
+            "matching":        mtch,
+            "total":           round(priv + mtch, 2),
+            "qf_score":        round(qf_scores[p], 2),
+        })
+
+    winner = max(project_names,
+                 key=lambda p: contributions[p] + qf_matching[p])
+
+    # Mechanism comparison (total funding under each mechanism)
+    def _totals(matching_dict: Dict[str, float]) -> Dict[str, float]:
+        return {p: round(contributions[p] + matching_dict[p], 2) for p in project_names}
+
+    mechanism_comparison = {
+        "1p1v":        _totals(p1v1_matching),
+        "proportional": _totals(prop_matching),
+        "qf":           _totals(qf_matching),
+    }
+
+    # Gini of total allocations under each mechanism
+    gini_coefficients = {
+        m: _gini(list(mechanism_comparison[m].values()))
+        for m in ("1p1v", "proportional", "qf")
+    }
+
+    # Pedagogical note
+    qf_winner   = max(project_names, key=lambda p: mechanism_comparison["qf"][p])
+    prop_winner = max(project_names, key=lambda p: mechanism_comparison["proportional"][p])
+    if qf_winner != prop_winner:
+        note = (
+            f"QF élit '{qf_winner}' (Gini={gini_coefficients['qf']:.2f}) "
+            f"tandis que le proportionnel élit '{prop_winner}' "
+            f"(Gini={gini_coefficients['proportional']:.2f}). "
+            "QF amplifie les projets avec beaucoup de petits donateurs."
+        )
+    else:
+        note = (
+            f"Les trois mécanismes s'accordent sur '{qf_winner}'. "
+            f"QF est tout de même plus égalitaire "
+            f"(Gini QF={gini_coefficients['qf']:.2f} vs "
+            f"proportionnel={gini_coefficients['proportional']:.2f})."
+        )
+
+    return jsonify({
+        "projects":              projects_out,
+        "winner":                winner,
+        "mechanism_comparison":  mechanism_comparison,
+        "gini_coefficients":     gini_coefficients,
+        "vote_shares":           {p: round(vote_counts.get(p, 0) / n_voters, 4)
+                                  for p in project_names},
+        "matching_pool":         matching_pool,
+        "budget_per_voter":      budget_per_voter,
+        "pedagogical_note":      note,
+    }), 200
