@@ -1279,6 +1279,18 @@ const fr = {
     finalTurnoutByCamp: 'Participation finale par camp',
   },
 
+  ev: {
+    winner:          'Vainqueur évaluatif',
+    approve:         'Approbation',
+    neutral:         'Neutre',
+    reject:          'Rejet',
+    chartTitle:      'Vote évaluatif (+1 / 0 / −1)',
+    chartSubtitle:   'Score net = Σ(+1) − Σ(−1) · Seul le candidat le mieux évalué gagne',
+    hint:            'Barres vertes = approuvé · Grises = neutre · Rouges = rejeté',
+    chartAriaLabel:  'Graphe de vote évaluatif',
+    axisLabel:       '← Rejet · Approb. →',
+  },
+
   mj: {
     excellent:       'Excellent',
     trèsBien:        'Très Bien',

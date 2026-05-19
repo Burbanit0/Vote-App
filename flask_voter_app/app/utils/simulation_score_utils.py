@@ -456,6 +456,67 @@ def get_majority_judgment_winner(
     }
 
 
+def get_evaluative_winner(
+    utility_scores: List[Dict[str, float]],
+    threshold_approve: float = 0.67,
+    threshold_reject:  float = 0.33,
+) -> Dict[str, object]:
+    """
+    Evaluative voting (vote +1 / 0 / −1).
+
+    Each voter expresses approval (+1), neutrality (0), or rejection (−1)
+    for each candidate based on their utility:
+      utility ≥ threshold_approve → +1
+      utility ≤ threshold_reject  → −1
+      otherwise                   → 0
+
+    The winner is the candidate with the highest net score (Σ votes).
+    Tie-break: alphabetical.
+
+    Parameters
+    ----------
+    utility_scores     : list of {candidate: utility ∈ [0,1]} dicts
+    threshold_approve  : minimum utility for +1 (default 0.67 ≈ "Très Bien" in MJ)
+    threshold_reject   : maximum utility for −1 (default 0.33 ≈ "Passable" in MJ)
+
+    Returns
+    -------
+    {
+        "winner":       str | None,
+        "scores":       {candidate: int},        # net score
+        "distribution": {candidate: {"+1": int, "0": int, "-1": int}}
+    }
+    """
+    if not utility_scores:
+        return {"winner": None, "scores": {}, "distribution": {}}
+
+    candidates = list(utility_scores[0].keys())
+    if not candidates:
+        return {"winner": None, "scores": {}, "distribution": {}}
+
+    net:  dict[str, int] = {c: 0 for c in candidates}
+    dist: dict[str, dict[str, int]] = {c: {"+1": 0, "0": 0, "-1": 0} for c in candidates}
+
+    for voter_utils in utility_scores:
+        for c in candidates:
+            u = voter_utils.get(c, 0.0)
+            if u >= threshold_approve:
+                net[c]  += 1
+                dist[c]["+1"] += 1
+            elif u <= threshold_reject:
+                net[c]  -= 1
+                dist[c]["-1"] += 1
+            else:
+                dist[c]["0"] += 1
+
+    if not any(net.values()):
+        # All zeros — no approvals
+        return {"winner": None, "scores": net, "distribution": dist}
+
+    winner = min(candidates, key=lambda c: (-net[c], c))  # alpha tie-break
+    return {"winner": winner, "scores": net, "distribution": dist}
+
+
 def run_all_score_voting_methods(all_scores):
     """
     Run all score voting methods and return the results.
