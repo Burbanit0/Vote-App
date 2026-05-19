@@ -460,3 +460,159 @@ def get_schulze_winner(votes: list, blank_candidate_name: str = "") -> Optional[
     if not wins:
         return next(iter(candidates), None)
     return max(wins.items(), key=lambda x: x[1])[0]
+
+
+# ── New methods ────────────────────────────────────────────────────────────────
+
+def _pairwise_wins(votes: list) -> dict[str, dict[str, int]]:
+    """
+    Build a pairwise wins matrix from a list of rankings.
+    pw[a][b] = number of ballots where a is ranked above b.
+    """
+    is_dict = _is_dict_format(votes)
+    cand_set: set[str] = set()
+    for v in votes:
+        cand_set.update(_get_ranking(v, is_dict))
+
+    pw: dict[str, dict[str, int]] = {c: {d: 0 for d in cand_set} for c in cand_set}
+    for v in votes:
+        ranking = _get_ranking(v, is_dict)
+        pos = {c: i for i, c in enumerate(ranking)}
+        for a, b in combinations(cand_set, 2):
+            pa = pos.get(a, len(ranking))
+            pb = pos.get(b, len(ranking))
+            if pa < pb:
+                pw[a][b] += 1
+            elif pb < pa:
+                pw[b][a] += 1
+    return pw
+
+
+def get_copeland_winner(votes: list, blank_candidate_name: str = "") -> Optional[str]:
+    """
+    Copeland's method: score = pairwise wins − pairwise losses.
+    Ties in Copeland score are broken by total wins (descending),
+    then alphabetically.
+    """
+    if not votes:
+        return None
+
+    pw = _pairwise_wins(votes)
+    candidates = list(pw.keys())
+    if not candidates:
+        return None
+
+    n_voters = len(votes)
+    half     = n_voters / 2  # strict majority threshold
+
+    copeland: dict[str, int] = {}
+    total_wins: dict[str, int] = {}
+    for c in candidates:
+        w = sum(1 for d in candidates if d != c and pw[c][d] > half)
+        l = sum(1 for d in candidates if d != c and pw[d][c] > half)
+        copeland[c]    = w - l
+        total_wins[c]  = w
+
+    # Primary sort: Copeland score desc; secondary: total wins desc; tertiary: alpha asc
+    ranked = sorted(
+        candidates,
+        key=lambda c: (-copeland[c], -total_wins[c], c),
+    )
+    return ranked[0]
+
+
+def get_nanson_winner(votes: list, blank_candidate_name: str = "") -> Optional[str]:
+    """
+    Nanson's method: iteratively eliminate all candidates whose Borda score
+    is strictly below the mean Borda score of the remaining candidates.
+    Guaranteed to elect the Condorcet winner when one exists (Nanson, 1882).
+    Tie-break (if multiple remain with no eliminations possible): alphabetical.
+    """
+    if not votes:
+        return None
+
+    is_dict  = _is_dict_format(votes)
+    all_cands: list[str] = []
+    for v in votes:
+        for c in _get_ranking(v, is_dict):
+            if c not in all_cands:
+                all_cands.append(c)
+
+    active = set(all_cands)
+
+    while len(active) > 1:
+        # Compute Borda scores restricted to active candidates
+        scores: dict[str, float] = {c: 0.0 for c in active}
+        for v in votes:
+            ranking = [c for c in _get_ranking(v, is_dict) if c in active]
+            n = len(ranking)
+            for pos, c in enumerate(ranking):
+                scores[c] += n - 1 - pos
+
+        mean_score = sum(scores.values()) / len(active)
+        to_eliminate = {c for c in active if scores[c] < mean_score}
+
+        if not to_eliminate or to_eliminate == active:
+            # No progress possible — break and return best remaining
+            break
+
+        active -= to_eliminate
+
+    if not active:
+        return min(all_cands)  # fallback
+    if len(active) == 1:
+        return next(iter(active))
+
+    # Multiple survivors: return the one with highest final Borda score, then alpha
+    scores_final: dict[str, float] = {c: 0.0 for c in active}
+    for v in votes:
+        ranking = [c for c in _get_ranking(v, is_dict) if c in active]
+        n = len(ranking)
+        for pos, c in enumerate(ranking):
+            scores_final[c] += n - 1 - pos
+
+    return min(active, key=lambda c: (-scores_final[c], c))
+
+
+def get_baldwin_winner(votes: list, blank_candidate_name: str = "") -> Optional[str]:
+    """
+    Baldwin's method: iteratively eliminate the single candidate with the
+    lowest Borda score among the remaining candidates.
+    Like Nanson, guaranteed to elect the Condorcet winner when one exists.
+    Tie-break on elimination: alphabetical (eliminate the alphabetically first).
+    """
+    if not votes:
+        return None
+
+    is_dict   = _is_dict_format(votes)
+    all_cands: list[str] = []
+    for v in votes:
+        for c in _get_ranking(v, is_dict):
+            if c not in all_cands:
+                all_cands.append(c)
+
+    active = set(all_cands)
+
+    while len(active) > 1:
+        scores: dict[str, float] = {c: 0.0 for c in active}
+        for v in votes:
+            ranking = [c for c in _get_ranking(v, is_dict) if c in active]
+            n = len(ranking)
+            for pos, c in enumerate(ranking):
+                scores[c] += n - 1 - pos
+
+        min_score = min(scores.values())
+        # All tied → no elimination possible
+        if all(s == min_score for s in scores.values()):
+            break
+
+        # Eliminate the candidate with the lowest score (alpha tie-break)
+        loser = min(
+            (c for c in active if scores[c] == min_score),
+            key=lambda c: c,
+        )
+        active.discard(loser)
+
+    if not active:
+        return min(all_cands)
+    return min(active)  # alpha tie-break among survivors

@@ -15,6 +15,9 @@ from .simulation_ranked_utils import (
     get_bucklin_winner,
     get_minimax_winner,
     get_schulze_winner,
+    get_copeland_winner,
+    get_nanson_winner,
+    get_baldwin_winner,
 )
 from .simulation_score_utils import (
     get_simple_score_winner,
@@ -23,6 +26,7 @@ from .simulation_score_utils import (
     get_mean_median_hybrid_winner,
     get_variance_based_winner,
     get_majority_judgment_winner,
+    get_evaluative_winner,
 )
 from .quadratic_voting import apply_quadratic_voting
 
@@ -286,6 +290,9 @@ def compare_all_methods(
         "schulze": get_schulze_winner,
         # Kemeny-Young is O(n!) per election call — keep sample small for large simulations.
         "kemeny_young": get_kemeny_young_winner,
+        "copeland":     get_copeland_winner,
+        "nanson":       get_nanson_winner,
+        "baldwin":      get_baldwin_winner,
     }
 
     score_methods: Dict[str, Callable[..., Any]] = {
@@ -328,6 +335,17 @@ def compare_all_methods(
     mj_entry["mj_scores"]             = mj_raw.get("scores", {})
     mj_entry["mj_grade_distributions"] = mj_raw.get("grade_distributions", {})
     methods_result["majority_judgment"] = mj_entry
+
+    # ── Evaluative voting (+1 / 0 / −1) — uses raw float utilities ───────────
+    ev_raw: Dict[str, Any]    = get_evaluative_winner(mj_utility_scores)
+    ev_winner: Optional[str]  = str(ev_raw["winner"]) if ev_raw.get("winner") else None
+    ev_entry = _build_metrics_score(
+        lambda sv: {"winner": ev_winner},
+        ev_winner,
+    )
+    ev_entry["ev_scores"]       = ev_raw.get("scores", {})
+    ev_entry["ev_distribution"] = ev_raw.get("distribution", {})
+    methods_result["evaluative"] = ev_entry
 
     # ── Quadratic Voting — uses raw float utilities, not 0-5 scaled ──────────
     qv_utilities: List[Dict[str, float]] = [

@@ -19,6 +19,8 @@ import MetricTooltip from '../shared/MetricTooltip';
 import MethodSimilarityGraph from './MethodSimilarityGraph';
 import MajorityJudgmentChart from './MajorityJudgmentChart';
 import type { MJResult } from './MajorityJudgmentChart';
+import EvaluativeChart from './EvaluativeChart';
+import type { EvaluativeResult } from './EvaluativeChart';
 import { useTranslation } from 'react-i18next';
 
 function avg(values: number[]): number {
@@ -194,6 +196,35 @@ const MetricsTab: React.FC<Props> = ({ comparisonResults, allMethodNames, numSim
             </Card.Header>
             <Card.Body>
               <MajorityJudgmentChart mjResult={mjData} candidates={allCandidates} />
+            </Card.Body>
+          </Card>
+        );
+      })()}
+
+      {/* Evaluative voting chart */}
+      {(() => {
+        const evRaw = comparisonResults[0]?.methods?.['evaluative'] as (Record<string, unknown> & {
+          ev_scores?:       Record<string, number>;
+          ev_distribution?: Record<string, Record<string, number>>;
+          winner?:          string | null;
+        }) | undefined;
+        if (!evRaw?.ev_distribution) return null;
+        const allCandidates = Object.keys(evRaw.ev_distribution);
+        const evData: EvaluativeResult = {
+          winner:          evRaw.winner ?? null,
+          scores:          evRaw.ev_scores ?? {},
+          ev_distribution: evRaw.ev_distribution as Record<string, { '+1': number; '0': number; '-1': number }>,
+        };
+        return (
+          <Card className="mb-4" data-testid="ev-card">
+            <Card.Header>
+              <strong>{t('ev.chartTitle')}</strong>
+              <span className="text-muted ms-2" style={{ fontSize: '0.85rem' }}>
+                {t('ev.chartSubtitle')}
+              </span>
+            </Card.Header>
+            <Card.Body>
+              <EvaluativeChart evResult={evData} candidates={allCandidates} />
             </Card.Body>
           </Card>
         );

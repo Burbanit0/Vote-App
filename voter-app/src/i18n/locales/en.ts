@@ -1281,6 +1281,18 @@ const en: TranslationKeys = {
     finalTurnoutByCamp: 'Final turnout by camp',
   },
 
+  ev: {
+    winner:          'Evaluative winner',
+    approve:         'Approval',
+    neutral:         'Neutral',
+    reject:          'Rejection',
+    chartTitle:      'Evaluative voting (+1 / 0 / −1)',
+    chartSubtitle:   'Net score = Σ(+1) − Σ(−1) · Highest-scored candidate wins',
+    hint:            'Green bars = approved · Grey = neutral · Red = rejected',
+    chartAriaLabel:  'Evaluative voting chart',
+    axisLabel:       '← Reject · Approve →',
+  },
+
   mj: {
     excellent:       'Excellent',
     trèsBien:        'Very Good',
