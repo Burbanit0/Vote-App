@@ -4981,3 +4981,187 @@ def nota_election() -> tuple[Response, int]:
         "nota_rule":         nota_rule,
         "nota_threshold":    nota_threshold,
     }), 200
+
+
+# ── Ballot Complexity ─────────────────────────────────────────────────────────
+
+# Base error rate per voting method (empirically motivated)
+_BALLOT_ERROR_BASE: Dict[str, float] = {
+    "plurality":          0.010,
+    "two_round":          0.012,
+    "approval":           0.025,
+    "irv":                0.040,
+    "borda":              0.045,
+    "star_voting":        0.035,
+    "majority_judgment":  0.030,
+    "schulze":            0.050,
+    "kemeny_young":       0.060,
+}
+
+_DEFAULT_BALLOT_METHODS = [
+    "plurality", "approval", "irv", "borda",
+    "star_voting", "majority_judgment", "schulze",
+]
+
+
+@election_bp.route("/ballot-complexity", methods=["POST"])
+@sim_limiter.limit("10 per minute")
+def ballot_complexity() -> tuple[Response, int]:
+    """
+    POST /api/election/ballot-complexity
+
+    Simulate how ballot design complexity causes null (spoiled) ballots.
+    P(null | method) = error_base × candidate_factor × education_factor × ftv_factor
+    Compare methods on their null rate and show how winner changes when
+    null votes are removed from the electorate.
+    """
+    data             = request.get_json() or {}
+    num_voters       = max(50, min(500, int(data.get("num_voters",              200))))
+    ideology         = str(data.get("ideology",              "random"))
+    seed             = int(data.get("seed",                   42))
+    education_level  = max(0.0, min(1.0, float(data.get("education_level",     0.7))))
+    ftv_pct          = max(0.0, min(1.0, float(data.get("first_time_voter_pct", 0.1))))
+    methods_compare  = data.get("methods_to_compare", _DEFAULT_BALLOT_METHODS)[:8]
+    cand_specs       = data.get("candidates", [
+        {"name": "Alice", "x": -0.5, "y": -0.2},
+        {"name": "Bob",   "x":  0.5, "y":  0.2},
+        {"name": "Carol", "x":  0.0, "y":  0.1},
+    ])[:8]
+
+    if len(cand_specs) < 2:
+        return jsonify({"error": "At least 2 candidates required"}), 400
+
+    _random.seed(seed)
+    _np.random.seed(seed)
+    issues = DEFAULT_ISSUES
+
+    candidates, voters, sincere_utilities, cand_names = _build_base_electorate(
+        cand_specs, num_voters, ideology, seed, issues
+    )
+    n_cands = len(cand_names)
+
+    # ── Null rate formula ─────────────────────────────────────────────────
+    def _null_rate(method: str, n: int = n_cands) -> float:
+        base = _BALLOT_ERROR_BASE.get(method, 0.03)
+        rate = (base
+                * (1.0 + 0.08 * max(0, n - 3))
+                * (2.0 - education_level)
+                * (1.0 + ftv_pct))
+        return round(min(1.0, rate), 4)
+
+    # ── Blank rate (intentional blank vote: max utility < 0.3) ───────────
+    blank_rate_global = round(
+        sum(1 for v in voters if max(sincere_utilities[v["id"]].values()) < 0.3)
+        / num_voters, 4,
+    )
+
+    # ── Fast winner per method ────────────────────────────────────────────
+    from app.utils.simulation_ranked_utils import (
+        get_borda_winner as _borda_w,
+        get_irv_winner   as _irv_w,
+        get_schulze_winner as _sch_w,
+    )
+    from app.utils.simulation_score_utils import (
+        get_star_voting_winner       as _star_w,
+        get_majority_judgment_winner as _mj_w,
+    )
+
+    def _winner_for(method: str, vlist: list[Dict[str, Any]]) -> Optional[str]:
+        if not vlist:
+            return None
+        rnk = [
+            sorted(sincere_utilities[v["id"]].keys(),
+                   key=lambda n: -sincere_utilities[v["id"]][n])
+            for v in vlist
+        ]
+        sv = [
+            {n: max(0, min(5, round(5 * sincere_utilities[v["id"]][n])))
+             for n in cand_names}
+            for v in vlist
+        ]
+        if method in ("plurality", "two_round"):
+            return get_plurality_winner(rnk)
+        if method == "borda":
+            return _borda_w(rnk)
+        if method == "irv":
+            return _irv_w(rnk)
+        if method == "schulze":
+            return _sch_w(rnk)
+        if method == "approval":
+            tally: Counter = Counter()
+            for v in vlist:
+                u  = sincere_utilities[v["id"]]
+                th = sum(u.values()) / len(u) if u else 0.5
+                for cname, val in u.items():
+                    if val > th:
+                        tally[cname] += 1
+            return max(tally, key=tally.__getitem__) if tally else cand_names[0]
+        if method == "star_voting":
+            try:
+                raw = _star_w(sv)
+                return raw.get("winner") if isinstance(raw, dict) else raw
+            except Exception:
+                return get_plurality_winner(rnk)
+        if method == "majority_judgment":
+            try:
+                mj_u = [dict(sincere_utilities[v["id"]]) for v in vlist]
+                raw  = _mj_w(mj_u)
+                return str(raw["winner"]) if raw.get("winner") else None
+            except Exception:
+                return get_plurality_winner(rnk)
+        return get_plurality_winner(rnk)
+
+    # ── Per-method simulation ─────────────────────────────────────────────
+    results: list[Dict[str, Any]] = []
+    sincere_winners: Dict[str, Optional[str]] = {
+        m: _winner_for(m, voters) for m in methods_compare
+    }
+
+    for i, method in enumerate(methods_compare):
+        nr         = _null_rate(method)
+        method_rng = _random.Random(seed + 1000 + i)
+        valid_voters = [v for v in voters if method_rng.random() >= nr]
+        valid_w      = _winner_for(method, valid_voters)
+        results.append({
+            "method":           method,
+            "null_rate":        nr,
+            "blank_rate":       blank_rate_global,
+            "effective_voters": len(valid_voters),
+            "winner":           valid_w,
+            "winner_changed":   valid_w != sincere_winners[method],
+        })
+
+    # ── Candidate count curve (analytical) ───────────────────────────────
+    candidate_count_curve: list[Dict[str, Any]] = [
+        {
+            "n_candidates": n,
+            "null_rate_by_method": {
+                m: _null_rate(m, n) for m in methods_compare
+            },
+        }
+        for n in range(2, 11)
+    ]
+
+    # ── Most / least inclusive ────────────────────────────────────────────
+    nr_map = {r["method"]: r["null_rate"] for r in results}
+    most_inclusive  = min(nr_map, key=nr_map.__getitem__)
+    least_inclusive = max(nr_map, key=nr_map.__getitem__)
+
+    # ── Pedagogical note ──────────────────────────────────────────────────
+    plurality_nr = nr_map.get("plurality", nr_map[methods_compare[0]])
+    worst_nr     = nr_map[least_inclusive]
+    note = (
+        f"Avec {n_cands} candidats, {round(ftv_pct*100)}% de primo-votants "
+        f"et un niveau d'éducation de {education_level:.1f}, "
+        f"la méthode '{least_inclusive}' entraîne {round(worst_nr*100, 1)}% de bulletins nuls "
+        f"contre {round(plurality_nr*100, 1)}% pour Plurality. "
+        f"Ce n'est pas l'électeur qui échoue — c'est la conception du bulletin."
+    )
+
+    return jsonify({
+        "results":                results,
+        "candidate_count_curve":  candidate_count_curve,
+        "most_inclusive_method":  most_inclusive,
+        "least_inclusive_method": least_inclusive,
+        "pedagogical_note":       note,
+    }), 200
