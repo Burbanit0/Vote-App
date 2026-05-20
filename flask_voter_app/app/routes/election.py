@@ -5718,3 +5718,201 @@ def choice_overload() -> tuple[Response, int]:
         "heuristic_weights":    {"notoriety": h_not, "primacy": h_pri, "partisan": h_par},
         "pedagogical_note":     note,
     }), 200
+
+
+# ── Demographic Turnout ───────────────────────────────────────────────────────
+
+_AGE_LABELS  = ["jeunes (18-34)", "adultes (35-64)", "seniors (65+)"]
+_EDU_LABELS  = ["faible éducation", "éducation élevée"]
+
+
+@election_bp.route("/demographic-turnout", methods=["POST"])
+@sim_limiter.limit("10 per minute")
+def demographic_turnout() -> tuple[Response, int]:
+    """
+    POST /api/election/demographic-turnout
+
+    Simulate the distortion between the real electorate (full population)
+    and the effective electorate (those who actually vote) driven by
+    differential turnout across demographic groups (age × education).
+    """
+    data    = request.get_json() or {}
+    num_voters        = max(50,  min(500, int(data.get("num_voters",         300))))
+    seed              = int(data.get("seed",              42))
+    primary_method    = str(data.get("method",           "plurality"))
+    correct_flag      = bool(data.get("correct_for_turnout", True))
+    cand_specs        = data.get("candidates", [
+        {"name": "Alice", "x": -0.5, "y": -0.2},
+        {"name": "Bob",   "x":  0.5, "y":  0.2},
+        {"name": "Carol", "x":  0.0, "y":  0.1},
+    ])[:6]
+
+    if len(cand_specs) < 2:
+        return jsonify({"error": "At least 2 candidates required"}), 400
+
+    dp       = data.get("demographic_profile", {})
+    age_dist = [float(x) for x in dp.get("age_distribution",    [0.25, 0.45, 0.30])][:3]
+    to_age   = [float(x) for x in dp.get("turnout_by_age",       [0.55, 0.70, 0.85])][:3]
+    ideo_age = [float(x) for x in dp.get("ideology_by_age",     [-0.10, 0.00,  0.15])][:3]
+    edu_dist = [float(x) for x in dp.get("education_distribution", [0.40, 0.60])][:2]
+    to_edu   = [float(x) for x in dp.get("turnout_by_education",   [1.00, 1.00])][:2]
+    ideo_edu = [float(x) for x in dp.get("ideology_by_education", [ 0.05, -0.05])][:2]
+
+    # Normalize distributions
+    sum_a = sum(age_dist) or 1.0
+    age_dist = [x / sum_a for x in age_dist]
+    sum_e = sum(edu_dist) or 1.0
+    edu_dist = [x / sum_e for x in edu_dist]
+
+    _random.seed(seed)
+    _np.random.seed(seed)
+    issues   = DEFAULT_ISSUES
+    cand_names = [str(s.get("name", f"C{i}")) for i, s in enumerate(cand_specs)]
+    candidates = [
+        _build_candidate_from_xy(
+            i, cand_names[i],
+            max(-1.0, min(1.0, float(s.get("x", 0.0)))),
+            max(-1.0, min(1.0, float(s.get("y", 0.0)))),
+            issues,
+        )
+        for i, s in enumerate(cand_specs)
+    ]
+
+    # ── Generate voters with demographic attributes ────────────────────────
+    demo_rng     = _random.Random(seed)
+    age_cumsum   = [sum(age_dist[:k+1]) for k in range(len(age_dist))]
+    edu_cumsum   = [sum(edu_dist[:k+1]) for k in range(len(edu_dist))]
+
+    def _pick_group(rng_val: float, cumsum: list[float]) -> int:
+        for i, th in enumerate(cumsum):
+            if rng_val < th:
+                return i
+        return len(cumsum) - 1
+
+    raw_voters = [
+        create_voter(issues, i, ideology_distribution="random")
+        for i in range(num_voters)
+    ]
+
+    voter_demo: Dict[int, Dict[str, Any]] = {}
+    for v in raw_voters:
+        ag    = _pick_group(demo_rng.random(), age_cumsum)
+        eg    = _pick_group(demo_rng.random(), edu_cumsum)
+        base  = demo_rng.uniform(-0.5, 0.5)
+        ideo  = max(-1.0, min(1.0, base + ideo_age[ag] + ideo_edu[eg]))
+        p_v   = max(0.0, min(1.0, to_age[ag] * to_edu[eg]))
+        voter_demo[v["id"]] = {"age": ag, "edu": eg, "ideology": ideo, "p_vote": p_v}
+        v["issue_positions"]["economy"] = (ideo + 1.0) / 2.0   # remap to [0, 1]
+
+    # Utilities (recomputed after ideology override)
+    utils: Dict[Any, Dict[str, float]] = {
+        v["id"]: {c["name"]: calculate_utility(v, c, issues)["utility"] for c in candidates}
+        for v in raw_voters
+    }
+
+    # ── Determine effective voters ─────────────────────────────────────────
+    t_rng      = _random.Random(seed + 100)
+    voted_ids: set = {
+        v["id"] for v in raw_voters
+        if t_rng.random() < voter_demo[v["id"]]["p_vote"]
+    }
+    actual_voters = [v for v in raw_voters if v["id"] in voted_ids]
+    n_actual  = len(actual_voters)
+
+    # ── Fast winner ────────────────────────────────────────────────────────
+    from app.utils.simulation_ranked_utils import (
+        get_borda_winner   as _b_dt,
+        get_irv_winner     as _i_dt,
+        get_schulze_winner as _s_dt,
+    )
+
+    def _winner(vlist: list[Dict[str, Any]]) -> tuple[str, Dict[str, float]]:
+        if not vlist:
+            return cand_names[0], {c: 0.0 for c in cand_names}
+        rnk = [sorted(utils[v["id"]].keys(), key=lambda n: -utils[v["id"]][n]) for v in vlist]
+        if primary_method == "borda":
+            w: Optional[str] = _b_dt(rnk)
+        elif primary_method == "irv":
+            w = _i_dt(rnk)
+        elif primary_method == "schulze":
+            w = _s_dt(rnk)
+        else:
+            w = get_plurality_winner(rnk)
+        total  = len(vlist)
+        fc     = Counter(r[0] for r in rnk)
+        shares = {c: round(fc.get(c, 0) / total, 4) for c in cand_names}
+        return w or cand_names[0], shares
+
+    biased_winner,    biased_shares    = _winner(actual_voters)
+    corrected_winner, corrected_shares = _winner(raw_voters) if correct_flag else (biased_winner, biased_shares)
+    winner_changed = biased_winner != corrected_winner
+
+    # ── Ideology stats ─────────────────────────────────────────────────────
+    full_mean = round(sum(voter_demo[v["id"]]["ideology"] for v in raw_voters)   / num_voters,  4)
+    bias_mean = round(sum(voter_demo[v["id"]]["ideology"] for v in actual_voters) / n_actual,    4) if n_actual else 0.0
+    ideo_drift = round(bias_mean - full_mean, 4)
+
+    # ── Demographic breakdown (3 age × 2 edu groups) ─────────────────────
+    grp_pop: Dict[tuple, int]   = {}
+    grp_vot: Dict[tuple, int]   = {}
+    grp_ideo: Dict[tuple, list] = {}
+    for v in raw_voters:
+        d   = voter_demo[v["id"]]
+        key = (d["age"], d["edu"])
+        grp_pop[key]  = grp_pop.get(key, 0) + 1
+        if v["id"] in voted_ids:
+            grp_vot[key]  = grp_vot.get(key, 0) + 1
+            grp_ideo.setdefault(key, []).append(d["ideology"])
+
+    breakdown: list[Dict[str, Any]] = []
+    for ag in range(len(age_dist)):
+        for eg in range(len(edu_dist)):
+            key       = (ag, eg)
+            pop_cnt   = grp_pop.get(key, 0)
+            vot_cnt   = grp_vot.get(key, 0)
+            ideo_vals = grp_ideo.get(key, [])
+            breakdown.append({
+                "group":          f"{_AGE_LABELS[ag]}, {_EDU_LABELS[eg]}",
+                "population_pct": round(pop_cnt / num_voters,        4),
+                "voter_pct":      round(vot_cnt / n_actual,          4) if n_actual else 0.0,
+                "ideology_mean":  round(sum(ideo_vals) / len(ideo_vals), 4) if ideo_vals else 0.0,
+            })
+
+    overrep  = [d["group"] for d in breakdown if d["voter_pct"] > d["population_pct"] + 0.05]
+    underrep = [d["group"] for d in breakdown if d["voter_pct"] < d["population_pct"] - 0.05]
+
+    note = (
+        f"Avec les taux de participation configurés, "
+        f"l'électorat effectif ({round(n_actual/num_voters*100, 1)}% de participation) "
+        f"est décalé de {ideo_drift:+.3f} sur l'axe idéologique par rapport à la population totale. "
+    )
+    if winner_changed:
+        note += f"Si tous votaient, le résultat serait différent : '{biased_winner}' → '{corrected_winner}'."
+    else:
+        note += f"La méthode produit le même vainqueur ('{biased_winner}') malgré le biais de participation."
+
+    return jsonify({
+        "biased_result": {
+            "winner":         biased_winner,
+            "vote_shares":    biased_shares,
+            "actual_turnout": round(n_actual / num_voters, 4),
+            "voter_profile": {
+                "mean_age_group":       round(sum(voter_demo[v["id"]]["age"] for v in actual_voters) / n_actual, 4) if n_actual else 0.0,
+                "mean_education_level": round(sum(voter_demo[v["id"]]["edu"] for v in actual_voters) / n_actual, 4) if n_actual else 0.0,
+                "mean_ideology_x":      bias_mean,
+            },
+        },
+        "corrected_result": {
+            "winner":         corrected_winner,
+            "vote_shares":    corrected_shares,
+            "mean_ideology_x": full_mean,
+        },
+        "winner_changed":      winner_changed,
+        "representation_gap": {
+            "ideology_drift":          ideo_drift,
+            "overrepresented_groups":  overrep,
+            "underrepresented_groups": underrep,
+        },
+        "demographic_breakdown": breakdown,
+        "pedagogical_note":      note,
+    }), 200
