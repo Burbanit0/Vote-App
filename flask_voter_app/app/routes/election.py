@@ -5312,3 +5312,166 @@ def shy_voter() -> tuple[Response, int]:
         "social_desirability_curve": curve,
         "pedagogical_note":          note,
     }), 200
+
+
+# ── Electoral Fatigue ─────────────────────────────────────────────────────────
+
+@election_bp.route("/electoral-fatigue", methods=["POST"])
+@sim_limiter.limit("10 per minute")
+def electoral_fatigue() -> tuple[Response, int]:
+    """
+    POST /api/election/electoral-fatigue
+
+    Simulate electoral fatigue across repeated elections.
+    P(vote | election k) = max(engaged_pct, 1 - k × fatigue_rate)  [k = 0-based]
+    Engaged voters (top engaged_pct by max_utility) always participate.
+    As casual voters drop out, the residual electorate drifts ideologically
+    toward the engaged (more partisan) voters.
+    """
+    data           = request.get_json() or {}
+    num_voters     = max(50,  min(500,  int(data.get("num_voters",          200))))
+    ideology       = str(data.get("ideology",          "random"))
+    seed           = int(data.get("seed",               42))
+    num_elections  = max(1,   min(12,   int(data.get("num_elections",         6))))
+    fatigue_rate   = max(0.0, min(0.15, float(data.get("fatigue_rate",        0.07))))
+    engaged_pct    = max(0.05, min(0.5, float(data.get("engaged_voter_pct",   0.2))))
+    primary_method = str(data.get("method",            "plurality"))
+    cand_specs     = data.get("candidates", [
+        {"name": "Alice", "x": -0.5, "y": -0.2},
+        {"name": "Bob",   "x":  0.5, "y":  0.2},
+        {"name": "Carol", "x":  0.0, "y":  0.1},
+    ])[:6]
+
+    if len(cand_specs) < 2:
+        return jsonify({"error": "At least 2 candidates required"}), 400
+
+    _random.seed(seed)
+    _np.random.seed(seed)
+    issues = DEFAULT_ISSUES
+
+    candidates, voters, sincere_utilities, cand_names = _build_base_electorate(
+        cand_specs, num_voters, ideology, seed, issues
+    )
+    all_ids: list[int] = [v["id"] for v in voters]
+
+    # ── Voter ideology positions (1D economy axis) ────────────────────────
+    voter_ideo: Dict[int, float] = {
+        v["id"]: round(2.0 * v["issue_positions"].get("economy", 0.5) - 1.0, 3)
+        for v in voters
+    }
+    full_mean_ideo = round(sum(voter_ideo.values()) / num_voters, 4)
+
+    # ── Engaged voters = top engaged_pct by max_utility ──────────────────
+    voter_max_util: Dict[int, float] = {
+        v["id"]: max(sincere_utilities[v["id"]].values()) for v in voters
+    }
+    n_engaged      = max(1, round(engaged_pct * num_voters))
+    engaged_ids: set = set(
+        sorted(all_ids, key=lambda vid: -voter_max_util[vid])[:n_engaged]
+    )
+    partisan_threshold = 0.7  # "very partisan" label
+    partisan_ids: set = {vid for vid, mu in voter_max_util.items() if mu > partisan_threshold}
+
+    # ── Fast winner per method ────────────────────────────────────────────
+    from app.utils.simulation_ranked_utils import (
+        get_borda_winner   as _bw,
+        get_irv_winner     as _iw,
+        get_schulze_winner as _sw,
+    )
+
+    def _fast_winner(vlist: list[Dict[str, Any]]) -> tuple[Optional[str], Dict[str, float]]:
+        if not vlist:
+            return cand_names[0], {c: 0.0 for c in cand_names}
+        rnk = [
+            sorted(sincere_utilities[v["id"]].keys(),
+                   key=lambda n: -sincere_utilities[v["id"]][n])
+            for v in vlist
+        ]
+        if primary_method == "borda":
+            w: Optional[str] = _bw(rnk)
+        elif primary_method == "irv":
+            w = _iw(rnk)
+        elif primary_method == "schulze":
+            w = _sw(rnk)
+        elif primary_method == "approval":
+            tally: Counter = Counter()
+            for v in vlist:
+                u  = sincere_utilities[v["id"]]
+                th = sum(u.values()) / len(u) if u else 0.5
+                for cname, val in u.items():
+                    if val > th:
+                        tally[cname] += 1
+            w = max(tally, key=tally.__getitem__) if tally else cand_names[0]
+        else:
+            w = get_plurality_winner(rnk)
+        total  = len(vlist)
+        fc     = Counter(r[0] for r in rnk)
+        shares = {c: round(fc.get(c, 0) / total, 4) for c in cand_names}
+        return w, shares
+
+    # ── Simulate successive elections ─────────────────────────────────────
+    rng_fat = _random.Random(seed + 500)
+    elections_out: list[Dict[str, Any]] = []
+
+    for k in range(num_elections):
+        p_vote = max(engaged_pct, 1.0 - k * fatigue_rate)
+
+        actual_voters = [
+            v for v in voters
+            if v["id"] in engaged_ids or rng_fat.random() < p_vote
+        ]
+        n_act   = len(actual_voters)
+        turnout = round(n_act / num_voters, 4)
+        winner, vote_shares = _fast_winner(actual_voters)
+
+        if actual_voters:
+            act_ids   = [v["id"] for v in actual_voters]
+            mean_ideo = round(sum(voter_ideo[vid] for vid in act_ids) / n_act, 4)
+            part_cnt  = sum(1 for vid in act_ids if vid in partisan_ids)
+            part_pct  = round(part_cnt / n_act, 4)
+        else:
+            mean_ideo = 0.0
+            part_pct  = 0.0
+
+        elections_out.append({
+            "election_n": k + 1,
+            "turnout":    turnout,
+            "winner":     winner,
+            "voter_profile": {
+                "mean_ideology_x": mean_ideo,
+                "partisan_pct":    part_pct,
+            },
+            "vote_shares": vote_shares,
+        })
+
+    # ── Summary stats ─────────────────────────────────────────────────────
+    winner_drift = [e["winner"] for e in elections_out]
+    first_winner = winner_drift[0] if winner_drift else cand_names[0]
+    winner_changed_at: Optional[int] = next(
+        (e["election_n"] for e in elections_out if e["winner"] != first_winner),
+        None,
+    )
+
+    first_ideo = elections_out[0]["voter_profile"]["mean_ideology_x"] if elections_out else 0.0
+    last_ideo  = elections_out[-1]["voter_profile"]["mean_ideology_x"] if elections_out else 0.0
+    ideology_drift    = round(last_ideo - first_ideo, 4)
+    representation_gap = round(last_ideo - full_mean_ideo, 4)
+
+    note = (
+        f"Au bout de {num_elections} élections avec un taux de fatigue de "
+        f"{round(fatigue_rate * 100)}%, la participation tombe à "
+        f"{round(elections_out[-1]['turnout'] * 100, 1)}%. "
+        f"La position idéologique moyenne des votants dérive de "
+        f"{ideology_drift:+.3f} par rapport à la 1ère élection "
+        f"(écart de représentation : {representation_gap:+.3f})."
+    )
+
+    return jsonify({
+        "elections":             elections_out,
+        "winner_drift":          winner_drift,
+        "winner_changed_at":     winner_changed_at,
+        "ideology_drift":        ideology_drift,
+        "representation_gap":    representation_gap,
+        "full_mean_ideology":    full_mean_ideo,
+        "pedagogical_note":      note,
+    }), 200
