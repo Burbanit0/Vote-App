@@ -38,6 +38,7 @@ import LiquidDemocracyPanel from '../components/shared/LiquidDemocracyPanel';
 import ConvictionVotingPanel from '../components/shared/ConvictionVotingPanel';
 import NOTAPanel from '../components/shared/NOTAPanel';
 import BallotComplexityPanel from '../components/shared/BallotComplexityPanel';
+import ShyVoterPanel from '../components/shared/ShyVoterPanel';
 import HotellingPanel from '../components/shared/HotellingPanel';
 import PolarizationPanel from '../components/shared/PolarizationPanel';
 
@@ -541,6 +542,7 @@ const ElectionLabPage: React.FC = () => {
                   { key: 'conviction',         icon: '⛓', label: t('electionLab.tabConviction') },
                   { key: 'nota',               icon: '🚫', label: t('electionLab.tabNota') },
                   { key: 'ballot',             icon: '📋', label: t('electionLab.tabBallot') },
+                  { key: 'shyvoter',           icon: '🤫', label: t('electionLab.tabShyVoter') },
                 ];
 
                 const tabContent: Record<string, React.ReactNode> = {
@@ -574,6 +576,7 @@ const ElectionLabPage: React.FC = () => {
                   'conviction':           <ConvictionVotingPanel />,
                   'nota':                 <NOTAPanel />,
                   'ballot':               <BallotComplexityPanel />,
+                  'shyvoter':             <ShyVoterPanel />,
                 };
 
                 const currentIdx = TABS.findIndex((tab) => tab.key === activeTab);

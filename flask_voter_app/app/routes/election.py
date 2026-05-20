@@ -5165,3 +5165,150 @@ def ballot_complexity() -> tuple[Response, int]:
         "least_inclusive_method": least_inclusive,
         "pedagogical_note":       note,
     }), 200
+
+
+# ── Shy Voter Effect ──────────────────────────────────────────────────────────
+
+@election_bp.route("/shy-voter", methods=["POST"])
+@sim_limiter.limit("10 per minute")
+def shy_voter() -> tuple[Response, int]:
+    """
+    POST /api/election/shy-voter
+
+    Simulate the Bradley / Shy Tory effect: voters who intend to vote for a
+    socially 'sensitive' candidate declare a more acceptable preference in polls
+    (with probability social_desirability_factor) but vote sincerely in the booth.
+    """
+    data           = request.get_json() or {}
+    num_voters     = max(50,  min(500, int(data.get("num_voters",                  300))))
+    ideology       = str(data.get("ideology",                  "random"))
+    seed           = int(data.get("seed",                       42))
+    shy_idx        = max(0,   int(data.get("shy_candidate_idx",  0)))
+    sdf            = max(0.0, min(1.0, float(data.get("social_desirability_factor", 0.4))))
+    num_polls      = max(3,   min(30,  int(data.get("num_polls",                   10))))
+    cand_specs     = data.get("candidates", [
+        {"name": "Alice", "x": -0.5, "y": -0.2},
+        {"name": "Bob",   "x":  0.5, "y":  0.2},
+        {"name": "Carol", "x":  0.0, "y":  0.1},
+    ])[:6]
+
+    if len(cand_specs) < 2:
+        return jsonify({"error": "At least 2 candidates required"}), 400
+
+    _random.seed(seed)
+    _np.random.seed(seed)
+    issues = DEFAULT_ISSUES
+
+    candidates, voters, sincere_utilities, cand_names = _build_base_electorate(
+        cand_specs, num_voters, ideology, seed, issues
+    )
+    shy_idx       = min(shy_idx, len(cand_names) - 1)
+    shy_candidate = cand_names[shy_idx]
+    all_ids       = [v["id"] for v in voters]
+
+    # ── Sincere votes ─────────────────────────────────────────────────────
+    sincere_votes: Dict[int, str] = {
+        v["id"]: max(sincere_utilities[v["id"]], key=lambda k: sincere_utilities[v["id"]][k])
+        for v in voters
+    }
+    real_counts = Counter(sincere_votes.values())
+    real_results: Dict[str, float] = {
+        c: round(real_counts.get(c, 0) / num_voters, 4) for c in cand_names
+    }
+    real_winner: str = max(real_results, key=real_results.__getitem__)
+
+    # ── Second choices for shy voters ─────────────────────────────────────
+    second_choices: Dict[int, str] = {}
+    for v in voters:
+        vid = v["id"]
+        order = sorted(sincere_utilities[vid].keys(),
+                       key=lambda k: -sincere_utilities[vid][k])
+        sc = next((c for c in order if c != shy_candidate),
+                  cand_names[(shy_idx + 1) % len(cand_names)])
+        second_choices[vid] = sc
+
+    # ── Declared votes (with shy masking) ────────────────────────────────
+    decl_rng = _random.Random(seed + 1)
+    declared: Dict[int, str] = {}
+    for v in voters:
+        vid = v["id"]
+        s   = sincere_votes[vid]
+        if s == shy_candidate and decl_rng.random() < sdf:
+            declared[vid] = second_choices[vid]
+        else:
+            declared[vid] = s
+
+    # ── Simulate polls ────────────────────────────────────────────────────
+    poll_sample_size = min(1000, num_voters)
+    poll_rng         = _random.Random(seed + 2)
+    poll_results_out: list[Dict[str, Any]] = []
+
+    for n in range(num_polls):
+        sample    = [poll_rng.choice(all_ids) for _ in range(poll_sample_size)]
+        dec_count = Counter(declared[vid] for vid in sample)
+        predicted = {c: round(dec_count.get(c, 0) / poll_sample_size, 4) for c in cand_names}
+        poll_results_out.append({
+            "poll_n":    n + 1,
+            "predicted": predicted,
+            "real":      real_results,
+        })
+
+    # ── Average poll prediction + winner ─────────────────────────────────
+    avg_pred: Dict[str, float] = {
+        c: round(sum(pr["predicted"][c] for pr in poll_results_out) / num_polls, 4)
+        for c in cand_names
+    }
+    poll_winner: str = max(avg_pred, key=avg_pred.__getitem__)
+    polls_wrong       = poll_winner != real_winner
+
+    systematic_error: Dict[str, float] = {
+        c: round(avg_pred[c] - real_results[c], 4) for c in cand_names
+    }
+
+    # ── Social desirability curve (analytical → exactly monotone) ─────────
+    real_shy_rate  = real_results.get(shy_candidate, 0.0)
+    other_cands    = [c for c in cand_names if c != shy_candidate]
+    other_total    = sum(real_results.get(c, 0) for c in other_cands) or 1.0
+
+    curve: list[Dict[str, Any]] = []
+    for step in range(11):
+        f               = round(step / 10, 1)
+        poll_shy        = real_shy_rate * (1.0 - f)
+        poll_error_f    = round(real_shy_rate - poll_shy, 4)   # = real_shy_rate × f
+        poll_others     = {
+            c: real_results.get(c, 0) + real_shy_rate * f * (real_results.get(c, 0) / other_total)
+            for c in other_cands
+        }
+        poll_f          = {shy_candidate: poll_shy, **poll_others}
+        poll_win_f      = max(poll_f, key=poll_f.__getitem__)
+        winner_wrong_f  = 1.0 if poll_win_f != real_winner else 0.0
+        curve.append({
+            "factor":           f,
+            "poll_error":       poll_error_f,
+            "winner_wrong_pct": winner_wrong_f,
+        })
+
+    # ── Pedagogical note ──────────────────────────────────────────────────
+    shy_err = abs(systematic_error.get(shy_candidate, 0.0))
+    note = (
+        f"Avec un facteur de désirabilité sociale de {sdf}, "
+        f"le candidat '{shy_candidate}' est sous-estimé de "
+        f"{round(shy_err * 100, 1)}% en moyenne dans les sondages. "
+    )
+    if polls_wrong:
+        note += f"Les sondages prédisaient '{poll_winner}' mais '{real_winner}' a gagné."
+    else:
+        note += f"Malgré le biais, les sondages prédisent correctement '{real_winner}'."
+
+    return jsonify({
+        "real_winner":               real_winner,
+        "poll_winner":               poll_winner,
+        "polls_wrong":               polls_wrong,
+        "shy_candidate":             shy_candidate,
+        "poll_results":              poll_results_out,
+        "systematic_error":          systematic_error,
+        "real_results":              real_results,
+        "avg_poll_results":          avg_pred,
+        "social_desirability_curve": curve,
+        "pedagogical_note":          note,
+    }), 200
