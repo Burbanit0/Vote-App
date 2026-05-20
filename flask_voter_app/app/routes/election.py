@@ -4779,3 +4779,205 @@ def conviction_voting() -> tuple[Response, int]:
         "lock_options":      _CV_LOCK_OPTIONS,
         "multipliers":       {str(k): v for k, v in _CV_MULTIPLIERS.items()},
     }), 200
+
+
+# ── NOTA (None Of The Above) ──────────────────────────────────────────────────
+
+# How inclusive each method is: lower adjustment → fewer NOTA voters
+# (method integrates more preference information → voter finds more to approve)
+_NOTA_ADJ: Dict[str, float] = {
+    "plurality":          1.00,
+    "two_round":          1.00,
+    "borda":              0.95,
+    "irv":                0.95,
+    "schulze":            0.90,
+    "kemeny_young":       0.90,
+    "coombs":             0.95,
+    "bucklin":            0.95,
+    "minimax":            0.90,
+    "copeland":           0.92,
+    "nanson":             0.92,
+    "baldwin":            0.92,
+    "approval":           0.50,   # most inclusive: approval of partial satisfaction
+    "simple_score":       0.70,
+    "star_voting":        0.70,
+    "median_voting":      0.80,
+    "mean_median_hybrid": 0.80,
+    "variance_based":     0.80,
+    "majority_judgment":  0.70,
+    "quadratic":          0.75,
+}
+
+_NOTA_TRACKED = [
+    "plurality", "approval", "borda", "irv", "schulze", "majority_judgment",
+]
+
+
+@election_bp.route("/nota", methods=["POST"])
+@sim_limiter.limit("10 per minute")
+def nota_election() -> tuple[Response, int]:
+    """
+    POST /api/election/nota
+
+    Simulate NOTA (None Of The Above) as an official ballot option.
+    A voter casts NOTA if their maximum utility for any candidate is below
+    nota_threshold.  Three constitutional rules are supported after NOTA wins:
+    invalidate, force a runoff with new candidates, or seat NOTA (Nevada-style).
+    """
+    data           = request.get_json() or {}
+    num_voters     = max(50,  min(500, int(data.get("num_voters",     200))))
+    ideology       = str(data.get("ideology",      "random"))
+    seed           = int(data.get("seed",           42))
+    nota_threshold = max(0.0, min(1.0, float(data.get("nota_threshold", 0.3))))
+    nota_rule      = str(data.get("nota_rule",     "invalidate"))
+    primary_method = str(data.get("method",        "plurality"))
+    cand_specs     = data.get("candidates", [
+        {"name": "Alice", "x": -0.5, "y": -0.2},
+        {"name": "Bob",   "x":  0.5, "y":  0.2},
+        {"name": "Carol", "x":  0.0, "y":  0.1},
+    ])[:6]
+
+    if len(cand_specs) < 2:
+        return jsonify({"error": "At least 2 candidates required"}), 400
+
+    _random.seed(seed)
+    _np.random.seed(seed)
+    issues = DEFAULT_ISSUES
+
+    candidates, voters, sincere_utilities, cand_names = _build_base_electorate(
+        cand_specs, num_voters, ideology, seed, issues
+    )
+
+    # ── NOTA determination for a given method+threshold ───────────────────
+    def _nota_pct(threshold: float, method: str = "plurality") -> float:
+        adj           = _NOTA_ADJ.get(method, 1.0)
+        eff_threshold = threshold * adj
+        count = sum(
+            1 for v in voters
+            if max(sincere_utilities[v["id"]].values()) < eff_threshold
+        )
+        return round(count / num_voters, 4) if num_voters else 0.0
+
+    # ── Winner with NOTA (plurality model for simplicity) ─────────────────
+    def _winner_with_nota(threshold: float) -> tuple[Optional[str], float]:
+        """Returns (sincere plurality winner or 'NOTA', nota_pct)."""
+        tally: Counter = Counter()
+        for v in voters:
+            vid      = v["id"]
+            max_util = max(sincere_utilities[vid].values())
+            if max_util < threshold:
+                tally["NOTA"] += 1
+            else:
+                choice = max(sincere_utilities[vid], key=lambda k: sincere_utilities[vid][k])
+                tally[choice] += 1
+        raw_winner = max(tally, key=tally.__getitem__) if tally else cand_names[0]
+        np         = tally.get("NOTA", 0) / num_voters if num_voters else 0.0
+        return raw_winner, round(np, 4)
+
+    # ── Sincere winners per method (without NOTA) ─────────────────────────
+    from app.utils.simulation_ranked_utils import (
+        get_borda_winner as _borda, get_irv_winner as _irv,
+        get_schulze_winner as _schulze,
+    )
+    from app.utils.simulation_score_utils import get_majority_judgment_winner as _mj
+
+    def _sincere_winner(method: str) -> Optional[str]:
+        rnk = [
+            sorted(sincere_utilities[v["id"]].keys(),
+                   key=lambda n: -sincere_utilities[v["id"]][n])
+            for v in voters
+        ]
+        if method in ("plurality", "two_round"):
+            return get_plurality_winner(rnk)
+        if method == "borda":
+            return _borda(rnk)
+        if method == "irv":
+            return _irv(rnk)
+        if method == "schulze":
+            return _schulze(rnk)
+        if method == "approval":
+            # sincere approval: approve above voter mean
+            tally: Counter = Counter()
+            for v in voters:
+                u  = sincere_utilities[v["id"]]
+                th = sum(u.values()) / len(u) if u else 0.5
+                for cname, val in u.items():
+                    if val > th:
+                        tally[cname] += 1
+            return max(tally, key=tally.__getitem__) if tally else cand_names[0]
+        if method == "majority_judgment":
+            mj_utils = [dict(sincere_utilities[v["id"]]) for v in voters]
+            try:
+                mj_raw = _mj(mj_utils)
+                return str(mj_raw["winner"]) if mj_raw.get("winner") else None
+            except Exception:
+                return None
+        return get_plurality_winner(rnk)
+
+    # ── Main computation ──────────────────────────────────────────────────
+    nota_pct_main = _nota_pct(nota_threshold, primary_method)
+    raw_winner, _ = _winner_with_nota(nota_threshold)
+    nota_wins_main = raw_winner == "NOTA"
+
+    def _apply_nota_rule(nota_wins: bool, raw: Optional[str]) -> tuple[Optional[str], bool]:
+        if not nota_wins:
+            return raw, True
+        if nota_rule == "winner_take_all":
+            return "NOTA", True
+        return None, False   # invalidate / runoff → null winner, invalid election
+
+    final_winner, election_valid = _apply_nota_rule(nota_wins_main, raw_winner)
+
+    # ── Nota curve (20 points: 0.00 → 0.95, step 0.05) ──────────────────
+    nota_curve: list[Dict[str, Any]] = []
+    sincere_w_primary = _sincere_winner(primary_method)
+    for i in range(20):
+        t          = round(i * 0.05, 2)
+        np_t       = _nota_pct(t, primary_method)
+        raw_t, _   = _winner_with_nota(t)
+        nota_wins_t = raw_t == "NOTA"
+        w_t, _     = _apply_nota_rule(nota_wins_t, sincere_w_primary if not nota_wins_t else None)
+        nota_curve.append({
+            "threshold": t,
+            "nota_pct":  np_t,
+            "nota_wins": nota_wins_t,
+            "winner":    w_t,
+        })
+
+    # ── Method comparison ─────────────────────────────────────────────────
+    method_comparison: Dict[str, Any] = {}
+    for meth in _NOTA_TRACKED:
+        np_m       = _nota_pct(nota_threshold, meth)
+        nota_wins_m = np_m > 0.5
+        sincere_m  = _sincere_winner(meth)
+        w_m, v_m   = _apply_nota_rule(nota_wins_m, sincere_m)
+        method_comparison[meth] = {
+            "winner":         w_m,
+            "nota_pct":       np_m,
+            "election_valid": v_m,
+        }
+
+    # ── Pedagogical note ──────────────────────────────────────────────────
+    most_inclusive = min(
+        _NOTA_TRACKED,
+        key=lambda m: method_comparison[m]["nota_pct"],
+    )
+    note = (
+        f"Avec un seuil de {nota_threshold}, "
+        f"{round(nota_pct_main * 100)}% de l'électorat voterait NOTA "
+        f"sous la méthode '{primary_method}'. "
+        f"La méthode '{most_inclusive}' génère seulement "
+        f"{round(method_comparison[most_inclusive]['nota_pct'] * 100)}% de NOTA "
+        f"— elle est plus inclusive car elle intègre davantage de préférences individuelles."
+    )
+
+    return jsonify({
+        "nota_pct":          nota_pct_main,
+        "election_valid":    election_valid,
+        "winner":            final_winner,
+        "nota_curve":        nota_curve,
+        "method_comparison": method_comparison,
+        "pedagogical_note":  note,
+        "nota_rule":         nota_rule,
+        "nota_threshold":    nota_threshold,
+    }), 200

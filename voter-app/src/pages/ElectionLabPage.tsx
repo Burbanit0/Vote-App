@@ -36,6 +36,7 @@ import CascadePanel from '../components/shared/CascadePanel';
 import BehavioralBiasPanel from '../components/shared/BehavioralBiasPanel';
 import LiquidDemocracyPanel from '../components/shared/LiquidDemocracyPanel';
 import ConvictionVotingPanel from '../components/shared/ConvictionVotingPanel';
+import NOTAPanel from '../components/shared/NOTAPanel';
 import HotellingPanel from '../components/shared/HotellingPanel';
 import PolarizationPanel from '../components/shared/PolarizationPanel';
 
@@ -537,6 +538,7 @@ const ElectionLabPage: React.FC = () => {
                   { key: 'behavioral',         icon: '🧠', label: t('electionLab.tabBehavioral') },
                   { key: 'liquid',             icon: '💧', label: t('electionLab.tabLiquid') },
                   { key: 'conviction',         icon: '⛓', label: t('electionLab.tabConviction') },
+                  { key: 'nota',               icon: '🚫', label: t('electionLab.tabNota') },
                 ];
 
                 const tabContent: Record<string, React.ReactNode> = {
@@ -568,6 +570,7 @@ const ElectionLabPage: React.FC = () => {
                   'behavioral':           <BehavioralBiasPanel />,
                   'liquid':               <LiquidDemocracyPanel />,
                   'conviction':           <ConvictionVotingPanel />,
+                  'nota':                 <NOTAPanel />,
                 };
 
                 const currentIdx = TABS.findIndex((tab) => tab.key === activeTab);
