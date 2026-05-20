@@ -5475,3 +5475,246 @@ def electoral_fatigue() -> tuple[Response, int]:
         "full_mean_ideology":    full_mean_ideo,
         "pedagogical_note":      note,
     }), 200
+
+
+# ── Choice Overload ───────────────────────────────────────────────────────────
+
+@election_bp.route("/choice-overload", methods=["POST"])
+@sim_limiter.limit("10 per minute")
+def choice_overload() -> tuple[Response, int]:
+    """
+    POST /api/election/choice-overload
+
+    Simulate the paradox of choice (Schwartz 2004): beyond overload_threshold
+    candidates, voters use heuristics (notoriety/primacy/partisan) instead of
+    their sincere preferences.  Compare voting methods on their robustness to
+    this degradation.
+    """
+    data               = request.get_json() or {}
+    num_voters         = max(50,  min(300, int(data.get("num_voters",         150))))
+    ideology           = str(data.get("ideology",         "random"))
+    seed               = int(data.get("seed",              42))
+    cand_counts        = sorted({max(2, min(15, n)) for n in
+                                 data.get("candidate_counts", [2, 3, 5, 7, 10])})[:8]
+    overload_threshold = max(2,   min(12, int(data.get("overload_threshold",    5))))
+    hw                 = data.get("heuristic_weights", {})
+    h_not              = max(0.0, min(1.0, float(hw.get("notoriety",  0.20))))
+    h_pri              = max(0.0, min(1.0, float(hw.get("primacy",    0.10))))
+    h_par              = max(0.0, min(1.0, float(hw.get("partisan",   0.20))))
+    total_h            = min(1.0, h_not + h_pri + h_par)
+    methods_req        = data.get("methods", ["plurality", "approval",
+                                              "borda", "majority_judgment"])[:5]
+
+    if not cand_counts:
+        return jsonify({"error": "candidate_counts must be non-empty"}), 400
+
+    from app.utils.simulation_score_utils import get_majority_judgment_winner as _mj_co
+    from app.utils.simulation_ranked_utils import (
+        get_borda_winner   as _bw_co,
+        get_irv_winner     as _iw_co,
+        get_schulze_winner as _sw_co,
+    )
+
+    _random.seed(seed)
+    _np.random.seed(seed)
+    issues = DEFAULT_ISSUES
+
+    # ── Fixed electorate (voters same across all N) ───────────────────────
+    voters = [
+        create_voter(issues, i, ideology_distribution=ideology)
+        for i in range(num_voters)
+    ]
+    voter_ideo: Dict[int, float] = {
+        v["id"]: 2.0 * v["issue_positions"].get("economy", 0.5) - 1.0
+        for v in voters
+    }
+
+    def _quick_winner_co(
+        method: str,
+        v_list: list[Dict[str, Any]],
+        rnk:    list[list[str]],
+        utils:  Dict[Any, Dict[str, float]],
+        voted:  Dict[int, str],
+        is_h:   Dict[int, bool],
+        cnames: list[str],
+    ) -> Optional[str]:
+        if not v_list:
+            return cnames[0] if cnames else None
+        if method == "plurality":
+            t: Counter = Counter(voted[v["id"]] for v in v_list)
+            return max(t, key=t.__getitem__) if t else cnames[0]
+        if method == "borda":
+            return _bw_co(rnk)
+        if method == "irv":
+            return _iw_co(rnk)
+        if method == "schulze":
+            return _sw_co(rnk)
+        if method == "approval":
+            t2: Counter = Counter()
+            for v in v_list:
+                vid = v["id"]
+                if is_h[vid]:
+                    t2[voted[vid]] += 1
+                else:
+                    u   = utils[vid]
+                    th2 = sum(u.values()) / len(u) if u else 0.5
+                    for cn, val in u.items():
+                        if val > th2:
+                            t2[cn] += 1
+            return max(t2, key=t2.__getitem__) if t2 else cnames[0]
+        if method == "majority_judgment":
+            mj_u = [dict(utils[v["id"]]) for v in v_list]
+            try:
+                r = _mj_co(mj_u)
+                return str(r["winner"]) if r.get("winner") else cnames[0]
+            except Exception:
+                return get_plurality_winner(rnk)
+        return get_plurality_winner(rnk)
+
+    # ── Main loop across N ────────────────────────────────────────────────
+    results_by_n: list[Dict[str, Any]] = []
+    regret_curve: list[Dict[str, Any]] = []
+    sincere_match: Dict[str, int] = {m: 0 for m in methods_req}
+    n_overload_cases = 0
+
+    for n in cand_counts:
+        # Deterministic candidates for this n
+        c_rng   = _random.Random(seed + n * 1000)
+        c_specs = [
+            {
+                "name": chr(65 + i) if i < 26 else f"C{i}",
+                "x":    c_rng.uniform(-1, 1),
+                "y":    c_rng.uniform(-1, 1),
+            }
+            for i in range(n)
+        ]
+        cands_n  = [
+            _build_candidate_from_xy(
+                i, str(c_specs[i]["name"]),
+                max(-1.0, min(1.0, float(str(c_specs[i]["x"])))),
+                max(-1.0, min(1.0, float(str(c_specs[i]["y"])))),
+                issues,
+            )
+            for i in range(n)
+        ]
+        cnames_n = [c["name"] for c in cands_n]
+        cideo_n  = {c["name"]: round(2.0 * float(c["ideology_position"]) - 1.0, 3)
+                    for c in cands_n}
+
+        # Utilities (deterministic)
+        utils_n: Dict[Any, Dict[str, float]] = {
+            v["id"]: {c["name"]: calculate_utility(v, c, issues)["utility"]
+                      for c in cands_n}
+            for v in voters
+        }
+
+        # Sincere votes (argmax utility)
+        sinc_vote: Dict[int, str] = {
+            v["id"]: max(utils_n[v["id"]], key=lambda k: utils_n[v["id"]][k])
+            for v in voters
+        }
+
+        # Heuristic assignment
+        h_rng  = _random.Random(seed + n * 5000 + 777)
+        voted:  Dict[int, str]  = {}
+        is_h:   Dict[int, bool] = {}
+
+        for v in voters:
+            vid = v["id"]
+            if n > overload_threshold:
+                r = h_rng.random()
+                if r < h_not:
+                    voted[vid], is_h[vid] = cnames_n[0], True
+                elif r < h_not + h_pri:
+                    voted[vid], is_h[vid] = cnames_n[0], True
+                elif r < total_h:
+                    partisan_cand = min(cnames_n,
+                                       key=lambda c: abs(voter_ideo[vid] - cideo_n[c]))
+                    voted[vid], is_h[vid] = partisan_cand, True
+                else:
+                    voted[vid], is_h[vid] = sinc_vote[vid], False
+            else:
+                voted[vid], is_h[vid] = sinc_vote[vid], False
+
+        heuristic_pct = round(sum(is_h.values()) / num_voters, 4)
+
+        # Voter regret
+        regrets_n = [
+            max(utils_n[v["id"]].values()) - utils_n[v["id"]].get(voted[v["id"]], 0)
+            for v in voters
+        ]
+        mean_regret = round(sum(regrets_n) / len(regrets_n), 6) if regrets_n else 0.0
+
+        # Rankings (heuristic choice first, rest sincere)
+        h_rnk: list[list[str]] = []
+        s_rnk: list[list[str]] = []
+        for v in voters:
+            vid      = v["id"]
+            sorder   = sorted(utils_n[vid].keys(), key=lambda k: -utils_n[vid][k])
+            hchoice  = voted[vid]
+            s_rnk.append(sorder)
+            if hchoice != sorder[0]:
+                h_rnk.append([hchoice] + [c for c in sorder if c != hchoice])
+            else:
+                h_rnk.append(sorder)
+
+        # Run methods (heuristic vs. sincere)
+        winner_by_method:      Dict[str, Optional[str]] = {}
+        sinc_winner_by_method: Dict[str, Optional[str]] = {}
+        s_voted = {v["id"]: sinc_vote[v["id"]] for v in voters}
+        s_is_h  = {v["id"]: False for v in voters}
+
+        for meth in methods_req:
+            winner_by_method[meth]      = _quick_winner_co(meth, voters, h_rnk, utils_n, voted,   is_h,   cnames_n)
+            sinc_winner_by_method[meth] = _quick_winner_co(meth, voters, s_rnk, utils_n, s_voted, s_is_h, cnames_n)
+            if n > overload_threshold:
+                if winner_by_method[meth] == sinc_winner_by_method[meth]:
+                    sincere_match[meth] += 1
+
+        if n > overload_threshold:
+            n_overload_cases += 1
+
+        condorcet_w = get_condorcet_winner(s_rnk)
+
+        results_by_n.append({
+            "num_candidates":        n,
+            "mean_voter_regret":     mean_regret,
+            "heuristic_voters":      heuristic_pct,
+            "winner_by_method":      winner_by_method,
+            "condorcet_winner":      condorcet_w,
+            "methods_elect_condorcet": {
+                m: winner_by_method[m] == condorcet_w for m in methods_req
+            },
+        })
+        regret_curve.append({"n_candidates": n, "regret": mean_regret})
+
+    # ── Robustness ranking ────────────────────────────────────────────────
+    if n_overload_cases > 0:
+        match_rates = {m: sincere_match[m] / n_overload_cases for m in methods_req}
+    else:
+        match_rates = {m: 1.0 for m in methods_req}
+
+    most_robust  = max(match_rates, key=match_rates.__getitem__)
+    least_robust = min(match_rates, key=match_rates.__getitem__)
+
+    # ── Pedagogical note ──────────────────────────────────────────────────
+    over_regrets = [r["regret"] for r in regret_curve
+                    if r["n_candidates"] > overload_threshold]
+    avg_over_regret = round(sum(over_regrets) / len(over_regrets), 4) if over_regrets else 0.0
+    note = (
+        f"Au-delà de {overload_threshold} candidats, "
+        f"{round(total_h * 100)}% des électeurs utilisent une heuristique "
+        f"(notoriété, primauté ou partisane). "
+        f"Le regret moyen de vote est de {round(avg_over_regret * 100, 1)} points d'utilité. "
+        f"'{most_robust}' est la méthode la plus robuste à la surcharge cognitive."
+    )
+
+    return jsonify({
+        "results_by_n":         results_by_n,
+        "regret_curve":         regret_curve,
+        "most_robust_method":   most_robust,
+        "least_robust_method":  least_robust,
+        "overload_threshold":   overload_threshold,
+        "heuristic_weights":    {"notoriety": h_not, "primacy": h_pri, "partisan": h_par},
+        "pedagogical_note":     note,
+    }), 200
