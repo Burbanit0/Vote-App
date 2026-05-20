@@ -81,9 +81,11 @@ def create_app(config_object="config.Config"):
             allow_origin = origin if origin in allowed_origins else allowed_origins[0]
             response     = app.make_default_options_response()
             headers      = response.headers
-            headers["Access-Control-Allow-Origin"]  = allow_origin
-            headers["Access-Control-Allow-Methods"] = "GET, POST, PUT, DELETE, OPTIONS"
-            headers["Access-Control-Allow-Headers"] = "Content-Type, Authorization"
+            headers["Access-Control-Allow-Origin"]      = allow_origin
+            headers["Access-Control-Allow-Credentials"] = "true"
+            headers["Access-Control-Allow-Methods"]     = "GET, POST, PUT, DELETE, OPTIONS"
+            headers["Access-Control-Allow-Headers"]     = "Content-Type, Authorization"
+            headers["Access-Control-Max-Age"]           = "3600"
             return response
 
     @app.after_request
@@ -126,6 +128,7 @@ def create_app(config_object="config.Config"):
     from .routes.gallery    import gallery_bp
     from .routes.export     import export_bp
     from .routes.election   import election_bp
+    from .routes.tech       import tech_bp
 
     app.register_blueprint(users.auth_bp)
     app.register_blueprint(simulation_base.simulation_base_bp)
@@ -138,6 +141,7 @@ def create_app(config_object="config.Config"):
     app.register_blueprint(gallery_bp)
     app.register_blueprint(export_bp)
     app.register_blueprint(election_bp)
+    app.register_blueprint(tech_bp)
 
     # ── Rate limiters ───────────────────────────────────────────────────────
     from .extensions import init_simulation_limiter
