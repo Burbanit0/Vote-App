@@ -9,6 +9,7 @@ import { useMetaTags } from '../hooks/useMetaTags';
 import ArrowExplorer from '../components/Simulation/ArrowExplorer';
 import PlottChaosPanel from '../components/Simulation/PlottChaosPanel';
 import JudgmentAggregationPanel from '../components/shared/JudgmentAggregationPanel';
+import SenParadoxPanel from '../components/shared/SenParadoxPanel';
 
 const TheoryPage: React.FC = () => {
   const { t } = useTranslation();
@@ -45,6 +46,15 @@ const TheoryPage: React.FC = () => {
               </span>
             ))}
           </div>
+        </Card.Body>
+      </Card>
+
+      {/* ── Sen Paradox ── */}
+      <Card className="mb-4 border-warning">
+        <Card.Header className="fw-bold" style={{ color: '#856404' }}>⚖️ {t('sen.cardTitle')}</Card.Header>
+        <Card.Body>
+          <p style={{ fontSize: '0.85rem' }}>{t('sen.cardDesc')}</p>
+          <SenParadoxPanel />
         </Card.Body>
       </Card>
 

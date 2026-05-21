@@ -647,6 +647,216 @@ def judgment_aggregation() -> tuple[Response, int]:
     }), 200
 
 
+# ── Sen's Impossibility of a Paretian Liberal ────────────────────────────────
+
+_SEN_ALTS = ["x", "y", "z"]
+_SEN_ALT_NAMES = {
+    "x": "Personne 1 lit le livre",
+    "y": "Personne 2 lit le livre",
+    "z": "Personne ne lit le livre",
+}
+
+
+def _check_sen(pref1: List[str], pref2: List[str],
+               sphere1: tuple, sphere2: tuple) -> Dict[str, Any]:
+    """
+    Check the Sen paradox for 2 voters, 3 alternatives.
+    Returns liberal_outcome, pareto_outcome, conflict flag, explanation.
+    """
+    alts = _SEN_ALTS
+
+    # ── Liberal order from private spheres ────────────────────────────────
+    lib: Dict[tuple, bool] = {}   # (a, b): a ≻L b
+
+    for (a, b), pref in [(sphere1, pref1), (sphere2, pref2)]:
+        if pref.index(a) < pref.index(b):
+            lib[(a, b)] = True
+        else:
+            lib[(b, a)] = True
+
+    # Transitive closure
+    changed = True
+    while changed:
+        changed = False
+        for x in alts:
+            for y in alts:
+                for z in alts:
+                    if x != y != z != x:
+                        if lib.get((x, y)) and lib.get((y, z)) and not lib.get((x, z)):
+                            lib[(x, z)] = True
+                            changed = True
+
+    # ── Pareto order ──────────────────────────────────────────────────────
+    par: Dict[tuple, bool] = {}   # (a, b): a ≻P b
+
+    for a in alts:
+        for b in alts:
+            if a != b:
+                if pref1.index(a) < pref1.index(b) and pref2.index(a) < pref2.index(b):
+                    par[(a, b)] = True
+
+    # ── Conflict detection ────────────────────────────────────────────────
+    conflict = False
+    conflict_pair: Optional[tuple] = None
+    for a in alts:
+        for b in alts:
+            if a != b and lib.get((a, b)) and par.get((b, a)):
+                conflict = True
+                conflict_pair = (a, b)
+                break
+        if conflict:
+            break
+
+    # ── Liberal winner ────────────────────────────────────────────────────
+    lib_winner: Optional[str] = None
+    for a in alts:
+        if all(lib.get((a, b)) for b in alts if b != a):
+            lib_winner = a
+            break
+
+    # ── Pareto winner (first non-dominated) ──────────────────────────────
+    par_winner: Optional[str] = None
+    for a in alts:
+        dominated = any(par.get((b, a)) for b in alts if b != a)
+        if not dominated:
+            par_winner = a
+            break
+
+    explanation = ""
+    if conflict and conflict_pair:
+        a_c, b_c = conflict_pair
+        explanation = (
+            f"Libéralisme : {a_c} ≻ {b_c} (droit individuel). "
+            f"Pareto : {b_c} ≻ {a_c} (consensus unanime). Contradiction !"
+        )
+
+    return {
+        "liberal_outcome":  lib_winner or "indéfini",
+        "pareto_outcome":   par_winner or "indéfini",
+        "conflict":         conflict and bool(lib_winner) and bool(par_winner) and lib_winner != par_winner,
+        "explanation":      explanation,
+        "lib_order":        {str(k): v for k, v in lib.items()},
+        "par_order":        {str(k): v for k, v in par.items()},
+    }
+
+
+@theory_bp.route("/sen-paradox", methods=["POST"])
+@sim_limiter.limit("10 per minute")
+def sen_paradox() -> tuple[Response, int]:
+    """
+    POST /api/theory/sen-paradox
+
+    Demonstrates Sen's Impossibility of a Paretian Liberal (1970):
+    no social choice rule can simultaneously satisfy Pareto efficiency
+    and minimal individual liberalism.
+    """
+    data       = request.get_json() or {}
+    num_voters = int(data.get("num_voters", 2))   # always 2 for Sen paradox
+    seed       = int(data.get("seed", 42))
+    rights_def = str(data.get("rights_definition", "liberal"))
+
+    # ── Canonical example (Sen 1970, Lady Chatterley) ─────────────────────
+    canon_pref1 = ["z", "x", "y"]   # prude : nobody > self > other
+    canon_pref2 = ["x", "y", "z"]   # lewd  : person1 > self > nobody
+    canon_s1    = ("x", "z")        # person 1 decides whether they read
+    canon_s2    = ("y", "z")        # person 2 decides whether they read
+
+    canon_res   = _check_sen(canon_pref1, canon_pref2, canon_s1, canon_s2)
+
+    canon_example = {
+        "name": "Exemple classique (Sen 1970 — Lady Chatterley)",
+        "voters_preferences": [canon_pref1, canon_pref2],
+        "private_spheres":    {"voter_1": list(canon_s1), "voter_2": list(canon_s2)},
+        "liberal_outcome":    canon_res["liberal_outcome"],
+        "pareto_outcome":     canon_res["pareto_outcome"],
+        "conflict":           canon_res["conflict"],
+        "explanation":        canon_res["explanation"],
+    }
+
+    # ── Random profile survey ─────────────────────────────────────────────
+    import itertools as _iter
+    all_perms   = list(_iter.permutations(_SEN_ALTS))
+    sphere_opts = [(_SEN_ALTS[i], _SEN_ALTS[j])
+                   for i in range(3) for j in range(3) if i != j]
+
+    rng_s      = _rnd.Random(seed)
+    n_trials   = 300
+    n_paradox  = 0
+    rand_examples: List[Dict[str, Any]] = []
+
+    for trial in range(n_trials):
+        p1  = list(rng_s.choice(all_perms))
+        p2  = list(rng_s.choice(all_perms))
+        sp1 = rng_s.choice(sphere_opts)
+        sp2 = rng_s.choice(sphere_opts)
+        res = _check_sen(p1, p2, sp1, sp2)
+        if res["conflict"]:
+            n_paradox += 1
+            if len(rand_examples) < 2:
+                rand_examples.append({
+                    "name": f"Profil aléatoire #{trial + 1}",
+                    "voters_preferences": [p1, p2],
+                    "private_spheres":    {"voter_1": list(sp1), "voter_2": list(sp2)},
+                    "liberal_outcome":    res["liberal_outcome"],
+                    "pareto_outcome":     res["pareto_outcome"],
+                    "conflict":           True,
+                    "explanation":        res["explanation"],
+                })
+
+    paradox_frequency = round(n_paradox / n_trials, 4)
+    paradox_exists    = canon_res["conflict"] or n_paradox > 0
+    paradox_examples  = ([canon_example] if canon_res["conflict"] else []) + rand_examples
+
+    # ── Resolution options ────────────────────────────────────────────────
+    resolution_options = [
+        {
+            "name":     "Pareto prioritaire",
+            "outcome":  "Efficacité collective garantie",
+            "cost":     "Perte de liberté individuelle",
+            "theorist": "Utilitarisme classique",
+        },
+        {
+            "name":     "Libéralisme prioritaire",
+            "outcome":  "Autonomie individuelle garantie",
+            "cost":     "Peut produire des résultats sous-optimaux",
+            "theorist": "Sen lui-même (résignation pragmatique)",
+        },
+        {
+            "name":     "Restriction du domaine",
+            "outcome":  "Paradoxe évité par contrainte des préférences",
+            "cost":     "Qui décide quelles préférences sont admissibles ?",
+            "theorist": "Gaertner (1979)",
+        },
+        {
+            "name":     "Droits comme contraintes absolues",
+            "outcome":  "Sphères privées respectées, Pareto appliqué ailleurs",
+            "cost":     "Nécessite une définition précise des droits inviolables",
+            "theorist": "Sugden (1978)",
+        },
+    ]
+
+    note = (
+        f"Sen (1970) prouve qu'il est impossible de satisfaire simultanément "
+        f"Pareto et le libéralisme minimal. Sur {n_trials} profils aléatoires, "
+        f"{round(paradox_frequency * 100, 1)}% produisent le paradoxe. "
+        f"Ce résultat force à choisir entre efficacité collective et liberté individuelle."
+    )
+
+    return jsonify({
+        "paradox_exists":      paradox_exists,
+        "paradox_examples":    paradox_examples,
+        "paradox_frequency":   paradox_frequency,
+        "alternative_names":   _SEN_ALT_NAMES,
+        "resolution_options":  resolution_options,
+        "real_world_analogy":  (
+            "Votre voisin préfère jouer de la musique la nuit (sa liberté). "
+            "Vous préférez le silence. Ces préférences créent un conflit entre liberté "
+            "individuelle et bien-être collectif qu'aucune règle simple ne résout entièrement."
+        ),
+        "pedagogical_note":    note,
+    }), 200
+
+
 # ── Gibbard-Satterthwaite Manipulation Analysis ───────────────────────────────
 
 @theory_bp.route("/manipulation-analysis", methods=["POST"])

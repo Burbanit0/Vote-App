@@ -9,6 +9,7 @@ RATE_URL   = "/api/theory/iia-rate"
 PLOTT_URL  = "/api/theory/plott-chaos"
 MANIP_URL  = "/api/theory/manipulation-analysis"
 JUDG_URL   = "/api/theory/judgment-aggregation"
+SEN_URL    = "/api/theory/sen-paradox"
 
 
 def arrow_post(client, method="plurality", **kw):
@@ -512,3 +513,81 @@ class TestJudgmentAggregation:
         b = judg_post(client)
         assert a["collective_coherent"] == b["collective_coherent"]
         assert a["voter_coherence_rate"] == b["voter_coherence_rate"]
+
+
+# ── /api/theory/sen-paradox ───────────────────────────────────────────────────
+
+def sen_post(client, **kw):
+    return json.loads(client.post(SEN_URL, json={"seed": 42, **kw}).data)
+
+
+class TestSenParadox:
+    def test_returns_200(self, client):
+        assert client.post(SEN_URL, json={"seed": 42}).status_code == 200
+
+    def test_response_keys(self, client):
+        body = sen_post(client)
+        for k in ("paradox_exists", "paradox_examples", "paradox_frequency",
+                  "alternative_names", "resolution_options",
+                  "real_world_analogy", "pedagogical_note"):
+            assert k in body
+
+    # ── paradox_frequency ∈ [0, 1] ────────────────────────────────────────
+
+    def test_paradox_frequency_in_range(self, client):
+        body = sen_post(client)
+        assert 0.0 <= body["paradox_frequency"] <= 1.0
+
+    # ── paradox_examples non-empty when frequency > 0 ─────────────────────
+
+    def test_examples_when_frequency_positive(self, client):
+        body = sen_post(client)
+        if body["paradox_frequency"] > 0 or body["paradox_exists"]:
+            assert len(body["paradox_examples"]) > 0
+
+    # ── liberal_outcome ≠ pareto_outcome when conflict=True ───────────────
+
+    def test_outcomes_differ_when_conflict(self, client):
+        body = sen_post(client)
+        for ex in body["paradox_examples"]:
+            if ex["conflict"]:
+                assert ex["liberal_outcome"] != ex["pareto_outcome"], (
+                    f"conflict=True but liberal=pareto='{ex['liberal_outcome']}'"
+                )
+
+    # ── resolution_options.length ≥ 2 ────────────────────────────────────
+
+    def test_resolution_options_at_least_two(self, client):
+        body = sen_post(client)
+        assert len(body["resolution_options"]) >= 2
+
+    def test_resolution_keys(self, client):
+        body = sen_post(client)
+        for r in body["resolution_options"]:
+            for k in ("name", "outcome", "cost"):
+                assert k in r
+
+    # ── canonical example is detected ─────────────────────────────────────
+
+    def test_canonical_paradox_detected(self, client):
+        """The canonical Sen example (prude/lewd) always produces a paradox."""
+        body = sen_post(client, seed=42)
+        assert body["paradox_exists"] is True
+        assert len(body["paradox_examples"]) > 0
+        first = body["paradox_examples"][0]
+        assert first["conflict"] is True
+
+    # ── alternative_names covers all three alternatives ───────────────────
+
+    def test_alternative_names_complete(self, client):
+        body = sen_post(client)
+        for alt in ("x", "y", "z"):
+            assert alt in body["alternative_names"]
+
+    # ── Reproducibility ───────────────────────────────────────────────────
+
+    def test_reproducibility(self, client):
+        a = sen_post(client)
+        b = sen_post(client)
+        assert a["paradox_frequency"] == b["paradox_frequency"]
+        assert a["paradox_exists"] == b["paradox_exists"]
