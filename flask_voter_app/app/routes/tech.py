@@ -313,3 +313,193 @@ def polis_simulation() -> tuple[Response, int]:
         "num_clusters":           num_clusters,
         "num_participants":       num_participants,
     }), 200
+
+
+# ── Pol.is with candidate evaluation ─────────────────────────────────────────
+
+_POLIS_DEFAULT_STATEMENTS: List[Dict[str, str]] = [
+    {"text": "Les chauffeurs VTC doivent être officiellement déclarés", "category": "economie"},
+    {"text": "Les plateformes doivent payer des taxes locales",         "category": "economie"},
+    {"text": "La sécurité des passagers doit être prioritaire",         "category": "social"},
+    {"text": "Les chauffeurs doivent bénéficier d'une protection sociale", "category": "social"},
+    {"text": "La tarification dynamique doit être encadrée par la loi", "category": "economie"},
+    {"text": "Les nouvelles plateformes doivent être réglementées comme les taxis", "category": "economie"},
+    {"text": "L'innovation technologique prime sur la réglementation",  "category": "economie"},
+    {"text": "Les données des utilisateurs doivent être protégées",     "category": "social"},
+    {"text": "L'accès à ces services doit être universel",              "category": "social"},
+    {"text": "Les villes doivent contrôler les licences de location",   "category": "social"},
+]
+
+_CATEGORY_BIAS: Dict[str, float] = {
+    "economie": 0.25, "social": -0.25,
+    "securite": 0.55, "environnement": -0.55, "default": 0.0,
+}
+
+
+@tech_bp.route("/polis", methods=["POST"])
+@sim_limiter.limit("5 per minute")
+def polis_with_candidates() -> tuple[Response, int]:
+    """
+    POST /api/tech/polis
+
+    Pol.is-style simulation with candidate evaluation.
+    Participants vote on statements; PCA+k-means reveals opinion clusters.
+    Identifies consensus, polarizing, and silent-majority statements.
+    The 'Pol.is winner' is the candidate whose positions best align with
+    the consensus statements; compared against classical election winner.
+    """
+    data               = request.get_json() or {}
+    cand_specs         = data.get("candidates", [
+        {"name": "Alice", "x": -0.5, "y": -0.2},
+        {"name": "Bob",   "x":  0.5, "y":  0.2},
+        {"name": "Carol", "x":  0.0, "y":  0.1},
+    ])[:6]
+    stmts_raw          = data.get("statements", _POLIS_DEFAULT_STATEMENTS)[:15]
+    num_participants   = max(20,  min(500, int(data.get("num_participants",    100))))
+    ideology           = str(data.get("ideology",              "random"))
+    seed               = int(data.get("seed",                   42))
+    num_clusters       = max(1,   min(5,   int(data.get("num_clusters",          3))))
+    method_compare     = str(data.get("method_to_compare",     "plurality"))
+    min_thr            = max(0.0, min(1.0, float(data.get("min_consensus_threshold", 0.80))))
+
+    if len(stmts_raw) < 2:
+        return jsonify({"error": "At least 2 statements required"}), 400
+
+    _np.random.seed(seed)
+    _random.seed(seed)
+
+    # ── Participant ideology positions ────────────────────────────────────
+    if ideology == "polarized":
+        h = num_participants // 2
+        pax = _np.clip(_np.concatenate([
+            _np.random.normal(-0.65, 0.18, h),
+            _np.random.normal( 0.65, 0.18, num_participants - h),
+        ]), -1, 1)
+    elif ideology == "centrist":
+        pax = _np.clip(_np.random.normal(0.0, 0.25, num_participants), -1, 1)
+    else:
+        pax = _np.random.uniform(-1, 1, num_participants)
+
+    # ── Statement positions ───────────────────────────────────────────────
+    stmt_rng = _random.Random(seed + 100)
+    stmts: List[Dict[str, Any]] = []
+    stmt_pos: List[float]        = []
+
+    for s in stmts_raw:
+        cat  = str(s.get("category", "default")).lower()
+        base = _CATEGORY_BIAS.get(cat, 0.0)
+        pos  = float(_np.clip(base + stmt_rng.uniform(-0.3, 0.3), -1, 1))
+        stmts.append({"text": str(s.get("text", "?")), "category": cat, "position": pos})
+        stmt_pos.append(pos)
+
+    n_stmts = len(stmts)
+    spos    = _np.array(stmt_pos)
+
+    # ── Vote matrix (participants × statements) ───────────────────────────
+    # alignment = participant_x * statement_pos  (positive = same side)
+    align    = _np.outer(pax, spos)                       # (N, M)
+    noise    = _np.random.RandomState(seed + 200).uniform(-0.2, 0.2, align.shape)
+    p_yes    = 1.0 / (1.0 + _np.exp(-(align * 2.5 + noise)))
+
+    votes    = _np.zeros_like(p_yes)
+    votes[p_yes > 0.60] =  1.0
+    votes[p_yes < 0.40] = -1.0
+
+    # ── PCA + k-means ─────────────────────────────────────────────────────
+    coords   = _pca_2d(votes)
+    labels   = _kmeans(coords, num_clusters, seed)
+
+    # ── Cluster summaries ─────────────────────────────────────────────────
+    clusters_out: List[Dict[str, Any]] = []
+    for cid in range(num_clusters):
+        mask = labels == cid
+        size = int(mask.sum())
+        ca   = {
+            j: round(float((votes[mask, j] == 1).sum()) / size, 3) if size else 0.0
+            for j in range(n_stmts)
+        }
+        cx   = float(pax[mask].mean()) if mask.any() else 0.0
+        if cx < -0.2:    lbl = "progressistes"
+        elif cx > 0.2:   lbl = "conservateurs"
+        else:            lbl = f"groupe {cid + 1}"
+        clusters_out.append({
+            "id": cid, "size": size, "label": lbl,
+            "center": {"x": round(cx, 3),
+                       "y": round(float(coords[mask, 1].mean()), 3) if mask.any() else 0.0},
+            "votes": ca,
+        })
+
+    # ── Statement analysis ────────────────────────────────────────────────
+    stmts_out: List[Dict[str, Any]] = []
+    consensus_count = polarizing_count = silent_count = 0
+
+    for j, stmt in enumerate(stmts):
+        ca          = [c["votes"][j] for c in clusters_out]
+        global_app  = round(float((votes[:, j] == 1).sum()) / num_participants, 3)
+        delta       = (max(ca) - min(ca)) if len(ca) > 1 else 0.0
+
+        is_cons     = all(v >= min_thr for v in ca)
+        is_pol      = (delta > 0.5) and not is_cons
+        is_silent   = (global_app > 0.60) and not is_cons and (min(ca) < min_thr)
+
+        if is_cons:   consensus_count  += 1
+        if is_pol:    polarizing_count += 1
+        if is_silent: silent_count     += 1
+
+        stmts_out.append({
+            "text":              stmt["text"],
+            "global_approval":   global_app,
+            "is_consensus":      is_cons,
+            "is_polarizing":     is_pol,
+            "cluster_approvals": ca,
+        })
+
+    # ── Candidate scoring ─────────────────────────────────────────────────
+    cand_names = [str(s.get("name", f"C{i}")) for i, s in enumerate(cand_specs)]
+    cand_x     = [max(-1.0, min(1.0, float(s.get("x", 0.0)))) for s in cand_specs]
+
+    target_indices = [j for j, s in enumerate(stmts_out) if s["is_consensus"]] or list(range(n_stmts))
+
+    cand_scores: Dict[str, float] = {}
+    for ci, cname in enumerate(cand_names):
+        score = sum(1.0 - abs(cand_x[ci] - stmts[j]["position"]) for j in target_indices)
+        cand_scores[cname] = round(score / len(target_indices), 4)
+
+    polis_winner    = max(cand_scores, key=cand_scores.__getitem__)
+
+    # ── Classical election (plurality by ideology proximity) ──────────────
+    vote_tally: Counter = Counter()
+    for px in pax:
+        vote_tally[cand_names[int(_np.argmin([abs(px - cx) for cx in cand_x]))]] += 1
+    election_winner = vote_tally.most_common(1)[0][0] if vote_tally else cand_names[0]
+    winners_agree   = polis_winner == election_winner
+
+    # ── Participant positions ─────────────────────────────────────────────
+    participant_positions = [
+        {"id": i, "x_pca": round(float(coords[i, 0]), 3),
+         "y_pca": round(float(coords[i, 1]), 3), "cluster_id": int(labels[i])}
+        for i in range(num_participants)
+    ]
+
+    note = (
+        f"Pol.is révèle {consensus_count} propositions consensuelles, "
+        f"{polarizing_count} polarisantes et {silent_count} majorités silencieuses "
+        f"sur {n_stmts} propositions. "
+        f"Candidat Pol.is : '{polis_winner}' "
+        f"({'= ' if winners_agree else '≠ '}"
+        f"vainqueur {method_compare} : '{election_winner}')."
+    )
+
+    return jsonify({
+        "clusters":              clusters_out,
+        "statements":            stmts_out,
+        "participant_positions": participant_positions,
+        "polis_winner":          polis_winner,
+        "election_winner":       election_winner,
+        "winners_agree":         winners_agree,
+        "consensus_count":       consensus_count,
+        "polarizing_count":      polarizing_count,
+        "silent_majority_count": silent_count,
+        "candidate_scores":      cand_scores,
+        "pedagogical_note":      note,
+    }), 200

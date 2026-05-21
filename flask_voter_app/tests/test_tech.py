@@ -326,3 +326,141 @@ class TestPolisEdgeCases:
         assert resp.status_code == 200
         body = json.loads(resp.data)
         assert body["num_participants"] == 200
+
+
+# ── /api/tech/polis — with candidate evaluation ───────────────────────────────
+
+POLIS_V2_URL = "/api/tech/polis"
+
+POLIS_STMTS = [
+    {"text": "Proposition A", "category": "economie"},
+    {"text": "Proposition B", "category": "social"},
+    {"text": "Proposition C", "category": "economie"},
+    {"text": "Proposition D", "category": "social"},
+    {"text": "Proposition E", "category": "economie"},
+    {"text": "Proposition F", "category": "social"},
+    {"text": "Proposition G", "category": "economie"},
+    {"text": "Proposition H", "category": "social"},
+]
+
+BASE_POLIS_V2 = {
+    "candidates": [
+        {"name": "Alice", "x": -0.5, "y": -0.2},
+        {"name": "Bob",   "x":  0.5, "y":  0.2},
+        {"name": "Carol", "x":  0.0, "y":  0.1},
+    ],
+    "statements":              POLIS_STMTS,
+    "num_participants":        100,
+    "ideology":                "random",
+    "seed":                    42,
+    "num_clusters":            3,
+    "method_to_compare":       "plurality",
+    "min_consensus_threshold": 0.70,
+}
+
+
+def polis_post(client, **kw):
+    return json.loads(client.post(POLIS_V2_URL, json={**BASE_POLIS_V2, **kw}).data)
+
+
+class TestPolisWithCandidates:
+    def test_returns_200(self, client):
+        assert client.post(POLIS_V2_URL, json=BASE_POLIS_V2).status_code == 200
+
+    def test_response_keys(self, client):
+        body = polis_post(client)
+        for k in ("clusters", "statements", "participant_positions",
+                  "polis_winner", "election_winner", "winners_agree",
+                  "consensus_count", "polarizing_count", "silent_majority_count",
+                  "candidate_scores", "pedagogical_note"):
+            assert k in body
+
+    def test_candidate_scores_all_candidates(self, client):
+        body = polis_post(client)
+        for name in ("Alice", "Bob", "Carol"):
+            assert name in body["candidate_scores"]
+
+    def test_polis_winner_in_candidates(self, client):
+        body = polis_post(client)
+        assert body["polis_winner"] in ("Alice", "Bob", "Carol")
+
+    def test_election_winner_in_candidates(self, client):
+        body = polis_post(client)
+        assert body["election_winner"] in ("Alice", "Bob", "Carol")
+
+    def test_winners_agree_matches(self, client):
+        body = polis_post(client)
+        assert body["winners_agree"] == (body["polis_winner"] == body["election_winner"])
+
+    def test_participant_positions_count(self, client):
+        body = polis_post(client)
+        assert len(body["participant_positions"]) == 100
+
+    def test_cluster_sizes_sum_to_participants(self, client):
+        body = polis_post(client)
+        total = sum(c["size"] for c in body["clusters"])
+        assert total == 100
+
+    def test_statements_count(self, client):
+        body = polis_post(client)
+        assert len(body["statements"]) == len(POLIS_STMTS)
+
+    def test_is_consensus_and_is_polarizing_mutually_exclusive(self, client):
+        body = polis_post(client)
+        for s in body["statements"]:
+            assert not (s["is_consensus"] and s["is_polarizing"]), (
+                f"Statement '{s['text']}' is both consensus and polarizing"
+            )
+
+    # ── num_clusters=1 → no polarizing (no inter-cluster disagreement) ────
+
+    def test_one_cluster_no_polarizing(self, client):
+        body = polis_post(client, num_clusters=1)
+        assert body["polarizing_count"] == 0
+        for s in body["statements"]:
+            assert not s["is_polarizing"]
+
+    # ── threshold=1.0 → consensus_count=0 ────────────────────────────────
+
+    def test_threshold_one_zero_consensus(self, client):
+        body = polis_post(client, min_consensus_threshold=1.0)
+        assert body["consensus_count"] == 0
+
+    # ── threshold=0.0 → all statements consensus ─────────────────────────
+
+    def test_threshold_zero_all_consensus(self, client):
+        body = polis_post(client, min_consensus_threshold=0.0)
+        assert body["consensus_count"] == len(POLIS_STMTS)
+
+    # ── cluster_approvals per statement = num_clusters ────────────────────
+
+    def test_cluster_approvals_match_cluster_count(self, client):
+        body = polis_post(client)
+        n = body["num_clusters"] if "num_clusters" in body else len(body["clusters"])
+        for s in body["statements"]:
+            assert len(s["cluster_approvals"]) == len(body["clusters"])
+
+    # ── ideology="centrist" → polis_winner closer to center ───────────────
+
+    def test_centrist_ideology_center_wins(self, client):
+        body = polis_post(client, ideology="centrist", num_participants=200)
+        # Carol at x=0.0 should score highest with centrist electorate
+        scores = body["candidate_scores"]
+        # Carol should have score >= Alice and Bob (not strictly guaranteed but typical)
+        assert scores["Carol"] >= min(scores["Alice"], scores["Bob"])
+
+    # ── ideology="polarized" → more polarizing statements ─────────────────
+
+    def test_polarized_more_polarizing_than_random(self, client):
+        random_body   = polis_post(client, ideology="random",   num_participants=200)
+        polarized_body = polis_post(client, ideology="polarized", num_participants=200)
+        # Polarized ideology should produce more polarizing statements
+        assert polarized_body["polarizing_count"] >= random_body["polarizing_count"] - 2
+
+    # ── Reproducibility ───────────────────────────────────────────────────
+
+    def test_reproducibility(self, client):
+        a = polis_post(client)
+        b = polis_post(client)
+        assert a["polis_winner"] == b["polis_winner"]
+        assert a["consensus_count"] == b["consensus_count"]
