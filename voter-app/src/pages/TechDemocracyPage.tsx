@@ -15,6 +15,7 @@ import {
 } from 'react-bootstrap';
 import { useMetaTags } from '../hooks/useMetaTags';
 import PoliticalClusterMap, { PolisData } from '../components/shared/PoliticalClusterMap';
+import E2EVDemo from '../components/shared/E2EVDemo';
 
 const API = process.env.REACT_APP_API_URL ?? 'http://localhost:4433';
 
@@ -409,6 +410,149 @@ const PolisSection: React.FC<{ t: (k: string) => string }> = ({ t }) => {
   );
 };
 
+// ── Section "3 approches" ─────────────────────────────────────────────────────
+
+const ThreeApproachesSection: React.FC<{ t: (k: string) => string }> = ({ t }) => (
+  <Card className="mb-4" data-testid="three-approaches-section">
+    <Card.Header className="fw-bold">⚡ {t('tech.approachesTitle')}</Card.Header>
+    <Card.Body>
+      <Row className="g-3">
+        <Col xs={12} md={4}>
+          <div className="border border-danger rounded p-3 h-100">
+            <div className="fw-bold mb-2 text-danger">❌ Vote par SMS / App mobile</div>
+            <div style={{ fontSize: '0.8rem' }}>
+              Le terminal de l'électeur peut être compromis. Si votre téléphone est infecté,
+              votre vote peut être modifié AVANT chiffrement — aucune vérification possible.
+            </div>
+            <Badge bg="danger" className="mt-2" style={{ fontSize: '0.65rem' }}>
+              Non vérifiable · Non auditable
+            </Badge>
+          </div>
+        </Col>
+        <Col xs={12} md={4}>
+          <div className="border border-warning rounded p-3 h-100">
+            <div className="fw-bold mb-2" style={{ color: '#856404' }}>⚠️ Vote par Blockchain</div>
+            <div style={{ fontSize: '0.8rem' }}>
+              Toutes les transactions sont publiques sur la blockchain → votre vote est visible
+              de tous. Parfait pour la gouvernance de protocole, incompatible avec le secret du
+              bulletin dans une démocratie.
+            </div>
+            <Badge bg="warning" text="dark" className="mt-2" style={{ fontSize: '0.65rem' }}>
+              Transparent · Pas secret
+            </Badge>
+          </div>
+        </Col>
+        <Col xs={12} md={4}>
+          <div className="border border-success rounded p-3 h-100">
+            <div className="fw-bold mb-2 text-success">✅ Vote E2E-V (ElectionGuard)</div>
+            <div style={{ fontSize: '0.8rem' }}>
+              Chiffrement homomorphe : les bulletins sont additionnés SANS être déchiffrés
+              individuellement. Chaque électeur vérifie que son bulletin est compté, sans révéler
+              son choix. Open source, testé en conditions réelles.
+            </div>
+            <Badge bg="success" className="mt-2" style={{ fontSize: '0.65rem' }}>
+              Secret · Vérifiable · Auditable
+            </Badge>
+          </div>
+        </Col>
+      </Row>
+    </Card.Body>
+  </Card>
+);
+
+// ── Section interactive E2E-V (E2EVDemo) ─────────────────────────────────────
+
+const E2EVInteractiveSection: React.FC<{ t: (k: string) => string }> = ({ t }) => (
+  <Card className="mb-4" data-testid="e2ev-interactive-section">
+    <Card.Header className="fw-bold">🔐 {t('tech.e2eInteractiveTitle')}</Card.Header>
+    <Card.Body>
+      <p style={{ fontSize: '0.85rem' }}>{t('tech.e2eInteractiveDesc')}</p>
+      <E2EVDemo candidates={['Alice', 'Bob', 'Carol']} seed={42} />
+    </Card.Body>
+  </Card>
+);
+
+// ── Section pays (country comparison) ────────────────────────────────────────
+
+const COUNTRY_DATA = [
+  { flag: '🇪🇪', country: 'Estonie',     tech: 'Carte ID + PKI',  secret: '✓', verif: 'Partiel', used: '51% en 2023' },
+  { flag: '🇫🇮', country: 'Finlande',    tech: 'ElectionGuard E2E-V', secret: '✓', verif: '✓', used: 'Tests 2023' },
+  { flag: '🇺🇸', country: 'USA (comtés)', tech: 'ElectionGuard E2E-V', secret: '✓', verif: '✓', used: 'Déploiements réels' },
+  { flag: '⛓',  country: 'DAO (Ethereum)', tech: 'On-chain',    secret: '✗', verif: '✓', used: 'Compound, Uniswap' },
+  { flag: '🇫🇷', country: 'France',      tech: 'Papier',        secret: '✓', verif: '✗', used: '100%' },
+];
+
+const CountryComparisonSection: React.FC<{ t: (k: string) => string }> = ({ t }) => (
+  <Card className="mb-4" data-testid="country-comparison-section">
+    <Card.Header className="fw-bold">🌍 {t('tech.countryTableTitle')}</Card.Header>
+    <Card.Body className="p-0">
+      <div className="table-responsive">
+        <table className="table table-hover table-sm mb-0" style={{ fontSize: '0.82rem' }}>
+          <thead className="table-light">
+            <tr>
+              <th>Pays / Système</th>
+              <th>Technologie</th>
+              <th title="Secret du bulletin">🔒 Secret</th>
+              <th title="Vérifiable par l'électeur">🔍 Vérifiable</th>
+              <th>Utilisé</th>
+            </tr>
+          </thead>
+          <tbody>
+            {COUNTRY_DATA.map((row) => (
+              <tr key={row.country}>
+                <td><strong>{row.flag} {row.country}</strong></td>
+                <td><code style={{ fontSize: '0.75rem' }}>{row.tech}</code></td>
+                <td style={{ color: row.secret === '✓' ? '#198754' : '#dc3545' }}>{row.secret}</td>
+                <td style={{ color: row.verif === '✓' ? '#198754' : row.verif === '✗' ? '#dc3545' : '#fd7e14' }}>{row.verif}</td>
+                <td className="text-muted">{row.used}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+    </Card.Body>
+  </Card>
+);
+
+// ── Section "Pourquoi la France..." ──────────────────────────────────────────
+
+const WhyFranceSection: React.FC<{ t: (k: string) => string }> = ({ t }) => (
+  <Card className="mb-4" data-testid="why-france-section">
+    <Card.Header className="fw-bold">🇫🇷 {t('tech.whyFranceTitle')}</Card.Header>
+    <Card.Body>
+      <Row className="g-3">
+        <Col xs={12} md={6}>
+          <div className="fw-semibold text-success mb-2" style={{ fontSize: '0.85rem' }}>
+            ✓ Ce qui existe déjà
+          </div>
+          <ul style={{ fontSize: '0.82rem', paddingLeft: 18 }}>
+            <li>FranceConnect : identité numérique nationale (utilisée par 40M de Français)</li>
+            <li>ElectionGuard est open source, gratuit, audité par NIST</li>
+            <li>Vote par internet déjà pour Français de l'étranger (législatives)</li>
+            <li>Infrastructure cybersécurité ANSSI de haut niveau</li>
+          </ul>
+        </Col>
+        <Col xs={12} md={6}>
+          <div className="fw-semibold text-danger mb-2" style={{ fontSize: '0.85rem' }}>
+            ✗ Ce qui manque encore
+          </div>
+          <ul style={{ fontSize: '0.82rem', paddingLeft: 18 }}>
+            <li>Déploiement à l'échelle 48M votants (vs 1.4M en Estonie)</li>
+            <li>Confiance institutionnelle (le Conseil Constitutionnel reste sceptique)</li>
+            <li>Résistance aux cyberattaques d'État (Russie, Chine)</li>
+            <li>20 ans d'expérience (l'Estonie a commencé en 2005)</li>
+          </ul>
+        </Col>
+      </Row>
+      <Alert variant="info" className="mt-3 mb-0" style={{ fontSize: '0.8rem' }}>
+        <strong>En résumé :</strong> L'Estonie a 1.4M d'habitants et 20 ans d'expérience.
+        La France a 48M de votants et zéro déploiement réel à grande échelle.
+        La technologie existe — c'est la confiance institutionnelle et l'échelle qui manquent.
+      </Alert>
+    </Card.Body>
+  </Card>
+);
+
 // ── Main page ─────────────────────────────────────────────────────────────────
 
 const TechDemocracyPage: React.FC = () => {
@@ -419,16 +563,19 @@ const TechDemocracyPage: React.FC = () => {
   });
 
   return (
-    <Container className="py-4" style={{ maxWidth: 900 }}>
+    <Container className="py-4" style={{ maxWidth: 960 }}>
       <h2 className="fw-bold mb-1">💻 {t('tech.pageTitle')}</h2>
       <p className="text-muted mb-4" style={{ fontSize: '0.9rem' }}>
         {t('tech.pageSubtitle')}
       </p>
 
-      <WhyHardSection   t={t} />
-      <E2EVSection      t={t} />
-      <BlockchainTable  t={t} />
-      <PolisSection     t={t} />
+      <WhyHardSection           t={t} />
+      <ThreeApproachesSection   t={t} />
+      <E2EVInteractiveSection   t={t} />
+      <CountryComparisonSection t={t} />
+      <WhyFranceSection         t={t} />
+      <BlockchainTable          t={t} />
+      <PolisSection             t={t} />
     </Container>
   );
 };
