@@ -1,0 +1,188 @@
+import React from 'react';
+import { render, screen, fireEvent, waitFor, act } from '@testing-library/react';
+import { MemoryRouter } from 'react-router';
+import PartyDynamicsPanel from '../PartyDynamicsPanel';
+
+jest.mock('axios', () => ({ post: jest.fn() }));
+const { post: mockPost } = jest.requireMock('axios') as { post: jest.Mock };
+
+jest.mock('recharts', () => {
+  const React = require('react');
+  return {
+    LineChart:           ({ children }: any) => <div>{children}</div>,
+    Line:                ({ dataKey }: any) => <div data-testid={`line-${dataKey}`} />,
+    XAxis:               () => null,
+    YAxis:               () => null,
+    CartesianGrid:       () => null,
+    Tooltip:             () => null,
+    Legend:              () => null,
+    ReferenceLine:       () => null,
+    ResponsiveContainer: ({ children }: any) => <div style={{ width: 400, height: 180 }}>{children}</div>,
+  };
+});
+
+// ── Fixture ───────────────────────────────────────────────────────────────────
+
+function makeData(duverger = false) {
+  const mkElection = (n: number, parties: string[], nEff: number) => ({
+    election_n:        n,
+    active_parties:    parties.length,
+    parties:           parties.map((name, i) => ({
+      name, x: -0.8 + i * 0.4, y: 0,
+      vote_pct: 100 / parties.length,
+      seats:    100 / parties.length,
+      survived: true,
+    })),
+    effective_parties: nEff,
+    winner:            parties[0],
+    new_entrants:      [],
+    eliminated:        n === 3 && duverger ? ['E'] : [],
+  });
+
+  const elections = [
+    mkElection(1, ['A', 'B', 'C', 'D', 'E'], 5.0),
+    mkElection(2, ['A', 'B', 'C', 'D', 'E'], 4.5),
+    mkElection(3, duverger ? ['A', 'B', 'C', 'D'] : ['A', 'B', 'C', 'D', 'E'],
+               duverger ? 3.2 : 4.8),
+  ];
+
+  return {
+    data: {
+      elections,
+      final_system:            duverger ? 'tripartite' : 'fragmented',
+      effective_parties_curve: elections.map((e) => e.effective_parties),
+      duverger_confirmed:      duverger,
+      convergence_speed:       duverger ? null : null,
+      ideology_drift: [
+        { party: 'A', initial_x: -0.8, final_x: -0.7 },
+        { party: 'B', initial_x: -0.3, final_x: -0.2 },
+      ],
+      pedagogical_note: 'Test note.',
+    },
+  };
+}
+
+function renderPanel() {
+  return render(
+    <MemoryRouter>
+      <PartyDynamicsPanel />
+    </MemoryRouter>
+  );
+}
+
+beforeEach(() => {
+  jest.clearAllMocks();
+  localStorage.clear();
+  jest.useFakeTimers();
+});
+
+afterEach(() => { jest.useRealTimers(); });
+
+// ── Tests ─────────────────────────────────────────────────────────────────────
+
+describe('PartyDynamicsPanel', () => {
+  it('shows simulate button', () => {
+    renderPanel();
+    expect(screen.getByTestId('simulate-btn')).toBeInTheDocument();
+  });
+
+  it('shows preset selector', () => {
+    renderPanel();
+    expect(screen.getByTestId('preset-select')).toBeInTheDocument();
+  });
+
+  it('shows method selector', () => {
+    renderPanel();
+    expect(screen.getByTestId('method-select')).toBeInTheDocument();
+  });
+
+  it('shows prompt before first run', () => {
+    renderPanel();
+    expect(screen.getByRole('alert')).toBeInTheDocument();
+  });
+
+  it('calls axios.post on simulate click', async () => {
+    mockPost.mockResolvedValue(makeData());
+    renderPanel();
+    fireEvent.click(screen.getByTestId('simulate-btn'));
+    await waitFor(() => expect(mockPost).toHaveBeenCalledTimes(1));
+    expect(mockPost).toHaveBeenCalledWith(
+      expect.stringContaining('/api/election/party-dynamics'),
+      expect.any(Object),
+    );
+    jest.runAllTimers();
+  });
+
+  it('renders ideology map SVG after data loads', async () => {
+    mockPost.mockResolvedValue(makeData());
+    renderPanel();
+    fireEvent.click(screen.getByTestId('simulate-btn'));
+    await waitFor(() => expect(screen.getByTestId('ideology-map-svg')).toBeInTheDocument());
+    jest.runAllTimers();
+  });
+
+  it('renders N_eff chart', async () => {
+    mockPost.mockResolvedValue(makeData());
+    renderPanel();
+    fireEvent.click(screen.getByTestId('simulate-btn'));
+    await waitFor(() => expect(screen.getByTestId('n-eff-chart')).toBeInTheDocument());
+    jest.runAllTimers();
+  });
+
+  it('shows final-system badge', async () => {
+    mockPost.mockResolvedValue(makeData());
+    renderPanel();
+    fireEvent.click(screen.getByTestId('simulate-btn'));
+    await waitFor(() => expect(screen.getByTestId('final-system-badge')).toBeInTheDocument());
+    jest.runAllTimers();
+  });
+
+  it('shows duverger-confirmed badge', async () => {
+    mockPost.mockResolvedValue(makeData(true));
+    renderPanel();
+    fireEvent.click(screen.getByTestId('simulate-btn'));
+    await waitFor(() => expect(screen.getByTestId('duverger-badge')).toBeInTheDocument());
+    jest.runAllTimers();
+  });
+
+  it('shows play button after data loads', async () => {
+    mockPost.mockResolvedValue(makeData());
+    renderPanel();
+    fireEvent.click(screen.getByTestId('simulate-btn'));
+    await waitFor(() => expect(screen.getByTestId('play-btn')).toBeInTheDocument());
+    jest.runAllTimers();
+  });
+
+  it('shows election slider after data loads', async () => {
+    mockPost.mockResolvedValue(makeData());
+    renderPanel();
+    fireEvent.click(screen.getByTestId('simulate-btn'));
+    await waitFor(() => expect(screen.getByTestId('election-slider')).toBeInTheDocument());
+    jest.runAllTimers();
+  });
+
+  it('advances election index when election slider changes', async () => {
+    mockPost.mockResolvedValue(makeData());
+    renderPanel();
+    fireEvent.click(screen.getByTestId('simulate-btn'));
+    await waitFor(() => screen.getByTestId('election-slider'));
+    fireEvent.change(screen.getByTestId('election-slider'), { target: { value: '2' } });
+    expect(screen.getByTestId('election-slider')).toHaveValue('2');
+    jest.runAllTimers();
+  });
+
+  it('tactical switch toggles correctly', () => {
+    renderPanel();
+    const sw = screen.getByTestId('tactical-switch');
+    expect(sw).toBeChecked();
+    fireEvent.click(sw);
+    expect(sw).not.toBeChecked();
+  });
+
+  it('shows error on API failure', async () => {
+    mockPost.mockRejectedValue(new Error('Network error'));
+    renderPanel();
+    fireEvent.click(screen.getByTestId('simulate-btn'));
+    await waitFor(() => expect(screen.getByText(/Erreur|Error/i)).toBeInTheDocument());
+  });
+});
