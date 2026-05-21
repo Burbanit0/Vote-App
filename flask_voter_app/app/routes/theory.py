@@ -220,7 +220,74 @@ def iia_violation_rate() -> tuple[Response, int]:
 import numpy as _np_t
 from collections import deque as _deque_t
 
-# Manipulation analysis imports (lazy, inside endpoint)
+# Manipulation analysis + judgment aggregation imports (lazy, inside endpoints)
+
+# ── Judgment Aggregation Scenarios ────────────────────────────────────────────
+
+_JA_SCENARIOS: Dict[str, Any] = {
+    "legal": {
+        "name": "Responsabilité contractuelle",
+        "propositions": [
+            {"text": "Le contrat existait",                        "type": "premise",     "id": "P1"},
+            {"text": "Les obligations n'ont pas été remplies",     "type": "premise",     "id": "P2"},
+            {"text": "Responsabilité contractuelle",               "type": "conclusion",  "id": "C"},
+        ],
+        # Each voter type is (P1, P2, C) — all individually coherent (C = P1 AND P2)
+        "voter_types": [
+            [True,  True,  True],   # both premises yes → responsible
+            [True,  False, False],  # P1 yes, P2 no → no liability
+            [False, True,  False],  # P1 no, P2 yes → no liability
+        ],
+        "type_weights": [1, 1, 1],
+        # Constraints: (list_of_premise_ids, conclusion_id, rule)
+        # rule = "AND_IMPLIES"     → if all premises T, conclusion must be T
+        # rule = "ALL_IMPLIES_NOT" → if all premises T, conclusion must be F
+        # rule = "NAND"            → not all (premises ∪ {conclusion}) can be T
+        "constraints": [
+            (["P1", "P2"], "C", "AND_IMPLIES"),
+        ],
+    },
+    "budget": {
+        "name": "Dilemme fiscal",
+        "propositions": [
+            {"text": "Il faut réduire la dette publique",                            "type": "premise",    "id": "P1"},
+            {"text": "Il ne faut pas augmenter les impôts",                          "type": "premise",    "id": "P2"},
+            {"text": "Il ne faut pas réduire les dépenses publiques",               "type": "premise",    "id": "P3"},
+            {"text": "La situation fiscale est gérable sans sacrifice",              "type": "conclusion", "id": "C"},
+        ],
+        # C = NOT(P1 AND P2 AND P3) — can only be true if at least one concession is made
+        "voter_types": [
+            [True,  True,  False, True],   # can cut spending → manageable
+            [True,  False, True,  True],   # can raise taxes → manageable
+            [False, True,  True,  True],   # no debt problem → manageable
+        ],
+        "type_weights": [1, 1, 1],
+        "constraints": [
+            (["P1", "P2", "P3"], "C", "ALL_IMPLIES_NOT"),
+        ],
+    },
+    "climate": {
+        "name": "Dilemme climatique",
+        "propositions": [
+            {"text": "Le changement climatique est une urgence",                     "type": "premise",    "id": "P1"},
+            {"text": "La croissance économique ne doit pas être sacrifiée",          "type": "premise",    "id": "P2"},
+            {"text": "La taxation carbone freinerait significativement la croissance", "type": "premise",  "id": "P3"},
+            {"text": "Il faut instaurer une taxe carbone",                           "type": "conclusion", "id": "C"},
+        ],
+        # NOT(P2 AND P3 AND C) — can't support growth + believe tax hurts + support tax
+        "voter_types": [
+            [True,  True,  False, True],   # urgency + growth + tax OK → tax carbon ✓
+            [False, True,  True,  False],  # not urgent + growth + tax hurts → no tax ✓
+            [True,  False, True,  True],   # urgency + growth sacrifice OK + tax hurts → tax anyway ✓
+        ],
+        "type_weights": [1, 1, 1],
+        "constraints": [
+            (["P2", "P3"], "C", "NAND"),   # can't have P2∧P3∧C simultaneously
+        ],
+    },
+}
+
+
 
 
 
@@ -437,6 +504,146 @@ def plott_chaos() -> tuple[Response, int]:
         },
         "voter_ideal_points": voter_ideals.tolist(),
         "pedagogical_note":   note,
+    }), 200
+
+
+# ── Judgment Aggregation ──────────────────────────────────────────────────────
+
+@theory_bp.route("/judgment-aggregation", methods=["POST"])
+@sim_limiter.limit("10 per minute")
+def judgment_aggregation() -> tuple[Response, int]:
+    """
+    POST /api/theory/judgment-aggregation
+
+    Demonstrates the discursive dilemma (List & Pettit 2002):
+    majority rule on propositions can produce collectively incoherent results
+    even when every individual voter is perfectly coherent.
+    """
+    data       = request.get_json() or {}
+    num_voters = max(1, min(100, int(data.get("num_voters", 12))))
+    seed       = int(data.get("seed", 42))
+    scenario   = str(data.get("scenario", "legal"))
+
+    sc = _JA_SCENARIOS.get(scenario, _JA_SCENARIOS["legal"])
+    props       = sc["propositions"]
+    vtypes      = sc["voter_types"]
+    weights     = sc["type_weights"]
+    constraints = sc["constraints"]
+    n_props     = len(props)
+
+    # ── Index maps ────────────────────────────────────────────────────────
+    id_to_idx = {p["id"]: i for i, p in enumerate(props)}
+
+    # ── Sample voter types ────────────────────────────────────────────────
+    total_w = sum(weights)
+    cum_w   = [sum(weights[:k+1]) / total_w for k in range(len(weights))]
+
+    rng = _rnd.Random(seed)
+    voters_raw: List[List[bool]] = []
+    for _ in range(num_voters):
+        r = rng.random()
+        t = next((i for i, c in enumerate(cum_w) if r < c), len(vtypes) - 1)
+        voters_raw.append(list(vtypes[t]))
+
+    # ── Majority votes ────────────────────────────────────────────────────
+    yes_counts     = [sum(v[i] for v in voters_raw) for i in range(n_props)]
+    yes_pcts       = [c / num_voters for c in yes_counts]
+    collective: List[bool] = [pct > 0.5 for pct in yes_pcts]
+
+    # ── Constraint check helper ───────────────────────────────────────────
+    def _check(votes: List[bool], cstr: tuple) -> bool:
+        """Return True if votes satisfy the constraint."""
+        prem_ids, conc_id, rule = cstr
+        p_vals = [votes[id_to_idx[pid]] for pid in prem_ids]
+        c_val  = votes[id_to_idx[conc_id]]
+        if rule == "AND_IMPLIES":
+            return not (all(p_vals) and not c_val)   # all premises T → conclusion must be T
+        if rule == "ALL_IMPLIES_NOT":
+            return not (all(p_vals) and c_val)        # all premises T → conclusion must be F
+        if rule == "NAND":
+            return not (all(p_vals) and c_val)        # can't have all premises AND conclusion T
+        return True
+
+    # ── Individual coherence ──────────────────────────────────────────────
+    coherent_count = sum(
+        1 for v in voters_raw if all(_check(v, cstr) for cstr in constraints)
+    )
+    voter_coherence_rate = round(coherent_count / num_voters, 4) if num_voters else 1.0
+
+    # ── Collective coherence ──────────────────────────────────────────────
+    incoherences: List[Dict[str, Any]] = []
+    for cstr in constraints:
+        prem_ids, conc_id, rule = cstr
+        if not _check(collective, cstr):
+            p_vals = [collective[id_to_idx[pid]] for pid in prem_ids]
+            c_val  = collective[id_to_idx[conc_id]]
+            if rule == "AND_IMPLIES":
+                problem = "Prémisses acceptées majoritairement, mais conclusion rejetée"
+            elif rule == "ALL_IMPLIES_NOT":
+                problem = "Toutes les prémisses acceptées, mais la conclusion les contredit"
+            else:
+                problem = "La conclusion est incompatible avec les prémisses acceptées"
+            incoherences.append({
+                "premises":    prem_ids,
+                "conclusion":  conc_id,
+                "problem":     problem,
+            })
+
+    collective_coherent = len(incoherences) == 0
+    paradox_severity    = round(len(incoherences) / max(1, len(constraints)), 4)
+
+    # ── Resolution methods ────────────────────────────────────────────────
+    premise_based: Dict[str, Any] = {}
+    for prem_ids, conc_id, rule in constraints:
+        p_vals = [collective[id_to_idx[pid]] for pid in prem_ids]
+        if rule == "AND_IMPLIES":
+            premise_based[conc_id] = all(p_vals)
+        elif rule in ("ALL_IMPLIES_NOT", "NAND"):
+            premise_based[conc_id] = not all(p_vals)
+
+    conclusion_based: Dict[str, Any] = {}
+    for prem_ids, conc_id, rule in constraints:
+        c_val = collective[id_to_idx[conc_id]]
+        conclusion_based["premise_override"] = not c_val if incoherences else c_val
+
+    # ── Pedagogical note ──────────────────────────────────────────────────
+    if not collective_coherent:
+        note = (
+            f"Paradoxe de List-Pettit : {len(incoherences)} incohérence(s) dans le vote "
+            f"collectif alors que {round(voter_coherence_rate*100)}% des électeurs sont "
+            f"individuellement cohérents. La procédure (prémisses d'abord vs conclusion) "
+            f"détermine le résultat — la démocratie délibérative est fondamentalement "
+            f"sensible à l'ordre des questions."
+        )
+    else:
+        note = (
+            f"Aucune incohérence sur ce profil — le paradoxe ne se manifeste pas toujours. "
+            f"Il dépend de la distribution des préférences et de la structure logique "
+            f"des propositions."
+        )
+
+    return jsonify({
+        "scenario": scenario,
+        "scenario_name": sc["name"],
+        "propositions": [
+            {
+                "text":           props[i]["text"],
+                "type":           props[i]["type"],
+                "id":             props[i]["id"],
+                "yes_pct":        round(yes_pcts[i], 4),
+                "collective_vote": collective[i],
+            }
+            for i in range(n_props)
+        ],
+        "collective_coherent":    collective_coherent,
+        "incoherences":           incoherences,
+        "voter_coherence_rate":   voter_coherence_rate,
+        "paradox_severity":       paradox_severity,
+        "resolution_methods": {
+            "premise_based":    premise_based,
+            "conclusion_based": conclusion_based,
+        },
+        "pedagogical_note":       note,
     }), 200
 
 
