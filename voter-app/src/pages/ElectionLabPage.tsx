@@ -40,6 +40,7 @@ import NOTAPanel from '../components/shared/NOTAPanel';
 import BallotComplexityPanel from '../components/shared/BallotComplexityPanel';
 import ShyVoterPanel from '../components/shared/ShyVoterPanel';
 import ElectoralFatiguePanel from '../components/shared/ElectoralFatiguePanel';
+import ManipulationAnalysisPanel from '../components/shared/ManipulationAnalysisPanel';
 import ChoiceOverloadPanel from '../components/shared/ChoiceOverloadPanel';
 import DemographicTurnoutPanel from '../components/shared/DemographicTurnoutPanel';
 import CompulsoryVotingPanel from '../components/shared/CompulsoryVotingPanel';
@@ -550,6 +551,7 @@ const ElectionLabPage: React.FC = () => {
                   { key: 'shyvoter',           icon: '🤫', label: t('electionLab.tabShyVoter') },
                   { key: 'fatigue',            icon: '😴', label: t('electionLab.tabFatigue') },
                   { key: 'overload',           icon: '🤯', label: t('electionLab.tabOverload') },
+                  { key: 'manipulation',       icon: '🕵', label: t('electionLab.tabManipulation') },
                   { key: 'demographic',        icon: '👥', label: t('electionLab.tabDemographic') },
                   { key: 'compulsory',         icon: '⚖️', label: t('electionLab.tabCompulsory') },
                   { key: 'deliberation',       icon: '🗣', label: t('electionLab.tabDeliberation') },
@@ -589,6 +591,7 @@ const ElectionLabPage: React.FC = () => {
                   'shyvoter':             <ShyVoterPanel />,
                   'fatigue':              <ElectoralFatiguePanel />,
                   'overload':             <ChoiceOverloadPanel />,
+                  'manipulation':         <ManipulationAnalysisPanel />,
                   'demographic':          <DemographicTurnoutPanel />,
                   'compulsory':           <CompulsoryVotingPanel />,
                   'deliberation':         <DeliberationPanel />,

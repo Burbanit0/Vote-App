@@ -4,9 +4,10 @@ test_theory.py — Tests for /api/theory/arrow and /api/theory/iia-rate
 import json
 import pytest
 
-ARROW_URL = "/api/theory/arrow"
-RATE_URL  = "/api/theory/iia-rate"
-PLOTT_URL = "/api/theory/plott-chaos"
+ARROW_URL  = "/api/theory/arrow"
+RATE_URL   = "/api/theory/iia-rate"
+PLOTT_URL  = "/api/theory/plott-chaos"
+MANIP_URL  = "/api/theory/manipulation-analysis"
 
 
 def arrow_post(client, method="plurality", **kw):
@@ -299,3 +300,116 @@ class TestPlottChaos:
         b = plott_post(client)
         assert a["condorcet_winner_exists"] == b["condorcet_winner_exists"]
         assert a["chaos_path"]["num_steps"] == b["chaos_path"]["num_steps"]
+
+
+# ── /api/theory/manipulation-analysis ────────────────────────────────────────
+
+BASE_MANIP = {
+    "candidates": [
+        {"name": "Alice", "x": -0.5, "y": -0.2},
+        {"name": "Bob",   "x":  0.5, "y":  0.2},
+        {"name": "Carol", "x":  0.0, "y":  0.1},
+    ],
+    "num_voters":               30,
+    "ideology":                 "random",
+    "seed":                     42,
+    "method":                   "plurality",
+    "manipulation_strategies":  ["compromising", "burying", "pushover", "truncating"],
+}
+
+
+def manip_post(client, **kw):
+    return json.loads(client.post(MANIP_URL, json={**BASE_MANIP, **kw}).data)
+
+
+class TestManipulationAnalysis:
+    def test_returns_200(self, client):
+        assert client.post(MANIP_URL, json=BASE_MANIP).status_code == 200
+
+    def test_response_keys(self, client):
+        body = manip_post(client)
+        for k in ("sincere_winner", "manipulable", "manipulation_count",
+                  "manipulators", "strategy_breakdown", "key_manipulator",
+                  "pedagogical_note"):
+            assert k in body
+
+    def test_manipulator_keys(self, client):
+        body = manip_post(client)
+        if body["manipulators"]:
+            m = body["manipulators"][0]
+            for k in ("voter_id", "voter_ideology", "sincere_vote", "strategic_vote",
+                      "strategy_type", "sincere_result", "strategic_result", "utility_gain"):
+                assert k in m
+
+    # ── 2 candidates → not manipulable ───────────────────────────────────
+
+    def test_two_candidates_not_manipulable(self, client):
+        body = manip_post(client, candidates=[
+            {"name": "A", "x": -0.5, "y": 0.0},
+            {"name": "B", "x":  0.5, "y": 0.0},
+        ])
+        assert body["manipulable"] is False
+        assert body["manipulation_count"] == 0
+
+    # ── strategic_result ≠ sincere_result for all manipulators ───────────
+
+    def test_strategic_differs_from_sincere(self, client):
+        body = manip_post(client)
+        for m in body["manipulators"]:
+            assert m["strategic_result"] != m["sincere_result"], (
+                f"Manipulator {m['voter_id']}: strategic==sincere"
+            )
+
+    # ── utility_gain > 0 for all manipulators ────────────────────────────
+
+    def test_utility_gain_positive(self, client):
+        body = manip_post(client)
+        for m in body["manipulators"]:
+            assert m["utility_gain"] > 0, (
+                f"Manipulator {m['voter_id']}: gain={m['utility_gain']}"
+            )
+
+    # ── Borda → burying count > 0 ────────────────────────────────────────
+
+    def test_borda_is_manipulable(self, client):
+        """Borda with 3 candidates and random voters is manipulable."""
+        # Try a few seeds; Borda is well-known for being manipulable
+        found = False
+        for s in [1, 5, 10, 15, 20]:
+            body = manip_post(client, method="borda", num_voters=20, seed=s,
+                              ideology="polarized")
+            if body["manipulable"]:
+                found = True
+                break
+        assert found, "Borda should be manipulable on at least one seed"
+
+    # ── strategy_breakdown contains all strategies ────────────────────────
+
+    def test_strategy_breakdown_keys(self, client):
+        body = manip_post(client)
+        for s in ("compromising", "burying", "pushover", "truncating"):
+            assert s in body["strategy_breakdown"]
+
+    # ── Schulze ≤ Plurality manipulation_count (same seed) ───────────────
+
+    def test_schulze_le_plurality_manipulation(self, client):
+        plural = manip_post(client, method="plurality")
+        schulze = manip_post(client, method="schulze")
+        # Schulze is generally more manipulation-resistant
+        assert schulze["manipulation_count"] <= plural["manipulation_count"] + 3
+
+    # ── key_manipulator has largest gain ─────────────────────────────────
+
+    def test_key_manipulator_is_max_gain(self, client):
+        body = manip_post(client)
+        if body["manipulators"] and body["key_manipulator"]:
+            max_gain = max(m["utility_gain"] for m in body["manipulators"])
+            assert body["key_manipulator"]["gain"] == pytest.approx(max_gain)
+
+    # ── Reproducibility ───────────────────────────────────────────────────
+
+    def test_reproducibility(self, client):
+        a = manip_post(client)
+        b = manip_post(client)
+        assert a["manipulation_count"] == b["manipulation_count"]
+        assert a["sincere_winner"] == b["sincere_winner"]

@@ -220,6 +220,11 @@ def iia_violation_rate() -> tuple[Response, int]:
 import numpy as _np_t
 from collections import deque as _deque_t
 
+# Manipulation analysis imports (lazy, inside endpoint)
+
+
+
+
 
 def _majority_beats(dists: "_np_t.ndarray", num_voters: int) -> "_np_t.ndarray":
     """beats[j,k] = True if policy j beats policy k in majority vote."""
@@ -431,5 +436,204 @@ def plott_chaos() -> tuple[Response, int]:
             "steps": alt_steps,
         },
         "voter_ideal_points": voter_ideals.tolist(),
+        "pedagogical_note":   note,
+    }), 200
+
+
+# ── Gibbard-Satterthwaite Manipulation Analysis ───────────────────────────────
+
+@theory_bp.route("/manipulation-analysis", methods=["POST"])
+@sim_limiter.limit("5 per minute")
+def manipulation_analysis() -> tuple[Response, int]:
+    """
+    POST /api/theory/manipulation-analysis
+
+    Identify, for a given voting method and electorate, which voters can
+    profitably misrepresent their preferences and via which strategy
+    (compromising, burying, push-over, or truncating).
+    """
+    import copy as _cp_m
+    from app.routes.election import _build_base_electorate
+    from app.utils.simulation_ranked_utils import (
+        get_plurality_winner as _plur,
+        get_borda_winner     as _bord,
+        get_irv_winner       as _irv_,
+        get_schulze_winner   as _sch_,
+    )
+    from app.constants import DEFAULT_ISSUES as _DI
+
+    data       = request.get_json() or {}
+    cand_specs = data.get("candidates", [
+        {"name": "Alice", "x": -0.5, "y": -0.2},
+        {"name": "Bob",   "x":  0.5, "y":  0.2},
+        {"name": "Carol", "x":  0.0, "y":  0.1},
+    ])[:6]
+    num_voters  = max(10, min(100, int(data.get("num_voters",   30))))
+    ideology    = str(data.get("ideology",      "random"))
+    seed        = int(data.get("seed",           42))
+    method      = str(data.get("method",        "plurality"))
+    strategies  = data.get("manipulation_strategies",
+                           ["compromising", "burying", "pushover", "truncating"])
+
+    if len(cand_specs) < 2:
+        return jsonify({"error": "At least 2 candidates required"}), 400
+
+    # ── Special case: 2 candidates → never manipulable ───────────────────
+    if len(cand_specs) == 2:
+        return jsonify({
+            "sincere_winner":    None,
+            "manipulable":       False,
+            "manipulation_count": 0,
+            "manipulators":      [],
+            "strategy_breakdown": {s: 0 for s in strategies},
+            "key_manipulator":   None,
+            "pedagogical_note":  (
+                "Avec 2 candidats le vote sincère est toujours optimal — "
+                "G-S ne s'applique qu'avec ≥3 candidats."
+            ),
+        }), 200
+
+    _np_t.random.seed(seed)
+    _rnd.seed(seed)
+    issues = _DI
+
+    candidates, voters, sincere_utilities, cand_names = _build_base_electorate(
+        cand_specs, num_voters, ideology, seed, issues
+    )
+    n_cands = len(cand_names)
+
+    # ── Sincere rankings ──────────────────────────────────────────────────
+    sincere_rankings: List[List[str]] = [
+        sorted(sincere_utilities[v["id"]], key=lambda k: -sincere_utilities[v["id"]][k])
+        for v in voters
+    ]
+
+    # ── Voter 2D positions ────────────────────────────────────────────────
+    voter_pos = [
+        [round(2.0 * v["issue_positions"].get("economy",        0.5) - 1.0, 3),
+         round(2.0 * v["issue_positions"].get("social_welfare", 0.5) - 1.0, 3)]
+        for v in voters
+    ]
+
+    # ── Election runner ───────────────────────────────────────────────────
+    def _run(rnks: List[List[str]]) -> Optional[str]:
+        full = [r + [c for c in cand_names if c not in r] for r in rnks]
+        if method == "borda":
+            return _bord(full) or cand_names[0]
+        if method in ("irv", "two_round"):
+            return _irv_(full) or cand_names[0]
+        if method == "schulze":
+            return _sch_(full) or cand_names[0]
+        return _plur(full) or cand_names[0]
+
+    sincere_winner = _run(sincere_rankings)
+
+    # ── Strategy generators ───────────────────────────────────────────────
+    def _compromising(sr: List[str]) -> List[tuple]:
+        return [([alt] + [c for c in sr if c != alt], "compromising")
+                for alt in cand_names if alt != sr[0]]
+
+    def _burying(sr: List[str]) -> List[tuple]:
+        # Push each non-top candidate to the bottom
+        res = []
+        for to_bury in cand_names:
+            if to_bury != sr[0]:
+                res.append(([c for c in sr if c != to_bury] + [to_bury], "burying"))
+        return res
+
+    def _pushover(sr: List[str]) -> List[tuple]:
+        # Elevate the weakest (last) candidate to second place to create spoiler
+        res = []
+        if len(sr) < 3:
+            return res
+        weak = sr[-1]  # weakest
+        if weak != sr[0]:
+            alt = [sr[0], weak] + [c for c in sr[1:-1]]
+            res.append((alt, "pushover"))
+        return res
+
+    def _truncating(sr: List[str]) -> List[tuple]:
+        if method not in ("irv", "two_round", "approval"):
+            return []
+        res = []
+        for length in range(1, len(sr)):  # partial rankings
+            res.append((sr[:length], "truncating"))
+        return res
+
+    _strat_fns: Dict[str, Any] = {
+        "compromising": _compromising,
+        "burying":      _burying,
+        "pushover":     _pushover,
+        "truncating":   _truncating,
+    }
+
+    # ── Find profitable manipulations ─────────────────────────────────────
+    manipulators: List[Dict[str, Any]] = []
+    strat_counts: Dict[str, int] = {s: 0 for s in strategies}
+
+    for v_idx, v in enumerate(voters):
+        vid    = v["id"]
+        sr     = sincere_rankings[v_idx]
+        u_sinc = sincere_utilities[vid].get(sincere_winner, 0)
+
+        best_gain, best_m = 0.0, None
+
+        for strat in strategies:
+            gen = _strat_fns.get(strat)
+            if gen is None:
+                continue
+            for alt_r, s_type in gen(sr):
+                if alt_r == sr:
+                    continue
+                mod     = list(sincere_rankings)
+                mod[v_idx] = alt_r
+                strat_w = _run(mod)
+
+                if strat_w == sincere_winner:
+                    continue
+
+                gain = sincere_utilities[vid].get(strat_w, 0) - u_sinc
+                if gain > 0 and gain > best_gain:
+                    best_gain = gain
+                    best_m = {
+                        "voter_id":        vid,
+                        "voter_ideology":  voter_pos[v_idx],
+                        "sincere_vote":    sr,
+                        "strategic_vote":  alt_r,
+                        "strategy_type":   s_type,
+                        "sincere_result":  sincere_winner,
+                        "strategic_result": strat_w,
+                        "utility_gain":    round(gain, 4),
+                    }
+
+        if best_m:
+            manipulators.append(best_m)
+            strat_counts[best_m["strategy_type"]] = strat_counts.get(best_m["strategy_type"], 0) + 1
+
+    # ── Key manipulator ───────────────────────────────────────────────────
+    key_m: Optional[Dict[str, Any]] = None
+    if manipulators:
+        km = max(manipulators, key=lambda m: m["utility_gain"])
+        key_m = {"voter_id": km["voter_id"],
+                 "strategy": km["strategy_type"],
+                 "gain":     km["utility_gain"]}
+
+    n_used = len(voters)
+    note = (
+        f"G-S : avec {n_cands} candidats et '{method}', "
+        f"{len(manipulators)}/{n_used} électeurs ont intérêt à manipuler. "
+    )
+    if key_m:
+        note += f"Meilleure stratégie : '{key_m['strategy']}' (gain {key_m['gain']:.3f})."
+    else:
+        note += "Aucune manipulation profitable sur ce profil."
+
+    return jsonify({
+        "sincere_winner":     sincere_winner,
+        "manipulable":        len(manipulators) > 0,
+        "manipulation_count": len(manipulators),
+        "manipulators":       manipulators,
+        "strategy_breakdown": strat_counts,
+        "key_manipulator":    key_m,
         "pedagogical_note":   note,
     }), 200
