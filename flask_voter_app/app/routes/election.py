@@ -6592,3 +6592,225 @@ def party_dynamics() -> tuple[Response, int]:
         "ideology_drift":          ideology_drift,
         "pedagogical_note":        note,
     }), 200
+
+
+# ── Deliberation + Vote ───────────────────────────────────────────────────────
+
+@election_bp.route("/deliberation", methods=["POST"])
+@sim_limiter.limit("5 per minute")
+def deliberation_vote() -> tuple[Response, int]:
+    """
+    POST /api/election/deliberation
+
+    Simulate DeGroot-style deliberation before the vote.
+    Voters update their ideology toward a group-weighted mean;
+    echo_chamber networks amplify polarisation, bridge/complete reduce it.
+    Compare pre-deliberation vs. post-deliberation election outcomes.
+    """
+    import copy as _cpd
+
+    data           = request.get_json() or {}
+    num_voters     = max(50, min(500, int(data.get("num_voters",          200))))
+    ideology       = str(data.get("ideology",               "random"))
+    seed           = int(data.get("seed",                    42))
+    delib_rounds   = max(1,  min(10,  int(data.get("deliberation_rounds",  5))))
+    influence      = max(0.0, min(1.0, float(data.get("influence_weight",  0.3))))
+    network_type   = str(data.get("network_type",           "random"))
+    group_size     = max(3,  min(20,  int(data.get("group_size",           5))))
+    arg_quality    = max(0.0, min(1.0, float(data.get("argument_quality",  0.5))))
+    primary_method = str(data.get("method",                 "plurality"))
+    cand_specs     = data.get("candidates", [
+        {"name": "Alice", "x": -0.5, "y": -0.2},
+        {"name": "Bob",   "x":  0.5, "y":  0.2},
+        {"name": "Carol", "x":  0.0, "y":  0.1},
+    ])[:6]
+
+    if len(cand_specs) < 2:
+        return jsonify({"error": "At least 2 candidates required"}), 400
+
+    _random.seed(seed)
+    _np.random.seed(seed)
+    issues = DEFAULT_ISSUES
+
+    candidates, voters, sincere_utilities, cand_names = _build_base_electorate(
+        cand_specs, num_voters, ideology, seed, issues
+    )
+
+    # ── Initial ideology (1D economy axis) ───────────────────────────────
+    initial_ideo: _np.ndarray = _np.array([
+        2.0 * v["issue_positions"].get("economy", 0.5) - 1.0
+        for v in voters
+    ])
+    pop_median_init = float(_np.median(initial_ideo))
+
+    # ── Helper functions ─────────────────────────────────────────────────
+    def _win(utils: Dict[Any, Dict[str, float]]) -> Optional[str]:
+        rnk = [sorted(utils[v["id"]], key=lambda k: -utils[v["id"]][k]) for v in voters]
+        return get_plurality_winner(rnk) if rnk else cand_names[0]
+
+    def _shares(utils: Dict[Any, Dict[str, float]]) -> Dict[str, float]:
+        rnk = [sorted(utils[v["id"]], key=lambda k: -utils[v["id"]][k]) for v in voters]
+        tally: Counter = Counter(r[0] for r in rnk if r)
+        total = len(voters)
+        return {c: round(tally.get(c, 0) / total, 4) for c in cand_names}
+
+    def _regret(utils: Dict[Any, Dict[str, float]], winner: Optional[str]) -> float:
+        if winner is None:
+            return 0.0
+        return round(
+            sum(max(utils[v["id"]].values()) - utils[v["id"]].get(winner, 0)
+                for v in voters) / len(voters), 4
+        )
+
+    def _cw(utils: Dict[Any, Dict[str, float]]) -> Optional[str]:
+        rnk = [sorted(utils[v["id"]], key=lambda k: -utils[v["id"]][k]) for v in voters]
+        return get_condorcet_winner(rnk)
+
+    def _recalc_utils(ideo: _np.ndarray) -> Dict[Any, Dict[str, float]]:
+        """Recompute utilities after ideology shift (economy axis only)."""
+        out: Dict[Any, Dict[str, float]] = {}
+        for i_v, v in enumerate(voters):
+            orig = v["issue_positions"]["economy"]
+            v["issue_positions"]["economy"] = float(_np.clip((ideo[i_v] + 1) / 2, 0, 1))
+            out[v["id"]] = {
+                c["name"]: calculate_utility(v, c, issues)["utility"]
+                for c in candidates
+            }
+            v["issue_positions"]["economy"] = orig
+        return out
+
+    def _form_groups(ideo: _np.ndarray, rng: _random.Random) -> list:
+        n   = len(ideo)
+        idx = list(range(n))
+        if network_type == "complete":
+            return [idx]
+        if network_type == "echo_chamber":
+            sorted_idx = sorted(idx, key=lambda i: ideo[i])
+            return [sorted_idx[i:i + group_size] for i in range(0, n, group_size)]
+        if network_type == "bridge":
+            sorted_idx = sorted(idx, key=lambda i: ideo[i])
+            half       = n // 2
+            left, right = sorted_idx[:half], sorted_idx[half:]
+            rng.shuffle(left); rng.shuffle(right)
+            g2     = max(1, group_size // 2)
+            groups = []
+            for k in range(max(len(left), len(right)) // g2):
+                g = left[k * g2:(k + 1) * g2] + right[k * g2:(k + 1) * g2]
+                if g:
+                    groups.append(g)
+            return groups or [idx]
+        # random
+        rng.shuffle(idx)
+        return [idx[i:i + group_size] for i in range(0, n, group_size)]
+
+    # ── Pre-deliberation ─────────────────────────────────────────────────
+    pre_win    = _win(sincere_utilities)
+    pre_shares = _shares(sincere_utilities)
+    pre_cw     = _cw(sincere_utilities)
+    pre_regret = _regret(sincere_utilities, pre_win)
+    pre_var    = float(_np.var(initial_ideo))
+
+    # ── Deliberation rounds ───────────────────────────────────────────────
+    current_ideo  = initial_ideo.copy()
+    current_utils = _cpd.deepcopy(sincere_utilities)
+    rng_d         = _random.Random(seed + 100)
+    per_round: list[Dict[str, Any]] = []
+
+    for round_k in range(delib_rounds):
+        groups  = _form_groups(current_ideo, rng_d)
+        new_ideo = current_ideo.copy()
+
+        for group in groups:
+            if len(group) < 2:
+                continue
+            g_arr = current_ideo[group]
+
+            if network_type == "echo_chamber":
+                # Amplification: push group toward its own extreme
+                g_mean  = float(g_arr.mean())
+                g_std   = max(0.02, float(g_arr.std()))
+                sign    = 1.0 if g_mean >= 0 else -1.0
+                target  = float(_np.clip(g_mean + sign * g_std * 0.4, -1.0, 1.0))
+            else:
+                # Quality-weighted mean: high quality → bias toward median
+                weights = _np.ones(len(group))
+                if arg_quality > 0:
+                    for ki, j in enumerate(group):
+                        prox = max(0.0, 1.0 - abs(float(current_ideo[j]) - pop_median_init))
+                        weights[ki] = (1.0 - arg_quality) + arg_quality * prox
+                weights /= max(float(weights.sum()), 1e-9)
+                target = float(_np.clip(_np.dot(weights, g_arr), -1.0, 1.0))
+
+            for i in group:
+                new_ideo[i] = float(_np.clip(
+                    current_ideo[i] + influence * (target - current_ideo[i]),
+                    -1.0, 1.0,
+                ))
+
+        current_ideo  = new_ideo
+        current_utils = _recalc_utils(current_ideo)
+
+        rnd_winner = _win(current_utils)
+        per_round.append({
+            "round":              round_k + 1,
+            "variance":           round(float(_np.var(current_ideo)), 4),
+            "mean_position":      round(float(_np.mean(current_ideo)), 4),
+            "winner_if_voted_now": rnd_winner,
+        })
+
+    # ── Post-deliberation ─────────────────────────────────────────────────
+    post_win    = _win(current_utils)
+    post_shares = _shares(current_utils)
+    post_cw     = _cw(current_utils)
+    post_regret = _regret(current_utils, post_win)
+    post_var    = float(_np.var(current_ideo))
+
+    winner_changed    = pre_win != post_win
+    opinion_shift     = round(float(_np.mean(_np.abs(current_ideo - initial_ideo))), 4)
+    convergence_rate  = round(max(0.0, 1.0 - post_var / pre_var), 4) if pre_var > 1e-9 else 0.0
+    polarization_chg  = round(post_var - pre_var, 4)
+    regret_improv     = round((pre_regret - post_regret) / pre_regret * 100, 2) if pre_regret > 1e-9 else 0.0
+
+    _NET_DESC: Dict[str, str] = {
+        "echo_chamber": "Les chambres d'écho amplifient les clivages — les groupes homogènes se radicalisent.",
+        "bridge":       "Les ponts entre les camps permettent une convergence progressive des opinions.",
+        "complete":     "En réseau complet, la délibération converge rapidement vers le consensus de masse.",
+        "random":       "Le réseau aléatoire produit une convergence modérée sans dynamique extrême.",
+    }
+    network_effect = _NET_DESC.get(network_type, "")
+
+    poldir  = "augmente" if polarization_chg > 0 else "diminue"
+    regdir  = "améliore" if regret_improv > 0 else "dégrade"
+    note = (
+        f"En réseau '{network_type}', {delib_rounds} rounds de délibération "
+        f"{'changent' if winner_changed else 'ne changent pas'} le vainqueur. "
+        f"La polarisation {poldir} de {abs(round(polarization_chg * 100, 1))}%. "
+        f"Le regret bayésien se {regdir} de {abs(regret_improv):.1f}%."
+    )
+
+    return jsonify({
+        "pre_deliberation": {
+            "winner":            pre_win,
+            "vote_shares":       pre_shares,
+            "condorcet_winner":  pre_cw,
+            "mean_regret":       pre_regret,
+            "ideology_variance": round(pre_var, 4),
+        },
+        "post_deliberation": {
+            "winner":            post_win,
+            "vote_shares":       post_shares,
+            "condorcet_winner":  post_cw,
+            "mean_regret":       post_regret,
+            "ideology_variance": round(post_var, 4),
+        },
+        "winner_changed":       winner_changed,
+        "deliberation_effect": {
+            "opinion_shift_mean": opinion_shift,
+            "convergence_rate":   convergence_rate,
+            "polarization_change": polarization_chg,
+            "regret_improvement": regret_improv,
+        },
+        "per_round":      per_round,
+        "network_effect": network_effect,
+        "pedagogical_note": note,
+    }), 200
