@@ -6,6 +6,7 @@ import pytest
 
 ARROW_URL = "/api/theory/arrow"
 RATE_URL  = "/api/theory/iia-rate"
+PLOTT_URL = "/api/theory/plott-chaos"
 
 
 def arrow_post(client, method="plurality", **kw):
@@ -169,3 +170,132 @@ class TestIIARate:
         a = rate_post(client, "plurality", num_trials=50)
         b = rate_post(client, "plurality", num_trials=50)
         assert a["curve"] == b["curve"]
+
+
+# ── /api/theory/plott-chaos ───────────────────────────────────────────────────
+
+BASE_PLOTT = {
+    "num_voters":    5,
+    "num_dimensions": 2,
+    "seed":          42,
+    "target_policy": [0.6, 0.6],
+    "start_policy":  [-0.6, -0.6],
+    "max_steps":     15,
+}
+
+
+def plott_post(client, **kw):
+    return json.loads(client.post(PLOTT_URL, json={**BASE_PLOTT, **kw}).data)
+
+
+class TestPlottChaos:
+    def test_returns_200(self, client):
+        assert client.post(PLOTT_URL, json=BASE_PLOTT).status_code == 200
+
+    def test_response_keys(self, client):
+        body = plott_post(client)
+        for k in ("condorcet_winner_exists", "top_cycle", "chaos_path",
+                  "alternative_path", "voter_ideal_points", "pedagogical_note"):
+            assert k in body
+
+    def test_chaos_path_keys(self, client):
+        body = plott_post(client)
+        cp = body["chaos_path"]
+        for k in ("from", "to", "steps", "num_steps"):
+            assert k in cp
+
+    def test_voter_ideal_points_count(self, client):
+        body = plott_post(client)
+        assert len(body["voter_ideal_points"]) == 5
+
+    def test_top_cycle_size_positive(self, client):
+        body = plott_post(client)
+        assert body["top_cycle"]["size"] > 0
+
+    # ── num_dimensions=1 → Condorcet winner usually exists ────────────────
+
+    def test_1d_condorcet_winner_likely(self, client):
+        """With 1D ideal points, median voter theorem → Condorcet winner expected."""
+        body = plott_post(client, num_dimensions=1, seed=42)
+        # 1D with median voter: almost always has CW
+        assert body["condorcet_winner_exists"] is True
+
+    # ── num_dimensions=2 → Condorcet winner rarely exists ─────────────────
+
+    def test_2d_chaos_with_specific_seed(self, client):
+        """With 2D random ideal points, seed=10 gives no Condorcet winner."""
+        # Verified: seed=10, 7 voters, 2D → chaos
+        body = plott_post(client, seed=10, num_voters=7)
+        assert body["condorcet_winner_exists"] is False
+
+    # ── chaos_path validity ────────────────────────────────────────────────
+
+    def test_chaos_path_steps_valid_majority(self, client):
+        """Each step in chaos_path must beat the previous via majority vote."""
+        body = plott_post(client)
+        steps = body["chaos_path"]["steps"]
+        voter_pts = body["voter_ideal_points"]
+        n = len(voter_pts)
+
+        for i in range(1, len(steps)):
+            a = steps[i - 1]  # previous policy
+            b = steps[i]      # next policy (must beat a)
+
+            # Count voters preferring b to a (closer to b)
+            prefer_b = sum(
+                sum((vp[d] - b[d]) ** 2 for d in range(len(b))) <
+                sum((vp[d] - a[d]) ** 2 for d in range(len(a)))
+                for vp in voter_pts
+            )
+            assert prefer_b > n / 2, (
+                f"Step {i}: {b} does not beat {a} in majority "
+                f"(prefer_b={prefer_b}, n={n})"
+            )
+
+    def test_num_steps_matches_path_length(self, client):
+        body = plott_post(client)
+        cp = body["chaos_path"]
+        assert cp["num_steps"] == max(0, len(cp["steps"]) - 1)
+
+    # ── target = start → num_steps = 0 ────────────────────────────────────
+
+    def test_same_start_target_zero_steps(self, client):
+        body = plott_post(client,
+                          target_policy=[-0.6, -0.6],
+                          start_policy=[-0.6, -0.6])
+        assert body["chaos_path"]["num_steps"] == 0
+
+    # ── alternative_path validity ──────────────────────────────────────────
+
+    def test_alternative_path_valid(self, client):
+        """Each step in alt_path must beat the previous."""
+        body = plott_post(client)
+        steps = body["alternative_path"]["steps"]
+        voter_pts = body["voter_ideal_points"]
+        n = len(voter_pts)
+
+        for i in range(1, len(steps)):
+            a = steps[i - 1]
+            b = steps[i]
+            prefer_b = sum(
+                sum((vp[d] - b[d]) ** 2 for d in range(len(b))) <
+                sum((vp[d] - a[d]) ** 2 for d in range(len(a)))
+                for vp in voter_pts
+            )
+            assert prefer_b > n / 2, f"Alt step {i} invalid"
+
+    def test_alt_path_reaches_different_target(self, client):
+        """Alternative path should reach a different target than chaos_path."""
+        body = plott_post(client)
+        cp_to  = body["chaos_path"]["to"]
+        alt_to = body["alternative_path"]["to"]
+        # They should be different points
+        assert cp_to != alt_to
+
+    # ── Reproducibility ────────────────────────────────────────────────────
+
+    def test_reproducibility(self, client):
+        a = plott_post(client)
+        b = plott_post(client)
+        assert a["condorcet_winner_exists"] == b["condorcet_winner_exists"]
+        assert a["chaos_path"]["num_steps"] == b["chaos_path"]["num_steps"]
