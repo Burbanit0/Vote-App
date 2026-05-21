@@ -16,6 +16,8 @@ import {
 import { useMetaTags } from '../hooks/useMetaTags';
 import PoliticalClusterMap, { PolisData } from '../components/shared/PoliticalClusterMap';
 import E2EVDemo from '../components/shared/E2EVDemo';
+import PolisPanel from '../components/shared/PolisPanel';
+import { ElectionProvider } from '../context/ElectionContext';
 
 const API = process.env.REACT_APP_API_URL ?? 'http://localhost:4433';
 
@@ -575,7 +577,19 @@ const TechDemocracyPage: React.FC = () => {
       <CountryComparisonSection t={t} />
       <WhyFranceSection         t={t} />
       <BlockchainTable          t={t} />
-      <PolisSection             t={t} />
+
+      {/* ── Pol.is avec évaluation des candidats ── */}
+      <Card className="mb-4" data-testid="polis-panel-section">
+        <Card.Header className="fw-bold">🌐 {t('tech.polisTitle')}</Card.Header>
+        <Card.Body>
+          <p style={{ fontSize: '0.85rem' }}>{t('tech.polisDesc')}</p>
+          <ElectionProvider>
+            <PolisPanel />
+          </ElectionProvider>
+        </Card.Body>
+      </Card>
+
+      <PolisSection t={t} />
     </Container>
   );
 };
