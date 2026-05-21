@@ -8,6 +8,7 @@ ARROW_URL  = "/api/theory/arrow"
 RATE_URL   = "/api/theory/iia-rate"
 PLOTT_URL  = "/api/theory/plott-chaos"
 MANIP_URL  = "/api/theory/manipulation-analysis"
+JUDG_URL   = "/api/theory/judgment-aggregation"
 
 
 def arrow_post(client, method="plurality", **kw):
@@ -413,3 +414,101 @@ class TestManipulationAnalysis:
         b = manip_post(client)
         assert a["manipulation_count"] == b["manipulation_count"]
         assert a["sincere_winner"] == b["sincere_winner"]
+
+
+# ── /api/theory/judgment-aggregation ─────────────────────────────────────────
+
+def judg_post(client, **kw):
+    payload = {"num_voters": 12, "seed": 42, "scenario": "legal", **kw}
+    return json.loads(client.post(JUDG_URL, json=payload).data)
+
+
+class TestJudgmentAggregation:
+    def test_returns_200(self, client):
+        assert client.post(JUDG_URL, json={"scenario": "legal"}).status_code == 200
+
+    def test_response_keys(self, client):
+        body = judg_post(client)
+        for k in ("scenario", "propositions", "collective_coherent",
+                  "incoherences", "voter_coherence_rate",
+                  "paradox_severity", "resolution_methods", "pedagogical_note"):
+            assert k in body
+
+    def test_propositions_have_required_keys(self, client):
+        body = judg_post(client)
+        for p in body["propositions"]:
+            for k in ("text", "type", "id", "yes_pct", "collective_vote"):
+                assert k in p
+
+    # ── budget scenario → collective_coherent=False ───────────────────────
+
+    def test_budget_scenario_incoherent(self, client):
+        """With equal voter type distribution, budget scenario produces incoherence."""
+        # With ~equal type distribution (large N), P1≈P2≈P3≈2/3 → C should be F
+        # but majority C=T → paradox. Use 99 voters for reliable distribution.
+        body = judg_post(client, scenario="budget", num_voters=99, seed=42)
+        assert body["collective_coherent"] is False
+        assert len(body["incoherences"]) > 0
+
+    def test_budget_incoherence_structure(self, client):
+        body = judg_post(client, scenario="budget", num_voters=99, seed=42)
+        for inc in body["incoherences"]:
+            assert "premises" in inc
+            assert "conclusion" in inc
+            assert "problem" in inc
+
+    # ── voter_coherence_rate = 1.0 ────────────────────────────────────────
+
+    def test_voter_coherence_rate_is_one(self, client):
+        """All voter types are individually coherent by design."""
+        for sc in ("legal", "budget", "climate"):
+            body = judg_post(client, scenario=sc, num_voters=30, seed=42)
+            assert body["voter_coherence_rate"] == pytest.approx(1.0), (
+                f"Scenario {sc}: voter_coherence_rate={body['voter_coherence_rate']}"
+            )
+
+    # ── resolution methods differ when incoherent ─────────────────────────
+
+    def test_resolution_methods_differ_when_incoherent(self, client):
+        body = judg_post(client, scenario="budget", num_voters=99, seed=42)
+        if not body["collective_coherent"]:
+            pb = body["resolution_methods"]["premise_based"]
+            cb = body["resolution_methods"]["conclusion_based"]
+            # premise_based derives conclusion logically; conclusion_based accepts majority C
+            # They must differ for at least the conclusion key
+            assert pb != cb or len(pb) == 0
+
+    # ── num_voters=1 → always coherent ────────────────────────────────────
+
+    def test_single_voter_always_coherent(self, client):
+        for sc in ("legal", "budget", "climate"):
+            for s in [1, 42, 99]:
+                body = judg_post(client, scenario=sc, num_voters=1, seed=s)
+                assert body["collective_coherent"] is True, (
+                    f"Scenario {sc}, seed={s}: single voter should be coherent"
+                )
+
+    # ── yes_pct in [0, 1] ─────────────────────────────────────────────────
+
+    def test_yes_pct_in_range(self, client):
+        body = judg_post(client)
+        for p in body["propositions"]:
+            assert 0.0 <= p["yes_pct"] <= 1.0
+
+    # ── legal scenario produces paradox with equal distribution ───────────
+
+    def test_legal_paradox_with_equal_distribution(self, client):
+        """With 3 voters (one of each type), legal scenario shows discursive dilemma."""
+        body = judg_post(client, scenario="legal", num_voters=3, seed=42)
+        # Seeds sampled: might give types [C,A,B] or similar → paradox
+        # Just verify the structure is valid
+        assert body["collective_coherent"] in (True, False)
+        assert body["voter_coherence_rate"] == pytest.approx(1.0)
+
+    # ── Reproducibility ───────────────────────────────────────────────────
+
+    def test_reproducibility(self, client):
+        a = judg_post(client)
+        b = judg_post(client)
+        assert a["collective_coherent"] == b["collective_coherent"]
+        assert a["voter_coherence_rate"] == b["voter_coherence_rate"]

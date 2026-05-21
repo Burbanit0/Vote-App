@@ -8,6 +8,7 @@ import { useTranslation } from 'react-i18next';
 import { useMetaTags } from '../hooks/useMetaTags';
 import ArrowExplorer from '../components/Simulation/ArrowExplorer';
 import PlottChaosPanel from '../components/Simulation/PlottChaosPanel';
+import JudgmentAggregationPanel from '../components/shared/JudgmentAggregationPanel';
 
 const TheoryPage: React.FC = () => {
   const { t } = useTranslation();
@@ -44,6 +45,15 @@ const TheoryPage: React.FC = () => {
               </span>
             ))}
           </div>
+        </Card.Body>
+      </Card>
+
+      {/* ── Judgment Aggregation ── */}
+      <Card className="mb-4 border-info">
+        <Card.Header className="fw-bold text-info">⚖️ {t('judg.cardTitle')}</Card.Header>
+        <Card.Body>
+          <p style={{ fontSize: '0.85rem' }}>{t('judg.cardDesc')}</p>
+          <JudgmentAggregationPanel />
         </Card.Body>
       </Card>
 
