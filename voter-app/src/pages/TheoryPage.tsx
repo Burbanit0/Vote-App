@@ -11,6 +11,7 @@ import PlottChaosPanel from '../components/Simulation/PlottChaosPanel';
 import JudgmentAggregationPanel from '../components/shared/JudgmentAggregationPanel';
 import SenParadoxPanel from '../components/shared/SenParadoxPanel';
 import ApportionmentPanel from '../components/shared/ApportionmentPanel';
+import AgendaManipulationPanel from '../components/shared/AgendaManipulationPanel';
 
 const TheoryPage: React.FC = () => {
   const { t } = useTranslation();
@@ -65,6 +66,15 @@ const TheoryPage: React.FC = () => {
         <Card.Body>
           <p style={{ fontSize: '0.85rem' }}>{t('sen.cardDesc')}</p>
           <SenParadoxPanel />
+        </Card.Body>
+      </Card>
+
+      {/* ── Agenda Manipulation ── */}
+      <Card className="mb-4 border-dark">
+        <Card.Header className="fw-bold">🗓 {t('agenda.cardTitle')}</Card.Header>
+        <Card.Body>
+          <p style={{ fontSize: '0.85rem' }}>{t('agenda.cardDesc')}</p>
+          <AgendaManipulationPanel />
         </Card.Body>
       </Card>
 

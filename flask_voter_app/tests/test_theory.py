@@ -11,6 +11,7 @@ MANIP_URL  = "/api/theory/manipulation-analysis"
 JUDG_URL   = "/api/theory/judgment-aggregation"
 SEN_URL    = "/api/theory/sen-paradox"
 APPOR_URL  = "/api/theory/apportionment"
+AGENDA_URL = "/api/theory/agenda-manipulation"
 
 
 def arrow_post(client, method="plurality", **kw):
@@ -695,3 +696,139 @@ class TestApportionment:
         b = appor_post(client)
         for m in a["results"]:
             assert a["results"][m]["seats"] == b["results"][m]["seats"]
+
+
+# ── /api/theory/agenda-manipulation ──────────────────────────────────────────
+
+def agenda_post(client, **kw):
+    payload = {
+        "alternatives":  ["Alice", "Bob", "Carol"],
+        "num_voters":    21,
+        "seed":          42,
+        "target_outcome": "Alice",
+        "constraint_type": "binary_elimination",
+        **kw,
+    }
+    return json.loads(client.post(AGENDA_URL, json=payload).data)
+
+
+class TestAgendaManipulation:
+    def test_returns_200(self, client):
+        assert client.post(AGENDA_URL, json={
+            "alternatives": ["Alice", "Bob", "Carol"],
+            "num_voters": 21, "seed": 42,
+        }).status_code == 200
+
+    def test_response_keys(self, client):
+        body = agenda_post(client)
+        for k in ("pairwise_matrix", "condorcet_winner", "all_outcomes",
+                  "achievable_outcomes", "optimal_agenda",
+                  "manipulation_power", "pedagogical_note"):
+            assert k in body
+
+    def test_optimal_agenda_keys(self, client):
+        body = agenda_post(client)
+        for k in ("for_target", "neutral", "worst_case"):
+            assert k in body["optimal_agenda"]
+
+    def test_pairwise_matrix_structure(self, client):
+        body = agenda_post(client)
+        m = body["pairwise_matrix"]
+        alts = ["Alice", "Bob", "Carol"]
+        for a in alts:
+            assert a in m
+            for b in alts:
+                assert b in m[a]
+                val = m[a][b]
+                assert 0.0 <= val <= 1.0
+
+    def test_achievable_outcomes_subset_of_alts(self, client):
+        body = agenda_post(client)
+        alts = {"Alice", "Bob", "Carol"}
+        for outcome in body["achievable_outcomes"]:
+            assert outcome in alts
+
+    # ── Condorcet winner → neutral agenda elects CW ────────────────────────
+
+    def test_cw_neutral_agenda_elects_cw(self, client):
+        """When a Condorcet winner exists, the neutral agenda must elect it."""
+        body = agenda_post(client)
+        if body["condorcet_winner"] is None:
+            pytest.skip("No CW for this seed — skip CW-specific test")
+        cw = body["condorcet_winner"]
+        neutral_order = body["optimal_agenda"]["neutral"]
+        # Simulate binary elimination using the pairwise matrix
+        pm = body["pairwise_matrix"]
+        current = neutral_order[0]
+        for challenger in neutral_order[1:]:
+            if pm[challenger][current] > 0.5:
+                current = challenger
+        assert current == cw, (
+            f"Neutral agenda elected {current}, expected CW={cw}"
+        )
+
+    # ── CW → achievable_outcomes length == 1 (only the CW is achievable) ──
+
+    def test_cw_achievable_is_singleton(self, client):
+        """With a Condorcet winner and 3 alternatives, only the CW is achievable."""
+        body = agenda_post(client)
+        if body["condorcet_winner"] is None:
+            pytest.skip("No CW for this seed")
+        assert len(body["achievable_outcomes"]) == 1
+        assert body["achievable_outcomes"][0] == body["condorcet_winner"]
+
+    # ── manipulation_power == 1.0 when all outcomes achievable ────────────
+
+    def test_full_manipulation_power_when_all_achievable(self, client):
+        """When every alternative is achievable, manipulation_power should be 1.0."""
+        # Use a seed known to produce a Condorcet cycle with 3 alternatives
+        # Try multiple seeds to find one with a full cycle
+        found = False
+        for s in [7, 13, 17, 23, 31]:
+            body = agenda_post(client, seed=s, num_voters=9)
+            if (body["condorcet_winner"] is None
+                    and len(body["achievable_outcomes"]) == 3):
+                assert body["manipulation_power"] == pytest.approx(1.0)
+                found = True
+                break
+        if not found:
+            pytest.skip("No full-cycle seed found in tried seeds")
+
+    # ── for_target agenda makes the target win ────────────────────────────
+
+    def test_for_target_agenda_elects_target(self, client):
+        """The for_target optimal agenda should elect the requested target."""
+        for target in ["Alice", "Bob", "Carol"]:
+            body = agenda_post(client, target_outcome=target)
+            if target not in body["achievable_outcomes"]:
+                continue  # target not achievable — skip
+            order = body["optimal_agenda"]["for_target"]
+            pm = body["pairwise_matrix"]
+            current = order[0]
+            for challenger in order[1:]:
+                if pm[challenger][current] > 0.5:
+                    current = challenger
+            assert current == target, (
+                f"for_target agenda elected {current}, expected {target}"
+            )
+
+    # ── achievable_outcomes non-empty ──────────────────────────────────────
+
+    def test_achievable_outcomes_nonempty(self, client):
+        body = agenda_post(client)
+        assert len(body["achievable_outcomes"]) >= 1
+
+    # ── manipulation_power in [0, 1] ──────────────────────────────────────
+
+    def test_manipulation_power_in_range(self, client):
+        body = agenda_post(client)
+        assert 0.0 <= body["manipulation_power"] <= 1.0
+
+    # ── Reproducibility ───────────────────────────────────────────────────
+
+    def test_reproducibility(self, client):
+        a = agenda_post(client)
+        b = agenda_post(client)
+        assert a["condorcet_winner"] == b["condorcet_winner"]
+        assert a["achievable_outcomes"] == b["achievable_outcomes"]
+        assert a["manipulation_power"] == pytest.approx(b["manipulation_power"])
