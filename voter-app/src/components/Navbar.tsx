@@ -23,6 +23,7 @@ const NAV_EXPLORE = [
   { href: '/tech-democracy',   icon: '💻', key: 'nav.techDemocracy' },
   { href: '/sortition',        icon: '🎲', key: 'nav.sortition' },
   { href: '/party-dynamics',  icon: '📊', key: 'nav.partyDynamics' },
+  { href: '/theory',          icon: '🏛', key: 'nav.theory' },
   { href: '/galerie',   icon: '🗃️', key: 'nav.gallery' },
   { href: '/api-docs',  icon: '🔌', key: 'nav.apiDocs' },
 ];
