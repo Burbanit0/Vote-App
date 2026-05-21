@@ -23,6 +23,7 @@ import QuadraticFundingPage from './pages/QuadraticFundingPage';
 import TechDemocracyPage from './pages/TechDemocracyPage';
 import SortitionPage from './pages/SortitionPage';
 import PartyDynamicsPage from './pages/PartyDynamicsPage';
+import TheoryPage from './pages/TheoryPage';
 import Login from './pages/Login';
 import OAuthCallback from './pages/OAuthCallback';
 import Register from './pages/Register';
@@ -81,6 +82,7 @@ const AppContent: React.FC = () => {
           <Route path="/tech-democracy"   element={<TechDemocracyPage />} />
           <Route path="/sortition"        element={<SortitionPage />} />
           <Route path="/party-dynamics"   element={<PartyDynamicsPage />} />
+          <Route path="/theory"           element={<TheoryPage />} />
 
           {/* Auth-protected routes */}
           <Route path="/profile"    element={<AuthGuard component={ProfilePage} />} />

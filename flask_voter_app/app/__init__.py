@@ -129,6 +129,7 @@ def create_app(config_object="config.Config"):
     from .routes.export     import export_bp
     from .routes.election   import election_bp
     from .routes.tech       import tech_bp
+    from .routes.theory     import theory_bp
 
     app.register_blueprint(users.auth_bp)
     app.register_blueprint(simulation_base.simulation_base_bp)
@@ -142,6 +143,7 @@ def create_app(config_object="config.Config"):
     app.register_blueprint(export_bp)
     app.register_blueprint(election_bp)
     app.register_blueprint(tech_bp)
+    app.register_blueprint(theory_bp)
 
     # ── Rate limiters ───────────────────────────────────────────────────────
     from .extensions import init_simulation_limiter
