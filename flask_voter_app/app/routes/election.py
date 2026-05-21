@@ -6085,3 +6085,282 @@ def compulsory_voting() -> tuple[Response, int]:
         "quality_degradation":        quality_degradation,
         "pedagogical_note":           note,
     }), 200
+
+
+# ── Sortition (tirage au sort) ────────────────────────────────────────────────
+
+import math as _math
+
+
+@election_bp.route("/sortition", methods=["POST"])
+@sim_limiter.limit("5 per minute")
+def sortition() -> tuple[Response, int]:
+    """
+    POST /api/election/sortition
+
+    Compare three assembly selection methods on the same population:
+    elected (electoral bias), sortition pure (random sample),
+    sortition stratified (demographically balanced random sample).
+    Metrics: representativity, diversity, decision regret, Gini of representation.
+    Monte Carlo variance across num_simulations runs.
+    """
+    data            = request.get_json() or {}
+    num_voters      = max(50,  min(500, int(data.get("num_voters",        300))))
+    assembly_size   = max(5,   min(300, int(data.get("assembly_size",      50))))
+    ideology        = str(data.get("ideology",          "random"))
+    seed            = int(data.get("seed",               42))
+    primary_method  = str(data.get("method",            "plurality"))
+    num_sims        = max(5,   min(100, int(data.get("num_simulations",   20))))
+    realistic_cands = bool(data.get("realistic_candidates", True))
+    cand_specs      = data.get("candidates", [
+        {"name": "Alice", "x": -0.5, "y": -0.2},
+        {"name": "Bob",   "x":  0.5, "y":  0.2},
+        {"name": "Carol", "x":  0.0, "y":  0.1},
+    ])[:6]
+
+    strat_cfg   = data.get("stratification", {})
+    age_dist_raw = strat_cfg.get("age_groups", [0.25, 0.45, 0.30])
+    gender_par  = bool(strat_cfg.get("gender_parity", True))
+    edu_quota   = bool(strat_cfg.get("education_quota", True))
+
+    if len(cand_specs) < 2:
+        return jsonify({"error": "At least 2 candidates required"}), 400
+
+    _random.seed(seed)
+    _np.random.seed(seed)
+    issues = DEFAULT_ISSUES
+
+    candidates, voters, sincere_utilities, cand_names = _build_base_electorate(
+        cand_specs, num_voters, ideology, seed, issues
+    )
+    all_ids: list[int] = [v["id"] for v in voters]
+
+    # ── Voter ideology + demographics ─────────────────────────────────────
+    voter_ideo: Dict[int, float] = {
+        v["id"]: round(2.0 * v["issue_positions"].get("economy", 0.5) - 1.0, 3)
+        for v in voters
+    }
+    voter_max_util: Dict[int, float] = {
+        v["id"]: max(sincere_utilities[v["id"]].values()) for v in voters
+    }
+    full_mean_ideo = round(sum(voter_ideo.values()) / num_voters, 4)
+
+    # Demographics (for stratified sortition)
+    d_rng = _random.Random(seed + 50)
+    age_sum  = sum(age_dist_raw) or 1.0
+    age_dist = [x / age_sum for x in age_dist_raw[:3]]
+    age_cum  = [sum(age_dist[:k+1]) for k in range(len(age_dist))]
+
+    def _age_group(r: float) -> int:
+        for i, th in enumerate(age_cum):
+            if r < th:
+                return i
+        return len(age_cum) - 1
+
+    voter_age: Dict[int, int] = {v["id"]: _age_group(d_rng.random()) for v in voters}
+    voter_edu: Dict[int, int] = {v["id"]: (0 if d_rng.random() < 0.40 else 1) for v in voters}
+    voter_gen: Dict[int, int] = {v["id"]: (0 if d_rng.random() < 0.50 else 1) for v in voters}
+
+    # ── Metric helpers ────────────────────────────────────────────────────
+    def _representativity(asm: set) -> float:
+        if not asm:
+            return 0.0
+        mean = sum(voter_ideo[vid] for vid in asm) / len(asm)
+        return round(max(0.0, 1.0 - 2.0 * abs(mean - full_mean_ideo)), 4)
+
+    def _diversity(asm: set) -> float:
+        if not asm:
+            return 0.0
+        ideos = [voter_ideo[vid] for vid in asm]
+        bins  = [-1.0, -0.5, 0.0, 0.5, 1.01]
+        counts = [0] * 4
+        for ideo in ideos:
+            for i in range(4):
+                if bins[i] <= ideo < bins[i + 1]:
+                    counts[i] += 1
+                    break
+        n  = len(ideos)
+        ps = [c / n for c in counts if c > 0]
+        if len(ps) <= 1:
+            return 0.0
+        ent = -sum(p * _math.log(p) for p in ps)
+        return round(ent / _math.log(4), 4)
+
+    def _decision_regret(asm: set) -> float:
+        if not asm:
+            return 0.0
+        asm_mean = sum(voter_ideo[vid] for vid in asm) / len(asm)
+        return round(
+            sum(abs(voter_ideo[vid] - asm_mean) for vid in all_ids) / num_voters, 4
+        )
+
+    def _gini_repr(asm: set) -> float:
+        if not asm:
+            return 0.0
+        pop_s = sorted(voter_ideo.values())
+        q     = max(1, num_voters // 4)
+        bounds = [pop_s[0], pop_s[q], pop_s[2 * q], pop_s[3 * q], pop_s[-1] + 0.01]
+        ideos  = [voter_ideo[vid] for vid in asm]
+        n_asm  = len(ideos)
+        ratios = []
+        for i in range(4):
+            af = sum(1 for x in ideos if bounds[i] <= x < bounds[i + 1]) / n_asm
+            ratios.append(af / 0.25)
+        s  = sorted(ratios)
+        tot = sum(s) or 1.0
+        cs  = sum((i + 1) * v for i, v in enumerate(s))
+        return round(abs(2.0 * cs / (4 * tot) - (4 + 1) / 4), 4)
+
+    def _asm_metrics(asm: set) -> Dict[str, Any]:
+        n = len(asm)
+        if n == 0:
+            return {k: 0.0 for k in ("members_ideology_mean", "representativity",
+                                      "diversity", "decision_regret", "gini_representation")}
+        mean_ideo = round(sum(voter_ideo[vid] for vid in asm) / n, 4)
+        return {
+            "members_ideology_mean": mean_ideo,
+            "representativity":      _representativity(asm),
+            "diversity":             _diversity(asm),
+            "decision_regret":       _decision_regret(asm),
+            "gini_representation":   _gini_repr(asm),
+            "demographic_profile": {
+                "age":       round(sum(voter_age[vid] for vid in asm) / n, 4),
+                "education": round(sum(voter_edu[vid] for vid in asm) / n, 4),
+            },
+        }
+
+    # ── Assembly constructors ─────────────────────────────────────────────
+    def _elected_asm(rng: _random.Random) -> set:
+        cand_n = min(assembly_size * 3, num_voters)
+        if realistic_cands:
+            # Add noise so each MC run gets a slightly different candidate pool
+            noisy_scores = {
+                vid: abs(voter_ideo[vid]) + rng.uniform(0, 0.25)
+                for vid in all_ids
+            }
+            pool_sorted = sorted(all_ids, key=lambda vid: -noisy_scores[vid])
+            pool = set(pool_sorted[:cand_n])
+        else:
+            pool = set(rng.sample(all_ids, cand_n))
+
+        tally: Counter = Counter()
+        for vid in all_ids:
+            closest = min(pool, key=lambda cid: abs(voter_ideo[vid] - voter_ideo[cid]))
+            tally[closest] += 1
+
+        elected = sorted(pool, key=lambda cid: -tally[cid])[:assembly_size]
+        return set(elected)
+
+    def _pure_asm(rng: _random.Random) -> set:
+        return set(rng.sample(all_ids, min(assembly_size, num_voters)))
+
+    def _stratified_asm(rng: _random.Random) -> set:
+        age_targets = [max(1, round(p * assembly_size)) for p in age_dist]
+        while sum(age_targets) > assembly_size:
+            age_targets[age_targets.index(max(age_targets))] -= 1
+        while sum(age_targets) < assembly_size:
+            age_targets[age_targets.index(min(age_targets))] += 1
+
+        result: list[int] = []
+        for ag in range(len(age_dist)):
+            n_ag = age_targets[ag]
+            pool_ag = [vid for vid in all_ids if voter_age[vid] == ag]
+            if not pool_ag:
+                continue
+
+            if edu_quota:
+                n_low  = max(1, round(0.40 * n_ag))
+                n_high = n_ag - n_low
+                pool_low  = [vid for vid in pool_ag if voter_edu[vid] == 0]
+                pool_high = [vid for vid in pool_ag if voter_edu[vid] == 1]
+                result.extend(rng.sample(pool_low,  min(n_low,  len(pool_low))))
+                result.extend(rng.sample(pool_high, min(n_high, len(pool_high))))
+            else:
+                result.extend(rng.sample(pool_ag, min(n_ag, len(pool_ag))))
+
+        # Fill gap
+        remaining = [vid for vid in all_ids if vid not in set(result)]
+        while len(result) < assembly_size and remaining:
+            pick = rng.choice(remaining)
+            result.append(pick)
+            remaining.remove(pick)
+        return set(result[:assembly_size])
+
+    # ── Main assembly run ─────────────────────────────────────────────────
+    main_rng = _random.Random(seed + 100)
+    elected_ids    = _elected_asm(_random.Random(seed))
+    pure_ids       = _pure_asm(main_rng)
+    stratified_ids = _stratified_asm(_random.Random(seed + 200))
+
+    assemblies = {
+        "elected":             _asm_metrics(elected_ids),
+        "sortition_pure":      _asm_metrics(pure_ids),
+        "sortition_stratified": _asm_metrics(stratified_ids),
+    }
+
+    # ── Winner by assembly ────────────────────────────────────────────────
+    def _asm_winner(asm: set) -> Optional[str]:
+        rnk = [
+            sorted(sincere_utilities[vid].keys(), key=lambda k: -sincere_utilities[vid][k])
+            for vid in asm
+        ]
+        return get_plurality_winner(rnk) if rnk else cand_names[0]
+
+    winner_by_method = {
+        "elected":             _asm_winner(elected_ids),
+        "sortition_pure":      _asm_winner(pure_ids),
+        "sortition_stratified": _asm_winner(stratified_ids),
+    }
+    consensus_possible = len(set(winner_by_method.values())) == 1
+
+    # ── Monte Carlo variance ──────────────────────────────────────────────
+    mc_elected:    list[float] = []
+    mc_pure:       list[float] = []
+    mc_stratified: list[float] = []
+
+    for sim_i in range(num_sims):
+        r = _random.Random(seed + 1000 + sim_i)
+        def _mean_ideo(asm: set) -> float:
+            return sum(voter_ideo[vid] for vid in asm) / len(asm) if asm else 0.0
+        mc_elected.append(_mean_ideo(_elected_asm(r)))
+        mc_pure.append(_mean_ideo(_pure_asm(_random.Random(seed + 2000 + sim_i))))
+        mc_stratified.append(_mean_ideo(_stratified_asm(_random.Random(seed + 3000 + sim_i))))
+
+    def _var(xs: list[float]) -> float:
+        if len(xs) < 2:
+            return 0.0
+        return round(float(_np.var(xs)), 6)
+
+    variance = {
+        "elected":              _var(mc_elected),
+        "sortition_pure":       _var(mc_pure),
+        "sortition_stratified": _var(mc_stratified),
+    }
+
+    # ── Pedagogical note ──────────────────────────────────────────────────
+    rep_elected = assemblies["elected"]["representativity"]
+    rep_pure    = assemblies["sortition_pure"]["representativity"]
+    note = (
+        f"Avec {assembly_size} sièges et profil candidats "
+        f"{'réaliste' if realistic_cands else 'neutre'}, "
+        f"l'assemblée élue a une représentativité de {rep_elected:.2f} "
+        f"contre {rep_pure:.2f} pour le tirage au sort pur. "
+        f"{'Consensus atteint' if consensus_possible else 'Pas de consensus'} "
+        f"entre les 3 modes de sélection."
+    )
+
+    return jsonify({
+        "population": {
+            "mean_ideology": full_mean_ideo,
+            "gini_ideology": round(float(_np.std([voter_ideo[vid] for vid in all_ids])), 4),
+            "demographics":  {
+                "mean_age_group":       round(sum(voter_age.values()) / num_voters, 4),
+                "mean_education_level": round(sum(voter_edu.values()) / num_voters, 4),
+            },
+        },
+        "assemblies":         assemblies,
+        "variance":           variance,
+        "winner_by_method":   winner_by_method,
+        "consensus_possible": consensus_possible,
+        "pedagogical_note":   note,
+    }), 200
