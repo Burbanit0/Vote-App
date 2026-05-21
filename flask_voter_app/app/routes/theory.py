@@ -647,6 +647,134 @@ def judgment_aggregation() -> tuple[Response, int]:
     }), 200
 
 
+# ── Agenda Manipulation ───────────────────────────────────────────────────────
+
+import itertools as _itertools_ag
+
+
+@theory_bp.route("/agenda-manipulation", methods=["POST"])
+@sim_limiter.limit("5 per minute")
+def agenda_manipulation() -> tuple[Response, int]:
+    """
+    POST /api/theory/agenda-manipulation
+
+    Demonstrates that the agenda-setter can produce ANY desired outcome by
+    choosing the order in which alternatives are presented to binary-elimination votes.
+    A consequence of Plott's Chaos Theorem.
+    """
+    data         = request.get_json() or {}
+    alternatives = data.get("alternatives", ["Alice", "Bob", "Carol"])[:6]
+    num_voters   = max(3, min(101, int(data.get("num_voters", 21))))
+    if num_voters % 2 == 0:
+        num_voters += 1       # force odd to avoid exact ties
+    seed         = int(data.get("seed", 42))
+    target       = str(data.get("target_outcome", alternatives[0] if alternatives else ""))
+    _            = str(data.get("constraint_type", "binary_elimination"))
+
+    n = len(alternatives)
+    if n < 2:
+        return jsonify({"error": "At least 2 alternatives required"}), 400
+    if target not in alternatives:
+        target = alternatives[0]
+
+    _np_t.random.seed(seed)
+    alt_idx = {a: i for i, a in enumerate(alternatives)}
+
+    # ── Random voter utilities ────────────────────────────────────────────
+    utils: _np_t.ndarray = _np_t.random.uniform(0, 1, (num_voters, n))
+
+    # ── Pairwise matrix ───────────────────────────────────────────────────
+    pairwise: Dict[str, Dict[str, float]] = {}
+    for a in alternatives:
+        pairwise[a] = {}
+        for b in alternatives:
+            if a == b:
+                pairwise[a][b] = 0.5
+            else:
+                ia, ib  = alt_idx[a], alt_idx[b]
+                wins    = int(_np_t.sum(utils[:, ia] > utils[:, ib]))
+                pairwise[a][b] = round(wins / num_voters, 4)
+
+    def beats(a: str, b: str) -> bool:
+        return pairwise[a][b] > 0.5
+
+    # ── Condorcet winner ──────────────────────────────────────────────────
+    cw: Optional[str] = next(
+        (a for a in alternatives if all(beats(a, b) for b in alternatives if b != a)),
+        None,
+    )
+
+    # ── Binary elimination for a given agenda order ───────────────────────
+    def binary_elim(order: List[str]) -> str:
+        current = order[0]
+        for challenger in order[1:]:
+            if beats(challenger, current):
+                current = challenger
+        return current
+
+    # ── Enumerate all permutations ────────────────────────────────────────
+    all_perms = list(_itertools_ag.permutations(alternatives))
+
+    achievable:          set                = set()
+    sample_outcomes:     Dict[str, Any]     = {}
+    optimal_for_target:  Optional[List[str]] = None
+    neutral_agenda:      Optional[List[str]] = None
+    worst_for_target:    Optional[List[str]] = None
+
+    for perm in all_perms:
+        order  = list(perm)
+        result = binary_elim(order)
+        achievable.add(result)
+
+        key = "→".join(order)
+        if len(sample_outcomes) < 30:
+            sample_outcomes[key] = {"outcome": result, "sequence": order}
+
+        if result == target and optimal_for_target is None:
+            optimal_for_target = order
+        if result != target and worst_for_target is None:
+            worst_for_target = order
+        if cw and result == cw and neutral_agenda is None:
+            neutral_agenda = order
+
+    if neutral_agenda is None:
+        neutral_agenda = list(all_perms[0])
+    if optimal_for_target is None:
+        optimal_for_target = list(all_perms[0])
+    if worst_for_target is None:
+        worst_for_target = list(all_perms[-1])
+
+    manip_power = round(len(achievable) / n, 4)
+
+    if cw:
+        note = (
+            f"Un gagnant de Condorcet existe ({cw}) — il gagne toujours quel que soit "
+            f"l'ordre d'agenda. Seulement 1/{n} résultat possible "
+            f"(puissance de manipulation : {round(manip_power*100)}%)."
+        )
+    else:
+        note = (
+            f"Aucun gagnant de Condorcet ! Les {len(achievable)} alternative(s) "
+            f"({', '.join(sorted(achievable))}) sont toutes atteignables via l'agenda. "
+            f"Puissance de manipulation : {round(manip_power*100)}% — "
+            f"l'agenda-setter a un contrôle total sur l'issue."
+        )
+
+    return jsonify({
+        "pairwise_matrix":     pairwise,
+        "condorcet_winner":    cw,
+        "all_outcomes":        sample_outcomes,
+        "achievable_outcomes": sorted(achievable),
+        "optimal_agenda": {
+            "for_target": optimal_for_target,
+            "neutral":    neutral_agenda,
+            "worst_case": worst_for_target,
+        },
+        "manipulation_power": manip_power,
+        "pedagogical_note":   note,
+    }), 200
+
+
 # ── Apportionment Methods & Balinski-Young Theorem ───────────────────────────
 
 import math as _math_ap
