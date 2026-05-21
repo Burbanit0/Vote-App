@@ -6364,3 +6364,231 @@ def sortition() -> tuple[Response, int]:
         "consensus_possible": consensus_possible,
         "pedagogical_note":   note,
     }), 200
+
+
+# ── Party Dynamics ────────────────────────────────────────────────────────────
+
+@election_bp.route("/party-dynamics", methods=["POST"])
+@sim_limiter.limit("5 per minute")
+def party_dynamics() -> tuple[Response, int]:
+    """
+    POST /api/election/party-dynamics
+
+    Simulate multi-election party system evolution (Duverger's Law):
+    parties adapt positions (Hotelling), get eliminated below survival_threshold,
+    and new parties can emerge.  Tactical voting squeezes small parties under
+    FPTP, driving the system toward bipartism.
+    """
+    import copy as _cp
+
+    data    = request.get_json() or {}
+    num_voters    = max(100, min(1000, int(data.get("num_voters",        500))))
+    ideology      = str(data.get("ideology",                "random"))
+    seed          = int(data.get("seed",                     42))
+    num_elections = max(1,  min(30,  int(data.get("num_elections",       10))))
+    method        = str(data.get("method",                  "plurality"))
+    surv_thr      = max(0.01, min(0.20, float(data.get("survival_threshold",   0.05))))
+    emerge_prob   = max(0.00, min(1.00, float(data.get("emergence_probability", 0.10))))
+    hotelling_a   = max(0.00, min(1.00, float(data.get("hotelling_adaptation",  0.10))))
+    tactical_on   = bool(data.get("tactical_voting", True))
+    initial_pts   = data.get("initial_parties", [
+        {"name": "A", "x": -0.8, "y":  0.0, "support_pct": 0.10},
+        {"name": "B", "x": -0.3, "y":  0.0, "support_pct": 0.25},
+        {"name": "C", "x":  0.1, "y":  0.0, "support_pct": 0.30},
+        {"name": "D", "x":  0.5, "y":  0.0, "support_pct": 0.25},
+        {"name": "E", "x":  0.9, "y":  0.0, "support_pct": 0.10},
+    ])[:10]
+
+    if len(initial_pts) < 2:
+        return jsonify({"error": "At least 2 initial parties required"}), 400
+
+    _random.seed(seed)
+    _np.random.seed(seed)
+
+    # ── Voter ideology (fixed across all elections) ───────────────────────
+    if ideology == "polarized":
+        h = num_voters // 2
+        voter_x = _np.clip(
+            _np.concatenate([_np.random.normal(-0.6, 0.2, h),
+                             _np.random.normal( 0.6, 0.2, num_voters - h)]),
+            -1.0, 1.0,
+        )
+    elif ideology == "normal":
+        voter_x = _np.clip(_np.random.normal(0, 0.3, num_voters), -1.0, 1.0)
+    else:
+        voter_x = _np.random.uniform(-1.0, 1.0, num_voters)
+
+    voter_median = float(_np.median(voter_x))
+
+    # ── Active parties (mutable state) ───────────────────────────────────
+    active: list[Dict[str, Any]] = [
+        {
+            "name":        str(p.get("name", f"P{i}")),
+            "x":           max(-1.0, min(1.0, float(p.get("x", 0.0)))),
+            "y":           max(-1.0, min(1.0, float(p.get("y", 0.0)))),
+            "poll":        max(0.0,  float(p.get("support_pct", 1 / len(initial_pts)))),
+        }
+        for i, p in enumerate(initial_pts)
+    ]
+    # Normalize polls
+    poll_total = sum(p["poll"] for p in active) or 1.0
+    for p in active:
+        p["poll"] /= poll_total
+
+    initial_positions: Dict[str, float] = {p["name"]: p["x"] for p in active}
+    party_counter      = len(active)
+    rng                = _random.Random(seed + 1)
+    all_elections: list[Dict[str, Any]] = []
+    n_eff_curve: list[float] = []
+    tactical_methods = {"plurality", "two_round", "irv"}
+
+    # ── Vote-share helper ─────────────────────────────────────────────────
+    def _vote_shares(parties: list, polls: Dict[str, float]) -> Dict[str, float]:
+        pxs = _np.array([p["x"] for p in parties])
+        dists = _np.abs(voter_x[:, None] - pxs[None, :])   # (N, K)
+        nearest = _np.argmin(dists, axis=1)
+
+        apply_tac = tactical_on and method in tactical_methods
+        if apply_tac:
+            viable = _np.array([polls.get(p["name"], 0) >= 2 * surv_thr
+                                 for p in parties])
+            if viable.any() and not viable.all():
+                masked = dists.copy()
+                masked[:, ~viable] = 1e9
+                tac_nearest = _np.argmin(masked, axis=1)
+                mask = ~viable[nearest]
+                nearest[mask] = tac_nearest[mask]
+
+        counts = _np.bincount(nearest, minlength=len(parties))
+        return {p["name"]: float(counts[i] / num_voters) for i, p in enumerate(parties)}
+
+    # ── Gap finder for party emergence ────────────────────────────────────
+    def _find_gap(pxs: list) -> float:
+        cands = _np.linspace(-1.0, 1.0, 60)
+        best_x, best_gap = 0.0, 0.0
+        for cx in cands:
+            g = min(abs(float(cx) - px) for px in pxs)
+            if g > best_gap:
+                best_gap, best_x = g, float(cx)
+        return round(best_x, 2)
+
+    # ── N_eff ─────────────────────────────────────────────────────────────
+    def _n_eff(shares: Dict[str, float]) -> float:
+        s = sum(v ** 2 for v in shares.values() if v > 0)
+        return round(1.0 / s, 4) if s > 0 else 1.0
+
+    # ── Simulation loop ───────────────────────────────────────────────────
+    for k in range(num_elections):
+        polls_dict = {p["name"]: p["poll"] for p in active}
+        shares     = _vote_shares(active, polls_dict)
+        n_eff      = _n_eff(shares)
+        n_eff_curve.append(n_eff)
+
+        winner = max(shares, key=shares.__getitem__) if shares else ""
+
+        parties_snap = [
+            {
+                "name":     p["name"],
+                "x":        round(p["x"], 4),
+                "y":        round(p["y"], 4),
+                "vote_pct": round(shares.get(p["name"], 0) * 100, 2),
+                "seats":    round(shares.get(p["name"], 0) * 100),
+                "survived": shares.get(p["name"], 0) >= surv_thr,
+            }
+            for p in active
+        ]
+
+        # Record before elimination
+        all_elections.append({
+            "election_n":        k + 1,
+            "active_parties":    len(active),
+            "parties":           parties_snap,
+            "effective_parties": n_eff,
+            "winner":            winner,
+            "new_entrants":      [],   # filled in next iteration
+            "eliminated":        [],   # filled below
+        })
+
+        # Eliminate
+        eliminated = [p["name"] for p in active
+                      if shares.get(p["name"], 0) < surv_thr]
+        all_elections[-1]["eliminated"] = eliminated
+        active = [p for p in active if shares.get(p["name"], 0) >= surv_thr]
+
+        # Update polls
+        for p in active:
+            p["poll"] = shares.get(p["name"], 0)
+
+        if not active:
+            break
+
+        # Hotelling adaptation
+        for p in active:
+            p["x"] = round(p["x"] + hotelling_a * (voter_median - p["x"]), 4)
+            p["y"] = round(p["y"] + hotelling_a * (0.0 - p["y"]), 4)
+
+        # Party emergence
+        new_entrants: list[str] = []
+        if emerge_prob > 0 and rng.random() < emerge_prob:
+            gap_x = _find_gap([p["x"] for p in active])
+            party_counter += 1
+            new_name = f"Nouveau-{party_counter}"
+            new_party: Dict[str, Any] = {
+                "name": new_name, "x": gap_x, "y": 0.0, "poll": surv_thr * 1.5,
+            }
+            active.append(new_party)
+            new_entrants.append(new_name)
+            initial_positions[new_name] = gap_x
+
+        if k + 1 < len(all_elections):
+            all_elections[k + 1]["new_entrants"] = new_entrants
+        else:
+            # Mark on the NEXT election (we just finished election k)
+            pass
+        if new_entrants and k < num_elections - 1:
+            all_elections[-1]["new_entrants"] = new_entrants
+
+    # ── Summary ───────────────────────────────────────────────────────────
+    n_eff_final = n_eff_curve[-1] if n_eff_curve else 1.0
+    if n_eff_final < 2.5:
+        final_system = "bipartite"
+    elif n_eff_final < 4.0:
+        final_system = "tripartite"
+    else:
+        final_system = "fragmented"
+
+    duverger_confirmed = (method in ("plurality", "two_round")) and (n_eff_final < 2.5)
+
+    convergence_speed: Optional[int] = None
+    for i, nef in enumerate(n_eff_curve):
+        if nef < 2.5:
+            convergence_speed = i + 1
+            break
+
+    final_positions: Dict[str, float] = {p["name"]: p["x"] for p in active}
+    ideology_drift = [
+        {
+            "party":     name,
+            "initial_x": round(initial_positions[name], 4),
+            "final_x":   round(final_positions.get(name, initial_positions[name]), 4),
+        }
+        for name in initial_positions
+    ]
+
+    note = (
+        f"Avec la méthode '{method}' et {num_elections} élections, "
+        f"le système passe de {len(initial_pts)} à {len(active)} partis. "
+        f"Indice de Laakso-Taagepera final : {n_eff_final:.2f} "
+        f"({'bipartisme' if final_system == 'bipartite' else 'multipartisme'}). "
+        f"{'Loi de Duverger confirmée.' if duverger_confirmed else ''}"
+    )
+
+    return jsonify({
+        "elections":               all_elections,
+        "final_system":            final_system,
+        "effective_parties_curve": n_eff_curve,
+        "duverger_confirmed":      duverger_confirmed,
+        "convergence_speed":       convergence_speed,
+        "ideology_drift":          ideology_drift,
+        "pedagogical_note":        note,
+    }), 200

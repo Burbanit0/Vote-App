@@ -22,6 +22,7 @@ const NAV_EXPLORE = [
   { href: '/quadratic-funding', icon: '💰', key: 'nav.quadraticFunding' },
   { href: '/tech-democracy',   icon: '💻', key: 'nav.techDemocracy' },
   { href: '/sortition',        icon: '🎲', key: 'nav.sortition' },
+  { href: '/party-dynamics',  icon: '📊', key: 'nav.partyDynamics' },
   { href: '/galerie',   icon: '🗃️', key: 'nav.gallery' },
   { href: '/api-docs',  icon: '🔌', key: 'nav.apiDocs' },
 ];
