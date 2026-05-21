@@ -10,6 +10,7 @@ import ArrowExplorer from '../components/Simulation/ArrowExplorer';
 import PlottChaosPanel from '../components/Simulation/PlottChaosPanel';
 import JudgmentAggregationPanel from '../components/shared/JudgmentAggregationPanel';
 import SenParadoxPanel from '../components/shared/SenParadoxPanel';
+import ApportionmentPanel from '../components/shared/ApportionmentPanel';
 
 const TheoryPage: React.FC = () => {
   const { t } = useTranslation();
@@ -46,6 +47,15 @@ const TheoryPage: React.FC = () => {
               </span>
             ))}
           </div>
+        </Card.Body>
+      </Card>
+
+      {/* ── Apportionment ── */}
+      <Card className="mb-4 border-secondary">
+        <Card.Header className="fw-bold">📊 {t('appor.cardTitle')}</Card.Header>
+        <Card.Body>
+          <p style={{ fontSize: '0.85rem' }}>{t('appor.cardDesc')}</p>
+          <ApportionmentPanel />
         </Card.Body>
       </Card>
 
