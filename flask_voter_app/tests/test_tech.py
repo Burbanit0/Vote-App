@@ -96,6 +96,99 @@ class TestE2EDemo:
         assert client.post(E2E_URL, json={"candidates": ["Solo"], "num_voters": 5}).status_code == 400
 
 
+# ── E2E demo — enhanced V2 fields ────────────────────────────────────────────
+
+class TestE2EDemoV2:
+    """Tests for the new fields added to the enhanced e2e-demo endpoint."""
+
+    def _run(self, client, **kw):
+        payload = {
+            "candidates":       ["Alice", "Bob", "Carol"],
+            "num_demo_voters":  10,
+            "seed":             42,
+            **kw,
+        }
+        return json.loads(client.post(E2E_URL, json=payload).data)
+
+    def test_voters_field_present(self, client):
+        body = self._run(client)
+        assert "voters" in body
+        assert len(body["voters"]) == 10
+
+    def test_voter_keys(self, client):
+        body = self._run(client)
+        v = body["voters"][0]
+        for k in ("id", "encrypted_ballot", "verification_code", "vote_HIDDEN"):
+            assert k in v
+
+    def test_public_bulletin_board_present(self, client):
+        body = self._run(client)
+        assert "public_bulletin_board" in body
+        assert len(body["public_bulletin_board"]) == 10
+
+    def test_bulletin_board_no_vote_hidden(self, client):
+        """public_bulletin_board must NOT contain the vote in clear."""
+        body = self._run(client)
+        for entry in body["public_bulletin_board"]:
+            assert "vote_HIDDEN" not in entry
+            assert "vote" not in entry
+            # encrypted_ballot should not equal any candidate name
+            for cand in body["candidates"]:
+                assert cand not in entry["encrypted_ballot"]
+
+    def test_verification_codes_unique(self, client):
+        body = self._run(client)
+        codes = [v["verification_code"] for v in body["voters"]]
+        assert len(codes) == len(set(codes))
+
+    def test_aggregate_sums_to_num_voters(self, client):
+        body = self._run(client)
+        assert sum(body["aggregate_result"].values()) == 10
+
+    def test_winner_present_and_valid(self, client):
+        body = self._run(client)
+        assert "winner" in body
+        assert body["winner"] in body["candidates"]
+        # Winner has highest vote count
+        agg = body["aggregate_result"]
+        assert agg[body["winner"]] == max(agg.values())
+
+    def test_audit_proof_present(self, client):
+        body = self._run(client)
+        assert "audit_proof" in body
+        assert len(body["audit_proof"]) > 10
+
+    def test_each_code_appears_once_in_board(self, client):
+        """Each verification_code appears exactly once in public_bulletin_board."""
+        body = self._run(client)
+        board_codes = [e["verification_code"] for e in body["public_bulletin_board"]]
+        assert len(board_codes) == len(set(board_codes))
+        # All voter codes are on the board
+        voter_codes = set(v["verification_code"] for v in body["voters"])
+        board_codes_set = set(board_codes)
+        assert voter_codes == board_codes_set
+
+    def test_bulletin_board_shuffled(self, client):
+        """Bulletin board order must differ from voter order (anonymisation)."""
+        body = self._run(client)
+        voter_codes = [v["verification_code"] for v in body["voters"]]
+        board_codes = [e["verification_code"] for e in body["public_bulletin_board"]]
+        # With 10+ voters, shuffle should produce different order
+        assert voter_codes != board_codes, "Bulletin board should be shuffled"
+
+    def test_user_vote_parameter(self, client):
+        """When user_vote is set, voter 1 reflects that choice."""
+        body = self._run(client, user_vote="Alice")
+        # Voter 1's hidden vote should be Alice
+        assert body["voters"][0]["vote_HIDDEN"] == "Alice"
+
+    def test_num_demo_voters_param(self, client):
+        """num_demo_voters parameter controls count."""
+        body = self._run(client, num_demo_voters=7)
+        assert len(body["voters"]) == 7
+        assert sum(body["aggregate_result"].values()) == 7
+
+
 # ── Pol.is simulation ─────────────────────────────────────────────────────────
 
 class TestPolisBasic:

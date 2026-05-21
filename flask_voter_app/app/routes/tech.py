@@ -67,58 +67,97 @@ def e2e_demo() -> tuple[Response, int]:
     """
     POST /api/tech/e2e-demo
 
-    Pedagogical (not cryptographically secure) simulation of an E2E-V protocol.
-    Each ballot is "encrypted" as a truncated MD5 hash.  The voter receives a
-    unique verification code.  The aggregate is computed without exposing any
-    individual vote.
+    Enhanced pedagogical E2E-V simulation.  Returns:
+    - voters[]: each voter's encrypted ballot + verification code + vote_HIDDEN
+    - public_bulletin_board[]: SHUFFLED bulletin board (anonymised order)
+    - aggregate_result: homomorphic-style count (no individual decryption)
+    - winner: plurality winner
+    - audit_proof: proof message
+
+    Optional: user_vote — if set, voter #1 is the demo user's own ballot.
     """
-    data       = request.get_json() or {}
-    candidates = data.get("candidates", ["Alice", "Bob", "Carol"])
-    num_voters = max(5, min(20, int(data.get("num_voters", 10))))
-    seed       = int(data.get("seed", 42))
+    data           = request.get_json() or {}
+    candidates     = data.get("candidates", ["Alice", "Bob", "Carol"])
+    num_voters     = max(5, min(20, int(
+        data.get("num_demo_voters", data.get("num_voters", 10))
+    )))
+    seed           = int(data.get("seed", 42))
+    user_vote      = str(data.get("user_vote", ""))
 
     if len(candidates) < 2:
         return jsonify({"error": "At least 2 candidates required"}), 400
+    if user_vote and user_vote not in candidates:
+        user_vote = ""
 
     rng = _random.Random(seed)
 
-    # ── Generate votes (kept secret — never returned individually) ─────────
+    # ── Generate votes ────────────────────────────────────────────────────
     choices: list[str] = [rng.choice(candidates) for _ in range(num_voters)]
+    if user_vote:
+        choices[0] = user_vote       # voter 1 = the demo user
 
-    encrypted_ballots: list[Dict[str, Any]] = []
-    verification_codes: list[str] = []
+    voters_out:       list[Dict[str, Any]] = []
+    verification_codes: list[str]           = []
+    encrypted_ballots_legacy: list[Dict[str, Any]] = []   # backward compat
 
     for i, choice in enumerate(choices):
-        salt         = rng.randint(100_000, 999_999)
-        ballot_hash  = hashlib.md5(f"{choice}{salt}".encode()).hexdigest().upper()
-        display      = ballot_hash[:8]
+        salt        = rng.randint(100_000, 999_999)
+        bhash       = hashlib.md5(f"{choice}{salt}".encode()).hexdigest().upper()
+        display     = bhash[:8]
+        code_raw    = hashlib.md5(f"voter-{i}-{bhash}".encode()).hexdigest().upper()
+        code        = f"{code_raw[:3]}-{code_raw[3:6]}-{code_raw[6:9]}"
 
-        # Verification code: unique per voter, derived from voter_id + ballot hash
-        code_raw  = hashlib.md5(f"voter-{i}-{ballot_hash}".encode()).hexdigest().upper()
-        code      = f"{code_raw[:3]}-{code_raw[3:6]}-{code_raw[6:9]}"
-
-        encrypted_ballots.append({
+        voters_out.append({
+            "id":               i + 1,
+            "encrypted_ballot": f"[{display}…]",
+            "verification_code": code,
+            "vote_HIDDEN":      choice,   # revealed only in step 4 of the demo
+        })
+        verification_codes.append(code)
+        encrypted_ballots_legacy.append({
             "voter_id":  i + 1,
             "encrypted": f"[{display}…]",
             "code":      code,
-            # "choice" is intentionally OMITTED — this is the privacy guarantee
         })
-        verification_codes.append(code)
 
-    # ── Aggregate (homomorphic-style: sum without revealing individual votes)
+    # ── Public bulletin board — SHUFFLED (anonymisation by mixing) ─────────
+    bulletin_board: list[Dict[str, Any]] = [
+        {"encrypted_ballot": v["encrypted_ballot"],
+         "verification_code": v["verification_code"]}
+        for v in voters_out
+    ]
+    shuffle_rng = _random.Random(seed + 999)
+    shuffle_rng.shuffle(bulletin_board)
+
+    # ── Aggregate (homomorphic-style) ─────────────────────────────────────
     aggregate: Dict[str, int] = Counter(choices)
     for c in candidates:
         aggregate.setdefault(c, 0)
+    winner = max(aggregate, key=aggregate.__getitem__)
+
+    # ── Audit proof ───────────────────────────────────────────────────────
+    ahash      = hashlib.md5(str(sorted(aggregate.items())).encode()).hexdigest().upper()[:16]
+    audit_proof = (
+        f"Tous les {num_voters} bulletins chiffrés sont dans l'urne. "
+        f"Décompte effectué sans déchiffrement individuel. "
+        f"Empreinte de l'urne : {ahash}…"
+    )
 
     return jsonify({
-        "num_voters":       num_voters,
-        "candidates":       candidates,
-        "encrypted_ballots": encrypted_ballots,
-        "aggregate_result":  aggregate,
+        # ── New rich fields ──────────────────────────────────────────────
+        "voters":                voters_out,
+        "public_bulletin_board": bulletin_board,
+        "aggregate_result":      dict(aggregate),
+        "winner":                winner,
+        "audit_proof":           audit_proof,
+        # ── Legacy fields (backward-compatible with existing tests) ──────
+        "num_voters":            num_voters,
+        "candidates":            candidates,
+        "encrypted_ballots":     encrypted_ballots_legacy,
         "verification_demonstration": {
             "sample_voter_id": 1,
             "sample_code":     verification_codes[0],
-            "board_excerpt":   [b["code"] for b in encrypted_ballots[:5]],
+            "board_excerpt":   [b["verification_code"] for b in bulletin_board[:5]],
         },
         "privacy_guarantee": (
             "Aucun bulletin individuel n'est révélé. Chaque électeur peut "
