@@ -10,6 +10,7 @@ PLOTT_URL  = "/api/theory/plott-chaos"
 MANIP_URL  = "/api/theory/manipulation-analysis"
 JUDG_URL   = "/api/theory/judgment-aggregation"
 SEN_URL    = "/api/theory/sen-paradox"
+APPOR_URL  = "/api/theory/apportionment"
 
 
 def arrow_post(client, method="plurality", **kw):
@@ -591,3 +592,106 @@ class TestSenParadox:
         b = sen_post(client)
         assert a["paradox_frequency"] == b["paradox_frequency"]
         assert a["paradox_exists"] == b["paradox_exists"]
+
+
+# ── /api/theory/apportionment ─────────────────────────────────────────────────
+
+def appor_post(client, **kw):
+    payload = {
+        "parties":        [{"name": "A", "votes": 9000},
+                           {"name": "B", "votes": 7000},
+                           {"name": "C", "votes": 5000}],
+        "num_seats":      10,
+        "methods":        ["hamilton", "jefferson", "webster", "adams", "huntington_hill"],
+        "find_paradoxes": True,
+        **kw,
+    }
+    return json.loads(client.post(APPOR_URL, json=payload).data)
+
+
+class TestApportionment:
+    def test_returns_200(self, client):
+        assert client.post(APPOR_URL, json={"parties": [{"name":"A","votes":100}],
+                                            "num_seats": 5}).status_code == 200
+
+    def test_response_keys(self, client):
+        body = appor_post(client)
+        for k in ("results", "balinski_young_summary",
+                  "impossible_to_avoid", "pedagogical_note"):
+            assert k in body
+
+    def test_result_keys_per_method(self, client):
+        body = appor_post(client)
+        for m in body["results"]:
+            for k in ("seats", "quota_violation", "alabama_paradox",
+                      "population_paradox", "favors"):
+                assert k in body["results"][m]
+
+    # ── sum(seats) == num_seats for all methods ────────────────────────────
+
+    def test_seat_totals_match_num_seats(self, client):
+        body = appor_post(client, num_seats=10)
+        for method, res in body["results"].items():
+            total = sum(res["seats"].values())
+            assert total == 10, f"{method}: got {total} seats, expected 10"
+
+    def test_seat_totals_match_different_N(self, client):
+        body = appor_post(client, num_seats=7)
+        for method, res in body["results"].items():
+            assert sum(res["seats"].values()) == 7
+
+    # ── Hamilton: alabama_paradox=True with A=9000, B=7000, C=5000, 10 seats ──
+
+    def test_hamilton_alabama_paradox(self, client):
+        """Classic example: C gets 3 seats with 10, but 2 seats with 11."""
+        body = appor_post(client, num_seats=10)
+        assert body["results"]["hamilton"]["alabama_paradox"] is True
+
+    # ── Jefferson: quota_violation for extreme concentration ──────────────
+
+    def test_jefferson_quota_violation(self, client):
+        """With A=650, B=100, C=100, D=E=F=50 and 10 seats, A gets > ceil(quota)."""
+        body = appor_post(client, parties=[
+            {"name": "A", "votes": 650}, {"name": "B", "votes": 100},
+            {"name": "C", "votes": 100}, {"name": "D", "votes": 50},
+            {"name": "E", "votes": 50},  {"name": "F", "votes": 50},
+        ], num_seats=10)
+        assert body["results"]["jefferson"]["quota_violation"] is True
+
+    # ── Webster: no Alabama, no population paradox ────────────────────────
+
+    def test_webster_no_alabama(self, client):
+        body = appor_post(client)
+        assert body["results"]["webster"]["alabama_paradox"] is False
+
+    def test_webster_no_population_paradox(self, client):
+        body = appor_post(client)
+        assert body["results"]["webster"]["population_paradox"] is False
+
+    # ── favors classification ─────────────────────────────────────────────
+
+    def test_jefferson_favors_large(self, client):
+        body = appor_post(client)
+        assert body["results"]["jefferson"]["favors"] == "large_parties"
+
+    def test_adams_favors_small(self, client):
+        body = appor_post(client)
+        assert body["results"]["adams"]["favors"] == "small_parties"
+
+    def test_webster_neutral(self, client):
+        body = appor_post(client)
+        assert body["results"]["webster"]["favors"] == "neutral"
+
+    # ── impossible_to_avoid list ──────────────────────────────────────────
+
+    def test_impossible_to_avoid_nonempty(self, client):
+        body = appor_post(client)
+        assert len(body["impossible_to_avoid"]) >= 2
+
+    # ── Reproducibility ───────────────────────────────────────────────────
+
+    def test_reproducibility(self, client):
+        a = appor_post(client)
+        b = appor_post(client)
+        for m in a["results"]:
+            assert a["results"][m]["seats"] == b["results"][m]["seats"]

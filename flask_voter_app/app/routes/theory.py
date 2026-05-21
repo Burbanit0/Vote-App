@@ -647,6 +647,160 @@ def judgment_aggregation() -> tuple[Response, int]:
     }), 200
 
 
+# ── Apportionment Methods & Balinski-Young Theorem ───────────────────────────
+
+import math as _math_ap
+
+
+def _hamilton(votes: Dict[str, int], n: int) -> Dict[str, int]:
+    total = sum(votes.values())
+    if total == 0 or n == 0:
+        return {p: 0 for p in votes}
+    quotas = {p: v * n / total for p, v in votes.items()}
+    seats  = {p: int(q) for p, q in quotas.items()}
+    rem    = n - sum(seats.values())
+    by_rem = sorted(((q - seats[p], p) for p, q in quotas.items()), key=lambda x: (-x[0], x[1]))
+    for i in range(rem):
+        seats[by_rem[i][1]] += 1
+    return seats
+
+
+def _jefferson(votes: Dict[str, int], n: int) -> Dict[str, int]:
+    seats = {p: 0 for p in votes}
+    for _ in range(n):
+        best = max(votes, key=lambda p: votes[p] / (seats[p] + 1))
+        seats[best] += 1
+    return seats
+
+
+def _webster(votes: Dict[str, int], n: int) -> Dict[str, int]:
+    seats = {p: 0 for p in votes}
+    for _ in range(n):
+        best = max(votes, key=lambda p: votes[p] / (2 * seats[p] + 1))
+        seats[best] += 1
+    return seats
+
+
+def _adams_m(votes: Dict[str, int], n: int) -> Dict[str, int]:
+    seats = {p: 0 for p in votes}
+    for _ in range(n):
+        best = max(votes, key=lambda p: votes[p] / max(1, 2 * seats[p] - 1))
+        seats[best] += 1
+    return seats
+
+
+def _huntington(votes: Dict[str, int], n: int) -> Dict[str, int]:
+    nv = len(votes)
+    if nv > n:
+        return {p: 0 for p in votes}
+    seats = {p: 1 for p in votes}
+    for _ in range(n - nv):
+        best = max(votes, key=lambda p: votes[p] / _math_ap.sqrt(seats[p] * (seats[p] + 1)))
+        seats[best] += 1
+    return seats
+
+
+def _quota_violation(votes: Dict[str, int], seats: Dict[str, int], n: int) -> bool:
+    total = sum(votes.values())
+    if total == 0:
+        return False
+    return any(
+        seats.get(p, 0) < _math_ap.floor(v * n / total) or
+        seats.get(p, 0) > _math_ap.ceil(v * n / total)
+        for p, v in votes.items()
+    )
+
+
+def _alabama_paradox(votes: Dict[str, int], fn: Any, n: int) -> bool:
+    s1 = fn(votes, n)
+    s2 = fn(votes, n + 1)
+    return any(s2.get(p, 0) < s1.get(p, 0) for p in votes)
+
+
+def _population_paradox(votes: Dict[str, int], fn: Any, n: int) -> bool:
+    s0 = fn(votes, n)
+    for p in votes:
+        if votes[p] == 0:
+            continue
+        nv = dict(votes)
+        nv[p] = int(votes[p] * 1.01) + 1
+        sn = fn(nv, n)
+        if sn.get(p, 0) < s0.get(p, 0):
+            return True
+    return False
+
+
+_AP_METHODS: Dict[str, tuple] = {
+    "hamilton":        (_hamilton,    "neutral",       "Quotient garanti, paradoxe d'Alabama possible"),
+    "jefferson":       (_jefferson,   "large_parties", "Monotone, favorise les grands partis, peut violer quota sup."),
+    "webster":         (_webster,     "neutral",       "Plus neutre, monotone, léger risque de violation quota"),
+    "adams":           (_adams_m,     "small_parties", "Monotone, favorise les petits partis, peut violer quota inf."),
+    "huntington_hill": (_huntington,  "neutral",       "Méthode géométrique (USA), monotone, biais faible petits partis"),
+}
+
+
+@theory_bp.route("/apportionment", methods=["POST"])
+@sim_limiter.limit("10 per minute")
+def apportionment() -> tuple[Response, int]:
+    """
+    POST /api/theory/apportionment
+
+    Compare apportionment methods and demonstrate Balinski-Young impossibility:
+    no method can simultaneously satisfy the quota rule, house monotonicity
+    (Alabama paradox free), and population monotonicity.
+    """
+    data         = request.get_json() or {}
+    parties_raw  = data.get("parties", [
+        {"name": "A", "votes": 9000},
+        {"name": "B", "votes": 7000},
+        {"name": "C", "votes": 5000},
+    ])[:10]
+    num_seats    = max(2,  min(1000, int(data.get("num_seats",    10))))
+    methods_req  = data.get("methods",         list(_AP_METHODS.keys()))
+    find_paradox = bool(data.get("find_paradoxes", True))
+
+    votes: Dict[str, int] = {p["name"]: max(1, int(p["votes"])) for p in parties_raw}
+
+    results: Dict[str, Any] = {}
+    for mname in methods_req:
+        if mname not in _AP_METHODS:
+            continue
+        fn, favors, desc = _AP_METHODS[mname]
+        seats    = fn(votes, num_seats)
+        qv       = _quota_violation(votes, seats, num_seats)     if find_paradox else False
+        alabama  = _alabama_paradox(votes, fn, num_seats)        if find_paradox else False
+        pop_par  = _population_paradox(votes, fn, num_seats)     if find_paradox else False
+        results[mname] = {
+            "seats":              seats,
+            "quota_violation":    qv,
+            "alabama_paradox":    alabama,
+            "population_paradox": pop_par,
+            "new_state_paradox":  False,
+            "favors":             favors,
+            "description":        desc,
+        }
+
+    note = (
+        f"Balinski-Young (1982) : sur {num_seats} sièges entre {len(votes)} partis, "
+        f"AUCUNE méthode ne peut satisfaire simultanément le quotient strict, "
+        f"la monotonie de la chambre et la monotonie de la population. "
+        f"Hamilton respecte le quotient mais produit le paradoxe d'Alabama. "
+        f"Les méthodes diviseur sont monotones mais peuvent violer le quotient."
+    )
+
+    return jsonify({
+        "results":                  results,
+        "balinski_young_summary":   (
+            "Il est mathématiquement impossible de satisfaire simultanément "
+            "(1) le quotient strict, (2) la monotonie de la chambre, "
+            "(3) la monotonie de la population. "
+            "Chaque méthode sacrifie l'une de ces propriétés."
+        ),
+        "impossible_to_avoid":      ["Quotient strict", "Monotonie chambre", "Monotonie population"],
+        "pedagogical_note":         note,
+    }), 200
+
+
 # ── Sen's Impossibility of a Paretian Liberal ────────────────────────────────
 
 _SEN_ALTS = ["x", "y", "z"]
