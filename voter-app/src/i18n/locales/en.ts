@@ -1813,6 +1813,26 @@ const en: TranslationKeys = {
     noteTitle:           'Note:',
   },
 
+  sen: {
+    cardTitle:       "Sen's Liberal Paradox (1970)",
+    cardDesc:        "Amartya Sen proves that no collective decision rule can simultaneously satisfy Pareto efficiency and minimal individual liberalism.",
+    prompt:          'Simulate the Sen paradox on random profiles.',
+    run:             'Simulate',
+    error:           'Simulation error.',
+    seed:            'Seed',
+    paradoxExists:   '⚡ Paradox detected',
+    noParadox:       '✓ No paradox',
+    frequency:       'Paradox frequency',
+    vizTitle:        'Conflict between Pareto and Individual Liberty',
+    person1:         'Person 1 (Prude)',
+    person2:         'Person 2 (Lewd)',
+    liberalOutcome:  'Liberal outcome',
+    paretoOutcome:   'Pareto outcome',
+    analogyTitle:    'Contemporary analogy:',
+    resolutionsTitle: 'Proposed resolutions',
+    noteTitle:       'Note:',
+  },
+
   judg: {
     cardTitle:       'Judgment Aggregation Paradox (List & Pettit 2002)',
     cardDesc:        'Majority rule on logically linked propositions can produce a collectively incoherent result, even when every individual voter is perfectly rational.',

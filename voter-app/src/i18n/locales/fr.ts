@@ -1811,6 +1811,26 @@ const fr = {
     noteTitle:           'Note :',
   },
 
+  sen: {
+    cardTitle:       "Paradoxe libéral de Sen (1970)",
+    cardDesc:        "Amartya Sen démontre qu'aucune règle de décision collective ne peut satisfaire simultanément l'efficacité de Pareto et un libéralisme minimal.",
+    prompt:          "Simulez le paradoxe de Sen sur des profils aléatoires.",
+    run:             'Simuler',
+    error:           'Erreur lors de la simulation.',
+    seed:            'Seed',
+    paradoxExists:   '⚡ Paradoxe détecté',
+    noParadox:       '✓ Pas de paradoxe',
+    frequency:       'Fréquence du paradoxe',
+    vizTitle:        'Conflit entre Pareto et Liberté individuelle',
+    person1:         'Personne 1 (Prude)',
+    person2:         'Personne 2 (Licencieuse)',
+    liberalOutcome:  'Résultat libéral',
+    paretoOutcome:   'Résultat Pareto',
+    analogyTitle:    'Analogie contemporaine :',
+    resolutionsTitle: 'Résolutions proposées',
+    noteTitle:       'Note :',
+  },
+
   judg: {
     cardTitle:       "Paradoxe de l'agrégation des jugements (List & Pettit 2002)",
     cardDesc:        "La règle majoritaire sur des propositions logiquement liées peut produire un résultat collectivement incohérent, même si chaque individu est parfaitement rationnel.",
