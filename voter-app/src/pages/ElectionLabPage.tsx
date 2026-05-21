@@ -42,6 +42,7 @@ import ShyVoterPanel from '../components/shared/ShyVoterPanel';
 import ElectoralFatiguePanel from '../components/shared/ElectoralFatiguePanel';
 import ChoiceOverloadPanel from '../components/shared/ChoiceOverloadPanel';
 import DemographicTurnoutPanel from '../components/shared/DemographicTurnoutPanel';
+import CompulsoryVotingPanel from '../components/shared/CompulsoryVotingPanel';
 import HotellingPanel from '../components/shared/HotellingPanel';
 import PolarizationPanel from '../components/shared/PolarizationPanel';
 
@@ -549,6 +550,7 @@ const ElectionLabPage: React.FC = () => {
                   { key: 'fatigue',            icon: '😴', label: t('electionLab.tabFatigue') },
                   { key: 'overload',           icon: '🤯', label: t('electionLab.tabOverload') },
                   { key: 'demographic',        icon: '👥', label: t('electionLab.tabDemographic') },
+                  { key: 'compulsory',         icon: '⚖️', label: t('electionLab.tabCompulsory') },
                 ];
 
                 const tabContent: Record<string, React.ReactNode> = {
@@ -586,6 +588,7 @@ const ElectionLabPage: React.FC = () => {
                   'fatigue':              <ElectoralFatiguePanel />,
                   'overload':             <ChoiceOverloadPanel />,
                   'demographic':          <DemographicTurnoutPanel />,
+                  'compulsory':           <CompulsoryVotingPanel />,
                 };
 
                 const currentIdx = TABS.findIndex((tab) => tab.key === activeTab);

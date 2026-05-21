@@ -5916,3 +5916,172 @@ def demographic_turnout() -> tuple[Response, int]:
         "demographic_breakdown": breakdown,
         "pedagogical_note":      note,
     }), 200
+
+
+# ── Compulsory Voting ─────────────────────────────────────────────────────────
+
+_COMPULSORY_BIAS = 0.15   # rightward participation bias in voluntary elections
+
+
+@election_bp.route("/compulsory-voting", methods=["POST"])
+@sim_limiter.limit("10 per minute")
+def compulsory_voting() -> tuple[Response, int]:
+    """
+    POST /api/election/compulsory-voting
+
+    Simulate voluntary vs. compulsory voting on the same electorate.
+    Voluntary turnout is right-biased (empirical pattern: conservative voters
+    participate more), while compulsory elections add reluctant left-leaning
+    voters who may vote null, randomly, or sincerely.
+    """
+    data         = request.get_json() or {}
+    num_voters   = max(50,  min(500, int(data.get("num_voters",          300))))
+    ideology     = str(data.get("ideology",           "random"))
+    seed         = int(data.get("seed",                42))
+    vol_to       = max(0.30, min(0.90, float(data.get("voluntary_turnout",   0.65))))
+    comp_to      = max(0.70, min(0.99, float(data.get("compulsory_turnout",  0.92))))
+    rel_null     = max(0.00, min(0.20, float(data.get("reluctant_null_rate",  0.04))))
+    rel_rnd      = max(0.00, min(1.00, float(data.get("reluctant_random_pct", 0.08))))
+    primary_method = str(data.get("method", "plurality"))
+    cand_specs   = data.get("candidates", [
+        {"name": "Alice", "x": -0.5, "y": -0.2},
+        {"name": "Bob",   "x":  0.5, "y":  0.2},
+        {"name": "Carol", "x":  0.0, "y":  0.1},
+    ])[:6]
+
+    if len(cand_specs) < 2:
+        return jsonify({"error": "At least 2 candidates required"}), 400
+
+    _random.seed(seed)
+    _np.random.seed(seed)
+    issues = DEFAULT_ISSUES
+
+    candidates, voters, sincere_utilities, cand_names = _build_base_electorate(
+        cand_specs, num_voters, ideology, seed, issues
+    )
+    all_ids: list[int] = [v["id"] for v in voters]
+
+    voter_ideo:     Dict[int, float] = {
+        v["id"]: round(2.0 * v["issue_positions"].get("economy", 0.5) - 1.0, 3)
+        for v in voters
+    }
+    voter_max_util: Dict[int, float] = {
+        v["id"]: max(sincere_utilities[v["id"]].values()) for v in voters
+    }
+    full_mean_ideo = round(sum(voter_ideo.values()) / num_voters, 4)
+
+    # ── Participation scores (fixed per seed) ─────────────────────────────
+    part_rng = _random.Random(seed)
+    part_score: Dict[int, float] = {v["id"]: part_rng.random() for v in voters}
+
+    # Voluntary: right-leaning voters have higher effective threshold
+    # Compulsory: same bias, higher base threshold
+    voluntary_ids:  set = {
+        vid for vid, sc in part_score.items()
+        if sc < vol_to + _COMPULSORY_BIAS * voter_ideo[vid]
+    }
+    compulsory_ids: set = {
+        vid for vid, sc in part_score.items()
+        if sc < comp_to + _COMPULSORY_BIAS * voter_ideo[vid]
+    }
+    reluctant_ids: set = compulsory_ids - voluntary_ids
+
+    # ── Sincere votes ─────────────────────────────────────────────────────
+    sincere_vote: Dict[int, str] = {
+        v["id"]: max(sincere_utilities[v["id"]], key=lambda k: sincere_utilities[v["id"]][k])
+        for v in voters
+    }
+
+    # ── Compulsory vote assignment ────────────────────────────────────────
+    _NULL  = "__NULL__"
+    noise_rng   = _random.Random(seed + 200)
+    comp_vote:  Dict[int, str] = {}
+    null_count  = 0
+    rnd_count   = 0
+
+    for vid in compulsory_ids:
+        if vid in reluctant_ids:
+            r = noise_rng.random()
+            if r < rel_null:
+                comp_vote[vid] = _NULL
+                null_count += 1
+            elif r < rel_null + rel_rnd:
+                comp_vote[vid] = noise_rng.choice(cand_names)
+                rnd_count += 1
+            else:
+                comp_vote[vid] = sincere_vote[vid]
+        else:
+            comp_vote[vid] = sincere_vote[vid]
+
+    # ── Election runner (plurality) ───────────────────────────────────────
+    def _run(vote_dict: Dict[int, str], voter_set: set) -> tuple[str, Dict[str, float], float]:
+        tally: Counter = Counter()
+        n_null = sum(1 for vid in voter_set if vote_dict.get(vid, _NULL) == _NULL)
+        for vid in voter_set:
+            v = vote_dict.get(vid, sincere_vote[vid])
+            if v != _NULL:
+                tally[v] += 1
+        n_valid = len(voter_set) - n_null
+        winner  = max(tally, key=tally.__getitem__) if tally else cand_names[0]
+        shares  = {
+            c: round(tally.get(c, 0) / n_valid, 4) if n_valid else 0.0
+            for c in cand_names
+        }
+        return winner, shares, round(n_null / len(voter_set), 4) if voter_set else 0.0
+
+    vol_vote = {vid: sincere_vote[vid] for vid in voluntary_ids}
+    vol_winner,  vol_shares,  vol_null  = _run(vol_vote, voluntary_ids)
+    comp_winner, comp_shares, comp_null = _run(comp_vote, compulsory_ids)
+    winner_changed = vol_winner != comp_winner
+
+    # ── Statistics ────────────────────────────────────────────────────────
+    n_vol  = len(voluntary_ids)
+    n_comp = len(compulsory_ids)
+    n_rel  = len(reluctant_ids)
+
+    vol_mean  = round(sum(voter_ideo[vid] for vid in voluntary_ids)  / n_vol,  4) if n_vol  else 0.0
+    comp_mean = round(sum(voter_ideo[vid] for vid in compulsory_ids) / n_comp, 4) if n_comp else 0.0
+
+    vol_drift  = abs(vol_mean  - full_mean_ideo)
+    comp_drift = abs(comp_mean - full_mean_ideo)
+    representation_improvement = round(max(0.0, vol_drift - comp_drift), 4)
+
+    n_valid_comp = n_comp - null_count
+    noise_effect     = round(rnd_count / n_valid_comp, 4)  if n_valid_comp else 0.0
+    quality_degradation = noise_effect
+
+    partisan_thr = 0.7
+    vol_partisan = sum(1 for vid in voluntary_ids if voter_max_util[vid] > partisan_thr)
+
+    note = (
+        f"Le vote obligatoire augmente la participation de "
+        f"{round(n_vol/num_voters*100, 1)}% à {round(n_comp/num_voters*100, 1)}%, "
+        f"ajoutant {n_rel} électeurs réticents. "
+        f"Représentativité améliorée de {representation_improvement:.3f}, "
+        f"mais {round(quality_degradation*100, 1)}% des votes compulsoires sont du bruit aléatoire."
+    )
+
+    return jsonify({
+        "voluntary": {
+            "turnout":     round(n_vol  / num_voters, 4),
+            "winner":      vol_winner,
+            "vote_shares": vol_shares,
+            "null_rate":   vol_null,
+            "voter_profile": {
+                "mean_ideology_x": vol_mean,
+                "partisan_pct":    round(vol_partisan / n_vol, 4) if n_vol else 0.0,
+            },
+        },
+        "compulsory": {
+            "turnout":          round(n_comp / num_voters, 4),
+            "winner":           comp_winner,
+            "vote_shares":      comp_shares,
+            "null_rate":        comp_null,
+            "reluctant_count":  n_rel,
+            "noise_effect":     noise_effect,
+        },
+        "winner_changed":             winner_changed,
+        "representation_improvement": representation_improvement,
+        "quality_degradation":        quality_degradation,
+        "pedagogical_note":           note,
+    }), 200
