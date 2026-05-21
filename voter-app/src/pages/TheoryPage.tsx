@@ -7,6 +7,7 @@ import { Container, Card } from 'react-bootstrap';
 import { useTranslation } from 'react-i18next';
 import { useMetaTags } from '../hooks/useMetaTags';
 import ArrowExplorer from '../components/Simulation/ArrowExplorer';
+import PlottChaosPanel from '../components/Simulation/PlottChaosPanel';
 
 const TheoryPage: React.FC = () => {
   const { t } = useTranslation();
@@ -23,6 +24,15 @@ const TheoryPage: React.FC = () => {
       </p>
 
       {/* Arrow context */}
+      {/* ── Plott Chaos ── */}
+      <Card className="mb-4 border-danger">
+        <Card.Header className="fw-bold text-danger">🌀 {t('plott.cardTitle')}</Card.Header>
+        <Card.Body>
+          <p style={{ fontSize: '0.85rem' }}>{t('plott.cardDesc')}</p>
+          <PlottChaosPanel />
+        </Card.Body>
+      </Card>
+
       <Card className="mb-4 border-primary">
         <Card.Body>
           <h6 className="fw-bold">{t('arrow.contextTitle')}</h6>

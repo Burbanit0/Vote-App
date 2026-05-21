@@ -213,3 +213,223 @@ def iia_violation_rate() -> tuple[Response, int]:
         })
 
     return jsonify({"method": method, "curve": curve}), 200
+
+
+# ── Plott Chaos Theorem ───────────────────────────────────────────────────────
+
+import numpy as _np_t
+from collections import deque as _deque_t
+
+
+def _majority_beats(dists: "_np_t.ndarray", num_voters: int) -> "_np_t.ndarray":
+    """beats[j,k] = True if policy j beats policy k in majority vote."""
+    # dists shape: (n_voters, n_policies)
+    # beats_count[j,k] = #{v: dists[v,j] < dists[v,k]}
+    beats_count = _np_t.sum(dists[:, :, None] < dists[:, None, :], axis=0)
+    return beats_count > num_voters / 2
+
+
+def _top_cycle_scc(n: int, beats: "_np_t.ndarray") -> set:
+    """Find the Smith set (top SCC) using Kosaraju's algorithm."""
+    adj  = [[k for k in range(n) if k != j and beats[j, k]] for j in range(n)]
+    radj = [[k for k in range(n) if k != j and beats[k, j]] for j in range(n)]
+
+    visited = [False] * n
+    order: List[int] = []
+
+    def dfs1(v: int) -> None:
+        stack = [(v, iter(adj[v]))]
+        visited[v] = True
+        while stack:
+            v, it = stack[-1]
+            try:
+                u = next(it)
+                if not visited[u]:
+                    visited[u] = True
+                    stack.append((u, iter(adj[u])))
+            except StopIteration:
+                order.append(v)
+                stack.pop()
+
+    for i in range(n):
+        if not visited[i]:
+            dfs1(i)
+
+    visited2 = [False] * n
+    components: List[List[int]] = []
+
+    def dfs2(v: int, comp: List[int]) -> None:
+        stack = [(v, iter(radj[v]))]
+        visited2[v] = True
+        comp.append(v)
+        while stack:
+            v, it = stack[-1]
+            try:
+                u = next(it)
+                if not visited2[u]:
+                    visited2[u] = True
+                    comp.append(u)
+                    stack.append((u, iter(radj[u])))
+            except StopIteration:
+                stack.pop()
+
+    for v in reversed(order):
+        if not visited2[v]:
+            comp: List[int] = []
+            dfs2(v, comp)
+            components.append(comp)
+
+    # Build condensation & find SCCs with no incoming edges → top set
+    comp_of = [0] * n
+    for ci, comp in enumerate(components):
+        for v in comp:
+            comp_of[v] = ci
+
+    in_edges = [set() for _ in range(len(components))]
+    for j in range(n):
+        for k in adj[j]:
+            if comp_of[j] != comp_of[k]:
+                in_edges[comp_of[k]].add(comp_of[j])
+
+    top_comps = [ci for ci in range(len(components)) if not in_edges[ci]]
+    top_set: set = set()
+    for ci in top_comps:
+        top_set.update(components[ci])
+    return top_set
+
+
+def _bfs_path(from_i: int, to_i: int, beats: "_np_t.ndarray",
+               max_depth: int, n: int) -> Optional[List[int]]:
+    """BFS: path from from_i to to_i where each step k beats predecessor."""
+    if from_i == to_i:
+        return [from_i]
+    visited: Dict[int, Optional[int]] = {from_i: None}
+    queue = _deque_t([(from_i, 0)])
+    while queue:
+        cur, depth = queue.popleft()
+        if depth >= max_depth:
+            continue
+        for k in range(n):
+            if k != cur and beats[k, cur] and k not in visited:
+                visited[k] = cur
+                if k == to_i:
+                    path: List[int] = []
+                    c: Optional[int] = to_i
+                    while c is not None:
+                        path.append(c)
+                        c = visited[c]
+                    path.reverse()
+                    return path
+                queue.append((k, depth + 1))
+    return None
+
+
+@theory_bp.route("/plott-chaos", methods=["POST"])
+@sim_limiter.limit("5 per minute")
+def plott_chaos() -> tuple[Response, int]:
+    """
+    POST /api/theory/plott-chaos
+
+    Demonstrate Plott's Chaos Theorem: in 2D policy space with ≥3 voters,
+    a Condorcet winner almost never exists, and from any starting point the
+    agenda-setter can reach ANY other point via a sequence of majority votes.
+    """
+    data           = request.get_json() or {}
+    num_voters     = max(3, min(21, int(data.get("num_voters",    5))))
+    num_dims       = max(1, min(2,  int(data.get("num_dimensions", 2))))
+    seed           = int(data.get("seed",    42))
+    target_raw     = data.get("target_policy", [0.6, 0.6])
+    start_raw      = data.get("start_policy",  [-0.6, -0.6])
+    max_steps      = max(1, min(30, int(data.get("max_steps", 15))))
+
+    target_policy = [float(_np_t.clip(target_raw[d] if d < len(target_raw) else 0.0, -1, 1))
+                     for d in range(num_dims)]
+    start_policy  = [float(_np_t.clip(start_raw[d]  if d < len(start_raw)  else 0.0, -1, 1))
+                     for d in range(num_dims)]
+
+    _np_t.random.seed(seed)
+
+    # ── Voter ideal points ────────────────────────────────────────────────
+    voter_ideals = _np_t.random.uniform(-1, 1, (num_voters, num_dims))
+
+    # ── Policy grid ───────────────────────────────────────────────────────
+    grid_n = 10       # 10 per dim; 100 or 10 policies total
+    ax     = _np_t.linspace(-1, 1, grid_n)
+    if num_dims == 1:
+        policies = ax[:, None]
+    else:
+        XX, YY   = _np_t.meshgrid(ax, ax)
+        policies = _np_t.column_stack([XX.ravel(), YY.ravel()])
+
+    n_pol = len(policies)
+
+    # ── Distance matrix: dists[v, p] = ||voter_v - policy_p||² ──────────
+    dists = _np_t.sum(
+        (voter_ideals[:, None, :] - policies[None, :, :]) ** 2, axis=2
+    )   # shape: (n_voters, n_policies)
+
+    # ── Majority beats matrix ─────────────────────────────────────────────
+    beats = _majority_beats(dists, num_voters)
+
+    # ── Condorcet winner ──────────────────────────────────────────────────
+    tmp = beats.copy()
+    _np_t.fill_diagonal(tmp, True)
+    cw_mask = _np_t.all(tmp, axis=1)
+    condorcet_winner_exists = bool(_np_t.any(cw_mask))
+
+    # ── Top cycle ─────────────────────────────────────────────────────────
+    top_set = _top_cycle_scc(n_pol, beats)
+    top_cycle_size   = len(top_set)
+    top_cycle_center = policies[list(top_set)].mean(axis=0).tolist() if top_set else [0.0] * num_dims
+
+    # ── Nearest grid indices ──────────────────────────────────────────────
+    def nearest(pt: List[float]) -> int:
+        arr = _np_t.array(pt[:num_dims])
+        return int(_np_t.argmin(_np_t.sum((policies - arr) ** 2, axis=1)))
+
+    si = nearest(start_policy)
+    ti = nearest(target_policy)
+    alt_target = [-target_policy[d] for d in range(num_dims)]
+    ai = nearest(alt_target)
+
+    # ── BFS paths ─────────────────────────────────────────────────────────
+    chaos_path_idx = _bfs_path(si, ti, beats, max_steps, n_pol)
+    alt_path_idx   = _bfs_path(si, ai, beats, max_steps, n_pol)
+
+    def to_coords(idx: Optional[List[int]]) -> List[List[float]]:
+        return [policies[i].tolist() for i in idx] if idx else []
+
+    chaos_steps = to_coords(chaos_path_idx)
+    alt_steps   = to_coords(alt_path_idx)
+
+    # ── Pedagogical note ──────────────────────────────────────────────────
+    if condorcet_winner_exists:
+        note = (
+            f"Un gagnant de Condorcet existe — le chaos de Plott ne s'applique pas ici. "
+            f"Essayez avec num_dimensions=2 et des positions d'électeurs moins régulières."
+        )
+    else:
+        n_path = len(chaos_steps) - 1 if chaos_steps else 0
+        note = (
+            f"Aucun gagnant de Condorcet. Le top cycle couvre {top_cycle_size}/{n_pol} politiques. "
+            f"En {n_path} votes successifs l'agenda peut conduire depuis {start_policy} "
+            f"vers {target_policy}. Avec un agenda différent, la même séquence atteint "
+            f"{alt_target} — résultats diamétralement opposés, même électorat."
+        )
+
+    return jsonify({
+        "condorcet_winner_exists": condorcet_winner_exists,
+        "top_cycle": {"size": top_cycle_size, "center": top_cycle_center},
+        "chaos_path": {
+            "from":      policies[si].tolist(),
+            "to":        policies[ti].tolist(),
+            "steps":     chaos_steps,
+            "num_steps": max(0, len(chaos_steps) - 1),
+        },
+        "alternative_path": {
+            "to":    policies[ai].tolist(),
+            "steps": alt_steps,
+        },
+        "voter_ideal_points": voter_ideals.tolist(),
+        "pedagogical_note":   note,
+    }), 200
