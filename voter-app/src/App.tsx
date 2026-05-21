@@ -21,6 +21,7 @@ import TeacherPresentationPage from './pages/TeacherPresentationPage';
 import ElectionLabPage from './pages/ElectionLabPage';
 import QuadraticFundingPage from './pages/QuadraticFundingPage';
 import TechDemocracyPage from './pages/TechDemocracyPage';
+import SortitionPage from './pages/SortitionPage';
 import Login from './pages/Login';
 import OAuthCallback from './pages/OAuthCallback';
 import Register from './pages/Register';
@@ -77,6 +78,7 @@ const AppContent: React.FC = () => {
           <Route path="/election-lab"         element={<ElectionLabPage />} />
           <Route path="/quadratic-funding" element={<QuadraticFundingPage />} />
           <Route path="/tech-democracy"   element={<TechDemocracyPage />} />
+          <Route path="/sortition"        element={<SortitionPage />} />
 
           {/* Auth-protected routes */}
           <Route path="/profile"    element={<AuthGuard component={ProfilePage} />} />
