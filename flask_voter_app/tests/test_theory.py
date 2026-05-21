@@ -11,7 +11,8 @@ MANIP_URL  = "/api/theory/manipulation-analysis"
 JUDG_URL   = "/api/theory/judgment-aggregation"
 SEN_URL    = "/api/theory/sen-paradox"
 APPOR_URL  = "/api/theory/apportionment"
-AGENDA_URL = "/api/theory/agenda-manipulation"
+AGENDA_URL   = "/api/theory/agenda-manipulation"
+TYRANNY_URL  = "/api/theory/majority-tyranny"
 
 
 def arrow_post(client, method="plurality", **kw):
@@ -832,3 +833,154 @@ class TestAgendaManipulation:
         assert a["condorcet_winner"] == b["condorcet_winner"]
         assert a["achievable_outcomes"] == b["achievable_outcomes"]
         assert a["manipulation_power"] == pytest.approx(b["manipulation_power"])
+
+
+# ── /api/theory/majority-tyranny ─────────────────────────────────────────────
+
+BASE_TYRANNY = {
+    "num_voters":        100,
+    "majority_pct":      0.60,
+    "minority_intensity": 3.0,
+    "num_decisions":     50,
+    "seed":              42,
+    "decision_rules":    [
+        "simple_majority", "supermajority_2_3", "supermajority_3_4",
+        "unanimous", "qv", "mj",
+    ],
+}
+
+
+def tyranny_post(client, **kw):
+    return json.loads(client.post(TYRANNY_URL, json={**BASE_TYRANNY, **kw}).data)
+
+
+class TestMajorityTyranny:
+    def test_returns_200(self, client):
+        assert client.post(TYRANNY_URL, json=BASE_TYRANNY).status_code == 200
+
+    def test_response_keys(self, client):
+        body = tyranny_post(client)
+        for k in ("results", "tyranny_curve", "best_protector",
+                  "least_efficient", "pedagogical_note"):
+            assert k in body
+
+    def test_results_keys_per_rule(self, client):
+        body = tyranny_post(client)
+        for rule, res in body["results"].items():
+            for k in ("minority_win_rate", "minority_satisfaction",
+                      "majority_satisfaction", "total_welfare",
+                      "efficiency_loss", "tyranny_index"):
+                assert k in res, f"Rule {rule} missing key {k}"
+
+    # ── simple_majority → minority never wins (60% majority) ─────────────
+
+    def test_simple_majority_minority_loses(self, client):
+        """With 60% permanent majority, simple majority always sides with majority."""
+        body = tyranny_post(client, majority_pct=0.60)
+        assert body["results"]["simple_majority"]["minority_win_rate"] == pytest.approx(0.0)
+
+    def test_simple_majority_tyranny_index_high(self, client):
+        """Simple majority with 60% group → tyranny_index ≈ 1.0."""
+        body = tyranny_post(client, majority_pct=0.60)
+        assert body["results"]["simple_majority"]["tyranny_index"] == pytest.approx(1.0)
+
+    # ── unanimous → minority always wins (veto power) ─────────────────────
+
+    def test_unanimous_minority_wins_always(self, client):
+        """Unanimous rule gives minority veto → minority_win_rate = 1.0."""
+        body = tyranny_post(client)
+        assert body["results"]["unanimous"]["minority_win_rate"] == pytest.approx(1.0)
+
+    def test_unanimous_tyranny_index_zero(self, client):
+        """Unanimous rule → no tyranny (minority never gets 0 utility)."""
+        body = tyranny_post(client)
+        assert body["results"]["unanimous"]["tyranny_index"] == pytest.approx(0.0)
+
+    # ── qv → minority wins more often than simple_majority ────────────────
+
+    def test_qv_beats_simple_majority_for_minority(self, client):
+        """QV weighs intensity → minority wins more than under simple majority."""
+        body = tyranny_post(client, minority_intensity=5.0)
+        qv_wins  = body["results"]["qv"]["minority_win_rate"]
+        sm_wins  = body["results"]["simple_majority"]["minority_win_rate"]
+        assert qv_wins >= sm_wins
+
+    # ── efficiency_loss: simple_majority is highest when minority intensity > 1 ──
+
+    def test_efficiency_loss_simple_majority_highest(self, client):
+        """With minority_intensity=3 and 60% majority, giving minority all wins IS
+        the utilitarian optimum → simple_majority has highest efficiency_loss."""
+        body = tyranny_post(client, minority_intensity=3.0, majority_pct=0.60)
+        r = body["results"]
+        # simple_majority forces majority to always win — but minority utility is
+        # 3× majority utility → leaving minority empty-handed is inefficient
+        assert r["simple_majority"]["efficiency_loss"] >= \
+               r["supermajority_2_3"]["efficiency_loss"]
+
+    # ── tyranny_index ordering: simple > supermajority > qv ──────────────
+
+    def test_tyranny_index_ordering(self, client):
+        """Stricter rules should have lower tyranny index."""
+        body = tyranny_post(client, minority_intensity=3.0)
+        r = body["results"]
+        assert r["simple_majority"]["tyranny_index"] >= \
+               r["supermajority_2_3"]["tyranny_index"]
+
+    # ── all metric values in valid ranges ─────────────────────────────────
+
+    def test_metrics_in_range(self, client):
+        body = tyranny_post(client)
+        for rule, res in body["results"].items():
+            assert 0.0 <= res["minority_win_rate"] <= 1.0, rule
+            assert 0.0 <= res["minority_satisfaction"] <= 1.0, rule
+            assert 0.0 <= res["tyranny_index"] <= 1.0, rule
+            assert 0.0 <= res["efficiency_loss"] <= 1.0, rule
+
+    # ── tyranny_curve structure ───────────────────────────────────────────
+
+    def test_tyranny_curve_nonempty(self, client):
+        body = tyranny_post(client)
+        assert len(body["tyranny_curve"]) > 0
+
+    def test_tyranny_curve_pct_range(self, client):
+        body = tyranny_post(client)
+        pcts = [pt["majority_pct"] for pt in body["tyranny_curve"]]
+        assert min(pcts) >= 0.50
+        assert max(pcts) <= 0.85
+
+    def test_tyranny_curve_has_rules(self, client):
+        body = tyranny_post(client)
+        for pt in body["tyranny_curve"]:
+            assert "tyranny_by_rule" in pt
+            assert len(pt["tyranny_by_rule"]) > 0
+
+    # ── best_protector and least_efficient ────────────────────────────────
+
+    def test_best_protector_in_rules(self, client):
+        body = tyranny_post(client)
+        assert body["best_protector"] in body["results"]
+
+    def test_least_efficient_in_rules(self, client):
+        body = tyranny_post(client)
+        assert body["least_efficient"] in body["results"]
+
+    def test_unanimous_tyranny_index_is_zero(self, client):
+        """Unanimous always gives minority veto → tyranny_index = 0."""
+        body = tyranny_post(client)
+        assert body["results"]["unanimous"]["tyranny_index"] == pytest.approx(0.0)
+
+    # ── supermajority_3_4: no wins when maj >= 75% ────────────────────────
+
+    def test_supermajority_3_4_no_minority_win_at_80pct(self, client):
+        """At 80% majority, even 3/4 supermajority is met → minority loses all."""
+        body = tyranny_post(client, majority_pct=0.80)
+        assert body["results"]["supermajority_3_4"]["minority_win_rate"] == pytest.approx(0.0)
+
+    # ── Reproducibility ───────────────────────────────────────────────────
+
+    def test_reproducibility(self, client):
+        a = tyranny_post(client)
+        b = tyranny_post(client)
+        for rule in BASE_TYRANNY["decision_rules"]:
+            assert a["results"][rule]["minority_win_rate"] == \
+                   pytest.approx(b["results"][rule]["minority_win_rate"])

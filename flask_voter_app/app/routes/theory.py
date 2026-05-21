@@ -1336,3 +1336,199 @@ def manipulation_analysis() -> tuple[Response, int]:
         "key_manipulator":    key_m,
         "pedagogical_note":   note,
     }), 200
+
+
+# ── /api/theory/majority-tyranny ──────────────────────────────────────────────
+
+import math as _math_t  # noqa: E402
+
+@theory_bp.route("/majority-tyranny", methods=["POST"])
+@sim_limiter.limit("5 per minute")
+def majority_tyranny() -> tuple[Response, int]:
+    """Simulate Tocqueville's tyranny of the majority across decision rules."""
+    data = request.get_json(silent=True) or {}
+
+    num_voters:        int   = max(10, min(int(data.get("num_voters", 100)), 500))
+    majority_pct:      float = max(0.51, min(float(data.get("majority_pct", 0.60)), 0.95))
+    minority_intensity: float = max(1.0, min(float(data.get("minority_intensity", 3.0)), 10.0))
+    num_decisions:     int   = max(10, min(int(data.get("num_decisions", 50)), 200))
+    seed:              int   = int(data.get("seed", 42))
+    rules: List[str]         = data.get("decision_rules", [
+        "simple_majority", "supermajority_2_3", "supermajority_3_4",
+        "unanimous", "qv", "mj",
+    ])
+
+    rng = _rnd.Random(seed)
+
+    n_majority = int(round(num_voters * majority_pct))
+    n_minority = num_voters - n_majority
+
+    # ── Decision rule logic ───────────────────────────────────────────────────
+    # Each decision: majority wants option A (utility 1.0 for majority, 0 for minority)
+    # Minority wants option B (utility 0 for majority, minority_intensity for minority)
+    # Normalised so comparison is fair.
+    # We model intensity as votes/credits scaled by intensity.
+
+    def _resolve(rule: str, rng_local: _rnd.Random) -> Dict[str, float]:
+        """
+        Return {"majority_wins": bool, "maj_util": float, "min_util": float}
+        for one decision under a given rule.
+        """
+        # Add small noise so not all decisions are identical
+        maj_intensity  = 1.0 + rng_local.uniform(-0.1, 0.1)
+        min_intensity_ = minority_intensity + rng_local.uniform(-0.3, 0.3)
+        min_intensity_ = max(0.1, min_intensity_)
+
+        maj_wins = False
+
+        if rule == "simple_majority":
+            maj_wins = n_majority > n_minority
+
+        elif rule == "supermajority_2_3":
+            threshold = num_voters * (2 / 3)
+            maj_wins = n_majority >= threshold
+
+        elif rule == "supermajority_3_4":
+            threshold = num_voters * (3 / 4)
+            maj_wins = n_majority >= threshold
+
+        elif rule == "unanimous":
+            # Minority has veto → they block anything they strongly oppose
+            maj_wins = False  # minority always vetoes
+
+        elif rule == "qv":
+            # Quadratic Voting: votes proportional to sqrt(budget × intensity)
+            # Each voter gets equal budget; minority spends more per decision
+            budget = 100.0
+            maj_credits  = n_majority * _math_t.sqrt(budget * maj_intensity)
+            min_credits  = n_minority * _math_t.sqrt(budget * min_intensity_)
+            maj_wins = maj_credits >= min_credits
+
+        elif rule == "mj":
+            # Majority Judgment: median grade wins
+            # Majority grades A as 4/5, minority as 1/5
+            # Majority grades B as 1/5, minority as 4/5 (scaled by intensity)
+            maj_grade_A = 4.0
+            min_grade_A = max(0.0, 5.0 - min(min_intensity_, 4.0))
+            # Median grade for A: weighted by group size
+            grades_A = [maj_grade_A] * n_majority + [min_grade_A] * n_minority
+            grades_A.sort()
+            median_A = grades_A[len(grades_A) // 2]
+
+            maj_grade_B = 1.0
+            min_grade_B = min(5.0, 1.0 + min_intensity_)
+            grades_B = [maj_grade_B] * n_majority + [min_grade_B] * n_minority
+            grades_B.sort()
+            median_B = grades_B[len(grades_B) // 2]
+
+            maj_wins = median_A >= median_B
+
+        else:
+            maj_wins = n_majority > n_minority
+
+        # Utilities
+        if maj_wins:
+            maj_util = maj_intensity
+            min_util = 0.0
+        else:
+            maj_util = 0.0
+            min_util = min_intensity_
+
+        return {"majority_wins": maj_wins, "maj_util": maj_util, "min_util": min_util}
+
+    # ── Run simulations per rule ──────────────────────────────────────────────
+    results: Dict[str, Any] = {}
+    for rule in rules:
+        rng_r = _rnd.Random(seed)
+        decisions = [_resolve(rule, rng_r) for _ in range(num_decisions)]
+
+        maj_wins_count = sum(1 for d in decisions if d["majority_wins"])
+        minority_wins  = num_decisions - maj_wins_count
+
+        avg_maj_util   = sum(d["maj_util"] for d in decisions) / num_decisions
+        avg_min_util   = sum(d["min_util"] for d in decisions) / num_decisions
+
+        # Pareto-optimal: minority wins ≥ minority_intensity * minority_wins
+        # Simple majority baseline welfare
+        simple_maj_welfare = n_majority * 1.0 * num_decisions  # all decisions go to majority
+        actual_welfare     = (n_majority * avg_maj_util + n_minority * avg_min_util) * num_decisions
+        # Efficiency loss relative to utilitarian optimum
+        # Utilitarian opt: give each decision to whoever has higher total utility
+        util_opt = num_decisions * max(n_majority * 1.0, n_minority * minority_intensity)
+        actual_total = n_majority * avg_maj_util * num_decisions + n_minority * avg_min_util * num_decisions
+        efficiency_loss = max(0.0, (util_opt - actual_total) / max(util_opt, 1.0))
+
+        tyranny_index = 1.0 - (minority_wins / num_decisions)  # fraction where minority gets 0
+
+        results[rule] = {
+            "minority_win_rate":     round(minority_wins / num_decisions, 4),
+            "minority_satisfaction": round(avg_min_util / minority_intensity, 4),
+            "majority_satisfaction": round(avg_maj_util, 4),
+            "total_welfare":         round(actual_total / (num_voters * num_decisions), 4),
+            "efficiency_loss":       round(efficiency_loss, 4),
+            "tyranny_index":         round(tyranny_index, 4),
+        }
+
+    # ── Tyranny curve: vary majority_pct 0.51 → 0.80 ─────────────────────────
+    curve: List[Dict[str, Any]] = []
+    for pct_raw in range(51, 82, 3):
+        pct = pct_raw / 100.0
+        n_maj_c = int(round(num_voters * pct))
+        n_min_c = num_voters - n_maj_c
+        by_rule: Dict[str, float] = {}
+        for rule in rules:
+            rng_c = _rnd.Random(seed + pct_raw)
+            wins = 0
+            for _ in range(20):  # lightweight sample
+                d = _resolve_curve(rule, n_maj_c, n_min_c, num_voters, minority_intensity, rng_c)
+                if not d:
+                    wins += 1
+            by_rule[rule] = round(1.0 - wins / 20, 4)
+        curve.append({"majority_pct": pct, "tyranny_by_rule": by_rule})
+
+    # ── Rankings ──────────────────────────────────────────────────────────────
+    valid = [r for r in rules if r in results]
+    best_protector = min(valid, key=lambda r: results[r]["tyranny_index"]) if valid else ""
+    least_efficient = max(valid, key=lambda r: results[r]["efficiency_loss"]) if valid else ""
+
+    note = (
+        f"Avec {int(majority_pct * 100)}% de majorité permanente et une intensité "
+        f"minoritaire ×{minority_intensity:.1f}, la règle '{best_protector}' protège "
+        f"le mieux la minorité (tyranny_index = "
+        f"{results.get(best_protector, {}).get('tyranny_index', 0):.2f}). "
+        f"Tocqueville (1835) : sans contre-pouvoirs institutionnels, la majorité "
+        f"peut légitimement opprimer une minorité de façon indéfinie."
+    )
+
+    return jsonify({
+        "results":         results,
+        "tyranny_curve":   curve,
+        "best_protector":  best_protector,
+        "least_efficient": least_efficient,
+        "pedagogical_note": note,
+    }), 200
+
+
+def _resolve_curve(
+    rule: str, n_maj: int, n_min: int, n_total: int,
+    minority_intensity: float, rng: _rnd.Random,
+) -> bool:
+    """Return True if majority wins for the curve helper (lightweight)."""
+    if rule == "simple_majority":
+        return n_maj > n_min
+    if rule == "supermajority_2_3":
+        return n_maj >= n_total * (2 / 3)
+    if rule == "supermajority_3_4":
+        return n_maj >= n_total * (3 / 4)
+    if rule == "unanimous":
+        return False
+    if rule == "qv":
+        budget = 100.0
+        return (n_maj * _math_t.sqrt(budget) >= n_min * _math_t.sqrt(budget * minority_intensity))
+    if rule == "mj":
+        grades_A = [4.0] * n_maj + [max(0.0, 5.0 - min(minority_intensity, 4.0))] * n_min
+        grades_A.sort()
+        grades_B = [1.0] * n_maj + [min(5.0, 1.0 + minority_intensity)] * n_min
+        grades_B.sort()
+        return grades_A[len(grades_A) // 2] >= grades_B[len(grades_B) // 2]
+    return n_maj > n_min

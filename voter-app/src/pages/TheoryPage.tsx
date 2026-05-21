@@ -12,6 +12,7 @@ import JudgmentAggregationPanel from '../components/shared/JudgmentAggregationPa
 import SenParadoxPanel from '../components/shared/SenParadoxPanel';
 import ApportionmentPanel from '../components/shared/ApportionmentPanel';
 import AgendaManipulationPanel from '../components/shared/AgendaManipulationPanel';
+import MajorityTyrannyPanel from '../components/shared/MajorityTyrannyPanel';
 
 const TheoryPage: React.FC = () => {
   const { t } = useTranslation();
@@ -28,6 +29,17 @@ const TheoryPage: React.FC = () => {
       </p>
 
       {/* Arrow context */}
+      {/* ── Majority Tyranny ── */}
+      <Card className="mb-4" style={{ borderColor: '#6f1d1b' }}>
+        <Card.Header className="fw-bold" style={{ color: '#6f1d1b' }}>
+          👑 {t('tyranny.cardTitle')}
+        </Card.Header>
+        <Card.Body>
+          <p style={{ fontSize: '0.85rem' }}>{t('tyranny.cardDesc')}</p>
+          <MajorityTyrannyPanel />
+        </Card.Body>
+      </Card>
+
       {/* ── Plott Chaos ── */}
       <Card className="mb-4 border-danger">
         <Card.Header className="fw-bold text-danger">🌀 {t('plott.cardTitle')}</Card.Header>
