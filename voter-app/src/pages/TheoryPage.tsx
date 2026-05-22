@@ -19,6 +19,7 @@ import IntergenerationalPanel from '../components/shared/IntergenerationalPanel'
 import EpistocracyPanel from '../components/shared/EpistocracyPanel';
 import IdentityVotingPanel from '../components/shared/IdentityVotingPanel';
 import AssumptionTesterPanel from '../components/shared/AssumptionTesterPanel';
+import CollectiveWillPanel from '../components/shared/CollectiveWillPanel';
 
 const TheoryPage: React.FC = () => {
   const { t } = useTranslation();
@@ -153,6 +154,17 @@ const TheoryPage: React.FC = () => {
         <Card.Body>
           <p style={{ fontSize: '0.85rem' }}>{t('judg.cardDesc')}</p>
           <JudgmentAggregationPanel />
+        </Card.Body>
+      </Card>
+
+      {/* ── Collective Will ── */}
+      <Card className="mb-4" style={{ borderColor: '#495057' }}>
+        <Card.Header className="fw-bold" style={{ color: '#495057' }}>
+          🌊 {t('will.cardTitle')}
+        </Card.Header>
+        <Card.Body>
+          <p style={{ fontSize: '0.85rem' }}>{t('will.cardDesc')}</p>
+          <CollectiveWillPanel />
         </Card.Body>
       </Card>
 
