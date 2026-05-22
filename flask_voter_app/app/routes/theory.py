@@ -2411,3 +2411,186 @@ def identity_voting() -> tuple[Response, int]:
         "identity_weight_curve": curve,
         "pedagogical_note":      note,
     }), 200
+
+
+# ── /api/theory/assumption-testing ────────────────────────────────────────────
+
+_ALL_ASSUMPTIONS = (
+    "single_peaked", "stable_preferences", "rational_voters",
+    "fixed_electorate", "measurable_utilities",
+)
+
+@theory_bp.route("/assumption-testing", methods=["POST"])
+@sim_limiter.limit("5 per minute")
+def assumption_testing() -> tuple[Response, int]:
+    """Test model robustness by relaxing core assumptions one at a time."""
+    data = request.get_json(silent=True) or {}
+
+    base_sim: Dict[str, Any] = data.get("base_simulation", {})
+    assumptions: List[str]   = data.get("assumptions_to_relax",
+                                        list(_ALL_ASSUMPTIONS))
+
+    # ── Extract base simulation parameters ────────────────────────────────────
+    candidates_raw: List[Dict[str, Any]] = base_sim.get("candidates", [
+        {"name": "Alice", "x": -0.4, "y": 0.0},
+        {"name": "Bob",   "x":  0.1, "y": 0.0},
+        {"name": "Carol", "x":  0.5, "y": 0.0},
+    ])
+    num_voters: int   = max(20, min(int(base_sim.get("num_voters", 100)), 500))
+    ideology:   str   = base_sim.get("ideology", "random")
+    seed:       int   = int(base_sim.get("seed", 42))
+    n_trials:   int   = 30   # Monte Carlo trials per assumption
+
+    cand_names = [c["name"] for c in candidates_raw]
+    n_cands    = len(cand_names)
+    if n_cands < 2:
+        candidates_raw = [{"name": "Alice", "x": -0.4}, {"name": "Bob", "x": 0.4}]
+        cand_names = ["Alice", "Bob"]
+        n_cands = 2
+
+    # ── Shared: generate base voter positions ─────────────────────────────────
+    def _voter_positions(seed_local: int, n: int, dist: str) -> List[float]:
+        rng_l = _rnd.Random(seed_local)
+        if dist == "polarized":
+            return [rng_l.gauss(-0.5, 0.2) if rng_l.random() < 0.5
+                    else rng_l.gauss(0.5, 0.2) for _ in range(n)]
+        return [rng_l.uniform(-1, 1) for _ in range(n)]
+
+    def _nearest(pos: float, bump: Dict[str, float]) -> str:
+        dists = {c["name"]: abs(pos - c.get("x", 0.0) + bump.get(c["name"], 0.0))
+                 for c in candidates_raw}
+        return min(dists, key=dists.get)  # type: ignore[arg-type]
+
+    def _plurality_winner(votes: List[str]) -> Optional[str]:
+        from collections import Counter as _C
+        c = _C(votes)
+        return c.most_common(1)[0][0] if c else None
+
+    # ── Baseline: standard spatial model ─────────────────────────────────────
+    base_positions = _voter_positions(seed, num_voters, ideology)
+    baseline_votes = [_nearest(p, {}) for p in base_positions]
+    baseline_winner = _plurality_winner(baseline_votes) or cand_names[0]
+
+    # ── Simulate each assumption violation ───────────────────────────────────
+    relaxed_results: Dict[str, Any] = {}
+
+    for assumption in assumptions:
+        if assumption not in _ALL_ASSUMPTIONS:
+            continue
+
+        trial_winners: List[str] = []
+
+        for t in range(n_trials):
+            t_rng = _rnd.Random(seed * 1000 + t)
+            positions = _voter_positions(seed + t, num_voters, ideology)
+            votes: List[str] = []
+
+            for i, pos in enumerate(positions):
+                if assumption == "stable_preferences":
+                    # Add noise: preference drifts ±0.2 between poll and vote
+                    noisy_pos = pos + t_rng.gauss(0, 0.15)
+                    votes.append(_nearest(noisy_pos, {}))
+
+                elif assumption == "single_peaked":
+                    # 20% of voters have multi-modal prefs: skip nearest, pick random
+                    if t_rng.random() < 0.20:
+                        votes.append(t_rng.choice(cand_names))
+                    else:
+                        votes.append(_nearest(pos, {}))
+
+                elif assumption == "rational_voters":
+                    # 15% of voters have intransitive preferences → vote randomly
+                    if t_rng.random() < 0.15:
+                        votes.append(t_rng.choice(cand_names))
+                    else:
+                        votes.append(_nearest(pos, {}))
+
+                elif assumption == "fixed_electorate":
+                    # Some voters "drop out" or new voters "appear" based on prior winner
+                    if t_rng.random() < 0.10:
+                        # New voter with random position
+                        rand_pos = t_rng.uniform(-1, 1)
+                        votes.append(_nearest(rand_pos, {}))
+                    else:
+                        votes.append(_nearest(pos, {}))
+
+                elif assumption == "measurable_utilities":
+                    # Add measurement error ±0.1 to perceived candidate positions
+                    bumps = {c["name"]: t_rng.gauss(0, 0.10) for c in candidates_raw}
+                    votes.append(_nearest(pos, bumps))
+
+                else:
+                    votes.append(_nearest(pos, {}))
+
+            w = _plurality_winner(votes)
+            if w:
+                trial_winners.append(w)
+
+        if not trial_winners:
+            trial_winners = [baseline_winner]
+
+        # Statistics across trials
+        from collections import Counter as _Ctr
+        winner_counts = _Ctr(trial_winners)
+        most_common   = winner_counts.most_common(1)[0][0]
+        n_t           = len(trial_winners)
+
+        # Fraction of trials where winner differs from baseline
+        pct_changed = sum(1 for w in trial_winners if w != baseline_winner) / n_t
+        winner_changed = most_common != baseline_winner
+
+        # Variance proxy: entropy of winner distribution
+        probs      = [cnt / n_t for cnt in winner_counts.values()]
+        entropy    = -sum(p * _math_t.log2(p + 1e-9) for p in probs)
+        max_ent    = _math_t.log2(n_cands)
+        result_var = round(entropy / max_ent if max_ent > 0 else 0.0, 4)
+
+        # 95% CI for the leading candidate's win rate
+        p_lead = winner_counts[most_common] / n_t
+        margin = 1.96 * _math_t.sqrt(p_lead * (1 - p_lead) / max(n_t, 1))
+        ci     = [round(max(0, p_lead - margin), 4), round(min(1, p_lead + margin), 4)]
+
+        relaxed_results[assumption] = {
+            "winner":              most_common,
+            "winner_changed":      winner_changed,
+            "pct_trials_changed":  round(pct_changed, 4),
+            "result_variance":     result_var,
+            "confidence_interval": ci,
+            "winner_distribution": {k: round(v / n_t, 4)
+                                    for k, v in winner_counts.items()},
+        }
+
+    # ── Derived metrics ───────────────────────────────────────────────────────
+    valid = {k: v for k, v in relaxed_results.items()}
+
+    most_fragile = max(valid, key=lambda k: valid[k]["result_variance"]) if valid else ""
+    robust_result = all(not v["winner_changed"] for v in valid.values())
+
+    # ── Pedagogical note ──────────────────────────────────────────────────────
+    if robust_result:
+        note = (
+            f"Résultat robuste : '{baseline_winner}' gagne quelle que soit "
+            f"l'hypothèse relaxée. La simulation est relativement fiable sur "
+            f"ce scénario. Cependant, la robustesse dépend du scénario — "
+            f"d'autres configurations sont plus fragiles."
+        )
+    else:
+        fragile_note = valid[most_fragile]["pct_trials_changed"] if most_fragile else 0
+        note = (
+            f"L'hypothèse la plus fragile est '{most_fragile}' : "
+            f"le vainqueur change dans {round(fragile_note * 100)}% des simulations. "
+            f"Arrow (1951) : l'impossibilité s'applique ici — les résultats de "
+            f"Vote Lab sont des projections sous hypothèses fortes, "
+            f"pas des vérités objectives."
+        )
+
+    return jsonify({
+        "baseline_result": {
+            "winner": baseline_winner,
+            "regret": 0.0,
+        },
+        "relaxed_results":        relaxed_results,
+        "most_fragile_assumption": most_fragile,
+        "robust_result":          robust_result,
+        "pedagogical_note":       note,
+    }), 200
