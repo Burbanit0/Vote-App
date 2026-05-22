@@ -2,7 +2,7 @@
  * IdentityVotingPanel — identity vs ideology in voting behaviour.
  * Green, Palmquist & Schickler (2002) "Partisan Hearts and Minds".
  */
-import React, { useCallback, useState } from 'react';
+import React, { useCallback, useEffect, useState } from 'react';
 import axios from 'axios';
 import { useTranslation } from 'react-i18next';
 import {
@@ -128,7 +128,16 @@ const DEFAULT_GROUPS: IdentityGroup[] = [
   { name: 'Groupe C', pct: 0.25, ideology_center:  0.4, loyalty: 0.80, candidate_affiliation: 'Carol' },
 ];
 
-const IdentityVotingPanel: React.FC = () => {
+export interface IdentityVotingLabProps {
+  labMode?:        boolean;
+  labCandidates?:  Array<{name: string; x: number; y: number}>;
+  labNumVoters?:   number;
+  labSeed?:        number;
+}
+
+const IdentityVotingPanel: React.FC<IdentityVotingLabProps> = ({
+  labMode = false, labCandidates, labNumVoters, labSeed,
+}) => {
   const { t } = useTranslation();
 
   const [data,          setData]          = useState<IdentityData | null>(null);
@@ -142,7 +151,20 @@ const IdentityVotingPanel: React.FC = () => {
   const [crossPressure, setCrossPressure] = useState(true);
   const [activeView,    setActiveView]    = useState<'groups' | 'curve' | 'table'>('groups');
 
+  // Sync lab candidates into groups affiliation when in lab mode
+  useEffect(() => {
+    if (labMode && labCandidates?.length) {
+      setCandidates(labCandidates);
+      // Reset groups to use first lab candidate as affiliation
+      setGroups(prev => prev.map((g, i) => ({
+        ...g,
+        candidate_affiliation: labCandidates[i % labCandidates.length]?.name ?? g.candidate_affiliation,
+      })));
+    }
+  }, [labMode, labCandidates]);
+
   const loadPreset = (key: PresetKey) => {
+    if (labMode) return;  // presets locked in lab mode
     const p = PRESETS[key];
     setCandidates(p.candidates);
     setGroups(p.groups.map(g => ({ ...g })));
@@ -157,9 +179,9 @@ const IdentityVotingPanel: React.FC = () => {
     setError(null);
     try {
       const res = await axios.post(`${API}/api/theory/identity-voting`, {
-        candidates,
-        num_voters:       numVoters,
-        seed,
+        candidates:       labMode ? (labCandidates ?? candidates) : candidates,
+        num_voters:       labMode ? (labNumVoters   ?? numVoters)  : numVoters,
+        seed:             labMode ? (labSeed         ?? seed)       : seed,
         identity_groups:  groups,
         identity_weight:  identityWeight,
         cross_pressure:   crossPressure,
@@ -171,7 +193,8 @@ const IdentityVotingPanel: React.FC = () => {
     } finally {
       setLoading(false);
     }
-  }, [candidates, numVoters, seed, groups, identityWeight, crossPressure, t]);
+  }, [candidates, numVoters, seed, groups, identityWeight, crossPressure, t,
+      labMode, labCandidates, labNumVoters, labSeed]);
 
   // ── Chart data ─────────────────────────────────────────────────────────────
   const groupsChartData = data?.group_results.map((gr, i) => ({
@@ -210,7 +233,17 @@ const IdentityVotingPanel: React.FC = () => {
         {t('identity.greenQuote')}
       </Alert>
 
-      {/* ── Presets ── */}
+      {/* ── Lab mode badge ── */}
+      {labMode && (
+        <div className="mb-2">
+          <Badge bg="dark" style={{ fontSize: '0.68rem' }}>
+            🔬 {t('lab.fromElectionLab')}
+          </Badge>
+        </div>
+      )}
+
+      {/* ── Presets (hidden in lab mode) ── */}
+      {!labMode && (
       <div className="d-flex flex-wrap gap-2 mb-3" data-testid="presets">
         {(Object.keys(PRESETS) as PresetKey[]).map(key => (
           <Button key={key} size="sm" variant="outline-secondary"
@@ -220,6 +253,7 @@ const IdentityVotingPanel: React.FC = () => {
           </Button>
         ))}
       </div>
+      )}
 
       {/* ── Group editor ── */}
       <div className="mb-3 border rounded p-2" style={{ background: '#f8f9fa' }}
@@ -268,18 +302,22 @@ const IdentityVotingPanel: React.FC = () => {
 
       {/* ── Controls ── */}
       <Row className="g-2 mb-3 align-items-end">
-        <Col xs={6} md={2}>
-          <Form.Label className="small mb-0">{t('identity.voters')}</Form.Label>
-          <Form.Control type="number" size="sm" min={20} max={2000} value={numVoters}
-            data-testid="voters-input"
-            onChange={(e) => setNumVoters(Number(e.target.value))} />
-        </Col>
-        <Col xs={6} md={1}>
-          <Form.Label className="small mb-0">{t('identity.seed')}</Form.Label>
-          <Form.Control type="number" size="sm" value={seed}
-            data-testid="seed-input"
-            onChange={(e) => setSeed(Number(e.target.value))} />
-        </Col>
+        {!labMode && (
+          <>
+            <Col xs={6} md={2}>
+              <Form.Label className="small mb-0">{t('identity.voters')}</Form.Label>
+              <Form.Control type="number" size="sm" min={20} max={2000} value={numVoters}
+                data-testid="voters-input"
+                onChange={(e) => setNumVoters(Number(e.target.value))} />
+            </Col>
+            <Col xs={6} md={1}>
+              <Form.Label className="small mb-0">{t('identity.seed')}</Form.Label>
+              <Form.Control type="number" size="sm" value={seed}
+                data-testid="seed-input"
+                onChange={(e) => setSeed(Number(e.target.value))} />
+            </Col>
+          </>
+        )}
         <Col xs={12} md={4}>
           <Form.Label className="small mb-0">
             {t('identity.identityWeight')} — {Math.round(identityWeight * 100)}%
@@ -296,7 +334,7 @@ const IdentityVotingPanel: React.FC = () => {
             onChange={(e) => setCrossPressure(e.target.checked)} />
         </Col>
         <Col xs="auto">
-          <Button variant="primary" size="sm" onClick={run} disabled={loading}
+          <Button variant="primary" size="sm" onClick={() => run()} disabled={loading}
             data-testid="run-btn">
             {loading ? <Spinner size="sm" animation="border" /> : t('identity.run')}
           </Button>

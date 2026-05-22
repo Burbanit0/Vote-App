@@ -754,6 +754,10 @@ const en: TranslationKeys = {
     lastNamePlaceholder: 'Last name',
   },
 
+  lab: {
+    fromElectionLab: 'Configuration from Election Lab — shared election parameters',
+  },
+
   common: {
     loading: 'Loading…',
     error: 'An error occurred',
@@ -1105,6 +1109,10 @@ const en: TranslationKeys = {
     tabDemographic:           'Representation',
     tabCompulsory:            'Compulsory Voting',
     tabDeliberation:          'Deliberation',
+    tabLabCollectiveWill:     '🌊 Collective Will',
+    tabLabAssumptions:        '🔬 Robustness',
+    tabLabEpistocracy:        '🎓 Epistocracy',
+    tabLabIdentity:           '🏳 Identity Voting',
     tabJury:                  'Jury theorem',
     tabReplay:                'Historical replay',
     tabAdaptive:              'Tactical voting',

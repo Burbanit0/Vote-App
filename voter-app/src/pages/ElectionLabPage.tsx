@@ -21,6 +21,10 @@ import HistoricalReferencePanel from '../components/shared/HistoricalReferencePa
 import MetricTooltip from '../components/shared/MetricTooltip';
 import ElectionInsightPanel from '../components/shared/ElectionInsightPanel';
 import ModelAssumptionsBanner from '../components/shared/ModelAssumptionsBanner';
+import CollectiveWillPanel from '../components/shared/CollectiveWillPanel';
+import AssumptionTesterPanel from '../components/shared/AssumptionTesterPanel';
+import EpistocracyPanel from '../components/shared/EpistocracyPanel';
+import IdentityVotingPanel from '../components/shared/IdentityVotingPanel';
 import CoalitionPanel from '../components/shared/CoalitionPanel';
 import DuelModePanel from '../components/shared/DuelModePanel';
 import DistrictMap from '../components/shared/DistrictMap';
@@ -556,7 +560,12 @@ const ElectionLabPage: React.FC = () => {
                   { key: 'manipulation',       icon: '🕵', label: t('electionLab.tabManipulation') },
                   { key: 'demographic',        icon: '👥', label: t('electionLab.tabDemographic') },
                   { key: 'compulsory',         icon: '⚖️', label: t('electionLab.tabCompulsory') },
-                  { key: 'deliberation',       icon: '🗣', label: t('electionLab.tabDeliberation') },
+                  { key: 'deliberation',         icon: '🗣', label: t('electionLab.tabDeliberation') },
+                  // ── Théorie & limites ─────────────────────────────────────────────
+                  { key: 'lab-collective-will', icon: '🌊', label: t('electionLab.tabLabCollectiveWill') },
+                  { key: 'lab-assumptions',     icon: '🔬', label: t('electionLab.tabLabAssumptions') },
+                  { key: 'lab-epistocracy',     icon: '🎓', label: t('electionLab.tabLabEpistocracy') },
+                  { key: 'lab-identity',        icon: '🏳', label: t('electionLab.tabLabIdentity') },
                 ];
 
                 const tabContent: Record<string, React.ReactNode> = {
@@ -597,6 +606,33 @@ const ElectionLabPage: React.FC = () => {
                   'demographic':          <DemographicTurnoutPanel />,
                   'compulsory':           <CompulsoryVotingPanel />,
                   'deliberation':         <DeliberationPanel />,
+                  // ── Théorie & limites — utilisent la config ElectionLab ─────────
+                  'lab-collective-will':  <CollectiveWillPanel
+                                            labMode
+                                            labCandidates={config.candidates}
+                                            labNumVoters={config.num_voters}
+                                            labSeed={config.seed}
+                                            labIdeology={config.ideology}
+                                          />,
+                  'lab-assumptions':      <AssumptionTesterPanel
+                                            labMode
+                                            labCandidates={config.candidates}
+                                            labNumVoters={config.num_voters}
+                                            labSeed={config.seed}
+                                            labIdeology={config.ideology}
+                                          />,
+                  'lab-epistocracy':      <EpistocracyPanel
+                                            labMode
+                                            labCandidates={config.candidates}
+                                            labNumVoters={config.num_voters}
+                                            labSeed={config.seed}
+                                          />,
+                  'lab-identity':         <IdentityVotingPanel
+                                            labMode
+                                            labCandidates={config.candidates}
+                                            labNumVoters={config.num_voters}
+                                            labSeed={config.seed}
+                                          />,
                 };
 
                 const currentIdx = TABS.findIndex((tab) => tab.key === activeTab);

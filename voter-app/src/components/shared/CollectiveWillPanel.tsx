@@ -2,7 +2,7 @@
  * CollectiveWillPanel — does collective will exist, or is it procedural artefact?
  * Rousseau (1762) vs Arrow (1951) vs Schumpeter (1942) vs Sen (1999) vs Rawls (1971).
  */
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import axios from 'axios';
 import { useTranslation } from 'react-i18next';
 import {
@@ -239,9 +239,21 @@ const PhilosophersSection: React.FC<{ score: number; t: (k: string) => string }>
   );
 };
 
+// ── Lab-mode props ────────────────────────────────────────────────────────────
+
+export interface CollectiveWillLabProps {
+  labMode?:        boolean;
+  labCandidates?:  Array<{name: string; x: number; y: number}>;
+  labNumVoters?:   number;
+  labSeed?:        number;
+  labIdeology?:    string;
+}
+
 // ── Main panel ────────────────────────────────────────────────────────────────
 
-const CollectiveWillPanel: React.FC = () => {
+const CollectiveWillPanel: React.FC<CollectiveWillLabProps> = ({
+  labMode = false, labCandidates, labNumVoters, labSeed, labIdeology,
+}) => {
   const { t } = useTranslation();
 
   const [data,       setData]       = useState<CollectiveWillData | null>(null);
@@ -253,22 +265,29 @@ const CollectiveWillPanel: React.FC = () => {
   const [numAgendas, setNumAgendas] = useState(4);
   const [ideology,   setIdeology]   = useState('random');
 
-  const handleRun = async () => {
+  const DEFAULT_CANDS = [
+    { name: 'Alice', x: -0.5, y: 0.0 },
+    { name: 'Bob',   x:  0.0, y: 0.0 },
+    { name: 'Carol', x:  0.5, y: 0.0 },
+  ];
+
+  const handleRun = async (
+    overrideCands?: typeof DEFAULT_CANDS,
+    overrideVoters?: number,
+    overrideSeed?: number,
+    overrideIdeology?: string,
+  ) => {
     setLoading(true);
     setError(null);
     try {
       const res = await axios.post(`${API}/api/theory/collective-will`, {
-        candidates: [
-          { name: 'Alice', x: -0.5, y: 0.0 },
-          { name: 'Bob',   x:  0.0, y: 0.0 },
-          { name: 'Carol', x:  0.5, y: 0.0 },
-        ],
-        num_voters:       numVoters,
-        ideology,
-        seed,
-        num_methods:      numMethods,
-        num_agendas:      numAgendas,
-        num_simulations:  1,
+        candidates:      overrideCands   ?? DEFAULT_CANDS,
+        num_voters:      overrideVoters  ?? numVoters,
+        ideology:        overrideIdeology ?? ideology,
+        seed:            overrideSeed    ?? seed,
+        num_methods:     numMethods,
+        num_agendas:     numAgendas,
+        num_simulations: 1,
       });
       setData(res.data);
     } catch {
@@ -278,11 +297,28 @@ const CollectiveWillPanel: React.FC = () => {
     }
   };
 
+  // Auto-run when lab context changes
+  useEffect(() => {
+    if (labMode && labCandidates?.length) {
+      handleRun(labCandidates, labNumVoters, labSeed, labIdeology);
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [labMode, labCandidates, labNumVoters, labSeed, labIdeology]);
+
   const score = data?.rousseau_score ?? 0;
 
   return (
     <div>
-      {/* ── Controls ── */}
+      {/* ── Lab mode badge ── */}
+      {labMode && (
+        <div className="mb-2">
+          <Badge bg="dark" style={{ fontSize: '0.68rem' }}>
+            🔬 {t('lab.fromElectionLab')}
+          </Badge>
+        </div>
+      )}
+      {/* ── Controls (hidden in lab mode) ── */}
+      {!labMode && (
       <Row className="g-2 mb-3 align-items-end">
         <Col xs={6} md={2}>
           <Form.Label className="small mb-0">{t('will.voters')}</Form.Label>
@@ -317,14 +353,15 @@ const CollectiveWillPanel: React.FC = () => {
             onChange={(e) => setSeed(Number(e.target.value))} />
         </Col>
         <Col xs="auto">
-          <Button variant="dark" size="sm" onClick={handleRun} disabled={loading}
+          <Button variant="dark" size="sm" onClick={() => handleRun()} disabled={loading}
             data-testid="run-btn">
             {loading ? <Spinner size="sm" animation="border" /> : t('will.run')}
           </Button>
         </Col>
       </Row>
+      )}
 
-      {!data && !loading && !error && (
+      {!data && !loading && !error && !labMode && (
         <Alert variant="secondary" data-testid="prompt-alert">{t('will.prompt')}</Alert>
       )}
       {error && <Alert variant="danger" data-testid="error-alert">{error}</Alert>}
