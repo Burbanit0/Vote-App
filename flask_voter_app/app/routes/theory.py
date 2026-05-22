@@ -2222,3 +2222,192 @@ def epistocracy() -> tuple[Response, int]:
         "condorcet_threshold":  condorcet_threshold,
         "pedagogical_note":     note,
     }), 200
+
+
+# ── /api/theory/identity-voting ───────────────────────────────────────────────
+
+@theory_bp.route("/identity-voting", methods=["POST"])
+@sim_limiter.limit("5 per minute")
+def identity_voting() -> tuple[Response, int]:
+    """Simulate identity-based voting (Green, Palmquist & Schickler 2002)."""
+    data = request.get_json(silent=True) or {}
+
+    candidates_raw: List[Dict[str, Any]] = data.get("candidates", [
+        {"name": "Alice", "x": -0.5, "y": 0.0},
+        {"name": "Bob",   "x":  0.0, "y": 0.0},
+        {"name": "Carol", "x":  0.5, "y": 0.0},
+    ])
+    num_voters:      int   = max(20, min(int(data.get("num_voters", 200)), 2000))
+    seed:            int   = int(data.get("seed", 42))
+    identity_weight: float = max(0.0, min(float(data.get("identity_weight", 0.5)), 1.0))
+    cross_pressure:  bool  = bool(data.get("cross_pressure", True))
+    method:          str   = data.get("method", "plurality")
+
+    default_groups = [
+        {"name": "Groupe A", "pct": 0.40, "ideology_center": -0.3,
+         "loyalty": 0.75, "candidate_affiliation": candidates_raw[0]["name"]},
+        {"name": "Groupe B", "pct": 0.35, "ideology_center":  0.1,
+         "loyalty": 0.60, "candidate_affiliation": candidates_raw[1]["name"]},
+        {"name": "Groupe C", "pct": 0.25, "ideology_center":  0.4,
+         "loyalty": 0.80, "candidate_affiliation": candidates_raw[2]["name"]},
+    ]
+    groups_raw: List[Dict[str, Any]] = data.get("identity_groups", default_groups)
+
+    rng = _rnd.Random(seed)
+    cand_names = [c["name"] for c in candidates_raw]
+
+    # ── Normalise groups ──────────────────────────────────────────────────────
+    groups: List[Dict[str, Any]] = []
+    total_pct = sum(float(g.get("pct", 0.33)) for g in groups_raw) or 1.0
+    for g in groups_raw:
+        affil = str(g.get("candidate_affiliation", cand_names[0]))
+        if affil not in cand_names:
+            affil = cand_names[0]
+        groups.append({
+            "name":                  str(g.get("name", "?")),
+            "pct":                   float(g.get("pct", 0.33)) / total_pct,
+            "ideology_center":       float(g.get("ideology_center", 0.0)),
+            "loyalty":               max(0.0, min(float(g.get("loyalty", 0.6)), 1.0)),
+            "candidate_affiliation": affil,
+        })
+
+    # ── Generate voters ───────────────────────────────────────────────────────
+    voters: List[Dict[str, Any]] = []
+    group_sizes = [max(1, round(g["pct"] * num_voters)) for g in groups]
+    # Adjust last group to hit exactly num_voters
+    diff = num_voters - sum(group_sizes)
+    group_sizes[-1] = max(1, group_sizes[-1] + diff)
+
+    for gidx, (group, n_in_group) in enumerate(zip(groups, group_sizes)):
+        for _ in range(n_in_group):
+            ideology_pos = rng.gauss(group["ideology_center"], 0.2)
+            ideology_pos = max(-1.0, min(1.0, ideology_pos))
+
+            # Ideological vote: nearest candidate by distance
+            distances = {c["name"]: abs(ideology_pos - c.get("x", 0.0))
+                         for c in candidates_raw}
+            ideo_vote = min(distances, key=distances.get)  # type: ignore[arg-type]
+
+            # Identity vote: candidate affiliated with group
+            identity_vote = group["candidate_affiliation"]
+
+            # Cross-pressure: ideological ≠ identity → might abstain
+            is_cross_pressured = ideo_vote != identity_vote
+            abstains = False
+            if cross_pressure and is_cross_pressured:
+                # Abstention prob ∝ loyalty × |ideology distance|
+                loyalty = group["loyalty"]
+                abstain_prob = loyalty * 0.3 * abs(ideology_pos - group["ideology_center"])
+                abstains = rng.random() < abstain_prob
+
+            # Mixed vote
+            use_identity = rng.random() < (identity_weight * group["loyalty"])
+            if use_identity:
+                final_vote = identity_vote
+            else:
+                final_vote = ideo_vote
+
+            voters.append({
+                "group":              gidx,
+                "ideology":           ideology_pos,
+                "ideo_vote":          ideo_vote,
+                "identity_vote":      identity_vote,
+                "final_vote":         final_vote,
+                "is_cross_pressured": is_cross_pressured,
+                "abstains":           abstains,
+            })
+
+    # ── Tally votes for 3 scenarios ───────────────────────────────────────────
+    def _plurality(votes: List[str]) -> str:
+        from collections import Counter as _C
+        return _C(votes).most_common(1)[0][0] if votes else cand_names[0]
+
+    sincere_votes  = [v["ideo_vote"]     for v in voters]
+    identity_votes = [v["identity_vote"] for v in voters]
+    mixed_votes    = [v["final_vote"]    for v in voters
+                      if not (cross_pressure and v["abstains"])]
+
+    sincere_winner  = _plurality(sincere_votes)
+    identity_winner = _plurality(identity_votes)
+    mixed_winner    = _plurality(mixed_votes)
+
+    # ── Group results ─────────────────────────────────────────────────────────
+    group_results: List[Dict[str, Any]] = []
+    for gidx, group in enumerate(groups):
+        members = [v for v in voters if v["group"] == gidx]
+        if not members:
+            continue
+        n_total = len(members)
+        n_identity_vote = sum(1 for v in members if v["identity_vote"] == group["candidate_affiliation"])
+        n_ideo_match    = sum(1 for v in members if v["ideo_vote"] == group["candidate_affiliation"])
+        group_results.append({
+            "group_name":     group["name"],
+            "affiliation":    group["candidate_affiliation"],
+            "group_vote_pct": round(n_identity_vote / n_total, 4),
+            "ideology_match": round(n_ideo_match / n_total, 4),
+            "loyalty":        round(group["loyalty"], 4),
+            "size_pct":       round(group["pct"], 4),
+        })
+
+    # ── Cross-pressured stats ─────────────────────────────────────────────────
+    cross_pressured_voters = [v for v in voters if v["is_cross_pressured"]]
+    n_cross = len(cross_pressured_voters)
+    n_abstaining = sum(1 for v in cross_pressured_voters if v["abstains"])
+    abstention_rate = n_abstaining / n_cross if n_cross > 0 else 0.0
+
+    # ── Identity-weight curve ─────────────────────────────────────────────────
+    curve: List[Dict[str, Any]] = []
+    for w_pct in range(0, 105, 10):
+        w = w_pct / 100.0
+        curve_votes: List[str] = []
+        rng_c = _rnd.Random(seed + w_pct)
+        for v in voters:
+            # Recompute for this weight
+            gidx_v = v["group"]
+            loyalty = groups[gidx_v]["loyalty"]
+            use_id  = rng_c.random() < (w * loyalty)
+            vote_c  = v["identity_vote"] if use_id else v["ideo_vote"]
+            if not (cross_pressure and v["abstains"]):
+                curve_votes.append(vote_c)
+        w_winner = _plurality(curve_votes)
+        # Agreement: fraction who would vote same under both identity=0 and identity=1
+        ideo_tally   = {n: sincere_votes.count(n) for n in cand_names}
+        id_tally     = {n: identity_votes.count(n) for n in cand_names}
+        total_v = len(voters) or 1
+        agreement = sum(min(ideo_tally.get(n, 0), id_tally.get(n, 0))
+                        for n in cand_names) / total_v
+        curve.append({
+            "weight":         w,
+            "winner":         w_winner,
+            "agreement_rate": round(agreement, 4),
+        })
+
+    # ── Pedagogical note ──────────────────────────────────────────────────────
+    n_cross_total = len(cross_pressured_voters)
+    note = (
+        f"Green, Palmquist & Schickler (2002) : les électeurs adoptent les positions "
+        f"de leur camp, ils ne choisissent pas leur camp selon leurs positions. "
+        f"Avec un poids identitaire de {int(identity_weight*100)}%, "
+        f"le vainqueur {'change' if mixed_winner != sincere_winner else 'ne change pas'} "
+        f"vs le vote idéologique pur. "
+    )
+    if n_cross_total > 0:
+        note += (
+            f"{n_cross_total} électeurs ({round(n_cross_total/num_voters*100)}%) sont "
+            f"'cross-pressured' (identité ≠ idéologie) ; "
+            f"taux d'abstention dans ce groupe : {round(abstention_rate*100)}%."
+        )
+
+    return jsonify({
+        "sincere_winner":  sincere_winner,
+        "identity_winner": identity_winner,
+        "mixed_winner":    mixed_winner,
+        "winner_changed":  mixed_winner != sincere_winner,
+        "group_results":   group_results,
+        "cross_pressured": {
+            "count":          n_cross_total,
+            "abstention_rate": round(abstention_rate, 4),
+        },
+        "identity_weight_curve": curve,
+        "pedagogical_note":      note,
+    }), 200

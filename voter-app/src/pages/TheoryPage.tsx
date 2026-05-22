@@ -17,6 +17,7 @@ import PowerIndicesPanel from '../components/shared/PowerIndicesPanel';
 import DemocraticBackslidingPanel from '../components/shared/DemocraticBackslidingPanel';
 import IntergenerationalPanel from '../components/shared/IntergenerationalPanel';
 import EpistocracyPanel from '../components/shared/EpistocracyPanel';
+import IdentityVotingPanel from '../components/shared/IdentityVotingPanel';
 
 const TheoryPage: React.FC = () => {
   const { t } = useTranslation();
@@ -33,6 +34,17 @@ const TheoryPage: React.FC = () => {
       </p>
 
       {/* Arrow context */}
+      {/* ── Identity Voting ── */}
+      <Card className="mb-4" style={{ borderColor: '#6610f2' }}>
+        <Card.Header className="fw-bold" style={{ color: '#6610f2' }}>
+          🏳 {t('identity.cardTitle')}
+        </Card.Header>
+        <Card.Body>
+          <p style={{ fontSize: '0.85rem' }}>{t('identity.cardDesc')}</p>
+          <IdentityVotingPanel />
+        </Card.Body>
+      </Card>
+
       {/* ── Epistocracy ── */}
       <Card className="mb-4 border-warning">
         <Card.Header className="fw-bold" style={{ color: '#856404' }}>
