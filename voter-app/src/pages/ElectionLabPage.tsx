@@ -20,6 +20,7 @@ import ElectionPipelineAnimator from '../components/shared/ElectionPipelineAnima
 import HistoricalReferencePanel from '../components/shared/HistoricalReferencePanel';
 import MetricTooltip from '../components/shared/MetricTooltip';
 import ElectionInsightPanel from '../components/shared/ElectionInsightPanel';
+import ModelAssumptionsBanner from '../components/shared/ModelAssumptionsBanner';
 import CoalitionPanel from '../components/shared/CoalitionPanel';
 import DuelModePanel from '../components/shared/DuelModePanel';
 import DistrictMap from '../components/shared/DistrictMap';
@@ -391,6 +392,7 @@ const ElectionLabPage: React.FC = () => {
 
   return (
     <Container fluid className="py-4" style={{ maxWidth: 1400 }}>
+      <ModelAssumptionsBanner />
       {/* Header */}
       <div className="d-flex align-items-center justify-content-between mb-2 flex-wrap gap-2">
         <div>

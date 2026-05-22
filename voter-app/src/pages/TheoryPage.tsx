@@ -18,6 +18,7 @@ import DemocraticBackslidingPanel from '../components/shared/DemocraticBackslidi
 import IntergenerationalPanel from '../components/shared/IntergenerationalPanel';
 import EpistocracyPanel from '../components/shared/EpistocracyPanel';
 import IdentityVotingPanel from '../components/shared/IdentityVotingPanel';
+import AssumptionTesterPanel from '../components/shared/AssumptionTesterPanel';
 
 const TheoryPage: React.FC = () => {
   const { t } = useTranslation();
@@ -152,6 +153,17 @@ const TheoryPage: React.FC = () => {
         <Card.Body>
           <p style={{ fontSize: '0.85rem' }}>{t('judg.cardDesc')}</p>
           <JudgmentAggregationPanel />
+        </Card.Body>
+      </Card>
+
+      {/* ── Assumption Tester ── */}
+      <Card className="mb-4 border-secondary">
+        <Card.Header className="fw-bold text-secondary">
+          🔬 {t('assumptions.cardTitle')}
+        </Card.Header>
+        <Card.Body>
+          <p style={{ fontSize: '0.85rem' }}>{t('assumptions.cardDesc')}</p>
+          <AssumptionTesterPanel />
         </Card.Body>
       </Card>
 
