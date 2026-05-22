@@ -16,6 +16,7 @@ import MajorityTyrannyPanel from '../components/shared/MajorityTyrannyPanel';
 import PowerIndicesPanel from '../components/shared/PowerIndicesPanel';
 import DemocraticBackslidingPanel from '../components/shared/DemocraticBackslidingPanel';
 import IntergenerationalPanel from '../components/shared/IntergenerationalPanel';
+import EpistocracyPanel from '../components/shared/EpistocracyPanel';
 
 const TheoryPage: React.FC = () => {
   const { t } = useTranslation();
@@ -32,6 +33,17 @@ const TheoryPage: React.FC = () => {
       </p>
 
       {/* Arrow context */}
+      {/* ── Epistocracy ── */}
+      <Card className="mb-4 border-warning">
+        <Card.Header className="fw-bold" style={{ color: '#856404' }}>
+          🎓 {t('episto.cardTitle')}
+        </Card.Header>
+        <Card.Body>
+          <p style={{ fontSize: '0.85rem' }}>{t('episto.cardDesc')}</p>
+          <EpistocracyPanel />
+        </Card.Body>
+      </Card>
+
       {/* ── Intergenerational Justice ── */}
       <Card className="mb-4 border-primary">
         <Card.Header className="fw-bold text-primary">🌱 {t('intergen.cardTitle')}</Card.Header>

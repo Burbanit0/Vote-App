@@ -2006,3 +2006,219 @@ def intergenerational() -> tuple[Response, int]:
         "mechanism_comparison": mechanism_comparison,
         "pedagogical_note":     note,
     }), 200
+
+
+# ── /api/theory/epistocracy ───────────────────────────────────────────────────
+
+import statistics as _stats_ep  # noqa: E402
+
+@theory_bp.route("/epistocracy", methods=["POST"])
+@sim_limiter.limit("5 per minute")
+def epistocracy() -> tuple[Response, int]:
+    """Simulate epistocratic voting systems vs standard democracy (Caplan 2007, Brennan 2016)."""
+    data = request.get_json(silent=True) or {}
+
+    candidates_raw: List[Dict[str, Any]] = data.get("candidates", [
+        {"name": "A", "x": -0.5, "y": 0.0},
+        {"name": "B", "x":  0.0, "y": 0.0},
+        {"name": "C", "x":  0.5, "y": 0.0},
+    ])
+    num_voters:    int   = max(10, min(int(data.get("num_voters", 100)), 1000))
+    seed:          int   = int(data.get("seed", 42))
+    comp_dist:     str   = data.get("voter_competence_distribution", "uniform")
+    weighting_req: str   = data.get("weighting_scheme", "equal")
+    epist_threshold: float = max(0.1, min(float(data.get("epistocracy_threshold", 0.7)), 0.99))
+
+    params = data.get("competence_params", {})
+    comp_mean   = max(0.1, min(float(params.get("mean",        0.55)), 0.99))
+    comp_std    = max(0.01, min(float(params.get("std",         0.15)), 0.40))
+    expert_pct  = max(0.0,  min(float(params.get("expert_pct",  0.10)), 0.50))
+    caplan_bias = bool(params.get("caplan_bias", True))
+
+    rng = _rnd.Random(seed)
+
+    n_cands = len(candidates_raw)
+    if n_cands < 2:
+        candidates_raw = [
+            {"name": "A", "x": -0.5, "y": 0.0},
+            {"name": "B", "x":  0.0, "y": 0.0},
+        ]
+        n_cands = 2
+
+    # ── Generate voter competence distribution ────────────────────────────────
+    competences: List[float] = []
+
+    if comp_dist == "bimodal":
+        # Two clusters: low-info and high-info
+        for _ in range(num_voters):
+            if rng.random() < 0.6:
+                c = max(0.1, min(rng.gauss(comp_mean - 0.15, comp_std), 0.99))
+            else:
+                c = max(0.1, min(rng.gauss(comp_mean + 0.20, comp_std * 0.7), 0.99))
+            competences.append(c)
+    elif comp_dist == "expert_minority":
+        n_experts = max(1, int(num_voters * expert_pct))
+        for i in range(num_voters):
+            if i < n_experts:
+                c = max(0.8, min(rng.gauss(0.88, 0.05), 0.99))
+            else:
+                c = max(0.1, min(rng.gauss(comp_mean - 0.05, comp_std), 0.79))
+            competences.append(c)
+        rng.shuffle(competences)
+    else:  # "uniform" — gaussian around mean
+        for _ in range(num_voters):
+            c = max(0.1, min(rng.gauss(comp_mean, comp_std), 0.99))
+            competences.append(c)
+
+    # ── Caplan biases: reduce effective competence for economic decisions ──────
+    if caplan_bias:
+        # Caplan's 4 biases reduce effective P by a correlated amount
+        biased_competences = [
+            max(0.1, min(c - rng.uniform(0.0, 0.15), 0.99))
+            for c in competences
+        ]
+    else:
+        biased_competences = list(competences)
+
+    actual_mean        = _stats_ep.mean(competences)
+    biased_mean        = _stats_ep.mean(biased_competences)
+    expert_count       = sum(1 for c in competences if c >= 0.8)
+
+    # ── "Omniscient" correct candidate: always candidate with lowest |x| (centrist) ──
+    # This is the "best" choice for Bayesian welfare maximisation in a spatial model
+    best_cand_idx = min(range(n_cands),
+                        key=lambda i: abs(candidates_raw[i].get("x", 0.0)))
+    best_cand_name = candidates_raw[best_cand_idx]["name"]
+
+    # ── Simulate multiple elections per scheme across many trials ─────────────
+    n_trials = 40   # Monte Carlo over voter preference noise
+
+    schemes = ["equal", "competence_weighted", "epistocratic", "lottery"]
+    results: Dict[str, Any] = {}
+
+    for scheme in schemes:
+        wins_best = 0
+        total_regret = 0.0
+        participates_total = 0.0
+
+        for trial in range(n_trials):
+            trial_seed = seed * 1000 + trial
+            trial_rng  = _rnd.Random(trial_seed)
+
+            # Determine which voters participate
+            if scheme == "epistocratic":
+                eligible = [(i, biased_competences[i])
+                            for i in range(num_voters)
+                            if biased_competences[i] >= epist_threshold]
+            else:
+                eligible = [(i, biased_competences[i]) for i in range(num_voters)]
+
+            participates = len(eligible) / num_voters
+            participates_total += participates
+
+            if not eligible:
+                # No one qualifies: fallback to random
+                winner_idx = trial_rng.randrange(n_cands)
+            elif scheme == "lottery":
+                # Random dictator
+                picked_voter_idx, picked_comp = trial_rng.choice(eligible)
+                if trial_rng.random() < picked_comp:
+                    winner_idx = best_cand_idx
+                else:
+                    alts = [j for j in range(n_cands) if j != best_cand_idx]
+                    winner_idx = trial_rng.choice(alts)
+            else:
+                # Tally votes
+                tally: List[float] = [0.0] * n_cands
+                for voter_i, comp in eligible:
+                    if trial_rng.random() < comp:
+                        vote = best_cand_idx
+                    else:
+                        alts = [j for j in range(n_cands) if j != best_cand_idx]
+                        vote = trial_rng.choice(alts)
+
+                    if scheme == "competence_weighted":
+                        weight = comp
+                    else:
+                        weight = 1.0
+                    tally[vote] += weight
+
+                winner_idx = tally.index(max(tally))
+
+            # Regret: 0 if best, 1/n_cands baseline for random
+            if winner_idx == best_cand_idx:
+                wins_best     += 1
+                trial_regret   = 0.0
+            else:
+                # Distance from best candidate in ideology space
+                wx  = candidates_raw[winner_idx].get("x", 0.0)
+                bx  = candidates_raw[best_cand_idx].get("x", 0.0)
+                trial_regret = min(1.0, abs(wx - bx))
+
+            total_regret += trial_regret
+
+        results[scheme] = {
+            "winner":              best_cand_name if wins_best > n_trials // 2 else
+                                   candidates_raw[0]["name"],  # placeholder
+            "bayesian_regret":     round(total_regret / n_trials, 4),
+            "correct_choice_pct":  round(wins_best / n_trials, 4),
+            "participates_pct":    round(participates_total / n_trials, 4),
+        }
+
+    # ── Expert vs democracy comparison ────────────────────────────────────────
+    # Expert: single randomly drawn voter from top-competence decile
+    expert_wins = 0
+    for trial in range(n_trials):
+        trial_rng = _rnd.Random(seed * 10000 + trial)
+        top_experts = sorted(range(num_voters), key=lambda i: biased_competences[i], reverse=True)
+        expert_i = top_experts[max(0, min(int(len(top_experts) * 0.10), len(top_experts) - 1))]
+        expert_comp = biased_competences[expert_i]
+        if trial_rng.random() < expert_comp:
+            expert_wins += 1
+
+    expert_regret   = round(1.0 - expert_wins / n_trials, 4)
+    demo_regret     = results["equal"]["bayesian_regret"]
+
+    # ── Condorcet threshold ────────────────────────────────────────────────────
+    # Approximate P* where collective accuracy = 1/n_cands (random chance)
+    # From theorem: acc ≈ 1/2 + (P - 0.5) * sqrt(N) * some_factor
+    # Simpler: threshold is 1/n_cands (random-chance crossover)
+    condorcet_threshold = round(0.5, 4)  # Classic CJT threshold
+
+    # ── Pedagogical note ──────────────────────────────────────────────────────
+    demo_acc  = results["equal"]["correct_choice_pct"]
+    epist_acc = results["epistocratic"]["correct_choice_pct"]
+
+    if biased_mean < 0.5:
+        note = (
+            f"Avec une compétence moyenne de {biased_mean:.2f} (biaisée par Caplan), "
+            f"la démocratie standard choisit le bon candidat dans "
+            f"{round(demo_acc*100)}% des cas — MOINS que le hasard ({round(100/n_cands)}%). "
+            f"Condorcet (1785) : si P < 0.5, la majorité aggrave l'erreur."
+        )
+    else:
+        note = (
+            f"Avec une compétence moyenne de {biased_mean:.2f}, "
+            f"la démocratie égale obtient {round(demo_acc*100)}% de bonnes décisions "
+            f"vs {round(epist_acc*100)}% pour l'épistocracie "
+            f"(seuil {epist_threshold:.0%}, "
+            f"{round(results['epistocratic']['participates_pct']*100)}% de l'électorat). "
+            f"Brennan (2016) : l'épistocracie améliore-t-elle réellement la qualité "
+            f"des décisions, ou ne fait-elle qu'exclure ?"
+        )
+
+    return jsonify({
+        "voter_competence_stats": {
+            "mean":         round(actual_mean, 4),
+            "biased_mean":  round(biased_mean, 4),
+            "expert_count": expert_count,
+        },
+        "results":              results,
+        "democracy_vs_expert":  {
+            "democracy_regret":  demo_regret,
+            "expert_regret":     expert_regret,
+            "omniscient_regret": 0.0,
+        },
+        "condorcet_threshold":  condorcet_threshold,
+        "pedagogical_note":     note,
+    }), 200
