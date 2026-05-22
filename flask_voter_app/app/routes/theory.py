@@ -1781,3 +1781,228 @@ def democratic_backsliding() -> tuple[Response, int]:
         "tipping_points":           tipping_points,
         "pedagogical_note":         note,
     }), 200
+
+
+# ── /api/theory/intergenerational ────────────────────────────────────────────
+
+_DEFAULT_DECISIONS = [
+    {"name": "Retraite par répartition", "cost_present": -0.2, "benefit_future": -0.4, "time_horizon_years": 30},
+    {"name": "Investissement éducation",  "cost_present": -0.3, "benefit_future":  0.8, "time_horizon_years": 20},
+    {"name": "Dette publique",            "cost_present":  0.5, "benefit_future": -0.6, "time_horizon_years": 25},
+    {"name": "Isolation des bâtiments",   "cost_present": -0.4, "benefit_future":  0.7, "time_horizon_years": 15},
+    {"name": "Fonds souverain climatique","cost_present": -0.3, "benefit_future":  0.9, "time_horizon_years": 40},
+]
+
+_MECHANISMS = ("none", "proxy", "age_weighted", "veto")
+
+# Discount rate for long-horizon welfare aggregation
+_DISCOUNT = 0.03   # 3% per year
+
+
+@theory_bp.route("/intergenerational", methods=["POST"])
+@sim_limiter.limit("5 per minute")
+def intergenerational() -> tuple[Response, int]:
+    """Simulate intergenerational justice: how future-gen representation changes decisions."""
+    data = request.get_json(silent=True) or {}
+
+    raw_decisions: List[Dict[str, Any]] = data.get("decisions", _DEFAULT_DECISIONS)
+    num_voters:    int   = max(20, min(int(data.get("num_voters", 100)), 1000))
+    age_dist_raw:  List[float] = data.get("age_distribution", [0.30, 0.45, 0.25])
+    seed:          int   = int(data.get("seed", 42))
+    mechanism_req: str   = data.get("future_generations_mechanism", "none")
+
+    rng = _rnd.Random(seed)
+
+    # Normalise age distribution (3 buckets: young/adult/senior)
+    if len(age_dist_raw) != 3:
+        age_dist_raw = [0.30, 0.45, 0.25]
+    s = sum(age_dist_raw) or 1.0
+    age_dist = [x / s for x in age_dist_raw]
+    pct_young, pct_adult, pct_senior = age_dist
+
+    # Validate decisions
+    decisions: List[Dict[str, Any]] = []
+    for d in raw_decisions[:8]:
+        decisions.append({
+            "name":               str(d.get("name", "?")),
+            "cost_present":       max(-1.0, min(1.0, float(d.get("cost_present", 0.0)))),
+            "benefit_future":     max(-1.0, min(1.0, float(d.get("benefit_future", 0.0)))),
+            "time_horizon_years": max(1, min(50, int(d.get("time_horizon_years", 10)))),
+        })
+
+    # ── Voter population ──────────────────────────────────────────────────────
+    # For each cohort, base preference = f(cost_present, benefit_future, age)
+    # Young: care more about future; Senior: care more about present.
+
+    def _cohort_support(dec: Dict[str, Any], cohort: str, noise: float = 0.0) -> float:
+        """Returns support fraction [0, 1] for a cohort."""
+        cp = dec["cost_present"]   # -1 bad now, +1 good now
+        bf = dec["benefit_future"] # -1 bad later, +1 good later
+        horizon = dec["time_horizon_years"]
+
+        if cohort == "young":
+            # Young discount future less — care more about bf
+            future_weight = 0.60 + min(horizon / 100, 0.30)
+            util = (1 - future_weight) * (cp + 1) / 2 + future_weight * (bf + 1) / 2
+        elif cohort == "adult":
+            future_weight = 0.40
+            util = (1 - future_weight) * (cp + 1) / 2 + future_weight * (bf + 1) / 2
+        else:  # senior
+            future_weight = max(0.15, 0.30 - horizon * 0.008)
+            util = (1 - future_weight) * (cp + 1) / 2 + future_weight * (bf + 1) / 2
+
+        return max(0.0, min(1.0, util + noise))
+
+    # ── Per-mechanism vote outcome ────────────────────────────────────────────
+
+    all_mechs = list(_MECHANISMS) if mechanism_req == "none" else list(_MECHANISMS)
+
+    decisions_results: List[Dict[str, Any]] = []
+
+    for dec in decisions:
+        by_mech: Dict[str, Any] = {}
+
+        for mech in all_mechs:
+            noise = rng.gauss(0, 0.03)
+
+            s_young  = _cohort_support(dec, "young",  noise)
+            s_adult  = _cohort_support(dec, "adult",  noise * 0.8)
+            s_senior = _cohort_support(dec, "senior", noise * 0.5)
+
+            # ── "none": simple majority of current voters ─────────────────
+            if mech == "none":
+                vote_pct = (
+                    s_young  * pct_young +
+                    s_adult  * pct_adult +
+                    s_senior * pct_senior
+                )
+
+            # ── "proxy": commissaire with 20% weight voting for future ───
+            elif mech == "proxy":
+                proxy_support = max(0.0, min(1.0, (dec["benefit_future"] + 1) / 2))
+                proxy_weight  = 0.20
+                base_support  = (
+                    s_young  * pct_young +
+                    s_adult  * pct_adult +
+                    s_senior * pct_senior
+                )
+                vote_pct = (1 - proxy_weight) * base_support + proxy_weight * proxy_support
+
+            # ── "age_weighted": residual life expectancy weighting ────────
+            elif mech == "age_weighted":
+                w_young  = pct_young  * 1.5
+                w_adult  = pct_adult  * 1.0
+                w_senior = pct_senior * 0.5
+                total_w  = w_young + w_adult + w_senior or 1.0
+                vote_pct = (
+                    s_young  * w_young  +
+                    s_adult  * w_adult  +
+                    s_senior * w_senior
+                ) / total_w
+
+            # ── "veto": young veto decisions with long time horizon ───────
+            else:  # "veto"
+                base_vote = (
+                    s_young  * pct_young +
+                    s_adult  * pct_adult +
+                    s_senior * pct_senior
+                )
+                if dec["time_horizon_years"] > 15 and s_young < 0.5:
+                    # Veto triggered: young block it
+                    vote_pct = 0.0
+                else:
+                    vote_pct = base_vote
+
+            adopted = vote_pct >= 0.50
+
+            # ── Welfare calculation ───────────────────────────────────────
+            # present welfare (generation 0-25 years): driven by cost_present
+            w_present = (dec["cost_present"] + 1) / 2   # 0=bad, 1=good
+
+            # future welfare (generation 25-50 years): driven by benefit_future
+            # discounted at 3%/year to the time_horizon
+            discount_factor = (1 + _DISCOUNT) ** (-dec["time_horizon_years"])
+            w_future = ((dec["benefit_future"] + 1) / 2) * discount_factor
+
+            if not adopted:
+                # If not adopted, invert: cost not incurred, benefit not gained
+                w_present = 1.0 - w_present   # no cost
+                w_future  = 0.0               # no future benefit either
+
+            # 50-year total = weighted average (present counts for first 25y)
+            w_50y = 0.50 * w_present + 0.50 * w_future
+
+            by_mech[mech] = {
+                "adopted":           adopted,
+                "vote_pct":          round(vote_pct, 4),
+                "welfare_present":   round(w_present, 4),
+                "welfare_future":    round(w_future, 4),
+                "total_welfare_50y": round(w_50y, 4),
+            }
+
+        decisions_results.append({
+            "decision_name": dec["name"],
+            "by_mechanism":  by_mech,
+        })
+
+    # ── Mechanism-level aggregates ────────────────────────────────────────────
+    mechanism_comparison: Dict[str, Any] = {}
+
+    for mech in all_mechs:
+        mech_results = [dr["by_mechanism"][mech] for dr in decisions_results]
+        n = len(mech_results) or 1
+
+        adoption_rate  = sum(1 for r in mech_results if r["adopted"]) / n
+        avg_w_present  = sum(r["welfare_present"] for r in mech_results) / n
+        avg_w_future   = sum(r["welfare_future"]  for r in mech_results) / n
+        avg_w_50y      = sum(r["total_welfare_50y"] for r in mech_results) / n
+
+        # Present bias: excess adoption of short-horizon decisions vs long ones
+        short_dec = [i for i, d in enumerate(decisions) if d["time_horizon_years"] <= 15]
+        long_dec  = [i for i, d in enumerate(decisions) if d["time_horizon_years"] >  15]
+        adopt_short = (
+            sum(1 for i in short_dec if mech_results[i]["adopted"]) / len(short_dec)
+            if short_dec else adoption_rate
+        )
+        adopt_long  = (
+            sum(1 for i in long_dec  if mech_results[i]["adopted"]) / len(long_dec)
+            if long_dec else adoption_rate
+        )
+        present_bias = max(0.0, adopt_short - adopt_long)
+
+        # Future welfare gain vs "none" baseline
+        none_results   = [dr["by_mechanism"]["none"] for dr in decisions_results]
+        avg_w_fut_none = sum(r["welfare_future"] for r in none_results) / n
+        future_welfare_gain = avg_w_future - avg_w_fut_none
+
+        # Intergenerational Gini: inequality between present & future welfare
+        incomes = [avg_w_present, avg_w_future]
+        mean_i  = sum(incomes) / 2 or 1.0
+        gini    = sum(abs(a - b) for a in incomes for b in incomes) / (2 * 2 * mean_i)
+
+        mechanism_comparison[mech] = {
+            "adoption_rate":          round(adoption_rate, 4),
+            "present_bias":           round(present_bias, 4),
+            "future_welfare_gain":    round(future_welfare_gain, 4),
+            "intergenerational_gini": round(gini, 4),
+            "avg_welfare_50y":        round(avg_w_50y, 4),
+        }
+
+    # ── Pedagogical note ──────────────────────────────────────────────────────
+    veto_adopt = mechanism_comparison["veto"]["adoption_rate"]
+    none_adopt = mechanism_comparison["none"]["adoption_rate"]
+    best_future_mech = max(all_mechs, key=lambda m: mechanism_comparison[m]["future_welfare_gain"])
+
+    note = (
+        f"Sans représentation des générations futures, {round(none_adopt*100)}% "
+        f"des décisions sont adoptées. Le mécanisme '{best_future_mech}' maximise "
+        f"le bien-être sur 50 ans. "
+        f"Rawls (1971) : le 'voile d'ignorance' suggère que les décideurs ignorant "
+        f"leur génération choisiraient des politiques plus équitables dans le temps."
+    )
+
+    return jsonify({
+        "decisions_results":    decisions_results,
+        "mechanism_comparison": mechanism_comparison,
+        "pedagogical_note":     note,
+    }), 200

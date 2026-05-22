@@ -15,6 +15,7 @@ import AgendaManipulationPanel from '../components/shared/AgendaManipulationPane
 import MajorityTyrannyPanel from '../components/shared/MajorityTyrannyPanel';
 import PowerIndicesPanel from '../components/shared/PowerIndicesPanel';
 import DemocraticBackslidingPanel from '../components/shared/DemocraticBackslidingPanel';
+import IntergenerationalPanel from '../components/shared/IntergenerationalPanel';
 
 const TheoryPage: React.FC = () => {
   const { t } = useTranslation();
@@ -31,6 +32,15 @@ const TheoryPage: React.FC = () => {
       </p>
 
       {/* Arrow context */}
+      {/* ── Intergenerational Justice ── */}
+      <Card className="mb-4 border-primary">
+        <Card.Header className="fw-bold text-primary">🌱 {t('intergen.cardTitle')}</Card.Header>
+        <Card.Body>
+          <p style={{ fontSize: '0.85rem' }}>{t('intergen.cardDesc')}</p>
+          <IntergenerationalPanel />
+        </Card.Body>
+      </Card>
+
       {/* ── Democratic Backsliding ── */}
       <Card className="mb-4" style={{ borderColor: '#842029' }}>
         <Card.Header className="fw-bold" style={{ color: '#842029' }}>
