@@ -752,6 +752,10 @@ const fr = {
     lastNamePlaceholder: 'Nom de famille',
   },
 
+  lab: {
+    fromElectionLab: 'Configuration depuis Election Lab — paramètres d\'élection partagés',
+  },
+
   common: {
     loading: 'Chargement…',
     error: 'Une erreur est survenue',
@@ -1103,6 +1107,10 @@ const fr = {
     tabDemographic:           'Représentation',
     tabCompulsory:            'Vote obligatoire',
     tabDeliberation:          'Délibération',
+    tabLabCollectiveWill:     '🌊 Volonté collective',
+    tabLabAssumptions:        '🔬 Robustesse',
+    tabLabEpistocracy:        '🎓 Épistocracie',
+    tabLabIdentity:           '🏳 Vote identitaire',
     tabJury:                  'Théorème du jury',
     tabReplay:                'Replay historique',
     tabAdaptive:              'Vote tactique',

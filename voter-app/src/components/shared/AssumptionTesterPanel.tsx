@@ -2,7 +2,7 @@
  * AssumptionTesterPanel — interactive model assumption stress-tester.
  * Shows how results change when core spatial-model assumptions are violated.
  */
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import axios from 'axios';
 import { useTranslation } from 'react-i18next';
 import {
@@ -188,9 +188,21 @@ const AssumptionCard: React.FC<AssumptionCardProps> = ({
   );
 };
 
+// ── Lab-mode props ────────────────────────────────────────────────────────────
+
+export interface AssumptionTesterLabProps {
+  labMode?:        boolean;
+  labCandidates?:  Array<{name: string; x: number; y: number}>;
+  labNumVoters?:   number;
+  labSeed?:        number;
+  labIdeology?:    string;
+}
+
 // ── Main panel ────────────────────────────────────────────────────────────────
 
-const AssumptionTesterPanel: React.FC = () => {
+const AssumptionTesterPanel: React.FC<AssumptionTesterLabProps> = ({
+  labMode = false, labCandidates, labNumVoters, labSeed, labIdeology,
+}) => {
   const { t } = useTranslation();
 
   const [data,       setData]       = useState<AssumptionData | null>(null);
@@ -207,20 +219,27 @@ const AssumptionTesterPanel: React.FC = () => {
       return next;
     });
 
-  const handleRun = async () => {
+  const DEFAULT_CANDS = [
+    { name: 'Alice', x: -0.4, y: 0.0 },
+    { name: 'Bob',   x:  0.1, y: 0.0 },
+    { name: 'Carol', x:  0.5, y: 0.0 },
+  ];
+
+  const handleRun = async (
+    overrideCands?: typeof DEFAULT_CANDS,
+    overrideVoters?: number,
+    overrideSeed?: number,
+    overrideIdeology?: string,
+  ) => {
     setLoading(true);
     setError(null);
     try {
       const res = await axios.post(`${API}/api/theory/assumption-testing`, {
         base_simulation: {
-          candidates: [
-            { name: 'Alice', x: -0.4, y: 0.0 },
-            { name: 'Bob',   x:  0.1, y: 0.0 },
-            { name: 'Carol', x:  0.5, y: 0.0 },
-          ],
-          num_voters: numVoters,
-          ideology:   'random',
-          seed,
+          candidates:  overrideCands   ?? DEFAULT_CANDS,
+          num_voters:  overrideVoters  ?? numVoters,
+          ideology:    overrideIdeology ?? 'random',
+          seed:        overrideSeed    ?? seed,
         },
         assumptions_to_relax: [...selected],
       });
@@ -231,6 +250,14 @@ const AssumptionTesterPanel: React.FC = () => {
       setLoading(false);
     }
   };
+
+  // Auto-run when lab context changes
+  useEffect(() => {
+    if (labMode && labCandidates?.length) {
+      handleRun(labCandidates, labNumVoters, labSeed, labIdeology);
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [labMode, labCandidates, labNumVoters, labSeed, labIdeology]);
 
   // ── Fragility radar data ─────────────────────────────────────────────────
   const fragilityData = data
@@ -247,7 +274,17 @@ const AssumptionTesterPanel: React.FC = () => {
       {/* ── Philosophy quote (always visible) ── */}
       <PhilosophyQuote />
 
-      {/* ── Controls ── */}
+      {/* ── Lab mode badge ── */}
+      {labMode && (
+        <div className="mt-2 mb-1">
+          <Badge bg="dark" style={{ fontSize: '0.68rem' }}>
+            🔬 {t('lab.fromElectionLab')}
+          </Badge>
+        </div>
+      )}
+
+      {/* ── Controls (hidden in lab mode for election config) ── */}
+      {!labMode && (
       <Row className="g-2 my-3 align-items-end">
         <Col xs={6} md={2}>
           <Form.Label className="small mb-0">{t('assumptions.voters')}</Form.Label>
@@ -262,7 +299,7 @@ const AssumptionTesterPanel: React.FC = () => {
             onChange={(e) => setSeed(Number(e.target.value))} />
         </Col>
         <Col xs="auto">
-          <Button variant="secondary" size="sm" onClick={handleRun} disabled={loading || selected.size === 0}
+          <Button variant="secondary" size="sm" onClick={() => handleRun()} disabled={loading || selected.size === 0}
             data-testid="run-btn">
             {loading ? <Spinner size="sm" animation="border" /> : t('assumptions.run')}
           </Button>
@@ -279,8 +316,9 @@ const AssumptionTesterPanel: React.FC = () => {
           </Button>
         </Col>
       </Row>
+      )}
 
-      {!data && !loading && !error && (
+      {!data && !loading && !error && !labMode && (
         <Alert variant="secondary" data-testid="prompt-alert">{t('assumptions.prompt')}</Alert>
       )}
       {error && <Alert variant="danger" data-testid="error-alert">{error}</Alert>}
