@@ -6814,3 +6814,195 @@ def deliberation_vote() -> tuple[Response, int]:
         "network_effect": network_effect,
         "pedagogical_note": note,
     }), 200
+
+
+# ── /api/election/power-indices ───────────────────────────────────────────────
+
+import itertools as _it_pi  # noqa: E402
+
+@election_bp.route("/power-indices", methods=["POST"])
+@sim_limiter.limit("10 per minute")
+def power_indices() -> tuple[Response, int]:
+    """Shapley-Shubik and Banzhaf power indices for coalition bargaining."""
+    data = request.get_json(silent=True) or {}
+
+    raw_parties: List[Dict[str, Any]] = data.get("parties", [])
+    majority_threshold: int = int(data.get("majority_threshold", 0))
+    constraints_raw: List[Dict[str, str]] = data.get("coalition_constraints", [])
+    calc_shapley: bool = bool(data.get("calculate_shapley", True))
+    calc_banzhaf: bool = bool(data.get("calculate_banzhaf", True))
+
+    if not raw_parties:
+        return jsonify({"error": "parties required"}), 400
+
+    # Normalise input
+    parties: List[Dict[str, Any]] = []
+    for p in raw_parties:
+        name  = str(p.get("name", "?"))
+        seats = max(0, int(p.get("seats", 0)))
+        pariah = bool(p.get("pariah", False))
+        parties.append({"name": name, "seats": seats, "pariah": pariah})
+
+    total_seats = sum(p["seats"] for p in parties)
+    if majority_threshold <= 0:
+        majority_threshold = total_seats // 2 + 1
+
+    names = [p["name"] for p in parties]
+    n = len(names)
+    seats_map: Dict[str, int] = {p["name"]: p["seats"] for p in parties}
+    pariah_set: set = {p["name"] for p in parties if p["pariah"]}
+
+    # Build forbidden pairs: explicit constraints + pariah rules
+    forbidden: set = set()
+    for c in constraints_raw:
+        a, b = c.get("party_a", ""), c.get("party_b", "")
+        if a in names and b in names:
+            forbidden.add(frozenset([a, b]))
+    # Pariah: cannot be in coalition with any other party
+    for par in pariah_set:
+        for other in names:
+            if other != par:
+                forbidden.add(frozenset([par, other]))
+
+    def _coalition_valid(members: frozenset) -> bool:
+        """Returns True if no forbidden pair is fully inside members."""
+        for pair in forbidden:
+            if pair.issubset(members):
+                return False
+        return True
+
+    def _coalition_wins(members: frozenset) -> bool:
+        return _coalition_valid(members) and sum(seats_map[m] for m in members) >= majority_threshold
+
+    # ── Shapley-Shubik ────────────────────────────────────────────────────────
+    pivot_counts: Dict[str, int] = {name: 0 for name in names}
+    total_perms = 0
+
+    if calc_shapley and n <= 10:
+        for perm in _it_pi.permutations(names):
+            total_perms += 1
+            running: frozenset = frozenset()
+            already_won = False
+            for party in perm:
+                new_coalition = running | {party}
+                if _coalition_valid(new_coalition):
+                    seats_so_far = sum(seats_map[m] for m in new_coalition)
+                    if not already_won and seats_so_far >= majority_threshold:
+                        pivot_counts[party] += 1
+                        already_won = True
+                running = new_coalition
+
+    shapley: Dict[str, float] = {}
+    if calc_shapley and total_perms > 0:
+        for name in names:
+            shapley[name] = round(pivot_counts[name] / total_perms, 6)
+    else:
+        for name in names:
+            shapley[name] = 0.0
+
+    # ── Banzhaf ───────────────────────────────────────────────────────────────
+    critical_counts: Dict[str, int] = {name: 0 for name in names}
+    viable_coalitions: List[Dict[str, Any]] = []
+
+    if calc_banzhaf:
+        for r in range(1, n + 1):
+            for combo in _it_pi.combinations(names, r):
+                coalition = frozenset(combo)
+                if _coalition_wins(coalition):
+                    # Track critical parties
+                    is_minimal = True
+                    for member in combo:
+                        without = coalition - {member}
+                        if not _coalition_wins(without):
+                            critical_counts[member] += 1
+                        else:
+                            is_minimal = False  # member is superfluous
+                    viable_coalitions.append({
+                        "parties": sorted(combo),
+                        "seats":   sum(seats_map[m] for m in combo),
+                        "minimal": all(
+                            not _coalition_wins(coalition - {m}) for m in combo
+                        ),
+                    })
+
+        total_critical = sum(critical_counts.values())
+        banzhaf: Dict[str, float] = {}
+        for name in names:
+            banzhaf[name] = (
+                round(critical_counts[name] / total_critical, 6)
+                if total_critical > 0 else 0.0
+            )
+    else:
+        banzhaf = {name: 0.0 for name in names}
+
+    # ── Build per-party output ────────────────────────────────────────────────
+    party_results = []
+    for p in parties:
+        name = p["name"]
+        seat_pct = p["seats"] / total_seats if total_seats > 0 else 0.0
+        sh = shapley.get(name, 0.0)
+        bz = banzhaf.get(name, 0.0)
+        power_ratio = round(sh / seat_pct, 4) if seat_pct > 0 else 0.0
+        party_results.append({
+            "name":           name,
+            "seats":          p["seats"],
+            "seat_pct":       round(seat_pct, 4),
+            "shapley_index":  sh,
+            "banzhaf_index":  bz,
+            "power_ratio":    power_ratio,
+            "critical_count": critical_counts.get(name, 0),
+            "pivot_count":    pivot_counts.get(name, 0),
+            "is_pariah":      p["pariah"],
+        })
+
+    # ── Power surprises ───────────────────────────────────────────────────────
+    surprises: List[str] = []
+    for pr in party_results:
+        ratio = pr["power_ratio"]
+        if ratio > 1.5:
+            surprises.append(
+                f"{pr['name']} : {pr['seats']} sièges ({round(pr['seat_pct']*100)}%) "
+                f"mais Shapley={round(pr['shapley_index']*100, 1)}% — "
+                f"sur-puissant (×{ratio:.2f})"
+            )
+        elif ratio < 0.5 and pr["seats"] > 0 and not pr["is_pariah"]:
+            surprises.append(
+                f"{pr['name']} : {pr['seats']} sièges mais Shapley={round(pr['shapley_index']*100, 1)}% "
+                f"— sous-puissant (ratio={ratio:.2f})"
+            )
+        elif pr["is_pariah"] and pr["seats"] > 0:
+            surprises.append(
+                f"{pr['name']} : {pr['seats']} sièges mais pouvoir=0 (paria, exclu de toutes les coalitions)"
+            )
+
+    # ── Pedagogical note ──────────────────────────────────────────────────────
+    if party_results:
+        top = max(party_results, key=lambda x: x["shapley_index"])
+        parias_with_seats = [p for p in party_results if p["is_pariah"] and p["seats"] > 0]
+        note = (
+            f"Shapley-Shubik 1954 : le parti '{top['name']}' détient "
+            f"{round(top['shapley_index']*100, 1)}% du pouvoir de coalition "
+            f"pour {round(top['seat_pct']*100, 1)}% des sièges. "
+        )
+        if parias_with_seats:
+            names_str = ", ".join(p["name"] for p in parias_with_seats)
+            total_paria_seats = sum(p["seats"] for p in parias_with_seats)
+            note += (
+                f"Les partis '{names_str}' totalisent {total_paria_seats} sièges "
+                f"mais ont un pouvoir réel de 0 (cordon sanitaire). "
+            )
+        note += (
+            "Banzhaf (1965) : un parti est critique si son départ fait "
+            "passer la coalition de gagnante à perdante."
+        )
+    else:
+        note = "Aucun parti fourni."
+
+    return jsonify({
+        "total_seats":        total_seats,
+        "majority_threshold": majority_threshold,
+        "parties":            party_results,
+        "viable_coalitions":  viable_coalitions[:50],  # cap for large inputs
+        "power_surprises":    surprises,
+        "pedagogical_note":   note,
+    }), 200
