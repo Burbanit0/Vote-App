@@ -2594,3 +2594,294 @@ def assumption_testing() -> tuple[Response, int]:
         "robust_result":          robust_result,
         "pedagogical_note":       note,
     }), 200
+
+
+# ── /api/theory/collective-will ───────────────────────────────────────────────
+
+import itertools as _it_cw  # noqa: E402
+
+@theory_bp.route("/collective-will", methods=["POST"])
+@sim_limiter.limit("5 per minute")
+def collective_will() -> tuple[Response, int]:
+    """Experimental question: does collective will exist, or is it procedural artefact?"""
+    data = request.get_json(silent=True) or {}
+
+    candidates_raw: List[Dict[str, Any]] = data.get("candidates", [
+        {"name": "Alice", "x": -0.4, "y": 0.0},
+        {"name": "Bob",   "x":  0.1, "y": 0.0},
+        {"name": "Carol", "x":  0.5, "y": 0.0},
+    ])
+    num_voters:    int = max(10, min(int(data.get("num_voters", 100)),  500))
+    ideology:      str = data.get("ideology", "random")
+    seed:          int = int(data.get("seed", 42))
+    num_methods:   int = max(2,  min(int(data.get("num_methods",  5)),  10))
+    num_agendas:   int = max(2,  min(int(data.get("num_agendas",  4)),  6))
+    num_sims:      int = max(1,  min(int(data.get("num_simulations", 1)), 5))
+
+    cand_names = [c["name"] for c in candidates_raw]
+    n_cands    = len(cand_names)
+    if n_cands < 2:
+        candidates_raw = [{"name": "Alice", "x": -0.4}, {"name": "Bob", "x": 0.4}]
+        cand_names = ["Alice", "Bob"]
+        n_cands = 2
+
+    # Voting methods pool (subset used based on num_methods)
+    _method_pool = [
+        "plurality", "borda", "irv", "approval",
+        "schulze", "minimax", "kemeny_young", "star", "median", "condorcet"
+    ]
+    methods_used = _method_pool[:min(num_methods, len(_method_pool))]
+
+    rng = _rnd.Random(seed)
+
+    # ── Generate voter positions (fixed electorate) ───────────────────────────
+    if ideology == "polarized":
+        voter_positions = [
+            rng.gauss(-0.5, 0.2) if rng.random() < 0.5 else rng.gauss(0.5, 0.2)
+            for _ in range(num_voters)
+        ]
+    else:
+        voter_positions = [rng.uniform(-1, 1) for _ in range(num_voters)]
+
+    voter_positions = [max(-1.0, min(1.0, p)) for p in voter_positions]
+
+    # ── Utility matrix ────────────────────────────────────────────────────────
+    def _utility(voter_pos: float, cand: Dict[str, Any]) -> float:
+        cx = float(cand.get("x", 0.0))
+        cy = float(cand.get("y", 0.0))
+        return -((voter_pos - cx) ** 2 + cy ** 2)
+
+    utilities: List[List[float]] = [
+        [_utility(vp, c) for c in candidates_raw]
+        for vp in voter_positions
+    ]
+
+    # Sincere rankings per voter (descending utility)
+    sincere_rankings: List[List[str]] = [
+        [cand_names[j] for j in sorted(range(n_cands), key=lambda k: -utilities[i][k])]
+        for i in range(num_voters)
+    ]
+
+    # ── Plurality tally helper ─────────────────────────────────────────────────
+    def _plurality(rankings: List[List[str]]) -> str:
+        from collections import Counter as _C
+        return _C(r[0] for r in rankings if r).most_common(1)[0][0]
+
+    # ── Borda helper ──────────────────────────────────────────────────────────
+    def _borda(rankings: List[List[str]]) -> str:
+        scores: Dict[str, float] = {c: 0.0 for c in cand_names}
+        for ranking in rankings:
+            for pos, cand in enumerate(ranking):
+                scores[cand] += n_cands - 1 - pos
+        return max(scores, key=scores.get)  # type: ignore[arg-type]
+
+    # ── Condorcet helper ──────────────────────────────────────────────────────
+    def _condorcet_winner(rankings: List[List[str]]) -> Optional[str]:
+        n_v = len(rankings)
+        for cand in cand_names:
+            beats_all = True
+            for other in cand_names:
+                if other == cand:
+                    continue
+                prefer_cand = sum(
+                    1 for r in rankings
+                    if r.index(cand) < r.index(other)
+                    if cand in r and other in r
+                )
+                if prefer_cand <= n_v / 2:
+                    beats_all = False
+                    break
+            if beats_all:
+                return cand
+        return None
+
+    # ── IRV helper ────────────────────────────────────────────────────────────
+    def _irv(rankings: List[List[str]]) -> str:
+        remaining = list(cand_names)
+        current   = [list(r) for r in rankings]
+        while len(remaining) > 1:
+            from collections import Counter as _C2
+            tally = _C2(
+                next((c for c in r if c in remaining), None)
+                for r in current
+            )
+            tally.pop(None, None)  # type: ignore[arg-type]
+            if not tally:
+                break
+            total = sum(tally.values())
+            # Check majority
+            leader = tally.most_common(1)[0][0]
+            if tally[leader] > total / 2:
+                return leader
+            # Eliminate last
+            last = tally.most_common()[-1][0]
+            remaining.remove(last)
+        return remaining[0] if remaining else cand_names[0]
+
+    # ── Minimax helper ────────────────────────────────────────────────────────
+    def _minimax(rankings: List[List[str]]) -> str:
+        n_v = len(rankings)
+        worst_loss: Dict[str, int] = {}
+        for cand in cand_names:
+            losses = []
+            for other in cand_names:
+                if other == cand:
+                    continue
+                prefer_other = sum(
+                    1 for r in rankings
+                    if cand in r and other in r and r.index(other) < r.index(cand)
+                )
+                losses.append(prefer_other)
+            worst_loss[cand] = max(losses) if losses else 0
+        return min(worst_loss, key=worst_loss.get)  # type: ignore[arg-type]
+
+    # ── Method dispatcher ─────────────────────────────────────────────────────
+    def _run_method(method: str, rankings: List[List[str]]) -> str:
+        if method == "plurality":
+            return _plurality(rankings)
+        if method == "borda":
+            return _borda(rankings)
+        if method == "irv":
+            return _irv(rankings)
+        if method == "approval":
+            # Approve top 40% of candidates
+            threshold = max(1, int(n_cands * 0.4) + 1)
+            from collections import Counter as _C3
+            scores: Dict[str, int] = {c: 0 for c in cand_names}
+            for r in rankings:
+                for c in r[:threshold]:
+                    scores[c] += 1
+            return max(scores, key=scores.get)  # type: ignore[arg-type]
+        if method in ("schulze", "kemeny_young", "condorcet"):
+            cw = _condorcet_winner(rankings)
+            return cw if cw else _borda(rankings)
+        if method == "minimax":
+            return _minimax(rankings)
+        if method in ("star", "median"):
+            # Score-based: use borda as proxy
+            return _borda(rankings)
+        return _plurality(rankings)
+
+    # ── Binary elimination for agenda comparison ───────────────────────────────
+    def _binary_elim(agenda_order: List[str], pair_matrix: Dict[str, Dict[str, float]]) -> str:
+        current = agenda_order[0]
+        for challenger in agenda_order[1:]:
+            if pair_matrix.get(challenger, {}).get(current, 0.0) > 0.5:
+                current = challenger
+        return current
+
+    # ── Build pairwise matrix ──────────────────────────────────────────────────
+    pair_matrix: Dict[str, Dict[str, float]] = {a: {} for a in cand_names}
+    n_v = len(voter_positions)
+    for a in cand_names:
+        for b in cand_names:
+            if a == b:
+                pair_matrix[a][b] = 0.5
+            else:
+                pref_a = sum(
+                    1 for r in sincere_rankings
+                    if r.index(a) < r.index(b)
+                )
+                pair_matrix[a][b] = pref_a / n_v
+
+    # ── Agenda permutations ────────────────────────────────────────────────────
+    all_perms = list(_it_cw.permutations(cand_names))
+    rng.shuffle(all_perms)
+    selected_perms = all_perms[:min(num_agendas, len(all_perms))]
+    agenda_labels  = [" → ".join(p) for p in selected_perms]
+
+    # ── Run all (method × simulation) combinations ───────────────────────────
+    all_results: List[str]             = []
+    winner_by_method: Dict[str, str]   = {}
+    winner_by_agenda: Dict[str, str]   = {}
+
+    for method in methods_used:
+        w = _run_method(method, sincere_rankings)
+        winner_by_method[method] = w
+        all_results.append(w)
+
+    for perm, label in zip(selected_perms, agenda_labels):
+        w = _binary_elim(list(perm), pair_matrix)
+        winner_by_agenda[label] = w
+        all_results.append(w)
+
+    # ── Multi-simulation variance ─────────────────────────────────────────────
+    for sim in range(num_sims - 1):
+        sim_rng = _rnd.Random(seed + sim + 1)
+        if ideology == "polarized":
+            sim_pos = [
+                sim_rng.gauss(-0.5, 0.2) if sim_rng.random() < 0.5
+                else sim_rng.gauss(0.5, 0.2)
+                for _ in range(num_voters)
+            ]
+        else:
+            sim_pos = [sim_rng.uniform(-1, 1) for _ in range(num_voters)]
+        sim_pos = [max(-1.0, min(1.0, p)) for p in sim_pos]
+
+        sim_rankings = [
+            [cand_names[j]
+             for j in sorted(range(n_cands),
+                             key=lambda k, sp=sp: -_utility(sp, candidates_raw[k]))]  # type: ignore
+            for sp in sim_pos
+        ]
+        for method in methods_used[:3]:  # lightweight: top 3 methods only
+            all_results.append(_run_method(method, sim_rankings))
+
+    # ── Aggregate ─────────────────────────────────────────────────────────────
+    from collections import Counter as _Cfinal
+    winner_counts  = _Cfinal(all_results)
+    unique_winners = list(winner_counts.keys())
+    n_unique       = len(unique_winners)
+
+    most_frequent        = winner_counts.most_common(1)[0][0]
+    most_frequent_pct    = winner_counts[most_frequent] / len(all_results)
+    rousseau_score       = round(1 / n_unique, 4) if n_unique > 0 else 1.0
+    condorcet_w          = _condorcet_winner(sincere_rankings)
+    condorcet_exists     = condorcet_w is not None
+
+    # ── Philosophical conclusion ──────────────────────────────────────────────
+    if condorcet_exists and n_unique == 1:
+        philos = (
+            f"Rousseau avait peut-être raison : '{condorcet_w}' gagne sous toutes "
+            f"les procédures testées. Mais attention — cela dépend du scénario. "
+            f"Arrow (1951) démontre que ce consensus ne peut pas être généralisé."
+        )
+    elif n_unique == 1:
+        philos = (
+            f"'{most_frequent}' domine toutes les procédures testées (sans vainqueur "
+            f"de Condorcet). Schumpeter dirait : la procédure est consensuelle ici, "
+            f"mais ce n'est pas universel."
+        )
+    elif n_unique <= 2:
+        philos = (
+            f"{n_unique} vainqueurs différents selon la procédure "
+            f"(Rousseau_score = {rousseau_score:.2f}). La 'volonté collective' est "
+            f"instable — Arrow a probablement raison pour ce scénario."
+        )
+    else:
+        philos = (
+            f"{n_unique} vainqueurs différents — Schumpeter (1942) avait raison : "
+            f"le résultat est un artefact procédural. "
+            f"'{most_frequent}' gagne le plus souvent ({round(most_frequent_pct*100)}%), "
+            f"mais changer la méthode change le vainqueur."
+        )
+
+    note = (
+        "Vote Lab ne peut pas répondre à la question 'Quelle est la volonté du peuple ?' "
+        "— il peut seulement montrer que le résultat dépend de la procédure choisie. "
+        "C'est peut-être la leçon la plus importante de toute la théorie du vote."
+    )
+
+    return jsonify({
+        "unique_winners":        unique_winners,
+        "unique_winner_count":   n_unique,
+        "winner_by_method":      winner_by_method,
+        "winner_by_agenda":      winner_by_agenda,
+        "rousseau_score":        rousseau_score,
+        "most_frequent_winner":  most_frequent,
+        "most_frequent_pct":     round(most_frequent_pct, 4),
+        "condorcet_exists":      condorcet_exists,
+        "condorcet_winner":      condorcet_w,
+        "philosophical_conclusion": philos,
+        "pedagogical_note":      note,
+    }), 200
