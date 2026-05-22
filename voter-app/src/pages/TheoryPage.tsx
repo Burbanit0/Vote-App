@@ -14,6 +14,7 @@ import ApportionmentPanel from '../components/shared/ApportionmentPanel';
 import AgendaManipulationPanel from '../components/shared/AgendaManipulationPanel';
 import MajorityTyrannyPanel from '../components/shared/MajorityTyrannyPanel';
 import PowerIndicesPanel from '../components/shared/PowerIndicesPanel';
+import DemocraticBackslidingPanel from '../components/shared/DemocraticBackslidingPanel';
 
 const TheoryPage: React.FC = () => {
   const { t } = useTranslation();
@@ -30,6 +31,17 @@ const TheoryPage: React.FC = () => {
       </p>
 
       {/* Arrow context */}
+      {/* ── Democratic Backsliding ── */}
+      <Card className="mb-4" style={{ borderColor: '#842029' }}>
+        <Card.Header className="fw-bold" style={{ color: '#842029' }}>
+          🏚 {t('backsliding.cardTitle')}
+        </Card.Header>
+        <Card.Body>
+          <p style={{ fontSize: '0.85rem' }}>{t('backsliding.cardDesc')}</p>
+          <DemocraticBackslidingPanel />
+        </Card.Body>
+      </Card>
+
       {/* ── Power Indices ── */}
       <Card className="mb-4 border-success">
         <Card.Header className="fw-bold text-success">⚡ {t('power.cardTitle')}</Card.Header>

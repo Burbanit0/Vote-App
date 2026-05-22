@@ -1532,3 +1532,252 @@ def _resolve_curve(
         grades_B.sort()
         return grades_A[len(grades_A) // 2] >= grades_B[len(grades_B) // 2]
     return n_maj > n_min
+
+
+# ── /api/theory/democratic-backsliding ────────────────────────────────────────
+
+import numpy as _np_bs  # noqa: E402
+
+_POINT_OF_NO_RETURN = 0.45   # democratic quality below which recovery is very unlikely
+
+@theory_bp.route("/democratic-backsliding", methods=["POST"])
+@sim_limiter.limit("5 per minute")
+def democratic_backsliding() -> tuple[Response, int]:
+    """Simulate the path toward autocracy across successive elections."""
+    data = request.get_json(silent=True) or {}
+
+    candidates_raw: List[Dict[str, Any]] = data.get("candidates", [
+        {"name": "Incumbent", "x": 0.2, "y": 0.0},
+        {"name": "Opposition", "x": -0.4, "y": 0.0},
+    ])
+    num_voters:        int   = max(20, min(int(data.get("num_voters", 100)), 1000))
+    ideology:          str   = data.get("ideology", "random")
+    seed:              int   = int(data.get("seed", 42))
+    num_elections:     int   = max(2, min(int(data.get("num_elections", 8)), 15))
+    method_bs:         str   = data.get("backsliding_method", "gerrymandering")
+    intensity:         float = max(0.0, min(float(data.get("backsliding_intensity", 0.5)), 1.0))
+    guardrails: Dict[str, bool] = {
+        "constitutional_court":    bool(data.get("guardrails", {}).get("constitutional_court", False)),
+        "opposition_media":        bool(data.get("guardrails", {}).get("opposition_media", False)),
+        "international_pressure":  bool(data.get("guardrails", {}).get("international_pressure", False)),
+        "supermajority_required":  bool(data.get("guardrails", {}).get("supermajority_required", False)),
+    }
+
+    rng = _rnd.Random(seed)
+    np_rng = _np_bs.random.default_rng(seed)
+
+    # ── Candidate setup ───────────────────────────────────────────────────────
+    if len(candidates_raw) < 2:
+        candidates_raw = [
+            {"name": "Incumbent", "x": 0.2, "y": 0.0},
+            {"name": "Opposition", "x": -0.4, "y": 0.0},
+        ]
+    incumbent_name = candidates_raw[0]["name"]
+
+    # ── Simulate base vote shares via spatial model ───────────────────────────
+    def _base_vote_shares(nv: int, seed_local: int) -> Dict[str, float]:
+        rng_l = _np_bs.random.default_rng(seed_local)
+        if ideology == "polarized":
+            voter_positions = rng_l.normal(0, 0.4, nv)
+            voter_positions = _np_bs.clip(voter_positions, -1, 1)
+        else:
+            voter_positions = rng_l.uniform(-1, 1, nv)
+
+        shares: Dict[str, float] = {c["name"]: 0 for c in candidates_raw}
+        for vp in voter_positions:
+            distances = {
+                c["name"]: float((vp - c.get("x", 0.0)) ** 2)
+                for c in candidates_raw
+            }
+            winner_name = min(distances, key=distances.get)  # type: ignore[arg-type]
+            shares[winner_name] += 1
+        return {k: v / nv for k, v in shares.items()}
+
+    # ── Guardrail effectiveness parameters ───────────────────────────────────
+    # Each guardrail reduces the effective intensity multiplier
+    guardrail_resistance = 0.0
+    if guardrails["constitutional_court"]:
+        guardrail_resistance += 0.30
+    if guardrails["opposition_media"]:
+        guardrail_resistance += 0.20
+    if guardrails["international_pressure"]:
+        guardrail_resistance += 0.15
+    if guardrails["supermajority_required"]:
+        guardrail_resistance += 0.25
+
+    effective_intensity = max(0.0, intensity * (1.0 - guardrail_resistance))
+
+    # ── Cumulative advantage state ────────────────────────────────────────────
+    gerry_bonus:      float = 0.0   # cumulative gerrymandering bonus (vote share add)
+    media_bias:       float = 0.0   # cumulative media capture (utility shift)
+    suppression_rate: float = 0.0   # opposition turnout reduction
+
+    democratic_quality = 1.0
+    consecutive_incumbent_wins = 0
+    autocracy_reached = False
+    autocracy_at_election: Optional[int] = None
+
+    elections: List[Dict[str, Any]] = []
+
+    for n in range(1, num_elections + 1):
+        guardrails_triggered: List[str] = []
+
+        # ── Base vote shares ──────────────────────────────────────────────────
+        shares = _base_vote_shares(num_voters, seed + n)
+
+        # ── Apply backsliding mechanisms ──────────────────────────────────────
+        if method_bs == "gerrymandering":
+            # Gerrymandering: directly boosts incumbent share
+            bonus = gerry_bonus
+            if guardrails["constitutional_court"] and bonus > 0.05:
+                bonus = max(0.05, bonus * 0.6)
+                guardrails_triggered.append("constitutional_court")
+            shares[incumbent_name] = min(0.95, shares[incumbent_name] + bonus)
+            # Renormalize
+            total = sum(shares.values())
+            shares = {k: v / total for k, v in shares.items()}
+
+        elif method_bs == "media_capture":
+            # Media capture: shift perceived utility toward incumbent
+            bias = media_bias
+            if guardrails["opposition_media"] and bias > 0.1:
+                bias = max(0.1, bias * 0.55)
+                guardrails_triggered.append("opposition_media")
+            noise = rng.gauss(0, 0.02)
+            shares[incumbent_name] = min(0.95, shares[incumbent_name] + bias + noise)
+            total = sum(shares.values())
+            shares = {k: v / total for k, v in shares.items()}
+
+        elif method_bs == "voter_suppression":
+            # Voter suppression: reduce effective opposition turnout
+            suppression = suppression_rate
+            if guardrails["supermajority_required"] and suppression > 0.1:
+                suppression = max(0.1, suppression * 0.5)
+                guardrails_triggered.append("supermajority_required")
+            for cname, c in zip([c["name"] for c in candidates_raw], candidates_raw):
+                if cname != incumbent_name:
+                    shares[cname] = max(0.01, shares[cname] * (1.0 - suppression))
+            total = sum(shares.values())
+            shares = {k: v / total for k, v in shares.items()}
+
+        # ── International pressure — soft resistance ───────────────────────
+        if guardrails["international_pressure"] and democratic_quality < 0.7:
+            shares[incumbent_name] = max(0.0, shares[incumbent_name] - 0.03)
+            total = sum(shares.values())
+            shares = {k: v / total for k, v in shares.items()}
+            guardrails_triggered.append("international_pressure")
+
+        # ── Determine election winner ─────────────────────────────────────────
+        election_winner = max(shares, key=shares.get)  # type: ignore[arg-type]
+        incumbent_won = (election_winner == incumbent_name)
+
+        # ── Update democratic quality index ───────────────────────────────────
+        # Quality declines by intensity × per-mechanism rate each time incumbent wins
+        per_election_decay_base = effective_intensity * 0.12
+
+        if incumbent_won:
+            consecutive_incumbent_wins += 1
+            # Decay accelerates with each consecutive win (compounding)
+            decay = per_election_decay_base * (1.0 + consecutive_incumbent_wins * 0.15)
+            democratic_quality = max(0.0, democratic_quality - decay)
+        else:
+            consecutive_incumbent_wins = 0
+            # Opposition win slightly restores quality (institutional memory)
+            democratic_quality = min(1.0, democratic_quality + 0.05)
+
+        # Noise for realism
+        democratic_quality += rng.gauss(0, 0.01)
+        democratic_quality = max(0.0, min(1.0, democratic_quality))
+
+        # ── Update cumulative advantages for next election ────────────────────
+        if incumbent_won:
+            per_step = effective_intensity * 0.06
+            if method_bs == "gerrymandering":
+                gerry_bonus = min(0.40, gerry_bonus + per_step)
+            elif method_bs == "media_capture":
+                media_bias  = min(0.40, media_bias + per_step)
+            elif method_bs == "voter_suppression":
+                suppression_rate = min(0.60, suppression_rate + per_step)
+        else:
+            # Partial rollback when opposition wins
+            gerry_bonus      = max(0.0, gerry_bonus - 0.02)
+            media_bias       = max(0.0, media_bias - 0.02)
+            suppression_rate = max(0.0, suppression_rate - 0.02)
+
+        # ── Autocracy detection ───────────────────────────────────────────────
+        point_of_no_return = democratic_quality <= _POINT_OF_NO_RETURN
+        if not autocracy_reached and democratic_quality <= 0.20:
+            autocracy_reached     = True
+            autocracy_at_election = n
+
+        elections.append({
+            "election_n":         n,
+            "winner":             election_winner,
+            "vote_shares":        {k: round(v, 4) for k, v in shares.items()},
+            "democratic_quality": round(democratic_quality, 4),
+            "advantages": {
+                "gerrymandering_bonus": round(gerry_bonus, 4),
+                "media_bias":           round(media_bias, 4),
+                "suppression_rate":     round(suppression_rate, 4),
+            },
+            "guardrails_triggered": guardrails_triggered,
+            "point_of_no_return":   point_of_no_return,
+        })
+
+    # ── Guardrail effectiveness: compare with/without ─────────────────────────
+    final_quality = elections[-1]["democratic_quality"]
+    # Rough counterfactual: without guardrails, extra decay per election ≈
+    # guardrail_resistance × intensity × 0.12 × num_elections
+    guardrail_quality_saved = guardrail_resistance * intensity * 0.12 * num_elections
+    guardrail_effectiveness: Dict[str, float] = {}
+    weights = {
+        "constitutional_court":   0.30,
+        "opposition_media":       0.20,
+        "international_pressure": 0.15,
+        "supermajority_required": 0.25,
+    }
+    for gr, active in guardrails.items():
+        if active:
+            guardrail_effectiveness[gr] = round(
+                guardrail_quality_saved * weights[gr] / max(sum(weights[g] for g, a in guardrails.items() if a), 0.01),
+                4,
+            )
+        else:
+            guardrail_effectiveness[gr] = 0.0
+
+    # ── Tipping points ────────────────────────────────────────────────────────
+    tipping_points = [
+        round(0.30 / max(intensity, 0.01), 3),  # intensity at which decline becomes fast
+        round(0.60 / max(intensity, 0.01), 3),  # intensity at which autocracy likely within 10 elections
+    ]
+    tipping_points = [min(tp, 1.0) for tp in tipping_points]
+
+    # ── Pedagogical note ──────────────────────────────────────────────────────
+    active_gr = [k for k, v in guardrails.items() if v]
+    if autocracy_reached:
+        note = (
+            f"Autocratie atteinte à l'élection n°{autocracy_at_election} "
+            f"(qualité démocratique : {elections[autocracy_at_election - 1]['democratic_quality']:.2f}). "
+        )
+    else:
+        note = (
+            f"Qualité démocratique finale : {final_quality:.2f} après {num_elections} élections. "
+        )
+    if active_gr:
+        note += (
+            f"Les garde-fous actifs ({', '.join(active_gr)}) ont sauvé "
+            f"≈{guardrail_quality_saved:.2f} unités de qualité démocratique. "
+        )
+    note += (
+        "Paradoxe de Popper (1945) : une démocratie sans droits non-dérogeables "
+        "peut voter légalement pour sa propre destruction."
+    )
+
+    return jsonify({
+        "elections":                elections,
+        "autocracy_reached":        autocracy_reached,
+        "autocracy_at_election":    autocracy_at_election,
+        "guardrails_effectiveness": guardrail_effectiveness,
+        "tipping_points":           tipping_points,
+        "pedagogical_note":         note,
+    }), 200
