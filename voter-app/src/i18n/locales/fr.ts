@@ -775,6 +775,10 @@ const fr = {
     baselineWinner:  'Vainqueur de base',
     animationLive:   'Animation en cours dans l\'onglet actif',
     round:           'Tour',
+    focusModeTitle:  'Cacher la carte pour donner plus d\'espace à l\'onglet actif',
+    focusOn:         'Focus actif',
+    focusOff:        'Focus',
+    animLiveOnMap:   'Animation {{method}} · tour {{step}}/{{total}}',
   },
 
   common: {

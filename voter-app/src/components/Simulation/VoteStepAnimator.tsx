@@ -393,9 +393,23 @@ const VoteStepAnimator: React.FC<Props> = ({
       let eliminated: string | null | undefined = null;
       let currentWinner: string | null | undefined = null;
       let isFinal = false;
+      let eliminatedSet: string[] = [];
+      let transfers: Record<string, number> | undefined;
 
       switch (stepData.method) {
         case 'irv': {
+          // Accumulate every candidate eliminated up to and including the
+          // current round, so the central map can grey them out cumulatively
+          // (rd.eliminated may contain "Bob + Carol" when there's a tie).
+          for (let i = 0; i <= currentStep; i++) {
+            const r = stepData.rounds[i];
+            if (r && 'eliminated' in r && r.eliminated) {
+              for (const name of r.eliminated.split(' + ')) {
+                const trimmed = name.trim();
+                if (trimmed) eliminatedSet.push(trimmed);
+              }
+            }
+          }
           const rd = stepData.rounds[currentStep];
           if (rd) {
             if ('winner' in rd && rd.winner) {
@@ -403,6 +417,7 @@ const VoteStepAnimator: React.FC<Props> = ({
               isFinal = true;
             } else if ('eliminated' in rd) {
               eliminated = rd.eliminated ?? null;
+              if (rd.transfers) transfers = rd.transfers;
             }
           }
           break;
@@ -423,6 +438,8 @@ const VoteStepAnimator: React.FC<Props> = ({
         step:          currentStep + 1,
         totalSteps,
         eliminated,
+        eliminatedSet,
+        transfers,
         currentWinner,
         final:         isFinal,
       });
