@@ -15,6 +15,7 @@ import { useTranslation } from 'react-i18next';
 import { Badge, Button, Card, Col, Row } from 'react-bootstrap';
 import { ElectionResult } from '../../services/electionApi';
 import { usePerturbations, PinnedPerturbation } from '../../context/PerturbationsContext';
+import { useAnimationBroadcast } from '../../context/AnimationBroadcastContext';
 import IdeologyMapChart from '../Simulation/IdeologyMapChart';
 import MetricTooltip from './MetricTooltip';
 
@@ -35,12 +36,19 @@ function candColor(result: ElectionResult, name: string | null): string {
 
 interface MatrixProps {
   result: ElectionResult;
+  /** Pinned perturbations that have per-method winners — when at least one
+   *  is provided, the matrix renders comparison columns showing how each
+   *  perturbation alters the winner per method. */
+  pinned: PinnedPerturbation[];
   t: (k: string) => string;
 }
 
-const MethodsMatrix: React.FC<MatrixProps> = ({ result, t }) => {
+const MethodsMatrix: React.FC<MatrixProps> = ({ result, pinned, t }) => {
   const methods = Object.entries(result.methods).sort(([a], [b]) => a.localeCompare(b));
   const cw = result.condorcet_winner;
+
+  // Only perturbations that actually published per-method winners
+  const pertsWithMethods = pinned.filter((p) => p.winnersByMethod);
 
   // Count winners frequency for sorting (most-frequent first)
   const winnerCounts: Record<string, number> = {};
@@ -54,10 +62,11 @@ const MethodsMatrix: React.FC<MatrixProps> = ({ result, t }) => {
         {methods.map(([method, md]) => {
           const isCW = cw && md.winner === cw;
           const color = candColor(result, md.winner);
+          const baseWinner = md.winner;
           return (
             <div
               key={method}
-              className="d-flex align-items-center gap-1 px-2 py-1 rounded"
+              className="d-flex align-items-center gap-1 px-2 py-1 rounded flex-wrap"
               style={{
                 background: '#f8f9fa',
                 border: `1px solid ${color}33`,
@@ -68,17 +77,40 @@ const MethodsMatrix: React.FC<MatrixProps> = ({ result, t }) => {
               <span style={{ fontSize: '0.65rem', color: '#6c757d', minWidth: 60 }}>
                 {method}
               </span>
-              {md.winner ? (
+              {baseWinner ? (
                 <span
                   className="badge"
                   style={{ background: color, color: '#fff', fontSize: '0.65rem' }}
+                  title={t('lab.baselineWinner')}
                 >
-                  {md.winner}
+                  {baseWinner}
                 </span>
               ) : (
                 <span className="text-muted">—</span>
               )}
               {isCW && <span style={{ color: '#198754', fontSize: '0.7rem' }}>✓</span>}
+              {/* ── Perturbation diff chips ── */}
+              {pertsWithMethods.map((p) => {
+                const pertWinner = p.winnersByMethod?.[method];
+                if (pertWinner === undefined) return null;
+                const changed = pertWinner !== baseWinner;
+                return (
+                  <span
+                    key={p.id}
+                    className="badge"
+                    style={{
+                      background: changed ? '#dc3545' : '#198754',
+                      color: '#fff',
+                      fontSize: '0.6rem',
+                      marginLeft: 2,
+                    }}
+                    title={`${p.icon} ${p.label}: ${pertWinner ?? '—'}`}
+                    data-testid={`matrix-pert-${method}-${p.type}`}
+                  >
+                    {p.icon} {pertWinner ?? '—'}
+                  </span>
+                );
+              })}
             </div>
           );
         })}
@@ -262,6 +294,7 @@ const LabCentralView: React.FC<Props> = ({ result, loading }) => {
   const { t } = useTranslation();
   const [collapsed, setCollapsed] = useState(false);
   const { pinned, unpinPerturbation, clearPinned } = usePerturbations();
+  const { frame } = useAnimationBroadcast();
 
   // Nothing to show before first simulation
   if (!result) {
@@ -296,6 +329,25 @@ const LabCentralView: React.FC<Props> = ({ result, loading }) => {
           🔬 {t('lab.centralViewTitle')}
         </span>
         <div className="d-flex align-items-center gap-2">
+          {/* ── Live animation badge ── */}
+          {frame && (
+            <Badge bg="info" className="d-inline-flex align-items-center gap-1"
+              style={{ fontSize: '0.65rem' }}
+              data-testid="animation-frame-badge"
+              title={t('lab.animationLive')}>
+              ▶ {frame.method.toUpperCase()} — {t('lab.round')} {frame.step}/{frame.totalSteps}
+              {frame.eliminated && (
+                <span style={{ marginLeft: 4, opacity: 0.85 }}>
+                  ✗ {frame.eliminated}
+                </span>
+              )}
+              {frame.currentWinner && (
+                <span style={{ marginLeft: 4, fontWeight: 700 }}>
+                  🏆 {frame.currentWinner}
+                </span>
+              )}
+            </Badge>
+          )}
           <ActiveModulesBar config={result.config} t={t} />
           <Button
             size="sm"
@@ -336,8 +388,13 @@ const LabCentralView: React.FC<Props> = ({ result, loading }) => {
             <Col xs={12} lg={6}>
               <div className="fw-semibold mb-1" style={{ fontSize: '0.78rem' }}>
                 📊 {t('lab.methodsMatrixTitle')}
+                {pinned.filter(p => p.winnersByMethod).length > 0 && (
+                  <span className="text-muted ms-2" style={{ fontSize: '0.65rem', fontWeight: 400 }}>
+                    + {pinned.filter(p => p.winnersByMethod).length} {t('lab.perturbationsCompared')}
+                  </span>
+                )}
               </div>
-              <MethodsMatrix result={result} t={t} />
+              <MethodsMatrix result={result} pinned={pinned} t={t} />
             </Col>
           </Row>
 

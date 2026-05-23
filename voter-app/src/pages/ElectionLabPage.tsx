@@ -22,6 +22,7 @@ import ElectionInsightPanel from '../components/shared/ElectionInsightPanel';
 import ModelAssumptionsBanner from '../components/shared/ModelAssumptionsBanner';
 import LabCentralView from '../components/shared/LabCentralView';
 import { PerturbationsProvider } from '../context/PerturbationsContext';
+import { AnimationBroadcastProvider } from '../context/AnimationBroadcastContext';
 import CollectiveWillPanel from '../components/shared/CollectiveWillPanel';
 import AssumptionTesterPanel from '../components/shared/AssumptionTesterPanel';
 import EpistocracyPanel from '../components/shared/EpistocracyPanel';
@@ -499,8 +500,9 @@ const ElectionLabPage: React.FC = () => {
               {(() => {
                 const TABS = [
                   // ═══ VOIR — analyses qui n'altèrent pas le résultat ═══
+                  // Note: tab 'map' removed — its content is now persistent in LabCentralView
+                  // above the tabs (toggle layers: points/heatmap/voronoi/median).
                   { key: 'results',            icon: '📊', label: t('electionLab.tabResults'),             group: 'see' as const },
-                  { key: 'map',                icon: '🗺', label: t('electionLab.tabMap'),                 group: 'see' as const },
                   { key: 'animation',          icon: '▶',  label: t('electionLab.tabAnimation'),           group: 'see' as const },
                   { key: 'montecarlo',         icon: '🎲', label: t('electionLab.tabMonteCarlo'),          group: 'see' as const },
                   { key: 'manipulability',     icon: '⚡', label: t('electionLab.tabManipulability'),       group: 'see' as const },
@@ -556,12 +558,7 @@ const ElectionLabPage: React.FC = () => {
                   'results':              duelMode
                     ? <DuelModePanel result={result} methodA={duelMethA} methodB={duelMethB} onMethodAChange={setDuelMethA} onMethodBChange={setDuelMethB} />
                     : <><ResultsTab result={result} t={t} /><ElectionInsightPanel result={result} /><HistoricalReferencePanel result={result} /></>,
-                  'map':                  <IdeologyMapChart
-                                            defaultCandidates={candidateNames}
-                                            defaultNumVoters={config.num_voters}
-                                            defaultIdeology={config.ideology}
-                                            defaultSeed={config.seed}
-                                          />,
+                  // 'map' removed — see LabCentralView for the persistent map.
                   'animation':            <VoteStepAnimator
                                             defaultCandidates={candidateNames}
                                             candidateConfigs={config.candidates}
@@ -735,12 +732,15 @@ const ElectionLabPage: React.FC = () => {
   );
 };
 
-// Wrap with PerturbationsProvider so Perturber tabs can pin their results
-// and the central view (LabCentralView) can display them.
-const ElectionLabPageWithPerturbations: React.FC = () => (
+// Wrap with PerturbationsProvider + AnimationBroadcastProvider so:
+//  - Perturber tabs can pin their results into LabCentralView
+//  - Animation tabs can broadcast their current step to LabCentralView
+const ElectionLabPageWithProviders: React.FC = () => (
   <PerturbationsProvider>
-    <ElectionLabPage />
+    <AnimationBroadcastProvider>
+      <ElectionLabPage />
+    </AnimationBroadcastProvider>
   </PerturbationsProvider>
 );
 
-export default ElectionLabPageWithPerturbations;
+export default ElectionLabPageWithProviders;

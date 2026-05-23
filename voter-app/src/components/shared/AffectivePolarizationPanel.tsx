@@ -247,6 +247,7 @@ const AffectivePolarizationPanel: React.FC = () => {
                   : t('affect.winnerUnchanged')
               }
               methodsChanged={changedMethods.length}
+              winnersByMethod={data.affective_results}
             />
           </Col>
         )}

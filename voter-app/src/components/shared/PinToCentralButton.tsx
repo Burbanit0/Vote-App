@@ -19,16 +19,19 @@ import { useTranslation } from 'react-i18next';
 import { usePerturbations } from '../../context/PerturbationsContext';
 
 interface Props {
-  type:            string;
-  icon:            string;
-  label:           string;
-  summary:         string;
-  methodsChanged?: number;
-  disabled?:       boolean;
+  type:             string;
+  icon:             string;
+  label:            string;
+  summary:          string;
+  methodsChanged?:  number;
+  /** Per-method winners under this perturbation. When provided, the central
+   *  matrix renders a comparison row with diff coloring. */
+  winnersByMethod?: Record<string, string | null>;
+  disabled?:        boolean;
 }
 
 const PinToCentralButton: React.FC<Props> = ({
-  type, icon, label, summary, methodsChanged, disabled,
+  type, icon, label, summary, methodsChanged, winnersByMethod, disabled,
 }) => {
   const { t } = useTranslation();
   const { isPinned, pinPerturbation, unpinPerturbation } = usePerturbations();
@@ -43,7 +46,7 @@ const PinToCentralButton: React.FC<Props> = ({
         if (pinned) {
           unpinPerturbation(type);
         } else {
-          pinPerturbation({ type, icon, label, summary, methodsChanged });
+          pinPerturbation({ type, icon, label, summary, methodsChanged, winnersByMethod });
         }
       }}
       style={{ fontSize: '0.72rem', whiteSpace: 'nowrap' }}
