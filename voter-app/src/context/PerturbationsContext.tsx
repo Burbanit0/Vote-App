@@ -10,8 +10,11 @@
  * and pushes a presentational summary into the context.
  */
 import React, {
-  createContext, useCallback, useContext, useMemo, useState,
+  createContext, useCallback, useContext, useEffect, useMemo, useState,
 } from 'react';
+
+// localStorage key for pinned perturbations
+const LS_KEY = 'votelab_pinned_perturbations';
 
 // ── Shape of one pinned perturbation entry ──────────────────────────────────
 
@@ -60,10 +63,44 @@ const PerturbationsContext = createContext<PerturbationsContextValue | null>(nul
 
 // ── Provider ─────────────────────────────────────────────────────────────────
 
+// Safe localStorage helpers — silently fall back to empty array if storage
+// is unavailable (SSR, private browsing, quota exceeded).
+function loadFromStorage(): PinnedPerturbation[] {
+  if (typeof window === 'undefined') return [];
+  try {
+    const raw = window.localStorage.getItem(LS_KEY);
+    if (!raw) return [];
+    const parsed = JSON.parse(raw);
+    if (!Array.isArray(parsed)) return [];
+    // Basic shape validation — drop entries missing required fields
+    return parsed.filter((x: unknown): x is PinnedPerturbation =>
+      typeof x === 'object' && x !== null &&
+      typeof (x as PinnedPerturbation).type === 'string' &&
+      typeof (x as PinnedPerturbation).label === 'string' &&
+      typeof (x as PinnedPerturbation).summary === 'string'
+    );
+  } catch {
+    return [];
+  }
+}
+
+function saveToStorage(pinned: PinnedPerturbation[]): void {
+  if (typeof window === 'undefined') return;
+  try {
+    window.localStorage.setItem(LS_KEY, JSON.stringify(pinned));
+  } catch {
+    // Quota exceeded or storage disabled — silent failure
+  }
+}
+
 export const PerturbationsProvider: React.FC<{ children: React.ReactNode }> = ({
   children,
 }) => {
-  const [pinned, setPinned] = useState<PinnedPerturbation[]>([]);
+  // Restore from localStorage on first mount so refresh preserves pinned cards
+  const [pinned, setPinned] = useState<PinnedPerturbation[]>(loadFromStorage);
+
+  // Persist every change
+  useEffect(() => { saveToStorage(pinned); }, [pinned]);
 
   const pinPerturbation = useCallback(
     (p: Omit<PinnedPerturbation, 'id' | 'pinnedAt'>) => {

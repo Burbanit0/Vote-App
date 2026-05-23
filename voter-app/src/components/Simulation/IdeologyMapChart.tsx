@@ -6,6 +6,7 @@ import IdeologyHeatmap from './IdeologyHeatmap';
 import MedianVoterLayer, { MedianVoterLegend } from './MedianVoterLayer';
 import { useDragTouch } from '../../hooks/useDragTouch';
 import { useTranslation } from 'react-i18next';
+import { useAnimationBroadcast } from '../../context/AnimationBroadcastContext';
 import { IdeologyMapResult, IdeologyMapVoter } from '../../types';
 import { getIdeologyMap, IdeologyMapParams } from '../../services/simulationCompareApi';
 import { buildVoronoiPaths } from '../../utils/voronoiRegions';
@@ -170,6 +171,24 @@ const IdeologyMapChart: React.FC<Props> = ({
 
   // ── Tooltip state
   const [tooltip, setTooltip] = useState<TooltipState | null>(null);
+
+  // ── Animation broadcast (embedded mode only) — lets the central map react
+  //   to the active VoteStepAnimator: greys out eliminated candidates and
+  //   draws transfer arrows from the latest eliminated to the beneficiaries.
+  const { frame: animFrame } = useAnimationBroadcast();
+  const animActive = embedded && animFrame !== null;
+  const eliminatedSet = useMemo(
+    () => new Set(animActive ? (animFrame?.eliminatedSet ?? []) : []),
+    [animActive, animFrame]
+  );
+  const latestEliminated = useMemo(() => {
+    if (!animActive || !animFrame?.eliminated) return [] as string[];
+    return animFrame.eliminated.split(' + ').map((s) => s.trim()).filter(Boolean);
+  }, [animActive, animFrame]);
+  const transferTargets = useMemo(() => {
+    if (!animActive || !animFrame?.transfers) return [] as Array<{ name: string; pct: number }>;
+    return Object.entries(animFrame.transfers).map(([name, v]) => ({ name, pct: v }));
+  }, [animActive, animFrame]);
 
   // ── Fetch map data
   const fetchMap = useCallback(async (candidates: CandidatePos[]) => {
@@ -416,6 +435,16 @@ const IdeologyMapChart: React.FC<Props> = ({
               label={<span style={{ fontSize: '0.66rem' }}>{t('ideologyMap.showLosers')}</span>}
               className="mb-0 ms-1"
             />
+            {animActive && (
+              <Badge
+                bg="success"
+                className="ms-2"
+                style={{ fontSize: '0.65rem' }}
+                data-testid="anim-live-badge"
+              >
+                ● {t('lab.animLiveOnMap', { method: animFrame?.method ?? '', step: animFrame?.step ?? 1, total: animFrame?.totalSteps ?? 1 })}
+              </Badge>
+            )}
           </div>
         )}
         <Card>
@@ -519,6 +548,49 @@ const IdeologyMapChart: React.FC<Props> = ({
                 />
               )}
 
+              {/* Transfer arrows (animation overlay, embedded mode only) —
+                  drawn from the latest-eliminated candidate(s) toward the
+                  beneficiaries, sized by transfer share. */}
+              {animActive && latestEliminated.length > 0 && transferTargets.length > 0 && (
+                <g data-testid="anim-transfer-arrows">
+                  <defs>
+                    <marker
+                      id="anim-arrow-head"
+                      viewBox="0 0 10 10" refX="8" refY="5"
+                      markerWidth="6" markerHeight="6" orient="auto-start-reverse"
+                    >
+                      <path d="M 0 0 L 10 5 L 0 10 z" fill="#007A33" />
+                    </marker>
+                  </defs>
+                  {latestEliminated.flatMap((elimName) => {
+                    const src = candidatePositions.find((c) => c.name === elimName);
+                    if (!src) return [];
+                    const x1 = domainToSvg(src.x, 'x');
+                    const y1 = domainToSvg(src.y, 'y');
+                    return transferTargets
+                      .filter((tt) => tt.name !== elimName && tt.pct > 0)
+                      .map((tt) => {
+                        const dst = candidatePositions.find((c) => c.name === tt.name);
+                        if (!dst) return null;
+                        const x2 = domainToSvg(dst.x, 'x');
+                        const y2 = domainToSvg(dst.y, 'y');
+                        const sw = 1 + Math.min(4, tt.pct * 8);
+                        return (
+                          <line
+                            key={`${elimName}->${tt.name}`}
+                            x1={x1} y1={y1} x2={x2} y2={y2}
+                            stroke="#007A33" strokeWidth={sw}
+                            strokeOpacity={0.55}
+                            markerEnd="url(#anim-arrow-head)"
+                            style={{ pointerEvents: 'none' }}
+                          />
+                        );
+                      })
+                      .filter(Boolean);
+                  })}
+                </g>
+              )}
+
               {/* Candidates (draggable stars) */}
               {candidatePositions.map((cp, idx) => {
                 const cx = domainToSvg(cp.x, 'x');
@@ -526,31 +598,49 @@ const IdeologyMapChart: React.FC<Props> = ({
                 const color = PARTY_COLORS[candidates[idx]?.party ?? 'Independent'] ?? '#6c757d';
                 const isWinnerA = winnerA === cp.name;
                 const isWinnerB = winnerB === cp.name;
+                const isEliminated = eliminatedSet.has(cp.name);
+                const isJustEliminated = latestEliminated.includes(cp.name);
+                const starOpacity = isEliminated ? 0.3 : 1;
                 return (
                   <g
                     key={cp.name}
                     transform={`translate(${cx},${cy})`}
-                    style={{ cursor: draggingIdx === idx ? 'grabbing' : 'grab', touchAction: 'none' }}
+                    style={{
+                      cursor: draggingIdx === idx ? 'grabbing' : 'grab',
+                      touchAction: 'none',
+                      transition: 'opacity 0.3s',
+                    }}
+                    opacity={starOpacity}
                     onMouseDown={(e) => handleCandidateMouseDown(e, idx)}
                     onTouchStart={(e) => handleCandidateTouchStart(e, idx)}
                   >
                     {/* Highlight ring for winners */}
-                    {(isWinnerA || isWinnerB) && (
+                    {(isWinnerA || isWinnerB) && !isEliminated && (
                       <circle r={20} fill="none" strokeWidth={2.5}
                         stroke={isWinnerA && isWinnerB ? '#7B2D8B' : isWinnerA ? COLOR_A : COLOR_B}
                         strokeDasharray={isWinnerA && isWinnerB ? '4 2' : undefined}
                       />
                     )}
+                    {/* Red pulse ring for the latest eliminated candidate(s) */}
+                    {isJustEliminated && (
+                      <circle r={18} fill="none" strokeWidth={2.5}
+                        stroke={COLOR_LOSE} strokeDasharray="3 3"
+                        data-testid={`elim-ring-${cp.name}`}
+                      />
+                    )}
                     {/* Star symbol */}
                     <text
                       textAnchor="middle" dominantBaseline="central"
-                      fontSize={22} fill={color} stroke="#fff" strokeWidth={0.8}
+                      fontSize={22}
+                      fill={isEliminated ? '#999' : color}
+                      stroke="#fff" strokeWidth={0.8}
                       style={{ pointerEvents: 'none', userSelect: 'none' }}
+                      textDecoration={isEliminated ? 'line-through' : undefined}
                     >★</text>
                     {/* Label */}
                     <text
                       y={-20} textAnchor="middle" fontSize={11}
-                      fill={color} fontWeight={600}
+                      fill={isEliminated ? '#999' : color} fontWeight={600}
                       stroke="#fff" strokeWidth={3} paintOrder="stroke"
                       style={{ pointerEvents: 'none' }}
                     >{cp.name}</text>

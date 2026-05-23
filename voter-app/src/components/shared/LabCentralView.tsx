@@ -290,11 +290,36 @@ interface Props {
   loading: boolean;
 }
 
+// Persist collapsed/focus state across page navigations and refreshes.
+const COLLAPSED_LS_KEY = 'votelab_central_collapsed';
+const FOCUS_LS_KEY     = 'votelab_central_focus_mode';
+
+function readBool(key: string, fallback: boolean): boolean {
+  if (typeof window === 'undefined') return fallback;
+  try {
+    const v = window.localStorage.getItem(key);
+    return v === '1' ? true : v === '0' ? false : fallback;
+  } catch {
+    return fallback;
+  }
+}
+function writeBool(key: string, value: boolean): void {
+  if (typeof window === 'undefined') return;
+  try { window.localStorage.setItem(key, value ? '1' : '0'); } catch { /* */ }
+}
+
 const LabCentralView: React.FC<Props> = ({ result, loading }) => {
   const { t } = useTranslation();
-  const [collapsed, setCollapsed] = useState(false);
+  const [collapsed, setCollapsed] = useState(() => readBool(COLLAPSED_LS_KEY, false));
+  // Focus mode: matrix-only (no map) when user wants to dedicate space to the
+  // active tab's drill-down. Persisted so it doesn't reset every navigation.
+  const [focusMode, setFocusMode] = useState(() => readBool(FOCUS_LS_KEY, false));
   const { pinned, unpinPerturbation, clearPinned } = usePerturbations();
   const { frame } = useAnimationBroadcast();
+
+  // Persist toggle state
+  React.useEffect(() => { writeBool(COLLAPSED_LS_KEY, collapsed); }, [collapsed]);
+  React.useEffect(() => { writeBool(FOCUS_LS_KEY,     focusMode); }, [focusMode]);
 
   // Nothing to show before first simulation
   if (!result) {
@@ -351,6 +376,17 @@ const LabCentralView: React.FC<Props> = ({ result, loading }) => {
           <ActiveModulesBar config={result.config} t={t} />
           <Button
             size="sm"
+            variant={focusMode ? 'secondary' : 'link'}
+            className={focusMode ? '' : 'text-muted p-0'}
+            style={{ fontSize: '0.7rem', padding: focusMode ? '2px 8px' : undefined }}
+            onClick={() => setFocusMode((f) => !f)}
+            data-testid="central-focus-toggle"
+            title={t('lab.focusModeTitle')}
+          >
+            {focusMode ? '🎯 ' + t('lab.focusOn') : '🎯 ' + t('lab.focusOff')}
+          </Button>
+          <Button
+            size="sm"
             variant="link"
             className="text-muted p-0"
             style={{ fontSize: '0.72rem' }}
@@ -364,28 +400,31 @@ const LabCentralView: React.FC<Props> = ({ result, loading }) => {
       {!collapsed && (
         <Card.Body className="p-3" data-testid="central-body">
           <Row className="g-3">
-            {/* ── Ideology map (compact) ── */}
-            <Col xs={12} lg={6}>
-              <div className="fw-semibold mb-1" style={{ fontSize: '0.78rem' }}>
-                🗺 {t('lab.ideologyMapTitle')}
-              </div>
-              <div style={{
-                maxHeight: 340, overflow: 'auto', border: '1px solid #dee2e6',
-                borderRadius: 4, padding: 4,
-              }} data-testid="central-ideology-map">
-                <IdeologyMapChart
-                  embedded
-                  defaultCandidates={candidateNames}
-                  initialCandidatePositions={result.config.candidates}
-                  defaultNumVoters={result.config.num_voters}
-                  defaultIdeology={result.config.ideology}
-                  defaultSeed={result.config.seed}
-                />
-              </div>
-            </Col>
+            {/* ── Ideology map (compact) — hidden in focus mode to give the
+                active tab more vertical space ── */}
+            {!focusMode && (
+              <Col xs={12} lg={6}>
+                <div className="fw-semibold mb-1" style={{ fontSize: '0.78rem' }}>
+                  🗺 {t('lab.ideologyMapTitle')}
+                </div>
+                <div style={{
+                  maxHeight: 340, overflow: 'auto', border: '1px solid #dee2e6',
+                  borderRadius: 4, padding: 4,
+                }} data-testid="central-ideology-map">
+                  <IdeologyMapChart
+                    embedded
+                    defaultCandidates={candidateNames}
+                    initialCandidatePositions={result.config.candidates}
+                    defaultNumVoters={result.config.num_voters}
+                    defaultIdeology={result.config.ideology}
+                    defaultSeed={result.config.seed}
+                  />
+                </div>
+              </Col>
+            )}
 
-            {/* ── Methods matrix (compact) ── */}
-            <Col xs={12} lg={6}>
+            {/* ── Methods matrix (compact) — full width in focus mode ── */}
+            <Col xs={12} lg={focusMode ? 12 : 6}>
               <div className="fw-semibold mb-1" style={{ fontSize: '0.78rem' }}>
                 📊 {t('lab.methodsMatrixTitle')}
                 {pinned.filter(p => p.winnersByMethod).length > 0 && (

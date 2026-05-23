@@ -777,6 +777,10 @@ const en: TranslationKeys = {
     baselineWinner:  'Baseline winner',
     animationLive:   'Animation playing in the active tab',
     round:           'Round',
+    focusModeTitle:  'Hide the map to give more space to the active tab',
+    focusOn:         'Focus on',
+    focusOff:        'Focus',
+    animLiveOnMap:   '{{method}} animation · round {{step}}/{{total}}',
   },
 
   common: {

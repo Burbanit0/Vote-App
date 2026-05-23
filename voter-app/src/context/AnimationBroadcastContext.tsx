@@ -21,6 +21,18 @@ export interface AnimationFrame {
   totalSteps:       number;
   /** Eliminated candidate for this step (may be multiple via " + "). */
   eliminated?:      string | null;
+  /**
+   * Cumulative set of candidates eliminated up to and including the current
+   * step. Used by the central map to grey out eliminated stars across rounds
+   * (vs `eliminated` which only carries the latest round's eliminations).
+   */
+  eliminatedSet?:   string[];
+  /**
+   * Per-recipient transfer percentages for the current step's elimination
+   * (IRV). Used by the central map to draw transfer arrows from the
+   * eliminated candidate's position toward the beneficiaries.
+   */
+  transfers?:       Record<string, number>;
   /** Current standing winner (or null if not yet decided). */
   currentWinner?:   string | null;
   /** True when the animator is on the final step (winner declared). */
