@@ -547,6 +547,7 @@ const ElectionLabPage: React.FC = () => {
                                           />,
                   'animation':            <VoteStepAnimator
                                             defaultCandidates={candidateNames}
+                                            candidateConfigs={config.candidates}
                                             numVoters={config.num_voters}
                                             ideology={config.ideology}
                                             seed={config.seed}

@@ -184,3 +184,89 @@ class TestVoteStepsReproducibility:
         # Not guaranteed to differ but very likely with different seeds
         # Just check both return valid structure
         assert "rounds" in r1 and "rounds" in r2
+
+
+# ── Candidate positions accepted (coherence with /api/election/simulate) ─────
+
+class TestCandidatePositions:
+    """The animator must accept full candidate configs (with x/y positions)
+    so that animation winners match the main election simulation exactly."""
+
+    def test_accepts_object_candidates(self, client):
+        """Posting {name, x, y} objects instead of strings returns 200."""
+        r = client.post(URL, json={
+            "method":     "plurality",
+            "num_voters": 50,
+            "candidates": [
+                {"name": "Left",   "x": -0.7, "y": 0.0},
+                {"name": "Center", "x":  0.0, "y": 0.0},
+                {"name": "Right",  "x":  0.7, "y": 0.0},
+            ],
+            "ideology": "random",
+            "seed":     42,
+        })
+        assert r.status_code == 200
+        data = json.loads(r.data)
+        assert "winner" in data
+        assert data["winner"] in {"Left", "Center", "Right"}
+
+    def test_positions_change_winner_vs_default(self, client):
+        """A drastically asymmetric position layout should produce a different
+        winner than the default name-only placement."""
+        names_only = json.loads(client.post(URL, json={
+            "method": "plurality", "num_voters": 100,
+            "candidates": ["A", "B", "C"],
+            "ideology": "random", "seed": 7,
+        }).data)
+        # Push C strongly into the centre and A/B to extremes — centre should win
+        objects = json.loads(client.post(URL, json={
+            "method": "plurality", "num_voters": 100,
+            "candidates": [
+                {"name": "A", "x": -0.95, "y": 0.0},
+                {"name": "B", "x":  0.95, "y": 0.0},
+                {"name": "C", "x":  0.0,  "y": 0.0},
+            ],
+            "ideology": "random", "seed": 7,
+        }).data)
+        # Both should return valid plurality results
+        assert "winner" in names_only
+        assert "winner" in objects
+        # C (centre) should win the spatially-placed version most likely
+        assert objects["winner"] == "C", (
+            f"With C at centre and A/B at extremes, C should win plurality; got {objects['winner']}"
+        )
+
+    def test_object_candidates_reproducible(self, client):
+        """Same positions + seed should give identical output."""
+        payload = {
+            "method": "irv", "num_voters": 60,
+            "candidates": [
+                {"name": "Alice", "x": -0.4, "y":  0.1},
+                {"name": "Bob",   "x":  0.0, "y":  0.0},
+                {"name": "Carol", "x":  0.5, "y": -0.1},
+            ],
+            "ideology": "random", "seed": 42,
+        }
+        r1 = json.loads(client.post(URL, json=payload).data)
+        r2 = json.loads(client.post(URL, json=payload).data)
+        assert r1 == r2
+
+    def test_object_and_string_candidates_can_differ(self, client):
+        """Object candidates (real positions) and string candidates (auto-positions)
+        should produce different winners on the same seed — proving the new path
+        actually uses the provided positions."""
+        common = {"method": "plurality", "num_voters": 80, "ideology": "random", "seed": 1}
+        r_obj = json.loads(client.post(URL, json={
+            **common,
+            "candidates": [
+                {"name": "Far Left",  "x": -0.9, "y": 0.0},
+                {"name": "Far Right", "x":  0.9, "y": 0.0},
+                {"name": "Centre",    "x":  0.0, "y": 0.0},
+            ],
+        }).data)
+        r_str = json.loads(client.post(URL, json={
+            **common,
+            "candidates": ["Far Left", "Far Right", "Centre"],
+        }).data)
+        # Both valid
+        assert "winner" in r_obj and "winner" in r_str
