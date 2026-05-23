@@ -20,6 +20,7 @@ import HistoricalReferencePanel from '../components/shared/HistoricalReferencePa
 import MetricTooltip from '../components/shared/MetricTooltip';
 import ElectionInsightPanel from '../components/shared/ElectionInsightPanel';
 import ModelAssumptionsBanner from '../components/shared/ModelAssumptionsBanner';
+import LabCentralView from '../components/shared/LabCentralView';
 import CollectiveWillPanel from '../components/shared/CollectiveWillPanel';
 import AssumptionTesterPanel from '../components/shared/AssumptionTesterPanel';
 import EpistocracyPanel from '../components/shared/EpistocracyPanel';
@@ -477,6 +478,9 @@ const ElectionLabPage: React.FC = () => {
 
           {result && (
             <div style={{ opacity: loading ? 0.65 : 1, transition: 'opacity 0.25s' }}>
+              {/* ── Persistent central view (always visible) ── */}
+              <LabCentralView result={result} loading={loading} />
+
               {/* Mode Duel toggle */}
               <div className="d-flex justify-content-end mb-2">
                 <Button
