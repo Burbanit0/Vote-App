@@ -19,7 +19,11 @@ const API = process.env.REACT_APP_API_URL ?? 'http://localhost:4433';
 // ── Types ─────────────────────────────────────────────────────────────────────
 
 interface VoterProfile { mean_age_group: number; mean_education_level: number; mean_ideology_x: number; }
-interface ElectionResult { winner: string | null; vote_shares: Record<string, number>; actual_turnout?: number; voter_profile?: VoterProfile; mean_ideology_x?: number; }
+interface ElectionResult {
+  winner: string | null; vote_shares: Record<string, number>;
+  actual_turnout?: number; voter_profile?: VoterProfile; mean_ideology_x?: number;
+  winners_by_method?: Record<string, string | null>;
+}
 interface BreakdownEntry { group: string; population_pct: number; voter_pct: number; ideology_mean: number; }
 interface DemoData {
   biased_result:      ElectionResult;
@@ -200,21 +204,31 @@ const DemographicTurnoutPanel: React.FC = () => {
             {loading ? <Spinner size="sm" animation="border" /> : t('demo.run')}
           </Button>
         </Col>
-        {data && (
-          <Col xs="auto">
-            <PinToCentralButton
-              type="demographic"
-              icon="👥"
-              label={t('demo.run')}
-              summary={
-                data.winner_changed
-                  ? `${data.biased_result.winner} → ${data.corrected_result.winner}`
-                  : `${t('demo.biasedWinner')}: ${data.biased_result.winner}`
-              }
-              methodsChanged={data.winner_changed ? 1 : 0}
-            />
-          </Col>
-        )}
+        {data && (() => {
+          const bbm = data.biased_result.winners_by_method ?? {};
+          const cbm = data.corrected_result.winners_by_method ?? {};
+          let changedCount = 0;
+          Object.entries(bbm).forEach(([m, w]) => {
+            if (w !== cbm[m]) changedCount += 1;
+          });
+          if (changedCount === 0 && data.winner_changed) changedCount = 1;
+          return (
+            <Col xs="auto">
+              <PinToCentralButton
+                type="demographic"
+                icon="👥"
+                label={t('demo.run')}
+                summary={
+                  changedCount > 0
+                    ? `${changedCount}/${Object.keys(bbm).length || 1} ${t('lab.methodsChanged')}`
+                    : `${t('demo.biasedWinner')}: ${data.biased_result.winner}`
+                }
+                methodsChanged={changedCount}
+                winnersByMethod={data.biased_result.winners_by_method}
+              />
+            </Col>
+          );
+        })()}
       </Row>
 
       {/* Turnout sliders */}
