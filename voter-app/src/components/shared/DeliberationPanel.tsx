@@ -13,6 +13,7 @@ import {
   Legend, ReferenceLine, ResponsiveContainer,
 } from 'recharts';
 import { useElection } from '../../context/ElectionContext';
+import PinToCentralButton from './PinToCentralButton';
 
 const API = process.env.REACT_APP_API_URL ?? 'http://localhost:4433';
 
@@ -161,6 +162,21 @@ const DeliberationPanel: React.FC = () => {
             {loading ? <Spinner size="sm" animation="border" /> : t('delib.run')}
           </Button>
         </Col>
+        {data && (
+          <Col xs="auto">
+            <PinToCentralButton
+              type="deliberation"
+              icon="🗣"
+              label={t('delib.run')}
+              summary={
+                data.winner_changed
+                  ? `${data.pre_deliberation.winner} → ${data.post_deliberation.winner}`
+                  : `${data.post_deliberation.winner ?? '—'}`
+              }
+              methodsChanged={data.winner_changed ? 1 : 0}
+            />
+          </Col>
+        )}
       </Row>
 
       {!data && !loading && !error && (

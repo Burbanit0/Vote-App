@@ -7,6 +7,7 @@ import {
   ReferenceLine, ResponsiveContainer,
 } from 'recharts';
 import { useElection } from '../../context/ElectionContext';
+import PinToCentralButton from './PinToCentralButton';
 
 const API = process.env.REACT_APP_API_URL ?? 'http://localhost:4433';
 
@@ -226,6 +227,19 @@ const AdaptiveVotingPanel: React.FC = () => {
               onClick={() => startAnimation(data.rounds.length)}>
               ▶ {t('adaptive.replay')}
             </Button>
+          )}
+          {data && (
+            <PinToCentralButton
+              type="adaptive"
+              icon="⚙"
+              label={t('adaptive.run')}
+              summary={
+                data.final_winner !== data.sincere_winner
+                  ? `${data.sincere_winner} → ${data.final_winner}`
+                  : `${t('adaptive.finalWinner')}: ${data.final_winner}`
+              }
+              methodsChanged={data.final_winner !== data.sincere_winner ? 1 : 0}
+            />
           )}
         </Col>
       </Row>

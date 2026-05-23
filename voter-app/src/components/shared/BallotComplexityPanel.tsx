@@ -11,6 +11,7 @@ import {
   LineChart, Line, Legend, ResponsiveContainer,
 } from 'recharts';
 import { useElection } from '../../context/ElectionContext';
+import PinToCentralButton from './PinToCentralButton';
 
 const API = process.env.REACT_APP_API_URL ?? 'http://localhost:4433';
 const DEBOUNCE_MS = 400;
@@ -165,6 +166,28 @@ const BallotComplexityPanel: React.FC = () => {
             {loading ? <Spinner size="sm" animation="border" /> : t('ballot.run')}
           </Button>
         </Col>
+        {data && data.results.length > 0 && (() => {
+          // ballot data already has winner-per-method! Build the map
+          const winnersByMethod: Record<string, string | null> = {};
+          data.results.forEach((r) => { winnersByMethod[r.method] = r.winner; });
+          const changedCount = data.results.filter((r) => r.winner_changed).length;
+          return (
+            <Col xs="auto">
+              <PinToCentralButton
+                type="ballot"
+                icon="📋"
+                label={t('ballot.run')}
+                summary={
+                  changedCount > 0
+                    ? `${changedCount}/${data.results.length} ${t('lab.methodsChanged')}`
+                    : t('lab.winnerStable')
+                }
+                methodsChanged={changedCount}
+                winnersByMethod={winnersByMethod}
+              />
+            </Col>
+          );
+        })()}
       </Row>
 
       {!data && !loading && !error && (

@@ -12,6 +12,7 @@ import MetricTooltip from './MetricTooltip';
 import { fetchDivergence, DivergenceResult, DivergenceRunResult } from '../../services/electionApi';
 import { useChartTheme } from '../../hooks/useChartTheme';
 import LiveBadge from './LiveBadge';
+import PinToCentralButton from './PinToCentralButton';
 
 const C = { blue: '#005CAB', orange: '#C8590A', green: '#007A33', red: '#B71C1C', gray: '#6c757d' };
 
@@ -158,6 +159,31 @@ const BlankVoteDivergencePanel: React.FC = () => {
             : t('divergence.compute')}
         </Button>
         <LiveBadge loading={loading && !!result} />
+        {result && (() => {
+          // Build winners-by-method from with_blank run, count changes vs without_blank
+          const winnersByMethod: Record<string, string | null> = {};
+          let changedCount = 0;
+          Object.entries(result.with_blank.methods).forEach(([m, md]) => {
+            const wb = md.winner_after_rule ?? md.winner;
+            winnersByMethod[m] = wb;
+            const baseline = result.without_blank.methods[m]?.winner;
+            if (wb !== baseline) changedCount += 1;
+          });
+          return (
+            <PinToCentralButton
+              type="blank-divergence"
+              icon="⬜"
+              label={`${t('divergence.compute')} — ${rule}`}
+              summary={
+                changedCount > 0
+                  ? `${changedCount}/${Object.keys(winnersByMethod).length} ${t('lab.methodsChanged')}`
+                  : t('lab.winnerStable')
+              }
+              methodsChanged={changedCount}
+              winnersByMethod={winnersByMethod}
+            />
+          );
+        })()}
       </div>
 
       {error && <Alert variant="danger" className="py-2">{error}</Alert>}

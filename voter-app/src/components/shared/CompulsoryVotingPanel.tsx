@@ -12,6 +12,7 @@ import {
   Legend, ResponsiveContainer, Cell,
 } from 'recharts';
 import { useElection } from '../../context/ElectionContext';
+import PinToCentralButton from './PinToCentralButton';
 
 const API = process.env.REACT_APP_API_URL ?? 'http://localhost:4433';
 const DEBOUNCE_MS = 400;
@@ -203,9 +204,24 @@ const CompulsoryVotingPanel: React.FC = () => {
             </Col>
           </Row>
 
-          <Button variant="primary" onClick={handleSimulate} disabled={loading} className="mb-3">
-            {loading ? <Spinner size="sm" animation="border" /> : t('compulsory.run')}
-          </Button>
+          <div className="d-flex gap-2 mb-3 flex-wrap">
+            <Button variant="primary" onClick={handleSimulate} disabled={loading}>
+              {loading ? <Spinner size="sm" animation="border" /> : t('compulsory.run')}
+            </Button>
+            {data && (
+              <PinToCentralButton
+                type="compulsory"
+                icon="⚖️"
+                label={`${t('compulsory.run')} — ${Math.round(compTurnout * 100)}%`}
+                summary={
+                  data.winner_changed
+                    ? `${data.voluntary.winner} → ${data.compulsory.winner}`
+                    : `${t('compulsory.run')}: ${data.compulsory.winner ?? '—'}`
+                }
+                methodsChanged={data.winner_changed ? 1 : 0}
+              />
+            )}
+          </div>
 
           {!data && !loading && !error && (
             <Alert variant="info" role="alert">{t('compulsory.prompt')}</Alert>

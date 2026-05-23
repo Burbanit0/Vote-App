@@ -9,6 +9,7 @@ import axios from 'axios';
 import { useTranslation } from 'react-i18next';
 import { Alert, Badge, Button, Col, Form, Row, Spinner, Table } from 'react-bootstrap';
 import { useElection } from '../../context/ElectionContext';
+import PinToCentralButton from './PinToCentralButton';
 
 const API = process.env.REACT_APP_API_URL ?? 'http://localhost:4433';
 const DEBOUNCE_MS = 400;
@@ -339,9 +340,24 @@ const BehavioralBiasPanel: React.FC = () => {
         </Col>
       </Row>
 
-      <Button variant="primary" onClick={handleSimulate} disabled={loading} className="mb-3">
-        {loading ? <Spinner size="sm" animation="border" /> : t('behavioral.run')}
-      </Button>
+      <div className="d-flex gap-2 mb-3 flex-wrap">
+        <Button variant="primary" onClick={handleSimulate} disabled={loading}>
+          {loading ? <Spinner size="sm" animation="border" /> : t('behavioral.run')}
+        </Button>
+        {data && (
+          <PinToCentralButton
+            type="behavioral"
+            icon="🧠"
+            label={t('behavioral.run')}
+            summary={
+              data.winner_changed
+                ? `${data.sincere_winner} → ${data.biased_winner}`
+                : `${data.biased_winner}`
+            }
+            methodsChanged={data.winner_changed ? 1 : 0}
+          />
+        )}
+      </div>
 
       {!data && !loading && !error && (
         <Alert variant="info" role="alert">{t('behavioral.prompt')}</Alert>

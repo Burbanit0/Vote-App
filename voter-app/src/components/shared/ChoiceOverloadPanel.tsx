@@ -12,6 +12,7 @@ import {
   CartesianGrid, Legend, ReferenceLine, ResponsiveContainer, Cell,
 } from 'recharts';
 import { useElection } from '../../context/ElectionContext';
+import PinToCentralButton from './PinToCentralButton';
 
 const API = process.env.REACT_APP_API_URL ?? 'http://localhost:4433';
 const DEFAULT_COUNTS = [2, 3, 5, 7, 10];
@@ -158,9 +159,24 @@ const ChoiceOverloadPanel: React.FC = () => {
         </Col>
       </Row>
 
-      <Button variant="primary" onClick={handleSimulate} disabled={loading} className="mb-3">
-        {loading ? <Spinner size="sm" animation="border" /> : t('overload.run')}
-      </Button>
+      <div className="d-flex gap-2 mb-3 flex-wrap">
+        <Button variant="primary" onClick={handleSimulate} disabled={loading}>
+          {loading ? <Spinner size="sm" animation="border" /> : t('overload.run')}
+        </Button>
+        {data && data.results_by_n.length > 0 && (() => {
+          // Take the last/largest N as the "overloaded" scenario for the pin
+          const overloaded = data.results_by_n[data.results_by_n.length - 1];
+          return (
+            <PinToCentralButton
+              type="overload"
+              icon="🤯"
+              label={`${t('overload.run')} (n=${overloaded.num_candidates})`}
+              summary={`${t('overload.run')}: ${overloaded.heuristic_voters} heuristic voters`}
+              winnersByMethod={overloaded.winner_by_method}
+            />
+          );
+        })()}
+      </div>
 
       {!data && !loading && !error && (
         <Alert variant="info" role="alert">{t('overload.prompt')}</Alert>

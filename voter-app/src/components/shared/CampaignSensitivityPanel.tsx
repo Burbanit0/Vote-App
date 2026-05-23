@@ -14,6 +14,7 @@ import {
 } from '../../services/electionApi';
 import { useChartTheme } from '../../hooks/useChartTheme';
 import LiveBadge from './LiveBadge';
+import PinToCentralButton from './PinToCentralButton';
 import CampaignSwimlane from './CampaignSwimlane';
 
 // ── Constants ─────────────────────────────────────────────────────────────────
@@ -315,6 +316,31 @@ const CampaignSensitivityPanel: React.FC = () => {
           </Button>
           <LiveBadge loading={loading && !!result} className="mt-1" />
         </Col>
+        {result && (
+          <Col md="auto">
+            <PinToCentralButton
+              type="campaign-sensitivity"
+              icon="📈"
+              label={`${t('campaign.compute')} — ${numDays}j`}
+              summary={(() => {
+                // Count methods that changed final winner under campaign
+                const winnersByMethod: Record<string, string | null> = {};
+                let changed = 0;
+                Object.entries(result.method_stability).forEach(([m, st]) => {
+                  winnersByMethod[m] = st.final_winner;
+                  if (st.winner_changes > 0) changed += 1;
+                });
+                return changed > 0
+                  ? `${changed}/${Object.keys(result.method_stability).length} ${t('lab.methodsChanged')}`
+                  : t('lab.winnerStable');
+              })()}
+              methodsChanged={Object.values(result.method_stability).filter(s => s.winner_changes > 0).length}
+              winnersByMethod={Object.fromEntries(
+                Object.entries(result.method_stability).map(([m, st]) => [m, st.final_winner])
+              )}
+            />
+          </Col>
+        )}
       </Row>
 
       {error && <Alert variant="danger" className="py-2">{error}</Alert>}

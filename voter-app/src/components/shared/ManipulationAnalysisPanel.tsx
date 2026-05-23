@@ -8,6 +8,7 @@ import axios from 'axios';
 import { useTranslation } from 'react-i18next';
 import { Alert, Badge, Button, Col, Form, Row, Spinner, Table } from 'react-bootstrap';
 import { useElection } from '../../context/ElectionContext';
+import PinToCentralButton from './PinToCentralButton';
 
 const API = process.env.REACT_APP_API_URL ?? 'http://localhost:4433';
 const SVG_SIZE = 340;
@@ -192,6 +193,21 @@ const ManipulationAnalysisPanel: React.FC = () => {
             {loading ? <Spinner size="sm" animation="border" /> : t('gs.analyze')}
           </Button>
         </Col>
+        {data && (
+          <Col xs="auto">
+            <PinToCentralButton
+              type="manipulation"
+              icon="🕵"
+              label={t('gs.analyze')}
+              summary={
+                data.manipulable
+                  ? `${t('gs.manipulable')}: ${data.manipulation_count} ${t('electionLab.voters')}`
+                  : t('gs.notManipulable')
+              }
+              methodsChanged={data.manipulable ? 1 : 0}
+            />
+          </Col>
+        )}
       </Row>
 
       {!data && !loading && !error && (
