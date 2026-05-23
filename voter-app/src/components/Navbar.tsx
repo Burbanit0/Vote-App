@@ -19,13 +19,14 @@ const NAV_LEARN = [
 ];
 
 const NAV_EXPLORE = [
+  { href: '/what-if',           icon: '🔮', key: 'nav.whatIf' },
   { href: '/quadratic-funding', icon: '💰', key: 'nav.quadraticFunding' },
-  { href: '/tech-democracy',   icon: '💻', key: 'nav.techDemocracy' },
-  { href: '/sortition',        icon: '🎲', key: 'nav.sortition' },
-  { href: '/party-dynamics',  icon: '📊', key: 'nav.partyDynamics' },
-  { href: '/theory',          icon: '🏛', key: 'nav.theory' },
-  { href: '/galerie',   icon: '🗃️', key: 'nav.gallery' },
-  { href: '/api-docs',  icon: '🔌', key: 'nav.apiDocs' },
+  { href: '/tech-democracy',    icon: '💻', key: 'nav.techDemocracy' },
+  { href: '/sortition',         icon: '🎲', key: 'nav.sortition' },
+  { href: '/party-dynamics',    icon: '📊', key: 'nav.partyDynamics' },
+  { href: '/theory',            icon: '🏛', key: 'nav.theory' },
+  { href: '/galerie',           icon: '🗃️', key: 'nav.gallery' },
+  { href: '/api-docs',          icon: '🔌', key: 'nav.apiDocs' },
 ];
 
 const LS_PASS = 'votelab_teacher_pass';

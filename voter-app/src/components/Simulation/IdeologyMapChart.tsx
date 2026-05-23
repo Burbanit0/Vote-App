@@ -98,17 +98,29 @@ interface CandidatePos { name: string; x: number; y: number }
 
 interface Props {
   defaultCandidates?: string[];
+  defaultNumVoters?:  number;
+  defaultIdeology?:   string;
+  defaultSeed?:       number;
 }
 
-const IdeologyMapChart: React.FC<Props> = ({ defaultCandidates }) => {
+const IdeologyMapChart: React.FC<Props> = ({
+  defaultCandidates, defaultNumVoters, defaultIdeology, defaultSeed,
+}) => {
   const { t } = useTranslation();
 
-  // ── Controls state
+  // ── Controls state (initialized from props when provided)
   const [methodA,      setMethodA]      = useState('plurality');
   const [methodB,      setMethodB]      = useState('schulze');
-  const [numVoters,    setNumVoters]    = useState(200);
-  const [ideology,     setIdeology]     = useState('random');
-  const [seed,         setSeed]         = useState(42);
+  const [numVoters,    setNumVoters]    = useState(defaultNumVoters ?? 200);
+  const [ideology,     setIdeology]     = useState(defaultIdeology  ?? 'random');
+  const [seed,         setSeed]         = useState(defaultSeed      ?? 42);
+
+  // Sync with lab config when it changes externally
+  useEffect(() => {
+    if (defaultNumVoters !== undefined) setNumVoters(defaultNumVoters);
+    if (defaultIdeology  !== undefined) setIdeology(defaultIdeology);
+    if (defaultSeed      !== undefined) setSeed(defaultSeed);
+  }, [defaultNumVoters, defaultIdeology, defaultSeed]);
   const [showLosers,   setShowLosers]   = useState(false);
   const [showVoronoi,  setShowVoronoi]  = useState(false);
   const [viewMode,     setViewMode]     = useState<'points' | 'heatmap' | 'both'>('points');
