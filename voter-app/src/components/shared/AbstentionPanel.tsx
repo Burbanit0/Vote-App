@@ -13,6 +13,7 @@ import {
   ResponsiveContainer, ReferenceLine,
 } from 'recharts';
 import { useElection } from '../../context/ElectionContext';
+import PinToCentralButton from './PinToCentralButton';
 
 const API = process.env.REACT_APP_API_URL ?? 'http://localhost:4433';
 const DEBOUNCE_MS = 400;
@@ -262,6 +263,21 @@ const AbstentionPanel: React.FC = () => {
             {loading ? <Spinner size="sm" /> : `📉 ${t('abstention.run')}`}
           </Button>
         </Col>
+        {data && (
+          <Col xs={12} sm="auto">
+            <PinToCentralButton
+              type="abstention"
+              icon="📉"
+              label={`${t('abstention.run')} — ${Math.round(demob * 100)}% démob.`}
+              summary={
+                data.winner_changed
+                  ? `${data.sincere_winner} → ${data.final_winner}`
+                  : `${t('abstention.sincere')}: ${data.sincere_winner}`
+              }
+              methodsChanged={data.winner_changed ? 1 : 0}
+            />
+          </Col>
+        )}
       </Row>
 
       {error && <Alert variant="danger">{error}</Alert>}

@@ -14,6 +14,7 @@ import React, { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Badge, Button, Card, Col, Row } from 'react-bootstrap';
 import { ElectionResult } from '../../services/electionApi';
+import { usePerturbations, PinnedPerturbation } from '../../context/PerturbationsContext';
 import IdeologyMapChart from '../Simulation/IdeologyMapChart';
 import MetricTooltip from './MetricTooltip';
 
@@ -152,6 +153,104 @@ const ActiveModulesBar: React.FC<ModulesProps> = ({ config, t }) => {
   );
 };
 
+// ── Pinned perturbations panel ──────────────────────────────────────────────
+
+interface PinnedProps {
+  pinned: PinnedPerturbation[];
+  onUnpin: (id: string) => void;
+  onClear: () => void;
+  t: (k: string) => string;
+}
+
+const PinnedPerturbationsPanel: React.FC<PinnedProps> = ({
+  pinned, onUnpin, onClear, t,
+}) => {
+  if (pinned.length === 0) {
+    return (
+      <div
+        className="text-muted text-center py-2"
+        style={{ fontSize: '0.72rem', borderTop: '1px dashed #dee2e6', marginTop: 12 }}
+        data-testid="pinned-empty"
+      >
+        {t('lab.pinHint')}
+      </div>
+    );
+  }
+
+  return (
+    <div className="mt-3 pt-3" style={{ borderTop: '1px dashed #dee2e6' }}
+      data-testid="pinned-section">
+      <div className="d-flex align-items-center justify-content-between mb-2">
+        <span className="fw-semibold" style={{ fontSize: '0.78rem' }}>
+          📌 {t('lab.pinnedTitle')} ({pinned.length})
+        </span>
+        <Button
+          variant="link"
+          size="sm"
+          className="text-muted p-0"
+          style={{ fontSize: '0.7rem' }}
+          onClick={onClear}
+          data-testid="pinned-clear"
+        >
+          {t('lab.pinnedClearAll')}
+        </Button>
+      </div>
+      <div className="d-flex gap-2 flex-wrap">
+        {pinned.map((p) => {
+          const changed = p.methodsChanged ?? 0;
+          const borderColor = changed > 0 ? '#dc3545' : '#198754';
+          return (
+            <div
+              key={p.id}
+              className="border rounded p-2"
+              style={{
+                background: '#fff',
+                borderLeft: `3px solid ${borderColor}`,
+                minWidth: 220,
+                maxWidth: 340,
+                fontSize: '0.74rem',
+              }}
+              data-testid={`pinned-card-${p.type}`}
+            >
+              <div className="d-flex align-items-start gap-1">
+                <span style={{ fontSize: '0.95rem' }}>{p.icon}</span>
+                <div style={{ flex: 1, minWidth: 0 }}>
+                  <div className="fw-semibold" style={{ fontSize: '0.76rem' }}>
+                    {p.label}
+                  </div>
+                  <div className="text-muted" style={{ fontSize: '0.7rem', lineHeight: 1.3 }}>
+                    {p.summary}
+                  </div>
+                  {changed > 0 ? (
+                    <Badge bg="danger" className="mt-1" style={{ fontSize: '0.6rem' }}>
+                      ⚡ {changed} {t('lab.methodsChanged')}
+                    </Badge>
+                  ) : (
+                    <Badge bg="success" className="mt-1" style={{ fontSize: '0.6rem' }}>
+                      ✓ {t('lab.winnerStable')}
+                    </Badge>
+                  )}
+                </div>
+                <Button
+                  size="sm"
+                  variant="link"
+                  className="text-muted p-0 lh-1"
+                  style={{ fontSize: '0.9rem' }}
+                  onClick={() => onUnpin(p.id)}
+                  aria-label="unpin"
+                  data-testid={`pinned-unpin-${p.type}`}
+                >
+                  ×
+                </Button>
+              </div>
+            </div>
+          );
+        })}
+      </div>
+    </div>
+  );
+};
+
 // ── Main LabCentralView ──────────────────────────────────────────────────────
 
 interface Props {
@@ -162,6 +261,7 @@ interface Props {
 const LabCentralView: React.FC<Props> = ({ result, loading }) => {
   const { t } = useTranslation();
   const [collapsed, setCollapsed] = useState(false);
+  const { pinned, unpinPerturbation, clearPinned } = usePerturbations();
 
   // Nothing to show before first simulation
   if (!result) {
@@ -238,6 +338,14 @@ const LabCentralView: React.FC<Props> = ({ result, loading }) => {
               <MethodsMatrix result={result} t={t} />
             </Col>
           </Row>
+
+          {/* ── Pinned perturbations ── */}
+          <PinnedPerturbationsPanel
+            pinned={pinned}
+            onUnpin={unpinPerturbation}
+            onClear={clearPinned}
+            t={t}
+          />
         </Card.Body>
       )}
     </Card>

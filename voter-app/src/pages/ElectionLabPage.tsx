@@ -21,6 +21,7 @@ import MetricTooltip from '../components/shared/MetricTooltip';
 import ElectionInsightPanel from '../components/shared/ElectionInsightPanel';
 import ModelAssumptionsBanner from '../components/shared/ModelAssumptionsBanner';
 import LabCentralView from '../components/shared/LabCentralView';
+import { PerturbationsProvider } from '../context/PerturbationsContext';
 import CollectiveWillPanel from '../components/shared/CollectiveWillPanel';
 import AssumptionTesterPanel from '../components/shared/AssumptionTesterPanel';
 import EpistocracyPanel from '../components/shared/EpistocracyPanel';
@@ -734,4 +735,12 @@ const ElectionLabPage: React.FC = () => {
   );
 };
 
-export default ElectionLabPage;
+// Wrap with PerturbationsProvider so Perturber tabs can pin their results
+// and the central view (LabCentralView) can display them.
+const ElectionLabPageWithPerturbations: React.FC = () => (
+  <PerturbationsProvider>
+    <ElectionLabPage />
+  </PerturbationsProvider>
+);
+
+export default ElectionLabPageWithPerturbations;

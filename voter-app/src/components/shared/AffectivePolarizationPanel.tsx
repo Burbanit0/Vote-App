@@ -11,6 +11,7 @@ import {
   ResponsiveContainer, ReferenceLine, CartesianGrid,
 } from 'recharts';
 import { useElection } from '../../context/ElectionContext';
+import PinToCentralButton from './PinToCentralButton';
 
 const API = process.env.REACT_APP_API_URL ?? 'http://localhost:4433';
 const DEBOUNCE_MS = 400;
@@ -234,6 +235,21 @@ const AffectivePolarizationPanel: React.FC = () => {
             {loading ? <Spinner size="sm" /> : `💔 ${t('affect.run')}`}
           </Button>
         </Col>
+        {data && (
+          <Col xs={12} sm="auto">
+            <PinToCentralButton
+              type="affective"
+              icon="💔"
+              label={`${t('affect.run')} — hostilité ${Math.round(hostility * 100)}%`}
+              summary={
+                data.winner_changed
+                  ? `${changedMethods.length}/${allMethods.length} ${t('affect.methodsChanged')}`
+                  : t('affect.winnerUnchanged')
+              }
+              methodsChanged={changedMethods.length}
+            />
+          </Col>
+        )}
       </Row>
 
       {error && <Alert variant="danger">{error}</Alert>}

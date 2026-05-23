@@ -764,6 +764,13 @@ const fr = {
     loadingCentral: 'Calcul en cours…',
     expand: 'Déplier',
     collapse: 'Replier',
+    pinToCentral:    'Épingler à la vue centrale',
+    pinnedCentral:   'Épinglé',
+    pinnedTitle:     'Perturbations actives',
+    pinnedClearAll:  'Tout retirer',
+    pinHint:         '📌 Configure une perturbation et clique sur "Épingler à la vue centrale" pour la voir ici en permanence',
+    methodsChanged:  'méthodes changent de vainqueur',
+    winnerStable:    'Vainqueur stable',
   },
 
   common: {

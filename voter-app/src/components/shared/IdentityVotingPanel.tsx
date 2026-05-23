@@ -12,6 +12,7 @@ import {
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend,
   LineChart, Line, ReferenceLine, ResponsiveContainer, Cell,
 } from 'recharts';
+import PinToCentralButton from './PinToCentralButton';
 
 const API = process.env.REACT_APP_API_URL ?? 'http://localhost:4433';
 
@@ -332,6 +333,22 @@ const IdentityVotingPanel: React.FC<IdentityVotingLabProps> = ({
             checked={crossPressure}
             data-testid="cross-pressure-toggle"
             onChange={(e) => setCrossPressure(e.target.checked)} />
+        </Col>
+        <Col xs="auto">
+          {labMode && data && (
+            <PinToCentralButton
+              type="identity"
+              icon="🏳"
+              label={`${t('identity.cardTitle')} — ${Math.round(identityWeight * 100)}%`}
+              summary={
+                data.winner_changed
+                  ? `${data.sincere_winner} → ${data.mixed_winner}`
+                  : `${t('identity.mixedWinner')}: ${data.mixed_winner}`
+              }
+              methodsChanged={data.winner_changed ? 1 : 0}
+              disabled={!data}
+            />
+          )}
         </Col>
         <Col xs="auto">
           <Button variant="primary" size="sm" onClick={() => run()} disabled={loading}
