@@ -12,6 +12,7 @@ import {
   Legend, ResponsiveContainer, Cell,
 } from 'recharts';
 import { useElection } from '../../context/ElectionContext';
+import PinToCentralButton from './PinToCentralButton';
 
 const API = process.env.REACT_APP_API_URL ?? 'http://localhost:4433';
 
@@ -199,6 +200,21 @@ const DemographicTurnoutPanel: React.FC = () => {
             {loading ? <Spinner size="sm" animation="border" /> : t('demo.run')}
           </Button>
         </Col>
+        {data && (
+          <Col xs="auto">
+            <PinToCentralButton
+              type="demographic"
+              icon="👥"
+              label={t('demo.run')}
+              summary={
+                data.winner_changed
+                  ? `${data.biased_result.winner} → ${data.corrected_result.winner}`
+                  : `${t('demo.biasedWinner')}: ${data.biased_result.winner}`
+              }
+              methodsChanged={data.winner_changed ? 1 : 0}
+            />
+          </Col>
+        )}
       </Row>
 
       {/* Turnout sliders */}

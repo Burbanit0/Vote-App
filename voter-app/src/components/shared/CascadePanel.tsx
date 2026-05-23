@@ -14,6 +14,7 @@ import {
   ResponsiveContainer, ReferenceLine, CartesianGrid,
 } from 'recharts';
 import { useElection } from '../../context/ElectionContext';
+import PinToCentralButton from './PinToCentralButton';
 
 const API = process.env.REACT_APP_API_URL ?? 'http://localhost:4433';
 const DEBOUNCE_MS = 400;
@@ -296,6 +297,21 @@ const CascadePanel: React.FC = () => {
             {loading ? <Spinner size="sm" animation="border" /> : t('cascade.run')}
           </Button>
         </Col>
+        {data && (
+          <Col xs={12} sm="auto">
+            <PinToCentralButton
+              type="cascade"
+              icon="📡"
+              label={t('cascade.cascadeWinner')}
+              summary={
+                data.sincere_winner !== data.cascade_winner
+                  ? `${data.sincere_winner} → ${data.cascade_winner}`
+                  : `${t('cascade.sincereWinner')}: ${data.sincere_winner}`
+              }
+              methodsChanged={data.sincere_winner !== data.cascade_winner ? 1 : 0}
+            />
+          </Col>
+        )}
       </Row>
 
       {/* Prompt */}

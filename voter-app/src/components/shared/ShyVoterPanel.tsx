@@ -11,6 +11,7 @@ import {
   LineChart, Line, ReferenceLine, ResponsiveContainer,
 } from 'recharts';
 import { useElection } from '../../context/ElectionContext';
+import PinToCentralButton from './PinToCentralButton';
 
 const API = process.env.REACT_APP_API_URL ?? 'http://localhost:4433';
 const DEBOUNCE_MS = 400;
@@ -153,6 +154,21 @@ const ShyVoterPanel: React.FC = () => {
             {loading ? <Spinner size="sm" animation="border" /> : t('shyVoter.run')}
           </Button>
         </Col>
+        {data && (
+          <Col xs="auto">
+            <PinToCentralButton
+              type="shyvoter"
+              icon="🤫"
+              label={t('shyVoter.run')}
+              summary={
+                data.real_winner !== data.poll_winner
+                  ? `${data.poll_winner} → ${data.real_winner}`
+                  : `${t('shyVoter.realWinner')}: ${data.real_winner}`
+              }
+              methodsChanged={data.real_winner !== data.poll_winner ? 1 : 0}
+            />
+          </Col>
+        )}
       </Row>
 
       {!data && !loading && !error && (
