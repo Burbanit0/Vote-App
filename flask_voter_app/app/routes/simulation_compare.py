@@ -781,10 +781,10 @@ def vote_steps() -> tuple[Response, int]:
     data          = request.get_json() or {}
     method        = str(data.get("method",    "plurality")).lower()
     num_voters    = max(10, min(500, int(data.get("num_voters", 100))))
-    # Align cap with /api/election/simulate (currently 6) so animation and main
-    # endpoints always operate on the SAME set of candidates. Mismatched caps
-    # were the root cause of Le Pen / Megret winner divergence on France 2002.
-    raw_cands_in  = data.get("candidates", ["Alice", "Bob", "Charlie"])[:6]
+    # Align cap with /api/election/simulate (SINGLE_WINNER_CAP=8) so animation
+    # and main endpoints always operate on the SAME set of candidates. Mismatched
+    # caps were the root cause of Le Pen / Megret winner divergence on France 2002.
+    raw_cands_in  = data.get("candidates", ["Alice", "Bob", "Charlie"])[:8]
     ideology      = str(data.get("ideology",  "random"))
     seed          = int(data.get("seed",       42))
 
