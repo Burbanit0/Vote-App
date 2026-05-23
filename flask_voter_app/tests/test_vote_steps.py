@@ -76,10 +76,17 @@ class TestVoteStepsIRV:
         assert nums == list(range(nums[0], nums[0] + len(nums)))
 
     def test_irv_eliminated_is_candidate_or_null(self, client):
+        """`eliminated` is null or a candidate name; when multiple candidates
+        are eliminated in the same round (tied at the bottom — canonical IRV),
+        the field contains them joined by ' + '."""
         rounds = json.loads(post(client, "irv").data)["rounds"]
+        valid_cands = set(BASE["candidates"])
         for rnd in rounds:
-            if "eliminated" in rnd:
-                assert rnd["eliminated"] is None or rnd["eliminated"] in BASE["candidates"]
+            if "eliminated" in rnd and rnd["eliminated"] is not None:
+                # Split on " + " to handle multi-elimination rounds
+                names = rnd["eliminated"].split(" + ")
+                for n in names:
+                    assert n in valid_cands, f"unknown eliminated candidate: {n}"
 
 
 # ── Borda ─────────────────────────────────────────────────────────────────────
@@ -250,6 +257,51 @@ class TestCandidatePositions:
         r1 = json.loads(client.post(URL, json=payload).data)
         r2 = json.loads(client.post(URL, json=payload).data)
         assert r1 == r2
+
+    def test_irv_winner_matches_main_simulate(self, client):
+        """Critical coherence test: IRV winner from /simulations/vote-steps
+        must equal IRV winner from /api/election/simulate for the SAME inputs.
+        Bug fix: previously _irv_steps eliminated only the alphabetically first
+        tied candidate while get_irv_winner eliminated all ties — producing
+        different winners (e.g. Le Pen vs Megret in France 2002)."""
+        # France-2002-like fragmented scenario with many low-vote candidates
+        cands = [
+            {"name": "Chirac",   "x":  0.20, "y":  0.15},
+            {"name": "LePen",    "x":  0.65, "y":  0.50},
+            {"name": "Jospin",   "x": -0.30, "y": -0.10},
+            {"name": "Bayrou",   "x":  0.05, "y":  0.05},
+            {"name": "Laguiller","x": -0.85, "y": -0.20},
+            {"name": "Chevenement","x": -0.40, "y":  0.10},
+            {"name": "Mamere",   "x": -0.55, "y": -0.40},
+            {"name": "Besancenot","x": -0.90, "y": -0.30},
+            {"name": "SaintJosse","x":  0.30, "y":  0.40},
+            {"name": "Madelin",  "x":  0.50, "y":  0.20},
+            {"name": "Hue",      "x": -0.75, "y":  0.00},
+            {"name": "Megret",   "x":  0.80, "y":  0.55},
+            {"name": "Taubira",  "x": -0.45, "y": -0.50},
+        ]
+        common = {
+            "num_voters": 200,
+            "ideology":   "random",
+            "seed":       7,
+            "candidates": cands,
+        }
+
+        # Animation endpoint
+        anim = json.loads(client.post(URL, json={**common, "method": "irv"}).data)
+        anim_winner = anim["rounds"][-1]["winner"]
+
+        # Main simulation endpoint
+        main = json.loads(client.post(
+            "/api/election/simulate",
+            json={**common, "ideology": "random"},
+        ).data)
+        main_irv_winner = main["methods"]["irv"]["winner"]
+
+        assert anim_winner == main_irv_winner, (
+            f"IRV winner divergence: animation={anim_winner}, main={main_irv_winner}. "
+            "Tie-breaking rules likely differ between _irv_steps and get_irv_winner."
+        )
 
     def test_object_and_string_candidates_can_differ(self, client):
         """Object candidates (real positions) and string candidates (auto-positions)

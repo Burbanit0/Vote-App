@@ -652,25 +652,43 @@ def _irv_steps(rankings: list[list[str]], n_voters: int) -> list[dict[str, Any]]
             rounds.append({"round": rnum + 1, "winner": winner})
             break
 
-        # Find eliminated (lowest first-choice count, alphabetical tiebreak)
-        min_c = min(counts.get(c, 0) for c in active)
-        eliminated = next(c for c in sorted(active) if counts.get(c, 0) == min_c)
+        # Find ALL candidates at the minimum count (canonical IRV: eliminate
+        # all ties at once, matching app/utils/simulation_ranked_utils.py
+        # get_irv_winner). Importantly: get_irv_winner ignores candidates with
+        # 0 first-choice votes (they are not in votes_count), so they survive
+        # the round. We mirror that to keep the same elimination sequence.
+        if not counts:
+            # No one has any votes left → pick any active as winner placeholder
+            rounds.append({"round": rnum + 1, "winner": next(iter(active))})
+            break
+        min_c = min(counts.values())
+        eliminated_set = {c for c, v in counts.items() if v == min_c}
 
-        # Compute vote transfers from eliminated candidate
+        # Compute vote transfers: voters whose top active choice was eliminated
+        # transfer to their next non-eliminated preference.
         transfers: Counter[str] = Counter()
+        new_active = active - eliminated_set
         for r in rankings:
             active_r = [c for c in r if c in active]
-            if active_r and active_r[0] == eliminated:
-                rest = [c for c in active_r[1:] if c != eliminated]
+            if active_r and active_r[0] in eliminated_set:
+                rest = [c for c in active_r if c not in eliminated_set]
                 if rest:
                     transfers[rest[0]] += 1
         transfer_pct = {c: round(v / n_voters, 4) for c, v in transfers.items()} if transfers else None
 
+        # Display label: sorted list of eliminated names joined by " + "
+        elim_label = " + ".join(sorted(eliminated_set))
+
         rounds.append({"round": rnum, "scores": scores,
                        "eliminated": last_eliminated, "transfers": last_transfers})
-        active.remove(eliminated)
-        last_eliminated = eliminated
+        active = new_active
+        last_eliminated = elim_label
         last_transfers  = transfer_pct
+
+        # Safety: if we eliminated everyone (all tied at 0), break to avoid loop
+        if not active:
+            rounds.append({"round": rnum + 1, "winner": elim_label.split(" + ")[0]})
+            break
 
     return rounds
 
@@ -763,7 +781,10 @@ def vote_steps() -> tuple[Response, int]:
     data          = request.get_json() or {}
     method        = str(data.get("method",    "plurality")).lower()
     num_voters    = max(10, min(500, int(data.get("num_voters", 100))))
-    raw_cands_in  = data.get("candidates", ["Alice", "Bob", "Charlie"])[:8]
+    # Align cap with /api/election/simulate (currently 6) so animation and main
+    # endpoints always operate on the SAME set of candidates. Mismatched caps
+    # were the root cause of Le Pen / Megret winner divergence on France 2002.
+    raw_cands_in  = data.get("candidates", ["Alice", "Bob", "Charlie"])[:6]
     ideology      = str(data.get("ideology",  "random"))
     seed          = int(data.get("seed",       42))
 
