@@ -771,6 +771,10 @@ const fr = {
     pinHint:         '📌 Configure une perturbation et clique sur "Épingler à la vue centrale" pour la voir ici en permanence',
     methodsChanged:  'méthodes changent de vainqueur',
     winnerStable:    'Vainqueur stable',
+    perturbationsCompared: 'perturbation(s) comparée(s)',
+    baselineWinner:  'Vainqueur de base',
+    animationLive:   'Animation en cours dans l\'onglet actif',
+    round:           'Tour',
   },
 
   common: {

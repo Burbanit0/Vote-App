@@ -370,6 +370,54 @@ const IdeologyMapChart: React.FC<Props> = ({
 
       {/* ── Canvas (takes full width in embedded mode) ── */}
       <Col xs={12} lg={embedded ? 12 : 9}>
+        {/* ── Compact layer toggles (embedded mode only) ── */}
+        {embedded && (
+          <div
+            className="d-flex gap-1 flex-wrap mb-2 align-items-center"
+            style={{ fontSize: '0.7rem' }}
+            data-testid="embedded-layer-bar"
+          >
+            <span className="text-muted me-1">{t('heatmap.viewMode')}:</span>
+            <ButtonGroup size="sm">
+              {(['points', 'heatmap', 'both'] as const).map((mode) => (
+                <Button
+                  key={mode}
+                  variant={viewMode === mode ? 'secondary' : 'outline-secondary'}
+                  onClick={() => setViewMode(mode)}
+                  style={{ fontSize: '0.66rem', padding: '2px 8px' }}
+                  data-testid={`embedded-view-${mode}`}
+                >
+                  {t(`heatmap.mode_${mode}`)}
+                </Button>
+              ))}
+            </ButtonGroup>
+            <span className="text-muted ms-2 me-1">|</span>
+            <Form.Check
+              type="switch"
+              id="emb-show-voronoi"
+              checked={showVoronoi}
+              onChange={(e) => setShowVoronoi(e.target.checked)}
+              label={<span style={{ fontSize: '0.66rem' }}>{t('ideologyMap.showVoronoi')}</span>}
+              className="mb-0 ms-1"
+            />
+            <Form.Check
+              type="switch"
+              id="emb-show-median"
+              checked={showMedian}
+              onChange={(e) => setShowMedian(e.target.checked)}
+              label={<span style={{ fontSize: '0.66rem' }}>{t('ideologyMap.showMedian')}</span>}
+              className="mb-0 ms-1"
+            />
+            <Form.Check
+              type="switch"
+              id="emb-show-losers"
+              checked={showLosers}
+              onChange={(e) => setShowLosers(e.target.checked)}
+              label={<span style={{ fontSize: '0.66rem' }}>{t('ideologyMap.showLosers')}</span>}
+              className="mb-0 ms-1"
+            />
+          </div>
+        )}
         <Card>
           <Card.Body className="p-2">
             {error && <div className="text-danger small mb-2">{error}</div>}

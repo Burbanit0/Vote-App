@@ -32,6 +32,14 @@ export interface PinnedPerturbation {
    * changed under this perturbation).
    */
   methodsChanged?: number;
+  /**
+   * Optional per-method winners under this perturbation, keyed by method
+   * name (e.g. "plurality", "irv", "borda", "schulze"...). When present,
+   * the central methods matrix renders a comparison row per perturbation
+   * with diff coloring (red = winner differs from baseline, green = same).
+   * Panels that don't have per-method data simply omit this field.
+   */
+  winnersByMethod?: Record<string, string | null>;
   /** Timestamp (ms) for stable ordering. */
   pinnedAt:  number;
 }

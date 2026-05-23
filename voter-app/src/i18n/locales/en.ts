@@ -773,6 +773,10 @@ const en: TranslationKeys = {
     pinHint:         '📌 Configure a perturbation and click "Pin to central view" to keep it visible here',
     methodsChanged:  'methods change winner',
     winnerStable:    'Winner stable',
+    perturbationsCompared: 'perturbation(s) compared',
+    baselineWinner:  'Baseline winner',
+    animationLive:   'Animation playing in the active tab',
+    round:           'Round',
   },
 
   common: {
