@@ -493,47 +493,59 @@ const ElectionLabPage: React.FC = () => {
               {/* ── Adaptive tab navigation ── */}
               {(() => {
                 const TABS = [
-                  { key: 'results',            icon: '📊', label: t('electionLab.tabResults') },
-                  { key: 'map',                icon: '🗺', label: t('electionLab.tabMap') },
-                  { key: 'animation',          icon: '▶',  label: t('electionLab.tabAnimation') },
-                  { key: 'montecarlo',         icon: '🎲', label: t('electionLab.tabMonteCarlo') },
-                  { key: 'manipulability',     icon: '⚡', label: t('electionLab.tabManipulability') },
-                  { key: 'blank-divergence',   icon: '📊', label: t('electionLab.tabBlankDivergence') },
-                  { key: 'campaign-sensitivity',icon: '📈', label: t('electionLab.tabCampaignSensitivity') },
-                  { key: 'pipeline',           icon: '🎬', label: t('electionLab.tabPipeline') },
-                  { key: 'combined-effects',   icon: '🔬', label: t('electionLab.tabCombinedEffects') },
-                  { key: 'coalition',          icon: '🏛', label: t('electionLab.tabCoalition') },
-                  { key: 'districts',          icon: '🗺', label: t('electionLab.tabDistricts') },
-                  { key: 'primary',            icon: '🗳', label: t('electionLab.tabPrimary') },
-                  { key: 'replay',             icon: '📺', label: t('electionLab.tabReplay') },
-                  { key: 'jury',               icon: '⚖️', label: t('electionLab.tabJury') },
-                  { key: 'adaptive',           icon: '⚙',  label: t('electionLab.tabAdaptive') },
-                  { key: 'abstention',         icon: '📉', label: t('electionLab.tabAbstention') },
-                  { key: 'stv',                icon: '🔄', label: t('electionLab.tabSTV') },
-                  { key: 'gerrymander',        icon: '🗺', label: t('electionLab.tabGerrymander') },
-                  { key: 'multiwinner',         icon: '🏛', label: t('electionLab.tabMultiwinner') },
-                  { key: 'affective',           icon: '💔', label: t('electionLab.tabAffective') },
-                  { key: 'hotelling',           icon: '⚖️', label: t('electionLab.tabHotelling') },
-                  { key: 'polarization',       icon: '📊', label: t('electionLab.tabPolarization') },
-                  { key: 'cascade',            icon: '📡', label: t('electionLab.tabCascade') },
-                  { key: 'behavioral',         icon: '🧠', label: t('electionLab.tabBehavioral') },
-                  { key: 'liquid',             icon: '💧', label: t('electionLab.tabLiquid') },
-                  { key: 'conviction',         icon: '⛓', label: t('electionLab.tabConviction') },
-                  { key: 'nota',               icon: '🚫', label: t('electionLab.tabNota') },
-                  { key: 'ballot',             icon: '📋', label: t('electionLab.tabBallot') },
-                  { key: 'shyvoter',           icon: '🤫', label: t('electionLab.tabShyVoter') },
-                  { key: 'fatigue',            icon: '😴', label: t('electionLab.tabFatigue') },
-                  { key: 'overload',           icon: '🤯', label: t('electionLab.tabOverload') },
-                  { key: 'manipulation',       icon: '🕵', label: t('electionLab.tabManipulation') },
-                  { key: 'demographic',        icon: '👥', label: t('electionLab.tabDemographic') },
-                  { key: 'compulsory',         icon: '⚖️', label: t('electionLab.tabCompulsory') },
-                  { key: 'deliberation',         icon: '🗣', label: t('electionLab.tabDeliberation') },
-                  // ── Théorie & limites ─────────────────────────────────────────────
-                  { key: 'lab-collective-will', icon: '🌊', label: t('electionLab.tabLabCollectiveWill') },
-                  { key: 'lab-assumptions',     icon: '🔬', label: t('electionLab.tabLabAssumptions') },
-                  { key: 'lab-epistocracy',     icon: '🎓', label: t('electionLab.tabLabEpistocracy') },
-                  { key: 'lab-identity',        icon: '🏳', label: t('electionLab.tabLabIdentity') },
+                  // ═══ VOIR — analyses qui n'altèrent pas le résultat ═══
+                  { key: 'results',            icon: '📊', label: t('electionLab.tabResults'),             group: 'see' as const },
+                  { key: 'map',                icon: '🗺', label: t('electionLab.tabMap'),                 group: 'see' as const },
+                  { key: 'animation',          icon: '▶',  label: t('electionLab.tabAnimation'),           group: 'see' as const },
+                  { key: 'montecarlo',         icon: '🎲', label: t('electionLab.tabMonteCarlo'),          group: 'see' as const },
+                  { key: 'manipulability',     icon: '⚡', label: t('electionLab.tabManipulability'),       group: 'see' as const },
+                  { key: 'pipeline',           icon: '🎬', label: t('electionLab.tabPipeline'),            group: 'see' as const },
+                  { key: 'combined-effects',   icon: '🔬', label: t('electionLab.tabCombinedEffects'),     group: 'see' as const },
+                  { key: 'hotelling',          icon: '⚖️', label: t('electionLab.tabHotelling'),           group: 'see' as const },
+                  { key: 'polarization',       icon: '📊', label: t('electionLab.tabPolarization'),        group: 'see' as const },
+                  { key: 'lab-collective-will',icon: '🌊', label: t('electionLab.tabLabCollectiveWill'),   group: 'see' as const },
+                  { key: 'lab-assumptions',    icon: '🔬', label: t('electionLab.tabLabAssumptions'),      group: 'see' as const },
+
+                  // ═══ PERTURBER — effets qui modifient le résultat de l'élection ═══
+                  { key: 'campaign-sensitivity',icon: '📈', label: t('electionLab.tabCampaignSensitivity'), group: 'perturb' as const },
+                  { key: 'blank-divergence',   icon: '⬜', label: t('electionLab.tabBlankDivergence'),     group: 'perturb' as const },
+                  { key: 'abstention',         icon: '📉', label: t('electionLab.tabAbstention'),          group: 'perturb' as const },
+                  { key: 'compulsory',         icon: '⚖️', label: t('electionLab.tabCompulsory'),          group: 'perturb' as const },
+                  { key: 'demographic',        icon: '👥', label: t('electionLab.tabDemographic'),         group: 'perturb' as const },
+                  { key: 'cascade',            icon: '📡', label: t('electionLab.tabCascade'),             group: 'perturb' as const },
+                  { key: 'behavioral',         icon: '🧠', label: t('electionLab.tabBehavioral'),          group: 'perturb' as const },
+                  { key: 'affective',          icon: '💔', label: t('electionLab.tabAffective'),           group: 'perturb' as const },
+                  { key: 'manipulation',       icon: '🕵', label: t('electionLab.tabManipulation'),        group: 'perturb' as const },
+                  { key: 'adaptive',           icon: '⚙',  label: t('electionLab.tabAdaptive'),            group: 'perturb' as const },
+                  { key: 'shyvoter',           icon: '🤫', label: t('electionLab.tabShyVoter'),            group: 'perturb' as const },
+                  { key: 'fatigue',            icon: '😴', label: t('electionLab.tabFatigue'),             group: 'perturb' as const },
+                  { key: 'overload',           icon: '🤯', label: t('electionLab.tabOverload'),            group: 'perturb' as const },
+                  { key: 'deliberation',       icon: '🗣', label: t('electionLab.tabDeliberation'),        group: 'perturb' as const },
+                  { key: 'nota',               icon: '🚫', label: t('electionLab.tabNota'),                group: 'perturb' as const },
+                  { key: 'ballot',             icon: '📋', label: t('electionLab.tabBallot'),              group: 'perturb' as const },
+                  { key: 'lab-epistocracy',    icon: '🎓', label: t('electionLab.tabLabEpistocracy'),      group: 'perturb' as const },
+                  { key: 'lab-identity',       icon: '🏳', label: t('electionLab.tabLabIdentity'),         group: 'perturb' as const },
+
+                  // ═══ VARIANTES — autres types d'élections (cas particuliers) ═══
+                  { key: 'coalition',          icon: '🏛', label: t('electionLab.tabCoalition'),           group: 'variant' as const },
+                  { key: 'districts',          icon: '🗺', label: t('electionLab.tabDistricts'),           group: 'variant' as const },
+                  { key: 'gerrymander',        icon: '🗺', label: t('electionLab.tabGerrymander'),         group: 'variant' as const },
+                  { key: 'primary',            icon: '🗳', label: t('electionLab.tabPrimary'),             group: 'variant' as const },
+                  { key: 'replay',             icon: '📺', label: t('electionLab.tabReplay'),              group: 'variant' as const },
+                  { key: 'jury',               icon: '⚖️', label: t('electionLab.tabJury'),                group: 'variant' as const },
+                  { key: 'stv',                icon: '🔄', label: t('electionLab.tabSTV'),                 group: 'variant' as const },
+                  { key: 'multiwinner',        icon: '🏛', label: t('electionLab.tabMultiwinner'),         group: 'variant' as const },
+                  { key: 'liquid',             icon: '💧', label: t('electionLab.tabLiquid'),              group: 'variant' as const },
+                  { key: 'conviction',         icon: '⛓', label: t('electionLab.tabConviction'),          group: 'variant' as const },
                 ];
+
+                // ── Group metadata (label + color dot) ──────────────────────
+                const GROUP_META = {
+                  see:     { label: t('electionLab.groupSee'),     color: '#0d6efd' }, // blue
+                  perturb: { label: t('electionLab.groupPerturb'), color: '#fd7e14' }, // orange
+                  variant: { label: t('electionLab.groupVariant'), color: '#6f42c1' }, // purple
+                };
+                type TabGroup = keyof typeof GROUP_META;
 
                 const tabContent: Record<string, React.ReactNode> = {
                   'results':              duelMode
@@ -616,6 +628,11 @@ const ElectionLabPage: React.FC = () => {
                 const currentIdx = TABS.findIndex((tab) => tab.key === activeTab);
 
                 if (isMobile) {
+                  // Group tabs for the optgroup-based mobile select
+                  const tabsByGroup: Record<TabGroup, typeof TABS> = {
+                    see: [], perturb: [], variant: [],
+                  };
+                  TABS.forEach((tab) => tabsByGroup[tab.group].push(tab));
                   return (
                     <div data-testid="mobile-tab-nav">
                       <Form.Select
@@ -627,10 +644,14 @@ const ElectionLabPage: React.FC = () => {
                         aria-label={t('electionLab.tabSelect')}
                         data-testid="tab-select"
                       >
-                        {TABS.map((tab) => (
-                          <option key={tab.key} value={tab.key}>
-                            {tab.icon} {tab.label}
-                          </option>
+                        {(Object.keys(GROUP_META) as TabGroup[]).map((grp) => (
+                          <optgroup key={grp} label={GROUP_META[grp].label}>
+                            {tabsByGroup[grp].map((tab) => (
+                              <option key={tab.key} value={tab.key}>
+                                {tab.icon} {tab.label}
+                              </option>
+                            ))}
+                          </optgroup>
                         ))}
                       </Form.Select>
                       <div className="d-flex justify-content-between align-items-center mb-2">
@@ -656,20 +677,49 @@ const ElectionLabPage: React.FC = () => {
                 }
 
                 return (
-                  <Tabs
-                    activeKey={activeTab}
-                    onSelect={(k) => k && setActiveTab(k)}
-                    className="mb-3 flex-nowrap overflow-auto"
-                    data-testid="desktop-tab-nav"
-                    style={{ flexWrap: 'nowrap' }}
-                  >
-                    {TABS.map((tab) => (
-                      <Tab key={tab.key} eventKey={tab.key}
-                        title={<span style={{ whiteSpace: 'nowrap' }}>{tab.icon} {tab.label}</span>}>
-                        {activeTab === tab.key && tabContent[tab.key]}
-                      </Tab>
-                    ))}
-                  </Tabs>
+                  <>
+                    {/* ── Group legend ─────────────────────────────────────── */}
+                    <div className="d-flex gap-3 mb-2 flex-wrap" style={{ fontSize: '0.72rem' }}
+                      data-testid="tab-group-legend">
+                      {(Object.keys(GROUP_META) as TabGroup[]).map((grp) => (
+                        <span key={grp} className="d-flex align-items-center gap-1">
+                          <span
+                            style={{
+                              display: 'inline-block', width: 8, height: 8,
+                              borderRadius: '50%', background: GROUP_META[grp].color,
+                            }}
+                          />
+                          <span className="text-muted">{GROUP_META[grp].label}</span>
+                        </span>
+                      ))}
+                    </div>
+                    <Tabs
+                      activeKey={activeTab}
+                      onSelect={(k) => k && setActiveTab(k)}
+                      className="mb-3 flex-nowrap overflow-auto"
+                      data-testid="desktop-tab-nav"
+                      style={{ flexWrap: 'nowrap' }}
+                    >
+                      {TABS.map((tab) => (
+                        <Tab key={tab.key} eventKey={tab.key}
+                          title={
+                            <span style={{ whiteSpace: 'nowrap', display: 'inline-flex', alignItems: 'center', gap: 5 }}>
+                              <span
+                                style={{
+                                  display: 'inline-block', width: 6, height: 6,
+                                  borderRadius: '50%', background: GROUP_META[tab.group].color,
+                                  flexShrink: 0,
+                                }}
+                                aria-hidden="true"
+                              />
+                              {tab.icon} {tab.label}
+                            </span>
+                          }>
+                          {activeTab === tab.key && tabContent[tab.key]}
+                        </Tab>
+                      ))}
+                    </Tabs>
+                  </>
                 );
               })()}
             </div>
