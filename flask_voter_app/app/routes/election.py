@@ -47,6 +47,14 @@ election_bp = Blueprint("election", __name__, url_prefix="/api/election")
 
 _PARTY_CYCLE = ["Green", "Liberal", "Conservative", "Independent"]
 
+# Standard candidate cap for single-winner endpoints. Raised from 6 to 8 so
+# France 2002 (8 historical candidates) is processed without silent truncation.
+# Kemeny-Young falls back to KwikSort approximation beyond 6 (see
+# simulation_ranked_utils.get_kemeny_young_winner — graceful degradation).
+# Multi-winner endpoints (STV, Multiwinner, SPAV) keep their own caps where
+# specified (8 or 10) because they need extra room for proportionality.
+SINGLE_WINNER_CAP = 8
+
 
 # ── Helpers ───────────────────────────────────────────────────────────────────
 
@@ -121,7 +129,7 @@ def _simulate_worker(data: Dict[str, Any]) -> tuple[Dict[str, Any], int]:
         {"name": "Alice", "x": -0.5, "y": -0.2},
         {"name": "Bob",   "x":  0.5, "y":  0.2},
         {"name": "Carol", "x":  0.0, "y":  0.3},
-    ])[:6]
+    ])[:SINGLE_WINNER_CAP]
 
     blank_cfg       = data.get("blank_vote", {}) or {}
     blank_enabled   = bool(blank_cfg.get("enabled", False))

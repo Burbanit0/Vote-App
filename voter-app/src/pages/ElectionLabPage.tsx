@@ -145,8 +145,11 @@ const ParameterPanel: React.FC<{ t: (k: string) => string }> = ({ t }) => {
   };
 
   const addCandidate = () => {
-    if (config.candidates.length >= 6) return;
-    const names = ['Dave', 'Eve', 'Frank', 'Grace'];
+    // Cap matches backend SINGLE_WINNER_CAP (8). Beyond this Kemeny-Young
+    // exact becomes intractable (8! = 40320 permutations) and the engine
+    // silently falls back to the KwikSort approximation — see backend.
+    if (config.candidates.length >= 8) return;
+    const names = ['Dave', 'Eve', 'Frank', 'Grace', 'Henry', 'Iris'];
     const name = names[config.candidates.length - 3] ?? `C${config.candidates.length + 1}`;
     setConfig({ candidates: [...config.candidates, { name, x: 0.0, y: 0.0 }] });
   };
