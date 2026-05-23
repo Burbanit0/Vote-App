@@ -1,7 +1,7 @@
 import React from 'react';
 import { render, screen, fireEvent, act } from '@testing-library/react';
 import LabCentralView from '../LabCentralView';
-import { PerturbationsProvider } from '../../../context/PerturbationsContext';
+import { PerturbationsProvider, usePerturbations } from '../../../context/PerturbationsContext';
 import { AnimationBroadcastProvider } from '../../../context/AnimationBroadcastContext';
 import type { ElectionResult } from '../../../services/electionApi';
 
@@ -97,6 +97,35 @@ describe('LabCentralView', () => {
     render(wrap(<LabCentralView result={makeResult()} loading={false} />));
     act(() => { fireEvent.click(screen.getByTestId('central-collapse-toggle')); });
     expect(localStorage.getItem(COLLAPSED_LS_KEY)).toBe('1');
+  });
+
+  it('switches to table layout when a perturbation with per-method winners is pinned', () => {
+    const PinHelper: React.FC = () => {
+      const { pinPerturbation } = usePerturbations();
+      React.useEffect(() => {
+        pinPerturbation({
+          type:    'abstention',
+          icon:    '🗳',
+          label:   'Abst 50%',
+          summary: 'Bob wins',
+          methodsChanged: 1,
+          winnersByMethod: { plurality: 'Bob', irv: 'Bob' },
+        });
+      }, [pinPerturbation]);
+      return null;
+    };
+    render(wrap(
+      <>
+        <PinHelper />
+        <LabCentralView result={makeResult()} loading={false} />
+      </>
+    ));
+    expect(screen.getByTestId('lab-matrix-table')).toBeInTheDocument();
+    expect(screen.getByTestId('matrix-col-abstention')).toBeInTheDocument();
+    // Plurality baseline = Alice, perturbed = Bob → "changed" cell present
+    expect(screen.getByTestId('matrix-pert-plurality-abstention')).toBeInTheDocument();
+    // No table without pinned (default path)
+    // (covered by other tests)
   });
 
   it('shows condorcet checkmark on the matrix row of the Condorcet winner', () => {
