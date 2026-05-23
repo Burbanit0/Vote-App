@@ -42,6 +42,7 @@ from app.utils.blank_contagion         import simulate_blank_contagion
 from app.utils.campaign_dynamics       import simulate_campaign
 from app.utils.information_model       import apply_information_asymmetry
 from app.extensions import sim_limiter
+from app.utils.decorators import heavy_endpoint
 
 election_bp = Blueprint("election", __name__, url_prefix="/api/election")
 
@@ -627,21 +628,9 @@ def _snapshot_election_winners(
     return methods_out
 
 
-@election_bp.route("/campaign-sensitivity", methods=["POST"])
-def campaign_sensitivity() -> tuple[Response, int]:
-    """
-    POST /api/election/campaign-sensitivity
-
-    Runs the same electorate at multiple campaign "snapshots" to measure how
-    the polling effect changes which method elects which winner over time.
-
-    Body:
-        ...ElectionConfig fields...
-        snapshot_days: [0, 7, 14, 21, 28, "final"]   (optional)
-    """
+def _campaign_sensitivity_worker(data: Dict[str, Any]) -> tuple[Dict[str, Any], int]:
+    """Pure-compute worker for /campaign-sensitivity (multiple snapshots)."""
     import copy
-
-    data = request.get_json() or {}
 
     num_voters      = max(10, min(200, int(data.get("num_voters",  150))))  # cap for speed
     ideology        = str(data.get("ideology",   "random"))
@@ -665,7 +654,7 @@ def campaign_sensitivity() -> tuple[Response, int]:
     raw_snaps      = data.get("snapshot_days", [0, 7, 14, 21, 28, "final"])
 
     if len(cand_specs) < 2:
-        return jsonify({"error": "At least 2 candidates required"}), 400
+        return {"error": "At least 2 candidates required"}, 400
 
     try:
         blank_rule = BlankVoteRule(blank_rule_str)
@@ -766,29 +755,29 @@ def campaign_sensitivity() -> tuple[Response, int]:
     least_stable = min(method_stability, key=lambda m: method_stability[m]["stability_score"]) \
                    if method_stability else None
 
-    return jsonify({
+    return {
         "snapshots":           snapshots,
         "method_stability":    method_stability,
         "most_stable_method":  most_stable,
         "least_stable_method": least_stable,
-    }), 200
+    }, 200
+
+
+@election_bp.route("/campaign-sensitivity", methods=["POST"])
+@sim_limiter.limit("10 per minute")
+@heavy_endpoint
+def campaign_sensitivity():
+    return _campaign_sensitivity_worker
 
 
 # ── Combined effects (2³ factorial) ──────────────────────────────────────────
 
-@election_bp.route("/combined-effects", methods=["POST"])
-def combined_effects() -> tuple[Response, int]:
-    """
-    POST /api/election/combined-effects
-
-    2×2×2 factorial analysis: runs the same electorate under all 8 combinations
-    of blank-vote / campaign / information-model ON-OFF to isolate and compare
-    each factor's contribution to method divergence.
+def _combined_effects_worker(data: Dict[str, Any]) -> tuple[Dict[str, Any], int]:
+    """Pure-compute worker for /combined-effects. Runs in eventlet.tpool via
+    @heavy_endpoint so the matrix of 8 simulations doesn't block the event loop.
     """
     import copy
     from app.utils.simulation_ranked_utils import get_condorcet_winner
-
-    data = request.get_json() or {}
 
     num_voters      = max(10, min(200, int(data.get("num_voters",  150))))
     ideology        = str(data.get("ideology",   "random"))
@@ -811,7 +800,7 @@ def combined_effects() -> tuple[Response, int]:
     polling_effect  = max(0.0, min(1.0, float(campaign_cfg.get("polling_effect", 0.35))))
 
     if len(cand_specs) < 2:
-        return jsonify({"error": "At least 2 candidates required"}), 400
+        return {"error": "At least 2 candidates required"}, 400
 
     try:
         blank_rule = BlankVoteRule(blank_rule_str)
@@ -965,14 +954,21 @@ def combined_effects() -> tuple[Response, int]:
         combinations, key=lambda c: c["inter_method_agreement"]
     )["id"]
 
-    return jsonify({
+    return {
         "base_winner":                base_winner,
         "combinations":               combinations,
         "factor_deltas":              {k: round(v * 100, 1) for k, v in factor_deltas.items()},
         "most_disruptive_factor":     most_disruptive,
         "least_disruptive_factor":    least_disruptive,
         "max_disruption_combination": max_disrup_combo,
-    }), 200
+    }, 200
+
+
+@election_bp.route("/combined-effects", methods=["POST"])
+@sim_limiter.limit("5 per minute")
+@heavy_endpoint
+def combined_effects():
+    return _combined_effects_worker
 
 
 # ── Interpret endpoint ────────────────────────────────────────────────────────
@@ -1021,6 +1017,7 @@ _T: Dict[str, Dict[str, str]] = {
 
 
 @election_bp.route("/interpret", methods=["POST"])
+@sim_limiter.limit("30 per minute")
 def interpret() -> tuple[Response, int]:
     """
     POST /api/election/interpret
@@ -1197,24 +1194,9 @@ def _count_changed(prev: list[Dict[str, Any]], curr: list[Dict[str, Any]]) -> in
     )
 
 
-@election_bp.route("/simulate-pipeline", methods=["POST"])
-def simulate_pipeline() -> tuple[Response, int]:
-    """
-    POST /api/election/simulate-pipeline
-
-    Runs the election simulation and returns intermediate voter snapshots for
-    each model stage, enabling step-by-step animation in the frontend.
-
-    Steps returned (only active models generate a step):
-      base        — always
-      campaign    — if campaign.enabled
-      contagion   — if blank_vote.contagion.enabled AND blank_vote.enabled
-      information — if information_model.enabled
-      results     — always (final winners)
-    """
+def _simulate_pipeline_worker(data: Dict[str, Any]) -> tuple[Dict[str, Any], int]:
+    """Pure-compute worker for /simulate-pipeline (step-by-step animation)."""
     import copy
-
-    data = request.get_json() or {}
 
     num_voters     = max(10, min(200, int(data.get("num_voters",  150))))
     ideology       = str(data.get("ideology",   "random"))
@@ -1240,7 +1222,7 @@ def simulate_pipeline() -> tuple[Response, int]:
     polling_effect = max(0.0, min(1.0, float(campaign_cfg.get("polling_effect", 0.3))))
 
     if len(cand_specs) < 2:
-        return jsonify({"error": "At least 2 candidates required"}), 400
+        return {"error": "At least 2 candidates required"}, 400
 
     _random.seed(seed)
     _np.random.seed(seed)
@@ -1422,11 +1404,18 @@ def simulate_pipeline() -> tuple[Response, int]:
         ],
     })
 
-    return jsonify({
+    return {
         "steps":      steps,
         "candidates": cands_out,
         "num_steps":  len(steps),
-    }), 200
+    }, 200
+
+
+@election_bp.route("/simulate-pipeline", methods=["POST"])
+@sim_limiter.limit("10 per minute")
+@heavy_endpoint
+def simulate_pipeline():
+    return _simulate_pipeline_worker
 
 
 # ── Coalition endpoint ────────────────────────────────────────────────────────
