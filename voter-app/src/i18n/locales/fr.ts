@@ -176,6 +176,7 @@ const fr = {
     conclusionVulnerableSuffix: '% des électeurs peuvent l\'influencer)',
     conclusionCondorcetSuffix: '% de cohérence)',
     scenarioSaved: 'Scénario sauvegardé ✓',
+    scenarioSaveError: 'Impossible de sauvegarder le scénario.',
     scenarioLoaded: 'Scénario chargé ✓',
     scenarioA: 'Scénario A',
     scenarioB: 'Scénario B',
