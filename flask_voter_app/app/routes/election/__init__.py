@@ -22,7 +22,7 @@ from eventlet import tpool
 import numpy as _np
 from flask import Blueprint, Response, current_app, jsonify, request
 
-from app.constants import DEFAULT_ISSUES, ECONOMY_ISSUES, ENV_ISSUES, SOCIAL_ISSUES
+from app.constants import DEFAULT_ISSUES
 from app.utils.simulation_voting_utils import calculate_utility, create_candidate, create_voter
 from app.utils.simulation_metrics      import compare_all_methods
 from app.utils.simulation_ranked_utils import (
@@ -45,60 +45,17 @@ from app.extensions import sim_limiter
 from app.utils.cache import cache_result
 from app.utils.decorators import heavy_endpoint
 
+# Generic helpers extracted to _helpers.py during the incremental split of
+# this package. Re-exported under their original private names so the
+# 30+ existing call sites in this file continue to work unchanged.
+from ._helpers import (
+    PARTY_CYCLE       as _PARTY_CYCLE,
+    SINGLE_WINNER_CAP,
+    build_candidate_from_xy as _build_candidate_from_xy,
+    inter_method_agreement  as _inter_method_agreement,
+)
+
 election_bp = Blueprint("election", __name__, url_prefix="/api/election")
-
-_PARTY_CYCLE = ["Green", "Liberal", "Conservative", "Independent"]
-
-# Standard candidate cap for single-winner endpoints. Raised from 6 to 8 so
-# France 2002 (8 historical candidates) is processed without silent truncation.
-# Kemeny-Young falls back to KwikSort approximation beyond 6 (see
-# simulation_ranked_utils.get_kemeny_young_winner — graceful degradation).
-# Multi-winner endpoints (STV, Multiwinner, SPAV) keep their own caps where
-# specified (8 or 10) because they need extra room for proportionality.
-SINGLE_WINNER_CAP = 8
-
-
-# ── Helpers ───────────────────────────────────────────────────────────────────
-
-def _build_candidate_from_xy(
-    i: int, name: str, x: float, y: float, issues: list[str]
-) -> Dict[str, Any]:
-    """Build a candidate dict from explicit 2D ideological position."""
-    econ_pos = (x + 1) / 2
-    soc_pos  = (y + 1) / 2
-    env_pos  = 1.0 - econ_pos
-
-    policies = {
-        issue: (
-            econ_pos if issue in ECONOMY_ISSUES else
-            env_pos  if issue in ENV_ISSUES      else
-            soc_pos  if issue in SOCIAL_ISSUES   else
-            (econ_pos + soc_pos) / 2
-        )
-        for issue in issues
-    }
-    return {
-        "id":               i,
-        "name":             name,
-        "party":            _PARTY_CYCLE[i % len(_PARTY_CYCLE)],
-        "party_lean":       x,
-        "ideology_position": econ_pos,
-        "policies":         policies,
-        "charisma":         0.7,
-        "scandals":         0,
-        "campaign_funds":   500_000,
-        "experience":       10,
-        "popularity":       0.6,
-    }
-
-
-def _inter_method_agreement(methods_data: Dict[str, Any]) -> float:
-    """Fraction of voting methods that agree on the same winner."""
-    winners = [md.get("winner") for md in methods_data.values() if md.get("winner")]
-    if not winners:
-        return 0.0
-    most_common = Counter(winners).most_common(1)[0][1]
-    return round(most_common / len(winners), 4)
 
 
 # ── Endpoint ──────────────────────────────────────────────────────────────────
