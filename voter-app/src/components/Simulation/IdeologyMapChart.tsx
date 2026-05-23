@@ -98,13 +98,22 @@ interface CandidatePos { name: string; x: number; y: number }
 
 interface Props {
   defaultCandidates?: string[];
+  /** Full candidate positions (name + x + y) — when provided, used directly
+   *  instead of the auto-placed positions. Required for the LabCentralView
+   *  so the map matches the configured scenario (e.g. France 2002). */
+  initialCandidatePositions?: Array<{ name: string; x: number; y: number }>;
   defaultNumVoters?:  number;
   defaultIdeology?:   string;
   defaultSeed?:       number;
+  /** Embedded in another view (e.g. LabCentralView). When true: hide the
+   *  controls column entirely and disable candidate dragging — the parent
+   *  page already provides the relevant configuration. */
+  embedded?:          boolean;
 }
 
 const IdeologyMapChart: React.FC<Props> = ({
-  defaultCandidates, defaultNumVoters, defaultIdeology, defaultSeed,
+  defaultCandidates, initialCandidatePositions, defaultNumVoters, defaultIdeology,
+  defaultSeed, embedded = false,
 }) => {
   const { t } = useTranslation();
 
@@ -126,19 +135,28 @@ const IdeologyMapChart: React.FC<Props> = ({
   const [viewMode,     setViewMode]     = useState<'points' | 'heatmap' | 'both'>('points');
   const [showMedian,   setShowMedian]   = useState(false);
 
-  // ── Candidate positions (draggable)
+  // ── Candidate positions (draggable when not embedded)
+  // Priority: real positions from initialCandidatePositions prop → fallback
+  // to auto-placed positions derived from names only.
   const initCandidates = useCallback((): CandidatePos[] => {
+    if (initialCandidatePositions && initialCandidatePositions.length > 0) {
+      return initialCandidatePositions.slice(0, 6).map((c) => ({
+        name: c.name,
+        x:    Math.max(-1, Math.min(1, c.x)),
+        y:    Math.max(-1, Math.min(1, c.y)),
+      }));
+    }
     const names = defaultCandidates?.filter(Boolean).slice(0, 6) ?? ['Alice', 'Bob', 'Charlie'];
     return names.map((name, i) => ({
       name,
       x: Math.round((-0.6 + (i * 0.6)) * 10) / 10,
       y: Math.round((-0.3 + (i * 0.15)) * 10) / 10,
     }));
-  }, [defaultCandidates]);
+  }, [defaultCandidates, initialCandidatePositions]);
 
   const [candidatePositions, setCandidatePositions] = useState<CandidatePos[]>(initCandidates);
 
-  // Reset when defaultCandidates prop changes
+  // Reset when defaultCandidates or initialCandidatePositions prop changes
   useEffect(() => { setCandidatePositions(initCandidates()); }, [initCandidates]);
 
   // ── Map data
@@ -198,12 +216,14 @@ const IdeologyMapChart: React.FC<Props> = ({
   });
 
   const handleCandidateMouseDown = (e: React.MouseEvent, idx: number) => {
+    if (embedded) return;  // dragging disabled — positions come from scenario
     e.preventDefault();
     setDraggingIdx(idx);
     setTooltip(null);
   };
 
   const handleCandidateTouchStart = (e: React.TouchEvent, idx: number) => {
+    if (embedded) return;
     e.stopPropagation();
     setDraggingIdx(idx);
     setTooltip(null);
@@ -242,7 +262,8 @@ const IdeologyMapChart: React.FC<Props> = ({
 
   return (
     <Row className="g-3">
-      {/* ── Controls ── */}
+      {/* ── Controls (hidden in embedded mode — parent page already provides config) ── */}
+      {!embedded && (
       <Col xs={12} lg={3}>
         <Card>
           <Card.Header className="py-2">
@@ -345,9 +366,10 @@ const IdeologyMapChart: React.FC<Props> = ({
           </Card.Body>
         </Card>
       </Col>
+      )}
 
-      {/* ── Canvas ── */}
-      <Col xs={12} lg={9}>
+      {/* ── Canvas (takes full width in embedded mode) ── */}
+      <Col xs={12} lg={embedded ? 12 : 9}>
         <Card>
           <Card.Body className="p-2">
             {error && <div className="text-danger small mb-2">{error}</div>}

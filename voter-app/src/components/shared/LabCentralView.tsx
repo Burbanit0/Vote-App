@@ -318,11 +318,13 @@ const LabCentralView: React.FC<Props> = ({ result, loading }) => {
                 🗺 {t('lab.ideologyMapTitle')}
               </div>
               <div style={{
-                maxHeight: 340, overflow: 'hidden', border: '1px solid #dee2e6',
+                maxHeight: 340, overflow: 'auto', border: '1px solid #dee2e6',
                 borderRadius: 4, padding: 4,
               }} data-testid="central-ideology-map">
                 <IdeologyMapChart
+                  embedded
                   defaultCandidates={candidateNames}
+                  initialCandidatePositions={result.config.candidates}
                   defaultNumVoters={result.config.num_voters}
                   defaultIdeology={result.config.ideology}
                   defaultSeed={result.config.seed}
