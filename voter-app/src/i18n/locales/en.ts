@@ -178,6 +178,7 @@ const en: TranslationKeys = {
     conclusionVulnerableSuffix: '% of voters can influence it)',
     conclusionCondorcetSuffix: '% consistency)',
     scenarioSaved: 'Scenario saved ✓',
+    scenarioSaveError: 'Failed to save scenario.',
     scenarioLoaded: 'Scenario loaded ✓',
     scenarioA: 'Scenario A',
     scenarioB: 'Scenario B',

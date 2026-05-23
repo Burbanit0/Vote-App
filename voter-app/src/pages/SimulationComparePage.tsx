@@ -31,7 +31,6 @@ import {
   ArrowCriteriaResult,
   CondorcetMatrixResult,
   ScenarioDetail,
-  ScenarioSummary,
   SimulationCompareResult,
   StrategicImpactPoint,
 } from '../types';
@@ -43,7 +42,7 @@ import {
   InformationModelConfig,
 } from '../services/simulationCompareApi';
 import { InformationModelResult } from '../types';
-import { deleteScenario, listScenarios, saveScenario } from '../services/scenariosApi';
+import { useScenarioPersistence } from '../hooks/useScenarioPersistence';
 import { buildShareURL, copyShareURL, decodeShareConfig, encodeShareConfig, readShareParam } from '../utils/shareUtils';
 import { useExpertMode } from '../context/ExpertModeContext';
 import { useMetaTags } from '../hooks/useMetaTags';
@@ -305,13 +304,8 @@ const SimulationComparePage: React.FC = () => {
   });
   const [infoResult, setInfoResult] = useState<InformationModelResult | undefined>(undefined);
 
-  // ── Save / Load modal state ──
-  const [showSaveModal, setShowSaveModal] = useState(false);
-  const [saveName, setSaveName] = useState('');
-  const [saving, setSaving] = useState(false);
-  const [showLoadModal, setShowLoadModal] = useState(false);
-  const [scenarioList, setScenarioList] = useState<ScenarioSummary[]>([]);
-  const [loadingList, setLoadingList] = useState(false);
+  // ── Save / Load modal state (extracted to useReducer-backed hook) ──
+  const persistence = useScenarioPersistence();
 
   // ── UI state ──
   const [activeTab, setActiveTab] = useState('winners');
@@ -532,22 +526,25 @@ const SimulationComparePage: React.FC = () => {
   };
 
   // ── Scenario persistence ──
+  // Modal/list state lives in `persistence` (useScenarioPersistence hook,
+  // backed by useReducer). This handler stays here because it needs page
+  // state (numSimulations, configs, comparisonResults, …) at save time.
   const handleSave = async () => {
-    if (!saveName.trim()) return;
-    setSaving(true);
+    if (!persistence.saveName.trim()) return;
     try {
-      await saveScenario(saveName.trim(), { numSimulations, configA, configB, scenarioCount }, { comparisonResults, strategicData, condorcetData, resultsB });
-      setShowSaveModal(false); setSaveName('');
+      await persistence.saveCurrent(
+        { numSimulations, configA, configB, scenarioCount },
+        { comparisonResults, strategicData, condorcetData, resultsB }
+      );
       toast.success(t('simulation.scenarioSaved'));
-    } finally { setSaving(false); }
+    } catch {
+      toast.error(t('simulation.scenarioSaveError'));
+    }
   };
 
-  const handleOpenLoadModal = async () => {
-    setShowLoadModal(true); setLoadingList(true);
-    try { setScenarioList(await listScenarios()); } finally { setLoadingList(false); }
-  };
+  const handleOpenLoadModal = () => persistence.openLoad();
 
-  const handleLoad = async (scenario: ScenarioDetail) => {
+  const handleLoad = (scenario: ScenarioDetail) => {
     const cfg = scenario.config as any; const res = scenario.results as any;
     if (cfg) {
       if (cfg.numSimulations != null) setNumSimulations(cfg.numSimulations);
@@ -562,14 +559,11 @@ const SimulationComparePage: React.FC = () => {
       if ('condorcetData' in res) setCondorcetData(res.condorcetData);
       if ('resultsB' in res) setResultsB(res.resultsB);
     }
-    setShowLoadModal(false);
+    persistence.closeLoad();
     toast.success(t('simulation.scenarioLoaded'));
   };
 
-  const handleDelete = async (id: number) => {
-    await deleteScenario(id);
-    setScenarioList((prev) => prev.filter((s) => s.id !== id));
-  };
+  const handleDelete = (id: number) => persistence.removeFromList(id);
 
   const hasResults = comparisonResults.length > 0;
   const baseParamsA = { num_voters: configA.numVoters, candidates: candidateNamesA, ideology_distribution: configA.ideology_distribution };
@@ -679,7 +673,7 @@ const SimulationComparePage: React.FC = () => {
           </Button>
           {hasResults && (
             <>
-              <Button variant="outline-success" size="sm" onClick={() => { setSaveName(''); setShowSaveModal(true); }}>{t('simulation.save')}</Button>
+              <Button variant="outline-success" size="sm" onClick={persistence.openSave}>{t('simulation.save')}</Button>
               <Button variant="outline-primary" size="sm" onClick={exportJSON}>{t('simulation.exportJson')}</Button>
               <Button variant="outline-primary" size="sm" onClick={exportCSV}>{t('simulation.exportCsv')}</Button>
               <Button variant="outline-warning" size="sm" onClick={exportReport}>{t('simulation.exportPdf')}</Button>
@@ -951,11 +945,18 @@ const SimulationComparePage: React.FC = () => {
           resultsSummary={comparisonResults.length > 0 ? { condorcet_winner: comparisonResults[0].condorcet_winner, winners: Object.fromEntries(Object.entries(comparisonResults[0].methods).map(([m, d]) => [m, d.winner])) } : {}}
         />
         <ScenarioModals
-          showSaveModal={showSaveModal} setShowSaveModal={setShowSaveModal}
-          saveName={saveName} setSaveName={setSaveName} saving={saving} handleSave={handleSave}
-          showLoadModal={showLoadModal} setShowLoadModal={setShowLoadModal}
-          scenarioList={scenarioList} loadingList={loadingList}
-          handleLoad={handleLoad} handleDelete={handleDelete}
+          showSaveModal={persistence.showSave}
+          setShowSaveModal={(v: boolean) => v ? persistence.openSave() : persistence.closeSave()}
+          saveName={persistence.saveName}
+          setSaveName={persistence.setName}
+          saving={persistence.saving}
+          handleSave={handleSave}
+          showLoadModal={persistence.showLoad}
+          setShowLoadModal={(v: boolean) => v ? persistence.openLoad() : persistence.closeLoad()}
+          scenarioList={persistence.list}
+          loadingList={persistence.loadingList}
+          handleLoad={handleLoad}
+          handleDelete={handleDelete}
         />
       </Container>
     </>
