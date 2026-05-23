@@ -12,10 +12,11 @@
  * configured baseline election).
  */
 import React from 'react';
-import { Container, Card, Badge, Nav } from 'react-bootstrap';
+import { Card, Badge, Nav } from 'react-bootstrap';
 import { Link } from 'react-router';
 import { useTranslation } from 'react-i18next';
 import { useMetaTags } from '../hooks/useMetaTags';
+import { PageContainer } from '../theme';
 import ArrowExplorer from '../components/Simulation/ArrowExplorer';
 import PlottChaosPanel from '../components/Simulation/PlottChaosPanel';
 import JudgmentAggregationPanel from '../components/shared/JudgmentAggregationPanel';
@@ -110,7 +111,7 @@ const TheoryPage: React.FC = () => {
   });
 
   return (
-    <Container className="py-4" style={{ maxWidth: 1100 }}>
+    <PageContainer variant="wide">
       <h2 className="fw-bold mb-1">🏛 {t('theory.pageTitle')}</h2>
       <p className="text-muted mb-3" style={{ fontSize: '0.9rem' }}>
         {t('theory.pageSubtitle')}
@@ -198,7 +199,7 @@ const TheoryPage: React.FC = () => {
           ))}
         </section>
       ))}
-    </Container>
+    </PageContainer>
   );
 };
 

@@ -1,8 +1,9 @@
 import React, { useCallback, useRef, useState } from 'react';
 import {
-  Accordion, Alert, Badge, Button, Card, Col, Container,
+  Accordion, Alert, Badge, Button, Card, Col,
   Dropdown, Form, Row, Spinner, Tab, Table, Tabs,
 } from 'react-bootstrap';
+import { PageContainer } from '../theme';
 import { useTranslation } from 'react-i18next';
 import { useMetaTags } from '../hooks/useMetaTags';
 import { useElection, ElectionCandidate } from '../context/ElectionContext';
@@ -420,7 +421,7 @@ const ElectionLabPage: React.FC = () => {
   };
 
   return (
-    <Container fluid className="py-4" style={{ maxWidth: 1400 }}>
+    <PageContainer variant="full">
       <LabOnboardingTour run={tourRun} onFinish={() => setTourRun(false)} />
       <ModelAssumptionsBanner />
       {/* Header */}
@@ -782,7 +783,7 @@ const ElectionLabPage: React.FC = () => {
           )}
         </Col>
       </Row>
-    </Container>
+    </PageContainer>
   );
 };
 
