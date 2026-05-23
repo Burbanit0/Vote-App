@@ -13,11 +13,11 @@
 import React, { useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Badge, Button, Card, Col, Row } from 'react-bootstrap';
-import { ElectionResult } from '../../services/electionApi';
-import { usePerturbations, PinnedPerturbation } from '../../context/PerturbationsContext';
-import { useAnimationBroadcast } from '../../context/AnimationBroadcastContext';
-import IdeologyMapChart from '../Simulation/IdeologyMapChart';
-import MetricTooltip from './MetricTooltip';
+import { ElectionResult } from '../../../services/electionApi';
+import { usePerturbations, PinnedPerturbation } from '../../../context/PerturbationsContext';
+import { useAnimationBroadcast } from '../../../context/AnimationBroadcastContext';
+import IdeologyMapChart from '../../Simulation/IdeologyMapChart';
+import MetricTooltip from '../MetricTooltip';
 
 // ── Color palette per party (matches ElectionLabPage) ───────────────────────
 
