@@ -74,6 +74,22 @@ export default defineConfig(({ mode }) => {
     build: {
       outDir: 'build',
       sourcemap: false,
+      // Manual vendor splits so heavy libs (recharts, d3, jspdf) land in
+      // separate chunks that the browser can cache long-term and that pages
+      // not needing them never have to download.
+      rollupOptions: {
+        output: {
+          manualChunks(id: string): string | undefined {
+            if (id.includes('node_modules')) {
+              if (id.includes('recharts'))                          return 'recharts';
+              if (/[\\/]d3-(delaunay|hexbin|force)[\\/]/.test(id))  return 'd3';
+              if (id.includes('jspdf') || id.includes('html2canvas')) return 'pdf';
+              if (id.includes('react-bootstrap') || /[\\/]bootstrap[\\/]/.test(id)) return 'bootstrap';
+            }
+            return undefined;
+          },
+        },
+      },
     },
     envPrefix: 'VITE_',
     define: {
