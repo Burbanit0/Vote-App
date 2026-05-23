@@ -8,7 +8,7 @@ import {
 } from 'recharts';
 import { useTranslation } from 'react-i18next';
 import { VoteStepsResult, IRVRound, BordaStep } from '../../types';
-import { getVoteSteps } from '../../services/simulationCompareApi';
+import { getVoteSteps, VoteStepsParams } from '../../services/simulationCompareApi';
 import { useChartTheme } from '../../hooks/useChartTheme';
 
 // ── Palette ───────────────────────────────────────────────────────────────────
@@ -310,13 +310,17 @@ const ApprovalChart: React.FC<{
 
 interface Props {
   defaultCandidates?: string[];
+  // Full candidate configs (with positions) — when provided, the animation
+  // uses the SAME spatial setup as the main election simulation, so winners
+  // under the same method match across tabs.
+  candidateConfigs?:  Array<{ name: string; x: number; y: number }>;
   numVoters?: number;
   ideology?:  string;
   seed?:      number;
 }
 
 const VoteStepAnimator: React.FC<Props> = ({
-  defaultCandidates, numVoters = 100, ideology = 'random', seed = 42,
+  defaultCandidates, candidateConfigs, numVoters = 100, ideology = 'random', seed = 42,
 }) => {
   const { t }  = useTranslation();
   const ct     = useChartTheme();
@@ -334,6 +338,10 @@ const VoteStepAnimator: React.FC<Props> = ({
   const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
   const candidates = defaultCandidates?.filter(Boolean).slice(0, 8) ?? ['Alice', 'Bob', 'Charlie'];
+  // Build payload candidates — use full configs when available
+  const apiCandidates: VoteStepsParams['candidates'] = candidateConfigs?.length
+    ? candidateConfigs.slice(0, 8)
+    : candidates;
 
   // ── Total steps per method
   const totalSteps = (() => {
@@ -348,7 +356,7 @@ const VoteStepAnimator: React.FC<Props> = ({
   })();
 
   // ── Fetch data
-  const fetchSteps = useCallback(async (m: string, cands: string[]) => {
+  const fetchSteps = useCallback(async (m: string, cands: VoteStepsParams['candidates']) => {
     if (cands.length < 2) return;
     setLoading(true);
     setError(null);
@@ -366,8 +374,11 @@ const VoteStepAnimator: React.FC<Props> = ({
     }
   }, [t, numVoters, ideology, seed]);
 
-  useEffect(() => { fetchSteps(method, candidates); }, // eslint-disable-next-line
-  [method, candidates.join(','), numVoters, ideology, seed]);
+  // Re-fetch when method or any input changes. We stringify the API candidates
+  // (which may be names or full objects) to get a stable dep.
+  const apiCandsKey = JSON.stringify(apiCandidates);
+  useEffect(() => { fetchSteps(method, apiCandidates); }, // eslint-disable-next-line
+  [method, apiCandsKey, numVoters, ideology, seed]);
 
   // Reveal approval animation on first show
   useEffect(() => {

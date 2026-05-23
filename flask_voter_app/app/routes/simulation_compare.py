@@ -7,7 +7,7 @@ Arrow Criteria, Sensitivity.
 
 All endpoints use the spatial utility pipeline.
 """
-from typing import Any, Dict, Optional
+from typing import Any, Dict, List, Optional, Tuple
 
 from flask import Blueprint, Response, request, jsonify
 
@@ -763,9 +763,24 @@ def vote_steps() -> tuple[Response, int]:
     data          = request.get_json() or {}
     method        = str(data.get("method",    "plurality")).lower()
     num_voters    = max(10, min(500, int(data.get("num_voters", 100))))
-    raw_cands     = [str(c) for c in data.get("candidates", ["Alice", "Bob", "Charlie"])][:8]
+    raw_cands_in  = data.get("candidates", ["Alice", "Bob", "Charlie"])[:8]
     ideology      = str(data.get("ideology",  "random"))
     seed          = int(data.get("seed",       42))
+
+    # Accept either ["name", "name"] or [{"name": ..., "x": ..., "y": ...}, ...]
+    # When positions are provided, build candidates from them (same logic as
+    # /api/election/simulate) so that animation winners match the main sim.
+    raw_cands: List[str]                                = []
+    cand_positions: List[Optional[Tuple[float, float]]] = []
+    for c in raw_cands_in:
+        if isinstance(c, dict):
+            raw_cands.append(str(c.get("name", f"Cand{len(raw_cands)}")))
+            x = float(c.get("x", 0.0))
+            y = float(c.get("y", 0.0))
+            cand_positions.append((max(-1.0, min(1.0, x)), max(-1.0, min(1.0, y))))
+        else:
+            raw_cands.append(str(c))
+            cand_positions.append(None)
 
     if len(raw_cands) < 2:
         return jsonify({"error": "At least 2 candidates required"}), 400
@@ -776,22 +791,40 @@ def vote_steps() -> tuple[Response, int]:
     _np.random.seed(seed)
 
     issues     = DEFAULT_ISSUES
-    candidates = [
-        {
-            "id": i, "name": name,
-            "party": _PARTY_CYCLE_STEPS[i % len(_PARTY_CYCLE_STEPS)],
-            "party_lean": 0.0, "ideology_position": 0.5,
-            "policies": {iss: 0.5 for iss in issues},
-            "charisma": 0.7, "scandals": 0,
-            "campaign_funds": 500_000, "experience": 10, "popularity": 0.6,
+
+    def _build_from_xy(i: int, name: str, x: float, y: float) -> Dict[str, Any]:
+        """Mirror /api/election/simulate's _build_candidate_from_xy for consistency."""
+        econ_pos = (x + 1) / 2
+        soc_pos  = (y + 1) / 2
+        env_pos  = 1.0 - econ_pos
+        policies = {
+            iss: (
+                econ_pos if iss in ECONOMY_ISSUES else
+                env_pos  if iss in ENV_ISSUES     else
+                soc_pos  if iss in SOCIAL_ISSUES  else
+                (econ_pos + soc_pos) / 2
+            )
+            for iss in issues
         }
-        for i, name in enumerate(raw_cands)
-    ]
-    # Override with proper create_candidate for realistic utilities
-    candidates = [
-        create_candidate(issues, i, name, _PARTY_CYCLE_STEPS[i % len(_PARTY_CYCLE_STEPS)])
-        for i, name in enumerate(raw_cands)
-    ]
+        return {
+            "id":                i,
+            "name":              name,
+            "party":             _PARTY_CYCLE_STEPS[i % len(_PARTY_CYCLE_STEPS)],
+            "party_lean":        x,
+            "ideology_position": econ_pos,
+            "policies":          policies,
+            "charisma":          0.7, "scandals": 0,
+            "campaign_funds":    500_000, "experience": 10, "popularity": 0.6,
+        }
+
+    candidates = []
+    for i, (name, pos) in enumerate(zip(raw_cands, cand_positions)):
+        if pos is not None:
+            candidates.append(_build_from_xy(i, name, pos[0], pos[1]))
+        else:
+            candidates.append(create_candidate(
+                issues, i, name, _PARTY_CYCLE_STEPS[i % len(_PARTY_CYCLE_STEPS)]
+            ))
     voters = [create_voter(issues, i, ideology_distribution=ideology) for i in range(num_voters)]
 
     cand_names: list[str] = [str(c["name"]) for c in candidates]

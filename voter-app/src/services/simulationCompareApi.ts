@@ -234,7 +234,9 @@ export const getIdeologyMap = async (
 export interface VoteStepsParams {
   method: string;
   num_voters: number;
-  candidates: string[];
+  // Accept either name strings (backend auto-positions) or full candidate
+  // objects with positions to match the main election simulation exactly.
+  candidates: Array<string | { name: string; x: number; y: number }>;
   ideology: string;
   seed: number;
 }
