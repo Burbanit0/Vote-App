@@ -226,6 +226,8 @@ interface ElectionContextValue {
   config:            ElectionConfig;
   setConfig:         (patch: Partial<ElectionConfig>) => void;
   setConfigDeep:     (path: string, value: unknown) => void;
+  /** Full overwrite — used by scenario import to restore a saved config. */
+  replaceConfig:     (next: ElectionConfig) => void;
   resetConfig:       () => void;
   applyScenario:     (name: string) => void;
   scenarioNames:     string[];
@@ -237,6 +239,7 @@ const ElectionContext = createContext<ElectionContextValue>({
   config:            DEFAULT_CONFIG,
   setConfig:         () => {},
   setConfigDeep:     () => {},
+  replaceConfig:     () => {},
   resetConfig:       () => {},
   applyScenario:     () => {},
   scenarioNames:     Object.keys(SCENARIOS),
@@ -289,6 +292,11 @@ export const ElectionProvider: React.FC<{ children: React.ReactNode }> = ({ chil
     setScenarioMeta(null);
   }, []);
 
+  const replaceConfig = useCallback((next: ElectionConfig) => {
+    setConfigState(next);
+    setScenarioMeta(null);
+  }, []);
+
   const resetConfig = useCallback(() => {
     setConfigState(DEFAULT_CONFIG);
     setScenarioMeta(null);
@@ -314,7 +322,7 @@ export const ElectionProvider: React.FC<{ children: React.ReactNode }> = ({ chil
 
   return (
     <ElectionContext.Provider value={{
-      config, setConfig, setConfigDeep, resetConfig,
+      config, setConfig, setConfigDeep, replaceConfig, resetConfig,
       applyScenario, scenarioNames: Object.keys(SCENARIOS),
       scenarioMeta, clearScenarioMeta,
     }}>

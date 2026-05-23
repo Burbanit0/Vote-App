@@ -22,6 +22,7 @@ import ElectionInsightPanel from '../components/shared/ElectionInsightPanel';
 import ModelAssumptionsBanner from '../components/shared/ModelAssumptionsBanner';
 import LabCentralView from '../components/shared/LabCentralView';
 import LabOnboardingTour, { LAB_TOUR_LS_KEY } from '../components/shared/LabOnboardingTour';
+import ScenarioIO from '../components/shared/ScenarioIO';
 import { PerturbationsProvider } from '../context/PerturbationsContext';
 import { AnimationBroadcastProvider } from '../context/AnimationBroadcastContext';
 import CollectiveWillPanel from '../components/shared/CollectiveWillPanel';
@@ -465,6 +466,7 @@ const ElectionLabPage: React.FC = () => {
               </Dropdown.Item>
             </Dropdown.Menu>
           </Dropdown>
+          <ScenarioIO />
           <Button
             variant="outline-secondary" size="sm"
             onClick={startTour}
@@ -705,7 +707,7 @@ const ElectionLabPage: React.FC = () => {
                           variant="outline-secondary" size="sm"
                           disabled={currentIdx <= 0}
                           onClick={() => setActiveTab(TABS[currentIdx - 1]?.key ?? activeTab)}
-                          aria-label="Onglet précédent"
+                          aria-label={t('electionLab.prevTabAria')}
                         >‹</Button>
                         <span className="text-muted" style={{ fontSize: '0.72rem' }}>
                           {currentIdx + 1} / {TABS.length}
@@ -714,7 +716,7 @@ const ElectionLabPage: React.FC = () => {
                           variant="outline-secondary" size="sm"
                           disabled={currentIdx >= TABS.length - 1}
                           onClick={() => setActiveTab(TABS[currentIdx + 1]?.key ?? activeTab)}
-                          aria-label="Onglet suivant"
+                          aria-label={t('electionLab.nextTabAria')}
                         >›</Button>
                       </div>
                       {tabContent[activeTab]}

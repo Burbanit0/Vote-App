@@ -10,7 +10,7 @@
  * in the sidebar config (campaign, blank vote, information model), the result
  * is recomputed and this view updates in lockstep.
  */
-import React, { useState } from 'react';
+import React, { useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Badge, Button, Card, Col, Row } from 'react-bootstrap';
 import { ElectionResult } from '../../services/electionApi';
@@ -43,78 +43,166 @@ interface MatrixProps {
   t: (k: string) => string;
 }
 
-const MethodsMatrix: React.FC<MatrixProps> = ({ result, pinned, t }) => {
-  const methods = Object.entries(result.methods).sort(([a], [b]) => a.localeCompare(b));
+const MethodsMatrix: React.FC<MatrixProps> = React.memo(({ result, pinned, t }) => {
+  // Sort methods alphabetically once per result change
+  const methods = useMemo(
+    () => Object.entries(result.methods).sort(([a], [b]) => a.localeCompare(b)),
+    [result.methods]
+  );
   const cw = result.condorcet_winner;
 
   // Only perturbations that actually published per-method winners
-  const pertsWithMethods = pinned.filter((p) => p.winnersByMethod);
+  const pertsWithMethods = useMemo(
+    () => pinned.filter((p) => p.winnersByMethod),
+    [pinned]
+  );
 
   // Count winners frequency for sorting (most-frequent first)
-  const winnerCounts: Record<string, number> = {};
-  methods.forEach(([, m]) => {
-    if (m.winner) winnerCounts[m.winner] = (winnerCounts[m.winner] ?? 0) + 1;
-  });
+  const winnerCounts = useMemo(() => {
+    const c: Record<string, number> = {};
+    methods.forEach(([, m]) => {
+      if (m.winner) c[m.winner] = (c[m.winner] ?? 0) + 1;
+    });
+    return c;
+  }, [methods]);
+
+  // Table layout when ≥1 perturbation is pinned (column alignment makes
+  // the diff legible across many methods); compact chip layout otherwise.
+  const useTable = pertsWithMethods.length > 0;
 
   return (
     <div data-testid="lab-methods-matrix">
-      <div className="d-flex flex-wrap gap-1" style={{ fontSize: '0.72rem' }}>
-        {methods.map(([method, md]) => {
-          const isCW = cw && md.winner === cw;
-          const color = candColor(result, md.winner);
-          const baseWinner = md.winner;
-          return (
-            <div
-              key={method}
-              className="d-flex align-items-center gap-1 px-2 py-1 rounded flex-wrap"
-              style={{
-                background: '#f8f9fa',
-                border: `1px solid ${color}33`,
-                minWidth: 110,
-              }}
-              data-testid={`matrix-row-${method}`}
-            >
-              <span style={{ fontSize: '0.65rem', color: '#6c757d', minWidth: 60 }}>
-                {method}
-              </span>
-              {baseWinner ? (
-                <span
-                  className="badge"
-                  style={{ background: color, color: '#fff', fontSize: '0.65rem' }}
-                  title={t('lab.baselineWinner')}
-                >
-                  {baseWinner}
-                </span>
-              ) : (
-                <span className="text-muted">—</span>
-              )}
-              {isCW && <span style={{ color: '#198754', fontSize: '0.7rem' }}>✓</span>}
-              {/* ── Perturbation diff chips ── */}
-              {pertsWithMethods.map((p) => {
-                const pertWinner = p.winnersByMethod?.[method];
-                if (pertWinner === undefined) return null;
-                const changed = pertWinner !== baseWinner;
-                return (
-                  <span
+      {useTable ? (
+        <div style={{ overflowX: 'auto' }} data-testid="lab-matrix-table">
+          <table
+            className="table table-sm align-middle mb-0"
+            style={{ fontSize: '0.72rem', minWidth: 320 + pertsWithMethods.length * 90 }}
+          >
+            <thead>
+              <tr style={{ background: '#f8f9fa' }}>
+                <th style={{ width: 110, fontWeight: 600, color: '#6c757d' }}>
+                  {t('lab.method')}
+                </th>
+                <th style={{ width: 130, fontWeight: 600, color: '#6c757d' }}
+                  title={t('lab.baselineWinner')}>
+                  {t('lab.baselineWinner')}
+                </th>
+                {pertsWithMethods.map((p) => (
+                  <th
                     key={p.id}
-                    className="badge"
-                    style={{
-                      background: changed ? '#dc3545' : '#198754',
-                      color: '#fff',
-                      fontSize: '0.6rem',
-                      marginLeft: 2,
-                    }}
-                    title={`${p.icon} ${p.label}: ${pertWinner ?? '—'}`}
-                    data-testid={`matrix-pert-${method}-${p.type}`}
+                    style={{ minWidth: 80, fontWeight: 600, color: '#6c757d' }}
+                    title={p.summary}
+                    data-testid={`matrix-col-${p.type}`}
                   >
-                    {p.icon} {pertWinner ?? '—'}
-                  </span>
+                    {p.icon} {p.label}
+                  </th>
+                ))}
+              </tr>
+            </thead>
+            <tbody>
+              {methods.map(([method, md], rowIdx) => {
+                const isCW = cw && md.winner === cw;
+                const color = candColor(result, md.winner);
+                const baseWinner = md.winner;
+                return (
+                  <tr
+                    key={method}
+                    style={{ background: rowIdx % 2 === 0 ? '#fff' : '#fafafa' }}
+                    data-testid={`matrix-row-${method}`}
+                  >
+                    <td style={{ color: '#495057' }}>{method}</td>
+                    <td>
+                      {baseWinner ? (
+                        <span
+                          className="badge"
+                          style={{ background: color, color: '#fff', fontSize: '0.65rem' }}
+                        >
+                          {baseWinner}
+                        </span>
+                      ) : (
+                        <span className="text-muted">—</span>
+                      )}
+                      {isCW && <span style={{ color: '#198754', fontSize: '0.7rem', marginLeft: 4 }}>✓</span>}
+                    </td>
+                    {pertsWithMethods.map((p) => {
+                      const pertWinner = p.winnersByMethod?.[method];
+                      if (pertWinner === undefined) {
+                        return (
+                          <td key={p.id} style={{ color: '#adb5bd', fontSize: '0.7rem' }}>
+                            —
+                          </td>
+                        );
+                      }
+                      const changed = pertWinner !== baseWinner;
+                      return (
+                        <td
+                          key={p.id}
+                          style={{
+                            background: changed ? 'rgba(220,53,69,0.08)' : 'rgba(25,135,84,0.08)',
+                          }}
+                          data-testid={`matrix-pert-${method}-${p.type}`}
+                        >
+                          <span
+                            className="badge"
+                            style={{
+                              background: changed ? '#dc3545' : '#198754',
+                              color: '#fff', fontSize: '0.6rem',
+                            }}
+                            title={`${p.label}: ${pertWinner ?? '—'}`}
+                          >
+                            {pertWinner ?? '—'}
+                          </span>
+                          {changed && (
+                            <span style={{ fontSize: '0.6rem', color: '#dc3545', marginLeft: 4 }}>
+                              ≠
+                            </span>
+                          )}
+                        </td>
+                      );
+                    })}
+                  </tr>
                 );
               })}
-            </div>
-          );
-        })}
-      </div>
+            </tbody>
+          </table>
+        </div>
+      ) : (
+        <div className="d-flex flex-wrap gap-1" style={{ fontSize: '0.72rem' }}>
+          {methods.map(([method, md]) => {
+            const isCW = cw && md.winner === cw;
+            const color = candColor(result, md.winner);
+            const baseWinner = md.winner;
+            return (
+              <div
+                key={method}
+                className="d-flex align-items-center gap-1 px-2 py-1 rounded flex-wrap"
+                style={{
+                  background: '#f8f9fa',
+                  border: `1px solid ${color}33`,
+                  minWidth: 110,
+                }}
+                data-testid={`matrix-row-${method}`}
+              >
+                <span style={{ fontSize: '0.65rem', color: '#6c757d', minWidth: 60 }}>
+                  {method}
+                </span>
+                {baseWinner ? (
+                  <span
+                    className="badge"
+                    style={{ background: color, color: '#fff', fontSize: '0.65rem' }}
+                    title={t('lab.baselineWinner')}
+                  >
+                    {baseWinner}
+                  </span>
+                ) : (
+                  <span className="text-muted">—</span>
+                )}
+                {isCW && <span style={{ color: '#198754', fontSize: '0.7rem' }}>✓</span>}
+              </div>
+            );
+          })}
+        </div>
+      )}
       {/* Compact summary */}
       <div className="mt-2 d-flex flex-wrap gap-2" style={{ fontSize: '0.7rem' }}>
         <Badge bg="primary" className="d-inline-flex align-items-center gap-1">
@@ -138,7 +226,8 @@ const MethodsMatrix: React.FC<MatrixProps> = ({ result, pinned, t }) => {
       </div>
     </div>
   );
-};
+});
+MethodsMatrix.displayName = 'MethodsMatrix';
 
 // ── Active modules summary (which perturbations are on) ──────────────────────
 
@@ -147,7 +236,7 @@ interface ModulesProps {
   t: (k: string) => string;
 }
 
-const ActiveModulesBar: React.FC<ModulesProps> = ({ config, t }) => {
+const ActiveModulesBar: React.FC<ModulesProps> = React.memo(({ config, t }) => {
   const active: { key: string; label: string; color: string }[] = [];
   if (config.campaign?.enabled) {
     active.push({ key: 'camp', label: t('electionLab.sectionCampaign'), color: '#0d6efd' });
@@ -183,7 +272,8 @@ const ActiveModulesBar: React.FC<ModulesProps> = ({ config, t }) => {
       ))}
     </div>
   );
-};
+});
+ActiveModulesBar.displayName = 'ActiveModulesBar';
 
 // ── Pinned perturbations panel ──────────────────────────────────────────────
 
@@ -194,7 +284,7 @@ interface PinnedProps {
   t: (k: string) => string;
 }
 
-const PinnedPerturbationsPanel: React.FC<PinnedProps> = ({
+const PinnedPerturbationsPanel: React.FC<PinnedProps> = React.memo(({
   pinned, onUnpin, onClear, t,
 }) => {
   if (pinned.length === 0) {
@@ -269,7 +359,7 @@ const PinnedPerturbationsPanel: React.FC<PinnedProps> = ({
                   className="text-muted p-0 lh-1"
                   style={{ fontSize: '0.9rem' }}
                   onClick={() => onUnpin(p.id)}
-                  aria-label="unpin"
+                  aria-label={t('lab.unpinAria')}
                   data-testid={`pinned-unpin-${p.type}`}
                 >
                   ×
@@ -281,7 +371,8 @@ const PinnedPerturbationsPanel: React.FC<PinnedProps> = ({
       </div>
     </div>
   );
-};
+});
+PinnedPerturbationsPanel.displayName = 'PinnedPerturbationsPanel';
 
 // ── Main LabCentralView ──────────────────────────────────────────────────────
 
@@ -334,7 +425,12 @@ const LabCentralView: React.FC<Props> = ({ result, loading }) => {
     );
   }
 
-  const candidateNames = result.candidates.map((c) => c.name);
+  // Memoised so child IdeologyMapChart doesn't see a new array each parent
+  // render (matters because its useEffect deps key off this prop reference).
+  const candidateNames = useMemo(
+    () => result.candidates.map((c) => c.name),
+    [result.candidates]
+  );
 
   return (
     <Card
