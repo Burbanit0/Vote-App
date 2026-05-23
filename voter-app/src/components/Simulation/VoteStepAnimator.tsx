@@ -310,9 +310,14 @@ const ApprovalChart: React.FC<{
 
 interface Props {
   defaultCandidates?: string[];
+  numVoters?: number;
+  ideology?:  string;
+  seed?:      number;
 }
 
-const VoteStepAnimator: React.FC<Props> = ({ defaultCandidates }) => {
+const VoteStepAnimator: React.FC<Props> = ({
+  defaultCandidates, numVoters = 100, ideology = 'random', seed = 42,
+}) => {
   const { t }  = useTranslation();
   const ct     = useChartTheme();
 
@@ -352,17 +357,17 @@ const VoteStepAnimator: React.FC<Props> = ({ defaultCandidates }) => {
     setApprovalAnimated(false);
     if (intervalRef.current) clearInterval(intervalRef.current);
     try {
-      const data = await getVoteSteps({ method: m, num_voters: 100, candidates: cands, ideology: 'random', seed: 42 });
+      const data = await getVoteSteps({ method: m, num_voters: numVoters, candidates: cands, ideology, seed });
       setStepData(data);
     } catch {
       setError(t('animation.error'));
     } finally {
       setLoading(false);
     }
-  }, [t]);
+  }, [t, numVoters, ideology, seed]);
 
   useEffect(() => { fetchSteps(method, candidates); }, // eslint-disable-next-line
-  [method, candidates.join(',')]);
+  [method, candidates.join(','), numVoters, ideology, seed]);
 
   // Reveal approval animation on first show
   useEffect(() => {

@@ -1,5 +1,4 @@
 import React, { useCallback, useRef, useState } from 'react';
-import { useNavigate } from 'react-router';
 import {
   Accordion, Alert, Badge, Button, Card, Col, Container,
   Dropdown, Form, Row, Spinner, Tab, Table, Tabs,
@@ -332,22 +331,10 @@ const ParameterPanel: React.FC<{ t: (k: string) => string }> = ({ t }) => {
 
 // ── Main page ─────────────────────────────────────────────────────────────────
 
-// ── Sub-simulation shortcuts ──────────────────────────────────────────────────
-
-const SUB_SIMS = [
-  { href: '/scenario-builder',      icon: '🎮', key: 'electionLab.subSimulator' },
-  { href: '/simulation/compare',    icon: '⚖️', key: 'electionLab.subCompare' },
-  { href: '/campaign',              icon: '📅', key: 'electionLab.subCampaign' },
-  { href: '/constitutional-crisis', icon: '□',  key: 'electionLab.subBlank' },
-  { href: '/blank-contagion',       icon: '🦠', key: 'electionLab.subContagion' },
-  { href: '/what-if',               icon: '🔮', key: 'electionLab.subWhatIf' },
-] as const;
-
 // ── Main page ─────────────────────────────────────────────────────────────────
 
 const ElectionLabPage: React.FC = () => {
   const { t } = useTranslation();
-  const navigate = useNavigate();
   useMetaTags({
     title: 'Election Lab — Vote Lab',
     description: 'Simulation unifiée : combinez campagne, vote blanc, modèle d\'information et comparez toutes les méthodes de vote sur une même élection.',
@@ -388,10 +375,11 @@ const ElectionLabPage: React.FC = () => {
 
   const candidateNames = config.candidates.map((c) => c.name);
   const baseParams = {
-    num_candidates: candidateNames.length,
-    candidates:     candidateNames,
-    num_voters:     config.num_voters,
+    num_candidates:        candidateNames.length,
+    candidates:            candidateNames,
+    num_voters:            config.num_voters,
     ideology_distribution: config.ideology,
+    seed:                  config.seed,
   };
 
   return (
@@ -441,27 +429,6 @@ const ElectionLabPage: React.FC = () => {
             </Dropdown.Menu>
           </Dropdown>
         </div>
-      </div>
-
-      {/* Sub-simulation shortcuts */}
-      <div
-        className="d-flex align-items-center gap-2 flex-wrap mb-3 p-2 rounded"
-        style={{ background: 'var(--bs-secondary-bg, #f8f9fa)', fontSize: '0.78rem' }}
-      >
-        <span className="text-muted fw-semibold" style={{ whiteSpace: 'nowrap' }}>
-          {t('electionLab.goDeeper')} :
-        </span>
-        {SUB_SIMS.map(({ href, icon, key }) => (
-          <Button
-            key={href}
-            variant="outline-secondary"
-            size="sm"
-            onClick={() => navigate(href)}
-            style={{ fontSize: '0.76rem', padding: '2px 8px', whiteSpace: 'nowrap' }}
-          >
-            {icon} {t(key)} ↗
-          </Button>
-        ))}
       </div>
 
       <Row className="g-3">
@@ -572,8 +539,18 @@ const ElectionLabPage: React.FC = () => {
                   'results':              duelMode
                     ? <DuelModePanel result={result} methodA={duelMethA} methodB={duelMethB} onMethodAChange={setDuelMethA} onMethodBChange={setDuelMethB} />
                     : <><ResultsTab result={result} t={t} /><ElectionInsightPanel result={result} /><HistoricalReferencePanel result={result} /></>,
-                  'map':                  <IdeologyMapChart defaultCandidates={candidateNames} />,
-                  'animation':            <VoteStepAnimator defaultCandidates={candidateNames} />,
+                  'map':                  <IdeologyMapChart
+                                            defaultCandidates={candidateNames}
+                                            defaultNumVoters={config.num_voters}
+                                            defaultIdeology={config.ideology}
+                                            defaultSeed={config.seed}
+                                          />,
+                  'animation':            <VoteStepAnimator
+                                            defaultCandidates={candidateNames}
+                                            numVoters={config.num_voters}
+                                            ideology={config.ideology}
+                                            seed={config.seed}
+                                          />,
                   'montecarlo':           <MonteCarloResults baseParams={baseParams} />,
                   'manipulability':       <ManipulabilityChart baseParams={baseParams} />,
                   'blank-divergence':     <BlankVoteDivergencePanel />,
