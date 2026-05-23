@@ -865,6 +865,20 @@ const fr = {
     open: 'Ouvrir le tour',
     skip: 'Passer',
   },
+  labTour: {
+    replay:      'Tour guidé',
+    replayTitle: 'Rejouer le tour guidé du Lab',
+    step1Title:  '🔬 La vue centrale',
+    step1Content: 'Carte des candidats à gauche, matrice des méthodes à droite. Cette vue reste affichée en permanence et se met à jour à chaque simulation ou perturbation.',
+    step2Title:  '📑 Les onglets — 3 groupes',
+    step2Content: '🔵 Voir : visualisations du résultat. 🟠 Perturber : effets que tu peux empiler (abstention, biais, manipulation...). 🟣 Variante : autres types d\'élections (coalitions, primaires, STV...).',
+    step3Title:  '🟠 Épingler une perturbation',
+    step3Content: 'Dans n\'importe quel onglet orange, tu peux épingler le résultat dans la vue centrale. La matrice affichera alors une comparaison par méthode entre l\'élection de base et la version perturbée.',
+    step4Title:  '▶ Animation en direct sur la carte',
+    step4Content: 'L\'onglet animation joue le déroulement d\'une méthode (IRV par exemple). Les candidats éliminés sont grisés sur la carte centrale et des flèches montrent les transferts de voix.',
+    step5Title:  '🎯 Mode focus',
+    step5Content: 'Si la carte prend trop de place, ce bouton la masque pour donner toute la largeur à la matrice et à l\'onglet actif.',
+  },
   combined: {
     compute:          'Analyser les effets combinés',
     computing:        'Calcul des 8 combinaisons…',
@@ -1976,6 +1990,32 @@ const fr = {
     altPathFound:    "Chemin vers la cible opposée : {{n}} étapes.",
     agendaTitle:     "Qui contrôle l'agenda ?",
     agendaDesc:      "Le speaker qui fixe l'ordre des amendements peut orienter le résultat vers n'importe quelle politique, même impopulaire.",
+  },
+
+  theory: {
+    pageTitle:    'Théorie du vote',
+    pageSubtitle: "Théorèmes, paradoxes et limites des méthodes de vote. Pour appliquer ces effets à une élection configurée (candidats, électeurs, scénarios), utilisez le Lab.",
+    toc:          'Sommaire',
+    alsoInLab:    'Aussi dans le Lab',
+    disambig: {
+      title: 'Théorie vs Lab — quand utiliser quoi ?',
+      body:  "Cette page présente les théorèmes et paradoxes en mode autonome (illustrations standalone). Pour appliquer ces mêmes effets à une élection que vous avez configurée (France 2002, scénario maison, etc.) et les empiler avec d'autres perturbations, ouvrez le Lab.",
+      cta:   'Ouvrir le Lab',
+    },
+    section: {
+      impossibility: {
+        title:    "1. Impossibilités et paradoxes",
+        subtitle: "Arrow, Plott, Sen et les autres : pourquoi aucune méthode parfaite n'existe.",
+      },
+      powerJustice: {
+        title:    "2. Pouvoir et justice",
+        subtitle: "Indices de pouvoir, tyrannie de la majorité, recul démocratique, justice intergénérationnelle.",
+      },
+      practical: {
+        title:    "3. Limites pratiques — aussi appliquables dans le Lab",
+        subtitle: "Identité, épistocratie, volonté collective, hypothèses du modèle : panels présentés ici en démonstration et disponibles dans le Lab pour les appliquer à votre élection configurée.",
+      },
+    },
   },
 
   arrow: {

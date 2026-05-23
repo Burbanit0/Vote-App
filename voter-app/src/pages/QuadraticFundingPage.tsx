@@ -135,7 +135,10 @@ const MechChart: React.FC<{
 
 const QuadraticFundingPage: React.FC = () => {
   const { t } = useTranslation();
-  useMetaTags({ title: 'Vote Lab — Quadratic Funding' });
+  useMetaTags({
+    title: 'Vote Lab — Quadratic Funding',
+    description: 'Simulate quadratic funding allocation across projects.',
+  });
 
   const [projects,     setProjects]     = useState<Project[]>(DEFAULT_PROJECTS);
   const [matchingPool, setMatchingPool] = useState(10000);

@@ -41,7 +41,7 @@ function defaultToDomain(clientX: number, clientY: number, rect: DOMRect) {
 // ── Hook ──────────────────────────────────────────────────────────────────────
 
 export function useDragTouch(
-  svgRef:  RefObject<SVGSVGElement>,
+  svgRef:  RefObject<SVGSVGElement | null>,
   options: UseDragTouchOptions,
 ): void {
   const { onStart, onMove, onEnd, toDomain = defaultToDomain } = options;
@@ -136,7 +136,7 @@ export function useDragTouch(
  * @param toDomain Optional domain converter
  */
 export function makeDragHandlers(
-  svgRef:   RefObject<SVGSVGElement>,
+  svgRef:   RefObject<SVGSVGElement | null>,
   dragging: { current: boolean },
   onStart:  (x: number, y: number) => void,
   toDomain: (clientX: number, clientY: number, rect: DOMRect) => { x: number; y: number } = defaultToDomain,
@@ -169,7 +169,7 @@ export function makeDragHandlers(
  * Returns { dragHandlers, draggingRef } — wire dragHandlers to draggable elements.
  */
 export function useDragTouchWithHandlers(
-  svgRef:   RefObject<SVGSVGElement>,
+  svgRef:   RefObject<SVGSVGElement | null>,
   callbacks: DragCallbacks,
   toDomain?: (clientX: number, clientY: number, rect: DOMRect) => { x: number; y: number },
 ): {

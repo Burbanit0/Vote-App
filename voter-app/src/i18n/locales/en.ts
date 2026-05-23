@@ -867,6 +867,20 @@ const en: TranslationKeys = {
     open: 'Open tour',
     skip: 'Skip',
   },
+  labTour: {
+    replay:      'Guided tour',
+    replayTitle: 'Replay the Lab guided tour',
+    step1Title:  '🔬 The central view',
+    step1Content: 'Candidate map on the left, methods matrix on the right. This view stays visible at all times and updates with every simulation or perturbation.',
+    step2Title:  '📑 The tabs — 3 groups',
+    step2Content: '🔵 See: result visualisations. 🟠 Perturb: effects you can stack (abstention, biases, manipulation...). 🟣 Variant: other election types (coalitions, primaries, STV...).',
+    step3Title:  '🟠 Pin a perturbation',
+    step3Content: 'From any orange tab, you can pin the result into the central view. The matrix then shows a per-method comparison between the baseline and the perturbed election.',
+    step4Title:  '▶ Live animation on the map',
+    step4Content: 'The animation tab plays out a method (IRV for instance). Eliminated candidates are greyed out on the central map and arrows show vote transfers.',
+    step5Title:  '🎯 Focus mode',
+    step5Content: 'If the map takes up too much space, this button hides it so the matrix and the active tab get the full width.',
+  },
   combined: {
     compute:          'Analyse combined effects',
     computing:        'Computing 8 combinations…',
@@ -1978,6 +1992,32 @@ const en: TranslationKeys = {
     altPathFound:    'Path to opposite target: {{n}} steps.',
     agendaTitle:     'Who controls the agenda?',
     agendaDesc:      'The speaker who sets the order of amendments can steer the outcome toward any policy — even unpopular ones.',
+  },
+
+  theory: {
+    pageTitle:    'Voting theory',
+    pageSubtitle: 'Theorems, paradoxes and limits of voting methods. To apply these effects to a configured election (candidates, voters, scenarios), use the Lab.',
+    toc:          'Table of contents',
+    alsoInLab:    'Also in the Lab',
+    disambig: {
+      title: 'Theory vs Lab — when to use which?',
+      body:  'This page presents theorems and paradoxes as standalone illustrations. To apply the same effects to an election you have configured (France 2002, custom scenario, etc.) and stack them with other perturbations, open the Lab.',
+      cta:   'Open the Lab',
+    },
+    section: {
+      impossibility: {
+        title:    '1. Impossibilities and paradoxes',
+        subtitle: 'Arrow, Plott, Sen and others: why no perfect method can exist.',
+      },
+      powerJustice: {
+        title:    '2. Power and justice',
+        subtitle: 'Power indices, tyranny of the majority, democratic backsliding, intergenerational justice.',
+      },
+      practical: {
+        title:    '3. Practical limits — also applicable in the Lab',
+        subtitle: 'Identity, epistocracy, collective will, model assumptions: panels shown here as demos and available in the Lab to apply to your configured election.',
+      },
+    },
   },
 
   arrow: {
