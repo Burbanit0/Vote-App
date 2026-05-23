@@ -21,13 +21,14 @@ const DEBOUNCE_MS = 400;
 
 interface VoterProfile { mean_ideology_x: number; partisan_pct: number; }
 interface ElectResult {
-  turnout:       number;
-  winner:        string | null;
-  vote_shares:   Record<string, number>;
-  null_rate:     number;
-  voter_profile?: VoterProfile;
-  reluctant_count?: number;
-  noise_effect?:    number;
+  turnout:           number;
+  winner:            string | null;
+  vote_shares:       Record<string, number>;
+  null_rate:         number;
+  voter_profile?:    VoterProfile;
+  reluctant_count?:  number;
+  noise_effect?:     number;
+  winners_by_method?: Record<string, string | null>;
 }
 
 interface CompulsoryData {
@@ -208,19 +209,29 @@ const CompulsoryVotingPanel: React.FC = () => {
             <Button variant="primary" onClick={handleSimulate} disabled={loading}>
               {loading ? <Spinner size="sm" animation="border" /> : t('compulsory.run')}
             </Button>
-            {data && (
-              <PinToCentralButton
-                type="compulsory"
-                icon="⚖️"
-                label={`${t('compulsory.run')} — ${Math.round(compTurnout * 100)}%`}
-                summary={
-                  data.winner_changed
-                    ? `${data.voluntary.winner} → ${data.compulsory.winner}`
-                    : `${t('compulsory.run')}: ${data.compulsory.winner ?? '—'}`
-                }
-                methodsChanged={data.winner_changed ? 1 : 0}
-              />
-            )}
+            {data && (() => {
+              const vbm = data.voluntary.winners_by_method ?? {};
+              const cbm = data.compulsory.winners_by_method ?? {};
+              let changedCount = 0;
+              Object.entries(cbm).forEach(([m, w]) => {
+                if (w !== vbm[m]) changedCount += 1;
+              });
+              if (changedCount === 0 && data.winner_changed) changedCount = 1;
+              return (
+                <PinToCentralButton
+                  type="compulsory"
+                  icon="⚖️"
+                  label={`${t('compulsory.run')} — ${Math.round(compTurnout * 100)}%`}
+                  summary={
+                    changedCount > 0
+                      ? `${changedCount}/${Object.keys(cbm).length || 1} ${t('lab.methodsChanged')}`
+                      : `${t('compulsory.run')}: ${data.compulsory.winner ?? '—'}`
+                  }
+                  methodsChanged={changedCount}
+                  winnersByMethod={data.compulsory.winners_by_method}
+                />
+              );
+            })()}
           </div>
 
           {!data && !loading && !error && (

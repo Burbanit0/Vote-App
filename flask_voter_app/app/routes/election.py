@@ -2811,6 +2811,24 @@ def abstention() -> tuple[Response, int]:
         for n in cand_names
     }
 
+    # ── Per-method winners (with and without abstention) ──────────────────
+    # Enables the LabCentralView pinned matrix to show how abstention
+    # affects every voting method, not just plurality.
+    try:
+        sincere_compare = compare_all_methods(voters, candidates, issues)
+        final_compare   = compare_all_methods(active, candidates, issues)
+        sincere_winners_by_method = {
+            m: data.get("winner")
+            for m, data in sincere_compare.get("methods", {}).items()
+        }
+        winners_by_method = {
+            m: data.get("winner")
+            for m, data in final_compare.get("methods", {}).items()
+        }
+    except Exception:  # pylint: disable=broad-except
+        sincere_winners_by_method = {}
+        winners_by_method = {}
+
     return jsonify({
         "rounds":          rounds_out,
         "sincere_winner":  sincere_winner,
@@ -2818,6 +2836,8 @@ def abstention() -> tuple[Response, int]:
         "winner_changed":  winner_changed,
         "turnout_by_camp": turnout_by_camp,
         "candidates":      [{"name": c["name"]} for c in candidates],
+        "sincere_winners_by_method": sincere_winners_by_method,
+        "winners_by_method":         winners_by_method,
     }), 200
 
 
@@ -5899,6 +5919,20 @@ def demographic_turnout() -> tuple[Response, int]:
     else:
         note += f"La méthode produit le même vainqueur ('{biased_winner}') malgré le biais de participation."
 
+    # ── Per-method winners for both voter subsets ─────────────────────────
+    try:
+        bias_compare = compare_all_methods(actual_voters, candidates, issues)
+        full_compare = compare_all_methods(voters,        candidates, issues)
+        biased_winners_by_method = {
+            m: d.get("winner") for m, d in bias_compare.get("methods", {}).items()
+        }
+        corrected_winners_by_method = {
+            m: d.get("winner") for m, d in full_compare.get("methods", {}).items()
+        }
+    except Exception:  # pylint: disable=broad-except
+        biased_winners_by_method = {}
+        corrected_winners_by_method = {}
+
     return jsonify({
         "biased_result": {
             "winner":         biased_winner,
@@ -5909,11 +5943,13 @@ def demographic_turnout() -> tuple[Response, int]:
                 "mean_education_level": round(sum(voter_demo[v["id"]]["edu"] for v in actual_voters) / n_actual, 4) if n_actual else 0.0,
                 "mean_ideology_x":      bias_mean,
             },
+            "winners_by_method": biased_winners_by_method,
         },
         "corrected_result": {
             "winner":         corrected_winner,
             "vote_shares":    corrected_shares,
             "mean_ideology_x": full_mean,
+            "winners_by_method": corrected_winners_by_method,
         },
         "winner_changed":      winner_changed,
         "representation_gap": {
@@ -6069,6 +6105,22 @@ def compulsory_voting() -> tuple[Response, int]:
         f"mais {round(quality_degradation*100, 1)}% des votes compulsoires sont du bruit aléatoire."
     )
 
+    # ── Per-method winners for both voter subsets (for central matrix diff) ──
+    try:
+        vol_voters  = [v for v in voters if v["id"] in voluntary_ids]
+        comp_voters = [v for v in voters if v["id"] in compulsory_ids]
+        vol_compare  = compare_all_methods(vol_voters,  candidates, issues)
+        comp_compare = compare_all_methods(comp_voters, candidates, issues)
+        vol_winners_by_method = {
+            m: d.get("winner") for m, d in vol_compare.get("methods", {}).items()
+        }
+        comp_winners_by_method = {
+            m: d.get("winner") for m, d in comp_compare.get("methods", {}).items()
+        }
+    except Exception:  # pylint: disable=broad-except
+        vol_winners_by_method = {}
+        comp_winners_by_method = {}
+
     return jsonify({
         "voluntary": {
             "turnout":     round(n_vol  / num_voters, 4),
@@ -6079,6 +6131,7 @@ def compulsory_voting() -> tuple[Response, int]:
                 "mean_ideology_x": vol_mean,
                 "partisan_pct":    round(vol_partisan / n_vol, 4) if n_vol else 0.0,
             },
+            "winners_by_method": vol_winners_by_method,
         },
         "compulsory": {
             "turnout":          round(n_comp / num_voters, 4),
@@ -6087,6 +6140,7 @@ def compulsory_voting() -> tuple[Response, int]:
             "null_rate":        comp_null,
             "reluctant_count":  n_rel,
             "noise_effect":     noise_effect,
+            "winners_by_method": comp_winners_by_method,
         },
         "winner_changed":             winner_changed,
         "representation_improvement": representation_improvement,
