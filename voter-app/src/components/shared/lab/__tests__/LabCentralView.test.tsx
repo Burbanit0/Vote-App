@@ -1,12 +1,12 @@
 import React from 'react';
 import { render, screen, fireEvent, act } from '@testing-library/react';
 import LabCentralView from '../LabCentralView';
-import { PerturbationsProvider, usePerturbations } from '../../../context/PerturbationsContext';
-import { AnimationBroadcastProvider } from '../../../context/AnimationBroadcastContext';
-import type { ElectionResult } from '../../../services/electionApi';
+import { PerturbationsProvider, usePerturbations } from '../../../../context/PerturbationsContext';
+import { AnimationBroadcastProvider } from '../../../../context/AnimationBroadcastContext';
+import type { ElectionResult } from '../../../../services/electionApi';
 
 // Mock the heavy ideology map (it does an axios fetch on mount)
-jest.mock('../../Simulation/IdeologyMapChart', () => () => (
+jest.mock('../../../Simulation/IdeologyMapChart', () => () => (
   <div data-testid="mock-map">map</div>
 ));
 

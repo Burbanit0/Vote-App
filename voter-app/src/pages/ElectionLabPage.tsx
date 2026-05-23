@@ -21,9 +21,9 @@ import HistoricalReferencePanel from '../components/shared/HistoricalReferencePa
 import MetricTooltip from '../components/shared/MetricTooltip';
 import ElectionInsightPanel from '../components/shared/ElectionInsightPanel';
 import ModelAssumptionsBanner from '../components/shared/ModelAssumptionsBanner';
-import LabCentralView from '../components/shared/LabCentralView';
-import LabOnboardingTour, { LAB_TOUR_LS_KEY } from '../components/shared/LabOnboardingTour';
-import ScenarioIO from '../components/shared/ScenarioIO';
+import LabCentralView from '../components/shared/lab/LabCentralView';
+import LabOnboardingTour, { LAB_TOUR_LS_KEY } from '../components/shared/lab/LabOnboardingTour';
+import ScenarioIO from '../components/shared/lab/ScenarioIO';
 import { PerturbationsProvider } from '../context/PerturbationsContext';
 import { AnimationBroadcastProvider } from '../context/AnimationBroadcastContext';
 import CollectiveWillPanel from '../components/shared/CollectiveWillPanel';
