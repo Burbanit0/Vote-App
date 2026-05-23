@@ -756,6 +756,16 @@ const en: TranslationKeys = {
 
   lab: {
     fromElectionLab: 'Configuration from Election Lab — shared election parameters',
+    centralViewTitle: 'Central view — active simulation results',
+    ideologyMapTitle: 'Ideological space — candidates and voters',
+    methodsMatrixTitle: 'Winner per voting method',
+    noCondorcet: 'No Condorcet winner',
+    differentWinners: 'different winners across methods',
+    noActivePerturbations: 'No active perturbations',
+    runToSee: 'Click "Simulate" to see the results',
+    loadingCentral: 'Computing…',
+    expand: 'Expand',
+    collapse: 'Collapse',
   },
 
   common: {

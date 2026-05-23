@@ -754,6 +754,16 @@ const fr = {
 
   lab: {
     fromElectionLab: 'Configuration depuis Election Lab — paramètres d\'élection partagés',
+    centralViewTitle: 'Vue centrale — résultats de la simulation active',
+    ideologyMapTitle: 'Espace idéologique — candidats et électeurs',
+    methodsMatrixTitle: 'Vainqueur par méthode',
+    noCondorcet: 'Aucun vainqueur de Condorcet',
+    differentWinners: 'vainqueurs différents selon la méthode',
+    noActivePerturbations: 'Aucune perturbation active',
+    runToSee: 'Cliquez sur "Simuler" pour voir les résultats',
+    loadingCentral: 'Calcul en cours…',
+    expand: 'Déplier',
+    collapse: 'Replier',
   },
 
   common: {
