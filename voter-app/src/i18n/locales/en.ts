@@ -766,6 +766,13 @@ const en: TranslationKeys = {
     loadingCentral: 'Computing…',
     expand: 'Expand',
     collapse: 'Collapse',
+    pinToCentral:    'Pin to central view',
+    pinnedCentral:   'Pinned',
+    pinnedTitle:     'Active perturbations',
+    pinnedClearAll:  'Clear all',
+    pinHint:         '📌 Configure a perturbation and click "Pin to central view" to keep it visible here',
+    methodsChanged:  'methods change winner',
+    winnerStable:    'Winner stable',
   },
 
   common: {

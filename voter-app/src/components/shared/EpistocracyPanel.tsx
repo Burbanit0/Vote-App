@@ -12,6 +12,7 @@ import {
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend,
   LineChart, Line, ReferenceLine, ResponsiveContainer, Cell,
 } from 'recharts';
+import PinToCentralButton from './PinToCentralButton';
 
 const API = process.env.REACT_APP_API_URL ?? 'http://localhost:4433';
 
@@ -289,6 +290,18 @@ const EpistocracyPanel: React.FC<EpistocracyLabProps> = ({
             {loading ? <Spinner size="sm" animation="border" /> : t('episto.run')}
           </Button>
         </Col>
+        {labMode && data && (
+          <Col xs="auto">
+            <PinToCentralButton
+              type="epistocracy"
+              icon="🎓"
+              label={`${t('episto.cardTitle')} — P=${Math.round(data.voter_competence_stats.biased_mean * 100)}%`}
+              summary={`${t('episto.democracyRegret')}: ${Math.round(data.democracy_vs_expert.democracy_regret * 100)}% / ${t('episto.expertRegret')}: ${Math.round(data.democracy_vs_expert.expert_regret * 100)}%`}
+              methodsChanged={data.voter_competence_stats.biased_mean < 0.5 ? 2 : 0}
+              disabled={!data}
+            />
+          </Col>
+        )}
       </Row>
 
       {/* ── Competence sliders ── */}
