@@ -6,6 +6,7 @@
  */
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import axios from 'axios';
+import { useApiAction } from '../../hooks/useApi';
 import { useTranslation } from 'react-i18next';
 import { Alert, Badge, Button, Col, Form, Row, Spinner } from 'react-bootstrap';
 import {
@@ -17,6 +18,23 @@ import PinToCentralButton from './PinToCentralButton';
 
 const API = process.env.REACT_APP_API_URL ?? 'http://localhost:4433';
 const DEBOUNCE_MS = 400;
+
+// Inline fetcher — typed (args, return) so useApiAction's generics flow.
+// Kept local rather than in services/ to keep this migration minimal; the
+// systematic move to services/ is tracked as follow-up to B2.
+interface AbstentionArgs {
+  candidates:            unknown[];
+  num_voters:            number;
+  ideology:              string;
+  seed:                  number;
+  demobilization_factor: number;
+  poll_influence:        number;
+  num_rounds:            number;
+}
+async function fetchAbstention(args: AbstentionArgs): Promise<AbstentionData> {
+  const res = await axios.post<AbstentionData>(`${API}/api/election/abstention`, args);
+  return res.data;
+}
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -161,11 +179,17 @@ const AbstentionPanel: React.FC = () => {
   const [influence, setInfluence] = useState(0.8);
   const [numRounds, setNumRounds] = useState(3);
 
-  const [data,    setData]    = useState<AbstentionData | null>(null);
-  const [loading, setLoading] = useState(false);
-  const [error,   setError]   = useState<string | null>(null);
   const [round,   setRound]   = useState(0);
   const [playing, setPlaying] = useState(false);
+
+  // Generic loading/error/data state lives in useApiAction. We override
+  // toErrorMessage to keep the existing i18n key ("any failure" -> friendly text).
+  const {
+    data, loading, error, run: runFetch,
+  } = useApiAction<AbstentionData, AbstentionArgs>(
+    fetchAbstention,
+    { toErrorMessage: () => t('abstention.error') },
+  );
 
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const timerRef    = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -173,27 +197,18 @@ const AbstentionPanel: React.FC = () => {
   const candidateNames = config.candidates.map(c => c.name);
 
   const run = useCallback(async (d: number, inf: number, nr: number) => {
-    setLoading(true);
-    setError(null);
     setRound(0);
     setPlaying(false);
-    try {
-      const res = await axios.post(`${API}/api/election/abstention`, {
-        candidates:            config.candidates,
-        num_voters:            config.num_voters,
-        ideology:              config.ideology,
-        seed:                  config.seed,
-        demobilization_factor: d,
-        poll_influence:        inf,
-        num_rounds:            nr,
-      });
-      setData(res.data);
-    } catch {
-      setError(t('abstention.error'));
-    } finally {
-      setLoading(false);
-    }
-  }, [config, t]);
+    await runFetch({
+      candidates:            config.candidates,
+      num_voters:            config.num_voters,
+      ideology:              config.ideology,
+      seed:                  config.seed,
+      demobilization_factor: d,
+      poll_influence:        inf,
+      num_rounds:            nr,
+    });
+  }, [config, runFetch]);
 
   // Debounced re-run on slider change
   const handleChange = (d: number, inf: number, nr: number) => {

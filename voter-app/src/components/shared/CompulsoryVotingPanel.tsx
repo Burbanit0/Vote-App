@@ -5,6 +5,7 @@
  */
 import React, { useCallback, useRef, useState } from 'react';
 import axios from 'axios';
+import { useApiAction } from '../../hooks/useApi';
 import { useTranslation } from 'react-i18next';
 import { Alert, Badge, Button, Card, Col, Form, Row, Spinner } from 'react-bootstrap';
 import {
@@ -16,6 +17,22 @@ import PinToCentralButton from './PinToCentralButton';
 
 const API = process.env.REACT_APP_API_URL ?? 'http://localhost:4433';
 const DEBOUNCE_MS = 400;
+
+interface CompulsoryArgs {
+  candidates:           Array<{ name: string; x: number; y: number }>;
+  num_voters:           number;
+  ideology:             string;
+  seed:                 number;
+  voluntary_turnout:    number;
+  compulsory_turnout:   number;
+  reluctant_null_rate:  number;
+  reluctant_random_pct: number;
+  method:               string;
+}
+async function fetchCompulsory(args: CompulsoryArgs): Promise<CompulsoryData> {
+  const res = await axios.post<CompulsoryData>(`${API}/api/election/compulsory-voting`, args);
+  return res.data;
+}
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -125,33 +142,29 @@ const CompulsoryVotingPanel: React.FC = () => {
   const [compTurnout, setCompTurnout] = useState(0.92);
   const [relNull,     setRelNull]     = useState(0.04);
   const [relRandom,   setRelRandom]   = useState(0.08);
-  const [data,        setData]        = useState<CompulsoryData | null>(null);
-  const [loading,     setLoading]     = useState(false);
-  const [error,       setError]       = useState<string | null>(null);
+
+  const {
+    data, loading, error, run: runFetch,
+  } = useApiAction<CompulsoryData, CompulsoryArgs>(
+    fetchCompulsory,
+    { toErrorMessage: () => t('compulsory.error') },
+  );
+
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  const runSimulation = useCallback(async (vt: number, ct: number, rn: number, rr: number) => {
-    setLoading(true);
-    setError(null);
-    try {
-      const res = await axios.post(`${API}/api/election/compulsory-voting`, {
-        candidates:           config.candidates.map((c) => ({ name: c.name, x: c.x, y: c.y })),
-        num_voters:           config.num_voters,
-        ideology:             config.ideology,
-        seed:                 config.seed,
-        voluntary_turnout:    vt,
-        compulsory_turnout:   ct,
-        reluctant_null_rate:  rn,
-        reluctant_random_pct: rr,
-        method:               'plurality',
-      });
-      setData(res.data);
-    } catch {
-      setError(t('compulsory.error'));
-    } finally {
-      setLoading(false);
-    }
-  }, [config, t]);
+  const runSimulation = useCallback((vt: number, ct: number, rn: number, rr: number) => {
+    return runFetch({
+      candidates:           config.candidates.map((c) => ({ name: c.name, x: c.x, y: c.y })),
+      num_voters:           config.num_voters,
+      ideology:             config.ideology,
+      seed:                 config.seed,
+      voluntary_turnout:    vt,
+      compulsory_turnout:   ct,
+      reluctant_null_rate:  rn,
+      reluctant_random_pct: rr,
+      method:               'plurality',
+    });
+  }, [config, runFetch]);
 
   const handleSimulate = () => runSimulation(volTurnout, compTurnout, relNull, relRandom);
 
