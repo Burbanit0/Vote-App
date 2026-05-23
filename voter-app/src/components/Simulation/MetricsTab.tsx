@@ -176,7 +176,7 @@ const MetricsTab: React.FC<Props> = ({ comparisonResults, allMethodNames, numSim
 
       {/* Majority Judgment visualization — shown when MJ is in the results */}
       {(() => {
-        const mjResult = comparisonResults[0]?.methods?.['majority_judgment'] as (Record<string, unknown> & { mj_grade_distributions?: Record<string, number[]>; mj_grades?: Record<string, Record<string, number>>; mj_medians?: Record<string, string>; mj_scores?: Record<string, number>; winner?: string | null }) | undefined;
+        const mjResult = comparisonResults[0]?.methods?.['majority_judgment'] as unknown as (Record<string, unknown> & { mj_grade_distributions?: Record<string, number[]>; mj_grades?: Record<string, Record<string, number>>; mj_medians?: Record<string, string>; mj_scores?: Record<string, number>; winner?: string | null }) | undefined;
         if (!mjResult?.mj_grade_distributions) return null;
         const allCandidates = Object.keys(mjResult.mj_grade_distributions);
         const mjData: MJResult = {
@@ -203,7 +203,7 @@ const MetricsTab: React.FC<Props> = ({ comparisonResults, allMethodNames, numSim
 
       {/* Evaluative voting chart */}
       {(() => {
-        const evRaw = comparisonResults[0]?.methods?.['evaluative'] as (Record<string, unknown> & {
+        const evRaw = comparisonResults[0]?.methods?.['evaluative'] as unknown as (Record<string, unknown> & {
           ev_scores?:       Record<string, number>;
           ev_distribution?: Record<string, Record<string, number>>;
           winner?:          string | null;

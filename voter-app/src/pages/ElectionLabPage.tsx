@@ -21,6 +21,7 @@ import MetricTooltip from '../components/shared/MetricTooltip';
 import ElectionInsightPanel from '../components/shared/ElectionInsightPanel';
 import ModelAssumptionsBanner from '../components/shared/ModelAssumptionsBanner';
 import LabCentralView from '../components/shared/LabCentralView';
+import LabOnboardingTour, { LAB_TOUR_LS_KEY } from '../components/shared/LabOnboardingTour';
 import { PerturbationsProvider } from '../context/PerturbationsContext';
 import { AnimationBroadcastProvider } from '../context/AnimationBroadcastContext';
 import CollectiveWillPanel from '../components/shared/CollectiveWillPanel';
@@ -354,7 +355,16 @@ const ElectionLabPage: React.FC = () => {
   const [duelMode,  setDuelMode]  = useState(false);
   const [duelMethA, setDuelMethA] = useState('plurality');
   const [duelMethB, setDuelMethB] = useState('schulze');
-  const [activeTab, setActiveTab] = useState('results');
+  // Initialise activeTab from `?tab=` query param if present, so deep links
+  // from TheoryPage (or any "open in Lab" CTA) land on the correct tab.
+  const [activeTab, setActiveTab] = useState(() => {
+    try {
+      const p = new URLSearchParams(window.location.search).get('tab');
+      return p ?? 'results';
+    } catch {
+      return 'results';
+    }
+  });
   const [isMobile,  setIsMobile]  = useState(() => window.innerWidth < 768);
 
   React.useEffect(() => {
@@ -364,6 +374,26 @@ const ElectionLabPage: React.FC = () => {
     return () => mq.removeEventListener('change', handler);
   }, []);
   const runIdRef              = useRef(0);
+
+  // ── Onboarding tour: auto-run on first visit, or when ?labTour=1 ────────
+  const [tourRun, setTourRun] = useState(false);
+  const startTour = useCallback(() => {
+    try { localStorage.removeItem(LAB_TOUR_LS_KEY); } catch { /* */ }
+    setTourRun(false);
+    setTimeout(() => setTourRun(true), 100);
+  }, []);
+  React.useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const forced = params.get('labTour') === '1';
+    let completed = false;
+    try { completed = localStorage.getItem(LAB_TOUR_LS_KEY) === 'true'; } catch { /* */ }
+    if (forced || !completed) {
+      // Wait long enough for the first simulation to render so target
+      // elements (data-tour="lab-central" etc.) exist in the DOM.
+      const id = setTimeout(() => setTourRun(true), 1200);
+      return () => clearTimeout(id);
+    }
+  }, []);
 
   const runSimulation = useCallback(async () => {
     const myRun = ++runIdRef.current;
@@ -390,6 +420,7 @@ const ElectionLabPage: React.FC = () => {
 
   return (
     <Container fluid className="py-4" style={{ maxWidth: 1400 }}>
+      <LabOnboardingTour run={tourRun} onFinish={() => setTourRun(false)} />
       <ModelAssumptionsBanner />
       {/* Header */}
       <div className="d-flex align-items-center justify-content-between mb-2 flex-wrap gap-2">
@@ -434,6 +465,14 @@ const ElectionLabPage: React.FC = () => {
               </Dropdown.Item>
             </Dropdown.Menu>
           </Dropdown>
+          <Button
+            variant="outline-secondary" size="sm"
+            onClick={startTour}
+            data-testid="lab-tour-replay"
+            title={t('labTour.replayTitle')}
+          >
+            🎓 {t('labTour.replay')}
+          </Button>
         </div>
       </div>
 
@@ -484,7 +523,9 @@ const ElectionLabPage: React.FC = () => {
           {result && (
             <div style={{ opacity: loading ? 0.65 : 1, transition: 'opacity 0.25s' }}>
               {/* ── Persistent central view (always visible) ── */}
-              <LabCentralView result={result} loading={loading} />
+              <div data-tour="lab-central">
+                <LabCentralView result={result} loading={loading} />
+              </div>
 
               {/* Mode Duel toggle */}
               <div className="d-flex justify-content-end mb-2">
@@ -703,12 +744,20 @@ const ElectionLabPage: React.FC = () => {
                       onSelect={(k) => k && setActiveTab(k)}
                       className="mb-3 flex-nowrap overflow-auto"
                       data-testid="desktop-tab-nav"
+                      data-tour="lab-tabs"
                       style={{ flexWrap: 'nowrap' }}
                     >
                       {TABS.map((tab) => (
                         <Tab key={tab.key} eventKey={tab.key}
                           title={
-                            <span style={{ whiteSpace: 'nowrap', display: 'inline-flex', alignItems: 'center', gap: 5 }}>
+                            <span
+                              style={{ whiteSpace: 'nowrap', display: 'inline-flex', alignItems: 'center', gap: 5 }}
+                              data-tour={
+                                tab.key === 'animation' ? 'lab-animation-tab' :
+                                tab.key === 'abstention' ? 'lab-perturb-tab' :
+                                undefined
+                              }
+                            >
                               <span
                                 style={{
                                   display: 'inline-block', width: 6, height: 6,

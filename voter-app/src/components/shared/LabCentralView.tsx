@@ -381,6 +381,7 @@ const LabCentralView: React.FC<Props> = ({ result, loading }) => {
             style={{ fontSize: '0.7rem', padding: focusMode ? '2px 8px' : undefined }}
             onClick={() => setFocusMode((f) => !f)}
             data-testid="central-focus-toggle"
+            data-tour="lab-focus"
             title={t('lab.focusModeTitle')}
           >
             {focusMode ? '🎯 ' + t('lab.focusOn') : '🎯 ' + t('lab.focusOff')}
