@@ -37,6 +37,14 @@ structlog==25.4.0
 # dependency is explicit (we use it directly in our schemas).
 pydantic==2.13.4
 
+# Phase 2 strategic refactor: FastAPI runs in parallel to Flask under api_v2/.
+# Each migrated endpoint is exposed at /api/v2/* and Flask retains /api/v1/*
+# (which is the default /api/* for now). uvicorn is the ASGI runtime.
+fastapi==0.121.2
+uvicorn[standard]==0.40.0
+httpx==0.28.1                  # used by the FastAPI TestClient (pytest)
+pydantic-settings==2.12.0      # 12-factor env config for api_v2/core/config.py
+
 # OAuth
 google-auth==2.38.0
 

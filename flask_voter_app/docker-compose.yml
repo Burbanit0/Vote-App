@@ -39,6 +39,30 @@ services:
       - mynetwork
     # command: ["python", "-m", "unittest", "discover", "-s", "tests"]
 
+  # Phase 2 of the strategic refactor: FastAPI sibling backend.
+  # Runs alongside Flask using the same image (deps are already there);
+  # the entry point is uvicorn pointing at api_v2.main:app. Frontend
+  # reaches it via /api/v2/* (proxied by Vite in dev, by Caddy in prod).
+  api_v2:
+    restart: always
+    build: .
+    container_name: fastapi_app
+    command: ["uvicorn", "api_v2.main:app", "--host", "0.0.0.0", "--port", "4434"]
+    environment:
+      - FLASK_ENV=development
+      - DATABASE_URL=postgresql://myuser:mypassword@db:5432/mydatabase
+      - REDIS_URL=redis://redis:6379
+      - CORS_ORIGINS=http://localhost:3000
+    ports:
+      - "4434:4434"
+    volumes:
+      - .:/app
+    depends_on:
+      - db
+      - redis
+    networks:
+      - mynetwork
+
   redis:
     image: redis:latest
     container_name: redis

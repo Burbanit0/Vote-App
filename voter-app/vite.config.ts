@@ -55,8 +55,16 @@ export default defineConfig(({ mode }) => {
       port: 3000,
       open: true,
       proxy: {
-        // Route all /api/* calls through Vite so a single port suffices
-        // (needed when sharing via ngrok — the browser can't reach :4433)
+        // Route /api/v2/* to FastAPI (port 4434) — added in Phase 2 of the
+        // strategic refactor (see STRATEGIC_REFACTOR_PLAN.md). Ordering
+        // matters: the more specific prefix must come first.
+        '/api/v2': {
+          target: 'http://localhost:4434',
+          changeOrigin: true,
+        },
+        // Everything else still hits Flask (port 4433). As routes migrate
+        // from Flask to FastAPI in Phase 3, they'll move from /api/* to
+        // /api/v2/*, with /api/v1/* kept as a temporary alias.
         '/api': {
           target: 'http://localhost:4433',
           changeOrigin: true,
