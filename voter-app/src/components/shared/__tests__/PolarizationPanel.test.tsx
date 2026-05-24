@@ -118,7 +118,9 @@ describe('PolarizationPanel', () => {
     mockPost.mockResolvedValue(makeData());
     renderPanel();
     fireEvent.click(screen.getByRole('button', { name: /calculer|compute/i }));
-    await waitFor(() => expect(screen.getByTestId('scatter-chart')).toBeInTheDocument());
+    // The panel renders TWO scatter charts side-by-side (centrist vs polarized),
+    // so we use getAllByTestId.
+    await waitFor(() => expect(screen.getAllByTestId('scatter-chart').length).toBeGreaterThan(0));
     jest.runAllTimers();
   });
 

@@ -99,43 +99,46 @@ describe('App', () => {
     expect(screen.getByTestId('home-page')).toBeInTheDocument();
   });
 
-  it('renders ScenarioBuilderPage on /scenario-builder', () => {
+  // NOTE: every route below was made lazy in A1 (commit a6497ad) so we need
+  // findByTestId (async) — getByTestId returns before Suspense resolves.
+
+  it('renders ScenarioBuilderPage on /scenario-builder', async () => {
     window.history.pushState({}, '', '/scenario-builder');
     render(<App />);
-    expect(screen.getByTestId('scenario-builder-page')).toBeInTheDocument();
+    expect(await screen.findByTestId('scenario-builder-page')).toBeInTheDocument();
   });
 
-  it('renders SimulationComparePage on /simulation/compare', () => {
+  it('renders SimulationComparePage on /simulation/compare', async () => {
     window.history.pushState({}, '', '/simulation/compare');
     render(<App />);
-    expect(screen.getByTestId('simulation-compare-page')).toBeInTheDocument();
+    expect(await screen.findByTestId('simulation-compare-page')).toBeInTheDocument();
   });
 
-  it('renders ConstitutionalCrisisPage on /constitutional-crisis', () => {
+  it('renders ConstitutionalCrisisPage on /constitutional-crisis', async () => {
     window.history.pushState({}, '', '/constitutional-crisis');
     render(<App />);
-    expect(screen.getByTestId('constitutional-crisis-page')).toBeInTheDocument();
+    expect(await screen.findByTestId('constitutional-crisis-page')).toBeInTheDocument();
   });
 
   // Auth-protected routes
-  it('renders ProfilePage on /profile', () => {
+  it('renders ProfilePage on /profile', async () => {
     mockUseAuth.mockReturnValue({ user: { name: 'Test User' } });
     window.history.pushState({}, '', '/profile');
     render(<App />);
-    expect(screen.getByTestId('profile-page')).toBeInTheDocument();
+    expect(await screen.findByTestId('profile-page')).toBeInTheDocument();
   });
 
-  it('renders UserProfilePage on /users/:id', () => {
+  it('renders UserProfilePage on /users/:id', async () => {
     mockUseAuth.mockReturnValue({ user: { name: 'Test User' } });
     window.history.pushState({}, '', '/users/1');
     render(<App />);
-    expect(screen.getByTestId('user-profile-page')).toBeInTheDocument();
+    expect(await screen.findByTestId('user-profile-page')).toBeInTheDocument();
   });
 
-  it('renders SimulationPage on /simulation', () => {
+  it('renders SimulationPage on /simulation', async () => {
     mockUseAuth.mockReturnValue({ user: { name: 'Test User' } });
     window.history.pushState({}, '', '/simulation');
     render(<App />);
-    expect(screen.getByTestId('simulation-page')).toBeInTheDocument();
+    expect(await screen.findByTestId('simulation-page')).toBeInTheDocument();
   });
 });

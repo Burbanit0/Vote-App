@@ -65,8 +65,10 @@ describe('ElectionLabPage', () => {
 
   it('renders parameter accordion sections', () => {
     renderPage();
-    expect(screen.getByText(/Candidats|Candidates/i)).toBeInTheDocument();
-    expect(screen.getByText(/Électorat|Electorate/i)).toBeInTheDocument();
+    // Use getAllBy because the LabCentralView (added in Sprint 2) reuses these
+    // labels in the active-modules badge bar.
+    expect(screen.getAllByText(/Candidats|Candidates/i).length).toBeGreaterThan(0);
+    expect(screen.getAllByText(/Électorat|Electorate/i).length).toBeGreaterThan(0);
   });
 
   it('clicking Simulate calls simulateElection', async () => {
