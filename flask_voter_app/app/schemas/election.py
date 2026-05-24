@@ -127,11 +127,14 @@ class CampaignSensitivityRequest(BaseModel):
 
 
 class CampaignSnapshot(BaseModel):
+    """Tolerant of extra fields the worker emits per-snapshot (vote shares,
+    method-specific scores, ...). Only the strictly-required fields are
+    typed; the rest pass through unchanged."""
     model_config = ConfigDict(extra="allow")
 
-    day:               Any
-    methods:           Dict[str, MethodResult]
-    condorcet_winner:  Optional[str]
+    day:               Any                       = Field(..., description="Day index or 'final'.")
+    methods:           Dict[str, MethodResult]   = Field(default_factory=dict)
+    condorcet_winner:  Optional[str]             = None
 
 
 class CampaignSensitivityResponse(BaseModel):
