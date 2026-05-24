@@ -1,5 +1,6 @@
 import axios from 'axios';
 import { ElectionConfig } from '../context/ElectionContext';
+import { apiPath } from '../api/apiVersion';
 
 const API_BASE = process.env.VITE_API_URL || 'http://localhost:4433';
 
@@ -25,7 +26,12 @@ export interface ElectionResult {
 }
 
 export async function simulateElection(config: ElectionConfig): Promise<ElectionResult> {
-  const response = await axios.post<ElectionResult>(`${API_BASE}/api/election/simulate`, config);
+  // Routed to FastAPI /api/v2/election/simulate when migrated; falls back to
+  // Flask /api/election/simulate via the rollback switch (see apiVersion.ts).
+  const response = await axios.post<ElectionResult>(
+    `${API_BASE}${apiPath('election/simulate')}`,
+    config,
+  );
   return response.data;
 }
 
@@ -132,8 +138,8 @@ export async function fetchCombinedEffects(
   params: Record<string, unknown>
 ): Promise<CombinedEffectsResult> {
   const response = await axios.post<CombinedEffectsResult>(
-    `${API_BASE}/api/election/combined-effects`,
-    params
+    `${API_BASE}${apiPath('election/combined-effects')}`,
+    params,
   );
   return response.data;
 }
@@ -173,8 +179,8 @@ export async function fetchCampaignSensitivity(
   params: CampaignSensitivityParams
 ): Promise<CampaignSensitivityResult> {
   const response = await axios.post<CampaignSensitivityResult>(
-    `${API_BASE}/api/election/campaign-sensitivity`,
-    params
+    `${API_BASE}${apiPath('election/campaign-sensitivity')}`,
+    params,
   );
   return response.data;
 }
