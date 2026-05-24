@@ -93,12 +93,25 @@ def create_app(config_object="config.Config"):
             headers["Access-Control-Max-Age"]           = "3600"
             return response
 
+    # Use structlog for request access logs — JSON in prod, console in dev.
+    # Skip /api/health to keep healthcheck noise out of the log stream
+    # (uptime monitors poll it every 30s, that's 2 880 noise lines/day).
+    from .utils.logger import get_logger
+    _access_log = get_logger("app.access")
+
     @app.after_request
     def log_request(response):
         start = getattr(g, "start", None)
-        if start is not None:
-            dur = time.perf_counter() - start
-            app.logger.info("%s %s -> %s (%.3fs)", request.method, request.path, response.status_code, dur)
+        if start is None or request.path == "/api/health":
+            return response
+        dur_ms = round((time.perf_counter() - start) * 1000, 1)
+        _access_log.info(
+            "http.request",
+            method=request.method,
+            path=request.path,
+            status=response.status_code,
+            duration_ms=dur_ms,
+        )
         return response
 
     db.init_app(app)
