@@ -19,19 +19,12 @@ import PinToCentralButton from './PinToCentralButton';
 const API = process.env.REACT_APP_API_URL ?? 'http://localhost:4433';
 const DEBOUNCE_MS = 400;
 
-// Inline fetcher — typed (args, return) so useApiAction's generics flow.
-// Kept local rather than in services/ to keep this migration minimal; the
-// systematic move to services/ is tracked as follow-up to B2.
-interface AbstentionArgs {
-  candidates:            unknown[];
-  num_voters:            number;
-  ideology:              string;
-  seed:                  number;
-  demobilization_factor: number;
-  poll_influence:        number;
-  num_rounds:            number;
-}
-async function fetchAbstention(args: AbstentionArgs): Promise<AbstentionData> {
+// Request type comes from the generated OpenAPI contract (Phase 1).
+// Single source of truth: the Pydantic schema in
+// flask_voter_app/app/schemas/election.py. Regenerate via `npm run gen:api`.
+import type { AbstentionRequest } from '../../api';
+
+async function fetchAbstention(args: AbstentionRequest): Promise<AbstentionData> {
   const res = await axios.post<AbstentionData>(`${API}/api/election/abstention`, args);
   return res.data;
 }
@@ -186,7 +179,7 @@ const AbstentionPanel: React.FC = () => {
   // toErrorMessage to keep the existing i18n key ("any failure" -> friendly text).
   const {
     data, loading, error, run: runFetch,
-  } = useApiAction<AbstentionData, AbstentionArgs>(
+  } = useApiAction<AbstentionData, AbstentionRequest>(
     fetchAbstention,
     { toErrorMessage: () => t('abstention.error') },
   );

@@ -1,0 +1,1325 @@
+{
+  "openapi": "3.1.0",
+  "info": {
+    "title": "Vote Lab \u2014 Election API (Phase 1 typed subset)",
+    "version": "1.0.0",
+    "description": "Pydantic-derived contract for the 5 election endpoints typed in Phase 1 of the strategic refactor. The remaining endpoints will be added as they migrate to FastAPI in Phase 3."
+  },
+  "servers": [
+    {
+      "url": "http://localhost:4433"
+    }
+  ],
+  "paths": {
+    "/api/election/simulate": {
+      "post": {
+        "operationId": "simulateElection",
+        "summary": "Run the unified election simulation",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SimulateRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SimulateResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Validation error"
+          },
+          "429": {
+            "description": "Rate limited"
+          },
+          "500": {
+            "description": "Internal error"
+          }
+        }
+      }
+    },
+    "/api/election/combined-effects": {
+      "post": {
+        "operationId": "combinedEffects",
+        "summary": "2x2x2 factorial: how each model (blank/campaign/info) shifts the result",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CombinedEffectsRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CombinedEffectsResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Validation error"
+          },
+          "429": {
+            "description": "Rate limited"
+          },
+          "500": {
+            "description": "Internal error"
+          }
+        }
+      }
+    },
+    "/api/election/campaign-sensitivity": {
+      "post": {
+        "operationId": "campaignSensitivity",
+        "summary": "Snapshot the election at multiple campaign days",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CampaignSensitivityRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CampaignSensitivityResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Validation error"
+          },
+          "429": {
+            "description": "Rate limited"
+          },
+          "500": {
+            "description": "Internal error"
+          }
+        }
+      }
+    },
+    "/api/election/abstention": {
+      "post": {
+        "operationId": "abstention",
+        "summary": "Iterated abstention model with poll feedback",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AbstentionRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AbstentionResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Validation error"
+          },
+          "429": {
+            "description": "Rate limited"
+          },
+          "500": {
+            "description": "Internal error"
+          }
+        }
+      }
+    },
+    "/api/election/coalition": {
+      "post": {
+        "operationId": "coalition",
+        "summary": "D'Hondt seat allocation + greedy coalition formation",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CoalitionRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CoalitionResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Validation error"
+          },
+          "429": {
+            "description": "Rate limited"
+          },
+          "500": {
+            "description": "Internal error"
+          }
+        }
+      }
+    }
+  },
+  "components": {
+    "schemas": {
+      "BlankVoteConfig": {
+        "additionalProperties": false,
+        "description": "Constitutional blank-vote rule + optional contagion.",
+        "properties": {
+          "enabled": {
+            "default": false,
+            "description": "Apply the constitutional rule to the winner.",
+            "title": "Enabled",
+            "type": "boolean"
+          },
+          "rule": {
+            "default": "symbolic",
+            "description": "'symbolic' | 'competitive' | 'threshold_30'.",
+            "title": "Rule",
+            "type": "string"
+          },
+          "contagion": {
+            "$ref": "#/components/schemas/ContagionConfig"
+          }
+        },
+        "title": "BlankVoteConfig",
+        "type": "object"
+      },
+      "CampaignConfig": {
+        "additionalProperties": false,
+        "description": "Polling-bandwagon dynamics over a few days.",
+        "properties": {
+          "enabled": {
+            "default": false,
+            "description": "Apply campaign dynamics to true utilities.",
+            "title": "Enabled",
+            "type": "boolean"
+          },
+          "num_days": {
+            "default": 30,
+            "description": "Campaign length in days.",
+            "maximum": 60,
+            "minimum": 7,
+            "title": "Num Days",
+            "type": "integer"
+          },
+          "polling_effect": {
+            "default": 0.3,
+            "description": "0 = ignore polls, 1 = ballots follow polls.",
+            "maximum": 1.0,
+            "minimum": 0.0,
+            "title": "Polling Effect",
+            "type": "number"
+          }
+        },
+        "title": "CampaignConfig",
+        "type": "object"
+      },
+      "CandidateSpec": {
+        "additionalProperties": false,
+        "description": "A single candidate placed at a 2D ideological position on [-1, 1]\u00b2.",
+        "properties": {
+          "name": {
+            "description": "Candidate display name.",
+            "maxLength": 64,
+            "minLength": 1,
+            "title": "Name",
+            "type": "string"
+          },
+          "x": {
+            "description": "Economy axis. -1 = far left, +1 = far right.",
+            "maximum": 1.0,
+            "minimum": -1.0,
+            "title": "X",
+            "type": "number"
+          },
+          "y": {
+            "description": "Social axis. -1 = liberal, +1 = conservative.",
+            "maximum": 1.0,
+            "minimum": -1.0,
+            "title": "Y",
+            "type": "number"
+          }
+        },
+        "required": [
+          "name",
+          "x",
+          "y"
+        ],
+        "title": "CandidateSpec",
+        "type": "object"
+      },
+      "ContagionConfig": {
+        "additionalProperties": false,
+        "description": "SIS-style blank-vote contagion parameters.",
+        "properties": {
+          "enabled": {
+            "default": false,
+            "description": "Whether contagion is applied.",
+            "title": "Enabled",
+            "type": "boolean"
+          },
+          "beta": {
+            "default": 0.15,
+            "description": "Infection rate \u03b2 (probability of converting per neighbour).",
+            "maximum": 1.0,
+            "minimum": 0.0,
+            "title": "Beta",
+            "type": "number"
+          },
+          "gamma": {
+            "default": 0.1,
+            "description": "Recovery rate \u03b3.",
+            "maximum": 1.0,
+            "minimum": 0.0,
+            "title": "Gamma",
+            "type": "number"
+          },
+          "network": {
+            "default": "random",
+            "description": "Network topology: 'random' | 'watts_strogatz' | 'block'.",
+            "title": "Network",
+            "type": "string"
+          }
+        },
+        "title": "ContagionConfig",
+        "type": "object"
+      },
+      "InformationModelConfig": {
+        "additionalProperties": false,
+        "description": "Media bias \u00d7 voter information level adjustment of perceived utilities.",
+        "properties": {
+          "enabled": {
+            "default": false,
+            "description": "Apply information asymmetry.",
+            "title": "Enabled",
+            "type": "boolean"
+          },
+          "media_bias": {
+            "additionalProperties": {
+              "type": "number"
+            },
+            "description": "Per-candidate media bias [-1, +1].",
+            "title": "Media Bias",
+            "type": "object"
+          },
+          "voter_segments": {
+            "additionalProperties": {
+              "type": "number"
+            },
+            "description": "Share of voters in each information bucket. Sums should be ~1.",
+            "title": "Voter Segments",
+            "type": "object"
+          }
+        },
+        "title": "InformationModelConfig",
+        "type": "object"
+      },
+      "SimulateRequest": {
+        "additionalProperties": false,
+        "description": "POST /api/election/simulate \u2014 full pipeline run.",
+        "properties": {
+          "candidates": {
+            "description": "2 to 8 candidates. Beyond that, Kemeny-Young falls back to KwikSort approximation.",
+            "items": {
+              "$ref": "#/components/schemas/CandidateSpec"
+            },
+            "maxItems": 8,
+            "minItems": 2,
+            "title": "Candidates",
+            "type": "array"
+          },
+          "num_voters": {
+            "default": 300,
+            "maximum": 1000,
+            "minimum": 10,
+            "title": "Num Voters",
+            "type": "integer"
+          },
+          "ideology": {
+            "default": "random",
+            "description": "Voter distribution: 'random' | 'centrist' | 'polarized' | 'left_skewed' | 'right_skewed'.",
+            "title": "Ideology",
+            "type": "string"
+          },
+          "seed": {
+            "default": 42,
+            "description": "PRNG seed for reproducibility.",
+            "minimum": 0,
+            "title": "Seed",
+            "type": "integer"
+          },
+          "blank_vote": {
+            "$ref": "#/components/schemas/BlankVoteConfig"
+          },
+          "information_model": {
+            "$ref": "#/components/schemas/InformationModelConfig"
+          },
+          "campaign": {
+            "$ref": "#/components/schemas/CampaignConfig"
+          }
+        },
+        "required": [
+          "candidates"
+        ],
+        "title": "SimulateRequest",
+        "type": "object"
+      },
+      "CandidateSnapshot": {
+        "additionalProperties": false,
+        "description": "Candidate as returned in /simulate (with derived party label).",
+        "properties": {
+          "name": {
+            "title": "Name",
+            "type": "string"
+          },
+          "x": {
+            "title": "X",
+            "type": "number"
+          },
+          "y": {
+            "title": "Y",
+            "type": "number"
+          },
+          "party": {
+            "title": "Party",
+            "type": "string"
+          }
+        },
+        "required": [
+          "name",
+          "x",
+          "y",
+          "party"
+        ],
+        "title": "CandidateSnapshot",
+        "type": "object"
+      },
+      "MethodResult": {
+        "additionalProperties": true,
+        "description": "Result of a single voting method on one electorate.",
+        "properties": {
+          "winner": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "description": "Method winner.",
+            "title": "Winner"
+          },
+          "bayesian_regret": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "description": "Lower = better welfare.",
+            "title": "Bayesian Regret"
+          },
+          "majority_satisfaction": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "description": "Share of voters satisfied (0..1).",
+            "title": "Majority Satisfaction"
+          },
+          "condorcet_consistent": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "description": "Did the method elect the Condorcet winner?",
+            "title": "Condorcet Consistent"
+          },
+          "winner_with_blank": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "description": "Winner after blank-vote rule (if enabled).",
+            "title": "Winner With Blank"
+          },
+          "blank_triggered": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "description": "Did the blank-vote rule fire?",
+            "title": "Blank Triggered"
+          }
+        },
+        "title": "MethodResult",
+        "type": "object"
+      },
+      "VoterSnapshot": {
+        "additionalProperties": false,
+        "description": "One voter row in the ideology map.",
+        "properties": {
+          "id": {
+            "title": "Id",
+            "type": "integer"
+          },
+          "x": {
+            "title": "X",
+            "type": "number"
+          },
+          "y": {
+            "title": "Y",
+            "type": "number"
+          },
+          "blank_threshold_final": {
+            "title": "Blank Threshold Final",
+            "type": "number"
+          }
+        },
+        "required": [
+          "id",
+          "x",
+          "y",
+          "blank_threshold_final"
+        ],
+        "title": "VoterSnapshot",
+        "type": "object"
+      },
+      "SimulateResponse": {
+        "additionalProperties": false,
+        "description": "Result of /simulate \u2014 keys read by LabCentralView, IdeologyMap, MethodMatrix.",
+        "properties": {
+          "config": {
+            "additionalProperties": true,
+            "description": "Echo of the original request.",
+            "title": "Config",
+            "type": "object"
+          },
+          "voters_snapshot": {
+            "items": {
+              "$ref": "#/components/schemas/VoterSnapshot"
+            },
+            "title": "Voters Snapshot",
+            "type": "array"
+          },
+          "candidates": {
+            "items": {
+              "$ref": "#/components/schemas/CandidateSnapshot"
+            },
+            "title": "Candidates",
+            "type": "array"
+          },
+          "methods": {
+            "additionalProperties": {
+              "$ref": "#/components/schemas/MethodResult"
+            },
+            "description": "Keyed by method slug.",
+            "title": "Methods",
+            "type": "object"
+          },
+          "condorcet_winner": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Condorcet Winner"
+          },
+          "blank_rate": {
+            "maximum": 1.0,
+            "minimum": 0.0,
+            "title": "Blank Rate",
+            "type": "number"
+          },
+          "campaign_trajectory": {
+            "anyOf": [
+              {
+                "additionalProperties": true,
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Campaign Trajectory"
+          },
+          "inter_method_agreement": {
+            "maximum": 1.0,
+            "minimum": 0.0,
+            "title": "Inter Method Agreement",
+            "type": "number"
+          },
+          "condorcet_exists": {
+            "title": "Condorcet Exists",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "config",
+          "voters_snapshot",
+          "candidates",
+          "methods",
+          "blank_rate",
+          "inter_method_agreement",
+          "condorcet_exists"
+        ],
+        "title": "SimulateResponse",
+        "type": "object"
+      },
+      "CombinedEffectsRequest": {
+        "additionalProperties": false,
+        "description": "Same shape as SimulateRequest but with a tighter num_voters cap (2\u00b3=8 simulations).",
+        "properties": {
+          "candidates": {
+            "items": {
+              "$ref": "#/components/schemas/CandidateSpec"
+            },
+            "maxItems": 6,
+            "minItems": 2,
+            "title": "Candidates",
+            "type": "array"
+          },
+          "num_voters": {
+            "default": 150,
+            "maximum": 200,
+            "minimum": 10,
+            "title": "Num Voters",
+            "type": "integer"
+          },
+          "ideology": {
+            "default": "random",
+            "title": "Ideology",
+            "type": "string"
+          },
+          "seed": {
+            "default": 42,
+            "minimum": 0,
+            "title": "Seed",
+            "type": "integer"
+          },
+          "blank_vote": {
+            "$ref": "#/components/schemas/BlankVoteConfig"
+          },
+          "information_model": {
+            "$ref": "#/components/schemas/InformationModelConfig"
+          },
+          "campaign": {
+            "$ref": "#/components/schemas/CampaignConfig"
+          }
+        },
+        "required": [
+          "candidates"
+        ],
+        "title": "CombinedEffectsRequest",
+        "type": "object"
+      },
+      "CombinedEffectsCombination": {
+        "additionalProperties": false,
+        "properties": {
+          "id": {
+            "title": "Id",
+            "type": "string"
+          },
+          "blank": {
+            "title": "Blank",
+            "type": "boolean"
+          },
+          "campaign": {
+            "title": "Campaign",
+            "type": "boolean"
+          },
+          "information_model": {
+            "title": "Information Model",
+            "type": "boolean"
+          },
+          "plurality_winner": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Plurality Winner"
+          },
+          "condorcet_winner": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Condorcet Winner"
+          },
+          "inter_method_agreement": {
+            "title": "Inter Method Agreement",
+            "type": "number"
+          },
+          "winner_differs_from_base": {
+            "title": "Winner Differs From Base",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "id",
+          "blank",
+          "campaign",
+          "information_model",
+          "plurality_winner",
+          "condorcet_winner",
+          "inter_method_agreement",
+          "winner_differs_from_base"
+        ],
+        "title": "CombinedEffectsCombination",
+        "type": "object"
+      },
+      "CombinedEffectsResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "base_winner": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Base Winner"
+          },
+          "combinations": {
+            "items": {
+              "$ref": "#/components/schemas/CombinedEffectsCombination"
+            },
+            "title": "Combinations",
+            "type": "array"
+          },
+          "factor_deltas": {
+            "additionalProperties": {
+              "type": "number"
+            },
+            "description": "Agreement delta per factor (in %). Negative = factor disrupts agreement.",
+            "title": "Factor Deltas",
+            "type": "object"
+          },
+          "most_disruptive_factor": {
+            "title": "Most Disruptive Factor",
+            "type": "string"
+          },
+          "least_disruptive_factor": {
+            "title": "Least Disruptive Factor",
+            "type": "string"
+          },
+          "max_disruption_combination": {
+            "title": "Max Disruption Combination",
+            "type": "string"
+          }
+        },
+        "required": [
+          "base_winner",
+          "combinations",
+          "factor_deltas",
+          "most_disruptive_factor",
+          "least_disruptive_factor",
+          "max_disruption_combination"
+        ],
+        "title": "CombinedEffectsResponse",
+        "type": "object"
+      },
+      "CampaignSensitivityRequest": {
+        "additionalProperties": false,
+        "properties": {
+          "candidates": {
+            "items": {
+              "$ref": "#/components/schemas/CandidateSpec"
+            },
+            "maxItems": 6,
+            "minItems": 2,
+            "title": "Candidates",
+            "type": "array"
+          },
+          "num_voters": {
+            "default": 150,
+            "maximum": 200,
+            "minimum": 10,
+            "title": "Num Voters",
+            "type": "integer"
+          },
+          "ideology": {
+            "default": "random",
+            "title": "Ideology",
+            "type": "string"
+          },
+          "seed": {
+            "default": 42,
+            "minimum": 0,
+            "title": "Seed",
+            "type": "integer"
+          },
+          "snapshot_days": {
+            "description": "Days at which to snapshot \u2014 strings ('final') and ints are both accepted.",
+            "items": {},
+            "title": "Snapshot Days",
+            "type": "array"
+          },
+          "blank_vote": {
+            "$ref": "#/components/schemas/BlankVoteConfig"
+          },
+          "campaign": {
+            "$ref": "#/components/schemas/CampaignConfig"
+          }
+        },
+        "required": [
+          "candidates"
+        ],
+        "title": "CampaignSensitivityRequest",
+        "type": "object"
+      },
+      "CampaignSnapshot": {
+        "additionalProperties": true,
+        "properties": {
+          "day": {
+            "title": "Day"
+          },
+          "methods": {
+            "additionalProperties": {
+              "$ref": "#/components/schemas/MethodResult"
+            },
+            "title": "Methods",
+            "type": "object"
+          },
+          "condorcet_winner": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Condorcet Winner"
+          }
+        },
+        "required": [
+          "day",
+          "methods",
+          "condorcet_winner"
+        ],
+        "title": "CampaignSnapshot",
+        "type": "object"
+      },
+      "CampaignSensitivityResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "snapshots": {
+            "items": {
+              "$ref": "#/components/schemas/CampaignSnapshot"
+            },
+            "title": "Snapshots",
+            "type": "array"
+          },
+          "method_stability": {
+            "additionalProperties": {
+              "additionalProperties": true,
+              "type": "object"
+            },
+            "description": "Per-method: winner_changes count, final_winner, stability_score [0..1].",
+            "title": "Method Stability",
+            "type": "object"
+          },
+          "most_stable_method": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Most Stable Method"
+          },
+          "least_stable_method": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Least Stable Method"
+          }
+        },
+        "required": [
+          "snapshots",
+          "method_stability",
+          "most_stable_method",
+          "least_stable_method"
+        ],
+        "title": "CampaignSensitivityResponse",
+        "type": "object"
+      },
+      "AbstentionRequest": {
+        "additionalProperties": false,
+        "properties": {
+          "candidates": {
+            "items": {
+              "$ref": "#/components/schemas/CandidateSpec"
+            },
+            "maxItems": 8,
+            "minItems": 2,
+            "title": "Candidates",
+            "type": "array"
+          },
+          "num_voters": {
+            "default": 200,
+            "maximum": 500,
+            "minimum": 10,
+            "title": "Num Voters",
+            "type": "integer"
+          },
+          "ideology": {
+            "default": "random",
+            "title": "Ideology",
+            "type": "string"
+          },
+          "seed": {
+            "default": 42,
+            "minimum": 0,
+            "title": "Seed",
+            "type": "integer"
+          },
+          "demobilization_factor": {
+            "default": 0.5,
+            "description": "0 = no abstention, 1 = aggressive demobilisation.",
+            "maximum": 1.0,
+            "minimum": 0.0,
+            "title": "Demobilization Factor",
+            "type": "number"
+          },
+          "poll_influence": {
+            "default": 0.8,
+            "description": "How much polls affect abstention probability.",
+            "maximum": 1.0,
+            "minimum": 0.0,
+            "title": "Poll Influence",
+            "type": "number"
+          },
+          "num_rounds": {
+            "default": 3,
+            "maximum": 10,
+            "minimum": 1,
+            "title": "Num Rounds",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "candidates"
+        ],
+        "title": "AbstentionRequest",
+        "type": "object"
+      },
+      "AbstentionRound": {
+        "additionalProperties": true,
+        "properties": {
+          "round": {
+            "title": "Round",
+            "type": "integer"
+          },
+          "turnout": {
+            "title": "Turnout",
+            "type": "number"
+          },
+          "vote_shares": {
+            "additionalProperties": {
+              "type": "number"
+            },
+            "title": "Vote Shares",
+            "type": "object"
+          },
+          "winner_fptp": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Winner Fptp"
+          },
+          "winner_condorcet": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Winner Condorcet"
+          },
+          "abstention_map": {
+            "items": {
+              "$ref": "#/components/schemas/AbstentionVoter"
+            },
+            "title": "Abstention Map",
+            "type": "array"
+          }
+        },
+        "required": [
+          "round",
+          "turnout",
+          "vote_shares",
+          "winner_fptp",
+          "winner_condorcet",
+          "abstention_map"
+        ],
+        "title": "AbstentionRound",
+        "type": "object"
+      },
+      "AbstentionVoter": {
+        "additionalProperties": false,
+        "properties": {
+          "id": {
+            "title": "Id",
+            "type": "integer"
+          },
+          "x": {
+            "title": "X",
+            "type": "number"
+          },
+          "y": {
+            "title": "Y",
+            "type": "number"
+          },
+          "preferred": {
+            "title": "Preferred",
+            "type": "string"
+          },
+          "abstained": {
+            "title": "Abstained",
+            "type": "boolean"
+          },
+          "prob_abstention": {
+            "title": "Prob Abstention",
+            "type": "number"
+          }
+        },
+        "required": [
+          "id",
+          "x",
+          "y",
+          "preferred",
+          "abstained",
+          "prob_abstention"
+        ],
+        "title": "AbstentionVoter",
+        "type": "object"
+      },
+      "AbstentionResponse": {
+        "additionalProperties": true,
+        "properties": {
+          "rounds": {
+            "items": {
+              "$ref": "#/components/schemas/AbstentionRound"
+            },
+            "title": "Rounds",
+            "type": "array"
+          },
+          "sincere_winner": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Sincere Winner"
+          },
+          "final_winner": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Final Winner"
+          },
+          "winner_changed": {
+            "title": "Winner Changed",
+            "type": "boolean"
+          },
+          "turnout_by_camp": {
+            "additionalProperties": {
+              "type": "number"
+            },
+            "title": "Turnout By Camp",
+            "type": "object"
+          },
+          "candidates": {
+            "items": {
+              "additionalProperties": true,
+              "type": "object"
+            },
+            "title": "Candidates",
+            "type": "array"
+          },
+          "winners_by_method": {
+            "anyOf": [
+              {
+                "additionalProperties": {
+                  "anyOf": [
+                    {
+                      "type": "string"
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ]
+                },
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Winners By Method"
+          }
+        },
+        "required": [
+          "rounds",
+          "sincere_winner",
+          "final_winner",
+          "winner_changed",
+          "turnout_by_camp",
+          "candidates"
+        ],
+        "title": "AbstentionResponse",
+        "type": "object"
+      },
+      "CoalitionRequest": {
+        "additionalProperties": false,
+        "properties": {
+          "candidates": {
+            "items": {
+              "$ref": "#/components/schemas/CandidateSpec"
+            },
+            "maxItems": 8,
+            "minItems": 2,
+            "title": "Candidates",
+            "type": "array"
+          },
+          "num_voters": {
+            "default": 300,
+            "maximum": 1000,
+            "minimum": 10,
+            "title": "Num Voters",
+            "type": "integer"
+          },
+          "ideology": {
+            "default": "random",
+            "title": "Ideology",
+            "type": "string"
+          },
+          "seed": {
+            "default": 42,
+            "minimum": 0,
+            "title": "Seed",
+            "type": "integer"
+          },
+          "total_seats": {
+            "default": 100,
+            "maximum": 577,
+            "minimum": 10,
+            "title": "Total Seats",
+            "type": "integer"
+          },
+          "threshold_pct": {
+            "default": 0.05,
+            "description": "Electoral threshold (5 % default).",
+            "maximum": 0.2,
+            "minimum": 0.0,
+            "title": "Threshold Pct",
+            "type": "number"
+          }
+        },
+        "required": [
+          "candidates"
+        ],
+        "title": "CoalitionRequest",
+        "type": "object"
+      },
+      "Coalition": {
+        "additionalProperties": false,
+        "properties": {
+          "members": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Members",
+            "type": "array"
+          },
+          "total_seats": {
+            "title": "Total Seats",
+            "type": "integer"
+          },
+          "has_majority": {
+            "title": "Has Majority",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "members",
+          "total_seats",
+          "has_majority"
+        ],
+        "title": "Coalition",
+        "type": "object"
+      },
+      "SeatAllocation": {
+        "additionalProperties": false,
+        "properties": {
+          "candidate": {
+            "title": "Candidate",
+            "type": "string"
+          },
+          "seats": {
+            "title": "Seats",
+            "type": "integer"
+          },
+          "pct": {
+            "title": "Pct",
+            "type": "number"
+          }
+        },
+        "required": [
+          "candidate",
+          "seats",
+          "pct"
+        ],
+        "title": "SeatAllocation",
+        "type": "object"
+      },
+      "CoalitionResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "allocations": {
+            "items": {
+              "$ref": "#/components/schemas/SeatAllocation"
+            },
+            "title": "Allocations",
+            "type": "array"
+          },
+          "majority_threshold": {
+            "title": "Majority Threshold",
+            "type": "integer"
+          },
+          "formed_coalition": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/Coalition"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "runner_up_coalition": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/Coalition"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null
+          }
+        },
+        "required": [
+          "allocations",
+          "majority_threshold",
+          "formed_coalition"
+        ],
+        "title": "CoalitionResponse",
+        "type": "object"
+      }
+    }
+  }
+}
