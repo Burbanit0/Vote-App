@@ -105,14 +105,46 @@ Onglets actuels (20) :
 
 ```
 app/routes/
-├── election.py          # Endpoints de simulation Election Lab (20+ endpoints)
+├── election/            # Election Lab — package (B3 du sprint perf)
 ├── simulation_compare.py
 ├── simulation_advanced.py
 ├── simulation_base.py
 ├── export.py
 ├── gallery.py
 ├── api_public.py        # API publique v1 (OpenAPI 3.0)
+├── health.py            # /api/health (DB + Redis status)
 └── users.py / auth
+```
+
+### Backend — FastAPI sibling (Phase 2 du refactor stratégique)
+
+Démarré en parallèle de Flask, expose `/api/v2/*` (Flask reste sur `/api/*`).
+Stratégie strangler-fig : chaque endpoint migre une fois, l'ancien est supprimé.
+
+```
+api_v2/
+├── main.py              # FastAPI app + CORS + lifespan + middleware access log
+├── core/
+│   └── config.py        # Pydantic Settings (12-factor)
+├── domain/
+│   └── election/        # Pure compute, 0 import Flask/FastAPI
+├── routes/
+│   ├── election.py      # /api/v2/election/* (1 endpoint pour Phase 2)
+│   └── health.py        # /api/v2/health
+└── tests/               # 18 tests pytest + FastAPI TestClient
+```
+
+Lancer :
+```bash
+cd flask_voter_app
+uvicorn api_v2.main:app --reload --port 4434
+# OU via docker-compose : le service `api_v2` boote tout seul
+```
+
+Tester :
+```bash
+curl http://localhost:4434/api/v2/health
+open http://localhost:4434/api/v2/docs   # Swagger UI auto-généré
 ```
 
 ### Backend — election.py endpoints
