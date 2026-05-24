@@ -40,6 +40,10 @@ from .election import (
 )
 from .perturbers import (
     BallotComplexityRequest,
+    BehavioralBiasesRequest,
+    CascadeRequest,
+    ChoiceOverloadRequest,
+    DeliberationRequest,
     ElectoralFatigueRequest,
     NotaRequest,
     ShyVoterRequest,
@@ -57,6 +61,8 @@ __all__ = [
     "CombinedEffectsRequest", "CombinedEffectsResponse",
     "SimulateRequest", "SimulateResponse",
     # perturbers (request-only — see perturbers.py)
-    "BallotComplexityRequest", "ElectoralFatigueRequest",
+    "BallotComplexityRequest", "BehavioralBiasesRequest",
+    "CascadeRequest", "ChoiceOverloadRequest",
+    "DeliberationRequest", "ElectoralFatigueRequest",
     "NotaRequest", "ShyVoterRequest",
 ]

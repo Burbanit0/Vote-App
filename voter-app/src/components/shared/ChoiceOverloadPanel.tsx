@@ -5,6 +5,7 @@
  */
 import React, { useCallback, useRef, useState } from 'react';
 import axios from 'axios';
+import { apiPath } from '../../api/apiVersion';
 import { useTranslation } from 'react-i18next';
 import { Alert, Badge, Button, Col, Form, Row, Spinner, Table } from 'react-bootstrap';
 import {
@@ -57,7 +58,7 @@ const ChoiceOverloadPanel: React.FC = () => {
     setLoading(true);
     setError(null);
     try {
-      const res = await axios.post(`${API}/api/election/choice-overload`, {
+      const res = await axios.post(`${API}${apiPath('election/choice-overload')}`, {
         num_voters:          config.num_voters,
         ideology:            config.ideology,
         seed:                config.seed,

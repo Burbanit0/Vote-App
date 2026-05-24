@@ -17,9 +17,13 @@ Flask workers will be deleted.
 from app.routes.election import (
     _abstention_worker,
     _ballot_complexity_worker,
+    _behavioral_biases_worker,
     _campaign_sensitivity_worker,
+    _cascade_worker,
+    _choice_overload_worker,
     _coalition_worker,
     _combined_effects_worker,
+    _deliberation_worker,
     _electoral_fatigue_worker,
     _nota_worker,
     _shy_voter_worker,
@@ -74,3 +78,25 @@ def shy_voter(data: dict) -> tuple[dict, int]:
 def electoral_fatigue(data: dict) -> tuple[dict, int]:
     """Turnout decay over repeated elections; residual electorate drifts toward partisans."""
     return _electoral_fatigue_worker(data)
+
+
+# ── Perturber endpoints (Phase 3 batch 4) ──────────────────────────────────
+
+def cascade(data: dict) -> tuple[dict, int]:
+    """Sequential voting with information cascades (Bikhchandani 1992)."""
+    return _cascade_worker(data)
+
+
+def behavioral_biases(data: dict) -> tuple[dict, int]:
+    """Expressive voting + bullet voting + primacy effect on outcomes."""
+    return _behavioral_biases_worker(data)
+
+
+def choice_overload(data: dict) -> tuple[dict, int]:
+    """Schwartz 2004 paradox: heuristics dominate beyond overload_threshold."""
+    return _choice_overload_worker(data)
+
+
+def deliberation(data: dict) -> tuple[dict, int]:
+    """DeGroot opinion update across a network, then vote."""
+    return _deliberation_worker(data)
