@@ -1,5 +1,5 @@
 import React from 'react';
-import { render, screen, fireEvent } from '@testing-library/react';
+import { render, screen, fireEvent, waitFor } from '@testing-library/react';
 import { MemoryRouter } from 'react-router';
 import IdeologyHeatmap, {
   computeGrid,
@@ -92,15 +92,21 @@ describe('IdeologyHeatmap', () => {
     expect(screen.getByTestId('heatmap-svg')).toBeInTheDocument();
   });
 
-  it('renders 900 cells (30×30)', () => {
+  it('renders 900 cells (30×30)', async () => {
     const { container } = renderHeatmap();
-    const cells = container.querySelectorAll('[data-testid="heatmap-cell"]');
-    expect(cells.length).toBe(GRID_N * GRID_N);
+    await waitFor(() => {
+      const cells = container.querySelectorAll('[data-testid="heatmap-cell"]');
+      expect(cells.length).toBe(GRID_N * GRID_N);
+    });
   });
 
-  it('cells with density=0 have fillOpacity=0', () => {
+  it('cells with density=0 have fillOpacity=0', async () => {
     // With no voters, all cells are transparent
     const { container } = renderHeatmap({ voters: [] });
+    await waitFor(() => {
+      expect(container.querySelectorAll('[data-testid="heatmap-cell"]').length)
+        .toBe(GRID_N * GRID_N);
+    });
     const cells = container.querySelectorAll('[data-testid="heatmap-cell"]');
     cells.forEach((cell) => {
       expect(cell.getAttribute('fill-opacity')).toBe('0');
@@ -113,9 +119,9 @@ describe('IdeologyHeatmap', () => {
     expect(markers.length).toBe(CANDIDATES.length);
   });
 
-  it('shows contested-badge when voters are present', () => {
+  it('shows contested-badge when voters are present', async () => {
     renderHeatmap({ voters: makeVoters(100) });
-    expect(screen.getByTestId('contested-badge')).toBeInTheDocument();
+    await waitFor(() => expect(screen.getByTestId('contested-badge')).toBeInTheDocument());
   });
 
   it('shows fortress-badge when voters are present', () => {
@@ -129,9 +135,11 @@ describe('IdeologyHeatmap', () => {
     expect(screen.getByTestId('heatmap-svg')).toBeInTheDocument();
   });
 
-  it('renders contour-lines group', () => {
+  it('renders contour-lines group', async () => {
     const { container } = renderHeatmap({ voters: makeVoters(100) });
-    expect(container.querySelector('[data-testid="contour-lines"]')).toBeInTheDocument();
+    await waitFor(() =>
+      expect(container.querySelector('[data-testid="contour-lines"]')).toBeInTheDocument()
+    );
   });
 
   it('calls onCandidateMouseDown when a candidate marker is clicked', () => {
