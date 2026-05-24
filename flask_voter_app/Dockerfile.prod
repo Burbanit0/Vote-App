@@ -1,0 +1,80 @@
+# ──────────────────────────────────────────────────────────────────────────────
+# flask_voter_app/Dockerfile.prod — production multi-stage build.
+#
+# Strategy:
+#   Stage 1 (builder)  : compile wheels for psycopg2 + numpy + scipy, then
+#                        produce a slim wheelhouse. Build tools never reach
+#                        the final image, so the runtime is small.
+#   Stage 2 (runtime)  : minimal python:3.11-slim with the wheelhouse
+#                        installed + only the libraries needed at runtime
+#                        (libpq for psycopg2). Runs gunicorn + eventlet
+#                        worker as a non-root user.
+#
+# Build:    docker build -t votelab-backend:prod -f Dockerfile.prod .
+# Run:      docker run -p 4433:4433 --env-file .env votelab-backend:prod
+# Compose:  see docker-compose.prod.yml (separate file, not bundled here).
+# ──────────────────────────────────────────────────────────────────────────────
+
+# ── Stage 1: build wheels ───────────────────────────────────────────────────
+FROM python:3.11-slim AS builder
+
+WORKDIR /build
+
+RUN apt-get update && apt-get install -y --no-install-recommends \
+        build-essential \
+        libpq-dev \
+        gcc \
+    && rm -rf /var/lib/apt/lists/*
+
+COPY requirements.txt .
+
+# Pre-build wheels — faster final install + smaller final layer.
+RUN pip wheel --no-cache-dir --wheel-dir=/wheels -r requirements.txt
+
+
+# ── Stage 2: runtime ────────────────────────────────────────────────────────
+FROM python:3.11-slim AS runtime
+
+# Non-root runtime user (UID 1000 — matches most CI/dev environments).
+RUN groupadd --gid 1000 app && useradd --uid 1000 --gid app --shell /bin/bash app
+
+# Runtime libs only — no compiler in the final image.
+RUN apt-get update && apt-get install -y --no-install-recommends \
+        libpq5 \
+        curl \
+    && rm -rf /var/lib/apt/lists/*
+
+WORKDIR /app
+
+# Install pre-built wheels from the builder stage.
+COPY --from=builder /wheels /wheels
+COPY requirements.txt .
+RUN pip install --no-cache-dir --no-index --find-links=/wheels -r requirements.txt \
+    && rm -rf /wheels
+
+# Production WSGI server. eventlet worker for the current stack (will move to
+# uvicorn during the FastAPI migration — see STRATEGIC_REFACTOR_PLAN Phase 2-4).
+RUN pip install --no-cache-dir gunicorn==23.0.0
+
+# Copy app code (after deps so layers cache well).
+COPY --chown=app:app . .
+
+# Drop to non-root.
+USER app
+
+ENV FLASK_ENV=production \
+    PYTHONDONTWRITEBYTECODE=1 \
+    PYTHONUNBUFFERED=1 \
+    LOG_LEVEL=INFO
+
+EXPOSE 4433
+
+# Healthcheck — uses the /api/health endpoint we just added.
+HEALTHCHECK --interval=30s --timeout=5s --start-period=20s --retries=3 \
+    CMD curl -fsS http://localhost:4433/api/health || exit 1
+
+# Gunicorn with eventlet worker. 1 worker is enough for I/O-bound traffic at
+# the current scale; bump `-w` if/when load demands it. socketio compatibility
+# needs eventlet worker class until the FastAPI migration retires eventlet.
+CMD ["gunicorn", "--worker-class", "eventlet", "-w", "1", "--bind", "0.0.0.0:4433", \
+     "--access-logfile", "-", "--error-logfile", "-", "run:app"]

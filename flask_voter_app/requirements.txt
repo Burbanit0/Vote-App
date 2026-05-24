@@ -28,6 +28,10 @@ redis==5.2.1
 python-dotenv==1.1.1
 Faker==37.3.0
 
+# Structured logging (JSON output, replaces ad-hoc current_app.logger usage).
+# See app/utils/logger.py for setup.
+structlog==25.4.0
+
 # OAuth
 google-auth==2.38.0
 
