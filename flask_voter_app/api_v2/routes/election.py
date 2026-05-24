@@ -46,10 +46,14 @@ from app.schemas import (
     CombinedEffectsResponse,
     DeliberationRequest,
     ElectoralFatigueRequest,
+    HotellingRequest,
+    JuryRequest,
     NotaRequest,
+    PolarizationRequest,
     ShyVoterRequest,
     SimulateRequest,
     SimulateResponse,
+    SortitionRequest,
 )
 
 from api_v2.domain.election import (
@@ -63,9 +67,13 @@ from api_v2.domain.election import (
     combined_effects as combined_effects_domain,
     deliberation as deliberation_domain,
     electoral_fatigue as electoral_fatigue_domain,
+    hotelling as hotelling_domain,
+    jury as jury_domain,
     nota as nota_domain,
+    polarization as polarization_domain,
     shy_voter as shy_voter_domain,
     simulate as simulate_domain,
+    sortition as sortition_domain,
 )
 
 router = APIRouter(prefix="/api/v2/election", tags=["election"])
@@ -350,3 +358,59 @@ async def deliberation_endpoint(request: DeliberationRequest) -> Dict[str, Any]:
     `deliberation_rounds` rounds, then vote. `network_type` echo_chamber
     amplifies polarisation; bridge / complete reduce it."""
     return await _run_passthrough(deliberation_domain, request)
+
+
+# ── Perturber endpoints (Phase 3 batch 5) ──────────────────────────────────
+
+@router.post(
+    "/jury",
+    summary="Condorcet Jury Theorem under N voting methods",
+    response_description="Per-method accuracy, theoretical majority-rule accuracy, "
+                         "and a competence-curve sensitivity chart.",
+)
+async def jury_endpoint(request: JuryRequest) -> Dict[str, Any]:
+    """Voters with individual competence p > 0.5 aggregate collectively
+    toward the 'correct' option. Runs `num_simulations` Monte Carlo
+    trials and compares plurality, IRV, Borda, Schulze, MJ on the same
+    juries."""
+    return await _run_passthrough(jury_domain, request)
+
+
+@router.post(
+    "/hotelling",
+    summary="Hotelling-Downs iterative best-response (Nash equilibrium)",
+    response_description="Iteration-by-iteration candidate positions, "
+                         "convergence status, equilibrium type.",
+)
+async def hotelling_endpoint(request: HotellingRequest) -> Dict[str, Any]:
+    """Each candidate iteratively moves in the direction (±x, ±y) that
+    maximises their vote score under `method`. Converges when no
+    candidate can improve by moving by `step_size`."""
+    return await _run_passthrough(hotelling_domain, request)
+
+
+@router.post(
+    "/polarization",
+    summary="Per-ideology Esteban-Ray index + voting-method robustness",
+    response_description="One result per ideology distribution: ER index, "
+                         "Condorcet rate, inter-method agreement, regret by method.",
+)
+async def polarization_endpoint(request: PolarizationRequest) -> Dict[str, Any]:
+    """For each voter distribution in `ideology_range`, computes the
+    Esteban-Ray polarisation index and runs `num_simulations` Monte
+    Carlo elections to measure how method agreement and Condorcet
+    rate degrade with polarisation."""
+    return await _run_passthrough(polarization_domain, request)
+
+
+@router.post(
+    "/sortition",
+    summary="Elected vs sortition pure vs sortition stratified",
+    response_description="Per-method assembly: representativity, diversity, "
+                         "decision regret, Gini of representation, Monte Carlo variance.",
+)
+async def sortition_endpoint(request: SortitionRequest) -> Dict[str, Any]:
+    """Compares three assembly-selection methods on the same population:
+    elected (electoral bias), sortition pure (random sample), sortition
+    stratified (demographically balanced random sample)."""
+    return await _run_passthrough(sortition_domain, request)

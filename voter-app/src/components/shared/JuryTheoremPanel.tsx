@@ -10,6 +10,7 @@
  */
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import axios from 'axios';
+import { apiPath } from '../../api/apiVersion';
 import { useTranslation } from 'react-i18next';
 import { Alert, Badge, Button, Col, Form, Row, Spinner } from 'react-bootstrap';
 import {
@@ -84,7 +85,7 @@ const JuryTheoremPanel: React.FC = () => {
     setLoading(true);
     setError(null);
     try {
-      const res = await axios.post(`${API}/api/election/jury`, {
+      const res = await axios.post(`${API}${apiPath('election/jury')}`, {
         num_voters:            voters,
         num_options:           opts,
         correct_option_index:  0,

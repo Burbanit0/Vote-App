@@ -25,8 +25,12 @@ from app.routes.election import (
     _combined_effects_worker,
     _deliberation_worker,
     _electoral_fatigue_worker,
+    _hotelling_worker,
+    _jury_worker,
     _nota_worker,
+    _polarization_worker,
     _shy_voter_worker,
+    _sortition_worker,
 )
 from app.services.election_service import ElectionService
 
@@ -100,3 +104,25 @@ def choice_overload(data: dict) -> tuple[dict, int]:
 def deliberation(data: dict) -> tuple[dict, int]:
     """DeGroot opinion update across a network, then vote."""
     return _deliberation_worker(data)
+
+
+# ── Perturber endpoints (Phase 3 batch 5) ──────────────────────────────────
+
+def jury(data: dict) -> tuple[dict, int]:
+    """Condorcet Jury Theorem: P(majority correct | per-voter competence p)."""
+    return _jury_worker(data)
+
+
+def hotelling(data: dict) -> tuple[dict, int]:
+    """Hotelling-Downs iterative best-response Nash equilibrium."""
+    return _hotelling_worker(data)
+
+
+def polarization(data: dict) -> tuple[dict, int]:
+    """Per-ideology Esteban-Ray index + method robustness scan."""
+    return _polarization_worker(data)
+
+
+def sortition(data: dict) -> tuple[dict, int]:
+    """Elected vs sortition pure vs stratified assembly comparison."""
+    return _sortition_worker(data)

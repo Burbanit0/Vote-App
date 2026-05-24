@@ -189,3 +189,75 @@ class DeliberationRequest(BaseModel):
     argument_quality:    float = Field(0.5, ge=0.0, le=1.0,
                                        description="Higher = updates pull toward better-informed positions.")
     method:              str   = Field("plurality")
+
+
+# ── /jury ───────────────────────────────────────────────────────────────────
+
+class JuryRequest(BaseModel):
+    """Condorcet Jury Theorem: P(majority correct) when each voter is right with p>0.5."""
+    model_config = ConfigDict(extra="forbid")
+
+    num_voters:           int   = Field(100, ge=10, le=500)
+    num_options:          int   = Field(2, ge=2, le=5)
+    correct_option_index: int   = Field(0, ge=0, le=4)
+    voter_competence:     float = Field(0.7, ge=0.5, le=1.0,
+                                        description="Per-voter probability of picking the correct option.")
+    num_simulations:      int   = Field(200, ge=50, le=500)
+    seed:                 int   = Field(42, ge=0)
+
+
+# ── /hotelling ──────────────────────────────────────────────────────────────
+
+class HotellingRequest(BaseModel):
+    """Hotelling-Downs iterative best-response: candidates move to maximise votes."""
+    model_config = ConfigDict(extra="forbid")
+
+    candidates:     List[CandidateSpec] = Field(..., min_length=2, max_length=6)
+    num_voters:     int   = Field(200, ge=50, le=500)
+    ideology:       str   = Field("random")
+    seed:           int   = Field(42, ge=0)
+    method:         str   = Field("plurality")
+    num_iterations: int   = Field(10, ge=1, le=20)
+    step_size:      float = Field(0.05, ge=0.01, le=0.15,
+                                  description="Per-step distance each candidate moves on the (x, y) grid.")
+
+
+# ── /polarization ───────────────────────────────────────────────────────────
+
+class PolarizationRequest(BaseModel):
+    """Per-ideology distribution: Esteban-Ray index + method robustness scan."""
+    model_config = ConfigDict(extra="forbid")
+
+    candidates:      List[CandidateSpec] = Field(..., min_length=2, max_length=4)
+    num_voters:      int   = Field(150, ge=50, le=300)
+    seed:            int   = Field(42, ge=0)
+    num_simulations: int   = Field(20, ge=5, le=50)
+    ideology_range:  Optional[List[str]] = Field(
+        None,
+        description="Voter distributions to compare. Defaults to "
+                    "[centrist, random, left_skewed, right_skewed, polarized].",
+    )
+
+
+# ── /sortition ──────────────────────────────────────────────────────────────
+
+class StratificationConfig(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    age_groups:      Optional[List[float]] = Field(default_factory=lambda: [0.25, 0.45, 0.30])
+    gender_parity:   bool = Field(True)
+    education_quota: bool = Field(True)
+
+
+class SortitionRequest(BaseModel):
+    """Compare elected vs sortition pure vs sortition stratified assembly selection."""
+    model_config = ConfigDict(extra="forbid")
+
+    candidates:           List[CandidateSpec] = Field(..., min_length=2, max_length=6)
+    num_voters:           int   = Field(300, ge=50, le=500)
+    assembly_size:        int   = Field(50, ge=5, le=300)
+    ideology:             str   = Field("random")
+    seed:                 int   = Field(42, ge=0)
+    method:               str   = Field("plurality")
+    num_simulations:      int   = Field(20, ge=5, le=100)
+    realistic_candidates: bool  = Field(True)
+    stratification:       Optional[StratificationConfig] = Field(default_factory=StratificationConfig)

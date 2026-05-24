@@ -78,7 +78,7 @@ describe('HotellingPanel', () => {
     fireEvent.click(screen.getByRole('button', { name: /simuler|simulate/i }));
     await waitFor(() => expect(mockPost).toHaveBeenCalledTimes(1));
     expect(mockPost).toHaveBeenCalledWith(
-      expect.stringContaining('/api/election/hotelling'),
+      expect.stringMatching(/\/api\/(v2\/)?election\/hotelling/),
       expect.any(Object),
     );
     jest.runAllTimers();
