@@ -848,8 +848,10 @@
       },
       "CampaignSnapshot": {
         "additionalProperties": true,
+        "description": "Tolerant of extra fields the worker emits per-snapshot (vote shares,\nmethod-specific scores, ...). Only the strictly-required fields are\ntyped; the rest pass through unchanged.",
         "properties": {
           "day": {
+            "description": "Day index or 'final'.",
             "title": "Day"
           },
           "methods": {
@@ -868,13 +870,12 @@
                 "type": "null"
               }
             ],
+            "default": null,
             "title": "Condorcet Winner"
           }
         },
         "required": [
-          "day",
-          "methods",
-          "condorcet_winner"
+          "day"
         ],
         "title": "CampaignSnapshot",
         "type": "object"

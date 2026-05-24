@@ -1,25 +1,38 @@
 """
 api_v2.domain.election — pure election compute, no Flask, no FastAPI, no DB.
 
-The body of `simulate()` was already extracted as a pure function in
-Sprint 2 commit ca37dcd (`app.services.election_service.ElectionService.simulate`).
-Re-exposed here under the `api_v2.domain` namespace so the FastAPI side
-can import it as `from api_v2.domain.election import simulate`, without
-reaching back into `app.services` (which is a Flask-era namespace).
+All functions accept a `data: dict` and return `(body, http_status)`.
+They are pure: same input = same output (modulo any `seed` field).
 
-When Phase 4 retires Flask, `app.services.election_service` will be
-deleted and `api_v2.domain.election.simulate` becomes the canonical
-implementation. For now, this is a thin alias so we don't duplicate the
-210-line orchestration twice.
+The bodies of these functions were already extracted as workers in
+Sprint A2 (combined-effects / campaign-sensitivity / simulate-pipeline)
+and Sprint C1 (simulate). This module re-exports them under the
+`api_v2.domain` namespace so the FastAPI side can import them without
+reaching back into `app.routes.election` (Flask-era namespace).
+
+When Phase 4 retires Flask, these aliases will be replaced with the
+canonical implementations moved here for real, and the corresponding
+Flask workers will be deleted.
 """
+from app.routes.election import (
+    _campaign_sensitivity_worker,
+    _combined_effects_worker,
+)
 from app.services.election_service import ElectionService
 
 
 def simulate(data: dict) -> tuple[dict, int]:
-    """Run the unified election pipeline. Pure function — same input
-    always produces the same output (modulo the `seed` field).
-
-    Returns (body, http_status). `http_status` is 200 on success, 400
-    when validation fails inside the worker (e.g. fewer than 2 candidates).
-    """
+    """Run the unified election pipeline."""
     return ElectionService.simulate(data)
+
+
+def combined_effects(data: dict) -> tuple[dict, int]:
+    """2x2x2 factorial: run the same electorate under all 8 combinations
+    of blank-vote / campaign / information-model ON-OFF."""
+    return _combined_effects_worker(data)
+
+
+def campaign_sensitivity(data: dict) -> tuple[dict, int]:
+    """Snapshot the same electorate at multiple campaign days to measure
+    method-by-method winner stability over time."""
+    return _campaign_sensitivity_worker(data)

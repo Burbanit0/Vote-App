@@ -450,15 +450,26 @@ export interface components {
             blank_vote?: components["schemas"]["BlankVoteConfig"];
             campaign?: components["schemas"]["CampaignConfig"];
         };
-        /** CampaignSnapshot */
+        /**
+         * CampaignSnapshot
+         * @description Tolerant of extra fields the worker emits per-snapshot (vote shares,
+         *     method-specific scores, ...). Only the strictly-required fields are
+         *     typed; the rest pass through unchanged.
+         */
         CampaignSnapshot: {
-            /** Day */
+            /**
+             * Day
+             * @description Day index or 'final'.
+             */
             day: unknown;
             /** Methods */
-            methods: {
+            methods?: {
                 [key: string]: components["schemas"]["MethodResult"];
             };
-            /** Condorcet Winner */
+            /**
+             * Condorcet Winner
+             * @default null
+             */
             condorcet_winner: string | null;
         } & {
             [key: string]: unknown;
