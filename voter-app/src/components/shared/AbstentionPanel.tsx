@@ -23,9 +23,15 @@ const DEBOUNCE_MS = 400;
 // Single source of truth: the Pydantic schema in
 // flask_voter_app/app/schemas/election.py. Regenerate via `npm run gen:api`.
 import type { AbstentionRequest } from '../../api';
+import { apiPath } from '../../api/apiVersion';
 
 async function fetchAbstention(args: AbstentionRequest): Promise<AbstentionData> {
-  const res = await axios.post<AbstentionData>(`${API}/api/election/abstention`, args);
+  // Routed to FastAPI /api/v2/election/abstention since Phase 3 batch 2.
+  // Rollback to Flask via ?apiV1=1 or localStorage.votelab_force_api_v1=true.
+  const res = await axios.post<AbstentionData>(
+    `${API}${apiPath('election/abstention')}`,
+    args,
+  );
   return res.data;
 }
 

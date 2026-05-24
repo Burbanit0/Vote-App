@@ -16,12 +16,13 @@ describe('apiPath', () => {
     expect(apiPath('election/simulate')).toBe('/api/v2/election/simulate');
     expect(apiPath('election/combined-effects')).toBe('/api/v2/election/combined-effects');
     expect(apiPath('election/campaign-sensitivity')).toBe('/api/v2/election/campaign-sensitivity');
+    expect(apiPath('election/coalition')).toBe('/api/v2/election/coalition');
+    expect(apiPath('election/abstention')).toBe('/api/v2/election/abstention');
   });
 
   it('keeps non-migrated endpoints on /api/*', () => {
-    expect(apiPath('election/abstention')).toBe('/api/election/abstention');
-    expect(apiPath('election/coalition')).toBe('/api/election/coalition');
     expect(apiPath('election/simulate-pipeline')).toBe('/api/election/simulate-pipeline');
+    expect(apiPath('election/historical-replay')).toBe('/api/election/historical-replay');
     expect(apiPath('theory/arrow')).toBe('/api/theory/arrow');
   });
 
@@ -42,6 +43,7 @@ describe('apiPath', () => {
     localStorage.setItem(FORCE_V1_LS_KEY, 'true');
     expect(apiPath('election/simulate')).toBe('/api/election/simulate');
     expect(apiPath('election/combined-effects')).toBe('/api/election/combined-effects');
+    expect(apiPath('election/coalition')).toBe('/api/election/coalition');
   });
 
   it('falls back to v1 when ?apiV1=1 is in the URL', () => {
@@ -56,10 +58,12 @@ describe('apiPath', () => {
 });
 
 describe('MIGRATED_ENDPOINTS registry', () => {
-  it('contains exactly the 3 endpoints migrated in Phases 2-3 batch 1', () => {
-    expect(MIGRATED_ENDPOINTS.size).toBe(3);
+  it('contains the 5 endpoints migrated through Phase 3 batch 2', () => {
+    expect(MIGRATED_ENDPOINTS.size).toBe(5);
     expect(MIGRATED_ENDPOINTS.has('election/simulate')).toBe(true);
     expect(MIGRATED_ENDPOINTS.has('election/combined-effects')).toBe(true);
     expect(MIGRATED_ENDPOINTS.has('election/campaign-sensitivity')).toBe(true);
+    expect(MIGRATED_ENDPOINTS.has('election/coalition')).toBe(true);
+    expect(MIGRATED_ENDPOINTS.has('election/abstention')).toBe(true);
   });
 });

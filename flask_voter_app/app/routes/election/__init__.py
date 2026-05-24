@@ -1242,19 +1242,10 @@ def _greedy_coalition(
     }
 
 
-@election_bp.route("/coalition", methods=["POST"])
-@sim_limiter.limit("20 per minute")
-def coalition() -> tuple[Response, int]:
-    """
-    POST /api/election/coalition
-
-    Compute D'Hondt seat allocation from election vote shares, then
-    form a minimal government coalition per winning method, returning:
-      - per-method seat allocation + coalition
-      - coalition_spread per method (ideological variance of coalition)
-      - pedagogical summary comparing coalition centrism across methods
-    """
-    data = request.get_json() or {}
+def _coalition_worker(data: Dict[str, Any]) -> tuple[Dict[str, Any], int]:
+    """Pure worker for /coalition — extracted so FastAPI v2 can call it
+    without going through Flask context. Same signature as the other
+    workers: (data dict) -> (body, http_status)."""
 
     num_voters  = max(10, min(1000, int(data.get("num_voters",  300))))
     ideology    = str(data.get("ideology",   "random"))
@@ -1268,7 +1259,7 @@ def coalition() -> tuple[Response, int]:
     government_threshold = max(0.0, min(1.0, float(data.get("government_threshold", 0.5))))
 
     if len(cand_specs) < 2:
-        return jsonify({"error": "At least 2 candidates required"}), 400
+        return {"error": "At least 2 candidates required"}, 400
 
     _random.seed(seed)
     _np.random.seed(seed)
@@ -1328,7 +1319,7 @@ def coalition() -> tuple[Response, int]:
     most_centrist_method  = min(spreads, key=lambda k: spreads[k]) if spreads else None
     most_divergent_method = max(spreads, key=lambda k: spreads[k]) if spreads else None
 
-    return jsonify({
+    return {
         "methods":               methods_out,
         "candidates":            [
             {"name": c["name"], "x": positions[c["name"]]}
@@ -1342,7 +1333,20 @@ def coalition() -> tuple[Response, int]:
             {m["method"]: {"winner": m["coalition_parties"][0] if m["coalition_parties"] else ""}
              for m in methods_out}
         ),
-    }), 200
+    }, 200
+
+
+@election_bp.route("/coalition", methods=["POST"])
+@sim_limiter.limit("20 per minute")
+def coalition() -> tuple[Response, int]:
+    """POST /api/election/coalition — D'Hondt + greedy coalition per method."""
+    data = request.get_json() or {}
+    try:
+        body, status_code = _coalition_worker(data)
+        return jsonify(body), status_code
+    except Exception as exc:
+        current_app.logger.exception("coalition() crashed")
+        return jsonify({"error": f"Internal error: {exc}"}), 500
 
 
 # ── Districts endpoint ────────────────────────────────────────────────────────
@@ -2418,20 +2422,8 @@ def _abstention_prob(
     return max(0.0, min(1.0, p))
 
 
-@election_bp.route("/abstention", methods=["POST"])
-@sim_limiter.limit("10 per minute")
-def abstention() -> tuple[Response, int]:
-    """
-    POST /api/election/abstention
-
-    Simulate differential abstention over num_rounds of polling.
-    Each round, voters whose preferred candidate is trailing abstain
-    with a probability proportional to demobilization_factor and poll_influence.
-
-    Round 0 is always sincere (no polls yet → no abstention).
-    Subsequent rounds use the previous round's vote shares as polls.
-    """
-    data = request.get_json() or {}
+def _abstention_worker(data: Dict[str, Any]) -> tuple[Dict[str, Any], int]:
+    """Pure worker for /abstention — extracted for FastAPI v2 reuse."""
 
     num_voters             = max(50,  min(1000, int(data.get("num_voters", 300))))
     ideology               = str(data.get("ideology", "random"))
@@ -2446,7 +2438,7 @@ def abstention() -> tuple[Response, int]:
     ])[:6]
 
     if len(cand_specs) < 2:
-        return jsonify({"error": "At least 2 candidates required"}), 400
+        return {"error": "At least 2 candidates required"}, 400
 
     _random.seed(seed)
     _np.random.seed(seed)
@@ -2584,7 +2576,7 @@ def abstention() -> tuple[Response, int]:
         sincere_winners_by_method = {}
         winners_by_method = {}
 
-    return jsonify({
+    return {
         "rounds":          rounds_out,
         "sincere_winner":  sincere_winner,
         "final_winner":    final_winner,
@@ -2593,7 +2585,20 @@ def abstention() -> tuple[Response, int]:
         "candidates":      [{"name": c["name"]} for c in candidates],
         "sincere_winners_by_method": sincere_winners_by_method,
         "winners_by_method":         winners_by_method,
-    }), 200
+    }, 200
+
+
+@election_bp.route("/abstention", methods=["POST"])
+@sim_limiter.limit("10 per minute")
+def abstention() -> tuple[Response, int]:
+    """POST /api/election/abstention — iterated abstention model with poll feedback."""
+    data = request.get_json() or {}
+    try:
+        body, status_code = _abstention_worker(data)
+        return jsonify(body), status_code
+    except Exception as exc:
+        current_app.logger.exception("abstention() crashed")
+        return jsonify({"error": f"Internal error: {exc}"}), 500
 
 
 # ── STV endpoint ──────────────────────────────────────────────────────────────

@@ -591,7 +591,10 @@ export interface components {
         } & {
             [key: string]: unknown;
         };
-        /** CoalitionRequest */
+        /**
+         * CoalitionRequest
+         * @description Per-method D'Hondt seat allocation + greedy coalition formation.
+         */
         CoalitionRequest: {
             /** Candidates */
             candidates: components["schemas"]["CandidateSpec"][];
@@ -612,43 +615,74 @@ export interface components {
             seed: number;
             /**
              * Total Seats
+             * @description Size of the parliament.
              * @default 100
              */
             total_seats: number;
             /**
-             * Threshold Pct
-             * @description Electoral threshold (5 % default).
-             * @default 0.05
+             * Government Threshold
+             * @description Share of seats needed to form a government.
+             * @default 0.5
              */
-            threshold_pct: number;
+            government_threshold: number;
         };
-        /** Coalition */
-        Coalition: {
-            /** Members */
-            members: string[];
-            /** Total Seats */
-            total_seats: number;
-            /** Has Majority */
-            has_majority: boolean;
+        /** CoalitionCandidate */
+        CoalitionCandidate: {
+            /** Name */
+            name: string;
+            /** X */
+            x: number;
         };
-        /** SeatAllocation */
-        SeatAllocation: {
-            /** Candidate */
-            candidate: string;
+        /**
+         * CoalitionMethodResult
+         * @description Coalition analysis for one voting method.
+         */
+        CoalitionMethodResult: {
+            /** Method */
+            method: string;
+            /** Winner */
+            winner: string;
             /** Seats */
-            seats: number;
-            /** Pct */
-            pct: number;
+            seats: {
+                [key: string]: number;
+            };
+            /** Vote Shares */
+            vote_shares: {
+                [key: string]: number;
+            };
+            /** Coalition Parties */
+            coalition_parties: string[];
+            /** Coalition Seats */
+            coalition_seats: number;
+            /**
+             * Coalition Spread
+             * @description Ideological variance of coalition (0 = monolithic).
+             */
+            coalition_spread: number;
+            /** Government Possible */
+            government_possible: boolean;
+        } & {
+            [key: string]: unknown;
         };
         /** CoalitionResponse */
         CoalitionResponse: {
-            /** Allocations */
-            allocations: components["schemas"]["SeatAllocation"][];
-            /** Majority Threshold */
-            majority_threshold: number;
-            formed_coalition: components["schemas"]["Coalition"] | null;
-            /** @default null */
-            runner_up_coalition: components["schemas"]["Coalition"] | null;
+            /** Methods */
+            methods: components["schemas"]["CoalitionMethodResult"][];
+            /** Candidates */
+            candidates: components["schemas"]["CoalitionCandidate"][];
+            /** Total Seats */
+            total_seats: number;
+            /**
+             * Seat Threshold
+             * @description ceil(total_seats * government_threshold).
+             */
+            seat_threshold: number;
+            /** Most Centrist Method */
+            most_centrist_method: string | null;
+            /** Most Divergent Method */
+            most_divergent_method: string | null;
+            /** Inter Method Agreement */
+            inter_method_agreement: number;
         };
     };
     responses: never;

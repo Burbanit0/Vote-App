@@ -27,6 +27,8 @@ export const MIGRATED_ENDPOINTS: ReadonlySet<string> = new Set([
   'election/simulate',
   'election/combined-effects',
   'election/campaign-sensitivity',
+  'election/coalition',
+  'election/abstention',
 ]);
 
 /** localStorage key for the rollback switch. Public so tests can clear it. */

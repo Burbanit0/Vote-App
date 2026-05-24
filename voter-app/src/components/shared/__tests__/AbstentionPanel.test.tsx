@@ -101,8 +101,10 @@ describe('AbstentionPanel', () => {
     renderPanel();
     fireEvent.click(screen.getByRole('button', { name: /simuler|simulate/i }));
     await waitFor(() => expect(mockPost).toHaveBeenCalledTimes(1));
+    // Accept either /api/election/abstention (Flask v1) or
+    // /api/v2/election/abstention (FastAPI v2 — default since Phase 3 batch 2).
     expect(mockPost).toHaveBeenCalledWith(
-      expect.stringContaining('/api/election/abstention'),
+      expect.stringMatching(/\/api\/(v2\/)?election\/abstention/),
       expect.any(Object),
     );
   });
