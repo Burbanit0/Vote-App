@@ -96,7 +96,7 @@ describe('ChoiceOverloadPanel', () => {
     fireEvent.click(screen.getByRole('button', { name: /simuler|simulate/i }));
     await waitFor(() => expect(mockPost).toHaveBeenCalledTimes(1));
     expect(mockPost).toHaveBeenCalledWith(
-      expect.stringContaining('/api/election/choice-overload'),
+      expect.stringMatching(/\/api\/(v2\/)?election\/choice-overload/),
       expect.any(Object),
     );
     jest.runAllTimers();

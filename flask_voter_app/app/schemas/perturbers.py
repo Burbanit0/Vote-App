@@ -105,3 +105,87 @@ class ElectoralFatigueRequest(BaseModel):
     engaged_voter_pct: float = Field(0.2, ge=0.05, le=0.5,
                                      description="Share of always-voting partisans.")
     method:            str   = Field("plurality")
+
+
+# ── /cascade ────────────────────────────────────────────────────────────────
+
+class CascadeRequest(BaseModel):
+    """Sequential voting with information cascades (Bikhchandani et al., 1992)."""
+    model_config = ConfigDict(extra="forbid")
+
+    candidates:         List[CandidateSpec] = Field(..., min_length=2, max_length=6)
+    num_voters:         int   = Field(100, ge=20, le=500)
+    ideology:           str   = Field("random")
+    seed:               int   = Field(42, ge=0)
+    cascade_strength:   float = Field(0.5, ge=0.0, le=1.0,
+                                      description="Probability of following the public signal vs. sincere vote.")
+    observation_window: int   = Field(10, ge=0, le=50,
+                                      description="Number of recent votes each voter observes.")
+
+
+# ── /behavioral-biases ──────────────────────────────────────────────────────
+
+class BehavioralBiasesRequest(BaseModel):
+    """Expressive + bullet voting + primacy effect on approval/plurality outcomes."""
+    model_config = ConfigDict(extra="forbid")
+
+    candidates:        List[CandidateSpec] = Field(..., min_length=2, max_length=6)
+    num_voters:        int   = Field(200, ge=50, le=500)
+    ideology:          str   = Field("random")
+    seed:              int   = Field(42, ge=0)
+    expressive_pct:    float = Field(0.2, ge=0.0, le=1.0,
+                                     description="Fraction of voters who boost their ideal candidate ×10.")
+    bullet_voting_pct: float = Field(0.2, ge=0.0, le=1.0,
+                                     description="Approval voters who approve only their top choice.")
+    primacy_bonus:     float = Field(0.02, ge=0.0, le=0.2,
+                                     description="Vote bonus for the first-listed candidate.")
+    candidate_order:   Optional[List[str]] = Field(None,
+                                                   description="Optional ballot ordering for primacy effect.")
+    method:            str   = Field("plurality")
+
+
+# ── /choice-overload ────────────────────────────────────────────────────────
+
+class HeuristicWeights(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    notoriety: float = Field(0.20, ge=0.0, le=1.0)
+    primacy:   float = Field(0.10, ge=0.0, le=1.0)
+    partisan:  float = Field(0.20, ge=0.0, le=1.0)
+
+
+class ChoiceOverloadRequest(BaseModel):
+    """Schwartz 2004 paradox: heuristics dominate beyond overload_threshold candidates."""
+    model_config = ConfigDict(extra="forbid")
+
+    num_voters:         int   = Field(150, ge=50, le=300)
+    ideology:           str   = Field("random")
+    seed:               int   = Field(42, ge=0)
+    candidate_counts:   List[int] = Field(default_factory=lambda: [2, 3, 5, 7, 10],
+                                          min_length=1, max_length=8,
+                                          description="Candidate counts to compare. Each clamped to [2, 15].")
+    overload_threshold: int   = Field(5, ge=2, le=12,
+                                      description="Above this candidate count, voters switch to heuristics.")
+    heuristic_weights:  Optional[HeuristicWeights] = Field(default_factory=HeuristicWeights)
+    methods:            Optional[List[str]] = Field(None, max_length=5,
+                                                    description="Voting methods to compare.")
+
+
+# ── /deliberation ───────────────────────────────────────────────────────────
+
+class DeliberationRequest(BaseModel):
+    """DeGroot deliberation: voters update ideology toward a network-weighted mean."""
+    model_config = ConfigDict(extra="forbid")
+
+    candidates:          List[CandidateSpec] = Field(..., min_length=2, max_length=6)
+    num_voters:          int   = Field(200, ge=50, le=500)
+    ideology:            str   = Field("random")
+    seed:                int   = Field(42, ge=0)
+    deliberation_rounds: int   = Field(5, ge=1, le=10)
+    influence_weight:    float = Field(0.3, ge=0.0, le=1.0,
+                                       description="How strongly the group mean pulls each voter.")
+    network_type:        str   = Field("random",
+                                       description="'random' | 'echo_chamber' | 'bridge' | 'complete'.")
+    group_size:          int   = Field(5, ge=3, le=20)
+    argument_quality:    float = Field(0.5, ge=0.0, le=1.0,
+                                       description="Higher = updates pull toward better-informed positions.")
+    method:              str   = Field("plurality")

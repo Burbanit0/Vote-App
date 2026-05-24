@@ -120,7 +120,7 @@ describe('DeliberationPanel', () => {
     fireEvent.click(screen.getByTestId('simulate-btn'));
     await waitFor(() => expect(mockPost).toHaveBeenCalledTimes(1));
     expect(mockPost).toHaveBeenCalledWith(
-      expect.stringContaining('/api/election/deliberation'),
+      expect.stringMatching(/\/api\/(v2\/)?election\/deliberation/),
       expect.any(Object),
     );
     jest.runAllTimers();

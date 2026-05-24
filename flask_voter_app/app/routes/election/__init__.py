@@ -3815,17 +3815,8 @@ def affective_polarization() -> tuple[Response, int]:
 
 # ── Information Cascade ───────────────────────────────────────────────────────
 
-@election_bp.route("/cascade", methods=["POST"])
-@sim_limiter.limit("10 per minute")
-def information_cascade() -> tuple[Response, int]:
-    """
-    POST /api/election/cascade
-
-    Simulate sequential voting with information cascades (Bikhchandani et al., 1992):
-    each voter sees the last `observation_window` votes and may follow the public
-    signal instead of their sincere preference with probability `cascade_strength`.
-    """
-    data               = request.get_json() or {}
+def _cascade_worker(data: Dict[str, Any]) -> tuple[Dict[str, Any], int]:
+    """Pure worker for /cascade — extracted for FastAPI v2 reuse."""
     num_voters         = max(20,  min(500,  int(data.get("num_voters",         100))))
     ideology           = str(data.get("ideology",          "random"))
     seed               = int(data.get("seed",               42))
@@ -3838,7 +3829,7 @@ def information_cascade() -> tuple[Response, int]:
     ])[:6]
 
     if len(cand_specs) < 2:
-        return jsonify({"error": "At least 2 candidates required"}), 400
+        return {"error": "At least 2 candidates required"}, 400
 
     _random.seed(seed)
     _np.random.seed(seed)
@@ -3921,7 +3912,7 @@ def information_cascade() -> tuple[Response, int]:
     # Trim sequence for large electorates (keep first 300 for timeline)
     visible_sequence = vote_sequence[:300]
 
-    return jsonify({
+    return {
         "sincere_winner":         sincere_winner,
         "cascade_winner":         cascade_winner,
         "cascade_occurred":       cascade_occurred,
@@ -3930,16 +3921,26 @@ def information_cascade() -> tuple[Response, int]:
         "cascade_strength_curve": cascade_strength_curve,
         "comparison_runs":        comparison_runs,
         "candidates":             cand_names,
-    }), 200
+    }, 200
+
+
+@election_bp.route("/cascade", methods=["POST"])
+@sim_limiter.limit("10 per minute")
+def information_cascade() -> tuple[Response, int]:
+    """POST /api/election/cascade — sequential voting with information cascades."""
+    data = request.get_json() or {}
+    try:
+        body, status_code = _cascade_worker(data)
+        return jsonify(body), status_code
+    except Exception as exc:
+        current_app.logger.exception("information_cascade() crashed")
+        return jsonify({"error": f"Internal error: {exc}"}), 500
 
 
 # ── Behavioral Biases ─────────────────────────────────────────────────────────
 
-@election_bp.route("/behavioral-biases", methods=["POST"])
-@sim_limiter.limit("10 per minute")
-def behavioral_biases() -> tuple[Response, int]:
-    """
-    POST /api/election/behavioral-biases
+def _behavioral_biases_worker(data: Dict[str, Any]) -> tuple[Dict[str, Any], int]:
+    """Pure worker for /behavioral-biases — extracted for FastAPI v2 reuse.
 
     Model three empirical voting biases and their impact on election outcomes:
       1. Expressive voting (Fiorina 1976): voters boost their ideal candidate ×10,
@@ -3951,14 +3952,14 @@ def behavioral_biases() -> tuple[Response, int]:
     """
     import copy as _copy
 
-    data              = request.get_json() or {}
     num_voters        = max(50,  min(500,  int(data.get("num_voters",         200))))
     ideology          = str(data.get("ideology",           "random"))
     seed              = int(data.get("seed",                42))
     expressive_pct    = max(0.0, min(1.0, float(data.get("expressive_pct",    0.2))))
     bullet_pct        = max(0.0, min(1.0, float(data.get("bullet_voting_pct", 0.2))))
     primacy_bonus     = max(0.0, min(0.2, float(data.get("primacy_bonus",     0.02))))
-    candidate_order   = [str(n) for n in data.get("candidate_order", [])]
+    # Pydantic Optional[List[str]] may pass null — fall back to [].
+    candidate_order   = [str(n) for n in (data.get("candidate_order") or [])]
     primary_method    = str(data.get("method", "plurality"))
     cand_specs        = data.get("candidates", [
         {"name": "Alice", "x": -0.5, "y": -0.2},
@@ -3967,7 +3968,7 @@ def behavioral_biases() -> tuple[Response, int]:
     ])[:6]
 
     if len(cand_specs) < 2:
-        return jsonify({"error": "At least 2 candidates required"}), 400
+        return {"error": "At least 2 candidates required"}, 400
 
     _random.seed(seed)
     _np.random.seed(seed)
@@ -4113,7 +4114,7 @@ def behavioral_biases() -> tuple[Response, int]:
                 f"L'électorat est suffisamment homogène pour résister aux distorsions."
             )
 
-    return jsonify({
+    return {
         "sincere_winner":   sincere_winner,
         "biased_winner":    biased_winner,
         "winner_changed":   winner_changed,
@@ -4128,7 +4129,20 @@ def behavioral_biases() -> tuple[Response, int]:
         "bullet_immune_methods": ["majority_judgment", "star_voting",
                                   "borda", "irv", "schulze"],
         "pedagogical_note":      note,
-    }), 200
+    }, 200
+
+
+@election_bp.route("/behavioral-biases", methods=["POST"])
+@sim_limiter.limit("10 per minute")
+def behavioral_biases() -> tuple[Response, int]:
+    """POST /api/election/behavioral-biases — expressive/bullet/primacy biases."""
+    data = request.get_json() or {}
+    try:
+        body, status_code = _behavioral_biases_worker(data)
+        return jsonify(body), status_code
+    except Exception as exc:
+        current_app.logger.exception("behavioral_biases() crashed")
+        return jsonify({"error": f"Internal error: {exc}"}), 500
 
 
 # ── Liquid Democracy ──────────────────────────────────────────────────────────
@@ -5294,18 +5308,8 @@ def electoral_fatigue() -> tuple[Response, int]:
 
 # ── Choice Overload ───────────────────────────────────────────────────────────
 
-@election_bp.route("/choice-overload", methods=["POST"])
-@sim_limiter.limit("10 per minute")
-def choice_overload() -> tuple[Response, int]:
-    """
-    POST /api/election/choice-overload
-
-    Simulate the paradox of choice (Schwartz 2004): beyond overload_threshold
-    candidates, voters use heuristics (notoriety/primacy/partisan) instead of
-    their sincere preferences.  Compare voting methods on their robustness to
-    this degradation.
-    """
-    data               = request.get_json() or {}
+def _choice_overload_worker(data: Dict[str, Any]) -> tuple[Dict[str, Any], int]:
+    """Pure worker for /choice-overload — extracted for FastAPI v2 reuse."""
     num_voters         = max(50,  min(300, int(data.get("num_voters",         150))))
     ideology           = str(data.get("ideology",         "random"))
     seed               = int(data.get("seed",              42))
@@ -5317,11 +5321,12 @@ def choice_overload() -> tuple[Response, int]:
     h_pri              = max(0.0, min(1.0, float(hw.get("primacy",    0.10))))
     h_par              = max(0.0, min(1.0, float(hw.get("partisan",   0.20))))
     total_h            = min(1.0, h_not + h_pri + h_par)
-    methods_req        = data.get("methods", ["plurality", "approval",
-                                              "borda", "majority_judgment"])[:5]
+    # Pydantic Optional[List[str]] may pass null — fall back to the default.
+    methods_req        = (data.get("methods") or ["plurality", "approval",
+                                                   "borda", "majority_judgment"])[:5]
 
     if not cand_counts:
-        return jsonify({"error": "candidate_counts must be non-empty"}), 400
+        return {"error": "candidate_counts must be non-empty"}, 400
 
     from app.utils.simulation_score_utils import get_majority_judgment_winner as _mj_co
     from app.utils.simulation_ranked_utils import (
@@ -5524,7 +5529,7 @@ def choice_overload() -> tuple[Response, int]:
         f"'{most_robust}' est la méthode la plus robuste à la surcharge cognitive."
     )
 
-    return jsonify({
+    return {
         "results_by_n":         results_by_n,
         "regret_curve":         regret_curve,
         "most_robust_method":   most_robust,
@@ -5532,7 +5537,20 @@ def choice_overload() -> tuple[Response, int]:
         "overload_threshold":   overload_threshold,
         "heuristic_weights":    {"notoriety": h_not, "primacy": h_pri, "partisan": h_par},
         "pedagogical_note":     note,
-    }), 200
+    }, 200
+
+
+@election_bp.route("/choice-overload", methods=["POST"])
+@sim_limiter.limit("10 per minute")
+def choice_overload() -> tuple[Response, int]:
+    """POST /api/election/choice-overload — heuristics dominate beyond threshold."""
+    data = request.get_json() or {}
+    try:
+        body, status_code = _choice_overload_worker(data)
+        return jsonify(body), status_code
+    except Exception as exc:
+        current_app.logger.exception("choice_overload() crashed")
+        return jsonify({"error": f"Internal error: {exc}"}), 500
 
 
 # ── Demographic Turnout ───────────────────────────────────────────────────────
@@ -6445,20 +6463,13 @@ def party_dynamics() -> tuple[Response, int]:
 
 # ── Deliberation + Vote ───────────────────────────────────────────────────────
 
-@election_bp.route("/deliberation", methods=["POST"])
-@sim_limiter.limit("5 per minute")
-def deliberation_vote() -> tuple[Response, int]:
-    """
-    POST /api/election/deliberation
+def _deliberation_worker(data: Dict[str, Any]) -> tuple[Dict[str, Any], int]:
+    """Pure worker for /deliberation — extracted for FastAPI v2 reuse.
 
     Simulate DeGroot-style deliberation before the vote.
-    Voters update their ideology toward a group-weighted mean;
-    echo_chamber networks amplify polarisation, bridge/complete reduce it.
-    Compare pre-deliberation vs. post-deliberation election outcomes.
     """
     import copy as _cpd
 
-    data           = request.get_json() or {}
     num_voters     = max(50, min(500, int(data.get("num_voters",          200))))
     ideology       = str(data.get("ideology",               "random"))
     seed           = int(data.get("seed",                    42))
@@ -6475,7 +6486,7 @@ def deliberation_vote() -> tuple[Response, int]:
     ])[:6]
 
     if len(cand_specs) < 2:
-        return jsonify({"error": "At least 2 candidates required"}), 400
+        return {"error": "At least 2 candidates required"}, 400
 
     _random.seed(seed)
     _np.random.seed(seed)
@@ -6637,7 +6648,7 @@ def deliberation_vote() -> tuple[Response, int]:
         f"Le regret bayésien se {regdir} de {abs(regret_improv):.1f}%."
     )
 
-    return jsonify({
+    return {
         "pre_deliberation": {
             "winner":            pre_win,
             "vote_shares":       pre_shares,
@@ -6662,7 +6673,20 @@ def deliberation_vote() -> tuple[Response, int]:
         "per_round":      per_round,
         "network_effect": network_effect,
         "pedagogical_note": note,
-    }), 200
+    }, 200
+
+
+@election_bp.route("/deliberation", methods=["POST"])
+@sim_limiter.limit("5 per minute")
+def deliberation_vote() -> tuple[Response, int]:
+    """POST /api/election/deliberation — DeGroot opinion update + vote."""
+    data = request.get_json() or {}
+    try:
+        body, status_code = _deliberation_worker(data)
+        return jsonify(body), status_code
+    except Exception as exc:
+        current_app.logger.exception("deliberation_vote() crashed")
+        return jsonify({"error": f"Internal error: {exc}"}), 500
 
 
 # ── /api/election/power-indices ───────────────────────────────────────────────

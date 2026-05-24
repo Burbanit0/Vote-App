@@ -35,12 +35,16 @@ from app.schemas import (
     AbstentionRequest,
     AbstentionResponse,
     BallotComplexityRequest,
+    BehavioralBiasesRequest,
     CampaignSensitivityRequest,
     CampaignSensitivityResponse,
+    CascadeRequest,
+    ChoiceOverloadRequest,
     CoalitionRequest,
     CoalitionResponse,
     CombinedEffectsRequest,
     CombinedEffectsResponse,
+    DeliberationRequest,
     ElectoralFatigueRequest,
     NotaRequest,
     ShyVoterRequest,
@@ -51,9 +55,13 @@ from app.schemas import (
 from api_v2.domain.election import (
     abstention as abstention_domain,
     ballot_complexity as ballot_complexity_domain,
+    behavioral_biases as behavioral_biases_domain,
     campaign_sensitivity as campaign_sensitivity_domain,
+    cascade as cascade_domain,
+    choice_overload as choice_overload_domain,
     coalition as coalition_domain,
     combined_effects as combined_effects_domain,
+    deliberation as deliberation_domain,
     electoral_fatigue as electoral_fatigue_domain,
     nota as nota_domain,
     shy_voter as shy_voter_domain,
@@ -283,3 +291,62 @@ async def electoral_fatigue_endpoint(
     casual voters drop out faster each election, shifting the residual
     electorate toward partisans."""
     return await _run_passthrough(electoral_fatigue_domain, request)
+
+
+# ── Perturber endpoints (Phase 3 batch 4) ──────────────────────────────────
+
+@router.post(
+    "/cascade",
+    summary="Sequential voting with information cascades",
+    response_description="Sincere vs cascade winner, vote sequence with timeline, "
+                         "cascade-strength sensitivity curve.",
+)
+async def cascade_endpoint(request: CascadeRequest) -> Dict[str, Any]:
+    """Each voter observes the last `observation_window` votes and may follow
+    the public signal instead of their sincere preference with probability
+    `cascade_strength`. Bikhchandani, Hirshleifer, Welch (1992)."""
+    return await _run_passthrough(cascade_domain, request)
+
+
+@router.post(
+    "/behavioral-biases",
+    summary="Expressive voting + bullet voting + primacy effect",
+    response_description="Sincere vs biased winner, per-method sensitivity, "
+                         "and breakdown of which voters were affected.",
+)
+async def behavioral_biases_endpoint(
+    request: BehavioralBiasesRequest,
+) -> Dict[str, Any]:
+    """Three empirical biases stacked: expressive voting (Fiorina 1976),
+    bullet voting (collapses Approval to Plurality for affected voters),
+    primacy effect (Krosnick 1991, first-listed candidate bonus)."""
+    return await _run_passthrough(behavioral_biases_domain, request)
+
+
+@router.post(
+    "/choice-overload",
+    summary="Heuristics dominate beyond overload_threshold candidates",
+    response_description="Per-candidate-count winners, regret curve, "
+                         "most/least robust method.",
+)
+async def choice_overload_endpoint(
+    request: ChoiceOverloadRequest,
+) -> Dict[str, Any]:
+    """Schwartz 2004 paradox of choice: beyond `overload_threshold`
+    candidates, voters use heuristics (notoriety / primacy / partisan
+    affiliation) instead of their sincere preferences. Compares method
+    robustness."""
+    return await _run_passthrough(choice_overload_domain, request)
+
+
+@router.post(
+    "/deliberation",
+    summary="DeGroot opinion update across a network, then vote",
+    response_description="Pre vs post-deliberation winner, opinion convergence "
+                         "rate, polarisation change, per-round trace.",
+)
+async def deliberation_endpoint(request: DeliberationRequest) -> Dict[str, Any]:
+    """Voters update their ideology toward a network-weighted mean for
+    `deliberation_rounds` rounds, then vote. `network_type` echo_chamber
+    amplifies polarisation; bridge / complete reduce it."""
+    return await _run_passthrough(deliberation_domain, request)
