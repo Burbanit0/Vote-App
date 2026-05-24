@@ -15,7 +15,9 @@ canonical implementations moved here for real, and the corresponding
 Flask workers will be deleted.
 """
 from app.routes.election import (
+    _abstention_worker,
     _campaign_sensitivity_worker,
+    _coalition_worker,
     _combined_effects_worker,
 )
 from app.services.election_service import ElectionService
@@ -36,3 +38,13 @@ def campaign_sensitivity(data: dict) -> tuple[dict, int]:
     """Snapshot the same electorate at multiple campaign days to measure
     method-by-method winner stability over time."""
     return _campaign_sensitivity_worker(data)
+
+
+def coalition(data: dict) -> tuple[dict, int]:
+    """Per-method D'Hondt seat allocation + greedy coalition formation."""
+    return _coalition_worker(data)
+
+
+def abstention(data: dict) -> tuple[dict, int]:
+    """Iterated abstention model with poll-feedback over N rounds."""
+    return _abstention_worker(data)

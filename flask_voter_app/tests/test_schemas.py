@@ -133,11 +133,20 @@ class TestOtherRequests:
         with pytest.raises(ValidationError):
             AbstentionRequest(candidates=BASE_CANDS, poll_influence=1.5)
 
-    def test_coalition_threshold_bounds(self):
+    def test_coalition_government_threshold_bounds(self):
+        # government_threshold must be in [0, 1] — values outside that range
+        # are rejected at the schema level.
         with pytest.raises(ValidationError):
-            CoalitionRequest(candidates=BASE_CANDS, threshold_pct=0.3)
-        ok = CoalitionRequest(candidates=BASE_CANDS, threshold_pct=0.1)
-        assert ok.threshold_pct == 0.1
+            CoalitionRequest(candidates=BASE_CANDS, government_threshold=1.5)
+        with pytest.raises(ValidationError):
+            CoalitionRequest(candidates=BASE_CANDS, government_threshold=-0.1)
+        ok = CoalitionRequest(candidates=BASE_CANDS, government_threshold=0.66)
+        assert ok.government_threshold == 0.66
+
+    def test_coalition_total_seats_default(self):
+        req = CoalitionRequest(candidates=BASE_CANDS)
+        assert req.total_seats == 100
+        assert req.government_threshold == 0.5
 
 
 # ── SimulateResponse round-trip ─────────────────────────────────────────────

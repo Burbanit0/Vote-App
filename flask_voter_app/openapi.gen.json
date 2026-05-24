@@ -1176,12 +1176,13 @@
       },
       "CoalitionRequest": {
         "additionalProperties": false,
+        "description": "Per-method D'Hondt seat allocation + greedy coalition formation.",
         "properties": {
           "candidates": {
             "items": {
               "$ref": "#/components/schemas/CandidateSpec"
             },
-            "maxItems": 8,
+            "maxItems": 6,
             "minItems": 2,
             "title": "Candidates",
             "type": "array"
@@ -1206,17 +1207,18 @@
           },
           "total_seats": {
             "default": 100,
-            "maximum": 577,
+            "description": "Size of the parliament.",
+            "maximum": 1000,
             "minimum": 10,
             "title": "Total Seats",
             "type": "integer"
           },
-          "threshold_pct": {
-            "default": 0.05,
-            "description": "Electoral threshold (5 % default).",
-            "maximum": 0.2,
+          "government_threshold": {
+            "default": 0.5,
+            "description": "Share of seats needed to form a government.",
+            "maximum": 1.0,
             "minimum": 0.0,
-            "title": "Threshold Pct",
+            "title": "Government Threshold",
             "type": "number"
           }
         },
@@ -1226,97 +1228,146 @@
         "title": "CoalitionRequest",
         "type": "object"
       },
-      "Coalition": {
+      "CoalitionCandidate": {
         "additionalProperties": false,
         "properties": {
-          "members": {
+          "name": {
+            "title": "Name",
+            "type": "string"
+          },
+          "x": {
+            "title": "X",
+            "type": "number"
+          }
+        },
+        "required": [
+          "name",
+          "x"
+        ],
+        "title": "CoalitionCandidate",
+        "type": "object"
+      },
+      "CoalitionMethodResult": {
+        "additionalProperties": true,
+        "description": "Coalition analysis for one voting method.",
+        "properties": {
+          "method": {
+            "title": "Method",
+            "type": "string"
+          },
+          "winner": {
+            "title": "Winner",
+            "type": "string"
+          },
+          "seats": {
+            "additionalProperties": {
+              "type": "integer"
+            },
+            "title": "Seats",
+            "type": "object"
+          },
+          "vote_shares": {
+            "additionalProperties": {
+              "type": "number"
+            },
+            "title": "Vote Shares",
+            "type": "object"
+          },
+          "coalition_parties": {
             "items": {
               "type": "string"
             },
-            "title": "Members",
+            "title": "Coalition Parties",
+            "type": "array"
+          },
+          "coalition_seats": {
+            "title": "Coalition Seats",
+            "type": "integer"
+          },
+          "coalition_spread": {
+            "description": "Ideological variance of coalition (0 = monolithic).",
+            "title": "Coalition Spread",
+            "type": "number"
+          },
+          "government_possible": {
+            "title": "Government Possible",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "method",
+          "winner",
+          "seats",
+          "vote_shares",
+          "coalition_parties",
+          "coalition_seats",
+          "coalition_spread",
+          "government_possible"
+        ],
+        "title": "CoalitionMethodResult",
+        "type": "object"
+      },
+      "CoalitionResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "methods": {
+            "items": {
+              "$ref": "#/components/schemas/CoalitionMethodResult"
+            },
+            "title": "Methods",
+            "type": "array"
+          },
+          "candidates": {
+            "items": {
+              "$ref": "#/components/schemas/CoalitionCandidate"
+            },
+            "title": "Candidates",
             "type": "array"
           },
           "total_seats": {
             "title": "Total Seats",
             "type": "integer"
           },
-          "has_majority": {
-            "title": "Has Majority",
-            "type": "boolean"
-          }
-        },
-        "required": [
-          "members",
-          "total_seats",
-          "has_majority"
-        ],
-        "title": "Coalition",
-        "type": "object"
-      },
-      "SeatAllocation": {
-        "additionalProperties": false,
-        "properties": {
-          "candidate": {
-            "title": "Candidate",
-            "type": "string"
-          },
-          "seats": {
-            "title": "Seats",
+          "seat_threshold": {
+            "description": "ceil(total_seats * government_threshold).",
+            "title": "Seat Threshold",
             "type": "integer"
           },
-          "pct": {
-            "title": "Pct",
-            "type": "number"
-          }
-        },
-        "required": [
-          "candidate",
-          "seats",
-          "pct"
-        ],
-        "title": "SeatAllocation",
-        "type": "object"
-      },
-      "CoalitionResponse": {
-        "additionalProperties": false,
-        "properties": {
-          "allocations": {
-            "items": {
-              "$ref": "#/components/schemas/SeatAllocation"
-            },
-            "title": "Allocations",
-            "type": "array"
-          },
-          "majority_threshold": {
-            "title": "Majority Threshold",
-            "type": "integer"
-          },
-          "formed_coalition": {
+          "most_centrist_method": {
             "anyOf": [
               {
-                "$ref": "#/components/schemas/Coalition"
-              },
-              {
-                "type": "null"
-              }
-            ]
-          },
-          "runner_up_coalition": {
-            "anyOf": [
-              {
-                "$ref": "#/components/schemas/Coalition"
+                "type": "string"
               },
               {
                 "type": "null"
               }
             ],
-            "default": null
+            "title": "Most Centrist Method"
+          },
+          "most_divergent_method": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Most Divergent Method"
+          },
+          "inter_method_agreement": {
+            "title": "Inter Method Agreement",
+            "type": "number"
           }
         },
         "required": [
-          "allocations",
-          "majority_threshold",
-          "formed_coalition"
+          "methods",
+          "candidates",
+          "total_seats",
+          "seat_threshold",
+          "most_centrist_method",
+          "most_divergent_method",
+          "inter_method_agreement"
         ],
         "title": "CoalitionResponse",
         "type": "object"

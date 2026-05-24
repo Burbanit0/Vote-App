@@ -201,37 +201,47 @@ class AbstentionResponse(BaseModel):
 # ── /coalition ──────────────────────────────────────────────────────────────
 
 class CoalitionRequest(BaseModel):
+    """Per-method D'Hondt seat allocation + greedy coalition formation."""
     model_config = ConfigDict(extra="forbid")
 
-    candidates:    List[CandidateSpec] = Field(..., min_length=2, max_length=8)
-    num_voters:    int                 = Field(300, ge=10, le=1000)
-    ideology:      str                 = Field("random")
-    seed:          int                 = Field(42, ge=0)
-    total_seats:   int                 = Field(100, ge=10, le=577)
-    threshold_pct: float               = Field(0.05, ge=0.0, le=0.2,
-                                                description="Electoral threshold (5 % default).")
+    candidates:           List[CandidateSpec] = Field(..., min_length=2, max_length=6)
+    num_voters:           int   = Field(300, ge=10, le=1000)
+    ideology:             str   = Field("random")
+    seed:                 int   = Field(42, ge=0)
+    total_seats:          int   = Field(100, ge=10, le=1000,
+                                        description="Size of the parliament.")
+    government_threshold: float = Field(0.5, ge=0.0, le=1.0,
+                                        description="Share of seats needed to form a government.")
 
 
-class SeatAllocation(BaseModel):
+class CoalitionMethodResult(BaseModel):
+    """Coalition analysis for one voting method."""
+    model_config = ConfigDict(extra="allow")
+
+    method:              str
+    winner:              str
+    seats:               Dict[str, int]
+    vote_shares:         Dict[str, float]
+    coalition_parties:   List[str]
+    coalition_seats:     int
+    coalition_spread:    float = Field(..., description="Ideological variance of coalition (0 = monolithic).")
+    government_possible: bool
+
+
+class CoalitionCandidate(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
-    candidate: str
-    seats:     int
-    pct:       float
-
-
-class Coalition(BaseModel):
-    model_config = ConfigDict(extra="forbid")
-
-    members:       List[str]
-    total_seats:   int
-    has_majority:  bool
+    name: str
+    x:    float
 
 
 class CoalitionResponse(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
-    allocations:       List[SeatAllocation]
-    majority_threshold: int
-    formed_coalition:  Optional[Coalition]
-    runner_up_coalition: Optional[Coalition] = None
+    methods:                List[CoalitionMethodResult]
+    candidates:             List[CoalitionCandidate]
+    total_seats:            int
+    seat_threshold:         int = Field(..., description="ceil(total_seats * government_threshold).")
+    most_centrist_method:   Optional[str]
+    most_divergent_method:  Optional[str]
+    inter_method_agreement: float

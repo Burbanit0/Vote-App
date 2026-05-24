@@ -1,5 +1,6 @@
 import React, { useMemo, useState } from 'react';
 import axios from 'axios';
+import { apiPath } from '../../api/apiVersion';
 import { useTranslation } from 'react-i18next';
 import { Alert, Badge, Button, Spinner, Table } from 'react-bootstrap';
 import { useElection } from '../../context/ElectionContext';
@@ -202,7 +203,7 @@ const CoalitionPanel: React.FC = () => {
     setLoading(true);
     setError(null);
     try {
-      const res = await axios.post(`${API}/api/election/coalition`, {
+      const res = await axios.post(`${API}${apiPath('election/coalition')}`, {
         candidates:           config.candidates,
         num_voters:           config.num_voters,
         ideology:             config.ideology,

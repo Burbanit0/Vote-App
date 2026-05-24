@@ -32,8 +32,12 @@ from pydantic import BaseModel
 # Re-uses the Pydantic models defined in Phase 1. Single source of truth
 # shared with the Flask side via the openapi-typescript pipeline.
 from app.schemas import (
+    AbstentionRequest,
+    AbstentionResponse,
     CampaignSensitivityRequest,
     CampaignSensitivityResponse,
+    CoalitionRequest,
+    CoalitionResponse,
     CombinedEffectsRequest,
     CombinedEffectsResponse,
     SimulateRequest,
@@ -41,7 +45,9 @@ from app.schemas import (
 )
 
 from api_v2.domain.election import (
+    abstention as abstention_domain,
     campaign_sensitivity as campaign_sensitivity_domain,
+    coalition as coalition_domain,
     combined_effects as combined_effects_domain,
     simulate as simulate_domain,
 )
@@ -135,3 +141,38 @@ async def campaign_sensitivity_endpoint(
     return await _run_typed(
         campaign_sensitivity_domain, request, CampaignSensitivityResponse,
     )
+
+
+# ── /coalition ──────────────────────────────────────────────────────────────
+
+@router.post(
+    "/coalition",
+    response_model=CoalitionResponse,
+    summary="Per-method D'Hondt + greedy coalition formation",
+    response_description="One coalition analysis per voting method, with "
+                         "coalition_spread (ideological variance) and "
+                         "most_centrist / most_divergent method rankings.",
+)
+async def coalition_endpoint(request: CoalitionRequest) -> CoalitionResponse:
+    """For each voting method, allocates `total_seats` proportionally via
+    D'Hondt then greedily picks the smallest ideologically-coherent
+    coalition that crosses `government_threshold * total_seats`."""
+    return await _run_typed(coalition_domain, request, CoalitionResponse)
+
+
+# ── /abstention ─────────────────────────────────────────────────────────────
+
+@router.post(
+    "/abstention",
+    response_model=AbstentionResponse,
+    summary="Iterated abstention model with poll feedback",
+    response_description="Round-by-round turnout, vote shares, and winner. "
+                         "Includes per-method comparison (sincere vs final) "
+                         "so the Lab matrix can show how abstention shifts "
+                         "winners across all methods.",
+)
+async def abstention_endpoint(request: AbstentionRequest) -> AbstentionResponse:
+    """Round 0 is sincere. From round 1 onwards, voters whose preferred
+    candidate is trailing in the previous round's polls abstain with
+    probability ∝ demobilization_factor × poll_influence."""
+    return await _run_typed(abstention_domain, request, AbstentionResponse)
