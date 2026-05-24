@@ -9,6 +9,7 @@
  */
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import axios from 'axios';
+import { apiPath } from '../../api/apiVersion';
 import { useTranslation } from 'react-i18next';
 import { Alert, Badge, Button, Col, Form, Row, Spinner } from 'react-bootstrap';
 import {
@@ -166,7 +167,7 @@ const PolarizationPanel: React.FC = () => {
     if (ideologies.length === 0) return;
     setLoading(true); setError(null);
     try {
-      const res = await axios.post(`${API}/api/election/polarization`, {
+      const res = await axios.post(`${API}${apiPath('election/polarization')}`, {
         candidates:      config.candidates,
         num_voters:      Math.min(config.num_voters, 150),
         ideology_range:  ideologies,

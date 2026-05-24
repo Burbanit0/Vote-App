@@ -20,6 +20,8 @@ describe('apiPath', () => {
       'election/electoral-fatigue',
       'election/cascade', 'election/behavioral-biases',
       'election/choice-overload', 'election/deliberation',
+      'election/jury', 'election/hotelling',
+      'election/polarization', 'election/sortition',
     ]) {
       expect(apiPath(slug)).toBe(`/api/v2/${slug}`);
     }
@@ -29,6 +31,7 @@ describe('apiPath', () => {
     expect(apiPath('election/simulate-pipeline')).toBe('/api/election/simulate-pipeline');
     expect(apiPath('election/historical-replay')).toBe('/api/election/historical-replay');
     expect(apiPath('election/primary')).toBe('/api/election/primary');
+    expect(apiPath('election/stv')).toBe('/api/election/stv');
     expect(apiPath('theory/arrow')).toBe('/api/theory/arrow');
   });
 
@@ -64,8 +67,8 @@ describe('apiPath', () => {
 });
 
 describe('MIGRATED_ENDPOINTS registry', () => {
-  it('contains the 13 endpoints migrated through Phase 3 batch 4', () => {
-    expect(MIGRATED_ENDPOINTS.size).toBe(13);
+  it('contains the 17 endpoints migrated through Phase 3 batch 5', () => {
+    expect(MIGRATED_ENDPOINTS.size).toBe(17);
     for (const slug of [
       'election/simulate', 'election/combined-effects',
       'election/campaign-sensitivity', 'election/coalition',
@@ -74,6 +77,8 @@ describe('MIGRATED_ENDPOINTS registry', () => {
       'election/shy-voter', 'election/electoral-fatigue',
       'election/cascade', 'election/behavioral-biases',
       'election/choice-overload', 'election/deliberation',
+      'election/jury', 'election/hotelling',
+      'election/polarization', 'election/sortition',
     ]) {
       expect(MIGRATED_ENDPOINTS.has(slug)).toBe(true);
     }

@@ -2283,21 +2283,8 @@ def _run_jury_simulation(
     return {m: round(successes[m] / num_sims, 4) for m in _JURY_METHODS}
 
 
-@election_bp.route("/jury", methods=["POST"])
-@sim_limiter.limit("10 per minute")
-def jury() -> tuple[Response, int]:
-    """
-    POST /api/election/jury
-
-    Simulate the Condorcet Jury Theorem: voters with individual
-    competence p > 0.5 aggregate collectively toward the "truth".
-
-    Returns:
-      - Per-method accuracy from Monte Carlo
-      - Theoretical majority-rule accuracy (Condorcet formula)
-      - Pre-computed competence curve (20 points × 5 methods) for the chart
-    """
-    data              = request.get_json() or {}
+def _jury_worker(data: Dict[str, Any]) -> tuple[Dict[str, Any], int]:
+    """Pure worker for /jury — extracted for FastAPI v2 reuse."""
     num_voters        = max(10, min(500, int(data.get("num_voters",        100))))
     num_options       = max(2,  min(5,   int(data.get("num_options",         2))))
     correct_idx       = max(0,  min(num_options - 1,
@@ -2377,7 +2364,7 @@ def jury() -> tuple[Response, int]:
             f"majority rule is the best aggregation in this scenario."
         )
 
-    return jsonify({
+    return {
         "theoretical_accuracy": round(theoretical, 4),
         "methods":              methods_out,
         "best_method":          best_method,
@@ -2387,7 +2374,20 @@ def jury() -> tuple[Response, int]:
         "competence_curve":     curve_points,
         "pedagogical_note":     note_fr,
         "pedagogical_note_en":  note_en,
-    }), 200
+    }, 200
+
+
+@election_bp.route("/jury", methods=["POST"])
+@sim_limiter.limit("10 per minute")
+def jury() -> tuple[Response, int]:
+    """POST /api/election/jury — Condorcet Jury Theorem under N voting methods."""
+    data = request.get_json() or {}
+    try:
+        body, status_code = _jury_worker(data)
+        return jsonify(body), status_code
+    except Exception as exc:
+        current_app.logger.exception("jury() crashed")
+        return jsonify({"error": f"Internal error: {exc}"}), 500
 
 
 # ── Differential abstention endpoint ─────────────────────────────────────────
@@ -3048,17 +3048,8 @@ def _hotelling_score(
     return score
 
 
-@election_bp.route("/hotelling", methods=["POST"])
-@sim_limiter.limit("10 per minute")
-def hotelling() -> tuple[Response, int]:
-    """
-    POST /api/election/hotelling
-
-    Simulate Hotelling-Downs Nash equilibrium: each candidate iteratively
-    moves in the direction (±x, ±y) that maximises their vote score.
-    Converges when no candidate can improve by moving.
-    """
-    data           = request.get_json() or {}
+def _hotelling_worker(data: Dict[str, Any]) -> tuple[Dict[str, Any], int]:
+    """Pure worker for /hotelling — extracted for FastAPI v2 reuse."""
     num_voters     = max(50,  min(500, int(data.get("num_voters",   200))))
     ideology       = str(data.get("ideology",   "random"))
     seed           = int(data.get("seed",         42))
@@ -3072,7 +3063,7 @@ def hotelling() -> tuple[Response, int]:
     ])[:6]
 
     if len(cand_specs) < 2:
-        return jsonify({"error": "At least 2 candidates required"}), 400
+        return {"error": "At least 2 candidates required"}, 400
 
     _random.seed(seed)
     _np.random.seed(seed)
@@ -3198,7 +3189,7 @@ def hotelling() -> tuple[Response, int]:
         for i in range(min(200, N))
     ]
 
-    return jsonify({
+    return {
         "iterations":        iterations_out,
         "converged":         converged,
         "convergence_step":  convergence_step,
@@ -3207,7 +3198,20 @@ def hotelling() -> tuple[Response, int]:
         "voters":            voter_snaps,
         "candidates":        cand_names,
         "method":            method,
-    }), 200
+    }, 200
+
+
+@election_bp.route("/hotelling", methods=["POST"])
+@sim_limiter.limit("10 per minute")
+def hotelling() -> tuple[Response, int]:
+    """POST /api/election/hotelling — iterative best-response Nash equilibrium."""
+    data = request.get_json() or {}
+    try:
+        body, status_code = _hotelling_worker(data)
+        return jsonify(body), status_code
+    except Exception as exc:
+        current_app.logger.exception("hotelling() crashed")
+        return jsonify({"error": f"Internal error: {exc}"}), 500
 
 
 # ── Polarization endpoint ──────────────────────────────────────────────────────
@@ -3251,25 +3255,15 @@ def _winner_entropy(winners: List[Optional[str]]) -> float:
     return round(entropy / max_e if max_e > 0 else 0.0, 4)
 
 
-@election_bp.route("/polarization", methods=["POST"])
-@sim_limiter.limit("5 per minute")
-def polarization() -> tuple[Response, int]:
-    """
-    POST /api/election/polarization
-
-    For each ideology in ideology_range, generate an electorate, compute the
-    Esteban-Ray polarization index, then run num_simulations Monte Carlo
-    elections and track Condorcet rate, inter-method agreement, winner
-    stability, and Bayesian Regret by method.
-    """
-    data           = request.get_json() or {}
+def _polarization_worker(data: Dict[str, Any]) -> tuple[Dict[str, Any], int]:
+    """Pure worker for /polarization — extracted for FastAPI v2 reuse."""
     num_voters     = max(50,  min(300, int(data.get("num_voters",   150))))
     seed           = int(data.get("seed", 42))
     num_simulations = max(5, min(50,  int(data.get("num_simulations", 20))))
-    ideology_range: List[str] = data.get(
-        "ideology_range",
-        ["centrist", "random", "left_skewed", "right_skewed", "polarized"],
-    )
+    # Pydantic Optional[List[str]] may pass null — fall back to the default.
+    ideology_range: List[str] = data.get("ideology_range") or [
+        "centrist", "random", "left_skewed", "right_skewed", "polarized",
+    ]
     cand_specs = data.get("candidates", [
         {"name": "Alice", "x": -0.5, "y": -0.2},
         {"name": "Bob",   "x":  0.5, "y":  0.2},
@@ -3277,7 +3271,7 @@ def polarization() -> tuple[Response, int]:
     ])[:4]
 
     if len(cand_specs) < 2:
-        return jsonify({"error": "At least 2 candidates required"}), 400
+        return {"error": "At least 2 candidates required"}, 400
 
     issues = DEFAULT_ISSUES
     results: List[Dict[str, Any]] = []
@@ -3416,10 +3410,23 @@ def polarization() -> tuple[Response, int]:
             "d'un vainqueur de Condorcet."
         )
 
-    return jsonify({
+    return {
         "results":      results,
         "key_findings": findings,
-    }), 200
+    }, 200
+
+
+@election_bp.route("/polarization", methods=["POST"])
+@sim_limiter.limit("5 per minute")
+def polarization() -> tuple[Response, int]:
+    """POST /api/election/polarization — Esteban-Ray + method robustness scan."""
+    data = request.get_json() or {}
+    try:
+        body, status_code = _polarization_worker(data)
+        return jsonify(body), status_code
+    except Exception as exc:
+        current_app.logger.exception("polarization() crashed")
+        return jsonify({"error": f"Internal error: {exc}"}), 500
 
 
 # ── Quadratic Funding endpoint ─────────────────────────────────────────────────
@@ -5959,19 +5966,8 @@ def compulsory_voting() -> tuple[Response, int]:
 import math as _math
 
 
-@election_bp.route("/sortition", methods=["POST"])
-@sim_limiter.limit("5 per minute")
-def sortition() -> tuple[Response, int]:
-    """
-    POST /api/election/sortition
-
-    Compare three assembly selection methods on the same population:
-    elected (electoral bias), sortition pure (random sample),
-    sortition stratified (demographically balanced random sample).
-    Metrics: representativity, diversity, decision regret, Gini of representation.
-    Monte Carlo variance across num_simulations runs.
-    """
-    data            = request.get_json() or {}
+def _sortition_worker(data: Dict[str, Any]) -> tuple[Dict[str, Any], int]:
+    """Pure worker for /sortition — extracted for FastAPI v2 reuse."""
     num_voters      = max(50,  min(500, int(data.get("num_voters",        300))))
     assembly_size   = max(5,   min(300, int(data.get("assembly_size",      50))))
     ideology        = str(data.get("ideology",          "random"))
@@ -5985,13 +5981,14 @@ def sortition() -> tuple[Response, int]:
         {"name": "Carol", "x":  0.0, "y":  0.1},
     ])[:6]
 
-    strat_cfg   = data.get("stratification", {})
-    age_dist_raw = strat_cfg.get("age_groups", [0.25, 0.45, 0.30])
+    # Pydantic may pass null for the whole stratification object — guard.
+    strat_cfg   = data.get("stratification") or {}
+    age_dist_raw = strat_cfg.get("age_groups") or [0.25, 0.45, 0.30]
     gender_par  = bool(strat_cfg.get("gender_parity", True))
     edu_quota   = bool(strat_cfg.get("education_quota", True))
 
     if len(cand_specs) < 2:
-        return jsonify({"error": "At least 2 candidates required"}), 400
+        return {"error": "At least 2 candidates required"}, 400
 
     _random.seed(seed)
     _np.random.seed(seed)
@@ -6216,7 +6213,7 @@ def sortition() -> tuple[Response, int]:
         f"entre les 3 modes de sélection."
     )
 
-    return jsonify({
+    return {
         "population": {
             "mean_ideology": full_mean_ideo,
             "gini_ideology": round(float(_np.std([voter_ideo[vid] for vid in all_ids])), 4),
@@ -6230,7 +6227,20 @@ def sortition() -> tuple[Response, int]:
         "winner_by_method":   winner_by_method,
         "consensus_possible": consensus_possible,
         "pedagogical_note":   note,
-    }), 200
+    }, 200
+
+
+@election_bp.route("/sortition", methods=["POST"])
+@sim_limiter.limit("5 per minute")
+def sortition() -> tuple[Response, int]:
+    """POST /api/election/sortition — elected vs sortition pure vs stratified."""
+    data = request.get_json() or {}
+    try:
+        body, status_code = _sortition_worker(data)
+        return jsonify(body), status_code
+    except Exception as exc:
+        current_app.logger.exception("sortition() crashed")
+        return jsonify({"error": f"Internal error: {exc}"}), 500
 
 
 # ── Party Dynamics ────────────────────────────────────────────────────────────

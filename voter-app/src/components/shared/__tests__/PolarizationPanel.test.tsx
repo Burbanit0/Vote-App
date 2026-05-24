@@ -108,7 +108,7 @@ describe('PolarizationPanel', () => {
     fireEvent.click(screen.getByRole('button', { name: /calculer|compute/i }));
     await waitFor(() => expect(mockPost).toHaveBeenCalledTimes(1));
     expect(mockPost).toHaveBeenCalledWith(
-      expect.stringContaining('/api/election/polarization'),
+      expect.stringMatching(/\/api\/(v2\/)?election\/polarization/),
       expect.any(Object),
     );
     jest.runAllTimers();

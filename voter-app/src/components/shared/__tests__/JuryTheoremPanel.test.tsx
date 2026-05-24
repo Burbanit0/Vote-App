@@ -102,7 +102,7 @@ describe('JuryTheoremPanel', () => {
     fireEvent.click(screen.getByRole('button', { name: /simuler|simulate/i }));
     await waitFor(() => expect(mockPost).toHaveBeenCalledTimes(1));
     expect(mockPost).toHaveBeenCalledWith(
-      expect.stringContaining('/api/election/jury'),
+      expect.stringMatching(/\/api\/(v2\/)?election\/jury/),
       expect.objectContaining({ voter_competence: 0.70 }),
     );
   });

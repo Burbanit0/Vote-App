@@ -108,7 +108,7 @@ describe('SortitionPanel', () => {
     fireEvent.click(screen.getByTestId('simulate-btn'));
     await waitFor(() => expect(mockPost).toHaveBeenCalledTimes(1));
     expect(mockPost).toHaveBeenCalledWith(
-      expect.stringContaining('/api/election/sortition'),
+      expect.stringMatching(/\/api\/(v2\/)?election\/sortition/),
       expect.any(Object),
     );
     jest.runAllTimers();

@@ -45,8 +45,12 @@ from .perturbers import (
     ChoiceOverloadRequest,
     DeliberationRequest,
     ElectoralFatigueRequest,
+    HotellingRequest,
+    JuryRequest,
     NotaRequest,
+    PolarizationRequest,
     ShyVoterRequest,
+    SortitionRequest,
 )
 
 __all__ = [
@@ -64,5 +68,7 @@ __all__ = [
     "BallotComplexityRequest", "BehavioralBiasesRequest",
     "CascadeRequest", "ChoiceOverloadRequest",
     "DeliberationRequest", "ElectoralFatigueRequest",
-    "NotaRequest", "ShyVoterRequest",
+    "HotellingRequest", "JuryRequest",
+    "NotaRequest", "PolarizationRequest",
+    "ShyVoterRequest", "SortitionRequest",
 ]

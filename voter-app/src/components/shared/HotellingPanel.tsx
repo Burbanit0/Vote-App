@@ -7,6 +7,7 @@
  */
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import axios from 'axios';
+import { apiPath } from '../../api/apiVersion';
 import { useTranslation } from 'react-i18next';
 import {
   Alert, Badge, Button, Col, Form, Row, Spinner, Table,
@@ -83,7 +84,7 @@ const HotellingPanel: React.FC = () => {
     if (timerRef.current) clearTimeout(timerRef.current);
     setPlaying(false); setStepIdx(0); setLoading(true); setError(null);
     try {
-      const res = await axios.post(`${API}/api/election/hotelling`, {
+      const res = await axios.post(`${API}${apiPath('election/hotelling')}`, {
         candidates:     config.candidates,
         num_voters:     config.num_voters,
         ideology:       config.ideology,
@@ -105,7 +106,7 @@ const HotellingPanel: React.FC = () => {
     const results: Record<string, HotellingData> = {};
     for (const m of COMPARE_METHODS) {
       try {
-        const res = await axios.post(`${API}/api/election/hotelling`, {
+        const res = await axios.post(`${API}${apiPath('election/hotelling')}`, {
           candidates:     config.candidates,
           num_voters:     config.num_voters,
           ideology:       config.ideology,
