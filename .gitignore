@@ -194,3 +194,19 @@ flask_voter_app/migrations
 .vscode/
 .claude/worktrees/
 voter-app/full_output.txt
+
+# ── Coverage / test artifacts ────────────────────────────────────────────────
+htmlcov/
+.coverage
+.coverage.*
+*.cover
+coverage.xml
+voter-app/coverage/
+
+# ── Build artifacts (regeneratable) ─────────────────────────────────────────
+voter-app/build/
+voter-app/dist/
+
+# ── OS junk ──────────────────────────────────────────────────────────────────
+.DS_Store
+Thumbs.db

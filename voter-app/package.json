@@ -103,5 +103,6 @@
   },
   "overrides": {
     "typescript": "^5.8.3"
-  }
+  },
+  "license": "MIT"
 }

@@ -28,7 +28,12 @@ def create_app(config_object="config.Config"):
     app.config.from_object(config_object)
 
     # ── Logging ────────────────────────────────────────────────────────────
-    logging.basicConfig(level=logging.INFO, format="[%(asctime)s] %(levelname)s %(message)s")
+    # structlog handles configuration of the root logger. Flask's own logger
+    # is routed through it via stdlib handlers (see app/utils/logger.py).
+    from .utils.logger import configure_logging
+    configure_logging()
+    # Keep Flask's logger as a thin shim — code can still use app.logger.* but
+    # everything ends up structured via structlog.
     app.logger.setLevel(logging.INFO)
 
     # ── Production safety check ────────────────────────────────────────────
@@ -130,6 +135,7 @@ def create_app(config_object="config.Config"):
     from .routes.election   import election_bp
     from .routes.tech       import tech_bp
     from .routes.theory     import theory_bp
+    from .routes.health     import health_bp
 
     app.register_blueprint(users.auth_bp)
     app.register_blueprint(simulation_base.simulation_base_bp)
@@ -144,6 +150,7 @@ def create_app(config_object="config.Config"):
     app.register_blueprint(election_bp)
     app.register_blueprint(tech_bp)
     app.register_blueprint(theory_bp)
+    app.register_blueprint(health_bp)
 
     # ── Rate limiters ───────────────────────────────────────────────────────
     from .extensions import init_simulation_limiter
