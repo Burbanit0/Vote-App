@@ -38,6 +38,12 @@ from .election import (
     SimulateRequest,
     SimulateResponse,
 )
+from .perturbers import (
+    BallotComplexityRequest,
+    ElectoralFatigueRequest,
+    NotaRequest,
+    ShyVoterRequest,
+)
 
 __all__ = [
     # common
@@ -50,4 +56,7 @@ __all__ = [
     "CoalitionRequest", "CoalitionResponse",
     "CombinedEffectsRequest", "CombinedEffectsResponse",
     "SimulateRequest", "SimulateResponse",
+    # perturbers (request-only — see perturbers.py)
+    "BallotComplexityRequest", "ElectoralFatigueRequest",
+    "NotaRequest", "ShyVoterRequest",
 ]

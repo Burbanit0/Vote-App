@@ -4,6 +4,7 @@
  */
 import React, { useCallback, useRef, useState } from 'react';
 import axios from 'axios';
+import { apiPath } from '../../api/apiVersion';
 import { useTranslation } from 'react-i18next';
 import { Alert, Badge, Button, Col, Form, Row, Spinner, Table } from 'react-bootstrap';
 import {
@@ -66,7 +67,7 @@ const ShyVoterPanel: React.FC = () => {
     setLoading(true);
     setError(null);
     try {
-      const res = await axios.post(`${API}/api/election/shy-voter`, {
+      const res = await axios.post(`${API}${apiPath('election/shy-voter')}`, {
         candidates:                  config.candidates.map((c) => ({ name: c.name, x: c.x, y: c.y })),
         num_voters:                  config.num_voters,
         ideology:                    config.ideology,

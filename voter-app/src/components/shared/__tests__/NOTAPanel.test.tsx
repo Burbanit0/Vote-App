@@ -98,7 +98,7 @@ describe('NOTAPanel', () => {
     fireEvent.click(screen.getByRole('button', { name: /simuler|simulate/i }));
     await waitFor(() => expect(mockPost).toHaveBeenCalledTimes(1));
     expect(mockPost).toHaveBeenCalledWith(
-      expect.stringContaining('/api/election/nota'),
+      expect.stringMatching(/\/api\/(v2\/)?election\/nota/),
       expect.any(Object),
     );
     jest.runAllTimers();

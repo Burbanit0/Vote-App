@@ -4601,18 +4601,9 @@ _NOTA_TRACKED = [
 ]
 
 
-@election_bp.route("/nota", methods=["POST"])
-@sim_limiter.limit("10 per minute")
-def nota_election() -> tuple[Response, int]:
-    """
-    POST /api/election/nota
+def _nota_worker(data: Dict[str, Any]) -> tuple[Dict[str, Any], int]:
+    """Pure worker for /nota — extracted for FastAPI v2 reuse (Phase 3 batch 3)."""
 
-    Simulate NOTA (None Of The Above) as an official ballot option.
-    A voter casts NOTA if their maximum utility for any candidate is below
-    nota_threshold.  Three constitutional rules are supported after NOTA wins:
-    invalidate, force a runoff with new candidates, or seat NOTA (Nevada-style).
-    """
-    data           = request.get_json() or {}
     num_voters     = max(50,  min(500, int(data.get("num_voters",     200))))
     ideology       = str(data.get("ideology",      "random"))
     seed           = int(data.get("seed",           42))
@@ -4626,7 +4617,7 @@ def nota_election() -> tuple[Response, int]:
     ])[:6]
 
     if len(cand_specs) < 2:
-        return jsonify({"error": "At least 2 candidates required"}), 400
+        return {"error": "At least 2 candidates required"}, 400
 
     _random.seed(seed)
     _np.random.seed(seed)
@@ -4759,7 +4750,7 @@ def nota_election() -> tuple[Response, int]:
         f"— elle est plus inclusive car elle intègre davantage de préférences individuelles."
     )
 
-    return jsonify({
+    return {
         "nota_pct":          nota_pct_main,
         "election_valid":    election_valid,
         "winner":            final_winner,
@@ -4768,7 +4759,20 @@ def nota_election() -> tuple[Response, int]:
         "pedagogical_note":  note,
         "nota_rule":         nota_rule,
         "nota_threshold":    nota_threshold,
-    }), 200
+    }, 200
+
+
+@election_bp.route("/nota", methods=["POST"])
+@sim_limiter.limit("10 per minute")
+def nota_election() -> tuple[Response, int]:
+    """POST /api/election/nota — None Of The Above as a ballot option."""
+    data = request.get_json() or {}
+    try:
+        body, status_code = _nota_worker(data)
+        return jsonify(body), status_code
+    except Exception as exc:
+        current_app.logger.exception("nota_election() crashed")
+        return jsonify({"error": f"Internal error: {exc}"}), 500
 
 
 # ── Ballot Complexity ─────────────────────────────────────────────────────────
@@ -4792,24 +4796,16 @@ _DEFAULT_BALLOT_METHODS = [
 ]
 
 
-@election_bp.route("/ballot-complexity", methods=["POST"])
-@sim_limiter.limit("10 per minute")
-def ballot_complexity() -> tuple[Response, int]:
-    """
-    POST /api/election/ballot-complexity
-
-    Simulate how ballot design complexity causes null (spoiled) ballots.
-    P(null | method) = error_base × candidate_factor × education_factor × ftv_factor
-    Compare methods on their null rate and show how winner changes when
-    null votes are removed from the electorate.
-    """
-    data             = request.get_json() or {}
+def _ballot_complexity_worker(data: Dict[str, Any]) -> tuple[Dict[str, Any], int]:
+    """Pure worker for /ballot-complexity — extracted for FastAPI v2 reuse."""
     num_voters       = max(50, min(500, int(data.get("num_voters",              200))))
     ideology         = str(data.get("ideology",              "random"))
     seed             = int(data.get("seed",                   42))
     education_level  = max(0.0, min(1.0, float(data.get("education_level",     0.7))))
     ftv_pct          = max(0.0, min(1.0, float(data.get("first_time_voter_pct", 0.1))))
-    methods_compare  = data.get("methods_to_compare", _DEFAULT_BALLOT_METHODS)[:8]
+    # Pydantic Optional[List[str]]=None may pass null explicitly — fall back
+    # to the server default in that case rather than indexing into None.
+    methods_compare  = (data.get("methods_to_compare") or _DEFAULT_BALLOT_METHODS)[:8]
     cand_specs       = data.get("candidates", [
         {"name": "Alice", "x": -0.5, "y": -0.2},
         {"name": "Bob",   "x":  0.5, "y":  0.2},
@@ -4817,7 +4813,7 @@ def ballot_complexity() -> tuple[Response, int]:
     ])[:8]
 
     if len(cand_specs) < 2:
-        return jsonify({"error": "At least 2 candidates required"}), 400
+        return {"error": "At least 2 candidates required"}, 400
 
     _random.seed(seed)
     _np.random.seed(seed)
@@ -4946,28 +4942,37 @@ def ballot_complexity() -> tuple[Response, int]:
         f"Ce n'est pas l'électeur qui échoue — c'est la conception du bulletin."
     )
 
-    return jsonify({
+    return {
         "results":                results,
         "candidate_count_curve":  candidate_count_curve,
         "most_inclusive_method":  most_inclusive,
         "least_inclusive_method": least_inclusive,
         "pedagogical_note":       note,
-    }), 200
+    }, 200
+
+
+@election_bp.route("/ballot-complexity", methods=["POST"])
+@sim_limiter.limit("10 per minute")
+def ballot_complexity() -> tuple[Response, int]:
+    """POST /api/election/ballot-complexity — null-vote rate per method."""
+    data = request.get_json() or {}
+    try:
+        body, status_code = _ballot_complexity_worker(data)
+        return jsonify(body), status_code
+    except Exception as exc:
+        current_app.logger.exception("ballot_complexity() crashed")
+        return jsonify({"error": f"Internal error: {exc}"}), 500
 
 
 # ── Shy Voter Effect ──────────────────────────────────────────────────────────
 
-@election_bp.route("/shy-voter", methods=["POST"])
-@sim_limiter.limit("10 per minute")
-def shy_voter() -> tuple[Response, int]:
-    """
-    POST /api/election/shy-voter
+def _shy_voter_worker(data: Dict[str, Any]) -> tuple[Dict[str, Any], int]:
+    """Pure worker for /shy-voter — extracted for FastAPI v2 reuse.
 
     Simulate the Bradley / Shy Tory effect: voters who intend to vote for a
     socially 'sensitive' candidate declare a more acceptable preference in polls
     (with probability social_desirability_factor) but vote sincerely in the booth.
     """
-    data           = request.get_json() or {}
     num_voters     = max(50,  min(500, int(data.get("num_voters",                  300))))
     ideology       = str(data.get("ideology",                  "random"))
     seed           = int(data.get("seed",                       42))
@@ -4981,7 +4986,7 @@ def shy_voter() -> tuple[Response, int]:
     ])[:6]
 
     if len(cand_specs) < 2:
-        return jsonify({"error": "At least 2 candidates required"}), 400
+        return {"error": "At least 2 candidates required"}, 400
 
     _random.seed(seed)
     _np.random.seed(seed)
@@ -5088,7 +5093,7 @@ def shy_voter() -> tuple[Response, int]:
     else:
         note += f"Malgré le biais, les sondages prédisent correctement '{real_winner}'."
 
-    return jsonify({
+    return {
         "real_winner":               real_winner,
         "poll_winner":               poll_winner,
         "polls_wrong":               polls_wrong,
@@ -5099,16 +5104,26 @@ def shy_voter() -> tuple[Response, int]:
         "avg_poll_results":          avg_pred,
         "social_desirability_curve": curve,
         "pedagogical_note":          note,
-    }), 200
+    }, 200
+
+
+@election_bp.route("/shy-voter", methods=["POST"])
+@sim_limiter.limit("10 per minute")
+def shy_voter() -> tuple[Response, int]:
+    """POST /api/election/shy-voter — Bradley / Shy Tory effect."""
+    data = request.get_json() or {}
+    try:
+        body, status_code = _shy_voter_worker(data)
+        return jsonify(body), status_code
+    except Exception as exc:
+        current_app.logger.exception("shy_voter() crashed")
+        return jsonify({"error": f"Internal error: {exc}"}), 500
 
 
 # ── Electoral Fatigue ─────────────────────────────────────────────────────────
 
-@election_bp.route("/electoral-fatigue", methods=["POST"])
-@sim_limiter.limit("10 per minute")
-def electoral_fatigue() -> tuple[Response, int]:
-    """
-    POST /api/election/electoral-fatigue
+def _electoral_fatigue_worker(data: Dict[str, Any]) -> tuple[Dict[str, Any], int]:
+    """Pure worker for /electoral-fatigue — extracted for FastAPI v2 reuse.
 
     Simulate electoral fatigue across repeated elections.
     P(vote | election k) = max(engaged_pct, 1 - k × fatigue_rate)  [k = 0-based]
@@ -5116,7 +5131,6 @@ def electoral_fatigue() -> tuple[Response, int]:
     As casual voters drop out, the residual electorate drifts ideologically
     toward the engaged (more partisan) voters.
     """
-    data           = request.get_json() or {}
     num_voters     = max(50,  min(500,  int(data.get("num_voters",          200))))
     ideology       = str(data.get("ideology",          "random"))
     seed           = int(data.get("seed",               42))
@@ -5131,7 +5145,7 @@ def electoral_fatigue() -> tuple[Response, int]:
     ])[:6]
 
     if len(cand_specs) < 2:
-        return jsonify({"error": "At least 2 candidates required"}), 400
+        return {"error": "At least 2 candidates required"}, 400
 
     _random.seed(seed)
     _np.random.seed(seed)
@@ -5254,7 +5268,7 @@ def electoral_fatigue() -> tuple[Response, int]:
         f"(écart de représentation : {representation_gap:+.3f})."
     )
 
-    return jsonify({
+    return {
         "elections":             elections_out,
         "winner_drift":          winner_drift,
         "winner_changed_at":     winner_changed_at,
@@ -5262,7 +5276,20 @@ def electoral_fatigue() -> tuple[Response, int]:
         "representation_gap":    representation_gap,
         "full_mean_ideology":    full_mean_ideo,
         "pedagogical_note":      note,
-    }), 200
+    }, 200
+
+
+@election_bp.route("/electoral-fatigue", methods=["POST"])
+@sim_limiter.limit("10 per minute")
+def electoral_fatigue() -> tuple[Response, int]:
+    """POST /api/election/electoral-fatigue — turnout decay across repeated elections."""
+    data = request.get_json() or {}
+    try:
+        body, status_code = _electoral_fatigue_worker(data)
+        return jsonify(body), status_code
+    except Exception as exc:
+        current_app.logger.exception("electoral_fatigue() crashed")
+        return jsonify({"error": f"Internal error: {exc}"}), 500
 
 
 # ── Choice Overload ───────────────────────────────────────────────────────────
