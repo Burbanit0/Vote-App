@@ -32,6 +32,11 @@ Faker==37.3.0
 # See app/utils/logger.py for setup.
 structlog==25.4.0
 
+# Pydantic v2 — phase 1 strategic refactor: typed HTTP schemas in app/schemas/.
+# Already pulled transitively by flask-openapi3 but pinned here so the
+# dependency is explicit (we use it directly in our schemas).
+pydantic==2.13.4
+
 # OAuth
 google-auth==2.38.0
 
