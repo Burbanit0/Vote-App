@@ -16,9 +16,13 @@ Flask workers will be deleted.
 """
 from app.routes.election import (
     _abstention_worker,
+    _ballot_complexity_worker,
     _campaign_sensitivity_worker,
     _coalition_worker,
     _combined_effects_worker,
+    _electoral_fatigue_worker,
+    _nota_worker,
+    _shy_voter_worker,
 )
 from app.services.election_service import ElectionService
 
@@ -48,3 +52,25 @@ def coalition(data: dict) -> tuple[dict, int]:
 def abstention(data: dict) -> tuple[dict, int]:
     """Iterated abstention model with poll-feedback over N rounds."""
     return _abstention_worker(data)
+
+
+# ── Perturber endpoints (Phase 3 batch 3) ──────────────────────────────────
+
+def nota(data: dict) -> tuple[dict, int]:
+    """NOTA (None Of The Above) as an official ballot option."""
+    return _nota_worker(data)
+
+
+def ballot_complexity(data: dict) -> tuple[dict, int]:
+    """Null-vote rate per method as a function of ballot complexity."""
+    return _ballot_complexity_worker(data)
+
+
+def shy_voter(data: dict) -> tuple[dict, int]:
+    """Bradley / Shy Tory effect: socially-sensitive candidates underpolled."""
+    return _shy_voter_worker(data)
+
+
+def electoral_fatigue(data: dict) -> tuple[dict, int]:
+    """Turnout decay over repeated elections; residual electorate drifts toward partisans."""
+    return _electoral_fatigue_worker(data)

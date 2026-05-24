@@ -18,11 +18,16 @@ describe('apiPath', () => {
     expect(apiPath('election/campaign-sensitivity')).toBe('/api/v2/election/campaign-sensitivity');
     expect(apiPath('election/coalition')).toBe('/api/v2/election/coalition');
     expect(apiPath('election/abstention')).toBe('/api/v2/election/abstention');
+    expect(apiPath('election/nota')).toBe('/api/v2/election/nota');
+    expect(apiPath('election/ballot-complexity')).toBe('/api/v2/election/ballot-complexity');
+    expect(apiPath('election/shy-voter')).toBe('/api/v2/election/shy-voter');
+    expect(apiPath('election/electoral-fatigue')).toBe('/api/v2/election/electoral-fatigue');
   });
 
   it('keeps non-migrated endpoints on /api/*', () => {
     expect(apiPath('election/simulate-pipeline')).toBe('/api/election/simulate-pipeline');
     expect(apiPath('election/historical-replay')).toBe('/api/election/historical-replay');
+    expect(apiPath('election/cascade')).toBe('/api/election/cascade');
     expect(apiPath('theory/arrow')).toBe('/api/theory/arrow');
   });
 
@@ -58,12 +63,16 @@ describe('apiPath', () => {
 });
 
 describe('MIGRATED_ENDPOINTS registry', () => {
-  it('contains the 5 endpoints migrated through Phase 3 batch 2', () => {
-    expect(MIGRATED_ENDPOINTS.size).toBe(5);
-    expect(MIGRATED_ENDPOINTS.has('election/simulate')).toBe(true);
-    expect(MIGRATED_ENDPOINTS.has('election/combined-effects')).toBe(true);
-    expect(MIGRATED_ENDPOINTS.has('election/campaign-sensitivity')).toBe(true);
-    expect(MIGRATED_ENDPOINTS.has('election/coalition')).toBe(true);
-    expect(MIGRATED_ENDPOINTS.has('election/abstention')).toBe(true);
+  it('contains the 9 endpoints migrated through Phase 3 batch 3', () => {
+    expect(MIGRATED_ENDPOINTS.size).toBe(9);
+    for (const slug of [
+      'election/simulate', 'election/combined-effects',
+      'election/campaign-sensitivity', 'election/coalition',
+      'election/abstention',
+      'election/nota', 'election/ballot-complexity',
+      'election/shy-voter', 'election/electoral-fatigue',
+    ]) {
+      expect(MIGRATED_ENDPOINTS.has(slug)).toBe(true);
+    }
   });
 });

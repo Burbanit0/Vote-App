@@ -24,11 +24,17 @@
 
 /** Endpoints currently served by FastAPI on /api/v2/*. Order doesn't matter. */
 export const MIGRATED_ENDPOINTS: ReadonlySet<string> = new Set([
+  // Phase 2 + Phase 3 batches 1-2 (typed responses)
   'election/simulate',
   'election/combined-effects',
   'election/campaign-sensitivity',
   'election/coalition',
   'election/abstention',
+  // Phase 3 batch 3 (passthrough responses)
+  'election/nota',
+  'election/ballot-complexity',
+  'election/shy-voter',
+  'election/electoral-fatigue',
 ]);
 
 /** localStorage key for the rollback switch. Public so tests can clear it. */

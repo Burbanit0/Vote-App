@@ -34,21 +34,29 @@ from pydantic import BaseModel
 from app.schemas import (
     AbstentionRequest,
     AbstentionResponse,
+    BallotComplexityRequest,
     CampaignSensitivityRequest,
     CampaignSensitivityResponse,
     CoalitionRequest,
     CoalitionResponse,
     CombinedEffectsRequest,
     CombinedEffectsResponse,
+    ElectoralFatigueRequest,
+    NotaRequest,
+    ShyVoterRequest,
     SimulateRequest,
     SimulateResponse,
 )
 
 from api_v2.domain.election import (
     abstention as abstention_domain,
+    ballot_complexity as ballot_complexity_domain,
     campaign_sensitivity as campaign_sensitivity_domain,
     coalition as coalition_domain,
     combined_effects as combined_effects_domain,
+    electoral_fatigue as electoral_fatigue_domain,
+    nota as nota_domain,
+    shy_voter as shy_voter_domain,
     simulate as simulate_domain,
 )
 
@@ -82,6 +90,31 @@ async def _run_typed(
             detail=body.get("error", "Internal error"),
         )
     return response_model.model_validate(body)
+
+
+async def _run_passthrough(
+    domain_fn: Callable[[Dict[str, Any]], tuple[Dict[str, Any], int]],
+    request: BaseModel,
+) -> Dict[str, Any]:
+    """Like _run_typed but returns the body dict unchanged (no response_model).
+
+    Used for endpoints where the response shape is large, loosely-typed, or
+    not worth pinning down (typical of Perturber endpoints with curves
+    and method-comparison dicts). The frontend keeps its own TypeScript
+    interface for the response.
+    """
+    body, status_code = await asyncio.to_thread(domain_fn, request.model_dump())
+    if status_code == 400:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=body.get("error", "Bad request"),
+        )
+    if status_code != 200:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=body.get("error", "Internal error"),
+        )
+    return body
 
 
 # ── /simulate ───────────────────────────────────────────────────────────────
@@ -176,3 +209,77 @@ async def abstention_endpoint(request: AbstentionRequest) -> AbstentionResponse:
     candidate is trailing in the previous round's polls abstain with
     probability ∝ demobilization_factor × poll_influence."""
     return await _run_typed(abstention_domain, request, AbstentionResponse)
+
+
+# ── Perturber endpoints (Phase 3 batch 3) ──────────────────────────────────
+# Responses are passed through as dicts — the frontend has its own
+# TypeScript interfaces and the worker outputs are large compound shapes
+# (curves, per-method comparisons) not worth pinning to Pydantic models.
+
+@router.post(
+    "/nota",
+    summary="NOTA (None Of The Above) as a ballot option",
+    response_description=(
+        "Sincere winner, NOTA percentage, election validity per the "
+        "constitutional rule, NOTA-vs-threshold curve, and a "
+        "per-method comparison of NOTA inclusiveness."
+    ),
+)
+async def nota_endpoint(request: NotaRequest) -> Dict[str, Any]:
+    """A voter casts NOTA when their max-utility for any candidate is below
+    nota_threshold. Three constitutional outcomes after NOTA wins:
+    `invalidate` (null election), `runoff` (new candidates), or
+    `winner_take_all` (seat NOTA, Nevada-style)."""
+    return await _run_passthrough(nota_domain, request)
+
+
+@router.post(
+    "/ballot-complexity",
+    summary="Null-vote rate per method as a function of ballot complexity",
+    response_description=(
+        "Per-method null rate, winner with and without nulls, and a "
+        "curve of null rate as the candidate count grows."
+    ),
+)
+async def ballot_complexity_endpoint(
+    request: BallotComplexityRequest,
+) -> Dict[str, Any]:
+    """P(null | method) = error_base × candidate_factor × education_factor
+    × first_time_voter_factor. Complex ballots (Schulze, IRV) exclude
+    more voters than simple ones (Plurality)."""
+    return await _run_passthrough(ballot_complexity_domain, request)
+
+
+@router.post(
+    "/shy-voter",
+    summary="Bradley / Shy Tory effect — socially-sensitive candidates underpolled",
+    response_description=(
+        "Real vs polled winner, systematic poll error, and a "
+        "social-desirability-vs-systematic-error curve."
+    ),
+)
+async def shy_voter_endpoint(request: ShyVoterRequest) -> Dict[str, Any]:
+    """Voters intending to vote for the 'sensitive' candidate (index
+    `shy_candidate_idx`) declare a more acceptable preference in polls
+    with probability `social_desirability_factor`, but vote sincerely
+    in the booth."""
+    return await _run_passthrough(shy_voter_domain, request)
+
+
+@router.post(
+    "/electoral-fatigue",
+    summary="Turnout decay across repeated elections",
+    response_description=(
+        "Per-election turnout, winner, ideology drift, and a "
+        "representation-gap measure of how much the residual electorate "
+        "diverges from the full population."
+    ),
+)
+async def electoral_fatigue_endpoint(
+    request: ElectoralFatigueRequest,
+) -> Dict[str, Any]:
+    """P(vote | election k) = max(engaged_voter_pct, 1 - k × fatigue_rate).
+    Engaged voters (top engaged_voter_pct by max-utility) always vote;
+    casual voters drop out faster each election, shifting the residual
+    electorate toward partisans."""
+    return await _run_passthrough(electoral_fatigue_domain, request)

@@ -104,7 +104,7 @@ describe('ShyVoterPanel', () => {
     fireEvent.click(screen.getByRole('button', { name: /simuler|simulate/i }));
     await waitFor(() => expect(mockPost).toHaveBeenCalledTimes(1));
     expect(mockPost).toHaveBeenCalledWith(
-      expect.stringContaining('/api/election/shy-voter'),
+      expect.stringMatching(/\/api\/(v2\/)?election\/shy-voter/),
       expect.any(Object),
     );
     jest.runAllTimers();
