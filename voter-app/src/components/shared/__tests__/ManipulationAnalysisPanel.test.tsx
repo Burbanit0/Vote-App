@@ -90,7 +90,7 @@ describe('ManipulationAnalysisPanel', () => {
     fireEvent.click(screen.getByTestId('analyze-btn'));
     await waitFor(() => expect(mockPost).toHaveBeenCalledTimes(1));
     expect(mockPost).toHaveBeenCalledWith(
-      expect.stringContaining('/api/theory/manipulation-analysis'),
+      expect.stringMatching(/\/api\/(v2\/)?theory\/manipulation-analysis/),
       expect.any(Object),
     );
     jest.runAllTimers();

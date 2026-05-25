@@ -185,7 +185,7 @@ describe('AgendaManipulationPanel', () => {
     await waitFor(() => expect(mockAxios.post).toHaveBeenCalled());
 
     const [url, payload] = mockAxios.post.mock.calls[0];
-    expect(url).toContain('/api/theory/agenda-manipulation');
+    expect(url).toMatch(/\/api\/(v2\/)?theory\/agenda-manipulation/);
     expect(payload).toHaveProperty('alternatives');
     expect(payload).toHaveProperty('num_voters');
     expect(payload).toHaveProperty('seed');

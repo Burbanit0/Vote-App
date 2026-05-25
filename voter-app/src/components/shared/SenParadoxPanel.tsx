@@ -7,6 +7,7 @@ import React, { useCallback, useState } from 'react';
 import axios from 'axios';
 import { useTranslation } from 'react-i18next';
 import { Alert, Badge, Button, Card, Col, Form, Row, Spinner } from 'react-bootstrap';
+import { apiPath } from '../../api/apiVersion';
 
 const API = process.env.REACT_APP_API_URL ?? 'http://localhost:4433';
 
@@ -96,7 +97,7 @@ const SenParadoxPanel: React.FC = () => {
     setError(null);
     setCustomResult(null);
     try {
-      const res = await axios.post(`${API}/api/theory/sen-paradox`, {
+      const res = await axios.post(`${API}${apiPath('theory/sen-paradox')}`, {
         num_voters: 2,
         seed,
         rights_definition: 'liberal',
@@ -113,7 +114,7 @@ const SenParadoxPanel: React.FC = () => {
     if (!data) return;
     setLoading(true);
     try {
-      const res = await axios.post(`${API}/api/theory/sen-paradox`, {
+      const res = await axios.post(`${API}${apiPath('theory/sen-paradox')}`, {
         num_voters: 2,
         seed,
         rights_definition: 'liberal',

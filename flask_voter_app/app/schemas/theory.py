@@ -158,3 +158,170 @@ class JudgmentAggregationResponse(BaseModel):
     paradox_severity:       float = Field(..., ge=0.0, le=1.0)
     resolution_methods:     JAResolutionMethods
     pedagogical_note:       str
+
+
+# ── /agenda-manipulation ────────────────────────────────────────────────────
+
+class AgendaManipulationRequest(BaseModel):
+    """McKelvey-style agenda manipulation under binary elimination."""
+    model_config = ConfigDict(extra="forbid")
+
+    alternatives:    List[str] = Field(default_factory=lambda: ["Alice", "Bob", "Carol"],
+                                       min_length=2, max_length=6)
+    num_voters:      int = Field(21, ge=3, le=101)
+    seed:            int = Field(42, ge=0)
+    target_outcome:  Optional[str] = Field(None,
+                                           description="Outcome the agenda-setter wants. "
+                                                       "Falls back to first alternative.")
+    constraint_type: str = Field("binary_elimination",
+                                 description="Currently only binary_elimination is supported.")
+
+
+class OptimalAgenda(BaseModel):
+    for_target:  List[str]
+    neutral:     List[str]
+    worst_case:  List[str]
+
+
+class AgendaManipulationResponse(BaseModel):
+    pairwise_matrix:     Dict[str, Dict[str, float]]
+    condorcet_winner:    Optional[str] = None
+    all_outcomes:        Dict[str, Any]
+    achievable_outcomes: List[str]
+    optimal_agenda:      OptimalAgenda
+    manipulation_power:  float = Field(..., ge=0.0, le=1.0)
+    pedagogical_note:    str
+
+
+# ── /apportionment ──────────────────────────────────────────────────────────
+
+class ApportionmentParty(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    name:  str = Field(..., min_length=1, max_length=32)
+    votes: int = Field(..., ge=0)
+
+
+class ApportionmentRequest(BaseModel):
+    """Compare apportionment methods + Balinski-Young paradoxes."""
+    model_config = ConfigDict(extra="forbid")
+
+    parties:        List[ApportionmentParty] = Field(..., min_length=1, max_length=10)
+    num_seats:      int = Field(10, ge=2, le=1000)
+    methods:        Optional[List[str]] = Field(None,
+                                                description="Defaults to all 5 methods.")
+    find_paradoxes: bool = Field(True,
+                                 description="Run alabama/population/quota paradox checks "
+                                             "(costlier).")
+
+
+class ApportionmentMethodResult(BaseModel):
+    seats:              Dict[str, int]
+    quota_violation:    bool
+    alabama_paradox:    bool
+    population_paradox: bool
+    new_state_paradox:  bool
+    favors:             str
+    description:        str
+
+
+class ApportionmentResponse(BaseModel):
+    results:                Dict[str, ApportionmentMethodResult]
+    balinski_young_summary: str
+    impossible_to_avoid:    List[str]
+    pedagogical_note:       str
+
+
+# ── /sen-paradox ────────────────────────────────────────────────────────────
+
+class SenParadoxRequest(BaseModel):
+    """Sen's Impossibility of a Paretian Liberal (always uses 2 voters)."""
+    model_config = ConfigDict(extra="forbid")
+
+    num_voters:        int = Field(2, ge=2, le=2,
+                                   description="Fixed at 2 for the canonical formulation.")
+    seed:              int = Field(42, ge=0)
+    rights_definition: str = Field("liberal")
+
+
+class SenExample(BaseModel):
+    name:                str
+    voters_preferences:  List[List[str]]
+    private_spheres:     Dict[str, List[str]]
+    liberal_outcome:     str
+    pareto_outcome:      str
+    conflict:            bool
+    explanation:         str
+
+
+class SenResolutionOption(BaseModel):
+    name:     str
+    outcome:  str
+    cost:     str
+    theorist: str
+
+
+class SenParadoxResponse(BaseModel):
+    paradox_exists:     bool
+    paradox_examples:   List[SenExample]
+    paradox_frequency:  float = Field(..., ge=0.0, le=1.0)
+    alternative_names:  Dict[str, str]
+    resolution_options: List[SenResolutionOption]
+    real_world_analogy: str
+    pedagogical_note:   str
+
+
+# ── /manipulation-analysis ─────────────────────────────────────────────────
+
+class ManipulationCandidate(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    name: str   = Field(..., min_length=1, max_length=32)
+    x:    float = Field(..., ge=-1.0, le=1.0)
+    y:    float = Field(..., ge=-1.0, le=1.0)
+
+
+class ManipulationAnalysisRequest(BaseModel):
+    """Gibbard-Satterthwaite manipulator identification."""
+    model_config = ConfigDict(extra="forbid")
+
+    candidates:               List[ManipulationCandidate] = Field(
+        default_factory=lambda: [
+            ManipulationCandidate(name="Alice", x=-0.5, y=-0.2),
+            ManipulationCandidate(name="Bob",   x= 0.5, y= 0.2),
+            ManipulationCandidate(name="Carol", x= 0.0, y= 0.1),
+        ],
+        min_length=2, max_length=6,
+    )
+    num_voters:               int = Field(30, ge=10, le=100)
+    ideology:                 str = Field("random")
+    seed:                     int = Field(42, ge=0)
+    method:                   str = Field("plurality")
+    manipulation_strategies:  List[str] = Field(
+        default_factory=lambda: ["compromising", "burying", "pushover", "truncating"],
+    )
+
+
+class Manipulator(BaseModel):
+    voter_id:         int
+    voter_ideology:   List[float]
+    sincere_vote:     List[str]
+    strategic_vote:   List[str]
+    strategy_type:    str
+    sincere_result:   Optional[str]
+    strategic_result: Optional[str]
+    utility_gain:     float
+
+
+class KeyManipulator(BaseModel):
+    voter_id: int
+    strategy: str
+    gain:     float
+
+
+class ManipulationAnalysisResponse(BaseModel):
+    sincere_winner:     Optional[str]
+    manipulable:        bool
+    manipulation_count: int
+    manipulators:       List[Manipulator]
+    strategy_breakdown: Dict[str, int]
+    key_manipulator:    Optional[KeyManipulator] = None
+    pedagogical_note:   str

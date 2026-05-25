@@ -7,6 +7,7 @@ import React, { useCallback, useState } from 'react';
 import axios from 'axios';
 import { useTranslation } from 'react-i18next';
 import { Alert, Badge, Button, Col, Form, Row, Spinner, Table } from 'react-bootstrap';
+import { apiPath } from '../../api/apiVersion';
 
 const API = process.env.REACT_APP_API_URL ?? 'http://localhost:4433';
 
@@ -70,7 +71,7 @@ const ApportionmentPanel: React.FC = () => {
     setLoading(true);
     setError(null);
     try {
-      const res = await axios.post(`${API}/api/theory/apportionment`, {
+      const res = await axios.post(`${API}${apiPath('theory/apportionment')}`, {
         parties:        defaultParties,
         num_seats:      n,
         methods:        ['hamilton', 'jefferson', 'webster', 'adams', 'huntington_hill'],
