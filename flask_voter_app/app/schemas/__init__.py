@@ -38,6 +38,11 @@ from .election import (
     SimulateRequest,
     SimulateResponse,
 )
+from .scenarios import (
+    ScenarioCreateRequest,
+    ScenarioDetail,
+    ScenarioSummary,
+)
 from .theory import (
     AgendaManipulationRequest,
     AgendaManipulationResponse,
@@ -131,6 +136,8 @@ __all__ = [
     "QuadraticFundingRequest",
     "ShyVoterRequest", "SimulatePipelineRequest",
     "SortitionRequest", "StvRequest",
+    # scenarios CRUD (Phase 4.2)
+    "ScenarioCreateRequest", "ScenarioDetail", "ScenarioSummary",
     # theory (Phase 4 complete, all 15 endpoints)
     "AgendaManipulationRequest", "AgendaManipulationResponse",
     "ApportionmentRequest", "ApportionmentResponse",
