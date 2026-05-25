@@ -112,7 +112,7 @@ describe('EpistocracyPanel', () => {
   it('calls API with correct payload on run', async () => {
     await renderAndRun();
     const [url, payload] = mockAxios.post.mock.calls[0];
-    expect(url).toContain('/api/theory/epistocracy');
+    expect(url).toMatch(/\/api\/(v2\/)?theory\/epistocracy/);
     expect(payload).toHaveProperty('num_voters');
     expect(payload).toHaveProperty('seed');
     expect(payload).toHaveProperty('voter_competence_distribution');

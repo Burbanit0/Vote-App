@@ -13,6 +13,7 @@ import {
   LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend,
   ResponsiveContainer,
 } from 'recharts';
+import { apiPath } from '../../api/apiVersion';
 
 const API = process.env.REACT_APP_API_URL ?? 'http://localhost:4433';
 
@@ -96,7 +97,7 @@ const MajorityTyrannyPanel: React.FC = () => {
     setLoading(true);
     setError(null);
     try {
-      const res = await axios.post(`${API}/api/theory/majority-tyranny`, {
+      const res = await axios.post(`${API}${apiPath('theory/majority-tyranny')}`, {
         num_voters:       numVoters,
         majority_pct:     majorityPct,
         minority_intensity: intensity,

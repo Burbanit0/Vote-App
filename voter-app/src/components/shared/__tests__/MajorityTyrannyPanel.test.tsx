@@ -89,7 +89,7 @@ describe('MajorityTyrannyPanel', () => {
   it('calls API with correct payload on run', async () => {
     await renderAndRun();
     const [url, payload] = mockAxios.post.mock.calls[0];
-    expect(url).toContain('/api/theory/majority-tyranny');
+    expect(url).toMatch(/\/api\/(v2\/)?theory\/majority-tyranny/);
     expect(payload).toHaveProperty('num_voters');
     expect(payload).toHaveProperty('majority_pct');
     expect(payload).toHaveProperty('minority_intensity');

@@ -77,6 +77,11 @@ export const MIGRATED_ENDPOINTS: ReadonlySet<string> = new Set([
   'theory/apportionment',
   'theory/sen-paradox',
   'theory/manipulation-analysis',
+  // Phase 4 batch 3 — theory (typed responses)
+  'theory/majority-tyranny',
+  'theory/democratic-backsliding',
+  'theory/intergenerational',
+  'theory/epistocracy',
 ]);
 
 /** localStorage key for the rollback switch. Public so tests can clear it. */

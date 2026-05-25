@@ -23,10 +23,18 @@ from app.schemas import (
     ApportionmentResponse,
     ArrowRequest,
     ArrowResponse,
+    DemocraticBacksliddingRequest,
+    DemocraticBacksliddingResponse,
+    EpistocracyRequest,
+    EpistocracyResponse,
     IIARateRequest,
     IIARateResponse,
+    IntergenerationalRequest,
+    IntergenerationalResponse,
     JudgmentAggregationRequest,
     JudgmentAggregationResponse,
+    MajorityTyrannyRequest,
+    MajorityTyrannyResponse,
     ManipulationAnalysisRequest,
     ManipulationAnalysisResponse,
     PlottChaosRequest,
@@ -39,8 +47,12 @@ from api_v2.domain.theory import (
     agenda_manipulation as agenda_manipulation_domain,
     apportionment as apportionment_domain,
     arrow as arrow_domain,
+    democratic_backsliding as democratic_backsliding_domain,
+    epistocracy as epistocracy_domain,
     iia_rate as iia_rate_domain,
+    intergenerational as intergenerational_domain,
     judgment_aggregation as judgment_aggregation_domain,
+    majority_tyranny as majority_tyranny_domain,
     manipulation_analysis as manipulation_analysis_domain,
     plott_chaos as plott_chaos_domain,
     sen_paradox as sen_paradox_domain,
@@ -213,4 +225,81 @@ async def manipulation_analysis_endpoint(
     utility gain. Empirical demonstration of Gibbard-Satterthwaite."""
     return await _run_typed(
         manipulation_analysis_domain, request, ManipulationAnalysisResponse,
+    )
+
+
+# ── Phase 4 batch 3 ─────────────────────────────────────────────────────────
+
+@router.post(
+    "/majority-tyranny",
+    response_model=MajorityTyrannyResponse,
+    summary="Tocqueville's tyranny of the majority across decision rules",
+    response_description="Per-rule minority-protection metrics + tyranny curve "
+                         "(majority share 0.51 -> 0.80) + best/worst rule.",
+)
+async def majority_tyranny_endpoint(
+    request: MajorityTyrannyRequest,
+) -> MajorityTyrannyResponse:
+    """Same electorate, 6 decision rules (simple majority, 2/3 + 3/4
+    supermajorities, unanimous, QV, MJ). Measures how often a fixed
+    majority can override a high-intensity minority."""
+    return await _run_typed(
+        majority_tyranny_domain, request, MajorityTyrannyResponse,
+    )
+
+
+@router.post(
+    "/democratic-backsliding",
+    response_model=DemocraticBacksliddingResponse,
+    summary="Path toward autocracy across successive elections",
+    response_description="Per-election state (vote shares, democratic quality, "
+                         "guardrails triggered) + autocracy detection + tipping "
+                         "points.",
+)
+async def democratic_backsliding_endpoint(
+    request: DemocraticBacksliddingRequest,
+) -> DemocraticBacksliddingResponse:
+    """Models gerrymandering / media-capture / voter-suppression
+    compounding across elections. Optional guardrails (constitutional
+    court, free press, international pressure, supermajority lock-in)
+    slow the decay."""
+    return await _run_typed(
+        democratic_backsliding_domain, request, DemocraticBacksliddingResponse,
+    )
+
+
+@router.post(
+    "/intergenerational",
+    response_model=IntergenerationalResponse,
+    summary="Future-generation representation in long-horizon decisions",
+    response_description="Per-decision outcome under 4 mechanisms (none / proxy "
+                         "/ age_weighted / veto) + cross-mechanism aggregates.",
+)
+async def intergenerational_endpoint(
+    request: IntergenerationalRequest,
+) -> IntergenerationalResponse:
+    """How institutional representation of future generations changes the
+    adoption rate of decisions whose costs are present and benefits
+    are future. Rawls' veil-of-ignorance heuristic."""
+    return await _run_typed(
+        intergenerational_domain, request, IntergenerationalResponse,
+    )
+
+
+@router.post(
+    "/epistocracy",
+    response_model=EpistocracyResponse,
+    summary="Epistocratic voting vs standard democracy (Caplan / Brennan)",
+    response_description="Per-scheme Bayesian regret + correct-choice rate + "
+                         "voter competence stats + democracy-vs-expert delta.",
+)
+async def epistocracy_endpoint(
+    request: EpistocracyRequest,
+) -> EpistocracyResponse:
+    """Compares 4 weighting schemes: equal democracy, competence-weighted
+    voting, epistocratic (threshold-gated), and lottery. Models Caplan's
+    4 systematic biases as a competence reduction. Reports the
+    democracy-vs-expert tradeoff."""
+    return await _run_typed(
+        epistocracy_domain, request, EpistocracyResponse,
     )

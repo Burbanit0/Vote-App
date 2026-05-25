@@ -12,6 +12,7 @@ import {
   LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend,
   ReferenceLine, ResponsiveContainer,
 } from 'recharts';
+import { apiPath } from '../../api/apiVersion';
 
 const API = process.env.REACT_APP_API_URL ?? 'http://localhost:4433';
 
@@ -127,7 +128,7 @@ const DemocraticBackslidingPanel: React.FC = () => {
     setLoading(true);
     setError(null);
     try {
-      const res = await axios.post(`${API}/api/theory/democratic-backsliding`, {
+      const res = await axios.post(`${API}${apiPath('theory/democratic-backsliding')}`, {
         candidates: [
           { name: t('backsliding.incumbent'), x: 0.2, y: 0.0 },
           { name: t('backsliding.opposition'), x: -0.4, y: 0.0 },
