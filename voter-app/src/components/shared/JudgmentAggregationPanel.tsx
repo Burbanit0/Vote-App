@@ -7,6 +7,7 @@ import React, { useCallback, useState } from 'react';
 import axios from 'axios';
 import { useTranslation } from 'react-i18next';
 import { Alert, Badge, Button, Card, Col, Form, Row, Spinner, Table } from 'react-bootstrap';
+import { apiPath } from '../../api/apiVersion';
 
 const API = process.env.REACT_APP_API_URL ?? 'http://localhost:4433';
 
@@ -143,7 +144,7 @@ const JudgmentAggregationPanel: React.FC = () => {
     setLoading(true);
     setError(null);
     try {
-      const res = await axios.post(`${API}/api/theory/judgment-aggregation`, {
+      const res = await axios.post(`${API}${apiPath('theory/judgment-aggregation')}`, {
         num_voters: numVoters,
         seed,
         scenario,

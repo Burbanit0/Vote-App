@@ -38,6 +38,16 @@ from .election import (
     SimulateRequest,
     SimulateResponse,
 )
+from .theory import (
+    ArrowRequest,
+    ArrowResponse,
+    IIARateRequest,
+    IIARateResponse,
+    JudgmentAggregationRequest,
+    JudgmentAggregationResponse,
+    PlottChaosRequest,
+    PlottChaosResponse,
+)
 from .perturbers import (
     AdaptiveRequest,
     AffectivePolarizationRequest,
@@ -99,4 +109,9 @@ __all__ = [
     "QuadraticFundingRequest",
     "ShyVoterRequest", "SimulatePipelineRequest",
     "SortitionRequest", "StvRequest",
+    # theory (Phase 4 batch 1)
+    "ArrowRequest", "ArrowResponse",
+    "IIARateRequest", "IIARateResponse",
+    "JudgmentAggregationRequest", "JudgmentAggregationResponse",
+    "PlottChaosRequest", "PlottChaosResponse",
 ]

@@ -105,11 +105,11 @@ describe('ArrowExplorer', () => {
     fireEvent.click(screen.getByTestId('analyze-btn'));
     await waitFor(() => expect(mockPost).toHaveBeenCalledTimes(2));
     expect(mockPost).toHaveBeenCalledWith(
-      expect.stringContaining('/api/theory/arrow'),
+      expect.stringMatching(/\/api\/(v2\/)?theory\/arrow/),
       expect.any(Object),
     );
     expect(mockPost).toHaveBeenCalledWith(
-      expect.stringContaining('/api/theory/iia-rate'),
+      expect.stringMatching(/\/api\/(v2\/)?theory\/iia-rate/),
       expect.any(Object),
     );
     jest.runAllTimers();

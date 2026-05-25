@@ -7,6 +7,7 @@ import React, { useCallback, useEffect, useRef, useState } from 'react';
 import axios from 'axios';
 import { useTranslation } from 'react-i18next';
 import { Alert, Badge, Button, Col, Form, Row, Spinner } from 'react-bootstrap';
+import { apiPath } from '../../api/apiVersion';
 
 const API = process.env.REACT_APP_API_URL ?? 'http://localhost:4433';
 const SVG_SIZE = 380;
@@ -162,7 +163,7 @@ const PlottChaosPanel: React.FC = () => {
     setAnimStep(-1);
     setShowAlt(false);
     try {
-      const res = await axios.post(`${API}/api/theory/plott-chaos`, {
+      const res = await axios.post(`${API}${apiPath('theory/plott-chaos')}`, {
         num_voters: nv, num_dimensions: 2, seed: s,
         target_policy: [0.6, 0.6], start_policy: [-0.6, -0.6], max_steps: 15,
       });
