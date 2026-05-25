@@ -13,6 +13,7 @@ import {
   LineChart, Line, ReferenceLine, ResponsiveContainer, Cell,
 } from 'recharts';
 import PinToCentralButton from './PinToCentralButton';
+import { apiPath } from '../../api/apiVersion';
 
 const API = process.env.REACT_APP_API_URL ?? 'http://localhost:4433';
 
@@ -174,7 +175,7 @@ const EpistocracyPanel: React.FC<EpistocracyLabProps> = ({
     setLoading(true);
     setError(null);
     try {
-      const res = await axios.post(`${API}/api/theory/epistocracy`, {
+      const res = await axios.post(`${API}${apiPath('theory/epistocracy')}`, {
         candidates:  overrideCands  ?? DEFAULT_CANDS,
         num_voters:  overrideVoters ?? numVoters,
         seed:        overrideSeed   ?? seed,

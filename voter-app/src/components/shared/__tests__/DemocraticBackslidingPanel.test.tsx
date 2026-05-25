@@ -146,7 +146,7 @@ describe('DemocraticBackslidingPanel', () => {
   it('calls API with correct payload on run', async () => {
     await renderAndRun();
     const [url, payload] = mockAxios.post.mock.calls[0];
-    expect(url).toContain('/api/theory/democratic-backsliding');
+    expect(url).toMatch(/\/api\/(v2\/)?theory\/democratic-backsliding/);
     expect(payload).toHaveProperty('num_voters');
     expect(payload).toHaveProperty('num_elections');
     expect(payload).toHaveProperty('backsliding_method');

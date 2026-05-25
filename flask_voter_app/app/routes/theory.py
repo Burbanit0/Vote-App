@@ -1383,21 +1383,17 @@ def manipulation_analysis() -> tuple[Response, int]:
 
 import math as _math_t  # noqa: E402
 
-@theory_bp.route("/majority-tyranny", methods=["POST"])
-@sim_limiter.limit("5 per minute")
-def majority_tyranny() -> tuple[Response, int]:
-    """Simulate Tocqueville's tyranny of the majority across decision rules."""
-    data = request.get_json(silent=True) or {}
-
+def _majority_tyranny_worker(data: Dict[str, Any]) -> tuple[Dict[str, Any], int]:
+    """Pure worker for /majority-tyranny — extracted for FastAPI v2."""
     num_voters:        int   = max(10, min(int(data.get("num_voters", 100)), 500))
     majority_pct:      float = max(0.51, min(float(data.get("majority_pct", 0.60)), 0.95))
     minority_intensity: float = max(1.0, min(float(data.get("minority_intensity", 3.0)), 10.0))
     num_decisions:     int   = max(10, min(int(data.get("num_decisions", 50)), 200))
     seed:              int   = int(data.get("seed", 42))
-    rules: List[str]         = data.get("decision_rules", [
+    rules: List[str]         = data.get("decision_rules") or [
         "simple_majority", "supermajority_2_3", "supermajority_3_4",
         "unanimous", "qv", "mj",
-    ])
+    ]
 
     rng = _rnd.Random(seed)
 
@@ -1541,13 +1537,27 @@ def majority_tyranny() -> tuple[Response, int]:
         f"peut légitimement opprimer une minorité de façon indéfinie."
     )
 
-    return jsonify({
+    return {
         "results":         results,
         "tyranny_curve":   curve,
         "best_protector":  best_protector,
         "least_efficient": least_efficient,
         "pedagogical_note": note,
-    }), 200
+    }, 200
+
+
+@theory_bp.route("/majority-tyranny", methods=["POST"])
+@sim_limiter.limit("5 per minute")
+def majority_tyranny() -> tuple[Response, int]:
+    """POST /api/theory/majority-tyranny — Tocqueville's tyranny across decision rules."""
+    data = request.get_json(silent=True) or {}
+    try:
+        body, status_code = _majority_tyranny_worker(data)
+        return jsonify(body), status_code
+    except Exception as exc:  # noqa: BLE001
+        from flask import current_app
+        current_app.logger.exception("majority_tyranny() crashed")
+        return jsonify({"error": f"Internal error: {exc}"}), 500
 
 
 def _resolve_curve(
@@ -1581,27 +1591,24 @@ import numpy as _np_bs  # noqa: E402
 
 _POINT_OF_NO_RETURN = 0.45   # democratic quality below which recovery is very unlikely
 
-@theory_bp.route("/democratic-backsliding", methods=["POST"])
-@sim_limiter.limit("5 per minute")
-def democratic_backsliding() -> tuple[Response, int]:
-    """Simulate the path toward autocracy across successive elections."""
-    data = request.get_json(silent=True) or {}
-
-    candidates_raw: List[Dict[str, Any]] = data.get("candidates", [
+def _democratic_backsliding_worker(data: Dict[str, Any]) -> tuple[Dict[str, Any], int]:
+    """Pure worker for /democratic-backsliding — extracted for FastAPI v2."""
+    candidates_raw: List[Dict[str, Any]] = data.get("candidates") or [
         {"name": "Incumbent", "x": 0.2, "y": 0.0},
         {"name": "Opposition", "x": -0.4, "y": 0.0},
-    ])
+    ]
     num_voters:        int   = max(20, min(int(data.get("num_voters", 100)), 1000))
     ideology:          str   = data.get("ideology", "random")
     seed:              int   = int(data.get("seed", 42))
     num_elections:     int   = max(2, min(int(data.get("num_elections", 8)), 15))
     method_bs:         str   = data.get("backsliding_method", "gerrymandering")
     intensity:         float = max(0.0, min(float(data.get("backsliding_intensity", 0.5)), 1.0))
+    gr_in = data.get("guardrails") or {}
     guardrails: Dict[str, bool] = {
-        "constitutional_court":    bool(data.get("guardrails", {}).get("constitutional_court", False)),
-        "opposition_media":        bool(data.get("guardrails", {}).get("opposition_media", False)),
-        "international_pressure":  bool(data.get("guardrails", {}).get("international_pressure", False)),
-        "supermajority_required":  bool(data.get("guardrails", {}).get("supermajority_required", False)),
+        "constitutional_court":    bool(gr_in.get("constitutional_court", False)),
+        "opposition_media":        bool(gr_in.get("opposition_media", False)),
+        "international_pressure":  bool(gr_in.get("international_pressure", False)),
+        "supermajority_required":  bool(gr_in.get("supermajority_required", False)),
     }
 
     rng = _rnd.Random(seed)
@@ -1814,14 +1821,28 @@ def democratic_backsliding() -> tuple[Response, int]:
         "peut voter légalement pour sa propre destruction."
     )
 
-    return jsonify({
+    return {
         "elections":                elections,
         "autocracy_reached":        autocracy_reached,
         "autocracy_at_election":    autocracy_at_election,
         "guardrails_effectiveness": guardrail_effectiveness,
         "tipping_points":           tipping_points,
         "pedagogical_note":         note,
-    }), 200
+    }, 200
+
+
+@theory_bp.route("/democratic-backsliding", methods=["POST"])
+@sim_limiter.limit("5 per minute")
+def democratic_backsliding() -> tuple[Response, int]:
+    """POST /api/theory/democratic-backsliding — path to autocracy."""
+    data = request.get_json(silent=True) or {}
+    try:
+        body, status_code = _democratic_backsliding_worker(data)
+        return jsonify(body), status_code
+    except Exception as exc:  # noqa: BLE001
+        from flask import current_app
+        current_app.logger.exception("democratic_backsliding() crashed")
+        return jsonify({"error": f"Internal error: {exc}"}), 500
 
 
 # ── /api/theory/intergenerational ────────────────────────────────────────────
@@ -1840,15 +1861,11 @@ _MECHANISMS = ("none", "proxy", "age_weighted", "veto")
 _DISCOUNT = 0.03   # 3% per year
 
 
-@theory_bp.route("/intergenerational", methods=["POST"])
-@sim_limiter.limit("5 per minute")
-def intergenerational() -> tuple[Response, int]:
-    """Simulate intergenerational justice: how future-gen representation changes decisions."""
-    data = request.get_json(silent=True) or {}
-
-    raw_decisions: List[Dict[str, Any]] = data.get("decisions", _DEFAULT_DECISIONS)
+def _intergenerational_worker(data: Dict[str, Any]) -> tuple[Dict[str, Any], int]:
+    """Pure worker for /intergenerational — extracted for FastAPI v2."""
+    raw_decisions: List[Dict[str, Any]] = data.get("decisions") or _DEFAULT_DECISIONS
     num_voters:    int   = max(20, min(int(data.get("num_voters", 100)), 1000))
-    age_dist_raw:  List[float] = data.get("age_distribution", [0.30, 0.45, 0.25])
+    age_dist_raw:  List[float] = data.get("age_distribution") or [0.30, 0.45, 0.25]
     seed:          int   = int(data.get("seed", 42))
     mechanism_req: str   = data.get("future_generations_mechanism", "none")
 
@@ -2042,35 +2059,45 @@ def intergenerational() -> tuple[Response, int]:
         f"leur génération choisiraient des politiques plus équitables dans le temps."
     )
 
-    return jsonify({
+    return {
         "decisions_results":    decisions_results,
         "mechanism_comparison": mechanism_comparison,
         "pedagogical_note":     note,
-    }), 200
+    }, 200
+
+
+@theory_bp.route("/intergenerational", methods=["POST"])
+@sim_limiter.limit("5 per minute")
+def intergenerational() -> tuple[Response, int]:
+    """POST /api/theory/intergenerational — future-gen representation."""
+    data = request.get_json(silent=True) or {}
+    try:
+        body, status_code = _intergenerational_worker(data)
+        return jsonify(body), status_code
+    except Exception as exc:  # noqa: BLE001
+        from flask import current_app
+        current_app.logger.exception("intergenerational() crashed")
+        return jsonify({"error": f"Internal error: {exc}"}), 500
 
 
 # ── /api/theory/epistocracy ───────────────────────────────────────────────────
 
 import statistics as _stats_ep  # noqa: E402
 
-@theory_bp.route("/epistocracy", methods=["POST"])
-@sim_limiter.limit("5 per minute")
-def epistocracy() -> tuple[Response, int]:
-    """Simulate epistocratic voting systems vs standard democracy (Caplan 2007, Brennan 2016)."""
-    data = request.get_json(silent=True) or {}
-
-    candidates_raw: List[Dict[str, Any]] = data.get("candidates", [
+def _epistocracy_worker(data: Dict[str, Any]) -> tuple[Dict[str, Any], int]:
+    """Pure worker for /epistocracy — extracted for FastAPI v2."""
+    candidates_raw: List[Dict[str, Any]] = data.get("candidates") or [
         {"name": "A", "x": -0.5, "y": 0.0},
         {"name": "B", "x":  0.0, "y": 0.0},
         {"name": "C", "x":  0.5, "y": 0.0},
-    ])
+    ]
     num_voters:    int   = max(10, min(int(data.get("num_voters", 100)), 1000))
     seed:          int   = int(data.get("seed", 42))
     comp_dist:     str   = data.get("voter_competence_distribution", "uniform")
-    weighting_req: str   = data.get("weighting_scheme", "equal")
+    weighting_req: str   = data.get("weighting_scheme", "equal")  # noqa: F841
     epist_threshold: float = max(0.1, min(float(data.get("epistocracy_threshold", 0.7)), 0.99))
 
-    params = data.get("competence_params", {})
+    params = data.get("competence_params") or {}
     comp_mean   = max(0.1, min(float(params.get("mean",        0.55)), 0.99))
     comp_std    = max(0.01, min(float(params.get("std",         0.15)), 0.40))
     expert_pct  = max(0.0,  min(float(params.get("expert_pct",  0.10)), 0.50))
@@ -2248,7 +2275,7 @@ def epistocracy() -> tuple[Response, int]:
             f"des décisions, ou ne fait-elle qu'exclure ?"
         )
 
-    return jsonify({
+    return {
         "voter_competence_stats": {
             "mean":         round(actual_mean, 4),
             "biased_mean":  round(biased_mean, 4),
@@ -2262,7 +2289,21 @@ def epistocracy() -> tuple[Response, int]:
         },
         "condorcet_threshold":  condorcet_threshold,
         "pedagogical_note":     note,
-    }), 200
+    }, 200
+
+
+@theory_bp.route("/epistocracy", methods=["POST"])
+@sim_limiter.limit("5 per minute")
+def epistocracy() -> tuple[Response, int]:
+    """POST /api/theory/epistocracy — Caplan/Brennan epistocracy comparison."""
+    data = request.get_json(silent=True) or {}
+    try:
+        body, status_code = _epistocracy_worker(data)
+        return jsonify(body), status_code
+    except Exception as exc:  # noqa: BLE001
+        from flask import current_app
+        current_app.logger.exception("epistocracy() crashed")
+        return jsonify({"error": f"Internal error: {exc}"}), 500
 
 
 # ── /api/theory/identity-voting ───────────────────────────────────────────────

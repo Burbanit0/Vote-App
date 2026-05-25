@@ -132,7 +132,7 @@ describe('IntergenerationalPanel', () => {
   it('calls API with correct payload on run', async () => {
     await renderAndRun();
     const [url, payload] = mockAxios.post.mock.calls[0];
-    expect(url).toContain('/api/theory/intergenerational');
+    expect(url).toMatch(/\/api\/(v2\/)?theory\/intergenerational/);
     expect(payload).toHaveProperty('decisions');
     expect(payload).toHaveProperty('num_voters');
     expect(payload).toHaveProperty('age_distribution');

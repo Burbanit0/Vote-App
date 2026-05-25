@@ -12,6 +12,7 @@ import {
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend,
   ResponsiveContainer, Cell,
 } from 'recharts';
+import { apiPath } from '../../api/apiVersion';
 
 const API = process.env.REACT_APP_API_URL ?? 'http://localhost:4433';
 
@@ -152,7 +153,7 @@ const IntergenerationalPanel: React.FC = () => {
     setLoading(true);
     setError(null);
     try {
-      const res = await axios.post(`${API}/api/theory/intergenerational`, {
+      const res = await axios.post(`${API}${apiPath('theory/intergenerational')}`, {
         decisions,
         num_voters:                    numVoters,
         age_distribution:              normAgeDist(),

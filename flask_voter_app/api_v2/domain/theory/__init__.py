@@ -12,8 +12,12 @@ from app.routes.theory import (
     _agenda_manipulation_worker,
     _apportionment_worker,
     _arrow_worker,
+    _democratic_backsliding_worker,
+    _epistocracy_worker,
     _iia_rate_worker,
+    _intergenerational_worker,
     _judgment_aggregation_worker,
+    _majority_tyranny_worker,
     _manipulation_analysis_worker,
     _plott_chaos_worker,
     _sen_paradox_worker,
@@ -60,3 +64,25 @@ def sen_paradox(data: dict) -> tuple[dict, int]:
 def manipulation_analysis(data: dict) -> tuple[dict, int]:
     """Gibbard-Satterthwaite manipulator identification."""
     return _manipulation_analysis_worker(data)
+
+
+# ── Phase 4 batch 3 ─────────────────────────────────────────────────────────
+
+def majority_tyranny(data: dict) -> tuple[dict, int]:
+    """Tocqueville's tyranny of the majority across decision rules."""
+    return _majority_tyranny_worker(data)
+
+
+def democratic_backsliding(data: dict) -> tuple[dict, int]:
+    """Path toward autocracy across successive elections."""
+    return _democratic_backsliding_worker(data)
+
+
+def intergenerational(data: dict) -> tuple[dict, int]:
+    """Future-generation representation in long-horizon decisions."""
+    return _intergenerational_worker(data)
+
+
+def epistocracy(data: dict) -> tuple[dict, int]:
+    """Caplan/Brennan epistocracy vs standard democracy comparison."""
+    return _epistocracy_worker(data)
