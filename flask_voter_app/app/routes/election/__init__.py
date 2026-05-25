@@ -3652,20 +3652,8 @@ def _run_all_on_utilities(
     )
 
 
-@election_bp.route("/affective-polarization", methods=["POST"])
-@sim_limiter.limit("5 per minute")
-def affective_polarization() -> tuple[Response, int]:
-    """
-    POST /api/election/affective-polarization
-
-    Simulate Affective Polarization (Iyengar et al., 2019):
-    voters penalise candidates from the opposing political camp proportionally
-    to an affect_hostility parameter ∈ [0, 1].
-
-    Returns sincere vs affective results, method sensitivities, and an
-    affect curve showing how agreement/Condorcet rates evolve with hostility.
-    """
-    data             = request.get_json() or {}
+def _affective_polarization_worker(data: Dict[str, Any]) -> tuple[Dict[str, Any], int]:
+    """Pure worker for /affective-polarization — extracted for FastAPI v2."""
     num_voters       = max(50,  min(500, int(data.get("num_voters",   200))))
     ideology         = str(data.get("ideology",    "random"))
     seed             = int(data.get("seed",          42))
@@ -3679,7 +3667,7 @@ def affective_polarization() -> tuple[Response, int]:
     ])[:6]
 
     if len(cand_specs) < 2:
-        return jsonify({"error": "At least 2 candidates required"}), 400
+        return {"error": "At least 2 candidates required"}, 400
 
     _random.seed(seed)
     _np.random.seed(seed)
@@ -3804,7 +3792,7 @@ def affective_polarization() -> tuple[Response, int]:
             "l'électorat reste suffisamment consensuel pour résister à la polarisation affective."
         )
 
-    return jsonify({
+    return {
         "sincere_results":     sincere_winners,
         "affective_results":   affective_winners,
         "winner_changed":      winner_changed,
@@ -3817,7 +3805,20 @@ def affective_polarization() -> tuple[Response, int]:
         "voters":              voter_snaps,
         "candidates":          [{"name": c["name"], "x": _x_pos(c)} for c in candidates],
         "pedagogical_note":    note,
-    }), 200
+    }, 200
+
+
+@election_bp.route("/affective-polarization", methods=["POST"])
+@sim_limiter.limit("5 per minute")
+def affective_polarization() -> tuple[Response, int]:
+    """POST /api/election/affective-polarization — Iyengar 2019 in/out-group hostility."""
+    data = request.get_json() or {}
+    try:
+        body, status_code = _affective_polarization_worker(data)
+        return jsonify(body), status_code
+    except Exception as exc:
+        current_app.logger.exception("affective_polarization() crashed")
+        return jsonify({"error": f"Internal error: {exc}"}), 500
 
 
 # ── Information Cascade ───────────────────────────────────────────────────────
@@ -5566,17 +5567,8 @@ _AGE_LABELS  = ["jeunes (18-34)", "adultes (35-64)", "seniors (65+)"]
 _EDU_LABELS  = ["faible éducation", "éducation élevée"]
 
 
-@election_bp.route("/demographic-turnout", methods=["POST"])
-@sim_limiter.limit("10 per minute")
-def demographic_turnout() -> tuple[Response, int]:
-    """
-    POST /api/election/demographic-turnout
-
-    Simulate the distortion between the real electorate (full population)
-    and the effective electorate (those who actually vote) driven by
-    differential turnout across demographic groups (age × education).
-    """
-    data    = request.get_json() or {}
+def _demographic_turnout_worker(data: Dict[str, Any]) -> tuple[Dict[str, Any], int]:
+    """Pure worker for /demographic-turnout — extracted for FastAPI v2."""
     num_voters        = max(50,  min(500, int(data.get("num_voters",         300))))
     seed              = int(data.get("seed",              42))
     primary_method    = str(data.get("method",           "plurality"))
@@ -5588,15 +5580,16 @@ def demographic_turnout() -> tuple[Response, int]:
     ])[:6]
 
     if len(cand_specs) < 2:
-        return jsonify({"error": "At least 2 candidates required"}), 400
+        return {"error": "At least 2 candidates required"}, 400
 
-    dp       = data.get("demographic_profile", {})
-    age_dist = [float(x) for x in dp.get("age_distribution",    [0.25, 0.45, 0.30])][:3]
-    to_age   = [float(x) for x in dp.get("turnout_by_age",       [0.55, 0.70, 0.85])][:3]
-    ideo_age = [float(x) for x in dp.get("ideology_by_age",     [-0.10, 0.00,  0.15])][:3]
-    edu_dist = [float(x) for x in dp.get("education_distribution", [0.40, 0.60])][:2]
-    to_edu   = [float(x) for x in dp.get("turnout_by_education",   [1.00, 1.00])][:2]
-    ideo_edu = [float(x) for x in dp.get("ideology_by_education", [ 0.05, -0.05])][:2]
+    # Pydantic Optional dict may pass null — fall back to empty + use field defaults.
+    dp       = data.get("demographic_profile") or {}
+    age_dist = [float(x) for x in (dp.get("age_distribution")    or [0.25, 0.45, 0.30])][:3]
+    to_age   = [float(x) for x in (dp.get("turnout_by_age")      or [0.55, 0.70, 0.85])][:3]
+    ideo_age = [float(x) for x in (dp.get("ideology_by_age")     or [-0.10, 0.00,  0.15])][:3]
+    edu_dist = [float(x) for x in (dp.get("education_distribution") or [0.40, 0.60])][:2]
+    to_edu   = [float(x) for x in (dp.get("turnout_by_education")   or [1.00, 1.00])][:2]
+    ideo_edu = [float(x) for x in (dp.get("ideology_by_education") or [ 0.05, -0.05])][:2]
 
     # Normalize distributions
     sum_a = sum(age_dist) or 1.0
@@ -5745,7 +5738,7 @@ def demographic_turnout() -> tuple[Response, int]:
         biased_winners_by_method = {}
         corrected_winners_by_method = {}
 
-    return jsonify({
+    return {
         "biased_result": {
             "winner":         biased_winner,
             "vote_shares":    biased_shares,
@@ -5771,7 +5764,20 @@ def demographic_turnout() -> tuple[Response, int]:
         },
         "demographic_breakdown": breakdown,
         "pedagogical_note":      note,
-    }), 200
+    }, 200
+
+
+@election_bp.route("/demographic-turnout", methods=["POST"])
+@sim_limiter.limit("10 per minute")
+def demographic_turnout() -> tuple[Response, int]:
+    """POST /api/election/demographic-turnout — full vs effective electorate gap."""
+    data = request.get_json() or {}
+    try:
+        body, status_code = _demographic_turnout_worker(data)
+        return jsonify(body), status_code
+    except Exception as exc:
+        current_app.logger.exception("demographic_turnout() crashed")
+        return jsonify({"error": f"Internal error: {exc}"}), 500
 
 
 # ── Compulsory Voting ─────────────────────────────────────────────────────────
@@ -5779,18 +5785,14 @@ def demographic_turnout() -> tuple[Response, int]:
 _COMPULSORY_BIAS = 0.15   # rightward participation bias in voluntary elections
 
 
-@election_bp.route("/compulsory-voting", methods=["POST"])
-@sim_limiter.limit("10 per minute")
-def compulsory_voting() -> tuple[Response, int]:
-    """
-    POST /api/election/compulsory-voting
+def _compulsory_voting_worker(data: Dict[str, Any]) -> tuple[Dict[str, Any], int]:
+    """Pure worker for /compulsory-voting — extracted for FastAPI v2.
 
     Simulate voluntary vs. compulsory voting on the same electorate.
     Voluntary turnout is right-biased (empirical pattern: conservative voters
     participate more), while compulsory elections add reluctant left-leaning
     voters who may vote null, randomly, or sincerely.
     """
-    data         = request.get_json() or {}
     num_voters   = max(50,  min(500, int(data.get("num_voters",          300))))
     ideology     = str(data.get("ideology",           "random"))
     seed         = int(data.get("seed",                42))
@@ -5806,7 +5808,7 @@ def compulsory_voting() -> tuple[Response, int]:
     ])[:6]
 
     if len(cand_specs) < 2:
-        return jsonify({"error": "At least 2 candidates required"}), 400
+        return {"error": "At least 2 candidates required"}, 400
 
     _random.seed(seed)
     _np.random.seed(seed)
@@ -5933,7 +5935,7 @@ def compulsory_voting() -> tuple[Response, int]:
         vol_winners_by_method = {}
         comp_winners_by_method = {}
 
-    return jsonify({
+    return {
         "voluntary": {
             "turnout":     round(n_vol  / num_voters, 4),
             "winner":      vol_winner,
@@ -5958,7 +5960,20 @@ def compulsory_voting() -> tuple[Response, int]:
         "representation_improvement": representation_improvement,
         "quality_degradation":        quality_degradation,
         "pedagogical_note":           note,
-    }), 200
+    }, 200
+
+
+@election_bp.route("/compulsory-voting", methods=["POST"])
+@sim_limiter.limit("10 per minute")
+def compulsory_voting() -> tuple[Response, int]:
+    """POST /api/election/compulsory-voting — voluntary vs compulsory turnout."""
+    data = request.get_json() or {}
+    try:
+        body, status_code = _compulsory_voting_worker(data)
+        return jsonify(body), status_code
+    except Exception as exc:
+        current_app.logger.exception("compulsory_voting() crashed")
+        return jsonify({"error": f"Internal error: {exc}"}), 500
 
 
 # ── Sortition (tirage au sort) ────────────────────────────────────────────────
@@ -6245,20 +6260,13 @@ def sortition() -> tuple[Response, int]:
 
 # ── Party Dynamics ────────────────────────────────────────────────────────────
 
-@election_bp.route("/party-dynamics", methods=["POST"])
-@sim_limiter.limit("5 per minute")
-def party_dynamics() -> tuple[Response, int]:
-    """
-    POST /api/election/party-dynamics
+def _party_dynamics_worker(data: Dict[str, Any]) -> tuple[Dict[str, Any], int]:
+    """Pure worker for /party-dynamics — extracted for FastAPI v2.
 
-    Simulate multi-election party system evolution (Duverger's Law):
-    parties adapt positions (Hotelling), get eliminated below survival_threshold,
-    and new parties can emerge.  Tactical voting squeezes small parties under
-    FPTP, driving the system toward bipartism.
+    Simulate multi-election party system evolution (Duverger's Law).
     """
     import copy as _cp
 
-    data    = request.get_json() or {}
     num_voters    = max(100, min(1000, int(data.get("num_voters",        500))))
     ideology      = str(data.get("ideology",                "random"))
     seed          = int(data.get("seed",                     42))
@@ -6268,7 +6276,8 @@ def party_dynamics() -> tuple[Response, int]:
     emerge_prob   = max(0.00, min(1.00, float(data.get("emergence_probability", 0.10))))
     hotelling_a   = max(0.00, min(1.00, float(data.get("hotelling_adaptation",  0.10))))
     tactical_on   = bool(data.get("tactical_voting", True))
-    initial_pts   = data.get("initial_parties", [
+    # Pydantic Optional may pass null — fall back to the server default.
+    initial_pts   = (data.get("initial_parties") or [
         {"name": "A", "x": -0.8, "y":  0.0, "support_pct": 0.10},
         {"name": "B", "x": -0.3, "y":  0.0, "support_pct": 0.25},
         {"name": "C", "x":  0.1, "y":  0.0, "support_pct": 0.30},
@@ -6277,7 +6286,7 @@ def party_dynamics() -> tuple[Response, int]:
     ])[:10]
 
     if len(initial_pts) < 2:
-        return jsonify({"error": "At least 2 initial parties required"}), 400
+        return {"error": "At least 2 initial parties required"}, 400
 
     _random.seed(seed)
     _np.random.seed(seed)
@@ -6460,7 +6469,7 @@ def party_dynamics() -> tuple[Response, int]:
         f"{'Loi de Duverger confirmée.' if duverger_confirmed else ''}"
     )
 
-    return jsonify({
+    return {
         "elections":               all_elections,
         "final_system":            final_system,
         "effective_parties_curve": n_eff_curve,
@@ -6468,7 +6477,20 @@ def party_dynamics() -> tuple[Response, int]:
         "convergence_speed":       convergence_speed,
         "ideology_drift":          ideology_drift,
         "pedagogical_note":        note,
-    }), 200
+    }, 200
+
+
+@election_bp.route("/party-dynamics", methods=["POST"])
+@sim_limiter.limit("5 per minute")
+def party_dynamics() -> tuple[Response, int]:
+    """POST /api/election/party-dynamics — Duverger's Law multi-election simulation."""
+    data = request.get_json() or {}
+    try:
+        body, status_code = _party_dynamics_worker(data)
+        return jsonify(body), status_code
+    except Exception as exc:
+        current_app.logger.exception("party_dynamics() crashed")
+        return jsonify({"error": f"Internal error: {exc}"}), 500
 
 
 # ── Deliberation + Vote ───────────────────────────────────────────────────────

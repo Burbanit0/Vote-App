@@ -261,3 +261,97 @@ class SortitionRequest(BaseModel):
     num_simulations:      int   = Field(20, ge=5, le=100)
     realistic_candidates: bool  = Field(True)
     stratification:       Optional[StratificationConfig] = Field(default_factory=StratificationConfig)
+
+
+# ── /affective-polarization ─────────────────────────────────────────────────
+
+class AffectivePolarizationRequest(BaseModel):
+    """Iyengar 2019: voters penalise candidates from the opposing political camp."""
+    model_config = ConfigDict(extra="forbid")
+
+    candidates:       List[CandidateSpec] = Field(..., min_length=2, max_length=6)
+    num_voters:       int   = Field(200, ge=50, le=500)
+    ideology:         str   = Field("random")
+    seed:             int   = Field(42, ge=0)
+    affect_hostility: float = Field(0.5, ge=0.0, le=1.0,
+                                    description="0 = no hostility, 1 = maximum out-group penalty.")
+    camp_threshold:   float = Field(0.1, ge=0.0, le=1.0,
+                                    description="x-axis distance defining the in/out-group split.")
+    num_simulations:  int   = Field(20, ge=5, le=50)
+
+
+# ── /demographic-turnout ────────────────────────────────────────────────────
+
+class DemographicProfile(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    age_distribution:        Optional[List[float]] = Field(default_factory=lambda: [0.25, 0.45, 0.30])
+    turnout_by_age:          Optional[List[float]] = Field(default_factory=lambda: [0.55, 0.70, 0.85])
+    ideology_by_age:         Optional[List[float]] = Field(default_factory=lambda: [-0.10, 0.00, 0.15])
+    education_distribution:  Optional[List[float]] = None
+    turnout_by_education:    Optional[List[float]] = None
+    ideology_by_education:   Optional[List[float]] = None
+
+
+class DemographicTurnoutRequest(BaseModel):
+    """Distortion between full population and effective electorate via age × education turnout gaps."""
+    model_config = ConfigDict(extra="forbid")
+
+    candidates:           List[CandidateSpec] = Field(..., min_length=2, max_length=6)
+    num_voters:           int   = Field(300, ge=50, le=500)
+    seed:                 int   = Field(42, ge=0)
+    method:               str   = Field("plurality")
+    correct_for_turnout:  bool  = Field(True,
+                                        description="Whether to apply the turnout-correction model.")
+    demographic_profile:  Optional[DemographicProfile] = Field(default_factory=DemographicProfile)
+
+
+# ── /compulsory-voting ──────────────────────────────────────────────────────
+
+class CompulsoryVotingRequest(BaseModel):
+    """Voluntary vs compulsory turnout: reluctant voters add null/random ballots."""
+    model_config = ConfigDict(extra="forbid")
+
+    candidates:           List[CandidateSpec] = Field(..., min_length=2, max_length=6)
+    num_voters:           int   = Field(300, ge=50, le=500)
+    ideology:             str   = Field("random")
+    seed:                 int   = Field(42, ge=0)
+    voluntary_turnout:    float = Field(0.65, ge=0.30, le=0.90)
+    compulsory_turnout:   float = Field(0.92, ge=0.70, le=0.99)
+    reluctant_null_rate:  float = Field(0.04, ge=0.0, le=0.20,
+                                        description="Fraction of reluctant voters who cast null ballots.")
+    reluctant_random_pct: float = Field(0.08, ge=0.0, le=1.0,
+                                        description="Fraction who vote randomly rather than sincerely.")
+    method:               str   = Field("plurality")
+
+
+# ── /party-dynamics ─────────────────────────────────────────────────────────
+
+class InitialParty(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    name:        str   = Field(..., min_length=1, max_length=32)
+    x:           float = Field(..., ge=-1.0, le=1.0)
+    y:           float = Field(..., ge=-1.0, le=1.0)
+    support_pct: float = Field(..., ge=0.0, le=1.0)
+
+
+class PartyDynamicsRequest(BaseModel):
+    """Multi-election party-system evolution (Duverger's Law)."""
+    model_config = ConfigDict(extra="forbid")
+
+    num_voters:            int   = Field(500, ge=100, le=1000)
+    ideology:              str   = Field("random")
+    seed:                  int   = Field(42, ge=0)
+    num_elections:         int   = Field(10, ge=1, le=30)
+    method:                str   = Field("plurality")
+    survival_threshold:    float = Field(0.05, ge=0.01, le=0.20,
+                                         description="Vote share below which a party is eliminated.")
+    emergence_probability: float = Field(0.10, ge=0.0, le=1.0,
+                                         description="Per-election chance of a new party emerging.")
+    hotelling_adaptation:  float = Field(0.10, ge=0.0, le=1.0,
+                                         description="How strongly parties move toward the centre over time.")
+    tactical_voting:       bool  = Field(True,
+                                         description="Apply tactical voting (squeezes small parties under FPTP).")
+    initial_parties:       Optional[List[InitialParty]] = Field(
+        None,
+        description="Starting parties. If None, server uses a 7-party default spread across the spectrum.",
+    )

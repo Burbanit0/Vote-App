@@ -16,6 +16,7 @@ Flask workers will be deleted.
 """
 from app.routes.election import (
     _abstention_worker,
+    _affective_polarization_worker,
     _ballot_complexity_worker,
     _behavioral_biases_worker,
     _campaign_sensitivity_worker,
@@ -23,11 +24,14 @@ from app.routes.election import (
     _choice_overload_worker,
     _coalition_worker,
     _combined_effects_worker,
+    _compulsory_voting_worker,
     _deliberation_worker,
+    _demographic_turnout_worker,
     _electoral_fatigue_worker,
     _hotelling_worker,
     _jury_worker,
     _nota_worker,
+    _party_dynamics_worker,
     _polarization_worker,
     _shy_voter_worker,
     _sortition_worker,
@@ -126,3 +130,25 @@ def polarization(data: dict) -> tuple[dict, int]:
 def sortition(data: dict) -> tuple[dict, int]:
     """Elected vs sortition pure vs stratified assembly comparison."""
     return _sortition_worker(data)
+
+
+# ── Perturber endpoints (Phase 3 batch 6) ──────────────────────────────────
+
+def affective_polarization(data: dict) -> tuple[dict, int]:
+    """Iyengar 2019: voters penalise candidates from the opposing political camp."""
+    return _affective_polarization_worker(data)
+
+
+def demographic_turnout(data: dict) -> tuple[dict, int]:
+    """Full population vs effective electorate via age × education turnout gaps."""
+    return _demographic_turnout_worker(data)
+
+
+def compulsory_voting(data: dict) -> tuple[dict, int]:
+    """Voluntary vs compulsory voting: reluctant voters add null/random ballots."""
+    return _compulsory_voting_worker(data)
+
+
+def party_dynamics(data: dict) -> tuple[dict, int]:
+    """Multi-election party-system evolution (Duverger's Law)."""
+    return _party_dynamics_worker(data)

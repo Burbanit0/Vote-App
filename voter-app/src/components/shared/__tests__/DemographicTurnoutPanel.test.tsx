@@ -107,7 +107,7 @@ describe('DemographicTurnoutPanel', () => {
     fireEvent.click(screen.getByTestId('simulate-btn'));
     await waitFor(() => expect(mockPost).toHaveBeenCalledTimes(1));
     expect(mockPost).toHaveBeenCalledWith(
-      expect.stringContaining('/api/election/demographic-turnout'),
+      expect.stringMatching(/\/api\/(v2\/)?election\/demographic-turnout/),
       expect.any(Object),
     );
     jest.runAllTimers();
