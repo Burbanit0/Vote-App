@@ -25,6 +25,7 @@ from fastapi.middleware.cors import CORSMiddleware
 # from flask_voter_app/ as the cwd.
 from app.utils.logger import configure_logging, get_logger
 from api_v2.core.config import get_settings
+from api_v2.routes import auth as auth_routes
 from api_v2.routes import election as election_routes
 from api_v2.routes import health as health_routes
 from api_v2.routes import scenarios as scenarios_routes
@@ -114,6 +115,7 @@ app.include_router(health_routes.router)
 app.include_router(election_routes.router)
 app.include_router(theory_routes.router)
 app.include_router(scenarios_routes.router)
+app.include_router(auth_routes.router)
 
 
 @app.get("/api/v2", tags=["meta"])

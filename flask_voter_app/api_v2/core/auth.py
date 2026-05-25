@@ -51,10 +51,16 @@ def current_user_id(
             headers={"WWW-Authenticate": "Bearer"},
         )
     try:
+        # `audience=...` accepts the fastapi-users default audience while
+        # `options={"verify_aud": False}` would also accept tokens minted by
+        # Flask-JWT-Extended (which has no `aud` claim). Pass both knobs so a
+        # single secret round-trips through both backends.
         payload = jwt.decode(
             credentials.credentials,
             settings.jwt_secret_key,
             algorithms=["HS256"],
+            audience="fastapi-users:auth",
+            options={"verify_aud": False},
         )
     except jwt.ExpiredSignatureError as exc:
         raise HTTPException(
