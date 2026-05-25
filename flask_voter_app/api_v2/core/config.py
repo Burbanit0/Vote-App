@@ -41,6 +41,16 @@ class Settings(BaseSettings):
     secret_key:     str = Field(default="dev-secret-CHANGE-IN-PROD")
     jwt_secret_key: str = Field(default="dev-jwt-secret-CHANGE-IN-PROD")
 
+    # ── OAuth (Phase 4.3.d) ────────────────────────────────────────────────
+    # Same env vars Flask reads (see config.py). Either empty → 501 on the
+    # corresponding /auth/{provider} route, so dev environments without
+    # OAuth credentials degrade gracefully instead of 500-ing.
+    google_client_id:     str = Field(default="")
+    github_client_id:     str = Field(default="")
+    github_client_secret: str = Field(default="")
+    base_url:             str = Field(default="http://localhost:4433")
+    frontend_url:         str = Field(default="http://localhost:3000")
+
     # ── Logging ─────────────────────────────────────────────────────────────
     log_level: str = Field(default="INFO")
 
