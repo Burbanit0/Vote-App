@@ -502,3 +502,117 @@ class MultiwinnerCompareRequest(BaseModel):
     ideology:   str = Field("random")
     seed:       int = Field(42, ge=0)
     num_seats:  int = Field(5, ge=2, le=10)
+
+
+# ── /divergence ─────────────────────────────────────────────────────────────
+
+class DivergenceRequest(BaseModel):
+    """Same electorate, without vs with blank vote."""
+    model_config = ConfigDict(extra="forbid")
+
+    candidates: List[CandidateSpec] = Field(..., min_length=2, max_length=6)
+    num_voters: int   = Field(200, ge=10, le=500)
+    ideology:   str   = Field("random")
+    seed:       int   = Field(42, ge=0)
+    blank_vote: Optional[dict] = Field(default_factory=dict)
+
+
+# ── /interpret ──────────────────────────────────────────────────────────────
+
+class InterpretRequest(BaseModel):
+    """Deterministic interpretation of a /simulate result."""
+    model_config = ConfigDict(extra="allow")
+
+    lang:                    str   = Field("fr",
+                                           description="UI language: 'fr' | 'en'.")
+    methods:                 dict  = Field(..., description="Methods dict from /simulate response.")
+    condorcet_winner:        Optional[str] = Field(None)
+    condorcet_exists:        Optional[bool] = Field(None)
+    inter_method_agreement:  float = Field(0.0, ge=0.0, le=1.0)
+    blank_rate:              float = Field(0.0, ge=0.0, le=1.0)
+    config:                  Optional[dict] = Field(None)
+
+
+# ── /quadratic-funding ──────────────────────────────────────────────────────
+
+class QFProject(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    name: str   = Field(..., min_length=1, max_length=64)
+    x:    float = Field(..., ge=-1.0, le=1.0)
+
+
+class QuadraticFundingRequest(BaseModel):
+    """Buterin/Hitzig/Weyl 2019 quadratic funding for public goods."""
+    model_config = ConfigDict(extra="forbid")
+
+    projects:         List[QFProject] = Field(..., min_length=2, max_length=8)
+    num_voters:       int   = Field(100, ge=20, le=500)
+    ideology:         str   = Field("random")
+    seed:             int   = Field(42, ge=0)
+    budget_per_voter: float = Field(100.0, ge=1.0, le=1000.0)
+    matching_pool:    float = Field(10000.0, ge=0.0)
+
+
+# ── /liquid-democracy ──────────────────────────────────────────────────────
+
+class LiquidDemocracyRequest(BaseModel):
+    """Transitive delegation up to max_chain_length hops."""
+    model_config = ConfigDict(extra="forbid")
+
+    candidates:            List[CandidateSpec] = Field(..., min_length=2, max_length=6)
+    num_voters:            int   = Field(100, ge=2, le=500)
+    ideology:              str   = Field("random")
+    seed:                  int   = Field(42, ge=0)
+    delegation_probability: float = Field(0.5, ge=0.0, le=1.0)
+    delegation_strategy:   str   = Field("nearest",
+                                         description="'nearest' | 'most_competent' | 'random'.")
+    max_chain_length:      int   = Field(5, ge=1, le=20)
+
+
+# ── /conviction-voting ─────────────────────────────────────────────────────
+
+class CVProposal(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    name: str   = Field(..., min_length=1, max_length=64)
+    x:    float = Field(..., ge=-1.0, le=1.0)
+
+
+class ConvictionVotingRequest(BaseModel):
+    """Polkadot-style conviction voting: tokens × multiplier(lock_days)."""
+    model_config = ConfigDict(extra="forbid")
+
+    proposals:               List[CVProposal] = Field(..., min_length=2, max_length=8)
+    num_voters:              int   = Field(200, ge=20, le=500)
+    ideology:                str   = Field("random")
+    seed:                    int   = Field(42, ge=0)
+    conviction_distribution: str   = Field("uniform",
+                                           description="'uniform' | 'skewed' | 'whale' | 'zero_lock'.")
+    whale_pct:               float = Field(0.10, ge=0.05, le=0.5)
+    small_lock_days:         int   = Field(224, description="Lock days for non-whale voters.")
+
+
+# ── /power-indices ─────────────────────────────────────────────────────────
+
+class PowerParty(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    name:    str  = Field(..., min_length=1, max_length=64)
+    seats:   int  = Field(..., ge=0)
+    pariah:  bool = Field(False)
+
+
+class CoalitionConstraint(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    party_a: str = Field(..., min_length=1, max_length=64)
+    party_b: str = Field(..., min_length=1, max_length=64)
+
+
+class PowerIndicesRequest(BaseModel):
+    """Shapley-Shubik and Banzhaf power indices."""
+    model_config = ConfigDict(extra="forbid")
+
+    parties:               List[PowerParty] = Field(..., min_length=1, max_length=10)
+    majority_threshold:    int = Field(0, ge=0,
+                                       description="0 → seats // 2 + 1.")
+    coalition_constraints: Optional[List[CoalitionConstraint]] = Field(None)
+    calculate_shapley:     bool = Field(True)
+    calculate_banzhaf:     bool = Field(True)

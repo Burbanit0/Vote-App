@@ -119,7 +119,7 @@ describe('PowerIndicesPanel', () => {
   it('calls API with correct payload on run', async () => {
     await renderAndRun();
     const [url, payload] = mockAxios.post.mock.calls[0];
-    expect(url).toContain('/api/election/power-indices');
+    expect(url).toMatch(/\/api\/(v2\/)?election\/power-indices/);
     expect(payload).toHaveProperty('parties');
     expect(payload).toHaveProperty('majority_threshold');
     expect(payload).toHaveProperty('calculate_shapley', true);

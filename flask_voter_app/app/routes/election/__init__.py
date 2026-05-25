@@ -174,19 +174,8 @@ def _run_methods_on_electorate(
 
 # ── Divergence endpoint ───────────────────────────────────────────────────────
 
-@election_bp.route("/divergence", methods=["POST"])
-@sim_limiter.limit("20 per minute")
-def divergence() -> tuple[Response, int]:
-    """
-    POST /api/election/divergence
-
-    Runs the same electorate twice — without and with blank vote — to isolate
-    the effect of blank-vote rules on inter-method agreement.
-
-    Campaign is intentionally skipped so we measure only the blank-vote effect.
-    """
-    data = request.get_json() or {}
-
+def _divergence_worker(data: Dict[str, Any]) -> tuple[Dict[str, Any], int]:
+    """Pure worker for /divergence — extracted for FastAPI v2."""
     num_voters  = max(10, min(500, int(data.get("num_voters", 200))))
     ideology    = str(data.get("ideology", "random"))
     seed        = int(data.get("seed", 42))
@@ -196,13 +185,13 @@ def divergence() -> tuple[Response, int]:
         {"name": "Carol", "x":  0.0, "y":  0.3},
     ])[:6]
 
-    blank_cfg      = data.get("blank_vote", {}) or {}
+    blank_cfg      = data.get("blank_vote") or {}
     blank_rule_str = str(blank_cfg.get("rule", "symbolic"))
-    contagion_cfg  = blank_cfg.get("contagion", {}) or {}
+    contagion_cfg  = blank_cfg.get("contagion") or {}
     contagion_on   = bool(contagion_cfg.get("enabled", False))
 
     if len(cand_specs) < 2:
-        return jsonify({"error": "At least 2 candidates required"}), 400
+        return {"error": "At least 2 candidates required"}, 400
 
     try:
         blank_rule = BlankVoteRule(blank_rule_str)
@@ -267,7 +256,7 @@ def divergence() -> tuple[Response, int]:
         len(methods_changed) / len(all_methods), 4
     ) if all_methods else 0.0
 
-    return jsonify({
+    return {
         "without_blank": {
             "methods":               run_a["methods"],
             "inter_method_agreement": run_a["inter_method_agreement"],
@@ -283,7 +272,25 @@ def divergence() -> tuple[Response, int]:
         "methods_changed":     methods_changed,
         "pct_methods_changed": pct_changed,
         "blank_rule":          blank_rule_str,
-    }), 200
+    }, 200
+
+
+@election_bp.route("/divergence", methods=["POST"])
+@sim_limiter.limit("20 per minute")
+def divergence() -> tuple[Response, int]:
+    """
+    POST /api/election/divergence
+
+    Runs the same electorate twice — without and with blank vote — to isolate
+    the effect of blank-vote rules on inter-method agreement.
+    """
+    data = request.get_json() or {}
+    try:
+        body, status_code = _divergence_worker(data)
+        return jsonify(body), status_code
+    except Exception as exc:
+        current_app.logger.exception("divergence() crashed")
+        return jsonify({"error": f"Internal error: {exc}"}), 500
 
 
 # ── Campaign sensitivity ──────────────────────────────────────────────────────
@@ -782,22 +789,12 @@ _T: Dict[str, Dict[str, str]] = {
 }
 
 
-@election_bp.route("/interpret", methods=["POST"])
-@sim_limiter.limit("30 per minute")
-def interpret() -> tuple[Response, int]:
-    """
-    POST /api/election/interpret
-
-    Deterministic text interpretation of a /simulate result.
-    No new simulation — pure rule-based analysis.
-
-    Body: { ...ElectionResult, lang: 'fr' | 'en' }
-    """
-    data = request.get_json() or {}
+def _interpret_worker(data: Dict[str, Any]) -> tuple[Dict[str, Any], int]:
+    """Pure worker for /interpret — extracted for FastAPI v2."""
     lang = str(data.get("lang", "fr")) if str(data.get("lang", "fr")) in ("fr", "en") else "fr"
     T    = _T[lang]
 
-    methods_raw        = data.get("methods", {}) or {}
+    methods_raw        = data.get("methods") or {}
     condorcet_winner   = data.get("condorcet_winner")
     condorcet_exists   = bool(data.get("condorcet_exists", condorcet_winner is not None))
     inter_agreement    = float(data.get("inter_method_agreement", 0.0))
@@ -805,7 +802,7 @@ def interpret() -> tuple[Response, int]:
     blank_rule         = str((data.get("config") or {}).get("blank_vote", {}).get("rule", "symbolic"))
 
     if not methods_raw:
-        return jsonify({"error": "No methods data provided"}), 400
+        return {"error": "No methods data provided"}, 400
 
     # ── 1. Group methods by effective winner ──────────────────────────────
     winner_to_methods: Dict[str, list[str]] = {}
@@ -916,7 +913,7 @@ def interpret() -> tuple[Response, int]:
     if best_by_regret:
         key_facts.append(T["fact_best"].format(method=best_by_regret))
 
-    return jsonify({
+    return {
         "headline":           headline,
         "condorcet_analysis": condorcet_analysis,
         "divergence_reason":  divergence_reason,
@@ -926,7 +923,24 @@ def interpret() -> tuple[Response, int]:
         "blank_analysis":     blank_analysis,
         "pedagogical_note":   pedagogical_note,
         "key_facts":          key_facts,
-    }), 200
+    }, 200
+
+
+@election_bp.route("/interpret", methods=["POST"])
+@sim_limiter.limit("30 per minute")
+def interpret() -> tuple[Response, int]:
+    """
+    POST /api/election/interpret
+
+    Deterministic text interpretation of a /simulate result.
+    """
+    data = request.get_json() or {}
+    try:
+        body, status_code = _interpret_worker(data)
+        return jsonify(body), status_code
+    except Exception as exc:
+        current_app.logger.exception("interpret() crashed")
+        return jsonify({"error": f"Internal error: {exc}"}), 500
 
 
 # ── Pipeline animation ────────────────────────────────────────────────────────
@@ -3497,23 +3511,8 @@ def _gini(values: List[float]) -> float:
     return round(cum / (n * total), 4)
 
 
-@election_bp.route("/quadratic-funding", methods=["POST"])
-@sim_limiter.limit("10 per minute")
-def quadratic_funding() -> tuple[Response, int]:
-    """
-    POST /api/election/quadratic-funding
-
-    Simulate Quadratic Funding (Buterin, Hitzig & Weyl, 2019) for public goods
-    allocation and compare with 1-person-1-vote and proportional mechanisms.
-
-    Each voter distributes their budget proportionally to their utility for
-    each project (based on ideological proximity). The matching pool is then
-    distributed according to the selected mechanism.
-
-    QF formula: matching(P) ∝ (Σᵢ √c_ip)²
-    This amplifies projects with many small donors over those with few large ones.
-    """
-    data             = request.get_json() or {}
+def _quadratic_funding_worker(data: Dict[str, Any]) -> tuple[Dict[str, Any], int]:
+    """Pure worker for /quadratic-funding — extracted for FastAPI v2."""
     num_voters       = max(20,  min(500, int(data.get("num_voters",   100))))
     ideology         = str(data.get("ideology",   "random"))
     seed             = int(data.get("seed",         42))
@@ -3528,7 +3527,7 @@ def quadratic_funding() -> tuple[Response, int]:
     projects_raw = projects_raw[:8]
 
     if len(projects_raw) < 2:
-        return jsonify({"error": "At least 2 projects required"}), 400
+        return {"error": "At least 2 projects required"}, 400
 
     _random.seed(seed)
     _np.random.seed(seed)
@@ -3650,7 +3649,7 @@ def quadratic_funding() -> tuple[Response, int]:
             f"proportionnel={gini_coefficients['proportional']:.2f})."
         )
 
-    return jsonify({
+    return {
         "projects":              projects_out,
         "winner":                winner,
         "mechanism_comparison":  mechanism_comparison,
@@ -3660,7 +3659,25 @@ def quadratic_funding() -> tuple[Response, int]:
         "matching_pool":         matching_pool,
         "budget_per_voter":      budget_per_voter,
         "pedagogical_note":      note,
-    }), 200
+    }, 200
+
+
+@election_bp.route("/quadratic-funding", methods=["POST"])
+@sim_limiter.limit("10 per minute")
+def quadratic_funding() -> tuple[Response, int]:
+    """
+    POST /api/election/quadratic-funding
+
+    Simulate Quadratic Funding (Buterin, Hitzig & Weyl, 2019) for public goods
+    allocation and compare with 1p1v and proportional mechanisms.
+    """
+    data = request.get_json() or {}
+    try:
+        body, status_code = _quadratic_funding_worker(data)
+        return jsonify(body), status_code
+    except Exception as exc:
+        current_app.logger.exception("quadratic_funding() crashed")
+        return jsonify({"error": f"Internal error: {exc}"}), 500
 
 
 # ── Affective polarization endpoint ──────────────────────────────────────────
@@ -4208,19 +4225,8 @@ def behavioral_biases() -> tuple[Response, int]:
 
 # ── Liquid Democracy ──────────────────────────────────────────────────────────
 
-@election_bp.route("/liquid-democracy", methods=["POST"])
-@sim_limiter.limit("10 per minute")
-def liquid_democracy() -> tuple[Response, int]:
-    """
-    POST /api/election/liquid-democracy
-
-    Simulate Liquid Democracy (transitive delegation):
-    each voter either votes directly or delegates to a representative
-    who may further delegate (up to max_chain_length hops).
-    Cycles are detected and forced to vote directly.
-    Compare weighted liquid result with unweighted direct vote.
-    """
-    data             = request.get_json() or {}
+def _liquid_democracy_worker(data: Dict[str, Any]) -> tuple[Dict[str, Any], int]:
+    """Pure worker for /liquid-democracy — extracted for FastAPI v2."""
     num_voters       = max(2,  min(500, int(data.get("num_voters",            100))))
     ideology         = str(data.get("ideology",              "random"))
     seed             = int(data.get("seed",                   42))
@@ -4234,7 +4240,7 @@ def liquid_democracy() -> tuple[Response, int]:
     ])[:6]
 
     if len(cand_specs) < 2:
-        return jsonify({"error": "At least 2 candidates required"}), 400
+        return {"error": "At least 2 candidates required"}, 400
 
     _random.seed(seed)
     _np.random.seed(seed)
@@ -4423,7 +4429,7 @@ def liquid_democracy() -> tuple[Response, int]:
             f"Le vainqueur reste {liquid_winner} malgré la concentration."
         )
 
-    return jsonify({
+    return {
         "weighted_results":   {c: int(liquid_tally.get(c, 0)) for c in cand_names},
         "direct_voters":      direct_count,
         "delegators":         delegator_count,
@@ -4440,7 +4446,20 @@ def liquid_democracy() -> tuple[Response, int]:
         },
         "gini_voting_weight": gini,
         "pedagogical_note":   note,
-    }), 200
+    }, 200
+
+
+@election_bp.route("/liquid-democracy", methods=["POST"])
+@sim_limiter.limit("10 per minute")
+def liquid_democracy() -> tuple[Response, int]:
+    """POST /api/election/liquid-democracy — transitive delegation."""
+    data = request.get_json() or {}
+    try:
+        body, status_code = _liquid_democracy_worker(data)
+        return jsonify(body), status_code
+    except Exception as exc:
+        current_app.logger.exception("liquid_democracy() crashed")
+        return jsonify({"error": f"Internal error: {exc}"}), 500
 
 
 # ── Conviction Voting ─────────────────────────────────────────────────────────
@@ -4450,18 +4469,8 @@ _CV_MULTIPLIERS:  Dict[int, float] = {0: 0.1, 7: 1.0, 14: 2.0, 28: 3.0,
                                        56: 4.0, 112: 5.0, 224: 6.0}
 
 
-@election_bp.route("/conviction-voting", methods=["POST"])
-@sim_limiter.limit("10 per minute")
-def conviction_voting() -> tuple[Response, int]:
-    """
-    POST /api/election/conviction-voting
-
-    Simulate Polkadot-style Conviction Voting:
-    vote_weight = tokens × conviction_multiplier(lock_days)
-    Lock ranges from 0 days (×0.1) to 224 days (×6).
-    Compare conviction-weighted result with plain 1-token-1-vote.
-    """
-    data           = request.get_json() or {}
+def _conviction_voting_worker(data: Dict[str, Any]) -> tuple[Dict[str, Any], int]:
+    """Pure worker for /conviction-voting — extracted for FastAPI v2."""
     num_voters     = max(20, min(500, int(data.get("num_voters",   200))))
     ideology       = str(data.get("ideology",       "random"))
     seed           = int(data.get("seed",            42))
@@ -4476,7 +4485,7 @@ def conviction_voting() -> tuple[Response, int]:
     ])[:8]
 
     if len(proposals_in) < 2:
-        return jsonify({"error": "At least 2 proposals required"}), 400
+        return {"error": "At least 2 proposals required"}, 400
 
     _random.seed(seed)
     _np.random.seed(seed)
@@ -4631,7 +4640,7 @@ def conviction_voting() -> tuple[Response, int]:
             f"conviction={voter_stats['gini_conviction']})."
         )
 
-    return jsonify({
+    return {
         "conviction_winner": conviction_winner,
         "token_winner":      token_winner,
         "winner_changed":    winner_changed,
@@ -4641,7 +4650,20 @@ def conviction_voting() -> tuple[Response, int]:
         "pedagogical_note":  note,
         "lock_options":      _CV_LOCK_OPTIONS,
         "multipliers":       {str(k): v for k, v in _CV_MULTIPLIERS.items()},
-    }), 200
+    }, 200
+
+
+@election_bp.route("/conviction-voting", methods=["POST"])
+@sim_limiter.limit("10 per minute")
+def conviction_voting() -> tuple[Response, int]:
+    """POST /api/election/conviction-voting — Polkadot-style conviction."""
+    data = request.get_json() or {}
+    try:
+        body, status_code = _conviction_voting_worker(data)
+        return jsonify(body), status_code
+    except Exception as exc:
+        current_app.logger.exception("conviction_voting() crashed")
+        return jsonify({"error": f"Internal error: {exc}"}), 500
 
 
 # ── NOTA (None Of The Above) ──────────────────────────────────────────────────
@@ -6778,20 +6800,16 @@ def deliberation_vote() -> tuple[Response, int]:
 
 import itertools as _it_pi  # noqa: E402
 
-@election_bp.route("/power-indices", methods=["POST"])
-@sim_limiter.limit("10 per minute")
-def power_indices() -> tuple[Response, int]:
-    """Shapley-Shubik and Banzhaf power indices for coalition bargaining."""
-    data = request.get_json(silent=True) or {}
-
-    raw_parties: List[Dict[str, Any]] = data.get("parties", [])
+def _power_indices_worker(data: Dict[str, Any]) -> tuple[Dict[str, Any], int]:
+    """Pure worker for /power-indices — extracted for FastAPI v2."""
+    raw_parties: List[Dict[str, Any]] = data.get("parties") or []
     majority_threshold: int = int(data.get("majority_threshold", 0))
-    constraints_raw: List[Dict[str, str]] = data.get("coalition_constraints", [])
+    constraints_raw: List[Dict[str, str]] = data.get("coalition_constraints") or []
     calc_shapley: bool = bool(data.get("calculate_shapley", True))
     calc_banzhaf: bool = bool(data.get("calculate_banzhaf", True))
 
     if not raw_parties:
-        return jsonify({"error": "parties required"}), 400
+        return {"error": "parties required"}, 400
 
     # Normalise input
     parties: List[Dict[str, Any]] = []
@@ -6956,11 +6974,24 @@ def power_indices() -> tuple[Response, int]:
     else:
         note = "Aucun parti fourni."
 
-    return jsonify({
+    return {
         "total_seats":        total_seats,
         "majority_threshold": majority_threshold,
         "parties":            party_results,
-        "viable_coalitions":  viable_coalitions[:50],  # cap for large inputs
+        "viable_coalitions":  viable_coalitions[:50],
         "power_surprises":    surprises,
         "pedagogical_note":   note,
-    }), 200
+    }, 200
+
+
+@election_bp.route("/power-indices", methods=["POST"])
+@sim_limiter.limit("10 per minute")
+def power_indices() -> tuple[Response, int]:
+    """POST /api/election/power-indices — Shapley-Shubik & Banzhaf."""
+    data = request.get_json(silent=True) or {}
+    try:
+        body, status_code = _power_indices_worker(data)
+        return jsonify(body), status_code
+    except Exception as exc:
+        current_app.logger.exception("power_indices() crashed")
+        return jsonify({"error": f"Internal error: {exc}"}), 500

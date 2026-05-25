@@ -12,6 +12,7 @@ import {
   LineChart, Line, XAxis, YAxis, Tooltip, CartesianGrid, ResponsiveContainer,
 } from 'recharts';
 import { useElection } from '../../context/ElectionContext';
+import { apiPath } from '../../api/apiVersion';
 
 const API = process.env.REACT_APP_API_URL ?? 'http://localhost:4433';
 const DEBOUNCE_MS = 400;
@@ -197,7 +198,7 @@ const LiquidDemocracyPanel: React.FC = () => {
     setLoading(true);
     setError(null);
     try {
-      const res = await axios.post(`${API}/api/election/liquid-democracy`, {
+      const res = await axios.post(`${API}${apiPath('election/liquid-democracy')}`, {
         candidates:              config.candidates.map((c) => ({ name: c.name, x: c.x, y: c.y })),
         num_voters:              config.num_voters,
         ideology:                config.ideology,

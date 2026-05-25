@@ -128,7 +128,7 @@ describe('LiquidDemocracyPanel', () => {
     fireEvent.click(screen.getByRole('button', { name: /simuler|simulate/i }));
     await waitFor(() => expect(mockPost).toHaveBeenCalledTimes(1));
     expect(mockPost).toHaveBeenCalledWith(
-      expect.stringContaining('/api/election/liquid-democracy'),
+      expect.stringMatching(/\/api\/(v2\/)?election\/liquid-democracy/),
       expect.any(Object),
     );
     jest.runAllTimers();

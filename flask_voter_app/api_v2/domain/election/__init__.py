@@ -26,19 +26,25 @@ from app.routes.election import (
     _coalition_worker,
     _combined_effects_worker,
     _compulsory_voting_worker,
+    _conviction_voting_worker,
     _deliberation_worker,
     _demographic_turnout_worker,
     _districts_worker,
+    _divergence_worker,
     _electoral_fatigue_worker,
     _gerrymander_worker,
     _historical_replay_worker,
     _hotelling_worker,
+    _interpret_worker,
     _jury_worker,
+    _liquid_democracy_worker,
     _multiwinner_compare_worker,
     _nota_worker,
     _party_dynamics_worker,
     _polarization_worker,
+    _power_indices_worker,
     _primary_worker,
+    _quadratic_funding_worker,
     _shy_voter_worker,
     _simulate_pipeline_worker,
     _sortition_worker,
@@ -204,3 +210,35 @@ def gerrymander(data: dict) -> tuple[dict, int]:
 def multiwinner_compare(data: dict) -> tuple[dict, int]:
     """STV / D'Hondt / SPAV / Phragmén / FPTP on the same electorate."""
     return _multiwinner_compare_worker(data)
+
+
+# ── Phase 3 batch 9 (final) ────────────────────────────────────────────────
+
+def divergence(data: dict) -> tuple[dict, int]:
+    """Same electorate, with vs without blank vote."""
+    return _divergence_worker(data)
+
+
+def interpret(data: dict) -> tuple[dict, int]:
+    """Deterministic interpretation of a /simulate result."""
+    return _interpret_worker(data)
+
+
+def quadratic_funding(data: dict) -> tuple[dict, int]:
+    """Buterin/Hitzig/Weyl 2019 quadratic funding."""
+    return _quadratic_funding_worker(data)
+
+
+def liquid_democracy(data: dict) -> tuple[dict, int]:
+    """Transitive delegation up to max_chain_length hops."""
+    return _liquid_democracy_worker(data)
+
+
+def conviction_voting(data: dict) -> tuple[dict, int]:
+    """Polkadot-style conviction voting: tokens × multiplier(lock_days)."""
+    return _conviction_voting_worker(data)
+
+
+def power_indices(data: dict) -> tuple[dict, int]:
+    """Shapley-Shubik and Banzhaf power indices for coalition bargaining."""
+    return _power_indices_worker(data)

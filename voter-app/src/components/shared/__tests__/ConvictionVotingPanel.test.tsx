@@ -98,7 +98,7 @@ describe('ConvictionVotingPanel', () => {
     fireEvent.click(screen.getByRole('button', { name: /simuler|simulate/i }));
     await waitFor(() => expect(mockPost).toHaveBeenCalledTimes(1));
     expect(mockPost).toHaveBeenCalledWith(
-      expect.stringContaining('/api/election/conviction-voting'),
+      expect.stringMatching(/\/api\/(v2\/)?election\/conviction-voting/),
       expect.any(Object),
     );
     jest.runAllTimers();

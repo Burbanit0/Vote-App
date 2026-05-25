@@ -71,7 +71,10 @@ export interface DivergenceParams {
 }
 
 export async function fetchDivergence(params: DivergenceParams): Promise<DivergenceResult> {
-  const response = await axios.post<DivergenceResult>(`${API_BASE}/api/election/divergence`, params);
+  const response = await axios.post<DivergenceResult>(
+    `${API_BASE}${apiPath('election/divergence')}`,
+    params,
+  );
   return response.data;
 }
 
@@ -169,7 +172,7 @@ export async function interpretElection(
   lang: 'fr' | 'en' = 'fr'
 ): Promise<InterpretResult> {
   const response = await axios.post<InterpretResult>(
-    `${API_BASE}/api/election/interpret`,
+    `${API_BASE}${apiPath('election/interpret')}`,
     { ...simulateResult, lang }
   );
   return response.data;
