@@ -39,7 +39,8 @@ describe('useMonteCarloStream', () => {
       result.current.start({ num_iterations: 50, num_voters: 200 });
     });
 
-    expect(io).toHaveBeenCalledWith('http://localhost:4433', {
+    expect(io).toHaveBeenCalledWith('http://localhost:4434', {
+      path:       '/api/v2/socket.io',
       transports: ['websocket', 'polling'],
     });
 

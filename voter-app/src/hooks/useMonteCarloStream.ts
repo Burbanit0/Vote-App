@@ -1,7 +1,12 @@
 import { useCallback, useRef, useState } from 'react';
 import { io, Socket } from 'socket.io-client';
 
-const SOCKET_URL = 'http://localhost:4433';
+// Phase 4.4: Monte Carlo streaming lives on the FastAPI ASGI app at
+// /api/v2/socket.io. The default points at the local FastAPI dev port
+// (4434); VITE_SOCKET_URL overrides for prod where it'll be the Caddy
+// fronted origin.
+const SOCKET_URL  = process.env.VITE_SOCKET_URL || 'http://localhost:4434';
+const SOCKET_PATH = '/api/v2/socket.io';
 
 export interface MethodStreamStats {
   winner_distribution: Record<string, number>;
@@ -87,7 +92,10 @@ export function useMonteCarloStream() {
 
     setState({ ...INITIAL, isRunning: true, total: params.num_iterations });
 
-    const socket = io(SOCKET_URL, { transports: ['websocket', 'polling'] });
+    const socket = io(SOCKET_URL, {
+      path:       SOCKET_PATH,
+      transports: ['websocket', 'polling'],
+    });
     socketRef.current = socket;
 
     socket.on('connect', () => {
