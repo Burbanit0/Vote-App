@@ -27,6 +27,7 @@ from app.utils.logger import configure_logging, get_logger
 from api_v2.core.config import get_settings
 from api_v2.routes import auth as auth_routes
 from api_v2.routes import election as election_routes
+from api_v2.routes import export as export_routes
 from api_v2.routes import gallery as gallery_routes
 from api_v2.routes import health as health_routes
 from api_v2.routes import oauth as oauth_routes
@@ -117,6 +118,7 @@ async def log_requests(request, call_next):
 # ── Routers ─────────────────────────────────────────────────────────────────
 app.include_router(health_routes.router)
 app.include_router(election_routes.router)
+app.include_router(export_routes.router)
 app.include_router(theory_routes.router)
 # Gallery MUST be registered before scenarios — otherwise GET /api/v2/scenarios/gallery
 # would match the scenarios detail route /api/v2/scenarios/{scenario_id} and 401 on
