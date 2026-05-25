@@ -91,7 +91,7 @@ const Login: React.FC = () => {
           <Button
             variant="dark"
             className="w-100"
-            onClick={() => window.location.href = `${API_BASE_URL}/api/auth/github`}
+            onClick={() => window.location.href = `${API_BASE_URL}/api/v2/auth/github`}
           >
             Sign in with GitHub
           </Button>
