@@ -673,17 +673,8 @@ def judgment_aggregation() -> tuple[Response, int]:
 import itertools as _itertools_ag
 
 
-@theory_bp.route("/agenda-manipulation", methods=["POST"])
-@sim_limiter.limit("5 per minute")
-def agenda_manipulation() -> tuple[Response, int]:
-    """
-    POST /api/theory/agenda-manipulation
-
-    Demonstrates that the agenda-setter can produce ANY desired outcome by
-    choosing the order in which alternatives are presented to binary-elimination votes.
-    A consequence of Plott's Chaos Theorem.
-    """
-    data         = request.get_json() or {}
+def _agenda_manipulation_worker(data: Dict[str, Any]) -> tuple[Dict[str, Any], int]:
+    """Pure worker for /agenda-manipulation — extracted for FastAPI v2."""
     alternatives = data.get("alternatives", ["Alice", "Bob", "Carol"])[:6]
     num_voters   = max(3, min(101, int(data.get("num_voters", 21))))
     if num_voters % 2 == 0:
@@ -694,7 +685,7 @@ def agenda_manipulation() -> tuple[Response, int]:
 
     n = len(alternatives)
     if n < 2:
-        return jsonify({"error": "At least 2 alternatives required"}), 400
+        return {"error": "At least 2 alternatives required"}, 400
     if target not in alternatives:
         target = alternatives[0]
 
@@ -781,7 +772,7 @@ def agenda_manipulation() -> tuple[Response, int]:
             f"l'agenda-setter a un contrôle total sur l'issue."
         )
 
-    return jsonify({
+    return {
         "pairwise_matrix":     pairwise,
         "condorcet_winner":    cw,
         "all_outcomes":        sample_outcomes,
@@ -793,7 +784,21 @@ def agenda_manipulation() -> tuple[Response, int]:
         },
         "manipulation_power": manip_power,
         "pedagogical_note":   note,
-    }), 200
+    }, 200
+
+
+@theory_bp.route("/agenda-manipulation", methods=["POST"])
+@sim_limiter.limit("5 per minute")
+def agenda_manipulation() -> tuple[Response, int]:
+    """POST /api/theory/agenda-manipulation — McKelvey-style chaos."""
+    data = request.get_json() or {}
+    try:
+        body, status_code = _agenda_manipulation_worker(data)
+        return jsonify(body), status_code
+    except Exception as exc:  # noqa: BLE001
+        from flask import current_app
+        current_app.logger.exception("agenda_manipulation() crashed")
+        return jsonify({"error": f"Internal error: {exc}"}), 500
 
 
 # ── Apportionment Methods & Balinski-Young Theorem ───────────────────────────
@@ -888,24 +893,15 @@ _AP_METHODS: Dict[str, tuple] = {
 }
 
 
-@theory_bp.route("/apportionment", methods=["POST"])
-@sim_limiter.limit("10 per minute")
-def apportionment() -> tuple[Response, int]:
-    """
-    POST /api/theory/apportionment
-
-    Compare apportionment methods and demonstrate Balinski-Young impossibility:
-    no method can simultaneously satisfy the quota rule, house monotonicity
-    (Alabama paradox free), and population monotonicity.
-    """
-    data         = request.get_json() or {}
+def _apportionment_worker(data: Dict[str, Any]) -> tuple[Dict[str, Any], int]:
+    """Pure worker for /apportionment — extracted for FastAPI v2."""
     parties_raw  = data.get("parties", [
         {"name": "A", "votes": 9000},
         {"name": "B", "votes": 7000},
         {"name": "C", "votes": 5000},
     ])[:10]
     num_seats    = max(2,  min(1000, int(data.get("num_seats",    10))))
-    methods_req  = data.get("methods",         list(_AP_METHODS.keys()))
+    methods_req  = data.get("methods") or list(_AP_METHODS.keys())
     find_paradox = bool(data.get("find_paradoxes", True))
 
     votes: Dict[str, int] = {p["name"]: max(1, int(p["votes"])) for p in parties_raw}
@@ -937,7 +933,7 @@ def apportionment() -> tuple[Response, int]:
         f"Les méthodes diviseur sont monotones mais peuvent violer le quotient."
     )
 
-    return jsonify({
+    return {
         "results":                  results,
         "balinski_young_summary":   (
             "Il est mathématiquement impossible de satisfaire simultanément "
@@ -947,7 +943,21 @@ def apportionment() -> tuple[Response, int]:
         ),
         "impossible_to_avoid":      ["Quotient strict", "Monotonie chambre", "Monotonie population"],
         "pedagogical_note":         note,
-    }), 200
+    }, 200
+
+
+@theory_bp.route("/apportionment", methods=["POST"])
+@sim_limiter.limit("10 per minute")
+def apportionment() -> tuple[Response, int]:
+    """POST /api/theory/apportionment — Balinski-Young impossibility."""
+    data = request.get_json() or {}
+    try:
+        body, status_code = _apportionment_worker(data)
+        return jsonify(body), status_code
+    except Exception as exc:  # noqa: BLE001
+        from flask import current_app
+        current_app.logger.exception("apportionment() crashed")
+        return jsonify({"error": f"Internal error: {exc}"}), 500
 
 
 # ── Sen's Impossibility of a Paretian Liberal ────────────────────────────────
@@ -1043,17 +1053,8 @@ def _check_sen(pref1: List[str], pref2: List[str],
     }
 
 
-@theory_bp.route("/sen-paradox", methods=["POST"])
-@sim_limiter.limit("10 per minute")
-def sen_paradox() -> tuple[Response, int]:
-    """
-    POST /api/theory/sen-paradox
-
-    Demonstrates Sen's Impossibility of a Paretian Liberal (1970):
-    no social choice rule can simultaneously satisfy Pareto efficiency
-    and minimal individual liberalism.
-    """
-    data       = request.get_json() or {}
+def _sen_paradox_worker(data: Dict[str, Any]) -> tuple[Dict[str, Any], int]:
+    """Pure worker for /sen-paradox — extracted for FastAPI v2."""
     num_voters = int(data.get("num_voters", 2))   # always 2 for Sen paradox
     seed       = int(data.get("seed", 42))
     rights_def = str(data.get("rights_definition", "liberal"))
@@ -1145,7 +1146,7 @@ def sen_paradox() -> tuple[Response, int]:
         f"Ce résultat force à choisir entre efficacité collective et liberté individuelle."
     )
 
-    return jsonify({
+    return {
         "paradox_exists":      paradox_exists,
         "paradox_examples":    paradox_examples,
         "paradox_frequency":   paradox_frequency,
@@ -1157,22 +1158,28 @@ def sen_paradox() -> tuple[Response, int]:
             "individuelle et bien-être collectif qu'aucune règle simple ne résout entièrement."
         ),
         "pedagogical_note":    note,
-    }), 200
+    }, 200
+
+
+@theory_bp.route("/sen-paradox", methods=["POST"])
+@sim_limiter.limit("10 per minute")
+def sen_paradox() -> tuple[Response, int]:
+    """POST /api/theory/sen-paradox — Sen's Paretian Liberal impossibility."""
+    data = request.get_json() or {}
+    try:
+        body, status_code = _sen_paradox_worker(data)
+        return jsonify(body), status_code
+    except Exception as exc:  # noqa: BLE001
+        from flask import current_app
+        current_app.logger.exception("sen_paradox() crashed")
+        return jsonify({"error": f"Internal error: {exc}"}), 500
 
 
 # ── Gibbard-Satterthwaite Manipulation Analysis ───────────────────────────────
 
-@theory_bp.route("/manipulation-analysis", methods=["POST"])
-@sim_limiter.limit("5 per minute")
-def manipulation_analysis() -> tuple[Response, int]:
-    """
-    POST /api/theory/manipulation-analysis
-
-    Identify, for a given voting method and electorate, which voters can
-    profitably misrepresent their preferences and via which strategy
-    (compromising, burying, push-over, or truncating).
-    """
-    import copy as _cp_m
+def _manipulation_analysis_worker(data: Dict[str, Any]) -> tuple[Dict[str, Any], int]:
+    """Pure worker for /manipulation-analysis — extracted for FastAPI v2."""
+    import copy as _cp_m  # noqa: F401  (kept for parity with original imports)
     from app.routes.election import _build_base_electorate
     from app.utils.simulation_ranked_utils import (
         get_plurality_winner as _plur,
@@ -1182,7 +1189,6 @@ def manipulation_analysis() -> tuple[Response, int]:
     )
     from app.constants import DEFAULT_ISSUES as _DI
 
-    data       = request.get_json() or {}
     cand_specs = data.get("candidates", [
         {"name": "Alice", "x": -0.5, "y": -0.2},
         {"name": "Bob",   "x":  0.5, "y":  0.2},
@@ -1196,11 +1202,11 @@ def manipulation_analysis() -> tuple[Response, int]:
                            ["compromising", "burying", "pushover", "truncating"])
 
     if len(cand_specs) < 2:
-        return jsonify({"error": "At least 2 candidates required"}), 400
+        return {"error": "At least 2 candidates required"}, 400
 
     # ── Special case: 2 candidates → never manipulable ───────────────────
     if len(cand_specs) == 2:
-        return jsonify({
+        return {
             "sincere_winner":    None,
             "manipulable":       False,
             "manipulation_count": 0,
@@ -1211,7 +1217,7 @@ def manipulation_analysis() -> tuple[Response, int]:
                 "Avec 2 candidats le vote sincère est toujours optimal — "
                 "G-S ne s'applique qu'avec ≥3 candidats."
             ),
-        }), 200
+        }, 200
 
     _np_t.random.seed(seed)
     _rnd.seed(seed)
@@ -1348,7 +1354,7 @@ def manipulation_analysis() -> tuple[Response, int]:
     else:
         note += "Aucune manipulation profitable sur ce profil."
 
-    return jsonify({
+    return {
         "sincere_winner":     sincere_winner,
         "manipulable":        len(manipulators) > 0,
         "manipulation_count": len(manipulators),
@@ -1356,7 +1362,21 @@ def manipulation_analysis() -> tuple[Response, int]:
         "strategy_breakdown": strat_counts,
         "key_manipulator":    key_m,
         "pedagogical_note":   note,
-    }), 200
+    }, 200
+
+
+@theory_bp.route("/manipulation-analysis", methods=["POST"])
+@sim_limiter.limit("5 per minute")
+def manipulation_analysis() -> tuple[Response, int]:
+    """POST /api/theory/manipulation-analysis — G-S manipulator identification."""
+    data = request.get_json() or {}
+    try:
+        body, status_code = _manipulation_analysis_worker(data)
+        return jsonify(body), status_code
+    except Exception as exc:  # noqa: BLE001
+        from flask import current_app
+        current_app.logger.exception("manipulation_analysis() crashed")
+        return jsonify({"error": f"Internal error: {exc}"}), 500
 
 
 # ── /api/theory/majority-tyranny ──────────────────────────────────────────────

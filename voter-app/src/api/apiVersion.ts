@@ -72,6 +72,11 @@ export const MIGRATED_ENDPOINTS: ReadonlySet<string> = new Set([
   'theory/iia-rate',
   'theory/plott-chaos',
   'theory/judgment-aggregation',
+  // Phase 4 batch 2 — theory (typed responses)
+  'theory/agenda-manipulation',
+  'theory/apportionment',
+  'theory/sen-paradox',
+  'theory/manipulation-analysis',
 ]);
 
 /** localStorage key for the rollback switch. Public so tests can clear it. */

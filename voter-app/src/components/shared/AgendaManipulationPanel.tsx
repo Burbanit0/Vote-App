@@ -7,6 +7,7 @@ import React, { useCallback, useRef, useState } from 'react';
 import axios from 'axios';
 import { useTranslation } from 'react-i18next';
 import { Alert, Badge, Button, Col, Form, Row, Spinner } from 'react-bootstrap';
+import { apiPath } from '../../api/apiVersion';
 
 const API = process.env.REACT_APP_API_URL ?? 'http://localhost:4433';
 const DEFAULT_ALTS = ['Alice', 'Bob', 'Carol'];
@@ -159,7 +160,7 @@ const AgendaManipulationPanel: React.FC = () => {
     setLoading(true);
     setError(null);
     try {
-      const res = await axios.post(`${API}/api/theory/agenda-manipulation`, {
+      const res = await axios.post(`${API}${apiPath('theory/agenda-manipulation')}`, {
         alternatives: as, num_voters: nv, seed: sd, target_outcome: tgt,
         constraint_type: 'binary_elimination',
       });

@@ -62,7 +62,7 @@ describe('SenParadoxPanel', () => {
     fireEvent.click(screen.getByTestId('simulate-btn'));
     await waitFor(() => expect(mockPost).toHaveBeenCalledTimes(1));
     expect(mockPost).toHaveBeenCalledWith(
-      expect.stringContaining('/api/theory/sen-paradox'),
+      expect.stringMatching(/\/api\/(v2\/)?theory\/sen-paradox/),
       expect.any(Object),
     );
     jest.runAllTimers();

@@ -9,10 +9,14 @@ When Phase 4 retires Flask, these aliases will be replaced with the
 canonical implementations moved here for real.
 """
 from app.routes.theory import (
+    _agenda_manipulation_worker,
+    _apportionment_worker,
     _arrow_worker,
     _iia_rate_worker,
     _judgment_aggregation_worker,
+    _manipulation_analysis_worker,
     _plott_chaos_worker,
+    _sen_paradox_worker,
 )
 
 
@@ -34,3 +38,25 @@ def plott_chaos(data: dict) -> tuple[dict, int]:
 def judgment_aggregation(data: dict) -> tuple[dict, int]:
     """Discursive dilemma (List & Pettit 2002)."""
     return _judgment_aggregation_worker(data)
+
+
+# ── Phase 4 batch 2 ─────────────────────────────────────────────────────────
+
+def agenda_manipulation(data: dict) -> tuple[dict, int]:
+    """Binary-elimination agenda manipulation (McKelvey-style)."""
+    return _agenda_manipulation_worker(data)
+
+
+def apportionment(data: dict) -> tuple[dict, int]:
+    """Compare apportionment methods + Balinski-Young impossibility."""
+    return _apportionment_worker(data)
+
+
+def sen_paradox(data: dict) -> tuple[dict, int]:
+    """Sen's Paretian Liberal impossibility (1970)."""
+    return _sen_paradox_worker(data)
+
+
+def manipulation_analysis(data: dict) -> tuple[dict, int]:
+    """Gibbard-Satterthwaite manipulator identification."""
+    return _manipulation_analysis_worker(data)
