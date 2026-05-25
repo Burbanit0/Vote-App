@@ -13,6 +13,7 @@ import {
   Alert, Badge, Button, Col, Form, ProgressBar, Row, Spinner,
 } from 'react-bootstrap';
 import { useElection } from '../../context/ElectionContext';
+import { apiPath } from '../../api/apiVersion';
 
 const API = process.env.REACT_APP_API_URL ?? 'http://localhost:4433';
 
@@ -182,7 +183,7 @@ const STVPanel: React.FC = () => {
   async function run() {
     setLoading(true); setError(null); setStepIdx(0);
     try {
-      const res = await axios.post(`${API}/api/election/stv`, {
+      const res = await axios.post(`${API}${apiPath('election/stv')}`, {
         candidates: config.candidates,
         num_voters: config.num_voters,
         ideology:   config.ideology,

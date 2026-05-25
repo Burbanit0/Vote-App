@@ -96,7 +96,7 @@ describe('PrimarySimulator', () => {
     fireEvent.click(screen.getByRole('button', { name: /simuler|simulate/i }));
     await waitFor(() => expect(mockPost).toHaveBeenCalledTimes(1));
     expect(mockPost).toHaveBeenCalledWith(
-      expect.stringContaining('/api/election/primary'),
+      expect.stringMatching(/\/api\/(v2\/)?election\/primary/),
       expect.any(Object)
     );
   });

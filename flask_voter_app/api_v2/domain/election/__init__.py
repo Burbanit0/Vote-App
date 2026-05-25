@@ -27,14 +27,18 @@ from app.routes.election import (
     _compulsory_voting_worker,
     _deliberation_worker,
     _demographic_turnout_worker,
+    _districts_worker,
     _electoral_fatigue_worker,
     _hotelling_worker,
     _jury_worker,
     _nota_worker,
     _party_dynamics_worker,
     _polarization_worker,
+    _primary_worker,
     _shy_voter_worker,
+    _simulate_pipeline_worker,
     _sortition_worker,
+    _stv_worker,
 )
 from app.services.election_service import ElectionService
 
@@ -152,3 +156,25 @@ def compulsory_voting(data: dict) -> tuple[dict, int]:
 def party_dynamics(data: dict) -> tuple[dict, int]:
     """Multi-election party-system evolution (Duverger's Law)."""
     return _party_dynamics_worker(data)
+
+
+# ── Phase 3 batch 7 ─────────────────────────────────────────────────────────
+
+def simulate_pipeline(data: dict) -> tuple[dict, int]:
+    """Step-by-step pipeline animation for the simulation hub."""
+    return _simulate_pipeline_worker(data)
+
+
+def districts(data: dict) -> tuple[dict, int]:
+    """N districts with locally shifted ideology, FPTP vs proportional."""
+    return _districts_worker(data)
+
+
+def primary(data: dict) -> tuple[dict, int]:
+    """Internal primaries + general election."""
+    return _primary_worker(data)
+
+
+def stv(data: dict) -> tuple[dict, int]:
+    """Single Transferable Vote + D'Hondt + FPTP comparison."""
+    return _stv_worker(data)

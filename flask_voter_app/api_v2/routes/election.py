@@ -48,16 +48,20 @@ from app.schemas import (
     CompulsoryVotingRequest,
     DeliberationRequest,
     DemographicTurnoutRequest,
+    DistrictsRequest,
     ElectoralFatigueRequest,
     HotellingRequest,
     JuryRequest,
     NotaRequest,
     PartyDynamicsRequest,
     PolarizationRequest,
+    PrimaryRequest,
     ShyVoterRequest,
+    SimulatePipelineRequest,
     SimulateRequest,
     SimulateResponse,
     SortitionRequest,
+    StvRequest,
 )
 
 from api_v2.domain.election import (
@@ -73,15 +77,19 @@ from api_v2.domain.election import (
     compulsory_voting as compulsory_voting_domain,
     deliberation as deliberation_domain,
     demographic_turnout as demographic_turnout_domain,
+    districts as districts_domain,
     electoral_fatigue as electoral_fatigue_domain,
     hotelling as hotelling_domain,
     jury as jury_domain,
     nota as nota_domain,
     party_dynamics as party_dynamics_domain,
     polarization as polarization_domain,
+    primary as primary_domain,
     shy_voter as shy_voter_domain,
     simulate as simulate_domain,
+    simulate_pipeline as simulate_pipeline_domain,
     sortition as sortition_domain,
+    stv as stv_domain,
 )
 
 router = APIRouter(prefix="/api/v2/election", tags=["election"])
@@ -486,3 +494,59 @@ async def party_dynamics_endpoint(
     squeezes small parties under FPTP, driving the system toward
     bipartism."""
     return await _run_passthrough(party_dynamics_domain, request)
+
+
+# ── Phase 3 batch 7 ─────────────────────────────────────────────────────────
+
+@router.post(
+    "/simulate-pipeline",
+    summary="Step-by-step pipeline animation",
+    response_description="Ordered list of pipeline steps (base electorate, "
+                         "campaign, contagion, information, results) for the "
+                         "ElectionPipelineAnimator component.",
+)
+async def simulate_pipeline_endpoint(
+    request: SimulatePipelineRequest,
+) -> Dict[str, Any]:
+    """Same compute as /simulate, but emits a per-step snapshot of voter
+    state and method winners so the frontend can animate the pipeline."""
+    return await _run_passthrough(simulate_pipeline_domain, request)
+
+
+@router.post(
+    "/districts",
+    summary="N districts with locally shifted ideology, FPTP vs proportional",
+    response_description="Per-district winners + national parliaments (FPTP and "
+                         "D'Hondt proportional) + distortion index.",
+)
+async def districts_endpoint(request: DistrictsRequest) -> Dict[str, Any]:
+    """Each district elects its winner by FPTP from a locally biased
+    electorate. Aggregates to a national parliament under FPTP (sum of
+    district wins) vs D'Hondt proportional on national vote shares."""
+    return await _run_passthrough(districts_domain, request)
+
+
+@router.post(
+    "/primary",
+    summary="Internal party primaries + general election",
+    response_description="Per-party primary results + general election winner "
+                         "+ counterfactual without-primaries winner.",
+)
+async def primary_endpoint(request: PrimaryRequest) -> Dict[str, Any]:
+    """Each party holds an internal primary among its partisan voters;
+    the primary winner runs in the general election. The
+    `without_primaries_winner` field reports what would have happened
+    if each party centre had run directly."""
+    return await _run_passthrough(primary_domain, request)
+
+
+@router.post(
+    "/stv",
+    summary="Single Transferable Vote + D'Hondt + FPTP comparison",
+    response_description="Round-by-round STV audit + D'Hondt and FPTP "
+                         "parliaments + seat-distortion index.",
+)
+async def stv_endpoint(request: StvRequest) -> Dict[str, Any]:
+    """Multi-seat STV (Droop, Hare, or Imperiali quota) compared to
+    D'Hondt and multi-seat FPTP on the same simulated ballots."""
+    return await _run_passthrough(stv_domain, request)

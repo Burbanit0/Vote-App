@@ -66,7 +66,7 @@ describe('DistrictMap', () => {
     fireEvent.click(screen.getByRole('button', { name: /district/i }));
     await waitFor(() => expect(mockPost).toHaveBeenCalledTimes(1));
     expect(mockPost).toHaveBeenCalledWith(
-      expect.stringContaining('/api/election/districts'),
+      expect.stringMatching(/\/api\/(v2\/)?election\/districts/),
       expect.any(Object)
     );
   });

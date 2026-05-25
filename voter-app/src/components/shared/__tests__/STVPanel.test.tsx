@@ -92,7 +92,7 @@ describe('STVPanel', () => {
     fireEvent.click(screen.getByRole('button', { name: /STV|simuler/i }));
     await waitFor(() => expect(mockPost).toHaveBeenCalledTimes(1));
     expect(mockPost).toHaveBeenCalledWith(
-      expect.stringContaining('/api/election/stv'),
+      expect.stringMatching(/\/api\/(v2\/)?election\/stv/),
       expect.any(Object),
     );
     jest.runAllTimers();
