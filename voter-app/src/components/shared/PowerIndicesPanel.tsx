@@ -12,6 +12,7 @@ import {
   ScatterChart, Scatter, XAxis, YAxis, CartesianGrid, Tooltip,
   ReferenceLine, ResponsiveContainer, Cell,
 } from 'recharts';
+import { apiPath } from '../../api/apiVersion';
 
 const API = process.env.REACT_APP_API_URL ?? 'http://localhost:4433';
 
@@ -256,7 +257,7 @@ const PowerIndicesPanel: React.FC = () => {
     setLoading(true);
     setError(null);
     try {
-      const res = await axios.post(`${API}/api/election/power-indices`, {
+      const res = await axios.post(`${API}${apiPath('election/power-indices')}`, {
         parties: pts.map(({ name, seats, pariah }) => ({ name, seats, pariah })),
         majority_threshold: thr,
         coalition_constraints: [],

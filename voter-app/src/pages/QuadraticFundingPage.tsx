@@ -12,6 +12,7 @@ import {
   BarChart, Bar, XAxis, YAxis, Tooltip, Cell, ResponsiveContainer, Legend,
 } from 'recharts';
 import { useMetaTags } from '../hooks/useMetaTags';
+import { apiPath } from '../api/apiVersion';
 
 const API = process.env.REACT_APP_API_URL ?? 'http://localhost:4433';
 const DEBOUNCE_MS = 400;
@@ -154,7 +155,7 @@ const QuadraticFundingPage: React.FC = () => {
   const run = useCallback(async (pool: number) => {
     setLoading(true); setError(null);
     try {
-      const res = await axios.post(`${API}/api/election/quadratic-funding`, {
+      const res = await axios.post(`${API}${apiPath('election/quadratic-funding')}`, {
         projects:         projects.map(p => ({ name: p.name, x: p.x })),
         num_voters:       numVoters,
         budget_per_voter: budgetPV,

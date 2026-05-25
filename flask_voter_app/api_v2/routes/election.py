@@ -47,19 +47,25 @@ from app.schemas import (
     CombinedEffectsRequest,
     CombinedEffectsResponse,
     CompulsoryVotingRequest,
+    ConvictionVotingRequest,
     DeliberationRequest,
     DemographicTurnoutRequest,
     DistrictsRequest,
+    DivergenceRequest,
     ElectoralFatigueRequest,
     GerrymanderRequest,
     HistoricalReplayRequest,
     HotellingRequest,
+    InterpretRequest,
     JuryRequest,
+    LiquidDemocracyRequest,
     MultiwinnerCompareRequest,
     NotaRequest,
     PartyDynamicsRequest,
     PolarizationRequest,
+    PowerIndicesRequest,
     PrimaryRequest,
+    QuadraticFundingRequest,
     ShyVoterRequest,
     SimulatePipelineRequest,
     SimulateRequest,
@@ -80,19 +86,25 @@ from api_v2.domain.election import (
     coalition as coalition_domain,
     combined_effects as combined_effects_domain,
     compulsory_voting as compulsory_voting_domain,
+    conviction_voting as conviction_voting_domain,
     deliberation as deliberation_domain,
     demographic_turnout as demographic_turnout_domain,
     districts as districts_domain,
+    divergence as divergence_domain,
     electoral_fatigue as electoral_fatigue_domain,
     gerrymander as gerrymander_domain,
     historical_replay as historical_replay_domain,
     hotelling as hotelling_domain,
+    interpret as interpret_domain,
     jury as jury_domain,
+    liquid_democracy as liquid_democracy_domain,
     multiwinner_compare as multiwinner_compare_domain,
     nota as nota_domain,
     party_dynamics as party_dynamics_domain,
     polarization as polarization_domain,
+    power_indices as power_indices_domain,
     primary as primary_domain,
+    quadratic_funding as quadratic_funding_domain,
     shy_voter as shy_voter_domain,
     simulate as simulate_domain,
     simulate_pipeline as simulate_pipeline_domain,
@@ -617,3 +629,90 @@ async def multiwinner_compare_endpoint(
     seat allocation, distortion against the proportional reference,
     and which method comes closest to / furthest from proportional."""
     return await _run_passthrough(multiwinner_compare_domain, request)
+
+
+# ── Phase 3 batch 9 (final) ────────────────────────────────────────────────
+
+@router.post(
+    "/divergence",
+    summary="Same electorate, with vs without blank vote",
+    response_description="Methods, agreement, and per-method winner deltas "
+                         "for the two runs.",
+)
+async def divergence_endpoint(request: DivergenceRequest) -> Dict[str, Any]:
+    """Isolates the effect of blank-vote rules on inter-method agreement
+    by running the same electorate twice (without and with blank)."""
+    return await _run_passthrough(divergence_domain, request)
+
+
+@router.post(
+    "/interpret",
+    summary="Deterministic interpretation of a /simulate result",
+    response_description="Headline + Condorcet analysis + divergence reason "
+                         "+ per-winner method groups + pedagogical note + "
+                         "key facts.",
+)
+async def interpret_endpoint(request: InterpretRequest) -> Dict[str, Any]:
+    """Pure rule-based text interpretation of an existing /simulate
+    response. No new simulation."""
+    return await _run_passthrough(interpret_domain, request)
+
+
+@router.post(
+    "/quadratic-funding",
+    summary="Buterin/Hitzig/Weyl 2019 quadratic funding for public goods",
+    response_description="Per-project funding + mechanism comparison + "
+                         "Gini coefficients + pedagogical note.",
+)
+async def quadratic_funding_endpoint(
+    request: QuadraticFundingRequest,
+) -> Dict[str, Any]:
+    """QF amplifies projects with many small donors over those with few
+    large ones via matching(P) ∝ (Σᵢ √c_ip)². Compared against 1p1v
+    and proportional allocations on the same matching pool."""
+    return await _run_passthrough(quadratic_funding_domain, request)
+
+
+@router.post(
+    "/liquid-democracy",
+    summary="Transitive delegation up to max_chain_length hops",
+    response_description="Weighted tallies + super-voter list + delegation "
+                         "graph + Gini curve of voting weight.",
+)
+async def liquid_democracy_endpoint(
+    request: LiquidDemocracyRequest,
+) -> Dict[str, Any]:
+    """Each voter votes directly or delegates. Delegation chains are
+    resolved up to `max_chain_length` hops; cycles fall back to direct
+    voting. Reports voting-weight Gini and a super-voter list."""
+    return await _run_passthrough(liquid_democracy_domain, request)
+
+
+@router.post(
+    "/conviction-voting",
+    summary="Polkadot-style conviction voting: tokens × multiplier(lock_days)",
+    response_description="Conviction winner vs token winner + per-proposal "
+                         "stats + Gini tokens vs Gini conviction.",
+)
+async def conviction_voting_endpoint(
+    request: ConvictionVotingRequest,
+) -> Dict[str, Any]:
+    """Voters with longer locks amplify their votes (×0.1 at 0 days,
+    ×6.0 at 224 days). Compares the conviction-weighted result with a
+    plain 1-token-1-vote baseline."""
+    return await _run_passthrough(conviction_voting_domain, request)
+
+
+@router.post(
+    "/power-indices",
+    summary="Shapley-Shubik and Banzhaf power indices for coalition bargaining",
+    response_description="Per-party Shapley + Banzhaf indices + power ratio "
+                         "+ viable coalitions + power-surprise list.",
+)
+async def power_indices_endpoint(
+    request: PowerIndicesRequest,
+) -> Dict[str, Any]:
+    """Shapley-Shubik (pivot-in-permutation) and Banzhaf
+    (critical-in-winning-coalition) power indices, accounting for
+    pariah parties (cordon sanitaire) and bilateral coalition vetoes."""
+    return await _run_passthrough(power_indices_domain, request)

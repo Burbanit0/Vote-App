@@ -28,16 +28,18 @@ describe('apiPath', () => {
       'election/primary', 'election/stv',
       'election/adaptive', 'election/historical-replay',
       'election/gerrymander', 'election/multiwinner_compare',
+      'election/divergence', 'election/interpret',
+      'election/quadratic-funding', 'election/liquid-democracy',
+      'election/conviction-voting', 'election/power-indices',
     ]) {
       expect(apiPath(slug)).toBe(`/api/v2/${slug}`);
     }
   });
 
-  it('keeps non-migrated endpoints on /api/*', () => {
-    expect(apiPath('election/quadratic-funding')).toBe('/api/election/quadratic-funding');
-    expect(apiPath('election/liquid-democracy')).toBe('/api/election/liquid-democracy');
-    expect(apiPath('election/power-indices')).toBe('/api/election/power-indices');
+  it('keeps non-election endpoints on /api/*', () => {
     expect(apiPath('theory/arrow')).toBe('/api/theory/arrow');
+    expect(apiPath('users/me')).toBe('/api/users/me');
+    expect(apiPath('scenarios')).toBe('/api/scenarios');
   });
 
   it('strips leading slash from slug', () => {
@@ -72,8 +74,8 @@ describe('apiPath', () => {
 });
 
 describe('MIGRATED_ENDPOINTS registry', () => {
-  it('contains the 29 endpoints migrated through Phase 3 batch 8', () => {
-    expect(MIGRATED_ENDPOINTS.size).toBe(29);
+  it('contains all 35 election endpoints (Phase 3 complete)', () => {
+    expect(MIGRATED_ENDPOINTS.size).toBe(35);
     for (const slug of [
       'election/simulate', 'election/combined-effects',
       'election/campaign-sensitivity', 'election/coalition',
@@ -90,6 +92,9 @@ describe('MIGRATED_ENDPOINTS registry', () => {
       'election/primary', 'election/stv',
       'election/adaptive', 'election/historical-replay',
       'election/gerrymander', 'election/multiwinner_compare',
+      'election/divergence', 'election/interpret',
+      'election/quadratic-funding', 'election/liquid-democracy',
+      'election/conviction-voting', 'election/power-indices',
     ]) {
       expect(MIGRATED_ENDPOINTS.has(slug)).toBe(true);
     }

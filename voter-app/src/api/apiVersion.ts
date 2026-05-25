@@ -60,6 +60,13 @@ export const MIGRATED_ENDPOINTS: ReadonlySet<string> = new Set([
   'election/historical-replay',
   'election/gerrymander',
   'election/multiwinner_compare',
+  // Phase 3 batch 9 — final (passthrough responses)
+  'election/divergence',
+  'election/interpret',
+  'election/quadratic-funding',
+  'election/liquid-democracy',
+  'election/conviction-voting',
+  'election/power-indices',
 ]);
 
 /** localStorage key for the rollback switch. Public so tests can clear it. */
