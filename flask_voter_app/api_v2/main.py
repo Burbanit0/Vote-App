@@ -32,6 +32,7 @@ from api_v2.routes import oauth as oauth_routes
 from api_v2.routes import scenarios as scenarios_routes
 from api_v2.routes import theory as theory_routes
 from api_v2.routes import users as users_routes
+from api_v2.sockets import sio
 
 
 @asynccontextmanager
@@ -130,4 +131,15 @@ def root() -> dict:
         "version": "2.0.0-alpha",
         "docs":    "/api/v2/docs",
         "health":  "/api/v2/health",
+        "socketio": "/api/v2/socket.io",
     }
+
+
+# ── Socket.IO (Phase 4.4) ─────────────────────────────────────────────────
+# Wrap the FastAPI app with python-socketio's ASGIApp. Socket.IO traffic
+# under /api/v2/socket.io is handled by `sio`; everything else (HTTP) falls
+# through to the FastAPI `app` defined above. This is how python-socketio
+# integrates with any other ASGI framework — see
+# https://python-socketio.readthedocs.io/en/stable/server.html#asgi-applications
+import socketio as _socketio_lib  # noqa: E402
+app = _socketio_lib.ASGIApp(sio, app, socketio_path="/api/v2/socket.io")
