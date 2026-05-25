@@ -30,6 +30,7 @@ from api_v2.routes import election as election_routes
 from api_v2.routes import health as health_routes
 from api_v2.routes import scenarios as scenarios_routes
 from api_v2.routes import theory as theory_routes
+from api_v2.routes import users as users_routes
 
 
 @asynccontextmanager
@@ -116,6 +117,7 @@ app.include_router(election_routes.router)
 app.include_router(theory_routes.router)
 app.include_router(scenarios_routes.router)
 app.include_router(auth_routes.router)
+app.include_router(users_routes.router)
 
 
 @app.get("/api/v2", tags=["meta"])
