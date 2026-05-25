@@ -38,6 +38,11 @@ from .election import (
     SimulateRequest,
     SimulateResponse,
 )
+from .export import (
+    ExportDatasetJSON,
+    ExportDatasetMeta,
+    ExportDatasetRequest,
+)
 from .gallery import (
     GalleryCreateRequest,
     GalleryDetail,
@@ -146,6 +151,8 @@ __all__ = [
     "ScenarioCreateRequest", "ScenarioDetail", "ScenarioSummary",
     # gallery (Phase 4.5.a.1)
     "GalleryCreateRequest", "GalleryDetail", "GalleryItem", "GalleryPage",
+    # export (Phase 4.5.a.2)
+    "ExportDatasetJSON", "ExportDatasetMeta", "ExportDatasetRequest",
     # theory (Phase 4 complete, all 15 endpoints)
     "AgendaManipulationRequest", "AgendaManipulationResponse",
     "ApportionmentRequest", "ApportionmentResponse",

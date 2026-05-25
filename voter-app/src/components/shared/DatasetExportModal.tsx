@@ -126,7 +126,8 @@ const DatasetExportModal: React.FC<Props> = ({ show, onHide, defaultCandidates }
     const endpoint = format === 'csv' ? 'simulation-dataset' : 'simulation-dataset-json';
 
     try {
-      const res = await fetch(`${API_BASE}/api/export/${endpoint}`, {
+      // Phase 4.5.a.2: export endpoints moved to FastAPI.
+      const res = await fetch(`${API_BASE}/api/v2/export/${endpoint}`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(payload),
