@@ -50,6 +50,11 @@ export const MIGRATED_ENDPOINTS: ReadonlySet<string> = new Set([
   'election/demographic-turnout',
   'election/compulsory-voting',
   'election/party-dynamics',
+  // Phase 3 batch 7 (passthrough responses)
+  'election/simulate-pipeline',
+  'election/districts',
+  'election/primary',
+  'election/stv',
 ]);
 
 /** localStorage key for the rollback switch. Public so tests can clear it. */

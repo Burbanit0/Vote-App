@@ -1401,21 +1401,8 @@ def _run_district_fptp(
     return {"winner": winner, "vote_shares": vote_shares}
 
 
-@election_bp.route("/districts", methods=["POST"])
-@sim_limiter.limit("10 per minute")
-def districts() -> tuple[Response, int]:
-    """
-    POST /api/election/districts
-
-    Simulate N districts with locally shifted ideology distributions.
-    Each district elects its winner by FPTP (plurality).
-    National parliament:
-      - FPTP:         sum of district wins
-      - Proportional: D'Hondt on aggregated national vote shares
-    Also computes national Condorcet winner from all voters pooled.
-    """
-    data = request.get_json() or {}
-
+def _districts_worker(data: Dict[str, Any]) -> tuple[Dict[str, Any], int]:
+    """Pure worker for /districts — extracted for FastAPI v2."""
     num_districts            = max(5,   min(50,  int(data.get("num_districts",            10))))
     voters_per_district      = max(50,  min(500, int(data.get("voters_per_district",      100))))
     district_ideology_variance = max(0.0, min(1.0, float(data.get("district_ideology_variance", 0.3))))
@@ -1427,7 +1414,7 @@ def districts() -> tuple[Response, int]:
     ])[:6]
 
     if len(cand_specs) < 2:
-        return jsonify({"error": "At least 2 candidates required"}), 400
+        return {"error": "At least 2 candidates required"}, 400
 
     issues = DEFAULT_ISSUES
     _random.seed(seed)
@@ -1514,7 +1501,7 @@ def districts() -> tuple[Response, int]:
     fptp_winner         = max(parliament_fptp,         key=lambda k: parliament_fptp[k])
     proportional_winner = max(parliament_proportional, key=lambda k: parliament_proportional[k])
 
-    return jsonify({
+    return {
         "districts":              district_results,
         "parliament_fptp":        parliament_fptp,
         "parliament_proportional": parliament_proportional,
@@ -1524,7 +1511,29 @@ def districts() -> tuple[Response, int]:
         "fptp_winner":            fptp_winner,
         "proportional_winner":    proportional_winner,
         "num_districts":          num_districts,
-    }), 200
+    }, 200
+
+
+@election_bp.route("/districts", methods=["POST"])
+@sim_limiter.limit("10 per minute")
+def districts() -> tuple[Response, int]:
+    """
+    POST /api/election/districts
+
+    Simulate N districts with locally shifted ideology distributions.
+    Each district elects its winner by FPTP (plurality).
+    National parliament:
+      - FPTP:         sum of district wins
+      - Proportional: D'Hondt on aggregated national vote shares
+    Also computes national Condorcet winner from all voters pooled.
+    """
+    data = request.get_json() or {}
+    try:
+        body, status_code = _districts_worker(data)
+        return jsonify(body), status_code
+    except Exception as exc:
+        current_app.logger.exception("districts() crashed")
+        return jsonify({"error": f"Internal error: {exc}"}), 500
 
 
 # ── Primary endpoint ──────────────────────────────────────────────────────────
@@ -1580,22 +1589,8 @@ def _run_primary(
     return {"winner": winner, "runner_up": runner_up, "vote_shares": vote_shares}
 
 
-@election_bp.route("/primary", methods=["POST"])
-@sim_limiter.limit("15 per minute")
-def primary() -> tuple[Response, int]:
-    """
-    POST /api/election/primary
-
-    Two-round system:
-      Round 1 — each party holds an internal primary among its partisan voters.
-               The primary winner becomes that party's general-election candidate.
-      Round 2 — general election among one candidate per party.
-
-    Also computes what would have happened if party centres (not primary winners)
-    had run directly ("without_primaries_winner").
-    """
-    data = request.get_json() or {}
-
+def _primary_worker(data: Dict[str, Any]) -> tuple[Dict[str, Any], int]:
+    """Pure worker for /primary — extracted for FastAPI v2."""
     parties_raw        = data.get("parties", [])
     general_num_voters = max(50, min(2000, int(data.get("general_num_voters", 500))))
     general_ideology   = str(data.get("general_ideology", "random"))
@@ -1604,11 +1599,11 @@ def primary() -> tuple[Response, int]:
     seed               = int(data.get("seed", 42))
 
     if len(parties_raw) < 2:
-        return jsonify({"error": "At least 2 parties required"}), 400
+        return {"error": "At least 2 parties required"}, 400
 
     for p in parties_raw:
         if len(p.get("primary_candidates", [])) < 2:
-            return jsonify({"error": f"Party '{p.get('name')}' needs at least 2 primary candidates"}), 400
+            return {"error": f"Party '{p.get('name')}' needs at least 2 primary candidates"}, 400
 
     _random.seed(seed)
     _np.random.seed(seed)
@@ -1771,7 +1766,7 @@ def primary() -> tuple[Response, int]:
         party_name_map = {f"{pm['name']}Centre": pm["name"] for pm in party_meta}
         no_primary_winner = party_name_map.get(no_primary_winner, no_primary_winner)
 
-    return jsonify({
+    return {
         "primaries":              primaries_out,
         "general_ballot":         [c["name"] for c in general_ballot_cands],
         "general_winner":         general_winner_name,
@@ -1779,7 +1774,30 @@ def primary() -> tuple[Response, int]:
         "general_vote_shares":    gen_vote_shares,
         "median_voter_distance":  median_voter_distance,
         "without_primaries_winner": no_primary_winner,
-    }), 200
+    }, 200
+
+
+@election_bp.route("/primary", methods=["POST"])
+@sim_limiter.limit("15 per minute")
+def primary() -> tuple[Response, int]:
+    """
+    POST /api/election/primary
+
+    Two-round system:
+      Round 1 — each party holds an internal primary among its partisan voters.
+               The primary winner becomes that party's general-election candidate.
+      Round 2 — general election among one candidate per party.
+
+    Also computes what would have happened if party centres (not primary winners)
+    had run directly ("without_primaries_winner").
+    """
+    data = request.get_json() or {}
+    try:
+        body, status_code = _primary_worker(data)
+        return jsonify(body), status_code
+    except Exception as exc:
+        current_app.logger.exception("primary() crashed")
+        return jsonify({"error": f"Internal error: {exc}"}), 500
 
 
 # ── Adaptive voting endpoint ──────────────────────────────────────────────────
@@ -2603,20 +2621,8 @@ def abstention() -> tuple[Response, int]:
 
 # ── STV endpoint ──────────────────────────────────────────────────────────────
 
-@election_bp.route("/stv", methods=["POST"])
-@sim_limiter.limit("10 per minute")
-def stv_endpoint() -> tuple[Response, int]:
-    """
-    POST /api/election/stv
-
-    Run STV (Single Transferable Vote) on a simulated electorate and
-    compare the seat allocation against D'Hondt proportional and FPTP
-    (top-N by first-choice votes).
-
-    Returns the full round-by-round STV audit trail plus the two
-    comparison parliaments and a distortion index.
-    """
-    data      = request.get_json() or {}
+def _stv_worker(data: Dict[str, Any]) -> tuple[Dict[str, Any], int]:
+    """Pure worker for /stv — extracted for FastAPI v2."""
     num_voters = max(50,  min(1000, int(data.get("num_voters",  300))))
     ideology   = str(data.get("ideology",  "random"))
     seed       = int(data.get("seed",        42))
@@ -2630,9 +2636,9 @@ def stv_endpoint() -> tuple[Response, int]:
     ])[:8]
 
     if len(cand_specs) < 2:
-        return jsonify({"error": "At least 2 candidates required"}), 400
+        return {"error": "At least 2 candidates required"}, 400
     if num_seats >= len(cand_specs):
-        return jsonify({"error": "num_seats must be less than number of candidates"}), 400
+        return {"error": "num_seats must be less than number of candidates"}, 400
 
     _random.seed(seed)
     _np.random.seed(seed)
@@ -2669,7 +2675,7 @@ def stv_endpoint() -> tuple[Response, int]:
     def _seat_distortion(a: Dict[str, int], b: Dict[str, int]) -> float:
         return sum(abs(a.get(c, 0) - b.get(c, 0)) for c in cand_names) / 2
 
-    return jsonify({
+    return {
         "stv": {
             "elected":  stv_raw["elected"],
             "quota":    stv_raw["quota"],
@@ -2691,7 +2697,26 @@ def stv_endpoint() -> tuple[Response, int]:
         "distortion_stv_dhondt": round(_seat_distortion(stv_seat_dict, dhondt_seats), 3),
         "distortion_stv_fptp":   round(_seat_distortion(stv_seat_dict, fptp_seats), 3),
         "candidates":            cand_names,
-    }), 200
+    }, 200
+
+
+@election_bp.route("/stv", methods=["POST"])
+@sim_limiter.limit("10 per minute")
+def stv_endpoint() -> tuple[Response, int]:
+    """
+    POST /api/election/stv
+
+    Run STV (Single Transferable Vote) on a simulated electorate and
+    compare the seat allocation against D'Hondt proportional and FPTP
+    (top-N by first-choice votes).
+    """
+    data = request.get_json() or {}
+    try:
+        body, status_code = _stv_worker(data)
+        return jsonify(body), status_code
+    except Exception as exc:
+        current_app.logger.exception("stv_endpoint() crashed")
+        return jsonify({"error": f"Internal error: {exc}"}), 500
 
 
 # ── Gerrymandering endpoint ───────────────────────────────────────────────────

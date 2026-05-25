@@ -5,6 +5,7 @@ import i18n from '../../i18n';
 import axios from 'axios';
 import { useElection } from '../../context/ElectionContext';
 import MethodGroupDonut from './MethodGroupDonut';
+import { apiPath } from '../../api/apiVersion';
 
 const API_BASE = process.env.VITE_API_URL || 'http://localhost:4433';
 
@@ -220,7 +221,7 @@ const ElectionPipelineAnimator: React.FC = () => {
     setCurrentStep(0);
     setPlaying(false);
     try {
-      const res = await axios.post<PipelineResult>(`${API_BASE}/api/election/simulate-pipeline`, {
+      const res = await axios.post<PipelineResult>(`${API_BASE}${apiPath('election/simulate-pipeline')}`, {
         ...config,
         num_voters: Math.min(config.num_voters, 150),
       });

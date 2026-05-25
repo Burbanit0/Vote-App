@@ -355,3 +355,74 @@ class PartyDynamicsRequest(BaseModel):
         None,
         description="Starting parties. If None, server uses a 7-party default spread across the spectrum.",
     )
+
+
+# ── /simulate-pipeline ──────────────────────────────────────────────────────
+
+class SimulatePipelineRequest(BaseModel):
+    """Step-by-step pipeline animation for the simulation hub."""
+    model_config = ConfigDict(extra="forbid")
+
+    candidates:        List[CandidateSpec] = Field(..., min_length=2, max_length=6)
+    num_voters:        int   = Field(150, ge=10, le=200)
+    ideology:          str   = Field("random")
+    seed:              int   = Field(42, ge=0)
+    blank_vote:        Optional[dict] = Field(default_factory=dict)
+    campaign:          Optional[dict] = Field(default_factory=dict)
+    information_model: Optional[dict] = Field(default_factory=dict)
+
+
+# ── /districts ──────────────────────────────────────────────────────────────
+
+class DistrictsRequest(BaseModel):
+    """N districts with locally shifted ideology, FPTP vs proportional."""
+    model_config = ConfigDict(extra="forbid")
+
+    candidates:                 List[CandidateSpec] = Field(..., min_length=2, max_length=6)
+    num_districts:              int   = Field(10, ge=5, le=50)
+    voters_per_district:        int   = Field(100, ge=50, le=500)
+    district_ideology_variance: float = Field(0.3, ge=0.0, le=1.0)
+    seed:                       int   = Field(42, ge=0)
+
+
+# ── /primary ────────────────────────────────────────────────────────────────
+
+class PrimaryCandidateSpec(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    name:              str   = Field(..., min_length=1, max_length=32)
+    ideology_position: float = Field(..., ge=-1.0, le=1.0)
+
+
+class PartySpec(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    name:                 str   = Field(..., min_length=1, max_length=32)
+    ideology_center:      float = Field(0.0, ge=-1.0, le=1.0)
+    primary_voters_pct:   float = Field(0.3, ge=0.05, le=1.0)
+    primary_candidates:   List[PrimaryCandidateSpec] = Field(..., min_length=2, max_length=8)
+
+
+class PrimaryRequest(BaseModel):
+    """Internal primaries + general election."""
+    model_config = ConfigDict(extra="forbid")
+
+    parties:            List[PartySpec] = Field(..., min_length=2, max_length=6)
+    general_num_voters: int             = Field(500, ge=50, le=2000)
+    general_ideology:   str             = Field("random")
+    primary_method:     str             = Field("plurality")
+    general_method:     str             = Field("plurality")
+    seed:               int             = Field(42, ge=0)
+
+
+# ── /stv ────────────────────────────────────────────────────────────────────
+
+class StvRequest(BaseModel):
+    """Single Transferable Vote + D'Hondt + FPTP comparison."""
+    model_config = ConfigDict(extra="forbid")
+
+    candidates: List[CandidateSpec] = Field(..., min_length=2, max_length=8)
+    num_voters: int = Field(300, ge=50, le=1000)
+    ideology:   str = Field("random")
+    seed:       int = Field(42, ge=0)
+    num_seats:  int = Field(5, ge=2, le=10)
+    quota_type: str = Field("droop",
+                            description="STV quota: 'droop' | 'hare' | 'imperiali'.")

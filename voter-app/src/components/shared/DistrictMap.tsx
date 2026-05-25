@@ -3,6 +3,7 @@ import axios from 'axios';
 import { useTranslation } from 'react-i18next';
 import { Alert, Badge, Button, Col, Form, Row, Spinner } from 'react-bootstrap';
 import { useElection } from '../../context/ElectionContext';
+import { apiPath } from '../../api/apiVersion';
 
 const API = process.env.REACT_APP_API_URL ?? 'http://localhost:4433';
 
@@ -231,7 +232,7 @@ const DistrictMap: React.FC = () => {
     setError(null);
     setRevealedCount(0);
     try {
-      const res = await axios.post(`${API}/api/election/districts`, {
+      const res = await axios.post(`${API}${apiPath('election/districts')}`, {
         candidates:                  config.candidates,
         num_districts:               numDistricts,
         voters_per_district:         votersPerDistrict,

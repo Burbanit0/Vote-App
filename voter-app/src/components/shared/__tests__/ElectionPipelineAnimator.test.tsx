@@ -68,7 +68,7 @@ describe('ElectionPipelineAnimator', () => {
     fireEvent.click(screen.getByRole('button', { name: /pipeline|animer/i }));
     await waitFor(() => expect(mockPost).toHaveBeenCalledTimes(1));
     expect(mockPost).toHaveBeenCalledWith(
-      expect.stringContaining('/api/election/simulate-pipeline'),
+      expect.stringMatching(/\/api\/(v2\/)?election\/simulate-pipeline/),
       expect.any(Object)
     );
   });

@@ -7,6 +7,7 @@ import {
 import {
   BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, Cell,
 } from 'recharts';
+import { apiPath } from '../../api/apiVersion';
 
 const API = process.env.REACT_APP_API_URL ?? 'http://localhost:4433';
 
@@ -291,7 +292,7 @@ const PrimarySimulator: React.FC = () => {
     setLoading(true);
     setError(null);
     try {
-      const res = await axios.post(`${API}/api/election/primary`, {
+      const res = await axios.post(`${API}${apiPath('election/primary')}`, {
         parties,
         general_num_voters: numVoters,
         general_ideology:   'random',
