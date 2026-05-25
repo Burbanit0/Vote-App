@@ -38,6 +38,12 @@ from .election import (
     SimulateRequest,
     SimulateResponse,
 )
+from .gallery import (
+    GalleryCreateRequest,
+    GalleryDetail,
+    GalleryItem,
+    GalleryPage,
+)
 from .scenarios import (
     ScenarioCreateRequest,
     ScenarioDetail,
@@ -138,6 +144,8 @@ __all__ = [
     "SortitionRequest", "StvRequest",
     # scenarios CRUD (Phase 4.2)
     "ScenarioCreateRequest", "ScenarioDetail", "ScenarioSummary",
+    # gallery (Phase 4.5.a.1)
+    "GalleryCreateRequest", "GalleryDetail", "GalleryItem", "GalleryPage",
     # theory (Phase 4 complete, all 15 endpoints)
     "AgendaManipulationRequest", "AgendaManipulationResponse",
     "ApportionmentRequest", "ApportionmentResponse",
