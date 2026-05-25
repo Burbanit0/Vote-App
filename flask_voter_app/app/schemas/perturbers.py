@@ -426,3 +426,79 @@ class StvRequest(BaseModel):
     num_seats:  int = Field(5, ge=2, le=10)
     quota_type: str = Field("droop",
                             description="STV quota: 'droop' | 'hare' | 'imperiali'.")
+
+
+# ── /adaptive ───────────────────────────────────────────────────────────────
+
+class AdaptiveRequest(BaseModel):
+    """N rounds of adaptive/tactical voting with poll feedback."""
+    model_config = ConfigDict(extra="forbid")
+
+    candidates:          List[CandidateSpec] = Field(..., min_length=2, max_length=6)
+    num_voters:          int   = Field(300, ge=50, le=1000)
+    ideology:            str   = Field("random")
+    seed:                int   = Field(42, ge=0)
+    num_rounds:          int   = Field(5, ge=1, le=10)
+    method:              str   = Field("plurality")
+    strategic_threshold: float = Field(0.15, ge=0.0, le=1.0,
+                                       description="Polling level below which voters become tactical.")
+
+
+# ── /historical-replay ──────────────────────────────────────────────────────
+
+class CandidateOverride(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    name: str   = Field(..., min_length=1, max_length=64)
+    x:    float = Field(..., ge=-1.0, le=1.0)
+    y:    float = Field(..., ge=-1.0, le=1.0)
+
+
+class HistoricalReplayRequest(BaseModel):
+    """Day-by-day historical replay with optional candidate-position overrides."""
+    model_config = ConfigDict(extra="forbid")
+
+    scenario_id: str = Field("france2002",
+                             description="One of france2002 | usa1992 | germany2021 | condorcet_cycle")
+    overrides:   Optional[List[CandidateOverride]] = Field(None)
+    num_days:    int = Field(30, ge=1, le=60)
+    seed:        int = Field(42, ge=0)
+
+
+# ── /gerrymander ────────────────────────────────────────────────────────────
+
+class DistrictBounds(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    x_min: float = Field(..., ge=-1.0, le=1.0)
+    x_max: float = Field(..., ge=-1.0, le=1.0)
+    y_min: float = Field(..., ge=-1.0, le=1.0)
+    y_max: float = Field(..., ge=-1.0, le=1.0)
+
+
+class DistrictSpec(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    id:     int            = Field(..., ge=0)
+    bounds: DistrictBounds
+
+
+class GerrymanderRequest(BaseModel):
+    """Voters assigned to user-drawn rectangular districts."""
+    model_config = ConfigDict(extra="forbid")
+
+    candidates: List[CandidateSpec] = Field(..., min_length=2, max_length=6)
+    districts:  List[DistrictSpec]  = Field(..., min_length=1, max_length=50)
+    num_voters: int = Field(300, ge=50, le=1000)
+    ideology:   str = Field("random")
+    seed:       int = Field(42, ge=0)
+
+
+# ── /multiwinner_compare ────────────────────────────────────────────────────
+
+class MultiwinnerCompareRequest(BaseModel):
+    """STV / D'Hondt / SPAV / Phragmén / FPTP on the same electorate."""
+    model_config = ConfigDict(extra="forbid")
+
+    candidates: List[CandidateSpec] = Field(..., min_length=2, max_length=8)
+    num_voters: int = Field(200, ge=50, le=500)
+    ideology:   str = Field("random")
+    seed:       int = Field(42, ge=0)
+    num_seats:  int = Field(5, ge=2, le=10)

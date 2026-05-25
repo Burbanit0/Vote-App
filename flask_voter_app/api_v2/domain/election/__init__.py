@@ -16,6 +16,7 @@ Flask workers will be deleted.
 """
 from app.routes.election import (
     _abstention_worker,
+    _adaptive_worker,
     _affective_polarization_worker,
     _ballot_complexity_worker,
     _behavioral_biases_worker,
@@ -29,8 +30,11 @@ from app.routes.election import (
     _demographic_turnout_worker,
     _districts_worker,
     _electoral_fatigue_worker,
+    _gerrymander_worker,
+    _historical_replay_worker,
     _hotelling_worker,
     _jury_worker,
+    _multiwinner_compare_worker,
     _nota_worker,
     _party_dynamics_worker,
     _polarization_worker,
@@ -178,3 +182,25 @@ def primary(data: dict) -> tuple[dict, int]:
 def stv(data: dict) -> tuple[dict, int]:
     """Single Transferable Vote + D'Hondt + FPTP comparison."""
     return _stv_worker(data)
+
+
+# ── Phase 3 batch 8 ─────────────────────────────────────────────────────────
+
+def adaptive(data: dict) -> tuple[dict, int]:
+    """N rounds of adaptive/tactical voting with poll feedback."""
+    return _adaptive_worker(data)
+
+
+def historical_replay(data: dict) -> tuple[dict, int]:
+    """Day-by-day historical replay with candidate overrides."""
+    return _historical_replay_worker(data)
+
+
+def gerrymander(data: dict) -> tuple[dict, int]:
+    """Voters assigned to user-drawn rectangular districts."""
+    return _gerrymander_worker(data)
+
+
+def multiwinner_compare(data: dict) -> tuple[dict, int]:
+    """STV / D'Hondt / SPAV / Phragmén / FPTP on the same electorate."""
+    return _multiwinner_compare_worker(data)

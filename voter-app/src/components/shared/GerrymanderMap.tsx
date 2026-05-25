@@ -10,6 +10,7 @@ import axios from 'axios';
 import { useTranslation } from 'react-i18next';
 import { Alert, Badge, Button, Col, Row, Spinner } from 'react-bootstrap';
 import { useElection } from '../../context/ElectionContext';
+import { apiPath } from '../../api/apiVersion';
 
 const API = process.env.REACT_APP_API_URL ?? 'http://localhost:4433';
 
@@ -231,7 +232,7 @@ const GerrymanderMap: React.FC = () => {
     setLoading(true); setError(null);
     const districts = gridToDistricts(grid);
     try {
-      const res = await axios.post(`${API}/api/election/gerrymander`, {
+      const res = await axios.post(`${API}${apiPath('election/gerrymander')}`, {
         candidates: config.candidates,
         num_voters: config.num_voters,
         ideology:   config.ideology,

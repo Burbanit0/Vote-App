@@ -8,6 +8,7 @@ import {
 } from 'recharts';
 import { useElection } from '../../context/ElectionContext';
 import PinToCentralButton from './PinToCentralButton';
+import { apiPath } from '../../api/apiVersion';
 
 const API = process.env.REACT_APP_API_URL ?? 'http://localhost:4433';
 
@@ -157,7 +158,7 @@ const AdaptiveVotingPanel: React.FC = () => {
     setError(null);
     setRevealedRound(0);
     try {
-      const res = await axios.post(`${API}/api/election/adaptive`, {
+      const res = await axios.post(`${API}${apiPath('election/adaptive')}`, {
         candidates:           config.candidates,
         num_voters:           config.num_voters,
         ideology:             config.ideology,

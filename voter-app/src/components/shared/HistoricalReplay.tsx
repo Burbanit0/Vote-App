@@ -11,6 +11,7 @@ import {
   BarChart, Bar, XAxis, YAxis, Tooltip,
   ResponsiveContainer, Cell,
 } from 'recharts';
+import { apiPath } from '../../api/apiVersion';
 
 const API = process.env.REACT_APP_API_URL ?? 'http://localhost:4433';
 
@@ -180,7 +181,7 @@ const HistoricalReplay: React.FC = () => {
     setError(null);
     setCurrentDay(0);
     try {
-      const res = await axios.post(`${API}/api/election/historical-replay`, {
+      const res = await axios.post(`${API}${apiPath('election/historical-replay')}`, {
         scenario_id: scenarioId,
         overrides,
         num_days: numDays,

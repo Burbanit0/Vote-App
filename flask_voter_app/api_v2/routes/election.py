@@ -34,6 +34,7 @@ from pydantic import BaseModel
 from app.schemas import (
     AbstentionRequest,
     AbstentionResponse,
+    AdaptiveRequest,
     AffectivePolarizationRequest,
     BallotComplexityRequest,
     BehavioralBiasesRequest,
@@ -50,8 +51,11 @@ from app.schemas import (
     DemographicTurnoutRequest,
     DistrictsRequest,
     ElectoralFatigueRequest,
+    GerrymanderRequest,
+    HistoricalReplayRequest,
     HotellingRequest,
     JuryRequest,
+    MultiwinnerCompareRequest,
     NotaRequest,
     PartyDynamicsRequest,
     PolarizationRequest,
@@ -66,6 +70,7 @@ from app.schemas import (
 
 from api_v2.domain.election import (
     abstention as abstention_domain,
+    adaptive as adaptive_domain,
     affective_polarization as affective_polarization_domain,
     ballot_complexity as ballot_complexity_domain,
     behavioral_biases as behavioral_biases_domain,
@@ -79,8 +84,11 @@ from api_v2.domain.election import (
     demographic_turnout as demographic_turnout_domain,
     districts as districts_domain,
     electoral_fatigue as electoral_fatigue_domain,
+    gerrymander as gerrymander_domain,
+    historical_replay as historical_replay_domain,
     hotelling as hotelling_domain,
     jury as jury_domain,
+    multiwinner_compare as multiwinner_compare_domain,
     nota as nota_domain,
     party_dynamics as party_dynamics_domain,
     polarization as polarization_domain,
@@ -550,3 +558,62 @@ async def stv_endpoint(request: StvRequest) -> Dict[str, Any]:
     """Multi-seat STV (Droop, Hare, or Imperiali quota) compared to
     D'Hondt and multi-seat FPTP on the same simulated ballots."""
     return await _run_passthrough(stv_domain, request)
+
+
+# ── Phase 3 batch 8 ─────────────────────────────────────────────────────────
+
+@router.post(
+    "/adaptive",
+    summary="N rounds of adaptive/tactical voting with poll feedback",
+    response_description="Per-round vote shares, sincere vs effective winners, "
+                         "convergence flag, strategic drift.",
+)
+async def adaptive_endpoint(request: AdaptiveRequest) -> Dict[str, Any]:
+    """Each round, voters whose 1st choice polls below `strategic_threshold`
+    may switch to their best viable alternative. Tracks convergence
+    (winner stable for 2 consecutive rounds) and strategic drift."""
+    return await _run_passthrough(adaptive_domain, request)
+
+
+@router.post(
+    "/historical-replay",
+    summary="Day-by-day historical replay with candidate-position overrides",
+    response_description="Per-day winners (FPTP/Condorcet/Borda), scenario "
+                         "metadata, and a pedagogical note on divergence "
+                         "from the real winner.",
+)
+async def historical_replay_endpoint(
+    request: HistoricalReplayRequest,
+) -> Dict[str, Any]:
+    """Brownian campaign simulation for 4 historical scenarios
+    (France 2002, USA 1992, Germany 2021, Condorcet cycle). Drag a
+    candidate's x/y position to rewrite history."""
+    return await _run_passthrough(historical_replay_domain, request)
+
+
+@router.post(
+    "/gerrymander",
+    summary="Voters assigned to user-drawn rectangular districts",
+    response_description="Per-district winners + gerrymander parliament + "
+                         "proportional reference + gerrymander index.",
+)
+async def gerrymander_endpoint(request: GerrymanderRequest) -> Dict[str, Any]:
+    """Voters assigned to the (smallest) overlapping district or the
+    nearest one. Compares the gerrymandered FPTP parliament to a
+    D'Hondt proportional reference."""
+    return await _run_passthrough(gerrymander_domain, request)
+
+
+@router.post(
+    "/multiwinner_compare",
+    summary="STV / D'Hondt / SPAV / Phragmén / FPTP on the same electorate",
+    response_description="Per-method seats + distortion vs proportional + "
+                         "best/worst methods.",
+)
+async def multiwinner_compare_endpoint(
+    request: MultiwinnerCompareRequest,
+) -> Dict[str, Any]:
+    """Same electorate, 5 multi-winner methods. Reports per-method
+    seat allocation, distortion against the proportional reference,
+    and which method comes closest to / furthest from proportional."""
+    return await _run_passthrough(multiwinner_compare_domain, request)

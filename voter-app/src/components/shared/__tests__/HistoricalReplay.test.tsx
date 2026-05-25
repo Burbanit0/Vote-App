@@ -97,7 +97,7 @@ describe('HistoricalReplay', () => {
     fireEvent.click(screen.getByRole('button', { name: /simuler|simulate/i }));
     await waitFor(() => expect(mockPost).toHaveBeenCalledTimes(1));
     expect(mockPost).toHaveBeenCalledWith(
-      expect.stringContaining('/api/election/historical-replay'),
+      expect.stringMatching(/\/api\/(v2\/)?election\/historical-replay/),
       expect.objectContaining({ scenario_id: 'france2002' }),
     );
   });

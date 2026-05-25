@@ -26,15 +26,17 @@ describe('apiPath', () => {
       'election/compulsory-voting', 'election/party-dynamics',
       'election/simulate-pipeline', 'election/districts',
       'election/primary', 'election/stv',
+      'election/adaptive', 'election/historical-replay',
+      'election/gerrymander', 'election/multiwinner_compare',
     ]) {
       expect(apiPath(slug)).toBe(`/api/v2/${slug}`);
     }
   });
 
   it('keeps non-migrated endpoints on /api/*', () => {
-    expect(apiPath('election/historical-replay')).toBe('/api/election/historical-replay');
-    expect(apiPath('election/adaptive')).toBe('/api/election/adaptive');
-    expect(apiPath('election/gerrymander')).toBe('/api/election/gerrymander');
+    expect(apiPath('election/quadratic-funding')).toBe('/api/election/quadratic-funding');
+    expect(apiPath('election/liquid-democracy')).toBe('/api/election/liquid-democracy');
+    expect(apiPath('election/power-indices')).toBe('/api/election/power-indices');
     expect(apiPath('theory/arrow')).toBe('/api/theory/arrow');
   });
 
@@ -70,8 +72,8 @@ describe('apiPath', () => {
 });
 
 describe('MIGRATED_ENDPOINTS registry', () => {
-  it('contains the 25 endpoints migrated through Phase 3 batch 7', () => {
-    expect(MIGRATED_ENDPOINTS.size).toBe(25);
+  it('contains the 29 endpoints migrated through Phase 3 batch 8', () => {
+    expect(MIGRATED_ENDPOINTS.size).toBe(29);
     for (const slug of [
       'election/simulate', 'election/combined-effects',
       'election/campaign-sensitivity', 'election/coalition',
@@ -86,6 +88,8 @@ describe('MIGRATED_ENDPOINTS registry', () => {
       'election/compulsory-voting', 'election/party-dynamics',
       'election/simulate-pipeline', 'election/districts',
       'election/primary', 'election/stv',
+      'election/adaptive', 'election/historical-replay',
+      'election/gerrymander', 'election/multiwinner_compare',
     ]) {
       expect(MIGRATED_ENDPOINTS.has(slug)).toBe(true);
     }
