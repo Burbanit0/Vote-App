@@ -21,7 +21,8 @@ const OAuthCallback: React.FC = () => {
 
     (async () => {
       try {
-        const profileResp = await axios.get(`${API_BASE_URL}/api/auth/profile`, {
+        // Phase 4.3.e: profile lives on /api/v2/users/me now (fastapi-users).
+        const profileResp = await axios.get(`${API_BASE_URL}/api/v2/users/me`, {
           headers: { Authorization: `Bearer ${token}` },
         });
         const profile = profileResp.data;
