@@ -37,15 +37,17 @@ describe('apiPath', () => {
       'theory/sen-paradox', 'theory/manipulation-analysis',
       'theory/majority-tyranny', 'theory/democratic-backsliding',
       'theory/intergenerational', 'theory/epistocracy',
+      'theory/identity-voting', 'theory/assumption-testing',
+      'theory/collective-will',
     ]) {
       expect(apiPath(slug)).toBe(`/api/v2/${slug}`);
     }
   });
 
   it('keeps non-migrated endpoints on /api/*', () => {
-    expect(apiPath('theory/identity-voting')).toBe('/api/theory/identity-voting');
     expect(apiPath('users/me')).toBe('/api/users/me');
     expect(apiPath('scenarios')).toBe('/api/scenarios');
+    expect(apiPath('export/pdf')).toBe('/api/export/pdf');
   });
 
   it('strips leading slash from slug', () => {
@@ -80,8 +82,8 @@ describe('apiPath', () => {
 });
 
 describe('MIGRATED_ENDPOINTS registry', () => {
-  it('contains 35 election + 12 theory endpoints (Phase 4 batches 1+2+3)', () => {
-    expect(MIGRATED_ENDPOINTS.size).toBe(47);
+  it('contains 35 election + 15 theory endpoints — Phase 4.1 complete', () => {
+    expect(MIGRATED_ENDPOINTS.size).toBe(50);
     for (const slug of [
       'election/simulate', 'election/combined-effects',
       'election/campaign-sensitivity', 'election/coalition',
@@ -107,6 +109,8 @@ describe('MIGRATED_ENDPOINTS registry', () => {
       'theory/sen-paradox', 'theory/manipulation-analysis',
       'theory/majority-tyranny', 'theory/democratic-backsliding',
       'theory/intergenerational', 'theory/epistocracy',
+      'theory/identity-voting', 'theory/assumption-testing',
+      'theory/collective-will',
     ]) {
       expect(MIGRATED_ENDPOINTS.has(slug)).toBe(true);
     }

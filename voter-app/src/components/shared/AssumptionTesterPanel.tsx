@@ -12,6 +12,7 @@ import {
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip,
   ResponsiveContainer, Cell,
 } from 'recharts';
+import { apiPath } from '../../api/apiVersion';
 
 const API = process.env.REACT_APP_API_URL ?? 'http://localhost:4433';
 
@@ -234,7 +235,7 @@ const AssumptionTesterPanel: React.FC<AssumptionTesterLabProps> = ({
     setLoading(true);
     setError(null);
     try {
-      const res = await axios.post(`${API}/api/theory/assumption-testing`, {
+      const res = await axios.post(`${API}${apiPath('theory/assumption-testing')}`, {
         base_simulation: {
           candidates:  overrideCands   ?? DEFAULT_CANDS,
           num_voters:  overrideVoters  ?? numVoters,

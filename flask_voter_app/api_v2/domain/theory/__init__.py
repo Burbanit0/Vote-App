@@ -12,8 +12,11 @@ from app.routes.theory import (
     _agenda_manipulation_worker,
     _apportionment_worker,
     _arrow_worker,
+    _assumption_testing_worker,
+    _collective_will_worker,
     _democratic_backsliding_worker,
     _epistocracy_worker,
+    _identity_voting_worker,
     _iia_rate_worker,
     _intergenerational_worker,
     _judgment_aggregation_worker,
@@ -86,3 +89,20 @@ def intergenerational(data: dict) -> tuple[dict, int]:
 def epistocracy(data: dict) -> tuple[dict, int]:
     """Caplan/Brennan epistocracy vs standard democracy comparison."""
     return _epistocracy_worker(data)
+
+
+# ── Phase 4 batch 4 (final) ─────────────────────────────────────────────────
+
+def identity_voting(data: dict) -> tuple[dict, int]:
+    """Green/Palmquist/Schickler 2002 identity-based voting."""
+    return _identity_voting_worker(data)
+
+
+def assumption_testing(data: dict) -> tuple[dict, int]:
+    """Relax core spatial-model assumptions one at a time."""
+    return _assumption_testing_worker(data)
+
+
+def collective_will(data: dict) -> tuple[dict, int]:
+    """Does the general will exist, or is it a procedural artefact?"""
+    return _collective_will_worker(data)

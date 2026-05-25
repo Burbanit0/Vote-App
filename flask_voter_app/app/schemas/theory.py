@@ -527,3 +527,175 @@ class EpistocracyResponse(BaseModel):
     democracy_vs_expert:    DemocracyVsExpert
     condorcet_threshold:    float
     pedagogical_note:       str
+
+
+# ── /identity-voting ───────────────────────────────────────────────────────
+
+class IDCandidate(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    name: str   = Field(..., min_length=1, max_length=64)
+    x:    float = Field(..., ge=-1.0, le=1.0)
+    y:    float = Field(0.0,  ge=-1.0, le=1.0)
+
+
+class IdentityGroup(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    name:                  str   = Field(..., min_length=1, max_length=64)
+    pct:                   float = Field(..., ge=0.0, le=1.0)
+    ideology_center:       float = Field(..., ge=-1.0, le=1.0)
+    loyalty:               float = Field(..., ge=0.0, le=1.0)
+    candidate_affiliation: str   = Field(..., min_length=1, max_length=64)
+
+
+class IdentityVotingRequest(BaseModel):
+    """Green/Palmquist/Schickler 2002 identity-based voting."""
+    model_config = ConfigDict(extra="forbid")
+
+    candidates:       List[IDCandidate] = Field(
+        default_factory=lambda: [
+            IDCandidate(name="Alice", x=-0.5),
+            IDCandidate(name="Bob",   x= 0.0),
+            IDCandidate(name="Carol", x= 0.5),
+        ],
+        min_length=2, max_length=6,
+    )
+    num_voters:       int   = Field(200, ge=20, le=2000)
+    seed:             int   = Field(42, ge=0)
+    identity_weight:  float = Field(0.5, ge=0.0, le=1.0)
+    cross_pressure:   bool  = Field(True)
+    method:           str   = Field("plurality")
+    identity_groups:  Optional[List[IdentityGroup]] = Field(None,
+                                                            description="Defaults to 3 groups derived from candidates.")
+
+
+class GroupResult(BaseModel):
+    group_name:     str
+    affiliation:    str
+    group_vote_pct: float
+    ideology_match: float
+    loyalty:        float
+    size_pct:       float
+
+
+class CrossPressured(BaseModel):
+    count:           int
+    abstention_rate: float
+
+
+class IdentityCurvePoint(BaseModel):
+    weight:         float
+    winner:         str
+    agreement_rate: float
+
+
+class IdentityVotingResponse(BaseModel):
+    sincere_winner:        str
+    identity_winner:       str
+    mixed_winner:          str
+    winner_changed:        bool
+    group_results:         List[GroupResult]
+    cross_pressured:       CrossPressured
+    identity_weight_curve: List[IdentityCurvePoint]
+    pedagogical_note:      str
+
+
+# ── /assumption-testing ────────────────────────────────────────────────────
+
+class ATBaseCandidate(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    name: str   = Field(..., min_length=1, max_length=64)
+    x:    float = Field(..., ge=-1.0, le=1.0)
+    y:    float = Field(0.0,  ge=-1.0, le=1.0)
+
+
+class ATBaseSimulation(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    candidates: List[ATBaseCandidate] = Field(
+        default_factory=lambda: [
+            ATBaseCandidate(name="Alice", x=-0.4),
+            ATBaseCandidate(name="Bob",   x= 0.1),
+            ATBaseCandidate(name="Carol", x= 0.5),
+        ],
+        min_length=2, max_length=6,
+    )
+    num_voters: int = Field(100, ge=20, le=500)
+    ideology:   str = Field("random")
+    seed:       int = Field(42, ge=0)
+
+
+class AssumptionTestingRequest(BaseModel):
+    """Test model robustness by relaxing core spatial-model assumptions."""
+    model_config = ConfigDict(extra="forbid")
+
+    base_simulation:       Optional[ATBaseSimulation] = Field(default_factory=ATBaseSimulation)
+    assumptions_to_relax:  Optional[List[str]] = Field(None,
+                                                       description="Subset of single_peaked / "
+                                                                   "stable_preferences / "
+                                                                   "rational_voters / "
+                                                                   "fixed_electorate / "
+                                                                   "measurable_utilities.")
+
+
+class AssumptionResult(BaseModel):
+    winner:              str
+    winner_changed:      bool
+    pct_trials_changed:  float
+    result_variance:     float
+    confidence_interval: List[float] = Field(..., min_length=2, max_length=2)
+    winner_distribution: Dict[str, float]
+
+
+class BaselineResult(BaseModel):
+    winner: str
+    regret: float
+
+
+class AssumptionTestingResponse(BaseModel):
+    baseline_result:           BaselineResult
+    relaxed_results:           Dict[str, AssumptionResult]
+    most_fragile_assumption:   str
+    robust_result:             bool
+    pedagogical_note:          str
+
+
+# ── /collective-will ──────────────────────────────────────────────────────
+
+class CWCandidate(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    name: str   = Field(..., min_length=1, max_length=64)
+    x:    float = Field(..., ge=-1.0, le=1.0)
+    y:    float = Field(0.0,  ge=-1.0, le=1.0)
+
+
+class CollectiveWillRequest(BaseModel):
+    """Does the general will exist, or is it a procedural artefact?"""
+    model_config = ConfigDict(extra="forbid")
+
+    candidates:      List[CWCandidate] = Field(
+        default_factory=lambda: [
+            CWCandidate(name="Alice", x=-0.4),
+            CWCandidate(name="Bob",   x= 0.1),
+            CWCandidate(name="Carol", x= 0.5),
+        ],
+        min_length=2, max_length=6,
+    )
+    num_voters:      int = Field(100, ge=10, le=500)
+    ideology:        str = Field("random")
+    seed:            int = Field(42, ge=0)
+    num_methods:     int = Field(5, ge=2, le=10)
+    num_agendas:     int = Field(4, ge=2, le=6)
+    num_simulations: int = Field(1, ge=1, le=5)
+
+
+class CollectiveWillResponse(BaseModel):
+    unique_winners:           List[str]
+    unique_winner_count:      int
+    winner_by_method:         Dict[str, str]
+    winner_by_agenda:         Dict[str, str]
+    rousseau_score:           float
+    most_frequent_winner:     str
+    most_frequent_pct:        float
+    condorcet_exists:         bool
+    condorcet_winner:         Optional[str] = None
+    philosophical_conclusion: str
+    pedagogical_note:         str

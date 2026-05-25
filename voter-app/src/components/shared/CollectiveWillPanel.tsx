@@ -8,6 +8,7 @@ import { useTranslation } from 'react-i18next';
 import {
   Alert, Badge, Button, Col, Form, Row, Spinner,
 } from 'react-bootstrap';
+import { apiPath } from '../../api/apiVersion';
 
 const API = process.env.REACT_APP_API_URL ?? 'http://localhost:4433';
 
@@ -280,7 +281,7 @@ const CollectiveWillPanel: React.FC<CollectiveWillLabProps> = ({
     setLoading(true);
     setError(null);
     try {
-      const res = await axios.post(`${API}/api/theory/collective-will`, {
+      const res = await axios.post(`${API}${apiPath('theory/collective-will')}`, {
         candidates:      overrideCands   ?? DEFAULT_CANDS,
         num_voters:      overrideVoters  ?? numVoters,
         ideology:        overrideIdeology ?? ideology,
