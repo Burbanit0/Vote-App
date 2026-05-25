@@ -45,6 +45,13 @@ uvicorn[standard]==0.40.0
 httpx==0.28.1                  # used by the FastAPI TestClient (pytest)
 pydantic-settings==2.12.0      # 12-factor env config for api_v2/core/config.py
 
+# Phase 4.3 — auth migration to FastAPI. fastapi-users provides JWT issuance,
+# password hashing (argon2/bcrypt via pwdlib), user-model abstractions; the
+# SQLAlchemy extra ships the existing-table adapter we use to bolt onto our
+# Flask User. httpx-oauth covers the Google + GitHub OAuth flows.
+fastapi-users[sqlalchemy]==15.0.5
+httpx-oauth==0.17.0
+
 # OAuth
 google-auth==2.38.0
 

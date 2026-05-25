@@ -63,8 +63,10 @@ def init_db(app):
 
         admin = User(
             username='adminA',
+            email='adminA@vote-app.local',
             password_hash=generate_password_hash('adminpass').decode('utf-8'),
             role='Admin',
+            is_superuser=True,
             first_name='Admin',
             last_name='User',
             created_at=datetime.now(timezone.utc)
@@ -73,6 +75,7 @@ def init_db(app):
 
         user = User(
             username='testuserA',
+            email='testuserA@vote-app.local',
             password_hash=generate_password_hash('testpass').decode('utf-8'),
             role='User',
             first_name='Test',

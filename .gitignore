@@ -189,7 +189,10 @@ cython_debug/
 .DS_Store
 flask_voter_app/seed.py
 
-flask_voter_app/migrations
+# Alembic env keeps __pycache__/ that we don't want, but the migration
+# scripts in versions/ must live in git so deploys can replay them.
+flask_voter_app/migrations/__pycache__/
+flask_voter_app/migrations/versions/__pycache__/
 
 .vscode/
 .claude/worktrees/

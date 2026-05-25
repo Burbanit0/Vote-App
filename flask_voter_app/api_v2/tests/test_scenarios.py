@@ -39,6 +39,7 @@ def test_user(flask_app):
     with flask_app.app_context():
         u = User(
             username="scenarios_user",
+            email="scenarios_user@vote-app.local",
             password_hash=generate_password_hash("pw").decode("utf-8"),
             role="User",
             first_name="Test",
@@ -182,6 +183,7 @@ class TestUserScoping:
         with flask_app.app_context():
             other = User(
                 username="other_user",
+                email="other_user@vote-app.local",
                 password_hash=generate_password_hash("pw").decode("utf-8"),
                 role="User",
                 first_name="Other",

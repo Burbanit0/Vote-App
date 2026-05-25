@@ -1,6 +1,7 @@
 import datetime
 from . import db
 from sqlalchemy import Boolean, Column, Integer, String, ForeignKey, DateTime, Text, func, JSON, cast
+from sqlalchemy import true as sa_true, false as sa_false
 
 from flask_bcrypt import Bcrypt
 
@@ -12,7 +13,7 @@ class User(db.Model):
     id = Column(Integer, primary_key=True)
     username = Column(String(50), unique=True, nullable=False)
     password_hash = Column(String(128), nullable=False)
-    role = Column(String(10), nullable=False)  # 'Admin' or 'User'
+    role = Column(String(10), nullable=False)  # legacy 'Admin' / 'User' — see is_superuser below
     created_at = Column(DateTime, default=func.current_timestamp())
 
     first_name = Column(String(100), nullable=True)
@@ -22,7 +23,15 @@ class User(db.Model):
 
     google_id = Column(String(100), nullable=True, unique=True)
     github_id = Column(String(100), nullable=True, unique=True)
-    email = Column(String(120), nullable=True)
+    # Phase 4.3.a: email becomes the canonical login identifier (fastapi-users
+    # contract). Legacy username stays for backward compat — see app/routes/users.py.
+    email = Column(String(120), nullable=False, unique=True)
+
+    # Phase 4.3.a: fastapi-users user-table contract.
+    # `is_superuser` shadows the legacy `role` column ('Admin' → True).
+    is_active    = Column(Boolean, nullable=False, server_default=sa_true())
+    is_superuser = Column(Boolean, nullable=False, server_default=sa_false())
+    is_verified  = Column(Boolean, nullable=False, server_default=sa_true())
 
     def set_password(self, password):
         self.password_hash = bcrypt.generate_password_hash(password).decode("utf-8")

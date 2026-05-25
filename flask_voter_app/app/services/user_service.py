@@ -99,9 +99,13 @@ class UserService:
         while User.query.filter_by(username=username).first():
             username = f"{base_username}_{random.randint(1000, 9999)}"
 
+        # Phase 4.3.a: email is now NOT NULL. OAuth providers normally return
+        # one, but if they don't (privacy-mode GitHub) we synthesise a
+        # placeholder so the insert succeeds.
+        effective_email = email or f"{username}@{provider}.vote-app.local"
         new_user = User(
             username=username,
-            email=email,
+            email=effective_email,
             first_name=first_name,
             last_name=last_name,
             role='User',
