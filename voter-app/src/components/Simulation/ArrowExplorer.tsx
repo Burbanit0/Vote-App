@@ -13,6 +13,7 @@ import {
   LineChart, Line, XAxis, YAxis, Tooltip, CartesianGrid,
   Legend, ResponsiveContainer, ReferenceLine,
 } from 'recharts';
+import { apiPath } from '../../api/apiVersion';
 
 const API = process.env.REACT_APP_API_URL ?? 'http://localhost:4433';
 
@@ -251,8 +252,8 @@ const ArrowExplorer: React.FC = () => {
     setError(null);
     try {
       const [arrowRes, rateRes] = await Promise.all([
-        axios.post(`${API}/api/theory/arrow`, { method }),
-        axios.post(`${API}/api/theory/iia-rate`, { method, max_candidates: 8, num_trials: 100 }),
+        axios.post(`${API}${apiPath('theory/arrow')}`, { method }),
+        axios.post(`${API}${apiPath('theory/iia-rate')}`, { method, max_candidates: 8, num_trials: 100 }),
       ]);
       setData(arrowRes.data);
       setRateData(rateRes.data);

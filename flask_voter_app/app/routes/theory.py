@@ -95,16 +95,8 @@ def _plurality_winner(profile: List[List[str]]) -> Optional[str]:
 
 # ── /api/theory/arrow ─────────────────────────────────────────────────────────
 
-@theory_bp.route("/arrow", methods=["POST"])
-@sim_limiter.limit("20 per minute")
-def arrow_impossibility() -> tuple[Response, int]:
-    """
-    POST /api/theory/arrow
-
-    For a given voting method, identify which of Arrow's axioms it violates
-    and return the minimal counterexample demonstrating each violation.
-    """
-    data   = request.get_json() or {}
+def _arrow_worker(data: Dict[str, Any]) -> tuple[Dict[str, Any], int]:
+    """Pure worker for /arrow — extracted for FastAPI v2."""
     method = str(data.get("method", "plurality")).lower().replace("-", "_")
     _      = int(data.get("seed", 42))
 
@@ -150,27 +142,32 @@ def arrow_impossibility() -> tuple[Response, int]:
     else:
         summary = f"'{method}' satisfait {', '.join(satisfied_list)}."
 
-    return jsonify({
+    return {
         "method":        method,
         "violations":    violations,
         "arrow_summary": summary,
         "tradeoff_type": _TRADEOFF_TYPE.get(method, "majority_focus"),
-    }), 200
+    }, 200
+
+
+@theory_bp.route("/arrow", methods=["POST"])
+@sim_limiter.limit("20 per minute")
+def arrow_impossibility() -> tuple[Response, int]:
+    """POST /api/theory/arrow — per-method Arrow axiom violations."""
+    data = request.get_json() or {}
+    try:
+        body, status_code = _arrow_worker(data)
+        return jsonify(body), status_code
+    except Exception as exc:  # noqa: BLE001
+        from flask import current_app
+        current_app.logger.exception("arrow_impossibility() crashed")
+        return jsonify({"error": f"Internal error: {exc}"}), 500
 
 
 # ── /api/theory/iia-rate ──────────────────────────────────────────────────────
 
-@theory_bp.route("/iia-rate", methods=["POST"])
-@sim_limiter.limit("10 per minute")
-def iia_violation_rate() -> tuple[Response, int]:
-    """
-    POST /api/theory/iia-rate
-
-    Empirically compute the probability that adding an irrelevant candidate
-    changes the winner under the given method, for n_candidates in [2, max_n].
-    Uses plurality for speed; extrapolated rates for others.
-    """
-    data           = request.get_json() or {}
+def _iia_rate_worker(data: Dict[str, Any]) -> tuple[Dict[str, Any], int]:
+    """Pure worker for /iia-rate — extracted for FastAPI v2."""
     method         = str(data.get("method", "plurality")).lower()
     max_candidates = max(2, min(8, int(data.get("max_candidates", 8))))
     n_trials       = max(20, min(500, int(data.get("num_trials", 100))))
@@ -212,7 +209,21 @@ def iia_violation_rate() -> tuple[Response, int]:
             "violation_rate": round(min(1.0, base_rate * scale), 4),
         })
 
-    return jsonify({"method": method, "curve": curve}), 200
+    return {"method": method, "curve": curve}, 200
+
+
+@theory_bp.route("/iia-rate", methods=["POST"])
+@sim_limiter.limit("10 per minute")
+def iia_violation_rate() -> tuple[Response, int]:
+    """POST /api/theory/iia-rate — empirical IIA violation curve."""
+    data = request.get_json() or {}
+    try:
+        body, status_code = _iia_rate_worker(data)
+        return jsonify(body), status_code
+    except Exception as exc:  # noqa: BLE001
+        from flask import current_app
+        current_app.logger.exception("iia_violation_rate() crashed")
+        return jsonify({"error": f"Internal error: {exc}"}), 500
 
 
 # ── Plott Chaos Theorem ───────────────────────────────────────────────────────
@@ -396,17 +407,8 @@ def _bfs_path(from_i: int, to_i: int, beats: "_np_t.ndarray",
     return None
 
 
-@theory_bp.route("/plott-chaos", methods=["POST"])
-@sim_limiter.limit("5 per minute")
-def plott_chaos() -> tuple[Response, int]:
-    """
-    POST /api/theory/plott-chaos
-
-    Demonstrate Plott's Chaos Theorem: in 2D policy space with ≥3 voters,
-    a Condorcet winner almost never exists, and from any starting point the
-    agenda-setter can reach ANY other point via a sequence of majority votes.
-    """
-    data           = request.get_json() or {}
+def _plott_chaos_worker(data: Dict[str, Any]) -> tuple[Dict[str, Any], int]:
+    """Pure worker for /plott-chaos — extracted for FastAPI v2."""
     num_voters     = max(3, min(21, int(data.get("num_voters",    5))))
     num_dims       = max(1, min(2,  int(data.get("num_dimensions", 2))))
     seed           = int(data.get("seed",    42))
@@ -489,7 +491,7 @@ def plott_chaos() -> tuple[Response, int]:
             f"{alt_target} — résultats diamétralement opposés, même électorat."
         )
 
-    return jsonify({
+    return {
         "condorcet_winner_exists": condorcet_winner_exists,
         "top_cycle": {"size": top_cycle_size, "center": top_cycle_center},
         "chaos_path": {
@@ -504,22 +506,27 @@ def plott_chaos() -> tuple[Response, int]:
         },
         "voter_ideal_points": voter_ideals.tolist(),
         "pedagogical_note":   note,
-    }), 200
+    }, 200
+
+
+@theory_bp.route("/plott-chaos", methods=["POST"])
+@sim_limiter.limit("5 per minute")
+def plott_chaos() -> tuple[Response, int]:
+    """POST /api/theory/plott-chaos — Plott's Chaos Theorem."""
+    data = request.get_json() or {}
+    try:
+        body, status_code = _plott_chaos_worker(data)
+        return jsonify(body), status_code
+    except Exception as exc:  # noqa: BLE001
+        from flask import current_app
+        current_app.logger.exception("plott_chaos() crashed")
+        return jsonify({"error": f"Internal error: {exc}"}), 500
 
 
 # ── Judgment Aggregation ──────────────────────────────────────────────────────
 
-@theory_bp.route("/judgment-aggregation", methods=["POST"])
-@sim_limiter.limit("10 per minute")
-def judgment_aggregation() -> tuple[Response, int]:
-    """
-    POST /api/theory/judgment-aggregation
-
-    Demonstrates the discursive dilemma (List & Pettit 2002):
-    majority rule on propositions can produce collectively incoherent results
-    even when every individual voter is perfectly coherent.
-    """
-    data       = request.get_json() or {}
+def _judgment_aggregation_worker(data: Dict[str, Any]) -> tuple[Dict[str, Any], int]:
+    """Pure worker for /judgment-aggregation — extracted for FastAPI v2."""
     num_voters = max(1, min(100, int(data.get("num_voters", 12))))
     seed       = int(data.get("seed", 42))
     scenario   = str(data.get("scenario", "legal"))
@@ -622,7 +629,7 @@ def judgment_aggregation() -> tuple[Response, int]:
             f"des propositions."
         )
 
-    return jsonify({
+    return {
         "scenario": scenario,
         "scenario_name": sc["name"],
         "propositions": [
@@ -644,7 +651,21 @@ def judgment_aggregation() -> tuple[Response, int]:
             "conclusion_based": conclusion_based,
         },
         "pedagogical_note":       note,
-    }), 200
+    }, 200
+
+
+@theory_bp.route("/judgment-aggregation", methods=["POST"])
+@sim_limiter.limit("10 per minute")
+def judgment_aggregation() -> tuple[Response, int]:
+    """POST /api/theory/judgment-aggregation — List-Pettit discursive dilemma."""
+    data = request.get_json() or {}
+    try:
+        body, status_code = _judgment_aggregation_worker(data)
+        return jsonify(body), status_code
+    except Exception as exc:  # noqa: BLE001
+        from flask import current_app
+        current_app.logger.exception("judgment_aggregation() crashed")
+        return jsonify({"error": f"Internal error: {exc}"}), 500
 
 
 # ── Agenda Manipulation ───────────────────────────────────────────────────────

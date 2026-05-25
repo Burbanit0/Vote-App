@@ -31,13 +31,15 @@ describe('apiPath', () => {
       'election/divergence', 'election/interpret',
       'election/quadratic-funding', 'election/liquid-democracy',
       'election/conviction-voting', 'election/power-indices',
+      'theory/arrow', 'theory/iia-rate',
+      'theory/plott-chaos', 'theory/judgment-aggregation',
     ]) {
       expect(apiPath(slug)).toBe(`/api/v2/${slug}`);
     }
   });
 
-  it('keeps non-election endpoints on /api/*', () => {
-    expect(apiPath('theory/arrow')).toBe('/api/theory/arrow');
+  it('keeps non-migrated endpoints on /api/*', () => {
+    expect(apiPath('theory/apportionment')).toBe('/api/theory/apportionment');
     expect(apiPath('users/me')).toBe('/api/users/me');
     expect(apiPath('scenarios')).toBe('/api/scenarios');
   });
@@ -74,8 +76,8 @@ describe('apiPath', () => {
 });
 
 describe('MIGRATED_ENDPOINTS registry', () => {
-  it('contains all 35 election endpoints (Phase 3 complete)', () => {
-    expect(MIGRATED_ENDPOINTS.size).toBe(35);
+  it('contains 35 election + 4 theory endpoints (Phase 4 batch 1)', () => {
+    expect(MIGRATED_ENDPOINTS.size).toBe(39);
     for (const slug of [
       'election/simulate', 'election/combined-effects',
       'election/campaign-sensitivity', 'election/coalition',
@@ -95,6 +97,8 @@ describe('MIGRATED_ENDPOINTS registry', () => {
       'election/divergence', 'election/interpret',
       'election/quadratic-funding', 'election/liquid-democracy',
       'election/conviction-voting', 'election/power-indices',
+      'theory/arrow', 'theory/iia-rate',
+      'theory/plott-chaos', 'theory/judgment-aggregation',
     ]) {
       expect(MIGRATED_ENDPOINTS.has(slug)).toBe(true);
     }

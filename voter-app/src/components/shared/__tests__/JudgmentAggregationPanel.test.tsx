@@ -79,7 +79,7 @@ describe('JudgmentAggregationPanel', () => {
     fireEvent.click(screen.getByTestId('simulate-btn'));
     await waitFor(() => expect(mockPost).toHaveBeenCalledTimes(1));
     expect(mockPost).toHaveBeenCalledWith(
-      expect.stringContaining('/api/theory/judgment-aggregation'),
+      expect.stringMatching(/\/api\/(v2\/)?theory\/judgment-aggregation/),
       expect.any(Object),
     );
     jest.runAllTimers();

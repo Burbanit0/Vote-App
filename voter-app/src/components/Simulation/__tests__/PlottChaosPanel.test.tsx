@@ -77,7 +77,7 @@ describe('PlottChaosPanel', () => {
     fireEvent.click(screen.getByTestId('simulate-btn'));
     await waitFor(() => expect(mockPost).toHaveBeenCalledTimes(1));
     expect(mockPost).toHaveBeenCalledWith(
-      expect.stringContaining('/api/theory/plott-chaos'),
+      expect.stringMatching(/\/api\/(v2\/)?theory\/plott-chaos/),
       expect.any(Object),
     );
     jest.runAllTimers();
