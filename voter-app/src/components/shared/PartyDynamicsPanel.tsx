@@ -10,6 +10,7 @@ import {
   LineChart, Line, XAxis, YAxis, Tooltip, CartesianGrid,
   ReferenceLine, Legend, ResponsiveContainer,
 } from 'recharts';
+import { apiPath } from '../../api/apiVersion';
 
 const API = process.env.REACT_APP_API_URL ?? 'http://localhost:4433';
 const ANIM_MS = 800;
@@ -200,7 +201,7 @@ const PartyDynamicsPanel: React.FC<Props> = ({ onDataLoaded }) => {
     setPlaying(false);
     setElectionIdx(0);
     try {
-      const res = await axios.post(`${API}/api/election/party-dynamics`, {
+      const res = await axios.post(`${API}${apiPath('election/party-dynamics')}`, {
         initial_parties:       parties,
         num_voters:            300,
         ideology:              'random',

@@ -69,21 +69,14 @@ class TestHotelling:
 # ── /polarization ───────────────────────────────────────────────────────────
 
 class TestPolarization:
-    """The /polarization happy path hits a pre-existing upstream bug in
-    majority_judgment (KeyError on candidate names) that also makes the
-    Flask side return 500. The validation tests still pin our schema
-    correctness — the happy path is xfail-marked until the upstream
-    issue is fixed."""
     payload = {
         "candidates": CANDS, "num_voters": 60, "seed": 42,
         "num_simulations": 5,
     }
 
-    @pytest.mark.xfail(reason="Upstream MJ bug: KeyError on candidate names. "
-                              "Same crash on Flask side. Tracked separately.")
     def test_happy_path(self, client):
         r = client.post("/api/v2/election/polarization", json=self.payload)
-        assert r.status_code == 200
+        assert r.status_code == 200, r.text
         for k in ("results", "key_findings"):
             assert k in r.json()
 

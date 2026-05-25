@@ -107,7 +107,7 @@ describe('PartyDynamicsPanel', () => {
     fireEvent.click(screen.getByTestId('simulate-btn'));
     await waitFor(() => expect(mockPost).toHaveBeenCalledTimes(1));
     expect(mockPost).toHaveBeenCalledWith(
-      expect.stringContaining('/api/election/party-dynamics'),
+      expect.stringMatching(/\/api\/(v2\/)?election\/party-dynamics/),
       expect.any(Object),
     );
     jest.runAllTimers();

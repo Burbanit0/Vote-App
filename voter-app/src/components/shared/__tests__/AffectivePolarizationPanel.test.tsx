@@ -98,7 +98,7 @@ describe('AffectivePolarizationPanel', () => {
     fireEvent.click(screen.getByRole('button', { name: /simuler|simulate/i }));
     await waitFor(() => expect(mockPost).toHaveBeenCalledTimes(1));
     expect(mockPost).toHaveBeenCalledWith(
-      expect.stringContaining('/api/election/affective-polarization'),
+      expect.stringMatching(/\/api\/(v2\/)?election\/affective-polarization/),
       expect.any(Object),
     );
     jest.runAllTimers();

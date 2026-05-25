@@ -34,6 +34,7 @@ from pydantic import BaseModel
 from app.schemas import (
     AbstentionRequest,
     AbstentionResponse,
+    AffectivePolarizationRequest,
     BallotComplexityRequest,
     BehavioralBiasesRequest,
     CampaignSensitivityRequest,
@@ -44,11 +45,14 @@ from app.schemas import (
     CoalitionResponse,
     CombinedEffectsRequest,
     CombinedEffectsResponse,
+    CompulsoryVotingRequest,
     DeliberationRequest,
+    DemographicTurnoutRequest,
     ElectoralFatigueRequest,
     HotellingRequest,
     JuryRequest,
     NotaRequest,
+    PartyDynamicsRequest,
     PolarizationRequest,
     ShyVoterRequest,
     SimulateRequest,
@@ -58,6 +62,7 @@ from app.schemas import (
 
 from api_v2.domain.election import (
     abstention as abstention_domain,
+    affective_polarization as affective_polarization_domain,
     ballot_complexity as ballot_complexity_domain,
     behavioral_biases as behavioral_biases_domain,
     campaign_sensitivity as campaign_sensitivity_domain,
@@ -65,11 +70,14 @@ from api_v2.domain.election import (
     choice_overload as choice_overload_domain,
     coalition as coalition_domain,
     combined_effects as combined_effects_domain,
+    compulsory_voting as compulsory_voting_domain,
     deliberation as deliberation_domain,
+    demographic_turnout as demographic_turnout_domain,
     electoral_fatigue as electoral_fatigue_domain,
     hotelling as hotelling_domain,
     jury as jury_domain,
     nota as nota_domain,
+    party_dynamics as party_dynamics_domain,
     polarization as polarization_domain,
     shy_voter as shy_voter_domain,
     simulate as simulate_domain,
@@ -414,3 +422,67 @@ async def sortition_endpoint(request: SortitionRequest) -> Dict[str, Any]:
     elected (electoral bias), sortition pure (random sample), sortition
     stratified (demographically balanced random sample)."""
     return await _run_passthrough(sortition_domain, request)
+
+
+# ── Perturber endpoints (Phase 3 batch 6) ──────────────────────────────────
+
+@router.post(
+    "/affective-polarization",
+    summary="Iyengar 2019: in/out-group hostility distorts voting",
+    response_description="Sincere vs affective winners, method sensitivity, "
+                         "hostility-vs-agreement affect curve.",
+)
+async def affective_polarization_endpoint(
+    request: AffectivePolarizationRequest,
+) -> Dict[str, Any]:
+    """Voters penalise candidates from the opposing political camp
+    proportionally to `affect_hostility`. `camp_threshold` defines the
+    x-axis distance for in/out-group splitting."""
+    return await _run_passthrough(affective_polarization_domain, request)
+
+
+@router.post(
+    "/demographic-turnout",
+    summary="Full population vs effective electorate via age × education gaps",
+    response_description="Biased vs corrected winner, representation gap, "
+                         "demographic breakdown.",
+)
+async def demographic_turnout_endpoint(
+    request: DemographicTurnoutRequest,
+) -> Dict[str, Any]:
+    """Distortion between the real electorate and the effective electorate
+    driven by differential turnout across demographic groups. The
+    `correct_for_turnout` flag toggles the turnout-correction model
+    on/off so the user can compare both."""
+    return await _run_passthrough(demographic_turnout_domain, request)
+
+
+@router.post(
+    "/compulsory-voting",
+    summary="Voluntary vs compulsory voting on the same electorate",
+    response_description="Per-system winner, vote shares, null rate, voter "
+                         "profile, representation improvement, quality degradation.",
+)
+async def compulsory_voting_endpoint(
+    request: CompulsoryVotingRequest,
+) -> Dict[str, Any]:
+    """Voluntary turnout is right-biased (empirical pattern); compulsory
+    elections add reluctant left-leaning voters who may vote null,
+    randomly, or sincerely."""
+    return await _run_passthrough(compulsory_voting_domain, request)
+
+
+@router.post(
+    "/party-dynamics",
+    summary="Multi-election party-system evolution (Duverger's Law)",
+    response_description="Per-election parties, effective parties curve, "
+                         "final system (bipartite vs multipartite), convergence speed.",
+)
+async def party_dynamics_endpoint(
+    request: PartyDynamicsRequest,
+) -> Dict[str, Any]:
+    """Parties adapt positions (Hotelling), get eliminated below
+    `survival_threshold`, and new parties may emerge. Tactical voting
+    squeezes small parties under FPTP, driving the system toward
+    bipartism."""
+    return await _run_passthrough(party_dynamics_domain, request)

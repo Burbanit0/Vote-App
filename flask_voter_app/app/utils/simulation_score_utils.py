@@ -423,8 +423,9 @@ def get_majority_judgment_winner(
                     g_sorted = sorted(g)
                     g_sorted.pop(idx)
                     all_grades[cand] = g_sorted
-            medians = {c: _mj_median_grade(all_grades[c]) for c in (a, b)}
-            gauges  = {c: _mj_majority_gauge(all_grades[c], medians[c]) for c in (a, b)}
+            for c in (a, b):
+                medians[c] = _mj_median_grade(all_grades[c])
+                gauges[c]  = _mj_majority_gauge(all_grades[c], medians[c])
             if _sort_key(b) > _sort_key(a):
                 ranking[0], ranking[1] = b, a
 

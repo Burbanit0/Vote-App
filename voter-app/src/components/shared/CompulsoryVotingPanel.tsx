@@ -14,6 +14,7 @@ import {
 } from 'recharts';
 import { useElection } from '../../context/ElectionContext';
 import PinToCentralButton from './PinToCentralButton';
+import { apiPath } from '../../api/apiVersion';
 
 const API = process.env.REACT_APP_API_URL ?? 'http://localhost:4433';
 const DEBOUNCE_MS = 400;
@@ -30,7 +31,7 @@ interface CompulsoryArgs {
   method:               string;
 }
 async function fetchCompulsory(args: CompulsoryArgs): Promise<CompulsoryData> {
-  const res = await axios.post<CompulsoryData>(`${API}/api/election/compulsory-voting`, args);
+  const res = await axios.post<CompulsoryData>(`${API}${apiPath('election/compulsory-voting')}`, args);
   return res.data;
 }
 

@@ -12,6 +12,7 @@ import {
 } from 'recharts';
 import { useElection } from '../../context/ElectionContext';
 import PinToCentralButton from './PinToCentralButton';
+import { apiPath } from '../../api/apiVersion';
 
 const API = process.env.REACT_APP_API_URL ?? 'http://localhost:4433';
 const DEBOUNCE_MS = 400;
@@ -171,7 +172,7 @@ const AffectivePolarizationPanel: React.FC = () => {
   const run = useCallback(async (h: number, sims: number) => {
     setLoading(true); setError(null);
     try {
-      const res = await axios.post(`${API}/api/election/affective-polarization`, {
+      const res = await axios.post(`${API}${apiPath('election/affective-polarization')}`, {
         candidates:       config.candidates,
         num_voters:       config.num_voters,
         ideology:         config.ideology,
