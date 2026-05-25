@@ -1855,22 +1855,8 @@ def _tactical_vote(
     return new_ranking
 
 
-@election_bp.route("/adaptive", methods=["POST"])
-@sim_limiter.limit("10 per minute")
-def adaptive() -> tuple[Response, int]:
-    """
-    POST /api/election/adaptive
-
-    Simulate N rounds of adaptive voting:
-      Round 0 — sincere vote (no polls yet)
-      Round k — strategic voters whose 1st choice polls below
-                strategic_threshold switch to their best viable alternative.
-
-    Supports: plurality, irv, borda, schulze, approval.
-    Tracks convergence (winner stable for 2 consecutive rounds).
-    """
-    data = request.get_json() or {}
-
+def _adaptive_worker(data: Dict[str, Any]) -> tuple[Dict[str, Any], int]:
+    """Pure worker for /adaptive — N rounds of adaptive/tactical voting."""
     num_voters          = max(50, min(1000, int(data.get("num_voters",          300))))
     ideology            = str(data.get("ideology",            "random"))
     seed                = int(data.get("seed",                 42))
@@ -1884,7 +1870,7 @@ def adaptive() -> tuple[Response, int]:
     ])[:6]
 
     if len(cand_specs) < 2:
-        return jsonify({"error": "At least 2 candidates required"}), 400
+        return {"error": "At least 2 candidates required"}, 400
 
     _random.seed(seed)
     _np.random.seed(seed)
@@ -2010,7 +1996,7 @@ def adaptive() -> tuple[Response, int]:
     else:
         strategic_drift = 0.0
 
-    return jsonify({
+    return {
         "rounds":             rounds_out,
         "converged":          converged,
         "convergence_round":  convergence_round,
@@ -2021,7 +2007,24 @@ def adaptive() -> tuple[Response, int]:
             {"name": c["name"], "x": _ideology_pos(c["name"])}
             for c in candidates
         ],
-    }), 200
+    }, 200
+
+
+@election_bp.route("/adaptive", methods=["POST"])
+@sim_limiter.limit("10 per minute")
+def adaptive() -> tuple[Response, int]:
+    """
+    POST /api/election/adaptive
+
+    Simulate N rounds of adaptive voting with tactical voting under polls.
+    """
+    data = request.get_json() or {}
+    try:
+        body, status_code = _adaptive_worker(data)
+        return jsonify(body), status_code
+    except Exception as exc:
+        current_app.logger.exception("adaptive() crashed")
+        return jsonify({"error": f"Internal error: {exc}"}), 500
 
 
 # ── Historical replay ─────────────────────────────────────────────────────────
@@ -2077,24 +2080,16 @@ _REPLAY_SCENARIOS: Dict[str, Dict[str, Any]] = {
 }
 
 
-@election_bp.route("/historical-replay", methods=["POST"])
-@sim_limiter.limit("10 per minute")
-def historical_replay() -> tuple[Response, int]:
-    """
-    POST /api/election/historical-replay
-
-    Simulate a historical election scenario day by day with optional
-    candidate position overrides. Returns per-day vote shares and winners.
-    """
-    data        = request.get_json() or {}
+def _historical_replay_worker(data: Dict[str, Any]) -> tuple[Dict[str, Any], int]:
+    """Pure worker for /historical-replay — extracted for FastAPI v2."""
     scenario_id = str(data.get("scenario_id", "france2002"))
-    overrides   = data.get("overrides", [])
+    overrides   = data.get("overrides") or []
     num_days    = max(1, min(60, int(data.get("num_days", 30))))
     seed        = int(data.get("seed", 42))
 
     cfg = _REPLAY_SCENARIOS.get(scenario_id)
     if not cfg:
-        return jsonify({"error": f"Unknown scenario: {scenario_id}"}), 400
+        return {"error": f"Unknown scenario: {scenario_id}"}, 400
 
     _random.seed(seed)
     _np.random.seed(seed)
@@ -2188,7 +2183,7 @@ def historical_replay() -> tuple[Response, int]:
         note_en = (f"The simulation converges on {real_winner}, matching historical reality. "
                    "Move a candidate to explore alternative scenarios.")
 
-    return jsonify({
+    return {
         "scenario": {"id": scenario_id, "name": cfg["name"], "real_winner": real_winner},
         "candidates": [
             {"name": c["name"], "x": float(c["x"]), "y": float(c["y"]),
@@ -2204,7 +2199,25 @@ def historical_replay() -> tuple[Response, int]:
             "pedagogical_note":    note_fr,
             "pedagogical_note_en": note_en,
         },
-    }), 200
+    }, 200
+
+
+@election_bp.route("/historical-replay", methods=["POST"])
+@sim_limiter.limit("10 per minute")
+def historical_replay() -> tuple[Response, int]:
+    """
+    POST /api/election/historical-replay
+
+    Simulate a historical election scenario day by day with optional
+    candidate position overrides. Returns per-day vote shares and winners.
+    """
+    data = request.get_json() or {}
+    try:
+        body, status_code = _historical_replay_worker(data)
+        return jsonify(body), status_code
+    except Exception as exc:
+        current_app.logger.exception("historical_replay() crashed")
+        return jsonify({"error": f"Internal error: {exc}"}), 500
 
 
 # ── Jury theorem endpoint ─────────────────────────────────────────────────────
@@ -2739,19 +2752,8 @@ def _closest_district(
     return best_id
 
 
-@election_bp.route("/gerrymander", methods=["POST"])
-@sim_limiter.limit("10 per minute")
-def gerrymander() -> tuple[Response, int]:
-    """
-    POST /api/election/gerrymander
-
-    Assign voters to user-defined rectangular districts, run FPTP in each,
-    aggregate a parliament, and compare with D'Hondt proportional.
-
-    A voter is assigned to the district whose bounds contains them.
-    If a voter falls in no district (or multiple), they go to the nearest.
-    """
-    data       = request.get_json() or {}
+def _gerrymander_worker(data: Dict[str, Any]) -> tuple[Dict[str, Any], int]:
+    """Pure worker for /gerrymander — extracted for FastAPI v2."""
     num_voters = max(50,  min(1000, int(data.get("num_voters",  300))))
     ideology   = str(data.get("ideology",  "random"))
     seed       = int(data.get("seed",        42))
@@ -2759,12 +2761,12 @@ def gerrymander() -> tuple[Response, int]:
         {"name": "Alice", "x": -0.5, "y": -0.2},
         {"name": "Bob",   "x":  0.5, "y":  0.2},
     ])[:6]
-    districts_raw: List[Dict[str, Any]] = data.get("districts", [])
+    districts_raw: List[Dict[str, Any]] = data.get("districts") or []
 
     if len(cand_specs) < 2:
-        return jsonify({"error": "At least 2 candidates required"}), 400
+        return {"error": "At least 2 candidates required"}, 400
     if not districts_raw:
-        return jsonify({"error": "At least 1 district required"}), 400
+        return {"error": "At least 1 district required"}, 400
 
     _random.seed(seed)
     _np.random.seed(seed)
@@ -2887,7 +2889,7 @@ def gerrymander() -> tuple[Response, int]:
         for v in voters[:500]
     ]
 
-    return jsonify({
+    return {
         "districts":              district_results,
         "voters":                 snap_voters,
         "parliament_gerrymander": parliament_gerry,
@@ -2898,23 +2900,31 @@ def gerrymander() -> tuple[Response, int]:
         "winner":                 leading,
         "candidates":             cand_names,
         "num_seats":              num_total_seats,
-    }), 200
+    }, 200
+
+
+@election_bp.route("/gerrymander", methods=["POST"])
+@sim_limiter.limit("10 per minute")
+def gerrymander() -> tuple[Response, int]:
+    """
+    POST /api/election/gerrymander
+
+    Assign voters to user-defined rectangular districts, run FPTP in each,
+    aggregate a parliament, and compare with D'Hondt proportional.
+    """
+    data = request.get_json() or {}
+    try:
+        body, status_code = _gerrymander_worker(data)
+        return jsonify(body), status_code
+    except Exception as exc:
+        current_app.logger.exception("gerrymander() crashed")
+        return jsonify({"error": f"Internal error: {exc}"}), 500
 
 
 # ── Multi-winner compare endpoint ─────────────────────────────────────────────
 
-@election_bp.route("/multiwinner_compare", methods=["POST"])
-@sim_limiter.limit("10 per minute")
-def multiwinner_compare() -> tuple[Response, int]:
-    """
-    POST /api/election/multiwinner_compare
-
-    Simulate the same electorate under 5 multi-winner methods:
-    STV, D'Hondt, SPAV, Phragmén, and FPTP (top-N).
-    Returns seats allocated by each method, distortion vs proportional,
-    and a per-method representation index.
-    """
-    data       = request.get_json() or {}
+def _multiwinner_compare_worker(data: Dict[str, Any]) -> tuple[Dict[str, Any], int]:
+    """Pure worker for /multiwinner_compare — STV, D'Hondt, SPAV, Phragmén, FPTP."""
     num_voters = max(50,  min(500, int(data.get("num_voters",  200))))
     ideology   = str(data.get("ideology",  "random"))
     seed       = int(data.get("seed",        42))
@@ -2927,9 +2937,9 @@ def multiwinner_compare() -> tuple[Response, int]:
     ])[:8]
 
     if len(cand_specs) < 2:
-        return jsonify({"error": "At least 2 candidates required"}), 400
+        return {"error": "At least 2 candidates required"}, 400
     if num_seats >= len(cand_specs):
-        return jsonify({"error": "num_seats must be less than number of candidates"}), 400
+        return {"error": "num_seats must be less than number of candidates"}, 400
 
     _random.seed(seed)
     _np.random.seed(seed)
@@ -3008,7 +3018,7 @@ def multiwinner_compare() -> tuple[Response, int]:
     best_method  = min(methods, key=lambda m: methods[m]["distortion"])
     worst_method = max(methods, key=lambda m: methods[m]["distortion"])
 
-    return jsonify({
+    return {
         "methods":      methods,
         "vote_shares":  {n: round(vote_shares[n], 4) for n in cand_names},
         "proportional_reference": prop_seats,
@@ -3016,7 +3026,25 @@ def multiwinner_compare() -> tuple[Response, int]:
         "candidates":   cand_names,
         "best_method":  best_method,
         "worst_method": worst_method,
-    }), 200
+    }, 200
+
+
+@election_bp.route("/multiwinner_compare", methods=["POST"])
+@sim_limiter.limit("10 per minute")
+def multiwinner_compare() -> tuple[Response, int]:
+    """
+    POST /api/election/multiwinner_compare
+
+    Simulate the same electorate under 5 multi-winner methods:
+    STV, D'Hondt, SPAV, Phragmén, and FPTP (top-N).
+    """
+    data = request.get_json() or {}
+    try:
+        body, status_code = _multiwinner_compare_worker(data)
+        return jsonify(body), status_code
+    except Exception as exc:
+        current_app.logger.exception("multiwinner_compare() crashed")
+        return jsonify({"error": f"Internal error: {exc}"}), 500
 
 
 # ── Hotelling-Downs equilibrium ────────────────────────────────────────────────

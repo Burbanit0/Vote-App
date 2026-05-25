@@ -9,6 +9,7 @@ import axios from 'axios';
 import { useTranslation } from 'react-i18next';
 import { Alert, Badge, Button, Col, Form, Row, Spinner, Table } from 'react-bootstrap';
 import { useElection } from '../../context/ElectionContext';
+import { apiPath } from '../../api/apiVersion';
 
 const API = process.env.REACT_APP_API_URL ?? 'http://localhost:4433';
 
@@ -134,7 +135,7 @@ const MultiwinnerCompare: React.FC = () => {
   async function run() {
     setLoading(true); setError(null);
     try {
-      const res = await axios.post(`${API}/api/election/multiwinner_compare`, {
+      const res = await axios.post(`${API}${apiPath('election/multiwinner_compare')}`, {
         candidates: config.candidates,
         num_voters: config.num_voters,
         ideology:   config.ideology,

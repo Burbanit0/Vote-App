@@ -79,7 +79,7 @@ describe('MultiwinnerCompare', () => {
     fireEvent.click(screen.getByRole('button', { name: /comparer|compare/i }));
     await waitFor(() => expect(mockPost).toHaveBeenCalledTimes(1));
     expect(mockPost).toHaveBeenCalledWith(
-      expect.stringContaining('/api/election/multiwinner_compare'),
+      expect.stringMatching(/\/api\/(v2\/)?election\/multiwinner_compare/),
       expect.any(Object),
     );
     jest.runAllTimers();

@@ -108,7 +108,7 @@ describe('GerrymanderMap', () => {
     fireEvent.click(screen.getByRole('button', { name: /simuler|simulate/i }));
     await waitFor(() => expect(mockPost).toHaveBeenCalledTimes(1));
     expect(mockPost).toHaveBeenCalledWith(
-      expect.stringContaining('/api/election/gerrymander'),
+      expect.stringMatching(/\/api\/(v2\/)?election\/gerrymander/),
       expect.any(Object),
     );
     jest.runAllTimers();

@@ -92,7 +92,7 @@ describe('AdaptiveVotingPanel', () => {
     fireEvent.click(screen.getByRole('button', { name: /simuler|simulate/i }));
     await waitFor(() => expect(mockPost).toHaveBeenCalledTimes(1));
     expect(mockPost).toHaveBeenCalledWith(
-      expect.stringContaining('/api/election/adaptive'),
+      expect.stringMatching(/\/api\/(v2\/)?election\/adaptive/),
       expect.any(Object)
     );
   });
