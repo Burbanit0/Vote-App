@@ -39,6 +39,18 @@ class User(db.Model):
     def check_password(self, password):
         return bcrypt.check_password_hash(self.password_hash, password)
 
+    # ── fastapi-users adapter shims (Phase 4.3.b) ──────────────────────────
+    # fastapi-users reads/writes user.hashed_password; our column is
+    # password_hash. A Python alias keeps the DB schema unchanged while
+    # making the user object polymorphic for both code paths.
+    @property
+    def hashed_password(self) -> str:
+        return self.password_hash
+
+    @hashed_password.setter
+    def hashed_password(self, value: str) -> None:
+        self.password_hash = value
+
 
 class SimulationScenario(db.Model):
     __tablename__ = "simulation_scenarios"
