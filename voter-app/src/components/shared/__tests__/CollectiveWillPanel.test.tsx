@@ -81,7 +81,7 @@ describe('CollectiveWillPanel', () => {
   it('calls API with correct payload on run', async () => {
     await renderAndRun();
     const [url, payload] = mockAxios.post.mock.calls[0];
-    expect(url).toContain('/api/theory/collective-will');
+    expect(url).toMatch(/\/api\/(v2\/)?theory\/collective-will/);
     expect(payload).toHaveProperty('candidates');
     expect(payload).toHaveProperty('num_voters');
     expect(payload).toHaveProperty('num_methods');

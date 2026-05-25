@@ -2308,17 +2308,13 @@ def epistocracy() -> tuple[Response, int]:
 
 # ── /api/theory/identity-voting ───────────────────────────────────────────────
 
-@theory_bp.route("/identity-voting", methods=["POST"])
-@sim_limiter.limit("5 per minute")
-def identity_voting() -> tuple[Response, int]:
-    """Simulate identity-based voting (Green, Palmquist & Schickler 2002)."""
-    data = request.get_json(silent=True) or {}
-
-    candidates_raw: List[Dict[str, Any]] = data.get("candidates", [
+def _identity_voting_worker(data: Dict[str, Any]) -> tuple[Dict[str, Any], int]:
+    """Pure worker for /identity-voting — extracted for FastAPI v2."""
+    candidates_raw: List[Dict[str, Any]] = data.get("candidates") or [
         {"name": "Alice", "x": -0.5, "y": 0.0},
         {"name": "Bob",   "x":  0.0, "y": 0.0},
         {"name": "Carol", "x":  0.5, "y": 0.0},
-    ])
+    ]
     num_voters:      int   = max(20, min(int(data.get("num_voters", 200)), 2000))
     seed:            int   = int(data.get("seed", 42))
     identity_weight: float = max(0.0, min(float(data.get("identity_weight", 0.5)), 1.0))
@@ -2333,7 +2329,7 @@ def identity_voting() -> tuple[Response, int]:
         {"name": "Groupe C", "pct": 0.25, "ideology_center":  0.4,
          "loyalty": 0.80, "candidate_affiliation": candidates_raw[2]["name"]},
     ]
-    groups_raw: List[Dict[str, Any]] = data.get("identity_groups", default_groups)
+    groups_raw: List[Dict[str, Any]] = data.get("identity_groups") or default_groups
 
     rng = _rnd.Random(seed)
     cand_names = [c["name"] for c in candidates_raw]
@@ -2480,7 +2476,7 @@ def identity_voting() -> tuple[Response, int]:
             f"taux d'abstention dans ce groupe : {round(abstention_rate*100)}%."
         )
 
-    return jsonify({
+    return {
         "sincere_winner":  sincere_winner,
         "identity_winner": identity_winner,
         "mixed_winner":    mixed_winner,
@@ -2492,7 +2488,21 @@ def identity_voting() -> tuple[Response, int]:
         },
         "identity_weight_curve": curve,
         "pedagogical_note":      note,
-    }), 200
+    }, 200
+
+
+@theory_bp.route("/identity-voting", methods=["POST"])
+@sim_limiter.limit("5 per minute")
+def identity_voting() -> tuple[Response, int]:
+    """POST /api/theory/identity-voting — Green/Palmquist/Schickler identity vote."""
+    data = request.get_json(silent=True) or {}
+    try:
+        body, status_code = _identity_voting_worker(data)
+        return jsonify(body), status_code
+    except Exception as exc:  # noqa: BLE001
+        from flask import current_app
+        current_app.logger.exception("identity_voting() crashed")
+        return jsonify({"error": f"Internal error: {exc}"}), 500
 
 
 # ── /api/theory/assumption-testing ────────────────────────────────────────────
@@ -2502,15 +2512,10 @@ _ALL_ASSUMPTIONS = (
     "fixed_electorate", "measurable_utilities",
 )
 
-@theory_bp.route("/assumption-testing", methods=["POST"])
-@sim_limiter.limit("5 per minute")
-def assumption_testing() -> tuple[Response, int]:
-    """Test model robustness by relaxing core assumptions one at a time."""
-    data = request.get_json(silent=True) or {}
-
-    base_sim: Dict[str, Any] = data.get("base_simulation", {})
-    assumptions: List[str]   = data.get("assumptions_to_relax",
-                                        list(_ALL_ASSUMPTIONS))
+def _assumption_testing_worker(data: Dict[str, Any]) -> tuple[Dict[str, Any], int]:
+    """Pure worker for /assumption-testing — extracted for FastAPI v2."""
+    base_sim: Dict[str, Any] = data.get("base_simulation") or {}
+    assumptions: List[str]   = data.get("assumptions_to_relax") or list(_ALL_ASSUMPTIONS)
 
     # ── Extract base simulation parameters ────────────────────────────────────
     candidates_raw: List[Dict[str, Any]] = base_sim.get("candidates", [
@@ -2666,7 +2671,7 @@ def assumption_testing() -> tuple[Response, int]:
             f"pas des vérités objectives."
         )
 
-    return jsonify({
+    return {
         "baseline_result": {
             "winner": baseline_winner,
             "regret": 0.0,
@@ -2675,24 +2680,34 @@ def assumption_testing() -> tuple[Response, int]:
         "most_fragile_assumption": most_fragile,
         "robust_result":          robust_result,
         "pedagogical_note":       note,
-    }), 200
+    }, 200
+
+
+@theory_bp.route("/assumption-testing", methods=["POST"])
+@sim_limiter.limit("5 per minute")
+def assumption_testing() -> tuple[Response, int]:
+    """POST /api/theory/assumption-testing — relax core spatial-model assumptions."""
+    data = request.get_json(silent=True) or {}
+    try:
+        body, status_code = _assumption_testing_worker(data)
+        return jsonify(body), status_code
+    except Exception as exc:  # noqa: BLE001
+        from flask import current_app
+        current_app.logger.exception("assumption_testing() crashed")
+        return jsonify({"error": f"Internal error: {exc}"}), 500
 
 
 # ── /api/theory/collective-will ───────────────────────────────────────────────
 
 import itertools as _it_cw  # noqa: E402
 
-@theory_bp.route("/collective-will", methods=["POST"])
-@sim_limiter.limit("5 per minute")
-def collective_will() -> tuple[Response, int]:
-    """Experimental question: does collective will exist, or is it procedural artefact?"""
-    data = request.get_json(silent=True) or {}
-
-    candidates_raw: List[Dict[str, Any]] = data.get("candidates", [
+def _collective_will_worker(data: Dict[str, Any]) -> tuple[Dict[str, Any], int]:
+    """Pure worker for /collective-will — extracted for FastAPI v2."""
+    candidates_raw: List[Dict[str, Any]] = data.get("candidates") or [
         {"name": "Alice", "x": -0.4, "y": 0.0},
         {"name": "Bob",   "x":  0.1, "y": 0.0},
         {"name": "Carol", "x":  0.5, "y": 0.0},
-    ])
+    ]
     num_voters:    int = max(10, min(int(data.get("num_voters", 100)),  500))
     ideology:      str = data.get("ideology", "random")
     seed:          int = int(data.get("seed", 42))
@@ -2954,7 +2969,7 @@ def collective_will() -> tuple[Response, int]:
         "C'est peut-être la leçon la plus importante de toute la théorie du vote."
     )
 
-    return jsonify({
+    return {
         "unique_winners":        unique_winners,
         "unique_winner_count":   n_unique,
         "winner_by_method":      winner_by_method,
@@ -2966,4 +2981,18 @@ def collective_will() -> tuple[Response, int]:
         "condorcet_winner":      condorcet_w,
         "philosophical_conclusion": philos,
         "pedagogical_note":      note,
-    }), 200
+    }, 200
+
+
+@theory_bp.route("/collective-will", methods=["POST"])
+@sim_limiter.limit("5 per minute")
+def collective_will() -> tuple[Response, int]:
+    """POST /api/theory/collective-will — does the general will exist or is it procedural?"""
+    data = request.get_json(silent=True) or {}
+    try:
+        body, status_code = _collective_will_worker(data)
+        return jsonify(body), status_code
+    except Exception as exc:  # noqa: BLE001
+        from flask import current_app
+        current_app.logger.exception("collective_will() crashed")
+        return jsonify({"error": f"Internal error: {exc}"}), 500

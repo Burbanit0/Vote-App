@@ -120,7 +120,7 @@ describe('AssumptionTesterPanel', () => {
   it('calls API with correct payload on run', async () => {
     await renderAndRun();
     const [url, payload] = mockAxios.post.mock.calls[0];
-    expect(url).toContain('/api/theory/assumption-testing');
+    expect(url).toMatch(/\/api\/(v2\/)?theory\/assumption-testing/);
     expect(payload).toHaveProperty('base_simulation');
     expect(payload).toHaveProperty('assumptions_to_relax');
     expect(payload).toHaveProperty('assumptions_to_relax');

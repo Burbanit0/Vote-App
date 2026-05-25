@@ -13,6 +13,7 @@ import {
   LineChart, Line, ReferenceLine, ResponsiveContainer, Cell,
 } from 'recharts';
 import PinToCentralButton from './PinToCentralButton';
+import { apiPath } from '../../api/apiVersion';
 
 const API = process.env.REACT_APP_API_URL ?? 'http://localhost:4433';
 
@@ -179,7 +180,7 @@ const IdentityVotingPanel: React.FC<IdentityVotingLabProps> = ({
     setLoading(true);
     setError(null);
     try {
-      const res = await axios.post(`${API}/api/theory/identity-voting`, {
+      const res = await axios.post(`${API}${apiPath('theory/identity-voting')}`, {
         candidates:       labMode ? (labCandidates ?? candidates) : candidates,
         num_voters:       labMode ? (labNumVoters   ?? numVoters)  : numVoters,
         seed:             labMode ? (labSeed         ?? seed)       : seed,

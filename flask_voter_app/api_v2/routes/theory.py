@@ -23,10 +23,16 @@ from app.schemas import (
     ApportionmentResponse,
     ArrowRequest,
     ArrowResponse,
+    AssumptionTestingRequest,
+    AssumptionTestingResponse,
+    CollectiveWillRequest,
+    CollectiveWillResponse,
     DemocraticBacksliddingRequest,
     DemocraticBacksliddingResponse,
     EpistocracyRequest,
     EpistocracyResponse,
+    IdentityVotingRequest,
+    IdentityVotingResponse,
     IIARateRequest,
     IIARateResponse,
     IntergenerationalRequest,
@@ -47,8 +53,11 @@ from api_v2.domain.theory import (
     agenda_manipulation as agenda_manipulation_domain,
     apportionment as apportionment_domain,
     arrow as arrow_domain,
+    assumption_testing as assumption_testing_domain,
+    collective_will as collective_will_domain,
     democratic_backsliding as democratic_backsliding_domain,
     epistocracy as epistocracy_domain,
+    identity_voting as identity_voting_domain,
     iia_rate as iia_rate_domain,
     intergenerational as intergenerational_domain,
     judgment_aggregation as judgment_aggregation_domain,
@@ -302,4 +311,65 @@ async def epistocracy_endpoint(
     democracy-vs-expert tradeoff."""
     return await _run_typed(
         epistocracy_domain, request, EpistocracyResponse,
+    )
+
+
+# ── Phase 4 batch 4 (final) ─────────────────────────────────────────────────
+
+@router.post(
+    "/identity-voting",
+    response_model=IdentityVotingResponse,
+    summary="Green/Palmquist/Schickler 2002 identity-based voting",
+    response_description="Sincere vs identity vs mixed winners + per-group "
+                         "loyalty / ideology match + cross-pressured "
+                         "abstention + identity-weight sweep curve.",
+)
+async def identity_voting_endpoint(
+    request: IdentityVotingRequest,
+) -> IdentityVotingResponse:
+    """Models the empirical pattern where voters adopt their camp's
+    positions instead of choosing camps from their positions. The
+    `identity_weight` parameter sweeps from pure ideological voting
+    (0.0) to pure identity voting (1.0)."""
+    return await _run_typed(
+        identity_voting_domain, request, IdentityVotingResponse,
+    )
+
+
+@router.post(
+    "/assumption-testing",
+    response_model=AssumptionTestingResponse,
+    summary="Test spatial-model robustness by relaxing core assumptions",
+    response_description="Per-assumption Monte-Carlo result + most fragile "
+                         "assumption + overall robustness flag.",
+)
+async def assumption_testing_endpoint(
+    request: AssumptionTestingRequest,
+) -> AssumptionTestingResponse:
+    """For each of single_peaked / stable_preferences / rational_voters /
+    fixed_electorate / measurable_utilities, relaxes the assumption
+    and measures how often the winner changes vs the baseline. Reports
+    which assumption the result depends on most."""
+    return await _run_typed(
+        assumption_testing_domain, request, AssumptionTestingResponse,
+    )
+
+
+@router.post(
+    "/collective-will",
+    response_model=CollectiveWillResponse,
+    summary="Does the general will exist, or is it a procedural artefact?",
+    response_description="Per-method + per-agenda winners + Rousseau score "
+                         "(=1 iff all procedures agree) + Condorcet check + "
+                         "philosophical conclusion.",
+)
+async def collective_will_endpoint(
+    request: CollectiveWillRequest,
+) -> CollectiveWillResponse:
+    """Same electorate, many methods, many binary-agenda orderings.
+    Counts how many distinct winners emerge. A high count supports
+    Schumpeter's procedural view; a low count supports Rousseau's
+    general-will view. Cross-checks against the Condorcet winner."""
+    return await _run_typed(
+        collective_will_domain, request, CollectiveWillResponse,
     )
