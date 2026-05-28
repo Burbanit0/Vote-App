@@ -91,7 +91,7 @@ describe('PolisPanel', () => {
     fireEvent.click(screen.getByTestId('simulate-btn'));
     await waitFor(() => expect(mockPost).toHaveBeenCalledTimes(1));
     expect(mockPost).toHaveBeenCalledWith(
-      expect.stringContaining('/api/tech/polis'),
+      expect.stringMatching(/\/api\/(v2\/)?tech\/polis/),
       expect.any(Object),
     );
     jest.runAllTimers();

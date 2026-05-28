@@ -115,7 +115,7 @@ describe('TechDemocracyPage', () => {
     fireEvent.click(screen.getByTestId('run-e2e-btn'));
     await waitFor(() => expect(mockPost).toHaveBeenCalledTimes(1));
     expect(mockPost).toHaveBeenCalledWith(
-      expect.stringContaining('/api/tech/e2e-demo'),
+      expect.stringMatching(/\/api\/(v2\/)?tech\/e2e-demo/),
       expect.any(Object),
     );
     jest.runAllTimers();
@@ -172,7 +172,7 @@ describe('TechDemocracyPage', () => {
     fireEvent.click(screen.getByTestId('run-polis-btn'));
     await waitFor(() => expect(mockPost).toHaveBeenCalledTimes(1));
     expect(mockPost).toHaveBeenCalledWith(
-      expect.stringContaining('/api/tech/polis-simulation'),
+      expect.stringMatching(/\/api\/(v2\/)?tech\/polis-simulation/),
       expect.any(Object),
     );
     jest.runAllTimers();

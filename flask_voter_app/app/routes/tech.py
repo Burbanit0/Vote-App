@@ -61,31 +61,17 @@ def _kmeans(data: _np.ndarray, k: int, seed: int, max_iter: int = 150) -> _np.nd
 
 # ── E2E-V demo ────────────────────────────────────────────────────────────────
 
-@tech_bp.route("/e2e-demo", methods=["POST"])
-@sim_limiter.limit("20 per minute")
-def e2e_demo() -> tuple[Response, int]:
-    """
-    POST /api/tech/e2e-demo
-
-    Enhanced pedagogical E2E-V simulation.  Returns:
-    - voters[]: each voter's encrypted ballot + verification code + vote_HIDDEN
-    - public_bulletin_board[]: SHUFFLED bulletin board (anonymised order)
-    - aggregate_result: homomorphic-style count (no individual decryption)
-    - winner: plurality winner
-    - audit_proof: proof message
-
-    Optional: user_vote — if set, voter #1 is the demo user's own ballot.
-    """
-    data           = request.get_json() or {}
-    candidates     = data.get("candidates", ["Alice", "Bob", "Carol"])
+def _e2e_demo_worker(data: Dict[str, Any]) -> tuple[Dict[str, Any], int]:
+    """Pure worker for /tech/e2e-demo — extracted for FastAPI v2."""
+    candidates     = data.get("candidates") or ["Alice", "Bob", "Carol"]
     num_voters     = max(5, min(20, int(
-        data.get("num_demo_voters", data.get("num_voters", 10))
+        data.get("num_demo_voters") or data.get("num_voters") or 10
     )))
     seed           = int(data.get("seed", 42))
     user_vote      = str(data.get("user_vote", ""))
 
     if len(candidates) < 2:
-        return jsonify({"error": "At least 2 candidates required"}), 400
+        return {"error": "At least 2 candidates required"}, 400
     if user_vote and user_vote not in candidates:
         user_vote = ""
 
@@ -143,7 +129,7 @@ def e2e_demo() -> tuple[Response, int]:
         f"Empreinte de l'urne : {ahash}…"
     )
 
-    return jsonify({
+    return {
         # ── New rich fields ──────────────────────────────────────────────
         "voters":                voters_out,
         "public_bulletin_board": bulletin_board,
@@ -164,7 +150,21 @@ def e2e_demo() -> tuple[Response, int]:
             "vérifier son code dans le tableau public sans que personne ne "
             "sache pour qui il a voté."
         ),
-    }), 200
+    }, 200
+
+
+@tech_bp.route("/e2e-demo", methods=["POST"])
+@sim_limiter.limit("20 per minute")
+def e2e_demo() -> tuple[Response, int]:
+    """POST /api/tech/e2e-demo — End-to-end verifiable voting demo."""
+    data = request.get_json() or {}
+    try:
+        body, status_code = _e2e_demo_worker(data)
+        return jsonify(body), status_code
+    except Exception as exc:  # noqa: BLE001
+        from flask import current_app
+        current_app.logger.exception("e2e_demo() crashed")
+        return jsonify({"error": f"Internal error: {exc}"}), 500
 
 
 # ── Pol.is simulation ─────────────────────────────────────────────────────────
@@ -183,27 +183,16 @@ _DEFAULT_STATEMENTS = [
 ]
 
 
-@tech_bp.route("/polis-simulation", methods=["POST"])
-@sim_limiter.limit("10 per minute")
-def polis_simulation() -> tuple[Response, int]:
-    """
-    POST /api/tech/polis-simulation
-
-    Pol.is-style consensus clustering:
-    1. Generate participants with ideology positions
-    2. Each participant votes Yes/No on each statement (based on ideology alignment)
-    3. PCA 2D + k-means clustering on the vote matrix
-    4. Identify consensus (all clusters agree) and polarising statements
-    """
-    data             = request.get_json() or {}
-    statements       = data.get("statements", _DEFAULT_STATEMENTS)[:15]
+def _polis_simulation_worker(data: Dict[str, Any]) -> tuple[Dict[str, Any], int]:
+    """Pure worker for /tech/polis-simulation — extracted for FastAPI v2."""
+    statements       = (data.get("statements") or _DEFAULT_STATEMENTS)[:15]
     num_participants = max(20, min(500, int(data.get("num_participants", 100))))
     ideology         = str(data.get("ideology", "random"))
     seed             = int(data.get("seed", 42))
     num_clusters     = max(1, min(5, int(data.get("num_clusters", 3))))
 
     if len(statements) < 2:
-        return jsonify({"error": "At least 2 statements required"}), 400
+        return {"error": "At least 2 statements required"}, 400
 
     _np.random.seed(seed)
     n_stmt = len(statements)
@@ -305,14 +294,28 @@ def polis_simulation() -> tuple[Response, int]:
         for i in range(num_participants)
     ]
 
-    return jsonify({
+    return {
         "clusters":               clusters,
         "consensus_statements":   consensus_statements,
         "polarizing_statements":  polarizing_statements,
         "participant_positions":  participant_positions,
         "num_clusters":           num_clusters,
         "num_participants":       num_participants,
-    }), 200
+    }, 200
+
+
+@tech_bp.route("/polis-simulation", methods=["POST"])
+@sim_limiter.limit("10 per minute")
+def polis_simulation() -> tuple[Response, int]:
+    """POST /api/tech/polis-simulation — Pol.is consensus clustering."""
+    data = request.get_json() or {}
+    try:
+        body, status_code = _polis_simulation_worker(data)
+        return jsonify(body), status_code
+    except Exception as exc:  # noqa: BLE001
+        from flask import current_app
+        current_app.logger.exception("polis_simulation() crashed")
+        return jsonify({"error": f"Internal error: {exc}"}), 500
 
 
 # ── Pol.is with candidate evaluation ─────────────────────────────────────────
@@ -336,25 +339,14 @@ _CATEGORY_BIAS: Dict[str, float] = {
 }
 
 
-@tech_bp.route("/polis", methods=["POST"])
-@sim_limiter.limit("5 per minute")
-def polis_with_candidates() -> tuple[Response, int]:
-    """
-    POST /api/tech/polis
-
-    Pol.is-style simulation with candidate evaluation.
-    Participants vote on statements; PCA+k-means reveals opinion clusters.
-    Identifies consensus, polarizing, and silent-majority statements.
-    The 'Pol.is winner' is the candidate whose positions best align with
-    the consensus statements; compared against classical election winner.
-    """
-    data               = request.get_json() or {}
-    cand_specs         = data.get("candidates", [
+def _polis_with_candidates_worker(data: Dict[str, Any]) -> tuple[Dict[str, Any], int]:
+    """Pure worker for /tech/polis — extracted for FastAPI v2."""
+    cand_specs         = (data.get("candidates") or [
         {"name": "Alice", "x": -0.5, "y": -0.2},
         {"name": "Bob",   "x":  0.5, "y":  0.2},
         {"name": "Carol", "x":  0.0, "y":  0.1},
     ])[:6]
-    stmts_raw          = data.get("statements", _POLIS_DEFAULT_STATEMENTS)[:15]
+    stmts_raw          = (data.get("statements") or _POLIS_DEFAULT_STATEMENTS)[:15]
     num_participants   = max(20,  min(500, int(data.get("num_participants",    100))))
     ideology           = str(data.get("ideology",              "random"))
     seed               = int(data.get("seed",                   42))
@@ -363,7 +355,7 @@ def polis_with_candidates() -> tuple[Response, int]:
     min_thr            = max(0.0, min(1.0, float(data.get("min_consensus_threshold", 0.80))))
 
     if len(stmts_raw) < 2:
-        return jsonify({"error": "At least 2 statements required"}), 400
+        return {"error": "At least 2 statements required"}, 400
 
     _np.random.seed(seed)
     _random.seed(seed)
@@ -490,7 +482,7 @@ def polis_with_candidates() -> tuple[Response, int]:
         f"vainqueur {method_compare} : '{election_winner}')."
     )
 
-    return jsonify({
+    return {
         "clusters":              clusters_out,
         "statements":            stmts_out,
         "participant_positions": participant_positions,
@@ -502,4 +494,18 @@ def polis_with_candidates() -> tuple[Response, int]:
         "silent_majority_count": silent_count,
         "candidate_scores":      cand_scores,
         "pedagogical_note":      note,
-    }), 200
+    }, 200
+
+
+@tech_bp.route("/polis", methods=["POST"])
+@sim_limiter.limit("5 per minute")
+def polis_with_candidates() -> tuple[Response, int]:
+    """POST /api/tech/polis — Pol.is clustering + classical election comparison."""
+    data = request.get_json() or {}
+    try:
+        body, status_code = _polis_with_candidates_worker(data)
+        return jsonify(body), status_code
+    except Exception as exc:  # noqa: BLE001
+        from flask import current_app
+        current_app.logger.exception("polis_with_candidates() crashed")
+        return jsonify({"error": f"Internal error: {exc}"}), 500

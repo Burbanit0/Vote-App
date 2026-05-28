@@ -95,7 +95,7 @@ const E2EVDemo: React.FC<Props> = ({
     setLoading(true);
     setError(null);
     try {
-      const res = await axios.post(`${API}/api/tech/e2e-demo`, {
+      const res = await axios.post(`${API}/api/v2/tech/e2e-demo`, {
         candidates,
         num_demo_voters: DEMO_VOTERS,
         seed,
