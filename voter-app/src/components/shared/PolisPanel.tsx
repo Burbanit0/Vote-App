@@ -196,7 +196,7 @@ const PolisPanel: React.FC = () => {
     setLoading(true);
     setError(null);
     try {
-      const res = await axios.post(`${API}/api/tech/polis`, {
+      const res = await axios.post(`${API}/api/v2/tech/polis`, {
         candidates:                config.candidates.map((c) => ({ name: c.name, x: c.x, y: c.y })),
         num_participants:          config.num_voters,
         ideology,

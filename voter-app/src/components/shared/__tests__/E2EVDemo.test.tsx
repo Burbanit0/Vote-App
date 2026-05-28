@@ -85,7 +85,7 @@ describe('E2EVDemo', () => {
     fireEvent.click(screen.getByTestId('vote-btn'));
     await waitFor(() => expect(mockPost).toHaveBeenCalledTimes(1));
     expect(mockPost).toHaveBeenCalledWith(
-      expect.stringContaining('/api/tech/e2e-demo'),
+      expect.stringMatching(/\/api\/(v2\/)?tech\/e2e-demo/),
       expect.objectContaining({ user_vote: 'Bob' }),
     );
     jest.runAllTimers();

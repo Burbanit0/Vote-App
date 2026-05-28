@@ -93,7 +93,7 @@ const E2EVSection: React.FC<{ t: (k: string) => string }> = ({ t }) => {
     setError(null);
     setStep(0);
     try {
-      const res = await axios.post(`${API}/api/tech/e2e-demo`, {
+      const res = await axios.post(`${API}/api/v2/tech/e2e-demo`, {
         candidates: ['Alice', 'Bob', 'Carol'],
         num_voters: 10,
         seed:       42,
@@ -339,7 +339,7 @@ const PolisSection: React.FC<{ t: (k: string) => string }> = ({ t }) => {
     setLoading(true);
     setError(null);
     try {
-      const res = await axios.post(`${API}/api/tech/polis-simulation`, {
+      const res = await axios.post(`${API}/api/v2/tech/polis-simulation`, {
         statements:       DEFAULT_STATEMENTS,
         num_participants: numParticipants,
         ideology,

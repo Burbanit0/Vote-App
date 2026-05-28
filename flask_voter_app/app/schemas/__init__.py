@@ -54,6 +54,16 @@ from .scenarios import (
     ScenarioDetail,
     ScenarioSummary,
 )
+from .tech import (
+    E2EDemoRequest,
+    PolisSimulationRequest,
+    PolisWithCandidatesRequest,
+)
+from .tech import (
+    E2EDemoRequest,
+    PolisSimulationRequest,
+    PolisWithCandidatesRequest,
+)
 from .theory import (
     AgendaManipulationRequest,
     AgendaManipulationResponse,
@@ -153,6 +163,10 @@ __all__ = [
     "GalleryCreateRequest", "GalleryDetail", "GalleryItem", "GalleryPage",
     # export (Phase 4.5.a.2)
     "ExportDatasetJSON", "ExportDatasetMeta", "ExportDatasetRequest",
+    # tech demos (Phase 4.5.a.3)
+    "E2EDemoRequest", "PolisSimulationRequest", "PolisWithCandidatesRequest",
+    # tech demos (Phase 4.5.a.3)
+    "E2EDemoRequest", "PolisSimulationRequest", "PolisWithCandidatesRequest",
     # theory (Phase 4 complete, all 15 endpoints)
     "AgendaManipulationRequest", "AgendaManipulationResponse",
     "ApportionmentRequest", "ApportionmentResponse",
