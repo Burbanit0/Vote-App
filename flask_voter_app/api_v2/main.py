@@ -23,14 +23,19 @@ from fastapi.middleware.cors import CORSMiddleware
 # Re-use the project's existing structlog config so logs look identical
 # to the Flask side. Sys.path is already correct when api_v2 is invoked
 # from flask_voter_app/ as the cwd.
+from slowapi import _rate_limit_exceeded_handler
+from slowapi.errors import RateLimitExceeded
+
 from app.utils.logger import configure_logging, get_logger
 from api_v2.core.config import get_settings
+from api_v2.core.ratelimit import limiter
 from api_v2.routes import auth as auth_routes
 from api_v2.routes import election as election_routes
 from api_v2.routes import export as export_routes
 from api_v2.routes import gallery as gallery_routes
 from api_v2.routes import health as health_routes
 from api_v2.routes import oauth as oauth_routes
+from api_v2.routes import public as public_routes
 from api_v2.routes import scenarios as scenarios_routes
 from api_v2.routes import tech as tech_routes
 from api_v2.routes import theory as theory_routes
@@ -83,6 +88,13 @@ app = FastAPI(
 )
 
 
+# ── Rate limiting (public /api/v1 surface — Phase 4.5.a.4) ───────────────────
+# slowapi attaches the limiter to app.state and converts a tripped limit into
+# a 429. Only the public router declares @limiter.limit decorators today.
+app.state.limiter = limiter
+app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
+
+
 # ── CORS ────────────────────────────────────────────────────────────────────
 # Mirrors the Flask config — origins read from CORS_ORIGINS env var.
 _settings = get_settings()
@@ -120,6 +132,7 @@ async def log_requests(request, call_next):
 app.include_router(health_routes.router)
 app.include_router(election_routes.router)
 app.include_router(export_routes.router)
+app.include_router(public_routes.router)
 app.include_router(tech_routes.router)
 app.include_router(theory_routes.router)
 # Gallery MUST be registered before scenarios — otherwise GET /api/v2/scenarios/gallery

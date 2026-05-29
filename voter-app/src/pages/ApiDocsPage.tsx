@@ -2,7 +2,11 @@ import React, { useState } from 'react';
 import { Alert, Badge, Button, Card, Col, Container, Row, Tab, Tabs } from 'react-bootstrap';
 import { useMetaTags } from '../hooks/useMetaTags';
 
-const API_BASE = 'http://localhost:4433';
+// Public API /api/v1 is served by FastAPI as of Phase 4.5.a.4 (port 4434 in
+// dev). Behind the prod reverse proxy this is a single origin; the constant is
+// dev-facing — it drives the live openapi.json links and the copy-paste curl
+// examples shown to external researchers.
+const API_BASE = 'http://localhost:4434';
 
 // ── Copy-to-clipboard button ─────────────────────────────────────────────────
 

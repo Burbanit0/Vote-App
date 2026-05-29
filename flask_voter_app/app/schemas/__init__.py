@@ -49,15 +49,14 @@ from .gallery import (
     GalleryItem,
     GalleryPage,
 )
+from .public_api import (
+    PublicCompareRequest,
+    PublicSimulateRequest,
+)
 from .scenarios import (
     ScenarioCreateRequest,
     ScenarioDetail,
     ScenarioSummary,
-)
-from .tech import (
-    E2EDemoRequest,
-    PolisSimulationRequest,
-    PolisWithCandidatesRequest,
 )
 from .tech import (
     E2EDemoRequest,
@@ -165,8 +164,8 @@ __all__ = [
     "ExportDatasetJSON", "ExportDatasetMeta", "ExportDatasetRequest",
     # tech demos (Phase 4.5.a.3)
     "E2EDemoRequest", "PolisSimulationRequest", "PolisWithCandidatesRequest",
-    # tech demos (Phase 4.5.a.3)
-    "E2EDemoRequest", "PolisSimulationRequest", "PolisWithCandidatesRequest",
+    # public research API v1 (Phase 4.5.a.4)
+    "PublicCompareRequest", "PublicSimulateRequest",
     # theory (Phase 4 complete, all 15 endpoints)
     "AgendaManipulationRequest", "AgendaManipulationResponse",
     "ApportionmentRequest", "ApportionmentResponse",
