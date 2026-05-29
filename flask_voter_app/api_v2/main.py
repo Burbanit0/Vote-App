@@ -37,6 +37,7 @@ from api_v2.routes import health as health_routes
 from api_v2.routes import oauth as oauth_routes
 from api_v2.routes import public as public_routes
 from api_v2.routes import scenarios as scenarios_routes
+from api_v2.routes import simulations as simulations_routes
 from api_v2.routes import tech as tech_routes
 from api_v2.routes import theory as theory_routes
 from api_v2.routes import users as users_routes
@@ -133,6 +134,7 @@ app.include_router(health_routes.router)
 app.include_router(election_routes.router)
 app.include_router(export_routes.router)
 app.include_router(public_routes.router)
+app.include_router(simulations_routes.router)
 app.include_router(tech_routes.router)
 app.include_router(theory_routes.router)
 # Gallery MUST be registered before scenarios — otherwise GET /api/v2/scenarios/gallery

@@ -152,6 +152,15 @@ def create_app(config_object="config.Config"):
 
     app.register_blueprint(users.auth_bp)
     app.register_blueprint(simulation_base.simulation_base_bp)
+    # Phase 4.5.a.5: rollback alias at /api/simulations/* matching apiPath('simulations/…')
+    # when the frontend falls back to v1 (the v2 router lives on FastAPI at
+    # /api/v2/simulations/*). The original /simulations/* prefix stays for the
+    # not-yet-migrated sibling blueprints (compare/advanced/whatif/campaign).
+    app.register_blueprint(
+        simulation_base.simulation_base_bp,
+        url_prefix="/api/simulations",
+        name="simulation_base_api",
+    )
     app.register_blueprint(simulation_compare.simulation_compare_bp)
     app.register_blueprint(simulation_advanced.simulation_advanced_bp)
     app.register_blueprint(scenarios.scenarios_bp)

@@ -1,6 +1,7 @@
 import axios from 'axios';
 import { SimulationFormData } from '../components/Simulation/SimulationForm';
 import { VoterSimu, CandidateSimu } from '../types';
+import { apiPath } from '../api/apiVersion';
 
 const API_BASE_URL = (process.env.VITE_API_URL) || 'http://localhost:4433';
 
@@ -18,7 +19,7 @@ function getAuthHeader(): Record<string, string> {
 export const simulateVote = async (formData: SimulationFormData): Promise<any> => {
   try {
     const response = await axios.post(
-      `${API_BASE_URL}/simulations`,
+      `${API_BASE_URL}${apiPath('simulations')}`,
       { formData },
       { headers: getAuthHeader() }
     );
@@ -32,7 +33,7 @@ export const simulateVote = async (formData: SimulationFormData): Promise<any> =
 export const simulateVoters = async (numVoters: number): Promise<{ voters: VoterSimu[] }> => {
   try {
     const response = await axios.post<{ voters: VoterSimu[] }>(
-      `${API_BASE_URL}/simulations/simulate_voters`,
+      `${API_BASE_URL}${apiPath('simulations/simulate_voters')}`,
       { num_voters: numVoters },
       { headers: getAuthHeader() }
     );
@@ -50,7 +51,7 @@ export const simulateCandidates = async (
 ): Promise<{ candidates: CandidateSimu[] }> => {
   try {
     const response = await axios.post<{ candidates: CandidateSimu[] }>(
-      `${API_BASE_URL}/simulations/simulate_candidates`,
+      `${API_BASE_URL}${apiPath('simulations/simulate_candidates')}`,
       { num_candidates: numCandidates, issues, parties },
       { headers: getAuthHeader() }
     );
@@ -68,7 +69,7 @@ export const simulateUtility = async (
 ): Promise<any> => {
   try {
     const response = await axios.post(
-      `${API_BASE_URL}/simulations/simulate_utility`,
+      `${API_BASE_URL}${apiPath('simulations/simulate_utility')}`,
       { voters, candidates, issues },
       { headers: getAuthHeader() }
     );
@@ -86,7 +87,7 @@ export const getUtilityMatrix = async (
 ): Promise<any> => {
   try {
     const response = await axios.post(
-      `${API_BASE_URL}/simulations/get_utility_matrix`,
+      `${API_BASE_URL}${apiPath('simulations/get_utility_matrix')}`,
       { voters, candidates, issues },
       { headers: getAuthHeader() }
     );
@@ -104,7 +105,7 @@ export const getVoterSegments = async (
 ): Promise<any> => {
   try {
     const response = await axios.post(
-      `${API_BASE_URL}/simulations/get_voter_segments`,
+      `${API_BASE_URL}${apiPath('simulations/get_voter_segments')}`,
       { voters, candidates, issues, segments: ['young_female', 'old_male', 'high_edu', 'urban'] },
       { headers: getAuthHeader() }
     );
@@ -121,7 +122,7 @@ export const closestCandidate = async (
 ): Promise<any> => {
   try {
     const response = await axios.post(
-      `${API_BASE_URL}/simulations/get_closest_candidate`,
+      `${API_BASE_URL}${apiPath('simulations/get_closest_candidate')}`,
       { candidates, voters },
       { headers: getAuthHeader() }
     );

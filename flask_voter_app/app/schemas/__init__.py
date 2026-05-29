@@ -53,6 +53,16 @@ from .public_api import (
     PublicCompareRequest,
     PublicSimulateRequest,
 )
+from .simulations import (
+    CalculateUtilityRequest,
+    ClosestCandidateRequest,
+    LegacySimulateRequest,
+    SimulateCandidatesRequest,
+    SimulateUtilityRequest,
+    SimulateVotersRequest,
+    UtilityMatrixRequest,
+    VoterSegmentsRequest,
+)
 from .scenarios import (
     ScenarioCreateRequest,
     ScenarioDetail,
@@ -166,6 +176,10 @@ __all__ = [
     "E2EDemoRequest", "PolisSimulationRequest", "PolisWithCandidatesRequest",
     # public research API v1 (Phase 4.5.a.4)
     "PublicCompareRequest", "PublicSimulateRequest",
+    # simulations base (Phase 4.5.a.5)
+    "CalculateUtilityRequest", "ClosestCandidateRequest", "LegacySimulateRequest",
+    "SimulateCandidatesRequest", "SimulateUtilityRequest", "SimulateVotersRequest",
+    "UtilityMatrixRequest", "VoterSegmentsRequest",
     # theory (Phase 4 complete, all 15 endpoints)
     "AgendaManipulationRequest", "AgendaManipulationResponse",
     "ApportionmentRequest", "ApportionmentResponse",

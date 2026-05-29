@@ -88,6 +88,15 @@ export const MIGRATED_ENDPOINTS: ReadonlySet<string> = new Set([
   'theory/collective-will',
   // Phase 4.2 — saved-simulation CRUD
   'scenarios',
+  // Phase 4.5.a.5 — simulation_base (/simulations/* normalised under /api/v2)
+  'simulations',
+  'simulations/simulate_voters',
+  'simulations/simulate_candidates',
+  'simulations/get_closest_candidate',
+  'simulations/simulate_utility',
+  'simulations/calculate_utility',
+  'simulations/get_utility_matrix',
+  'simulations/get_voter_segments',
 ]);
 
 /** localStorage key for the rollback switch. Public so tests can clear it. */
