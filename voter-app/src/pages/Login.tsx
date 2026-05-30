@@ -6,7 +6,7 @@ import { Form, Button, Container, Row, Col, Alert } from 'react-bootstrap';
 import { useTranslation } from 'react-i18next';
 import { GoogleLogin, type CredentialResponse } from '@react-oauth/google';
 
-const API_BASE_URL = process.env.VITE_API_URL || 'http://localhost:4433';
+const API_BASE_URL = process.env.VITE_API_URL || 'http://localhost:4434';
 
 const Login: React.FC = () => {
   const [username, setUsername] = useState('');

@@ -49,7 +49,7 @@ jobs:
       - run: |
           pip install -r flask_voter_app/requirements.txt
           pip install pytest pytest-cov
-      - run: python -m pytest flask_voter_app/tests -v
+      - run: python -m pytest flask_voter_app/api/tests -v
         env:
           FLASK_ENV: testing
           JWT_SECRET_KEY: ci-test-secret

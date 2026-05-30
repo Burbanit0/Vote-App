@@ -34,7 +34,7 @@ repos:
     rev: 1.8.3
     hooks:
       - id: bandit
-        args: ['-r', 'flask_voter_app/app', '-ll', '--skip', 'B104,B311']
+        args: ['-r', 'flask_voter_app/api', '-ll', '--skip', 'B104,B311']
         # B104: binding 0.0.0.0 (expected in Docker), B311: random (not crypto use)
         pass_filenames: false
 
@@ -52,7 +52,7 @@ repos:
       - id: mypy
         name: mypy (type checking)
         language: system
-        entry: bash -c 'cd flask_voter_app && python -m mypy app/utils/ app/routes/ --config-file mypy.ini'
+        entry: bash -c 'cd flask_voter_app && python -m mypy api/ --config-file mypy.ini'
         files: flask_voter_app/.*\.py$
         pass_filenames: false
 

@@ -1,6 +1,6 @@
 import axios from 'axios';
 
-const API = process.env.VITE_API_URL || 'http://localhost:4433';
+const API = process.env.VITE_API_URL || 'http://localhost:4434';
 
 export interface GalleryScenario {
   id: number;

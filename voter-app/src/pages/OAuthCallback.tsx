@@ -4,7 +4,7 @@ import { useAuth } from '../context/AuthContext';
 import axios from 'axios';
 import { Container, Spinner, Alert } from 'react-bootstrap';
 
-const API_BASE_URL = process.env.VITE_API_URL || 'http://localhost:4433';
+const API_BASE_URL = process.env.VITE_API_URL || 'http://localhost:4434';
 
 const OAuthCallback: React.FC = () => {
   const [searchParams] = useSearchParams();

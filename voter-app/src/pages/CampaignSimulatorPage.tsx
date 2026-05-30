@@ -18,7 +18,7 @@ import { useMetaTags } from '../hooks/useMetaTags';
 import { CHART_COLORS_LIGHT } from '../constants/chartColors';
 import { apiPath } from '../api/apiVersion';
 
-const API_BASE = process.env.VITE_API_URL || 'http://localhost:4433';
+const API_BASE = process.env.VITE_API_URL || 'http://localhost:4434';
 
 // ── Types ────────────────────────────────────────────────────────────────────
 

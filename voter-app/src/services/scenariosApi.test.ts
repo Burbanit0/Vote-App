@@ -3,7 +3,7 @@ import MockAdapter from 'axios-mock-adapter';
 import { listScenarios, saveScenario, getScenario, deleteScenario } from './scenariosApi';
 
 const mockAxios = new MockAdapter(axios);
-const BASE = 'http://localhost:4433';
+const BASE = 'http://localhost:4434';
 const mockToken = 'test-jwt-token';
 
 beforeEach(() => {

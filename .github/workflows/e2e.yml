@@ -24,25 +24,23 @@ jobs:
       - name: Install Python dependencies
         run: pip install -r flask_voter_app/requirements.txt
 
-      - name: Start Flask backend (testing mode — SQLite, no Redis)
+      - name: Start FastAPI backend (testing mode — SQLite, no Redis)
         run: |
           cd flask_voter_app
           FLASK_ENV=testing \
           JWT_SECRET_KEY=ci-e2e-secret-key \
-          FLASK_APP=app \
-          RATELIMIT_STORAGE_URL=memory:// \
-          python -m flask run --host 0.0.0.0 --port 4433 &
-          # Poll until Flask responds (max 30s)
+          uvicorn api.main:app --host 0.0.0.0 --port 4434 &
+          # Poll until the backend responds (max 30s)
           python - <<'EOF'
           import urllib.request, time, sys
           for _ in range(30):
               try:
-                  urllib.request.urlopen('http://localhost:4433/')
-                  print('Flask is ready')
+                  urllib.request.urlopen('http://localhost:4434/api/v2/health')
+                  print('Backend is ready')
                   sys.exit(0)
               except Exception:
                   time.sleep(1)
-          print('Flask did not start in time', file=sys.stderr)
+          print('Backend did not start in time', file=sys.stderr)
           sys.exit(1)
           EOF
 

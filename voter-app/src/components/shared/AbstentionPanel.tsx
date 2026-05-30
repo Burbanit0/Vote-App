@@ -16,7 +16,7 @@ import {
 import { useElection } from '../../context/ElectionContext';
 import PinToCentralButton from './PinToCentralButton';
 
-const API = process.env.REACT_APP_API_URL ?? 'http://localhost:4433';
+const API = process.env.REACT_APP_API_URL ?? 'http://localhost:4434';
 const DEBOUNCE_MS = 400;
 
 // Request type comes from the generated OpenAPI contract (Phase 1).
@@ -26,8 +26,7 @@ import type { AbstentionRequest } from '../../api';
 import { apiPath } from '../../api/apiVersion';
 
 async function fetchAbstention(args: AbstentionRequest): Promise<AbstentionData> {
-  // Routed to FastAPI /api/v2/election/abstention since Phase 3 batch 2.
-  // Rollback to Flask via ?apiV1=1 or localStorage.votelab_force_api_v1=true.
+  // FastAPI /api/v2/election/abstention.
   const res = await axios.post<AbstentionData>(
     `${API}${apiPath('election/abstention')}`,
     args,

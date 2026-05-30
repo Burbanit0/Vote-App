@@ -1,7 +1,7 @@
 import axios from 'axios';
 import { apiPath } from '../api/apiVersion';
 
-const API_BASE_URL = process.env.VITE_API_URL || 'http://localhost:4433';
+const API_BASE_URL = process.env.VITE_API_URL || 'http://localhost:4434';
 
 // ── Types ──────────────────────────────────────────────────────────────────
 

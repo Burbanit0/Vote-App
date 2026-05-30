@@ -2,7 +2,7 @@ import axios from 'axios';
 import { ScenarioDetail, ScenarioSummary } from '../types';
 import { apiPath } from '../api/apiVersion';
 
-const API_BASE_URL = (process.env.VITE_API_URL) || 'http://localhost:4433';
+const API_BASE_URL = (process.env.VITE_API_URL) || 'http://localhost:4434';
 
 function getAuthHeader(): Record<string, string> {
   const userString = localStorage.getItem('user');

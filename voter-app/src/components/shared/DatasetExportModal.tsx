@@ -4,7 +4,7 @@ import {
 } from 'react-bootstrap';
 import { useTranslation } from 'react-i18next';
 
-const API_BASE = process.env.VITE_API_URL || 'http://localhost:4433';
+const API_BASE = process.env.VITE_API_URL || 'http://localhost:4434';
 
 // ── Column groups ─────────────────────────────────────────────────────────────
 

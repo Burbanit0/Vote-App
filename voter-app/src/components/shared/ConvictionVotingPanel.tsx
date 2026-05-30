@@ -16,7 +16,7 @@ import {
 import { useElection } from '../../context/ElectionContext';
 import { apiPath } from '../../api/apiVersion';
 
-const API = process.env.REACT_APP_API_URL ?? 'http://localhost:4433';
+const API = process.env.REACT_APP_API_URL ?? 'http://localhost:4434';
 
 const LOCK_OPTIONS = [0, 7, 14, 28, 56, 112, 224];
 const MULTIPLIERS: Record<number, number> = {

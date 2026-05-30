@@ -23,8 +23,8 @@ Vote Lab lets you configure a complete election and observe it through multiple 
 
 | Layer | Technology |
 |---|---|
-| Backend | Flask 3.1 · SQLAlchemy 2.0 · PostgreSQL · Redis |
-| WebSockets | Flask-SocketIO + eventlet (Monte Carlo streaming) |
+| Backend | FastAPI (uvicorn) · SQLAlchemy 2.0 async · PostgreSQL · Redis |
+| WebSockets | python-socketio (ASGI, Monte Carlo streaming) |
 | Auth | JWT + bcrypt + OAuth (Google / GitHub) |
 | Frontend | React 19 · TypeScript · React Router v7 · Vite |
 | UI | Bootstrap 5 · react-bootstrap |
@@ -32,7 +32,7 @@ Vote Lab lets you configure a complete election and observe it through multiple 
 | i18n | i18next (FR / EN toggle, persisted) |
 | PWA | vite-plugin-pwa · Workbox (offline, installable) |
 | Tests | Jest (unit) · Playwright (E2E + axe-core a11y) |
-| Type checking | mypy strict on `app/utils/` + `app/routes/` |
+| Type checking | mypy strict on `api/` |
 | CI/CD | GitHub Actions (path-based triggers for backend and frontend) |
 
 ---
@@ -61,7 +61,7 @@ docker-compose up --build
 
 | Service | URL |
 |---|---|
-| Flask API + WebSocket | http://localhost:4433 |
+| FastAPI + WebSocket | http://localhost:4434 |
 | PostgreSQL | localhost:5432 |
 | Redis | localhost:6379 |
 
@@ -82,17 +82,17 @@ npm start      # Vite dev server → http://localhost:3000
 ```bash
 # Run tests (SQLite in-memory, no Docker needed)
 cd flask_voter_app
-FLASK_ENV=testing python -m pytest tests -v
+FLASK_ENV=testing python -m pytest api/tests -v
 
 # Type checking
-python -m mypy app/utils/ app/routes/ --ignore-missing-imports
+python -m mypy api/ --ignore-missing-imports
 
 # Lint
 flake8
 
 # With Docker
-docker-compose exec backend pytest
-docker-compose exec backend flake8
+docker-compose exec api pytest
+docker-compose exec api flake8
 ```
 
 ### Frontend
@@ -246,29 +246,30 @@ GET  /api/openapi.json         # OpenAPI 3.0 spec
 ## Architecture
 
 ```
-flask_voter_app/app/
-├── routes/
-│   ├── election.py          # Unified hub: simulate, interpret, divergence,
-│   │                        #   campaign-sensitivity, combined-effects, pipeline
-│   ├── simulation_compare.py # compare, condorcet, arrow, sensitivity,
-│   │                        #   ideology-map, vote-steps, manipulability
-│   ├── simulation_advanced.py # bandwagon, monte-carlo, multiwinner,
-│   │                        #   real-elections, blank-contagion
-│   ├── export.py            # CSV/JSON dataset export
-│   ├── gallery.py           # Community scenario gallery
-│   └── api_public.py        # Public API v1 + OpenAPI spec
-├── events/
-│   └── simulation_events.py # Socket.IO — Monte Carlo streaming
-└── utils/
-    ├── simulation_voting_utils.py    # voter/candidate generation
-    ├── simulation_ranked_utils.py    # 11 ranked algorithms
-    ├── simulation_score_utils.py     # 5 score algorithms
-    ├── simulation_metrics.py         # compare_all_methods()
-    ├── campaign_dynamics.py          # Brownian motion campaign model
-    ├── blank_contagion.py            # SIS epidemic model
-    ├── information_model.py          # Media bias distortion
-    ├── gibbard_satterthwaite.py      # Manipulability index
-    └── quadratic_voting.py           # QV budget allocation
+flask_voter_app/api/        # FastAPI backend (Flask retired in Phase 4.5.b)
+├── main.py                 # FastAPI app + CORS + slowapi + Socket.IO ASGI wrap
+├── routes/                 # thin HTTP adapters (validate → worker → return)
+│   ├── election.py theory.py simulations.py tech.py export.py gallery.py
+│   ├── public.py           # /api/v1/* public research API + OpenAPI spec
+│   └── auth.py users.py oauth.py scenarios.py health.py
+├── domain/                 # pure compute workers (0 import FastAPI)
+│   ├── election/           #   workers.py + _helpers.py + election_service.py
+│   ├── simulations/ theory/ tech.py public.py export.py
+├── engine/                 # the simulation engine (0 import FastAPI)
+│   ├── constants.py
+│   └── utils/
+│       ├── simulation_voting_utils.py    # voter/candidate generation
+│       ├── simulation_ranked_utils.py    # 11 ranked algorithms
+│       ├── simulation_score_utils.py     # 5 score algorithms
+│       ├── simulation_metrics.py         # compare_all_methods()
+│       ├── campaign_dynamics.py          # Brownian motion campaign model
+│       ├── blank_contagion.py            # SIS epidemic model
+│       ├── information_model.py          # Media bias distortion
+│       ├── gibbard_satterthwaite.py      # Manipulability index
+│       └── quadratic_voting.py           # QV budget allocation
+├── db/                     # async SQLAlchemy (models, session, base)
+├── core/                   # config, auth, fastapi-users, ratelimit
+├── schemas/  sockets/  tests/
 
 voter-app/src/
 ├── pages/
@@ -313,6 +314,6 @@ feat/xxx   ← one branch per feature → PR to develop
 
 ## Code Style
 
-- **Python:** flake8 + mypy strict on `app/utils/` and `app/routes/`
+- **Python:** flake8 + mypy strict on `api/`
 - **TypeScript:** Prettier (`singleQuote`, `semi`, `printWidth: 100`) + ESLint with `jsx-a11y`
 - **Tests:** Jest ≥ 641 frontend · pytest ≥ 825 backend · coverage ≥ 30 %
