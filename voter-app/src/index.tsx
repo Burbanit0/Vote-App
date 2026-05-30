@@ -7,19 +7,39 @@ import reportWebVitals from './reportWebVitals';
 import { AuthProvider } from './context/AuthContext';
 import { SimulationProvider } from './context/SimuContext';
 import { GoogleOAuthProvider } from '@react-oauth/google';
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
+import { ReactQueryDevtools } from '@tanstack/react-query-devtools';
 
 const googleClientId = process.env.VITE_GOOGLE_CLIENT_ID || '';
+
+// Server-state cache. Simulations are deterministic for a given input, so a
+// generous staleTime avoids redundant refetches; one retry covers transient
+// network blips without masking real errors.
+const queryClient = new QueryClient({
+  defaultOptions: {
+    queries: {
+      staleTime: 5 * 60 * 1000,
+      retry: 1,
+      refetchOnWindowFocus: false,
+    },
+  },
+});
 
 const root = ReactDOM.createRoot(document.getElementById('root') as HTMLElement);
 root.render(
   <React.StrictMode>
-    <GoogleOAuthProvider clientId={googleClientId}>
-      <AuthProvider>
-        <SimulationProvider>
-          <App />
-        </SimulationProvider>
-      </AuthProvider>
-    </GoogleOAuthProvider>
+    <QueryClientProvider client={queryClient}>
+      <GoogleOAuthProvider clientId={googleClientId}>
+        <AuthProvider>
+          <SimulationProvider>
+            <App />
+          </SimulationProvider>
+        </AuthProvider>
+      </GoogleOAuthProvider>
+      {process.env.NODE_ENV !== 'production' && (
+        <ReactQueryDevtools initialIsOpen={false} />
+      )}
+    </QueryClientProvider>
   </React.StrictMode>
 );
 
