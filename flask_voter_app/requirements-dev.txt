@@ -5,7 +5,7 @@
 pytest==9.0.3
 pytest-cov==6.1.0
 # Phase 4.4 — async tests for the v2 Socket.IO server. Drives the FastAPI
-# ASGI app via a uvicorn-on-a-thread fixture (see api_v2/tests/test_sockets.py).
+# ASGI app via a uvicorn-on-a-thread fixture (see api/tests/test_sockets.py).
 pytest-asyncio==1.3.0
 
 # Security

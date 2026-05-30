@@ -5,9 +5,9 @@ This file provides guidance to Claude Code when working with this repository.
 ## Stack
 
 - **Frontend**: React 19 + TypeScript · React Router v7 · Bootstrap 5 · Recharts · D3 7.x · axios · i18next (FR/EN) · Vite · PWA (vite-plugin-pwa)
-- **Backend**: Flask 3.1 · SQLAlchemy 2.0 · PostgreSQL · Redis · eventlet (WebSocket)
-- **Auth**: JWT (1h expiry) · bcrypt · OAuth (Google / GitHub)
-- **Tests**: Jest 780+ frontend · pytest 985+ backend · coverage ≥ 30 % (backend)
+- **Backend**: **FastAPI** (uvicorn) · SQLAlchemy 2.0 **async** (asyncpg/aiosqlite) · PostgreSQL · Redis · python-socketio (WebSocket, ASGI). *Flask + eventlet fully retired in Phase 4.5.b — see [STRATEGIC_REFACTOR_PLAN.md](STRATEGIC_REFACTOR_PLAN.md).*
+- **Auth**: **fastapi-users** · JWT (1h, HS256) · bcrypt (legacy hashes) · OAuth (Google / GitHub)
+- **Tests**: Jest 780+ frontend · pytest 340+ backend (httpx TestClient + pytest-asyncio) · coverage ≥ 30 % (backend)
 - **CI/CD**: GitHub Actions — currently disabled (billing limit); branch strategy: `feat/*` → `develop` → `main`
 
 ## Commands
@@ -25,17 +25,25 @@ npm run prettier-format            # Prettier format
 
 ### Backend (`flask_voter_app/`)
 
-```bash
-# With Docker (full stack: Flask :4433, PostgreSQL :5432, Redis :6379)
-docker-compose up --build
-docker-compose exec backend pytest
-docker-compose exec backend flake8
+The backend is the FastAPI package `flask_voter_app/api/`. (The directory is still
+named `flask_voter_app/` for historical reasons; there is no Flask inside.)
 
-# Without Docker (SQLite in-memory, fast)
-FLASK_ENV=testing python -m pytest tests/ -v
-FLASK_ENV=testing python -m pytest tests/test_foo.py -v   # single file
-python -m mypy app/utils/ app/routes/ --ignore-missing-imports
-python -m flake8
+```bash
+# Run the dev server (FastAPI on :4434)
+cd flask_voter_app
+uvicorn api.main:app --reload --port 4434
+curl http://localhost:4434/api/v2/health
+open  http://localhost:4434/api/v2/docs    # Swagger UI (auto-generated)
+
+# With Docker (full stack: FastAPI :4434, PostgreSQL :5432, Redis :6379)
+docker-compose up --build
+
+# Tests (in-memory aiosqlite, no DB/Redis needed). FLASK_ENV is the env name the
+# Settings still read (api/core/config.py field `flask_env`); "testing" works.
+FLASK_ENV=testing python -m pytest                          # whole suite (api/tests)
+FLASK_ENV=testing python -m pytest api/tests/test_foo.py -v # single file
+python -m mypy api/ --ignore-missing-imports
+python -m flake8 api/
 ```
 
 ### Git workflow
@@ -77,7 +85,7 @@ voter-app/src/
 │   └── useDebouncedSimulation.ts
 ├── workers/
 │   └── simulationWorker.ts       # Web Worker: computeGrid, partialResultsToMatrix
-├── services/                     # axios wrappers → http://localhost:4433
+├── services/                     # axios wrappers → http://localhost:4434 (apiPath → /api/v2/*)
 │   ├── electionApi.ts            # ElectionResult, simulateElection
 │   └── simulationCompareApi.ts
 └── utils/
@@ -101,59 +109,54 @@ Navigation adaptative :
 Onglets actuels (20) :
 `results` · `map` · `animation` · `montecarlo` · `manipulability` · `blank-divergence` · `campaign-sensitivity` · `pipeline` · `combined-effects` · `coalition` · `districts` · `primary` · `replay` · `jury` · `adaptive` · `abstention` · `stv` · `gerrymander` · (+ autres à venir)
 
-### Backend — Blueprints
+### Backend — `api/` package (FastAPI, layered)
 
 ```
-app/routes/
-├── election/            # Election Lab — package (B3 du sprint perf)
-├── simulation_compare.py
-├── simulation_advanced.py
-├── simulation_base.py
-├── export.py
-├── gallery.py
-├── api_public.py        # API publique v1 (OpenAPI 3.0)
-├── health.py            # /api/health (DB + Redis status)
-└── users.py / auth
-```
-
-### Backend — FastAPI sibling (Phase 2 du refactor stratégique)
-
-Démarré en parallèle de Flask, expose `/api/v2/*` (Flask reste sur `/api/*`).
-Stratégie strangler-fig : chaque endpoint migre une fois, l'ancien est supprimé.
-
-```
-api_v2/
-├── main.py              # FastAPI app + CORS + lifespan + middleware access log
+flask_voter_app/api/
+├── main.py              # FastAPI app + CORS + lifespan + access-log middleware
+│                        #   + slowapi limiter + Socket.IO ASGI wrap
 ├── core/
-│   └── config.py        # Pydantic Settings (12-factor)
-├── domain/
-│   └── election/        # Pure compute, 0 import Flask/FastAPI
-├── routes/
-│   ├── election.py      # /api/v2/election/* (1 endpoint pour Phase 2)
-│   └── health.py        # /api/v2/health
-└── tests/               # 18 tests pytest + FastAPI TestClient
+│   ├── config.py        # Pydantic Settings (12-factor; reads FLASK_ENV/DATABASE_URL/…)
+│   ├── auth.py          # Bearer-JWT dep (HS256, accepts fastapi-users tokens)
+│   ├── users.py         # fastapi-users wiring: AsyncUserDatabase adapter + UserManager
+│   └── ratelimit.py     # slowapi Limiter (used by the public /api/v1 routes)
+├── db/                  # ── ASYNC SQLALCHEMY (no Flask-SQLAlchemy) ─────────────
+│   ├── base.py          # DeclarativeBase
+│   ├── models.py        # User / SimulationScenario / GalleryScenario
+│   └── session.py       # lazy async engine + async_sessionmaker + get_async_session
+├── domain/              # ── PURE COMPUTE (0 import FastAPI) — the workers ──────
+│   ├── election/        #   workers.py (35 workers) + _helpers.py + election_service.py
+│   ├── simulations/     #   base/compare/advanced/whatif/campaign/helpers
+│   ├── theory/          #   workers.py (15 theory workers) + __init__ aliases
+│   ├── tech.py · public.py · export.py
+├── engine/              # ── THE SIMULATION ENGINE (0 import FastAPI) ──────────
+│   ├── constants.py     #   DEFAULT_ISSUES, ECONOMY/ENV/SOCIAL_ISSUES
+│   └── utils/           #   simulation_metrics, *_ranked/score/multiwinner_utils,
+│                        #   voting_utils, campaign_dynamics, blank_contagion, cache, …
+├── routes/              # ── THIN HTTP ADAPTERS (validate → call worker → return) ─
+│   ├── election.py theory.py simulations.py tech.py export.py
+│   ├── public.py        #   /api/v1/* — public research API (slowapi rate limits)
+│   ├── auth.py users.py oauth.py scenarios.py gallery.py health.py
+├── schemas/             # Pydantic request/response contracts
+├── sockets/             # python-socketio AsyncServer (Monte Carlo streaming)
+└── tests/               # pytest + httpx TestClient + pytest-asyncio (aiosqlite)
 ```
 
-Lancer :
-```bash
-cd flask_voter_app
-uvicorn api_v2.main:app --reload --port 4434
-# OU via docker-compose : le service `api_v2` boote tout seul
-```
+**Layering rule**: `routes/` (HTTP) → `domain/` (workers, pure `(data:dict)->(body,status)`)
+→ `engine/` (the 17 voting methods + metrics). `domain/` and `engine/` import neither
+FastAPI nor the DB. DB-touching routes (auth/scenarios/gallery/oauth) use
+`api.db` async sessions.
 
-Tester :
-```bash
-curl http://localhost:4434/api/v2/health
-open http://localhost:4434/api/v2/docs   # Swagger UI auto-généré
-```
+**URLs** (unchanged across the migration, so the frontend is untouched):
+- `/api/v2/*` — the Election Lab + theory + simulations + scenarios + auth surface.
+- `/api/v1/*` — the public research API (`api/routes/public.py`, OpenAPI 3.0).
+- `/api/v2/socket.io` — Monte Carlo WebSocket stream.
 
-### Backend — election.py endpoints
-
-Tous sous `/api/election/` :
+### Backend — `/api/v2/election/*` endpoints
 
 | Endpoint | Description |
 |---|---|
-| `POST /simulate` | Simulation unifiée (tpool + eventlet timeout 120s) |
+| `POST /simulate` | Simulation unifiée (chaîne tous les modèles via ElectionService) |
 | `POST /simulate-pipeline` | Pipeline step-by-step pour animation |
 | `POST /interpret` | Interprétation textuelle déterministe |
 | `POST /divergence` | Analyse blank vote avant/après |
@@ -168,11 +171,12 @@ Tous sous `/api/election/` :
 | `POST /abstention` | Abstention différentielle (démobilisation) |
 | `POST /stv` | STV + D'Hondt + FPTP (comparaison) |
 | `POST /gerrymander` | Circonscriptions à frontières éditables |
+| *(+ ~20 perturbers: nota, cascade, shy-voter, sortition, hotelling, …)* | |
 
-### Backend — utils clés
+### Backend — engine clés
 
 ```
-app/utils/
+api/engine/utils/
 ├── simulation_metrics.py         # compare_all_methods() — 17 méthodes
 ├── simulation_ranked_utils.py    # get_plurality_winner, get_irv_winner, get_schulze_winner,
 │                                 # get_kemeny_young_winner (cap 6 + KwikSort fallback)
@@ -182,7 +186,8 @@ app/utils/
 ├── campaign_dynamics.py          # simulate_campaign (Brownian motion)
 ├── blank_contagion.py            # simulate_blank_contagion (SIS)
 ├── information_model.py          # apply_information_asymmetry
-└── gibbard_satterthwaite.py      # indice de manipulabilité
+├── gibbard_satterthwaite.py      # indice de manipulabilité
+└── cache.py                      # cache_result() — Redis memoisation (no-op without REDIS_URL)
 ```
 
 ### Méthodes de vote (17)
@@ -242,15 +247,16 @@ Hook : `useSimulationWorker()` → `dispatch(type, payload): Promise<Result>`
 ## Code style
 
 - **TypeScript**: Prettier (`singleQuote: true`, `semi: true`, `printWidth: 100`, `tabWidth: 2`, `trailingComma: "es5"`) · ESLint `react-app`
-- **Python**: flake8 · mypy strict sur `app/utils/` et `app/routes/` (toujours vérifier avant commit)
+- **Python**: flake8 · mypy strict sur `api/` (toujours vérifier avant commit)
 - **Tests**: toujours ajouter des tests pour les nouveaux endpoints/composants · coverage ≥ 30 % backend
 
 ## Conventions importantes
 
 - **Git**: branche `feat/*` → merge `--no-ff` dans `develop`. Jamais pousser directement sur `main`.
-- **mypy**: vérifier `python -m mypy app/routes/election.py --ignore-missing-imports` avant commit backend.
+- **mypy**: vérifier `python -m mypy api/ --ignore-missing-imports` avant commit backend.
+- **Nouveau endpoint backend**: 1) worker pur `(data:dict)->(body,status)` dans `api/domain/…`, 2) schéma Pydantic dans `api/schemas/`, 3) route fine dans `api/routes/…` (`_run_passthrough`), 4) test dans `api/tests/`. Garder `domain/`+`engine/` sans import FastAPI.
+- **DB async**: les routes qui touchent la DB injectent `Depends(get_async_session)` (`api/db/session.py`) et utilisent `select()`/`AsyncSession` ; jamais de session synchrone.
+- **Rate limiting**: `slowapi` (`@limiter.limit("10/minute")`) — uniquement sur la surface publique `/api/v1/*` ; une route décorée NE doit PAS avoir `from __future__ import annotations` (slowapi casse l'introspection du body Pydantic).
 - **Web Worker**: `import.meta.url` n'est pas supporté par Jest → mocker `useSimulationWorker` dans les tests.
 - **Tests act()**: les mises à jour d'état async après `waitFor(mock.called)` doivent être suivies d'un `await act(async () => {})` pour éviter les warnings React.
 - **Coverage**: le seuil de 30 % s'applique à toute la suite, pas aux fichiers isolés.
-- **Rate limiting**: `@sim_limiter.limit("10 per minute")` sur tous les nouveaux endpoints lourds.
-- **eventlet**: `socketio.sleep(0)` obligatoire après chaque `emit()` en boucle ; `eventlet.monkey_patch()` doit être la toute première ligne de `run.py`.

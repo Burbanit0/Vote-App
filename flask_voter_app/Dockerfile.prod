@@ -52,10 +52,6 @@ COPY requirements.txt .
 RUN pip install --no-cache-dir --no-index --find-links=/wheels -r requirements.txt \
     && rm -rf /wheels
 
-# Production WSGI server. eventlet worker for the current stack (will move to
-# uvicorn during the FastAPI migration — see STRATEGIC_REFACTOR_PLAN Phase 2-4).
-RUN pip install --no-cache-dir gunicorn==23.0.0
-
 # Copy app code (after deps so layers cache well).
 COPY --chown=app:app . .
 
@@ -67,14 +63,13 @@ ENV FLASK_ENV=production \
     PYTHONUNBUFFERED=1 \
     LOG_LEVEL=INFO
 
-EXPOSE 4433
+EXPOSE 4434
 
-# Healthcheck — uses the /api/health endpoint we just added.
+# Healthcheck — FastAPI /api/v2/health.
 HEALTHCHECK --interval=30s --timeout=5s --start-period=20s --retries=3 \
-    CMD curl -fsS http://localhost:4433/api/health || exit 1
+    CMD curl -fsS http://localhost:4434/api/v2/health || exit 1
 
-# Gunicorn with eventlet worker. 1 worker is enough for I/O-bound traffic at
-# the current scale; bump `-w` if/when load demands it. socketio compatibility
-# needs eventlet worker class until the FastAPI migration retires eventlet.
-CMD ["gunicorn", "--worker-class", "eventlet", "-w", "1", "--bind", "0.0.0.0:4433", \
-     "--access-logfile", "-", "--error-logfile", "-", "run:app"]
+# uvicorn ASGI server (Flask + eventlet retired in Phase 4.5.b). 1 worker suits
+# the current I/O-bound scale; bump --workers when load demands it.
+CMD ["uvicorn", "api.main:app", "--host", "0.0.0.0", "--port", "4434", \
+     "--workers", "1"]

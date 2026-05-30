@@ -19,11 +19,10 @@ RUN pip install --no-cache-dir -r requirements.txt
 COPY . .
 
 # Set environment variables
-ENV FLASK_APP=app
 ENV FLASK_ENV=development
 
-# Expose the port the app runs on
-EXPOSE 4433
+# Expose the port the FastAPI app runs on
+EXPOSE 4434
 
-# Command to run the application
-CMD ["python", "-u", "run.py"]
+# Command to run the application (Flask retired in Phase 4.5.b — uvicorn serves all)
+CMD ["uvicorn", "api.main:app", "--host", "0.0.0.0", "--port", "4434"]
