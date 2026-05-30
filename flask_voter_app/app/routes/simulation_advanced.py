@@ -27,7 +27,7 @@ from app.utils.real_election_data import analyze_real_election, list_elections
 from app.utils.blank_vote_rules import BlankVoteRule
 from app.constants import DEFAULT_ISSUES
 from app.extensions import sim_limiter
-from app.routes.simulation_helpers import (
+from api_v2.domain.simulations.helpers import (
     _parse_candidate_configs, _build_population,
     _build_scenario_candidates, _build_scenario_voters, _run_five_methods,
     _SCENARIO_METHODS,

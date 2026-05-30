@@ -49,7 +49,7 @@ from app.routes.simulation_advanced import (
     _real_election_worker,
     _real_elections_list_worker,
 )
-from app.routes.simulation_campaign import _campaign_worker
+from api_v2.domain.simulations.campaign import _campaign_worker
 from app.routes.simulation_compare import (
     _arrow_criteria_worker,
     _compare_methods_worker,
@@ -61,7 +61,7 @@ from app.routes.simulation_compare import (
     _strategic_impact_worker,
     _vote_steps_worker,
 )
-from app.routes.simulation_whatif import _what_if_worker
+from api_v2.domain.simulations.whatif import _what_if_worker
 from api_v2.schemas import (
     ArrowCriteriaRequest,
     BandwagonRequest,

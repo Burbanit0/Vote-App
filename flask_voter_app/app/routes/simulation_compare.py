@@ -26,7 +26,7 @@ from app.utils.simulation_metrics import compare_all_methods, compare_all_method
 from app.utils.arrow_criteria import check_all_criteria
 from app.utils.blank_vote_rules import BlankVoteRule, apply_blank_rule
 from app.utils.information_model import apply_information_asymmetry, compute_information_gap
-from app.routes.simulation_helpers import (
+from api_v2.domain.simulations.helpers import (
     _parse_candidate_configs, _build_population,
     _PRESET_TO_DISTRIBUTION, _SCENARIO_METHODS,
     _build_scenario_candidates, _build_scenario_voters,
