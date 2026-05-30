@@ -50,6 +50,10 @@ describe('apiPath', () => {
       'simulations/arrow-criteria', 'simulations/scenario',
       'simulations/manipulability', 'simulations/vote-steps',
       'simulations/ideology-map',
+      'simulations/bandwagon', 'simulations/monte-carlo',
+      'simulations/multiwinner', 'simulations/real-elections',
+      'simulations/blank-history', 'simulations/real-election',
+      'simulations/constitutional-scenario', 'simulations/blank-contagion',
     ]) {
       expect(apiPath(slug)).toBe(`/api/v2/${slug}`);
     }
@@ -93,8 +97,8 @@ describe('apiPath', () => {
 });
 
 describe('MIGRATED_ENDPOINTS registry', () => {
-  it('contains 35 election + 15 theory + scenarios + 19 /simulations', () => {
-    expect(MIGRATED_ENDPOINTS.size).toBe(70);
+  it('contains 35 election + 15 theory + scenarios + 27 /simulations', () => {
+    expect(MIGRATED_ENDPOINTS.size).toBe(78);
     for (const slug of [
       'election/simulate', 'election/combined-effects',
       'election/campaign-sensitivity', 'election/coalition',
@@ -133,6 +137,10 @@ describe('MIGRATED_ENDPOINTS registry', () => {
       'simulations/arrow-criteria', 'simulations/scenario',
       'simulations/manipulability', 'simulations/vote-steps',
       'simulations/ideology-map',
+      'simulations/bandwagon', 'simulations/monte-carlo',
+      'simulations/multiwinner', 'simulations/real-elections',
+      'simulations/blank-history', 'simulations/real-election',
+      'simulations/constitutional-scenario', 'simulations/blank-contagion',
     ]) {
       expect(MIGRATED_ENDPOINTS.has(slug)).toBe(true);
     }

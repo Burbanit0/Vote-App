@@ -110,6 +110,15 @@ export const MIGRATED_ENDPOINTS: ReadonlySet<string> = new Set([
   'simulations/manipulability',
   'simulations/vote-steps',
   'simulations/ideology-map',
+  // Phase 4.5.a.8 — simulation_advanced
+  'simulations/bandwagon',
+  'simulations/monte-carlo',
+  'simulations/multiwinner',
+  'simulations/real-elections',
+  'simulations/blank-history',
+  'simulations/real-election',
+  'simulations/constitutional-scenario',
+  'simulations/blank-contagion',
 ]);
 
 /** localStorage key for the rollback switch. Public so tests can clear it. */

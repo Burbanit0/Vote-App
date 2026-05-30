@@ -202,3 +202,67 @@ class IdeologyMapRequest(BaseModel):
     seed:       int = 42
     method_a:   str = "plurality"
     method_b:   str = "schulze"
+
+
+# ── simulation_advanced (Phase 4.5.a.8) ─────────────────────────────────────
+
+class BandwagonRequest(BaseModel):
+    """POST /simulations/bandwagon."""
+    model_config = ConfigDict(extra="ignore")
+
+    num_voters:            int = 300
+    num_rounds:            int = 5
+    influence_strength:    float = 0.3
+    ideology_distribution: str = "random"
+    seed:                  Optional[int] = None
+    candidates:            List[Any] = Field(default_factory=lambda: list(_DEFAULT_CANDIDATES))
+
+
+class MonteCarloRequest(BaseModel):
+    """POST /simulations/monte-carlo (synchronous aggregation variant)."""
+    model_config = ConfigDict(extra="ignore")
+
+    num_runs:              int = 100
+    num_voters:            int = 150
+    ideology_distribution: str = "random"
+    candidates:            List[Any] = Field(default_factory=lambda: list(_DEFAULT_CANDIDATES))
+
+
+class MultiwinnerRequest(BaseModel):
+    """POST /simulations/multiwinner."""
+    model_config = ConfigDict(extra="ignore")
+
+    party_votes: Dict[str, Any] = Field(default_factory=dict)
+    num_seats:   int = 10
+    mode:        str = "proportional"
+
+
+class RealElectionRequest(BaseModel):
+    """POST /simulations/real-election."""
+    model_config = ConfigDict(extra="ignore")
+
+    election_name: str = ""
+    num_voters:    int = 1000
+    blank_vote:    bool = False
+
+
+class ConstitutionalScenarioRequest(BaseModel):
+    """POST /simulations/constitutional-scenario."""
+    model_config = ConfigDict(extra="ignore")
+
+    initial_election: Dict[str, Any] = Field(default_factory=dict)
+    scenario_type:    str = "new_election"
+    params:           Dict[str, Any] = Field(default_factory=dict)
+
+
+class BlankContagionRequest(BaseModel):
+    """POST /simulations/blank-contagion."""
+    model_config = ConfigDict(extra="ignore")
+
+    num_voters:         int = 300
+    initial_blank_rate: float = 0.10
+    contagion_rate:     float = 0.30
+    recovery_rate:      float = 0.15
+    num_rounds:         int = 15
+    network_type:       str = "random"
+    seed:               Optional[int] = None

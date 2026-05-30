@@ -15,6 +15,7 @@ import {
 } from 'recharts';
 import axios from 'axios';
 import { useMetaTags } from '../hooks/useMetaTags';
+import { apiPath } from '../api/apiVersion';
 
 const API_BASE = process.env.VITE_API_URL || 'http://localhost:4433';
 
@@ -106,7 +107,7 @@ const BlankContagionPage: React.FC = () => {
     setError(null);
     try {
       const resp = await axios.post<ContagionResult>(
-        `${API_BASE}/simulations/blank-contagion`,
+        `${API_BASE}${apiPath('simulations/blank-contagion')}`,
         {
           num_voters:         numVoters,
           initial_blank_rate: initialRate,

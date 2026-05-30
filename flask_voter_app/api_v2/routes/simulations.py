@@ -24,7 +24,7 @@ app.routes.simulation_base.
 from __future__ import annotations
 
 import asyncio
-from typing import Any, Callable, Dict
+from typing import Any, Callable, Dict, List
 
 from fastapi import APIRouter, HTTPException, Response, status
 from pydantic import BaseModel
@@ -38,6 +38,16 @@ from app.routes.simulation_base import (
     _simulate_votes_worker,
     _utility_matrix_worker,
     _voter_segments_worker,
+)
+from app.routes.simulation_advanced import (
+    _bandwagon_worker,
+    _blank_contagion_worker,
+    _blank_history_worker,
+    _constitutional_scenario_worker,
+    _monte_carlo_worker,
+    _multiwinner_worker,
+    _real_election_worker,
+    _real_elections_list_worker,
 )
 from app.routes.simulation_campaign import _campaign_worker
 from app.routes.simulation_compare import (
@@ -54,13 +64,19 @@ from app.routes.simulation_compare import (
 from app.routes.simulation_whatif import _what_if_worker
 from app.schemas import (
     ArrowCriteriaRequest,
+    BandwagonRequest,
+    BlankContagionRequest,
     CalculateUtilityRequest,
     CampaignRequest,
     ClosestCandidateRequest,
     CompareMethodsRequest,
     CondorcetMatrixRequest,
+    ConstitutionalScenarioRequest,
     IdeologyMapRequest,
     LegacySimulateRequest,
+    MonteCarloRequest,
+    MultiwinnerRequest,
+    RealElectionRequest,
     ScenarioRequest,
     SensitivityRequest,
     SimulateCandidatesRequest,
@@ -84,15 +100,11 @@ async def _run_worker(
     """Run the sync worker off the event loop and lift its (body, status) tuple
     into an HTTPException on error."""
     body, status_code = await asyncio.to_thread(domain_fn, payload)
-    if status_code == 400:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail=body.get("error", "Bad request"),
-        )
     if status_code != 200:
+        # Propagate the worker's status (400 validation, 404 not-found, 500 …)
         raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=body.get("error", "Internal error"),
+            status_code=status_code,
+            detail=body.get("error", "Error"),
         )
     return body
 
@@ -251,3 +263,45 @@ async def vote_steps(request: VoteStepsRequest) -> Dict[str, Any]:
 @router.post("/ideology-map", summary="2-D ideological map of voter preferences")
 async def ideology_map(request: IdeologyMapRequest) -> Dict[str, Any]:
     return await _run_passthrough(_ideology_map_worker, request)
+
+
+# ── simulation_advanced (Phase 4.5.a.8) ─────────────────────────────────────
+
+@router.post("/bandwagon", summary="Cascading social-influence simulation")
+async def bandwagon(request: BandwagonRequest) -> Dict[str, Any]:
+    return await _run_passthrough(_bandwagon_worker, request)
+
+
+@router.post("/monte-carlo", summary="Aggregate Monte Carlo over N runs (sync variant)")
+async def monte_carlo(request: MonteCarloRequest) -> Dict[str, Any]:
+    return await _run_passthrough(_monte_carlo_worker, request)
+
+
+@router.post("/multiwinner", summary="Compare proportional multi-winner methods")
+async def multiwinner(request: MultiwinnerRequest) -> Dict[str, Any]:
+    return await _run_passthrough(_multiwinner_worker, request)
+
+
+@router.get("/real-elections", summary="List available historical elections")
+async def real_elections() -> List[Dict[str, Any]]:
+    return await _run_worker(_real_elections_list_worker, {})  # type: ignore[return-value]
+
+
+@router.get("/blank-history", summary="Blank-vote time series for a country")
+async def blank_history(country: str = "") -> Dict[str, Any]:
+    return await _run_worker(_blank_history_worker, {"country": country})
+
+
+@router.post("/real-election", summary="Analyse a real historical election")
+async def real_election(request: RealElectionRequest) -> Dict[str, Any]:
+    return await _run_passthrough(_real_election_worker, request)
+
+
+@router.post("/constitutional-scenario", summary="Constitutional aftermath of a blank-vote victory")
+async def constitutional_scenario(request: ConstitutionalScenarioRequest) -> Dict[str, Any]:
+    return await _run_passthrough(_constitutional_scenario_worker, request)
+
+
+@router.post("/blank-contagion", summary="SIS blank-vote contagion simulation")
+async def blank_contagion(request: BlankContagionRequest) -> Dict[str, Any]:
+    return await _run_passthrough(_blank_contagion_worker, request)

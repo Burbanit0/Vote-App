@@ -139,7 +139,7 @@ export const getBandwagonAnalysis = async (
 ): Promise<BandwagonResult> => {
   try {
     const response = await axios.post<BandwagonResult>(
-      `${API_BASE_URL}/simulations/bandwagon`,
+      `${API_BASE_URL}${apiPath('simulations/bandwagon')}`,
       params,
       { headers: getAuthHeader() }
     );
@@ -177,7 +177,7 @@ export const getMultiwinner = async (
 ): Promise<MultiwinnerResult> => {
   try {
     const response = await axios.post<MultiwinnerResult>(
-      `${API_BASE_URL}/simulations/multiwinner`,
+      `${API_BASE_URL}${apiPath('simulations/multiwinner')}`,
       params,
       { headers: getAuthHeader() }
     );
@@ -197,7 +197,7 @@ export const getMonteCarlo = async (
 ): Promise<MonteCarloResult> => {
   try {
     const response = await axios.post<MonteCarloResult>(
-      `${API_BASE_URL}/simulations/monte-carlo`,
+      `${API_BASE_URL}${apiPath('simulations/monte-carlo')}`,
       params,
       { headers: getAuthHeader() }
     );
@@ -269,7 +269,7 @@ export const getBlankHistory = async (
   country: string,
 ): Promise<BlankHistoryResult> => {
   const response = await axios.get<BlankHistoryResult>(
-    `${API_BASE_URL}/simulations/blank-history?country=${encodeURIComponent(country)}`,
+    `${API_BASE_URL}${apiPath('simulations/blank-history')}?country=${encodeURIComponent(country)}`,
   );
   return response.data;
 };
@@ -277,7 +277,7 @@ export const getBlankHistory = async (
 export const getRealElections = async (): Promise<RealElectionSummary[]> => {
   try {
     const response = await axios.get<RealElectionSummary[]>(
-      `${API_BASE_URL}/simulations/real-elections`,
+      `${API_BASE_URL}${apiPath('simulations/real-elections')}`,
       { headers: getAuthHeader() }
     );
     return response.data;
@@ -294,7 +294,7 @@ export const analyzeRealElection = async (
 ): Promise<RealElectionResult> => {
   try {
     const response = await axios.post<RealElectionResult>(
-      `${API_BASE_URL}/simulations/real-election`,
+      `${API_BASE_URL}${apiPath('simulations/real-election')}`,
       { election_name: electionName, num_voters: numVoters, blank_vote: blankVote },
       { headers: getAuthHeader() }
     );
@@ -384,7 +384,7 @@ export const runConstitutionalScenario = async (
 ): Promise<ConstitutionalResult> => {
   try {
     const response = await axios.post<ConstitutionalResult>(
-      `${API_BASE_URL}/simulations/constitutional-scenario`,
+      `${API_BASE_URL}${apiPath('simulations/constitutional-scenario')}`,
       params,
       { headers: getAuthHeader() }
     );

@@ -55,13 +55,19 @@ from .public_api import (
 )
 from .simulations import (
     ArrowCriteriaRequest,
+    BandwagonRequest,
+    BlankContagionRequest,
     CalculateUtilityRequest,
     CampaignRequest,
     ClosestCandidateRequest,
     CompareMethodsRequest,
     CondorcetMatrixRequest,
+    ConstitutionalScenarioRequest,
     IdeologyMapRequest,
     LegacySimulateRequest,
+    MonteCarloRequest,
+    MultiwinnerRequest,
+    RealElectionRequest,
     ScenarioRequest,
     SensitivityRequest,
     SimulateCandidatesRequest,
@@ -196,6 +202,9 @@ __all__ = [
     "ArrowCriteriaRequest", "CompareMethodsRequest", "CondorcetMatrixRequest",
     "IdeologyMapRequest", "ScenarioRequest", "SensitivityRequest",
     "StrategicImpactRequest", "VoteStepsRequest",
+    # simulation_advanced (Phase 4.5.a.8)
+    "BandwagonRequest", "BlankContagionRequest", "ConstitutionalScenarioRequest",
+    "MonteCarloRequest", "MultiwinnerRequest", "RealElectionRequest",
     # theory (Phase 4 complete, all 15 endpoints)
     "AgendaManipulationRequest", "AgendaManipulationResponse",
     "ApportionmentRequest", "ApportionmentResponse",
