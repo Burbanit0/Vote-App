@@ -29,7 +29,7 @@ from typing import Any, Callable, Dict, List
 from fastapi import APIRouter, HTTPException, Response, status
 from pydantic import BaseModel
 
-from app.routes.simulation_base import (
+from api_v2.domain.simulations.base import (
     _calculate_utility_worker,
     _closest_candidate_worker,
     _simulate_candidates_worker,
@@ -39,7 +39,7 @@ from app.routes.simulation_base import (
     _utility_matrix_worker,
     _voter_segments_worker,
 )
-from app.routes.simulation_advanced import (
+from api_v2.domain.simulations.advanced import (
     _bandwagon_worker,
     _blank_contagion_worker,
     _blank_history_worker,
@@ -50,7 +50,7 @@ from app.routes.simulation_advanced import (
     _real_elections_list_worker,
 )
 from api_v2.domain.simulations.campaign import _campaign_worker
-from app.routes.simulation_compare import (
+from api_v2.domain.simulations.compare import (
     _arrow_criteria_worker,
     _compare_methods_worker,
     _condorcet_matrix_worker,
