@@ -14,6 +14,8 @@ import {
   SensitivityResult,
 } from '../types';
 
+import { apiPath } from '../api/apiVersion';
+
 const API_BASE_URL = process.env.VITE_API_URL || 'http://localhost:4433';
 
 function getAuthHeader(): Record<string, string> {
@@ -57,7 +59,7 @@ export const runComparisonSimulation = async (
 ): Promise<SimulationCompareResult> => {
   try {
     const response = await axios.post<SimulationCompareResult>(
-      `${API_BASE_URL}/simulations/compare`,
+      `${API_BASE_URL}${apiPath('simulations/compare')}`,
       params,
       { headers: getAuthHeader() }
     );
@@ -73,7 +75,7 @@ export const runStrategicImpactAnalysis = async (
 ): Promise<StrategicImpactPoint[]> => {
   try {
     const response = await axios.post<{ results: StrategicImpactPoint[] }>(
-      `${API_BASE_URL}/simulations/strategic-impact`,
+      `${API_BASE_URL}${apiPath('simulations/strategic-impact')}`,
       params,
       { headers: getAuthHeader() }
     );
@@ -89,7 +91,7 @@ export const getCondorcetMatrix = async (
 ): Promise<CondorcetMatrixResult> => {
   try {
     const response = await axios.post<CondorcetMatrixResult>(
-      `${API_BASE_URL}/simulations/condorcet-matrix`,
+      `${API_BASE_URL}${apiPath('simulations/condorcet-matrix')}`,
       params,
       { headers: getAuthHeader() }
     );
@@ -115,7 +117,7 @@ export const getSensitivityAnalysis = async (
 ): Promise<SensitivityResult> => {
   try {
     const response = await axios.post<SensitivityResult>(
-      `${API_BASE_URL}/simulations/sensitivity`,
+      `${API_BASE_URL}${apiPath('simulations/sensitivity')}`,
       params,
       { headers: getAuthHeader() }
     );
@@ -153,7 +155,7 @@ export const getArrowCriteria = async (
 ): Promise<ArrowCriteriaResult> => {
   try {
     const response = await axios.post<ArrowCriteriaResult>(
-      `${API_BASE_URL}/simulations/arrow-criteria`,
+      `${API_BASE_URL}${apiPath('simulations/arrow-criteria')}`,
       params,
       { headers: getAuthHeader() }
     );
@@ -220,7 +222,7 @@ export const getIdeologyMap = async (
 ): Promise<IdeologyMapResult> => {
   try {
     const response = await axios.post<IdeologyMapResult>(
-      `${API_BASE_URL}/simulations/ideology-map`,
+      `${API_BASE_URL}${apiPath('simulations/ideology-map')}`,
       params,
       { headers: getAuthHeader() }
     );
@@ -243,7 +245,7 @@ export interface VoteStepsParams {
 
 export const getVoteSteps = async (params: VoteStepsParams): Promise<VoteStepsResult> => {
   const response = await axios.post<VoteStepsResult>(
-    `${API_BASE_URL}/simulations/vote-steps`,
+    `${API_BASE_URL}${apiPath('simulations/vote-steps')}`,
     params,
     { headers: getAuthHeader() }
   );
@@ -396,7 +398,7 @@ export const runConstitutionalScenario = async (
 export const runScenario = async (params: ScenarioParams): Promise<ScenarioResult> => {
   try {
     const response = await axios.post<ScenarioResult>(
-      `${API_BASE_URL}/simulations/scenario`,
+      `${API_BASE_URL}${apiPath('simulations/scenario')}`,
       params,
       { headers: getAuthHeader() }
     );

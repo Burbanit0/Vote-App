@@ -54,14 +54,22 @@ from .public_api import (
     PublicSimulateRequest,
 )
 from .simulations import (
+    ArrowCriteriaRequest,
     CalculateUtilityRequest,
     CampaignRequest,
     ClosestCandidateRequest,
+    CompareMethodsRequest,
+    CondorcetMatrixRequest,
+    IdeologyMapRequest,
     LegacySimulateRequest,
+    ScenarioRequest,
+    SensitivityRequest,
     SimulateCandidatesRequest,
     SimulateUtilityRequest,
     SimulateVotersRequest,
+    StrategicImpactRequest,
     UtilityMatrixRequest,
+    VoteStepsRequest,
     VoterSegmentsRequest,
     WhatIfRequest,
 )
@@ -184,6 +192,10 @@ __all__ = [
     "UtilityMatrixRequest", "VoterSegmentsRequest",
     # simulations whatif + campaign (Phase 4.5.a.6)
     "CampaignRequest", "WhatIfRequest",
+    # simulation_compare (Phase 4.5.a.7)
+    "ArrowCriteriaRequest", "CompareMethodsRequest", "CondorcetMatrixRequest",
+    "IdeologyMapRequest", "ScenarioRequest", "SensitivityRequest",
+    "StrategicImpactRequest", "VoteStepsRequest",
     # theory (Phase 4 complete, all 15 endpoints)
     "AgendaManipulationRequest", "AgendaManipulationResponse",
     "ApportionmentRequest", "ApportionmentResponse",

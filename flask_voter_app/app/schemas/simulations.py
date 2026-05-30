@@ -113,3 +113,92 @@ class CampaignRequest(BaseModel):
     method:         str = "plurality"
     events:         List[Dict[str, Any]] = Field(default_factory=list)
     seed:           Optional[int] = None
+
+
+# ── simulation_compare (Phase 4.5.a.7) ──────────────────────────────────────
+# Responses stay Dict (passthrough). `candidates` is a union of name strings and
+# {name,x,y,…} dicts depending on the tab, so we keep it List[Any] + extra=ignore.
+
+_DEFAULT_CANDIDATES = ["Alice", "Bob", "Charlie"]
+
+
+class CompareMethodsRequest(BaseModel):
+    """POST /simulations/compare."""
+    model_config = ConfigDict(extra="ignore")
+
+    num_voters:            int = 500
+    ideology_distribution: str = "random"
+    candidates:            List[Any] = Field(default_factory=lambda: list(_DEFAULT_CANDIDATES))
+    blank_vote:            bool = False
+    blank_rule:            str = "symbolic"
+    information_model:     Dict[str, Any] = Field(default_factory=dict)
+
+
+class StrategicImpactRequest(BaseModel):
+    """POST /simulations/strategic-impact."""
+    model_config = ConfigDict(extra="ignore")
+
+    num_voters:            int = 500
+    ideology_distribution: str = "random"
+    candidates:            List[Any] = Field(default_factory=lambda: list(_DEFAULT_CANDIDATES))
+    strategic_percentages: List[Any] = Field(default_factory=lambda: [0, 10, 20, 30, 40, 50])
+
+
+class CondorcetMatrixRequest(BaseModel):
+    """POST /simulations/condorcet-matrix."""
+    model_config = ConfigDict(extra="ignore")
+
+    num_voters:            int = 500
+    ideology_distribution: str = "random"
+    candidates:            List[Any] = Field(default_factory=lambda: list(_DEFAULT_CANDIDATES))
+
+
+class SensitivityRequest(BaseModel):
+    """POST /simulations/sensitivity."""
+    model_config = ConfigDict(extra="ignore")
+
+    base_config: Dict[str, Any] = Field(default_factory=dict)
+    variable:    str = "ideology_distribution"
+    values:      List[Any] = Field(default_factory=list)
+
+
+class ArrowCriteriaRequest(BaseModel):
+    """POST /simulations/arrow-criteria."""
+    model_config = ConfigDict(extra="ignore")
+
+    num_voters:            int = 300
+    ideology_distribution: str = "random"
+    candidates:            List[Any] = Field(default_factory=lambda: list(_DEFAULT_CANDIDATES))
+
+
+class ScenarioRequest(BaseModel):
+    """POST /simulations/scenario."""
+    model_config = ConfigDict(extra="ignore")
+
+    candidates: List[Dict[str, Any]] = Field(default_factory=list)
+    electorate: Dict[str, Any] = Field(default_factory=dict)
+    blank_rule: str = "symbolic"
+    methods:    Optional[List[str]] = None
+
+
+class VoteStepsRequest(BaseModel):
+    """POST /simulations/vote-steps."""
+    model_config = ConfigDict(extra="ignore")
+
+    method:     str = "plurality"
+    num_voters: int = 100
+    candidates: List[Any] = Field(default_factory=lambda: list(_DEFAULT_CANDIDATES))
+    ideology:   str = "random"
+    seed:       int = 42
+
+
+class IdeologyMapRequest(BaseModel):
+    """POST /simulations/ideology-map."""
+    model_config = ConfigDict(extra="ignore")
+
+    num_voters: int = 200
+    candidates: List[Dict[str, Any]] = Field(default_factory=list)
+    ideology:   str = "random"
+    seed:       int = 42
+    method_a:   str = "plurality"
+    method_b:   str = "schulze"

@@ -162,6 +162,11 @@ def create_app(config_object="config.Config"):
         name="simulation_base_api",
     )
     app.register_blueprint(simulation_compare.simulation_compare_bp)
+    # Phase 4.5.a.7: /api/simulations/* rollback alias for the compare blueprint.
+    app.register_blueprint(
+        simulation_compare.simulation_compare_bp,
+        url_prefix="/api/simulations", name="simulation_compare_api",
+    )
     app.register_blueprint(simulation_advanced.simulation_advanced_bp)
     app.register_blueprint(scenarios.scenarios_bp)
     app.register_blueprint(simulation_whatif.whatif_bp)

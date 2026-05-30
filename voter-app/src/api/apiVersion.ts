@@ -100,6 +100,16 @@ export const MIGRATED_ENDPOINTS: ReadonlySet<string> = new Set([
   // Phase 4.5.a.6 — whatif + campaign
   'simulations/what-if',
   'simulations/campaign',
+  // Phase 4.5.a.7 — simulation_compare
+  'simulations/compare',
+  'simulations/strategic-impact',
+  'simulations/condorcet-matrix',
+  'simulations/sensitivity',
+  'simulations/arrow-criteria',
+  'simulations/scenario',
+  'simulations/manipulability',
+  'simulations/vote-steps',
+  'simulations/ideology-map',
 ]);
 
 /** localStorage key for the rollback switch. Public so tests can clear it. */

@@ -45,6 +45,11 @@ describe('apiPath', () => {
       'simulations/simulate_utility', 'simulations/calculate_utility',
       'simulations/get_utility_matrix', 'simulations/get_voter_segments',
       'simulations/what-if', 'simulations/campaign',
+      'simulations/compare', 'simulations/strategic-impact',
+      'simulations/condorcet-matrix', 'simulations/sensitivity',
+      'simulations/arrow-criteria', 'simulations/scenario',
+      'simulations/manipulability', 'simulations/vote-steps',
+      'simulations/ideology-map',
     ]) {
       expect(apiPath(slug)).toBe(`/api/v2/${slug}`);
     }
@@ -88,8 +93,8 @@ describe('apiPath', () => {
 });
 
 describe('MIGRATED_ENDPOINTS registry', () => {
-  it('contains 35 election + 15 theory + scenarios + 10 /simulations', () => {
-    expect(MIGRATED_ENDPOINTS.size).toBe(61);
+  it('contains 35 election + 15 theory + scenarios + 19 /simulations', () => {
+    expect(MIGRATED_ENDPOINTS.size).toBe(70);
     for (const slug of [
       'election/simulate', 'election/combined-effects',
       'election/campaign-sensitivity', 'election/coalition',
@@ -123,6 +128,11 @@ describe('MIGRATED_ENDPOINTS registry', () => {
       'simulations/simulate_utility', 'simulations/calculate_utility',
       'simulations/get_utility_matrix', 'simulations/get_voter_segments',
       'simulations/what-if', 'simulations/campaign',
+      'simulations/compare', 'simulations/strategic-impact',
+      'simulations/condorcet-matrix', 'simulations/sensitivity',
+      'simulations/arrow-criteria', 'simulations/scenario',
+      'simulations/manipulability', 'simulations/vote-steps',
+      'simulations/ideology-map',
     ]) {
       expect(MIGRATED_ENDPOINTS.has(slug)).toBe(true);
     }

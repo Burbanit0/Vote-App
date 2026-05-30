@@ -40,16 +40,35 @@ from app.routes.simulation_base import (
     _voter_segments_worker,
 )
 from app.routes.simulation_campaign import _campaign_worker
+from app.routes.simulation_compare import (
+    _arrow_criteria_worker,
+    _compare_methods_worker,
+    _condorcet_matrix_worker,
+    _ideology_map_worker,
+    _manipulability_worker,
+    _scenario_worker,
+    _sensitivity_worker,
+    _strategic_impact_worker,
+    _vote_steps_worker,
+)
 from app.routes.simulation_whatif import _what_if_worker
 from app.schemas import (
+    ArrowCriteriaRequest,
     CalculateUtilityRequest,
     CampaignRequest,
     ClosestCandidateRequest,
+    CompareMethodsRequest,
+    CondorcetMatrixRequest,
+    IdeologyMapRequest,
     LegacySimulateRequest,
+    ScenarioRequest,
+    SensitivityRequest,
     SimulateCandidatesRequest,
     SimulateUtilityRequest,
     SimulateVotersRequest,
+    StrategicImpactRequest,
     UtilityMatrixRequest,
+    VoteStepsRequest,
     VoterSegmentsRequest,
     WhatIfRequest,
 )
@@ -58,13 +77,13 @@ from app.schemas import (
 router = APIRouter(prefix="/api/v2/simulations", tags=["simulations"])
 
 
-async def _run_passthrough(
+async def _run_worker(
     domain_fn: Callable[[Dict[str, Any]], tuple[Dict[str, Any], int]],
-    request: BaseModel,
+    payload: Dict[str, Any],
 ) -> Dict[str, Any]:
     """Run the sync worker off the event loop and lift its (body, status) tuple
-    into an HTTPException on error. Same helper as the other routers."""
-    body, status_code = await asyncio.to_thread(domain_fn, request.model_dump())
+    into an HTTPException on error."""
+    body, status_code = await asyncio.to_thread(domain_fn, payload)
     if status_code == 400:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
@@ -76,6 +95,14 @@ async def _run_passthrough(
             detail=body.get("error", "Internal error"),
         )
     return body
+
+
+async def _run_passthrough(
+    domain_fn: Callable[[Dict[str, Any]], tuple[Dict[str, Any], int]],
+    request: BaseModel,
+) -> Dict[str, Any]:
+    """Same as _run_worker but takes a Pydantic request and dumps it first."""
+    return await _run_worker(domain_fn, request.model_dump())
 
 
 @router.post(
@@ -165,3 +192,62 @@ async def what_if(request: WhatIfRequest) -> Dict[str, Any]:
 )
 async def campaign(request: CampaignRequest) -> Dict[str, Any]:
     return await _run_passthrough(_campaign_worker, request)
+
+
+# ── simulation_compare (Phase 4.5.a.7) ──────────────────────────────────────
+
+@router.post("/compare", summary="Per-method metrics on a fresh population")
+async def compare(request: CompareMethodsRequest) -> Dict[str, Any]:
+    return await _run_passthrough(_compare_methods_worker, request)
+
+
+@router.post("/strategic-impact", summary="Regret vs proportion of strategic voters")
+async def strategic_impact(request: StrategicImpactRequest) -> Dict[str, Any]:
+    return await _run_passthrough(_strategic_impact_worker, request)
+
+
+@router.post("/condorcet-matrix", summary="Full pairwise duel matrix")
+async def condorcet_matrix(request: CondorcetMatrixRequest) -> Dict[str, Any]:
+    return await _run_passthrough(_condorcet_matrix_worker, request)
+
+
+@router.post("/sensitivity", summary="Vary one parameter, track winners & regret")
+async def sensitivity(request: SensitivityRequest) -> Dict[str, Any]:
+    return await _run_passthrough(_sensitivity_worker, request)
+
+
+@router.post("/arrow-criteria", summary="Empirically check Arrow's criteria")
+async def arrow_criteria(request: ArrowCriteriaRequest) -> Dict[str, Any]:
+    return await _run_passthrough(_arrow_criteria_worker, request)
+
+
+@router.post("/scenario", summary="Citizen-configured scenario, with/without blank vote")
+async def scenario(request: ScenarioRequest) -> Dict[str, Any]:
+    return await _run_passthrough(_scenario_worker, request)
+
+
+@router.get("/manipulability", summary="Gibbard-Satterthwaite manipulability index")
+async def manipulability(
+    num_candidates: int = 4,
+    num_voters: int = 500,
+    num_trials: int = 200,
+    ideology: str = "random",
+    methods: str = "all",
+) -> Dict[str, Any]:
+    return await _run_worker(_manipulability_worker, {
+        "num_candidates": num_candidates,
+        "num_voters": num_voters,
+        "num_trials": num_trials,
+        "ideology": ideology,
+        "methods": methods,
+    })
+
+
+@router.post("/vote-steps", summary="Step-by-step ballot-counting animation data")
+async def vote_steps(request: VoteStepsRequest) -> Dict[str, Any]:
+    return await _run_passthrough(_vote_steps_worker, request)
+
+
+@router.post("/ideology-map", summary="2-D ideological map of voter preferences")
+async def ideology_map(request: IdeologyMapRequest) -> Dict[str, Any]:
+    return await _run_passthrough(_ideology_map_worker, request)
