@@ -1,11 +1,20 @@
 import React from 'react';
 import { render, screen, fireEvent, waitFor, act } from '@testing-library/react';
 import { MemoryRouter } from 'react-router';
+import { QueryClientProvider } from '@tanstack/react-query';
 import AbstentionPanel from '../AbstentionPanel';
 import { ElectionProvider } from '../../../context/ElectionContext';
+import { makeTestQueryClient } from '../../../test/queryWrapper';
 
-jest.mock('axios', () => ({ post: jest.fn() }));
-const { post: mockPost } = jest.requireMock('axios') as { post: jest.Mock };
+// Mock the typed openapi-fetch client; real react-query drives the state
+// transitions. $api (openapi-react-query) calls apiClient.POST(path, { body }).
+jest.mock('../../../api/client', () => ({
+  apiClient: { GET: jest.fn(), POST: jest.fn(), PUT: jest.fn(), DELETE: jest.fn(), PATCH: jest.fn() },
+  getAccessToken: jest.fn(() => null),
+}));
+const { apiClient } = jest.requireMock('../../../api/client') as {
+  apiClient: { POST: jest.Mock };
+};
 
 jest.mock('recharts', () => {
   const React = require('react');
@@ -41,29 +50,32 @@ function makeRound(rnd: number, turnout: number, hasAbstained = false) {
 
 function makeData(winnerChanged = false) {
   return {
-    data: {
-      rounds: [
-        makeRound(0, 1.0, false),
-        makeRound(1, 0.85, true),
-        makeRound(2, 0.72, true),
-        makeRound(3, 0.65, true),
-      ],
-      sincere_winner:  'Alice',
-      final_winner:    winnerChanged ? 'Bob' : 'Alice',
-      winner_changed:  winnerChanged,
-      turnout_by_camp: { Alice: 0.65, Bob: 0.90, Carol: 0.80 },
-      candidates:      [{ name: 'Alice' }, { name: 'Bob' }, { name: 'Carol' }],
-    },
+    rounds: [
+      makeRound(0, 1.0, false),
+      makeRound(1, 0.85, true),
+      makeRound(2, 0.72, true),
+      makeRound(3, 0.65, true),
+    ],
+    sincere_winner:  'Alice',
+    final_winner:    winnerChanged ? 'Bob' : 'Alice',
+    winner_changed:  winnerChanged,
+    turnout_by_camp: { Alice: 0.65, Bob: 0.90, Carol: 0.80 },
+    candidates:      [{ name: 'Alice' }, { name: 'Bob' }, { name: 'Carol' }],
   };
 }
 
+/** openapi-fetch resolves to { data, error }. */
+const ok = (d: unknown) => ({ data: d, error: undefined });
+
 function renderPanel() {
   return render(
-    <MemoryRouter>
-      <ElectionProvider>
-        <AbstentionPanel />
-      </ElectionProvider>
-    </MemoryRouter>
+    <QueryClientProvider client={makeTestQueryClient()}>
+      <MemoryRouter>
+        <ElectionProvider>
+          <AbstentionPanel />
+        </ElectionProvider>
+      </MemoryRouter>
+    </QueryClientProvider>
   );
 }
 
@@ -96,21 +108,19 @@ describe('AbstentionPanel', () => {
     expect(screen.getByTestId('influence-slider')).toBeInTheDocument();
   });
 
-  it('calls axios.post on button click', async () => {
-    mockPost.mockResolvedValue(makeData());
+  it('calls the API on button click', async () => {
+    apiClient.POST.mockResolvedValue(ok(makeData()));
     renderPanel();
     fireEvent.click(screen.getByRole('button', { name: /simuler|simulate/i }));
-    await waitFor(() => expect(mockPost).toHaveBeenCalledTimes(1));
-    // Accept either /api/election/abstention (Flask v1) or
-    // /api/v2/election/abstention (FastAPI v2 — default since Phase 3 batch 2).
-    expect(mockPost).toHaveBeenCalledWith(
-      expect.stringMatching(/\/api\/(v2\/)?election\/abstention/),
-      expect.any(Object),
+    await waitFor(() => expect(apiClient.POST).toHaveBeenCalledTimes(1));
+    expect(apiClient.POST).toHaveBeenCalledWith(
+      '/api/v2/election/abstention',
+      expect.objectContaining({ body: expect.any(Object) }),
     );
   });
 
   it('renders ideology map SVG after data loads', async () => {
-    mockPost.mockResolvedValue(makeData());
+    apiClient.POST.mockResolvedValue(ok(makeData()));
     renderPanel();
     fireEvent.click(screen.getByRole('button', { name: /simuler|simulate/i }));
     await waitFor(() => expect(screen.getByTestId('abstention-map-svg')).toBeInTheDocument());
@@ -118,11 +128,10 @@ describe('AbstentionPanel', () => {
   });
 
   it('renders abstained voters as grey dots', async () => {
-    mockPost.mockResolvedValue(makeData());
+    apiClient.POST.mockResolvedValue(ok(makeData()));
     const { container } = renderPanel();
     fireEvent.click(screen.getByRole('button', { name: /simuler|simulate/i }));
     await waitFor(() => expect(screen.getByTestId('abstention-map-svg')).toBeInTheDocument());
-    // Advance to round 1 where there are abstained voters
     fireEvent.change(screen.getByTestId('round-slider'), { target: { value: '1' } });
     act(() => { jest.runAllTimers(); });
     const abstainedDots = container.querySelectorAll('[data-testid="abstained-voter"]');
@@ -131,20 +140,19 @@ describe('AbstentionPanel', () => {
   });
 
   it('shows green comparison band when winner unchanged', async () => {
-    mockPost.mockResolvedValue(makeData(false));
+    apiClient.POST.mockResolvedValue(ok(makeData(false)));
     renderPanel();
     fireEvent.click(screen.getByRole('button', { name: /simuler|simulate/i }));
     await waitFor(() => {
       const band = screen.getByTestId('winner-comparison-band');
       expect(band).toBeInTheDocument();
-      // jsdom converts hex to rgb() — check green hue
       expect(band.style.background).toMatch(/f0fff4|rgb\(240,\s*255,\s*244\)/);
     });
     jest.runAllTimers();
   });
 
   it('shows red comparison band when winner changed', async () => {
-    mockPost.mockResolvedValue(makeData(true));
+    apiClient.POST.mockResolvedValue(ok(makeData(true)));
     renderPanel();
     fireEvent.click(screen.getByRole('button', { name: /simuler|simulate/i }));
     await waitFor(() => {
@@ -155,7 +163,7 @@ describe('AbstentionPanel', () => {
   });
 
   it('renders turnout line chart', async () => {
-    mockPost.mockResolvedValue(makeData());
+    apiClient.POST.mockResolvedValue(ok(makeData()));
     renderPanel();
     fireEvent.click(screen.getByRole('button', { name: /simuler|simulate/i }));
     await waitFor(() => expect(screen.getByTestId('turnout-chart')).toBeInTheDocument());
@@ -163,7 +171,7 @@ describe('AbstentionPanel', () => {
   });
 
   it('shows camp turnout badges', async () => {
-    mockPost.mockResolvedValue(makeData());
+    apiClient.POST.mockResolvedValue(ok(makeData()));
     renderPanel();
     fireEvent.click(screen.getByRole('button', { name: /simuler|simulate/i }));
     await waitFor(() => {
@@ -174,7 +182,7 @@ describe('AbstentionPanel', () => {
   });
 
   it('shows play/pause button', async () => {
-    mockPost.mockResolvedValue(makeData());
+    apiClient.POST.mockResolvedValue(ok(makeData()));
     renderPanel();
     fireEvent.click(screen.getByRole('button', { name: /simuler|simulate/i }));
     await waitFor(() => expect(screen.getByTestId('play-button')).toBeInTheDocument());
@@ -182,7 +190,7 @@ describe('AbstentionPanel', () => {
   });
 
   it('shows error on API failure', async () => {
-    mockPost.mockRejectedValue(new Error('Network error'));
+    apiClient.POST.mockRejectedValue(new Error('Network error'));
     renderPanel();
     fireEvent.click(screen.getByRole('button', { name: /simuler|simulate/i }));
     await waitFor(() => expect(screen.getByText(/Erreur|Error/i)).toBeInTheDocument());
