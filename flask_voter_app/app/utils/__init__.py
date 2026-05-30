@@ -11,11 +11,12 @@ import importlib
 import sys
 
 _RELOCATED = [
-    "arrow_criteria", "blank_contagion", "blank_vote_rules", "campaign_dynamics",
-    "demographic_data", "gibbard_satterthwaite", "information_model", "logger",
-    "quadratic_voting", "real_election_data", "simul", "simulation_metrics",
-    "simulation_multiwinner_utils", "simulation_ranked_utils",
-    "simulation_score_utils", "simulation_voting_utils", "utils",
+    "arrow_criteria", "blank_contagion", "blank_vote_rules", "cache",
+    "campaign_dynamics", "demographic_data", "gibbard_satterthwaite",
+    "information_model", "logger", "quadratic_voting", "real_election_data",
+    "simul", "simulation_metrics", "simulation_multiwinner_utils",
+    "simulation_ranked_utils", "simulation_score_utils",
+    "simulation_voting_utils", "utils",
 ]
 
 for _name in _RELOCATED:

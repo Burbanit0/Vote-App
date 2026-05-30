@@ -43,6 +43,17 @@ def _stable_hash(data: Dict[str, Any]) -> str:
     return hashlib.sha256(raw.encode("utf-8")).hexdigest()
 
 
+
+def _get_redis_client():
+    """Best-effort redis handle. Uses the Flask app's client while it exists;
+    returns None (cache disabled) once app/ is gone or redis is unconfigured."""
+    try:
+        from app import redis_client  # type: ignore
+        return redis_client
+    except Exception:
+        return None
+
+
 def cache_result(prefix: str, ttl_seconds: int = 3600) -> Callable[[WorkerFn], WorkerFn]:
     """Memoise worker results in Redis by hash of the input dict.
 
@@ -53,7 +64,9 @@ def cache_result(prefix: str, ttl_seconds: int = 3600) -> Callable[[WorkerFn], W
     def deco(worker: WorkerFn) -> WorkerFn:
         @wraps(worker)
         def wrapped(data: Dict[str, Any]) -> Tuple[Dict[str, Any], int]:
-            from app import redis_client  # imported lazily to ease testing
+            redis_client = _get_redis_client()
+            if redis_client is None:
+                return worker(data)
 
             try:
                 key = f"{prefix}:{_stable_hash(data)}"
