@@ -3,7 +3,7 @@
  * Shows how decision rules protect (or fail to protect) permanent minorities.
  */
 import React, { useCallback, useState } from 'react';
-import axios from 'axios';
+import { $api } from '../../api/hooks';
 import { useTranslation } from 'react-i18next';
 import {
   Alert, Badge, Button, Col, Form, Row, Spinner,
@@ -13,9 +13,7 @@ import {
   LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend,
   ResponsiveContainer,
 } from 'recharts';
-import { apiPath } from '../../api/apiVersion';
 
-const API = process.env.REACT_APP_API_URL ?? 'http://localhost:4434';
 
 const ALL_RULES = [
   'simple_majority', 'supermajority_2_3', 'supermajority_3_4',
@@ -77,9 +75,10 @@ function buildRadarData(results: Record<string, RuleResult>): object[] {
 const MajorityTyrannyPanel: React.FC = () => {
   const { t } = useTranslation();
 
-  const [data,      setData]      = useState<TyrannyData | null>(null);
-  const [loading,   setLoading]   = useState(false);
-  const [error,     setError]     = useState<string | null>(null);
+  const sim = $api.useMutation('post', '/api/v2/theory/majority-tyranny');
+  const data: TyrannyData | null = (sim.data as TyrannyData | undefined) ?? null;
+  const loading = sim.isPending;
+  const error = sim.isError ? t('tyranny.error') : null;
   const [numVoters, setNumVoters] = useState(100);
   const [majorityPct, setMajorityPct] = useState(0.60);
   const [intensity, setIntensity] = useState(3.0);
@@ -93,25 +92,17 @@ const MajorityTyrannyPanel: React.FC = () => {
       prev.includes(r) ? (prev.length > 1 ? prev.filter((x) => x !== r) : prev) : [...prev, r]
     );
 
-  const run = useCallback(async () => {
-    setLoading(true);
-    setError(null);
-    try {
-      const res = await axios.post(`${API}${apiPath('theory/majority-tyranny')}`, {
-        num_voters:       numVoters,
-        majority_pct:     majorityPct,
-        minority_intensity: intensity,
-        num_decisions:    numDecisions,
-        seed,
-        decision_rules:   rules,
-      });
-      setData(res.data);
-    } catch {
-      setError(t('tyranny.error'));
-    } finally {
-      setLoading(false);
-    }
-  }, [numVoters, majorityPct, intensity, numDecisions, seed, rules, t]);
+  const run = useCallback(() => {
+    sim.mutate({ body: {
+      num_voters:       numVoters,
+      majority_pct:     majorityPct,
+      minority_intensity: intensity,
+      num_decisions:    numDecisions,
+      seed,
+      decision_rules:   rules,
+    } });
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [numVoters, majorityPct, intensity, numDecisions, seed, rules, sim]);
 
   const nMin = Math.round(numVoters * (1 - majorityPct));
   const nMaj = numVoters - nMin;

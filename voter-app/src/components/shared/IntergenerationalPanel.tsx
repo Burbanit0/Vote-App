@@ -3,7 +3,7 @@
  * Rawls (1971) veil of ignorance applied to intergenerational justice.
  */
 import React, { useState } from 'react';
-import axios from 'axios';
+import { $api } from '../../api/hooks';
 import { useTranslation } from 'react-i18next';
 import {
   Alert, Badge, Button, Col, Form, Row, Spinner, Table,
@@ -12,9 +12,7 @@ import {
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend,
   ResponsiveContainer, Cell,
 } from 'recharts';
-import { apiPath } from '../../api/apiVersion';
 
-const API = process.env.REACT_APP_API_URL ?? 'http://localhost:4434';
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -124,9 +122,10 @@ const MiniHemicycle: React.FC<HemicycleProps> = ({ results, mechanism, color, la
 const IntergenerationalPanel: React.FC = () => {
   const { t } = useTranslation();
 
-  const [data,      setData]      = useState<IntergenerationalData | null>(null);
-  const [loading,   setLoading]   = useState(false);
-  const [error,     setError]     = useState<string | null>(null);
+  const sim = $api.useMutation('post', '/api/v2/theory/intergenerational');
+  const data: IntergenerationalData | null = (sim.data as IntergenerationalData | undefined) ?? null;
+  const loading = sim.isPending;
+  const error = sim.isError ? t('intergen.error') : null;
   const [decisions, setDecisions] = useState<Decision[]>(DEFAULT_DECISIONS);
   const [numVoters, setNumVoters] = useState(200);
   const [ageDist,   setAgeDist]   = useState([30, 45, 25]);   // %, must sum to 100
@@ -149,23 +148,14 @@ const IntergenerationalPanel: React.FC = () => {
     return ageDist.map(x => x / s);
   };
 
-  const handleRun = async () => {
-    setLoading(true);
-    setError(null);
-    try {
-      const res = await axios.post(`${API}${apiPath('theory/intergenerational')}`, {
-        decisions,
-        num_voters:                    numVoters,
-        age_distribution:              normAgeDist(),
-        seed,
-        future_generations_mechanism:  'none',  // always compute all mechanisms
-      });
-      setData(res.data);
-    } catch {
-      setError(t('intergen.error'));
-    } finally {
-      setLoading(false);
-    }
+  const handleRun = () => {
+    sim.mutate({ body: {
+      decisions,
+      num_voters:                    numVoters,
+      age_distribution:              normAgeDist(),
+      seed,
+      future_generations_mechanism:  'none',  // always compute all mechanisms
+    } });
   };
 
   // ── Chart data ─────────────────────────────────────────────────────────────
