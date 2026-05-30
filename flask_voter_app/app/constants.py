@@ -1,11 +1,13 @@
-DEFAULT_ISSUES = [
-    "economy", "environment", "healthcare", "education", "taxes",
-    "social_welfare", "agriculture", "public_transport", "defense",
-    "gender_equality", "pensions", "climate_change", "housing",
-    "immigration", "crime_safety", "technology_innovation",
-    "minimum_wage", "business_regulation", "jobs", "infrastructure",
-]
+"""
+app.constants — shim re-exporting the relocated engine constants.
 
-ECONOMY_ISSUES = {"economy", "taxes", "business_regulation", "jobs", "minimum_wage", "infrastructure", "technology_innovation"}
-ENV_ISSUES     = {"environment", "climate_change", "agriculture", "public_transport"}
-SOCIAL_ISSUES  = {"social_welfare", "healthcare", "education", "gender_equality", "housing", "immigration", "crime_safety", "defense", "pensions"}
+The canonical definitions now live in api_v2/engine/constants.py (Phase 4.5.b).
+This shim keeps the legacy `from app.constants import ...` paths working until
+the Flask `app/` package is removed in 4.5.b.3.
+"""
+from api_v2.engine.constants import (  # noqa: F401
+    DEFAULT_ISSUES,
+    ECONOMY_ISSUES,
+    ENV_ISSUES,
+    SOCIAL_ISSUES,
+)

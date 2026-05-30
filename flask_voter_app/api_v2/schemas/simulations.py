@@ -18,7 +18,7 @@ from typing import Any, Dict, List, Optional
 
 from pydantic import BaseModel, ConfigDict, Field
 
-from app.constants import DEFAULT_ISSUES
+from api_v2.engine.constants import DEFAULT_ISSUES
 
 _DEFAULT_PARTIES = ["Green", "Conservative", "Liberal", "Independent"]
 _DEFAULT_SEGMENTS = [

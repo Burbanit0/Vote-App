@@ -26,7 +26,7 @@ from typing import Any
 
 import socketio
 
-from app.constants import DEFAULT_ISSUES
+from api_v2.engine.constants import DEFAULT_ISSUES
 from app.utils.simulation_metrics      import compare_all_methods_mc
 from app.utils.simulation_voting_utils import create_candidate, create_voter
 
