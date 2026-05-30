@@ -17,7 +17,7 @@ export default defineConfig(({ mode }) => {
           globPatterns: ['**/*.{js,css,html,ico,png,svg,woff2}'],
           runtimeCaching: [
             {
-              urlPattern: /^http:\/\/localhost:4433\/api\/(v1\/methods|scenarios\/gallery\/featured)/,
+              urlPattern: /^http:\/\/localhost:4434\/api\/(v1\/methods|scenarios\/gallery\/featured)/,
               handler: 'StaleWhileRevalidate',
               options: {
                 cacheName: 'api-cache',
@@ -55,22 +55,15 @@ export default defineConfig(({ mode }) => {
       port: 3000,
       open: true,
       proxy: {
-        // Route /api/v2/* to FastAPI (port 4434) — added in Phase 2 of the
-        // strategic refactor (see STRATEGIC_REFACTOR_PLAN.md). Ordering
-        // matters: the more specific prefix must come first.
-        '/api/v2': {
+        // The backend is FastAPI-only (Flask retired in Phase 4.5.b). Everything
+        // under /api/* (the /api/v1/* public API + /api/v2/* app surface) and the
+        // Socket.IO stream is served by uvicorn on :4434.
+        '/api': {
           target: 'http://localhost:4434',
           changeOrigin: true,
         },
-        // Everything else still hits Flask (port 4433). As routes migrate
-        // from Flask to FastAPI in Phase 3, they'll move from /api/* to
-        // /api/v2/*, with /api/v1/* kept as a temporary alias.
-        '/api': {
-          target: 'http://localhost:4433',
-          changeOrigin: true,
-        },
         '/socket.io': {
-          target: 'http://localhost:4433',
+          target: 'http://localhost:4434',
           changeOrigin: true,
           ws: true,
         },
@@ -102,7 +95,7 @@ export default defineConfig(({ mode }) => {
     envPrefix: 'VITE_',
     define: {
       'process.env.VITE_API_URL': JSON.stringify(
-        env.VITE_API_URL || 'http://localhost:4433'
+        env.VITE_API_URL || 'http://localhost:4434'
       ),
     },
   };

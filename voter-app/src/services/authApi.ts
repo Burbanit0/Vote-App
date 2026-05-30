@@ -1,7 +1,7 @@
 import axios from 'axios';
 import { Profile_, User } from '../types';
 
-const API_BASE_URL = (process.env.VITE_API_URL) || 'http://localhost:4433';
+const API_BASE_URL = (process.env.VITE_API_URL) || 'http://localhost:4434';
 
 // Phase 4.3.e: every route below now lives on /api/v2/* (fastapi-users).
 //   - login is form-encoded (OAuth2 contract) with `username` carrying the email

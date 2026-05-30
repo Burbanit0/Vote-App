@@ -16,7 +16,7 @@ import { useElection } from '../../context/ElectionContext';
 import PinToCentralButton from './PinToCentralButton';
 import { apiPath } from '../../api/apiVersion';
 
-const API = process.env.REACT_APP_API_URL ?? 'http://localhost:4433';
+const API = process.env.REACT_APP_API_URL ?? 'http://localhost:4434';
 const DEBOUNCE_MS = 400;
 
 interface CompulsoryArgs {

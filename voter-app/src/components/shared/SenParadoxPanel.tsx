@@ -9,7 +9,7 @@ import { useTranslation } from 'react-i18next';
 import { Alert, Badge, Button, Card, Col, Form, Row, Spinner } from 'react-bootstrap';
 import { apiPath } from '../../api/apiVersion';
 
-const API = process.env.REACT_APP_API_URL ?? 'http://localhost:4433';
+const API = process.env.REACT_APP_API_URL ?? 'http://localhost:4434';
 
 const ALTS = ['x', 'y', 'z'] as const;
 

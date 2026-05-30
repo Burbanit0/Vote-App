@@ -11,7 +11,7 @@ import { Alert, Badge, Button, Col, Form, Row, Spinner, Table } from 'react-boot
 import { useElection } from '../../context/ElectionContext';
 import { apiPath } from '../../api/apiVersion';
 
-const API = process.env.REACT_APP_API_URL ?? 'http://localhost:4433';
+const API = process.env.REACT_APP_API_URL ?? 'http://localhost:4434';
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 

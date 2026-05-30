@@ -19,7 +19,7 @@ import E2EVDemo from '../components/shared/E2EVDemo';
 import PolisPanel from '../components/shared/PolisPanel';
 import { ElectionProvider } from '../context/ElectionContext';
 
-const API = process.env.REACT_APP_API_URL ?? 'http://localhost:4433';
+const API = process.env.REACT_APP_API_URL ?? 'http://localhost:4434';
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 

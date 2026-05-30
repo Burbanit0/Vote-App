@@ -1,174 +1,27 @@
 /**
- * apiVersion — runtime selector between the legacy Flask `/api/*` routes
- * and the new FastAPI `/api/v2/*` routes (Phase 2-3 of the strategic
- * refactor — see STRATEGIC_REFACTOR_PLAN.md).
+ * apiVersion — resolves an endpoint slug to its backend URL.
  *
- * Strategy: every endpoint that has been migrated to FastAPI is listed in
- * `MIGRATED_ENDPOINTS` below. `apiPath('election/simulate')` returns
- *   '/api/v2/election/simulate'  if the endpoint is migrated AND the user
- *                                hasn't overridden via the rollback switch
- *   '/api/election/simulate'      otherwise
+ * The backend is FastAPI-only (Flask was retired in Phase 4.5.b of the strategic
+ * refactor), so every Election Lab / theory / simulations / scenarios / auth
+ * endpoint lives under `/api/v2/*`. This helper just normalises a slug and
+ * prefixes it. (The public research API at `/api/v1/*` is addressed directly,
+ * not through this helper.)
  *
- * Rollback switches (in order of precedence) — useful if v2 misbehaves
- * in production and you need to flip back to Flask quickly:
- *
- *   1. URL query string:    ?apiV1=1       (per-tab override, ephemeral)
- *   2. localStorage:        votelab_force_api_v1 = "true"
- *                                          (per-browser, persistent)
- *   3. env var:             VITE_FORCE_API_V1=1 at build time
- *
- * When all 35 election endpoints are migrated (end of Phase 3) and the
- * Flask routes are deleted (Phase 4), this file becomes a no-op stub and
- * can be removed.
+ * The old Flask `/api/*` rollback switches (?apiV1=1, localStorage,
+ * VITE_FORCE_API_V1) were removed with Flask — there is nothing to roll back to.
  */
-
-/** Endpoints currently served by FastAPI on /api/v2/*. Order doesn't matter. */
-export const MIGRATED_ENDPOINTS: ReadonlySet<string> = new Set([
-  // Phase 2 + Phase 3 batches 1-2 (typed responses)
-  'election/simulate',
-  'election/combined-effects',
-  'election/campaign-sensitivity',
-  'election/coalition',
-  'election/abstention',
-  // Phase 3 batch 3 (passthrough responses)
-  'election/nota',
-  'election/ballot-complexity',
-  'election/shy-voter',
-  'election/electoral-fatigue',
-  // Phase 3 batch 4 (passthrough responses)
-  'election/cascade',
-  'election/behavioral-biases',
-  'election/choice-overload',
-  'election/deliberation',
-  // Phase 3 batch 5 (passthrough responses)
-  'election/jury',
-  'election/hotelling',
-  'election/polarization',
-  'election/sortition',
-  // Phase 3 batch 6 (passthrough responses)
-  'election/affective-polarization',
-  'election/demographic-turnout',
-  'election/compulsory-voting',
-  'election/party-dynamics',
-  // Phase 3 batch 7 (passthrough responses)
-  'election/simulate-pipeline',
-  'election/districts',
-  'election/primary',
-  'election/stv',
-  // Phase 3 batch 8 (passthrough responses)
-  'election/adaptive',
-  'election/historical-replay',
-  'election/gerrymander',
-  'election/multiwinner_compare',
-  // Phase 3 batch 9 — final (passthrough responses)
-  'election/divergence',
-  'election/interpret',
-  'election/quadratic-funding',
-  'election/liquid-democracy',
-  'election/conviction-voting',
-  'election/power-indices',
-  // Phase 4 batch 1 — theory (typed responses)
-  'theory/arrow',
-  'theory/iia-rate',
-  'theory/plott-chaos',
-  'theory/judgment-aggregation',
-  // Phase 4 batch 2 — theory (typed responses)
-  'theory/agenda-manipulation',
-  'theory/apportionment',
-  'theory/sen-paradox',
-  'theory/manipulation-analysis',
-  // Phase 4 batch 3 — theory (typed responses)
-  'theory/majority-tyranny',
-  'theory/democratic-backsliding',
-  'theory/intergenerational',
-  'theory/epistocracy',
-  // Phase 4 batch 4 (final theory) — typed responses
-  'theory/identity-voting',
-  'theory/assumption-testing',
-  'theory/collective-will',
-  // Phase 4.2 — saved-simulation CRUD
-  'scenarios',
-  // Phase 4.5.a.5 — simulation_base (/simulations/* normalised under /api/v2)
-  'simulations',
-  'simulations/simulate_voters',
-  'simulations/simulate_candidates',
-  'simulations/get_closest_candidate',
-  'simulations/simulate_utility',
-  'simulations/calculate_utility',
-  'simulations/get_utility_matrix',
-  'simulations/get_voter_segments',
-  // Phase 4.5.a.6 — whatif + campaign
-  'simulations/what-if',
-  'simulations/campaign',
-  // Phase 4.5.a.7 — simulation_compare
-  'simulations/compare',
-  'simulations/strategic-impact',
-  'simulations/condorcet-matrix',
-  'simulations/sensitivity',
-  'simulations/arrow-criteria',
-  'simulations/scenario',
-  'simulations/manipulability',
-  'simulations/vote-steps',
-  'simulations/ideology-map',
-  // Phase 4.5.a.8 — simulation_advanced
-  'simulations/bandwagon',
-  'simulations/monte-carlo',
-  'simulations/multiwinner',
-  'simulations/real-elections',
-  'simulations/blank-history',
-  'simulations/real-election',
-  'simulations/constitutional-scenario',
-  'simulations/blank-contagion',
-]);
-
-/** localStorage key for the rollback switch. Public so tests can clear it. */
-export const FORCE_V1_LS_KEY = 'votelab_force_api_v1';
-
-/** Query string parameter that forces v1 for this browser tab. */
-export const FORCE_V1_QUERY_PARAM = 'apiV1';
-
-/** Build-time env var read from Vite. */
-const ENV_FORCE_V1: boolean = (
-  // process.env at build time (also defined in jest.config so tests work)
-  // eslint-disable-next-line no-undef
-  typeof process !== 'undefined' && process.env?.VITE_FORCE_API_V1 === '1'
-);
-
-/** Returns true if the caller should fall back to Flask /api/* for everything. */
-export function shouldForceV1(): boolean {
-  if (ENV_FORCE_V1) return true;
-
-  if (typeof window !== 'undefined') {
-    try {
-      const params = new URLSearchParams(window.location.search);
-      if (params.get(FORCE_V1_QUERY_PARAM) === '1') return true;
-    } catch {
-      // Some test envs don't expose window.location.search
-    }
-    try {
-      if (window.localStorage.getItem(FORCE_V1_LS_KEY) === 'true') return true;
-    } catch {
-      // localStorage unavailable (SSR, private browsing) — ignore
-    }
-  }
-  return false;
-}
 
 /**
- * Resolve an endpoint slug to the correct URL path.
+ * Resolve an endpoint slug to its `/api/v2/*` path.
  *
- *   apiPath('election/simulate')          -> '/api/v2/election/simulate'
- *   apiPath('election/abstention')        -> '/api/election/abstention'   (not migrated yet)
- *   apiPath('election/simulate', { v1: true })  -> '/api/election/simulate'
+ *   apiPath('election/simulate')           -> '/api/v2/election/simulate'
+ *   apiPath('/api/v2/election/simulate')   -> '/api/v2/election/simulate'
+ *   apiPath('scenarios')                   -> '/api/v2/scenarios'
  *
- * The slug should NOT include a leading slash and should NOT include the
- * `api/` prefix — both are added by this helper.
+ * The slug may omit or include a leading slash and/or an `api/`/`api/v2/`
+ * prefix — all are normalised away before re-prefixing.
  */
-export function apiPath(slug: string, opts: { v1?: boolean } = {}): string {
+export function apiPath(slug: string): string {
   const normalized = slug.replace(/^\/+/, '').replace(/^api\/(v2\/)?/, '');
-  const forceV1 = opts.v1 || shouldForceV1();
-  if (!forceV1 && MIGRATED_ENDPOINTS.has(normalized)) {
-    return `/api/v2/${normalized}`;
-  }
-  return `/api/${normalized}`;
+  return `/api/v2/${normalized}`;
 }

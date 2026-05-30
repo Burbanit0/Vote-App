@@ -15,7 +15,7 @@ import {
   Alert, Badge, Button, Card, Col, Form, Row, Spinner,
 } from 'react-bootstrap';
 
-const API     = process.env.REACT_APP_API_URL ?? 'http://localhost:4433';
+const API     = process.env.REACT_APP_API_URL ?? 'http://localhost:4434';
 const DEFAULT_CANDIDATES = ['Alice', 'Bob', 'Carol'];
 const DEMO_VOTERS = 12;
 

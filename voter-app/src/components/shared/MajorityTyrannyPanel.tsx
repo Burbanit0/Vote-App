@@ -15,7 +15,7 @@ import {
 } from 'recharts';
 import { apiPath } from '../../api/apiVersion';
 
-const API = process.env.REACT_APP_API_URL ?? 'http://localhost:4433';
+const API = process.env.REACT_APP_API_URL ?? 'http://localhost:4434';
 
 const ALL_RULES = [
   'simple_majority', 'supermajority_2_3', 'supermajority_3_4',

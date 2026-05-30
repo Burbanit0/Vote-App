@@ -7,6 +7,5 @@ exclude =
     node_modules,
     *.min.py,
     *.config.py,
-    migrations,
-    tests
+    tests,
     venv
