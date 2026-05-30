@@ -8,7 +8,7 @@ FastAPI side can import them without touching the Flask blueprint.
 When Phase 4 retires Flask, these aliases will be replaced with the
 canonical implementations moved here for real.
 """
-from app.routes.theory import (
+from api_v2.domain.theory.workers import (
     _agenda_manipulation_worker,
     _apportionment_worker,
     _arrow_worker,
