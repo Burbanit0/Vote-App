@@ -14,7 +14,7 @@ from __future__ import annotations
 from collections import Counter
 from typing import Any, Dict, List
 
-from app.constants import ECONOMY_ISSUES, ENV_ISSUES, SOCIAL_ISSUES
+from api_v2.engine.constants import ECONOMY_ISSUES, ENV_ISSUES, SOCIAL_ISSUES
 
 # Used to assign a party label deterministically by candidate index.
 PARTY_CYCLE: List[str] = ["Green", "Liberal", "Conservative", "Independent"]

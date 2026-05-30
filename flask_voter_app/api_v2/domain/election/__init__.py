@@ -14,7 +14,7 @@ When Phase 4 retires Flask, these aliases will be replaced with the
 canonical implementations moved here for real, and the corresponding
 Flask workers will be deleted.
 """
-from app.routes.election import (
+from api_v2.domain.election.workers import (
     _abstention_worker,
     _adaptive_worker,
     _affective_polarization_worker,
@@ -50,7 +50,7 @@ from app.routes.election import (
     _sortition_worker,
     _stv_worker,
 )
-from app.services.election_service import ElectionService
+from api_v2.domain.election.election_service import ElectionService
 
 
 def simulate(data: dict) -> tuple[dict, int]:

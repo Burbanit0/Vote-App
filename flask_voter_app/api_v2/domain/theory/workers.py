@@ -1093,7 +1093,7 @@ def _sen_paradox_worker(data: Dict[str, Any]) -> tuple[Dict[str, Any], int]:
 def _manipulation_analysis_worker(data: Dict[str, Any]) -> tuple[Dict[str, Any], int]:
     """Pure worker for /manipulation-analysis — extracted for FastAPI v2."""
     import copy as _cp_m  # noqa: F401  (kept for parity with original imports)
-    from app.routes.election import _build_base_electorate
+    from api_v2.domain.election.workers import _build_base_electorate
     from api_v2.engine.utils.simulation_ranked_utils import (
         get_plurality_winner as _plur,
         get_borda_winner     as _bord,
