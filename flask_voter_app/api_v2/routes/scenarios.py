@@ -15,7 +15,7 @@ from __future__ import annotations
 from fastapi import APIRouter, HTTPException, status
 from typing import List
 
-from app.schemas import (
+from api_v2.schemas import (
     ScenarioCreateRequest,
     ScenarioDetail,
     ScenarioSummary,

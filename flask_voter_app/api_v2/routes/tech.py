@@ -24,7 +24,7 @@ from app.routes.tech import (
     _polis_simulation_worker,
     _polis_with_candidates_worker,
 )
-from app.schemas import (
+from api_v2.schemas import (
     E2EDemoRequest,
     PolisSimulationRequest,
     PolisWithCandidatesRequest,

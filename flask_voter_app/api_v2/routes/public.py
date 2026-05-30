@@ -38,7 +38,7 @@ from app.routes.api_public import (
     _simulate_worker,
 )
 from api_v2.core.ratelimit import limiter
-from app.schemas import PublicCompareRequest, PublicSimulateRequest
+from api_v2.schemas import PublicCompareRequest, PublicSimulateRequest
 
 
 router = APIRouter(prefix="/api/v1", tags=["public-v1"])

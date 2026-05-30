@@ -31,7 +31,7 @@ from pydantic import BaseModel
 
 # Re-uses the Pydantic models defined in Phase 1. Single source of truth
 # shared with the Flask side via the openapi-typescript pipeline.
-from app.schemas import (
+from api_v2.schemas import (
     AbstentionRequest,
     AbstentionResponse,
     AdaptiveRequest,

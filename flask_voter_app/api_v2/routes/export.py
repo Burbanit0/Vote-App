@@ -22,7 +22,7 @@ from fastapi import APIRouter, Response
 from fastapi.responses import StreamingResponse
 
 from app.routes.export import _generate_rows, CSV_COLUMNS   # noqa: F401
-from app.schemas import (
+from api_v2.schemas import (
     ExportDatasetJSON,
     ExportDatasetMeta,
     ExportDatasetRequest,

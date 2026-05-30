@@ -62,7 +62,7 @@ from app.routes.simulation_compare import (
     _vote_steps_worker,
 )
 from app.routes.simulation_whatif import _what_if_worker
-from app.schemas import (
+from api_v2.schemas import (
     ArrowCriteriaRequest,
     BandwagonRequest,
     BlankContagionRequest,

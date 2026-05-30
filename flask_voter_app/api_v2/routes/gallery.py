@@ -15,7 +15,7 @@ from __future__ import annotations
 
 from fastapi import APIRouter, HTTPException, Query, status
 
-from app.schemas import (
+from api_v2.schemas import (
     GalleryCreateRequest,
     GalleryDetail,
     GalleryItem,

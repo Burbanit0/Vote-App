@@ -17,7 +17,7 @@ from __future__ import annotations
 
 from fastapi import APIRouter
 
-from app.schemas.auth import UserRead, UserUpdate
+from api_v2.schemas.auth import UserRead, UserUpdate
 from api_v2.core.users import fastapi_users
 
 router = APIRouter(prefix="/api/v2/users", tags=["users"])

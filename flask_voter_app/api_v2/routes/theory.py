@@ -16,7 +16,7 @@ from typing import Any, Callable, Dict
 from fastapi import APIRouter, HTTPException, status
 from pydantic import BaseModel
 
-from app.schemas import (
+from api_v2.schemas import (
     AgendaManipulationRequest,
     AgendaManipulationResponse,
     ApportionmentRequest,

@@ -8,7 +8,7 @@ the routes themselves are refactored in Phase 3 (extraction to FastAPI).
 import pytest
 from pydantic import ValidationError
 
-from app.schemas import (
+from api_v2.schemas import (
     AbstentionRequest,
     CampaignSensitivityRequest,
     CoalitionRequest,
@@ -16,7 +16,7 @@ from app.schemas import (
     SimulateRequest,
     SimulateResponse,
 )
-from app.schemas.common import (
+from api_v2.schemas.common import (
     BlankVoteConfig,
     CandidateSpec,
     ContagionConfig,
