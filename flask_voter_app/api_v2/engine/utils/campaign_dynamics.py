@@ -77,7 +77,7 @@ def _balloted_winner(
     per-voter noise) and apply the requested ranked voting method.
     Falls back to plurality on error.
     """
-    from app.utils.simulation_ranked_utils import (
+    from api_v2.engine.utils.simulation_ranked_utils import (
         get_plurality_winner,
         get_borda_winner,
         get_irv_winner,

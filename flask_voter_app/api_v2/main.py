@@ -26,7 +26,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from slowapi import _rate_limit_exceeded_handler
 from slowapi.errors import RateLimitExceeded
 
-from app.utils.logger import configure_logging, get_logger
+from api_v2.engine.utils.logger import configure_logging, get_logger
 from api_v2.core.config import get_settings
 from api_v2.core.ratelimit import limiter
 from api_v2.routes import auth as auth_routes

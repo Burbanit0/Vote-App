@@ -8,7 +8,7 @@ machine-parseable JSON in production. Use this instead of
 future FastAPI workers).
 
 Usage:
-    from app.utils.logger import get_logger
+    from api_v2.engine.utils.logger import get_logger
     log = get_logger(__name__)
 
     log.info("simulation.completed", method="irv", winner="Alice", duration_ms=237)

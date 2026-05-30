@@ -28,7 +28,7 @@ from typing import Any, Callable, Optional
 
 def _get_ranked_method(method_name: str) -> Optional[Callable[..., Optional[str]]]:
     """Return the winner function for a ranked-ballot method key, or None."""
-    from app.utils.simulation_ranked_utils import (
+    from api_v2.engine.utils.simulation_ranked_utils import (
         get_plurality_winner,
         get_borda_winner,
         get_irv_winner,

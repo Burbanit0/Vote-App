@@ -3,7 +3,7 @@ from collections import Counter
 import numpy as np
 from typing import Any, Dict, List, Optional, Tuple, Union
 
-from app.constants import DEFAULT_ISSUES
+from api_v2.engine.constants import DEFAULT_ISSUES
 
 from .demographic_data import (
     sample_age,
