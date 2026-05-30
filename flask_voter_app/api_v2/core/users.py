@@ -1,18 +1,18 @@
 """
-api_v2.core.users — fastapi-users wiring for the existing Flask User model.
+api_v2.core.users — fastapi-users wiring on the async DB layer (Phase 4.5.b.2).
 
-Bridges fastapi-users' async BaseUserDatabase to our sync Flask SQLAlchemy
-session via `run_in_flask_db` (introduced in Phase 4.2). No async engine,
-no model duplication — the same User row backs both `/api/*` and `/api/v2/*`.
+The user-database adapter now talks to the Flask-independent async SQLAlchemy
+session (`api_v2.db`) instead of the old `run_in_flask_db` Flask bridge. It stays
+a *custom* adapter (rather than the stock SQLAlchemyUserDatabase) because our
+table keeps legacy column names/extra columns: `password_hash` (exposed as the
+`hashed_password` attribute), `role` (kept in sync with `is_superuser`), and
+`google_id`/`github_id` columns instead of a separate oauth_accounts table.
 
 Exposed objects:
   - `fastapi_users` : the central FastAPIUsers wrapper used by routers
-  - `auth_backend`  : Bearer transport + HS256 JWT strategy (same secret
-                      as Flask-JWT-Extended, so tokens are interchangeable)
+  - `auth_backend`  : Bearer transport + HS256 JWT strategy (same secret as
+                      Flask-JWT-Extended, so tokens stay interchangeable)
   - `current_active_user` / `current_superuser` : route dependencies
-
-Phase 4.3.b: register / login / logout / verify routes.
-Phase 4.3.c: profile + admin CRUD on top of these primitives.
 """
 from __future__ import annotations
 
@@ -26,89 +26,73 @@ from fastapi_users.authentication import (
     JWTStrategy,
 )
 from fastapi_users.db import BaseUserDatabase
+from sqlalchemy import select
+from sqlalchemy.ext.asyncio import AsyncSession
 
 from api_v2.core.config import Settings, get_settings
-from api_v2.core.db import run_in_flask_db
+from api_v2.db import User
+from api_v2.db.session import get_async_session
 
 
 # ── User database adapter ──────────────────────────────────────────────────
 
-class FlaskUserDatabase(BaseUserDatabase):
-    """fastapi-users adapter on top of the Flask-SQLAlchemy session.
+class AsyncUserDatabase(BaseUserDatabase):
+    """fastapi-users adapter over an async SQLAlchemy session + our User model.
 
-    Every method runs the actual SQLAlchemy work in a worker thread with
-    a Flask app context active. The User model carries the
-    `hashed_password` Python alias defined in `app.models.User`, so
-    fastapi-users' attribute access works transparently.
+    The User model exposes `hashed_password` (mapped to the DB column
+    `password_hash`), so fastapi-users' attribute access is transparent.
     """
 
-    async def get(self, id: int) -> Optional[Any]:
-        def _q():
-            from app.models import User
-            return User.query.get(id)
-        return await run_in_flask_db(_q)
+    def __init__(self, session: AsyncSession) -> None:
+        self.session = session
 
-    async def get_by_email(self, email: str) -> Optional[Any]:
-        def _q():
-            from app.models import User
-            return User.query.filter_by(email=email).first()
-        return await run_in_flask_db(_q)
+    async def get(self, id: int) -> Optional[User]:
+        return await self.session.get(User, id)
 
-    async def get_by_oauth_account(self, oauth: str, account_id: str) -> Optional[Any]:
-        """We store OAuth IDs as columns (google_id / github_id) rather
-        than in a separate oauth_accounts table — keep the legacy
-        Flask-side semantics during the migration."""
-        column = f"{oauth}_id"
-        def _q():
-            from app.models import User
-            return User.query.filter_by(**{column: account_id}).first()
-        return await run_in_flask_db(_q)
+    async def get_by_email(self, email: str) -> Optional[User]:
+        result = await self.session.execute(select(User).where(User.email == email))
+        return result.scalar_one_or_none()
 
-    async def create(self, create_dict: dict[str, Any]) -> Any:
-        def _q():
-            from app import db
-            from app.models import User
-            user = User(**create_dict)
-            # fastapi-users supplies hashed_password — the alias takes care of
-            # writing to the actual column. Provide a non-null `role` default
-            # since the legacy column is still NOT NULL.
-            if "role" not in create_dict:
-                user.role = "Admin" if create_dict.get("is_superuser") else "User"
-            db.session.add(user)
-            db.session.commit()
-            db.session.refresh(user)
-            return user
-        return await run_in_flask_db(_q)
+    async def get_by_oauth_account(self, oauth: str, account_id: str) -> Optional[User]:
+        """OAuth ids live in columns (google_id / github_id), preserving the
+        legacy Flask-side semantics rather than a separate oauth_accounts table."""
+        column = getattr(User, f"{oauth}_id")
+        result = await self.session.execute(select(User).where(column == account_id))
+        return result.scalar_one_or_none()
 
-    async def update(self, user: Any, update_dict: dict[str, Any]) -> Any:
-        def _q():
-            from app import db
-            from app.models import User
-            # Re-attach the user to the current session, then apply updates.
-            attached = db.session.merge(user)
-            for key, value in update_dict.items():
-                setattr(attached, key, value)
-            # Keep the legacy `role` column in sync when admin status flips.
-            if "is_superuser" in update_dict:
-                attached.role = "Admin" if update_dict["is_superuser"] else "User"
-            db.session.commit()
-            db.session.refresh(attached)
-            return attached
-        return await run_in_flask_db(_q)
+    async def create(self, create_dict: dict[str, Any]) -> User:
+        # The legacy `role` column is still NOT NULL — default it from is_superuser.
+        if "role" not in create_dict:
+            create_dict = {
+                **create_dict,
+                "role": "Admin" if create_dict.get("is_superuser") else "User",
+            }
+        user = User(**create_dict)
+        self.session.add(user)
+        await self.session.commit()
+        await self.session.refresh(user)
+        return user
 
-    async def delete(self, user: Any) -> None:
-        def _q():
-            from app import db
-            attached = db.session.merge(user)
-            db.session.delete(attached)
-            db.session.commit()
-            return None
-        await run_in_flask_db(_q)
+    async def update(self, user: User, update_dict: dict[str, Any]) -> User:
+        for key, value in update_dict.items():
+            setattr(user, key, value)
+        # Keep the legacy `role` column in sync when admin status flips.
+        if "is_superuser" in update_dict:
+            user.role = "Admin" if update_dict["is_superuser"] else "User"
+        self.session.add(user)
+        await self.session.commit()
+        await self.session.refresh(user)
+        return user
+
+    async def delete(self, user: User) -> None:
+        await self.session.delete(user)
+        await self.session.commit()
 
 
-async def get_user_db() -> AsyncGenerator[FlaskUserDatabase, None]:
-    """fastapi-users dependency. Instantiated per request — cheap, no I/O."""
-    yield FlaskUserDatabase()
+async def get_user_db(
+    session: Annotated[AsyncSession, Depends(get_async_session)],
+) -> AsyncGenerator[AsyncUserDatabase, None]:
+    yield AsyncUserDatabase(session)
 
 
 # ── User manager ───────────────────────────────────────────────────────────
@@ -116,21 +100,20 @@ async def get_user_db() -> AsyncGenerator[FlaskUserDatabase, None]:
 class UserManager(IntegerIDMixin, BaseUserManager):
     """Lifecycle hooks for register / login / password reset / verify.
 
-    Secrets reuse `settings.jwt_secret_key` for the password-reset and
-    verification tokens so we don't introduce yet-another env var. Same
-    secret as the Bearer JWT below.
+    Reset + verification token secrets reuse `settings.jwt_secret_key` so we
+    don't introduce another env var — same secret as the Bearer JWT below.
     """
     reset_password_token_secret:  str = ""   # set in __init__
     verification_token_secret:    str = ""
 
-    def __init__(self, user_db: FlaskUserDatabase, settings: Settings) -> None:
+    def __init__(self, user_db: AsyncUserDatabase, settings: Settings) -> None:
         super().__init__(user_db)
         self.reset_password_token_secret = settings.jwt_secret_key
         self.verification_token_secret   = settings.jwt_secret_key
 
 
 async def get_user_manager(
-    user_db: Annotated[FlaskUserDatabase, Depends(get_user_db)],
+    user_db: Annotated[AsyncUserDatabase, Depends(get_user_db)],
     settings: Annotated[Settings, Depends(get_settings)],
 ) -> AsyncGenerator[UserManager, None]:
     yield UserManager(user_db, settings)
@@ -138,20 +121,15 @@ async def get_user_manager(
 
 # ── Auth backend ───────────────────────────────────────────────────────────
 
-# Token URL points at the fastapi-users login route we mount in
-# api_v2/routes/auth.py.
 _bearer_transport = BearerTransport(tokenUrl="/api/v2/auth/jwt/login")
 
 
 def _get_jwt_strategy(
     settings: Annotated[Settings, Depends(get_settings)],
 ) -> JWTStrategy:
-    """One-hour tokens, HS256, same secret as Flask-JWT-Extended so the
-    Phase 4.2 bridge stays valid for migrated routes."""
-    return JWTStrategy(
-        secret=settings.jwt_secret_key,
-        lifetime_seconds=3600,
-    )
+    """One-hour HS256 tokens, same secret as Flask-JWT-Extended so the
+    cross-backend token bridge stays valid."""
+    return JWTStrategy(secret=settings.jwt_secret_key, lifetime_seconds=3600)
 
 
 auth_backend = AuthenticationBackend(
@@ -168,6 +146,5 @@ fastapi_users = FastAPIUsers[Any, int](
     [auth_backend],
 )
 
-# Route dependencies — re-export the common ones for convenience.
 current_active_user = fastapi_users.current_user(active=True)
 current_superuser   = fastapi_users.current_user(active=True, superuser=True)

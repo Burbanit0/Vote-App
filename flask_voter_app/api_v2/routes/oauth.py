@@ -10,26 +10,32 @@ Token issuance reuses the fastapi-users JWT strategy from
 api_v2.core.users.auth_backend so tokens minted here are indistinguishable
 from /auth/jwt/login tokens.
 
-User account lookup/creation goes through the existing
-`UserService.social_login_or_register` helper (which already handles
-the google_id / github_id linking and email-based account merging),
-wrapped in `run_in_flask_db` to stay off the event loop.
+User account lookup/creation is handled inline by `_social_login` (the async
+port of the old `UserService.social_login_or_register`), which does google_id /
+github_id linking and email-based account merging on the async session.
 """
 from __future__ import annotations
 
+import random
+from types import SimpleNamespace
 from typing import Annotated, Any
 
 import httpx
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 from fastapi.responses import RedirectResponse
 from pydantic import BaseModel, ConfigDict, Field
+from sqlalchemy import select
+from sqlalchemy.ext.asyncio import AsyncSession
 
 from api_v2.core.config import Settings, get_settings
-from api_v2.core.db import run_in_flask_db
 from api_v2.core.users import auth_backend
+from api_v2.db import User
+from api_v2.db.session import get_async_session
 
 
 router = APIRouter(prefix="/api/v2/auth", tags=["auth"])
+
+DbSession = Annotated[AsyncSession, Depends(get_async_session)]
 
 
 # ── Shared helpers ─────────────────────────────────────────────────────────
@@ -39,32 +45,57 @@ class _GoogleTokenBody(BaseModel):
     token: str = Field(..., min_length=1, description="Google ID token from the JS SDK.")
 
 
-from types import SimpleNamespace
-
-
-async def _social_login(provider: str, provider_id: str, *,
+async def _social_login(db: AsyncSession, provider: str, provider_id: str, *,
                         email: str | None,
                         first_name: str | None,
                         last_name: str | None) -> SimpleNamespace:
-    """Find or create the user. Returns a session-independent snapshot —
-    the SQLAlchemy session that loaded the row is closed by the time
-    we mint the token, so we can't return the live ORM entity (lazy
-    loads would raise DetachedInstanceError). A SimpleNamespace is
-    enough for write_token() (which only reads `id`) and for our
-    response payload."""
-    def _q() -> SimpleNamespace:
-        from app.services.user_service import UserService
-        user, _is_new = UserService.social_login_or_register(
-            provider_id=provider_id, email=email,
-            first_name=first_name, last_name=last_name,
-            provider=provider,
+    """Find or create the user (async port of UserService.social_login_or_register).
+
+    Returns a session-independent snapshot — write_token() only reads `id`, and
+    the response payload needs a few scalar fields, so we avoid handing back a
+    live ORM entity that could lazy-load after the session closes.
+    """
+    id_field = f"{provider}_id"
+
+    # 1. Lookup by provider ID.
+    user = (await db.execute(
+        select(User).where(getattr(User, id_field) == provider_id)
+    )).scalar_one_or_none()
+
+    # 2. Lookup by email and link the provider ID.
+    if user is None and email:
+        user = (await db.execute(
+            select(User).where(User.email == email)
+        )).scalar_one_or_none()
+        if user is not None:
+            setattr(user, id_field, provider_id)
+
+    # 3. Create a new account.
+    if user is None:
+        base_username = email.split("@")[0] if email else f"user{provider_id[:8]}"
+        username = base_username
+        while (await db.execute(
+            select(User).where(User.username == username)
+        )).scalar_one_or_none() is not None:
+            username = f"{base_username}_{random.randint(1000, 9999)}"
+        effective_email = email or f"{username}@{provider}.vote-app.local"
+        user = User(
+            username=username,
+            email=effective_email,
+            first_name=first_name,
+            last_name=last_name,
+            role="User",
+            hashed_password="*",   # unusable password — OAuth-only account
+            **{id_field: provider_id},
         )
-        return SimpleNamespace(
-            id=user.id, username=user.username, email=user.email,
-            role=user.role, first_name=user.first_name,
-            last_name=user.last_name,
-        )
-    return await run_in_flask_db(_q)
+        db.add(user)
+
+    await db.commit()
+    await db.refresh(user)
+    return SimpleNamespace(
+        id=user.id, username=user.username, email=user.email,
+        role=user.role, first_name=user.first_name, last_name=user.last_name,
+    )
 
 
 async def _issue_token(user: SimpleNamespace, settings: Settings) -> str:
@@ -97,6 +128,7 @@ def _user_payload(user: SimpleNamespace, access_token: str) -> dict:
 async def google_login(
     body: _GoogleTokenBody,
     settings: Annotated[Settings, Depends(get_settings)],
+    db: DbSession,
 ) -> dict:
     """The Google Sign-In SDK on the frontend produces a JWT-encoded ID
     token. We verify it against Google's public keys (via the official
@@ -123,7 +155,7 @@ async def google_login(
         ) from exc
 
     user = await _social_login(
-        "google", provider_id=info["sub"],
+        db, "google", provider_id=info["sub"],
         email=info.get("email"),
         first_name=info.get("given_name", ""),
         last_name=info.get("family_name", ""),
@@ -166,6 +198,7 @@ async def github_redirect(
 )
 async def github_callback(
     settings: Annotated[Settings, Depends(get_settings)],
+    db: DbSession,
     code: Annotated[str | None, Query(description="Authorization code from GitHub.")] = None,
 ) -> RedirectResponse:
     """Exchange the OAuth code for a GitHub access token, fetch the user
@@ -222,7 +255,7 @@ async def github_callback(
                     break
 
     user = await _social_login(
-        "github", provider_id=github_id,
+        db, "github", provider_id=github_id,
         email=email or None, first_name=first_name, last_name=last_name,
     )
     token = await _issue_token(user, settings)

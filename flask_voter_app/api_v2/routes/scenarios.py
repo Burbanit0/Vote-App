@@ -1,32 +1,31 @@
 """
-api_v2/routes/scenarios.py — Saved-simulation CRUD.
+api_v2/routes/scenarios.py — Saved-simulation CRUD (async, Phase 4.5.b.2).
 
-Mirrors the Flask blueprint in `app/routes/scenarios.py` route-for-route.
-JWT auth is validated by `api_v2.core.auth.current_user_id`, which
-accepts the same Bearer tokens issued by Flask-JWT-Extended on the
-Flask side. DB access goes through `api_v2.core.db.run_in_flask_db`
-so we reuse the existing `SimulationScenario` model.
-
-When Phase 4.3 migrates auth to fastapi-users and Phase 4.5 retires
-Flask, this file's imports change but the route shapes stay identical.
+JWT auth is validated by `api_v2.core.auth.current_user_id` (accepts tokens from
+both Flask-JWT-Extended and fastapi-users). Persistence uses the Flask-independent
+async SQLAlchemy layer in `api_v2.db` — no more `run_in_flask_db` bridge.
 """
 from __future__ import annotations
 
-from fastapi import APIRouter, HTTPException, status
-from typing import List
+from typing import Annotated, List, Optional
 
+from fastapi import APIRouter, Depends, HTTPException, status
+from sqlalchemy import select
+from sqlalchemy.ext.asyncio import AsyncSession
+
+from api_v2.core.auth import CurrentUserId
+from api_v2.db import SimulationScenario
+from api_v2.db.session import get_async_session
 from api_v2.schemas import (
     ScenarioCreateRequest,
     ScenarioDetail,
     ScenarioSummary,
 )
-from api_v2.core.auth import CurrentUserId
-from api_v2.core.db import run_in_flask_db
 
 router = APIRouter(prefix="/api/v2/scenarios", tags=["scenarios"])
 
+DbSession = Annotated[AsyncSession, Depends(get_async_session)]
 
-# ── GET / ───────────────────────────────────────────────────────────────────
 
 @router.get(
     "",
@@ -34,25 +33,15 @@ router = APIRouter(prefix="/api/v2/scenarios", tags=["scenarios"])
     summary="List the current user's saved scenarios",
     response_description="Most recently created first.",
 )
-async def list_scenarios(user_id: CurrentUserId) -> List[ScenarioSummary]:
-    """Returns the user's saved scenarios, newest first. Empty list for
-    new accounts."""
-    def _query() -> List[dict]:
-        from app import db                          # noqa: F401  (kept for clarity)
-        from app.models import SimulationScenario
-        scenarios = (
-            SimulationScenario.query
-            .filter_by(user_id=user_id)
-            .order_by(SimulationScenario.created_at.desc())
-            .all()
-        )
-        return [s.to_summary() for s in scenarios]
+async def list_scenarios(user_id: CurrentUserId, db: DbSession) -> List[ScenarioSummary]:
+    """Returns the user's saved scenarios, newest first. Empty list for new accounts."""
+    result = await db.execute(
+        select(SimulationScenario)
+        .where(SimulationScenario.user_id == user_id)
+        .order_by(SimulationScenario.created_at.desc())
+    )
+    return [ScenarioSummary.model_validate(s.to_summary()) for s in result.scalars()]
 
-    rows = await run_in_flask_db(_query)
-    return [ScenarioSummary.model_validate(r) for r in rows]
-
-
-# ── POST / ──────────────────────────────────────────────────────────────────
 
 @router.post(
     "",
@@ -64,27 +53,19 @@ async def list_scenarios(user_id: CurrentUserId) -> List[ScenarioSummary]:
 async def create_scenario(
     request: ScenarioCreateRequest,
     user_id: CurrentUserId,
+    db: DbSession,
 ) -> ScenarioDetail:
-    """Persists a config snapshot (and optionally cached results) under
-    the user's account."""
-    def _create() -> dict:
-        from app import db
-        from app.models import SimulationScenario
-        scenario = SimulationScenario(
-            user_id=user_id,
-            name=request.name,
-            config=request.config,
-            results=request.results,
-        )
-        db.session.add(scenario)
-        db.session.commit()
-        return scenario.to_detail()
+    """Persists a config snapshot (and optionally cached results) under the user's account."""
+    scenario = SimulationScenario(
+        user_id=user_id,
+        name=request.name,
+        config=request.config,
+        results=request.results,
+    )
+    db.add(scenario)
+    await db.commit()
+    return ScenarioDetail.model_validate(scenario.to_detail())
 
-    row = await run_in_flask_db(_create)
-    return ScenarioDetail.model_validate(row)
-
-
-# ── GET /{scenario_id} ──────────────────────────────────────────────────────
 
 @router.get(
     "/{scenario_id}",
@@ -95,27 +76,15 @@ async def create_scenario(
 async def get_scenario(
     scenario_id: int,
     user_id: CurrentUserId,
+    db: DbSession,
 ) -> ScenarioDetail:
-    """Per-user scoping is enforced in the WHERE clause — a user
-    asking for someone else's scenario gets 404, not 403, to avoid
-    leaking the existence of foreign ids."""
-    def _query() -> dict | None:
-        from app.models import SimulationScenario
-        scenario = SimulationScenario.query.filter_by(
-            id=scenario_id, user_id=user_id
-        ).first()
-        return scenario.to_detail() if scenario else None
+    """Per-user scoping is enforced in the WHERE clause — asking for someone
+    else's scenario gets 404, not 403, to avoid leaking foreign ids."""
+    scenario = await _owned_scenario(db, scenario_id, user_id)
+    if scenario is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Not found")
+    return ScenarioDetail.model_validate(scenario.to_detail())
 
-    row = await run_in_flask_db(_query)
-    if row is None:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="Not found",
-        )
-    return ScenarioDetail.model_validate(row)
-
-
-# ── DELETE /{scenario_id} ───────────────────────────────────────────────────
 
 @router.delete(
     "/{scenario_id}",
@@ -125,24 +94,24 @@ async def get_scenario(
 async def delete_scenario(
     scenario_id: int,
     user_id: CurrentUserId,
+    db: DbSession,
 ) -> dict:
     """Hard-deletes the row — same behaviour as the Flask side."""
-    def _delete() -> bool:
-        from app import db
-        from app.models import SimulationScenario
-        scenario = SimulationScenario.query.filter_by(
-            id=scenario_id, user_id=user_id
-        ).first()
-        if not scenario:
-            return False
-        db.session.delete(scenario)
-        db.session.commit()
-        return True
-
-    deleted = await run_in_flask_db(_delete)
-    if not deleted:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="Not found",
-        )
+    scenario = await _owned_scenario(db, scenario_id, user_id)
+    if scenario is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Not found")
+    await db.delete(scenario)
+    await db.commit()
     return {"message": "Deleted"}
+
+
+async def _owned_scenario(
+    db: AsyncSession, scenario_id: int, user_id: int
+) -> Optional[SimulationScenario]:
+    result = await db.execute(
+        select(SimulationScenario).where(
+            SimulationScenario.id == scenario_id,
+            SimulationScenario.user_id == user_id,
+        )
+    )
+    return result.scalar_one_or_none()
