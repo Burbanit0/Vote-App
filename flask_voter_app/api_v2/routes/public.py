@@ -30,7 +30,7 @@ from typing import Any, Callable, Dict, Tuple
 from fastapi import APIRouter, HTTPException, Request, status
 from pydantic import BaseModel
 
-from app.routes.api_public import (
+from api_v2.domain.public import (
     OPENAPI_SPEC,
     _compare_worker,
     _methods_payload,
