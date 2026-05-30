@@ -1,13 +1,14 @@
 /**
  * voter-app/src/api/ — generated API contract.
  *
- * `types.gen.ts` is produced by `npm run gen:api` from the backend's
- * Pydantic schemas (via flask_voter_app/scripts/gen_openapi.py +
- * openapi-typescript). DO NOT edit it by hand.
+ * `types.gen.ts` is produced by `npm run gen:api` from the FastAPI backend's
+ * OpenAPI schema (dumped offline by flask_voter_app/scripts/gen_openapi.py from
+ * the Pydantic models, then fed to openapi-typescript). DO NOT edit it by hand.
  *
  * Convenience re-exports below give human-friendly aliases so panels
  * don't have to spell out `components['schemas']['SimulateRequest']`
- * every time.
+ * every time. (Response aliases exist only for endpoints whose FastAPI route
+ * declares a `response_model`; passthrough-Dict routes have no response schema.)
  *
  * Workflow when the backend contract changes:
  *   cd flask_voter_app && python scripts/gen_openapi.py
