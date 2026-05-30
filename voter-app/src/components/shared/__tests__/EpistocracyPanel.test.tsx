@@ -1,10 +1,14 @@
 import React from 'react';
 import { render, screen, fireEvent, waitFor, act } from '@testing-library/react';
-import axios from 'axios';
+import { QueryClientProvider } from '@tanstack/react-query';
 import EpistocracyPanel from '../EpistocracyPanel';
+import { makeTestQueryClient } from '../../../test/queryWrapper';
 
-jest.mock('axios');
-const mockAxios = axios as jest.Mocked<typeof axios>;
+jest.mock('../../../api/client', () => ({
+  apiClient: { GET: jest.fn(), POST: jest.fn(), PUT: jest.fn(), DELETE: jest.fn(), PATCH: jest.fn() },
+  getAccessToken: jest.fn(() => null),
+}));
+const { apiClient } = jest.requireMock('../../../api/client') as { apiClient: { POST: jest.Mock } };
 
 jest.mock('react-i18next', () => ({
   useTranslation: () => ({
@@ -31,55 +35,54 @@ jest.mock('recharts', () => {
 // ── Mock data ─────────────────────────────────────────────────────────────────
 
 const MOCK_DATA = {
-  voter_competence_stats: {
-    mean:         0.60,
-    biased_mean:  0.53,
-    expert_count: 12,
-  },
+  voter_competence_stats: { mean: 0.60, biased_mean: 0.53, expert_count: 12 },
   results: {
     equal:                { winner: 'B', bayesian_regret: 0.35, correct_choice_pct: 0.60, participates_pct: 1.00 },
     competence_weighted:  { winner: 'B', bayesian_regret: 0.28, correct_choice_pct: 0.68, participates_pct: 1.00 },
     epistocratic:         { winner: 'B', bayesian_regret: 0.20, correct_choice_pct: 0.78, participates_pct: 0.25 },
     lottery:              { winner: 'B', bayesian_regret: 0.45, correct_choice_pct: 0.55, participates_pct: 1.00 },
   },
-  democracy_vs_expert: {
-    democracy_regret:  0.35,
-    expert_regret:     0.18,
-    omniscient_regret: 0.00,
-  },
+  democracy_vs_expert: { democracy_regret: 0.35, expert_regret: 0.18, omniscient_regret: 0.00 },
   condorcet_threshold: 0.5,
   pedagogical_note:    'Brennan 2016: against democracy.',
 };
 
 const BELOW_RANDOM_DATA = {
   ...MOCK_DATA,
-  voter_competence_stats: {
-    mean: 0.35, biased_mean: 0.28, expert_count: 2,
-  },
+  voter_competence_stats: { mean: 0.35, biased_mean: 0.28, expert_count: 2 },
 };
 
+/** openapi-fetch resolves to { data, error }. */
+const ok = (d: unknown) => ({ data: d, error: undefined });
+
+function renderPanel() {
+  return render(
+    <QueryClientProvider client={makeTestQueryClient()}>
+      <EpistocracyPanel />
+    </QueryClientProvider>
+  );
+}
+
 async function renderAndRun(responseData = MOCK_DATA) {
-  mockAxios.post.mockResolvedValueOnce({ data: responseData });
-  render(<EpistocracyPanel />);
+  apiClient.POST.mockResolvedValueOnce(ok(responseData));
+  renderPanel();
   await act(async () => { fireEvent.click(screen.getByTestId('run-btn')); });
-  await waitFor(() => expect(mockAxios.post).toHaveBeenCalledTimes(1));
-  await act(async () => {});
+  await waitFor(() => expect(apiClient.POST).toHaveBeenCalledTimes(1));
+  await screen.findByTestId('comparison-badges');
 }
 
 // ── Tests ─────────────────────────────────────────────────────────────────────
 
 describe('EpistocracyPanel', () => {
-  beforeEach(() => jest.resetAllMocks());
-
-  // ── Initial render ──────────────────────────────────────────────────────────
+  beforeEach(() => jest.clearAllMocks());
 
   it('renders Caplan quote on mount', () => {
-    render(<EpistocracyPanel />);
+    renderPanel();
     expect(screen.getByTestId('caplan-quote')).toBeInTheDocument();
   });
 
   it('renders all controls', () => {
-    render(<EpistocracyPanel />);
+    renderPanel();
     expect(screen.getByTestId('run-btn')).toBeInTheDocument();
     expect(screen.getByTestId('voters-input')).toBeInTheDocument();
     expect(screen.getByTestId('seed-input')).toBeInTheDocument();
@@ -91,28 +94,27 @@ describe('EpistocracyPanel', () => {
   });
 
   it('renders competence histogram on mount', () => {
-    render(<EpistocracyPanel />);
+    renderPanel();
     expect(screen.getByTestId('histogram-section')).toBeInTheDocument();
     expect(screen.getByTestId('competence-histogram')).toBeInTheDocument();
   });
 
   it('shows prompt alert before simulation', () => {
-    render(<EpistocracyPanel />);
+    renderPanel();
     expect(screen.getByTestId('prompt-alert')).toBeInTheDocument();
   });
 
   it('has three distribution options in select', () => {
-    render(<EpistocracyPanel />);
+    renderPanel();
     const select = screen.getByTestId('dist-select') as HTMLSelectElement;
     expect(select.options).toHaveLength(3);
   });
 
-  // ── API call ────────────────────────────────────────────────────────────────
-
   it('calls API with correct payload on run', async () => {
     await renderAndRun();
-    const [url, payload] = mockAxios.post.mock.calls[0];
-    expect(url).toMatch(/\/api\/(v2\/)?theory\/epistocracy/);
+    const [url, init] = apiClient.POST.mock.calls[0];
+    expect(url).toBe('/api/v2/theory/epistocracy');
+    const payload = (init as { body: Record<string, unknown> }).body;
     expect(payload).toHaveProperty('num_voters');
     expect(payload).toHaveProperty('seed');
     expect(payload).toHaveProperty('voter_competence_distribution');
@@ -120,8 +122,6 @@ describe('EpistocracyPanel', () => {
     expect(payload).toHaveProperty('epistocracy_threshold');
     expect(payload).toHaveProperty('candidates');
   });
-
-  // ── Results ─────────────────────────────────────────────────────────────────
 
   it('renders comparison badges after simulation', async () => {
     await renderAndRun();
@@ -160,8 +160,6 @@ describe('EpistocracyPanel', () => {
     expect(screen.getByTestId('pedagogical-note')).toHaveTextContent('Brennan');
   });
 
-  // ── Below-random warning ────────────────────────────────────────────────────
-
   it('shows below-random alert when biased_mean < 0.5', async () => {
     await renderAndRun(BELOW_RANDOM_DATA);
     expect(screen.getByTestId('below-random-alert')).toBeInTheDocument();
@@ -172,23 +170,17 @@ describe('EpistocracyPanel', () => {
     expect(screen.queryByTestId('below-random-alert')).not.toBeInTheDocument();
   });
 
-  // ── Histogram updates with slider ───────────────────────────────────────────
-
   it('histogram stays visible when mean slider changes', () => {
-    render(<EpistocracyPanel />);
+    renderPanel();
     const slider = screen.getByTestId('comp-mean-slider');
     fireEvent.change(slider, { target: { value: '40' } });
     expect(screen.getByTestId('competence-histogram')).toBeInTheDocument();
   });
 
-  // ── Error handling ──────────────────────────────────────────────────────────
-
   it('shows error alert on API failure', async () => {
-    mockAxios.post.mockRejectedValueOnce(new Error('Network error'));
-    render(<EpistocracyPanel />);
+    apiClient.POST.mockRejectedValueOnce(new Error('Network error'));
+    renderPanel();
     await act(async () => { fireEvent.click(screen.getByTestId('run-btn')); });
-    await waitFor(() => expect(mockAxios.post).toHaveBeenCalled());
-    await act(async () => {});
-    expect(screen.getByTestId('error-alert')).toBeInTheDocument();
+    await waitFor(() => expect(screen.getByTestId('error-alert')).toBeInTheDocument());
   });
 });
