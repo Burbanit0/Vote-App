@@ -6,6 +6,11 @@ Winner Matrix, Metrics, Strategic Impact, Condorcet Matrix,
 Arrow Criteria, Sensitivity.
 
 All endpoints use the spatial utility pipeline.
+
+Phase 4.5.a.7: the request logic lives in framework-agnostic `_*_worker`
+functions (return `(body, status)`) so the FastAPI sibling
+(api_v2/routes/simulations.py) can reuse it. The Flask routes below are thin
+delegates kept as a rollback target.
 """
 from typing import Any, Dict, List, Optional, Tuple
 
@@ -32,32 +37,15 @@ from app.extensions import sim_limiter
 simulation_compare_bp = Blueprint("simulation_compare", __name__, url_prefix="/simulations")
 
 
-@simulation_compare_bp.route("/compare", methods=["POST"])
-@sim_limiter.limit("30 per minute")
-def compare_methods() -> tuple[Response, int]:
+# ── /simulations/compare ────────────────────────────────────────────────────
+
+def _compare_methods_worker(data: Dict[str, Any]) -> Tuple[Dict[str, Any], int]:
     """
     Run compare_all_methods on a fresh population and return per-method metrics.
 
-    Body: {
-        "num_voters":             int,
-        "ideology_distribution":  str,               // default "random"
-        "candidates":             [str|dict, ...],
-        "blank_vote":             bool,              // default false
-        "blank_rule":             str,               // "symbolic" | ...
-        "information_model": {                        // optional
-            "enabled":        bool,
-            "media_bias":     {"0": float, ...},     // candidate_idx → [-1, 1]
-            "voter_segments": {"low_info": float, "medium_info": float, "high_info": float}
-        }
-    }
-
-    When information_model.enabled=true, utilities are distorted before
-    voting.  The response includes:
-        information_model.sincere_winner   — plurality winner on TRUE utilities
-        information_model.perceived_winner — plurality winner on PERCEIVED utilities
-        information_model.information_gap  — mean absolute utility distortion
+    When information_model.enabled=true, utilities are distorted before voting
+    and the response includes sincere vs perceived winners + information_gap.
     """
-    data = request.get_json() or {}
     num_voters            = int(data.get("num_voters", 500))
     ideology_distribution = data.get("ideology_distribution", "random")
     raw_candidates        = data.get("candidates", ["Alice", "Bob", "Charlie"])
@@ -68,12 +56,12 @@ def compare_methods() -> tuple[Response, int]:
 
     candidate_configs = _parse_candidate_configs(raw_candidates)
     if len(candidate_configs) < 2:
-        return jsonify({"error": "At least 2 candidates required"}), 400
+        return {"error": "At least 2 candidates required"}, 400
 
     try:
         blank_rule = BlankVoteRule(blank_rule_str)
     except ValueError:
-        return jsonify({"error": f"Unknown blank_rule '{blank_rule_str}'"}), 400
+        return {"error": f"Unknown blank_rule '{blank_rule_str}'"}, 400
 
     try:
         voters, candidates, issues = _build_population(
@@ -155,26 +143,25 @@ def compare_methods() -> tuple[Response, int]:
                 )
                 method_data["blank_rule_applied"] = rule_result
 
-        return jsonify(result), 200
+        return result, 200
     except Exception as e:
-        return jsonify({"error": str(e)}), 500
+        return {"error": str(e)}, 500
 
 
-@simulation_compare_bp.route("/strategic-impact", methods=["POST"])
+@simulation_compare_bp.route("/compare", methods=["POST"])
 @sim_limiter.limit("30 per minute")
-def strategic_impact() -> tuple[Response, int]:
+def compare_methods() -> tuple[Response, int]:
+    body, status = _compare_methods_worker(request.get_json(silent=True) or {})
+    return jsonify(body), status
+
+
+# ── /simulations/strategic-impact ───────────────────────────────────────────
+
+def _strategic_impact_worker(data: Dict[str, Any]) -> Tuple[Dict[str, Any], int]:
     """
     Measure how bayesian_regret per method changes as the proportion of
     strategic voters increases.
-
-    Body: {
-        "num_voters": int,
-        "ideology_distribution": str,
-        "candidates": [str, ...] | [dict, ...],
-        "strategic_percentages": [0, 10, 20, 30, 40, 50]
-    }
     """
-    data = request.get_json() or {}
     num_voters = int(data.get("num_voters", 500))
     ideology_distribution = data.get("ideology_distribution", "random")
     raw_candidates = data.get("candidates", ["Alice", "Bob", "Charlie"])
@@ -182,7 +169,7 @@ def strategic_impact() -> tuple[Response, int]:
 
     candidate_configs = _parse_candidate_configs(raw_candidates)
     if len(candidate_configs) < 2:
-        return jsonify({"error": "At least 2 candidates required"}), 400
+        return {"error": "At least 2 candidates required"}, 400
 
     try:
         voters, candidates, issues = _build_population(candidate_configs, num_voters, ideology_distribution)
@@ -232,56 +219,58 @@ def strategic_impact() -> tuple[Response, int]:
             }
             results.append({"strategic_pct": pct, "methods": methods_regret})
 
-        return jsonify({"results": results}), 200
+        return {"results": results}, 200
     except Exception as e:
-        return jsonify({"error": str(e)}), 500
+        return {"error": str(e)}, 500
 
 
-@simulation_compare_bp.route("/condorcet-matrix", methods=["POST"])
+@simulation_compare_bp.route("/strategic-impact", methods=["POST"])
 @sim_limiter.limit("30 per minute")
-def condorcet_matrix_route() -> tuple[Response, int]:
-    """
-    Build the full pairwise duel matrix for a fresh population.
+def strategic_impact() -> tuple[Response, int]:
+    body, status = _strategic_impact_worker(request.get_json(silent=True) or {})
+    return jsonify(body), status
 
-    Body: { "num_voters": int, "ideology_distribution": str, "candidates": [...] }
-    """
-    data = request.get_json() or {}
+
+# ── /simulations/condorcet-matrix ───────────────────────────────────────────
+
+def _condorcet_matrix_worker(data: Dict[str, Any]) -> Tuple[Dict[str, Any], int]:
+    """Build the full pairwise duel matrix for a fresh population."""
     num_voters = int(data.get("num_voters", 500))
     ideology_distribution = data.get("ideology_distribution", "random")
     raw_candidates = data.get("candidates", ["Alice", "Bob", "Charlie"])
 
     candidate_configs = _parse_candidate_configs(raw_candidates)
     if len(candidate_configs) < 2:
-        return jsonify({"error": "At least 2 candidates required"}), 400
+        return {"error": "At least 2 candidates required"}, 400
 
     try:
         voters, candidates, issues = _build_population(candidate_configs, num_voters, ideology_distribution)
         result = get_condorcet_matrix(voters, candidates, issues)
-        return jsonify(result), 200
+        return result, 200
     except Exception as e:
-        return jsonify({"error": str(e)}), 500
+        return {"error": str(e)}, 500
 
 
-@simulation_compare_bp.route("/sensitivity", methods=["POST"])
+@simulation_compare_bp.route("/condorcet-matrix", methods=["POST"])
 @sim_limiter.limit("30 per minute")
-def sensitivity_analysis() -> tuple[Response, int]:
+def condorcet_matrix_route() -> tuple[Response, int]:
+    body, status = _condorcet_matrix_worker(request.get_json(silent=True) or {})
+    return jsonify(body), status
+
+
+# ── /simulations/sensitivity ────────────────────────────────────────────────
+
+def _sensitivity_worker(data: Dict[str, Any]) -> Tuple[Dict[str, Any], int]:
     """
     Vary one parameter and observe how winners and Bayesian regret change
     across all voting methods.
-
-    Body: {
-        "base_config": { "num_voters": int, "candidates": [...], "ideology_distribution": str },
-        "variable": "ideology_distribution" | "num_voters" | "strategic_pct",
-        "values": [value, ...]
-    }
     """
-    data = request.get_json() or {}
     base = data.get("base_config", {})
     variable = data.get("variable", "ideology_distribution")
     values = data.get("values", [])
 
     if not values:
-        return jsonify({"error": "No values provided"}), 400
+        return {"error": "No values provided"}, 400
 
     base_num_voters = int(base.get("num_voters", 500))
     base_ideology = base.get("ideology_distribution", "random")
@@ -289,7 +278,7 @@ def sensitivity_analysis() -> tuple[Response, int]:
     candidate_configs = _parse_candidate_configs(raw_candidates)
 
     if len(candidate_configs) < 2:
-        return jsonify({"error": "At least 2 candidates required"}), 400
+        return {"error": "At least 2 candidates required"}, 400
 
     results = []
     for value in values:
@@ -357,62 +346,51 @@ def sensitivity_analysis() -> tuple[Response, int]:
                 "error": str(exc),
             })
 
-    return jsonify({"variable": variable, "values": values, "results": results}), 200
+    return {"variable": variable, "values": values, "results": results}, 200
 
 
-@simulation_compare_bp.route("/arrow-criteria", methods=["POST"])
+@simulation_compare_bp.route("/sensitivity", methods=["POST"])
 @sim_limiter.limit("30 per minute")
-def arrow_criteria_route() -> tuple[Response, int]:
-    """
-    Empirically verify Arrow's impossibility theorem criteria.
+def sensitivity_analysis() -> tuple[Response, int]:
+    body, status = _sensitivity_worker(request.get_json(silent=True) or {})
+    return jsonify(body), status
 
-    Body: { "num_voters": int, "ideology_distribution": str, "candidates": [...] }
-    """
-    data = request.get_json() or {}
+
+# ── /simulations/arrow-criteria ─────────────────────────────────────────────
+
+def _arrow_criteria_worker(data: Dict[str, Any]) -> Tuple[Dict[str, Any], int]:
+    """Empirically verify Arrow's impossibility theorem criteria."""
     num_voters = int(data.get("num_voters", 300))
     ideology_distribution = data.get("ideology_distribution", "random")
     raw_candidates = data.get("candidates", ["Alice", "Bob", "Charlie"])
 
     candidate_configs = _parse_candidate_configs(raw_candidates)
     if len(candidate_configs) < 2:
-        return jsonify({"error": "At least 2 candidates required"}), 400
+        return {"error": "At least 2 candidates required"}, 400
 
     try:
         voters, candidates, issues = _build_population(candidate_configs, num_voters, ideology_distribution)
         result = check_all_criteria(voters, candidates, issues)
-        return jsonify(result), 200
+        return result, 200
     except Exception as e:
-        return jsonify({"error": str(e)}), 500
+        return {"error": str(e)}, 500
+
+
+@simulation_compare_bp.route("/arrow-criteria", methods=["POST"])
+@sim_limiter.limit("30 per minute")
+def arrow_criteria_route() -> tuple[Response, int]:
+    body, status = _arrow_criteria_worker(request.get_json(silent=True) or {})
+    return jsonify(body), status
 
 
 # ── /simulations/scenario ─────────────────────────────────────────────────
 
-@simulation_compare_bp.route("/scenario", methods=["POST"])
-@sim_limiter.limit("30 per minute")
-def run_scenario() -> tuple[Response, int]:
-    """
-    Run a citizen-configured scenario through voting methods with and without blank vote.
-
-    Body: {
-        "candidates": [
-            { "name": str, "ideology": float [-1,1],
-              "positions": {"economy": float, "environment": float, "social": float},
-              "is_blank": bool }
-        ],
-        "electorate": {
-            "num_voters": int,
-            "ideology_preset": "polarized"|"centrist"|"left"|"right"|"random",
-            "dissatisfaction_rate": float [0,1]
-        },
-        "blank_rule": str,
-        "methods": [str, ...]
-    }
-    """
-    data = request.get_json() or {}
-    candidates_raw    = data.get("candidates", [])
-    electorate        = data.get("electorate", {})
-    blank_rule_str    = data.get("blank_rule", BlankVoteRule.SYMBOLIC.value)
-    requested_methods = data.get("methods", _SCENARIO_METHODS)
+def _scenario_worker(data: Dict[str, Any]) -> Tuple[Dict[str, Any], int]:
+    """Run a citizen-configured scenario through voting methods with and without blank vote."""
+    candidates_raw    = data.get("candidates") or []
+    electorate        = data.get("electorate") or {}
+    blank_rule_str    = data.get("blank_rule") or BlankVoteRule.SYMBOLIC.value
+    requested_methods = data.get("methods") or _SCENARIO_METHODS
 
     num_voters           = max(10, int(electorate.get("num_voters", 500)))
     ideology_preset      = electorate.get("ideology_preset", "random")
@@ -422,7 +400,7 @@ def run_scenario() -> tuple[Response, int]:
     try:
         blank_rule = BlankVoteRule(blank_rule_str)
     except ValueError:
-        return jsonify({"error": f"Unknown blank_rule '{blank_rule_str}'"}), 400
+        return {"error": f"Unknown blank_rule '{blank_rule_str}'"}, 400
 
     # Build candidates from 3 user-defined issue positions
     issues = DEFAULT_ISSUES
@@ -454,7 +432,7 @@ def run_scenario() -> tuple[Response, int]:
         })
 
     if len(real_candidates) < 2:
-        return jsonify({"error": "At least 2 real candidates required"}), 400
+        return {"error": "At least 2 real candidates required"}, 400
 
     voters = [
         create_voter(issues, i, ideology_distribution=ideology_dist)
@@ -469,7 +447,7 @@ def run_scenario() -> tuple[Response, int]:
         result_no_blank   = compare_all_methods(voters, real_candidates, issues, blank_vote=False)
         result_with_blank = compare_all_methods(voters, real_candidates, issues, blank_vote=True)
     except Exception as e:
-        return jsonify({"error": f"Simulation failed: {e}"}), 500
+        return {"error": f"Simulation failed: {e}"}, 500
 
     blank_pct = result_with_blank.get("blank_pct", 0.0)
     for method_data in result_with_blank["methods"].values():
@@ -483,10 +461,17 @@ def run_scenario() -> tuple[Response, int]:
             "methods": {m: result["methods"][m] for m in requested_methods if m in result["methods"]},
         }
 
-    return jsonify({
+    return {
         "without_blank": _filter(result_no_blank),
         "with_blank":    {**_filter(result_with_blank), "blank_pct": blank_pct},
-    }), 200
+    }, 200
+
+
+@simulation_compare_bp.route("/scenario", methods=["POST"])
+@sim_limiter.limit("30 per minute")
+def run_scenario() -> tuple[Response, int]:
+    body, status = _scenario_worker(request.get_json(silent=True) or {})
+    return jsonify(body), status
 
 
 # ── /simulations/manipulability ──────────────────────────────────────────────
@@ -497,45 +482,21 @@ _MANIPULABILITY_METHODS = [
 ]
 
 
-@simulation_compare_bp.route("/manipulability", methods=["GET"])
-@sim_limiter.limit("30 per minute")
-def manipulability_analysis() -> tuple[Response, int]:
+def _manipulability_worker(params: Dict[str, Any]) -> Tuple[Dict[str, Any], int]:
     """
     Estimate the Gibbard-Satterthwaite manipulability index for multiple
-    voting methods on a synthetic population.
-
-    Query params:
-        num_candidates : int  (2–8,  default 4)
-        num_voters     : int  (50–2000, default 500)
-        methods        : str  comma-separated method keys or "all" (default)
-        num_trials     : int  voters sampled per method (default 200)
-        ideology       : str  ideology_distribution (default "random")
-
-    Response (200):
-    {
-        "num_candidates": 4,
-        "num_voters":     500,
-        "results": [
-            {
-                "method":               "plurality",
-                "manipulability_rate":  28.5,   // % of sampled voters
-                "average_gain":         1.2,    // average rank improvement
-                "num_manipulators":     57,
-                "num_sampled":          200,
-                "examples":             [...]
-            },
-            ...
-        ]   // sorted by manipulability_rate descending
-    }
+    voting methods on a synthetic population. `params` carries the (string or
+    typed) query parameters: num_candidates, num_voters, num_trials, ideology,
+    methods.
     """
     try:
-        num_candidates  = max(2, min(8,    int(request.args.get("num_candidates", 4))))
-        num_voters      = max(50, min(2000, int(request.args.get("num_voters",     500))))
-        num_trials_arg  = max(10, min(500,  int(request.args.get("num_trials",     200))))
-        ideology_dist   = request.args.get("ideology", "random")
-        methods_arg     = request.args.get("methods", "all")
+        num_candidates  = max(2, min(8,    int(params.get("num_candidates", 4))))
+        num_voters      = max(50, min(2000, int(params.get("num_voters",     500))))
+        num_trials_arg  = max(10, min(500,  int(params.get("num_trials",     200))))
+        ideology_dist   = params.get("ideology", "random") or "random"
+        methods_arg     = params.get("methods", "all") or "all"
     except (TypeError, ValueError) as e:
-        return jsonify({"error": f"Invalid query parameter: {e}"}), 400
+        return {"error": f"Invalid query parameter: {e}"}, 400
 
     # ── Build synthetic population ─────────────────────────────────────────
     _NAMES = ["Alice", "Bob", "Carol", "Dave", "Eve", "Frank", "Grace", "Hugo"]
@@ -550,7 +511,7 @@ def manipulability_analysis() -> tuple[Response, int]:
             candidate_configs, num_voters, ideology_dist
         )
     except Exception as exc:
-        return jsonify({"error": f"Population build failed: {exc}"}), 500
+        return {"error": f"Population build failed: {exc}"}, 500
 
     # ── Build sincere rankings ─────────────────────────────────────────────
     utilities: Dict[Any, Dict[str, float]] = {
@@ -566,12 +527,12 @@ def manipulability_analysis() -> tuple[Response, int]:
     ]
 
     # ── Select methods ─────────────────────────────────────────────────────
-    if methods_arg.strip().lower() == "all":
+    if str(methods_arg).strip().lower() == "all":
         target_methods = _MANIPULABILITY_METHODS
     else:
-        target_methods = [m.strip() for m in methods_arg.split(",") if m.strip()]
+        target_methods = [m.strip() for m in str(methods_arg).split(",") if m.strip()]
         if not target_methods:
-            return jsonify({"error": "No valid methods specified"}), 400
+            return {"error": "No valid methods specified"}, 400
 
     # ── Compute manipulability per method ──────────────────────────────────
     from app.utils.gibbard_satterthwaite import compute_manipulability_index
@@ -597,13 +558,20 @@ def manipulability_analysis() -> tuple[Response, int]:
         key=lambda r: (r.get("manipulability_rate") is None, -(r.get("manipulability_rate") or 0)),
     )
 
-    return jsonify({
+    return {
         "num_candidates": num_candidates,
         "num_voters":     num_voters,
         "ideology":       ideology_dist,
         "num_trials":     num_trials_arg,
         "results":        results,
-    }), 200
+    }, 200
+
+
+@simulation_compare_bp.route("/manipulability", methods=["GET"])
+@sim_limiter.limit("30 per minute")
+def manipulability_analysis() -> tuple[Response, int]:
+    body, status = _manipulability_worker(request.args.to_dict())
+    return jsonify(body), status
 
 
 # ── Vote-steps (step-by-step counting animation) ──────────────────────────────
@@ -760,25 +728,13 @@ def _schulze_matrices(
     return duel_pct, path_pct, winner
 
 
-@simulation_compare_bp.route("/vote-steps", methods=["POST"])
-@sim_limiter.limit("30 per minute")
-def vote_steps() -> tuple[Response, int]:
+def _vote_steps_worker(data: Dict[str, Any]) -> Tuple[Dict[str, Any], int]:
     """
-    POST /simulations/vote-steps
-
-    Returns per-step intermediate data for animating how a single method
-    counts the same set of ballots.
-
-    Body:
-        method    str   irv | borda | plurality | schulze | approval
-        num_voters int
-        candidates [str]
-        ideology   str
-        seed       int
+    Per-step intermediate data for animating how a single method counts the
+    same set of ballots.
     """
     from collections import Counter
 
-    data          = request.get_json() or {}
     method        = str(data.get("method",    "plurality")).lower()
     num_voters    = max(10, min(500, int(data.get("num_voters", 100))))
     # Align cap with /api/election/simulate (SINGLE_WINNER_CAP=8) so animation
@@ -804,9 +760,9 @@ def vote_steps() -> tuple[Response, int]:
             cand_positions.append(None)
 
     if len(raw_cands) < 2:
-        return jsonify({"error": "At least 2 candidates required"}), 400
+        return {"error": "At least 2 candidates required"}, 400
     if method not in _VOTE_STEPS_METHODS:
-        return jsonify({"error": f"method must be one of: {', '.join(sorted(_VOTE_STEPS_METHODS))}"}), 400
+        return {"error": f"method must be one of: {', '.join(sorted(_VOTE_STEPS_METHODS))}"}, 400
 
     _rng.seed(seed)
     _np.random.seed(seed)
@@ -861,23 +817,23 @@ def vote_steps() -> tuple[Response, int]:
         rankings.append(sorted(cand_names, key=lambda n: -utilities[vid][n]))
 
     if method == "irv":
-        return jsonify({"method": "irv", "rounds": _irv_steps(rankings, num_voters)}), 200
+        return {"method": "irv", "rounds": _irv_steps(rankings, num_voters)}, 200
 
     if method == "borda":
         steps, winner = _borda_steps(rankings)
-        return jsonify({"method": "borda", "num_candidates": len(cand_names),
-                        "steps": steps, "winner": winner}), 200
+        return {"method": "borda", "num_candidates": len(cand_names),
+                "steps": steps, "winner": winner}, 200
 
     if method == "plurality":
         fc: Counter[str] = Counter(r[0] for r in rankings if r)
         pct = {c: round(fc.get(c, 0) / num_voters, 4) for c in cand_names}
         winner_p: Optional[str] = max(pct, key=lambda k: pct[k]) if pct else None
-        return jsonify({"method": "plurality", "first_choices": pct, "winner": winner_p}), 200
+        return {"method": "plurality", "first_choices": pct, "winner": winner_p}, 200
 
     if method == "schulze":
         duel, path, winner_s = _schulze_matrices(rankings, cand_names)
-        return jsonify({"method": "schulze", "duel_matrix": duel,
-                        "path_matrix": path, "winner": winner_s}), 200
+        return {"method": "schulze", "duel_matrix": duel,
+                "path_matrix": path, "winner": winner_s}, 200
 
     # approval
     approval: Counter[str] = Counter()
@@ -889,8 +845,15 @@ def vote_steps() -> tuple[Response, int]:
                 approval[cname] += 1
     approval_pct = {c: round(approval.get(c, 0) / num_voters, 4) for c in cand_names}
     winner_a: Optional[str] = max(approval_pct, key=lambda k: approval_pct[k]) if approval_pct else None
-    return jsonify({"method": "approval", "threshold_used": threshold,
-                    "approval_scores": approval_pct, "winner": winner_a}), 200
+    return {"method": "approval", "threshold_used": threshold,
+            "approval_scores": approval_pct, "winner": winner_a}, 200
+
+
+@simulation_compare_bp.route("/vote-steps", methods=["POST"])
+@sim_limiter.limit("30 per minute")
+def vote_steps() -> tuple[Response, int]:
+    body, status = _vote_steps_worker(request.get_json(silent=True) or {})
+    return jsonify(body), status
 
 
 # ── Ideology map ──────────────────────────────────────────────────────────────
@@ -942,26 +905,13 @@ def _build_map_candidate(
     }
 
 
-@simulation_compare_bp.route("/ideology-map", methods=["POST"])
-@sim_limiter.limit("30 per minute")
-def ideology_map() -> tuple[Response, int]:
+def _ideology_map_worker(data: Dict[str, Any]) -> Tuple[Dict[str, Any], int]:
     """
-    POST /simulations/ideology-map
-
     Compute 2D ideological map: voters coloured by which method's winner
-    they prefer (method_a vs method_b).  Candidates are passed with explicit
-    (x, y) positions so the client can drag them and call this endpoint to
-    re-colour the voter dots without regenerating the electorate.
-
-    Body:
-        num_voters  int               [50, 500]
-        candidates  [{name, x, y}]    x/y in [-1, 1]
-        ideology    str               voter distribution
-        seed        int               fixes the electorate
-        method_a    str
-        method_b    str
+    they prefer (method_a vs method_b). Candidates carry explicit (x, y)
+    positions so the client can drag them and re-colour without regenerating
+    the electorate.
     """
-    data         = request.get_json() or {}
     num_voters   = max(10, min(500, int(data.get("num_voters",  200))))
     candidate_specs = data.get("candidates", [])
     ideology     = str(data.get("ideology",   "random"))
@@ -970,7 +920,7 @@ def ideology_map() -> tuple[Response, int]:
     method_b     = str(data.get("method_b",   "schulze"))
 
     if len(candidate_specs) < 2:
-        return jsonify({"error": "At least 2 candidates required"}), 400
+        return {"error": "At least 2 candidates required"}, 400
 
     # Seed both PRNGs so the electorate is deterministic
     _rng.seed(seed)
@@ -1031,7 +981,7 @@ def ideology_map() -> tuple[Response, int]:
     pct_a = round(prefers_a_count / num_voters, 4)
     pct_b = round(1.0 - pct_a, 4)
 
-    return jsonify({
+    return {
         "voters":     voter_data,
         "candidates": [
             {
@@ -1049,5 +999,11 @@ def ideology_map() -> tuple[Response, int]:
         "condorcet_winner":     condorcet_winner,
         "pct_better_off_with_a": pct_a,
         "pct_better_off_with_b": pct_b,
-    }), 200
+    }, 200
 
+
+@simulation_compare_bp.route("/ideology-map", methods=["POST"])
+@sim_limiter.limit("30 per minute")
+def ideology_map() -> tuple[Response, int]:
+    body, status = _ideology_map_worker(request.get_json(silent=True) or {})
+    return jsonify(body), status

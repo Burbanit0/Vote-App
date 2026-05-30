@@ -40,6 +40,20 @@ describe('apiPath', () => {
       'theory/identity-voting', 'theory/assumption-testing',
       'theory/collective-will',
       'scenarios',
+      'simulations', 'simulations/simulate_voters',
+      'simulations/simulate_candidates', 'simulations/get_closest_candidate',
+      'simulations/simulate_utility', 'simulations/calculate_utility',
+      'simulations/get_utility_matrix', 'simulations/get_voter_segments',
+      'simulations/what-if', 'simulations/campaign',
+      'simulations/compare', 'simulations/strategic-impact',
+      'simulations/condorcet-matrix', 'simulations/sensitivity',
+      'simulations/arrow-criteria', 'simulations/scenario',
+      'simulations/manipulability', 'simulations/vote-steps',
+      'simulations/ideology-map',
+      'simulations/bandwagon', 'simulations/monte-carlo',
+      'simulations/multiwinner', 'simulations/real-elections',
+      'simulations/blank-history', 'simulations/real-election',
+      'simulations/constitutional-scenario', 'simulations/blank-contagion',
     ]) {
       expect(apiPath(slug)).toBe(`/api/v2/${slug}`);
     }
@@ -83,8 +97,8 @@ describe('apiPath', () => {
 });
 
 describe('MIGRATED_ENDPOINTS registry', () => {
-  it('contains 35 election + 15 theory + scenarios — Phase 4.2 done', () => {
-    expect(MIGRATED_ENDPOINTS.size).toBe(51);
+  it('contains 35 election + 15 theory + scenarios + 27 /simulations', () => {
+    expect(MIGRATED_ENDPOINTS.size).toBe(78);
     for (const slug of [
       'election/simulate', 'election/combined-effects',
       'election/campaign-sensitivity', 'election/coalition',
@@ -113,6 +127,20 @@ describe('MIGRATED_ENDPOINTS registry', () => {
       'theory/identity-voting', 'theory/assumption-testing',
       'theory/collective-will',
       'scenarios',
+      'simulations', 'simulations/simulate_voters',
+      'simulations/simulate_candidates', 'simulations/get_closest_candidate',
+      'simulations/simulate_utility', 'simulations/calculate_utility',
+      'simulations/get_utility_matrix', 'simulations/get_voter_segments',
+      'simulations/what-if', 'simulations/campaign',
+      'simulations/compare', 'simulations/strategic-impact',
+      'simulations/condorcet-matrix', 'simulations/sensitivity',
+      'simulations/arrow-criteria', 'simulations/scenario',
+      'simulations/manipulability', 'simulations/vote-steps',
+      'simulations/ideology-map',
+      'simulations/bandwagon', 'simulations/monte-carlo',
+      'simulations/multiwinner', 'simulations/real-elections',
+      'simulations/blank-history', 'simulations/real-election',
+      'simulations/constitutional-scenario', 'simulations/blank-contagion',
     ]) {
       expect(MIGRATED_ENDPOINTS.has(slug)).toBe(true);
     }

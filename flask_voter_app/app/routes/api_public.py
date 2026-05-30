@@ -82,66 +82,50 @@ def _build_simple_population(
     return voters, candidates, issues
 
 
-def _err(msg: str, code: int = 400) -> tuple[Response, int]:
-    return jsonify({"error": msg}), code
+# ── Pure-compute workers (shared by Flask + the FastAPI /api/v1 router) ─────────
+#
+# Phase 4.5.a.4: the request-handling logic lives in these framework-agnostic
+# `_*_worker` / `_*_payload` functions so the FastAPI sibling (api_v2/routes/
+# public.py) can reuse it. The Flask routes below are thin delegates kept as a
+# rollback target until Flask is fully retired.
 
 
-# ── GET /api/v1/methods ───────────────────────────────────────────────────────
-
-@api_public_bp.route("/methods", methods=["GET"])
-def list_methods() -> tuple[Response, int]:
-    """
-    List all voting methods supported by the Vote Lab engine.
-
-    Returns a catalogue of 16+ methods with name, family, and academic reference.
-    """
-    family = request.args.get("family", "").strip().lower()
+def _methods_payload(family: str = "") -> dict[str, Any]:
+    """Build the GET /methods response body. `family` filters by method family."""
+    family = (family or "").strip().lower()
     methods = [
         {"key": k, **v}
         for k, v in METHODS_CATALOG.items()
         if not family or v["family"] == family
     ]
-    return jsonify({
-        "count":   len(methods),
-        "methods": methods,
+    return {
+        "count":    len(methods),
+        "methods":  methods,
         "families": sorted({v["family"] for v in METHODS_CATALOG.values()}),
-    }), 200
+    }
 
 
-# ── POST /api/v1/simulate ─────────────────────────────────────────────────────
-
-@api_public_bp.route("/simulate", methods=["POST"])
-@_api_limiter.limit("10 per minute")
-def simulate() -> tuple[Response, int]:
+def _simulate_worker(data: dict[str, Any]) -> tuple[dict[str, Any], int]:
     """
     Run a multi-method simulation on a synthetic population.
 
-    Body (JSON):
-        num_candidates      int   2–8      default 4
-        num_voters          int   50–2000  default 500
-        methods             list  subset of method keys, or "all"
-        ideology_distribution str default "random"
-
-    Returns:
-        condorcet_winner : str | null
-        methods          : { <key>: { winner, bayesian_regret, majority_satisfaction,
-                                      condorcet_consistent, strategic_vulnerability } }
+    `num_candidates` / `num_voters` are clamped silently (2–8 / 50–2000) so an
+    out-of-range value returns 200 with a capped run, not an error.
+    Returns (body, status_code).
     """
-    data = request.get_json() or {}
-
     try:
         num_candidates = max(2, min(8,    int(data.get("num_candidates", 4))))
         num_voters     = max(50, min(2000, int(data.get("num_voters", 500))))
         ideology       = str(data.get("ideology_distribution", "random"))
         methods_req    = data.get("methods", "all")
     except (TypeError, ValueError) as exc:
-        return _err(f"Invalid parameter: {exc}")
+        return {"error": f"Invalid parameter: {exc}"}, 400
 
     try:
         voters, candidates, issues = _build_simple_population(num_voters, num_candidates, ideology)
         result = compare_all_methods(voters, candidates, issues)
     except Exception as exc:
-        return _err(f"Simulation failed: {exc}", 500)
+        return {"error": f"Simulation failed: {exc}"}, 500
 
     # Filter requested methods
     if methods_req != "all" and isinstance(methods_req, list):
@@ -149,29 +133,16 @@ def simulate() -> tuple[Response, int]:
             k: v for k, v in result["methods"].items() if k in methods_req
         }
 
-    return jsonify(result), 200
+    return result, 200
 
 
-# ── POST /api/v1/compare ──────────────────────────────────────────────────────
-
-@api_public_bp.route("/compare", methods=["POST"])
-@_api_limiter.limit("5 per minute")
-def compare() -> tuple[Response, int]:
+def _compare_worker(data: dict[str, Any]) -> tuple[dict[str, Any], int]:
     """
-    Run a multi-method comparison with optional blank-vote rule.
-
-    Body (JSON):
-        num_candidates      int    2–8      default 4
-        num_voters          int    50–2000  default 500
-        blank_rule          str    symbolic|competitive|threshold_30|majority_required
-        methods             list   subset of method keys, or "all"
-        ideology_distribution str  default "random"
-
-    Returns same shape as /simulate, plus blank_pct when blank_vote is enabled.
+    Multi-method comparison with optional blank-vote rule. Same shape as
+    `_simulate_worker`, plus blank_pct + per-method blank_rule_applied when a
+    blank rule is set. Returns (body, status_code).
     """
     from app.utils.blank_vote_rules import BlankVoteRule, apply_blank_rule
-
-    data = request.get_json() or {}
 
     try:
         num_candidates = max(2, min(8,    int(data.get("num_candidates", 4))))
@@ -180,7 +151,7 @@ def compare() -> tuple[Response, int]:
         blank_rule_str = data.get("blank_rule", "")
         methods_req    = data.get("methods", "all")
     except (TypeError, ValueError) as exc:
-        return _err(f"Invalid parameter: {exc}")
+        return {"error": f"Invalid parameter: {exc}"}, 400
 
     blank_vote = bool(blank_rule_str)
     blank_rule = BlankVoteRule.SYMBOLIC
@@ -188,14 +159,16 @@ def compare() -> tuple[Response, int]:
         try:
             blank_rule = BlankVoteRule(blank_rule_str)
         except ValueError:
-            return _err(f"Unknown blank_rule '{blank_rule_str}'. "
-                        f"Options: {[r.value for r in BlankVoteRule]}")
+            return {
+                "error": f"Unknown blank_rule '{blank_rule_str}'. "
+                         f"Options: {[r.value for r in BlankVoteRule]}"
+            }, 400
 
     try:
         voters, candidates, issues = _build_simple_population(num_voters, num_candidates, ideology)
         result = compare_all_methods(voters, candidates, issues, blank_vote=blank_vote)
     except Exception as exc:
-        return _err(f"Simulation failed: {exc}", 500)
+        return {"error": f"Simulation failed: {exc}"}, 500
 
     if blank_vote:
         blank_pct = result.get("blank_pct", 0.0)
@@ -207,18 +180,11 @@ def compare() -> tuple[Response, int]:
     if methods_req != "all" and isinstance(methods_req, list):
         result["methods"] = {k: v for k, v in result["methods"].items() if k in methods_req}
 
-    return jsonify(result), 200
+    return result, 200
 
 
-# ── GET /api/v1/real-elections ────────────────────────────────────────────────
-
-@api_public_bp.route("/real-elections", methods=["GET"])
-def real_elections_public() -> tuple[Response, int]:
-    """
-    List all historical elections in the Vote Lab dataset.
-
-    Returns metadata + estimated blank vote percentages for each election.
-    """
+def _real_elections_payload() -> dict[str, Any]:
+    """Build the GET /real-elections response body."""
     from app.utils.real_election_data import REAL_ELECTIONS
 
     elections = []
@@ -233,10 +199,51 @@ def real_elections_public() -> tuple[Response, int]:
             "source":               data.get("source", ""),
         })
 
-    return jsonify({
-        "count":     len(elections),
-        "elections": elections,
-    }), 200
+    return {"count": len(elections), "elections": elections}
+
+
+# ── GET /api/v1/methods ───────────────────────────────────────────────────────
+
+@api_public_bp.route("/methods", methods=["GET"])
+def list_methods() -> tuple[Response, int]:
+    """
+    List all voting methods supported by the Vote Lab engine.
+
+    Returns a catalogue of 16+ methods with name, family, and academic reference.
+    """
+    return jsonify(_methods_payload(request.args.get("family", ""))), 200
+
+
+# ── POST /api/v1/simulate ─────────────────────────────────────────────────────
+
+@api_public_bp.route("/simulate", methods=["POST"])
+@_api_limiter.limit("10 per minute")
+def simulate() -> tuple[Response, int]:
+    """Run a multi-method simulation on a synthetic population."""
+    body, status = _simulate_worker(request.get_json() or {})
+    return jsonify(body), status
+
+
+# ── POST /api/v1/compare ──────────────────────────────────────────────────────
+
+@api_public_bp.route("/compare", methods=["POST"])
+@_api_limiter.limit("5 per minute")
+def compare() -> tuple[Response, int]:
+    """Run a multi-method comparison with optional blank-vote rule."""
+    body, status = _compare_worker(request.get_json() or {})
+    return jsonify(body), status
+
+
+# ── GET /api/v1/real-elections ────────────────────────────────────────────────
+
+@api_public_bp.route("/real-elections", methods=["GET"])
+def real_elections_public() -> tuple[Response, int]:
+    """
+    List all historical elections in the Vote Lab dataset.
+
+    Returns metadata + estimated blank vote percentages for each election.
+    """
+    return jsonify(_real_elections_payload()), 200
 
 
 # ── GET /api/v1/openapi.json ──────────────────────────────────────────────────

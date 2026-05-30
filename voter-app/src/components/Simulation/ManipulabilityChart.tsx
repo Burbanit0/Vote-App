@@ -17,6 +17,7 @@ import {
 import axios from 'axios';
 import { useExpertMode } from '../../context/ExpertModeContext';
 import { useMethodLabels } from './simulationConstants';
+import { apiPath } from '../../api/apiVersion';
 
 const API_BASE = process.env.VITE_API_URL || 'http://localhost:4433';
 
@@ -119,7 +120,7 @@ const ManipulabilityChart: React.FC<Props> = ({ baseParams }) => {
         methods:        'all',
       });
       const resp = await axios.get<{ results: ManipResult[] }>(
-        `${API_BASE}/simulations/manipulability?${params}`,
+        `${API_BASE}${apiPath('simulations/manipulability')}?${params}`,
       );
       setData(resp.data.results.filter((r) => r.manipulability_rate !== null));
     } catch (e: any) {

@@ -26,7 +26,7 @@ describe('simulationCompareApi', () => {
           irv: { winner: 'Alice', bayesian_regret: 0.05, condorcet_consistent: true, majority_satisfaction: 0.9, strategic_vulnerability: 0.1 },
         },
       };
-      mockAxios.onPost(`${BASE}/simulations/compare`).reply(200, response);
+      mockAxios.onPost(/\/api\/(v2\/)?simulations\/compare$/).reply(200, response);
       const result = await runComparisonSimulation({ num_voters: 100 });
       expect(result).toEqual(response);
       expect(result.methods).toHaveProperty('plurality');
@@ -42,7 +42,7 @@ describe('simulationCompareApi', () => {
           { strategic_pct: 50, methods: { plurality: 0.3, irv: 0.15 } },
         ],
       };
-      mockAxios.onPost(`${BASE}/simulations/strategic-impact`).reply(200, response);
+      mockAxios.onPost(/\/api\/(v2\/)?simulations\/strategic-impact$/).reply(200, response);
       const result = await runStrategicImpactAnalysis({ strategic_percentages: [0, 50] });
       expect(result).toHaveLength(2);
       expect(result[0]).toHaveProperty('strategic_pct', 0);
@@ -61,7 +61,7 @@ describe('simulationCompareApi', () => {
         condorcet_winner: 'Alice',
         condorcet_cycles: [],
       };
-      mockAxios.onPost(`${BASE}/simulations/condorcet-matrix`).reply(200, matrix);
+      mockAxios.onPost(/\/api\/(v2\/)?simulations\/condorcet-matrix$/).reply(200, matrix);
       const result = await getCondorcetMatrix({ candidates: ['Alice', 'Bob'] });
       expect(result).toEqual(matrix);
       expect(result.condorcet_winner).toBe('Alice');

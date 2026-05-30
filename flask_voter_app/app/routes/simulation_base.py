@@ -17,6 +17,8 @@ SPATIAL pipeline (simulation_voting_utils.py):
     POST /simulations/get_utility_matrix
     POST /simulations/get_voter_segments
 """
+from typing import Any, Dict
+
 from flask import Blueprint, request, jsonify, make_response
 
 # Legacy pipeline
@@ -45,17 +47,22 @@ from app.extensions import sim_limiter
 simulation_base_bp = Blueprint("simulation_base", __name__, url_prefix="/simulations")
 
 
-# ── [Legacy] Main form simulation — used by SimulationPage.tsx ───────────────
+# ── Pure-compute workers (shared by Flask + the FastAPI /api/v2/simulations router)
+#
+# Phase 4.5.a.5: the framework-agnostic `_*_worker(data) -> (body, status)`
+# functions hold all the logic so api_v2/routes/simulations.py can reuse them.
+# The Flask routes below are thin delegates kept as a rollback target.
 
-@simulation_base_bp.route("/", methods=["POST"])
-@sim_limiter.limit("30 per minute")
-def simulate_votes_route():
-    data = request.get_json()
+
+def _simulate_votes_worker(data: Dict[str, Any]) -> tuple[Dict[str, Any], int]:
+    """Legacy form-based simulation. Returns (body, status); the
+    X-Deprecation-Warning header is set by each HTTP adapter from
+    body['deprecation_warning']."""
     if not data:
-        return jsonify({"error": "Missing request body"}), 400
+        return {"error": "Missing request body"}, 400
     form_data = data.get("formData")
     if form_data is None:
-        return jsonify({"error": "Missing required parameters"}), 400
+        return {"error": "Missing required parameters"}, 400
 
     population_size = form_data.get("populationSize")
     candidates = form_data.get("candidates")
@@ -63,6 +70,9 @@ def simulate_votes_route():
     turnout_rate = form_data.get("turnoutRate")
     influence_weights = form_data.get("influenceWeights")
     simulation_type = form_data.get("simulationType")
+
+    # Accumulate the method winners here instead of introspecting locals().
+    winners: Dict[str, Any] = {}
 
     if "votes" in simulation_type:
         voters, votes, tally = simulate_voters(
@@ -72,29 +82,33 @@ def simulate_votes_route():
         voters_r, rankings, first_choice_tally = simulate_ranked_voters(
             population_size, candidates, demographics, influence_weights, turnout_rate
         )
-        condorcet_winner = get_condorcet_winner(rankings)
-        two_round_winner = get_two_round_winner(rankings)
-        borda_winner = get_borda_winner(rankings)
-        plurality_winner = get_plurality_winner(rankings)
-        approval_winner = get_approval_winner(rankings)
-        irv_winner = get_irv_winner(rankings)
-        coombs_winner = get_coombs_winner(rankings)
-        score_winner = get_positional_score_winner(rankings)
-        kemeny_young_winner = get_kemeny_young_winner(rankings)
-        bucklin_winner = get_bucklin_winner(rankings)
-        minimax_winner = get_minimax_winner(rankings)
-        schulze_winner = get_schulze_winner(rankings)
+        winners.update({
+            "condorcet_winner":    get_condorcet_winner(rankings),
+            "two_round_winner":    get_two_round_winner(rankings),
+            "borda_winner":        get_borda_winner(rankings),
+            "plurality_winner":    get_plurality_winner(rankings),
+            "approval_winner":     get_approval_winner(rankings),
+            "irv_winner":          get_irv_winner(rankings),
+            "coombs_winner":       get_coombs_winner(rankings),
+            "score_winner":        get_positional_score_winner(rankings),
+            "kemeny_young_winner": get_kemeny_young_winner(rankings),
+            "bucklin_winner":      get_bucklin_winner(rankings),
+            "minimax_winner":      get_minimax_winner(rankings),
+            "schulze_winner":      get_schulze_winner(rankings),
+        })
 
     elif "scores" in simulation_type:
         voters_n, all_scores, avg_scores = simulate_score_voters(
             population_size, candidates, demographics, influence_weights, turnout_rate
         )
-        mean_median_hybrid_winner = get_mean_median_hybrid_winner(all_scores)
-        median_voting_winner = get_median_voting_winner(all_scores)
-        score_distribution_analysis = get_score_distribution_analysis(all_scores)
-        simple_score_winner = get_simple_score_winner(all_scores)
-        star_voting_winner = get_star_voting_winner(all_scores)
-        variance_based_winner = get_variance_based_winner(all_scores)
+        winners.update({
+            "mean_median_hybrid_winner":   get_mean_median_hybrid_winner(all_scores),
+            "median_voting_winner":        get_median_voting_winner(all_scores),
+            "score_distribution_analysis": get_score_distribution_analysis(all_scores),
+            "simple_score_winner":         get_simple_score_winner(all_scores),
+            "star_voting_winner":          get_star_voting_winner(all_scores),
+            "variance_based_winner":       get_variance_based_winner(all_scores),
+        })
 
     deprecation_warning = (
         "This legacy endpoint will be removed in a future version. "
@@ -151,111 +165,85 @@ def simulate_votes_route():
             ],
         })
 
-    for name in [
-        "condorcet_winner", "two_round_winner", "borda_winner", "plurality_winner",
-        "approval_winner", "irv_winner", "coombs_winner", "score_winner",
-        "kemeny_young_winner", "bucklin_winner", "minimax_winner", "schulze_winner",
-        "mean_median_hybrid_winner", "median_voting_winner", "score_distribution_analysis",
-        "simple_score_winner", "star_voting_winner", "variance_based_winner",
-    ]:
-        if name in locals():
-            response[name] = locals()[name]
-
-    resp = make_response(jsonify(response), 200)
-    resp.headers["X-Deprecation-Warning"] = deprecation_warning
-    return resp
+    response.update(winners)
+    return response, 200
 
 
-@simulation_base_bp.route("/simulate_voters", methods=["POST"])
-@sim_limiter.limit("60 per minute")
-def simulate_voters_repartitions():
-    data = request.json
+def _simulate_voters_worker(data: Dict[str, Any]) -> tuple[Dict[str, Any], int]:
     num_voters = data.get("num_voters", 1000)
     issues = DEFAULT_ISSUES
     voters = [create_voter(issues, i) for i in range(num_voters)]
-    return jsonify({"voters": voters})
+    return {"voters": voters}, 200
 
 
-@simulation_base_bp.route("/simulate_candidates", methods=["POST"])
-@sim_limiter.limit("60 per minute")
-def simulate_candidates_repartitions():
-    data = request.json
+def _simulate_candidates_worker(data: Dict[str, Any]) -> tuple[Dict[str, Any], int]:
     num_candidates = data.get("num_candidates", 4)
-    issues = data.get("issues", DEFAULT_ISSUES)
+    issues = data.get("issues") or DEFAULT_ISSUES
     default_parties = ["Green", "Conservative", "Liberal", "Independent"]
-    parties = data.get("parties", default_parties)
+    parties = data.get("parties") or default_parties
     if num_candidates > len(parties):
-        parties *= num_candidates // len(parties) + 1
+        parties = parties * (num_candidates // len(parties) + 1)
     parties = parties[:num_candidates]
 
     candidates = [
         create_candidate(issues, i, f"Candidate {i+1} ({parties[i]})", parties[i])
         for i in range(num_candidates)
     ]
-    return jsonify({
+    return {
         "success": True,
         "candidates": candidates,
         "message": f"Successfully generated {num_candidates} candidates",
-    })
+    }, 200
 
 
-# ── [Legacy] 2-D spatial assignment — used by CandidatesVisualization.tsx ────
-
-@simulation_base_bp.route("/get_closest_candidate", methods=["POST"])
-@sim_limiter.limit("60 per minute")
-def get_closest_candidates():
-    data = request.get_json()
+def _closest_candidate_worker(data: Dict[str, Any]) -> tuple[Dict[str, Any], int]:
     candidates = data.get("candidates")
     voters = data.get("voters")
-    if voters is None or candidates is None:
-        return jsonify({"error": "Missing required parameters"}), 400
-    return jsonify({"result": assign_voters_to_candidates(voters, candidates)}), 200
+    if not voters or not candidates:
+        return {"error": "Missing required parameters"}, 400
+    return {"result": assign_voters_to_candidates(voters, candidates)}, 200
 
 
-@simulation_base_bp.route("/simulate_utility", methods=["POST"])
-@sim_limiter.limit("30 per minute")
-def simulate_utility():
+def _simulate_utility_worker(data: Dict[str, Any]) -> tuple[Dict[str, Any], int]:
     try:
-        data = request.json
         voters = data.get("voters")
         candidates = data.get("candidates")
-        issues = data.get("issues", DEFAULT_ISSUES)
+        issues = data.get("issues") or DEFAULT_ISSUES
         utility_results = [
             calculate_utility(voter, candidate, issues)
             for voter in voters
             for candidate in candidates
         ]
-        return jsonify({"success": True, "utility_results": utility_results})
+        return {"success": True, "utility_results": utility_results}, 200
     except Exception as e:
-        return jsonify({"success": False, "error": str(e), "message": "Failed to simulate utility scores"}), 500
+        return {"success": False, "error": str(e),
+                "message": "Failed to simulate utility scores"}, 500
 
 
-@simulation_base_bp.route("/calculate_utility", methods=["POST"])
-@sim_limiter.limit("60 per minute")
-def calculate_single_utility():
+def _calculate_utility_worker(data: Dict[str, Any]) -> tuple[Dict[str, Any], int]:
     try:
-        data = request.json
         voter = data.get("voter")
         candidate = data.get("candidate")
-        issues = data.get("issues", DEFAULT_ISSUES)
+        issues = data.get("issues") or DEFAULT_ISSUES
         if not voter or not candidate:
-            return jsonify({"success": False, "error": "Voter and candidate data are required"}), 400
+            return {"success": False,
+                    "error": "Voter and candidate data are required"}, 400
         result = calculate_utility(voter, candidate, issues)
-        return jsonify({"success": True, "result": result, "message": "Utility calculated successfully"})
+        return {"success": True, "result": result,
+                "message": "Utility calculated successfully"}, 200
     except Exception as e:
-        return jsonify({"success": False, "error": str(e), "message": "Failed to calculate utility"}), 500
+        return {"success": False, "error": str(e),
+                "message": "Failed to calculate utility"}, 500
 
 
-@simulation_base_bp.route("/get_utility_matrix", methods=["POST"])
-@sim_limiter.limit("30 per minute")
-def get_utility_matrix():
+def _utility_matrix_worker(data: Dict[str, Any]) -> tuple[Dict[str, Any], int]:
     try:
-        data = request.json
-        voters = data.get("voters", [])
-        candidates = data.get("candidates", [])
-        issues = data.get("issues", DEFAULT_ISSUES)
+        voters = data.get("voters") or []
+        candidates = data.get("candidates") or []
+        issues = data.get("issues") or DEFAULT_ISSUES
         if not voters or not candidates:
-            return jsonify({"success": False, "error": "Voters and candidates are required"}), 400
+            return {"success": False,
+                    "error": "Voters and candidates are required"}, 400
 
         matrix = []
         vote_counts = {candidate["id"]: 0 for candidate in candidates}
@@ -277,7 +265,7 @@ def get_utility_matrix():
             candidate["id"]: count / len(voters)
             for candidate, count in zip(candidates, vote_counts.values())
         }
-        return jsonify({
+        return {
             "success": True,
             "matrix": {
                 "voter_ids": [v["id"] for v in voters],
@@ -292,23 +280,23 @@ def get_utility_matrix():
                 },
             },
             "message": f"Utility matrix calculated for {len(voters)} voters and {len(candidates)} candidates",
-        })
+        }, 200
     except Exception as e:
-        return jsonify({"success": False, "error": str(e), "message": "Failed to calculate utility matrix"}), 500
+        return {"success": False, "error": str(e),
+                "message": "Failed to calculate utility matrix"}, 500
 
 
-@simulation_base_bp.route("/get_voter_segments", methods=["POST"])
-@sim_limiter.limit("30 per minute")
-def get_voter_segments():
+def _voter_segments_worker(data: Dict[str, Any]) -> tuple[Dict[str, Any], int]:
     try:
-        data = request.json
-        voters = data.get("voters", [])
-        candidates = data.get("candidates", [])
-        issues = data.get("issues", DEFAULT_ISSUES)
-        segment_types = data.get("segments", ["young_female", "old_male", "high_edu", "low_income", "urban", "rural"])
+        voters = data.get("voters") or []
+        candidates = data.get("candidates") or []
+        issues = data.get("issues") or DEFAULT_ISSUES
+        segment_types = data.get("segments") or [
+            "young_female", "old_male", "high_edu", "low_income", "urban", "rural"]
 
         if not voters or not candidates:
-            return jsonify({"success": False, "error": "Voters and candidates are required"}), 400
+            return {"success": False,
+                    "error": "Voters and candidates are required"}, 400
 
         segment_definitions = {
             "young_female": {"test": lambda v: v["age"] <= 30 and v["gender"] == "female", "label": "Jeunes femmes (18-30)"},
@@ -361,6 +349,69 @@ def get_voter_segments():
                 "utility_distribution": [round(u["utility"], 4) for u in segment_utilities],
             }
 
-        return jsonify({"success": True, "segments": segments, "message": f"Segment analysis completed for {len(segments)} segments"})
+        return {"success": True, "segments": segments,
+                "message": f"Segment analysis completed for {len(segments)} segments"}, 200
     except Exception as e:
-        return jsonify({"success": False, "error": str(e), "message": "Failed to calculate voter segments"}), 500
+        return {"success": False, "error": str(e),
+                "message": "Failed to calculate voter segments"}, 500
+
+
+# ── Flask routes — thin delegates to the workers above (rollback target) ──────
+
+@simulation_base_bp.route("/", methods=["POST"])
+@sim_limiter.limit("30 per minute")
+def simulate_votes_route():
+    body, status = _simulate_votes_worker(request.get_json(silent=True) or {})
+    resp = make_response(jsonify(body), status)
+    if "deprecation_warning" in body:
+        resp.headers["X-Deprecation-Warning"] = body["deprecation_warning"]
+    return resp
+
+
+@simulation_base_bp.route("/simulate_voters", methods=["POST"])
+@sim_limiter.limit("60 per minute")
+def simulate_voters_repartitions():
+    body, status = _simulate_voters_worker(request.get_json(silent=True) or {})
+    return jsonify(body), status
+
+
+@simulation_base_bp.route("/simulate_candidates", methods=["POST"])
+@sim_limiter.limit("60 per minute")
+def simulate_candidates_repartitions():
+    body, status = _simulate_candidates_worker(request.get_json(silent=True) or {})
+    return jsonify(body), status
+
+
+@simulation_base_bp.route("/get_closest_candidate", methods=["POST"])
+@sim_limiter.limit("60 per minute")
+def get_closest_candidates():
+    body, status = _closest_candidate_worker(request.get_json(silent=True) or {})
+    return jsonify(body), status
+
+
+@simulation_base_bp.route("/simulate_utility", methods=["POST"])
+@sim_limiter.limit("30 per minute")
+def simulate_utility():
+    body, status = _simulate_utility_worker(request.get_json(silent=True) or {})
+    return jsonify(body), status
+
+
+@simulation_base_bp.route("/calculate_utility", methods=["POST"])
+@sim_limiter.limit("60 per minute")
+def calculate_single_utility():
+    body, status = _calculate_utility_worker(request.get_json(silent=True) or {})
+    return jsonify(body), status
+
+
+@simulation_base_bp.route("/get_utility_matrix", methods=["POST"])
+@sim_limiter.limit("30 per minute")
+def get_utility_matrix():
+    body, status = _utility_matrix_worker(request.get_json(silent=True) or {})
+    return jsonify(body), status
+
+
+@simulation_base_bp.route("/get_voter_segments", methods=["POST"])
+@sim_limiter.limit("30 per minute")
+def get_voter_segments():
+    body, status = _voter_segments_worker(request.get_json(silent=True) or {})
+    return jsonify(body), status

@@ -44,6 +44,7 @@ fastapi==0.121.2
 uvicorn[standard]==0.40.0
 httpx==0.28.1                  # used by the FastAPI TestClient (pytest)
 pydantic-settings==2.12.0      # 12-factor env config for api_v2/core/config.py
+slowapi==0.1.9                 # per-IP rate limiting for the public /api/v1 surface (Phase 4.5.a.4)
 
 # Phase 4.3 — auth migration to FastAPI. fastapi-users provides JWT issuance,
 # password hashing (argon2/bcrypt via pwdlib), user-model abstractions; the

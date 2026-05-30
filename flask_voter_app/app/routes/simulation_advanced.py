@@ -5,11 +5,16 @@ Serves SimulationComparePage (/simulation/compare) tabs:
 Bandwagon, Monte Carlo, Multi-winner, Real Elections.
 
 All endpoints use the spatial utility pipeline.
+
+Phase 4.5.a.8: the request logic lives in framework-agnostic `_*_worker`
+functions (return `(body, status)`) so the FastAPI sibling
+(api_v2/routes/simulations.py) can reuse it. The Flask routes below are thin
+delegates kept as a rollback target.
 """
 import math
 from collections import defaultdict
 from concurrent.futures import ThreadPoolExecutor, as_completed
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List, Optional, Tuple
 
 from flask import Blueprint, Response, request, jsonify
 
@@ -31,23 +36,11 @@ from app.routes.simulation_helpers import (
 simulation_advanced_bp = Blueprint("simulation_advanced", __name__, url_prefix="/simulations")
 
 
-@simulation_advanced_bp.route("/bandwagon", methods=["POST"])
-@sim_limiter.limit("30 per minute")
-def bandwagon_route() -> tuple[Response, int]:
-    """
-    Simulate cascading social influence across N rounds and measure how
-    each voting method amplifies or resists bandwagon effects.
+# ── /simulations/bandwagon ──────────────────────────────────────────────────
 
-    Body: {
-        "num_voters": int,
-        "candidates": [str, ...] | [dict, ...],
-        "num_rounds": int,
-        "influence_strength": float,
-        "ideology_distribution": str,
-        "seed": int | null
-    }
-    """
-    data = request.get_json() or {}
+def _bandwagon_worker(data: Dict[str, Any]) -> Tuple[Dict[str, Any], int]:
+    """Cascading social influence across N rounds; measures how each method
+    amplifies or resists bandwagon effects."""
     num_voters         = int(data.get("num_voters", 300))
     num_rounds         = int(data.get("num_rounds", 5))
     influence_strength = float(data.get("influence_strength", 0.3))
@@ -57,7 +50,7 @@ def bandwagon_route() -> tuple[Response, int]:
 
     candidate_configs = _parse_candidate_configs(raw_candidates)
     if len(candidate_configs) < 2:
-        return jsonify({"error": "At least 2 candidates required"}), 400
+        return {"error": "At least 2 candidates required"}, 400
 
     try:
         _, candidates, issues = _build_population(candidate_configs, 0, ideology_dist)
@@ -70,26 +63,28 @@ def bandwagon_route() -> tuple[Response, int]:
             ideology_distribution=ideology_dist,
             seed=int(seed) if seed is not None else None,
         )
-        return jsonify(result), 200
+        return result, 200
     except Exception as e:
-        return jsonify({"error": str(e)}), 500
+        return {"error": str(e)}, 500
 
 
-@simulation_advanced_bp.route("/monte-carlo", methods=["POST"])
-@sim_limiter.limit("10 per minute")
-def monte_carlo_route() -> tuple[Response, int]:
+@simulation_advanced_bp.route("/bandwagon", methods=["POST"])
+@sim_limiter.limit("30 per minute")
+def bandwagon_route() -> tuple[Response, int]:
+    body, status = _bandwagon_worker(request.get_json(silent=True) or {})
+    return jsonify(body), status
+
+
+# ── /simulations/monte-carlo ────────────────────────────────────────────────
+
+def _monte_carlo_worker(data: Dict[str, Any]) -> Tuple[Dict[str, Any], int]:
     """
     Run compare_all_methods_mc() N times in parallel and aggregate
     statistical distributions for each voting method.
 
-    Body: {
-        "num_runs": int,              // default 100, max 500
-        "num_voters": int,            // per run, default 150
-        "candidates": [str|dict, ...],
-        "ideology_distribution": str
-    }
+    (Synchronous aggregation variant — distinct from the Socket.IO streaming
+    Monte Carlo migrated in Phase 4.4.)
     """
-    data           = request.get_json() or {}
     num_runs       = min(int(data.get("num_runs", 100)), 500)
     num_voters     = int(data.get("num_voters", 150))
     ideology_dist  = data.get("ideology_distribution", "random")
@@ -97,7 +92,7 @@ def monte_carlo_route() -> tuple[Response, int]:
 
     candidate_configs = _parse_candidate_configs(raw_candidates)
     if len(candidate_configs) < 2:
-        return jsonify({"error": "At least 2 candidates required"}), 400
+        return {"error": "At least 2 candidates required"}, 400
 
     def _single_run(_: Any) -> Dict[str, Any]:
         voters, candidates, issues = _build_population(candidate_configs, num_voters, ideology_dist)
@@ -192,7 +187,7 @@ def monte_carlo_route() -> tuple[Response, int]:
             for key in agreement_total if agreement_total[key] > 0
         }
 
-        return jsonify({
+        return {
             "num_runs":                     num_runs,
             "num_voters_per_run":           num_voters,
             "config": {
@@ -202,33 +197,31 @@ def monte_carlo_route() -> tuple[Response, int]:
             "methods":                      methods_stats,
             "condorcet_winner_exists_rate": round(condorcet_exists / num_runs, 4),
             "inter_method_agreement":       inter_agreement,
-        }), 200
+        }, 200
 
     except Exception as e:
-        return jsonify({"error": str(e)}), 500
+        return {"error": str(e)}, 500
 
 
-@simulation_advanced_bp.route("/multiwinner", methods=["POST"])
-@sim_limiter.limit("30 per minute")
-def multiwinner_route() -> tuple[Response, int]:
-    """
-    Compare proportional multi-winner methods on a given vote distribution.
+@simulation_advanced_bp.route("/monte-carlo", methods=["POST"])
+@sim_limiter.limit("10 per minute")
+def monte_carlo_route() -> tuple[Response, int]:
+    body, status = _monte_carlo_worker(request.get_json(silent=True) or {})
+    return jsonify(body), status
 
-    Body: {
-        "party_votes": {"Party A": 40, "Party B": 25, ...},
-        "num_seats": int,
-        "mode": "proportional" | "stv"
-    }
-    """
-    data        = request.get_json() or {}
-    party_votes = data.get("party_votes", {})
+
+# ── /simulations/multiwinner ────────────────────────────────────────────────
+
+def _multiwinner_worker(data: Dict[str, Any]) -> Tuple[Dict[str, Any], int]:
+    """Compare proportional multi-winner methods on a vote distribution."""
+    party_votes = data.get("party_votes") or {}
     num_seats   = int(data.get("num_seats", 10))
     mode        = data.get("mode", "proportional")
 
     if not party_votes:
-        return jsonify({"error": "party_votes is required"}), 400
+        return {"error": "party_votes is required"}, 400
     if num_seats < 1:
-        return jsonify({"error": "num_seats must be >= 1"}), 400
+        return {"error": "num_seats must be >= 1"}, 400
 
     try:
         voter_rankings = None
@@ -250,80 +243,89 @@ def multiwinner_route() -> tuple[Response, int]:
         )
         result["party_votes"] = {p: float(v) for p, v in party_votes.items()}
         result["num_seats"]   = num_seats
-        return jsonify(result), 200
+        return result, 200
     except Exception as e:
-        return jsonify({"error": str(e)}), 500
+        return {"error": str(e)}, 500
+
+
+@simulation_advanced_bp.route("/multiwinner", methods=["POST"])
+@sim_limiter.limit("30 per minute")
+def multiwinner_route() -> tuple[Response, int]:
+    body, status = _multiwinner_worker(request.get_json(silent=True) or {})
+    return jsonify(body), status
+
+
+# ── /simulations/real-elections (GET) ───────────────────────────────────────
+
+def _real_elections_list_worker(data: Dict[str, Any]) -> Tuple[Any, int]:
+    """Return the list of available historical elections (no input). The body
+    is a list (not a dict) — the only worker here that returns a non-dict."""
+    return list_elections(), 200
 
 
 @simulation_advanced_bp.route("/real-elections", methods=["GET"])
 @sim_limiter.limit("60 per minute")
 def real_elections_list() -> tuple[Response, int]:
-    """Return the list of available historical elections."""
-    return jsonify(list_elections()), 200
+    body, status = _real_elections_list_worker({})
+    return jsonify(body), status
+
+
+# ── /simulations/blank-history (GET) ─────────────────────────────────────────
+
+def _blank_history_worker(params: Dict[str, Any]) -> Tuple[Dict[str, Any], int]:
+    """Blank-vote time series for a country. 400 if missing, 404 if unknown."""
+    from app.utils.real_election_data import get_blank_history, list_blank_history_countries
+
+    country_key = str(params.get("country", "")).strip()
+
+    if not country_key:
+        return {
+            "error":     "Missing 'country' query parameter.",
+            "available": list_blank_history_countries(),
+        }, 400
+
+    data = get_blank_history(country_key)
+    if data is None:
+        return {
+            "error":     f"Unknown country '{country_key}'.",
+            "available": list_blank_history_countries(),
+        }, 404
+
+    return data, 200
 
 
 @simulation_advanced_bp.route("/blank-history", methods=["GET"])
 @sim_limiter.limit("60 per minute")
 def blank_history_route() -> tuple[Response, int]:
-    """
-    Return the blank-vote time series for a country.
-
-    Query params:
-        country : str  — "france" | "colombia" | "uruguay"
-
-    Response (200):
-    {
-        "country":      str,
-        "display_name": str,
-        "note":         str,
-        "series":       [{"year": int, "blank_pct": float, "context": str}, ...]
-    }
-
-    Returns 404 when the country key is not recognised.
-    """
-    from app.utils.real_election_data import get_blank_history, list_blank_history_countries
-
-    country_key = request.args.get("country", "").strip()
-
-    if not country_key:
-        return jsonify({
-            "error":     "Missing 'country' query parameter.",
-            "available": list_blank_history_countries(),
-        }), 400
-
-    data = get_blank_history(country_key)
-    if data is None:
-        return jsonify({
-            "error":     f"Unknown country '{country_key}'.",
-            "available": list_blank_history_countries(),
-        }), 404
-
-    return jsonify(data), 200
+    body, status = _blank_history_worker(request.args.to_dict())
+    return jsonify(body), status
 
 
-@simulation_advanced_bp.route("/real-election", methods=["POST"])
-@sim_limiter.limit("30 per minute")
-def real_election_analyze() -> tuple[Response, int]:
-    """
-    Analyse a real historical election under every voting method.
+# ── /simulations/real-election (POST) ────────────────────────────────────────
 
-    Body: { "election_name": str, "num_voters": int }
-    """
-    data          = request.get_json() or {}
+def _real_election_worker(data: Dict[str, Any]) -> Tuple[Dict[str, Any], int]:
+    """Analyse a real historical election under every voting method."""
     election_name = data.get("election_name", "")
     num_voters    = int(data.get("num_voters", 1000))
     blank_vote    = bool(data.get("blank_vote", False))
 
     if not election_name:
-        return jsonify({"error": "election_name is required"}), 400
+        return {"error": "election_name is required"}, 400
 
     try:
         result = analyze_real_election(election_name, num_voters, blank_vote=blank_vote)
-        return jsonify(result), 200
+        return result, 200
     except ValueError as e:
-        return jsonify({"error": str(e)}), 404
+        return {"error": str(e)}, 404
     except Exception as e:
-        return jsonify({"error": str(e)}), 500
+        return {"error": str(e)}, 500
+
+
+@simulation_advanced_bp.route("/real-election", methods=["POST"])
+@sim_limiter.limit("30 per minute")
+def real_election_analyze() -> tuple[Response, int]:
+    body, status = _real_election_worker(request.get_json(silent=True) or {})
+    return jsonify(body), status
 
 
 # ── /simulations/constitutional-scenario ──────────────────────────────────
@@ -372,28 +374,8 @@ def _conclude_dissolution(multi: Dict[str, Any], plural_winner: str, num_seats: 
             "illustrant comment la dissolution vers une assemblée proportionnelle redistribue le pouvoir.")
 
 
-@simulation_advanced_bp.route("/constitutional-scenario", methods=["POST"])
-@sim_limiter.limit("20 per minute")
-def constitutional_scenario() -> tuple[Response, int]:
-    """
-    Simulate the constitutional aftermath of a blank-vote victory.
-
-    Body: {
-        "initial_election": {
-            "candidates": [...],     // 3-issue frontend format
-            "electorate": {...},
-            "blank_rule": str        // default "competitive"
-        },
-        "blank_triggered": bool,
-        "scenario_type": "new_election" | "provisional" | "dissolution",
-        "params": {
-            // new_election: { "new_candidates": [...] }
-            // provisional:  { "provisional_duration": 3|6, "drift_magnitude": 0.05 }
-            // dissolution:  { "num_seats": 100 }
-        }
-    }
-    """
-    data          = request.get_json() or {}
+def _constitutional_scenario_worker(data: Dict[str, Any]) -> Tuple[Dict[str, Any], int]:
+    """Simulate the constitutional aftermath of a blank-vote victory."""
     initial       = data.get("initial_election", {})
     scenario_type = data.get("scenario_type", "new_election")
     params        = data.get("params", {})
@@ -409,7 +391,7 @@ def constitutional_scenario() -> tuple[Response, int]:
 
     real_candidates = _build_scenario_candidates(cands_raw, issues)
     if len(real_candidates) < 2:
-        return jsonify({"error": "At least 2 real candidates required"}), 400
+        return {"error": "At least 2 real candidates required"}, 400
 
     # ── Scenario A — New election ──────────────────────────────────────────
     if scenario_type == "new_election":
@@ -426,13 +408,13 @@ def constitutional_scenario() -> tuple[Response, int]:
         voters_r2 = _build_scenario_voters(electorate, issues, dissatisfaction_override=base_dissat * 0.5)
         r2 = _run_five_methods(voters_r2, new_candidates, issues, blank_vote=True, blank_rule=blank_rule)
 
-        return jsonify({
+        return {
             "scenario_type": "new_election",
             "round1": r1,
             "round2": r2,
             "round2_candidate_names": [c["name"] for c in new_candidates],
             "conclusion": _conclude_new_election(r1, r2, len(new_candidates)),
-        }), 200
+        }, 200
 
     # ── Scenario B — Provisional government ───────────────────────────────
     elif scenario_type == "provisional":
@@ -451,14 +433,14 @@ def constitutional_scenario() -> tuple[Response, int]:
 
         after = _run_five_methods(voters, real_candidates, issues, blank_vote=True, blank_rule=blank_rule)
 
-        return jsonify({
+        return {
             "scenario_type": "provisional",
             "before_drift":  before,
             "after_drift":   after,
             "drift_applied": drift,
             "duration":      duration,
             "conclusion":    _conclude_provisional(before, after, drift, duration),
-        }), 200
+        }, 200
 
     # ── Scenario C — Dissolution ───────────────────────────────────────────
     elif scenario_type == "dissolution":
@@ -483,7 +465,7 @@ def constitutional_scenario() -> tuple[Response, int]:
 
         plural_winner = initial_result["methods"].get("plurality", {}).get("winner")
 
-        return jsonify({
+        return {
             "scenario_type":   "dissolution",
             "initial_methods": initial_result,
             "multiwinner":     multi,
@@ -491,33 +473,24 @@ def constitutional_scenario() -> tuple[Response, int]:
             "party_votes":     party_votes,
             "num_seats":       num_seats,
             "conclusion":      _conclude_dissolution(multi, plural_winner or "?", num_seats),
-        }), 200
+        }, 200
 
     else:
-        return jsonify({"error": f"Unknown scenario_type '{scenario_type}'"}), 400
+        return {"error": f"Unknown scenario_type '{scenario_type}'"}, 400
+
+
+@simulation_advanced_bp.route("/constitutional-scenario", methods=["POST"])
+@sim_limiter.limit("20 per minute")
+def constitutional_scenario() -> tuple[Response, int]:
+    body, status = _constitutional_scenario_worker(request.get_json(silent=True) or {})
+    return jsonify(body), status
 
 
 # ── /simulations/blank-contagion ─────────────────────────────────────────────
 
-@simulation_advanced_bp.route("/blank-contagion", methods=["POST"])
-@sim_limiter.limit("20 per minute")
-def blank_contagion_route() -> tuple[Response, int]:
-    """
-    Run a SIS blank-vote contagion simulation.
-
-    Body: {
-        "num_voters":          int,    // 10 – 1 000 (default 300)
-        "initial_blank_rate":  float,  // 0 – 1     (default 0.1)
-        "contagion_rate":      float,  // β          (default 0.3)
-        "recovery_rate":       float,  // γ          (default 0.15)
-        "num_rounds":          int,    // 1 – 50    (default 15)
-        "network_type":        str,    // "random" | "clustered" | "small-world"
-        "seed":                int | null
-    }
-    """
+def _blank_contagion_worker(data: Dict[str, Any]) -> Tuple[Dict[str, Any], int]:
+    """Run a SIS blank-vote contagion simulation."""
     from app.utils.blank_contagion import simulate_blank_contagion
-
-    data = request.get_json() or {}
 
     try:
         num_voters         = max(10,  min(1_000, int(data.get("num_voters",         300))))
@@ -529,7 +502,7 @@ def blank_contagion_route() -> tuple[Response, int]:
         seed_raw           = data.get("seed")
         seed               = int(seed_raw) if seed_raw is not None else None
     except (TypeError, ValueError) as exc:
-        return jsonify({"error": f"Invalid parameter: {exc}"}), 400
+        return {"error": f"Invalid parameter: {exc}"}, 400
 
     try:
         result = simulate_blank_contagion(
@@ -541,8 +514,15 @@ def blank_contagion_route() -> tuple[Response, int]:
             network_type=network_type,
             seed=seed,
         )
-        return jsonify(result), 200
+        return result, 200
     except ValueError as exc:
-        return jsonify({"error": str(exc)}), 400
+        return {"error": str(exc)}, 400
     except Exception as exc:
-        return jsonify({"error": str(exc)}), 500
+        return {"error": str(exc)}, 500
+
+
+@simulation_advanced_bp.route("/blank-contagion", methods=["POST"])
+@sim_limiter.limit("20 per minute")
+def blank_contagion_route() -> tuple[Response, int]:
+    body, status = _blank_contagion_worker(request.get_json(silent=True) or {})
+    return jsonify(body), status

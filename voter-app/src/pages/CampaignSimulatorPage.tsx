@@ -16,6 +16,7 @@ import {
 import axios from 'axios';
 import { useMetaTags } from '../hooks/useMetaTags';
 import { CHART_COLORS_LIGHT } from '../constants/chartColors';
+import { apiPath } from '../api/apiVersion';
 
 const API_BASE = process.env.VITE_API_URL || 'http://localhost:4433';
 
@@ -224,7 +225,7 @@ const CampaignSimulatorPage: React.FC = () => {
         method,
         events: events.map(({ id: _id, ...ev }) => ev),
       };
-      const resp = await axios.post<CampaignResult>(`${API_BASE}/simulations/campaign`, payload);
+      const resp = await axios.post<CampaignResult>(`${API_BASE}${apiPath('simulations/campaign')}`, payload);
       setResult(resp.data);
       // Start animation automatically
       if (animSpeed > 0) setPlaying(true);

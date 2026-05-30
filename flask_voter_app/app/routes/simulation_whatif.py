@@ -79,53 +79,20 @@ def _build_what_if_population(
     return voters, candidates, issues
 
 
-@whatif_bp.route("/what-if", methods=["POST"])
-@sim_limiter.limit("20 per minute")
-def what_if() -> tuple[Response, int]:
-    """
-    Compare winners across methods while varying a single parameter.
-
-    Request body:
-    {
-        "base": {
-            "num_candidates": 4,
-            "num_voters":     1000,
-            "blank_rule":     "SYMBOLIC",
-            "ideology_distribution": "random"
-        },
-        "variant_param":  "num_voters",
-        "variant_values": [100, 500, 1000, 2000, 5000]   // max 10 values
-    }
-
-    Response:
-    {
-        "variant_param": "num_voters",
-        "results": [
-            {
-                "value": 100,
-                "condorcet_winner": "Alice",
-                "methods": {
-                    "plurality": {"winner": "Alice", "score": 42.5},
-                    "borda":     {"winner": "Bob",   "score": 58.3},
-                    ...
-                }
-            },
-            ...
-        ]
-    }
-    """
-    data = request.get_json() or {}
-    base           = data.get("base", {})
+def _what_if_worker(data: Dict[str, Any]) -> tuple[Dict[str, Any], int]:
+    """Compare winners across methods while varying a single parameter.
+    Pure-compute core shared by Flask + FastAPI. Returns (body, status)."""
+    base           = data.get("base") or {}
     variant_param  = str(data.get("variant_param", "num_voters"))
-    raw_values     = data.get("variant_values", [])
+    raw_values     = data.get("variant_values") or []
 
     # ── Validate ───────────────────────────────────────────────────────────
     if variant_param not in _VARIANT_PARAMS:
-        return jsonify({"error": f"Unknown variant_param '{variant_param}'. "
-                                  f"Allowed: {list(_VARIANT_PARAMS)}"}), 400
+        return {"error": f"Unknown variant_param '{variant_param}'. "
+                         f"Allowed: {list(_VARIANT_PARAMS)}"}, 400
 
     if not raw_values or len(raw_values) < 1:
-        return jsonify({"error": "variant_values must be a non-empty list"}), 400
+        return {"error": "variant_values must be a non-empty list"}, 400
 
     cast        = _VARIANT_PARAMS[variant_param]["cast"]
     values      = [cast(v) for v in raw_values[:10]]  # cap at 10
@@ -189,7 +156,13 @@ def what_if() -> tuple[Response, int]:
             "condorcet_winner": sim.get("condorcet_winner"),
         })
 
-    return jsonify({
-        "variant_param": variant_param,
-        "results":       results,
-    }), 200
+    return {"variant_param": variant_param, "results": results}, 200
+
+
+@whatif_bp.route("/what-if", methods=["POST"])
+@sim_limiter.limit("20 per minute")
+def what_if() -> tuple[Response, int]:
+    """Compare winners across methods while varying a single parameter.
+    Thin delegate to _what_if_worker (rollback target during the migration)."""
+    body, status = _what_if_worker(request.get_json(silent=True) or {})
+    return jsonify(body), status

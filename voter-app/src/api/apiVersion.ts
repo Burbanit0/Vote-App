@@ -88,6 +88,37 @@ export const MIGRATED_ENDPOINTS: ReadonlySet<string> = new Set([
   'theory/collective-will',
   // Phase 4.2 — saved-simulation CRUD
   'scenarios',
+  // Phase 4.5.a.5 — simulation_base (/simulations/* normalised under /api/v2)
+  'simulations',
+  'simulations/simulate_voters',
+  'simulations/simulate_candidates',
+  'simulations/get_closest_candidate',
+  'simulations/simulate_utility',
+  'simulations/calculate_utility',
+  'simulations/get_utility_matrix',
+  'simulations/get_voter_segments',
+  // Phase 4.5.a.6 — whatif + campaign
+  'simulations/what-if',
+  'simulations/campaign',
+  // Phase 4.5.a.7 — simulation_compare
+  'simulations/compare',
+  'simulations/strategic-impact',
+  'simulations/condorcet-matrix',
+  'simulations/sensitivity',
+  'simulations/arrow-criteria',
+  'simulations/scenario',
+  'simulations/manipulability',
+  'simulations/vote-steps',
+  'simulations/ideology-map',
+  // Phase 4.5.a.8 — simulation_advanced
+  'simulations/bandwagon',
+  'simulations/monte-carlo',
+  'simulations/multiwinner',
+  'simulations/real-elections',
+  'simulations/blank-history',
+  'simulations/real-election',
+  'simulations/constitutional-scenario',
+  'simulations/blank-contagion',
 ]);
 
 /** localStorage key for the rollback switch. Public so tests can clear it. */

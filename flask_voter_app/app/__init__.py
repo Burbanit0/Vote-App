@@ -152,11 +152,40 @@ def create_app(config_object="config.Config"):
 
     app.register_blueprint(users.auth_bp)
     app.register_blueprint(simulation_base.simulation_base_bp)
+    # Phase 4.5.a.5: rollback alias at /api/simulations/* matching apiPath('simulations/…')
+    # when the frontend falls back to v1 (the v2 router lives on FastAPI at
+    # /api/v2/simulations/*). The original /simulations/* prefix stays for the
+    # not-yet-migrated sibling blueprints (compare/advanced/whatif/campaign).
+    app.register_blueprint(
+        simulation_base.simulation_base_bp,
+        url_prefix="/api/simulations",
+        name="simulation_base_api",
+    )
     app.register_blueprint(simulation_compare.simulation_compare_bp)
+    # Phase 4.5.a.7: /api/simulations/* rollback alias for the compare blueprint.
+    app.register_blueprint(
+        simulation_compare.simulation_compare_bp,
+        url_prefix="/api/simulations", name="simulation_compare_api",
+    )
     app.register_blueprint(simulation_advanced.simulation_advanced_bp)
+    # Phase 4.5.a.8: /api/simulations/* rollback alias for the advanced blueprint.
+    app.register_blueprint(
+        simulation_advanced.simulation_advanced_bp,
+        url_prefix="/api/simulations", name="simulation_advanced_api",
+    )
     app.register_blueprint(scenarios.scenarios_bp)
     app.register_blueprint(simulation_whatif.whatif_bp)
     app.register_blueprint(simulation_campaign.campaign_bp)
+    # Phase 4.5.a.6: /api/simulations/* rollback aliases for what-if + campaign
+    # (mirror the simulation_base alias above; the v2 routers live on FastAPI).
+    app.register_blueprint(
+        simulation_whatif.whatif_bp,
+        url_prefix="/api/simulations", name="simulation_whatif_api",
+    )
+    app.register_blueprint(
+        simulation_campaign.campaign_bp,
+        url_prefix="/api/simulations", name="simulation_campaign_api",
+    )
     app.register_blueprint(api_public_bp)
     app.register_blueprint(gallery_bp)
     app.register_blueprint(export_bp)
