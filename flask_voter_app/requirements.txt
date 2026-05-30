@@ -1,72 +1,38 @@
-# Web framework
-Flask==3.1.3
-Flask-SQLAlchemy==3.1.1
-Flask-Cors==6.0.2
-Flask-Migrate==4.1.0
-Flask-Bcrypt==1.0.1
-Flask-JWT-Extended==4.7.3
-Flask-Limiter==4.1.1       # rate limiting on auth endpoints
-flask-openapi3==4.1.0      # OpenAPI 3.0 documentation generation
-flask-socketio==5.6.1      # WebSocket streaming for long simulations
-eventlet==0.40.3           # Async backend for flask-socketio — 0.40.3 fixes GHSA-hw6f-rjfj-j7j7
+# Vote Lab backend — FastAPI (Flask fully retired in Phase 4.5.b).
 
-# Flask transitive deps — pinned to resolve Dependabot CVEs:
-#   GHSA-68rp-wp8r-4726 (Flask), GHSA-87hc-h4r5-73f7 + GHSA-29vq-49wr-vm6x (Werkzeug),
-#   GHSA-cpwx-vrp4-4pq7 + GHSA-q2x7-8rv6-6q7h (Jinja2), GHSA-hw6f-rjfj-j7j7 (eventlet)
-Werkzeug==3.1.8
-Jinja2==3.1.6
-MarkupSafe==3.0.3
-
-# Database
-SQLAlchemy==2.0.41
-psycopg2-binary==2.9.10
-
-# Cache / queue
-redis==5.2.1
-
-# Utilities
-python-dotenv==1.1.1
-Faker==37.3.0
-
-# Structured logging (JSON output, replaces ad-hoc current_app.logger usage).
-# See app/utils/logger.py for setup.
-structlog==25.4.0
-
-# Pydantic v2 — phase 1 strategic refactor: typed HTTP schemas in app/schemas/.
-# Already pulled transitively by flask-openapi3 but pinned here so the
-# dependency is explicit (we use it directly in our schemas).
-pydantic==2.13.4
-
-# Phase 2 strategic refactor: FastAPI runs in parallel to Flask under api_v2/.
-# Each migrated endpoint is exposed at /api/v2/* and Flask retains /api/v1/*
-# (which is the default /api/* for now). uvicorn is the ASGI runtime.
+# ── Web framework (ASGI) ─────────────────────────────────────────────────────
 fastapi==0.121.2
 uvicorn[standard]==0.40.0
-httpx==0.28.1                  # used by the FastAPI TestClient (pytest)
-pydantic-settings==2.12.0      # 12-factor env config for api_v2/core/config.py
-slowapi==0.1.9                 # per-IP rate limiting for the public /api/v1 surface (Phase 4.5.a.4)
+python-socketio==5.13.0        # WebSocket streaming (AsyncServer mounted on FastAPI)
+slowapi==0.1.9                 # per-IP rate limiting for the public /api/v1 surface
+httpx==0.28.1                  # FastAPI TestClient + httpx-oauth
+pydantic==2.13.4
+pydantic-settings==2.12.0      # 12-factor env config for api/core/config.py
 
-# Phase 4.3 — auth migration to FastAPI. fastapi-users provides JWT issuance,
-# password hashing (argon2/bcrypt via pwdlib), user-model abstractions; the
-# SQLAlchemy extra ships the existing-table adapter we use to bolt onto our
-# Flask User. httpx-oauth covers the Google + GitHub OAuth flows.
-fastapi-users[sqlalchemy]==15.0.5
+# ── Auth ─────────────────────────────────────────────────────────────────────
+fastapi-users[sqlalchemy]==15.0.5   # JWT issuance + password hashing (pwdlib)
 httpx-oauth==0.17.0
-
-# Phase 4.5.b.2 — Flask-independent async data layer (api_v2/db). asyncpg drives
-# Postgres in prod; aiosqlite drives the in-memory test DB. Replaces the
-# Flask-SQLAlchemy models + run_in_flask_db bridge.
-asyncpg==0.30.0
-aiosqlite==0.21.0
-
-# OAuth
 google-auth==2.38.0
+bcrypt==4.2.1                  # verify legacy $2b$ password hashes
 
-# Data / science
+# ── Database (async) ─────────────────────────────────────────────────────────
+SQLAlchemy==2.0.41
+asyncpg==0.30.0                # Postgres driver (prod)
+aiosqlite==0.21.0             # SQLite driver (tests)
+
+# ── Cache ────────────────────────────────────────────────────────────────────
+redis==5.2.1
+
+# ── Utilities ────────────────────────────────────────────────────────────────
+python-dotenv==1.1.1
+structlog==25.4.0              # JSON structured logging (api/engine/utils/logger.py)
+
+# ── Data / science (the simulation engine) ───────────────────────────────────
 numpy==2.2.6
 scipy==1.15.3
 
-# Dev / test
+# ── Dev / test ───────────────────────────────────────────────────────────────
 flake8==7.2.0
 pytest==9.0.3
+pytest-asyncio==1.3.0
 pytest-cov==6.1.0
