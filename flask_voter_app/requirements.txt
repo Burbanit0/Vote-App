@@ -53,6 +53,12 @@ slowapi==0.1.9                 # per-IP rate limiting for the public /api/v1 sur
 fastapi-users[sqlalchemy]==15.0.5
 httpx-oauth==0.17.0
 
+# Phase 4.5.b.2 — Flask-independent async data layer (api_v2/db). asyncpg drives
+# Postgres in prod; aiosqlite drives the in-memory test DB. Replaces the
+# Flask-SQLAlchemy models + run_in_flask_db bridge.
+asyncpg==0.30.0
+aiosqlite==0.21.0
+
 # OAuth
 google-auth==2.38.0
 
