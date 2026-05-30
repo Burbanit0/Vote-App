@@ -44,6 +44,7 @@ describe('apiPath', () => {
       'simulations/simulate_candidates', 'simulations/get_closest_candidate',
       'simulations/simulate_utility', 'simulations/calculate_utility',
       'simulations/get_utility_matrix', 'simulations/get_voter_segments',
+      'simulations/what-if', 'simulations/campaign',
     ]) {
       expect(apiPath(slug)).toBe(`/api/v2/${slug}`);
     }
@@ -87,8 +88,8 @@ describe('apiPath', () => {
 });
 
 describe('MIGRATED_ENDPOINTS registry', () => {
-  it('contains 35 election + 15 theory + scenarios + 8 simulation_base', () => {
-    expect(MIGRATED_ENDPOINTS.size).toBe(59);
+  it('contains 35 election + 15 theory + scenarios + 10 /simulations', () => {
+    expect(MIGRATED_ENDPOINTS.size).toBe(61);
     for (const slug of [
       'election/simulate', 'election/combined-effects',
       'election/campaign-sensitivity', 'election/coalition',
@@ -121,6 +122,7 @@ describe('MIGRATED_ENDPOINTS registry', () => {
       'simulations/simulate_candidates', 'simulations/get_closest_candidate',
       'simulations/simulate_utility', 'simulations/calculate_utility',
       'simulations/get_utility_matrix', 'simulations/get_voter_segments',
+      'simulations/what-if', 'simulations/campaign',
     ]) {
       expect(MIGRATED_ENDPOINTS.has(slug)).toBe(true);
     }

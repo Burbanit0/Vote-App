@@ -39,8 +39,11 @@ from app.routes.simulation_base import (
     _utility_matrix_worker,
     _voter_segments_worker,
 )
+from app.routes.simulation_campaign import _campaign_worker
+from app.routes.simulation_whatif import _what_if_worker
 from app.schemas import (
     CalculateUtilityRequest,
+    CampaignRequest,
     ClosestCandidateRequest,
     LegacySimulateRequest,
     SimulateCandidatesRequest,
@@ -48,6 +51,7 @@ from app.schemas import (
     SimulateVotersRequest,
     UtilityMatrixRequest,
     VoterSegmentsRequest,
+    WhatIfRequest,
 )
 
 
@@ -145,3 +149,19 @@ async def get_utility_matrix(request: UtilityMatrixRequest) -> Dict[str, Any]:
 )
 async def get_voter_segments(request: VoterSegmentsRequest) -> Dict[str, Any]:
     return await _run_passthrough(_voter_segments_worker, request)
+
+
+@router.post(
+    "/what-if",
+    summary="Vary one parameter and compare method winners across values",
+)
+async def what_if(request: WhatIfRequest) -> Dict[str, Any]:
+    return await _run_passthrough(_what_if_worker, request)
+
+
+@router.post(
+    "/campaign",
+    summary="Day-by-day electoral campaign simulation",
+)
+async def campaign(request: CampaignRequest) -> Dict[str, Any]:
+    return await _run_passthrough(_campaign_worker, request)

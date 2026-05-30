@@ -166,6 +166,16 @@ def create_app(config_object="config.Config"):
     app.register_blueprint(scenarios.scenarios_bp)
     app.register_blueprint(simulation_whatif.whatif_bp)
     app.register_blueprint(simulation_campaign.campaign_bp)
+    # Phase 4.5.a.6: /api/simulations/* rollback aliases for what-if + campaign
+    # (mirror the simulation_base alias above; the v2 routers live on FastAPI).
+    app.register_blueprint(
+        simulation_whatif.whatif_bp,
+        url_prefix="/api/simulations", name="simulation_whatif_api",
+    )
+    app.register_blueprint(
+        simulation_campaign.campaign_bp,
+        url_prefix="/api/simulations", name="simulation_campaign_api",
+    )
     app.register_blueprint(api_public_bp)
     app.register_blueprint(gallery_bp)
     app.register_blueprint(export_bp)

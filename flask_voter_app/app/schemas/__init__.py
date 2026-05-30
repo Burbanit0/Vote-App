@@ -55,6 +55,7 @@ from .public_api import (
 )
 from .simulations import (
     CalculateUtilityRequest,
+    CampaignRequest,
     ClosestCandidateRequest,
     LegacySimulateRequest,
     SimulateCandidatesRequest,
@@ -62,6 +63,7 @@ from .simulations import (
     SimulateVotersRequest,
     UtilityMatrixRequest,
     VoterSegmentsRequest,
+    WhatIfRequest,
 )
 from .scenarios import (
     ScenarioCreateRequest,
@@ -180,6 +182,8 @@ __all__ = [
     "CalculateUtilityRequest", "ClosestCandidateRequest", "LegacySimulateRequest",
     "SimulateCandidatesRequest", "SimulateUtilityRequest", "SimulateVotersRequest",
     "UtilityMatrixRequest", "VoterSegmentsRequest",
+    # simulations whatif + campaign (Phase 4.5.a.6)
+    "CampaignRequest", "WhatIfRequest",
     # theory (Phase 4 complete, all 15 endpoints)
     "AgendaManipulationRequest", "AgendaManipulationResponse",
     "ApportionmentRequest", "ApportionmentResponse",

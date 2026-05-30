@@ -17,6 +17,8 @@ SPATIAL pipeline (simulation_voting_utils.py):
     POST /simulations/get_utility_matrix
     POST /simulations/get_voter_segments
 """
+from typing import Any, Dict
+
 from flask import Blueprint, request, jsonify, make_response
 
 # Legacy pipeline
@@ -52,7 +54,7 @@ simulation_base_bp = Blueprint("simulation_base", __name__, url_prefix="/simulat
 # The Flask routes below are thin delegates kept as a rollback target.
 
 
-def _simulate_votes_worker(data: dict) -> tuple[dict, int]:
+def _simulate_votes_worker(data: Dict[str, Any]) -> tuple[Dict[str, Any], int]:
     """Legacy form-based simulation. Returns (body, status); the
     X-Deprecation-Warning header is set by each HTTP adapter from
     body['deprecation_warning']."""
@@ -70,7 +72,7 @@ def _simulate_votes_worker(data: dict) -> tuple[dict, int]:
     simulation_type = form_data.get("simulationType")
 
     # Accumulate the method winners here instead of introspecting locals().
-    winners: dict = {}
+    winners: Dict[str, Any] = {}
 
     if "votes" in simulation_type:
         voters, votes, tally = simulate_voters(
@@ -167,14 +169,14 @@ def _simulate_votes_worker(data: dict) -> tuple[dict, int]:
     return response, 200
 
 
-def _simulate_voters_worker(data: dict) -> tuple[dict, int]:
+def _simulate_voters_worker(data: Dict[str, Any]) -> tuple[Dict[str, Any], int]:
     num_voters = data.get("num_voters", 1000)
     issues = DEFAULT_ISSUES
     voters = [create_voter(issues, i) for i in range(num_voters)]
     return {"voters": voters}, 200
 
 
-def _simulate_candidates_worker(data: dict) -> tuple[dict, int]:
+def _simulate_candidates_worker(data: Dict[str, Any]) -> tuple[Dict[str, Any], int]:
     num_candidates = data.get("num_candidates", 4)
     issues = data.get("issues") or DEFAULT_ISSUES
     default_parties = ["Green", "Conservative", "Liberal", "Independent"]
@@ -194,7 +196,7 @@ def _simulate_candidates_worker(data: dict) -> tuple[dict, int]:
     }, 200
 
 
-def _closest_candidate_worker(data: dict) -> tuple[dict, int]:
+def _closest_candidate_worker(data: Dict[str, Any]) -> tuple[Dict[str, Any], int]:
     candidates = data.get("candidates")
     voters = data.get("voters")
     if not voters or not candidates:
@@ -202,7 +204,7 @@ def _closest_candidate_worker(data: dict) -> tuple[dict, int]:
     return {"result": assign_voters_to_candidates(voters, candidates)}, 200
 
 
-def _simulate_utility_worker(data: dict) -> tuple[dict, int]:
+def _simulate_utility_worker(data: Dict[str, Any]) -> tuple[Dict[str, Any], int]:
     try:
         voters = data.get("voters")
         candidates = data.get("candidates")
@@ -218,7 +220,7 @@ def _simulate_utility_worker(data: dict) -> tuple[dict, int]:
                 "message": "Failed to simulate utility scores"}, 500
 
 
-def _calculate_utility_worker(data: dict) -> tuple[dict, int]:
+def _calculate_utility_worker(data: Dict[str, Any]) -> tuple[Dict[str, Any], int]:
     try:
         voter = data.get("voter")
         candidate = data.get("candidate")
@@ -234,7 +236,7 @@ def _calculate_utility_worker(data: dict) -> tuple[dict, int]:
                 "message": "Failed to calculate utility"}, 500
 
 
-def _utility_matrix_worker(data: dict) -> tuple[dict, int]:
+def _utility_matrix_worker(data: Dict[str, Any]) -> tuple[Dict[str, Any], int]:
     try:
         voters = data.get("voters") or []
         candidates = data.get("candidates") or []
@@ -284,7 +286,7 @@ def _utility_matrix_worker(data: dict) -> tuple[dict, int]:
                 "message": "Failed to calculate utility matrix"}, 500
 
 
-def _voter_segments_worker(data: dict) -> tuple[dict, int]:
+def _voter_segments_worker(data: Dict[str, Any]) -> tuple[Dict[str, Any], int]:
     try:
         voters = data.get("voters") or []
         candidates = data.get("candidates") or []

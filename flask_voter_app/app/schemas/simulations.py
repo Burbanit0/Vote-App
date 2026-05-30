@@ -14,7 +14,7 @@ routes used.
 """
 from __future__ import annotations
 
-from typing import Any, Dict, List
+from typing import Any, Dict, List, Optional
 
 from pydantic import BaseModel, ConfigDict, Field
 
@@ -92,3 +92,24 @@ class VoterSegmentsRequest(BaseModel):
     candidates: List[Dict[str, Any]] = Field(default_factory=list)
     issues:     List[str] = Field(default_factory=lambda: list(DEFAULT_ISSUES))
     segments:   List[str] = Field(default_factory=lambda: list(_DEFAULT_SEGMENTS))
+
+
+class WhatIfRequest(BaseModel):
+    """POST /simulations/what-if (vary one parameter, compare methods)."""
+    model_config = ConfigDict(extra="ignore")
+
+    base:           Dict[str, Any] = Field(default_factory=dict)
+    variant_param:  str = "num_voters"
+    variant_values: List[Any] = Field(default_factory=list)
+
+
+class CampaignRequest(BaseModel):
+    """POST /simulations/campaign (day-by-day campaign simulation)."""
+    model_config = ConfigDict(extra="ignore")
+
+    num_candidates: int = 4
+    num_voters:     int = 500
+    num_days:       int = 30
+    method:         str = "plurality"
+    events:         List[Dict[str, Any]] = Field(default_factory=list)
+    seed:           Optional[int] = None
