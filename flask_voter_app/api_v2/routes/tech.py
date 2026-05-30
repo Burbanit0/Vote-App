@@ -19,7 +19,7 @@ from typing import Any, Callable, Dict
 from fastapi import APIRouter, HTTPException, status
 from pydantic import BaseModel
 
-from app.routes.tech import (
+from api_v2.domain.tech import (
     _e2e_demo_worker,
     _polis_simulation_worker,
     _polis_with_candidates_worker,
