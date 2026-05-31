@@ -36,7 +36,8 @@
     "schema-utils": "^4.0.0",
     "socket.io-client": "^4.8.3",
     "stable": "^0.1.8",
-    "web-vitals": "^2.1.4"
+    "web-vitals": "^2.1.4",
+    "zustand": "^5.0.14"
   },
   "scripts": {
     "start": "vite",

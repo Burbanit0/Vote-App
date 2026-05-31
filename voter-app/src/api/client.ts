@@ -13,11 +13,18 @@
  */
 import createClient, { type Middleware } from 'openapi-fetch';
 import type { paths } from './types.gen';
+import { useAuthStore } from '../stores/useAuthStore';
 
 const API_BASE = process.env.VITE_API_URL || 'http://localhost:4434';
 
-/** Current Bearer token, or null. Source of truth = localStorage['user']. */
+/**
+ * Current Bearer token, or null. Source of truth = useAuthStore; falls back to
+ * localStorage['user'] (covers the brief window before the store hydrates, and
+ * any non-React caller).
+ */
 export function getAccessToken(): string | null {
+  const fromStore = useAuthStore.getState().user?.access_token;
+  if (fromStore) return fromStore;
   try {
     const raw = localStorage.getItem('user');
     if (!raw) return null;

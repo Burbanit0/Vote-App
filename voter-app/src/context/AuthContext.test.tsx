@@ -1,6 +1,7 @@
 import React from 'react';
 import { render, screen, fireEvent } from '@testing-library/react';
 import { AuthProvider, useAuth } from './AuthContext';
+import { useAuthStore } from '../stores/useAuthStore';
 import { User } from '../types';
 
 const mockUser: User = {
@@ -33,6 +34,7 @@ const TestConsumer = () => {
 describe('AuthContext', () => {
   beforeEach(() => {
     localStorage.clear();
+    useAuthStore.setState({ user: null, loading: true });
   });
 
   it('renders children', () => {
@@ -117,9 +119,11 @@ describe('AuthContext', () => {
     expect(localStorage.getItem('user')).toBeNull();
   });
 
-  it('throws error when useAuth is used outside provider', () => {
-    const consoleError = jest.spyOn(console, 'error').mockImplementation(() => {});
-    expect(() => render(<TestConsumer />)).toThrow('useAuth must be used within an AuthProvider');
-    consoleError.mockRestore();
+  it('works without a provider (store-backed)', () => {
+    // useAuth now reads from useAuthStore, so it no longer requires a provider.
+    localStorage.setItem('user', JSON.stringify(mockUser));
+    useAuthStore.getState().hydrate();
+    render(<TestConsumer />);
+    expect(screen.getByTestId('user')).toHaveTextContent('testuser');
   });
 });
