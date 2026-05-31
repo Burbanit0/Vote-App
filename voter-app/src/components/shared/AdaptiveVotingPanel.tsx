@@ -1,5 +1,4 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
-import axios from 'axios';
 import { useTranslation } from 'react-i18next';
 import { Alert, Badge, Button, Col, Form, Row, Spinner } from 'react-bootstrap';
 import {
@@ -8,9 +7,7 @@ import {
 } from 'recharts';
 import { useElection } from '../../context/ElectionContext';
 import PinToCentralButton from './PinToCentralButton';
-import { apiPath } from '../../api/apiVersion';
-
-const API = process.env.REACT_APP_API_URL ?? 'http://localhost:4434';
+import { $api } from '../../api/hooks';
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -128,9 +125,10 @@ const AdaptiveVotingPanel: React.FC = () => {
   const [numRounds, setNumRounds]                 = useState(6);
   const [strategicThreshold, setStrategicThreshold] = useState(0.15);
 
-  const [data, setData]         = useState<AdaptiveData | null>(null);
-  const [loading, setLoading]   = useState(false);
-  const [error, setError]       = useState<string | null>(null);
+  const sim = $api.useMutation('post', '/api/v2/election/adaptive');
+  const data: AdaptiveData | null = (sim.data as AdaptiveData | undefined) ?? null;
+  const loading = sim.isPending;
+  const error = sim.isError ? t('adaptive.error') : null;
   const [revealedRound, setRevealedRound] = useState<number>(0);
 
   const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -152,28 +150,20 @@ const AdaptiveVotingPanel: React.FC = () => {
 
   useEffect(() => () => { if (timerRef.current) clearTimeout(timerRef.current); }, []);
 
-  async function run() {
+  function run() {
     if (timerRef.current) clearTimeout(timerRef.current);
-    setLoading(true);
-    setError(null);
     setRevealedRound(0);
-    try {
-      const res = await axios.post(`${API}${apiPath('election/adaptive')}`, {
-        candidates:           config.candidates,
-        num_voters:           config.num_voters,
-        ideology:             config.ideology,
-        seed:                 config.seed,
-        num_rounds:           numRounds,
-        method,
-        strategic_threshold:  strategicThreshold,
-      });
-      setData(res.data);
-      startAnimation(res.data.rounds.length);
-    } catch {
-      setError(t('adaptive.error'));
-    } finally {
-      setLoading(false);
-    }
+    sim.mutate({ body: {
+      candidates:           config.candidates,
+      num_voters:           config.num_voters,
+      ideology:             config.ideology,
+      seed:                 config.seed,
+      num_rounds:           numRounds,
+      method,
+      strategic_threshold:  strategicThreshold,
+    } }, {
+      onSuccess: (res) => startAnimation((res as unknown as AdaptiveData).rounds.length),
+    });
   }
 
   // Build chart data: one row per revealed round
