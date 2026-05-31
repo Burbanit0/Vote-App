@@ -1,11 +1,16 @@
 import React from 'react';
 import { render, screen, fireEvent, waitFor } from '@testing-library/react';
 import { MemoryRouter } from 'react-router';
+import { QueryClientProvider } from '@tanstack/react-query';
 import DistrictMap from '../DistrictMap';
 import { ElectionProvider } from '../../../context/ElectionContext';
+import { makeTestQueryClient } from '../../../test/queryWrapper';
 
-jest.mock('axios', () => ({ post: jest.fn() }));
-const { post: mockPost } = jest.requireMock('axios') as { post: jest.Mock };
+jest.mock('../../../api/client', () => ({
+  apiClient: { GET: jest.fn(), POST: jest.fn(), PUT: jest.fn(), DELETE: jest.fn(), PATCH: jest.fn() },
+  getAccessToken: jest.fn(() => null),
+}));
+const { apiClient } = jest.requireMock('../../../api/client') as { apiClient: { POST: jest.Mock } };
 
 const makeData = (numDistricts = 10) => ({
   data: {
@@ -24,6 +29,7 @@ const makeData = (numDistricts = 10) => ({
     fptp_winner:             'Alice',
     proportional_winner:     'Alice',
   },
+  error: undefined,
 });
 
 const makeDivergentData = () => {
@@ -37,9 +43,11 @@ const makeDivergentData = () => {
 function renderPanel() {
   return render(
     <MemoryRouter>
-      <ElectionProvider>
-        <DistrictMap />
-      </ElectionProvider>
+      <QueryClientProvider client={makeTestQueryClient()}>
+        <ElectionProvider>
+          <DistrictMap />
+        </ElectionProvider>
+      </QueryClientProvider>
     </MemoryRouter>
   );
 }
@@ -60,19 +68,19 @@ describe('DistrictMap', () => {
     expect(screen.getByRole('button', { name: /district/i })).toBeInTheDocument();
   });
 
-  it('calls axios.post on button click', async () => {
-    mockPost.mockResolvedValue(makeData());
+  it('calls API on button click', async () => {
+    apiClient.POST.mockResolvedValue(makeData());
     renderPanel();
     fireEvent.click(screen.getByRole('button', { name: /district/i }));
-    await waitFor(() => expect(mockPost).toHaveBeenCalledTimes(1));
-    expect(mockPost).toHaveBeenCalledWith(
+    await waitFor(() => expect(apiClient.POST).toHaveBeenCalledTimes(1));
+    expect(apiClient.POST).toHaveBeenCalledWith(
       expect.stringMatching(/\/api\/(v2\/)?election\/districts/),
       expect.any(Object)
     );
   });
 
   it('renders district grid SVG after data loads', async () => {
-    mockPost.mockResolvedValue(makeData());
+    apiClient.POST.mockResolvedValue(makeData());
     const { container } = renderPanel();
     fireEvent.click(screen.getByRole('button', { name: /district/i }));
     await waitFor(() => {
@@ -82,7 +90,7 @@ describe('DistrictMap', () => {
   });
 
   it('renders correct number of district rectangles', async () => {
-    mockPost.mockResolvedValue(makeData(10));
+    apiClient.POST.mockResolvedValue(makeData(10));
     const { container } = renderPanel();
     fireEvent.click(screen.getByRole('button', { name: /district/i }));
     await waitFor(() => {
@@ -94,7 +102,7 @@ describe('DistrictMap', () => {
   });
 
   it('shows FPTP winner badge', async () => {
-    mockPost.mockResolvedValue(makeData());
+    apiClient.POST.mockResolvedValue(makeData());
     renderPanel();
     fireEvent.click(screen.getByRole('button', { name: /district/i }));
     await waitFor(() => {
@@ -104,7 +112,7 @@ describe('DistrictMap', () => {
   });
 
   it('shows distortion badge', async () => {
-    mockPost.mockResolvedValue(makeData());
+    apiClient.POST.mockResolvedValue(makeData());
     renderPanel();
     fireEvent.click(screen.getByRole('button', { name: /district/i }));
     await waitFor(() => {
@@ -114,7 +122,7 @@ describe('DistrictMap', () => {
   });
 
   it('shows warning pedagogical message when FPTP and PR winners differ', async () => {
-    mockPost.mockResolvedValue(makeDivergentData());
+    apiClient.POST.mockResolvedValue(makeDivergentData());
     renderPanel();
     fireEvent.click(screen.getByRole('button', { name: /district/i }));
     await waitFor(() => {
@@ -126,7 +134,7 @@ describe('DistrictMap', () => {
   });
 
   it('renders two hémicycle SVGs', async () => {
-    mockPost.mockResolvedValue(makeData());
+    apiClient.POST.mockResolvedValue(makeData());
     const { container } = renderPanel();
     fireEvent.click(screen.getByRole('button', { name: /district/i }));
     await waitFor(() => {
@@ -138,7 +146,7 @@ describe('DistrictMap', () => {
   });
 
   it('shows error message on API failure', async () => {
-    mockPost.mockRejectedValue(new Error('Network error'));
+    apiClient.POST.mockRejectedValue(new Error('Network error'));
     renderPanel();
     fireEvent.click(screen.getByRole('button', { name: /district/i }));
     await waitFor(() => {
@@ -147,7 +155,7 @@ describe('DistrictMap', () => {
   });
 
   it('shows replay button after data loads', async () => {
-    mockPost.mockResolvedValue(makeData());
+    apiClient.POST.mockResolvedValue(makeData());
     renderPanel();
     fireEvent.click(screen.getByRole('button', { name: /district/i }));
     await waitFor(() => {

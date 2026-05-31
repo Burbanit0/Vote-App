@@ -1,11 +1,16 @@
 import React from 'react';
 import { render, screen, fireEvent, waitFor, act } from '@testing-library/react';
 import { MemoryRouter } from 'react-router';
+import { QueryClientProvider } from '@tanstack/react-query';
 import GerrymanderMap from '../GerrymanderMap';
 import { ElectionProvider } from '../../../context/ElectionContext';
+import { makeTestQueryClient } from '../../../test/queryWrapper';
 
-jest.mock('axios', () => ({ post: jest.fn() }));
-const { post: mockPost } = jest.requireMock('axios') as { post: jest.Mock };
+jest.mock('../../../api/client', () => ({
+  apiClient: { GET: jest.fn(), POST: jest.fn(), PUT: jest.fn(), DELETE: jest.fn(), PATCH: jest.fn() },
+  getAccessToken: jest.fn(() => null),
+}));
+const { apiClient } = jest.requireMock('../../../api/client') as { apiClient: { POST: jest.Mock } };
 
 // ── Fixture ───────────────────────────────────────────────────────────────────
 
@@ -30,15 +35,18 @@ function makeData(gerryIndex = 0.6) {
       candidates:             ['Alice', 'Bob'],
       num_seats:              2,
     },
+    error: undefined,
   };
 }
 
 function renderMap() {
   return render(
     <MemoryRouter>
-      <ElectionProvider>
-        <GerrymanderMap />
-      </ElectionProvider>
+      <QueryClientProvider client={makeTestQueryClient()}>
+        <ElectionProvider>
+          <GerrymanderMap />
+        </ElectionProvider>
+      </QueryClientProvider>
     </MemoryRouter>
   );
 }
@@ -102,12 +110,12 @@ describe('GerrymanderMap', () => {
     expect(screen.getByTestId('gerrymander-grid')).toBeInTheDocument();
   });
 
-  it('calls axios.post on simulate click', async () => {
-    mockPost.mockResolvedValue(makeData());
+  it('calls API on simulate click', async () => {
+    apiClient.POST.mockResolvedValue(makeData());
     renderMap();
     fireEvent.click(screen.getByRole('button', { name: /simuler|simulate/i }));
-    await waitFor(() => expect(mockPost).toHaveBeenCalledTimes(1));
-    expect(mockPost).toHaveBeenCalledWith(
+    await waitFor(() => expect(apiClient.POST).toHaveBeenCalledTimes(1));
+    expect(apiClient.POST).toHaveBeenCalledWith(
       expect.stringMatching(/\/api\/(v2\/)?election\/gerrymander/),
       expect.any(Object),
     );
@@ -115,7 +123,7 @@ describe('GerrymanderMap', () => {
   });
 
   it('renders voter dots after data loads', async () => {
-    mockPost.mockResolvedValue(makeData());
+    apiClient.POST.mockResolvedValue(makeData());
     const { container } = renderMap();
     fireEvent.click(screen.getByRole('button', { name: /simuler|simulate/i }));
     await waitFor(() => {
@@ -126,7 +134,7 @@ describe('GerrymanderMap', () => {
   });
 
   it('shows two hémicycle SVGs', async () => {
-    mockPost.mockResolvedValue(makeData());
+    apiClient.POST.mockResolvedValue(makeData());
     const { container } = renderMap();
     fireEvent.click(screen.getByRole('button', { name: /simuler|simulate/i }));
     await waitFor(() => {
@@ -138,7 +146,7 @@ describe('GerrymanderMap', () => {
   });
 
   it('shows distortion badge', async () => {
-    mockPost.mockResolvedValue(makeData());
+    apiClient.POST.mockResolvedValue(makeData());
     renderMap();
     fireEvent.click(screen.getByRole('button', { name: /simuler|simulate/i }));
     await waitFor(() => expect(screen.getByTestId('distortion-badge')).toBeInTheDocument());
@@ -146,7 +154,7 @@ describe('GerrymanderMap', () => {
   });
 
   it('shows warning alert when gerrymander_index > 0.2', async () => {
-    mockPost.mockResolvedValue(makeData(0.6));
+    apiClient.POST.mockResolvedValue(makeData(0.6));
     renderMap();
     fireEvent.click(screen.getByRole('button', { name: /simuler|simulate/i }));
     await waitFor(() => expect(screen.getByTestId('gerrymander-alert')).toBeInTheDocument());
@@ -156,7 +164,7 @@ describe('GerrymanderMap', () => {
   });
 
   it('shows success alert when gerrymander_index ≤ 0.2', async () => {
-    mockPost.mockResolvedValue(makeData(0.05));
+    apiClient.POST.mockResolvedValue(makeData(0.05));
     renderMap();
     fireEvent.click(screen.getByRole('button', { name: /simuler|simulate/i }));
     await waitFor(() => expect(screen.getByTestId('gerrymander-alert')).toBeInTheDocument());
@@ -166,7 +174,7 @@ describe('GerrymanderMap', () => {
   });
 
   it('shows gerrymander index progress bar', async () => {
-    mockPost.mockResolvedValue(makeData());
+    apiClient.POST.mockResolvedValue(makeData());
     renderMap();
     fireEvent.click(screen.getByRole('button', { name: /simuler|simulate/i }));
     await waitFor(() => expect(screen.getByTestId('gerry-index-bar')).toBeInTheDocument());
@@ -174,7 +182,7 @@ describe('GerrymanderMap', () => {
   });
 
   it('shows error on API failure', async () => {
-    mockPost.mockRejectedValue(new Error('Network error'));
+    apiClient.POST.mockRejectedValue(new Error('Network error'));
     renderMap();
     fireEvent.click(screen.getByRole('button', { name: /simuler|simulate/i }));
     await waitFor(() => expect(screen.getByText(/Erreur|Error/i)).toBeInTheDocument());
