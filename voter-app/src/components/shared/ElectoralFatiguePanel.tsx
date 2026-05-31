@@ -3,8 +3,7 @@
  * and progressively shift the residual electorate toward engaged (partisan) voters.
  */
 import React, { useCallback, useEffect, useRef, useState } from 'react';
-import axios from 'axios';
-import { apiPath } from '../../api/apiVersion';
+import { $api } from '../../api/hooks';
 import { useTranslation } from 'react-i18next';
 import { Alert, Badge, Button, Col, Form, Row, Spinner } from 'react-bootstrap';
 import {
@@ -13,8 +12,6 @@ import {
 } from 'recharts';
 import { useElection } from '../../context/ElectionContext';
 import PinToCentralButton from './PinToCentralButton';
-
-const API = process.env.REACT_APP_API_URL ?? 'http://localhost:4434';
 const DEBOUNCE_MS = 400;
 
 // ── Types ─────────────────────────────────────────────────────────────────────
@@ -101,32 +98,25 @@ const ElectoralFatiguePanel: React.FC = () => {
   const [fatigueRate,  setFatigueRate]  = useState(0.07);
   const [engagedPct,   setEngagedPct]   = useState(0.2);
   const [numElections, setNumElections] = useState(8);
-  const [data,         setData]         = useState<FatigueData | null>(null);
-  const [loading,      setLoading]      = useState(false);
-  const [error,        setError]        = useState<string | null>(null);
+  const sim = $api.useMutation('post', '/api/v2/election/electoral-fatigue');
+  const data: FatigueData | null = (sim.data as FatigueData | undefined) ?? null;
+  const loading = sim.isPending;
+  const error = sim.isError ? t('fatigue.error') : null;
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  const runSimulation = useCallback(async (fr: number, ep: number, ne: number) => {
-    setLoading(true);
-    setError(null);
-    try {
-      const res = await axios.post(`${API}${apiPath('election/electoral-fatigue')}`, {
-        candidates:         config.candidates.map((c) => ({ name: c.name, x: c.x, y: c.y })),
-        num_voters:         config.num_voters,
-        ideology:           config.ideology,
-        seed:               config.seed,
-        num_elections:      ne,
-        fatigue_rate:       fr,
-        engaged_voter_pct:  ep,
-        method:             'plurality',
-      });
-      setData(res.data);
-    } catch {
-      setError(t('fatigue.error'));
-    } finally {
-      setLoading(false);
-    }
-  }, [config, t]);
+  const runSimulation = useCallback((fr: number, ep: number, ne: number) => {
+    sim.mutate({ body: {
+      candidates:         config.candidates.map((c) => ({ name: c.name, x: c.x, y: c.y })),
+      num_voters:         config.num_voters,
+      ideology:           config.ideology,
+      seed:               config.seed,
+      num_elections:      ne,
+      fatigue_rate:       fr,
+      engaged_voter_pct:  ep,
+      method:             'plurality',
+    } });
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [config, t, sim]);
 
   const handleSimulate = () => runSimulation(fatigueRate, engagedPct, numElections);
 

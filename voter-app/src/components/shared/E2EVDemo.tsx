@@ -9,13 +9,12 @@
  *   4. Optional self-audit — reveal your own vote
  */
 import React, { useCallback, useState } from 'react';
-import axios from 'axios';
+import { $api } from '../../api/hooks';
 import { useTranslation } from 'react-i18next';
 import {
   Alert, Badge, Button, Card, Col, Form, Row, Spinner,
 } from 'react-bootstrap';
 
-const API     = process.env.REACT_APP_API_URL ?? 'http://localhost:4434';
 const DEFAULT_CANDIDATES = ['Alice', 'Bob', 'Carol'];
 const DEMO_VOTERS = 12;
 
@@ -80,9 +79,10 @@ const E2EVDemo: React.FC<Props> = ({
 
   const [step,      setStep]      = useState(0);   // 0=idle, 1-4=steps
   const [chosen,    setChosen]    = useState('');
-  const [data,      setData]      = useState<E2EFullData | null>(null);
-  const [loading,   setLoading]   = useState(false);
-  const [error,     setError]     = useState<string | null>(null);
+  const sim = $api.useMutation('post', '/api/v2/tech/e2e-demo');
+  const data: E2EFullData | null = (sim.data as E2EFullData | undefined) ?? null;
+  const loading = sim.isPending;
+  const error = sim.isError ? t('e2ev.error') : null;
   const [codeFound, setCodeFound] = useState(false);
   const [revealed,  setRevealed]  = useState(false);
 
@@ -90,33 +90,27 @@ const E2EVDemo: React.FC<Props> = ({
   const myCode    = myVoter?.verification_code ?? '';
   const myHidden  = myVoter?.vote_HIDDEN ?? '';
 
-  const handleVote = useCallback(async () => {
+  const handleVote = useCallback(() => {
     if (!chosen) return;
-    setLoading(true);
-    setError(null);
-    try {
-      const res = await axios.post(`${API}/api/v2/tech/e2e-demo`, {
-        candidates,
-        num_demo_voters: DEMO_VOTERS,
-        seed,
-        user_vote: chosen,
-      });
-      setData(res.data);
-      setStep(1);
-      setCodeFound(false);
-      setRevealed(false);
-    } catch {
-      setError(t('e2ev.error'));
-    } finally {
-      setLoading(false);
-    }
-  }, [chosen, candidates, seed, t]);
+    sim.mutate({ body: {
+      candidates,
+      num_demo_voters: DEMO_VOTERS,
+      seed,
+      user_vote: chosen,
+    } }, {
+      onSuccess: () => {
+        setStep(1);
+        setCodeFound(false);
+        setRevealed(false);
+      },
+    });
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [chosen, candidates, seed, t, sim]);
 
   const reset = () => {
     setStep(0);
     setChosen('');
-    setData(null);
-    setError(null);
+    sim.reset();
     setCodeFound(false);
     setRevealed(false);
   };

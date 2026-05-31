@@ -1,10 +1,15 @@
 import React from 'react';
 import { render, screen, fireEvent, waitFor } from '@testing-library/react';
 import { MemoryRouter } from 'react-router';
+import { QueryClientProvider } from '@tanstack/react-query';
 import E2EVDemo from '../E2EVDemo';
+import { makeTestQueryClient } from '../../../test/queryWrapper';
 
-jest.mock('axios', () => ({ post: jest.fn() }));
-const { post: mockPost } = jest.requireMock('axios') as { post: jest.Mock };
+jest.mock('../../../api/client', () => ({
+  apiClient: { GET: jest.fn(), POST: jest.fn(), PUT: jest.fn(), DELETE: jest.fn(), PATCH: jest.fn() },
+  getAccessToken: jest.fn(() => null),
+}));
+const { apiClient } = jest.requireMock('../../../api/client') as { apiClient: { POST: jest.Mock } };
 
 // ── Fixture ───────────────────────────────────────────────────────────────────
 
@@ -39,13 +44,16 @@ function makeData(userVote = 'Alice') {
       verification_demonstration: { sample_voter_id: 1, sample_code: voters[0].verification_code, board_excerpt: [] },
       privacy_guarantee: 'Test.',
     },
+    error: undefined,
   };
 }
 
 function renderDemo() {
   return render(
     <MemoryRouter>
-      <E2EVDemo candidates={['Alice', 'Bob', 'Carol']} seed={42} />
+      <QueryClientProvider client={makeTestQueryClient()}>
+        <E2EVDemo candidates={['Alice', 'Bob', 'Carol']} seed={42} />
+      </QueryClientProvider>
     </MemoryRouter>
   );
 }
@@ -79,20 +87,20 @@ describe('E2EVDemo', () => {
   });
 
   it('calls API with correct user_vote when voting', async () => {
-    mockPost.mockResolvedValue(makeData('Bob'));
+    apiClient.POST.mockResolvedValue(makeData('Bob'));
     renderDemo();
     fireEvent.click(screen.getByTestId('candidate-btn-Bob'));
     fireEvent.click(screen.getByTestId('vote-btn'));
-    await waitFor(() => expect(mockPost).toHaveBeenCalledTimes(1));
-    expect(mockPost).toHaveBeenCalledWith(
+    await waitFor(() => expect(apiClient.POST).toHaveBeenCalledTimes(1));
+    expect(apiClient.POST).toHaveBeenCalledWith(
       expect.stringMatching(/\/api\/(v2\/)?tech\/e2e-demo/),
-      expect.objectContaining({ user_vote: 'Bob' }),
+      expect.objectContaining({ body: expect.objectContaining({ user_vote: 'Bob' }) }),
     );
     jest.runAllTimers();
   });
 
   it('shows step 1 content after voting (encrypted ballot + code)', async () => {
-    mockPost.mockResolvedValue(makeData('Alice'));
+    apiClient.POST.mockResolvedValue(makeData('Alice'));
     renderDemo();
     fireEvent.click(screen.getByTestId('candidate-btn-Alice'));
     fireEvent.click(screen.getByTestId('vote-btn'));
@@ -102,7 +110,7 @@ describe('E2EVDemo', () => {
   });
 
   it('advances to step 2 (bulletin board)', async () => {
-    mockPost.mockResolvedValue(makeData('Alice'));
+    apiClient.POST.mockResolvedValue(makeData('Alice'));
     renderDemo();
     fireEvent.click(screen.getByTestId('candidate-btn-Alice'));
     fireEvent.click(screen.getByTestId('vote-btn'));
@@ -114,7 +122,7 @@ describe('E2EVDemo', () => {
   });
 
   it('shows "code found" alert when user clicks their code on the board', async () => {
-    mockPost.mockResolvedValue(makeData('Alice'));
+    apiClient.POST.mockResolvedValue(makeData('Alice'));
     renderDemo();
     fireEvent.click(screen.getByTestId('candidate-btn-Alice'));
     fireEvent.click(screen.getByTestId('vote-btn'));
@@ -129,7 +137,7 @@ describe('E2EVDemo', () => {
   });
 
   it('advances to step 3 (aggregate)', async () => {
-    mockPost.mockResolvedValue(makeData('Alice'));
+    apiClient.POST.mockResolvedValue(makeData('Alice'));
     renderDemo();
     fireEvent.click(screen.getByTestId('candidate-btn-Alice'));
     fireEvent.click(screen.getByTestId('vote-btn'));
@@ -143,7 +151,7 @@ describe('E2EVDemo', () => {
   });
 
   it('advances to step 4 (reveal)', async () => {
-    mockPost.mockResolvedValue(makeData('Alice'));
+    apiClient.POST.mockResolvedValue(makeData('Alice'));
     renderDemo();
     fireEvent.click(screen.getByTestId('candidate-btn-Alice'));
     fireEvent.click(screen.getByTestId('vote-btn'));
@@ -159,7 +167,7 @@ describe('E2EVDemo', () => {
   });
 
   it('reveals vote when reveal button clicked', async () => {
-    mockPost.mockResolvedValue(makeData('Alice'));
+    apiClient.POST.mockResolvedValue(makeData('Alice'));
     renderDemo();
     fireEvent.click(screen.getByTestId('candidate-btn-Alice'));
     fireEvent.click(screen.getByTestId('vote-btn'));
@@ -175,7 +183,7 @@ describe('E2EVDemo', () => {
   });
 
   it('shows error on API failure', async () => {
-    mockPost.mockRejectedValue(new Error('Network error'));
+    apiClient.POST.mockRejectedValue(new Error('Network error'));
     renderDemo();
     fireEvent.click(screen.getByTestId('candidate-btn-Alice'));
     fireEvent.click(screen.getByTestId('vote-btn'));
