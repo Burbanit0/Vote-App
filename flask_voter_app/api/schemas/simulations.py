@@ -266,3 +266,121 @@ class BlankContagionRequest(BaseModel):
     num_rounds:         int = 15
     network_type:       str = "random"
     seed:               Optional[int] = None
+
+
+# ── Response models (Phase 6) ─────────────────────────────────────────────────
+#
+# Only the cleanly-shaped endpoints (those whose worker ends in an explicit
+# `return {…}` literal) are typed here. Each carries `extra="allow"` so any
+# unmodeled field still passes through untouched (cannot drop data / break the
+# frontend), and value types stay loose (`Any` / `Dict[str, Any]` / `Optional`)
+# so `model_validate` never raises on a heterogeneous payload. The remaining
+# endpoints whose workers return an engine-helper dict directly (compare,
+# condorcet-matrix, arrow-criteria, scenario, monte-carlo, multiwinner,
+# bandwagon, real-election, constitutional-scenario, blank-contagion, campaign)
+# stay on the loose Dict passthrough until their helper shapes are traced.
+
+
+class LegacySimulateResponse(BaseModel):
+    """POST /simulations (legacy). Conditional vote/ranked/score blocks +
+    dynamic per-method winners ride through on `extra="allow"`."""
+    model_config = ConfigDict(extra="allow")
+
+    simulation_type:     str
+    deprecation_warning: str
+    metadata:            Dict[str, Any]
+
+
+class SimulateVotersResponse(BaseModel):
+    model_config = ConfigDict(extra="allow")
+
+    voters: List[Dict[str, Any]]
+
+
+class SimulateCandidatesResponse(BaseModel):
+    model_config = ConfigDict(extra="allow")
+
+    success:    bool
+    candidates: List[Dict[str, Any]]
+    message:    str
+
+
+class ClosestCandidateResponse(BaseModel):
+    model_config = ConfigDict(extra="allow")
+
+    result: Any
+
+
+class SimulateUtilityResponse(BaseModel):
+    model_config = ConfigDict(extra="allow")
+
+    success:         bool
+    utility_results: List[Dict[str, Any]]
+
+
+class CalculateUtilityResponse(BaseModel):
+    model_config = ConfigDict(extra="allow")
+
+    success: bool
+    result:  Dict[str, Any]
+    message: str
+
+
+class UtilityMatrixResponse(BaseModel):
+    model_config = ConfigDict(extra="allow")
+
+    success: bool
+    matrix:  Dict[str, Any]
+    stats:   Dict[str, Any]
+    message: str
+
+
+class VoterSegmentsResponse(BaseModel):
+    model_config = ConfigDict(extra="allow")
+
+    success:  bool
+    segments: Dict[str, Any]
+    message:  str
+
+
+class StrategicImpactResponse(BaseModel):
+    model_config = ConfigDict(extra="allow")
+
+    results: List[Dict[str, Any]]
+
+
+class SensitivityResponse(BaseModel):
+    model_config = ConfigDict(extra="allow")
+
+    variable: str
+    values:   List[Any]
+    results:  List[Dict[str, Any]]
+
+
+class WhatIfResponse(BaseModel):
+    model_config = ConfigDict(extra="allow")
+
+    variant_param: str
+    results:       List[Dict[str, Any]]
+
+
+class IdeologyMapResponse(BaseModel):
+    model_config = ConfigDict(extra="allow")
+
+    voters:                  List[Dict[str, Any]]
+    candidates:              List[Dict[str, Any]]
+    winner_a:                Optional[str] = None
+    winner_b:                Optional[str] = None
+    method_a:                str
+    method_b:                str
+    condorcet_winner:        Optional[str] = None
+    pct_better_off_with_a:   float
+    pct_better_off_with_b:   float
+
+
+class VoteStepsResponse(BaseModel):
+    """POST /simulations/vote-steps. Shape is polymorphic by `method`
+    (irv/borda/plurality/schulze/approval); only `method` is guaranteed."""
+    model_config = ConfigDict(extra="allow")
+
+    method: str

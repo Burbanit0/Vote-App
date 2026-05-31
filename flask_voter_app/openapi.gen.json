@@ -1754,6 +1754,31 @@
         "title": "CalculateUtilityRequest",
         "type": "object"
       },
+      "CalculateUtilityResponse": {
+        "additionalProperties": true,
+        "properties": {
+          "message": {
+            "title": "Message",
+            "type": "string"
+          },
+          "result": {
+            "additionalProperties": true,
+            "title": "Result",
+            "type": "object"
+          },
+          "success": {
+            "title": "Success",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "success",
+          "result",
+          "message"
+        ],
+        "title": "CalculateUtilityResponse",
+        "type": "object"
+      },
       "CampaignConfig": {
         "additionalProperties": false,
         "description": "Polling-bandwagon dynamics over a few days.",
@@ -2392,6 +2417,19 @@
           }
         },
         "title": "ClosestCandidateRequest",
+        "type": "object"
+      },
+      "ClosestCandidateResponse": {
+        "additionalProperties": true,
+        "properties": {
+          "result": {
+            "title": "Result"
+          }
+        },
+        "required": [
+          "result"
+        ],
+        "title": "ClosestCandidateResponse",
         "type": "object"
       },
       "CoalitionCandidate": {
@@ -5561,6 +5599,86 @@
         "title": "IdeologyMapRequest",
         "type": "object"
       },
+      "IdeologyMapResponse": {
+        "additionalProperties": true,
+        "properties": {
+          "candidates": {
+            "items": {
+              "additionalProperties": true,
+              "type": "object"
+            },
+            "title": "Candidates",
+            "type": "array"
+          },
+          "condorcet_winner": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Condorcet Winner"
+          },
+          "method_a": {
+            "title": "Method A",
+            "type": "string"
+          },
+          "method_b": {
+            "title": "Method B",
+            "type": "string"
+          },
+          "pct_better_off_with_a": {
+            "title": "Pct Better Off With A",
+            "type": "number"
+          },
+          "pct_better_off_with_b": {
+            "title": "Pct Better Off With B",
+            "type": "number"
+          },
+          "voters": {
+            "items": {
+              "additionalProperties": true,
+              "type": "object"
+            },
+            "title": "Voters",
+            "type": "array"
+          },
+          "winner_a": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Winner A"
+          },
+          "winner_b": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Winner B"
+          }
+        },
+        "required": [
+          "voters",
+          "candidates",
+          "method_a",
+          "method_b",
+          "pct_better_off_with_a",
+          "pct_better_off_with_b"
+        ],
+        "title": "IdeologyMapResponse",
+        "type": "object"
+      },
       "InformationModelConfig": {
         "additionalProperties": false,
         "description": "Media bias × voter information level adjustment of perceived utilities.",
@@ -6180,6 +6298,32 @@
           "formData"
         ],
         "title": "LegacySimulateRequest",
+        "type": "object"
+      },
+      "LegacySimulateResponse": {
+        "additionalProperties": true,
+        "description": "POST /simulations (legacy). Conditional vote/ranked/score blocks +\ndynamic per-method winners ride through on `extra=\"allow\"`.",
+        "properties": {
+          "deprecation_warning": {
+            "title": "Deprecation Warning",
+            "type": "string"
+          },
+          "metadata": {
+            "additionalProperties": true,
+            "title": "Metadata",
+            "type": "object"
+          },
+          "simulation_type": {
+            "title": "Simulation Type",
+            "type": "string"
+          }
+        },
+        "required": [
+          "simulation_type",
+          "deprecation_warning",
+          "metadata"
+        ],
+        "title": "LegacySimulateResponse",
         "type": "object"
       },
       "LiquidDemocracyRequest": {
@@ -8352,6 +8496,35 @@
         "title": "SensitivityRequest",
         "type": "object"
       },
+      "SensitivityResponse": {
+        "additionalProperties": true,
+        "properties": {
+          "results": {
+            "items": {
+              "additionalProperties": true,
+              "type": "object"
+            },
+            "title": "Results",
+            "type": "array"
+          },
+          "values": {
+            "items": {},
+            "title": "Values",
+            "type": "array"
+          },
+          "variable": {
+            "title": "Variable",
+            "type": "string"
+          }
+        },
+        "required": [
+          "variable",
+          "values",
+          "results"
+        ],
+        "title": "SensitivityResponse",
+        "type": "object"
+      },
       "ShyVoterRequest": {
         "additionalProperties": false,
         "description": "Bradley / Shy Tory effect: socially-sensitive candidates underpolled.",
@@ -8535,6 +8708,34 @@
           }
         },
         "title": "SimulateCandidatesRequest",
+        "type": "object"
+      },
+      "SimulateCandidatesResponse": {
+        "additionalProperties": true,
+        "properties": {
+          "candidates": {
+            "items": {
+              "additionalProperties": true,
+              "type": "object"
+            },
+            "title": "Candidates",
+            "type": "array"
+          },
+          "message": {
+            "title": "Message",
+            "type": "string"
+          },
+          "success": {
+            "title": "Success",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "success",
+          "candidates",
+          "message"
+        ],
+        "title": "SimulateCandidatesResponse",
         "type": "object"
       },
       "SimulatePipelineRequest": {
@@ -8808,6 +9009,29 @@
         "title": "SimulateUtilityRequest",
         "type": "object"
       },
+      "SimulateUtilityResponse": {
+        "additionalProperties": true,
+        "properties": {
+          "success": {
+            "title": "Success",
+            "type": "boolean"
+          },
+          "utility_results": {
+            "items": {
+              "additionalProperties": true,
+              "type": "object"
+            },
+            "title": "Utility Results",
+            "type": "array"
+          }
+        },
+        "required": [
+          "success",
+          "utility_results"
+        ],
+        "title": "SimulateUtilityResponse",
+        "type": "object"
+      },
       "SimulateVotersRequest": {
         "description": "POST /simulations/simulate_voters.",
         "properties": {
@@ -8818,6 +9042,24 @@
           }
         },
         "title": "SimulateVotersRequest",
+        "type": "object"
+      },
+      "SimulateVotersResponse": {
+        "additionalProperties": true,
+        "properties": {
+          "voters": {
+            "items": {
+              "additionalProperties": true,
+              "type": "object"
+            },
+            "title": "Voters",
+            "type": "array"
+          }
+        },
+        "required": [
+          "voters"
+        ],
+        "title": "SimulateVotersResponse",
         "type": "object"
       },
       "SortitionRequest": {
@@ -8961,6 +9203,24 @@
           }
         },
         "title": "StrategicImpactRequest",
+        "type": "object"
+      },
+      "StrategicImpactResponse": {
+        "additionalProperties": true,
+        "properties": {
+          "results": {
+            "items": {
+              "additionalProperties": true,
+              "type": "object"
+            },
+            "title": "Results",
+            "type": "array"
+          }
+        },
+        "required": [
+          "results"
+        ],
+        "title": "StrategicImpactResponse",
         "type": "object"
       },
       "StratificationConfig": {
@@ -9491,6 +9751,37 @@
         "title": "UtilityMatrixRequest",
         "type": "object"
       },
+      "UtilityMatrixResponse": {
+        "additionalProperties": true,
+        "properties": {
+          "matrix": {
+            "additionalProperties": true,
+            "title": "Matrix",
+            "type": "object"
+          },
+          "message": {
+            "title": "Message",
+            "type": "string"
+          },
+          "stats": {
+            "additionalProperties": true,
+            "title": "Stats",
+            "type": "object"
+          },
+          "success": {
+            "title": "Success",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "success",
+          "matrix",
+          "stats",
+          "message"
+        ],
+        "title": "UtilityMatrixResponse",
+        "type": "object"
+      },
       "ValidationError": {
         "properties": {
           "loc": {
@@ -9556,6 +9847,21 @@
         "title": "VoteStepsRequest",
         "type": "object"
       },
+      "VoteStepsResponse": {
+        "additionalProperties": true,
+        "description": "POST /simulations/vote-steps. Shape is polymorphic by `method`\n(irv/borda/plurality/schulze/approval); only `method` is guaranteed.",
+        "properties": {
+          "method": {
+            "title": "Method",
+            "type": "string"
+          }
+        },
+        "required": [
+          "method"
+        ],
+        "title": "VoteStepsResponse",
+        "type": "object"
+      },
       "VoterCompetenceStats": {
         "properties": {
           "biased_mean": {
@@ -9616,6 +9922,31 @@
         "title": "VoterSegmentsRequest",
         "type": "object"
       },
+      "VoterSegmentsResponse": {
+        "additionalProperties": true,
+        "properties": {
+          "message": {
+            "title": "Message",
+            "type": "string"
+          },
+          "segments": {
+            "additionalProperties": true,
+            "title": "Segments",
+            "type": "object"
+          },
+          "success": {
+            "title": "Success",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "success",
+          "segments",
+          "message"
+        ],
+        "title": "VoterSegmentsResponse",
+        "type": "object"
+      },
       "VoterSnapshot": {
         "additionalProperties": false,
         "description": "One voter row in the ideology map.",
@@ -9666,6 +9997,29 @@
           }
         },
         "title": "WhatIfRequest",
+        "type": "object"
+      },
+      "WhatIfResponse": {
+        "additionalProperties": true,
+        "properties": {
+          "results": {
+            "items": {
+              "additionalProperties": true,
+              "type": "object"
+            },
+            "title": "Results",
+            "type": "array"
+          },
+          "variant_param": {
+            "title": "Variant Param",
+            "type": "string"
+          }
+        },
+        "required": [
+          "variant_param",
+          "results"
+        ],
+        "title": "WhatIfResponse",
         "type": "object"
       },
       "_GoogleTokenBody": {
@@ -12150,9 +12504,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "additionalProperties": true,
-                  "title": "Response Legacy Simulate Api V2 Simulations Post",
-                  "type": "object"
+                  "$ref": "#/components/schemas/LegacySimulateResponse"
                 }
               }
             },
@@ -12367,9 +12719,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "additionalProperties": true,
-                  "title": "Response Calculate Utility Api V2 Simulations Calculate Utility Post",
-                  "type": "object"
+                  "$ref": "#/components/schemas/CalculateUtilityResponse"
                 }
               }
             },
@@ -12582,9 +12932,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "additionalProperties": true,
-                  "title": "Response Get Closest Candidate Api V2 Simulations Get Closest Candidate Post",
-                  "type": "object"
+                  "$ref": "#/components/schemas/ClosestCandidateResponse"
                 }
               }
             },
@@ -12625,9 +12973,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "additionalProperties": true,
-                  "title": "Response Get Utility Matrix Api V2 Simulations Get Utility Matrix Post",
-                  "type": "object"
+                  "$ref": "#/components/schemas/UtilityMatrixResponse"
                 }
               }
             },
@@ -12668,9 +13014,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "additionalProperties": true,
-                  "title": "Response Get Voter Segments Api V2 Simulations Get Voter Segments Post",
-                  "type": "object"
+                  "$ref": "#/components/schemas/VoterSegmentsResponse"
                 }
               }
             },
@@ -12711,9 +13055,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "additionalProperties": true,
-                  "title": "Response Ideology Map Api V2 Simulations Ideology Map Post",
-                  "type": "object"
+                  "$ref": "#/components/schemas/IdeologyMapResponse"
                 }
               }
             },
@@ -13037,9 +13379,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "additionalProperties": true,
-                  "title": "Response Sensitivity Api V2 Simulations Sensitivity Post",
-                  "type": "object"
+                  "$ref": "#/components/schemas/SensitivityResponse"
                 }
               }
             },
@@ -13080,9 +13420,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "additionalProperties": true,
-                  "title": "Response Simulate Candidates Api V2 Simulations Simulate Candidates Post",
-                  "type": "object"
+                  "$ref": "#/components/schemas/SimulateCandidatesResponse"
                 }
               }
             },
@@ -13123,9 +13461,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "additionalProperties": true,
-                  "title": "Response Simulate Utility Api V2 Simulations Simulate Utility Post",
-                  "type": "object"
+                  "$ref": "#/components/schemas/SimulateUtilityResponse"
                 }
               }
             },
@@ -13166,9 +13502,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "additionalProperties": true,
-                  "title": "Response Simulate Voters Api V2 Simulations Simulate Voters Post",
-                  "type": "object"
+                  "$ref": "#/components/schemas/SimulateVotersResponse"
                 }
               }
             },
@@ -13209,9 +13543,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "additionalProperties": true,
-                  "title": "Response Strategic Impact Api V2 Simulations Strategic Impact Post",
-                  "type": "object"
+                  "$ref": "#/components/schemas/StrategicImpactResponse"
                 }
               }
             },
@@ -13252,9 +13584,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "additionalProperties": true,
-                  "title": "Response Vote Steps Api V2 Simulations Vote Steps Post",
-                  "type": "object"
+                  "$ref": "#/components/schemas/VoteStepsResponse"
                 }
               }
             },
@@ -13295,9 +13625,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "additionalProperties": true,
-                  "title": "Response What If Api V2 Simulations What If Post",
-                  "type": "object"
+                  "$ref": "#/components/schemas/WhatIfResponse"
                 }
               }
             },

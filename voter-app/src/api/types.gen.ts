@@ -2895,6 +2895,19 @@ export interface components {
                 [key: string]: unknown;
             };
         };
+        /** CalculateUtilityResponse */
+        CalculateUtilityResponse: {
+            /** Message */
+            message: string;
+            /** Result */
+            result: {
+                [key: string]: unknown;
+            };
+            /** Success */
+            success: boolean;
+        } & {
+            [key: string]: unknown;
+        };
         /**
          * CampaignConfig
          * @description Polling-bandwagon dynamics over a few days.
@@ -3212,6 +3225,13 @@ export interface components {
             candidates?: unknown[];
             /** Voters */
             voters?: unknown[];
+        };
+        /** ClosestCandidateResponse */
+        ClosestCandidateResponse: {
+            /** Result */
+            result: unknown;
+        } & {
+            [key: string]: unknown;
         };
         /** CoalitionCandidate */
         CoalitionCandidate: {
@@ -4821,6 +4841,33 @@ export interface components {
              */
             seed: number;
         };
+        /** IdeologyMapResponse */
+        IdeologyMapResponse: {
+            /** Candidates */
+            candidates: {
+                [key: string]: unknown;
+            }[];
+            /** Condorcet Winner */
+            condorcet_winner?: string | null;
+            /** Method A */
+            method_a: string;
+            /** Method B */
+            method_b: string;
+            /** Pct Better Off With A */
+            pct_better_off_with_a: number;
+            /** Pct Better Off With B */
+            pct_better_off_with_b: number;
+            /** Voters */
+            voters: {
+                [key: string]: unknown;
+            }[];
+            /** Winner A */
+            winner_a?: string | null;
+            /** Winner B */
+            winner_b?: string | null;
+        } & {
+            [key: string]: unknown;
+        };
         /**
          * InformationModelConfig
          * @description Media bias × voter information level adjustment of perceived utilities.
@@ -5142,6 +5189,23 @@ export interface components {
             formData: {
                 [key: string]: unknown;
             };
+        };
+        /**
+         * LegacySimulateResponse
+         * @description POST /simulations (legacy). Conditional vote/ranked/score blocks +
+         *     dynamic per-method winners ride through on `extra="allow"`.
+         */
+        LegacySimulateResponse: {
+            /** Deprecation Warning */
+            deprecation_warning: string;
+            /** Metadata */
+            metadata: {
+                [key: string]: unknown;
+            };
+            /** Simulation Type */
+            simulation_type: string;
+        } & {
+            [key: string]: unknown;
         };
         /**
          * LiquidDemocracyRequest
@@ -6276,6 +6340,19 @@ export interface components {
              */
             variable: string;
         };
+        /** SensitivityResponse */
+        SensitivityResponse: {
+            /** Results */
+            results: {
+                [key: string]: unknown;
+            }[];
+            /** Values */
+            values: unknown[];
+            /** Variable */
+            variable: string;
+        } & {
+            [key: string]: unknown;
+        };
         /**
          * ShyVoterRequest
          * @description Bradley / Shy Tory effect: socially-sensitive candidates underpolled.
@@ -6368,6 +6445,19 @@ export interface components {
             num_candidates: number;
             /** Parties */
             parties?: string[];
+        };
+        /** SimulateCandidatesResponse */
+        SimulateCandidatesResponse: {
+            /** Candidates */
+            candidates: {
+                [key: string]: unknown;
+            }[];
+            /** Message */
+            message: string;
+            /** Success */
+            success: boolean;
+        } & {
+            [key: string]: unknown;
         };
         /**
          * SimulatePipelineRequest
@@ -6505,6 +6595,17 @@ export interface components {
                 [key: string]: unknown;
             }[];
         };
+        /** SimulateUtilityResponse */
+        SimulateUtilityResponse: {
+            /** Success */
+            success: boolean;
+            /** Utility Results */
+            utility_results: {
+                [key: string]: unknown;
+            }[];
+        } & {
+            [key: string]: unknown;
+        };
         /**
          * SimulateVotersRequest
          * @description POST /simulations/simulate_voters.
@@ -6515,6 +6616,15 @@ export interface components {
              * @default 1000
              */
             num_voters: number;
+        };
+        /** SimulateVotersResponse */
+        SimulateVotersResponse: {
+            /** Voters */
+            voters: {
+                [key: string]: unknown;
+            }[];
+        } & {
+            [key: string]: unknown;
         };
         /**
          * SortitionRequest
@@ -6607,6 +6717,15 @@ export interface components {
             num_voters: number;
             /** Strategic Percentages */
             strategic_percentages?: unknown[];
+        };
+        /** StrategicImpactResponse */
+        StrategicImpactResponse: {
+            /** Results */
+            results: {
+                [key: string]: unknown;
+            }[];
+        } & {
+            [key: string]: unknown;
         };
         /** StratificationConfig */
         StratificationConfig: {
@@ -6834,6 +6953,23 @@ export interface components {
                 [key: string]: unknown;
             }[];
         };
+        /** UtilityMatrixResponse */
+        UtilityMatrixResponse: {
+            /** Matrix */
+            matrix: {
+                [key: string]: unknown;
+            };
+            /** Message */
+            message: string;
+            /** Stats */
+            stats: {
+                [key: string]: unknown;
+            };
+            /** Success */
+            success: boolean;
+        } & {
+            [key: string]: unknown;
+        };
         /** ValidationError */
         ValidationError: {
             /** Location */
@@ -6871,6 +7007,17 @@ export interface components {
              */
             seed: number;
         };
+        /**
+         * VoteStepsResponse
+         * @description POST /simulations/vote-steps. Shape is polymorphic by `method`
+         *     (irv/borda/plurality/schulze/approval); only `method` is guaranteed.
+         */
+        VoteStepsResponse: {
+            /** Method */
+            method: string;
+        } & {
+            [key: string]: unknown;
+        };
         /** VoterCompetenceStats */
         VoterCompetenceStats: {
             /** Biased Mean */
@@ -6897,6 +7044,19 @@ export interface components {
             voters?: {
                 [key: string]: unknown;
             }[];
+        };
+        /** VoterSegmentsResponse */
+        VoterSegmentsResponse: {
+            /** Message */
+            message: string;
+            /** Segments */
+            segments: {
+                [key: string]: unknown;
+            };
+            /** Success */
+            success: boolean;
+        } & {
+            [key: string]: unknown;
         };
         /**
          * VoterSnapshot
@@ -6928,6 +7088,17 @@ export interface components {
             variant_param: string;
             /** Variant Values */
             variant_values?: unknown[];
+        };
+        /** WhatIfResponse */
+        WhatIfResponse: {
+            /** Results */
+            results: {
+                [key: string]: unknown;
+            }[];
+            /** Variant Param */
+            variant_param: string;
+        } & {
+            [key: string]: unknown;
         };
         /** _GoogleTokenBody */
         _GoogleTokenBody: {
@@ -8825,9 +8996,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        [key: string]: unknown;
-                    };
+                    "application/json": components["schemas"]["LegacySimulateResponse"];
                 };
             };
             /** @description Validation Error */
@@ -8998,9 +9167,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        [key: string]: unknown;
-                    };
+                    "application/json": components["schemas"]["CalculateUtilityResponse"];
                 };
             };
             /** @description Validation Error */
@@ -9173,9 +9340,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        [key: string]: unknown;
-                    };
+                    "application/json": components["schemas"]["ClosestCandidateResponse"];
                 };
             };
             /** @description Validation Error */
@@ -9208,9 +9373,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        [key: string]: unknown;
-                    };
+                    "application/json": components["schemas"]["UtilityMatrixResponse"];
                 };
             };
             /** @description Validation Error */
@@ -9243,9 +9406,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        [key: string]: unknown;
-                    };
+                    "application/json": components["schemas"]["VoterSegmentsResponse"];
                 };
             };
             /** @description Validation Error */
@@ -9278,9 +9439,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        [key: string]: unknown;
-                    };
+                    "application/json": components["schemas"]["IdeologyMapResponse"];
                 };
             };
             /** @description Validation Error */
@@ -9512,9 +9671,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        [key: string]: unknown;
-                    };
+                    "application/json": components["schemas"]["SensitivityResponse"];
                 };
             };
             /** @description Validation Error */
@@ -9547,9 +9704,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        [key: string]: unknown;
-                    };
+                    "application/json": components["schemas"]["SimulateCandidatesResponse"];
                 };
             };
             /** @description Validation Error */
@@ -9582,9 +9737,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        [key: string]: unknown;
-                    };
+                    "application/json": components["schemas"]["SimulateUtilityResponse"];
                 };
             };
             /** @description Validation Error */
@@ -9617,9 +9770,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        [key: string]: unknown;
-                    };
+                    "application/json": components["schemas"]["SimulateVotersResponse"];
                 };
             };
             /** @description Validation Error */
@@ -9652,9 +9803,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        [key: string]: unknown;
-                    };
+                    "application/json": components["schemas"]["StrategicImpactResponse"];
                 };
             };
             /** @description Validation Error */
@@ -9687,9 +9836,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        [key: string]: unknown;
-                    };
+                    "application/json": components["schemas"]["VoteStepsResponse"];
                 };
             };
             /** @description Validation Error */
@@ -9722,9 +9869,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        [key: string]: unknown;
-                    };
+                    "application/json": components["schemas"]["WhatIfResponse"];
                 };
             };
             /** @description Validation Error */
