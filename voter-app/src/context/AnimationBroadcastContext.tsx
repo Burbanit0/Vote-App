@@ -1,74 +1,27 @@
 /**
- * AnimationBroadcastContext — small bus so an animation panel (e.g.
- * VoteStepAnimator) can publish its currently displayed step so the central
- * view can highlight the corresponding method/round/candidate.
- *
- * Why a context and not a callback prop? The animator lives inside a tab
- * whose content is mounted/unmounted as the user navigates. The central
- * view always lives at the page level. A context bridges them without
- * either being aware of the other's lifecycle.
+ * AnimationBroadcastContext — compatibility shim over useLabStore (Phase 5.4).
+ * The animation-step bus now lives in stores/useLabStore. Keeps
+ * useAnimationBroadcast()/AnimationBroadcastProvider + the AnimationFrame type
+ * working until 5.5 deletes the shim.
  */
-import React, {
-  createContext, useCallback, useContext, useMemo, useState,
-} from 'react';
+import React from 'react';
+import { useLabStore, type AnimationFrame } from '../stores/useLabStore';
 
-export interface AnimationFrame {
-  /** Voting method being animated ("irv" | "borda" | ... ). */
-  method:           string;
-  /** 1-indexed round / step inside the animation. */
-  step:             number;
-  /** Total number of steps in this animation. */
-  totalSteps:       number;
-  /** Eliminated candidate for this step (may be multiple via " + "). */
-  eliminated?:      string | null;
-  /**
-   * Cumulative set of candidates eliminated up to and including the current
-   * step. Used by the central map to grey out eliminated stars across rounds
-   * (vs `eliminated` which only carries the latest round's eliminations).
-   */
-  eliminatedSet?:   string[];
-  /**
-   * Per-recipient transfer percentages for the current step's elimination
-   * (IRV). Used by the central map to draw transfer arrows from the
-   * eliminated candidate's position toward the beneficiaries.
-   */
-  transfers?:       Record<string, number>;
-  /** Current standing winner (or null if not yet decided). */
-  currentWinner?:   string | null;
-  /** True when the animator is on the final step (winner declared). */
-  final?:           boolean;
-}
+export type { AnimationFrame };
 
 interface AnimationBroadcastValue {
-  frame:      AnimationFrame | null;
-  publish:    (f: AnimationFrame | null) => void;
-  clear:      () => void;
+  frame:   AnimationFrame | null;
+  publish: (f: AnimationFrame | null) => void;
+  clear:   () => void;
 }
 
-const AnimationBroadcastContext = createContext<AnimationBroadcastValue | null>(null);
-
-export const AnimationBroadcastProvider: React.FC<{ children: React.ReactNode }> = ({
-  children,
-}) => {
-  const [frame, setFrame] = useState<AnimationFrame | null>(null);
-
-  const publish = useCallback((f: AnimationFrame | null) => setFrame(f), []);
-  const clear   = useCallback(() => setFrame(null), []);
-
-  const value = useMemo(() => ({ frame, publish, clear }), [frame, publish, clear]);
-  return (
-    <AnimationBroadcastContext.Provider value={value}>
-      {children}
-    </AnimationBroadcastContext.Provider>
-  );
-};
-
-const INERT: AnimationBroadcastValue = {
-  frame: null,
-  publish: () => {},
-  clear:   () => {},
+export const AnimationBroadcastProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
+  return <>{children}</>;
 };
 
 export function useAnimationBroadcast(): AnimationBroadcastValue {
-  return useContext(AnimationBroadcastContext) ?? INERT;
+  const frame = useLabStore((s) => s.frame);
+  const publish = useLabStore((s) => s.publishFrame);
+  const clear = useLabStore((s) => s.clearFrame);
+  return { frame, publish, clear };
 }

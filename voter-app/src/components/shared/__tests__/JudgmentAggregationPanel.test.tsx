@@ -1,10 +1,15 @@
 import React from 'react';
 import { render, screen, fireEvent, waitFor } from '@testing-library/react';
 import { MemoryRouter } from 'react-router';
+import { QueryClientProvider } from '@tanstack/react-query';
 import JudgmentAggregationPanel from '../JudgmentAggregationPanel';
+import { makeTestQueryClient } from '../../../test/queryWrapper';
 
-jest.mock('axios', () => ({ post: jest.fn() }));
-const { post: mockPost } = jest.requireMock('axios') as { post: jest.Mock };
+jest.mock('../../../api/client', () => ({
+  apiClient: { GET: jest.fn(), POST: jest.fn(), PUT: jest.fn(), DELETE: jest.fn(), PATCH: jest.fn() },
+  getAccessToken: jest.fn(() => null),
+}));
+const { apiClient } = jest.requireMock('../../../api/client') as { apiClient: { POST: jest.Mock } };
 
 // ── Fixtures ──────────────────────────────────────────────────────────────────
 
@@ -31,13 +36,16 @@ function makeData(coherent = false) {
       },
       pedagogical_note: 'Test note.',
     },
+    error: undefined,
   };
 }
 
 function renderPanel() {
   return render(
     <MemoryRouter>
-      <JudgmentAggregationPanel />
+      <QueryClientProvider client={makeTestQueryClient()}>
+        <JudgmentAggregationPanel />
+      </QueryClientProvider>
     </MemoryRouter>
   );
 }
@@ -73,12 +81,12 @@ describe('JudgmentAggregationPanel', () => {
     expect(screen.getByRole('alert')).toBeInTheDocument();
   });
 
-  it('calls axios.post on simulate click', async () => {
-    mockPost.mockResolvedValue(makeData());
+  it('calls API on simulate click', async () => {
+    apiClient.POST.mockResolvedValue(makeData());
     renderPanel();
     fireEvent.click(screen.getByTestId('simulate-btn'));
-    await waitFor(() => expect(mockPost).toHaveBeenCalledTimes(1));
-    expect(mockPost).toHaveBeenCalledWith(
+    await waitFor(() => expect(apiClient.POST).toHaveBeenCalledTimes(1));
+    expect(apiClient.POST).toHaveBeenCalledWith(
       expect.stringMatching(/\/api\/(v2\/)?theory\/judgment-aggregation/),
       expect.any(Object),
     );
@@ -86,7 +94,7 @@ describe('JudgmentAggregationPanel', () => {
   });
 
   it('shows coherent badge (success) when coherent', async () => {
-    mockPost.mockResolvedValue(makeData(true));
+    apiClient.POST.mockResolvedValue(makeData(true));
     renderPanel();
     fireEvent.click(screen.getByTestId('simulate-btn'));
     await waitFor(() => {
@@ -97,7 +105,7 @@ describe('JudgmentAggregationPanel', () => {
   });
 
   it('shows incoherent badge (danger) when incoherent', async () => {
-    mockPost.mockResolvedValue(makeData(false));
+    apiClient.POST.mockResolvedValue(makeData(false));
     renderPanel();
     fireEvent.click(screen.getByTestId('simulate-btn'));
     await waitFor(() => {
@@ -108,7 +116,7 @@ describe('JudgmentAggregationPanel', () => {
   });
 
   it('shows voter coherence badge', async () => {
-    mockPost.mockResolvedValue(makeData());
+    apiClient.POST.mockResolvedValue(makeData());
     renderPanel();
     fireEvent.click(screen.getByTestId('simulate-btn'));
     await waitFor(() => expect(screen.getByTestId('voter-coherence-badge')).toBeInTheDocument());
@@ -116,7 +124,7 @@ describe('JudgmentAggregationPanel', () => {
   });
 
   it('shows propositions table', async () => {
-    mockPost.mockResolvedValue(makeData());
+    apiClient.POST.mockResolvedValue(makeData());
     renderPanel();
     fireEvent.click(screen.getByTestId('simulate-btn'));
     await waitFor(() => expect(screen.getByTestId('propositions-table')).toBeInTheDocument());
@@ -124,7 +132,7 @@ describe('JudgmentAggregationPanel', () => {
   });
 
   it('shows incoherence alert when incoherent', async () => {
-    mockPost.mockResolvedValue(makeData(false));
+    apiClient.POST.mockResolvedValue(makeData(false));
     renderPanel();
     fireEvent.click(screen.getByTestId('simulate-btn'));
     await waitFor(() => expect(screen.getByTestId('incoherence-alert')).toBeInTheDocument());
@@ -132,7 +140,7 @@ describe('JudgmentAggregationPanel', () => {
   });
 
   it('does NOT show incoherence alert when coherent', async () => {
-    mockPost.mockResolvedValue(makeData(true));
+    apiClient.POST.mockResolvedValue(makeData(true));
     renderPanel();
     fireEvent.click(screen.getByTestId('simulate-btn'));
     await waitFor(() => screen.getByTestId('coherence-badge'));
@@ -141,7 +149,7 @@ describe('JudgmentAggregationPanel', () => {
   });
 
   it('renders logic tree SVG', async () => {
-    mockPost.mockResolvedValue(makeData());
+    apiClient.POST.mockResolvedValue(makeData());
     renderPanel();
     fireEvent.click(screen.getByTestId('simulate-btn'));
     await waitFor(() => expect(screen.getByTestId('logic-tree-svg')).toBeInTheDocument());
@@ -149,7 +157,7 @@ describe('JudgmentAggregationPanel', () => {
   });
 
   it('shows resolution card when incoherent', async () => {
-    mockPost.mockResolvedValue(makeData(false));
+    apiClient.POST.mockResolvedValue(makeData(false));
     renderPanel();
     fireEvent.click(screen.getByTestId('simulate-btn'));
     await waitFor(() => expect(screen.getByTestId('resolution-card')).toBeInTheDocument());
@@ -157,7 +165,7 @@ describe('JudgmentAggregationPanel', () => {
   });
 
   it('shows severity badge when paradox exists', async () => {
-    mockPost.mockResolvedValue(makeData(false));
+    apiClient.POST.mockResolvedValue(makeData(false));
     renderPanel();
     fireEvent.click(screen.getByTestId('simulate-btn'));
     await waitFor(() => expect(screen.getByTestId('severity-badge')).toBeInTheDocument());
@@ -165,7 +173,7 @@ describe('JudgmentAggregationPanel', () => {
   });
 
   it('shows error on API failure', async () => {
-    mockPost.mockRejectedValue(new Error('Network error'));
+    apiClient.POST.mockRejectedValue(new Error('Network error'));
     renderPanel();
     fireEvent.click(screen.getByTestId('simulate-btn'));
     await waitFor(() => expect(screen.getByText(/Erreur|Error/i)).toBeInTheDocument());

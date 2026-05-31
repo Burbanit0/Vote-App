@@ -1,11 +1,16 @@
 import React from 'react';
 import { render, screen, fireEvent, waitFor, act } from '@testing-library/react';
 import { MemoryRouter } from 'react-router';
+import { QueryClientProvider } from '@tanstack/react-query';
 import ElectoralFatiguePanel from '../ElectoralFatiguePanel';
 import { ElectionProvider } from '../../../context/ElectionContext';
+import { makeTestQueryClient } from '../../../test/queryWrapper';
 
-jest.mock('axios', () => ({ post: jest.fn() }));
-const { post: mockPost } = jest.requireMock('axios') as { post: jest.Mock };
+jest.mock('../../../api/client', () => ({
+  apiClient: { GET: jest.fn(), POST: jest.fn(), PUT: jest.fn(), DELETE: jest.fn(), PATCH: jest.fn() },
+  getAccessToken: jest.fn(() => null),
+}));
+const { apiClient } = jest.requireMock('../../../api/client') as { apiClient: { POST: jest.Mock } };
 
 jest.mock('recharts', () => {
   const React = require('react');
@@ -47,15 +52,18 @@ function makeData(winnerChanged = false) {
       full_mean_ideology:   0.03,
       pedagogical_note:     'Test note.',
     },
+    error: undefined,
   };
 }
 
 function renderPanel() {
   return render(
     <MemoryRouter>
-      <ElectionProvider>
-        <ElectoralFatiguePanel />
-      </ElectionProvider>
+      <QueryClientProvider client={makeTestQueryClient()}>
+        <ElectionProvider>
+          <ElectoralFatiguePanel />
+        </ElectionProvider>
+      </QueryClientProvider>
     </MemoryRouter>
   );
 }
@@ -91,12 +99,12 @@ describe('ElectoralFatiguePanel', () => {
     expect(screen.getByRole('alert')).toBeInTheDocument();
   });
 
-  it('calls axios.post on simulate click', async () => {
-    mockPost.mockResolvedValue(makeData());
+  it('calls API on simulate click', async () => {
+    apiClient.POST.mockResolvedValue(makeData());
     renderPanel();
     fireEvent.click(screen.getByRole('button', { name: /simuler|simulate/i }));
-    await waitFor(() => expect(mockPost).toHaveBeenCalledTimes(1));
-    expect(mockPost).toHaveBeenCalledWith(
+    await waitFor(() => expect(apiClient.POST).toHaveBeenCalledTimes(1));
+    expect(apiClient.POST).toHaveBeenCalledWith(
       expect.stringMatching(/\/api\/(v2\/)?election\/electoral-fatigue/),
       expect.any(Object),
     );
@@ -104,7 +112,7 @@ describe('ElectoralFatiguePanel', () => {
   });
 
   it('renders turnout chart after data loads', async () => {
-    mockPost.mockResolvedValue(makeData());
+    apiClient.POST.mockResolvedValue(makeData());
     renderPanel();
     fireEvent.click(screen.getByRole('button', { name: /simuler|simulate/i }));
     await waitFor(() => expect(screen.getByTestId('turnout-chart')).toBeInTheDocument());
@@ -112,7 +120,7 @@ describe('ElectoralFatiguePanel', () => {
   });
 
   it('renders area chart after data loads', async () => {
-    mockPost.mockResolvedValue(makeData());
+    apiClient.POST.mockResolvedValue(makeData());
     renderPanel();
     fireEvent.click(screen.getByRole('button', { name: /simuler|simulate/i }));
     await waitFor(() => expect(screen.getByTestId('area-chart')).toBeInTheDocument());
@@ -120,7 +128,7 @@ describe('ElectoralFatiguePanel', () => {
   });
 
   it('shows composition bars', async () => {
-    mockPost.mockResolvedValue(makeData());
+    apiClient.POST.mockResolvedValue(makeData());
     renderPanel();
     fireEvent.click(screen.getByRole('button', { name: /simuler|simulate/i }));
     await waitFor(() => expect(screen.getByTestId('composition-bars')).toBeInTheDocument());
@@ -128,7 +136,7 @@ describe('ElectoralFatiguePanel', () => {
   });
 
   it('shows ideology drift badge', async () => {
-    mockPost.mockResolvedValue(makeData());
+    apiClient.POST.mockResolvedValue(makeData());
     renderPanel();
     fireEvent.click(screen.getByRole('button', { name: /simuler|simulate/i }));
     await waitFor(() => expect(screen.getByTestId('ideology-drift-badge')).toBeInTheDocument());
@@ -136,7 +144,7 @@ describe('ElectoralFatiguePanel', () => {
   });
 
   it('shows representation gap badge', async () => {
-    mockPost.mockResolvedValue(makeData());
+    apiClient.POST.mockResolvedValue(makeData());
     renderPanel();
     fireEvent.click(screen.getByRole('button', { name: /simuler|simulate/i }));
     await waitFor(() => expect(screen.getByTestId('rep-gap-badge')).toBeInTheDocument());
@@ -144,7 +152,7 @@ describe('ElectoralFatiguePanel', () => {
   });
 
   it('shows final turnout badge', async () => {
-    mockPost.mockResolvedValue(makeData());
+    apiClient.POST.mockResolvedValue(makeData());
     renderPanel();
     fireEvent.click(screen.getByRole('button', { name: /simuler|simulate/i }));
     await waitFor(() => expect(screen.getByTestId('final-turnout-badge')).toBeInTheDocument());
@@ -152,7 +160,7 @@ describe('ElectoralFatiguePanel', () => {
   });
 
   it('shows winner-changed badge when winner changed', async () => {
-    mockPost.mockResolvedValue(makeData(true));
+    apiClient.POST.mockResolvedValue(makeData(true));
     renderPanel();
     fireEvent.click(screen.getByRole('button', { name: /simuler|simulate/i }));
     await waitFor(() => expect(screen.getByTestId('winner-changed-badge')).toBeInTheDocument());
@@ -160,7 +168,7 @@ describe('ElectoralFatiguePanel', () => {
   });
 
   it('does NOT show winner-changed badge when winner stable', async () => {
-    mockPost.mockResolvedValue(makeData(false));
+    apiClient.POST.mockResolvedValue(makeData(false));
     renderPanel();
     fireEvent.click(screen.getByRole('button', { name: /simuler|simulate/i }));
     await waitFor(() => screen.getByTestId('ideology-drift-badge'));
@@ -169,7 +177,7 @@ describe('ElectoralFatiguePanel', () => {
   });
 
   it('shows winner drift badges for each election', async () => {
-    mockPost.mockResolvedValue(makeData());
+    apiClient.POST.mockResolvedValue(makeData());
     renderPanel();
     fireEvent.click(screen.getByRole('button', { name: /simuler|simulate/i }));
     await waitFor(() => expect(screen.getByTestId('winner-drift-badges')).toBeInTheDocument());
@@ -177,19 +185,19 @@ describe('ElectoralFatiguePanel', () => {
   });
 
   it('auto-recalculates on fatigue slider change after first run', async () => {
-    mockPost.mockResolvedValue(makeData());
+    apiClient.POST.mockResolvedValue(makeData());
     renderPanel();
     fireEvent.click(screen.getByRole('button', { name: /simuler|simulate/i }));
-    await waitFor(() => expect(mockPost).toHaveBeenCalledTimes(1));
+    await waitFor(() => expect(apiClient.POST).toHaveBeenCalledTimes(1));
 
     fireEvent.change(screen.getByTestId('fatigue-rate-slider'), { target: { value: '0.1' } });
     act(() => { jest.advanceTimersByTime(450); });
-    await waitFor(() => expect(mockPost).toHaveBeenCalledTimes(2));
+    await waitFor(() => expect(apiClient.POST).toHaveBeenCalledTimes(2));
     jest.runAllTimers();
   });
 
   it('shows error on API failure', async () => {
-    mockPost.mockRejectedValue(new Error('Network error'));
+    apiClient.POST.mockRejectedValue(new Error('Network error'));
     renderPanel();
     fireEvent.click(screen.getByRole('button', { name: /simuler|simulate/i }));
     await waitFor(() => expect(screen.getByText(/Erreur|Error/i)).toBeInTheDocument());

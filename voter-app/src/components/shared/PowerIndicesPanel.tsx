@@ -3,7 +3,6 @@
  * Demonstrates that electoral weight ≠ coalition bargaining power.
  */
 import React, { useState } from 'react';
-import axios from 'axios';
 import { useTranslation } from 'react-i18next';
 import {
   Alert, Badge, Button, Col, Form, Row, Spinner, Table,
@@ -12,9 +11,7 @@ import {
   ScatterChart, Scatter, XAxis, YAxis, CartesianGrid, Tooltip,
   ReferenceLine, ResponsiveContainer, Cell,
 } from 'recharts';
-import { apiPath } from '../../api/apiVersion';
-
-const API = process.env.REACT_APP_API_URL ?? 'http://localhost:4434';
+import { $api } from '../../api/hooks';
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -206,9 +203,10 @@ const PowerIndicesPanel: React.FC = () => {
 
   const [parties,    setParties]    = useState<PartyInput[]>(DEFAULT_PARTIES);
   const [threshold,  setThreshold]  = useState(0);
-  const [data,       setData]       = useState<PowerData | null>(null);
-  const [loading,    setLoading]    = useState(false);
-  const [error,      setError]      = useState<string | null>(null);
+  const sim = $api.useMutation('post', '/api/v2/election/power-indices');
+  const data: PowerData | null = (sim.data as PowerData | undefined) ?? null;
+  const loading = sim.isPending;
+  const error = sim.isError ? t('power.error') : null;
   const [activeView, setActiveView] = useState<'scatter' | 'hemi' | 'coalitions'>('scatter');
   const [calcShapley, setCalcShapley] = useState(true);
   const [calcBanzhaf, setCalcBanzhaf] = useState(true);
@@ -226,7 +224,7 @@ const PowerIndicesPanel: React.FC = () => {
         ...p, color: PALETTE[i % PALETTE.length],
       }))
     );
-    setData(null);
+    sim.reset();
   };
 
   const addParty = () => {
@@ -253,23 +251,14 @@ const PowerIndicesPanel: React.FC = () => {
     if (data) runWith(updated, threshold);
   };
 
-  const runWith = async (pts: PartyInput[], thr: number) => {
-    setLoading(true);
-    setError(null);
-    try {
-      const res = await axios.post(`${API}${apiPath('election/power-indices')}`, {
-        parties: pts.map(({ name, seats, pariah }) => ({ name, seats, pariah })),
-        majority_threshold: thr,
-        coalition_constraints: [],
-        calculate_shapley: calcShapley,
-        calculate_banzhaf: calcBanzhaf,
-      });
-      setData(res.data);
-    } catch {
-      setError(t('power.error'));
-    } finally {
-      setLoading(false);
-    }
+  const runWith = (pts: PartyInput[], thr: number) => {
+    sim.mutate({ body: {
+      parties: pts.map(({ name, seats, pariah }) => ({ name, seats, pariah })),
+      majority_threshold: thr,
+      coalition_constraints: [],
+      calculate_shapley: calcShapley,
+      calculate_banzhaf: calcBanzhaf,
+    } });
   };
 
   const handleRun = () => runWith(parties, threshold);

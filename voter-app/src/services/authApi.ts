@@ -1,23 +1,22 @@
-import axios from 'axios';
 import { Profile_, User } from '../types';
+import { apiGet, apiPost } from '../api/client';
 
 const API_BASE_URL = (process.env.VITE_API_URL) || 'http://localhost:4434';
 
-// Phase 4.3.e: every route below now lives on /api/v2/* (fastapi-users).
+// Phase 4.3.e: every route below lives on /api/v2/* (fastapi-users).
 //   - login is form-encoded (OAuth2 contract) with `username` carrying the email
 //   - register requires an email field; if the caller doesn't supply one we
 //     synthesise it from the legacy username so the existing Register form
 //     keeps working until it grows an email field of its own
 //   - profile reads through /api/v2/users/me; per-id reads through /users/{id}
 //
-// /api/v2/auth/jwt/login does NOT echo the user back in the response — only
-// {access_token, token_type}. We fetch /users/me right after to populate the
-// AuthContext, then merge token + profile into the user object the rest of
-// the frontend already expects.
+// Phase 5.5: axios retired. The JSON calls go through the typed apiClient
+// (apiGet/apiPost — auth middleware attaches the Bearer token). The login token
+// exchange + its immediate /users/me read use raw fetch: login is form-encoded
+// (not JSON) and the freshly-issued token isn't persisted yet, so the apiClient
+// middleware (which reads the stored token) can't carry it — we pass it explicitly.
 
 // Build a `User` object compatible with the existing AuthContext consumer.
-// /users/me returns id + email + username + role; created_at is not echoed by
-// fastapi-users so we leave it empty (callers don't use it for auth flow).
 function profileToUser(profile: any, access_token: string): User {
   return {
     id:           profile.id,
@@ -30,10 +29,6 @@ function profileToUser(profile: any, access_token: string): User {
     created_at:   profile.created_at || '',
   };
 }
-
-const authHeaders = (token: string) => ({
-  headers: { Authorization: `Bearer ${token}` },
-});
 
 const tokenFromStorage = (): string => {
   const raw = localStorage.getItem('user');
@@ -55,7 +50,7 @@ export const registerUser = async (
 ): Promise<User> => {
   try {
     const effectiveEmail = email || `${username}@vote-app.local`;
-    await axios.post(`${API_BASE_URL}/api/v2/auth/register`, {
+    await apiPost('/api/v2/auth/register', {
       email: effectiveEmail,
       password,
       username,
@@ -84,16 +79,21 @@ export const loginUser = async (
     const form = new URLSearchParams();
     form.set('username', identifier);
     form.set('password', password);
-    const tokenResp = await axios.post(
-      `${API_BASE_URL}/api/v2/auth/jwt/login`,
-      form,
-      { headers: { 'Content-Type': 'application/x-www-form-urlencoded' } },
-    );
-    const access_token: string = tokenResp.data.access_token;
+    const tokenResp = await fetch(`${API_BASE_URL}/api/v2/auth/jwt/login`, {
+      method:  'POST',
+      headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+      body:    form.toString(),
+    });
+    if (!tokenResp.ok) throw new Error(`Login failed (${tokenResp.status})`);
+    const { access_token } = (await tokenResp.json()) as { access_token: string };
 
-    const me = await axios.get(`${API_BASE_URL}/api/v2/users/me`,
-      authHeaders(access_token));
-    return profileToUser(me.data, access_token);
+    // The token isn't persisted yet, so carry it explicitly to /users/me.
+    const meResp = await fetch(`${API_BASE_URL}/api/v2/users/me`, {
+      headers: { Authorization: `Bearer ${access_token}` },
+    });
+    if (!meResp.ok) throw new Error(`Profile fetch failed (${meResp.status})`);
+    const me = await meResp.json();
+    return profileToUser(me, access_token);
   } catch (error) {
     console.error('Error logging in user:', error);
     throw error;
@@ -102,14 +102,10 @@ export const loginUser = async (
 
 // ── /users/me (own profile) ───────────────────────────────────────────────
 
-export const fetchProfileData = async () => {
-  const token = tokenFromStorage();   // surfaces "No token found" verbatim
+export const fetchProfileData = async (): Promise<Profile_> => {
+  tokenFromStorage();   // surfaces "No token found" verbatim before the request
   try {
-    const response = await axios.get(
-      `${API_BASE_URL}/api/v2/users/me`,
-      authHeaders(token),
-    );
-    return response.data;
+    return await apiGet<Profile_>('/api/v2/users/me');
   } catch (error) {
     console.error('Error fetching the Profile:', error);
     throw new Error('Failed to fetch profile data. Please check your login status.');
@@ -120,12 +116,8 @@ export const fetchProfileData = async () => {
 
 export const googleLogin = async (credential: string): Promise<User> => {
   try {
-    const response = await axios.post(`${API_BASE_URL}/api/v2/auth/google`, {
-      token: credential,
-    });
     // Backend echoes {access_token, user_id, username, role, first_name, last_name}.
-    // Coerce to the User shape the AuthContext expects.
-    const data = response.data;
+    const data = await apiPost<any>('/api/v2/auth/google', { token: credential });
     return {
       id:           data.user_id,
       user_id:      data.user_id,
@@ -145,13 +137,9 @@ export const googleLogin = async (credential: string): Promise<User> => {
 // ── /users/{id} (admin / cross-user read) ─────────────────────────────────
 
 export const fetchUserProfile = async (id: number): Promise<Profile_> => {
-  const token = tokenFromStorage();   // surfaces "No token found" verbatim
+  tokenFromStorage();   // surfaces "No token found" verbatim before the request
   try {
-    const response = await axios.get(
-      `${API_BASE_URL}/api/v2/users/${id}`,
-      authHeaders(token),
-    );
-    return response.data;
+    return await apiGet<Profile_>(`/api/v2/users/${id}`);
   } catch (error) {
     console.error('Error fetching the user profile', error);
     throw new Error('Failed to fetch profile data. Please check your login status.');

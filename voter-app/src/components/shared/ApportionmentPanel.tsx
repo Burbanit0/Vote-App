@@ -4,12 +4,9 @@
  * (no Alabama paradox) and population monotonicity.
  */
 import React, { useCallback, useState } from 'react';
-import axios from 'axios';
 import { useTranslation } from 'react-i18next';
 import { Alert, Badge, Button, Col, Form, Row, Spinner, Table } from 'react-bootstrap';
-import { apiPath } from '../../api/apiVersion';
-
-const API = process.env.REACT_APP_API_URL ?? 'http://localhost:4434';
+import { $api } from '../../api/hooks';
 
 const METHODS = ['hamilton', 'jefferson', 'webster', 'adams', 'huntington_hill'] as const;
 type Method = typeof METHODS[number];
@@ -55,9 +52,10 @@ const ApportionmentPanel: React.FC = () => {
   const { t } = useTranslation();
 
   const [numSeats, setNumSeats] = useState(10);
-  const [data,     setData]     = useState<ApportData | null>(null);
-  const [loading,  setLoading]  = useState(false);
-  const [error,    setError]    = useState<string | null>(null);
+  const sim = $api.useMutation('post', '/api/v2/theory/apportionment');
+  const data: ApportData | null = (sim.data as ApportData | undefined) ?? null;
+  const loading = sim.isPending;
+  const error = sim.isError ? t('appor.error') : null;
   const [sliderN,  setSliderN]  = useState(10);
 
   // Default parties (classic Alabama paradox example)
@@ -67,23 +65,15 @@ const ApportionmentPanel: React.FC = () => {
     { name: 'C', votes: 5000 },
   ];
 
-  const runSimulation = useCallback(async (n: number) => {
-    setLoading(true);
-    setError(null);
-    try {
-      const res = await axios.post(`${API}${apiPath('theory/apportionment')}`, {
-        parties:        defaultParties,
-        num_seats:      n,
-        methods:        ['hamilton', 'jefferson', 'webster', 'adams', 'huntington_hill'],
-        find_paradoxes: true,
-      });
-      setData(res.data);
-    } catch {
-      setError(t('appor.error'));
-    } finally {
-      setLoading(false);
-    }
-  }, [t]);
+  const runSimulation = useCallback((n: number) => {
+    sim.mutate({ body: {
+      parties:        defaultParties,
+      num_seats:      n,
+      methods:        ['hamilton', 'jefferson', 'webster', 'adams', 'huntington_hill'],
+      find_paradoxes: true,
+    } });
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [t, sim]);
 
   const handleSimulate = () => { setSliderN(numSeats); runSimulation(numSeats); };
   const handleSlider   = (n: number) => { setSliderN(n); runSimulation(n); };

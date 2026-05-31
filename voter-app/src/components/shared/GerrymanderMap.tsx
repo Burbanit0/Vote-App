@@ -6,13 +6,10 @@
  * with D'Hondt proportional.
  */
 import React, { useCallback, useRef, useState, useMemo } from 'react';
-import axios from 'axios';
 import { useTranslation } from 'react-i18next';
 import { Alert, Badge, Button, Col, Row, Spinner } from 'react-bootstrap';
 import { useElection } from '../../context/ElectionContext';
-import { apiPath } from '../../api/apiVersion';
-
-const API = process.env.REACT_APP_API_URL ?? 'http://localhost:4434';
+import { $api } from '../../api/hooks';
 
 // ── Grid constants ────────────────────────────────────────────────────────────
 
@@ -177,9 +174,10 @@ const GerrymanderMap: React.FC = () => {
   const [grid,    setGrid]    = useState<number[][]>(makeDefaultGrid);
   const [numDist, setNumDist] = useState(NUM_DISTRICTS);
   const [painting, setPainting] = useState<number | null>(null);
-  const [data,    setData]    = useState<GerryData | null>(null);
-  const [loading, setLoading] = useState(false);
-  const [error,   setError]   = useState<string | null>(null);
+  const sim = $api.useMutation('post', '/api/v2/election/gerrymander');
+  const data: GerryData | null = (sim.data as GerryData | undefined) ?? null;
+  const loading = sim.isPending;
+  const error = sim.isError ? t('gerrymander.error') : null;
 
   const svgRef = useRef<SVGSVGElement>(null);
 
@@ -228,23 +226,15 @@ const GerrymanderMap: React.FC = () => {
     setGrid(newGrid);
   };
 
-  async function run() {
-    setLoading(true); setError(null);
+  function run() {
     const districts = gridToDistricts(grid);
-    try {
-      const res = await axios.post(`${API}${apiPath('election/gerrymander')}`, {
-        candidates: config.candidates,
-        num_voters: config.num_voters,
-        ideology:   config.ideology,
-        seed:       config.seed,
-        districts,
-      });
-      setData(res.data);
-    } catch {
-      setError(t('gerrymander.error'));
-    } finally {
-      setLoading(false);
-    }
+    sim.mutate({ body: {
+      candidates: config.candidates,
+      num_voters: config.num_voters,
+      ideology:   config.ideology,
+      seed:       config.seed,
+      districts,
+    } });
   }
 
   const winnerPct = data

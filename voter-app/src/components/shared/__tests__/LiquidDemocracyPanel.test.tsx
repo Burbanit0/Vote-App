@@ -1,11 +1,16 @@
 import React from 'react';
 import { render, screen, fireEvent, waitFor, act } from '@testing-library/react';
 import { MemoryRouter } from 'react-router';
+import { QueryClientProvider } from '@tanstack/react-query';
 import LiquidDemocracyPanel from '../LiquidDemocracyPanel';
 import { ElectionProvider } from '../../../context/ElectionContext';
+import { makeTestQueryClient } from '../../../test/queryWrapper';
 
-jest.mock('axios', () => ({ post: jest.fn() }));
-const { post: mockPost } = jest.requireMock('axios') as { post: jest.Mock };
+jest.mock('../../../api/client', () => ({
+  apiClient: { GET: jest.fn(), POST: jest.fn(), PUT: jest.fn(), DELETE: jest.fn(), PATCH: jest.fn() },
+  getAccessToken: jest.fn(() => null),
+}));
+const { apiClient } = jest.requireMock('../../../api/client') as { apiClient: { POST: jest.Mock } };
 
 // D3 mock — force simulation not available in JSDOM
 jest.mock('d3', () => {
@@ -78,15 +83,18 @@ function makeData(winnerChanged = false) {
       gini_voting_weight: 0.45,
       pedagogical_note:   'Test note.',
     },
+    error: undefined,
   };
 }
 
 function renderPanel() {
   return render(
     <MemoryRouter>
-      <ElectionProvider>
-        <LiquidDemocracyPanel />
-      </ElectionProvider>
+      <QueryClientProvider client={makeTestQueryClient()}>
+        <ElectionProvider>
+          <LiquidDemocracyPanel />
+        </ElectionProvider>
+      </QueryClientProvider>
     </MemoryRouter>
   );
 }
@@ -122,12 +130,12 @@ describe('LiquidDemocracyPanel', () => {
     expect(screen.getByRole('alert')).toBeInTheDocument();
   });
 
-  it('calls axios.post on simulate click', async () => {
-    mockPost.mockResolvedValue(makeData());
+  it('calls API on simulate click', async () => {
+    apiClient.POST.mockResolvedValue(makeData());
     renderPanel();
     fireEvent.click(screen.getByRole('button', { name: /simuler|simulate/i }));
-    await waitFor(() => expect(mockPost).toHaveBeenCalledTimes(1));
-    expect(mockPost).toHaveBeenCalledWith(
+    await waitFor(() => expect(apiClient.POST).toHaveBeenCalledTimes(1));
+    expect(apiClient.POST).toHaveBeenCalledWith(
       expect.stringMatching(/\/api\/(v2\/)?election\/liquid-democracy/),
       expect.any(Object),
     );
@@ -135,7 +143,7 @@ describe('LiquidDemocracyPanel', () => {
   });
 
   it('renders delegation graph SVG after data loads', async () => {
-    mockPost.mockResolvedValue(makeData());
+    apiClient.POST.mockResolvedValue(makeData());
     renderPanel();
     fireEvent.click(screen.getByRole('button', { name: /simuler|simulate/i }));
     await waitFor(() => expect(screen.getByTestId('delegation-graph-svg')).toBeInTheDocument());
@@ -143,7 +151,7 @@ describe('LiquidDemocracyPanel', () => {
   });
 
   it('shows direct and liquid winner badges', async () => {
-    mockPost.mockResolvedValue(makeData());
+    apiClient.POST.mockResolvedValue(makeData());
     renderPanel();
     fireEvent.click(screen.getByRole('button', { name: /simuler|simulate/i }));
     await waitFor(() => {
@@ -154,7 +162,7 @@ describe('LiquidDemocracyPanel', () => {
   });
 
   it('shows comparison banner', async () => {
-    mockPost.mockResolvedValue(makeData());
+    apiClient.POST.mockResolvedValue(makeData());
     renderPanel();
     fireEvent.click(screen.getByRole('button', { name: /simuler|simulate/i }));
     await waitFor(() => expect(screen.getByTestId('comparison-banner')).toBeInTheDocument());
@@ -162,7 +170,7 @@ describe('LiquidDemocracyPanel', () => {
   });
 
   it('shows cycles badge when cycles detected', async () => {
-    mockPost.mockResolvedValue(makeData());
+    apiClient.POST.mockResolvedValue(makeData());
     renderPanel();
     fireEvent.click(screen.getByRole('button', { name: /simuler|simulate/i }));
     await waitFor(() => expect(screen.getByTestId('cycles-badge')).toBeInTheDocument());
@@ -170,7 +178,7 @@ describe('LiquidDemocracyPanel', () => {
   });
 
   it('shows super-voters badge', async () => {
-    mockPost.mockResolvedValue(makeData());
+    apiClient.POST.mockResolvedValue(makeData());
     renderPanel();
     fireEvent.click(screen.getByRole('button', { name: /simuler|simulate/i }));
     await waitFor(() => expect(screen.getByTestId('super-voters-badge')).toBeInTheDocument());
@@ -178,7 +186,7 @@ describe('LiquidDemocracyPanel', () => {
   });
 
   it('shows Gini badge', async () => {
-    mockPost.mockResolvedValue(makeData());
+    apiClient.POST.mockResolvedValue(makeData());
     renderPanel();
     fireEvent.click(screen.getByRole('button', { name: /simuler|simulate/i }));
     await waitFor(() => expect(screen.getByTestId('gini-badge')).toBeInTheDocument());
@@ -186,7 +194,7 @@ describe('LiquidDemocracyPanel', () => {
   });
 
   it('renders Gini curve chart', async () => {
-    mockPost.mockResolvedValue(makeData());
+    apiClient.POST.mockResolvedValue(makeData());
     renderPanel();
     fireEvent.click(screen.getByRole('button', { name: /simuler|simulate/i }));
     await waitFor(() => expect(screen.getByTestId('gini-curve-chart')).toBeInTheDocument());
@@ -194,7 +202,7 @@ describe('LiquidDemocracyPanel', () => {
   });
 
   it('danger border when winner changed', async () => {
-    mockPost.mockResolvedValue(makeData(true));
+    apiClient.POST.mockResolvedValue(makeData(true));
     renderPanel();
     fireEvent.click(screen.getByRole('button', { name: /simuler|simulate/i }));
     await waitFor(() => {
@@ -205,7 +213,7 @@ describe('LiquidDemocracyPanel', () => {
   });
 
   it('success border when winner unchanged', async () => {
-    mockPost.mockResolvedValue(makeData(false));
+    apiClient.POST.mockResolvedValue(makeData(false));
     renderPanel();
     fireEvent.click(screen.getByRole('button', { name: /simuler|simulate/i }));
     await waitFor(() => {
@@ -216,19 +224,19 @@ describe('LiquidDemocracyPanel', () => {
   });
 
   it('debounced API call on slider change', async () => {
-    mockPost.mockResolvedValue(makeData());
+    apiClient.POST.mockResolvedValue(makeData());
     renderPanel();
     fireEvent.click(screen.getByRole('button', { name: /simuler|simulate/i }));
-    await waitFor(() => expect(mockPost).toHaveBeenCalledTimes(1));
+    await waitFor(() => expect(apiClient.POST).toHaveBeenCalledTimes(1));
 
     fireEvent.change(screen.getByTestId('delegation-prob-slider'), { target: { value: '0.8' } });
     act(() => { jest.advanceTimersByTime(450); });
-    await waitFor(() => expect(mockPost).toHaveBeenCalledTimes(2));
+    await waitFor(() => expect(apiClient.POST).toHaveBeenCalledTimes(2));
     jest.runAllTimers();
   });
 
   it('shows error on API failure', async () => {
-    mockPost.mockRejectedValue(new Error('Network error'));
+    apiClient.POST.mockRejectedValue(new Error('Network error'));
     renderPanel();
     fireEvent.click(screen.getByRole('button', { name: /simuler|simulate/i }));
     await waitFor(() => expect(screen.getByText(/Erreur|Error/i)).toBeInTheDocument());

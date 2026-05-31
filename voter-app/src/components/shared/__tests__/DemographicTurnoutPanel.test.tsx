@@ -1,11 +1,16 @@
 import React from 'react';
 import { render, screen, fireEvent, waitFor } from '@testing-library/react';
 import { MemoryRouter } from 'react-router';
+import { QueryClientProvider } from '@tanstack/react-query';
 import DemographicTurnoutPanel from '../DemographicTurnoutPanel';
 import { ElectionProvider } from '../../../context/ElectionContext';
+import { makeTestQueryClient } from '../../../test/queryWrapper';
 
-jest.mock('axios', () => ({ post: jest.fn() }));
-const { post: mockPost } = jest.requireMock('axios') as { post: jest.Mock };
+jest.mock('../../../api/client', () => ({
+  apiClient: { GET: jest.fn(), POST: jest.fn(), PUT: jest.fn(), DELETE: jest.fn(), PATCH: jest.fn() },
+  getAccessToken: jest.fn(() => null),
+}));
+const { apiClient } = jest.requireMock('../../../api/client') as { apiClient: { POST: jest.Mock } };
 
 jest.mock('recharts', () => {
   const React = require('react');
@@ -55,15 +60,18 @@ function makeData(winnerChanged = false) {
       ],
       pedagogical_note: 'Test note.',
     },
+    error: undefined,
   };
 }
 
 function renderPanel() {
   return render(
     <MemoryRouter>
-      <ElectionProvider>
-        <DemographicTurnoutPanel />
-      </ElectionProvider>
+      <QueryClientProvider client={makeTestQueryClient()}>
+        <ElectionProvider>
+          <DemographicTurnoutPanel />
+        </ElectionProvider>
+      </QueryClientProvider>
     </MemoryRouter>
   );
 }
@@ -101,12 +109,12 @@ describe('DemographicTurnoutPanel', () => {
     expect(screen.getByRole('alert')).toBeInTheDocument();
   });
 
-  it('calls axios.post on simulate click', async () => {
-    mockPost.mockResolvedValue(makeData());
+  it('calls API on simulate click', async () => {
+    apiClient.POST.mockResolvedValue(makeData());
     renderPanel();
     fireEvent.click(screen.getByTestId('simulate-btn'));
-    await waitFor(() => expect(mockPost).toHaveBeenCalledTimes(1));
-    expect(mockPost).toHaveBeenCalledWith(
+    await waitFor(() => expect(apiClient.POST).toHaveBeenCalledTimes(1));
+    expect(apiClient.POST).toHaveBeenCalledWith(
       expect.stringMatching(/\/api\/(v2\/)?election\/demographic-turnout/),
       expect.any(Object),
     );
@@ -114,7 +122,7 @@ describe('DemographicTurnoutPanel', () => {
   });
 
   it('shows biased winner badge after data loads', async () => {
-    mockPost.mockResolvedValue(makeData());
+    apiClient.POST.mockResolvedValue(makeData());
     renderPanel();
     fireEvent.click(screen.getByTestId('simulate-btn'));
     await waitFor(() => expect(screen.getByTestId('biased-winner-badge')).toBeInTheDocument());
@@ -122,7 +130,7 @@ describe('DemographicTurnoutPanel', () => {
   });
 
   it('shows ideology drift badge', async () => {
-    mockPost.mockResolvedValue(makeData());
+    apiClient.POST.mockResolvedValue(makeData());
     renderPanel();
     fireEvent.click(screen.getByTestId('simulate-btn'));
     await waitFor(() => expect(screen.getByTestId('drift-badge')).toBeInTheDocument());
@@ -130,7 +138,7 @@ describe('DemographicTurnoutPanel', () => {
   });
 
   it('shows turnout badge', async () => {
-    mockPost.mockResolvedValue(makeData());
+    apiClient.POST.mockResolvedValue(makeData());
     renderPanel();
     fireEvent.click(screen.getByTestId('simulate-btn'));
     await waitFor(() => expect(screen.getByTestId('turnout-badge')).toBeInTheDocument());
@@ -138,7 +146,7 @@ describe('DemographicTurnoutPanel', () => {
   });
 
   it('shows winner-changed alert when result flips', async () => {
-    mockPost.mockResolvedValue(makeData(true));
+    apiClient.POST.mockResolvedValue(makeData(true));
     renderPanel();
     fireEvent.click(screen.getByTestId('simulate-btn'));
     await waitFor(() => expect(screen.getByTestId('winner-changed-alert')).toBeInTheDocument());
@@ -146,7 +154,7 @@ describe('DemographicTurnoutPanel', () => {
   });
 
   it('does NOT show winner-changed alert when result stable', async () => {
-    mockPost.mockResolvedValue(makeData(false));
+    apiClient.POST.mockResolvedValue(makeData(false));
     renderPanel();
     fireEvent.click(screen.getByTestId('simulate-btn'));
     await waitFor(() => screen.getByTestId('biased-winner-badge'));
@@ -155,7 +163,7 @@ describe('DemographicTurnoutPanel', () => {
   });
 
   it('renders pyramid chart', async () => {
-    mockPost.mockResolvedValue(makeData());
+    apiClient.POST.mockResolvedValue(makeData());
     renderPanel();
     fireEvent.click(screen.getByTestId('simulate-btn'));
     await waitFor(() => expect(screen.getByTestId('pyramid-chart')).toBeInTheDocument());
@@ -163,7 +171,7 @@ describe('DemographicTurnoutPanel', () => {
   });
 
   it('renders biased and corrected bar charts', async () => {
-    mockPost.mockResolvedValue(makeData());
+    apiClient.POST.mockResolvedValue(makeData());
     renderPanel();
     fireEvent.click(screen.getByTestId('simulate-btn'));
     await waitFor(() => {
@@ -174,7 +182,7 @@ describe('DemographicTurnoutPanel', () => {
   });
 
   it('renders ideology drift SVG', async () => {
-    mockPost.mockResolvedValue(makeData());
+    apiClient.POST.mockResolvedValue(makeData());
     renderPanel();
     fireEvent.click(screen.getByTestId('simulate-btn'));
     await waitFor(() => expect(screen.getByTestId('ideology-drift-svg')).toBeInTheDocument());
@@ -182,7 +190,7 @@ describe('DemographicTurnoutPanel', () => {
   });
 
   it('renders demographic breakdown table with 6 rows', async () => {
-    mockPost.mockResolvedValue(makeData());
+    apiClient.POST.mockResolvedValue(makeData());
     renderPanel();
     fireEvent.click(screen.getByTestId('simulate-btn'));
     await waitFor(() => expect(screen.getByTestId('breakdown-table')).toBeInTheDocument());
@@ -190,7 +198,7 @@ describe('DemographicTurnoutPanel', () => {
   });
 
   it('shows corrected winner badge when winner changed', async () => {
-    mockPost.mockResolvedValue(makeData(true));
+    apiClient.POST.mockResolvedValue(makeData(true));
     renderPanel();
     fireEvent.click(screen.getByTestId('simulate-btn'));
     await waitFor(() => expect(screen.getByTestId('corrected-winner-badge')).toBeInTheDocument());
@@ -198,7 +206,7 @@ describe('DemographicTurnoutPanel', () => {
   });
 
   it('shows error on API failure', async () => {
-    mockPost.mockRejectedValue(new Error('Network error'));
+    apiClient.POST.mockRejectedValue(new Error('Network error'));
     renderPanel();
     fireEvent.click(screen.getByTestId('simulate-btn'));
     await waitFor(() => expect(screen.getByText(/Erreur|Error/i)).toBeInTheDocument());

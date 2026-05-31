@@ -1,10 +1,15 @@
 import React from 'react';
 import { render, screen, fireEvent, waitFor, act } from '@testing-library/react';
 import { MemoryRouter } from 'react-router';
+import { QueryClientProvider } from '@tanstack/react-query';
 import PartyDynamicsPanel from '../PartyDynamicsPanel';
+import { makeTestQueryClient } from '../../../test/queryWrapper';
 
-jest.mock('axios', () => ({ post: jest.fn() }));
-const { post: mockPost } = jest.requireMock('axios') as { post: jest.Mock };
+jest.mock('../../../api/client', () => ({
+  apiClient: { GET: jest.fn(), POST: jest.fn(), PUT: jest.fn(), DELETE: jest.fn(), PATCH: jest.fn() },
+  getAccessToken: jest.fn(() => null),
+}));
+const { apiClient } = jest.requireMock('../../../api/client') as { apiClient: { POST: jest.Mock } };
 
 jest.mock('recharts', () => {
   const React = require('react');
@@ -59,13 +64,16 @@ function makeData(duverger = false) {
       ],
       pedagogical_note: 'Test note.',
     },
+    error: undefined,
   };
 }
 
 function renderPanel() {
   return render(
     <MemoryRouter>
-      <PartyDynamicsPanel />
+      <QueryClientProvider client={makeTestQueryClient()}>
+        <PartyDynamicsPanel />
+      </QueryClientProvider>
     </MemoryRouter>
   );
 }
@@ -101,12 +109,12 @@ describe('PartyDynamicsPanel', () => {
     expect(screen.getByRole('alert')).toBeInTheDocument();
   });
 
-  it('calls axios.post on simulate click', async () => {
-    mockPost.mockResolvedValue(makeData());
+  it('calls API on simulate click', async () => {
+    apiClient.POST.mockResolvedValue(makeData());
     renderPanel();
     fireEvent.click(screen.getByTestId('simulate-btn'));
-    await waitFor(() => expect(mockPost).toHaveBeenCalledTimes(1));
-    expect(mockPost).toHaveBeenCalledWith(
+    await waitFor(() => expect(apiClient.POST).toHaveBeenCalledTimes(1));
+    expect(apiClient.POST).toHaveBeenCalledWith(
       expect.stringMatching(/\/api\/(v2\/)?election\/party-dynamics/),
       expect.any(Object),
     );
@@ -114,7 +122,7 @@ describe('PartyDynamicsPanel', () => {
   });
 
   it('renders ideology map SVG after data loads', async () => {
-    mockPost.mockResolvedValue(makeData());
+    apiClient.POST.mockResolvedValue(makeData());
     renderPanel();
     fireEvent.click(screen.getByTestId('simulate-btn'));
     await waitFor(() => expect(screen.getByTestId('ideology-map-svg')).toBeInTheDocument());
@@ -122,7 +130,7 @@ describe('PartyDynamicsPanel', () => {
   });
 
   it('renders N_eff chart', async () => {
-    mockPost.mockResolvedValue(makeData());
+    apiClient.POST.mockResolvedValue(makeData());
     renderPanel();
     fireEvent.click(screen.getByTestId('simulate-btn'));
     await waitFor(() => expect(screen.getByTestId('n-eff-chart')).toBeInTheDocument());
@@ -130,7 +138,7 @@ describe('PartyDynamicsPanel', () => {
   });
 
   it('shows final-system badge', async () => {
-    mockPost.mockResolvedValue(makeData());
+    apiClient.POST.mockResolvedValue(makeData());
     renderPanel();
     fireEvent.click(screen.getByTestId('simulate-btn'));
     await waitFor(() => expect(screen.getByTestId('final-system-badge')).toBeInTheDocument());
@@ -138,7 +146,7 @@ describe('PartyDynamicsPanel', () => {
   });
 
   it('shows duverger-confirmed badge', async () => {
-    mockPost.mockResolvedValue(makeData(true));
+    apiClient.POST.mockResolvedValue(makeData(true));
     renderPanel();
     fireEvent.click(screen.getByTestId('simulate-btn'));
     await waitFor(() => expect(screen.getByTestId('duverger-badge')).toBeInTheDocument());
@@ -146,7 +154,7 @@ describe('PartyDynamicsPanel', () => {
   });
 
   it('shows play button after data loads', async () => {
-    mockPost.mockResolvedValue(makeData());
+    apiClient.POST.mockResolvedValue(makeData());
     renderPanel();
     fireEvent.click(screen.getByTestId('simulate-btn'));
     await waitFor(() => expect(screen.getByTestId('play-btn')).toBeInTheDocument());
@@ -154,7 +162,7 @@ describe('PartyDynamicsPanel', () => {
   });
 
   it('shows election slider after data loads', async () => {
-    mockPost.mockResolvedValue(makeData());
+    apiClient.POST.mockResolvedValue(makeData());
     renderPanel();
     fireEvent.click(screen.getByTestId('simulate-btn'));
     await waitFor(() => expect(screen.getByTestId('election-slider')).toBeInTheDocument());
@@ -162,7 +170,7 @@ describe('PartyDynamicsPanel', () => {
   });
 
   it('advances election index when election slider changes', async () => {
-    mockPost.mockResolvedValue(makeData());
+    apiClient.POST.mockResolvedValue(makeData());
     renderPanel();
     fireEvent.click(screen.getByTestId('simulate-btn'));
     await waitFor(() => screen.getByTestId('election-slider'));
@@ -180,7 +188,7 @@ describe('PartyDynamicsPanel', () => {
   });
 
   it('shows error on API failure', async () => {
-    mockPost.mockRejectedValue(new Error('Network error'));
+    apiClient.POST.mockRejectedValue(new Error('Network error'));
     renderPanel();
     fireEvent.click(screen.getByTestId('simulate-btn'));
     await waitFor(() => expect(screen.getByText(/Erreur|Error/i)).toBeInTheDocument());

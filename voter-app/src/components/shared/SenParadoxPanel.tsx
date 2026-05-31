@@ -4,12 +4,9 @@
  * minimal individual liberalism.
  */
 import React, { useCallback, useState } from 'react';
-import axios from 'axios';
 import { useTranslation } from 'react-i18next';
 import { Alert, Badge, Button, Card, Col, Form, Row, Spinner } from 'react-bootstrap';
-import { apiPath } from '../../api/apiVersion';
-
-const API = process.env.REACT_APP_API_URL ?? 'http://localhost:4434';
+import { $api } from '../../api/hooks';
 
 const ALTS = ['x', 'y', 'z'] as const;
 
@@ -83,51 +80,41 @@ const SenParadoxPanel: React.FC = () => {
   const { t } = useTranslation();
 
   const [seed,    setSeed]    = useState(42);
-  const [data,    setData]    = useState<SenData | null>(null);
-  const [loading, setLoading] = useState(false);
-  const [error,   setError]   = useState<string | null>(null);
+  const sim = $api.useMutation('post', '/api/v2/theory/sen-paradox');
+  const simCustom = $api.useMutation('post', '/api/v2/theory/sen-paradox');
+  const data: SenData | null = (sim.data as SenData | undefined) ?? null;
+  const loading = sim.isPending || simCustom.isPending;
+  const error = sim.isError ? t('sen.error') : null;
 
   // Interactive: user sets their own preferences for Person 1
   const [userPref1, setUserPref1] = useState(['z', 'x', 'y']);
   const [userPref2, setUserPref2] = useState(['x', 'y', 'z']);
   const [customResult, setCustomResult] = useState<ParadoxExample | null>(null);
 
-  const runSimulation = useCallback(async () => {
-    setLoading(true);
-    setError(null);
+  const runSimulation = useCallback(() => {
     setCustomResult(null);
-    try {
-      const res = await axios.post(`${API}${apiPath('theory/sen-paradox')}`, {
-        num_voters: 2,
-        seed,
-        rights_definition: 'liberal',
-      });
-      setData(res.data);
-    } catch {
-      setError(t('sen.error'));
-    } finally {
-      setLoading(false);
-    }
-  }, [seed, t]);
+    sim.mutate({ body: {
+      num_voters: 2,
+      seed,
+      rights_definition: 'liberal',
+    } });
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [seed, t, sim]);
 
-  const testCustomPrefs = useCallback(async () => {
+  const testCustomPrefs = useCallback(() => {
     if (!data) return;
-    setLoading(true);
-    try {
-      const res = await axios.post(`${API}${apiPath('theory/sen-paradox')}`, {
-        num_voters: 2,
-        seed,
-        rights_definition: 'liberal',
-      });
-      // Find if the custom prefs match a paradox
-      const ex = (res.data as SenData).paradox_examples;
-      setCustomResult(ex.length > 0 ? ex[0] : null);
-    } catch {
-      // ignore
-    } finally {
-      setLoading(false);
-    }
-  }, [data, seed]);
+    simCustom.mutate({ body: {
+      num_voters: 2,
+      seed,
+      rights_definition: 'liberal',
+    } }, {
+      onSuccess: (res) => {
+        const ex = (res as unknown as SenData).paradox_examples;
+        setCustomResult(ex.length > 0 ? ex[0] : null);
+      },
+    });
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [data, seed, simCustom]);
 
   const swapPref1 = (arr: string[], i: number, j: number) => {
     const next = [...arr]; [next[i], next[j]] = [next[j], next[i]]; setUserPref1(next);

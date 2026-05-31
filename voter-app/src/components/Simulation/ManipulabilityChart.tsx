@@ -14,12 +14,9 @@ import {
   XAxis,
   YAxis,
 } from 'recharts';
-import axios from 'axios';
 import { useExpertMode } from '../../context/ExpertModeContext';
 import { useMethodLabels } from './simulationConstants';
-import { apiPath } from '../../api/apiVersion';
-
-const API_BASE = process.env.VITE_API_URL || 'http://localhost:4434';
+import { apiClient } from '../../api/client';
 
 // ── Types ────────────────────────────────────────────────────────────────────
 
@@ -112,19 +109,22 @@ const ManipulabilityChart: React.FC<Props> = ({ baseParams }) => {
     setLoading(true);
     setError(null);
     try {
-      const params = new URLSearchParams({
-        num_candidates: String(baseParams.num_candidates),
-        num_voters:     String(Math.min(500, baseParams.num_voters)), // cap for speed
-        ideology:       baseParams.ideology_distribution,
-        num_trials:     '200',
-        methods:        'all',
-      });
-      const resp = await axios.get<{ results: ManipResult[] }>(
-        `${API_BASE}${apiPath('simulations/manipulability')}?${params}`,
-      );
-      setData(resp.data.results.filter((r) => r.manipulability_rate !== null));
+      const { data: resp, error: apiErr } = await apiClient.GET('/api/v2/simulations/manipulability', {
+        params: {
+          query: {
+            num_candidates: baseParams.num_candidates,
+            num_voters:     Math.min(500, baseParams.num_voters), // cap for speed
+            ideology:       baseParams.ideology_distribution,
+            num_trials:     200,
+            methods:        'all',
+          },
+        },
+      } as Parameters<typeof apiClient.GET>[1]);
+      if (apiErr || !resp) throw new Error('Erreur lors de l\'analyse');
+      const results = (resp as { results: ManipResult[] }).results;
+      setData(results.filter((r) => r.manipulability_rate !== null));
     } catch (e: any) {
-      setError(e?.response?.data?.error ?? e?.message ?? 'Erreur lors de l\'analyse');
+      setError(e?.message ?? 'Erreur lors de l\'analyse');
     } finally {
       setLoading(false);
     }

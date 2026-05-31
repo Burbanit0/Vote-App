@@ -1,11 +1,16 @@
 import React from 'react';
 import { render, screen, fireEvent, waitFor, act } from '@testing-library/react';
 import { MemoryRouter } from 'react-router';
+import { QueryClientProvider } from '@tanstack/react-query';
 import NOTAPanel from '../NOTAPanel';
 import { ElectionProvider } from '../../../context/ElectionContext';
+import { makeTestQueryClient } from '../../../test/queryWrapper';
 
-jest.mock('axios', () => ({ post: jest.fn() }));
-const { post: mockPost } = jest.requireMock('axios') as { post: jest.Mock };
+jest.mock('../../../api/client', () => ({
+  apiClient: { GET: jest.fn(), POST: jest.fn(), PUT: jest.fn(), DELETE: jest.fn(), PATCH: jest.fn() },
+  getAccessToken: jest.fn(() => null),
+}));
+const { apiClient } = jest.requireMock('../../../api/client') as { apiClient: { POST: jest.Mock } };
 
 jest.mock('recharts', () => {
   const React = require('react');
@@ -48,15 +53,18 @@ function makeData(valid = true, notaPct = 0.15, winner: string | null = 'Alice')
       nota_rule:         'invalidate',
       nota_threshold:    0.3,
     },
+    error: undefined,
   };
 }
 
 function renderPanel() {
   return render(
     <MemoryRouter>
-      <ElectionProvider>
-        <NOTAPanel />
-      </ElectionProvider>
+      <QueryClientProvider client={makeTestQueryClient()}>
+        <ElectionProvider>
+          <NOTAPanel />
+        </ElectionProvider>
+      </QueryClientProvider>
     </MemoryRouter>
   );
 }
@@ -92,12 +100,12 @@ describe('NOTAPanel', () => {
     expect(screen.getByRole('alert')).toBeInTheDocument();
   });
 
-  it('calls axios.post on simulate click', async () => {
-    mockPost.mockResolvedValue(makeData());
+  it('calls API on simulate click', async () => {
+    apiClient.POST.mockResolvedValue(makeData());
     renderPanel();
     fireEvent.click(screen.getByRole('button', { name: /simuler|simulate/i }));
-    await waitFor(() => expect(mockPost).toHaveBeenCalledTimes(1));
-    expect(mockPost).toHaveBeenCalledWith(
+    await waitFor(() => expect(apiClient.POST).toHaveBeenCalledTimes(1));
+    expect(apiClient.POST).toHaveBeenCalledWith(
       expect.stringMatching(/\/api\/(v2\/)?election\/nota/),
       expect.any(Object),
     );
@@ -105,7 +113,7 @@ describe('NOTAPanel', () => {
   });
 
   it('shows NOTA percentage badge after load', async () => {
-    mockPost.mockResolvedValue(makeData());
+    apiClient.POST.mockResolvedValue(makeData());
     renderPanel();
     fireEvent.click(screen.getByRole('button', { name: /simuler|simulate/i }));
     await waitFor(() => expect(screen.getByTestId('nota-pct-badge')).toBeInTheDocument());
@@ -113,7 +121,7 @@ describe('NOTAPanel', () => {
   });
 
   it('shows election-valid badge when election valid', async () => {
-    mockPost.mockResolvedValue(makeData(true, 0.1, 'Alice'));
+    apiClient.POST.mockResolvedValue(makeData(true, 0.1, 'Alice'));
     renderPanel();
     fireEvent.click(screen.getByRole('button', { name: /simuler|simulate/i }));
     await waitFor(() => expect(screen.getByTestId('election-valid-badge')).toBeInTheDocument());
@@ -121,7 +129,7 @@ describe('NOTAPanel', () => {
   });
 
   it('shows election-invalid alert when election invalid', async () => {
-    mockPost.mockResolvedValue(makeData(false, 0.6, null));
+    apiClient.POST.mockResolvedValue(makeData(false, 0.6, null));
     renderPanel();
     fireEvent.click(screen.getByRole('button', { name: /simuler|simulate/i }));
     await waitFor(() => expect(screen.getByTestId('election-invalid-alert')).toBeInTheDocument());
@@ -130,7 +138,7 @@ describe('NOTAPanel', () => {
 
   it('does NOT show invalid alert when threshold is low (election valid)', async () => {
     // Slider at 0 / low nota_pct → no invalid badge
-    mockPost.mockResolvedValue(makeData(true, 0.0, 'Alice'));
+    apiClient.POST.mockResolvedValue(makeData(true, 0.0, 'Alice'));
     renderPanel();
     // Set slider to 0
     fireEvent.change(screen.getByTestId('nota-threshold-slider'), { target: { value: '0' } });
@@ -141,7 +149,7 @@ describe('NOTAPanel', () => {
   });
 
   it('shows tipping point badge when nota exceeds 50%', async () => {
-    mockPost.mockResolvedValue(makeData());
+    apiClient.POST.mockResolvedValue(makeData());
     renderPanel();
     fireEvent.click(screen.getByRole('button', { name: /simuler|simulate/i }));
     await waitFor(() => expect(screen.getByTestId('tipping-point-badge')).toBeInTheDocument());
@@ -149,7 +157,7 @@ describe('NOTAPanel', () => {
   });
 
   it('renders nota curve chart', async () => {
-    mockPost.mockResolvedValue(makeData());
+    apiClient.POST.mockResolvedValue(makeData());
     renderPanel();
     fireEvent.click(screen.getByRole('button', { name: /simuler|simulate/i }));
     await waitFor(() => expect(screen.getByTestId('nota-curve-chart')).toBeInTheDocument());
@@ -157,7 +165,7 @@ describe('NOTAPanel', () => {
   });
 
   it('renders method comparison table', async () => {
-    mockPost.mockResolvedValue(makeData());
+    apiClient.POST.mockResolvedValue(makeData());
     renderPanel();
     fireEvent.click(screen.getByRole('button', { name: /simuler|simulate/i }));
     await waitFor(() => expect(screen.getByTestId('method-comparison-table')).toBeInTheDocument());
@@ -165,7 +173,7 @@ describe('NOTAPanel', () => {
   });
 
   it('has a row for each tracked method', async () => {
-    mockPost.mockResolvedValue(makeData());
+    apiClient.POST.mockResolvedValue(makeData());
     renderPanel();
     fireEvent.click(screen.getByRole('button', { name: /simuler|simulate/i }));
     await waitFor(() => {
@@ -177,7 +185,7 @@ describe('NOTAPanel', () => {
   });
 
   it('shows nota-elected alert when NOTA wins with winner_take_all rule', async () => {
-    mockPost.mockResolvedValue(makeData(true, 0.6, 'NOTA'));
+    apiClient.POST.mockResolvedValue(makeData(true, 0.6, 'NOTA'));
     renderPanel();
     fireEvent.change(screen.getByTestId('nota-rule-select'), { target: { value: 'winner_take_all' } });
     fireEvent.click(screen.getByRole('button', { name: /simuler|simulate/i }));
@@ -186,19 +194,19 @@ describe('NOTAPanel', () => {
   });
 
   it('debounced re-simulation on slider change', async () => {
-    mockPost.mockResolvedValue(makeData());
+    apiClient.POST.mockResolvedValue(makeData());
     renderPanel();
     fireEvent.click(screen.getByRole('button', { name: /simuler|simulate/i }));
-    await waitFor(() => expect(mockPost).toHaveBeenCalledTimes(1));
+    await waitFor(() => expect(apiClient.POST).toHaveBeenCalledTimes(1));
 
     fireEvent.change(screen.getByTestId('nota-threshold-slider'), { target: { value: '0.7' } });
     act(() => { jest.advanceTimersByTime(450); });
-    await waitFor(() => expect(mockPost).toHaveBeenCalledTimes(2));
+    await waitFor(() => expect(apiClient.POST).toHaveBeenCalledTimes(2));
     jest.runAllTimers();
   });
 
   it('shows error on API failure', async () => {
-    mockPost.mockRejectedValue(new Error('Network error'));
+    apiClient.POST.mockRejectedValue(new Error('Network error'));
     renderPanel();
     fireEvent.click(screen.getByRole('button', { name: /simuler|simulate/i }));
     await waitFor(() => expect(screen.getByText(/Erreur|Error/i)).toBeInTheDocument());

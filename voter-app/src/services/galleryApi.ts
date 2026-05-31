@@ -1,6 +1,4 @@
-import axios from 'axios';
-
-const API = process.env.VITE_API_URL || 'http://localhost:4434';
+import { apiGet, apiPost } from '../api/client';
 
 export interface GalleryScenario {
   id: number;
@@ -30,25 +28,21 @@ export interface CreateGalleryPayload {
   tags?: string[];
 }
 
-// Phase 4.5.a.1: gallery now lives on /api/v2/scenarios/gallery (FastAPI).
+// Phase 4.5.a.1: gallery lives on /api/v2/scenarios/gallery (FastAPI).
 // Routes are exact-match — no trailing slashes — and Pydantic enforces
 // per_page ≤ 50 and limit ≤ 20 server-side.
-const ROOT = `${API}/api/v2/scenarios/gallery`;
+const ROOT = '/api/v2/scenarios/gallery';
 
 export const galleryApi = {
   list: (params: { page?: number; per_page?: number; sort?: string; tag?: string } = {}) =>
-    axios.get<GalleryPage>(ROOT, { params })
-      .then((r) => r.data),
+    apiGet<GalleryPage>(ROOT, params),
 
   featured: () =>
-    axios.get<GalleryScenario[]>(`${ROOT}/featured`)
-      .then((r) => r.data),
+    apiGet<GalleryScenario[]>(`${ROOT}/featured`),
 
   get: (id: number) =>
-    axios.get<GalleryScenario>(`${ROOT}/${id}`)
-      .then((r) => r.data),
+    apiGet<GalleryScenario>(`${ROOT}/${id}`),
 
   create: (payload: CreateGalleryPayload) =>
-    axios.post<GalleryScenario>(ROOT, payload)
-      .then((r) => r.data),
+    apiPost<GalleryScenario>(ROOT, payload),
 };

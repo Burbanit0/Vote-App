@@ -9,16 +9,13 @@
  * Debounced competence slider triggers a new simulation call.
  */
 import React, { useCallback, useEffect, useRef, useState } from 'react';
-import axios from 'axios';
-import { apiPath } from '../../api/apiVersion';
+import { $api } from '../../api/hooks';
 import { useTranslation } from 'react-i18next';
 import { Alert, Badge, Button, Col, Form, Row, Spinner } from 'react-bootstrap';
 import {
   LineChart, Line, BarChart, Bar, XAxis, YAxis, Tooltip, Legend,
   ReferenceLine, ResponsiveContainer, Cell, CartesianGrid,
 } from 'recharts';
-
-const API = process.env.REACT_APP_API_URL ?? 'http://localhost:4434';
 const DEBOUNCE_MS = 400;
 
 // ── Types ─────────────────────────────────────────────────────────────────────
@@ -75,31 +72,24 @@ const JuryTheoremPanel: React.FC = () => {
   const [competence,      setCompetence]      = useState(0.70);
   const [numSimulations,  setNumSimulations]  = useState(200);
 
-  const [data,    setData]    = useState<JuryData | null>(null);
-  const [loading, setLoading] = useState(false);
-  const [error,   setError]   = useState<string | null>(null);
+  const sim = $api.useMutation('post', '/api/v2/election/jury');
+  const data: JuryData | null = (sim.data as JuryData | undefined) ?? null;
+  const loading = sim.isPending;
+  const error = sim.isError ? t('jury.error') : null;
 
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  const run = useCallback(async (comp: number, voters: number, opts: number, sims: number) => {
-    setLoading(true);
-    setError(null);
-    try {
-      const res = await axios.post(`${API}${apiPath('election/jury')}`, {
-        num_voters:            voters,
-        num_options:           opts,
-        correct_option_index:  0,
-        voter_competence:      comp,
-        num_simulations:       sims,
-        seed:                  42,
-      });
-      setData(res.data);
-    } catch {
-      setError(t('jury.error'));
-    } finally {
-      setLoading(false);
-    }
-  }, [t]);
+  const run = useCallback((comp: number, voters: number, opts: number, sims: number) => {
+    sim.mutate({ body: {
+      num_voters:            voters,
+      num_options:           opts,
+      correct_option_index:  0,
+      voter_competence:      comp,
+      num_simulations:       sims,
+      seed:                  42,
+    } });
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [t, sim]);
 
   // Debounced competence change
   const handleCompetenceChange = (v: number) => {

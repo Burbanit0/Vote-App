@@ -6,8 +6,7 @@
  * their private (sincere) preference.
  */
 import React, { useCallback, useEffect, useRef, useState } from 'react';
-import axios from 'axios';
-import { apiPath } from '../../api/apiVersion';
+import { $api } from '../../api/hooks';
 import { useTranslation } from 'react-i18next';
 import { Alert, Badge, Button, Col, Form, Row, Spinner } from 'react-bootstrap';
 import {
@@ -16,8 +15,6 @@ import {
 } from 'recharts';
 import { useElection } from '../../context/ElectionContext';
 import PinToCentralButton from './PinToCentralButton';
-
-const API = process.env.REACT_APP_API_URL ?? 'http://localhost:4434';
 const DEBOUNCE_MS = 400;
 const ANIM_STEP_MS = 80;
 
@@ -196,35 +193,28 @@ const CascadePanel: React.FC = () => {
 
   const [cascadeStrength,   setCascadeStrength]   = useState(0.5);
   const [observationWindow, setObservationWindow] = useState(10);
-  const [data,              setData]              = useState<CascadeData | null>(null);
-  const [loading,           setLoading]           = useState(false);
-  const [error,             setError]             = useState<string | null>(null);
+  const sim = $api.useMutation('post', '/api/v2/election/cascade');
+  const data: CascadeData | null = (sim.data as CascadeData | undefined) ?? null;
+  const loading = sim.isPending;
+  const error = sim.isError ? t('cascade.error') : null;
   const [animIndex,         setAnimIndex]         = useState(0);
   const [playing,           setPlaying]           = useState(false);
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const animRef     = useRef<ReturnType<typeof setInterval> | null>(null);
 
-  const runSimulation = useCallback(async (strength: number, window: number) => {
-    setLoading(true);
-    setError(null);
+  const runSimulation = useCallback((strength: number, window: number) => {
     setPlaying(false);
     setAnimIndex(0);
-    try {
-      const res = await axios.post(`${API}${apiPath('election/cascade')}`, {
-        candidates:         config.candidates.map((c) => ({ name: c.name, x: c.x, y: c.y })),
-        num_voters:         config.num_voters,
-        ideology:           config.ideology,
-        seed:               config.seed,
-        cascade_strength:   strength,
-        observation_window: window,
-      });
-      setData(res.data);
-    } catch {
-      setError(t('cascade.error'));
-    } finally {
-      setLoading(false);
-    }
-  }, [config, t]);
+    sim.mutate({ body: {
+      candidates:         config.candidates.map((c) => ({ name: c.name, x: c.x, y: c.y })),
+      num_voters:         config.num_voters,
+      ideology:           config.ideology,
+      seed:               config.seed,
+      cascade_strength:   strength,
+      observation_window: window,
+    } });
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [config, t, sim]);
 
   const handleSimulate = () => runSimulation(cascadeStrength, observationWindow);
 

@@ -3,7 +3,6 @@
  * Green, Palmquist & Schickler (2002) "Partisan Hearts and Minds".
  */
 import React, { useCallback, useEffect, useState } from 'react';
-import axios from 'axios';
 import { useTranslation } from 'react-i18next';
 import {
   Alert, Badge, Button, Col, Form, Row, Spinner,
@@ -13,9 +12,7 @@ import {
   LineChart, Line, ReferenceLine, ResponsiveContainer, Cell,
 } from 'recharts';
 import PinToCentralButton from './PinToCentralButton';
-import { apiPath } from '../../api/apiVersion';
-
-const API = process.env.REACT_APP_API_URL ?? 'http://localhost:4434';
+import { $api } from '../../api/hooks';
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -142,9 +139,10 @@ const IdentityVotingPanel: React.FC<IdentityVotingLabProps> = ({
 }) => {
   const { t } = useTranslation();
 
-  const [data,          setData]          = useState<IdentityData | null>(null);
-  const [loading,       setLoading]       = useState(false);
-  const [error,         setError]         = useState<string | null>(null);
+  const sim = $api.useMutation('post', '/api/v2/theory/identity-voting');
+  const data: IdentityData | null = (sim.data as IdentityData | undefined) ?? null;
+  const loading = sim.isPending;
+  const error = sim.isError ? t('identity.error') : null;
   const [candidates,    setCandidates]    = useState(DEFAULT_CANDIDATES);
   const [groups,        setGroups]        = useState<IdentityGroup[]>(DEFAULT_GROUPS);
   const [numVoters,     setNumVoters]     = useState(300);
@@ -170,33 +168,25 @@ const IdentityVotingPanel: React.FC<IdentityVotingLabProps> = ({
     const p = PRESETS[key];
     setCandidates(p.candidates);
     setGroups(p.groups.map(g => ({ ...g })));
-    setData(null);
+    sim.reset();
   };
 
   const updateGroup = (i: number, field: keyof IdentityGroup, val: string | number) =>
     setGroups(prev => prev.map((g, j) => j === i ? { ...g, [field]: val } : g));
 
-  const run = useCallback(async () => {
-    setLoading(true);
-    setError(null);
-    try {
-      const res = await axios.post(`${API}${apiPath('theory/identity-voting')}`, {
-        candidates:       labMode ? (labCandidates ?? candidates) : candidates,
-        num_voters:       labMode ? (labNumVoters   ?? numVoters)  : numVoters,
-        seed:             labMode ? (labSeed         ?? seed)       : seed,
-        identity_groups:  groups,
-        identity_weight:  identityWeight,
-        cross_pressure:   crossPressure,
-        method:           'plurality',
-      });
-      setData(res.data);
-    } catch {
-      setError(t('identity.error'));
-    } finally {
-      setLoading(false);
-    }
+  const run = useCallback(() => {
+    sim.mutate({ body: {
+      candidates:       labMode ? (labCandidates ?? candidates) : candidates,
+      num_voters:       labMode ? (labNumVoters   ?? numVoters)  : numVoters,
+      seed:             labMode ? (labSeed         ?? seed)       : seed,
+      identity_groups:  groups,
+      identity_weight:  identityWeight,
+      cross_pressure:   crossPressure,
+      method:           'plurality',
+    } });
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [candidates, numVoters, seed, groups, identityWeight, crossPressure, t,
-      labMode, labCandidates, labNumVoters, labSeed]);
+      labMode, labCandidates, labNumVoters, labSeed, sim]);
 
   // ── Chart data ─────────────────────────────────────────────────────────────
   const groupsChartData = data?.group_results.map((gr, i) => ({

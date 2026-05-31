@@ -4,8 +4,7 @@
  * of their true preferences, degrading election quality.
  */
 import React, { useCallback, useRef, useState } from 'react';
-import axios from 'axios';
-import { apiPath } from '../../api/apiVersion';
+import { $api } from '../../api/hooks';
 import { useTranslation } from 'react-i18next';
 import { Alert, Badge, Button, Col, Form, Row, Spinner, Table } from 'react-bootstrap';
 import {
@@ -14,8 +13,6 @@ import {
 } from 'recharts';
 import { useElection } from '../../context/ElectionContext';
 import PinToCentralButton from './PinToCentralButton';
-
-const API = process.env.REACT_APP_API_URL ?? 'http://localhost:4434';
 const DEFAULT_COUNTS = [2, 3, 5, 7, 10];
 
 // ── Types ─────────────────────────────────────────────────────────────────────
@@ -49,31 +46,24 @@ const ChoiceOverloadPanel: React.FC = () => {
   const [hPrimacy,    setHPrimacy]    = useState(0.10);
   const [hPartisan,   setHPartisan]   = useState(0.20);
   const [threshold,   setThreshold]   = useState(5);
-  const [data,        setData]        = useState<OverloadData | null>(null);
-  const [loading,     setLoading]     = useState(false);
-  const [error,       setError]       = useState<string | null>(null);
+  const sim = $api.useMutation('post', '/api/v2/election/choice-overload');
+  const data: OverloadData | null = (sim.data as OverloadData | undefined) ?? null;
+  const loading = sim.isPending;
+  const error = sim.isError ? t('overload.error') : null;
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  const runSimulation = useCallback(async (hn: number, hp: number, hpa: number, thr: number) => {
-    setLoading(true);
-    setError(null);
-    try {
-      const res = await axios.post(`${API}${apiPath('election/choice-overload')}`, {
-        num_voters:          config.num_voters,
-        ideology:            config.ideology,
-        seed:                config.seed,
-        candidate_counts:    DEFAULT_COUNTS,
-        overload_threshold:  thr,
-        heuristic_weights:   { notoriety: hn, primacy: hp, partisan: hpa },
-        methods:             ['plurality', 'approval', 'borda', 'majority_judgment'],
-      });
-      setData(res.data);
-    } catch {
-      setError(t('overload.error'));
-    } finally {
-      setLoading(false);
-    }
-  }, [config, t]);
+  const runSimulation = useCallback((hn: number, hp: number, hpa: number, thr: number) => {
+    sim.mutate({ body: {
+      num_voters:          config.num_voters,
+      ideology:            config.ideology,
+      seed:                config.seed,
+      candidate_counts:    DEFAULT_COUNTS,
+      overload_threshold:  thr,
+      heuristic_weights:   { notoriety: hn, primacy: hp, partisan: hpa },
+      methods:             ['plurality', 'approval', 'borda', 'majority_judgment'],
+    } });
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [config, t, sim]);
 
   const handleSimulate = () => runSimulation(hNotoriety, hPrimacy, hPartisan, threshold);
 

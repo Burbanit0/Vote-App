@@ -1,11 +1,8 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import axios from 'axios';
 import { useTranslation } from 'react-i18next';
 import { Alert, Badge, Button, Col, Form, Row, Spinner } from 'react-bootstrap';
 import { useElection } from '../../context/ElectionContext';
-import { apiPath } from '../../api/apiVersion';
-
-const API = process.env.REACT_APP_API_URL ?? 'http://localhost:4434';
+import { $api } from '../../api/hooks';
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -198,9 +195,10 @@ const DistrictMap: React.FC = () => {
   const { t } = useTranslation();
   const { config } = useElection();
 
-  const [data, setData] = useState<DistrictData | null>(null);
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+  const sim = $api.useMutation('post', '/api/v2/election/districts');
+  const data: DistrictData | null = (sim.data as DistrictData | undefined) ?? null;
+  const loading = sim.isPending;
+  const error = sim.isError ? t('districts.error') : null;
   const [revealedCount, setRevealedCount] = useState(0);
 
   const [numDistricts, setNumDistricts] = useState(20);
@@ -226,26 +224,18 @@ const DistrictMap: React.FC = () => {
 
   useEffect(() => () => { if (animRef.current) clearTimeout(animRef.current); }, []);
 
-  async function run() {
+  function run() {
     if (animRef.current) clearTimeout(animRef.current);
-    setLoading(true);
-    setError(null);
     setRevealedCount(0);
-    try {
-      const res = await axios.post(`${API}${apiPath('election/districts')}`, {
-        candidates:                  config.candidates,
-        num_districts:               numDistricts,
-        voters_per_district:         votersPerDistrict,
-        district_ideology_variance:  ideologyVariance,
-        seed:                        config.seed,
-      });
-      setData(res.data);
-      runAnimation(res.data.num_districts);
-    } catch {
-      setError(t('districts.error'));
-    } finally {
-      setLoading(false);
-    }
+    sim.mutate({ body: {
+      candidates:                  config.candidates,
+      num_districts:               numDistricts,
+      voters_per_district:         votersPerDistrict,
+      district_ideology_variance:  ideologyVariance,
+      seed:                        config.seed,
+    } }, {
+      onSuccess: (res) => runAnimation((res as unknown as DistrictData).num_districts),
+    });
   }
 
   const winnerChanged = data && data.fptp_winner !== data.proportional_winner;

@@ -1,55 +1,25 @@
-import React, {
-  createContext,
-  useCallback,
-  useContext,
-  useEffect,
-  useState,
-} from 'react';
-
-type Theme = 'light' | 'dark';
+/**
+ * ThemeContext — compatibility shim over useUIStore (Phase 5.4).
+ * Theme state now lives in stores/useUIStore; this keeps useTheme()/ThemeProvider
+ * working until 5.5 deletes the shim.
+ */
+import React, { useEffect } from 'react';
+import { useUIStore, type Theme } from '../stores/useUIStore';
 
 interface ThemeContextValue {
   theme: Theme;
   toggleTheme: () => void;
 }
 
-const ThemeContext = createContext<ThemeContextValue>({
-  theme: 'light',
-  toggleTheme: () => {},
-});
-
 export function useTheme(): ThemeContextValue {
-  return useContext(ThemeContext);
+  const theme = useUIStore((s) => s.theme);
+  const toggleTheme = useUIStore((s) => s.toggleTheme);
+  return { theme, toggleTheme };
 }
 
-function applyTheme(theme: Theme) {
-  document.documentElement.setAttribute('data-bs-theme', theme);
-}
-
-export const ThemeProvider: React.FC<{ children: React.ReactNode }> = ({
-  children,
-}) => {
-  const [theme, setTheme] = useState<Theme>(() => {
-    if (typeof window === 'undefined') return 'light';
-    return (localStorage.getItem('votelab_theme') as Theme) ?? 'light';
-  });
-
-  // Apply on mount and on change
-  useEffect(() => {
-    applyTheme(theme);
-  }, [theme]);
-
-  const toggleTheme = useCallback(() => {
-    setTheme((t) => {
-      const next: Theme = t === 'light' ? 'dark' : 'light';
-      localStorage.setItem('votelab_theme', next);
-      return next;
-    });
-  }, []);
-
-  return (
-    <ThemeContext.Provider value={{ theme, toggleTheme }}>
-      {children}
-    </ThemeContext.Provider>
-  );
+export const ThemeProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
+  const hydrate = useUIStore((s) => s.hydrate);
+  // Re-read persisted prefs + apply theme to <html> on mount.
+  useEffect(() => { hydrate(); }, [hydrate]);
+  return <>{children}</>;
 };

@@ -4,12 +4,10 @@
  * outcome with the same electorate.
  */
 import React, { useCallback, useRef, useState } from 'react';
-import axios from 'axios';
+import { $api } from '../../api/hooks';
 import { useTranslation } from 'react-i18next';
 import { Alert, Badge, Button, Col, Form, Row, Spinner } from 'react-bootstrap';
-import { apiPath } from '../../api/apiVersion';
 
-const API = process.env.REACT_APP_API_URL ?? 'http://localhost:4434';
 const DEFAULT_ALTS = ['Alice', 'Bob', 'Carol'];
 
 // ── Types ─────────────────────────────────────────────────────────────────────
@@ -147,31 +145,23 @@ const AgendaEditor: React.FC<AgendaEditorProps> = ({ order, onReorder, result, t
 const AgendaManipulationPanel: React.FC = () => {
   const { t } = useTranslation();
 
-  const [data,      setData]      = useState<AgendaData | null>(null);
-  const [loading,   setLoading]   = useState(false);
-  const [error,     setError]     = useState<string | null>(null);
+  const sim = $api.useMutation('post', '/api/v2/theory/agenda-manipulation');
+  const data: AgendaData | null = (sim.data as AgendaData | undefined) ?? null;
+  const loading = sim.isPending;
+  const error = sim.isError ? t('agenda.error') : null;
   const [alts,      setAlts]      = useState<string[]>(DEFAULT_ALTS);
   const [agendaOrder, setAgendaOrder] = useState<string[]>(DEFAULT_ALTS);
   const [numVoters, setNumVoters] = useState(21);
   const [seed,      setSeed]      = useState(42);
   const [target,    setTarget]    = useState(DEFAULT_ALTS[0]);
 
-  const runSimulation = useCallback(async (as: string[], nv: number, sd: number, tgt: string) => {
-    setLoading(true);
-    setError(null);
-    try {
-      const res = await axios.post(`${API}${apiPath('theory/agenda-manipulation')}`, {
-        alternatives: as, num_voters: nv, seed: sd, target_outcome: tgt,
-        constraint_type: 'binary_elimination',
-      });
-      setData(res.data);
-      setAgendaOrder([...as]); // reset to default
-    } catch {
-      setError(t('agenda.error'));
-    } finally {
-      setLoading(false);
-    }
-  }, [t]);
+  const runSimulation = useCallback((as: string[], nv: number, sd: number, tgt: string) => {
+    sim.mutate({ body: {
+      alternatives: as, num_voters: nv, seed: sd, target_outcome: tgt,
+      constraint_type: 'binary_elimination',
+    } }, { onSuccess: () => setAgendaOrder([...as]) });
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [sim]);
 
   const handleSimulate = () => runSimulation(alts, numVoters, seed, target);
 

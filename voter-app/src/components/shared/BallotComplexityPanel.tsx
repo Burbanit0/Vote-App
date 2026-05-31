@@ -3,8 +3,7 @@
  * causes spoiled (null) ballots and which voting methods lose the most votes.
  */
 import React, { useCallback, useEffect, useRef, useState } from 'react';
-import axios from 'axios';
-import { apiPath } from '../../api/apiVersion';
+import { $api } from '../../api/hooks';
 import { useTranslation } from 'react-i18next';
 import { Alert, Badge, Button, Col, Form, Row, Spinner, Table } from 'react-bootstrap';
 import {
@@ -13,8 +12,6 @@ import {
 } from 'recharts';
 import { useElection } from '../../context/ElectionContext';
 import PinToCentralButton from './PinToCentralButton';
-
-const API = process.env.REACT_APP_API_URL ?? 'http://localhost:4434';
 const DEBOUNCE_MS = 400;
 
 // ── Types ─────────────────────────────────────────────────────────────────────
@@ -79,30 +76,23 @@ const BallotComplexityPanel: React.FC = () => {
 
   const [eduLevel,  setEduLevel]  = useState(0.7);
   const [ftvPct,    setFtvPct]    = useState(0.1);
-  const [data,      setData]      = useState<ComplexityData | null>(null);
-  const [loading,   setLoading]   = useState(false);
-  const [error,     setError]     = useState<string | null>(null);
+  const sim = $api.useMutation('post', '/api/v2/election/ballot-complexity');
+  const data: ComplexityData | null = (sim.data as ComplexityData | undefined) ?? null;
+  const loading = sim.isPending;
+  const error = sim.isError ? t('ballot.error') : null;
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  const runSimulation = useCallback(async (edu: number, ftv: number) => {
-    setLoading(true);
-    setError(null);
-    try {
-      const res = await axios.post(`${API}${apiPath('election/ballot-complexity')}`, {
-        candidates:            config.candidates.map((c) => ({ name: c.name, x: c.x, y: c.y })),
-        num_voters:            config.num_voters,
-        ideology:              config.ideology,
-        seed:                  config.seed,
-        education_level:       edu,
-        first_time_voter_pct:  ftv,
-      });
-      setData(res.data);
-    } catch {
-      setError(t('ballot.error'));
-    } finally {
-      setLoading(false);
-    }
-  }, [config, t]);
+  const runSimulation = useCallback((edu: number, ftv: number) => {
+    sim.mutate({ body: {
+      candidates:            config.candidates.map((c) => ({ name: c.name, x: c.x, y: c.y })),
+      num_voters:            config.num_voters,
+      ideology:              config.ideology,
+      seed:                  config.seed,
+      education_level:       edu,
+      first_time_voter_pct:  ftv,
+    } });
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [config, t, sim]);
 
   const handleSimulate = () => runSimulation(eduLevel, ftvPct);
 

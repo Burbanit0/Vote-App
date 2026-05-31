@@ -1,10 +1,15 @@
 import React from 'react';
 import { render, screen, fireEvent, waitFor } from '@testing-library/react';
 import { MemoryRouter } from 'react-router';
+import { QueryClientProvider } from '@tanstack/react-query';
 import TechDemocracyPage from '../TechDemocracyPage';
+import { makeTestQueryClient } from '../../test/queryWrapper';
 
-jest.mock('axios', () => ({ post: jest.fn() }));
-const { post: mockPost } = jest.requireMock('axios') as { post: jest.Mock };
+jest.mock('../../api/client', () => ({
+  apiClient: { GET: jest.fn(), POST: jest.fn(), PUT: jest.fn(), DELETE: jest.fn(), PATCH: jest.fn() },
+  getAccessToken: jest.fn(() => null),
+}));
+const { apiClient } = jest.requireMock('../../api/client') as { apiClient: { POST: jest.Mock } };
 
 // ── Fixtures ──────────────────────────────────────────────────────────────────
 
@@ -26,6 +31,7 @@ function makeE2EData() {
       },
       privacy_guarantee: 'Test guarantee.',
     },
+    error: undefined,
   };
 }
 
@@ -47,13 +53,16 @@ function makePolisData(numClusters = 2) {
       num_clusters: numClusters,
       num_participants: 10,
     },
+    error: undefined,
   };
 }
 
 function renderPage() {
   return render(
     <MemoryRouter>
-      <TechDemocracyPage />
+      <QueryClientProvider client={makeTestQueryClient()}>
+        <TechDemocracyPage />
+      </QueryClientProvider>
     </MemoryRouter>
   );
 }
@@ -110,11 +119,11 @@ describe('TechDemocracyPage', () => {
   // ── E2E demo ────────────────────────────────────────────────────────────────
 
   it.skip('calls e2e-demo API on button click', async () => {
-    mockPost.mockResolvedValue(makeE2EData());
+    apiClient.POST.mockResolvedValue(makeE2EData());
     renderPage();
     fireEvent.click(screen.getByTestId('run-e2e-btn'));
-    await waitFor(() => expect(mockPost).toHaveBeenCalledTimes(1));
-    expect(mockPost).toHaveBeenCalledWith(
+    await waitFor(() => expect(apiClient.POST).toHaveBeenCalledTimes(1));
+    expect(apiClient.POST).toHaveBeenCalledWith(
       expect.stringMatching(/\/api\/(v2\/)?tech\/e2e-demo/),
       expect.any(Object),
     );
@@ -122,7 +131,7 @@ describe('TechDemocracyPage', () => {
   });
 
   it.skip('shows encrypted ballots after E2E run', async () => {
-    mockPost.mockResolvedValue(makeE2EData());
+    apiClient.POST.mockResolvedValue(makeE2EData());
     renderPage();
     fireEvent.click(screen.getByTestId('run-e2e-btn'));
     await waitFor(() => {
@@ -133,7 +142,7 @@ describe('TechDemocracyPage', () => {
   });
 
   it.skip('shows next-step button after E2E run', async () => {
-    mockPost.mockResolvedValue(makeE2EData());
+    apiClient.POST.mockResolvedValue(makeE2EData());
     renderPage();
     fireEvent.click(screen.getByTestId('run-e2e-btn'));
     await waitFor(() => expect(screen.getByTestId('next-step-btn')).toBeInTheDocument());
@@ -141,7 +150,7 @@ describe('TechDemocracyPage', () => {
   });
 
   it.skip('shows verification board after step 2', async () => {
-    mockPost.mockResolvedValue(makeE2EData());
+    apiClient.POST.mockResolvedValue(makeE2EData());
     renderPage();
     fireEvent.click(screen.getByTestId('run-e2e-btn'));
     await waitFor(() => screen.getByTestId('next-step-btn'));
@@ -151,7 +160,7 @@ describe('TechDemocracyPage', () => {
   });
 
   it.skip('shows final result after reaching last step', async () => {
-    mockPost.mockResolvedValue(makeE2EData());
+    apiClient.POST.mockResolvedValue(makeE2EData());
     renderPage();
     fireEvent.click(screen.getByTestId('run-e2e-btn'));
     await waitFor(() => screen.getByTestId('next-step-btn'));
@@ -167,11 +176,11 @@ describe('TechDemocracyPage', () => {
   // ── Pol.is section ──────────────────────────────────────────────────────────
 
   it('calls polis-simulation API on button click', async () => {
-    mockPost.mockResolvedValue(makePolisData());
+    apiClient.POST.mockResolvedValue(makePolisData());
     renderPage();
     fireEvent.click(screen.getByTestId('run-polis-btn'));
-    await waitFor(() => expect(mockPost).toHaveBeenCalledTimes(1));
-    expect(mockPost).toHaveBeenCalledWith(
+    await waitFor(() => expect(apiClient.POST).toHaveBeenCalledTimes(1));
+    expect(apiClient.POST).toHaveBeenCalledWith(
       expect.stringMatching(/\/api\/(v2\/)?tech\/polis-simulation/),
       expect.any(Object),
     );
@@ -179,7 +188,7 @@ describe('TechDemocracyPage', () => {
   });
 
   it('renders Pol.is scatter SVG after run', async () => {
-    mockPost.mockResolvedValue(makePolisData());
+    apiClient.POST.mockResolvedValue(makePolisData());
     renderPage();
     fireEvent.click(screen.getByTestId('run-polis-btn'));
     await waitFor(() => expect(screen.getByTestId('polis-scatter-svg')).toBeInTheDocument());
@@ -187,7 +196,7 @@ describe('TechDemocracyPage', () => {
   });
 
   it('shows consensus section when consensus items exist', async () => {
-    mockPost.mockResolvedValue(makePolisData());
+    apiClient.POST.mockResolvedValue(makePolisData());
     renderPage();
     fireEvent.click(screen.getByTestId('run-polis-btn'));
     await waitFor(() => expect(screen.getByTestId('consensus-section')).toBeInTheDocument());
@@ -195,7 +204,7 @@ describe('TechDemocracyPage', () => {
   });
 
   it('shows polarizing section when polarizing items exist', async () => {
-    mockPost.mockResolvedValue(makePolisData());
+    apiClient.POST.mockResolvedValue(makePolisData());
     renderPage();
     fireEvent.click(screen.getByTestId('run-polis-btn'));
     await waitFor(() => expect(screen.getByTestId('polarizing-section')).toBeInTheDocument());
@@ -203,7 +212,7 @@ describe('TechDemocracyPage', () => {
   });
 
   it('shows cluster vote table', async () => {
-    mockPost.mockResolvedValue(makePolisData());
+    apiClient.POST.mockResolvedValue(makePolisData());
     renderPage();
     fireEvent.click(screen.getByTestId('run-polis-btn'));
     await waitFor(() => expect(screen.getByTestId('cluster-vote-table')).toBeInTheDocument());
@@ -219,7 +228,7 @@ describe('TechDemocracyPage', () => {
   });
 
   it('shows error on API failure', async () => {
-    mockPost.mockRejectedValue(new Error('Network error'));
+    apiClient.POST.mockRejectedValue(new Error('Network error'));
     renderPage();
     fireEvent.click(screen.getByTestId('run-polis-btn'));
     await waitFor(() => expect(screen.getByText(/Erreur|Error/i)).toBeInTheDocument());

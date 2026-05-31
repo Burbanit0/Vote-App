@@ -3,16 +3,13 @@
  * Shows Duverger's Law: FPTP → bipartism; PR → multipartism.
  */
 import React, { useCallback, useEffect, useRef, useState } from 'react';
-import axios from 'axios';
 import { useTranslation } from 'react-i18next';
 import { Alert, Badge, Button, Col, Form, Row, Spinner } from 'react-bootstrap';
 import {
   LineChart, Line, XAxis, YAxis, Tooltip, CartesianGrid,
   ReferenceLine, Legend, ResponsiveContainer,
 } from 'recharts';
-import { apiPath } from '../../api/apiVersion';
-
-const API = process.env.REACT_APP_API_URL ?? 'http://localhost:4434';
+import { $api } from '../../api/hooks';
 const ANIM_MS = 800;
 
 // ── Types ─────────────────────────────────────────────────────────────────────
@@ -183,9 +180,10 @@ const PartyDynamicsPanel: React.FC<Props> = ({ onDataLoaded }) => {
   const [preset,       setPreset]       = useState('default');
   const [parties,      setParties]      = useState(PRESETS.default.parties);
 
-  const [data,         setData]         = useState<DynamicsData | null>(null);
-  const [loading,      setLoading]      = useState(false);
-  const [error,        setError]        = useState<string | null>(null);
+  const sim = $api.useMutation('post', '/api/v2/election/party-dynamics');
+  const data: DynamicsData | null = (sim.data as DynamicsData | undefined) ?? null;
+  const loading = sim.isPending;
+  const error = sim.isError ? t('partyDyn.error') : null;
   const [electionIdx,  setElectionIdx]  = useState(0);
   const [playing,      setPlaying]      = useState(false);
   const animRef = useRef<ReturnType<typeof setInterval> | null>(null);
@@ -195,32 +193,25 @@ const PartyDynamicsPanel: React.FC<Props> = ({ onDataLoaded }) => {
     setParties(PRESETS[key]?.parties ?? PRESETS.default.parties);
   };
 
-  const runSimulation = useCallback(async () => {
-    setLoading(true);
-    setError(null);
+  const runSimulation = useCallback(() => {
     setPlaying(false);
     setElectionIdx(0);
-    try {
-      const res = await axios.post(`${API}${apiPath('election/party-dynamics')}`, {
-        initial_parties:       parties,
-        num_voters:            300,
-        ideology:              'random',
-        seed:                  42,
-        num_elections:         numElections,
-        method,
-        survival_threshold:    survThr,
-        emergence_probability: emerge,
-        hotelling_adaptation:  hotelling,
-        tactical_voting:       tactical,
-      });
-      setData(res.data);
-      onDataLoaded?.(res.data);
-    } catch {
-      setError(t('partyDyn.error'));
-    } finally {
-      setLoading(false);
-    }
-  }, [parties, numElections, method, survThr, emerge, hotelling, tactical, t, onDataLoaded]);
+    sim.mutate({ body: {
+      initial_parties:       parties,
+      num_voters:            300,
+      ideology:              'random',
+      seed:                  42,
+      num_elections:         numElections,
+      method,
+      survival_threshold:    survThr,
+      emergence_probability: emerge,
+      hotelling_adaptation:  hotelling,
+      tactical_voting:       tactical,
+    } }, {
+      onSuccess: (res) => onDataLoaded?.(res as unknown as DynamicsData),
+    });
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [parties, numElections, method, survThr, emerge, hotelling, tactical, t, onDataLoaded, sim]);
 
   // Animation
   useEffect(() => {

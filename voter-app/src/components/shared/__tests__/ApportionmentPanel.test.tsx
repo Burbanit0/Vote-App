@@ -1,10 +1,15 @@
 import React from 'react';
 import { render, screen, fireEvent, waitFor } from '@testing-library/react';
 import { MemoryRouter } from 'react-router';
+import { QueryClientProvider } from '@tanstack/react-query';
 import ApportionmentPanel from '../ApportionmentPanel';
+import { makeTestQueryClient } from '../../../test/queryWrapper';
 
-jest.mock('axios', () => ({ post: jest.fn() }));
-const { post: mockPost } = jest.requireMock('axios') as { post: jest.Mock };
+jest.mock('../../../api/client', () => ({
+  apiClient: { GET: jest.fn(), POST: jest.fn(), PUT: jest.fn(), DELETE: jest.fn(), PATCH: jest.fn() },
+  getAccessToken: jest.fn(() => null),
+}));
+const { apiClient } = jest.requireMock('../../../api/client') as { apiClient: { POST: jest.Mock } };
 
 function makeData(alabamaHamilton = true) {
   const baseResult = (al: boolean, qv: boolean, favors: string) => ({
@@ -29,11 +34,18 @@ function makeData(alabamaHamilton = true) {
       impossible_to_avoid:    ['Quotient strict', 'Monotonie chambre', 'Monotonie population'],
       pedagogical_note:       'Test note.',
     },
+    error: undefined,
   };
 }
 
 function renderPanel() {
-  return render(<MemoryRouter><ApportionmentPanel /></MemoryRouter>);
+  return render(
+    <MemoryRouter>
+      <QueryClientProvider client={makeTestQueryClient()}>
+        <ApportionmentPanel />
+      </QueryClientProvider>
+    </MemoryRouter>
+  );
 }
 
 beforeEach(() => { jest.clearAllMocks(); jest.useFakeTimers(); });
@@ -55,12 +67,12 @@ describe('ApportionmentPanel', () => {
     expect(screen.getByRole('alert')).toBeInTheDocument();
   });
 
-  it('calls axios.post on simulate click', async () => {
-    mockPost.mockResolvedValue(makeData());
+  it('calls API on simulate click', async () => {
+    apiClient.POST.mockResolvedValue(makeData());
     renderPanel();
     fireEvent.click(screen.getByTestId('simulate-btn'));
-    await waitFor(() => expect(mockPost).toHaveBeenCalledTimes(1));
-    expect(mockPost).toHaveBeenCalledWith(
+    await waitFor(() => expect(apiClient.POST).toHaveBeenCalledTimes(1));
+    expect(apiClient.POST).toHaveBeenCalledWith(
       expect.stringMatching(/\/api\/(v2\/)?theory\/apportionment/),
       expect.any(Object),
     );
@@ -68,7 +80,7 @@ describe('ApportionmentPanel', () => {
   });
 
   it('renders comparison table after data loads', async () => {
-    mockPost.mockResolvedValue(makeData());
+    apiClient.POST.mockResolvedValue(makeData());
     renderPanel();
     fireEvent.click(screen.getByTestId('simulate-btn'));
     await waitFor(() => expect(screen.getByTestId('comparison-table')).toBeInTheDocument());
@@ -76,7 +88,7 @@ describe('ApportionmentPanel', () => {
   });
 
   it('renders axioms table', async () => {
-    mockPost.mockResolvedValue(makeData());
+    apiClient.POST.mockResolvedValue(makeData());
     renderPanel();
     fireEvent.click(screen.getByTestId('simulate-btn'));
     await waitFor(() => expect(screen.getByTestId('axioms-table')).toBeInTheDocument());
@@ -84,7 +96,7 @@ describe('ApportionmentPanel', () => {
   });
 
   it('shows Alabama alert when Hamilton has paradox', async () => {
-    mockPost.mockResolvedValue(makeData(true));
+    apiClient.POST.mockResolvedValue(makeData(true));
     renderPanel();
     fireEvent.click(screen.getByTestId('simulate-btn'));
     await waitFor(() => expect(screen.getByTestId('alabama-alert')).toBeInTheDocument());
@@ -92,7 +104,7 @@ describe('ApportionmentPanel', () => {
   });
 
   it('does NOT show Alabama alert when no paradox', async () => {
-    mockPost.mockResolvedValue(makeData(false));
+    apiClient.POST.mockResolvedValue(makeData(false));
     renderPanel();
     fireEvent.click(screen.getByTestId('simulate-btn'));
     await waitFor(() => screen.getByTestId('comparison-table'));
@@ -101,7 +113,7 @@ describe('ApportionmentPanel', () => {
   });
 
   it('shows impossibility alert', async () => {
-    mockPost.mockResolvedValue(makeData());
+    apiClient.POST.mockResolvedValue(makeData());
     renderPanel();
     fireEvent.click(screen.getByTestId('simulate-btn'));
     await waitFor(() => expect(screen.getByTestId('impossibility-alert')).toBeInTheDocument());
@@ -109,7 +121,7 @@ describe('ApportionmentPanel', () => {
   });
 
   it('shows country comparison table', async () => {
-    mockPost.mockResolvedValue(makeData());
+    apiClient.POST.mockResolvedValue(makeData());
     renderPanel();
     fireEvent.click(screen.getByTestId('simulate-btn'));
     await waitFor(() => expect(screen.getByTestId('country-table')).toBeInTheDocument());
@@ -117,7 +129,7 @@ describe('ApportionmentPanel', () => {
   });
 
   it('shows Alabama demo section', async () => {
-    mockPost.mockResolvedValue(makeData());
+    apiClient.POST.mockResolvedValue(makeData());
     renderPanel();
     fireEvent.click(screen.getByTestId('simulate-btn'));
     await waitFor(() => expect(screen.getByTestId('alabama-demo')).toBeInTheDocument());
@@ -125,7 +137,7 @@ describe('ApportionmentPanel', () => {
   });
 
   it('shows error on API failure', async () => {
-    mockPost.mockRejectedValue(new Error('Network error'));
+    apiClient.POST.mockRejectedValue(new Error('Network error'));
     renderPanel();
     fireEvent.click(screen.getByTestId('simulate-btn'));
     await waitFor(() => expect(screen.getByText(/Erreur|Error/i)).toBeInTheDocument());

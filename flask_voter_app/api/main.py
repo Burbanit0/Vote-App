@@ -165,5 +165,10 @@ def root() -> dict:
 # through to the FastAPI `app` defined above. This is how python-socketio
 # integrates with any other ASGI framework — see
 # https://python-socketio.readthedocs.io/en/stable/server.html#asgi-applications
+# Keep a stable handle to the raw FastAPI instance — `app` below becomes the
+# Socket.IO ASGI wrapper, which has no `.openapi()`. scripts/gen_openapi.py and
+# any tooling that needs the spec import `api.main:fastapi_app`.
+fastapi_app = app
+
 import socketio as _socketio_lib  # noqa: E402
-app = _socketio_lib.ASGIApp(sio, app, socketio_path="/api/v2/socket.io")
+app = _socketio_lib.ASGIApp(sio, fastapi_app, socketio_path="/api/v2/socket.io")

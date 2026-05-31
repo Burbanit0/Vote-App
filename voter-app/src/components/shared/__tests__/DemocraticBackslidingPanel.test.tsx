@@ -1,10 +1,14 @@
 import React from 'react';
 import { render, screen, fireEvent, waitFor, act } from '@testing-library/react';
-import axios from 'axios';
+import { QueryClientProvider } from '@tanstack/react-query';
 import DemocraticBackslidingPanel from '../DemocraticBackslidingPanel';
+import { makeTestQueryClient } from '../../../test/queryWrapper';
 
-jest.mock('axios');
-const mockAxios = axios as jest.Mocked<typeof axios>;
+jest.mock('../../../api/client', () => ({
+  apiClient: { GET: jest.fn(), POST: jest.fn(), PUT: jest.fn(), DELETE: jest.fn(), PATCH: jest.fn() },
+  getAccessToken: jest.fn(() => null),
+}));
+const { apiClient } = jest.requireMock('../../../api/client') as { apiClient: { POST: jest.Mock } };
 
 jest.mock('react-i18next', () => ({
   useTranslation: () => ({
@@ -91,28 +95,39 @@ const MOCK_GUARDRAILS: object = {
   pedagogical_note: 'Guardrails helped.',
 };
 
+/** openapi-fetch resolves to { data, error }. */
+const ok = (d: unknown) => ({ data: d, error: undefined });
+
+function renderPanel() {
+  return render(
+    <QueryClientProvider client={makeTestQueryClient()}>
+      <DemocraticBackslidingPanel />
+    </QueryClientProvider>
+  );
+}
+
 async function renderAndRun(responseData: object = MOCK_HEALTHY) {
-  mockAxios.post.mockResolvedValueOnce({ data: responseData });
-  render(<DemocraticBackslidingPanel />);
+  apiClient.POST.mockResolvedValueOnce(ok(responseData));
+  renderPanel();
   await act(async () => { fireEvent.click(screen.getByTestId('run-btn')); });
-  await waitFor(() => expect(mockAxios.post).toHaveBeenCalledTimes(1));
+  await waitFor(() => expect(apiClient.POST).toHaveBeenCalledTimes(1));
   await act(async () => {});
 }
 
 // ── Tests ─────────────────────────────────────────────────────────────────────
 
 describe('DemocraticBackslidingPanel', () => {
-  beforeEach(() => jest.resetAllMocks());
+  beforeEach(() => jest.clearAllMocks());
 
   // ── Initial render ──────────────────────────────────────────────────────────
 
   it('renders paradox quote on mount', () => {
-    render(<DemocraticBackslidingPanel />);
+    renderPanel();
     expect(screen.getByTestId('paradox-quote')).toBeInTheDocument();
   });
 
   it('renders all controls', () => {
-    render(<DemocraticBackslidingPanel />);
+    renderPanel();
     expect(screen.getByTestId('run-btn')).toBeInTheDocument();
     expect(screen.getByTestId('voters-input')).toBeInTheDocument();
     expect(screen.getByTestId('elections-input')).toBeInTheDocument();
@@ -122,7 +137,7 @@ describe('DemocraticBackslidingPanel', () => {
   });
 
   it('renders guardrails panel with all four toggles', () => {
-    render(<DemocraticBackslidingPanel />);
+    renderPanel();
     expect(screen.getByTestId('guardrails-panel')).toBeInTheDocument();
     expect(screen.getByTestId('guardrail-constitutional_court')).toBeInTheDocument();
     expect(screen.getByTestId('guardrail-opposition_media')).toBeInTheDocument();
@@ -131,12 +146,12 @@ describe('DemocraticBackslidingPanel', () => {
   });
 
   it('shows prompt alert before simulation', () => {
-    render(<DemocraticBackslidingPanel />);
+    renderPanel();
     expect(screen.getByTestId('prompt-alert')).toBeInTheDocument();
   });
 
   it('has three method options in select', () => {
-    render(<DemocraticBackslidingPanel />);
+    renderPanel();
     const select = screen.getByTestId('method-select') as HTMLSelectElement;
     expect(select.options).toHaveLength(3);
   });
@@ -145,8 +160,9 @@ describe('DemocraticBackslidingPanel', () => {
 
   it('calls API with correct payload on run', async () => {
     await renderAndRun();
-    const [url, payload] = mockAxios.post.mock.calls[0];
-    expect(url).toMatch(/\/api\/(v2\/)?theory\/democratic-backsliding/);
+    const [url, init] = apiClient.POST.mock.calls[0];
+    expect(url).toBe('/api/v2/theory/democratic-backsliding');
+    const payload = (init as { body: Record<string, unknown> }).body;
     expect(payload).toHaveProperty('num_voters');
     expect(payload).toHaveProperty('num_elections');
     expect(payload).toHaveProperty('backsliding_method');
@@ -208,17 +224,14 @@ describe('DemocraticBackslidingPanel', () => {
   // ── Guardrails effectiveness badges ────────────────────────────────────────
 
   it('shows effectiveness badge on active guardrail after simulation', async () => {
-    mockAxios.post.mockResolvedValueOnce({ data: MOCK_GUARDRAILS });
-    render(<DemocraticBackslidingPanel />);
+    apiClient.POST.mockResolvedValueOnce(ok(MOCK_GUARDRAILS));
+    renderPanel();
 
     // Activate constitutional_court before running
     fireEvent.click(screen.getByTestId('guardrail-constitutional_court'));
 
-    // Mock second call for auto-recalculate (guardrail toggle triggers re-run when data exists)
-    // Since we don't have data yet, no re-run — just run manually
-    mockAxios.post.mockResolvedValueOnce({ data: MOCK_GUARDRAILS });
     await act(async () => { fireEvent.click(screen.getByTestId('run-btn')); });
-    await waitFor(() => expect(mockAxios.post).toHaveBeenCalled());
+    await waitFor(() => expect(apiClient.POST).toHaveBeenCalled());
     await act(async () => {});
 
     // The +12% badge should appear for constitutional_court
@@ -228,17 +241,17 @@ describe('DemocraticBackslidingPanel', () => {
   // ── Guardrail toggle triggers recalculation ─────────────────────────────────
 
   it('toggling a guardrail recalculates when data already exists', async () => {
-    mockAxios.post
-      .mockResolvedValueOnce({ data: MOCK_HEALTHY })
-      .mockResolvedValueOnce({ data: MOCK_GUARDRAILS });
+    apiClient.POST
+      .mockResolvedValueOnce(ok(MOCK_HEALTHY))
+      .mockResolvedValueOnce(ok(MOCK_GUARDRAILS));
 
-    render(<DemocraticBackslidingPanel />);
+    renderPanel();
     await act(async () => { fireEvent.click(screen.getByTestId('run-btn')); });
-    await waitFor(() => expect(mockAxios.post).toHaveBeenCalledTimes(1));
+    await waitFor(() => expect(apiClient.POST).toHaveBeenCalledTimes(1));
     await act(async () => {});
 
     fireEvent.click(screen.getByTestId('guardrail-constitutional_court'));
-    await waitFor(() => expect(mockAxios.post).toHaveBeenCalledTimes(2));
+    await waitFor(() => expect(apiClient.POST).toHaveBeenCalledTimes(2));
     await act(async () => {});
   });
 
@@ -265,11 +278,9 @@ describe('DemocraticBackslidingPanel', () => {
   // ── Error handling ──────────────────────────────────────────────────────────
 
   it('shows error alert on API failure', async () => {
-    mockAxios.post.mockRejectedValueOnce(new Error('Network error'));
-    render(<DemocraticBackslidingPanel />);
+    apiClient.POST.mockRejectedValueOnce(new Error('Network error'));
+    renderPanel();
     await act(async () => { fireEvent.click(screen.getByTestId('run-btn')); });
-    await waitFor(() => expect(mockAxios.post).toHaveBeenCalled());
-    await act(async () => {});
-    expect(screen.getByTestId('error-alert')).toBeInTheDocument();
+    await waitFor(() => expect(screen.getByTestId('error-alert')).toBeInTheDocument());
   });
 });

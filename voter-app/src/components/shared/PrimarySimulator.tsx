@@ -1,5 +1,4 @@
 import React, { useState } from 'react';
-import axios from 'axios';
 import { useTranslation } from 'react-i18next';
 import {
   Alert, Badge, Button, Card, Col, Form, Row, Spinner,
@@ -7,9 +6,7 @@ import {
 import {
   BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, Cell,
 } from 'recharts';
-import { apiPath } from '../../api/apiVersion';
-
-const API = process.env.REACT_APP_API_URL ?? 'http://localhost:4434';
+import { $api } from '../../api/hooks';
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -284,28 +281,20 @@ const PrimarySimulator: React.FC = () => {
   const [primaryMethod, setPrimaryMethod]   = useState('plurality');
   const [generalMethod, setGeneralMethod]   = useState('plurality');
   const [numVoters, setNumVoters]           = useState(500);
-  const [data, setData]     = useState<PrimaryData | null>(null);
-  const [loading, setLoading] = useState(false);
-  const [error, setError]   = useState<string | null>(null);
+  const sim = $api.useMutation('post', '/api/v2/election/primary');
+  const data: PrimaryData | null = (sim.data as PrimaryData | undefined) ?? null;
+  const loading = sim.isPending;
+  const error = sim.isError ? t('primary.error') : null;
 
-  async function run() {
-    setLoading(true);
-    setError(null);
-    try {
-      const res = await axios.post(`${API}${apiPath('election/primary')}`, {
-        parties,
-        general_num_voters: numVoters,
-        general_ideology:   'random',
-        primary_method:     primaryMethod,
-        general_method:     generalMethod,
-        seed:               42,
-      });
-      setData(res.data);
-    } catch {
-      setError(t('primary.error'));
-    } finally {
-      setLoading(false);
-    }
+  function run() {
+    sim.mutate({ body: {
+      parties,
+      general_num_voters: numVoters,
+      general_ideology:   'random',
+      primary_method:     primaryMethod,
+      general_method:     generalMethod,
+      seed:               42,
+    } });
   }
 
   const partyColors = parties.map((_, i) => partyColor(i));

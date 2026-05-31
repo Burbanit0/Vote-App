@@ -7,7 +7,6 @@
  *   4. Pol.is consensus clustering demo
  */
 import React, { useCallback, useState } from 'react';
-import axios from 'axios';
 import { useTranslation } from 'react-i18next';
 import {
   Alert, Badge, Button, Card, Col, Container, Form,
@@ -18,8 +17,7 @@ import PoliticalClusterMap, { PolisData } from '../components/shared/PoliticalCl
 import E2EVDemo from '../components/shared/E2EVDemo';
 import PolisPanel from '../components/shared/PolisPanel';
 import { ElectionProvider } from '../context/ElectionContext';
-
-const API = process.env.REACT_APP_API_URL ?? 'http://localhost:4434';
+import { $api } from '../api/hooks';
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -84,28 +82,23 @@ const STEPS = [
 
 const E2EVSection: React.FC<{ t: (k: string) => string }> = ({ t }) => {
   const [step,    setStep]    = useState(0);
-  const [data,    setData]    = useState<E2EData | null>(null);
-  const [loading, setLoading] = useState(false);
-  const [error,   setError]   = useState<string | null>(null);
+  const sim = $api.useMutation('post', '/api/v2/tech/e2e-demo');
+  const data: E2EData | null = (sim.data as E2EData | undefined) ?? null;
+  const loading = sim.isPending;
+  const error = sim.isError ? t('tech.error') : null;
 
-  const runDemo = useCallback(async () => {
-    setLoading(true);
-    setError(null);
+  const runDemo = useCallback(() => {
     setStep(0);
-    try {
-      const res = await axios.post(`${API}/api/v2/tech/e2e-demo`, {
-        candidates: ['Alice', 'Bob', 'Carol'],
-        num_voters: 10,
-        seed:       42,
-      });
-      setData(res.data);
-      setStep(1);
-    } catch {
-      setError(t('tech.error'));
-    } finally {
-      setLoading(false);
-    }
-  }, [t]);
+    sim.mutate({ body: {
+      candidates: ['Alice', 'Bob', 'Carol'],
+      num_voters: 10,
+      seed:       42,
+      user_vote:  'Alice',
+    } }, {
+      onSuccess: () => setStep(1),
+    });
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [t, sim]);
 
   const advance = () => setStep((s) => Math.min(s + 1, STEPS.length - 1));
 
@@ -231,7 +224,7 @@ const E2EVSection: React.FC<{ t: (k: string) => string }> = ({ t }) => {
             )}
             {step === STEPS.length - 1 && (
               <Button variant="outline-secondary" size="sm"
-                onClick={() => { setData(null); setStep(0); }}>
+                onClick={() => { sim.reset(); setStep(0); }}>
                 {t('tech.e2eReset')}
               </Button>
             )}
@@ -331,28 +324,21 @@ const PolisSection: React.FC<{ t: (k: string) => string }> = ({ t }) => {
   const [numClusters,    setNumClusters]    = useState(3);
   const [ideology,       setIdeology]       = useState('random');
   const [numParticipants, setNumParticipants] = useState(100);
-  const [data,           setData]           = useState<PolisData | null>(null);
-  const [loading,        setLoading]        = useState(false);
-  const [error,          setError]          = useState<string | null>(null);
+  const sim = $api.useMutation('post', '/api/v2/tech/polis-simulation');
+  const data: PolisData | null = (sim.data as PolisData | undefined) ?? null;
+  const loading = sim.isPending;
+  const error = sim.isError ? t('tech.error') : null;
 
-  const run = useCallback(async () => {
-    setLoading(true);
-    setError(null);
-    try {
-      const res = await axios.post(`${API}/api/v2/tech/polis-simulation`, {
-        statements:       DEFAULT_STATEMENTS,
-        num_participants: numParticipants,
-        ideology,
-        seed:             42,
-        num_clusters:     numClusters,
-      });
-      setData(res.data);
-    } catch {
-      setError(t('tech.error'));
-    } finally {
-      setLoading(false);
-    }
-  }, [numClusters, ideology, numParticipants, t]);
+  const run = useCallback(() => {
+    sim.mutate({ body: {
+      statements:       DEFAULT_STATEMENTS,
+      num_participants: numParticipants,
+      ideology,
+      seed:             42,
+      num_clusters:     numClusters,
+    } });
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [numClusters, ideology, numParticipants, t, sim]);
 
   return (
     <Card className="mb-4" data-testid="polis-section">

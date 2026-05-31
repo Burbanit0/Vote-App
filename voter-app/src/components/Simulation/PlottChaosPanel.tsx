@@ -4,12 +4,9 @@
  * an agenda-setter can drive the electorate to ANY policy via pairwise votes.
  */
 import React, { useCallback, useEffect, useRef, useState } from 'react';
-import axios from 'axios';
 import { useTranslation } from 'react-i18next';
 import { Alert, Badge, Button, Col, Form, Row, Spinner } from 'react-bootstrap';
-import { apiPath } from '../../api/apiVersion';
-
-const API = process.env.REACT_APP_API_URL ?? 'http://localhost:4434';
+import { $api } from '../../api/hooks';
 const SVG_SIZE = 380;
 const PAD = 30;
 const ANIM_MS = 700;
@@ -148,32 +145,25 @@ const PlottChaosPanel: React.FC = () => {
 
   const [numVoters,  setNumVoters]  = useState(5);
   const [seed,       setSeed]       = useState(42);
-  const [data,       setData]       = useState<PlottData | null>(null);
-  const [loading,    setLoading]    = useState(false);
-  const [error,      setError]      = useState<string | null>(null);
+  const sim = $api.useMutation('post', '/api/v2/theory/plott-chaos');
+  const data: PlottData | null = (sim.data as PlottData | undefined) ?? null;
+  const loading = sim.isPending;
+  const error = sim.isError ? t('plott.error') : null;
   const [animStep,   setAnimStep]   = useState(-1);
   const [playing,    setPlaying]    = useState(false);
   const [showAlt,    setShowAlt]    = useState(false);
   const animRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
-  const runSimulation = useCallback(async (nv: number, s: number) => {
-    setLoading(true);
-    setError(null);
+  const runSimulation = useCallback((nv: number, s: number) => {
     setPlaying(false);
     setAnimStep(-1);
     setShowAlt(false);
-    try {
-      const res = await axios.post(`${API}${apiPath('theory/plott-chaos')}`, {
-        num_voters: nv, num_dimensions: 2, seed: s,
-        target_policy: [0.6, 0.6], start_policy: [-0.6, -0.6], max_steps: 15,
-      });
-      setData(res.data);
-    } catch {
-      setError(t('plott.error'));
-    } finally {
-      setLoading(false);
-    }
-  }, [t]);
+    sim.mutate({ body: {
+      num_voters: nv, num_dimensions: 2, seed: s,
+      target_policy: [0.6, 0.6], start_policy: [-0.6, -0.6], max_steps: 15,
+    } });
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [t, sim]);
 
   const handleSimulate = () => runSimulation(numVoters, seed);
 

@@ -4,7 +4,7 @@
  * due to differential turnout across demographic groups.
  */
 import React, { useCallback, useState } from 'react';
-import axios from 'axios';
+import { $api } from '../../api/hooks';
 import { useTranslation } from 'react-i18next';
 import { Alert, Badge, Button, Col, Form, Row, Spinner, Table } from 'react-bootstrap';
 import {
@@ -13,9 +13,6 @@ import {
 } from 'recharts';
 import { useElection } from '../../context/ElectionContext';
 import PinToCentralButton from './PinToCentralButton';
-import { apiPath } from '../../api/apiVersion';
-
-const API = process.env.REACT_APP_API_URL ?? 'http://localhost:4434';
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -118,41 +115,34 @@ const DemographicTurnoutPanel: React.FC = () => {
 
   const [preset,    setPreset]    = useState('france_2022');
   const [profile,   setProfile]   = useState<DemoProfile>(PROFILES.france_2022);
-  const [data,      setData]      = useState<DemoData | null>(null);
-  const [loading,   setLoading]   = useState(false);
-  const [error,     setError]     = useState<string | null>(null);
+  const sim = $api.useMutation('post', '/api/v2/election/demographic-turnout');
+  const data: DemoData | null = (sim.data as DemoData | undefined) ?? null;
+  const loading = sim.isPending;
+  const error = sim.isError ? t('demo.error') : null;
 
   const applyPreset = (key: string) => {
     setPreset(key);
     setProfile(PROFILES[key] ?? PROFILES.france_2022);
   };
 
-  const runSimulation = useCallback(async (p: DemoProfile) => {
-    setLoading(true);
-    setError(null);
-    try {
-      const res = await axios.post(`${API}${apiPath('election/demographic-turnout')}`, {
-        candidates:            config.candidates.map((c) => ({ name: c.name, x: c.x, y: c.y })),
-        num_voters:            config.num_voters,
-        seed:                  config.seed,
-        method:                'plurality',
-        correct_for_turnout:   true,
-        demographic_profile:   {
-          age_distribution:      p.age_distribution,
-          turnout_by_age:        p.turnout_by_age,
-          ideology_by_age:       p.ideology_by_age,
-          education_distribution: p.education_distribution,
-          turnout_by_education:  p.turnout_by_education,
-          ideology_by_education: p.ideology_by_education,
-        },
-      });
-      setData(res.data);
-    } catch {
-      setError(t('demo.error'));
-    } finally {
-      setLoading(false);
-    }
-  }, [config, t]);
+  const runSimulation = useCallback((p: DemoProfile) => {
+    sim.mutate({ body: {
+      candidates:            config.candidates.map((c) => ({ name: c.name, x: c.x, y: c.y })),
+      num_voters:            config.num_voters,
+      seed:                  config.seed,
+      method:                'plurality',
+      correct_for_turnout:   true,
+      demographic_profile:   {
+        age_distribution:      p.age_distribution,
+        turnout_by_age:        p.turnout_by_age,
+        ideology_by_age:       p.ideology_by_age,
+        education_distribution: p.education_distribution,
+        turnout_by_education:  p.turnout_by_education,
+        ideology_by_education: p.ideology_by_education,
+      },
+    } });
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [config, t, sim]);
 
   const handleSimulate = () => runSimulation(profile);
 

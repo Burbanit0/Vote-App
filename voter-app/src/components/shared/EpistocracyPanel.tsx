@@ -3,7 +3,7 @@
  * Simulates how voter competence distribution affects collective decision quality.
  */
 import React, { useCallback, useEffect, useState } from 'react';
-import axios from 'axios';
+import { $api } from '../../api/hooks';
 import { useTranslation } from 'react-i18next';
 import {
   Alert, Badge, Button, Col, Form, Row, Spinner,
@@ -13,9 +13,6 @@ import {
   LineChart, Line, ReferenceLine, ResponsiveContainer, Cell,
 } from 'recharts';
 import PinToCentralButton from './PinToCentralButton';
-import { apiPath } from '../../api/apiVersion';
-
-const API = process.env.REACT_APP_API_URL ?? 'http://localhost:4434';
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -148,9 +145,11 @@ const EpistocracyPanel: React.FC<EpistocracyLabProps> = ({
 }) => {
   const { t } = useTranslation();
 
-  const [data,         setData]         = useState<EpistoData | null>(null);
-  const [loading,      setLoading]      = useState(false);
-  const [error,        setError]        = useState<string | null>(null);
+  const sim = $api.useMutation('post', '/api/v2/theory/epistocracy');
+  const data: EpistoData | null = (sim.data as EpistoData | undefined) ?? null;
+  const loading = sim.isPending;
+  const error = sim.isError ? t('episto.error') : null;
+
   const [numVoters,    setNumVoters]    = useState(200);
   const [seed,         setSeed]         = useState(42);
   const [compDist,     setCompDist]     = useState('uniform');
@@ -167,36 +166,27 @@ const EpistocracyPanel: React.FC<EpistocracyLabProps> = ({
     { name: 'C', x:  0.5, y: 0.0 },
   ];
 
-  const run = useCallback(async (
+  const run = useCallback((
     overrideCands?: typeof DEFAULT_CANDS,
     overrideVoters?: number,
     overrideSeed?: number,
   ) => {
-    setLoading(true);
-    setError(null);
-    try {
-      const res = await axios.post(`${API}${apiPath('theory/epistocracy')}`, {
-        candidates:  overrideCands  ?? DEFAULT_CANDS,
-        num_voters:  overrideVoters ?? numVoters,
-        seed:        overrideSeed   ?? seed,
-        voter_competence_distribution: compDist,
-        competence_params: {
-          mean:        compMean,
-          std:         compStd,
-          expert_pct:  expertPct,
-          caplan_bias: caplanBias,
-        },
-        weighting_scheme:      'equal',
-        epistocracy_threshold: threshold,
-      });
-      setData(res.data);
-    } catch {
-      setError(t('episto.error'));
-    } finally {
-      setLoading(false);
-    }
+    sim.mutate({ body: {
+      candidates:  overrideCands  ?? DEFAULT_CANDS,
+      num_voters:  overrideVoters ?? numVoters,
+      seed:        overrideSeed   ?? seed,
+      voter_competence_distribution: compDist,
+      competence_params: {
+        mean:        compMean,
+        std:         compStd,
+        expert_pct:  expertPct,
+        caplan_bias: caplanBias,
+      },
+      weighting_scheme:      'equal',
+      epistocracy_threshold: threshold,
+    } });
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [numVoters, seed, compDist, compMean, compStd, expertPct, caplanBias, threshold, t]);
+  }, [numVoters, seed, compDist, compMean, compStd, expertPct, caplanBias, threshold, sim]);
 
   useEffect(() => {
     if (labMode && labCandidates?.length) {

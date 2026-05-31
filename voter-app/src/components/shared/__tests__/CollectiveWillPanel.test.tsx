@@ -1,10 +1,14 @@
 import React from 'react';
 import { render, screen, fireEvent, waitFor, act } from '@testing-library/react';
-import axios from 'axios';
+import { QueryClientProvider } from '@tanstack/react-query';
 import CollectiveWillPanel from '../CollectiveWillPanel';
+import { makeTestQueryClient } from '../../../test/queryWrapper';
 
-jest.mock('axios');
-const mockAxios = axios as jest.Mocked<typeof axios>;
+jest.mock('../../../api/client', () => ({
+  apiClient: { GET: jest.fn(), POST: jest.fn(), PUT: jest.fn(), DELETE: jest.fn(), PATCH: jest.fn() },
+  getAccessToken: jest.fn(() => null),
+}));
+const { apiClient } = jest.requireMock('../../../api/client') as { apiClient: { POST: jest.Mock } };
 
 jest.mock('react-i18next', () => ({
   useTranslation: () => ({
@@ -42,21 +46,32 @@ const MOCK_FRAGILE: object = {
   pedagogical_note:         'The result depends on procedure alone.',
 };
 
+/** openapi-fetch resolves to { data, error }. */
+const ok = (d: unknown) => ({ data: d, error: undefined });
+
+function renderPanel() {
+  return render(
+    <QueryClientProvider client={makeTestQueryClient()}>
+      <CollectiveWillPanel />
+    </QueryClientProvider>
+  );
+}
+
 async function renderAndRun(responseData: object = MOCK_ROBUST) {
-  mockAxios.post.mockResolvedValueOnce({ data: responseData });
-  render(<CollectiveWillPanel />);
+  apiClient.POST.mockResolvedValueOnce(ok(responseData));
+  renderPanel();
   await act(async () => { fireEvent.click(screen.getByTestId('run-btn')); });
-  await waitFor(() => expect(mockAxios.post).toHaveBeenCalledTimes(1));
+  await waitFor(() => expect(apiClient.POST).toHaveBeenCalledTimes(1));
   await act(async () => {});
 }
 
 describe('CollectiveWillPanel', () => {
-  beforeEach(() => jest.resetAllMocks());
+  beforeEach(() => jest.clearAllMocks());
 
   // ── Initial render ──────────────────────────────────────────────────────────
 
   it('renders controls on mount', () => {
-    render(<CollectiveWillPanel />);
+    renderPanel();
     expect(screen.getByTestId('run-btn')).toBeInTheDocument();
     expect(screen.getByTestId('voters-input')).toBeInTheDocument();
     expect(screen.getByTestId('methods-input')).toBeInTheDocument();
@@ -66,12 +81,12 @@ describe('CollectiveWillPanel', () => {
   });
 
   it('shows prompt alert before simulation', () => {
-    render(<CollectiveWillPanel />);
+    renderPanel();
     expect(screen.getByTestId('prompt-alert')).toBeInTheDocument();
   });
 
   it('has random and polarized ideology options', () => {
-    render(<CollectiveWillPanel />);
+    renderPanel();
     const select = screen.getByTestId('ideology-select') as HTMLSelectElement;
     expect(select.options).toHaveLength(2);
   });
@@ -80,8 +95,9 @@ describe('CollectiveWillPanel', () => {
 
   it('calls API with correct payload on run', async () => {
     await renderAndRun();
-    const [url, payload] = mockAxios.post.mock.calls[0];
-    expect(url).toMatch(/\/api\/(v2\/)?theory\/collective-will/);
+    const [url, init] = apiClient.POST.mock.calls[0];
+    expect(url).toBe('/api/v2/theory/collective-will');
+    const payload = (init as { body: Record<string, unknown> }).body;
     expect(payload).toHaveProperty('candidates');
     expect(payload).toHaveProperty('num_voters');
     expect(payload).toHaveProperty('num_methods');
@@ -173,11 +189,9 @@ describe('CollectiveWillPanel', () => {
   // ── Error handling ──────────────────────────────────────────────────────────
 
   it('shows error alert on API failure', async () => {
-    mockAxios.post.mockRejectedValueOnce(new Error('Network error'));
-    render(<CollectiveWillPanel />);
+    apiClient.POST.mockRejectedValueOnce(new Error('Network error'));
+    renderPanel();
     await act(async () => { fireEvent.click(screen.getByTestId('run-btn')); });
-    await waitFor(() => expect(mockAxios.post).toHaveBeenCalled());
-    await act(async () => {});
-    expect(screen.getByTestId('error-alert')).toBeInTheDocument();
+    await waitFor(() => expect(screen.getByTestId('error-alert')).toBeInTheDocument());
   });
 });

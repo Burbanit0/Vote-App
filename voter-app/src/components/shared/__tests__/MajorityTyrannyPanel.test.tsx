@@ -1,10 +1,14 @@
 import React from 'react';
 import { render, screen, fireEvent, waitFor, act } from '@testing-library/react';
-import axios from 'axios';
+import { QueryClientProvider } from '@tanstack/react-query';
 import MajorityTyrannyPanel from '../MajorityTyrannyPanel';
+import { makeTestQueryClient } from '../../../test/queryWrapper';
 
-jest.mock('axios');
-const mockAxios = axios as jest.Mocked<typeof axios>;
+jest.mock('../../../api/client', () => ({
+  apiClient: { GET: jest.fn(), POST: jest.fn(), PUT: jest.fn(), DELETE: jest.fn(), PATCH: jest.fn() },
+  getAccessToken: jest.fn(() => null),
+}));
+const { apiClient } = jest.requireMock('../../../api/client') as { apiClient: { POST: jest.Mock } };
 
 jest.mock('react-i18next', () => ({
   useTranslation: () => ({
@@ -44,11 +48,22 @@ const MOCK_DATA = {
   pedagogical_note: 'Tocqueville: la tyrannie de la majorité.',
 };
 
+/** openapi-fetch resolves to { data, error }. */
+const ok = (d: unknown) => ({ data: d, error: undefined });
+
+function renderPanel() {
+  return render(
+    <QueryClientProvider client={makeTestQueryClient()}>
+      <MajorityTyrannyPanel />
+    </QueryClientProvider>
+  );
+}
+
 async function renderAndRun() {
-  mockAxios.post.mockResolvedValueOnce({ data: MOCK_DATA });
-  render(<MajorityTyrannyPanel />);
+  apiClient.POST.mockResolvedValueOnce(ok(MOCK_DATA));
+  renderPanel();
   await act(async () => { fireEvent.click(screen.getByTestId('run-btn')); });
-  await waitFor(() => expect(mockAxios.post).toHaveBeenCalledTimes(1));
+  await waitFor(() => expect(apiClient.POST).toHaveBeenCalledTimes(1));
   await act(async () => {});
 }
 
@@ -56,7 +71,7 @@ describe('MajorityTyrannyPanel', () => {
   beforeEach(() => jest.clearAllMocks());
 
   it('renders controls and run button', () => {
-    render(<MajorityTyrannyPanel />);
+    renderPanel();
     expect(screen.getByTestId('run-btn')).toBeInTheDocument();
     expect(screen.getByTestId('voters-input')).toBeInTheDocument();
     expect(screen.getByTestId('majority-slider')).toBeInTheDocument();
@@ -66,12 +81,12 @@ describe('MajorityTyrannyPanel', () => {
   });
 
   it('shows tocqueville quote on mount', () => {
-    render(<MajorityTyrannyPanel />);
+    renderPanel();
     expect(screen.getByTestId('tocqueville-quote')).toBeInTheDocument();
   });
 
   it('shows rule toggles for all 6 rules', () => {
-    render(<MajorityTyrannyPanel />);
+    renderPanel();
     const allRules = [
       'simple_majority', 'supermajority_2_3', 'supermajority_3_4',
       'unanimous', 'qv', 'mj',
@@ -82,14 +97,15 @@ describe('MajorityTyrannyPanel', () => {
   });
 
   it('shows prompt alert before simulation', () => {
-    render(<MajorityTyrannyPanel />);
+    renderPanel();
     expect(screen.getByTestId('prompt-alert')).toBeInTheDocument();
   });
 
   it('calls API with correct payload on run', async () => {
     await renderAndRun();
-    const [url, payload] = mockAxios.post.mock.calls[0];
-    expect(url).toMatch(/\/api\/(v2\/)?theory\/majority-tyranny/);
+    const [url, init] = apiClient.POST.mock.calls[0];
+    expect(url).toBe('/api/v2/theory/majority-tyranny');
+    const payload = (init as { body: Record<string, unknown> }).body;
     expect(payload).toHaveProperty('num_voters');
     expect(payload).toHaveProperty('majority_pct');
     expect(payload).toHaveProperty('minority_intensity');
@@ -142,16 +158,14 @@ describe('MajorityTyrannyPanel', () => {
   });
 
   it('shows error alert on API failure', async () => {
-    mockAxios.post.mockRejectedValueOnce(new Error('Network error'));
-    render(<MajorityTyrannyPanel />);
+    apiClient.POST.mockRejectedValueOnce(new Error('Network error'));
+    renderPanel();
     await act(async () => { fireEvent.click(screen.getByTestId('run-btn')); });
-    await waitFor(() => expect(mockAxios.post).toHaveBeenCalled());
-    await act(async () => {});
-    expect(screen.getByTestId('error-alert')).toBeInTheDocument();
+    await waitFor(() => expect(screen.getByTestId('error-alert')).toBeInTheDocument());
   });
 
   it('toggles a rule off and back on', () => {
-    render(<MajorityTyrannyPanel />);
+    renderPanel();
     const badge = screen.getByTestId('rule-badge-qv');
     // Click to deactivate (keeps at least 1 active so it deactivates)
     fireEvent.click(badge);

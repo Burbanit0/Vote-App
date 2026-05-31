@@ -6,15 +6,13 @@
  * With other methods (Approval, Borda) they may disperse or oscillate.
  */
 import React, { useCallback, useEffect, useRef, useState } from 'react';
-import axios from 'axios';
-import { apiPath } from '../../api/apiVersion';
 import { useTranslation } from 'react-i18next';
 import {
   Alert, Badge, Button, Col, Form, Row, Spinner, Table,
 } from 'react-bootstrap';
 import { useElection } from '../../context/ElectionContext';
-
-const API = process.env.REACT_APP_API_URL ?? 'http://localhost:4434';
+import { $api } from '../../api/hooks';
+import { apiClient } from '../../api/client';
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -66,9 +64,10 @@ const HotellingPanel: React.FC = () => {
   const [method,    setMethod]    = useState('plurality');
   const [numIter,   setNumIter]   = useState(10);
   const [stepSize,  setStepSize]  = useState(0.05);
-  const [data,      setData]      = useState<HotellingData | null>(null);
-  const [loading,   setLoading]   = useState(false);
-  const [error,     setError]     = useState<string | null>(null);
+  const sim = $api.useMutation('post', '/api/v2/election/hotelling');
+  const data: HotellingData | null = (sim.data as HotellingData | undefined) ?? null;
+  const loading = sim.isPending;
+  const error = sim.isError ? t('hotelling.error') : null;
   const [stepIdx,   setStepIdx]   = useState(0);
   const [playing,   setPlaying]   = useState(false);
 
@@ -80,33 +79,26 @@ const HotellingPanel: React.FC = () => {
 
   const candidateNames = config.candidates.map(c => c.name);
 
-  async function run(m = method) {
+  function run(m = method) {
     if (timerRef.current) clearTimeout(timerRef.current);
-    setPlaying(false); setStepIdx(0); setLoading(true); setError(null);
-    try {
-      const res = await axios.post(`${API}${apiPath('election/hotelling')}`, {
-        candidates:     config.candidates,
-        num_voters:     config.num_voters,
-        ideology:       config.ideology,
-        seed:           config.seed,
-        method:         m,
-        num_iterations: numIter,
-        step_size:      stepSize,
-      });
-      setData(res.data);
-    } catch {
-      setError(t('hotelling.error'));
-    } finally {
-      setLoading(false);
-    }
+    setPlaying(false); setStepIdx(0);
+    sim.mutate({ body: {
+      candidates:     config.candidates,
+      num_voters:     config.num_voters,
+      ideology:       config.ideology,
+      seed:           config.seed,
+      method:         m,
+      num_iterations: numIter,
+      step_size:      stepSize,
+    } });
   }
 
   async function runComparison() {
-    setComparing(true); setError(null);
+    setComparing(true);
     const results: Record<string, HotellingData> = {};
     for (const m of COMPARE_METHODS) {
-      try {
-        const res = await axios.post(`${API}${apiPath('election/hotelling')}`, {
+      const { data: res } = await apiClient.POST('/api/v2/election/hotelling', {
+        body: {
           candidates:     config.candidates,
           num_voters:     config.num_voters,
           ideology:       config.ideology,
@@ -114,9 +106,9 @@ const HotellingPanel: React.FC = () => {
           method:         m,
           num_iterations: numIter,
           step_size:      stepSize,
-        });
-        results[m] = res.data;
-      } catch { /* skip failed methods */ }
+        },
+      });
+      if (res) results[m] = res as unknown as HotellingData;
     }
     setCompareData(results);
     setComparing(false);

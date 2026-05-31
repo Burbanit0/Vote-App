@@ -4,7 +4,7 @@
  * Compares conviction-weighted results with plain 1-token-1-vote.
  */
 import React, { useCallback, useRef, useState } from 'react';
-import axios from 'axios';
+import { $api } from '../../api/hooks';
 import { useTranslation } from 'react-i18next';
 import {
   Alert, Badge, Button, Col, Form, Row, Spinner, Table,
@@ -14,9 +14,6 @@ import {
   ResponsiveContainer, Cell,
 } from 'recharts';
 import { useElection } from '../../context/ElectionContext';
-import { apiPath } from '../../api/apiVersion';
-
-const API = process.env.REACT_APP_API_URL ?? 'http://localhost:4434';
 
 const LOCK_OPTIONS = [0, 7, 14, 28, 56, 112, 224];
 const MULTIPLIERS: Record<number, number> = {
@@ -187,33 +184,26 @@ const ConvictionVotingPanel: React.FC = () => {
   const [cvDist,      setCvDist]      = useState('uniform');
   const [whalePct,    setWhalePct]    = useState(0.10);
   const [smallLock,   setSmallLock]   = useState(224);
-  const [data,        setData]        = useState<ConvictionData | null>(null);
-  const [loading,     setLoading]     = useState(false);
-  const [error,       setError]       = useState<string | null>(null);
+  const sim = $api.useMutation('post', '/api/v2/election/conviction-voting');
+  const data: ConvictionData | null = (sim.data as ConvictionData | undefined) ?? null;
+  const loading = sim.isPending;
+  const error = sim.isError ? t('conviction.error') : null;
 
   // Use proposals derived from ElectionContext candidates as "proposals"
   const proposalNames = config.candidates.map((c) => c.name);
 
-  const runSimulation = useCallback(async () => {
-    setLoading(true);
-    setError(null);
-    try {
-      const res = await axios.post(`${API}${apiPath('election/conviction-voting')}`, {
-        proposals:               config.candidates.map((c) => ({ name: c.name, x: c.x })),
-        num_voters:              config.num_voters,
-        ideology:                config.ideology,
-        seed:                    config.seed,
-        conviction_distribution: cvDist,
-        whale_pct:               whalePct,
-        small_lock_days:         smallLock,
-      });
-      setData(res.data);
-    } catch {
-      setError(t('conviction.error'));
-    } finally {
-      setLoading(false);
-    }
-  }, [config, cvDist, whalePct, smallLock, t]);
+  const runSimulation = useCallback(() => {
+    sim.mutate({ body: {
+      proposals:               config.candidates.map((c) => ({ name: c.name, x: c.x })),
+      num_voters:              config.num_voters,
+      ideology:                config.ideology,
+      seed:                    config.seed,
+      conviction_distribution: cvDist,
+      whale_pct:               whalePct,
+      small_lock_days:         smallLock,
+    } });
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [config, cvDist, whalePct, smallLock, t, sim]);
 
   const pNames = data?.proposals.map((p) => p.name) ?? proposalNames;
 

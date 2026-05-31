@@ -1,6 +1,7 @@
 import React from 'react';
 import { render, screen, fireEvent, act } from '@testing-library/react';
 import { PerturbationsProvider, usePerturbations } from './PerturbationsContext';
+import { useLabStore } from '../stores/useLabStore';
 
 const LS_KEY = 'votelab_pinned_perturbations';
 
@@ -52,6 +53,7 @@ const TestConsumer: React.FC = () => {
 describe('PerturbationsContext', () => {
   beforeEach(() => {
     localStorage.clear();
+    useLabStore.setState({ pinned: [] });
   });
 
   it('starts empty when no localStorage entry', () => {
@@ -175,11 +177,11 @@ describe('PerturbationsContext', () => {
     expect(screen.getByTestId('count')).toHaveTextContent('1');
   });
 
-  it('returns inert fallback when used outside provider (no crash)', () => {
+  it('works without a provider (store-backed, no crash)', () => {
+    // usePerturbations now reads useLabStore, so no provider is required.
     render(<TestConsumer />);
     expect(screen.getByTestId('count')).toHaveTextContent('0');
-    // pinning a no-op should not throw
     act(() => { fireEvent.click(screen.getByTestId('pin-abst')); });
-    expect(screen.getByTestId('count')).toHaveTextContent('0');
+    expect(screen.getByTestId('count')).toHaveTextContent('1');
   });
 });

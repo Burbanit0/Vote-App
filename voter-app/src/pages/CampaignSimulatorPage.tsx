@@ -13,12 +13,9 @@ import {
   XAxis,
   YAxis,
 } from 'recharts';
-import axios from 'axios';
 import { useMetaTags } from '../hooks/useMetaTags';
 import { CHART_COLORS_LIGHT } from '../constants/chartColors';
-import { apiPath } from '../api/apiVersion';
-
-const API_BASE = process.env.VITE_API_URL || 'http://localhost:4434';
+import { $api } from '../api/hooks';
 
 // ── Types ────────────────────────────────────────────────────────────────────
 
@@ -177,9 +174,10 @@ const CampaignSimulatorPage: React.FC = () => {
   const [dragFrom,    setDragFrom]    = useState<number | null>(null);
 
   // ── Results + animation ──
-  const [result,       setResult]       = useState<CampaignResult | null>(null);
-  const [loading,      setLoading]      = useState(false);
-  const [error,        setError]        = useState<string | null>(null);
+  const sim = $api.useMutation('post', '/api/v2/simulations/campaign');
+  const result: CampaignResult | null = (sim.data as CampaignResult | undefined) ?? null;
+  const loading = sim.isPending;
+  const error = sim.isError ? 'Erreur de simulation' : null;
   const [animatedDay,  setAnimatedDay]  = useState(0);
   const [playing,      setPlaying]      = useState(false);
   const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -212,30 +210,25 @@ const CampaignSimulatorPage: React.FC = () => {
   }, [playing, animatedDay, result, animSpeed]);
 
   // ── Run simulation ──
-  const runSimulation = useCallback(async () => {
-    setLoading(true);
-    setError(null);
+  const runSimulation = useCallback(() => {
     setPlaying(false);
     setAnimatedDay(0);
-    try {
-      const payload = {
-        num_candidates: numCandidates,
-        num_voters:     500,
-        num_days:       numDays,
-        method,
-        events: events.map(({ id: _id, ...ev }) => ev),
-      };
-      const resp = await axios.post<CampaignResult>(`${API_BASE}${apiPath('simulations/campaign')}`, payload);
-      setResult(resp.data);
-      // Start animation automatically
-      if (animSpeed > 0) setPlaying(true);
-      else setAnimatedDay(resp.data.days.length - 1);
-    } catch (e: any) {
-      setError(e?.response?.data?.error ?? e?.message ?? 'Erreur de simulation');
-    } finally {
-      setLoading(false);
-    }
-  }, [numCandidates, numDays, method, events, animSpeed]);
+    sim.mutate({ body: {
+      num_candidates: numCandidates,
+      num_voters:     500,
+      num_days:       numDays,
+      method,
+      events: events.map(({ id: _id, ...ev }) => ev),
+    } }, {
+      onSuccess: (res) => {
+        const r = res as unknown as CampaignResult;
+        // Start animation automatically
+        if (animSpeed > 0) setPlaying(true);
+        else setAnimatedDay(r.days.length - 1);
+      },
+    });
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [numCandidates, numDays, method, events, animSpeed, sim]);
 
   // ── Chart data (sliced to animatedDay) ──
   const chartData = result

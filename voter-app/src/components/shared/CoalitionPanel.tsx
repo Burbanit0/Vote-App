@@ -1,11 +1,9 @@
 import React, { useMemo, useState } from 'react';
-import axios from 'axios';
-import { apiPath } from '../../api/apiVersion';
+import { $api } from '../../api/hooks';
 import { useTranslation } from 'react-i18next';
 import { Alert, Badge, Button, Spinner, Table } from 'react-bootstrap';
 import { useElection } from '../../context/ElectionContext';
 
-const API = process.env.REACT_APP_API_URL ?? 'http://localhost:4434';
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -189,9 +187,10 @@ const SpreadBar: React.FC<{ value: number; max: number }> = ({ value, max }) => 
 const CoalitionPanel: React.FC = () => {
   const { t } = useTranslation();
   const { config } = useElection();
-  const [data, setData] = useState<CoalitionData | null>(null);
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+  const sim = $api.useMutation('post', '/api/v2/election/coalition');
+  const data: CoalitionData | null = (sim.data as CoalitionData | undefined) ?? null;
+  const loading = sim.isPending;
+  const error = sim.isError ? t('coalition.error') : null;
   const [selectedMethod, setSelectedMethod] = useState<string | null>(null);
 
   const candidateNames = useMemo(
@@ -199,25 +198,17 @@ const CoalitionPanel: React.FC = () => {
     [config.candidates]
   );
 
-  async function run() {
-    setLoading(true);
-    setError(null);
-    try {
-      const res = await axios.post(`${API}${apiPath('election/coalition')}`, {
-        candidates:           config.candidates,
-        num_voters:           config.num_voters,
-        ideology:             config.ideology,
-        seed:                 config.seed,
-        total_seats:          100,
-        government_threshold: 0.5,
-      });
-      setData(res.data);
-      setSelectedMethod(res.data.methods[0]?.method ?? null);
-    } catch {
-      setError(t('coalition.error'));
-    } finally {
-      setLoading(false);
-    }
+  function run() {
+    sim.mutate({ body: {
+      candidates:           config.candidates,
+      num_voters:           config.num_voters,
+      ideology:             config.ideology,
+      seed:                 config.seed,
+      total_seats:          100,
+      government_threshold: 0.5,
+    } }, {
+      onSuccess: (res) => setSelectedMethod((res as unknown as CoalitionData).methods[0]?.method ?? null),
+    });
   }
 
   const selected = data?.methods.find((m) => m.method === selectedMethod) ?? data?.methods[0];

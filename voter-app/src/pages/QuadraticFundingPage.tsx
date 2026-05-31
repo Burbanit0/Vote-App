@@ -3,7 +3,6 @@
  * showcasing the QF mechanism for public goods allocation.
  */
 import React, { useCallback, useRef, useState } from 'react';
-import axios from 'axios';
 import { useTranslation } from 'react-i18next';
 import {
   Alert, Badge, Button, Card, Col, Container, Form, Row, Spinner,
@@ -12,9 +11,7 @@ import {
   BarChart, Bar, XAxis, YAxis, Tooltip, Cell, ResponsiveContainer, Legend,
 } from 'recharts';
 import { useMetaTags } from '../hooks/useMetaTags';
-import { apiPath } from '../api/apiVersion';
-
-const API = process.env.REACT_APP_API_URL ?? 'http://localhost:4434';
+import { $api } from '../api/hooks';
 const DEBOUNCE_MS = 400;
 
 // ── Types ─────────────────────────────────────────────────────────────────────
@@ -146,30 +143,24 @@ const QuadraticFundingPage: React.FC = () => {
   const [numVoters,    setNumVoters]    = useState(100);
   const [budgetPV,     setBudgetPV]     = useState(100);
   const [ideology,     setIdeology]     = useState('random');
-  const [data,         setData]         = useState<QFData | null>(null);
-  const [loading,      setLoading]      = useState(false);
-  const [error,        setError]        = useState<string | null>(null);
+  const sim = $api.useMutation('post', '/api/v2/election/quadratic-funding');
+  const data: QFData | null = (sim.data as QFData | undefined) ?? null;
+  const loading = sim.isPending;
+  const error = sim.isError ? t('qf.error') : null;
 
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  const run = useCallback(async (pool: number) => {
-    setLoading(true); setError(null);
-    try {
-      const res = await axios.post(`${API}${apiPath('election/quadratic-funding')}`, {
-        projects:         projects.map(p => ({ name: p.name, x: p.x })),
-        num_voters:       numVoters,
-        budget_per_voter: budgetPV,
-        matching_pool:    pool,
-        ideology,
-        seed:             42,
-      });
-      setData(res.data);
-    } catch {
-      setError(t('qf.error'));
-    } finally {
-      setLoading(false);
-    }
-  }, [projects, numVoters, budgetPV, ideology, t]);
+  const run = useCallback((pool: number) => {
+    sim.mutate({ body: {
+      projects:         projects.map(p => ({ name: p.name, x: p.x })),
+      num_voters:       numVoters,
+      budget_per_voter: budgetPV,
+      matching_pool:    pool,
+      ideology,
+      seed:             42,
+    } });
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [projects, numVoters, budgetPV, ideology, t, sim]);
 
   const handlePoolChange = (v: number) => {
     setMatchingPool(v);

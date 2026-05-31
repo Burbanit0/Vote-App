@@ -5,8 +5,7 @@
  * trails in the polls, and how this can flip the election result.
  */
 import React, { useCallback, useEffect, useRef, useState } from 'react';
-import axios from 'axios';
-import { useApiAction } from '../../hooks/useApi';
+import { $api } from '../../api/hooks';
 import { useTranslation } from 'react-i18next';
 import { Alert, Badge, Button, Col, Form, Row, Spinner } from 'react-bootstrap';
 import {
@@ -16,23 +15,11 @@ import {
 import { useElection } from '../../context/ElectionContext';
 import PinToCentralButton from './PinToCentralButton';
 
-const API = process.env.REACT_APP_API_URL ?? 'http://localhost:4434';
 const DEBOUNCE_MS = 400;
 
-// Request type comes from the generated OpenAPI contract (Phase 1).
-// Single source of truth: the Pydantic schema in
-// flask_voter_app/app/schemas/election.py. Regenerate via `npm run gen:api`.
+// Request type from the generated OpenAPI contract (single source of truth:
+// the Pydantic schema, regenerated via `npm run gen:api`).
 import type { AbstentionRequest } from '../../api';
-import { apiPath } from '../../api/apiVersion';
-
-async function fetchAbstention(args: AbstentionRequest): Promise<AbstentionData> {
-  // FastAPI /api/v2/election/abstention.
-  const res = await axios.post<AbstentionData>(
-    `${API}${apiPath('election/abstention')}`,
-    args,
-  );
-  return res.data;
-}
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -180,24 +167,23 @@ const AbstentionPanel: React.FC = () => {
   const [round,   setRound]   = useState(0);
   const [playing, setPlaying] = useState(false);
 
-  // Generic loading/error/data state lives in useApiAction. We override
-  // toErrorMessage to keep the existing i18n key ("any failure" -> friendly text).
-  const {
-    data, loading, error, run: runFetch,
-  } = useApiAction<AbstentionData, AbstentionRequest>(
-    fetchAbstention,
-    { toErrorMessage: () => t('abstention.error') },
-  );
+  // Server state via TanStack Query (openapi-fetch typed client). The response
+  // is cast to the panel's hand-written AbstentionData (the route is a
+  // passthrough-Dict endpoint, so it has no response_model schema yet).
+  const sim = $api.useMutation('post', '/api/v2/election/abstention');
+  const data: AbstentionData | null = (sim.data as AbstentionData | undefined) ?? null;
+  const loading = sim.isPending;
+  const error = sim.isError ? t('abstention.error') : null;
 
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const timerRef    = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const candidateNames = config.candidates.map(c => c.name);
 
-  const run = useCallback(async (d: number, inf: number, nr: number) => {
+  const run = useCallback((d: number, inf: number, nr: number) => {
     setRound(0);
     setPlaying(false);
-    await runFetch({
+    const body: AbstentionRequest = {
       candidates:            config.candidates,
       num_voters:            config.num_voters,
       ideology:              config.ideology,
@@ -205,8 +191,9 @@ const AbstentionPanel: React.FC = () => {
       demobilization_factor: d,
       poll_influence:        inf,
       num_rounds:            nr,
-    });
-  }, [config, runFetch]);
+    };
+    sim.mutate({ body });
+  }, [config, sim]);
 
   // Debounced re-run on slider change
   const handleChange = (d: number, inf: number, nr: number) => {

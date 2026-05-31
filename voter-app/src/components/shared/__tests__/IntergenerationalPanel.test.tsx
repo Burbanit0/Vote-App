@@ -1,10 +1,14 @@
 import React from 'react';
 import { render, screen, fireEvent, waitFor, act } from '@testing-library/react';
-import axios from 'axios';
+import { QueryClientProvider } from '@tanstack/react-query';
 import IntergenerationalPanel from '../IntergenerationalPanel';
+import { makeTestQueryClient } from '../../../test/queryWrapper';
 
-jest.mock('axios');
-const mockAxios = axios as jest.Mocked<typeof axios>;
+jest.mock('../../../api/client', () => ({
+  apiClient: { GET: jest.fn(), POST: jest.fn(), PUT: jest.fn(), DELETE: jest.fn(), PATCH: jest.fn() },
+  getAccessToken: jest.fn(() => null),
+}));
+const { apiClient } = jest.requireMock('../../../api/client') as { apiClient: { POST: jest.Mock } };
 
 jest.mock('react-i18next', () => ({
   useTranslation: () => ({
@@ -75,35 +79,46 @@ const MOCK_DATA = {
   pedagogical_note: 'Rawls: veil of ignorance.',
 };
 
+/** openapi-fetch resolves to { data, error }. */
+const ok = (d: unknown) => ({ data: d, error: undefined });
+
+function renderPanel() {
+  return render(
+    <QueryClientProvider client={makeTestQueryClient()}>
+      <IntergenerationalPanel />
+    </QueryClientProvider>
+  );
+}
+
 async function renderAndRun(responseData = MOCK_DATA) {
-  mockAxios.post.mockResolvedValueOnce({ data: responseData });
-  render(<IntergenerationalPanel />);
+  apiClient.POST.mockResolvedValueOnce(ok(responseData));
+  renderPanel();
   await act(async () => { fireEvent.click(screen.getByTestId('run-btn')); });
-  await waitFor(() => expect(mockAxios.post).toHaveBeenCalledTimes(1));
+  await waitFor(() => expect(apiClient.POST).toHaveBeenCalledTimes(1));
   await act(async () => {});
 }
 
 // ── Tests ──────────────────────────────────────────────────────────────────────
 
 describe('IntergenerationalPanel', () => {
-  beforeEach(() => jest.resetAllMocks());
+  beforeEach(() => jest.clearAllMocks());
 
   // ── Initial render ──────────────────────────────────────────────────────────
 
   it('renders key message on mount', () => {
-    render(<IntergenerationalPanel />);
+    renderPanel();
     expect(screen.getByTestId('key-message')).toBeInTheDocument();
   });
 
   it('renders decision editor with default decisions', () => {
-    render(<IntergenerationalPanel />);
+    renderPanel();
     expect(screen.getByTestId('decision-editor')).toBeInTheDocument();
     expect(screen.getByTestId('decision-name-0')).toBeInTheDocument();
     expect(screen.getByTestId('decision-name-1')).toBeInTheDocument();
   });
 
   it('renders controls: voters, age dist sliders, seed, run', () => {
-    render(<IntergenerationalPanel />);
+    renderPanel();
     expect(screen.getByTestId('run-btn')).toBeInTheDocument();
     expect(screen.getByTestId('voters-input')).toBeInTheDocument();
     expect(screen.getByTestId('seed-input')).toBeInTheDocument();
@@ -113,14 +128,14 @@ describe('IntergenerationalPanel', () => {
   });
 
   it('shows prompt alert before simulation', () => {
-    render(<IntergenerationalPanel />);
+    renderPanel();
     expect(screen.getByTestId('prompt-alert')).toBeInTheDocument();
   });
 
   // ── Decision editor interactions ────────────────────────────────────────────
 
   it('adds a decision when add button is clicked', () => {
-    render(<IntergenerationalPanel />);
+    renderPanel();
     const before = screen.getAllByTestId(/^decision-name-/).length;
     fireEvent.click(screen.getByTestId('add-decision-btn'));
     const after = screen.getAllByTestId(/^decision-name-/).length;
@@ -131,8 +146,9 @@ describe('IntergenerationalPanel', () => {
 
   it('calls API with correct payload on run', async () => {
     await renderAndRun();
-    const [url, payload] = mockAxios.post.mock.calls[0];
-    expect(url).toMatch(/\/api\/(v2\/)?theory\/intergenerational/);
+    const [url, init] = apiClient.POST.mock.calls[0];
+    expect(url).toBe('/api/v2/theory/intergenerational');
+    const payload = (init as { body: Record<string, unknown> }).body;
     expect(payload).toHaveProperty('decisions');
     expect(payload).toHaveProperty('num_voters');
     expect(payload).toHaveProperty('age_distribution');
@@ -197,11 +213,9 @@ describe('IntergenerationalPanel', () => {
   // ── Error handling ──────────────────────────────────────────────────────────
 
   it('shows error alert on API failure', async () => {
-    mockAxios.post.mockRejectedValueOnce(new Error('Network error'));
-    render(<IntergenerationalPanel />);
+    apiClient.POST.mockRejectedValueOnce(new Error('Network error'));
+    renderPanel();
     await act(async () => { fireEvent.click(screen.getByTestId('run-btn')); });
-    await waitFor(() => expect(mockAxios.post).toHaveBeenCalled());
-    await act(async () => {});
-    expect(screen.getByTestId('error-alert')).toBeInTheDocument();
+    await waitFor(() => expect(screen.getByTestId('error-alert')).toBeInTheDocument());
   });
 });

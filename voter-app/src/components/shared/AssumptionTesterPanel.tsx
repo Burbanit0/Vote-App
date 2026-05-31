@@ -3,7 +3,6 @@
  * Shows how results change when core spatial-model assumptions are violated.
  */
 import React, { useEffect, useState } from 'react';
-import axios from 'axios';
 import { useTranslation } from 'react-i18next';
 import {
   Alert, Badge, Button, Col, Form, Row, Spinner,
@@ -12,9 +11,7 @@ import {
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip,
   ResponsiveContainer, Cell,
 } from 'recharts';
-import { apiPath } from '../../api/apiVersion';
-
-const API = process.env.REACT_APP_API_URL ?? 'http://localhost:4434';
+import { $api } from '../../api/hooks';
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -206,9 +203,10 @@ const AssumptionTesterPanel: React.FC<AssumptionTesterLabProps> = ({
 }) => {
   const { t } = useTranslation();
 
-  const [data,       setData]       = useState<AssumptionData | null>(null);
-  const [loading,    setLoading]    = useState(false);
-  const [error,      setError]      = useState<string | null>(null);
+  const sim = $api.useMutation('post', '/api/v2/theory/assumption-testing');
+  const data: AssumptionData | null = (sim.data as AssumptionData | undefined) ?? null;
+  const loading = sim.isPending;
+  const error = sim.isError ? t('assumptions.error') : null;
   const [selected,   setSelected]   = useState<Set<Assumption>>(new Set(ALL_ASSUMPTIONS));
   const [numVoters,  setNumVoters]  = useState(100);
   const [seed,       setSeed]       = useState(42);
@@ -226,30 +224,21 @@ const AssumptionTesterPanel: React.FC<AssumptionTesterLabProps> = ({
     { name: 'Carol', x:  0.5, y: 0.0 },
   ];
 
-  const handleRun = async (
+  const handleRun = (
     overrideCands?: typeof DEFAULT_CANDS,
     overrideVoters?: number,
     overrideSeed?: number,
     overrideIdeology?: string,
   ) => {
-    setLoading(true);
-    setError(null);
-    try {
-      const res = await axios.post(`${API}${apiPath('theory/assumption-testing')}`, {
-        base_simulation: {
-          candidates:  overrideCands   ?? DEFAULT_CANDS,
-          num_voters:  overrideVoters  ?? numVoters,
-          ideology:    overrideIdeology ?? 'random',
-          seed:        overrideSeed    ?? seed,
-        },
-        assumptions_to_relax: [...selected],
-      });
-      setData(res.data);
-    } catch {
-      setError(t('assumptions.error'));
-    } finally {
-      setLoading(false);
-    }
+    sim.mutate({ body: {
+      base_simulation: {
+        candidates:  overrideCands   ?? DEFAULT_CANDS,
+        num_voters:  overrideVoters  ?? numVoters,
+        ideology:    overrideIdeology ?? 'random',
+        seed:        overrideSeed    ?? seed,
+      },
+      assumptions_to_relax: [...selected],
+    } });
   };
 
   // Auto-run when lab context changes

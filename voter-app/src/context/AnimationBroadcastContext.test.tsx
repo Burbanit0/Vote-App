@@ -5,6 +5,7 @@ import {
   useAnimationBroadcast,
   AnimationFrame,
 } from './AnimationBroadcastContext';
+import { useLabStore } from '../stores/useLabStore';
 
 const FRAME: AnimationFrame = {
   method:        'irv',
@@ -38,6 +39,10 @@ const TestConsumer: React.FC = () => {
 };
 
 describe('AnimationBroadcastContext', () => {
+  beforeEach(() => {
+    useLabStore.setState({ frame: null });
+  });
+
   it('starts with no frame', () => {
     render(
       <AnimationBroadcastProvider>
@@ -85,11 +90,11 @@ describe('AnimationBroadcastContext', () => {
     expect(screen.getByTestId('method')).toHaveTextContent('none');
   });
 
-  it('returns inert fallback when used outside provider (no crash)', () => {
+  it('works without a provider (store-backed, no crash)', () => {
+    // useAnimationBroadcast now reads useLabStore, so no provider is required.
     render(<TestConsumer />);
     expect(screen.getByTestId('method')).toHaveTextContent('none');
-    // publish should be a no-op
     act(() => { fireEvent.click(screen.getByTestId('pub')); });
-    expect(screen.getByTestId('method')).toHaveTextContent('none');
+    expect(screen.getByTestId('method')).toHaveTextContent('irv');
   });
 });
