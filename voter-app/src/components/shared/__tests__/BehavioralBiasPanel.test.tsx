@@ -1,11 +1,16 @@
 import React from 'react';
 import { render, screen, fireEvent, waitFor, act } from '@testing-library/react';
 import { MemoryRouter } from 'react-router';
+import { QueryClientProvider } from '@tanstack/react-query';
 import BehavioralBiasPanel from '../BehavioralBiasPanel';
 import { ElectionProvider } from '../../../context/ElectionContext';
+import { makeTestQueryClient } from '../../../test/queryWrapper';
 
-jest.mock('axios', () => ({ post: jest.fn() }));
-const { post: mockPost } = jest.requireMock('axios') as { post: jest.Mock };
+jest.mock('../../../api/client', () => ({
+  apiClient: { GET: jest.fn(), POST: jest.fn(), PUT: jest.fn(), DELETE: jest.fn(), PATCH: jest.fn() },
+  getAccessToken: jest.fn(() => null),
+}));
+const { apiClient } = jest.requireMock('../../../api/client') as { apiClient: { POST: jest.Mock } };
 
 // ── Fixture ───────────────────────────────────────────────────────────────────
 
@@ -33,15 +38,18 @@ function makeData(winnerChanged = false) {
       bullet_immune_methods: ['majority_judgment', 'borda', 'irv', 'schulze', 'star_voting'],
       pedagogical_note: 'Test note.',
     },
+    error: undefined,
   };
 }
 
 function renderPanel() {
   return render(
     <MemoryRouter>
-      <ElectionProvider>
-        <BehavioralBiasPanel />
-      </ElectionProvider>
+      <QueryClientProvider client={makeTestQueryClient()}>
+        <ElectionProvider>
+          <BehavioralBiasPanel />
+        </ElectionProvider>
+      </QueryClientProvider>
     </MemoryRouter>
   );
 }
@@ -74,12 +82,12 @@ describe('BehavioralBiasPanel', () => {
     expect(screen.getByRole('alert')).toBeInTheDocument();
   });
 
-  it('calls axios.post on simulate click', async () => {
-    mockPost.mockResolvedValue(makeData());
+  it('calls API on simulate click', async () => {
+    apiClient.POST.mockResolvedValue(makeData());
     renderPanel();
     fireEvent.click(screen.getByRole('button', { name: /simuler|simulate/i }));
-    await waitFor(() => expect(mockPost).toHaveBeenCalledTimes(1));
-    expect(mockPost).toHaveBeenCalledWith(
+    await waitFor(() => expect(apiClient.POST).toHaveBeenCalledTimes(1));
+    expect(apiClient.POST).toHaveBeenCalledWith(
       expect.stringMatching(/\/api\/(v2\/)?election\/behavioral-biases/),
       expect.any(Object),
     );
@@ -87,7 +95,7 @@ describe('BehavioralBiasPanel', () => {
   });
 
   it('shows sincere and biased winner badges after load', async () => {
-    mockPost.mockResolvedValue(makeData());
+    apiClient.POST.mockResolvedValue(makeData());
     renderPanel();
     fireEvent.click(screen.getByRole('button', { name: /simuler|simulate/i }));
     await waitFor(() => {
@@ -98,7 +106,7 @@ describe('BehavioralBiasPanel', () => {
   });
 
   it('shows winner-changed alert when winner changed', async () => {
-    mockPost.mockResolvedValue(makeData(true));
+    apiClient.POST.mockResolvedValue(makeData(true));
     renderPanel();
     fireEvent.click(screen.getByRole('button', { name: /simuler|simulate/i }));
     await waitFor(() => expect(screen.getByTestId('winner-changed-alert')).toBeInTheDocument());
@@ -106,7 +114,7 @@ describe('BehavioralBiasPanel', () => {
   });
 
   it('does not show winner-changed alert when winner stable', async () => {
-    mockPost.mockResolvedValue(makeData(false));
+    apiClient.POST.mockResolvedValue(makeData(false));
     renderPanel();
     fireEvent.click(screen.getByRole('button', { name: /simuler|simulate/i }));
     await waitFor(() => expect(screen.getByTestId('comparison-banner')).toBeInTheDocument());
@@ -115,7 +123,7 @@ describe('BehavioralBiasPanel', () => {
   });
 
   it('shows method sensitivity table after load', async () => {
-    mockPost.mockResolvedValue(makeData());
+    apiClient.POST.mockResolvedValue(makeData());
     renderPanel();
     fireEvent.click(screen.getByRole('button', { name: /simuler|simulate/i }));
     await waitFor(() => expect(screen.getByTestId('sensitivity-table')).toBeInTheDocument());
@@ -123,7 +131,7 @@ describe('BehavioralBiasPanel', () => {
   });
 
   it('shows expressive breakdown badge when data includes expressive voters', async () => {
-    mockPost.mockResolvedValue(makeData());
+    apiClient.POST.mockResolvedValue(makeData());
     renderPanel();
     fireEvent.click(screen.getByRole('button', { name: /simuler|simulate/i }));
     await waitFor(() => expect(screen.getByTestId('expressive-breakdown-badge')).toBeInTheDocument());
@@ -131,7 +139,7 @@ describe('BehavioralBiasPanel', () => {
   });
 
   it('shows bullet breakdown badge', async () => {
-    mockPost.mockResolvedValue(makeData());
+    apiClient.POST.mockResolvedValue(makeData());
     renderPanel();
     fireEvent.click(screen.getByRole('button', { name: /simuler|simulate/i }));
     await waitFor(() => expect(screen.getByTestId('bullet-breakdown-badge')).toBeInTheDocument());
@@ -139,7 +147,7 @@ describe('BehavioralBiasPanel', () => {
   });
 
   it('shows primacy breakdown badge', async () => {
-    mockPost.mockResolvedValue(makeData());
+    apiClient.POST.mockResolvedValue(makeData());
     renderPanel();
     fireEvent.click(screen.getByRole('button', { name: /simuler|simulate/i }));
     await waitFor(() => expect(screen.getByTestId('primacy-breakdown-badge')).toBeInTheDocument());
@@ -167,51 +175,51 @@ describe('BehavioralBiasPanel', () => {
   });
 
   it('sends expressive_pct=0 when toggle is off', async () => {
-    mockPost.mockResolvedValue(makeData());
+    apiClient.POST.mockResolvedValue(makeData());
     renderPanel();
     // Toggle is OFF by default
     fireEvent.click(screen.getByRole('button', { name: /simuler|simulate/i }));
-    await waitFor(() => expect(mockPost).toHaveBeenCalledTimes(1));
-    const body = mockPost.mock.calls[0][1];
+    await waitFor(() => expect(apiClient.POST).toHaveBeenCalledTimes(1));
+    const body = (apiClient.POST.mock.calls[0][1] as { body: Record<string, unknown> }).body;
     expect(body.expressive_pct).toBe(0);
     jest.runAllTimers();
   });
 
   it('sends bullet_voting_pct=0 when toggle is off', async () => {
-    mockPost.mockResolvedValue(makeData());
+    apiClient.POST.mockResolvedValue(makeData());
     renderPanel();
     fireEvent.click(screen.getByRole('button', { name: /simuler|simulate/i }));
-    await waitFor(() => expect(mockPost).toHaveBeenCalledTimes(1));
-    const body = mockPost.mock.calls[0][1];
+    await waitFor(() => expect(apiClient.POST).toHaveBeenCalledTimes(1));
+    const body = (apiClient.POST.mock.calls[0][1] as { body: Record<string, unknown> }).body;
     expect(body.bullet_voting_pct).toBe(0);
     jest.runAllTimers();
   });
 
   it('sends primacy_bonus=0 when toggle is off', async () => {
-    mockPost.mockResolvedValue(makeData());
+    apiClient.POST.mockResolvedValue(makeData());
     renderPanel();
     fireEvent.click(screen.getByRole('button', { name: /simuler|simulate/i }));
-    await waitFor(() => expect(mockPost).toHaveBeenCalledTimes(1));
-    const body = mockPost.mock.calls[0][1];
+    await waitFor(() => expect(apiClient.POST).toHaveBeenCalledTimes(1));
+    const body = (apiClient.POST.mock.calls[0][1] as { body: Record<string, unknown> }).body;
     expect(body.primacy_bonus).toBe(0);
     jest.runAllTimers();
   });
 
   it('auto-recalculates (debounced) when bias toggle changes after first run', async () => {
-    mockPost.mockResolvedValue(makeData());
+    apiClient.POST.mockResolvedValue(makeData());
     renderPanel();
     fireEvent.click(screen.getByRole('button', { name: /simuler|simulate/i }));
-    await waitFor(() => expect(mockPost).toHaveBeenCalledTimes(1));
+    await waitFor(() => expect(apiClient.POST).toHaveBeenCalledTimes(1));
 
     // Toggle expressive ON → triggers debounced re-run
     fireEvent.click(screen.getByTestId('expressive-switch'));
     act(() => { jest.advanceTimersByTime(450); });
-    await waitFor(() => expect(mockPost).toHaveBeenCalledTimes(2));
+    await waitFor(() => expect(apiClient.POST).toHaveBeenCalledTimes(2));
     jest.runAllTimers();
   });
 
   it('shows error on API failure', async () => {
-    mockPost.mockRejectedValue(new Error('Network error'));
+    apiClient.POST.mockRejectedValue(new Error('Network error'));
     renderPanel();
     fireEvent.click(screen.getByRole('button', { name: /simuler|simulate/i }));
     await waitFor(() => expect(screen.getByText(/Erreur|Error/i)).toBeInTheDocument());
