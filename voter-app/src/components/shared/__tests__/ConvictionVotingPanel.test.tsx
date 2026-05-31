@@ -1,11 +1,16 @@
 import React from 'react';
 import { render, screen, fireEvent, waitFor } from '@testing-library/react';
 import { MemoryRouter } from 'react-router';
+import { QueryClientProvider } from '@tanstack/react-query';
 import ConvictionVotingPanel from '../ConvictionVotingPanel';
 import { ElectionProvider } from '../../../context/ElectionContext';
+import { makeTestQueryClient } from '../../../test/queryWrapper';
 
-jest.mock('axios', () => ({ post: jest.fn() }));
-const { post: mockPost } = jest.requireMock('axios') as { post: jest.Mock };
+jest.mock('../../../api/client', () => ({
+  apiClient: { GET: jest.fn(), POST: jest.fn(), PUT: jest.fn(), DELETE: jest.fn(), PATCH: jest.fn() },
+  getAccessToken: jest.fn(() => null),
+}));
+const { apiClient } = jest.requireMock('../../../api/client') as { apiClient: { POST: jest.Mock } };
 
 jest.mock('recharts', () => {
   const React = require('react');
@@ -53,15 +58,18 @@ function makeData(winnerChanged = false) {
       lock_options: [0, 7, 14, 28, 56, 112, 224],
       multipliers:   { '0': 0.1, '7': 1, '14': 2, '28': 3, '56': 4, '112': 5, '224': 6 },
     },
+    error: undefined,
   };
 }
 
 function renderPanel() {
   return render(
     <MemoryRouter>
-      <ElectionProvider>
-        <ConvictionVotingPanel />
-      </ElectionProvider>
+      <QueryClientProvider client={makeTestQueryClient()}>
+        <ElectionProvider>
+          <ConvictionVotingPanel />
+        </ElectionProvider>
+      </QueryClientProvider>
     </MemoryRouter>
   );
 }
@@ -92,12 +100,12 @@ describe('ConvictionVotingPanel', () => {
     expect(screen.getByRole('alert')).toBeInTheDocument();
   });
 
-  it('calls axios.post on simulate click', async () => {
-    mockPost.mockResolvedValue(makeData());
+  it('calls API on simulate click', async () => {
+    apiClient.POST.mockResolvedValue(makeData());
     renderPanel();
     fireEvent.click(screen.getByRole('button', { name: /simuler|simulate/i }));
-    await waitFor(() => expect(mockPost).toHaveBeenCalledTimes(1));
-    expect(mockPost).toHaveBeenCalledWith(
+    await waitFor(() => expect(apiClient.POST).toHaveBeenCalledTimes(1));
+    expect(apiClient.POST).toHaveBeenCalledWith(
       expect.stringMatching(/\/api\/(v2\/)?election\/conviction-voting/),
       expect.any(Object),
     );
@@ -105,7 +113,7 @@ describe('ConvictionVotingPanel', () => {
   });
 
   it('renders scatter SVG after data loads', async () => {
-    mockPost.mockResolvedValue(makeData());
+    apiClient.POST.mockResolvedValue(makeData());
     renderPanel();
     fireEvent.click(screen.getByRole('button', { name: /simuler|simulate/i }));
     await waitFor(() => expect(screen.getByTestId('conviction-scatter-svg')).toBeInTheDocument());
@@ -113,7 +121,7 @@ describe('ConvictionVotingPanel', () => {
   });
 
   it('shows token and conviction winner badges', async () => {
-    mockPost.mockResolvedValue(makeData());
+    apiClient.POST.mockResolvedValue(makeData());
     renderPanel();
     fireEvent.click(screen.getByRole('button', { name: /simuler|simulate/i }));
     await waitFor(() => {
@@ -124,7 +132,7 @@ describe('ConvictionVotingPanel', () => {
   });
 
   it('shows comparison banner', async () => {
-    mockPost.mockResolvedValue(makeData());
+    apiClient.POST.mockResolvedValue(makeData());
     renderPanel();
     fireEvent.click(screen.getByRole('button', { name: /simuler|simulate/i }));
     await waitFor(() => expect(screen.getByTestId('comparison-banner')).toBeInTheDocument());
@@ -132,7 +140,7 @@ describe('ConvictionVotingPanel', () => {
   });
 
   it('shows winner-changed alert when winner changed', async () => {
-    mockPost.mockResolvedValue(makeData(true));
+    apiClient.POST.mockResolvedValue(makeData(true));
     renderPanel();
     fireEvent.click(screen.getByRole('button', { name: /simuler|simulate/i }));
     await waitFor(() => expect(screen.getByTestId('winner-changed-alert')).toBeInTheDocument());
@@ -140,7 +148,7 @@ describe('ConvictionVotingPanel', () => {
   });
 
   it('does not show winner-changed alert when stable', async () => {
-    mockPost.mockResolvedValue(makeData(false));
+    apiClient.POST.mockResolvedValue(makeData(false));
     renderPanel();
     fireEvent.click(screen.getByRole('button', { name: /simuler|simulate/i }));
     await waitFor(() => expect(screen.getByTestId('comparison-banner')).toBeInTheDocument());
@@ -149,7 +157,7 @@ describe('ConvictionVotingPanel', () => {
   });
 
   it('shows Gini token and conviction badges', async () => {
-    mockPost.mockResolvedValue(makeData());
+    apiClient.POST.mockResolvedValue(makeData());
     renderPanel();
     fireEvent.click(screen.getByRole('button', { name: /simuler|simulate/i }));
     await waitFor(() => {
@@ -160,7 +168,7 @@ describe('ConvictionVotingPanel', () => {
   });
 
   it('shows whale dominance badges', async () => {
-    mockPost.mockResolvedValue(makeData());
+    apiClient.POST.mockResolvedValue(makeData());
     renderPanel();
     fireEvent.click(screen.getByRole('button', { name: /simuler|simulate/i }));
     await waitFor(() => {
@@ -171,7 +179,7 @@ describe('ConvictionVotingPanel', () => {
   });
 
   it('renders proposals comparison table', async () => {
-    mockPost.mockResolvedValue(makeData());
+    apiClient.POST.mockResolvedValue(makeData());
     renderPanel();
     fireEvent.click(screen.getByRole('button', { name: /simuler|simulate/i }));
     await waitFor(() => expect(screen.getByTestId('proposals-table')).toBeInTheDocument());
@@ -192,19 +200,19 @@ describe('ConvictionVotingPanel', () => {
   });
 
   it('sends correct distribution parameter', async () => {
-    mockPost.mockResolvedValue(makeData());
+    apiClient.POST.mockResolvedValue(makeData());
     renderPanel();
     fireEvent.change(screen.getByTestId('distribution-select'), { target: { value: 'skewed' } });
     fireEvent.click(screen.getByRole('button', { name: /simuler|simulate/i }));
-    await waitFor(() => expect(mockPost).toHaveBeenCalledTimes(1));
-    const body = mockPost.mock.calls[0][1];
+    await waitFor(() => expect(apiClient.POST).toHaveBeenCalledTimes(1));
+    const body = (apiClient.POST.mock.calls[0][1] as { body: Record<string, unknown> }).body;
     expect(body.conviction_distribution).toBe('skewed');
     jest.runAllTimers();
   });
 
   it('gini-conviction badge is green when conviction more equal', async () => {
     // gini_conviction=0.45 < gini_tokens=0.62 → green badge
-    mockPost.mockResolvedValue(makeData());
+    apiClient.POST.mockResolvedValue(makeData());
     renderPanel();
     fireEvent.click(screen.getByRole('button', { name: /simuler|simulate/i }));
     await waitFor(() => {
@@ -215,7 +223,7 @@ describe('ConvictionVotingPanel', () => {
   });
 
   it('shows error on API failure', async () => {
-    mockPost.mockRejectedValue(new Error('Network error'));
+    apiClient.POST.mockRejectedValue(new Error('Network error'));
     renderPanel();
     fireEvent.click(screen.getByRole('button', { name: /simuler|simulate/i }));
     await waitFor(() => expect(screen.getByText(/Erreur|Error/i)).toBeInTheDocument());
