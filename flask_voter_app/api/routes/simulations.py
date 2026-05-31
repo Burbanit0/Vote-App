@@ -66,24 +66,35 @@ from api.domain.simulations.compare import (
 from api.domain.simulations.whatif import _what_if_worker
 from api.schemas import (
     ArrowCriteriaRequest,
+    ArrowCriteriaResponse,
     BandwagonRequest,
+    BandwagonResponse,
     BlankContagionRequest,
+    BlankContagionResponse,
     CalculateUtilityRequest,
     CalculateUtilityResponse,
     CampaignRequest,
+    CampaignResponse,
     ClosestCandidateRequest,
     ClosestCandidateResponse,
     CompareMethodsRequest,
+    CompareMethodsResponse,
     CondorcetMatrixRequest,
+    CondorcetMatrixResponse,
     ConstitutionalScenarioRequest,
+    ConstitutionalScenarioResponse,
     IdeologyMapRequest,
     IdeologyMapResponse,
     LegacySimulateRequest,
     LegacySimulateResponse,
     MonteCarloRequest,
+    MonteCarloResponse,
     MultiwinnerRequest,
+    MultiwinnerResponse,
     RealElectionRequest,
+    RealElectionResponse,
     ScenarioRequest,
+    ScenarioResponse,
     SensitivityRequest,
     SensitivityResponse,
     SimulateCandidatesRequest,
@@ -234,17 +245,18 @@ async def what_if(request: WhatIfRequest) -> WhatIfResponse:
 
 @router.post(
     "/campaign",
+    response_model=CampaignResponse,
     summary="Day-by-day electoral campaign simulation",
 )
-async def campaign(request: CampaignRequest) -> Dict[str, Any]:
-    return await _run_passthrough(_campaign_worker, request)
+async def campaign(request: CampaignRequest) -> CampaignResponse:
+    return await _run_typed(_campaign_worker, request, CampaignResponse)
 
 
 # ── simulation_compare (Phase 4.5.a.7) ──────────────────────────────────────
 
-@router.post("/compare", summary="Per-method metrics on a fresh population")
-async def compare(request: CompareMethodsRequest) -> Dict[str, Any]:
-    return await _run_passthrough(_compare_methods_worker, request)
+@router.post("/compare", response_model=CompareMethodsResponse, summary="Per-method metrics on a fresh population")
+async def compare(request: CompareMethodsRequest) -> CompareMethodsResponse:
+    return await _run_typed(_compare_methods_worker, request, CompareMethodsResponse)
 
 
 @router.post("/strategic-impact", response_model=StrategicImpactResponse, summary="Regret vs proportion of strategic voters")
@@ -252,9 +264,9 @@ async def strategic_impact(request: StrategicImpactRequest) -> StrategicImpactRe
     return await _run_typed(_strategic_impact_worker, request, StrategicImpactResponse)
 
 
-@router.post("/condorcet-matrix", summary="Full pairwise duel matrix")
-async def condorcet_matrix(request: CondorcetMatrixRequest) -> Dict[str, Any]:
-    return await _run_passthrough(_condorcet_matrix_worker, request)
+@router.post("/condorcet-matrix", response_model=CondorcetMatrixResponse, summary="Full pairwise duel matrix")
+async def condorcet_matrix(request: CondorcetMatrixRequest) -> CondorcetMatrixResponse:
+    return await _run_typed(_condorcet_matrix_worker, request, CondorcetMatrixResponse)
 
 
 @router.post("/sensitivity", response_model=SensitivityResponse, summary="Vary one parameter, track winners & regret")
@@ -262,14 +274,14 @@ async def sensitivity(request: SensitivityRequest) -> SensitivityResponse:
     return await _run_typed(_sensitivity_worker, request, SensitivityResponse)
 
 
-@router.post("/arrow-criteria", summary="Empirically check Arrow's criteria")
-async def arrow_criteria(request: ArrowCriteriaRequest) -> Dict[str, Any]:
-    return await _run_passthrough(_arrow_criteria_worker, request)
+@router.post("/arrow-criteria", response_model=ArrowCriteriaResponse, summary="Empirically check Arrow's criteria")
+async def arrow_criteria(request: ArrowCriteriaRequest) -> ArrowCriteriaResponse:
+    return await _run_typed(_arrow_criteria_worker, request, ArrowCriteriaResponse)
 
 
-@router.post("/scenario", summary="Citizen-configured scenario, with/without blank vote")
-async def scenario(request: ScenarioRequest) -> Dict[str, Any]:
-    return await _run_passthrough(_scenario_worker, request)
+@router.post("/scenario", response_model=ScenarioResponse, summary="Citizen-configured scenario, with/without blank vote")
+async def scenario(request: ScenarioRequest) -> ScenarioResponse:
+    return await _run_typed(_scenario_worker, request, ScenarioResponse)
 
 
 @router.get("/manipulability", summary="Gibbard-Satterthwaite manipulability index")
@@ -301,19 +313,19 @@ async def ideology_map(request: IdeologyMapRequest) -> IdeologyMapResponse:
 
 # ── simulation_advanced (Phase 4.5.a.8) ─────────────────────────────────────
 
-@router.post("/bandwagon", summary="Cascading social-influence simulation")
-async def bandwagon(request: BandwagonRequest) -> Dict[str, Any]:
-    return await _run_passthrough(_bandwagon_worker, request)
+@router.post("/bandwagon", response_model=BandwagonResponse, summary="Cascading social-influence simulation")
+async def bandwagon(request: BandwagonRequest) -> BandwagonResponse:
+    return await _run_typed(_bandwagon_worker, request, BandwagonResponse)
 
 
-@router.post("/monte-carlo", summary="Aggregate Monte Carlo over N runs (sync variant)")
-async def monte_carlo(request: MonteCarloRequest) -> Dict[str, Any]:
-    return await _run_passthrough(_monte_carlo_worker, request)
+@router.post("/monte-carlo", response_model=MonteCarloResponse, summary="Aggregate Monte Carlo over N runs (sync variant)")
+async def monte_carlo(request: MonteCarloRequest) -> MonteCarloResponse:
+    return await _run_typed(_monte_carlo_worker, request, MonteCarloResponse)
 
 
-@router.post("/multiwinner", summary="Compare proportional multi-winner methods")
-async def multiwinner(request: MultiwinnerRequest) -> Dict[str, Any]:
-    return await _run_passthrough(_multiwinner_worker, request)
+@router.post("/multiwinner", response_model=MultiwinnerResponse, summary="Compare proportional multi-winner methods")
+async def multiwinner(request: MultiwinnerRequest) -> MultiwinnerResponse:
+    return await _run_typed(_multiwinner_worker, request, MultiwinnerResponse)
 
 
 @router.get("/real-elections", summary="List available historical elections")
@@ -326,16 +338,16 @@ async def blank_history(country: str = "") -> Dict[str, Any]:
     return await _run_worker(_blank_history_worker, {"country": country})
 
 
-@router.post("/real-election", summary="Analyse a real historical election")
-async def real_election(request: RealElectionRequest) -> Dict[str, Any]:
-    return await _run_passthrough(_real_election_worker, request)
+@router.post("/real-election", response_model=RealElectionResponse, summary="Analyse a real historical election")
+async def real_election(request: RealElectionRequest) -> RealElectionResponse:
+    return await _run_typed(_real_election_worker, request, RealElectionResponse)
 
 
-@router.post("/constitutional-scenario", summary="Constitutional aftermath of a blank-vote victory")
-async def constitutional_scenario(request: ConstitutionalScenarioRequest) -> Dict[str, Any]:
-    return await _run_passthrough(_constitutional_scenario_worker, request)
+@router.post("/constitutional-scenario", response_model=ConstitutionalScenarioResponse, summary="Constitutional aftermath of a blank-vote victory")
+async def constitutional_scenario(request: ConstitutionalScenarioRequest) -> ConstitutionalScenarioResponse:
+    return await _run_typed(_constitutional_scenario_worker, request, ConstitutionalScenarioResponse)
 
 
-@router.post("/blank-contagion", summary="SIS blank-vote contagion simulation")
-async def blank_contagion(request: BlankContagionRequest) -> Dict[str, Any]:
-    return await _run_passthrough(_blank_contagion_worker, request)
+@router.post("/blank-contagion", response_model=BlankContagionResponse, summary="SIS blank-vote contagion simulation")
+async def blank_contagion(request: BlankContagionRequest) -> BlankContagionResponse:
+    return await _run_typed(_blank_contagion_worker, request, BlankContagionResponse)

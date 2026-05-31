@@ -901,6 +901,27 @@
         "title": "ArrowCriteriaRequest",
         "type": "object"
       },
+      "ArrowCriteriaResponse": {
+        "additionalProperties": true,
+        "properties": {
+          "methods": {
+            "additionalProperties": true,
+            "title": "Methods",
+            "type": "object"
+          },
+          "summary": {
+            "additionalProperties": true,
+            "title": "Summary",
+            "type": "object"
+          }
+        },
+        "required": [
+          "methods",
+          "summary"
+        ],
+        "title": "ArrowCriteriaResponse",
+        "type": "object"
+      },
       "ArrowRequest": {
         "additionalProperties": false,
         "description": "Per-method Arrow axiom violation analysis.",
@@ -1365,6 +1386,46 @@
         "title": "BandwagonRequest",
         "type": "object"
       },
+      "BandwagonResponse": {
+        "additionalProperties": true,
+        "properties": {
+          "amplification_by_method": {
+            "additionalProperties": true,
+            "title": "Amplification By Method",
+            "type": "object"
+          },
+          "convergence_round": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Convergence Round"
+          },
+          "influence_strength": {
+            "title": "Influence Strength"
+          },
+          "num_rounds": {
+            "title": "Num Rounds",
+            "type": "integer"
+          },
+          "rounds": {
+            "items": {},
+            "title": "Rounds",
+            "type": "array"
+          }
+        },
+        "required": [
+          "num_rounds",
+          "rounds",
+          "amplification_by_method"
+        ],
+        "title": "BandwagonResponse",
+        "type": "object"
+      },
       "BaselineResult": {
         "properties": {
           "regret": {
@@ -1593,6 +1654,48 @@
           }
         },
         "title": "BlankContagionRequest",
+        "type": "object"
+      },
+      "BlankContagionResponse": {
+        "additionalProperties": true,
+        "properties": {
+          "blank_rate_by_round": {
+            "items": {},
+            "title": "Blank Rate By Round",
+            "type": "array"
+          },
+          "epidemic_threshold": {
+            "title": "Epidemic Threshold"
+          },
+          "final_blank_rate": {
+            "title": "Final Blank Rate",
+            "type": "number"
+          },
+          "network_type": {
+            "title": "Network Type",
+            "type": "string"
+          },
+          "r0": {
+            "title": "R0"
+          },
+          "reached_equilibrium": {
+            "title": "Reached Equilibrium",
+            "type": "boolean"
+          },
+          "rounds": {
+            "items": {},
+            "title": "Rounds",
+            "type": "array"
+          }
+        },
+        "required": [
+          "rounds",
+          "blank_rate_by_round",
+          "final_blank_rate",
+          "reached_equilibrium",
+          "network_type"
+        ],
+        "title": "BlankContagionResponse",
         "type": "object"
       },
       "BlankVoteConfig": {
@@ -1853,6 +1956,51 @@
           }
         },
         "title": "CampaignRequest",
+        "type": "object"
+      },
+      "CampaignResponse": {
+        "additionalProperties": true,
+        "properties": {
+          "candidates": {
+            "items": {},
+            "title": "Candidates",
+            "type": "array"
+          },
+          "daily_leader": {
+            "title": "Daily Leader"
+          },
+          "daily_scores": {
+            "title": "Daily Scores"
+          },
+          "days": {
+            "title": "Days"
+          },
+          "events": {
+            "items": {},
+            "title": "Events",
+            "type": "array"
+          },
+          "final_winner": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Final Winner"
+          },
+          "lead_changes": {
+            "title": "Lead Changes"
+          }
+        },
+        "required": [
+          "days",
+          "events",
+          "candidates"
+        ],
+        "title": "CampaignResponse",
         "type": "object"
       },
       "CampaignSensitivityRequest": {
@@ -2987,6 +3135,38 @@
         "title": "CompareMethodsRequest",
         "type": "object"
       },
+      "CompareMethodsResponse": {
+        "additionalProperties": true,
+        "properties": {
+          "condorcet_winner": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Condorcet Winner"
+          },
+          "information_model": {
+            "additionalProperties": true,
+            "title": "Information Model",
+            "type": "object"
+          },
+          "methods": {
+            "additionalProperties": true,
+            "title": "Methods",
+            "type": "object"
+          }
+        },
+        "required": [
+          "methods",
+          "information_model"
+        ],
+        "title": "CompareMethodsResponse",
+        "type": "object"
+      },
       "CompetenceParams": {
         "additionalProperties": false,
         "properties": {
@@ -3157,6 +3337,39 @@
         "title": "CondorcetMatrixRequest",
         "type": "object"
       },
+      "CondorcetMatrixResponse": {
+        "additionalProperties": true,
+        "properties": {
+          "candidates": {
+            "items": {},
+            "title": "Candidates",
+            "type": "array"
+          },
+          "condorcet_cycles": {
+            "title": "Condorcet Cycles"
+          },
+          "condorcet_winner": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Condorcet Winner"
+          },
+          "matrix": {
+            "title": "Matrix"
+          }
+        },
+        "required": [
+          "candidates",
+          "matrix"
+        ],
+        "title": "CondorcetMatrixResponse",
+        "type": "object"
+      },
       "ConstitutionalScenarioRequest": {
         "description": "POST /simulations/constitutional-scenario.",
         "properties": {
@@ -3177,6 +3390,26 @@
           }
         },
         "title": "ConstitutionalScenarioRequest",
+        "type": "object"
+      },
+      "ConstitutionalScenarioResponse": {
+        "additionalProperties": true,
+        "description": "Polymorphic by scenario_type (new_election/provisional/dissolution);\n`scenario_type` + `conclusion` are common to every branch.",
+        "properties": {
+          "conclusion": {
+            "title": "Conclusion",
+            "type": "string"
+          },
+          "scenario_type": {
+            "title": "Scenario Type",
+            "type": "string"
+          }
+        },
+        "required": [
+          "scenario_type",
+          "conclusion"
+        ],
+        "title": "ConstitutionalScenarioResponse",
         "type": "object"
       },
       "ContagionConfig": {
@@ -6924,6 +7157,45 @@
         "title": "MonteCarloRequest",
         "type": "object"
       },
+      "MonteCarloResponse": {
+        "additionalProperties": true,
+        "properties": {
+          "condorcet_winner_exists_rate": {
+            "title": "Condorcet Winner Exists Rate",
+            "type": "number"
+          },
+          "config": {
+            "additionalProperties": true,
+            "title": "Config",
+            "type": "object"
+          },
+          "inter_method_agreement": {
+            "title": "Inter Method Agreement"
+          },
+          "methods": {
+            "additionalProperties": true,
+            "title": "Methods",
+            "type": "object"
+          },
+          "num_runs": {
+            "title": "Num Runs",
+            "type": "integer"
+          },
+          "num_voters_per_run": {
+            "title": "Num Voters Per Run",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "num_runs",
+          "num_voters_per_run",
+          "config",
+          "methods",
+          "condorcet_winner_exists_rate"
+        ],
+        "title": "MonteCarloResponse",
+        "type": "object"
+      },
       "MultiwinnerCompareRequest": {
         "additionalProperties": false,
         "description": "STV / D'Hondt / SPAV / Phragmén / FPTP on the same electorate.",
@@ -7042,6 +7314,81 @@
           }
         },
         "title": "MultiwinnerRequest",
+        "type": "object"
+      },
+      "MultiwinnerResponse": {
+        "additionalProperties": true,
+        "properties": {
+          "comparison": {
+            "additionalProperties": true,
+            "title": "Comparison",
+            "type": "object"
+          },
+          "dhondt": {
+            "anyOf": [
+              {
+                "additionalProperties": true,
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Dhondt"
+          },
+          "largest_remainder_droop": {
+            "anyOf": [
+              {
+                "additionalProperties": true,
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Largest Remainder Droop"
+          },
+          "largest_remainder_hare": {
+            "anyOf": [
+              {
+                "additionalProperties": true,
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Largest Remainder Hare"
+          },
+          "sainte_lague": {
+            "anyOf": [
+              {
+                "additionalProperties": true,
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Sainte Lague"
+          },
+          "stv": {
+            "anyOf": [
+              {
+                "additionalProperties": true,
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Stv"
+          }
+        },
+        "required": [
+          "comparison"
+        ],
+        "title": "MultiwinnerResponse",
         "type": "object"
       },
       "NotaRequest": {
@@ -8149,6 +8496,60 @@
         "title": "RealElectionRequest",
         "type": "object"
       },
+      "RealElectionResponse": {
+        "additionalProperties": true,
+        "properties": {
+          "blank_vote_analysis": {
+            "title": "Blank Vote Analysis"
+          },
+          "divergences": {
+            "title": "Divergences"
+          },
+          "election": {
+            "title": "Election"
+          },
+          "first_round_results": {
+            "title": "First Round Results"
+          },
+          "methods": {
+            "additionalProperties": true,
+            "title": "Methods",
+            "type": "object"
+          },
+          "methods_with_blank": {
+            "anyOf": [
+              {
+                "additionalProperties": true,
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Methods With Blank"
+          },
+          "plurality_winner": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Plurality Winner"
+          },
+          "summary": {
+            "title": "Summary"
+          }
+        },
+        "required": [
+          "election",
+          "methods"
+        ],
+        "title": "RealElectionResponse",
+        "type": "object"
+      },
       "ScenarioCreateRequest": {
         "additionalProperties": false,
         "description": "Body for POST /scenarios — name + config + optional results.",
@@ -8271,6 +8672,27 @@
           }
         },
         "title": "ScenarioRequest",
+        "type": "object"
+      },
+      "ScenarioResponse": {
+        "additionalProperties": true,
+        "properties": {
+          "with_blank": {
+            "additionalProperties": true,
+            "title": "With Blank",
+            "type": "object"
+          },
+          "without_blank": {
+            "additionalProperties": true,
+            "title": "Without Blank",
+            "type": "object"
+          }
+        },
+        "required": [
+          "without_blank",
+          "with_blank"
+        ],
+        "title": "ScenarioResponse",
         "type": "object"
       },
       "ScenarioSummary": {
@@ -12545,9 +12967,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "additionalProperties": true,
-                  "title": "Response Arrow Criteria Api V2 Simulations Arrow Criteria Post",
-                  "type": "object"
+                  "$ref": "#/components/schemas/ArrowCriteriaResponse"
                 }
               }
             },
@@ -12588,9 +13008,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "additionalProperties": true,
-                  "title": "Response Bandwagon Api V2 Simulations Bandwagon Post",
-                  "type": "object"
+                  "$ref": "#/components/schemas/BandwagonResponse"
                 }
               }
             },
@@ -12631,9 +13049,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "additionalProperties": true,
-                  "title": "Response Blank Contagion Api V2 Simulations Blank Contagion Post",
-                  "type": "object"
+                  "$ref": "#/components/schemas/BlankContagionResponse"
                 }
               }
             },
@@ -12760,9 +13176,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "additionalProperties": true,
-                  "title": "Response Campaign Api V2 Simulations Campaign Post",
-                  "type": "object"
+                  "$ref": "#/components/schemas/CampaignResponse"
                 }
               }
             },
@@ -12803,9 +13217,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "additionalProperties": true,
-                  "title": "Response Compare Api V2 Simulations Compare Post",
-                  "type": "object"
+                  "$ref": "#/components/schemas/CompareMethodsResponse"
                 }
               }
             },
@@ -12846,9 +13258,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "additionalProperties": true,
-                  "title": "Response Condorcet Matrix Api V2 Simulations Condorcet Matrix Post",
-                  "type": "object"
+                  "$ref": "#/components/schemas/CondorcetMatrixResponse"
                 }
               }
             },
@@ -12889,9 +13299,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "additionalProperties": true,
-                  "title": "Response Constitutional Scenario Api V2 Simulations Constitutional Scenario Post",
-                  "type": "object"
+                  "$ref": "#/components/schemas/ConstitutionalScenarioResponse"
                 }
               }
             },
@@ -13181,9 +13589,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "additionalProperties": true,
-                  "title": "Response Monte Carlo Api V2 Simulations Monte Carlo Post",
-                  "type": "object"
+                  "$ref": "#/components/schemas/MonteCarloResponse"
                 }
               }
             },
@@ -13224,9 +13630,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "additionalProperties": true,
-                  "title": "Response Multiwinner Api V2 Simulations Multiwinner Post",
-                  "type": "object"
+                  "$ref": "#/components/schemas/MultiwinnerResponse"
                 }
               }
             },
@@ -13267,9 +13671,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "additionalProperties": true,
-                  "title": "Response Real Election Api V2 Simulations Real Election Post",
-                  "type": "object"
+                  "$ref": "#/components/schemas/RealElectionResponse"
                 }
               }
             },
@@ -13336,9 +13738,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "additionalProperties": true,
-                  "title": "Response Scenario Api V2 Simulations Scenario Post",
-                  "type": "object"
+                  "$ref": "#/components/schemas/ScenarioResponse"
                 }
               }
             },

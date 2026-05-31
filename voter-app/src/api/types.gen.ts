@@ -2471,6 +2471,19 @@ export interface components {
              */
             num_voters: number;
         };
+        /** ArrowCriteriaResponse */
+        ArrowCriteriaResponse: {
+            /** Methods */
+            methods: {
+                [key: string]: unknown;
+            };
+            /** Summary */
+            summary: {
+                [key: string]: unknown;
+            };
+        } & {
+            [key: string]: unknown;
+        };
         /**
          * ArrowRequest
          * @description Per-method Arrow axiom violation analysis.
@@ -2688,6 +2701,23 @@ export interface components {
             /** Seed */
             seed?: number | null;
         };
+        /** BandwagonResponse */
+        BandwagonResponse: {
+            /** Amplification By Method */
+            amplification_by_method: {
+                [key: string]: unknown;
+            };
+            /** Convergence Round */
+            convergence_round?: number | null;
+            /** Influence Strength */
+            influence_strength?: unknown;
+            /** Num Rounds */
+            num_rounds: number;
+            /** Rounds */
+            rounds: unknown[];
+        } & {
+            [key: string]: unknown;
+        };
         /** BaselineResult */
         BaselineResult: {
             /** Regret */
@@ -2816,6 +2846,25 @@ export interface components {
             recovery_rate: number;
             /** Seed */
             seed?: number | null;
+        };
+        /** BlankContagionResponse */
+        BlankContagionResponse: {
+            /** Blank Rate By Round */
+            blank_rate_by_round: unknown[];
+            /** Epidemic Threshold */
+            epidemic_threshold?: unknown;
+            /** Final Blank Rate */
+            final_blank_rate: number;
+            /** Network Type */
+            network_type: string;
+            /** R0 */
+            r0?: unknown;
+            /** Reached Equilibrium */
+            reached_equilibrium: boolean;
+            /** Rounds */
+            rounds: unknown[];
+        } & {
+            [key: string]: unknown;
         };
         /**
          * BlankVoteConfig
@@ -2963,6 +3012,25 @@ export interface components {
             num_voters: number;
             /** Seed */
             seed?: number | null;
+        };
+        /** CampaignResponse */
+        CampaignResponse: {
+            /** Candidates */
+            candidates: unknown[];
+            /** Daily Leader */
+            daily_leader?: unknown;
+            /** Daily Scores */
+            daily_scores?: unknown;
+            /** Days */
+            days: unknown;
+            /** Events */
+            events: unknown[];
+            /** Final Winner */
+            final_winner?: string | null;
+            /** Lead Changes */
+            lead_changes?: unknown;
+        } & {
+            [key: string]: unknown;
         };
         /** CampaignSensitivityRequest */
         CampaignSensitivityRequest: {
@@ -3497,6 +3565,21 @@ export interface components {
              */
             num_voters: number;
         };
+        /** CompareMethodsResponse */
+        CompareMethodsResponse: {
+            /** Condorcet Winner */
+            condorcet_winner?: string | null;
+            /** Information Model */
+            information_model: {
+                [key: string]: unknown;
+            };
+            /** Methods */
+            methods: {
+                [key: string]: unknown;
+            };
+        } & {
+            [key: string]: unknown;
+        };
         /** CompetenceParams */
         CompetenceParams: {
             /**
@@ -3612,6 +3695,19 @@ export interface components {
              */
             num_voters: number;
         };
+        /** CondorcetMatrixResponse */
+        CondorcetMatrixResponse: {
+            /** Candidates */
+            candidates: unknown[];
+            /** Condorcet Cycles */
+            condorcet_cycles?: unknown;
+            /** Condorcet Winner */
+            condorcet_winner?: string | null;
+            /** Matrix */
+            matrix: unknown;
+        } & {
+            [key: string]: unknown;
+        };
         /**
          * ConstitutionalScenarioRequest
          * @description POST /simulations/constitutional-scenario.
@@ -3630,6 +3726,19 @@ export interface components {
              * @default new_election
              */
             scenario_type: string;
+        };
+        /**
+         * ConstitutionalScenarioResponse
+         * @description Polymorphic by scenario_type (new_election/provisional/dissolution);
+         *     `scenario_type` + `conclusion` are common to every branch.
+         */
+        ConstitutionalScenarioResponse: {
+            /** Conclusion */
+            conclusion: string;
+            /** Scenario Type */
+            scenario_type: string;
+        } & {
+            [key: string]: unknown;
         };
         /**
          * ContagionConfig
@@ -5493,6 +5602,27 @@ export interface components {
              */
             num_voters: number;
         };
+        /** MonteCarloResponse */
+        MonteCarloResponse: {
+            /** Condorcet Winner Exists Rate */
+            condorcet_winner_exists_rate: number;
+            /** Config */
+            config: {
+                [key: string]: unknown;
+            };
+            /** Inter Method Agreement */
+            inter_method_agreement?: unknown;
+            /** Methods */
+            methods: {
+                [key: string]: unknown;
+            };
+            /** Num Runs */
+            num_runs: number;
+            /** Num Voters Per Run */
+            num_voters_per_run: number;
+        } & {
+            [key: string]: unknown;
+        };
         /**
          * MultiwinnerCompareRequest
          * @description STV / D'Hondt / SPAV / Phragmén / FPTP on the same electorate.
@@ -5568,6 +5698,35 @@ export interface components {
             party_votes?: {
                 [key: string]: unknown;
             };
+        };
+        /** MultiwinnerResponse */
+        MultiwinnerResponse: {
+            /** Comparison */
+            comparison: {
+                [key: string]: unknown;
+            };
+            /** Dhondt */
+            dhondt?: {
+                [key: string]: unknown;
+            } | null;
+            /** Largest Remainder Droop */
+            largest_remainder_droop?: {
+                [key: string]: unknown;
+            } | null;
+            /** Largest Remainder Hare */
+            largest_remainder_hare?: {
+                [key: string]: unknown;
+            } | null;
+            /** Sainte Lague */
+            sainte_lague?: {
+                [key: string]: unknown;
+            } | null;
+            /** Stv */
+            stv?: {
+                [key: string]: unknown;
+            } | null;
+        } & {
+            [key: string]: unknown;
         };
         /**
          * NotaRequest
@@ -6173,6 +6332,31 @@ export interface components {
              */
             num_voters: number;
         };
+        /** RealElectionResponse */
+        RealElectionResponse: {
+            /** Blank Vote Analysis */
+            blank_vote_analysis?: unknown;
+            /** Divergences */
+            divergences?: unknown;
+            /** Election */
+            election: unknown;
+            /** First Round Results */
+            first_round_results?: unknown;
+            /** Methods */
+            methods: {
+                [key: string]: unknown;
+            };
+            /** Methods With Blank */
+            methods_with_blank?: {
+                [key: string]: unknown;
+            } | null;
+            /** Plurality Winner */
+            plurality_winner?: string | null;
+            /** Summary */
+            summary?: unknown;
+        } & {
+            [key: string]: unknown;
+        };
         /**
          * ScenarioCreateRequest
          * @description Body for POST /scenarios — name + config + optional results.
@@ -6235,6 +6419,19 @@ export interface components {
             };
             /** Methods */
             methods?: string[] | null;
+        };
+        /** ScenarioResponse */
+        ScenarioResponse: {
+            /** With Blank */
+            with_blank: {
+                [key: string]: unknown;
+            };
+            /** Without Blank */
+            without_blank: {
+                [key: string]: unknown;
+            };
+        } & {
+            [key: string]: unknown;
         };
         /**
          * ScenarioSummary
@@ -9029,9 +9226,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        [key: string]: unknown;
-                    };
+                    "application/json": components["schemas"]["ArrowCriteriaResponse"];
                 };
             };
             /** @description Validation Error */
@@ -9064,9 +9259,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        [key: string]: unknown;
-                    };
+                    "application/json": components["schemas"]["BandwagonResponse"];
                 };
             };
             /** @description Validation Error */
@@ -9099,9 +9292,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        [key: string]: unknown;
-                    };
+                    "application/json": components["schemas"]["BlankContagionResponse"];
                 };
             };
             /** @description Validation Error */
@@ -9200,9 +9391,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        [key: string]: unknown;
-                    };
+                    "application/json": components["schemas"]["CampaignResponse"];
                 };
             };
             /** @description Validation Error */
@@ -9235,9 +9424,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        [key: string]: unknown;
-                    };
+                    "application/json": components["schemas"]["CompareMethodsResponse"];
                 };
             };
             /** @description Validation Error */
@@ -9270,9 +9457,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        [key: string]: unknown;
-                    };
+                    "application/json": components["schemas"]["CondorcetMatrixResponse"];
                 };
             };
             /** @description Validation Error */
@@ -9305,9 +9490,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        [key: string]: unknown;
-                    };
+                    "application/json": components["schemas"]["ConstitutionalScenarioResponse"];
                 };
             };
             /** @description Validation Error */
@@ -9509,9 +9692,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        [key: string]: unknown;
-                    };
+                    "application/json": components["schemas"]["MonteCarloResponse"];
                 };
             };
             /** @description Validation Error */
@@ -9544,9 +9725,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        [key: string]: unknown;
-                    };
+                    "application/json": components["schemas"]["MultiwinnerResponse"];
                 };
             };
             /** @description Validation Error */
@@ -9579,9 +9758,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        [key: string]: unknown;
-                    };
+                    "application/json": components["schemas"]["RealElectionResponse"];
                 };
             };
             /** @description Validation Error */
@@ -9636,9 +9813,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        [key: string]: unknown;
-                    };
+                    "application/json": components["schemas"]["ScenarioResponse"];
                 };
             };
             /** @description Validation Error */

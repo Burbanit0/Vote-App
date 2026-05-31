@@ -384,3 +384,121 @@ class VoteStepsResponse(BaseModel):
     model_config = ConfigDict(extra="allow")
 
     method: str
+
+
+# ── Engine-helper-backed endpoints (Phase 6, batch 2) ─────────────────────────
+#
+# These workers return an engine helper's dict (compare_all_methods,
+# get_condorcet_matrix, check_all_criteria, …). Top-level keys are confirmed
+# from each helper's return literal; nested values stay `Dict[str, Any]`/`Any`
+# and presence-uncertain keys are `Optional[...] = None` so `model_validate`
+# never raises. `extra="allow"` carries any worker-added field (e.g. blank_pct).
+
+
+class CompareMethodsResponse(BaseModel):
+    model_config = ConfigDict(extra="allow")
+
+    methods:            Dict[str, Any]
+    information_model:  Dict[str, Any]
+    condorcet_winner:   Optional[str] = None
+
+
+class CondorcetMatrixResponse(BaseModel):
+    model_config = ConfigDict(extra="allow")
+
+    candidates:       List[Any]
+    matrix:           Any
+    condorcet_winner: Optional[str] = None
+    condorcet_cycles: Any = None
+
+
+class ArrowCriteriaResponse(BaseModel):
+    model_config = ConfigDict(extra="allow")
+
+    methods: Dict[str, Any]
+    summary: Dict[str, Any]
+
+
+class ScenarioResponse(BaseModel):
+    model_config = ConfigDict(extra="allow")
+
+    without_blank: Dict[str, Any]
+    with_blank:    Dict[str, Any]
+
+
+class MonteCarloResponse(BaseModel):
+    model_config = ConfigDict(extra="allow")
+
+    num_runs:                     int
+    num_voters_per_run:           int
+    config:                       Dict[str, Any]
+    methods:                      Dict[str, Any]
+    condorcet_winner_exists_rate: float
+    inter_method_agreement:       Any = None
+
+
+class MultiwinnerResponse(BaseModel):
+    model_config = ConfigDict(extra="allow")
+
+    comparison:              Dict[str, Any]
+    dhondt:                  Optional[Dict[str, Any]] = None
+    sainte_lague:            Optional[Dict[str, Any]] = None
+    largest_remainder_hare:  Optional[Dict[str, Any]] = None
+    largest_remainder_droop: Optional[Dict[str, Any]] = None
+    stv:                     Optional[Dict[str, Any]] = None
+
+
+class BandwagonResponse(BaseModel):
+    model_config = ConfigDict(extra="allow")
+
+    num_rounds:              int
+    influence_strength:      Any = None
+    rounds:                  List[Any]
+    convergence_round:       Optional[int] = None
+    amplification_by_method: Dict[str, Any]
+
+
+class RealElectionResponse(BaseModel):
+    model_config = ConfigDict(extra="allow")
+
+    election:            Any
+    plurality_winner:    Optional[str] = None
+    first_round_results: Any = None
+    methods:             Dict[str, Any]
+    methods_with_blank:  Optional[Dict[str, Any]] = None
+    divergences:         Any = None
+    summary:             Any = None
+    blank_vote_analysis: Any = None
+
+
+class ConstitutionalScenarioResponse(BaseModel):
+    """Polymorphic by scenario_type (new_election/provisional/dissolution);
+    `scenario_type` + `conclusion` are common to every branch."""
+    model_config = ConfigDict(extra="allow")
+
+    scenario_type: str
+    conclusion:    str
+
+
+class BlankContagionResponse(BaseModel):
+    model_config = ConfigDict(extra="allow")
+
+    rounds:             List[Any]
+    blank_rate_by_round: List[Any]
+    final_blank_rate:   float
+    epidemic_threshold: Any = None
+    reached_equilibrium: bool
+    network_type:       str
+    r0:                 Any = None
+
+
+class CampaignResponse(BaseModel):
+    model_config = ConfigDict(extra="allow")
+
+    days:         Any
+    daily_leader: Any = None
+    daily_scores: Any = None
+    events:       List[Any]
+    final_winner: Optional[str] = None
+    lead_changes: Any = None
+    candidates:   List[Any]
