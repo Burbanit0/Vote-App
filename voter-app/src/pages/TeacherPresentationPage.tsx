@@ -1,7 +1,7 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { Alert, Badge, Button, Card, Col, Container, Form, Row, Spinner } from 'react-bootstrap';
 import { useNavigate } from 'react-router';
-import { Slide, useTeacherMode } from '../context/TeacherModeContext';
+import { Slide, useTeacherMode } from '../stores/useUIStore';
 import { useMetaTags } from '../hooks/useMetaTags';
 
 // ── Slide preview ────────────────────────────────────────────────────────────

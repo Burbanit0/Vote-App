@@ -6,7 +6,7 @@ import {
 import { PageContainer } from '../theme';
 import { useTranslation } from 'react-i18next';
 import { useMetaTags } from '../hooks/useMetaTags';
-import { useElection, ElectionCandidate } from '../context/ElectionContext';
+import { useElection, ElectionCandidate } from '../stores/useElectionStore';
 import { simulateElection, ElectionResult } from '../services/electionApi';
 import LiveBadge from '../components/shared/LiveBadge';
 import IdeologyMapChart from '../components/Simulation/IdeologyMapChart';
@@ -24,8 +24,6 @@ import ModelAssumptionsBanner from '../components/shared/ModelAssumptionsBanner'
 import LabCentralView from '../components/shared/lab/LabCentralView';
 import LabOnboardingTour, { LAB_TOUR_LS_KEY } from '../components/shared/lab/LabOnboardingTour';
 import ScenarioIO from '../components/shared/lab/ScenarioIO';
-import { PerturbationsProvider } from '../context/PerturbationsContext';
-import { AnimationBroadcastProvider } from '../context/AnimationBroadcastContext';
 import CollectiveWillPanel from '../components/shared/CollectiveWillPanel';
 import AssumptionTesterPanel from '../components/shared/AssumptionTesterPanel';
 import EpistocracyPanel from '../components/shared/EpistocracyPanel';
@@ -787,15 +785,7 @@ const ElectionLabPage: React.FC = () => {
   );
 };
 
-// Wrap with PerturbationsProvider + AnimationBroadcastProvider so:
-//  - Perturber tabs can pin their results into LabCentralView
-//  - Animation tabs can broadcast their current step to LabCentralView
-const ElectionLabPageWithProviders: React.FC = () => (
-  <PerturbationsProvider>
-    <AnimationBroadcastProvider>
-      <ElectionLabPage />
-    </AnimationBroadcastProvider>
-  </PerturbationsProvider>
-);
+// Pinned perturbations + animation-step broadcast now live in useLabStore
+// (Phase 5.5) — no providers needed; the store is shared module-level state.
 
-export default ElectionLabPageWithProviders;
+export default ElectionLabPage;

@@ -14,8 +14,8 @@ import React, { useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Badge, Button, Card, Col, Row } from 'react-bootstrap';
 import { ElectionResult } from '../../../services/electionApi';
-import { usePerturbations, PinnedPerturbation } from '../../../context/PerturbationsContext';
-import { useAnimationBroadcast } from '../../../context/AnimationBroadcastContext';
+import { usePerturbations, PinnedPerturbation } from '../../../stores/useLabStore';
+import { useAnimationBroadcast } from '../../../stores/useLabStore';
 import IdeologyMapChart from '../../Simulation/IdeologyMapChart';
 import MetricTooltip from '../MetricTooltip';
 

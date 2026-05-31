@@ -2,7 +2,7 @@ import React from 'react';
 import { Alert, Badge, Button, Card, Col, Row, Table } from 'react-bootstrap';
 import { useTranslation } from 'react-i18next';
 import { useNavigate } from 'react-router';
-import { useElection } from '../../context/ElectionContext';
+import { useElection } from '../../stores/useElectionStore';
 import { ElectionResult } from '../../services/electionApi';
 import { HISTORICAL_SCENARIOS } from '../../data/historicalScenarios';
 

@@ -2,7 +2,7 @@ import React, { useMemo, useState } from 'react';
 import { $api } from '../../api/hooks';
 import { useTranslation } from 'react-i18next';
 import { Alert, Badge, Button, Spinner, Table } from 'react-bootstrap';
-import { useElection } from '../../context/ElectionContext';
+import { useElection } from '../../stores/useElectionStore';
 
 
 // ── Types ─────────────────────────────────────────────────────────────────────

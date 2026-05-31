@@ -10,7 +10,7 @@ import { Alert, Badge, Button, Col, Form, Row, Spinner } from 'react-bootstrap';
 import {
   LineChart, Line, XAxis, YAxis, Tooltip, CartesianGrid, ResponsiveContainer,
 } from 'recharts';
-import { useElection } from '../../context/ElectionContext';
+import { useElection } from '../../stores/useElectionStore';
 import { $api } from '../../api/hooks';
 const DEBOUNCE_MS = 400;
 

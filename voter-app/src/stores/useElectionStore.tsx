@@ -2,13 +2,14 @@
  * useElectionStore — global election config slice (Phase 5.4).
  *
  * Source of truth for the Election Lab config + active scenario metadata
- * (was ElectionContext, the app's spine — ~35 consumers). `context/ElectionContext`
+ * (was ElectionContext, the app's spine — ~35 consumers). `stores/useElectionStore`
  * is now a thin shim over this store so every `useElection()` consumer + the
  * <ElectionProvider> in App.tsx keep working until 5.5 deletes the shim.
  *
  * Persistence: localStorage['votelab_election_config'] (written on each mutation,
  * re-read by hydrate() on mount).
  */
+import React, { useEffect } from 'react';
 import { create } from 'zustand';
 
 // ── Types ─────────────────────────────────────────────────────────────────────
@@ -291,3 +292,44 @@ export const useElectionStore = create<ElectionState>((set) => ({
 
   hydrate: () => set({ config: loadConfig() }),
 }));
+
+// ── Convenience hook (former ElectionContext API) ─────────────────────────────
+
+export interface ElectionContextValue {
+  config:            ElectionConfig;
+  setConfig:         (patch: Partial<ElectionConfig>) => void;
+  setConfigDeep:     (path: string, value: unknown) => void;
+  replaceConfig:     (next: ElectionConfig) => void;
+  resetConfig:       () => void;
+  applyScenario:     (name: string) => void;
+  scenarioNames:     string[];
+  scenarioMeta:      ScenarioMeta | null;
+  clearScenarioMeta: () => void;
+}
+
+/**
+ * Optional provider — the store self-hydrates `config` at module init, so this is
+ * only a hydrate-on-mount hook (kept for test isolation + so existing
+ * `<ElectionProvider>` wrappers in tests/App keep working). Not required for the
+ * store to function.
+ */
+export const ElectionProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
+  const hydrate = useElectionStore((s) => s.hydrate);
+  useEffect(() => { hydrate(); }, [hydrate]);
+  return <>{children}</>;
+};
+
+export function useElection(): ElectionContextValue {
+  const config = useElectionStore((s) => s.config);
+  const setConfig = useElectionStore((s) => s.setConfig);
+  const setConfigDeep = useElectionStore((s) => s.setConfigDeep);
+  const replaceConfig = useElectionStore((s) => s.replaceConfig);
+  const resetConfig = useElectionStore((s) => s.resetConfig);
+  const applyScenario = useElectionStore((s) => s.applyScenario);
+  const scenarioMeta = useElectionStore((s) => s.scenarioMeta);
+  const clearScenarioMeta = useElectionStore((s) => s.clearScenarioMeta);
+  return {
+    config, setConfig, setConfigDeep, replaceConfig, resetConfig,
+    applyScenario, scenarioNames: SCENARIO_NAMES, scenarioMeta, clearScenarioMeta,
+  };
+}

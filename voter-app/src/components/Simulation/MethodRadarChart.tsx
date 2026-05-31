@@ -11,7 +11,7 @@ import {
   Tooltip,
 } from 'recharts';
 import { useTranslation } from 'react-i18next';
-import { useExpertMode } from '../../context/ExpertModeContext';
+import { useExpertMode } from '../../stores/useUIStore';
 import { SimulationCompareResult } from '../../types';
 
 // ── Palette ─────────────────────────────────────────────────────────────────

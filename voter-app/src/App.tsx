@@ -35,15 +35,13 @@ const TheoryPage               = React.lazy(() => import('./pages/TheoryPage'));
 const ProfilePage              = React.lazy(() => import('./pages/ProfilePage'));
 const UserProfilePage          = React.lazy(() => import('./pages/UserProfilePage'));
 
-import { useAuth } from './context/AuthContext';
+import { useAuth } from './stores/useAuthStore';
 import AuthGuard from './context/AuthGuard';
-import { ThemeProvider, useTheme } from './context/ThemeContext';
-import { ExpertModeProvider } from './context/ExpertModeContext';
+import { useTheme } from './stores/useUIStore';
 import { ToastProvider } from './components/shared/ToastNotification';
-import { ElectionProvider } from './context/ElectionContext';
+import { ElectionProvider } from './stores/useElectionStore';
 import UpdatePrompt from './components/shared/UpdatePrompt';
 import OfflineBanner from './components/shared/OfflineBanner';
-import { TeacherModeProvider } from './context/TeacherModeContext';
 
 import 'bootstrap/dist/css/bootstrap.min.css';
 
@@ -115,19 +113,13 @@ const AppContent: React.FC = () => {
 };
 
 const App: React.FC = () => (
-  <ThemeProvider>
-    <ExpertModeProvider>
-      <ElectionProvider>
-        <TeacherModeProvider>
-          <ToastProvider>
-            <Router>
-              <AppContent />
-            </Router>
-          </ToastProvider>
-        </TeacherModeProvider>
-      </ElectionProvider>
-    </ExpertModeProvider>
-  </ThemeProvider>
+  <ElectionProvider>
+    <ToastProvider>
+      <Router>
+        <AppContent />
+      </Router>
+    </ToastProvider>
+  </ElectionProvider>
 );
 
 export default App;

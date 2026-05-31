@@ -1,7 +1,7 @@
 import React from 'react';
 import { render, screen, fireEvent, waitFor } from '@testing-library/react';
 import Login from './Login';
-import { useAuth } from '../context/AuthContext';
+import { useAuth } from '../stores/useAuthStore';
 import { loginUser } from '../services/authApi';
 
 const mockNavigate = jest.fn();
@@ -11,7 +11,8 @@ jest.mock('react-router-dom', () => ({
   useNavigate: () => mockNavigate,
 }));
 
-jest.mock('../context/AuthContext', () => ({
+jest.mock('../stores/useAuthStore', () => ({
+  ...jest.requireActual('../stores/useAuthStore'),
   useAuth: jest.fn(),
 }));
 

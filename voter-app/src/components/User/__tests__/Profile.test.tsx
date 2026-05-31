@@ -18,7 +18,8 @@ const mockProfile = {
 
 // Default: user is logged in. Each test that needs a different value should
 // override via the mock before rendering.
-jest.mock('../../../context/AuthContext', () => ({
+jest.mock('../../../stores/useAuthStore', () => ({
+  ...jest.requireActual('../../../stores/useAuthStore'),
   useAuth: () => ({ user: { username: 'alice', role: 'User' } }),
 }));
 

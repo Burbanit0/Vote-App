@@ -18,7 +18,7 @@ import { useMetaTags } from '../hooks/useMetaTags';
 import { runWhatIf, VariantParam, WhatIfDataPoint } from '../services/whatIfApi';
 import { CHART_COLORS_LIGHT } from '../constants/chartColors';
 import { METHOD_LABELS } from '../components/Simulation/simulationConstants';
-import { useExpertMode } from '../context/ExpertModeContext';
+import { useExpertMode } from '../stores/useUIStore';
 
 // ── Constants ──────────────────────────────────────────────────────────────
 

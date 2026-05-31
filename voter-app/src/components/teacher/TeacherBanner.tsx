@@ -7,7 +7,7 @@
 import React, { useRef, useState } from 'react';
 import { Button, Form, InputGroup, Spinner } from 'react-bootstrap';
 import { useNavigate } from 'react-router';
-import { useTeacherMode } from '../../context/TeacherModeContext';
+import { useTeacherMode } from '../../stores/useUIStore';
 
 // ── Teacher Banner ────────────────────────────────────────────────────────
 

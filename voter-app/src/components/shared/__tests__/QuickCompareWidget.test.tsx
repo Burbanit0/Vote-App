@@ -2,7 +2,7 @@ import React from 'react';
 import { render, screen, fireEvent, waitFor, act } from '@testing-library/react';
 import { MemoryRouter } from 'react-router';
 import QuickCompareWidget from '../QuickCompareWidget';
-import { ElectionProvider } from '../../../context/ElectionContext';
+import { ElectionProvider } from '../../../stores/useElectionStore';
 
 jest.mock('../../../services/electionApi', () => ({
   simulateElection: jest.fn(),

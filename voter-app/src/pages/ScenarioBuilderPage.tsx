@@ -8,7 +8,7 @@ import { runScenario, ScenarioResult } from '../services/simulationCompareApi';
 import { buildShareURL, copyShareURL, decodeShareConfig, readShareParam } from '../utils/shareUtils';
 import { useToast } from '../components/shared/ToastNotification';
 import GalleryShareModal from '../components/shared/GalleryShareModal';
-import { useExpertMode } from '../context/ExpertModeContext';
+import { useExpertMode } from '../stores/useUIStore';
 import { useMetaTags } from '../hooks/useMetaTags';
 
 const CANDIDATE_COLORS = ['#4e79a7', '#e15759', '#59a14f', '#f28e2b', '#76b7b2', '#edc948'];

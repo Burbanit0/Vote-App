@@ -1,4 +1,4 @@
-import { useTheme } from '../context/ThemeContext';
+import { useTheme } from '../stores/useUIStore';
 
 /** Returns chart-safe colour values that adapt to light / dark mode. */
 export function useChartTheme() {

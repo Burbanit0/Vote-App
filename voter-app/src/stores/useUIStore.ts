@@ -254,3 +254,37 @@ export const useUIStore = create<UIState>((set, get) => ({
 export function initUITheme(): void {
   applyTheme(useUIStore.getState().theme);
 }
+
+// ── Convenience hooks (former context APIs) ───────────────────────────────────
+// Select fields individually — never return a fresh composite object from one
+// selector (that defeats zustand's snapshot caching).
+
+export function useTheme(): { theme: Theme; toggleTheme: () => void } {
+  const theme = useUIStore((s) => s.theme);
+  const toggleTheme = useUIStore((s) => s.toggleTheme);
+  return { theme, toggleTheme };
+}
+
+export function useExpertMode(): { expertMode: boolean; setExpertMode: (v: boolean) => void } {
+  const expertMode = useUIStore((s) => s.expertMode);
+  const setExpertMode = useUIStore((s) => s.setExpertMode);
+  return { expertMode, setExpertMode };
+}
+
+export function useTeacherMode() {
+  const teacherMode = useUIStore((s) => s.teacherMode);
+  const setTeacherMode = useUIStore((s) => s.setTeacherMode);
+  const slides = useUIStore((s) => s.slides);
+  const addSlide = useUIStore((s) => s.addSlide);
+  const removeSlide = useUIStore((s) => s.removeSlide);
+  const reorderSlides = useUIStore((s) => s.reorderSlides);
+  const updateSlideNotes = useUIStore((s) => s.updateSlideNotes);
+  const updateSlideTitle = useUIStore((s) => s.updateSlideTitle);
+  const captureScreen = useUIStore((s) => s.captureScreen);
+  const exportPresentation = useUIStore((s) => s.exportPresentation);
+  const capturing = useUIStore((s) => s.capturing);
+  return {
+    teacherMode, setTeacherMode, slides, addSlide, removeSlide, reorderSlides,
+    updateSlideNotes, updateSlideTitle, captureScreen, exportPresentation, capturing,
+  };
+}

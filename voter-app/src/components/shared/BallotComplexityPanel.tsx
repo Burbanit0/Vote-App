@@ -10,7 +10,7 @@ import {
   BarChart, Bar, Cell, XAxis, YAxis, Tooltip, CartesianGrid,
   LineChart, Line, Legend, ResponsiveContainer,
 } from 'recharts';
-import { useElection } from '../../context/ElectionContext';
+import { useElection } from '../../stores/useElectionStore';
 import PinToCentralButton from './PinToCentralButton';
 const DEBOUNCE_MS = 400;
 

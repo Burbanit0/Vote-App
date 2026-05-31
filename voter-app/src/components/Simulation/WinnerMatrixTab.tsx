@@ -13,7 +13,7 @@ import AnimatedVoteCount, {
   generateDemoBallots,
   VoteMethod,
 } from '../pedagogy/AnimatedVoteCount';
-import { useExpertMode } from '../../context/ExpertModeContext';
+import { useExpertMode } from '../../stores/useUIStore';
 import { CANDIDATE_PALETTE } from './simulationConstants';
 import { useTranslation } from 'react-i18next';
 

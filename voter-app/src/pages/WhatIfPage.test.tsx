@@ -11,7 +11,8 @@ import { WhatIfDataPoint } from '../services/whatIfApi';
 // ── Mocks ─────────────────────────────────────────────────────────────────
 
 jest.mock('../hooks/useMetaTags', () => ({ useMetaTags: () => {} }));
-jest.mock('../context/ExpertModeContext', () => ({
+jest.mock('../stores/useUIStore', () => ({
+  ...jest.requireActual('../stores/useUIStore'),
   useExpertMode: () => ({ expertMode: false }),
 }));
 

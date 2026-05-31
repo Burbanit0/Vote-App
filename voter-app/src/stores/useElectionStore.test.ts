@@ -1,6 +1,6 @@
 import { renderHook, act } from '@testing-library/react';
 import React from 'react';
-import { ElectionProvider, useElection } from './ElectionContext';
+import { ElectionProvider, useElection } from './useElectionStore';
 
 function wrapper({ children }: { children: React.ReactNode }) {
   return React.createElement(ElectionProvider, null, children);

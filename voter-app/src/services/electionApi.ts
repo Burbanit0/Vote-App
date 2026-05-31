@@ -1,4 +1,4 @@
-import { ElectionConfig } from '../context/ElectionContext';
+import { ElectionConfig } from '../stores/useElectionStore';
 import { apiPost } from '../api/client';
 
 export interface MethodResult {

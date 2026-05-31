@@ -1,7 +1,7 @@
 import React from 'react';
 import { render, screen } from '@testing-library/react';
 import App from './App';
-import { useAuth } from './context/AuthContext';
+import { useAuth } from './stores/useAuthStore';
 
 // ── Component mocks ────────────────────────────────────────────────────────
 
@@ -41,7 +41,8 @@ jest.mock(
     ({ component: Component }: { component: React.ComponentType }) => <Component />
 );
 
-jest.mock('./context/AuthContext', () => ({
+jest.mock('./stores/useAuthStore', () => ({
+  ...jest.requireActual('./stores/useAuthStore'),
   useAuth: jest.fn(),
 }));
 

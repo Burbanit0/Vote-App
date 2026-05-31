@@ -2,7 +2,7 @@ import React from 'react';
 import { render, screen, fireEvent, waitFor } from '@testing-library/react';
 import { MemoryRouter } from 'react-router';
 import CampaignSensitivityPanel from '../CampaignSensitivityPanel';
-import { ElectionProvider } from '../../../context/ElectionContext';
+import { ElectionProvider } from '../../../stores/useElectionStore';
 
 jest.mock('../../../services/electionApi', () => ({
   fetchCampaignSensitivity: jest.fn(),

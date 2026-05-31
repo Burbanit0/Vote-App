@@ -6,7 +6,7 @@ This file provides guidance to Claude Code when working with this repository.
 
 - **Frontend**: React 19 + TypeScript · React Router v7 · Bootstrap 5 · Recharts · D3 7.x · i18next (FR/EN) · Vite · PWA (vite-plugin-pwa)
   - **Data layer** (Phase 5): TanStack Query v5 + **openapi-fetch** (`src/api/client.ts`, typed against `src/api/types.gen.ts` generated from the FastAPI OpenAPI schema). Panels call `$api.useQuery/useMutation` (`src/api/hooks.ts`); the `services/*Api.ts` wrappers call the `apiPost/apiGet/apiDelete` helpers. A middleware attaches the JWT Bearer from `useAuthStore`. **axios fully removed.**
-  - **State layer** (Phase 5.4): **Zustand** stores in `src/stores/` — `useAuthStore`, `useUIStore` (theme/expert/teacher), `useLabStore` (pinned perturbations + animation bus), `useElectionStore` (global config + scenarios). The old `src/context/*` files are thin compatibility shims over these stores (kept until 5.5 repoints consumers).
+  - **State layer** (Phase 5.4/5.5): **Zustand** stores in `src/stores/` — `useAuthStore`, `useUIStore` (theme/expert/teacher), `useLabStore` (pinned perturbations + animation bus), `useElectionStore` (global config + scenarios). Stores self-hydrate from localStorage at module init (no Providers); each exports its convenience hook (`useAuth`/`useTheme`/`useElection`/…). The migrated context files are **deleted** — `src/context/` now holds only `AuthGuard.tsx` and `SimuContext` (a still-live, unmigrated context for the Simulation-form voters/candidates flow).
 - **Backend**: **FastAPI** (uvicorn) · SQLAlchemy 2.0 **async** (asyncpg/aiosqlite) · PostgreSQL · Redis · python-socketio (WebSocket, ASGI). *Flask + eventlet fully retired in Phase 4.5.b — see [STRATEGIC_REFACTOR_PLAN.md](STRATEGIC_REFACTOR_PLAN.md).*
 - **Auth**: **fastapi-users** · JWT (1h, HS256) · bcrypt (legacy hashes) · OAuth (Google / GitHub)
 - **Tests**: Jest 1480+ frontend (160 suites) · pytest 340+ backend (httpx TestClient + pytest-asyncio) · coverage ≥ 30 % (backend)
@@ -84,10 +84,9 @@ voter-app/src/
 │   ├── client.ts                 # createClient<paths> + auth middleware + apiPost/apiGet/apiDelete
 │   ├── hooks.ts                  # $api (openapi-react-query) — useQuery/useMutation
 │   └── types.gen.ts              # generated from FastAPI OpenAPI (npm run gen:api)
-├── context/                      # thin shims over the stores (deleted in 5.5)
-│   ├── ElectionContext.tsx       # → useElectionStore
-│   ├── AuthContext.tsx           # → useAuthStore
-│   └── ThemeContext / ExpertModeContext / TeacherModeContext  # → useUIStore
+├── context/                      # only AuthGuard + SimuContext remain (rest → stores/)
+│   ├── AuthGuard.tsx             # route guard (reads useAuthStore)
+│   └── SimuContext.tsx           # live, unmigrated (Simulation-form voters/candidates)
 ├── hooks/
 │   ├── useDragTouch.ts           # Drag SVG unifié mouse+touch
 │   ├── useSwipe.ts               # Swipe mobile pour navigation onglets
@@ -106,7 +105,7 @@ voter-app/src/
 ### Frontend — ElectionContext / useElectionStore
 
 La source de vérité globale est désormais **`stores/useElectionStore`** (Zustand,
-Phase 5.4) ; `context/ElectionContext` est un shim qui réexpose `useElection()`.
+Phase 5.4) ; `useElection()` (réexporté par le store) reste l'API des consommateurs.
 Contenu :
 - `config` : candidates (x,y), num_voters, ideology, seed, campaign, blank_vote, information_model
 - `setConfig / setConfigDeep` : mutations partielles (persistées dans localStorage)
@@ -272,7 +271,7 @@ Hook : `useSimulationWorker()` → `dispatch(type, payload): Promise<Result>`
 - **Rate limiting**: `slowapi` (`@limiter.limit("10/minute")`) — uniquement sur la surface publique `/api/v1/*` ; une route décorée NE doit PAS avoir `from __future__ import annotations` (slowapi casse l'introspection du body Pydantic).
 - **Fetch de données (frontend)**: un panel POST utilise `$api.useMutation('post', '/api/v2/.../slug')` (body typé par le schéma généré ; réponse castée vers l'interface manuelle tant qu'il n'y a pas de `response_model`). Effet de succès → 2ᵉ arg `{ onSuccess: (res) => …(res as unknown as T) }`. Les `services/*Api.ts` passent par `apiPost/apiGet/apiDelete` (`src/api/client.ts`) — pas d'axios, pas de `getAuthHeader()` (middleware).
 - **Tests de panels migrés**: PAS de MSW. `jest.mock('../../../api/client')` (GET/POST/… = jest.fns) + rendre sous `<QueryClientProvider client={makeTestQueryClient()}>` (`src/test/queryWrapper.tsx`, retry:false) ; `apiClient.POST.mockResolvedValue({ data, error: undefined })`. Le body envoyé se lit `(apiClient.POST.mock.calls[0][1] as {body}).body`.
-- **Stores Zustand**: les hooks sélectionnent les champs **un par un** (`useStore(s => s.x)`) — ne jamais retourner un objet composite frais depuis un seul sélecteur (casse le cache de snapshot). Les shims de provider appellent `store.hydrate()` au montage pour relire le localStorage.
+- **Stores Zustand**: les hooks de convenance sélectionnent les champs **un par un** (`useStore(s => s.x)`) — ne jamais retourner un objet composite frais depuis un seul sélecteur (casse le cache de snapshot). Les stores s'auto-hydratent du localStorage à l'init (pas de Provider) ; `hydrate()` existe pour l'isolation des tests (`useXStore.setState(reset)` en `beforeEach`).
 - **Web Worker**: `import.meta.url` n'est pas supporté par Jest → mocker `useSimulationWorker` dans les tests.
 - **Tests act()**: les mises à jour d'état async après `waitFor(mock.called)` doivent être suivies d'un `await act(async () => {})` pour éviter les warnings React.
 - **Coverage**: le seuil de 30 % s'applique à toute la suite, pas aux fichiers isolés.

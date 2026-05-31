@@ -13,7 +13,7 @@ import {
   BarChart, Bar, XAxis, YAxis, Tooltip, Legend, CartesianGrid,
   ResponsiveContainer, Cell,
 } from 'recharts';
-import { useElection } from '../../context/ElectionContext';
+import { useElection } from '../../stores/useElectionStore';
 
 const LOCK_OPTIONS = [0, 7, 14, 28, 56, 112, 224];
 const MULTIPLIERS: Record<number, number> = {

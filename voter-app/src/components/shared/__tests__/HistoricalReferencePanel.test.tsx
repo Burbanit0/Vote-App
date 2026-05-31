@@ -4,11 +4,11 @@ import { MemoryRouter } from 'react-router';
 import HistoricalReferencePanel from '../HistoricalReferencePanel';
 
 // Mock the ElectionContext so we control scenarioMeta directly
-jest.mock('../../../context/ElectionContext', () => ({
+jest.mock('../../../stores/useElectionStore', () => ({
   useElection: jest.fn(),
 }));
 
-const { useElection } = jest.requireMock('../../../context/ElectionContext') as {
+const { useElection } = jest.requireMock('../../../stores/useElectionStore') as {
   useElection: jest.Mock;
 };
 

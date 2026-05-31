@@ -1,13 +1,13 @@
 import React, { useCallback, useRef, useState } from 'react';
 import { useNavigate } from 'react-router';
-import { useAuth } from '../context/AuthContext';
+import { useAuth } from '../stores/useAuthStore';
 import {
   Badge, Button, Dropdown, Form, Modal, Nav,
   NavDropdown, Navbar as BootstrapNavbar, Container,
 } from 'react-bootstrap';
-import { useTheme } from '../context/ThemeContext';
-import { useExpertMode } from '../context/ExpertModeContext';
-import { useTeacherMode } from '../context/TeacherModeContext';
+import { useTheme } from '../stores/useUIStore';
+import { useExpertMode } from '../stores/useUIStore';
+import { useTeacherMode } from '../stores/useUIStore';
 import { useTranslation } from 'react-i18next';
 import i18n from '../i18n';
 

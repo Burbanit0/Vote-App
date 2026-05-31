@@ -3,7 +3,7 @@ import { render, screen, waitFor, act } from '@testing-library/react';
 import '@testing-library/jest-dom';
 import { MemoryRouter } from 'react-router';
 import HomePage from './HomePage';
-import { ElectionProvider } from '../context/ElectionContext';
+import { ElectionProvider } from '../stores/useElectionStore';
 
 jest.mock('../services/simulationCompareApi', () => ({
   runComparisonSimulation: jest.fn().mockResolvedValue({
