@@ -502,3 +502,37 @@ class CampaignResponse(BaseModel):
     final_winner: Optional[str] = None
     lead_changes: Any = None
     candidates:   List[Any]
+
+
+# ── GET endpoints (Phase 6, batch 3) ──────────────────────────────────────────
+# FastAPI validates the returned dict/list against `response_model` on the way
+# out, so these keep their `_run_worker` dict return + query-param signature.
+
+
+class ManipulabilityResponse(BaseModel):
+    model_config = ConfigDict(extra="allow")
+
+    num_candidates: int
+    num_voters:     int
+    ideology:       str
+    num_trials:     int
+    results:        Any
+
+
+class BlankHistoryResponse(BaseModel):
+    model_config = ConfigDict(extra="allow")
+
+    country:      str
+    display_name: str
+    note:         str
+    series:       Any
+
+
+class RealElectionSummary(BaseModel):
+    """One item of GET /simulations/real-elections (a list)."""
+    model_config = ConfigDict(extra="allow")
+
+    key:     str
+    name:    str
+    year:    Any
+    country: str

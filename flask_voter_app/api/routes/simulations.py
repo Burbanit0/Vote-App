@@ -71,6 +71,7 @@ from api.schemas import (
     BandwagonResponse,
     BlankContagionRequest,
     BlankContagionResponse,
+    BlankHistoryResponse,
     CalculateUtilityRequest,
     CalculateUtilityResponse,
     CampaignRequest,
@@ -87,12 +88,14 @@ from api.schemas import (
     IdeologyMapResponse,
     LegacySimulateRequest,
     LegacySimulateResponse,
+    ManipulabilityResponse,
     MonteCarloRequest,
     MonteCarloResponse,
     MultiwinnerRequest,
     MultiwinnerResponse,
     RealElectionRequest,
     RealElectionResponse,
+    RealElectionSummary,
     ScenarioRequest,
     ScenarioResponse,
     SensitivityRequest,
@@ -284,7 +287,7 @@ async def scenario(request: ScenarioRequest) -> ScenarioResponse:
     return await _run_typed(_scenario_worker, request, ScenarioResponse)
 
 
-@router.get("/manipulability", summary="Gibbard-Satterthwaite manipulability index")
+@router.get("/manipulability", response_model=ManipulabilityResponse, summary="Gibbard-Satterthwaite manipulability index")
 async def manipulability(
     num_candidates: int = 4,
     num_voters: int = 500,
@@ -328,12 +331,12 @@ async def multiwinner(request: MultiwinnerRequest) -> MultiwinnerResponse:
     return await _run_typed(_multiwinner_worker, request, MultiwinnerResponse)
 
 
-@router.get("/real-elections", summary="List available historical elections")
+@router.get("/real-elections", response_model=List[RealElectionSummary], summary="List available historical elections")
 async def real_elections() -> List[Dict[str, Any]]:
     return await _run_worker(_real_elections_list_worker, {})  # type: ignore[return-value]
 
 
-@router.get("/blank-history", summary="Blank-vote time series for a country")
+@router.get("/blank-history", response_model=BlankHistoryResponse, summary="Blank-vote time series for a country")
 async def blank_history(country: str = "") -> Dict[str, Any]:
     return await _run_worker(_blank_history_worker, {"country": country})
 

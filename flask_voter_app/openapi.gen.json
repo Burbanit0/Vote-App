@@ -1698,6 +1698,34 @@
         "title": "BlankContagionResponse",
         "type": "object"
       },
+      "BlankHistoryResponse": {
+        "additionalProperties": true,
+        "properties": {
+          "country": {
+            "title": "Country",
+            "type": "string"
+          },
+          "display_name": {
+            "title": "Display Name",
+            "type": "string"
+          },
+          "note": {
+            "title": "Note",
+            "type": "string"
+          },
+          "series": {
+            "title": "Series"
+          }
+        },
+        "required": [
+          "country",
+          "display_name",
+          "note",
+          "series"
+        ],
+        "title": "BlankHistoryResponse",
+        "type": "object"
+      },
       "BlankVoteConfig": {
         "additionalProperties": false,
         "description": "Constitutional blank-vote rule + optional contagion.",
@@ -6902,6 +6930,39 @@
         "title": "MajorityTyrannyRuleResult",
         "type": "object"
       },
+      "ManipulabilityResponse": {
+        "additionalProperties": true,
+        "properties": {
+          "ideology": {
+            "title": "Ideology",
+            "type": "string"
+          },
+          "num_candidates": {
+            "title": "Num Candidates",
+            "type": "integer"
+          },
+          "num_trials": {
+            "title": "Num Trials",
+            "type": "integer"
+          },
+          "num_voters": {
+            "title": "Num Voters",
+            "type": "integer"
+          },
+          "results": {
+            "title": "Results"
+          }
+        },
+        "required": [
+          "num_candidates",
+          "num_voters",
+          "ideology",
+          "num_trials",
+          "results"
+        ],
+        "title": "ManipulabilityResponse",
+        "type": "object"
+      },
       "ManipulationAnalysisRequest": {
         "additionalProperties": false,
         "description": "Gibbard-Satterthwaite manipulator identification.",
@@ -8467,6 +8528,77 @@
         "title": "PublicCompareRequest",
         "type": "object"
       },
+      "PublicCompareResponse": {
+        "additionalProperties": true,
+        "description": "POST /api/v1/compare — same envelope, plus blank_pct / per-method\nblank_rule_applied (carried via extra) when a blank rule is set.",
+        "properties": {
+          "condorcet_winner": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Condorcet Winner"
+          },
+          "methods": {
+            "additionalProperties": true,
+            "title": "Methods",
+            "type": "object"
+          }
+        },
+        "required": [
+          "methods"
+        ],
+        "title": "PublicCompareResponse",
+        "type": "object"
+      },
+      "PublicMethodsResponse": {
+        "additionalProperties": true,
+        "description": "GET /api/v1/methods.",
+        "properties": {
+          "count": {
+            "title": "Count",
+            "type": "integer"
+          },
+          "families": {
+            "title": "Families"
+          },
+          "methods": {
+            "title": "Methods"
+          }
+        },
+        "required": [
+          "count",
+          "methods",
+          "families"
+        ],
+        "title": "PublicMethodsResponse",
+        "type": "object"
+      },
+      "PublicRealElectionsResponse": {
+        "additionalProperties": true,
+        "description": "GET /api/v1/real-elections.",
+        "properties": {
+          "count": {
+            "title": "Count",
+            "type": "integer"
+          },
+          "elections": {
+            "items": {},
+            "title": "Elections",
+            "type": "array"
+          }
+        },
+        "required": [
+          "count",
+          "elections"
+        ],
+        "title": "PublicRealElectionsResponse",
+        "type": "object"
+      },
       "PublicSimulateRequest": {
         "description": "POST /api/v1/simulate.",
         "properties": {
@@ -8503,6 +8635,33 @@
           }
         },
         "title": "PublicSimulateRequest",
+        "type": "object"
+      },
+      "PublicSimulateResponse": {
+        "additionalProperties": true,
+        "description": "POST /api/v1/simulate — the compare_all_methods envelope.",
+        "properties": {
+          "condorcet_winner": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Condorcet Winner"
+          },
+          "methods": {
+            "additionalProperties": true,
+            "title": "Methods",
+            "type": "object"
+          }
+        },
+        "required": [
+          "methods"
+        ],
+        "title": "PublicSimulateResponse",
         "type": "object"
       },
       "QFProject": {
@@ -8716,6 +8875,35 @@
           "methods"
         ],
         "title": "RealElectionResponse",
+        "type": "object"
+      },
+      "RealElectionSummary": {
+        "additionalProperties": true,
+        "description": "One item of GET /simulations/real-elections (a list).",
+        "properties": {
+          "country": {
+            "title": "Country",
+            "type": "string"
+          },
+          "key": {
+            "title": "Key",
+            "type": "string"
+          },
+          "name": {
+            "title": "Name",
+            "type": "string"
+          },
+          "year": {
+            "title": "Year"
+          }
+        },
+        "required": [
+          "key",
+          "name",
+          "year",
+          "country"
+        ],
+        "title": "RealElectionSummary",
         "type": "object"
       },
       "ScenarioCreateRequest": {
@@ -10670,9 +10858,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "additionalProperties": true,
-                  "title": "Response Compare Api V1 Compare Post",
-                  "type": "object"
+                  "$ref": "#/components/schemas/PublicCompareResponse"
                 }
               }
             },
@@ -10715,9 +10901,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "additionalProperties": true,
-                  "title": "Response List Methods Api V1 Methods Get",
-                  "type": "object"
+                  "$ref": "#/components/schemas/PublicMethodsResponse"
                 }
               }
             },
@@ -10771,9 +10955,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "additionalProperties": true,
-                  "title": "Response Real Elections Api V1 Real Elections Get",
-                  "type": "object"
+                  "$ref": "#/components/schemas/PublicRealElectionsResponse"
                 }
               }
             },
@@ -10804,9 +10986,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "additionalProperties": true,
-                  "title": "Response Simulate Api V1 Simulate Post",
-                  "type": "object"
+                  "$ref": "#/components/schemas/PublicSimulateResponse"
                 }
               }
             },
@@ -13260,9 +13440,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "additionalProperties": true,
-                  "title": "Response Blank History Api V2 Simulations Blank History Get",
-                  "type": "object"
+                  "$ref": "#/components/schemas/BlankHistoryResponse"
                 }
               }
             },
@@ -13714,9 +13892,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "additionalProperties": true,
-                  "title": "Response Manipulability Api V2 Simulations Manipulability Get",
-                  "type": "object"
+                  "$ref": "#/components/schemas/ManipulabilityResponse"
                 }
               }
             },
@@ -13871,8 +14047,7 @@
               "application/json": {
                 "schema": {
                   "items": {
-                    "additionalProperties": true,
-                    "type": "object"
+                    "$ref": "#/components/schemas/RealElectionSummary"
                   },
                   "title": "Response Real Elections Api V2 Simulations Real Elections Get",
                   "type": "array"

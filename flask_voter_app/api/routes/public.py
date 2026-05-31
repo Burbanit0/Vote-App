@@ -38,7 +38,14 @@ from api.domain.public import (
     _simulate_worker,
 )
 from api.core.ratelimit import limiter
-from api.schemas import PublicCompareRequest, PublicSimulateRequest
+from api.schemas import (
+    PublicCompareRequest,
+    PublicCompareResponse,
+    PublicMethodsResponse,
+    PublicRealElectionsResponse,
+    PublicSimulateRequest,
+    PublicSimulateResponse,
+)
 
 
 router = APIRouter(prefix="/api/v1", tags=["public-v1"])
@@ -66,6 +73,7 @@ async def _run_passthrough(
 
 @router.get(
     "/methods",
+    response_model=PublicMethodsResponse,
     summary="List the voting methods supported by the engine",
     response_description="Catalogue of 16+ methods with name, family, and ref.",
 )
@@ -75,6 +83,7 @@ async def list_methods(family: str = "") -> Dict[str, Any]:
 
 @router.post(
     "/simulate",
+    response_model=PublicSimulateResponse,
     summary="Run a multi-method simulation on a synthetic population",
     response_description="condorcet_winner + per-method winner & metrics.",
 )
@@ -85,6 +94,7 @@ async def simulate(request: Request, body: PublicSimulateRequest) -> Dict[str, A
 
 @router.post(
     "/compare",
+    response_model=PublicCompareResponse,
     summary="Multi-method comparison with optional blank-vote rule",
     response_description="Same shape as /simulate, plus blank_pct & "
                          "per-method blank_rule_applied when a rule is set.",
@@ -96,6 +106,7 @@ async def compare(request: Request, body: PublicCompareRequest) -> Dict[str, Any
 
 @router.get(
     "/real-elections",
+    response_model=PublicRealElectionsResponse,
     summary="List the historical elections in the dataset",
     response_description="Per-election metadata + estimated blank-vote pct.",
 )

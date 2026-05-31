@@ -2866,6 +2866,19 @@ export interface components {
         } & {
             [key: string]: unknown;
         };
+        /** BlankHistoryResponse */
+        BlankHistoryResponse: {
+            /** Country */
+            country: string;
+            /** Display Name */
+            display_name: string;
+            /** Note */
+            note: string;
+            /** Series */
+            series: unknown;
+        } & {
+            [key: string]: unknown;
+        };
         /**
          * BlankVoteConfig
          * @description Constitutional blank-vote rule + optional contagion.
@@ -5490,6 +5503,21 @@ export interface components {
             /** Tyranny Index */
             tyranny_index: number;
         };
+        /** ManipulabilityResponse */
+        ManipulabilityResponse: {
+            /** Ideology */
+            ideology: string;
+            /** Num Candidates */
+            num_candidates: number;
+            /** Num Trials */
+            num_trials: number;
+            /** Num Voters */
+            num_voters: number;
+            /** Results */
+            results: unknown;
+        } & {
+            [key: string]: unknown;
+        };
         /**
          * ManipulationAnalysisRequest
          * @description Gibbard-Satterthwaite manipulator identification.
@@ -6283,6 +6311,47 @@ export interface components {
             num_voters: number;
         };
         /**
+         * PublicCompareResponse
+         * @description POST /api/v1/compare — same envelope, plus blank_pct / per-method
+         *     blank_rule_applied (carried via extra) when a blank rule is set.
+         */
+        PublicCompareResponse: {
+            /** Condorcet Winner */
+            condorcet_winner?: string | null;
+            /** Methods */
+            methods: {
+                [key: string]: unknown;
+            };
+        } & {
+            [key: string]: unknown;
+        };
+        /**
+         * PublicMethodsResponse
+         * @description GET /api/v1/methods.
+         */
+        PublicMethodsResponse: {
+            /** Count */
+            count: number;
+            /** Families */
+            families: unknown;
+            /** Methods */
+            methods: unknown;
+        } & {
+            [key: string]: unknown;
+        };
+        /**
+         * PublicRealElectionsResponse
+         * @description GET /api/v1/real-elections.
+         */
+        PublicRealElectionsResponse: {
+            /** Count */
+            count: number;
+            /** Elections */
+            elections: unknown[];
+        } & {
+            [key: string]: unknown;
+        };
+        /**
          * PublicSimulateRequest
          * @description POST /api/v1/simulate.
          */
@@ -6307,6 +6376,20 @@ export interface components {
              * @default 500
              */
             num_voters: number;
+        };
+        /**
+         * PublicSimulateResponse
+         * @description POST /api/v1/simulate — the compare_all_methods envelope.
+         */
+        PublicSimulateResponse: {
+            /** Condorcet Winner */
+            condorcet_winner?: string | null;
+            /** Methods */
+            methods: {
+                [key: string]: unknown;
+            };
+        } & {
+            [key: string]: unknown;
         };
         /** QFProject */
         QFProject: {
@@ -6423,6 +6506,22 @@ export interface components {
             plurality_winner?: string | null;
             /** Summary */
             summary?: unknown;
+        } & {
+            [key: string]: unknown;
+        };
+        /**
+         * RealElectionSummary
+         * @description One item of GET /simulations/real-elections (a list).
+         */
+        RealElectionSummary: {
+            /** Country */
+            country: string;
+            /** Key */
+            key: string;
+            /** Name */
+            name: string;
+            /** Year */
+            year: unknown;
         } & {
             [key: string]: unknown;
         };
@@ -7402,9 +7501,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        [key: string]: unknown;
-                    };
+                    "application/json": components["schemas"]["PublicCompareResponse"];
                 };
             };
             /** @description Validation Error */
@@ -7435,9 +7532,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        [key: string]: unknown;
-                    };
+                    "application/json": components["schemas"]["PublicMethodsResponse"];
                 };
             };
             /** @description Validation Error */
@@ -7488,9 +7583,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        [key: string]: unknown;
-                    };
+                    "application/json": components["schemas"]["PublicRealElectionsResponse"];
                 };
             };
         };
@@ -7514,9 +7607,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        [key: string]: unknown;
-                    };
+                    "application/json": components["schemas"]["PublicSimulateResponse"];
                 };
             };
             /** @description Validation Error */
@@ -9392,9 +9483,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        [key: string]: unknown;
-                    };
+                    "application/json": components["schemas"]["BlankHistoryResponse"];
                 };
             };
             /** @description Validation Error */
@@ -9726,9 +9815,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        [key: string]: unknown;
-                    };
+                    "application/json": components["schemas"]["ManipulabilityResponse"];
                 };
             };
             /** @description Validation Error */
@@ -9856,9 +9943,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        [key: string]: unknown;
-                    }[];
+                    "application/json": components["schemas"]["RealElectionSummary"][];
                 };
             };
         };

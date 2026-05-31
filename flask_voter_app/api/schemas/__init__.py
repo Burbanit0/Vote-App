@@ -81,7 +81,11 @@ from .gallery import (
 )
 from .public_api import (
     PublicCompareRequest,
+    PublicCompareResponse,
+    PublicMethodsResponse,
+    PublicRealElectionsResponse,
     PublicSimulateRequest,
+    PublicSimulateResponse,
 )
 from .simulations import (
     ArrowCriteriaRequest,
@@ -90,6 +94,7 @@ from .simulations import (
     BandwagonResponse,
     BlankContagionRequest,
     BlankContagionResponse,
+    BlankHistoryResponse,
     CalculateUtilityRequest,
     CalculateUtilityResponse,
     CampaignRequest,
@@ -106,12 +111,14 @@ from .simulations import (
     IdeologyMapResponse,
     LegacySimulateRequest,
     LegacySimulateResponse,
+    ManipulabilityResponse,
     MonteCarloRequest,
     MonteCarloResponse,
     MultiwinnerRequest,
     MultiwinnerResponse,
     RealElectionRequest,
     RealElectionResponse,
+    RealElectionSummary,
     ScenarioRequest,
     ScenarioResponse,
     SensitivityRequest,
@@ -262,6 +269,9 @@ __all__ = [
     "E2EDemoResponse", "PolisSimulationResponse", "PolisWithCandidatesResponse",
     # public research API v1 (Phase 4.5.a.4)
     "PublicCompareRequest", "PublicSimulateRequest",
+    # public research API v1 response_models (Phase 6)
+    "PublicMethodsResponse", "PublicSimulateResponse",
+    "PublicCompareResponse", "PublicRealElectionsResponse",
     # simulations base (Phase 4.5.a.5)
     "CalculateUtilityRequest", "ClosestCandidateRequest", "LegacySimulateRequest",
     "SimulateCandidatesRequest", "SimulateUtilityRequest", "SimulateVotersRequest",
@@ -284,6 +294,8 @@ __all__ = [
     "MonteCarloResponse", "MultiwinnerResponse", "BandwagonResponse",
     "RealElectionResponse", "ConstitutionalScenarioResponse",
     "BlankContagionResponse", "CampaignResponse",
+    # simulations GET response_models (Phase 6)
+    "ManipulabilityResponse", "BlankHistoryResponse", "RealElectionSummary",
     # simulation_advanced (Phase 4.5.a.8)
     "BandwagonRequest", "BlankContagionRequest", "ConstitutionalScenarioRequest",
     "MonteCarloRequest", "MultiwinnerRequest", "RealElectionRequest",
