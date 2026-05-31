@@ -1,11 +1,16 @@
 import React from 'react';
 import { render, screen, fireEvent, waitFor, act } from '@testing-library/react';
 import { MemoryRouter } from 'react-router';
+import { QueryClientProvider } from '@tanstack/react-query';
 import PolarizationPanel from '../PolarizationPanel';
 import { ElectionProvider } from '../../../context/ElectionContext';
+import { makeTestQueryClient } from '../../../test/queryWrapper';
 
-jest.mock('axios', () => ({ post: jest.fn() }));
-const { post: mockPost } = jest.requireMock('axios') as { post: jest.Mock };
+jest.mock('../../../api/client', () => ({
+  apiClient: { GET: jest.fn(), POST: jest.fn(), PUT: jest.fn(), DELETE: jest.fn(), PATCH: jest.fn() },
+  getAccessToken: jest.fn(() => null),
+}));
+const { apiClient } = jest.requireMock('../../../api/client') as { apiClient: { POST: jest.Mock } };
 
 jest.mock('recharts', () => {
   const React = require('react');
@@ -53,15 +58,18 @@ function makeData() {
         'Schulze est la méthode la plus robuste dans les électorats polarisés.',
       ],
     },
+    error: undefined,
   };
 }
 
 function renderPanel() {
   return render(
     <MemoryRouter>
-      <ElectionProvider>
-        <PolarizationPanel />
-      </ElectionProvider>
+      <QueryClientProvider client={makeTestQueryClient()}>
+        <ElectionProvider>
+          <PolarizationPanel />
+        </ElectionProvider>
+      </QueryClientProvider>
     </MemoryRouter>
   );
 }
@@ -102,12 +110,12 @@ describe('PolarizationPanel', () => {
     expect(badge).toBeInTheDocument();
   });
 
-  it('calls axios.post on compute click', async () => {
-    mockPost.mockResolvedValue(makeData());
+  it('calls API on compute click', async () => {
+    apiClient.POST.mockResolvedValue(makeData());
     renderPanel();
     fireEvent.click(screen.getByRole('button', { name: /calculer|compute/i }));
-    await waitFor(() => expect(mockPost).toHaveBeenCalledTimes(1));
-    expect(mockPost).toHaveBeenCalledWith(
+    await waitFor(() => expect(apiClient.POST).toHaveBeenCalledTimes(1));
+    expect(apiClient.POST).toHaveBeenCalledWith(
       expect.stringMatching(/\/api\/(v2\/)?election\/polarization/),
       expect.any(Object),
     );
@@ -115,7 +123,7 @@ describe('PolarizationPanel', () => {
   });
 
   it('renders scatter chart after data loads', async () => {
-    mockPost.mockResolvedValue(makeData());
+    apiClient.POST.mockResolvedValue(makeData());
     renderPanel();
     fireEvent.click(screen.getByRole('button', { name: /calculer|compute/i }));
     // The panel renders TWO scatter charts side-by-side (centrist vs polarized),
@@ -125,7 +133,7 @@ describe('PolarizationPanel', () => {
   });
 
   it('renders one Scatter component per ideology', async () => {
-    mockPost.mockResolvedValue(makeData());
+    apiClient.POST.mockResolvedValue(makeData());
     renderPanel();
     fireEvent.click(screen.getByRole('button', { name: /calculer|compute/i }));
     await waitFor(() => {
@@ -136,7 +144,7 @@ describe('PolarizationPanel', () => {
   });
 
   it('renders heatmap SVG with cells', async () => {
-    mockPost.mockResolvedValue(makeData());
+    apiClient.POST.mockResolvedValue(makeData());
     const { container } = renderPanel();
     fireEvent.click(screen.getByRole('button', { name: /calculer|compute/i }));
     await waitFor(() => {
@@ -148,7 +156,7 @@ describe('PolarizationPanel', () => {
   });
 
   it('shows key findings', async () => {
-    mockPost.mockResolvedValue(makeData());
+    apiClient.POST.mockResolvedValue(makeData());
     renderPanel();
     fireEvent.click(screen.getByRole('button', { name: /calculer|compute/i }));
     await waitFor(() => {
@@ -159,20 +167,20 @@ describe('PolarizationPanel', () => {
   });
 
   it('sims slider triggers debounced API call', async () => {
-    mockPost.mockResolvedValue(makeData());
+    apiClient.POST.mockResolvedValue(makeData());
     renderPanel();
     // Load data first
     fireEvent.click(screen.getByRole('button', { name: /calculer|compute/i }));
-    await waitFor(() => expect(mockPost).toHaveBeenCalledTimes(1));
+    await waitFor(() => expect(apiClient.POST).toHaveBeenCalledTimes(1));
     // Move slider → debounce fires after 500ms
     fireEvent.change(screen.getByTestId('sims-slider'), { target: { value: '20' } });
     act(() => { jest.advanceTimersByTime(550); });
-    await waitFor(() => expect(mockPost).toHaveBeenCalledTimes(2));
+    await waitFor(() => expect(apiClient.POST).toHaveBeenCalledTimes(2));
     jest.runAllTimers();
   });
 
   it('shows best method badge after data loads', async () => {
-    mockPost.mockResolvedValue(makeData());
+    apiClient.POST.mockResolvedValue(makeData());
     renderPanel();
     fireEvent.click(screen.getByRole('button', { name: /calculer|compute/i }));
     await waitFor(() => {
@@ -183,7 +191,7 @@ describe('PolarizationPanel', () => {
   });
 
   it('shows error on API failure', async () => {
-    mockPost.mockRejectedValue(new Error('Network error'));
+    apiClient.POST.mockRejectedValue(new Error('Network error'));
     renderPanel();
     fireEvent.click(screen.getByRole('button', { name: /calculer|compute/i }));
     await waitFor(() => expect(screen.getByText(/Erreur|Error/i)).toBeInTheDocument());

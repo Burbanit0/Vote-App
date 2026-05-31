@@ -8,8 +8,6 @@
  * And reveals which methods are most robust under polarized electorates.
  */
 import React, { useCallback, useEffect, useRef, useState } from 'react';
-import axios from 'axios';
-import { apiPath } from '../../api/apiVersion';
 import { useTranslation } from 'react-i18next';
 import { Alert, Badge, Button, Col, Form, Row, Spinner } from 'react-bootstrap';
 import {
@@ -17,8 +15,7 @@ import {
   ResponsiveContainer, Label,
 } from 'recharts';
 import { useElection } from '../../context/ElectionContext';
-
-const API = process.env.REACT_APP_API_URL ?? 'http://localhost:4434';
+import { $api } from '../../api/hooks';
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -157,30 +154,24 @@ const PolarizationPanel: React.FC = () => {
 
   const [selectedIdeologies, setSelectedIdeologies] = useState<string[]>(AVAILABLE_IDEOLOGIES);
   const [numSims,  setNumSims]  = useState(15);
-  const [data,     setData]     = useState<PolarData | null>(null);
-  const [loading,  setLoading]  = useState(false);
-  const [error,    setError]    = useState<string | null>(null);
+  const sim = $api.useMutation('post', '/api/v2/election/polarization');
+  const data: PolarData | null = (sim.data as PolarData | undefined) ?? null;
+  const loading = sim.isPending;
+  const error = sim.isError ? t('polarization.error') : null;
 
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  const run = useCallback(async (ideologies: string[], sims: number) => {
+  const run = useCallback((ideologies: string[], sims: number) => {
     if (ideologies.length === 0) return;
-    setLoading(true); setError(null);
-    try {
-      const res = await axios.post(`${API}${apiPath('election/polarization')}`, {
-        candidates:      config.candidates,
-        num_voters:      Math.min(config.num_voters, 150),
-        ideology_range:  ideologies,
-        seed:            config.seed,
-        num_simulations: sims,
-      });
-      setData(res.data);
-    } catch {
-      setError(t('polarization.error'));
-    } finally {
-      setLoading(false);
-    }
-  }, [config, t]);
+    sim.mutate({ body: {
+      candidates:      config.candidates,
+      num_voters:      Math.min(config.num_voters, 150),
+      ideology_range:  ideologies,
+      seed:            config.seed,
+      num_simulations: sims,
+    } });
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [config, t, sim]);
 
   const handleSimsChange = (v: number) => {
     setNumSims(v);

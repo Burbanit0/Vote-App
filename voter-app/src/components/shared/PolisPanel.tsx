@@ -5,12 +5,10 @@
  * statements via PCA scatter + statement table.
  */
 import React, { useCallback, useState } from 'react';
-import axios from 'axios';
 import { useTranslation } from 'react-i18next';
 import { Alert, Badge, Button, Col, Form, Row, Spinner, Table } from 'react-bootstrap';
 import { useElection } from '../../context/ElectionContext';
-
-const API = process.env.REACT_APP_API_URL ?? 'http://localhost:4434';
+import { $api } from '../../api/hooks';
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -188,30 +186,23 @@ const PolisPanel: React.FC = () => {
   const [threshold,   setThreshold]   = useState(0.80);
   const [ideology,    setIdeology]    = useState('random');
   const [stmtFilter,  setStmtFilter]  = useState<'all'|'consensus'|'polarizing'>('all');
-  const [data,        setData]        = useState<PolisData | null>(null);
-  const [loading,     setLoading]     = useState(false);
-  const [error,       setError]       = useState<string | null>(null);
+  const sim = $api.useMutation('post', '/api/v2/tech/polis');
+  const data: PolisData | null = (sim.data as PolisData | undefined) ?? null;
+  const loading = sim.isPending;
+  const error = sim.isError ? t('polis.error') : null;
 
-  const runSimulation = useCallback(async () => {
-    setLoading(true);
-    setError(null);
-    try {
-      const res = await axios.post(`${API}/api/v2/tech/polis`, {
-        candidates:                config.candidates.map((c) => ({ name: c.name, x: c.x, y: c.y })),
-        num_participants:          config.num_voters,
-        ideology,
-        seed:                      config.seed,
-        num_clusters:              numClusters,
-        min_consensus_threshold:   threshold,
-        method_to_compare:        'plurality',
-      });
-      setData(res.data);
-    } catch {
-      setError(t('polis.error'));
-    } finally {
-      setLoading(false);
-    }
-  }, [config, numClusters, threshold, ideology, t]);
+  const runSimulation = useCallback(() => {
+    sim.mutate({ body: {
+      candidates:                config.candidates.map((c) => ({ name: c.name, x: c.x, y: c.y })),
+      num_participants:          config.num_voters,
+      ideology,
+      seed:                      config.seed,
+      num_clusters:              numClusters,
+      min_consensus_threshold:   threshold,
+      method_to_compare:        'plurality',
+    } });
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [config, numClusters, threshold, ideology, t, sim]);
 
   return (
     <div>
