@@ -1,8 +1,7 @@
 import React from 'react';
 import { render, screen, fireEvent, act } from '@testing-library/react';
 import LabCentralView from '../LabCentralView';
-import { PerturbationsProvider, usePerturbations } from '../../../../context/PerturbationsContext';
-import { AnimationBroadcastProvider } from '../../../../context/AnimationBroadcastContext';
+import { usePerturbations, useLabStore } from '../../../../stores/useLabStore';
 import type { ElectionResult } from '../../../../services/electionApi';
 
 // Mock the heavy ideology map (it does an axios fetch on mount)
@@ -36,17 +35,15 @@ function makeResult(): ElectionResult {
   } as unknown as ElectionResult;
 }
 
+// Perturbations + animation are store-backed (useLabStore) — no providers needed.
 function wrap(children: React.ReactNode) {
-  return (
-    <PerturbationsProvider>
-      <AnimationBroadcastProvider>{children}</AnimationBroadcastProvider>
-    </PerturbationsProvider>
-  );
+  return <>{children}</>;
 }
 
 describe('LabCentralView', () => {
   beforeEach(() => {
     localStorage.clear();
+    useLabStore.setState({ pinned: [], frame: null });
   });
 
   it('renders empty placeholder when result is null', () => {

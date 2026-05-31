@@ -16,7 +16,7 @@
 import React from 'react';
 import { Button } from 'react-bootstrap';
 import { useTranslation } from 'react-i18next';
-import { usePerturbations } from '../../context/PerturbationsContext';
+import { usePerturbations } from '../../stores/useLabStore';
 
 interface Props {
   type:             string;

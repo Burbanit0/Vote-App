@@ -106,3 +106,21 @@ export const useLabStore = create<LabState>((set, get) => ({
   publishFrame: (f) => set({ frame: f }),
   clearFrame: () => set({ frame: null }),
 }));
+
+// ── Convenience hooks (former context APIs) ───────────────────────────────────
+
+export function usePerturbations() {
+  const pinned = useLabStore((s) => s.pinned);
+  const pinPerturbation = useLabStore((s) => s.pinPerturbation);
+  const unpinPerturbation = useLabStore((s) => s.unpinPerturbation);
+  const clearPinned = useLabStore((s) => s.clearPinned);
+  const isPinned = useLabStore((s) => s.isPinned);
+  return { pinned, pinPerturbation, unpinPerturbation, clearPinned, isPinned };
+}
+
+export function useAnimationBroadcast() {
+  const frame = useLabStore((s) => s.frame);
+  const publish = useLabStore((s) => s.publishFrame);
+  const clear = useLabStore((s) => s.clearFrame);
+  return { frame, publish, clear };
+}

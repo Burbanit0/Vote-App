@@ -6,7 +6,7 @@ import IdeologyHeatmap from './IdeologyHeatmap';
 import MedianVoterLayer, { MedianVoterLegend } from './MedianVoterLayer';
 import { useDragTouch } from '../../hooks/useDragTouch';
 import { useTranslation } from 'react-i18next';
-import { useAnimationBroadcast } from '../../context/AnimationBroadcastContext';
+import { useAnimationBroadcast } from '../../stores/useLabStore';
 import { IdeologyMapResult, IdeologyMapVoter } from '../../types';
 import { getIdeologyMap, IdeologyMapParams } from '../../services/simulationCompareApi';
 import { buildVoronoiPaths } from '../../utils/voronoiRegions';

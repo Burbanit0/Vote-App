@@ -10,7 +10,7 @@ import { useTranslation } from 'react-i18next';
 import { VoteStepsResult, IRVRound, BordaStep } from '../../types';
 import { getVoteSteps, VoteStepsParams } from '../../services/simulationCompareApi';
 import { useChartTheme } from '../../hooks/useChartTheme';
-import { useAnimationBroadcast } from '../../context/AnimationBroadcastContext';
+import { useAnimationBroadcast } from '../../stores/useLabStore';
 
 // ── Palette ───────────────────────────────────────────────────────────────────
 

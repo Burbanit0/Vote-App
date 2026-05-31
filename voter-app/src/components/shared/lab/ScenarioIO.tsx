@@ -14,7 +14,7 @@ import React, { useCallback, useRef, useState } from 'react';
 import { Button, Toast, ToastContainer } from 'react-bootstrap';
 import { useTranslation } from 'react-i18next';
 import { useElection, ElectionConfig } from '../../../context/ElectionContext';
-import { usePerturbations, PinnedPerturbation } from '../../../context/PerturbationsContext';
+import { usePerturbations, PinnedPerturbation } from '../../../stores/useLabStore';
 
 export const SCENARIO_FORMAT_VERSION = 1;
 
