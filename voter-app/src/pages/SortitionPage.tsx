@@ -6,7 +6,7 @@ import React from 'react';
 import { Container } from 'react-bootstrap';
 import { useTranslation } from 'react-i18next';
 import { useMetaTags } from '../hooks/useMetaTags';
-import { ElectionProvider } from '../context/ElectionContext';
+import { ElectionProvider } from '../stores/useElectionStore';
 import SortitionPanel from '../components/shared/SortitionPanel';
 
 const SortitionPage: React.FC = () => {

@@ -3,7 +3,7 @@ import { Badge, Button, Col, Form, Row, Spinner } from 'react-bootstrap';
 import { ElectionResult } from '../../services/electionApi';
 import { useNavigate } from 'react-router';
 import { useTranslation } from 'react-i18next';
-import { useElection } from '../../context/ElectionContext';
+import { useElection } from '../../stores/useElectionStore';
 import { simulateElection } from '../../services/electionApi';
 
 // ── Scenario definitions (widget-local, minimal configs) ──────────────────────

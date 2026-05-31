@@ -13,7 +13,7 @@ import {
   LineChart, Line, XAxis, YAxis, Tooltip, Legend,
   ResponsiveContainer, ReferenceLine, CartesianGrid,
 } from 'recharts';
-import { useElection } from '../../context/ElectionContext';
+import { useElection } from '../../stores/useElectionStore';
 import PinToCentralButton from './PinToCentralButton';
 const DEBOUNCE_MS = 400;
 const ANIM_STEP_MS = 80;

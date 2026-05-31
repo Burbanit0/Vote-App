@@ -2,7 +2,7 @@ import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { Alert, Badge, Button, Card, Col, Row, Spinner } from 'react-bootstrap';
 import { useTranslation } from 'react-i18next';
 import i18n from '../../i18n';
-import { useElection } from '../../context/ElectionContext';
+import { useElection } from '../../stores/useElectionStore';
 import MethodGroupDonut from './MethodGroupDonut';
 import { $api } from '../../api/hooks';
 

@@ -16,7 +16,7 @@ import { useMetaTags } from '../hooks/useMetaTags';
 import PoliticalClusterMap, { PolisData } from '../components/shared/PoliticalClusterMap';
 import E2EVDemo from '../components/shared/E2EVDemo';
 import PolisPanel from '../components/shared/PolisPanel';
-import { ElectionProvider } from '../context/ElectionContext';
+import { ElectionProvider } from '../stores/useElectionStore';
 import { $api } from '../api/hooks';
 
 // ── Types ─────────────────────────────────────────────────────────────────────

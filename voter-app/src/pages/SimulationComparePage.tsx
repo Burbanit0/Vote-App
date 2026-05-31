@@ -57,7 +57,7 @@ import { Trans, useTranslation } from 'react-i18next';
 import { useMethodLabels } from '../components/Simulation/simulationConstants';
 import { useDebouncedSimulation } from '../hooks/useDebouncedSimulation';
 import LiveBadge from '../components/shared/LiveBadge';
-import { useElection } from '../context/ElectionContext';
+import { useElection } from '../stores/useElectionStore';
 import { useNavigate } from 'react-router';
 
 // ── Presentation mode ──────────────────────────────────────────────────────

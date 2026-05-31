@@ -7,7 +7,7 @@ import {
   Tooltip, XAxis, YAxis,
 } from 'recharts';
 import { useTranslation } from 'react-i18next';
-import { useElection } from '../../context/ElectionContext';
+import { useElection } from '../../stores/useElectionStore';
 import MetricTooltip from './MetricTooltip';
 import { fetchDivergence, DivergenceResult, DivergenceRunResult } from '../../services/electionApi';
 import { useChartTheme } from '../../hooks/useChartTheme';

@@ -39,7 +39,7 @@ import { useAuth } from './context/AuthContext';
 import AuthGuard from './context/AuthGuard';
 import { useTheme } from './stores/useUIStore';
 import { ToastProvider } from './components/shared/ToastNotification';
-import { ElectionProvider } from './context/ElectionContext';
+import { ElectionProvider } from './stores/useElectionStore';
 import UpdatePrompt from './components/shared/UpdatePrompt';
 import OfflineBanner from './components/shared/OfflineBanner';
 

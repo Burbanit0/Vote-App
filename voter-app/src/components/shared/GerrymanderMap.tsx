@@ -8,7 +8,7 @@
 import React, { useCallback, useRef, useState, useMemo } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Alert, Badge, Button, Col, Row, Spinner } from 'react-bootstrap';
-import { useElection } from '../../context/ElectionContext';
+import { useElection } from '../../stores/useElectionStore';
 import { $api } from '../../api/hooks';
 
 // ── Grid constants ────────────────────────────────────────────────────────────

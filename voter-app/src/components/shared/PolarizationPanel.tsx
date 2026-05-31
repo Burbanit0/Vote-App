@@ -14,7 +14,7 @@ import {
   ScatterChart, Scatter, XAxis, YAxis, Tooltip, CartesianGrid,
   ResponsiveContainer, Label,
 } from 'recharts';
-import { useElection } from '../../context/ElectionContext';
+import { useElection } from '../../stores/useElectionStore';
 import { $api } from '../../api/hooks';
 
 // ── Types ─────────────────────────────────────────────────────────────────────

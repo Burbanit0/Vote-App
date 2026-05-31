@@ -13,7 +13,7 @@ import {
   LineChart, Line, XAxis, YAxis, Tooltip, CartesianGrid, Legend,
   ResponsiveContainer,
 } from 'recharts';
-import { useElection } from '../../context/ElectionContext';
+import { useElection } from '../../stores/useElectionStore';
 import { $api } from '../../api/hooks';
 const DEBOUNCE_MS = 400;
 

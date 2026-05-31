@@ -3,7 +3,7 @@ import { render, screen, fireEvent, waitFor, act } from '@testing-library/react'
 import { MemoryRouter } from 'react-router';
 import { QueryClientProvider } from '@tanstack/react-query';
 import GerrymanderMap from '../GerrymanderMap';
-import { ElectionProvider } from '../../../context/ElectionContext';
+import { ElectionProvider } from '../../../stores/useElectionStore';
 import { makeTestQueryClient } from '../../../test/queryWrapper';
 
 jest.mock('../../../api/client', () => ({

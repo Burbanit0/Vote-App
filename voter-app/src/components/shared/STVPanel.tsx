@@ -11,7 +11,7 @@ import { useTranslation } from 'react-i18next';
 import {
   Alert, Badge, Button, Col, Form, ProgressBar, Row, Spinner,
 } from 'react-bootstrap';
-import { useElection } from '../../context/ElectionContext';
+import { useElection } from '../../stores/useElectionStore';
 import { $api } from '../../api/hooks';
 
 // ── Types ─────────────────────────────────────────────────────────────────────

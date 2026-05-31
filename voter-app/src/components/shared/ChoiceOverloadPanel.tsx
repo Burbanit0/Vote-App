@@ -11,7 +11,7 @@ import {
   BarChart, Bar, LineChart, Line, XAxis, YAxis, Tooltip,
   CartesianGrid, Legend, ReferenceLine, ResponsiveContainer, Cell,
 } from 'recharts';
-import { useElection } from '../../context/ElectionContext';
+import { useElection } from '../../stores/useElectionStore';
 import PinToCentralButton from './PinToCentralButton';
 const DEFAULT_COUNTS = [2, 3, 5, 7, 10];
 

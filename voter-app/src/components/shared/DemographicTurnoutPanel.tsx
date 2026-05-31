@@ -11,7 +11,7 @@ import {
   BarChart, Bar, XAxis, YAxis, Tooltip, CartesianGrid,
   Legend, ResponsiveContainer, Cell,
 } from 'recharts';
-import { useElection } from '../../context/ElectionContext';
+import { useElection } from '../../stores/useElectionStore';
 import PinToCentralButton from './PinToCentralButton';
 
 // ── Types ─────────────────────────────────────────────────────────────────────

@@ -6,7 +6,7 @@ import OnboardingTour from '../components/shared/OnboardingTour';
 import QuickCompareWidget from '../components/shared/QuickCompareWidget';
 import { useMetaTags } from '../hooks/useMetaTags';
 import { useTranslation } from 'react-i18next';
-import { useElection } from '../context/ElectionContext';
+import { useElection } from '../stores/useElectionStore';
 
 // ── Dynamic stats hook ──────────────────────────────────────────────────────
 

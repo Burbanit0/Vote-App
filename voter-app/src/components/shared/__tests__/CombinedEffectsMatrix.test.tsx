@@ -2,7 +2,7 @@ import React from 'react';
 import { render, screen, fireEvent, waitFor } from '@testing-library/react';
 import { MemoryRouter } from 'react-router';
 import CombinedEffectsMatrix from '../CombinedEffectsMatrix';
-import { ElectionProvider } from '../../../context/ElectionContext';
+import { ElectionProvider } from '../../../stores/useElectionStore';
 
 jest.mock('../../../services/electionApi', () => ({
   fetchCombinedEffects: jest.fn(),

@@ -3,7 +3,7 @@ import { render, screen, fireEvent, waitFor, act } from '@testing-library/react'
 import ScenarioIO, {
   buildScenarioBundle, validateScenarioBundle, SCENARIO_FORMAT_VERSION,
 } from '../ScenarioIO';
-import { ElectionProvider, useElection } from '../../../../context/ElectionContext';
+import { ElectionProvider, useElection } from '../../../../stores/useElectionStore';
 import { usePerturbations } from '../../../../stores/useLabStore';
 
 // jsdom doesn't implement URL.createObjectURL / revokeObjectURL

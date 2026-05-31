@@ -6,7 +6,7 @@ import {
 import { PageContainer } from '../theme';
 import { useTranslation } from 'react-i18next';
 import { useMetaTags } from '../hooks/useMetaTags';
-import { useElection, ElectionCandidate } from '../context/ElectionContext';
+import { useElection, ElectionCandidate } from '../stores/useElectionStore';
 import { simulateElection, ElectionResult } from '../services/electionApi';
 import LiveBadge from '../components/shared/LiveBadge';
 import IdeologyMapChart from '../components/Simulation/IdeologyMapChart';
