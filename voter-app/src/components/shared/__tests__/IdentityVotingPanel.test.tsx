@@ -1,10 +1,14 @@
 import React from 'react';
 import { render, screen, fireEvent, waitFor, act } from '@testing-library/react';
-import axios from 'axios';
+import { QueryClientProvider } from '@tanstack/react-query';
 import IdentityVotingPanel from '../IdentityVotingPanel';
+import { makeTestQueryClient } from '../../../test/queryWrapper';
 
-jest.mock('axios');
-const mockAxios = axios as jest.Mocked<typeof axios>;
+jest.mock('../../../api/client', () => ({
+  apiClient: { GET: jest.fn(), POST: jest.fn(), PUT: jest.fn(), DELETE: jest.fn(), PATCH: jest.fn() },
+  getAccessToken: jest.fn(() => null),
+}));
+const { apiClient } = jest.requireMock('../../../api/client') as { apiClient: { POST: jest.Mock } };
 
 jest.mock('react-i18next', () => ({
   useTranslation: () => ({
@@ -52,28 +56,39 @@ const MOCK_DATA_CHANGED = {
   winner_changed: true,
 };
 
+/** openapi-fetch resolves to { data, error }. */
+const ok = (d: unknown) => ({ data: d, error: undefined });
+
+function renderPanel() {
+  return render(
+    <QueryClientProvider client={makeTestQueryClient()}>
+      <IdentityVotingPanel />
+    </QueryClientProvider>
+  );
+}
+
 async function renderAndRun(responseData = MOCK_DATA_NO_CHANGE) {
-  mockAxios.post.mockResolvedValueOnce({ data: responseData });
-  render(<IdentityVotingPanel />);
+  apiClient.POST.mockResolvedValueOnce(ok(responseData));
+  renderPanel();
   await act(async () => { fireEvent.click(screen.getByTestId('run-btn')); });
-  await waitFor(() => expect(mockAxios.post).toHaveBeenCalledTimes(1));
+  await waitFor(() => expect(apiClient.POST).toHaveBeenCalledTimes(1));
   await act(async () => {});
 }
 
 // ── Tests ─────────────────────────────────────────────────────────────────────
 
 describe('IdentityVotingPanel', () => {
-  beforeEach(() => jest.resetAllMocks());
+  beforeEach(() => jest.clearAllMocks());
 
   // ── Initial render ──────────────────────────────────────────────────────────
 
   it('renders Green quote on mount', () => {
-    render(<IdentityVotingPanel />);
+    renderPanel();
     expect(screen.getByTestId('green-quote')).toBeInTheDocument();
   });
 
   it('renders preset buttons', () => {
-    render(<IdentityVotingPanel />);
+    renderPanel();
     expect(screen.getByTestId('presets')).toBeInTheDocument();
     expect(screen.getByTestId('preset-usa2020')).toBeInTheDocument();
     expect(screen.getByTestId('preset-france2022')).toBeInTheDocument();
@@ -81,7 +96,7 @@ describe('IdentityVotingPanel', () => {
   });
 
   it('renders group editor with default groups', () => {
-    render(<IdentityVotingPanel />);
+    renderPanel();
     expect(screen.getByTestId('group-editor')).toBeInTheDocument();
     expect(screen.getByTestId('group-name-0')).toBeInTheDocument();
     expect(screen.getByTestId('group-name-1')).toBeInTheDocument();
@@ -89,7 +104,7 @@ describe('IdentityVotingPanel', () => {
   });
 
   it('renders all controls', () => {
-    render(<IdentityVotingPanel />);
+    renderPanel();
     expect(screen.getByTestId('run-btn')).toBeInTheDocument();
     expect(screen.getByTestId('voters-input')).toBeInTheDocument();
     expect(screen.getByTestId('seed-input')).toBeInTheDocument();
@@ -98,14 +113,14 @@ describe('IdentityVotingPanel', () => {
   });
 
   it('shows prompt alert before simulation', () => {
-    render(<IdentityVotingPanel />);
+    renderPanel();
     expect(screen.getByTestId('prompt-alert')).toBeInTheDocument();
   });
 
   // ── Preset loading ──────────────────────────────────────────────────────────
 
   it('loads usa2020 preset and clears results', () => {
-    render(<IdentityVotingPanel />);
+    renderPanel();
     fireEvent.click(screen.getByTestId('preset-usa2020'));
     // After loading preset, data is cleared
     expect(screen.getByTestId('prompt-alert')).toBeInTheDocument();
@@ -115,8 +130,9 @@ describe('IdentityVotingPanel', () => {
 
   it('calls API with correct payload on run', async () => {
     await renderAndRun();
-    const [url, payload] = mockAxios.post.mock.calls[0];
-    expect(url).toMatch(/\/api\/(v2\/)?theory\/identity-voting/);
+    const [url, init] = apiClient.POST.mock.calls[0];
+    expect(url).toBe('/api/v2/theory/identity-voting');
+    const payload = (init as { body: Record<string, unknown> }).body;
     expect(payload).toHaveProperty('candidates');
     expect(payload).toHaveProperty('num_voters');
     expect(payload).toHaveProperty('seed');
@@ -187,11 +203,9 @@ describe('IdentityVotingPanel', () => {
   // ── Error handling ──────────────────────────────────────────────────────────
 
   it('shows error alert on API failure', async () => {
-    mockAxios.post.mockRejectedValueOnce(new Error('Network error'));
-    render(<IdentityVotingPanel />);
+    apiClient.POST.mockRejectedValueOnce(new Error('Network error'));
+    renderPanel();
     await act(async () => { fireEvent.click(screen.getByTestId('run-btn')); });
-    await waitFor(() => expect(mockAxios.post).toHaveBeenCalled());
-    await act(async () => {});
-    expect(screen.getByTestId('error-alert')).toBeInTheDocument();
+    await waitFor(() => expect(screen.getByTestId('error-alert')).toBeInTheDocument());
   });
 });

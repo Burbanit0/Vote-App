@@ -3,14 +3,11 @@
  * Rousseau (1762) vs Arrow (1951) vs Schumpeter (1942) vs Sen (1999) vs Rawls (1971).
  */
 import React, { useEffect, useState } from 'react';
-import axios from 'axios';
 import { useTranslation } from 'react-i18next';
 import {
   Alert, Badge, Button, Col, Form, Row, Spinner,
 } from 'react-bootstrap';
-import { apiPath } from '../../api/apiVersion';
-
-const API = process.env.REACT_APP_API_URL ?? 'http://localhost:4434';
+import { $api } from '../../api/hooks';
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -257,9 +254,10 @@ const CollectiveWillPanel: React.FC<CollectiveWillLabProps> = ({
 }) => {
   const { t } = useTranslation();
 
-  const [data,       setData]       = useState<CollectiveWillData | null>(null);
-  const [loading,    setLoading]    = useState(false);
-  const [error,      setError]      = useState<string | null>(null);
+  const sim = $api.useMutation('post', '/api/v2/theory/collective-will');
+  const data: CollectiveWillData | null = (sim.data as CollectiveWillData | undefined) ?? null;
+  const loading = sim.isPending;
+  const error = sim.isError ? t('will.error') : null;
   const [numVoters,  setNumVoters]  = useState(100);
   const [seed,       setSeed]       = useState(42);
   const [numMethods, setNumMethods] = useState(5);
@@ -272,30 +270,21 @@ const CollectiveWillPanel: React.FC<CollectiveWillLabProps> = ({
     { name: 'Carol', x:  0.5, y: 0.0 },
   ];
 
-  const handleRun = async (
+  const handleRun = (
     overrideCands?: typeof DEFAULT_CANDS,
     overrideVoters?: number,
     overrideSeed?: number,
     overrideIdeology?: string,
   ) => {
-    setLoading(true);
-    setError(null);
-    try {
-      const res = await axios.post(`${API}${apiPath('theory/collective-will')}`, {
-        candidates:      overrideCands   ?? DEFAULT_CANDS,
-        num_voters:      overrideVoters  ?? numVoters,
-        ideology:        overrideIdeology ?? ideology,
-        seed:            overrideSeed    ?? seed,
-        num_methods:     numMethods,
-        num_agendas:     numAgendas,
-        num_simulations: 1,
-      });
-      setData(res.data);
-    } catch {
-      setError(t('will.error'));
-    } finally {
-      setLoading(false);
-    }
+    sim.mutate({ body: {
+      candidates:      overrideCands   ?? DEFAULT_CANDS,
+      num_voters:      overrideVoters  ?? numVoters,
+      ideology:        overrideIdeology ?? ideology,
+      seed:            overrideSeed    ?? seed,
+      num_methods:     numMethods,
+      num_agendas:     numAgendas,
+      num_simulations: 1,
+    } });
   };
 
   // Auto-run when lab context changes

@@ -1,10 +1,14 @@
 import React from 'react';
 import { render, screen, fireEvent, waitFor, act } from '@testing-library/react';
-import axios from 'axios';
+import { QueryClientProvider } from '@tanstack/react-query';
 import PowerIndicesPanel from '../PowerIndicesPanel';
+import { makeTestQueryClient } from '../../../test/queryWrapper';
 
-jest.mock('axios');
-const mockAxios = axios as jest.Mocked<typeof axios>;
+jest.mock('../../../api/client', () => ({
+  apiClient: { GET: jest.fn(), POST: jest.fn(), PUT: jest.fn(), DELETE: jest.fn(), PATCH: jest.fn() },
+  getAccessToken: jest.fn(() => null),
+}));
+const { apiClient } = jest.requireMock('../../../api/client') as { apiClient: { POST: jest.Mock } };
 
 jest.mock('react-i18next', () => ({
   useTranslation: () => ({
@@ -52,11 +56,22 @@ const PARIAH_DATA = {
   power_surprises: ['P : 30 sièges mais pouvoir=0 (paria)'],
 };
 
+/** openapi-fetch resolves to { data, error }. */
+const ok = (d: unknown) => ({ data: d, error: undefined });
+
+function renderPanel() {
+  return render(
+    <QueryClientProvider client={makeTestQueryClient()}>
+      <PowerIndicesPanel />
+    </QueryClientProvider>
+  );
+}
+
 async function renderAndRun(responseData = MOCK_DATA) {
-  mockAxios.post.mockResolvedValueOnce({ data: responseData });
-  render(<PowerIndicesPanel />);
+  apiClient.POST.mockResolvedValueOnce(ok(responseData));
+  renderPanel();
   await act(async () => { fireEvent.click(screen.getByTestId('run-btn')); });
-  await waitFor(() => expect(mockAxios.post).toHaveBeenCalledTimes(1));
+  await waitFor(() => expect(apiClient.POST).toHaveBeenCalledTimes(1));
   await act(async () => {});
 }
 
@@ -66,32 +81,32 @@ describe('PowerIndicesPanel', () => {
   // ── Initial render ──────────────────────────────────────────────────────────
 
   it('renders preset buttons', () => {
-    render(<PowerIndicesPanel />);
+    renderPanel();
     expect(screen.getByTestId('preset-france2022')).toBeInTheDocument();
     expect(screen.getByTestId('preset-germany2021')).toBeInTheDocument();
     expect(screen.getByTestId('preset-pivot_paradox')).toBeInTheDocument();
   });
 
   it('renders party editor with default parties', () => {
-    render(<PowerIndicesPanel />);
+    renderPanel();
     expect(screen.getByTestId('party-editor')).toBeInTheDocument();
     expect(screen.getByTestId('party-name-0')).toBeInTheDocument();
     expect(screen.getByTestId('party-seats-0')).toBeInTheDocument();
   });
 
   it('renders run button and threshold input', () => {
-    render(<PowerIndicesPanel />);
+    renderPanel();
     expect(screen.getByTestId('run-btn')).toBeInTheDocument();
     expect(screen.getByTestId('threshold-input')).toBeInTheDocument();
   });
 
   it('shows prompt alert before calculation', () => {
-    render(<PowerIndicesPanel />);
+    renderPanel();
     expect(screen.getByTestId('prompt-alert')).toBeInTheDocument();
   });
 
   it('shows shapley and banzhaf checkboxes', () => {
-    render(<PowerIndicesPanel />);
+    renderPanel();
     expect(screen.getByTestId('cb-shapley')).toBeInTheDocument();
     expect(screen.getByTestId('cb-banzhaf')).toBeInTheDocument();
   });
@@ -99,7 +114,7 @@ describe('PowerIndicesPanel', () => {
   // ── Preset loading ──────────────────────────────────────────────────────────
 
   it('loads france2022 preset and populates parties', () => {
-    render(<PowerIndicesPanel />);
+    renderPanel();
     fireEvent.click(screen.getByTestId('preset-france2022'));
     // After preset, party names should update (multiple name inputs)
     const nameInputs = screen.getAllByTestId(/^party-name-/);
@@ -107,7 +122,7 @@ describe('PowerIndicesPanel', () => {
   });
 
   it('adds a party when add button clicked', () => {
-    render(<PowerIndicesPanel />);
+    renderPanel();
     const before = screen.getAllByTestId(/^party-name-/).length;
     fireEvent.click(screen.getByTestId('add-party-btn'));
     const after = screen.getAllByTestId(/^party-name-/).length;
@@ -118,8 +133,9 @@ describe('PowerIndicesPanel', () => {
 
   it('calls API with correct payload on run', async () => {
     await renderAndRun();
-    const [url, payload] = mockAxios.post.mock.calls[0];
-    expect(url).toMatch(/\/api\/(v2\/)?election\/power-indices/);
+    const [url, init] = apiClient.POST.mock.calls[0];
+    expect(url).toBe('/api/v2/election/power-indices');
+    const payload = (init as { body: Record<string, unknown> }).body;
     expect(payload).toHaveProperty('parties');
     expect(payload).toHaveProperty('majority_threshold');
     expect(payload).toHaveProperty('calculate_shapley', true);
@@ -182,29 +198,27 @@ describe('PowerIndicesPanel', () => {
   // ── Error handling ──────────────────────────────────────────────────────────
 
   it('shows error alert on API failure', async () => {
-    mockAxios.post.mockRejectedValueOnce(new Error('Network error'));
-    render(<PowerIndicesPanel />);
+    apiClient.POST.mockRejectedValueOnce(new Error('Network error'));
+    renderPanel();
     await act(async () => { fireEvent.click(screen.getByTestId('run-btn')); });
-    await waitFor(() => expect(mockAxios.post).toHaveBeenCalled());
-    await act(async () => {});
-    expect(screen.getByTestId('error-alert')).toBeInTheDocument();
+    await waitFor(() => expect(screen.getByTestId('error-alert')).toBeInTheDocument());
   });
 
   // ── Pariah toggle ───────────────────────────────────────────────────────────
 
   it('toggling pariah switch triggers re-calculation when data exists', async () => {
-    mockAxios.post
-      .mockResolvedValueOnce({ data: MOCK_DATA })
-      .mockResolvedValueOnce({ data: PARIAH_DATA });
+    apiClient.POST
+      .mockResolvedValueOnce(ok(MOCK_DATA))
+      .mockResolvedValueOnce(ok(PARIAH_DATA));
 
-    render(<PowerIndicesPanel />);
+    renderPanel();
     await act(async () => { fireEvent.click(screen.getByTestId('run-btn')); });
-    await waitFor(() => expect(mockAxios.post).toHaveBeenCalledTimes(1));
+    await waitFor(() => expect(apiClient.POST).toHaveBeenCalledTimes(1));
     await act(async () => {});
 
     // Toggle pariah on first party
     fireEvent.click(screen.getByTestId('pariah-toggle-0'));
-    await waitFor(() => expect(mockAxios.post).toHaveBeenCalledTimes(2));
+    await waitFor(() => expect(apiClient.POST).toHaveBeenCalledTimes(2));
     await act(async () => {});
   });
 });

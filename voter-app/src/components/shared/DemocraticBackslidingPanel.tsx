@@ -3,7 +3,6 @@
  * Based on democratic backsliding research (Levitsky & Ziblatt, 2018).
  */
 import React, { useCallback, useState } from 'react';
-import axios from 'axios';
 import { useTranslation } from 'react-i18next';
 import {
   Alert, Badge, Button, Col, Form, Row, Spinner,
@@ -12,9 +11,7 @@ import {
   LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend,
   ReferenceLine, ResponsiveContainer,
 } from 'recharts';
-import { apiPath } from '../../api/apiVersion';
-
-const API = process.env.REACT_APP_API_URL ?? 'http://localhost:4434';
+import { $api } from '../../api/hooks';
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -100,9 +97,10 @@ const QualityBar: React.FC<{ value: number }> = ({ value }) => (
 const DemocraticBackslidingPanel: React.FC = () => {
   const { t } = useTranslation();
 
-  const [data,          setData]          = useState<BackslidingData | null>(null);
-  const [loading,       setLoading]       = useState(false);
-  const [error,         setError]         = useState<string | null>(null);
+  const sim = $api.useMutation('post', '/api/v2/theory/democratic-backsliding');
+  const data: BackslidingData | null = (sim.data as BackslidingData | undefined) ?? null;
+  const loading = sim.isPending;
+  const error = sim.isError ? t('backsliding.error') : null;
   const [numVoters,     setNumVoters]     = useState(200);
   const [numElections,  setNumElections]  = useState(8);
   const [seed,          setSeed]          = useState(42);
@@ -121,33 +119,25 @@ const DemocraticBackslidingPanel: React.FC = () => {
     setGuardrails(updated);
   };
 
-  const run = useCallback(async (
+  const run = useCallback((
     grOverride?: Record<Guardrail, boolean>,
   ) => {
     const gr = grOverride ?? guardrails;
-    setLoading(true);
-    setError(null);
-    try {
-      const res = await axios.post(`${API}${apiPath('theory/democratic-backsliding')}`, {
-        candidates: [
-          { name: t('backsliding.incumbent'), x: 0.2, y: 0.0 },
-          { name: t('backsliding.opposition'), x: -0.4, y: 0.0 },
-        ],
-        num_voters:           numVoters,
-        ideology:             'random',
-        seed,
-        num_elections:        numElections,
-        backsliding_method:   method,
-        backsliding_intensity: intensity,
-        guardrails:           gr,
-      });
-      setData(res.data);
-    } catch {
-      setError(t('backsliding.error'));
-    } finally {
-      setLoading(false);
-    }
-  }, [guardrails, numVoters, seed, numElections, method, intensity, t]);
+    sim.mutate({ body: {
+      candidates: [
+        { name: t('backsliding.incumbent'), x: 0.2, y: 0.0 },
+        { name: t('backsliding.opposition'), x: -0.4, y: 0.0 },
+      ],
+      num_voters:           numVoters,
+      ideology:             'random',
+      seed,
+      num_elections:        numElections,
+      backsliding_method:   method,
+      backsliding_intensity: intensity,
+      guardrails:           gr,
+    } });
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [guardrails, numVoters, seed, numElections, method, intensity, t, sim]);
 
   const handleGuardrailToggle = (gr: Guardrail) => {
     const updated = { ...guardrails, [gr]: !guardrails[gr] };
