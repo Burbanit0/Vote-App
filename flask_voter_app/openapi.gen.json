@@ -4920,6 +4920,30 @@
         "title": "JudgmentAggregationResponse",
         "type": "object"
       },
+      "JuryMethodResult": {
+        "additionalProperties": true,
+        "properties": {
+          "accuracy": {
+            "title": "Accuracy",
+            "type": "number"
+          },
+          "beats_majority": {
+            "title": "Beats Majority",
+            "type": "boolean"
+          },
+          "beats_theory": {
+            "title": "Beats Theory",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "accuracy",
+          "beats_majority",
+          "beats_theory"
+        ],
+        "title": "JuryMethodResult",
+        "type": "object"
+      },
       "JuryRequest": {
         "additionalProperties": false,
         "description": "Condorcet Jury Theorem: P(majority correct) when each voter is right with p>0.5.",
@@ -4968,6 +4992,70 @@
           }
         },
         "title": "JuryRequest",
+        "type": "object"
+      },
+      "JuryResponse": {
+        "additionalProperties": true,
+        "description": "Condorcet Jury Theorem — per-method accuracy + competence-curve scan.",
+        "properties": {
+          "best_method": {
+            "title": "Best Method",
+            "type": "string"
+          },
+          "competence_curve": {
+            "items": {
+              "additionalProperties": {
+                "type": "number"
+              },
+              "type": "object"
+            },
+            "title": "Competence Curve",
+            "type": "array"
+          },
+          "methods": {
+            "additionalProperties": {
+              "$ref": "#/components/schemas/JuryMethodResult"
+            },
+            "title": "Methods",
+            "type": "object"
+          },
+          "num_voters": {
+            "title": "Num Voters",
+            "type": "integer"
+          },
+          "pedagogical_note": {
+            "title": "Pedagogical Note",
+            "type": "string"
+          },
+          "pedagogical_note_en": {
+            "title": "Pedagogical Note En",
+            "type": "string"
+          },
+          "theoretical_accuracy": {
+            "title": "Theoretical Accuracy",
+            "type": "number"
+          },
+          "voter_competence": {
+            "title": "Voter Competence",
+            "type": "number"
+          },
+          "worst_method": {
+            "title": "Worst Method",
+            "type": "string"
+          }
+        },
+        "required": [
+          "theoretical_accuracy",
+          "methods",
+          "best_method",
+          "worst_method",
+          "voter_competence",
+          "num_voters",
+          "competence_curve",
+          "pedagogical_note",
+          "pedagogical_note_en"
+        ],
+        "title": "JuryResponse",
         "type": "object"
       },
       "KeyManipulator": {
@@ -9255,9 +9343,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "additionalProperties": true,
-                  "title": "Response Jury Endpoint Api V2 Election Jury Post",
-                  "type": "object"
+                  "$ref": "#/components/schemas/JuryResponse"
                 }
               }
             },

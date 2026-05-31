@@ -35,6 +35,7 @@ from .election import (
     CoalitionResponse,
     CombinedEffectsRequest,
     CombinedEffectsResponse,
+    JuryResponse,
     SimulateRequest,
     SimulateResponse,
 )
@@ -164,6 +165,7 @@ __all__ = [
     "CampaignSensitivityRequest", "CampaignSensitivityResponse",
     "CoalitionRequest", "CoalitionResponse",
     "CombinedEffectsRequest", "CombinedEffectsResponse",
+    "JuryResponse",
     "SimulateRequest", "SimulateResponse",
     # perturbers (request-only — see perturbers.py)
     "AdaptiveRequest",

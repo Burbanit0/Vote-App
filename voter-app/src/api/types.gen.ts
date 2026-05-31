@@ -4554,6 +4554,17 @@ export interface components {
             /** Voter Coherence Rate */
             voter_coherence_rate: number;
         };
+        /** JuryMethodResult */
+        JuryMethodResult: {
+            /** Accuracy */
+            accuracy: number;
+            /** Beats Majority */
+            beats_majority: boolean;
+            /** Beats Theory */
+            beats_theory: boolean;
+        } & {
+            [key: string]: unknown;
+        };
         /**
          * JuryRequest
          * @description Condorcet Jury Theorem: P(majority correct) when each voter is right with p>0.5.
@@ -4590,6 +4601,36 @@ export interface components {
              * @default 0.7
              */
             voter_competence: number;
+        };
+        /**
+         * JuryResponse
+         * @description Condorcet Jury Theorem — per-method accuracy + competence-curve scan.
+         */
+        JuryResponse: {
+            /** Best Method */
+            best_method: string;
+            /** Competence Curve */
+            competence_curve: {
+                [key: string]: number;
+            }[];
+            /** Methods */
+            methods: {
+                [key: string]: components["schemas"]["JuryMethodResult"];
+            };
+            /** Num Voters */
+            num_voters: number;
+            /** Pedagogical Note */
+            pedagogical_note: string;
+            /** Pedagogical Note En */
+            pedagogical_note_en: string;
+            /** Theoretical Accuracy */
+            theoretical_accuracy: number;
+            /** Voter Competence */
+            voter_competence: number;
+            /** Worst Method */
+            worst_method: string;
+        } & {
+            [key: string]: unknown;
         };
         /** KeyManipulator */
         KeyManipulator: {
@@ -7196,9 +7237,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        [key: string]: unknown;
-                    };
+                    "application/json": components["schemas"]["JuryResponse"];
                 };
             };
             /** @description Validation Error */

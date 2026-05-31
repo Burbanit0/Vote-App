@@ -245,3 +245,30 @@ class CoalitionResponse(BaseModel):
     most_centrist_method:   Optional[str]
     most_divergent_method:  Optional[str]
     inter_method_agreement: float
+
+
+# ── /jury ─────────────────────────────────────────────────────────────────────
+
+class JuryMethodResult(BaseModel):
+    model_config = ConfigDict(extra="allow")
+
+    accuracy:       float
+    beats_majority: bool
+    beats_theory:   bool
+
+
+class JuryResponse(BaseModel):
+    """Condorcet Jury Theorem — per-method accuracy + competence-curve scan."""
+    model_config = ConfigDict(extra="allow")
+
+    theoretical_accuracy: float
+    methods:              Dict[str, JuryMethodResult]
+    best_method:          str
+    worst_method:         str
+    voter_competence:     float
+    num_voters:           int
+    # Curve points carry dynamic per-method keys alongside competence/theoretical,
+    # so a permissive float map is the right shape.
+    competence_curve:     List[Dict[str, float]]
+    pedagogical_note:     str
+    pedagogical_note_en:  str

@@ -58,6 +58,7 @@ from api.schemas import (
     HotellingRequest,
     InterpretRequest,
     JuryRequest,
+    JuryResponse,
     LiquidDemocracyRequest,
     MultiwinnerCompareRequest,
     NotaRequest,
@@ -400,16 +401,17 @@ async def deliberation_endpoint(request: DeliberationRequest) -> Dict[str, Any]:
 
 @router.post(
     "/jury",
+    response_model=JuryResponse,
     summary="Condorcet Jury Theorem under N voting methods",
     response_description="Per-method accuracy, theoretical majority-rule accuracy, "
                          "and a competence-curve sensitivity chart.",
 )
-async def jury_endpoint(request: JuryRequest) -> Dict[str, Any]:
+async def jury_endpoint(request: JuryRequest) -> JuryResponse:
     """Voters with individual competence p > 0.5 aggregate collectively
     toward the 'correct' option. Runs `num_simulations` Monte Carlo
     trials and compares plurality, IRV, Borda, Schulze, MJ on the same
     juries."""
-    return await _run_passthrough(jury_domain, request)
+    return await _run_typed(jury_domain, request, JuryResponse)
 
 
 @router.post(
