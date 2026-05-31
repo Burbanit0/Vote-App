@@ -48,8 +48,8 @@ apiClient.use(authMiddleware);
 
 /**
  * Legacy service-layer helper — POST that resolves to the parsed body and
- * throws on transport/HTTP error (the axios-on-error-throws contract the old
- * `services/*Api.ts` wrappers and `useApiAction` rely on). Routes through the
+ * throws on transport/HTTP error (the axios-on-error-throws contract the
+ * `services/*Api.ts` wrappers rely on). Routes through the
  * typed `apiClient` (auth middleware + baseUrl) but takes a plain string path
  * so the pre-response_model service wrappers don't need per-path generics.
  * Panels use the fully-typed `$api`/`apiClient` directly instead.
