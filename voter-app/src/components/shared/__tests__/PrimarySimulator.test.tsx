@@ -1,11 +1,16 @@
 import React from 'react';
 import { render, screen, fireEvent, waitFor } from '@testing-library/react';
 import { MemoryRouter } from 'react-router';
+import { QueryClientProvider } from '@tanstack/react-query';
 import PrimarySimulator from '../PrimarySimulator';
 import { ElectionProvider } from '../../../context/ElectionContext';
+import { makeTestQueryClient } from '../../../test/queryWrapper';
 
-jest.mock('axios', () => ({ post: jest.fn() }));
-const { post: mockPost } = jest.requireMock('axios') as { post: jest.Mock };
+jest.mock('../../../api/client', () => ({
+  apiClient: { GET: jest.fn(), POST: jest.fn(), PUT: jest.fn(), DELETE: jest.fn(), PATCH: jest.fn() },
+  getAccessToken: jest.fn(() => null),
+}));
+const { apiClient } = jest.requireMock('../../../api/client') as { apiClient: { POST: jest.Mock } };
 
 // Mock Recharts to avoid SVG measurement issues in jsdom
 jest.mock('recharts', () => {
@@ -62,14 +67,17 @@ const makeData = (winnerChanged = false) => ({
     median_voter_distance:    0.18,
     without_primaries_winner: winnerChanged ? 'Anna' : 'Anna',
   },
+  error: undefined,
 });
 
 function renderPanel() {
   return render(
     <MemoryRouter>
-      <ElectionProvider>
-        <PrimarySimulator />
-      </ElectionProvider>
+      <QueryClientProvider client={makeTestQueryClient()}>
+        <ElectionProvider>
+          <PrimarySimulator />
+        </ElectionProvider>
+      </QueryClientProvider>
     </MemoryRouter>
   );
 }
@@ -90,19 +98,19 @@ describe('PrimarySimulator', () => {
     expect(screen.getByRole('alert')).toBeInTheDocument();
   });
 
-  it('calls axios.post with correct URL on click', async () => {
-    mockPost.mockResolvedValue(makeData());
+  it('calls API with correct URL on click', async () => {
+    apiClient.POST.mockResolvedValue(makeData());
     renderPanel();
     fireEvent.click(screen.getByRole('button', { name: /simuler|simulate/i }));
-    await waitFor(() => expect(mockPost).toHaveBeenCalledTimes(1));
-    expect(mockPost).toHaveBeenCalledWith(
+    await waitFor(() => expect(apiClient.POST).toHaveBeenCalledTimes(1));
+    expect(apiClient.POST).toHaveBeenCalledWith(
       expect.stringMatching(/\/api\/(v2\/)?election\/primary/),
       expect.any(Object)
     );
   });
 
   it('renders Phase 1 primaries section after data loads', async () => {
-    mockPost.mockResolvedValue(makeData());
+    apiClient.POST.mockResolvedValue(makeData());
     renderPanel();
     fireEvent.click(screen.getByRole('button', { name: /simuler|simulate/i }));
     await waitFor(() => {
@@ -111,7 +119,7 @@ describe('PrimarySimulator', () => {
   });
 
   it('renders Phase 2 general election section', async () => {
-    mockPost.mockResolvedValue(makeData());
+    apiClient.POST.mockResolvedValue(makeData());
     renderPanel();
     fireEvent.click(screen.getByRole('button', { name: /simuler|simulate/i }));
     await waitFor(() => {
@@ -120,7 +128,7 @@ describe('PrimarySimulator', () => {
   });
 
   it('shows general winner badge', async () => {
-    mockPost.mockResolvedValue(makeData());
+    apiClient.POST.mockResolvedValue(makeData());
     renderPanel();
     fireEvent.click(screen.getByRole('button', { name: /simuler|simulate/i }));
     await waitFor(() => {
@@ -129,7 +137,7 @@ describe('PrimarySimulator', () => {
   });
 
   it('shows drift badge when distortion > 0.1', async () => {
-    mockPost.mockResolvedValue(makeData());
+    apiClient.POST.mockResolvedValue(makeData());
     renderPanel();
     fireEvent.click(screen.getByRole('button', { name: /simuler|simulate/i }));
     await waitFor(() => {
@@ -138,7 +146,7 @@ describe('PrimarySimulator', () => {
   });
 
   it('shows per-party drift badge when distortion > 0.1', async () => {
-    mockPost.mockResolvedValue(makeData());
+    apiClient.POST.mockResolvedValue(makeData());
     renderPanel();
     fireEvent.click(screen.getByRole('button', { name: /simuler|simulate/i }));
     await waitFor(() => {
@@ -148,7 +156,7 @@ describe('PrimarySimulator', () => {
   });
 
   it('shows ideology axis SVG', async () => {
-    mockPost.mockResolvedValue(makeData());
+    apiClient.POST.mockResolvedValue(makeData());
     renderPanel();
     fireEvent.click(screen.getByRole('button', { name: /simuler|simulate/i }));
     await waitFor(() => {
@@ -157,7 +165,7 @@ describe('PrimarySimulator', () => {
   });
 
   it('shows warning alert when primaries change the winner', async () => {
-    mockPost.mockResolvedValue(makeData(true));
+    apiClient.POST.mockResolvedValue(makeData(true));
     renderPanel();
     fireEvent.click(screen.getByRole('button', { name: /simuler|simulate/i }));
     await waitFor(() => {
@@ -167,7 +175,7 @@ describe('PrimarySimulator', () => {
   });
 
   it('shows error on API failure', async () => {
-    mockPost.mockRejectedValue(new Error('Network error'));
+    apiClient.POST.mockRejectedValue(new Error('Network error'));
     renderPanel();
     fireEvent.click(screen.getByRole('button', { name: /simuler|simulate/i }));
     await waitFor(() => {
@@ -176,7 +184,7 @@ describe('PrimarySimulator', () => {
   });
 
   it('renders bar charts for primary results', async () => {
-    mockPost.mockResolvedValue(makeData());
+    apiClient.POST.mockResolvedValue(makeData());
     renderPanel();
     fireEvent.click(screen.getByRole('button', { name: /simuler|simulate/i }));
     await waitFor(() => {

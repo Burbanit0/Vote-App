@@ -7,15 +7,12 @@
  *   C) Quota display with per-candidate progress bars
  */
 import React, { useMemo, useState } from 'react';
-import axios from 'axios';
 import { useTranslation } from 'react-i18next';
 import {
   Alert, Badge, Button, Col, Form, ProgressBar, Row, Spinner,
 } from 'react-bootstrap';
 import { useElection } from '../../context/ElectionContext';
-import { apiPath } from '../../api/apiVersion';
-
-const API = process.env.REACT_APP_API_URL ?? 'http://localhost:4434';
+import { $api } from '../../api/hooks';
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -175,28 +172,22 @@ const STVPanel: React.FC = () => {
 
   const [numSeats,   setNumSeats]   = useState(3);
   const [quotaType,  setQuotaType]  = useState<'droop' | 'hare'>('droop');
-  const [data,       setData]       = useState<STVData | null>(null);
-  const [loading,    setLoading]    = useState(false);
-  const [error,      setError]      = useState<string | null>(null);
+  const sim = $api.useMutation('post', '/api/v2/election/stv');
+  const data: STVData | null = (sim.data as STVData | undefined) ?? null;
+  const loading = sim.isPending;
+  const error = sim.isError ? t('stv.error') : null;
   const [stepIdx,    setStepIdx]    = useState(0);
 
-  async function run() {
-    setLoading(true); setError(null); setStepIdx(0);
-    try {
-      const res = await axios.post(`${API}${apiPath('election/stv')}`, {
-        candidates: config.candidates,
-        num_voters: config.num_voters,
-        ideology:   config.ideology,
-        seed:       config.seed,
-        num_seats:  numSeats,
-        quota_type: quotaType,
-      });
-      setData(res.data);
-    } catch {
-      setError(t('stv.error'));
-    } finally {
-      setLoading(false);
-    }
+  function run() {
+    setStepIdx(0);
+    sim.mutate({ body: {
+      candidates: config.candidates,
+      num_voters: config.num_voters,
+      ideology:   config.ideology,
+      seed:       config.seed,
+      num_seats:  numSeats,
+      quota_type: quotaType,
+    } });
   }
 
   // Build cumulative elected/eliminated sets up to current step
