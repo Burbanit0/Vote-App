@@ -1,10 +1,15 @@
 import React from 'react';
 import { render, screen, fireEvent, waitFor, act } from '@testing-library/react';
 import { MemoryRouter } from 'react-router';
+import { QueryClientProvider } from '@tanstack/react-query';
 import JuryTheoremPanel from '../JuryTheoremPanel';
+import { makeTestQueryClient } from '../../../test/queryWrapper';
 
-jest.mock('axios', () => ({ post: jest.fn() }));
-const { post: mockPost } = jest.requireMock('axios') as { post: jest.Mock };
+jest.mock('../../../api/client', () => ({
+  apiClient: { GET: jest.fn(), POST: jest.fn(), PUT: jest.fn(), DELETE: jest.fn(), PATCH: jest.fn() },
+  getAccessToken: jest.fn(() => null),
+}));
+const { apiClient } = jest.requireMock('../../../api/client') as { apiClient: { POST: jest.Mock } };
 
 jest.mock('recharts', () => {
   const React = require('react');
@@ -26,7 +31,7 @@ jest.mock('recharts', () => {
 
 // ── Fixture ───────────────────────────────────────────────────────────────────
 
-function makeData(bestMethod = 'schulze'): { data: any } {
+function makeData(bestMethod = 'schulze'): { data: any; error: undefined } {
   const methods = {
     plurality: { accuracy: 0.85, beats_majority: true,  beats_theory: false },
     borda:     { accuracy: 0.88, beats_majority: true,  beats_theory: false },
@@ -57,13 +62,16 @@ function makeData(bestMethod = 'schulze'): { data: any } {
       pedagogical_note:     'Avec P=0.7 et 100 électeurs, la théorie prédit 89%. Schulze atteint 92%.',
       pedagogical_note_en:  'With P=0.7 and 100 voters, theory predicts 89%. Schulze reaches 92%.',
     },
+    error: undefined,
   };
 }
 
 function renderPanel() {
   return render(
     <MemoryRouter>
-      <JuryTheoremPanel />
+      <QueryClientProvider client={makeTestQueryClient()}>
+        <JuryTheoremPanel />
+      </QueryClientProvider>
     </MemoryRouter>
   );
 }
@@ -96,19 +104,19 @@ describe('JuryTheoremPanel', () => {
     expect(screen.getByRole('alert')).toBeInTheDocument();
   });
 
-  it('calls axios.post on button click', async () => {
-    mockPost.mockResolvedValue(makeData());
+  it('calls API on button click', async () => {
+    apiClient.POST.mockResolvedValue(makeData());
     renderPanel();
     fireEvent.click(screen.getByRole('button', { name: /simuler|simulate/i }));
-    await waitFor(() => expect(mockPost).toHaveBeenCalledTimes(1));
-    expect(mockPost).toHaveBeenCalledWith(
+    await waitFor(() => expect(apiClient.POST).toHaveBeenCalledTimes(1));
+    expect(apiClient.POST).toHaveBeenCalledWith(
       expect.stringMatching(/\/api\/(v2\/)?election\/jury/),
-      expect.objectContaining({ voter_competence: 0.70 }),
+      expect.objectContaining({ body: expect.objectContaining({ voter_competence: 0.70 }) }),
     );
   });
 
   it('renders competence curve LineChart after data loads', async () => {
-    mockPost.mockResolvedValue(makeData());
+    apiClient.POST.mockResolvedValue(makeData());
     renderPanel();
     fireEvent.click(screen.getByRole('button', { name: /simuler|simulate/i }));
     await waitFor(() => expect(screen.getByTestId('competence-curve-chart')).toBeInTheDocument());
@@ -116,7 +124,7 @@ describe('JuryTheoremPanel', () => {
   });
 
   it('renders accuracy BarChart after data loads', async () => {
-    mockPost.mockResolvedValue(makeData());
+    apiClient.POST.mockResolvedValue(makeData());
     renderPanel();
     fireEvent.click(screen.getByRole('button', { name: /simuler|simulate/i }));
     await waitFor(() => expect(screen.getByTestId('accuracy-bar-chart')).toBeInTheDocument());
@@ -124,7 +132,7 @@ describe('JuryTheoremPanel', () => {
   });
 
   it('shows theory accuracy badge', async () => {
-    mockPost.mockResolvedValue(makeData());
+    apiClient.POST.mockResolvedValue(makeData());
     renderPanel();
     fireEvent.click(screen.getByRole('button', { name: /simuler|simulate/i }));
     await waitFor(() => expect(screen.getByTestId('theory-badge')).toBeInTheDocument());
@@ -132,7 +140,7 @@ describe('JuryTheoremPanel', () => {
   });
 
   it('shows best method badge', async () => {
-    mockPost.mockResolvedValue(makeData('schulze'));
+    apiClient.POST.mockResolvedValue(makeData('schulze'));
     renderPanel();
     fireEvent.click(screen.getByRole('button', { name: /simuler|simulate/i }));
     await waitFor(() => {
@@ -143,7 +151,7 @@ describe('JuryTheoremPanel', () => {
   });
 
   it('shows method-level badges', async () => {
-    mockPost.mockResolvedValue(makeData());
+    apiClient.POST.mockResolvedValue(makeData());
     renderPanel();
     fireEvent.click(screen.getByRole('button', { name: /simuler|simulate/i }));
     await waitFor(() => {
@@ -154,7 +162,7 @@ describe('JuryTheoremPanel', () => {
   });
 
   it('shows pedagogical note', async () => {
-    mockPost.mockResolvedValue(makeData());
+    apiClient.POST.mockResolvedValue(makeData());
     renderPanel();
     fireEvent.click(screen.getByRole('button', { name: /simuler|simulate/i }));
     await waitFor(() => expect(screen.getByTestId('pedagogical-note')).toBeInTheDocument());
@@ -162,26 +170,26 @@ describe('JuryTheoremPanel', () => {
   });
 
   it('competence slider triggers debounced API call', async () => {
-    mockPost.mockResolvedValue(makeData());
+    apiClient.POST.mockResolvedValue(makeData());
     renderPanel();
 
     // Initial data load first
     fireEvent.click(screen.getByRole('button', { name: /simuler|simulate/i }));
-    await waitFor(() => expect(mockPost).toHaveBeenCalledTimes(1));
+    await waitFor(() => expect(apiClient.POST).toHaveBeenCalledTimes(1));
 
     // Slider change → debounce → API call after DEBOUNCE_MS
     fireEvent.change(screen.getByTestId('competence-slider'), { target: { value: '0.8' } });
     // Before debounce fires: no extra call yet
-    expect(mockPost).toHaveBeenCalledTimes(1);
+    expect(apiClient.POST).toHaveBeenCalledTimes(1);
 
     // Advance fake timers past debounce
     act(() => { jest.advanceTimersByTime(450); });
-    await waitFor(() => expect(mockPost).toHaveBeenCalledTimes(2));
-    expect(mockPost.mock.calls[1][1]).toMatchObject({ voter_competence: 0.8 });
+    await waitFor(() => expect(apiClient.POST).toHaveBeenCalledTimes(2));
+    expect((apiClient.POST.mock.calls[1][1] as { body: Record<string, unknown> }).body).toMatchObject({ voter_competence: 0.8 });
   });
 
   it('shows error on API failure', async () => {
-    mockPost.mockRejectedValue(new Error('Network error'));
+    apiClient.POST.mockRejectedValue(new Error('Network error'));
     renderPanel();
     fireEvent.click(screen.getByRole('button', { name: /simuler|simulate/i }));
     await waitFor(() => expect(screen.getByText(/Erreur|Error/i)).toBeInTheDocument());

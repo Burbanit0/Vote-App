@@ -2,12 +2,9 @@ import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { Alert, Badge, Button, Card, Col, Row, Spinner } from 'react-bootstrap';
 import { useTranslation } from 'react-i18next';
 import i18n from '../../i18n';
-import axios from 'axios';
 import { useElection } from '../../context/ElectionContext';
 import MethodGroupDonut from './MethodGroupDonut';
-import { apiPath } from '../../api/apiVersion';
-
-const API_BASE = process.env.VITE_API_URL || 'http://localhost:4434';
+import { $api } from '../../api/hooks';
 
 // ── SVG constants (same coord system as IdeologyMapChart) ─────────────────────
 
@@ -202,39 +199,28 @@ const ElectionPipelineAnimator: React.FC = () => {
   const lang            = (i18n.language?.startsWith('en') ? 'en' : 'fr') as 'fr' | 'en';
   const { config }      = useElection();
 
-  const [pipeline,     setPipeline]     = useState<PipelineResult | null>(null);
+  const sim = $api.useMutation('post', '/api/v2/election/simulate-pipeline');
+  const pipeline: PipelineResult | null = (sim.data as PipelineResult | undefined) ?? null;
+  const loading = sim.isPending;
+  const error = sim.isError ? t('pipeline.error') : null;
   const [currentStep,  setCurrentStep]  = useState(0);
   const [playing,      setPlaying]      = useState(false);
-  const [loading,      setLoading]      = useState(false);
-  const [error,        setError]        = useState<string | null>(null);
   const [animating,    setAnimating]    = useState(false);
 
   const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
-  const runIdRef    = useRef(0);
 
   // ── Fetch pipeline ────────────────────────────────────────────────────
-  const fetchPipeline = useCallback(async () => {
-    const myRun = ++runIdRef.current;
-    setLoading(true);
-    setError(null);
-    setPipeline(null);
+  const fetchPipeline = useCallback(() => {
     setCurrentStep(0);
     setPlaying(false);
-    try {
-      const res = await axios.post<PipelineResult>(`${API_BASE}${apiPath('election/simulate-pipeline')}`, {
-        ...config,
-        num_voters: Math.min(config.num_voters, 150),
-      });
-      if (runIdRef.current === myRun) {
-        setPipeline(res.data);
-        setCurrentStep(0);
-      }
-    } catch {
-      if (runIdRef.current === myRun) setError(t('pipeline.error'));
-    } finally {
-      if (runIdRef.current === myRun) setLoading(false);
-    }
-  }, [config, t]);
+    sim.mutate({ body: {
+      ...config,
+      num_voters: Math.min(config.num_voters, 150),
+    } }, {
+      onSuccess: () => setCurrentStep(0),
+    });
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [config, t, sim]);
 
   // ── Auto-play ─────────────────────────────────────────────────────────
   useEffect(() => {

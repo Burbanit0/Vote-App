@@ -1,14 +1,16 @@
 import React from 'react';
 import { render, screen, fireEvent, waitFor } from '@testing-library/react';
 import { MemoryRouter } from 'react-router';
+import { QueryClientProvider } from '@tanstack/react-query';
 import ElectionPipelineAnimator from '../ElectionPipelineAnimator';
 import { ElectionProvider } from '../../../context/ElectionContext';
+import { makeTestQueryClient } from '../../../test/queryWrapper';
 
-jest.mock('axios', () => ({
-  post: jest.fn(),
+jest.mock('../../../api/client', () => ({
+  apiClient: { GET: jest.fn(), POST: jest.fn(), PUT: jest.fn(), DELETE: jest.fn(), PATCH: jest.fn() },
+  getAccessToken: jest.fn(() => null),
 }));
-
-const { post: mockPost } = jest.requireMock('axios') as { post: jest.Mock };
+const { apiClient } = jest.requireMock('../../../api/client') as { apiClient: { POST: jest.Mock } };
 
 jest.mock('../MethodGroupDonut', () => () => <div data-testid="donut" />);
 
@@ -34,14 +36,17 @@ const makePipeline = (stepIds: string[]) => ({
       ...(id === 'results' ? { winner_groups: [{ winner: 'Alice', methods: ['plurality'], pct: 1.0 }] } : {}),
     })),
   },
+  error: undefined,
 });
 
 function renderPanel() {
   return render(
     <MemoryRouter>
-      <ElectionProvider>
-        <ElectionPipelineAnimator />
-      </ElectionProvider>
+      <QueryClientProvider client={makeTestQueryClient()}>
+        <ElectionProvider>
+          <ElectionPipelineAnimator />
+        </ElectionProvider>
+      </QueryClientProvider>
     </MemoryRouter>
   );
 }
@@ -62,19 +67,19 @@ describe('ElectionPipelineAnimator', () => {
     expect(screen.getByRole('button', { name: /pipeline|animer/i })).toBeInTheDocument();
   });
 
-  it('calls axios.post on button click', async () => {
-    mockPost.mockResolvedValue(makePipeline(['base', 'results']));
+  it('calls API on button click', async () => {
+    apiClient.POST.mockResolvedValue(makePipeline(['base', 'results']));
     renderPanel();
     fireEvent.click(screen.getByRole('button', { name: /pipeline|animer/i }));
-    await waitFor(() => expect(mockPost).toHaveBeenCalledTimes(1));
-    expect(mockPost).toHaveBeenCalledWith(
+    await waitFor(() => expect(apiClient.POST).toHaveBeenCalledTimes(1));
+    expect(apiClient.POST).toHaveBeenCalledWith(
       expect.stringMatching(/\/api\/(v2\/)?election\/simulate-pipeline/),
       expect.any(Object)
     );
   });
 
   it('renders step buttons after pipeline loads', async () => {
-    mockPost.mockResolvedValue(makePipeline(['base', 'results']));
+    apiClient.POST.mockResolvedValue(makePipeline(['base', 'results']));
     renderPanel();
     fireEvent.click(screen.getByRole('button', { name: /pipeline|animer/i }));
     await waitFor(() => {
@@ -84,7 +89,7 @@ describe('ElectionPipelineAnimator', () => {
   });
 
   it('shows SVG scatter after pipeline loads', async () => {
-    mockPost.mockResolvedValue(makePipeline(['base', 'results']));
+    apiClient.POST.mockResolvedValue(makePipeline(['base', 'results']));
     const { container } = renderPanel();
     fireEvent.click(screen.getByRole('button', { name: /pipeline|animer/i }));
     await waitFor(() => {
@@ -93,7 +98,7 @@ describe('ElectionPipelineAnimator', () => {
   });
 
   it('clicking a step button navigates to that step', async () => {
-    mockPost.mockResolvedValue(makePipeline(['base', 'campaign', 'results']));
+    apiClient.POST.mockResolvedValue(makePipeline(['base', 'campaign', 'results']));
     renderPanel();
     fireEvent.click(screen.getByRole('button', { name: /pipeline|animer/i }));
     await waitFor(() => expect(screen.getByTestId('pipeline-step-campaign')).toBeInTheDocument());
@@ -104,7 +109,7 @@ describe('ElectionPipelineAnimator', () => {
   });
 
   it('shows donut in results step', async () => {
-    mockPost.mockResolvedValue(makePipeline(['base', 'results']));
+    apiClient.POST.mockResolvedValue(makePipeline(['base', 'results']));
     renderPanel();
     fireEvent.click(screen.getByRole('button', { name: /pipeline|animer/i }));
 
@@ -116,7 +121,7 @@ describe('ElectionPipelineAnimator', () => {
   });
 
   it('shows error when API fails', async () => {
-    mockPost.mockRejectedValue(new Error('Network error'));
+    apiClient.POST.mockRejectedValue(new Error('Network error'));
     renderPanel();
     fireEvent.click(screen.getByRole('button', { name: /pipeline|animer/i }));
     await waitFor(() => {
