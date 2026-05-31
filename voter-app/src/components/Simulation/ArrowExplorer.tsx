@@ -4,7 +4,6 @@
  * minimal counterexamples.
  */
 import React, { useCallback, useState } from 'react';
-import axios from 'axios';
 import { useTranslation } from 'react-i18next';
 import {
   Alert, Badge, Button, Card, Col, Form, Row, Spinner, Table,
@@ -13,9 +12,7 @@ import {
   LineChart, Line, XAxis, YAxis, Tooltip, CartesianGrid,
   Legend, ResponsiveContainer, ReferenceLine,
 } from 'recharts';
-import { apiPath } from '../../api/apiVersion';
-
-const API = process.env.REACT_APP_API_URL ?? 'http://localhost:4434';
+import { $api } from '../../api/hooks';
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -240,29 +237,19 @@ const ArrowExplorer: React.FC = () => {
   const { t } = useTranslation();
 
   const [method,      setMethod]      = useState('plurality');
-  const [data,        setData]        = useState<ArrowData | null>(null);
-  const [rateData,    setRateData]    = useState<IIARateData | null>(null);
-  const [loading,     setLoading]     = useState(false);
-  const [rateLoading, setRateLoading] = useState(false);
-  const [error,       setError]       = useState<string | null>(null);
+  const simArrow = $api.useMutation('post', '/api/v2/theory/arrow');
+  const simRate  = $api.useMutation('post', '/api/v2/theory/iia-rate');
+  const data: ArrowData | null = (simArrow.data as ArrowData | undefined) ?? null;
+  const rateData: IIARateData | null = (simRate.data as IIARateData | undefined) ?? null;
+  const loading = simArrow.isPending || simRate.isPending;
+  const error = (simArrow.isError || simRate.isError) ? t('arrow.error') : null;
   const [checkedAxioms, setChecked]   = useState<Set<string>>(new Set());
 
-  const runAnalysis = useCallback(async () => {
-    setLoading(true);
-    setError(null);
-    try {
-      const [arrowRes, rateRes] = await Promise.all([
-        axios.post(`${API}${apiPath('theory/arrow')}`, { method }),
-        axios.post(`${API}${apiPath('theory/iia-rate')}`, { method, max_candidates: 8, num_trials: 100 }),
-      ]);
-      setData(arrowRes.data);
-      setRateData(rateRes.data);
-    } catch {
-      setError(t('arrow.error'));
-    } finally {
-      setLoading(false);
-    }
-  }, [method, t]);
+  const runAnalysis = useCallback(() => {
+    simArrow.mutate({ body: { method, seed: 42 } });
+    simRate.mutate({ body: { method, max_candidates: 8, num_trials: 100, seed: 42 } });
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [method, t, simArrow, simRate]);
 
   const toggleAxiom = (key: string) => {
     setChecked((prev) => {

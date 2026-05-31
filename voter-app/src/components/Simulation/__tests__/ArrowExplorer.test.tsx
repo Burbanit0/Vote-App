@@ -1,10 +1,15 @@
 import React from 'react';
 import { render, screen, fireEvent, waitFor } from '@testing-library/react';
 import { MemoryRouter } from 'react-router';
+import { QueryClientProvider } from '@tanstack/react-query';
 import ArrowExplorer from '../ArrowExplorer';
+import { makeTestQueryClient } from '../../../test/queryWrapper';
 
-jest.mock('axios', () => ({ post: jest.fn() }));
-const { post: mockPost } = jest.requireMock('axios') as { post: jest.Mock };
+jest.mock('../../../api/client', () => ({
+  apiClient: { GET: jest.fn(), POST: jest.fn(), PUT: jest.fn(), DELETE: jest.fn(), PATCH: jest.fn() },
+  getAccessToken: jest.fn(() => null),
+}));
+const { apiClient } = jest.requireMock('../../../api/client') as { apiClient: { POST: jest.Mock } };
 
 jest.mock('recharts', () => {
   const React = require('react');
@@ -39,6 +44,7 @@ function makeArrowData(method = 'plurality') {
       arrow_summary: 'Test summary.',
       tradeoff_type: 'majority_focus',
     },
+    error: undefined,
   };
 }
 
@@ -53,13 +59,16 @@ function makeRateData(method = 'plurality') {
         { n_candidates: 5, violation_rate: 0.65 },
       ],
     },
+    error: undefined,
   };
 }
 
 function renderExplorer() {
   return render(
     <MemoryRouter>
-      <ArrowExplorer />
+      <QueryClientProvider client={makeTestQueryClient()}>
+        <ArrowExplorer />
+      </QueryClientProvider>
     </MemoryRouter>
   );
 }
@@ -98,17 +107,17 @@ describe('ArrowExplorer', () => {
   });
 
   it('calls both API endpoints on analyze click', async () => {
-    mockPost
+    apiClient.POST
       .mockResolvedValueOnce(makeArrowData())
       .mockResolvedValueOnce(makeRateData());
     renderExplorer();
     fireEvent.click(screen.getByTestId('analyze-btn'));
-    await waitFor(() => expect(mockPost).toHaveBeenCalledTimes(2));
-    expect(mockPost).toHaveBeenCalledWith(
+    await waitFor(() => expect(apiClient.POST).toHaveBeenCalledTimes(2));
+    expect(apiClient.POST).toHaveBeenCalledWith(
       expect.stringMatching(/\/api\/(v2\/)?theory\/arrow/),
       expect.any(Object),
     );
-    expect(mockPost).toHaveBeenCalledWith(
+    expect(apiClient.POST).toHaveBeenCalledWith(
       expect.stringMatching(/\/api\/(v2\/)?theory\/iia-rate/),
       expect.any(Object),
     );
@@ -116,7 +125,7 @@ describe('ArrowExplorer', () => {
   });
 
   it('renders pentagon SVG after analysis', async () => {
-    mockPost.mockResolvedValueOnce(makeArrowData()).mockResolvedValueOnce(makeRateData());
+    apiClient.POST.mockResolvedValueOnce(makeArrowData()).mockResolvedValueOnce(makeRateData());
     renderExplorer();
     fireEvent.click(screen.getByTestId('analyze-btn'));
     await waitFor(() => expect(screen.getByTestId('arrow-pentagon')).toBeInTheDocument(), { timeout: 8000 });
@@ -124,7 +133,7 @@ describe('ArrowExplorer', () => {
   });
 
   it('shows counterexample card for IIA', async () => {
-    mockPost.mockResolvedValueOnce(makeArrowData()).mockResolvedValueOnce(makeRateData());
+    apiClient.POST.mockResolvedValueOnce(makeArrowData()).mockResolvedValueOnce(makeRateData());
     renderExplorer();
     fireEvent.click(screen.getByTestId('analyze-btn'));
     await waitFor(() => expect(screen.getByTestId('counterexample-iia')).toBeInTheDocument(), { timeout: 8000 });
@@ -132,7 +141,7 @@ describe('ArrowExplorer', () => {
   });
 
   it('shows IIA rate chart after analysis', async () => {
-    mockPost.mockResolvedValueOnce(makeArrowData()).mockResolvedValueOnce(makeRateData());
+    apiClient.POST.mockResolvedValueOnce(makeArrowData()).mockResolvedValueOnce(makeRateData());
     renderExplorer();
     fireEvent.click(screen.getByTestId('analyze-btn'));
     await waitFor(() => expect(screen.getByTestId('iia-rate-chart')).toBeInTheDocument(), { timeout: 8000 });
@@ -161,7 +170,7 @@ describe('ArrowExplorer', () => {
   });
 
   it('shows error on API failure', async () => {
-    mockPost.mockRejectedValue(new Error('Network error'));
+    apiClient.POST.mockRejectedValue(new Error('Network error'));
     renderExplorer();
     fireEvent.click(screen.getByTestId('analyze-btn'));
     await waitFor(() => expect(screen.getByText(/Erreur|Error/i)).toBeInTheDocument());
