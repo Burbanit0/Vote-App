@@ -4,8 +4,7 @@
  * add null ballots and random votes, but improve representation).
  */
 import React, { useCallback, useRef, useState } from 'react';
-import axios from 'axios';
-import { useApiAction } from '../../hooks/useApi';
+import { $api } from '../../api/hooks';
 import { useTranslation } from 'react-i18next';
 import { Alert, Badge, Button, Card, Col, Form, Row, Spinner } from 'react-bootstrap';
 import {
@@ -14,26 +13,8 @@ import {
 } from 'recharts';
 import { useElection } from '../../context/ElectionContext';
 import PinToCentralButton from './PinToCentralButton';
-import { apiPath } from '../../api/apiVersion';
 
-const API = process.env.REACT_APP_API_URL ?? 'http://localhost:4434';
 const DEBOUNCE_MS = 400;
-
-interface CompulsoryArgs {
-  candidates:           Array<{ name: string; x: number; y: number }>;
-  num_voters:           number;
-  ideology:             string;
-  seed:                 number;
-  voluntary_turnout:    number;
-  compulsory_turnout:   number;
-  reluctant_null_rate:  number;
-  reluctant_random_pct: number;
-  method:               string;
-}
-async function fetchCompulsory(args: CompulsoryArgs): Promise<CompulsoryData> {
-  const res = await axios.post<CompulsoryData>(`${API}${apiPath('election/compulsory-voting')}`, args);
-  return res.data;
-}
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -144,17 +125,15 @@ const CompulsoryVotingPanel: React.FC = () => {
   const [relNull,     setRelNull]     = useState(0.04);
   const [relRandom,   setRelRandom]   = useState(0.08);
 
-  const {
-    data, loading, error, run: runFetch,
-  } = useApiAction<CompulsoryData, CompulsoryArgs>(
-    fetchCompulsory,
-    { toErrorMessage: () => t('compulsory.error') },
-  );
+  const sim = $api.useMutation('post', '/api/v2/election/compulsory-voting');
+  const data: CompulsoryData | null = (sim.data as CompulsoryData | undefined) ?? null;
+  const loading = sim.isPending;
+  const error = sim.isError ? t('compulsory.error') : null;
 
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const runSimulation = useCallback((vt: number, ct: number, rn: number, rr: number) => {
-    return runFetch({
+    sim.mutate({ body: {
       candidates:           config.candidates.map((c) => ({ name: c.name, x: c.x, y: c.y })),
       num_voters:           config.num_voters,
       ideology:             config.ideology,
@@ -164,8 +143,9 @@ const CompulsoryVotingPanel: React.FC = () => {
       reluctant_null_rate:  rn,
       reluctant_random_pct: rr,
       method:               'plurality',
-    });
-  }, [config, runFetch]);
+    } });
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [config, sim]);
 
   const handleSimulate = () => runSimulation(volTurnout, compTurnout, relNull, relRandom);
 

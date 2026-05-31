@@ -1,11 +1,16 @@
 import React from 'react';
 import { render, screen, fireEvent, waitFor } from '@testing-library/react';
 import { MemoryRouter } from 'react-router';
+import { QueryClientProvider } from '@tanstack/react-query';
 import CoalitionPanel from '../CoalitionPanel';
 import { ElectionProvider } from '../../../context/ElectionContext';
+import { makeTestQueryClient } from '../../../test/queryWrapper';
 
-jest.mock('axios', () => ({ post: jest.fn() }));
-const { post: mockPost } = jest.requireMock('axios') as { post: jest.Mock };
+jest.mock('../../../api/client', () => ({
+  apiClient: { GET: jest.fn(), POST: jest.fn(), PUT: jest.fn(), DELETE: jest.fn(), PATCH: jest.fn() },
+  getAccessToken: jest.fn(() => null),
+}));
+const { apiClient } = jest.requireMock('../../../api/client') as { apiClient: { POST: jest.Mock } };
 
 const makeCoalitionData = () => ({
   data: {
@@ -42,14 +47,17 @@ const makeCoalitionData = () => ({
     most_divergent_method: 'borda',
     inter_method_agreement: 0.5,
   },
+  error: undefined,
 });
 
 function renderPanel() {
   return render(
     <MemoryRouter>
-      <ElectionProvider>
-        <CoalitionPanel />
-      </ElectionProvider>
+      <QueryClientProvider client={makeTestQueryClient()}>
+        <ElectionProvider>
+          <CoalitionPanel />
+        </ElectionProvider>
+      </QueryClientProvider>
     </MemoryRouter>
   );
 }
@@ -70,21 +78,21 @@ describe('CoalitionPanel', () => {
     expect(screen.getByRole('button', { name: /coalition|simuler/i })).toBeInTheDocument();
   });
 
-  it('calls axios.post on button click', async () => {
-    mockPost.mockResolvedValue(makeCoalitionData());
+  it('calls API on button click', async () => {
+    apiClient.POST.mockResolvedValue(makeCoalitionData());
     renderPanel();
     fireEvent.click(screen.getByRole('button', { name: /coalition|simuler/i }));
-    await waitFor(() => expect(mockPost).toHaveBeenCalledTimes(1));
+    await waitFor(() => expect(apiClient.POST).toHaveBeenCalledTimes(1));
     // Accept either /api/election/coalition (Flask v1) or
     // /api/v2/election/coalition (FastAPI v2 — default since Phase 3 batch 2).
-    expect(mockPost).toHaveBeenCalledWith(
+    expect(apiClient.POST).toHaveBeenCalledWith(
       expect.stringMatching(/\/api\/(v2\/)?election\/coalition/),
       expect.any(Object)
     );
   });
 
   it('renders method rows after data loads', async () => {
-    mockPost.mockResolvedValue(makeCoalitionData());
+    apiClient.POST.mockResolvedValue(makeCoalitionData());
     renderPanel();
     fireEvent.click(screen.getByRole('button', { name: /coalition|simuler/i }));
     await waitFor(() => {
@@ -94,7 +102,7 @@ describe('CoalitionPanel', () => {
   });
 
   it('renders SVG hémicycle', async () => {
-    mockPost.mockResolvedValue(makeCoalitionData());
+    apiClient.POST.mockResolvedValue(makeCoalitionData());
     const { container } = renderPanel();
     fireEvent.click(screen.getByRole('button', { name: /coalition|simuler/i }));
     await waitFor(() => {
@@ -103,7 +111,7 @@ describe('CoalitionPanel', () => {
   });
 
   it('shows government possible badge', async () => {
-    mockPost.mockResolvedValue(makeCoalitionData());
+    apiClient.POST.mockResolvedValue(makeCoalitionData());
     renderPanel();
     fireEvent.click(screen.getByRole('button', { name: /coalition|simuler/i }));
     await waitFor(() => {
@@ -112,7 +120,7 @@ describe('CoalitionPanel', () => {
   });
 
   it('shows most centrist badge', async () => {
-    mockPost.mockResolvedValue(makeCoalitionData());
+    apiClient.POST.mockResolvedValue(makeCoalitionData());
     renderPanel();
     fireEvent.click(screen.getByRole('button', { name: /coalition|simuler/i }));
     await waitFor(() => {
@@ -121,7 +129,7 @@ describe('CoalitionPanel', () => {
   });
 
   it('shows error when API fails', async () => {
-    mockPost.mockRejectedValue(new Error('Network error'));
+    apiClient.POST.mockRejectedValue(new Error('Network error'));
     renderPanel();
     fireEvent.click(screen.getByRole('button', { name: /coalition|simuler/i }));
     await waitFor(() => {
@@ -130,7 +138,7 @@ describe('CoalitionPanel', () => {
   });
 
   it('clicking a method row changes selected method display', async () => {
-    mockPost.mockResolvedValue(makeCoalitionData());
+    apiClient.POST.mockResolvedValue(makeCoalitionData());
     renderPanel();
     fireEvent.click(screen.getByRole('button', { name: /coalition|simuler/i }));
     await waitFor(() => expect(screen.getByText('borda')).toBeInTheDocument());
