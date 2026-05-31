@@ -2,7 +2,6 @@ import React, {
   useCallback, useEffect, useRef, useState,
 } from 'react';
 import { useDragTouch } from '../../hooks/useDragTouch';
-import axios from 'axios';
 import { useTranslation } from 'react-i18next';
 import {
   Alert, Badge, Button, Card, Col, Form, Row, Spinner,
@@ -11,9 +10,7 @@ import {
   BarChart, Bar, XAxis, YAxis, Tooltip,
   ResponsiveContainer, Cell,
 } from 'recharts';
-import { apiPath } from '../../api/apiVersion';
-
-const API = process.env.REACT_APP_API_URL ?? 'http://localhost:4434';
+import { $api } from '../../api/hooks';
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -158,9 +155,10 @@ const HistoricalReplay: React.FC = () => {
 
   const [scenarioId, setScenarioId] = useState<string>('france2002');
   const [numDays,    setNumDays]    = useState(30);
-  const [data,       setData]       = useState<ReplayData | null>(null);
-  const [loading,    setLoading]    = useState(false);
-  const [error,      setError]      = useState<string | null>(null);
+  const sim = $api.useMutation('post', '/api/v2/election/historical-replay');
+  const data: ReplayData | null = (sim.data as ReplayData | undefined) ?? null;
+  const loading = sim.isPending;
+  const error = sim.isError ? t('replay.error') : null;
   const [currentDay, setCurrentDay] = useState(0);
   const [playing,    setPlaying]    = useState(false);
 
@@ -174,29 +172,23 @@ const HistoricalReplay: React.FC = () => {
 
   const candidateNames = data?.candidates.map(c => c.name) ?? [];
 
-  async function run(overrides: { name: string; x: number; y: number }[] = []) {
+  function run(overrides: { name: string; x: number; y: number }[] = []) {
     if (timerRef.current) clearTimeout(timerRef.current);
     setPlaying(false);
-    setLoading(true);
-    setError(null);
     setCurrentDay(0);
-    try {
-      const res = await axios.post(`${API}${apiPath('election/historical-replay')}`, {
-        scenario_id: scenarioId,
-        overrides,
-        num_days: numDays,
-        seed: 42,
-      });
-      setData(res.data);
-      // Init positions from returned candidates
-      const p: Record<string, { x: number; y: number }> = {};
-      (res.data.candidates as ReplayCandidate[]).forEach(c => { p[c.name] = { x: c.x, y: c.y }; });
-      setPositions(p);
-    } catch {
-      setError(t('replay.error'));
-    } finally {
-      setLoading(false);
-    }
+    sim.mutate({ body: {
+      scenario_id: scenarioId,
+      overrides,
+      num_days: numDays,
+      seed: 42,
+    } }, {
+      onSuccess: (res) => {
+        // Init positions from returned candidates
+        const p: Record<string, { x: number; y: number }> = {};
+        ((res as unknown as ReplayData).candidates as ReplayCandidate[]).forEach(c => { p[c.name] = { x: c.x, y: c.y }; });
+        setPositions(p);
+      },
+    });
   }
 
   // Play/pause auto-advance
@@ -253,7 +245,7 @@ const HistoricalReplay: React.FC = () => {
                 border: scenarioId === sc.id ? '2px solid var(--bs-primary)' : undefined,
                 fontSize: '0.78rem',
               }}
-              onClick={() => { setScenarioId(sc.id); setData(null); setPositions({}); }}
+              onClick={() => { setScenarioId(sc.id); sim.reset(); setPositions({}); }}
               data-testid={`scenario-card-${sc.id}`}
             >
               <Card.Body className="p-2 text-center">

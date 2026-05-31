@@ -1,10 +1,15 @@
 import React from 'react';
 import { render, screen, fireEvent, waitFor } from '@testing-library/react';
 import { MemoryRouter } from 'react-router';
+import { QueryClientProvider } from '@tanstack/react-query';
 import HistoricalReplay from '../HistoricalReplay';
+import { makeTestQueryClient } from '../../../test/queryWrapper';
 
-jest.mock('axios', () => ({ post: jest.fn() }));
-const { post: mockPost } = jest.requireMock('axios') as { post: jest.Mock };
+jest.mock('../../../api/client', () => ({
+  apiClient: { GET: jest.fn(), POST: jest.fn(), PUT: jest.fn(), DELETE: jest.fn(), PATCH: jest.fn() },
+  getAccessToken: jest.fn(() => null),
+}));
+const { apiClient } = jest.requireMock('../../../api/client') as { apiClient: { POST: jest.Mock } };
 
 jest.mock('recharts', () => {
   const React = require('react');
@@ -54,13 +59,16 @@ function makeReplay(differs = false) {
           : 'Simulation converges on Chirac.',
       },
     },
+    error: undefined,
   };
 }
 
 function renderPanel() {
   return render(
     <MemoryRouter>
-      <HistoricalReplay />
+      <QueryClientProvider client={makeTestQueryClient()}>
+        <HistoricalReplay />
+      </QueryClientProvider>
     </MemoryRouter>
   );
 }
@@ -91,19 +99,19 @@ describe('HistoricalReplay', () => {
     expect(screen.getByRole('button', { name: /simuler|simulate/i })).toBeInTheDocument();
   });
 
-  it('calls axios.post with correct endpoint on simulate click', async () => {
-    mockPost.mockResolvedValue(makeReplay());
+  it('calls API with correct endpoint on simulate click', async () => {
+    apiClient.POST.mockResolvedValue(makeReplay());
     renderPanel();
     fireEvent.click(screen.getByRole('button', { name: /simuler|simulate/i }));
-    await waitFor(() => expect(mockPost).toHaveBeenCalledTimes(1));
-    expect(mockPost).toHaveBeenCalledWith(
+    await waitFor(() => expect(apiClient.POST).toHaveBeenCalledTimes(1));
+    expect(apiClient.POST).toHaveBeenCalledWith(
       expect.stringMatching(/\/api\/(v2\/)?election\/historical-replay/),
-      expect.objectContaining({ scenario_id: 'france2002' }),
+      expect.objectContaining({ body: expect.objectContaining({ scenario_id: 'france2002' }) }),
     );
   });
 
   it('renders ideology map SVG after data loads', async () => {
-    mockPost.mockResolvedValue(makeReplay());
+    apiClient.POST.mockResolvedValue(makeReplay());
     renderPanel();
     fireEvent.click(screen.getByRole('button', { name: /simuler|simulate/i }));
     await waitFor(() => expect(screen.getByTestId('ideology-map-svg')).toBeInTheDocument());
@@ -111,7 +119,7 @@ describe('HistoricalReplay', () => {
   });
 
   it('renders 4 candidate star markers on the SVG', async () => {
-    mockPost.mockResolvedValue(makeReplay());
+    apiClient.POST.mockResolvedValue(makeReplay());
     renderPanel();
     fireEvent.click(screen.getByRole('button', { name: /simuler|simulate/i }));
     await waitFor(() => {
@@ -122,7 +130,7 @@ describe('HistoricalReplay', () => {
   });
 
   it('renders day slider', async () => {
-    mockPost.mockResolvedValue(makeReplay());
+    apiClient.POST.mockResolvedValue(makeReplay());
     renderPanel();
     fireEvent.click(screen.getByRole('button', { name: /simuler|simulate/i }));
     await waitFor(() => expect(screen.getByTestId('day-slider')).toBeInTheDocument());
@@ -130,7 +138,7 @@ describe('HistoricalReplay', () => {
   });
 
   it('day slider changes current day display', async () => {
-    mockPost.mockResolvedValue(makeReplay());
+    apiClient.POST.mockResolvedValue(makeReplay());
     renderPanel();
     fireEvent.click(screen.getByRole('button', { name: /simuler|simulate/i }));
     await waitFor(() => expect(screen.getByTestId('day-slider')).toBeInTheDocument());
@@ -140,7 +148,7 @@ describe('HistoricalReplay', () => {
   });
 
   it('renders vote share bar chart', async () => {
-    mockPost.mockResolvedValue(makeReplay());
+    apiClient.POST.mockResolvedValue(makeReplay());
     renderPanel();
     fireEvent.click(screen.getByRole('button', { name: /simuler|simulate/i }));
     await waitFor(() => expect(screen.getByTestId('vote-share-chart')).toBeInTheDocument());
@@ -148,7 +156,7 @@ describe('HistoricalReplay', () => {
   });
 
   it('renders comparison panel with real vs simulated result', async () => {
-    mockPost.mockResolvedValue(makeReplay());
+    apiClient.POST.mockResolvedValue(makeReplay());
     renderPanel();
     fireEvent.click(screen.getByRole('button', { name: /simuler|simulate/i }));
     await waitFor(() => expect(screen.getByTestId('comparison-panel')).toBeInTheDocument());
@@ -156,7 +164,7 @@ describe('HistoricalReplay', () => {
   });
 
   it('shows divergence badge when history is rewritten', async () => {
-    mockPost.mockResolvedValue(makeReplay(true));
+    apiClient.POST.mockResolvedValue(makeReplay(true));
     renderPanel();
     fireEvent.click(screen.getByRole('button', { name: /simuler|simulate/i }));
     await waitFor(() => expect(screen.getByTestId('divergence-badge')).toBeInTheDocument());
@@ -164,7 +172,7 @@ describe('HistoricalReplay', () => {
   });
 
   it('does NOT show divergence badge when history is not rewritten', async () => {
-    mockPost.mockResolvedValue(makeReplay(false));
+    apiClient.POST.mockResolvedValue(makeReplay(false));
     renderPanel();
     fireEvent.click(screen.getByRole('button', { name: /simuler|simulate/i }));
     await waitFor(() => expect(screen.getByTestId('result-badge')).toBeInTheDocument());
@@ -173,7 +181,7 @@ describe('HistoricalReplay', () => {
   });
 
   it('renders pedagogical note', async () => {
-    mockPost.mockResolvedValue(makeReplay());
+    apiClient.POST.mockResolvedValue(makeReplay());
     renderPanel();
     fireEvent.click(screen.getByRole('button', { name: /simuler|simulate/i }));
     await waitFor(() => expect(screen.getByTestId('pedagogical-note')).toBeInTheDocument());
@@ -181,7 +189,7 @@ describe('HistoricalReplay', () => {
   });
 
   it('shows apply-drag button after data loads', async () => {
-    mockPost.mockResolvedValue(makeReplay());
+    apiClient.POST.mockResolvedValue(makeReplay());
     renderPanel();
     fireEvent.click(screen.getByRole('button', { name: /simuler|simulate/i }));
     await waitFor(() => expect(screen.getByTestId('apply-drag-btn')).toBeInTheDocument());
@@ -197,7 +205,7 @@ describe('HistoricalReplay', () => {
   });
 
   it('shows error on API failure', async () => {
-    mockPost.mockRejectedValue(new Error('Network error'));
+    apiClient.POST.mockRejectedValue(new Error('Network error'));
     renderPanel();
     fireEvent.click(screen.getByRole('button', { name: /simuler|simulate/i }));
     await waitFor(() => expect(screen.getByText(/Erreur|Error/i)).toBeInTheDocument());
