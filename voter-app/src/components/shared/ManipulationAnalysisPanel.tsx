@@ -4,14 +4,11 @@
  * and shows which strategy they use (compromising, burying, push-over, truncating).
  */
 import React, { useCallback, useState } from 'react';
-import axios from 'axios';
 import { useTranslation } from 'react-i18next';
 import { Alert, Badge, Button, Col, Form, Row, Spinner, Table } from 'react-bootstrap';
 import { useElection } from '../../context/ElectionContext';
 import PinToCentralButton from './PinToCentralButton';
-import { apiPath } from '../../api/apiVersion';
-
-const API = process.env.REACT_APP_API_URL ?? 'http://localhost:4434';
+import { $api } from '../../api/hooks';
 const SVG_SIZE = 340;
 const PAD = 28;
 const STRATEGIES = ['compromising', 'burying', 'pushover', 'truncating'] as const;
@@ -141,31 +138,24 @@ const ManipulationAnalysisPanel: React.FC = () => {
   const { config } = useElection();
 
   const [method,   setMethod]   = useState('plurality');
-  const [data,     setData]     = useState<ManipData | null>(null);
-  const [loading,  setLoading]  = useState(false);
-  const [error,    setError]    = useState<string | null>(null);
+  const sim = $api.useMutation('post', '/api/v2/theory/manipulation-analysis');
+  const data: ManipData | null = (sim.data as ManipData | undefined) ?? null;
+  const loading = sim.isPending;
+  const error = sim.isError ? t('gs.error') : null;
   const [selected, setSelected] = useState<number | null>(null);
 
-  const runAnalysis = useCallback(async () => {
-    setLoading(true);
-    setError(null);
+  const runAnalysis = useCallback(() => {
     setSelected(null);
-    try {
-      const res = await axios.post(`${API}${apiPath('theory/manipulation-analysis')}`, {
-        candidates:               config.candidates.map((c) => ({ name: c.name, x: c.x, y: c.y })),
-        num_voters:               Math.min(config.num_voters, 50),
-        ideology:                 config.ideology,
-        seed:                     config.seed,
-        method,
-        manipulation_strategies:  ['compromising', 'burying', 'pushover', 'truncating'],
-      });
-      setData(res.data);
-    } catch {
-      setError(t('gs.error'));
-    } finally {
-      setLoading(false);
-    }
-  }, [config, method, t]);
+    sim.mutate({ body: {
+      candidates:               config.candidates.map((c) => ({ name: c.name, x: c.x, y: c.y })),
+      num_voters:               Math.min(config.num_voters, 50),
+      ideology:                 config.ideology,
+      seed:                     config.seed,
+      method,
+      manipulation_strategies:  ['compromising', 'burying', 'pushover', 'truncating'],
+    } });
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [config, method, t, sim]);
 
   const selectedManip = data?.manipulators.find((m) => m.voter_id === selected) ?? null;
 

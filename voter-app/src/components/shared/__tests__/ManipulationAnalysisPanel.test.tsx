@@ -1,11 +1,16 @@
 import React from 'react';
 import { render, screen, fireEvent, waitFor } from '@testing-library/react';
 import { MemoryRouter } from 'react-router';
+import { QueryClientProvider } from '@tanstack/react-query';
 import ManipulationAnalysisPanel from '../ManipulationAnalysisPanel';
 import { ElectionProvider } from '../../../context/ElectionContext';
+import { makeTestQueryClient } from '../../../test/queryWrapper';
 
-jest.mock('axios', () => ({ post: jest.fn() }));
-const { post: mockPost } = jest.requireMock('axios') as { post: jest.Mock };
+jest.mock('../../../api/client', () => ({
+  apiClient: { GET: jest.fn(), POST: jest.fn(), PUT: jest.fn(), DELETE: jest.fn(), PATCH: jest.fn() },
+  getAccessToken: jest.fn(() => null),
+}));
+const { apiClient } = jest.requireMock('../../../api/client') as { apiClient: { POST: jest.Mock } };
 
 // ── Fixtures ──────────────────────────────────────────────────────────────────
 
@@ -45,15 +50,18 @@ function makeData(manipulable = true) {
       key_manipulator:    manipulable ? { voter_id: 7, strategy: 'burying', gain: 0.45 } : null,
       pedagogical_note:   'Test note.',
     },
+    error: undefined,
   };
 }
 
 function renderPanel() {
   return render(
     <MemoryRouter>
-      <ElectionProvider>
-        <ManipulationAnalysisPanel />
-      </ElectionProvider>
+      <QueryClientProvider client={makeTestQueryClient()}>
+        <ElectionProvider>
+          <ManipulationAnalysisPanel />
+        </ElectionProvider>
+      </QueryClientProvider>
     </MemoryRouter>
   );
 }
@@ -84,12 +92,12 @@ describe('ManipulationAnalysisPanel', () => {
     expect(screen.getByRole('alert')).toBeInTheDocument();
   });
 
-  it('calls axios.post on analyze click', async () => {
-    mockPost.mockResolvedValue(makeData());
+  it('calls API on analyze click', async () => {
+    apiClient.POST.mockResolvedValue(makeData());
     renderPanel();
     fireEvent.click(screen.getByTestId('analyze-btn'));
-    await waitFor(() => expect(mockPost).toHaveBeenCalledTimes(1));
-    expect(mockPost).toHaveBeenCalledWith(
+    await waitFor(() => expect(apiClient.POST).toHaveBeenCalledTimes(1));
+    expect(apiClient.POST).toHaveBeenCalledWith(
       expect.stringMatching(/\/api\/(v2\/)?theory\/manipulation-analysis/),
       expect.any(Object),
     );
@@ -97,7 +105,7 @@ describe('ManipulationAnalysisPanel', () => {
   });
 
   it('shows manipulable badge (danger) when manipulable', async () => {
-    mockPost.mockResolvedValue(makeData(true));
+    apiClient.POST.mockResolvedValue(makeData(true));
     renderPanel();
     fireEvent.click(screen.getByTestId('analyze-btn'));
     await waitFor(() => {
@@ -108,7 +116,7 @@ describe('ManipulationAnalysisPanel', () => {
   });
 
   it('shows not-manipulable badge (success) when not manipulable', async () => {
-    mockPost.mockResolvedValue(makeData(false));
+    apiClient.POST.mockResolvedValue(makeData(false));
     renderPanel();
     fireEvent.click(screen.getByTestId('analyze-btn'));
     await waitFor(() => {
@@ -119,7 +127,7 @@ describe('ManipulationAnalysisPanel', () => {
   });
 
   it('shows count badge', async () => {
-    mockPost.mockResolvedValue(makeData());
+    apiClient.POST.mockResolvedValue(makeData());
     renderPanel();
     fireEvent.click(screen.getByTestId('analyze-btn'));
     await waitFor(() => expect(screen.getByTestId('count-badge')).toBeInTheDocument());
@@ -127,7 +135,7 @@ describe('ManipulationAnalysisPanel', () => {
   });
 
   it('shows winner badge', async () => {
-    mockPost.mockResolvedValue(makeData());
+    apiClient.POST.mockResolvedValue(makeData());
     renderPanel();
     fireEvent.click(screen.getByTestId('analyze-btn'));
     await waitFor(() => expect(screen.getByTestId('winner-badge')).toBeInTheDocument());
@@ -135,7 +143,7 @@ describe('ManipulationAnalysisPanel', () => {
   });
 
   it('renders ideology map SVG', async () => {
-    mockPost.mockResolvedValue(makeData());
+    apiClient.POST.mockResolvedValue(makeData());
     renderPanel();
     fireEvent.click(screen.getByTestId('analyze-btn'));
     await waitFor(() => expect(screen.getByTestId('manip-map-svg')).toBeInTheDocument());
@@ -143,7 +151,7 @@ describe('ManipulationAnalysisPanel', () => {
   });
 
   it('shows strategy table', async () => {
-    mockPost.mockResolvedValue(makeData());
+    apiClient.POST.mockResolvedValue(makeData());
     renderPanel();
     fireEvent.click(screen.getByTestId('analyze-btn'));
     await waitFor(() => expect(screen.getByTestId('strategy-table')).toBeInTheDocument());
@@ -151,7 +159,7 @@ describe('ManipulationAnalysisPanel', () => {
   });
 
   it('shows manipulator detail when voter clicked in map', async () => {
-    mockPost.mockResolvedValue(makeData());
+    apiClient.POST.mockResolvedValue(makeData());
     renderPanel();
     fireEvent.click(screen.getByTestId('analyze-btn'));
     await waitFor(() => screen.getByTestId('manip-map-svg'));
@@ -165,7 +173,7 @@ describe('ManipulationAnalysisPanel', () => {
   });
 
   it('shows error on API failure', async () => {
-    mockPost.mockRejectedValue(new Error('Network error'));
+    apiClient.POST.mockRejectedValue(new Error('Network error'));
     renderPanel();
     fireEvent.click(screen.getByTestId('analyze-btn'));
     await waitFor(() => expect(screen.getByText(/Erreur|Error/i)).toBeInTheDocument());

@@ -5,13 +5,10 @@
  * on the same electorate with distortion metrics and pedagogical text.
  */
 import React, { useState } from 'react';
-import axios from 'axios';
 import { useTranslation } from 'react-i18next';
 import { Alert, Badge, Button, Col, Form, Row, Spinner, Table } from 'react-bootstrap';
 import { useElection } from '../../context/ElectionContext';
-import { apiPath } from '../../api/apiVersion';
-
-const API = process.env.REACT_APP_API_URL ?? 'http://localhost:4434';
+import { $api } from '../../api/hooks';
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -128,26 +125,19 @@ const MultiwinnerCompare: React.FC = () => {
   const { config } = useElection();
 
   const [numSeats, setNumSeats] = useState(4);
-  const [data,     setData]     = useState<CompareData | null>(null);
-  const [loading,  setLoading]  = useState(false);
-  const [error,    setError]    = useState<string | null>(null);
+  const sim = $api.useMutation('post', '/api/v2/election/multiwinner_compare');
+  const data: CompareData | null = (sim.data as CompareData | undefined) ?? null;
+  const loading = sim.isPending;
+  const error = sim.isError ? t('multiwinner.error') : null;
 
-  async function run() {
-    setLoading(true); setError(null);
-    try {
-      const res = await axios.post(`${API}${apiPath('election/multiwinner_compare')}`, {
-        candidates: config.candidates,
-        num_voters: config.num_voters,
-        ideology:   config.ideology,
-        seed:       config.seed,
-        num_seats:  numSeats,
-      });
-      setData(res.data);
-    } catch {
-      setError(t('multiwinner.error'));
-    } finally {
-      setLoading(false);
-    }
+  function run() {
+    sim.mutate({ body: {
+      candidates: config.candidates,
+      num_voters: config.num_voters,
+      ideology:   config.ideology,
+      seed:       config.seed,
+      num_seats:  numSeats,
+    } });
   }
 
   const names  = data?.candidates ?? [];
