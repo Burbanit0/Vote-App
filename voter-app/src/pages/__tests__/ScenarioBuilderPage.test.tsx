@@ -49,7 +49,8 @@ jest.mock('../../components/shared/ToastNotification', () => ({
   useToast: () => ({ error: jest.fn() }),
 }));
 
-jest.mock('../../context/ExpertModeContext', () => ({
+jest.mock('../../stores/useUIStore', () => ({
+  ...jest.requireActual('../../stores/useUIStore'),
   useExpertMode: () => ({ expertMode: false }),
 }));
 

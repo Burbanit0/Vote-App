@@ -2,7 +2,8 @@ import React from 'react';
 import { render, screen, fireEvent } from '@testing-library/react';
 import MethodRadarChart from '../MethodRadarChart';
 
-jest.mock('../../../context/ExpertModeContext', () => ({
+jest.mock('../../../stores/useUIStore', () => ({
+  ...jest.requireActual('../../../stores/useUIStore'),
   useExpertMode: () => ({ expertMode: true, setExpertMode: jest.fn() }),
 }));
 

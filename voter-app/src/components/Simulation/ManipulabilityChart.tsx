@@ -14,7 +14,7 @@ import {
   XAxis,
   YAxis,
 } from 'recharts';
-import { useExpertMode } from '../../context/ExpertModeContext';
+import { useExpertMode } from '../../stores/useUIStore';
 import { useMethodLabels } from './simulationConstants';
 import { apiClient } from '../../api/client';
 

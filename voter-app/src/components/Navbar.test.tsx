@@ -3,14 +3,14 @@ import { render, screen } from '@testing-library/react';
 import { MemoryRouter } from 'react-router-dom';
 import Navbar from './Navbar';
 import { useAuth } from '../context/AuthContext';
-import { useTheme } from '../context/ThemeContext';
-import { useExpertMode } from '../context/ExpertModeContext';
-import { useTeacherMode } from '../context/TeacherModeContext';
+import { useTheme, useExpertMode, useTeacherMode } from '../stores/useUIStore';
 
-jest.mock('../context/AuthContext',        () => ({ useAuth:        jest.fn() }));
-jest.mock('../context/ThemeContext',       () => ({ useTheme:       jest.fn() }));
-jest.mock('../context/ExpertModeContext',  () => ({ useExpertMode:  jest.fn() }));
-jest.mock('../context/TeacherModeContext', () => ({ useTeacherMode: jest.fn() }));
+jest.mock('../context/AuthContext', () => ({ useAuth: jest.fn() }));
+jest.mock('../stores/useUIStore', () => ({
+  useTheme:       jest.fn(),
+  useExpertMode:  jest.fn(),
+  useTeacherMode: jest.fn(),
+}));
 jest.mock('../i18n', () => ({
   default: { language: 'en', changeLanguage: jest.fn() },
 }));

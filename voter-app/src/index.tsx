@@ -9,8 +9,12 @@ import { SimulationProvider } from './context/SimuContext';
 import { GoogleOAuthProvider } from '@react-oauth/google';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { ReactQueryDevtools } from '@tanstack/react-query-devtools';
+import { initUITheme } from './stores/useUIStore';
 
 const googleClientId = process.env.VITE_GOOGLE_CLIENT_ID || '';
+
+// Apply the persisted theme to <html> at startup (was ThemeProvider's job).
+initUITheme();
 
 // Server-state cache. Simulations are deterministic for a given input, so a
 // generous staleTime avoids redundant refetches; one retry covers transient

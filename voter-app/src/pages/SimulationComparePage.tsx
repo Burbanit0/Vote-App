@@ -44,7 +44,7 @@ import {
 import { InformationModelResult } from '../types';
 import { useScenarioPersistence } from '../hooks/useScenarioPersistence';
 import { buildShareURL, copyShareURL, decodeShareConfig, encodeShareConfig, readShareParam } from '../utils/shareUtils';
-import { useExpertMode } from '../context/ExpertModeContext';
+import { useExpertMode } from '../stores/useUIStore';
 import { useMetaTags } from '../hooks/useMetaTags';
 import {
   generateLatexTable,
