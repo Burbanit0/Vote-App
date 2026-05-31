@@ -1,19 +1,14 @@
-import axios from 'axios';
-import MockAdapter from 'axios-mock-adapter';
 import {
   runComparisonSimulation,
   runStrategicImpactAnalysis,
   getCondorcetMatrix,
 } from './simulationCompareApi';
 
-const mockAxios = new MockAdapter(axios);
-const BASE = 'http://localhost:4434';
-const mockToken = 'test-jwt-token';
+jest.mock('../api/client', () => ({ apiPost: jest.fn(), apiGet: jest.fn() }));
+const { apiPost } = jest.requireMock('../api/client') as { apiPost: jest.Mock };
 
 beforeEach(() => {
-  mockAxios.reset();
-  localStorage.clear();
-  localStorage.setItem('user', JSON.stringify({ access_token: mockToken }));
+  jest.clearAllMocks();
 });
 
 describe('simulationCompareApi', () => {
@@ -26,11 +21,12 @@ describe('simulationCompareApi', () => {
           irv: { winner: 'Alice', bayesian_regret: 0.05, condorcet_consistent: true, majority_satisfaction: 0.9, strategic_vulnerability: 0.1 },
         },
       };
-      mockAxios.onPost(/\/api\/(v2\/)?simulations\/compare$/).reply(200, response);
+      apiPost.mockResolvedValueOnce(response);
       const result = await runComparisonSimulation({ num_voters: 100 });
       expect(result).toEqual(response);
       expect(result.methods).toHaveProperty('plurality');
       expect(result.methods).toHaveProperty('irv');
+      expect(apiPost).toHaveBeenCalledWith('/api/v2/simulations/compare', expect.any(Object));
     });
   });
 
@@ -42,7 +38,7 @@ describe('simulationCompareApi', () => {
           { strategic_pct: 50, methods: { plurality: 0.3, irv: 0.15 } },
         ],
       };
-      mockAxios.onPost(/\/api\/(v2\/)?simulations\/strategic-impact$/).reply(200, response);
+      apiPost.mockResolvedValueOnce(response);
       const result = await runStrategicImpactAnalysis({ strategic_percentages: [0, 50] });
       expect(result).toHaveLength(2);
       expect(result[0]).toHaveProperty('strategic_pct', 0);
@@ -61,7 +57,7 @@ describe('simulationCompareApi', () => {
         condorcet_winner: 'Alice',
         condorcet_cycles: [],
       };
-      mockAxios.onPost(/\/api\/(v2\/)?simulations\/condorcet-matrix$/).reply(200, matrix);
+      apiPost.mockResolvedValueOnce(matrix);
       const result = await getCondorcetMatrix({ candidates: ['Alice', 'Bob'] });
       expect(result).toEqual(matrix);
       expect(result.condorcet_winner).toBe('Alice');

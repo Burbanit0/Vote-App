@@ -38,3 +38,26 @@ const authMiddleware: Middleware = {
 
 export const apiClient = createClient<paths>({ baseUrl: API_BASE });
 apiClient.use(authMiddleware);
+
+/**
+ * Legacy service-layer helper — POST that resolves to the parsed body and
+ * throws on transport/HTTP error (the axios-on-error-throws contract the old
+ * `services/*Api.ts` wrappers and `useApiAction` rely on). Routes through the
+ * typed `apiClient` (auth middleware + baseUrl) but takes a plain string path
+ * so the pre-response_model service wrappers don't need per-path generics.
+ * Panels use the fully-typed `$api`/`apiClient` directly instead.
+ */
+export async function apiPost<T>(path: string, body: unknown): Promise<T> {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const { data, error } = await (apiClient.POST as any)(path, { body });
+  if (error) throw (error instanceof Error ? error : new Error('Request failed'));
+  return data as T;
+}
+
+/** GET counterpart of {@link apiPost}; `query` becomes the URL query string. */
+export async function apiGet<T>(path: string, query?: Record<string, unknown>): Promise<T> {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const { data, error } = await (apiClient.GET as any)(path, query ? { params: { query } } : {});
+  if (error) throw (error instanceof Error ? error : new Error('Request failed'));
+  return data as T;
+}

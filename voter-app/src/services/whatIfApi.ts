@@ -1,7 +1,4 @@
-import axios from 'axios';
-import { apiPath } from '../api/apiVersion';
-
-const API_BASE_URL = process.env.VITE_API_URL || 'http://localhost:4434';
+import { apiPost } from '../api/client';
 
 // ── Types ──────────────────────────────────────────────────────────────────
 
@@ -41,9 +38,5 @@ export interface WhatIfResponse {
 // ── API call ───────────────────────────────────────────────────────────────
 
 export async function runWhatIf(params: WhatIfRequest): Promise<WhatIfResponse> {
-  const { data } = await axios.post<WhatIfResponse>(
-    `${API_BASE_URL}${apiPath('simulations/what-if')}`,
-    params,
-  );
-  return data;
+  return apiPost<WhatIfResponse>('/api/v2/simulations/what-if', params);
 }

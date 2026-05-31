@@ -1,8 +1,5 @@
-import axios from 'axios';
 import { ElectionConfig } from '../context/ElectionContext';
-import { apiPath } from '../api/apiVersion';
-
-const API_BASE = process.env.VITE_API_URL || 'http://localhost:4434';
+import { apiPost } from '../api/client';
 
 export interface MethodResult {
   winner:                string | null;
@@ -26,13 +23,7 @@ export interface ElectionResult {
 }
 
 export async function simulateElection(config: ElectionConfig): Promise<ElectionResult> {
-  // Routed to FastAPI /api/v2/election/simulate when migrated; falls back to
-  // Flask /api/election/simulate via the rollback switch (see apiVersion.ts).
-  const response = await axios.post<ElectionResult>(
-    `${API_BASE}${apiPath('election/simulate')}`,
-    config,
-  );
-  return response.data;
+  return apiPost<ElectionResult>('/api/v2/election/simulate', config);
 }
 
 // ── Divergence types ──────────────────────────────────────────────────────────
@@ -71,11 +62,7 @@ export interface DivergenceParams {
 }
 
 export async function fetchDivergence(params: DivergenceParams): Promise<DivergenceResult> {
-  const response = await axios.post<DivergenceResult>(
-    `${API_BASE}${apiPath('election/divergence')}`,
-    params,
-  );
-  return response.data;
+  return apiPost<DivergenceResult>('/api/v2/election/divergence', params);
 }
 
 // ── Campaign sensitivity types ────────────────────────────────────────────────
@@ -140,11 +127,7 @@ export interface CombinedEffectsResult {
 export async function fetchCombinedEffects(
   params: Record<string, unknown>
 ): Promise<CombinedEffectsResult> {
-  const response = await axios.post<CombinedEffectsResult>(
-    `${API_BASE}${apiPath('election/combined-effects')}`,
-    params,
-  );
-  return response.data;
+  return apiPost<CombinedEffectsResult>('/api/v2/election/combined-effects', params);
 }
 
 // ── Interpret types ───────────────────────────────────────────────────────────
@@ -171,19 +154,11 @@ export async function interpretElection(
   simulateResult: ElectionResult,
   lang: 'fr' | 'en' = 'fr'
 ): Promise<InterpretResult> {
-  const response = await axios.post<InterpretResult>(
-    `${API_BASE}${apiPath('election/interpret')}`,
-    { ...simulateResult, lang }
-  );
-  return response.data;
+  return apiPost<InterpretResult>('/api/v2/election/interpret', { ...simulateResult, lang });
 }
 
 export async function fetchCampaignSensitivity(
   params: CampaignSensitivityParams
 ): Promise<CampaignSensitivityResult> {
-  const response = await axios.post<CampaignSensitivityResult>(
-    `${API_BASE}${apiPath('election/campaign-sensitivity')}`,
-    params,
-  );
-  return response.data;
+  return apiPost<CampaignSensitivityResult>('/api/v2/election/campaign-sensitivity', params);
 }
