@@ -68,3 +68,11 @@ export async function apiGet<T>(path: string, query?: Record<string, unknown>): 
   if (error) throw (error instanceof Error ? error : new Error('Request failed'));
   return data as T;
 }
+
+/** DELETE counterpart of {@link apiPost}; resolves to the parsed body (often void). */
+export async function apiDelete<T = void>(path: string): Promise<T> {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const { data, error } = await (apiClient.DELETE as any)(path, {});
+  if (error) throw (error instanceof Error ? error : new Error('Request failed'));
+  return data as T;
+}
