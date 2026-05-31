@@ -4,12 +4,9 @@
  * results even when every individual voter is perfectly coherent.
  */
 import React, { useCallback, useState } from 'react';
-import axios from 'axios';
 import { useTranslation } from 'react-i18next';
 import { Alert, Badge, Button, Card, Col, Form, Row, Spinner, Table } from 'react-bootstrap';
-import { apiPath } from '../../api/apiVersion';
-
-const API = process.env.REACT_APP_API_URL ?? 'http://localhost:4434';
+import { $api } from '../../api/hooks';
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -136,26 +133,19 @@ const JudgmentAggregationPanel: React.FC = () => {
   const [scenario,   setScenario]   = useState('legal');
   const [numVoters,  setNumVoters]  = useState(12);
   const [seed,       setSeed]       = useState(42);
-  const [data,       setData]       = useState<JudgData | null>(null);
-  const [loading,    setLoading]    = useState(false);
-  const [error,      setError]      = useState<string | null>(null);
+  const sim = $api.useMutation('post', '/api/v2/theory/judgment-aggregation');
+  const data: JudgData | null = (sim.data as JudgData | undefined) ?? null;
+  const loading = sim.isPending;
+  const error = sim.isError ? t('judg.error') : null;
 
-  const runSimulation = useCallback(async () => {
-    setLoading(true);
-    setError(null);
-    try {
-      const res = await axios.post(`${API}${apiPath('theory/judgment-aggregation')}`, {
-        num_voters: numVoters,
-        seed,
-        scenario,
-      });
-      setData(res.data);
-    } catch {
-      setError(t('judg.error'));
-    } finally {
-      setLoading(false);
-    }
-  }, [scenario, numVoters, seed, t]);
+  const runSimulation = useCallback(() => {
+    sim.mutate({ body: {
+      num_voters: numVoters,
+      seed,
+      scenario,
+    } });
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [scenario, numVoters, seed, t, sim]);
 
   return (
     <div>

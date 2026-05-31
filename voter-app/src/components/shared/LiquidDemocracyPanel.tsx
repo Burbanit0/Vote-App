@@ -5,16 +5,13 @@
  */
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import * as d3 from 'd3';
-import axios from 'axios';
 import { useTranslation } from 'react-i18next';
 import { Alert, Badge, Button, Col, Form, Row, Spinner } from 'react-bootstrap';
 import {
   LineChart, Line, XAxis, YAxis, Tooltip, CartesianGrid, ResponsiveContainer,
 } from 'recharts';
 import { useElection } from '../../context/ElectionContext';
-import { apiPath } from '../../api/apiVersion';
-
-const API = process.env.REACT_APP_API_URL ?? 'http://localhost:4434';
+import { $api } from '../../api/hooks';
 const DEBOUNCE_MS = 400;
 
 // ── Types ─────────────────────────────────────────────────────────────────────
@@ -189,31 +186,24 @@ const LiquidDemocracyPanel: React.FC = () => {
   const [delegProb,    setDelegProb]    = useState(0.5);
   const [strategy,     setStrategy]     = useState('nearest');
   const [maxChain,     setMaxChain]     = useState(5);
-  const [data,         setData]         = useState<LiquidData | null>(null);
-  const [loading,      setLoading]      = useState(false);
-  const [error,        setError]        = useState<string | null>(null);
+  const sim = $api.useMutation('post', '/api/v2/election/liquid-democracy');
+  const data: LiquidData | null = (sim.data as LiquidData | undefined) ?? null;
+  const loading = sim.isPending;
+  const error = sim.isError ? t('liquid.error') : null;
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  const runSimulation = useCallback(async (prob: number, strat: string, chain: number) => {
-    setLoading(true);
-    setError(null);
-    try {
-      const res = await axios.post(`${API}${apiPath('election/liquid-democracy')}`, {
-        candidates:              config.candidates.map((c) => ({ name: c.name, x: c.x, y: c.y })),
-        num_voters:              config.num_voters,
-        ideology:                config.ideology,
-        seed:                    config.seed,
-        delegation_probability:  prob,
-        delegation_strategy:     strat,
-        max_chain_length:        chain,
-      });
-      setData(res.data);
-    } catch {
-      setError(t('liquid.error'));
-    } finally {
-      setLoading(false);
-    }
-  }, [config, t]);
+  const runSimulation = useCallback((prob: number, strat: string, chain: number) => {
+    sim.mutate({ body: {
+      candidates:              config.candidates.map((c) => ({ name: c.name, x: c.x, y: c.y })),
+      num_voters:              config.num_voters,
+      ideology:                config.ideology,
+      seed:                    config.seed,
+      delegation_probability:  prob,
+      delegation_strategy:     strat,
+      max_chain_length:        chain,
+    } });
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [config, t, sim]);
 
   const handleSimulate = () => runSimulation(delegProb, strategy, maxChain);
 
