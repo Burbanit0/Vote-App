@@ -2565,6 +2565,28 @@ export interface components {
             seed: number;
         };
         /**
+         * BallotComplexityResponse
+         * @description Null-vote rate per method as ballot complexity (candidate count) grows.
+         */
+        BallotComplexityResponse: {
+            /** Candidate Count Curve */
+            candidate_count_curve: {
+                [key: string]: unknown;
+            }[];
+            /** Least Inclusive Method */
+            least_inclusive_method: string | null;
+            /** Most Inclusive Method */
+            most_inclusive_method: string | null;
+            /** Pedagogical Note */
+            pedagogical_note: string;
+            /** Results */
+            results: {
+                [key: string]: unknown;
+            }[];
+        } & {
+            [key: string]: unknown;
+        };
+        /**
          * BandwagonRequest
          * @description POST /simulations/bandwagon.
          */
@@ -2658,6 +2680,32 @@ export interface components {
              * @default 42
              */
             seed: number;
+        };
+        /**
+         * BehavioralBiasesResponse
+         * @description Expressive + bullet + primacy biases vs sincere voting.
+         */
+        BehavioralBiasesResponse: {
+            /** Biased Winner */
+            biased_winner: string | null;
+            /** Bullet Immune Methods */
+            bullet_immune_methods: string[];
+            /** Method Sensitivity */
+            method_sensitivity: {
+                [key: string]: unknown;
+            };
+            /** Pedagogical Note */
+            pedagogical_note: string;
+            /** Sincere Winner */
+            sincere_winner: string | null;
+            /** Vote Breakdown */
+            vote_breakdown: {
+                [key: string]: unknown;
+            };
+            /** Winner Changed */
+            winner_changed: boolean;
+        } & {
+            [key: string]: unknown;
         };
         /**
          * BlankContagionRequest
@@ -3056,6 +3104,34 @@ export interface components {
             seed: number;
         };
         /**
+         * ChoiceOverloadResponse
+         * @description Heuristic voting beyond an overload threshold of candidates.
+         */
+        ChoiceOverloadResponse: {
+            /** Heuristic Weights */
+            heuristic_weights: {
+                [key: string]: number;
+            };
+            /** Least Robust Method */
+            least_robust_method: string | null;
+            /** Most Robust Method */
+            most_robust_method: string | null;
+            /** Overload Threshold */
+            overload_threshold: number;
+            /** Pedagogical Note */
+            pedagogical_note: string;
+            /** Regret Curve */
+            regret_curve: {
+                [key: string]: unknown;
+            }[];
+            /** Results By N */
+            results_by_n: {
+                [key: string]: unknown;
+            }[];
+        } & {
+            [key: string]: unknown;
+        };
+        /**
          * ClosestCandidateRequest
          * @description POST /simulations/get_closest_candidate (2-D spatial assignment).
          */
@@ -3403,6 +3479,30 @@ export interface components {
             voluntary_turnout: number;
         };
         /**
+         * CompulsoryVotingResponse
+         * @description Voluntary vs compulsory turnout and the quality/representation trade-off.
+         */
+        CompulsoryVotingResponse: {
+            /** Compulsory */
+            compulsory: {
+                [key: string]: unknown;
+            };
+            /** Pedagogical Note */
+            pedagogical_note: string;
+            /** Quality Degradation */
+            quality_degradation: number;
+            /** Representation Improvement */
+            representation_improvement: number;
+            /** Voluntary */
+            voluntary: {
+                [key: string]: unknown;
+            };
+            /** Winner Changed */
+            winner_changed: boolean;
+        } & {
+            [key: string]: unknown;
+        };
+        /**
          * CondorcetMatrixRequest
          * @description POST /simulations/condorcet-matrix.
          */
@@ -3508,6 +3608,40 @@ export interface components {
              * @default 0.1
              */
             whale_pct: number;
+        };
+        /**
+         * ConvictionVotingResponse
+         * @description Conviction voting: tokens × lock-multiplier vs plain token weight.
+         */
+        ConvictionVotingResponse: {
+            /** Conviction Winner */
+            conviction_winner: string | null;
+            /** Lock Options */
+            lock_options: number[];
+            /** Multipliers */
+            multipliers: {
+                [key: string]: number;
+            };
+            /** Pedagogical Note */
+            pedagogical_note: string;
+            /** Proposals */
+            proposals: {
+                [key: string]: unknown;
+            }[];
+            /** Token Winner */
+            token_winner: string | null;
+            /** Voter Scatter */
+            voter_scatter: {
+                [key: string]: unknown;
+            }[];
+            /** Voter Stats */
+            voter_stats: {
+                [key: string]: unknown;
+            };
+            /** Winner Changed */
+            winner_changed: boolean;
+        } & {
+            [key: string]: unknown;
         };
         /** CrossPressured */
         CrossPressured: {
@@ -3712,6 +3846,34 @@ export interface components {
              * @default 42
              */
             seed: number;
+        };
+        /**
+         * DemographicTurnoutResponse
+         * @description Distortion between full population and effective (turnout-weighted) electorate.
+         */
+        DemographicTurnoutResponse: {
+            /** Biased Result */
+            biased_result: {
+                [key: string]: unknown;
+            };
+            /** Corrected Result */
+            corrected_result: {
+                [key: string]: unknown;
+            };
+            /** Demographic Breakdown */
+            demographic_breakdown: {
+                [key: string]: unknown;
+            }[];
+            /** Pedagogical Note */
+            pedagogical_note: string;
+            /** Representation Gap */
+            representation_gap: {
+                [key: string]: unknown;
+            };
+            /** Winner Changed */
+            winner_changed: boolean;
+        } & {
+            [key: string]: unknown;
         };
         /** DistrictBounds */
         DistrictBounds: {
@@ -4775,6 +4937,50 @@ export interface components {
             seed: number;
         };
         /**
+         * LiquidDemocracyResponse
+         * @description Transitive delegation: super-voters, cycles, and Gini of voting weight.
+         */
+        LiquidDemocracyResponse: {
+            /** Chain Stats */
+            chain_stats: {
+                [key: string]: unknown;
+            };
+            /** Comparison */
+            comparison: {
+                [key: string]: unknown;
+            };
+            /** Cycle Voter Ids */
+            cycle_voter_ids: number[];
+            /** Cycles Detected */
+            cycles_detected: number;
+            /** Delegation Graph */
+            delegation_graph: {
+                [key: string]: unknown;
+            }[];
+            /** Delegators */
+            delegators: number;
+            /** Direct Voters */
+            direct_voters: number;
+            /** Gini Curve */
+            gini_curve: {
+                [key: string]: unknown;
+            }[];
+            /** Gini Voting Weight */
+            gini_voting_weight: number;
+            /** Pedagogical Note */
+            pedagogical_note: string;
+            /** Super Voters */
+            super_voters: {
+                [key: string]: unknown;
+            }[];
+            /** Weighted Results */
+            weighted_results: {
+                [key: string]: number;
+            };
+        } & {
+            [key: string]: unknown;
+        };
+        /**
          * MajorityTyrannyRequest
          * @description Tocqueville's tyranny of the majority across decision rules.
          */
@@ -5725,6 +5931,44 @@ export interface components {
             social_desirability_factor: number;
         };
         /**
+         * ShyVoterResponse
+         * @description Shy-voter effect: poll vs real winner under social-desirability bias.
+         */
+        ShyVoterResponse: {
+            /** Avg Poll Results */
+            avg_poll_results: {
+                [key: string]: number;
+            };
+            /** Pedagogical Note */
+            pedagogical_note: string;
+            /** Poll Results */
+            poll_results: {
+                [key: string]: unknown;
+            }[];
+            /** Poll Winner */
+            poll_winner: string | null;
+            /** Polls Wrong */
+            polls_wrong: boolean;
+            /** Real Results */
+            real_results: {
+                [key: string]: number;
+            };
+            /** Real Winner */
+            real_winner: string | null;
+            /** Shy Candidate */
+            shy_candidate: string | null;
+            /** Social Desirability Curve */
+            social_desirability_curve: {
+                [key: string]: unknown;
+            }[];
+            /** Systematic Error */
+            systematic_error: {
+                [key: string]: number;
+            };
+        } & {
+            [key: string]: unknown;
+        };
+        /**
          * SimulateCandidatesRequest
          * @description POST /simulations/simulate_candidates.
          */
@@ -5911,6 +6155,34 @@ export interface components {
              */
             seed: number;
             stratification?: components["schemas"]["StratificationConfig"] | null;
+        };
+        /**
+         * SortitionResponse
+         * @description Elected vs sortition (pure / stratified) assembly representativeness.
+         */
+        SortitionResponse: {
+            /** Assemblies */
+            assemblies: {
+                [key: string]: unknown;
+            };
+            /** Consensus Possible */
+            consensus_possible: boolean;
+            /** Pedagogical Note */
+            pedagogical_note: string;
+            /** Population */
+            population: {
+                [key: string]: unknown;
+            };
+            /** Variance */
+            variance: {
+                [key: string]: unknown;
+            };
+            /** Winner By Method */
+            winner_by_method: {
+                [key: string]: unknown;
+            };
+        } & {
+            [key: string]: unknown;
         };
         /**
          * StrategicImpactRequest
@@ -6725,9 +6997,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        [key: string]: unknown;
-                    };
+                    "application/json": components["schemas"]["BallotComplexityResponse"];
                 };
             };
             /** @description Validation Error */
@@ -6760,9 +7030,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        [key: string]: unknown;
-                    };
+                    "application/json": components["schemas"]["BehavioralBiasesResponse"];
                 };
             };
             /** @description Validation Error */
@@ -6861,9 +7129,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        [key: string]: unknown;
-                    };
+                    "application/json": components["schemas"]["ChoiceOverloadResponse"];
                 };
             };
             /** @description Validation Error */
@@ -6962,9 +7228,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        [key: string]: unknown;
-                    };
+                    "application/json": components["schemas"]["CompulsoryVotingResponse"];
                 };
             };
             /** @description Validation Error */
@@ -6997,9 +7261,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        [key: string]: unknown;
-                    };
+                    "application/json": components["schemas"]["ConvictionVotingResponse"];
                 };
             };
             /** @description Validation Error */
@@ -7065,9 +7327,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        [key: string]: unknown;
-                    };
+                    "application/json": components["schemas"]["DemographicTurnoutResponse"];
                 };
             };
             /** @description Validation Error */
@@ -7376,9 +7636,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        [key: string]: unknown;
-                    };
+                    "application/json": components["schemas"]["LiquidDemocracyResponse"];
                 };
             };
             /** @description Validation Error */
@@ -7654,9 +7912,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        [key: string]: unknown;
-                    };
+                    "application/json": components["schemas"]["ShyVoterResponse"];
                 };
             };
             /** @description Validation Error */
@@ -7757,9 +8013,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        [key: string]: unknown;
-                    };
+                    "application/json": components["schemas"]["SortitionResponse"];
                 };
             };
             /** @description Validation Error */

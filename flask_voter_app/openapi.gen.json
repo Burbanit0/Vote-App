@@ -1097,6 +1097,63 @@
         "title": "BallotComplexityRequest",
         "type": "object"
       },
+      "BallotComplexityResponse": {
+        "additionalProperties": true,
+        "description": "Null-vote rate per method as ballot complexity (candidate count) grows.",
+        "properties": {
+          "candidate_count_curve": {
+            "items": {
+              "additionalProperties": true,
+              "type": "object"
+            },
+            "title": "Candidate Count Curve",
+            "type": "array"
+          },
+          "least_inclusive_method": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Least Inclusive Method"
+          },
+          "most_inclusive_method": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Most Inclusive Method"
+          },
+          "pedagogical_note": {
+            "title": "Pedagogical Note",
+            "type": "string"
+          },
+          "results": {
+            "items": {
+              "additionalProperties": true,
+              "type": "object"
+            },
+            "title": "Results",
+            "type": "array"
+          }
+        },
+        "required": [
+          "results",
+          "candidate_count_curve",
+          "most_inclusive_method",
+          "least_inclusive_method",
+          "pedagogical_note"
+        ],
+        "title": "BallotComplexityResponse",
+        "type": "object"
+      },
       "BandwagonRequest": {
         "description": "POST /simulations/bandwagon.",
         "properties": {
@@ -1256,6 +1313,70 @@
           "candidates"
         ],
         "title": "BehavioralBiasesRequest",
+        "type": "object"
+      },
+      "BehavioralBiasesResponse": {
+        "additionalProperties": true,
+        "description": "Expressive + bullet + primacy biases vs sincere voting.",
+        "properties": {
+          "biased_winner": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Biased Winner"
+          },
+          "bullet_immune_methods": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Bullet Immune Methods",
+            "type": "array"
+          },
+          "method_sensitivity": {
+            "additionalProperties": true,
+            "title": "Method Sensitivity",
+            "type": "object"
+          },
+          "pedagogical_note": {
+            "title": "Pedagogical Note",
+            "type": "string"
+          },
+          "sincere_winner": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Sincere Winner"
+          },
+          "vote_breakdown": {
+            "additionalProperties": true,
+            "title": "Vote Breakdown",
+            "type": "object"
+          },
+          "winner_changed": {
+            "title": "Winner Changed",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "sincere_winner",
+          "biased_winner",
+          "winner_changed",
+          "vote_breakdown",
+          "method_sensitivity",
+          "bullet_immune_methods",
+          "pedagogical_note"
+        ],
+        "title": "BehavioralBiasesResponse",
         "type": "object"
       },
       "BlankContagionRequest": {
@@ -2018,6 +2139,76 @@
         "title": "ChoiceOverloadRequest",
         "type": "object"
       },
+      "ChoiceOverloadResponse": {
+        "additionalProperties": true,
+        "description": "Heuristic voting beyond an overload threshold of candidates.",
+        "properties": {
+          "heuristic_weights": {
+            "additionalProperties": {
+              "type": "number"
+            },
+            "title": "Heuristic Weights",
+            "type": "object"
+          },
+          "least_robust_method": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Least Robust Method"
+          },
+          "most_robust_method": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Most Robust Method"
+          },
+          "overload_threshold": {
+            "title": "Overload Threshold",
+            "type": "integer"
+          },
+          "pedagogical_note": {
+            "title": "Pedagogical Note",
+            "type": "string"
+          },
+          "regret_curve": {
+            "items": {
+              "additionalProperties": true,
+              "type": "object"
+            },
+            "title": "Regret Curve",
+            "type": "array"
+          },
+          "results_by_n": {
+            "items": {
+              "additionalProperties": true,
+              "type": "object"
+            },
+            "title": "Results By N",
+            "type": "array"
+          }
+        },
+        "required": [
+          "results_by_n",
+          "regret_curve",
+          "most_robust_method",
+          "least_robust_method",
+          "overload_threshold",
+          "heuristic_weights",
+          "pedagogical_note"
+        ],
+        "title": "ChoiceOverloadResponse",
+        "type": "object"
+      },
       "ClosestCandidateRequest": {
         "description": "POST /simulations/get_closest_candidate (2-D spatial assignment).",
         "properties": {
@@ -2696,6 +2887,48 @@
         "title": "CompulsoryVotingRequest",
         "type": "object"
       },
+      "CompulsoryVotingResponse": {
+        "additionalProperties": true,
+        "description": "Voluntary vs compulsory turnout and the quality/representation trade-off.",
+        "properties": {
+          "compulsory": {
+            "additionalProperties": true,
+            "title": "Compulsory",
+            "type": "object"
+          },
+          "pedagogical_note": {
+            "title": "Pedagogical Note",
+            "type": "string"
+          },
+          "quality_degradation": {
+            "title": "Quality Degradation",
+            "type": "number"
+          },
+          "representation_improvement": {
+            "title": "Representation Improvement",
+            "type": "number"
+          },
+          "voluntary": {
+            "additionalProperties": true,
+            "title": "Voluntary",
+            "type": "object"
+          },
+          "winner_changed": {
+            "title": "Winner Changed",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "voluntary",
+          "compulsory",
+          "winner_changed",
+          "representation_improvement",
+          "quality_degradation",
+          "pedagogical_note"
+        ],
+        "title": "CompulsoryVotingResponse",
+        "type": "object"
+      },
       "CondorcetMatrixRequest": {
         "description": "POST /simulations/condorcet-matrix.",
         "properties": {
@@ -2831,6 +3064,90 @@
           "proposals"
         ],
         "title": "ConvictionVotingRequest",
+        "type": "object"
+      },
+      "ConvictionVotingResponse": {
+        "additionalProperties": true,
+        "description": "Conviction voting: tokens × lock-multiplier vs plain token weight.",
+        "properties": {
+          "conviction_winner": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Conviction Winner"
+          },
+          "lock_options": {
+            "items": {
+              "type": "integer"
+            },
+            "title": "Lock Options",
+            "type": "array"
+          },
+          "multipliers": {
+            "additionalProperties": {
+              "type": "number"
+            },
+            "title": "Multipliers",
+            "type": "object"
+          },
+          "pedagogical_note": {
+            "title": "Pedagogical Note",
+            "type": "string"
+          },
+          "proposals": {
+            "items": {
+              "additionalProperties": true,
+              "type": "object"
+            },
+            "title": "Proposals",
+            "type": "array"
+          },
+          "token_winner": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Token Winner"
+          },
+          "voter_scatter": {
+            "items": {
+              "additionalProperties": true,
+              "type": "object"
+            },
+            "title": "Voter Scatter",
+            "type": "array"
+          },
+          "voter_stats": {
+            "additionalProperties": true,
+            "title": "Voter Stats",
+            "type": "object"
+          },
+          "winner_changed": {
+            "title": "Winner Changed",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "conviction_winner",
+          "token_winner",
+          "winner_changed",
+          "proposals",
+          "voter_scatter",
+          "voter_stats",
+          "pedagogical_note",
+          "lock_options",
+          "multipliers"
+        ],
+        "title": "ConvictionVotingResponse",
         "type": "object"
       },
       "CrossPressured": {
@@ -3266,6 +3583,53 @@
           "candidates"
         ],
         "title": "DemographicTurnoutRequest",
+        "type": "object"
+      },
+      "DemographicTurnoutResponse": {
+        "additionalProperties": true,
+        "description": "Distortion between full population and effective (turnout-weighted) electorate.",
+        "properties": {
+          "biased_result": {
+            "additionalProperties": true,
+            "title": "Biased Result",
+            "type": "object"
+          },
+          "corrected_result": {
+            "additionalProperties": true,
+            "title": "Corrected Result",
+            "type": "object"
+          },
+          "demographic_breakdown": {
+            "items": {
+              "additionalProperties": true,
+              "type": "object"
+            },
+            "title": "Demographic Breakdown",
+            "type": "array"
+          },
+          "pedagogical_note": {
+            "title": "Pedagogical Note",
+            "type": "string"
+          },
+          "representation_gap": {
+            "additionalProperties": true,
+            "title": "Representation Gap",
+            "type": "object"
+          },
+          "winner_changed": {
+            "title": "Winner Changed",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "biased_result",
+          "corrected_result",
+          "winner_changed",
+          "representation_gap",
+          "demographic_breakdown",
+          "pedagogical_note"
+        ],
+        "title": "DemographicTurnoutResponse",
         "type": "object"
       },
       "DistrictBounds": {
@@ -5351,6 +5715,96 @@
         "title": "LiquidDemocracyRequest",
         "type": "object"
       },
+      "LiquidDemocracyResponse": {
+        "additionalProperties": true,
+        "description": "Transitive delegation: super-voters, cycles, and Gini of voting weight.",
+        "properties": {
+          "chain_stats": {
+            "additionalProperties": true,
+            "title": "Chain Stats",
+            "type": "object"
+          },
+          "comparison": {
+            "additionalProperties": true,
+            "title": "Comparison",
+            "type": "object"
+          },
+          "cycle_voter_ids": {
+            "items": {
+              "type": "integer"
+            },
+            "title": "Cycle Voter Ids",
+            "type": "array"
+          },
+          "cycles_detected": {
+            "title": "Cycles Detected",
+            "type": "integer"
+          },
+          "delegation_graph": {
+            "items": {
+              "additionalProperties": true,
+              "type": "object"
+            },
+            "title": "Delegation Graph",
+            "type": "array"
+          },
+          "delegators": {
+            "title": "Delegators",
+            "type": "integer"
+          },
+          "direct_voters": {
+            "title": "Direct Voters",
+            "type": "integer"
+          },
+          "gini_curve": {
+            "items": {
+              "additionalProperties": true,
+              "type": "object"
+            },
+            "title": "Gini Curve",
+            "type": "array"
+          },
+          "gini_voting_weight": {
+            "title": "Gini Voting Weight",
+            "type": "number"
+          },
+          "pedagogical_note": {
+            "title": "Pedagogical Note",
+            "type": "string"
+          },
+          "super_voters": {
+            "items": {
+              "additionalProperties": true,
+              "type": "object"
+            },
+            "title": "Super Voters",
+            "type": "array"
+          },
+          "weighted_results": {
+            "additionalProperties": {
+              "type": "integer"
+            },
+            "title": "Weighted Results",
+            "type": "object"
+          }
+        },
+        "required": [
+          "weighted_results",
+          "direct_voters",
+          "delegators",
+          "super_voters",
+          "delegation_graph",
+          "cycles_detected",
+          "cycle_voter_ids",
+          "chain_stats",
+          "gini_curve",
+          "comparison",
+          "gini_voting_weight",
+          "pedagogical_note"
+        ],
+        "title": "LiquidDemocracyResponse",
+        "type": "object"
+      },
       "MajorityTyrannyRequest": {
         "additionalProperties": false,
         "description": "Tocqueville's tyranny of the majority across decision rules.",
@@ -7147,6 +7601,104 @@
         "title": "ShyVoterRequest",
         "type": "object"
       },
+      "ShyVoterResponse": {
+        "additionalProperties": true,
+        "description": "Shy-voter effect: poll vs real winner under social-desirability bias.",
+        "properties": {
+          "avg_poll_results": {
+            "additionalProperties": {
+              "type": "number"
+            },
+            "title": "Avg Poll Results",
+            "type": "object"
+          },
+          "pedagogical_note": {
+            "title": "Pedagogical Note",
+            "type": "string"
+          },
+          "poll_results": {
+            "items": {
+              "additionalProperties": true,
+              "type": "object"
+            },
+            "title": "Poll Results",
+            "type": "array"
+          },
+          "poll_winner": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Poll Winner"
+          },
+          "polls_wrong": {
+            "title": "Polls Wrong",
+            "type": "boolean"
+          },
+          "real_results": {
+            "additionalProperties": {
+              "type": "number"
+            },
+            "title": "Real Results",
+            "type": "object"
+          },
+          "real_winner": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Real Winner"
+          },
+          "shy_candidate": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Shy Candidate"
+          },
+          "social_desirability_curve": {
+            "items": {
+              "additionalProperties": true,
+              "type": "object"
+            },
+            "title": "Social Desirability Curve",
+            "type": "array"
+          },
+          "systematic_error": {
+            "additionalProperties": {
+              "type": "number"
+            },
+            "title": "Systematic Error",
+            "type": "object"
+          }
+        },
+        "required": [
+          "real_winner",
+          "poll_winner",
+          "polls_wrong",
+          "shy_candidate",
+          "poll_results",
+          "systematic_error",
+          "real_results",
+          "avg_poll_results",
+          "social_desirability_curve",
+          "pedagogical_note"
+        ],
+        "title": "ShyVoterResponse",
+        "type": "object"
+      },
       "SimulateCandidatesRequest": {
         "description": "POST /simulations/simulate_candidates.",
         "properties": {
@@ -7493,6 +8045,50 @@
           "candidates"
         ],
         "title": "SortitionRequest",
+        "type": "object"
+      },
+      "SortitionResponse": {
+        "additionalProperties": true,
+        "description": "Elected vs sortition (pure / stratified) assembly representativeness.",
+        "properties": {
+          "assemblies": {
+            "additionalProperties": true,
+            "title": "Assemblies",
+            "type": "object"
+          },
+          "consensus_possible": {
+            "title": "Consensus Possible",
+            "type": "boolean"
+          },
+          "pedagogical_note": {
+            "title": "Pedagogical Note",
+            "type": "string"
+          },
+          "population": {
+            "additionalProperties": true,
+            "title": "Population",
+            "type": "object"
+          },
+          "variance": {
+            "additionalProperties": true,
+            "title": "Variance",
+            "type": "object"
+          },
+          "winner_by_method": {
+            "additionalProperties": true,
+            "title": "Winner By Method",
+            "type": "object"
+          }
+        },
+        "required": [
+          "population",
+          "assemblies",
+          "variance",
+          "winner_by_method",
+          "consensus_possible",
+          "pedagogical_note"
+        ],
+        "title": "SortitionResponse",
         "type": "object"
       },
       "StrategicImpactRequest": {
@@ -8816,9 +9412,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "additionalProperties": true,
-                  "title": "Response Ballot Complexity Endpoint Api V2 Election Ballot Complexity Post",
-                  "type": "object"
+                  "$ref": "#/components/schemas/BallotComplexityResponse"
                 }
               }
             },
@@ -8860,9 +9454,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "additionalProperties": true,
-                  "title": "Response Behavioral Biases Endpoint Api V2 Election Behavioral Biases Post",
-                  "type": "object"
+                  "$ref": "#/components/schemas/BehavioralBiasesResponse"
                 }
               }
             },
@@ -8988,9 +9580,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "additionalProperties": true,
-                  "title": "Response Choice Overload Endpoint Api V2 Election Choice Overload Post",
-                  "type": "object"
+                  "$ref": "#/components/schemas/ChoiceOverloadResponse"
                 }
               }
             },
@@ -9116,9 +9706,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "additionalProperties": true,
-                  "title": "Response Compulsory Voting Endpoint Api V2 Election Compulsory Voting Post",
-                  "type": "object"
+                  "$ref": "#/components/schemas/CompulsoryVotingResponse"
                 }
               }
             },
@@ -9160,9 +9748,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "additionalProperties": true,
-                  "title": "Response Conviction Voting Endpoint Api V2 Election Conviction Voting Post",
-                  "type": "object"
+                  "$ref": "#/components/schemas/ConvictionVotingResponse"
                 }
               }
             },
@@ -9246,9 +9832,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "additionalProperties": true,
-                  "title": "Response Demographic Turnout Endpoint Api V2 Election Demographic Turnout Post",
-                  "type": "object"
+                  "$ref": "#/components/schemas/DemographicTurnoutResponse"
                 }
               }
             },
@@ -9638,9 +10222,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "additionalProperties": true,
-                  "title": "Response Liquid Democracy Endpoint Api V2 Election Liquid Democracy Post",
-                  "type": "object"
+                  "$ref": "#/components/schemas/LiquidDemocracyResponse"
                 }
               }
             },
@@ -9988,9 +10570,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "additionalProperties": true,
-                  "title": "Response Shy Voter Endpoint Api V2 Election Shy Voter Post",
-                  "type": "object"
+                  "$ref": "#/components/schemas/ShyVoterResponse"
                 }
               }
             },
@@ -10118,9 +10698,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "additionalProperties": true,
-                  "title": "Response Sortition Endpoint Api V2 Election Sortition Post",
-                  "type": "object"
+                  "$ref": "#/components/schemas/SortitionResponse"
                 }
               }
             },

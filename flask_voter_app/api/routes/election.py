@@ -37,21 +37,27 @@ from api.schemas import (
     AdaptiveRequest,
     AffectivePolarizationRequest,
     BallotComplexityRequest,
+    BallotComplexityResponse,
     BehavioralBiasesRequest,
+    BehavioralBiasesResponse,
     CampaignSensitivityRequest,
     CampaignSensitivityResponse,
     CascadeRequest,
     CascadeResponse,
     ChoiceOverloadRequest,
+    ChoiceOverloadResponse,
     CoalitionRequest,
     CoalitionResponse,
     CombinedEffectsRequest,
     CombinedEffectsResponse,
     CompulsoryVotingRequest,
+    CompulsoryVotingResponse,
     ConvictionVotingRequest,
+    ConvictionVotingResponse,
     DeliberationRequest,
     DeliberationResponse,
     DemographicTurnoutRequest,
+    DemographicTurnoutResponse,
     DistrictsRequest,
     DivergenceRequest,
     ElectoralFatigueRequest,
@@ -63,6 +69,7 @@ from api.schemas import (
     JuryRequest,
     JuryResponse,
     LiquidDemocracyRequest,
+    LiquidDemocracyResponse,
     MultiwinnerCompareRequest,
     NotaRequest,
     NotaResponse,
@@ -72,10 +79,12 @@ from api.schemas import (
     PrimaryRequest,
     QuadraticFundingRequest,
     ShyVoterRequest,
+    ShyVoterResponse,
     SimulatePipelineRequest,
     SimulateRequest,
     SimulateResponse,
     SortitionRequest,
+    SortitionResponse,
     StvRequest,
 )
 
@@ -293,6 +302,7 @@ async def nota_endpoint(request: NotaRequest) -> NotaResponse:
 
 @router.post(
     "/ballot-complexity",
+    response_model=BallotComplexityResponse,
     summary="Null-vote rate per method as a function of ballot complexity",
     response_description=(
         "Per-method null rate, winner with and without nulls, and a "
@@ -301,27 +311,28 @@ async def nota_endpoint(request: NotaRequest) -> NotaResponse:
 )
 async def ballot_complexity_endpoint(
     request: BallotComplexityRequest,
-) -> Dict[str, Any]:
+) -> BallotComplexityResponse:
     """P(null | method) = error_base × candidate_factor × education_factor
     × first_time_voter_factor. Complex ballots (Schulze, IRV) exclude
     more voters than simple ones (Plurality)."""
-    return await _run_passthrough(ballot_complexity_domain, request)
+    return await _run_typed(ballot_complexity_domain, request, BallotComplexityResponse)
 
 
 @router.post(
     "/shy-voter",
+    response_model=ShyVoterResponse,
     summary="Bradley / Shy Tory effect — socially-sensitive candidates underpolled",
     response_description=(
         "Real vs polled winner, systematic poll error, and a "
         "social-desirability-vs-systematic-error curve."
     ),
 )
-async def shy_voter_endpoint(request: ShyVoterRequest) -> Dict[str, Any]:
+async def shy_voter_endpoint(request: ShyVoterRequest) -> ShyVoterResponse:
     """Voters intending to vote for the 'sensitive' candidate (index
     `shy_candidate_idx`) declare a more acceptable preference in polls
     with probability `social_desirability_factor`, but vote sincerely
     in the booth."""
-    return await _run_passthrough(shy_voter_domain, request)
+    return await _run_typed(shy_voter_domain, request, ShyVoterResponse)
 
 
 @router.post(
@@ -362,33 +373,35 @@ async def cascade_endpoint(request: CascadeRequest) -> CascadeResponse:
 
 @router.post(
     "/behavioral-biases",
+    response_model=BehavioralBiasesResponse,
     summary="Expressive voting + bullet voting + primacy effect",
     response_description="Sincere vs biased winner, per-method sensitivity, "
                          "and breakdown of which voters were affected.",
 )
 async def behavioral_biases_endpoint(
     request: BehavioralBiasesRequest,
-) -> Dict[str, Any]:
+) -> BehavioralBiasesResponse:
     """Three empirical biases stacked: expressive voting (Fiorina 1976),
     bullet voting (collapses Approval to Plurality for affected voters),
     primacy effect (Krosnick 1991, first-listed candidate bonus)."""
-    return await _run_passthrough(behavioral_biases_domain, request)
+    return await _run_typed(behavioral_biases_domain, request, BehavioralBiasesResponse)
 
 
 @router.post(
     "/choice-overload",
+    response_model=ChoiceOverloadResponse,
     summary="Heuristics dominate beyond overload_threshold candidates",
     response_description="Per-candidate-count winners, regret curve, "
                          "most/least robust method.",
 )
 async def choice_overload_endpoint(
     request: ChoiceOverloadRequest,
-) -> Dict[str, Any]:
+) -> ChoiceOverloadResponse:
     """Schwartz 2004 paradox of choice: beyond `overload_threshold`
     candidates, voters use heuristics (notoriety / primacy / partisan
     affiliation) instead of their sincere preferences. Compares method
     robustness."""
-    return await _run_passthrough(choice_overload_domain, request)
+    return await _run_typed(choice_overload_domain, request, ChoiceOverloadResponse)
 
 
 @router.post(
@@ -451,15 +464,16 @@ async def polarization_endpoint(request: PolarizationRequest) -> Dict[str, Any]:
 
 @router.post(
     "/sortition",
+    response_model=SortitionResponse,
     summary="Elected vs sortition pure vs sortition stratified",
     response_description="Per-method assembly: representativity, diversity, "
                          "decision regret, Gini of representation, Monte Carlo variance.",
 )
-async def sortition_endpoint(request: SortitionRequest) -> Dict[str, Any]:
+async def sortition_endpoint(request: SortitionRequest) -> SortitionResponse:
     """Compares three assembly-selection methods on the same population:
     elected (electoral bias), sortition pure (random sample), sortition
     stratified (demographically balanced random sample)."""
-    return await _run_passthrough(sortition_domain, request)
+    return await _run_typed(sortition_domain, request, SortitionResponse)
 
 
 # ── Perturber endpoints (Phase 3 batch 6) ──────────────────────────────────
@@ -481,33 +495,35 @@ async def affective_polarization_endpoint(
 
 @router.post(
     "/demographic-turnout",
+    response_model=DemographicTurnoutResponse,
     summary="Full population vs effective electorate via age × education gaps",
     response_description="Biased vs corrected winner, representation gap, "
                          "demographic breakdown.",
 )
 async def demographic_turnout_endpoint(
     request: DemographicTurnoutRequest,
-) -> Dict[str, Any]:
+) -> DemographicTurnoutResponse:
     """Distortion between the real electorate and the effective electorate
     driven by differential turnout across demographic groups. The
     `correct_for_turnout` flag toggles the turnout-correction model
     on/off so the user can compare both."""
-    return await _run_passthrough(demographic_turnout_domain, request)
+    return await _run_typed(demographic_turnout_domain, request, DemographicTurnoutResponse)
 
 
 @router.post(
     "/compulsory-voting",
+    response_model=CompulsoryVotingResponse,
     summary="Voluntary vs compulsory voting on the same electorate",
     response_description="Per-system winner, vote shares, null rate, voter "
                          "profile, representation improvement, quality degradation.",
 )
 async def compulsory_voting_endpoint(
     request: CompulsoryVotingRequest,
-) -> Dict[str, Any]:
+) -> CompulsoryVotingResponse:
     """Voluntary turnout is right-biased (empirical pattern); compulsory
     elections add reluctant left-leaning voters who may vote null,
     randomly, or sincerely."""
-    return await _run_passthrough(compulsory_voting_domain, request)
+    return await _run_typed(compulsory_voting_domain, request, CompulsoryVotingResponse)
 
 
 @router.post(
@@ -685,32 +701,34 @@ async def quadratic_funding_endpoint(
 
 @router.post(
     "/liquid-democracy",
+    response_model=LiquidDemocracyResponse,
     summary="Transitive delegation up to max_chain_length hops",
     response_description="Weighted tallies + super-voter list + delegation "
                          "graph + Gini curve of voting weight.",
 )
 async def liquid_democracy_endpoint(
     request: LiquidDemocracyRequest,
-) -> Dict[str, Any]:
+) -> LiquidDemocracyResponse:
     """Each voter votes directly or delegates. Delegation chains are
     resolved up to `max_chain_length` hops; cycles fall back to direct
     voting. Reports voting-weight Gini and a super-voter list."""
-    return await _run_passthrough(liquid_democracy_domain, request)
+    return await _run_typed(liquid_democracy_domain, request, LiquidDemocracyResponse)
 
 
 @router.post(
     "/conviction-voting",
+    response_model=ConvictionVotingResponse,
     summary="Polkadot-style conviction voting: tokens × multiplier(lock_days)",
     response_description="Conviction winner vs token winner + per-proposal "
                          "stats + Gini tokens vs Gini conviction.",
 )
 async def conviction_voting_endpoint(
     request: ConvictionVotingRequest,
-) -> Dict[str, Any]:
+) -> ConvictionVotingResponse:
     """Voters with longer locks amplify their votes (×0.1 at 0 days,
     ×6.0 at 224 days). Compares the conviction-weighted result with a
     plain 1-token-1-vote baseline."""
-    return await _run_passthrough(conviction_voting_domain, request)
+    return await _run_typed(conviction_voting_domain, request, ConvictionVotingResponse)
 
 
 @router.post(

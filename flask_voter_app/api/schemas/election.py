@@ -334,3 +334,143 @@ class DeliberationResponse(BaseModel):
     per_round:           List[Dict[str, Any]]
     network_effect:      str
     pedagogical_note:    str
+
+
+# ── /ballot-complexity ────────────────────────────────────────────────────────
+
+class BallotComplexityResponse(BaseModel):
+    """Null-vote rate per method as ballot complexity (candidate count) grows."""
+    model_config = ConfigDict(extra="allow")
+
+    results:                List[Dict[str, Any]]
+    candidate_count_curve:  List[Dict[str, Any]]
+    most_inclusive_method:  Optional[str]
+    least_inclusive_method: Optional[str]
+    pedagogical_note:       str
+
+
+# ── /shy-voter ────────────────────────────────────────────────────────────────
+
+class ShyVoterResponse(BaseModel):
+    """Shy-voter effect: poll vs real winner under social-desirability bias."""
+    model_config = ConfigDict(extra="allow")
+
+    real_winner:               Optional[str]
+    poll_winner:               Optional[str]
+    polls_wrong:               bool
+    shy_candidate:             Optional[str]
+    poll_results:              List[Dict[str, Any]]
+    systematic_error:          Dict[str, float]
+    real_results:              Dict[str, float]
+    avg_poll_results:          Dict[str, float]
+    social_desirability_curve: List[Dict[str, Any]]
+    pedagogical_note:          str
+
+
+# ── /behavioral-biases ────────────────────────────────────────────────────────
+
+class BehavioralBiasesResponse(BaseModel):
+    """Expressive + bullet + primacy biases vs sincere voting."""
+    model_config = ConfigDict(extra="allow")
+
+    sincere_winner:        Optional[str]
+    biased_winner:         Optional[str]
+    winner_changed:        bool
+    vote_breakdown:        Dict[str, Any]
+    method_sensitivity:    Dict[str, Any]
+    bullet_immune_methods: List[str]
+    pedagogical_note:      str
+
+
+# ── /choice-overload ──────────────────────────────────────────────────────────
+
+class ChoiceOverloadResponse(BaseModel):
+    """Heuristic voting beyond an overload threshold of candidates."""
+    model_config = ConfigDict(extra="allow")
+
+    results_by_n:        List[Dict[str, Any]]
+    regret_curve:        List[Dict[str, Any]]
+    most_robust_method:  Optional[str]
+    least_robust_method: Optional[str]
+    overload_threshold:  int
+    heuristic_weights:   Dict[str, float]
+    pedagogical_note:    str
+
+
+# ── /compulsory-voting ────────────────────────────────────────────────────────
+
+class CompulsoryVotingResponse(BaseModel):
+    """Voluntary vs compulsory turnout and the quality/representation trade-off."""
+    model_config = ConfigDict(extra="allow")
+
+    voluntary:                  Dict[str, Any]
+    compulsory:                 Dict[str, Any]
+    winner_changed:             bool
+    representation_improvement: float
+    quality_degradation:        float
+    pedagogical_note:           str
+
+
+# ── /conviction-voting ────────────────────────────────────────────────────────
+
+class ConvictionVotingResponse(BaseModel):
+    """Conviction voting: tokens × lock-multiplier vs plain token weight."""
+    model_config = ConfigDict(extra="allow")
+
+    conviction_winner: Optional[str]
+    token_winner:      Optional[str]
+    winner_changed:    bool
+    proposals:         List[Dict[str, Any]]
+    voter_scatter:     List[Dict[str, Any]]
+    voter_stats:       Dict[str, Any]
+    pedagogical_note:  str
+    lock_options:      List[int]
+    multipliers:       Dict[str, float]
+
+
+# ── /liquid-democracy ─────────────────────────────────────────────────────────
+
+class LiquidDemocracyResponse(BaseModel):
+    """Transitive delegation: super-voters, cycles, and Gini of voting weight."""
+    model_config = ConfigDict(extra="allow")
+
+    weighted_results:   Dict[str, int]
+    direct_voters:      int
+    delegators:         int
+    super_voters:       List[Dict[str, Any]]
+    delegation_graph:   List[Dict[str, Any]]
+    cycles_detected:    int
+    cycle_voter_ids:    List[int]
+    chain_stats:        Dict[str, Any]
+    gini_curve:         List[Dict[str, Any]]
+    comparison:         Dict[str, Any]
+    gini_voting_weight: float
+    pedagogical_note:   str
+
+
+# ── /demographic-turnout ──────────────────────────────────────────────────────
+
+class DemographicTurnoutResponse(BaseModel):
+    """Distortion between full population and effective (turnout-weighted) electorate."""
+    model_config = ConfigDict(extra="allow")
+
+    biased_result:         Dict[str, Any]
+    corrected_result:      Dict[str, Any]
+    winner_changed:        bool
+    representation_gap:    Dict[str, Any]
+    demographic_breakdown: List[Dict[str, Any]]
+    pedagogical_note:      str
+
+
+# ── /sortition ────────────────────────────────────────────────────────────────
+
+class SortitionResponse(BaseModel):
+    """Elected vs sortition (pure / stratified) assembly representativeness."""
+    model_config = ConfigDict(extra="allow")
+
+    population:         Dict[str, Any]
+    assemblies:         Dict[str, Any]
+    variance:           Dict[str, Any]
+    winner_by_method:   Dict[str, Any]
+    consensus_possible: bool
+    pedagogical_note:   str
