@@ -1,7 +1,7 @@
 import React from 'react';
 import { render, screen } from '@testing-library/react';
 import { MemoryRouter, Route, Routes } from 'react-router-dom';
-import AuthGuard from './context/AuthGuard';
+import AuthGuard from './components/Route/AuthGuard';
 import { useAuth } from './stores/useAuthStore';
 
 jest.mock('./stores/useAuthStore', () => ({

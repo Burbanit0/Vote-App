@@ -2,7 +2,7 @@ import React from 'react';
 import { Navigate, Link } from 'react-router';
 import { Button } from 'react-bootstrap';
 import { Trans, useTranslation } from 'react-i18next';
-import { useAuth } from '../stores/useAuthStore';
+import { useAuth } from '../../stores/useAuthStore';
 
 const PublicBanner: React.FC = () => {
   const { t } = useTranslation();

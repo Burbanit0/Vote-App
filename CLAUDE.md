@@ -6,7 +6,7 @@ This file provides guidance to Claude Code when working with this repository.
 
 - **Frontend**: React 19 + TypeScript · React Router v7 · Bootstrap 5 · Recharts · D3 7.x · i18next (FR/EN) · Vite · PWA (vite-plugin-pwa)
   - **Data layer** (Phase 5): TanStack Query v5 + **openapi-fetch** (`src/api/client.ts`, typed against `src/api/types.gen.ts` generated from the FastAPI OpenAPI schema). Panels call `$api.useQuery/useMutation` (`src/api/hooks.ts`); the `services/*Api.ts` wrappers call the `apiPost/apiGet/apiDelete` helpers. A middleware attaches the JWT Bearer from `useAuthStore`. **axios fully removed.**
-  - **State layer** (Phase 5.4/5.5): **Zustand** stores in `src/stores/` — `useAuthStore`, `useUIStore` (theme/expert/teacher), `useLabStore` (pinned perturbations + animation bus), `useElectionStore` (global config + scenarios). Stores self-hydrate from localStorage at module init (no Providers); each exports its convenience hook (`useAuth`/`useTheme`/`useElection`/…). The migrated context files are **deleted** — `src/context/` now holds only `AuthGuard.tsx` and `SimuContext` (a still-live, unmigrated context for the Simulation-form voters/candidates flow).
+  - **State layer** (Phase 5.4/5.5): **Zustand** stores in `src/stores/` — `useAuthStore`, `useUIStore` (theme/expert/teacher), `useLabStore` (pinned perturbations + animation bus), `useElectionStore` (global config + scenarios), `useSimuStore` (Simulation-form voters/candidates/issues). Stores self-hydrate from localStorage at module init (no Providers); each exports its convenience hook (`useAuth`/`useTheme`/`useElection`/`useSimulation`/…). **`src/context/` is fully retired** — all former contexts are stores; the `AuthGuard` route guard now lives in `components/Route/`.
 - **Backend**: **FastAPI** (uvicorn) · SQLAlchemy 2.0 **async** (asyncpg/aiosqlite) · PostgreSQL · Redis · python-socketio (WebSocket, ASGI). *Flask + eventlet fully retired in Phase 4.5.b — see [STRATEGIC_REFACTOR_PLAN.md](STRATEGIC_REFACTOR_PLAN.md).*
 - **Auth**: **fastapi-users** · JWT (1h, HS256) · bcrypt (legacy hashes) · OAuth (Google / GitHub)
 - **Tests**: Jest 1480+ frontend (160 suites) · pytest 340+ backend (httpx TestClient + pytest-asyncio) · coverage ≥ 30 % (backend)
@@ -84,9 +84,8 @@ voter-app/src/
 │   ├── client.ts                 # createClient<paths> + auth middleware + apiPost/apiGet/apiDelete
 │   ├── hooks.ts                  # $api (openapi-react-query) — useQuery/useMutation
 │   └── types.gen.ts              # generated from FastAPI OpenAPI (npm run gen:api)
-├── context/                      # only AuthGuard + SimuContext remain (rest → stores/)
-│   ├── AuthGuard.tsx             # route guard (reads useAuthStore)
-│   └── SimuContext.tsx           # live, unmigrated (Simulation-form voters/candidates)
+│                                 # (src/context/ retired — all state in stores/;
+│                                 #  AuthGuard moved to components/Route/)
 ├── hooks/
 │   ├── useDragTouch.ts           # Drag SVG unifié mouse+touch
 │   ├── useSwipe.ts               # Swipe mobile pour navigation onglets

@@ -1,6 +1,5 @@
-import React from 'react';
 import { render, screen, fireEvent } from '@testing-library/react';
-import { SimulationProvider, useSimulation } from './SimuContext';
+import { useSimulation, useSimuStore } from './useSimuStore';
 import { VoterSimu, CandidateSimu } from '../types';
 
 const mockVoter: VoterSimu = {
@@ -60,63 +59,38 @@ const TestConsumer = () => {
   );
 };
 
-describe('SimulationContext', () => {
-  it('renders children', () => {
-    render(
-      <SimulationProvider>
-        <div data-testid="child">child</div>
-      </SimulationProvider>
-    );
-    expect(screen.getByTestId('child')).toBeInTheDocument();
+describe('useSimuStore (useSimulation)', () => {
+  beforeEach(() => {
+    useSimuStore.setState({ voters: [], candidates: [], issues: [] });
   });
 
   it('starts with empty arrays', () => {
-    render(
-      <SimulationProvider>
-        <TestConsumer />
-      </SimulationProvider>
-    );
+    render(<TestConsumer />);
     expect(screen.getByTestId('voters-count')).toHaveTextContent('0');
     expect(screen.getByTestId('candidates-count')).toHaveTextContent('0');
     expect(screen.getByTestId('issues-count')).toHaveTextContent('0');
   });
 
   it('sets voters', () => {
-    render(
-      <SimulationProvider>
-        <TestConsumer />
-      </SimulationProvider>
-    );
+    render(<TestConsumer />);
     fireEvent.click(screen.getByTestId('set-voters'));
     expect(screen.getByTestId('voters-count')).toHaveTextContent('1');
   });
 
   it('sets candidates', () => {
-    render(
-      <SimulationProvider>
-        <TestConsumer />
-      </SimulationProvider>
-    );
+    render(<TestConsumer />);
     fireEvent.click(screen.getByTestId('set-candidates'));
     expect(screen.getByTestId('candidates-count')).toHaveTextContent('1');
   });
 
   it('sets issues', () => {
-    render(
-      <SimulationProvider>
-        <TestConsumer />
-      </SimulationProvider>
-    );
+    render(<TestConsumer />);
     fireEvent.click(screen.getByTestId('set-issues'));
     expect(screen.getByTestId('issues-count')).toHaveTextContent('2');
   });
 
   it('replaces voters on subsequent calls', () => {
-    render(
-      <SimulationProvider>
-        <TestConsumer />
-      </SimulationProvider>
-    );
+    render(<TestConsumer />);
     fireEvent.click(screen.getByTestId('set-voters'));
     expect(screen.getByTestId('voters-count')).toHaveTextContent('1');
     fireEvent.click(screen.getByTestId('set-voters'));

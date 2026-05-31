@@ -16,7 +16,7 @@ import { useTranslation } from 'react-i18next';
 import { simulateVoters } from '../../services';
 import IssuePrioritiesVisualization from './IssuePrioritiesVisualization';
 import { Region, Income, PartySimu, Family, Ethnicity, Religion, Employement } from '../../types';
-import { useSimulation } from '../../context/SimuContext';
+import { useSimulation } from '../../stores/useSimuStore';
 
 // Interface compatible avec Recharts
 interface ChartData {

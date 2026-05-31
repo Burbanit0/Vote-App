@@ -31,7 +31,7 @@ import {
 } from 'recharts';
 import { simulateUtility, getUtilityMatrix, getVoterSegments } from '../../services';
 import { CandidateSimu, VoterSimu } from '../../types';
-import { useSimulation } from '../../context/SimuContext';
+import { useSimulation } from '../../stores/useSimuStore';
 
 const COLORS = [
   '#0088FE',

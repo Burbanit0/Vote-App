@@ -36,7 +36,7 @@ const ProfilePage              = React.lazy(() => import('./pages/ProfilePage'))
 const UserProfilePage          = React.lazy(() => import('./pages/UserProfilePage'));
 
 import { useAuth } from './stores/useAuthStore';
-import AuthGuard from './context/AuthGuard';
+import AuthGuard from './components/Route/AuthGuard';
 import { useTheme } from './stores/useUIStore';
 import { ToastProvider } from './components/shared/ToastNotification';
 import { ElectionProvider } from './stores/useElectionStore';

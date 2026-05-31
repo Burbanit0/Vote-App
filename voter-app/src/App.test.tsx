@@ -36,7 +36,7 @@ jest.mock('./pages/UserProfilePage', () => () => (
 
 // AuthGuard: render the wrapped component directly (skip auth logic in tests)
 jest.mock(
-  './context/AuthGuard',
+  './components/Route/AuthGuard',
   () =>
     ({ component: Component }: { component: React.ComponentType }) => <Component />
 );
