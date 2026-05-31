@@ -24,7 +24,7 @@ Backend layering (top to bottom):
 from __future__ import annotations
 
 import asyncio
-from typing import Any, Callable, Dict
+from typing import Any, Callable, Dict, TypeVar
 
 from fastapi import APIRouter, HTTPException, status
 from pydantic import BaseModel
@@ -35,7 +35,9 @@ from api.schemas import (
     AbstentionRequest,
     AbstentionResponse,
     AdaptiveRequest,
+    AdaptiveResponse,
     AffectivePolarizationRequest,
+    AffectivePolarizationResponse,
     BallotComplexityRequest,
     BallotComplexityResponse,
     BehavioralBiasesRequest,
@@ -59,33 +61,47 @@ from api.schemas import (
     DemographicTurnoutRequest,
     DemographicTurnoutResponse,
     DistrictsRequest,
+    DistrictsResponse,
     DivergenceRequest,
+    DivergenceResponse,
     ElectoralFatigueRequest,
     ElectoralFatigueResponse,
     GerrymanderRequest,
+    GerrymanderResponse,
     HistoricalReplayRequest,
+    HistoricalReplayResponse,
     HotellingRequest,
+    HotellingResponse,
     InterpretRequest,
+    InterpretResponse,
     JuryRequest,
     JuryResponse,
     LiquidDemocracyRequest,
     LiquidDemocracyResponse,
     MultiwinnerCompareRequest,
+    MultiwinnerCompareResponse,
     NotaRequest,
     NotaResponse,
     PartyDynamicsRequest,
+    PartyDynamicsResponse,
     PolarizationRequest,
+    PolarizationResponse,
     PowerIndicesRequest,
+    PowerIndicesResponse,
     PrimaryRequest,
+    PrimaryResponse,
     QuadraticFundingRequest,
+    QuadraticFundingResponse,
     ShyVoterRequest,
     ShyVoterResponse,
     SimulatePipelineRequest,
+    SimulatePipelineResponse,
     SimulateRequest,
     SimulateResponse,
     SortitionRequest,
     SortitionResponse,
     StvRequest,
+    StvResponse,
 )
 
 from api.domain.election import (
@@ -128,14 +144,16 @@ from api.domain.election import (
 
 router = APIRouter(prefix="/api/v2/election", tags=["election"])
 
+_ResponseT = TypeVar("_ResponseT", bound=BaseModel)
+
 
 # ── Shared helper ───────────────────────────────────────────────────────────
 
 async def _run_typed(
     domain_fn: Callable[[Dict[str, Any]], tuple[Dict[str, Any], int]],
     request: BaseModel,
-    response_model: type[BaseModel],
-) -> BaseModel:
+    response_model: type[_ResponseT],
+) -> _ResponseT:
     """Run a domain compute function in a worker thread and adapt its
     (body, status) contract to FastAPI's exception-based error model.
 
@@ -437,29 +455,31 @@ async def jury_endpoint(request: JuryRequest) -> JuryResponse:
 
 @router.post(
     "/hotelling",
+    response_model=HotellingResponse,
     summary="Hotelling-Downs iterative best-response (Nash equilibrium)",
     response_description="Iteration-by-iteration candidate positions, "
                          "convergence status, equilibrium type.",
 )
-async def hotelling_endpoint(request: HotellingRequest) -> Dict[str, Any]:
+async def hotelling_endpoint(request: HotellingRequest) -> HotellingResponse:
     """Each candidate iteratively moves in the direction (±x, ±y) that
     maximises their vote score under `method`. Converges when no
     candidate can improve by moving by `step_size`."""
-    return await _run_passthrough(hotelling_domain, request)
+    return await _run_typed(hotelling_domain, request, HotellingResponse)
 
 
 @router.post(
     "/polarization",
+    response_model=PolarizationResponse,
     summary="Per-ideology Esteban-Ray index + voting-method robustness",
     response_description="One result per ideology distribution: ER index, "
                          "Condorcet rate, inter-method agreement, regret by method.",
 )
-async def polarization_endpoint(request: PolarizationRequest) -> Dict[str, Any]:
+async def polarization_endpoint(request: PolarizationRequest) -> PolarizationResponse:
     """For each voter distribution in `ideology_range`, computes the
     Esteban-Ray polarisation index and runs `num_simulations` Monte
     Carlo elections to measure how method agreement and Condorcet
     rate degrade with polarisation."""
-    return await _run_passthrough(polarization_domain, request)
+    return await _run_typed(polarization_domain, request, PolarizationResponse)
 
 
 @router.post(
@@ -480,17 +500,18 @@ async def sortition_endpoint(request: SortitionRequest) -> SortitionResponse:
 
 @router.post(
     "/affective-polarization",
+    response_model=AffectivePolarizationResponse,
     summary="Iyengar 2019: in/out-group hostility distorts voting",
     response_description="Sincere vs affective winners, method sensitivity, "
                          "hostility-vs-agreement affect curve.",
 )
 async def affective_polarization_endpoint(
     request: AffectivePolarizationRequest,
-) -> Dict[str, Any]:
+) -> AffectivePolarizationResponse:
     """Voters penalise candidates from the opposing political camp
     proportionally to `affect_hostility`. `camp_threshold` defines the
     x-axis distance for in/out-group splitting."""
-    return await _run_passthrough(affective_polarization_domain, request)
+    return await _run_typed(affective_polarization_domain, request, AffectivePolarizationResponse)
 
 
 @router.post(
@@ -528,24 +549,26 @@ async def compulsory_voting_endpoint(
 
 @router.post(
     "/party-dynamics",
+    response_model=PartyDynamicsResponse,
     summary="Multi-election party-system evolution (Duverger's Law)",
     response_description="Per-election parties, effective parties curve, "
                          "final system (bipartite vs multipartite), convergence speed.",
 )
 async def party_dynamics_endpoint(
     request: PartyDynamicsRequest,
-) -> Dict[str, Any]:
+) -> PartyDynamicsResponse:
     """Parties adapt positions (Hotelling), get eliminated below
     `survival_threshold`, and new parties may emerge. Tactical voting
     squeezes small parties under FPTP, driving the system toward
     bipartism."""
-    return await _run_passthrough(party_dynamics_domain, request)
+    return await _run_typed(party_dynamics_domain, request, PartyDynamicsResponse)
 
 
 # ── Phase 3 batch 7 ─────────────────────────────────────────────────────────
 
 @router.post(
     "/simulate-pipeline",
+    response_model=SimulatePipelineResponse,
     summary="Step-by-step pipeline animation",
     response_description="Ordered list of pipeline steps (base electorate, "
                          "campaign, contagion, information, results) for the "
@@ -553,68 +576,73 @@ async def party_dynamics_endpoint(
 )
 async def simulate_pipeline_endpoint(
     request: SimulatePipelineRequest,
-) -> Dict[str, Any]:
+) -> SimulatePipelineResponse:
     """Same compute as /simulate, but emits a per-step snapshot of voter
     state and method winners so the frontend can animate the pipeline."""
-    return await _run_passthrough(simulate_pipeline_domain, request)
+    return await _run_typed(simulate_pipeline_domain, request, SimulatePipelineResponse)
 
 
 @router.post(
     "/districts",
+    response_model=DistrictsResponse,
     summary="N districts with locally shifted ideology, FPTP vs proportional",
     response_description="Per-district winners + national parliaments (FPTP and "
                          "D'Hondt proportional) + distortion index.",
 )
-async def districts_endpoint(request: DistrictsRequest) -> Dict[str, Any]:
+async def districts_endpoint(request: DistrictsRequest) -> DistrictsResponse:
     """Each district elects its winner by FPTP from a locally biased
     electorate. Aggregates to a national parliament under FPTP (sum of
     district wins) vs D'Hondt proportional on national vote shares."""
-    return await _run_passthrough(districts_domain, request)
+    return await _run_typed(districts_domain, request, DistrictsResponse)
 
 
 @router.post(
     "/primary",
+    response_model=PrimaryResponse,
     summary="Internal party primaries + general election",
     response_description="Per-party primary results + general election winner "
                          "+ counterfactual without-primaries winner.",
 )
-async def primary_endpoint(request: PrimaryRequest) -> Dict[str, Any]:
+async def primary_endpoint(request: PrimaryRequest) -> PrimaryResponse:
     """Each party holds an internal primary among its partisan voters;
     the primary winner runs in the general election. The
     `without_primaries_winner` field reports what would have happened
     if each party centre had run directly."""
-    return await _run_passthrough(primary_domain, request)
+    return await _run_typed(primary_domain, request, PrimaryResponse)
 
 
 @router.post(
     "/stv",
+    response_model=StvResponse,
     summary="Single Transferable Vote + D'Hondt + FPTP comparison",
     response_description="Round-by-round STV audit + D'Hondt and FPTP "
                          "parliaments + seat-distortion index.",
 )
-async def stv_endpoint(request: StvRequest) -> Dict[str, Any]:
+async def stv_endpoint(request: StvRequest) -> StvResponse:
     """Multi-seat STV (Droop, Hare, or Imperiali quota) compared to
     D'Hondt and multi-seat FPTP on the same simulated ballots."""
-    return await _run_passthrough(stv_domain, request)
+    return await _run_typed(stv_domain, request, StvResponse)
 
 
 # ── Phase 3 batch 8 ─────────────────────────────────────────────────────────
 
 @router.post(
     "/adaptive",
+    response_model=AdaptiveResponse,
     summary="N rounds of adaptive/tactical voting with poll feedback",
     response_description="Per-round vote shares, sincere vs effective winners, "
                          "convergence flag, strategic drift.",
 )
-async def adaptive_endpoint(request: AdaptiveRequest) -> Dict[str, Any]:
+async def adaptive_endpoint(request: AdaptiveRequest) -> AdaptiveResponse:
     """Each round, voters whose 1st choice polls below `strategic_threshold`
     may switch to their best viable alternative. Tracks convergence
     (winner stable for 2 consecutive rounds) and strategic drift."""
-    return await _run_passthrough(adaptive_domain, request)
+    return await _run_typed(adaptive_domain, request, AdaptiveResponse)
 
 
 @router.post(
     "/historical-replay",
+    response_model=HistoricalReplayResponse,
     summary="Day-by-day historical replay with candidate-position overrides",
     response_description="Per-day winners (FPTP/Condorcet/Borda), scenario "
                          "metadata, and a pedagogical note on divergence "
@@ -622,81 +650,86 @@ async def adaptive_endpoint(request: AdaptiveRequest) -> Dict[str, Any]:
 )
 async def historical_replay_endpoint(
     request: HistoricalReplayRequest,
-) -> Dict[str, Any]:
+) -> HistoricalReplayResponse:
     """Brownian campaign simulation for 4 historical scenarios
     (France 2002, USA 1992, Germany 2021, Condorcet cycle). Drag a
     candidate's x/y position to rewrite history."""
-    return await _run_passthrough(historical_replay_domain, request)
+    return await _run_typed(historical_replay_domain, request, HistoricalReplayResponse)
 
 
 @router.post(
     "/gerrymander",
+    response_model=GerrymanderResponse,
     summary="Voters assigned to user-drawn rectangular districts",
     response_description="Per-district winners + gerrymander parliament + "
                          "proportional reference + gerrymander index.",
 )
-async def gerrymander_endpoint(request: GerrymanderRequest) -> Dict[str, Any]:
+async def gerrymander_endpoint(request: GerrymanderRequest) -> GerrymanderResponse:
     """Voters assigned to the (smallest) overlapping district or the
     nearest one. Compares the gerrymandered FPTP parliament to a
     D'Hondt proportional reference."""
-    return await _run_passthrough(gerrymander_domain, request)
+    return await _run_typed(gerrymander_domain, request, GerrymanderResponse)
 
 
 @router.post(
     "/multiwinner_compare",
+    response_model=MultiwinnerCompareResponse,
     summary="STV / D'Hondt / SPAV / Phragmén / FPTP on the same electorate",
     response_description="Per-method seats + distortion vs proportional + "
                          "best/worst methods.",
 )
 async def multiwinner_compare_endpoint(
     request: MultiwinnerCompareRequest,
-) -> Dict[str, Any]:
+) -> MultiwinnerCompareResponse:
     """Same electorate, 5 multi-winner methods. Reports per-method
     seat allocation, distortion against the proportional reference,
     and which method comes closest to / furthest from proportional."""
-    return await _run_passthrough(multiwinner_compare_domain, request)
+    return await _run_typed(multiwinner_compare_domain, request, MultiwinnerCompareResponse)
 
 
 # ── Phase 3 batch 9 (final) ────────────────────────────────────────────────
 
 @router.post(
     "/divergence",
+    response_model=DivergenceResponse,
     summary="Same electorate, with vs without blank vote",
     response_description="Methods, agreement, and per-method winner deltas "
                          "for the two runs.",
 )
-async def divergence_endpoint(request: DivergenceRequest) -> Dict[str, Any]:
+async def divergence_endpoint(request: DivergenceRequest) -> DivergenceResponse:
     """Isolates the effect of blank-vote rules on inter-method agreement
     by running the same electorate twice (without and with blank)."""
-    return await _run_passthrough(divergence_domain, request)
+    return await _run_typed(divergence_domain, request, DivergenceResponse)
 
 
 @router.post(
     "/interpret",
+    response_model=InterpretResponse,
     summary="Deterministic interpretation of a /simulate result",
     response_description="Headline + Condorcet analysis + divergence reason "
                          "+ per-winner method groups + pedagogical note + "
                          "key facts.",
 )
-async def interpret_endpoint(request: InterpretRequest) -> Dict[str, Any]:
+async def interpret_endpoint(request: InterpretRequest) -> InterpretResponse:
     """Pure rule-based text interpretation of an existing /simulate
     response. No new simulation."""
-    return await _run_passthrough(interpret_domain, request)
+    return await _run_typed(interpret_domain, request, InterpretResponse)
 
 
 @router.post(
     "/quadratic-funding",
+    response_model=QuadraticFundingResponse,
     summary="Buterin/Hitzig/Weyl 2019 quadratic funding for public goods",
     response_description="Per-project funding + mechanism comparison + "
                          "Gini coefficients + pedagogical note.",
 )
 async def quadratic_funding_endpoint(
     request: QuadraticFundingRequest,
-) -> Dict[str, Any]:
+) -> QuadraticFundingResponse:
     """QF amplifies projects with many small donors over those with few
     large ones via matching(P) ∝ (Σᵢ √c_ip)². Compared against 1p1v
     and proportional allocations on the same matching pool."""
-    return await _run_passthrough(quadratic_funding_domain, request)
+    return await _run_typed(quadratic_funding_domain, request, QuadraticFundingResponse)
 
 
 @router.post(
@@ -733,14 +766,15 @@ async def conviction_voting_endpoint(
 
 @router.post(
     "/power-indices",
+    response_model=PowerIndicesResponse,
     summary="Shapley-Shubik and Banzhaf power indices for coalition bargaining",
     response_description="Per-party Shapley + Banzhaf indices + power ratio "
                          "+ viable coalitions + power-surprise list.",
 )
 async def power_indices_endpoint(
     request: PowerIndicesRequest,
-) -> Dict[str, Any]:
+) -> PowerIndicesResponse:
     """Shapley-Shubik (pivot-in-permutation) and Banzhaf
     (critical-in-winning-coalition) power indices, accounting for
     pariah parties (cordon sanitaire) and bilateral coalition vetoes."""
-    return await _run_passthrough(power_indices_domain, request)
+    return await _run_typed(power_indices_domain, request, PowerIndicesResponse)

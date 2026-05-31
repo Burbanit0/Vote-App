@@ -365,6 +365,76 @@
         "title": "AdaptiveRequest",
         "type": "object"
       },
+      "AdaptiveResponse": {
+        "additionalProperties": true,
+        "description": "Iterated adaptive (tactical) voting rounds until convergence.",
+        "properties": {
+          "candidates": {
+            "items": {
+              "additionalProperties": true,
+              "type": "object"
+            },
+            "title": "Candidates",
+            "type": "array"
+          },
+          "converged": {
+            "title": "Converged",
+            "type": "boolean"
+          },
+          "convergence_round": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Convergence Round"
+          },
+          "final_winner": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Final Winner"
+          },
+          "rounds": {
+            "items": {
+              "additionalProperties": true,
+              "type": "object"
+            },
+            "title": "Rounds",
+            "type": "array"
+          },
+          "sincere_winner": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Sincere Winner"
+          },
+          "strategic_drift": {
+            "title": "Strategic Drift"
+          }
+        },
+        "required": [
+          "rounds",
+          "converged",
+          "strategic_drift",
+          "candidates"
+        ],
+        "title": "AdaptiveResponse",
+        "type": "object"
+      },
       "AffectivePolarizationRequest": {
         "additionalProperties": false,
         "description": "Iyengar 2019: voters penalise candidates from the opposing political camp.",
@@ -424,6 +494,104 @@
           "candidates"
         ],
         "title": "AffectivePolarizationRequest",
+        "type": "object"
+      },
+      "AffectivePolarizationResponse": {
+        "additionalProperties": true,
+        "description": "Sincere vs affect-driven (in-group/out-group) voting outcomes.",
+        "properties": {
+          "affect_curve": {
+            "items": {
+              "additionalProperties": true,
+              "type": "object"
+            },
+            "title": "Affect Curve",
+            "type": "array"
+          },
+          "affective_cw": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Affective Cw"
+          },
+          "affective_results": {
+            "additionalProperties": true,
+            "title": "Affective Results",
+            "type": "object"
+          },
+          "candidate_camps": {
+            "additionalProperties": true,
+            "title": "Candidate Camps",
+            "type": "object"
+          },
+          "candidates": {
+            "items": {
+              "additionalProperties": true,
+              "type": "object"
+            },
+            "title": "Candidates",
+            "type": "array"
+          },
+          "condorcet_violation": {
+            "title": "Condorcet Violation",
+            "type": "boolean"
+          },
+          "method_sensitivity": {
+            "additionalProperties": true,
+            "title": "Method Sensitivity",
+            "type": "object"
+          },
+          "pedagogical_note": {
+            "title": "Pedagogical Note",
+            "type": "string"
+          },
+          "sincere_cw": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Sincere Cw"
+          },
+          "sincere_results": {
+            "additionalProperties": true,
+            "title": "Sincere Results",
+            "type": "object"
+          },
+          "voters": {
+            "items": {
+              "additionalProperties": true,
+              "type": "object"
+            },
+            "title": "Voters",
+            "type": "array"
+          },
+          "winner_changed": {
+            "title": "Winner Changed",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "sincere_results",
+          "affective_results",
+          "winner_changed",
+          "condorcet_violation",
+          "method_sensitivity",
+          "affect_curve",
+          "candidate_camps",
+          "voters",
+          "candidates",
+          "pedagogical_note"
+        ],
+        "title": "AffectivePolarizationResponse",
         "type": "object"
       },
       "AgendaManipulationRequest": {
@@ -3735,6 +3903,86 @@
         "title": "DistrictsRequest",
         "type": "object"
       },
+      "DistrictsResponse": {
+        "additionalProperties": true,
+        "description": "N single-member districts: FPTP parliament vs proportional.",
+        "properties": {
+          "condorcet_winner_national": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Condorcet Winner National"
+          },
+          "distortion": {
+            "title": "Distortion",
+            "type": "number"
+          },
+          "districts": {
+            "items": {
+              "additionalProperties": true,
+              "type": "object"
+            },
+            "title": "Districts",
+            "type": "array"
+          },
+          "fptp_winner": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Fptp Winner"
+          },
+          "national_vote_share": {
+            "additionalProperties": true,
+            "title": "National Vote Share",
+            "type": "object"
+          },
+          "num_districts": {
+            "title": "Num Districts",
+            "type": "integer"
+          },
+          "parliament_fptp": {
+            "additionalProperties": true,
+            "title": "Parliament Fptp",
+            "type": "object"
+          },
+          "parliament_proportional": {
+            "additionalProperties": true,
+            "title": "Parliament Proportional",
+            "type": "object"
+          },
+          "proportional_winner": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Proportional Winner"
+          }
+        },
+        "required": [
+          "districts",
+          "parliament_fptp",
+          "parliament_proportional",
+          "national_vote_share",
+          "distortion",
+          "num_districts"
+        ],
+        "title": "DistrictsResponse",
+        "type": "object"
+      },
       "DivergenceRequest": {
         "additionalProperties": false,
         "description": "Same electorate, without vs with blank vote.",
@@ -3783,6 +4031,49 @@
           "candidates"
         ],
         "title": "DivergenceRequest",
+        "type": "object"
+      },
+      "DivergenceResponse": {
+        "additionalProperties": true,
+        "description": "Inter-method agreement with vs without the blank-vote rule.",
+        "properties": {
+          "blank_rule": {
+            "title": "Blank Rule",
+            "type": "string"
+          },
+          "delta_agreement": {
+            "title": "Delta Agreement",
+            "type": "number"
+          },
+          "methods_changed": {
+            "items": {},
+            "title": "Methods Changed",
+            "type": "array"
+          },
+          "pct_methods_changed": {
+            "title": "Pct Methods Changed",
+            "type": "number"
+          },
+          "with_blank": {
+            "additionalProperties": true,
+            "title": "With Blank",
+            "type": "object"
+          },
+          "without_blank": {
+            "additionalProperties": true,
+            "title": "Without Blank",
+            "type": "object"
+          }
+        },
+        "required": [
+          "without_blank",
+          "with_blank",
+          "delta_agreement",
+          "methods_changed",
+          "pct_methods_changed",
+          "blank_rule"
+        ],
+        "title": "DivergenceResponse",
         "type": "object"
       },
       "E2EDemoRequest": {
@@ -4494,6 +4785,86 @@
         "title": "GerrymanderRequest",
         "type": "object"
       },
+      "GerrymanderResponse": {
+        "additionalProperties": true,
+        "description": "Editable-boundary districts: gerrymandered parliament vs proportional.",
+        "properties": {
+          "candidates": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Candidates",
+            "type": "array"
+          },
+          "distortion": {
+            "title": "Distortion",
+            "type": "number"
+          },
+          "districts": {
+            "items": {
+              "additionalProperties": true,
+              "type": "object"
+            },
+            "title": "Districts",
+            "type": "array"
+          },
+          "gerrymander_index": {
+            "title": "Gerrymander Index",
+            "type": "number"
+          },
+          "national_vote_share": {
+            "additionalProperties": true,
+            "title": "National Vote Share",
+            "type": "object"
+          },
+          "num_seats": {
+            "title": "Num Seats",
+            "type": "integer"
+          },
+          "parliament_gerrymander": {
+            "additionalProperties": true,
+            "title": "Parliament Gerrymander",
+            "type": "object"
+          },
+          "parliament_proportional": {
+            "additionalProperties": true,
+            "title": "Parliament Proportional",
+            "type": "object"
+          },
+          "voters": {
+            "items": {
+              "additionalProperties": true,
+              "type": "object"
+            },
+            "title": "Voters",
+            "type": "array"
+          },
+          "winner": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Winner"
+          }
+        },
+        "required": [
+          "districts",
+          "voters",
+          "parliament_gerrymander",
+          "parliament_proportional",
+          "national_vote_share",
+          "distortion",
+          "gerrymander_index",
+          "candidates",
+          "num_seats"
+        ],
+        "title": "GerrymanderResponse",
+        "type": "object"
+      },
       "GroupResult": {
         "properties": {
           "affiliation": {
@@ -4641,6 +5012,46 @@
         "title": "HistoricalReplayRequest",
         "type": "object"
       },
+      "HistoricalReplayResponse": {
+        "additionalProperties": true,
+        "description": "Brownian replay of a historical election day-by-day.",
+        "properties": {
+          "candidates": {
+            "items": {
+              "additionalProperties": true,
+              "type": "object"
+            },
+            "title": "Candidates",
+            "type": "array"
+          },
+          "days": {
+            "items": {
+              "additionalProperties": true,
+              "type": "object"
+            },
+            "title": "Days",
+            "type": "array"
+          },
+          "final": {
+            "additionalProperties": true,
+            "title": "Final",
+            "type": "object"
+          },
+          "scenario": {
+            "additionalProperties": true,
+            "title": "Scenario",
+            "type": "object"
+          }
+        },
+        "required": [
+          "scenario",
+          "candidates",
+          "days",
+          "final"
+        ],
+        "title": "HistoricalReplayResponse",
+        "type": "object"
+      },
       "HotellingRequest": {
         "additionalProperties": false,
         "description": "Hotelling-Downs iterative best-response: candidates move to maximise votes.",
@@ -4697,6 +5108,72 @@
           "candidates"
         ],
         "title": "HotellingRequest",
+        "type": "object"
+      },
+      "HotellingResponse": {
+        "additionalProperties": true,
+        "description": "Hotelling-Downs convergence: candidates chasing the median voter.",
+        "properties": {
+          "candidates": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Candidates",
+            "type": "array"
+          },
+          "converged": {
+            "title": "Converged",
+            "type": "boolean"
+          },
+          "convergence_step": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Convergence Step"
+          },
+          "equilibrium_type": {
+            "title": "Equilibrium Type",
+            "type": "string"
+          },
+          "final_positions": {
+            "title": "Final Positions"
+          },
+          "iterations": {
+            "items": {
+              "additionalProperties": true,
+              "type": "object"
+            },
+            "title": "Iterations",
+            "type": "array"
+          },
+          "method": {
+            "title": "Method",
+            "type": "string"
+          },
+          "voters": {
+            "items": {
+              "additionalProperties": true,
+              "type": "object"
+            },
+            "title": "Voters",
+            "type": "array"
+          }
+        },
+        "required": [
+          "iterations",
+          "converged",
+          "final_positions",
+          "equilibrium_type",
+          "voters",
+          "candidates",
+          "method"
+        ],
+        "title": "HotellingResponse",
         "type": "object"
       },
       "IDCandidate": {
@@ -5312,6 +5789,54 @@
           "methods"
         ],
         "title": "InterpretRequest",
+        "type": "object"
+      },
+      "InterpretResponse": {
+        "additionalProperties": true,
+        "description": "Deterministic textual interpretation of a simulation result.",
+        "properties": {
+          "best_by_regret": {
+            "title": "Best By Regret"
+          },
+          "blank_analysis": {
+            "title": "Blank Analysis"
+          },
+          "condorcet_analysis": {
+            "title": "Condorcet Analysis"
+          },
+          "divergence_reason": {
+            "title": "Divergence Reason"
+          },
+          "headline": {
+            "title": "Headline",
+            "type": "string"
+          },
+          "key_facts": {
+            "title": "Key Facts"
+          },
+          "method_groups": {
+            "title": "Method Groups"
+          },
+          "pedagogical_note": {
+            "title": "Pedagogical Note",
+            "type": "string"
+          },
+          "worst_by_regret": {
+            "title": "Worst By Regret"
+          }
+        },
+        "required": [
+          "headline",
+          "condorcet_analysis",
+          "divergence_reason",
+          "method_groups",
+          "best_by_regret",
+          "worst_by_regret",
+          "blank_analysis",
+          "pedagogical_note",
+          "key_facts"
+        ],
+        "title": "InterpretResponse",
         "type": "object"
       },
       "JAIncoherence": {
@@ -6300,6 +6825,59 @@
         "title": "MultiwinnerCompareRequest",
         "type": "object"
       },
+      "MultiwinnerCompareResponse": {
+        "additionalProperties": true,
+        "description": "Several multiwinner methods scored against a proportional reference.",
+        "properties": {
+          "best_method": {
+            "title": "Best Method",
+            "type": "string"
+          },
+          "candidates": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Candidates",
+            "type": "array"
+          },
+          "methods": {
+            "additionalProperties": true,
+            "title": "Methods",
+            "type": "object"
+          },
+          "num_seats": {
+            "title": "Num Seats",
+            "type": "integer"
+          },
+          "proportional_reference": {
+            "additionalProperties": true,
+            "title": "Proportional Reference",
+            "type": "object"
+          },
+          "vote_shares": {
+            "additionalProperties": {
+              "type": "number"
+            },
+            "title": "Vote Shares",
+            "type": "object"
+          },
+          "worst_method": {
+            "title": "Worst Method",
+            "type": "string"
+          }
+        },
+        "required": [
+          "methods",
+          "vote_shares",
+          "proportional_reference",
+          "num_seats",
+          "candidates",
+          "best_method",
+          "worst_method"
+        ],
+        "title": "MultiwinnerCompareResponse",
+        "type": "object"
+      },
       "MultiwinnerRequest": {
         "description": "POST /simulations/multiwinner.",
         "properties": {
@@ -6557,6 +7135,53 @@
         "title": "PartyDynamicsRequest",
         "type": "object"
       },
+      "PartyDynamicsResponse": {
+        "additionalProperties": true,
+        "description": "Multi-election party system evolution (Duverger's law).",
+        "properties": {
+          "convergence_speed": {
+            "title": "Convergence Speed"
+          },
+          "duverger_confirmed": {
+            "title": "Duverger Confirmed",
+            "type": "boolean"
+          },
+          "effective_parties_curve": {
+            "items": {},
+            "title": "Effective Parties Curve",
+            "type": "array"
+          },
+          "elections": {
+            "items": {
+              "additionalProperties": true,
+              "type": "object"
+            },
+            "title": "Elections",
+            "type": "array"
+          },
+          "final_system": {
+            "title": "Final System"
+          },
+          "ideology_drift": {
+            "title": "Ideology Drift"
+          },
+          "pedagogical_note": {
+            "title": "Pedagogical Note",
+            "type": "string"
+          }
+        },
+        "required": [
+          "elections",
+          "final_system",
+          "effective_parties_curve",
+          "duverger_confirmed",
+          "convergence_speed",
+          "ideology_drift",
+          "pedagogical_note"
+        ],
+        "title": "PartyDynamicsResponse",
+        "type": "object"
+      },
       "PartySpec": {
         "additionalProperties": false,
         "properties": {
@@ -6746,6 +7371,24 @@
         "title": "PolarizationRequest",
         "type": "object"
       },
+      "PolarizationResponse": {
+        "additionalProperties": true,
+        "description": "Effect of electorate polarization on method outcomes.",
+        "properties": {
+          "key_findings": {
+            "title": "Key Findings"
+          },
+          "results": {
+            "title": "Results"
+          }
+        },
+        "required": [
+          "results",
+          "key_findings"
+        ],
+        "title": "PolarizationResponse",
+        "type": "object"
+      },
       "PolisSimulationRequest": {
         "additionalProperties": false,
         "description": "Pol.is consensus clustering on a fresh statement set.",
@@ -6918,6 +7561,47 @@
         "title": "PowerIndicesRequest",
         "type": "object"
       },
+      "PowerIndicesResponse": {
+        "additionalProperties": true,
+        "description": "Banzhaf/Shapley-Shubik coalition power vs raw seat share.",
+        "properties": {
+          "majority_threshold": {
+            "title": "Majority Threshold",
+            "type": "integer"
+          },
+          "parties": {
+            "title": "Parties"
+          },
+          "pedagogical_note": {
+            "title": "Pedagogical Note",
+            "type": "string"
+          },
+          "power_surprises": {
+            "items": {},
+            "title": "Power Surprises",
+            "type": "array"
+          },
+          "total_seats": {
+            "title": "Total Seats",
+            "type": "integer"
+          },
+          "viable_coalitions": {
+            "items": {},
+            "title": "Viable Coalitions",
+            "type": "array"
+          }
+        },
+        "required": [
+          "total_seats",
+          "majority_threshold",
+          "parties",
+          "viable_coalitions",
+          "power_surprises",
+          "pedagogical_note"
+        ],
+        "title": "PowerIndicesResponse",
+        "type": "object"
+      },
       "PowerParty": {
         "additionalProperties": false,
         "properties": {
@@ -7014,6 +7698,71 @@
           "parties"
         ],
         "title": "PrimaryRequest",
+        "type": "object"
+      },
+      "PrimaryResponse": {
+        "additionalProperties": true,
+        "description": "Internal party primaries followed by a general election.",
+        "properties": {
+          "general_ballot": {
+            "items": {
+              "type": "string"
+            },
+            "title": "General Ballot",
+            "type": "array"
+          },
+          "general_runner_up": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "General Runner Up"
+          },
+          "general_vote_shares": {
+            "additionalProperties": true,
+            "title": "General Vote Shares",
+            "type": "object"
+          },
+          "general_winner": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "General Winner"
+          },
+          "median_voter_distance": {
+            "title": "Median Voter Distance"
+          },
+          "primaries": {
+            "title": "Primaries"
+          },
+          "without_primaries_winner": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Without Primaries Winner"
+          }
+        },
+        "required": [
+          "primaries",
+          "general_ballot",
+          "general_vote_shares",
+          "median_voter_distance"
+        ],
+        "title": "PrimaryResponse",
         "type": "object"
       },
       "PublicCompareRequest": {
@@ -7169,6 +7918,69 @@
           "projects"
         ],
         "title": "QuadraticFundingRequest",
+        "type": "object"
+      },
+      "QuadraticFundingResponse": {
+        "additionalProperties": true,
+        "description": "Quadratic funding vs 1p1v/plutocracy with Gini inequality metrics.",
+        "properties": {
+          "budget_per_voter": {
+            "title": "Budget Per Voter"
+          },
+          "gini_coefficients": {
+            "additionalProperties": true,
+            "title": "Gini Coefficients",
+            "type": "object"
+          },
+          "matching_pool": {
+            "title": "Matching Pool"
+          },
+          "mechanism_comparison": {
+            "additionalProperties": true,
+            "title": "Mechanism Comparison",
+            "type": "object"
+          },
+          "pedagogical_note": {
+            "title": "Pedagogical Note",
+            "type": "string"
+          },
+          "projects": {
+            "items": {
+              "additionalProperties": true,
+              "type": "object"
+            },
+            "title": "Projects",
+            "type": "array"
+          },
+          "vote_shares": {
+            "additionalProperties": {
+              "type": "number"
+            },
+            "title": "Vote Shares",
+            "type": "object"
+          },
+          "winner": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Winner"
+          }
+        },
+        "required": [
+          "projects",
+          "mechanism_comparison",
+          "gini_coefficients",
+          "vote_shares",
+          "matching_pool",
+          "budget_per_voter",
+          "pedagogical_note"
+        ],
+        "title": "QuadraticFundingResponse",
         "type": "object"
       },
       "RealElectionRequest": {
@@ -7799,6 +8611,39 @@
         "title": "SimulatePipelineRequest",
         "type": "object"
       },
+      "SimulatePipelineResponse": {
+        "additionalProperties": true,
+        "description": "Step-by-step pipeline of model stages for animation.",
+        "properties": {
+          "candidates": {
+            "items": {
+              "additionalProperties": true,
+              "type": "object"
+            },
+            "title": "Candidates",
+            "type": "array"
+          },
+          "num_steps": {
+            "title": "Num Steps",
+            "type": "integer"
+          },
+          "steps": {
+            "items": {
+              "additionalProperties": true,
+              "type": "object"
+            },
+            "title": "Steps",
+            "type": "array"
+          }
+        },
+        "required": [
+          "steps",
+          "candidates",
+          "num_steps"
+        ],
+        "title": "SimulatePipelineResponse",
+        "type": "object"
+      },
       "SimulateRequest": {
         "additionalProperties": false,
         "description": "POST /api/election/simulate — full pipeline run.",
@@ -8198,6 +9043,74 @@
           "candidates"
         ],
         "title": "StvRequest",
+        "type": "object"
+      },
+      "StvResponse": {
+        "additionalProperties": true,
+        "description": "STV vs D'Hondt vs FPTP multiwinner comparison.",
+        "properties": {
+          "candidates": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Candidates",
+            "type": "array"
+          },
+          "dhondt": {
+            "additionalProperties": true,
+            "title": "Dhondt",
+            "type": "object"
+          },
+          "distortion_stv_dhondt": {
+            "title": "Distortion Stv Dhondt",
+            "type": "number"
+          },
+          "distortion_stv_fptp": {
+            "title": "Distortion Stv Fptp",
+            "type": "number"
+          },
+          "fptp": {
+            "additionalProperties": true,
+            "title": "Fptp",
+            "type": "object"
+          },
+          "num_seats": {
+            "title": "Num Seats",
+            "type": "integer"
+          },
+          "quota": {
+            "title": "Quota"
+          },
+          "quota_type": {
+            "title": "Quota Type",
+            "type": "string"
+          },
+          "stv": {
+            "additionalProperties": true,
+            "title": "Stv",
+            "type": "object"
+          },
+          "vote_shares": {
+            "additionalProperties": {
+              "type": "number"
+            },
+            "title": "Vote Shares",
+            "type": "object"
+          }
+        },
+        "required": [
+          "stv",
+          "dhondt",
+          "fptp",
+          "vote_shares",
+          "num_seats",
+          "quota",
+          "quota_type",
+          "distortion_stv_dhondt",
+          "distortion_stv_fptp",
+          "candidates"
+        ],
+        "title": "StvResponse",
         "type": "object"
       },
       "TopCycle": {
@@ -9324,9 +10237,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "additionalProperties": true,
-                  "title": "Response Adaptive Endpoint Api V2 Election Adaptive Post",
-                  "type": "object"
+                  "$ref": "#/components/schemas/AdaptiveResponse"
                 }
               }
             },
@@ -9368,9 +10279,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "additionalProperties": true,
-                  "title": "Response Affective Polarization Endpoint Api V2 Election Affective Polarization Post",
-                  "type": "object"
+                  "$ref": "#/components/schemas/AffectivePolarizationResponse"
                 }
               }
             },
@@ -9874,9 +10783,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "additionalProperties": true,
-                  "title": "Response Districts Endpoint Api V2 Election Districts Post",
-                  "type": "object"
+                  "$ref": "#/components/schemas/DistrictsResponse"
                 }
               }
             },
@@ -9918,9 +10825,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "additionalProperties": true,
-                  "title": "Response Divergence Endpoint Api V2 Election Divergence Post",
-                  "type": "object"
+                  "$ref": "#/components/schemas/DivergenceResponse"
                 }
               }
             },
@@ -10004,9 +10909,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "additionalProperties": true,
-                  "title": "Response Gerrymander Endpoint Api V2 Election Gerrymander Post",
-                  "type": "object"
+                  "$ref": "#/components/schemas/GerrymanderResponse"
                 }
               }
             },
@@ -10048,9 +10951,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "additionalProperties": true,
-                  "title": "Response Historical Replay Endpoint Api V2 Election Historical Replay Post",
-                  "type": "object"
+                  "$ref": "#/components/schemas/HistoricalReplayResponse"
                 }
               }
             },
@@ -10092,9 +10993,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "additionalProperties": true,
-                  "title": "Response Hotelling Endpoint Api V2 Election Hotelling Post",
-                  "type": "object"
+                  "$ref": "#/components/schemas/HotellingResponse"
                 }
               }
             },
@@ -10136,9 +11035,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "additionalProperties": true,
-                  "title": "Response Interpret Endpoint Api V2 Election Interpret Post",
-                  "type": "object"
+                  "$ref": "#/components/schemas/InterpretResponse"
                 }
               }
             },
@@ -10264,9 +11161,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "additionalProperties": true,
-                  "title": "Response Multiwinner Compare Endpoint Api V2 Election Multiwinner Compare Post",
-                  "type": "object"
+                  "$ref": "#/components/schemas/MultiwinnerCompareResponse"
                 }
               }
             },
@@ -10350,9 +11245,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "additionalProperties": true,
-                  "title": "Response Party Dynamics Endpoint Api V2 Election Party Dynamics Post",
-                  "type": "object"
+                  "$ref": "#/components/schemas/PartyDynamicsResponse"
                 }
               }
             },
@@ -10394,9 +11287,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "additionalProperties": true,
-                  "title": "Response Polarization Endpoint Api V2 Election Polarization Post",
-                  "type": "object"
+                  "$ref": "#/components/schemas/PolarizationResponse"
                 }
               }
             },
@@ -10438,9 +11329,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "additionalProperties": true,
-                  "title": "Response Power Indices Endpoint Api V2 Election Power Indices Post",
-                  "type": "object"
+                  "$ref": "#/components/schemas/PowerIndicesResponse"
                 }
               }
             },
@@ -10482,9 +11371,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "additionalProperties": true,
-                  "title": "Response Primary Endpoint Api V2 Election Primary Post",
-                  "type": "object"
+                  "$ref": "#/components/schemas/PrimaryResponse"
                 }
               }
             },
@@ -10526,9 +11413,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "additionalProperties": true,
-                  "title": "Response Quadratic Funding Endpoint Api V2 Election Quadratic Funding Post",
-                  "type": "object"
+                  "$ref": "#/components/schemas/QuadraticFundingResponse"
                 }
               }
             },
@@ -10654,9 +11539,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "additionalProperties": true,
-                  "title": "Response Simulate Pipeline Endpoint Api V2 Election Simulate Pipeline Post",
-                  "type": "object"
+                  "$ref": "#/components/schemas/SimulatePipelineResponse"
                 }
               }
             },
@@ -10740,9 +11623,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "additionalProperties": true,
-                  "title": "Response Stv Endpoint Api V2 Election Stv Post",
-                  "type": "object"
+                  "$ref": "#/components/schemas/StvResponse"
                 }
               }
             },
