@@ -1,7 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
-import axios from 'axios';
 import { Container, Spinner, Alert } from 'react-bootstrap';
 
 const API_BASE_URL = process.env.VITE_API_URL || 'http://localhost:4434';
@@ -22,10 +21,14 @@ const OAuthCallback: React.FC = () => {
     (async () => {
       try {
         // Phase 4.3.e: profile lives on /api/v2/users/me now (fastapi-users).
-        const profileResp = await axios.get(`${API_BASE_URL}/api/v2/users/me`, {
+        // The token came in via the URL and isn't persisted yet, so we carry it
+        // explicitly with a raw fetch (the apiClient middleware reads the stored
+        // token, which isn't set until login() below).
+        const profileResp = await fetch(`${API_BASE_URL}/api/v2/users/me`, {
           headers: { Authorization: `Bearer ${token}` },
         });
-        const profile = profileResp.data;
+        if (!profileResp.ok) throw new Error('profile fetch failed');
+        const profile = await profileResp.json();
         login({
           id: profile.id,
           access_token: token,

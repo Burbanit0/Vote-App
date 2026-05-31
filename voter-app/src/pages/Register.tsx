@@ -1,7 +1,6 @@
 import React, { useState } from 'react';
 import { registerUser } from '../services/';
 import { Form, Button, Container, Row, Col, Alert } from 'react-bootstrap';
-import { AxiosError } from 'axios';
 import { useNavigate } from 'react-router';
 import { useTranslation } from 'react-i18next';
 
@@ -17,8 +16,6 @@ const Register: React.FC = () => {
   const [isLoading, setIsLoading] = useState(false);
   const navigate = useNavigate();
   const { t } = useTranslation();
-
-  interface ApiErrorResponse { msg: string; }
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -38,8 +35,9 @@ const Register: React.FC = () => {
       if (response) localStorage.setItem('user', JSON.stringify(response));
       setTimeout(() => navigate('/'), 1500);
     } catch (err) {
-      const axiosError = err as AxiosError<ApiErrorResponse>;
-      setError(axiosError.response?.data?.msg || t('auth.registerFailed'));
+      // Surface a backend-provided message when present, else a generic one.
+      const msg = (err as { response?: { data?: { msg?: string } } })?.response?.data?.msg;
+      setError(msg || t('auth.registerFailed'));
       setIsLoading(false);
     }
   };
