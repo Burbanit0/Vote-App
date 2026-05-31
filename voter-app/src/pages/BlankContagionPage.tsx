@@ -13,11 +13,8 @@ import {
   XAxis,
   YAxis,
 } from 'recharts';
-import axios from 'axios';
 import { useMetaTags } from '../hooks/useMetaTags';
-import { apiPath } from '../api/apiVersion';
-
-const API_BASE = process.env.VITE_API_URL || 'http://localhost:4434';
+import { $api } from '../api/hooks';
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -96,34 +93,24 @@ const BlankContagionPage: React.FC = () => {
   const [numRounds,     setNumRounds]     = useState(20);
   const [networkType,   setNetworkType]   = useState<NetworkType>('random');
 
-  const [result,  setResult]  = useState<ContagionResult | null>(null);
-  const [loading, setLoading] = useState(false);
-  const [error,   setError]   = useState<string | null>(null);
+  const sim = $api.useMutation('post', '/api/v2/simulations/blank-contagion');
+  const result: ContagionResult | null = (sim.data as ContagionResult | undefined) ?? null;
+  const loading = sim.isPending;
+  const error = sim.isError ? 'Erreur de simulation' : null;
 
   const r0 = contagionRate / Math.max(recoveryRate, 0.001);
 
-  const runSimulation = useCallback(async () => {
-    setLoading(true);
-    setError(null);
-    try {
-      const resp = await axios.post<ContagionResult>(
-        `${API_BASE}${apiPath('simulations/blank-contagion')}`,
-        {
-          num_voters:         numVoters,
-          initial_blank_rate: initialRate,
-          contagion_rate:     contagionRate,
-          recovery_rate:      recoveryRate,
-          num_rounds:         numRounds,
-          network_type:       networkType,
-        },
-      );
-      setResult(resp.data);
-    } catch (e: any) {
-      setError(e?.response?.data?.error ?? e?.message ?? 'Erreur de simulation');
-    } finally {
-      setLoading(false);
-    }
-  }, [numVoters, initialRate, contagionRate, recoveryRate, numRounds, networkType]);
+  const runSimulation = useCallback(() => {
+    sim.mutate({ body: {
+      num_voters:         numVoters,
+      initial_blank_rate: initialRate,
+      contagion_rate:     contagionRate,
+      recovery_rate:      recoveryRate,
+      num_rounds:         numRounds,
+      network_type:       networkType,
+    } });
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [numVoters, initialRate, contagionRate, recoveryRate, numRounds, networkType, sim]);
 
   // Chart data
   const chartData = result
