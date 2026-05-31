@@ -4402,6 +4402,67 @@
         "title": "E2EDemoRequest",
         "type": "object"
       },
+      "E2EDemoResponse": {
+        "additionalProperties": true,
+        "properties": {
+          "aggregate_result": {
+            "title": "Aggregate Result"
+          },
+          "audit_proof": {
+            "title": "Audit Proof"
+          },
+          "candidates": {
+            "items": {},
+            "title": "Candidates",
+            "type": "array"
+          },
+          "encrypted_ballots": {
+            "title": "Encrypted Ballots"
+          },
+          "num_voters": {
+            "title": "Num Voters",
+            "type": "integer"
+          },
+          "privacy_guarantee": {
+            "title": "Privacy Guarantee"
+          },
+          "public_bulletin_board": {
+            "title": "Public Bulletin Board"
+          },
+          "verification_demonstration": {
+            "title": "Verification Demonstration"
+          },
+          "voters": {
+            "items": {},
+            "title": "Voters",
+            "type": "array"
+          },
+          "winner": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Winner"
+          }
+        },
+        "required": [
+          "voters",
+          "public_bulletin_board",
+          "aggregate_result",
+          "audit_proof",
+          "num_voters",
+          "candidates",
+          "encrypted_ballots",
+          "verification_demonstration",
+          "privacy_guarantee"
+        ],
+        "title": "E2EDemoResponse",
+        "type": "object"
+      },
       "ElectoralFatigueRequest": {
         "additionalProperties": false,
         "description": "Turnout decay across repeated elections.",
@@ -7929,6 +7990,41 @@
         "title": "PolisSimulationRequest",
         "type": "object"
       },
+      "PolisSimulationResponse": {
+        "additionalProperties": true,
+        "properties": {
+          "clusters": {
+            "title": "Clusters"
+          },
+          "consensus_statements": {
+            "title": "Consensus Statements"
+          },
+          "num_clusters": {
+            "title": "Num Clusters",
+            "type": "integer"
+          },
+          "num_participants": {
+            "title": "Num Participants",
+            "type": "integer"
+          },
+          "participant_positions": {
+            "title": "Participant Positions"
+          },
+          "polarizing_statements": {
+            "title": "Polarizing Statements"
+          }
+        },
+        "required": [
+          "clusters",
+          "consensus_statements",
+          "polarizing_statements",
+          "participant_positions",
+          "num_clusters",
+          "num_participants"
+        ],
+        "title": "PolisSimulationResponse",
+        "type": "object"
+      },
       "PolisWithCandidatesRequest": {
         "additionalProperties": false,
         "description": "Pol.is clustering + classical election cross-comparison.",
@@ -7999,6 +8095,78 @@
           "candidates"
         ],
         "title": "PolisWithCandidatesRequest",
+        "type": "object"
+      },
+      "PolisWithCandidatesResponse": {
+        "additionalProperties": true,
+        "properties": {
+          "candidate_scores": {
+            "title": "Candidate Scores"
+          },
+          "clusters": {
+            "title": "Clusters"
+          },
+          "consensus_count": {
+            "title": "Consensus Count",
+            "type": "integer"
+          },
+          "election_winner": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Election Winner"
+          },
+          "participant_positions": {
+            "title": "Participant Positions"
+          },
+          "pedagogical_note": {
+            "title": "Pedagogical Note",
+            "type": "string"
+          },
+          "polarizing_count": {
+            "title": "Polarizing Count",
+            "type": "integer"
+          },
+          "polis_winner": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Polis Winner"
+          },
+          "silent_majority_count": {
+            "title": "Silent Majority Count",
+            "type": "integer"
+          },
+          "statements": {
+            "title": "Statements"
+          },
+          "winners_agree": {
+            "title": "Winners Agree",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "clusters",
+          "statements",
+          "participant_positions",
+          "winners_agree",
+          "consensus_count",
+          "polarizing_count",
+          "silent_majority_count",
+          "candidate_scores",
+          "pedagogical_note"
+        ],
+        "title": "PolisWithCandidatesResponse",
         "type": "object"
       },
       "PowerIndicesRequest": {
@@ -14066,9 +14234,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "additionalProperties": true,
-                  "title": "Response E2E Demo Endpoint Api V2 Tech E2E Demo Post",
-                  "type": "object"
+                  "$ref": "#/components/schemas/E2EDemoResponse"
                 }
               }
             },
@@ -14109,9 +14275,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "additionalProperties": true,
-                  "title": "Response Polis With Candidates Endpoint Api V2 Tech Polis Post",
-                  "type": "object"
+                  "$ref": "#/components/schemas/PolisWithCandidatesResponse"
                 }
               }
             },
@@ -14152,9 +14316,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "additionalProperties": true,
-                  "title": "Response Polis Simulation Endpoint Api V2 Tech Polis Simulation Post",
-                  "type": "object"
+                  "$ref": "#/components/schemas/PolisSimulationResponse"
                 }
               }
             },

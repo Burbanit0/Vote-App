@@ -8,7 +8,7 @@ pass the response through as Dict[str, Any].
 """
 from __future__ import annotations
 
-from typing import List, Optional
+from typing import Any, Dict, List, Optional
 
 from pydantic import BaseModel, ConfigDict, Field
 
@@ -55,3 +55,51 @@ class PolisWithCandidatesRequest(BaseModel):
     num_clusters:            int   = Field(3, ge=1, le=5)
     method_to_compare:       str   = Field("plurality")
     min_consensus_threshold: float = Field(0.80, ge=0.0, le=1.0)
+
+
+# ── Response models (Phase 6) ─────────────────────────────────────────────────
+# Top-level keys taken from each worker's return literal; nested PCA/cluster/
+# ballot structures stay loose (`Any`) and winner fields are Optional so
+# `model_validate` never raises. `extra="allow"` carries any extra field.
+
+
+class E2EDemoResponse(BaseModel):
+    model_config = ConfigDict(extra="allow")
+
+    voters:                    List[Any]
+    public_bulletin_board:     Any
+    aggregate_result:          Any
+    winner:                    Optional[str] = None
+    audit_proof:               Any
+    num_voters:                int
+    candidates:                List[Any]
+    encrypted_ballots:         Any
+    verification_demonstration: Any
+    privacy_guarantee:         Any
+
+
+class PolisSimulationResponse(BaseModel):
+    model_config = ConfigDict(extra="allow")
+
+    clusters:              Any
+    consensus_statements:  Any
+    polarizing_statements: Any
+    participant_positions: Any
+    num_clusters:          int
+    num_participants:      int
+
+
+class PolisWithCandidatesResponse(BaseModel):
+    model_config = ConfigDict(extra="allow")
+
+    clusters:               Any
+    statements:             Any
+    participant_positions:  Any
+    polis_winner:           Optional[str] = None
+    election_winner:        Optional[str] = None
+    winners_agree:          bool
+    consensus_count:        int
+    polarizing_count:       int
+    silent_majority_count:  int
+    candidate_scores:       Any
+    pedagogical_note:       str

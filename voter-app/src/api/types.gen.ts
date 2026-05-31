@@ -4229,6 +4229,31 @@ export interface components {
              */
             user_vote: string;
         };
+        /** E2EDemoResponse */
+        E2EDemoResponse: {
+            /** Aggregate Result */
+            aggregate_result: unknown;
+            /** Audit Proof */
+            audit_proof: unknown;
+            /** Candidates */
+            candidates: unknown[];
+            /** Encrypted Ballots */
+            encrypted_ballots: unknown;
+            /** Num Voters */
+            num_voters: number;
+            /** Privacy Guarantee */
+            privacy_guarantee: unknown;
+            /** Public Bulletin Board */
+            public_bulletin_board: unknown;
+            /** Verification Demonstration */
+            verification_demonstration: unknown;
+            /** Voters */
+            voters: unknown[];
+            /** Winner */
+            winner?: string | null;
+        } & {
+            [key: string]: unknown;
+        };
         /**
          * ElectoralFatigueRequest
          * @description Turnout decay across repeated elections.
@@ -6020,6 +6045,23 @@ export interface components {
              */
             statements?: string[] | null;
         };
+        /** PolisSimulationResponse */
+        PolisSimulationResponse: {
+            /** Clusters */
+            clusters: unknown;
+            /** Consensus Statements */
+            consensus_statements: unknown;
+            /** Num Clusters */
+            num_clusters: number;
+            /** Num Participants */
+            num_participants: number;
+            /** Participant Positions */
+            participant_positions: unknown;
+            /** Polarizing Statements */
+            polarizing_statements: unknown;
+        } & {
+            [key: string]: unknown;
+        };
         /**
          * PolisWithCandidatesRequest
          * @description Pol.is clustering + classical election cross-comparison.
@@ -6059,6 +6101,33 @@ export interface components {
             seed: number;
             /** Statements */
             statements?: string[] | null;
+        };
+        /** PolisWithCandidatesResponse */
+        PolisWithCandidatesResponse: {
+            /** Candidate Scores */
+            candidate_scores: unknown;
+            /** Clusters */
+            clusters: unknown;
+            /** Consensus Count */
+            consensus_count: number;
+            /** Election Winner */
+            election_winner?: string | null;
+            /** Participant Positions */
+            participant_positions: unknown;
+            /** Pedagogical Note */
+            pedagogical_note: string;
+            /** Polarizing Count */
+            polarizing_count: number;
+            /** Polis Winner */
+            polis_winner?: string | null;
+            /** Silent Majority Count */
+            silent_majority_count: number;
+            /** Statements */
+            statements: unknown;
+            /** Winners Agree */
+            winners_agree: boolean;
+        } & {
+            [key: string]: unknown;
         };
         /**
          * PowerIndicesRequest
@@ -10077,9 +10146,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        [key: string]: unknown;
-                    };
+                    "application/json": components["schemas"]["E2EDemoResponse"];
                 };
             };
             /** @description Validation Error */
@@ -10112,9 +10179,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        [key: string]: unknown;
-                    };
+                    "application/json": components["schemas"]["PolisWithCandidatesResponse"];
                 };
             };
             /** @description Validation Error */
@@ -10147,9 +10212,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        [key: string]: unknown;
-                    };
+                    "application/json": components["schemas"]["PolisSimulationResponse"];
                 };
             };
             /** @description Validation Error */

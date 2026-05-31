@@ -140,8 +140,11 @@ from .scenarios import (
 )
 from .tech import (
     E2EDemoRequest,
+    E2EDemoResponse,
     PolisSimulationRequest,
+    PolisSimulationResponse,
     PolisWithCandidatesRequest,
+    PolisWithCandidatesResponse,
 )
 from .theory import (
     AgendaManipulationRequest,
@@ -255,6 +258,8 @@ __all__ = [
     "ExportDatasetJSON", "ExportDatasetMeta", "ExportDatasetRequest",
     # tech demos (Phase 4.5.a.3)
     "E2EDemoRequest", "PolisSimulationRequest", "PolisWithCandidatesRequest",
+    # tech demos response_models (Phase 6)
+    "E2EDemoResponse", "PolisSimulationResponse", "PolisWithCandidatesResponse",
     # public research API v1 (Phase 4.5.a.4)
     "PublicCompareRequest", "PublicSimulateRequest",
     # simulations base (Phase 4.5.a.5)
