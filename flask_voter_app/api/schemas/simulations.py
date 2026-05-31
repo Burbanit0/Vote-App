@@ -266,3 +266,273 @@ class BlankContagionRequest(BaseModel):
     num_rounds:         int = 15
     network_type:       str = "random"
     seed:               Optional[int] = None
+
+
+# ── Response models (Phase 6) ─────────────────────────────────────────────────
+#
+# Only the cleanly-shaped endpoints (those whose worker ends in an explicit
+# `return {…}` literal) are typed here. Each carries `extra="allow"` so any
+# unmodeled field still passes through untouched (cannot drop data / break the
+# frontend), and value types stay loose (`Any` / `Dict[str, Any]` / `Optional`)
+# so `model_validate` never raises on a heterogeneous payload. The remaining
+# endpoints whose workers return an engine-helper dict directly (compare,
+# condorcet-matrix, arrow-criteria, scenario, monte-carlo, multiwinner,
+# bandwagon, real-election, constitutional-scenario, blank-contagion, campaign)
+# stay on the loose Dict passthrough until their helper shapes are traced.
+
+
+class LegacySimulateResponse(BaseModel):
+    """POST /simulations (legacy). Conditional vote/ranked/score blocks +
+    dynamic per-method winners ride through on `extra="allow"`."""
+    model_config = ConfigDict(extra="allow")
+
+    simulation_type:     str
+    deprecation_warning: str
+    metadata:            Dict[str, Any]
+
+
+class SimulateVotersResponse(BaseModel):
+    model_config = ConfigDict(extra="allow")
+
+    voters: List[Dict[str, Any]]
+
+
+class SimulateCandidatesResponse(BaseModel):
+    model_config = ConfigDict(extra="allow")
+
+    success:    bool
+    candidates: List[Dict[str, Any]]
+    message:    str
+
+
+class ClosestCandidateResponse(BaseModel):
+    model_config = ConfigDict(extra="allow")
+
+    result: Any
+
+
+class SimulateUtilityResponse(BaseModel):
+    model_config = ConfigDict(extra="allow")
+
+    success:         bool
+    utility_results: List[Dict[str, Any]]
+
+
+class CalculateUtilityResponse(BaseModel):
+    model_config = ConfigDict(extra="allow")
+
+    success: bool
+    result:  Dict[str, Any]
+    message: str
+
+
+class UtilityMatrixResponse(BaseModel):
+    model_config = ConfigDict(extra="allow")
+
+    success: bool
+    matrix:  Dict[str, Any]
+    stats:   Dict[str, Any]
+    message: str
+
+
+class VoterSegmentsResponse(BaseModel):
+    model_config = ConfigDict(extra="allow")
+
+    success:  bool
+    segments: Dict[str, Any]
+    message:  str
+
+
+class StrategicImpactResponse(BaseModel):
+    model_config = ConfigDict(extra="allow")
+
+    results: List[Dict[str, Any]]
+
+
+class SensitivityResponse(BaseModel):
+    model_config = ConfigDict(extra="allow")
+
+    variable: str
+    values:   List[Any]
+    results:  List[Dict[str, Any]]
+
+
+class WhatIfResponse(BaseModel):
+    model_config = ConfigDict(extra="allow")
+
+    variant_param: str
+    results:       List[Dict[str, Any]]
+
+
+class IdeologyMapResponse(BaseModel):
+    model_config = ConfigDict(extra="allow")
+
+    voters:                  List[Dict[str, Any]]
+    candidates:              List[Dict[str, Any]]
+    winner_a:                Optional[str] = None
+    winner_b:                Optional[str] = None
+    method_a:                str
+    method_b:                str
+    condorcet_winner:        Optional[str] = None
+    pct_better_off_with_a:   float
+    pct_better_off_with_b:   float
+
+
+class VoteStepsResponse(BaseModel):
+    """POST /simulations/vote-steps. Shape is polymorphic by `method`
+    (irv/borda/plurality/schulze/approval); only `method` is guaranteed."""
+    model_config = ConfigDict(extra="allow")
+
+    method: str
+
+
+# ── Engine-helper-backed endpoints (Phase 6, batch 2) ─────────────────────────
+#
+# These workers return an engine helper's dict (compare_all_methods,
+# get_condorcet_matrix, check_all_criteria, …). Top-level keys are confirmed
+# from each helper's return literal; nested values stay `Dict[str, Any]`/`Any`
+# and presence-uncertain keys are `Optional[...] = None` so `model_validate`
+# never raises. `extra="allow"` carries any worker-added field (e.g. blank_pct).
+
+
+class CompareMethodsResponse(BaseModel):
+    model_config = ConfigDict(extra="allow")
+
+    methods:            Dict[str, Any]
+    information_model:  Dict[str, Any]
+    condorcet_winner:   Optional[str] = None
+
+
+class CondorcetMatrixResponse(BaseModel):
+    model_config = ConfigDict(extra="allow")
+
+    candidates:       List[Any]
+    matrix:           Any
+    condorcet_winner: Optional[str] = None
+    condorcet_cycles: Any = None
+
+
+class ArrowCriteriaResponse(BaseModel):
+    model_config = ConfigDict(extra="allow")
+
+    methods: Dict[str, Any]
+    summary: Dict[str, Any]
+
+
+class ScenarioResponse(BaseModel):
+    model_config = ConfigDict(extra="allow")
+
+    without_blank: Dict[str, Any]
+    with_blank:    Dict[str, Any]
+
+
+class MonteCarloResponse(BaseModel):
+    model_config = ConfigDict(extra="allow")
+
+    num_runs:                     int
+    num_voters_per_run:           int
+    config:                       Dict[str, Any]
+    methods:                      Dict[str, Any]
+    condorcet_winner_exists_rate: float
+    inter_method_agreement:       Any = None
+
+
+class MultiwinnerResponse(BaseModel):
+    model_config = ConfigDict(extra="allow")
+
+    comparison:              Dict[str, Any]
+    dhondt:                  Optional[Dict[str, Any]] = None
+    sainte_lague:            Optional[Dict[str, Any]] = None
+    largest_remainder_hare:  Optional[Dict[str, Any]] = None
+    largest_remainder_droop: Optional[Dict[str, Any]] = None
+    stv:                     Optional[Dict[str, Any]] = None
+
+
+class BandwagonResponse(BaseModel):
+    model_config = ConfigDict(extra="allow")
+
+    num_rounds:              int
+    influence_strength:      Any = None
+    rounds:                  List[Any]
+    convergence_round:       Optional[int] = None
+    amplification_by_method: Dict[str, Any]
+
+
+class RealElectionResponse(BaseModel):
+    model_config = ConfigDict(extra="allow")
+
+    election:            Any
+    plurality_winner:    Optional[str] = None
+    first_round_results: Any = None
+    methods:             Dict[str, Any]
+    methods_with_blank:  Optional[Dict[str, Any]] = None
+    divergences:         Any = None
+    summary:             Any = None
+    blank_vote_analysis: Any = None
+
+
+class ConstitutionalScenarioResponse(BaseModel):
+    """Polymorphic by scenario_type (new_election/provisional/dissolution);
+    `scenario_type` + `conclusion` are common to every branch."""
+    model_config = ConfigDict(extra="allow")
+
+    scenario_type: str
+    conclusion:    str
+
+
+class BlankContagionResponse(BaseModel):
+    model_config = ConfigDict(extra="allow")
+
+    rounds:             List[Any]
+    blank_rate_by_round: List[Any]
+    final_blank_rate:   float
+    epidemic_threshold: Any = None
+    reached_equilibrium: bool
+    network_type:       str
+    r0:                 Any = None
+
+
+class CampaignResponse(BaseModel):
+    model_config = ConfigDict(extra="allow")
+
+    days:         Any
+    daily_leader: Any = None
+    daily_scores: Any = None
+    events:       List[Any]
+    final_winner: Optional[str] = None
+    lead_changes: Any = None
+    candidates:   List[Any]
+
+
+# ── GET endpoints (Phase 6, batch 3) ──────────────────────────────────────────
+# FastAPI validates the returned dict/list against `response_model` on the way
+# out, so these keep their `_run_worker` dict return + query-param signature.
+
+
+class ManipulabilityResponse(BaseModel):
+    model_config = ConfigDict(extra="allow")
+
+    num_candidates: int
+    num_voters:     int
+    ideology:       str
+    num_trials:     int
+    results:        Any
+
+
+class BlankHistoryResponse(BaseModel):
+    model_config = ConfigDict(extra="allow")
+
+    country:      str
+    display_name: str
+    note:         str
+    series:       Any
+
+
+class RealElectionSummary(BaseModel):
+    """One item of GET /simulations/real-elections (a list)."""
+    model_config = ConfigDict(extra="allow")
+
+    key:     str
+    name:    str
+    year:    Any
+    country: str

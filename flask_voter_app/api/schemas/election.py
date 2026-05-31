@@ -245,3 +245,475 @@ class CoalitionResponse(BaseModel):
     most_centrist_method:   Optional[str]
     most_divergent_method:  Optional[str]
     inter_method_agreement: float
+
+
+# ── /jury ─────────────────────────────────────────────────────────────────────
+
+class JuryMethodResult(BaseModel):
+    model_config = ConfigDict(extra="allow")
+
+    accuracy:       float
+    beats_majority: bool
+    beats_theory:   bool
+
+
+class JuryResponse(BaseModel):
+    """Condorcet Jury Theorem — per-method accuracy + competence-curve scan."""
+    model_config = ConfigDict(extra="allow")
+
+    theoretical_accuracy: float
+    methods:              Dict[str, JuryMethodResult]
+    best_method:          str
+    worst_method:         str
+    voter_competence:     float
+    num_voters:           int
+    # Curve points carry dynamic per-method keys alongside competence/theoretical,
+    # so a permissive float map is the right shape.
+    competence_curve:     List[Dict[str, float]]
+    pedagogical_note:     str
+    pedagogical_note_en:  str
+
+
+# ── /nota ─────────────────────────────────────────────────────────────────────
+
+class NotaResponse(BaseModel):
+    """None-Of-The-Above: validity + per-method comparison + threshold curve."""
+    model_config = ConfigDict(extra="allow")
+
+    nota_pct:          float
+    election_valid:    bool
+    winner:            Optional[str]
+    nota_curve:        List[Dict[str, Any]]
+    method_comparison: Dict[str, Any]
+    pedagogical_note:  str
+    nota_rule:         str
+    nota_threshold:    float
+
+
+# ── /cascade ──────────────────────────────────────────────────────────────────
+
+class CascadeResponse(BaseModel):
+    """Information cascade: sequential voting where later voters follow the herd."""
+    model_config = ConfigDict(extra="allow")
+
+    sincere_winner:         Optional[str]
+    cascade_winner:         Optional[str]
+    cascade_occurred:       bool
+    vote_sequence:          List[Dict[str, Any]]
+    cascade_start_at:       Optional[int]
+    cascade_strength_curve: List[Dict[str, Any]]
+    comparison_runs:        List[Dict[str, Any]]
+    candidates:             List[str]
+
+
+# ── /electoral-fatigue ────────────────────────────────────────────────────────
+
+class ElectoralFatigueResponse(BaseModel):
+    """Repeated elections: turnout decay + ideological drift of the electorate."""
+    model_config = ConfigDict(extra="allow")
+
+    elections:          List[Dict[str, Any]]
+    winner_drift:       List[str]
+    winner_changed_at:  Optional[int]
+    ideology_drift:     float
+    representation_gap: float
+    full_mean_ideology: float
+    pedagogical_note:   str
+
+
+# ── /deliberation ─────────────────────────────────────────────────────────────
+
+class DeliberationResponse(BaseModel):
+    """Pre/post deliberation comparison under a social-influence network."""
+    model_config = ConfigDict(extra="allow")
+
+    pre_deliberation:    Dict[str, Any]
+    post_deliberation:   Dict[str, Any]
+    winner_changed:      bool
+    deliberation_effect: Dict[str, Any]
+    per_round:           List[Dict[str, Any]]
+    network_effect:      str
+    pedagogical_note:    str
+
+
+# ── /ballot-complexity ────────────────────────────────────────────────────────
+
+class BallotComplexityResponse(BaseModel):
+    """Null-vote rate per method as ballot complexity (candidate count) grows."""
+    model_config = ConfigDict(extra="allow")
+
+    results:                List[Dict[str, Any]]
+    candidate_count_curve:  List[Dict[str, Any]]
+    most_inclusive_method:  Optional[str]
+    least_inclusive_method: Optional[str]
+    pedagogical_note:       str
+
+
+# ── /shy-voter ────────────────────────────────────────────────────────────────
+
+class ShyVoterResponse(BaseModel):
+    """Shy-voter effect: poll vs real winner under social-desirability bias."""
+    model_config = ConfigDict(extra="allow")
+
+    real_winner:               Optional[str]
+    poll_winner:               Optional[str]
+    polls_wrong:               bool
+    shy_candidate:             Optional[str]
+    poll_results:              List[Dict[str, Any]]
+    systematic_error:          Dict[str, float]
+    real_results:              Dict[str, float]
+    avg_poll_results:          Dict[str, float]
+    social_desirability_curve: List[Dict[str, Any]]
+    pedagogical_note:          str
+
+
+# ── /behavioral-biases ────────────────────────────────────────────────────────
+
+class BehavioralBiasesResponse(BaseModel):
+    """Expressive + bullet + primacy biases vs sincere voting."""
+    model_config = ConfigDict(extra="allow")
+
+    sincere_winner:        Optional[str]
+    biased_winner:         Optional[str]
+    winner_changed:        bool
+    vote_breakdown:        Dict[str, Any]
+    method_sensitivity:    Dict[str, Any]
+    bullet_immune_methods: List[str]
+    pedagogical_note:      str
+
+
+# ── /choice-overload ──────────────────────────────────────────────────────────
+
+class ChoiceOverloadResponse(BaseModel):
+    """Heuristic voting beyond an overload threshold of candidates."""
+    model_config = ConfigDict(extra="allow")
+
+    results_by_n:        List[Dict[str, Any]]
+    regret_curve:        List[Dict[str, Any]]
+    most_robust_method:  Optional[str]
+    least_robust_method: Optional[str]
+    overload_threshold:  int
+    heuristic_weights:   Dict[str, float]
+    pedagogical_note:    str
+
+
+# ── /compulsory-voting ────────────────────────────────────────────────────────
+
+class CompulsoryVotingResponse(BaseModel):
+    """Voluntary vs compulsory turnout and the quality/representation trade-off."""
+    model_config = ConfigDict(extra="allow")
+
+    voluntary:                  Dict[str, Any]
+    compulsory:                 Dict[str, Any]
+    winner_changed:             bool
+    representation_improvement: float
+    quality_degradation:        float
+    pedagogical_note:           str
+
+
+# ── /conviction-voting ────────────────────────────────────────────────────────
+
+class ConvictionVotingResponse(BaseModel):
+    """Conviction voting: tokens × lock-multiplier vs plain token weight."""
+    model_config = ConfigDict(extra="allow")
+
+    conviction_winner: Optional[str]
+    token_winner:      Optional[str]
+    winner_changed:    bool
+    proposals:         List[Dict[str, Any]]
+    voter_scatter:     List[Dict[str, Any]]
+    voter_stats:       Dict[str, Any]
+    pedagogical_note:  str
+    lock_options:      List[int]
+    multipliers:       Dict[str, float]
+
+
+# ── /liquid-democracy ─────────────────────────────────────────────────────────
+
+class LiquidDemocracyResponse(BaseModel):
+    """Transitive delegation: super-voters, cycles, and Gini of voting weight."""
+    model_config = ConfigDict(extra="allow")
+
+    weighted_results:   Dict[str, int]
+    direct_voters:      int
+    delegators:         int
+    super_voters:       List[Dict[str, Any]]
+    delegation_graph:   List[Dict[str, Any]]
+    cycles_detected:    int
+    cycle_voter_ids:    List[int]
+    chain_stats:        Dict[str, Any]
+    gini_curve:         List[Dict[str, Any]]
+    comparison:         Dict[str, Any]
+    gini_voting_weight: float
+    pedagogical_note:   str
+
+
+# ── /demographic-turnout ──────────────────────────────────────────────────────
+
+class DemographicTurnoutResponse(BaseModel):
+    """Distortion between full population and effective (turnout-weighted) electorate."""
+    model_config = ConfigDict(extra="allow")
+
+    biased_result:         Dict[str, Any]
+    corrected_result:      Dict[str, Any]
+    winner_changed:        bool
+    representation_gap:    Dict[str, Any]
+    demographic_breakdown: List[Dict[str, Any]]
+    pedagogical_note:      str
+
+
+# ── /sortition ────────────────────────────────────────────────────────────────
+
+class SortitionResponse(BaseModel):
+    """Elected vs sortition (pure / stratified) assembly representativeness."""
+    model_config = ConfigDict(extra="allow")
+
+    population:         Dict[str, Any]
+    assemblies:         Dict[str, Any]
+    variance:           Dict[str, Any]
+    winner_by_method:   Dict[str, Any]
+    consensus_possible: bool
+    pedagogical_note:   str
+
+
+# ── /hotelling ────────────────────────────────────────────────────────────────
+
+class HotellingResponse(BaseModel):
+    """Hotelling-Downs convergence: candidates chasing the median voter."""
+    model_config = ConfigDict(extra="allow")
+
+    iterations:       List[Dict[str, Any]]
+    converged:        bool
+    convergence_step: Optional[int] = None
+    final_positions:  Any
+    equilibrium_type: str
+    voters:           List[Dict[str, Any]]
+    candidates:       List[str]
+    method:           str
+
+
+# ── /polarization ─────────────────────────────────────────────────────────────
+
+class PolarizationResponse(BaseModel):
+    """Effect of electorate polarization on method outcomes."""
+    model_config = ConfigDict(extra="allow")
+
+    results:      Any
+    key_findings: Any
+
+
+# ── /affective-polarization ───────────────────────────────────────────────────
+
+class AffectivePolarizationResponse(BaseModel):
+    """Sincere vs affect-driven (in-group/out-group) voting outcomes."""
+    model_config = ConfigDict(extra="allow")
+
+    sincere_results:     Dict[str, Any]
+    affective_results:   Dict[str, Any]
+    winner_changed:      bool
+    condorcet_violation: bool
+    sincere_cw:          Optional[str] = None
+    affective_cw:        Optional[str] = None
+    method_sensitivity:  Dict[str, Any]
+    affect_curve:        List[Dict[str, Any]]
+    candidate_camps:     Dict[str, Any]
+    voters:              List[Dict[str, Any]]
+    candidates:          List[Dict[str, Any]]
+    pedagogical_note:    str
+
+
+# ── /party-dynamics ───────────────────────────────────────────────────────────
+
+class PartyDynamicsResponse(BaseModel):
+    """Multi-election party system evolution (Duverger's law)."""
+    model_config = ConfigDict(extra="allow")
+
+    elections:               List[Dict[str, Any]]
+    final_system:            Any
+    effective_parties_curve: List[Any]
+    duverger_confirmed:      bool
+    convergence_speed:       Any
+    ideology_drift:          Any
+    pedagogical_note:        str
+
+
+# ── /districts ────────────────────────────────────────────────────────────────
+
+class DistrictsResponse(BaseModel):
+    """N single-member districts: FPTP parliament vs proportional."""
+    model_config = ConfigDict(extra="allow")
+
+    districts:                  List[Dict[str, Any]]
+    parliament_fptp:            Dict[str, Any]
+    parliament_proportional:    Dict[str, Any]
+    national_vote_share:        Dict[str, Any]
+    distortion:                 float
+    condorcet_winner_national:  Optional[str] = None
+    fptp_winner:                Optional[str] = None
+    proportional_winner:        Optional[str] = None
+    num_districts:              int
+
+
+# ── /primary ──────────────────────────────────────────────────────────────────
+
+class PrimaryResponse(BaseModel):
+    """Internal party primaries followed by a general election."""
+    model_config = ConfigDict(extra="allow")
+
+    primaries:                Any
+    general_ballot:           List[str]
+    general_winner:           Optional[str] = None
+    general_runner_up:        Optional[str] = None
+    general_vote_shares:      Dict[str, Any]
+    median_voter_distance:    Any
+    without_primaries_winner: Optional[str] = None
+
+
+# ── /stv ──────────────────────────────────────────────────────────────────────
+
+class StvResponse(BaseModel):
+    """STV vs D'Hondt vs FPTP multiwinner comparison."""
+    model_config = ConfigDict(extra="allow")
+
+    stv:                   Dict[str, Any]
+    dhondt:                Dict[str, Any]
+    fptp:                  Dict[str, Any]
+    vote_shares:           Dict[str, float]
+    num_seats:             int
+    quota:                 Any
+    quota_type:            str
+    distortion_stv_dhondt: float
+    distortion_stv_fptp:   float
+    candidates:            List[str]
+
+
+# ── /adaptive ─────────────────────────────────────────────────────────────────
+
+class AdaptiveResponse(BaseModel):
+    """Iterated adaptive (tactical) voting rounds until convergence."""
+    model_config = ConfigDict(extra="allow")
+
+    rounds:            List[Dict[str, Any]]
+    converged:         bool
+    convergence_round: Optional[int] = None
+    final_winner:      Optional[str] = None
+    sincere_winner:    Optional[str] = None
+    strategic_drift:   Any
+    candidates:        List[Dict[str, Any]]
+
+
+# ── /historical-replay ────────────────────────────────────────────────────────
+
+class HistoricalReplayResponse(BaseModel):
+    """Brownian replay of a historical election day-by-day."""
+    model_config = ConfigDict(extra="allow")
+
+    scenario:   Dict[str, Any]
+    candidates: List[Dict[str, Any]]
+    days:       List[Dict[str, Any]]
+    final:      Dict[str, Any]
+
+
+# ── /gerrymander ──────────────────────────────────────────────────────────────
+
+class GerrymanderResponse(BaseModel):
+    """Editable-boundary districts: gerrymandered parliament vs proportional."""
+    model_config = ConfigDict(extra="allow")
+
+    districts:               List[Dict[str, Any]]
+    voters:                  List[Dict[str, Any]]
+    parliament_gerrymander:  Dict[str, Any]
+    parliament_proportional: Dict[str, Any]
+    national_vote_share:     Dict[str, Any]
+    distortion:              float
+    gerrymander_index:       float
+    winner:                  Optional[str] = None
+    candidates:              List[str]
+    num_seats:               int
+
+
+# ── /multiwinner-compare ──────────────────────────────────────────────────────
+
+class MultiwinnerCompareResponse(BaseModel):
+    """Several multiwinner methods scored against a proportional reference."""
+    model_config = ConfigDict(extra="allow")
+
+    methods:                Dict[str, Any]
+    vote_shares:            Dict[str, float]
+    proportional_reference: Dict[str, Any]
+    num_seats:              int
+    candidates:             List[str]
+    best_method:            str
+    worst_method:           str
+
+
+# ── /divergence ───────────────────────────────────────────────────────────────
+
+class DivergenceResponse(BaseModel):
+    """Inter-method agreement with vs without the blank-vote rule."""
+    model_config = ConfigDict(extra="allow")
+
+    without_blank:       Dict[str, Any]
+    with_blank:          Dict[str, Any]
+    delta_agreement:     float
+    methods_changed:     List[Any]
+    pct_methods_changed: float
+    blank_rule:          str
+
+
+# ── /quadratic-funding ────────────────────────────────────────────────────────
+
+class QuadraticFundingResponse(BaseModel):
+    """Quadratic funding vs 1p1v/plutocracy with Gini inequality metrics."""
+    model_config = ConfigDict(extra="allow")
+
+    projects:             List[Dict[str, Any]]
+    winner:               Optional[str] = None
+    mechanism_comparison: Dict[str, Any]
+    gini_coefficients:    Dict[str, Any]
+    vote_shares:          Dict[str, float]
+    matching_pool:        Any
+    budget_per_voter:     Any
+    pedagogical_note:     str
+
+
+# ── /power-indices ────────────────────────────────────────────────────────────
+
+class PowerIndicesResponse(BaseModel):
+    """Banzhaf/Shapley-Shubik coalition power vs raw seat share."""
+    model_config = ConfigDict(extra="allow")
+
+    total_seats:        int
+    majority_threshold: int
+    parties:            Any
+    viable_coalitions:  List[Any]
+    power_surprises:    List[Any]
+    pedagogical_note:   str
+
+
+# ── /simulate-pipeline ────────────────────────────────────────────────────────
+
+class SimulatePipelineResponse(BaseModel):
+    """Step-by-step pipeline of model stages for animation."""
+    model_config = ConfigDict(extra="allow")
+
+    steps:      List[Dict[str, Any]]
+    candidates: List[Dict[str, Any]]
+    num_steps:  int
+
+
+# ── /interpret ────────────────────────────────────────────────────────────────
+
+class InterpretResponse(BaseModel):
+    """Deterministic textual interpretation of a simulation result."""
+    model_config = ConfigDict(extra="allow")
+
+    headline:           str
+    condorcet_analysis: Any
+    divergence_reason:  Any
+    method_groups:      Any
+    best_by_regret:     Any
+    worst_by_regret:    Any
+    blank_analysis:     Any
+    pedagogical_note:   str
+    key_facts:          Any
