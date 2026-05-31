@@ -4,8 +4,6 @@
  * Metrics: representativity, diversity, decision regret, Gini of representation.
  */
 import React, { useCallback, useRef, useState } from 'react';
-import axios from 'axios';
-import { apiPath } from '../../api/apiVersion';
 import { useTranslation } from 'react-i18next';
 import {
   Alert, Badge, Button, Col, Form, Row, Spinner, Table,
@@ -16,8 +14,7 @@ import {
   ResponsiveContainer,
 } from 'recharts';
 import { useElection } from '../../context/ElectionContext';
-
-const API = process.env.REACT_APP_API_URL ?? 'http://localhost:4434';
+import { $api } from '../../api/hooks';
 const DEBOUNCE_MS = 400;
 
 // ── Types ─────────────────────────────────────────────────────────────────────
@@ -101,33 +98,26 @@ const SortitionPanel: React.FC = () => {
   const [realisticCands, setRealisticCands] = useState(true);
   const [genderParity,   setGenderParity]   = useState(true);
   const [eduQuota,       setEduQuota]       = useState(true);
-  const [data,           setData]           = useState<SortitionData | null>(null);
-  const [loading,        setLoading]        = useState(false);
-  const [error,          setError]          = useState<string | null>(null);
+  const sim = $api.useMutation('post', '/api/v2/election/sortition');
+  const data: SortitionData | null = (sim.data as SortitionData | undefined) ?? null;
+  const loading = sim.isPending;
+  const error = sim.isError ? t('sortition.error') : null;
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  const runSimulation = useCallback(async (sz: number, real: boolean, gp: boolean, eq: boolean) => {
-    setLoading(true);
-    setError(null);
-    try {
-      const res = await axios.post(`${API}${apiPath('election/sortition')}`, {
-        candidates:             config.candidates.map((c) => ({ name: c.name, x: c.x, y: c.y })),
-        num_voters:             config.num_voters,
-        assembly_size:          sz,
-        ideology:               config.ideology,
-        seed:                   config.seed,
-        method:                 'plurality',
-        realistic_candidates:   real,
-        num_simulations:        20,
-        stratification:         { age_groups: [0.25, 0.45, 0.30], gender_parity: gp, education_quota: eq },
-      });
-      setData(res.data);
-    } catch {
-      setError(t('sortition.error'));
-    } finally {
-      setLoading(false);
-    }
-  }, [config, t]);
+  const runSimulation = useCallback((sz: number, real: boolean, gp: boolean, eq: boolean) => {
+    sim.mutate({ body: {
+      candidates:             config.candidates.map((c) => ({ name: c.name, x: c.x, y: c.y })),
+      num_voters:             config.num_voters,
+      assembly_size:          sz,
+      ideology:               config.ideology,
+      seed:                   config.seed,
+      method:                 'plurality',
+      realistic_candidates:   real,
+      num_simulations:        20,
+      stratification:         { age_groups: [0.25, 0.45, 0.30], gender_parity: gp, education_quota: eq },
+    } });
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [config, t, sim]);
 
   const handleSimulate = () => runSimulation(assemblySize, realisticCands, genderParity, eduQuota);
 

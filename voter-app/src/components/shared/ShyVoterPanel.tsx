@@ -3,8 +3,6 @@
  * voters declare a socially acceptable preference in polls but vote sincerely.
  */
 import React, { useCallback, useRef, useState } from 'react';
-import axios from 'axios';
-import { apiPath } from '../../api/apiVersion';
 import { useTranslation } from 'react-i18next';
 import { Alert, Badge, Button, Col, Form, Row, Spinner, Table } from 'react-bootstrap';
 import {
@@ -13,8 +11,7 @@ import {
 } from 'recharts';
 import { useElection } from '../../context/ElectionContext';
 import PinToCentralButton from './PinToCentralButton';
-
-const API = process.env.REACT_APP_API_URL ?? 'http://localhost:4434';
+import { $api } from '../../api/hooks';
 const DEBOUNCE_MS = 400;
 
 // ── Types ─────────────────────────────────────────────────────────────────────
@@ -58,31 +55,24 @@ const ShyVoterPanel: React.FC = () => {
 
   const [sdFactor,    setSdFactor]    = useState(0.4);
   const [shyIdx,      setShyIdx]      = useState(0);
-  const [data,        setData]        = useState<ShyData | null>(null);
-  const [loading,     setLoading]     = useState(false);
-  const [error,       setError]       = useState<string | null>(null);
+  const sim = $api.useMutation('post', '/api/v2/election/shy-voter');
+  const data: ShyData | null = (sim.data as ShyData | undefined) ?? null;
+  const loading = sim.isPending;
+  const error = sim.isError ? t('shyVoter.apiError') : null;
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  const runSimulation = useCallback(async (factor: number, idx: number) => {
-    setLoading(true);
-    setError(null);
-    try {
-      const res = await axios.post(`${API}${apiPath('election/shy-voter')}`, {
-        candidates:                  config.candidates.map((c) => ({ name: c.name, x: c.x, y: c.y })),
-        num_voters:                  config.num_voters,
-        ideology:                    config.ideology,
-        seed:                        config.seed,
-        shy_candidate_idx:           idx,
-        social_desirability_factor:  factor,
-        num_polls:                   10,
-      });
-      setData(res.data);
-    } catch {
-      setError(t('shyVoter.apiError'));
-    } finally {
-      setLoading(false);
-    }
-  }, [config, t]);
+  const runSimulation = useCallback((factor: number, idx: number) => {
+    sim.mutate({ body: {
+      candidates:                  config.candidates.map((c) => ({ name: c.name, x: c.x, y: c.y })),
+      num_voters:                  config.num_voters,
+      ideology:                    config.ideology,
+      seed:                        config.seed,
+      shy_candidate_idx:           idx,
+      social_desirability_factor:  factor,
+      num_polls:                   10,
+    } });
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [config, t, sim]);
 
   const handleSimulate = () => runSimulation(sdFactor, shyIdx);
 
