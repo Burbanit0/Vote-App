@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect } from 'react';
 import { Card, Container, Alert } from 'react-bootstrap';
-import { useAuth } from '../../context/AuthContext';
+import { useAuth } from '../../stores/useAuthStore';
 import { Profile_ } from '../../types';
 import { fetchProfileData } from '../../services';
 import profilePicture from '../../../src/assets/profile_picture/profile_picture_user3.jpg';

@@ -2,10 +2,13 @@ import React from 'react';
 import { render, screen } from '@testing-library/react';
 import { MemoryRouter } from 'react-router-dom';
 import Navbar from './Navbar';
-import { useAuth } from '../context/AuthContext';
+import { useAuth } from '../stores/useAuthStore';
 import { useTheme, useExpertMode, useTeacherMode } from '../stores/useUIStore';
 
-jest.mock('../context/AuthContext', () => ({ useAuth: jest.fn() }));
+jest.mock('../stores/useAuthStore', () => ({
+  ...jest.requireActual('../stores/useAuthStore'),
+  useAuth: jest.fn(),
+}));
 jest.mock('../stores/useUIStore', () => ({
   useTheme:       jest.fn(),
   useExpertMode:  jest.fn(),

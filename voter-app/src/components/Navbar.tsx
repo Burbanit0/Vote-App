@@ -1,6 +1,6 @@
 import React, { useCallback, useRef, useState } from 'react';
 import { useNavigate } from 'react-router';
-import { useAuth } from '../context/AuthContext';
+import { useAuth } from '../stores/useAuthStore';
 import {
   Badge, Button, Dropdown, Form, Modal, Nav,
   NavDropdown, Navbar as BootstrapNavbar, Container,

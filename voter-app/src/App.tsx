@@ -35,7 +35,7 @@ const TheoryPage               = React.lazy(() => import('./pages/TheoryPage'));
 const ProfilePage              = React.lazy(() => import('./pages/ProfilePage'));
 const UserProfilePage          = React.lazy(() => import('./pages/UserProfilePage'));
 
-import { useAuth } from './context/AuthContext';
+import { useAuth } from './stores/useAuthStore';
 import AuthGuard from './context/AuthGuard';
 import { useTheme } from './stores/useUIStore';
 import { ToastProvider } from './components/shared/ToastNotification';

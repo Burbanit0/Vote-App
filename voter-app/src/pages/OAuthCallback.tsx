@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
-import { useAuth } from '../context/AuthContext';
+import { useAuth } from '../stores/useAuthStore';
 import { Container, Spinner, Alert } from 'react-bootstrap';
 
 const API_BASE_URL = process.env.VITE_API_URL || 'http://localhost:4434';
