@@ -1822,6 +1822,92 @@
         "title": "CascadeRequest",
         "type": "object"
       },
+      "CascadeResponse": {
+        "additionalProperties": true,
+        "description": "Information cascade: sequential voting where later voters follow the herd.",
+        "properties": {
+          "candidates": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Candidates",
+            "type": "array"
+          },
+          "cascade_occurred": {
+            "title": "Cascade Occurred",
+            "type": "boolean"
+          },
+          "cascade_start_at": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Cascade Start At"
+          },
+          "cascade_strength_curve": {
+            "items": {
+              "additionalProperties": true,
+              "type": "object"
+            },
+            "title": "Cascade Strength Curve",
+            "type": "array"
+          },
+          "cascade_winner": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Cascade Winner"
+          },
+          "comparison_runs": {
+            "items": {
+              "additionalProperties": true,
+              "type": "object"
+            },
+            "title": "Comparison Runs",
+            "type": "array"
+          },
+          "sincere_winner": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Sincere Winner"
+          },
+          "vote_sequence": {
+            "items": {
+              "additionalProperties": true,
+              "type": "object"
+            },
+            "title": "Vote Sequence",
+            "type": "array"
+          }
+        },
+        "required": [
+          "sincere_winner",
+          "cascade_winner",
+          "cascade_occurred",
+          "vote_sequence",
+          "cascade_start_at",
+          "cascade_strength_curve",
+          "comparison_runs",
+          "candidates"
+        ],
+        "title": "CascadeResponse",
+        "type": "object"
+      },
       "ChaosPath": {
         "properties": {
           "from": {
@@ -2844,6 +2930,58 @@
         "title": "DeliberationRequest",
         "type": "object"
       },
+      "DeliberationResponse": {
+        "additionalProperties": true,
+        "description": "Pre/post deliberation comparison under a social-influence network.",
+        "properties": {
+          "deliberation_effect": {
+            "additionalProperties": true,
+            "title": "Deliberation Effect",
+            "type": "object"
+          },
+          "network_effect": {
+            "title": "Network Effect",
+            "type": "string"
+          },
+          "pedagogical_note": {
+            "title": "Pedagogical Note",
+            "type": "string"
+          },
+          "per_round": {
+            "items": {
+              "additionalProperties": true,
+              "type": "object"
+            },
+            "title": "Per Round",
+            "type": "array"
+          },
+          "post_deliberation": {
+            "additionalProperties": true,
+            "title": "Post Deliberation",
+            "type": "object"
+          },
+          "pre_deliberation": {
+            "additionalProperties": true,
+            "title": "Pre Deliberation",
+            "type": "object"
+          },
+          "winner_changed": {
+            "title": "Winner Changed",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "pre_deliberation",
+          "post_deliberation",
+          "winner_changed",
+          "deliberation_effect",
+          "per_round",
+          "network_effect",
+          "pedagogical_note"
+        ],
+        "title": "DeliberationResponse",
+        "type": "object"
+      },
       "DemocracyVsExpert": {
         "properties": {
           "democracy_regret": {
@@ -3402,6 +3540,65 @@
           "candidates"
         ],
         "title": "ElectoralFatigueRequest",
+        "type": "object"
+      },
+      "ElectoralFatigueResponse": {
+        "additionalProperties": true,
+        "description": "Repeated elections: turnout decay + ideological drift of the electorate.",
+        "properties": {
+          "elections": {
+            "items": {
+              "additionalProperties": true,
+              "type": "object"
+            },
+            "title": "Elections",
+            "type": "array"
+          },
+          "full_mean_ideology": {
+            "title": "Full Mean Ideology",
+            "type": "number"
+          },
+          "ideology_drift": {
+            "title": "Ideology Drift",
+            "type": "number"
+          },
+          "pedagogical_note": {
+            "title": "Pedagogical Note",
+            "type": "string"
+          },
+          "representation_gap": {
+            "title": "Representation Gap",
+            "type": "number"
+          },
+          "winner_changed_at": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Winner Changed At"
+          },
+          "winner_drift": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Winner Drift",
+            "type": "array"
+          }
+        },
+        "required": [
+          "elections",
+          "winner_drift",
+          "winner_changed_at",
+          "ideology_drift",
+          "representation_gap",
+          "full_mean_ideology",
+          "pedagogical_note"
+        ],
+        "title": "ElectoralFatigueResponse",
         "type": "object"
       },
       "EpistCandidate": {
@@ -5727,6 +5924,68 @@
           "candidates"
         ],
         "title": "NotaRequest",
+        "type": "object"
+      },
+      "NotaResponse": {
+        "additionalProperties": true,
+        "description": "None-Of-The-Above: validity + per-method comparison + threshold curve.",
+        "properties": {
+          "election_valid": {
+            "title": "Election Valid",
+            "type": "boolean"
+          },
+          "method_comparison": {
+            "additionalProperties": true,
+            "title": "Method Comparison",
+            "type": "object"
+          },
+          "nota_curve": {
+            "items": {
+              "additionalProperties": true,
+              "type": "object"
+            },
+            "title": "Nota Curve",
+            "type": "array"
+          },
+          "nota_pct": {
+            "title": "Nota Pct",
+            "type": "number"
+          },
+          "nota_rule": {
+            "title": "Nota Rule",
+            "type": "string"
+          },
+          "nota_threshold": {
+            "title": "Nota Threshold",
+            "type": "number"
+          },
+          "pedagogical_note": {
+            "title": "Pedagogical Note",
+            "type": "string"
+          },
+          "winner": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Winner"
+          }
+        },
+        "required": [
+          "nota_pct",
+          "election_valid",
+          "winner",
+          "nota_curve",
+          "method_comparison",
+          "pedagogical_note",
+          "nota_rule",
+          "nota_threshold"
+        ],
+        "title": "NotaResponse",
         "type": "object"
       },
       "OptimalAgenda": {
@@ -8687,9 +8946,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "additionalProperties": true,
-                  "title": "Response Cascade Endpoint Api V2 Election Cascade Post",
-                  "type": "object"
+                  "$ref": "#/components/schemas/CascadeResponse"
                 }
               }
             },
@@ -8947,9 +9204,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "additionalProperties": true,
-                  "title": "Response Deliberation Endpoint Api V2 Election Deliberation Post",
-                  "type": "object"
+                  "$ref": "#/components/schemas/DeliberationResponse"
                 }
               }
             },
@@ -9123,9 +9378,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "additionalProperties": true,
-                  "title": "Response Electoral Fatigue Endpoint Api V2 Election Electoral Fatigue Post",
-                  "type": "object"
+                  "$ref": "#/components/schemas/ElectoralFatigueResponse"
                 }
               }
             },
@@ -9473,9 +9726,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "additionalProperties": true,
-                  "title": "Response Nota Endpoint Api V2 Election Nota Post",
-                  "type": "object"
+                  "$ref": "#/components/schemas/NotaResponse"
                 }
               }
             },

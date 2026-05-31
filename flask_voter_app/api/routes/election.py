@@ -41,6 +41,7 @@ from api.schemas import (
     CampaignSensitivityRequest,
     CampaignSensitivityResponse,
     CascadeRequest,
+    CascadeResponse,
     ChoiceOverloadRequest,
     CoalitionRequest,
     CoalitionResponse,
@@ -49,10 +50,12 @@ from api.schemas import (
     CompulsoryVotingRequest,
     ConvictionVotingRequest,
     DeliberationRequest,
+    DeliberationResponse,
     DemographicTurnoutRequest,
     DistrictsRequest,
     DivergenceRequest,
     ElectoralFatigueRequest,
+    ElectoralFatigueResponse,
     GerrymanderRequest,
     HistoricalReplayRequest,
     HotellingRequest,
@@ -62,6 +65,7 @@ from api.schemas import (
     LiquidDemocracyRequest,
     MultiwinnerCompareRequest,
     NotaRequest,
+    NotaResponse,
     PartyDynamicsRequest,
     PolarizationRequest,
     PowerIndicesRequest,
@@ -271,6 +275,7 @@ async def abstention_endpoint(request: AbstentionRequest) -> AbstentionResponse:
 
 @router.post(
     "/nota",
+    response_model=NotaResponse,
     summary="NOTA (None Of The Above) as a ballot option",
     response_description=(
         "Sincere winner, NOTA percentage, election validity per the "
@@ -278,12 +283,12 @@ async def abstention_endpoint(request: AbstentionRequest) -> AbstentionResponse:
         "per-method comparison of NOTA inclusiveness."
     ),
 )
-async def nota_endpoint(request: NotaRequest) -> Dict[str, Any]:
+async def nota_endpoint(request: NotaRequest) -> NotaResponse:
     """A voter casts NOTA when their max-utility for any candidate is below
     nota_threshold. Three constitutional outcomes after NOTA wins:
     `invalidate` (null election), `runoff` (new candidates), or
     `winner_take_all` (seat NOTA, Nevada-style)."""
-    return await _run_passthrough(nota_domain, request)
+    return await _run_typed(nota_domain, request, NotaResponse)
 
 
 @router.post(
@@ -321,6 +326,7 @@ async def shy_voter_endpoint(request: ShyVoterRequest) -> Dict[str, Any]:
 
 @router.post(
     "/electoral-fatigue",
+    response_model=ElectoralFatigueResponse,
     summary="Turnout decay across repeated elections",
     response_description=(
         "Per-election turnout, winner, ideology drift, and a "
@@ -330,27 +336,28 @@ async def shy_voter_endpoint(request: ShyVoterRequest) -> Dict[str, Any]:
 )
 async def electoral_fatigue_endpoint(
     request: ElectoralFatigueRequest,
-) -> Dict[str, Any]:
+) -> ElectoralFatigueResponse:
     """P(vote | election k) = max(engaged_voter_pct, 1 - k × fatigue_rate).
     Engaged voters (top engaged_voter_pct by max-utility) always vote;
     casual voters drop out faster each election, shifting the residual
     electorate toward partisans."""
-    return await _run_passthrough(electoral_fatigue_domain, request)
+    return await _run_typed(electoral_fatigue_domain, request, ElectoralFatigueResponse)
 
 
 # ── Perturber endpoints (Phase 3 batch 4) ──────────────────────────────────
 
 @router.post(
     "/cascade",
+    response_model=CascadeResponse,
     summary="Sequential voting with information cascades",
     response_description="Sincere vs cascade winner, vote sequence with timeline, "
                          "cascade-strength sensitivity curve.",
 )
-async def cascade_endpoint(request: CascadeRequest) -> Dict[str, Any]:
+async def cascade_endpoint(request: CascadeRequest) -> CascadeResponse:
     """Each voter observes the last `observation_window` votes and may follow
     the public signal instead of their sincere preference with probability
     `cascade_strength`. Bikhchandani, Hirshleifer, Welch (1992)."""
-    return await _run_passthrough(cascade_domain, request)
+    return await _run_typed(cascade_domain, request, CascadeResponse)
 
 
 @router.post(
@@ -386,15 +393,16 @@ async def choice_overload_endpoint(
 
 @router.post(
     "/deliberation",
+    response_model=DeliberationResponse,
     summary="DeGroot opinion update across a network, then vote",
     response_description="Pre vs post-deliberation winner, opinion convergence "
                          "rate, polarisation change, per-round trace.",
 )
-async def deliberation_endpoint(request: DeliberationRequest) -> Dict[str, Any]:
+async def deliberation_endpoint(request: DeliberationRequest) -> DeliberationResponse:
     """Voters update their ideology toward a network-weighted mean for
     `deliberation_rounds` rounds, then vote. `network_type` echo_chamber
     amplifies polarisation; bridge / complete reduce it."""
-    return await _run_passthrough(deliberation_domain, request)
+    return await _run_typed(deliberation_domain, request, DeliberationResponse)
 
 
 # ── Perturber endpoints (Phase 3 batch 5) ──────────────────────────────────

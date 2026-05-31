@@ -272,3 +272,65 @@ class JuryResponse(BaseModel):
     competence_curve:     List[Dict[str, float]]
     pedagogical_note:     str
     pedagogical_note_en:  str
+
+
+# ── /nota ─────────────────────────────────────────────────────────────────────
+
+class NotaResponse(BaseModel):
+    """None-Of-The-Above: validity + per-method comparison + threshold curve."""
+    model_config = ConfigDict(extra="allow")
+
+    nota_pct:          float
+    election_valid:    bool
+    winner:            Optional[str]
+    nota_curve:        List[Dict[str, Any]]
+    method_comparison: Dict[str, Any]
+    pedagogical_note:  str
+    nota_rule:         str
+    nota_threshold:    float
+
+
+# ── /cascade ──────────────────────────────────────────────────────────────────
+
+class CascadeResponse(BaseModel):
+    """Information cascade: sequential voting where later voters follow the herd."""
+    model_config = ConfigDict(extra="allow")
+
+    sincere_winner:         Optional[str]
+    cascade_winner:         Optional[str]
+    cascade_occurred:       bool
+    vote_sequence:          List[Dict[str, Any]]
+    cascade_start_at:       Optional[int]
+    cascade_strength_curve: List[Dict[str, Any]]
+    comparison_runs:        List[Dict[str, Any]]
+    candidates:             List[str]
+
+
+# ── /electoral-fatigue ────────────────────────────────────────────────────────
+
+class ElectoralFatigueResponse(BaseModel):
+    """Repeated elections: turnout decay + ideological drift of the electorate."""
+    model_config = ConfigDict(extra="allow")
+
+    elections:          List[Dict[str, Any]]
+    winner_drift:       List[str]
+    winner_changed_at:  Optional[int]
+    ideology_drift:     float
+    representation_gap: float
+    full_mean_ideology: float
+    pedagogical_note:   str
+
+
+# ── /deliberation ─────────────────────────────────────────────────────────────
+
+class DeliberationResponse(BaseModel):
+    """Pre/post deliberation comparison under a social-influence network."""
+    model_config = ConfigDict(extra="allow")
+
+    pre_deliberation:    Dict[str, Any]
+    post_deliberation:   Dict[str, Any]
+    winner_changed:      bool
+    deliberation_effect: Dict[str, Any]
+    per_round:           List[Dict[str, Any]]
+    network_effect:      str
+    pedagogical_note:    str

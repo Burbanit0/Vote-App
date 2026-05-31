@@ -2976,6 +2976,36 @@ export interface components {
              */
             seed: number;
         };
+        /**
+         * CascadeResponse
+         * @description Information cascade: sequential voting where later voters follow the herd.
+         */
+        CascadeResponse: {
+            /** Candidates */
+            candidates: string[];
+            /** Cascade Occurred */
+            cascade_occurred: boolean;
+            /** Cascade Start At */
+            cascade_start_at: number | null;
+            /** Cascade Strength Curve */
+            cascade_strength_curve: {
+                [key: string]: unknown;
+            }[];
+            /** Cascade Winner */
+            cascade_winner: string | null;
+            /** Comparison Runs */
+            comparison_runs: {
+                [key: string]: unknown;
+            }[];
+            /** Sincere Winner */
+            sincere_winner: string | null;
+            /** Vote Sequence */
+            vote_sequence: {
+                [key: string]: unknown;
+            }[];
+        } & {
+            [key: string]: unknown;
+        };
         /** ChaosPath */
         ChaosPath: {
             /** From */
@@ -3542,6 +3572,36 @@ export interface components {
              */
             seed: number;
         };
+        /**
+         * DeliberationResponse
+         * @description Pre/post deliberation comparison under a social-influence network.
+         */
+        DeliberationResponse: {
+            /** Deliberation Effect */
+            deliberation_effect: {
+                [key: string]: unknown;
+            };
+            /** Network Effect */
+            network_effect: string;
+            /** Pedagogical Note */
+            pedagogical_note: string;
+            /** Per Round */
+            per_round: {
+                [key: string]: unknown;
+            }[];
+            /** Post Deliberation */
+            post_deliberation: {
+                [key: string]: unknown;
+            };
+            /** Pre Deliberation */
+            pre_deliberation: {
+                [key: string]: unknown;
+            };
+            /** Winner Changed */
+            winner_changed: boolean;
+        } & {
+            [key: string]: unknown;
+        };
         /** DemocracyVsExpert */
         DemocracyVsExpert: {
             /** Democracy Regret */
@@ -3792,6 +3852,30 @@ export interface components {
              * @default 42
              */
             seed: number;
+        };
+        /**
+         * ElectoralFatigueResponse
+         * @description Repeated elections: turnout decay + ideological drift of the electorate.
+         */
+        ElectoralFatigueResponse: {
+            /** Elections */
+            elections: {
+                [key: string]: unknown;
+            }[];
+            /** Full Mean Ideology */
+            full_mean_ideology: number;
+            /** Ideology Drift */
+            ideology_drift: number;
+            /** Pedagogical Note */
+            pedagogical_note: string;
+            /** Representation Gap */
+            representation_gap: number;
+            /** Winner Changed At */
+            winner_changed_at: number | null;
+            /** Winner Drift */
+            winner_drift: string[];
+        } & {
+            [key: string]: unknown;
         };
         /** EpistCandidate */
         EpistCandidate: {
@@ -4981,6 +5065,34 @@ export interface components {
              * @default 42
              */
             seed: number;
+        };
+        /**
+         * NotaResponse
+         * @description None-Of-The-Above: validity + per-method comparison + threshold curve.
+         */
+        NotaResponse: {
+            /** Election Valid */
+            election_valid: boolean;
+            /** Method Comparison */
+            method_comparison: {
+                [key: string]: unknown;
+            };
+            /** Nota Curve */
+            nota_curve: {
+                [key: string]: unknown;
+            }[];
+            /** Nota Pct */
+            nota_pct: number;
+            /** Nota Rule */
+            nota_rule: string;
+            /** Nota Threshold */
+            nota_threshold: number;
+            /** Pedagogical Note */
+            pedagogical_note: string;
+            /** Winner */
+            winner: string | null;
+        } & {
+            [key: string]: unknown;
         };
         /** OptimalAgenda */
         OptimalAgenda: {
@@ -6716,9 +6828,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        [key: string]: unknown;
-                    };
+                    "application/json": components["schemas"]["CascadeResponse"];
                 };
             };
             /** @description Validation Error */
@@ -6922,9 +7032,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        [key: string]: unknown;
-                    };
+                    "application/json": components["schemas"]["DeliberationResponse"];
                 };
             };
             /** @description Validation Error */
@@ -7062,9 +7170,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        [key: string]: unknown;
-                    };
+                    "application/json": components["schemas"]["ElectoralFatigueResponse"];
                 };
             };
             /** @description Validation Error */
@@ -7340,9 +7446,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        [key: string]: unknown;
-                    };
+                    "application/json": components["schemas"]["NotaResponse"];
                 };
             };
             /** @description Validation Error */
