@@ -4,14 +4,18 @@ import SimulationResult from '../SimulationResult';
 
 jest.mock('../VotingMethodsComparison', () => () => <div data-testid="voting-methods-comparison" />);
 jest.mock('../ScoreVotingComparison', () => () => <div data-testid="score-voting-comparison" />);
-jest.mock('react-google-charts', () => ({
-  Chart: () => <div data-testid="google-chart" />,
+// Charts now render with Recharts (no chart.js / react-google-charts). The
+// preprocessors are mocked with minimal valid shapes; the component wraps each
+// chart in a testid div so we assert presence without depending on SVG layout.
+jest.mock('../SimulationSankey', () => () => [
+  ['From', 'To', 'Weight'],
+  ['Start', 'R:1-Alice', 1],
+  ['R:1-Alice', 'Winner: Alice', 1],
+]);
+jest.mock('../SimulationRadar', () => () => ({
+  labels: ['Rank 1', 'Rank 2'],
+  datasets: [{ label: 'Alice', data: [0.5, 0.5] }],
 }));
-jest.mock('react-chartjs-2', () => ({
-  Radar: () => <div data-testid="radar-chart" />,
-}));
-jest.mock('../SimulationSankey', () => () => []);
-jest.mock('../SimulationRadar', () => () => ({}));
 
 const baseResult = {
   simulation_type: ['votes', 'ranked'],
@@ -68,7 +72,7 @@ describe('SimulationResult', () => {
 
   it('renders charts when rankings present', () => {
     render(<SimulationResult result={baseResult as any} />);
-    expect(screen.getByTestId('google-chart')).toBeInTheDocument();
+    expect(screen.getByTestId('sankey-chart')).toBeInTheDocument();
     expect(screen.getByTestId('radar-chart')).toBeInTheDocument();
   });
 
@@ -97,7 +101,7 @@ describe('SimulationResult', () => {
     };
     render(<SimulationResult result={votesOnly as any} />);
     expect(screen.getByText('Standard Voting Results')).toBeInTheDocument();
-    expect(screen.queryByTestId('google-chart')).not.toBeInTheDocument();
+    expect(screen.queryByTestId('sankey-chart')).not.toBeInTheDocument();
   });
 
   it('does not render tally when absent', () => {

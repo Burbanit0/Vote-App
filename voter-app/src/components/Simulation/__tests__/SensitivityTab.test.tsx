@@ -6,10 +6,6 @@ jest.mock('../../../services/simulationCompareApi', () => ({
   getSensitivityAnalysis: jest.fn(),
 }));
 
-jest.mock('react-google-charts', () => ({
-  Chart: () => <div data-testid="google-chart" />,
-}));
-
 const mockSensitivityData = {
   results: [
     { value: 500, winners_by_method: { plurality: 'Alice' }, regret_by_method: { plurality: 0.1 } },
