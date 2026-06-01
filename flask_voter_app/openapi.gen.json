@@ -5412,6 +5412,68 @@
         "title": "HistoricalReplayResponse",
         "type": "object"
       },
+      "HotellingCandPos": {
+        "additionalProperties": true,
+        "properties": {
+          "name": {
+            "title": "Name",
+            "type": "string"
+          },
+          "x": {
+            "title": "X",
+            "type": "number"
+          },
+          "y": {
+            "title": "Y",
+            "type": "number"
+          }
+        },
+        "required": [
+          "name",
+          "x",
+          "y"
+        ],
+        "title": "HotellingCandPos",
+        "type": "object"
+      },
+      "HotellingIteration": {
+        "additionalProperties": true,
+        "properties": {
+          "candidates": {
+            "items": {
+              "$ref": "#/components/schemas/HotellingCandPos"
+            },
+            "title": "Candidates",
+            "type": "array"
+          },
+          "converged_candidates": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Converged Candidates",
+            "type": "array"
+          },
+          "scores": {
+            "additionalProperties": {
+              "type": "number"
+            },
+            "title": "Scores",
+            "type": "object"
+          },
+          "step": {
+            "title": "Step",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "step",
+          "candidates",
+          "scores",
+          "converged_candidates"
+        ],
+        "title": "HotellingIteration",
+        "type": "object"
+      },
       "HotellingRequest": {
         "additionalProperties": false,
         "description": "Hotelling-Downs iterative best-response: candidates move to maximise votes.",
@@ -5501,12 +5563,15 @@
             "type": "string"
           },
           "final_positions": {
-            "title": "Final Positions"
+            "items": {
+              "$ref": "#/components/schemas/HotellingCandPos"
+            },
+            "title": "Final Positions",
+            "type": "array"
           },
           "iterations": {
             "items": {
-              "additionalProperties": true,
-              "type": "object"
+              "$ref": "#/components/schemas/HotellingIteration"
             },
             "title": "Iterations",
             "type": "array"
@@ -5517,8 +5582,7 @@
           },
           "voters": {
             "items": {
-              "additionalProperties": true,
-              "type": "object"
+              "$ref": "#/components/schemas/HotellingVoter"
             },
             "title": "Voters",
             "type": "array"
@@ -5534,6 +5598,25 @@
           "method"
         ],
         "title": "HotellingResponse",
+        "type": "object"
+      },
+      "HotellingVoter": {
+        "additionalProperties": true,
+        "properties": {
+          "x": {
+            "title": "X",
+            "type": "number"
+          },
+          "y": {
+            "title": "Y",
+            "type": "number"
+          }
+        },
+        "required": [
+          "x",
+          "y"
+        ],
+        "title": "HotellingVoter",
         "type": "object"
       },
       "IDCandidate": {

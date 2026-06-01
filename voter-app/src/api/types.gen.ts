@@ -4734,6 +4734,32 @@ export interface components {
         } & {
             [key: string]: unknown;
         };
+        /** HotellingCandPos */
+        HotellingCandPos: {
+            /** Name */
+            name: string;
+            /** X */
+            x: number;
+            /** Y */
+            y: number;
+        } & {
+            [key: string]: unknown;
+        };
+        /** HotellingIteration */
+        HotellingIteration: {
+            /** Candidates */
+            candidates: components["schemas"]["HotellingCandPos"][];
+            /** Converged Candidates */
+            converged_candidates: string[];
+            /** Scores */
+            scores: {
+                [key: string]: number;
+            };
+            /** Step */
+            step: number;
+        } & {
+            [key: string]: unknown;
+        };
         /**
          * HotellingRequest
          * @description Hotelling-Downs iterative best-response: candidates move to maximise votes.
@@ -4787,17 +4813,22 @@ export interface components {
             /** Equilibrium Type */
             equilibrium_type: string;
             /** Final Positions */
-            final_positions: unknown;
+            final_positions: components["schemas"]["HotellingCandPos"][];
             /** Iterations */
-            iterations: {
-                [key: string]: unknown;
-            }[];
+            iterations: components["schemas"]["HotellingIteration"][];
             /** Method */
             method: string;
             /** Voters */
-            voters: {
-                [key: string]: unknown;
-            }[];
+            voters: components["schemas"]["HotellingVoter"][];
+        } & {
+            [key: string]: unknown;
+        };
+        /** HotellingVoter */
+        HotellingVoter: {
+            /** X */
+            x: number;
+            /** Y */
+            y: number;
         } & {
             [key: string]: unknown;
         };

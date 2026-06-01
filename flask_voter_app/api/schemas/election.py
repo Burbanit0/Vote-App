@@ -478,16 +478,40 @@ class SortitionResponse(BaseModel):
 
 # ── /hotelling ────────────────────────────────────────────────────────────────
 
+class HotellingCandPos(BaseModel):
+    model_config = ConfigDict(extra="allow")
+
+    name: str
+    x:    float
+    y:    float
+
+
+class HotellingIteration(BaseModel):
+    model_config = ConfigDict(extra="allow")
+
+    step:                 int
+    candidates:           List[HotellingCandPos]
+    scores:               Dict[str, float]
+    converged_candidates: List[str]
+
+
+class HotellingVoter(BaseModel):
+    model_config = ConfigDict(extra="allow")
+
+    x: float
+    y: float
+
+
 class HotellingResponse(BaseModel):
     """Hotelling-Downs convergence: candidates chasing the median voter."""
     model_config = ConfigDict(extra="allow")
 
-    iterations:       List[Dict[str, Any]]
+    iterations:       List[HotellingIteration]
     converged:        bool
     convergence_step: Optional[int] = None
-    final_positions:  Any
+    final_positions:  List[HotellingCandPos]
     equilibrium_type: str
-    voters:           List[Dict[str, Any]]
+    voters:           List[HotellingVoter]
     candidates:       List[str]
     method:           str
 

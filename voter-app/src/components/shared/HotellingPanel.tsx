@@ -13,27 +13,12 @@ import {
 import { useElection } from '../../stores/useElectionStore';
 import { $api } from '../../api/hooks';
 import { apiClient } from '../../api/client';
+import type { HotellingResponse } from '../../api';
 
 // ── Types ─────────────────────────────────────────────────────────────────────
+// Source of truth is the generated `HotellingResponse` (Phase 6 response_model).
 
-interface CandPos    { name: string; x: number; y: number }
-interface Iteration  {
-  step:                  number;
-  candidates:            CandPos[];
-  scores:                Record<string, number>;
-  converged_candidates:  string[];
-}
-
-interface HotellingData {
-  iterations:       Iteration[];
-  converged:        boolean;
-  convergence_step: number | null;
-  final_positions:  CandPos[];
-  equilibrium_type: 'center_convergence' | 'dispersed' | 'unstable';
-  voters:           { x: number; y: number }[];
-  candidates:       string[];
-  method:           string;
-}
+type HotellingData = HotellingResponse;
 
 // ── Palette ───────────────────────────────────────────────────────────────────
 
@@ -65,7 +50,7 @@ const HotellingPanel: React.FC = () => {
   const [numIter,   setNumIter]   = useState(10);
   const [stepSize,  setStepSize]  = useState(0.05);
   const sim = $api.useMutation('post', '/api/v2/election/hotelling');
-  const data: HotellingData | null = (sim.data as HotellingData | undefined) ?? null;
+  const data: HotellingData | null = sim.data ?? null;
   const loading = sim.isPending;
   const error = sim.isError ? t('hotelling.error') : null;
   const [stepIdx,   setStepIdx]   = useState(0);
@@ -108,7 +93,7 @@ const HotellingPanel: React.FC = () => {
           step_size:      stepSize,
         },
       });
-      if (res) results[m] = res as unknown as HotellingData;
+      if (res) results[m] = res;
     }
     setCompareData(results);
     setComparing(false);
