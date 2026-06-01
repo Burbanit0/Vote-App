@@ -1,8 +1,7 @@
 import React from 'react';
 import { Badge, Card } from 'react-bootstrap';
-import { Bar } from 'react-chartjs-2';
-import './_chartjs';
-import { VotingMethodVisualizationProps, VIZ_COLORS } from './types';
+import MethodBarChart from './MethodBarChart';
+import { VotingMethodVisualizationProps } from './types';
 
 /**
  * Instant Runoff Voting (IRV) — repeated runoff: each round the candidate
@@ -106,20 +105,7 @@ const IRVVisualization: React.FC<VotingMethodVisualizationProps> = ({ rankings, 
     checkRound();
   };
 
-  const data = {
-    labels: candidates.filter((c) => !eliminated.includes(c)),
-    datasets: [
-      {
-        label: `Round ${round} Votes`,
-        data: candidates
-          .filter((c) => !eliminated.includes(c))
-          .map((candidate) => currentVotes[candidate] || 0),
-        backgroundColor: candidates
-          .filter((c) => !eliminated.includes(c))
-          .map((_, i) => VIZ_COLORS[i % VIZ_COLORS.length]),
-      },
-    ],
-  };
+  const activeCandidates = candidates.filter((c) => !eliminated.includes(c));
 
   return (
     <>
@@ -132,26 +118,12 @@ const IRVVisualization: React.FC<VotingMethodVisualizationProps> = ({ rankings, 
 
       {!winner ? (
         <>
-          <Bar
-            data={data}
-            options={{
-              responsive: true,
-              plugins: {
-                title: {
-                  display: true,
-                  text: `Round ${round} Vote Distribution`,
-                },
-              },
-              scales: {
-                y: {
-                  beginAtZero: true,
-                  title: {
-                    display: true,
-                    text: 'Number of Votes',
-                  },
-                },
-              },
-            }}
+          <MethodBarChart
+            labels={activeCandidates}
+            values={activeCandidates.map((candidate) => currentVotes[candidate] || 0)}
+            seriesName={`Round ${round} Votes`}
+            title={`Round ${round} Vote Distribution`}
+            yLabel="Number of Votes"
           />
 
           {eliminated.length > 0 && (

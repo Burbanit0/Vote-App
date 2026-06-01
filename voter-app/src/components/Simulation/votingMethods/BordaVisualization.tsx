@@ -1,8 +1,7 @@
 import React from 'react';
 import { Card } from 'react-bootstrap';
-import { Bar } from 'react-chartjs-2';
-import './_chartjs';
-import { VotingMethodVisualizationProps, VIZ_COLORS } from './types';
+import MethodBarChart from './MethodBarChart';
+import { VotingMethodVisualizationProps } from './types';
 
 /**
  * Borda Count — each rank position gives a fixed number of points
@@ -26,17 +25,6 @@ const BordaVisualization: React.FC<VotingMethodVisualizationProps> = ({ rankings
     });
   });
 
-  const data = {
-    labels: candidates,
-    datasets: [
-      {
-        label: 'Borda Scores',
-        data: candidates.map((candidate) => scores[candidate]),
-        backgroundColor: VIZ_COLORS,
-      },
-    ],
-  };
-
   return (
     <>
       <p>
@@ -44,26 +32,12 @@ const BordaVisualization: React.FC<VotingMethodVisualizationProps> = ({ rankings
         ranking. A candidate in first place gets {numCandidates - 1} points, second place gets{' '}
         {numCandidates - 2} points, and so on. The candidate with the most points wins.
       </p>
-      <Bar
-        data={data}
-        options={{
-          responsive: true,
-          plugins: {
-            title: {
-              display: true,
-              text: 'Borda Count Scores',
-            },
-          },
-          scales: {
-            y: {
-              beginAtZero: true,
-              title: {
-                display: true,
-                text: 'Total Borda Points',
-              },
-            },
-          },
-        }}
+      <MethodBarChart
+        labels={candidates}
+        values={candidates.map((candidate) => scores[candidate])}
+        seriesName="Borda Scores"
+        title="Borda Count Scores"
+        yLabel="Total Borda Points"
       />
       <Card.Text className="mt-3">
         <strong>Winner:</strong> {candidates.reduce((a, b) => (scores[a] > scores[b] ? a : b))}
