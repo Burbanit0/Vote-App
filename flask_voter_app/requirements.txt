@@ -24,7 +24,7 @@ aiosqlite==0.21.0             # SQLite driver (tests)
 redis==5.2.1
 
 # ── Utilities ────────────────────────────────────────────────────────────────
-python-dotenv==1.1.1
+python-dotenv==1.2.2          # 1.2.2: GHSA-mf9w-mj56-hr94 (set_key symlink-follow)
 structlog==25.4.0              # JSON structured logging (api/engine/utils/logger.py)
 
 # ── Data / science (the simulation engine) ───────────────────────────────────
