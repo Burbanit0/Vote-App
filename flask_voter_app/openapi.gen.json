@@ -307,6 +307,25 @@
         "title": "AbstentionVoter",
         "type": "object"
       },
+      "AdaptiveCandPos": {
+        "additionalProperties": true,
+        "properties": {
+          "name": {
+            "title": "Name",
+            "type": "string"
+          },
+          "x": {
+            "title": "X",
+            "type": "number"
+          }
+        },
+        "required": [
+          "name",
+          "x"
+        ],
+        "title": "AdaptiveCandPos",
+        "type": "object"
+      },
       "AdaptiveRequest": {
         "additionalProperties": false,
         "description": "N rounds of adaptive/tactical voting with poll feedback.",
@@ -371,8 +390,7 @@
         "properties": {
           "candidates": {
             "items": {
-              "additionalProperties": true,
-              "type": "object"
+              "$ref": "#/components/schemas/AdaptiveCandPos"
             },
             "title": "Candidates",
             "type": "array"
@@ -405,8 +423,7 @@
           },
           "rounds": {
             "items": {
-              "additionalProperties": true,
-              "type": "object"
+              "$ref": "#/components/schemas/AdaptiveRound"
             },
             "title": "Rounds",
             "type": "array"
@@ -423,7 +440,8 @@
             "title": "Sincere Winner"
           },
           "strategic_drift": {
-            "title": "Strategic Drift"
+            "title": "Strategic Drift",
+            "type": "number"
           }
         },
         "required": [
@@ -433,6 +451,110 @@
           "candidates"
         ],
         "title": "AdaptiveResponse",
+        "type": "object"
+      },
+      "AdaptiveRound": {
+        "additionalProperties": true,
+        "properties": {
+          "round": {
+            "title": "Round",
+            "type": "integer"
+          },
+          "sincere_shares": {
+            "additionalProperties": {
+              "type": "number"
+            },
+            "title": "Sincere Shares",
+            "type": "object"
+          },
+          "sincere_winner": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Sincere Winner"
+          },
+          "strategic_voters_pct": {
+            "title": "Strategic Voters Pct",
+            "type": "number"
+          },
+          "vote_shares": {
+            "additionalProperties": {
+              "type": "number"
+            },
+            "title": "Vote Shares",
+            "type": "object"
+          },
+          "voter_snapshot": {
+            "items": {
+              "$ref": "#/components/schemas/AdaptiveVoterSnap"
+            },
+            "title": "Voter Snapshot",
+            "type": "array"
+          },
+          "winner": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Winner"
+          }
+        },
+        "required": [
+          "round",
+          "vote_shares",
+          "sincere_shares",
+          "strategic_voters_pct",
+          "voter_snapshot"
+        ],
+        "title": "AdaptiveRound",
+        "type": "object"
+      },
+      "AdaptiveVoterSnap": {
+        "additionalProperties": true,
+        "properties": {
+          "effective_vote": {
+            "title": "Effective Vote",
+            "type": "string"
+          },
+          "id": {
+            "title": "Id",
+            "type": "integer"
+          },
+          "sincere_vote": {
+            "title": "Sincere Vote",
+            "type": "string"
+          },
+          "tactical": {
+            "title": "Tactical",
+            "type": "boolean"
+          },
+          "x": {
+            "title": "X",
+            "type": "number"
+          },
+          "y": {
+            "title": "Y",
+            "type": "number"
+          }
+        },
+        "required": [
+          "id",
+          "x",
+          "y",
+          "sincere_vote",
+          "effective_vote",
+          "tactical"
+        ],
+        "title": "AdaptiveVoterSnap",
         "type": "object"
       },
       "AffectivePolarizationRequest": {

@@ -2181,6 +2181,15 @@ export interface components {
             /** Y */
             y: number;
         };
+        /** AdaptiveCandPos */
+        AdaptiveCandPos: {
+            /** Name */
+            name: string;
+            /** X */
+            x: number;
+        } & {
+            [key: string]: unknown;
+        };
         /**
          * AdaptiveRequest
          * @description N rounds of adaptive/tactical voting with poll feedback.
@@ -2226,9 +2235,7 @@ export interface components {
          */
         AdaptiveResponse: {
             /** Candidates */
-            candidates: {
-                [key: string]: unknown;
-            }[];
+            candidates: components["schemas"]["AdaptiveCandPos"][];
             /** Converged */
             converged: boolean;
             /** Convergence Round */
@@ -2236,13 +2243,51 @@ export interface components {
             /** Final Winner */
             final_winner?: string | null;
             /** Rounds */
-            rounds: {
-                [key: string]: unknown;
-            }[];
+            rounds: components["schemas"]["AdaptiveRound"][];
             /** Sincere Winner */
             sincere_winner?: string | null;
             /** Strategic Drift */
-            strategic_drift: unknown;
+            strategic_drift: number;
+        } & {
+            [key: string]: unknown;
+        };
+        /** AdaptiveRound */
+        AdaptiveRound: {
+            /** Round */
+            round: number;
+            /** Sincere Shares */
+            sincere_shares: {
+                [key: string]: number;
+            };
+            /** Sincere Winner */
+            sincere_winner?: string | null;
+            /** Strategic Voters Pct */
+            strategic_voters_pct: number;
+            /** Vote Shares */
+            vote_shares: {
+                [key: string]: number;
+            };
+            /** Voter Snapshot */
+            voter_snapshot: components["schemas"]["AdaptiveVoterSnap"][];
+            /** Winner */
+            winner?: string | null;
+        } & {
+            [key: string]: unknown;
+        };
+        /** AdaptiveVoterSnap */
+        AdaptiveVoterSnap: {
+            /** Effective Vote */
+            effective_vote: string;
+            /** Id */
+            id: number;
+            /** Sincere Vote */
+            sincere_vote: string;
+            /** Tactical */
+            tactical: boolean;
+            /** X */
+            x: number;
+            /** Y */
+            y: number;
         } & {
             [key: string]: unknown;
         };

@@ -613,17 +613,47 @@ class StvResponse(BaseModel):
 
 # ── /adaptive ─────────────────────────────────────────────────────────────────
 
+class AdaptiveVoterSnap(BaseModel):
+    model_config = ConfigDict(extra="allow")
+
+    id:             int
+    x:              float
+    y:              float
+    sincere_vote:   str
+    effective_vote: str
+    tactical:       bool
+
+
+class AdaptiveRound(BaseModel):
+    model_config = ConfigDict(extra="allow")
+
+    round:                int
+    vote_shares:          Dict[str, float]
+    sincere_shares:       Dict[str, float]
+    winner:               Optional[str] = None
+    sincere_winner:       Optional[str] = None
+    strategic_voters_pct: float
+    voter_snapshot:       List[AdaptiveVoterSnap]
+
+
+class AdaptiveCandPos(BaseModel):
+    model_config = ConfigDict(extra="allow")
+
+    name: str
+    x:    float
+
+
 class AdaptiveResponse(BaseModel):
     """Iterated adaptive (tactical) voting rounds until convergence."""
     model_config = ConfigDict(extra="allow")
 
-    rounds:            List[Dict[str, Any]]
+    rounds:            List[AdaptiveRound]
     converged:         bool
     convergence_round: Optional[int] = None
     final_winner:      Optional[str] = None
     sincere_winner:    Optional[str] = None
-    strategic_drift:   Any
-    candidates:        List[Dict[str, Any]]
+    strategic_drift:   float
+    candidates:        List[AdaptiveCandPos]
 
 
 # ── /historical-replay ────────────────────────────────────────────────────────

@@ -36,6 +36,7 @@ export type CoalitionRequest            = components['schemas']['CoalitionReques
 export type CoalitionResponse           = components['schemas']['CoalitionResponse'];
 
 export type HotellingResponse           = components['schemas']['HotellingResponse'];
+export type AdaptiveResponse            = components['schemas']['AdaptiveResponse'];
 
 // ── Shared primitives ──────────────────────────────────────────────────────
 

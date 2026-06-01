@@ -8,37 +8,14 @@ import {
 import { useElection } from '../../stores/useElectionStore';
 import PinToCentralButton from './PinToCentralButton';
 import { $api } from '../../api/hooks';
+import type { AdaptiveResponse } from '../../api';
 
 // ── Types ─────────────────────────────────────────────────────────────────────
+// Source of truth is the generated `AdaptiveResponse` (Phase 6 response_model).
 
-interface VoterSnap {
-  id: number;
-  x: number;
-  y: number;
-  sincere_vote: string;
-  effective_vote: string;
-  tactical: boolean;
-}
-
-interface RoundResult {
-  round: number;
-  vote_shares: Record<string, number>;
-  sincere_shares: Record<string, number>;
-  winner: string;
-  sincere_winner: string;
-  strategic_voters_pct: number;
-  voter_snapshot: VoterSnap[];
-}
-
-interface AdaptiveData {
-  rounds: RoundResult[];
-  converged: boolean;
-  convergence_round: number | null;
-  final_winner: string;
-  sincere_winner: string;
-  strategic_drift: number;
-  candidates: { name: string; x: number }[];
-}
+type AdaptiveData = AdaptiveResponse;
+type RoundResult  = AdaptiveResponse['rounds'][number];
+type VoterSnap    = RoundResult['voter_snapshot'][number];
 
 // ── Palette ───────────────────────────────────────────────────────────────────
 
@@ -126,7 +103,7 @@ const AdaptiveVotingPanel: React.FC = () => {
   const [strategicThreshold, setStrategicThreshold] = useState(0.15);
 
   const sim = $api.useMutation('post', '/api/v2/election/adaptive');
-  const data: AdaptiveData | null = (sim.data as AdaptiveData | undefined) ?? null;
+  const data: AdaptiveData | null = sim.data ?? null;
   const loading = sim.isPending;
   const error = sim.isError ? t('adaptive.error') : null;
   const [revealedRound, setRevealedRound] = useState<number>(0);
@@ -162,7 +139,7 @@ const AdaptiveVotingPanel: React.FC = () => {
       method,
       strategic_threshold:  strategicThreshold,
     } }, {
-      onSuccess: (res) => startAnimation((res as unknown as AdaptiveData).rounds.length),
+      onSuccess: (res) => startAnimation(res.rounds.length),
     });
   }
 
