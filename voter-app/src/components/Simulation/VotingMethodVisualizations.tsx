@@ -6,9 +6,23 @@
 // See ./votingMethods/index.ts for migration status.
 import React from 'react';
 import { Card, Table, Badge } from 'react-bootstrap';
-import { Bar, Radar } from 'react-chartjs-2';
-import './votingMethods/_chartjs';            // side-effect: register Chart.js
+import {
+  Bar,
+  BarChart,
+  Legend,
+  PolarAngleAxis,
+  PolarGrid,
+  PolarRadiusAxis,
+  Radar,
+  RadarChart,
+  ResponsiveContainer,
+  Tooltip,
+  XAxis,
+  YAxis,
+} from 'recharts';
 import type { VotingMethodVisualizationProps } from './votingMethods/types';
+import { VIZ_COLORS } from './votingMethods/types';
+import MethodBarChart from './votingMethods/MethodBarChart';
 import {
   PluralityVisualization,
   BordaVisualization,
@@ -95,26 +109,6 @@ const ApprovalVisualization: React.FC<VotingMethodVisualizationProps> = ({
     });
   });
 
-  const data = {
-    labels: candidates,
-    datasets: [
-      {
-        label: `Approval Votes (Top ${approvalThreshold})`,
-        data: candidates.map((candidate) => approvalVotes[candidate]),
-        backgroundColor: [
-          '#FF6384',
-          '#36A2EB',
-          '#FFCE56',
-          '#4BC0C0',
-          '#9966FF',
-          '#FF9F40',
-          '#8AC24A',
-          '#EA5F89',
-        ],
-      },
-    ],
-  };
-
   return (
     <>
       <p>
@@ -138,26 +132,12 @@ const ApprovalVisualization: React.FC<VotingMethodVisualizationProps> = ({
         <div className="text-center">{approvalThreshold}</div>
       </div>
 
-      <Bar
-        data={data}
-        options={{
-          responsive: true,
-          plugins: {
-            title: {
-              display: true,
-              text: `Approval Votes (Top ${approvalThreshold} Candidates)`,
-            },
-          },
-          scales: {
-            y: {
-              beginAtZero: true,
-              title: {
-                display: true,
-                text: 'Number of Approvals',
-              },
-            },
-          },
-        }}
+      <MethodBarChart
+        labels={candidates}
+        values={candidates.map((candidate) => approvalVotes[candidate])}
+        seriesName={`Approval Votes (Top ${approvalThreshold})`}
+        title={`Approval Votes (Top ${approvalThreshold} Candidates)`}
+        yLabel="Number of Approvals"
       />
 
       <Card.Text className="mt-3">
@@ -336,40 +316,6 @@ const TwoRoundVisualization: React.FC<VotingMethodVisualizationProps> = ({
     );
   }
 
-  const firstRoundData = {
-    labels: candidates,
-    datasets: [
-      {
-        label: 'First Round Votes',
-        data: candidates.map((candidate) => firstRoundVotes[candidate]),
-        backgroundColor: [
-          '#FF6384',
-          '#36A2EB',
-          '#FFCE56',
-          '#4BC0C0',
-          '#9966FF',
-          '#FF9F40',
-          '#8AC24A',
-          '#EA5F89',
-        ],
-      },
-    ],
-  };
-
-  const secondRoundData =
-    secondRoundCandidates.length > 0
-      ? {
-          labels: secondRoundCandidates,
-          datasets: [
-            {
-              label: 'Second Round Votes',
-              data: secondRoundCandidates.map((candidate) => secondRoundVotes[candidate]),
-              backgroundColor: ['#FF6384', '#36A2EB'],
-            },
-          ],
-        }
-      : null;
-
   return (
     <>
       <p>
@@ -381,26 +327,12 @@ const TwoRoundVisualization: React.FC<VotingMethodVisualizationProps> = ({
         <strong>First Round Results:</strong>
       </Card.Text>
 
-      <Bar
-        data={firstRoundData}
-        options={{
-          responsive: true,
-          plugins: {
-            title: {
-              display: true,
-              text: 'First Round Votes',
-            },
-          },
-          scales: {
-            y: {
-              beginAtZero: true,
-              title: {
-                display: true,
-                text: 'Number of Votes',
-              },
-            },
-          },
-        }}
+      <MethodBarChart
+        labels={candidates}
+        values={candidates.map((candidate) => firstRoundVotes[candidate])}
+        seriesName="First Round Votes"
+        title="First Round Votes"
+        yLabel="Number of Votes"
       />
 
       <Card.Text className="mt-2">Majority threshold: {majority} votes</Card.Text>
@@ -423,32 +355,18 @@ const TwoRoundVisualization: React.FC<VotingMethodVisualizationProps> = ({
             </div>
           </Card.Text>
 
-          {secondRoundData && (
+          {secondRoundCandidates.length > 0 && (
             <>
               <Card.Text className="mt-3">
                 <strong>Second Round Results:</strong>
               </Card.Text>
 
-              <Bar
-                data={secondRoundData}
-                options={{
-                  responsive: true,
-                  plugins: {
-                    title: {
-                      display: true,
-                      text: 'Second Round Votes',
-                    },
-                  },
-                  scales: {
-                    y: {
-                      beginAtZero: true,
-                      title: {
-                        display: true,
-                        text: 'Number of Votes',
-                      },
-                    },
-                  },
-                }}
+              <MethodBarChart
+                labels={secondRoundCandidates}
+                values={secondRoundCandidates.map((candidate) => secondRoundVotes[candidate])}
+                seriesName="Second Round Votes"
+                title="Second Round Votes"
+                yLabel="Number of Votes"
               />
 
               {finalWinner && (
@@ -556,17 +474,6 @@ const CoombsVisualization: React.FC<VotingMethodVisualizationProps> = ({
     checkRound();
   };
 
-  const colors = [
-    '#FF6384',
-    '#36A2EB',
-    '#FFCE56',
-    '#4BC0C0',
-    '#9966FF',
-    '#FF9F40',
-    '#8AC24A',
-    '#EA5F89',
-  ];
-
   return (
     <>
       <p>
@@ -579,39 +486,14 @@ const CoombsVisualization: React.FC<VotingMethodVisualizationProps> = ({
           <Card className="mt-3">
             <Card.Header>Round {round} - Last Place Votes</Card.Header>
             <Card.Body>
-              <Bar
-                data={{
-                  labels: candidates.filter((c) => !eliminated.includes(c)),
-                  datasets: [
-                    {
-                      label: 'Last Place Votes',
-                      data: candidates
-                        .filter((c) => !eliminated.includes(c))
-                        .map((candidate) => lastPlaceVotes[candidate] || 0),
-                      backgroundColor: candidates
-                        .filter((c) => !eliminated.includes(c))
-                        .map((_, i) => colors[i % colors.length]),
-                    },
-                  ],
-                }}
-                options={{
-                  responsive: true,
-                  plugins: {
-                    title: {
-                      display: true,
-                      text: `Last Place Votes - Round ${round}`,
-                    },
-                  },
-                  scales: {
-                    y: {
-                      beginAtZero: true,
-                      title: {
-                        display: true,
-                        text: 'Number of Last Place Votes',
-                      },
-                    },
-                  },
-                }}
+              <MethodBarChart
+                labels={candidates.filter((c) => !eliminated.includes(c))}
+                values={candidates
+                  .filter((c) => !eliminated.includes(c))
+                  .map((candidate) => lastPlaceVotes[candidate] || 0)}
+                seriesName="Last Place Votes"
+                title={`Last Place Votes - Round ${round}`}
+                yLabel="Number of Last Place Votes"
               />
             </Card.Body>
           </Card>
@@ -685,58 +567,28 @@ const ScoreVisualization: React.FC<VotingMethodVisualizationProps> = ({ rankings
     scoreData[candidate].avg = total / scoreData[candidate].scores.length;
   });
 
-  // Prepare radar chart data
-  const radarData = {
-    labels: candidates,
-    datasets: [
-      {
-        label: 'Average Scores',
-        data: candidates.map((candidate) => scoreData[candidate].avg),
-        backgroundColor: 'rgba(54, 162, 235, 0.2)',
-        borderColor: 'rgba(54, 162, 235, 1)',
-        borderWidth: 2,
-      },
-    ],
-  };
+  // Radar: average score per candidate
+  const radarRows = candidates.map((candidate) => ({
+    candidate,
+    score: Number(scoreData[candidate].avg.toFixed(3)),
+  }));
 
-  // Prepare distribution data for each candidate
-  const distributionData = {
-    labels: Array.from({ length: 11 }, (_, i) => i * 0.5), // 0 to 5 in 0.5 increments
-    datasets: candidates.map((candidate, index) => ({
-      label: candidate,
-      data: Array.from({ length: 11 }, () => 0), // Initialize with zeros
-      borderColor: [
-        '#FF6384',
-        '#36A2EB',
-        '#FFCE56',
-        '#4BC0C0',
-        '#9966FF',
-        '#FF9F40',
-        '#8AC24A',
-        '#EA5F89',
-      ][index % 8],
-      backgroundColor: [
-        'rgba(255, 99, 132, 0.2)',
-        'rgba(54, 162, 235, 0.2)',
-        'rgba(255, 206, 86, 0.2)',
-        'rgba(75, 192, 192, 0.2)',
-        'rgba(153, 102, 255, 0.2)',
-        'rgba(255, 159, 64, 0.2)',
-        'rgba(138, 194, 74, 0.2)',
-        'rgba(234, 95, 137, 0.2)',
-      ][index % 8],
-      borderWidth: 1,
-    })),
-  };
-
-  // Bin scores into 0.5 increments
+  // Distribution: bin each candidate's scores into 0.5-wide buckets (0..5)
+  const bins = candidates.map(() => Array.from({ length: 11 }, () => 0));
   candidates.forEach((candidate, index) => {
     scoreData[candidate].scores.forEach((score) => {
       const binIndex = Math.floor(score * 2); // Convert to 0.5 bins
       if (binIndex >= 0 && binIndex < 11) {
-        distributionData.datasets[index].data[binIndex]++;
+        bins[index][binIndex]++;
       }
     });
+  });
+  const distributionRows = Array.from({ length: 11 }, (_, bi) => {
+    const row: Record<string, number | string> = { score: (bi * 0.5).toString() };
+    candidates.forEach((candidate, ci) => {
+      row[candidate] = bins[ci][bi];
+    });
+    return row;
   });
 
   return (
@@ -752,27 +604,22 @@ const ScoreVisualization: React.FC<VotingMethodVisualizationProps> = ({ rankings
           <Card>
             <Card.Header>Average Scores</Card.Header>
             <Card.Body>
-              <Radar
-                data={radarData}
-                options={{
-                  responsive: true,
-                  plugins: {
-                    title: {
-                      display: true,
-                      text: 'Average Scores by Candidate',
-                    },
-                  },
-                  scales: {
-                    r: {
-                      min: 0,
-                      max: 5,
-                      ticks: {
-                        stepSize: 1,
-                      },
-                    },
-                  },
-                }}
-              />
+              <ResponsiveContainer width="100%" height={300}>
+                <RadarChart data={radarRows} outerRadius="72%">
+                  <PolarGrid />
+                  <PolarAngleAxis dataKey="candidate" tick={{ fontSize: 12 }} />
+                  <PolarRadiusAxis domain={[0, 5]} tickCount={6} tick={{ fontSize: 11 }} />
+                  <Radar
+                    name="Average Scores"
+                    dataKey="score"
+                    stroke="#36A2EB"
+                    fill="#36A2EB"
+                    fillOpacity={0.3}
+                    isAnimationActive={false}
+                  />
+                  <Tooltip />
+                </RadarChart>
+              </ResponsiveContainer>
             </Card.Body>
           </Card>
         </div>
@@ -781,42 +628,30 @@ const ScoreVisualization: React.FC<VotingMethodVisualizationProps> = ({ rankings
           <Card>
             <Card.Header>Score Distribution</Card.Header>
             <Card.Body>
-              <Bar
-                data={distributionData}
-                options={{
-                  responsive: true,
-                  plugins: {
-                    title: {
-                      display: true,
-                      text: 'Score Distribution by Candidate',
-                    },
-                    tooltip: {
-                      callbacks: {
-                        label: function (context) {
-                          const label = context.dataset.label || '';
-                          const value = context.raw as number;
-                          return `${label}: ${value} votes`;
-                        },
-                      },
-                    },
-                  },
-                  scales: {
-                    x: {
-                      title: {
-                        display: true,
-                        text: 'Score (0-5)',
-                      },
-                    },
-                    y: {
-                      beginAtZero: true,
-                      title: {
-                        display: true,
-                        text: 'Number of Voters',
-                      },
-                    },
-                  },
-                }}
-              />
+              <ResponsiveContainer width="100%" height={300}>
+                <BarChart data={distributionRows} margin={{ top: 8, right: 16, left: 8, bottom: 16 }}>
+                  <XAxis
+                    dataKey="score"
+                    tick={{ fontSize: 11 }}
+                    label={{ value: 'Score (0-5)', position: 'insideBottom', offset: -8, style: { fontSize: 12 } }}
+                  />
+                  <YAxis
+                    allowDecimals={false}
+                    tick={{ fontSize: 12 }}
+                    label={{ value: 'Number of Voters', angle: -90, position: 'insideLeft', style: { fontSize: 12 } }}
+                  />
+                  <Tooltip />
+                  <Legend wrapperStyle={{ fontSize: 12 }} />
+                  {candidates.map((candidate, ci) => (
+                    <Bar
+                      key={candidate}
+                      dataKey={candidate}
+                      fill={VIZ_COLORS[ci % VIZ_COLORS.length]}
+                      isAnimationActive={false}
+                    />
+                  ))}
+                </BarChart>
+              </ResponsiveContainer>
             </Card.Body>
           </Card>
         </div>
@@ -879,26 +714,6 @@ const BucklinVisualization: React.FC<VotingMethodVisualizationProps> = ({
     }
   }, [currentRound, maxRounds, rankings.length, roundVotes]);
 
-  const data = {
-    labels: candidates,
-    datasets: [
-      {
-        label: `Round ${currentRound} Votes`,
-        data: candidates.map((candidate) => roundVotes[currentRound][candidate]),
-        backgroundColor: [
-          '#FF6384',
-          '#36A2EB',
-          '#FFCE56',
-          '#4BC0C0',
-          '#9966FF',
-          '#FF9F40',
-          '#8AC24A',
-          '#EA5F89',
-        ],
-      },
-    ],
-  };
-
   return (
     <>
       <p>
@@ -922,26 +737,12 @@ const BucklinVisualization: React.FC<VotingMethodVisualizationProps> = ({
         />
       </div>
 
-      <Bar
-        data={data}
-        options={{
-          responsive: true,
-          plugins: {
-            title: {
-              display: true,
-              text: `Round ${currentRound} Votes`,
-            },
-          },
-          scales: {
-            y: {
-              beginAtZero: true,
-              title: {
-                display: true,
-                text: 'Number of Votes',
-              },
-            },
-          },
-        }}
+      <MethodBarChart
+        labels={candidates}
+        values={candidates.map((candidate) => roundVotes[currentRound][candidate])}
+        seriesName={`Round ${currentRound} Votes`}
+        title={`Round ${currentRound} Votes`}
+        yLabel="Number of Votes"
       />
 
       <Card.Text className="mt-3">
@@ -998,27 +799,6 @@ const MinimaxVisualization: React.FC<VotingMethodVisualizationProps> = ({
     );
   });
 
-  // Prepare data for visualization
-  const data = {
-    labels: candidates,
-    datasets: [
-      {
-        label: 'Maximum Opposition',
-        data: candidates.map((candidate) => maxOpposition[candidate]),
-        backgroundColor: [
-          '#FF6384',
-          '#36A2EB',
-          '#FFCE56',
-          '#4BC0C0',
-          '#9966FF',
-          '#FF9F40',
-          '#8AC24A',
-          '#EA5F89',
-        ],
-      },
-    ],
-  };
-
   // Find the winner (candidate with smallest maximum opposition)
   const winner = candidates.reduce((a, b) => (maxOpposition[a] < maxOpposition[b] ? a : b));
 
@@ -1065,26 +845,12 @@ const MinimaxVisualization: React.FC<VotingMethodVisualizationProps> = ({
       <Card className="mt-3">
         <Card.Header>Maximum Opposition per Candidate</Card.Header>
         <Card.Body>
-          <Bar
-            data={data}
-            options={{
-              responsive: true,
-              plugins: {
-                title: {
-                  display: true,
-                  text: 'Maximum Opposition per Candidate',
-                },
-              },
-              scales: {
-                y: {
-                  beginAtZero: true,
-                  title: {
-                    display: true,
-                    text: 'Number of Votes Against',
-                  },
-                },
-              },
-            }}
+          <MethodBarChart
+            labels={candidates}
+            values={candidates.map((candidate) => maxOpposition[candidate])}
+            seriesName="Maximum Opposition"
+            title="Maximum Opposition per Candidate"
+            yLabel="Number of Votes Against"
           />
         </Card.Body>
       </Card>
