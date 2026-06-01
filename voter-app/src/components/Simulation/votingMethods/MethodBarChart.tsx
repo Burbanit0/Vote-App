@@ -25,6 +25,12 @@ export interface MethodBarChartProps {
   title?: string;
   /** Rotated y-axis title. */
   yLabel?: string;
+  /** Fixed y-axis range, e.g. [0, 5] for score charts. Default: auto. */
+  yDomain?: [number, number];
+  /** Allow fractional y-axis ticks (for averages/scores). Default false. */
+  allowDecimals?: boolean;
+  /** Uniform bar colour. When omitted, each bar uses a VIZ_COLORS hue. */
+  color?: string;
   height?: number;
 }
 
@@ -34,6 +40,9 @@ const MethodBarChart: React.FC<MethodBarChartProps> = ({
   seriesName = 'Votes',
   title,
   yLabel,
+  yDomain,
+  allowDecimals = false,
+  color,
   height = 300,
 }) => {
   const data = labels.map((label, i) => ({ label, value: values[i] ?? 0 }));
@@ -49,7 +58,8 @@ const MethodBarChart: React.FC<MethodBarChartProps> = ({
         <BarChart data={data} margin={{ top: 8, right: 16, left: 8, bottom: 8 }}>
           <XAxis dataKey="label" tick={{ fontSize: 12 }} />
           <YAxis
-            allowDecimals={false}
+            allowDecimals={allowDecimals}
+            domain={yDomain ?? [0, 'auto']}
             tick={{ fontSize: 12 }}
             label={
               yLabel
@@ -58,10 +68,9 @@ const MethodBarChart: React.FC<MethodBarChartProps> = ({
             }
           />
           <Tooltip />
-          <Bar dataKey="value" name={seriesName} isAnimationActive={false}>
-            {data.map((_, i) => (
-              <Cell key={i} fill={VIZ_COLORS[i % VIZ_COLORS.length]} />
-            ))}
+          <Bar dataKey="value" name={seriesName} fill={color} isAnimationActive={false}>
+            {!color &&
+              data.map((_, i) => <Cell key={i} fill={VIZ_COLORS[i % VIZ_COLORS.length]} />)}
           </Bar>
         </BarChart>
       </ResponsiveContainer>

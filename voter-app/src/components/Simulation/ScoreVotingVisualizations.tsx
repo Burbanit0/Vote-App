@@ -1,34 +1,19 @@
 // ScoreVotingVisualizations.tsx
 import React from 'react';
 import { Card, Table } from 'react-bootstrap';
-import { Bar, Radar } from 'react-chartjs-2';
 import {
-  Chart as ChartJS,
-  CategoryScale,
-  LinearScale,
-  BarElement,
-  Title,
-  Tooltip,
   Legend,
-  PointElement,
-  LineElement,
-  RadialLinearScale,
-  ArcElement,
-} from 'chart.js';
+  PolarAngleAxis,
+  PolarGrid,
+  PolarRadiusAxis,
+  Radar,
+  RadarChart,
+  ResponsiveContainer,
+  Tooltip,
+} from 'recharts';
+import MethodBarChart from './votingMethods/MethodBarChart';
+import { VIZ_COLORS } from './votingMethods/types';
 import { ScoreVote, ScoreVotingComparisonProps, ScoreVotingResult } from '../../types';
-
-ChartJS.register(
-  CategoryScale,
-  LinearScale,
-  BarElement,
-  Title,
-  Tooltip,
-  Legend,
-  PointElement,
-  LineElement,
-  RadialLinearScale,
-  ArcElement
-);
 
 interface ScoreVotingVisualizationProps {
   scores: ScoreVote[];
@@ -143,26 +128,6 @@ const SimpleScoreVisualization: React.FC<ScoreVotingVisualizationProps> = ({
     return count > 0 ? sum / count : 0;
   });
 
-  const data = {
-    labels: candidates,
-    datasets: [
-      {
-        label: 'Average Score',
-        data: averages,
-        backgroundColor: [
-          '#FF6384',
-          '#36A2EB',
-          '#FFCE56',
-          '#4BC0C0',
-          '#9966FF',
-          '#FF9F40',
-          '#8AC24A',
-          '#EA5F89',
-        ],
-      },
-    ],
-  };
-
   return (
     <Card className="mb-4">
       <Card.Header>Simple Score Voting</Card.Header>
@@ -174,27 +139,14 @@ const SimpleScoreVisualization: React.FC<ScoreVotingVisualizationProps> = ({
 
         <div className="row">
           <div className="col-md-6">
-            <Bar
-              data={data}
-              options={{
-                responsive: true,
-                plugins: {
-                  title: {
-                    display: true,
-                    text: 'Average Scores per Candidate',
-                  },
-                },
-                scales: {
-                  y: {
-                    min: 0,
-                    max: 5,
-                    title: {
-                      display: true,
-                      text: 'Average Score (0-5)',
-                    },
-                  },
-                },
-              }}
+            <MethodBarChart
+              labels={candidates}
+              values={averages}
+              seriesName="Average Score"
+              title="Average Scores per Candidate"
+              yLabel="Average Score (0-5)"
+              yDomain={[0, 5]}
+              allowDecimals
             />
           </div>
 
@@ -236,43 +188,11 @@ const STARVotingVisualization: React.FC<ScoreVotingVisualizationProps> = ({
 }) => {
   const details = result.details;
 
-  // Prepare data for first round (average scores)
-  const firstRoundData = {
-    labels: candidates,
-    datasets: [
-      {
-        label: 'Average Score',
-        data: candidates.map((candidate) =>
-          details.first_round ? details.first_round[candidate] || 0 : 0
-        ),
-        backgroundColor: [
-          '#FF6384',
-          '#36A2EB',
-          '#FFCE56',
-          '#4BC0C0',
-          '#9966FF',
-          '#FF9F40',
-          '#8AC24A',
-          '#EA5F89',
-        ],
-      },
-    ],
-  };
-
   // Prepare data for runoff if available
-  let runoffData = null;
+  let runoff: { labels: [string, string]; values: [number, number] } | null = null;
   if (details.runoff) {
     const { candidate1, candidate2, votes1, votes2 } = details.runoff;
-    runoffData = {
-      labels: [candidate1, candidate2],
-      datasets: [
-        {
-          label: 'Runoff Votes',
-          data: [votes1, votes2],
-          backgroundColor: ['#FF6384', '#36A2EB'],
-        },
-      ],
-    };
+    runoff = { labels: [candidate1, candidate2], values: [votes1, votes2] };
   }
 
   return (
@@ -287,27 +207,16 @@ const STARVotingVisualization: React.FC<ScoreVotingVisualizationProps> = ({
         <h6>First Round: Average Scores</h6>
         <div className="row">
           <div className="col-md-6">
-            <Bar
-              data={firstRoundData}
-              options={{
-                responsive: true,
-                plugins: {
-                  title: {
-                    display: true,
-                    text: 'First Round: Average Scores',
-                  },
-                },
-                scales: {
-                  y: {
-                    min: 0,
-                    max: 5,
-                    title: {
-                      display: true,
-                      text: 'Average Score (0-5)',
-                    },
-                  },
-                },
-              }}
+            <MethodBarChart
+              labels={candidates}
+              values={candidates.map((candidate) =>
+                details.first_round ? details.first_round[candidate] || 0 : 0
+              )}
+              seriesName="Average Score"
+              title="First Round: Average Scores"
+              yLabel="Average Score (0-5)"
+              yDomain={[0, 5]}
+              allowDecimals
             />
           </div>
 
@@ -331,31 +240,17 @@ const STARVotingVisualization: React.FC<ScoreVotingVisualizationProps> = ({
           </div>
         </div>
 
-        {runoffData && (
+        {runoff && (
           <>
             <h6 className="mt-4">Runoff Round</h6>
             <div className="row">
               <div className="col-md-6">
-                <Bar
-                  data={runoffData}
-                  options={{
-                    responsive: true,
-                    plugins: {
-                      title: {
-                        display: true,
-                        text: `Runoff: ${runoffData.labels[0]} vs ${runoffData.labels[1]}`,
-                      },
-                    },
-                    scales: {
-                      y: {
-                        beginAtZero: true,
-                        title: {
-                          display: true,
-                          text: 'Number of Voters',
-                        },
-                      },
-                    },
-                  }}
+                <MethodBarChart
+                  labels={runoff.labels}
+                  values={runoff.values}
+                  seriesName="Runoff Votes"
+                  title={`Runoff: ${runoff.labels[0]} vs ${runoff.labels[1]}`}
+                  yLabel="Number of Voters"
                 />
               </div>
 
@@ -365,11 +260,11 @@ const STARVotingVisualization: React.FC<ScoreVotingVisualizationProps> = ({
                     <Card.Title>Runoff Results</Card.Title>
                     <ul>
                       <li>
-                        {runoffData.labels[0]}: {details.runoff.votes1} votes (
+                        {runoff.labels[0]}: {details.runoff.votes1} votes (
                         {((details.runoff.votes1 / scores.length) * 100).toFixed(1)}%)
                       </li>
                       <li>
-                        {runoffData.labels[1]}: {details.runoff.votes2} votes (
+                        {runoff.labels[1]}: {details.runoff.votes2} votes (
                         {((details.runoff.votes2 / scores.length) * 100).toFixed(1)}%)
                       </li>
                       <li>Tied: {details.runoff.tied} votes</li>
@@ -401,26 +296,6 @@ const MedianVotingVisualization: React.FC<ScoreVotingVisualizationProps> = ({
 
   const medians = candidates.map((candidate) => details[candidate] || 0);
 
-  const data = {
-    labels: candidates,
-    datasets: [
-      {
-        label: 'Median Score',
-        data: medians,
-        backgroundColor: [
-          '#FF6384',
-          '#36A2EB',
-          '#FFCE56',
-          '#4BC0C0',
-          '#9966FF',
-          '#FF9F40',
-          '#8AC24A',
-          '#EA5F89',
-        ],
-      },
-    ],
-  };
-
   return (
     <Card className="mb-4">
       <Card.Header>Median Voting</Card.Header>
@@ -432,27 +307,14 @@ const MedianVotingVisualization: React.FC<ScoreVotingVisualizationProps> = ({
 
         <div className="row">
           <div className="col-md-6">
-            <Bar
-              data={data}
-              options={{
-                responsive: true,
-                plugins: {
-                  title: {
-                    display: true,
-                    text: 'Median Scores per Candidate',
-                  },
-                },
-                scales: {
-                  y: {
-                    min: 0,
-                    max: 5,
-                    title: {
-                      display: true,
-                      text: 'Median Score (0-5)',
-                    },
-                  },
-                },
-              }}
+            <MethodBarChart
+              labels={candidates}
+              values={medians}
+              seriesName="Median Score"
+              title="Median Scores per Candidate"
+              yLabel="Median Score (0-5)"
+              yDomain={[0, 5]}
+              allowDecimals
             />
           </div>
 
@@ -494,39 +356,6 @@ const MeanMedianHybridVisualization: React.FC<ScoreVotingVisualizationProps> = (
 }) => {
   const details = result.details;
 
-  const meanData = {
-    labels: candidates,
-    datasets: [
-      {
-        label: 'Mean Score',
-        data: details.map((item: any) => item.mean),
-        backgroundColor: 'rgba(54, 162, 235, 0.5)',
-      },
-    ],
-  };
-
-  const medianData = {
-    labels: candidates,
-    datasets: [
-      {
-        label: 'Median Score',
-        data: details.map((item: any) => item.median),
-        backgroundColor: 'rgba(255, 99, 132, 0.5)',
-      },
-    ],
-  };
-
-  const combinedData = {
-    labels: candidates,
-    datasets: [
-      {
-        label: 'Combined Score',
-        data: details.map((item: any) => item.combined),
-        backgroundColor: 'rgba(75, 192, 192, 0.5)',
-      },
-    ],
-  };
-
   return (
     <Card className="mb-4">
       <Card.Header>Mean-Median Hybrid</Card.Header>
@@ -539,64 +368,37 @@ const MeanMedianHybridVisualization: React.FC<ScoreVotingVisualizationProps> = (
         <div className="row">
           <div className="col-md-4">
             <h6>Mean Scores</h6>
-            <Bar
-              data={meanData}
-              options={{
-                responsive: true,
-                plugins: {
-                  title: {
-                    display: false,
-                  },
-                },
-                scales: {
-                  y: {
-                    min: 0,
-                    max: 5,
-                  },
-                },
-              }}
+            <MethodBarChart
+              labels={candidates}
+              values={details.map((item: any) => item.mean)}
+              seriesName="Mean Score"
+              yDomain={[0, 5]}
+              allowDecimals
+              color="rgba(54, 162, 235, 0.7)"
             />
           </div>
 
           <div className="col-md-4">
             <h6>Median Scores</h6>
-            <Bar
-              data={medianData}
-              options={{
-                responsive: true,
-                plugins: {
-                  title: {
-                    display: false,
-                  },
-                },
-                scales: {
-                  y: {
-                    min: 0,
-                    max: 5,
-                  },
-                },
-              }}
+            <MethodBarChart
+              labels={candidates}
+              values={details.map((item: any) => item.median)}
+              seriesName="Median Score"
+              yDomain={[0, 5]}
+              allowDecimals
+              color="rgba(255, 99, 132, 0.7)"
             />
           </div>
 
           <div className="col-md-4">
             <h6>Combined Scores</h6>
-            <Bar
-              data={combinedData}
-              options={{
-                responsive: true,
-                plugins: {
-                  title: {
-                    display: false,
-                  },
-                },
-                scales: {
-                  y: {
-                    min: 0,
-                    max: 5,
-                  },
-                },
-              }}
+            <MethodBarChart
+              labels={candidates}
+              values={details.map((item: any) => item.combined)}
+              seriesName="Combined Score"
+              yDomain={[0, 5]}
+              allowDecimals
+              color="rgba(75, 192, 192, 0.7)"
             />
           </div>
         </div>
@@ -640,39 +442,6 @@ const VarianceBasedVisualization: React.FC<ScoreVotingVisualizationProps> = ({
 }) => {
   const details = result.details;
 
-  const meanData = {
-    labels: candidates,
-    datasets: [
-      {
-        label: 'Mean Score',
-        data: details.map((item: any) => item.mean),
-        backgroundColor: 'rgba(54, 162, 235, 0.5)',
-      },
-    ],
-  };
-
-  const varianceData = {
-    labels: candidates,
-    datasets: [
-      {
-        label: 'Standard Deviation',
-        data: details.map((item: any) => item.stdDev),
-        backgroundColor: 'rgba(255, 99, 132, 0.5)',
-      },
-    ],
-  };
-
-  const weightedData = {
-    labels: candidates,
-    datasets: [
-      {
-        label: 'Weighted Score',
-        data: details.map((item: any) => item.weighted_score),
-        backgroundColor: 'rgba(75, 192, 192, 0.5)',
-      },
-    ],
-  };
-
   return (
     <Card className="mb-4">
       <Card.Header>Variance-Based Voting</Card.Header>
@@ -685,64 +454,37 @@ const VarianceBasedVisualization: React.FC<ScoreVotingVisualizationProps> = ({
         <div className="row">
           <div className="col-md-4">
             <h6>Mean Scores</h6>
-            <Bar
-              data={meanData}
-              options={{
-                responsive: true,
-                plugins: {
-                  title: {
-                    display: false,
-                  },
-                },
-                scales: {
-                  y: {
-                    min: 0,
-                    max: 5,
-                  },
-                },
-              }}
+            <MethodBarChart
+              labels={candidates}
+              values={details.map((item: any) => item.mean)}
+              seriesName="Mean Score"
+              yDomain={[0, 5]}
+              allowDecimals
+              color="rgba(54, 162, 235, 0.7)"
             />
           </div>
 
           <div className="col-md-4">
             <h6>Standard Deviation</h6>
-            <Bar
-              data={varianceData}
-              options={{
-                responsive: true,
-                plugins: {
-                  title: {
-                    display: false,
-                  },
-                },
-                scales: {
-                  y: {
-                    min: 0,
-                    max: 2.5, // Max possible std dev for 0-5 range
-                  },
-                },
-              }}
+            <MethodBarChart
+              labels={candidates}
+              values={details.map((item: any) => item.stdDev)}
+              seriesName="Standard Deviation"
+              yDomain={[0, 2.5]}
+              allowDecimals
+              color="rgba(255, 99, 132, 0.7)"
             />
           </div>
 
           <div className="col-md-4">
             <h6>Weighted Scores</h6>
-            <Bar
-              data={weightedData}
-              options={{
-                responsive: true,
-                plugins: {
-                  title: {
-                    display: false,
-                  },
-                },
-                scales: {
-                  y: {
-                    min: 0,
-                    max: 5,
-                  },
-                },
-              }}
+            <MethodBarChart
+              labels={candidates}
+              values={details.map((item: any) => item.weighted_score)}
+              seriesName="Weighted Score"
+              yDomain={[0, 5]}
+              allowDecimals
+              color="rgba(75, 192, 192, 0.7)"
             />
           </div>
         </div>
@@ -786,46 +528,27 @@ const ScoreDistributionVisualization: React.FC<ScoreVotingVisualizationProps> = 
 }) => {
   const details = result.details;
 
-  // Prepare data for radar chart (showing distribution percentages)
-  const radarData = {
-    labels: [
-      '0-0.5',
-      '0.5-1',
-      '1-1.5',
-      '1.5-2',
-      '2-2.5',
-      '2.5-3',
-      '3-3.5',
-      '3.5-4',
-      '4-4.5',
-      '4.5-5',
-    ],
-    datasets: candidates.map((candidate, index) => ({
-      label: candidate,
-      data: details.find((d: any) => d.candidate === candidate)?.percentages || [],
-      borderColor: [
-        '#FF6384',
-        '#36A2EB',
-        '#FFCE56',
-        '#4BC0C0',
-        '#9966FF',
-        '#FF9F40',
-        '#8AC24A',
-        '#EA5F89',
-      ][index % 8],
-      backgroundColor: [
-        'rgba(255, 99, 132, 0.2)',
-        'rgba(54, 162, 235, 0.2)',
-        'rgba(255, 206, 86, 0.2)',
-        'rgba(75, 192, 192, 0.2)',
-        'rgba(153, 102, 255, 0.2)',
-        'rgba(255, 159, 64, 0.2)',
-        'rgba(138, 194, 74, 0.2)',
-        'rgba(234, 95, 137, 0.2)',
-      ][index % 8],
-      borderWidth: 1,
-    })),
-  };
+  // Radar: one axis per score range, one series per candidate (percentages).
+  const rangeLabels = [
+    '0-0.5',
+    '0.5-1',
+    '1-1.5',
+    '1.5-2',
+    '2-2.5',
+    '2.5-3',
+    '3-3.5',
+    '3.5-4',
+    '4-4.5',
+    '4.5-5',
+  ];
+  const radarRows = rangeLabels.map((range, ri) => {
+    const row: Record<string, number | string> = { range };
+    candidates.forEach((candidate) => {
+      const pcts = details.find((d: any) => d.candidate === candidate)?.percentages || [];
+      row[candidate] = pcts[ri] ?? 0;
+    });
+    return row;
+  });
 
   return (
     <Card className="mb-4">
@@ -836,30 +559,26 @@ const ScoreDistributionVisualization: React.FC<ScoreVotingVisualizationProps> = 
           shows the percentage of scores in each range (0-0.5, 0.5-1, etc.) for each candidate.
         </p>
 
-        <Radar
-          data={radarData}
-          options={{
-            responsive: true,
-            plugins: {
-              title: {
-                display: true,
-                text: 'Score Distribution by Candidate',
-              },
-            },
-            scales: {
-              r: {
-                min: 0,
-                max: 0.5, // Since we're showing percentages (0-1 normalized to 0-0.5)
-                ticks: {
-                  stepSize: 0.1,
-                  //   callback: function(value: number) {
-                  //     return (value * 200).toFixed(0) + '%';
-                  //   }
-                },
-              },
-            },
-          }}
-        />
+        <ResponsiveContainer width="100%" height={360}>
+          <RadarChart data={radarRows} outerRadius="70%">
+            <PolarGrid />
+            <PolarAngleAxis dataKey="range" tick={{ fontSize: 11 }} />
+            <PolarRadiusAxis domain={[0, 0.5]} tickCount={6} tick={{ fontSize: 10 }} />
+            {candidates.map((candidate, ci) => (
+              <Radar
+                key={candidate}
+                name={candidate}
+                dataKey={candidate}
+                stroke={VIZ_COLORS[ci % VIZ_COLORS.length]}
+                fill={VIZ_COLORS[ci % VIZ_COLORS.length]}
+                fillOpacity={0.15}
+                isAnimationActive={false}
+              />
+            ))}
+            <Legend wrapperStyle={{ fontSize: 12 }} />
+            <Tooltip />
+          </RadarChart>
+        </ResponsiveContainer>
 
         <Table striped bordered hover className="mt-3">
           <thead>
@@ -892,28 +611,6 @@ const BayesianRegretVisualization: React.FC<ScoreVotingVisualizationProps> = ({
 }) => {
   const details = result.details;
 
-  const regretData = {
-    labels: candidates,
-    datasets: [
-      {
-        label: 'Average Regret',
-        data: details.map((item: any) => item.avgRegret),
-        backgroundColor: 'rgba(255, 99, 132, 0.5)',
-      },
-    ],
-  };
-
-  const utilityData = {
-    labels: candidates,
-    datasets: [
-      {
-        label: 'Average Utility',
-        data: details.map((item: any) => item.avgUtility),
-        backgroundColor: 'rgba(54, 162, 235, 0.5)',
-      },
-    ],
-  };
-
   return (
     <Card className="mb-4">
       <Card.Header>Bayesian Regret Analysis</Card.Header>
@@ -926,51 +623,27 @@ const BayesianRegretVisualization: React.FC<ScoreVotingVisualizationProps> = ({
         <div className="row">
           <div className="col-md-6">
             <h6>Average Utility</h6>
-            <Bar
-              data={utilityData}
-              options={{
-                responsive: true,
-                plugins: {
-                  title: {
-                    display: false,
-                  },
-                },
-                scales: {
-                  y: {
-                    min: 0,
-                    max: 1,
-                    title: {
-                      display: true,
-                      text: 'Average Utility (0-1)',
-                    },
-                  },
-                },
-              }}
+            <MethodBarChart
+              labels={candidates}
+              values={details.map((item: any) => item.avgUtility)}
+              seriesName="Average Utility"
+              yLabel="Average Utility (0-1)"
+              yDomain={[0, 1]}
+              allowDecimals
+              color="rgba(54, 162, 235, 0.7)"
             />
           </div>
 
           <div className="col-md-6">
             <h6>Average Regret</h6>
-            <Bar
-              data={regretData}
-              options={{
-                responsive: true,
-                plugins: {
-                  title: {
-                    display: false,
-                  },
-                },
-                scales: {
-                  y: {
-                    min: 0,
-                    max: 1,
-                    title: {
-                      display: true,
-                      text: 'Average Regret (0-1)',
-                    },
-                  },
-                },
-              }}
+            <MethodBarChart
+              labels={candidates}
+              values={details.map((item: any) => item.avgRegret)}
+              seriesName="Average Regret"
+              yLabel="Average Regret (0-1)"
+              yDomain={[0, 1]}
+              allowDecimals
+              color="rgba(255, 99, 132, 0.7)"
             />
           </div>
         </div>
