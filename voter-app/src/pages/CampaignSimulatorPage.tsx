@@ -16,6 +16,7 @@ import {
 import { useMetaTags } from '../hooks/useMetaTags';
 import { CHART_COLORS_LIGHT } from '../constants/chartColors';
 import { $api } from '../api/hooks';
+import type { CampaignResponse } from '../api';
 
 // ── Types ────────────────────────────────────────────────────────────────────
 
@@ -29,15 +30,11 @@ interface CampaignEvent {
   magnitude: number;
 }
 
-interface CampaignResult {
-  days: number[];
-  daily_leader: string[];
-  daily_scores: Record<string, number[]>;
-  events: Array<CampaignEvent & { measured_impact: number }>;
-  final_winner: string;
-  lead_changes: number;
-  candidates: string[];
-}
+// The response shape is the generated `CampaignResponse` (Phase 6 response_model).
+// The client-side `CampaignEvent` above is the request-form event (with id +
+// the EventType union); the backend echoes events back loosely typed, but the
+// panel never reads `result.events`.
+type CampaignResult = CampaignResponse;
 
 // ── Constants ─────────────────────────────────────────────────────────────────
 
@@ -175,7 +172,7 @@ const CampaignSimulatorPage: React.FC = () => {
 
   // ── Results + animation ──
   const sim = $api.useMutation('post', '/api/v2/simulations/campaign');
-  const result: CampaignResult | null = (sim.data as CampaignResult | undefined) ?? null;
+  const result: CampaignResult | null = sim.data ?? null;
   const loading = sim.isPending;
   const error = sim.isError ? 'Erreur de simulation' : null;
   const [animatedDay,  setAnimatedDay]  = useState(0);
@@ -221,10 +218,9 @@ const CampaignSimulatorPage: React.FC = () => {
       events: events.map(({ id: _id, ...ev }) => ev),
     } }, {
       onSuccess: (res) => {
-        const r = res as unknown as CampaignResult;
         // Start animation automatically
         if (animSpeed > 0) setPlaying(true);
-        else setAnimatedDay(r.days.length - 1);
+        else setAnimatedDay(res.days.length - 1);
       },
     });
   // eslint-disable-next-line react-hooks/exhaustive-deps

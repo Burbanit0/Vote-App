@@ -548,33 +548,73 @@ class AffectivePolarizationResponse(BaseModel):
 
 # ── /party-dynamics ───────────────────────────────────────────────────────────
 
+class PartySnap(BaseModel):
+    model_config = ConfigDict(extra="allow")
+
+    name:     str
+    x:        float
+    y:        float
+    vote_pct: float
+    seats:    int
+    survived: bool
+
+
+class ElectionRecord(BaseModel):
+    model_config = ConfigDict(extra="allow")
+
+    election_n:        int
+    active_parties:    int
+    parties:           List[PartySnap]
+    effective_parties: float
+    winner:            str
+    new_entrants:      List[str]
+    eliminated:        List[str]
+
+
+class IdeologyDrift(BaseModel):
+    model_config = ConfigDict(extra="allow")
+
+    party:     str
+    initial_x: float
+    final_x:   float
+
+
 class PartyDynamicsResponse(BaseModel):
     """Multi-election party system evolution (Duverger's law)."""
     model_config = ConfigDict(extra="allow")
 
-    elections:               List[Dict[str, Any]]
-    final_system:            Any
-    effective_parties_curve: List[Any]
+    elections:               List[ElectionRecord]
+    final_system:            str
+    effective_parties_curve: List[float]
     duverger_confirmed:      bool
-    convergence_speed:       Any
-    ideology_drift:          Any
+    convergence_speed:       Optional[int] = None
+    ideology_drift:          List[IdeologyDrift]
     pedagogical_note:        str
 
 
 # ── /districts ────────────────────────────────────────────────────────────────
 
+class DistrictResult(BaseModel):
+    model_config = ConfigDict(extra="allow")
+
+    id:              int
+    ideology_center: float
+    winner_fptp:     str
+    vote_shares:     Dict[str, float]
+
+
 class DistrictsResponse(BaseModel):
     """N single-member districts: FPTP parliament vs proportional."""
     model_config = ConfigDict(extra="allow")
 
-    districts:                  List[Dict[str, Any]]
-    parliament_fptp:            Dict[str, Any]
-    parliament_proportional:    Dict[str, Any]
-    national_vote_share:        Dict[str, Any]
+    districts:                  List[DistrictResult]
+    parliament_fptp:            Dict[str, int]
+    parliament_proportional:    Dict[str, int]
+    national_vote_share:        Dict[str, float]
     distortion:                 float
     condorcet_winner_national:  Optional[str] = None
-    fptp_winner:                Optional[str] = None
-    proportional_winner:        Optional[str] = None
+    fptp_winner:                str
+    proportional_winner:        str
     num_districts:              int
 
 
@@ -658,14 +698,52 @@ class AdaptiveResponse(BaseModel):
 
 # ── /historical-replay ────────────────────────────────────────────────────────
 
+class ReplayScenario(BaseModel):
+    model_config = ConfigDict(extra="allow")
+
+    id:          str
+    name:        str
+    real_winner: str
+
+
+class ReplayCandidate(BaseModel):
+    model_config = ConfigDict(extra="allow")
+
+    name:     str
+    x:        float
+    y:        float
+    modified: bool
+
+
+class ReplayDay(BaseModel):
+    model_config = ConfigDict(extra="allow")
+
+    day:              int
+    vote_shares:      Dict[str, float]
+    winner_fptp:      str
+    winner_condorcet: Optional[str] = None
+    winner_borda:     str
+
+
+class ReplayFinal(BaseModel):
+    model_config = ConfigDict(extra="allow")
+
+    winner_fptp:         str
+    winner_condorcet:    Optional[str] = None
+    winner_borda:        str
+    differs_from_real:   bool
+    pedagogical_note:    str
+    pedagogical_note_en: str
+
+
 class HistoricalReplayResponse(BaseModel):
     """Brownian replay of a historical election day-by-day."""
     model_config = ConfigDict(extra="allow")
 
-    scenario:   Dict[str, Any]
-    candidates: List[Dict[str, Any]]
-    days:       List[Dict[str, Any]]
-    final:      Dict[str, Any]
+    scenario:   ReplayScenario
+    candidates: List[ReplayCandidate]
+    days:       List[ReplayDay]
+    final:      ReplayFinal
 
 
 # ── /gerrymander ──────────────────────────────────────────────────────────────

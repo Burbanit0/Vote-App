@@ -10,38 +10,15 @@ import {
   ReferenceLine, Legend, ResponsiveContainer,
 } from 'recharts';
 import { $api } from '../../api/hooks';
+import type { PartyDynamicsResponse } from '../../api';
 const ANIM_MS = 800;
 
 // ── Types ─────────────────────────────────────────────────────────────────────
+// Source of truth is the generated `PartyDynamicsResponse` (Phase 6 response_model).
 
-interface PartySnap {
-  name:     string;
-  x:        number;
-  y:        number;
-  vote_pct: number;
-  seats:    number;
-  survived: boolean;
-}
-
-interface ElectionRecord {
-  election_n:        number;
-  active_parties:    number;
-  parties:           PartySnap[];
-  effective_parties: number;
-  winner:            string;
-  new_entrants:      string[];
-  eliminated:        string[];
-}
-
-interface DynamicsData {
-  elections:               ElectionRecord[];
-  final_system:            string;
-  effective_parties_curve: number[];
-  duverger_confirmed:      boolean;
-  convergence_speed:       number | null;
-  ideology_drift:          { party: string; initial_x: number; final_x: number }[];
-  pedagogical_note:        string;
-}
+type DynamicsData    = PartyDynamicsResponse;
+type ElectionRecord  = PartyDynamicsResponse['elections'][number];
+type PartySnap       = ElectionRecord['parties'][number];
 
 // ── Presets ───────────────────────────────────────────────────────────────────
 
@@ -181,7 +158,7 @@ const PartyDynamicsPanel: React.FC<Props> = ({ onDataLoaded }) => {
   const [parties,      setParties]      = useState(PRESETS.default.parties);
 
   const sim = $api.useMutation('post', '/api/v2/election/party-dynamics');
-  const data: DynamicsData | null = (sim.data as DynamicsData | undefined) ?? null;
+  const data: DynamicsData | null = sim.data ?? null;
   const loading = sim.isPending;
   const error = sim.isError ? t('partyDyn.error') : null;
   const [electionIdx,  setElectionIdx]  = useState(0);
@@ -208,7 +185,7 @@ const PartyDynamicsPanel: React.FC<Props> = ({ onDataLoaded }) => {
       hotelling_adaptation:  hotelling,
       tactical_voting:       tactical,
     } }, {
-      onSuccess: (res) => onDataLoaded?.(res as unknown as DynamicsData),
+      onSuccess: (res) => onDataLoaded?.(res),
     });
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [parties, numElections, method, survThr, emerge, hotelling, tactical, t, onDataLoaded, sim]);

@@ -3,30 +3,14 @@ import { $api } from '../../api/hooks';
 import { useTranslation } from 'react-i18next';
 import { Alert, Badge, Button, Spinner, Table } from 'react-bootstrap';
 import { useElection } from '../../stores/useElectionStore';
+import type { CoalitionResponse } from '../../api';
 
 
 // ── Types ─────────────────────────────────────────────────────────────────────
+// Source of truth is the generated `CoalitionResponse` (Phase 6 response_model).
 
-interface MethodResult {
-  method: string;
-  winner: string;
-  seats: Record<string, number>;
-  vote_shares: Record<string, number>;
-  coalition_parties: string[];
-  coalition_seats: number;
-  coalition_spread: number;
-  government_possible: boolean;
-}
-
-interface CoalitionData {
-  methods: MethodResult[];
-  candidates: { name: string; x: number }[];
-  total_seats: number;
-  seat_threshold: number;
-  most_centrist_method: string | null;
-  most_divergent_method: string | null;
-  inter_method_agreement: number;
-}
+type CoalitionData = CoalitionResponse;
+type MethodResult  = CoalitionResponse['methods'][number];
 
 // ── Palette ───────────────────────────────────────────────────────────────────
 
@@ -188,7 +172,7 @@ const CoalitionPanel: React.FC = () => {
   const { t } = useTranslation();
   const { config } = useElection();
   const sim = $api.useMutation('post', '/api/v2/election/coalition');
-  const data: CoalitionData | null = (sim.data as CoalitionData | undefined) ?? null;
+  const data: CoalitionData | null = sim.data ?? null;
   const loading = sim.isPending;
   const error = sim.isError ? t('coalition.error') : null;
   const [selectedMethod, setSelectedMethod] = useState<string | null>(null);
@@ -207,7 +191,7 @@ const CoalitionPanel: React.FC = () => {
       total_seats:          100,
       government_threshold: 0.5,
     } }, {
-      onSuccess: (res) => setSelectedMethod((res as unknown as CoalitionData).methods[0]?.method ?? null),
+      onSuccess: (res) => setSelectedMethod(res.methods[0]?.method ?? null),
     });
   }
 

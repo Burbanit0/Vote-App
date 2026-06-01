@@ -37,6 +37,11 @@ export type CoalitionResponse           = components['schemas']['CoalitionRespon
 
 export type HotellingResponse           = components['schemas']['HotellingResponse'];
 export type AdaptiveResponse            = components['schemas']['AdaptiveResponse'];
+export type DistrictsResponse           = components['schemas']['DistrictsResponse'];
+export type PartyDynamicsResponse       = components['schemas']['PartyDynamicsResponse'];
+export type HistoricalReplayResponse    = components['schemas']['HistoricalReplayResponse'];
+export type CampaignResponse            = components['schemas']['CampaignResponse'];
+export type SenParadoxResponse          = components['schemas']['SenParadoxResponse'];
 
 // ── Shared primitives ──────────────────────────────────────────────────────
 

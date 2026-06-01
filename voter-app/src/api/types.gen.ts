@@ -3039,6 +3039,21 @@ export interface components {
              */
             polling_effect: number;
         };
+        /** CampaignEventResult */
+        CampaignEventResult: {
+            /** Candidate */
+            candidate: number;
+            /** Day */
+            day: number;
+            /** Magnitude */
+            magnitude: number;
+            /** Measured Impact */
+            measured_impact: number;
+            /** Type */
+            type: string;
+        } & {
+            [key: string]: unknown;
+        };
         /**
          * CampaignRequest
          * @description POST /simulations/campaign (day-by-day campaign simulation).
@@ -3074,19 +3089,21 @@ export interface components {
         /** CampaignResponse */
         CampaignResponse: {
             /** Candidates */
-            candidates: unknown[];
+            candidates: string[];
             /** Daily Leader */
-            daily_leader?: unknown;
+            daily_leader: string[];
             /** Daily Scores */
-            daily_scores?: unknown;
+            daily_scores: {
+                [key: string]: number[];
+            };
             /** Days */
-            days: unknown;
+            days: number[];
             /** Events */
-            events: unknown[];
+            events: components["schemas"]["CampaignEventResult"][];
             /** Final Winner */
             final_winner?: string | null;
             /** Lead Changes */
-            lead_changes?: unknown;
+            lead_changes: number;
         } & {
             [key: string]: unknown;
         };
@@ -4145,6 +4162,21 @@ export interface components {
             /** Y Min */
             y_min: number;
         };
+        /** DistrictResult */
+        DistrictResult: {
+            /** Id */
+            id: number;
+            /** Ideology Center */
+            ideology_center: number;
+            /** Vote Shares */
+            vote_shares: {
+                [key: string]: number;
+            };
+            /** Winner Fptp */
+            winner_fptp: string;
+        } & {
+            [key: string]: unknown;
+        };
         /** DistrictSpec */
         DistrictSpec: {
             bounds: components["schemas"]["DistrictBounds"];
@@ -4189,27 +4221,25 @@ export interface components {
             /** Distortion */
             distortion: number;
             /** Districts */
-            districts: {
-                [key: string]: unknown;
-            }[];
+            districts: components["schemas"]["DistrictResult"][];
             /** Fptp Winner */
-            fptp_winner?: string | null;
+            fptp_winner: string;
             /** National Vote Share */
             national_vote_share: {
-                [key: string]: unknown;
+                [key: string]: number;
             };
             /** Num Districts */
             num_districts: number;
             /** Parliament Fptp */
             parliament_fptp: {
-                [key: string]: unknown;
+                [key: string]: number;
             };
             /** Parliament Proportional */
             parliament_proportional: {
-                [key: string]: unknown;
+                [key: string]: number;
             };
             /** Proportional Winner */
-            proportional_winner?: string | null;
+            proportional_winner: string;
         } & {
             [key: string]: unknown;
         };
@@ -4309,6 +4339,25 @@ export interface components {
             voters: unknown[];
             /** Winner */
             winner?: string | null;
+        } & {
+            [key: string]: unknown;
+        };
+        /** ElectionRecord */
+        ElectionRecord: {
+            /** Active Parties */
+            active_parties: number;
+            /** Effective Parties */
+            effective_parties: number;
+            /** Election N */
+            election_n: number;
+            /** Eliminated */
+            eliminated: string[];
+            /** New Entrants */
+            new_entrants: string[];
+            /** Parties */
+            parties: components["schemas"]["PartySnap"][];
+            /** Winner */
+            winner: string;
         } & {
             [key: string]: unknown;
         };
@@ -4761,21 +4810,11 @@ export interface components {
          */
         HistoricalReplayResponse: {
             /** Candidates */
-            candidates: {
-                [key: string]: unknown;
-            }[];
+            candidates: components["schemas"]["ReplayCandidate"][];
             /** Days */
-            days: {
-                [key: string]: unknown;
-            }[];
-            /** Final */
-            final: {
-                [key: string]: unknown;
-            };
-            /** Scenario */
-            scenario: {
-                [key: string]: unknown;
-            };
+            days: components["schemas"]["ReplayDay"][];
+            final: components["schemas"]["ReplayFinal"];
+            scenario: components["schemas"]["ReplayScenario"];
         } & {
             [key: string]: unknown;
         };
@@ -5028,6 +5067,17 @@ export interface components {
             sincere_winner: string;
             /** Winner Changed */
             winner_changed: boolean;
+        };
+        /** IdeologyDrift */
+        IdeologyDrift: {
+            /** Final X */
+            final_x: number;
+            /** Initial X */
+            initial_x: number;
+            /** Party */
+            party: string;
+        } & {
+            [key: string]: unknown;
         };
         /**
          * IdeologyMapRequest
@@ -6001,21 +6051,36 @@ export interface components {
          */
         PartyDynamicsResponse: {
             /** Convergence Speed */
-            convergence_speed: unknown;
+            convergence_speed?: number | null;
             /** Duverger Confirmed */
             duverger_confirmed: boolean;
             /** Effective Parties Curve */
-            effective_parties_curve: unknown[];
+            effective_parties_curve: number[];
             /** Elections */
-            elections: {
-                [key: string]: unknown;
-            }[];
+            elections: components["schemas"]["ElectionRecord"][];
             /** Final System */
-            final_system: unknown;
+            final_system: string;
             /** Ideology Drift */
-            ideology_drift: unknown;
+            ideology_drift: components["schemas"]["IdeologyDrift"][];
             /** Pedagogical Note */
             pedagogical_note: string;
+        } & {
+            [key: string]: unknown;
+        };
+        /** PartySnap */
+        PartySnap: {
+            /** Name */
+            name: string;
+            /** Seats */
+            seats: number;
+            /** Survived */
+            survived: boolean;
+            /** Vote Pct */
+            vote_pct: number;
+            /** X */
+            x: number;
+            /** Y */
+            y: number;
         } & {
             [key: string]: unknown;
         };
@@ -6598,6 +6663,64 @@ export interface components {
             name: string;
             /** Year */
             year: unknown;
+        } & {
+            [key: string]: unknown;
+        };
+        /** ReplayCandidate */
+        ReplayCandidate: {
+            /** Modified */
+            modified: boolean;
+            /** Name */
+            name: string;
+            /** X */
+            x: number;
+            /** Y */
+            y: number;
+        } & {
+            [key: string]: unknown;
+        };
+        /** ReplayDay */
+        ReplayDay: {
+            /** Day */
+            day: number;
+            /** Vote Shares */
+            vote_shares: {
+                [key: string]: number;
+            };
+            /** Winner Borda */
+            winner_borda: string;
+            /** Winner Condorcet */
+            winner_condorcet?: string | null;
+            /** Winner Fptp */
+            winner_fptp: string;
+        } & {
+            [key: string]: unknown;
+        };
+        /** ReplayFinal */
+        ReplayFinal: {
+            /** Differs From Real */
+            differs_from_real: boolean;
+            /** Pedagogical Note */
+            pedagogical_note: string;
+            /** Pedagogical Note En */
+            pedagogical_note_en: string;
+            /** Winner Borda */
+            winner_borda: string;
+            /** Winner Condorcet */
+            winner_condorcet?: string | null;
+            /** Winner Fptp */
+            winner_fptp: string;
+        } & {
+            [key: string]: unknown;
+        };
+        /** ReplayScenario */
+        ReplayScenario: {
+            /** Id */
+            id: string;
+            /** Name */
+            name: string;
+            /** Real Winner */
+            real_winner: string;
         } & {
             [key: string]: unknown;
         };

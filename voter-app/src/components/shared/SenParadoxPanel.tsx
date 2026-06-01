@@ -7,32 +7,16 @@ import React, { useCallback, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Alert, Badge, Button, Card, Col, Form, Row, Spinner } from 'react-bootstrap';
 import { $api } from '../../api/hooks';
+import type { SenParadoxResponse } from '../../api';
 
 const ALTS = ['x', 'y', 'z'] as const;
 
 // ── Types ─────────────────────────────────────────────────────────────────────
+// Source of truth is the generated `SenParadoxResponse` (Phase 6 response_model).
 
-interface ParadoxExample {
-  name:                string;
-  voters_preferences:  string[][];
-  private_spheres:     Record<string, string[]>;
-  liberal_outcome:     string;
-  pareto_outcome:      string;
-  conflict:            boolean;
-  explanation:         string;
-}
-
-interface ResolutionOption { name: string; outcome: string; cost: string; theorist: string; }
-
-interface SenData {
-  paradox_exists:     boolean;
-  paradox_examples:   ParadoxExample[];
-  paradox_frequency:  number;
-  alternative_names:  Record<string, string>;
-  resolution_options: ResolutionOption[];
-  real_world_analogy: string;
-  pedagogical_note:   string;
-}
+type SenData          = SenParadoxResponse;
+type ParadoxExample   = SenParadoxResponse['paradox_examples'][number];
+type ResolutionOption = SenParadoxResponse['resolution_options'][number];
 
 // ── Conflict visualisation SVG ────────────────────────────────────────────────
 
@@ -82,7 +66,7 @@ const SenParadoxPanel: React.FC = () => {
   const [seed,    setSeed]    = useState(42);
   const sim = $api.useMutation('post', '/api/v2/theory/sen-paradox');
   const simCustom = $api.useMutation('post', '/api/v2/theory/sen-paradox');
-  const data: SenData | null = (sim.data as SenData | undefined) ?? null;
+  const data: SenData | null = sim.data ?? null;
   const loading = sim.isPending || simCustom.isPending;
   const error = sim.isError ? t('sen.error') : null;
 
@@ -109,7 +93,7 @@ const SenParadoxPanel: React.FC = () => {
       rights_definition: 'liberal',
     } }, {
       onSuccess: (res) => {
-        const ex = (res as unknown as SenData).paradox_examples;
+        const ex = res.paradox_examples;
         setCustomResult(ex.length > 0 ? ex[0] : null);
       },
     });

@@ -492,16 +492,26 @@ class BlankContagionResponse(BaseModel):
     r0:                 Any = None
 
 
+class CampaignEventResult(BaseModel):
+    model_config = ConfigDict(extra="allow")
+
+    day:             int
+    type:            str
+    candidate:       int
+    magnitude:       float
+    measured_impact: float
+
+
 class CampaignResponse(BaseModel):
     model_config = ConfigDict(extra="allow")
 
-    days:         Any
-    daily_leader: Any = None
-    daily_scores: Any = None
-    events:       List[Any]
+    days:         List[int]
+    daily_leader: List[str]
+    daily_scores: Dict[str, List[float]]
+    events:       List[CampaignEventResult]
     final_winner: Optional[str] = None
-    lead_changes: Any = None
-    candidates:   List[Any]
+    lead_changes: int
+    candidates:   List[str]
 
 
 # ── GET endpoints (Phase 6, batch 3) ──────────────────────────────────────────

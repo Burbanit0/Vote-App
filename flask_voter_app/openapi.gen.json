@@ -2062,6 +2062,40 @@
         "title": "CampaignConfig",
         "type": "object"
       },
+      "CampaignEventResult": {
+        "additionalProperties": true,
+        "properties": {
+          "candidate": {
+            "title": "Candidate",
+            "type": "integer"
+          },
+          "day": {
+            "title": "Day",
+            "type": "integer"
+          },
+          "magnitude": {
+            "title": "Magnitude",
+            "type": "number"
+          },
+          "measured_impact": {
+            "title": "Measured Impact",
+            "type": "number"
+          },
+          "type": {
+            "title": "Type",
+            "type": "string"
+          }
+        },
+        "required": [
+          "day",
+          "type",
+          "candidate",
+          "magnitude",
+          "measured_impact"
+        ],
+        "title": "CampaignEventResult",
+        "type": "object"
+      },
       "CampaignRequest": {
         "description": "POST /simulations/campaign (day-by-day campaign simulation).",
         "properties": {
@@ -2112,21 +2146,40 @@
         "additionalProperties": true,
         "properties": {
           "candidates": {
-            "items": {},
+            "items": {
+              "type": "string"
+            },
             "title": "Candidates",
             "type": "array"
           },
           "daily_leader": {
-            "title": "Daily Leader"
+            "items": {
+              "type": "string"
+            },
+            "title": "Daily Leader",
+            "type": "array"
           },
           "daily_scores": {
-            "title": "Daily Scores"
+            "additionalProperties": {
+              "items": {
+                "type": "number"
+              },
+              "type": "array"
+            },
+            "title": "Daily Scores",
+            "type": "object"
           },
           "days": {
-            "title": "Days"
+            "items": {
+              "type": "integer"
+            },
+            "title": "Days",
+            "type": "array"
           },
           "events": {
-            "items": {},
+            "items": {
+              "$ref": "#/components/schemas/CampaignEventResult"
+            },
             "title": "Events",
             "type": "array"
           },
@@ -2142,12 +2195,16 @@
             "title": "Final Winner"
           },
           "lead_changes": {
-            "title": "Lead Changes"
+            "title": "Lead Changes",
+            "type": "integer"
           }
         },
         "required": [
           "days",
+          "daily_leader",
+          "daily_scores",
           "events",
+          "lead_changes",
           "candidates"
         ],
         "title": "CampaignResponse",
@@ -4258,6 +4315,38 @@
         "title": "DistrictBounds",
         "type": "object"
       },
+      "DistrictResult": {
+        "additionalProperties": true,
+        "properties": {
+          "id": {
+            "title": "Id",
+            "type": "integer"
+          },
+          "ideology_center": {
+            "title": "Ideology Center",
+            "type": "number"
+          },
+          "vote_shares": {
+            "additionalProperties": {
+              "type": "number"
+            },
+            "title": "Vote Shares",
+            "type": "object"
+          },
+          "winner_fptp": {
+            "title": "Winner Fptp",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "ideology_center",
+          "winner_fptp",
+          "vote_shares"
+        ],
+        "title": "DistrictResult",
+        "type": "object"
+      },
       "DistrictSpec": {
         "additionalProperties": false,
         "properties": {
@@ -4345,25 +4434,19 @@
           },
           "districts": {
             "items": {
-              "additionalProperties": true,
-              "type": "object"
+              "$ref": "#/components/schemas/DistrictResult"
             },
             "title": "Districts",
             "type": "array"
           },
           "fptp_winner": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Fptp Winner"
+            "title": "Fptp Winner",
+            "type": "string"
           },
           "national_vote_share": {
-            "additionalProperties": true,
+            "additionalProperties": {
+              "type": "number"
+            },
             "title": "National Vote Share",
             "type": "object"
           },
@@ -4372,25 +4455,22 @@
             "type": "integer"
           },
           "parliament_fptp": {
-            "additionalProperties": true,
+            "additionalProperties": {
+              "type": "integer"
+            },
             "title": "Parliament Fptp",
             "type": "object"
           },
           "parliament_proportional": {
-            "additionalProperties": true,
+            "additionalProperties": {
+              "type": "integer"
+            },
             "title": "Parliament Proportional",
             "type": "object"
           },
           "proportional_winner": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Proportional Winner"
+            "title": "Proportional Winner",
+            "type": "string"
           }
         },
         "required": [
@@ -4399,6 +4479,8 @@
           "parliament_proportional",
           "national_vote_share",
           "distortion",
+          "fptp_winner",
+          "proportional_winner",
           "num_districts"
         ],
         "title": "DistrictsResponse",
@@ -4611,6 +4693,59 @@
           "privacy_guarantee"
         ],
         "title": "E2EDemoResponse",
+        "type": "object"
+      },
+      "ElectionRecord": {
+        "additionalProperties": true,
+        "properties": {
+          "active_parties": {
+            "title": "Active Parties",
+            "type": "integer"
+          },
+          "effective_parties": {
+            "title": "Effective Parties",
+            "type": "number"
+          },
+          "election_n": {
+            "title": "Election N",
+            "type": "integer"
+          },
+          "eliminated": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Eliminated",
+            "type": "array"
+          },
+          "new_entrants": {
+            "items": {
+              "type": "string"
+            },
+            "title": "New Entrants",
+            "type": "array"
+          },
+          "parties": {
+            "items": {
+              "$ref": "#/components/schemas/PartySnap"
+            },
+            "title": "Parties",
+            "type": "array"
+          },
+          "winner": {
+            "title": "Winner",
+            "type": "string"
+          }
+        },
+        "required": [
+          "election_n",
+          "active_parties",
+          "parties",
+          "effective_parties",
+          "winner",
+          "new_entrants",
+          "eliminated"
+        ],
+        "title": "ElectionRecord",
         "type": "object"
       },
       "ElectoralFatigueRequest": {
@@ -5500,29 +5635,23 @@
         "properties": {
           "candidates": {
             "items": {
-              "additionalProperties": true,
-              "type": "object"
+              "$ref": "#/components/schemas/ReplayCandidate"
             },
             "title": "Candidates",
             "type": "array"
           },
           "days": {
             "items": {
-              "additionalProperties": true,
-              "type": "object"
+              "$ref": "#/components/schemas/ReplayDay"
             },
             "title": "Days",
             "type": "array"
           },
           "final": {
-            "additionalProperties": true,
-            "title": "Final",
-            "type": "object"
+            "$ref": "#/components/schemas/ReplayFinal"
           },
           "scenario": {
-            "additionalProperties": true,
-            "title": "Scenario",
-            "type": "object"
+            "$ref": "#/components/schemas/ReplayScenario"
           }
         },
         "required": [
@@ -6084,6 +6213,30 @@
           "pedagogical_note"
         ],
         "title": "IdentityVotingResponse",
+        "type": "object"
+      },
+      "IdeologyDrift": {
+        "additionalProperties": true,
+        "properties": {
+          "final_x": {
+            "title": "Final X",
+            "type": "number"
+          },
+          "initial_x": {
+            "title": "Initial X",
+            "type": "number"
+          },
+          "party": {
+            "title": "Party",
+            "type": "string"
+          }
+        },
+        "required": [
+          "party",
+          "initial_x",
+          "final_x"
+        ],
+        "title": "IdeologyDrift",
         "type": "object"
       },
       "IdeologyMapRequest": {
@@ -7958,6 +8111,14 @@
         "description": "Multi-election party system evolution (Duverger's law).",
         "properties": {
           "convergence_speed": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
             "title": "Convergence Speed"
           },
           "duverger_confirmed": {
@@ -7965,23 +8126,29 @@
             "type": "boolean"
           },
           "effective_parties_curve": {
-            "items": {},
+            "items": {
+              "type": "number"
+            },
             "title": "Effective Parties Curve",
             "type": "array"
           },
           "elections": {
             "items": {
-              "additionalProperties": true,
-              "type": "object"
+              "$ref": "#/components/schemas/ElectionRecord"
             },
             "title": "Elections",
             "type": "array"
           },
           "final_system": {
-            "title": "Final System"
+            "title": "Final System",
+            "type": "string"
           },
           "ideology_drift": {
-            "title": "Ideology Drift"
+            "items": {
+              "$ref": "#/components/schemas/IdeologyDrift"
+            },
+            "title": "Ideology Drift",
+            "type": "array"
           },
           "pedagogical_note": {
             "title": "Pedagogical Note",
@@ -7993,11 +8160,49 @@
           "final_system",
           "effective_parties_curve",
           "duverger_confirmed",
-          "convergence_speed",
           "ideology_drift",
           "pedagogical_note"
         ],
         "title": "PartyDynamicsResponse",
+        "type": "object"
+      },
+      "PartySnap": {
+        "additionalProperties": true,
+        "properties": {
+          "name": {
+            "title": "Name",
+            "type": "string"
+          },
+          "seats": {
+            "title": "Seats",
+            "type": "integer"
+          },
+          "survived": {
+            "title": "Survived",
+            "type": "boolean"
+          },
+          "vote_pct": {
+            "title": "Vote Pct",
+            "type": "number"
+          },
+          "x": {
+            "title": "X",
+            "type": "number"
+          },
+          "y": {
+            "title": "Y",
+            "type": "number"
+          }
+        },
+        "required": [
+          "name",
+          "x",
+          "y",
+          "vote_pct",
+          "seats",
+          "survived"
+        ],
+        "title": "PartySnap",
         "type": "object"
       },
       "PartySpec": {
@@ -9109,6 +9314,147 @@
           "country"
         ],
         "title": "RealElectionSummary",
+        "type": "object"
+      },
+      "ReplayCandidate": {
+        "additionalProperties": true,
+        "properties": {
+          "modified": {
+            "title": "Modified",
+            "type": "boolean"
+          },
+          "name": {
+            "title": "Name",
+            "type": "string"
+          },
+          "x": {
+            "title": "X",
+            "type": "number"
+          },
+          "y": {
+            "title": "Y",
+            "type": "number"
+          }
+        },
+        "required": [
+          "name",
+          "x",
+          "y",
+          "modified"
+        ],
+        "title": "ReplayCandidate",
+        "type": "object"
+      },
+      "ReplayDay": {
+        "additionalProperties": true,
+        "properties": {
+          "day": {
+            "title": "Day",
+            "type": "integer"
+          },
+          "vote_shares": {
+            "additionalProperties": {
+              "type": "number"
+            },
+            "title": "Vote Shares",
+            "type": "object"
+          },
+          "winner_borda": {
+            "title": "Winner Borda",
+            "type": "string"
+          },
+          "winner_condorcet": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Winner Condorcet"
+          },
+          "winner_fptp": {
+            "title": "Winner Fptp",
+            "type": "string"
+          }
+        },
+        "required": [
+          "day",
+          "vote_shares",
+          "winner_fptp",
+          "winner_borda"
+        ],
+        "title": "ReplayDay",
+        "type": "object"
+      },
+      "ReplayFinal": {
+        "additionalProperties": true,
+        "properties": {
+          "differs_from_real": {
+            "title": "Differs From Real",
+            "type": "boolean"
+          },
+          "pedagogical_note": {
+            "title": "Pedagogical Note",
+            "type": "string"
+          },
+          "pedagogical_note_en": {
+            "title": "Pedagogical Note En",
+            "type": "string"
+          },
+          "winner_borda": {
+            "title": "Winner Borda",
+            "type": "string"
+          },
+          "winner_condorcet": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Winner Condorcet"
+          },
+          "winner_fptp": {
+            "title": "Winner Fptp",
+            "type": "string"
+          }
+        },
+        "required": [
+          "winner_fptp",
+          "winner_borda",
+          "differs_from_real",
+          "pedagogical_note",
+          "pedagogical_note_en"
+        ],
+        "title": "ReplayFinal",
+        "type": "object"
+      },
+      "ReplayScenario": {
+        "additionalProperties": true,
+        "properties": {
+          "id": {
+            "title": "Id",
+            "type": "string"
+          },
+          "name": {
+            "title": "Name",
+            "type": "string"
+          },
+          "real_winner": {
+            "title": "Real Winner",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "name",
+          "real_winner"
+        ],
+        "title": "ReplayScenario",
         "type": "object"
       },
       "ScenarioCreateRequest": {

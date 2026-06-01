@@ -3,27 +3,13 @@ import { useTranslation } from 'react-i18next';
 import { Alert, Badge, Button, Col, Form, Row, Spinner } from 'react-bootstrap';
 import { useElection } from '../../stores/useElectionStore';
 import { $api } from '../../api/hooks';
+import type { DistrictsResponse } from '../../api';
 
 // ── Types ─────────────────────────────────────────────────────────────────────
+// Source of truth is the generated `DistrictsResponse` (Phase 6 response_model).
 
-interface DistrictResult {
-  id: number;
-  ideology_center: number;
-  winner_fptp: string;
-  vote_shares: Record<string, number>;
-}
-
-interface DistrictData {
-  districts: DistrictResult[];
-  parliament_fptp: Record<string, number>;
-  parliament_proportional: Record<string, number>;
-  national_vote_share: Record<string, number>;
-  distortion: number;
-  condorcet_winner_national: string | null;
-  fptp_winner: string;
-  proportional_winner: string;
-  num_districts: number;
-}
+type DistrictData   = DistrictsResponse;
+type DistrictResult = DistrictsResponse['districts'][number];
 
 // ── Palette ───────────────────────────────────────────────────────────────────
 
@@ -196,7 +182,7 @@ const DistrictMap: React.FC = () => {
   const { config } = useElection();
 
   const sim = $api.useMutation('post', '/api/v2/election/districts');
-  const data: DistrictData | null = (sim.data as DistrictData | undefined) ?? null;
+  const data: DistrictData | null = sim.data ?? null;
   const loading = sim.isPending;
   const error = sim.isError ? t('districts.error') : null;
   const [revealedCount, setRevealedCount] = useState(0);
@@ -234,7 +220,7 @@ const DistrictMap: React.FC = () => {
       district_ideology_variance:  ideologyVariance,
       seed:                        config.seed,
     } }, {
-      onSuccess: (res) => runAnimation((res as unknown as DistrictData).num_districts),
+      onSuccess: (res) => runAnimation(res.num_districts),
     });
   }
 

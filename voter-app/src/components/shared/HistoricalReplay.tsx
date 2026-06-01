@@ -11,37 +11,14 @@ import {
   ResponsiveContainer, Cell,
 } from 'recharts';
 import { $api } from '../../api/hooks';
+import type { HistoricalReplayResponse } from '../../api';
 
 // ── Types ─────────────────────────────────────────────────────────────────────
+// Source of truth is the generated `HistoricalReplayResponse` (Phase 6 response_model).
 
-interface DaySnapshot {
-  day:              number;
-  vote_shares:      Record<string, number>;
-  winner_fptp:      string;
-  winner_condorcet: string | null;
-  winner_borda:     string;
-}
-
-interface ReplayCandidate {
-  name:     string;
-  x:        number;
-  y:        number;
-  modified: boolean;
-}
-
-interface ReplayData {
-  scenario:   { id: string; name: string; real_winner: string };
-  candidates: ReplayCandidate[];
-  days:       DaySnapshot[];
-  final: {
-    winner_fptp:         string;
-    winner_condorcet:    string | null;
-    winner_borda:        string;
-    differs_from_real:   boolean;
-    pedagogical_note:    string;
-    pedagogical_note_en: string;
-  };
-}
+type ReplayData      = HistoricalReplayResponse;
+type ReplayCandidate = HistoricalReplayResponse['candidates'][number];
+type DaySnapshot     = HistoricalReplayResponse['days'][number];
 
 // ── Scenario cards config ─────────────────────────────────────────────────────
 
@@ -156,7 +133,7 @@ const HistoricalReplay: React.FC = () => {
   const [scenarioId, setScenarioId] = useState<string>('france2002');
   const [numDays,    setNumDays]    = useState(30);
   const sim = $api.useMutation('post', '/api/v2/election/historical-replay');
-  const data: ReplayData | null = (sim.data as ReplayData | undefined) ?? null;
+  const data: ReplayData | null = sim.data ?? null;
   const loading = sim.isPending;
   const error = sim.isError ? t('replay.error') : null;
   const [currentDay, setCurrentDay] = useState(0);
@@ -185,7 +162,7 @@ const HistoricalReplay: React.FC = () => {
       onSuccess: (res) => {
         // Init positions from returned candidates
         const p: Record<string, { x: number; y: number }> = {};
-        ((res as unknown as ReplayData).candidates as ReplayCandidate[]).forEach(c => { p[c.name] = { x: c.x, y: c.y }; });
+        res.candidates.forEach(c => { p[c.name] = { x: c.x, y: c.y }; });
         setPositions(p);
       },
     });
