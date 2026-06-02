@@ -44,6 +44,11 @@ if (typeof window !== 'undefined' && !(window as any).ResizeObserver) {
   };
 }
 
-// Initialize i18next so components using useTranslation() work in Jest.
-// This mirrors the import in src/index.tsx.
-import './i18n';
+// Initialize i18next so components using useTranslation() work in tests.
+// jsdom's navigator.language is 'en-US', so the detector resolves to English;
+// `en` is now code-split (lazy), so we await both bundles here before any test
+// runs (top-level await — supported by Vitest's ESM setup files). Otherwise
+// English-asserting tests would see the French fallback.
+import { i18nReady, loadLanguage } from './i18n';
+await i18nReady;
+await loadLanguage('en');

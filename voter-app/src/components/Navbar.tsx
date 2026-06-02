@@ -9,7 +9,7 @@ import { useTheme } from '../stores/useUIStore';
 import { useExpertMode } from '../stores/useUIStore';
 import { useTeacherMode } from '../stores/useUIStore';
 import { useTranslation } from 'react-i18next';
-import i18n from '../i18n';
+import i18n, { switchLanguage } from '../i18n';
 
 // ── Navigation groups ─────────────────────────────────────────────────────────
 
@@ -106,7 +106,7 @@ const Navbar: React.FC = () => {
   };
 
   const handleLogout = () => { logout(); navigate('/login'); };
-  const toggleLang   = () => i18n.changeLanguage(i18n.language === 'fr' ? 'en' : 'fr');
+  const toggleLang   = () => switchLanguage(i18n.language === 'fr' ? 'en' : 'fr');
   const isPasswordSet = !!storedPass();
   const currentPath   = typeof window !== 'undefined' ? window.location.pathname : '';
 

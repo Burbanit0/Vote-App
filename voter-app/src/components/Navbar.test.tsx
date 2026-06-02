@@ -16,6 +16,7 @@ vi.mock('../stores/useUIStore', () => ({
 }));
 vi.mock('../i18n', () => ({
   default: { language: 'en', changeLanguage: vi.fn() },
+  switchLanguage: vi.fn(),
 }));
 
 function renderNavbar(user: { username: string; role: string } | null = null) {
