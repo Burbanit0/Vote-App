@@ -44,6 +44,8 @@ import UpdatePrompt from './components/shared/UpdatePrompt';
 import OfflineBanner from './components/shared/OfflineBanner';
 
 import 'bootstrap/dist/css/bootstrap.min.css';
+// Tailwind v4 (no preflight) — coexists with Bootstrap during the migration.
+import './styles/tailwind.css';
 
 const RouteFallback: React.FC = () => (
   <div className="d-flex justify-content-center align-items-center py-5" data-testid="route-fallback">
