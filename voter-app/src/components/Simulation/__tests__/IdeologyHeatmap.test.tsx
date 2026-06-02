@@ -143,7 +143,7 @@ describe('IdeologyHeatmap', () => {
   });
 
   it('calls onCandidateMouseDown when a candidate marker is clicked', () => {
-    const handler = jest.fn();
+    const handler = vi.fn();
     const { container } = renderHeatmap({ onCandidateMouseDown: handler });
     const marker = container.querySelector('[data-testid="candidate-marker-Alice"]');
     expect(marker).toBeTruthy();

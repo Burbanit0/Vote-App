@@ -6,13 +6,13 @@ import CascadePanel from '../CascadePanel';
 import { ElectionProvider } from '../../../stores/useElectionStore';
 import { makeTestQueryClient } from '../../../test/queryWrapper';
 
-jest.mock('../../../api/client', () => ({
-  apiClient: { GET: jest.fn(), POST: jest.fn(), PUT: jest.fn(), DELETE: jest.fn(), PATCH: jest.fn() },
-  getAccessToken: jest.fn(() => null),
+vi.mock('../../../api/client', () => ({
+  apiClient: { GET: vi.fn(), POST: vi.fn(), PUT: vi.fn(), DELETE: vi.fn(), PATCH: vi.fn() },
+  getAccessToken: vi.fn(() => null),
 }));
-const { apiClient } = jest.requireMock('../../../api/client') as { apiClient: { POST: jest.Mock } };
+const { apiClient } = (await import('../../../api/client')) as unknown as { apiClient: { POST: jest.Mock } };
 
-jest.mock('recharts', () => {
+vi.mock('recharts', () => {
   const React = require('react');
   return {
     LineChart:           ({ children }: any) => <div data-testid="cascade-line-chart">{children}</div>,
@@ -81,12 +81,12 @@ function renderPanel() {
 }
 
 beforeEach(() => {
-  jest.clearAllMocks();
+  vi.clearAllMocks();
   localStorage.clear();
-  jest.useFakeTimers();
+  vi.useFakeTimers();
 });
 
-afterEach(() => { jest.useRealTimers(); });
+afterEach(() => { vi.useRealTimers(); });
 
 // ── Tests ─────────────────────────────────────────────────────────────────────
 
@@ -115,7 +115,7 @@ describe('CascadePanel', () => {
       expect.stringMatching(/\/api\/(v2\/)?election\/cascade/),
       expect.any(Object),
     );
-    jest.runAllTimers();
+    vi.runAllTimers();
   });
 
   it('renders timeline SVG after data loads', async () => {
@@ -123,7 +123,7 @@ describe('CascadePanel', () => {
     renderPanel();
     fireEvent.click(screen.getByRole('button', { name: /simuler|simulate/i }));
     await waitFor(() => expect(screen.getByTestId('cascade-timeline-svg')).toBeInTheDocument());
-    jest.runAllTimers();
+    vi.runAllTimers();
   });
 
   it('shows cascade-occurred badge when cascade changed winner', async () => {
@@ -131,7 +131,7 @@ describe('CascadePanel', () => {
     renderPanel();
     fireEvent.click(screen.getByRole('button', { name: /simuler|simulate/i }));
     await waitFor(() => expect(screen.getByTestId('cascade-occurred-badge')).toBeInTheDocument());
-    jest.runAllTimers();
+    vi.runAllTimers();
   });
 
   it('shows cascade winner badge red when cascade occurred', async () => {
@@ -142,7 +142,7 @@ describe('CascadePanel', () => {
       const badge = screen.getByTestId('cascade-winner-badge');
       expect(badge.className).toContain('bg-danger');
     });
-    jest.runAllTimers();
+    vi.runAllTimers();
   });
 
   it('shows cascade winner badge green when no cascade', async () => {
@@ -153,7 +153,7 @@ describe('CascadePanel', () => {
       const badge = screen.getByTestId('cascade-winner-badge');
       expect(badge.className).toContain('bg-success');
     });
-    jest.runAllTimers();
+    vi.runAllTimers();
   });
 
   it('shows cascade start badge when cascade_start_at is set', async () => {
@@ -161,7 +161,7 @@ describe('CascadePanel', () => {
     renderPanel();
     fireEvent.click(screen.getByRole('button', { name: /simuler|simulate/i }));
     await waitFor(() => expect(screen.getByTestId('cascade-start-badge')).toBeInTheDocument());
-    jest.runAllTimers();
+    vi.runAllTimers();
   });
 
   it('renders comparison badges for 0, 0.5, 1.0', async () => {
@@ -174,7 +174,7 @@ describe('CascadePanel', () => {
       expect(screen.getByTestId('comparison-badge-0.5')).toBeInTheDocument();
       expect(screen.getByTestId('comparison-badge-1.0')).toBeInTheDocument();
     });
-    jest.runAllTimers();
+    vi.runAllTimers();
   });
 
   it('renders strength curve chart', async () => {
@@ -182,7 +182,7 @@ describe('CascadePanel', () => {
     renderPanel();
     fireEvent.click(screen.getByRole('button', { name: /simuler|simulate/i }));
     await waitFor(() => expect(screen.getByTestId('cascade-curve-chart')).toBeInTheDocument());
-    jest.runAllTimers();
+    vi.runAllTimers();
   });
 
   it('shows cascade start line on SVG when cascade occurred', async () => {
@@ -193,7 +193,7 @@ describe('CascadePanel', () => {
       const line = container.querySelector('[data-testid="cascade-start-line"]');
       expect(line).toBeInTheDocument();
     });
-    jest.runAllTimers();
+    vi.runAllTimers();
   });
 
   it('shows follower rings for cascade-following voters', async () => {
@@ -204,7 +204,7 @@ describe('CascadePanel', () => {
       const rings = container.querySelectorAll('[data-testid="cascade-follower-ring"]');
       expect(rings.length).toBeGreaterThan(0);
     });
-    jest.runAllTimers();
+    vi.runAllTimers();
   });
 
   it('shows play button after data loads', async () => {
@@ -212,7 +212,7 @@ describe('CascadePanel', () => {
     renderPanel();
     fireEvent.click(screen.getByRole('button', { name: /simuler|simulate/i }));
     await waitFor(() => expect(screen.getByTestId('play-button')).toBeInTheDocument());
-    jest.runAllTimers();
+    vi.runAllTimers();
   });
 
   it('slider triggers debounced API call', async () => {
@@ -222,9 +222,9 @@ describe('CascadePanel', () => {
     await waitFor(() => expect(apiClient.POST).toHaveBeenCalledTimes(1));
 
     fireEvent.change(screen.getByTestId('cascade-strength-slider'), { target: { value: '0.8' } });
-    act(() => { jest.advanceTimersByTime(450); });
+    act(() => { vi.advanceTimersByTime(450); });
     await waitFor(() => expect(apiClient.POST).toHaveBeenCalledTimes(2));
-    jest.runAllTimers();
+    vi.runAllTimers();
   });
 
   it('shows error on API failure', async () => {

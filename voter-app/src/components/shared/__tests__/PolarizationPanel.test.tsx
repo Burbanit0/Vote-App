@@ -6,13 +6,13 @@ import PolarizationPanel from '../PolarizationPanel';
 import { ElectionProvider } from '../../../stores/useElectionStore';
 import { makeTestQueryClient } from '../../../test/queryWrapper';
 
-jest.mock('../../../api/client', () => ({
-  apiClient: { GET: jest.fn(), POST: jest.fn(), PUT: jest.fn(), DELETE: jest.fn(), PATCH: jest.fn() },
-  getAccessToken: jest.fn(() => null),
+vi.mock('../../../api/client', () => ({
+  apiClient: { GET: vi.fn(), POST: vi.fn(), PUT: vi.fn(), DELETE: vi.fn(), PATCH: vi.fn() },
+  getAccessToken: vi.fn(() => null),
 }));
-const { apiClient } = jest.requireMock('../../../api/client') as { apiClient: { POST: jest.Mock } };
+const { apiClient } = (await import('../../../api/client')) as unknown as { apiClient: { POST: jest.Mock } };
 
-jest.mock('recharts', () => {
+vi.mock('recharts', () => {
   const React = require('react');
   return {
     ScatterChart:        ({ children }: any) => <div data-testid="scatter-chart">{children}</div>,
@@ -75,12 +75,12 @@ function renderPanel() {
 }
 
 beforeEach(() => {
-  jest.clearAllMocks();
+  vi.clearAllMocks();
   localStorage.clear();
-  jest.useFakeTimers();
+  vi.useFakeTimers();
 });
 
-afterEach(() => { jest.useRealTimers(); });
+afterEach(() => { vi.useRealTimers(); });
 
 // ── Tests ─────────────────────────────────────────────────────────────────────
 
@@ -119,7 +119,7 @@ describe('PolarizationPanel', () => {
       expect.stringMatching(/\/api\/(v2\/)?election\/polarization/),
       expect.any(Object),
     );
-    jest.runAllTimers();
+    vi.runAllTimers();
   });
 
   it('renders scatter chart after data loads', async () => {
@@ -129,7 +129,7 @@ describe('PolarizationPanel', () => {
     // The panel renders TWO scatter charts side-by-side (centrist vs polarized),
     // so we use getAllByTestId.
     await waitFor(() => expect(screen.getAllByTestId('scatter-chart').length).toBeGreaterThan(0));
-    jest.runAllTimers();
+    vi.runAllTimers();
   });
 
   it('renders one Scatter component per ideology', async () => {
@@ -140,7 +140,7 @@ describe('PolarizationPanel', () => {
       expect(screen.getByTestId('scatter-centrist')).toBeInTheDocument();
       expect(screen.getByTestId('scatter-polarized')).toBeInTheDocument();
     });
-    jest.runAllTimers();
+    vi.runAllTimers();
   });
 
   it('renders heatmap SVG with cells', async () => {
@@ -152,7 +152,7 @@ describe('PolarizationPanel', () => {
       const cells = container.querySelectorAll('[data-testid="heatmap-cell"]');
       expect(cells.length).toBeGreaterThan(0);
     });
-    jest.runAllTimers();
+    vi.runAllTimers();
   });
 
   it('shows key findings', async () => {
@@ -163,7 +163,7 @@ describe('PolarizationPanel', () => {
       const findings = screen.getAllByTestId('finding-item');
       expect(findings.length).toBe(2);
     });
-    jest.runAllTimers();
+    vi.runAllTimers();
   });
 
   it('sims slider triggers debounced API call', async () => {
@@ -174,9 +174,9 @@ describe('PolarizationPanel', () => {
     await waitFor(() => expect(apiClient.POST).toHaveBeenCalledTimes(1));
     // Move slider → debounce fires after 500ms
     fireEvent.change(screen.getByTestId('sims-slider'), { target: { value: '20' } });
-    act(() => { jest.advanceTimersByTime(550); });
+    act(() => { vi.advanceTimersByTime(550); });
     await waitFor(() => expect(apiClient.POST).toHaveBeenCalledTimes(2));
-    jest.runAllTimers();
+    vi.runAllTimers();
   });
 
   it('shows best method badge after data loads', async () => {
@@ -187,7 +187,7 @@ describe('PolarizationPanel', () => {
       const badges = screen.getAllByTestId(/best-badge-/);
       expect(badges.length).toBeGreaterThan(0);
     });
-    jest.runAllTimers();
+    vi.runAllTimers();
   });
 
   it('shows error on API failure', async () => {

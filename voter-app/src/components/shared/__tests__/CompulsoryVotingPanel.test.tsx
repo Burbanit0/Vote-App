@@ -6,13 +6,13 @@ import CompulsoryVotingPanel from '../CompulsoryVotingPanel';
 import { ElectionProvider } from '../../../stores/useElectionStore';
 import { makeTestQueryClient } from '../../../test/queryWrapper';
 
-jest.mock('../../../api/client', () => ({
-  apiClient: { GET: jest.fn(), POST: jest.fn(), PUT: jest.fn(), DELETE: jest.fn(), PATCH: jest.fn() },
-  getAccessToken: jest.fn(() => null),
+vi.mock('../../../api/client', () => ({
+  apiClient: { GET: vi.fn(), POST: vi.fn(), PUT: vi.fn(), DELETE: vi.fn(), PATCH: vi.fn() },
+  getAccessToken: vi.fn(() => null),
 }));
-const { apiClient } = jest.requireMock('../../../api/client') as { apiClient: { POST: jest.Mock } };
+const { apiClient } = (await import('../../../api/client')) as unknown as { apiClient: { POST: jest.Mock } };
 
-jest.mock('recharts', () => {
+vi.mock('recharts', () => {
   const React = require('react');
   return {
     BarChart:            ({ children }: any) => <div>{children}</div>,
@@ -69,12 +69,12 @@ function renderPanel() {
 }
 
 beforeEach(() => {
-  jest.clearAllMocks();
+  vi.clearAllMocks();
   localStorage.clear();
-  jest.useFakeTimers();
+  vi.useFakeTimers();
 });
 
-afterEach(() => { jest.useRealTimers(); });
+afterEach(() => { vi.useRealTimers(); });
 
 // ── Tests ─────────────────────────────────────────────────────────────────────
 
@@ -111,7 +111,7 @@ describe('CompulsoryVotingPanel', () => {
       expect.stringMatching(/\/api\/(v2\/)?election\/compulsory-voting/),
       expect.any(Object),
     );
-    jest.runAllTimers();
+    vi.runAllTimers();
   });
 
   it('shows voluntary and compulsory result cards', async () => {
@@ -122,7 +122,7 @@ describe('CompulsoryVotingPanel', () => {
       expect(screen.getByTestId('voluntary-card')).toBeInTheDocument();
       expect(screen.getByTestId('compulsory-card')).toBeInTheDocument();
     });
-    jest.runAllTimers();
+    vi.runAllTimers();
   });
 
   it('shows metrics row with representation and quality badges', async () => {
@@ -134,7 +134,7 @@ describe('CompulsoryVotingPanel', () => {
       expect(screen.getByTestId('representation-badge')).toBeInTheDocument();
       expect(screen.getByTestId('quality-badge')).toBeInTheDocument();
     });
-    jest.runAllTimers();
+    vi.runAllTimers();
   });
 
   it('shows reluctant badge', async () => {
@@ -142,7 +142,7 @@ describe('CompulsoryVotingPanel', () => {
     renderPanel();
     fireEvent.click(screen.getByRole('button', { name: /simuler|simulate/i }));
     await waitFor(() => expect(screen.getByTestId('reluctant-badge')).toBeInTheDocument());
-    jest.runAllTimers();
+    vi.runAllTimers();
   });
 
   it('shows winner-changed alert when winner changed', async () => {
@@ -150,7 +150,7 @@ describe('CompulsoryVotingPanel', () => {
     renderPanel();
     fireEvent.click(screen.getByRole('button', { name: /simuler|simulate/i }));
     await waitFor(() => expect(screen.getByTestId('winner-changed-alert')).toBeInTheDocument());
-    jest.runAllTimers();
+    vi.runAllTimers();
   });
 
   it('does NOT show winner-changed alert when winner stable', async () => {
@@ -159,7 +159,7 @@ describe('CompulsoryVotingPanel', () => {
     fireEvent.click(screen.getByRole('button', { name: /simuler|simulate/i }));
     await waitFor(() => screen.getByTestId('voluntary-card'));
     expect(screen.queryByTestId('winner-changed-alert')).not.toBeInTheDocument();
-    jest.runAllTimers();
+    vi.runAllTimers();
   });
 
   it('debounced re-simulation on vol-turnout slider change', async () => {
@@ -169,9 +169,9 @@ describe('CompulsoryVotingPanel', () => {
     await waitFor(() => expect(apiClient.POST).toHaveBeenCalledTimes(1));
 
     fireEvent.change(screen.getByTestId('vol-turnout-slider'), { target: { value: '0.55' } });
-    act(() => { jest.advanceTimersByTime(450); });
+    act(() => { vi.advanceTimersByTime(450); });
     await waitFor(() => expect(apiClient.POST).toHaveBeenCalledTimes(2));
-    jest.runAllTimers();
+    vi.runAllTimers();
   });
 
   it('debounced re-simulation on random-pct slider', async () => {
@@ -181,9 +181,9 @@ describe('CompulsoryVotingPanel', () => {
     await waitFor(() => expect(apiClient.POST).toHaveBeenCalledTimes(1));
 
     fireEvent.change(screen.getByTestId('random-pct-slider'), { target: { value: '0.25' } });
-    act(() => { jest.advanceTimersByTime(450); });
+    act(() => { vi.advanceTimersByTime(450); });
     await waitFor(() => expect(apiClient.POST).toHaveBeenCalledTimes(2));
-    jest.runAllTimers();
+    vi.runAllTimers();
   });
 
   it('shows error on API failure', async () => {

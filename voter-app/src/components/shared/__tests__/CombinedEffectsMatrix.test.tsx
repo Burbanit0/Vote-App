@@ -4,11 +4,11 @@ import { MemoryRouter } from 'react-router';
 import CombinedEffectsMatrix from '../CombinedEffectsMatrix';
 import { ElectionProvider } from '../../../stores/useElectionStore';
 
-jest.mock('../../../services/electionApi', () => ({
-  fetchCombinedEffects: jest.fn(),
+vi.mock('../../../services/electionApi', () => ({
+  fetchCombinedEffects: vi.fn(),
 }));
 
-jest.mock('recharts', () => ({
+vi.mock('recharts', () => ({
   ResponsiveContainer: ({ children }: any) => <div>{children}</div>,
   BarChart:            ({ children }: any) => <div data-testid="bar-chart">{children}</div>,
   Bar:                 ({ children }: any) => <div>{children}</div>,
@@ -20,7 +20,7 @@ jest.mock('recharts', () => ({
   Tooltip:       () => null,
 }));
 
-const { fetchCombinedEffects } = jest.requireMock('../../../services/electionApi') as {
+const { fetchCombinedEffects } = (await import('../../../services/electionApi')) as unknown as {
   fetchCombinedEffects: jest.Mock;
 };
 
@@ -67,7 +67,7 @@ function renderPanel() {
 }
 
 beforeEach(() => {
-  jest.clearAllMocks();
+  vi.clearAllMocks();
   localStorage.clear();
   fetchCombinedEffects.mockResolvedValue(MOCK_RESULT);
 });

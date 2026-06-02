@@ -2,7 +2,7 @@ import React from 'react';
 import { render, screen } from '@testing-library/react';
 import StrategicImpactTab from '../StrategicImpactTab';
 
-jest.mock('../../../hooks/useChartTheme', () => ({
+vi.mock('../../../hooks/useChartTheme', () => ({
   useChartTheme: () => ({
     isDark: false,
     gridStroke: '#e0e0e0',
@@ -12,17 +12,17 @@ jest.mock('../../../hooks/useChartTheme', () => ({
   }),
 }));
 
-jest.mock('../simulationConstants', () => ({
+vi.mock('../simulationConstants', () => ({
   METHOD_LABELS: { plurality: 'Plurality', irv: 'IRV' },
   METHOD_LINE_COLORS: { plurality: '#e15759', irv: '#59a14f' },
 }));
 
-jest.mock('../../shared/EmptyChart', () => ({ height }: { height?: number }) => (
+vi.mock('../../shared/EmptyChart', () => ({ default: ({ height }: { height?: number }) => (
   <div data-testid="empty-chart" />
-));
+) }));
 
 // Recharts ResponsiveContainer needs a width mock in JSDOM
-jest.mock('recharts', () => ({
+vi.mock('recharts', () => ({
   ResponsiveContainer: ({ children }: any) => (
     <div style={{ width: 800, height: 440 }}>{children}</div>
   ),

@@ -4,7 +4,7 @@ import MethodGroupDonut from '../MethodGroupDonut';
 import type { MethodGroup } from '../../../services/electionApi';
 
 // Mock Recharts — expose Cell dataKey for assertions
-jest.mock('recharts', () => ({
+vi.mock('recharts', () => ({
   PieChart: ({ children }: any) => <div data-testid="pie-chart">{children}</div>,
   Pie:      ({ children, data }: any) => (
     <div data-testid="pie" data-count={data?.length}>

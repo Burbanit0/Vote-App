@@ -6,14 +6,14 @@ import PrimarySimulator from '../PrimarySimulator';
 import { ElectionProvider } from '../../../stores/useElectionStore';
 import { makeTestQueryClient } from '../../../test/queryWrapper';
 
-jest.mock('../../../api/client', () => ({
-  apiClient: { GET: jest.fn(), POST: jest.fn(), PUT: jest.fn(), DELETE: jest.fn(), PATCH: jest.fn() },
-  getAccessToken: jest.fn(() => null),
+vi.mock('../../../api/client', () => ({
+  apiClient: { GET: vi.fn(), POST: vi.fn(), PUT: vi.fn(), DELETE: vi.fn(), PATCH: vi.fn() },
+  getAccessToken: vi.fn(() => null),
 }));
-const { apiClient } = jest.requireMock('../../../api/client') as { apiClient: { POST: jest.Mock } };
+const { apiClient } = (await import('../../../api/client')) as unknown as { apiClient: { POST: jest.Mock } };
 
 // Mock Recharts to avoid SVG measurement issues in jsdom
-jest.mock('recharts', () => {
+vi.mock('recharts', () => {
   const React = require('react');
   return {
     BarChart:          ({ children }: any) => <div data-testid="bar-chart">{children}</div>,
@@ -83,7 +83,7 @@ function renderPanel() {
 }
 
 beforeEach(() => {
-  jest.clearAllMocks();
+  vi.clearAllMocks();
   localStorage.clear();
 });
 

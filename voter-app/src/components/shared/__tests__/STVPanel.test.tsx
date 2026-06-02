@@ -6,11 +6,11 @@ import STVPanel from '../STVPanel';
 import { ElectionProvider } from '../../../stores/useElectionStore';
 import { makeTestQueryClient } from '../../../test/queryWrapper';
 
-jest.mock('../../../api/client', () => ({
-  apiClient: { GET: jest.fn(), POST: jest.fn(), PUT: jest.fn(), DELETE: jest.fn(), PATCH: jest.fn() },
-  getAccessToken: jest.fn(() => null),
+vi.mock('../../../api/client', () => ({
+  apiClient: { GET: vi.fn(), POST: vi.fn(), PUT: vi.fn(), DELETE: vi.fn(), PATCH: vi.fn() },
+  getAccessToken: vi.fn(() => null),
 }));
-const { apiClient } = jest.requireMock('../../../api/client') as { apiClient: { POST: jest.Mock } };
+const { apiClient } = (await import('../../../api/client')) as unknown as { apiClient: { POST: jest.Mock } };
 
 // ── Fixture ───────────────────────────────────────────────────────────────────
 
@@ -74,12 +74,12 @@ function renderPanel() {
 }
 
 beforeEach(() => {
-  jest.clearAllMocks();
+  vi.clearAllMocks();
   localStorage.clear();
-  jest.useFakeTimers();
+  vi.useFakeTimers();
 });
 
-afterEach(() => { jest.useRealTimers(); });
+afterEach(() => { vi.useRealTimers(); });
 
 // ── Tests ─────────────────────────────────────────────────────────────────────
 
@@ -103,7 +103,7 @@ describe('STVPanel', () => {
       expect.stringMatching(/\/api\/(v2\/)?election\/stv/),
       expect.any(Object),
     );
-    jest.runAllTimers();
+    vi.runAllTimers();
   });
 
   it('shows quota display after data loads', async () => {
@@ -111,7 +111,7 @@ describe('STVPanel', () => {
     renderPanel();
     fireEvent.click(screen.getByRole('button', { name: /STV|simuler/i }));
     await waitFor(() => expect(screen.getByText(/26/)).toBeInTheDocument());
-    jest.runAllTimers();
+    vi.runAllTimers();
   });
 
   it('shows STV round stepper', async () => {
@@ -119,7 +119,7 @@ describe('STVPanel', () => {
     renderPanel();
     fireEvent.click(screen.getByRole('button', { name: /STV|simuler/i }));
     await waitFor(() => expect(screen.getByTestId('stv-round-0')).toBeInTheDocument());
-    jest.runAllTimers();
+    vi.runAllTimers();
   });
 
   it('shows elected badges for winners', async () => {
@@ -135,7 +135,7 @@ describe('STVPanel', () => {
       expect(screen.getByTestId('elected-badge-Alice')).toBeInTheDocument();
       expect(screen.getByTestId('elected-badge-Bob')).toBeInTheDocument();
     });
-    jest.runAllTimers();
+    vi.runAllTimers();
   });
 
   it('shows three hémicycle SVGs', async () => {
@@ -146,7 +146,7 @@ describe('STVPanel', () => {
       const svgs = container.querySelectorAll('svg');
       expect(svgs.length).toBeGreaterThanOrEqual(3);
     });
-    jest.runAllTimers();
+    vi.runAllTimers();
   });
 
   it('shows distortion badges', async () => {
@@ -157,7 +157,7 @@ describe('STVPanel', () => {
       expect(screen.getByTestId('distortion-stv-dhondt')).toBeInTheDocument();
       expect(screen.getByTestId('distortion-stv-fptp')).toBeInTheDocument();
     });
-    jest.runAllTimers();
+    vi.runAllTimers();
   });
 
   it('step slider navigates rounds', async () => {
@@ -167,7 +167,7 @@ describe('STVPanel', () => {
     await waitFor(() => expect(screen.getByTestId('step-slider')).toBeInTheDocument());
     fireEvent.change(screen.getByTestId('step-slider'), { target: { value: '1' } });
     await waitFor(() => expect(screen.getByTestId('stv-round-1')).toBeInTheDocument());
-    jest.runAllTimers();
+    vi.runAllTimers();
   });
 
   it('shows error on API failure', async () => {

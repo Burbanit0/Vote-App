@@ -2,7 +2,7 @@ import React from 'react';
 import { render, screen, fireEvent } from '@testing-library/react';
 import ElectorateConfig from '../ElectorateConfig';
 
-jest.mock('recharts', () => ({
+vi.mock('recharts', () => ({
   ResponsiveContainer: ({ children }: any) => <div>{children}</div>,
   AreaChart: ({ children }: any) => <div>{children}</div>,
   Area: () => <div />,
@@ -15,7 +15,7 @@ describe('ElectorateConfig', () => {
     ideologyPreset: 'centrist' as const,
     dissatisfactionRate: 0.2,
   };
-  const onChange = jest.fn();
+  const onChange = vi.fn();
 
   it('renders voter count slider', () => {
     render(<ElectorateConfig config={defaultConfig} onChange={onChange} />);
@@ -36,7 +36,7 @@ describe('ElectorateConfig', () => {
   });
 
   it('calls onChange when clicking a preset', () => {
-    const onChange = jest.fn();
+    const onChange = vi.fn();
     render(<ElectorateConfig config={defaultConfig} onChange={onChange} />);
     fireEvent.click(screen.getByText('Polarized'));
     expect(onChange).toHaveBeenCalledWith({ ideologyPreset: 'polarized' });

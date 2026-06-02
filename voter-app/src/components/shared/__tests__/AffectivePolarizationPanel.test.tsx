@@ -6,13 +6,13 @@ import AffectivePolarizationPanel from '../AffectivePolarizationPanel';
 import { ElectionProvider } from '../../../stores/useElectionStore';
 import { makeTestQueryClient } from '../../../test/queryWrapper';
 
-jest.mock('../../../api/client', () => ({
-  apiClient: { GET: jest.fn(), POST: jest.fn(), PUT: jest.fn(), DELETE: jest.fn(), PATCH: jest.fn() },
-  getAccessToken: jest.fn(() => null),
+vi.mock('../../../api/client', () => ({
+  apiClient: { GET: vi.fn(), POST: vi.fn(), PUT: vi.fn(), DELETE: vi.fn(), PATCH: vi.fn() },
+  getAccessToken: vi.fn(() => null),
 }));
-const { apiClient } = jest.requireMock('../../../api/client') as { apiClient: { POST: jest.Mock } };
+const { apiClient } = (await import('../../../api/client')) as unknown as { apiClient: { POST: jest.Mock } };
 
-jest.mock('recharts', () => {
+vi.mock('recharts', () => {
   const React = require('react');
   return {
     LineChart:           ({ children }: any) => <div data-testid="affect-line-chart">{children}</div>,
@@ -75,12 +75,12 @@ function renderPanel() {
 }
 
 beforeEach(() => {
-  jest.clearAllMocks();
+  vi.clearAllMocks();
   localStorage.clear();
-  jest.useFakeTimers();
+  vi.useFakeTimers();
 });
 
-afterEach(() => { jest.useRealTimers(); });
+afterEach(() => { vi.useRealTimers(); });
 
 // ── Tests ─────────────────────────────────────────────────────────────────────
 
@@ -109,7 +109,7 @@ describe('AffectivePolarizationPanel', () => {
       expect.stringMatching(/\/api\/(v2\/)?election\/affective-polarization/),
       expect.any(Object),
     );
-    jest.runAllTimers();
+    vi.runAllTimers();
   });
 
   it('renders ideology map SVG after data loads', async () => {
@@ -117,7 +117,7 @@ describe('AffectivePolarizationPanel', () => {
     renderPanel();
     fireEvent.click(screen.getByRole('button', { name: /simuler|simulate/i }));
     await waitFor(() => expect(screen.getByTestId('affect-map-svg')).toBeInTheDocument());
-    jest.runAllTimers();
+    vi.runAllTimers();
   });
 
   it('shows winner-changed badge when winner changed', async () => {
@@ -128,7 +128,7 @@ describe('AffectivePolarizationPanel', () => {
       const badge = screen.getByTestId('winner-changed-badge');
       expect(badge.className).toContain('bg-danger');
     });
-    jest.runAllTimers();
+    vi.runAllTimers();
   });
 
   it('shows green badge when winner unchanged', async () => {
@@ -139,7 +139,7 @@ describe('AffectivePolarizationPanel', () => {
       const badge = screen.getByTestId('winner-changed-badge');
       expect(badge.className).toContain('bg-success');
     });
-    jest.runAllTimers();
+    vi.runAllTimers();
   });
 
   it('shows condorcet violation badge', async () => {
@@ -149,7 +149,7 @@ describe('AffectivePolarizationPanel', () => {
     await waitFor(() => {
       expect(screen.getByTestId('condorcet-violation-badge')).toBeInTheDocument();
     });
-    jest.runAllTimers();
+    vi.runAllTimers();
   });
 
   it('renders affect curve chart', async () => {
@@ -157,7 +157,7 @@ describe('AffectivePolarizationPanel', () => {
     renderPanel();
     fireEvent.click(screen.getByRole('button', { name: /simuler|simulate/i }));
     await waitFor(() => expect(screen.getByTestId('affect-curve-chart')).toBeInTheDocument());
-    jest.runAllTimers();
+    vi.runAllTimers();
   });
 
   it('shows changed-voter dots on the map', async () => {
@@ -168,7 +168,7 @@ describe('AffectivePolarizationPanel', () => {
       const changed = container.querySelectorAll('[data-testid="changed-voter"]');
       expect(changed.length).toBeGreaterThan(0);
     });
-    jest.runAllTimers();
+    vi.runAllTimers();
   });
 
   it('slider triggers debounced API call', async () => {
@@ -178,9 +178,9 @@ describe('AffectivePolarizationPanel', () => {
     await waitFor(() => expect(apiClient.POST).toHaveBeenCalledTimes(1));
 
     fireEvent.change(screen.getByTestId('hostility-slider'), { target: { value: '0.8' } });
-    act(() => { jest.advanceTimersByTime(450); });
+    act(() => { vi.advanceTimersByTime(450); });
     await waitFor(() => expect(apiClient.POST).toHaveBeenCalledTimes(2));
-    jest.runAllTimers();
+    vi.runAllTimers();
   });
 
   it('shows error on API failure', async () => {

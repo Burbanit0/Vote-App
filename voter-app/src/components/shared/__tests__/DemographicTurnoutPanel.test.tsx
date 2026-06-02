@@ -6,13 +6,13 @@ import DemographicTurnoutPanel from '../DemographicTurnoutPanel';
 import { ElectionProvider } from '../../../stores/useElectionStore';
 import { makeTestQueryClient } from '../../../test/queryWrapper';
 
-jest.mock('../../../api/client', () => ({
-  apiClient: { GET: jest.fn(), POST: jest.fn(), PUT: jest.fn(), DELETE: jest.fn(), PATCH: jest.fn() },
-  getAccessToken: jest.fn(() => null),
+vi.mock('../../../api/client', () => ({
+  apiClient: { GET: vi.fn(), POST: vi.fn(), PUT: vi.fn(), DELETE: vi.fn(), PATCH: vi.fn() },
+  getAccessToken: vi.fn(() => null),
 }));
-const { apiClient } = jest.requireMock('../../../api/client') as { apiClient: { POST: jest.Mock } };
+const { apiClient } = (await import('../../../api/client')) as unknown as { apiClient: { POST: jest.Mock } };
 
-jest.mock('recharts', () => {
+vi.mock('recharts', () => {
   const React = require('react');
   return {
     BarChart:            ({ children }: any) => <div>{children}</div>,
@@ -77,12 +77,12 @@ function renderPanel() {
 }
 
 beforeEach(() => {
-  jest.clearAllMocks();
+  vi.clearAllMocks();
   localStorage.clear();
-  jest.useFakeTimers();
+  vi.useFakeTimers();
 });
 
-afterEach(() => { jest.useRealTimers(); });
+afterEach(() => { vi.useRealTimers(); });
 
 // ── Tests ─────────────────────────────────────────────────────────────────────
 
@@ -118,7 +118,7 @@ describe('DemographicTurnoutPanel', () => {
       expect.stringMatching(/\/api\/(v2\/)?election\/demographic-turnout/),
       expect.any(Object),
     );
-    jest.runAllTimers();
+    vi.runAllTimers();
   });
 
   it('shows biased winner badge after data loads', async () => {
@@ -126,7 +126,7 @@ describe('DemographicTurnoutPanel', () => {
     renderPanel();
     fireEvent.click(screen.getByTestId('simulate-btn'));
     await waitFor(() => expect(screen.getByTestId('biased-winner-badge')).toBeInTheDocument());
-    jest.runAllTimers();
+    vi.runAllTimers();
   });
 
   it('shows ideology drift badge', async () => {
@@ -134,7 +134,7 @@ describe('DemographicTurnoutPanel', () => {
     renderPanel();
     fireEvent.click(screen.getByTestId('simulate-btn'));
     await waitFor(() => expect(screen.getByTestId('drift-badge')).toBeInTheDocument());
-    jest.runAllTimers();
+    vi.runAllTimers();
   });
 
   it('shows turnout badge', async () => {
@@ -142,7 +142,7 @@ describe('DemographicTurnoutPanel', () => {
     renderPanel();
     fireEvent.click(screen.getByTestId('simulate-btn'));
     await waitFor(() => expect(screen.getByTestId('turnout-badge')).toBeInTheDocument());
-    jest.runAllTimers();
+    vi.runAllTimers();
   });
 
   it('shows winner-changed alert when result flips', async () => {
@@ -150,7 +150,7 @@ describe('DemographicTurnoutPanel', () => {
     renderPanel();
     fireEvent.click(screen.getByTestId('simulate-btn'));
     await waitFor(() => expect(screen.getByTestId('winner-changed-alert')).toBeInTheDocument());
-    jest.runAllTimers();
+    vi.runAllTimers();
   });
 
   it('does NOT show winner-changed alert when result stable', async () => {
@@ -159,7 +159,7 @@ describe('DemographicTurnoutPanel', () => {
     fireEvent.click(screen.getByTestId('simulate-btn'));
     await waitFor(() => screen.getByTestId('biased-winner-badge'));
     expect(screen.queryByTestId('winner-changed-alert')).not.toBeInTheDocument();
-    jest.runAllTimers();
+    vi.runAllTimers();
   });
 
   it('renders pyramid chart', async () => {
@@ -167,7 +167,7 @@ describe('DemographicTurnoutPanel', () => {
     renderPanel();
     fireEvent.click(screen.getByTestId('simulate-btn'));
     await waitFor(() => expect(screen.getByTestId('pyramid-chart')).toBeInTheDocument());
-    jest.runAllTimers();
+    vi.runAllTimers();
   });
 
   it('renders biased and corrected bar charts', async () => {
@@ -178,7 +178,7 @@ describe('DemographicTurnoutPanel', () => {
       expect(screen.getByTestId('biased-bar-chart')).toBeInTheDocument();
       expect(screen.getByTestId('corrected-bar-chart')).toBeInTheDocument();
     });
-    jest.runAllTimers();
+    vi.runAllTimers();
   });
 
   it('renders ideology drift SVG', async () => {
@@ -186,7 +186,7 @@ describe('DemographicTurnoutPanel', () => {
     renderPanel();
     fireEvent.click(screen.getByTestId('simulate-btn'));
     await waitFor(() => expect(screen.getByTestId('ideology-drift-svg')).toBeInTheDocument());
-    jest.runAllTimers();
+    vi.runAllTimers();
   });
 
   it('renders demographic breakdown table with 6 rows', async () => {
@@ -194,7 +194,7 @@ describe('DemographicTurnoutPanel', () => {
     renderPanel();
     fireEvent.click(screen.getByTestId('simulate-btn'));
     await waitFor(() => expect(screen.getByTestId('breakdown-table')).toBeInTheDocument());
-    jest.runAllTimers();
+    vi.runAllTimers();
   });
 
   it('shows corrected winner badge when winner changed', async () => {
@@ -202,7 +202,7 @@ describe('DemographicTurnoutPanel', () => {
     renderPanel();
     fireEvent.click(screen.getByTestId('simulate-btn'));
     await waitFor(() => expect(screen.getByTestId('corrected-winner-badge')).toBeInTheDocument());
-    jest.runAllTimers();
+    vi.runAllTimers();
   });
 
   it('shows error on API failure', async () => {

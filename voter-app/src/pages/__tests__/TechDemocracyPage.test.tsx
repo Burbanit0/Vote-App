@@ -5,11 +5,11 @@ import { QueryClientProvider } from '@tanstack/react-query';
 import TechDemocracyPage from '../TechDemocracyPage';
 import { makeTestQueryClient } from '../../test/queryWrapper';
 
-jest.mock('../../api/client', () => ({
-  apiClient: { GET: jest.fn(), POST: jest.fn(), PUT: jest.fn(), DELETE: jest.fn(), PATCH: jest.fn() },
-  getAccessToken: jest.fn(() => null),
+vi.mock('../../api/client', () => ({
+  apiClient: { GET: vi.fn(), POST: vi.fn(), PUT: vi.fn(), DELETE: vi.fn(), PATCH: vi.fn() },
+  getAccessToken: vi.fn(() => null),
 }));
-const { apiClient } = jest.requireMock('../../api/client') as { apiClient: { POST: jest.Mock } };
+const { apiClient } = (await import('../../api/client')) as unknown as { apiClient: { POST: jest.Mock } };
 
 // ── Fixtures ──────────────────────────────────────────────────────────────────
 
@@ -68,11 +68,11 @@ function renderPage() {
 }
 
 beforeEach(() => {
-  jest.clearAllMocks();
-  jest.useFakeTimers();
+  vi.clearAllMocks();
+  vi.useFakeTimers();
 });
 
-afterEach(() => { jest.useRealTimers(); });
+afterEach(() => { vi.useRealTimers(); });
 
 // ── Tests ─────────────────────────────────────────────────────────────────────
 
@@ -127,7 +127,7 @@ describe('TechDemocracyPage', () => {
       expect.stringMatching(/\/api\/(v2\/)?tech\/e2e-demo/),
       expect.any(Object),
     );
-    jest.runAllTimers();
+    vi.runAllTimers();
   });
 
   it.skip('shows encrypted ballots after E2E run', async () => {
@@ -138,7 +138,7 @@ describe('TechDemocracyPage', () => {
       const ballots = screen.getAllByTestId('encrypted-ballot');
       expect(ballots.length).toBeGreaterThan(0);
     });
-    jest.runAllTimers();
+    vi.runAllTimers();
   });
 
   it.skip('shows next-step button after E2E run', async () => {
@@ -146,7 +146,7 @@ describe('TechDemocracyPage', () => {
     renderPage();
     fireEvent.click(screen.getByTestId('run-e2e-btn'));
     await waitFor(() => expect(screen.getByTestId('next-step-btn')).toBeInTheDocument());
-    jest.runAllTimers();
+    vi.runAllTimers();
   });
 
   it.skip('shows verification board after step 2', async () => {
@@ -156,7 +156,7 @@ describe('TechDemocracyPage', () => {
     await waitFor(() => screen.getByTestId('next-step-btn'));
     fireEvent.click(screen.getByTestId('next-step-btn')); // step 2
     expect(screen.getByTestId('verification-board')).toBeInTheDocument();
-    jest.runAllTimers();
+    vi.runAllTimers();
   });
 
   it.skip('shows final result after reaching last step', async () => {
@@ -170,7 +170,7 @@ describe('TechDemocracyPage', () => {
       if (btn) fireEvent.click(btn);
     }
     await waitFor(() => expect(screen.getByTestId('e2e-final-result')).toBeInTheDocument());
-    jest.runAllTimers();
+    vi.runAllTimers();
   });
 
   // ── Pol.is section ──────────────────────────────────────────────────────────
@@ -184,7 +184,7 @@ describe('TechDemocracyPage', () => {
       expect.stringMatching(/\/api\/(v2\/)?tech\/polis-simulation/),
       expect.any(Object),
     );
-    jest.runAllTimers();
+    vi.runAllTimers();
   });
 
   it('renders Pol.is scatter SVG after run', async () => {
@@ -192,7 +192,7 @@ describe('TechDemocracyPage', () => {
     renderPage();
     fireEvent.click(screen.getByTestId('run-polis-btn'));
     await waitFor(() => expect(screen.getByTestId('polis-scatter-svg')).toBeInTheDocument());
-    jest.runAllTimers();
+    vi.runAllTimers();
   });
 
   it('shows consensus section when consensus items exist', async () => {
@@ -200,7 +200,7 @@ describe('TechDemocracyPage', () => {
     renderPage();
     fireEvent.click(screen.getByTestId('run-polis-btn'));
     await waitFor(() => expect(screen.getByTestId('consensus-section')).toBeInTheDocument());
-    jest.runAllTimers();
+    vi.runAllTimers();
   });
 
   it('shows polarizing section when polarizing items exist', async () => {
@@ -208,7 +208,7 @@ describe('TechDemocracyPage', () => {
     renderPage();
     fireEvent.click(screen.getByTestId('run-polis-btn'));
     await waitFor(() => expect(screen.getByTestId('polarizing-section')).toBeInTheDocument());
-    jest.runAllTimers();
+    vi.runAllTimers();
   });
 
   it('shows cluster vote table', async () => {
@@ -216,7 +216,7 @@ describe('TechDemocracyPage', () => {
     renderPage();
     fireEvent.click(screen.getByTestId('run-polis-btn'));
     await waitFor(() => expect(screen.getByTestId('cluster-vote-table')).toBeInTheDocument());
-    jest.runAllTimers();
+    vi.runAllTimers();
   });
 
   it('shows blockchain comparison table', () => {

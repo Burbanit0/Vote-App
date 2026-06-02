@@ -4,7 +4,7 @@ import LabOnboardingTour, { LAB_TOUR_LS_KEY } from '../LabOnboardingTour';
 
 // react-joyride mounts portals and is not jsdom-friendly. We mock it to a
 // simple element that surfaces the props we care about.
-jest.mock('react-joyride', () => ({
+vi.mock('react-joyride', () => ({
   __esModule: true,
   Joyride: (props: any) => (
     <div data-testid="joyride">

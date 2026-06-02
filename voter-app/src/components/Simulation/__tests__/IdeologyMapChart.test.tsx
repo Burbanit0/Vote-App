@@ -2,11 +2,11 @@ import React from 'react';
 import { render, screen, fireEvent, waitFor, act } from '@testing-library/react';
 import IdeologyMapChart from '../IdeologyMapChart';
 
-jest.mock('../../../services/simulationCompareApi', () => ({
-  getIdeologyMap: jest.fn(),
+vi.mock('../../../services/simulationCompareApi', () => ({
+  getIdeologyMap: vi.fn(),
 }));
 
-const { getIdeologyMap } = jest.requireMock('../../../services/simulationCompareApi') as {
+const { getIdeologyMap } = (await import('../../../services/simulationCompareApi')) as unknown as {
   getIdeologyMap: jest.Mock;
 };
 
@@ -29,7 +29,7 @@ const MOCK_RESULT = {
 };
 
 beforeEach(() => {
-  jest.clearAllMocks();
+  vi.clearAllMocks();
   getIdeologyMap.mockResolvedValue(MOCK_RESULT);
 });
 

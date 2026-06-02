@@ -2,7 +2,7 @@ import React from 'react';
 import { render, screen, fireEvent, waitFor } from '@testing-library/react';
 import ConstitutionalCrisisPage from '../ConstitutionalCrisisPage';
 
-jest.mock('../../components/ScenarioBuilder/CandidateEditor', () => {
+vi.mock('../../components/ScenarioBuilder/CandidateEditor', () => {
   const MockCandidateEditor: React.FC = () => (
     <div data-testid="candidate-editor">CandidateEditor</div>
   );
@@ -18,57 +18,57 @@ jest.mock('../../components/ScenarioBuilder/CandidateEditor', () => {
   };
 });
 
-jest.mock('../../components/ScenarioBuilder/ElectorateConfig', () => {
-  return function MockElectorateConfig() {
+vi.mock('../../components/ScenarioBuilder/ElectorateConfig', () => {
+  return { default: function MockElectorateConfig() {
     return <div data-testid="electorate-config">ElectorateConfig</div>;
-  };
+  } };
 });
 
-jest.mock('../../components/ConstitutionalCrisis/ScenarioAPanel', () => {
-  return function MockScenarioAPanel({ onRun }: { onRun: (candidates: unknown[]) => void }) {
+vi.mock('../../components/ConstitutionalCrisis/ScenarioAPanel', () => {
+  return { default: function MockScenarioAPanel({ onRun }: { onRun: (candidates: unknown[]) => void }) {
     return (
       <div data-testid="scenario-a-panel">
         <button onClick={() => onRun([])}>Run A</button>
       </div>
     );
-  };
+  } };
 });
 
-jest.mock('../../components/ConstitutionalCrisis/ScenarioBPanel', () => {
-  return function MockScenarioBPanel({ onRun }: { onRun: (duration: number, drift: number) => void }) {
+vi.mock('../../components/ConstitutionalCrisis/ScenarioBPanel', () => {
+  return { default: function MockScenarioBPanel({ onRun }: { onRun: (duration: number, drift: number) => void }) {
     return (
       <div data-testid="scenario-b-panel">
         <button onClick={() => onRun(3, 0.05)}>Run B</button>
       </div>
     );
-  };
+  } };
 });
 
-jest.mock('../../components/ConstitutionalCrisis/ScenarioCPanel', () => {
-  return function MockScenarioCPanel({ onRun }: { onRun: (seats: number) => void }) {
+vi.mock('../../components/ConstitutionalCrisis/ScenarioCPanel', () => {
+  return { default: function MockScenarioCPanel({ onRun }: { onRun: (seats: number) => void }) {
     return (
       <div data-testid="scenario-c-panel">
         <button onClick={() => onRun(30)}>Run C</button>
       </div>
     );
-  };
+  } };
 });
 
-jest.mock('../../services/simulationCompareApi', () => ({
-  runScenario: jest.fn(),
-  runConstitutionalScenario: jest.fn(),
+vi.mock('../../services/simulationCompareApi', () => ({
+  runScenario: vi.fn(),
+  runConstitutionalScenario: vi.fn(),
 }));
 
-jest.mock('../../components/shared/ToastNotification', () => ({
-  useToast: () => ({ error: jest.fn() }),
+vi.mock('../../components/shared/ToastNotification', () => ({
+  useToast: () => ({ error: vi.fn() }),
 }));
 
-const { runScenario } = require('../../services/simulationCompareApi');
-const { runConstitutionalScenario } = require('../../services/simulationCompareApi');
+const { runScenario } = (await import('../../services/simulationCompareApi'));
+const { runConstitutionalScenario } = (await import('../../services/simulationCompareApi'));
 
 describe('ConstitutionalCrisisPage', () => {
   beforeEach(() => {
-    jest.clearAllMocks();
+    vi.clearAllMocks();
   });
 
   it('renders the page title', () => {

@@ -6,13 +6,13 @@ import SortitionPanel from '../SortitionPanel';
 import { ElectionProvider } from '../../../stores/useElectionStore';
 import { makeTestQueryClient } from '../../../test/queryWrapper';
 
-jest.mock('../../../api/client', () => ({
-  apiClient: { GET: jest.fn(), POST: jest.fn(), PUT: jest.fn(), DELETE: jest.fn(), PATCH: jest.fn() },
-  getAccessToken: jest.fn(() => null),
+vi.mock('../../../api/client', () => ({
+  apiClient: { GET: vi.fn(), POST: vi.fn(), PUT: vi.fn(), DELETE: vi.fn(), PATCH: vi.fn() },
+  getAccessToken: vi.fn(() => null),
 }));
-const { apiClient } = jest.requireMock('../../../api/client') as { apiClient: { POST: jest.Mock } };
+const { apiClient } = (await import('../../../api/client')) as unknown as { apiClient: { POST: jest.Mock } };
 
-jest.mock('recharts', () => {
+vi.mock('recharts', () => {
   const React = require('react');
   return {
     RadarChart:       ({ children }: any) => <div>{children}</div>,
@@ -80,12 +80,12 @@ function renderPanel() {
 }
 
 beforeEach(() => {
-  jest.clearAllMocks();
+  vi.clearAllMocks();
   localStorage.clear();
-  jest.useFakeTimers();
+  vi.useFakeTimers();
 });
 
-afterEach(() => { jest.useRealTimers(); });
+afterEach(() => { vi.useRealTimers(); });
 
 // ── Tests ─────────────────────────────────────────────────────────────────────
 
@@ -119,7 +119,7 @@ describe('SortitionPanel', () => {
       expect.stringMatching(/\/api\/(v2\/)?election\/sortition/),
       expect.any(Object),
     );
-    jest.runAllTimers();
+    vi.runAllTimers();
   });
 
   it('shows ideology bars after data loads', async () => {
@@ -127,7 +127,7 @@ describe('SortitionPanel', () => {
     renderPanel();
     fireEvent.click(screen.getByTestId('simulate-btn'));
     await waitFor(() => expect(screen.getByTestId('ideology-bars')).toBeInTheDocument());
-    jest.runAllTimers();
+    vi.runAllTimers();
   });
 
   it('renders radar chart', async () => {
@@ -135,7 +135,7 @@ describe('SortitionPanel', () => {
     renderPanel();
     fireEvent.click(screen.getByTestId('simulate-btn'));
     await waitFor(() => expect(screen.getByTestId('radar-chart')).toBeInTheDocument());
-    jest.runAllTimers();
+    vi.runAllTimers();
   });
 
   it('renders metrics table', async () => {
@@ -143,7 +143,7 @@ describe('SortitionPanel', () => {
     renderPanel();
     fireEvent.click(screen.getByTestId('simulate-btn'));
     await waitFor(() => expect(screen.getByTestId('metrics-table')).toBeInTheDocument());
-    jest.runAllTimers();
+    vi.runAllTimers();
   });
 
   it('shows historical examples section', async () => {
@@ -151,7 +151,7 @@ describe('SortitionPanel', () => {
     renderPanel();
     fireEvent.click(screen.getByTestId('simulate-btn'));
     await waitFor(() => expect(screen.getByTestId('examples-section')).toBeInTheDocument());
-    jest.runAllTimers();
+    vi.runAllTimers();
   });
 
   it('shows consensus badge when consensus=true', async () => {
@@ -159,7 +159,7 @@ describe('SortitionPanel', () => {
     renderPanel();
     fireEvent.click(screen.getByTestId('simulate-btn'));
     await waitFor(() => expect(screen.getByTestId('consensus-badge')).toBeInTheDocument());
-    jest.runAllTimers();
+    vi.runAllTimers();
   });
 
   it('shows no-consensus badge when consensus=false', async () => {
@@ -167,7 +167,7 @@ describe('SortitionPanel', () => {
     renderPanel();
     fireEvent.click(screen.getByTestId('simulate-btn'));
     await waitFor(() => expect(screen.getByTestId('no-consensus-badge')).toBeInTheDocument());
-    jest.runAllTimers();
+    vi.runAllTimers();
   });
 
   it('debounced re-simulation on slider change', async () => {
@@ -177,9 +177,9 @@ describe('SortitionPanel', () => {
     await waitFor(() => expect(apiClient.POST).toHaveBeenCalledTimes(1));
 
     fireEvent.change(screen.getByTestId('assembly-size-slider'), { target: { value: '100' } });
-    act(() => { jest.advanceTimersByTime(450); });
+    act(() => { vi.advanceTimersByTime(450); });
     await waitFor(() => expect(apiClient.POST).toHaveBeenCalledTimes(2));
-    jest.runAllTimers();
+    vi.runAllTimers();
   });
 
   it('debounced re-simulation on switch toggle after first run', async () => {
@@ -189,9 +189,9 @@ describe('SortitionPanel', () => {
     await waitFor(() => expect(apiClient.POST).toHaveBeenCalledTimes(1));
 
     fireEvent.click(screen.getByTestId('realistic-switch'));
-    act(() => { jest.advanceTimersByTime(450); });
+    act(() => { vi.advanceTimersByTime(450); });
     await waitFor(() => expect(apiClient.POST).toHaveBeenCalledTimes(2));
-    jest.runAllTimers();
+    vi.runAllTimers();
   });
 
   it('shows error on API failure', async () => {

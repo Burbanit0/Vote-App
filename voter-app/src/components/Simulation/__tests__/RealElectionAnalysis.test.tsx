@@ -2,7 +2,7 @@ import React from 'react';
 import { render, screen, fireEvent } from '@testing-library/react';
 import RealElectionAnalysis from '../RealElectionAnalysis';
 
-jest.mock('../../shared/MethodTooltip', () => ({ method }: any) => <span>{method}</span>);
+vi.mock('../../shared/MethodTooltip', () => ({ default: ({ method }: any) => <span>{method}</span> }));
 
 const mockResult = {
   election: {
@@ -37,7 +37,7 @@ const mockResult = {
 };
 
 describe('RealElectionAnalysis', () => {
-  const onToggle = jest.fn();
+  const onToggle = vi.fn();
 
   it('renders election name and winner table', () => {
     render(<RealElectionAnalysis result={mockResult as any} blankVoteEnabled={false} blankLoading={false} onToggleBlankVote={onToggle} />);

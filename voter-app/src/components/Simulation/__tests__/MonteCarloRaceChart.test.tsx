@@ -2,7 +2,7 @@ import React from 'react';
 import { render, screen, fireEvent, act, waitFor } from '@testing-library/react';
 import MonteCarloRaceChart from '../MonteCarloRaceChart';
 
-jest.mock('recharts', () => ({
+vi.mock('recharts', () => ({
   ResponsiveContainer:  ({ children }: any) => <div>{children}</div>,
   AreaChart:            ({ children }: any) => <div data-testid="area-chart">{children}</div>,
   Area:                 ({ dataKey }: any) => <div data-testid={`area-${dataKey}`} />,

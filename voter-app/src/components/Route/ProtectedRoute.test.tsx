@@ -4,9 +4,9 @@ import { MemoryRouter, Route, Routes } from 'react-router-dom';
 import ProtectedRoute from './ProtectedRoute';
 import { useAuth } from '../../stores/useAuthStore';
 
-jest.mock('../../stores/useAuthStore', () => ({
-  ...jest.requireActual('../../stores/useAuthStore'),
-  useAuth: jest.fn(),
+vi.mock('../../stores/useAuthStore', async () => ({
+  ...(await vi.importActual('../../stores/useAuthStore')),
+  useAuth: vi.fn(),
 }));
 
 const MockChild = () => <div data-testid="protected-child">Protected Content</div>;
@@ -31,7 +31,7 @@ function renderProtected(initialEntries = ['/protected']) {
 
 describe('ProtectedRoute', () => {
   beforeEach(() => {
-    jest.clearAllMocks();
+    vi.clearAllMocks();
   });
 
   it('redirects to /login when not authenticated', () => {

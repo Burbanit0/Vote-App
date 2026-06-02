@@ -3,12 +3,12 @@ import { render, screen } from '@testing-library/react';
 import ArrowCriteriaMatrix from '../ArrowCriteriaMatrix';
 import { ArrowCriteriaResult } from '../../../types';
 
-jest.mock('../../shared/MethodTooltip', () => ({ method }: { method: string }) => (
+vi.mock('../../shared/MethodTooltip', () => ({ default: ({ method }: { method: string }) => (
   <span data-testid="method-tooltip">{method}</span>
-));
-jest.mock('../../shared/ResponsiveTable', () => ({ children }: { children: React.ReactNode }) => (
+) }));
+vi.mock('../../shared/ResponsiveTable', () => ({ default: ({ children }: { children: React.ReactNode }) => (
   <div data-testid="responsive-table">{children}</div>
-));
+) }));
 
 const fullResult: ArrowCriteriaResult = {
   methods: {

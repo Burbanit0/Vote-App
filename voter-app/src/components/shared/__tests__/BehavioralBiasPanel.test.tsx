@@ -6,11 +6,11 @@ import BehavioralBiasPanel from '../BehavioralBiasPanel';
 import { ElectionProvider } from '../../../stores/useElectionStore';
 import { makeTestQueryClient } from '../../../test/queryWrapper';
 
-jest.mock('../../../api/client', () => ({
-  apiClient: { GET: jest.fn(), POST: jest.fn(), PUT: jest.fn(), DELETE: jest.fn(), PATCH: jest.fn() },
-  getAccessToken: jest.fn(() => null),
+vi.mock('../../../api/client', () => ({
+  apiClient: { GET: vi.fn(), POST: vi.fn(), PUT: vi.fn(), DELETE: vi.fn(), PATCH: vi.fn() },
+  getAccessToken: vi.fn(() => null),
 }));
-const { apiClient } = jest.requireMock('../../../api/client') as { apiClient: { POST: jest.Mock } };
+const { apiClient } = (await import('../../../api/client')) as unknown as { apiClient: { POST: jest.Mock } };
 
 // ── Fixture ───────────────────────────────────────────────────────────────────
 
@@ -55,12 +55,12 @@ function renderPanel() {
 }
 
 beforeEach(() => {
-  jest.clearAllMocks();
+  vi.clearAllMocks();
   localStorage.clear();
-  jest.useFakeTimers();
+  vi.useFakeTimers();
 });
 
-afterEach(() => { jest.useRealTimers(); });
+afterEach(() => { vi.useRealTimers(); });
 
 // ── Tests ─────────────────────────────────────────────────────────────────────
 
@@ -91,7 +91,7 @@ describe('BehavioralBiasPanel', () => {
       expect.stringMatching(/\/api\/(v2\/)?election\/behavioral-biases/),
       expect.any(Object),
     );
-    jest.runAllTimers();
+    vi.runAllTimers();
   });
 
   it('shows sincere and biased winner badges after load', async () => {
@@ -102,7 +102,7 @@ describe('BehavioralBiasPanel', () => {
       expect(screen.getByTestId('sincere-winner-badge')).toBeInTheDocument();
       expect(screen.getByTestId('biased-winner-badge')).toBeInTheDocument();
     });
-    jest.runAllTimers();
+    vi.runAllTimers();
   });
 
   it('shows winner-changed alert when winner changed', async () => {
@@ -110,7 +110,7 @@ describe('BehavioralBiasPanel', () => {
     renderPanel();
     fireEvent.click(screen.getByRole('button', { name: /simuler|simulate/i }));
     await waitFor(() => expect(screen.getByTestId('winner-changed-alert')).toBeInTheDocument());
-    jest.runAllTimers();
+    vi.runAllTimers();
   });
 
   it('does not show winner-changed alert when winner stable', async () => {
@@ -119,7 +119,7 @@ describe('BehavioralBiasPanel', () => {
     fireEvent.click(screen.getByRole('button', { name: /simuler|simulate/i }));
     await waitFor(() => expect(screen.getByTestId('comparison-banner')).toBeInTheDocument());
     expect(screen.queryByTestId('winner-changed-alert')).not.toBeInTheDocument();
-    jest.runAllTimers();
+    vi.runAllTimers();
   });
 
   it('shows method sensitivity table after load', async () => {
@@ -127,7 +127,7 @@ describe('BehavioralBiasPanel', () => {
     renderPanel();
     fireEvent.click(screen.getByRole('button', { name: /simuler|simulate/i }));
     await waitFor(() => expect(screen.getByTestId('sensitivity-table')).toBeInTheDocument());
-    jest.runAllTimers();
+    vi.runAllTimers();
   });
 
   it('shows expressive breakdown badge when data includes expressive voters', async () => {
@@ -135,7 +135,7 @@ describe('BehavioralBiasPanel', () => {
     renderPanel();
     fireEvent.click(screen.getByRole('button', { name: /simuler|simulate/i }));
     await waitFor(() => expect(screen.getByTestId('expressive-breakdown-badge')).toBeInTheDocument());
-    jest.runAllTimers();
+    vi.runAllTimers();
   });
 
   it('shows bullet breakdown badge', async () => {
@@ -143,7 +143,7 @@ describe('BehavioralBiasPanel', () => {
     renderPanel();
     fireEvent.click(screen.getByRole('button', { name: /simuler|simulate/i }));
     await waitFor(() => expect(screen.getByTestId('bullet-breakdown-badge')).toBeInTheDocument());
-    jest.runAllTimers();
+    vi.runAllTimers();
   });
 
   it('shows primacy breakdown badge', async () => {
@@ -151,7 +151,7 @@ describe('BehavioralBiasPanel', () => {
     renderPanel();
     fireEvent.click(screen.getByRole('button', { name: /simuler|simulate/i }));
     await waitFor(() => expect(screen.getByTestId('primacy-breakdown-badge')).toBeInTheDocument());
-    jest.runAllTimers();
+    vi.runAllTimers();
   });
 
   it('expressive toggle shows slider when enabled', () => {
@@ -182,7 +182,7 @@ describe('BehavioralBiasPanel', () => {
     await waitFor(() => expect(apiClient.POST).toHaveBeenCalledTimes(1));
     const body = (apiClient.POST.mock.calls[0][1] as { body: Record<string, unknown> }).body;
     expect(body.expressive_pct).toBe(0);
-    jest.runAllTimers();
+    vi.runAllTimers();
   });
 
   it('sends bullet_voting_pct=0 when toggle is off', async () => {
@@ -192,7 +192,7 @@ describe('BehavioralBiasPanel', () => {
     await waitFor(() => expect(apiClient.POST).toHaveBeenCalledTimes(1));
     const body = (apiClient.POST.mock.calls[0][1] as { body: Record<string, unknown> }).body;
     expect(body.bullet_voting_pct).toBe(0);
-    jest.runAllTimers();
+    vi.runAllTimers();
   });
 
   it('sends primacy_bonus=0 when toggle is off', async () => {
@@ -202,7 +202,7 @@ describe('BehavioralBiasPanel', () => {
     await waitFor(() => expect(apiClient.POST).toHaveBeenCalledTimes(1));
     const body = (apiClient.POST.mock.calls[0][1] as { body: Record<string, unknown> }).body;
     expect(body.primacy_bonus).toBe(0);
-    jest.runAllTimers();
+    vi.runAllTimers();
   });
 
   it('auto-recalculates (debounced) when bias toggle changes after first run', async () => {
@@ -213,9 +213,9 @@ describe('BehavioralBiasPanel', () => {
 
     // Toggle expressive ON → triggers debounced re-run
     fireEvent.click(screen.getByTestId('expressive-switch'));
-    act(() => { jest.advanceTimersByTime(450); });
+    act(() => { vi.advanceTimersByTime(450); });
     await waitFor(() => expect(apiClient.POST).toHaveBeenCalledTimes(2));
-    jest.runAllTimers();
+    vi.runAllTimers();
   });
 
   it('shows error on API failure', async () => {

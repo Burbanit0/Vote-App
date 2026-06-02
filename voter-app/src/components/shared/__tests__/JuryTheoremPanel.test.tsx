@@ -5,13 +5,13 @@ import { QueryClientProvider } from '@tanstack/react-query';
 import JuryTheoremPanel from '../JuryTheoremPanel';
 import { makeTestQueryClient } from '../../../test/queryWrapper';
 
-jest.mock('../../../api/client', () => ({
-  apiClient: { GET: jest.fn(), POST: jest.fn(), PUT: jest.fn(), DELETE: jest.fn(), PATCH: jest.fn() },
-  getAccessToken: jest.fn(() => null),
+vi.mock('../../../api/client', () => ({
+  apiClient: { GET: vi.fn(), POST: vi.fn(), PUT: vi.fn(), DELETE: vi.fn(), PATCH: vi.fn() },
+  getAccessToken: vi.fn(() => null),
 }));
-const { apiClient } = jest.requireMock('../../../api/client') as { apiClient: { POST: jest.Mock } };
+const { apiClient } = (await import('../../../api/client')) as unknown as { apiClient: { POST: jest.Mock } };
 
-jest.mock('recharts', () => {
+vi.mock('recharts', () => {
   const React = require('react');
   return {
     LineChart:           ({ children }: any) => <div data-testid="line-chart">{children}</div>,
@@ -77,13 +77,13 @@ function renderPanel() {
 }
 
 beforeEach(() => {
-  jest.clearAllMocks();
+  vi.clearAllMocks();
   localStorage.clear();
-  jest.useFakeTimers();
+  vi.useFakeTimers();
 });
 
 afterEach(() => {
-  jest.useRealTimers();
+  vi.useRealTimers();
 });
 
 // ── Tests ─────────────────────────────────────────────────────────────────────
@@ -120,7 +120,7 @@ describe('JuryTheoremPanel', () => {
     renderPanel();
     fireEvent.click(screen.getByRole('button', { name: /simuler|simulate/i }));
     await waitFor(() => expect(screen.getByTestId('competence-curve-chart')).toBeInTheDocument());
-    jest.runAllTimers();
+    vi.runAllTimers();
   });
 
   it('renders accuracy BarChart after data loads', async () => {
@@ -128,7 +128,7 @@ describe('JuryTheoremPanel', () => {
     renderPanel();
     fireEvent.click(screen.getByRole('button', { name: /simuler|simulate/i }));
     await waitFor(() => expect(screen.getByTestId('accuracy-bar-chart')).toBeInTheDocument());
-    jest.runAllTimers();
+    vi.runAllTimers();
   });
 
   it('shows theory accuracy badge', async () => {
@@ -136,7 +136,7 @@ describe('JuryTheoremPanel', () => {
     renderPanel();
     fireEvent.click(screen.getByRole('button', { name: /simuler|simulate/i }));
     await waitFor(() => expect(screen.getByTestId('theory-badge')).toBeInTheDocument());
-    jest.runAllTimers();
+    vi.runAllTimers();
   });
 
   it('shows best method badge', async () => {
@@ -147,7 +147,7 @@ describe('JuryTheoremPanel', () => {
       const badge = screen.getByTestId('best-method-badge');
       expect(badge.textContent).toContain('schulze');
     });
-    jest.runAllTimers();
+    vi.runAllTimers();
   });
 
   it('shows method-level badges', async () => {
@@ -158,7 +158,7 @@ describe('JuryTheoremPanel', () => {
       expect(screen.getByTestId('method-badge-plurality')).toBeInTheDocument();
       expect(screen.getByTestId('method-badge-schulze')).toBeInTheDocument();
     });
-    jest.runAllTimers();
+    vi.runAllTimers();
   });
 
   it('shows pedagogical note', async () => {
@@ -166,7 +166,7 @@ describe('JuryTheoremPanel', () => {
     renderPanel();
     fireEvent.click(screen.getByRole('button', { name: /simuler|simulate/i }));
     await waitFor(() => expect(screen.getByTestId('pedagogical-note')).toBeInTheDocument());
-    jest.runAllTimers();
+    vi.runAllTimers();
   });
 
   it('competence slider triggers debounced API call', async () => {
@@ -183,7 +183,7 @@ describe('JuryTheoremPanel', () => {
     expect(apiClient.POST).toHaveBeenCalledTimes(1);
 
     // Advance fake timers past debounce
-    act(() => { jest.advanceTimersByTime(450); });
+    act(() => { vi.advanceTimersByTime(450); });
     await waitFor(() => expect(apiClient.POST).toHaveBeenCalledTimes(2));
     expect((apiClient.POST.mock.calls[1][1] as { body: Record<string, unknown> }).body).toMatchObject({ voter_competence: 0.8 });
   });

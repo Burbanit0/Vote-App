@@ -13,23 +13,29 @@
  * jsdom is single-threaded anyway, is the only way to test them).
  */
 
-// We import the pure functions from their source modules. They are exported
-// alongside the React components that use them, specifically for this case.
+import { vi } from 'vitest';
+// Pure compute helpers, exported alongside their components for this mock.
+// (Static imports under Vitest ESM — the original lazy `require()` calls don't
+// resolve in the ESM test runtime.)
+import { computeGrid } from '../components/Simulation/IdeologyHeatmap';
+import { partialResultsToMatrix } from '../components/Simulation/MethodSimilarityGraph';
+
+// The payload shapes come over the (mocked) worker boundary as unknown; cast the
+// pure helpers to unknown-accepting signatures so the mock stays type-loose.
+const computeGridLoose = computeGrid as (...args: unknown[]) => Record<string, unknown>;
+const partialToMatrixLoose = partialResultsToMatrix as (arg: unknown) => unknown;
+
 function dispatchInline<T>(type: string, payload: unknown): Promise<T> {
   switch (type) {
     case 'COMPUTE_HEATMAP': {
-      // eslint-disable-next-line @typescript-eslint/no-var-requires
-      const { computeGrid } = require('../components/Simulation/IdeologyHeatmap');
       const p = payload as { voters: unknown[]; candidates: unknown[]; gridN?: number };
-      const result = computeGrid(p.voters, p.candidates, p.gridN);
+      const result = computeGridLoose(p.voters, p.candidates, p.gridN);
       return Promise.resolve({ type: 'COMPUTE_HEATMAP_DONE', ...result } as unknown as T);
     }
     case 'COMPUTE_MATRIX': {
       try {
-        // eslint-disable-next-line @typescript-eslint/no-var-requires
-        const { partialResultsToMatrix } = require('../workers/simulationWorker');
         const p = payload as { partialResults: unknown };
-        const result = partialResultsToMatrix(p.partialResults);
+        const result = partialToMatrixLoose(p.partialResults);
         return Promise.resolve({ type: 'COMPUTE_MATRIX_DONE', matrix: result } as unknown as T);
       } catch {
         return Promise.resolve({ type: 'COMPUTE_MATRIX_DONE', matrix: {} } as unknown as T);
@@ -42,7 +48,7 @@ function dispatchInline<T>(type: string, payload: unknown): Promise<T> {
 
 export function useSimulationWorker() {
   return {
-    dispatch:    jest.fn((type: string, payload: unknown) => dispatchInline(type, payload)),
+    dispatch:    vi.fn((type: string, payload: unknown) => dispatchInline(type, payload)),
     isComputing: false,
   };
 }

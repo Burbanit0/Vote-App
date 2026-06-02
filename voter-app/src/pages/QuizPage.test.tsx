@@ -6,7 +6,7 @@ import questions, { QuizQuestion } from '../data/quizQuestions';
 
 // ── Mocks ────────────────────────────────────────────────────────────────────
 
-jest.mock('../hooks/useMetaTags', () => ({ useMetaTags: () => {} }));
+vi.mock('../hooks/useMetaTags', () => ({ useMetaTags: () => {} }));
 
 const localStorageMock = (() => {
   let store: Record<string, string> = {};

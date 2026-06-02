@@ -3,8 +3,8 @@ import { render, screen, waitFor } from '@testing-library/react';
 import Profile from '../Profile';
 import { fetchProfileData } from '../../../services';
 
-jest.mock('../../../services', () => ({
-  fetchProfileData: jest.fn(),
+vi.mock('../../../services', () => ({
+  fetchProfileData: vi.fn(),
 }));
 
 const mockProfile = {
@@ -18,14 +18,14 @@ const mockProfile = {
 
 // Default: user is logged in. Each test that needs a different value should
 // override via the mock before rendering.
-jest.mock('../../../stores/useAuthStore', () => ({
-  ...jest.requireActual('../../../stores/useAuthStore'),
+vi.mock('../../../stores/useAuthStore', async () => ({
+  ...(await vi.importActual('../../../stores/useAuthStore')),
   useAuth: () => ({ user: { username: 'alice', role: 'User' } }),
 }));
 
 describe('Profile', () => {
   afterEach(() => {
-    jest.restoreAllMocks();
+    vi.restoreAllMocks();
   });
 
   it('shows loading state initially', () => {

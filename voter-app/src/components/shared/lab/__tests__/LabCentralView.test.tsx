@@ -5,9 +5,9 @@ import { usePerturbations, useLabStore } from '../../../../stores/useLabStore';
 import type { ElectionResult } from '../../../../services/electionApi';
 
 // Mock the heavy ideology map (it does an axios fetch on mount)
-jest.mock('../../../Simulation/IdeologyMapChart', () => () => (
+vi.mock('../../../Simulation/IdeologyMapChart', () => ({ default: () => (
   <div data-testid="mock-map">map</div>
-));
+) }));
 
 const COLLAPSED_LS_KEY = 'votelab_central_collapsed';
 const FOCUS_LS_KEY     = 'votelab_central_focus_mode';

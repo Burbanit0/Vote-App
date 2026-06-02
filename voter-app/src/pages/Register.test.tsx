@@ -4,8 +4,8 @@ import { MemoryRouter } from 'react-router-dom';
 import Register from './Register';
 import { registerUser } from '../services/authApi';
 
-jest.mock('../services/authApi', () => ({
-  registerUser: jest.fn(),
+vi.mock('../services/authApi', () => ({
+  registerUser: vi.fn(),
 }));
 
 function renderPage() {
@@ -18,7 +18,7 @@ function renderPage() {
 
 describe('Register', () => {
   beforeEach(() => {
-    jest.clearAllMocks();
+    vi.clearAllMocks();
     localStorage.clear();
   });
 

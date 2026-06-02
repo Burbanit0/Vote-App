@@ -2,7 +2,7 @@ import React from 'react';
 import { render, screen, fireEvent } from '@testing-library/react';
 import ScenarioAPanel from '../ScenarioAPanel';
 
-jest.mock('../../ScenarioBuilder/CandidateEditor', () => {
+vi.mock('../../ScenarioBuilder/CandidateEditor', () => {
   const MockEditor = ({ candidates, onChange }: any) => (
     <div data-testid="candidate-editor">
       {candidates.map((c: any) => (
@@ -13,7 +13,7 @@ jest.mock('../../ScenarioBuilder/CandidateEditor', () => {
       ))}
     </div>
   );
-  return Object.assign(MockEditor, { newCandidate: () => ({ id: 'new' }), newBlankCandidate: () => ({ id: 'blank', isBlank: true }) });
+  return { default: Object.assign(MockEditor, { newCandidate: () => ({ id: 'new' }), newBlankCandidate: () => ({ id: 'blank', isBlank: true }) }) };
 });
 
 const initialCandidates = [
@@ -23,19 +23,19 @@ const initialCandidates = [
 
 describe('ScenarioAPanel', () => {
   it('renders candidate editor', () => {
-    render(<ScenarioAPanel initialCandidates={initialCandidates} result={null} loading={false} onRun={jest.fn()} />);
+    render(<ScenarioAPanel initialCandidates={initialCandidates} result={null} loading={false} onRun={vi.fn()} />);
     expect(screen.getByTestId('candidate-editor')).toBeInTheDocument();
     expect(screen.getByText('Alice')).toBeInTheDocument();
     expect(screen.getByText('Bob')).toBeInTheDocument();
   });
 
   it('renders run button enabled when candidates exist', () => {
-    render(<ScenarioAPanel initialCandidates={initialCandidates} result={null} loading={false} onRun={jest.fn()} />);
+    render(<ScenarioAPanel initialCandidates={initialCandidates} result={null} loading={false} onRun={vi.fn()} />);
     expect(screen.getByText(/Simulate round 2/)).toBeInTheDocument();
   });
 
   it('shows loading spinner when loading', () => {
-    render(<ScenarioAPanel initialCandidates={initialCandidates} result={null} loading={true} onRun={jest.fn()} />);
+    render(<ScenarioAPanel initialCandidates={initialCandidates} result={null} loading={true} onRun={vi.fn()} />);
     expect(screen.getByText(/Simulating…/)).toBeInTheDocument();
   });
 
@@ -49,7 +49,7 @@ describe('ScenarioAPanel', () => {
       },
       conclusion: 'Le second tour change le vainqueur.',
     };
-    render(<ScenarioAPanel initialCandidates={initialCandidates} result={result as any} loading={false} onRun={jest.fn()} />);
+    render(<ScenarioAPanel initialCandidates={initialCandidates} result={result as any} loading={false} onRun={vi.fn()} />);
     expect(screen.getByText(/Le second tour change le vainqueur/)).toBeInTheDocument();
   });
 });

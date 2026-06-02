@@ -2,11 +2,11 @@ import React from 'react';
 import { render, screen, fireEvent, waitFor } from '@testing-library/react';
 import VoteStepAnimator from '../VoteStepAnimator';
 
-jest.mock('../../../services/simulationCompareApi', () => ({
-  getVoteSteps: jest.fn(),
+vi.mock('../../../services/simulationCompareApi', () => ({
+  getVoteSteps: vi.fn(),
 }));
 
-jest.mock('recharts', () => ({
+vi.mock('recharts', () => ({
   ResponsiveContainer: ({ children }: any) => <div>{children}</div>,
   BarChart:            ({ children }: any) => <div data-testid="bar-chart">{children}</div>,
   Bar:                 ({ children }: any) => <div>{children}</div>,
@@ -18,7 +18,7 @@ jest.mock('recharts', () => ({
   Tooltip:       () => null,
 }));
 
-const { getVoteSteps } = jest.requireMock('../../../services/simulationCompareApi') as {
+const { getVoteSteps } = (await import('../../../services/simulationCompareApi')) as unknown as {
   getVoteSteps: jest.Mock;
 };
 
@@ -39,13 +39,13 @@ const SCHULZE_MOCK = {
 };
 
 beforeEach(() => {
-  jest.clearAllMocks();
-  jest.useFakeTimers();
+  vi.clearAllMocks();
+  vi.useFakeTimers();
   getVoteSteps.mockResolvedValue(IRV_MOCK);
 });
 
 afterEach(() => {
-  jest.useRealTimers();
+  vi.useRealTimers();
 });
 
 describe('VoteStepAnimator', () => {

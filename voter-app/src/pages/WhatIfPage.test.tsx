@@ -10,16 +10,16 @@ import { WhatIfDataPoint } from '../services/whatIfApi';
 
 // ── Mocks ─────────────────────────────────────────────────────────────────
 
-jest.mock('../hooks/useMetaTags', () => ({ useMetaTags: () => {} }));
-jest.mock('../stores/useUIStore', () => ({
-  ...jest.requireActual('../stores/useUIStore'),
+vi.mock('../hooks/useMetaTags', () => ({ useMetaTags: () => {} }));
+vi.mock('../stores/useUIStore', async () => ({
+  ...(await vi.importActual('../stores/useUIStore')),
   useExpertMode: () => ({ expertMode: false }),
 }));
 
 // Mock the API service
-jest.mock('../services/whatIfApi', () => ({
-  ...jest.requireActual('../services/whatIfApi'),
-  runWhatIf: jest.fn(),
+vi.mock('../services/whatIfApi', async () => ({
+  ...(await vi.importActual('../services/whatIfApi')),
+  runWhatIf: vi.fn(),
 }));
 
 import { runWhatIf } from '../services/whatIfApi';

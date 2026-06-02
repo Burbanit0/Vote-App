@@ -6,11 +6,11 @@ import DistrictMap from '../DistrictMap';
 import { ElectionProvider } from '../../../stores/useElectionStore';
 import { makeTestQueryClient } from '../../../test/queryWrapper';
 
-jest.mock('../../../api/client', () => ({
-  apiClient: { GET: jest.fn(), POST: jest.fn(), PUT: jest.fn(), DELETE: jest.fn(), PATCH: jest.fn() },
-  getAccessToken: jest.fn(() => null),
+vi.mock('../../../api/client', () => ({
+  apiClient: { GET: vi.fn(), POST: vi.fn(), PUT: vi.fn(), DELETE: vi.fn(), PATCH: vi.fn() },
+  getAccessToken: vi.fn(() => null),
 }));
-const { apiClient } = jest.requireMock('../../../api/client') as { apiClient: { POST: jest.Mock } };
+const { apiClient } = (await import('../../../api/client')) as unknown as { apiClient: { POST: jest.Mock } };
 
 const makeData = (numDistricts = 10) => ({
   data: {
@@ -53,13 +53,13 @@ function renderPanel() {
 }
 
 beforeEach(() => {
-  jest.clearAllMocks();
+  vi.clearAllMocks();
   localStorage.clear();
-  jest.useFakeTimers();
+  vi.useFakeTimers();
 });
 
 afterEach(() => {
-  jest.useRealTimers();
+  vi.useRealTimers();
 });
 
 describe('DistrictMap', () => {
@@ -86,7 +86,7 @@ describe('DistrictMap', () => {
     await waitFor(() => {
       expect(container.querySelector('[data-testid="district-grid"]')).toBeInTheDocument();
     });
-    jest.runAllTimers();
+    vi.runAllTimers();
   });
 
   it('renders correct number of district rectangles', async () => {
@@ -96,7 +96,7 @@ describe('DistrictMap', () => {
     await waitFor(() => {
       expect(container.querySelector('[data-testid="district-grid"]')).toBeInTheDocument();
     });
-    jest.runAllTimers();
+    vi.runAllTimers();
     const rects = container.querySelectorAll('[data-testid="district-grid"] rect');
     expect(rects.length).toBe(10);
   });
@@ -108,7 +108,7 @@ describe('DistrictMap', () => {
     await waitFor(() => {
       expect(screen.getAllByText(/FPTP.*Alice|Alice.*FPTP/i).length).toBeGreaterThan(0);
     });
-    jest.runAllTimers();
+    vi.runAllTimers();
   });
 
   it('shows distortion badge', async () => {
@@ -118,7 +118,7 @@ describe('DistrictMap', () => {
     await waitFor(() => {
       expect(screen.getByTestId('distortion-badge')).toBeInTheDocument();
     });
-    jest.runAllTimers();
+    vi.runAllTimers();
   });
 
   it('shows warning pedagogical message when FPTP and PR winners differ', async () => {
@@ -130,7 +130,7 @@ describe('DistrictMap', () => {
       const alerts = document.querySelectorAll('.alert-warning');
       expect(alerts.length).toBeGreaterThan(0);
     });
-    jest.runAllTimers();
+    vi.runAllTimers();
   });
 
   it('renders two hémicycle SVGs', async () => {
@@ -142,7 +142,7 @@ describe('DistrictMap', () => {
       // district grid + 2 hémicycles = at least 3 SVGs
       expect(svgs.length).toBeGreaterThanOrEqual(3);
     });
-    jest.runAllTimers();
+    vi.runAllTimers();
   });
 
   it('shows error message on API failure', async () => {
@@ -161,6 +161,6 @@ describe('DistrictMap', () => {
     await waitFor(() => {
       expect(screen.getByRole('button', { name: /replay|rejouer/i })).toBeInTheDocument();
     });
-    jest.runAllTimers();
+    vi.runAllTimers();
   });
 });

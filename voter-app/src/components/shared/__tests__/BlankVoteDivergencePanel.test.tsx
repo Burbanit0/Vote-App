@@ -4,11 +4,11 @@ import { MemoryRouter } from 'react-router';
 import BlankVoteDivergencePanel from '../BlankVoteDivergencePanel';
 import { ElectionProvider } from '../../../stores/useElectionStore';
 
-jest.mock('../../../services/electionApi', () => ({
-  fetchDivergence: jest.fn(),
+vi.mock('../../../services/electionApi', () => ({
+  fetchDivergence: vi.fn(),
 }));
 
-jest.mock('recharts', () => ({
+vi.mock('recharts', () => ({
   ResponsiveContainer: ({ children }: any) => <div>{children}</div>,
   BarChart:            ({ children }: any) => <div data-testid="bar-chart">{children}</div>,
   Bar:                 ({ children }: any) => <div>{children}</div>,
@@ -19,7 +19,7 @@ jest.mock('recharts', () => ({
   Tooltip:       () => null,
 }));
 
-const { fetchDivergence } = jest.requireMock('../../../services/electionApi') as {
+const { fetchDivergence } = (await import('../../../services/electionApi')) as unknown as {
   fetchDivergence: jest.Mock;
 };
 
@@ -86,7 +86,7 @@ function renderPanel() {
 }
 
 beforeEach(() => {
-  jest.clearAllMocks();
+  vi.clearAllMocks();
   localStorage.clear();
 });
 

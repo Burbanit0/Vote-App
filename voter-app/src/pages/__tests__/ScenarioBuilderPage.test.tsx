@@ -2,7 +2,7 @@ import React from 'react';
 import { render, screen, fireEvent, waitFor } from '@testing-library/react';
 import ScenarioBuilderPage from '../ScenarioBuilderPage';
 
-jest.mock('../../components/ScenarioBuilder/CandidateEditor', () => {
+vi.mock('../../components/ScenarioBuilder/CandidateEditor', () => {
   const MockCandidateEditor: React.FC<{ candidates: { name: string; isBlank?: boolean }[] }> = ({ candidates }) => (
     <div data-testid="candidate-editor">
       {candidates.map((c, i) => (
@@ -22,47 +22,47 @@ jest.mock('../../components/ScenarioBuilder/CandidateEditor', () => {
   };
 });
 
-jest.mock('../../components/ScenarioBuilder/ElectorateConfig', () => {
-  return function MockElectorateConfig() {
+vi.mock('../../components/ScenarioBuilder/ElectorateConfig', () => {
+  return { default: function MockElectorateConfig() {
     return <div data-testid="electorate-config">ElectorateConfig</div>;
-  };
+  } };
 });
 
-jest.mock('../../components/ScenarioBuilder/BlankVoteRuleSelector', () => {
-  return function MockBlankVoteRuleSelector() {
+vi.mock('../../components/ScenarioBuilder/BlankVoteRuleSelector', () => {
+  return { default: function MockBlankVoteRuleSelector() {
     return <div data-testid="blank-rule-selector">BlankVoteRuleSelector</div>;
-  };
+  } };
 });
 
-jest.mock('../../services/simulationCompareApi', () => ({
-  runScenario: jest.fn(),
+vi.mock('../../services/simulationCompareApi', () => ({
+  runScenario: vi.fn(),
 }));
 
-jest.mock('../../utils/shareUtils', () => ({
-  buildShareURL: jest.fn(() => 'http://example.com/share'),
-  copyShareURL: jest.fn(),
-  decodeShareConfig: jest.fn(),
-  readShareParam: jest.fn(() => null),
+vi.mock('../../utils/shareUtils', () => ({
+  buildShareURL: vi.fn(() => 'http://example.com/share'),
+  copyShareURL: vi.fn(),
+  decodeShareConfig: vi.fn(),
+  readShareParam: vi.fn(() => null),
 }));
 
-jest.mock('../../components/shared/ToastNotification', () => ({
-  useToast: () => ({ error: jest.fn() }),
+vi.mock('../../components/shared/ToastNotification', () => ({
+  useToast: () => ({ error: vi.fn() }),
 }));
 
-jest.mock('../../stores/useUIStore', () => ({
-  ...jest.requireActual('../../stores/useUIStore'),
+vi.mock('../../stores/useUIStore', async () => ({
+  ...(await vi.importActual('../../stores/useUIStore')),
   useExpertMode: () => ({ expertMode: false }),
 }));
 
-jest.mock('../../hooks/useMetaTags', () => ({
-  useMetaTags: jest.fn(),
+vi.mock('../../hooks/useMetaTags', () => ({
+  useMetaTags: vi.fn(),
 }));
 
-const { runScenario } = require('../../services/simulationCompareApi');
+const { runScenario } = (await import('../../services/simulationCompareApi'));
 
 describe('ScenarioBuilderPage', () => {
   beforeEach(() => {
-    jest.clearAllMocks();
+    vi.clearAllMocks();
   });
 
   it('renders the page title and step indicator', () => {

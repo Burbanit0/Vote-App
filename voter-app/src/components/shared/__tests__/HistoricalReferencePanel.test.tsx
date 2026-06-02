@@ -4,11 +4,11 @@ import { MemoryRouter } from 'react-router';
 import HistoricalReferencePanel from '../HistoricalReferencePanel';
 
 // Mock the ElectionContext so we control scenarioMeta directly
-jest.mock('../../../stores/useElectionStore', () => ({
-  useElection: jest.fn(),
+vi.mock('../../../stores/useElectionStore', () => ({
+  useElection: vi.fn(),
 }));
 
-const { useElection } = jest.requireMock('../../../stores/useElectionStore') as {
+const { useElection } = (await import('../../../stores/useElectionStore')) as unknown as {
   useElection: jest.Mock;
 };
 
@@ -40,7 +40,7 @@ const MOCK_RESULT = {
 };
 
 function renderPanel(meta: typeof FRANCE2002_META | null, result: any = null) {
-  useElection.mockReturnValue({ scenarioMeta: meta, clearScenarioMeta: jest.fn() });
+  useElection.mockReturnValue({ scenarioMeta: meta, clearScenarioMeta: vi.fn() });
   return render(
     <MemoryRouter>
       <HistoricalReferencePanel result={result} />
@@ -48,7 +48,7 @@ function renderPanel(meta: typeof FRANCE2002_META | null, result: any = null) {
   );
 }
 
-beforeEach(() => jest.clearAllMocks());
+beforeEach(() => vi.clearAllMocks());
 
 describe('HistoricalReferencePanel', () => {
   it('renders nothing when scenarioMeta is null', () => {

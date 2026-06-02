@@ -5,13 +5,13 @@ import { QueryClientProvider } from '@tanstack/react-query';
 import ArrowExplorer from '../ArrowExplorer';
 import { makeTestQueryClient } from '../../../test/queryWrapper';
 
-jest.mock('../../../api/client', () => ({
-  apiClient: { GET: jest.fn(), POST: jest.fn(), PUT: jest.fn(), DELETE: jest.fn(), PATCH: jest.fn() },
-  getAccessToken: jest.fn(() => null),
+vi.mock('../../../api/client', () => ({
+  apiClient: { GET: vi.fn(), POST: vi.fn(), PUT: vi.fn(), DELETE: vi.fn(), PATCH: vi.fn() },
+  getAccessToken: vi.fn(() => null),
 }));
-const { apiClient } = jest.requireMock('../../../api/client') as { apiClient: { POST: jest.Mock } };
+const { apiClient } = (await import('../../../api/client')) as unknown as { apiClient: { POST: jest.Mock } };
 
-jest.mock('recharts', () => {
+vi.mock('recharts', () => {
   const React = require('react');
   return {
     LineChart:           ({ children }: any) => <div>{children}</div>,
@@ -74,11 +74,11 @@ function renderExplorer() {
 }
 
 beforeEach(() => {
-  jest.clearAllMocks();
-  jest.useFakeTimers();
+  vi.clearAllMocks();
+  vi.useFakeTimers();
 });
 
-afterEach(() => { jest.useRealTimers(); });
+afterEach(() => { vi.useRealTimers(); });
 
 // ── Tests ─────────────────────────────────────────────────────────────────────
 
@@ -121,7 +121,7 @@ describe('ArrowExplorer', () => {
       expect.stringMatching(/\/api\/(v2\/)?theory\/iia-rate/),
       expect.any(Object),
     );
-    jest.runAllTimers();
+    vi.runAllTimers();
   });
 
   it('renders pentagon SVG after analysis', async () => {
@@ -129,7 +129,7 @@ describe('ArrowExplorer', () => {
     renderExplorer();
     fireEvent.click(screen.getByTestId('analyze-btn'));
     await waitFor(() => expect(screen.getByTestId('arrow-pentagon')).toBeInTheDocument(), { timeout: 8000 });
-    jest.runAllTimers();
+    vi.runAllTimers();
   });
 
   it('shows counterexample card for IIA', async () => {
@@ -137,7 +137,7 @@ describe('ArrowExplorer', () => {
     renderExplorer();
     fireEvent.click(screen.getByTestId('analyze-btn'));
     await waitFor(() => expect(screen.getByTestId('counterexample-iia')).toBeInTheDocument(), { timeout: 8000 });
-    jest.runAllTimers();
+    vi.runAllTimers();
   });
 
   it('shows IIA rate chart after analysis', async () => {
@@ -145,7 +145,7 @@ describe('ArrowExplorer', () => {
     renderExplorer();
     fireEvent.click(screen.getByTestId('analyze-btn'));
     await waitFor(() => expect(screen.getByTestId('iia-rate-chart')).toBeInTheDocument(), { timeout: 8000 });
-    jest.runAllTimers();
+    vi.runAllTimers();
   });
 
   it('shows axiom comparison matrix', () => {

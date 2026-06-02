@@ -2,7 +2,7 @@ import React from 'react';
 import { render } from '@testing-library/react';
 import { Tooltip } from '../Tooltip';
 
-jest.mock('../tooltip.module.css', () => ({ tooltip: 'tooltip' }));
+vi.mock('../tooltip.module.css', () => ({ default: { tooltip: 'tooltip' }, tooltip: 'tooltip' }));
 
 describe('Tooltip', () => {
   it('renders null when interactionData is null', () => {

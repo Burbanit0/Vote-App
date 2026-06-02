@@ -2,12 +2,12 @@ import React from 'react';
 import { render, screen, fireEvent } from '@testing-library/react';
 import MethodRadarChart from '../MethodRadarChart';
 
-jest.mock('../../../stores/useUIStore', () => ({
-  ...jest.requireActual('../../../stores/useUIStore'),
-  useExpertMode: () => ({ expertMode: true, setExpertMode: jest.fn() }),
+vi.mock('../../../stores/useUIStore', async () => ({
+  ...(await vi.importActual('../../../stores/useUIStore')),
+  useExpertMode: () => ({ expertMode: true, setExpertMode: vi.fn() }),
 }));
 
-jest.mock('recharts', () => ({
+vi.mock('recharts', () => ({
   RadarChart:       ({ children }: any) => <div data-testid="radar-chart">{children}</div>,
   Radar:            ({ name }: any)     => <div data-testid={`radar-${name}`} />,
   PolarGrid:        () => null,

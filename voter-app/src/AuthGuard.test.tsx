@@ -4,9 +4,9 @@ import { MemoryRouter, Route, Routes } from 'react-router-dom';
 import AuthGuard from './components/Route/AuthGuard';
 import { useAuth } from './stores/useAuthStore';
 
-jest.mock('./stores/useAuthStore', () => ({
-  ...jest.requireActual('./stores/useAuthStore'),
-  useAuth: jest.fn(),
+vi.mock('./stores/useAuthStore', async () => ({
+  ...(await vi.importActual('./stores/useAuthStore')),
+  useAuth: vi.fn(),
 }));
 
 const MockComponent = () => <div data-testid="mock-component">Mock Component</div>;

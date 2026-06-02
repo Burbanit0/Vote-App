@@ -6,11 +6,11 @@ import MultiwinnerCompare from '../MultiwinnerCompare';
 import { ElectionProvider } from '../../../stores/useElectionStore';
 import { makeTestQueryClient } from '../../../test/queryWrapper';
 
-jest.mock('../../../api/client', () => ({
-  apiClient: { GET: jest.fn(), POST: jest.fn(), PUT: jest.fn(), DELETE: jest.fn(), PATCH: jest.fn() },
-  getAccessToken: jest.fn(() => null),
+vi.mock('../../../api/client', () => ({
+  apiClient: { GET: vi.fn(), POST: vi.fn(), PUT: vi.fn(), DELETE: vi.fn(), PATCH: vi.fn() },
+  getAccessToken: vi.fn(() => null),
 }));
-const { apiClient } = jest.requireMock('../../../api/client') as { apiClient: { POST: jest.Mock } };
+const { apiClient } = (await import('../../../api/client')) as unknown as { apiClient: { POST: jest.Mock } };
 
 // ── Fixture ───────────────────────────────────────────────────────────────────
 
@@ -61,12 +61,12 @@ function renderPanel() {
 }
 
 beforeEach(() => {
-  jest.clearAllMocks();
+  vi.clearAllMocks();
   localStorage.clear();
-  jest.useFakeTimers();
+  vi.useFakeTimers();
 });
 
-afterEach(() => { jest.useRealTimers(); });
+afterEach(() => { vi.useRealTimers(); });
 
 // ── Tests ─────────────────────────────────────────────────────────────────────
 
@@ -90,7 +90,7 @@ describe('MultiwinnerCompare', () => {
       expect.stringMatching(/\/api\/(v2\/)?election\/multiwinner_compare/),
       expect.any(Object),
     );
-    jest.runAllTimers();
+    vi.runAllTimers();
   });
 
   it('renders 5 hémicycles after data loads', async () => {
@@ -101,7 +101,7 @@ describe('MultiwinnerCompare', () => {
       const svgs = container.querySelectorAll('svg');
       expect(svgs.length).toBeGreaterThanOrEqual(5);
     });
-    jest.runAllTimers();
+    vi.runAllTimers();
   });
 
   it('shows distortion badges for each method', async () => {
@@ -112,7 +112,7 @@ describe('MultiwinnerCompare', () => {
       expect(screen.getByTestId('distortion-badge-STV')).toBeInTheDocument();
       expect(screen.getByTestId('distortion-badge-FPTP')).toBeInTheDocument();
     });
-    jest.runAllTimers();
+    vi.runAllTimers();
   });
 
   it('shows pedagogical note', async () => {
@@ -122,7 +122,7 @@ describe('MultiwinnerCompare', () => {
     await waitFor(() => {
       expect(screen.getByTestId('multiwinner-pedagogical')).toBeInTheDocument();
     });
-    jest.runAllTimers();
+    vi.runAllTimers();
   });
 
   it('comparison table shows all 5 methods', async () => {
@@ -136,7 +136,7 @@ describe('MultiwinnerCompare', () => {
       expect(screen.getAllByText('Phragmén').length).toBeGreaterThan(0);
       expect(screen.getAllByText('FPTP').length).toBeGreaterThan(0);
     });
-    jest.runAllTimers();
+    vi.runAllTimers();
   });
 
   it('shows error on API failure', async () => {
@@ -154,6 +154,6 @@ describe('MultiwinnerCompare', () => {
       const bestBadge = screen.getAllByText(/proportionnel|PR/i);
       expect(bestBadge.length).toBeGreaterThan(0);
     });
-    jest.runAllTimers();
+    vi.runAllTimers();
   });
 });

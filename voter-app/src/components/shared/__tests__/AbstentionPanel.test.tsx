@@ -8,15 +8,15 @@ import { makeTestQueryClient } from '../../../test/queryWrapper';
 
 // Mock the typed openapi-fetch client; real react-query drives the state
 // transitions. $api (openapi-react-query) calls apiClient.POST(path, { body }).
-jest.mock('../../../api/client', () => ({
-  apiClient: { GET: jest.fn(), POST: jest.fn(), PUT: jest.fn(), DELETE: jest.fn(), PATCH: jest.fn() },
-  getAccessToken: jest.fn(() => null),
+vi.mock('../../../api/client', () => ({
+  apiClient: { GET: vi.fn(), POST: vi.fn(), PUT: vi.fn(), DELETE: vi.fn(), PATCH: vi.fn() },
+  getAccessToken: vi.fn(() => null),
 }));
-const { apiClient } = jest.requireMock('../../../api/client') as {
+const { apiClient } = (await import('../../../api/client')) as unknown as {
   apiClient: { POST: jest.Mock };
 };
 
-jest.mock('recharts', () => {
+vi.mock('recharts', () => {
   const React = require('react');
   return {
     LineChart:           ({ children }: any) => <div data-testid="line-chart">{children}</div>,
@@ -80,13 +80,13 @@ function renderPanel() {
 }
 
 beforeEach(() => {
-  jest.clearAllMocks();
+  vi.clearAllMocks();
   localStorage.clear();
-  jest.useFakeTimers();
+  vi.useFakeTimers();
 });
 
 afterEach(() => {
-  jest.useRealTimers();
+  vi.useRealTimers();
 });
 
 // ── Tests ─────────────────────────────────────────────────────────────────────
@@ -124,7 +124,7 @@ describe('AbstentionPanel', () => {
     renderPanel();
     fireEvent.click(screen.getByRole('button', { name: /simuler|simulate/i }));
     await waitFor(() => expect(screen.getByTestId('abstention-map-svg')).toBeInTheDocument());
-    jest.runAllTimers();
+    vi.runAllTimers();
   });
 
   it('renders abstained voters as grey dots', async () => {
@@ -133,10 +133,10 @@ describe('AbstentionPanel', () => {
     fireEvent.click(screen.getByRole('button', { name: /simuler|simulate/i }));
     await waitFor(() => expect(screen.getByTestId('abstention-map-svg')).toBeInTheDocument());
     fireEvent.change(screen.getByTestId('round-slider'), { target: { value: '1' } });
-    act(() => { jest.runAllTimers(); });
+    act(() => { vi.runAllTimers(); });
     const abstainedDots = container.querySelectorAll('[data-testid="abstained-voter"]');
     expect(abstainedDots.length).toBeGreaterThan(0);
-    jest.runAllTimers();
+    vi.runAllTimers();
   });
 
   it('shows green comparison band when winner unchanged', async () => {
@@ -148,7 +148,7 @@ describe('AbstentionPanel', () => {
       expect(band).toBeInTheDocument();
       expect(band.style.background).toMatch(/f0fff4|rgb\(240,\s*255,\s*244\)/);
     });
-    jest.runAllTimers();
+    vi.runAllTimers();
   });
 
   it('shows red comparison band when winner changed', async () => {
@@ -159,7 +159,7 @@ describe('AbstentionPanel', () => {
       const band = screen.getByTestId('winner-comparison-band');
       expect(band.style.background).toMatch(/fff3f3|rgb\(255,\s*243,\s*243\)/);
     });
-    jest.runAllTimers();
+    vi.runAllTimers();
   });
 
   it('renders turnout line chart', async () => {
@@ -167,7 +167,7 @@ describe('AbstentionPanel', () => {
     renderPanel();
     fireEvent.click(screen.getByRole('button', { name: /simuler|simulate/i }));
     await waitFor(() => expect(screen.getByTestId('turnout-chart')).toBeInTheDocument());
-    jest.runAllTimers();
+    vi.runAllTimers();
   });
 
   it('shows camp turnout badges', async () => {
@@ -178,7 +178,7 @@ describe('AbstentionPanel', () => {
       expect(screen.getByTestId('camp-turnout-Alice')).toBeInTheDocument();
       expect(screen.getByTestId('camp-turnout-Bob')).toBeInTheDocument();
     });
-    jest.runAllTimers();
+    vi.runAllTimers();
   });
 
   it('shows play/pause button', async () => {
@@ -186,7 +186,7 @@ describe('AbstentionPanel', () => {
     renderPanel();
     fireEvent.click(screen.getByRole('button', { name: /simuler|simulate/i }));
     await waitFor(() => expect(screen.getByTestId('play-button')).toBeInTheDocument());
-    jest.runAllTimers();
+    vi.runAllTimers();
   });
 
   it('shows error on API failure', async () => {

@@ -3,8 +3,8 @@ import { render, screen, fireEvent, waitFor } from '@testing-library/react';
 import ScenarioModals from '../ScenarioModals';
 import { getScenario } from '../../../services/scenariosApi';
 
-jest.mock('../../../services/scenariosApi', () => ({
-  getScenario: jest.fn(),
+vi.mock('../../../services/scenariosApi', () => ({
+  getScenario: vi.fn(),
 }));
 
 const mockScenarios = [
@@ -14,22 +14,22 @@ const mockScenarios = [
 
 const defaultProps = {
   showSaveModal: false,
-  setShowSaveModal: jest.fn(),
+  setShowSaveModal: vi.fn(),
   saveName: '',
-  setSaveName: jest.fn(),
+  setSaveName: vi.fn(),
   saving: false,
-  handleSave: jest.fn(),
+  handleSave: vi.fn(),
   showLoadModal: false,
-  setShowLoadModal: jest.fn(),
+  setShowLoadModal: vi.fn(),
   scenarioList: [],
   loadingList: false,
-  handleLoad: jest.fn(),
-  handleDelete: jest.fn(),
+  handleLoad: vi.fn(),
+  handleDelete: vi.fn(),
 };
 
 describe('ScenarioModals', () => {
   afterEach(() => {
-    jest.restoreAllMocks();
+    vi.restoreAllMocks();
   });
 
   describe('Save Modal', () => {
@@ -86,7 +86,7 @@ describe('ScenarioModals', () => {
     it('calls getScenario and handleLoad on Load click', async () => {
       const detail = { id: 1, name: 'Test', created_at: '', config: {}, results: null };
       (getScenario as jest.Mock).mockResolvedValue(detail);
-      const handleLoad = jest.fn();
+      const handleLoad = vi.fn();
 
       render(
         <ScenarioModals
@@ -109,7 +109,7 @@ describe('ScenarioModals', () => {
     });
 
     it('calls handleDelete on Delete click', () => {
-      const handleDelete = jest.fn();
+      const handleDelete = vi.fn();
       render(
         <ScenarioModals
           {...defaultProps}

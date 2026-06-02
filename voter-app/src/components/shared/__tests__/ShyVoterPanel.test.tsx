@@ -6,13 +6,13 @@ import ShyVoterPanel from '../ShyVoterPanel';
 import { ElectionProvider } from '../../../stores/useElectionStore';
 import { makeTestQueryClient } from '../../../test/queryWrapper';
 
-jest.mock('../../../api/client', () => ({
-  apiClient: { GET: jest.fn(), POST: jest.fn(), PUT: jest.fn(), DELETE: jest.fn(), PATCH: jest.fn() },
-  getAccessToken: jest.fn(() => null),
+vi.mock('../../../api/client', () => ({
+  apiClient: { GET: vi.fn(), POST: vi.fn(), PUT: vi.fn(), DELETE: vi.fn(), PATCH: vi.fn() },
+  getAccessToken: vi.fn(() => null),
 }));
-const { apiClient } = jest.requireMock('../../../api/client') as { apiClient: { POST: jest.Mock } };
+const { apiClient } = (await import('../../../api/client')) as unknown as { apiClient: { POST: jest.Mock } };
 
-jest.mock('recharts', () => {
+vi.mock('recharts', () => {
   const React = require('react');
   return {
     BarChart:            ({ children }: any) => <div>{children}</div>,
@@ -71,12 +71,12 @@ function renderPanel() {
 }
 
 beforeEach(() => {
-  jest.clearAllMocks();
+  vi.clearAllMocks();
   localStorage.clear();
-  jest.useFakeTimers();
+  vi.useFakeTimers();
 });
 
-afterEach(() => { jest.useRealTimers(); });
+afterEach(() => { vi.useRealTimers(); });
 
 // ── Tests ─────────────────────────────────────────────────────────────────────
 
@@ -115,7 +115,7 @@ describe('ShyVoterPanel', () => {
       expect.stringMatching(/\/api\/(v2\/)?election\/shy-voter/),
       expect.any(Object),
     );
-    jest.runAllTimers();
+    vi.runAllTimers();
   });
 
   it('shows poll-winner and real-winner badges after data loads', async () => {
@@ -126,7 +126,7 @@ describe('ShyVoterPanel', () => {
       expect(screen.getByTestId('poll-winner-badge')).toBeInTheDocument();
       expect(screen.getByTestId('real-winner-badge')).toBeInTheDocument();
     });
-    jest.runAllTimers();
+    vi.runAllTimers();
   });
 
   it('shows shy-candidate badge', async () => {
@@ -134,7 +134,7 @@ describe('ShyVoterPanel', () => {
     renderPanel();
     fireEvent.click(screen.getByRole('button', { name: /simuler|simulate/i }));
     await waitFor(() => expect(screen.getByTestId('shy-candidate-badge')).toBeInTheDocument());
-    jest.runAllTimers();
+    vi.runAllTimers();
   });
 
   it('shows polls-wrong alert when polls were wrong', async () => {
@@ -142,7 +142,7 @@ describe('ShyVoterPanel', () => {
     renderPanel();
     fireEvent.click(screen.getByRole('button', { name: /simuler|simulate/i }));
     await waitFor(() => expect(screen.getByTestId('polls-wrong-alert')).toBeInTheDocument());
-    jest.runAllTimers();
+    vi.runAllTimers();
   });
 
   it('does NOT show polls-wrong alert when polls were correct', async () => {
@@ -151,7 +151,7 @@ describe('ShyVoterPanel', () => {
     fireEvent.click(screen.getByRole('button', { name: /simuler|simulate/i }));
     await waitFor(() => screen.getByTestId('poll-winner-badge'));
     expect(screen.queryByTestId('polls-wrong-alert')).not.toBeInTheDocument();
-    jest.runAllTimers();
+    vi.runAllTimers();
   });
 
   it('shows comparison bar chart', async () => {
@@ -159,7 +159,7 @@ describe('ShyVoterPanel', () => {
     renderPanel();
     fireEvent.click(screen.getByRole('button', { name: /simuler|simulate/i }));
     await waitFor(() => expect(screen.getByTestId('comparison-bar-chart')).toBeInTheDocument());
-    jest.runAllTimers();
+    vi.runAllTimers();
   });
 
   it('shows poll timeline chart', async () => {
@@ -167,7 +167,7 @@ describe('ShyVoterPanel', () => {
     renderPanel();
     fireEvent.click(screen.getByRole('button', { name: /simuler|simulate/i }));
     await waitFor(() => expect(screen.getByTestId('poll-timeline-chart')).toBeInTheDocument());
-    jest.runAllTimers();
+    vi.runAllTimers();
   });
 
   it('shows error table with candidate rows', async () => {
@@ -175,7 +175,7 @@ describe('ShyVoterPanel', () => {
     renderPanel();
     fireEvent.click(screen.getByRole('button', { name: /simuler|simulate/i }));
     await waitFor(() => expect(screen.getByTestId('error-table')).toBeInTheDocument());
-    jest.runAllTimers();
+    vi.runAllTimers();
   });
 
   it('shows systematic error badges per candidate', async () => {
@@ -186,7 +186,7 @@ describe('ShyVoterPanel', () => {
       expect(screen.getByTestId('error-badge-Alice')).toBeInTheDocument();
       expect(screen.getByTestId('error-badge-Bob')).toBeInTheDocument();
     });
-    jest.runAllTimers();
+    vi.runAllTimers();
   });
 
   it('debounced re-simulation on slider change', async () => {
@@ -196,9 +196,9 @@ describe('ShyVoterPanel', () => {
     await waitFor(() => expect(apiClient.POST).toHaveBeenCalledTimes(1));
 
     fireEvent.change(screen.getByTestId('sdf-slider'), { target: { value: '0.7' } });
-    act(() => { jest.advanceTimersByTime(450); });
+    act(() => { vi.advanceTimersByTime(450); });
     await waitFor(() => expect(apiClient.POST).toHaveBeenCalledTimes(2));
-    jest.runAllTimers();
+    vi.runAllTimers();
   });
 
   it('shows error on API failure', async () => {

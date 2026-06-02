@@ -2,11 +2,11 @@ import React from 'react';
 import { render, screen } from '@testing-library/react';
 import ScoreVotingComparison from '../ScoreVotingComparison';
 
-jest.mock('../useScoreVotingResults', () => ({
+vi.mock('../useScoreVotingResults', () => ({
   useScoreVotingResults: () => ({ methodA: { winner: 'Alice' }, methodB: { winner: 'Bob' } }),
 }));
 
-jest.mock('../ScoreVotingVisualizations', () => () => <div data-testid="score-viz" />);
+vi.mock('../ScoreVotingVisualizations', () => ({ default: () => <div data-testid="score-viz" /> }));
 
 describe('ScoreVotingComparison', () => {
   it('renders ScoreVotingVisualizations with results', () => {

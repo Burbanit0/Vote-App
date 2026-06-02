@@ -4,16 +4,16 @@ import { MemoryRouter } from 'react-router';
 import QuickCompareWidget from '../QuickCompareWidget';
 import { ElectionProvider } from '../../../stores/useElectionStore';
 
-jest.mock('../../../services/electionApi', () => ({
-  simulateElection: jest.fn(),
+vi.mock('../../../services/electionApi', () => ({
+  simulateElection: vi.fn(),
 }));
 
-jest.mock('react-router', () => ({
-  ...jest.requireActual('react-router'),
-  useNavigate: () => jest.fn(),
+vi.mock('react-router', async () => ({
+  ...(await vi.importActual('react-router')),
+  useNavigate: () => vi.fn(),
 }));
 
-const { simulateElection } = jest.requireMock('../../../services/electionApi') as {
+const { simulateElection } = (await import('../../../services/electionApi')) as unknown as {
   simulateElection: jest.Mock;
 };
 
@@ -47,14 +47,14 @@ function renderWidget() {
 }
 
 beforeEach(() => {
-  jest.clearAllMocks();
-  jest.useFakeTimers();
+  vi.clearAllMocks();
+  vi.useFakeTimers();
   localStorage.clear();
   simulateElection.mockResolvedValue(makeResult('Chirac', 'Jospin'));
 });
 
 afterEach(() => {
-  jest.useRealTimers();
+  vi.useRealTimers();
 });
 
 describe('QuickCompareWidget', () => {
@@ -74,36 +74,36 @@ describe('QuickCompareWidget', () => {
 
   it('fires simulateElection after debounce on mount', async () => {
     renderWidget();
-    act(() => { jest.advanceTimersByTime(500); });
+    act(() => { vi.advanceTimersByTime(500); });
     await waitFor(() => expect(simulateElection).toHaveBeenCalledTimes(1));
   });
 
   it('fires new API call when scenario changes', async () => {
     renderWidget();
-    act(() => { jest.advanceTimersByTime(500); });
+    act(() => { vi.advanceTimersByTime(500); });
     await waitFor(() => expect(simulateElection).toHaveBeenCalledTimes(1));
 
     simulateElection.mockClear();
     fireEvent.click(screen.getByText(/USA 1992/i));
-    act(() => { jest.advanceTimersByTime(500); });
+    act(() => { vi.advanceTimersByTime(500); });
     await waitFor(() => expect(simulateElection).toHaveBeenCalledTimes(1));
   });
 
   it('fires new API call when method A changes', async () => {
     renderWidget();
-    act(() => { jest.advanceTimersByTime(500); });
+    act(() => { vi.advanceTimersByTime(500); });
     await waitFor(() => expect(simulateElection).toHaveBeenCalledTimes(1));
 
     simulateElection.mockClear();
     const selects = screen.getAllByRole('combobox');
     fireEvent.change(selects[0], { target: { value: 'borda' } });
-    act(() => { jest.advanceTimersByTime(500); });
+    act(() => { vi.advanceTimersByTime(500); });
     await waitFor(() => expect(simulateElection).toHaveBeenCalledTimes(1));
   });
 
   it('shows winner badges after result loads', async () => {
     renderWidget();
-    act(() => { jest.advanceTimersByTime(500); });
+    act(() => { vi.advanceTimersByTime(500); });
     await waitFor(() => {
       expect(screen.getByText('Chirac')).toBeInTheDocument();
       expect(screen.getByText('Jospin')).toBeInTheDocument();
@@ -113,7 +113,7 @@ describe('QuickCompareWidget', () => {
   it('shows divergence message when winners differ', async () => {
     simulateElection.mockResolvedValue(makeResult('Alice', 'Bob'));
     renderWidget();
-    act(() => { jest.advanceTimersByTime(500); });
+    act(() => { vi.advanceTimersByTime(500); });
     await waitFor(() => {
       expect(screen.getByText(/Deux systèmes|Two systems/i)).toBeInTheDocument();
     });
@@ -122,7 +122,7 @@ describe('QuickCompareWidget', () => {
   it('shows consensus message when winners are the same', async () => {
     simulateElection.mockResolvedValue(makeResult('Alice', 'Alice'));
     renderWidget();
-    act(() => { jest.advanceTimersByTime(500); });
+    act(() => { vi.advanceTimersByTime(500); });
     await waitFor(() => {
       expect(screen.getByText(/s'accordent|agree/i)).toBeInTheDocument();
     });
@@ -130,7 +130,7 @@ describe('QuickCompareWidget', () => {
 
   it('shows explore button after result loads', async () => {
     renderWidget();
-    act(() => { jest.advanceTimersByTime(500); });
+    act(() => { vi.advanceTimersByTime(500); });
     await waitFor(() => {
       expect(screen.getByTestId('explore-button')).toBeInTheDocument();
     });
@@ -145,7 +145,7 @@ describe('QuickCompareWidget', () => {
     fireEvent.change(selects[0], { target: { value: 'irv' } });
     fireEvent.change(selects[0], { target: { value: 'approval' } });
 
-    act(() => { jest.advanceTimersByTime(500); });
+    act(() => { vi.advanceTimersByTime(500); });
     await waitFor(() => {
       // Should have called exactly twice (once from mount + once from rapid changes)
       expect(simulateElection.mock.calls.length).toBeLessThanOrEqual(2);

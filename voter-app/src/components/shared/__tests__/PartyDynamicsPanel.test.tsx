@@ -5,13 +5,13 @@ import { QueryClientProvider } from '@tanstack/react-query';
 import PartyDynamicsPanel from '../PartyDynamicsPanel';
 import { makeTestQueryClient } from '../../../test/queryWrapper';
 
-jest.mock('../../../api/client', () => ({
-  apiClient: { GET: jest.fn(), POST: jest.fn(), PUT: jest.fn(), DELETE: jest.fn(), PATCH: jest.fn() },
-  getAccessToken: jest.fn(() => null),
+vi.mock('../../../api/client', () => ({
+  apiClient: { GET: vi.fn(), POST: vi.fn(), PUT: vi.fn(), DELETE: vi.fn(), PATCH: vi.fn() },
+  getAccessToken: vi.fn(() => null),
 }));
-const { apiClient } = jest.requireMock('../../../api/client') as { apiClient: { POST: jest.Mock } };
+const { apiClient } = (await import('../../../api/client')) as unknown as { apiClient: { POST: jest.Mock } };
 
-jest.mock('recharts', () => {
+vi.mock('recharts', () => {
   const React = require('react');
   return {
     LineChart:           ({ children }: any) => <div>{children}</div>,
@@ -79,12 +79,12 @@ function renderPanel() {
 }
 
 beforeEach(() => {
-  jest.clearAllMocks();
+  vi.clearAllMocks();
   localStorage.clear();
-  jest.useFakeTimers();
+  vi.useFakeTimers();
 });
 
-afterEach(() => { jest.useRealTimers(); });
+afterEach(() => { vi.useRealTimers(); });
 
 // ── Tests ─────────────────────────────────────────────────────────────────────
 
@@ -118,7 +118,7 @@ describe('PartyDynamicsPanel', () => {
       expect.stringMatching(/\/api\/(v2\/)?election\/party-dynamics/),
       expect.any(Object),
     );
-    jest.runAllTimers();
+    vi.runAllTimers();
   });
 
   it('renders ideology map SVG after data loads', async () => {
@@ -126,7 +126,7 @@ describe('PartyDynamicsPanel', () => {
     renderPanel();
     fireEvent.click(screen.getByTestId('simulate-btn'));
     await waitFor(() => expect(screen.getByTestId('ideology-map-svg')).toBeInTheDocument());
-    jest.runAllTimers();
+    vi.runAllTimers();
   });
 
   it('renders N_eff chart', async () => {
@@ -134,7 +134,7 @@ describe('PartyDynamicsPanel', () => {
     renderPanel();
     fireEvent.click(screen.getByTestId('simulate-btn'));
     await waitFor(() => expect(screen.getByTestId('n-eff-chart')).toBeInTheDocument());
-    jest.runAllTimers();
+    vi.runAllTimers();
   });
 
   it('shows final-system badge', async () => {
@@ -142,7 +142,7 @@ describe('PartyDynamicsPanel', () => {
     renderPanel();
     fireEvent.click(screen.getByTestId('simulate-btn'));
     await waitFor(() => expect(screen.getByTestId('final-system-badge')).toBeInTheDocument());
-    jest.runAllTimers();
+    vi.runAllTimers();
   });
 
   it('shows duverger-confirmed badge', async () => {
@@ -150,7 +150,7 @@ describe('PartyDynamicsPanel', () => {
     renderPanel();
     fireEvent.click(screen.getByTestId('simulate-btn'));
     await waitFor(() => expect(screen.getByTestId('duverger-badge')).toBeInTheDocument());
-    jest.runAllTimers();
+    vi.runAllTimers();
   });
 
   it('shows play button after data loads', async () => {
@@ -158,7 +158,7 @@ describe('PartyDynamicsPanel', () => {
     renderPanel();
     fireEvent.click(screen.getByTestId('simulate-btn'));
     await waitFor(() => expect(screen.getByTestId('play-btn')).toBeInTheDocument());
-    jest.runAllTimers();
+    vi.runAllTimers();
   });
 
   it('shows election slider after data loads', async () => {
@@ -166,7 +166,7 @@ describe('PartyDynamicsPanel', () => {
     renderPanel();
     fireEvent.click(screen.getByTestId('simulate-btn'));
     await waitFor(() => expect(screen.getByTestId('election-slider')).toBeInTheDocument());
-    jest.runAllTimers();
+    vi.runAllTimers();
   });
 
   it('advances election index when election slider changes', async () => {
@@ -176,7 +176,7 @@ describe('PartyDynamicsPanel', () => {
     await waitFor(() => screen.getByTestId('election-slider'));
     fireEvent.change(screen.getByTestId('election-slider'), { target: { value: '2' } });
     expect(screen.getByTestId('election-slider')).toHaveValue('2');
-    jest.runAllTimers();
+    vi.runAllTimers();
   });
 
   it('tactical switch toggles correctly', () => {

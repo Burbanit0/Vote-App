@@ -6,11 +6,11 @@ import GerrymanderMap from '../GerrymanderMap';
 import { ElectionProvider } from '../../../stores/useElectionStore';
 import { makeTestQueryClient } from '../../../test/queryWrapper';
 
-jest.mock('../../../api/client', () => ({
-  apiClient: { GET: jest.fn(), POST: jest.fn(), PUT: jest.fn(), DELETE: jest.fn(), PATCH: jest.fn() },
-  getAccessToken: jest.fn(() => null),
+vi.mock('../../../api/client', () => ({
+  apiClient: { GET: vi.fn(), POST: vi.fn(), PUT: vi.fn(), DELETE: vi.fn(), PATCH: vi.fn() },
+  getAccessToken: vi.fn(() => null),
 }));
-const { apiClient } = jest.requireMock('../../../api/client') as { apiClient: { POST: jest.Mock } };
+const { apiClient } = (await import('../../../api/client')) as unknown as { apiClient: { POST: jest.Mock } };
 
 // ── Fixture ───────────────────────────────────────────────────────────────────
 
@@ -52,12 +52,12 @@ function renderMap() {
 }
 
 beforeEach(() => {
-  jest.clearAllMocks();
+  vi.clearAllMocks();
   localStorage.clear();
-  jest.useFakeTimers();
+  vi.useFakeTimers();
 });
 
-afterEach(() => { jest.useRealTimers(); });
+afterEach(() => { vi.useRealTimers(); });
 
 // ── Tests ─────────────────────────────────────────────────────────────────────
 
@@ -119,7 +119,7 @@ describe('GerrymanderMap', () => {
       expect.stringMatching(/\/api\/(v2\/)?election\/gerrymander/),
       expect.any(Object),
     );
-    jest.runAllTimers();
+    vi.runAllTimers();
   });
 
   it('renders voter dots after data loads', async () => {
@@ -130,7 +130,7 @@ describe('GerrymanderMap', () => {
       const dots = container.querySelectorAll('[data-testid="voter-dot"]');
       expect(dots.length).toBeGreaterThan(0);
     });
-    jest.runAllTimers();
+    vi.runAllTimers();
   });
 
   it('shows two hémicycle SVGs', async () => {
@@ -142,7 +142,7 @@ describe('GerrymanderMap', () => {
       const svgs = container.querySelectorAll('svg');
       expect(svgs.length).toBeGreaterThanOrEqual(3);
     });
-    jest.runAllTimers();
+    vi.runAllTimers();
   });
 
   it('shows distortion badge', async () => {
@@ -150,7 +150,7 @@ describe('GerrymanderMap', () => {
     renderMap();
     fireEvent.click(screen.getByRole('button', { name: /simuler|simulate/i }));
     await waitFor(() => expect(screen.getByTestId('distortion-badge')).toBeInTheDocument());
-    jest.runAllTimers();
+    vi.runAllTimers();
   });
 
   it('shows warning alert when gerrymander_index > 0.2', async () => {
@@ -160,7 +160,7 @@ describe('GerrymanderMap', () => {
     await waitFor(() => expect(screen.getByTestId('gerrymander-alert')).toBeInTheDocument());
     const alert = screen.getByTestId('gerrymander-alert');
     expect(alert.className).toContain('alert-warning');
-    jest.runAllTimers();
+    vi.runAllTimers();
   });
 
   it('shows success alert when gerrymander_index ≤ 0.2', async () => {
@@ -170,7 +170,7 @@ describe('GerrymanderMap', () => {
     await waitFor(() => expect(screen.getByTestId('gerrymander-alert')).toBeInTheDocument());
     const alert = screen.getByTestId('gerrymander-alert');
     expect(alert.className).toContain('alert-success');
-    jest.runAllTimers();
+    vi.runAllTimers();
   });
 
   it('shows gerrymander index progress bar', async () => {
@@ -178,7 +178,7 @@ describe('GerrymanderMap', () => {
     renderMap();
     fireEvent.click(screen.getByRole('button', { name: /simuler|simulate/i }));
     await waitFor(() => expect(screen.getByTestId('gerry-index-bar')).toBeInTheDocument());
-    jest.runAllTimers();
+    vi.runAllTimers();
   });
 
   it('shows error on API failure', async () => {

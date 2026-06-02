@@ -2,8 +2,8 @@ import React from 'react';
 import { render, screen } from '@testing-library/react';
 import WinnerMatrixTab from '../WinnerMatrixTab';
 
-jest.mock('../../shared/MethodTooltip', () => ({ method }: any) => <span>{method}</span>);
-jest.mock('../../shared/ResponsiveTable', () => ({ children, className }: any) => <div className={className}>{children}</div>);
+vi.mock('../../shared/MethodTooltip', () => ({ default: ({ method }: any) => <span>{method}</span> }));
+vi.mock('../../shared/ResponsiveTable', () => ({ default: ({ children, className }: any) => <div className={className}>{children}</div> }));
 
 const mockResults = [
   {

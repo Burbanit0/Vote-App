@@ -5,45 +5,41 @@ import { useAuth } from './stores/useAuthStore';
 
 // ── Component mocks ────────────────────────────────────────────────────────
 
-jest.mock('./components/Navbar', () => () => <div data-testid="navbar">Navbar</div>);
-jest.mock(
+vi.mock('./components/Navbar', () => ({ default: () => <div data-testid="navbar">Navbar</div> }));
+vi.mock(
   './components/Route/ErrorBoundary',
-  () =>
-    ({ children }: { children: React.ReactNode }) => <>{children}</>
-);
+  () => ({ default: ({ children }: { children: React.ReactNode }) => <>{children}</> }));
 
-jest.mock('./pages/HomePage', () => () => <div data-testid="home-page">HomePage</div>);
-jest.mock('./pages/SimulationPage', () => () => (
+vi.mock('./pages/HomePage', () => ({ default: () => <div data-testid="home-page">HomePage</div> }));
+vi.mock('./pages/SimulationPage', () => ({ default: () => (
   <div data-testid="simulation-page">SimulationPage</div>
-));
-jest.mock('./pages/SimulationComparePage', () => () => (
+) }));
+vi.mock('./pages/SimulationComparePage', () => ({ default: () => (
   <div data-testid="simulation-compare-page">SimulationComparePage</div>
-));
-jest.mock('./pages/ScenarioBuilderPage', () => () => (
+) }));
+vi.mock('./pages/ScenarioBuilderPage', () => ({ default: () => (
   <div data-testid="scenario-builder-page">ScenarioBuilderPage</div>
-));
-jest.mock('./pages/ConstitutionalCrisisPage', () => () => (
+) }));
+vi.mock('./pages/ConstitutionalCrisisPage', () => ({ default: () => (
   <div data-testid="constitutional-crisis-page">ConstitutionalCrisisPage</div>
-));
-jest.mock('./pages/Login', () => () => <div data-testid="login-page">Login</div>);
-jest.mock('./pages/Register', () => () => <div data-testid="register-page">Register</div>);
-jest.mock('./pages/ProfilePage', () => () => (
+) }));
+vi.mock('./pages/Login', () => ({ default: () => <div data-testid="login-page">Login</div> }));
+vi.mock('./pages/Register', () => ({ default: () => <div data-testid="register-page">Register</div> }));
+vi.mock('./pages/ProfilePage', () => ({ default: () => (
   <div data-testid="profile-page">ProfilePage</div>
-));
-jest.mock('./pages/UserProfilePage', () => () => (
+) }));
+vi.mock('./pages/UserProfilePage', () => ({ default: () => (
   <div data-testid="user-profile-page">UserProfilePage</div>
-));
+) }));
 
 // AuthGuard: render the wrapped component directly (skip auth logic in tests)
-jest.mock(
+vi.mock(
   './components/Route/AuthGuard',
-  () =>
-    ({ component: Component }: { component: React.ComponentType }) => <Component />
-);
+  () => ({ default: ({ component: Component }: { component: React.ComponentType }) => <Component /> }));
 
-jest.mock('./stores/useAuthStore', () => ({
-  ...jest.requireActual('./stores/useAuthStore'),
-  useAuth: jest.fn(),
+vi.mock('./stores/useAuthStore', async () => ({
+  ...(await vi.importActual('./stores/useAuthStore')),
+  useAuth: vi.fn(),
 }));
 
 // ── Tests ──────────────────────────────────────────────────────────────────
@@ -56,7 +52,7 @@ describe('App', () => {
   });
 
   afterEach(() => {
-    jest.clearAllMocks();
+    vi.clearAllMocks();
   });
 
   // Navbar visibility

@@ -1,7 +1,19 @@
 import '@testing-library/jest-dom';
+import { vi } from 'vitest';
 import { TextEncoder, TextDecoder } from 'util';
 
 Object.assign(global, { TextDecoder, TextEncoder });
+
+// @testing-library/react auto-advances fake timers inside `waitFor()` by calling
+// a GLOBAL `jest.advanceTimersByTime(...)`. Vitest exposes `vi`, not `jest`, so
+// without this shim every `waitFor` under `vi.useFakeTimers()` hangs to the test
+// timeout. Provide a minimal `jest` global mapping the methods testing-library
+// uses to their `vi` equivalents. (Runtime `jest.*` test calls were migrated to
+// `vi.*`; this object is only consumed by testing-library internals.)
+(globalThis as unknown as { jest: unknown }).jest = {
+  advanceTimersByTime: (ms: number) => vi.advanceTimersByTime(ms),
+  advanceTimersToNextTimer: () => vi.advanceTimersToNextTimer(),
+};
 
 // jsdom doesn't implement window.matchMedia — required by every component
 // that does responsive checks (ElectionLabPage, several Simulation/* charts).

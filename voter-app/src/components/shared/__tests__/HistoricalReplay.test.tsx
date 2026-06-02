@@ -5,13 +5,13 @@ import { QueryClientProvider } from '@tanstack/react-query';
 import HistoricalReplay from '../HistoricalReplay';
 import { makeTestQueryClient } from '../../../test/queryWrapper';
 
-jest.mock('../../../api/client', () => ({
-  apiClient: { GET: jest.fn(), POST: jest.fn(), PUT: jest.fn(), DELETE: jest.fn(), PATCH: jest.fn() },
-  getAccessToken: jest.fn(() => null),
+vi.mock('../../../api/client', () => ({
+  apiClient: { GET: vi.fn(), POST: vi.fn(), PUT: vi.fn(), DELETE: vi.fn(), PATCH: vi.fn() },
+  getAccessToken: vi.fn(() => null),
 }));
-const { apiClient } = jest.requireMock('../../../api/client') as { apiClient: { POST: jest.Mock } };
+const { apiClient } = (await import('../../../api/client')) as unknown as { apiClient: { POST: jest.Mock } };
 
-jest.mock('recharts', () => {
+vi.mock('recharts', () => {
   const React = require('react');
   return {
     BarChart:            ({ children }: any) => <div data-testid="bar-chart">{children}</div>,
@@ -74,13 +74,13 @@ function renderPanel() {
 }
 
 beforeEach(() => {
-  jest.clearAllMocks();
+  vi.clearAllMocks();
   localStorage.clear();
-  jest.useFakeTimers();
+  vi.useFakeTimers();
 });
 
 afterEach(() => {
-  jest.useRealTimers();
+  vi.useRealTimers();
 });
 
 // ── Tests ─────────────────────────────────────────────────────────────────────
@@ -115,7 +115,7 @@ describe('HistoricalReplay', () => {
     renderPanel();
     fireEvent.click(screen.getByRole('button', { name: /simuler|simulate/i }));
     await waitFor(() => expect(screen.getByTestId('ideology-map-svg')).toBeInTheDocument());
-    jest.runAllTimers();
+    vi.runAllTimers();
   });
 
   it('renders 4 candidate star markers on the SVG', async () => {
@@ -126,7 +126,7 @@ describe('HistoricalReplay', () => {
       const stars = screen.getAllByTestId(/candidate-star-/);
       expect(stars.length).toBe(4);
     });
-    jest.runAllTimers();
+    vi.runAllTimers();
   });
 
   it('renders day slider', async () => {
@@ -134,7 +134,7 @@ describe('HistoricalReplay', () => {
     renderPanel();
     fireEvent.click(screen.getByRole('button', { name: /simuler|simulate/i }));
     await waitFor(() => expect(screen.getByTestId('day-slider')).toBeInTheDocument());
-    jest.runAllTimers();
+    vi.runAllTimers();
   });
 
   it('day slider changes current day display', async () => {
@@ -144,7 +144,7 @@ describe('HistoricalReplay', () => {
     await waitFor(() => expect(screen.getByTestId('day-slider')).toBeInTheDocument());
     fireEvent.change(screen.getByTestId('day-slider'), { target: { value: '5' } });
     expect(screen.getByTestId('day-badge').textContent).toContain('5');
-    jest.runAllTimers();
+    vi.runAllTimers();
   });
 
   it('renders vote share bar chart', async () => {
@@ -152,7 +152,7 @@ describe('HistoricalReplay', () => {
     renderPanel();
     fireEvent.click(screen.getByRole('button', { name: /simuler|simulate/i }));
     await waitFor(() => expect(screen.getByTestId('vote-share-chart')).toBeInTheDocument());
-    jest.runAllTimers();
+    vi.runAllTimers();
   });
 
   it('renders comparison panel with real vs simulated result', async () => {
@@ -160,7 +160,7 @@ describe('HistoricalReplay', () => {
     renderPanel();
     fireEvent.click(screen.getByRole('button', { name: /simuler|simulate/i }));
     await waitFor(() => expect(screen.getByTestId('comparison-panel')).toBeInTheDocument());
-    jest.runAllTimers();
+    vi.runAllTimers();
   });
 
   it('shows divergence badge when history is rewritten', async () => {
@@ -168,7 +168,7 @@ describe('HistoricalReplay', () => {
     renderPanel();
     fireEvent.click(screen.getByRole('button', { name: /simuler|simulate/i }));
     await waitFor(() => expect(screen.getByTestId('divergence-badge')).toBeInTheDocument());
-    jest.runAllTimers();
+    vi.runAllTimers();
   });
 
   it('does NOT show divergence badge when history is not rewritten', async () => {
@@ -177,7 +177,7 @@ describe('HistoricalReplay', () => {
     fireEvent.click(screen.getByRole('button', { name: /simuler|simulate/i }));
     await waitFor(() => expect(screen.getByTestId('result-badge')).toBeInTheDocument());
     expect(screen.queryByTestId('divergence-badge')).toBeNull();
-    jest.runAllTimers();
+    vi.runAllTimers();
   });
 
   it('renders pedagogical note', async () => {
@@ -185,7 +185,7 @@ describe('HistoricalReplay', () => {
     renderPanel();
     fireEvent.click(screen.getByRole('button', { name: /simuler|simulate/i }));
     await waitFor(() => expect(screen.getByTestId('pedagogical-note')).toBeInTheDocument());
-    jest.runAllTimers();
+    vi.runAllTimers();
   });
 
   it('shows apply-drag button after data loads', async () => {
@@ -193,7 +193,7 @@ describe('HistoricalReplay', () => {
     renderPanel();
     fireEvent.click(screen.getByRole('button', { name: /simuler|simulate/i }));
     await waitFor(() => expect(screen.getByTestId('apply-drag-btn')).toBeInTheDocument());
-    jest.runAllTimers();
+    vi.runAllTimers();
   });
 
   it('switching scenario card changes selection', () => {

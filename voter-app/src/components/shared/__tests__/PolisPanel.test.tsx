@@ -6,11 +6,11 @@ import PolisPanel from '../PolisPanel';
 import { ElectionProvider } from '../../../stores/useElectionStore';
 import { makeTestQueryClient } from '../../../test/queryWrapper';
 
-jest.mock('../../../api/client', () => ({
-  apiClient: { GET: jest.fn(), POST: jest.fn(), PUT: jest.fn(), DELETE: jest.fn(), PATCH: jest.fn() },
-  getAccessToken: jest.fn(() => null),
+vi.mock('../../../api/client', () => ({
+  apiClient: { GET: vi.fn(), POST: vi.fn(), PUT: vi.fn(), DELETE: vi.fn(), PATCH: vi.fn() },
+  getAccessToken: vi.fn(() => null),
 }));
-const { apiClient } = jest.requireMock('../../../api/client') as { apiClient: { POST: jest.Mock } };
+const { apiClient } = (await import('../../../api/client')) as unknown as { apiClient: { POST: jest.Mock } };
 
 // ── Fixture ───────────────────────────────────────────────────────────────────
 
@@ -58,12 +58,12 @@ function renderPanel() {
 }
 
 beforeEach(() => {
-  jest.clearAllMocks();
+  vi.clearAllMocks();
   localStorage.clear();
-  jest.useFakeTimers();
+  vi.useFakeTimers();
 });
 
-afterEach(() => { jest.useRealTimers(); });
+afterEach(() => { vi.useRealTimers(); });
 
 // ── Tests ─────────────────────────────────────────────────────────────────────
 
@@ -102,7 +102,7 @@ describe('PolisPanel', () => {
       expect.stringMatching(/\/api\/(v2\/)?tech\/polis/),
       expect.any(Object),
     );
-    jest.runAllTimers();
+    vi.runAllTimers();
   });
 
   it('shows scatter plot SVG after data loads', async () => {
@@ -110,7 +110,7 @@ describe('PolisPanel', () => {
     renderPanel();
     fireEvent.click(screen.getByTestId('simulate-btn'));
     await waitFor(() => expect(screen.getByTestId('polis-scatter-svg')).toBeInTheDocument());
-    jest.runAllTimers();
+    vi.runAllTimers();
   });
 
   it('shows winner comparison section', async () => {
@@ -122,7 +122,7 @@ describe('PolisPanel', () => {
       expect(screen.getByTestId('polis-winner-badge')).toBeInTheDocument();
       expect(screen.getByTestId('election-winner-badge')).toBeInTheDocument();
     });
-    jest.runAllTimers();
+    vi.runAllTimers();
   });
 
   it('shows divergence alert when winners disagree', async () => {
@@ -130,7 +130,7 @@ describe('PolisPanel', () => {
     renderPanel();
     fireEvent.click(screen.getByTestId('simulate-btn'));
     await waitFor(() => expect(screen.getByTestId('winners-diverge-alert')).toBeInTheDocument());
-    jest.runAllTimers();
+    vi.runAllTimers();
   });
 
   it('does NOT show divergence alert when winners agree', async () => {
@@ -139,7 +139,7 @@ describe('PolisPanel', () => {
     fireEvent.click(screen.getByTestId('simulate-btn'));
     await waitFor(() => screen.getByTestId('winner-comparison'));
     expect(screen.queryByTestId('winners-diverge-alert')).not.toBeInTheDocument();
-    jest.runAllTimers();
+    vi.runAllTimers();
   });
 
   it('shows count badges', async () => {
@@ -151,7 +151,7 @@ describe('PolisPanel', () => {
       expect(screen.getByTestId('polarizing-count-badge')).toBeInTheDocument();
       expect(screen.getByTestId('silent-majority-badge')).toBeInTheDocument();
     });
-    jest.runAllTimers();
+    vi.runAllTimers();
   });
 
   it('renders statement table', async () => {
@@ -159,7 +159,7 @@ describe('PolisPanel', () => {
     renderPanel();
     fireEvent.click(screen.getByTestId('simulate-btn'));
     await waitFor(() => expect(screen.getByTestId('statement-table')).toBeInTheDocument());
-    jest.runAllTimers();
+    vi.runAllTimers();
   });
 
   it('filters to consensus only when filter clicked', async () => {
@@ -172,7 +172,7 @@ describe('PolisPanel', () => {
     const table = screen.getByTestId('statement-table');
     const rows = table.querySelectorAll('tbody tr');
     expect(rows.length).toBe(1); // only 1 consensus statement in fixture
-    jest.runAllTimers();
+    vi.runAllTimers();
   });
 
   it('shows Taiwan examples sidebar', async () => {
@@ -180,7 +180,7 @@ describe('PolisPanel', () => {
     renderPanel();
     fireEvent.click(screen.getByTestId('simulate-btn'));
     await waitFor(() => expect(screen.getByTestId('taiwan-examples')).toBeInTheDocument());
-    jest.runAllTimers();
+    vi.runAllTimers();
   });
 
   it('shows error on API failure', async () => {
