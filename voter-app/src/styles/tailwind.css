@@ -9,7 +9,19 @@
  * elements. Drop this exclusion (use plain `@import "tailwindcss";`) once
  * Bootstrap is fully removed at the end of the migration.
  */
-@layer theme, base, components, utilities;
+/*
+ * Cascade-layer order is the load-bearing trick for Bootstrap ↔ Tailwind
+ * coexistence. Bootstrap and Tailwind define overlapping utility NAMES
+ * (px-4, gap-4, mb-4 …) with DIFFERENT values. Bootstrap is imported into the
+ * lowest `bootstrap` layer here, so:
+ *   - un-migrated pages (no Tailwind classes) get pure Bootstrap, and
+ *   - migrated components that DO use Tailwind utilities win the collision
+ *     (utilities layer > bootstrap layer), so Tailwind spacing actually applies.
+ * Preflight is still excluded (only theme + utilities imported) so Tailwind
+ * never resets base elements while Bootstrap owns them.
+ */
+@layer bootstrap, theme, base, components, utilities;
+@import 'bootstrap/dist/css/bootstrap.min.css' layer(bootstrap);
 @import 'tailwindcss/theme.css' layer(theme);
 @import 'tailwindcss/utilities.css' layer(utilities);
 

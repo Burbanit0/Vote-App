@@ -43,8 +43,9 @@ import { ElectionProvider } from './stores/useElectionStore';
 import UpdatePrompt from './components/shared/UpdatePrompt';
 import OfflineBanner from './components/shared/OfflineBanner';
 
-import 'bootstrap/dist/css/bootstrap.min.css';
-// Tailwind v4 (no preflight) — coexists with Bootstrap during the migration.
+// Tailwind v4 (no preflight) + Bootstrap — both imported via styles/tailwind.css,
+// which loads Bootstrap into a lower cascade layer so Tailwind utilities win
+// collisions on migrated components. (Bootstrap CSS used to be imported here.)
 import './styles/tailwind.css';
 
 const RouteFallback: React.FC = () => (
