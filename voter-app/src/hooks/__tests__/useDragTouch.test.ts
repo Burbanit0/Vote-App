@@ -49,7 +49,7 @@ describe('useDragTouch — coordinate normalisation', () => {
     expect(y).toBe(1);
   });
 
-  it('accounts for non-zero rect origin (translated SVG)', () => {
+  it('accounts for non-zero rect origin (translated SVG)', async () => {
     const rect = { left: 50, top: 50, width: 100, height: 100 } as DOMRect;
     const { x, y } = mockToDomain(100, 100, rect); // centre of the rect
     expect(x).toBeCloseTo(0, 2);
@@ -64,13 +64,13 @@ describe('makeDragHandlers', () => {
     return { current: { getBoundingClientRect: () => rect } } as any;
   }
 
-  it('onMouseDown sets dragging to true and calls onStart', () => {
-    const { makeDragHandlers } = require('../useDragTouch');
+  it('onMouseDown sets dragging to true and calls onStart', async () => {
+    const { makeDragHandlers } = (await import('../useDragTouch'));
     const dragging = { current: false };
-    const onStart  = jest.fn();
+    const onStart  = vi.fn();
     const { onMouseDown } = makeDragHandlers(mockSvgRef(), dragging, onStart);
 
-    const e = { preventDefault: jest.fn(), clientX: 100, clientY: 100 } as any;
+    const e = { preventDefault: vi.fn(), clientX: 100, clientY: 100 } as any;
     onMouseDown(e);
 
     expect(e.preventDefault).toHaveBeenCalled();
@@ -78,14 +78,14 @@ describe('makeDragHandlers', () => {
     expect(onStart).toHaveBeenCalledWith(0, 0); // centre of 200×200 rect
   });
 
-  it('onTouchStart sets dragging to true and calls onStart', () => {
-    const { makeDragHandlers } = require('../useDragTouch');
+  it('onTouchStart sets dragging to true and calls onStart', async () => {
+    const { makeDragHandlers } = (await import('../useDragTouch'));
     const dragging = { current: false };
-    const onStart  = jest.fn();
+    const onStart  = vi.fn();
     const { onTouchStart } = makeDragHandlers(mockSvgRef(), dragging, onStart);
 
     const e = {
-      stopPropagation: jest.fn(),
+      stopPropagation: vi.fn(),
       touches: [{ clientX: 50, clientY: 150 }],
     } as any;
     onTouchStart(e);
@@ -99,14 +99,14 @@ describe('makeDragHandlers', () => {
     expect(y).toBeCloseTo(-0.5, 2);
   });
 
-  it('returns no-op handlers when svgRef.current is null', () => {
-    const { makeDragHandlers } = require('../useDragTouch');
+  it('returns no-op handlers when svgRef.current is null', async () => {
+    const { makeDragHandlers } = (await import('../useDragTouch'));
     const dragging = { current: false };
-    const onStart  = jest.fn();
+    const onStart  = vi.fn();
     const nullRef  = { current: null } as any;
     const { onMouseDown } = makeDragHandlers(nullRef, dragging, onStart);
 
-    const e = { preventDefault: jest.fn(), clientX: 0, clientY: 0 } as any;
+    const e = { preventDefault: vi.fn(), clientX: 0, clientY: 0 } as any;
     // Should not throw
     expect(() => onMouseDown(e)).not.toThrow();
   });
@@ -132,12 +132,12 @@ describe('useSwipe', () => {
     return { el, cleanup: () => document.body.removeChild(el) };
   }
 
-  it('calls onSwipeLeft when swiping left (|deltaX| > 40)', () => {
-    const { useSwipe } = require('../useSwipe');
+  it('calls onSwipeLeft when swiping left (|deltaX| > 40)', async () => {
+    const { useSwipe } = (await import('../useSwipe'));
     const { el, cleanup } = setup();
     const ref = { current: el };
-    const onSwipeLeft  = jest.fn();
-    const onSwipeRight = jest.fn();
+    const onSwipeLeft  = vi.fn();
+    const onSwipeRight = vi.fn();
 
     renderHook(() => useSwipe(ref, { onSwipeLeft, onSwipeRight, threshold: 40, maxDuration: 400 }));
 
@@ -151,12 +151,12 @@ describe('useSwipe', () => {
     cleanup();
   });
 
-  it('calls onSwipeRight when swiping right (|deltaX| > 40)', () => {
-    const { useSwipe } = require('../useSwipe');
+  it('calls onSwipeRight when swiping right (|deltaX| > 40)', async () => {
+    const { useSwipe } = (await import('../useSwipe'));
     const { el, cleanup } = setup();
     const ref = { current: el };
-    const onSwipeLeft  = jest.fn();
-    const onSwipeRight = jest.fn();
+    const onSwipeLeft  = vi.fn();
+    const onSwipeRight = vi.fn();
 
     renderHook(() => useSwipe(ref, { onSwipeLeft, onSwipeRight, threshold: 40, maxDuration: 400 }));
 
@@ -170,11 +170,11 @@ describe('useSwipe', () => {
     cleanup();
   });
 
-  it('does NOT trigger swipe when movement < threshold', () => {
-    const { useSwipe } = require('../useSwipe');
+  it('does NOT trigger swipe when movement < threshold', async () => {
+    const { useSwipe } = (await import('../useSwipe'));
     const { el, cleanup } = setup();
     const ref = { current: el };
-    const onSwipeLeft = jest.fn();
+    const onSwipeLeft = vi.fn();
 
     renderHook(() => useSwipe(ref, { onSwipeLeft, threshold: 40 }));
 
@@ -187,11 +187,11 @@ describe('useSwipe', () => {
     cleanup();
   });
 
-  it('does NOT trigger swipe when mostly vertical', () => {
-    const { useSwipe } = require('../useSwipe');
+  it('does NOT trigger swipe when mostly vertical', async () => {
+    const { useSwipe } = (await import('../useSwipe'));
     const { el, cleanup } = setup();
     const ref = { current: el };
-    const onSwipeLeft = jest.fn();
+    const onSwipeLeft = vi.fn();
 
     renderHook(() => useSwipe(ref, { onSwipeLeft, threshold: 40 }));
 
@@ -209,7 +209,7 @@ describe('useSwipe', () => {
 // ── Mobile tab nav ────────────────────────────────────────────────────────────
 
 describe('ElectionLabPage mobile navigation', () => {
-  it('tab-select testid exists in the mocked component (integration covered by render)', () => {
+  it('tab-select testid exists in the mocked component (integration covered by render)', async () => {
     // Full rendering requires the full ElectionLabPage context.
     // We verify the structural contract here; rendering tested in ElectionLabPage.test.tsx
     expect(true).toBe(true);

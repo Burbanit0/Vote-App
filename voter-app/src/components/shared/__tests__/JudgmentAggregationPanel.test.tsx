@@ -5,11 +5,11 @@ import { QueryClientProvider } from '@tanstack/react-query';
 import JudgmentAggregationPanel from '../JudgmentAggregationPanel';
 import { makeTestQueryClient } from '../../../test/queryWrapper';
 
-jest.mock('../../../api/client', () => ({
-  apiClient: { GET: jest.fn(), POST: jest.fn(), PUT: jest.fn(), DELETE: jest.fn(), PATCH: jest.fn() },
-  getAccessToken: jest.fn(() => null),
+vi.mock('../../../api/client', () => ({
+  apiClient: { GET: vi.fn(), POST: vi.fn(), PUT: vi.fn(), DELETE: vi.fn(), PATCH: vi.fn() },
+  getAccessToken: vi.fn(() => null),
 }));
-const { apiClient } = jest.requireMock('../../../api/client') as { apiClient: { POST: jest.Mock } };
+const { apiClient } = (await import('../../../api/client')) as unknown as { apiClient: { POST: jest.Mock } };
 
 // ── Fixtures ──────────────────────────────────────────────────────────────────
 
@@ -51,11 +51,11 @@ function renderPanel() {
 }
 
 beforeEach(() => {
-  jest.clearAllMocks();
-  jest.useFakeTimers();
+  vi.clearAllMocks();
+  vi.useFakeTimers();
 });
 
-afterEach(() => { jest.useRealTimers(); });
+afterEach(() => { vi.useRealTimers(); });
 
 // ── Tests ─────────────────────────────────────────────────────────────────────
 
@@ -90,7 +90,7 @@ describe('JudgmentAggregationPanel', () => {
       expect.stringMatching(/\/api\/(v2\/)?theory\/judgment-aggregation/),
       expect.any(Object),
     );
-    jest.runAllTimers();
+    vi.runAllTimers();
   });
 
   it('shows coherent badge (success) when coherent', async () => {
@@ -101,7 +101,7 @@ describe('JudgmentAggregationPanel', () => {
       const badge = screen.getByTestId('coherence-badge');
       expect(badge.className).toContain('bg-success');
     });
-    jest.runAllTimers();
+    vi.runAllTimers();
   });
 
   it('shows incoherent badge (danger) when incoherent', async () => {
@@ -112,7 +112,7 @@ describe('JudgmentAggregationPanel', () => {
       const badge = screen.getByTestId('coherence-badge');
       expect(badge.className).toContain('bg-danger');
     });
-    jest.runAllTimers();
+    vi.runAllTimers();
   });
 
   it('shows voter coherence badge', async () => {
@@ -120,7 +120,7 @@ describe('JudgmentAggregationPanel', () => {
     renderPanel();
     fireEvent.click(screen.getByTestId('simulate-btn'));
     await waitFor(() => expect(screen.getByTestId('voter-coherence-badge')).toBeInTheDocument());
-    jest.runAllTimers();
+    vi.runAllTimers();
   });
 
   it('shows propositions table', async () => {
@@ -128,7 +128,7 @@ describe('JudgmentAggregationPanel', () => {
     renderPanel();
     fireEvent.click(screen.getByTestId('simulate-btn'));
     await waitFor(() => expect(screen.getByTestId('propositions-table')).toBeInTheDocument());
-    jest.runAllTimers();
+    vi.runAllTimers();
   });
 
   it('shows incoherence alert when incoherent', async () => {
@@ -136,7 +136,7 @@ describe('JudgmentAggregationPanel', () => {
     renderPanel();
     fireEvent.click(screen.getByTestId('simulate-btn'));
     await waitFor(() => expect(screen.getByTestId('incoherence-alert')).toBeInTheDocument());
-    jest.runAllTimers();
+    vi.runAllTimers();
   });
 
   it('does NOT show incoherence alert when coherent', async () => {
@@ -145,7 +145,7 @@ describe('JudgmentAggregationPanel', () => {
     fireEvent.click(screen.getByTestId('simulate-btn'));
     await waitFor(() => screen.getByTestId('coherence-badge'));
     expect(screen.queryByTestId('incoherence-alert')).not.toBeInTheDocument();
-    jest.runAllTimers();
+    vi.runAllTimers();
   });
 
   it('renders logic tree SVG', async () => {
@@ -153,7 +153,7 @@ describe('JudgmentAggregationPanel', () => {
     renderPanel();
     fireEvent.click(screen.getByTestId('simulate-btn'));
     await waitFor(() => expect(screen.getByTestId('logic-tree-svg')).toBeInTheDocument());
-    jest.runAllTimers();
+    vi.runAllTimers();
   });
 
   it('shows resolution card when incoherent', async () => {
@@ -161,7 +161,7 @@ describe('JudgmentAggregationPanel', () => {
     renderPanel();
     fireEvent.click(screen.getByTestId('simulate-btn'));
     await waitFor(() => expect(screen.getByTestId('resolution-card')).toBeInTheDocument());
-    jest.runAllTimers();
+    vi.runAllTimers();
   });
 
   it('shows severity badge when paradox exists', async () => {
@@ -169,7 +169,7 @@ describe('JudgmentAggregationPanel', () => {
     renderPanel();
     fireEvent.click(screen.getByTestId('simulate-btn'));
     await waitFor(() => expect(screen.getByTestId('severity-badge')).toBeInTheDocument());
-    jest.runAllTimers();
+    vi.runAllTimers();
   });
 
   it('shows error on API failure', async () => {

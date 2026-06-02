@@ -2,8 +2,8 @@ import { registerUser, loginUser, googleLogin, fetchProfileData, fetchUserProfil
 
 // JSON calls go through apiGet/apiPost; the form-encoded login + its /users/me
 // read use raw fetch — so we mock both transports.
-jest.mock('../api/client', () => ({ apiGet: jest.fn(), apiPost: jest.fn(), apiDelete: jest.fn() }));
-const { apiGet, apiPost } = jest.requireMock('../api/client') as {
+vi.mock('../api/client', () => ({ apiGet: vi.fn(), apiPost: vi.fn(), apiDelete: vi.fn() }));
+const { apiGet, apiPost } = (await import('../api/client')) as unknown as {
   apiGet: jest.Mock; apiPost: jest.Mock;
 };
 
@@ -20,16 +20,16 @@ function fetchOk(body: unknown, ok = true, status = 200): Response {
   return { ok, status, json: async () => body } as unknown as Response;
 }
 
-const fetchMock = jest.fn();
+const fetchMock = vi.fn();
 
 beforeEach(() => {
-  jest.clearAllMocks();
+  vi.clearAllMocks();
   localStorage.clear();
   global.fetch = fetchMock as unknown as typeof fetch;
 });
 
 afterEach(() => {
-  jest.restoreAllMocks();
+  vi.restoreAllMocks();
 });
 
 describe('authApi', () => {
@@ -48,7 +48,7 @@ describe('authApi', () => {
     });
 
     it('throws when register endpoint fails', async () => {
-      jest.spyOn(console, 'error').mockImplementation(() => {});
+      vi.spyOn(console, 'error').mockImplementation(() => {});
       apiPost.mockRejectedValueOnce(new Error('400'));
       await expect(
         registerUser('alice', 'Strong-1!', 'User', 'A', 'S'),
@@ -76,7 +76,7 @@ describe('authApi', () => {
     });
 
     it('throws on wrong password (400 from fastapi-users)', async () => {
-      jest.spyOn(console, 'error').mockImplementation(() => {});
+      vi.spyOn(console, 'error').mockImplementation(() => {});
       fetchMock.mockResolvedValueOnce(fetchOk({}, false, 400));
       await expect(
         loginUser('alice@vote-app.local', 'wrong'),
@@ -100,7 +100,7 @@ describe('authApi', () => {
     });
 
     it('throws on Google login error', async () => {
-      jest.spyOn(console, 'error').mockImplementation(() => {});
+      vi.spyOn(console, 'error').mockImplementation(() => {});
       apiPost.mockRejectedValueOnce(new Error('401'));
       await expect(googleLogin('bad-token')).rejects.toThrow();
     });
@@ -116,7 +116,7 @@ describe('authApi', () => {
     });
 
     it('throws when no token in localStorage', async () => {
-      jest.spyOn(console, 'error').mockImplementation(() => {});
+      vi.spyOn(console, 'error').mockImplementation(() => {});
       localStorage.removeItem('user');
       await expect(fetchProfileData()).rejects.toThrow('No token found');
     });
@@ -133,7 +133,7 @@ describe('authApi', () => {
     });
 
     it('throws when no token in localStorage', async () => {
-      jest.spyOn(console, 'error').mockImplementation(() => {});
+      vi.spyOn(console, 'error').mockImplementation(() => {});
       localStorage.removeItem('user');
       await expect(fetchUserProfile(1)).rejects.toThrow('No token found');
     });

@@ -8,8 +8,8 @@ import { usePerturbations } from '../../../../stores/useLabStore';
 
 // jsdom doesn't implement URL.createObjectURL / revokeObjectURL
 beforeAll(() => {
-  (URL as any).createObjectURL = jest.fn(() => 'blob:mock');
-  (URL as any).revokeObjectURL = jest.fn();
+  (URL as any).createObjectURL = vi.fn(() => 'blob:mock');
+  (URL as any).revokeObjectURL = vi.fn();
   // jsdom's HTMLAnchorElement.click is a noop — that's fine, we don't actually
   // need a real download in tests, only to verify the path doesn't throw.
 });

@@ -5,11 +5,11 @@ import BandwagonAnalysis from '../BandwagonAnalysis';
 import { getBandwagonAnalysis } from '../../../services/simulationCompareApi';
 import { BandwagonResult } from '../../../types';
 
-jest.mock('../../../services/simulationCompareApi', () => ({
-  getBandwagonAnalysis: jest.fn(),
+vi.mock('../../../services/simulationCompareApi', () => ({
+  getBandwagonAnalysis: vi.fn(),
 }));
 
-jest.mock('../../../hooks/useChartTheme', () => ({
+vi.mock('../../../hooks/useChartTheme', () => ({
   useChartTheme: () => ({
     isDark: false,
     gridStroke: '#e0e0e0',
@@ -59,7 +59,7 @@ const mockResult: BandwagonResult = {
 };
 
 beforeEach(() => {
-  jest.clearAllMocks();
+  vi.clearAllMocks();
 });
 
 describe('BandwagonAnalysis', () => {

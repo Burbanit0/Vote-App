@@ -8,7 +8,7 @@ import regimes, {
   filterByImpact,
 } from '../data/blankVoteRegimes';
 
-jest.mock('../hooks/useMetaTags', () => ({ useMetaTags: () => {} }));
+vi.mock('../hooks/useMetaTags', () => ({ useMetaTags: () => {} }));
 
 // ── Dataset integrity ─────────────────────────────────────────────────────────
 

@@ -14,7 +14,12 @@ export default [
     languageOptions: {
       globals: {
         ...globals.browser,
+        // jest globals cover describe/it/expect/beforeEach/…; add the Vitest
+        // helpers the migrated tests use (the `globals` pkg here has no `vitest`
+        // preset).
         ...globals.jest,
+        vi: 'readonly',
+        vitest: 'readonly',
       },
       parser: parser,
       parserOptions: {

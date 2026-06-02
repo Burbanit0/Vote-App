@@ -6,13 +6,13 @@ import ConvictionVotingPanel from '../ConvictionVotingPanel';
 import { ElectionProvider } from '../../../stores/useElectionStore';
 import { makeTestQueryClient } from '../../../test/queryWrapper';
 
-jest.mock('../../../api/client', () => ({
-  apiClient: { GET: jest.fn(), POST: jest.fn(), PUT: jest.fn(), DELETE: jest.fn(), PATCH: jest.fn() },
-  getAccessToken: jest.fn(() => null),
+vi.mock('../../../api/client', () => ({
+  apiClient: { GET: vi.fn(), POST: vi.fn(), PUT: vi.fn(), DELETE: vi.fn(), PATCH: vi.fn() },
+  getAccessToken: vi.fn(() => null),
 }));
-const { apiClient } = jest.requireMock('../../../api/client') as { apiClient: { POST: jest.Mock } };
+const { apiClient } = (await import('../../../api/client')) as unknown as { apiClient: { POST: jest.Mock } };
 
-jest.mock('recharts', () => {
+vi.mock('recharts', () => {
   const React = require('react');
   return {
     BarChart:            ({ children }: any) => <div data-testid="compare-bar-chart">{children}</div>,
@@ -75,12 +75,12 @@ function renderPanel() {
 }
 
 beforeEach(() => {
-  jest.clearAllMocks();
+  vi.clearAllMocks();
   localStorage.clear();
-  jest.useFakeTimers();
+  vi.useFakeTimers();
 });
 
-afterEach(() => { jest.useRealTimers(); });
+afterEach(() => { vi.useRealTimers(); });
 
 // ── Tests ─────────────────────────────────────────────────────────────────────
 
@@ -109,7 +109,7 @@ describe('ConvictionVotingPanel', () => {
       expect.stringMatching(/\/api\/(v2\/)?election\/conviction-voting/),
       expect.any(Object),
     );
-    jest.runAllTimers();
+    vi.runAllTimers();
   });
 
   it('renders scatter SVG after data loads', async () => {
@@ -117,7 +117,7 @@ describe('ConvictionVotingPanel', () => {
     renderPanel();
     fireEvent.click(screen.getByRole('button', { name: /simuler|simulate/i }));
     await waitFor(() => expect(screen.getByTestId('conviction-scatter-svg')).toBeInTheDocument());
-    jest.runAllTimers();
+    vi.runAllTimers();
   });
 
   it('shows token and conviction winner badges', async () => {
@@ -128,7 +128,7 @@ describe('ConvictionVotingPanel', () => {
       expect(screen.getByTestId('token-winner-badge')).toBeInTheDocument();
       expect(screen.getByTestId('conviction-winner-badge')).toBeInTheDocument();
     });
-    jest.runAllTimers();
+    vi.runAllTimers();
   });
 
   it('shows comparison banner', async () => {
@@ -136,7 +136,7 @@ describe('ConvictionVotingPanel', () => {
     renderPanel();
     fireEvent.click(screen.getByRole('button', { name: /simuler|simulate/i }));
     await waitFor(() => expect(screen.getByTestId('comparison-banner')).toBeInTheDocument());
-    jest.runAllTimers();
+    vi.runAllTimers();
   });
 
   it('shows winner-changed alert when winner changed', async () => {
@@ -144,7 +144,7 @@ describe('ConvictionVotingPanel', () => {
     renderPanel();
     fireEvent.click(screen.getByRole('button', { name: /simuler|simulate/i }));
     await waitFor(() => expect(screen.getByTestId('winner-changed-alert')).toBeInTheDocument());
-    jest.runAllTimers();
+    vi.runAllTimers();
   });
 
   it('does not show winner-changed alert when stable', async () => {
@@ -153,7 +153,7 @@ describe('ConvictionVotingPanel', () => {
     fireEvent.click(screen.getByRole('button', { name: /simuler|simulate/i }));
     await waitFor(() => expect(screen.getByTestId('comparison-banner')).toBeInTheDocument());
     expect(screen.queryByTestId('winner-changed-alert')).not.toBeInTheDocument();
-    jest.runAllTimers();
+    vi.runAllTimers();
   });
 
   it('shows Gini token and conviction badges', async () => {
@@ -164,7 +164,7 @@ describe('ConvictionVotingPanel', () => {
       expect(screen.getByTestId('gini-tokens-badge')).toBeInTheDocument();
       expect(screen.getByTestId('gini-conviction-badge')).toBeInTheDocument();
     });
-    jest.runAllTimers();
+    vi.runAllTimers();
   });
 
   it('shows whale dominance badges', async () => {
@@ -175,7 +175,7 @@ describe('ConvictionVotingPanel', () => {
       expect(screen.getByTestId('whale-tokens-badge')).toBeInTheDocument();
       expect(screen.getByTestId('whale-conviction-badge')).toBeInTheDocument();
     });
-    jest.runAllTimers();
+    vi.runAllTimers();
   });
 
   it('renders proposals comparison table', async () => {
@@ -183,7 +183,7 @@ describe('ConvictionVotingPanel', () => {
     renderPanel();
     fireEvent.click(screen.getByRole('button', { name: /simuler|simulate/i }));
     await waitFor(() => expect(screen.getByTestId('proposals-table')).toBeInTheDocument());
-    jest.runAllTimers();
+    vi.runAllTimers();
   });
 
   it('shows whale sliders when whale distribution selected', () => {
@@ -207,7 +207,7 @@ describe('ConvictionVotingPanel', () => {
     await waitFor(() => expect(apiClient.POST).toHaveBeenCalledTimes(1));
     const body = (apiClient.POST.mock.calls[0][1] as { body: Record<string, unknown> }).body;
     expect(body.conviction_distribution).toBe('skewed');
-    jest.runAllTimers();
+    vi.runAllTimers();
   });
 
   it('gini-conviction badge is green when conviction more equal', async () => {
@@ -219,7 +219,7 @@ describe('ConvictionVotingPanel', () => {
       const badge = screen.getByTestId('gini-conviction-badge');
       expect(badge.className).toContain('bg-success');
     });
-    jest.runAllTimers();
+    vi.runAllTimers();
   });
 
   it('shows error on API failure', async () => {

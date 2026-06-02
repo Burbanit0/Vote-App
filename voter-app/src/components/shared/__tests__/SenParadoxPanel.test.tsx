@@ -5,11 +5,11 @@ import { QueryClientProvider } from '@tanstack/react-query';
 import SenParadoxPanel from '../SenParadoxPanel';
 import { makeTestQueryClient } from '../../../test/queryWrapper';
 
-jest.mock('../../../api/client', () => ({
-  apiClient: { GET: jest.fn(), POST: jest.fn(), PUT: jest.fn(), DELETE: jest.fn(), PATCH: jest.fn() },
-  getAccessToken: jest.fn(() => null),
+vi.mock('../../../api/client', () => ({
+  apiClient: { GET: vi.fn(), POST: vi.fn(), PUT: vi.fn(), DELETE: vi.fn(), PATCH: vi.fn() },
+  getAccessToken: vi.fn(() => null),
 }));
-const { apiClient } = jest.requireMock('../../../api/client') as { apiClient: { POST: jest.Mock } };
+const { apiClient } = (await import('../../../api/client')) as unknown as { apiClient: { POST: jest.Mock } };
 
 function makeData(hasParadox = true) {
   return {
@@ -49,8 +49,8 @@ function renderPanel() {
   );
 }
 
-beforeEach(() => { jest.clearAllMocks(); jest.useFakeTimers(); });
-afterEach(() => { jest.useRealTimers(); });
+beforeEach(() => { vi.clearAllMocks(); vi.useFakeTimers(); });
+afterEach(() => { vi.useRealTimers(); });
 
 describe('SenParadoxPanel', () => {
   it('shows simulate button', () => {
@@ -77,7 +77,7 @@ describe('SenParadoxPanel', () => {
       expect.stringMatching(/\/api\/(v2\/)?theory\/sen-paradox/),
       expect.any(Object),
     );
-    jest.runAllTimers();
+    vi.runAllTimers();
   });
 
   it('shows paradox badge (danger) when paradox exists', async () => {
@@ -88,7 +88,7 @@ describe('SenParadoxPanel', () => {
       const badge = screen.getByTestId('paradox-badge');
       expect(badge.className).toContain('bg-danger');
     });
-    jest.runAllTimers();
+    vi.runAllTimers();
   });
 
   it('shows no-paradox badge (success) when no paradox', async () => {
@@ -99,7 +99,7 @@ describe('SenParadoxPanel', () => {
       const badge = screen.getByTestId('paradox-badge');
       expect(badge.className).toContain('bg-success');
     });
-    jest.runAllTimers();
+    vi.runAllTimers();
   });
 
   it('shows frequency badge', async () => {
@@ -107,7 +107,7 @@ describe('SenParadoxPanel', () => {
     renderPanel();
     fireEvent.click(screen.getByTestId('simulate-btn'));
     await waitFor(() => expect(screen.getByTestId('frequency-badge')).toBeInTheDocument());
-    jest.runAllTimers();
+    vi.runAllTimers();
   });
 
   it('renders conflict viz SVG', async () => {
@@ -115,7 +115,7 @@ describe('SenParadoxPanel', () => {
     renderPanel();
     fireEvent.click(screen.getByTestId('simulate-btn'));
     await waitFor(() => expect(screen.getByTestId('conflict-viz-svg')).toBeInTheDocument());
-    jest.runAllTimers();
+    vi.runAllTimers();
   });
 
   it('shows paradox example when paradox exists', async () => {
@@ -123,7 +123,7 @@ describe('SenParadoxPanel', () => {
     renderPanel();
     fireEvent.click(screen.getByTestId('simulate-btn'));
     await waitFor(() => expect(screen.getByTestId('paradox-example')).toBeInTheDocument());
-    jest.runAllTimers();
+    vi.runAllTimers();
   });
 
   it('shows resolution options', async () => {
@@ -134,7 +134,7 @@ describe('SenParadoxPanel', () => {
       expect(screen.getByTestId('resolution-0')).toBeInTheDocument();
       expect(screen.getByTestId('resolution-1')).toBeInTheDocument();
     });
-    jest.runAllTimers();
+    vi.runAllTimers();
   });
 
   it('shows error on API failure', async () => {

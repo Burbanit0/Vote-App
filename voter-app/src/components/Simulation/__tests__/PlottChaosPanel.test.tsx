@@ -5,11 +5,11 @@ import { QueryClientProvider } from '@tanstack/react-query';
 import PlottChaosPanel from '../PlottChaosPanel';
 import { makeTestQueryClient } from '../../../test/queryWrapper';
 
-jest.mock('../../../api/client', () => ({
-  apiClient: { GET: jest.fn(), POST: jest.fn(), PUT: jest.fn(), DELETE: jest.fn(), PATCH: jest.fn() },
-  getAccessToken: jest.fn(() => null),
+vi.mock('../../../api/client', () => ({
+  apiClient: { GET: vi.fn(), POST: vi.fn(), PUT: vi.fn(), DELETE: vi.fn(), PATCH: vi.fn() },
+  getAccessToken: vi.fn(() => null),
 }));
-const { apiClient } = jest.requireMock('../../../api/client') as { apiClient: { POST: jest.Mock } };
+const { apiClient } = (await import('../../../api/client')) as unknown as { apiClient: { POST: jest.Mock } };
 
 // ── Fixture ───────────────────────────────────────────────────────────────────
 
@@ -50,11 +50,11 @@ function renderPanel() {
 }
 
 beforeEach(() => {
-  jest.clearAllMocks();
-  jest.useFakeTimers();
+  vi.clearAllMocks();
+  vi.useFakeTimers();
 });
 
-afterEach(() => { jest.useRealTimers(); });
+afterEach(() => { vi.useRealTimers(); });
 
 // ── Tests ─────────────────────────────────────────────────────────────────────
 
@@ -88,7 +88,7 @@ describe('PlottChaosPanel', () => {
       expect.stringMatching(/\/api\/(v2\/)?theory\/plott-chaos/),
       expect.any(Object),
     );
-    jest.runAllTimers();
+    vi.runAllTimers();
   });
 
   it('renders chaos map SVG after data loads', async () => {
@@ -96,7 +96,7 @@ describe('PlottChaosPanel', () => {
     renderPanel();
     fireEvent.click(screen.getByTestId('simulate-btn'));
     await waitFor(() => expect(screen.getByTestId('chaos-map-svg')).toBeInTheDocument());
-    jest.runAllTimers();
+    vi.runAllTimers();
   });
 
   it('shows no-condorcet badge for chaos scenario', async () => {
@@ -106,7 +106,7 @@ describe('PlottChaosPanel', () => {
     await waitFor(() => expect(screen.getByTestId('condorcet-badge')).toBeInTheDocument());
     const badge = screen.getByTestId('condorcet-badge');
     expect(badge.className).toContain('bg-danger');
-    jest.runAllTimers();
+    vi.runAllTimers();
   });
 
   it('shows condorcet badge green when winner exists', async () => {
@@ -117,7 +117,7 @@ describe('PlottChaosPanel', () => {
       const badge = screen.getByTestId('condorcet-badge');
       expect(badge.className).toContain('bg-success');
     });
-    jest.runAllTimers();
+    vi.runAllTimers();
   });
 
   it('shows top-cycle badge', async () => {
@@ -125,7 +125,7 @@ describe('PlottChaosPanel', () => {
     renderPanel();
     fireEvent.click(screen.getByTestId('simulate-btn'));
     await waitFor(() => expect(screen.getByTestId('top-cycle-badge')).toBeInTheDocument());
-    jest.runAllTimers();
+    vi.runAllTimers();
   });
 
   it('shows path-steps badge', async () => {
@@ -133,7 +133,7 @@ describe('PlottChaosPanel', () => {
     renderPanel();
     fireEvent.click(screen.getByTestId('simulate-btn'));
     await waitFor(() => expect(screen.getByTestId('path-steps-badge')).toBeInTheDocument());
-    jest.runAllTimers();
+    vi.runAllTimers();
   });
 
   it('shows play button after data loads', async () => {
@@ -141,7 +141,7 @@ describe('PlottChaosPanel', () => {
     renderPanel();
     fireEvent.click(screen.getByTestId('simulate-btn'));
     await waitFor(() => expect(screen.getByTestId('play-btn')).toBeInTheDocument());
-    jest.runAllTimers();
+    vi.runAllTimers();
   });
 
   it('shows show-alt-btn', async () => {
@@ -149,7 +149,7 @@ describe('PlottChaosPanel', () => {
     renderPanel();
     fireEvent.click(screen.getByTestId('simulate-btn'));
     await waitFor(() => expect(screen.getByTestId('show-alt-btn')).toBeInTheDocument());
-    jest.runAllTimers();
+    vi.runAllTimers();
   });
 
   it('shows error on API failure', async () => {

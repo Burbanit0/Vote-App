@@ -8,7 +8,7 @@ describe('ScenarioConfigRow', () => {
     candidateInput: 'Alice, Bob',
     ideology_distribution: 'random',
   };
-  const onChange = jest.fn();
+  const onChange = vi.fn();
 
   it('renders candidate input, voters, and distribution', () => {
     render(<ScenarioConfigRow config={baseConfig} onChange={onChange} />);

@@ -2,7 +2,7 @@ import React from 'react';
 import { render, screen, fireEvent } from '@testing-library/react';
 import ScenarioCPanel from '../ScenarioCPanel';
 
-jest.mock('recharts', () => ({
+vi.mock('recharts', () => ({
   ResponsiveContainer: ({ children }: any) => <div>{children}</div>,
   BarChart: ({ children }: any) => <div>{children}</div>,
   Bar: () => <div />,
@@ -15,13 +15,13 @@ jest.mock('recharts', () => ({
 
 describe('ScenarioCPanel', () => {
   it('renders seat count slider', () => {
-    render(<ScenarioCPanel result={null} loading={false} onRun={jest.fn()} />);
+    render(<ScenarioCPanel result={null} loading={false} onRun={vi.fn()} />);
     expect(screen.getByText(/Number of assembly seats/)).toBeInTheDocument();
     expect(screen.getByText('100')).toBeInTheDocument();
   });
 
   it('renders run button', () => {
-    render(<ScenarioCPanel result={null} loading={false} onRun={jest.fn()} />);
+    render(<ScenarioCPanel result={null} loading={false} onRun={vi.fn()} />);
     expect(screen.getByText(/Form the assembly/)).toBeInTheDocument();
   });
 
@@ -35,7 +35,7 @@ describe('ScenarioCPanel', () => {
       },
       conclusion: 'Sainte-Laguë est le plus proportionnel.',
     };
-    render(<ScenarioCPanel result={result as any} loading={false} onRun={jest.fn()} />);
+    render(<ScenarioCPanel result={result as any} loading={false} onRun={vi.fn()} />);
     expect(screen.getByText(/Sainte-Laguë est le plus proportionnel/)).toBeInTheDocument();
     expect(screen.getByText("D'Hondt")).toBeInTheDocument();
     expect(screen.getByText('Sainte-Laguë')).toBeInTheDocument();
@@ -50,7 +50,7 @@ describe('ScenarioCPanel', () => {
       },
       conclusion: 'Test',
     };
-    render(<ScenarioCPanel result={result as any} loading={false} onRun={jest.fn()} />);
+    render(<ScenarioCPanel result={result as any} loading={false} onRun={vi.fn()} />);
     expect(screen.getAllByText(/Plurality/).length).toBeGreaterThanOrEqual(1);
   });
 });

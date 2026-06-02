@@ -4,7 +4,7 @@ import { MemoryRouter } from 'react-router';
 import DuelModePanel from '../DuelModePanel';
 import type { ElectionResult } from '../../../services/electionApi';
 
-jest.mock('recharts', () => {
+vi.mock('recharts', () => {
   const React = require('react');
   return {
     BarChart:            ({ children }: any) => <div data-testid="bar-chart">{children}</div>,
@@ -61,8 +61,8 @@ function renderDuel(props?: Partial<React.ComponentProps<typeof DuelModePanel>>)
     result:          makeResult(),
     methodA:         'plurality',
     methodB:         'schulze',
-    onMethodAChange: jest.fn(),
-    onMethodBChange: jest.fn(),
+    onMethodAChange: vi.fn(),
+    onMethodBChange: vi.fn(),
   };
   return render(
     <MemoryRouter>
@@ -114,14 +114,14 @@ describe('DuelModePanel', () => {
   });
 
   it('calls onMethodAChange when left selector changes', () => {
-    const handler = jest.fn();
+    const handler = vi.fn();
     renderDuel({ onMethodAChange: handler });
     fireEvent.change(screen.getByTestId('method-select-left'), { target: { value: 'borda' } });
     expect(handler).toHaveBeenCalledWith('borda');
   });
 
   it('calls onMethodBChange when right selector changes', () => {
-    const handler = jest.fn();
+    const handler = vi.fn();
     renderDuel({ onMethodBChange: handler });
     fireEvent.change(screen.getByTestId('method-select-right'), { target: { value: 'irv' } });
     expect(handler).toHaveBeenCalledWith('irv');

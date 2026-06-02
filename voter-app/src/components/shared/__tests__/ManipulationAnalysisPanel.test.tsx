@@ -6,11 +6,11 @@ import ManipulationAnalysisPanel from '../ManipulationAnalysisPanel';
 import { ElectionProvider } from '../../../stores/useElectionStore';
 import { makeTestQueryClient } from '../../../test/queryWrapper';
 
-jest.mock('../../../api/client', () => ({
-  apiClient: { GET: jest.fn(), POST: jest.fn(), PUT: jest.fn(), DELETE: jest.fn(), PATCH: jest.fn() },
-  getAccessToken: jest.fn(() => null),
+vi.mock('../../../api/client', () => ({
+  apiClient: { GET: vi.fn(), POST: vi.fn(), PUT: vi.fn(), DELETE: vi.fn(), PATCH: vi.fn() },
+  getAccessToken: vi.fn(() => null),
 }));
-const { apiClient } = jest.requireMock('../../../api/client') as { apiClient: { POST: jest.Mock } };
+const { apiClient } = (await import('../../../api/client')) as unknown as { apiClient: { POST: jest.Mock } };
 
 // ── Fixtures ──────────────────────────────────────────────────────────────────
 
@@ -67,12 +67,12 @@ function renderPanel() {
 }
 
 beforeEach(() => {
-  jest.clearAllMocks();
+  vi.clearAllMocks();
   localStorage.clear();
-  jest.useFakeTimers();
+  vi.useFakeTimers();
 });
 
-afterEach(() => { jest.useRealTimers(); });
+afterEach(() => { vi.useRealTimers(); });
 
 // ── Tests ─────────────────────────────────────────────────────────────────────
 
@@ -101,7 +101,7 @@ describe('ManipulationAnalysisPanel', () => {
       expect.stringMatching(/\/api\/(v2\/)?theory\/manipulation-analysis/),
       expect.any(Object),
     );
-    jest.runAllTimers();
+    vi.runAllTimers();
   });
 
   it('shows manipulable badge (danger) when manipulable', async () => {
@@ -112,7 +112,7 @@ describe('ManipulationAnalysisPanel', () => {
       const badge = screen.getByTestId('manipulable-badge');
       expect(badge.className).toContain('bg-danger');
     });
-    jest.runAllTimers();
+    vi.runAllTimers();
   });
 
   it('shows not-manipulable badge (success) when not manipulable', async () => {
@@ -123,7 +123,7 @@ describe('ManipulationAnalysisPanel', () => {
       const badge = screen.getByTestId('manipulable-badge');
       expect(badge.className).toContain('bg-success');
     });
-    jest.runAllTimers();
+    vi.runAllTimers();
   });
 
   it('shows count badge', async () => {
@@ -131,7 +131,7 @@ describe('ManipulationAnalysisPanel', () => {
     renderPanel();
     fireEvent.click(screen.getByTestId('analyze-btn'));
     await waitFor(() => expect(screen.getByTestId('count-badge')).toBeInTheDocument());
-    jest.runAllTimers();
+    vi.runAllTimers();
   });
 
   it('shows winner badge', async () => {
@@ -139,7 +139,7 @@ describe('ManipulationAnalysisPanel', () => {
     renderPanel();
     fireEvent.click(screen.getByTestId('analyze-btn'));
     await waitFor(() => expect(screen.getByTestId('winner-badge')).toBeInTheDocument());
-    jest.runAllTimers();
+    vi.runAllTimers();
   });
 
   it('renders ideology map SVG', async () => {
@@ -147,7 +147,7 @@ describe('ManipulationAnalysisPanel', () => {
     renderPanel();
     fireEvent.click(screen.getByTestId('analyze-btn'));
     await waitFor(() => expect(screen.getByTestId('manip-map-svg')).toBeInTheDocument());
-    jest.runAllTimers();
+    vi.runAllTimers();
   });
 
   it('shows strategy table', async () => {
@@ -155,7 +155,7 @@ describe('ManipulationAnalysisPanel', () => {
     renderPanel();
     fireEvent.click(screen.getByTestId('analyze-btn'));
     await waitFor(() => expect(screen.getByTestId('strategy-table')).toBeInTheDocument());
-    jest.runAllTimers();
+    vi.runAllTimers();
   });
 
   it('shows manipulator detail when voter clicked in map', async () => {
@@ -169,7 +169,7 @@ describe('ManipulationAnalysisPanel', () => {
     if (circles.length > 0) {
       fireEvent.click(circles[1]); // Second circle = first manipulator halo
     }
-    jest.runAllTimers();
+    vi.runAllTimers();
   });
 
   it('shows error on API failure', async () => {

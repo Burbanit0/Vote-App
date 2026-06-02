@@ -5,11 +5,11 @@ import { QueryClientProvider } from '@tanstack/react-query';
 import E2EVDemo from '../E2EVDemo';
 import { makeTestQueryClient } from '../../../test/queryWrapper';
 
-jest.mock('../../../api/client', () => ({
-  apiClient: { GET: jest.fn(), POST: jest.fn(), PUT: jest.fn(), DELETE: jest.fn(), PATCH: jest.fn() },
-  getAccessToken: jest.fn(() => null),
+vi.mock('../../../api/client', () => ({
+  apiClient: { GET: vi.fn(), POST: vi.fn(), PUT: vi.fn(), DELETE: vi.fn(), PATCH: vi.fn() },
+  getAccessToken: vi.fn(() => null),
 }));
-const { apiClient } = jest.requireMock('../../../api/client') as { apiClient: { POST: jest.Mock } };
+const { apiClient } = (await import('../../../api/client')) as unknown as { apiClient: { POST: jest.Mock } };
 
 // ── Fixture ───────────────────────────────────────────────────────────────────
 
@@ -59,11 +59,11 @@ function renderDemo() {
 }
 
 beforeEach(() => {
-  jest.clearAllMocks();
-  jest.useFakeTimers();
+  vi.clearAllMocks();
+  vi.useFakeTimers();
 });
 
-afterEach(() => { jest.useRealTimers(); });
+afterEach(() => { vi.useRealTimers(); });
 
 // ── Tests ─────────────────────────────────────────────────────────────────────
 
@@ -96,7 +96,7 @@ describe('E2EVDemo', () => {
       expect.stringMatching(/\/api\/(v2\/)?tech\/e2e-demo/),
       expect.objectContaining({ body: expect.objectContaining({ user_vote: 'Bob' }) }),
     );
-    jest.runAllTimers();
+    vi.runAllTimers();
   });
 
   it('shows step 1 content after voting (encrypted ballot + code)', async () => {
@@ -106,7 +106,7 @@ describe('E2EVDemo', () => {
     fireEvent.click(screen.getByTestId('vote-btn'));
     await waitFor(() => expect(screen.getByTestId('step1-content')).toBeInTheDocument());
     expect(screen.getByTestId('my-verification-code')).toBeInTheDocument();
-    jest.runAllTimers();
+    vi.runAllTimers();
   });
 
   it('advances to step 2 (bulletin board)', async () => {
@@ -118,7 +118,7 @@ describe('E2EVDemo', () => {
     fireEvent.click(screen.getByTestId('next-step-btn'));
     expect(screen.getByTestId('step2-content')).toBeInTheDocument();
     expect(screen.getByTestId('bulletin-board')).toBeInTheDocument();
-    jest.runAllTimers();
+    vi.runAllTimers();
   });
 
   it('shows "code found" alert when user clicks their code on the board', async () => {
@@ -133,7 +133,7 @@ describe('E2EVDemo', () => {
     const highlighted = board.querySelector('.border-warning');
     if (highlighted) fireEvent.click(highlighted);
     await waitFor(() => expect(screen.queryByTestId('code-found-alert')).not.toBeNull());
-    jest.runAllTimers();
+    vi.runAllTimers();
   });
 
   it('advances to step 3 (aggregate)', async () => {
@@ -147,7 +147,7 @@ describe('E2EVDemo', () => {
     fireEvent.click(screen.getByTestId('to-step3-btn'));
     expect(screen.getByTestId('step3-content')).toBeInTheDocument();
     expect(screen.getByTestId('aggregate-display')).toBeInTheDocument();
-    jest.runAllTimers();
+    vi.runAllTimers();
   });
 
   it('advances to step 4 (reveal)', async () => {
@@ -163,7 +163,7 @@ describe('E2EVDemo', () => {
     fireEvent.click(screen.getByTestId('to-step4-btn'));
     expect(screen.getByTestId('step4-content')).toBeInTheDocument();
     expect(screen.getByTestId('reveal-btn')).toBeInTheDocument();
-    jest.runAllTimers();
+    vi.runAllTimers();
   });
 
   it('reveals vote when reveal button clicked', async () => {
@@ -179,7 +179,7 @@ describe('E2EVDemo', () => {
     await waitFor(() => screen.getByTestId('reveal-btn'));
     fireEvent.click(screen.getByTestId('reveal-btn'));
     expect(screen.getByTestId('revealed-result')).toBeInTheDocument();
-    jest.runAllTimers();
+    vi.runAllTimers();
   });
 
   it('shows error on API failure', async () => {

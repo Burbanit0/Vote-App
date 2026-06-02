@@ -4,7 +4,7 @@ import ErrorBoundary from './ErrorBoundary';
 
 // Silence the expected console.error noise from intentional throws.
 const originalError = console.error;
-beforeAll(() => { console.error = jest.fn(); });
+beforeAll(() => { console.error = vi.fn(); });
 afterAll(() => { console.error = originalError; });
 
 const Boom: React.FC<{ when?: boolean }> = ({ when = true }) => {
@@ -46,7 +46,7 @@ describe('ErrorBoundary', () => {
   });
 
   it('copy button writes a structured payload to the clipboard', async () => {
-    const writeText = jest.fn().mockResolvedValue(undefined);
+    const writeText = vi.fn().mockResolvedValue(undefined);
     Object.defineProperty(navigator, 'clipboard', {
       value: { writeText }, configurable: true,
     });

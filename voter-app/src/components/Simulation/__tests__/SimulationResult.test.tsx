@@ -2,20 +2,20 @@ import React from 'react';
 import { render, screen } from '@testing-library/react';
 import SimulationResult from '../SimulationResult';
 
-jest.mock('../VotingMethodsComparison', () => () => <div data-testid="voting-methods-comparison" />);
-jest.mock('../ScoreVotingComparison', () => () => <div data-testid="score-voting-comparison" />);
+vi.mock('../VotingMethodsComparison', () => ({ default: () => <div data-testid="voting-methods-comparison" /> }));
+vi.mock('../ScoreVotingComparison', () => ({ default: () => <div data-testid="score-voting-comparison" /> }));
 // Charts now render with Recharts (no chart.js / react-google-charts). The
 // preprocessors are mocked with minimal valid shapes; the component wraps each
 // chart in a testid div so we assert presence without depending on SVG layout.
-jest.mock('../SimulationSankey', () => () => [
+vi.mock('../SimulationSankey', () => ({ default: () => [
   ['From', 'To', 'Weight'],
   ['Start', 'R:1-Alice', 1],
   ['R:1-Alice', 'Winner: Alice', 1],
-]);
-jest.mock('../SimulationRadar', () => () => ({
+] }));
+vi.mock('../SimulationRadar', () => ({ default: () => ({
   labels: ['Rank 1', 'Rank 2'],
   datasets: [{ label: 'Alice', data: [0.5, 0.5] }],
-}));
+}) }));
 
 const baseResult = {
   simulation_type: ['votes', 'ranked'],

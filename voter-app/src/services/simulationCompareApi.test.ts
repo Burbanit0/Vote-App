@@ -4,11 +4,11 @@ import {
   getCondorcetMatrix,
 } from './simulationCompareApi';
 
-jest.mock('../api/client', () => ({ apiPost: jest.fn(), apiGet: jest.fn() }));
-const { apiPost } = jest.requireMock('../api/client') as { apiPost: jest.Mock };
+vi.mock('../api/client', () => ({ apiPost: vi.fn(), apiGet: vi.fn() }));
+const { apiPost } = (await import('../api/client')) as unknown as { apiPost: jest.Mock };
 
 beforeEach(() => {
-  jest.clearAllMocks();
+  vi.clearAllMocks();
 });
 
 describe('simulationCompareApi', () => {

@@ -2,7 +2,7 @@ import React from 'react';
 import { render, screen } from '@testing-library/react';
 import MethodTooltip from '../MethodTooltip';
 
-jest.mock('../../Simulation/simulationConstants', () => ({
+vi.mock('../../Simulation/simulationConstants', () => ({
   useMethodLabels: () => ({ plurality: 'Plurality' }),
   useMethodPros: () => ({ plurality: 'Simple and universal' }),
   useMethodCons: () => ({ plurality: 'Creates spoiler effect' }),

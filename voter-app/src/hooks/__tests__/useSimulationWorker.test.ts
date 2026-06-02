@@ -103,9 +103,9 @@ describe('WorkerResponse contracts', () => {
 // The hook can't be imported directly in Jest due to import.meta.url.
 // We verify the interface contract through a simple mock.
 
-jest.mock('../useSimulationWorker', () => ({
+vi.mock('../useSimulationWorker', () => ({
   useSimulationWorker: () => ({
-    dispatch: jest.fn().mockResolvedValue({ cells: [], metrics: { maxDensity: 1 } }),
+    dispatch: vi.fn().mockResolvedValue({ cells: [], metrics: { maxDensity: 1 } }),
     isComputing: false,
   }),
 }));

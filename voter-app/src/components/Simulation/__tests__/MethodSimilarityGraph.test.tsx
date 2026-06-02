@@ -8,12 +8,12 @@ import MethodSimilarityGraph, {
 
 // Mock requestAnimationFrame so D3 simulation ticks don't run in jsdom
 beforeEach(() => {
-  jest.spyOn(global, 'requestAnimationFrame').mockImplementation(() => 1);
-  jest.spyOn(global, 'cancelAnimationFrame').mockImplementation(() => {});
+  vi.spyOn(global, 'requestAnimationFrame').mockImplementation(() => 1);
+  vi.spyOn(global, 'cancelAnimationFrame').mockImplementation(() => {});
 });
 
 afterEach(() => {
-  jest.restoreAllMocks();
+  vi.restoreAllMocks();
 });
 
 // ── Test helpers ──────────────────────────────────────────────────────────────

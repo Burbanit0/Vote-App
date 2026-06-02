@@ -4,13 +4,13 @@ import { QueryClientProvider } from '@tanstack/react-query';
 import EpistocracyPanel from '../EpistocracyPanel';
 import { makeTestQueryClient } from '../../../test/queryWrapper';
 
-jest.mock('../../../api/client', () => ({
-  apiClient: { GET: jest.fn(), POST: jest.fn(), PUT: jest.fn(), DELETE: jest.fn(), PATCH: jest.fn() },
-  getAccessToken: jest.fn(() => null),
+vi.mock('../../../api/client', () => ({
+  apiClient: { GET: vi.fn(), POST: vi.fn(), PUT: vi.fn(), DELETE: vi.fn(), PATCH: vi.fn() },
+  getAccessToken: vi.fn(() => null),
 }));
-const { apiClient } = jest.requireMock('../../../api/client') as { apiClient: { POST: jest.Mock } };
+const { apiClient } = (await import('../../../api/client')) as unknown as { apiClient: { POST: jest.Mock } };
 
-jest.mock('react-i18next', () => ({
+vi.mock('react-i18next', () => ({
   useTranslation: () => ({
     t: (key: string, opts?: Record<string, unknown>) => {
       if (opts?.pct !== undefined) return `below random ${opts.pct}%`;
@@ -19,7 +19,7 @@ jest.mock('react-i18next', () => ({
   }),
 }));
 
-jest.mock('recharts', () => {
+vi.mock('recharts', () => {
   const React = require('react');
   const stub = ({ children }: { children?: React.ReactNode }) =>
     React.createElement('div', { 'data-testid': 'recharts-stub' }, children);
@@ -74,7 +74,7 @@ async function renderAndRun(responseData = MOCK_DATA) {
 // ── Tests ─────────────────────────────────────────────────────────────────────
 
 describe('EpistocracyPanel', () => {
-  beforeEach(() => jest.clearAllMocks());
+  beforeEach(() => vi.clearAllMocks());
 
   it('renders Caplan quote on mount', () => {
     renderPanel();

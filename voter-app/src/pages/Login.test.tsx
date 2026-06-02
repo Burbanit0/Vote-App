@@ -4,24 +4,24 @@ import Login from './Login';
 import { useAuth } from '../stores/useAuthStore';
 import { loginUser } from '../services/authApi';
 
-const mockNavigate = jest.fn();
+const mockNavigate = vi.fn();
 
-jest.mock('react-router-dom', () => ({
-  ...jest.requireActual('react-router-dom'),
+vi.mock('react-router-dom', async () => ({
+  ...(await vi.importActual('react-router-dom')),
   useNavigate: () => mockNavigate,
 }));
 
-jest.mock('../stores/useAuthStore', () => ({
-  ...jest.requireActual('../stores/useAuthStore'),
-  useAuth: jest.fn(),
+vi.mock('../stores/useAuthStore', async () => ({
+  ...(await vi.importActual('../stores/useAuthStore')),
+  useAuth: vi.fn(),
 }));
 
-jest.mock('../services/authApi', () => ({
-  loginUser: jest.fn(),
-  googleLogin: jest.fn(),
+vi.mock('../services/authApi', () => ({
+  loginUser: vi.fn(),
+  googleLogin: vi.fn(),
 }));
 
-jest.mock('@react-oauth/google', () => ({
+vi.mock('@react-oauth/google', () => ({
   GoogleLogin: ({ onSuccess }: { onSuccess: (resp: { credential: string }) => void }) => (
     <button
       data-testid="google-login-btn"
@@ -33,10 +33,10 @@ jest.mock('@react-oauth/google', () => ({
 }));
 
 describe('Login', () => {
-  const mockLogin = jest.fn();
+  const mockLogin = vi.fn();
 
   beforeEach(() => {
-    jest.clearAllMocks();
+    vi.clearAllMocks();
     process.env.VITE_GOOGLE_CLIENT_ID = 'test-client-id';
     (useAuth as jest.Mock).mockReturnValue({ login: mockLogin, user: null });
   });

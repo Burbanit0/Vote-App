@@ -6,13 +6,13 @@ import AdaptiveVotingPanel from '../AdaptiveVotingPanel';
 import { ElectionProvider } from '../../../stores/useElectionStore';
 import { makeTestQueryClient } from '../../../test/queryWrapper';
 
-jest.mock('../../../api/client', () => ({
-  apiClient: { GET: jest.fn(), POST: jest.fn(), PUT: jest.fn(), DELETE: jest.fn(), PATCH: jest.fn() },
-  getAccessToken: jest.fn(() => null),
+vi.mock('../../../api/client', () => ({
+  apiClient: { GET: vi.fn(), POST: vi.fn(), PUT: vi.fn(), DELETE: vi.fn(), PATCH: vi.fn() },
+  getAccessToken: vi.fn(() => null),
 }));
-const { apiClient } = jest.requireMock('../../../api/client') as { apiClient: { POST: jest.Mock } };
+const { apiClient } = (await import('../../../api/client')) as unknown as { apiClient: { POST: jest.Mock } };
 
-jest.mock('recharts', () => {
+vi.mock('recharts', () => {
   const React = require('react');
   return {
     LineChart:           ({ children }: any) => <div data-testid="line-chart">{children}</div>,
@@ -74,13 +74,13 @@ function renderPanel() {
 }
 
 beforeEach(() => {
-  jest.clearAllMocks();
+  vi.clearAllMocks();
   localStorage.clear();
-  jest.useFakeTimers();
+  vi.useFakeTimers();
 });
 
 afterEach(() => {
-  jest.useRealTimers();
+  vi.useRealTimers();
 });
 
 describe('AdaptiveVotingPanel', () => {
@@ -112,7 +112,7 @@ describe('AdaptiveVotingPanel', () => {
     await waitFor(() => {
       expect(screen.getByTestId('race-chart')).toBeInTheDocument();
     });
-    act(() => { jest.runAllTimers(); });
+    act(() => { vi.runAllTimers(); });
   });
 
   it('shows convergence badge', async () => {
@@ -122,7 +122,7 @@ describe('AdaptiveVotingPanel', () => {
     await waitFor(() => {
       expect(screen.getByTestId('convergence-badge')).toBeInTheDocument();
     });
-    act(() => { jest.runAllTimers(); });
+    act(() => { vi.runAllTimers(); });
   });
 
   it('shows final winner badge', async () => {
@@ -132,7 +132,7 @@ describe('AdaptiveVotingPanel', () => {
     await waitFor(() => {
       expect(screen.getByTestId('final-winner-badge')).toBeInTheDocument();
     });
-    act(() => { jest.runAllTimers(); });
+    act(() => { vi.runAllTimers(); });
   });
 
   it('shows sincere winner badge', async () => {
@@ -142,7 +142,7 @@ describe('AdaptiveVotingPanel', () => {
     await waitFor(() => {
       expect(screen.getByTestId('sincere-winner-badge')).toBeInTheDocument();
     });
-    act(() => { jest.runAllTimers(); });
+    act(() => { vi.runAllTimers(); });
   });
 
   it('shows drift badge when winner changed and drift > 0.15', async () => {
@@ -152,7 +152,7 @@ describe('AdaptiveVotingPanel', () => {
     await waitFor(() => {
       expect(screen.getByTestId('drift-badge')).toBeInTheDocument();
     });
-    act(() => { jest.runAllTimers(); });
+    act(() => { vi.runAllTimers(); });
   });
 
   it('renders ideology overlay SVG', async () => {
@@ -162,7 +162,7 @@ describe('AdaptiveVotingPanel', () => {
     await waitFor(() => {
       expect(screen.getByTestId('ideology-overlay')).toBeInTheDocument();
     });
-    act(() => { jest.runAllTimers(); });
+    act(() => { vi.runAllTimers(); });
   });
 
   it('shows warning alert when tacticals changed the winner', async () => {
@@ -173,7 +173,7 @@ describe('AdaptiveVotingPanel', () => {
       const warnings = document.querySelectorAll('.alert-warning');
       expect(warnings.length).toBeGreaterThan(0);
     });
-    act(() => { jest.runAllTimers(); });
+    act(() => { vi.runAllTimers(); });
   });
 
   it('shows replay button after data loads', async () => {
@@ -183,7 +183,7 @@ describe('AdaptiveVotingPanel', () => {
     await waitFor(() => {
       expect(screen.getByRole('button', { name: /replay|rejouer/i })).toBeInTheDocument();
     });
-    act(() => { jest.runAllTimers(); });
+    act(() => { vi.runAllTimers(); });
   });
 
   it('shows error on API failure', async () => {

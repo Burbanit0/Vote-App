@@ -6,11 +6,11 @@ import HotellingPanel from '../HotellingPanel';
 import { ElectionProvider } from '../../../stores/useElectionStore';
 import { makeTestQueryClient } from '../../../test/queryWrapper';
 
-jest.mock('../../../api/client', () => ({
-  apiClient: { GET: jest.fn(), POST: jest.fn(), PUT: jest.fn(), DELETE: jest.fn(), PATCH: jest.fn() },
-  getAccessToken: jest.fn(() => null),
+vi.mock('../../../api/client', () => ({
+  apiClient: { GET: vi.fn(), POST: vi.fn(), PUT: vi.fn(), DELETE: vi.fn(), PATCH: vi.fn() },
+  getAccessToken: vi.fn(() => null),
 }));
-const { apiClient } = jest.requireMock('../../../api/client') as { apiClient: { POST: jest.Mock } };
+const { apiClient } = (await import('../../../api/client')) as unknown as { apiClient: { POST: jest.Mock } };
 
 // ── Fixture ───────────────────────────────────────────────────────────────────
 
@@ -60,12 +60,12 @@ function renderPanel() {
 }
 
 beforeEach(() => {
-  jest.clearAllMocks();
+  vi.clearAllMocks();
   localStorage.clear();
-  jest.useFakeTimers();
+  vi.useFakeTimers();
 });
 
-afterEach(() => { jest.useRealTimers(); });
+afterEach(() => { vi.useRealTimers(); });
 
 // ── Tests ─────────────────────────────────────────────────────────────────────
 
@@ -89,7 +89,7 @@ describe('HotellingPanel', () => {
       expect.stringMatching(/\/api\/(v2\/)?election\/hotelling/),
       expect.any(Object),
     );
-    jest.runAllTimers();
+    vi.runAllTimers();
   });
 
   it('renders SVG canvas after data loads', async () => {
@@ -97,7 +97,7 @@ describe('HotellingPanel', () => {
     renderPanel();
     fireEvent.click(screen.getByRole('button', { name: /simuler|simulate/i }));
     await waitFor(() => expect(screen.getByTestId('hotelling-svg')).toBeInTheDocument());
-    jest.runAllTimers();
+    vi.runAllTimers();
   });
 
   it('renders trajectory polylines', async () => {
@@ -108,7 +108,7 @@ describe('HotellingPanel', () => {
       const polylines = container.querySelectorAll('[data-testid^="trajectory-"]');
       expect(polylines.length).toBeGreaterThan(0);
     });
-    jest.runAllTimers();
+    vi.runAllTimers();
   });
 
   it('shows convergence badge when converged', async () => {
@@ -119,7 +119,7 @@ describe('HotellingPanel', () => {
       const badge = screen.getByTestId('convergence-badge');
       expect(badge.textContent).toMatch(/convergence|converged/i);
     });
-    jest.runAllTimers();
+    vi.runAllTimers();
   });
 
   it('shows no-convergence badge when not converged', async () => {
@@ -133,7 +133,7 @@ describe('HotellingPanel', () => {
       const badge = screen.getByTestId('convergence-badge');
       expect(badge.className).toContain('bg-danger');
     });
-    jest.runAllTimers();
+    vi.runAllTimers();
   });
 
   it('step slider navigates through iterations', async () => {
@@ -144,7 +144,7 @@ describe('HotellingPanel', () => {
     fireEvent.change(screen.getByTestId('step-slider'), { target: { value: '2' } });
     // No crash — step 2 should be displayed
     expect(screen.getByTestId('hotelling-svg')).toBeInTheDocument();
-    jest.runAllTimers();
+    vi.runAllTimers();
   });
 
   it('shows play button', async () => {
@@ -152,7 +152,7 @@ describe('HotellingPanel', () => {
     renderPanel();
     fireEvent.click(screen.getByRole('button', { name: /simuler|simulate/i }));
     await waitFor(() => expect(screen.getByTestId('play-button')).toBeInTheDocument());
-    jest.runAllTimers();
+    vi.runAllTimers();
   });
 
   it('shows pedagogical message', async () => {
@@ -160,7 +160,7 @@ describe('HotellingPanel', () => {
     renderPanel();
     fireEvent.click(screen.getByRole('button', { name: /simuler|simulate/i }));
     await waitFor(() => expect(screen.getByTestId('pedagogical-msg')).toBeInTheDocument());
-    jest.runAllTimers();
+    vi.runAllTimers();
   });
 
   it('shows error on API failure', async () => {

@@ -3,11 +3,11 @@ import { render, screen, waitFor } from '@testing-library/react';
 import { MemoryRouter } from 'react-router';
 import ElectionInsightPanel from '../ElectionInsightPanel';
 
-jest.mock('../../../services/electionApi', () => ({
-  interpretElection: jest.fn(),
+vi.mock('../../../services/electionApi', () => ({
+  interpretElection: vi.fn(),
 }));
 
-const { interpretElection } = jest.requireMock('../../../services/electionApi') as {
+const { interpretElection } = (await import('../../../services/electionApi')) as unknown as {
   interpretElection: jest.Mock;
 };
 
@@ -61,7 +61,7 @@ const DIVERGENCE_INSIGHT = {
 };
 
 beforeEach(() => {
-  jest.clearAllMocks();
+  vi.clearAllMocks();
   interpretElection.mockResolvedValue(CONSENSUS_INSIGHT);
 });
 

@@ -3,11 +3,11 @@ import { render, screen, waitFor } from '@testing-library/react';
 import UserProfile from '../UserProfile';
 import { fetchUserProfile } from '../../../services';
 
-jest.mock('../../../services', () => ({
-  fetchUserProfile: jest.fn(),
+vi.mock('../../../services', () => ({
+  fetchUserProfile: vi.fn(),
 }));
 
-jest.mock('react-router', () => ({
+vi.mock('react-router', () => ({
   useParams: () => ({ id: '42' }),
 }));
 
@@ -22,7 +22,7 @@ const mockProfile = {
 
 describe('UserProfile', () => {
   afterEach(() => {
-    jest.restoreAllMocks();
+    vi.restoreAllMocks();
   });
 
   it('shows loading state initially', () => {

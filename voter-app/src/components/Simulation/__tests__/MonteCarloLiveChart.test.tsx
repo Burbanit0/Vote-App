@@ -2,7 +2,7 @@ import React from 'react';
 import { render, screen } from '@testing-library/react';
 import MonteCarloLiveChart from '../MonteCarloLiveChart';
 
-jest.mock('recharts', () => ({
+vi.mock('recharts', () => ({
   ResponsiveContainer: ({ children }: any) => <div>{children}</div>,
   BarChart: ({ children }: any) => <div>{children}</div>,
   Bar: ({ children }: any) => <div>{children}</div>,
@@ -13,7 +13,7 @@ jest.mock('recharts', () => ({
   YAxis: () => <div />,
 }));
 
-jest.mock('../../../hooks/useChartTheme', () => ({
+vi.mock('../../../hooks/useChartTheme', () => ({
   useChartTheme: () => ({
     isDark: false,
     gridStroke: '#e0e0e0',
@@ -30,7 +30,7 @@ const baseProps = {
   condorcetRate: 0,
   partialResults: {},
   error: null,
-  onStop: jest.fn(),
+  onStop: vi.fn(),
 };
 
 describe('MonteCarloLiveChart', () => {

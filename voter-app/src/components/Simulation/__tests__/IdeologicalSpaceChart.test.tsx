@@ -4,7 +4,7 @@ import { I18nextProvider } from 'react-i18next';
 import i18n from '../../../i18n';
 import IdeologicalSpaceChart from '../IdeologicalSpaceChart';
 
-jest.mock('recharts', () => ({
+vi.mock('recharts', () => ({
   ResponsiveContainer: ({ children }: any) => <div>{children}</div>,
   ScatterChart: ({ children }: any) => <div>{children}</div>,
   Scatter: () => <div />,

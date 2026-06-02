@@ -5,8 +5,8 @@ import { MemoryRouter } from 'react-router';
 import HomePage from './HomePage';
 import { ElectionProvider } from '../stores/useElectionStore';
 
-jest.mock('../services/simulationCompareApi', () => ({
-  runComparisonSimulation: jest.fn().mockResolvedValue({
+vi.mock('../services/simulationCompareApi', () => ({
+  runComparisonSimulation: vi.fn().mockResolvedValue({
     condorcet_winner: 'Alice',
     methods: {
       plurality: { winner: 'Alice', bayesian_regret: 0.12, majority_satisfaction: 0.75, strategic_vulnerability: 0.2, condorcet_consistent: true },
@@ -16,8 +16,8 @@ jest.mock('../services/simulationCompareApi', () => ({
   }),
 }));
 
-jest.mock('../services/electionApi', () => ({
-  simulateElection:  jest.fn().mockResolvedValue({
+vi.mock('../services/electionApi', () => ({
+  simulateElection:  vi.fn().mockResolvedValue({
     config: {}, voters_snapshot: [], candidates: [],
     methods: {
       plurality:     { winner: 'Chirac', bayesian_regret: 0.03, majority_satisfaction: 0.7, condorcet_consistent: null },
@@ -32,10 +32,10 @@ jest.mock('../services/electionApi', () => ({
     condorcet_winner: 'Jospin', blank_rate: 0,
     campaign_trajectory: null, inter_method_agreement: 0.5, condorcet_exists: true,
   }),
-  interpretElection: jest.fn().mockResolvedValue(null),
+  interpretElection: vi.fn().mockResolvedValue(null),
 }));
 
-jest.mock('../components/shared/OnboardingTour', () => () => null);
+vi.mock('../components/shared/OnboardingTour', () => ({ default: () => null }));
 
 async function renderPage() {
   await act(async () => {

@@ -1,14 +1,14 @@
 import { listScenarios, saveScenario, getScenario, deleteScenario } from './scenariosApi';
 
-jest.mock('../api/client', () => ({
-  apiGet: jest.fn(), apiPost: jest.fn(), apiDelete: jest.fn(),
+vi.mock('../api/client', () => ({
+  apiGet: vi.fn(), apiPost: vi.fn(), apiDelete: vi.fn(),
 }));
-const { apiGet, apiPost, apiDelete } = jest.requireMock('../api/client') as {
+const { apiGet, apiPost, apiDelete } = (await import('../api/client')) as unknown as {
   apiGet: jest.Mock; apiPost: jest.Mock; apiDelete: jest.Mock;
 };
 
 beforeEach(() => {
-  jest.clearAllMocks();
+  vi.clearAllMocks();
 });
 
 describe('scenariosApi', () => {

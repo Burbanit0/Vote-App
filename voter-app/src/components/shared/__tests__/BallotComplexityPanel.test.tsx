@@ -6,13 +6,13 @@ import BallotComplexityPanel from '../BallotComplexityPanel';
 import { ElectionProvider } from '../../../stores/useElectionStore';
 import { makeTestQueryClient } from '../../../test/queryWrapper';
 
-jest.mock('../../../api/client', () => ({
-  apiClient: { GET: jest.fn(), POST: jest.fn(), PUT: jest.fn(), DELETE: jest.fn(), PATCH: jest.fn() },
-  getAccessToken: jest.fn(() => null),
+vi.mock('../../../api/client', () => ({
+  apiClient: { GET: vi.fn(), POST: vi.fn(), PUT: vi.fn(), DELETE: vi.fn(), PATCH: vi.fn() },
+  getAccessToken: vi.fn(() => null),
 }));
-const { apiClient } = jest.requireMock('../../../api/client') as { apiClient: { POST: jest.Mock } };
+const { apiClient } = (await import('../../../api/client')) as unknown as { apiClient: { POST: jest.Mock } };
 
-jest.mock('recharts', () => {
+vi.mock('recharts', () => {
   const React = require('react');
   return {
     BarChart:            ({ children }: any) => <div>{children}</div>,
@@ -71,12 +71,12 @@ function renderPanel() {
 }
 
 beforeEach(() => {
-  jest.clearAllMocks();
+  vi.clearAllMocks();
   localStorage.clear();
-  jest.useFakeTimers();
+  vi.useFakeTimers();
 });
 
-afterEach(() => { jest.useRealTimers(); });
+afterEach(() => { vi.useRealTimers(); });
 
 // ── Tests ─────────────────────────────────────────────────────────────────────
 
@@ -112,7 +112,7 @@ describe('BallotComplexityPanel', () => {
       expect.stringMatching(/\/api\/(v2\/)?election\/ballot-complexity/),
       expect.any(Object),
     );
-    jest.runAllTimers();
+    vi.runAllTimers();
   });
 
   it('renders bar chart after data loads', async () => {
@@ -120,7 +120,7 @@ describe('BallotComplexityPanel', () => {
     renderPanel();
     fireEvent.click(screen.getByRole('button', { name: /simuler|simulate/i }));
     await waitFor(() => expect(screen.getByTestId('null-rate-bar-chart')).toBeInTheDocument());
-    jest.runAllTimers();
+    vi.runAllTimers();
   });
 
   it('renders candidate curve chart after data loads', async () => {
@@ -128,7 +128,7 @@ describe('BallotComplexityPanel', () => {
     renderPanel();
     fireEvent.click(screen.getByRole('button', { name: /simuler|simulate/i }));
     await waitFor(() => expect(screen.getByTestId('candidate-curve-chart')).toBeInTheDocument());
-    jest.runAllTimers();
+    vi.runAllTimers();
   });
 
   it('shows most-inclusive and least-inclusive badges', async () => {
@@ -139,7 +139,7 @@ describe('BallotComplexityPanel', () => {
       expect(screen.getByTestId('most-inclusive-badge')).toBeInTheDocument();
       expect(screen.getByTestId('least-inclusive-badge')).toBeInTheDocument();
     });
-    jest.runAllTimers();
+    vi.runAllTimers();
   });
 
   it('shows winner-changed badge when at least one method changes winner', async () => {
@@ -147,7 +147,7 @@ describe('BallotComplexityPanel', () => {
     renderPanel();
     fireEvent.click(screen.getByRole('button', { name: /simuler|simulate/i }));
     await waitFor(() => expect(screen.getByTestId('winner-changed-badge')).toBeInTheDocument());
-    jest.runAllTimers();
+    vi.runAllTimers();
   });
 
   it('does NOT show winner-changed badge when no method changes winner', async () => {
@@ -156,7 +156,7 @@ describe('BallotComplexityPanel', () => {
     fireEvent.click(screen.getByRole('button', { name: /simuler|simulate/i }));
     await waitFor(() => screen.getByTestId('most-inclusive-badge'));
     expect(screen.queryByTestId('winner-changed-badge')).not.toBeInTheDocument();
-    jest.runAllTimers();
+    vi.runAllTimers();
   });
 
   it('renders results table with one row per method', async () => {
@@ -167,7 +167,7 @@ describe('BallotComplexityPanel', () => {
     for (const m of METHODS) {
       expect(screen.getByTestId(`result-row-${m}`)).toBeInTheDocument();
     }
-    jest.runAllTimers();
+    vi.runAllTimers();
   });
 
   it('renders ballot design section', async () => {
@@ -175,7 +175,7 @@ describe('BallotComplexityPanel', () => {
     renderPanel();
     fireEvent.click(screen.getByRole('button', { name: /simuler|simulate/i }));
     await waitFor(() => expect(screen.getByTestId('ballot-design-section')).toBeInTheDocument());
-    jest.runAllTimers();
+    vi.runAllTimers();
   });
 
   it('auto-recalculates (debounced) on education slider change after first run', async () => {
@@ -185,9 +185,9 @@ describe('BallotComplexityPanel', () => {
     await waitFor(() => expect(apiClient.POST).toHaveBeenCalledTimes(1));
 
     fireEvent.change(screen.getByTestId('education-slider'), { target: { value: '0.3' } });
-    act(() => { jest.advanceTimersByTime(450); });
+    act(() => { vi.advanceTimersByTime(450); });
     await waitFor(() => expect(apiClient.POST).toHaveBeenCalledTimes(2));
-    jest.runAllTimers();
+    vi.runAllTimers();
   });
 
   it('auto-recalculates on ftv slider change', async () => {
@@ -197,9 +197,9 @@ describe('BallotComplexityPanel', () => {
     await waitFor(() => expect(apiClient.POST).toHaveBeenCalledTimes(1));
 
     fireEvent.change(screen.getByTestId('ftv-slider'), { target: { value: '0.4' } });
-    act(() => { jest.advanceTimersByTime(450); });
+    act(() => { vi.advanceTimersByTime(450); });
     await waitFor(() => expect(apiClient.POST).toHaveBeenCalledTimes(2));
-    jest.runAllTimers();
+    vi.runAllTimers();
   });
 
   it('shows error on API failure', async () => {

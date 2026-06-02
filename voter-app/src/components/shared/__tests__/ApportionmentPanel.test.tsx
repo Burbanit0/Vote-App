@@ -5,11 +5,11 @@ import { QueryClientProvider } from '@tanstack/react-query';
 import ApportionmentPanel from '../ApportionmentPanel';
 import { makeTestQueryClient } from '../../../test/queryWrapper';
 
-jest.mock('../../../api/client', () => ({
-  apiClient: { GET: jest.fn(), POST: jest.fn(), PUT: jest.fn(), DELETE: jest.fn(), PATCH: jest.fn() },
-  getAccessToken: jest.fn(() => null),
+vi.mock('../../../api/client', () => ({
+  apiClient: { GET: vi.fn(), POST: vi.fn(), PUT: vi.fn(), DELETE: vi.fn(), PATCH: vi.fn() },
+  getAccessToken: vi.fn(() => null),
 }));
-const { apiClient } = jest.requireMock('../../../api/client') as { apiClient: { POST: jest.Mock } };
+const { apiClient } = (await import('../../../api/client')) as unknown as { apiClient: { POST: jest.Mock } };
 
 function makeData(alabamaHamilton = true) {
   const baseResult = (al: boolean, qv: boolean, favors: string) => ({
@@ -48,8 +48,8 @@ function renderPanel() {
   );
 }
 
-beforeEach(() => { jest.clearAllMocks(); jest.useFakeTimers(); });
-afterEach(() => { jest.useRealTimers(); });
+beforeEach(() => { vi.clearAllMocks(); vi.useFakeTimers(); });
+afterEach(() => { vi.useRealTimers(); });
 
 describe('ApportionmentPanel', () => {
   it('shows simulate button', () => {
@@ -76,7 +76,7 @@ describe('ApportionmentPanel', () => {
       expect.stringMatching(/\/api\/(v2\/)?theory\/apportionment/),
       expect.any(Object),
     );
-    jest.runAllTimers();
+    vi.runAllTimers();
   });
 
   it('renders comparison table after data loads', async () => {
@@ -84,7 +84,7 @@ describe('ApportionmentPanel', () => {
     renderPanel();
     fireEvent.click(screen.getByTestId('simulate-btn'));
     await waitFor(() => expect(screen.getByTestId('comparison-table')).toBeInTheDocument());
-    jest.runAllTimers();
+    vi.runAllTimers();
   });
 
   it('renders axioms table', async () => {
@@ -92,7 +92,7 @@ describe('ApportionmentPanel', () => {
     renderPanel();
     fireEvent.click(screen.getByTestId('simulate-btn'));
     await waitFor(() => expect(screen.getByTestId('axioms-table')).toBeInTheDocument());
-    jest.runAllTimers();
+    vi.runAllTimers();
   });
 
   it('shows Alabama alert when Hamilton has paradox', async () => {
@@ -100,7 +100,7 @@ describe('ApportionmentPanel', () => {
     renderPanel();
     fireEvent.click(screen.getByTestId('simulate-btn'));
     await waitFor(() => expect(screen.getByTestId('alabama-alert')).toBeInTheDocument());
-    jest.runAllTimers();
+    vi.runAllTimers();
   });
 
   it('does NOT show Alabama alert when no paradox', async () => {
@@ -109,7 +109,7 @@ describe('ApportionmentPanel', () => {
     fireEvent.click(screen.getByTestId('simulate-btn'));
     await waitFor(() => screen.getByTestId('comparison-table'));
     expect(screen.queryByTestId('alabama-alert')).not.toBeInTheDocument();
-    jest.runAllTimers();
+    vi.runAllTimers();
   });
 
   it('shows impossibility alert', async () => {
@@ -117,7 +117,7 @@ describe('ApportionmentPanel', () => {
     renderPanel();
     fireEvent.click(screen.getByTestId('simulate-btn'));
     await waitFor(() => expect(screen.getByTestId('impossibility-alert')).toBeInTheDocument());
-    jest.runAllTimers();
+    vi.runAllTimers();
   });
 
   it('shows country comparison table', async () => {
@@ -125,7 +125,7 @@ describe('ApportionmentPanel', () => {
     renderPanel();
     fireEvent.click(screen.getByTestId('simulate-btn'));
     await waitFor(() => expect(screen.getByTestId('country-table')).toBeInTheDocument());
-    jest.runAllTimers();
+    vi.runAllTimers();
   });
 
   it('shows Alabama demo section', async () => {
@@ -133,7 +133,7 @@ describe('ApportionmentPanel', () => {
     renderPanel();
     fireEvent.click(screen.getByTestId('simulate-btn'));
     await waitFor(() => expect(screen.getByTestId('alabama-demo')).toBeInTheDocument());
-    jest.runAllTimers();
+    vi.runAllTimers();
   });
 
   it('shows error on API failure', async () => {

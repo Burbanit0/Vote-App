@@ -3,7 +3,7 @@ import { render, screen } from '@testing-library/react';
 import MetricsTab from '../MetricsTab';
 import { SimulationCompareResult } from '../../../types';
 
-jest.mock('../../../hooks/useChartTheme', () => ({
+vi.mock('../../../hooks/useChartTheme', () => ({
   useChartTheme: () => ({
     isDark: false,
     gridStroke: '#e0e0e0',

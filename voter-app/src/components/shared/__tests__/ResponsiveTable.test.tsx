@@ -2,7 +2,7 @@ import React from 'react';
 import { render, screen } from '@testing-library/react';
 import ResponsiveTable from '../ResponsiveTable';
 
-jest.mock('../../../hooks/useIsMobile', () => ({
+vi.mock('../../../hooks/useIsMobile', () => ({
   useIsMobile: () => false,
 }));
 

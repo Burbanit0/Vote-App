@@ -41,7 +41,7 @@ describe('copyShareURL', () => {
   beforeEach(() => {
     window.history.replaceState({}, '', '/app');
     Object.assign(navigator, {
-      clipboard: { writeText: jest.fn().mockResolvedValue(undefined) },
+      clipboard: { writeText: vi.fn().mockResolvedValue(undefined) },
     });
   });
 

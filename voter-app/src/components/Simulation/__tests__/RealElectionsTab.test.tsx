@@ -5,12 +5,12 @@ import i18n from '../../../i18n';
 import RealElectionsTab from '../RealElectionsTab';
 import { getRealElections, analyzeRealElection } from '../../../services/simulationCompareApi';
 
-jest.mock('../../../services/simulationCompareApi', () => ({
-  getRealElections: jest.fn(),
-  analyzeRealElection: jest.fn(),
+vi.mock('../../../services/simulationCompareApi', () => ({
+  getRealElections: vi.fn(),
+  analyzeRealElection: vi.fn(),
 }));
 
-jest.mock('../RealElectionAnalysis', () => () => <div data-testid="real-election-analysis" />);
+vi.mock('../RealElectionAnalysis', () => ({ default: () => <div data-testid="real-election-analysis" /> }));
 
 const mockElections = [
   { key: 'fr-2022', name: 'Présidentielle 2022', year: 2022, country: 'France' },
@@ -30,12 +30,12 @@ const renderWithI18n = (ui: React.ReactElement) => render(<I18nextProvider i18n=
 
 describe('RealElectionsTab', () => {
   beforeEach(() => {
-    jest.clearAllMocks();
+    vi.clearAllMocks();
     (getRealElections as jest.Mock).mockResolvedValue(mockElections);
   });
 
   afterEach(() => {
-    jest.restoreAllMocks();
+    vi.restoreAllMocks();
   });
 
   it('loads election list on mount', async () => {

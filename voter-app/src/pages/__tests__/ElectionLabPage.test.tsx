@@ -4,17 +4,17 @@ import { MemoryRouter } from 'react-router';
 import ElectionLabPage from '../ElectionLabPage';
 import { ElectionProvider } from '../../stores/useElectionStore';
 
-jest.mock('../../services/electionApi', () => ({
-  simulateElection:   jest.fn(),
-  interpretElection:  jest.fn(),
+vi.mock('../../services/electionApi', () => ({
+  simulateElection:   vi.fn(),
+  interpretElection:  vi.fn(),
 }));
 
-jest.mock('../../components/Simulation/IdeologyMapChart',    () => () => <div data-testid="ideology-map" />);
-jest.mock('../../components/Simulation/VoteStepAnimator',    () => () => <div data-testid="vote-step" />);
-jest.mock('../../components/Simulation/MonteCarloResults',   () => () => <div data-testid="monte-carlo" />);
-jest.mock('../../components/Simulation/ManipulabilityChart', () => () => <div data-testid="manipulability" />);
+vi.mock('../../components/Simulation/IdeologyMapChart',    () => ({ default: () => <div data-testid="ideology-map" /> }));
+vi.mock('../../components/Simulation/VoteStepAnimator',    () => ({ default: () => <div data-testid="vote-step" /> }));
+vi.mock('../../components/Simulation/MonteCarloResults',   () => ({ default: () => <div data-testid="monte-carlo" /> }));
+vi.mock('../../components/Simulation/ManipulabilityChart', () => ({ default: () => <div data-testid="manipulability" /> }));
 
-const { simulateElection, interpretElection } = jest.requireMock('../../services/electionApi') as {
+const { simulateElection, interpretElection } = (await import('../../services/electionApi')) as unknown as {
   simulateElection:  jest.Mock;
   interpretElection: jest.Mock;
 };
@@ -45,7 +45,7 @@ function renderPage() {
 }
 
 beforeEach(() => {
-  jest.clearAllMocks();
+  vi.clearAllMocks();
   simulateElection.mockResolvedValue(MOCK_RESULT);
   interpretElection.mockResolvedValue({
     headline: 'Test headline', condorcet_analysis: 'Condorcet ok',

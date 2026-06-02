@@ -1,11 +1,11 @@
 import { act, renderHook, waitFor } from '@testing-library/react';
 import { useDebouncedSimulation } from './useDebouncedSimulation';
 
-jest.mock('../services/simulationCompareApi', () => ({
-  runComparisonSimulation: jest.fn(),
+vi.mock('../services/simulationCompareApi', () => ({
+  runComparisonSimulation: vi.fn(),
 }));
 
-const { runComparisonSimulation } = jest.requireMock('../services/simulationCompareApi') as {
+const { runComparisonSimulation } = (await import('../services/simulationCompareApi')) as unknown as {
   runComparisonSimulation: jest.Mock;
 };
 
@@ -21,13 +21,13 @@ const BASE_PARAMS = {
 };
 
 beforeEach(() => {
-  jest.clearAllMocks();
-  jest.useFakeTimers();
+  vi.clearAllMocks();
+  vi.useFakeTimers();
   runComparisonSimulation.mockResolvedValue(MOCK_RESULT);
 });
 
 afterEach(() => {
-  jest.useRealTimers();
+  vi.useRealTimers();
 });
 
 describe('useDebouncedSimulation', () => {
@@ -59,7 +59,7 @@ describe('useDebouncedSimulation', () => {
     expect(runComparisonSimulation).not.toHaveBeenCalled();
 
     // Advance past debounce window
-    act(() => { jest.advanceTimersByTime(700); });
+    act(() => { vi.advanceTimersByTime(700); });
 
     await waitFor(() => expect(runComparisonSimulation).toHaveBeenCalledTimes(1));
   });
@@ -75,16 +75,16 @@ describe('useDebouncedSimulation', () => {
 
     // Rapid successive changes
     rerender({ voters: 200 });
-    act(() => { jest.advanceTimersByTime(300); });
+    act(() => { vi.advanceTimersByTime(300); });
     rerender({ voters: 300 });
-    act(() => { jest.advanceTimersByTime(300); });
+    act(() => { vi.advanceTimersByTime(300); });
     rerender({ voters: 400 });
 
     // No call yet
     expect(runComparisonSimulation).not.toHaveBeenCalled();
 
     // One more advance to trigger final debounce
-    act(() => { jest.advanceTimersByTime(700); });
+    act(() => { vi.advanceTimersByTime(700); });
     await waitFor(() => expect(runComparisonSimulation).toHaveBeenCalledTimes(1));
   });
 

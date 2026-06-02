@@ -29,11 +29,11 @@ function renderPage() {
 
 describe('ToastNotification', () => {
   beforeEach(() => {
-    jest.useFakeTimers();
+    vi.useFakeTimers();
   });
 
   afterEach(() => {
-    jest.useRealTimers();
+    vi.useRealTimers();
   });
 
   it('shows a success toast with the message', () => {

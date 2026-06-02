@@ -4,11 +4,11 @@ import { MemoryRouter } from 'react-router';
 import CampaignSensitivityPanel from '../CampaignSensitivityPanel';
 import { ElectionProvider } from '../../../stores/useElectionStore';
 
-jest.mock('../../../services/electionApi', () => ({
-  fetchCampaignSensitivity: jest.fn(),
+vi.mock('../../../services/electionApi', () => ({
+  fetchCampaignSensitivity: vi.fn(),
 }));
 
-jest.mock('recharts', () => ({
+vi.mock('recharts', () => ({
   ResponsiveContainer: ({ children }: any) => <div>{children}</div>,
   BarChart:            ({ children }: any) => <div data-testid="bar-chart">{children}</div>,
   Bar:                 ({ children }: any) => <div>{children}</div>,
@@ -22,7 +22,7 @@ jest.mock('recharts', () => ({
   Legend:              () => null,
 }));
 
-const { fetchCampaignSensitivity } = jest.requireMock('../../../services/electionApi') as {
+const { fetchCampaignSensitivity } = (await import('../../../services/electionApi')) as unknown as {
   fetchCampaignSensitivity: jest.Mock;
 };
 
@@ -64,7 +64,7 @@ function renderPanel() {
 }
 
 beforeEach(() => {
-  jest.clearAllMocks();
+  vi.clearAllMocks();
   localStorage.clear();
   fetchCampaignSensitivity.mockResolvedValue(MOCK_RESULT);
 });

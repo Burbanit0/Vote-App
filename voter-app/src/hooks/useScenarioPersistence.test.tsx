@@ -2,13 +2,13 @@ import React from 'react';
 import { render, screen, act, waitFor } from '@testing-library/react';
 import { useScenarioPersistence } from './useScenarioPersistence';
 
-jest.mock('../services/scenariosApi', () => ({
-  saveScenario:   jest.fn(),
-  listScenarios:  jest.fn(),
-  deleteScenario: jest.fn(),
+vi.mock('../services/scenariosApi', () => ({
+  saveScenario:   vi.fn(),
+  listScenarios:  vi.fn(),
+  deleteScenario: vi.fn(),
 }));
 
-const mocked = jest.requireMock('../services/scenariosApi') as {
+const mocked = (await import('../services/scenariosApi')) as unknown as {
   saveScenario:   jest.Mock;
   listScenarios:  jest.Mock;
   deleteScenario: jest.Mock;
@@ -82,7 +82,7 @@ describe('useScenarioPersistence', () => {
     // Swallow the unhandled rejection that the hook re-throws (by design:
     // the page handler is responsible for showing the toast).
     const originalError = console.error;
-    console.error = jest.fn();
+    console.error = vi.fn();
     render(<Harness />);
     act(() => { screen.getByTestId('set-name').click(); });
     await act(async () => {
