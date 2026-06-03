@@ -1,8 +1,16 @@
 import React, { useState } from 'react';
 import { registerUser } from '../services/';
-import { Form, Button, Container, Row, Col, Alert } from 'react-bootstrap';
 import { useNavigate } from 'react-router';
 import { useTranslation } from 'react-i18next';
+import { Loader2, X } from 'lucide-react';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+
+// ── Tailwind-migrated (Phase 6) — off react-bootstrap → shadcn Button/Input/Label.
+
+const selectClasses =
+  'flex h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring';
 
 const Register: React.FC = () => {
   const [username, setUsername] = useState('');
@@ -35,7 +43,6 @@ const Register: React.FC = () => {
       if (response) localStorage.setItem('user', JSON.stringify(response));
       setTimeout(() => navigate('/'), 1500);
     } catch (err) {
-      // Surface a backend-provided message when present, else a generic one.
       const msg = (err as { response?: { data?: { msg?: string } } })?.response?.data?.msg;
       setError(msg || t('auth.registerFailed'));
       setIsLoading(false);
@@ -43,57 +50,73 @@ const Register: React.FC = () => {
   };
 
   return (
-    <Container className="mt-5">
-      <Row className="justify-content-center">
-        <Col md={6} lg={4}>
-          <h2 className="text-center mb-4">{t('auth.registerTitle')}</h2>
-          {error && (
-            <Alert variant="danger" onClose={() => setError(null)} dismissible>
-              {error}
-            </Alert>
+    <div data-style="tailwind" className="mx-auto mt-12 w-full max-w-sm px-4">
+      <h2 className="mb-6 text-center text-2xl font-semibold">{t('auth.registerTitle')}</h2>
+
+      {error && (
+        <div
+          role="alert"
+          className="mb-4 flex items-start justify-between gap-2 rounded-md border border-red-300 bg-red-100 px-3 py-2 text-sm text-red-800"
+        >
+          <span>{error}</span>
+          <button type="button" aria-label="Close" onClick={() => setError(null)}>
+            <X className="h-4 w-4" />
+          </button>
+        </div>
+      )}
+      {success && (
+        <div
+          role="alert"
+          className="mb-4 rounded-md border border-green-300 bg-green-100 px-3 py-2 text-sm text-green-800"
+        >
+          {success}
+        </div>
+      )}
+
+      <form onSubmit={handleSubmit} className="space-y-4">
+        <div className="space-y-1.5">
+          <Label htmlFor="formUsername">{t('auth.usernameLabel')}</Label>
+          <Input id="formUsername" type="text" value={username} onChange={(e) => setUsername(e.target.value)} placeholder={t('auth.usernamePlaceholder')} required />
+        </div>
+        <div className="space-y-1.5">
+          <Label htmlFor="formPassword">{t('auth.passwordLabel')}</Label>
+          <Input id="formPassword" type="password" value={password} onChange={(e) => setPassword(e.target.value)} placeholder={t('auth.passwordPlaceholder')} required />
+        </div>
+        <div className="space-y-1.5">
+          <Label htmlFor="formConfirm">{t('auth.confirmPassword')}</Label>
+          <Input id="formConfirm" type="password" value={confirmPassword} onChange={(e) => setConfirmPassword(e.target.value)} placeholder={t('auth.confirmPasswordPlaceholder')} required />
+        </div>
+        <div className="space-y-1.5">
+          <Label htmlFor="formRole">{t('auth.roleLabel')}</Label>
+          <select id="formRole" className={selectClasses} value={role} onChange={(e) => setRole(e.target.value as 'User' | 'Admin')}>
+            <option value="User">User</option>
+            <option value="Admin">Admin</option>
+          </select>
+        </div>
+        {role === 'User' && (
+          <>
+            <div className="space-y-1.5">
+              <Label htmlFor="formFirstName">{t('auth.firstNameLabel')}</Label>
+              <Input id="formFirstName" type="text" value={firstName} onChange={(e) => setFirstName(e.target.value)} placeholder={t('auth.firstNamePlaceholder')} required />
+            </div>
+            <div className="space-y-1.5">
+              <Label htmlFor="formLastName">{t('auth.lastNameLabel')}</Label>
+              <Input id="formLastName" type="text" value={lastName} onChange={(e) => setLastName(e.target.value)} placeholder={t('auth.lastNamePlaceholder')} required />
+            </div>
+          </>
+        )}
+        <Button type="submit" disabled={isLoading} className="mt-4 w-full">
+          {isLoading ? (
+            <>
+              <Loader2 className="mr-2 inline h-4 w-4 animate-spin" aria-hidden="true" />
+              {t('auth.registering')}
+            </>
+          ) : (
+            t('auth.registerBtn')
           )}
-          {success && <Alert variant="success">{success}</Alert>}
-          <Form onSubmit={handleSubmit}>
-            <Form.Group controlId="formUsername" className="mb-3">
-              <Form.Label>{t('auth.usernameLabel')}</Form.Label>
-              <Form.Control type="text" value={username} onChange={(e) => setUsername(e.target.value)} placeholder={t('auth.usernamePlaceholder')} required />
-            </Form.Group>
-            <Form.Group controlId="formPassword" className="mb-3">
-              <Form.Label>{t('auth.passwordLabel')}</Form.Label>
-              <Form.Control type="password" value={password} onChange={(e) => setPassword(e.target.value)} placeholder={t('auth.passwordPlaceholder')} required />
-            </Form.Group>
-            <Form.Group className="mb-3">
-              <Form.Label>{t('auth.confirmPassword')}</Form.Label>
-              <Form.Control type="password" value={confirmPassword} onChange={(e) => setConfirmPassword(e.target.value)} placeholder={t('auth.confirmPasswordPlaceholder')} required />
-            </Form.Group>
-            <Form.Group controlId="formRole" className="mb-3">
-              <Form.Label>{t('auth.roleLabel')}</Form.Label>
-              <Form.Control as="select" value={role} onChange={(e) => setRole(e.target.value as 'User' | 'Admin')}>
-                <option value="User">User</option>
-                <option value="Admin">Admin</option>
-              </Form.Control>
-            </Form.Group>
-            {role === 'User' && (
-              <>
-                <Form.Group controlId="formFirstName" className="mb-3">
-                  <Form.Label>{t('auth.firstNameLabel')}</Form.Label>
-                  <Form.Control type="text" value={firstName} onChange={(e) => setFirstName(e.target.value)} placeholder={t('auth.firstNamePlaceholder')} required />
-                </Form.Group>
-                <Form.Group controlId="formLastName" className="mb-3">
-                  <Form.Label>{t('auth.lastNameLabel')}</Form.Label>
-                  <Form.Control type="text" value={lastName} onChange={(e) => setLastName(e.target.value)} placeholder={t('auth.lastNamePlaceholder')} required />
-                </Form.Group>
-              </>
-            )}
-            <Button variant="primary" type="submit" disabled={isLoading} className="mt-3 w-100">
-              {isLoading ? (
-                <><span className="spinner-border spinner-border-sm me-2" role="status" aria-hidden="true" />{t('auth.registering')}</>
-              ) : t('auth.registerBtn')}
-            </Button>
-          </Form>
-        </Col>
-      </Row>
-    </Container>
+        </Button>
+      </form>
+    </div>
   );
 };
 
