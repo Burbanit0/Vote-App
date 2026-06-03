@@ -11,13 +11,18 @@ const badgeVariants = cva(
     variants: {
       variant: {
         default: 'border-transparent bg-primary text-primary-foreground',
-        secondary: 'border-transparent bg-secondary text-secondary-foreground',
+        secondary: 'border-transparent bg-slate-500 text-white',
         destructive: 'border-transparent bg-destructive text-destructive-foreground',
         outline: 'text-foreground',
         brand: 'border-transparent bg-brand text-white',
+        // Bootstrap `bg=` aliases (migrate `<Badge bg="x">` → `variant="x"`).
+        primary: 'border-transparent bg-primary text-primary-foreground',
         success: 'border-transparent bg-[#198754] text-white',
         warning: 'border-transparent bg-[#ffc107] text-black',
         info: 'border-transparent bg-[#0dcaf0] text-black',
+        danger: 'border-transparent bg-[#dc3545] text-white',
+        light: 'border-transparent bg-slate-100 text-slate-900',
+        dark: 'border-transparent bg-slate-800 text-white',
       },
     },
     defaultVariants: {

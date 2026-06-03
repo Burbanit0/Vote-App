@@ -20,6 +20,23 @@ const buttonVariants = cva(
         secondary: 'bg-secondary text-secondary-foreground hover:bg-secondary/80',
         ghost: 'hover:bg-accent hover:text-accent-foreground',
         link: 'text-primary underline-offset-4 hover:underline',
+
+        // ── Bootstrap-name aliases (Phase 6) so `variant="success"` etc.
+        // migrate as a near drop-in across the 262 react-bootstrap <Button>s.
+        primary: 'bg-primary text-primary-foreground hover:bg-primary/90',
+        success: 'bg-[#198754] text-white hover:bg-[#198754]/90',
+        danger: 'bg-[#dc3545] text-white hover:bg-[#dc3545]/90',
+        warning: 'bg-[#ffc107] text-black hover:bg-[#ffc107]/90',
+        info: 'bg-[#0dcaf0] text-black hover:bg-[#0dcaf0]/90',
+        dark: 'bg-slate-900 text-white hover:bg-slate-900/90',
+        light: 'bg-slate-100 text-slate-900 hover:bg-slate-200',
+        'outline-primary': 'border border-primary text-primary hover:bg-primary/10',
+        'outline-secondary': 'border border-input bg-background hover:bg-accent hover:text-accent-foreground',
+        'outline-success': 'border border-[#198754] text-[#198754] hover:bg-[#198754]/10',
+        'outline-danger': 'border border-[#dc3545] text-[#dc3545] hover:bg-[#dc3545]/10',
+        'outline-warning': 'border border-[#ffc107] text-[#9a7400] hover:bg-[#ffc107]/10',
+        'outline-info': 'border border-[#0dcaf0] text-[#0a93ad] hover:bg-[#0dcaf0]/10',
+        'outline-dark': 'border border-slate-900 text-slate-900 hover:bg-slate-900/10',
       },
       size: {
         default: 'h-9 px-4 py-2',
