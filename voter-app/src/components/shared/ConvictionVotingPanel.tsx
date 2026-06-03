@@ -6,9 +6,13 @@
 import React, { useCallback, useRef, useState } from 'react';
 import { $api } from '../../api/hooks';
 import { useTranslation } from 'react-i18next';
-import {
-  Alert, Badge, Button, Col, Form, Row, Spinner, Table,
-} from 'react-bootstrap';
+import { Alert } from '@/components/ui/alert';
+import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
+import { Range, Select } from '@/components/ui/form-controls';
+import { Col, Row } from '@/components/ui/grid';
+import { Spinner } from '@/components/ui/spinner';
+import { Table } from '@/components/ui/table';
 import {
   BarChart, Bar, XAxis, YAxis, Tooltip, Legend, CartesianGrid,
   ResponsiveContainer, Cell,
@@ -212,8 +216,8 @@ const ConvictionVotingPanel: React.FC = () => {
       {/* Controls */}
       <Row className="g-2 mb-3 align-items-end">
         <Col xs={12} md={4}>
-          <Form.Label className="small mb-0">{t('conviction.distribution')}</Form.Label>
-          <Form.Select
+          <label className="mb-1 inline-block small mb-0">{t('conviction.distribution')}</label>
+          <Select
             size="sm"
             value={cvDist}
             data-testid="distribution-select"
@@ -222,16 +226,16 @@ const ConvictionVotingPanel: React.FC = () => {
             <option value="uniform">{t('conviction.distUniform')}</option>
             <option value="skewed">{t('conviction.distSkewed')}</option>
             <option value="whale">{t('conviction.distWhale')}</option>
-          </Form.Select>
+          </Select>
         </Col>
 
         {cvDist === 'whale' && (
           <>
             <Col xs={12} md={3}>
-              <Form.Label className="small mb-0">
+              <label className="mb-1 inline-block small mb-0">
                 {t('conviction.whalePct')}: <strong>{Math.round(whalePct * 100)}%</strong>
-              </Form.Label>
-              <Form.Range
+              </label>
+              <Range
                 data-testid="whale-pct-slider"
                 min={0.05} max={0.5} step={0.05}
                 value={whalePct}
@@ -239,8 +243,8 @@ const ConvictionVotingPanel: React.FC = () => {
               />
             </Col>
             <Col xs={12} md={3}>
-              <Form.Label className="small mb-0">{t('conviction.smallLock')}</Form.Label>
-              <Form.Select
+              <label className="mb-1 inline-block small mb-0">{t('conviction.smallLock')}</label>
+              <Select
                 size="sm"
                 value={smallLock}
                 data-testid="small-lock-select"
@@ -249,14 +253,14 @@ const ConvictionVotingPanel: React.FC = () => {
                 {LOCK_OPTIONS.filter((d) => d > 0).map((d) => (
                   <option key={d} value={d}>{d} {t('conviction.days')} ×{MULTIPLIERS[d]}</option>
                 ))}
-              </Form.Select>
+              </Select>
             </Col>
           </>
         )}
 
         <Col xs="auto">
           <Button variant="primary" onClick={runSimulation} disabled={loading}>
-            {loading ? <Spinner size="sm" animation="border" /> : t('conviction.run')}
+            {loading ? <Spinner size="sm" /> : t('conviction.run')}
           </Button>
         </Col>
       </Row>
@@ -265,7 +269,7 @@ const ConvictionVotingPanel: React.FC = () => {
       <div className="mb-3" style={{ fontSize: '0.78rem' }}>
         <span className="text-muted">{t('conviction.lockRef')}: </span>
         {LOCK_OPTIONS.map((d) => (
-          <Badge key={d} bg="light" text="dark" className="me-1">
+          <Badge key={d} variant="light" className="me-1">
             {d}j × {MULTIPLIERS[d]}
           </Badge>
         ))}
@@ -322,20 +326,19 @@ const ConvictionVotingPanel: React.FC = () => {
 
           {/* Gini + whale dominance stats */}
           <div className="d-flex flex-wrap gap-2 mb-3">
-            <Badge bg="secondary" data-testid="gini-tokens-badge">
+            <Badge variant="secondary" data-testid="gini-tokens-badge">
               Gini tokens {data.voter_stats.gini_tokens.toFixed(3)}
             </Badge>
             <Badge
-              bg={data.voter_stats.gini_conviction < data.voter_stats.gini_tokens ? 'success' : 'warning'}
-              text={data.voter_stats.gini_conviction < data.voter_stats.gini_tokens ? undefined : 'dark'}
+              variant={data.voter_stats.gini_conviction < data.voter_stats.gini_tokens ? 'success' : 'warning'}
               data-testid="gini-conviction-badge"
             >
               Gini conviction {data.voter_stats.gini_conviction.toFixed(3)}
             </Badge>
-            <Badge bg="info" text="dark" data-testid="whale-tokens-badge">
+            <Badge variant="info" data-testid="whale-tokens-badge">
               {t('conviction.whaleDominance')} (tokens): {Math.round(data.voter_stats.whale_pct_tokens * 100)}%
             </Badge>
-            <Badge bg="primary" data-testid="whale-conviction-badge">
+            <Badge variant="primary" data-testid="whale-conviction-badge">
               {t('conviction.whaleDominance')} (conviction): {Math.round(data.voter_stats.whale_pct_conviction * 100)}%
             </Badge>
           </div>
@@ -375,7 +378,7 @@ const ConvictionVotingPanel: React.FC = () => {
           </div>
 
           {/* Comparison table */}
-          <Table size="sm" hover data-testid="proposals-table">
+          <Table className="[&_th]:p-1 [&_td]:p-1 [&_th]:text-left [&_td]:border-t [&_th]:border-b [&_td]:border-border [&_th]:border-border [&_*]:align-middle [&_tbody_tr:hover]:bg-muted/50" data-testid="proposals-table">
             <thead>
               <tr>
                 <th style={{ fontSize: '0.78rem' }}>{t('conviction.proposal')}</th>

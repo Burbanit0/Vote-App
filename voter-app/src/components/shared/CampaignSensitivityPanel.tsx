@@ -1,7 +1,11 @@
 import React, { useCallback, useMemo, useState } from 'react';
-import {
-  Alert, Badge, Button, Card, Col, Form, Row, Spinner,
-} from 'react-bootstrap';
+import { Alert } from '@/components/ui/alert';
+import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
+import { Card, CardBody, CardHeader } from '@/components/ui/card';
+import { Check, Range } from '@/components/ui/form-controls';
+import { Col, Row } from '@/components/ui/grid';
+import { Spinner } from '@/components/ui/spinner';
 import {
   Area, AreaChart, Bar, BarChart, CartesianGrid, Cell,
   Legend, ResponsiveContainer, Tooltip, XAxis, YAxis,
@@ -186,7 +190,7 @@ const StabilityChart: React.FC<{
           </Badge>
         )}
         {least_stable_method && least_stable_method !== most_stable_method && (
-          <Badge bg="danger">
+          <Badge variant="danger">
             ⚠ {t('campaign.leastStable')}: {least_stable_method}
           </Badge>
         )}
@@ -286,21 +290,21 @@ const CampaignSensitivityPanel: React.FC = () => {
       {/* Controls */}
       <Row className="g-3 align-items-end mb-3">
         <Col md={3}>
-          <Form.Label className="small mb-0">
+          <label className="mb-1 inline-block small mb-0">
             {t('campaign.pollingEffect')}: <strong>{pollingEffect.toFixed(2)}</strong>
-          </Form.Label>
-          <Form.Range min={0} max={1} step={0.05} value={pollingEffect}
+          </label>
+          <Range min={0} max={1} step={0.05} value={pollingEffect}
             onChange={(e) => { setPollingEffect(Number(e.target.value)); setResult(null); }} />
         </Col>
         <Col md={3}>
-          <Form.Label className="small mb-0">
+          <label className="mb-1 inline-block small mb-0">
             {t('campaign.numDays')}: <strong>{numDays}</strong>
-          </Form.Label>
-          <Form.Range min={7} max={60} step={1} value={numDays}
+          </label>
+          <Range min={7} max={60} step={1} value={numDays}
             onChange={(e) => { setNumDays(Number(e.target.value)); setResult(null); }} />
         </Col>
         <Col md={3} className="d-flex align-items-end">
-          <Form.Check
+          <Check
             type="switch"
             id="contagion-toggle"
             label={<span className="small">{t('campaign.withContagion')}</span>}
@@ -354,11 +358,11 @@ const CampaignSensitivityPanel: React.FC = () => {
           {/* A) Swimlane — winner timeline */}
           <Col xs={12}>
             <Card>
-              <Card.Header className="py-2">
+              <CardHeader className="block space-y-0 border-b border-border px-4 py-2 py-2">
                 <strong style={{ fontSize: '0.85rem' }}>{t('campaign.swimlaneTitle')}</strong>
                 <div className="text-muted" style={{ fontSize: '0.75rem' }}>{t('campaign.swimlaneDesc')}</div>
-              </Card.Header>
-              <Card.Body className="p-2">
+              </CardHeader>
+              <CardBody className="p-2">
                 <CampaignSwimlane
                   snapshots={result.snapshots}
                   methodStability={result.method_stability}
@@ -366,32 +370,32 @@ const CampaignSensitivityPanel: React.FC = () => {
                     Object.values(s.methods).map((m) => m.winner).filter((w): w is string => !!w)
                   ))]}
                 />
-              </Card.Body>
+              </CardBody>
             </Card>
           </Col>
 
           {/* B) Stability + C) Agreement side by side */}
           <Col xs={12} lg={7}>
             <Card className="h-100">
-              <Card.Header className="py-2">
+              <CardHeader className="block space-y-0 border-b border-border px-4 py-2 py-2">
                 <strong style={{ fontSize: '0.85rem' }}>{t('campaign.stabilityTitle')}</strong>
                 <div className="text-muted" style={{ fontSize: '0.75rem' }}>{t('campaign.stabilityDesc')}</div>
-              </Card.Header>
-              <Card.Body className="p-2">
+              </CardHeader>
+              <CardBody className="p-2">
                 <StabilityChart result={result} ct={ct} t={t} />
-              </Card.Body>
+              </CardBody>
             </Card>
           </Col>
 
           <Col xs={12} lg={5}>
             <Card className="h-100">
-              <Card.Header className="py-2">
+              <CardHeader className="block space-y-0 border-b border-border px-4 py-2 py-2">
                 <strong style={{ fontSize: '0.85rem' }}>{t('campaign.agreementTitle')}</strong>
                 <div className="text-muted" style={{ fontSize: '0.75rem' }}>{t('campaign.agreementDesc')}</div>
-              </Card.Header>
-              <Card.Body className="p-2">
+              </CardHeader>
+              <CardBody className="p-2">
                 <AgreementTimeline result={result} ct={ct} t={t} />
-              </Card.Body>
+              </CardBody>
             </Card>
           </Col>
         </Row>

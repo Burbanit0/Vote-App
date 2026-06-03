@@ -4,9 +4,12 @@
  */
 import React, { useCallback, useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import {
-  Alert, Badge, Button, Col, Form, Row, Spinner,
-} from 'react-bootstrap';
+import { Alert } from '@/components/ui/alert';
+import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
+import { Check, Control, Range, Select } from '@/components/ui/form-controls';
+import { Col, Row } from '@/components/ui/grid';
+import { Spinner } from '@/components/ui/spinner';
 import {
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend,
   LineChart, Line, ReferenceLine, ResponsiveContainer, Cell,
@@ -228,7 +231,7 @@ const IdentityVotingPanel: React.FC<IdentityVotingLabProps> = ({
       {/* ── Lab mode badge ── */}
       {labMode && (
         <div className="mb-2">
-          <Badge bg="dark" style={{ fontSize: '0.68rem' }}>
+          <Badge variant="dark" style={{ fontSize: '0.68rem' }}>
             🔬 {t('lab.fromElectionLab')}
           </Badge>
         </div>
@@ -256,30 +259,30 @@ const IdentityVotingPanel: React.FC<IdentityVotingLabProps> = ({
         {groups.map((g, i) => (
           <Row key={i} className="g-1 mb-1 align-items-center">
             <Col xs={3} md={2}>
-              <Form.Control size="sm" value={g.name} placeholder={t('identity.groupName')}
+              <Control size="sm" value={g.name} placeholder={t('identity.groupName')}
                 data-testid={`group-name-${i}`}
                 onChange={(e) => updateGroup(i, 'name', e.target.value)} />
             </Col>
             <Col xs={2} md={1} style={{ fontSize: '0.7rem' }}>
-              <Form.Label className="mb-0">{Math.round(g.pct * 100)}%</Form.Label>
-              <Form.Range min={5} max={80} step={5} value={Math.round(g.pct * 100)}
+              <label className="mb-1 inline-block mb-0">{Math.round(g.pct * 100)}%</label>
+              <Range min={5} max={80} step={5} value={Math.round(g.pct * 100)}
                 data-testid={`group-pct-${i}`}
                 onChange={(e) => updateGroup(i, 'pct', Number(e.target.value) / 100)} />
             </Col>
             <Col xs={2} md={2} style={{ fontSize: '0.7rem' }}>
-              <Form.Label className="mb-0">
+              <label className="mb-1 inline-block mb-0">
                 {t('identity.loyalty')} {Math.round(g.loyalty * 100)}%
-              </Form.Label>
-              <Form.Range min={0} max={100} step={5} value={Math.round(g.loyalty * 100)}
+              </label>
+              <Range min={0} max={100} step={5} value={Math.round(g.loyalty * 100)}
                 data-testid={`group-loyalty-${i}`}
                 onChange={(e) => updateGroup(i, 'loyalty', Number(e.target.value) / 100)} />
             </Col>
             <Col xs={3} md={2}>
-              <Form.Select size="sm" value={g.candidate_affiliation}
+              <Select size="sm" value={g.candidate_affiliation}
                 data-testid={`group-affil-${i}`}
                 onChange={(e) => updateGroup(i, 'candidate_affiliation', e.target.value)}>
                 {candNames.map(cn => <option key={cn} value={cn}>{cn}</option>)}
-              </Form.Select>
+              </Select>
             </Col>
             <Col xs="auto">
               <span style={{
@@ -297,29 +300,29 @@ const IdentityVotingPanel: React.FC<IdentityVotingLabProps> = ({
         {!labMode && (
           <>
             <Col xs={6} md={2}>
-              <Form.Label className="small mb-0">{t('identity.voters')}</Form.Label>
-              <Form.Control type="number" size="sm" min={20} max={2000} value={numVoters}
+              <label className="mb-1 inline-block small mb-0">{t('identity.voters')}</label>
+              <Control type="number" size="sm" min={20} max={2000} value={numVoters}
                 data-testid="voters-input"
                 onChange={(e) => setNumVoters(Number(e.target.value))} />
             </Col>
             <Col xs={6} md={1}>
-              <Form.Label className="small mb-0">{t('identity.seed')}</Form.Label>
-              <Form.Control type="number" size="sm" value={seed}
+              <label className="mb-1 inline-block small mb-0">{t('identity.seed')}</label>
+              <Control type="number" size="sm" value={seed}
                 data-testid="seed-input"
                 onChange={(e) => setSeed(Number(e.target.value))} />
             </Col>
           </>
         )}
         <Col xs={12} md={4}>
-          <Form.Label className="small mb-0">
+          <label className="mb-1 inline-block small mb-0">
             {t('identity.identityWeight')} — {Math.round(identityWeight * 100)}%
-          </Form.Label>
-          <Form.Range min={0} max={100} step={5} value={Math.round(identityWeight * 100)}
+          </label>
+          <Range min={0} max={100} step={5} value={Math.round(identityWeight * 100)}
             data-testid="identity-weight-slider"
             onChange={(e) => setIdentityWeight(Number(e.target.value) / 100)} />
         </Col>
         <Col xs="auto">
-          <Form.Check type="switch" id="cross-pressure"
+          <Check type="switch" id="cross-pressure"
             label={<span style={{ fontSize: '0.78rem' }}>{t('identity.crossPressure')}</span>}
             checked={crossPressure}
             data-testid="cross-pressure-toggle"
@@ -344,7 +347,7 @@ const IdentityVotingPanel: React.FC<IdentityVotingLabProps> = ({
         <Col xs="auto">
           <Button variant="primary" size="sm" onClick={() => run()} disabled={loading}
             data-testid="run-btn">
-            {loading ? <Spinner size="sm" animation="border" /> : t('identity.run')}
+            {loading ? <Spinner size="sm" /> : t('identity.run')}
           </Button>
         </Col>
       </Row>
@@ -377,11 +380,11 @@ const IdentityVotingPanel: React.FC<IdentityVotingLabProps> = ({
           <div className="d-flex gap-3 mb-3" style={{ fontSize: '0.78rem' }}
             data-testid="cross-pressured-stats">
             <span>
-              <Badge bg="secondary">{data.cross_pressured.count}</Badge>
+              <Badge variant="secondary">{data.cross_pressured.count}</Badge>
               {' '}{t('identity.crossPressuredCount')}
             </span>
             <span>
-              <Badge bg={data.cross_pressured.abstention_rate > 0.1 ? 'danger' : 'secondary'}>
+              <Badge variant={data.cross_pressured.abstention_rate > 0.1 ? 'danger' : 'secondary'}>
                 {Math.round(data.cross_pressured.abstention_rate * 100)}%
               </Badge>
               {' '}{t('identity.abstentionRate')}
@@ -430,7 +433,7 @@ const IdentityVotingPanel: React.FC<IdentityVotingLabProps> = ({
               <div className="fw-semibold mb-1" style={{ fontSize: '0.82rem' }}>
                 {t('identity.curveTitle')}
                 {winnerChangeWeight !== null && (
-                  <Badge bg="warning" text="dark" className="ms-2" style={{ fontSize: '0.65rem' }}>
+                  <Badge variant="warning" className="ms-2" style={{ fontSize: '0.65rem' }}>
                     {t('identity.winnerChangesAt')} {Math.round(winnerChangeWeight * 100)}%
                   </Badge>
                 )}
@@ -487,7 +490,7 @@ const IdentityVotingPanel: React.FC<IdentityVotingLabProps> = ({
                         }} />
                         {gr.group_name}
                       </td>
-                      <td><Badge bg="secondary" style={{ fontSize: '0.6rem' }}>{gr.affiliation}</Badge></td>
+                      <td><Badge variant="secondary" style={{ fontSize: '0.6rem' }}>{gr.affiliation}</Badge></td>
                       <td>{Math.round(gr.size_pct * 100)}%</td>
                       <td>
                         <div style={{ width: Math.round(gr.loyalty * 60), height: 6,

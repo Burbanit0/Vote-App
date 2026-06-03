@@ -99,7 +99,7 @@ describe('JudgmentAggregationPanel', () => {
     fireEvent.click(screen.getByTestId('simulate-btn'));
     await waitFor(() => {
       const badge = screen.getByTestId('coherence-badge');
-      expect(badge.className).toContain('bg-success');
+      expect(badge.className).toContain('bg-[#198754]');
     });
     vi.runAllTimers();
   });
@@ -110,7 +110,7 @@ describe('JudgmentAggregationPanel', () => {
     fireEvent.click(screen.getByTestId('simulate-btn'));
     await waitFor(() => {
       const badge = screen.getByTestId('coherence-badge');
-      expect(badge.className).toContain('bg-danger');
+      expect(badge.className).toContain('bg-[#dc3545]');
     });
     vi.runAllTimers();
   });

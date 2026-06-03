@@ -189,7 +189,7 @@ describe('DeliberationPanel', () => {
     fireEvent.click(screen.getByTestId('simulate-btn'));
     await waitFor(() => {
       const badge = screen.getByTestId('polarization-badge');
-      expect(badge.className).toContain('bg-danger');
+      expect(badge.className).toContain('bg-[#dc3545]');
     });
     vi.runAllTimers();
   });
@@ -213,8 +213,8 @@ describe('DeliberationPanel', () => {
   it('network button changes selection', () => {
     renderPanel();
     fireEvent.click(screen.getByTestId('network-echo_chamber'));
-    expect(screen.getByTestId('network-echo_chamber').className).toContain('btn-primary');
-    expect(screen.getByTestId('network-random').className).not.toContain('btn-primary');
+    expect(screen.getByTestId('network-echo_chamber').className).toContain('text-primary-foreground');
+    expect(screen.getByTestId('network-random').className).not.toContain('text-primary-foreground');
   });
 
   it('shows error on API failure', async () => {

@@ -5,9 +5,12 @@
 import React, { useCallback, useEffect, useState } from 'react';
 import { $api } from '../../api/hooks';
 import { useTranslation } from 'react-i18next';
-import {
-  Alert, Badge, Button, Col, Form, Row, Spinner,
-} from 'react-bootstrap';
+import { Alert } from '@/components/ui/alert';
+import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
+import { Check, Control, Range, Select } from '@/components/ui/form-controls';
+import { Col, Row } from '@/components/ui/grid';
+import { Spinner } from '@/components/ui/spinner';
 import {
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend,
   LineChart, Line, ReferenceLine, ResponsiveContainer, Cell,
@@ -231,7 +234,7 @@ const EpistocracyPanel: React.FC<EpistocracyLabProps> = ({
       {/* ── Lab mode badge ── */}
       {labMode && (
         <div className="mb-2">
-          <Badge bg="dark" style={{ fontSize: '0.68rem' }}>
+          <Badge variant="dark" style={{ fontSize: '0.68rem' }}>
             🔬 {t('lab.fromElectionLab')}
           </Badge>
         </div>
@@ -241,30 +244,30 @@ const EpistocracyPanel: React.FC<EpistocracyLabProps> = ({
         {!labMode && (
           <>
             <Col xs={6} md={2}>
-              <Form.Label className="small mb-0">{t('episto.voters')}</Form.Label>
-              <Form.Control type="number" size="sm" min={10} max={1000} value={numVoters}
+              <label className="mb-1 inline-block small mb-0">{t('episto.voters')}</label>
+              <Control type="number" size="sm" min={10} max={1000} value={numVoters}
                 data-testid="voters-input"
                 onChange={(e) => setNumVoters(Number(e.target.value))} />
             </Col>
             <Col xs={6} md={2}>
-              <Form.Label className="small mb-0">{t('episto.seed')}</Form.Label>
-              <Form.Control type="number" size="sm" value={seed}
+              <label className="mb-1 inline-block small mb-0">{t('episto.seed')}</label>
+              <Control type="number" size="sm" value={seed}
                 data-testid="seed-input"
                 onChange={(e) => setSeed(Number(e.target.value))} />
             </Col>
           </>
         )}
         <Col xs={12} md={3}>
-          <Form.Label className="small mb-0">{t('episto.distribution')}</Form.Label>
-          <Form.Select size="sm" value={compDist} data-testid="dist-select"
+          <label className="mb-1 inline-block small mb-0">{t('episto.distribution')}</label>
+          <Select size="sm" value={compDist} data-testid="dist-select"
             onChange={(e) => setCompDist(e.target.value)}>
             <option value="uniform">{t('episto.dist_uniform')}</option>
             <option value="bimodal">{t('episto.dist_bimodal')}</option>
             <option value="expert_minority">{t('episto.dist_expert_minority')}</option>
-          </Form.Select>
+          </Select>
         </Col>
         <Col xs="auto">
-          <Form.Check type="switch" id="caplan-bias" checked={caplanBias}
+          <Check type="switch" id="caplan-bias" checked={caplanBias}
             data-testid="caplan-bias-toggle"
             label={<span style={{ fontSize: '0.78rem' }}>{t('episto.caplanBias')}</span>}
             onChange={(e) => setCaplanBias(e.target.checked)} />
@@ -278,7 +281,7 @@ const EpistocracyPanel: React.FC<EpistocracyLabProps> = ({
             )}
             disabled={loading}
             data-testid="run-btn">
-            {loading ? <Spinner size="sm" animation="border" /> : t('episto.run')}
+            {loading ? <Spinner size="sm" /> : t('episto.run')}
           </Button>
         </Col>
         {labMode && data && (
@@ -298,26 +301,26 @@ const EpistocracyPanel: React.FC<EpistocracyLabProps> = ({
       {/* ── Competence sliders ── */}
       <Row className="g-2 mb-3 align-items-center">
         <Col xs={12} md={4}>
-          <Form.Label className="small mb-0">
+          <label className="mb-1 inline-block small mb-0">
             {t('episto.compMean')} — {Math.round(compMean * 100)}%
-          </Form.Label>
-          <Form.Range min={10} max={95} step={5} value={Math.round(compMean * 100)}
+          </label>
+          <Range min={10} max={95} step={5} value={Math.round(compMean * 100)}
             data-testid="comp-mean-slider"
             onChange={(e) => setCompMean(Number(e.target.value) / 100)} />
         </Col>
         <Col xs={12} md={4}>
-          <Form.Label className="small mb-0">
+          <label className="mb-1 inline-block small mb-0">
             {t('episto.epThreshold')} — {Math.round(threshold * 100)}%
-          </Form.Label>
-          <Form.Range min={50} max={95} step={5} value={Math.round(threshold * 100)}
+          </label>
+          <Range min={50} max={95} step={5} value={Math.round(threshold * 100)}
             data-testid="threshold-slider"
             onChange={(e) => setThreshold(Number(e.target.value) / 100)} />
         </Col>
         <Col xs={12} md={4}>
-          <Form.Label className="small mb-0">
+          <label className="mb-1 inline-block small mb-0">
             {t('episto.expertPct')} — {Math.round(expertPct * 100)}%
-          </Form.Label>
-          <Form.Range min={5} max={50} step={5} value={Math.round(expertPct * 100)}
+          </label>
+          <Range min={5} max={50} step={5} value={Math.round(expertPct * 100)}
             data-testid="expert-pct-slider"
             onChange={(e) => setExpertPct(Number(e.target.value) / 100)} />
         </Col>
@@ -329,15 +332,15 @@ const EpistocracyPanel: React.FC<EpistocracyLabProps> = ({
           {t('episto.histogramTitle')}
           {stats && (
             <span className="ms-2">
-              <Badge bg="secondary" style={{ fontSize: '0.65rem' }}>
+              <Badge variant="secondary" style={{ fontSize: '0.65rem' }}>
                 μ={Math.round(stats.mean * 100)}%
               </Badge>
               {caplanBias && (
-                <Badge bg="danger" className="ms-1" style={{ fontSize: '0.65rem' }}>
+                <Badge variant="danger" className="ms-1" style={{ fontSize: '0.65rem' }}>
                   μ(biaisé)={Math.round(stats.biased_mean * 100)}%
                 </Badge>
               )}
-              <Badge bg="info" className="ms-1" style={{ fontSize: '0.65rem' }}>
+              <Badge variant="info" className="ms-1" style={{ fontSize: '0.65rem' }}>
                 {stats.expert_count} experts
               </Badge>
             </span>
@@ -372,13 +375,13 @@ const EpistocracyPanel: React.FC<EpistocracyLabProps> = ({
 
           {/* ── Democracy vs Expert badges ── */}
           <div className="d-flex flex-wrap gap-2 mb-3" data-testid="comparison-badges">
-            <Badge bg="danger" style={{ fontSize: '0.72rem' }}>
+            <Badge variant="danger" style={{ fontSize: '0.72rem' }}>
               🗳 {t('episto.democracyRegret')}: {Math.round(data.democracy_vs_expert.democracy_regret * 100)}%
             </Badge>
-            <Badge bg="info" style={{ fontSize: '0.72rem' }}>
+            <Badge variant="info" style={{ fontSize: '0.72rem' }}>
               🎓 {t('episto.expertRegret')}: {Math.round(data.democracy_vs_expert.expert_regret * 100)}%
             </Badge>
-            <Badge bg="success" style={{ fontSize: '0.72rem' }}>
+            <Badge variant="success" style={{ fontSize: '0.72rem' }}>
               ✓ {t('episto.omniscient')}: 0%
             </Badge>
           </div>

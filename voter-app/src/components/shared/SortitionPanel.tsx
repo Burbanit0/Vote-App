@@ -5,9 +5,13 @@
  */
 import React, { useCallback, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import {
-  Alert, Badge, Button, Col, Form, Row, Spinner, Table,
-} from 'react-bootstrap';
+import { Alert } from '@/components/ui/alert';
+import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
+import { Check, Range } from '@/components/ui/form-controls';
+import { Col, Row } from '@/components/ui/grid';
+import { Spinner } from '@/components/ui/spinner';
+import { Table } from '@/components/ui/table';
 import {
   RadarChart, Radar, PolarGrid, PolarAngleAxis,
   LineChart, Line, XAxis, YAxis, Tooltip, CartesianGrid, Legend,
@@ -147,10 +151,10 @@ const SortitionPanel: React.FC = () => {
       {/* Controls */}
       <Row className="g-2 mb-3 align-items-end">
         <Col xs={12} md={4}>
-          <Form.Label className="small mb-0">
+          <label className="mb-1 inline-block small mb-0">
             {t('sortition.assemblySize')}: <strong>{assemblySize}</strong>
-          </Form.Label>
-          <Form.Range
+          </label>
+          <Range
             data-testid="assembly-size-slider"
             min={10} max={300} step={10}
             value={assemblySize}
@@ -158,25 +162,25 @@ const SortitionPanel: React.FC = () => {
           />
         </Col>
         <Col xs="auto">
-          <Form.Check type="switch" id="realistic-switch" label={t('sortition.realisticCandidates')}
+          <Check type="switch" id="realistic-switch" label={t('sortition.realisticCandidates')}
             checked={realisticCands}
             data-testid="realistic-switch"
             onChange={(e) => { setRealisticCands(e.target.checked); schedule(assemblySize, e.target.checked, genderParity, eduQuota); }}
           />
         </Col>
         <Col xs="auto">
-          <Form.Check type="switch" id="parity-switch" label={t('sortition.genderParity')}
+          <Check type="switch" id="parity-switch" label={t('sortition.genderParity')}
             checked={genderParity} onChange={(e) => { setGenderParity(e.target.checked); schedule(assemblySize, realisticCands, e.target.checked, eduQuota); }}
           />
         </Col>
         <Col xs="auto">
-          <Form.Check type="switch" id="edu-switch" label={t('sortition.eduQuota')}
+          <Check type="switch" id="edu-switch" label={t('sortition.eduQuota')}
             checked={eduQuota} onChange={(e) => { setEduQuota(e.target.checked); schedule(assemblySize, realisticCands, genderParity, e.target.checked); }}
           />
         </Col>
         <Col xs="auto">
           <Button variant="primary" onClick={handleSimulate} disabled={loading} data-testid="simulate-btn">
-            {loading ? <Spinner size="sm" animation="border" /> : t('sortition.run')}
+            {loading ? <Spinner size="sm" /> : t('sortition.run')}
           </Button>
         </Col>
       </Row>
@@ -190,8 +194,8 @@ const SortitionPanel: React.FC = () => {
         <>
           {/* Consensus badge */}
           {data.consensus_possible
-            ? <Badge bg="success" className="mb-3" data-testid="consensus-badge">{t('sortition.consensus')}</Badge>
-            : <Badge bg="warning" text="dark" className="mb-3" data-testid="no-consensus-badge">{t('sortition.noConsensus')}</Badge>}
+            ? <Badge variant="success" className="mb-3" data-testid="consensus-badge">{t('sortition.consensus')}</Badge>
+            : <Badge variant="warning" className="mb-3" data-testid="no-consensus-badge">{t('sortition.noConsensus')}</Badge>}
 
           {/* 3-column ideology comparison */}
           <div className="mb-4" data-testid="ideology-bars">
@@ -229,7 +233,7 @@ const SortitionPanel: React.FC = () => {
           </div>
 
           {/* Metrics table */}
-          <Table size="sm" hover className="mb-4" data-testid="metrics-table">
+          <Table className="[&_th]:p-1 [&_td]:p-1 [&_th]:text-left [&_td]:border-t [&_th]:border-b [&_td]:border-border [&_th]:border-border [&_*]:align-middle [&_tbody_tr:hover]:bg-muted/50 mb-4" data-testid="metrics-table">
             <thead>
               <tr>
                 <th style={{ fontSize: '0.78rem' }}>{t('sortition.metric')}</th>
@@ -278,7 +282,7 @@ const SortitionPanel: React.FC = () => {
               <div key={ex.year} className="border rounded p-2" style={{ fontSize: '0.72rem', background: '#f8f9fa', maxWidth: 200 }}>
                 <strong>{ex.location} ({ex.year})</strong>
                 <div className="text-muted">{ex.desc}</div>
-                {ex.result && <Badge bg="success" style={{ fontSize: '0.6rem' }} className="mt-1">{ex.result}</Badge>}
+                {ex.result && <Badge variant="success" style={{ fontSize: '0.6rem' }} className="mt-1">{ex.result}</Badge>}
                 <div><code style={{ fontSize: '0.65rem' }}>{ex.method ?? 'Tirage au sort'}</code></div>
               </div>
             ))}

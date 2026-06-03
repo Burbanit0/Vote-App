@@ -9,7 +9,12 @@
  *   - Peak detection
  */
 import React, { useCallback, useEffect, useState } from 'react';
-import { Alert, Badge, Button, Card, Form, Spinner } from 'react-bootstrap';
+import { Alert } from '@/components/ui/alert';
+import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
+import { Card, CardBody, CardHeader } from '@/components/ui/card';
+import { Check } from '@/components/ui/form-controls';
+import { Spinner } from '@/components/ui/spinner';
 import {
   CartesianGrid,
   Dot,
@@ -216,7 +221,7 @@ const BlankVoteTimeSeries: React.FC = () => {
       {/* Country selector */}
       <div className="d-flex gap-3 mb-3 flex-wrap" role="group" aria-label="Choisir les pays">
         {COUNTRIES.map(({ key, label, color }) => (
-          <Form.Check
+          <Check
             key={key}
             id={`bvts-${key}`}
             type="checkbox"
@@ -233,7 +238,7 @@ const BlankVoteTimeSeries: React.FC = () => {
 
       {/* Chart */}
       <Card className="mb-3">
-        <Card.Header className="d-flex align-items-center justify-content-between">
+        <CardHeader className="block space-y-0 border-b border-border px-4 py-2 d-flex align-items-center justify-content-between">
           <strong>Taux de vote blanc dans le temps</strong>
           <div className="d-flex gap-3" style={{ fontSize: '0.78rem' }}>
             {[['<2%', '#1b5e20', 'Faible'], ['2–5%', '#b35c00', 'Modéré'], ['>5%', '#b71c1c', 'Élevé']].map(
@@ -245,8 +250,8 @@ const BlankVoteTimeSeries: React.FC = () => {
               ),
             )}
           </div>
-        </Card.Header>
-        <Card.Body>
+        </CardHeader>
+        <CardBody>
           <ResponsiveContainer width="100%" height={300}>
             <LineChart data={chartData} margin={{ top: 8, right: 16, left: 0, bottom: 16 }}>
               <CartesianGrid strokeDasharray="3 3" stroke="var(--bs-border-color, #dee2e6)" />
@@ -310,14 +315,14 @@ const BlankVoteTimeSeries: React.FC = () => {
               ))}
             </div>
           )}
-        </Card.Body>
+        </CardBody>
       </Card>
 
       {/* Trend analysis */}
       {trends.length > 0 && (
         <Card>
-          <Card.Header className="py-2"><strong>📈 Analyse tendancielle</strong></Card.Header>
-          <Card.Body>
+          <CardHeader className="block space-y-0 border-b border-border px-4 py-2 py-2"><strong>📈 Analyse tendancielle</strong></CardHeader>
+          <CardBody>
             {trends.map((trend, i) => (
               <div key={i} className="mb-3">
                 <div className="fw-semibold mb-1" style={{ fontSize: '0.88rem' }}>
@@ -331,7 +336,7 @@ const BlankVoteTimeSeries: React.FC = () => {
                     </strong>{' '}
                     par décennie depuis {trend.startYear}
                     {trend.slopePerDecade > 0.3 && (
-                      <Badge bg="warning" text="dark" className="ms-2" style={{ fontSize: '0.7rem' }}>
+                      <Badge variant="warning" className="ms-2" style={{ fontSize: '0.7rem' }}>
                         Tendance à surveiller
                       </Badge>
                     )}
@@ -347,7 +352,7 @@ const BlankVoteTimeSeries: React.FC = () => {
                 </ul>
               </div>
             ))}
-          </Card.Body>
+          </CardBody>
         </Card>
       )}
 

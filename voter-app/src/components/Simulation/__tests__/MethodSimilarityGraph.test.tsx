@@ -126,7 +126,7 @@ describe('MethodSimilarityGraph', () => {
     const btn = screen.getByTestId('group-by-family-btn');
     expect(btn).toBeInTheDocument();
     fireEvent.click(btn);
-    expect(btn.className).toContain('btn-secondary');
+    expect(btn.className).toContain('text-secondary-foreground');
   });
 
   it.skip('shows hover tooltip when hovering a node', () => {

@@ -21,7 +21,9 @@ import {
   SimulationLinkDatum,
 } from 'd3';
 import { useTranslation } from 'react-i18next';
-import { Badge, Button, Form } from 'react-bootstrap';
+import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
+import { Range } from '@/components/ui/form-controls';
 
 // ── Method family classification ──────────────────────────────────────────────
 
@@ -296,13 +298,13 @@ const MethodSimilarityGraph: React.FC<MethodSimilarityGraphProps> = ({
       {/* Controls */}
       <div className="d-flex flex-wrap align-items-center gap-3 mb-2">
         <div style={{ flex: '1 1 200px', minWidth: 160 }}>
-          <Form.Label className="small mb-0">
+          <label className="mb-1 inline-block small mb-0">
             {t('graph.threshold')}: <strong>{Math.round(threshold * 100)}%</strong>
             <span className="text-muted ms-2" style={{ fontSize: '0.7rem' }}>
               ({edgeCount} {t('graph.edges')})
             </span>
-          </Form.Label>
-          <Form.Range
+          </label>
+          <Range
             min={0} max={1} step={0.05} value={threshold}
             onChange={(e) => setThreshold(Number(e.target.value))}
             data-testid="threshold-slider"

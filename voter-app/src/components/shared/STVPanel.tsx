@@ -8,9 +8,13 @@
  */
 import React, { useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import {
-  Alert, Badge, Button, Col, Form, ProgressBar, Row, Spinner,
-} from 'react-bootstrap';
+import { Alert } from '@/components/ui/alert';
+import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
+import { Range, Select } from '@/components/ui/form-controls';
+import { Col, Row } from '@/components/ui/grid';
+import { Progress } from '@/components/ui/progress';
+import { Spinner } from '@/components/ui/spinner';
 import { useElection } from '../../stores/useElectionStore';
 import { $api } from '../../api/hooks';
 
@@ -219,19 +223,19 @@ const STVPanel: React.FC = () => {
       {/* Controls */}
       <Row className="g-2 mb-3 align-items-end">
         <Col xs={12} sm={3}>
-          <Form.Label className="small mb-0">
+          <label className="mb-1 inline-block small mb-0">
             {t('stv.numSeats')}: <strong>{numSeats}</strong>
-          </Form.Label>
-          <Form.Range min={2} max={Math.max(2, config.candidates.length - 1)} step={1}
+          </label>
+          <Range min={2} max={Math.max(2, config.candidates.length - 1)} step={1}
             value={numSeats} onChange={e => setNumSeats(Number(e.target.value))} />
         </Col>
         <Col xs={12} sm={3}>
-          <Form.Label className="small mb-0">{t('stv.quotaType')}</Form.Label>
-          <Form.Select size="sm" value={quotaType}
+          <label className="mb-1 inline-block small mb-0">{t('stv.quotaType')}</label>
+          <Select size="sm" value={quotaType}
             onChange={e => setQuotaType(e.target.value as 'droop' | 'hare')}>
             <option value="droop">Droop (Q = ⌊N/(s+1)⌋ + 1)</option>
             <option value="hare">Hare (Q = N/s)</option>
-          </Form.Select>
+          </Select>
         </Col>
         <Col xs={12} sm={3} className="d-flex align-items-end">
           <Button variant="primary" className="w-100" onClick={run} disabled={loading}>
@@ -258,7 +262,7 @@ const STVPanel: React.FC = () => {
             <Col xs={12} lg={6}>
               <div className="fw-semibold mb-1" style={{ fontSize: '0.85rem' }}>
                 {t('stv.stepperTitle')}
-                <Badge bg="secondary" className="ms-2" style={{ fontSize: '0.68rem' }}>
+                <Badge variant="secondary" className="ms-2" style={{ fontSize: '0.68rem' }}>
                   {stepIdx + 1} / {numRounds}
                 </Badge>
               </div>
@@ -267,7 +271,7 @@ const STVPanel: React.FC = () => {
               <div className="d-flex gap-2 align-items-center mb-2">
                 <Button size="sm" variant="outline-secondary"
                   disabled={stepIdx <= 0} onClick={() => setStepIdx(s => s - 1)}>‹</Button>
-                <Form.Range min={0} max={Math.max(0, numRounds - 1)} step={1} value={stepIdx}
+                <Range min={0} max={Math.max(0, numRounds - 1)} step={1} value={stepIdx}
                   onChange={e => setStepIdx(Number(e.target.value))}
                   style={{ flex: 1 }} data-testid="step-slider" />
                 <Button size="sm" variant="outline-secondary"
@@ -301,7 +305,7 @@ const STVPanel: React.FC = () => {
                     <div key={n} className="d-flex align-items-center gap-1 mb-1"
                       style={{ opacity: eliminatedSoFar.has(n) ? 0.3 : 1 }}>
                       <span style={{ minWidth: 65, fontSize: '0.72rem', color: candColor(n, names) }}>{n}</span>
-                      <ProgressBar now={pct} max={100} style={{ flex: 1, height: 8 }}
+                      <Progress now={pct} max={100} style={{ flex: 1, height: 8 }}
                         variant={electedSoFar.has(n) ? 'success' : undefined}
                         label={electedSoFar.has(n) ? '✓' : undefined}
                       />
@@ -349,14 +353,14 @@ const STVPanel: React.FC = () => {
               {/* Distortion badges */}
               <div className="d-flex flex-wrap gap-2 mb-3">
                 <Badge
-                  bg={data.distortion_stv_dhondt > 0 ? 'warning' : 'success'} text="dark"
+                  variant={data.distortion_stv_dhondt > 0 ? 'warning' : 'success'}
                   style={{ fontSize: '0.72rem' }}
                   data-testid="distortion-stv-dhondt"
                 >
                   STV vs D'Hondt: ±{data.distortion_stv_dhondt} {t('stv.seats')}
                 </Badge>
                 <Badge
-                  bg={data.distortion_stv_fptp > 0 ? 'danger' : 'success'}
+                  variant={data.distortion_stv_fptp > 0 ? 'danger' : 'success'}
                   style={{ fontSize: '0.72rem' }}
                   data-testid="distortion-stv-fptp"
                 >

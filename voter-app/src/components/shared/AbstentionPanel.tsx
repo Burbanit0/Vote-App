@@ -7,7 +7,12 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { $api } from '../../api/hooks';
 import { useTranslation } from 'react-i18next';
-import { Alert, Badge, Button, Col, Form, Row, Spinner } from 'react-bootstrap';
+import { Alert } from '@/components/ui/alert';
+import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
+import { Range } from '@/components/ui/form-controls';
+import { Col, Row } from '@/components/ui/grid';
+import { Spinner } from '@/components/ui/spinner';
 import {
   LineChart, Line, XAxis, YAxis, Tooltip, Legend,
   ResponsiveContainer, ReferenceLine,
@@ -232,30 +237,30 @@ const AbstentionPanel: React.FC = () => {
       {/* Controls */}
       <Row className="g-2 mb-3 align-items-end">
         <Col xs={12} sm={4}>
-          <Form.Label className="small mb-0">
+          <label className="mb-1 inline-block small mb-0">
             {t('abstention.demobFactor')}: <strong>{demob.toFixed(2)}</strong>
-          </Form.Label>
-          <Form.Range
+          </label>
+          <Range
             min={0} max={1} step={0.05} value={demob}
             onChange={e => { const v = Number(e.target.value); setDemob(v); handleChange(v, influence, numRounds); }}
             data-testid="demob-slider"
           />
         </Col>
         <Col xs={12} sm={4}>
-          <Form.Label className="small mb-0">
+          <label className="mb-1 inline-block small mb-0">
             {t('abstention.pollInfluence')}: <strong>{influence.toFixed(2)}</strong>
-          </Form.Label>
-          <Form.Range
+          </label>
+          <Range
             min={0} max={1} step={0.05} value={influence}
             onChange={e => { const v = Number(e.target.value); setInfluence(v); handleChange(demob, v, numRounds); }}
             data-testid="influence-slider"
           />
         </Col>
         <Col xs={12} sm={2}>
-          <Form.Label className="small mb-0">
+          <label className="mb-1 inline-block small mb-0">
             {t('abstention.numRounds')}: <strong>{numRounds}</strong>
-          </Form.Label>
-          <Form.Range
+          </label>
+          <Range
             min={1} max={5} step={1} value={numRounds}
             onChange={e => { const v = Number(e.target.value); setNumRounds(v); handleChange(demob, influence, v); }}
           />
@@ -334,7 +339,7 @@ const AbstentionPanel: React.FC = () => {
                     onClick={() => setPlaying(!playing)} data-testid="play-button">
                     {playing ? '⏸' : '▶'} {t('abstention.round')} {round}/{numRounds}
                   </Button>
-                  <Badge bg={snapshot && snapshot.turnout < 0.7 ? 'danger' : 'secondary'}>
+                  <Badge variant={snapshot && snapshot.turnout < 0.7 ? 'danger' : 'secondary'}>
                     {t('abstention.turnout')}: {Math.round((snapshot?.turnout ?? 0) * 100)}%
                   </Badge>
                   {snapshot?.winner_fptp && (
@@ -343,7 +348,7 @@ const AbstentionPanel: React.FC = () => {
                     </Badge>
                   )}
                 </div>
-                <Form.Range
+                <Range
                   min={0} max={data.rounds.length - 1} step={1} value={round}
                   onChange={e => { setPlaying(false); setRound(Number(e.target.value)); }}
                   data-testid="round-slider"

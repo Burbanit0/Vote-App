@@ -1,7 +1,11 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
-import {
-  Alert, Badge, Button, Card, Col, Container, Form, Row, Spinner,
-} from 'react-bootstrap';
+import { Alert } from '@/components/ui/alert';
+import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
+import { Card, CardBody, CardHeader } from '@/components/ui/card';
+import { Control, Range, Select } from '@/components/ui/form-controls';
+import { Col, Container, Row } from '@/components/ui/grid';
+import { Spinner } from '@/components/ui/spinner';
 import {
   CartesianGrid,
   Legend,
@@ -269,51 +273,51 @@ const CampaignSimulatorPage: React.FC = () => {
         {/* ── Left panel — config ────────────────────────────────────────── */}
         <Col lg={3}>
           <Card className="mb-3">
-            <Card.Header className="fw-semibold">⚙️ Configuration</Card.Header>
-            <Card.Body>
-              <Form.Group className="mb-3">
-                <Form.Label htmlFor="camp-cands" className="small mb-1">
+            <CardHeader className="block space-y-0 border-b border-border px-4 py-2 fw-semibold">⚙️ Configuration</CardHeader>
+            <CardBody>
+              <div className="mb-3">
+                <label htmlFor="camp-cands" className="mb-1 inline-block small mb-1">
                   Candidats : <strong>{numCandidates}</strong>
-                </Form.Label>
-                <Form.Range
+                </label>
+                <Range
                   id="camp-cands" min={2} max={6} step={1}
                   value={numCandidates}
                   onChange={(e) => setNumCandidates(Number(e.target.value))}
                 />
-              </Form.Group>
+              </div>
 
-              <Form.Group className="mb-3">
-                <Form.Label htmlFor="camp-days" className="small mb-1">
+              <div className="mb-3">
+                <label htmlFor="camp-days" className="mb-1 inline-block small mb-1">
                   Durée : <strong>{numDays} jours</strong>
-                </Form.Label>
-                <Form.Range
+                </label>
+                <Range
                   id="camp-days" min={7} max={90} step={1}
                   value={numDays}
                   onChange={(e) => setNumDays(Number(e.target.value))}
                 />
-              </Form.Group>
+              </div>
 
-              <Form.Group className="mb-3">
-                <Form.Label htmlFor="camp-method" className="small mb-1">Méthode de vote</Form.Label>
-                <Form.Select
+              <div className="mb-3">
+                <label htmlFor="camp-method" className="mb-1 inline-block small mb-1">Méthode de vote</label>
+                <Select
                   id="camp-method" size="sm"
                   value={method}
                   onChange={(e) => setMethod(e.target.value)}
                 >
                   {METHODS.map((m) => <option key={m.value} value={m.value}>{m.label}</option>)}
-                </Form.Select>
-              </Form.Group>
+                </Select>
+              </div>
 
-              <Form.Group className="mb-3">
-                <Form.Label htmlFor="camp-speed" className="small mb-1">
+              <div className="mb-3">
+                <label htmlFor="camp-speed" className="mb-1 inline-block small mb-1">
                   Vitesse animation : {animSpeed === 0 ? 'Instant' : `${animSpeed * 60} ms/j`}
-                </Form.Label>
-                <Form.Range
+                </label>
+                <Range
                   id="camp-speed" min={0} max={10} step={1}
                   value={animSpeed}
                   onChange={(e) => setAnimSpeed(Number(e.target.value))}
                 />
-              </Form.Group>
+              </div>
 
               <Button
                 variant="primary" className="w-100"
@@ -323,30 +327,30 @@ const CampaignSimulatorPage: React.FC = () => {
                   ? <><Spinner size="sm" className="me-2" />Simulation…</>
                   : '▶ Simuler la campagne'}
               </Button>
-            </Card.Body>
+            </CardBody>
           </Card>
 
           {/* Candidate legend */}
           <Card>
-            <Card.Header className="fw-semibold py-2" style={{ fontSize: '0.85rem' }}>
+            <CardHeader className="block space-y-0 border-b border-border px-4 py-2 fw-semibold py-2" style={{ fontSize: '0.85rem' }}>
               Candidats
-            </Card.Header>
-            <Card.Body className="py-2">
+            </CardHeader>
+            <CardBody className="py-2">
               {candidateNames.map((name, i) => (
                 <div key={name} className="d-flex align-items-center gap-2 mb-1">
                   <span style={{ width: 12, height: 12, borderRadius: 2, background: CHART_COLORS_LIGHT[i % CHART_COLORS_LIGHT.length], display: 'inline-block', flexShrink: 0 }} />
                   <span style={{ fontSize: '0.85rem' }}>{name}</span>
-                  {leaderAtDay === name && <Badge bg="success" style={{ fontSize: '0.65rem' }}>Leader</Badge>}
+                  {leaderAtDay === name && <Badge variant="success" style={{ fontSize: '0.65rem' }}>Leader</Badge>}
                 </div>
               ))}
-            </Card.Body>
+            </CardBody>
           </Card>
         </Col>
 
         {/* ── Centre panel — chart ──────────────────────────────────────── */}
         <Col lg={6}>
           <Card className="h-100">
-            <Card.Header className="d-flex align-items-center justify-content-between">
+            <CardHeader className="block space-y-0 border-b border-border px-4 py-2 d-flex align-items-center justify-content-between">
               <strong>Intentions de vote</strong>
               <div className="d-flex align-items-center gap-2">
                 {result && (
@@ -379,8 +383,8 @@ const CampaignSimulatorPage: React.FC = () => {
                   </>
                 )}
               </div>
-            </Card.Header>
-            <Card.Body>
+            </CardHeader>
+            <CardBody>
               {error && <Alert variant="danger" className="mb-3">{error}</Alert>}
 
               {!result && !loading && (
@@ -456,14 +460,14 @@ const CampaignSimulatorPage: React.FC = () => {
                   )}
                 </div>
               )}
-            </Card.Body>
+            </CardBody>
           </Card>
         </Col>
 
         {/* ── Right panel — events ──────────────────────────────────────── */}
         <Col lg={3}>
           <Card>
-            <Card.Header className="d-flex align-items-center justify-content-between">
+            <CardHeader className="block space-y-0 border-b border-border px-4 py-2 d-flex align-items-center justify-content-between">
               <span className="fw-semibold">🗓 Événements</span>
               <Button
                 variant="outline-success" size="sm"
@@ -472,16 +476,16 @@ const CampaignSimulatorPage: React.FC = () => {
               >
                 {showAddForm ? '✕' : '+ Ajouter'}
               </Button>
-            </Card.Header>
-            <Card.Body>
+            </CardHeader>
+            <CardBody>
               {/* Add event form */}
               {showAddForm && (
                 <Card className="mb-3 border-success">
-                  <Card.Body className="py-2 px-3">
+                  <CardBody className="py-2 px-3">
                     <Row className="g-2 mb-2">
                       <Col xs={6}>
-                        <Form.Label className="small mb-1" htmlFor="ev-day">Jour</Form.Label>
-                        <Form.Control
+                        <label className="mb-1 inline-block small mb-1" htmlFor="ev-day">Jour</label>
+                        <Control
                           id="ev-day" type="number" size="sm"
                           min={0} max={numDays}
                           value={newEv.day}
@@ -489,8 +493,8 @@ const CampaignSimulatorPage: React.FC = () => {
                         />
                       </Col>
                       <Col xs={6}>
-                        <Form.Label className="small mb-1" htmlFor="ev-type">Type</Form.Label>
-                        <Form.Select
+                        <label className="mb-1 inline-block small mb-1" htmlFor="ev-type">Type</label>
+                        <Select
                           id="ev-type" size="sm"
                           value={newEv.type}
                           onChange={(e) => setNewEv({ ...newEv, type: e.target.value as EventType })}
@@ -498,11 +502,11 @@ const CampaignSimulatorPage: React.FC = () => {
                           {Object.entries(EVENT_LABELS).map(([v, l]) => (
                             <option key={v} value={v}>{EVENT_ICONS[v as EventType]} {l}</option>
                           ))}
-                        </Form.Select>
+                        </Select>
                       </Col>
                       <Col xs={6}>
-                        <Form.Label className="small mb-1" htmlFor="ev-cand">Candidat</Form.Label>
-                        <Form.Select
+                        <label className="mb-1 inline-block small mb-1" htmlFor="ev-cand">Candidat</label>
+                        <Select
                           id="ev-cand" size="sm"
                           value={newEv.candidate}
                           onChange={(e) => setNewEv({ ...newEv, candidate: Number(e.target.value) })}
@@ -510,13 +514,13 @@ const CampaignSimulatorPage: React.FC = () => {
                           {candidateNames.map((n, i) => (
                             <option key={i} value={i}>{n}</option>
                           ))}
-                        </Form.Select>
+                        </Select>
                       </Col>
                       <Col xs={6}>
-                        <Form.Label className="small mb-1" htmlFor="ev-mag">
+                        <label className="mb-1 inline-block small mb-1" htmlFor="ev-mag">
                           Intensité : {newEv.magnitude.toFixed(1)}
-                        </Form.Label>
-                        <Form.Range
+                        </label>
+                        <Range
                           id="ev-mag" min={0.1} max={0.5} step={0.1}
                           value={newEv.magnitude}
                           onChange={(e) => setNewEv({ ...newEv, magnitude: Number(e.target.value) })}
@@ -526,7 +530,7 @@ const CampaignSimulatorPage: React.FC = () => {
                     <Button variant="success" size="sm" className="w-100" onClick={addEvent}>
                       Ajouter l'événement
                     </Button>
-                  </Card.Body>
+                  </CardBody>
                 </Card>
               )}
 
@@ -581,7 +585,7 @@ const CampaignSimulatorPage: React.FC = () => {
                   </Button>
                 ))}
               </div>
-            </Card.Body>
+            </CardBody>
           </Card>
         </Col>
       </Row>

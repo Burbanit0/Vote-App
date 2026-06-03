@@ -5,9 +5,12 @@
 import React, { useCallback, useState } from 'react';
 import { $api } from '../../api/hooks';
 import { useTranslation } from 'react-i18next';
-import {
-  Alert, Badge, Button, Col, Form, Row, Spinner,
-} from 'react-bootstrap';
+import { Alert } from '@/components/ui/alert';
+import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
+import { Control, Range } from '@/components/ui/form-controls';
+import { Col, Row } from '@/components/ui/grid';
+import { Spinner } from '@/components/ui/spinner';
 import {
   RadarChart, Radar, PolarGrid, PolarAngleAxis,
   LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend,
@@ -119,46 +122,46 @@ const MajorityTyrannyPanel: React.FC = () => {
       {/* ── Controls ── */}
       <Row className="g-2 mb-3 align-items-end">
         <Col xs={6} md={2}>
-          <Form.Label className="small mb-0">{t('tyranny.voters')}</Form.Label>
-          <Form.Control type="number" size="sm" min={20} max={500} value={numVoters}
+          <label className="mb-1 inline-block small mb-0">{t('tyranny.voters')}</label>
+          <Control type="number" size="sm" min={20} max={500} value={numVoters}
             data-testid="voters-input"
             onChange={(e) => setNumVoters(Number(e.target.value))} />
         </Col>
         <Col xs={6} md={3}>
-          <Form.Label className="small mb-0">
+          <label className="mb-1 inline-block small mb-0">
             {t('tyranny.majoritySize')} — {Math.round(majorityPct * 100)}%
             <span className="text-muted ms-1" style={{ fontSize: '0.7rem' }}>
               ({nMaj} {t('tyranny.maj')} / {nMin} {t('tyranny.min')})
             </span>
-          </Form.Label>
-          <Form.Range min={51} max={80} value={Math.round(majorityPct * 100)}
+          </label>
+          <Range min={51} max={80} value={Math.round(majorityPct * 100)}
             data-testid="majority-slider"
             onChange={(e) => setMajorityPct(Number(e.target.value) / 100)} />
         </Col>
         <Col xs={6} md={3}>
-          <Form.Label className="small mb-0">
+          <label className="mb-1 inline-block small mb-0">
             {t('tyranny.intensity')} — ×{intensity.toFixed(1)}
-          </Form.Label>
-          <Form.Range min={1} max={10} step={0.5} value={intensity}
+          </label>
+          <Range min={1} max={10} step={0.5} value={intensity}
             data-testid="intensity-slider"
             onChange={(e) => setIntensity(Number(e.target.value))} />
         </Col>
         <Col xs={6} md={2}>
-          <Form.Label className="small mb-0">{t('tyranny.decisions')}</Form.Label>
-          <Form.Control type="number" size="sm" min={10} max={200} value={numDecisions}
+          <label className="mb-1 inline-block small mb-0">{t('tyranny.decisions')}</label>
+          <Control type="number" size="sm" min={10} max={200} value={numDecisions}
             data-testid="decisions-input"
             onChange={(e) => setNumDecisions(Number(e.target.value))} />
         </Col>
         <Col xs={6} md={1}>
-          <Form.Label className="small mb-0">{t('tyranny.seed')}</Form.Label>
-          <Form.Control type="number" size="sm" value={seed}
+          <label className="mb-1 inline-block small mb-0">{t('tyranny.seed')}</label>
+          <Control type="number" size="sm" value={seed}
             data-testid="seed-input"
             onChange={(e) => setSeed(Number(e.target.value))} />
         </Col>
         <Col xs="auto">
           <Button variant="danger" onClick={run} disabled={loading}
             data-testid="run-btn">
-            {loading ? <Spinner size="sm" animation="border" /> : t('tyranny.run')}
+            {loading ? <Spinner size="sm" /> : t('tyranny.run')}
           </Button>
         </Col>
       </Row>
@@ -167,8 +170,7 @@ const MajorityTyrannyPanel: React.FC = () => {
       <div className="d-flex flex-wrap gap-2 mb-3" data-testid="rule-toggles">
         {ALL_RULES.map((r) => (
           <Badge key={r}
-            bg={rules.includes(r) ? undefined : 'light'}
-            text={rules.includes(r) ? undefined : 'dark'}
+            variant={rules.includes(r) ? undefined : 'light'}
             style={{
               cursor: 'pointer', fontSize: '0.72rem', padding: '6px 10px',
               background: rules.includes(r) ? RULE_COLORS[r] : undefined,
@@ -189,10 +191,10 @@ const MajorityTyrannyPanel: React.FC = () => {
         <>
           {/* ── Summary badges ── */}
           <div className="d-flex flex-wrap gap-2 mb-3" data-testid="summary-badges">
-            <Badge bg="success" data-testid="best-protector-badge">
+            <Badge variant="success" data-testid="best-protector-badge">
               🛡 {t('tyranny.bestProtector')}: {t(`tyranny.rule_${data.best_protector}`)}
             </Badge>
-            <Badge bg="warning" text="dark" data-testid="least-efficient-badge">
+            <Badge variant="warning" data-testid="least-efficient-badge">
               ⚠ {t('tyranny.leastEfficient')}: {t(`tyranny.rule_${data.least_efficient}`)}
             </Badge>
           </div>

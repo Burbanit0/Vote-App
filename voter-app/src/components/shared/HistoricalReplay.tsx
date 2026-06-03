@@ -3,9 +3,13 @@ import React, {
 } from 'react';
 import { useDragTouch } from '../../hooks/useDragTouch';
 import { useTranslation } from 'react-i18next';
-import {
-  Alert, Badge, Button, Card, Col, Form, Row, Spinner,
-} from 'react-bootstrap';
+import { Alert } from '@/components/ui/alert';
+import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
+import { Card, CardBody } from '@/components/ui/card';
+import { Range } from '@/components/ui/form-controls';
+import { Col, Row } from '@/components/ui/grid';
+import { Spinner } from '@/components/ui/spinner';
 import {
   BarChart, Bar, XAxis, YAxis, Tooltip,
   ResponsiveContainer, Cell,
@@ -225,11 +229,11 @@ const HistoricalReplay: React.FC = () => {
               onClick={() => { setScenarioId(sc.id); sim.reset(); setPositions({}); }}
               data-testid={`scenario-card-${sc.id}`}
             >
-              <Card.Body className="p-2 text-center">
+              <CardBody className="p-2 text-center">
                 <div style={{ fontSize: '1.6rem' }}>{sc.flag}</div>
                 <div className="fw-semibold">{sc.name}</div>
-                <Badge bg="secondary" style={{ fontSize: '0.65rem' }}>{sc.phenomenon}</Badge>
-              </Card.Body>
+                <Badge variant="secondary" style={{ fontSize: '0.65rem' }}>{sc.phenomenon}</Badge>
+              </CardBody>
             </Card>
           </Col>
         ))}
@@ -238,10 +242,10 @@ const HistoricalReplay: React.FC = () => {
       {/* ── Controls ── */}
       <div className="d-flex gap-2 align-items-center flex-wrap mb-3">
         <div style={{ flex: '1 1 160px' }}>
-          <Form.Label className="small mb-0">
+          <label className="mb-1 inline-block small mb-0">
             {t('replay.numDays')}: <strong>{numDays}</strong>
-          </Form.Label>
-          <Form.Range min={10} max={60} step={5} value={numDays}
+          </label>
+          <Range min={10} max={60} step={5} value={numDays}
             onChange={e => setNumDays(Number(e.target.value))} />
         </div>
         <Button variant="primary" onClick={() => run()} disabled={loading}>
@@ -284,7 +288,7 @@ const HistoricalReplay: React.FC = () => {
                 >
                   {playing ? '⏸ Pause' : '▶ Jouer'}
                 </Button>
-                <Badge bg="secondary" data-testid="day-badge">
+                <Badge variant="secondary" data-testid="day-badge">
                   {t('replay.day')} {currentDay} / {numDays}
                 </Badge>
                 {snapshot && (
@@ -296,7 +300,7 @@ const HistoricalReplay: React.FC = () => {
                   </Badge>
                 )}
               </div>
-              <Form.Range
+              <Range
                 min={0} max={data.days.length - 1} step={1} value={currentDay}
                 onChange={e => { setPlaying(false); setCurrentDay(Number(e.target.value)); }}
                 data-testid="day-slider"
@@ -339,14 +343,14 @@ const HistoricalReplay: React.FC = () => {
               <Row className="g-2">
                 <Col xs={6}>
                   <div className="fw-semibold mb-1">🏛 {t('replay.realResult')}</div>
-                  <Badge bg="secondary" style={{ fontSize: '0.8rem' }}>
+                  <Badge variant="secondary" style={{ fontSize: '0.8rem' }}>
                     {data.scenario.real_winner}
                   </Badge>
                 </Col>
                 <Col xs={6}>
                   <div className="fw-semibold mb-1">🔬 {t('replay.simResult')}</div>
                   <Badge
-                    bg={differs ? 'danger' : 'success'}
+                    variant={differs ? 'danger' : 'success'}
                     data-testid="result-badge"
                     style={{ fontSize: '0.8rem' }}
                   >
@@ -358,15 +362,15 @@ const HistoricalReplay: React.FC = () => {
 
               <div className="mt-2 d-flex gap-2 flex-wrap">
                 {data.final.winner_condorcet && (
-                  <Badge bg="info" style={{ fontSize: '0.72rem' }}>
+                  <Badge variant="info" style={{ fontSize: '0.72rem' }}>
                     Condorcet: {data.final.winner_condorcet}
                   </Badge>
                 )}
-                <Badge bg="secondary" style={{ fontSize: '0.72rem' }}>
+                <Badge variant="secondary" style={{ fontSize: '0.72rem' }}>
                   Borda: {data.final.winner_borda}
                 </Badge>
                 {differs && (
-                  <Badge bg="warning" text="dark" data-testid="divergence-badge"
+                  <Badge variant="warning" data-testid="divergence-badge"
                     style={{ fontSize: '0.72rem' }}>
                     ⚠ {t('replay.differs')}
                   </Badge>

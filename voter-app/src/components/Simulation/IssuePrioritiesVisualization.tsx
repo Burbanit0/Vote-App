@@ -1,5 +1,7 @@
 import React, { useState } from 'react';
-import { Card, Row, Col, Form } from 'react-bootstrap';
+import { Card, CardBody, CardHeader, CardTitle } from '@/components/ui/card';
+import { Check, Select } from '@/components/ui/form-controls';
+import { Col, Row } from '@/components/ui/grid';
 import { useTranslation } from 'react-i18next';
 import {
   BarChart,
@@ -180,16 +182,18 @@ const IssuePrioritiesVisualization: React.FC<IssuePrioritiesVisualizationProps> 
 
   return (
     <Card className="mb-4">
-      <Card.Header>
-        <Card.Title>{t('simulation.issuePriorities.title')}</Card.Title>
-      </Card.Header>
-      <Card.Body>
-        <Form.Group as={Row} className="mb-3 align-items-center">
-          <Form.Label column sm={2}>
-            {t('simulation.issuePriorities.groupBy')}
-          </Form.Label>
+      <CardHeader className="block space-y-0 border-b border-border px-4 py-2">
+        <CardTitle>{t('simulation.issuePriorities.title')}</CardTitle>
+      </CardHeader>
+      <CardBody>
+        <Row className="mb-3 align-items-center">
+          <Col sm={2}>
+            <label className="mb-1 inline-block">
+              {t('simulation.issuePriorities.groupBy')}
+            </label>
+          </Col>
           <Col sm={3}>
-            <Form.Select
+            <Select
               value={selectedGroup}
               onChange={(e) =>
                 setSelectedGroup(
@@ -202,10 +206,10 @@ const IssuePrioritiesVisualization: React.FC<IssuePrioritiesVisualizationProps> 
               <option value="region">{t('simulation.issuePriorities.groupRegion')}</option>
               <option value="income">{t('simulation.issuePriorities.groupIncome')}</option>
               <option value="gender">{t('simulation.issuePriorities.groupGender')}</option>
-            </Form.Select>
+            </Select>
           </Col>
           <Col sm={3}>
-            <Form.Check
+            <Check
               type="switch"
               id="radar-switch"
               label={t('simulation.issuePriorities.showRadar')}
@@ -213,13 +217,13 @@ const IssuePrioritiesVisualization: React.FC<IssuePrioritiesVisualizationProps> 
               onChange={() => setShowRadar(!showRadar)}
             />
           </Col>
-        </Form.Group>
+        </Row>
 
         <Row>
           <Col md={showRadar ? 6 : 12}>
             <Card>
-              <Card.Header>
-                <Card.Title>
+              <CardHeader className="block space-y-0 border-b border-border px-4 py-2">
+                <CardTitle>
                   {t('simulation.issuePriorities.avgPrioritiesBy')}{' '}
                   {{
                     age: t('simulation.issuePriorities.byAgeGroup'),
@@ -228,9 +232,9 @@ const IssuePrioritiesVisualization: React.FC<IssuePrioritiesVisualizationProps> 
                     gender: t('simulation.issuePriorities.byGender'),
                     education: t('simulation.issuePriorities.byEducation'),
                   }[selectedGroup]}
-                </Card.Title>
-              </Card.Header>
-              <Card.Body>
+                </CardTitle>
+              </CardHeader>
+              <CardBody>
                 {groupData.length > 0 ? (
                   <div style={{ height: '400px' }}>
                     <ResponsiveContainer width="100%" height="100%">
@@ -263,17 +267,17 @@ const IssuePrioritiesVisualization: React.FC<IssuePrioritiesVisualizationProps> 
                 ) : (
                   <p className="text-center text-muted">Pas de données disponibles</p>
                 )}
-              </Card.Body>
+              </CardBody>
             </Card>
           </Col>
 
           {showRadar && (
             <Col md={6}>
               <Card>
-                <Card.Header>
-                  <Card.Title>{t('simulation.issuePriorities.ageProfilesTitle')}</Card.Title>
-                </Card.Header>
-                <Card.Body>
+                <CardHeader className="block space-y-0 border-b border-border px-4 py-2">
+                  <CardTitle>{t('simulation.issuePriorities.ageProfilesTitle')}</CardTitle>
+                </CardHeader>
+                <CardBody>
                   {radarData.length > 0 ? (
                     <div style={{ height: '400px' }}>
                       <ResponsiveContainer width="100%" height="100%">
@@ -304,7 +308,7 @@ const IssuePrioritiesVisualization: React.FC<IssuePrioritiesVisualizationProps> 
                   ) : (
                   <p className="text-center text-muted">{t('simulation.issuePriorities.noData')}</p>
                   )}
-                </Card.Body>
+                </CardBody>
               </Card>
             </Col>
           )}
@@ -313,10 +317,10 @@ const IssuePrioritiesVisualization: React.FC<IssuePrioritiesVisualizationProps> 
         <Row className="mt-4">
           <Col md={12}>
             <Card>
-              <Card.Header>
-                <Card.Title>{t('simulation.issuePriorities.globalRankingTitle')}</Card.Title>
-              </Card.Header>
-              <Card.Body>
+              <CardHeader className="block space-y-0 border-b border-border px-4 py-2">
+                <CardTitle>{t('simulation.issuePriorities.globalRankingTitle')}</CardTitle>
+              </CardHeader>
+              <CardBody>
                 {priorityRanking.length > 0 ? (
                   <div style={{ height: '300px' }}>
                     <ResponsiveContainer width="100%" height="100%">
@@ -352,11 +356,11 @@ const IssuePrioritiesVisualization: React.FC<IssuePrioritiesVisualizationProps> 
                 ) : (
                   <p className="text-center text-muted">Pas de données disponibles</p>
                 )}
-              </Card.Body>
+              </CardBody>
             </Card>
           </Col>
         </Row>
-      </Card.Body>
+      </CardBody>
     </Card>
   );
 };

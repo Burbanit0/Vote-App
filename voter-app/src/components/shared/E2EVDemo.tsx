@@ -11,9 +11,12 @@
 import React, { useCallback, useState } from 'react';
 import { $api } from '../../api/hooks';
 import { useTranslation } from 'react-i18next';
-import {
-  Alert, Badge, Button, Card, Col, Form, Row, Spinner,
-} from 'react-bootstrap';
+import { Alert } from '@/components/ui/alert';
+import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
+import { Card, CardBody } from '@/components/ui/card';
+import { Col, Row } from '@/components/ui/grid';
+import { Spinner } from '@/components/ui/spinner';
 
 const DEFAULT_CANDIDATES = ['Alice', 'Bob', 'Carol'];
 const DEMO_VOTERS = 12;
@@ -123,9 +126,9 @@ const E2EVDemo: React.FC<Props> = ({
       {step === 0 && (
         <div>
           <p style={{ fontSize: '0.85rem' }}>{t('e2ev.intro')}</p>
-          <Form.Label className="fw-semibold" style={{ fontSize: '0.9rem' }}>
+          <label className="mb-1 inline-block fw-semibold" style={{ fontSize: '0.9rem' }}>
             {t('e2ev.chooseCandidate')}
-          </Form.Label>
+          </label>
           <div className="d-flex gap-2 flex-wrap mb-3">
             {candidates.map((c) => (
               <Button
@@ -142,7 +145,7 @@ const E2EVDemo: React.FC<Props> = ({
           <Button variant="success" onClick={handleVote}
             disabled={!chosen || loading} data-testid="vote-btn">
             {loading
-              ? <><Spinner size="sm" animation="border" /> {t('e2ev.encrypting')}</>
+              ? <><Spinner size="sm" /> {t('e2ev.encrypting')}</>
               : `🗳️ ${t('e2ev.vote')}`}
           </Button>
           {error && <Alert variant="danger" className="mt-2">{error}</Alert>}
@@ -158,7 +161,7 @@ const E2EVDemo: React.FC<Props> = ({
           </Alert>
 
           <Card className="mb-3" style={{ background: '#f8f9fa' }}>
-            <Card.Body>
+            <CardBody>
               <Row>
                 <Col xs={12} md={6}>
                   <div className="text-muted" style={{ fontSize: '0.75rem' }}>{t('e2ev.yourBallot')}</div>
@@ -181,7 +184,7 @@ const E2EVDemo: React.FC<Props> = ({
               <div className="text-muted mt-2" style={{ fontSize: '0.75rem' }}>
                 {t('e2ev.codeExplain')}
               </div>
-            </Card.Body>
+            </CardBody>
           </Card>
 
           <Button variant="primary" onClick={() => setStep(2)} data-testid="next-step-btn">
@@ -215,7 +218,7 @@ const E2EVDemo: React.FC<Props> = ({
                   <code style={{ color: '#6f42c1', flex: 1 }}>🔒 {entry.encrypted_ballot}</code>
                   <span style={{ fontFamily: 'monospace', color: isMyCode ? '#856404' : '#6c757d' }}>
                     {entry.verification_code}
-                    {isMyCode && <Badge bg="warning" text="dark" className="ms-1">{t('e2ev.yours')}</Badge>}
+                    {isMyCode && <Badge variant="warning" className="ms-1">{t('e2ev.yours')}</Badge>}
                   </span>
                 </div>
               );
@@ -255,7 +258,7 @@ const E2EVDemo: React.FC<Props> = ({
                   <div style={{ fontWeight: 700, fontSize: '0.85rem' }}>{cand}</div>
                   <div style={{ fontSize: '1.6rem', color: '#005CAB', fontWeight: 900 }}>{count}</div>
                   {cand === data.winner && (
-                    <Badge bg="success" style={{ fontSize: '0.65rem' }}>🏆 {t('e2ev.winner')}</Badge>
+                    <Badge variant="success" style={{ fontSize: '0.65rem' }}>🏆 {t('e2ev.winner')}</Badge>
                   )}
                 </div>
               ))}

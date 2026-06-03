@@ -5,7 +5,13 @@
  */
 import React, { useCallback, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { Alert, Badge, Button, Col, Form, Row, Spinner, Table } from 'react-bootstrap';
+import { Alert } from '@/components/ui/alert';
+import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
+import { Range } from '@/components/ui/form-controls';
+import { Col, Row } from '@/components/ui/grid';
+import { Spinner } from '@/components/ui/spinner';
+import { Table } from '@/components/ui/table';
 import { $api } from '../../api/hooks';
 
 const METHODS = ['hamilton', 'jefferson', 'webster', 'adams', 'huntington_hill'] as const;
@@ -85,17 +91,17 @@ const ApportionmentPanel: React.FC = () => {
       {/* Controls */}
       <Row className="g-2 mb-3 align-items-end">
         <Col xs={12} md={4}>
-          <Form.Label className="small mb-0">
+          <label className="mb-1 inline-block small mb-0">
             {t('appor.numSeats')}: <strong>{numSeats}</strong>
-          </Form.Label>
-          <Form.Range min={5} max={50} step={1} value={numSeats}
+          </label>
+          <Range min={5} max={50} step={1} value={numSeats}
             data-testid="seats-slider"
             onChange={(e) => setNumSeats(Number(e.target.value))} />
         </Col>
         <Col xs="auto">
           <Button variant="primary" onClick={handleSimulate} disabled={loading}
             data-testid="simulate-btn">
-            {loading ? <Spinner size="sm" animation="border" /> : t('appor.run')}
+            {loading ? <Spinner size="sm" /> : t('appor.run')}
           </Button>
         </Col>
       </Row>
@@ -112,7 +118,7 @@ const ApportionmentPanel: React.FC = () => {
             {t('appor.comparisonTitle')}
           </div>
           <div className="table-responsive mb-3" data-testid="comparison-table">
-            <Table size="sm" hover bordered style={{ fontSize: '0.78rem' }}>
+            <Table className="[&_th]:p-1 [&_td]:p-1 [&_th]:text-left [&_td]:border-t [&_th]:border-b [&_td]:border-border [&_th]:border-border [&_*]:align-middle [&_th]:border [&_td]:border [&_tbody_tr:hover]:bg-muted/50" style={{ fontSize: '0.78rem' }}>
               <thead className="table-light">
                 <tr>
                   <th>{t('appor.party')}</th>
@@ -120,10 +126,10 @@ const ApportionmentPanel: React.FC = () => {
                     <th key={m} style={{ textAlign: 'center' }}>
                       {m.replace('_', '-')}
                       {data.results[m]?.quota_violation && (
-                        <Badge bg="danger" style={{ fontSize: '0.55rem', display: 'block' }}>quota ✗</Badge>
+                        <Badge variant="danger" style={{ fontSize: '0.55rem', display: 'block' }}>quota ✗</Badge>
                       )}
                       {data.results[m]?.alabama_paradox && (
-                        <Badge bg="warning" text="dark" style={{ fontSize: '0.55rem', display: 'block' }}>Alabama</Badge>
+                        <Badge variant="warning" style={{ fontSize: '0.55rem', display: 'block' }}>Alabama</Badge>
                       )}
                     </th>
                   ))}
@@ -159,7 +165,7 @@ const ApportionmentPanel: React.FC = () => {
               🎚 {t('appor.alabamaDemo')}
             </div>
             <div className="d-flex align-items-center gap-3">
-              <Form.Range min={5} max={30} step={1} value={sliderN}
+              <Range min={5} max={30} step={1} value={sliderN}
                 style={{ maxWidth: 200 }}
                 data-testid="alabama-slider"
                 onChange={(e) => handleSlider(Number(e.target.value))} />
@@ -177,7 +183,7 @@ const ApportionmentPanel: React.FC = () => {
           <div className="fw-semibold mb-1" style={{ fontSize: '0.85rem' }}>
             {t('appor.axiomsTitle')}
           </div>
-          <Table size="sm" hover data-testid="axioms-table" style={{ fontSize: '0.78rem' }}>
+          <Table className="[&_th]:p-1 [&_td]:p-1 [&_th]:text-left [&_td]:border-t [&_th]:border-b [&_td]:border-border [&_th]:border-border [&_*]:align-middle [&_tbody_tr:hover]:bg-muted/50" data-testid="axioms-table" style={{ fontSize: '0.78rem' }}>
             <thead>
               <tr>
                 <th>{t('appor.method')}</th>
@@ -211,8 +217,7 @@ const ApportionmentPanel: React.FC = () => {
                       </span>
                     </td>
                     <td>
-                      <Badge bg={res.favors === 'large_parties' ? 'danger' : res.favors === 'small_parties' ? 'info' : 'secondary'}
-                        text={res.favors === 'small_parties' ? 'dark' : undefined}
+                      <Badge variant={res.favors === 'large_parties' ? 'danger' : res.favors === 'small_parties' ? 'info' : 'secondary'}
                         style={{ fontSize: '0.6rem' }}>
                         {t(`appor.favors_${res.favors}`)}
                       </Badge>
@@ -230,7 +235,7 @@ const ApportionmentPanel: React.FC = () => {
 
           {/* Country comparison */}
           <div className="fw-semibold mb-1" style={{ fontSize: '0.85rem' }}>{t('appor.countryTitle')}</div>
-          <Table size="sm" hover data-testid="country-table" style={{ fontSize: '0.78rem' }}>
+          <Table className="[&_th]:p-1 [&_td]:p-1 [&_th]:text-left [&_td]:border-t [&_th]:border-b [&_td]:border-border [&_th]:border-border [&_*]:align-middle [&_tbody_tr:hover]:bg-muted/50" data-testid="country-table" style={{ fontSize: '0.78rem' }}>
             <thead>
               <tr>
                 <th>{t('appor.country')}</th>

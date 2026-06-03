@@ -4,9 +4,12 @@
  */
 import React, { useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import {
-  Alert, Badge, Button, Col, Form, Row, Spinner,
-} from 'react-bootstrap';
+import { Alert } from '@/components/ui/alert';
+import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
+import { Check, Control } from '@/components/ui/form-controls';
+import { Col, Row } from '@/components/ui/grid';
+import { Spinner } from '@/components/ui/spinner';
 import {
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip,
   ResponsiveContainer, Cell,
@@ -53,7 +56,7 @@ const ASSUMPTION_COLORS: Record<Assumption, string> = {
 
 const VARIANCE_THRESHOLDS = { low: 0.15, medium: 0.40 };
 
-function variantFor(v: number): string {
+function variantFor(v: number): 'success' | 'warning' | 'danger' | 'secondary' {
   if (v < VARIANCE_THRESHOLDS.low)    return 'success';
   if (v < VARIANCE_THRESHOLDS.medium) return 'warning';
   return 'danger';
@@ -119,7 +122,7 @@ const AssumptionCard: React.FC<AssumptionCardProps> = ({
       data-testid={`assumption-card-${id}`}
     >
       <div style={{ display: 'flex', alignItems: 'flex-start', gap: 8 }}>
-        <Form.Check type="checkbox" id={`assumption-${id}`}
+        <Check type="checkbox" id={`assumption-${id}`}
           checked={checked}
           data-testid={`assumption-cb-${id}`}
           onChange={onToggle}
@@ -128,12 +131,12 @@ const AssumptionCard: React.FC<AssumptionCardProps> = ({
           <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
             <span className="fw-semibold">{t(`assumptions.name_${id}`)}</span>
             {isMostFragile && (
-              <Badge bg="warning" text="dark" style={{ fontSize: '0.6rem' }}>
+              <Badge variant="warning" style={{ fontSize: '0.6rem' }}>
                 {t('assumptions.mostFragile')}
               </Badge>
             )}
             {result && (
-              <Badge bg={variantFor(result.result_variance)} style={{ fontSize: '0.6rem' }}>
+              <Badge variant={variantFor(result.result_variance)} style={{ fontSize: '0.6rem' }}>
                 {t('assumptions.variance')}: {Math.round(result.result_variance * 100)}%
               </Badge>
             )}
@@ -267,7 +270,7 @@ const AssumptionTesterPanel: React.FC<AssumptionTesterLabProps> = ({
       {/* ── Lab mode badge ── */}
       {labMode && (
         <div className="mt-2 mb-1">
-          <Badge bg="dark" style={{ fontSize: '0.68rem' }}>
+          <Badge variant="dark" style={{ fontSize: '0.68rem' }}>
             🔬 {t('lab.fromElectionLab')}
           </Badge>
         </div>
@@ -277,21 +280,21 @@ const AssumptionTesterPanel: React.FC<AssumptionTesterLabProps> = ({
       {!labMode && (
       <Row className="g-2 my-3 align-items-end">
         <Col xs={6} md={2}>
-          <Form.Label className="small mb-0">{t('assumptions.voters')}</Form.Label>
-          <Form.Control type="number" size="sm" min={20} max={500} value={numVoters}
+          <label className="mb-1 inline-block small mb-0">{t('assumptions.voters')}</label>
+          <Control type="number" size="sm" min={20} max={500} value={numVoters}
             data-testid="voters-input"
             onChange={(e) => setNumVoters(Number(e.target.value))} />
         </Col>
         <Col xs={6} md={1}>
-          <Form.Label className="small mb-0">{t('assumptions.seed')}</Form.Label>
-          <Form.Control type="number" size="sm" value={seed}
+          <label className="mb-1 inline-block small mb-0">{t('assumptions.seed')}</label>
+          <Control type="number" size="sm" value={seed}
             data-testid="seed-input"
             onChange={(e) => setSeed(Number(e.target.value))} />
         </Col>
         <Col xs="auto">
           <Button variant="secondary" size="sm" onClick={() => handleRun()} disabled={loading || selected.size === 0}
             data-testid="run-btn">
-            {loading ? <Spinner size="sm" animation="border" /> : t('assumptions.run')}
+            {loading ? <Spinner size="sm" /> : t('assumptions.run')}
           </Button>
         </Col>
         <Col xs="auto" className="ms-auto">
@@ -333,16 +336,16 @@ const AssumptionTesterPanel: React.FC<AssumptionTesterLabProps> = ({
             <div className="d-flex gap-3 flex-wrap align-items-center">
               <div>
                 <span className="text-muted">{t('assumptions.baselineWinner')}:</span>
-                {' '}<Badge bg="primary">{data.baseline_result.winner}</Badge>
+                {' '}<Badge variant="primary">{data.baseline_result.winner}</Badge>
               </div>
-              <Badge bg={data.robust_result ? 'success' : 'danger'}
+              <Badge variant={data.robust_result ? 'success' : 'danger'}
                 data-testid="robust-badge">
                 {data.robust_result ? t('assumptions.robust') : t('assumptions.fragile')}
               </Badge>
               {data.most_fragile_assumption && (
                 <span>
                   <span className="text-muted">{t('assumptions.mostFragileLabel')}:</span>
-                  {' '}<Badge bg="warning" text="dark">
+                  {' '}<Badge variant="warning">
                     {t(`assumptions.short_${data.most_fragile_assumption}`)}
                   </Badge>
                 </span>

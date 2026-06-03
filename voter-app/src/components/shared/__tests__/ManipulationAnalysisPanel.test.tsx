@@ -110,7 +110,7 @@ describe('ManipulationAnalysisPanel', () => {
     fireEvent.click(screen.getByTestId('analyze-btn'));
     await waitFor(() => {
       const badge = screen.getByTestId('manipulable-badge');
-      expect(badge.className).toContain('bg-danger');
+      expect(badge.className).toContain('bg-[#dc3545]');
     });
     vi.runAllTimers();
   });
@@ -121,7 +121,7 @@ describe('ManipulationAnalysisPanel', () => {
     fireEvent.click(screen.getByTestId('analyze-btn'));
     await waitFor(() => {
       const badge = screen.getByTestId('manipulable-badge');
-      expect(badge.className).toContain('bg-success');
+      expect(badge.className).toContain('bg-[#198754]');
     });
     vi.runAllTimers();
   });

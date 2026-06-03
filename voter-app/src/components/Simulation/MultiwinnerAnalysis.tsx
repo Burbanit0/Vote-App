@@ -1,17 +1,13 @@
 import React, { useState } from 'react';
 import ResponsiveTable from '../shared/ResponsiveTable';
-import {
-  Alert,
-  Badge,
-  Button,
-  Card,
-  Col,
-  Form,
-  InputGroup,
-  Row,
-  Spinner,
-  Table,
-} from 'react-bootstrap';
+import { Alert } from '@/components/ui/alert';
+import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
+import { Card, CardBody, CardHeader } from '@/components/ui/card';
+import { Control } from '@/components/ui/form-controls';
+import { Col, Row } from '@/components/ui/grid';
+import { Spinner } from '@/components/ui/spinner';
+import { Table } from '@/components/ui/table';
 import {
   Bar,
   BarChart,
@@ -126,23 +122,23 @@ const MultiwinnerAnalysis: React.FC = () => {
     <div>
       {/* Input form */}
       <Card className="mb-4">
-        <Card.Header className="d-flex align-items-center justify-content-between">
+        <CardHeader className="block space-y-0 border-b border-border px-4 py-2 d-flex align-items-center justify-content-between">
           <strong>Party Vote Distribution</strong>
           <Button size="sm" variant="outline-secondary" onClick={addParty}>
             + Add party
           </Button>
-        </Card.Header>
-        <Card.Body>
+        </CardHeader>
+        <CardBody>
           <Row className="g-2 mb-3">
             {parties.map((p, i) => (
               <Col key={i} xs={12} sm={6} md={4} lg={3}>
-                <InputGroup size="sm">
-                  <Form.Control
+                <div className="flex items-stretch">
+                  <Control
                     placeholder="Party name"
                     value={p.name}
                     onChange={(e) => updateParty(i, 'name', e.target.value)}
                   />
-                  <Form.Control
+                  <Control
                     type="number"
                     min={0}
                     placeholder="Votes %"
@@ -157,14 +153,14 @@ const MultiwinnerAnalysis: React.FC = () => {
                   >
                     ×
                   </Button>
-                </InputGroup>
+                </div>
               </Col>
             ))}
           </Row>
           <Row className="g-3 align-items-end">
             <Col md={3}>
-              <Form.Label className="small mb-1">Seats to fill</Form.Label>
-              <Form.Control
+              <label className="mb-1 inline-block small mb-1">Seats to fill</label>
+              <Control
                 type="number"
                 min={2}
                 max={200}
@@ -179,7 +175,7 @@ const MultiwinnerAnalysis: React.FC = () => {
               </Button>
             </Col>
           </Row>
-        </Card.Body>
+        </CardBody>
       </Card>
 
       {error && <Alert variant="danger">{error}</Alert>}
@@ -214,13 +210,13 @@ const MultiwinnerAnalysis: React.FC = () => {
 
           {/* Stacked bar chart */}
           <Card className="mb-4">
-            <Card.Header>
+            <CardHeader className="block space-y-0 border-b border-border px-4 py-2">
               <strong>Seat Allocation by Method</strong>
               <span className="text-muted ms-2" style={{ fontSize: '0.85rem' }}>
                 — each segment = seats for that party; dashed lines = proportional ideal
               </span>
-            </Card.Header>
-            <Card.Body>
+            </CardHeader>
+            <CardBody>
               {/* Party colour legend */}
               <div className="d-flex gap-3 mb-3 flex-wrap">
                 {partyNames.map((p) => (
@@ -278,15 +274,15 @@ const MultiwinnerAnalysis: React.FC = () => {
                   ))}
                 </BarChart>
               </ResponsiveContainer>
-            </Card.Body>
+            </CardBody>
           </Card>
 
           {/* Metrics table */}
           <Card className="mb-4">
-            <Card.Header><strong>Proportionality Metrics</strong></Card.Header>
-            <Card.Body className="p-0">
+            <CardHeader className="block space-y-0 border-b border-border px-4 py-2"><strong>Proportionality Metrics</strong></CardHeader>
+            <CardBody className="p-0">
               <ResponsiveTable>
-              <Table bordered size="sm" className="mb-0">
+              <Table className="[&_th]:p-1 [&_td]:p-1 [&_th]:text-left [&_td]:border-t [&_th]:border-b [&_td]:border-border [&_th]:border-border [&_*]:align-middle [&_th]:border [&_td]:border mb-0">
                 <thead className="table-light">
                   <tr>
                     <th style={{ minWidth: 170 }}>Method</th>
@@ -310,7 +306,7 @@ const MultiwinnerAnalysis: React.FC = () => {
                         <td className="fw-semibold ps-2">
                           {METHOD_LABELS[method]}
                           {isBest && (
-                            <Badge bg="success" className="ms-2" style={{ fontSize: '0.65rem' }}>
+                            <Badge variant="success" className="ms-2" style={{ fontSize: '0.65rem' }}>
                               best
                             </Badge>
                           )}
@@ -347,15 +343,15 @@ const MultiwinnerAnalysis: React.FC = () => {
                 </tbody>
               </Table>
               </ResponsiveTable>
-            </Card.Body>
+            </CardBody>
           </Card>
 
           {/* Detailed seat breakdown */}
           <Card>
-            <Card.Header><strong>Seat Breakdown Detail</strong></Card.Header>
-            <Card.Body className="p-0">
+            <CardHeader className="block space-y-0 border-b border-border px-4 py-2"><strong>Seat Breakdown Detail</strong></CardHeader>
+            <CardBody className="p-0">
               <ResponsiveTable>
-              <Table bordered size="sm" className="mb-0 text-center">
+              <Table className="[&_th]:p-1 [&_td]:p-1 [&_th]:text-left [&_td]:border-t [&_th]:border-b [&_td]:border-border [&_th]:border-border [&_*]:align-middle [&_th]:border [&_td]:border mb-0 text-center">
                 <thead className="table-light">
                   <tr>
                     <th className="text-start ps-2">Party</th>
@@ -420,7 +416,7 @@ const MultiwinnerAnalysis: React.FC = () => {
                 </tbody>
               </Table>
               </ResponsiveTable>
-            </Card.Body>
+            </CardBody>
           </Card>
         </>
       )}

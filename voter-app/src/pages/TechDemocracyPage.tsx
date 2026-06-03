@@ -8,10 +8,14 @@
  */
 import React, { useCallback, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import {
-  Alert, Badge, Button, Card, Col, Container, Form,
-  Row, Spinner, Table,
-} from 'react-bootstrap';
+import { Alert } from '@/components/ui/alert';
+import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
+import { Card, CardBody, CardHeader } from '@/components/ui/card';
+import { Control, Select } from '@/components/ui/form-controls';
+import { Col, Container, Row } from '@/components/ui/grid';
+import { Spinner } from '@/components/ui/spinner';
+import { Table } from '@/components/ui/table';
 import { useMetaTags } from '../hooks/useMetaTags';
 import PoliticalClusterMap, { PolisData } from '../components/shared/PoliticalClusterMap';
 import E2EVDemo from '../components/shared/E2EVDemo';
@@ -53,8 +57,8 @@ const INCIDENTS = [
 
 const WhyHardSection: React.FC<{ t: (k: string) => string }> = ({ t }) => (
   <Card className="mb-4" data-testid="why-hard-section">
-    <Card.Header className="fw-bold">❌ {t('tech.whyHardTitle')}</Card.Header>
-    <Card.Body>
+    <CardHeader className="block space-y-0 border-b border-border px-4 py-2 fw-bold">❌ {t('tech.whyHardTitle')}</CardHeader>
+    <CardBody>
       <p className="text-muted" style={{ fontSize: '0.85rem' }}>{t('tech.whyHardDesc')}</p>
       <div style={{ borderLeft: '3px solid #dee2e6', paddingLeft: 16 }}>
         {INCIDENTS.map((inc) => (
@@ -66,7 +70,7 @@ const WhyHardSection: React.FC<{ t: (k: string) => string }> = ({ t }) => (
           </div>
         ))}
       </div>
-    </Card.Body>
+    </CardBody>
   </Card>
 );
 
@@ -104,8 +108,8 @@ const E2EVSection: React.FC<{ t: (k: string) => string }> = ({ t }) => {
 
   return (
     <Card className="mb-4" data-testid="e2e-section">
-      <Card.Header className="fw-bold">🔐 {t('tech.e2eTitle')}</Card.Header>
-      <Card.Body>
+      <CardHeader className="block space-y-0 border-b border-border px-4 py-2 fw-bold">🔐 {t('tech.e2eTitle')}</CardHeader>
+      <CardBody>
         <p style={{ fontSize: '0.85rem' }}>{t('tech.e2eDesc')}</p>
 
         {/* Step indicator */}
@@ -129,7 +133,7 @@ const E2EVSection: React.FC<{ t: (k: string) => string }> = ({ t }) => {
             {t('tech.e2eRun')}
           </Button>
         )}
-        {loading && <Spinner animation="border" size="sm" />}
+        {loading && <Spinner size="sm" />}
         {error && <Alert variant="danger">{error}</Alert>}
 
         {data && (
@@ -165,12 +169,12 @@ const E2EVSection: React.FC<{ t: (k: string) => string }> = ({ t }) => {
                 <p style={{ fontSize: '0.75rem', color: '#6c757d' }}>{t('tech.e2eBoardDesc')}</p>
                 <div className="d-flex flex-wrap gap-1" data-testid="verification-board">
                   {data.verification_demonstration.board_excerpt.map((code, i) => (
-                    <Badge key={i} bg="light" text="dark"
+                    <Badge key={i} variant="light"
                       style={{ fontFamily: 'monospace', fontSize: '0.7rem' }}>
                       {code}
                     </Badge>
                   ))}
-                  <Badge bg="warning" text="dark"
+                  <Badge variant="warning"
                     style={{ fontFamily: 'monospace', fontSize: '0.7rem' }}>
                     ← {t('tech.e2eYourCode')}: {data.verification_demonstration.sample_code}
                   </Badge>
@@ -230,7 +234,7 @@ const E2EVSection: React.FC<{ t: (k: string) => string }> = ({ t }) => {
             )}
           </div>
         )}
-      </Card.Body>
+      </CardBody>
     </Card>
   );
 };
@@ -277,9 +281,9 @@ const BLOCKCHAIN_DATA = [
 
 const BlockchainTable: React.FC<{ t: (k: string) => string }> = ({ t }) => (
   <Card className="mb-4" data-testid="blockchain-table-section">
-    <Card.Header className="fw-bold">⛓ {t('tech.blockchainTitle')}</Card.Header>
-    <Card.Body className="p-0">
-      <Table responsive hover className="mb-0" style={{ fontSize: '0.8rem' }}>
+    <CardHeader className="block space-y-0 border-b border-border px-4 py-2 fw-bold">⛓ {t('tech.blockchainTitle')}</CardHeader>
+    <CardBody className="p-0">
+      <Table className="[&_th]:p-2 [&_td]:p-2 [&_th]:text-left [&_td]:border-t [&_th]:border-b [&_td]:border-border [&_th]:border-border [&_*]:align-middle [&_tbody_tr:hover]:bg-muted/50 mb-0" style={{ fontSize: '0.8rem' }}>
         <thead className="table-light">
           <tr>
             <th>{t('tech.blkMechanism')}</th>
@@ -301,7 +305,7 @@ const BlockchainTable: React.FC<{ t: (k: string) => string }> = ({ t }) => (
           ))}
         </tbody>
       </Table>
-    </Card.Body>
+    </CardBody>
   </Card>
 );
 
@@ -342,38 +346,38 @@ const PolisSection: React.FC<{ t: (k: string) => string }> = ({ t }) => {
 
   return (
     <Card className="mb-4" data-testid="polis-section">
-      <Card.Header className="fw-bold">🌐 {t('tech.polisTitle')}</Card.Header>
-      <Card.Body>
+      <CardHeader className="block space-y-0 border-b border-border px-4 py-2 fw-bold">🌐 {t('tech.polisTitle')}</CardHeader>
+      <CardBody>
         <p style={{ fontSize: '0.85rem' }}>{t('tech.polisDesc')}</p>
 
         <Row className="g-2 mb-3 align-items-end">
           <Col xs={6} md={3}>
-            <Form.Label className="small mb-0">{t('tech.polisIdeology')}</Form.Label>
-            <Form.Select size="sm" value={ideology}
+            <label className="mb-1 inline-block small mb-0">{t('tech.polisIdeology')}</label>
+            <Select size="sm" value={ideology}
               onChange={(e) => setIdeology(e.target.value)}
               data-testid="ideology-select">
               <option value="random">{t('tech.ideologyRandom')}</option>
               <option value="polarized">{t('tech.ideologyPolarized')}</option>
-            </Form.Select>
+            </Select>
           </Col>
           <Col xs={6} md={2}>
-            <Form.Label className="small mb-0">{t('tech.polisClusters')}</Form.Label>
-            <Form.Control type="number" size="sm"
+            <label className="mb-1 inline-block small mb-0">{t('tech.polisClusters')}</label>
+            <Control type="number" size="sm"
               min={1} max={5} value={numClusters}
               onChange={(e) => setNumClusters(Math.max(1, Math.min(5, Number(e.target.value))))}
               data-testid="num-clusters-input"
             />
           </Col>
           <Col xs={6} md={2}>
-            <Form.Label className="small mb-0">{t('tech.polisParticipants')}</Form.Label>
-            <Form.Control type="number" size="sm"
+            <label className="mb-1 inline-block small mb-0">{t('tech.polisParticipants')}</label>
+            <Control type="number" size="sm"
               min={20} max={500} step={10} value={numParticipants}
               onChange={(e) => setNumParticipants(Math.max(20, Math.min(500, Number(e.target.value))))}
             />
           </Col>
           <Col xs="auto">
             <Button variant="primary" onClick={run} disabled={loading} data-testid="run-polis-btn">
-              {loading ? <Spinner size="sm" animation="border" /> : t('tech.polisRun')}
+              {loading ? <Spinner size="sm" /> : t('tech.polisRun')}
             </Button>
           </Col>
         </Row>
@@ -393,7 +397,7 @@ const PolisSection: React.FC<{ t: (k: string) => string }> = ({ t }) => {
             <PoliticalClusterMap data={data} />
           </>
         )}
-      </Card.Body>
+      </CardBody>
     </Card>
   );
 };
@@ -402,8 +406,8 @@ const PolisSection: React.FC<{ t: (k: string) => string }> = ({ t }) => {
 
 const ThreeApproachesSection: React.FC<{ t: (k: string) => string }> = ({ t }) => (
   <Card className="mb-4" data-testid="three-approaches-section">
-    <Card.Header className="fw-bold">⚡ {t('tech.approachesTitle')}</Card.Header>
-    <Card.Body>
+    <CardHeader className="block space-y-0 border-b border-border px-4 py-2 fw-bold">⚡ {t('tech.approachesTitle')}</CardHeader>
+    <CardBody>
       <Row className="g-3">
         <Col xs={12} md={4}>
           <div className="border border-danger rounded p-3 h-100">
@@ -412,7 +416,7 @@ const ThreeApproachesSection: React.FC<{ t: (k: string) => string }> = ({ t }) =
               Le terminal de l'électeur peut être compromis. Si votre téléphone est infecté,
               votre vote peut être modifié AVANT chiffrement — aucune vérification possible.
             </div>
-            <Badge bg="danger" className="mt-2" style={{ fontSize: '0.65rem' }}>
+            <Badge variant="danger" className="mt-2" style={{ fontSize: '0.65rem' }}>
               Non vérifiable · Non auditable
             </Badge>
           </div>
@@ -425,7 +429,7 @@ const ThreeApproachesSection: React.FC<{ t: (k: string) => string }> = ({ t }) =
               de tous. Parfait pour la gouvernance de protocole, incompatible avec le secret du
               bulletin dans une démocratie.
             </div>
-            <Badge bg="warning" text="dark" className="mt-2" style={{ fontSize: '0.65rem' }}>
+            <Badge variant="warning" className="mt-2" style={{ fontSize: '0.65rem' }}>
               Transparent · Pas secret
             </Badge>
           </div>
@@ -438,13 +442,13 @@ const ThreeApproachesSection: React.FC<{ t: (k: string) => string }> = ({ t }) =
               individuellement. Chaque électeur vérifie que son bulletin est compté, sans révéler
               son choix. Open source, testé en conditions réelles.
             </div>
-            <Badge bg="success" className="mt-2" style={{ fontSize: '0.65rem' }}>
+            <Badge variant="success" className="mt-2" style={{ fontSize: '0.65rem' }}>
               Secret · Vérifiable · Auditable
             </Badge>
           </div>
         </Col>
       </Row>
-    </Card.Body>
+    </CardBody>
   </Card>
 );
 
@@ -452,11 +456,11 @@ const ThreeApproachesSection: React.FC<{ t: (k: string) => string }> = ({ t }) =
 
 const E2EVInteractiveSection: React.FC<{ t: (k: string) => string }> = ({ t }) => (
   <Card className="mb-4" data-testid="e2ev-interactive-section">
-    <Card.Header className="fw-bold">🔐 {t('tech.e2eInteractiveTitle')}</Card.Header>
-    <Card.Body>
+    <CardHeader className="block space-y-0 border-b border-border px-4 py-2 fw-bold">🔐 {t('tech.e2eInteractiveTitle')}</CardHeader>
+    <CardBody>
       <p style={{ fontSize: '0.85rem' }}>{t('tech.e2eInteractiveDesc')}</p>
       <E2EVDemo candidates={['Alice', 'Bob', 'Carol']} seed={42} />
-    </Card.Body>
+    </CardBody>
   </Card>
 );
 
@@ -472,8 +476,8 @@ const COUNTRY_DATA = [
 
 const CountryComparisonSection: React.FC<{ t: (k: string) => string }> = ({ t }) => (
   <Card className="mb-4" data-testid="country-comparison-section">
-    <Card.Header className="fw-bold">🌍 {t('tech.countryTableTitle')}</Card.Header>
-    <Card.Body className="p-0">
+    <CardHeader className="block space-y-0 border-b border-border px-4 py-2 fw-bold">🌍 {t('tech.countryTableTitle')}</CardHeader>
+    <CardBody className="p-0">
       <div className="table-responsive">
         <table className="table table-hover table-sm mb-0" style={{ fontSize: '0.82rem' }}>
           <thead className="table-light">
@@ -498,7 +502,7 @@ const CountryComparisonSection: React.FC<{ t: (k: string) => string }> = ({ t })
           </tbody>
         </table>
       </div>
-    </Card.Body>
+    </CardBody>
   </Card>
 );
 
@@ -506,8 +510,8 @@ const CountryComparisonSection: React.FC<{ t: (k: string) => string }> = ({ t })
 
 const WhyFranceSection: React.FC<{ t: (k: string) => string }> = ({ t }) => (
   <Card className="mb-4" data-testid="why-france-section">
-    <Card.Header className="fw-bold">🇫🇷 {t('tech.whyFranceTitle')}</Card.Header>
-    <Card.Body>
+    <CardHeader className="block space-y-0 border-b border-border px-4 py-2 fw-bold">🇫🇷 {t('tech.whyFranceTitle')}</CardHeader>
+    <CardBody>
       <Row className="g-3">
         <Col xs={12} md={6}>
           <div className="fw-semibold text-success mb-2" style={{ fontSize: '0.85rem' }}>
@@ -537,7 +541,7 @@ const WhyFranceSection: React.FC<{ t: (k: string) => string }> = ({ t }) => (
         La France a 48M de votants et zéro déploiement réel à grande échelle.
         La technologie existe — c'est la confiance institutionnelle et l'échelle qui manquent.
       </Alert>
-    </Card.Body>
+    </CardBody>
   </Card>
 );
 
@@ -566,13 +570,13 @@ const TechDemocracyPage: React.FC = () => {
 
       {/* ── Pol.is avec évaluation des candidats ── */}
       <Card className="mb-4" data-testid="polis-panel-section">
-        <Card.Header className="fw-bold">🌐 {t('tech.polisTitle')}</Card.Header>
-        <Card.Body>
+        <CardHeader className="block space-y-0 border-b border-border px-4 py-2 fw-bold">🌐 {t('tech.polisTitle')}</CardHeader>
+        <CardBody>
           <p style={{ fontSize: '0.85rem' }}>{t('tech.polisDesc')}</p>
           <ElectionProvider>
             <PolisPanel />
           </ElectionProvider>
-        </Card.Body>
+        </CardBody>
       </Card>
 
       <PolisSection t={t} />

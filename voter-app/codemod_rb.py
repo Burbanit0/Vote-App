@@ -15,6 +15,9 @@ MAP = {
     'Table': ('@/components/ui/table', 'Table'),
 }
 
+# Recognised but rendered as native elements (no import) / handled specially.
+SPECIAL = {'Form', 'InputGroup'}
+
 def inject_class(attrs, classes):
     """Add `classes` to a tag's className="..." (static string) or create one."""
     m = re.search(r'className="([^"]*)"', attrs)
@@ -78,7 +81,7 @@ def process(path):
     if not m:
         print("  no rb import:", path); return
     names = [n.strip() for n in m.group(1).split(',') if n.strip()]
-    unknown = [n for n in names if n not in MAP]
+    unknown = [n for n in names if n not in MAP and n not in SPECIAL]
     if unknown:
         print("  SKIP (unmapped:", unknown, ")", path); return
 
@@ -103,6 +106,46 @@ def process(path):
 
     if 'Table' in names:
         s = transform_tag_attrs(s, 'Table', table_fix)
+
+    form_syms = set()
+    if 'Form' in names:
+        # Form.Range / Select / Check / Control → form-controls primitives
+        for sub, prim in [('Form.Range', 'Range'), ('Form.Select', 'Select'),
+                          ('Form.Check', 'Check'), ('Form.Control', 'Control')]:
+            if sub in s:
+                s = s.replace('<' + sub, '<' + prim).replace('</' + sub + '>', '</' + prim + '>')
+                form_syms.add(prim)
+        # Form.Switch → <Check type="switch">
+        if 'Form.Switch' in s:
+            s = transform_tag_attrs(s, 'Form.Switch',
+                lambda a: ' type="switch"' + a)
+            s = s.replace('<Form.Switch', '<Check').replace('</Form.Switch>', '</Check>')
+            form_syms.add('Check')
+        # Form.Label → <label> (drop layout-only props), Form.Text → <small>
+        if 'Form.Label' in s:
+            s = transform_tag_attrs(s, 'Form.Label', lambda a: inject_class(
+                re.sub(r'\s+(column|srOnly|visuallyHidden)\b(=\{[^{}]*\})?', '', a),
+                'mb-1 inline-block'))
+            s = s.replace('<Form.Label', '<label').replace('</Form.Label>', '</label>')
+        if 'Form.Text' in s:
+            s = transform_tag_attrs(s, 'Form.Text', lambda a: inject_class(
+                re.sub(r'\s+muted\b(=\{[^{}]*\})?', '', a), 'block text-sm text-muted-foreground'))
+            s = s.replace('<Form.Text', '<small').replace('</Form.Text>', '</small>')
+        # Form.Group → <div> (no controlId in this codebase)
+        if 'Form.Group' in s:
+            s = s.replace('<Form.Group', '<div').replace('</Form.Group>', '</div>')
+        # Form root → <form>
+        s = re.sub(r'<Form(?=[\s>])', '<form', s)
+        s = s.replace('</Form>', '</form>')
+
+    if 'InputGroup' in names:
+        if 'InputGroup.Text' in s:
+            s = transform_tag_attrs(s, 'InputGroup.Text', lambda a: inject_class(
+                a, 'inline-flex items-center border border-input bg-muted px-3 text-sm'))
+            s = s.replace('<InputGroup.Text', '<span').replace('</InputGroup.Text>', '</span>')
+        s = transform_tag_attrs(s, 'InputGroup', lambda a: inject_class(
+            re.sub(r'\s+size="[^"]*"', '', a), 'flex items-stretch'))
+        s = s.replace('<InputGroup', '<div').replace('</InputGroup>', '</div>')
 
     card_syms = set()
     if 'Card' in names:
@@ -135,6 +178,8 @@ def process(path):
     # Build grouped imports
     by_mod = {}
     for n in names:
+        if n in SPECIAL:
+            continue  # Form / InputGroup → native elements
         if n == 'Card':
             # only import the root <Card> symbol if it's actually used
             if re.search(r'<Card[\s/>]', s):
@@ -144,6 +189,8 @@ def process(path):
         by_mod.setdefault(mod, set()).add(sym)
     for sym in card_syms:
         by_mod.setdefault('@/components/ui/card', set()).add(sym)
+    for sym in form_syms:
+        by_mod.setdefault('@/components/ui/form-controls', set()).add(sym)
     lines = []
     for mod in sorted(by_mod):
         syms = ', '.join(sorted(by_mod[mod]))

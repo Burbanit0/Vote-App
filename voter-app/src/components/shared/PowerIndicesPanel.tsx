@@ -4,9 +4,13 @@
  */
 import React, { useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import {
-  Alert, Badge, Button, Col, Form, Row, Spinner, Table,
-} from 'react-bootstrap';
+import { Alert } from '@/components/ui/alert';
+import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
+import { Check, Control } from '@/components/ui/form-controls';
+import { Col, Row } from '@/components/ui/grid';
+import { Spinner } from '@/components/ui/spinner';
+import { Table } from '@/components/ui/table';
 import {
   ScatterChart, Scatter, XAxis, YAxis, CartesianGrid, Tooltip,
   ReferenceLine, ResponsiveContainer, Cell,
@@ -288,17 +292,17 @@ const PowerIndicesPanel: React.FC = () => {
         {parties.map((p, i) => (
           <Row key={i} className="g-1 mb-1 align-items-center">
             <Col xs={4} md={3}>
-              <Form.Control size="sm" value={p.name} placeholder={t('power.partyName')}
+              <Control size="sm" value={p.name} placeholder={t('power.partyName')}
                 data-testid={`party-name-${i}`}
                 onChange={(e) => updateParty(i, 'name', e.target.value)} />
             </Col>
             <Col xs={3} md={2}>
-              <Form.Control type="number" size="sm" min={0} max={9999} value={p.seats}
+              <Control type="number" size="sm" min={0} max={9999} value={p.seats}
                 data-testid={`party-seats-${i}`}
                 onChange={(e) => updateParty(i, 'seats', Number(e.target.value))} />
             </Col>
             <Col xs="auto">
-              <Form.Check type="switch" id={`pariah-${i}`}
+              <Check type="switch" id={`pariah-${i}`}
                 label={
                   <span style={{ fontSize: '0.72rem', color: p.pariah ? '#dc3545' : '#6c757d' }}>
                     {t('power.pariah')}
@@ -331,21 +335,21 @@ const PowerIndicesPanel: React.FC = () => {
       {/* ── Controls ── */}
       <Row className="g-2 mb-3 align-items-end">
         <Col xs={6} md={3}>
-          <Form.Label className="small mb-0">{t('power.threshold')}</Form.Label>
-          <Form.Control type="number" size="sm" min={0} value={threshold}
+          <label className="mb-1 inline-block small mb-0">{t('power.threshold')}</label>
+          <Control type="number" size="sm" min={0} value={threshold}
             data-testid="threshold-input"
             placeholder={`Auto (${Math.floor(totalSeats / 2) + 1})`}
             onChange={(e) => setThreshold(Number(e.target.value))} />
         </Col>
         <Col xs="auto">
-          <Form.Check inline type="checkbox" id="cb-shapley"
+          <Check inline type="checkbox" id="cb-shapley"
             label={<span style={{ fontSize: '0.8rem' }}>Shapley-Shubik</span>}
             checked={calcShapley}
             data-testid="cb-shapley"
             onChange={(e) => setCalcShapley(e.target.checked)} />
         </Col>
         <Col xs="auto">
-          <Form.Check inline type="checkbox" id="cb-banzhaf"
+          <Check inline type="checkbox" id="cb-banzhaf"
             label={<span style={{ fontSize: '0.8rem' }}>Banzhaf</span>}
             checked={calcBanzhaf}
             data-testid="cb-banzhaf"
@@ -354,7 +358,7 @@ const PowerIndicesPanel: React.FC = () => {
         <Col xs="auto">
           <Button variant="primary" size="sm" onClick={handleRun} disabled={loading}
             data-testid="run-btn">
-            {loading ? <Spinner size="sm" animation="border" /> : t('power.run')}
+            {loading ? <Spinner size="sm" /> : t('power.run')}
           </Button>
         </Col>
       </Row>
@@ -406,7 +410,7 @@ const PowerIndicesPanel: React.FC = () => {
             <div data-testid="coalitions-view">
               <div className="fw-semibold mb-1" style={{ fontSize: '0.82rem' }}>
                 {t('power.coalitionsTitle')}
-                <Badge bg="secondary" className="ms-2" style={{ fontSize: '0.65rem' }}>
+                <Badge variant="secondary" className="ms-2" style={{ fontSize: '0.65rem' }}>
                   {data.viable_coalitions.length}
                 </Badge>
               </div>
@@ -423,7 +427,7 @@ const PowerIndicesPanel: React.FC = () => {
                     ))}
                     <span className="text-muted ms-auto">{c.seats} {t('power.seats')}</span>
                     {c.minimal && (
-                      <Badge bg="success" style={{ fontSize: '0.6rem' }}>minimal</Badge>
+                      <Badge variant="success" style={{ fontSize: '0.6rem' }}>minimal</Badge>
                     )}
                   </div>
                 ))}
@@ -433,7 +437,7 @@ const PowerIndicesPanel: React.FC = () => {
 
           {/* ── Power table ── */}
           <div className="mt-3" data-testid="power-table">
-            <Table size="sm" bordered style={{ fontSize: '0.74rem' }}>
+            <Table className="[&_th]:p-1 [&_td]:p-1 [&_th]:text-left [&_td]:border-t [&_th]:border-b [&_td]:border-border [&_th]:border-border [&_*]:align-middle [&_th]:border [&_td]:border" style={{ fontSize: '0.74rem' }}>
               <thead className="table-light">
                 <tr>
                   <th>{t('power.colParty')}</th>
@@ -463,7 +467,7 @@ const PowerIndicesPanel: React.FC = () => {
                             display: 'inline-block' }} />
                           {p.name}
                           {p.is_pariah && (
-                            <Badge bg="danger" style={{ fontSize: '0.55rem' }}>paria</Badge>
+                            <Badge variant="danger" style={{ fontSize: '0.55rem' }}>paria</Badge>
                           )}
                         </span>
                       </td>
@@ -477,10 +481,9 @@ const PowerIndicesPanel: React.FC = () => {
                       </td>
                       <td>
                         <Badge
-                          bg={p.is_pariah ? 'secondary'
+                          variant={p.is_pariah ? 'secondary'
                             : isHighPower ? 'success'
                             : isLowPower  ? 'warning' : 'light'}
-                          text={(!p.is_pariah && !isHighPower && isLowPower) ? 'dark' : undefined}
                           style={{ fontSize: '0.65rem' }}>
                           ×{p.power_ratio.toFixed(2)}
                         </Badge>

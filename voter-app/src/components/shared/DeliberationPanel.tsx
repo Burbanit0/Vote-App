@@ -7,7 +7,12 @@
 import React, { useCallback, useState } from 'react';
 import { $api } from '../../api/hooks';
 import { useTranslation } from 'react-i18next';
-import { Alert, Badge, Button, Col, Form, Row, Spinner } from 'react-bootstrap';
+import { Alert } from '@/components/ui/alert';
+import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
+import { Range } from '@/components/ui/form-controls';
+import { Col, Row } from '@/components/ui/grid';
+import { Spinner } from '@/components/ui/spinner';
 import {
   LineChart, Line, XAxis, YAxis, Tooltip, CartesianGrid,
   Legend, ReferenceLine, ResponsiveContainer,
@@ -125,32 +130,32 @@ const DeliberationPanel: React.FC = () => {
       {/* Parameter sliders */}
       <Row className="g-2 mb-3 align-items-end">
         <Col xs={6} md={3}>
-          <Form.Label className="small mb-0">
+          <label className="mb-1 inline-block small mb-0">
             {t('delib.rounds')}: <strong>{rounds}</strong>
-          </Form.Label>
-          <Form.Range min={1} max={10} step={1} value={rounds}
+          </label>
+          <Range min={1} max={10} step={1} value={rounds}
             data-testid="rounds-slider"
             onChange={(e) => setRounds(Number(e.target.value))} />
         </Col>
         <Col xs={6} md={3}>
-          <Form.Label className="small mb-0">
+          <label className="mb-1 inline-block small mb-0">
             {t('delib.influence')}: <strong>{influence.toFixed(2)}</strong>
-          </Form.Label>
-          <Form.Range min={0} max={1} step={0.05} value={influence}
+          </label>
+          <Range min={0} max={1} step={0.05} value={influence}
             data-testid="influence-slider"
             onChange={(e) => setInfluence(Number(e.target.value))} />
         </Col>
         <Col xs={6} md={3}>
-          <Form.Label className="small mb-0">
+          <label className="mb-1 inline-block small mb-0">
             {t('delib.argQuality')}: <strong>{argQuality.toFixed(2)}</strong>
-          </Form.Label>
-          <Form.Range min={0} max={1} step={0.05} value={argQuality}
+          </label>
+          <Range min={0} max={1} step={0.05} value={argQuality}
             data-testid="arg-quality-slider"
             onChange={(e) => setArgQuality(Number(e.target.value))} />
         </Col>
         <Col xs="auto">
           <Button variant="primary" onClick={runSimulation} disabled={loading} data-testid="simulate-btn">
-            {loading ? <Spinner size="sm" animation="border" /> : t('delib.run')}
+            {loading ? <Spinner size="sm" /> : t('delib.run')}
           </Button>
         </Col>
         {data && (
@@ -213,21 +218,21 @@ const DeliberationPanel: React.FC = () => {
           {effect && (
             <div className="d-flex flex-wrap gap-2 mb-3" data-testid="effect-badges">
               <Badge
-                bg={effect.polarization_change > 0 ? 'danger' : 'success'}
+                variant={effect.polarization_change > 0 ? 'danger' : 'success'}
                 data-testid="polarization-badge"
               >
                 {t('delib.polarization')}: {effect.polarization_change >= 0 ? '+' : ''}{(effect.polarization_change * 100).toFixed(1)}%
               </Badge>
               <Badge
-                bg={effect.regret_improvement > 0 ? 'success' : 'danger'}
+                variant={effect.regret_improvement > 0 ? 'success' : 'danger'}
                 data-testid="regret-badge"
               >
                 {t('delib.regret')}: {effect.regret_improvement >= 0 ? '' : ''}{effect.regret_improvement.toFixed(1)}%
               </Badge>
-              <Badge bg="info" text="dark" data-testid="convergence-badge">
+              <Badge variant="info" data-testid="convergence-badge">
                 {t('delib.convergence')}: {(effect.convergence_rate * 100).toFixed(0)}%
               </Badge>
-              <Badge bg="secondary" data-testid="shift-badge">
+              <Badge variant="secondary" data-testid="shift-badge">
                 {t('delib.shift')}: {effect.opinion_shift_mean.toFixed(3)}
               </Badge>
             </div>

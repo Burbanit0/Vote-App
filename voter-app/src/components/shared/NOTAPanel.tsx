@@ -5,7 +5,13 @@
  */
 import React, { useCallback, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { Alert, Badge, Button, Col, Form, Row, Spinner, Table } from 'react-bootstrap';
+import { Alert } from '@/components/ui/alert';
+import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
+import { Range, Select } from '@/components/ui/form-controls';
+import { Col, Row } from '@/components/ui/grid';
+import { Spinner } from '@/components/ui/spinner';
+import { Table } from '@/components/ui/table';
 import {
   LineChart, Line, XAxis, YAxis, Tooltip, CartesianGrid,
   ReferenceLine, ResponsiveContainer, Legend,
@@ -75,7 +81,7 @@ const RuleBadge: React.FC<RuleBadgeProps> = ({ data, t }) => {
     );
   }
   return (
-    <Badge bg="success" data-testid="election-valid-badge" style={{ fontSize: '0.8rem' }}>
+    <Badge variant="success" data-testid="election-valid-badge" style={{ fontSize: '0.8rem' }}>
       {t('nota.electionValid')}: {data.winner}
     </Badge>
   );
@@ -124,10 +130,10 @@ const NOTAPanel: React.FC = () => {
       {/* Controls */}
       <Row className="g-2 mb-3 align-items-end">
         <Col xs={12} md={5}>
-          <Form.Label className="small mb-0">
+          <label className="mb-1 inline-block small mb-0">
             {t('nota.thresholdLabel')}: <strong>{threshold.toFixed(2)}</strong>
-          </Form.Label>
-          <Form.Range
+          </label>
+          <Range
             data-testid="nota-threshold-slider"
             min={0} max={1} step={0.01}
             value={threshold}
@@ -135,8 +141,8 @@ const NOTAPanel: React.FC = () => {
           />
         </Col>
         <Col xs={12} md={4}>
-          <Form.Label className="small mb-0">{t('nota.ruleLabel')}</Form.Label>
-          <Form.Select
+          <label className="mb-1 inline-block small mb-0">{t('nota.ruleLabel')}</label>
+          <Select
             size="sm"
             value={notaRule}
             data-testid="nota-rule-select"
@@ -145,11 +151,11 @@ const NOTAPanel: React.FC = () => {
             <option value="invalidate">{t('nota.invalidate')}</option>
             <option value="runoff">{t('nota.runoff')}</option>
             <option value="winner_take_all">{t('nota.winner_take_all')}</option>
-          </Form.Select>
+          </Select>
         </Col>
         <Col xs="auto">
           <Button variant="primary" onClick={handleSimulate} disabled={loading}>
-            {loading ? <Spinner size="sm" animation="border" /> : t('nota.run')}
+            {loading ? <Spinner size="sm" /> : t('nota.run')}
           </Button>
         </Col>
         {data && (
@@ -186,8 +192,7 @@ const NOTAPanel: React.FC = () => {
           {/* Headline badges */}
           <div className="d-flex flex-wrap gap-2 align-items-center mb-3">
             <Badge
-              bg={data.nota_pct > 0.5 ? 'danger' : data.nota_pct > 0.25 ? 'warning' : 'secondary'}
-              text={data.nota_pct > 0.25 && data.nota_pct <= 0.5 ? 'dark' : undefined}
+              variant={data.nota_pct > 0.5 ? 'danger' : data.nota_pct > 0.25 ? 'warning' : 'secondary'}
               data-testid="nota-pct-badge"
               style={{ fontSize: '0.8rem' }}
             >
@@ -195,7 +200,7 @@ const NOTAPanel: React.FC = () => {
             </Badge>
             <RuleBadge data={data} t={t} />
             {tippingPoint != null && (
-              <Badge bg="info" text="dark" data-testid="tipping-point-badge">
+              <Badge variant="info" data-testid="tipping-point-badge">
                 {t('nota.tippingPoint')} {tippingPoint.toFixed(2)}
               </Badge>
             )}
@@ -245,7 +250,7 @@ const NOTAPanel: React.FC = () => {
           <div className="fw-semibold mb-2" style={{ fontSize: '0.85rem' }}>
             {t('nota.methodTableTitle')}
           </div>
-          <Table size="sm" hover data-testid="method-comparison-table">
+          <Table className="[&_th]:p-1 [&_td]:p-1 [&_th]:text-left [&_td]:border-t [&_th]:border-b [&_td]:border-border [&_th]:border-border [&_*]:align-middle [&_tbody_tr:hover]:bg-muted/50" data-testid="method-comparison-table">
             <thead>
               <tr>
                 <th style={{ fontSize: '0.78rem' }}>{t('nota.method')}</th>
@@ -264,7 +269,7 @@ const NOTAPanel: React.FC = () => {
                     <td style={{ fontSize: '0.78rem' }}>
                       <code>{meth}</code>
                       {isLowest && (
-                        <Badge bg="success" className="ms-1" style={{ fontSize: '0.6rem' }}>
+                        <Badge variant="success" className="ms-1" style={{ fontSize: '0.6rem' }}>
                           {t('nota.mostInclusive')}
                         </Badge>
                       )}

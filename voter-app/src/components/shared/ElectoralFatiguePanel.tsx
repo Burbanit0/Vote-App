@@ -5,7 +5,12 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { $api } from '../../api/hooks';
 import { useTranslation } from 'react-i18next';
-import { Alert, Badge, Button, Col, Form, Row, Spinner } from 'react-bootstrap';
+import { Alert } from '@/components/ui/alert';
+import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
+import { Control, Range } from '@/components/ui/form-controls';
+import { Col, Row } from '@/components/ui/grid';
+import { Spinner } from '@/components/ui/spinner';
 import {
   AreaChart, Area, LineChart, Line, XAxis, YAxis, Tooltip,
   CartesianGrid, Legend, ReferenceLine, ResponsiveContainer,
@@ -152,10 +157,10 @@ const ElectoralFatiguePanel: React.FC = () => {
       {/* Controls */}
       <Row className="g-2 mb-3 align-items-end">
         <Col xs={12} md={4}>
-          <Form.Label className="small mb-0">
+          <label className="mb-1 inline-block small mb-0">
             {t('fatigue.fatigueRate')}: <strong>{Math.round(fatigueRate * 100)}%</strong>
-          </Form.Label>
-          <Form.Range
+          </label>
+          <Range
             data-testid="fatigue-rate-slider"
             min={0} max={0.15} step={0.01}
             value={fatigueRate}
@@ -163,10 +168,10 @@ const ElectoralFatiguePanel: React.FC = () => {
           />
         </Col>
         <Col xs={12} md={3}>
-          <Form.Label className="small mb-0">
+          <label className="mb-1 inline-block small mb-0">
             {t('fatigue.engagedPct')}: <strong>{Math.round(engagedPct * 100)}%</strong>
-          </Form.Label>
-          <Form.Range
+          </label>
+          <Range
             data-testid="engaged-slider"
             min={0.05} max={0.5} step={0.05}
             value={engagedPct}
@@ -174,8 +179,8 @@ const ElectoralFatiguePanel: React.FC = () => {
           />
         </Col>
         <Col xs={6} md={2}>
-          <Form.Label className="small mb-0">{t('fatigue.numElections')}</Form.Label>
-          <Form.Control
+          <label className="mb-1 inline-block small mb-0">{t('fatigue.numElections')}</label>
+          <Control
             type="number" size="sm"
             min={2} max={12} value={numElections}
             onChange={(e) => setNumElections(Math.max(2, Math.min(12, Number(e.target.value))))}
@@ -183,7 +188,7 @@ const ElectoralFatiguePanel: React.FC = () => {
         </Col>
         <Col xs="auto">
           <Button variant="primary" onClick={handleSimulate} disabled={loading}>
-            {loading ? <Spinner size="sm" animation="border" /> : t('fatigue.run')}
+            {loading ? <Spinner size="sm" /> : t('fatigue.run')}
           </Button>
         </Col>
         {data && (
@@ -213,20 +218,19 @@ const ElectoralFatiguePanel: React.FC = () => {
           {/* Headline badges */}
           <div className="d-flex flex-wrap gap-2 mb-3">
             <Badge
-              bg={Math.abs(data.ideology_drift) > 0.1 ? 'danger' : Math.abs(data.ideology_drift) > 0.03 ? 'warning' : 'secondary'}
-              text={Math.abs(data.ideology_drift) > 0.03 && Math.abs(data.ideology_drift) <= 0.1 ? 'dark' : undefined}
+              variant={Math.abs(data.ideology_drift) > 0.1 ? 'danger' : Math.abs(data.ideology_drift) > 0.03 ? 'warning' : 'secondary'}
               data-testid="ideology-drift-badge"
             >
               {t('fatigue.ideologyDrift')}: {data.ideology_drift >= 0 ? '+' : ''}{data.ideology_drift.toFixed(3)}
             </Badge>
-            <Badge bg="info" text="dark" data-testid="rep-gap-badge">
+            <Badge variant="info" data-testid="rep-gap-badge">
               {t('fatigue.repGap')}: {data.representation_gap >= 0 ? '+' : ''}{data.representation_gap.toFixed(3)}
             </Badge>
-            <Badge bg="secondary" data-testid="final-turnout-badge">
+            <Badge variant="secondary" data-testid="final-turnout-badge">
               {t('fatigue.finalTurnout')}: {Math.round((data.elections.at(-1)?.turnout ?? 0) * 100)}%
             </Badge>
             {data.winner_changed_at != null && (
-              <Badge bg="danger" data-testid="winner-changed-badge">
+              <Badge variant="danger" data-testid="winner-changed-badge">
                 {t('fatigue.winnerChangedAt')} E{data.winner_changed_at}
               </Badge>
             )}

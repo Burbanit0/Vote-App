@@ -1,7 +1,11 @@
 import React, { useCallback, useState } from 'react';
-import {
-  Alert, Badge, Button, Card, Col, Container, Form, Row, Spinner,
-} from 'react-bootstrap';
+import { Alert } from '@/components/ui/alert';
+import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
+import { Card, CardBody, CardHeader } from '@/components/ui/card';
+import { Range } from '@/components/ui/form-controls';
+import { Col, Container, Row } from '@/components/ui/grid';
+import { Spinner } from '@/components/ui/spinner';
 import {
   CartesianGrid,
   Legend,
@@ -136,62 +140,62 @@ const BlankContagionPage: React.FC = () => {
         {/* ── Left — config ──────────────────────────────────────────────── */}
         <Col lg={3}>
           <Card className="mb-3">
-            <Card.Header className="fw-semibold">⚙️ Paramètres</Card.Header>
-            <Card.Body>
-              <Form.Group className="mb-3">
-                <Form.Label htmlFor="bc-voters" className="small mb-1">
+            <CardHeader className="block space-y-0 border-b border-border px-4 py-2 fw-semibold">⚙️ Paramètres</CardHeader>
+            <CardBody>
+              <div className="mb-3">
+                <label htmlFor="bc-voters" className="mb-1 inline-block small mb-1">
                   Électeurs : <strong>{numVoters}</strong>
-                </Form.Label>
-                <Form.Range
+                </label>
+                <Range
                   id="bc-voters" min={50} max={800} step={50}
                   value={numVoters}
                   onChange={(e) => setNumVoters(Number(e.target.value))}
                 />
-              </Form.Group>
+              </div>
 
-              <Form.Group className="mb-3">
-                <Form.Label htmlFor="bc-init" className="small mb-1">
+              <div className="mb-3">
+                <label htmlFor="bc-init" className="mb-1 inline-block small mb-1">
                   Taux initial de vote blanc : <strong>{(initialRate * 100).toFixed(0)} %</strong>
-                </Form.Label>
-                <Form.Range
+                </label>
+                <Range
                   id="bc-init" min={0} max={0.5} step={0.01}
                   value={initialRate}
                   onChange={(e) => setInitialRate(Number(e.target.value))}
                 />
-              </Form.Group>
+              </div>
 
-              <Form.Group className="mb-3">
-                <Form.Label htmlFor="bc-beta" className="small mb-1">
+              <div className="mb-3">
+                <label htmlFor="bc-beta" className="mb-1 inline-block small mb-1">
                   Taux de contagion β : <strong>{contagionRate.toFixed(2)}</strong>
-                </Form.Label>
-                <Form.Range
+                </label>
+                <Range
                   id="bc-beta" min={0} max={1} step={0.01}
                   value={contagionRate}
                   onChange={(e) => setContagionRate(Number(e.target.value))}
                 />
-              </Form.Group>
+              </div>
 
-              <Form.Group className="mb-3">
-                <Form.Label htmlFor="bc-gamma" className="small mb-1">
+              <div className="mb-3">
+                <label htmlFor="bc-gamma" className="mb-1 inline-block small mb-1">
                   Taux de guérison γ : <strong>{recoveryRate.toFixed(2)}</strong>
-                </Form.Label>
-                <Form.Range
+                </label>
+                <Range
                   id="bc-gamma" min={0.01} max={1} step={0.01}
                   value={recoveryRate}
                   onChange={(e) => setRecoveryRate(Number(e.target.value))}
                 />
-              </Form.Group>
+              </div>
 
-              <Form.Group className="mb-3">
-                <Form.Label htmlFor="bc-rounds" className="small mb-1">
+              <div className="mb-3">
+                <label htmlFor="bc-rounds" className="mb-1 inline-block small mb-1">
                   Rounds : <strong>{numRounds}</strong>
-                </Form.Label>
-                <Form.Range
+                </label>
+                <Range
                   id="bc-rounds" min={5} max={50} step={1}
                   value={numRounds}
                   onChange={(e) => setNumRounds(Number(e.target.value))}
                 />
-              </Form.Group>
+              </div>
 
               {/* Network type */}
               <div className="mb-3">
@@ -223,15 +227,15 @@ const BlankContagionPage: React.FC = () => {
                   ? <><Spinner size="sm" className="me-2" />Simulation…</>
                   : '▶ Simuler la contagion'}
               </Button>
-            </Card.Body>
+            </CardBody>
           </Card>
 
           {/* R0 live indicator */}
           <Card>
-            <Card.Header className="py-2 fw-semibold" style={{ fontSize: '0.85rem' }}>
+            <CardHeader className="block space-y-0 border-b border-border px-4 py-2 py-2 fw-semibold" style={{ fontSize: '0.85rem' }}>
               📊 R₀ (seuil épidémique)
-            </Card.Header>
-            <Card.Body className="text-center py-3">
+            </CardHeader>
+            <CardBody className="text-center py-3">
               <div style={{ fontSize: '2.8rem', fontWeight: 800, color: r0Color }}>
                 {r0.toFixed(2)}
               </div>
@@ -249,14 +253,14 @@ const BlankContagionPage: React.FC = () => {
                   ? '✓ Le vote blanc ne se propage pas — phénomène marginal'
                   : '⚠️ Le vote blanc s\'amplifie — mécontentement structurel'}
               </div>
-            </Card.Body>
+            </CardBody>
           </Card>
         </Col>
 
         {/* ── Centre — chart ─────────────────────────────────────────────── */}
         <Col lg={6}>
           <Card className="h-100">
-            <Card.Header className="d-flex align-items-center justify-content-between">
+            <CardHeader className="block space-y-0 border-b border-border px-4 py-2 d-flex align-items-center justify-content-between">
               <strong>Évolution du vote blanc</strong>
               {result && (
                 <div className="d-flex align-items-center gap-2">
@@ -265,12 +269,12 @@ const BlankContagionPage: React.FC = () => {
                     {result.reached_equilibrium && ' · Équilibre atteint'}
                   </small>
                   {result.reached_equilibrium && (
-                    <Badge bg="secondary" style={{ fontSize: '0.7rem' }}>Équilibre</Badge>
+                    <Badge variant="secondary" style={{ fontSize: '0.7rem' }}>Équilibre</Badge>
                   )}
                 </div>
               )}
-            </Card.Header>
-            <Card.Body>
+            </CardHeader>
+            <CardBody>
               {error && <Alert variant="danger">{error}</Alert>}
 
               {!result && !loading && (
@@ -334,17 +338,17 @@ const BlankContagionPage: React.FC = () => {
                   </span>
                 </div>
               )}
-            </Card.Body>
+            </CardBody>
           </Card>
         </Col>
 
         {/* ── Right — interpretation ─────────────────────────────────────── */}
         <Col lg={3}>
           <Card className="mb-3">
-            <Card.Header className="py-2 fw-semibold" style={{ fontSize: '0.85rem' }}>
+            <CardHeader className="block space-y-0 border-b border-border px-4 py-2 py-2 fw-semibold" style={{ fontSize: '0.85rem' }}>
               🔍 Interprétation
-            </Card.Header>
-            <Card.Body>
+            </CardHeader>
+            <CardBody>
               {result ? (
                 <p className="mb-0" style={{ fontSize: '0.85rem', lineHeight: 1.6 }}>
                   {r0Interpretation(result.r0, result.final_blank_rate, result.network_type)}
@@ -354,15 +358,15 @@ const BlankContagionPage: React.FC = () => {
                   Lancez une simulation pour obtenir une interprétation.
                 </p>
               )}
-            </Card.Body>
+            </CardBody>
           </Card>
 
           {/* Lexicon */}
           <Card>
-            <Card.Header className="py-2 fw-semibold" style={{ fontSize: '0.85rem' }}>
+            <CardHeader className="block space-y-0 border-b border-border px-4 py-2 py-2 fw-semibold" style={{ fontSize: '0.85rem' }}>
               📖 Lexique SIS
-            </Card.Header>
-            <Card.Body style={{ fontSize: '0.82rem' }}>
+            </CardHeader>
+            <CardBody style={{ fontSize: '0.82rem' }}>
               {[
                 { term: 'S (Susceptible)', def: 'Électeur qui vote normalement et peut devenir un électeur blanc.' },
                 { term: 'I (Infecté)', def: 'Électeur qui vote blanc et peut "contaminer" ses voisins.' },
@@ -376,7 +380,7 @@ const BlankContagionPage: React.FC = () => {
                   <div className="text-muted">{def}</div>
                 </div>
               ))}
-            </Card.Body>
+            </CardBody>
           </Card>
         </Col>
       </Row>

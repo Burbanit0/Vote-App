@@ -8,7 +8,11 @@
  */
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { Alert, Badge, Button, Col, Form, Row } from 'react-bootstrap';
+import { Alert } from '@/components/ui/alert';
+import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
+import { Select } from '@/components/ui/form-controls';
+import { Col, Row } from '@/components/ui/grid';
 import {
   BarChart, Bar, XAxis, YAxis, Tooltip, Cell, ResponsiveContainer,
 } from 'recharts';
@@ -164,7 +168,7 @@ const MethodPanel: React.FC<PanelProps> = ({ result, method, color, shareData, o
       style={{ borderColor: color, borderWidth: 2, borderStyle: 'solid' }}
       data-testid={`panel-${side}`}
     >
-      <Form.Select
+      <Select
         size="sm"
         value={method}
         onChange={(e) => onChange(e.target.value)}
@@ -173,7 +177,7 @@ const MethodPanel: React.FC<PanelProps> = ({ result, method, color, shareData, o
         data-testid={`method-select-${side}`}
       >
         {METHODS.map((m) => <option key={m} value={m}>{m.replace(/_/g, ' ')}</option>)}
-      </Form.Select>
+      </Select>
 
       {/* Winner badge with flip animation */}
       <div className="text-center mb-2">
@@ -182,12 +186,12 @@ const MethodPanel: React.FC<PanelProps> = ({ result, method, color, shareData, o
         </div>
         <FlipBadge winner={winner} color={color} />
         {isCondorcet && (
-          <Badge bg="success" className="ms-1" style={{ fontSize: '0.7rem' }}>
+          <Badge variant="success" className="ms-1" style={{ fontSize: '0.7rem' }}>
             Condorcet ✓
           </Badge>
         )}
         {kemenyApprox && (
-          <Badge bg="warning" text="dark" className="ms-1" style={{ fontSize: '0.65rem' }}>
+          <Badge variant="warning" className="ms-1" style={{ fontSize: '0.65rem' }}>
             ~approx.
           </Badge>
         )}
@@ -213,12 +217,12 @@ const MethodPanel: React.FC<PanelProps> = ({ result, method, color, shareData, o
       {/* Metrics */}
       <div className="d-flex flex-wrap gap-2 mt-2 justify-content-center">
         {regret != null && (
-          <Badge bg="secondary" style={{ fontSize: '0.7rem' }}>
+          <Badge variant="secondary" style={{ fontSize: '0.7rem' }}>
             Regret: {regret.toFixed(4)}
           </Badge>
         )}
         {majSat != null && (
-          <Badge bg="info" style={{ fontSize: '0.7rem' }}>
+          <Badge variant="info" style={{ fontSize: '0.7rem' }}>
             Satisfaction: {Math.round(majSat * 100)}%
           </Badge>
         )}

@@ -4,9 +4,12 @@
  */
 import React, { useCallback, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import {
-  Alert, Badge, Button, Col, Form, Row, Spinner,
-} from 'react-bootstrap';
+import { Alert } from '@/components/ui/alert';
+import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
+import { Check, Control, Range, Select } from '@/components/ui/form-controls';
+import { Col, Row } from '@/components/ui/grid';
+import { Spinner } from '@/components/ui/spinner';
 import {
   LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend,
   ReferenceLine, ResponsiveContainer,
@@ -174,36 +177,36 @@ const DemocraticBackslidingPanel: React.FC = () => {
       {/* ── Controls ── */}
       <Row className="g-2 mb-3 align-items-end">
         <Col xs={6} md={2}>
-          <Form.Label className="small mb-0">{t('backsliding.voters')}</Form.Label>
-          <Form.Control type="number" size="sm" min={20} max={1000} value={numVoters}
+          <label className="mb-1 inline-block small mb-0">{t('backsliding.voters')}</label>
+          <Control type="number" size="sm" min={20} max={1000} value={numVoters}
             data-testid="voters-input"
             onChange={(e) => setNumVoters(Number(e.target.value))} />
         </Col>
         <Col xs={6} md={2}>
-          <Form.Label className="small mb-0">{t('backsliding.elections')}</Form.Label>
-          <Form.Control type="number" size="sm" min={2} max={15} value={numElections}
+          <label className="mb-1 inline-block small mb-0">{t('backsliding.elections')}</label>
+          <Control type="number" size="sm" min={2} max={15} value={numElections}
             data-testid="elections-input"
             onChange={(e) => setNumElections(Number(e.target.value))} />
         </Col>
         <Col xs={6} md={2}>
-          <Form.Label className="small mb-0">{t('backsliding.seed')}</Form.Label>
-          <Form.Control type="number" size="sm" value={seed}
+          <label className="mb-1 inline-block small mb-0">{t('backsliding.seed')}</label>
+          <Control type="number" size="sm" value={seed}
             data-testid="seed-input"
             onChange={(e) => setSeed(Number(e.target.value))} />
         </Col>
         <Col xs={12} md={3}>
-          <Form.Label className="small mb-0">{t('backsliding.method')}</Form.Label>
-          <Form.Select size="sm" value={method} data-testid="method-select"
+          <label className="mb-1 inline-block small mb-0">{t('backsliding.method')}</label>
+          <Select size="sm" value={method} data-testid="method-select"
             onChange={(e) => setMethod(e.target.value as Method)}>
             <option value="gerrymandering">{t('backsliding.method_gerrymandering')}</option>
             <option value="media_capture">{t('backsliding.method_media_capture')}</option>
             <option value="voter_suppression">{t('backsliding.method_voter_suppression')}</option>
-          </Form.Select>
+          </Select>
         </Col>
         <Col xs="auto">
           <Button variant="danger" size="sm" onClick={() => run()} disabled={loading}
             data-testid="run-btn">
-            {loading ? <Spinner size="sm" animation="border" /> : t('backsliding.run')}
+            {loading ? <Spinner size="sm" /> : t('backsliding.run')}
           </Button>
         </Col>
       </Row>
@@ -211,10 +214,10 @@ const DemocraticBackslidingPanel: React.FC = () => {
       {/* ── Intensity slider ── */}
       <Row className="g-2 mb-3 align-items-center">
         <Col xs={12} md={6}>
-          <Form.Label className="small mb-0">
+          <label className="mb-1 inline-block small mb-0">
             {t('backsliding.intensity')} — {Math.round(intensity * 100)}%
-          </Form.Label>
-          <Form.Range min={0} max={100} value={Math.round(intensity * 100)}
+          </label>
+          <Range min={0} max={100} value={Math.round(intensity * 100)}
             data-testid="intensity-slider"
             onChange={(e) => setIntensity(Number(e.target.value) / 100)} />
         </Col>
@@ -229,14 +232,14 @@ const DemocraticBackslidingPanel: React.FC = () => {
         <Row className="g-2">
           {GUARDRAILS.map((gr) => (
             <Col key={gr} xs={12} md={6}>
-              <Form.Check
+              <Check
                 type="switch"
                 id={`gr-${gr}`}
                 label={
                   <span style={{ fontSize: '0.78rem' }}>
                     {t(`backsliding.guardrail_${gr}`)}
                     {guardrails[gr] && data && (
-                      <Badge bg="success" className="ms-1" style={{ fontSize: '0.6rem' }}>
+                      <Badge variant="success" className="ms-1" style={{ fontSize: '0.6rem' }}>
                         +{Math.round((data.guardrails_effectiveness[gr] ?? 0) * 100)}%
                       </Badge>
                     )}
@@ -272,8 +275,7 @@ const DemocraticBackslidingPanel: React.FC = () => {
                 {t('backsliding.finalQuality')}
               </span>
               <Badge
-                bg={finalQuality! > 0.7 ? 'success' : finalQuality! > 0.45 ? 'warning' : 'danger'}
-                text={finalQuality! > 0.45 && finalQuality! <= 0.7 ? 'dark' : undefined}>
+                variant={finalQuality! > 0.7 ? 'success' : finalQuality! > 0.45 ? 'warning' : 'danger'}>
                 {finalQuality! > 0.7  ? t('backsliding.statusHealthy')
                   : finalQuality! > 0.45 ? t('backsliding.statusEroding')
                   : t('backsliding.statusAutocratic')}

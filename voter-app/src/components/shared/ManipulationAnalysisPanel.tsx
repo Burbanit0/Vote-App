@@ -5,7 +5,13 @@
  */
 import React, { useCallback, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { Alert, Badge, Button, Col, Form, Row, Spinner, Table } from 'react-bootstrap';
+import { Alert } from '@/components/ui/alert';
+import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
+import { Select } from '@/components/ui/form-controls';
+import { Col, Row } from '@/components/ui/grid';
+import { Spinner } from '@/components/ui/spinner';
+import { Table } from '@/components/ui/table';
 import { useElection } from '../../stores/useElectionStore';
 import PinToCentralButton from './PinToCentralButton';
 import { $api } from '../../api/hooks';
@@ -103,7 +109,7 @@ const ManipDetail: React.FC<DetailProps> = ({ manip, t }) => (
     data-testid="manip-detail">
     <div className="fw-semibold mb-2" style={{ fontSize: '0.85rem' }}>
       {t('gs.voterDetail')} #{manip.voter_id}
-      <Badge bg="danger" className="ms-2" style={{ fontSize: '0.65rem' }}>
+      <Badge variant="danger" className="ms-2" style={{ fontSize: '0.65rem' }}>
         {t(`gs.strat_${manip.strategy_type}`)}
       </Badge>
     </div>
@@ -120,10 +126,10 @@ const ManipDetail: React.FC<DetailProps> = ({ manip, t }) => (
     </div>
     <div style={{ fontSize: '0.78rem' }}>
       <span className="text-muted">{t('gs.sincerely')}:</span>
-      <Badge bg="secondary" className="ms-1">{manip.sincere_result} {t('gs.wins')}</Badge>
+      <Badge variant="secondary" className="ms-1">{manip.sincere_result} {t('gs.wins')}</Badge>
       {' → '}
       <span className="text-muted">{t('gs.strategically')}:</span>
-      <Badge bg="success" className="ms-1">{manip.strategic_result} {t('gs.wins')}</Badge>
+      <Badge variant="success" className="ms-1">{manip.strategic_result} {t('gs.wins')}</Badge>
     </div>
     <div className="text-muted mt-1" style={{ fontSize: '0.75rem' }}>
       {t('gs.gain')}: +{manip.utility_gain.toFixed(3)} {t('gs.utilityUnits')}
@@ -169,19 +175,19 @@ const ManipulationAnalysisPanel: React.FC = () => {
       {/* Controls */}
       <Row className="g-2 mb-3 align-items-end">
         <Col xs={12} md={4}>
-          <Form.Label className="small mb-0">{t('gs.method')}</Form.Label>
-          <Form.Select size="sm" value={method} data-testid="method-select"
+          <label className="mb-1 inline-block small mb-0">{t('gs.method')}</label>
+          <Select size="sm" value={method} data-testid="method-select"
             onChange={(e) => setMethod(e.target.value)}>
             <option value="plurality">Plurality</option>
             <option value="borda">Borda</option>
             <option value="irv">IRV</option>
             <option value="schulze">Schulze</option>
-          </Form.Select>
+          </Select>
         </Col>
         <Col xs="auto">
           <Button variant="primary" onClick={runAnalysis} disabled={loading}
             data-testid="analyze-btn">
-            {loading ? <Spinner size="sm" animation="border" /> : t('gs.analyze')}
+            {loading ? <Spinner size="sm" /> : t('gs.analyze')}
           </Button>
         </Col>
         {data && (
@@ -211,16 +217,16 @@ const ManipulationAnalysisPanel: React.FC = () => {
           {/* Headline */}
           <div className="d-flex flex-wrap gap-2 mb-3">
             <Badge
-              bg={data.manipulable ? 'danger' : 'success'}
+              variant={data.manipulable ? 'danger' : 'success'}
               data-testid="manipulable-badge"
             >
               {data.manipulable ? t('gs.manipulable') : t('gs.notManipulable')}
             </Badge>
-            <Badge bg="secondary" data-testid="count-badge">
+            <Badge variant="secondary" data-testid="count-badge">
               {data.manipulation_count} {t('gs.manipulators')}
             </Badge>
             {data.sincere_winner && (
-              <Badge bg="primary" data-testid="winner-badge">
+              <Badge variant="primary" data-testid="winner-badge">
                 {t('gs.sincereWinner')}: {data.sincere_winner}
               </Badge>
             )}
@@ -254,7 +260,7 @@ const ManipulationAnalysisPanel: React.FC = () => {
               {selectedManip && <ManipDetail manip={selectedManip} t={t} />}
 
               {/* Strategy breakdown table */}
-              <Table size="sm" hover data-testid="strategy-table">
+              <Table className="[&_th]:p-1 [&_td]:p-1 [&_th]:text-left [&_td]:border-t [&_th]:border-b [&_td]:border-border [&_th]:border-border [&_*]:align-middle [&_tbody_tr:hover]:bg-muted/50" data-testid="strategy-table">
                 <thead>
                   <tr>
                     <th style={{ fontSize: '0.78rem' }}>{t('gs.strategy')}</th>
@@ -271,8 +277,7 @@ const ManipulationAnalysisPanel: React.FC = () => {
                         </span>
                       </td>
                       <td style={{ fontSize: '0.78rem' }}>
-                        <Badge bg={data.strategy_breakdown[s] > 0 ? 'danger' : 'light'}
-                          text={data.strategy_breakdown[s] > 0 ? undefined : 'dark'}>
+                        <Badge variant={data.strategy_breakdown[s] > 0 ? 'danger' : 'light'}>
                           {data.strategy_breakdown[s] ?? 0}
                         </Badge>
                       </td>

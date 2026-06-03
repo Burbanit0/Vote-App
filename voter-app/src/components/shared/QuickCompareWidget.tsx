@@ -1,5 +1,9 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
-import { Badge, Button, Col, Form, Row, Spinner } from 'react-bootstrap';
+import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
+import { Select } from '@/components/ui/form-controls';
+import { Col, Row } from '@/components/ui/grid';
+import { Spinner } from '@/components/ui/spinner';
 import { ElectionResult } from '../../services/electionApi';
 import { useNavigate } from 'react-router';
 import { useTranslation } from 'react-i18next';
@@ -191,7 +195,7 @@ const QuickCompareWidget: React.FC = () => {
         </div>
         <Row className="g-2 align-items-center">
           <Col xs={12} sm={5}>
-            <Form.Select
+            <Select
               size="sm"
               value={methodA}
               onChange={(e) => setMethodA(e.target.value)}
@@ -199,13 +203,13 @@ const QuickCompareWidget: React.FC = () => {
               aria-label={t('home.widget.methodA')}
             >
               {METHODS.map((m) => <option key={m} value={m}>{m}</option>)}
-            </Form.Select>
+            </Select>
           </Col>
           <Col xs={12} sm={2} className="text-center text-muted small">
             {t('home.widget.vs')}
           </Col>
           <Col xs={12} sm={5}>
-            <Form.Select
+            <Select
               size="sm"
               value={methodB}
               onChange={(e) => setMethodB(e.target.value)}
@@ -213,7 +217,7 @@ const QuickCompareWidget: React.FC = () => {
               aria-label={t('home.widget.methodB')}
             >
               {METHODS.map((m) => <option key={m} value={m}>{m}</option>)}
-            </Form.Select>
+            </Select>
           </Col>
         </Row>
         <p className="text-muted mb-0 mt-1" style={{ fontSize: '0.75rem' }}>
@@ -292,7 +296,7 @@ const QuickCompareWidget: React.FC = () => {
                 {regretA != null && regretB != null && (
                   <div className="mb-2">
                     <Badge
-                      bg={regretA < regretB ? 'success' : 'secondary'}
+                      variant={regretA < regretB ? 'success' : 'secondary'}
                       data-testid="regret-delta-badge"
                       style={{ fontSize: '0.72rem' }}
                     >

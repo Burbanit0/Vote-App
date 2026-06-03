@@ -1,7 +1,11 @@
 import React, { useCallback, useState } from 'react';
-import {
-  Alert, Badge, Button, Card, Col, Form, Row, Spinner,
-} from 'react-bootstrap';
+import { Alert } from '@/components/ui/alert';
+import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
+import { Card, CardBody, CardHeader } from '@/components/ui/card';
+import { Select } from '@/components/ui/form-controls';
+import { Col, Row } from '@/components/ui/grid';
+import { Spinner } from '@/components/ui/spinner';
 import {
   Bar, BarChart, CartesianGrid, Cell, ResponsiveContainer,
   Tooltip, XAxis, YAxis,
@@ -30,10 +34,10 @@ const MethodColumn: React.FC<{
 
   return (
     <Card className="h-100">
-      <Card.Header className="py-2 text-center">
+      <CardHeader className="block space-y-0 border-b border-border px-4 py-2 py-2 text-center">
         <strong style={{ fontSize: '0.85rem' }}>{title}</strong>
-      </Card.Header>
-      <Card.Body className="p-2">
+      </CardHeader>
+      <CardBody className="p-2">
         {/* Accord badge */}
         <div className="text-center mb-2">
           <Badge
@@ -84,7 +88,7 @@ const MethodColumn: React.FC<{
             );
           })}
         </div>
-      </Card.Body>
+      </CardBody>
     </Card>
   );
 };
@@ -144,13 +148,13 @@ const BlankVoteDivergencePanel: React.FC = () => {
       {/* Controls */}
       <div className="d-flex align-items-end gap-3 mb-3 flex-wrap">
         <div>
-          <Form.Label className="small mb-1">{t('divergence.rule')}</Form.Label>
-          <Form.Select size="sm" value={rule} style={{ width: 190 }}
+          <label className="mb-1 inline-block small mb-1">{t('divergence.rule')}</label>
+          <Select size="sm" value={rule} style={{ width: 190 }}
             onChange={(e) => { setRule(e.target.value); setResult(null); }}>
             <option value="symbolic">{t('divergence.ruleSymbolic')}</option>
             <option value="competitive">{t('divergence.ruleCompetitive')}</option>
             <option value="threshold_30">{t('divergence.ruleThreshold')}</option>
-          </Form.Select>
+          </Select>
         </div>
 
         <Button variant="primary" size="sm" onClick={run} disabled={loading}>
@@ -240,13 +244,13 @@ const BlankVoteDivergencePanel: React.FC = () => {
           {/* Sensitivity bar chart */}
           {barData.length > 0 && (
             <Card className="mb-3">
-              <Card.Header className="py-2">
+              <CardHeader className="block space-y-0 border-b border-border px-4 py-2 py-2">
                 <strong style={{ fontSize: '0.85rem' }}>{t('divergence.sensitivityChart')}</strong>
                 <span className="text-muted ms-2" style={{ fontSize: '0.75rem' }}>
                   — {nChanged}/{totalMethods} {t('divergence.methodsChanged')}
                 </span>
-              </Card.Header>
-              <Card.Body className="p-2">
+              </CardHeader>
+              <CardBody className="p-2">
                 <ResponsiveContainer width="100%" height={120}>
                   <BarChart data={barData} margin={{ top: 4, right: 16, bottom: 40, left: 4 }}>
                     <CartesianGrid strokeDasharray="3 3" stroke={ct.gridStroke} vertical={false} />
@@ -282,7 +286,7 @@ const BlankVoteDivergencePanel: React.FC = () => {
                     {t('divergence.changed')}
                   </span>
                 </div>
-              </Card.Body>
+              </CardBody>
             </Card>
           )}
 

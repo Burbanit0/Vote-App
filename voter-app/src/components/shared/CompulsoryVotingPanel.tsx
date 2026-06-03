@@ -6,7 +6,13 @@
 import React, { useCallback, useRef, useState } from 'react';
 import { $api } from '../../api/hooks';
 import { useTranslation } from 'react-i18next';
-import { Alert, Badge, Button, Card, Col, Form, Row, Spinner } from 'react-bootstrap';
+import { Alert } from '@/components/ui/alert';
+import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
+import { Card, CardBody, CardHeader } from '@/components/ui/card';
+import { Range } from '@/components/ui/form-controls';
+import { Col, Row } from '@/components/ui/grid';
+import { Spinner } from '@/components/ui/spinner';
 import {
   BarChart, Bar, XAxis, YAxis, Tooltip, CartesianGrid,
   Legend, ResponsiveContainer, Cell,
@@ -76,19 +82,19 @@ const ResultCard: React.FC<ResultCardProps> = ({ title, result, candidateNames, 
   return (
     <Card className="h-100" style={{ borderTop: accent ? `3px solid ${accent}` : undefined }}
       data-testid={testId}>
-      <Card.Header className="py-1" style={{ fontSize: '0.8rem', fontWeight: 600 }}>
+      <CardHeader className="block space-y-0 border-b border-border px-4 py-2 py-1" style={{ fontSize: '0.8rem', fontWeight: 600 }}>
         {title}
-      </Card.Header>
-      <Card.Body className="py-2">
+      </CardHeader>
+      <CardBody className="py-2">
         <div className="d-flex gap-1 flex-wrap mb-2">
-          <Badge bg="secondary" style={{ fontSize: '0.7rem' }}>
+          <Badge variant="secondary" style={{ fontSize: '0.7rem' }}>
             {t('compulsory.turnout')}: {Math.round(result.turnout * 100)}%
           </Badge>
-          <Badge bg="info" text="dark" style={{ fontSize: '0.7rem' }}>
+          <Badge variant="info" style={{ fontSize: '0.7rem' }}>
             {t('compulsory.null')}: {Math.round(result.null_rate * 100)}%
           </Badge>
           {result.voter_profile && (
-            <Badge bg="light" text="dark" style={{ fontSize: '0.7rem' }}>
+            <Badge variant="light" style={{ fontSize: '0.7rem' }}>
               μ: {result.voter_profile.mean_ideology_x >= 0 ? '+' : ''}{result.voter_profile.mean_ideology_x.toFixed(2)}
             </Badge>
           )}
@@ -108,7 +114,7 @@ const ResultCard: React.FC<ResultCardProps> = ({ title, result, candidateNames, 
             </Bar>
           </BarChart>
         </ResponsiveContainer>
-      </Card.Body>
+      </CardBody>
     </Card>
   );
 };
@@ -162,37 +168,37 @@ const CompulsoryVotingPanel: React.FC = () => {
           {/* Controls */}
           <Row className="g-2 mb-3 align-items-end">
             <Col xs={6} md={3}>
-              <Form.Label className="small mb-0">
+              <label className="mb-1 inline-block small mb-0">
                 {t('compulsory.volTurnout')}: <strong>{Math.round(volTurnout * 100)}%</strong>
-              </Form.Label>
-              <Form.Range data-testid="vol-turnout-slider"
+              </label>
+              <Range data-testid="vol-turnout-slider"
                 min={0.4} max={0.9} step={0.05} value={volTurnout}
                 onChange={(e) => { setVolTurnout(Number(e.target.value)); schedule(Number(e.target.value), compTurnout, relNull, relRandom); }}
               />
             </Col>
             <Col xs={6} md={3}>
-              <Form.Label className="small mb-0">
+              <label className="mb-1 inline-block small mb-0">
                 {t('compulsory.compTurnout')}: <strong>{Math.round(compTurnout * 100)}%</strong>
-              </Form.Label>
-              <Form.Range data-testid="comp-turnout-slider"
+              </label>
+              <Range data-testid="comp-turnout-slider"
                 min={0.7} max={0.99} step={0.05} value={compTurnout}
                 onChange={(e) => { setCompTurnout(Number(e.target.value)); schedule(volTurnout, Number(e.target.value), relNull, relRandom); }}
               />
             </Col>
             <Col xs={6} md={3}>
-              <Form.Label className="small mb-0">
+              <label className="mb-1 inline-block small mb-0">
                 {t('compulsory.nullRate')}: <strong>{Math.round(relNull * 100)}%</strong>
-              </Form.Label>
-              <Form.Range data-testid="null-rate-slider"
+              </label>
+              <Range data-testid="null-rate-slider"
                 min={0} max={0.15} step={0.01} value={relNull}
                 onChange={(e) => { setRelNull(Number(e.target.value)); schedule(volTurnout, compTurnout, Number(e.target.value), relRandom); }}
               />
             </Col>
             <Col xs={6} md={3}>
-              <Form.Label className="small mb-0">
+              <label className="mb-1 inline-block small mb-0">
                 {t('compulsory.randomPct')}: <strong>{Math.round(relRandom * 100)}%</strong>
-              </Form.Label>
-              <Form.Range data-testid="random-pct-slider"
+              </label>
+              <Range data-testid="random-pct-slider"
                 min={0} max={0.5} step={0.05} value={relRandom}
                 onChange={(e) => { setRelRandom(Number(e.target.value)); schedule(volTurnout, compTurnout, relNull, Number(e.target.value)); }}
               />
@@ -201,7 +207,7 @@ const CompulsoryVotingPanel: React.FC = () => {
 
           <div className="d-flex gap-2 mb-3 flex-wrap">
             <Button variant="primary" onClick={handleSimulate} disabled={loading}>
-              {loading ? <Spinner size="sm" animation="border" /> : t('compulsory.run')}
+              {loading ? <Spinner size="sm" /> : t('compulsory.run')}
             </Button>
             {data && (() => {
               const vbm = data.voluntary.winners_by_method ?? {};
@@ -269,7 +275,7 @@ const CompulsoryVotingPanel: React.FC = () => {
                     <div style={{ fontSize: '0.72rem', color: '#6c757d' }}>
                       {t('compulsory.repImprovementDesc')}
                     </div>
-                    <Badge bg="success" data-testid="representation-badge" className="mt-1">
+                    <Badge variant="success" data-testid="representation-badge" className="mt-1">
                       Δ {data.representation_improvement.toFixed(3)}
                     </Badge>
                   </div>
@@ -285,11 +291,11 @@ const CompulsoryVotingPanel: React.FC = () => {
                     <div style={{ fontSize: '0.72rem', color: '#6c757d' }}>
                       {t('compulsory.qualityDegradationDesc')}
                     </div>
-                    <Badge bg="danger" data-testid="quality-badge" className="mt-1">
+                    <Badge variant="danger" data-testid="quality-badge" className="mt-1">
                       +{Math.round(data.quality_degradation * 100)}% {t('compulsory.noise')}
                     </Badge>
                     {data.compulsory.reluctant_count != null && (
-                      <Badge bg="warning" text="dark" data-testid="reluctant-badge" className="ms-1 mt-1">
+                      <Badge variant="warning" data-testid="reluctant-badge" className="ms-1 mt-1">
                         {data.compulsory.reluctant_count} {t('compulsory.reluctant')}
                       </Badge>
                     )}
@@ -316,7 +322,7 @@ const CompulsoryVotingPanel: React.FC = () => {
                 style={{ fontSize: '0.72rem', background: '#f8f9fa' }}>
                 <div><strong>{ex.flag} {ex.country}</strong></div>
                 <div className="text-muted">{ex.system}</div>
-                <Badge bg="primary" style={{ fontSize: '0.65rem' }}>{ex.turnout}</Badge>
+                <Badge variant="primary" style={{ fontSize: '0.65rem' }}>{ex.turnout}</Badge>
               </div>
             ))}
           </div>

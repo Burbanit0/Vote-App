@@ -1,6 +1,11 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { Alert, Badge, Button, Col, Form, Row, Spinner } from 'react-bootstrap';
+import { Alert } from '@/components/ui/alert';
+import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
+import { Range, Select } from '@/components/ui/form-controls';
+import { Col, Row } from '@/components/ui/grid';
+import { Spinner } from '@/components/ui/spinner';
 import {
   LineChart, Line, XAxis, YAxis, Tooltip, Legend,
   ReferenceLine, ResponsiveContainer,
@@ -163,25 +168,25 @@ const AdaptiveVotingPanel: React.FC = () => {
       {/* Controls */}
       <Row className="g-2 align-items-end mb-3">
         <Col xs={12} sm={4}>
-          <Form.Label className="small mb-0">{t('adaptive.method')}</Form.Label>
-          <Form.Select size="sm" value={method} onChange={(e) => setMethod(e.target.value)}>
+          <label className="mb-1 inline-block small mb-0">{t('adaptive.method')}</label>
+          <Select size="sm" value={method} onChange={(e) => setMethod(e.target.value)}>
             {AVAILABLE_METHODS.map((m) => (
               <option key={m} value={m}>{t(`adaptive.method_${m}`)}</option>
             ))}
-          </Form.Select>
+          </Select>
         </Col>
         <Col xs={12} sm={4}>
-          <Form.Label className="small mb-0">
+          <label className="mb-1 inline-block small mb-0">
             {t('adaptive.numRounds')}: <strong>{numRounds}</strong>
-          </Form.Label>
-          <Form.Range min={2} max={10} step={1} value={numRounds}
+          </label>
+          <Range min={2} max={10} step={1} value={numRounds}
             onChange={(e) => setNumRounds(Number(e.target.value))} />
         </Col>
         <Col xs={12} sm={4}>
-          <Form.Label className="small mb-0">
+          <label className="mb-1 inline-block small mb-0">
             {t('adaptive.threshold')}: <strong>{Math.round(strategicThreshold * 100)}%</strong>
-          </Form.Label>
-          <Form.Range min={0.05} max={0.4} step={0.05} value={strategicThreshold}
+          </label>
+          <Range min={0.05} max={0.4} step={0.05} value={strategicThreshold}
             onChange={(e) => setStrategicThreshold(Number(e.target.value))} />
         </Col>
         <Col xs={12} className="d-flex gap-2">
@@ -219,26 +224,26 @@ const AdaptiveVotingPanel: React.FC = () => {
         <>
           {/* Summary badges */}
           <div className="d-flex flex-wrap gap-2 mb-3">
-            <Badge bg="primary" data-testid="final-winner-badge">
+            <Badge variant="primary" data-testid="final-winner-badge">
               {t('adaptive.finalWinner')}: {data.final_winner}
             </Badge>
-            <Badge bg={winnerChanged ? 'warning' : 'success'} text={winnerChanged ? 'dark' : undefined}
+            <Badge variant={winnerChanged ? 'warning' : 'success'}
               data-testid="sincere-winner-badge">
               {t('adaptive.sincereWinner')}: {data.sincere_winner}
             </Badge>
             {data.converged
               ? (
-                <Badge bg="success" data-testid="convergence-badge">
+                <Badge variant="success" data-testid="convergence-badge">
                   ✓ {t('adaptive.convergedAt')} {t('adaptive.round')} {data.convergence_round}
                 </Badge>
               )
               : (
-                <Badge bg="danger" data-testid="convergence-badge">
+                <Badge variant="danger" data-testid="convergence-badge">
                   ✗ {t('adaptive.noConvergence')}
                 </Badge>
               )}
             {highDrift && (
-              <Badge bg="warning" text="dark" data-testid="drift-badge">
+              <Badge variant="warning" data-testid="drift-badge">
                 ⚠ {t('adaptive.drift')}: +{data.strategic_drift.toFixed(3)}
               </Badge>
             )}
@@ -275,7 +280,7 @@ const AdaptiveVotingPanel: React.FC = () => {
               <div className="mb-1" style={{ fontWeight: 600, fontSize: '0.85rem' }}>
                 {t('adaptive.raceChart')}
                 {currentRound && (
-                  <Badge bg="secondary" className="ms-2" style={{ fontSize: '0.7rem' }}>
+                  <Badge variant="secondary" className="ms-2" style={{ fontSize: '0.7rem' }}>
                     {t('adaptive.round')} {currentRound.round}
                     {' — '}
                     {Math.round(currentRound.strategic_voters_pct * 100)}% {t('adaptive.tactical')}

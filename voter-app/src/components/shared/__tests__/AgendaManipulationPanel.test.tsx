@@ -150,7 +150,7 @@ describe('AgendaManipulationPanel', () => {
     apiClient.POST.mockRejectedValueOnce(new Error('Network error'));
     renderPanel();
     await act(async () => { fireEvent.click(screen.getByTestId('simulate-btn')); });
-    await waitFor(() => expect(screen.getByRole('alert')).toHaveClass('alert-danger'));
+    await waitFor(() => expect(screen.getByRole('alert')).toHaveClass('bg-red-100'));
   });
 
   it('posts correct payload to API', async () => {

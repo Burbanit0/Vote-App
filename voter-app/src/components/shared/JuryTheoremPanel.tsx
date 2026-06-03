@@ -11,7 +11,12 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { $api } from '../../api/hooks';
 import { useTranslation } from 'react-i18next';
-import { Alert, Badge, Button, Col, Form, Row, Spinner } from 'react-bootstrap';
+import { Alert } from '@/components/ui/alert';
+import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
+import { Range } from '@/components/ui/form-controls';
+import { Col, Row } from '@/components/ui/grid';
+import { Spinner } from '@/components/ui/spinner';
 import {
   LineChart, Line, BarChart, Bar, XAxis, YAxis, Tooltip, Legend,
   ReferenceLine, ResponsiveContainer, Cell, CartesianGrid,
@@ -119,24 +124,24 @@ const JuryTheoremPanel: React.FC = () => {
       {/* Controls */}
       <Row className="g-2 mb-3 align-items-end">
         <Col xs={12} sm={3}>
-          <Form.Label className="small mb-0">
+          <label className="mb-1 inline-block small mb-0">
             {t('jury.numVoters')}: <strong>{numVoters}</strong>
-          </Form.Label>
-          <Form.Range min={10} max={500} step={10} value={numVoters}
+          </label>
+          <Range min={10} max={500} step={10} value={numVoters}
             onChange={e => setNumVoters(Number(e.target.value))} />
         </Col>
         <Col xs={12} sm={3}>
-          <Form.Label className="small mb-0">
+          <label className="mb-1 inline-block small mb-0">
             {t('jury.numOptions')}: <strong>{numOptions}</strong>
-          </Form.Label>
-          <Form.Range min={2} max={5} step={1} value={numOptions}
+          </label>
+          <Range min={2} max={5} step={1} value={numOptions}
             onChange={e => setNumOptions(Number(e.target.value))} />
         </Col>
         <Col xs={12} sm={3}>
-          <Form.Label className="small mb-0">
+          <label className="mb-1 inline-block small mb-0">
             {t('jury.numSims')}: <strong>{numSimulations}</strong>
-          </Form.Label>
-          <Form.Range min={50} max={500} step={50} value={numSimulations}
+          </label>
+          <Range min={50} max={500} step={50} value={numSimulations}
             onChange={e => setNumSimulations(Number(e.target.value))} />
         </Col>
         <Col xs={12} sm={3}>
@@ -152,11 +157,11 @@ const JuryTheoremPanel: React.FC = () => {
 
       {/* Competence slider — debounced */}
       <div className="mb-3 border rounded p-3">
-        <Form.Label className="fw-semibold mb-0" style={{ fontSize: '0.88rem' }}>
+        <label className="mb-1 inline-block fw-semibold mb-0" style={{ fontSize: '0.88rem' }}>
           {t('jury.competenceSlider')}: <strong>{Math.round(competence * 100)}%</strong>
           {loading && <Spinner size="sm" className="ms-2" />}
-        </Form.Label>
-        <Form.Range
+        </label>
+        <Range
           min={0.51} max={0.99} step={0.01} value={competence}
           onChange={e => handleCompetenceChange(Number(e.target.value))}
           data-testid="competence-slider"
@@ -175,7 +180,7 @@ const JuryTheoremPanel: React.FC = () => {
         <>
           {/* Summary badges */}
           <div className="d-flex flex-wrap gap-2 mb-3">
-            <Badge bg="danger" data-testid="theory-badge">
+            <Badge variant="danger" data-testid="theory-badge">
               {t('jury.theory')}: {theoryPct}%
             </Badge>
             <Badge
@@ -184,7 +189,7 @@ const JuryTheoremPanel: React.FC = () => {
             >
               🏆 {data.best_method}: {Math.round((data.methods[data.best_method]?.accuracy ?? 0) * 100)}%
             </Badge>
-            <Badge bg="secondary">
+            <Badge variant="secondary">
               ↓ {data.worst_method}: {Math.round((data.methods[data.worst_method]?.accuracy ?? 0) * 100)}%
             </Badge>
           </div>

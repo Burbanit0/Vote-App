@@ -7,9 +7,13 @@
  */
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import {
-  Alert, Badge, Button, Col, Form, Row, Spinner, Table,
-} from 'react-bootstrap';
+import { Alert } from '@/components/ui/alert';
+import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
+import { Range, Select } from '@/components/ui/form-controls';
+import { Col, Row } from '@/components/ui/grid';
+import { Spinner } from '@/components/ui/spinner';
+import { Table } from '@/components/ui/table';
 import { useElection } from '../../stores/useElectionStore';
 import { $api } from '../../api/hooks';
 import { apiClient } from '../../api/client';
@@ -139,25 +143,25 @@ const HotellingPanel: React.FC = () => {
       {/* Controls */}
       <Row className="g-2 mb-3 align-items-end">
         <Col xs={12} sm={3}>
-          <Form.Label className="small mb-0">{t('hotelling.method')}</Form.Label>
-          <Form.Select size="sm" value={method} onChange={e => setMethod(e.target.value)}>
+          <label className="mb-1 inline-block small mb-0">{t('hotelling.method')}</label>
+          <Select size="sm" value={method} onChange={e => setMethod(e.target.value)}>
             {['plurality', 'borda', 'irv', 'approval'].map(m => (
               <option key={m} value={m}>{m}</option>
             ))}
-          </Form.Select>
+          </Select>
         </Col>
         <Col xs={12} sm={3}>
-          <Form.Label className="small mb-0">
+          <label className="mb-1 inline-block small mb-0">
             {t('hotelling.iterations')}: <strong>{numIter}</strong>
-          </Form.Label>
-          <Form.Range min={1} max={20} step={1} value={numIter}
+          </label>
+          <Range min={1} max={20} step={1} value={numIter}
             onChange={e => setNumIter(Number(e.target.value))} />
         </Col>
         <Col xs={12} sm={2}>
-          <Form.Label className="small mb-0">
+          <label className="mb-1 inline-block small mb-0">
             {t('hotelling.stepSize')}: <strong>{stepSize.toFixed(2)}</strong>
-          </Form.Label>
-          <Form.Range min={0.01} max={0.15} step={0.01} value={stepSize}
+          </label>
+          <Range min={0.01} max={0.15} step={0.01} value={stepSize}
             onChange={e => setStepSize(Number(e.target.value))} />
         </Col>
         <Col xs={12} sm={2}>
@@ -187,19 +191,19 @@ const HotellingPanel: React.FC = () => {
                 {playing ? '⏸' : '▶'} {t('hotelling.step')} {stepIdx}/{data.iterations.length - 1}
               </Button>
               <Badge
-                bg={data.converged ? 'success' : 'danger'}
+                variant={data.converged ? 'success' : 'danger'}
                 data-testid="convergence-badge"
               >
                 {data.converged
                   ? `✓ ${t('hotelling.convergedAt')} step ${data.convergence_step}`
                   : `✗ ${t('hotelling.noConvergence')}`}
               </Badge>
-              <Badge bg="secondary" style={{ fontSize: '0.7rem' }}>
+              <Badge variant="secondary" style={{ fontSize: '0.7rem' }}>
                 {t(`hotelling.eq_${data.equilibrium_type}`)}
               </Badge>
             </div>
 
-            <Form.Range
+            <Range
               min={0} max={data.iterations.length - 1} step={1} value={stepIdx}
               onChange={e => { setPlaying(false); setStepIdx(Number(e.target.value)); }}
               className="mb-2"
@@ -329,7 +333,7 @@ const HotellingPanel: React.FC = () => {
             <div className="fw-semibold mb-1" style={{ fontSize: '0.85rem' }}>
               {t('hotelling.finalPositions')}
             </div>
-            <Table size="sm" bordered style={{ fontSize: '0.78rem' }}>
+            <Table className="[&_th]:p-1 [&_td]:p-1 [&_th]:text-left [&_td]:border-t [&_th]:border-b [&_td]:border-border [&_th]:border-border [&_*]:align-middle [&_th]:border [&_td]:border" style={{ fontSize: '0.78rem' }}>
               <thead className="table-light">
                 <tr>
                   <th>{t('common.method')}</th>
@@ -345,7 +349,7 @@ const HotellingPanel: React.FC = () => {
                     <td key={p.name}>({p.x.toFixed(2)}, {p.y.toFixed(2)})</td>
                   ))}
                   <td>
-                    <Badge bg={data.converged ? 'success' : 'danger'}
+                    <Badge variant={data.converged ? 'success' : 'danger'}
                       style={{ fontSize: '0.65rem' }}>
                       {t(`hotelling.eq_short_${data.equilibrium_type}`)}
                     </Badge>
@@ -359,7 +363,7 @@ const HotellingPanel: React.FC = () => {
                       <td key={p.name}>({p.x.toFixed(2)}, {p.y.toFixed(2)})</td>
                     ))}
                     <td>
-                      <Badge bg={d.converged ? 'success' : 'danger'}
+                      <Badge variant={d.converged ? 'success' : 'danger'}
                         style={{ fontSize: '0.65rem' }}>
                         {t(`hotelling.eq_short_${d.equilibrium_type}`)}
                       </Badge>

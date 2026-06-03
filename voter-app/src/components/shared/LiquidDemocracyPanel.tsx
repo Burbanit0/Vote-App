@@ -6,7 +6,12 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import * as d3 from 'd3';
 import { useTranslation } from 'react-i18next';
-import { Alert, Badge, Button, Col, Form, Row, Spinner } from 'react-bootstrap';
+import { Alert } from '@/components/ui/alert';
+import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
+import { Control, Range, Select } from '@/components/ui/form-controls';
+import { Col, Row } from '@/components/ui/grid';
+import { Spinner } from '@/components/ui/spinner';
 import {
   LineChart, Line, XAxis, YAxis, Tooltip, CartesianGrid, ResponsiveContainer,
 } from 'recharts';
@@ -220,10 +225,10 @@ const LiquidDemocracyPanel: React.FC = () => {
       {/* Controls */}
       <Row className="g-2 mb-3 align-items-end">
         <Col xs={12} md={4}>
-          <Form.Label className="small mb-0">
+          <label className="mb-1 inline-block small mb-0">
             {t('liquid.probSlider')}: <strong>{Math.round(delegProb * 100)}%</strong>
-          </Form.Label>
-          <Form.Range
+          </label>
+          <Range
             data-testid="delegation-prob-slider"
             min={0} max={1} step={0.05}
             value={delegProb}
@@ -231,8 +236,8 @@ const LiquidDemocracyPanel: React.FC = () => {
           />
         </Col>
         <Col xs={12} md={3}>
-          <Form.Label className="small mb-0">{t('liquid.strategy')}</Form.Label>
-          <Form.Select
+          <label className="mb-1 inline-block small mb-0">{t('liquid.strategy')}</label>
+          <Select
             size="sm"
             value={strategy}
             data-testid="strategy-select"
@@ -241,11 +246,11 @@ const LiquidDemocracyPanel: React.FC = () => {
             <option value="nearest">{t('liquid.strategyNearest')}</option>
             <option value="most_competent">{t('liquid.strategyCompetent')}</option>
             <option value="random">{t('liquid.strategyRandom')}</option>
-          </Form.Select>
+          </Select>
         </Col>
         <Col xs={6} md={2}>
-          <Form.Label className="small mb-0">{t('liquid.maxChain')}</Form.Label>
-          <Form.Control
+          <label className="mb-1 inline-block small mb-0">{t('liquid.maxChain')}</label>
+          <Control
             type="number" size="sm"
             min={1} max={20} value={maxChain}
             onChange={(e) => setMaxChain(Math.max(1, Math.min(20, Number(e.target.value))))}
@@ -253,7 +258,7 @@ const LiquidDemocracyPanel: React.FC = () => {
         </Col>
         <Col xs="auto">
           <Button variant="primary" onClick={handleSimulate} disabled={loading}>
-            {loading ? <Spinner size="sm" animation="border" /> : t('liquid.run')}
+            {loading ? <Spinner size="sm" /> : t('liquid.run')}
           </Button>
         </Col>
       </Row>
@@ -303,26 +308,26 @@ const LiquidDemocracyPanel: React.FC = () => {
 
           {/* Stats row */}
           <div className="d-flex flex-wrap gap-2 mb-3">
-            <Badge bg="secondary" data-testid="gini-badge">
+            <Badge variant="secondary" data-testid="gini-badge">
               Gini {data.gini_voting_weight.toFixed(3)}
             </Badge>
-            <Badge bg="primary">
+            <Badge variant="primary">
               {data.direct_voters} {t('liquid.directVoters')}
             </Badge>
-            <Badge bg="info" text="dark">
+            <Badge variant="info">
               {data.delegators} {t('liquid.delegators')}
             </Badge>
             {data.cycles_detected > 0 && (
-              <Badge bg="danger" data-testid="cycles-badge">
+              <Badge variant="danger" data-testid="cycles-badge">
                 {data.cycles_detected} {t('liquid.cycles')}
               </Badge>
             )}
             {data.super_voters.length > 0 && (
-              <Badge bg="warning" text="dark" data-testid="super-voters-badge">
+              <Badge variant="warning" data-testid="super-voters-badge">
                 {data.super_voters.length} {t('liquid.superVoters')} (max {data.super_voters[0]?.weight})
               </Badge>
             )}
-            <Badge bg="light" text="dark">
+            <Badge variant="light">
               {t('liquid.chainMax')} {data.chain_stats.max}
             </Badge>
           </div>

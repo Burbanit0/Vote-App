@@ -5,7 +5,13 @@
  */
 import React, { useCallback, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { Alert, Badge, Button, Card, Col, Form, Row, Spinner } from 'react-bootstrap';
+import { Alert } from '@/components/ui/alert';
+import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
+import { Card, CardBody, CardHeader } from '@/components/ui/card';
+import { Control } from '@/components/ui/form-controls';
+import { Col, Row } from '@/components/ui/grid';
+import { Spinner } from '@/components/ui/spinner';
 import { $api } from '../../api/hooks';
 import type { SenParadoxResponse } from '../../api';
 
@@ -114,15 +120,15 @@ const SenParadoxPanel: React.FC = () => {
       {/* Controls */}
       <Row className="g-2 mb-3 align-items-end">
         <Col xs={6} md={3}>
-          <Form.Label className="small mb-0">{t('sen.seed')}</Form.Label>
-          <Form.Control type="number" size="sm" value={seed}
+          <label className="mb-1 inline-block small mb-0">{t('sen.seed')}</label>
+          <Control type="number" size="sm" value={seed}
             data-testid="seed-input"
             onChange={(e) => setSeed(Number(e.target.value))} />
         </Col>
         <Col xs="auto">
           <Button variant="primary" onClick={runSimulation} disabled={loading}
             data-testid="simulate-btn">
-            {loading ? <Spinner size="sm" animation="border" /> : t('sen.run')}
+            {loading ? <Spinner size="sm" /> : t('sen.run')}
           </Button>
         </Col>
       </Row>
@@ -136,11 +142,11 @@ const SenParadoxPanel: React.FC = () => {
         <>
           {/* Headline badges */}
           <div className="d-flex flex-wrap gap-2 mb-3">
-            <Badge bg={data.paradox_exists ? 'danger' : 'success'}
+            <Badge variant={data.paradox_exists ? 'danger' : 'success'}
               data-testid="paradox-badge">
               {data.paradox_exists ? t('sen.paradoxExists') : t('sen.noParadox')}
             </Badge>
-            <Badge bg="warning" text="dark" data-testid="frequency-badge">
+            <Badge variant="warning" data-testid="frequency-badge">
               {t('sen.frequency')}: {Math.round(data.paradox_frequency * 100)}%
             </Badge>
           </div>
@@ -158,11 +164,11 @@ const SenParadoxPanel: React.FC = () => {
                 <div data-testid="paradox-example">
                   {data.paradox_examples.slice(0, 1).map((ex, i) => (
                     <Card key={i} className="border-danger mb-2">
-                      <Card.Header className="py-1 bg-danger bg-opacity-10"
+                      <CardHeader className="block space-y-0 border-b border-border px-4 py-2 py-1 bg-danger bg-opacity-10"
                         style={{ fontSize: '0.8rem', fontWeight: 700 }}>
                         ⚡ {ex.name}
-                      </Card.Header>
-                      <Card.Body className="py-2">
+                      </CardHeader>
+                      <CardBody className="py-2">
                         <div className="d-flex gap-4 mb-2" style={{ fontSize: '0.78rem' }}>
                           <div>
                             <div className="text-muted">{t('sen.person1')}:</div>
@@ -180,15 +186,15 @@ const SenParadoxPanel: React.FC = () => {
                         <div className="d-flex gap-3 mb-1" style={{ fontSize: '0.78rem' }}>
                           <div>
                             <span className="text-muted">{t('sen.liberalOutcome')}:</span>
-                            <Badge bg="warning" text="dark" className="ms-1">{altLabel(ex.liberal_outcome)}</Badge>
+                            <Badge variant="warning" className="ms-1">{altLabel(ex.liberal_outcome)}</Badge>
                           </div>
                           <div>
                             <span className="text-muted">{t('sen.paretoOutcome')}:</span>
-                            <Badge bg="primary" className="ms-1">{altLabel(ex.pareto_outcome)}</Badge>
+                            <Badge variant="primary" className="ms-1">{altLabel(ex.pareto_outcome)}</Badge>
                           </div>
                         </div>
                         <div className="text-danger" style={{ fontSize: '0.75rem' }}>{ex.explanation}</div>
-                      </Card.Body>
+                      </CardBody>
                     </Card>
                   ))}
                 </div>
@@ -206,13 +212,13 @@ const SenParadoxPanel: React.FC = () => {
               {data.resolution_options.map((r, i) => (
                 <Card key={i} className="mb-2" style={{ fontSize: '0.78rem' }}
                   data-testid={`resolution-${i}`}>
-                  <Card.Body className="py-2">
+                  <CardBody className="py-2">
                     <div className="fw-semibold">{r.name}
                       <span className="text-muted ms-2" style={{ fontSize: '0.68rem' }}>({r.theorist})</span>
                     </div>
                     <div style={{ color: '#198754' }}>✓ {r.outcome}</div>
                     <div style={{ color: '#dc3545' }}>✗ {r.cost}</div>
-                  </Card.Body>
+                  </CardBody>
                 </Card>
               ))}
 

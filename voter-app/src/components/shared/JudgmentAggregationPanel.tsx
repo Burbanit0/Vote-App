@@ -5,7 +5,14 @@
  */
 import React, { useCallback, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { Alert, Badge, Button, Card, Col, Form, Row, Spinner, Table } from 'react-bootstrap';
+import { Alert } from '@/components/ui/alert';
+import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
+import { Card, CardBody, CardHeader } from '@/components/ui/card';
+import { Control, Select } from '@/components/ui/form-controls';
+import { Col, Row } from '@/components/ui/grid';
+import { Spinner } from '@/components/ui/spinner';
+import { Table } from '@/components/ui/table';
 import { $api } from '../../api/hooks';
 
 // ── Types ─────────────────────────────────────────────────────────────────────
@@ -152,30 +159,30 @@ const JudgmentAggregationPanel: React.FC = () => {
       {/* Controls */}
       <Row className="g-2 mb-3 align-items-end">
         <Col xs={12} md={3}>
-          <Form.Label className="small mb-0">{t('judg.scenario')}</Form.Label>
-          <Form.Select size="sm" value={scenario} data-testid="scenario-select"
+          <label className="mb-1 inline-block small mb-0">{t('judg.scenario')}</label>
+          <Select size="sm" value={scenario} data-testid="scenario-select"
             onChange={(e) => setScenario(e.target.value)}>
             <option value="legal">{t('judg.scenarioLegal')}</option>
             <option value="budget">{t('judg.scenarioBudget')}</option>
             <option value="climate">{t('judg.scenarioClimate')}</option>
-          </Form.Select>
+          </Select>
         </Col>
         <Col xs={6} md={2}>
-          <Form.Label className="small mb-0">{t('judg.numVoters')}</Form.Label>
-          <Form.Control type="number" size="sm" min={1} max={100} value={numVoters}
+          <label className="mb-1 inline-block small mb-0">{t('judg.numVoters')}</label>
+          <Control type="number" size="sm" min={1} max={100} value={numVoters}
             data-testid="num-voters-input"
             onChange={(e) => setNumVoters(Math.max(1, Math.min(100, Number(e.target.value))))} />
         </Col>
         <Col xs={6} md={2}>
-          <Form.Label className="small mb-0">{t('judg.seed')}</Form.Label>
-          <Form.Control type="number" size="sm" value={seed}
+          <label className="mb-1 inline-block small mb-0">{t('judg.seed')}</label>
+          <Control type="number" size="sm" value={seed}
             data-testid="seed-input"
             onChange={(e) => setSeed(Number(e.target.value))} />
         </Col>
         <Col xs="auto">
           <Button variant="primary" onClick={runSimulation} disabled={loading}
             data-testid="simulate-btn">
-            {loading ? <Spinner size="sm" animation="border" /> : t('judg.run')}
+            {loading ? <Spinner size="sm" /> : t('judg.run')}
           </Button>
         </Col>
       </Row>
@@ -190,16 +197,16 @@ const JudgmentAggregationPanel: React.FC = () => {
           {/* Headline */}
           <div className="d-flex flex-wrap gap-2 mb-3">
             <Badge
-              bg={data.collective_coherent ? 'success' : 'danger'}
+              variant={data.collective_coherent ? 'success' : 'danger'}
               data-testid="coherence-badge"
             >
               {data.collective_coherent ? t('judg.coherent') : t('judg.incoherent')}
             </Badge>
-            <Badge bg="info" text="dark" data-testid="voter-coherence-badge">
+            <Badge variant="info" data-testid="voter-coherence-badge">
               {t('judg.individualCoherence')}: {Math.round(data.voter_coherence_rate * 100)}%
             </Badge>
             {data.paradox_severity > 0 && (
-              <Badge bg="warning" text="dark" data-testid="severity-badge">
+              <Badge variant="warning" data-testid="severity-badge">
                 {t('judg.severity')}: {Math.round(data.paradox_severity * 100)}%
               </Badge>
             )}
@@ -208,7 +215,7 @@ const JudgmentAggregationPanel: React.FC = () => {
           <Row className="g-3">
             <Col xs={12} md={7}>
               {/* Propositions table */}
-              <Table size="sm" hover data-testid="propositions-table">
+              <Table className="[&_th]:p-1 [&_td]:p-1 [&_th]:text-left [&_td]:border-t [&_th]:border-b [&_td]:border-border [&_th]:border-border [&_*]:align-middle [&_tbody_tr:hover]:bg-muted/50" data-testid="propositions-table">
                 <thead>
                   <tr>
                     <th style={{ fontSize: '0.78rem' }}>{t('judg.proposition')}</th>
@@ -225,13 +232,13 @@ const JudgmentAggregationPanel: React.FC = () => {
                       <tr key={p.id}
                         style={{ background: isInco ? '#fff5f5' : undefined }}>
                         <td style={{ fontSize: '0.78rem' }}>
-                          <Badge bg={p.type === 'premise' ? 'secondary' : 'primary'}
+                          <Badge variant={p.type === 'premise' ? 'secondary' : 'primary'}
                             style={{ fontSize: '0.6rem' }} className="me-1">
                             {p.id}
                           </Badge>
                           {p.text}
                           {isInco && (
-                            <Badge bg="danger" className="ms-1" style={{ fontSize: '0.6rem' }}>
+                            <Badge variant="danger" className="ms-1" style={{ fontSize: '0.6rem' }}>
                               ⚡
                             </Badge>
                           )}
@@ -274,27 +281,27 @@ const JudgmentAggregationPanel: React.FC = () => {
               {/* Resolution methods */}
               {!data.collective_coherent && (
                 <Card className="border-warning mb-2" data-testid="resolution-card">
-                  <Card.Header className="py-1" style={{ fontSize: '0.8rem', fontWeight: 700 }}>
+                  <CardHeader className="block space-y-0 border-b border-border px-4 py-2 py-1" style={{ fontSize: '0.8rem', fontWeight: 700 }}>
                     {t('judg.resolutionTitle')}
-                  </Card.Header>
-                  <Card.Body className="py-2">
+                  </CardHeader>
+                  <CardBody className="py-2">
                     <div className="d-flex gap-4" style={{ fontSize: '0.78rem' }}>
                       <div>
                         <div className="text-muted">{t('judg.premiseBased')}</div>
                         {Object.entries(data.resolution_methods.premise_based).map(([k, v]) => (
-                          <Badge key={k} bg={v ? 'success' : 'danger'} className="me-1">
+                          <Badge key={k} variant={v ? 'success' : 'danger'} className="me-1">
                             {k}: {v ? 'OUI' : 'NON'}
                           </Badge>
                         ))}
                       </div>
                       <div>
                         <div className="text-muted">{t('judg.conclusionBased')}</div>
-                        <Badge bg="secondary">
+                        <Badge variant="secondary">
                           {t('judg.overridePremise')}
                         </Badge>
                       </div>
                     </div>
-                  </Card.Body>
+                  </CardBody>
                 </Card>
               )}
             </Col>

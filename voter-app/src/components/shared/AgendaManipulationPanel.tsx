@@ -6,7 +6,12 @@
 import React, { useCallback, useRef, useState } from 'react';
 import { $api } from '../../api/hooks';
 import { useTranslation } from 'react-i18next';
-import { Alert, Badge, Button, Col, Form, Row, Spinner } from 'react-bootstrap';
+import { Alert } from '@/components/ui/alert';
+import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
+import { Control, Select } from '@/components/ui/form-controls';
+import { Col, Row } from '@/components/ui/grid';
+import { Spinner } from '@/components/ui/spinner';
 
 const DEFAULT_ALTS = ['Alice', 'Bob', 'Carol'];
 
@@ -125,8 +130,8 @@ const AgendaEditor: React.FC<AgendaEditorProps> = ({ order, onReorder, result, t
         >
           <span style={{ color: '#adb5bd', minWidth: 18 }}>{i + 1}.</span>
           <span style={{ flex: 1 }}>{alt}</span>
-          {i === 0 && <Badge bg="secondary" style={{ fontSize: '0.6rem' }}>{t('agenda.champion')}</Badge>}
-          {i > 0 && <Badge bg="light" text="dark" style={{ fontSize: '0.6rem' }}>vs {t('agenda.champion')}</Badge>}
+          {i === 0 && <Badge variant="secondary" style={{ fontSize: '0.6rem' }}>{t('agenda.champion')}</Badge>}
+          {i > 0 && <Badge variant="light" style={{ fontSize: '0.6rem' }}>vs {t('agenda.champion')}</Badge>}
           <span style={{ color: '#adb5bd', fontSize: '0.7rem' }}>⠿</span>
         </div>
       ))}
@@ -177,28 +182,28 @@ const AgendaManipulationPanel: React.FC = () => {
       {/* Controls */}
       <Row className="g-2 mb-3 align-items-end">
         <Col xs={6} md={2}>
-          <Form.Label className="small mb-0">{t('agenda.voters')}</Form.Label>
-          <Form.Control type="number" size="sm" min={3} max={101} value={numVoters}
+          <label className="mb-1 inline-block small mb-0">{t('agenda.voters')}</label>
+          <Control type="number" size="sm" min={3} max={101} value={numVoters}
             data-testid="voters-input"
             onChange={(e) => setNumVoters(Number(e.target.value))} />
         </Col>
         <Col xs={6} md={2}>
-          <Form.Label className="small mb-0">{t('agenda.seed')}</Form.Label>
-          <Form.Control type="number" size="sm" value={seed}
+          <label className="mb-1 inline-block small mb-0">{t('agenda.seed')}</label>
+          <Control type="number" size="sm" value={seed}
             data-testid="seed-input"
             onChange={(e) => setSeed(Number(e.target.value))} />
         </Col>
         <Col xs={12} md={3}>
-          <Form.Label className="small mb-0">{t('agenda.target')}</Form.Label>
-          <Form.Select size="sm" value={target} data-testid="target-select"
+          <label className="mb-1 inline-block small mb-0">{t('agenda.target')}</label>
+          <Select size="sm" value={target} data-testid="target-select"
             onChange={(e) => setTarget(e.target.value)}>
             {alts.map((a) => <option key={a} value={a}>{a}</option>)}
-          </Form.Select>
+          </Select>
         </Col>
         <Col xs="auto">
           <Button variant="primary" onClick={handleSimulate} disabled={loading}
             data-testid="simulate-btn">
-            {loading ? <Spinner size="sm" animation="border" /> : t('agenda.run')}
+            {loading ? <Spinner size="sm" /> : t('agenda.run')}
           </Button>
         </Col>
       </Row>
@@ -212,15 +217,14 @@ const AgendaManipulationPanel: React.FC = () => {
         <>
           {/* Condorcet + manipulation power badges */}
           <div className="d-flex flex-wrap gap-2 mb-3">
-            <Badge bg={data.condorcet_winner ? 'success' : 'danger'}
+            <Badge variant={data.condorcet_winner ? 'success' : 'danger'}
               data-testid="cw-badge">
               {data.condorcet_winner
                 ? `✓ ${t('agenda.cwExists')}: ${data.condorcet_winner}`
                 : `✗ ${t('agenda.noCW')}`}
             </Badge>
             <Badge
-              bg={data.manipulation_power >= 0.99 ? 'danger' : data.manipulation_power > 0.5 ? 'warning' : 'secondary'}
-              text={data.manipulation_power > 0.5 && data.manipulation_power < 0.99 ? 'dark' : undefined}
+              variant={data.manipulation_power >= 0.99 ? 'danger' : data.manipulation_power > 0.5 ? 'warning' : 'secondary'}
               data-testid="power-badge">
               {t('agenda.manipPower')}: {Math.round(data.manipulation_power * 100)}%
             </Badge>
@@ -277,7 +281,7 @@ const AgendaManipulationPanel: React.FC = () => {
                 const possible = data.achievable_outcomes.includes(a);
                 return (
                   <Badge key={a}
-                    bg={possible ? 'success' : 'secondary'}
+                    variant={possible ? 'success' : 'secondary'}
                     data-testid={`achievable-badge-${a}`}
                     style={{ fontSize: '0.78rem', padding: '6px 10px' }}>
                     {a} {possible ? '✓' : '✗'}

@@ -1,7 +1,11 @@
 import React, { useCallback, useMemo, useState } from 'react';
-import {
-  Alert, Badge, Button, Card, Col, Container, Form, Row, Spinner,
-} from 'react-bootstrap';
+import { Alert } from '@/components/ui/alert';
+import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
+import { Card, CardBody, CardHeader } from '@/components/ui/card';
+import { Range, Select } from '@/components/ui/form-controls';
+import { Col, Container, Row } from '@/components/ui/grid';
+import { Spinner } from '@/components/ui/spinner';
 import {
   CartesianGrid,
   Dot,
@@ -266,14 +270,14 @@ const WhatIfPage: React.FC = () => {
         {/* ── Left column — base config ── */}
         <Col md={5}>
           <Card className="h-100">
-            <Card.Header className="fw-semibold">⚙️ Scénario de base</Card.Header>
-            <Card.Body>
+            <CardHeader className="block space-y-0 border-b border-border px-4 py-2 fw-semibold">⚙️ Scénario de base</CardHeader>
+            <CardBody>
               {/* num_candidates */}
-              <Form.Group className="mb-3">
-                <Form.Label htmlFor="wi-num-cand" className="small mb-1">
+              <div className="mb-3">
+                <label htmlFor="wi-num-cand" className="mb-1 inline-block small mb-1">
                   Candidats : <strong>{numCandidates}</strong>
-                </Form.Label>
-                <Form.Range
+                </label>
+                <Range
                   id="wi-num-cand"
                   min={2} max={8} step={1}
                   value={numCandidates}
@@ -282,16 +286,16 @@ const WhatIfPage: React.FC = () => {
                   disabled={variantParam === 'num_candidates'}
                 />
                 {variantParam === 'num_candidates' && (
-                  <Form.Text muted>Paramètre en cours de variation — slider désactivé</Form.Text>
+                  <small className="block text-sm text-muted-foreground">Paramètre en cours de variation — slider désactivé</small>
                 )}
-              </Form.Group>
+              </div>
 
               {/* num_voters */}
-              <Form.Group className="mb-3">
-                <Form.Label htmlFor="wi-num-voters" className="small mb-1">
+              <div className="mb-3">
+                <label htmlFor="wi-num-voters" className="mb-1 inline-block small mb-1">
                   Électeurs : <strong>{numVoters.toLocaleString()}</strong>
-                </Form.Label>
-                <Form.Range
+                </label>
+                <Range
                   id="wi-num-voters"
                   min={100} max={3000} step={100}
                   value={numVoters}
@@ -300,16 +304,16 @@ const WhatIfPage: React.FC = () => {
                   disabled={variantParam === 'num_voters'}
                 />
                 {variantParam === 'num_voters' && (
-                  <Form.Text muted>Paramètre en cours de variation — slider désactivé</Form.Text>
+                  <small className="block text-sm text-muted-foreground">Paramètre en cours de variation — slider désactivé</small>
                 )}
-              </Form.Group>
+              </div>
 
               {/* ideology_distribution */}
-              <Form.Group className="mb-0">
-                <Form.Label htmlFor="wi-ideo" className="small mb-1">
+              <div className="mb-0">
+                <label htmlFor="wi-ideo" className="mb-1 inline-block small mb-1">
                   Distribution idéologique
-                </Form.Label>
-                <Form.Select
+                </label>
+                <Select
                   id="wi-ideo"
                   size="sm"
                   value={ideoDistrib}
@@ -319,20 +323,20 @@ const WhatIfPage: React.FC = () => {
                   {IDEOLOGY_OPTIONS.map((o) => (
                     <option key={o.value} value={o.value}>{o.label}</option>
                   ))}
-                </Form.Select>
+                </Select>
                 {variantParam === 'polarization' && (
-                  <Form.Text muted>La polarisation varie automatiquement</Form.Text>
+                  <small className="block text-sm text-muted-foreground">La polarisation varie automatiquement</small>
                 )}
-              </Form.Group>
-            </Card.Body>
+              </div>
+            </CardBody>
           </Card>
         </Col>
 
         {/* ── Right column — variant config ── */}
         <Col md={7}>
           <Card className="h-100">
-            <Card.Header className="fw-semibold">🔀 Paramètre variable</Card.Header>
-            <Card.Body>
+            <CardHeader className="block space-y-0 border-b border-border px-4 py-2 fw-semibold">🔀 Paramètre variable</CardHeader>
+            <CardBody>
               {/* Variant param selector */}
               <div className="d-flex gap-2 flex-wrap mb-4" role="group" aria-label="Paramètre à faire varier">
                 {VARIANT_PARAMS.map((p) => (
@@ -351,13 +355,13 @@ const WhatIfPage: React.FC = () => {
               {/* Min / Max sliders */}
               <Row className="g-3 mb-3">
                 <Col md={6}>
-                  <Form.Group>
-                    <Form.Label htmlFor="wi-var-min" className="small mb-1">
+                  <div>
+                    <label htmlFor="wi-var-min" className="mb-1 inline-block small mb-1">
                       Valeur min : <strong>
                         {paramDef.unit === '%' ? `${(variantMin * 100).toFixed(0)} %` : variantMin}
                       </strong>
-                    </Form.Label>
-                    <Form.Range
+                    </label>
+                    <Range
                       id="wi-var-min"
                       min={paramDef.min} max={paramDef.max} step={paramDef.step}
                       value={variantMin}
@@ -367,16 +371,16 @@ const WhatIfPage: React.FC = () => {
                         if (v >= variantMax) setVariantMax(Math.min(paramDef.max, v + paramDef.step * 3));
                       }}
                     />
-                  </Form.Group>
+                  </div>
                 </Col>
                 <Col md={6}>
-                  <Form.Group>
-                    <Form.Label htmlFor="wi-var-max" className="small mb-1">
+                  <div>
+                    <label htmlFor="wi-var-max" className="mb-1 inline-block small mb-1">
                       Valeur max : <strong>
                         {paramDef.unit === '%' ? `${(variantMax * 100).toFixed(0)} %` : variantMax}
                       </strong>
-                    </Form.Label>
-                    <Form.Range
+                    </label>
+                    <Range
                       id="wi-var-max"
                       min={paramDef.min} max={paramDef.max} step={paramDef.step}
                       value={variantMax}
@@ -386,7 +390,7 @@ const WhatIfPage: React.FC = () => {
                         if (v <= variantMin) setVariantMin(Math.max(paramDef.min, v - paramDef.step * 3));
                       }}
                     />
-                  </Form.Group>
+                  </div>
                 </Col>
               </Row>
 
@@ -411,7 +415,7 @@ const WhatIfPage: React.FC = () => {
                   <><Spinner size="sm" className="me-2" />Analyse en cours…</>
                 ) : '▶ Lancer l\'analyse Et si…'}
               </Button>
-            </Card.Body>
+            </CardBody>
           </Card>
         </Col>
       </Row>
@@ -427,14 +431,14 @@ const WhatIfPage: React.FC = () => {
       {hasResults && (
         <>
           <Card className="mb-3">
-            <Card.Header className="d-flex align-items-center justify-content-between">
+            <CardHeader className="block space-y-0 border-b border-border px-4 py-2 d-flex align-items-center justify-content-between">
               <strong>Score de majorité par méthode</strong>
               <small className="text-muted">
                 {paramDef.label} varie de {xFormatter(variantMin)} à {xFormatter(variantMax)}
                 {' · '}⭐ = changement de vainqueur
               </small>
-            </Card.Header>
-            <Card.Body>
+            </CardHeader>
+            <CardBody>
               <ResponsiveContainer width="100%" height={320}>
                 <LineChart data={chartData} margin={{ top: 8, right: 24, left: 0, bottom: 8 }}>
                   <CartesianGrid strokeDasharray="3 3" stroke="var(--bs-border-color, #dee2e6)" />
@@ -487,7 +491,7 @@ const WhatIfPage: React.FC = () => {
                   ))}
                 </LineChart>
               </ResponsiveContainer>
-            </Card.Body>
+            </CardBody>
           </Card>
 
           {/* ── Divergence message ── */}
@@ -500,18 +504,18 @@ const WhatIfPage: React.FC = () => {
           {/* ── Winner changes detail ── */}
           {winnerChanges.length > 0 && expertMode && (
             <Card className="mb-3">
-              <Card.Header><strong>Changements de vainqueur</strong></Card.Header>
-              <Card.Body className="py-2">
+              <CardHeader className="block space-y-0 border-b border-border px-4 py-2"><strong>Changements de vainqueur</strong></CardHeader>
+              <CardBody className="py-2">
                 {winnerChanges.map((c, i) => (
                   <div key={i} className="d-flex align-items-center gap-2 mb-1" style={{ fontSize: '0.85rem' }}>
-                    <Badge bg="secondary">{METHOD_LABELS[c.method] ?? c.method}</Badge>
+                    <Badge variant="secondary">{METHOD_LABELS[c.method] ?? c.method}</Badge>
                     <span>{xFormatter(c.value)} →</span>
                     <span className="text-muted">{c.from ?? '—'}</span>
                     <span>→</span>
                     <span className="fw-semibold">{c.to ?? '—'}</span>
                   </div>
                 ))}
-              </Card.Body>
+              </CardBody>
             </Card>
           )}
 

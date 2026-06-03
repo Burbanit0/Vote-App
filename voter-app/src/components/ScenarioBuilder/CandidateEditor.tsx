@@ -1,5 +1,9 @@
 import React, { useMemo } from 'react';
-import { Badge, Button, Card, Col, Form, Row } from 'react-bootstrap';
+import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
+import { Card, CardBody } from '@/components/ui/card';
+import { Control, Range } from '@/components/ui/form-controls';
+import { Col, Row } from '@/components/ui/grid';
 import { useTranslation } from 'react-i18next';
 
 export interface CandidateConfig {
@@ -83,7 +87,7 @@ const CandidateEditor: React.FC<Props> = ({ candidates, onChange }) => {
         <small className="text-muted">{label}</small>
         <small className="fw-semibold">{Math.round(value * 100)}%</small>
       </div>
-      <Form.Range min={0} max={1} step={0.05} value={value} onChange={(e) => onSliderChange(Number(e.target.value))} />
+      <Range min={0} max={1} step={0.05} value={value} onChange={(e) => onSliderChange(Number(e.target.value))} />
     </div>
   );
 
@@ -95,11 +99,11 @@ const CandidateEditor: React.FC<Props> = ({ candidates, onChange }) => {
 
       {candidates.map((c) => (
         <Card key={c.id} className={`mb-3 ${c.isBlank ? 'border-warning' : ''}`}>
-          <Card.Body>
+          <CardBody>
             {c.isBlank ? (
               <div className="d-flex align-items-center justify-content-between">
                 <div className="d-flex align-items-center gap-2">
-                  <Badge bg="warning" text="dark" style={{ fontSize: '0.85rem' }}>{t('scenario.blankVoteBadge')}</Badge>
+                  <Badge variant="warning" style={{ fontSize: '0.85rem' }}>{t('scenario.blankVoteBadge')}</Badge>
                   <small className="text-muted">{t('scenario.blankDescription')}</small>
                 </div>
                 <Button variant="outline-danger" size="sm" onClick={() => remove(c.id)}>✕</Button>
@@ -108,7 +112,7 @@ const CandidateEditor: React.FC<Props> = ({ candidates, onChange }) => {
               <>
                 <Row className="g-2 align-items-center mb-3">
                   <Col md={5}>
-                    <Form.Control
+                    <Control
                       size="sm"
                       placeholder={t('scenario.candidateNamePlaceholder')}
                       value={c.name}
@@ -118,7 +122,7 @@ const CandidateEditor: React.FC<Props> = ({ candidates, onChange }) => {
                   <Col md={6}>
                     <div className="d-flex align-items-center gap-2">
                       <small className="text-nowrap" style={{ color: '#3c3cdc', minWidth: 50 }}>{t('scenario.left')}</small>
-                      <Form.Range
+                      <Range
                         min={-1} max={1} step={0.05} value={c.ideology}
                         onChange={(e) => onIdeologyChange(c.id, Number(e.target.value))}
                       />
@@ -148,7 +152,7 @@ const CandidateEditor: React.FC<Props> = ({ candidates, onChange }) => {
                 </Row>
               </>
             )}
-          </Card.Body>
+          </CardBody>
         </Card>
       ))}
 

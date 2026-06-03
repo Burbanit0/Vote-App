@@ -7,7 +7,13 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { $api } from '../../api/hooks';
 import { useTranslation } from 'react-i18next';
-import { Alert, Badge, Button, Col, Form, Row, Spinner, Table } from 'react-bootstrap';
+import { Alert } from '@/components/ui/alert';
+import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
+import { Check, Range } from '@/components/ui/form-controls';
+import { Col, Row } from '@/components/ui/grid';
+import { Spinner } from '@/components/ui/spinner';
+import { Table } from '@/components/ui/table';
 import { useElection } from '../../stores/useElectionStore';
 import PinToCentralButton from './PinToCentralButton';
 const DEBOUNCE_MS = 400;
@@ -90,7 +96,7 @@ const DraggableBallot: React.FC<BallotProps> = ({ order, onReorder, t }) => {
           />
           <span style={{ flex: 1 }}>{name}</span>
           {i === 0 && (
-            <Badge bg="warning" text="dark" style={{ fontSize: '0.65rem' }}>
+            <Badge variant="warning" style={{ fontSize: '0.65rem' }}>
               {t('behavioral.primacyTag')}
             </Badge>
           )}
@@ -117,7 +123,7 @@ const SensitivityTable: React.FC<SensitivityTableProps> = ({ data, candidateName
   const rows = Object.entries(method_sensitivity);
 
   return (
-    <Table size="sm" hover className="mt-3" data-testid="sensitivity-table">
+    <Table className="[&_th]:p-1 [&_td]:p-1 [&_th]:text-left [&_td]:border-t [&_th]:border-b [&_td]:border-border [&_th]:border-border [&_*]:align-middle [&_tbody_tr:hover]:bg-muted/50 mt-3" data-testid="sensitivity-table">
       <thead>
         <tr>
           <th style={{ fontSize: '0.78rem' }}>{t('behavioral.method')}</th>
@@ -135,7 +141,7 @@ const SensitivityTable: React.FC<SensitivityTableProps> = ({ data, candidateName
               <td style={{ fontSize: '0.78rem' }}>
                 <code>{method}</code>
                 {bulletImmune && (
-                  <Badge bg="light" text="secondary" className="ms-1" style={{ fontSize: '0.6rem' }}>
+                  <Badge variant="light" className="ms-1" style={{ fontSize: '0.6rem' }}>
                     {t('behavioral.bulletImmune')}
                   </Badge>
                 )}
@@ -242,7 +248,7 @@ const BehavioralBiasPanel: React.FC = () => {
         {/* Section 1 — Expressive */}
         <Col xs={12} md={4}>
           <div className="border rounded p-3" style={{ background: '#f8f9fa' }}>
-            <Form.Check
+            <Check
               type="switch"
               id="expressive-switch"
               label={<strong style={{ fontSize: '0.85rem' }}>{t('behavioral.expressive')}</strong>}
@@ -255,10 +261,10 @@ const BehavioralBiasPanel: React.FC = () => {
             </div>
             {expressiveOn && (
               <>
-                <Form.Label className="small mb-0">
+                <label className="mb-1 inline-block small mb-0">
                   {t('behavioral.expressivePct')}: <strong>{Math.round(expressivePct * 100)}%</strong>
-                </Form.Label>
-                <Form.Range
+                </label>
+                <Range
                   data-testid="expressive-slider"
                   min={0} max={1} step={0.05}
                   value={expressivePct}
@@ -272,7 +278,7 @@ const BehavioralBiasPanel: React.FC = () => {
         {/* Section 2 — Bullet voting */}
         <Col xs={12} md={4}>
           <div className="border rounded p-3" style={{ background: '#f8f9fa' }}>
-            <Form.Check
+            <Check
               type="switch"
               id="bullet-switch"
               label={<strong style={{ fontSize: '0.85rem' }}>{t('behavioral.bullet')}</strong>}
@@ -285,10 +291,10 @@ const BehavioralBiasPanel: React.FC = () => {
             </div>
             {bulletOn && (
               <>
-                <Form.Label className="small mb-0">
+                <label className="mb-1 inline-block small mb-0">
                   {t('behavioral.bulletPct')}: <strong>{Math.round(bulletPct * 100)}%</strong>
-                </Form.Label>
-                <Form.Range
+                </label>
+                <Range
                   data-testid="bullet-slider"
                   min={0} max={1} step={0.05}
                   value={bulletPct}
@@ -302,7 +308,7 @@ const BehavioralBiasPanel: React.FC = () => {
         {/* Section 3 — Primacy */}
         <Col xs={12} md={4}>
           <div className="border rounded p-3" style={{ background: '#f8f9fa' }}>
-            <Form.Check
+            <Check
               type="switch"
               id="primacy-switch"
               label={<strong style={{ fontSize: '0.85rem' }}>{t('behavioral.primacy')}</strong>}
@@ -315,10 +321,10 @@ const BehavioralBiasPanel: React.FC = () => {
             </div>
             {primacyOn && (
               <>
-                <Form.Label className="small mb-0">
+                <label className="mb-1 inline-block small mb-0">
                   {t('behavioral.primacyBonus')}: <strong>+{Math.round(primacyBonus * 100)}%</strong>
-                </Form.Label>
-                <Form.Range
+                </label>
+                <Range
                   data-testid="primacy-slider"
                   min={0} max={0.2} step={0.01}
                   value={primacyBonus}
@@ -333,7 +339,7 @@ const BehavioralBiasPanel: React.FC = () => {
 
       <div className="d-flex gap-2 mb-3 flex-wrap">
         <Button variant="primary" onClick={handleSimulate} disabled={loading}>
-          {loading ? <Spinner size="sm" animation="border" /> : t('behavioral.run')}
+          {loading ? <Spinner size="sm" /> : t('behavioral.run')}
         </Button>
         {data && (
           <PinToCentralButton
@@ -410,17 +416,17 @@ const BehavioralBiasPanel: React.FC = () => {
           {/* Vote breakdown badges */}
           <div className="d-flex flex-wrap gap-2 mb-3">
             {data.vote_breakdown.expressive_voters > 0 && (
-              <Badge bg="info" text="dark" data-testid="expressive-breakdown-badge">
+              <Badge variant="info" data-testid="expressive-breakdown-badge">
                 {data.vote_breakdown.expressive_voters} {t('behavioral.expressiveLabel')}
               </Badge>
             )}
             {data.vote_breakdown.bullet_voters > 0 && (
-              <Badge bg="warning" text="dark" data-testid="bullet-breakdown-badge">
+              <Badge variant="warning" data-testid="bullet-breakdown-badge">
                 {data.vote_breakdown.bullet_voters} {t('behavioral.bulletLabel')}
               </Badge>
             )}
             {data.vote_breakdown.primacy_affected > 0 && (
-              <Badge bg="secondary" data-testid="primacy-breakdown-badge">
+              <Badge variant="secondary" data-testid="primacy-breakdown-badge">
                 {data.vote_breakdown.primacy_affected} {t('behavioral.primacyLabel')} ({data.vote_breakdown.first_listed})
               </Badge>
             )}

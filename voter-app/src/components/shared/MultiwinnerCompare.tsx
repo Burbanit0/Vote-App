@@ -6,7 +6,13 @@
  */
 import React, { useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { Alert, Badge, Button, Col, Form, Row, Spinner, Table } from 'react-bootstrap';
+import { Alert } from '@/components/ui/alert';
+import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
+import { Range } from '@/components/ui/form-controls';
+import { Col, Row } from '@/components/ui/grid';
+import { Spinner } from '@/components/ui/spinner';
+import { Table } from '@/components/ui/table';
 import { useElection } from '../../stores/useElectionStore';
 import { $api } from '../../api/hooks';
 
@@ -99,8 +105,7 @@ const Hémicycle: React.FC<{
         ))}
       </svg>
       <Badge
-        bg={distortion > 0.1 ? 'danger' : distortion > 0.05 ? 'warning' : 'success'}
-        text={distortion > 0.05 && distortion <= 0.1 ? 'dark' : undefined}
+        variant={distortion > 0.1 ? 'danger' : distortion > 0.05 ? 'warning' : 'success'}
         style={{ fontSize: '0.65rem' }}
         data-testid={`distortion-badge-${label}`}
       >
@@ -166,10 +171,10 @@ const MultiwinnerCompare: React.FC = () => {
       {/* Controls */}
       <Row className="g-2 mb-3 align-items-end">
         <Col xs={12} sm={4}>
-          <Form.Label className="small mb-0">
+          <label className="mb-1 inline-block small mb-0">
             {t('multiwinner.numSeats')}: <strong>{numSeats}</strong>
-          </Form.Label>
-          <Form.Range min={2} max={Math.max(2, config.candidates.length - 1)} step={1}
+          </label>
+          <Range min={2} max={Math.max(2, config.candidates.length - 1)} step={1}
             value={numSeats} onChange={e => setNumSeats(Number(e.target.value))} />
         </Col>
         <Col xs={12} sm={4} className="d-flex align-items-end">
@@ -220,7 +225,7 @@ const MultiwinnerCompare: React.FC = () => {
 
           {/* Comparison table */}
           <div style={{ fontSize: '0.78rem' }}>
-            <Table bordered size="sm" responsive>
+            <Table className="[&_th]:p-1 [&_td]:p-1 [&_th]:text-left [&_td]:border-t [&_th]:border-b [&_td]:border-border [&_th]:border-border [&_*]:align-middle [&_th]:border [&_td]:border">
               <thead className="table-light">
                 <tr>
                   <th>{t('multiwinner.method')}</th>
@@ -248,7 +253,7 @@ const MultiwinnerCompare: React.FC = () => {
                       <td>
                         {METHOD_LABELS[m]}
                         {m === data.best_method && (
-                          <Badge bg="success" className="ms-1" style={{ fontSize: '0.6rem' }}>
+                          <Badge variant="success" className="ms-1" style={{ fontSize: '0.6rem' }}>
                             {t('multiwinner.mostPR')}
                           </Badge>
                         )}
@@ -268,8 +273,7 @@ const MultiwinnerCompare: React.FC = () => {
                       })}
                       <td className="text-center">
                         <Badge
-                          bg={md?.distortion > 0.1 ? 'danger' : md?.distortion > 0.05 ? 'warning' : 'success'}
-                          text={md?.distortion > 0.05 && md?.distortion <= 0.1 ? 'dark' : undefined}
+                          variant={md?.distortion > 0.1 ? 'danger' : md?.distortion > 0.05 ? 'warning' : 'success'}
                           style={{ fontSize: '0.65rem' }}
                         >
                           {Math.round((md?.distortion ?? 0) * 100)}pp

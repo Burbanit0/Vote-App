@@ -75,7 +75,7 @@ export const Row = React.forwardRef<HTMLDivElement, RowProps>(
 Row.displayName = 'Row';
 
 // ── Col ─────────────────────────────────────────────────────────────────────
-type ColSize = number | 'auto' | boolean;
+type ColSize = number | `${number}` | 'auto' | boolean;
 
 export interface ColProps extends React.HTMLAttributes<HTMLDivElement> {
   xs?: ColSize;
@@ -106,8 +106,9 @@ const W_FLEX: Record<string, string> = {
 
 function sizeClass(bp: keyof typeof W, v: ColSize): string {
   if (v === 'auto') return W_AUTO[bp];
-  if (typeof v === 'number') return W[bp][Math.min(Math.max(v, 1), 12) - 1];
-  return W_FLEX[bp]; // boolean true → equal-width flex
+  if (typeof v === 'boolean') return W_FLEX[bp]; // boolean true → equal-width flex
+  const n = typeof v === 'number' ? v : parseInt(v, 10);
+  return W[bp][Math.min(Math.max(n, 1), 12) - 1];
 }
 
 export const Col = React.forwardRef<HTMLDivElement, ColProps>(

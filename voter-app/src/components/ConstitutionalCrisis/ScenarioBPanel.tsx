@@ -1,5 +1,11 @@
 import React, { useState } from 'react';
-import { Badge, Button, Card, Col, Form, Row, Spinner, Table } from 'react-bootstrap';
+import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
+import { Card, CardBody } from '@/components/ui/card';
+import { Range } from '@/components/ui/form-controls';
+import { Col, Row } from '@/components/ui/grid';
+import { Spinner } from '@/components/ui/spinner';
+import { Table } from '@/components/ui/table';
 import { Trans, useTranslation } from 'react-i18next';
 import { ConstitutionalResult, ScenarioMethodResult } from '../../services/simulationCompareApi';
 
@@ -15,7 +21,7 @@ interface Props {
 function WinnerBadge({ winner, colorMap }: { winner: string | null; colorMap: Record<string, string> }) {
   const { t } = useTranslation();
   if (!winner) return <span className="text-muted">—</span>;
-  if (winner === 'Blank') return <Badge bg="warning" text="dark">{t('common.blankBadge')}</Badge>;
+  if (winner === 'Blank') return <Badge variant="warning">{t('common.blankBadge')}</Badge>;
   return <Badge style={{ backgroundColor: colorMap[winner] ?? '#999', fontSize: '0.75rem' }}>{winner}</Badge>;
 }
 
@@ -38,8 +44,8 @@ const ScenarioBPanel: React.FC<Props> = ({ candidateNames, result, loading, onRu
       <Row className="g-3 mb-4">
         <Col md={4}>
           <Card>
-            <Card.Body>
-              <Form.Label className="fw-semibold">{t('crisis.scenarioBDuration')}</Form.Label>
+            <CardBody>
+              <label className="mb-1 inline-block fw-semibold">{t('crisis.scenarioBDuration')}</label>
               <div className="d-flex gap-3 mt-2">
                 {([3, 6] as const).map((d) => (
                   <Button
@@ -52,21 +58,21 @@ const ScenarioBPanel: React.FC<Props> = ({ candidateNames, result, loading, onRu
                   </Button>
                 ))}
               </div>
-            </Card.Body>
+            </CardBody>
           </Card>
         </Col>
         <Col md={8}>
           <Card>
-            <Card.Body>
-              <Form.Label className="fw-semibold">
+            <CardBody>
+              <label className="mb-1 inline-block fw-semibold">
                 <Trans i18nKey="crisis.scenarioBDrift" values={{ pct: (drift * 100).toFixed(0) }} />
                 <span className="text-muted ms-2" style={{ fontSize: '0.82rem' }}>{driftLabel}</span>
-              </Form.Label>
-              <Form.Range min={0} max={0.2} step={0.01} value={drift} onChange={(e) => setDrift(Number(e.target.value))} />
+              </label>
+              <Range min={0} max={0.2} step={0.01} value={drift} onChange={(e) => setDrift(Number(e.target.value))} />
               <small className="text-muted">
                 {t('crisis.scenarioBDriftHint', { pct: (drift * 100).toFixed(0) })}
               </small>
-            </Card.Body>
+            </CardBody>
           </Card>
         </Col>
       </Row>
@@ -79,7 +85,7 @@ const ScenarioBPanel: React.FC<Props> = ({ candidateNames, result, loading, onRu
 
       {result?.before_drift && result?.after_drift && (
         <>
-          <Table bordered size="sm" className="mb-3">
+          <Table className="[&_th]:p-1 [&_td]:p-1 [&_th]:text-left [&_td]:border-t [&_th]:border-b [&_td]:border-border [&_th]:border-border [&_*]:align-middle [&_th]:border [&_td]:border mb-3">
             <thead className="table-light">
               <tr>
                 <th style={{ minWidth: 160 }}>{t('common.method')}</th>
@@ -116,10 +122,10 @@ const ScenarioBPanel: React.FC<Props> = ({ candidateNames, result, loading, onRu
           </Table>
 
           <Card className="border-0" style={{ backgroundColor: '#f8f9fa' }}>
-            <Card.Body>
+            <CardBody>
               <small className="fw-semibold">{t('crisis.analysis')}</small>
               <p className="mb-0 mt-1 text-muted" style={{ fontSize: '0.85rem' }}>{result.conclusion}</p>
-            </Card.Body>
+            </CardBody>
           </Card>
         </>
       )}

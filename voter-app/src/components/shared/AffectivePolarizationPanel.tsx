@@ -4,7 +4,13 @@
  */
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { Alert, Badge, Button, Col, Form, Row, Spinner, Table } from 'react-bootstrap';
+import { Alert } from '@/components/ui/alert';
+import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
+import { Range } from '@/components/ui/form-controls';
+import { Col, Row } from '@/components/ui/grid';
+import { Spinner } from '@/components/ui/spinner';
+import { Table } from '@/components/ui/table';
 import {
   LineChart, Line, XAxis, YAxis, Tooltip, Legend,
   ResponsiveContainer, ReferenceLine, CartesianGrid,
@@ -201,11 +207,11 @@ const AffectivePolarizationPanel: React.FC = () => {
       {/* Controls */}
       <Row className="g-2 mb-3 align-items-end">
         <Col xs={12} sm={5}>
-          <Form.Label className="fw-semibold mb-0" style={{ fontSize: '0.85rem' }}>
+          <label className="mb-1 inline-block fw-semibold mb-0" style={{ fontSize: '0.85rem' }}>
             {t('affect.hostilitySlider')}: <strong>{Math.round(hostility * 100)}%</strong>
             {loading && <Spinner size="sm" className="ms-2" />}
-          </Form.Label>
-          <Form.Range min={0} max={1} step={0.05} value={hostility}
+          </label>
+          <Range min={0} max={1} step={0.05} value={hostility}
             onChange={e => handleHostilityChange(Number(e.target.value))}
             data-testid="hostility-slider"
           />
@@ -216,10 +222,10 @@ const AffectivePolarizationPanel: React.FC = () => {
           </div>
         </Col>
         <Col xs={12} sm={3}>
-          <Form.Label className="small mb-0">
+          <label className="mb-1 inline-block small mb-0">
             {t('affect.numSims')}: <strong>{numSims}</strong>
-          </Form.Label>
-          <Form.Range min={5} max={30} step={5} value={numSims}
+          </label>
+          <Range min={5} max={30} step={5} value={numSims}
             onChange={e => setNumSims(Number(e.target.value))} />
         </Col>
         <Col xs={12} sm={4}>
@@ -253,16 +259,16 @@ const AffectivePolarizationPanel: React.FC = () => {
         <>
           {/* Summary badges */}
           <div className="d-flex flex-wrap gap-2 mb-3">
-            <Badge bg={data.winner_changed ? 'danger' : 'success'}
+            <Badge variant={data.winner_changed ? 'danger' : 'success'}
               data-testid="winner-changed-badge">
               {data.winner_changed ? `⚠ ${t('affect.winnerChanged')}` : `✓ ${t('affect.winnerUnchanged')}`}
             </Badge>
             {data.condorcet_violation && (
-              <Badge bg="warning" text="dark" data-testid="condorcet-violation-badge">
+              <Badge variant="warning" data-testid="condorcet-violation-badge">
                 ✗ {t('affect.condorcetViolation')}
               </Badge>
             )}
-            <Badge bg="secondary" style={{ fontSize: '0.7rem' }}>
+            <Badge variant="secondary" style={{ fontSize: '0.7rem' }}>
               {changedMethods.length}/{allMethods.length} {t('affect.methodsChanged')}
             </Badge>
           </div>
@@ -339,7 +345,7 @@ const AffectivePolarizationPanel: React.FC = () => {
             <div className="fw-semibold mb-1" style={{ fontSize: '0.85rem' }}>
               {t('affect.methodTableTitle')}
             </div>
-            <Table size="sm" bordered style={{ fontSize: '0.78rem' }}>
+            <Table className="[&_th]:p-1 [&_td]:p-1 [&_th]:text-left [&_td]:border-t [&_th]:border-b [&_td]:border-border [&_th]:border-border [&_*]:align-middle [&_th]:border [&_td]:border" style={{ fontSize: '0.78rem' }}>
               <thead className="table-light">
                 <tr>
                   <th>{t('common.method')}</th>

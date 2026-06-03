@@ -4,7 +4,13 @@
  */
 import React, { useCallback, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { Alert, Badge, Button, Col, Form, Row, Spinner, Table } from 'react-bootstrap';
+import { Alert } from '@/components/ui/alert';
+import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
+import { Range, Select } from '@/components/ui/form-controls';
+import { Col, Row } from '@/components/ui/grid';
+import { Spinner } from '@/components/ui/spinner';
+import { Table } from '@/components/ui/table';
 import {
   BarChart, Bar, XAxis, YAxis, Tooltip, CartesianGrid, Legend,
   LineChart, Line, ReferenceLine, ResponsiveContainer,
@@ -112,10 +118,10 @@ const ShyVoterPanel: React.FC = () => {
       {/* Controls */}
       <Row className="g-2 mb-3 align-items-end">
         <Col xs={12} md={4}>
-          <Form.Label className="small mb-0">
+          <label className="mb-1 inline-block small mb-0">
             {t('shyVoter.factorSlider')}: <strong>{sdFactor.toFixed(2)}</strong>
-          </Form.Label>
-          <Form.Range
+          </label>
+          <Range
             data-testid="sdf-slider"
             min={0} max={1} step={0.05}
             value={sdFactor}
@@ -128,8 +134,8 @@ const ShyVoterPanel: React.FC = () => {
           </div>
         </Col>
         <Col xs={12} md={4}>
-          <Form.Label className="small mb-0">{t('shyVoter.candidateSelect')}</Form.Label>
-          <Form.Select
+          <label className="mb-1 inline-block small mb-0">{t('shyVoter.candidateSelect')}</label>
+          <Select
             size="sm"
             value={shyIdx}
             data-testid="shy-candidate-select"
@@ -138,11 +144,11 @@ const ShyVoterPanel: React.FC = () => {
             {candidateNames.map((name, i) => (
               <option key={i} value={i}>{name}</option>
             ))}
-          </Form.Select>
+          </Select>
         </Col>
         <Col xs="auto">
           <Button variant="primary" onClick={handleSimulate} disabled={loading}>
-            {loading ? <Spinner size="sm" animation="border" /> : t('shyVoter.run')}
+            {loading ? <Spinner size="sm" /> : t('shyVoter.run')}
           </Button>
         </Col>
         {data && (
@@ -171,11 +177,11 @@ const ShyVoterPanel: React.FC = () => {
         <>
           {/* Winner comparison */}
           <div className="d-flex flex-wrap gap-2 align-items-center mb-3">
-            <Badge bg="secondary" data-testid="poll-winner-badge">
+            <Badge variant="secondary" data-testid="poll-winner-badge">
               {t('shyVoter.pollWinner')}: {data.poll_winner}
             </Badge>
             <Badge
-              bg={data.polls_wrong ? 'danger' : 'success'}
+              variant={data.polls_wrong ? 'danger' : 'success'}
               data-testid="real-winner-badge"
             >
               {t('shyVoter.realWinner')}: {data.real_winner}
@@ -186,7 +192,7 @@ const ShyVoterPanel: React.FC = () => {
                 {t('shyVoter.pollsWrong')}
               </Alert>
             )}
-            <Badge bg="info" text="dark" data-testid="shy-candidate-badge">
+            <Badge variant="info" data-testid="shy-candidate-badge">
               🤫 {t('shyVoter.shyLabel')}: {data.shy_candidate}
             </Badge>
           </div>
@@ -196,8 +202,7 @@ const ShyVoterPanel: React.FC = () => {
             {Object.entries(data.systematic_error).map(([c, err]) => (
               <Badge
                 key={c}
-                bg={err < -0.01 ? 'danger' : err > 0.01 ? 'warning' : 'light'}
-                text={err > 0.01 ? 'dark' : undefined}
+                variant={err < -0.01 ? 'danger' : err > 0.01 ? 'warning' : 'light'}
                 data-testid={`error-badge-${c}`}
                 style={{ fontSize: '0.72rem' }}
               >
@@ -266,7 +271,7 @@ const ShyVoterPanel: React.FC = () => {
           <div className="fw-semibold mb-1" style={{ fontSize: '0.85rem' }}>
             {t('shyVoter.errorTable')}
           </div>
-          <Table size="sm" hover className="mb-4" data-testid="error-table">
+          <Table className="[&_th]:p-1 [&_td]:p-1 [&_th]:text-left [&_td]:border-t [&_th]:border-b [&_td]:border-border [&_th]:border-border [&_*]:align-middle [&_tbody_tr:hover]:bg-muted/50 mb-4" data-testid="error-table">
             <thead>
               <tr>
                 <th style={{ fontSize: '0.78rem' }}>{t('shyVoter.candidate')}</th>
@@ -283,7 +288,7 @@ const ShyVoterPanel: React.FC = () => {
                     <td style={{ fontSize: '0.78rem' }}>
                       {c}
                       {c === data.shy_candidate && (
-                        <Badge bg="warning" text="dark" className="ms-1" style={{ fontSize: '0.6rem' }}>🤫</Badge>
+                        <Badge variant="warning" className="ms-1" style={{ fontSize: '0.6rem' }}>🤫</Badge>
                       )}
                     </td>
                     <td style={{ fontSize: '0.78rem' }}>{Math.round((data.avg_poll_results[c] ?? 0) * 100)}%</td>

@@ -9,7 +9,12 @@
  */
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { Alert, Badge, Button, Col, Form, Row, Spinner } from 'react-bootstrap';
+import { Alert } from '@/components/ui/alert';
+import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
+import { Range } from '@/components/ui/form-controls';
+import { Col, Row } from '@/components/ui/grid';
+import { Spinner } from '@/components/ui/spinner';
 import {
   ScatterChart, Scatter, XAxis, YAxis, Tooltip, CartesianGrid,
   ResponsiveContainer, Label,
@@ -207,7 +212,7 @@ const PolarizationPanel: React.FC = () => {
       {/* Controls */}
       <Row className="g-2 mb-3 align-items-end">
         <Col xs={12} sm={6}>
-          <Form.Label className="small mb-1">{t('polarization.ideologies')}</Form.Label>
+          <label className="mb-1 inline-block small mb-1">{t('polarization.ideologies')}</label>
           <div className="d-flex flex-wrap gap-1">
             {AVAILABLE_IDEOLOGIES.map(id => (
               <Badge
@@ -229,10 +234,10 @@ const PolarizationPanel: React.FC = () => {
           </div>
         </Col>
         <Col xs={12} sm={3}>
-          <Form.Label className="small mb-0">
+          <label className="mb-1 inline-block small mb-0">
             {t('polarization.numSims')}: <strong>{numSims}</strong>
-          </Form.Label>
-          <Form.Range min={5} max={50} step={5} value={numSims}
+          </label>
+          <Range min={5} max={50} step={5} value={numSims}
             onChange={e => handleSimsChange(Number(e.target.value))}
             data-testid="sims-slider"
           />
@@ -317,7 +322,7 @@ const PolarizationPanel: React.FC = () => {
 
               {/* Threshold badge */}
               {threshold && (
-                <Badge bg="danger" className="mt-1" data-testid="threshold-badge"
+                <Badge variant="danger" className="mt-1" data-testid="threshold-badge"
                   style={{ fontSize: '0.72rem' }}>
                   {t('polarization.threshold', {
                     p:   threshold.polarization_index.toFixed(2),
@@ -363,7 +368,7 @@ const PolarizationPanel: React.FC = () => {
                 {sorted.slice(-2).map(r => (
                   <React.Fragment key={r.ideology}>
                     {r.best_method && (
-                      <Badge bg="success" style={{ fontSize: '0.7rem' }}
+                      <Badge variant="success" style={{ fontSize: '0.7rem' }}
                         data-testid={`best-badge-${r.ideology}`}>
                         {r.ideology}: 🏆 {r.best_method}
                       </Badge>

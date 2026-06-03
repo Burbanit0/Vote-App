@@ -1,5 +1,6 @@
 import React, { useMemo, useState } from 'react';
-import { Badge, Form } from 'react-bootstrap';
+import { Badge } from '@/components/ui/badge';
+import { Check } from '@/components/ui/form-controls';
 import {
   Legend,
   PolarAngleAxis,
@@ -264,7 +265,7 @@ const MethodRadarChart: React.FC<Props> = ({ comparisonResults, allMethodNames }
             const checked = visibleMethods.has(method);
             const score   = globalScore[method] ?? 0;
             return (
-              <Form.Check
+              <Check
                 key={method}
                 type="checkbox"
                 id={`radar-cb-${method}`}

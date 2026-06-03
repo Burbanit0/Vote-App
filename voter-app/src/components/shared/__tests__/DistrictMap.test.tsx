@@ -127,7 +127,7 @@ describe('DistrictMap', () => {
     fireEvent.click(screen.getByRole('button', { name: /district/i }));
     await waitFor(() => {
       // Warning alert appears when winners differ
-      const alerts = document.querySelectorAll('.alert-warning');
+      const alerts = document.querySelectorAll('.bg-amber-100');
       expect(alerts.length).toBeGreaterThan(0);
     });
     vi.runAllTimers();

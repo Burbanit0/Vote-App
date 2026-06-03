@@ -1,6 +1,11 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { Alert, Badge, Button, Col, Form, Row, Spinner } from 'react-bootstrap';
+import { Alert } from '@/components/ui/alert';
+import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
+import { Range } from '@/components/ui/form-controls';
+import { Col, Row } from '@/components/ui/grid';
+import { Spinner } from '@/components/ui/spinner';
 import { useElection } from '../../stores/useElectionStore';
 import { $api } from '../../api/hooks';
 import type { DistrictsResponse } from '../../api';
@@ -232,24 +237,24 @@ const DistrictMap: React.FC = () => {
       {/* Controls */}
       <Row className="g-2 align-items-end mb-3">
         <Col xs={12} sm={4}>
-          <Form.Label className="small mb-0">
+          <label className="mb-1 inline-block small mb-0">
             {t('districts.numDistricts')}: <strong>{numDistricts}</strong>
-          </Form.Label>
-          <Form.Range min={5} max={50} step={5} value={numDistricts}
+          </label>
+          <Range min={5} max={50} step={5} value={numDistricts}
             onChange={(e) => setNumDistricts(Number(e.target.value))} />
         </Col>
         <Col xs={12} sm={4}>
-          <Form.Label className="small mb-0">
+          <label className="mb-1 inline-block small mb-0">
             {t('districts.votersPerDistrict')}: <strong>{votersPerDistrict}</strong>
-          </Form.Label>
-          <Form.Range min={50} max={300} step={50} value={votersPerDistrict}
+          </label>
+          <Range min={50} max={300} step={50} value={votersPerDistrict}
             onChange={(e) => setVotersPerDistrict(Number(e.target.value))} />
         </Col>
         <Col xs={12} sm={4}>
-          <Form.Label className="small mb-0">
+          <label className="mb-1 inline-block small mb-0">
             {t('districts.ideologyVariance')}: <strong>{ideologyVariance.toFixed(1)}</strong>
-          </Form.Label>
-          <Form.Range min={0} max={1} step={0.1} value={ideologyVariance}
+          </label>
+          <Range min={0} max={1} step={0.1} value={ideologyVariance}
             onChange={(e) => setIdeologyVariance(Number(e.target.value))} />
         </Col>
         <Col xs={12} className="d-flex gap-2">
@@ -276,15 +281,15 @@ const DistrictMap: React.FC = () => {
         <>
           {/* Summary badges */}
           <div className="d-flex flex-wrap gap-2 mb-3">
-            <Badge bg="primary">FPTP: {data.fptp_winner}</Badge>
-            <Badge bg={winnerChanged ? 'warning' : 'success'} text={winnerChanged ? 'dark' : undefined}>
+            <Badge variant="primary">FPTP: {data.fptp_winner}</Badge>
+            <Badge variant={winnerChanged ? 'warning' : 'success'}>
               PR: {data.proportional_winner}
             </Badge>
-            <Badge bg={distortionPct > 10 ? 'danger' : 'secondary'} data-testid="distortion-badge">
+            <Badge variant={distortionPct > 10 ? 'danger' : 'secondary'} data-testid="distortion-badge">
               {t('districts.distortion')}: {distortionPct > 0 ? '+' : ''}{distortionPct}pts
             </Badge>
             {data.condorcet_winner_national && (
-              <Badge bg="info">Condorcet: {data.condorcet_winner_national} ✓</Badge>
+              <Badge variant="info">Condorcet: {data.condorcet_winner_national} ✓</Badge>
             )}
           </div>
 

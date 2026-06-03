@@ -6,7 +6,13 @@
 import React, { useCallback, useState } from 'react';
 import { $api } from '../../api/hooks';
 import { useTranslation } from 'react-i18next';
-import { Alert, Badge, Button, Col, Form, Row, Spinner, Table } from 'react-bootstrap';
+import { Alert } from '@/components/ui/alert';
+import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
+import { Range, Select } from '@/components/ui/form-controls';
+import { Col, Row } from '@/components/ui/grid';
+import { Spinner } from '@/components/ui/spinner';
+import { Table } from '@/components/ui/table';
 import {
   BarChart, Bar, XAxis, YAxis, Tooltip, CartesianGrid,
   Legend, ResponsiveContainer, Cell,
@@ -168,8 +174,8 @@ const DemographicTurnoutPanel: React.FC = () => {
       {/* Preset selector */}
       <Row className="g-2 mb-3 align-items-end">
         <Col xs={12} md={4}>
-          <Form.Label className="small mb-0">{t('demo.preset')}</Form.Label>
-          <Form.Select
+          <label className="mb-1 inline-block small mb-0">{t('demo.preset')}</label>
+          <Select
             size="sm"
             value={preset}
             data-testid="preset-select"
@@ -178,7 +184,7 @@ const DemographicTurnoutPanel: React.FC = () => {
             {Object.entries(PROFILES).map(([key, p]) => (
               <option key={key} value={key}>{p.label}</option>
             ))}
-          </Form.Select>
+          </Select>
         </Col>
         <Col xs={12} md={6}>
           <div className="d-flex flex-wrap gap-1" style={{ fontSize: '0.72rem' }}>
@@ -192,7 +198,7 @@ const DemographicTurnoutPanel: React.FC = () => {
         </Col>
         <Col xs="auto">
           <Button variant="primary" onClick={handleSimulate} disabled={loading} data-testid="simulate-btn">
-            {loading ? <Spinner size="sm" animation="border" /> : t('demo.run')}
+            {loading ? <Spinner size="sm" /> : t('demo.run')}
           </Button>
         </Col>
         {data && (() => {
@@ -226,10 +232,10 @@ const DemographicTurnoutPanel: React.FC = () => {
       <Row className="g-2 mb-3">
         {['jeunes (18-34)', 'adultes (35-64)', 'seniors (65+)'].map((ag, i) => (
           <Col key={ag} xs={4}>
-            <Form.Label className="small mb-0" style={{ fontSize: '0.72rem' }}>
+            <label className="mb-1 inline-block small mb-0" style={{ fontSize: '0.72rem' }}>
               {ag}: <strong>{Math.round(profile.turnout_by_age[i] * 100)}%</strong>
-            </Form.Label>
-            <Form.Range
+            </label>
+            <Range
               data-testid={`turnout-slider-${i}`}
               min={0} max={1} step={0.05}
               value={profile.turnout_by_age[i]}
@@ -252,12 +258,12 @@ const DemographicTurnoutPanel: React.FC = () => {
         <>
           {/* Headline badges */}
           <div className="d-flex flex-wrap gap-2 mb-3">
-            <Badge bg="primary" data-testid="biased-winner-badge">
+            <Badge variant="primary" data-testid="biased-winner-badge">
               {t('demo.biasedWinner')}: {data.biased_result.winner}
             </Badge>
             {data.winner_changed && (
               <>
-                <Badge bg="success" data-testid="corrected-winner-badge">
+                <Badge variant="success" data-testid="corrected-winner-badge">
                   {t('demo.correctedWinner')}: {data.corrected_result.winner}
                 </Badge>
                 <Alert variant="danger" className="d-inline-block py-1 px-2 mb-0"
@@ -267,13 +273,13 @@ const DemographicTurnoutPanel: React.FC = () => {
               </>
             )}
             <Badge
-              bg={Math.abs(data.representation_gap.ideology_drift) > 0.1 ? 'danger' : 'secondary'}
+              variant={Math.abs(data.representation_gap.ideology_drift) > 0.1 ? 'danger' : 'secondary'}
               data-testid="drift-badge"
             >
               {t('demo.drift')}: {data.representation_gap.ideology_drift >= 0 ? '+' : ''}
               {data.representation_gap.ideology_drift.toFixed(3)}
             </Badge>
-            <Badge bg="info" text="dark" data-testid="turnout-badge">
+            <Badge variant="info" data-testid="turnout-badge">
               {t('demo.turnout')}: {Math.round(data.biased_result.actual_turnout! * 100)}%
             </Badge>
           </div>
@@ -344,7 +350,7 @@ const DemographicTurnoutPanel: React.FC = () => {
           </Row>
 
           {/* Demographic breakdown table */}
-          <Table size="sm" hover className="mb-3" data-testid="breakdown-table">
+          <Table className="[&_th]:p-1 [&_td]:p-1 [&_th]:text-left [&_td]:border-t [&_th]:border-b [&_td]:border-border [&_th]:border-border [&_*]:align-middle [&_tbody_tr:hover]:bg-muted/50 mb-3" data-testid="breakdown-table">
             <thead>
               <tr>
                 <th style={{ fontSize: '0.78rem' }}>{t('demo.group')}</th>

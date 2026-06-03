@@ -5,7 +5,9 @@
  * ANY view can be pinned without modifying existing page components.
  */
 import React, { useRef, useState } from 'react';
-import { Button, Form, InputGroup, Spinner } from 'react-bootstrap';
+import { Button } from '@/components/ui/button';
+import { Control } from '@/components/ui/form-controls';
+import { Spinner } from '@/components/ui/spinner';
 import { useNavigate } from 'react-router';
 import { useTeacherMode } from '../../stores/useUIStore';
 
@@ -99,8 +101,8 @@ export const TeacherCaptureButton: React.FC = () => {
           <div className="fw-semibold mb-2" style={{ fontSize: '0.88rem' }}>
             Titre de la slide
           </div>
-          <InputGroup size="sm" className="mb-2">
-            <Form.Control
+          <div className="flex items-stretch mb-2">
+            <Control
               ref={inputRef}
               value={title}
               onChange={(e) => setTitle(e.target.value)}
@@ -111,7 +113,7 @@ export const TeacherCaptureButton: React.FC = () => {
               }}
               aria-label="Titre de la slide à capturer"
             />
-          </InputGroup>
+          </div>
           <div className="d-flex gap-2">
             <Button
               variant="success"

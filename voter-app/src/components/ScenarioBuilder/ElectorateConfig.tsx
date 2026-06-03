@@ -1,5 +1,7 @@
 import React, { useMemo } from 'react';
-import { Card, Col, Form, Row } from 'react-bootstrap';
+import { Card, CardBody } from '@/components/ui/card';
+import { Range } from '@/components/ui/form-controls';
+import { Col, Row } from '@/components/ui/grid';
 import { Area, AreaChart, ResponsiveContainer, XAxis } from 'recharts';
 import { Trans, useTranslation } from 'react-i18next';
 
@@ -93,11 +95,11 @@ const ElectorateConfig: React.FC<Props> = ({ config, onChange, expertMode = fals
 
       {/* Voter count */}
       <Card className="mb-4">
-        <Card.Body>
-          <Form.Label>
+        <CardBody>
+          <label className="mb-1 inline-block">
             {t('scenario.numVoters', { n: config.numVoters.toLocaleString() })}
-          </Form.Label>
-          <Form.Range
+          </label>
+          <Range
             min={100} max={10000} step={100} value={config.numVoters}
             onChange={(e) => onChange({ numVoters: Number(e.target.value) })}
           />
@@ -105,7 +107,7 @@ const ElectorateConfig: React.FC<Props> = ({ config, onChange, expertMode = fals
             <small className="text-muted">100</small>
             <small className="text-muted">{t('scenario.voterRangeMax')}</small>
           </div>
-        </Card.Body>
+        </CardBody>
       </Card>
 
       {/* Ideology preset */}
@@ -118,7 +120,7 @@ const ElectorateConfig: React.FC<Props> = ({ config, onChange, expertMode = fals
               style={{ cursor: 'pointer', transition: 'border-color 0.15s' }}
               onClick={() => onChange({ ideologyPreset: key })}
             >
-              <Card.Body className="p-2">
+              <CardBody className="p-2">
                 <div className="d-flex align-items-center gap-1 mb-1">
                   {config.ideologyPreset === key && (
                     <span style={{ color: preset.color, fontWeight: 700 }}>●</span>
@@ -143,7 +145,7 @@ const ElectorateConfig: React.FC<Props> = ({ config, onChange, expertMode = fals
                   <small style={{ fontSize: '0.65rem', color: '#6c757d' }}>{t('scenario.rightShort')}</small>
                 </div>
                 <small className="text-muted d-block mt-1" style={{ fontSize: '0.72rem' }}>{preset.desc}</small>
-              </Card.Body>
+              </CardBody>
             </Card>
           </Col>
         ))}
@@ -156,14 +158,14 @@ const ElectorateConfig: React.FC<Props> = ({ config, onChange, expertMode = fals
         </small>
       )}
       <Card style={expertMode ? undefined : { display: 'none' }}>
-        <Card.Body>
-          <Form.Label>
+        <CardBody>
+          <label className="mb-1 inline-block">
             {t('scenario.dissatisfactionRate')}
             <span className="text-muted ms-2" style={{ fontSize: '0.85rem' }}>
               {t('scenario.dissatisfactionSubtitle')}
             </span>
-          </Form.Label>
-          <Form.Range
+          </label>
+          <Range
             min={0} max={1} step={0.05} value={config.dissatisfactionRate}
             onChange={(e) => onChange({ dissatisfactionRate: Number(e.target.value) })}
           />
@@ -173,7 +175,7 @@ const ElectorateConfig: React.FC<Props> = ({ config, onChange, expertMode = fals
               {t('scenario.dissatisfactionHint')}
             </small>
           </div>
-        </Card.Body>
+        </CardBody>
       </Card>
     </div>
   );

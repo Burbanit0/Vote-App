@@ -5,9 +5,13 @@
 import React, { useState } from 'react';
 import { $api } from '../../api/hooks';
 import { useTranslation } from 'react-i18next';
-import {
-  Alert, Badge, Button, Col, Form, Row, Spinner, Table,
-} from 'react-bootstrap';
+import { Alert } from '@/components/ui/alert';
+import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
+import { Control, Range } from '@/components/ui/form-controls';
+import { Col, Row } from '@/components/ui/grid';
+import { Spinner } from '@/components/ui/spinner';
+import { Table } from '@/components/ui/table';
 import {
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend,
   ResponsiveContainer, Cell,
@@ -202,33 +206,33 @@ const IntergenerationalPanel: React.FC = () => {
         {decisions.map((d, i) => (
           <Row key={i} className="g-1 mb-1 align-items-center">
             <Col xs={12} md={3}>
-              <Form.Control size="sm" value={d.name} placeholder={t('intergen.decisionName')}
+              <Control size="sm" value={d.name} placeholder={t('intergen.decisionName')}
                 data-testid={`decision-name-${i}`}
                 onChange={(e) => updateDecision(i, 'name', e.target.value)} />
             </Col>
             <Col xs={4} md={2}>
-              <Form.Label className="small mb-0" style={{ fontSize: '0.65rem' }}>
+              <label className="mb-1 inline-block small mb-0" style={{ fontSize: '0.65rem' }}>
                 {t('intergen.costPresent')} {d.cost_present.toFixed(1)}
-              </Form.Label>
-              <Form.Range min={-10} max={10} step={1}
+              </label>
+              <Range min={-10} max={10} step={1}
                 value={Math.round(d.cost_present * 10)}
                 data-testid={`decision-cost-${i}`}
                 onChange={(e) => updateDecision(i, 'cost_present', Number(e.target.value) / 10)} />
             </Col>
             <Col xs={4} md={2}>
-              <Form.Label className="small mb-0" style={{ fontSize: '0.65rem' }}>
+              <label className="mb-1 inline-block small mb-0" style={{ fontSize: '0.65rem' }}>
                 {t('intergen.benefitFuture')} {d.benefit_future.toFixed(1)}
-              </Form.Label>
-              <Form.Range min={-10} max={10} step={1}
+              </label>
+              <Range min={-10} max={10} step={1}
                 value={Math.round(d.benefit_future * 10)}
                 data-testid={`decision-benefit-${i}`}
                 onChange={(e) => updateDecision(i, 'benefit_future', Number(e.target.value) / 10)} />
             </Col>
             <Col xs={4} md={2}>
-              <Form.Label className="small mb-0" style={{ fontSize: '0.65rem' }}>
+              <label className="mb-1 inline-block small mb-0" style={{ fontSize: '0.65rem' }}>
                 {t('intergen.horizon')} {d.time_horizon_years}y
-              </Form.Label>
-              <Form.Range min={1} max={50} step={1} value={d.time_horizon_years}
+              </label>
+              <Range min={1} max={50} step={1} value={d.time_horizon_years}
                 data-testid={`decision-horizon-${i}`}
                 onChange={(e) => updateDecision(i, 'time_horizon_years', Number(e.target.value))} />
             </Col>
@@ -247,19 +251,19 @@ const IntergenerationalPanel: React.FC = () => {
       {/* ── Controls ── */}
       <Row className="g-2 mb-3 align-items-end">
         <Col xs={6} md={2}>
-          <Form.Label className="small mb-0">{t('intergen.voters')}</Form.Label>
-          <Form.Control type="number" size="sm" min={20} max={1000} value={numVoters}
+          <label className="mb-1 inline-block small mb-0">{t('intergen.voters')}</label>
+          <Control type="number" size="sm" min={20} max={1000} value={numVoters}
             data-testid="voters-input"
             onChange={(e) => setNumVoters(Number(e.target.value))} />
         </Col>
         <Col xs={12} md={5}>
-          <Form.Label className="small mb-0">
+          <label className="mb-1 inline-block small mb-0">
             {t('intergen.ageDist')} — {t('intergen.young')}: {ageDist[0]}% /
             {t('intergen.adult')}: {ageDist[1]}% / {t('intergen.senior')}: {ageDist[2]}%
-          </Form.Label>
+          </label>
           <div className="d-flex gap-2">
             {[0, 1, 2].map(idx => (
-              <Form.Range key={idx} min={5} max={70} step={5}
+              <Range key={idx} min={5} max={70} step={5}
                 value={ageDist[idx]}
                 data-testid={`age-dist-${idx}`}
                 onChange={(e) => setAgeDist(prev => {
@@ -271,15 +275,15 @@ const IntergenerationalPanel: React.FC = () => {
           </div>
         </Col>
         <Col xs={6} md={1}>
-          <Form.Label className="small mb-0">{t('intergen.seed')}</Form.Label>
-          <Form.Control type="number" size="sm" value={seed}
+          <label className="mb-1 inline-block small mb-0">{t('intergen.seed')}</label>
+          <Control type="number" size="sm" value={seed}
             data-testid="seed-input"
             onChange={(e) => setSeed(Number(e.target.value))} />
         </Col>
         <Col xs="auto">
           <Button variant="primary" size="sm" onClick={handleRun} disabled={loading}
             data-testid="run-btn">
-            {loading ? <Spinner size="sm" animation="border" /> : t('intergen.run')}
+            {loading ? <Spinner size="sm" /> : t('intergen.run')}
           </Button>
         </Col>
       </Row>
@@ -374,7 +378,7 @@ const IntergenerationalPanel: React.FC = () => {
           {/* ── Table view ── */}
           {activeView === 'table' && (
             <div data-testid="table-view" style={{ overflowX: 'auto' }}>
-              <Table size="sm" bordered style={{ fontSize: '0.73rem' }}>
+              <Table className="[&_th]:p-1 [&_td]:p-1 [&_th]:text-left [&_td]:border-t [&_th]:border-b [&_td]:border-border [&_th]:border-border [&_*]:align-middle [&_th]:border [&_td]:border" style={{ fontSize: '0.73rem' }}>
                 <thead className="table-light">
                   <tr>
                     <th>{t('intergen.colMechanism')}</th>

@@ -4,7 +4,12 @@
  */
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { Alert, Badge, Button, Col, Form, Row, Spinner } from 'react-bootstrap';
+import { Alert } from '@/components/ui/alert';
+import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
+import { Check, Range, Select } from '@/components/ui/form-controls';
+import { Col, Row } from '@/components/ui/grid';
+import { Spinner } from '@/components/ui/spinner';
 import {
   LineChart, Line, XAxis, YAxis, Tooltip, CartesianGrid,
   ReferenceLine, Legend, ResponsiveContainer,
@@ -220,49 +225,49 @@ const PartyDynamicsPanel: React.FC<Props> = ({ onDataLoaded }) => {
       {/* Controls */}
       <Row className="g-2 mb-3 align-items-end">
         <Col xs={6} md={2}>
-          <Form.Label className="small mb-0">{t('partyDyn.preset')}</Form.Label>
-          <Form.Select size="sm" value={preset} data-testid="preset-select"
+          <label className="mb-1 inline-block small mb-0">{t('partyDyn.preset')}</label>
+          <Select size="sm" value={preset} data-testid="preset-select"
             onChange={(e) => applyPreset(e.target.value)}>
             {Object.entries(PRESETS).map(([k, p]) => (
               <option key={k} value={k}>{p.label}</option>
             ))}
-          </Form.Select>
+          </Select>
         </Col>
         <Col xs={6} md={2}>
-          <Form.Label className="small mb-0">{t('partyDyn.method')}</Form.Label>
-          <Form.Select size="sm" value={method} data-testid="method-select"
+          <label className="mb-1 inline-block small mb-0">{t('partyDyn.method')}</label>
+          <Select size="sm" value={method} data-testid="method-select"
             onChange={(e) => setMethod(e.target.value)}>
             <option value="plurality">Plurality (FPTP)</option>
             <option value="irv">Vote alternatif (IRV)</option>
             <option value="borda">Borda</option>
             <option value="proportional">Proportionnelle</option>
-          </Form.Select>
+          </Select>
         </Col>
         <Col xs={6} md={2}>
-          <Form.Label className="small mb-0">
+          <label className="mb-1 inline-block small mb-0">
             {t('partyDyn.numElections')}: <strong>{numElections}</strong>
-          </Form.Label>
-          <Form.Range min={3} max={30} step={1} value={numElections}
+          </label>
+          <Range min={3} max={30} step={1} value={numElections}
             data-testid="num-elections-slider"
             onChange={(e) => setNumElections(Number(e.target.value))} />
         </Col>
         <Col xs={6} md={2}>
-          <Form.Label className="small mb-0">
+          <label className="mb-1 inline-block small mb-0">
             {t('partyDyn.survivalThr')}: <strong>{Math.round(survThr * 100)}%</strong>
-          </Form.Label>
-          <Form.Range min={0.01} max={0.15} step={0.01} value={survThr}
+          </label>
+          <Range min={0.01} max={0.15} step={0.01} value={survThr}
             data-testid="survival-slider"
             onChange={(e) => setSurvThr(Number(e.target.value))} />
         </Col>
         <Col xs={6} md={2}>
-          <Form.Check type="switch" id="tactical-switch" label={t('partyDyn.tacticalVoting')}
+          <Check type="switch" id="tactical-switch" label={t('partyDyn.tacticalVoting')}
             checked={tactical}
             data-testid="tactical-switch"
             onChange={(e) => setTactical(e.target.checked)} />
         </Col>
         <Col xs="auto">
           <Button variant="primary" onClick={runSimulation} disabled={loading} data-testid="simulate-btn">
-            {loading ? <Spinner size="sm" animation="border" /> : t('partyDyn.run')}
+            {loading ? <Spinner size="sm" /> : t('partyDyn.run')}
           </Button>
         </Col>
       </Row>
@@ -276,16 +281,16 @@ const PartyDynamicsPanel: React.FC<Props> = ({ onDataLoaded }) => {
         <>
           {/* Headline badges */}
           <div className="d-flex flex-wrap gap-2 mb-3">
-            <Badge bg={data.final_system === 'bipartite' ? 'danger' : 'primary'}
+            <Badge variant={data.final_system === 'bipartite' ? 'danger' : 'primary'}
               data-testid="final-system-badge">
               {t('partyDyn.finalSystem')}: {data.final_system}
             </Badge>
-            <Badge bg={data.duverger_confirmed ? 'danger' : 'secondary'}
+            <Badge variant={data.duverger_confirmed ? 'danger' : 'secondary'}
               data-testid="duverger-badge">
               {data.duverger_confirmed ? t('partyDyn.duvergerConfirmed') : t('partyDyn.duvergerNotConfirmed')}
             </Badge>
             {data.convergence_speed != null && (
-              <Badge bg="warning" text="dark" data-testid="convergence-badge">
+              <Badge variant="warning" data-testid="convergence-badge">
                 {t('partyDyn.convergence')}: {data.convergence_speed} {t('partyDyn.elections')}
               </Badge>
             )}
@@ -303,7 +308,7 @@ const PartyDynamicsPanel: React.FC<Props> = ({ onDataLoaded }) => {
               }}>
               {playing ? '⏸' : '▶'}
             </Button>
-            <Form.Range
+            <Range
               data-testid="election-slider"
               min={0} max={data.elections.length - 1} step={1}
               value={electionIdx}

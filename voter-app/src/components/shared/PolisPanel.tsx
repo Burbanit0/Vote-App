@@ -6,7 +6,13 @@
  */
 import React, { useCallback, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { Alert, Badge, Button, Col, Form, Row, Spinner, Table } from 'react-bootstrap';
+import { Alert } from '@/components/ui/alert';
+import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
+import { Control, Range, Select } from '@/components/ui/form-controls';
+import { Col, Row } from '@/components/ui/grid';
+import { Spinner } from '@/components/ui/spinner';
+import { Table } from '@/components/ui/table';
 import { useElection } from '../../stores/useElectionStore';
 import { $api } from '../../api/hooks';
 
@@ -108,8 +114,7 @@ const TaiwanSidebar: React.FC<{ t: (k: string) => string }> = ({ t }) => (
         style={{ fontSize: '0.72rem', background: '#f8f9fa' }}>
         <div style={{ fontStyle: 'italic', color: '#495057' }}>"{ex.stmt}"</div>
         <div className="mt-1">
-          <Badge bg={ex.type === 'consensus' ? 'success' : ex.type === 'polarizing' ? 'danger' : 'warning'}
-            text={ex.type === 'silent' ? 'dark' : undefined}
+          <Badge variant={ex.type === 'consensus' ? 'success' : ex.type === 'polarizing' ? 'danger' : 'warning'}
             style={{ fontSize: '0.6rem' }}>
             {t(`polis.${ex.type}`)}
           </Badge>{' '}
@@ -137,7 +142,7 @@ const StatementTable: React.FC<StmtTableProps> = ({ statements, clusters, filter
   });
 
   return (
-    <Table size="sm" hover className="mb-2" data-testid="statement-table">
+    <Table className="[&_th]:p-1 [&_td]:p-1 [&_th]:text-left [&_td]:border-t [&_th]:border-b [&_td]:border-border [&_th]:border-border [&_*]:align-middle [&_tbody_tr:hover]:bg-muted/50 mb-2" data-testid="statement-table">
       <thead>
         <tr>
           <th style={{ fontSize: '0.75rem' }}>{t('polis.statement')}</th>
@@ -163,10 +168,10 @@ const StatementTable: React.FC<StmtTableProps> = ({ statements, clusters, filter
               </td>
             ))}
             <td>
-              {s.is_consensus && <Badge bg="success" style={{ fontSize: '0.6rem' }}>🟢 {t('polis.consensus')}</Badge>}
-              {s.is_polarizing && <Badge bg="danger"  style={{ fontSize: '0.6rem' }}>🔴 {t('polis.polarizing')}</Badge>}
+              {s.is_consensus && <Badge variant="success" style={{ fontSize: '0.6rem' }}>🟢 {t('polis.consensus')}</Badge>}
+              {s.is_polarizing && <Badge variant="danger"  style={{ fontSize: '0.6rem' }}>🔴 {t('polis.polarizing')}</Badge>}
               {!s.is_consensus && !s.is_polarizing && (
-                <Badge bg="secondary" style={{ fontSize: '0.6rem' }}>⚪ {t('polis.mitigated')}</Badge>
+                <Badge variant="secondary" style={{ fontSize: '0.6rem' }}>⚪ {t('polis.mitigated')}</Badge>
               )}
             </td>
           </tr>
@@ -209,33 +214,33 @@ const PolisPanel: React.FC = () => {
       {/* Controls */}
       <Row className="g-2 mb-3 align-items-end">
         <Col xs={6} md={3}>
-          <Form.Label className="small mb-0">{t('polis.ideology')}</Form.Label>
-          <Form.Select size="sm" value={ideology}
+          <label className="mb-1 inline-block small mb-0">{t('polis.ideology')}</label>
+          <Select size="sm" value={ideology}
             data-testid="ideology-select"
             onChange={(e) => setIdeology(e.target.value)}>
             <option value="random">{t('polis.ideologyRandom')}</option>
             <option value="polarized">{t('polis.ideologyPolarized')}</option>
             <option value="centrist">{t('polis.ideologyCentrist')}</option>
-          </Form.Select>
+          </Select>
         </Col>
         <Col xs={6} md={2}>
-          <Form.Label className="small mb-0">{t('polis.clusters')}</Form.Label>
-          <Form.Control type="number" size="sm" min={1} max={5} value={numClusters}
+          <label className="mb-1 inline-block small mb-0">{t('polis.clusters')}</label>
+          <Control type="number" size="sm" min={1} max={5} value={numClusters}
             data-testid="clusters-input"
             onChange={(e) => setNumClusters(Math.max(1, Math.min(5, Number(e.target.value))))} />
         </Col>
         <Col xs={6} md={3}>
-          <Form.Label className="small mb-0">
+          <label className="mb-1 inline-block small mb-0">
             {t('polis.threshold')}: <strong>{Math.round(threshold * 100)}%</strong>
-          </Form.Label>
-          <Form.Range min={0} max={1} step={0.05} value={threshold}
+          </label>
+          <Range min={0} max={1} step={0.05} value={threshold}
             data-testid="threshold-slider"
             onChange={(e) => setThreshold(Number(e.target.value))} />
         </Col>
         <Col xs="auto">
           <Button variant="primary" onClick={runSimulation} disabled={loading}
             data-testid="simulate-btn">
-            {loading ? <Spinner size="sm" animation="border" /> : t('polis.run')}
+            {loading ? <Spinner size="sm" /> : t('polis.run')}
           </Button>
         </Col>
       </Row>
@@ -258,7 +263,7 @@ const PolisPanel: React.FC = () => {
             >
               <div className="text-center">
                 <div className="text-muted" style={{ fontSize: '0.72rem' }}>🌐 Pol.is</div>
-                <Badge bg="primary" style={{ fontSize: '0.85rem', padding: '6px 12px' }}
+                <Badge variant="primary" style={{ fontSize: '0.85rem', padding: '6px 12px' }}
                   data-testid="polis-winner-badge">
                   {data.polis_winner}
                 </Badge>
@@ -268,7 +273,7 @@ const PolisPanel: React.FC = () => {
               </span>
               <div className="text-center">
                 <div className="text-muted" style={{ fontSize: '0.72rem' }}>🗳 Vote classique</div>
-                <Badge bg="secondary" style={{ fontSize: '0.85rem', padding: '6px 12px' }}
+                <Badge variant="secondary" style={{ fontSize: '0.85rem', padding: '6px 12px' }}
                   data-testid="election-winner-badge">
                   {data.election_winner}
                 </Badge>
@@ -283,13 +288,13 @@ const PolisPanel: React.FC = () => {
 
             {/* Stats badges */}
             <div className="d-flex flex-wrap gap-2 mb-3">
-              <Badge bg="success" data-testid="consensus-count-badge">
+              <Badge variant="success" data-testid="consensus-count-badge">
                 🟢 {data.consensus_count} {t('polis.consensus')}
               </Badge>
-              <Badge bg="danger" data-testid="polarizing-count-badge">
+              <Badge variant="danger" data-testid="polarizing-count-badge">
                 🔴 {data.polarizing_count} {t('polis.polarizing')}
               </Badge>
-              <Badge bg="warning" text="dark" data-testid="silent-majority-badge">
+              <Badge variant="warning" data-testid="silent-majority-badge">
                 ⚪ {data.silent_majority_count} {t('polis.silent_majority')}
               </Badge>
             </div>

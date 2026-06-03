@@ -5,7 +5,13 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { $api } from '../../api/hooks';
 import { useTranslation } from 'react-i18next';
-import { Alert, Badge, Button, Col, Form, Row, Spinner, Table } from 'react-bootstrap';
+import { Alert } from '@/components/ui/alert';
+import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
+import { Range } from '@/components/ui/form-controls';
+import { Col, Row } from '@/components/ui/grid';
+import { Spinner } from '@/components/ui/spinner';
+import { Table } from '@/components/ui/table';
 import {
   BarChart, Bar, Cell, XAxis, YAxis, Tooltip, CartesianGrid,
   LineChart, Line, Legend, ResponsiveContainer,
@@ -131,10 +137,10 @@ const BallotComplexityPanel: React.FC = () => {
       {/* Controls */}
       <Row className="g-2 mb-3 align-items-end">
         <Col xs={12} md={4}>
-          <Form.Label className="small mb-0">
+          <label className="mb-1 inline-block small mb-0">
             {t('ballot.educationLevel')}: <strong>{eduLevel.toFixed(2)}</strong>
-          </Form.Label>
-          <Form.Range
+          </label>
+          <Range
             data-testid="education-slider"
             min={0} max={1} step={0.05}
             value={eduLevel}
@@ -142,10 +148,10 @@ const BallotComplexityPanel: React.FC = () => {
           />
         </Col>
         <Col xs={12} md={4}>
-          <Form.Label className="small mb-0">
+          <label className="mb-1 inline-block small mb-0">
             {t('ballot.firstTimeVoter')}: <strong>{Math.round(ftvPct * 100)}%</strong>
-          </Form.Label>
-          <Form.Range
+          </label>
+          <Range
             data-testid="ftv-slider"
             min={0} max={0.5} step={0.02}
             value={ftvPct}
@@ -154,7 +160,7 @@ const BallotComplexityPanel: React.FC = () => {
         </Col>
         <Col xs="auto">
           <Button variant="primary" onClick={handleSimulate} disabled={loading}>
-            {loading ? <Spinner size="sm" animation="border" /> : t('ballot.run')}
+            {loading ? <Spinner size="sm" /> : t('ballot.run')}
           </Button>
         </Col>
         {data && data.results.length > 0 && (() => {
@@ -190,14 +196,14 @@ const BallotComplexityPanel: React.FC = () => {
         <>
           {/* Headline badges */}
           <div className="d-flex flex-wrap gap-2 mb-3">
-            <Badge bg="success" data-testid="most-inclusive-badge">
+            <Badge variant="success" data-testid="most-inclusive-badge">
               {t('ballot.mostInclusive')}: {data.most_inclusive_method}
             </Badge>
-            <Badge bg="danger" data-testid="least-inclusive-badge">
+            <Badge variant="danger" data-testid="least-inclusive-badge">
               {t('ballot.leastInclusive')}: {data.least_inclusive_method}
             </Badge>
             {data.results.some((r) => r.winner_changed) && (
-              <Badge bg="warning" text="dark" data-testid="winner-changed-badge">
+              <Badge variant="warning" data-testid="winner-changed-badge">
                 {t('ballot.winnerChangedAlert')}
               </Badge>
             )}
@@ -254,7 +260,7 @@ const BallotComplexityPanel: React.FC = () => {
           <div className="fw-semibold mb-1" style={{ fontSize: '0.85rem' }}>
             {t('ballot.tableTitle')}
           </div>
-          <Table size="sm" hover className="mb-4" data-testid="results-table">
+          <Table className="[&_th]:p-1 [&_td]:p-1 [&_th]:text-left [&_td]:border-t [&_th]:border-b [&_td]:border-border [&_th]:border-border [&_*]:align-middle [&_tbody_tr:hover]:bg-muted/50 mb-4" data-testid="results-table">
             <thead>
               <tr>
                 <th style={{ fontSize: '0.78rem' }}>{t('ballot.method')}</th>

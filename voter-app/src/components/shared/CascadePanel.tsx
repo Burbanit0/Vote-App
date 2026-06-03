@@ -8,7 +8,12 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { $api } from '../../api/hooks';
 import { useTranslation } from 'react-i18next';
-import { Alert, Badge, Button, Col, Form, Row, Spinner } from 'react-bootstrap';
+import { Alert } from '@/components/ui/alert';
+import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
+import { Control, Range } from '@/components/ui/form-controls';
+import { Col, Row } from '@/components/ui/grid';
+import { Spinner } from '@/components/ui/spinner';
 import {
   LineChart, Line, XAxis, YAxis, Tooltip, Legend,
   ResponsiveContainer, ReferenceLine, CartesianGrid,
@@ -259,10 +264,10 @@ const CascadePanel: React.FC = () => {
       {/* Controls */}
       <Row className="g-2 mb-3 align-items-end">
         <Col xs={12} md={5}>
-          <Form.Label className="small mb-0">
+          <label className="mb-1 inline-block small mb-0">
             {t('cascade.strengthSlider')}: <strong>{cascadeStrength.toFixed(2)}</strong>
-          </Form.Label>
-          <Form.Range
+          </label>
+          <Range
             data-testid="cascade-strength-slider"
             min={0} max={1} step={0.05}
             value={cascadeStrength}
@@ -270,8 +275,8 @@ const CascadePanel: React.FC = () => {
           />
         </Col>
         <Col xs={12} md={3}>
-          <Form.Label className="small mb-0">{t('cascade.window')}</Form.Label>
-          <Form.Control
+          <label className="mb-1 inline-block small mb-0">{t('cascade.window')}</label>
+          <Control
             type="number"
             size="sm"
             min={0} max={50}
@@ -285,7 +290,7 @@ const CascadePanel: React.FC = () => {
             onClick={handleSimulate}
             disabled={loading}
           >
-            {loading ? <Spinner size="sm" animation="border" /> : t('cascade.run')}
+            {loading ? <Spinner size="sm" /> : t('cascade.run')}
           </Button>
         </Col>
         {data && (
@@ -316,20 +321,20 @@ const CascadePanel: React.FC = () => {
         <>
           {/* Winner badges */}
           <div className="d-flex gap-2 flex-wrap mb-3">
-            <Badge bg="secondary">{t('cascade.sincereWinner')}: {data.sincere_winner}</Badge>
+            <Badge variant="secondary">{t('cascade.sincereWinner')}: {data.sincere_winner}</Badge>
             <Badge
               data-testid="cascade-winner-badge"
-              bg={data.cascade_occurred ? 'danger' : 'success'}
+              variant={data.cascade_occurred ? 'danger' : 'success'}
             >
               {t('cascade.cascadeWinner')}: {data.cascade_winner}
             </Badge>
             {data.cascade_occurred && (
-              <Badge bg="warning" text="dark" data-testid="cascade-occurred-badge">
+              <Badge variant="warning" data-testid="cascade-occurred-badge">
                 {t('cascade.cascadeOccurred')}
               </Badge>
             )}
             {data.cascade_start_at != null && (
-              <Badge bg="info" text="dark" data-testid="cascade-start-badge">
+              <Badge variant="info" data-testid="cascade-start-badge">
                 {t('cascade.cascadeStartAt')} #{data.cascade_start_at + 1}
               </Badge>
             )}

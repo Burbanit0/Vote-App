@@ -1,5 +1,11 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
-import { Alert, Badge, Button, Card, Col, Container, Form, Row, Spinner } from 'react-bootstrap';
+import { Alert } from '@/components/ui/alert';
+import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
+import { Card, CardBody, CardHeader } from '@/components/ui/card';
+import { Control } from '@/components/ui/form-controls';
+import { Col, Container, Row } from '@/components/ui/grid';
+import { Spinner } from '@/components/ui/spinner';
 import { useNavigate } from 'react-router';
 import { Slide, useTeacherMode } from '../stores/useUIStore';
 import { useMetaTags } from '../hooks/useMetaTags';
@@ -62,7 +68,7 @@ const SlidePreview: React.FC<{ slide: Slide; previewRef?: React.Ref<HTMLDivEleme
             </p>
           )}
           {slide.content.route && (
-            <Badge bg="secondary" style={{ fontSize: '0.75rem' }}>
+            <Badge variant="secondary" style={{ fontSize: '0.75rem' }}>
               {slide.content.route}
             </Badge>
           )}
@@ -392,7 +398,7 @@ const TeacherPresentationPage: React.FC = () => {
         style={{ flexShrink: 0, background: 'var(--bs-body-bg, white)' }}
       >
         <h5 className="mb-0 fw-bold">🎓 Présentation</h5>
-        <Badge bg="secondary">{slides.length} slide{slides.length !== 1 ? 's' : ''}</Badge>
+        <Badge variant="secondary">{slides.length} slide{slides.length !== 1 ? 's' : ''}</Badge>
         <span className="me-auto text-muted small">← → pour naviguer · F = plein écran</span>
 
         <Button variant="outline-secondary" size="sm" onClick={() => captureScreen()} disabled={capturing}>
@@ -447,7 +453,7 @@ const TeacherPresentationPage: React.FC = () => {
           {active ? (
             <>
               {/* Title editable */}
-              <Form.Control
+              <Control
                 value={active.title}
                 onChange={(e) => updateSlideTitle(active.id, e.target.value)}
                 className="fw-bold mb-3 border-0 ps-0 fs-5"
@@ -457,9 +463,9 @@ const TeacherPresentationPage: React.FC = () => {
 
               {/* Slide preview */}
               <Card className="mb-3 shadow-sm">
-                <Card.Body className="p-2">
+                <CardBody className="p-2">
                   <SlidePreview slide={active} previewRef={previewRef} />
-                </Card.Body>
+                </CardBody>
               </Card>
 
               {/* Navigation buttons */}
@@ -487,12 +493,12 @@ const TeacherPresentationPage: React.FC = () => {
 
               {/* Notes */}
               <Card>
-                <Card.Header className="py-2">
+                <CardHeader className="block space-y-0 border-b border-border px-4 py-2 py-2">
                   <small className="fw-semibold text-muted">📝 Notes de l'enseignant</small>
                   <small className="text-muted ms-2">(non affichées pendant la présentation)</small>
-                </Card.Header>
-                <Card.Body className="p-2">
-                  <Form.Control
+                </CardHeader>
+                <CardBody className="p-2">
+                  <Control
                     as="textarea"
                     rows={4}
                     value={active.notes ?? ''}
@@ -501,7 +507,7 @@ const TeacherPresentationPage: React.FC = () => {
                     style={{ fontSize: '0.88rem', resize: 'vertical' }}
                     aria-label="Notes de l'enseignant"
                   />
-                </Card.Body>
+                </CardBody>
               </Card>
 
               <div className="mt-2 text-end">

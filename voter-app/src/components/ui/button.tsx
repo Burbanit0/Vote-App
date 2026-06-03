@@ -37,6 +37,7 @@ const buttonVariants = cva(
         'outline-warning': 'border border-[#ffc107] text-[#9a7400] hover:bg-[#ffc107]/10',
         'outline-info': 'border border-[#0dcaf0] text-[#0a93ad] hover:bg-[#0dcaf0]/10',
         'outline-dark': 'border border-slate-900 text-slate-900 hover:bg-slate-900/10',
+        'outline-light': 'border border-slate-300 text-slate-100 hover:bg-white/10',
       },
       size: {
         default: 'h-9 px-4 py-2',

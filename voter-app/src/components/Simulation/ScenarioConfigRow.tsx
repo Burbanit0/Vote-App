@@ -1,5 +1,6 @@
 import React from 'react';
-import { Col, Form, Row } from 'react-bootstrap';
+import { Control, Select } from '@/components/ui/form-controls';
+import { Col, Row } from '@/components/ui/grid';
 import { IDEOLOGY_OPTIONS, ScenarioConfig } from './simulationConstants';
 import { useTranslation } from 'react-i18next';
 
@@ -32,10 +33,10 @@ const ScenarioConfigRow: React.FC<Props> = ({
         </Col>
       )}
       <Col md={4}>
-        <Form.Label htmlFor={candidatesId} className="small mb-1">
+        <label htmlFor={candidatesId} className="mb-1 inline-block small mb-1">
           {t('simulation.candidatesLabel', { defaultValue: 'Candidates (comma-separated)' })}
-        </Form.Label>
-        <Form.Control
+        </label>
+        <Control
           id={candidatesId}
           size="sm"
           type="text"
@@ -45,10 +46,10 @@ const ScenarioConfigRow: React.FC<Props> = ({
         />
       </Col>
       <Col md={3}>
-        <Form.Label htmlFor={votersId} className="small mb-1">
+        <label htmlFor={votersId} className="mb-1 inline-block small mb-1">
           {t('simulation.votersLabel', { defaultValue: 'Voters' })}
-        </Form.Label>
-        <Form.Control
+        </label>
+        <Control
           id={votersId}
           size="sm"
           type="number"
@@ -59,15 +60,15 @@ const ScenarioConfigRow: React.FC<Props> = ({
           onChange={(e) => onChange({ numVoters: Number(e.target.value) })}
           aria-describedby={`${votersId}-hint`}
         />
-        <Form.Text id={`${votersId}-hint`} muted>
+        <small className="block text-sm text-muted-foreground" id={`${votersId}-hint`}>
           100 – 2 000
-        </Form.Text>
+        </small>
       </Col>
       <Col md={3}>
-        <Form.Label htmlFor={distributionId} className="small mb-1">
+        <label htmlFor={distributionId} className="mb-1 inline-block small mb-1">
           {t('simulation.distributionLabel', { defaultValue: 'Electorate distribution' })}
-        </Form.Label>
-        <Form.Select
+        </label>
+        <Select
           id={distributionId}
           size="sm"
           value={config.ideology_distribution}
@@ -78,7 +79,7 @@ const ScenarioConfigRow: React.FC<Props> = ({
               {t(o.labelKey)}
             </option>
           ))}
-        </Form.Select>
+        </Select>
       </Col>
     </Row>
   );

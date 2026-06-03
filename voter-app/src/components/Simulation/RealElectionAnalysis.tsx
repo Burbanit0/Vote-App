@@ -1,5 +1,10 @@
 import React, { useMemo } from 'react';
-import { Alert, Badge, Card, Form, Spinner, Table } from 'react-bootstrap';
+import { Alert } from '@/components/ui/alert';
+import { Badge } from '@/components/ui/badge';
+import { Card, CardBody, CardHeader } from '@/components/ui/card';
+import { Check } from '@/components/ui/form-controls';
+import { Spinner } from '@/components/ui/spinner';
+import { Table } from '@/components/ui/table';
 import { Trans, useTranslation } from 'react-i18next';
 import MethodTooltip from '../shared/MethodTooltip';
 import { RealElectionResult } from '../../types';
@@ -30,17 +35,17 @@ const BlankComparisonTable: React.FC<{
       {/* Summary badges */}
       <div className="d-flex gap-2 mb-3 flex-wrap align-items-center">
         {crisisCount > 0 && (
-          <Badge bg="danger" style={{ fontSize: '0.82rem' }}>
+          <Badge variant="danger" style={{ fontSize: '0.82rem' }}>
             {t('simulation.realCrisis', { count: crisisCount, plural: crisisCount > 1 ? 's' : '' })}
           </Badge>
         )}
         {changedCount > 0 && (
-          <Badge bg="warning" text="dark" style={{ fontSize: '0.82rem' }}>
+          <Badge variant="warning" style={{ fontSize: '0.82rem' }}>
             {t('simulation.realChanged', { count: changedCount, total: methodNames.length })}
           </Badge>
         )}
         {changedCount === 0 && (
-          <Badge bg="success" style={{ fontSize: '0.82rem' }}>
+          <Badge variant="success" style={{ fontSize: '0.82rem' }}>
             {t('simulation.realNoChange')}
           </Badge>
         )}
@@ -48,7 +53,7 @@ const BlankComparisonTable: React.FC<{
 
       {/* Comparison table */}
       <div style={{ overflowX: 'auto' }}>
-        <Table bordered size="sm">
+        <Table className="[&_th]:p-1 [&_td]:p-1 [&_th]:text-left [&_td]:border-t [&_th]:border-b [&_td]:border-border [&_th]:border-border [&_*]:align-middle [&_th]:border [&_td]:border">
           <thead className="table-light">
             <tr>
               <th style={{ minWidth: 150 }}>{t('common.method')}</th>
@@ -81,16 +86,16 @@ const BlankComparisonTable: React.FC<{
                   <td className="ps-2 fw-semibold"><MethodTooltip method={method} /></td>
                   <td className="text-center">
                     {w1 ? (
-                      <Badge bg={w1 === pluralityWinner ? 'primary' : 'secondary'}>{w1}</Badge>
+                      <Badge variant={w1 === pluralityWinner ? 'primary' : 'secondary'}>{w1}</Badge>
                     ) : (
                       <span className="text-muted small">—</span>
                     )}
                   </td>
                   <td className="text-center">
                     {isCrisis ? (
-                      <Badge bg="danger">{t('simulation.blankBadge')}</Badge>
+                      <Badge variant="danger">{t('simulation.blankBadge')}</Badge>
                     ) : w2 ? (
-                      <Badge bg={changed ? 'warning' : 'secondary'} text={changed ? 'dark' : undefined}>{w2}</Badge>
+                      <Badge variant={changed ? 'warning' : 'secondary'}>{w2}</Badge>
                     ) : (
                       <span className="text-muted small">—</span>
                     )}
@@ -164,27 +169,27 @@ const RealElectionAnalysis: React.FC<Props> = ({
     <div>
       {/* ── Election header ── */}
       <Card className="mb-4 border-0 bg-light">
-        <Card.Body>
+        <CardBody>
           <h5 className="mb-1">
             {election.name}
-            <Badge bg="secondary" className="ms-2" style={{ fontSize: '0.75rem' }}>
+            <Badge variant="secondary" className="ms-2" style={{ fontSize: '0.75rem' }}>
               {election.country} · {election.year}
             </Badge>
           </h5>
           <p className="text-muted small mb-2">{election.description}</p>
           <p className="text-muted" style={{ fontSize: '0.75rem' }}>Source : {election.source}</p>
-        </Card.Body>
+        </CardBody>
       </Card>
 
       {/* ── First-round results ── */}
       <Card className="mb-4">
-        <Card.Header>
+        <CardHeader className="block space-y-0 border-b border-border px-4 py-2">
           <strong>{t('simulation.firstRoundResults')}</strong>
           <span className="text-muted ms-2" style={{ fontSize: '0.85rem' }}>
             {t('simulation.firstRoundDesc')}
           </span>
-        </Card.Header>
-        <Card.Body>
+        </CardHeader>
+        <CardBody>
           <div className="d-flex flex-column gap-1">
             {Object.entries(first_round_results)
               .sort((a, b) => b[1] - a[1])
@@ -195,7 +200,7 @@ const RealElectionAnalysis: React.FC<Props> = ({
                   <div key={candidate} className="d-flex align-items-center gap-2">
                     <span style={{ minWidth: 150, fontWeight: isPlurality ? 700 : 400, fontSize: '0.85rem' }}>
                       {candidate}
-                      {isPlurality && <Badge bg="primary" className="ms-1" style={{ fontSize: '0.65rem' }}>{t('simulation.firstPlace')}</Badge>}
+                      {isPlurality && <Badge variant="primary" className="ms-1" style={{ fontSize: '0.65rem' }}>{t('simulation.firstPlace')}</Badge>}
                     </span>
                     <div style={{ flex: 1, height: 14, backgroundColor: '#e9ecef', borderRadius: 3, overflow: 'hidden' }}>
                       <div style={{ height: '100%', width: `${(pct / maxPct) * 100}%`, backgroundColor: isPlurality ? '#0d6efd' : '#6ea8fe', borderRadius: 3 }} />
@@ -206,7 +211,7 @@ const RealElectionAnalysis: React.FC<Props> = ({
                 );
               })}
           </div>
-        </Card.Body>
+        </CardBody>
       </Card>
 
       {/* ── Summary banner ── */}
@@ -228,12 +233,12 @@ const RealElectionAnalysis: React.FC<Props> = ({
 
       {/* ── Methods comparison table ── */}
       <Card className="mb-4">
-        <Card.Header>
+        <CardHeader className="block space-y-0 border-b border-border px-4 py-2">
           <strong>{t('simulation.comparisonMethods')}</strong>
           <span className="text-muted ms-2" style={{ fontSize: '0.85rem' }}>{t('simulation.comparisonMethodsDesc')}</span>
-        </Card.Header>
-        <Card.Body className="p-0">
-          <Table bordered size="sm" className="mb-0">
+        </CardHeader>
+        <CardBody className="p-0">
+          <Table className="[&_th]:p-1 [&_td]:p-1 [&_th]:text-left [&_td]:border-t [&_th]:border-b [&_td]:border-border [&_th]:border-border [&_*]:align-middle [&_th]:border [&_td]:border mb-0">
             <thead className="table-light">
               <tr>
                 <th style={{ minWidth: 160 }}>{t('simulation.methodLabel')}</th>
@@ -247,7 +252,7 @@ const RealElectionAnalysis: React.FC<Props> = ({
                   <td className="ps-2 fw-semibold"><MethodTooltip method={method} /></td>
                   <td className="text-center">
                     {winner ? (
-                      <Badge bg={winner === plurality_winner ? 'primary' : differs_from_plurality ? 'warning' : 'secondary'} text={differs_from_plurality ? 'dark' : undefined}>
+                      <Badge variant={winner === plurality_winner ? 'primary' : differs_from_plurality ? 'warning' : 'secondary'}>
                         {winner}
                       </Badge>
                     ) : (
@@ -263,12 +268,12 @@ const RealElectionAnalysis: React.FC<Props> = ({
               ))}
             </tbody>
           </Table>
-        </Card.Body>
+        </CardBody>
       </Card>
 
       {/* ── Vote blanc simulation ── */}
       <Card className={blankVoteEnabled ? 'border-warning' : ''}>
-        <Card.Header className="d-flex align-items-center justify-content-between">
+        <CardHeader className="block space-y-0 border-b border-border px-4 py-2 d-flex align-items-center justify-content-between">
           <div className="d-flex align-items-center gap-3">
             <strong>{t('simulation.simulateBlank')}</strong>
             {blankPct > 0 && (
@@ -279,7 +284,7 @@ const RealElectionAnalysis: React.FC<Props> = ({
           </div>
           <div className="d-flex align-items-center gap-2">
             {blankLoading && <Spinner size="sm" className="text-warning" />}
-            <Form.Switch
+            <Check type="switch"
               id="blank-vote-toggle"
               checked={blankVoteEnabled}
               onChange={(e) => onToggleBlankVote(e.target.checked)}
@@ -287,8 +292,8 @@ const RealElectionAnalysis: React.FC<Props> = ({
               disabled={blankLoading}
             />
           </div>
-        </Card.Header>
-        <Card.Body>
+        </CardHeader>
+        <CardBody>
           {blankVoteEnabled && result.methods_with_blank ? (
             <BlankComparisonTable
               methods={result.methods}
@@ -305,7 +310,7 @@ const RealElectionAnalysis: React.FC<Props> = ({
               {t('simulation.blankToggleInfo', { pct: Math.round(blankPct * 100 * 10) / 10 || '?' })}
             </p>
           )}
-        </Card.Body>
+        </CardBody>
       </Card>
 
       <p className="text-muted small mt-3 mb-0">

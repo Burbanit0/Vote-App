@@ -4,9 +4,13 @@
  */
 import React, { useCallback, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import {
-  Alert, Badge, Button, Card, Col, Container, Form, Row, Spinner,
-} from 'react-bootstrap';
+import { Alert } from '@/components/ui/alert';
+import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
+import { Card, CardBody, CardHeader } from '@/components/ui/card';
+import { Control, Range, Select } from '@/components/ui/form-controls';
+import { Col, Container, Row } from '@/components/ui/grid';
+import { Spinner } from '@/components/ui/spinner';
 import {
   BarChart, Bar, XAxis, YAxis, Tooltip, Cell, ResponsiveContainer, Legend,
 } from 'recharts';
@@ -118,7 +122,7 @@ const MechChart: React.FC<{
         </ResponsiveContainer>
       </div>
       <div className="d-flex justify-content-between mt-1" style={{ fontSize: '0.7rem' }}>
-        <Badge bg="secondary" data-testid={`gini-badge-${mechanism}`} style={{ fontSize: '0.65rem' }}>
+        <Badge variant="secondary" data-testid={`gini-badge-${mechanism}`} style={{ fontSize: '0.65rem' }}>
           Gini: {gini.toFixed(2)}
         </Badge>
         <span style={{ color: projColor(winner, names), fontWeight: 600, fontSize: '0.7rem' }}>
@@ -199,10 +203,10 @@ const QuadraticFundingPage: React.FC = () => {
         {/* Left: configuration */}
         <Col xs={12} md={4}>
           <Card>
-            <Card.Header className="py-2">
+            <CardHeader className="block space-y-0 border-b border-border px-4 py-2 py-2">
               <strong style={{ fontSize: '0.85rem' }}>{t('qf.configTitle')}</strong>
-            </Card.Header>
-            <Card.Body className="p-3">
+            </CardHeader>
+            <CardBody className="p-3">
               {/* Projects */}
               <div className="mb-3">
                 <div className="fw-semibold mb-2" style={{ fontSize: '0.8rem' }}>
@@ -212,7 +216,7 @@ const QuadraticFundingPage: React.FC = () => {
                   <div key={i} className="border rounded p-2 mb-2"
                     style={{ borderLeft: `3px solid ${projColor(p.name, projNames)}`, fontSize: '0.78rem' }}>
                     <div className="d-flex gap-1 mb-1">
-                      <Form.Control
+                      <Control
                         size="sm" value={p.name}
                         onChange={e => updateProject(i, { name: e.target.value })}
                         style={{ fontSize: '0.75rem' }}
@@ -223,10 +227,10 @@ const QuadraticFundingPage: React.FC = () => {
                           onClick={() => removeProject(i)}>✕</Button>
                       )}
                     </div>
-                    <Form.Label className="small mb-0">
+                    <label className="mb-1 inline-block small mb-0">
                       Position idéologique: {p.x.toFixed(2)}
-                    </Form.Label>
-                    <Form.Range min={-1} max={1} step={0.05} value={p.x}
+                    </label>
+                    <Range min={-1} max={1} step={0.05} value={p.x}
                       onChange={e => updateProject(i, { x: Number(e.target.value) })} />
                   </div>
                 ))}
@@ -239,25 +243,25 @@ const QuadraticFundingPage: React.FC = () => {
               </div>
 
               {/* Electorate */}
-              <Form.Label className="small mb-0">
+              <label className="mb-1 inline-block small mb-0">
                 {t('qf.numVoters')}: <strong>{numVoters}</strong>
-              </Form.Label>
-              <Form.Range min={20} max={300} step={10} value={numVoters}
+              </label>
+              <Range min={20} max={300} step={10} value={numVoters}
                 onChange={e => setNumVoters(Number(e.target.value))} className="mb-2" />
 
-              <Form.Label className="small mb-0">
+              <label className="mb-1 inline-block small mb-0">
                 {t('qf.budgetPerVoter')}: <strong>€{budgetPV}</strong>
-              </Form.Label>
-              <Form.Range min={10} max={500} step={10} value={budgetPV}
+              </label>
+              <Range min={10} max={500} step={10} value={budgetPV}
                 onChange={e => setBudgetPV(Number(e.target.value))} className="mb-2" />
 
-              <Form.Label className="small mb-1">{t('qf.ideology')}</Form.Label>
-              <Form.Select size="sm" value={ideology}
+              <label className="mb-1 inline-block small mb-1">{t('qf.ideology')}</label>
+              <Select size="sm" value={ideology}
                 onChange={e => setIdeology(e.target.value)} className="mb-3">
                 {['random', 'centrist', 'polarized', 'left_skewed', 'right_skewed'].map(v => (
                   <option key={v} value={v}>{v}</option>
                 ))}
-              </Form.Select>
+              </Select>
 
               <Button variant="primary" className="w-100" onClick={() => run(matchingPool)}
                 disabled={loading}>
@@ -265,7 +269,7 @@ const QuadraticFundingPage: React.FC = () => {
               </Button>
 
               {error && <Alert variant="danger" className="mt-2 py-2" style={{ fontSize: '0.8rem' }}>{error}</Alert>}
-            </Card.Body>
+            </CardBody>
           </Card>
         </Col>
 
@@ -279,11 +283,11 @@ const QuadraticFundingPage: React.FC = () => {
             <>
               {/* Matching pool slider */}
               <div className="border rounded p-3 mb-3">
-                <Form.Label className="fw-semibold mb-0" style={{ fontSize: '0.85rem' }}>
+                <label className="mb-1 inline-block fw-semibold mb-0" style={{ fontSize: '0.85rem' }}>
                   {t('qf.matchingPool')}: <strong>€{matchingPool.toLocaleString()}</strong>
                   {loading && <Spinner size="sm" className="ms-2" />}
-                </Form.Label>
-                <Form.Range
+                </label>
+                <Range
                   min={0} max={50000} step={500} value={matchingPool}
                   onChange={e => handlePoolChange(Number(e.target.value))}
                   data-testid="pool-slider"
@@ -339,8 +343,7 @@ const QuadraticFundingPage: React.FC = () => {
                 <span className="small text-muted fw-semibold">{t('qf.giniLabel')}:</span>
                 {(['1p1v', 'proportional', 'qf'] as const).map(m => (
                   <Badge key={m}
-                    bg={data.gini_coefficients[m] < 0.2 ? 'success' : data.gini_coefficients[m] < 0.4 ? 'warning' : 'danger'}
-                    text={data.gini_coefficients[m] >= 0.2 && data.gini_coefficients[m] < 0.4 ? 'dark' : undefined}
+                    variant={data.gini_coefficients[m] < 0.2 ? 'success' : data.gini_coefficients[m] < 0.4 ? 'warning' : 'danger'}
                     style={{ fontSize: '0.7rem' }}>
                     {MECHANISM_LABELS[m]}: {data.gini_coefficients[m].toFixed(2)}
                   </Badge>

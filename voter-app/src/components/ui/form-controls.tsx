@@ -20,13 +20,19 @@ const Range = React.forwardRef<HTMLInputElement, React.ComponentProps<'input'>>(
 );
 Range.displayName = 'Range';
 
-/** Form.Select → styled native <select>. Pass <option>s as children. */
-const Select = React.forwardRef<HTMLSelectElement, React.ComponentProps<'select'>>(
-  ({ className, ...props }, ref) => (
+/** Form.Select → styled native <select>. Pass <option>s as children. `size`
+ *  mirrors react-bootstrap's visual sizing ('sm'/'lg'), not the native row count. */
+export interface SelectProps extends Omit<React.ComponentProps<'select'>, 'size'> {
+  size?: 'sm' | 'lg';
+}
+const Select = React.forwardRef<HTMLSelectElement, SelectProps>(
+  ({ className, size, ...props }, ref) => (
     <select
       ref={ref}
       className={cn(
         'flex h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-50',
+        size === 'sm' && 'h-8 px-2 text-xs',
+        size === 'lg' && 'h-10 px-4',
         className
       )}
       {...props}
@@ -41,10 +47,13 @@ export interface CheckProps extends Omit<React.ComponentProps<'input'>, 'type'> 
   label?: React.ReactNode;
   type?: 'checkbox' | 'radio' | 'switch';
   id?: string;
+  /** react-bootstrap layout props — accepted (and ignored) for drop-in parity. */
+  inline?: boolean;
+  reverse?: boolean;
 }
 
 const Check = React.forwardRef<HTMLInputElement, CheckProps>(
-  ({ className, label, type = 'checkbox', id, ...props }, ref) => {
+  ({ className, label, type = 'checkbox', id, inline, reverse, ...props }, ref) => {
     const inputType = type === 'switch' ? 'checkbox' : type;
     const autoId = React.useId();
     const inputId = id ?? autoId;
@@ -64,4 +73,34 @@ const Check = React.forwardRef<HTMLInputElement, CheckProps>(
 );
 Check.displayName = 'Check';
 
-export { Range, Select, Check };
+/** Form.Control → styled native <input> (or <textarea> via `as`). Mirrors the
+ *  common `<Form.Control type value onChange size="sm" />` usage. */
+export interface ControlProps extends Omit<React.ComponentProps<'input'>, 'size'> {
+  as?: 'input' | 'textarea';
+  size?: 'sm' | 'lg';
+  isInvalid?: boolean;
+  rows?: number;
+}
+
+const Control = React.forwardRef<HTMLInputElement | HTMLTextAreaElement, ControlProps>(
+  ({ className, as = 'input', size, isInvalid, ...props }, ref) => {
+    const Comp = as as 'input';
+    return (
+      <Comp
+        ref={ref as React.Ref<HTMLInputElement>}
+        className={cn(
+          'flex w-full rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-50',
+          as === 'textarea' ? 'min-h-[80px]' : 'h-9',
+          size === 'sm' && 'h-8 px-2 text-xs',
+          size === 'lg' && 'h-10 px-4',
+          isInvalid && 'border-red-500 focus-visible:ring-red-500',
+          className
+        )}
+        {...props}
+      />
+    );
+  }
+);
+Control.displayName = 'Control';
+
+export { Range, Select, Check, Control };

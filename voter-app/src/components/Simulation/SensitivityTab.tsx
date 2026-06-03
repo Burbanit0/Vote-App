@@ -1,5 +1,12 @@
 import React, { useMemo, useState } from 'react';
-import { Alert, Badge, Button, Card, Col, Form, Row, Spinner, Table } from 'react-bootstrap';
+import { Alert } from '@/components/ui/alert';
+import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
+import { Card, CardBody, CardHeader } from '@/components/ui/card';
+import { Control, Select } from '@/components/ui/form-controls';
+import { Col, Row } from '@/components/ui/grid';
+import { Spinner } from '@/components/ui/spinner';
+import { Table } from '@/components/ui/table';
 import {
   CartesianGrid,
   Legend,
@@ -85,17 +92,17 @@ const SensitivityTab: React.FC<Props> = ({ baseConfig }) => {
 
   return (
     <Card className="mb-4">
-      <Card.Header>
+      <CardHeader className="block space-y-0 border-b border-border px-4 py-2">
         <strong>Sensitivity Analysis</strong>
         <span className="text-muted ms-2" style={{ fontSize: '0.85rem' }}>
           — vary one parameter and observe how winners change (uses Scenario A config)
         </span>
-      </Card.Header>
-      <Card.Body>
+      </CardHeader>
+      <CardBody>
         <Row className="g-3 align-items-end mb-4">
           <Col md={3}>
-            <Form.Label className="small mb-1">Variable</Form.Label>
-            <Form.Select
+            <label className="mb-1 inline-block small mb-1">Variable</label>
+            <Select
               size="sm"
               value={variable}
               onChange={(e) => {
@@ -107,16 +114,16 @@ const SensitivityTab: React.FC<Props> = ({ baseConfig }) => {
               <option value="ideology_distribution">Electorate distribution</option>
               <option value="num_voters">Number of voters</option>
               <option value="strategic_pct">Strategic voter %</option>
-            </Form.Select>
+            </Select>
           </Col>
           <Col md={6}>
-            <Form.Label className="small mb-1">
+            <label className="mb-1 inline-block small mb-1">
               Values to test{' '}
               <span className="text-muted">
                 (comma-separated{variable !== 'ideology_distribution' ? ', numbers' : ''})
               </span>
-            </Form.Label>
-            <Form.Control
+            </label>
+            <Control
               size="sm"
               type="text"
               value={valuesInput}
@@ -134,7 +141,7 @@ const SensitivityTab: React.FC<Props> = ({ baseConfig }) => {
           <>
             <p className="fw-semibold mb-2">Winner heatmap</p>
             <div style={{ overflowX: 'auto' }} className="mb-4">
-              <Table bordered size="sm" className="text-center" style={{ minWidth: 400 }}>
+              <Table className="[&_th]:p-1 [&_td]:p-1 [&_th]:text-left [&_td]:border-t [&_th]:border-b [&_td]:border-border [&_th]:border-border [&_*]:align-middle [&_th]:border [&_td]:border text-center" style={{ minWidth: 400 }}>
                 <thead className="table-light">
                   <tr>
                     <th style={{ minWidth: 130, textAlign: 'left' }}>Method</th>
@@ -200,7 +207,7 @@ const SensitivityTab: React.FC<Props> = ({ baseConfig }) => {
             Select a variable, adjust the values and click <strong>Run Sensitivity</strong>.
           </Alert>
         )}
-      </Card.Body>
+      </CardBody>
     </Card>
   );
 };

@@ -4,9 +4,12 @@
  */
 import React, { useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import {
-  Alert, Badge, Button, Col, Form, Row, Spinner,
-} from 'react-bootstrap';
+import { Alert } from '@/components/ui/alert';
+import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
+import { Control, Select } from '@/components/ui/form-controls';
+import { Col, Row } from '@/components/ui/grid';
+import { Spinner } from '@/components/ui/spinner';
 import { $api } from '../../api/hooks';
 
 // ── Types ─────────────────────────────────────────────────────────────────────
@@ -197,7 +200,7 @@ const PhilosophersSection: React.FC<{ score: number; t: (k: string) => string }>
     <div data-testid="philosophers-section">
       <div className="fw-semibold mb-2" style={{ fontSize: '0.82rem' }}>
         {t('will.philosTitle')}
-        <Badge bg="secondary" className="ms-2" style={{ fontSize: '0.6rem' }}>
+        <Badge variant="secondary" className="ms-2" style={{ fontSize: '0.6rem' }}>
           {t('will.mostRight')}: {t(`will.philo_${mostRight}`)}
         </Badge>
       </div>
@@ -302,7 +305,7 @@ const CollectiveWillPanel: React.FC<CollectiveWillLabProps> = ({
       {/* ── Lab mode badge ── */}
       {labMode && (
         <div className="mb-2">
-          <Badge bg="dark" style={{ fontSize: '0.68rem' }}>
+          <Badge variant="dark" style={{ fontSize: '0.68rem' }}>
             🔬 {t('lab.fromElectionLab')}
           </Badge>
         </div>
@@ -311,41 +314,41 @@ const CollectiveWillPanel: React.FC<CollectiveWillLabProps> = ({
       {!labMode && (
       <Row className="g-2 mb-3 align-items-end">
         <Col xs={6} md={2}>
-          <Form.Label className="small mb-0">{t('will.voters')}</Form.Label>
-          <Form.Control type="number" size="sm" min={10} max={500} value={numVoters}
+          <label className="mb-1 inline-block small mb-0">{t('will.voters')}</label>
+          <Control type="number" size="sm" min={10} max={500} value={numVoters}
             data-testid="voters-input"
             onChange={(e) => setNumVoters(Number(e.target.value))} />
         </Col>
         <Col xs={6} md={2}>
-          <Form.Label className="small mb-0">{t('will.methods')}</Form.Label>
-          <Form.Control type="number" size="sm" min={2} max={10} value={numMethods}
+          <label className="mb-1 inline-block small mb-0">{t('will.methods')}</label>
+          <Control type="number" size="sm" min={2} max={10} value={numMethods}
             data-testid="methods-input"
             onChange={(e) => setNumMethods(Number(e.target.value))} />
         </Col>
         <Col xs={6} md={2}>
-          <Form.Label className="small mb-0">{t('will.agendas')}</Form.Label>
-          <Form.Control type="number" size="sm" min={2} max={6} value={numAgendas}
+          <label className="mb-1 inline-block small mb-0">{t('will.agendas')}</label>
+          <Control type="number" size="sm" min={2} max={6} value={numAgendas}
             data-testid="agendas-input"
             onChange={(e) => setNumAgendas(Number(e.target.value))} />
         </Col>
         <Col xs={6} md={2}>
-          <Form.Label className="small mb-0">{t('will.ideology')}</Form.Label>
-          <Form.Select size="sm" value={ideology} data-testid="ideology-select"
+          <label className="mb-1 inline-block small mb-0">{t('will.ideology')}</label>
+          <Select size="sm" value={ideology} data-testid="ideology-select"
             onChange={(e) => setIdeology(e.target.value)}>
             <option value="random">{t('will.ideologyRandom')}</option>
             <option value="polarized">{t('will.ideologyPolarized')}</option>
-          </Form.Select>
+          </Select>
         </Col>
         <Col xs={6} md={1}>
-          <Form.Label className="small mb-0">{t('will.seed')}</Form.Label>
-          <Form.Control type="number" size="sm" value={seed}
+          <label className="mb-1 inline-block small mb-0">{t('will.seed')}</label>
+          <Control type="number" size="sm" value={seed}
             data-testid="seed-input"
             onChange={(e) => setSeed(Number(e.target.value))} />
         </Col>
         <Col xs="auto">
           <Button variant="dark" size="sm" onClick={() => handleRun()} disabled={loading}
             data-testid="run-btn">
-            {loading ? <Spinner size="sm" animation="border" /> : t('will.run')}
+            {loading ? <Spinner size="sm" /> : t('will.run')}
           </Button>
         </Col>
       </Row>
@@ -365,17 +368,16 @@ const CollectiveWillPanel: React.FC<CollectiveWillLabProps> = ({
             </div>
             <WillOMeter score={score} uniqueCount={data.unique_winner_count} />
             <div className="d-flex gap-2 justify-content-center flex-wrap mt-2">
-              <Badge bg={data.condorcet_exists ? 'success' : 'danger'}
+              <Badge variant={data.condorcet_exists ? 'success' : 'danger'}
                 data-testid="condorcet-badge">
                 {data.condorcet_exists
                   ? `✓ ${t('will.condorcetExists')}: ${data.condorcet_winner}`
                   : `✗ ${t('will.noCW')}`}
               </Badge>
-              <Badge bg="secondary" data-testid="rousseau-badge">
+              <Badge variant="secondary" data-testid="rousseau-badge">
                 Rousseau score: {Math.round(score * 100)}%
               </Badge>
-              <Badge bg={score > 0.7 ? 'success' : score > 0.4 ? 'warning' : 'danger'}
-                text={score > 0.4 && score <= 0.7 ? 'dark' : undefined}
+              <Badge variant={score > 0.7 ? 'success' : score > 0.4 ? 'warning' : 'danger'}
                 data-testid="verdict-badge">
                 {score > 0.7 ? t('will.verdictRousseau')
                   : score > 0.4 ? t('will.verdictMixed')

@@ -5,7 +5,12 @@
  */
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { Alert, Badge, Button, Col, Form, Row, Spinner } from 'react-bootstrap';
+import { Alert } from '@/components/ui/alert';
+import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
+import { Control, Range } from '@/components/ui/form-controls';
+import { Col, Row } from '@/components/ui/grid';
+import { Spinner } from '@/components/ui/spinner';
 import { $api } from '../../api/hooks';
 const SVG_SIZE = 380;
 const PAD = 30;
@@ -196,23 +201,23 @@ const PlottChaosPanel: React.FC = () => {
       {/* Controls */}
       <Row className="g-2 mb-3 align-items-end">
         <Col xs={12} md={4}>
-          <Form.Label className="small mb-0">
+          <label className="mb-1 inline-block small mb-0">
             {t('plott.numVoters')}: <strong>{numVoters}</strong>
-          </Form.Label>
-          <Form.Range min={3} max={21} step={2} value={numVoters}
+          </label>
+          <Range min={3} max={21} step={2} value={numVoters}
             data-testid="voters-slider"
             onChange={(e) => setNumVoters(Number(e.target.value))} />
         </Col>
         <Col xs={12} md={3}>
-          <Form.Label className="small mb-0">{t('plott.seed')}</Form.Label>
-          <Form.Control type="number" size="sm" value={seed}
+          <label className="mb-1 inline-block small mb-0">{t('plott.seed')}</label>
+          <Control type="number" size="sm" value={seed}
             data-testid="seed-input"
             onChange={(e) => setSeed(Number(e.target.value))} />
         </Col>
         <Col xs="auto">
           <Button variant="primary" onClick={handleSimulate} disabled={loading}
             data-testid="simulate-btn">
-            {loading ? <Spinner size="sm" animation="border" /> : t('plott.run')}
+            {loading ? <Spinner size="sm" /> : t('plott.run')}
           </Button>
         </Col>
       </Row>
@@ -228,18 +233,18 @@ const PlottChaosPanel: React.FC = () => {
             {/* Status badge */}
             <div className="d-flex flex-wrap gap-2 mb-2">
               <Badge
-                bg={data.condorcet_winner_exists ? 'success' : 'danger'}
+                variant={data.condorcet_winner_exists ? 'success' : 'danger'}
                 data-testid="condorcet-badge"
               >
                 {data.condorcet_winner_exists
                   ? t('plott.condorcetExists')
                   : t('plott.noCondorcet')}
               </Badge>
-              <Badge bg="secondary" data-testid="top-cycle-badge">
+              <Badge variant="secondary" data-testid="top-cycle-badge">
                 {t('plott.topCycle')}: {data.top_cycle.size}/100 {t('plott.policies')}
               </Badge>
               {data.chaos_path.num_steps > 0 && (
-                <Badge bg="info" text="dark" data-testid="path-steps-badge">
+                <Badge variant="info" data-testid="path-steps-badge">
                   {t('plott.pathSteps')}: {data.chaos_path.num_steps}
                 </Badge>
               )}
@@ -258,7 +263,7 @@ const PlottChaosPanel: React.FC = () => {
                 disabled={data.chaos_path.num_steps === 0}>
                 {playing ? '⏸' : '▶'} {t('plott.animatePath')}
               </Button>
-              <Form.Range
+              <Range
                 data-testid="step-slider"
                 min={0} max={Math.max(0, data.chaos_path.steps.length - 1)}
                 value={animStep < 0 ? data.chaos_path.steps.length - 1 : animStep}

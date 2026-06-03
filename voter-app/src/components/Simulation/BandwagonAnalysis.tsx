@@ -1,15 +1,12 @@
 import React, { useMemo, useState } from 'react';
-import {
-  Alert,
-  Badge,
-  Button,
-  Card,
-  Col,
-  Form,
-  Row,
-  Spinner,
-  Table,
-} from 'react-bootstrap';
+import { Alert } from '@/components/ui/alert';
+import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
+import { Card, CardBody, CardHeader } from '@/components/ui/card';
+import { Range } from '@/components/ui/form-controls';
+import { Col, Row } from '@/components/ui/grid';
+import { Spinner } from '@/components/ui/spinner';
+import { Table } from '@/components/ui/table';
 import {
   CartesianGrid,
   Legend,
@@ -75,7 +72,7 @@ const BandwagonAnalysis: React.FC<Props> = ({ baseParams }) => {
     positional_score: t('methods.positional_score.label'),
   }), [t]);
 
-  function amplificationLabel(rate: number): { label: string; variant: string } {
+  function amplificationLabel(rate: number): { label: string; variant: 'success' | 'warning' | 'danger' } {
     if (rate <= 0.1) return { label: t('simulation.bandwagonResists'), variant: 'success' };
     if (rate <= 0.3) return { label: t('simulation.bandwagonAmplifiesSlight'), variant: 'warning' };
     return              { label: t('simulation.bandwagonAmplifiesStrong'), variant: 'danger'  };
@@ -146,27 +143,27 @@ const BandwagonAnalysis: React.FC<Props> = ({ baseParams }) => {
     <div>
       {/* Controls */}
       <Card className="mb-4">
-        <Card.Header><strong>{t('simulation.bandwagonConfig')}</strong></Card.Header>
-        <Card.Body>
+        <CardHeader className="block space-y-0 border-b border-border px-4 py-2"><strong>{t('simulation.bandwagonConfig')}</strong></CardHeader>
+        <CardBody>
           <Row className="g-3 align-items-end">
             <Col md={3}>
-              <Form.Label className="small mb-1">
+              <label className="mb-1 inline-block small mb-1">
                 {t('simulation.rounds')} : <strong>{numRounds}</strong>
-              </Form.Label>
-              <Form.Range
+              </label>
+              <Range
                 min={2} max={12} value={numRounds}
                 onChange={(e) => setNumRounds(Number(e.target.value))}
               />
             </Col>
             <Col md={4}>
-              <Form.Label className="small mb-1">
+              <label className="mb-1 inline-block small mb-1">
                 {t('simulation.influenceStrength')} :{' '}
                 <strong>{influenceStrength.toFixed(2)}</strong>
                 <span className="text-muted ms-1">
                   ({influenceLabel})
                 </span>
-              </Form.Label>
-              <Form.Range
+              </label>
+              <Range
                 min={0} max={1} step={0.05} value={influenceStrength}
                 onChange={(e) => setInfluenceStrength(Number(e.target.value))}
               />
@@ -189,7 +186,7 @@ const BandwagonAnalysis: React.FC<Props> = ({ baseParams }) => {
           <p className="text-muted small mt-2 mb-0">
             {t('simulation.bandwagonInfo')}
           </p>
-        </Card.Body>
+        </CardBody>
       </Card>
 
       {error && <Alert variant="danger">{error}</Alert>}
@@ -221,13 +218,13 @@ const BandwagonAnalysis: React.FC<Props> = ({ baseParams }) => {
 
           {/* Chart 1: Poll standings evolution */}
           <Card className="mb-4">
-            <Card.Header>
+            <CardHeader className="block space-y-0 border-b border-border px-4 py-2">
               <strong>{t('simulation.pollEvolution')}</strong>
               <span className="text-muted ms-2" style={{ fontSize: '0.85rem' }}>
                 {t('simulation.pollEvolutionDesc')}
               </span>
-            </Card.Header>
-            <Card.Body>
+            </CardHeader>
+            <CardBody>
               <ResponsiveContainer width="100%" height={300}>
                 <LineChart data={pollChartData} margin={{ top: 5, right: 20, bottom: 10, left: 10 }}>
                   <CartesianGrid strokeDasharray="3 3" stroke={ct.gridStroke} />
@@ -267,18 +264,18 @@ const BandwagonAnalysis: React.FC<Props> = ({ baseParams }) => {
                   ))}
                 </LineChart>
               </ResponsiveContainer>
-            </Card.Body>
+            </CardBody>
           </Card>
 
           {/* Chart 2: Bayesian regret per method */}
           <Card className="mb-4">
-            <Card.Header>
+            <CardHeader className="block space-y-0 border-b border-border px-4 py-2">
               <strong>{t('simulation.bayesianRegretPerRound')}</strong>
               <span className="text-muted ms-2" style={{ fontSize: '0.85rem' }}>
                 {t('simulation.bayesianRegretPerRoundDesc')}
               </span>
-            </Card.Header>
-            <Card.Body>
+            </CardHeader>
+            <CardBody>
               <ResponsiveContainer width="100%" height={320}>
                 <LineChart data={regretChartData} margin={{ top: 5, right: 20, bottom: 20, left: 10 }}>
                   <CartesianGrid strokeDasharray="3 3" stroke={ct.gridStroke} />
@@ -307,19 +304,19 @@ const BandwagonAnalysis: React.FC<Props> = ({ baseParams }) => {
                   })}
                 </LineChart>
               </ResponsiveContainer>
-            </Card.Body>
+            </CardBody>
           </Card>
 
           {/* Table: amplification summary */}
           <Card>
-            <Card.Header>
+            <CardHeader className="block space-y-0 border-b border-border px-4 py-2">
               <strong>{t('simulation.amplificationSummary')}</strong>
               <span className="text-muted ms-2" style={{ fontSize: '0.85rem' }}>
                 {t('simulation.amplificationSummaryDesc')}
               </span>
-            </Card.Header>
-            <Card.Body className="p-0">
-              <Table bordered size="sm" className="mb-0">
+            </CardHeader>
+            <CardBody className="p-0">
+              <Table className="[&_th]:p-1 [&_td]:p-1 [&_th]:text-left [&_td]:border-t [&_th]:border-b [&_td]:border-border [&_th]:border-border [&_*]:align-middle [&_th]:border [&_td]:border mb-0">
                 <thead className="table-light">
                   <tr>
                     <th style={{ minWidth: 150 }}>{t('common.method')}</th>
@@ -367,7 +364,7 @@ const BandwagonAnalysis: React.FC<Props> = ({ baseParams }) => {
                             <small className="text-muted">{(rate * 100).toFixed(0)}%</small>
                           </td>
                           <td className="text-center">
-                            <Badge bg={variant} style={{ fontSize: '0.75rem' }}>
+                            <Badge variant={variant} style={{ fontSize: '0.75rem' }}>
                               {label}
                             </Badge>
                           </td>
@@ -379,7 +376,7 @@ const BandwagonAnalysis: React.FC<Props> = ({ baseParams }) => {
                     })}
                 </tbody>
               </Table>
-            </Card.Body>
+            </CardBody>
           </Card>
         </>
       )}

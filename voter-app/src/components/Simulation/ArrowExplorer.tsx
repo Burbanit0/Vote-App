@@ -5,9 +5,14 @@
  */
 import React, { useCallback, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import {
-  Alert, Badge, Button, Card, Col, Form, Row, Spinner, Table,
-} from 'react-bootstrap';
+import { Alert } from '@/components/ui/alert';
+import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
+import { Card, CardBody, CardHeader } from '@/components/ui/card';
+import { Check, Select } from '@/components/ui/form-controls';
+import { Col, Row } from '@/components/ui/grid';
+import { Spinner } from '@/components/ui/spinner';
+import { Table } from '@/components/ui/table';
 import {
   LineChart, Line, XAxis, YAxis, Tooltip, CartesianGrid,
   Legend, ResponsiveContainer, ReferenceLine,
@@ -131,7 +136,7 @@ const KNOWN_VIOLATIONS: Record<string, Record<string, boolean>> = {
 
 const AxiomMatrix: React.FC<{ t: (k: string) => string }> = ({ t }) => (
   <div className="table-responsive" data-testid="axiom-matrix">
-    <Table size="sm" hover style={{ fontSize: '0.78rem' }}>
+    <Table className="[&_th]:p-1 [&_td]:p-1 [&_th]:text-left [&_td]:border-t [&_th]:border-b [&_td]:border-border [&_th]:border-border [&_*]:align-middle [&_tbody_tr:hover]:bg-muted/50" style={{ fontSize: '0.78rem' }}>
       <thead className="table-light">
         <tr>
           <th>{t('arrow.method')}</th>
@@ -187,17 +192,17 @@ const CounterexampleCard: React.FC<{
 
   return (
     <Card className="border-danger mb-2" data-testid={`counterexample-${axiom}`}>
-      <Card.Header className="py-1 bg-danger bg-opacity-10" style={{ fontSize: '0.78rem' }}>
+      <CardHeader className="block space-y-0 border-b border-border px-4 py-2 py-1 bg-danger bg-opacity-10" style={{ fontSize: '0.78rem' }}>
         ✗ {t(`arrow.${axiom}`)} — {t('arrow.counterexample')}
-      </Card.Header>
-      <Card.Body className="py-2">
+      </CardHeader>
+      <CardBody className="py-2">
         {axiom === 'iia' && ce.profile && (
           <>
             <div style={{ fontSize: '0.75rem', marginBottom: 8 }}>
               <strong>{t('arrow.iiaProfileTitle')}</strong>
               <div className="d-flex gap-2 flex-wrap mt-1">
                 {ce.profile.map((v, i) => (
-                  <Badge key={i} bg="light" text="dark"
+                  <Badge key={i} variant="light"
                     style={{ fontFamily: 'monospace', fontSize: '0.7rem' }}>
                     V{i + 1}: {v.join('>')}
                   </Badge>
@@ -207,12 +212,12 @@ const CounterexampleCard: React.FC<{
             <div className="d-flex gap-3" style={{ fontSize: '0.78rem' }}>
               <div>
                 <span className="text-muted">{t('arrow.withoutSpoiler')} ({ce.spoiler}):</span>{' '}
-                <Badge bg="secondary">{ce.without_c} {t('arrow.wins')}</Badge>
+                <Badge variant="secondary">{ce.without_c} {t('arrow.wins')}</Badge>
               </div>
               <span>→</span>
               <div>
                 <span className="text-muted">{t('arrow.withSpoiler')} ({ce.spoiler}):</span>{' '}
-                <Badge bg="danger">{ce.with_c} {t('arrow.wins')}</Badge>
+                <Badge variant="danger">{ce.with_c} {t('arrow.wins')}</Badge>
               </div>
             </div>
           </>
@@ -226,7 +231,7 @@ const CounterexampleCard: React.FC<{
         {ce.note && (
           <div className="text-muted mt-1" style={{ fontSize: '0.72rem' }}>{ce.note}</div>
         )}
-      </Card.Body>
+      </CardBody>
     </Card>
   );
 };
@@ -272,14 +277,14 @@ const ArrowExplorer: React.FC = () => {
     <div>
       {/* Axiom filter */}
       <Card className="mb-4" data-testid="axiom-filter-section">
-        <Card.Header className="fw-bold" style={{ fontSize: '0.85rem' }}>
+        <CardHeader className="block space-y-0 border-b border-border px-4 py-2 fw-bold" style={{ fontSize: '0.85rem' }}>
           {t('arrow.filterTitle')}
-        </Card.Header>
-        <Card.Body>
+        </CardHeader>
+        <CardBody>
           <p style={{ fontSize: '0.8rem' }}>{t('arrow.filterDesc')}</p>
           <div className="d-flex flex-wrap gap-2 mb-2">
             {AXIOMS.map((ax) => (
-              <Form.Check key={ax.key} type="checkbox"
+              <Check key={ax.key} type="checkbox"
                 id={`check-${ax.key}`}
                 label={`${ax.icon} ${t(ax.labelKey)}`}
                 checked={checkedAxioms.has(ax.key)}
@@ -304,23 +309,23 @@ const ArrowExplorer: React.FC = () => {
                     </Alert>}
             </div>
           )}
-        </Card.Body>
+        </CardBody>
       </Card>
 
       {/* Method selector + analysis */}
       <Row className="g-2 mb-3 align-items-end">
         <Col xs={12} md={4}>
-          <Form.Label className="small mb-0">{t('arrow.selectMethod')}</Form.Label>
-          <Form.Select size="sm" value={method}
+          <label className="mb-1 inline-block small mb-0">{t('arrow.selectMethod')}</label>
+          <Select size="sm" value={method}
             data-testid="method-select"
             onChange={(e) => setMethod(e.target.value)}>
             {METHODS.map((m) => <option key={m} value={m}>{m}</option>)}
-          </Form.Select>
+          </Select>
         </Col>
         <Col xs="auto">
           <Button variant="primary" onClick={runAnalysis} disabled={loading}
             data-testid="analyze-btn">
-            {loading ? <Spinner size="sm" animation="border" /> : t('arrow.analyze')}
+            {loading ? <Spinner size="sm" /> : t('arrow.analyze')}
           </Button>
         </Col>
       </Row>
@@ -333,7 +338,7 @@ const ArrowExplorer: React.FC = () => {
           <Col xs={12} md={4} className="text-center">
             <div className="fw-semibold mb-1" style={{ fontSize: '0.85rem' }}>{t('arrow.pentagonTitle')}</div>
             <AxiomPentagon violations={data.violations} t={t} />
-            <Badge bg="info" text="dark" style={{ fontSize: '0.72rem' }}>
+            <Badge variant="info" style={{ fontSize: '0.72rem' }}>
               {t(`arrow.tradeoff_${data.tradeoff_type}`)}
             </Badge>
           </Col>

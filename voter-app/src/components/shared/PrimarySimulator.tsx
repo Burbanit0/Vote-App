@@ -1,8 +1,12 @@
 import React, { useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import {
-  Alert, Badge, Button, Card, Col, Form, Row, Spinner,
-} from 'react-bootstrap';
+import { Alert } from '@/components/ui/alert';
+import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
+import { Card, CardBody } from '@/components/ui/card';
+import { Range, Select } from '@/components/ui/form-controls';
+import { Col, Row } from '@/components/ui/grid';
+import { Spinner } from '@/components/ui/spinner';
 import {
   BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, Cell,
 } from 'recharts';
@@ -228,7 +232,7 @@ const PartyEditor: React.FC<PartyEditorProps> = ({ parties, onChange, t }) => {
     <div>
       {parties.map((party, pIdx) => (
         <Card key={pIdx} className="mb-2" style={{ fontSize: '0.78rem', borderLeft: `4px solid ${partyColor(pIdx)}` }}>
-          <Card.Body className="p-2">
+          <CardBody className="p-2">
             <div className="d-flex align-items-center gap-2 mb-1">
               <div style={{ width: 10, height: 10, borderRadius: 2, background: partyColor(pIdx), flexShrink: 0 }} />
               <strong>{party.name}</strong>
@@ -236,7 +240,7 @@ const PartyEditor: React.FC<PartyEditorProps> = ({ parties, onChange, t }) => {
                 {t('primary.center')}: {party.ideology_center.toFixed(2)}
               </span>
             </div>
-            <Form.Range
+            <Range
               min={-1} max={1} step={0.05} value={party.ideology_center}
               onChange={(e) => updateParty(pIdx, { ideology_center: Number(e.target.value) })}
               className="mb-1"
@@ -244,7 +248,7 @@ const PartyEditor: React.FC<PartyEditorProps> = ({ parties, onChange, t }) => {
             />
             <div className="text-muted mb-1" style={{ fontSize: '0.72rem' }}>
               {t('primary.primaryVotersPct')}: {Math.round(party.primary_voters_pct * 100)}%
-              <Form.Range
+              <Range
                 min={0.05} max={0.6} step={0.05} value={party.primary_voters_pct}
                 onChange={(e) => updateParty(pIdx, { primary_voters_pct: Number(e.target.value) })}
                 style={{ minHeight: 44 }}
@@ -254,7 +258,7 @@ const PartyEditor: React.FC<PartyEditorProps> = ({ parties, onChange, t }) => {
               {party.primary_candidates.map((c, cIdx) => (
                 <div key={cIdx} className="d-flex align-items-center gap-1 mb-1">
                   <span style={{ minWidth: 80, fontSize: '0.72rem' }}>{c.name.split(' ')[0]}</span>
-                  <Form.Range
+                  <Range
                     min={-1} max={1} step={0.05} value={c.ideology_position}
                     onChange={(e) => updateCandidate(pIdx, cIdx, { ideology_position: Number(e.target.value) })}
                     style={{ flex: 1 }}
@@ -265,7 +269,7 @@ const PartyEditor: React.FC<PartyEditorProps> = ({ parties, onChange, t }) => {
                 </div>
               ))}
             </div>
-          </Card.Body>
+          </CardBody>
         </Card>
       ))}
     </div>
@@ -315,26 +319,26 @@ const PrimarySimulator: React.FC = () => {
           <PartyEditor parties={parties} onChange={setParties} t={t} />
 
           <div className="mt-3" style={{ fontSize: '0.8rem' }}>
-            <Form.Label className="mb-0">{t('primary.primaryMethod')}</Form.Label>
-            <Form.Select size="sm" value={primaryMethod}
+            <label className="mb-1 inline-block mb-0">{t('primary.primaryMethod')}</label>
+            <Select size="sm" value={primaryMethod}
               onChange={(e) => setPrimaryMethod(e.target.value)} className="mb-2">
               <option value="plurality">{t('primary.methodPlurality')}</option>
               <option value="irv">{t('primary.methodIrv')}</option>
               <option value="approval">{t('primary.methodApproval')}</option>
-            </Form.Select>
+            </Select>
 
-            <Form.Label className="mb-0">{t('primary.generalMethod')}</Form.Label>
-            <Form.Select size="sm" value={generalMethod}
+            <label className="mb-1 inline-block mb-0">{t('primary.generalMethod')}</label>
+            <Select size="sm" value={generalMethod}
               onChange={(e) => setGeneralMethod(e.target.value)} className="mb-2">
               <option value="plurality">{t('primary.methodPlurality')}</option>
               <option value="irv">{t('primary.methodIrv')}</option>
               <option value="approval">{t('primary.methodApproval')}</option>
-            </Form.Select>
+            </Select>
 
-            <Form.Label className="mb-0">
+            <label className="mb-1 inline-block mb-0">
               {t('primary.numVoters')}: <strong>{numVoters}</strong>
-            </Form.Label>
-            <Form.Range min={100} max={1000} step={100} value={numVoters}
+            </label>
+            <Range min={100} max={1000} step={100} value={numVoters}
               onChange={(e) => setNumVoters(Number(e.target.value))} />
           </div>
 
@@ -356,20 +360,20 @@ const PrimarySimulator: React.FC = () => {
             <>
               {/* Summary badges */}
               <div className="d-flex flex-wrap gap-2 mb-3">
-                <Badge bg="primary" data-testid="general-winner-badge">
+                <Badge variant="primary" data-testid="general-winner-badge">
                   {t('primary.generalWinner')}: {data.general_winner}
                 </Badge>
                 {data.without_primaries_winner && (
-                  <Badge bg={primaryChanged ? 'warning' : 'success'} text={primaryChanged ? 'dark' : undefined}
+                  <Badge variant={primaryChanged ? 'warning' : 'success'}
                     data-testid="no-primary-winner-badge">
                     {t('primary.withoutPrimaries')}: {data.without_primaries_winner}
                   </Badge>
                 )}
-                <Badge bg="secondary">
+                <Badge variant="secondary">
                   {t('primary.medianDistance')}: {data.median_voter_distance.toFixed(3)}
                 </Badge>
                 {anyDrift && (
-                  <Badge bg="danger" data-testid="drift-badge">
+                  <Badge variant="danger" data-testid="drift-badge">
                     ⚠ {t('primary.driftDetected')}
                   </Badge>
                 )}
@@ -398,11 +402,11 @@ const PrimarySimulator: React.FC = () => {
                 {data.primaries.map((p, i) => (
                   <Col key={p.party} xs={12} sm={6} lg={4}>
                     <Card className="h-100" style={{ fontSize: '0.78rem', borderTop: `3px solid ${partyColors[i]}` }}>
-                      <Card.Body className="p-2">
+                      <CardBody className="p-2">
                         <div className="d-flex align-items-center gap-1 mb-1">
                           <strong>{p.party}</strong>
                           {p.distortion > 0.1 && (
-                            <Badge bg="warning" text="dark" style={{ fontSize: '0.65rem' }}
+                            <Badge variant="warning" style={{ fontSize: '0.65rem' }}
                               data-testid={`drift-badge-${p.party}`}>
                               +{p.distortion.toFixed(2)}
                             </Badge>
@@ -426,7 +430,7 @@ const PrimarySimulator: React.FC = () => {
                         <div className="text-muted" style={{ fontSize: '0.7rem', marginTop: 2 }}>
                           {t('primary.distortion')}: {p.distortion.toFixed(3)}
                         </div>
-                      </Card.Body>
+                      </CardBody>
                     </Card>
                   </Col>
                 ))}
