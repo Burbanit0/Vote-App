@@ -1,7 +1,7 @@
 // src/pages/SimulationPage.tsx
 
 import React, { useState } from 'react';
-import { Container, Alert, Tabs, Tab } from 'react-bootstrap';
+import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
 import SimulationForm, { SimulationFormData } from '../components/Simulation/SimulationForm';
 import SimulationResult, { SimulationResponse } from '../components/Simulation/SimulationResult';
 import { simulateVote } from '../services';
@@ -61,11 +61,21 @@ const SimulateVotesPage: React.FC = () => {
   };
 
   return (
-    <Container>
-      <h2 className="my-4">{t('simulation.pageTitleLegacy')}</h2>
-      <Tabs defaultActiveKey="Form" id="uncontrolled-tab-example" className="mb-3">
-        <Tab eventKey="Form" title={t('simulation.tabForm')}>
+    <div data-style="tailwind" className="mx-auto w-full max-w-[1140px] px-3">
+      <h2 className="my-6 text-2xl font-semibold">{t('simulation.pageTitleLegacy')}</h2>
+      <Tabs defaultValue="Form" className="mb-4">
+        <TabsList className="h-auto flex-wrap justify-start">
+          <TabsTrigger value="Form">{t('simulation.tabForm')}</TabsTrigger>
+          <TabsTrigger value="Voters">{t('simulation.tabVoters')}</TabsTrigger>
+          <TabsTrigger value="Candidates">{t('simulation.tabCandidates')}</TabsTrigger>
+          <TabsTrigger value="Utility">{t('simulation.tabUtility')}</TabsTrigger>
+          <TabsTrigger value="Result">{t('simulation.tabResult')}</TabsTrigger>
+        </TabsList>
 
+        {/* forceMount keeps every panel in the DOM (like react-bootstrap's
+            default), so deep-linked content + tests that read an inactive tab
+            still work; radix hides the inactive ones. */}
+        <TabsContent value="Form" forceMount>
           <SimulationForm
             simulateVotes={simulateVotes}
             loading={loading}
@@ -73,25 +83,25 @@ const SimulateVotesPage: React.FC = () => {
             setFormData={setFormData}
           />
           {error && (
-            <Alert variant="danger" className="mt-3">
+            <div role="alert" className="mt-4 rounded-md border border-red-300 bg-red-100 px-3 py-2 text-sm text-red-800">
               {error}
-            </Alert>
+            </div>
           )}
-        </Tab>
-        <Tab eventKey="Voters" title={t('simulation.tabVoters')}>
+        </TabsContent>
+        <TabsContent value="Voters" forceMount>
           <VoterVisualization />
-        </Tab>
-        <Tab eventKey="Candidates" title={t('simulation.tabCandidates')}>
+        </TabsContent>
+        <TabsContent value="Candidates" forceMount>
           <CandidatesVisualization />
-        </Tab>
-        <Tab eventKey="Utility" title={t('simulation.tabUtility')}>
+        </TabsContent>
+        <TabsContent value="Utility" forceMount>
           <UtilityVisualization />
-        </Tab>
-        <Tab eventKey="Result" title={t('simulation.tabResult')}>
+        </TabsContent>
+        <TabsContent value="Result" forceMount>
           <SimulationResult result={result} />
-        </Tab>
+        </TabsContent>
       </Tabs>
-    </Container>
+    </div>
   );
 };
 

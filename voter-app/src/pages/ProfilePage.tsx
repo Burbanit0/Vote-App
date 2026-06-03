@@ -1,14 +1,14 @@
 import React from 'react';
-import { Container, Row } from 'react-bootstrap';
 import Profile from '../components/User/Profile';
 
+// ── Tailwind-migrated (Phase 6) ──
 const ProfilePage: React.FC = () => {
   return (
-    <Container>
-      <Row className="mt-4">
+    <div data-style="tailwind" className="mx-auto w-full max-w-[1140px] px-3">
+      <div className="mt-6">
         <Profile />
-      </Row>
-    </Container>
+      </div>
+    </div>
   );
 };
 

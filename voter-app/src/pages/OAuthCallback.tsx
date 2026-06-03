@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
+import { Loader2 } from 'lucide-react';
 import { useAuth } from '../stores/useAuthStore';
-import { Container, Spinner, Alert } from 'react-bootstrap';
 
 const API_BASE_URL = process.env.VITE_API_URL || 'http://localhost:4434';
 
@@ -48,17 +48,19 @@ const OAuthCallback: React.FC = () => {
 
   if (error) {
     return (
-      <Container className="mt-5 text-center">
-        <Alert variant="danger">{error}</Alert>
-      </Container>
+      <div data-style="tailwind" className="mx-auto mt-12 w-full max-w-[1140px] px-3 text-center">
+        <div role="alert" className="rounded-md border border-red-300 bg-red-100 px-3 py-2 text-sm text-red-800">
+          {error}
+        </div>
+      </div>
     );
   }
 
   return (
-    <Container className="mt-5 text-center">
-      <Spinner animation="border" />
-      <p className="mt-3">Signing you in…</p>
-    </Container>
+    <div data-style="tailwind" className="mx-auto mt-12 w-full max-w-[1140px] px-3 text-center">
+      <Loader2 className="mx-auto h-8 w-8 animate-spin text-primary" aria-label="loading" />
+      <p className="mt-4">Signing you in…</p>
+    </div>
   );
 };
 
