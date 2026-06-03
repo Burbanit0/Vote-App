@@ -1,6 +1,9 @@
 import React, { useEffect, useRef, useState } from 'react';
-import { Alert, Badge, Card, Spinner } from 'react-bootstrap';
 import { useTranslation } from 'react-i18next';
+import { Alert } from '@/components/ui/alert';
+import { Badge } from '@/components/ui/badge';
+import { Card, CardContent, CardHeader } from '@/components/ui/card';
+import { Spinner } from '@/components/ui/spinner';
 import i18n from '../../i18n';
 import { ElectionResult, InterpretResult, interpretElection } from '../../services/electionApi';
 import LiveBadge from './LiveBadge';
@@ -57,12 +60,12 @@ const ElectionInsightPanel: React.FC<Props> = ({ result }) => {
 
   if (!result) return null;
   if (loading && !insight) return (
-    <div className="d-flex align-items-center gap-2 py-2 text-muted" style={{ fontSize: '0.8rem' }}>
+    <div className="flex items-center gap-2 py-2 text-[0.8rem] text-muted-foreground">
       <Spinner size="sm" />
       {t('insight.loading')}
     </div>
   );
-  if (error) return <Alert variant="warning" className="py-2 mt-2">{error}</Alert>;
+  if (error) return <Alert variant="warning" className="mt-2 py-2">{error}</Alert>;
   if (!insight) return null;
 
   const variant    = agreementVariant(result.inter_method_agreement);
@@ -71,47 +74,44 @@ const ElectionInsightPanel: React.FC<Props> = ({ result }) => {
                    : 'rgba(183,28,28,0.08)';
 
   return (
-    <Card className="mt-3" style={{ border: `1.5px solid var(--bs-${variant})` }}>
-      <Card.Header
-        className="d-flex align-items-center justify-content-between py-2"
+    <Card className="mt-4" style={{ border: `1.5px solid var(--bs-${variant})` }}>
+      <CardHeader
+        className="flex flex-row items-center justify-between p-6 py-2"
         style={{ background: variantBg }}
       >
-        <strong style={{ fontSize: '0.88rem' }}>
+        <strong className="text-[0.88rem]">
           🔍 {t('insight.title')}
         </strong>
-        <div className="d-flex align-items-center gap-2">
-          <Badge bg={variant} style={{ fontSize: '0.72rem' }}>
+        <div className="flex items-center gap-2">
+          <Badge variant={variant} className="text-[0.72rem]">
             {agreementLabel(result.inter_method_agreement, t)}
           </Badge>
           <LiveBadge loading={loading && !!insight} />
         </div>
-      </Card.Header>
+      </CardHeader>
 
-      <Card.Body className="p-3">
+      <CardContent className="p-4">
         {/* A) Headline + method groups ───────────────────────────────── */}
-        <p className="fw-semibold mb-3" style={{ fontSize: '0.9rem' }}>
+        <p className="mb-4 text-[0.9rem] font-semibold">
           {insight.headline}
         </p>
 
         {/* Method groups — donut chart + optional divergence text */}
-        <div className="d-flex align-items-start gap-3 mb-3 flex-wrap">
+        <div className="mb-4 flex flex-wrap items-start gap-4">
           <MethodGroupDonut
             methodGroups={insight.method_groups}
             totalMethods={Object.keys(result.methods).length}
           />
           {insight.method_groups.length > 1 && (
-            <div style={{ flex: 1, minWidth: 120, fontSize: '0.8rem' }} className="text-muted">
+            <div className="min-w-[120px] flex-1 text-[0.8rem] text-muted-foreground">
               {insight.divergence_reason}
             </div>
           )}
         </div>
 
         {/* B) Condorcet analysis ─────────────────────────────────────── */}
-        <div
-          className="d-flex align-items-start gap-2 mb-3 p-2 rounded"
-          style={{ background: 'var(--bs-secondary-bg, #f8f9fa)', fontSize: '0.82rem' }}
-        >
-          <span style={{ fontSize: '1rem', lineHeight: 1.4 }}>
+        <div className="mb-4 flex items-start gap-2 rounded bg-muted p-2 text-[0.82rem]">
+          <span className="text-base leading-snug">
             {result.condorcet_exists ? '✓' : '✗'}
           </span>
           <span>{insight.condorcet_analysis}</span>
@@ -119,20 +119,14 @@ const ElectionInsightPanel: React.FC<Props> = ({ result }) => {
 
         {/* C) Best / worst method ────────────────────────────────────── */}
         {(insight.best_by_regret || insight.worst_by_regret) && (
-          <div className="d-flex gap-2 mb-3 flex-wrap" style={{ fontSize: '0.8rem' }}>
+          <div className="mb-4 flex flex-wrap gap-2 text-[0.8rem]">
             {insight.best_by_regret && (
-              <Badge
-                bg="success"
-                style={{ fontSize: '0.75rem', padding: '4px 8px', fontWeight: 500 }}
-              >
+              <Badge variant="success" className="px-2 py-1 text-[0.75rem] font-medium">
                 ✓ {t('insight.bestMethod')}: {insight.best_by_regret}
               </Badge>
             )}
             {insight.worst_by_regret && insight.worst_by_regret !== insight.best_by_regret && (
-              <Badge
-                bg="danger"
-                style={{ fontSize: '0.75rem', padding: '4px 8px', fontWeight: 500 }}
-              >
+              <Badge variant="danger" className="px-2 py-1 text-[0.75rem] font-medium">
                 ✗ {t('insight.worstMethod')}: {insight.worst_by_regret}
               </Badge>
             )}
@@ -141,28 +135,25 @@ const ElectionInsightPanel: React.FC<Props> = ({ result }) => {
 
         {/* Blank analysis */}
         {insight.blank_analysis && (
-          <Alert variant="warning" className="py-2 mb-3" style={{ fontSize: '0.8rem' }}>
+          <Alert variant="warning" className="mb-4 py-2 text-[0.8rem]">
             □ {insight.blank_analysis}
           </Alert>
         )}
 
         {/* D) Pedagogical note ───────────────────────────────────────── */}
-        <p
-          className="text-muted mb-3"
-          style={{ fontSize: '0.78rem', fontStyle: 'italic', borderLeft: '3px solid var(--bs-border-color)', paddingLeft: 10 }}
-        >
+        <p className="mb-4 border-l-[3px] border-border pl-2.5 text-[0.78rem] italic text-muted-foreground">
           {insight.pedagogical_note}
         </p>
 
         {/* E) Key facts ──────────────────────────────────────────────── */}
         {insight.key_facts.length > 0 && (
-          <ul className="mb-0" style={{ fontSize: '0.78rem', paddingLeft: 20 }}>
+          <ul className="mb-0 list-disc pl-5 text-[0.78rem]">
             {insight.key_facts.map((fact, i) => (
-              <li key={i} className="text-muted">{fact}</li>
+              <li key={i} className="text-muted-foreground">{fact}</li>
             ))}
           </ul>
         )}
-      </Card.Body>
+      </CardContent>
     </Card>
   );
 };

@@ -116,7 +116,7 @@ describe('HistoricalReferencePanel', () => {
   it('shows pedagogical alert when result is provided', () => {
     renderPanel(FRANCE2002_META, MOCK_RESULT);
     // The scenario-specific pedagogical note should appear
-    const alerts = document.querySelectorAll('.alert');
+    const alerts = document.querySelectorAll('[role="alert"]');
     expect(alerts.length).toBeGreaterThan(0);
   });
 });
