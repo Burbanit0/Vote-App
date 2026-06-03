@@ -1,5 +1,5 @@
 import React, { useMemo } from 'react';
-import { Card } from 'react-bootstrap';
+import { Card, CardContent, CardHeader } from '@/components/ui/card';
 import { useChartTheme } from '../../hooks/useChartTheme';
 import {
   CartesianGrid,
@@ -49,13 +49,13 @@ const StrategicImpactTab: React.FC<Props> = ({ strategicData, allMethodNames }) 
 
   return (
     <Card className="mb-4">
-      <Card.Header>
+      <CardHeader className="p-6 py-3">
         <strong>{t('simulation.strategicImpactTitle')}</strong>
-        <span className="text-muted ms-2" style={{ fontSize: '0.85rem' }}>
+        <span className="ml-2 text-[0.85rem] text-muted-foreground">
           {t('simulation.strategicImpactSubtitle')}
         </span>
-      </Card.Header>
-      <Card.Body>
+      </CardHeader>
+      <CardContent className="p-6">
         <p className="text-muted small mb-3">
           {t('simulation.strategicRise')}
           {' '}
@@ -146,7 +146,7 @@ const StrategicImpactTab: React.FC<Props> = ({ strategicData, allMethodNames }) 
             </LineChart>
           </ResponsiveContainer>
         )}
-      </Card.Body>
+      </CardContent>
     </Card>
   );
 };

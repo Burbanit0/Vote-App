@@ -1,5 +1,4 @@
 import React from 'react';
-import { Card } from 'react-bootstrap';
 import MethodBarChart from './MethodBarChart';
 import { VotingMethodVisualizationProps } from './types';
 
@@ -39,9 +38,9 @@ const BordaVisualization: React.FC<VotingMethodVisualizationProps> = ({ rankings
         title="Borda Count Scores"
         yLabel="Total Borda Points"
       />
-      <Card.Text className="mt-3">
+      <p className="mt-3">
         <strong>Winner:</strong> {candidates.reduce((a, b) => (scores[a] > scores[b] ? a : b))}
-      </Card.Text>
+      </p>
     </>
   );
 };

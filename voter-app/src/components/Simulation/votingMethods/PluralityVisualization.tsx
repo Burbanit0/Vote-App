@@ -1,5 +1,4 @@
 import React from 'react';
-import { Card } from 'react-bootstrap';
 import MethodBarChart from './MethodBarChart';
 import { VotingMethodVisualizationProps } from './types';
 
@@ -39,10 +38,10 @@ const PluralityVisualization: React.FC<VotingMethodVisualizationProps> = ({
         title="First Choice Votes Distribution"
         yLabel="Number of Votes"
       />
-      <Card.Text className="mt-3">
+      <p className="mt-3">
         <strong>Winner:</strong>{' '}
         {candidates.reduce((a, b) => (firstChoiceCounts[a] > firstChoiceCounts[b] ? a : b))}
-      </Card.Text>
+      </p>
     </>
   );
 };
