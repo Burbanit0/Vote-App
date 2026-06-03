@@ -1,6 +1,7 @@
 // ScoreVotingVisualizations.tsx
 import React from 'react';
-import { Card, Table } from 'react-bootstrap';
+import { Card, CardBody, CardHeader, CardTitle } from '@/components/ui/card';
+import { Table } from '@/components/ui/table';
 import {
   Legend,
   PolarAngleAxis,
@@ -130,8 +131,8 @@ const SimpleScoreVisualization: React.FC<ScoreVotingVisualizationProps> = ({
 
   return (
     <Card className="mb-4">
-      <Card.Header>Simple Score Voting</Card.Header>
-      <Card.Body>
+      <CardHeader className="block space-y-0 border-b border-border px-4 py-2">Simple Score Voting</CardHeader>
+      <CardBody>
         <p>
           Simple Score Voting calculates the average score for each candidate. The candidate with
           the highest average score wins.
@@ -151,7 +152,7 @@ const SimpleScoreVisualization: React.FC<ScoreVotingVisualizationProps> = ({
           </div>
 
           <div className="col-md-6">
-            <Table striped bordered hover>
+            <Table className="[&_th]:p-2 [&_td]:p-2 [&_th]:text-left [&_td]:border-t [&_th]:border-b [&_td]:border-border [&_th]:border-border [&_*]:align-middle [&_th]:border [&_td]:border [&_tbody_tr:nth-child(odd)]:bg-muted/40 [&_tbody_tr:hover]:bg-muted/50">
               <thead>
                 <tr>
                   <th>Candidate</th>
@@ -175,7 +176,7 @@ const SimpleScoreVisualization: React.FC<ScoreVotingVisualizationProps> = ({
             )}
           </div>
         </div>
-      </Card.Body>
+      </CardBody>
     </Card>
   );
 };
@@ -197,8 +198,8 @@ const STARVotingVisualization: React.FC<ScoreVotingVisualizationProps> = ({
 
   return (
     <Card className="mb-4">
-      <Card.Header>STAR Voting (Score Then Automatic Runoff)</Card.Header>
-      <Card.Body>
+      <CardHeader className="block space-y-0 border-b border-border px-4 py-2">STAR Voting (Score Then Automatic Runoff)</CardHeader>
+      <CardBody>
         <p>
           STAR Voting first calculates average scores for all candidates. Then it holds an automatic
           runoff between the top two scorers.
@@ -221,7 +222,7 @@ const STARVotingVisualization: React.FC<ScoreVotingVisualizationProps> = ({
           </div>
 
           <div className="col-md-6">
-            <Table striped bordered hover>
+            <Table className="[&_th]:p-2 [&_td]:p-2 [&_th]:text-left [&_td]:border-t [&_th]:border-b [&_td]:border-border [&_th]:border-border [&_*]:align-middle [&_th]:border [&_td]:border [&_tbody_tr:nth-child(odd)]:bg-muted/40 [&_tbody_tr:hover]:bg-muted/50">
               <thead>
                 <tr>
                   <th>Candidate</th>
@@ -256,8 +257,8 @@ const STARVotingVisualization: React.FC<ScoreVotingVisualizationProps> = ({
 
               <div className="col-md-6">
                 <Card>
-                  <Card.Body>
-                    <Card.Title>Runoff Results</Card.Title>
+                  <CardBody>
+                    <CardTitle>Runoff Results</CardTitle>
                     <ul>
                       <li>
                         {runoff.labels[0]}: {details.runoff.votes1} votes (
@@ -269,7 +270,7 @@ const STARVotingVisualization: React.FC<ScoreVotingVisualizationProps> = ({
                       </li>
                       <li>Tied: {details.runoff.tied} votes</li>
                     </ul>
-                  </Card.Body>
+                  </CardBody>
                 </Card>
               </div>
             </div>
@@ -281,7 +282,7 @@ const STARVotingVisualization: React.FC<ScoreVotingVisualizationProps> = ({
             <strong>STAR Voting Winner:</strong> {result.winner}
           </div>
         )}
-      </Card.Body>
+      </CardBody>
     </Card>
   );
 };
@@ -298,8 +299,8 @@ const MedianVotingVisualization: React.FC<ScoreVotingVisualizationProps> = ({
 
   return (
     <Card className="mb-4">
-      <Card.Header>Median Voting</Card.Header>
-      <Card.Body>
+      <CardHeader className="block space-y-0 border-b border-border px-4 py-2">Median Voting</CardHeader>
+      <CardBody>
         <p>
           Median Voting selects the candidate with the highest median score. The median is less
           sensitive to outliers than the mean.
@@ -319,7 +320,7 @@ const MedianVotingVisualization: React.FC<ScoreVotingVisualizationProps> = ({
           </div>
 
           <div className="col-md-6">
-            <Table striped bordered hover>
+            <Table className="[&_th]:p-2 [&_td]:p-2 [&_th]:text-left [&_td]:border-t [&_th]:border-b [&_td]:border-border [&_th]:border-border [&_*]:align-middle [&_th]:border [&_td]:border [&_tbody_tr:nth-child(odd)]:bg-muted/40 [&_tbody_tr:hover]:bg-muted/50">
               <thead>
                 <tr>
                   <th>Candidate</th>
@@ -343,7 +344,7 @@ const MedianVotingVisualization: React.FC<ScoreVotingVisualizationProps> = ({
             <strong>Median Voting Winner:</strong> {result.winner}
           </div>
         )}
-      </Card.Body>
+      </CardBody>
     </Card>
   );
 };
@@ -358,8 +359,8 @@ const MeanMedianHybridVisualization: React.FC<ScoreVotingVisualizationProps> = (
 
   return (
     <Card className="mb-4">
-      <Card.Header>Mean-Median Hybrid</Card.Header>
-      <Card.Body>
+      <CardHeader className="block space-y-0 border-b border-border px-4 py-2">Mean-Median Hybrid</CardHeader>
+      <CardBody>
         <p>
           This method combines both mean and median scores to balance average performance with
           consistency.
@@ -403,7 +404,7 @@ const MeanMedianHybridVisualization: React.FC<ScoreVotingVisualizationProps> = (
           </div>
         </div>
 
-        <Table striped bordered hover className="mt-3">
+        <Table className="[&_th]:p-2 [&_td]:p-2 [&_th]:text-left [&_td]:border-t [&_th]:border-b [&_td]:border-border [&_th]:border-border [&_*]:align-middle [&_th]:border [&_td]:border [&_tbody_tr:nth-child(odd)]:bg-muted/40 [&_tbody_tr:hover]:bg-muted/50 mt-3">
           <thead>
             <tr>
               <th>Candidate</th>
@@ -429,7 +430,7 @@ const MeanMedianHybridVisualization: React.FC<ScoreVotingVisualizationProps> = (
             <strong>Mean-Median Hybrid Winner:</strong> {result.winner}
           </div>
         )}
-      </Card.Body>
+      </CardBody>
     </Card>
   );
 };
@@ -444,8 +445,8 @@ const VarianceBasedVisualization: React.FC<ScoreVotingVisualizationProps> = ({
 
   return (
     <Card className="mb-4">
-      <Card.Header>Variance-Based Voting</Card.Header>
-      <Card.Body>
+      <CardHeader className="block space-y-0 border-b border-border px-4 py-2">Variance-Based Voting</CardHeader>
+      <CardBody>
         <p>
           This method considers both average scores and score consistency. Candidates with high
           average scores and low variance (consistent scores) are preferred.
@@ -489,7 +490,7 @@ const VarianceBasedVisualization: React.FC<ScoreVotingVisualizationProps> = ({
           </div>
         </div>
 
-        <Table striped bordered hover className="mt-3">
+        <Table className="[&_th]:p-2 [&_td]:p-2 [&_th]:text-left [&_td]:border-t [&_th]:border-b [&_td]:border-border [&_th]:border-border [&_*]:align-middle [&_th]:border [&_td]:border [&_tbody_tr:nth-child(odd)]:bg-muted/40 [&_tbody_tr:hover]:bg-muted/50 mt-3">
           <thead>
             <tr>
               <th>Candidate</th>
@@ -515,7 +516,7 @@ const VarianceBasedVisualization: React.FC<ScoreVotingVisualizationProps> = ({
             <strong>Variance-Based Winner:</strong> {result.winner}
           </div>
         )}
-      </Card.Body>
+      </CardBody>
     </Card>
   );
 };
@@ -552,8 +553,8 @@ const ScoreDistributionVisualization: React.FC<ScoreVotingVisualizationProps> = 
 
   return (
     <Card className="mb-4">
-      <Card.Header>Score Distribution Analysis</Card.Header>
-      <Card.Body>
+      <CardHeader className="block space-y-0 border-b border-border px-4 py-2">Score Distribution Analysis</CardHeader>
+      <CardBody>
         <p>
           This analysis shows the distribution of scores for each candidate. The radar chart below
           shows the percentage of scores in each range (0-0.5, 0.5-1, etc.) for each candidate.
@@ -580,7 +581,7 @@ const ScoreDistributionVisualization: React.FC<ScoreVotingVisualizationProps> = 
           </RadarChart>
         </ResponsiveContainer>
 
-        <Table striped bordered hover className="mt-3">
+        <Table className="[&_th]:p-2 [&_td]:p-2 [&_th]:text-left [&_td]:border-t [&_th]:border-b [&_td]:border-border [&_th]:border-border [&_*]:align-middle [&_th]:border [&_td]:border [&_tbody_tr:nth-child(odd)]:bg-muted/40 [&_tbody_tr:hover]:bg-muted/50 mt-3">
           <thead>
             <tr>
               <th>Candidate</th>
@@ -598,7 +599,7 @@ const ScoreDistributionVisualization: React.FC<ScoreVotingVisualizationProps> = 
             ))}
           </tbody>
         </Table>
-      </Card.Body>
+      </CardBody>
     </Card>
   );
 };
@@ -613,8 +614,8 @@ const BayesianRegretVisualization: React.FC<ScoreVotingVisualizationProps> = ({
 
   return (
     <Card className="mb-4">
-      <Card.Header>Bayesian Regret Analysis</Card.Header>
-      <Card.Body>
+      <CardHeader className="block space-y-0 border-b border-border px-4 py-2">Bayesian Regret Analysis</CardHeader>
+      <CardBody>
         <p>
           Bayesian Regret measures the expected disappointment voters would feel if a particular
           candidate wins. A lower regret is better.
@@ -648,7 +649,7 @@ const BayesianRegretVisualization: React.FC<ScoreVotingVisualizationProps> = ({
           </div>
         </div>
 
-        <Table striped bordered hover className="mt-3">
+        <Table className="[&_th]:p-2 [&_td]:p-2 [&_th]:text-left [&_td]:border-t [&_th]:border-b [&_td]:border-border [&_th]:border-border [&_*]:align-middle [&_th]:border [&_td]:border [&_tbody_tr:nth-child(odd)]:bg-muted/40 [&_tbody_tr:hover]:bg-muted/50 mt-3">
           <thead>
             <tr>
               <th>Candidate</th>
@@ -676,7 +677,7 @@ const BayesianRegretVisualization: React.FC<ScoreVotingVisualizationProps> = ({
             </p>
           </div>
         )}
-      </Card.Body>
+      </CardBody>
     </Card>
   );
 };

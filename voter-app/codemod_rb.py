@@ -22,6 +22,23 @@ def inject_class(attrs, classes):
         return attrs[:m.start(1)] + classes + ' ' + m.group(1) + attrs[m.end(1):]
     return ' className="' + classes + '"' + attrs
 
+def table_fix(a):
+    """Convert react-bootstrap <Table striped bordered hover size> props to
+    Tailwind utility classes on the native <table> (children stay native)."""
+    pad = '1' if re.search(r'size="sm"', a) else '2'
+    cls = [f'[&_th]:p-{pad}', f'[&_td]:p-{pad}', '[&_th]:text-left',
+           '[&_td]:border-t', '[&_th]:border-b', '[&_td]:border-border',
+           '[&_th]:border-border', '[&_*]:align-middle']
+    if re.search(r'\bbordered\b', a):
+        cls += ['[&_th]:border', '[&_td]:border']
+    if re.search(r'\bstriped\b', a):
+        cls += ['[&_tbody_tr:nth-child(odd)]:bg-muted/40']
+    if re.search(r'\bhover\b', a):
+        cls += ['[&_tbody_tr:hover]:bg-muted/50']
+    a = re.sub(r'\s+(striped|bordered|hover|responsive)\b(=\{[^{}]*\})?', '', a)
+    a = re.sub(r'\s+size="[^"]*"', '', a)
+    return inject_class(a, ' '.join(cls))
+
 def transform_tag_attrs(src, tag, fn):
     """Apply fn to the attribute-string of every <tag ...> opening tag.
     `tag` is a literal element name (may contain '.')."""
@@ -83,6 +100,9 @@ def process(path):
             a = re.sub(r'\s+text="[^"]*"', '', a)
             return a
         s = transform_tag_attrs(s, 'Badge', badge_fix)
+
+    if 'Table' in names:
+        s = transform_tag_attrs(s, 'Table', table_fix)
 
     card_syms = set()
     if 'Card' in names:

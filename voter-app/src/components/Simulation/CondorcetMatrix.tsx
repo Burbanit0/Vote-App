@@ -1,5 +1,7 @@
 import React from 'react';
-import { Alert, Badge, Table } from 'react-bootstrap';
+import { Alert } from '@/components/ui/alert';
+import { Badge } from '@/components/ui/badge';
+import { Table } from '@/components/ui/table';
 import { CondorcetMatrixResult } from '../../types';
 
 interface Props {
@@ -31,7 +33,7 @@ const CondorcetMatrix: React.FC<Props> = ({ result }) => {
     <div>
       {/* ── Duel table ── */}
       <div style={{ overflowX: 'auto' }}>
-        <Table bordered size="sm" className="text-center" style={{ minWidth: 400 }}>
+        <Table className="[&_th]:p-1 [&_td]:p-1 [&_th]:text-left [&_td]:border-t [&_th]:border-b [&_td]:border-border [&_th]:border-border [&_*]:align-middle [&_th]:border [&_td]:border text-center" style={{ minWidth: 400 }}>
           <thead className="table-light">
             <tr>
               {/* Top-left corner label */}
@@ -124,7 +126,7 @@ const CondorcetMatrix: React.FC<Props> = ({ result }) => {
           {condorcet_cycles.length > 1 ? 's' : ''} detected:
           <div className="mt-1 d-flex flex-wrap gap-2">
             {condorcet_cycles.map((cycle, i) => (
-              <Badge key={i} bg="warning" text="dark" className="fw-normal">
+              <Badge key={i} variant="warning" className="fw-normal">
                 {cycle[0]} &gt; {cycle[1]} &gt; {cycle[2]} &gt; {cycle[0]}
               </Badge>
             ))}

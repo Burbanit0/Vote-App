@@ -1,5 +1,7 @@
 import React from 'react';
-import { Alert, Badge, Table } from 'react-bootstrap';
+import { Alert } from '@/components/ui/alert';
+import { Badge } from '@/components/ui/badge';
+import { Table } from '@/components/ui/table';
 import { ArrowCriteriaResult, MethodCriteria } from '../../types';
 import MethodTooltip from '../shared/MethodTooltip';
 import ResponsiveTable from '../shared/ResponsiveTable';
@@ -117,7 +119,7 @@ const ArrowCriteriaMatrix: React.FC<Props> = ({ result }) => {
       </div>
 
       <ResponsiveTable>
-        <Table bordered size="sm" className="text-center" style={{ minWidth: 600 }}>
+        <Table className="[&_th]:p-1 [&_td]:p-1 [&_th]:text-left [&_td]:border-t [&_th]:border-b [&_td]:border-border [&_th]:border-border [&_*]:align-middle [&_th]:border [&_td]:border text-center" style={{ minWidth: 600 }}>
           <thead className="table-light">
             <tr>
               <th style={{ minWidth: 140, textAlign: 'left' }}>{t('common.method')}</th>
@@ -147,10 +149,10 @@ const ArrowCriteriaMatrix: React.FC<Props> = ({ result }) => {
                   <td className="text-start ps-2 fw-semibold">
                     <MethodTooltip method={method} />
                     {isBest && (
-                      <Badge bg="success" className="ms-2" style={{ fontSize: '0.65rem' }}>{t('simulation.better')}</Badge>
+                      <Badge variant="success" className="ms-2" style={{ fontSize: '0.65rem' }}>{t('simulation.better')}</Badge>
                     )}
                     {isWorst && !isBest && (
-                      <Badge bg="danger" className="ms-2" style={{ fontSize: '0.65rem' }}>{t('simulation.worse')}</Badge>
+                      <Badge variant="danger" className="ms-2" style={{ fontSize: '0.65rem' }}>{t('simulation.worse')}</Badge>
                     )}
                   </td>
                   <td className="text-center">

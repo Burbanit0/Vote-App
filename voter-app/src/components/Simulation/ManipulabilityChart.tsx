@@ -1,7 +1,9 @@
 import React, { useCallback, useState } from 'react';
-import {
-  Alert, Button, Card, Spinner, Table,
-} from 'react-bootstrap';
+import { Alert } from '@/components/ui/alert';
+import { Button } from '@/components/ui/button';
+import { Card, CardBody, CardHeader } from '@/components/ui/card';
+import { Spinner } from '@/components/ui/spinner';
+import { Table } from '@/components/ui/table';
 import {
   Bar,
   BarChart,
@@ -176,13 +178,13 @@ const ManipulabilityChart: React.FC<Props> = ({ baseParams }) => {
       {/* ── Chart ── */}
       {chartData.length > 0 && (
         <Card className="mb-3">
-          <Card.Header>
+          <CardHeader className="block space-y-0 border-b border-border px-4 py-2">
             <strong>Taux de manipulabilité par méthode</strong>
             <span className="text-muted ms-2" style={{ fontSize: '0.82rem' }}>
               — % d'électeurs qui peuvent améliorer leur résultat en votant stratégiquement
             </span>
-          </Card.Header>
-          <Card.Body>
+          </CardHeader>
+          <CardBody>
             <div className="d-flex gap-4 mb-3 flex-wrap" style={{ fontSize: '0.82rem' }}>
               <span>
                 <span style={{ display: 'inline-block', width: 12, height: 12, borderRadius: 2, background: '#1b5e20', marginRight: 4 }} />
@@ -253,16 +255,16 @@ const ManipulabilityChart: React.FC<Props> = ({ baseParams }) => {
                 </Bar>
               </BarChart>
             </ResponsiveContainer>
-          </Card.Body>
+          </CardBody>
         </Card>
       )}
 
       {/* ── Expert detail table ── */}
       {expertMode && data.length > 0 && (
         <Card>
-          <Card.Header><strong>Détail par méthode</strong></Card.Header>
-          <Card.Body className="p-0">
-            <Table bordered size="sm" className="mb-0" style={{ fontSize: '0.82rem' }}>
+          <CardHeader className="block space-y-0 border-b border-border px-4 py-2"><strong>Détail par méthode</strong></CardHeader>
+          <CardBody className="p-0">
+            <Table className="[&_th]:p-1 [&_td]:p-1 [&_th]:text-left [&_td]:border-t [&_th]:border-b [&_td]:border-border [&_th]:border-border [&_*]:align-middle [&_th]:border [&_td]:border mb-0" style={{ fontSize: '0.82rem' }}>
               <thead className="table-light">
                 <tr>
                   <th>Méthode</th>
@@ -303,7 +305,7 @@ const ManipulabilityChart: React.FC<Props> = ({ baseParams }) => {
                 })}
               </tbody>
             </Table>
-          </Card.Body>
+          </CardBody>
         </Card>
       )}
 

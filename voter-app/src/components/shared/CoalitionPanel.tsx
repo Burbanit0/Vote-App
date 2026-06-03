@@ -1,7 +1,11 @@
 import React, { useMemo, useState } from 'react';
 import { $api } from '../../api/hooks';
 import { useTranslation } from 'react-i18next';
-import { Alert, Badge, Button, Spinner, Table } from 'react-bootstrap';
+import { Alert } from '@/components/ui/alert';
+import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
+import { Spinner } from '@/components/ui/spinner';
+import { Table } from '@/components/ui/table';
 import { useElection } from '../../stores/useElectionStore';
 import type { CoalitionResponse } from '../../api';
 
@@ -219,19 +223,19 @@ const CoalitionPanel: React.FC = () => {
       {/* Header */}
       <div className="d-flex align-items-center justify-content-between flex-wrap gap-2 mb-3">
         <div className="d-flex gap-2 flex-wrap">
-          <Badge bg="primary">
+          <Badge variant="primary">
             {t('coalition.totalSeats')}: {data.total_seats}
           </Badge>
-          <Badge bg="secondary">
+          <Badge variant="secondary">
             {t('coalition.threshold')}: {data.seat_threshold}
           </Badge>
           {data.most_centrist_method && (
-            <Badge bg="success">
+            <Badge variant="success">
               {t('coalition.mostCentrist')}: {data.most_centrist_method}
             </Badge>
           )}
           {data.most_divergent_method && (
-            <Badge bg="warning" text="dark">
+            <Badge variant="warning">
               {t('coalition.mostDivergent')}: {data.most_divergent_method}
             </Badge>
           )}
@@ -256,7 +260,7 @@ const CoalitionPanel: React.FC = () => {
       <div className="row g-3">
         {/* Left: method selector table */}
         <div className="col-12 col-lg-5">
-          <Table bordered hover size="sm" style={{ fontSize: '0.8rem' }}>
+          <Table className="[&_th]:p-1 [&_td]:p-1 [&_th]:text-left [&_td]:border-t [&_th]:border-b [&_td]:border-border [&_th]:border-border [&_*]:align-middle [&_th]:border [&_td]:border [&_tbody_tr:hover]:bg-muted/50" style={{ fontSize: '0.8rem' }}>
             <thead className="table-light">
               <tr>
                 <th>{t('common.method')}</th>
