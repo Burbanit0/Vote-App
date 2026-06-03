@@ -14,7 +14,7 @@
  *   />
  */
 import React from 'react';
-import { Button } from 'react-bootstrap';
+import { Button } from '@/components/ui/button';
 import { useTranslation } from 'react-i18next';
 import { usePerturbations } from '../../stores/useLabStore';
 
@@ -49,7 +49,7 @@ const PinToCentralButton: React.FC<Props> = ({
           pinPerturbation({ type, icon, label, summary, methodsChanged, winnersByMethod });
         }
       }}
-      style={{ fontSize: '0.72rem', whiteSpace: 'nowrap' }}
+      className="whitespace-nowrap text-[0.72rem]"
       data-testid={`pin-btn-${type}`}
     >
       {pinned ? '✓ ' + t('lab.pinnedCentral') : '📌 ' + t('lab.pinToCentral')}
