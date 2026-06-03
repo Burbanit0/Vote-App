@@ -12,7 +12,7 @@
  */
 import React, { useMemo } from 'react';
 import { useTranslation } from 'react-i18next';
-import { Badge } from 'react-bootstrap';
+import { Badge } from '@/components/ui/badge';
 import { MethodStreamStats } from '../../hooks/useMonteCarloStream';
 
 // ── Constants ─────────────────────────────────────────────────────────────────

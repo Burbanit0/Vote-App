@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Badge } from 'react-bootstrap';
+import { Badge } from '@/components/ui/badge';
 import { Cell, Pie, PieChart, Tooltip } from 'recharts';
 import { useTranslation } from 'react-i18next';
 import { MethodGroup } from '../../services/electionApi';

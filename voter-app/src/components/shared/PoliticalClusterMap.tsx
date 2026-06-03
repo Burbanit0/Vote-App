@@ -5,7 +5,7 @@
  */
 import React from 'react';
 import { useTranslation } from 'react-i18next';
-import { Badge } from 'react-bootstrap';
+import { Badge } from '@/components/ui/badge';
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -147,7 +147,7 @@ const PoliticalClusterMap: React.FC<Props> = ({ data }) => {
           </div>
           {data.polarizing_statements.map((s, i) => (
             <div key={i} className="d-flex align-items-center gap-2 mb-1">
-              <Badge bg="danger" style={{ fontSize: '0.65rem' }}>
+              <Badge variant="danger" style={{ fontSize: '0.65rem' }}>
                 Δ {Math.round(s.cluster_delta * 100)}%
               </Badge>
               <span style={{ fontSize: '0.78rem' }}>{s.statement}</span>

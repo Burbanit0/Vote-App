@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import { Badge } from 'react-bootstrap';
+import { Badge } from '@/components/ui/badge';
 import { useTranslation } from 'react-i18next';
 import { CampaignSnapshot, MethodStability } from '../../services/electionApi';
 
@@ -236,7 +236,7 @@ const CampaignSwimlane: React.FC<Props> = ({ snapshots, methodStability, candida
             <>
               <span className="text-muted">{t('campaign.swimlaneElectedBy')}:</span>
               {methodsForSelected.map((m) => (
-                <Badge key={m} bg="secondary" style={{ fontSize: '0.68rem' }}>{m}</Badge>
+                <Badge key={m} variant="secondary" style={{ fontSize: '0.68rem' }}>{m}</Badge>
               ))}
             </>
           ) : (

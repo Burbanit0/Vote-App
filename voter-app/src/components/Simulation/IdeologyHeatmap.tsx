@@ -10,7 +10,7 @@
  */
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { Badge } from 'react-bootstrap';
+import { Badge } from '@/components/ui/badge';
 import { useSimulationWorker } from '../../hooks/useSimulationWorker';
 
 // ── Constants ─────────────────────────────────────────────────────────────────
@@ -352,7 +352,7 @@ const IdeologyHeatmap = React.forwardRef<SVGSVGElement, IdeologyHeatmapProps>(
         {/* ── Metrics ── */}
         <div className="d-flex flex-wrap gap-3 mt-2" style={{ fontSize: '0.78rem' }}>
           {metrics.maxContestedCell && metrics.maxContestedCell.density > 0 && (
-            <Badge bg="danger" data-testid="contested-badge">
+            <Badge variant="danger" data-testid="contested-badge">
               {t('heatmap.mostContested')}:{' '}
               ({metrics.maxContestedCell.cx.toFixed(2)}, {metrics.maxContestedCell.cy.toFixed(2)})
             </Badge>

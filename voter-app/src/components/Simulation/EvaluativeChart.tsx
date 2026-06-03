@@ -7,7 +7,7 @@
  */
 import React from 'react';
 import { useTranslation } from 'react-i18next';
-import { Badge } from 'react-bootstrap';
+import { Badge } from '@/components/ui/badge';
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -67,7 +67,7 @@ const EvaluativeChart: React.FC<EvaluativeChartProps> = ({ evResult, candidates 
       {/* Winner badge */}
       {evResult.winner && (
         <div className="d-flex align-items-center gap-2 mb-2">
-          <Badge bg="success" style={{ fontSize: '0.78rem' }} data-testid="ev-winner-badge">
+          <Badge variant="success" style={{ fontSize: '0.78rem' }} data-testid="ev-winner-badge">
             🏆 {t('ev.winner')}: {evResult.winner}
             {' '}
             <span style={{ fontWeight: 400 }}>

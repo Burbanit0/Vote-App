@@ -8,7 +8,7 @@
  */
 import React, { useMemo } from 'react';
 import { useTranslation } from 'react-i18next';
-import { Badge } from 'react-bootstrap';
+import { Badge } from '@/components/ui/badge';
 
 // ── Grade palette (red → orange → yellow → light-green → green → dark-green) ──
 
@@ -113,7 +113,7 @@ const MajorityJudgmentChart: React.FC<MajorityJudgmentChartProps> = ({
       {/* Winner badge */}
       {mjResult.winner && (
         <div className="d-flex align-items-center gap-2 mb-2">
-          <Badge bg="success" style={{ fontSize: '0.78rem' }} data-testid="mj-winner-badge">
+          <Badge variant="success" style={{ fontSize: '0.78rem' }} data-testid="mj-winner-badge">
             🏆 {t('mj.winner')}: {mjResult.winner}
           </Badge>
           <span className="text-muted" style={{ fontSize: '0.75rem' }}>
