@@ -1,5 +1,5 @@
 import React, { createContext, useCallback, useContext, useRef, useState } from 'react';
-import { Toast, ToastContainer } from 'react-bootstrap';
+import { cn } from '@/lib/utils';
 
 // ── Types ──────────────────────────────────────────────────────────────────
 
@@ -31,11 +31,19 @@ export function useToast(): ToastContextValue {
 }
 
 // ── Provider ───────────────────────────────────────────────────────────────
+// Tailwind-migrated (Phase 6): react-bootstrap Toast/ToastContainer → a fixed
+// bottom-end stack of Tailwind toast divs.
 
 const ICONS: Record<Variant, string> = {
   success: '✓',
   danger:  '✗',
   info:    'ℹ',
+};
+
+const VARIANT_BG: Record<Variant, string> = {
+  success: 'bg-[#198754] text-white',
+  danger:  'bg-[#dc3545] text-white',
+  info:    'bg-[#0dcaf0] text-slate-900',
 };
 
 const AUTO_HIDE_MS = 3000;
@@ -63,30 +71,24 @@ export const ToastProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     <ToastContext.Provider value={ctx}>
       {children}
 
-      <ToastContainer
-        position="bottom-end"
-        className="p-3"
-        style={{ zIndex: 11000 }}
+      <div
+        data-style="tailwind"
+        className="fixed bottom-0 right-0 z-[11000] flex flex-col gap-2 p-3"
       >
         {toasts.map(({ id, message, variant }) => (
-          <Toast
+          <div
             key={id}
-            bg={variant}
-            autohide
-            delay={AUTO_HIDE_MS}
-            show
-            onClose={() => setToasts((ts) => ts.filter((t) => t.id !== id))}
+            role="status"
+            className={cn(
+              'flex items-center gap-2 rounded-md px-4 py-2 font-medium shadow-lg',
+              VARIANT_BG[variant]
+            )}
           >
-            <Toast.Body
-              className={variant === 'info' ? 'text-dark' : 'text-white'}
-              style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', fontWeight: 500 }}
-            >
-              <span style={{ fontSize: '1rem' }}>{ICONS[variant]}</span>
-              {message}
-            </Toast.Body>
-          </Toast>
+            <span className="text-base">{ICONS[variant]}</span>
+            {message}
+          </div>
         ))}
-      </ToastContainer>
+      </div>
     </ToastContext.Provider>
   );
 };
