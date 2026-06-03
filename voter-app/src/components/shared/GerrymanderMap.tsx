@@ -7,7 +7,11 @@
  */
 import React, { useCallback, useRef, useState, useMemo } from 'react';
 import { useTranslation } from 'react-i18next';
-import { Alert, Badge, Button, Col, Row, Spinner } from 'react-bootstrap';
+import { Alert } from '@/components/ui/alert';
+import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
+import { Col, Row } from '@/components/ui/grid';
+import { Spinner } from '@/components/ui/spinner';
 import { useElection } from '../../stores/useElectionStore';
 import { $api } from '../../api/hooks';
 
@@ -413,7 +417,7 @@ const GerrymanderMap: React.FC = () => {
 
             {/* Distortion badges */}
             <div className="d-flex flex-wrap gap-2">
-              <Badge bg={data.distortion > 0.1 ? 'warning' : 'success'} text={data.distortion > 0.1 ? 'dark' : undefined}
+              <Badge variant={data.distortion > 0.1 ? 'warning' : 'success'}
                 data-testid="distortion-badge">
                 {t('gerrymander.distortion')}: {Math.round(data.distortion * 100)}pp
               </Badge>

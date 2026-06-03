@@ -7,7 +7,8 @@
  *   3. "Indice de Gini des crédits" (0 = equal, 1 = all on one candidate)
  */
 import React, { useMemo } from 'react';
-import { Badge, Card } from 'react-bootstrap';
+import { Badge } from '@/components/ui/badge';
+import { Card, CardBody, CardHeader } from '@/components/ui/card';
 import {
   Bar,
   BarChart,
@@ -97,13 +98,13 @@ const QuadraticBudgetViz: React.FC<Props> = ({
 
   return (
     <Card className="mt-3 mb-0">
-      <Card.Header className="py-2">
+      <CardHeader className="block space-y-0 border-b border-border px-4 py-2 py-2">
         <strong>💎 Répartition des crédits (Vote Quadratique)</strong>
         <span className="text-muted ms-2" style={{ fontSize: '0.82rem' }}>
           — budget de {budget} crédits par électeur
         </span>
-      </Card.Header>
-      <Card.Body>
+      </CardHeader>
+      <CardBody>
         {/* ── Summary stats ── */}
         <div className="d-flex gap-4 mb-3 flex-wrap" style={{ fontSize: '0.85rem' }}>
           <div>
@@ -118,7 +119,7 @@ const QuadraticBudgetViz: React.FC<Props> = ({
             <span className="text-muted">Crédits non utilisés :</span>{' '}
             <strong>{unused.toFixed(1)}</strong>
             {unused > 5 && (
-              <Badge bg="warning" text="dark" className="ms-1" style={{ fontSize: '0.7rem' }}>
+              <Badge variant="warning" className="ms-1" style={{ fontSize: '0.7rem' }}>
                 budget non épuisé
               </Badge>
             )}
@@ -175,7 +176,7 @@ const QuadraticBudgetViz: React.FC<Props> = ({
           coûte 9 crédits, pas 3. Un indice de Gini élevé signifie que les crédits sont concentrés
           sur un seul candidat (forte intensité des préférences).
         </div>
-      </Card.Body>
+      </CardBody>
     </Card>
   );
 };

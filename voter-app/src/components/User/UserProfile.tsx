@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
-import { Card, Container } from 'react-bootstrap';
+import { Card, CardBody, CardTitle } from '@/components/ui/card';
+import { Container } from '@/components/ui/grid';
 import { useParams } from 'react-router';
 import { Profile_ } from '../../types';
 import { fetchUserProfile } from '../../services';
@@ -36,19 +37,19 @@ const UserProfile = () => {
     <Container className="mt-5">
       <h1 className="text-center mb-4">User Profile</h1>
       <Card>
-        <Card.Body>
-          <Card.Title>{profile?.username}</Card.Title>
+        <CardBody>
+          <CardTitle>{profile?.username}</CardTitle>
           {profile && (
             <div>
-              <Card.Text>
+              <p>
                 <strong>First Name:</strong> {profile.first_name}
-              </Card.Text>
-              <Card.Text>
+              </p>
+              <p>
                 <strong>Last Name:</strong> {profile.last_name}
-              </Card.Text>
+              </p>
             </div>
           )}
-        </Card.Body>
+        </CardBody>
       </Card>
     </Container>
   );

@@ -1,6 +1,6 @@
 import React, { Suspense } from 'react';
 import { BrowserRouter as Router, Route, Routes, useLocation, Navigate } from 'react-router';
-import { Spinner } from 'react-bootstrap';
+import { Spinner } from '@/components/ui/spinner';
 
 import Navbar from './components/Navbar';
 import ErrorBoundary from './components/Route/ErrorBoundary';
@@ -50,7 +50,7 @@ import './styles/tailwind.css';
 
 const RouteFallback: React.FC = () => (
   <div className="d-flex justify-content-center align-items-center py-5" data-testid="route-fallback">
-    <Spinner animation="border" role="status" size="sm" className="me-2" />
+    <Spinner role="status" size="sm" className="me-2" />
     <span className="text-muted small">Chargement…</span>
   </div>
 );

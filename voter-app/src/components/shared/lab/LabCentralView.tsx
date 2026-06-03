@@ -12,7 +12,10 @@
  */
 import React, { useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { Badge, Button, Card, Col, Row } from 'react-bootstrap';
+import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
+import { Card, CardBody, CardHeader } from '@/components/ui/card';
+import { Col, Row } from '@/components/ui/grid';
 import { ElectionResult } from '../../../services/electionApi';
 import { usePerturbations, PinnedPerturbation } from '../../../stores/useLabStore';
 import { useAnimationBroadcast } from '../../../stores/useLabStore';
@@ -205,21 +208,21 @@ const MethodsMatrix: React.FC<MatrixProps> = React.memo(({ result, pinned, t }) 
       )}
       {/* Compact summary */}
       <div className="mt-2 d-flex flex-wrap gap-2" style={{ fontSize: '0.7rem' }}>
-        <Badge bg="primary" className="d-inline-flex align-items-center gap-1">
+        <Badge variant="primary" className="d-inline-flex align-items-center gap-1">
           {t('electionLab.methodAgreement')}: {Math.round(result.inter_method_agreement * 100)}%
           <MetricTooltip metric="method_agreement" placement="bottom" />
         </Badge>
         {cw ? (
-          <Badge bg="success">
+          <Badge variant="success">
             Condorcet: {cw} ✓
           </Badge>
         ) : (
-          <Badge bg="warning" text="dark">
+          <Badge variant="warning">
             {t('lab.noCondorcet')}
           </Badge>
         )}
         {Object.keys(winnerCounts).length > 1 && (
-          <Badge bg="danger">
+          <Badge variant="danger">
             ⚠ {Object.keys(winnerCounts).length} {t('lab.differentWinners')}
           </Badge>
         )}
@@ -344,11 +347,11 @@ const PinnedPerturbationsPanel: React.FC<PinnedProps> = React.memo(({
                     {p.summary}
                   </div>
                   {changed > 0 ? (
-                    <Badge bg="danger" className="mt-1" style={{ fontSize: '0.6rem' }}>
+                    <Badge variant="danger" className="mt-1" style={{ fontSize: '0.6rem' }}>
                       ⚡ {changed} {t('lab.methodsChanged')}
                     </Badge>
                   ) : (
-                    <Badge bg="success" className="mt-1" style={{ fontSize: '0.6rem' }}>
+                    <Badge variant="success" className="mt-1" style={{ fontSize: '0.6rem' }}>
                       ✓ {t('lab.winnerStable')}
                     </Badge>
                   )}
@@ -416,11 +419,11 @@ const LabCentralView: React.FC<Props> = ({ result, loading }) => {
   if (!result) {
     return (
       <Card className="mb-3" data-testid="lab-central-empty" style={{ background: '#f8f9fa' }}>
-        <Card.Body className="text-center py-3">
+        <CardBody className="text-center py-3">
           <div className="text-muted" style={{ fontSize: '0.85rem' }}>
             {loading ? t('lab.loadingCentral') : t('lab.runToSee')}
           </div>
-        </Card.Body>
+        </CardBody>
       </Card>
     );
   }
@@ -442,8 +445,8 @@ const LabCentralView: React.FC<Props> = ({ result, loading }) => {
         transition: 'opacity 0.25s',
       }}
     >
-      <Card.Header
-        className="d-flex align-items-center justify-content-between py-2"
+      <CardHeader
+        className="block space-y-0 border-b border-border px-4 py-2 d-flex align-items-center justify-content-between py-2"
         style={{ background: '#f8f9fa', fontSize: '0.85rem' }}
       >
         <span className="fw-semibold">
@@ -452,7 +455,7 @@ const LabCentralView: React.FC<Props> = ({ result, loading }) => {
         <div className="d-flex align-items-center gap-2">
           {/* ── Live animation badge ── */}
           {frame && (
-            <Badge bg="info" className="d-inline-flex align-items-center gap-1"
+            <Badge variant="info" className="d-inline-flex align-items-center gap-1"
               style={{ fontSize: '0.65rem' }}
               data-testid="animation-frame-badge"
               title={t('lab.animationLive')}>
@@ -493,9 +496,9 @@ const LabCentralView: React.FC<Props> = ({ result, loading }) => {
             {collapsed ? '▼ ' + t('lab.expand') : '▲ ' + t('lab.collapse')}
           </Button>
         </div>
-      </Card.Header>
+      </CardHeader>
       {!collapsed && (
-        <Card.Body className="p-3" data-testid="central-body">
+        <CardBody className="p-3" data-testid="central-body">
           <Row className="g-3">
             {/* ── Ideology map (compact) — hidden in focus mode to give the
                 active tab more vertical space ── */}
@@ -541,7 +544,7 @@ const LabCentralView: React.FC<Props> = ({ result, loading }) => {
             onClear={clearPinned}
             t={t}
           />
-        </Card.Body>
+        </CardBody>
       )}
     </Card>
   );

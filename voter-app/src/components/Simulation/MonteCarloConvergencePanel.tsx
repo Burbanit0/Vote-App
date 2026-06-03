@@ -1,5 +1,7 @@
 import React, { useMemo } from 'react';
-import { Badge, Card, Col, Row } from 'react-bootstrap';
+import { Badge } from '@/components/ui/badge';
+import { Card, CardBody, CardHeader } from '@/components/ui/card';
+import { Col, Row } from '@/components/ui/grid';
 import {
   Area, AreaChart, Bar, BarChart, CartesianGrid, Cell,
   ComposedChart, Legend, Line, ReferenceLine,
@@ -233,18 +235,18 @@ const MonteCarloConvergencePanel: React.FC<Props> = ({
         {/* Panel 1 — Regret convergence */}
         <Col xs={12} lg={showCI ? 5 : 6}>
           <Card className="h-100">
-            <Card.Header className="py-2">
+            <CardHeader className="block space-y-0 border-b border-border px-4 py-2 py-2">
               <strong style={{ fontSize: '0.88rem' }}>{t('simulation.regretConvergence')}</strong>
               {isRunning && (
-                <Badge bg="primary" className="ms-2" style={{ fontSize: '0.65rem' }}>
+                <Badge variant="primary" className="ms-2" style={{ fontSize: '0.65rem' }}>
                   {t('simulation.live')}
                 </Badge>
               )}
               <div className="text-muted" style={{ fontSize: '0.75rem' }}>
                 {t('simulation.regretConvergenceDesc')}
               </div>
-            </Card.Header>
-            <Card.Body className="p-2">
+            </CardHeader>
+            <CardBody className="p-2">
               <RegretConvergenceChart
                 regretHistory={regretHistory}
                 iterationCheckpoints={iterationCheckpoints}
@@ -252,32 +254,32 @@ const MonteCarloConvergencePanel: React.FC<Props> = ({
                 ct={ct}
                 t={t}
               />
-            </Card.Body>
+            </CardBody>
           </Card>
         </Col>
 
         {/* Panel 2 — Agreement rate */}
         <Col xs={12} lg={showCI ? 4 : 6}>
           <Card className="h-100">
-            <Card.Header className="py-2">
+            <CardHeader className="block space-y-0 border-b border-border px-4 py-2 py-2">
               <strong style={{ fontSize: '0.88rem' }}>{t('simulation.methodAgreementTitle')}</strong>
               {isRunning && (
-                <Badge bg="primary" className="ms-2" style={{ fontSize: '0.65rem' }}>
+                <Badge variant="primary" className="ms-2" style={{ fontSize: '0.65rem' }}>
                   {t('simulation.live')}
                 </Badge>
               )}
               <div className="text-muted" style={{ fontSize: '0.75rem' }}>
                 {t('simulation.methodAgreementDesc')}
               </div>
-            </Card.Header>
-            <Card.Body className="p-2">
+            </CardHeader>
+            <CardBody className="p-2">
               <AgreementChart
                 agreementHistory={agreementHistory}
                 iterationCheckpoints={iterationCheckpoints}
                 ct={ct}
                 t={t}
               />
-            </Card.Body>
+            </CardBody>
           </Card>
         </Col>
 
@@ -285,13 +287,13 @@ const MonteCarloConvergencePanel: React.FC<Props> = ({
         {showCI && (
           <Col xs={12} lg={3}>
             <Card className="h-100">
-              <Card.Header className="py-2">
+              <CardHeader className="block space-y-0 border-b border-border px-4 py-2 py-2">
                 <strong style={{ fontSize: '0.88rem' }}>{t('simulation.ciStability')}</strong>
                 <div className="text-muted" style={{ fontSize: '0.75rem' }}>
                   {t('simulation.ciStabilityDesc')}
                 </div>
-              </Card.Header>
-              <Card.Body className="p-2">
+              </CardHeader>
+              <CardBody className="p-2">
                 <div className="d-flex gap-2 mb-2 flex-wrap">
                   {[
                     { color: '#007A33', label: t('simulation.ciStable') },
@@ -305,7 +307,7 @@ const MonteCarloConvergencePanel: React.FC<Props> = ({
                   ))}
                 </div>
                 <CIStabilityChart ciHalfLatest={ciHalfLatest} ct={ct} t={t} />
-              </Card.Body>
+              </CardBody>
             </Card>
           </Col>
         )}

@@ -1,6 +1,6 @@
 import React from 'react';
 import { Navigate, Link } from 'react-router';
-import { Button } from 'react-bootstrap';
+import { Button } from '@/components/ui/button';
 import { Trans, useTranslation } from 'react-i18next';
 import { useAuth } from '../../stores/useAuthStore';
 

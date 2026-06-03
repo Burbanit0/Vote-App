@@ -1,5 +1,6 @@
 import React, { useMemo } from 'react';
-import { Card, Col, Row } from 'react-bootstrap';
+import { Card, CardBody } from '@/components/ui/card';
+import { Col, Row } from '@/components/ui/grid';
 import { useTranslation } from 'react-i18next';
 
 export type BlankRule = 'symbolic' | 'competitive' | 'threshold_30' | 'majority_required';
@@ -78,7 +79,7 @@ const BlankVoteRuleSelector: React.FC<Props> = ({ selected, onChange, hasBlankCa
                 }}
                 onClick={() => onChange(key)}
               >
-                <Card.Body>
+                <CardBody>
                   <div className="d-flex align-items-center gap-2 mb-2">
                     <span style={{ fontSize: '1.4rem' }}>{rule.emoji}</span>
                     <div>
@@ -94,7 +95,7 @@ const BlankVoteRuleSelector: React.FC<Props> = ({ selected, onChange, hasBlankCa
                   <p className="text-muted mb-0" style={{ fontSize: '0.82rem', lineHeight: 1.5 }}>
                     {rule.consequence}
                   </p>
-                </Card.Body>
+                </CardBody>
               </Card>
             </Col>
           );

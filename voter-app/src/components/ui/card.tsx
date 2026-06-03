@@ -58,4 +58,14 @@ const CardFooter = React.forwardRef<HTMLDivElement, React.HTMLAttributes<HTMLDiv
 );
 CardFooter.displayName = 'CardFooter';
 
-export { Card, CardHeader, CardFooter, CardTitle, CardDescription, CardContent };
+// Bootstrap-faithful card-body (1rem padding, block flow) — the migration target
+// for react-bootstrap's <Card.Body> (whereas shadcn's CardContent uses p-6 pt-0,
+// which assumes a CardHeader above it).
+const CardBody = React.forwardRef<HTMLDivElement, React.HTMLAttributes<HTMLDivElement>>(
+  ({ className, ...props }, ref) => (
+    <div ref={ref} className={cn('p-4', className)} {...props} />
+  )
+);
+CardBody.displayName = 'CardBody';
+
+export { Card, CardHeader, CardBody, CardFooter, CardTitle, CardDescription, CardContent };

@@ -1,5 +1,10 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
-import { Alert, Badge, Button, Card, Col, Row, Spinner } from 'react-bootstrap';
+import { Alert } from '@/components/ui/alert';
+import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
+import { Card, CardBody, CardHeader } from '@/components/ui/card';
+import { Col, Row } from '@/components/ui/grid';
+import { Spinner } from '@/components/ui/spinner';
 import { useTranslation } from 'react-i18next';
 import i18n from '../../i18n';
 import { useElection } from '../../stores/useElectionStore';
@@ -315,14 +320,14 @@ const ElectionPipelineAnimator: React.FC = () => {
           {/* SVG scatter */}
           <Col xs={12} md={7}>
             <Card>
-              <Card.Header className="py-2 d-flex align-items-center gap-2">
+              <CardHeader className="block space-y-0 border-b border-border px-4 py-2 py-2 d-flex align-items-center gap-2">
                 <span style={{ fontSize: '1.2rem' }}>{STEP_ICONS[step.id]}</span>
                 <div>
                   <strong style={{ fontSize: '0.88rem' }}>{step.label[lang]}</strong>
                   <div className="text-muted" style={{ fontSize: '0.75rem' }}>{step.desc[lang]}</div>
                 </div>
-              </Card.Header>
-              <Card.Body className="p-2">
+              </CardHeader>
+              <CardBody className="p-2">
                 <VoterScatter
                   step={step}
                   candidates={pipeline.candidates}
@@ -344,17 +349,17 @@ const ElectionPipelineAnimator: React.FC = () => {
                     </span>
                   )}
                 </div>
-              </Card.Body>
+              </CardBody>
             </Card>
           </Col>
 
           {/* Step-specific info panel */}
           <Col xs={12} md={5}>
             <Card className="h-100">
-              <Card.Header className="py-2">
+              <CardHeader className="block space-y-0 border-b border-border px-4 py-2 py-2">
                 <strong style={{ fontSize: '0.85rem' }}>{t('pipeline.metricsTitle')}</strong>
-              </Card.Header>
-              <Card.Body className="p-3">
+              </CardHeader>
+              <CardBody className="p-3">
 
                 {/* Generic metrics */}
                 {step.metrics.num_voters && (
@@ -413,7 +418,7 @@ const ElectionPipelineAnimator: React.FC = () => {
                     ? t('pipeline.nextStepHint', { next: pipeline.steps[currentStep + 1]?.label[lang] ?? '' })
                     : t('pipeline.finalStepHint')}
                 </div>
-              </Card.Body>
+              </CardBody>
             </Card>
           </Col>
         </Row>
@@ -428,14 +433,14 @@ const MetricRow: React.FC<{
   icon:     string;
   label:    string;
   value:    string;
-  variant?: string;
+  variant?: React.ComponentProps<typeof Badge>['variant'];
 }> = ({ icon, label, value, variant = 'secondary' }) => (
   <div className="d-flex align-items-center justify-content-between mb-2">
     <span style={{ fontSize: '0.8rem' }}>
       <span className="me-1">{icon}</span>
       {label}
     </span>
-    <Badge bg={variant} style={{ fontSize: '0.72rem' }}>{value}</Badge>
+    <Badge variant={variant} style={{ fontSize: '0.72rem' }}>{value}</Badge>
   </div>
 );
 

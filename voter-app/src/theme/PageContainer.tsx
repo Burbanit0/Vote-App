@@ -11,7 +11,7 @@
  * Renders a Bootstrap <Container fluid> with `maxWidth` from LAYOUT.
  */
 import React from 'react';
-import { Container } from 'react-bootstrap';
+import { Container } from '@/components/ui/grid';
 import { LAYOUT, LayoutVariant } from './tokens';
 
 const VARIANT_MAP: Record<'narrow' | 'medium' | 'wide' | 'full', LayoutVariant> = {

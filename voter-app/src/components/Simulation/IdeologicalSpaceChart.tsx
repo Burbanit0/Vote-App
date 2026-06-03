@@ -1,5 +1,6 @@
 import React, { useMemo, useState } from 'react';
-import { Button, Card } from 'react-bootstrap';
+import { Button } from '@/components/ui/button';
+import { Card, CardBody, CardHeader } from '@/components/ui/card';
 import { useTranslation } from 'react-i18next';
 import {
   CartesianGrid,
@@ -231,7 +232,7 @@ const IdeologicalSpaceChart: React.FC<Props> = ({
 
   return (
     <Card>
-      <Card.Header>
+      <CardHeader className="block space-y-0 border-b border-border px-4 py-2">
         <strong>{t('simulation.ideologicalSpace.title')}</strong>
         {winnersByMethod && (
           <div className="mt-2 d-flex flex-wrap gap-1">
@@ -259,9 +260,9 @@ const IdeologicalSpaceChart: React.FC<Props> = ({
             ))}
           </div>
         )}
-      </Card.Header>
+      </CardHeader>
 
-      <Card.Body>
+      <CardBody>
         {/* Voter colour legend */}
         <div className="d-flex gap-4 mb-3 flex-wrap align-items-center">
           <span className="fw-semibold small text-muted">{t('simulation.ideologicalSpace.voters')}</span>
@@ -362,7 +363,7 @@ const IdeologicalSpaceChart: React.FC<Props> = ({
             </>
           )}
         </p>
-      </Card.Body>
+      </CardBody>
     </Card>
   );
 };

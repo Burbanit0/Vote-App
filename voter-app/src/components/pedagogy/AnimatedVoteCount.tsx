@@ -6,7 +6,8 @@
  *   [0, 2, 1] → candidate 0 first, candidate 2 second, candidate 1 third.
  */
 import React, { useCallback, useEffect, useRef, useState } from 'react';
-import { Button, ProgressBar } from 'react-bootstrap';
+import { Button } from '@/components/ui/button';
+import { Progress } from '@/components/ui/progress';
 
 // ── Types ───────────────────────────────────────────────────────────────────
 

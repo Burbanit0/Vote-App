@@ -1,5 +1,10 @@
 import React, { useMemo } from 'react';
-import { Alert, Badge, Button, Card, ProgressBar, Spinner } from 'react-bootstrap';
+import { Alert } from '@/components/ui/alert';
+import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
+import { Card, CardBody, CardHeader } from '@/components/ui/card';
+import { Progress } from '@/components/ui/progress';
+import { Spinner } from '@/components/ui/spinner';
 import {
   Bar, BarChart, CartesianGrid, Cell, ResponsiveContainer, Tooltip, XAxis, YAxis,
 } from 'recharts';
@@ -56,16 +61,16 @@ const MonteCarloLiveChart: React.FC<Props> = ({
 
   return (
     <Card className="mb-4 border-primary">
-      <Card.Header className="d-flex align-items-center justify-content-between gap-2 flex-wrap">
+      <CardHeader className="block space-y-0 border-b border-border px-4 py-2 d-flex align-items-center justify-content-between gap-2 flex-wrap">
         <div className="d-flex align-items-center gap-2">
-          {isRunning && <Spinner size="sm" variant="primary" />}
+          {isRunning && <Spinner size="sm" />}
           <strong>
             {isRunning
               ? t('simulation.streamingProgress', { iteration, total })
               : t('simulation.streamingDone', { total })}
           </strong>
           {!isRunning && iteration > 0 && (
-            <Badge bg="success">{t('simulation.complete')}</Badge>
+            <Badge variant="success">{t('simulation.complete')}</Badge>
           )}
         </div>
         {isRunning && (
@@ -73,13 +78,11 @@ const MonteCarloLiveChart: React.FC<Props> = ({
             {t('simulation.stop')}
           </Button>
         )}
-      </Card.Header>
-      <Card.Body>
-        <ProgressBar
+      </CardHeader>
+      <CardBody>
+        <Progress
           now={progress}
           label={`${progress}%`}
-          animated={isRunning}
-          striped={isRunning}
           variant="primary"
           className="mb-3"
           style={{ height: 18 }}
@@ -115,7 +118,7 @@ const MonteCarloLiveChart: React.FC<Props> = ({
             </BarChart>
           </ResponsiveContainer>
         )}
-      </Card.Body>
+      </CardBody>
     </Card>
   );
 };

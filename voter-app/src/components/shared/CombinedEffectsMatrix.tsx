@@ -1,7 +1,10 @@
 import React, { useCallback, useState } from 'react';
-import {
-  Alert, Badge, Button, Card, Col, Row, Spinner,
-} from 'react-bootstrap';
+import { Alert } from '@/components/ui/alert';
+import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
+import { Card, CardBody, CardHeader } from '@/components/ui/card';
+import { Col, Row } from '@/components/ui/grid';
+import { Spinner } from '@/components/ui/spinner';
 import {
   Bar, BarChart, CartesianGrid, Cell, LabelList,
   ResponsiveContainer, Tooltip, XAxis, YAxis,
@@ -59,7 +62,7 @@ const MatrixCell: React.FC<{
         {changed && ' ⚠'}
       </div>
       {combo.condorcet_winner === combo.plurality_winner && combo.condorcet_winner && (
-        <Badge bg="success" style={{ fontSize: '0.6rem' }}>✓ C</Badge>
+        <Badge variant="success" style={{ fontSize: '0.6rem' }}>✓ C</Badge>
       )}
       <div style={{ fontSize: '0.72rem', color: agreementTextColor(agreement) }}>
         {Math.round(agreement * 100)}%
@@ -280,7 +283,7 @@ const CombinedEffectsMatrix: React.FC = () => {
           {/* A) Matrix */}
           <Col xs={12}>
             <Card>
-              <Card.Header className="py-2">
+              <CardHeader className="block space-y-0 border-b border-border px-4 py-2 py-2">
                 <strong style={{ fontSize: '0.85rem' }}>{t('combined.matrixTitle')}</strong>
                 <div className="text-muted" style={{ fontSize: '0.75rem' }}>
                   {t('combined.matrixDesc')}
@@ -289,47 +292,47 @@ const CombinedEffectsMatrix: React.FC = () => {
                     {t('combined.baseWinner', { winner: result.base_winner ?? '?' })}
                   </span>
                 </div>
-              </Card.Header>
-              <Card.Body className="p-2">
+              </CardHeader>
+              <CardBody className="p-2">
                 <FactorialMatrix result={result} t={t} />
-              </Card.Body>
+              </CardBody>
             </Card>
           </Col>
 
           {/* B) Factor bars + C) Synthesis */}
           <Col xs={12} lg={6}>
             <Card className="h-100">
-              <Card.Header className="py-2">
+              <CardHeader className="block space-y-0 border-b border-border px-4 py-2 py-2">
                 <strong style={{ fontSize: '0.85rem' }} className="d-inline-flex align-items-center gap-1">
                   {t('combined.factorTitle')}
                   <MetricTooltip metric="delta_agreement" placement="bottom" />
                 </strong>
                 <div className="text-muted" style={{ fontSize: '0.75rem' }}>{t('combined.factorDesc')}</div>
-              </Card.Header>
-              <Card.Body className="p-2">
+              </CardHeader>
+              <CardBody className="p-2">
                 <FactorBars result={result} ct={ct} t={t} />
-              </Card.Body>
+              </CardBody>
             </Card>
           </Col>
 
           <Col xs={12} lg={6}>
             <Card className="h-100">
-              <Card.Header className="py-2">
+              <CardHeader className="block space-y-0 border-b border-border px-4 py-2 py-2">
                 <strong style={{ fontSize: '0.85rem' }}>{t('combined.synthesisTitle')}</strong>
-              </Card.Header>
-              <Card.Body className="p-2">
+              </CardHeader>
+              <CardBody className="p-2">
                 <SynthesisText result={result} t={t} />
 
                 {/* Most / least disruptive badges */}
                 <div className="d-flex gap-2 mt-3 flex-wrap" style={{ fontSize: '0.75rem' }}>
-                  <Badge bg="danger">
+                  <Badge variant="danger">
                     ⚠ {t('combined.mostDisruptive')}: {result.most_disruptive_factor}
                   </Badge>
                   <Badge style={{ background: '#007A33' }}>
                     ✓ {t('combined.leastDisruptive')}: {result.least_disruptive_factor}
                   </Badge>
                 </div>
-              </Card.Body>
+              </CardBody>
             </Card>
           </Col>
         </Row>
