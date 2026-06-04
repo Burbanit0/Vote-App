@@ -1,8 +1,15 @@
 import React, { useCallback, useRef, useState } from 'react';
-import {
-  Accordion, Alert, Badge, Button, Card, Col,
-  Dropdown, Form, Row, Spinner, Tab, Table, Tabs,
-} from 'react-bootstrap';
+import { Accordion } from '@/components/ui/accordion';
+import { Alert } from '@/components/ui/alert';
+import { Badge } from '@/components/ui/badge';
+import { Tab, Tabs } from '@/components/ui/bootstrap-tabs';
+import { Button } from '@/components/ui/button';
+import { Card, CardBody } from '@/components/ui/card';
+import { Dropdown } from '@/components/ui/dropdown';
+import { Check, Control, Range, Select } from '@/components/ui/form-controls';
+import { Col, Row } from '@/components/ui/grid';
+import { Spinner } from '@/components/ui/spinner';
+import { Table } from '@/components/ui/table';
 import { PageContainer } from '../theme';
 import { useTranslation } from 'react-i18next';
 import { useMetaTags } from '../hooks/useMetaTags';
@@ -70,21 +77,21 @@ const ResultsTab: React.FC<{ result: ElectionResult; t: (k: string) => string }>
     <div>
       {/* Summary badges */}
       <div className="d-flex gap-2 flex-wrap mb-3">
-        <Badge bg="primary" className="d-inline-flex align-items-center gap-1">
+        <Badge variant="primary" className="d-inline-flex align-items-center gap-1">
           {t('electionLab.methodAgreement')}: {Math.round(result.inter_method_agreement * 100)}%
           <MetricTooltip metric="method_agreement" placement="bottom" />
         </Badge>
         {result.condorcet_winner && (
-          <Badge bg="success">Condorcet: {result.condorcet_winner} ✓</Badge>
+          <Badge variant="success">Condorcet: {result.condorcet_winner} ✓</Badge>
         )}
         {hasBlank && (
-          <Badge bg="warning" text="dark">
+          <Badge variant="warning">
             {t('electionLab.blankRate')}: {Math.round(result.blank_rate * 100)}%
           </Badge>
         )}
       </div>
 
-      <Table bordered size="sm" responsive>
+      <Table className="[&_th]:p-1 [&_td]:p-1 [&_th]:text-left [&_td]:border-t [&_th]:border-b [&_td]:border-border [&_th]:border-border [&_*]:align-middle [&_th]:border [&_td]:border">
         <thead className="table-light">
           <tr>
             <th>{t('common.method')}</th>
@@ -115,7 +122,7 @@ const ResultsTab: React.FC<{ result: ElectionResult; t: (k: string) => string }>
                 {hasBlank && (
                   <td>
                     {md.winner_with_blank
-                      ? <Badge bg={md.blank_triggered ? 'warning' : 'secondary'} text="dark">{md.winner_with_blank}</Badge>
+                      ? <Badge variant={md.blank_triggered ? 'warning' : 'secondary'}>{md.winner_with_blank}</Badge>
                       : <span className="text-muted">—</span>}
                     {md.blank_triggered && <span className="text-warning ms-1">⚠</span>}
                   </td>
@@ -168,9 +175,9 @@ const ParameterPanel: React.FC<{ t: (k: string) => string }> = ({ t }) => {
         <Accordion.Body className="p-2">
           {config.candidates.map((c, i) => (
             <Card key={i} className="mb-2" style={{ fontSize: '0.8rem' }}>
-              <Card.Body className="p-2">
+              <CardBody className="p-2">
                 <div className="d-flex align-items-center gap-2 mb-1">
-                  <Form.Control
+                  <Control
                     size="sm" value={c.name} style={{ maxWidth: 90 }}
                     onChange={(e) => updateCandidate(i, { name: e.target.value })}
                   />
@@ -179,17 +186,17 @@ const ParameterPanel: React.FC<{ t: (k: string) => string }> = ({ t }) => {
                       onClick={() => removeCandidate(i)}>✕</Button>
                   )}
                 </div>
-                <Form.Label className="small mb-0">
+                <label className="mb-1 inline-block small mb-0">
                   {t('electionLab.economy')}: {c.x.toFixed(2)}
-                </Form.Label>
-                <Form.Range min={-1} max={1} step={0.05} value={c.x}
+                </label>
+                <Range min={-1} max={1} step={0.05} value={c.x}
                   onChange={(e) => updateCandidate(i, { x: Number(e.target.value) })} />
-                <Form.Label className="small mb-0">
+                <label className="mb-1 inline-block small mb-0">
                   {t('electionLab.social')}: {c.y.toFixed(2)}
-                </Form.Label>
-                <Form.Range min={-1} max={1} step={0.05} value={c.y}
+                </label>
+                <Range min={-1} max={1} step={0.05} value={c.y}
                   onChange={(e) => updateCandidate(i, { y: Number(e.target.value) })} />
-              </Card.Body>
+              </CardBody>
             </Card>
           ))}
           {config.candidates.length < 6 && (
@@ -204,22 +211,22 @@ const ParameterPanel: React.FC<{ t: (k: string) => string }> = ({ t }) => {
       <Accordion.Item eventKey="1">
         <Accordion.Header>{t('electionLab.sectionElectorate')}</Accordion.Header>
         <Accordion.Body className="p-2">
-          <Form.Label className="small mb-0">
+          <label className="mb-1 inline-block small mb-0">
             {t('electionLab.numVoters')}: <strong>{config.num_voters}</strong>
-          </Form.Label>
-          <Form.Range min={50} max={1000} step={50} value={config.num_voters}
+          </label>
+          <Range min={50} max={1000} step={50} value={config.num_voters}
             onChange={(e) => setConfig({ num_voters: Number(e.target.value) })} />
 
-          <Form.Label className="small mb-1">{t('electionLab.ideology')}</Form.Label>
-          <Form.Select size="sm" value={config.ideology} className="mb-2"
+          <label className="mb-1 inline-block small mb-1">{t('electionLab.ideology')}</label>
+          <Select size="sm" value={config.ideology} className="mb-2"
             onChange={(e) => setConfig({ ideology: e.target.value })}>
             {['random', 'centrist', 'polarized', 'left_skewed', 'right_skewed'].map((v) => (
               <option key={v} value={v}>{t(`ideology.${v}`)}</option>
             ))}
-          </Form.Select>
+          </Select>
 
-          <Form.Label className="small mb-1">{t('electionLab.seed')}</Form.Label>
-          <Form.Control size="sm" type="number" value={config.seed}
+          <label className="mb-1 inline-block small mb-1">{t('electionLab.seed')}</label>
+          <Control size="sm" type="number" value={config.seed}
             onChange={(e) => setConfig({ seed: Number(e.target.value) })} />
         </Accordion.Body>
       </Accordion.Item>
@@ -228,25 +235,25 @@ const ParameterPanel: React.FC<{ t: (k: string) => string }> = ({ t }) => {
       <Accordion.Item eventKey="2">
         <Accordion.Header>
           {t('electionLab.sectionCampaign')}
-          {config.campaign.enabled && <Badge bg="primary" className="ms-2" style={{ fontSize: '0.6rem' }}>ON</Badge>}
+          {config.campaign.enabled && <Badge variant="primary" className="ms-2" style={{ fontSize: '0.6rem' }}>ON</Badge>}
         </Accordion.Header>
         <Accordion.Body className="p-2">
-          <Form.Check type="switch" id="campaign-enabled"
+          <Check type="switch" id="campaign-enabled"
             label={<span className="small">{t('electionLab.enabled')}</span>}
             checked={config.campaign.enabled}
             onChange={(e) => setConfigDeep('campaign.enabled', e.target.checked)}
             className="mb-2" />
           {config.campaign.enabled && (
             <>
-              <Form.Label className="small mb-0">
+              <label className="mb-1 inline-block small mb-0">
                 {t('electionLab.numDays')}: <strong>{config.campaign.num_days}</strong>
-              </Form.Label>
-              <Form.Range min={7} max={60} step={1} value={config.campaign.num_days}
+              </label>
+              <Range min={7} max={60} step={1} value={config.campaign.num_days}
                 onChange={(e) => setConfigDeep('campaign.num_days', Number(e.target.value))} />
-              <Form.Label className="small mb-0">
+              <label className="mb-1 inline-block small mb-0">
                 {t('electionLab.pollingEffect')}: <strong>{config.campaign.polling_effect.toFixed(2)}</strong>
-              </Form.Label>
-              <Form.Range min={0} max={1} step={0.05} value={config.campaign.polling_effect}
+              </label>
+              <Range min={0} max={1} step={0.05} value={config.campaign.polling_effect}
                 onChange={(e) => setConfigDeep('campaign.polling_effect', Number(e.target.value))} />
             </>
           )}
@@ -257,46 +264,46 @@ const ParameterPanel: React.FC<{ t: (k: string) => string }> = ({ t }) => {
       <Accordion.Item eventKey="3">
         <Accordion.Header>
           {t('electionLab.sectionBlank')}
-          {config.blank_vote.enabled && <Badge bg="warning" text="dark" className="ms-2" style={{ fontSize: '0.6rem' }}>ON</Badge>}
+          {config.blank_vote.enabled && <Badge variant="warning" className="ms-2" style={{ fontSize: '0.6rem' }}>ON</Badge>}
         </Accordion.Header>
         <Accordion.Body className="p-2">
-          <Form.Check type="switch" id="blank-enabled"
+          <Check type="switch" id="blank-enabled"
             label={<span className="small">{t('electionLab.enabled')}</span>}
             checked={config.blank_vote.enabled}
             onChange={(e) => setConfigDeep('blank_vote.enabled', e.target.checked)}
             className="mb-2" />
           {config.blank_vote.enabled && (
             <>
-              <Form.Label className="small mb-1">{t('electionLab.blankRule')}</Form.Label>
-              <Form.Select size="sm" value={config.blank_vote.rule} className="mb-3"
+              <label className="mb-1 inline-block small mb-1">{t('electionLab.blankRule')}</label>
+              <Select size="sm" value={config.blank_vote.rule} className="mb-3"
                 onChange={(e) => setConfigDeep('blank_vote.rule', e.target.value)}>
                 <option value="symbolic">Symbolique</option>
                 <option value="competitive">Compétitif</option>
                 <option value="threshold_30">Seuil 30%</option>
-              </Form.Select>
+              </Select>
 
               <div className="border rounded p-2" style={{ fontSize: '0.78rem' }}>
                 <strong>{t('electionLab.contagion')}</strong>
-                <Form.Check type="switch" id="contagion-enabled"
+                <Check type="switch" id="contagion-enabled"
                   label={<span className="small">{t('electionLab.enabled')}</span>}
                   checked={config.blank_vote.contagion.enabled}
                   onChange={(e) => setConfigDeep('blank_vote.contagion.enabled', e.target.checked)}
                   className="mt-1 mb-1" />
                 {config.blank_vote.contagion.enabled && (
                   <>
-                    <Form.Label className="small mb-0">β (contagion): {config.blank_vote.contagion.beta.toFixed(2)}</Form.Label>
-                    <Form.Range min={0} max={1} step={0.05} value={config.blank_vote.contagion.beta}
+                    <label className="mb-1 inline-block small mb-0">β (contagion): {config.blank_vote.contagion.beta.toFixed(2)}</label>
+                    <Range min={0} max={1} step={0.05} value={config.blank_vote.contagion.beta}
                       onChange={(e) => setConfigDeep('blank_vote.contagion.beta', Number(e.target.value))} />
-                    <Form.Label className="small mb-0">γ (récupération): {config.blank_vote.contagion.gamma.toFixed(2)}</Form.Label>
-                    <Form.Range min={0} max={1} step={0.05} value={config.blank_vote.contagion.gamma}
+                    <label className="mb-1 inline-block small mb-0">γ (récupération): {config.blank_vote.contagion.gamma.toFixed(2)}</label>
+                    <Range min={0} max={1} step={0.05} value={config.blank_vote.contagion.gamma}
                       onChange={(e) => setConfigDeep('blank_vote.contagion.gamma', Number(e.target.value))} />
-                    <Form.Label className="small mb-1">Réseau</Form.Label>
-                    <Form.Select size="sm" value={config.blank_vote.contagion.network}
+                    <label className="mb-1 inline-block small mb-1">Réseau</label>
+                    <Select size="sm" value={config.blank_vote.contagion.network}
                       onChange={(e) => setConfigDeep('blank_vote.contagion.network', e.target.value)}>
                       <option value="random">Aléatoire</option>
                       <option value="watts_strogatz">Petit monde</option>
                       <option value="block">Blocs</option>
-                    </Form.Select>
+                    </Select>
                   </>
                 )}
               </div>
@@ -309,23 +316,23 @@ const ParameterPanel: React.FC<{ t: (k: string) => string }> = ({ t }) => {
       <Accordion.Item eventKey="4">
         <Accordion.Header>
           {t('electionLab.sectionInfo')}
-          {config.information_model.enabled && <Badge bg="info" className="ms-2" style={{ fontSize: '0.6rem' }}>ON</Badge>}
+          {config.information_model.enabled && <Badge variant="info" className="ms-2" style={{ fontSize: '0.6rem' }}>ON</Badge>}
         </Accordion.Header>
         <Accordion.Body className="p-2">
-          <Form.Check type="switch" id="info-enabled"
+          <Check type="switch" id="info-enabled"
             label={<span className="small">{t('electionLab.enabled')}</span>}
             checked={config.information_model.enabled}
             onChange={(e) => setConfigDeep('information_model.enabled', e.target.checked)}
             className="mb-2" />
           {config.information_model.enabled && config.candidates.map((c) => (
             <div key={c.name} className="mb-2">
-              <Form.Label className="small mb-0">
+              <label className="mb-1 inline-block small mb-0">
                 {t('electionLab.mediaBias')} {c.name}:
                 <strong className="ms-1">
                   {(config.information_model.media_bias[c.name] ?? 0).toFixed(2)}
                 </strong>
-              </Form.Label>
-              <Form.Range min={-1} max={1} step={0.1}
+              </label>
+              <Range min={-1} max={1} step={0.1}
                 value={config.information_model.media_bias[c.name] ?? 0}
                 onChange={(e) => setConfigDeep(`information_model.media_bias.${c.name}`, Number(e.target.value))} />
             </div>
@@ -428,14 +435,14 @@ const ElectionLabPage: React.FC = () => {
           <h2 className="mb-0 fw-bold d-flex align-items-center gap-2 flex-wrap">
             🔬 {t('electionLab.title')}
             {scenarioMeta && (
-              <Badge bg="primary" style={{ fontSize: '0.6rem', fontWeight: 600 }}>
+              <Badge variant="primary" style={{ fontSize: '0.6rem', fontWeight: 600 }}>
                 🗳️ {scenarioMeta.name}
               </Badge>
             )}
           </h2>
           {scenarioMeta ? (
             <div className="d-flex align-items-center gap-2 flex-wrap mt-1">
-              <Badge bg="secondary" style={{ fontSize: '0.62rem' }}>
+              <Badge variant="secondary" style={{ fontSize: '0.62rem' }}>
                 {scenarioMeta.phenomenon}
               </Badge>
               <span className="text-muted" style={{ fontSize: '0.8rem' }}>
@@ -497,10 +504,10 @@ const ElectionLabPage: React.FC = () => {
 
           {/* Active modules badges */}
           <div className="d-flex flex-wrap gap-1 mt-2" style={{ fontSize: '0.72rem' }}>
-            {config.campaign.enabled         && <Badge bg="primary">⏱ {t('electionLab.sectionCampaign')}</Badge>}
-            {config.blank_vote.enabled        && <Badge bg="warning" text="dark">□ {t('electionLab.sectionBlank')}</Badge>}
-            {config.blank_vote.contagion.enabled && <Badge bg="danger">🦠 {t('electionLab.contagion')}</Badge>}
-            {config.information_model.enabled && <Badge bg="info">📡 {t('electionLab.sectionInfo')}</Badge>}
+            {config.campaign.enabled         && <Badge variant="primary">⏱ {t('electionLab.sectionCampaign')}</Badge>}
+            {config.blank_vote.enabled        && <Badge variant="warning">□ {t('electionLab.sectionBlank')}</Badge>}
+            {config.blank_vote.contagion.enabled && <Badge variant="danger">🦠 {t('electionLab.contagion')}</Badge>}
+            {config.information_model.enabled && <Badge variant="info">📡 {t('electionLab.sectionInfo')}</Badge>}
           </div>
         </Col>
 
@@ -682,7 +689,7 @@ const ElectionLabPage: React.FC = () => {
                   TABS.forEach((tab) => tabsByGroup[tab.group].push(tab));
                   return (
                     <div data-testid="mobile-tab-nav">
-                      <Form.Select
+                      <Select
                         size="sm"
                         value={activeTab}
                         onChange={(e) => setActiveTab(e.target.value)}
@@ -700,7 +707,7 @@ const ElectionLabPage: React.FC = () => {
                             ))}
                           </optgroup>
                         ))}
-                      </Form.Select>
+                      </Select>
                       <div className="d-flex justify-content-between align-items-center mb-2">
                         <Button
                           variant="outline-secondary" size="sm"

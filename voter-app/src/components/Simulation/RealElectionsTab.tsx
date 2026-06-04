@@ -1,5 +1,11 @@
 import React, { useEffect, useState } from 'react';
-import { Alert, Button, Card, Col, Form, Row, Spinner, Tab, Tabs } from 'react-bootstrap';
+import { Alert } from '@/components/ui/alert';
+import { Tab, Tabs } from '@/components/ui/bootstrap-tabs';
+import { Button } from '@/components/ui/button';
+import { Card, CardBody, CardHeader } from '@/components/ui/card';
+import { Select } from '@/components/ui/form-controls';
+import { Col, Row } from '@/components/ui/grid';
+import { Spinner } from '@/components/ui/spinner';
 import { Trans, useTranslation } from 'react-i18next';
 import { RealElectionResult, RealElectionSummary } from '../../types';
 import { analyzeRealElection, getRealElections } from '../../services/simulationCompareApi';
@@ -48,22 +54,22 @@ const RealElectionsTab: React.FC = () => {
 
   return (
     <Card className="mb-4">
-      <Card.Header>
+      <CardHeader className="block space-y-0 border-b border-border px-4 py-2">
         <strong>{t('simulation.realElections.title')}</strong>
         <span className="text-muted ms-2" style={{ fontSize: '0.85rem' }}>
           {t('simulation.realElections.subtitle')}
         </span>
-      </Card.Header>
-      <Card.Body>
+      </CardHeader>
+      <CardBody>
         <Tabs defaultActiveKey="analysis" className="mb-3">
           {/* ── Tab 1: Election analysis ── */}
           <Tab eventKey="analysis" title="Analyse de l'élection">
             <Row className="g-3 align-items-end mb-4">
               <Col md={5}>
-                <Form.Label htmlFor="real-election-select" className="small mb-1">
+                <label htmlFor="real-election-select" className="mb-1 inline-block small mb-1">
                   {t('simulation.realElections.electionLabel')}
-                </Form.Label>
-                <Form.Select
+                </label>
+                <Select
                   id="real-election-select"
                   size="sm"
                   value={selected}
@@ -77,7 +83,7 @@ const RealElectionsTab: React.FC = () => {
                       {e.country} — {e.name} ({e.year})
                     </option>
                   ))}
-                </Form.Select>
+                </Select>
               </Col>
               <Col md={2}>
                 <Button
@@ -120,7 +126,7 @@ const RealElectionsTab: React.FC = () => {
             <BlankVoteTimeSeries />
           </Tab>
         </Tabs>
-      </Card.Body>
+      </CardBody>
     </Card>
   );
 };

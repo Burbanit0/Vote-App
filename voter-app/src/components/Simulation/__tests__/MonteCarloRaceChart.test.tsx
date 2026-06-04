@@ -95,8 +95,8 @@ describe('MonteCarloRaceChart', () => {
     renderChart();
     const candidatesBtn = screen.getByTestId('view-candidates');
     const methodBtn     = screen.getByTestId('view-one-method');
-    expect(candidatesBtn.className).toContain('btn-secondary');
-    expect(methodBtn.className).toContain('btn-outline-secondary');
+    expect(candidatesBtn.className).toContain('text-secondary-foreground');
+    expect(methodBtn.className).toContain('border-input');
   });
 
   it('switching to method view shows method dropdown', () => {

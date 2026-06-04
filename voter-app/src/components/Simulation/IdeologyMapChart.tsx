@@ -1,7 +1,12 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import {
-  Badge, Button, ButtonGroup, Card, Col, Form, ProgressBar, Row, Spinner,
-} from 'react-bootstrap';
+import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
+import { ButtonGroup } from '@/components/ui/button-group';
+import { Card, CardBody, CardHeader } from '@/components/ui/card';
+import { Check, Range, Select } from '@/components/ui/form-controls';
+import { Col, Row } from '@/components/ui/grid';
+import { Progress } from '@/components/ui/progress';
+import { Spinner } from '@/components/ui/spinner';
 import IdeologyHeatmap from './IdeologyHeatmap';
 import MedianVoterLayer, { MedianVoterLegend } from './MedianVoterLayer';
 import { useDragTouch } from '../../hooks/useDragTouch';
@@ -285,47 +290,47 @@ const IdeologyMapChart: React.FC<Props> = ({
       {!embedded && (
       <Col xs={12} lg={3}>
         <Card>
-          <Card.Header className="py-2">
+          <CardHeader className="block space-y-0 border-b border-border px-4 py-2 py-2">
             <strong style={{ fontSize: '0.85rem' }}>{t('ideologyMap.controls')}</strong>
-          </Card.Header>
-          <Card.Body className="p-2">
-            <Form.Label className="small mb-1">{t('ideologyMap.methodA')}</Form.Label>
-            <Form.Select
+          </CardHeader>
+          <CardBody className="p-2">
+            <label className="mb-1 inline-block small mb-1">{t('ideologyMap.methodA')}</label>
+            <Select
               size="sm" value={methodA} className="mb-2"
               style={{ borderLeft: `3px solid ${COLOR_A}` }}
               onChange={(e) => setMethodA(e.target.value)}
             >
               {METHODS.map((m) => <option key={m} value={m}>{m}</option>)}
-            </Form.Select>
+            </Select>
 
-            <Form.Label className="small mb-1">{t('ideologyMap.methodB')}</Form.Label>
-            <Form.Select
+            <label className="mb-1 inline-block small mb-1">{t('ideologyMap.methodB')}</label>
+            <Select
               size="sm" value={methodB} className="mb-2"
               style={{ borderLeft: `3px solid ${COLOR_B}` }}
               onChange={(e) => setMethodB(e.target.value)}
             >
               {METHODS.map((m) => <option key={m} value={m}>{m}</option>)}
-            </Form.Select>
+            </Select>
 
-            <Form.Label className="small mb-1">
+            <label className="mb-1 inline-block small mb-1">
               {t('ideologyMap.numVoters')} : <strong>{numVoters}</strong>
-            </Form.Label>
-            <Form.Range
+            </label>
+            <Range
               min={50} max={500} step={50} value={numVoters} className="mb-2"
               onChange={(e) => setNumVoters(Number(e.target.value))}
             />
 
-            <Form.Label className="small mb-1">{t('ideologyMap.ideology')}</Form.Label>
-            <Form.Select
+            <label className="mb-1 inline-block small mb-1">{t('ideologyMap.ideology')}</label>
+            <Select
               size="sm" value={ideology} className="mb-2"
               onChange={(e) => setIdeology(e.target.value)}
             >
               {['random','centrist','polarized','left_skewed','right_skewed'].map((v) => (
                 <option key={v} value={v}>{t(`ideology.${v}`)}</option>
               ))}
-            </Form.Select>
+            </Select>
 
-            <Form.Check
+            <Check
               type="switch"
               id="show-losers-toggle"
               label={<span className="small">{t('ideologyMap.showLosers')}</span>}
@@ -333,7 +338,7 @@ const IdeologyMapChart: React.FC<Props> = ({
               onChange={(e) => setShowLosers(e.target.checked)}
               className="mb-2"
             />
-            <Form.Check
+            <Check
               type="switch"
               id="show-voronoi-toggle"
               label={<span className="small">{t('ideologyMap.showVoronoi')}</span>}
@@ -341,7 +346,7 @@ const IdeologyMapChart: React.FC<Props> = ({
               onChange={(e) => setShowVoronoi(e.target.checked)}
               className="mb-2"
             />
-            <Form.Check
+            <Check
               type="switch"
               id="show-median-toggle"
               label={<span className="small">{t('ideologyMap.showMedian')}</span>}
@@ -353,7 +358,7 @@ const IdeologyMapChart: React.FC<Props> = ({
 
             {/* View mode toggle */}
             <div className="mb-3">
-              <Form.Label className="small mb-1">{t('heatmap.viewMode')}</Form.Label>
+              <label className="mb-1 inline-block small mb-1">{t('heatmap.viewMode')}</label>
               <ButtonGroup size="sm" className="w-100">
                 {(['points', 'heatmap', 'both'] as const).map((mode) => (
                   <Button
@@ -382,7 +387,7 @@ const IdeologyMapChart: React.FC<Props> = ({
                 <span className="small text-muted">{t('ideologyMap.loading')}</span>
               </div>
             )}
-          </Card.Body>
+          </CardBody>
         </Card>
       </Col>
       )}
@@ -411,7 +416,7 @@ const IdeologyMapChart: React.FC<Props> = ({
               ))}
             </ButtonGroup>
             <span className="text-muted ms-2 me-1">|</span>
-            <Form.Check
+            <Check
               type="switch"
               id="emb-show-voronoi"
               checked={showVoronoi}
@@ -419,7 +424,7 @@ const IdeologyMapChart: React.FC<Props> = ({
               label={<span style={{ fontSize: '0.66rem' }}>{t('ideologyMap.showVoronoi')}</span>}
               className="mb-0 ms-1"
             />
-            <Form.Check
+            <Check
               type="switch"
               id="emb-show-median"
               checked={showMedian}
@@ -427,7 +432,7 @@ const IdeologyMapChart: React.FC<Props> = ({
               label={<span style={{ fontSize: '0.66rem' }}>{t('ideologyMap.showMedian')}</span>}
               className="mb-0 ms-1"
             />
-            <Form.Check
+            <Check
               type="switch"
               id="emb-show-losers"
               checked={showLosers}
@@ -437,7 +442,7 @@ const IdeologyMapChart: React.FC<Props> = ({
             />
             {animActive && (
               <Badge
-                bg="success"
+                variant="success"
                 className="ms-2"
                 style={{ fontSize: '0.65rem' }}
                 data-testid="anim-live-badge"
@@ -448,7 +453,7 @@ const IdeologyMapChart: React.FC<Props> = ({
           </div>
         )}
         <Card>
-          <Card.Body className="p-2">
+          <CardBody className="p-2">
             {error && <div className="text-danger small mb-2">{error}</div>}
 
             {/* ── Heatmap view ── */}
@@ -728,7 +733,7 @@ const IdeologyMapChart: React.FC<Props> = ({
                     </Badge>
                   )}
                   {condorcet && (
-                    <Badge bg="secondary">Condorcet: {condorcet}</Badge>
+                    <Badge variant="secondary">Condorcet: {condorcet}</Badge>
                   )}
                 </div>
 
@@ -743,7 +748,7 @@ const IdeologyMapChart: React.FC<Props> = ({
                 )}
               </div>
             )}
-          </Card.Body>
+          </CardBody>
         </Card>
       </Col>
 

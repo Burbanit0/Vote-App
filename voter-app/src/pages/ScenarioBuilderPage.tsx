@@ -1,5 +1,13 @@
 import React, { useEffect, useState } from 'react';
-import { Alert, Badge, Button, Card, Container, Form, Modal, Spinner, Table } from 'react-bootstrap';
+import { Alert } from '@/components/ui/alert';
+import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
+import { Card, CardBody, CardHeader } from '@/components/ui/card';
+import { Control } from '@/components/ui/form-controls';
+import { Container } from '@/components/ui/grid';
+import { Modal } from '@/components/ui/modal';
+import { Spinner } from '@/components/ui/spinner';
+import { Table } from '@/components/ui/table';
 import { useTranslation } from 'react-i18next';
 import CandidateEditor, { CandidateConfig, newCandidate, newBlankCandidate } from '../components/ScenarioBuilder/CandidateEditor';
 import ElectorateConfig, { ElectorateState } from '../components/ScenarioBuilder/ElectorateConfig';
@@ -46,7 +54,7 @@ const StepIndicator: React.FC<{ step: number; steps: string[] }> = ({ step, step
 
 const WinnerBadge: React.FC<{ winner: string | null; colorMap: Record<string, string>; t: (k: string) => string }> = ({ winner, colorMap, t }) => {
   if (!winner) return <span className="text-muted">—</span>;
-  if (winner === 'Blank') return <Badge bg="warning" text="dark">{t('scenario.blankVoteBadge')}</Badge>;
+  if (winner === 'Blank') return <Badge variant="warning">{t('scenario.blankVoteBadge')}</Badge>;
   return (
     <Badge style={{ backgroundColor: colorMap[winner] ?? '#999', fontSize: '0.75rem' }}>{winner}</Badge>
   );
@@ -106,7 +114,7 @@ const ResultsView: React.FC<{
 
       {/* Comparison table */}
       <div style={{ overflowX: 'auto' }}>
-        <Table bordered size="sm">
+        <Table className="[&_th]:p-1 [&_td]:p-1 [&_th]:text-left [&_td]:border-t [&_th]:border-b [&_td]:border-border [&_th]:border-border [&_*]:align-middle [&_th]:border [&_td]:border">
           <thead className="table-light">
             <tr>
               <th style={{ minWidth: 160 }}>{t('scenario.methodHeader')}</th>
@@ -277,8 +285,8 @@ const ScenarioBuilderPage: React.FC = () => {
       <StepIndicator step={step} steps={steps} />
 
       <Card className="mb-4">
-        <Card.Header className="fw-semibold">{steps[step]}</Card.Header>
-        <Card.Body>{stepContent[step]}</Card.Body>
+        <CardHeader className="block space-y-0 border-b border-border px-4 py-2 fw-semibold">{steps[step]}</CardHeader>
+        <CardBody>{stepContent[step]}</CardBody>
       </Card>
 
       {step < 2 && realCandidates.length < 2 && (
@@ -350,9 +358,9 @@ const ScenarioBuilderPage: React.FC = () => {
           <Modal.Title>{t('scenario.shareResultsTitle')}</Modal.Title>
         </Modal.Header>
         <Modal.Body>
-          <Form.Label className="fw-semibold small">{t('scenario.permanentLink')}</Form.Label>
+          <label className="mb-1 inline-block fw-semibold small">{t('scenario.permanentLink')}</label>
           <div className="d-flex gap-2 mb-3">
-            <Form.Control size="sm" readOnly value={shareUrl} style={{ fontSize: '0.78rem' }} />
+            <Control size="sm" readOnly value={shareUrl} style={{ fontSize: '0.78rem' }} />
             <Button
               size="sm"
               variant={urlCopied ? 'success' : 'outline-secondary'}
@@ -365,8 +373,8 @@ const ScenarioBuilderPage: React.FC = () => {
               {urlCopied ? '✓' : '📋'}
             </Button>
           </div>
-          <Form.Label className="fw-semibold small">{t('scenario.twitterTextLabel')}</Form.Label>
-          <Form.Control
+          <label className="mb-1 inline-block fw-semibold small">{t('scenario.twitterTextLabel')}</label>
+          <Control
             as="textarea"
             rows={4}
             readOnly

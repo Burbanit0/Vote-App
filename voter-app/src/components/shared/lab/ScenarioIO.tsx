@@ -11,7 +11,8 @@
  * (the user can repin from the relevant tab if they want fresh data).
  */
 import React, { useCallback, useRef, useState } from 'react';
-import { Button, Toast, ToastContainer } from 'react-bootstrap';
+import { Button } from '@/components/ui/button';
+import { Toast, ToastContainer } from '@/components/ui/toast';
 import { useTranslation } from 'react-i18next';
 import { useElection, ElectionConfig } from '../../../stores/useElectionStore';
 import { usePerturbations, PinnedPerturbation } from '../../../stores/useLabStore';

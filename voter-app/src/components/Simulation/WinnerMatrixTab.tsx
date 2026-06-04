@@ -1,5 +1,11 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
-import { Alert, Badge, Button, Card, Col, Modal, Row, Table } from 'react-bootstrap';
+import { Alert } from '@/components/ui/alert';
+import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
+import { Card, CardBody, CardHeader } from '@/components/ui/card';
+import { Col, Row } from '@/components/ui/grid';
+import { Modal } from '@/components/ui/modal';
+import { Table } from '@/components/ui/table';
 import { SimulationCompareResult } from '../../types';
 import {
   IDEOLOGY_OPTIONS,
@@ -65,7 +71,7 @@ const WinnerMatrixTable: React.FC<TableProps> = ({
       {label && (
         <p className="fw-semibold text-center mb-2" style={{ fontSize: '0.9rem' }}>{label}</p>
       )}
-      <Table bordered hover size="sm" style={{ minWidth: 500 }}>
+      <Table className="[&_th]:p-1 [&_td]:p-1 [&_th]:text-left [&_td]:border-t [&_th]:border-b [&_td]:border-border [&_th]:border-border [&_*]:align-middle [&_th]:border [&_td]:border [&_tbody_tr:hover]:bg-muted/50" style={{ minWidth: 500 }}>
         <thead className="table-light">
           <tr>
             <th style={{ minWidth: 160 }}>{t('common.method')}</th>
@@ -247,15 +253,15 @@ const WinnerMatrixTab: React.FC<Props> = ({
           </Row>
 
           <Card>
-            <Card.Header>
+            <CardHeader className="block space-y-0 border-b border-border px-4 py-2">
               <strong>{t('simulation.differences')}</strong>
               <span className="text-muted ms-2" style={{ fontSize: '0.85rem' }}>
                 {t('simulation.mostFrequentWinner', { n: numSimulations })}
               </span>
-            </Card.Header>
-            <Card.Body className="p-0">
+            </CardHeader>
+            <CardBody className="p-0">
               <ResponsiveTable>
-                <Table bordered size="sm" className="mb-0">
+                <Table className="[&_th]:p-1 [&_td]:p-1 [&_th]:text-left [&_td]:border-t [&_th]:border-b [&_td]:border-border [&_th]:border-border [&_*]:align-middle [&_th]:border [&_td]:border mb-0">
                   <thead className="table-light">
                     <tr>
                       <th style={{ minWidth: 140 }}>{t('common.method')}</th>
@@ -291,12 +297,12 @@ const WinnerMatrixTab: React.FC<Props> = ({
                   </tbody>
                 </Table>
               </ResponsiveTable>
-            </Card.Body>
+            </CardBody>
           </Card>
         </>
       ) : (
         <Card>
-          <Card.Body>
+          <CardBody>
             <WinnerMatrixTable
               results={comparisonResults} allMethodNames={allMethodNames}
               colorMap={candidateColorMap}
@@ -306,7 +312,7 @@ const WinnerMatrixTab: React.FC<Props> = ({
             <small className="text-muted d-block mt-2">
               {t('simulation.clickCellHint')}
             </small>
-          </Card.Body>
+          </CardBody>
         </Card>
       )}
 
@@ -338,7 +344,7 @@ const WinnerMatrixTab: React.FC<Props> = ({
                 ) : <span className="text-muted">{t('simulation.noWinner')}</span>}
               </div>
 
-              <Table bordered size="sm" className="mb-3">
+              <Table className="[&_th]:p-1 [&_td]:p-1 [&_th]:text-left [&_td]:border-t [&_th]:border-b [&_td]:border-border [&_th]:border-border [&_*]:align-middle [&_th]:border [&_td]:border mb-3">
                 <tbody>
                   {[
                     { label: t('simulation.bayesianRegret'), value: m.bayesian_regret != null ? m.bayesian_regret.toFixed(4) : '—', note: t('simulation.lowerBetter') },

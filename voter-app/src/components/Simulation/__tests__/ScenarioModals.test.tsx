@@ -69,7 +69,7 @@ describe('ScenarioModals', () => {
 
     it('shows spinner when loading list', () => {
       render(<ScenarioModals {...defaultProps} showLoadModal={true} loadingList={true} />);
-      expect(document.querySelector('.spinner-border')).toBeInTheDocument();
+      expect(document.querySelector('.animate-spin')).toBeInTheDocument();
     });
 
     it('shows empty message when no scenarios', () => {

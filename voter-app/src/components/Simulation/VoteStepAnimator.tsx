@@ -1,7 +1,11 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
-import {
-  Badge, Button, ButtonGroup, Card, Col, Form, Row, Spinner,
-} from 'react-bootstrap';
+import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
+import { ButtonGroup } from '@/components/ui/button-group';
+import { Card, CardBody, CardHeader } from '@/components/ui/card';
+import { Select } from '@/components/ui/form-controls';
+import { Col, Row } from '@/components/ui/grid';
+import { Spinner } from '@/components/ui/spinner';
 import {
   Bar, BarChart, CartesianGrid, Cell, LabelList,
   ResponsiveContainer, Tooltip, XAxis, YAxis,
@@ -63,7 +67,7 @@ const IRVChart: React.FC<{
     <div>
       {round.eliminated && (
         <div className="d-flex align-items-center gap-2 mb-2 flex-wrap">
-          <Badge bg="danger">{round.eliminated} {t('animation.eliminated')}</Badge>
+          <Badge variant="danger">{round.eliminated} {t('animation.eliminated')}</Badge>
           {round.transfers && Object.entries(round.transfers).map(([c, v]) => (
             <Badge key={c} style={{ background: C.green }}>
               {c} +{Math.round(v * 100)}%
@@ -544,23 +548,23 @@ const VoteStepAnimator: React.FC<Props> = ({
 
   return (
     <Card>
-      <Card.Header className="d-flex align-items-center justify-content-between flex-wrap gap-2 py-2">
+      <CardHeader className="block space-y-0 border-b border-border px-4 py-2 d-flex align-items-center justify-content-between flex-wrap gap-2 py-2">
         <strong style={{ fontSize: '0.9rem' }}>{t('animation.title')}</strong>
 
         <div className="d-flex align-items-center gap-2 flex-wrap">
           {/* Method select */}
-          <Form.Select size="sm" value={method} style={{ width: 140 }}
+          <Select size="sm" value={method} style={{ width: 140 }}
             onChange={(e) => setMethod(e.target.value as typeof ANIMATED_METHODS[number])}>
             {ANIMATED_METHODS.map((m) => <option key={m} value={m}>{m}</option>)}
-          </Form.Select>
+          </Select>
 
           {/* Speed */}
-          <Form.Select size="sm" value={speed} style={{ width: 110 }}
+          <Select size="sm" value={speed} style={{ width: 110 }}
             onChange={(e) => setSpeed(e.target.value as 'slow' | 'normal' | 'fast')}>
             <option value="slow">{t('animation.slow')}</option>
             <option value="normal">{t('animation.normal')}</option>
             <option value="fast">{t('animation.fast')}</option>
-          </Form.Select>
+          </Select>
 
           {/* Controls */}
           <ButtonGroup size="sm">
@@ -581,9 +585,9 @@ const VoteStepAnimator: React.FC<Props> = ({
           {/* Step counter */}
           {stepLabel && <span className="text-muted small">{stepLabel}</span>}
         </div>
-      </Card.Header>
+      </CardHeader>
 
-      <Card.Body style={{ minHeight: 220 }}>
+      <CardBody style={{ minHeight: 220 }}>
         {loading && (
           <div className="d-flex align-items-center justify-content-center py-5">
             <Spinner size="sm" className="me-2" />
@@ -592,7 +596,7 @@ const VoteStepAnimator: React.FC<Props> = ({
         )}
         {error && <div className="text-danger small">{error}</div>}
         {!loading && !error && renderStep()}
-      </Card.Body>
+      </CardBody>
     </Card>
   );
 };

@@ -1,5 +1,7 @@
 import React, { useMemo, useState } from 'react';
-import { Button, Card, Modal } from 'react-bootstrap';
+import { Button } from '@/components/ui/button';
+import { Card, CardBody, CardHeader } from '@/components/ui/card';
+import { Modal } from '@/components/ui/modal';
 import {
   Bar,
   BarChart,
@@ -97,7 +99,7 @@ const MetricsTab: React.FC<Props> = ({ comparisonResults, allMethodNames, numSim
   return (
     <>
     <Card className="mb-4">
-      <Card.Header className="d-flex align-items-center justify-content-between flex-wrap gap-2">
+      <CardHeader className="block space-y-0 border-b border-border px-4 py-2 d-flex align-items-center justify-content-between flex-wrap gap-2">
         <div>
           <strong>{t('simulation.comparativeMetrics')}</strong>
           <span className="text-muted ms-2" style={{ fontSize: '0.85rem' }}>
@@ -115,8 +117,8 @@ const MetricsTab: React.FC<Props> = ({ comparisonResults, allMethodNames, numSim
             🕸 {t('graph.openButton')}
           </Button>
         )}
-      </Card.Header>
-      <Card.Body>
+      </CardHeader>
+      <CardBody>
         <div className="d-flex gap-4 mb-3 flex-wrap">
           {METRICS.map(({ key, metricId, color, note }) => (
             <span key={key} className="d-flex align-items-center gap-1">
@@ -171,7 +173,7 @@ const MetricsTab: React.FC<Props> = ({ comparisonResults, allMethodNames, numSim
             </BarChart>
           </ResponsiveContainer>
         )}
-      </Card.Body>
+      </CardBody>
     </Card>
 
       {/* Majority Judgment visualization — shown when MJ is in the results */}
@@ -188,15 +190,15 @@ const MetricsTab: React.FC<Props> = ({ comparisonResults, allMethodNames, numSim
         };
         return (
           <Card className="mb-4" data-testid="mj-card">
-            <Card.Header>
+            <CardHeader className="block space-y-0 border-b border-border px-4 py-2">
               <strong>{t('mj.chartTitle')}</strong>
               <span className="text-muted ms-2" style={{ fontSize: '0.85rem' }}>
                 {t('mj.chartSubtitle')}
               </span>
-            </Card.Header>
-            <Card.Body>
+            </CardHeader>
+            <CardBody>
               <MajorityJudgmentChart mjResult={mjData} candidates={allCandidates} />
-            </Card.Body>
+            </CardBody>
           </Card>
         );
       })()}
@@ -217,15 +219,15 @@ const MetricsTab: React.FC<Props> = ({ comparisonResults, allMethodNames, numSim
         };
         return (
           <Card className="mb-4" data-testid="ev-card">
-            <Card.Header>
+            <CardHeader className="block space-y-0 border-b border-border px-4 py-2">
               <strong>{t('ev.chartTitle')}</strong>
               <span className="text-muted ms-2" style={{ fontSize: '0.85rem' }}>
                 {t('ev.chartSubtitle')}
               </span>
-            </Card.Header>
-            <Card.Body>
+            </CardHeader>
+            <CardBody>
               <EvaluativeChart evResult={evData} candidates={allCandidates} />
-            </Card.Body>
+            </CardBody>
           </Card>
         );
       })()}

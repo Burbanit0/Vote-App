@@ -1,5 +1,9 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
-import { Badge, ButtonGroup, Button, Card, Form } from 'react-bootstrap';
+import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
+import { ButtonGroup } from '@/components/ui/button-group';
+import { Card, CardBody, CardHeader } from '@/components/ui/card';
+import { Select } from '@/components/ui/form-controls';
 import MethodRaceBar from './MethodRaceBar';
 import {
   Area, AreaChart, CartesianGrid, ReferenceLine,
@@ -163,7 +167,7 @@ const MonteCarloRaceChart: React.FC<Props> = ({
 
   return (
     <Card className="mb-4">
-      <Card.Header className="d-flex align-items-center justify-content-between flex-wrap gap-2 py-2">
+      <CardHeader className="block space-y-0 border-b border-border px-4 py-2 d-flex align-items-center justify-content-between flex-wrap gap-2 py-2">
         <div>
           <strong style={{ fontSize: '0.88rem' }}>{t('simulation.raceTitle')}</strong>
           <div className="text-muted" style={{ fontSize: '0.75rem' }}>{t('simulation.raceDesc')}</div>
@@ -199,7 +203,7 @@ const MonteCarloRaceChart: React.FC<Props> = ({
 
           {/* Method selector (only in single-method view) */}
           {view === 'method' && (
-            <Form.Select
+            <Select
               size="sm"
               value={selectedMethod}
               onChange={(e) => setSelectedMethod(e.target.value)}
@@ -207,19 +211,19 @@ const MonteCarloRaceChart: React.FC<Props> = ({
               aria-label={t('simulation.raceOneMethod')}
             >
               {methods.map((m) => <option key={m} value={m}>{m}</option>)}
-            </Form.Select>
+            </Select>
           )}
 
           {/* Final winner badge */}
           {finalWinner && !isRunning && view !== 'methods-race' && (
-            <Badge bg="success" style={{ fontSize: '0.72rem' }}>
+            <Badge variant="success" style={{ fontSize: '0.72rem' }}>
               🏆 {t('simulation.raceFinalWinner', { winner: finalWinner })}
             </Badge>
           )}
         </div>
-      </Card.Header>
+      </CardHeader>
 
-      <Card.Body className="p-2">
+      <CardBody className="p-2">
         {view === 'methods-race' ? (
           <MethodRaceBar partialResults={partialResults} isRunning={isRunning} />
         ) : (
@@ -278,7 +282,7 @@ const MonteCarloRaceChart: React.FC<Props> = ({
             </div>
           </>
         )}
-      </Card.Body>
+      </CardBody>
     </Card>
   );
 };

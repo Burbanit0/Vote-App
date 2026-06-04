@@ -25,11 +25,36 @@ const alertVariants = cva('rounded-md border px-3 py-2 text-sm', {
 
 export interface AlertProps
   extends React.HTMLAttributes<HTMLDivElement>,
-    VariantProps<typeof alertVariants> {}
+    VariantProps<typeof alertVariants> {
+  /** react-bootstrap parity: render a close button that calls onClose. */
+  dismissible?: boolean;
+  onClose?: () => void;
+}
 
 const Alert = React.forwardRef<HTMLDivElement, AlertProps>(
-  ({ className, variant, ...props }, ref) => (
-    <div ref={ref} role="alert" className={cn(alertVariants({ variant }), className)} {...props} />
+  ({ className, variant, dismissible, onClose, children, ...props }, ref) => (
+    <div
+      ref={ref}
+      role="alert"
+      className={cn(
+        alertVariants({ variant }),
+        dismissible && 'flex items-start justify-between gap-2',
+        className
+      )}
+      {...props}
+    >
+      {dismissible ? <span>{children}</span> : children}
+      {dismissible && (
+        <button
+          type="button"
+          aria-label="Close"
+          onClick={onClose}
+          className="shrink-0 text-lg leading-none opacity-70 transition-opacity hover:opacity-100"
+        >
+          ×
+        </button>
+      )}
+    </div>
   )
 );
 Alert.displayName = 'Alert';

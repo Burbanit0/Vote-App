@@ -1,17 +1,12 @@
 import React, { ChangeEvent } from 'react';
-import {
-  Form,
-  Button,
-  Container,
-  Row,
-  Col,
-  Card,
-  Accordion,
-  Table,
-  OverlayTrigger,
-  Tooltip,
-  Spinner,
-} from 'react-bootstrap';
+import { Accordion } from '@/components/ui/accordion';
+import { Button } from '@/components/ui/button';
+import { Card, CardBody, CardHeader } from '@/components/ui/card';
+import { Check, Control, Range } from '@/components/ui/form-controls';
+import { Col, Container, Row } from '@/components/ui/grid';
+import { Spinner } from '@/components/ui/spinner';
+import { Table } from '@/components/ui/table';
+import { OverlayTrigger, Tooltip } from '@/components/ui/tooltip-overlay';
 
 type Candidate = string;
 type SimulationType = string;
@@ -128,15 +123,15 @@ const SimulationForm: React.FC<SimulationFormProps> = ({
   return (
     <Container className="mt-4">
       <Card>
-        <Card.Header as="h4">Voting Simulation Form</Card.Header>
-        <Card.Body>
-          <Form className="vote-form">
-            <Form.Group as={Row} className="mb-3">
-              <Form.Label column sm={2}>
+        <CardHeader className="block space-y-0 border-b border-border px-4 py-2">Voting Simulation Form</CardHeader>
+        <CardBody>
+          <form className="vote-form">
+            <div className="mb-3">
+              <label className="mb-1 inline-block">
                 Simulation Type
-              </Form.Label>
+              </label>
               <Col sm={10}>
-                <Form.Check
+                <Check
                   type="checkbox"
                   id="simulationType-votes"
                   name="simulationType"
@@ -145,7 +140,7 @@ const SimulationForm: React.FC<SimulationFormProps> = ({
                   checked={formData.simulationType.includes('votes')}
                   onChange={handleInputChange}
                 />
-                <Form.Check
+                <Check
                   type="checkbox"
                   id="simulationType-ranked"
                   name="simulationType"
@@ -154,7 +149,7 @@ const SimulationForm: React.FC<SimulationFormProps> = ({
                   checked={formData.simulationType.includes('ranked')}
                   onChange={handleInputChange}
                 />
-                <Form.Check
+                <Check
                   type="checkbox"
                   id="simulationType-scores"
                   name="simulationType"
@@ -164,28 +159,28 @@ const SimulationForm: React.FC<SimulationFormProps> = ({
                   onChange={handleInputChange}
                 />
               </Col>
-            </Form.Group>
+            </div>
 
-            <Form.Group as={Row} className="mb-3">
-              <Form.Label column sm={2}>
+            <div className="mb-3">
+              <label className="mb-1 inline-block">
                 Population Size
-              </Form.Label>
+              </label>
               <Col sm={10}>
-                <Form.Control
+                <Control
                   type="number"
                   name="populationSize"
                   value={formData.populationSize}
                   onChange={() => handleInputChange}
                 />
               </Col>
-            </Form.Group>
+            </div>
 
-            <Form.Group as={Row} className="mb-3">
-              <Form.Label column sm={2}>
+            <div className="mb-3">
+              <label className="mb-1 inline-block">
                 Turnout Rate
-              </Form.Label>
+              </label>
               <Col sm={10}>
-                <Form.Control
+                <Control
                   type="number"
                   step="0.01"
                   name="turnoutRate"
@@ -193,15 +188,15 @@ const SimulationForm: React.FC<SimulationFormProps> = ({
                   onChange={() => handleInputChange}
                 />
               </Col>
-            </Form.Group>
+            </div>
 
-            <Form.Group as={Row} className="mb-3">
-              <Form.Label column sm={2}>
+            <div className="mb-3">
+              <label className="mb-1 inline-block">
                 Candidates
-              </Form.Label>
+              </label>
               <Col sm={10}>
                 {formData.candidates.map((candidate: Candidate, index: number) => (
-                  <Form.Control
+                  <Control
                     key={index}
                     type="text"
                     value={candidate}
@@ -220,11 +215,11 @@ const SimulationForm: React.FC<SimulationFormProps> = ({
                   Remove last Candidate
                 </Button>
               </Col>
-            </Form.Group>
+            </div>
 
             <Card className="mb-3">
-              <Card.Header as="h5">Demographics</Card.Header>
-              <Card.Body>
+              <CardHeader className="block space-y-0 border-b border-border px-4 py-2">Demographics</CardHeader>
+              <CardBody>
                 <Accordion defaultActiveKey="0">
                   {Object.entries(formData.demographics).map(([category, subCategories], index) => (
                     <Accordion.Item eventKey={index.toString()} key={category}>
@@ -232,14 +227,14 @@ const SimulationForm: React.FC<SimulationFormProps> = ({
                         {category.charAt(0).toUpperCase() + category.slice(1)}
                       </Accordion.Header>
                       <Accordion.Body>
-                        <Form.Group as={Row} className="mb-3" key={category}>
+                        <div className="mb-3" key={category}>
                           {Object.entries(subCategories).map(([subCategory, value]) => (
-                            <Form.Group as={Row} key={subCategory}>
-                              <Form.Label column sm={2}>
+                            <div key={subCategory}>
+                              <label className="mb-1 inline-block">
                                 {subCategory}
-                              </Form.Label>
+                              </label>
                               <Col sm={10}>
-                                <Form.Control
+                                <Control
                                   key={subCategory}
                                   type="number"
                                   step="0.01"
@@ -255,21 +250,21 @@ const SimulationForm: React.FC<SimulationFormProps> = ({
                                   className="mb-2"
                                 />
                               </Col>
-                            </Form.Group>
+                            </div>
                           ))}
-                        </Form.Group>
+                        </div>
                       </Accordion.Body>
                     </Accordion.Item>
                   ))}
                 </Accordion>
-              </Card.Body>
+              </CardBody>
             </Card>
 
             <Card className="mb-3">
-              <Card.Header as="h5" className="bg-light">
+              <CardHeader className="block space-y-0 border-b border-border px-4 py-2 bg-light">
                 Influence Weights
-              </Card.Header>
-              <Card.Body>
+              </CardHeader>
+              <CardBody>
                 <Accordion defaultActiveKey="0">
                   {Object.entries(formData.influenceWeights).map(
                     ([category, subCategories], index) => (
@@ -287,8 +282,8 @@ const SimulationForm: React.FC<SimulationFormProps> = ({
                               </Accordion.Header>
                               <Accordion.Body>
                                 <Card key={subCategory} className="mb-3">
-                                  <Card.Body>
-                                    <Table bordered hover>
+                                  <CardBody>
+                                    <Table className="[&_th]:p-2 [&_td]:p-2 [&_th]:text-left [&_td]:border-t [&_th]:border-b [&_td]:border-border [&_th]:border-border [&_*]:align-middle [&_th]:border [&_td]:border [&_tbody_tr:hover]:bg-muted/50">
                                       <thead>
                                         <tr>
                                           <th>Candidate</th>
@@ -306,7 +301,7 @@ const SimulationForm: React.FC<SimulationFormProps> = ({
                                                   placement="top"
                                                   overlay={renderWeightTooltip(candidate)}
                                                 >
-                                                  <Form.Range
+                                                  <Range
                                                     min="0.1"
                                                     max="5"
                                                     step="0.1"
@@ -323,9 +318,9 @@ const SimulationForm: React.FC<SimulationFormProps> = ({
                                                 </OverlayTrigger>
                                               </Col>
                                               <Col className="mt-2">
-                                                <Form.Text>
+                                                <small className="block text-sm text-muted-foreground">
                                                   {candidates[candidate]?.toFixed(1) || '1.0'}
-                                                </Form.Text>
+                                                </small>
                                               </Col>
                                             </td>
                                             <td>
@@ -337,7 +332,7 @@ const SimulationForm: React.FC<SimulationFormProps> = ({
                                         ))}
                                       </tbody>
                                     </Table>
-                                  </Card.Body>
+                                  </CardBody>
                                 </Card>
                               </Accordion.Body>
                             </Accordion>
@@ -347,13 +342,13 @@ const SimulationForm: React.FC<SimulationFormProps> = ({
                     )
                   )}
                 </Accordion>
-              </Card.Body>
+              </CardBody>
             </Card>
             <Button variant="primary" onClick={simulateVotes} disabled={loading} className="mt-3">
-              {loading ? <Spinner animation="border" size="sm" /> : 'Run Simulation'}
+              {loading ? <Spinner size="sm" /> : 'Run Simulation'}
             </Button>
-          </Form>
-        </Card.Body>
+          </form>
+        </CardBody>
       </Card>
     </Container>
   );

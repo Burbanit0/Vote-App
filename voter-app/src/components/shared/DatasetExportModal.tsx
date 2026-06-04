@@ -1,7 +1,12 @@
 import React, { useCallback, useMemo, useState } from 'react';
-import {
-  Alert, Badge, Button, Col, Form, Modal, Row, Spinner, Table,
-} from 'react-bootstrap';
+import { Alert } from '@/components/ui/alert';
+import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
+import { Check, Control, Range, Select } from '@/components/ui/form-controls';
+import { Col, Row } from '@/components/ui/grid';
+import { Modal } from '@/components/ui/modal';
+import { Spinner } from '@/components/ui/spinner';
+import { Table } from '@/components/ui/table';
 import { useTranslation } from 'react-i18next';
 
 const API_BASE = process.env.VITE_API_URL || 'http://localhost:4434';
@@ -209,10 +214,10 @@ const DatasetExportModal: React.FC<Props> = ({ show, onHide, defaultCandidates }
         {/* ── Parameters ── */}
         <Row className="g-3 mb-3">
           <Col md={6}>
-            <Form.Label className="small mb-1">
+            <label className="mb-1 inline-block small mb-1">
               {t('export.numScenarios')} : <strong>{numScenarios}</strong>
-            </Form.Label>
-            <Form.Range
+            </label>
+            <Range
               min={10} max={1000} step={10} value={numScenarios}
               onChange={(e) => { setNumScenarios(Number(e.target.value)); setDownloadBlob(null); }}
             />
@@ -222,43 +227,43 @@ const DatasetExportModal: React.FC<Props> = ({ show, onHide, defaultCandidates }
           </Col>
 
           <Col md={3}>
-            <Form.Label className="small mb-1">{t('export.numCandidates')}</Form.Label>
-            <Form.Control
+            <label className="mb-1 inline-block small mb-1">{t('export.numCandidates')}</label>
+            <Control
               size="sm" type="number" min={2} max={8} value={numCandidates}
               onChange={(e) => { setNumCandidates(Number(e.target.value)); setDownloadBlob(null); }}
             />
           </Col>
 
           <Col md={3}>
-            <Form.Label className="small mb-1">{t('export.numVoters')}</Form.Label>
-            <Form.Control
+            <label className="mb-1 inline-block small mb-1">{t('export.numVoters')}</label>
+            <Control
               size="sm" type="number" min={10} max={2000} value={numVoters}
               onChange={(e) => { setNumVoters(Number(e.target.value)); setDownloadBlob(null); }}
             />
           </Col>
 
           <Col md={3}>
-            <Form.Label className="small mb-1">{t('export.seed')}</Form.Label>
-            <Form.Control
+            <label className="mb-1 inline-block small mb-1">{t('export.seed')}</label>
+            <Control
               size="sm" type="number" value={seed}
               onChange={(e) => { setSeed(Number(e.target.value)); setDownloadBlob(null); }}
             />
           </Col>
 
           <Col md={3}>
-            <Form.Label className="small mb-1">{t('export.ideology')}</Form.Label>
-            <Form.Select
+            <label className="mb-1 inline-block small mb-1">{t('export.ideology')}</label>
+            <Select
               size="sm" value={ideology}
               onChange={(e) => { setIdeology(e.target.value); setDownloadBlob(null); }}
             >
               {['random', 'centrist', 'polarized', 'left_skewed', 'right_skewed'].map((v) => (
                 <option key={v} value={v}>{t(`ideology.${v}`)}</option>
               ))}
-            </Form.Select>
+            </Select>
           </Col>
 
           <Col md={3}>
-            <Form.Label className="small mb-1">{t('export.format')}</Form.Label>
+            <label className="mb-1 inline-block small mb-1">{t('export.format')}</label>
             <div className="d-flex gap-2">
               {(['csv', 'json'] as Format[]).map((f) => (
                 <Button
@@ -280,14 +285,14 @@ const DatasetExportModal: React.FC<Props> = ({ show, onHide, defaultCandidates }
           <div className="small fw-semibold mb-2">{t('export.columns')}</div>
           <div className="d-flex flex-wrap gap-3">
             {COLUMN_GROUPS.map((group) => (
-              <Form.Check
+              <Check
                 key={group.key}
                 type="checkbox"
                 id={`col-group-${group.key}`}
                 label={
                   <span className="small">
                     {t(group.labelKey)}
-                    {group.always && <Badge bg="secondary" className="ms-1" style={{ fontSize: '0.6rem' }}>{t('export.required')}</Badge>}
+                    {group.always && <Badge variant="secondary" className="ms-1" style={{ fontSize: '0.6rem' }}>{t('export.required')}</Badge>}
                     <span className="text-muted ms-1" style={{ fontSize: '0.7rem' }}>
                       ({group.cols.length})
                     </span>
@@ -336,7 +341,7 @@ const DatasetExportModal: React.FC<Props> = ({ show, onHide, defaultCandidates }
               {t('export.preview')} <span className="text-muted fw-normal">(5 {t('export.firstRows')})</span>
             </div>
             <div style={{ overflowX: 'auto', fontSize: '0.72rem' }}>
-              <Table bordered size="sm" className="mb-0" style={{ minWidth: 500 }}>
+              <Table className="[&_th]:p-1 [&_td]:p-1 [&_th]:text-left [&_td]:border-t [&_th]:border-b [&_td]:border-border [&_th]:border-border [&_*]:align-middle [&_th]:border [&_td]:border mb-0" style={{ minWidth: 500 }}>
                 <thead className="table-light">
                   <tr>
                     {previewCols.map((c) => <th key={c}>{c}</th>)}

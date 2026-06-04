@@ -1,5 +1,14 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import { Alert, Badge, Button, Card, Col, Container, Dropdown, Form, OverlayTrigger, Row, Spinner, Tab, Tabs, Tooltip } from 'react-bootstrap';
+import { Alert } from '@/components/ui/alert';
+import { Badge } from '@/components/ui/badge';
+import { Tab, Tabs } from '@/components/ui/bootstrap-tabs';
+import { Button } from '@/components/ui/button';
+import { Card, CardBody, CardHeader } from '@/components/ui/card';
+import { Dropdown } from '@/components/ui/dropdown';
+import { Range } from '@/components/ui/form-controls';
+import { Col, Container, Row } from '@/components/ui/grid';
+import { Spinner } from '@/components/ui/spinner';
+import { OverlayTrigger, Tooltip } from '@/components/ui/tooltip-overlay';
 import { useToast } from '../components/shared/ToastNotification';
 import SkeletonCard from '../components/shared/SkeletonCard';
 import CondorcetMatrix from '../components/Simulation/CondorcetMatrix';
@@ -617,7 +626,7 @@ const SimulationComparePage: React.FC = () => {
       <div className="d-flex align-items-center justify-content-between px-4 py-2" style={{ background: '#0d6efd', color: 'white', flexShrink: 0 }}>
         <div className="d-flex align-items-center gap-2">
           <span className="fw-semibold">{t('simulation.presentationMode')}</span>
-          <Badge bg="light" text="dark">{presentationTabIndex + 1} / {TAB_ORDER.length}</Badge>
+          <Badge variant="light">{presentationTabIndex + 1} / {TAB_ORDER.length}</Badge>
         </div>
         <span className="fw-bold" style={{ fontSize: '1rem' }}>{TAB_LABELS[TAB_ORDER[presentationTabIndex]]}</span>
         <Button variant="outline-light" size="sm" onClick={() => setPresentationMode(false)}>
@@ -733,19 +742,19 @@ const SimulationComparePage: React.FC = () => {
 
         {/* ── Configuration ── */}
         <Card className="mb-4">
-          <Card.Header className="d-flex align-items-center justify-content-between">
+          <CardHeader className="block space-y-0 border-b border-border px-4 py-2 d-flex align-items-center justify-content-between">
             <strong>{t('simulation.configTitle')}</strong>
             {scenarioCount === 1 ? (
               <Button size="sm" variant="outline-secondary" onClick={() => setScenarioCount(2)}>{t('simulation.addScenarioB')}</Button>
             ) : (
               <Button size="sm" variant="outline-danger" onClick={() => { setScenarioCount(1); setResultsB(null); }}>{t('simulation.removeScenarioB')}</Button>
             )}
-          </Card.Header>
-          <Card.Body>
+          </CardHeader>
+          <CardBody>
             <Row className="g-3 align-items-end mb-3">
               <Col md={4}>
-                <Form.Label htmlFor="sim-count-slider">{t('simulation.simulationsLabel')} <strong>{numSimulations}</strong></Form.Label>
-                <Form.Range id="sim-count-slider" min={5} max={20} value={numSimulations} onChange={(e) => setNumSimulations(Number(e.target.value))} aria-valuemin={5} aria-valuemax={20} aria-valuenow={numSimulations} />
+                <label className="mb-1 inline-block" htmlFor="sim-count-slider">{t('simulation.simulationsLabel')} <strong>{numSimulations}</strong></label>
+                <Range id="sim-count-slider" min={5} max={20} value={numSimulations} onChange={(e) => setNumSimulations(Number(e.target.value))} aria-valuemin={5} aria-valuemax={20} aria-valuenow={numSimulations} />
               </Col>
               <Col md={2}>
                 <Button
@@ -767,7 +776,7 @@ const SimulationComparePage: React.FC = () => {
                 <Col md={6}><ScenarioConfigRow config={configB} onChange={(p) => setConfigB((c) => ({ ...c, ...p }))} label={t('simulation.scenarioB')} idPrefix="scenario-b" /></Col>
               </Row>
             )}
-          </Card.Body>
+          </CardBody>
         </Card>
 
         {/* Skeleton only on very first load (no results yet) */}
@@ -831,8 +840,8 @@ const SimulationComparePage: React.FC = () => {
             {visibleTabs.includes('condorcet') && (
               <Tab eventKey="condorcet" title={t('simulation.tabs.condorcet')}>
                 <Card className="mb-4">
-                  <Card.Header><strong>{t('simulation.condorcetHeader')}</strong><span className="text-muted ms-2" style={{ fontSize: '0.85rem' }}>{t('simulation.condorcetSubtitle')}</span></Card.Header>
-                  <Card.Body>{condorcetData ? <CondorcetMatrix result={condorcetData} /> : <Alert variant="info">{t('simulation.condorcetNoData')}</Alert>}</Card.Body>
+                  <CardHeader className="block space-y-0 border-b border-border px-4 py-2"><strong>{t('simulation.condorcetHeader')}</strong><span className="text-muted ms-2" style={{ fontSize: '0.85rem' }}>{t('simulation.condorcetSubtitle')}</span></CardHeader>
+                  <CardBody>{condorcetData ? <CondorcetMatrix result={condorcetData} /> : <Alert variant="info">{t('simulation.condorcetNoData')}</Alert>}</CardBody>
                 </Card>
               </Tab>
             )}
@@ -846,8 +855,8 @@ const SimulationComparePage: React.FC = () => {
                 </span>
               }>
                 <Card className="mb-4">
-                  <Card.Header><strong>{t('simulation.arrowHeader')}</strong><span className="text-muted ms-2" style={{ fontSize: '0.85rem' }}>{t('simulation.arrowSubtitle')}</span></Card.Header>
-                  <Card.Body>{arrowData ? <ArrowCriteriaMatrix result={arrowData} /> : <Alert variant="info">{t('simulation.arrowNoData')}</Alert>}</Card.Body>
+                  <CardHeader className="block space-y-0 border-b border-border px-4 py-2"><strong>{t('simulation.arrowHeader')}</strong><span className="text-muted ms-2" style={{ fontSize: '0.85rem' }}>{t('simulation.arrowSubtitle')}</span></CardHeader>
+                  <CardBody>{arrowData ? <ArrowCriteriaMatrix result={arrowData} /> : <Alert variant="info">{t('simulation.arrowNoData')}</Alert>}</CardBody>
                 </Card>
               </Tab>
             )}
@@ -911,8 +920,8 @@ const SimulationComparePage: React.FC = () => {
                 </span>
               }>
                 <Card className="mb-3">
-                  <Card.Header><strong>🧪 Modèle d'information asymétrique</strong></Card.Header>
-                  <Card.Body>
+                  <CardHeader className="block space-y-0 border-b border-border px-4 py-2"><strong>🧪 Modèle d'information asymétrique</strong></CardHeader>
+                  <CardBody>
                     <InformationModelPanel
                       candidateNames={candidateNamesA}
                       config={infoModel}
@@ -925,7 +934,7 @@ const SimulationComparePage: React.FC = () => {
                         avec le modèle d'information activé.
                       </Alert>
                     )}
-                  </Card.Body>
+                  </CardBody>
                 </Card>
               </Tab>
             )}

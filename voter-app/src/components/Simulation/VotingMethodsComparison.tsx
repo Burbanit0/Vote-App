@@ -1,6 +1,6 @@
 // VotingMethodsComparison.tsx
 import React from 'react';
-import { Accordion } from 'react-bootstrap';
+import { Accordion } from '@/components/ui/accordion';
 import VotingMethodVisualizations from './VotingMethodVisualizations';
 
 type VotingMethodKey =

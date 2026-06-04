@@ -13,6 +13,19 @@ MAP = {
     'Col': ('@/components/ui/grid', 'Col'),
     'Card': ('@/components/ui/card', 'Card'),  # subcomponents handled specially
     'Table': ('@/components/ui/table', 'Table'),
+    # Drop-in compound primitives (import-swap only, JSX structure unchanged):
+    'Modal': ('@/components/ui/modal', 'Modal'),
+    'Tabs': ('@/components/ui/bootstrap-tabs', 'Tabs'),
+    'Tab': ('@/components/ui/bootstrap-tabs', 'Tab'),
+    'Accordion': ('@/components/ui/accordion', 'Accordion'),
+    'Dropdown': ('@/components/ui/dropdown', 'Dropdown'),
+    'NavDropdown': ('@/components/ui/dropdown', 'NavDropdown'),
+    'ButtonGroup': ('@/components/ui/button-group', 'ButtonGroup'),
+    'OverlayTrigger': ('@/components/ui/tooltip-overlay', 'OverlayTrigger'),
+    'Tooltip': ('@/components/ui/tooltip-overlay', 'Tooltip'),
+    'Toast': ('@/components/ui/toast', 'Toast'),
+    'ToastContainer': ('@/components/ui/toast', 'ToastContainer'),
+    'Pagination': ('@/components/ui/pagination', 'Pagination'),
 }
 
 # Recognised but rendered as native elements (no import) / handled specially.

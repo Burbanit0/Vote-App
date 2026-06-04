@@ -12,7 +12,12 @@
  *   - Information gap metric.
  */
 import React, { useCallback } from 'react';
-import { Alert, Badge, Card, Form, OverlayTrigger, Row, Col, Tooltip } from 'react-bootstrap';
+import { Alert } from '@/components/ui/alert';
+import { Badge } from '@/components/ui/badge';
+import { Card, CardBody, CardHeader } from '@/components/ui/card';
+import { Check, Range } from '@/components/ui/form-controls';
+import { Col, Row } from '@/components/ui/grid';
+import { OverlayTrigger, Tooltip } from '@/components/ui/tooltip-overlay';
 import { InformationModelResult } from '../../types';
 import { InformationModelConfig } from '../../services/simulationCompareApi';
 
@@ -100,7 +105,7 @@ const InformationModelPanel: React.FC<Props> = ({
       {/* ── Toggle ──────────────────────────────────────────────────────── */}
       <div className="d-flex align-items-center justify-content-between mb-3">
         <div>
-          <Form.Check
+          <Check
             type="switch"
             id="info-model-toggle"
             label={
@@ -128,10 +133,10 @@ const InformationModelPanel: React.FC<Props> = ({
         <>
           {/* ── Voter segments ──────────────────────────────────────────── */}
           <Card className="mb-3">
-            <Card.Header className="py-2 fw-semibold" style={{ fontSize: '0.88rem' }}>
+            <CardHeader className="block space-y-0 border-b border-border px-4 py-2 py-2 fw-semibold" style={{ fontSize: '0.88rem' }}>
               📊 Composition de l'électorat
-            </Card.Header>
-            <Card.Body>
+            </CardHeader>
+            <CardBody>
               {segError && (
                 <Alert variant="warning" className="py-2 mb-2" style={{ fontSize: '0.8rem' }}>
                   Les segments ne totalisent pas 100 % ({(totalSeg * 100).toFixed(0)} %).
@@ -161,7 +166,7 @@ const InformationModelPanel: React.FC<Props> = ({
                     </OverlayTrigger>
                   </Col>
                   <Col xs={5}>
-                    <Form.Range
+                    <Range
                       min={0} max={1} step={0.01}
                       value={voter_segments[key]}
                       onChange={(e) => handleSegment(key, Number(e.target.value))}
@@ -169,21 +174,21 @@ const InformationModelPanel: React.FC<Props> = ({
                     />
                   </Col>
                   <Col xs={2} className="text-end">
-                    <Badge bg="secondary" style={{ fontSize: '0.75rem' }}>
+                    <Badge variant="secondary" style={{ fontSize: '0.75rem' }}>
                       {pct(voter_segments[key])}
                     </Badge>
                   </Col>
                 </Row>
               ))}
-            </Card.Body>
+            </CardBody>
           </Card>
 
           {/* ── Media bias per candidate ──────────────────────────────────── */}
           <Card className="mb-3">
-            <Card.Header className="py-2 fw-semibold" style={{ fontSize: '0.88rem' }}>
+            <CardHeader className="block space-y-0 border-b border-border px-4 py-2 py-2 fw-semibold" style={{ fontSize: '0.88rem' }}>
               📺 Biais médiatique par candidat
-            </Card.Header>
-            <Card.Body>
+            </CardHeader>
+            <CardBody>
               <div className="text-muted small mb-2">
                 −1 = couverture très défavorable · 0 = neutre · +1 = couverture très favorable
               </div>
@@ -195,7 +200,7 @@ const InformationModelPanel: React.FC<Props> = ({
                       <span className="fw-semibold" style={{ fontSize: '0.88rem' }}>{name}</span>
                     </Col>
                     <Col xs={5}>
-                      <Form.Range
+                      <Range
                         min={-1} max={1} step={0.05}
                         value={bias}
                         onChange={(e) => handleBias(idx, Number(e.target.value))}
@@ -213,16 +218,16 @@ const InformationModelPanel: React.FC<Props> = ({
                   </Row>
                 );
               })}
-            </Card.Body>
+            </CardBody>
           </Card>
 
           {/* ── Results ────────────────────────────────────────────────────── */}
           {result && result.enabled && (
             <Card>
-              <Card.Header className="py-2 fw-semibold" style={{ fontSize: '0.88rem' }}>
+              <CardHeader className="block space-y-0 border-b border-border px-4 py-2 py-2 fw-semibold" style={{ fontSize: '0.88rem' }}>
                 🔍 Impact sur le résultat
-              </Card.Header>
-              <Card.Body>
+              </CardHeader>
+              <CardBody>
                 <Row className="g-3 mb-3">
                   <Col md={6}>
                     <div className="text-muted small mb-1">Gagnant sincère (vraies utilités)</div>
@@ -278,7 +283,7 @@ const InformationModelPanel: React.FC<Props> = ({
                     </div>
                   )}
                 </div>
-              </Card.Body>
+              </CardBody>
             </Card>
           )}
         </>

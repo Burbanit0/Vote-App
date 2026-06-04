@@ -1,5 +1,9 @@
 import React from 'react';
-import { Alert, Button, Modal, Spinner, Table } from 'react-bootstrap';
+import { Alert } from '@/components/ui/alert';
+import { Button } from '@/components/ui/button';
+import { Modal } from '@/components/ui/modal';
+import { Spinner } from '@/components/ui/spinner';
+import { Table } from '@/components/ui/table';
 import { Form } from 'react-bootstrap';
 import { ScenarioDetail, ScenarioSummary } from '../../types';
 import { getScenario } from '../../services/scenariosApi';
@@ -60,7 +64,7 @@ const ScenarioModals: React.FC<Props> = ({
             No saved scenarios yet. Run an analysis and click <strong>Save scenario</strong> to save one.
           </Alert>
         ) : (
-          <Table bordered hover size="sm">
+          <Table className="[&_th]:p-1 [&_td]:p-1 [&_th]:text-left [&_td]:border-t [&_th]:border-b [&_td]:border-border [&_th]:border-border [&_*]:align-middle [&_th]:border [&_td]:border [&_tbody_tr:hover]:bg-muted/50">
             <thead className="table-light">
               <tr>
                 <th>Name</th>
