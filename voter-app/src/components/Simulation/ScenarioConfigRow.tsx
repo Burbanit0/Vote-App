@@ -13,27 +13,22 @@ interface Props {
   idPrefix?: string;
 }
 
-const ScenarioConfigRow: React.FC<Props> = ({
-  config,
-  onChange,
-  label,
-  idPrefix = 'scenario',
-}) => {
+const ScenarioConfigRow: React.FC<Props> = ({ config, onChange, label, idPrefix = 'scenario' }) => {
   const { t } = useTranslation();
 
-  const candidatesId   = `${idPrefix}-candidates`;
-  const votersId       = `${idPrefix}-voters`;
+  const candidatesId = `${idPrefix}-candidates`;
+  const votersId = `${idPrefix}-voters`;
   const distributionId = `${idPrefix}-distribution`;
 
   return (
-    <Row className="g-2 align-items-end">
+    <Row className="g-2 items-end">
       {label && (
         <Col xs={12}>
-          <span className="fw-semibold text-muted small">{label}</span>
+          <span className="font-semibold text-muted-foreground text-sm">{label}</span>
         </Col>
       )}
       <Col md={4}>
-        <label htmlFor={candidatesId} className="mb-1 inline-block small mb-1">
+        <label htmlFor={candidatesId} className="mb-1 inline-block text-sm mb-1">
           {t('simulation.candidatesLabel', { defaultValue: 'Candidates (comma-separated)' })}
         </label>
         <Control
@@ -46,7 +41,7 @@ const ScenarioConfigRow: React.FC<Props> = ({
         />
       </Col>
       <Col md={3}>
-        <label htmlFor={votersId} className="mb-1 inline-block small mb-1">
+        <label htmlFor={votersId} className="mb-1 inline-block text-sm mb-1">
           {t('simulation.votersLabel', { defaultValue: 'Voters' })}
         </label>
         <Control
@@ -65,7 +60,7 @@ const ScenarioConfigRow: React.FC<Props> = ({
         </small>
       </Col>
       <Col md={3}>
-        <label htmlFor={distributionId} className="mb-1 inline-block small mb-1">
+        <label htmlFor={distributionId} className="mb-1 inline-block text-sm mb-1">
           {t('simulation.distributionLabel', { defaultValue: 'Electorate distribution' })}
         </label>
         <Select

@@ -87,7 +87,7 @@ describe('blankVoteRegimes dataset', () => {
 
   it('Colombie and Uruguay have impact_on_result = true', () => {
     const colombia = regimes.find((r) => r.country === 'Colombie');
-    const uruguay  = regimes.find((r) => r.country === 'Uruguay');
+    const uruguay = regimes.find((r) => r.country === 'Uruguay');
     expect(colombia?.impact_on_result).toBe(true);
     expect(uruguay?.impact_on_result).toBe(true);
   });
@@ -113,18 +113,14 @@ describe('sortByBlankRate', () => {
   it('sorts descending by default (sortAsc=false)', () => {
     const sorted = sortByBlankRate(regimes, false);
     for (let i = 1; i < sorted.length; i++) {
-      expect(sorted[i].blank_rate_typical).toBeLessThanOrEqual(
-        sorted[i - 1].blank_rate_typical,
-      );
+      expect(sorted[i].blank_rate_typical).toBeLessThanOrEqual(sorted[i - 1].blank_rate_typical);
     }
   });
 
   it('sorts ascending when sortAsc=true', () => {
     const sorted = sortByBlankRate(regimes, true);
     for (let i = 1; i < sorted.length; i++) {
-      expect(sorted[i].blank_rate_typical).toBeGreaterThanOrEqual(
-        sorted[i - 1].blank_rate_typical,
-      );
+      expect(sorted[i].blank_rate_typical).toBeGreaterThanOrEqual(sorted[i - 1].blank_rate_typical);
     }
   });
 
@@ -209,7 +205,7 @@ describe('InternationalRegimesPage', () => {
 
     // After filtering, only impact countries remain
     const impactCount = filterByImpact(regimes).length;
-    const rowsAfter   = screen.getAllByText(/⚠️ Oui/).length;
+    const rowsAfter = screen.getAllByText(/⚠️ Oui/).length;
     expect(rowsAfter).toBe(impactCount);
     expect(rowsAfter).toBeLessThan(rowsBefore);
   });
@@ -231,8 +227,7 @@ describe('InternationalRegimesPage', () => {
     render(<InternationalRegimesPage />);
     const impactCount = filterByImpact(regimes).length;
     // The conclusion says "dans X pays sur Y"
-    const conclusionText = screen.getByText(/Synthèse/i)
-      .closest('div')?.textContent ?? '';
+    const conclusionText = screen.getByText(/Synthèse/i).closest('div')?.textContent ?? '';
     expect(conclusionText).toContain(String(impactCount));
     expect(conclusionText).toContain(String(regimes.length));
   });

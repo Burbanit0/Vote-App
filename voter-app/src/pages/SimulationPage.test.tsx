@@ -8,49 +8,57 @@ vi.mock('../services/simulationsApi', () => ({
 }));
 
 vi.mock('../components/Simulation/SimulationForm', () => {
-  return { default: function MockForm({
-    simulateVotes,
-    loading,
-  }: {
-    simulateVotes: () => void;
-    loading: boolean;
-  }) {
-    return (
-      <div>
-        <button data-testid="simulate-btn" onClick={simulateVotes} disabled={loading}>
-          {loading ? 'Chargement...' : 'Lancer'}
-        </button>
-      </div>
-    );
-  } };
+  return {
+    default: function MockForm({
+      simulateVotes,
+      loading,
+    }: {
+      simulateVotes: () => void;
+      loading: boolean;
+    }) {
+      return (
+        <div>
+          <button data-testid="simulate-btn" onClick={simulateVotes} disabled={loading}>
+            {loading ? 'Chargement...' : 'Lancer'}
+          </button>
+        </div>
+      );
+    },
+  };
 });
 
 vi.mock('../components/Simulation/SimulationResult', () => {
-  return { default: function MockResult({ result }: { result: any }) {
-    return (
-      <div data-testid="simulation-result">
-        {result ? 'Résultats chargés' : 'Aucun résultat'}
-      </div>
-    );
-  } };
+  return {
+    default: function MockResult({ result }: { result: any }) {
+      return (
+        <div data-testid="simulation-result">{result ? 'Résultats chargés' : 'Aucun résultat'}</div>
+      );
+    },
+  };
 });
 
 vi.mock('../components/Simulation/VoterVisualization', () => {
-  return { default: function MockVoterVis() {
-    return <div data-testid="voter-vis">VoterVis</div>;
-  } };
+  return {
+    default: function MockVoterVis() {
+      return <div data-testid="voter-vis">VoterVis</div>;
+    },
+  };
 });
 
 vi.mock('../components/Simulation/CandidatesVisualization', () => {
-  return { default: function MockCandVis() {
-    return <div data-testid="candidate-vis">CandidateVis</div>;
-  } };
+  return {
+    default: function MockCandVis() {
+      return <div data-testid="candidate-vis">CandidateVis</div>;
+    },
+  };
 });
 
 vi.mock('../components/Simulation/UtilityVisualization', () => {
-  return { default: function MockUtilVis() {
-    return <div data-testid="utility-vis">UtilityVis</div>;
-  } };
+  return {
+    default: function MockUtilVis() {
+      return <div data-testid="utility-vis">UtilityVis</div>;
+    },
+  };
 });
 
 describe('SimulationPage', () => {
@@ -97,9 +105,7 @@ describe('SimulationPage', () => {
     fireEvent.click(screen.getByTestId('simulate-btn'));
 
     await waitFor(() => {
-      expect(
-        screen.getByText('Simulation failed. Please try again.')
-      ).toBeInTheDocument();
+      expect(screen.getByText('Simulation failed. Please try again.')).toBeInTheDocument();
     });
   });
 });

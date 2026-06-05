@@ -10,23 +10,27 @@ vi.mock('../../../api/client', () => ({
   apiClient: { GET: vi.fn(), POST: vi.fn(), PUT: vi.fn(), DELETE: vi.fn(), PATCH: vi.fn() },
   getAccessToken: vi.fn(() => null),
 }));
-const { apiClient } = (await import('../../../api/client')) as unknown as { apiClient: { POST: jest.Mock } };
+const { apiClient } = (await import('../../../api/client')) as unknown as {
+  apiClient: { POST: jest.Mock };
+};
 
 vi.mock('recharts', () => {
   const React = require('react');
   return {
-    RadarChart:       ({ children }: any) => <div>{children}</div>,
-    Radar:            () => null,
-    PolarGrid:        () => null,
-    PolarAngleAxis:   () => null,
-    LineChart:        ({ children }: any) => <div>{children}</div>,
-    Line:             () => null,
-    XAxis:            () => null,
-    YAxis:            () => null,
-    CartesianGrid:    () => null,
-    Tooltip:          () => null,
-    Legend:           () => null,
-    ResponsiveContainer: ({ children }: any) => <div style={{ width: 400, height: 280 }}>{children}</div>,
+    RadarChart: ({ children }: any) => <div>{children}</div>,
+    Radar: () => null,
+    PolarGrid: () => null,
+    PolarAngleAxis: () => null,
+    LineChart: ({ children }: any) => <div>{children}</div>,
+    Line: () => null,
+    XAxis: () => null,
+    YAxis: () => null,
+    CartesianGrid: () => null,
+    Tooltip: () => null,
+    Legend: () => null,
+    ResponsiveContainer: ({ children }: any) => (
+      <div style={{ width: 400, height: 280 }}>{children}</div>
+    ),
   };
 });
 
@@ -35,11 +39,11 @@ vi.mock('recharts', () => {
 function makeData(consensus = false) {
   const mkAsm = (mean: number, rep: number) => ({
     members_ideology_mean: mean,
-    representativity:      rep,
-    diversity:             0.8,
-    decision_regret:       0.2,
-    gini_representation:   0.15,
-    demographic_profile:   { age: 1.0, education: 0.6 },
+    representativity: rep,
+    diversity: 0.8,
+    decision_regret: 0.2,
+    gini_representation: 0.15,
+    demographic_profile: { age: 1.0, education: 0.6 },
   });
 
   return {
@@ -47,21 +51,21 @@ function makeData(consensus = false) {
       population: {
         mean_ideology: 0.02,
         gini_ideology: 0.58,
-        demographics:  { mean_age_group: 1.0, mean_education_level: 0.6 },
+        demographics: { mean_age_group: 1.0, mean_education_level: 0.6 },
       },
       assemblies: {
-        elected:             mkAsm(0.22, 0.56),
-        sortition_pure:      mkAsm(0.03, 0.94),
+        elected: mkAsm(0.22, 0.56),
+        sortition_pure: mkAsm(0.03, 0.94),
         sortition_stratified: mkAsm(0.02, 0.96),
       },
       variance: { elected: 0.012, sortition_pure: 0.004, sortition_stratified: 0.001 },
       winner_by_method: {
-        elected:              'Bob',
-        sortition_pure:       consensus ? 'Alice' : 'Alice',
+        elected: 'Bob',
+        sortition_pure: consensus ? 'Alice' : 'Alice',
         sortition_stratified: 'Alice',
       },
       consensus_possible: consensus,
-      pedagogical_note:   'Test note.',
+      pedagogical_note: 'Test note.',
     },
     error: undefined,
   };
@@ -85,7 +89,9 @@ beforeEach(() => {
   vi.useFakeTimers();
 });
 
-afterEach(() => { vi.useRealTimers(); });
+afterEach(() => {
+  vi.useRealTimers();
+});
 
 // ── Tests ─────────────────────────────────────────────────────────────────────
 
@@ -117,7 +123,7 @@ describe('SortitionPanel', () => {
     await waitFor(() => expect(apiClient.POST).toHaveBeenCalledTimes(1));
     expect(apiClient.POST).toHaveBeenCalledWith(
       expect.stringMatching(/\/api\/(v2\/)?election\/sortition/),
-      expect.any(Object),
+      expect.any(Object)
     );
     vi.runAllTimers();
   });
@@ -177,7 +183,9 @@ describe('SortitionPanel', () => {
     await waitFor(() => expect(apiClient.POST).toHaveBeenCalledTimes(1));
 
     fireEvent.change(screen.getByTestId('assembly-size-slider'), { target: { value: '100' } });
-    act(() => { vi.advanceTimersByTime(450); });
+    act(() => {
+      vi.advanceTimersByTime(450);
+    });
     await waitFor(() => expect(apiClient.POST).toHaveBeenCalledTimes(2));
     vi.runAllTimers();
   });
@@ -189,7 +197,9 @@ describe('SortitionPanel', () => {
     await waitFor(() => expect(apiClient.POST).toHaveBeenCalledTimes(1));
 
     fireEvent.click(screen.getByTestId('realistic-switch'));
-    act(() => { vi.advanceTimersByTime(450); });
+    act(() => {
+      vi.advanceTimersByTime(450);
+    });
     await waitFor(() => expect(apiClient.POST).toHaveBeenCalledTimes(2));
     vi.runAllTimers();
   });

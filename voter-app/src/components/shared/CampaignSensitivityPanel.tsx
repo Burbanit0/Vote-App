@@ -7,15 +7,21 @@ import { Check, Range } from '@/components/ui/form-controls';
 import { Col, Row } from '@/components/ui/grid';
 import { Spinner } from '@/components/ui/spinner';
 import {
-  Area, AreaChart, Bar, BarChart, CartesianGrid, Cell,
-  Legend, ResponsiveContainer, Tooltip, XAxis, YAxis,
+  Area,
+  AreaChart,
+  Bar,
+  BarChart,
+  CartesianGrid,
+  Cell,
+  Legend,
+  ResponsiveContainer,
+  Tooltip,
+  XAxis,
+  YAxis,
 } from 'recharts';
 import { useTranslation } from 'react-i18next';
 import { useElection } from '../../stores/useElectionStore';
-import {
-  fetchCampaignSensitivity,
-  CampaignSensitivityResult,
-} from '../../services/electionApi';
+import { fetchCampaignSensitivity, CampaignSensitivityResult } from '../../services/electionApi';
 import { useChartTheme } from '../../hooks/useChartTheme';
 import LiveBadge from './LiveBadge';
 import PinToCentralButton from './PinToCentralButton';
@@ -25,9 +31,20 @@ import CampaignSwimlane from './CampaignSwimlane';
 
 const SNAPSHOT_DAYS = [0, 7, 14, 21, 28, 'final'] as const;
 const METHOD_COLORS = [
-  '#005CAB', '#C8590A', '#007A33', '#7B2D8B', '#9C3A00',
-  '#005f73', '#ae2012', '#94d2bd', '#e9d8a6', '#ee9b00',
-  '#ca6702', '#bb3e03', '#0a9396', '#001219',
+  '#005CAB',
+  '#C8590A',
+  '#007A33',
+  '#7B2D8B',
+  '#9C3A00',
+  '#005f73',
+  '#ae2012',
+  '#94d2bd',
+  '#e9d8a6',
+  '#ee9b00',
+  '#ca6702',
+  '#bb3e03',
+  '#0a9396',
+  '#001219',
 ];
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
@@ -46,8 +63,8 @@ function stabilityColor(score: number): string {
  */
 const WinnerTimeline: React.FC<{
   result: CampaignSensitivityResult;
-  ct:     ReturnType<typeof useChartTheme>;
-  t:      (k: string, opts?: Record<string, unknown>) => string;
+  ct: ReturnType<typeof useChartTheme>;
+  t: (k: string, opts?: Record<string, unknown>) => string;
 }> = ({ result, ct, t }) => {
   const { snapshots, method_stability } = result;
 
@@ -65,7 +82,9 @@ const WinnerTimeline: React.FC<{
   const allCandidates = useMemo(() => {
     const names = new Set<string>();
     snapshots.forEach((s) =>
-      Object.values(s.methods).forEach((md) => { if (md.winner) names.add(md.winner); })
+      Object.values(s.methods).forEach((md) => {
+        if (md.winner) names.add(md.winner);
+      })
     );
     return [...names].sort();
   }, [snapshots]);
@@ -79,7 +98,7 @@ const WinnerTimeline: React.FC<{
     const row: Record<string, number | string> = { day: s.day };
     top5.forEach((m) => {
       const winner = s.methods[m]?.winner ?? null;
-      row[m] = winner != null ? candIndex[winner] ?? 0 : -1;
+      row[m] = winner != null ? (candIndex[winner] ?? 0) : -1;
     });
     return row;
   });
@@ -93,7 +112,13 @@ const WinnerTimeline: React.FC<{
         <XAxis
           dataKey="day"
           tick={{ fontSize: 10, fill: ct.tickFill }}
-          label={{ value: t('campaign.day'), position: 'insideBottomRight', offset: -4, fontSize: 10, fill: ct.tickFill }}
+          label={{
+            value: t('campaign.day'),
+            position: 'insideBottomRight',
+            offset: -4,
+            fontSize: 10,
+            fill: ct.tickFill,
+          }}
         />
         <YAxis
           tick={{ fontSize: 10, fill: ct.tickFill }}
@@ -126,8 +151,8 @@ const WinnerTimeline: React.FC<{
  */
 const StabilityChart: React.FC<{
   result: CampaignSensitivityResult;
-  ct:     ReturnType<typeof useChartTheme>;
-  t:      (k: string, opts?: Record<string, unknown>) => string;
+  ct: ReturnType<typeof useChartTheme>;
+  t: (k: string, opts?: Record<string, unknown>) => string;
 }> = ({ result, ct, t }) => {
   const { method_stability, most_stable_method, least_stable_method } = result;
 
@@ -139,7 +164,7 @@ const StabilityChart: React.FC<{
     [method_stability]
   );
 
-  const mostStable  = method_stability[most_stable_method  ?? ''];
+  const mostStable = method_stability[most_stable_method ?? ''];
   const leastStable = method_stability[least_stable_method ?? ''];
 
   return (
@@ -147,29 +172,37 @@ const StabilityChart: React.FC<{
       {/* Pedagogical messages */}
       {most_stable_method && mostStable && mostStable.winner_changes === 0 && (
         <Alert variant="success" className="py-2 mb-2" style={{ fontSize: '0.8rem' }}>
-          ✓ {t('campaign.mostStableMsg', {
+          ✓{' '}
+          {t('campaign.mostStableMsg', {
             method: most_stable_method,
           })}
         </Alert>
       )}
       {least_stable_method && leastStable && leastStable.winner_changes > 0 && (
         <Alert variant="warning" className="py-2 mb-2" style={{ fontSize: '0.8rem' }}>
-          ⚠ {t('campaign.leastStableMsg', {
-            method:  least_stable_method,
+          ⚠{' '}
+          {t('campaign.leastStableMsg', {
+            method: least_stable_method,
             changes: leastStable.winner_changes,
           })}
         </Alert>
       )}
 
       <ResponsiveContainer width="100%" height={Math.max(160, data.length * 24)}>
-        <BarChart
-          data={data}
-          layout="vertical"
-          margin={{ top: 4, right: 60, bottom: 4, left: 8 }}
-        >
+        <BarChart data={data} layout="vertical" margin={{ top: 4, right: 60, bottom: 4, left: 8 }}>
           <CartesianGrid strokeDasharray="3 3" stroke={ct.gridStroke} horizontal={false} />
-          <XAxis type="number" domain={[0, 1]} tick={{ fontSize: 10, fill: ct.tickFill }} tickFormatter={(v) => `${Math.round(v * 100)}%`} />
-          <YAxis type="category" dataKey="method" tick={{ fontSize: 10, fill: ct.tickFill }} width={110} />
+          <XAxis
+            type="number"
+            domain={[0, 1]}
+            tick={{ fontSize: 10, fill: ct.tickFill }}
+            tickFormatter={(v) => `${Math.round(v * 100)}%`}
+          />
+          <YAxis
+            type="category"
+            dataKey="method"
+            tick={{ fontSize: 10, fill: ct.tickFill }}
+            width={110}
+          />
           <Tooltip
             contentStyle={ct.tooltipStyle}
             formatter={(v: number) => [`${Math.round(v * 100)}%`, t('campaign.stabilityScore')]}
@@ -183,7 +216,7 @@ const StabilityChart: React.FC<{
       </ResponsiveContainer>
 
       {/* Most / Least stable badges */}
-      <div className="d-flex gap-2 mt-2 flex-wrap" style={{ fontSize: '0.75rem' }}>
+      <div className="flex gap-2 mt-2 flex-wrap" style={{ fontSize: '0.75rem' }}>
         {most_stable_method && (
           <Badge style={{ background: '#007A33' }}>
             ✓ {t('campaign.mostStable')}: {most_stable_method}
@@ -204,11 +237,11 @@ const StabilityChart: React.FC<{
  */
 const AgreementTimeline: React.FC<{
   result: CampaignSensitivityResult;
-  ct:     ReturnType<typeof useChartTheme>;
-  t:      (k: string, opts?: Record<string, unknown>) => string;
+  ct: ReturnType<typeof useChartTheme>;
+  t: (k: string, opts?: Record<string, unknown>) => string;
 }> = ({ result, ct, t }) => {
   const data = result.snapshots.map((s) => ({
-    day:  s.day,
+    day: s.day,
     rate: Math.round(s.inter_method_agreement * 100),
   }));
 
@@ -217,7 +250,7 @@ const AgreementTimeline: React.FC<{
       <AreaChart data={data} margin={{ top: 8, right: 16, bottom: 8, left: 8 }}>
         <defs>
           <linearGradient id="agreeGrad" x1="0" y1="0" x2="0" y2="1">
-            <stop offset="5%"  stopColor="#005CAB" stopOpacity={0.25} />
+            <stop offset="5%" stopColor="#005CAB" stopOpacity={0.25} />
             <stop offset="95%" stopColor="#005CAB" stopOpacity={0.04} />
           </linearGradient>
         </defs>
@@ -225,7 +258,13 @@ const AgreementTimeline: React.FC<{
         <XAxis
           dataKey="day"
           tick={{ fontSize: 10, fill: ct.tickFill }}
-          label={{ value: t('campaign.day'), position: 'insideBottomRight', offset: -4, fontSize: 10, fill: ct.tickFill }}
+          label={{
+            value: t('campaign.day'),
+            position: 'insideBottomRight',
+            offset: -4,
+            fontSize: 10,
+            fill: ct.tickFill,
+          }}
         />
         <YAxis tick={{ fontSize: 10, fill: ct.tickFill }} domain={[0, 100]} unit="%" />
         <Tooltip
@@ -249,30 +288,30 @@ const AgreementTimeline: React.FC<{
 // ── Main component ────────────────────────────────────────────────────────────
 
 const CampaignSensitivityPanel: React.FC = () => {
-  const { t }          = useTranslation();
-  const ct             = useChartTheme();
-  const { config }     = useElection();
+  const { t } = useTranslation();
+  const ct = useChartTheme();
+  const { config } = useElection();
 
   const [pollingEffect, setPollingEffect] = useState(config.campaign.polling_effect);
-  const [numDays,       setNumDays]       = useState(config.campaign.num_days);
+  const [numDays, setNumDays] = useState(config.campaign.num_days);
   const [withContagion, setWithContagion] = useState(config.blank_vote.contagion.enabled);
-  const [result,        setResult]        = useState<CampaignSensitivityResult | null>(null);
-  const [loading,       setLoading]       = useState(false);
-  const [error,         setError]         = useState<string | null>(null);
+  const [result, setResult] = useState<CampaignSensitivityResult | null>(null);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
   const run = useCallback(async () => {
     setLoading(true);
     setError(null);
     try {
       const params = {
-        candidates:    config.candidates,
-        num_voters:    Math.min(config.num_voters, 150),
-        ideology:      config.ideology,
-        seed:          config.seed,
-        campaign:      { num_days: numDays, polling_effect: pollingEffect },
+        candidates: config.candidates,
+        num_voters: Math.min(config.num_voters, 150),
+        ideology: config.ideology,
+        seed: config.seed,
+        campaign: { num_days: numDays, polling_effect: pollingEffect },
         blank_vote: {
-          enabled:   withContagion,
-          rule:      config.blank_vote.rule,
+          enabled: withContagion,
+          rule: config.blank_vote.rule,
           contagion: { ...config.blank_vote.contagion, enabled: withContagion },
         },
         snapshot_days: SNAPSHOT_DAYS as unknown as (number | 'final')[],
@@ -288,35 +327,59 @@ const CampaignSensitivityPanel: React.FC = () => {
   return (
     <div>
       {/* Controls */}
-      <Row className="g-3 align-items-end mb-3">
+      <Row className="g-3 items-end mb-3">
         <Col md={3}>
-          <label className="mb-1 inline-block small mb-0">
+          <label className="mb-1 inline-block text-sm mb-0">
             {t('campaign.pollingEffect')}: <strong>{pollingEffect.toFixed(2)}</strong>
           </label>
-          <Range min={0} max={1} step={0.05} value={pollingEffect}
-            onChange={(e) => { setPollingEffect(Number(e.target.value)); setResult(null); }} />
-        </Col>
-        <Col md={3}>
-          <label className="mb-1 inline-block small mb-0">
-            {t('campaign.numDays')}: <strong>{numDays}</strong>
-          </label>
-          <Range min={7} max={60} step={1} value={numDays}
-            onChange={(e) => { setNumDays(Number(e.target.value)); setResult(null); }} />
-        </Col>
-        <Col md={3} className="d-flex align-items-end">
-          <Check
-            type="switch"
-            id="contagion-toggle"
-            label={<span className="small">{t('campaign.withContagion')}</span>}
-            checked={withContagion}
-            onChange={(e) => { setWithContagion(e.target.checked); setResult(null); }}
+          <Range
+            min={0}
+            max={1}
+            step={0.05}
+            value={pollingEffect}
+            onChange={(e) => {
+              setPollingEffect(Number(e.target.value));
+              setResult(null);
+            }}
           />
         </Col>
         <Col md={3}>
-          <Button variant="primary" size="sm" className="w-100" onClick={run} disabled={loading}>
-            {loading
-              ? <><Spinner size="sm" className="me-2" />{t('campaign.computing')}</>
-              : t('campaign.compute')}
+          <label className="mb-1 inline-block text-sm mb-0">
+            {t('campaign.numDays')}: <strong>{numDays}</strong>
+          </label>
+          <Range
+            min={7}
+            max={60}
+            step={1}
+            value={numDays}
+            onChange={(e) => {
+              setNumDays(Number(e.target.value));
+              setResult(null);
+            }}
+          />
+        </Col>
+        <Col md={3} className="flex items-end">
+          <Check
+            type="switch"
+            id="contagion-toggle"
+            label={<span className="text-sm">{t('campaign.withContagion')}</span>}
+            checked={withContagion}
+            onChange={(e) => {
+              setWithContagion(e.target.checked);
+              setResult(null);
+            }}
+          />
+        </Col>
+        <Col md={3}>
+          <Button variant="primary" size="sm" className="w-full" onClick={run} disabled={loading}>
+            {loading ? (
+              <>
+                <Spinner size="sm" className="me-2" />
+                {t('campaign.computing')}
+              </>
+            ) : (
+              t('campaign.compute')
+            )}
           </Button>
           <LiveBadge loading={loading && !!result} className="mt-1" />
         </Col>
@@ -338,7 +401,9 @@ const CampaignSensitivityPanel: React.FC = () => {
                   ? `${changed}/${Object.keys(result.method_stability).length} ${t('lab.methodsChanged')}`
                   : t('lab.winnerStable');
               })()}
-              methodsChanged={Object.values(result.method_stability).filter(s => s.winner_changes > 0).length}
+              methodsChanged={
+                Object.values(result.method_stability).filter((s) => s.winner_changes > 0).length
+              }
               winnersByMethod={Object.fromEntries(
                 Object.entries(result.method_stability).map(([m, st]) => [m, st.final_winner])
               )}
@@ -347,10 +412,16 @@ const CampaignSensitivityPanel: React.FC = () => {
         )}
       </Row>
 
-      {error && <Alert variant="danger" className="py-2">{error}</Alert>}
+      {error && (
+        <Alert variant="danger" className="py-2">
+          {error}
+        </Alert>
+      )}
 
       {!result && !loading && (
-        <Alert variant="info" className="py-2">{t('campaign.prompt')}</Alert>
+        <Alert variant="info" className="py-2">
+          {t('campaign.prompt')}
+        </Alert>
       )}
 
       {result && (
@@ -360,15 +431,23 @@ const CampaignSensitivityPanel: React.FC = () => {
             <Card>
               <CardHeader className="block space-y-0 border-b border-border px-4 py-2 py-2">
                 <strong style={{ fontSize: '0.85rem' }}>{t('campaign.swimlaneTitle')}</strong>
-                <div className="text-muted" style={{ fontSize: '0.75rem' }}>{t('campaign.swimlaneDesc')}</div>
+                <div className="text-muted-foreground" style={{ fontSize: '0.75rem' }}>
+                  {t('campaign.swimlaneDesc')}
+                </div>
               </CardHeader>
               <CardBody className="p-2">
                 <CampaignSwimlane
                   snapshots={result.snapshots}
                   methodStability={result.method_stability}
-                  candidates={[...new Set(result.snapshots.flatMap((s) =>
-                    Object.values(s.methods).map((m) => m.winner).filter((w): w is string => !!w)
-                  ))]}
+                  candidates={[
+                    ...new Set(
+                      result.snapshots.flatMap((s) =>
+                        Object.values(s.methods)
+                          .map((m) => m.winner)
+                          .filter((w): w is string => !!w)
+                      )
+                    ),
+                  ]}
                 />
               </CardBody>
             </Card>
@@ -376,10 +455,12 @@ const CampaignSensitivityPanel: React.FC = () => {
 
           {/* B) Stability + C) Agreement side by side */}
           <Col xs={12} lg={7}>
-            <Card className="h-100">
+            <Card className="h-full">
               <CardHeader className="block space-y-0 border-b border-border px-4 py-2 py-2">
                 <strong style={{ fontSize: '0.85rem' }}>{t('campaign.stabilityTitle')}</strong>
-                <div className="text-muted" style={{ fontSize: '0.75rem' }}>{t('campaign.stabilityDesc')}</div>
+                <div className="text-muted-foreground" style={{ fontSize: '0.75rem' }}>
+                  {t('campaign.stabilityDesc')}
+                </div>
               </CardHeader>
               <CardBody className="p-2">
                 <StabilityChart result={result} ct={ct} t={t} />
@@ -388,10 +469,12 @@ const CampaignSensitivityPanel: React.FC = () => {
           </Col>
 
           <Col xs={12} lg={5}>
-            <Card className="h-100">
+            <Card className="h-full">
               <CardHeader className="block space-y-0 border-b border-border px-4 py-2 py-2">
                 <strong style={{ fontSize: '0.85rem' }}>{t('campaign.agreementTitle')}</strong>
-                <div className="text-muted" style={{ fontSize: '0.75rem' }}>{t('campaign.agreementDesc')}</div>
+                <div className="text-muted-foreground" style={{ fontSize: '0.75rem' }}>
+                  {t('campaign.agreementDesc')}
+                </div>
               </CardHeader>
               <CardBody className="p-2">
                 <AgreementTimeline result={result} ct={ct} t={t} />

@@ -54,7 +54,11 @@ const Profile: React.FC = () => {
             <div>
               <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
                 <div>
-                  <img className="rounded-t-xl" src={profilePicture} style={{ maxWidth: '100px' }} />
+                  <img
+                    className="rounded-t-xl"
+                    src={profilePicture}
+                    style={{ maxWidth: '100px' }}
+                  />
                 </div>
                 <div>
                   <p>

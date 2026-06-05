@@ -19,9 +19,9 @@ interface Props {
 
 interface State {
   hasError: boolean;
-  error:    Error | null;
-  info:     ErrorInfo | null;
-  copied:   boolean;
+  error: Error | null;
+  info: ErrorInfo | null;
+  copied: boolean;
 }
 
 class ErrorBoundary extends Component<Props, State> {
@@ -85,26 +85,30 @@ class ErrorBoundary extends Component<Props, State> {
         role="alert"
         data-testid="error-boundary"
         style={{
-          maxWidth:  720,
-          margin:    '2rem auto',
-          padding:   '1.5rem',
-          border:    '1px solid #f5c2c7',
+          maxWidth: 720,
+          margin: '2rem auto',
+          padding: '1.5rem',
+          border: '1px solid #f5c2c7',
           borderRadius: 12,
           background: '#fff5f5',
           fontFamily: 'system-ui, sans-serif',
         }}
       >
-        <h2 style={{ marginTop: 0, color: '#842029' }}>
-          ⚠ Une erreur est survenue
-        </h2>
+        <h2 style={{ marginTop: 0, color: '#842029' }}>⚠ Une erreur est survenue</h2>
         <p style={{ color: '#495057' }}>
-          La page que vous consultiez a planté. Vos données ne sont pas perdues —
-          le projet est jeune, ce genre d&apos;erreur arrive. Vous pouvez :
+          La page que vous consultiez a planté. Vos données ne sont pas perdues — le projet est
+          jeune, ce genre d&apos;erreur arrive. Vous pouvez :
         </p>
         <ul style={{ color: '#495057' }}>
-          <li><strong>Réessayer</strong> — recharge le composant en place</li>
-          <li><strong>Retour à l&apos;accueil</strong> — recharge complètement l&apos;app</li>
-          <li><strong>Copier le détail</strong> — pour le coller dans une issue GitHub</li>
+          <li>
+            <strong>Réessayer</strong> — recharge le composant en place
+          </li>
+          <li>
+            <strong>Retour à l&apos;accueil</strong> — recharge complètement l&apos;app
+          </li>
+          <li>
+            <strong>Copier le détail</strong> — pour le coller dans une issue GitHub
+          </li>
         </ul>
 
         <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginTop: '1rem' }}>
@@ -133,11 +137,7 @@ class ErrorBoundary extends Component<Props, State> {
 
         {/* Dev-only: show the stack inline so we never ship blind */}
         {isDev && error && (
-          <details
-            open
-            style={{ marginTop: '1.5rem' }}
-            data-testid="error-boundary-details"
-          >
+          <details open style={{ marginTop: '1.5rem' }} data-testid="error-boundary-details">
             <summary style={{ cursor: 'pointer', fontWeight: 600, color: '#842029' }}>
               Détail (visible en dev uniquement)
             </summary>
@@ -157,27 +157,27 @@ class ErrorBoundary extends Component<Props, State> {
 
 function btn(bg: string): React.CSSProperties {
   return {
-    background:    bg,
-    color:         '#fff',
-    border:        'none',
-    borderRadius:  6,
-    padding:       '8px 14px',
-    fontSize:      '0.9rem',
-    cursor:        'pointer',
-    transition:    'background 0.15s',
+    background: bg,
+    color: '#fff',
+    border: 'none',
+    borderRadius: 6,
+    padding: '8px 14px',
+    fontSize: '0.9rem',
+    cursor: 'pointer',
+    transition: 'background 0.15s',
   };
 }
 
 const preStyle: React.CSSProperties = {
-  marginTop:    '0.5rem',
-  padding:      '0.75rem',
-  background:   '#212529',
-  color:        '#f8f9fa',
+  marginTop: '0.5rem',
+  padding: '0.75rem',
+  background: '#212529',
+  color: '#f8f9fa',
   borderRadius: 6,
-  fontSize:     '0.78rem',
-  overflowX:    'auto',
-  whiteSpace:   'pre-wrap',
-  wordBreak:    'break-word',
+  fontSize: '0.78rem',
+  overflowX: 'auto',
+  whiteSpace: 'pre-wrap',
+  wordBreak: 'break-word',
 };
 
 export default ErrorBoundary;

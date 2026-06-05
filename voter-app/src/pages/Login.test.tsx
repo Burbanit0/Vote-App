@@ -70,9 +70,7 @@ describe('Login', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Log in' }));
 
     await waitFor(() => {
-      expect(
-        screen.getByText('Login failed. Please check your credentials.')
-      ).toBeInTheDocument();
+      expect(screen.getByText('Login failed. Please check your credentials.')).toBeInTheDocument();
     });
   });
 

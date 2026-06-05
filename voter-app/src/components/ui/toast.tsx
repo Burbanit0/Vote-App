@@ -26,7 +26,12 @@ export const ToastContainer: React.FC<ToastContainerProps> = ({
   ...props
 }) => (
   <div
-    className={cn('z-[1090] flex flex-col gap-2 p-3', position && 'fixed', position && POSITION[position], className)}
+    className={cn(
+      'z-[1090] flex flex-col gap-2 p-3',
+      position && 'fixed',
+      position && POSITION[position],
+      className
+    )}
     style={style}
     {...props}
   />
@@ -70,7 +75,11 @@ const ToastBase: React.FC<ToastProps> = ({
     <div
       role="alert"
       aria-live="assertive"
-      className={cn('min-w-[14rem] overflow-hidden rounded-md border border-border shadow-md', bg && BG[bg], className)}
+      className={cn(
+        'min-w-[14rem] overflow-hidden rounded-md border border-border shadow-md',
+        bg && BG[bg],
+        className
+      )}
       {...props}
     >
       {children}
@@ -84,7 +93,13 @@ const Header: React.FC<React.HTMLAttributes<HTMLDivElement> & { closeButton?: bo
   closeButton = true,
   ...props
 }) => (
-  <div className={cn('flex items-center justify-between gap-2 border-b border-border/40 px-3 py-2 text-sm font-medium', className)} {...props}>
+  <div
+    className={cn(
+      'flex items-center justify-between gap-2 border-b border-border/40 px-3 py-2 text-sm font-medium',
+      className
+    )}
+    {...props}
+  >
     {children}
   </div>
 );

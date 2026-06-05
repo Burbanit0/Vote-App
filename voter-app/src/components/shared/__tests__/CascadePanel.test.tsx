@@ -10,20 +10,24 @@ vi.mock('../../../api/client', () => ({
   apiClient: { GET: vi.fn(), POST: vi.fn(), PUT: vi.fn(), DELETE: vi.fn(), PATCH: vi.fn() },
   getAccessToken: vi.fn(() => null),
 }));
-const { apiClient } = (await import('../../../api/client')) as unknown as { apiClient: { POST: jest.Mock } };
+const { apiClient } = (await import('../../../api/client')) as unknown as {
+  apiClient: { POST: jest.Mock };
+};
 
 vi.mock('recharts', () => {
   const React = require('react');
   return {
-    LineChart:           ({ children }: any) => <div data-testid="cascade-line-chart">{children}</div>,
-    Line:                ({ name }: any) => <div data-testid={`line-${name ?? 'unknown'}`} />,
-    XAxis:               () => null,
-    YAxis:               () => null,
-    CartesianGrid:       () => null,
-    Tooltip:             () => null,
-    Legend:              () => null,
-    ReferenceLine:       () => null,
-    ResponsiveContainer: ({ children }: any) => <div style={{ width: 400, height: 200 }}>{children}</div>,
+    LineChart: ({ children }: any) => <div data-testid="cascade-line-chart">{children}</div>,
+    Line: ({ name }: any) => <div data-testid={`line-${name ?? 'unknown'}`} />,
+    XAxis: () => null,
+    YAxis: () => null,
+    CartesianGrid: () => null,
+    Tooltip: () => null,
+    Legend: () => null,
+    ReferenceLine: () => null,
+    ResponsiveContainer: ({ children }: any) => (
+      <div style={{ width: 400, height: 200 }}>{children}</div>
+    ),
   };
 });
 
@@ -35,9 +39,9 @@ function makeSequence(n: number, cascadeAt: number | null) {
     const cascading = cascadeAt != null && i >= cascadeAt;
     const actual = cascading ? 'Carol' : sincere;
     return {
-      voter_id:        i,
-      sincere_choice:  sincere,
-      actual_vote:     actual,
+      voter_id: i,
+      sincere_choice: sincere,
+      actual_vote: actual,
       followed_cascade: cascading && actual !== sincere,
     };
   });
@@ -47,14 +51,14 @@ function makeData(cascadeOccurred = false) {
   const seq = makeSequence(30, cascadeOccurred ? 10 : null);
   return {
     data: {
-      sincere_winner:  'Alice',
-      cascade_winner:  cascadeOccurred ? 'Carol' : 'Alice',
+      sincere_winner: 'Alice',
+      cascade_winner: cascadeOccurred ? 'Carol' : 'Alice',
       cascade_occurred: cascadeOccurred,
-      vote_sequence:   seq,
+      vote_sequence: seq,
       cascade_start_at: cascadeOccurred ? 10 : null,
       cascade_strength_curve: Array.from({ length: 11 }, (_, i) => ({
-        strength:     i / 10,
-        winner:       i > 5 ? 'Carol' : 'Alice',
+        strength: i / 10,
+        winner: i > 5 ? 'Carol' : 'Alice',
         cascade_rate: i * 0.08,
       })),
       comparison_runs: [
@@ -86,7 +90,9 @@ beforeEach(() => {
   vi.useFakeTimers();
 });
 
-afterEach(() => { vi.useRealTimers(); });
+afterEach(() => {
+  vi.useRealTimers();
+});
 
 // ── Tests ─────────────────────────────────────────────────────────────────────
 
@@ -113,7 +119,7 @@ describe('CascadePanel', () => {
     await waitFor(() => expect(apiClient.POST).toHaveBeenCalledTimes(1));
     expect(apiClient.POST).toHaveBeenCalledWith(
       expect.stringMatching(/\/api\/(v2\/)?election\/cascade/),
-      expect.any(Object),
+      expect.any(Object)
     );
     vi.runAllTimers();
   });
@@ -222,7 +228,9 @@ describe('CascadePanel', () => {
     await waitFor(() => expect(apiClient.POST).toHaveBeenCalledTimes(1));
 
     fireEvent.change(screen.getByTestId('cascade-strength-slider'), { target: { value: '0.8' } });
-    act(() => { vi.advanceTimersByTime(450); });
+    act(() => {
+      vi.advanceTimersByTime(450);
+    });
     await waitFor(() => expect(apiClient.POST).toHaveBeenCalledTimes(2));
     vi.runAllTimers();
   });

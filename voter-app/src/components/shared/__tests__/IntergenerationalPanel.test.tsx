@@ -8,7 +8,9 @@ vi.mock('../../../api/client', () => ({
   apiClient: { GET: vi.fn(), POST: vi.fn(), PUT: vi.fn(), DELETE: vi.fn(), PATCH: vi.fn() },
   getAccessToken: vi.fn(() => null),
 }));
-const { apiClient } = (await import('../../../api/client')) as unknown as { apiClient: { POST: jest.Mock } };
+const { apiClient } = (await import('../../../api/client')) as unknown as {
+  apiClient: { POST: jest.Mock };
+};
 
 vi.mock('react-i18next', () => ({
   useTranslation: () => ({
@@ -21,8 +23,14 @@ vi.mock('recharts', () => {
   const stub = ({ children }: { children?: React.ReactNode }) =>
     React.createElement('div', { 'data-testid': 'recharts-stub' }, children);
   return {
-    BarChart: stub, Bar: stub, XAxis: stub, YAxis: stub,
-    CartesianGrid: stub, Tooltip: stub, Legend: stub, Cell: stub,
+    BarChart: stub,
+    Bar: stub,
+    XAxis: stub,
+    YAxis: stub,
+    CartesianGrid: stub,
+    Tooltip: stub,
+    Legend: stub,
+    Cell: stub,
     ResponsiveContainer: ({ children }: { children?: React.ReactNode }) =>
       React.createElement('div', null, children),
   };
@@ -33,9 +41,9 @@ vi.mock('recharts', () => {
 function makeMechResult(adopted: boolean, votePct = 0.55) {
   return {
     adopted,
-    vote_pct:          votePct,
-    welfare_present:   adopted ? 0.6 : 0.4,
-    welfare_future:    adopted ? 0.5 : 0.3,
+    vote_pct: votePct,
+    welfare_present: adopted ? 0.6 : 0.4,
+    welfare_future: adopted ? 0.5 : 0.3,
     total_welfare_50y: adopted ? 0.55 : 0.35,
   };
 }
@@ -45,36 +53,60 @@ const MOCK_DATA = {
     {
       decision_name: 'Retraite',
       by_mechanism: {
-        none:         makeMechResult(true,  0.62),
-        proxy:        makeMechResult(true,  0.58),
+        none: makeMechResult(true, 0.62),
+        proxy: makeMechResult(true, 0.58),
         age_weighted: makeMechResult(false, 0.48),
-        veto:         makeMechResult(false, 0.40),
+        veto: makeMechResult(false, 0.4),
       },
     },
     {
       decision_name: 'Education',
       by_mechanism: {
-        none:         makeMechResult(true,  0.55),
-        proxy:        makeMechResult(true,  0.60),
-        age_weighted: makeMechResult(true,  0.65),
-        veto:         makeMechResult(true,  0.70),
+        none: makeMechResult(true, 0.55),
+        proxy: makeMechResult(true, 0.6),
+        age_weighted: makeMechResult(true, 0.65),
+        veto: makeMechResult(true, 0.7),
       },
     },
     {
       decision_name: 'Dette',
       by_mechanism: {
-        none:         makeMechResult(true,  0.70),
-        proxy:        makeMechResult(true,  0.60),
+        none: makeMechResult(true, 0.7),
+        proxy: makeMechResult(true, 0.6),
         age_weighted: makeMechResult(false, 0.45),
-        veto:         makeMechResult(false, 0.30),
+        veto: makeMechResult(false, 0.3),
       },
     },
   ],
   mechanism_comparison: {
-    none:         { adoption_rate: 1.00, present_bias: 0.40, future_welfare_gain:  0.00, intergenerational_gini: 0.25, avg_welfare_50y: 0.50 },
-    proxy:        { adoption_rate: 0.90, present_bias: 0.25, future_welfare_gain:  0.05, intergenerational_gini: 0.20, avg_welfare_50y: 0.52 },
-    age_weighted: { adoption_rate: 0.67, present_bias: 0.15, future_welfare_gain:  0.08, intergenerational_gini: 0.15, avg_welfare_50y: 0.55 },
-    veto:         { adoption_rate: 0.50, present_bias: 0.05, future_welfare_gain:  0.12, intergenerational_gini: 0.10, avg_welfare_50y: 0.58 },
+    none: {
+      adoption_rate: 1.0,
+      present_bias: 0.4,
+      future_welfare_gain: 0.0,
+      intergenerational_gini: 0.25,
+      avg_welfare_50y: 0.5,
+    },
+    proxy: {
+      adoption_rate: 0.9,
+      present_bias: 0.25,
+      future_welfare_gain: 0.05,
+      intergenerational_gini: 0.2,
+      avg_welfare_50y: 0.52,
+    },
+    age_weighted: {
+      adoption_rate: 0.67,
+      present_bias: 0.15,
+      future_welfare_gain: 0.08,
+      intergenerational_gini: 0.15,
+      avg_welfare_50y: 0.55,
+    },
+    veto: {
+      adoption_rate: 0.5,
+      present_bias: 0.05,
+      future_welfare_gain: 0.12,
+      intergenerational_gini: 0.1,
+      avg_welfare_50y: 0.58,
+    },
   },
   pedagogical_note: 'Rawls: veil of ignorance.',
 };
@@ -93,7 +125,9 @@ function renderPanel() {
 async function renderAndRun(responseData = MOCK_DATA) {
   apiClient.POST.mockResolvedValueOnce(ok(responseData));
   renderPanel();
-  await act(async () => { fireEvent.click(screen.getByTestId('run-btn')); });
+  await act(async () => {
+    fireEvent.click(screen.getByTestId('run-btn'));
+  });
   await waitFor(() => expect(apiClient.POST).toHaveBeenCalledTimes(1));
   await act(async () => {});
 }
@@ -215,7 +249,9 @@ describe('IntergenerationalPanel', () => {
   it('shows error alert on API failure', async () => {
     apiClient.POST.mockRejectedValueOnce(new Error('Network error'));
     renderPanel();
-    await act(async () => { fireEvent.click(screen.getByTestId('run-btn')); });
+    await act(async () => {
+      fireEvent.click(screen.getByTestId('run-btn'));
+    });
     await waitFor(() => expect(screen.getByTestId('error-alert')).toBeInTheDocument());
   });
 });

@@ -19,20 +19,64 @@ const { simulateElection } = (await import('../../../services/electionApi')) as 
 
 function makeResult(winnerA: string, winnerB: string) {
   return {
-    config: {}, voters_snapshot: [], candidates: [],
+    config: {},
+    voters_snapshot: [],
+    candidates: [],
     methods: {
-      plurality:    { winner: winnerA, bayesian_regret: 0.03, majority_satisfaction: 0.7, condorcet_consistent: null },
-      schulze:      { winner: winnerB, bayesian_regret: 0.02, majority_satisfaction: 0.8, condorcet_consistent: null },
-      borda:        { winner: winnerA, bayesian_regret: 0.03, majority_satisfaction: 0.7, condorcet_consistent: null },
-      irv:          { winner: winnerA, bayesian_regret: 0.03, majority_satisfaction: 0.7, condorcet_consistent: null },
-      two_round:    { winner: winnerA, bayesian_regret: 0.03, majority_satisfaction: 0.7, condorcet_consistent: null },
-      approval:     { winner: winnerA, bayesian_regret: 0.03, majority_satisfaction: 0.7, condorcet_consistent: null },
-      star_voting:  { winner: winnerA, bayesian_regret: 0.03, majority_satisfaction: 0.7, condorcet_consistent: null },
-      median_voting:{ winner: winnerA, bayesian_regret: 0.03, majority_satisfaction: 0.7, condorcet_consistent: null },
+      plurality: {
+        winner: winnerA,
+        bayesian_regret: 0.03,
+        majority_satisfaction: 0.7,
+        condorcet_consistent: null,
+      },
+      schulze: {
+        winner: winnerB,
+        bayesian_regret: 0.02,
+        majority_satisfaction: 0.8,
+        condorcet_consistent: null,
+      },
+      borda: {
+        winner: winnerA,
+        bayesian_regret: 0.03,
+        majority_satisfaction: 0.7,
+        condorcet_consistent: null,
+      },
+      irv: {
+        winner: winnerA,
+        bayesian_regret: 0.03,
+        majority_satisfaction: 0.7,
+        condorcet_consistent: null,
+      },
+      two_round: {
+        winner: winnerA,
+        bayesian_regret: 0.03,
+        majority_satisfaction: 0.7,
+        condorcet_consistent: null,
+      },
+      approval: {
+        winner: winnerA,
+        bayesian_regret: 0.03,
+        majority_satisfaction: 0.7,
+        condorcet_consistent: null,
+      },
+      star_voting: {
+        winner: winnerA,
+        bayesian_regret: 0.03,
+        majority_satisfaction: 0.7,
+        condorcet_consistent: null,
+      },
+      median_voting: {
+        winner: winnerA,
+        bayesian_regret: 0.03,
+        majority_satisfaction: 0.7,
+        condorcet_consistent: null,
+      },
     },
     condorcet_winner: winnerA,
-    blank_rate: 0, campaign_trajectory: null,
-    inter_method_agreement: 0.85, condorcet_exists: true,
+    blank_rate: 0,
+    campaign_trajectory: null,
+    inter_method_agreement: 0.85,
+    condorcet_exists: true,
   };
 }
 
@@ -74,36 +118,48 @@ describe('QuickCompareWidget', () => {
 
   it('fires simulateElection after debounce on mount', async () => {
     renderWidget();
-    act(() => { vi.advanceTimersByTime(500); });
+    act(() => {
+      vi.advanceTimersByTime(500);
+    });
     await waitFor(() => expect(simulateElection).toHaveBeenCalledTimes(1));
   });
 
   it('fires new API call when scenario changes', async () => {
     renderWidget();
-    act(() => { vi.advanceTimersByTime(500); });
+    act(() => {
+      vi.advanceTimersByTime(500);
+    });
     await waitFor(() => expect(simulateElection).toHaveBeenCalledTimes(1));
 
     simulateElection.mockClear();
     fireEvent.click(screen.getByText(/USA 1992/i));
-    act(() => { vi.advanceTimersByTime(500); });
+    act(() => {
+      vi.advanceTimersByTime(500);
+    });
     await waitFor(() => expect(simulateElection).toHaveBeenCalledTimes(1));
   });
 
   it('fires new API call when method A changes', async () => {
     renderWidget();
-    act(() => { vi.advanceTimersByTime(500); });
+    act(() => {
+      vi.advanceTimersByTime(500);
+    });
     await waitFor(() => expect(simulateElection).toHaveBeenCalledTimes(1));
 
     simulateElection.mockClear();
     const selects = screen.getAllByRole('combobox');
     fireEvent.change(selects[0], { target: { value: 'borda' } });
-    act(() => { vi.advanceTimersByTime(500); });
+    act(() => {
+      vi.advanceTimersByTime(500);
+    });
     await waitFor(() => expect(simulateElection).toHaveBeenCalledTimes(1));
   });
 
   it('shows winner badges after result loads', async () => {
     renderWidget();
-    act(() => { vi.advanceTimersByTime(500); });
+    act(() => {
+      vi.advanceTimersByTime(500);
+    });
     await waitFor(() => {
       expect(screen.getByText('Chirac')).toBeInTheDocument();
       expect(screen.getByText('Jospin')).toBeInTheDocument();
@@ -113,7 +169,9 @@ describe('QuickCompareWidget', () => {
   it('shows divergence message when winners differ', async () => {
     simulateElection.mockResolvedValue(makeResult('Alice', 'Bob'));
     renderWidget();
-    act(() => { vi.advanceTimersByTime(500); });
+    act(() => {
+      vi.advanceTimersByTime(500);
+    });
     await waitFor(() => {
       expect(screen.getByText(/Deux systèmes|Two systems/i)).toBeInTheDocument();
     });
@@ -122,7 +180,9 @@ describe('QuickCompareWidget', () => {
   it('shows consensus message when winners are the same', async () => {
     simulateElection.mockResolvedValue(makeResult('Alice', 'Alice'));
     renderWidget();
-    act(() => { vi.advanceTimersByTime(500); });
+    act(() => {
+      vi.advanceTimersByTime(500);
+    });
     await waitFor(() => {
       expect(screen.getByText(/s'accordent|agree/i)).toBeInTheDocument();
     });
@@ -130,7 +190,9 @@ describe('QuickCompareWidget', () => {
 
   it('shows explore button after result loads', async () => {
     renderWidget();
-    act(() => { vi.advanceTimersByTime(500); });
+    act(() => {
+      vi.advanceTimersByTime(500);
+    });
     await waitFor(() => {
       expect(screen.getByTestId('explore-button')).toBeInTheDocument();
     });
@@ -145,7 +207,9 @@ describe('QuickCompareWidget', () => {
     fireEvent.change(selects[0], { target: { value: 'irv' } });
     fireEvent.change(selects[0], { target: { value: 'approval' } });
 
-    act(() => { vi.advanceTimersByTime(500); });
+    act(() => {
+      vi.advanceTimersByTime(500);
+    });
     await waitFor(() => {
       // Should have called exactly twice (once from mount + once from rapid changes)
       expect(simulateElection.mock.calls.length).toBeLessThanOrEqual(2);

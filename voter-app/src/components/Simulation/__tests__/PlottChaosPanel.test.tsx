@@ -9,29 +9,43 @@ vi.mock('../../../api/client', () => ({
   apiClient: { GET: vi.fn(), POST: vi.fn(), PUT: vi.fn(), DELETE: vi.fn(), PATCH: vi.fn() },
   getAccessToken: vi.fn(() => null),
 }));
-const { apiClient } = (await import('../../../api/client')) as unknown as { apiClient: { POST: jest.Mock } };
+const { apiClient } = (await import('../../../api/client')) as unknown as {
+  apiClient: { POST: jest.Mock };
+};
 
 // ── Fixture ───────────────────────────────────────────────────────────────────
 
 function makeData(condorcet = false) {
-  const steps = [[-0.6, -0.6], [-0.1, 0.3], [0.6, 0.6]];
-  const altSteps = [[-0.6, -0.6], [0.2, -0.4], [-0.6, -0.6]];
+  const steps = [
+    [-0.6, -0.6],
+    [-0.1, 0.3],
+    [0.6, 0.6],
+  ];
+  const altSteps = [
+    [-0.6, -0.6],
+    [0.2, -0.4],
+    [-0.6, -0.6],
+  ];
   return {
     data: {
       condorcet_winner_exists: condorcet,
       top_cycle: { size: condorcet ? 1 : 72, center: condorcet ? [0.1, 0.1] : [0.0, 0.0] },
       chaos_path: {
-        from:      [-0.6, -0.6],
-        to:        [0.6, 0.6],
+        from: [-0.6, -0.6],
+        to: [0.6, 0.6],
         steps,
         num_steps: steps.length - 1,
       },
       alternative_path: {
-        to:    [-0.6, -0.6],
+        to: [-0.6, -0.6],
         steps: altSteps,
       },
       voter_ideal_points: [
-        [-0.5, 0.3], [0.4, -0.2], [0.1, 0.5], [-0.3, -0.4], [0.6, 0.1],
+        [-0.5, 0.3],
+        [0.4, -0.2],
+        [0.1, 0.5],
+        [-0.3, -0.4],
+        [0.6, 0.1],
       ],
       pedagogical_note: 'Test note.',
     },
@@ -54,7 +68,9 @@ beforeEach(() => {
   vi.useFakeTimers();
 });
 
-afterEach(() => { vi.useRealTimers(); });
+afterEach(() => {
+  vi.useRealTimers();
+});
 
 // ── Tests ─────────────────────────────────────────────────────────────────────
 
@@ -86,7 +102,7 @@ describe('PlottChaosPanel', () => {
     await waitFor(() => expect(apiClient.POST).toHaveBeenCalledTimes(1));
     expect(apiClient.POST).toHaveBeenCalledWith(
       expect.stringMatching(/\/api\/(v2\/)?theory\/plott-chaos/),
-      expect.any(Object),
+      expect.any(Object)
     );
     vi.runAllTimers();
   });

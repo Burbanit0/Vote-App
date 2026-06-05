@@ -26,20 +26,20 @@ import { $api } from '../api/hooks';
 // ── Types ─────────────────────────────────────────────────────────────────────
 
 interface EncryptedBallot {
-  voter_id:  number;
+  voter_id: number;
   encrypted: string;
-  code:      string;
+  code: string;
 }
 
 interface E2EData {
-  num_voters:          number;
-  candidates:          string[];
-  encrypted_ballots:   EncryptedBallot[];
-  aggregate_result:    Record<string, number>;
+  num_voters: number;
+  candidates: string[];
+  encrypted_ballots: EncryptedBallot[];
+  aggregate_result: Record<string, number>;
   verification_demonstration: {
     sample_voter_id: number;
-    sample_code:     string;
-    board_excerpt:   string[];
+    sample_code: string;
+    board_excerpt: string[];
   };
   privacy_guarantee: string;
 }
@@ -47,23 +47,51 @@ interface E2EData {
 // ── Section 1 — E-voting incidents ────────────────────────────────────────────
 
 const INCIDENTS = [
-  { year: 2006, event: 'Diebold AccuVote — code source divulgué, vulnérabilités critiques', country: '🇺🇸' },
-  { year: 2007, event: 'Pays-Bas : machines Nedap retirées après démonstration de piratage', country: '🇳🇱' },
-  { year: 2009, event: 'Allemagne : Cour Constitutionnelle interdit le vote électronique opaque', country: '🇩🇪' },
-  { year: 2010, event: 'Inde EVMs : académiciens prouvent possibilité de manipulation à distance', country: '🇮🇳' },
-  { year: 2019, event: 'Suisse : Post-Vote (e-voting national) retire son système après audit', country: '🇨🇭' },
-  { year: 2020, event: 'Voatz (vote mobile US) : audit Harvard révèle 3 vulnérabilités critiques', country: '🇺🇸' },
+  {
+    year: 2006,
+    event: 'Diebold AccuVote — code source divulgué, vulnérabilités critiques',
+    country: '🇺🇸',
+  },
+  {
+    year: 2007,
+    event: 'Pays-Bas : machines Nedap retirées après démonstration de piratage',
+    country: '🇳🇱',
+  },
+  {
+    year: 2009,
+    event: 'Allemagne : Cour Constitutionnelle interdit le vote électronique opaque',
+    country: '🇩🇪',
+  },
+  {
+    year: 2010,
+    event: 'Inde EVMs : académiciens prouvent possibilité de manipulation à distance',
+    country: '🇮🇳',
+  },
+  {
+    year: 2019,
+    event: 'Suisse : Post-Vote (e-voting national) retire son système après audit',
+    country: '🇨🇭',
+  },
+  {
+    year: 2020,
+    event: 'Voatz (vote mobile US) : audit Harvard révèle 3 vulnérabilités critiques',
+    country: '🇺🇸',
+  },
 ];
 
 const WhyHardSection: React.FC<{ t: (k: string) => string }> = ({ t }) => (
   <Card className="mb-4" data-testid="why-hard-section">
-    <CardHeader className="block space-y-0 border-b border-border px-4 py-2 fw-bold">❌ {t('tech.whyHardTitle')}</CardHeader>
+    <CardHeader className="block space-y-0 border-b border-border px-4 py-2 font-bold">
+      ❌ {t('tech.whyHardTitle')}
+    </CardHeader>
     <CardBody>
-      <p className="text-muted" style={{ fontSize: '0.85rem' }}>{t('tech.whyHardDesc')}</p>
+      <p className="text-muted-foreground" style={{ fontSize: '0.85rem' }}>
+        {t('tech.whyHardDesc')}
+      </p>
       <div style={{ borderLeft: '3px solid #dee2e6', paddingLeft: 16 }}>
         {INCIDENTS.map((inc) => (
           <div key={inc.year} className="mb-2">
-            <span className="text-muted me-2" style={{ fontSize: '0.75rem' }}>
+            <span className="text-muted-foreground me-2" style={{ fontSize: '0.75rem' }}>
               {inc.year} {inc.country}
             </span>
             <span style={{ fontSize: '0.82rem' }}>{inc.event}</span>
@@ -77,15 +105,15 @@ const WhyHardSection: React.FC<{ t: (k: string) => string }> = ({ t }) => (
 // ── Section 2 — E2E-V demo ────────────────────────────────────────────────────
 
 const STEPS = [
-  { id: 'vote',    icon: '🗳️' },
+  { id: 'vote', icon: '🗳️' },
   { id: 'encrypt', icon: '🔒' },
-  { id: 'board',   icon: '📋' },
-  { id: 'sum',     icon: '∑'  },
-  { id: 'result',  icon: '✅' },
+  { id: 'board', icon: '📋' },
+  { id: 'sum', icon: '∑' },
+  { id: 'result', icon: '✅' },
 ];
 
 const E2EVSection: React.FC<{ t: (k: string) => string }> = ({ t }) => {
-  const [step,    setStep]    = useState(0);
+  const [step, setStep] = useState(0);
   const sim = $api.useMutation('post', '/api/v2/tech/e2e-demo');
   const data: E2EData | null = (sim.data as E2EData | undefined) ?? null;
   const loading = sim.isPending;
@@ -93,32 +121,43 @@ const E2EVSection: React.FC<{ t: (k: string) => string }> = ({ t }) => {
 
   const runDemo = useCallback(() => {
     setStep(0);
-    sim.mutate({ body: {
-      candidates: ['Alice', 'Bob', 'Carol'],
-      num_voters: 10,
-      seed:       42,
-      user_vote:  'Alice',
-    } }, {
-      onSuccess: () => setStep(1),
-    });
-  // eslint-disable-next-line react-hooks/exhaustive-deps
+    sim.mutate(
+      {
+        body: {
+          candidates: ['Alice', 'Bob', 'Carol'],
+          num_voters: 10,
+          seed: 42,
+          user_vote: 'Alice',
+        },
+      },
+      {
+        onSuccess: () => setStep(1),
+      }
+    );
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [t, sim]);
 
   const advance = () => setStep((s) => Math.min(s + 1, STEPS.length - 1));
 
   return (
     <Card className="mb-4" data-testid="e2e-section">
-      <CardHeader className="block space-y-0 border-b border-border px-4 py-2 fw-bold">🔐 {t('tech.e2eTitle')}</CardHeader>
+      <CardHeader className="block space-y-0 border-b border-border px-4 py-2 font-bold">
+        🔐 {t('tech.e2eTitle')}
+      </CardHeader>
       <CardBody>
         <p style={{ fontSize: '0.85rem' }}>{t('tech.e2eDesc')}</p>
 
         {/* Step indicator */}
-        <div className="d-flex gap-2 mb-3 flex-wrap">
+        <div className="flex gap-2 mb-3 flex-wrap">
           {STEPS.map((s, i) => (
-            <div key={s.id}
+            <div
+              key={s.id}
               className={`d-flex align-items-center gap-1 px-2 py-1 rounded ${
-                i < step ? 'bg-success text-white' :
-                i === step && step > 0 ? 'bg-primary text-white' : 'bg-light text-muted'
+                i < step
+                  ? 'bg-[#198754] text-white'
+                  : i === step && step > 0
+                    ? 'bg-primary text-white'
+                    : 'bg-slate-100 text-muted-foreground'
               }`}
               style={{ fontSize: '0.78rem', cursor: 'default' }}
               data-testid={`step-${s.id}`}
@@ -141,19 +180,22 @@ const E2EVSection: React.FC<{ t: (k: string) => string }> = ({ t }) => {
             {/* Step 1 — Encryption */}
             {step >= 1 && (
               <div className="mb-3 p-3 rounded" style={{ background: '#f8f9fa' }}>
-                <div className="fw-semibold mb-2" style={{ fontSize: '0.82rem' }}>
+                <div className="font-semibold mb-2" style={{ fontSize: '0.82rem' }}>
                   🔒 {t('tech.e2eEncryptTitle')}
                 </div>
-                <div className="d-flex flex-wrap gap-2">
+                <div className="flex flex-wrap gap-2">
                   {data.encrypted_ballots.slice(0, 5).map((b) => (
-                    <div key={b.voter_id}
-                      className="border rounded p-2"
+                    <div
+                      key={b.voter_id}
+                      className="border border-border rounded p-2"
                       style={{ fontSize: '0.72rem', background: '#fff', minWidth: 120 }}
                       data-testid="encrypted-ballot"
                     >
-                      <div className="text-muted">#{b.voter_id}</div>
+                      <div className="text-muted-foreground">#{b.voter_id}</div>
                       <code style={{ color: '#6f42c1' }}>{b.encrypted}</code>
-                      <div className="text-muted mt-1">{t('tech.e2eCode')}: {b.code}</div>
+                      <div className="text-muted-foreground mt-1">
+                        {t('tech.e2eCode')}: {b.code}
+                      </div>
                     </div>
                   ))}
                 </div>
@@ -162,20 +204,25 @@ const E2EVSection: React.FC<{ t: (k: string) => string }> = ({ t }) => {
 
             {/* Step 2 — Public board */}
             {step >= 2 && (
-              <div className="mb-3 p-3 rounded border" style={{ background: '#fffbf0' }}>
-                <div className="fw-semibold mb-1" style={{ fontSize: '0.82rem' }}>
+              <div
+                className="mb-3 p-3 rounded border border-border"
+                style={{ background: '#fffbf0' }}
+              >
+                <div className="font-semibold mb-1" style={{ fontSize: '0.82rem' }}>
                   📋 {t('tech.e2eBoardTitle')}
                 </div>
                 <p style={{ fontSize: '0.75rem', color: '#6c757d' }}>{t('tech.e2eBoardDesc')}</p>
-                <div className="d-flex flex-wrap gap-1" data-testid="verification-board">
+                <div className="flex flex-wrap gap-1" data-testid="verification-board">
                   {data.verification_demonstration.board_excerpt.map((code, i) => (
-                    <Badge key={i} variant="light"
-                      style={{ fontFamily: 'monospace', fontSize: '0.7rem' }}>
+                    <Badge
+                      key={i}
+                      variant="light"
+                      style={{ fontFamily: 'monospace', fontSize: '0.7rem' }}
+                    >
                       {code}
                     </Badge>
                   ))}
-                  <Badge variant="warning"
-                    style={{ fontFamily: 'monospace', fontSize: '0.7rem' }}>
+                  <Badge variant="warning" style={{ fontFamily: 'monospace', fontSize: '0.7rem' }}>
                     ← {t('tech.e2eYourCode')}: {data.verification_demonstration.sample_code}
                   </Badge>
                 </div>
@@ -184,27 +231,35 @@ const E2EVSection: React.FC<{ t: (k: string) => string }> = ({ t }) => {
 
             {/* Step 3 — Homomorphic sum */}
             {step >= 3 && (
-              <div className="mb-3 p-3 rounded border border-info"
-                style={{ background: '#f0f8ff' }}>
-                <div className="fw-semibold mb-1" style={{ fontSize: '0.82rem' }}>
+              <div
+                className="mb-3 p-3 rounded border border-border border-info"
+                style={{ background: '#f0f8ff' }}
+              >
+                <div className="font-semibold mb-1" style={{ fontSize: '0.82rem' }}>
                   ∑ {t('tech.e2eSumTitle')}
                 </div>
                 <p style={{ fontSize: '0.75rem', color: '#6c757d' }}>{t('tech.e2eSumDesc')}</p>
                 <code style={{ fontSize: '0.75rem' }}>
-                  {data.encrypted_ballots.slice(0, 3).map((b) => b.encrypted).join(' + ')} + … = 🔒[…]
+                  {data.encrypted_ballots
+                    .slice(0, 3)
+                    .map((b) => b.encrypted)
+                    .join(' + ')}{' '}
+                  + … = 🔒[…]
                 </code>
               </div>
             )}
 
             {/* Step 4 — Result */}
             {step >= 4 && (
-              <div className="mb-3 p-3 rounded border border-success"
+              <div
+                className="mb-3 p-3 rounded border border-border border-success"
                 style={{ background: '#f0fff4' }}
-                data-testid="e2e-final-result">
-                <div className="fw-semibold mb-2" style={{ fontSize: '0.82rem' }}>
+                data-testid="e2e-final-result"
+              >
+                <div className="font-semibold mb-2" style={{ fontSize: '0.82rem' }}>
                   ✅ {t('tech.e2eResultTitle')}
                 </div>
-                <div className="d-flex gap-3 flex-wrap">
+                <div className="flex gap-3 flex-wrap">
                   {Object.entries(data.aggregate_result)
                     .sort((a, b) => b[1] - a[1])
                     .map(([cand, count]) => (
@@ -221,14 +276,24 @@ const E2EVSection: React.FC<{ t: (k: string) => string }> = ({ t }) => {
             )}
 
             {step < STEPS.length - 1 && (
-              <Button variant="outline-primary" size="sm" onClick={advance}
-                data-testid="next-step-btn">
+              <Button
+                variant="outline-primary"
+                size="sm"
+                onClick={advance}
+                data-testid="next-step-btn"
+              >
                 {t('tech.e2eNext')} →
               </Button>
             )}
             {step === STEPS.length - 1 && (
-              <Button variant="outline-secondary" size="sm"
-                onClick={() => { sim.reset(); setStep(0); }}>
+              <Button
+                variant="outline-secondary"
+                size="sm"
+                onClick={() => {
+                  sim.reset();
+                  setStep(0);
+                }}
+              >
                 {t('tech.e2eReset')}
               </Button>
             )}
@@ -281,9 +346,14 @@ const BLOCKCHAIN_DATA = [
 
 const BlockchainTable: React.FC<{ t: (k: string) => string }> = ({ t }) => (
   <Card className="mb-4" data-testid="blockchain-table-section">
-    <CardHeader className="block space-y-0 border-b border-border px-4 py-2 fw-bold">⛓ {t('tech.blockchainTitle')}</CardHeader>
+    <CardHeader className="block space-y-0 border-b border-border px-4 py-2 font-bold">
+      ⛓ {t('tech.blockchainTitle')}
+    </CardHeader>
     <CardBody className="p-0">
-      <Table className="[&_th]:p-2 [&_td]:p-2 [&_th]:text-left [&_td]:border-t [&_th]:border-b [&_td]:border-border [&_th]:border-border [&_*]:align-middle [&_tbody_tr:hover]:bg-muted/50 mb-0" style={{ fontSize: '0.8rem' }}>
+      <Table
+        className="[&_th]:p-2 [&_td]:p-2 [&_th]:text-left [&_td]:border-t [&_th]:border-b [&_td]:border-border [&_th]:border-border [&_*]:align-middle [&_tbody_tr:hover]:bg-muted/50 mb-0"
+        style={{ fontSize: '0.8rem' }}
+      >
         <thead className="table-light">
           <tr>
             <th>{t('tech.blkMechanism')}</th>
@@ -296,9 +366,13 @@ const BlockchainTable: React.FC<{ t: (k: string) => string }> = ({ t }) => (
         <tbody>
           {BLOCKCHAIN_DATA.map((row) => (
             <tr key={row.mech}>
-              <td><strong>{row.mech}</strong></td>
-              <td className="text-muted">{row.usedBy}</td>
-              <td><code style={{ fontSize: '0.75rem' }}>{row.method}</code></td>
+              <td>
+                <strong>{row.mech}</strong>
+              </td>
+              <td className="text-muted-foreground">{row.usedBy}</td>
+              <td>
+                <code style={{ fontSize: '0.75rem' }}>{row.method}</code>
+              </td>
               <td style={{ color: '#198754' }}>{row.solves}</td>
               <td style={{ color: '#dc3545' }}>{row.limit}</td>
             </tr>
@@ -321,12 +395,12 @@ const DEFAULT_STATEMENTS = [
   "L'innovation technologique devrait primer sur la réglementation.",
   'Les gouvernements locaux devraient contrôler les plateformes.',
   'La concurrence entre plateformes bénéficie aux consommateurs.',
-  "Les données des utilisateurs appartiennent aux utilisateurs, pas aux plateformes.",
+  'Les données des utilisateurs appartiennent aux utilisateurs, pas aux plateformes.',
 ];
 
 const PolisSection: React.FC<{ t: (k: string) => string }> = ({ t }) => {
-  const [numClusters,    setNumClusters]    = useState(3);
-  const [ideology,       setIdeology]       = useState('random');
+  const [numClusters, setNumClusters] = useState(3);
+  const [ideology, setIdeology] = useState('random');
   const [numParticipants, setNumParticipants] = useState(100);
   const sim = $api.useMutation('post', '/api/v2/tech/polis-simulation');
   const data: PolisData | null = (sim.data as PolisData | undefined) ?? null;
@@ -334,45 +408,63 @@ const PolisSection: React.FC<{ t: (k: string) => string }> = ({ t }) => {
   const error = sim.isError ? t('tech.error') : null;
 
   const run = useCallback(() => {
-    sim.mutate({ body: {
-      statements:       DEFAULT_STATEMENTS,
-      num_participants: numParticipants,
-      ideology,
-      seed:             42,
-      num_clusters:     numClusters,
-    } });
-  // eslint-disable-next-line react-hooks/exhaustive-deps
+    sim.mutate({
+      body: {
+        statements: DEFAULT_STATEMENTS,
+        num_participants: numParticipants,
+        ideology,
+        seed: 42,
+        num_clusters: numClusters,
+      },
+    });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [numClusters, ideology, numParticipants, t, sim]);
 
   return (
     <Card className="mb-4" data-testid="polis-section">
-      <CardHeader className="block space-y-0 border-b border-border px-4 py-2 fw-bold">🌐 {t('tech.polisTitle')}</CardHeader>
+      <CardHeader className="block space-y-0 border-b border-border px-4 py-2 font-bold">
+        🌐 {t('tech.polisTitle')}
+      </CardHeader>
       <CardBody>
         <p style={{ fontSize: '0.85rem' }}>{t('tech.polisDesc')}</p>
 
-        <Row className="g-2 mb-3 align-items-end">
+        <Row className="g-2 mb-3 items-end">
           <Col xs={6} md={3}>
-            <label className="mb-1 inline-block small mb-0">{t('tech.polisIdeology')}</label>
-            <Select size="sm" value={ideology}
+            <label className="mb-1 inline-block text-sm mb-0">{t('tech.polisIdeology')}</label>
+            <Select
+              size="sm"
+              value={ideology}
               onChange={(e) => setIdeology(e.target.value)}
-              data-testid="ideology-select">
+              data-testid="ideology-select"
+            >
               <option value="random">{t('tech.ideologyRandom')}</option>
               <option value="polarized">{t('tech.ideologyPolarized')}</option>
             </Select>
           </Col>
           <Col xs={6} md={2}>
-            <label className="mb-1 inline-block small mb-0">{t('tech.polisClusters')}</label>
-            <Control type="number" size="sm"
-              min={1} max={5} value={numClusters}
+            <label className="mb-1 inline-block text-sm mb-0">{t('tech.polisClusters')}</label>
+            <Control
+              type="number"
+              size="sm"
+              min={1}
+              max={5}
+              value={numClusters}
               onChange={(e) => setNumClusters(Math.max(1, Math.min(5, Number(e.target.value))))}
               data-testid="num-clusters-input"
             />
           </Col>
           <Col xs={6} md={2}>
-            <label className="mb-1 inline-block small mb-0">{t('tech.polisParticipants')}</label>
-            <Control type="number" size="sm"
-              min={20} max={500} step={10} value={numParticipants}
-              onChange={(e) => setNumParticipants(Math.max(20, Math.min(500, Number(e.target.value))))}
+            <label className="mb-1 inline-block text-sm mb-0">{t('tech.polisParticipants')}</label>
+            <Control
+              type="number"
+              size="sm"
+              min={20}
+              max={500}
+              step={10}
+              value={numParticipants}
+              onChange={(e) =>
+                setNumParticipants(Math.max(20, Math.min(500, Number(e.target.value))))
+              }
             />
           </Col>
           <Col xs="auto">
@@ -383,7 +475,9 @@ const PolisSection: React.FC<{ t: (k: string) => string }> = ({ t }) => {
         </Row>
 
         {!data && !loading && !error && (
-          <Alert variant="info" role="alert">{t('tech.polisPrompt')}</Alert>
+          <Alert variant="info" role="alert">
+            {t('tech.polisPrompt')}
+          </Alert>
         )}
         {error && <Alert variant="danger">{error}</Alert>}
 
@@ -406,15 +500,17 @@ const PolisSection: React.FC<{ t: (k: string) => string }> = ({ t }) => {
 
 const ThreeApproachesSection: React.FC<{ t: (k: string) => string }> = ({ t }) => (
   <Card className="mb-4" data-testid="three-approaches-section">
-    <CardHeader className="block space-y-0 border-b border-border px-4 py-2 fw-bold">⚡ {t('tech.approachesTitle')}</CardHeader>
+    <CardHeader className="block space-y-0 border-b border-border px-4 py-2 font-bold">
+      ⚡ {t('tech.approachesTitle')}
+    </CardHeader>
     <CardBody>
       <Row className="g-3">
         <Col xs={12} md={4}>
-          <div className="border border-danger rounded p-3 h-100">
-            <div className="fw-bold mb-2 text-danger">❌ Vote par SMS / App mobile</div>
+          <div className="border border-border border-danger rounded p-3 h-full">
+            <div className="font-bold mb-2 text-[#dc3545]">❌ Vote par SMS / App mobile</div>
             <div style={{ fontSize: '0.8rem' }}>
-              Le terminal de l'électeur peut être compromis. Si votre téléphone est infecté,
-              votre vote peut être modifié AVANT chiffrement — aucune vérification possible.
+              Le terminal de l'électeur peut être compromis. Si votre téléphone est infecté, votre
+              vote peut être modifié AVANT chiffrement — aucune vérification possible.
             </div>
             <Badge variant="danger" className="mt-2" style={{ fontSize: '0.65rem' }}>
               Non vérifiable · Non auditable
@@ -422,11 +518,13 @@ const ThreeApproachesSection: React.FC<{ t: (k: string) => string }> = ({ t }) =
           </div>
         </Col>
         <Col xs={12} md={4}>
-          <div className="border border-warning rounded p-3 h-100">
-            <div className="fw-bold mb-2" style={{ color: '#856404' }}>⚠️ Vote par Blockchain</div>
+          <div className="border border-border border-warning rounded p-3 h-full">
+            <div className="font-bold mb-2" style={{ color: '#856404' }}>
+              ⚠️ Vote par Blockchain
+            </div>
             <div style={{ fontSize: '0.8rem' }}>
-              Toutes les transactions sont publiques sur la blockchain → votre vote est visible
-              de tous. Parfait pour la gouvernance de protocole, incompatible avec le secret du
+              Toutes les transactions sont publiques sur la blockchain → votre vote est visible de
+              tous. Parfait pour la gouvernance de protocole, incompatible avec le secret du
               bulletin dans une démocratie.
             </div>
             <Badge variant="warning" className="mt-2" style={{ fontSize: '0.65rem' }}>
@@ -435,8 +533,8 @@ const ThreeApproachesSection: React.FC<{ t: (k: string) => string }> = ({ t }) =
           </div>
         </Col>
         <Col xs={12} md={4}>
-          <div className="border border-success rounded p-3 h-100">
-            <div className="fw-bold mb-2 text-success">✅ Vote E2E-V (ElectionGuard)</div>
+          <div className="border border-border border-success rounded p-3 h-full">
+            <div className="font-bold mb-2 text-[#198754]">✅ Vote E2E-V (ElectionGuard)</div>
             <div style={{ fontSize: '0.8rem' }}>
               Chiffrement homomorphe : les bulletins sont additionnés SANS être déchiffrés
               individuellement. Chaque électeur vérifie que son bulletin est compté, sans révéler
@@ -456,7 +554,9 @@ const ThreeApproachesSection: React.FC<{ t: (k: string) => string }> = ({ t }) =
 
 const E2EVInteractiveSection: React.FC<{ t: (k: string) => string }> = ({ t }) => (
   <Card className="mb-4" data-testid="e2ev-interactive-section">
-    <CardHeader className="block space-y-0 border-b border-border px-4 py-2 fw-bold">🔐 {t('tech.e2eInteractiveTitle')}</CardHeader>
+    <CardHeader className="block space-y-0 border-b border-border px-4 py-2 font-bold">
+      🔐 {t('tech.e2eInteractiveTitle')}
+    </CardHeader>
     <CardBody>
       <p style={{ fontSize: '0.85rem' }}>{t('tech.e2eInteractiveDesc')}</p>
       <E2EVDemo candidates={['Alice', 'Bob', 'Carol']} seed={42} />
@@ -467,16 +567,46 @@ const E2EVInteractiveSection: React.FC<{ t: (k: string) => string }> = ({ t }) =
 // ── Section pays (country comparison) ────────────────────────────────────────
 
 const COUNTRY_DATA = [
-  { flag: '🇪🇪', country: 'Estonie',     tech: 'Carte ID + PKI',  secret: '✓', verif: 'Partiel', used: '51% en 2023' },
-  { flag: '🇫🇮', country: 'Finlande',    tech: 'ElectionGuard E2E-V', secret: '✓', verif: '✓', used: 'Tests 2023' },
-  { flag: '🇺🇸', country: 'USA (comtés)', tech: 'ElectionGuard E2E-V', secret: '✓', verif: '✓', used: 'Déploiements réels' },
-  { flag: '⛓',  country: 'DAO (Ethereum)', tech: 'On-chain',    secret: '✗', verif: '✓', used: 'Compound, Uniswap' },
-  { flag: '🇫🇷', country: 'France',      tech: 'Papier',        secret: '✓', verif: '✗', used: '100%' },
+  {
+    flag: '🇪🇪',
+    country: 'Estonie',
+    tech: 'Carte ID + PKI',
+    secret: '✓',
+    verif: 'Partiel',
+    used: '51% en 2023',
+  },
+  {
+    flag: '🇫🇮',
+    country: 'Finlande',
+    tech: 'ElectionGuard E2E-V',
+    secret: '✓',
+    verif: '✓',
+    used: 'Tests 2023',
+  },
+  {
+    flag: '🇺🇸',
+    country: 'USA (comtés)',
+    tech: 'ElectionGuard E2E-V',
+    secret: '✓',
+    verif: '✓',
+    used: 'Déploiements réels',
+  },
+  {
+    flag: '⛓',
+    country: 'DAO (Ethereum)',
+    tech: 'On-chain',
+    secret: '✗',
+    verif: '✓',
+    used: 'Compound, Uniswap',
+  },
+  { flag: '🇫🇷', country: 'France', tech: 'Papier', secret: '✓', verif: '✗', used: '100%' },
 ];
 
 const CountryComparisonSection: React.FC<{ t: (k: string) => string }> = ({ t }) => (
   <Card className="mb-4" data-testid="country-comparison-section">
-    <CardHeader className="block space-y-0 border-b border-border px-4 py-2 fw-bold">🌍 {t('tech.countryTableTitle')}</CardHeader>
+    <CardHeader className="block space-y-0 border-b border-border px-4 py-2 font-bold">
+      🌍 {t('tech.countryTableTitle')}
+    </CardHeader>
     <CardBody className="p-0">
       <div className="table-responsive">
         <table className="table table-hover table-sm mb-0" style={{ fontSize: '0.82rem' }}>
@@ -492,11 +622,24 @@ const CountryComparisonSection: React.FC<{ t: (k: string) => string }> = ({ t })
           <tbody>
             {COUNTRY_DATA.map((row) => (
               <tr key={row.country}>
-                <td><strong>{row.flag} {row.country}</strong></td>
-                <td><code style={{ fontSize: '0.75rem' }}>{row.tech}</code></td>
+                <td>
+                  <strong>
+                    {row.flag} {row.country}
+                  </strong>
+                </td>
+                <td>
+                  <code style={{ fontSize: '0.75rem' }}>{row.tech}</code>
+                </td>
                 <td style={{ color: row.secret === '✓' ? '#198754' : '#dc3545' }}>{row.secret}</td>
-                <td style={{ color: row.verif === '✓' ? '#198754' : row.verif === '✗' ? '#dc3545' : '#fd7e14' }}>{row.verif}</td>
-                <td className="text-muted">{row.used}</td>
+                <td
+                  style={{
+                    color:
+                      row.verif === '✓' ? '#198754' : row.verif === '✗' ? '#dc3545' : '#fd7e14',
+                  }}
+                >
+                  {row.verif}
+                </td>
+                <td className="text-muted-foreground">{row.used}</td>
               </tr>
             ))}
           </tbody>
@@ -510,11 +653,13 @@ const CountryComparisonSection: React.FC<{ t: (k: string) => string }> = ({ t })
 
 const WhyFranceSection: React.FC<{ t: (k: string) => string }> = ({ t }) => (
   <Card className="mb-4" data-testid="why-france-section">
-    <CardHeader className="block space-y-0 border-b border-border px-4 py-2 fw-bold">🇫🇷 {t('tech.whyFranceTitle')}</CardHeader>
+    <CardHeader className="block space-y-0 border-b border-border px-4 py-2 font-bold">
+      🇫🇷 {t('tech.whyFranceTitle')}
+    </CardHeader>
     <CardBody>
       <Row className="g-3">
         <Col xs={12} md={6}>
-          <div className="fw-semibold text-success mb-2" style={{ fontSize: '0.85rem' }}>
+          <div className="font-semibold text-[#198754] mb-2" style={{ fontSize: '0.85rem' }}>
             ✓ Ce qui existe déjà
           </div>
           <ul style={{ fontSize: '0.82rem', paddingLeft: 18 }}>
@@ -525,7 +670,7 @@ const WhyFranceSection: React.FC<{ t: (k: string) => string }> = ({ t }) => (
           </ul>
         </Col>
         <Col xs={12} md={6}>
-          <div className="fw-semibold text-danger mb-2" style={{ fontSize: '0.85rem' }}>
+          <div className="font-semibold text-[#dc3545] mb-2" style={{ fontSize: '0.85rem' }}>
             ✗ Ce qui manque encore
           </div>
           <ul style={{ fontSize: '0.82rem', paddingLeft: 18 }}>
@@ -537,9 +682,9 @@ const WhyFranceSection: React.FC<{ t: (k: string) => string }> = ({ t }) => (
         </Col>
       </Row>
       <Alert variant="info" className="mt-3 mb-0" style={{ fontSize: '0.8rem' }}>
-        <strong>En résumé :</strong> L'Estonie a 1.4M d'habitants et 20 ans d'expérience.
-        La France a 48M de votants et zéro déploiement réel à grande échelle.
-        La technologie existe — c'est la confiance institutionnelle et l'échelle qui manquent.
+        <strong>En résumé :</strong> L'Estonie a 1.4M d'habitants et 20 ans d'expérience. La France
+        a 48M de votants et zéro déploiement réel à grande échelle. La technologie existe — c'est la
+        confiance institutionnelle et l'échelle qui manquent.
       </Alert>
     </CardBody>
   </Card>
@@ -551,26 +696,29 @@ const TechDemocracyPage: React.FC = () => {
   const { t } = useTranslation();
   useMetaTags({
     title: 'Solutions technologiques — Vote Lab',
-    description: 'E2E-V, Pol.is, blockchain governance : comment la technologie peut améliorer les systèmes électoraux.',
+    description:
+      'E2E-V, Pol.is, blockchain governance : comment la technologie peut améliorer les systèmes électoraux.',
   });
 
   return (
     <Container className="py-4" style={{ maxWidth: 960 }}>
-      <h2 className="fw-bold mb-1">💻 {t('tech.pageTitle')}</h2>
-      <p className="text-muted mb-4" style={{ fontSize: '0.9rem' }}>
+      <h2 className="font-bold mb-1">💻 {t('tech.pageTitle')}</h2>
+      <p className="text-muted-foreground mb-4" style={{ fontSize: '0.9rem' }}>
         {t('tech.pageSubtitle')}
       </p>
 
-      <WhyHardSection           t={t} />
-      <ThreeApproachesSection   t={t} />
-      <E2EVInteractiveSection   t={t} />
+      <WhyHardSection t={t} />
+      <ThreeApproachesSection t={t} />
+      <E2EVInteractiveSection t={t} />
       <CountryComparisonSection t={t} />
-      <WhyFranceSection         t={t} />
-      <BlockchainTable          t={t} />
+      <WhyFranceSection t={t} />
+      <BlockchainTable t={t} />
 
       {/* ── Pol.is avec évaluation des candidats ── */}
       <Card className="mb-4" data-testid="polis-panel-section">
-        <CardHeader className="block space-y-0 border-b border-border px-4 py-2 fw-bold">🌐 {t('tech.polisTitle')}</CardHeader>
+        <CardHeader className="block space-y-0 border-b border-border px-4 py-2 font-bold">
+          🌐 {t('tech.polisTitle')}
+        </CardHeader>
         <CardBody>
           <p style={{ fontSize: '0.85rem' }}>{t('tech.polisDesc')}</p>
           <ElectionProvider>

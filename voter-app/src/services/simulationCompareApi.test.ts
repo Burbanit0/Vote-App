@@ -17,8 +17,20 @@ describe('simulationCompareApi', () => {
       const response = {
         condorcet_winner: 'Alice',
         methods: {
-          plurality: { winner: 'Alice', bayesian_regret: 0.1, condorcet_consistent: true, majority_satisfaction: 0.8, strategic_vulnerability: 0.2 },
-          irv: { winner: 'Alice', bayesian_regret: 0.05, condorcet_consistent: true, majority_satisfaction: 0.9, strategic_vulnerability: 0.1 },
+          plurality: {
+            winner: 'Alice',
+            bayesian_regret: 0.1,
+            condorcet_consistent: true,
+            majority_satisfaction: 0.8,
+            strategic_vulnerability: 0.2,
+          },
+          irv: {
+            winner: 'Alice',
+            bayesian_regret: 0.05,
+            condorcet_consistent: true,
+            majority_satisfaction: 0.9,
+            strategic_vulnerability: 0.1,
+          },
         },
       };
       apiPost.mockResolvedValueOnce(response);

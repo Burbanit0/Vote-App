@@ -10,7 +10,9 @@ vi.mock('../../../api/client', () => ({
   apiClient: { GET: vi.fn(), POST: vi.fn(), PUT: vi.fn(), DELETE: vi.fn(), PATCH: vi.fn() },
   getAccessToken: vi.fn(() => null),
 }));
-const { apiClient } = (await import('../../../api/client')) as unknown as { apiClient: { POST: jest.Mock } };
+const { apiClient } = (await import('../../../api/client')) as unknown as {
+  apiClient: { POST: jest.Mock };
+};
 
 // ── Fixture ───────────────────────────────────────────────────────────────────
 
@@ -19,29 +21,36 @@ const NAMES = ['Alice', 'Bob', 'Carol', 'Dave'];
 function makeData() {
   const makeMethod = (seats: Record<string, number>, distortion: number) => ({
     seats,
-    elected:  Object.entries(seats).filter(([, s]) => s > 0).map(([c]) => c),
+    elected: Object.entries(seats)
+      .filter(([, s]) => s > 0)
+      .map(([c]) => c),
     distortion,
-    seat_vs_votes: Object.fromEntries(NAMES.map(n => [n, {
-      seats: seats[n] ?? 0,
-      seat_pct: (seats[n] ?? 0) / 4,
-      vote_pct: 0.25,
-      delta: (seats[n] ?? 0) / 4 - 0.25,
-    }])),
+    seat_vs_votes: Object.fromEntries(
+      NAMES.map((n) => [
+        n,
+        {
+          seats: seats[n] ?? 0,
+          seat_pct: (seats[n] ?? 0) / 4,
+          vote_pct: 0.25,
+          delta: (seats[n] ?? 0) / 4 - 0.25,
+        },
+      ])
+    ),
   });
   return {
     data: {
-      candidates:             NAMES,
-      num_seats:              4,
-      vote_shares:            { Alice: 0.40, Bob: 0.30, Carol: 0.20, Dave: 0.10 },
+      candidates: NAMES,
+      num_seats: 4,
+      vote_shares: { Alice: 0.4, Bob: 0.3, Carol: 0.2, Dave: 0.1 },
       proportional_reference: { Alice: 2, Bob: 1, Carol: 1, Dave: 0 },
-      best_method:  'spav',
+      best_method: 'spav',
       worst_method: 'fptp',
       methods: {
-        stv:      makeMethod({ Alice: 2, Bob: 1, Carol: 1, Dave: 0 }, 0.04),
-        dhondt:   makeMethod({ Alice: 2, Bob: 2, Carol: 0, Dave: 0 }, 0.10),
-        spav:     makeMethod({ Alice: 2, Bob: 1, Carol: 1, Dave: 0 }, 0.04),
+        stv: makeMethod({ Alice: 2, Bob: 1, Carol: 1, Dave: 0 }, 0.04),
+        dhondt: makeMethod({ Alice: 2, Bob: 2, Carol: 0, Dave: 0 }, 0.1),
+        spav: makeMethod({ Alice: 2, Bob: 1, Carol: 1, Dave: 0 }, 0.04),
         phragmen: makeMethod({ Alice: 2, Bob: 1, Carol: 1, Dave: 0 }, 0.04),
-        fptp:     makeMethod({ Alice: 4, Bob: 0, Carol: 0, Dave: 0 }, 0.30),
+        fptp: makeMethod({ Alice: 4, Bob: 0, Carol: 0, Dave: 0 }, 0.3),
       },
     },
     error: undefined,
@@ -66,7 +75,9 @@ beforeEach(() => {
   vi.useFakeTimers();
 });
 
-afterEach(() => { vi.useRealTimers(); });
+afterEach(() => {
+  vi.useRealTimers();
+});
 
 // ── Tests ─────────────────────────────────────────────────────────────────────
 
@@ -88,7 +99,7 @@ describe('MultiwinnerCompare', () => {
     await waitFor(() => expect(apiClient.POST).toHaveBeenCalledTimes(1));
     expect(apiClient.POST).toHaveBeenCalledWith(
       expect.stringMatching(/\/api\/(v2\/)?election\/multiwinner_compare/),
-      expect.any(Object),
+      expect.any(Object)
     );
     vi.runAllTimers();
   });

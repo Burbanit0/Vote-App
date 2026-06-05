@@ -6,8 +6,15 @@ import { Card, CardBody, CardHeader } from '@/components/ui/card';
 import { Col, Row } from '@/components/ui/grid';
 import { Spinner } from '@/components/ui/spinner';
 import {
-  Bar, BarChart, CartesianGrid, Cell, LabelList,
-  ResponsiveContainer, Tooltip, XAxis, YAxis,
+  Bar,
+  BarChart,
+  CartesianGrid,
+  Cell,
+  LabelList,
+  ResponsiveContainer,
+  Tooltip,
+  XAxis,
+  YAxis,
 } from 'recharts';
 import { useTranslation } from 'react-i18next';
 import { useElection } from '../../stores/useElectionStore';
@@ -38,23 +45,23 @@ function agreementTextColor(rate: number): string {
 // ── Matrix cell ───────────────────────────────────────────────────────────────
 
 const MatrixCell: React.FC<{
-  combo:    CombinedEffectsCombination | undefined;
+  combo: CombinedEffectsCombination | undefined;
   baseWinner: string | null;
-  t:        (k: string, opts?: Record<string, unknown>) => string;
+  t: (k: string, opts?: Record<string, unknown>) => string;
 }> = ({ combo, baseWinner, t }) => {
   if (!combo) return <td style={{ background: '#f8f9fa' }} />;
 
   const agreement = combo.inter_method_agreement;
-  const changed   = combo.winner_differs_from_base;
+  const changed = combo.winner_differs_from_base;
 
   return (
     <td
       style={{
-        background:  agreementColor(agreement),
-        border:      '1px solid var(--bs-border-color)',
-        padding:     '6px 8px',
-        textAlign:   'center',
-        minWidth:    90,
+        background: agreementColor(agreement),
+        border: '1px solid var(--bs-border-color)',
+        padding: '6px 8px',
+        textAlign: 'center',
+        minWidth: 90,
       }}
     >
       <div style={{ fontWeight: 700, fontSize: '0.85rem', color: changed ? '#B71C1C' : undefined }}>
@@ -62,7 +69,9 @@ const MatrixCell: React.FC<{
         {changed && ' ⚠'}
       </div>
       {combo.condorcet_winner === combo.plurality_winner && combo.condorcet_winner && (
-        <Badge variant="success" style={{ fontSize: '0.6rem' }}>✓ C</Badge>
+        <Badge variant="success" style={{ fontSize: '0.6rem' }}>
+          ✓ C
+        </Badge>
       )}
       <div style={{ fontSize: '0.72rem', color: agreementTextColor(agreement) }}>
         {Math.round(agreement * 100)}%
@@ -74,8 +83,8 @@ const MatrixCell: React.FC<{
 // ── A) 2×2×2 matrix ──────────────────────────────────────────────────────────
 
 const FactorialMatrix: React.FC<{
-  result:    CombinedEffectsResult;
-  t:         (k: string, opts?: Record<string, unknown>) => string;
+  result: CombinedEffectsResult;
+  t: (k: string, opts?: Record<string, unknown>) => string;
 }> = ({ result, t }) => {
   const { combinations, base_winner } = result;
 
@@ -90,17 +99,48 @@ const FactorialMatrix: React.FC<{
         <thead>
           <tr>
             <th style={{ padding: '6px 8px', background: '#f8f9fa' }} />
-            <th colSpan={2} style={{ padding: '6px 8px', textAlign: 'center', background: '#f8f9fa', border: '1px solid var(--bs-border-color)' }}>
+            <th
+              colSpan={2}
+              style={{
+                padding: '6px 8px',
+                textAlign: 'center',
+                background: '#f8f9fa',
+                border: '1px solid var(--bs-border-color)',
+              }}
+            >
               📅 {t('combined.campaignOff')}
             </th>
-            <th colSpan={2} style={{ padding: '6px 8px', textAlign: 'center', background: '#f8f9fa', border: '1px solid var(--bs-border-color)' }}>
+            <th
+              colSpan={2}
+              style={{
+                padding: '6px 8px',
+                textAlign: 'center',
+                background: '#f8f9fa',
+                border: '1px solid var(--bs-border-color)',
+              }}
+            >
               📅 {t('combined.campaignOn')}
             </th>
           </tr>
           <tr>
-            <th style={{ padding: '4px 8px', background: '#f8f9fa', border: '1px solid var(--bs-border-color)' }} />
+            <th
+              style={{
+                padding: '4px 8px',
+                background: '#f8f9fa',
+                border: '1px solid var(--bs-border-color)',
+              }}
+            />
             {[false, true, false, true].map((_, i) => (
-              <th key={i} style={{ padding: '4px 8px', textAlign: 'center', fontSize: '0.72rem', background: '#f8f9fa', border: '1px solid var(--bs-border-color)' }}>
+              <th
+                key={i}
+                style={{
+                  padding: '4px 8px',
+                  textAlign: 'center',
+                  fontSize: '0.72rem',
+                  background: '#f8f9fa',
+                  border: '1px solid var(--bs-border-color)',
+                }}
+              >
                 📡 {i % 2 === 0 ? t('combined.infoOff') : t('combined.infoOn')}
               </th>
             ))}
@@ -109,20 +149,27 @@ const FactorialMatrix: React.FC<{
         <tbody>
           {[false, true].map((blankOn) => (
             <tr key={String(blankOn)}>
-              <th style={{ padding: '6px 8px', background: '#f8f9fa', border: '1px solid var(--bs-border-color)', whiteSpace: 'nowrap' }}>
+              <th
+                style={{
+                  padding: '6px 8px',
+                  background: '#f8f9fa',
+                  border: '1px solid var(--bs-border-color)',
+                  whiteSpace: 'nowrap',
+                }}
+              >
                 □ {blankOn ? t('combined.blankOn') : t('combined.blankOff')}
               </th>
               <MatrixCell combo={find(blankOn, false, false)} baseWinner={base_winner} t={t} />
-              <MatrixCell combo={find(blankOn, false, true)}  baseWinner={base_winner} t={t} />
-              <MatrixCell combo={find(blankOn, true,  false)} baseWinner={base_winner} t={t} />
-              <MatrixCell combo={find(blankOn, true,  true)}  baseWinner={base_winner} t={t} />
+              <MatrixCell combo={find(blankOn, false, true)} baseWinner={base_winner} t={t} />
+              <MatrixCell combo={find(blankOn, true, false)} baseWinner={base_winner} t={t} />
+              <MatrixCell combo={find(blankOn, true, true)} baseWinner={base_winner} t={t} />
             </tr>
           ))}
         </tbody>
       </table>
 
       {/* Legend */}
-      <div className="d-flex gap-3 mt-2 flex-wrap" style={{ fontSize: '0.72rem' }}>
+      <div className="flex gap-3 mt-2 flex-wrap" style={{ fontSize: '0.72rem' }}>
         <span style={{ color: '#007A33' }}>■ ≥ 80% {t('combined.agreement')}</span>
         <span style={{ color: '#C8590A' }}>■ 60–80%</span>
         <span style={{ color: '#B71C1C' }}>■ &lt; 60%</span>
@@ -137,16 +184,20 @@ const FactorialMatrix: React.FC<{
 
 const FactorBars: React.FC<{
   result: CombinedEffectsResult;
-  ct:     ReturnType<typeof useChartTheme>;
-  t:      (k: string, opts?: Record<string, unknown>) => string;
+  ct: ReturnType<typeof useChartTheme>;
+  t: (k: string, opts?: Record<string, unknown>) => string;
 }> = ({ result, ct, t }) => {
   const { factor_deltas, most_disruptive_factor } = result;
 
   const data = [
-    { factor: t('combined.factorBlank'),    delta: factor_deltas.blank             ?? 0, key: 'blank' },
-    { factor: t('combined.factorCampaign'), delta: factor_deltas.campaign          ?? 0, key: 'campaign' },
-    { factor: t('combined.factorInfo'),     delta: factor_deltas.information_model ?? 0, key: 'information_model' },
-  ].sort((a, b) => a.delta - b.delta);  // most disruptive (most negative) first
+    { factor: t('combined.factorBlank'), delta: factor_deltas.blank ?? 0, key: 'blank' },
+    { factor: t('combined.factorCampaign'), delta: factor_deltas.campaign ?? 0, key: 'campaign' },
+    {
+      factor: t('combined.factorInfo'),
+      delta: factor_deltas.information_model ?? 0,
+      key: 'information_model',
+    },
+  ].sort((a, b) => a.delta - b.delta); // most disruptive (most negative) first
 
   return (
     <ResponsiveContainer width="100%" height={160}>
@@ -157,7 +208,12 @@ const FactorBars: React.FC<{
           tick={{ fontSize: 10, fill: ct.tickFill }}
           tickFormatter={(v) => `${v > 0 ? '+' : ''}${v.toFixed(1)}%`}
         />
-        <YAxis type="category" dataKey="factor" tick={{ fontSize: 10, fill: ct.tickFill }} width={80} />
+        <YAxis
+          type="category"
+          dataKey="factor"
+          tick={{ fontSize: 10, fill: ct.tickFill }}
+          width={80}
+        />
         <Tooltip
           contentStyle={ct.tooltipStyle}
           formatter={(v: number) => [
@@ -188,17 +244,17 @@ const FactorBars: React.FC<{
 
 const SynthesisText: React.FC<{
   result: CombinedEffectsResult;
-  t:      (k: string, opts?: Record<string, unknown>) => string;
+  t: (k: string, opts?: Record<string, unknown>) => string;
 }> = ({ result, t }) => {
   const { combinations, most_disruptive_factor, max_disruption_combination, base_winner } = result;
 
-  const nChanged  = combinations.filter((c) => c.winner_differs_from_base).length;
-  const maxCombo  = combinations.find((c) => c.id === max_disruption_combination);
-  const maxAgree  = maxCombo ? Math.round(maxCombo.inter_method_agreement * 100) : 0;
+  const nChanged = combinations.filter((c) => c.winner_differs_from_base).length;
+  const maxCombo = combinations.find((c) => c.id === max_disruption_combination);
+  const maxAgree = maxCombo ? Math.round(maxCombo.inter_method_agreement * 100) : 0;
 
   const factorLabel: Record<string, string> = {
-    blank:             t('combined.factorBlank'),
-    campaign:          t('combined.factorCampaign'),
+    blank: t('combined.factorBlank'),
+    campaign: t('combined.factorCampaign'),
     information_model: t('combined.factorInfo'),
   };
 
@@ -213,14 +269,13 @@ const SynthesisText: React.FC<{
       ) : (
         <span>
           {t('combined.synthIntro', {
-            factor:  factorLabel[most_disruptive_factor] ?? most_disruptive_factor,
+            factor: factorLabel[most_disruptive_factor] ?? most_disruptive_factor,
             changed: nChanged,
-            total:   combinations.length,
-          })}
-          {' '}
+            total: combinations.length,
+          })}{' '}
           {t('combined.synthMax', {
-            combo:   max_disruption_combination,
-            agree:   maxAgree,
+            combo: max_disruption_combination,
+            agree: maxAgree,
           })}
         </span>
       )}
@@ -231,27 +286,29 @@ const SynthesisText: React.FC<{
 // ── Main component ────────────────────────────────────────────────────────────
 
 const CombinedEffectsMatrix: React.FC = () => {
-  const { t }       = useTranslation();
-  const ct          = useChartTheme();
-  const { config }  = useElection();
+  const { t } = useTranslation();
+  const ct = useChartTheme();
+  const { config } = useElection();
 
-  const [result,  setResult]  = useState<CombinedEffectsResult | null>(null);
+  const [result, setResult] = useState<CombinedEffectsResult | null>(null);
   const [loading, setLoading] = useState(false);
-  const [error,   setError]   = useState<string | null>(null);
+  const [error, setError] = useState<string | null>(null);
 
   const run = useCallback(async () => {
     setLoading(true);
     setError(null);
     try {
-      setResult(await fetchCombinedEffects({
-        candidates:        config.candidates,
-        num_voters:        Math.min(config.num_voters, 120),
-        ideology:          config.ideology,
-        seed:              config.seed,
-        blank_vote:        config.blank_vote,
-        information_model: config.information_model,
-        campaign:          config.campaign,
-      }));
+      setResult(
+        await fetchCombinedEffects({
+          candidates: config.candidates,
+          num_voters: Math.min(config.num_voters, 120),
+          ideology: config.ideology,
+          seed: config.seed,
+          blank_vote: config.blank_vote,
+          information_model: config.information_model,
+          campaign: config.campaign,
+        })
+      );
     } catch {
       setError(t('combined.error'));
     } finally {
@@ -262,20 +319,31 @@ const CombinedEffectsMatrix: React.FC = () => {
   return (
     <div>
       {/* Controls */}
-      <div className="d-flex align-items-center gap-3 mb-3 flex-wrap">
+      <div className="flex items-center gap-3 mb-3 flex-wrap">
         <Button variant="primary" size="sm" onClick={run} disabled={loading}>
-          {loading
-            ? <><Spinner size="sm" className="me-2" />{t('combined.computing')}</>
-            : t('combined.compute')}
+          {loading ? (
+            <>
+              <Spinner size="sm" className="me-2" />
+              {t('combined.computing')}
+            </>
+          ) : (
+            t('combined.compute')
+          )}
         </Button>
         <LiveBadge loading={loading && !!result} />
-        <span className="text-muted small">{t('combined.hint')}</span>
+        <span className="text-muted-foreground text-sm">{t('combined.hint')}</span>
       </div>
 
-      {error && <Alert variant="danger" className="py-2">{error}</Alert>}
+      {error && (
+        <Alert variant="danger" className="py-2">
+          {error}
+        </Alert>
+      )}
 
       {!result && !loading && (
-        <Alert variant="info" className="py-2">{t('combined.prompt')}</Alert>
+        <Alert variant="info" className="py-2">
+          {t('combined.prompt')}
+        </Alert>
       )}
 
       {result && (
@@ -285,9 +353,8 @@ const CombinedEffectsMatrix: React.FC = () => {
             <Card>
               <CardHeader className="block space-y-0 border-b border-border px-4 py-2 py-2">
                 <strong style={{ fontSize: '0.85rem' }}>{t('combined.matrixTitle')}</strong>
-                <div className="text-muted" style={{ fontSize: '0.75rem' }}>
-                  {t('combined.matrixDesc')}
-                  {' '}
+                <div className="text-muted-foreground" style={{ fontSize: '0.75rem' }}>
+                  {t('combined.matrixDesc')}{' '}
                   <span style={{ fontWeight: 600 }}>
                     {t('combined.baseWinner', { winner: result.base_winner ?? '?' })}
                   </span>
@@ -301,13 +368,15 @@ const CombinedEffectsMatrix: React.FC = () => {
 
           {/* B) Factor bars + C) Synthesis */}
           <Col xs={12} lg={6}>
-            <Card className="h-100">
+            <Card className="h-full">
               <CardHeader className="block space-y-0 border-b border-border px-4 py-2 py-2">
-                <strong style={{ fontSize: '0.85rem' }} className="d-inline-flex align-items-center gap-1">
+                <strong style={{ fontSize: '0.85rem' }} className="inline-flex items-center gap-1">
                   {t('combined.factorTitle')}
                   <MetricTooltip metric="delta_agreement" placement="bottom" />
                 </strong>
-                <div className="text-muted" style={{ fontSize: '0.75rem' }}>{t('combined.factorDesc')}</div>
+                <div className="text-muted-foreground" style={{ fontSize: '0.75rem' }}>
+                  {t('combined.factorDesc')}
+                </div>
               </CardHeader>
               <CardBody className="p-2">
                 <FactorBars result={result} ct={ct} t={t} />
@@ -316,7 +385,7 @@ const CombinedEffectsMatrix: React.FC = () => {
           </Col>
 
           <Col xs={12} lg={6}>
-            <Card className="h-100">
+            <Card className="h-full">
               <CardHeader className="block space-y-0 border-b border-border px-4 py-2 py-2">
                 <strong style={{ fontSize: '0.85rem' }}>{t('combined.synthesisTitle')}</strong>
               </CardHeader>
@@ -324,7 +393,7 @@ const CombinedEffectsMatrix: React.FC = () => {
                 <SynthesisText result={result} t={t} />
 
                 {/* Most / least disruptive badges */}
-                <div className="d-flex gap-2 mt-3 flex-wrap" style={{ fontSize: '0.75rem' }}>
+                <div className="flex gap-2 mt-3 flex-wrap" style={{ fontSize: '0.75rem' }}>
                   <Badge variant="danger">
                     ⚠ {t('combined.mostDisruptive')}: {result.most_disruptive_factor}
                   </Badge>

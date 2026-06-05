@@ -3,8 +3,14 @@ import { useAuthStore, useAuth, getAuthToken } from './useAuthStore';
 import { User } from '../types';
 
 const mockUser: User = {
-  id: 1, user_id: 1, username: 'testuser', access_token: 'abc123',
-  role: 'User', created_at: '2025-01-01T00:00:00Z', first_name: 'Test', last_name: 'User',
+  id: 1,
+  user_id: 1,
+  username: 'testuser',
+  access_token: 'abc123',
+  role: 'User',
+  created_at: '2025-01-01T00:00:00Z',
+  first_name: 'Test',
+  last_name: 'User',
 };
 
 const Consumer = () => {
@@ -12,8 +18,12 @@ const Consumer = () => {
   return (
     <div>
       <span data-testid="user">{user ? user.username : 'null'}</span>
-      <button data-testid="login" onClick={() => login(mockUser)}>login</button>
-      <button data-testid="logout" onClick={logout}>logout</button>
+      <button data-testid="login" onClick={() => login(mockUser)}>
+        login
+      </button>
+      <button data-testid="logout" onClick={logout}>
+        logout
+      </button>
     </div>
   );
 };

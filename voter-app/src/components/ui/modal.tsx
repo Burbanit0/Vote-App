@@ -36,7 +36,12 @@ const ModalBase: React.FC<ModalProps> = ({
   animation,
   ...rest
 }) => (
-  <DialogPrimitive.Root open={!!show} onOpenChange={(o) => { if (!o) onHide?.(); }}>
+  <DialogPrimitive.Root
+    open={!!show}
+    onOpenChange={(o) => {
+      if (!o) onHide?.();
+    }}
+  >
     <DialogPrimitive.Portal>
       <DialogPrimitive.Overlay className="fixed inset-0 z-[1050] bg-black/50" />
       <DialogPrimitive.Content
@@ -45,7 +50,9 @@ const ModalBase: React.FC<ModalProps> = ({
           SIZE[size ?? ''] ?? 'max-w-lg',
           className
         )}
-        onInteractOutside={(e) => { if (backdrop === 'static') e.preventDefault(); }}
+        onInteractOutside={(e) => {
+          if (backdrop === 'static') e.preventDefault();
+        }}
         aria-describedby={undefined}
         {...rest}
       >
@@ -96,7 +103,10 @@ const Body: React.FC<React.HTMLAttributes<HTMLDivElement>> = ({ className, ...pr
 
 const Footer: React.FC<React.HTMLAttributes<HTMLDivElement>> = ({ className, ...props }) => (
   <div
-    className={cn('flex flex-wrap items-center justify-end gap-2 border-t border-border px-4 py-3', className)}
+    className={cn(
+      'flex flex-wrap items-center justify-end gap-2 border-t border-border px-4 py-3',
+      className
+    )}
     {...props}
   />
 );

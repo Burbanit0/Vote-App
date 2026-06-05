@@ -14,8 +14,12 @@ vi.mock('recharts', () => ({
   YAxis: () => <div />,
 }));
 
-vi.mock('../../shared/ResponsiveTable', () => ({ default: ({ children, className }: any) => <div className={className}>{children}</div> }));
-vi.mock('../../shared/SkeletonCard', () => ({ default: ({ height }: any) => <div style={{ height }} /> }));
+vi.mock('../../shared/ResponsiveTable', () => ({
+  default: ({ children, className }: any) => <div className={className}>{children}</div>,
+}));
+vi.mock('../../shared/SkeletonCard', () => ({
+  default: ({ height }: any) => <div style={{ height }} />,
+}));
 vi.mock('../../../hooks/useChartTheme', () => ({
   useChartTheme: () => ({
     isDark: false,
@@ -29,10 +33,21 @@ vi.mock('../../../services/simulationCompareApi', () => ({
 }));
 vi.mock('../../../hooks/useMonteCarloStream', () => ({
   useMonteCarloStream: () => ({
-    progress: 0, iteration: 0, total: 0, condorcetRate: 0,
-    partialResults: {}, isRunning: false, complete: null, error: null,
-    regretHistory: {}, agreementHistory: [], ciHalfLatest: {}, iterationCheckpoints: [],
-    start: vi.fn(), stop: vi.fn(), reset: vi.fn(),
+    progress: 0,
+    iteration: 0,
+    total: 0,
+    condorcetRate: 0,
+    partialResults: {},
+    isRunning: false,
+    complete: null,
+    error: null,
+    regretHistory: {},
+    agreementHistory: [],
+    ciHalfLatest: {},
+    iterationCheckpoints: [],
+    start: vi.fn(),
+    stop: vi.fn(),
+    reset: vi.fn(),
   }),
 }));
 vi.mock('../MonteCarloLiveChart', () => ({ default: () => null }));
@@ -46,7 +61,7 @@ describe('MonteCarloResults', () => {
   });
 
   it('renders results when getMonteCarlo resolves (standard mode)', async () => {
-    const { getMonteCarlo } = (await import('../../../services/simulationCompareApi'));
+    const { getMonteCarlo } = await import('../../../services/simulationCompareApi');
     (getMonteCarlo as jest.Mock).mockResolvedValue({
       num_runs: 50,
       num_voters_per_run: 200,
@@ -71,7 +86,9 @@ describe('MonteCarloResults', () => {
     render(<MonteCarloResults baseParams={{}} />);
 
     // Disable streaming to use the HTTP path
-    const streamingToggle = screen.getByRole('checkbox', { name: /Real-time streaming|Streaming temps réel/i });
+    const streamingToggle = screen.getByRole('checkbox', {
+      name: /Real-time streaming|Streaming temps réel/i,
+    });
     fireEvent.click(streamingToggle);
 
     fireEvent.click(screen.getByRole('button', { name: /Run Monte Carlo/ }));

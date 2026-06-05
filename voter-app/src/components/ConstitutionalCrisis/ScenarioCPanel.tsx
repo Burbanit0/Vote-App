@@ -6,7 +6,16 @@ import { Range } from '@/components/ui/form-controls';
 import { Col, Row } from '@/components/ui/grid';
 import { Spinner } from '@/components/ui/spinner';
 import { Table } from '@/components/ui/table';
-import { Bar, BarChart, CartesianGrid, Legend, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts';
+import {
+  Bar,
+  BarChart,
+  CartesianGrid,
+  Legend,
+  ResponsiveContainer,
+  Tooltip,
+  XAxis,
+  YAxis,
+} from 'recharts';
 import { Trans, useTranslation } from 'react-i18next';
 import { ConstitutionalResult } from '../../services/simulationCompareApi';
 
@@ -47,9 +56,7 @@ const ScenarioCPanel: React.FC<Props> = ({ result, loading, onRun }) => {
 
   return (
     <div>
-      <p className="text-muted small mb-3">
-        {t('crisis.scenarioCDesc')}
-      </p>
+      <p className="text-muted-foreground text-sm mb-3">{t('crisis.scenarioCDesc')}</p>
 
       <Row className="g-3 mb-4">
         <Col md={5}>
@@ -58,9 +65,16 @@ const ScenarioCPanel: React.FC<Props> = ({ result, loading, onRun }) => {
               <label className="mb-1 inline-block">
                 <Trans i18nKey="crisis.scenarioCSeats" values={{ n: numSeats }} />
               </label>
-              <Range min={10} max={500} step={10} value={numSeats} onChange={(e) => setNumSeats(Number(e.target.value))} />
-              <div className="d-flex justify-content-between">
-                <small className="text-muted">10</small><small className="text-muted">500</small>
+              <Range
+                min={10}
+                max={500}
+                step={10}
+                value={numSeats}
+                onChange={(e) => setNumSeats(Number(e.target.value))}
+              />
+              <div className="flex justify-between">
+                <small className="text-muted-foreground">10</small>
+                <small className="text-muted-foreground">500</small>
               </div>
             </CardBody>
           </Card>
@@ -68,12 +82,24 @@ const ScenarioCPanel: React.FC<Props> = ({ result, loading, onRun }) => {
         <Col md={7}>
           <Card>
             <CardBody>
-              <small className="fw-semibold text-muted d-block mb-2">{t('crisis.scenarioCVoteDist')}</small>
-              <div className="d-flex flex-wrap gap-2">
+              <small className="font-semibold text-muted-foreground block mb-2">
+                {t('crisis.scenarioCVoteDist')}
+              </small>
+              <div className="flex flex-wrap gap-2">
                 {parties.map((p) => (
-                  <span key={p} className="d-flex align-items-center gap-1">
-                    <span style={{ width: 12, height: 12, borderRadius: 2, backgroundColor: colorMap[p], display: 'inline-block' }} />
-                    <small>{p} — {Math.round(partyVotes[p] / totalVotes * 100)}%</small>
+                  <span key={p} className="flex items-center gap-1">
+                    <span
+                      style={{
+                        width: 12,
+                        height: 12,
+                        borderRadius: 2,
+                        backgroundColor: colorMap[p],
+                        display: 'inline-block',
+                      }}
+                    />
+                    <small>
+                      {p} — {Math.round((partyVotes[p] / totalVotes) * 100)}%
+                    </small>
                   </span>
                 ))}
               </div>
@@ -84,7 +110,14 @@ const ScenarioCPanel: React.FC<Props> = ({ result, loading, onRun }) => {
 
       <div className="mb-4">
         <Button variant="success" onClick={() => onRun(numSeats)} disabled={loading}>
-          {loading ? <><Spinner size="sm" className="me-2" />{t('crisis.simulating')}</> : t('crisis.runAssembly')}
+          {loading ? (
+            <>
+              <Spinner size="sm" className="me-2" />
+              {t('crisis.simulating')}
+            </>
+          ) : (
+            t('crisis.runAssembly')
+          )}
         </Button>
       </div>
 
@@ -92,7 +125,9 @@ const ScenarioCPanel: React.FC<Props> = ({ result, loading, onRun }) => {
         <>
           {/* Stacked bar chart */}
           <Card className="mb-4">
-            <CardHeader className="block space-y-0 border-b border-border px-4 py-2"><strong>{t('crisis.seatDistribution')}</strong></CardHeader>
+            <CardHeader className="block space-y-0 border-b border-border px-4 py-2">
+              <strong>{t('crisis.seatDistribution')}</strong>
+            </CardHeader>
             <CardBody>
               <ResponsiveContainer width="100%" height={250}>
                 <BarChart data={chartData} layout="vertical" margin={{ left: 80, right: 30 }}>
@@ -116,7 +151,16 @@ const ScenarioCPanel: React.FC<Props> = ({ result, loading, onRun }) => {
                 <th>{t('common.method')}</th>
                 {parties.map((p) => (
                   <th key={p} className="text-center">
-                    <span style={{ display: 'inline-block', width: 10, height: 10, backgroundColor: colorMap[p], borderRadius: 2, marginRight: 4 }} />
+                    <span
+                      style={{
+                        display: 'inline-block',
+                        width: 10,
+                        height: 10,
+                        backgroundColor: colorMap[p],
+                        borderRadius: 2,
+                        marginRight: 4,
+                      }}
+                    />
                     {p}
                   </th>
                 ))}
@@ -131,42 +175,62 @@ const ScenarioCPanel: React.FC<Props> = ({ result, loading, onRun }) => {
                 const isBest = multi.comparison?.most_proportional === key;
                 return (
                   <tr key={key} style={isBest ? { backgroundColor: '#e8f4e8' } : undefined}>
-                    <td className="fw-semibold ps-2">{label}</td>
+                    <td className="font-semibold ps-2">{label}</td>
                     {parties.map((p) => (
-                      <td key={p} className="text-center">{seats[p] ?? 0}</td>
+                      <td key={p} className="text-center">
+                        {seats[p] ?? 0}
+                      </td>
                     ))}
                     <td className="text-center">
-                      {gallagher != null ? <Badge variant={gallagher < 0.05 ? 'success' : gallagher < 0.1 ? 'warning' : 'danger'}>{gallagher.toFixed(3)}</Badge> : '—'}
+                      {gallagher != null ? (
+                        <Badge
+                          variant={
+                            gallagher < 0.05 ? 'success' : gallagher < 0.1 ? 'warning' : 'danger'
+                          }
+                        >
+                          {gallagher.toFixed(3)}
+                        </Badge>
+                      ) : (
+                        '—'
+                      )}
                     </td>
-                    <td className="text-center">{isBest ? <span style={{ color: '#198754' }}>✓</span> : ''}</td>
+                    <td className="text-center">
+                      {isBest ? <span style={{ color: '#198754' }}>✓</span> : ''}
+                    </td>
                   </tr>
                 );
               })}
               {/* Uninominal comparison */}
               {result?.uninominal_winner && (
                 <tr style={{ backgroundColor: '#fff8e1' }}>
-                  <td className="fw-semibold ps-2 text-warning-emphasis">{t('methods.plurality.label')}</td>
+                  <td className="font-semibold ps-2 text-warning-emphasis">
+                    {t('methods.plurality.label')}
+                  </td>
                   {parties.map((p) => (
-                    <td key={p} className="text-center text-muted">
+                    <td key={p} className="text-center text-muted-foreground">
                       {p === result.uninominal_winner ? numSeats : 0}
                     </td>
                   ))}
                   <td className="text-center">
                     <Badge variant="danger">{t('crisis.veryHigh')}</Badge>
                   </td>
-                  <td className="text-center"><span className="text-danger">{t('crisis.spoilerEffect')}</span></td>
+                  <td className="text-center">
+                    <span className="text-[#dc3545]">{t('crisis.spoilerEffect')}</span>
+                  </td>
                 </tr>
               )}
             </tbody>
           </Table>
-          <small className="text-muted d-block mb-3">
+          <small className="text-muted-foreground block mb-3">
             {t('crisis.gallagherFootnote')}
           </small>
 
           <Card className="border-0" style={{ backgroundColor: '#f8f9fa' }}>
             <CardBody>
-              <small className="fw-semibold">{t('crisis.analysis')}</small>
-              <p className="mb-0 mt-1 text-muted" style={{ fontSize: '0.85rem' }}>{result?.conclusion}</p>
+              <small className="font-semibold">{t('crisis.analysis')}</small>
+              <p className="mb-0 mt-1 text-muted-foreground" style={{ fontSize: '0.85rem' }}>
+                {result?.conclusion}
+              </p>
             </CardBody>
           </Card>
         </>

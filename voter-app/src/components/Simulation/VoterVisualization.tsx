@@ -303,11 +303,9 @@ const VoterVisualization: React.FC = () => {
 
       <Card className="mb-4">
         <CardBody>
-          <Row className="align-items-center">
+          <Row className="items-center">
             <Col sm="2">
-              <label className="mb-1 inline-block">
-                {t('simulation.voterViz.numVoters')}
-              </label>
+              <label className="mb-1 inline-block">{t('simulation.voterViz.numVoters')}</label>
             </Col>
             <Col sm="4">
               <Control
@@ -769,7 +767,7 @@ const VoterVisualization: React.FC = () => {
                                   {item ? (
                                     <>
                                       {item.count}{' '}
-                                      <small className="text-muted">
+                                      <small className="text-muted-foreground">
                                         ({formatPercentage(item.count, voters.length)})
                                       </small>
                                     </>
@@ -782,7 +780,7 @@ const VoterVisualization: React.FC = () => {
                           )}
                           <td>
                             {total}{' '}
-                            <small className="text-muted">
+                            <small className="text-muted-foreground">
                               ({formatPercentage(total, voters.length)})
                             </small>
                           </td>

@@ -10,19 +10,23 @@ vi.mock('../../../api/client', () => ({
   apiClient: { GET: vi.fn(), POST: vi.fn(), PUT: vi.fn(), DELETE: vi.fn(), PATCH: vi.fn() },
   getAccessToken: vi.fn(() => null),
 }));
-const { apiClient } = (await import('../../../api/client')) as unknown as { apiClient: { POST: jest.Mock } };
+const { apiClient } = (await import('../../../api/client')) as unknown as {
+  apiClient: { POST: jest.Mock };
+};
 
 // Mock Recharts to avoid SVG measurement issues in jsdom
 vi.mock('recharts', () => {
   const React = require('react');
   return {
-    BarChart:          ({ children }: any) => <div data-testid="bar-chart">{children}</div>,
-    Bar:               ({ children }: any) => <div>{children}</div>,
-    XAxis:             () => null,
-    YAxis:             () => null,
-    Tooltip:           () => null,
-    ResponsiveContainer: ({ children }: any) => <div style={{ width: 400, height: 300 }}>{children}</div>,
-    Cell:              () => null,
+    BarChart: ({ children }: any) => <div data-testid="bar-chart">{children}</div>,
+    Bar: ({ children }: any) => <div>{children}</div>,
+    XAxis: () => null,
+    YAxis: () => null,
+    Tooltip: () => null,
+    ResponsiveContainer: ({ children }: any) => (
+      <div style={{ width: 400, height: 300 }}>{children}</div>
+    ),
+    Cell: () => null,
   };
 });
 
@@ -30,41 +34,41 @@ const makeData = (winnerChanged = false) => ({
   data: {
     primaries: [
       {
-        party:               'Left',
-        winner:              'Marc',
-        runner_up:           'Sophie',
-        distortion:          0.25,
-        winner_pos:          -0.75,
-        party_center:        -0.5,
-        vote_shares:         { Marc: 0.6, Sophie: 0.4 },
-        num_primary_voters:  50,
+        party: 'Left',
+        winner: 'Marc',
+        runner_up: 'Sophie',
+        distortion: 0.25,
+        winner_pos: -0.75,
+        party_center: -0.5,
+        vote_shares: { Marc: 0.6, Sophie: 0.4 },
+        num_primary_voters: 50,
       },
       {
-        party:               'Right',
-        winner:              'Paul',
-        runner_up:           'Elise',
-        distortion:          0.25,
-        winner_pos:          0.75,
-        party_center:        0.5,
-        vote_shares:         { Paul: 0.55, Elise: 0.45 },
-        num_primary_voters:  50,
+        party: 'Right',
+        winner: 'Paul',
+        runner_up: 'Elise',
+        distortion: 0.25,
+        winner_pos: 0.75,
+        party_center: 0.5,
+        vote_shares: { Paul: 0.55, Elise: 0.45 },
+        num_primary_voters: 50,
       },
       {
-        party:               'Centre',
-        winner:              'Anna',
-        runner_up:           'Tom',
-        distortion:          0.0,
-        winner_pos:          0.0,
-        party_center:        0.0,
-        vote_shares:         { Anna: 0.65, Tom: 0.35 },
-        num_primary_voters:  30,
+        party: 'Centre',
+        winner: 'Anna',
+        runner_up: 'Tom',
+        distortion: 0.0,
+        winner_pos: 0.0,
+        party_center: 0.0,
+        vote_shares: { Anna: 0.65, Tom: 0.35 },
+        num_primary_voters: 30,
       },
     ],
-    general_ballot:           ['Marc', 'Paul', 'Anna'],
-    general_winner:           winnerChanged ? 'Marc' : 'Anna',
-    general_runner_up:        winnerChanged ? 'Anna' : 'Marc',
-    general_vote_shares:      { Marc: 0.38, Paul: 0.35, Anna: 0.27 },
-    median_voter_distance:    0.18,
+    general_ballot: ['Marc', 'Paul', 'Anna'],
+    general_winner: winnerChanged ? 'Marc' : 'Anna',
+    general_runner_up: winnerChanged ? 'Anna' : 'Marc',
+    general_vote_shares: { Marc: 0.38, Paul: 0.35, Anna: 0.27 },
+    median_voter_distance: 0.18,
     without_primaries_winner: winnerChanged ? 'Anna' : 'Anna',
   },
   error: undefined,

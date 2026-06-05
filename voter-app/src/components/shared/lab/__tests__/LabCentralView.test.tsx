@@ -5,19 +5,19 @@ import { usePerturbations, useLabStore } from '../../../../stores/useLabStore';
 import type { ElectionResult } from '../../../../services/electionApi';
 
 // Mock the heavy ideology map (it does an axios fetch on mount)
-vi.mock('../../../Simulation/IdeologyMapChart', () => ({ default: () => (
-  <div data-testid="mock-map">map</div>
-) }));
+vi.mock('../../../Simulation/IdeologyMapChart', () => ({
+  default: () => <div data-testid="mock-map">map</div>,
+}));
 
 const COLLAPSED_LS_KEY = 'votelab_central_collapsed';
-const FOCUS_LS_KEY     = 'votelab_central_focus_mode';
+const FOCUS_LS_KEY = 'votelab_central_focus_mode';
 
 function makeResult(): ElectionResult {
   return {
     config: {
       candidates: [
         { name: 'Alice', x: -0.5, y: 0.2, party: 'Liberal' },
-        { name: 'Bob',   x:  0.5, y: 0.0, party: 'Conservative' },
+        { name: 'Bob', x: 0.5, y: 0.0, party: 'Conservative' },
       ],
       num_voters: 100,
       ideology: 'random',
@@ -25,11 +25,11 @@ function makeResult(): ElectionResult {
     } as any,
     candidates: [
       { name: 'Alice', x: -0.5, y: 0.2, party: 'Liberal' },
-      { name: 'Bob',   x:  0.5, y: 0.0, party: 'Conservative' },
+      { name: 'Bob', x: 0.5, y: 0.0, party: 'Conservative' },
     ] as any,
     methods: {
       plurality: { winner: 'Alice', vote_shares: { Alice: 0.6, Bob: 0.4 } } as any,
-      irv:       { winner: 'Bob',   vote_shares: { Alice: 0.45, Bob: 0.55 } } as any,
+      irv: { winner: 'Bob', vote_shares: { Alice: 0.45, Bob: 0.55 } } as any,
     },
     condorcet_winner: 'Bob',
   } as unknown as ElectionResult;
@@ -63,7 +63,9 @@ describe('LabCentralView', () => {
   it('hides the map when focus mode is enabled', () => {
     render(wrap(<LabCentralView result={makeResult()} loading={false} />));
     expect(screen.getByTestId('mock-map')).toBeInTheDocument();
-    act(() => { fireEvent.click(screen.getByTestId('central-focus-toggle')); });
+    act(() => {
+      fireEvent.click(screen.getByTestId('central-focus-toggle'));
+    });
     expect(screen.queryByTestId('mock-map')).not.toBeInTheDocument();
     // Matrix still visible
     expect(screen.getByTestId('lab-methods-matrix')).toBeInTheDocument();
@@ -71,9 +73,13 @@ describe('LabCentralView', () => {
 
   it('persists focus mode to localStorage', () => {
     render(wrap(<LabCentralView result={makeResult()} loading={false} />));
-    act(() => { fireEvent.click(screen.getByTestId('central-focus-toggle')); });
+    act(() => {
+      fireEvent.click(screen.getByTestId('central-focus-toggle'));
+    });
     expect(localStorage.getItem(FOCUS_LS_KEY)).toBe('1');
-    act(() => { fireEvent.click(screen.getByTestId('central-focus-toggle')); });
+    act(() => {
+      fireEvent.click(screen.getByTestId('central-focus-toggle'));
+    });
     expect(localStorage.getItem(FOCUS_LS_KEY)).toBe('0');
   });
 
@@ -86,13 +92,17 @@ describe('LabCentralView', () => {
   it('collapses the body when collapse toggle clicked', () => {
     render(wrap(<LabCentralView result={makeResult()} loading={false} />));
     expect(screen.getByTestId('central-body')).toBeInTheDocument();
-    act(() => { fireEvent.click(screen.getByTestId('central-collapse-toggle')); });
+    act(() => {
+      fireEvent.click(screen.getByTestId('central-collapse-toggle'));
+    });
     expect(screen.queryByTestId('central-body')).not.toBeInTheDocument();
   });
 
   it('persists collapsed state to localStorage', () => {
     render(wrap(<LabCentralView result={makeResult()} loading={false} />));
-    act(() => { fireEvent.click(screen.getByTestId('central-collapse-toggle')); });
+    act(() => {
+      fireEvent.click(screen.getByTestId('central-collapse-toggle'));
+    });
     expect(localStorage.getItem(COLLAPSED_LS_KEY)).toBe('1');
   });
 
@@ -101,9 +111,9 @@ describe('LabCentralView', () => {
       const { pinPerturbation } = usePerturbations();
       React.useEffect(() => {
         pinPerturbation({
-          type:    'abstention',
-          icon:    '🗳',
-          label:   'Abst 50%',
+          type: 'abstention',
+          icon: '🗳',
+          label: 'Abst 50%',
           summary: 'Bob wins',
           methodsChanged: 1,
           winnersByMethod: { plurality: 'Bob', irv: 'Bob' },
@@ -111,12 +121,14 @@ describe('LabCentralView', () => {
       }, [pinPerturbation]);
       return null;
     };
-    render(wrap(
-      <>
-        <PinHelper />
-        <LabCentralView result={makeResult()} loading={false} />
-      </>
-    ));
+    render(
+      wrap(
+        <>
+          <PinHelper />
+          <LabCentralView result={makeResult()} loading={false} />
+        </>
+      )
+    );
     expect(screen.getByTestId('lab-matrix-table')).toBeInTheDocument();
     expect(screen.getByTestId('matrix-col-abstention')).toBeInTheDocument();
     // Plurality baseline = Alice, perturbed = Bob → "changed" cell present

@@ -44,7 +44,14 @@ const AccordionBase: React.FC<AccordionProps> = ({
   };
   return (
     <AccordionContext.Provider value={{ active, toggle }}>
-      <div className={cn('overflow-hidden rounded-md border border-border', flush && 'rounded-none border-0', className)} {...props}>
+      <div
+        className={cn(
+          'overflow-hidden rounded-md border border-border',
+          flush && 'rounded-none border-0',
+          className
+        )}
+        {...props}
+      >
         {children}
       </div>
     </AccordionContext.Provider>
@@ -81,13 +88,19 @@ const Header: React.FC<React.HTMLAttributes<HTMLElement>> = ({ className, childr
         {...props}
       >
         <span>{children}</span>
-        <ChevronDown className={cn('h-4 w-4 shrink-0 transition-transform', isOpen && 'rotate-180')} />
+        <ChevronDown
+          className={cn('h-4 w-4 shrink-0 transition-transform', isOpen && 'rotate-180')}
+        />
       </button>
     </h2>
   );
 };
 
-const Body: React.FC<React.HTMLAttributes<HTMLDivElement>> = ({ className, children, ...props }) => {
+const Body: React.FC<React.HTMLAttributes<HTMLDivElement>> = ({
+  className,
+  children,
+  ...props
+}) => {
   const { active } = React.useContext(AccordionContext);
   const eventKey = React.useContext(ItemContext);
   const isOpen = active.includes(eventKey);

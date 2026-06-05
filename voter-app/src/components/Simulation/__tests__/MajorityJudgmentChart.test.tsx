@@ -13,8 +13,8 @@ describe('gradeIndex', () => {
   const labels = ['À Rejeter', 'Passable', 'Assez Bien', 'Bien', 'Très Bien', 'Excellent'];
 
   it('returns 0 for first label', () => expect(gradeIndex('À Rejeter', labels)).toBe(0));
-  it('returns 5 for last label', ()  => expect(gradeIndex('Excellent', labels)).toBe(5));
-  it('returns 3 for Bien',         () => expect(gradeIndex('Bien', labels)).toBe(3));
+  it('returns 5 for last label', () => expect(gradeIndex('Excellent', labels)).toBe(5));
+  it('returns 3 for Bien', () => expect(gradeIndex('Bien', labels)).toBe(3));
   it('returns 0 for unknown label', () => expect(gradeIndex('Unknown', labels)).toBe(0));
 });
 
@@ -41,21 +41,48 @@ describe('medianLineX', () => {
 // ── Component ─────────────────────────────────────────────────────────────────
 
 function makeResult(winnerName = 'Alice'): MJResult {
-  const dist = (excellent: number, tresB: number, bien: number, asB: number, pass: number, rej: number) =>
-    [rej, pass, asB, bien, tresB, excellent];
+  const dist = (
+    excellent: number,
+    tresB: number,
+    bien: number,
+    asB: number,
+    pass: number,
+    rej: number
+  ) => [rej, pass, asB, bien, tresB, excellent];
 
   return {
-    winner:  winnerName,
+    winner: winnerName,
     grades: {
-      Alice: { 'À Rejeter': 2, Passable: 5, 'Assez Bien': 10, Bien: 20, 'Très Bien': 30, Excellent: 33 },
-      Bob:   { 'À Rejeter': 10, Passable: 15, 'Assez Bien': 20, Bien: 25, 'Très Bien': 20, Excellent: 10 },
-      Carol: { 'À Rejeter': 30, Passable: 25, 'Assez Bien': 20, Bien: 15, 'Très Bien': 7, Excellent: 3 },
+      Alice: {
+        'À Rejeter': 2,
+        Passable: 5,
+        'Assez Bien': 10,
+        Bien: 20,
+        'Très Bien': 30,
+        Excellent: 33,
+      },
+      Bob: {
+        'À Rejeter': 10,
+        Passable: 15,
+        'Assez Bien': 20,
+        Bien: 25,
+        'Très Bien': 20,
+        Excellent: 10,
+      },
+      Carol: {
+        'À Rejeter': 30,
+        Passable: 25,
+        'Assez Bien': 20,
+        Bien: 15,
+        'Très Bien': 7,
+        Excellent: 3,
+      },
     },
     medians: { Alice: 'Très Bien', Bob: 'Bien', Carol: 'Passable' },
-    scores:  { Alice: 4.07, Bob: 3.10, Carol: 1.90 },
+    scores: { Alice: 4.07, Bob: 3.1, Carol: 1.9 },
     grade_distributions: {
       Alice: dist(33, 30, 20, 10, 5, 2),
-      Bob:   dist(10, 20, 25, 20, 15, 10),
+      Bob: dist(10, 20, 25, 20, 15, 10),
       Carol: dist(3, 7, 15, 20, 25, 30),
     },
   };
@@ -123,7 +150,11 @@ describe('MajorityJudgmentChart', () => {
 
   it('shows null / empty state gracefully', () => {
     const empty: MJResult = {
-      winner: null, grades: {}, medians: {}, scores: {}, grade_distributions: {},
+      winner: null,
+      grades: {},
+      medians: {},
+      scores: {},
+      grade_distributions: {},
     };
     const { container } = render(
       <MemoryRouter>

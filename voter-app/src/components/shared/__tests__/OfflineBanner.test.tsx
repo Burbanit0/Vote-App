@@ -23,8 +23,6 @@ describe('OfflineBanner', () => {
   it('renders banner text when offline', () => {
     setOnline(false);
     render(<OfflineBanner />);
-    expect(
-      screen.getByText(/Mode hors-ligne/)
-    ).toBeInTheDocument();
+    expect(screen.getByText(/Mode hors-ligne/)).toBeInTheDocument();
   });
 });

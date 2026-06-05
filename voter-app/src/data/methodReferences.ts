@@ -27,7 +27,7 @@ const references: Record<string, MethodReference> = {
     year: 1954,
     title: 'Political Parties: Their Organization and Activity in the Modern State',
     publisher: 'Wiley',
-    note: 'Introduces Duverger\'s law on the relationship between plurality voting and two-party systems.',
+    note: "Introduces Duverger's law on the relationship between plurality voting and two-party systems.",
   },
 
   two_round: {
@@ -47,8 +47,8 @@ const references: Record<string, MethodReference> = {
     entryType: 'misc',
     author: 'Borda, Jean-Charles de',
     year: 1781,
-    title: 'M\\\'emoire sur les \\\'elections au scrutin',
-    journal: 'Histoire de l\'Acad\\\'emie Royale des Sciences',
+    title: "M\\'emoire sur les \\'elections au scrutin",
+    journal: "Histoire de l'Acad\\'emie Royale des Sciences",
     note: 'First formal analysis of ranked voting with positional scoring.',
   },
 
@@ -99,7 +99,7 @@ const references: Record<string, MethodReference> = {
     entryType: 'article',
     author: 'Young, H. P. and Levenglick, A.',
     year: 1978,
-    title: 'A consistent extension of Condorcet\'s election principle',
+    title: "A consistent extension of Condorcet's election principle",
     journal: 'SIAM Journal on Applied Mathematics',
     volume: '35(2)',
     pages: '285--300',
@@ -111,7 +111,8 @@ const references: Record<string, MethodReference> = {
     entryType: 'article',
     author: 'Schulze, Markus',
     year: 2011,
-    title: 'A new monotonic, clone-independent, reversal symmetric, and Condorcet-consistent single-winner election method',
+    title:
+      'A new monotonic, clone-independent, reversal symmetric, and Condorcet-consistent single-winner election method',
     journal: 'Social Choice and Welfare',
     volume: '36(2)',
     pages: '267--303',
@@ -135,7 +136,8 @@ const references: Record<string, MethodReference> = {
     entryType: 'misc',
     author: 'Condorcet, Marie Jean Antoine Nicolas Caritat de',
     year: 1785,
-    title: 'Essai sur l\'application de l\'analyse {\\`{a}} la probabilit\\\'e des d\\\'ecisions rendues {\\`{a}} la pluralit\\\'e des voix',
+    title:
+      "Essai sur l'application de l'analyse {\\`{a}} la probabilit\\'e des d\\'ecisions rendues {\\`{a}} la pluralit\\'e des voix",
     publisher: 'Imprimerie Royale',
     note: 'Introduces the pairwise majority rule and the Condorcet paradox.',
   },
@@ -241,17 +243,19 @@ export default references;
  */
 export function toBibtex(ref: MethodReference): string {
   const fields: string[] = [];
-  const add = (k: string, v?: string) => { if (v) fields.push(`  ${k} = {${v}}`); };
+  const add = (k: string, v?: string) => {
+    if (v) fields.push(`  ${k} = {${v}}`);
+  };
 
-  add('author',    ref.author);
-  add('year',      String(ref.year));
-  add('title',     ref.title);
-  add('journal',   ref.journal);
+  add('author', ref.author);
+  add('year', String(ref.year));
+  add('title', ref.title);
+  add('journal', ref.journal);
   add('publisher', ref.publisher);
-  add('volume',    ref.volume);
-  add('pages',     ref.pages);
-  add('note',      ref.note);
-  add('doi',       ref.doi);
+  add('volume', ref.volume);
+  add('pages', ref.pages);
+  add('note', ref.note);
+  add('doi', ref.doi);
 
   return `@${ref.entryType}{${ref.bibtexKey},\n${fields.join(',\n')}\n}`;
 }

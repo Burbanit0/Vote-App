@@ -59,9 +59,15 @@ describe('MetricTooltip', () => {
 
   it('all supported metrics render without error', () => {
     const metrics: Array<React.ComponentProps<typeof MetricTooltip>['metric']> = [
-      'bayesian_regret', 'method_agreement', 'winner_stability',
-      'condorcet_compliance', 'manipulability', 'blank_rate',
-      'stability_score', 'majority_satisfaction', 'delta_agreement',
+      'bayesian_regret',
+      'method_agreement',
+      'winner_stability',
+      'condorcet_compliance',
+      'manipulability',
+      'blank_rate',
+      'stability_score',
+      'majority_satisfaction',
+      'delta_agreement',
     ];
     for (const metric of metrics) {
       const { unmount } = render(<MetricTooltip metric={metric} />);

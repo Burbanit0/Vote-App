@@ -56,7 +56,7 @@ const Register: React.FC = () => {
       {error && (
         <div
           role="alert"
-          className="mb-4 flex items-start justify-between gap-2 rounded-md border border-red-300 bg-red-100 px-3 py-2 text-sm text-red-800"
+          className="mb-4 flex items-start justify-between gap-2 rounded-md border border-border border-red-300 bg-red-100 px-3 py-2 text-sm text-red-800"
         >
           <span>{error}</span>
           <button type="button" aria-label="Close" onClick={() => setError(null)}>
@@ -67,7 +67,7 @@ const Register: React.FC = () => {
       {success && (
         <div
           role="alert"
-          className="mb-4 rounded-md border border-green-300 bg-green-100 px-3 py-2 text-sm text-green-800"
+          className="mb-4 rounded-md border border-border border-green-300 bg-green-100 px-3 py-2 text-sm text-green-800"
         >
           {success}
         </div>
@@ -76,19 +76,45 @@ const Register: React.FC = () => {
       <form onSubmit={handleSubmit} className="space-y-4">
         <div className="space-y-1.5">
           <Label htmlFor="formUsername">{t('auth.usernameLabel')}</Label>
-          <Input id="formUsername" type="text" value={username} onChange={(e) => setUsername(e.target.value)} placeholder={t('auth.usernamePlaceholder')} required />
+          <Input
+            id="formUsername"
+            type="text"
+            value={username}
+            onChange={(e) => setUsername(e.target.value)}
+            placeholder={t('auth.usernamePlaceholder')}
+            required
+          />
         </div>
         <div className="space-y-1.5">
           <Label htmlFor="formPassword">{t('auth.passwordLabel')}</Label>
-          <Input id="formPassword" type="password" value={password} onChange={(e) => setPassword(e.target.value)} placeholder={t('auth.passwordPlaceholder')} required />
+          <Input
+            id="formPassword"
+            type="password"
+            value={password}
+            onChange={(e) => setPassword(e.target.value)}
+            placeholder={t('auth.passwordPlaceholder')}
+            required
+          />
         </div>
         <div className="space-y-1.5">
           <Label htmlFor="formConfirm">{t('auth.confirmPassword')}</Label>
-          <Input id="formConfirm" type="password" value={confirmPassword} onChange={(e) => setConfirmPassword(e.target.value)} placeholder={t('auth.confirmPasswordPlaceholder')} required />
+          <Input
+            id="formConfirm"
+            type="password"
+            value={confirmPassword}
+            onChange={(e) => setConfirmPassword(e.target.value)}
+            placeholder={t('auth.confirmPasswordPlaceholder')}
+            required
+          />
         </div>
         <div className="space-y-1.5">
           <Label htmlFor="formRole">{t('auth.roleLabel')}</Label>
-          <select id="formRole" className={selectClasses} value={role} onChange={(e) => setRole(e.target.value as 'User' | 'Admin')}>
+          <select
+            id="formRole"
+            className={selectClasses}
+            value={role}
+            onChange={(e) => setRole(e.target.value as 'User' | 'Admin')}
+          >
             <option value="User">User</option>
             <option value="Admin">Admin</option>
           </select>
@@ -97,11 +123,25 @@ const Register: React.FC = () => {
           <>
             <div className="space-y-1.5">
               <Label htmlFor="formFirstName">{t('auth.firstNameLabel')}</Label>
-              <Input id="formFirstName" type="text" value={firstName} onChange={(e) => setFirstName(e.target.value)} placeholder={t('auth.firstNamePlaceholder')} required />
+              <Input
+                id="formFirstName"
+                type="text"
+                value={firstName}
+                onChange={(e) => setFirstName(e.target.value)}
+                placeholder={t('auth.firstNamePlaceholder')}
+                required
+              />
             </div>
             <div className="space-y-1.5">
               <Label htmlFor="formLastName">{t('auth.lastNameLabel')}</Label>
-              <Input id="formLastName" type="text" value={lastName} onChange={(e) => setLastName(e.target.value)} placeholder={t('auth.lastNamePlaceholder')} required />
+              <Input
+                id="formLastName"
+                type="text"
+                value={lastName}
+                onChange={(e) => setLastName(e.target.value)}
+                placeholder={t('auth.lastNamePlaceholder')}
+                required
+              />
             </div>
           </>
         )}

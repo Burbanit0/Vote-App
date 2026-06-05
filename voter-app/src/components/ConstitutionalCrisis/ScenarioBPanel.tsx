@@ -18,11 +18,21 @@ interface Props {
   onRun: (duration: 3 | 6, drift: number) => void;
 }
 
-function WinnerBadge({ winner, colorMap }: { winner: string | null; colorMap: Record<string, string> }) {
+function WinnerBadge({
+  winner,
+  colorMap,
+}: {
+  winner: string | null;
+  colorMap: Record<string, string>;
+}) {
   const { t } = useTranslation();
-  if (!winner) return <span className="text-muted">—</span>;
+  if (!winner) return <span className="text-muted-foreground">—</span>;
   if (winner === 'Blank') return <Badge variant="warning">{t('common.blankBadge')}</Badge>;
-  return <Badge style={{ backgroundColor: colorMap[winner] ?? '#999', fontSize: '0.75rem' }}>{winner}</Badge>;
+  return (
+    <Badge style={{ backgroundColor: colorMap[winner] ?? '#999', fontSize: '0.75rem' }}>
+      {winner}
+    </Badge>
+  );
 }
 
 const ScenarioBPanel: React.FC<Props> = ({ candidateNames, result, loading, onRun }) => {
@@ -33,20 +43,25 @@ const ScenarioBPanel: React.FC<Props> = ({ candidateNames, result, loading, onRu
   const colorMap = Object.fromEntries(candidateNames.map((n, i) => [n, COLORS[i % COLORS.length]]));
   const methods = result ? Object.keys(result.before_drift?.methods ?? {}) : [];
 
-  const driftLabel = drift < 0.03 ? t('crisis.drift.weak') : drift < 0.08 ? t('crisis.drift.moderate') : t('crisis.drift.strong');
+  const driftLabel =
+    drift < 0.03
+      ? t('crisis.drift.weak')
+      : drift < 0.08
+        ? t('crisis.drift.moderate')
+        : t('crisis.drift.strong');
 
   return (
     <div>
-      <p className="text-muted small mb-3">
-        {t('crisis.scenarioBDesc')}
-      </p>
+      <p className="text-muted-foreground text-sm mb-3">{t('crisis.scenarioBDesc')}</p>
 
       <Row className="g-3 mb-4">
         <Col md={4}>
           <Card>
             <CardBody>
-              <label className="mb-1 inline-block fw-semibold">{t('crisis.scenarioBDuration')}</label>
-              <div className="d-flex gap-3 mt-2">
+              <label className="mb-1 inline-block font-semibold">
+                {t('crisis.scenarioBDuration')}
+              </label>
+              <div className="flex gap-3 mt-2">
                 {([3, 6] as const).map((d) => (
                   <Button
                     key={d}
@@ -64,12 +79,20 @@ const ScenarioBPanel: React.FC<Props> = ({ candidateNames, result, loading, onRu
         <Col md={8}>
           <Card>
             <CardBody>
-              <label className="mb-1 inline-block fw-semibold">
+              <label className="mb-1 inline-block font-semibold">
                 <Trans i18nKey="crisis.scenarioBDrift" values={{ pct: (drift * 100).toFixed(0) }} />
-                <span className="text-muted ms-2" style={{ fontSize: '0.82rem' }}>{driftLabel}</span>
+                <span className="text-muted-foreground ms-2" style={{ fontSize: '0.82rem' }}>
+                  {driftLabel}
+                </span>
               </label>
-              <Range min={0} max={0.2} step={0.01} value={drift} onChange={(e) => setDrift(Number(e.target.value))} />
-              <small className="text-muted">
+              <Range
+                min={0}
+                max={0.2}
+                step={0.01}
+                value={drift}
+                onChange={(e) => setDrift(Number(e.target.value))}
+              />
+              <small className="text-muted-foreground">
                 {t('crisis.scenarioBDriftHint', { pct: (drift * 100).toFixed(0) })}
               </small>
             </CardBody>
@@ -79,7 +102,14 @@ const ScenarioBPanel: React.FC<Props> = ({ candidateNames, result, loading, onRu
 
       <div className="mb-4">
         <Button variant="success" onClick={() => onRun(duration, drift)} disabled={loading}>
-          {loading ? <><Spinner size="sm" className="me-2" />{t('crisis.simulating')}</> : t('crisis.runProvisional')}
+          {loading ? (
+            <>
+              <Spinner size="sm" className="me-2" />
+              {t('crisis.simulating')}
+            </>
+          ) : (
+            t('crisis.runProvisional')
+          )}
         </Button>
       </div>
 
@@ -97,23 +127,40 @@ const ScenarioBPanel: React.FC<Props> = ({ candidateNames, result, loading, onRu
             </thead>
             <tbody>
               {methods.map((m) => {
-                const w1 = (result.before_drift!.methods[m] as ScenarioMethodResult)?.blank_rule_applied?.winner
-                        ?? result.before_drift!.methods[m]?.winner ?? null;
-                const w2 = (result.after_drift!.methods[m] as ScenarioMethodResult)?.blank_rule_applied?.winner
-                        ?? result.after_drift!.methods[m]?.winner ?? null;
+                const w1 =
+                  (result.before_drift!.methods[m] as ScenarioMethodResult)?.blank_rule_applied
+                    ?.winner ??
+                  result.before_drift!.methods[m]?.winner ??
+                  null;
+                const w2 =
+                  (result.after_drift!.methods[m] as ScenarioMethodResult)?.blank_rule_applied
+                    ?.winner ??
+                  result.after_drift!.methods[m]?.winner ??
+                  null;
                 const changed = w1 !== w2;
                 const bPct1 = result.before_drift!.blank_pct ?? 0;
                 const bPct2 = result.after_drift!.blank_pct ?? 0;
                 return (
                   <tr key={m} style={changed ? { backgroundColor: '#e8f4e8' } : undefined}>
-                    <td className="ps-2 fw-semibold">{t(`methods.${m}.label`)}</td>
-                    <td className="text-center"><WinnerBadge winner={w1} colorMap={colorMap} /></td>
-                    <td className="text-center"><WinnerBadge winner={w2} colorMap={colorMap} /></td>
-                    <td className="text-center text-muted" style={{ fontSize: '0.82rem' }}>
+                    <td className="ps-2 font-semibold">{t(`methods.${m}.label`)}</td>
+                    <td className="text-center">
+                      <WinnerBadge winner={w1} colorMap={colorMap} />
+                    </td>
+                    <td className="text-center">
+                      <WinnerBadge winner={w2} colorMap={colorMap} />
+                    </td>
+                    <td
+                      className="text-center text-muted-foreground"
+                      style={{ fontSize: '0.82rem' }}
+                    >
                       {Math.round(bPct1 * 100)}% → {Math.round(bPct2 * 100)}%
                     </td>
                     <td className="text-center">
-                      {changed ? <span style={{ color: '#198754' }}>{t('crisis.changedMark')}</span> : <span className="text-muted">—</span>}
+                      {changed ? (
+                        <span style={{ color: '#198754' }}>{t('crisis.changedMark')}</span>
+                      ) : (
+                        <span className="text-muted-foreground">—</span>
+                      )}
                     </td>
                   </tr>
                 );
@@ -123,8 +170,10 @@ const ScenarioBPanel: React.FC<Props> = ({ candidateNames, result, loading, onRu
 
           <Card className="border-0" style={{ backgroundColor: '#f8f9fa' }}>
             <CardBody>
-              <small className="fw-semibold">{t('crisis.analysis')}</small>
-              <p className="mb-0 mt-1 text-muted" style={{ fontSize: '0.85rem' }}>{result.conclusion}</p>
+              <small className="font-semibold">{t('crisis.analysis')}</small>
+              <p className="mb-0 mt-1 text-muted-foreground" style={{ fontSize: '0.85rem' }}>
+                {result.conclusion}
+              </p>
             </CardBody>
           </Card>
         </>

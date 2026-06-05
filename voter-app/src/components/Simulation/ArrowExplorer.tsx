@@ -14,53 +14,72 @@ import { Col, Row } from '@/components/ui/grid';
 import { Spinner } from '@/components/ui/spinner';
 import { Table } from '@/components/ui/table';
 import {
-  LineChart, Line, XAxis, YAxis, Tooltip, CartesianGrid,
-  Legend, ResponsiveContainer, ReferenceLine,
+  LineChart,
+  Line,
+  XAxis,
+  YAxis,
+  Tooltip,
+  CartesianGrid,
+  Legend,
+  ResponsiveContainer,
+  ReferenceLine,
 } from 'recharts';
 import { $api } from '../../api/hooks';
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
 interface Counterexample {
-  profile?:    string[][];
-  without_c?:  string;
-  with_c?:     string;
-  spoiler?:    string;
-  cycle?:      string[];
-  note?:       string;
+  profile?: string[][];
+  without_c?: string;
+  with_c?: string;
+  spoiler?: string;
+  cycle?: string[];
+  note?: string;
 }
 
-interface AxiomResult { violated: boolean; counterexample: Counterexample | null; }
+interface AxiomResult {
+  violated: boolean;
+  counterexample: Counterexample | null;
+}
 
 interface ArrowData {
-  method:        string;
-  violations:    Record<string, AxiomResult>;
+  method: string;
+  violations: Record<string, AxiomResult>;
   arrow_summary: string;
   tradeoff_type: string;
 }
 
 interface IIARateData {
   method: string;
-  curve:  { n_candidates: number; violation_rate: number }[];
+  curve: { n_candidates: number; violation_rate: number }[];
 }
 
 // ── Axiom definitions ─────────────────────────────────────────────────────────
 
 const AXIOMS = [
-  { key: 'iia',              labelKey: 'arrow.iia',              icon: '🔗' },
-  { key: 'pareto',           labelKey: 'arrow.pareto',           icon: '🤝' },
-  { key: 'transitivity',     labelKey: 'arrow.transitivity',     icon: '🔄' },
-  { key: 'non_dictatorship', labelKey: 'arrow.nonDictatorship',  icon: '⚖️' },
+  { key: 'iia', labelKey: 'arrow.iia', icon: '🔗' },
+  { key: 'pareto', labelKey: 'arrow.pareto', icon: '🤝' },
+  { key: 'transitivity', labelKey: 'arrow.transitivity', icon: '🔄' },
+  { key: 'non_dictatorship', labelKey: 'arrow.nonDictatorship', icon: '⚖️' },
 ] as const;
 
 const METHODS = [
-  'plurality', 'borda', 'irv', 'schulze', 'condorcet',
-  'approval', 'majority_judgment', 'kemeny_young',
+  'plurality',
+  'borda',
+  'irv',
+  'schulze',
+  'condorcet',
+  'approval',
+  'majority_judgment',
+  'kemeny_young',
 ];
 
 // ── Pentagon SVG ──────────────────────────────────────────────────────────────
 
-const CX = 110, CY = 105, R_OUT = 80, R_IN = 20;
+const CX = 110,
+  CY = 105,
+  R_OUT = 80,
+  R_IN = 20;
 
 function pentagonPoints(r: number): [number, number][] {
   return AXIOMS.map((_, i) => {
@@ -77,21 +96,22 @@ interface PentagonProps {
 const AxiomPentagon: React.FC<PentagonProps> = ({ violations, t }) => {
   const outerPts = pentagonPoints(R_OUT);
   const innerPts = pentagonPoints(R_IN);
-  const outerPath = outerPts.map((p, i) => `${i === 0 ? 'M' : 'L'}${p[0]},${p[1]}`).join(' ') + ' Z';
+  const outerPath =
+    outerPts.map((p, i) => `${i === 0 ? 'M' : 'L'}${p[0]},${p[1]}`).join(' ') + ' Z';
 
   const filledPts = AXIOMS.map((ax, i) => {
     const violated = violations[ax.key]?.violated ?? false;
     return violated ? innerPts[i] : outerPts[i];
   });
-  const filledPath = filledPts.map((p, i) => `${i === 0 ? 'M' : 'L'}${p[0]},${p[1]}`).join(' ') + ' Z';
+  const filledPath =
+    filledPts.map((p, i) => `${i === 0 ? 'M' : 'L'}${p[0]},${p[1]}`).join(' ') + ' Z';
 
   return (
     <svg data-testid="arrow-pentagon" width={220} height={210} viewBox="0 0 220 210">
       {/* Spider web */}
       <path d={outerPath} fill="none" stroke="#dee2e6" strokeWidth={1} />
       {outerPts.map((p, i) => (
-        <line key={i} x1={CX} y1={CY} x2={p[0]} y2={p[1]}
-          stroke="#dee2e6" strokeWidth={0.8} />
+        <line key={i} x1={CX} y1={CY} x2={p[0]} y2={p[1]} stroke="#dee2e6" strokeWidth={0.8} />
       ))}
 
       {/* Filled area (satisfied axioms) */}
@@ -105,10 +125,13 @@ const AxiomPentagon: React.FC<PentagonProps> = ({ violations, t }) => {
         const ly = CY + (R_OUT + 14) * Math.sin((Math.PI * 2 * i) / AXIOMS.length - Math.PI / 2);
         return (
           <g key={ax.key}>
-            <circle cx={px} cy={py} r={5}
-              fill={violated ? '#dc3545' : '#198754'} />
-            <text x={lx} y={ly + 4} textAnchor="middle"
-              style={{ fontSize: 9, fill: violated ? '#dc3545' : '#198754', fontWeight: 600 }}>
+            <circle cx={px} cy={py} r={5} fill={violated ? '#dc3545' : '#198754'} />
+            <text
+              x={lx}
+              y={ly + 4}
+              textAnchor="middle"
+              style={{ fontSize: 9, fill: violated ? '#dc3545' : '#198754', fontWeight: 600 }}
+            >
               {ax.icon} {t(ax.labelKey).slice(0, 12)}
             </text>
           </g>
@@ -124,38 +147,47 @@ const AxiomPentagon: React.FC<PentagonProps> = ({ violations, t }) => {
 // ── Method comparison table (axiom matrix) ────────────────────────────────────
 
 const KNOWN_VIOLATIONS: Record<string, Record<string, boolean>> = {
-  plurality:          { iia: true,  pareto: false, transitivity: false, non_dictatorship: false },
-  borda:              { iia: true,  pareto: false, transitivity: false, non_dictatorship: false },
-  irv:                { iia: true,  pareto: false, transitivity: false, non_dictatorship: false },
-  schulze:            { iia: true,  pareto: false, transitivity: false, non_dictatorship: false },
-  condorcet:          { iia: true,  pareto: false, transitivity: true,  non_dictatorship: false },
-  approval:           { iia: true,  pareto: false, transitivity: false, non_dictatorship: false },
-  majority_judgment:  { iia: true,  pareto: false, transitivity: false, non_dictatorship: false },
-  kemeny_young:       { iia: true,  pareto: false, transitivity: false, non_dictatorship: false },
+  plurality: { iia: true, pareto: false, transitivity: false, non_dictatorship: false },
+  borda: { iia: true, pareto: false, transitivity: false, non_dictatorship: false },
+  irv: { iia: true, pareto: false, transitivity: false, non_dictatorship: false },
+  schulze: { iia: true, pareto: false, transitivity: false, non_dictatorship: false },
+  condorcet: { iia: true, pareto: false, transitivity: true, non_dictatorship: false },
+  approval: { iia: true, pareto: false, transitivity: false, non_dictatorship: false },
+  majority_judgment: { iia: true, pareto: false, transitivity: false, non_dictatorship: false },
+  kemeny_young: { iia: true, pareto: false, transitivity: false, non_dictatorship: false },
 };
 
 const AxiomMatrix: React.FC<{ t: (k: string) => string }> = ({ t }) => (
   <div className="table-responsive" data-testid="axiom-matrix">
-    <Table className="[&_th]:p-1 [&_td]:p-1 [&_th]:text-left [&_td]:border-t [&_th]:border-b [&_td]:border-border [&_th]:border-border [&_*]:align-middle [&_tbody_tr:hover]:bg-muted/50" style={{ fontSize: '0.78rem' }}>
+    <Table
+      className="[&_th]:p-1 [&_td]:p-1 [&_th]:text-left [&_td]:border-t [&_th]:border-b [&_td]:border-border [&_th]:border-border [&_*]:align-middle [&_tbody_tr:hover]:bg-muted/50"
+      style={{ fontSize: '0.78rem' }}
+    >
       <thead className="table-light">
         <tr>
           <th>{t('arrow.method')}</th>
           {AXIOMS.map((ax) => (
-            <th key={ax.key} style={{ textAlign: 'center' }}>{ax.icon} {t(ax.labelKey).slice(0, 6)}</th>
+            <th key={ax.key} style={{ textAlign: 'center' }}>
+              {ax.icon} {t(ax.labelKey).slice(0, 6)}
+            </th>
           ))}
         </tr>
       </thead>
       <tbody>
         {METHODS.filter((m) => m in KNOWN_VIOLATIONS).map((m) => (
           <tr key={m}>
-            <td><code>{m}</code></td>
+            <td>
+              <code>{m}</code>
+            </td>
             {AXIOMS.map((ax) => {
               const violated = KNOWN_VIOLATIONS[m]?.[ax.key] ?? false;
               return (
                 <td key={ax.key} style={{ textAlign: 'center' }}>
-                  {violated
-                    ? <span style={{ color: '#dc3545', fontWeight: 700 }}>✗</span>
-                    : <span style={{ color: '#198754' }}>✓</span>}
+                  {violated ? (
+                    <span style={{ color: '#dc3545', fontWeight: 700 }}>✗</span>
+                  ) : (
+                    <span style={{ color: '#198754' }}>✓</span>
+                  )}
                 </td>
               );
             })}
@@ -192,7 +224,10 @@ const CounterexampleCard: React.FC<{
 
   return (
     <Card className="border-danger mb-2" data-testid={`counterexample-${axiom}`}>
-      <CardHeader className="block space-y-0 border-b border-border px-4 py-2 py-1 bg-danger bg-opacity-10" style={{ fontSize: '0.78rem' }}>
+      <CardHeader
+        className="block space-y-0 border-b border-border px-4 py-2 py-1 bg-[#dc3545] bg-opacity-10"
+        style={{ fontSize: '0.78rem' }}
+      >
         ✗ {t(`arrow.${axiom}`)} — {t('arrow.counterexample')}
       </CardHeader>
       <CardBody className="py-2">
@@ -200,36 +235,49 @@ const CounterexampleCard: React.FC<{
           <>
             <div style={{ fontSize: '0.75rem', marginBottom: 8 }}>
               <strong>{t('arrow.iiaProfileTitle')}</strong>
-              <div className="d-flex gap-2 flex-wrap mt-1">
+              <div className="flex gap-2 flex-wrap mt-1">
                 {ce.profile.map((v, i) => (
-                  <Badge key={i} variant="light"
-                    style={{ fontFamily: 'monospace', fontSize: '0.7rem' }}>
+                  <Badge
+                    key={i}
+                    variant="light"
+                    style={{ fontFamily: 'monospace', fontSize: '0.7rem' }}
+                  >
                     V{i + 1}: {v.join('>')}
                   </Badge>
                 ))}
               </div>
             </div>
-            <div className="d-flex gap-3" style={{ fontSize: '0.78rem' }}>
+            <div className="flex gap-3" style={{ fontSize: '0.78rem' }}>
               <div>
-                <span className="text-muted">{t('arrow.withoutSpoiler')} ({ce.spoiler}):</span>{' '}
-                <Badge variant="secondary">{ce.without_c} {t('arrow.wins')}</Badge>
+                <span className="text-muted-foreground">
+                  {t('arrow.withoutSpoiler')} ({ce.spoiler}):
+                </span>{' '}
+                <Badge variant="secondary">
+                  {ce.without_c} {t('arrow.wins')}
+                </Badge>
               </div>
               <span>→</span>
               <div>
-                <span className="text-muted">{t('arrow.withSpoiler')} ({ce.spoiler}):</span>{' '}
-                <Badge variant="danger">{ce.with_c} {t('arrow.wins')}</Badge>
+                <span className="text-muted-foreground">
+                  {t('arrow.withSpoiler')} ({ce.spoiler}):
+                </span>{' '}
+                <Badge variant="danger">
+                  {ce.with_c} {t('arrow.wins')}
+                </Badge>
               </div>
             </div>
           </>
         )}
         {axiom === 'transitivity' && ce.cycle && (
           <div style={{ fontSize: '0.78rem' }}>
-            <span className="text-muted">{t('arrow.cycle')}:</span>{' '}
+            <span className="text-muted-foreground">{t('arrow.cycle')}:</span>{' '}
             <code style={{ color: '#dc3545' }}>{ce.cycle.join(' > ')}</code>
           </div>
         )}
         {ce.note && (
-          <div className="text-muted mt-1" style={{ fontSize: '0.72rem' }}>{ce.note}</div>
+          <div className="text-muted-foreground mt-1" style={{ fontSize: '0.72rem' }}>
+            {ce.note}
+          </div>
         )}
       </CardBody>
     </Card>
@@ -241,50 +289,57 @@ const CounterexampleCard: React.FC<{
 const ArrowExplorer: React.FC = () => {
   const { t } = useTranslation();
 
-  const [method,      setMethod]      = useState('plurality');
+  const [method, setMethod] = useState('plurality');
   const simArrow = $api.useMutation('post', '/api/v2/theory/arrow');
-  const simRate  = $api.useMutation('post', '/api/v2/theory/iia-rate');
+  const simRate = $api.useMutation('post', '/api/v2/theory/iia-rate');
   const data: ArrowData | null = (simArrow.data as ArrowData | undefined) ?? null;
   const rateData: IIARateData | null = (simRate.data as IIARateData | undefined) ?? null;
   const loading = simArrow.isPending || simRate.isPending;
-  const error = (simArrow.isError || simRate.isError) ? t('arrow.error') : null;
-  const [checkedAxioms, setChecked]   = useState<Set<string>>(new Set());
+  const error = simArrow.isError || simRate.isError ? t('arrow.error') : null;
+  const [checkedAxioms, setChecked] = useState<Set<string>>(new Set());
 
   const runAnalysis = useCallback(() => {
     simArrow.mutate({ body: { method, seed: 42 } });
     simRate.mutate({ body: { method, max_candidates: 8, num_trials: 100, seed: 42 } });
-  // eslint-disable-next-line react-hooks/exhaustive-deps
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [method, t, simArrow, simRate]);
 
   const toggleAxiom = (key: string) => {
     setChecked((prev) => {
       const next = new Set(prev);
-      if (next.has(key)) next.delete(key); else next.add(key);
+      if (next.has(key)) next.delete(key);
+      else next.add(key);
       return next;
     });
   };
 
   // Filter methods that satisfy all checked axioms
-  const compatibleMethods = checkedAxioms.size === 0
-    ? []
-    : METHODS.filter((m) => {
-        const v = KNOWN_VIOLATIONS[m];
-        if (!v) return false;
-        return [...checkedAxioms].every((ax) => !v[ax]);
-      });
+  const compatibleMethods =
+    checkedAxioms.size === 0
+      ? []
+      : METHODS.filter((m) => {
+          const v = KNOWN_VIOLATIONS[m];
+          if (!v) return false;
+          return [...checkedAxioms].every((ax) => !v[ax]);
+        });
 
   return (
     <div>
       {/* Axiom filter */}
       <Card className="mb-4" data-testid="axiom-filter-section">
-        <CardHeader className="block space-y-0 border-b border-border px-4 py-2 fw-bold" style={{ fontSize: '0.85rem' }}>
+        <CardHeader
+          className="block space-y-0 border-b border-border px-4 py-2 font-bold"
+          style={{ fontSize: '0.85rem' }}
+        >
           {t('arrow.filterTitle')}
         </CardHeader>
         <CardBody>
           <p style={{ fontSize: '0.8rem' }}>{t('arrow.filterDesc')}</p>
-          <div className="d-flex flex-wrap gap-2 mb-2">
+          <div className="flex flex-wrap gap-2 mb-2">
             {AXIOMS.map((ax) => (
-              <Check key={ax.key} type="checkbox"
+              <Check
+                key={ax.key}
+                type="checkbox"
                 id={`check-${ax.key}`}
                 label={`${ax.icon} ${t(ax.labelKey)}`}
                 checked={checkedAxioms.has(ax.key)}
@@ -296,35 +351,53 @@ const ArrowExplorer: React.FC = () => {
           </div>
           {checkedAxioms.size > 0 && (
             <div data-testid="compatible-methods">
-              {compatibleMethods.length > 0
-                ? <Alert variant="success" style={{ fontSize: '0.78rem' }}>
-                    ✓ {t('arrow.compatible')}: {compatibleMethods.map((m) => <code key={m} className="me-1">{m}</code>)}
-                  </Alert>
-                : checkedAxioms.size === AXIOMS.length
-                  ? <Alert variant="danger" style={{ fontSize: '0.78rem' }}>
-                      ✗ {t('arrow.noCompatible')} — {t('arrow.arrowStatement')}
-                    </Alert>
-                  : <Alert variant="warning" style={{ fontSize: '0.78rem' }}>
-                      {t('arrow.noCompatiblePartial')}
-                    </Alert>}
+              {compatibleMethods.length > 0 ? (
+                <Alert variant="success" style={{ fontSize: '0.78rem' }}>
+                  ✓ {t('arrow.compatible')}:{' '}
+                  {compatibleMethods.map((m) => (
+                    <code key={m} className="me-1">
+                      {m}
+                    </code>
+                  ))}
+                </Alert>
+              ) : checkedAxioms.size === AXIOMS.length ? (
+                <Alert variant="danger" style={{ fontSize: '0.78rem' }}>
+                  ✗ {t('arrow.noCompatible')} — {t('arrow.arrowStatement')}
+                </Alert>
+              ) : (
+                <Alert variant="warning" style={{ fontSize: '0.78rem' }}>
+                  {t('arrow.noCompatiblePartial')}
+                </Alert>
+              )}
             </div>
           )}
         </CardBody>
       </Card>
 
       {/* Method selector + analysis */}
-      <Row className="g-2 mb-3 align-items-end">
+      <Row className="g-2 mb-3 items-end">
         <Col xs={12} md={4}>
-          <label className="mb-1 inline-block small mb-0">{t('arrow.selectMethod')}</label>
-          <Select size="sm" value={method}
+          <label className="mb-1 inline-block text-sm mb-0">{t('arrow.selectMethod')}</label>
+          <Select
+            size="sm"
+            value={method}
             data-testid="method-select"
-            onChange={(e) => setMethod(e.target.value)}>
-            {METHODS.map((m) => <option key={m} value={m}>{m}</option>)}
+            onChange={(e) => setMethod(e.target.value)}
+          >
+            {METHODS.map((m) => (
+              <option key={m} value={m}>
+                {m}
+              </option>
+            ))}
           </Select>
         </Col>
         <Col xs="auto">
-          <Button variant="primary" onClick={runAnalysis} disabled={loading}
-            data-testid="analyze-btn">
+          <Button
+            variant="primary"
+            onClick={runAnalysis}
+            disabled={loading}
+            data-testid="analyze-btn"
+          >
             {loading ? <Spinner size="sm" /> : t('arrow.analyze')}
           </Button>
         </Col>
@@ -336,7 +409,9 @@ const ArrowExplorer: React.FC = () => {
         <Row className="g-4">
           {/* Pentagon */}
           <Col xs={12} md={4} className="text-center">
-            <div className="fw-semibold mb-1" style={{ fontSize: '0.85rem' }}>{t('arrow.pentagonTitle')}</div>
+            <div className="font-semibold mb-1" style={{ fontSize: '0.85rem' }}>
+              {t('arrow.pentagonTitle')}
+            </div>
             <AxiomPentagon violations={data.violations} t={t} />
             <Badge variant="info" style={{ fontSize: '0.72rem' }}>
               {t(`arrow.tradeoff_${data.tradeoff_type}`)}
@@ -345,13 +420,16 @@ const ArrowExplorer: React.FC = () => {
 
           {/* Violations detail */}
           <Col xs={12} md={8}>
-            <div className="fw-semibold mb-2" style={{ fontSize: '0.85rem' }}>
+            <div className="font-semibold mb-2" style={{ fontSize: '0.85rem' }}>
               {t('arrow.violationsTitle')}
             </div>
             {AXIOMS.map((ax) => (
-              <CounterexampleCard key={ax.key} axiom={ax.key}
+              <CounterexampleCard
+                key={ax.key}
+                axiom={ax.key}
                 result={data.violations[ax.key]}
-                t={t} />
+                t={t}
+              />
             ))}
             <Alert variant="secondary" style={{ fontSize: '0.8rem' }}>
               <strong>{t('arrow.summaryLabel')}</strong> {data.arrow_summary}
@@ -363,27 +441,49 @@ const ArrowExplorer: React.FC = () => {
       {/* IIA violation rate chart */}
       {rateData && (
         <div className="mt-4" data-testid="iia-rate-chart">
-          <div className="fw-semibold mb-1" style={{ fontSize: '0.85rem' }}>
+          <div className="font-semibold mb-1" style={{ fontSize: '0.85rem' }}>
             {t('arrow.iiaRateTitle')}
           </div>
           <ResponsiveContainer width="100%" height={200}>
             <LineChart data={rateData.curve} margin={{ top: 4, right: 16, bottom: 4, left: 0 }}>
               <CartesianGrid strokeDasharray="3 3" />
-              <XAxis dataKey="n_candidates" label={{ value: t('arrow.nCandidates'), position: 'insideBottom', offset: -2, fontSize: 10 }} />
-              <YAxis domain={[0, 1]} tickFormatter={(v: number) => `${Math.round(v * 100)}%`} tick={{ fontSize: 10 }} />
+              <XAxis
+                dataKey="n_candidates"
+                label={{
+                  value: t('arrow.nCandidates'),
+                  position: 'insideBottom',
+                  offset: -2,
+                  fontSize: 10,
+                }}
+              />
+              <YAxis
+                domain={[0, 1]}
+                tickFormatter={(v: number) => `${Math.round(v * 100)}%`}
+                tick={{ fontSize: 10 }}
+              />
               <Tooltip formatter={(v: number) => `${Math.round(v * 100)}%`} />
               <ReferenceLine y={0} stroke="#198754" strokeDasharray="4 2" />
-              <Line type="monotone" dataKey="violation_rate" name={t('arrow.iiaViolationRate')}
-                stroke="#dc3545" strokeWidth={2} dot />
+              <Line
+                type="monotone"
+                dataKey="violation_rate"
+                name={t('arrow.iiaViolationRate')}
+                stroke="#dc3545"
+                strokeWidth={2}
+                dot
+              />
             </LineChart>
           </ResponsiveContainer>
-          <p className="text-muted" style={{ fontSize: '0.75rem' }}>{t('arrow.iiaRateDesc')}</p>
+          <p className="text-muted-foreground" style={{ fontSize: '0.75rem' }}>
+            {t('arrow.iiaRateDesc')}
+          </p>
         </div>
       )}
 
       {/* Method comparison matrix */}
       <div className="mt-4">
-        <div className="fw-semibold mb-2" style={{ fontSize: '0.85rem' }}>{t('arrow.matrixTitle')}</div>
+        <div className="font-semibold mb-2" style={{ fontSize: '0.85rem' }}>
+          {t('arrow.matrixTitle')}
+        </div>
         <AxiomMatrix t={t} />
       </div>
 

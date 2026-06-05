@@ -11,7 +11,9 @@ describe('Tooltip', () => {
   });
 
   it('renders with interaction data', () => {
-    const { container } = render(<Tooltip interactionData={{ xPos: 100, yPos: 200, name: 'Test' }} />);
+    const { container } = render(
+      <Tooltip interactionData={{ xPos: 100, yPos: 200, name: 'Test' }} />
+    );
     expect(container.textContent).toBe('Test');
   });
 });

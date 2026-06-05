@@ -56,7 +56,9 @@ describe('ScenarioModals', () => {
     });
 
     it('shows spinner when saving', () => {
-      render(<ScenarioModals {...defaultProps} showSaveModal={true} saveName="Test" saving={true} />);
+      render(
+        <ScenarioModals {...defaultProps} showSaveModal={true} saveName="Test" saving={true} />
+      );
       expect(screen.getByText('Saving…')).toBeInTheDocument();
     });
   });
@@ -78,7 +80,9 @@ describe('ScenarioModals', () => {
     });
 
     it('renders scenario list', () => {
-      render(<ScenarioModals {...defaultProps} showLoadModal={true} scenarioList={mockScenarios} />);
+      render(
+        <ScenarioModals {...defaultProps} showLoadModal={true} scenarioList={mockScenarios} />
+      );
       expect(screen.getByText('Test Scenario')).toBeInTheDocument();
       expect(screen.getByText('Another Scenario')).toBeInTheDocument();
     });

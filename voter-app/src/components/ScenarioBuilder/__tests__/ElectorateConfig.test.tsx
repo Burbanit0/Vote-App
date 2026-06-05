@@ -48,12 +48,24 @@ describe('ElectorateConfig', () => {
   });
 
   it('shows dissatisfaction label for low values', () => {
-    render(<ElectorateConfig config={{ ...defaultConfig, dissatisfactionRate: 0.1 }} onChange={onChange} expertMode />);
+    render(
+      <ElectorateConfig
+        config={{ ...defaultConfig, dissatisfactionRate: 0.1 }}
+        onChange={onChange}
+        expertMode
+      />
+    );
     expect(screen.getByText(/Electorate satisfied/)).toBeInTheDocument();
   });
 
   it('shows dissatisfaction label for high values', () => {
-    render(<ElectorateConfig config={{ ...defaultConfig, dissatisfactionRate: 0.8 }} onChange={onChange} expertMode />);
+    render(
+      <ElectorateConfig
+        config={{ ...defaultConfig, dissatisfactionRate: 0.8 }}
+        onChange={onChange}
+        expertMode
+      />
+    );
     expect(screen.getByText(/Representation crisis/)).toBeInTheDocument();
   });
 });

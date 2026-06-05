@@ -72,13 +72,7 @@ describe('MetricsTab', () => {
   });
 
   it('shows EmptyChart when no comparison results', () => {
-    render(
-      <MetricsTab
-        comparisonResults={[]}
-        allMethodNames={[]}
-        numSimulations={0}
-      />
-    );
+    render(<MetricsTab comparisonResults={[]} allMethodNames={[]} numSimulations={0} />);
     expect(screen.getByRole('img')).toBeInTheDocument();
   });
 

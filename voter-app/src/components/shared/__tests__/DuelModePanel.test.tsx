@@ -7,60 +7,79 @@ import type { ElectionResult } from '../../../services/electionApi';
 vi.mock('recharts', () => {
   const React = require('react');
   return {
-    BarChart:            ({ children }: any) => <div data-testid="bar-chart">{children}</div>,
-    Bar:                 ({ children }: any) => <div>{children}</div>,
-    Cell:                () => null,
-    XAxis:               () => null,
-    YAxis:               () => null,
-    Tooltip:             () => null,
-    ResponsiveContainer: ({ children }: any) => <div style={{ width: 300, height: 120 }}>{children}</div>,
+    BarChart: ({ children }: any) => <div data-testid="bar-chart">{children}</div>,
+    Bar: ({ children }: any) => <div>{children}</div>,
+    Cell: () => null,
+    XAxis: () => null,
+    YAxis: () => null,
+    Tooltip: () => null,
+    ResponsiveContainer: ({ children }: any) => (
+      <div style={{ width: 300, height: 120 }}>{children}</div>
+    ),
   };
 });
 
 // ── Fixture ───────────────────────────────────────────────────────────────────
 
-function makeResult(overrides: Partial<{
-  winnerPlurality: string;
-  winnerSchulze:   string;
-  condorcet:       string | null;
-  blankRate:       number;
-}>  = {}): ElectionResult {
+function makeResult(
+  overrides: Partial<{
+    winnerPlurality: string;
+    winnerSchulze: string;
+    condorcet: string | null;
+    blankRate: number;
+  }> = {}
+): ElectionResult {
   const {
     winnerPlurality = 'Alice',
-    winnerSchulze   = 'Bob',
-    condorcet       = 'Bob',
-    blankRate       = 0,
+    winnerSchulze = 'Bob',
+    condorcet = 'Bob',
+    blankRate = 0,
   } = overrides;
 
   return {
-    config:                 {} as any,
-    voters_snapshot:        [
+    config: {} as any,
+    voters_snapshot: [
       { id: 0, x: -0.5, y: 0, blank_threshold_final: 0.375 },
-      { id: 1, x:  0.5, y: 0, blank_threshold_final: 0.375 },
-      { id: 2, x:  0.1, y: 0, blank_threshold_final: 0.375 },
+      { id: 1, x: 0.5, y: 0, blank_threshold_final: 0.375 },
+      { id: 2, x: 0.1, y: 0, blank_threshold_final: 0.375 },
     ],
-    candidates:             [
+    candidates: [
       { name: 'Alice', x: -0.5, y: 0, party: 'Liberal' },
-      { name: 'Bob',   x:  0.5, y: 0, party: 'Conservative' },
+      { name: 'Bob', x: 0.5, y: 0, party: 'Conservative' },
     ],
     methods: {
-      plurality: { winner: winnerPlurality, bayesian_regret: 0.12, majority_satisfaction: 0.6, condorcet_consistent: winnerPlurality === condorcet },
-      schulze:   { winner: winnerSchulze,   bayesian_regret: 0.08, majority_satisfaction: 0.75, condorcet_consistent: winnerSchulze === condorcet },
-      borda:     { winner: 'Alice',         bayesian_regret: 0.10, majority_satisfaction: 0.65, condorcet_consistent: null },
+      plurality: {
+        winner: winnerPlurality,
+        bayesian_regret: 0.12,
+        majority_satisfaction: 0.6,
+        condorcet_consistent: winnerPlurality === condorcet,
+      },
+      schulze: {
+        winner: winnerSchulze,
+        bayesian_regret: 0.08,
+        majority_satisfaction: 0.75,
+        condorcet_consistent: winnerSchulze === condorcet,
+      },
+      borda: {
+        winner: 'Alice',
+        bayesian_regret: 0.1,
+        majority_satisfaction: 0.65,
+        condorcet_consistent: null,
+      },
     },
-    condorcet_winner:       condorcet,
-    blank_rate:             blankRate,
-    campaign_trajectory:    null,
+    condorcet_winner: condorcet,
+    blank_rate: blankRate,
+    campaign_trajectory: null,
     inter_method_agreement: winnerPlurality === winnerSchulze ? 1 : 0,
-    condorcet_exists:       condorcet !== null,
+    condorcet_exists: condorcet !== null,
   };
 }
 
 function renderDuel(props?: Partial<React.ComponentProps<typeof DuelModePanel>>) {
   const defaults = {
-    result:          makeResult(),
-    methodA:         'plurality',
-    methodB:         'schulze',
+    result: makeResult(),
+    methodA: 'plurality',
+    methodB: 'schulze',
     onMethodAChange: vi.fn(),
     onMethodBChange: vi.fn(),
   };
@@ -107,7 +126,7 @@ describe('DuelModePanel', () => {
 
   it('shows Condorcet badge when winner matches condorcet winner', () => {
     renderDuel({
-      result:  makeResult({ winnerSchulze: 'Bob', condorcet: 'Bob' }),
+      result: makeResult({ winnerSchulze: 'Bob', condorcet: 'Bob' }),
       methodB: 'schulze',
     });
     expect(screen.getByText('Condorcet ✓')).toBeInTheDocument();
@@ -129,7 +148,7 @@ describe('DuelModePanel', () => {
 
   it('shows pedagogical note containing both method names', () => {
     renderDuel({
-      result:  makeResult({ winnerPlurality: 'Alice', winnerSchulze: 'Bob' }),
+      result: makeResult({ winnerPlurality: 'Alice', winnerSchulze: 'Bob' }),
       methodA: 'plurality',
       methodB: 'schulze',
     });
@@ -140,7 +159,7 @@ describe('DuelModePanel', () => {
 
   it('shows pedagogical Condorcet note when one method misses', () => {
     renderDuel({
-      result:  makeResult({ winnerPlurality: 'Alice', winnerSchulze: 'Bob', condorcet: 'Bob' }),
+      result: makeResult({ winnerPlurality: 'Alice', winnerSchulze: 'Bob', condorcet: 'Bob' }),
       methodA: 'plurality',
       methodB: 'schulze',
     });

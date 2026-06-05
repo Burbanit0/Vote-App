@@ -15,25 +15,25 @@ import OAuthCallback from './pages/OAuthCallback';
 // ── Lazy imports — heavier pages, code-split into separate chunks so the
 //    HomePage download doesn't drag in everything (Lab, Theory, Simulator,
 //    etc.). Each becomes its own chunk under build/assets/.
-const SimulationPage           = React.lazy(() => import('./pages/SimulationPage'));
-const SimulationComparePage    = React.lazy(() => import('./pages/SimulationComparePage'));
-const ScenarioBuilderPage      = React.lazy(() => import('./pages/ScenarioBuilderPage'));
+const SimulationPage = React.lazy(() => import('./pages/SimulationPage'));
+const SimulationComparePage = React.lazy(() => import('./pages/SimulationComparePage'));
+const ScenarioBuilderPage = React.lazy(() => import('./pages/ScenarioBuilderPage'));
 const ConstitutionalCrisisPage = React.lazy(() => import('./pages/ConstitutionalCrisisPage'));
-const QuizPage                 = React.lazy(() => import('./pages/QuizPage'));
-const WhatIfPage               = React.lazy(() => import('./pages/WhatIfPage'));
-const CampaignSimulatorPage    = React.lazy(() => import('./pages/CampaignSimulatorPage'));
-const BlankContagionPage       = React.lazy(() => import('./pages/BlankContagionPage'));
+const QuizPage = React.lazy(() => import('./pages/QuizPage'));
+const WhatIfPage = React.lazy(() => import('./pages/WhatIfPage'));
+const CampaignSimulatorPage = React.lazy(() => import('./pages/CampaignSimulatorPage'));
+const BlankContagionPage = React.lazy(() => import('./pages/BlankContagionPage'));
 const InternationalRegimesPage = React.lazy(() => import('./pages/InternationalRegimesPage'));
-const ApiDocsPage              = React.lazy(() => import('./pages/ApiDocsPage'));
-const TeacherPresentationPage  = React.lazy(() => import('./pages/TeacherPresentationPage'));
-const ElectionLabPage          = React.lazy(() => import('./pages/ElectionLabPage'));
-const QuadraticFundingPage     = React.lazy(() => import('./pages/QuadraticFundingPage'));
-const TechDemocracyPage        = React.lazy(() => import('./pages/TechDemocracyPage'));
-const SortitionPage            = React.lazy(() => import('./pages/SortitionPage'));
-const PartyDynamicsPage        = React.lazy(() => import('./pages/PartyDynamicsPage'));
-const TheoryPage               = React.lazy(() => import('./pages/TheoryPage'));
-const ProfilePage              = React.lazy(() => import('./pages/ProfilePage'));
-const UserProfilePage          = React.lazy(() => import('./pages/UserProfilePage'));
+const ApiDocsPage = React.lazy(() => import('./pages/ApiDocsPage'));
+const TeacherPresentationPage = React.lazy(() => import('./pages/TeacherPresentationPage'));
+const ElectionLabPage = React.lazy(() => import('./pages/ElectionLabPage'));
+const QuadraticFundingPage = React.lazy(() => import('./pages/QuadraticFundingPage'));
+const TechDemocracyPage = React.lazy(() => import('./pages/TechDemocracyPage'));
+const SortitionPage = React.lazy(() => import('./pages/SortitionPage'));
+const PartyDynamicsPage = React.lazy(() => import('./pages/PartyDynamicsPage'));
+const TheoryPage = React.lazy(() => import('./pages/TheoryPage'));
+const ProfilePage = React.lazy(() => import('./pages/ProfilePage'));
+const UserProfilePage = React.lazy(() => import('./pages/UserProfilePage'));
 
 import { useAuth } from './stores/useAuthStore';
 import AuthGuard from './components/Route/AuthGuard';
@@ -49,9 +49,9 @@ import OfflineBanner from './components/shared/OfflineBanner';
 import './styles/tailwind.css';
 
 const RouteFallback: React.FC = () => (
-  <div className="d-flex justify-content-center align-items-center py-5" data-testid="route-fallback">
+  <div className="flex justify-center items-center py-5" data-testid="route-fallback">
     <Spinner role="status" size="sm" className="me-2" />
-    <span className="text-muted small">Chargement…</span>
+    <span className="text-muted-foreground text-sm">Chargement…</span>
   </div>
 );
 
@@ -75,32 +75,41 @@ const AppContent: React.FC = () => {
         <Suspense fallback={<RouteFallback />}>
           <Routes>
             {/* Auth routes */}
-            <Route path="/login"         element={!user ? <Login />         : <Navigate to="/" />} />
-            <Route path="/register"      element={!user ? <Register />      : <Navigate to="/" />} />
+            <Route path="/login" element={!user ? <Login /> : <Navigate to="/" />} />
+            <Route path="/register" element={!user ? <Register /> : <Navigate to="/" />} />
             <Route path="/oauth/callback" element={<OAuthCallback />} />
 
             {/* Public routes — accessible without account */}
-            <Route path="/"                      element={<HomePage />} />
-            <Route path="/scenario-builder"      element={<AuthGuard component={ScenarioBuilderPage}      requireAuth={false} />} />
-            <Route path="/simulation/compare"    element={<AuthGuard component={SimulationComparePage}   requireAuth={false} />} />
-            <Route path="/constitutional-crisis" element={<AuthGuard component={ConstitutionalCrisisPage} requireAuth={false} />} />
-            <Route path="/quiz"                  element={<QuizPage />} />
-            <Route path="/what-if"              element={<WhatIfPage />} />
-            <Route path="/campaign"             element={<CampaignSimulatorPage />} />
-            <Route path="/blank-contagion"      element={<BlankContagionPage />} />
+            <Route path="/" element={<HomePage />} />
+            <Route
+              path="/scenario-builder"
+              element={<AuthGuard component={ScenarioBuilderPage} requireAuth={false} />}
+            />
+            <Route
+              path="/simulation/compare"
+              element={<AuthGuard component={SimulationComparePage} requireAuth={false} />}
+            />
+            <Route
+              path="/constitutional-crisis"
+              element={<AuthGuard component={ConstitutionalCrisisPage} requireAuth={false} />}
+            />
+            <Route path="/quiz" element={<QuizPage />} />
+            <Route path="/what-if" element={<WhatIfPage />} />
+            <Route path="/campaign" element={<CampaignSimulatorPage />} />
+            <Route path="/blank-contagion" element={<BlankContagionPage />} />
             <Route path="/regimes-internationaux" element={<InternationalRegimesPage />} />
-            <Route path="/api-docs"              element={<ApiDocsPage />} />
+            <Route path="/api-docs" element={<ApiDocsPage />} />
             <Route path="/teacher/presentation" element={<TeacherPresentationPage />} />
-            <Route path="/election-lab"         element={<ElectionLabPage />} />
+            <Route path="/election-lab" element={<ElectionLabPage />} />
             <Route path="/quadratic-funding" element={<QuadraticFundingPage />} />
-            <Route path="/tech-democracy"   element={<TechDemocracyPage />} />
-            <Route path="/sortition"        element={<SortitionPage />} />
-            <Route path="/party-dynamics"   element={<PartyDynamicsPage />} />
-            <Route path="/theory"           element={<TheoryPage />} />
+            <Route path="/tech-democracy" element={<TechDemocracyPage />} />
+            <Route path="/sortition" element={<SortitionPage />} />
+            <Route path="/party-dynamics" element={<PartyDynamicsPage />} />
+            <Route path="/theory" element={<TheoryPage />} />
 
             {/* Auth-protected routes */}
-            <Route path="/profile"    element={<AuthGuard component={ProfilePage} />} />
-            <Route path="users/:id"   element={<AuthGuard component={UserProfilePage} />} />
+            <Route path="/profile" element={<AuthGuard component={ProfilePage} />} />
+            <Route path="users/:id" element={<AuthGuard component={UserProfilePage} />} />
             <Route path="/simulation" element={<AuthGuard component={SimulationPage} />} />
           </Routes>
         </Suspense>

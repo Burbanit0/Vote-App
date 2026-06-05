@@ -5,13 +5,23 @@ vi.mock('../services/simulationCompareApi', () => ({
   runComparisonSimulation: vi.fn(),
 }));
 
-const { runComparisonSimulation } = (await import('../services/simulationCompareApi')) as unknown as {
+const { runComparisonSimulation } = (await import(
+  '../services/simulationCompareApi'
+)) as unknown as {
   runComparisonSimulation: jest.Mock;
 };
 
 const MOCK_RESULT = {
   condorcet_winner: 'Alice',
-  methods: { plurality: { winner: 'Alice', bayesian_regret: 0.01, majority_satisfaction: 0.8, strategic_vulnerability: 0.1, condorcet_consistent: true } },
+  methods: {
+    plurality: {
+      winner: 'Alice',
+      bayesian_regret: 0.01,
+      majority_satisfaction: 0.8,
+      strategic_vulnerability: 0.1,
+      condorcet_consistent: true,
+    },
+  },
 };
 
 const BASE_PARAMS = {
@@ -32,9 +42,7 @@ afterEach(() => {
 
 describe('useDebouncedSimulation', () => {
   it('fires immediately on first render without debounce', async () => {
-    const { result } = renderHook(() =>
-      useDebouncedSimulation(BASE_PARAMS, 1)
-    );
+    const { result } = renderHook(() => useDebouncedSimulation(BASE_PARAMS, 1));
 
     expect(result.current.loading).toBe(true);
     await waitFor(() => expect(result.current.loading).toBe(false));
@@ -59,7 +67,9 @@ describe('useDebouncedSimulation', () => {
     expect(runComparisonSimulation).not.toHaveBeenCalled();
 
     // Advance past debounce window
-    act(() => { vi.advanceTimersByTime(700); });
+    act(() => {
+      vi.advanceTimersByTime(700);
+    });
 
     await waitFor(() => expect(runComparisonSimulation).toHaveBeenCalledTimes(1));
   });
@@ -75,16 +85,22 @@ describe('useDebouncedSimulation', () => {
 
     // Rapid successive changes
     rerender({ voters: 200 });
-    act(() => { vi.advanceTimersByTime(300); });
+    act(() => {
+      vi.advanceTimersByTime(300);
+    });
     rerender({ voters: 300 });
-    act(() => { vi.advanceTimersByTime(300); });
+    act(() => {
+      vi.advanceTimersByTime(300);
+    });
     rerender({ voters: 400 });
 
     // No call yet
     expect(runComparisonSimulation).not.toHaveBeenCalled();
 
     // One more advance to trigger final debounce
-    act(() => { vi.advanceTimersByTime(700); });
+    act(() => {
+      vi.advanceTimersByTime(700);
+    });
     await waitFor(() => expect(runComparisonSimulation).toHaveBeenCalledTimes(1));
   });
 
@@ -116,7 +132,9 @@ describe('useDebouncedSimulation', () => {
     expect(runComparisonSimulation).not.toHaveBeenCalled();
 
     // runNow should bypass the debounce
-    act(() => { result.current.runNow(); });
+    act(() => {
+      result.current.runNow();
+    });
     await waitFor(() => expect(runComparisonSimulation).toHaveBeenCalledTimes(1));
   });
 
@@ -125,8 +143,18 @@ describe('useDebouncedSimulation', () => {
     let resolveSecond: (v: any) => void;
 
     runComparisonSimulation
-      .mockImplementationOnce(() => new Promise((res) => { resolveFirst = res; }))
-      .mockImplementationOnce(() => new Promise((res) => { resolveSecond = res; }));
+      .mockImplementationOnce(
+        () =>
+          new Promise((res) => {
+            resolveFirst = res;
+          })
+      )
+      .mockImplementationOnce(
+        () =>
+          new Promise((res) => {
+            resolveSecond = res;
+          })
+      );
 
     const { result, rerender } = renderHook(
       ({ voters }) => useDebouncedSimulation({ ...BASE_PARAMS, num_voters: voters }, 1, 0),
@@ -138,14 +166,20 @@ describe('useDebouncedSimulation', () => {
 
     // Trigger second run immediately (runId increments)
     rerender({ voters: 200 });
-    act(() => { result.current.runNow(); });
+    act(() => {
+      result.current.runNow();
+    });
 
     // Resolve second run first
-    act(() => { resolveSecond!({ ...MOCK_RESULT, methods: { plurality: { winner: 'Bob' } } }); });
+    act(() => {
+      resolveSecond!({ ...MOCK_RESULT, methods: { plurality: { winner: 'Bob' } } });
+    });
     await waitFor(() => expect(result.current.results[0]?.methods.plurality?.winner).toBe('Bob'));
 
     // Resolve first run — should be discarded (stale)
-    act(() => { resolveFirst!({ ...MOCK_RESULT, methods: { plurality: { winner: 'Alice' } } }); });
+    act(() => {
+      resolveFirst!({ ...MOCK_RESULT, methods: { plurality: { winner: 'Alice' } } });
+    });
 
     // Winner should still be Bob (first result was discarded)
     await waitFor(() => expect(result.current.results[0]?.methods.plurality?.winner).toBe('Bob'));

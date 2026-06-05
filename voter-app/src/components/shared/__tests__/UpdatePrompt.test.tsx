@@ -36,6 +36,4 @@ describe('UpdatePrompt', () => {
     fireEvent.click(screen.getByRole('button', { name: /Recharger/ }));
     expect(mockUpdateServiceWorker).toHaveBeenCalledWith(true);
   });
-
-
 });

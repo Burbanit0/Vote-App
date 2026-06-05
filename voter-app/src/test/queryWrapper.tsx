@@ -26,11 +26,7 @@ export function makeTestQueryClient(): QueryClient {
 }
 
 export function QueryWrapper({ children }: { children: React.ReactNode }) {
-  return (
-    <QueryClientProvider client={makeTestQueryClient()}>
-      {children}
-    </QueryClientProvider>
-  );
+  return <QueryClientProvider client={makeTestQueryClient()}>{children}</QueryClientProvider>;
 }
 
 export function renderWithQuery(ui: React.ReactElement, options?: RenderOptions) {

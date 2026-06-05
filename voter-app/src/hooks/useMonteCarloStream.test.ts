@@ -12,7 +12,7 @@ vi.mock('socket.io-client', () => {
   };
 });
 
-const { io } = (await import('socket.io-client'));
+const { io } = await import('socket.io-client');
 
 beforeEach(() => {
   vi.clearAllMocks();
@@ -41,7 +41,7 @@ describe('useMonteCarloStream', () => {
     });
 
     expect(io).toHaveBeenCalledWith('http://localhost:4434', {
-      path:       '/api/v2/socket.io',
+      path: '/api/v2/socket.io',
       transports: ['websocket', 'polling'],
     });
 
@@ -49,9 +49,7 @@ describe('useMonteCarloStream', () => {
     expect(result.current.isRunning).toBe(true);
     expect(result.current.total).toBe(50);
 
-    const connectHandler = socket.on.mock.calls.find(
-      ([event]: [string]) => event === 'connect'
-    );
+    const connectHandler = socket.on.mock.calls.find(([event]: [string]) => event === 'connect');
     expect(connectHandler).toBeDefined();
 
     connectHandler[1]();

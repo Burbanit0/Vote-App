@@ -13,30 +13,60 @@ const { useElection } = (await import('../../../stores/useElectionStore')) as un
 };
 
 const FRANCE2002_META = {
-  id:          'france2002',
-  name:        'france2002',
+  id: 'france2002',
+  name: 'france2002',
   description: 'La gauche fragmentée en 6 candidats élimine Jospin dès le 1er tour.',
-  phenomenon:  'Paradoxe de Condorcet',
+  phenomenon: 'Paradoxe de Condorcet',
 };
 
 const USA1992_META = {
-  id:          'usa1992',
-  name:        'usa1992',
+  id: 'usa1992',
+  name: 'usa1992',
   description: 'Perot capture 19% des voix en tant que tiers candidat.',
-  phenomenon:  'Effet spoiler',
+  phenomenon: 'Effet spoiler',
 };
 
 const MOCK_RESULT = {
-  config: {}, voters_snapshot: [], candidates: [],
+  config: {},
+  voters_snapshot: [],
+  candidates: [],
   methods: {
-    plurality: { winner: 'Chirac',  bayesian_regret: 0.03, majority_satisfaction: 0.7, condorcet_consistent: false },
-    irv:       { winner: 'Jospin',  bayesian_regret: 0.01, majority_satisfaction: 0.85, condorcet_consistent: true },
-    borda:     { winner: 'Jospin',  bayesian_regret: 0.01, majority_satisfaction: 0.85, condorcet_consistent: true },
-    schulze:   { winner: 'Jospin',  bayesian_regret: 0.01, majority_satisfaction: 0.85, condorcet_consistent: true },
-    approval:  { winner: 'Jospin',  bayesian_regret: 0.01, majority_satisfaction: 0.85, condorcet_consistent: true },
+    plurality: {
+      winner: 'Chirac',
+      bayesian_regret: 0.03,
+      majority_satisfaction: 0.7,
+      condorcet_consistent: false,
+    },
+    irv: {
+      winner: 'Jospin',
+      bayesian_regret: 0.01,
+      majority_satisfaction: 0.85,
+      condorcet_consistent: true,
+    },
+    borda: {
+      winner: 'Jospin',
+      bayesian_regret: 0.01,
+      majority_satisfaction: 0.85,
+      condorcet_consistent: true,
+    },
+    schulze: {
+      winner: 'Jospin',
+      bayesian_regret: 0.01,
+      majority_satisfaction: 0.85,
+      condorcet_consistent: true,
+    },
+    approval: {
+      winner: 'Jospin',
+      bayesian_regret: 0.01,
+      majority_satisfaction: 0.85,
+      condorcet_consistent: true,
+    },
   },
-  condorcet_winner: 'Jospin', blank_rate: 0,
-  campaign_trajectory: null, inter_method_agreement: 0.2, condorcet_exists: true,
+  condorcet_winner: 'Jospin',
+  blank_rate: 0,
+  campaign_trajectory: null,
+  inter_method_agreement: 0.2,
+  condorcet_exists: true,
 };
 
 function renderPanel(meta: typeof FRANCE2002_META | null, result: any = null) {
@@ -59,7 +89,11 @@ describe('HistoricalReferencePanel', () => {
   it('renders nothing for an unknown scenario id', () => {
     const unknownMeta = { id: 'unknown_id', name: 'X', description: 'X', phenomenon: 'X' };
     useElection.mockReturnValue({ scenarioMeta: unknownMeta });
-    const { container } = render(<MemoryRouter><HistoricalReferencePanel result={null} /></MemoryRouter>);
+    const { container } = render(
+      <MemoryRouter>
+        <HistoricalReferencePanel result={null} />
+      </MemoryRouter>
+    );
     expect(container.firstChild).toBeNull();
   });
 

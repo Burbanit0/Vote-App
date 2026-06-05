@@ -28,7 +28,7 @@ const ModelAssumptionsBanner: React.FC = () => {
     <div
       data-testid="assumptions-banner"
       data-style="tailwind"
-      className="mb-3 rounded-md border border-[#ffc107] bg-[#fff3cd] text-[0.75rem]"
+      className="mb-3 rounded-md border border-border border-[#ffc107] bg-[#fff3cd] text-[0.75rem]"
     >
       {/* ── Always-visible header ── */}
       <div

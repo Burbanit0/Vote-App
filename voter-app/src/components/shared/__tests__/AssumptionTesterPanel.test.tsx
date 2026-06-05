@@ -8,7 +8,9 @@ vi.mock('../../../api/client', () => ({
   apiClient: { GET: vi.fn(), POST: vi.fn(), PUT: vi.fn(), DELETE: vi.fn(), PATCH: vi.fn() },
   getAccessToken: vi.fn(() => null),
 }));
-const { apiClient } = (await import('../../../api/client')) as unknown as { apiClient: { POST: jest.Mock } };
+const { apiClient } = (await import('../../../api/client')) as unknown as {
+  apiClient: { POST: jest.Mock };
+};
 
 vi.mock('react-i18next', () => ({
   useTranslation: () => ({
@@ -21,8 +23,13 @@ vi.mock('recharts', () => {
   const stub = ({ children }: { children?: React.ReactNode }) =>
     React.createElement('div', { 'data-testid': 'recharts-stub' }, children);
   return {
-    BarChart: stub, Bar: stub, XAxis: stub, YAxis: stub,
-    CartesianGrid: stub, Tooltip: stub, Cell: stub,
+    BarChart: stub,
+    Bar: stub,
+    XAxis: stub,
+    YAxis: stub,
+    CartesianGrid: stub,
+    Tooltip: stub,
+    Cell: stub,
     ResponsiveContainer: ({ children }: { children?: React.ReactNode }) =>
       React.createElement('div', null, children),
   };
@@ -32,39 +39,39 @@ vi.mock('recharts', () => {
 
 const makeResult = (changed: boolean, variance: number, winner = 'Alice') => ({
   winner,
-  winner_changed:      changed,
-  pct_trials_changed:  changed ? 0.33 : 0.00,
-  result_variance:     variance,
+  winner_changed: changed,
+  pct_trials_changed: changed ? 0.33 : 0.0,
+  result_variance: variance,
   confidence_interval: [0.65, 0.95] as [number, number],
   winner_distribution: { Alice: changed ? 0.67 : 1.0, Bob: changed ? 0.33 : 0.0 },
 });
 
 const MOCK_ROBUST: object = {
-  baseline_result:           { winner: 'Alice', regret: 0.0 },
+  baseline_result: { winner: 'Alice', regret: 0.0 },
   relaxed_results: {
-    single_peaked:        makeResult(false, 0.05),
-    stable_preferences:   makeResult(false, 0.10),
-    rational_voters:      makeResult(false, 0.08),
-    fixed_electorate:     makeResult(false, 0.04),
+    single_peaked: makeResult(false, 0.05),
+    stable_preferences: makeResult(false, 0.1),
+    rational_voters: makeResult(false, 0.08),
+    fixed_electorate: makeResult(false, 0.04),
     measurable_utilities: makeResult(false, 0.06),
   },
   most_fragile_assumption: 'stable_preferences',
-  robust_result:           true,
-  pedagogical_note:        'Alice wins under all assumptions.',
+  robust_result: true,
+  pedagogical_note: 'Alice wins under all assumptions.',
 };
 
 const MOCK_FRAGILE: object = {
-  baseline_result:           { winner: 'Alice', regret: 0.0 },
+  baseline_result: { winner: 'Alice', regret: 0.0 },
   relaxed_results: {
-    single_peaked:        makeResult(true,  0.65, 'Bob'),
-    stable_preferences:   makeResult(false, 0.20),
-    rational_voters:      makeResult(false, 0.12),
-    fixed_electorate:     makeResult(false, 0.08),
-    measurable_utilities: makeResult(false, 0.10),
+    single_peaked: makeResult(true, 0.65, 'Bob'),
+    stable_preferences: makeResult(false, 0.2),
+    rational_voters: makeResult(false, 0.12),
+    fixed_electorate: makeResult(false, 0.08),
+    measurable_utilities: makeResult(false, 0.1),
   },
   most_fragile_assumption: 'single_peaked',
-  robust_result:           false,
-  pedagogical_note:        'Fragile under single_peaked.',
+  robust_result: false,
+  pedagogical_note: 'Fragile under single_peaked.',
 };
 
 /** openapi-fetch resolves to { data, error }. */
@@ -81,7 +88,9 @@ function renderPanel() {
 async function renderAndRun(responseData: object = MOCK_ROBUST) {
   apiClient.POST.mockResolvedValueOnce(ok(responseData));
   renderPanel();
-  await act(async () => { fireEvent.click(screen.getByTestId('run-btn')); });
+  await act(async () => {
+    fireEvent.click(screen.getByTestId('run-btn'));
+  });
   await waitFor(() => expect(apiClient.POST).toHaveBeenCalledTimes(1));
   await act(async () => {});
 }
@@ -163,8 +172,9 @@ describe('AssumptionTesterPanel', () => {
   it('renders pedagogical note', async () => {
     await renderAndRun(MOCK_ROBUST);
     expect(screen.getByTestId('pedagogical-note')).toBeInTheDocument();
-    expect(screen.getByTestId('pedagogical-note'))
-      .toHaveTextContent('Alice wins under all assumptions.');
+    expect(screen.getByTestId('pedagogical-note')).toHaveTextContent(
+      'Alice wins under all assumptions.'
+    );
   });
 
   // ── Results: fragile scenario ────────────────────────────────────────────────
@@ -186,7 +196,9 @@ describe('AssumptionTesterPanel', () => {
   it('shows error alert on API failure', async () => {
     apiClient.POST.mockRejectedValueOnce(new Error('Network error'));
     renderPanel();
-    await act(async () => { fireEvent.click(screen.getByTestId('run-btn')); });
+    await act(async () => {
+      fireEvent.click(screen.getByTestId('run-btn'));
+    });
     await waitFor(() => expect(screen.getByTestId('error-alert')).toBeInTheDocument());
   });
 });

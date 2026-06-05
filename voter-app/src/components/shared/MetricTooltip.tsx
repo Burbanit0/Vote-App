@@ -16,8 +16,8 @@ export type MetricKey =
   | 'delta_agreement';
 
 interface Props {
-  metric:     MetricKey;
-  size?:      'sm' | 'md';
+  metric: MetricKey;
+  size?: 'sm' | 'md';
   placement?: 'top' | 'bottom' | 'left' | 'right';
   className?: string;
 }
@@ -26,27 +26,27 @@ interface Props {
 // positioned popover div (closes on outside click; placement controls anchor).
 
 const POS: Record<NonNullable<Props['placement']>, string> = {
-  top:    'bottom-full left-1/2 mb-2 -translate-x-1/2',
+  top: 'bottom-full left-1/2 mb-2 -translate-x-1/2',
   bottom: 'top-full left-1/2 mt-2 -translate-x-1/2',
-  left:   'right-full top-1/2 mr-2 -translate-y-1/2',
-  right:  'left-full top-1/2 ml-2 -translate-y-1/2',
+  left: 'right-full top-1/2 mr-2 -translate-y-1/2',
+  right: 'left-full top-1/2 ml-2 -translate-y-1/2',
 };
 
 const MetricTooltip: React.FC<Props> = ({
   metric,
-  size       = 'sm',
-  placement  = 'top',
-  className  = '',
+  size = 'sm',
+  placement = 'top',
+  className = '',
 }) => {
-  const { t }       = useTranslation();
+  const { t } = useTranslation();
   const [show, setShow] = React.useState(false);
-  const targetRef   = useRef<HTMLButtonElement>(null);
-  const wrapRef     = useRef<HTMLSpanElement>(null);
+  const targetRef = useRef<HTMLButtonElement>(null);
+  const wrapRef = useRef<HTMLSpanElement>(null);
 
-  const title          = t(`metrics.${metric}.title`);
-  const simple         = t(`metrics.${metric}.simple`);
-  const example        = t(`metrics.${metric}.example`,        { defaultValue: '' });
-  const formula        = t(`metrics.${metric}.formula`,        { defaultValue: '' });
+  const title = t(`metrics.${metric}.title`);
+  const simple = t(`metrics.${metric}.simple`);
+  const example = t(`metrics.${metric}.example`, { defaultValue: '' });
+  const formula = t(`metrics.${metric}.formula`, { defaultValue: '' });
   const interpretation = t(`metrics.${metric}.interpretation`, { defaultValue: '' });
 
   // Close on outside click
@@ -58,7 +58,7 @@ const MetricTooltip: React.FC<Props> = ({
 
   React.useEffect(() => {
     if (show) document.addEventListener('mousedown', handleClickOutside);
-    return ()  => document.removeEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
   }, [show, handleClickOutside]);
 
   return (
@@ -73,7 +73,10 @@ const MetricTooltip: React.FC<Props> = ({
         style={{ fontSize: size === 'md' ? '1rem' : '0.72rem' }}
         aria-label={`${t('metrics.info')}: ${title}`}
         aria-expanded={show}
-        onClick={(e) => { e.stopPropagation(); setShow((s) => !s); }}
+        onClick={(e) => {
+          e.stopPropagation();
+          setShow((s) => !s);
+        }}
         data-testid={`metric-tooltip-${metric}`}
       >
         ⓘ

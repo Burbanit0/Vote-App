@@ -10,8 +10,8 @@ vi.mock('../stores/useAuthStore', async () => ({
   useAuth: vi.fn(),
 }));
 vi.mock('../stores/useUIStore', () => ({
-  useTheme:       vi.fn(),
-  useExpertMode:  vi.fn(),
+  useTheme: vi.fn(),
+  useExpertMode: vi.fn(),
   useTeacherMode: vi.fn(),
 }));
 vi.mock('../i18n', () => ({
@@ -34,7 +34,9 @@ describe('Navbar', () => {
     (useTheme as jest.Mock).mockReturnValue({ theme: 'light', toggleTheme: vi.fn() });
     (useExpertMode as jest.Mock).mockReturnValue({ expertMode: false, setExpertMode: vi.fn() });
     (useTeacherMode as jest.Mock).mockReturnValue({
-      teacherMode: false, setTeacherMode: vi.fn(), slides: [],
+      teacherMode: false,
+      setTeacherMode: vi.fn(),
+      slides: [],
     });
   });
 
@@ -58,8 +60,9 @@ describe('Navbar', () => {
   it('shows settings toggle when not authenticated', () => {
     renderNavbar();
     // The user/settings dropdown toggle should be visible
-    expect(screen.getByRole('button', { name: /user-settings-dropdown|settings|préférences/i })
-      ?? screen.getByText(/settings|préférences/i)
+    expect(
+      screen.getByRole('button', { name: /user-settings-dropdown|settings|préférences/i }) ??
+        screen.getByText(/settings|préférences/i)
     ).toBeTruthy();
   });
 
@@ -80,7 +83,11 @@ describe('Navbar', () => {
 
   it('returns null while loading', () => {
     (useAuth as jest.Mock).mockReturnValue({ user: null, logout: vi.fn(), loading: true });
-    const { container } = render(<MemoryRouter><Navbar /></MemoryRouter>);
+    const { container } = render(
+      <MemoryRouter>
+        <Navbar />
+      </MemoryRouter>
+    );
     expect(container.innerHTML).toBe('');
   });
 });

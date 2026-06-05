@@ -4,7 +4,7 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardBody, CardHeader } from '@/components/ui/card';
 import { Control } from '@/components/ui/form-controls';
-import { Col, Container, Row } from '@/components/ui/grid';
+import { Container } from '@/components/ui/grid';
 import { Spinner } from '@/components/ui/spinner';
 import { useNavigate } from 'react-router';
 import { Slide, useTeacherMode } from '../stores/useUIStore';
@@ -13,7 +13,8 @@ import { useMetaTags } from '../hooks/useMetaTags';
 // ── Slide preview ────────────────────────────────────────────────────────────
 
 const SlidePreview: React.FC<{ slide: Slide; previewRef?: React.Ref<HTMLDivElement> }> = ({
-  slide, previewRef,
+  slide,
+  previewRef,
 }) => {
   const TYPE_ICONS: Record<string, string> = {
     chart: '📊',
@@ -61,9 +62,9 @@ const SlidePreview: React.FC<{ slide: Slide; previewRef?: React.Ref<HTMLDivEleme
           <div style={{ fontSize: '3rem', marginBottom: 12 }} aria-hidden="true">
             {TYPE_ICONS[slide.type] ?? '📄'}
           </div>
-          <h4 className="fw-bold mb-2">{slide.title}</h4>
+          <h4 className="font-bold mb-2">{slide.title}</h4>
           {slide.content.description && (
-            <p className="text-muted mb-3" style={{ fontSize: '0.9rem' }}>
+            <p className="text-muted-foreground mb-3" style={{ fontSize: '0.9rem' }}>
               {slide.content.description}
             </p>
           )}
@@ -108,20 +109,34 @@ interface SidebarItemProps {
 }
 
 const SidebarItem: React.FC<SidebarItemProps> = ({
-  slide, index, isActive, onSelect, onRemove,
-  onDragStart, onDragOver, onDrop,
+  slide,
+  index,
+  isActive,
+  onSelect,
+  onRemove,
+  onDragStart,
+  onDragOver,
+  onDrop,
 }) => (
   <div
     draggable
     onDragStart={onDragStart}
-    onDragOver={(e) => { e.preventDefault(); onDragOver(e); }}
-    onDrop={(e) => { e.preventDefault(); onDrop(e); }}
+    onDragOver={(e) => {
+      e.preventDefault();
+      onDragOver(e);
+    }}
+    onDrop={(e) => {
+      e.preventDefault();
+      onDrop(e);
+    }}
     onClick={onSelect}
     role="button"
     tabIndex={0}
     aria-current={isActive}
     aria-label={`Slide ${index + 1}: ${slide.title}`}
-    onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') onSelect(); }}
+    onKeyDown={(e) => {
+      if (e.key === 'Enter' || e.key === ' ') onSelect();
+    }}
     style={{
       cursor: 'grab',
       padding: '8px 10px',
@@ -136,7 +151,9 @@ const SidebarItem: React.FC<SidebarItemProps> = ({
       userSelect: 'none',
     }}
   >
-    <span className="text-muted" style={{ fontSize: '0.72rem', minWidth: 18 }}>{index + 1}</span>
+    <span className="text-muted-foreground" style={{ fontSize: '0.72rem', minWidth: 18 }}>
+      {index + 1}
+    </span>
     <div style={{ flex: 1, overflow: 'hidden' }}>
       {slide.content.screenshot ? (
         <img
@@ -164,7 +181,10 @@ const SidebarItem: React.FC<SidebarItemProps> = ({
       )}
     </div>
     <button
-      onClick={(e) => { e.stopPropagation(); onRemove(); }}
+      onClick={(e) => {
+        e.stopPropagation();
+        onRemove();
+      }}
       aria-label={`Supprimer la slide ${index + 1}`}
       style={{
         background: 'none',
@@ -188,16 +208,23 @@ const TeacherPresentationPage: React.FC = () => {
 
   const navigate = useNavigate();
   const {
-    teacherMode, slides, removeSlide, reorderSlides,
-    updateSlideNotes, updateSlideTitle, exportPresentation, captureScreen, capturing,
+    teacherMode,
+    slides,
+    removeSlide,
+    reorderSlides,
+    updateSlideNotes,
+    updateSlideTitle,
+    exportPresentation,
+    captureScreen,
+    capturing,
   } = useTeacherMode();
 
-  const [activeIdx,   setActiveIdx]   = useState(0);
-  const [fullscreen,  setFullscreen]  = useState(false);
-  const [exporting,   setExporting]   = useState(false);
-  const [dragFrom,    setDragFrom]    = useState<number | null>(null);
-  const previewRef                    = useRef<HTMLDivElement>(null);
-  const fsContainerRef                = useRef<HTMLDivElement>(null);
+  const [activeIdx, setActiveIdx] = useState(0);
+  const [fullscreen, setFullscreen] = useState(false);
+  const [exporting, setExporting] = useState(false);
+  const [dragFrom, setDragFrom] = useState<number | null>(null);
+  const previewRef = useRef<HTMLDivElement>(null);
+  const fsContainerRef = useRef<HTMLDivElement>(null);
 
   const active = slides[activeIdx] ?? slides[0] ?? null;
 
@@ -257,12 +284,15 @@ const TeacherPresentationPage: React.FC = () => {
     setDragFrom(index);
   }, []);
 
-  const handleDrop = useCallback((index: number) => {
-    if (dragFrom === null || dragFrom === index) return;
-    reorderSlides(dragFrom, index);
-    setActiveIdx(index);
-    setDragFrom(null);
-  }, [dragFrom, reorderSlides]);
+  const handleDrop = useCallback(
+    (index: number) => {
+      if (dragFrom === null || dragFrom === index) return;
+      reorderSlides(dragFrom, index);
+      setActiveIdx(index);
+      setDragFrom(null);
+    },
+    [dragFrom, reorderSlides]
+  );
 
   // ── Password guard ─────────────────────────────────────────────────────────
   if (!teacherMode) {
@@ -270,10 +300,13 @@ const TeacherPresentationPage: React.FC = () => {
       <Container className="py-5 text-center" style={{ maxWidth: 500 }}>
         <div style={{ fontSize: '3rem' }}>🎓</div>
         <h2 className="mt-3 mb-2">Mode Enseignant</h2>
-        <p className="text-muted mb-4">
-          Le mode enseignant n'est pas activé. Cliquez sur 🎓 dans la barre de navigation pour l'activer.
+        <p className="text-muted-foreground mb-4">
+          Le mode enseignant n'est pas activé. Cliquez sur 🎓 dans la barre de navigation pour
+          l'activer.
         </p>
-        <Button variant="primary" onClick={() => navigate('/')}>Retour à l'accueil</Button>
+        <Button variant="primary" onClick={() => navigate('/')}>
+          Retour à l'accueil
+        </Button>
       </Container>
     );
   }
@@ -281,14 +314,20 @@ const TeacherPresentationPage: React.FC = () => {
   if (!slides.length) {
     return (
       <Container className="py-5" style={{ maxWidth: 680 }}>
-        <h2 className="mb-3 fw-bold">🎓 Présentation enseignant</h2>
+        <h2 className="mb-3 font-bold">🎓 Présentation enseignant</h2>
         <Alert variant="info">
           <strong>Aucune slide encore.</strong> Naviguez dans Vote Lab et cliquez sur{' '}
-          <strong>📌 Ajouter</strong> pour capturer des vues. Vous pouvez aussi utiliser
-          le bouton flottant "📌 Ajouter" visible en mode enseignant.
+          <strong>📌 Ajouter</strong> pour capturer des vues. Vous pouvez aussi utiliser le bouton
+          flottant "📌 Ajouter" visible en mode enseignant.
         </Alert>
         <Button variant="outline-primary" onClick={() => captureScreen()} disabled={capturing}>
-          {capturing ? <><Spinner size="sm" /> Capture…</> : '📸 Capturer la vue actuelle'}
+          {capturing ? (
+            <>
+              <Spinner size="sm" /> Capture…
+            </>
+          ) : (
+            '📸 Capturer la vue actuelle'
+          )}
         </Button>
         <Button variant="outline-secondary" className="ms-2" onClick={() => navigate('/')}>
           Aller sur Vote Lab
@@ -323,14 +362,20 @@ const TeacherPresentationPage: React.FC = () => {
             flexShrink: 0,
           }}
         >
-          <span className="fw-semibold">{active?.title}</span>
-          <div className="d-flex align-items-center gap-3">
+          <span className="font-semibold">{active?.title}</span>
+          <div className="flex items-center gap-3">
             <span style={{ fontSize: '0.85rem', opacity: 0.8 }}>
               {activeIdx + 1} / {slides.length}
             </span>
             <button
               onClick={() => setFullscreen(false)}
-              style={{ background: 'none', border: 'none', color: 'white', cursor: 'pointer', fontSize: '1rem' }}
+              style={{
+                background: 'none',
+                border: 'none',
+                color: 'white',
+                cursor: 'pointer',
+                fontSize: '1rem',
+              }}
               aria-label="Quitter le plein écran"
             >
               ✕ <span style={{ fontSize: '0.75rem', opacity: 0.7 }}>Échap</span>
@@ -339,7 +384,15 @@ const TeacherPresentationPage: React.FC = () => {
         </div>
 
         {/* FS Content */}
-        <div style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 20 }}>
+        <div
+          style={{
+            flex: 1,
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            padding: 20,
+          }}
+        >
           {active && <SlidePreview slide={active} />}
         </div>
 
@@ -369,8 +422,12 @@ const TeacherPresentationPage: React.FC = () => {
                 onClick={() => setActiveIdx(i)}
                 aria-label={`Aller à la slide ${i + 1}`}
                 style={{
-                  width: 10, height: 10, borderRadius: '50%',
-                  border: 'none', cursor: 'pointer', padding: 0,
+                  width: 10,
+                  height: 10,
+                  borderRadius: '50%',
+                  border: 'none',
+                  cursor: 'pointer',
+                  padding: 0,
                   background: i === activeIdx ? '#0d6efd' : '#666',
                 }}
               />
@@ -391,24 +448,52 @@ const TeacherPresentationPage: React.FC = () => {
 
   // ── Normal editor view ─────────────────────────────────────────────────────
   return (
-    <div style={{ height: 'calc(100vh - 56px)', display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
+    <div
+      style={{
+        height: 'calc(100vh - 56px)',
+        display: 'flex',
+        flexDirection: 'column',
+        overflow: 'hidden',
+      }}
+    >
       {/* Header toolbar */}
       <div
-        className="d-flex align-items-center gap-2 flex-wrap border-bottom py-2 px-3"
+        className="flex items-center gap-2 flex-wrap border-b border-border py-2 px-3"
         style={{ flexShrink: 0, background: 'var(--bs-body-bg, white)' }}
       >
-        <h5 className="mb-0 fw-bold">🎓 Présentation</h5>
-        <Badge variant="secondary">{slides.length} slide{slides.length !== 1 ? 's' : ''}</Badge>
-        <span className="me-auto text-muted small">← → pour naviguer · F = plein écran</span>
+        <h5 className="mb-0 font-bold">🎓 Présentation</h5>
+        <Badge variant="secondary">
+          {slides.length} slide{slides.length !== 1 ? 's' : ''}
+        </Badge>
+        <span className="mr-auto text-muted-foreground text-sm">
+          ← → pour naviguer · F = plein écran
+        </span>
 
-        <Button variant="outline-secondary" size="sm" onClick={() => captureScreen()} disabled={capturing}>
+        <Button
+          variant="outline-secondary"
+          size="sm"
+          onClick={() => captureScreen()}
+          disabled={capturing}
+        >
           {capturing ? <Spinner size="sm" /> : '📸 Capturer la vue'}
         </Button>
         <Button variant="outline-primary" size="sm" onClick={toggleFullscreen}>
           ⛶ Plein écran
         </Button>
-        <Button variant="success" size="sm" onClick={handleExport} disabled={exporting || !slides.length}>
-          {exporting ? <><Spinner size="sm" className="me-1" />Export…</> : '⬇ PDF'}
+        <Button
+          variant="success"
+          size="sm"
+          onClick={handleExport}
+          disabled={exporting || !slides.length}
+        >
+          {exporting ? (
+            <>
+              <Spinner size="sm" className="me-1" />
+              Export…
+            </>
+          ) : (
+            '⬇ PDF'
+          )}
         </Button>
       </div>
 
@@ -446,17 +531,14 @@ const TeacherPresentationPage: React.FC = () => {
         </div>
 
         {/* ── Preview + Notes ── */}
-        <div
-          style={{ flex: 1, overflow: 'auto', padding: 16 }}
-          ref={fsContainerRef}
-        >
+        <div style={{ flex: 1, overflow: 'auto', padding: 16 }} ref={fsContainerRef}>
           {active ? (
             <>
               {/* Title editable */}
               <Control
                 value={active.title}
                 onChange={(e) => updateSlideTitle(active.id, e.target.value)}
-                className="fw-bold mb-3 border-0 ps-0 fs-5"
+                className="font-bold mb-3 border-0 ps-0 text-lg"
                 style={{ boxShadow: 'none', background: 'transparent' }}
                 aria-label="Titre de la slide"
               />
@@ -469,7 +551,7 @@ const TeacherPresentationPage: React.FC = () => {
               </Card>
 
               {/* Navigation buttons */}
-              <div className="d-flex justify-content-between align-items-center mb-3">
+              <div className="flex justify-between items-center mb-3">
                 <Button
                   variant="outline-secondary"
                   size="sm"
@@ -478,7 +560,7 @@ const TeacherPresentationPage: React.FC = () => {
                 >
                   ← Précédente
                 </Button>
-                <span className="text-muted small">
+                <span className="text-muted-foreground text-sm">
                   {activeIdx + 1} / {slides.length}
                 </span>
                 <Button
@@ -494,8 +576,12 @@ const TeacherPresentationPage: React.FC = () => {
               {/* Notes */}
               <Card>
                 <CardHeader className="block space-y-0 border-b border-border px-4 py-2 py-2">
-                  <small className="fw-semibold text-muted">📝 Notes de l'enseignant</small>
-                  <small className="text-muted ms-2">(non affichées pendant la présentation)</small>
+                  <small className="font-semibold text-muted-foreground">
+                    📝 Notes de l'enseignant
+                  </small>
+                  <small className="text-muted-foreground ms-2">
+                    (non affichées pendant la présentation)
+                  </small>
                 </CardHeader>
                 <CardBody className="p-2">
                   <Control
@@ -510,8 +596,8 @@ const TeacherPresentationPage: React.FC = () => {
                 </CardBody>
               </Card>
 
-              <div className="mt-2 text-end">
-                <small className="text-muted">
+              <div className="mt-2 text-right">
+                <small className="text-muted-foreground">
                   Capturé le {new Date(active.capturedAt).toLocaleString('fr-FR')}
                 </small>
               </div>

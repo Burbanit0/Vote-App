@@ -129,9 +129,11 @@ const IRVVisualization: React.FC<VotingMethodVisualizationProps> = ({ rankings, 
 
           {eliminated.length > 0 && (
             <Card className="mt-3">
-              <CardHeader className="block space-y-0 border-b border-border px-4 py-2">Eliminated Candidates</CardHeader>
+              <CardHeader className="block space-y-0 border-b border-border px-4 py-2">
+                Eliminated Candidates
+              </CardHeader>
               <CardBody>
-                <div className="d-flex flex-wrap gap-2">
+                <div className="flex flex-wrap gap-2">
                   {eliminated.map((candidate) => (
                     <Badge key={candidate} variant="secondary" className="p-2">
                       {candidate}

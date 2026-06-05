@@ -9,23 +9,27 @@ vi.mock('../../../api/client', () => ({
   apiClient: { GET: vi.fn(), POST: vi.fn(), PUT: vi.fn(), DELETE: vi.fn(), PATCH: vi.fn() },
   getAccessToken: vi.fn(() => null),
 }));
-const { apiClient } = (await import('../../../api/client')) as unknown as { apiClient: { POST: jest.Mock } };
+const { apiClient } = (await import('../../../api/client')) as unknown as {
+  apiClient: { POST: jest.Mock };
+};
 
 vi.mock('recharts', () => {
   const React = require('react');
   return {
-    LineChart:           ({ children }: any) => <div data-testid="line-chart">{children}</div>,
-    Line:                ({ dataKey, name }: any) => <div data-testid={`line-${dataKey ?? name}`} />,
-    BarChart:            ({ children }: any) => <div data-testid="bar-chart">{children}</div>,
-    Bar:                 ({ children }: any) => <div>{children}</div>,
-    Cell:                () => null,
-    XAxis:               () => null,
-    YAxis:               () => null,
-    Tooltip:             () => null,
-    Legend:              () => null,
-    ReferenceLine:       () => null,
-    CartesianGrid:       () => null,
-    ResponsiveContainer: ({ children }: any) => <div style={{ width: 400, height: 300 }}>{children}</div>,
+    LineChart: ({ children }: any) => <div data-testid="line-chart">{children}</div>,
+    Line: ({ dataKey, name }: any) => <div data-testid={`line-${dataKey ?? name}`} />,
+    BarChart: ({ children }: any) => <div data-testid="bar-chart">{children}</div>,
+    Bar: ({ children }: any) => <div>{children}</div>,
+    Cell: () => null,
+    XAxis: () => null,
+    YAxis: () => null,
+    Tooltip: () => null,
+    Legend: () => null,
+    ReferenceLine: () => null,
+    CartesianGrid: () => null,
+    ResponsiveContainer: ({ children }: any) => (
+      <div style={{ width: 400, height: 300 }}>{children}</div>
+    ),
   };
 });
 
@@ -33,34 +37,34 @@ vi.mock('recharts', () => {
 
 function makeData(bestMethod = 'schulze'): { data: any; error: undefined } {
   const methods = {
-    plurality: { accuracy: 0.85, beats_majority: true,  beats_theory: false },
-    borda:     { accuracy: 0.88, beats_majority: true,  beats_theory: false },
-    irv:       { accuracy: 0.87, beats_majority: true,  beats_theory: false },
-    approval:  { accuracy: 0.89, beats_majority: true,  beats_theory: false },
-    schulze:   { accuracy: 0.92, beats_majority: true,  beats_theory: true  },
+    plurality: { accuracy: 0.85, beats_majority: true, beats_theory: false },
+    borda: { accuracy: 0.88, beats_majority: true, beats_theory: false },
+    irv: { accuracy: 0.87, beats_majority: true, beats_theory: false },
+    approval: { accuracy: 0.89, beats_majority: true, beats_theory: false },
+    schulze: { accuracy: 0.92, beats_majority: true, beats_theory: true },
   };
 
   const curvePoints = Array.from({ length: 20 }, (_, i) => ({
-    competence:  0.51 + i * (0.48 / 19),
+    competence: 0.51 + i * (0.48 / 19),
     theoretical: 0.51 + i * 0.02,
-    plurality:   0.52 + i * 0.02,
-    borda:       0.53 + i * 0.02,
-    irv:         0.52 + i * 0.02,
-    approval:    0.53 + i * 0.02,
-    schulze:     0.54 + i * 0.02,
+    plurality: 0.52 + i * 0.02,
+    borda: 0.53 + i * 0.02,
+    irv: 0.52 + i * 0.02,
+    approval: 0.53 + i * 0.02,
+    schulze: 0.54 + i * 0.02,
   }));
 
   return {
     data: {
       theoretical_accuracy: 0.89,
       methods,
-      best_method:          bestMethod,
-      worst_method:         'plurality',
-      voter_competence:     0.70,
-      num_voters:           100,
-      competence_curve:     curvePoints,
-      pedagogical_note:     'Avec P=0.7 et 100 électeurs, la théorie prédit 89%. Schulze atteint 92%.',
-      pedagogical_note_en:  'With P=0.7 and 100 voters, theory predicts 89%. Schulze reaches 92%.',
+      best_method: bestMethod,
+      worst_method: 'plurality',
+      voter_competence: 0.7,
+      num_voters: 100,
+      competence_curve: curvePoints,
+      pedagogical_note: 'Avec P=0.7 et 100 électeurs, la théorie prédit 89%. Schulze atteint 92%.',
+      pedagogical_note_en: 'With P=0.7 and 100 voters, theory predicts 89%. Schulze reaches 92%.',
     },
     error: undefined,
   };
@@ -111,7 +115,7 @@ describe('JuryTheoremPanel', () => {
     await waitFor(() => expect(apiClient.POST).toHaveBeenCalledTimes(1));
     expect(apiClient.POST).toHaveBeenCalledWith(
       expect.stringMatching(/\/api\/(v2\/)?election\/jury/),
-      expect.objectContaining({ body: expect.objectContaining({ voter_competence: 0.70 }) }),
+      expect.objectContaining({ body: expect.objectContaining({ voter_competence: 0.7 }) })
     );
   });
 
@@ -183,9 +187,13 @@ describe('JuryTheoremPanel', () => {
     expect(apiClient.POST).toHaveBeenCalledTimes(1);
 
     // Advance fake timers past debounce
-    act(() => { vi.advanceTimersByTime(450); });
+    act(() => {
+      vi.advanceTimersByTime(450);
+    });
     await waitFor(() => expect(apiClient.POST).toHaveBeenCalledTimes(2));
-    expect((apiClient.POST.mock.calls[1][1] as { body: Record<string, unknown> }).body).toMatchObject({ voter_competence: 0.8 });
+    expect(
+      (apiClient.POST.mock.calls[1][1] as { body: Record<string, unknown> }).body
+    ).toMatchObject({ voter_competence: 0.8 });
   });
 
   it('shows error on API failure', async () => {

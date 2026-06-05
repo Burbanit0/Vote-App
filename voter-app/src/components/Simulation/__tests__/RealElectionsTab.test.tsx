@@ -10,7 +10,9 @@ vi.mock('../../../services/simulationCompareApi', () => ({
   analyzeRealElection: vi.fn(),
 }));
 
-vi.mock('../RealElectionAnalysis', () => ({ default: () => <div data-testid="real-election-analysis" /> }));
+vi.mock('../RealElectionAnalysis', () => ({
+  default: () => <div data-testid="real-election-analysis" />,
+}));
 
 const mockElections = [
   { key: 'fr-2022', name: 'Présidentielle 2022', year: 2022, country: 'France' },
@@ -18,7 +20,16 @@ const mockElections = [
 ];
 
 const mockResult = {
-  election: { key: 'fr-2022', name: 'Présidentielle 2022', year: 2022, country: 'France', description: '', source: '', candidates: [], estimated_blank_pct: 5 },
+  election: {
+    key: 'fr-2022',
+    name: 'Présidentielle 2022',
+    year: 2022,
+    country: 'France',
+    description: '',
+    source: '',
+    candidates: [],
+    estimated_blank_pct: 5,
+  },
   plurality_winner: 'A',
   first_round_results: { A: 30, B: 25 },
   methods: { plurality: 'A', irv: 'B' },
@@ -26,7 +37,8 @@ const mockResult = {
   summary: { methods_with_different_winner: 1, total_methods_with_winner: 2 },
 };
 
-const renderWithI18n = (ui: React.ReactElement) => render(<I18nextProvider i18n={i18n}>{ui}</I18nextProvider>);
+const renderWithI18n = (ui: React.ReactElement) =>
+  render(<I18nextProvider i18n={i18n}>{ui}</I18nextProvider>);
 
 describe('RealElectionsTab', () => {
   beforeEach(() => {

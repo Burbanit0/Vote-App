@@ -36,14 +36,14 @@ export function useToast(): ToastContextValue {
 
 const ICONS: Record<Variant, string> = {
   success: '✓',
-  danger:  '✗',
-  info:    'ℹ',
+  danger: '✗',
+  info: 'ℹ',
 };
 
 const VARIANT_BG: Record<Variant, string> = {
   success: 'bg-[#198754] text-white',
-  danger:  'bg-[#dc3545] text-white',
-  info:    'bg-[#0dcaf0] text-slate-900',
+  danger: 'bg-[#dc3545] text-white',
+  info: 'bg-[#0dcaf0] text-slate-900',
 };
 
 const AUTO_HIDE_MS = 3000;
@@ -63,8 +63,8 @@ export const ToastProvider: React.FC<{ children: React.ReactNode }> = ({ childre
 
   const ctx: ToastContextValue = {
     success: (msg) => push(msg, 'success'),
-    error:   (msg) => push(msg, 'danger'),
-    info:    (msg) => push(msg, 'info'),
+    error: (msg) => push(msg, 'danger'),
+    info: (msg) => push(msg, 'info'),
   };
 
   return (

@@ -27,10 +27,10 @@ import type { CampaignResponse } from '../api';
 type EventType = 'scandal' | 'gaffe' | 'good_debate' | 'announcement' | 'bad_poll';
 
 interface CampaignEvent {
-  id: string;          // client-side only
+  id: string; // client-side only
   day: number;
   type: EventType;
-  candidate: number;   // 0-based index
+  candidate: number; // 0-based index
   magnitude: number;
 }
 
@@ -43,56 +43,64 @@ type CampaignResult = CampaignResponse;
 // ── Constants ─────────────────────────────────────────────────────────────────
 
 const EVENT_ICONS: Record<EventType, string> = {
-  scandal:      '💣',
-  gaffe:        '📰',
-  good_debate:  '🎤',
+  scandal: '💣',
+  gaffe: '📰',
+  good_debate: '🎤',
   announcement: '📢',
-  bad_poll:     '📉',
+  bad_poll: '📉',
 };
 
 const EVENT_LABELS: Record<EventType, string> = {
-  scandal:      'Scandale',
-  gaffe:        'Gaffe',
-  good_debate:  'Bon débat',
+  scandal: 'Scandale',
+  gaffe: 'Gaffe',
+  good_debate: 'Bon débat',
   announcement: 'Annonce',
-  bad_poll:     'Mauvais sondage',
+  bad_poll: 'Mauvais sondage',
 };
 
 const EVENT_COLORS: Record<EventType, string> = {
-  scandal:      '#b71c1c',
-  gaffe:        '#b35c00',
-  good_debate:  '#1b5e20',
+  scandal: '#b71c1c',
+  gaffe: '#b35c00',
+  good_debate: '#1b5e20',
   announcement: '#1a56cc',
-  bad_poll:     '#6c757d',
+  bad_poll: '#6c757d',
 };
 
 const METHODS = [
-  { value: 'plurality',  label: 'Pluralité (1 tour)' },
-  { value: 'borda',      label: 'Borda' },
-  { value: 'irv',        label: 'IRV (préférentiel)' },
-  { value: 'approval',   label: 'Approbation' },
-  { value: 'schulze',    label: 'Schulze' },
+  { value: 'plurality', label: 'Pluralité (1 tour)' },
+  { value: 'borda', label: 'Borda' },
+  { value: 'irv', label: 'IRV (préférentiel)' },
+  { value: 'approval', label: 'Approbation' },
+  { value: 'schulze', label: 'Schulze' },
 ];
 
-function uid() { return `ev-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`; }
+function uid() {
+  return `ev-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`;
+}
 
 // ── Custom tooltip ────────────────────────────────────────────────────────────
 
 function CampaignTooltip({ active, payload, label, candidates }: any) {
   if (!active || !payload?.length) return null;
   return (
-    <div style={{
-      background: 'var(--bs-body-bg, white)',
-      border: '1px solid var(--bs-border-color, #dee2e6)',
-      borderRadius: 8, padding: '8px 12px', fontSize: '0.82rem',
-      boxShadow: '0 2px 8px rgba(0,0,0,0.12)',
-    }}>
-      <div className="fw-bold mb-1">Jour {label}</div>
-      {[...payload].sort((a, b) => b.value - a.value).map((entry: any) => (
-        <div key={entry.dataKey} style={{ color: entry.color }}>
-          {entry.name} : <strong>{entry.value?.toFixed(1)} %</strong>
-        </div>
-      ))}
+    <div
+      style={{
+        background: 'var(--bs-body-bg, white)',
+        border: '1px solid var(--bs-border-color, #dee2e6)',
+        borderRadius: 8,
+        padding: '8px 12px',
+        fontSize: '0.82rem',
+        boxShadow: '0 2px 8px rgba(0,0,0,0.12)',
+      }}
+    >
+      <div className="font-bold mb-1">Jour {label}</div>
+      {[...payload]
+        .sort((a, b) => b.value - a.value)
+        .map((entry: any) => (
+          <div key={entry.dataKey} style={{ color: entry.color }}>
+            {entry.name} : <strong>{entry.value?.toFixed(1)} %</strong>
+          </div>
+        ))}
     </div>
   );
 }
@@ -109,13 +117,21 @@ interface EventItemProps {
 }
 
 const EventItem: React.FC<EventItemProps> = ({
-  ev, candidates, index, onRemove, onDragStart, onDrop,
+  ev,
+  candidates,
+  index,
+  onRemove,
+  onDragStart,
+  onDrop,
 }) => (
   <div
     draggable
     onDragStart={() => onDragStart(index)}
     onDragOver={(e) => e.preventDefault()}
-    onDrop={(e) => { e.preventDefault(); onDrop(index); }}
+    onDrop={(e) => {
+      e.preventDefault();
+      onDrop(index);
+    }}
     style={{
       border: '1px solid var(--bs-border-color, #dee2e6)',
       borderRadius: 6,
@@ -134,10 +150,10 @@ const EventItem: React.FC<EventItemProps> = ({
       {EVENT_ICONS[ev.type]}
     </span>
     <div style={{ flex: 1, overflow: 'hidden' }}>
-      <div className="fw-semibold" style={{ color: EVENT_COLORS[ev.type] }}>
+      <div className="font-semibold" style={{ color: EVENT_COLORS[ev.type] }}>
         J{ev.day} — {EVENT_LABELS[ev.type]}
       </div>
-      <div className="text-muted">
+      <div className="text-muted-foreground">
         {candidates[ev.candidate] ?? `Candidat ${ev.candidate}`}
         {ev.magnitude > 0 && ev.type !== 'gaffe' && ` · intensité ${ev.magnitude.toFixed(1)}`}
       </div>
@@ -145,7 +161,13 @@ const EventItem: React.FC<EventItemProps> = ({
     <button
       onClick={onRemove}
       aria-label="Supprimer l'événement"
-      style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#dc3545', padding: 0 }}
+      style={{
+        background: 'none',
+        border: 'none',
+        cursor: 'pointer',
+        color: '#dc3545',
+        padding: 0,
+      }}
     >
       ✕
     </button>
@@ -157,30 +179,34 @@ const EventItem: React.FC<EventItemProps> = ({
 const CampaignSimulatorPage: React.FC = () => {
   useMetaTags({
     title: 'Simulateur de campagne — Vote Lab',
-    description: 'Simulez l\'évolution des intentions de vote jour par jour pendant une campagne électorale.',
+    description:
+      "Simulez l'évolution des intentions de vote jour par jour pendant une campagne électorale.",
   });
 
   // ── Config ──
   const [numCandidates, setNumCandidates] = useState(4);
-  const [numDays,       setNumDays]       = useState(30);
-  const [method,        setMethod]        = useState('plurality');
-  const [animSpeed,     setAnimSpeed]     = useState(4); // 0=instant, 10=slow
+  const [numDays, setNumDays] = useState(30);
+  const [method, setMethod] = useState('plurality');
+  const [animSpeed, setAnimSpeed] = useState(4); // 0=instant, 10=slow
 
   // ── Events ──
   const [events, setEvents] = useState<CampaignEvent[]>([]);
-  const [newEv, setNewEv]   = useState<Omit<CampaignEvent, 'id'>>({
-    day: 10, type: 'scandal', candidate: 0, magnitude: 0.3,
+  const [newEv, setNewEv] = useState<Omit<CampaignEvent, 'id'>>({
+    day: 10,
+    type: 'scandal',
+    candidate: 0,
+    magnitude: 0.3,
   });
   const [showAddForm, setShowAddForm] = useState(false);
-  const [dragFrom,    setDragFrom]    = useState<number | null>(null);
+  const [dragFrom, setDragFrom] = useState<number | null>(null);
 
   // ── Results + animation ──
   const sim = $api.useMutation('post', '/api/v2/simulations/campaign');
   const result: CampaignResult | null = sim.data ?? null;
   const loading = sim.isPending;
   const error = sim.isError ? 'Erreur de simulation' : null;
-  const [animatedDay,  setAnimatedDay]  = useState(0);
-  const [playing,      setPlaying]      = useState(false);
+  const [animatedDay, setAnimatedDay] = useState(0);
+  const [playing, setPlaying] = useState(false);
   const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   // Candidate names derived from result (or default preview)
@@ -207,27 +233,34 @@ const CampaignSimulatorPage: React.FC = () => {
         return prev + 1;
       });
     }, delay);
-    return () => { if (timerRef.current) clearTimeout(timerRef.current); };
+    return () => {
+      if (timerRef.current) clearTimeout(timerRef.current);
+    };
   }, [playing, animatedDay, result, animSpeed]);
 
   // ── Run simulation ──
   const runSimulation = useCallback(() => {
     setPlaying(false);
     setAnimatedDay(0);
-    sim.mutate({ body: {
-      num_candidates: numCandidates,
-      num_voters:     500,
-      num_days:       numDays,
-      method,
-      events: events.map(({ id: _id, ...ev }) => ev),
-    } }, {
-      onSuccess: (res) => {
-        // Start animation automatically
-        if (animSpeed > 0) setPlaying(true);
-        else setAnimatedDay(res.days.length - 1);
+    sim.mutate(
+      {
+        body: {
+          num_candidates: numCandidates,
+          num_voters: 500,
+          num_days: numDays,
+          method,
+          events: events.map(({ id: _id, ...ev }) => ev),
+        },
       },
-    });
-  // eslint-disable-next-line react-hooks/exhaustive-deps
+      {
+        onSuccess: (res) => {
+          // Start animation automatically
+          if (animSpeed > 0) setPlaying(true);
+          else setAnimatedDay(res.days.length - 1);
+        },
+      }
+    );
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [numCandidates, numDays, method, events, animSpeed, sim]);
 
   // ── Chart data (sliced to animatedDay) ──
@@ -263,8 +296,8 @@ const CampaignSimulatorPage: React.FC = () => {
 
   return (
     <Container fluid className="py-3" style={{ maxWidth: 1400 }}>
-      <h2 className="mb-1 fw-bold">📅 Simulateur de campagne</h2>
-      <p className="text-muted mb-3" style={{ fontSize: '0.9rem' }}>
+      <h2 className="mb-1 font-bold">📅 Simulateur de campagne</h2>
+      <p className="text-muted-foreground mb-3" style={{ fontSize: '0.9rem' }}>
         Observez l'évolution des intentions de vote jour par jour. Ajoutez des événements
         (scandales, débats, annonces) et simulez leur impact sur la course.
       </p>
@@ -273,74 +306,115 @@ const CampaignSimulatorPage: React.FC = () => {
         {/* ── Left panel — config ────────────────────────────────────────── */}
         <Col lg={3}>
           <Card className="mb-3">
-            <CardHeader className="block space-y-0 border-b border-border px-4 py-2 fw-semibold">⚙️ Configuration</CardHeader>
+            <CardHeader className="block space-y-0 border-b border-border px-4 py-2 font-semibold">
+              ⚙️ Configuration
+            </CardHeader>
             <CardBody>
               <div className="mb-3">
-                <label htmlFor="camp-cands" className="mb-1 inline-block small mb-1">
+                <label htmlFor="camp-cands" className="mb-1 inline-block text-sm mb-1">
                   Candidats : <strong>{numCandidates}</strong>
                 </label>
                 <Range
-                  id="camp-cands" min={2} max={6} step={1}
+                  id="camp-cands"
+                  min={2}
+                  max={6}
+                  step={1}
                   value={numCandidates}
                   onChange={(e) => setNumCandidates(Number(e.target.value))}
                 />
               </div>
 
               <div className="mb-3">
-                <label htmlFor="camp-days" className="mb-1 inline-block small mb-1">
+                <label htmlFor="camp-days" className="mb-1 inline-block text-sm mb-1">
                   Durée : <strong>{numDays} jours</strong>
                 </label>
                 <Range
-                  id="camp-days" min={7} max={90} step={1}
+                  id="camp-days"
+                  min={7}
+                  max={90}
+                  step={1}
                   value={numDays}
                   onChange={(e) => setNumDays(Number(e.target.value))}
                 />
               </div>
 
               <div className="mb-3">
-                <label htmlFor="camp-method" className="mb-1 inline-block small mb-1">Méthode de vote</label>
+                <label htmlFor="camp-method" className="mb-1 inline-block text-sm mb-1">
+                  Méthode de vote
+                </label>
                 <Select
-                  id="camp-method" size="sm"
+                  id="camp-method"
+                  size="sm"
                   value={method}
                   onChange={(e) => setMethod(e.target.value)}
                 >
-                  {METHODS.map((m) => <option key={m.value} value={m.value}>{m.label}</option>)}
+                  {METHODS.map((m) => (
+                    <option key={m.value} value={m.value}>
+                      {m.label}
+                    </option>
+                  ))}
                 </Select>
               </div>
 
               <div className="mb-3">
-                <label htmlFor="camp-speed" className="mb-1 inline-block small mb-1">
+                <label htmlFor="camp-speed" className="mb-1 inline-block text-sm mb-1">
                   Vitesse animation : {animSpeed === 0 ? 'Instant' : `${animSpeed * 60} ms/j`}
                 </label>
                 <Range
-                  id="camp-speed" min={0} max={10} step={1}
+                  id="camp-speed"
+                  min={0}
+                  max={10}
+                  step={1}
                   value={animSpeed}
                   onChange={(e) => setAnimSpeed(Number(e.target.value))}
                 />
               </div>
 
               <Button
-                variant="primary" className="w-100"
-                onClick={runSimulation} disabled={loading}
+                variant="primary"
+                className="w-full"
+                onClick={runSimulation}
+                disabled={loading}
               >
-                {loading
-                  ? <><Spinner size="sm" className="me-2" />Simulation…</>
-                  : '▶ Simuler la campagne'}
+                {loading ? (
+                  <>
+                    <Spinner size="sm" className="me-2" />
+                    Simulation…
+                  </>
+                ) : (
+                  '▶ Simuler la campagne'
+                )}
               </Button>
             </CardBody>
           </Card>
 
           {/* Candidate legend */}
           <Card>
-            <CardHeader className="block space-y-0 border-b border-border px-4 py-2 fw-semibold py-2" style={{ fontSize: '0.85rem' }}>
+            <CardHeader
+              className="block space-y-0 border-b border-border px-4 py-2 font-semibold py-2"
+              style={{ fontSize: '0.85rem' }}
+            >
               Candidats
             </CardHeader>
             <CardBody className="py-2">
               {candidateNames.map((name, i) => (
-                <div key={name} className="d-flex align-items-center gap-2 mb-1">
-                  <span style={{ width: 12, height: 12, borderRadius: 2, background: CHART_COLORS_LIGHT[i % CHART_COLORS_LIGHT.length], display: 'inline-block', flexShrink: 0 }} />
+                <div key={name} className="flex items-center gap-2 mb-1">
+                  <span
+                    style={{
+                      width: 12,
+                      height: 12,
+                      borderRadius: 2,
+                      background: CHART_COLORS_LIGHT[i % CHART_COLORS_LIGHT.length],
+                      display: 'inline-block',
+                      flexShrink: 0,
+                    }}
+                  />
                   <span style={{ fontSize: '0.85rem' }}>{name}</span>
-                  {leaderAtDay === name && <Badge variant="success" style={{ fontSize: '0.65rem' }}>Leader</Badge>}
+                  {leaderAtDay === name && (
+                    <Badge variant="success" style={{ fontSize: '0.65rem' }}>
+                      Leader
+                    </Badge>
+                  )}
                 </div>
               ))}
             </CardBody>
@@ -349,18 +423,20 @@ const CampaignSimulatorPage: React.FC = () => {
 
         {/* ── Centre panel — chart ──────────────────────────────────────── */}
         <Col lg={6}>
-          <Card className="h-100">
-            <CardHeader className="block space-y-0 border-b border-border px-4 py-2 d-flex align-items-center justify-content-between">
+          <Card className="h-full">
+            <CardHeader className="block space-y-0 border-b border-border px-4 py-2 flex items-center justify-between">
               <strong>Intentions de vote</strong>
-              <div className="d-flex align-items-center gap-2">
+              <div className="flex items-center gap-2">
                 {result && (
                   <>
-                    <small className="text-muted">
+                    <small className="text-muted-foreground">
                       Jour {result.days[animatedDay] ?? 0} / {numDays}
-                      {result.lead_changes > 0 && ` · ${result.lead_changes} changement${result.lead_changes > 1 ? 's' : ''} de tête`}
+                      {result.lead_changes > 0 &&
+                        ` · ${result.lead_changes} changement${result.lead_changes > 1 ? 's' : ''} de tête`}
                     </small>
                     <Button
-                      variant="outline-secondary" size="sm"
+                      variant="outline-secondary"
+                      size="sm"
                       onClick={() => {
                         if (animatedDay >= result.days.length - 1) {
                           setAnimatedDay(0);
@@ -374,8 +450,12 @@ const CampaignSimulatorPage: React.FC = () => {
                       {playing ? '⏸' : '▶'}
                     </Button>
                     <Button
-                      variant="outline-secondary" size="sm"
-                      onClick={() => { setAnimatedDay(result.days.length - 1); setPlaying(false); }}
+                      variant="outline-secondary"
+                      size="sm"
+                      onClick={() => {
+                        setAnimatedDay(result.days.length - 1);
+                        setPlaying(false);
+                      }}
                       aria-label="Fin"
                     >
                       ⏭
@@ -385,12 +465,16 @@ const CampaignSimulatorPage: React.FC = () => {
               </div>
             </CardHeader>
             <CardBody>
-              {error && <Alert variant="danger" className="mb-3">{error}</Alert>}
+              {error && (
+                <Alert variant="danger" className="mb-3">
+                  {error}
+                </Alert>
+              )}
 
               {!result && !loading && (
                 <Alert variant="info" style={{ fontSize: '0.88rem' }}>
-                  Configurez la campagne et cliquez sur <strong>Simuler</strong>.
-                  Ajoutez des événements dans le panneau droit pour voir leur impact.
+                  Configurez la campagne et cliquez sur <strong>Simuler</strong>. Ajoutez des
+                  événements dans le panneau droit pour voir leur impact.
                 </Alert>
               )}
 
@@ -406,7 +490,12 @@ const CampaignSimulatorPage: React.FC = () => {
                     <YAxis
                       domain={[0, 100]}
                       tickFormatter={(v) => `${v}%`}
-                      label={{ value: '% intentions', angle: -90, position: 'insideLeft', fontSize: 11 }}
+                      label={{
+                        value: '% intentions',
+                        angle: -90,
+                        position: 'insideLeft',
+                        fontSize: 11,
+                      }}
                       tick={{ fontSize: 11 }}
                       width={56}
                     />
@@ -448,10 +537,14 @@ const CampaignSimulatorPage: React.FC = () => {
 
               {/* Final summary */}
               {result && animatedDay >= result.days.length - 1 && (
-                <div className="d-flex gap-3 mt-2 flex-wrap">
-                  <Alert variant="success" className="py-2 mb-0 flex-grow-1" style={{ fontSize: '0.88rem' }}>
-                    🏆 Vainqueur final : <strong>{result.final_winner}</strong>
-                    {' '}sous la méthode <strong>{METHODS.find((m) => m.value === method)?.label}</strong>
+                <div className="flex gap-3 mt-2 flex-wrap">
+                  <Alert
+                    variant="success"
+                    className="py-2 mb-0 grow"
+                    style={{ fontSize: '0.88rem' }}
+                  >
+                    🏆 Vainqueur final : <strong>{result.final_winner}</strong> sous la méthode{' '}
+                    <strong>{METHODS.find((m) => m.value === method)?.label}</strong>
                   </Alert>
                   {result.lead_changes > 0 && (
                     <Alert variant="warning" className="py-2 mb-0" style={{ fontSize: '0.88rem' }}>
@@ -467,10 +560,11 @@ const CampaignSimulatorPage: React.FC = () => {
         {/* ── Right panel — events ──────────────────────────────────────── */}
         <Col lg={3}>
           <Card>
-            <CardHeader className="block space-y-0 border-b border-border px-4 py-2 d-flex align-items-center justify-content-between">
-              <span className="fw-semibold">🗓 Événements</span>
+            <CardHeader className="block space-y-0 border-b border-border px-4 py-2 flex items-center justify-between">
+              <span className="font-semibold">🗓 Événements</span>
               <Button
-                variant="outline-success" size="sm"
+                variant="outline-success"
+                size="sm"
                 onClick={() => setShowAddForm((v) => !v)}
                 aria-expanded={showAddForm}
               >
@@ -484,50 +578,74 @@ const CampaignSimulatorPage: React.FC = () => {
                   <CardBody className="py-2 px-3">
                     <Row className="g-2 mb-2">
                       <Col xs={6}>
-                        <label className="mb-1 inline-block small mb-1" htmlFor="ev-day">Jour</label>
+                        <label className="mb-1 inline-block text-sm mb-1" htmlFor="ev-day">
+                          Jour
+                        </label>
                         <Control
-                          id="ev-day" type="number" size="sm"
-                          min={0} max={numDays}
+                          id="ev-day"
+                          type="number"
+                          size="sm"
+                          min={0}
+                          max={numDays}
                           value={newEv.day}
                           onChange={(e) => setNewEv({ ...newEv, day: Number(e.target.value) })}
                         />
                       </Col>
                       <Col xs={6}>
-                        <label className="mb-1 inline-block small mb-1" htmlFor="ev-type">Type</label>
+                        <label className="mb-1 inline-block text-sm mb-1" htmlFor="ev-type">
+                          Type
+                        </label>
                         <Select
-                          id="ev-type" size="sm"
+                          id="ev-type"
+                          size="sm"
                           value={newEv.type}
-                          onChange={(e) => setNewEv({ ...newEv, type: e.target.value as EventType })}
+                          onChange={(e) =>
+                            setNewEv({ ...newEv, type: e.target.value as EventType })
+                          }
                         >
                           {Object.entries(EVENT_LABELS).map(([v, l]) => (
-                            <option key={v} value={v}>{EVENT_ICONS[v as EventType]} {l}</option>
+                            <option key={v} value={v}>
+                              {EVENT_ICONS[v as EventType]} {l}
+                            </option>
                           ))}
                         </Select>
                       </Col>
                       <Col xs={6}>
-                        <label className="mb-1 inline-block small mb-1" htmlFor="ev-cand">Candidat</label>
+                        <label className="mb-1 inline-block text-sm mb-1" htmlFor="ev-cand">
+                          Candidat
+                        </label>
                         <Select
-                          id="ev-cand" size="sm"
+                          id="ev-cand"
+                          size="sm"
                           value={newEv.candidate}
-                          onChange={(e) => setNewEv({ ...newEv, candidate: Number(e.target.value) })}
+                          onChange={(e) =>
+                            setNewEv({ ...newEv, candidate: Number(e.target.value) })
+                          }
                         >
                           {candidateNames.map((n, i) => (
-                            <option key={i} value={i}>{n}</option>
+                            <option key={i} value={i}>
+                              {n}
+                            </option>
                           ))}
                         </Select>
                       </Col>
                       <Col xs={6}>
-                        <label className="mb-1 inline-block small mb-1" htmlFor="ev-mag">
+                        <label className="mb-1 inline-block text-sm mb-1" htmlFor="ev-mag">
                           Intensité : {newEv.magnitude.toFixed(1)}
                         </label>
                         <Range
-                          id="ev-mag" min={0.1} max={0.5} step={0.1}
+                          id="ev-mag"
+                          min={0.1}
+                          max={0.5}
+                          step={0.1}
                           value={newEv.magnitude}
-                          onChange={(e) => setNewEv({ ...newEv, magnitude: Number(e.target.value) })}
+                          onChange={(e) =>
+                            setNewEv({ ...newEv, magnitude: Number(e.target.value) })
+                          }
                         />
                       </Col>
                     </Row>
-                    <Button variant="success" size="sm" className="w-100" onClick={addEvent}>
+                    <Button variant="success" size="sm" className="w-full" onClick={addEvent}>
                       Ajouter l'événement
                     </Button>
                   </CardBody>
@@ -535,7 +653,7 @@ const CampaignSimulatorPage: React.FC = () => {
               )}
 
               {/* Events legend */}
-              <div className="mb-2 d-flex flex-wrap gap-1" style={{ fontSize: '0.75rem' }}>
+              <div className="mb-2 flex flex-wrap gap-1" style={{ fontSize: '0.75rem' }}>
                 {Object.entries(EVENT_ICONS).map(([type, icon]) => (
                   <span key={type} style={{ color: EVENT_COLORS[type as EventType] }}>
                     {icon} {EVENT_LABELS[type as EventType]}
@@ -545,7 +663,7 @@ const CampaignSimulatorPage: React.FC = () => {
 
               {/* Events list */}
               {events.length === 0 ? (
-                <p className="text-muted small mb-0">
+                <p className="text-muted-foreground text-sm mb-0">
                   Aucun événement. Cliquez sur "+" pour en ajouter.
                 </p>
               ) : (
@@ -566,12 +684,21 @@ const CampaignSimulatorPage: React.FC = () => {
 
               {/* Quick-add preset events */}
               <hr className="my-3" />
-              <p className="text-muted small mb-2">Préréglages rapides :</p>
-              <div className="d-flex flex-wrap gap-1">
+              <p className="text-muted-foreground text-sm mb-2">Préréglages rapides :</p>
+              <div className="flex flex-wrap gap-1">
                 {[
-                  { label: '💣 Scandale Alice J10', ev: { day: 10, type: 'scandal' as EventType, candidate: 0, magnitude: 0.3 } },
-                  { label: '🎤 Débat Bob J15',      ev: { day: 15, type: 'good_debate' as EventType, candidate: 1, magnitude: 0.2 } },
-                  { label: '📰 Gaffe Carol J20',    ev: { day: 20, type: 'gaffe' as EventType, candidate: 2, magnitude: 0.1 } },
+                  {
+                    label: '💣 Scandale Alice J10',
+                    ev: { day: 10, type: 'scandal' as EventType, candidate: 0, magnitude: 0.3 },
+                  },
+                  {
+                    label: '🎤 Débat Bob J15',
+                    ev: { day: 15, type: 'good_debate' as EventType, candidate: 1, magnitude: 0.2 },
+                  },
+                  {
+                    label: '📰 Gaffe Carol J20',
+                    ev: { day: 20, type: 'gaffe' as EventType, candidate: 2, magnitude: 0.1 },
+                  },
                 ].map(({ label, ev }) => (
                   <Button
                     key={label}

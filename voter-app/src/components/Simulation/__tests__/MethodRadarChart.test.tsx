@@ -8,14 +8,14 @@ vi.mock('../../../stores/useUIStore', async () => ({
 }));
 
 vi.mock('recharts', () => ({
-  RadarChart:       ({ children }: any) => <div data-testid="radar-chart">{children}</div>,
-  Radar:            ({ name }: any)     => <div data-testid={`radar-${name}`} />,
-  PolarGrid:        () => null,
-  PolarAngleAxis:   () => null,
-  PolarRadiusAxis:  () => null,
+  RadarChart: ({ children }: any) => <div data-testid="radar-chart">{children}</div>,
+  Radar: ({ name }: any) => <div data-testid={`radar-${name}`} />,
+  PolarGrid: () => null,
+  PolarAngleAxis: () => null,
+  PolarRadiusAxis: () => null,
   ResponsiveContainer: ({ children }: any) => <div>{children}</div>,
-  Tooltip:          () => null,
-  Legend:           ({ formatter, onClick }: any) => (
+  Tooltip: () => null,
+  Legend: ({ formatter, onClick }: any) => (
     <div data-testid="legend">
       {['plurality', 'schulze', 'borda'].map((m) => (
         <span
@@ -35,16 +35,58 @@ const makeResults = (winners: Record<string, string>, condorcet: boolean) =>
   Array.from({ length: 10 }, () => ({
     condorcet_winner: condorcet ? winners['schulze'] : null,
     methods: {
-      plurality: { winner: winners['plurality'] ?? 'Alice', bayesian_regret: 0.08, majority_satisfaction: 0.65, strategic_vulnerability: 0.35, condorcet_consistent: false },
-      schulze:   { winner: winners['schulze']   ?? 'Alice', bayesian_regret: 0.02, majority_satisfaction: 0.88, strategic_vulnerability: 0.05, condorcet_consistent: condorcet },
-      borda:     { winner: winners['borda']     ?? 'Alice', bayesian_regret: 0.04, majority_satisfaction: 0.80, strategic_vulnerability: 0.15, condorcet_consistent: condorcet },
-      irv:       { winner: winners['irv']       ?? 'Alice', bayesian_regret: 0.03, majority_satisfaction: 0.82, strategic_vulnerability: 0.12, condorcet_consistent: condorcet },
-      approval:  { winner: winners['approval']  ?? 'Alice', bayesian_regret: 0.05, majority_satisfaction: 0.75, strategic_vulnerability: 0.20, condorcet_consistent: false },
+      plurality: {
+        winner: winners['plurality'] ?? 'Alice',
+        bayesian_regret: 0.08,
+        majority_satisfaction: 0.65,
+        strategic_vulnerability: 0.35,
+        condorcet_consistent: false,
+      },
+      schulze: {
+        winner: winners['schulze'] ?? 'Alice',
+        bayesian_regret: 0.02,
+        majority_satisfaction: 0.88,
+        strategic_vulnerability: 0.05,
+        condorcet_consistent: condorcet,
+      },
+      borda: {
+        winner: winners['borda'] ?? 'Alice',
+        bayesian_regret: 0.04,
+        majority_satisfaction: 0.8,
+        strategic_vulnerability: 0.15,
+        condorcet_consistent: condorcet,
+      },
+      irv: {
+        winner: winners['irv'] ?? 'Alice',
+        bayesian_regret: 0.03,
+        majority_satisfaction: 0.82,
+        strategic_vulnerability: 0.12,
+        condorcet_consistent: condorcet,
+      },
+      approval: {
+        winner: winners['approval'] ?? 'Alice',
+        bayesian_regret: 0.05,
+        majority_satisfaction: 0.75,
+        strategic_vulnerability: 0.2,
+        condorcet_consistent: false,
+      },
     },
   }));
 
-const ALL_WIN    = { plurality: 'Alice', schulze: 'Alice', borda: 'Alice', irv: 'Alice', approval: 'Alice' };
-const MIXED_WIN  = { plurality: 'Bob',   schulze: 'Alice', borda: 'Alice', irv: 'Alice', approval: 'Bob'   };
+const ALL_WIN = {
+  plurality: 'Alice',
+  schulze: 'Alice',
+  borda: 'Alice',
+  irv: 'Alice',
+  approval: 'Alice',
+};
+const MIXED_WIN = {
+  plurality: 'Bob',
+  schulze: 'Alice',
+  borda: 'Alice',
+  irv: 'Alice',
+  approval: 'Bob',
+};
 
 const ALL_METHODS = ['plurality', 'schulze', 'borda', 'irv', 'approval'];
 
@@ -74,7 +116,9 @@ describe('MethodRadarChart', () => {
       />
     );
     // badge text uses i18n key — accept key or translated value
-    expect(screen.getAllByText(/Meilleure|Best|bestMethod|radar\.bestMethod/i).length).toBeGreaterThan(0);
+    expect(
+      screen.getAllByText(/Meilleure|Best|bestMethod|radar\.bestMethod/i).length
+    ).toBeGreaterThan(0);
   });
 
   it('renders a Radar component for each visible method', () => {
@@ -134,6 +178,8 @@ describe('MethodRadarChart', () => {
         allMethodNames={ALL_METHODS}
       />
     );
-    expect(screen.getAllByText(/Afficher|Show|selectMethods|radar\.selectMethods/i).length).toBeGreaterThan(0);
+    expect(
+      screen.getAllByText(/Afficher|Show|selectMethods|radar\.selectMethods/i).length
+    ).toBeGreaterThan(0);
   });
 });

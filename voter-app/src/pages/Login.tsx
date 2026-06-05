@@ -50,7 +50,7 @@ const Login: React.FC = () => {
       {error && (
         <div
           role="alert"
-          className="mb-4 rounded-md border border-red-300 bg-red-100 px-3 py-2 text-sm text-red-800"
+          className="mb-4 rounded-md border border-border border-red-300 bg-red-100 px-3 py-2 text-sm text-red-800"
         >
           {error}
         </div>

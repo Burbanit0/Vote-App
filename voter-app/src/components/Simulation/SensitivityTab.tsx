@@ -32,15 +32,18 @@ interface Props {
 }
 
 const SensitivityTab: React.FC<Props> = ({ baseConfig }) => {
-  const [variable, setVariable] = useState<'ideology_distribution' | 'num_voters' | 'strategic_pct'>(
-    'ideology_distribution'
-  );
+  const [variable, setVariable] = useState<
+    'ideology_distribution' | 'num_voters' | 'strategic_pct'
+  >('ideology_distribution');
   const [valuesInput, setValuesInput] = useState(DEFAULT_VALUES.ideology_distribution);
   const [data, setData] = useState<SensitivityResult | null>(null);
   const [loading, setLoading] = useState(false);
 
   const run = async () => {
-    const raw = valuesInput.split(',').map((s) => s.trim()).filter(Boolean);
+    const raw = valuesInput
+      .split(',')
+      .map((s) => s.trim())
+      .filter(Boolean);
     if (!raw.length) return;
     const parsedValues: (string | number)[] =
       variable === 'ideology_distribution' ? raw : raw.map(Number).filter((n) => !isNaN(n));
@@ -58,7 +61,9 @@ const SensitivityTab: React.FC<Props> = ({ baseConfig }) => {
         values: parsedValues,
       });
       setData(result);
-    } catch { /* error visible via empty state */ } finally {
+    } catch {
+      /* error visible via empty state */
+    } finally {
       setLoading(false);
     }
   };
@@ -72,7 +77,9 @@ const SensitivityTab: React.FC<Props> = ({ baseConfig }) => {
     if (!data) return {} as Record<string, string>;
     const names = new Set<string>();
     data.results.forEach((r) =>
-      Object.values(r.winners_by_method).forEach((w) => { if (w) names.add(w); })
+      Object.values(r.winners_by_method).forEach((w) => {
+        if (w) names.add(w);
+      })
     );
     return Object.fromEntries(
       [...names].map((n, i) => [n, CANDIDATE_PALETTE[i % CANDIDATE_PALETTE.length]])
@@ -94,14 +101,14 @@ const SensitivityTab: React.FC<Props> = ({ baseConfig }) => {
     <Card className="mb-4">
       <CardHeader className="block space-y-0 border-b border-border px-4 py-2">
         <strong>Sensitivity Analysis</strong>
-        <span className="text-muted ms-2" style={{ fontSize: '0.85rem' }}>
+        <span className="text-muted-foreground ms-2" style={{ fontSize: '0.85rem' }}>
           — vary one parameter and observe how winners change (uses Scenario A config)
         </span>
       </CardHeader>
       <CardBody>
-        <Row className="g-3 align-items-end mb-4">
+        <Row className="g-3 items-end mb-4">
           <Col md={3}>
-            <label className="mb-1 inline-block small mb-1">Variable</label>
+            <label className="mb-1 inline-block text-sm mb-1">Variable</label>
             <Select
               size="sm"
               value={variable}
@@ -117,9 +124,9 @@ const SensitivityTab: React.FC<Props> = ({ baseConfig }) => {
             </Select>
           </Col>
           <Col md={6}>
-            <label className="mb-1 inline-block small mb-1">
+            <label className="mb-1 inline-block text-sm mb-1">
               Values to test{' '}
-              <span className="text-muted">
+              <span className="text-muted-foreground">
                 (comma-separated{variable !== 'ideology_distribution' ? ', numbers' : ''})
               </span>
             </label>
@@ -131,22 +138,34 @@ const SensitivityTab: React.FC<Props> = ({ baseConfig }) => {
             />
           </Col>
           <Col md={3}>
-            <Button variant="primary" size="sm" className="w-100" onClick={run} disabled={loading}>
-              {loading ? <><Spinner size="sm" className="me-2" />Running…</> : 'Run Sensitivity'}
+            <Button variant="primary" size="sm" className="w-full" onClick={run} disabled={loading}>
+              {loading ? (
+                <>
+                  <Spinner size="sm" className="me-2" />
+                  Running…
+                </>
+              ) : (
+                'Run Sensitivity'
+              )}
             </Button>
           </Col>
         </Row>
 
         {data && (
           <>
-            <p className="fw-semibold mb-2">Winner heatmap</p>
+            <p className="font-semibold mb-2">Winner heatmap</p>
             <div style={{ overflowX: 'auto' }} className="mb-4">
-              <Table className="[&_th]:p-1 [&_td]:p-1 [&_th]:text-left [&_td]:border-t [&_th]:border-b [&_td]:border-border [&_th]:border-border [&_*]:align-middle [&_th]:border [&_td]:border text-center" style={{ minWidth: 400 }}>
+              <Table
+                className="[&_th]:p-1 [&_td]:p-1 [&_th]:text-left [&_td]:border-t [&_th]:border-b [&_td]:border-border [&_th]:border-border [&_*]:align-middle [&_th]:border [&_td]:border text-center"
+                style={{ minWidth: 400 }}
+              >
                 <thead className="table-light">
                   <tr>
                     <th style={{ minWidth: 130, textAlign: 'left' }}>Method</th>
                     {data.results.map((r) => (
-                      <th key={String(r.value)} style={{ minWidth: 90 }}>{String(r.value)}</th>
+                      <th key={String(r.value)} style={{ minWidth: 90 }}>
+                        {String(r.value)}
+                      </th>
                     ))}
                   </tr>
                 </thead>
@@ -155,17 +174,27 @@ const SensitivityTab: React.FC<Props> = ({ baseConfig }) => {
                     const winners = data.results.map((r) => r.winners_by_method[method] ?? null);
                     const allSame = winners.every((w) => w === winners[0]);
                     return (
-                      <tr key={method} style={!allSame ? { backgroundColor: '#fff8e1' } : undefined}>
-                        <td className="text-start ps-2">
+                      <tr
+                        key={method}
+                        style={!allSame ? { backgroundColor: '#fff8e1' } : undefined}
+                      >
+                        <td className="text-left ps-2">
                           <strong>{METHOD_LABELS[method] || method}</strong>
                         </td>
                         {winners.map((winner, ci) => (
                           <td key={ci}>
                             {winner ? (
-                              <Badge style={{ backgroundColor: colorMap[winner] ?? '#999', fontSize: '0.72rem' }}>
+                              <Badge
+                                style={{
+                                  backgroundColor: colorMap[winner] ?? '#999',
+                                  fontSize: '0.72rem',
+                                }}
+                              >
                                 {winner}
                               </Badge>
-                            ) : <span className="text-muted">—</span>}
+                            ) : (
+                              <span className="text-muted-foreground">—</span>
+                            )}
                           </td>
                         ))}
                       </tr>
@@ -174,15 +203,21 @@ const SensitivityTab: React.FC<Props> = ({ baseConfig }) => {
                 </tbody>
               </Table>
             </div>
-            <small className="text-muted d-block mb-4">
+            <small className="text-muted-foreground block mb-4">
               Highlighted rows indicate methods where the winner changes across values.
             </small>
 
-            <p className="fw-semibold mb-2">Bayesian Regret by value</p>
+            <p className="font-semibold mb-2">Bayesian Regret by value</p>
             <ResponsiveContainer width="100%" height={380}>
               <LineChart data={lineData} margin={{ top: 5, right: 20, bottom: 40, left: 10 }}>
                 <CartesianGrid strokeDasharray="3 3" />
-                <XAxis dataKey="label" tick={{ fontSize: 10 }} angle={-30} textAnchor="end" interval={0} />
+                <XAxis
+                  dataKey="label"
+                  tick={{ fontSize: 10 }}
+                  angle={-30}
+                  textAnchor="end"
+                  interval={0}
+                />
                 <YAxis tick={{ fontSize: 11 }} />
                 <Tooltip formatter={(v: number) => (v !== null ? v.toFixed(4) : '—')} />
                 <Legend verticalAlign="bottom" wrapperStyle={{ paddingTop: 10, fontSize: 10 }} />

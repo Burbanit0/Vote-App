@@ -23,7 +23,8 @@ const BTN_VARIANT: Record<string, string> = {
   'outline-warning': 'border border-[#ffc107] text-[#9a7400] hover:bg-[#ffc107]/10',
   'outline-danger': 'border border-[#dc3545] text-[#dc3545] hover:bg-[#dc3545]/10',
 };
-const btn = (variant: string) => cn(BTN_BASE, BTN_VARIANT[variant] ?? BTN_VARIANT['outline-secondary']);
+const btn = (variant: string) =>
+  cn(BTN_BASE, BTN_VARIANT[variant] ?? BTN_VARIANT['outline-secondary']);
 
 const BADGE_BASE = 'inline-flex items-center rounded-md px-2.5 py-0.5 text-xs font-semibold';
 const BADGE_VARIANT: Record<string, string> = {
@@ -33,24 +34,25 @@ const BADGE_VARIANT: Record<string, string> = {
   danger: 'bg-[#dc3545] text-white',
   light: 'bg-slate-100 text-slate-900',
 };
-const badge = (variant: string) => cn(BADGE_BASE, BADGE_VARIANT[variant] ?? BADGE_VARIANT['secondary']);
+const badge = (variant: string) =>
+  cn(BADGE_BASE, BADGE_VARIANT[variant] ?? BADGE_VARIANT['secondary']);
 
 // ── Types & constants ───────────────────────────────────────────────────────
 
 type Difficulty = 'all' | QuizQuestion['difficulty'];
 
 const DIFFICULTY_LABELS: Record<Difficulty, string> = {
-  all:           'Toutes',
-  'débutant':    'Débutant',
-  'intermédiaire':'Intermédiaire',
-  'expert':      'Expert',
+  all: 'Toutes',
+  débutant: 'Débutant',
+  intermédiaire: 'Intermédiaire',
+  expert: 'Expert',
 };
 
 const DIFFICULTY_VARIANTS: Record<Difficulty, string> = {
-  all:            'secondary',
-  'débutant':     'success',
-  'intermédiaire':'warning',
-  'expert':       'danger',
+  all: 'secondary',
+  débutant: 'success',
+  intermédiaire: 'warning',
+  expert: 'danger',
 };
 
 const LS_KEY = (d: Difficulty) => `votelab_quiz_best_${d}`;
@@ -70,9 +72,9 @@ function shuffle<T>(arr: T[]): T[] {
 
 function scoreMessage(score: number, total: number): { text: string; variant: string } {
   const pct = score / total;
-  if (pct > 0.75)  return { text: '🏆 Expert en théorie du vote !',  variant: 'success' };
-  if (pct >= 0.5)  return { text: '👍 Bon niveau — continuez !',      variant: 'primary' };
-  return              { text: '📚 Réessayez — vous progresserez !',   variant: 'warning' };
+  if (pct > 0.75) return { text: '🏆 Expert en théorie du vote !', variant: 'success' };
+  if (pct >= 0.5) return { text: '👍 Bon niveau — continuez !', variant: 'primary' };
+  return { text: '📚 Réessayez — vous progresserez !', variant: 'warning' };
 }
 
 // ── Option button ────────────────────────────────────────────────────────────
@@ -89,16 +91,16 @@ const OptionButton: React.FC<OptionProps> = ({ text, index, chosen, correct, onC
   const answered = chosen !== null;
   let variant = 'outline-secondary';
   if (answered) {
-    if (index === correct)         variant = 'success';
-    else if (index === chosen)     variant = 'danger';
-    else                           variant = 'outline-secondary';
+    if (index === correct) variant = 'success';
+    else if (index === chosen) variant = 'danger';
+    else variant = 'outline-secondary';
   }
 
   return (
     <button
       className={cn(
         btn(variant),
-        'mb-2 min-h-[44px] w-full justify-start whitespace-normal break-words text-start'
+        'mb-2 min-h-[44px] w-full justify-start whitespace-normal break-words text-left'
       )}
       onClick={!answered ? onClick : undefined}
       disabled={answered && index !== correct && index !== chosen}
@@ -108,8 +110,16 @@ const OptionButton: React.FC<OptionProps> = ({ text, index, chosen, correct, onC
         {String.fromCharCode(65 + index)}.
       </span>
       {text}
-      {answered && index === correct && <span className="ml-2" aria-label="bonne réponse">✓</span>}
-      {answered && index === chosen && index !== correct && <span className="ml-2" aria-label="mauvaise réponse">✗</span>}
+      {answered && index === correct && (
+        <span className="ml-2" aria-label="bonne réponse">
+          ✓
+        </span>
+      )}
+      {answered && index === chosen && index !== correct && (
+        <span className="ml-2" aria-label="mauvaise réponse">
+          ✗
+        </span>
+      )}
     </button>
   );
 };
@@ -123,19 +133,25 @@ const QuizPage: React.FC = () => {
   });
 
   const [difficulty, setDifficulty] = useState<Difficulty>('all');
-  const [deck, setDeck]             = useState<QuizQuestion[]>([]);
-  const [qIndex, setQIndex]         = useState(0);
-  const [chosen, setChosen]         = useState<number | null>(null);
-  const [score, setScore]           = useState(0);
-  const [finished, setFinished]     = useState(false);
+  const [deck, setDeck] = useState<QuizQuestion[]>([]);
+  const [qIndex, setQIndex] = useState(0);
+  const [chosen, setChosen] = useState<number | null>(null);
+  const [score, setScore] = useState(0);
+  const [finished, setFinished] = useState(false);
   const [bestScores, setBestScores] = useState<Record<Difficulty, number | null>>({
-    all: null, 'débutant': null, 'intermédiaire': null, 'expert': null,
+    all: null,
+    débutant: null,
+    intermédiaire: null,
+    expert: null,
   });
 
   // ── Load best scores from localStorage ────────────────────────────────────
   useEffect(() => {
     const loaded: Record<Difficulty, number | null> = {
-      all: null, 'débutant': null, 'intermédiaire': null, 'expert': null,
+      all: null,
+      débutant: null,
+      intermédiaire: null,
+      expert: null,
     };
     (Object.keys(loaded) as Difficulty[]).forEach((d) => {
       const raw = localStorage.getItem(LS_KEY(d));
@@ -154,7 +170,9 @@ const QuizPage: React.FC = () => {
     setFinished(false);
   }, []);
 
-  useEffect(() => { buildDeck(difficulty); }, [difficulty, buildDeck]);
+  useEffect(() => {
+    buildDeck(difficulty);
+  }, [difficulty, buildDeck]);
 
   // ── Answer handler ────────────────────────────────────────────────────────
   const handleAnswer = (index: number) => {
@@ -199,16 +217,17 @@ const QuizPage: React.FC = () => {
     }
   }, [finished]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  const current   = deck[qIndex];
-  const total     = deck.length;
-  const progress  = total > 0 ? Math.round(((qIndex + (chosen !== null ? 1 : 0)) / total) * 100) : 0;
-  const best      = bestScores[difficulty];
+  const current = deck[qIndex];
+  const total = deck.length;
+  const progress = total > 0 ? Math.round(((qIndex + (chosen !== null ? 1 : 0)) / total) * 100) : 0;
+  const best = bestScores[difficulty];
 
   // ── Difficulty filter ─────────────────────────────────────────────────────
   const DiffFilter = (
     <div className="mb-6 flex flex-wrap gap-2" role="group" aria-label="Filtrer par difficulté">
       {(Object.keys(DIFFICULTY_LABELS) as Difficulty[]).map((d) => {
-        const count = d === 'all' ? questions.length : questions.filter((q) => q.difficulty === d).length;
+        const count =
+          d === 'all' ? questions.length : questions.filter((q) => q.difficulty === d).length;
         const v = DIFFICULTY_VARIANTS[d];
         return (
           <button
@@ -255,7 +274,10 @@ const QuizPage: React.FC = () => {
 
             {best !== null && (
               <p className="mb-6 text-sm text-muted-foreground">
-                Votre record ({DIFFICULTY_LABELS[difficulty]}) : <strong>{best} / {total}</strong>
+                Votre record ({DIFFICULTY_LABELS[difficulty]}) :{' '}
+                <strong>
+                  {best} / {total}
+                </strong>
               </p>
             )}
 
@@ -266,7 +288,12 @@ const QuizPage: React.FC = () => {
               <button
                 className={btn('outline-secondary')}
                 onClick={() => {
-                  const d: Difficulty = difficulty === 'débutant' ? 'intermédiaire' : difficulty === 'intermédiaire' ? 'expert' : 'débutant';
+                  const d: Difficulty =
+                    difficulty === 'débutant'
+                      ? 'intermédiaire'
+                      : difficulty === 'intermédiaire'
+                        ? 'expert'
+                        : 'débutant';
                   setDifficulty(d);
                 }}
               >
@@ -290,7 +317,10 @@ const QuizPage: React.FC = () => {
         <h1 className="mb-0 text-xl font-bold">🗳️ Quiz — Théorie du vote</h1>
         {best !== null && (
           <span className="self-center text-sm text-muted-foreground">
-            Record : <strong>{best} / {total}</strong>
+            Record :{' '}
+            <strong>
+              {best} / {total}
+            </strong>
           </span>
         )}
       </div>
@@ -307,9 +337,7 @@ const QuizPage: React.FC = () => {
         <span className="whitespace-nowrap text-sm text-muted-foreground">
           {qIndex + 1} / {total}
         </span>
-        <span className="whitespace-nowrap text-sm text-[#198754]">
-          ✓ {score}
-        </span>
+        <span className="whitespace-nowrap text-sm text-[#198754]">✓ {score}</span>
       </div>
 
       {/* Question card */}
@@ -327,14 +355,15 @@ const QuizPage: React.FC = () => {
           </div>
 
           {current.context && (
-            <Alert variant="light" className="mb-4 border-l-[3px] border-l-[#0d6efd] py-2 text-[0.88rem]">
+            <Alert
+              variant="light"
+              className="mb-4 border-l-[3px] border-l-[#0d6efd] py-2 text-[0.88rem]"
+            >
               {current.context}
             </Alert>
           )}
 
-          <p className="mb-6 text-[1.05rem] font-semibold leading-normal">
-            {current.question}
-          </p>
+          <p className="mb-6 text-[1.05rem] font-semibold leading-normal">{current.question}</p>
 
           {current.options.map((opt, i) => (
             <OptionButton

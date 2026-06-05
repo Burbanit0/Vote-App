@@ -7,9 +7,7 @@ const PaginationBase: React.FC<React.HTMLAttributes<HTMLUListElement> & { size?:
   className,
   size,
   ...props
-}) => (
-  <ul className={cn('inline-flex items-center -space-x-px', className)} {...props} />
-);
+}) => <ul className={cn('inline-flex items-center -space-x-px', className)} {...props} />;
 
 export interface PageItemProps extends Omit<React.HTMLAttributes<HTMLLIElement>, 'onClick'> {
   active?: boolean;
@@ -17,7 +15,14 @@ export interface PageItemProps extends Omit<React.HTMLAttributes<HTMLLIElement>,
   onClick?: React.MouseEventHandler<HTMLButtonElement>;
 }
 
-const Item: React.FC<PageItemProps> = ({ className, active, disabled, onClick, children, ...props }) => (
+const Item: React.FC<PageItemProps> = ({
+  className,
+  active,
+  disabled,
+  onClick,
+  children,
+  ...props
+}) => (
   <li className={className} {...props}>
     <button
       type="button"

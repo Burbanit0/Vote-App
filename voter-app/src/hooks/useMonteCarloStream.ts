@@ -5,7 +5,7 @@ import { io, Socket } from 'socket.io-client';
 // /api/v2/socket.io. The default points at the local FastAPI dev port
 // (4434); VITE_SOCKET_URL overrides for prod where it'll be the Caddy
 // fronted origin.
-const SOCKET_URL  = process.env.VITE_SOCKET_URL || 'http://localhost:4434';
+const SOCKET_URL = process.env.VITE_SOCKET_URL || 'http://localhost:4434';
 const SOCKET_PATH = '/api/v2/socket.io';
 
 export interface MethodStreamStats {
@@ -93,7 +93,7 @@ export function useMonteCarloStream() {
     setState({ ...INITIAL, isRunning: true, total: params.num_iterations });
 
     const socket = io(SOCKET_URL, {
-      path:       SOCKET_PATH,
+      path: SOCKET_PATH,
       transports: ['websocket', 'polling'],
     });
     socketRef.current = socket;
@@ -105,15 +105,15 @@ export function useMonteCarloStream() {
     socket.on('monte_carlo_progress', (data: StreamProgress) => {
       setState((s) => ({
         ...s,
-        iteration:            data.iteration,
-        total:                data.total,
-        progress:             Math.round((data.iteration / data.total) * 100),
-        partialResults:       data.partial_results,
-        condorcetRate:        data.condorcet_exists_rate,
+        iteration: data.iteration,
+        total: data.total,
+        progress: Math.round((data.iteration / data.total) * 100),
+        partialResults: data.partial_results,
+        condorcetRate: data.condorcet_exists_rate,
         // Convergence: backend sends full accumulated history each time
-        regretHistory:        data.regret_history        ?? s.regretHistory,
-        agreementHistory:     [...s.agreementHistory, data.agreement_rate ?? 0],
-        ciHalfLatest:         data.regret_ci_half        ?? s.ciHalfLatest,
+        regretHistory: data.regret_history ?? s.regretHistory,
+        agreementHistory: [...s.agreementHistory, data.agreement_rate ?? 0],
+        ciHalfLatest: data.regret_ci_half ?? s.ciHalfLatest,
         iterationCheckpoints: data.iteration_checkpoints ?? s.iterationCheckpoints,
       }));
     });
@@ -121,9 +121,9 @@ export function useMonteCarloStream() {
     socket.on('monte_carlo_complete', (data: StreamComplete) => {
       setState((s) => ({
         ...s,
-        isRunning:    false,
-        progress:     100,
-        complete:     data,
+        isRunning: false,
+        progress: 100,
+        complete: data,
         condorcetRate: data.condorcet_exists_rate,
       }));
       socket.disconnect();

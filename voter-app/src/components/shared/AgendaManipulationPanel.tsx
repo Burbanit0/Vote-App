@@ -18,17 +18,17 @@ const DEFAULT_ALTS = ['Alice', 'Bob', 'Carol'];
 // ── Types ─────────────────────────────────────────────────────────────────────
 
 interface AgendaData {
-  pairwise_matrix:    Record<string, Record<string, number>>;
-  condorcet_winner:   string | null;
-  all_outcomes:       Record<string, { outcome: string; sequence: string[] }>;
+  pairwise_matrix: Record<string, Record<string, number>>;
+  condorcet_winner: string | null;
+  all_outcomes: Record<string, { outcome: string; sequence: string[] }>;
   achievable_outcomes: string[];
   optimal_agenda: {
     for_target: string[];
-    neutral:    string[];
+    neutral: string[];
     worst_case: string[];
   };
   manipulation_power: number;
-  pedagogical_note:   string;
+  pedagogical_note: string;
 }
 
 // ── Binary elimination (client-side) ─────────────────────────────────────────
@@ -44,49 +44,80 @@ function binaryElim(order: string[], pairwise: Record<string, Record<string, num
 
 // ── Pairwise matrix SVG ───────────────────────────────────────────────────────
 
-interface PairwiseProps { matrix: Record<string, Record<string, number>>; alts: string[]; }
+interface PairwiseProps {
+  matrix: Record<string, Record<string, number>>;
+  alts: string[];
+}
 
 const PairwiseMatrix: React.FC<PairwiseProps> = ({ matrix, alts }) => {
   const n = alts.length;
-  const cell = 52, labelW = 60;
-  const W = labelW + n * cell, H = labelW + n * cell;
+  const cell = 52,
+    labelW = 60;
+  const W = labelW + n * cell,
+    H = labelW + n * cell;
 
   return (
-    <svg data-testid="pairwise-matrix-svg" width={W} height={H}
-      style={{ display: 'block', fontFamily: 'monospace' }}>
+    <svg
+      data-testid="pairwise-matrix-svg"
+      width={W}
+      height={H}
+      style={{ display: 'block', fontFamily: 'monospace' }}
+    >
       {/* Column headers */}
       {alts.map((b, j) => (
-        <text key={`ch-${j}`} x={labelW + j * cell + cell / 2} y={labelW - 6}
-          textAnchor="middle" style={{ fontSize: 10, fill: '#495057', fontWeight: 600 }}>
+        <text
+          key={`ch-${j}`}
+          x={labelW + j * cell + cell / 2}
+          y={labelW - 6}
+          textAnchor="middle"
+          style={{ fontSize: 10, fill: '#495057', fontWeight: 600 }}
+        >
           {b.length > 6 ? b.slice(0, 5) + '.' : b}
         </text>
       ))}
       {/* Row headers */}
       {alts.map((a, i) => (
-        <text key={`rh-${i}`} x={labelW - 4} y={labelW + i * cell + cell / 2 + 4}
-          textAnchor="end" style={{ fontSize: 10, fill: '#495057', fontWeight: 600 }}>
+        <text
+          key={`rh-${i}`}
+          x={labelW - 4}
+          y={labelW + i * cell + cell / 2 + 4}
+          textAnchor="end"
+          style={{ fontSize: 10, fill: '#495057', fontWeight: 600 }}
+        >
           {a.length > 6 ? a.slice(0, 5) + '.' : a}
         </text>
       ))}
       {/* Cells */}
-      {alts.map((a, i) => alts.map((b, j) => {
-        const val = matrix[a]?.[b] ?? 0.5;
-        const isWin  = val > 0.5;
-        const isLose = val < 0.5;
-        const fill   = a === b ? '#f8f9fa' : isWin ? '#d1e7dd' : isLose ? '#f8d7da' : '#fff3cd';
-        return (
-          <g key={`${i}-${j}`}>
-            <rect x={labelW + j * cell} y={labelW + i * cell}
-              width={cell} height={cell} fill={fill} stroke="#dee2e6" />
-            {a !== b && (
-              <text x={labelW + j * cell + cell / 2} y={labelW + i * cell + cell / 2 + 4}
-                textAnchor="middle" style={{ fontSize: 11, fill: isWin ? '#198754' : isLose ? '#dc3545' : '#856404' }}>
-                {Math.round(val * 100)}%
-              </text>
-            )}
-          </g>
-        );
-      }))}
+      {alts.map((a, i) =>
+        alts.map((b, j) => {
+          const val = matrix[a]?.[b] ?? 0.5;
+          const isWin = val > 0.5;
+          const isLose = val < 0.5;
+          const fill = a === b ? '#f8f9fa' : isWin ? '#d1e7dd' : isLose ? '#f8d7da' : '#fff3cd';
+          return (
+            <g key={`${i}-${j}`}>
+              <rect
+                x={labelW + j * cell}
+                y={labelW + i * cell}
+                width={cell}
+                height={cell}
+                fill={fill}
+                stroke="#dee2e6"
+              />
+              {a !== b && (
+                <text
+                  x={labelW + j * cell + cell / 2}
+                  y={labelW + i * cell + cell / 2 + 4}
+                  textAnchor="middle"
+                  style={{ fontSize: 11, fill: isWin ? '#198754' : isLose ? '#dc3545' : '#856404' }}
+                >
+                  {Math.round(val * 100)}%
+                </text>
+              )}
+            </g>
+          );
+        })
+      )}
       {/* Corner label */}
       <text x={labelW - 4} y={labelW - 6} textAnchor="end" style={{ fontSize: 9, fill: '#adb5bd' }}>
         A→B%
@@ -98,10 +129,10 @@ const PairwiseMatrix: React.FC<PairwiseProps> = ({ matrix, alts }) => {
 // ── Draggable agenda editor ───────────────────────────────────────────────────
 
 interface AgendaEditorProps {
-  order:     string[];
+  order: string[];
   onReorder: (next: string[]) => void;
-  result:    string;
-  t:         (k: string) => string;
+  result: string;
+  t: (k: string) => string;
 }
 
 const AgendaEditor: React.FC<AgendaEditorProps> = ({ order, onReorder, result, t }) => {
@@ -109,9 +140,12 @@ const AgendaEditor: React.FC<AgendaEditorProps> = ({ order, onReorder, result, t
   return (
     <div data-testid="agenda-editor">
       {order.map((alt, i) => (
-        <div key={alt}
+        <div
+          key={alt}
           draggable
-          onDragStart={() => { dragIdx.current = i; }}
+          onDragStart={() => {
+            dragIdx.current = i;
+          }}
           onDragOver={(e) => e.preventDefault()}
           onDrop={() => {
             if (dragIdx.current == null || dragIdx.current === i) return;
@@ -122,25 +156,44 @@ const AgendaEditor: React.FC<AgendaEditorProps> = ({ order, onReorder, result, t
             onReorder(next);
           }}
           style={{
-            display: 'flex', alignItems: 'center', gap: 8,
-            padding: '8px 12px', marginBottom: 4,
-            background: '#f8f9fa', border: '1px solid #dee2e6', borderRadius: 6,
-            cursor: 'grab', fontSize: '0.85rem',
+            display: 'flex',
+            alignItems: 'center',
+            gap: 8,
+            padding: '8px 12px',
+            marginBottom: 4,
+            background: '#f8f9fa',
+            border: '1px solid #dee2e6',
+            borderRadius: 6,
+            cursor: 'grab',
+            fontSize: '0.85rem',
           }}
         >
           <span style={{ color: '#adb5bd', minWidth: 18 }}>{i + 1}.</span>
           <span style={{ flex: 1 }}>{alt}</span>
-          {i === 0 && <Badge variant="secondary" style={{ fontSize: '0.6rem' }}>{t('agenda.champion')}</Badge>}
-          {i > 0 && <Badge variant="light" style={{ fontSize: '0.6rem' }}>vs {t('agenda.champion')}</Badge>}
+          {i === 0 && (
+            <Badge variant="secondary" style={{ fontSize: '0.6rem' }}>
+              {t('agenda.champion')}
+            </Badge>
+          )}
+          {i > 0 && (
+            <Badge variant="light" style={{ fontSize: '0.6rem' }}>
+              vs {t('agenda.champion')}
+            </Badge>
+          )}
           <span style={{ color: '#adb5bd', fontSize: '0.7rem' }}>⠿</span>
         </div>
       ))}
-      <div className="mt-2 p-2 rounded" style={{ background: '#e8f5e9', border: '1px solid #c8e6c9' }}>
+      <div
+        className="mt-2 p-2 rounded"
+        style={{ background: '#e8f5e9', border: '1px solid #c8e6c9' }}
+      >
         <span style={{ fontSize: '0.82rem', fontWeight: 700 }}>
           🏆 {t('agenda.result')}: <span style={{ color: '#198754' }}>{result}</span>
         </span>
       </div>
-      <div className="text-muted mt-1" style={{ fontSize: '0.7rem' }}>{t('agenda.dragHint')}</div>
+      <div className="text-muted-foreground mt-1" style={{ fontSize: '0.7rem' }}>
+        {t('agenda.dragHint')}
+      </div>
     </div>
   );
 };
@@ -154,19 +207,30 @@ const AgendaManipulationPanel: React.FC = () => {
   const data: AgendaData | null = (sim.data as AgendaData | undefined) ?? null;
   const loading = sim.isPending;
   const error = sim.isError ? t('agenda.error') : null;
-  const [alts,      setAlts]      = useState<string[]>(DEFAULT_ALTS);
+  const [alts, setAlts] = useState<string[]>(DEFAULT_ALTS);
   const [agendaOrder, setAgendaOrder] = useState<string[]>(DEFAULT_ALTS);
   const [numVoters, setNumVoters] = useState(21);
-  const [seed,      setSeed]      = useState(42);
-  const [target,    setTarget]    = useState(DEFAULT_ALTS[0]);
+  const [seed, setSeed] = useState(42);
+  const [target, setTarget] = useState(DEFAULT_ALTS[0]);
 
-  const runSimulation = useCallback((as: string[], nv: number, sd: number, tgt: string) => {
-    sim.mutate({ body: {
-      alternatives: as, num_voters: nv, seed: sd, target_outcome: tgt,
-      constraint_type: 'binary_elimination',
-    } }, { onSuccess: () => setAgendaOrder([...as]) });
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [sim]);
+  const runSimulation = useCallback(
+    (as: string[], nv: number, sd: number, tgt: string) => {
+      sim.mutate(
+        {
+          body: {
+            alternatives: as,
+            num_voters: nv,
+            seed: sd,
+            target_outcome: tgt,
+            constraint_type: 'binary_elimination',
+          },
+        },
+        { onSuccess: () => setAgendaOrder([...as]) }
+      );
+      // eslint-disable-next-line react-hooks/exhaustive-deps
+    },
+    [sim]
+  );
 
   const handleSimulate = () => runSimulation(alts, numVoters, seed, target);
 
@@ -180,52 +244,82 @@ const AgendaManipulationPanel: React.FC = () => {
   return (
     <div>
       {/* Controls */}
-      <Row className="g-2 mb-3 align-items-end">
+      <Row className="g-2 mb-3 items-end">
         <Col xs={6} md={2}>
-          <label className="mb-1 inline-block small mb-0">{t('agenda.voters')}</label>
-          <Control type="number" size="sm" min={3} max={101} value={numVoters}
+          <label className="mb-1 inline-block text-sm mb-0">{t('agenda.voters')}</label>
+          <Control
+            type="number"
+            size="sm"
+            min={3}
+            max={101}
+            value={numVoters}
             data-testid="voters-input"
-            onChange={(e) => setNumVoters(Number(e.target.value))} />
+            onChange={(e) => setNumVoters(Number(e.target.value))}
+          />
         </Col>
         <Col xs={6} md={2}>
-          <label className="mb-1 inline-block small mb-0">{t('agenda.seed')}</label>
-          <Control type="number" size="sm" value={seed}
+          <label className="mb-1 inline-block text-sm mb-0">{t('agenda.seed')}</label>
+          <Control
+            type="number"
+            size="sm"
+            value={seed}
             data-testid="seed-input"
-            onChange={(e) => setSeed(Number(e.target.value))} />
+            onChange={(e) => setSeed(Number(e.target.value))}
+          />
         </Col>
         <Col xs={12} md={3}>
-          <label className="mb-1 inline-block small mb-0">{t('agenda.target')}</label>
-          <Select size="sm" value={target} data-testid="target-select"
-            onChange={(e) => setTarget(e.target.value)}>
-            {alts.map((a) => <option key={a} value={a}>{a}</option>)}
+          <label className="mb-1 inline-block text-sm mb-0">{t('agenda.target')}</label>
+          <Select
+            size="sm"
+            value={target}
+            data-testid="target-select"
+            onChange={(e) => setTarget(e.target.value)}
+          >
+            {alts.map((a) => (
+              <option key={a} value={a}>
+                {a}
+              </option>
+            ))}
           </Select>
         </Col>
         <Col xs="auto">
-          <Button variant="primary" onClick={handleSimulate} disabled={loading}
-            data-testid="simulate-btn">
+          <Button
+            variant="primary"
+            onClick={handleSimulate}
+            disabled={loading}
+            data-testid="simulate-btn"
+          >
             {loading ? <Spinner size="sm" /> : t('agenda.run')}
           </Button>
         </Col>
       </Row>
 
       {!data && !loading && !error && (
-        <Alert variant="info" role="alert">{t('agenda.prompt')}</Alert>
+        <Alert variant="info" role="alert">
+          {t('agenda.prompt')}
+        </Alert>
       )}
       {error && <Alert variant="danger">{error}</Alert>}
 
       {data && (
         <>
           {/* Condorcet + manipulation power badges */}
-          <div className="d-flex flex-wrap gap-2 mb-3">
-            <Badge variant={data.condorcet_winner ? 'success' : 'danger'}
-              data-testid="cw-badge">
+          <div className="flex flex-wrap gap-2 mb-3">
+            <Badge variant={data.condorcet_winner ? 'success' : 'danger'} data-testid="cw-badge">
               {data.condorcet_winner
                 ? `✓ ${t('agenda.cwExists')}: ${data.condorcet_winner}`
                 : `✗ ${t('agenda.noCW')}`}
             </Badge>
             <Badge
-              variant={data.manipulation_power >= 0.99 ? 'danger' : data.manipulation_power > 0.5 ? 'warning' : 'secondary'}
-              data-testid="power-badge">
+              variant={
+                data.manipulation_power >= 0.99
+                  ? 'danger'
+                  : data.manipulation_power > 0.5
+                    ? 'warning'
+                    : 'secondary'
+              }
+              data-testid="power-badge"
+            >
               {t('agenda.manipPower')}: {Math.round(data.manipulation_power * 100)}%
             </Badge>
           </div>
@@ -233,7 +327,7 @@ const AgendaManipulationPanel: React.FC = () => {
           <Row className="g-3">
             {/* Agenda editor */}
             <Col xs={12} md={5}>
-              <div className="fw-semibold mb-1" style={{ fontSize: '0.85rem' }}>
+              <div className="font-semibold mb-1" style={{ fontSize: '0.85rem' }}>
                 {t('agenda.editorTitle')}
               </div>
               <AgendaEditor
@@ -243,15 +337,21 @@ const AgendaManipulationPanel: React.FC = () => {
                 t={t}
               />
               {/* Quick-set buttons */}
-              <div className="d-flex gap-2 mt-2 flex-wrap">
-                <Button size="sm" variant="outline-success"
+              <div className="flex gap-2 mt-2 flex-wrap">
+                <Button
+                  size="sm"
+                  variant="outline-success"
                   data-testid="btn-make-target-win"
-                  onClick={() => animateTo('for_target')}>
+                  onClick={() => animateTo('for_target')}
+                >
                   🎯 {t('agenda.makeTargetWin', { target })}
                 </Button>
-                <Button size="sm" variant="outline-secondary"
+                <Button
+                  size="sm"
+                  variant="outline-secondary"
                   data-testid="btn-neutral"
-                  onClick={() => animateTo('neutral')}>
+                  onClick={() => animateTo('neutral')}
+                >
                   ⚖️ {t('agenda.neutral')}
                 </Button>
               </div>
@@ -259,13 +359,16 @@ const AgendaManipulationPanel: React.FC = () => {
 
             {/* Pairwise matrix */}
             <Col xs={12} md={7}>
-              <div className="fw-semibold mb-1" style={{ fontSize: '0.85rem' }}>
+              <div className="font-semibold mb-1" style={{ fontSize: '0.85rem' }}>
                 {t('agenda.matrixTitle')}
               </div>
-              <div className="border rounded" style={{ background: '#f8f9fa', overflow: 'auto' }}>
+              <div
+                className="border border-border rounded"
+                style={{ background: '#f8f9fa', overflow: 'auto' }}
+              >
                 <PairwiseMatrix matrix={data.pairwise_matrix} alts={alts} />
               </div>
-              <div className="text-muted mt-1" style={{ fontSize: '0.72rem' }}>
+              <div className="text-muted-foreground mt-1" style={{ fontSize: '0.72rem' }}>
                 {t('agenda.matrixDesc')}
               </div>
             </Col>
@@ -273,40 +376,49 @@ const AgendaManipulationPanel: React.FC = () => {
 
           {/* Achievable outcomes */}
           <div className="mt-3" data-testid="achievable-section">
-            <div className="fw-semibold mb-1" style={{ fontSize: '0.85rem' }}>
+            <div className="font-semibold mb-1" style={{ fontSize: '0.85rem' }}>
               {t('agenda.achievableTitle')}
             </div>
-            <div className="d-flex gap-2 flex-wrap">
+            <div className="flex gap-2 flex-wrap">
               {alts.map((a) => {
                 const possible = data.achievable_outcomes.includes(a);
                 return (
-                  <Badge key={a}
+                  <Badge
+                    key={a}
                     variant={possible ? 'success' : 'secondary'}
                     data-testid={`achievable-badge-${a}`}
-                    style={{ fontSize: '0.78rem', padding: '6px 10px' }}>
+                    style={{ fontSize: '0.78rem', padding: '6px 10px' }}
+                  >
                     {a} {possible ? '✓' : '✗'}
                   </Badge>
                 );
               })}
             </div>
             {data.achievable_outcomes.length === alts.length && !data.condorcet_winner && (
-              <Alert variant="danger" className="mt-2 py-1" style={{ fontSize: '0.78rem' }}
-                data-testid="full-manipulation-alert">
+              <Alert
+                variant="danger"
+                className="mt-2 py-1"
+                style={{ fontSize: '0.78rem' }}
+                data-testid="full-manipulation-alert"
+              >
                 ⚡ {t('agenda.fullManipulation')}
               </Alert>
             )}
           </div>
 
           {/* Defense section */}
-          <div className="mt-3 border rounded p-3" data-testid="defense-section"
-            style={{ background: '#f8f9fa', fontSize: '0.78rem' }}>
-            <div className="fw-semibold mb-1">{t('agenda.defenseTitle')}</div>
+          <div
+            className="mt-3 border border-border rounded p-3"
+            data-testid="defense-section"
+            style={{ background: '#f8f9fa', fontSize: '0.78rem' }}
+          >
+            <div className="font-semibold mb-1">{t('agenda.defenseTitle')}</div>
             <ul className="mb-0" style={{ paddingLeft: 16 }}>
               <li>{t('agenda.defense1')}</li>
               <li>{t('agenda.defense2')}</li>
               <li>{t('agenda.defense3')}</li>
             </ul>
-            <div className="text-muted mt-1">{t('agenda.defenseNote')}</div>
+            <div className="text-muted-foreground mt-1">{t('agenda.defenseNote')}</div>
           </div>
 
           {/* Pedagogical note */}

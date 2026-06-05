@@ -8,7 +8,9 @@ vi.mock('../../../api/client', () => ({
   apiClient: { GET: vi.fn(), POST: vi.fn(), PUT: vi.fn(), DELETE: vi.fn(), PATCH: vi.fn() },
   getAccessToken: vi.fn(() => null),
 }));
-const { apiClient } = (await import('../../../api/client')) as unknown as { apiClient: { POST: jest.Mock } };
+const { apiClient } = (await import('../../../api/client')) as unknown as {
+  apiClient: { POST: jest.Mock };
+};
 
 vi.mock('react-i18next', () => ({
   useTranslation: () => ({
@@ -22,7 +24,7 @@ vi.mock('react-i18next', () => ({
 const MOCK_DATA = {
   pairwise_matrix: {
     Alice: { Alice: 0.5, Bob: 0.7, Carol: 0.6 },
-    Bob:   { Alice: 0.3, Bob: 0.5, Carol: 0.4 },
+    Bob: { Alice: 0.3, Bob: 0.5, Carol: 0.4 },
     Carol: { Alice: 0.4, Bob: 0.6, Carol: 0.5 },
   },
   condorcet_winner: 'Alice',
@@ -32,7 +34,7 @@ const MOCK_DATA = {
   achievable_outcomes: ['Alice'],
   optimal_agenda: {
     for_target: ['Alice', 'Bob', 'Carol'],
-    neutral:    ['Alice', 'Bob', 'Carol'],
+    neutral: ['Alice', 'Bob', 'Carol'],
     worst_case: ['Carol', 'Bob', 'Alice'],
   },
   manipulation_power: 0.33,
@@ -46,7 +48,7 @@ const CYCLE_DATA = {
   manipulation_power: 1.0,
   pairwise_matrix: {
     Alice: { Alice: 0.5, Bob: 0.6, Carol: 0.4 },
-    Bob:   { Alice: 0.4, Bob: 0.5, Carol: 0.6 },
+    Bob: { Alice: 0.4, Bob: 0.5, Carol: 0.6 },
     Carol: { Alice: 0.6, Bob: 0.4, Carol: 0.5 },
   },
   pedagogical_note: 'Full Condorcet cycle.',
@@ -81,7 +83,9 @@ describe('AgendaManipulationPanel', () => {
   it('calls API and renders results on simulate', async () => {
     apiClient.POST.mockResolvedValueOnce(ok(MOCK_DATA));
     renderPanel();
-    await act(async () => { fireEvent.click(screen.getByTestId('simulate-btn')); });
+    await act(async () => {
+      fireEvent.click(screen.getByTestId('simulate-btn'));
+    });
     await waitFor(() => expect(screen.getByTestId('cw-badge')).toBeInTheDocument());
     expect(screen.getByTestId('power-badge')).toBeInTheDocument();
     expect(screen.getByTestId('agenda-editor')).toBeInTheDocument();
@@ -93,28 +97,36 @@ describe('AgendaManipulationPanel', () => {
   it('shows CW badge with success variant when CW exists', async () => {
     apiClient.POST.mockResolvedValueOnce(ok(MOCK_DATA));
     renderPanel();
-    await act(async () => { fireEvent.click(screen.getByTestId('simulate-btn')); });
+    await act(async () => {
+      fireEvent.click(screen.getByTestId('simulate-btn'));
+    });
     await waitFor(() => expect(screen.getByTestId('cw-badge')).toHaveTextContent('Alice'));
   });
 
   it('shows no-CW badge when cycle detected', async () => {
     apiClient.POST.mockResolvedValueOnce(ok(CYCLE_DATA));
     renderPanel();
-    await act(async () => { fireEvent.click(screen.getByTestId('simulate-btn')); });
+    await act(async () => {
+      fireEvent.click(screen.getByTestId('simulate-btn'));
+    });
     await waitFor(() => expect(screen.getByTestId('cw-badge')).toHaveTextContent('noCW'));
   });
 
   it('shows full manipulation alert when all outcomes achievable and no CW', async () => {
     apiClient.POST.mockResolvedValueOnce(ok(CYCLE_DATA));
     renderPanel();
-    await act(async () => { fireEvent.click(screen.getByTestId('simulate-btn')); });
+    await act(async () => {
+      fireEvent.click(screen.getByTestId('simulate-btn'));
+    });
     await waitFor(() => expect(screen.getByTestId('full-manipulation-alert')).toBeInTheDocument());
   });
 
   it('does NOT show full manipulation alert when CW exists', async () => {
     apiClient.POST.mockResolvedValueOnce(ok(MOCK_DATA));
     renderPanel();
-    await act(async () => { fireEvent.click(screen.getByTestId('simulate-btn')); });
+    await act(async () => {
+      fireEvent.click(screen.getByTestId('simulate-btn'));
+    });
     await waitFor(() => expect(screen.getByTestId('cw-badge')).toBeInTheDocument());
     expect(screen.queryByTestId('full-manipulation-alert')).not.toBeInTheDocument();
   });
@@ -122,7 +134,9 @@ describe('AgendaManipulationPanel', () => {
   it('renders achievable badges for each alternative', async () => {
     apiClient.POST.mockResolvedValueOnce(ok(MOCK_DATA));
     renderPanel();
-    await act(async () => { fireEvent.click(screen.getByTestId('simulate-btn')); });
+    await act(async () => {
+      fireEvent.click(screen.getByTestId('simulate-btn'));
+    });
     await waitFor(() => expect(screen.getByTestId('achievable-badge-Alice')).toBeInTheDocument());
     expect(screen.getByTestId('achievable-badge-Bob')).toBeInTheDocument();
     expect(screen.getByTestId('achievable-badge-Carol')).toBeInTheDocument();
@@ -131,7 +145,9 @@ describe('AgendaManipulationPanel', () => {
   it('applies for_target agenda when "make target win" clicked', async () => {
     apiClient.POST.mockResolvedValueOnce(ok(MOCK_DATA));
     renderPanel();
-    await act(async () => { fireEvent.click(screen.getByTestId('simulate-btn')); });
+    await act(async () => {
+      fireEvent.click(screen.getByTestId('simulate-btn'));
+    });
     await waitFor(() => expect(screen.getByTestId('agenda-editor')).toBeInTheDocument());
     fireEvent.click(screen.getByTestId('btn-make-target-win'));
     expect(screen.getByTestId('agenda-editor')).toBeInTheDocument();
@@ -140,7 +156,9 @@ describe('AgendaManipulationPanel', () => {
   it('applies neutral agenda when neutral button clicked', async () => {
     apiClient.POST.mockResolvedValueOnce(ok(MOCK_DATA));
     renderPanel();
-    await act(async () => { fireEvent.click(screen.getByTestId('simulate-btn')); });
+    await act(async () => {
+      fireEvent.click(screen.getByTestId('simulate-btn'));
+    });
     await waitFor(() => expect(screen.getByTestId('agenda-editor')).toBeInTheDocument());
     fireEvent.click(screen.getByTestId('btn-neutral'));
     expect(screen.getByTestId('agenda-editor')).toBeInTheDocument();
@@ -149,14 +167,18 @@ describe('AgendaManipulationPanel', () => {
   it('shows error alert on API failure', async () => {
     apiClient.POST.mockRejectedValueOnce(new Error('Network error'));
     renderPanel();
-    await act(async () => { fireEvent.click(screen.getByTestId('simulate-btn')); });
+    await act(async () => {
+      fireEvent.click(screen.getByTestId('simulate-btn'));
+    });
     await waitFor(() => expect(screen.getByRole('alert')).toHaveClass('bg-red-100'));
   });
 
   it('posts correct payload to API', async () => {
     apiClient.POST.mockResolvedValueOnce(ok(MOCK_DATA));
     renderPanel();
-    await act(async () => { fireEvent.click(screen.getByTestId('simulate-btn')); });
+    await act(async () => {
+      fireEvent.click(screen.getByTestId('simulate-btn'));
+    });
     await waitFor(() => expect(apiClient.POST).toHaveBeenCalled());
     const [url, init] = apiClient.POST.mock.calls[0];
     expect(url).toBe('/api/v2/theory/agenda-manipulation');

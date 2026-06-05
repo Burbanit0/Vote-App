@@ -13,14 +13,12 @@ import type { DistrictsResponse } from '../../api';
 // ── Types ─────────────────────────────────────────────────────────────────────
 // Source of truth is the generated `DistrictsResponse` (Phase 6 response_model).
 
-type DistrictData   = DistrictsResponse;
+type DistrictData = DistrictsResponse;
 type DistrictResult = DistrictsResponse['districts'][number];
 
 // ── Palette ───────────────────────────────────────────────────────────────────
 
-const PALETTE = [
-  '#005CAB', '#C8590A', '#007A33', '#6c757d', '#9b59b6', '#e67e22',
-];
+const PALETTE = ['#005CAB', '#C8590A', '#007A33', '#6c757d', '#9b59b6', '#e67e22'];
 
 function candidateColor(name: string, names: string[]): string {
   return PALETTE[names.indexOf(name) % PALETTE.length] ?? '#888';
@@ -70,7 +68,13 @@ const Hémicycle: React.FC<HémicycleProps> = ({ seats, candidateNames, totalSea
   return (
     <div className="text-center">
       <div style={{ fontSize: '0.8rem', fontWeight: 600, marginBottom: 2 }}>{label}</div>
-      <svg viewBox={`0 0 ${W} ${H}`} width="100%" style={{ maxWidth: 280 }} role="img" aria-label={label}>
+      <svg
+        viewBox={`0 0 ${W} ${H}`}
+        width="100%"
+        style={{ maxWidth: 280 }}
+        role="img"
+        aria-label={label}
+      >
         {segments.map(({ name, startAngle, endAngle }) => (
           <path
             key={name}
@@ -79,27 +83,39 @@ const Hémicycle: React.FC<HémicycleProps> = ({ seats, candidateNames, totalSea
             stroke="#fff"
             strokeWidth={1.5}
           >
-            <title>{name}: {seats[name]}</title>
+            <title>
+              {name}: {seats[name]}
+            </title>
           </path>
         ))}
         <line
-          x1={polar(rInner - 4, Math.PI / 2)[0]} y1={polar(rInner - 4, Math.PI / 2)[1]}
-          x2={polar(rOuter + 4, Math.PI / 2)[0]} y2={polar(rOuter + 4, Math.PI / 2)[1]}
-          stroke="#dc3545" strokeWidth={1.5} strokeDasharray="3 2"
+          x1={polar(rInner - 4, Math.PI / 2)[0]}
+          y1={polar(rInner - 4, Math.PI / 2)[1]}
+          x2={polar(rOuter + 4, Math.PI / 2)[0]}
+          y2={polar(rOuter + 4, Math.PI / 2)[1]}
+          stroke="#dc3545"
+          strokeWidth={1.5}
+          strokeDasharray="3 2"
         />
       </svg>
-      <div className="d-flex flex-wrap gap-1 justify-content-center mt-1">
-        {candidateNames.filter((n) => (seats[n] ?? 0) > 0).map((name) => (
-          <span key={name} style={{ fontSize: '0.72rem' }}>
-            <span
-              style={{
-                display: 'inline-block', width: 10, height: 10,
-                background: candidateColor(name, candidateNames), borderRadius: 2, marginRight: 3,
-              }}
-            />
-            {name} ({seats[name]})
-          </span>
-        ))}
+      <div className="flex flex-wrap gap-1 justify-center mt-1">
+        {candidateNames
+          .filter((n) => (seats[n] ?? 0) > 0)
+          .map((name) => (
+            <span key={name} style={{ fontSize: '0.72rem' }}>
+              <span
+                style={{
+                  display: 'inline-block',
+                  width: 10,
+                  height: 10,
+                  background: candidateColor(name, candidateNames),
+                  borderRadius: 2,
+                  marginRight: 3,
+                }}
+              />
+              {name} ({seats[name]})
+            </span>
+          ))}
       </div>
     </div>
   );
@@ -113,13 +129,19 @@ interface DistrictGridProps {
   revealedCount: number;
 }
 
-const DistrictGrid: React.FC<DistrictGridProps> = ({ districts, candidateNames, revealedCount }) => {
-  const n       = districts.length;
+const DistrictGrid: React.FC<DistrictGridProps> = ({
+  districts,
+  candidateNames,
+  revealedCount,
+}) => {
+  const n = districts.length;
   // On narrow viewports the SVG scales down via width="100%"; we cap columns
   // to 5 on mobile by checking if window exists (SSR-safe)
   const isMobile = typeof window !== 'undefined' && window.innerWidth < 768;
-  const CELL    = isMobile ? 48 : 32;
-  const cols    = isMobile ? Math.min(5, Math.ceil(Math.sqrt(n))) : Math.min(10, Math.ceil(Math.sqrt(n * 2)));
+  const CELL = isMobile ? 48 : 32;
+  const cols = isMobile
+    ? Math.min(5, Math.ceil(Math.sqrt(n)))
+    : Math.min(10, Math.ceil(Math.sqrt(n * 2)));
 
   return (
     <svg
@@ -135,7 +157,8 @@ const DistrictGrid: React.FC<DistrictGridProps> = ({ districts, candidateNames, 
         const winner = d.winner_fptp;
         const color = revealed ? candidateColor(winner, candidateNames) : '#dee2e6';
         // ideology gradient tint: left-leaning = slight blue, right = slight red
-        const ideoBg = d.ideology_center < 0 ? '#e8f0ff' : d.ideology_center > 0 ? '#fff0e8' : '#f8f9fa';
+        const ideoBg =
+          d.ideology_center < 0 ? '#e8f0ff' : d.ideology_center > 0 ? '#fff0e8' : '#f8f9fa';
 
         const topShare = Math.max(...Object.values(d.vote_shares));
         const tooltip = Object.entries(d.vote_shares)
@@ -213,20 +236,30 @@ const DistrictMap: React.FC = () => {
     animRef.current = setTimeout(step, 60);
   }, []);
 
-  useEffect(() => () => { if (animRef.current) clearTimeout(animRef.current); }, []);
+  useEffect(
+    () => () => {
+      if (animRef.current) clearTimeout(animRef.current);
+    },
+    []
+  );
 
   function run() {
     if (animRef.current) clearTimeout(animRef.current);
     setRevealedCount(0);
-    sim.mutate({ body: {
-      candidates:                  config.candidates,
-      num_districts:               numDistricts,
-      voters_per_district:         votersPerDistrict,
-      district_ideology_variance:  ideologyVariance,
-      seed:                        config.seed,
-    } }, {
-      onSuccess: (res) => runAnimation(res.num_districts),
-    });
+    sim.mutate(
+      {
+        body: {
+          candidates: config.candidates,
+          num_districts: numDistricts,
+          voters_per_district: votersPerDistrict,
+          district_ideology_variance: ideologyVariance,
+          seed: config.seed,
+        },
+      },
+      {
+        onSuccess: (res) => runAnimation(res.num_districts),
+      }
+    );
   }
 
   const winnerChanged = data && data.fptp_winner !== data.proportional_winner;
@@ -235,36 +268,60 @@ const DistrictMap: React.FC = () => {
   return (
     <div>
       {/* Controls */}
-      <Row className="g-2 align-items-end mb-3">
+      <Row className="g-2 items-end mb-3">
         <Col xs={12} sm={4}>
-          <label className="mb-1 inline-block small mb-0">
+          <label className="mb-1 inline-block text-sm mb-0">
             {t('districts.numDistricts')}: <strong>{numDistricts}</strong>
           </label>
-          <Range min={5} max={50} step={5} value={numDistricts}
-            onChange={(e) => setNumDistricts(Number(e.target.value))} />
+          <Range
+            min={5}
+            max={50}
+            step={5}
+            value={numDistricts}
+            onChange={(e) => setNumDistricts(Number(e.target.value))}
+          />
         </Col>
         <Col xs={12} sm={4}>
-          <label className="mb-1 inline-block small mb-0">
+          <label className="mb-1 inline-block text-sm mb-0">
             {t('districts.votersPerDistrict')}: <strong>{votersPerDistrict}</strong>
           </label>
-          <Range min={50} max={300} step={50} value={votersPerDistrict}
-            onChange={(e) => setVotersPerDistrict(Number(e.target.value))} />
+          <Range
+            min={50}
+            max={300}
+            step={50}
+            value={votersPerDistrict}
+            onChange={(e) => setVotersPerDistrict(Number(e.target.value))}
+          />
         </Col>
         <Col xs={12} sm={4}>
-          <label className="mb-1 inline-block small mb-0">
+          <label className="mb-1 inline-block text-sm mb-0">
             {t('districts.ideologyVariance')}: <strong>{ideologyVariance.toFixed(1)}</strong>
           </label>
-          <Range min={0} max={1} step={0.1} value={ideologyVariance}
-            onChange={(e) => setIdeologyVariance(Number(e.target.value))} />
+          <Range
+            min={0}
+            max={1}
+            step={0.1}
+            value={ideologyVariance}
+            onChange={(e) => setIdeologyVariance(Number(e.target.value))}
+          />
         </Col>
-        <Col xs={12} className="d-flex gap-2">
+        <Col xs={12} className="flex gap-2">
           <Button variant="primary" onClick={run} disabled={loading}>
-            {loading
-              ? <><Spinner size="sm" className="me-2" />{t('districts.computing')}</>
-              : `🗺 ${t('districts.run')}`}
+            {loading ? (
+              <>
+                <Spinner size="sm" className="me-2" />
+                {t('districts.computing')}
+              </>
+            ) : (
+              `🗺 ${t('districts.run')}`
+            )}
           </Button>
           {data && (
-            <Button variant="outline-secondary" size="sm" onClick={() => runAnimation(data.num_districts)}>
+            <Button
+              variant="outline-secondary"
+              size="sm"
+              onClick={() => runAnimation(data.num_districts)}
+            >
               ▶ {t('districts.replay')}
             </Button>
           )}
@@ -273,20 +330,22 @@ const DistrictMap: React.FC = () => {
 
       {error && <Alert variant="danger">{error}</Alert>}
 
-      {!data && !loading && (
-        <Alert variant="info">{t('districts.prompt')}</Alert>
-      )}
+      {!data && !loading && <Alert variant="info">{t('districts.prompt')}</Alert>}
 
       {data && (
         <>
           {/* Summary badges */}
-          <div className="d-flex flex-wrap gap-2 mb-3">
+          <div className="flex flex-wrap gap-2 mb-3">
             <Badge variant="primary">FPTP: {data.fptp_winner}</Badge>
             <Badge variant={winnerChanged ? 'warning' : 'success'}>
               PR: {data.proportional_winner}
             </Badge>
-            <Badge variant={distortionPct > 10 ? 'danger' : 'secondary'} data-testid="distortion-badge">
-              {t('districts.distortion')}: {distortionPct > 0 ? '+' : ''}{distortionPct}pts
+            <Badge
+              variant={distortionPct > 10 ? 'danger' : 'secondary'}
+              data-testid="distortion-badge"
+            >
+              {t('districts.distortion')}: {distortionPct > 0 ? '+' : ''}
+              {distortionPct}pts
             </Badge>
             {data.condorcet_winner_national && (
               <Badge variant="info">Condorcet: {data.condorcet_winner_national} ✓</Badge>
@@ -301,9 +360,11 @@ const DistrictMap: React.FC = () => {
           >
             {winnerChanged
               ? t('districts.pedagogicalDivergence', {
-                  fptpWinner:         data.fptp_winner,
-                  fptpSeatPct:        Math.round((data.parliament_fptp[data.fptp_winner] ?? 0) / data.num_districts * 100),
-                  fptpVotePct:        Math.round((data.national_vote_share[data.fptp_winner] ?? 0) * 100),
+                  fptpWinner: data.fptp_winner,
+                  fptpSeatPct: Math.round(
+                    ((data.parliament_fptp[data.fptp_winner] ?? 0) / data.num_districts) * 100
+                  ),
+                  fptpVotePct: Math.round((data.national_vote_share[data.fptp_winner] ?? 0) * 100),
                   proportionalWinner: data.proportional_winner,
                 })
               : t('districts.pedagogicalConsensus', { winner: data.fptp_winner })}
@@ -311,21 +372,28 @@ const DistrictMap: React.FC = () => {
 
           {/* District grid */}
           <div className="mb-4">
-            <div className="text-center small text-muted mb-2">{t('districts.gridLabel')}</div>
+            <div className="text-center text-sm text-muted-foreground mb-2">
+              {t('districts.gridLabel')}
+            </div>
             <DistrictGrid
               districts={data.districts}
               candidateNames={candidateNames}
               revealedCount={revealedCount}
             />
             {/* Color legend */}
-            <div className="d-flex flex-wrap gap-3 justify-content-center mt-2">
+            <div className="flex flex-wrap gap-3 justify-center mt-2">
               {candidateNames.map((name) => (
-                <div key={name} className="d-flex align-items-center gap-1" style={{ fontSize: '0.78rem' }}>
-                  <div style={{
-                    width: 14, height: 14, borderRadius: 3,
-                    background: candidateColor(name, candidateNames),
-                  }} />
-                  {name} — {Math.round((data.national_vote_share[name] ?? 0) * 100)}% {t('districts.nationalVotes')}
+                <div key={name} className="flex items-center gap-1" style={{ fontSize: '0.78rem' }}>
+                  <div
+                    style={{
+                      width: 14,
+                      height: 14,
+                      borderRadius: 3,
+                      background: candidateColor(name, candidateNames),
+                    }}
+                  />
+                  {name} — {Math.round((data.national_vote_share[name] ?? 0) * 100)}%{' '}
+                  {t('districts.nationalVotes')}
                 </div>
               ))}
             </div>
@@ -334,7 +402,7 @@ const DistrictMap: React.FC = () => {
           {/* Dual hémicycles */}
           <Row className="g-3 mb-3">
             <Col xs={12} sm={6}>
-              <div className="border rounded p-2">
+              <div className="border border-border rounded p-2">
                 <Hémicycle
                   seats={data.parliament_fptp}
                   candidateNames={candidateNames}
@@ -344,7 +412,7 @@ const DistrictMap: React.FC = () => {
               </div>
             </Col>
             <Col xs={12} sm={6}>
-              <div className="border rounded p-2">
+              <div className="border border-border rounded p-2">
                 <Hémicycle
                   seats={data.parliament_proportional}
                   candidateNames={candidateNames}
@@ -357,11 +425,23 @@ const DistrictMap: React.FC = () => {
 
           {/* National vote share bar */}
           <div className="mb-3">
-            <div className="small text-muted mb-1">{t('districts.nationalVoteShare')}</div>
-            <div style={{ display: 'flex', height: 28, borderRadius: 4, overflow: 'hidden', width: '100%' }}>
+            <div className="text-sm text-muted-foreground mb-1">
+              {t('districts.nationalVoteShare')}
+            </div>
+            <div
+              style={{
+                display: 'flex',
+                height: 28,
+                borderRadius: 4,
+                overflow: 'hidden',
+                width: '100%',
+              }}
+            >
               {candidateNames
                 .filter((n) => (data.national_vote_share[n] ?? 0) > 0)
-                .sort((a, b) => (data.national_vote_share[b] ?? 0) - (data.national_vote_share[a] ?? 0))
+                .sort(
+                  (a, b) => (data.national_vote_share[b] ?? 0) - (data.national_vote_share[a] ?? 0)
+                )
                 .map((name) => {
                   const pct = Math.round((data.national_vote_share[name] ?? 0) * 100);
                   return (
@@ -370,8 +450,12 @@ const DistrictMap: React.FC = () => {
                       style={{
                         flex: data.national_vote_share[name] ?? 0,
                         background: candidateColor(name, candidateNames),
-                        display: 'flex', alignItems: 'center', justifyContent: 'center',
-                        color: '#fff', fontSize: '0.72rem', fontWeight: 600,
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        color: '#fff',
+                        fontSize: '0.72rem',
+                        fontWeight: 600,
                         transition: 'flex 0.4s',
                       }}
                       title={`${name}: ${pct}%`}
@@ -381,8 +465,8 @@ const DistrictMap: React.FC = () => {
                   );
                 })}
             </div>
-            <div className="d-flex gap-2 mt-1 flex-wrap" style={{ fontSize: '0.72rem' }}>
-              <span className="text-muted">{t('districts.nationalVotes')} ↑</span>
+            <div className="flex gap-2 mt-1 flex-wrap" style={{ fontSize: '0.72rem' }}>
+              <span className="text-muted-foreground">{t('districts.nationalVotes')} ↑</span>
               {candidateNames.map((n) => (
                 <span key={n}>
                   {n}: <strong>{Math.round((data.national_vote_share[n] ?? 0) * 100)}%</strong>

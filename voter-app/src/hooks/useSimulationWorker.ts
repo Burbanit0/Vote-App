@@ -11,7 +11,12 @@
  */
 import { useCallback, useEffect, useRef, useState } from 'react';
 import type { WorkerRequest, WorkerResponse } from '../workers/simulationWorker';
-import type { HeatmapVoter, HeatmapCandidate, GridCell, HeatmapMetrics } from '../components/Simulation/IdeologyHeatmap';
+import type {
+  HeatmapVoter,
+  HeatmapCandidate,
+  GridCell,
+  HeatmapMetrics,
+} from '../components/Simulation/IdeologyHeatmap';
 import type { MethodStreamStats } from './useMonteCarloStream';
 import type { MethodRow } from '../components/Simulation/MethodRaceBar';
 
@@ -22,10 +27,9 @@ let _pendingCount = 0;
 
 function getWorker(): Worker {
   if (!_worker) {
-    _worker = new Worker(
-      new URL('../workers/simulationWorker.ts', import.meta.url),
-      { type: 'module' },
-    );
+    _worker = new Worker(new URL('../workers/simulationWorker.ts', import.meta.url), {
+      type: 'module',
+    });
   }
   return _worker;
 }
@@ -54,15 +58,15 @@ function attachListener() {
 // ── Return-type overloads ──────────────────────────────────────────────────────
 
 type DispatchMap = {
-  COMPUTE_HEATMAP:  { voters: HeatmapVoter[]; candidates: HeatmapCandidate[]; gridN?: number };
-  COMPUTE_MATRIX:   { partialResults: Record<string, MethodStreamStats> };
-  SORT_MC_RESULTS:  { partialResults: Record<string, MethodStreamStats> };
+  COMPUTE_HEATMAP: { voters: HeatmapVoter[]; candidates: HeatmapCandidate[]; gridN?: number };
+  COMPUTE_MATRIX: { partialResults: Record<string, MethodStreamStats> };
+  SORT_MC_RESULTS: { partialResults: Record<string, MethodStreamStats> };
 };
 
 type ResultMap = {
-  COMPUTE_HEATMAP:  { cells: GridCell[]; metrics: HeatmapMetrics };
-  COMPUTE_MATRIX:   { matrix: Record<string, Record<string, number>> };
-  SORT_MC_RESULTS:  { rows: MethodRow[] };
+  COMPUTE_HEATMAP: { cells: GridCell[]; metrics: HeatmapMetrics };
+  COMPUTE_MATRIX: { matrix: Record<string, Record<string, number>> };
+  SORT_MC_RESULTS: { rows: MethodRow[] };
 };
 
 // ── Hook ──────────────────────────────────────────────────────────────────────
@@ -109,7 +113,7 @@ export function useSimulationWorker(): UseSimulationWorkerReturn {
 
       return promise;
     },
-    [],
+    []
   );
 
   return { dispatch, isComputing };

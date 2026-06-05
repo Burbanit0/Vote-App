@@ -8,7 +8,9 @@ vi.mock('../../../api/client', () => ({
   apiClient: { GET: vi.fn(), POST: vi.fn(), PUT: vi.fn(), DELETE: vi.fn(), PATCH: vi.fn() },
   getAccessToken: vi.fn(() => null),
 }));
-const { apiClient } = (await import('../../../api/client')) as unknown as { apiClient: { POST: jest.Mock } };
+const { apiClient } = (await import('../../../api/client')) as unknown as {
+  apiClient: { POST: jest.Mock };
+};
 
 vi.mock('react-i18next', () => ({
   useTranslation: () => ({
@@ -24,8 +26,13 @@ vi.mock('recharts', () => {
   const stub = ({ children }: { children?: React.ReactNode }) =>
     React.createElement('div', { 'data-testid': 'recharts-stub' }, children);
   return {
-    LineChart: stub, Line: stub, XAxis: stub, YAxis: stub,
-    CartesianGrid: stub, Tooltip: stub, Legend: stub,
+    LineChart: stub,
+    Line: stub,
+    XAxis: stub,
+    YAxis: stub,
+    CartesianGrid: stub,
+    Tooltip: stub,
+    Legend: stub,
     ReferenceLine: stub,
     ResponsiveContainer: ({ children }: { children?: React.ReactNode }) =>
       React.createElement('div', { 'data-testid': 'timeline-chart' }, children),
@@ -47,16 +54,14 @@ function makeElection(n: number, quality: number, winner = 'Incumbent', pnr = fa
 }
 
 const MOCK_HEALTHY: object = {
-  elections: [
-    makeElection(1, 0.95),
-    makeElection(2, 0.90),
-    makeElection(3, 0.88),
-  ],
+  elections: [makeElection(1, 0.95), makeElection(2, 0.9), makeElection(3, 0.88)],
   autocracy_reached: false,
   autocracy_at_election: null,
   guardrails_effectiveness: {
-    constitutional_court: 0, opposition_media: 0,
-    international_pressure: 0, supermajority_required: 0,
+    constitutional_court: 0,
+    opposition_media: 0,
+    international_pressure: 0,
+    supermajority_required: 0,
   },
   tipping_points: [0.5, 0.8],
   pedagogical_note: 'Healthy democracy.',
@@ -66,30 +71,30 @@ const MOCK_AUTOCRACY: object = {
   elections: [
     makeElection(1, 0.85),
     makeElection(2, 0.65),
-    makeElection(3, 0.40, 'Incumbent', true),
+    makeElection(3, 0.4, 'Incumbent', true),
     makeElection(4, 0.18, 'Incumbent', true),
   ],
   autocracy_reached: true,
   autocracy_at_election: 4,
   guardrails_effectiveness: {
-    constitutional_court: 0, opposition_media: 0,
-    international_pressure: 0, supermajority_required: 0,
+    constitutional_court: 0,
+    opposition_media: 0,
+    international_pressure: 0,
+    supermajority_required: 0,
   },
   tipping_points: [0.3, 0.6],
   pedagogical_note: 'Autocracy reached.',
 };
 
 const MOCK_GUARDRAILS: object = {
-  elections: [
-    makeElection(1, 0.90),
-    makeElection(2, 0.85),
-    makeElection(3, 0.80),
-  ],
+  elections: [makeElection(1, 0.9), makeElection(2, 0.85), makeElection(3, 0.8)],
   autocracy_reached: false,
   autocracy_at_election: null,
   guardrails_effectiveness: {
-    constitutional_court: 0.12, opposition_media: 0.08,
-    international_pressure: 0, supermajority_required: 0,
+    constitutional_court: 0.12,
+    opposition_media: 0.08,
+    international_pressure: 0,
+    supermajority_required: 0,
   },
   tipping_points: [0.6, 1.0],
   pedagogical_note: 'Guardrails helped.',
@@ -109,7 +114,9 @@ function renderPanel() {
 async function renderAndRun(responseData: object = MOCK_HEALTHY) {
   apiClient.POST.mockResolvedValueOnce(ok(responseData));
   renderPanel();
-  await act(async () => { fireEvent.click(screen.getByTestId('run-btn')); });
+  await act(async () => {
+    fireEvent.click(screen.getByTestId('run-btn'));
+  });
   await waitFor(() => expect(apiClient.POST).toHaveBeenCalledTimes(1));
   await act(async () => {});
 }
@@ -230,7 +237,9 @@ describe('DemocraticBackslidingPanel', () => {
     // Activate constitutional_court before running
     fireEvent.click(screen.getByTestId('guardrail-constitutional_court'));
 
-    await act(async () => { fireEvent.click(screen.getByTestId('run-btn')); });
+    await act(async () => {
+      fireEvent.click(screen.getByTestId('run-btn'));
+    });
     await waitFor(() => expect(apiClient.POST).toHaveBeenCalled());
     await act(async () => {});
 
@@ -241,12 +250,14 @@ describe('DemocraticBackslidingPanel', () => {
   // ── Guardrail toggle triggers recalculation ─────────────────────────────────
 
   it('toggling a guardrail recalculates when data already exists', async () => {
-    apiClient.POST
-      .mockResolvedValueOnce(ok(MOCK_HEALTHY))
-      .mockResolvedValueOnce(ok(MOCK_GUARDRAILS));
+    apiClient.POST.mockResolvedValueOnce(ok(MOCK_HEALTHY)).mockResolvedValueOnce(
+      ok(MOCK_GUARDRAILS)
+    );
 
     renderPanel();
-    await act(async () => { fireEvent.click(screen.getByTestId('run-btn')); });
+    await act(async () => {
+      fireEvent.click(screen.getByTestId('run-btn'));
+    });
     await waitFor(() => expect(apiClient.POST).toHaveBeenCalledTimes(1));
     await act(async () => {});
 
@@ -280,7 +291,9 @@ describe('DemocraticBackslidingPanel', () => {
   it('shows error alert on API failure', async () => {
     apiClient.POST.mockRejectedValueOnce(new Error('Network error'));
     renderPanel();
-    await act(async () => { fireEvent.click(screen.getByTestId('run-btn')); });
+    await act(async () => {
+      fireEvent.click(screen.getByTestId('run-btn'));
+    });
     await waitFor(() => expect(screen.getByTestId('error-alert')).toBeInTheDocument());
   });
 });

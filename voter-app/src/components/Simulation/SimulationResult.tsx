@@ -162,7 +162,9 @@ const SimulationResult: React.FC<SimulationResultProps> = ({ result }) => {
     <Container>
       <Row className="mt-4">
         <Card>
-          <CardHeader className="block space-y-0 border-b border-border px-4 py-2">Simulation Results</CardHeader>
+          <CardHeader className="block space-y-0 border-b border-border px-4 py-2">
+            Simulation Results
+          </CardHeader>
           <CardBody>
             <p>
               <strong>Simulation Types:</strong> {result.simulation_type.join(', ')}
@@ -180,9 +182,7 @@ const SimulationResult: React.FC<SimulationResultProps> = ({ result }) => {
             {/* Votes Simulation Results */}
             {hasVotes && (
               <>
-                <p className="mt-4">
-                  Standard Voting Results
-                </p>
+                <p className="mt-4">Standard Voting Results</p>
 
                 {result.votes && (
                   <>
@@ -199,9 +199,7 @@ const SimulationResult: React.FC<SimulationResultProps> = ({ result }) => {
 
                 {result.tally && (
                   <>
-                    <p className="mt-3">
-                      Vote Tally:
-                    </p>
+                    <p className="mt-3">Vote Tally:</p>
                     <ul>
                       {Object.entries(result.tally).map(([candidate, count]) => (
                         <li key={candidate}>
@@ -215,7 +213,9 @@ const SimulationResult: React.FC<SimulationResultProps> = ({ result }) => {
                         <Row className="mt-3">
                           <Col md={6}>
                             <Card>
-                              <CardHeader className="block space-y-0 border-b border-border px-4 py-2">Sankey Chart</CardHeader>
+                              <CardHeader className="block space-y-0 border-b border-border px-4 py-2">
+                                Sankey Chart
+                              </CardHeader>
                               <CardBody>
                                 <div data-testid="sankey-chart">
                                   {sankeyData.links.length > 0 && (
@@ -236,17 +236,26 @@ const SimulationResult: React.FC<SimulationResultProps> = ({ result }) => {
                           </Col>
                           <Col md={6}>
                             <Card>
-                              <CardHeader className="block space-y-0 border-b border-border px-4 py-2">Radar Chart</CardHeader>
+                              <CardHeader className="block space-y-0 border-b border-border px-4 py-2">
+                                Radar Chart
+                              </CardHeader>
                               <CardBody>
                                 <div data-testid="radar-chart">
-                                  <p className="text-center fw-semibold mb-2" style={{ fontSize: '0.95rem' }}>
+                                  <p
+                                    className="text-center font-semibold mb-2"
+                                    style={{ fontSize: '0.95rem' }}
+                                  >
                                     Voter Consensus (Normalized)
                                   </p>
                                   <ResponsiveContainer width="100%" height={300}>
                                     <RadarChart data={radarRows} outerRadius="70%">
                                       <PolarGrid />
                                       <PolarAngleAxis dataKey="rank" tick={{ fontSize: 11 }} />
-                                      <PolarRadiusAxis domain={[0, 1]} tickCount={6} tick={{ fontSize: 10 }} />
+                                      <PolarRadiusAxis
+                                        domain={[0, 1]}
+                                        tickCount={6}
+                                        tick={{ fontSize: 10 }}
+                                      />
                                       {radarSeries.map((ds, ci) => (
                                         <Radar
                                           key={ds.label}
@@ -286,9 +295,7 @@ const SimulationResult: React.FC<SimulationResultProps> = ({ result }) => {
                   result.minimax_winner ||
                   result.schulze_winner) && (
                   <>
-                    <p className="mt-4">
-                      Voting Method Winners:
-                    </p>
+                    <p className="mt-4">Voting Method Winners:</p>
                     <VotingMethodsComparison
                       rankings={rankings}
                       candidates={candidates}

@@ -10,22 +10,26 @@ vi.mock('../../../api/client', () => ({
   apiClient: { GET: vi.fn(), POST: vi.fn(), PUT: vi.fn(), DELETE: vi.fn(), PATCH: vi.fn() },
   getAccessToken: vi.fn(() => null),
 }));
-const { apiClient } = (await import('../../../api/client')) as unknown as { apiClient: { POST: jest.Mock } };
+const { apiClient } = (await import('../../../api/client')) as unknown as {
+  apiClient: { POST: jest.Mock };
+};
 
 vi.mock('recharts', () => {
   const React = require('react');
   return {
-    BarChart:            ({ children }: any) => <div>{children}</div>,
-    Bar:                 () => null,
-    LineChart:           ({ children }: any) => <div>{children}</div>,
-    Line:                ({ dataKey }: any) => <div data-testid={`line-${dataKey}`} />,
-    XAxis:               () => null,
-    YAxis:               () => null,
-    CartesianGrid:       () => null,
-    Tooltip:             () => null,
-    Legend:              () => null,
-    ReferenceLine:       () => null,
-    ResponsiveContainer: ({ children }: any) => <div style={{ width: 400, height: 200 }}>{children}</div>,
+    BarChart: ({ children }: any) => <div>{children}</div>,
+    Bar: () => null,
+    LineChart: ({ children }: any) => <div>{children}</div>,
+    Line: ({ dataKey }: any) => <div data-testid={`line-${dataKey}`} />,
+    XAxis: () => null,
+    YAxis: () => null,
+    CartesianGrid: () => null,
+    Tooltip: () => null,
+    Legend: () => null,
+    ReferenceLine: () => null,
+    ResponsiveContainer: ({ children }: any) => (
+      <div style={{ width: 400, height: 200 }}>{children}</div>
+    ),
   };
 });
 
@@ -35,21 +39,21 @@ function makeData(pollsWrong = false) {
   const candidates = ['Alice', 'Bob', 'Carol'];
   return {
     data: {
-      real_winner:   pollsWrong ? 'Alice' : 'Bob',
-      poll_winner:   'Bob',
-      polls_wrong:   pollsWrong,
+      real_winner: pollsWrong ? 'Alice' : 'Bob',
+      poll_winner: 'Bob',
+      polls_wrong: pollsWrong,
       shy_candidate: 'Alice',
-      poll_results:  Array.from({ length: 10 }, (_, i) => ({
+      poll_results: Array.from({ length: 10 }, (_, i) => ({
         poll_n: i + 1,
         predicted: { Alice: 0.22, Bob: 0.45, Carol: 0.33 },
-        real:      { Alice: 0.35, Bob: 0.40, Carol: 0.25 },
+        real: { Alice: 0.35, Bob: 0.4, Carol: 0.25 },
       })),
-      systematic_error:  { Alice: -0.13, Bob: 0.05, Carol: 0.08 },
-      real_results:      { Alice: 0.35, Bob: 0.40, Carol: 0.25 },
-      avg_poll_results:  { Alice: 0.22, Bob: 0.45, Carol: 0.33 },
+      systematic_error: { Alice: -0.13, Bob: 0.05, Carol: 0.08 },
+      real_results: { Alice: 0.35, Bob: 0.4, Carol: 0.25 },
+      avg_poll_results: { Alice: 0.22, Bob: 0.45, Carol: 0.33 },
       social_desirability_curve: Array.from({ length: 11 }, (_, i) => ({
-        factor:          i / 10,
-        poll_error:      i * 0.035,
+        factor: i / 10,
+        poll_error: i * 0.035,
         winner_wrong_pct: i >= 7 ? 1.0 : 0.0,
       })),
       pedagogical_note: 'Test note.',
@@ -76,7 +80,9 @@ beforeEach(() => {
   vi.useFakeTimers();
 });
 
-afterEach(() => { vi.useRealTimers(); });
+afterEach(() => {
+  vi.useRealTimers();
+});
 
 // ── Tests ─────────────────────────────────────────────────────────────────────
 
@@ -113,7 +119,7 @@ describe('ShyVoterPanel', () => {
     await waitFor(() => expect(apiClient.POST).toHaveBeenCalledTimes(1));
     expect(apiClient.POST).toHaveBeenCalledWith(
       expect.stringMatching(/\/api\/(v2\/)?election\/shy-voter/),
-      expect.any(Object),
+      expect.any(Object)
     );
     vi.runAllTimers();
   });
@@ -196,7 +202,9 @@ describe('ShyVoterPanel', () => {
     await waitFor(() => expect(apiClient.POST).toHaveBeenCalledTimes(1));
 
     fireEvent.change(screen.getByTestId('sdf-slider'), { target: { value: '0.7' } });
-    act(() => { vi.advanceTimersByTime(450); });
+    act(() => {
+      vi.advanceTimersByTime(450);
+    });
     await waitFor(() => expect(apiClient.POST).toHaveBeenCalledTimes(2));
     vi.runAllTimers();
   });

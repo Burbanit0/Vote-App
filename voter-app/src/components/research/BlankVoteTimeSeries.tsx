@@ -27,28 +27,32 @@ import {
   XAxis,
   YAxis,
 } from 'recharts';
-import { getBlankHistory, BlankHistoryPoint, BlankHistoryResult } from '../../services/simulationCompareApi';
+import {
+  getBlankHistory,
+  BlankHistoryPoint,
+  BlankHistoryResult,
+} from '../../services/simulationCompareApi';
 
 // ── Constants ─────────────────────────────────────────────────────────────────
 
 const COUNTRIES = [
-  { key: 'france',   label: '🇫🇷 France',   color: '#1a56cc' },
+  { key: 'france', label: '🇫🇷 France', color: '#1a56cc' },
   { key: 'colombia', label: '🇨🇴 Colombie', color: '#b71c1c' },
-  { key: 'uruguay',  label: '🇺🇾 Uruguay',  color: '#006957' },
+  { key: 'uruguay', label: '🇺🇾 Uruguay', color: '#006957' },
 ];
 
 // Notable events to annotate on the chart
 const EVENTS: { year: number; label: string; country?: string }[] = [
-  { year: 2002, label: 'Choc du 21 avril (FR)',    country: 'france' },
+  { year: 2002, label: 'Choc du 21 avril (FR)', country: 'france' },
   { year: 2014, label: 'Record voto en blanco (CO)', country: 'colombia' },
   { year: 2017, label: 'Séparation blanc/nul (FR)', country: 'france' },
 ];
 
 // Colour by value
 function dotColor(pct: number): string {
-  if (pct < 2)  return '#1b5e20';   // green
-  if (pct < 5)  return '#b35c00';   // orange
-  return '#b71c1c';                  // red
+  if (pct < 2) return '#1b5e20'; // green
+  if (pct < 5) return '#b35c00'; // orange
+  return '#b71c1c'; // red
 }
 
 // ── Linear trend helper ────────────────────────────────────────────────────────
@@ -60,7 +64,7 @@ function linearTrend(series: BlankHistoryPoint[]): number {
   const mY = series.reduce((s, p) => s + p.blank_pct, 0) / n;
   const num = series.reduce((s, p) => s + (p.year - mX) * (p.blank_pct - mY), 0);
   const den = series.reduce((s, p) => s + (p.year - mX) ** 2, 0);
-  return den > 0 ? num / den : 0;   // pct per year
+  return den > 0 ? num / den : 0; // pct per year
 }
 
 // ── Custom dot — coloured by value ────────────────────────────────────────────
@@ -69,14 +73,17 @@ function ColoredDot(props: any) {
   const { cx, cy, payload } = props;
   if (!cx || !cy) return null;
   // Find blank_pct from any country key
-  const pct = Object.values(payload).find(
-    (v) => typeof v === 'number' && v >= 0 && v <= 100,
-  ) as number | undefined;
+  const pct = Object.values(payload).find((v) => typeof v === 'number' && v >= 0 && v <= 100) as
+    | number
+    | undefined;
   return (
     <circle
-      cx={cx} cy={cy} r={5}
+      cx={cx}
+      cy={cy}
+      r={5}
       fill={pct !== undefined ? dotColor(pct) : '#6c757d'}
-      stroke="white" strokeWidth={1.5}
+      stroke="white"
+      strokeWidth={1.5}
     />
   );
 }
@@ -100,20 +107,29 @@ function TimeTooltip({ active, payload, label, allData }: any) {
   });
 
   return (
-    <div style={{
-      background: 'var(--bs-body-bg, white)',
-      border: '1px solid var(--bs-border-color, #dee2e6)',
-      borderRadius: 8, padding: '10px 14px', maxWidth: 320,
-      fontSize: '0.82rem', boxShadow: '0 2px 8px rgba(0,0,0,0.12)',
-    }}>
-      <div className="fw-bold mb-1">{label}</div>
+    <div
+      style={{
+        background: 'var(--bs-body-bg, white)',
+        border: '1px solid var(--bs-border-color, #dee2e6)',
+        borderRadius: 8,
+        padding: '10px 14px',
+        maxWidth: 320,
+        fontSize: '0.82rem',
+        boxShadow: '0 2px 8px rgba(0,0,0,0.12)',
+      }}
+    >
+      <div className="font-bold mb-1">{label}</div>
       {payload.map((entry: any) => (
         <div key={entry.dataKey} style={{ color: entry.stroke }} className="mb-1">
           {entry.name} : <strong>{entry.value?.toFixed(1)} %</strong>
         </div>
       ))}
       {contexts.map((ctx, i) => (
-        <div key={i} className="text-muted mt-2" style={{ fontSize: '0.76rem', lineHeight: 1.4 }}>
+        <div
+          key={i}
+          className="text-muted-foreground mt-2"
+          style={{ fontSize: '0.76rem', lineHeight: 1.4 }}
+        >
           {ctx}
         </div>
       ))}
@@ -136,12 +152,13 @@ function computeTrend(data: BlankHistoryResult): TrendAnalysis {
   const { series, display_name } = data;
   const slope = linearTrend(series) * 10; // pct per decade
   const peak = series.reduce((a, b) => (b.blank_pct > a.blank_pct ? b : a));
-  const min  = series.reduce((a, b) => (b.blank_pct < a.blank_pct ? b : a));
+  const min = series.reduce((a, b) => (b.blank_pct < a.blank_pct ? b : a));
   return {
     slopePerDecade: slope,
     startYear: series[0].year,
-    endYear:   series[series.length - 1].year,
-    peak, min,
+    endYear: series[series.length - 1].year,
+    peak,
+    min,
     displayName: display_name,
   };
 }
@@ -150,23 +167,30 @@ function computeTrend(data: BlankHistoryResult): TrendAnalysis {
 
 const BlankVoteTimeSeries: React.FC = () => {
   const [selected, setSelected] = useState<Set<string>>(new Set(['france']));
-  const [loaded,   setLoaded]   = useState<Record<string, BlankHistoryResult | null>>({});
-  const [loading,  setLoading]  = useState<Set<string>>(new Set());
-  const [error,    setError]    = useState<string | null>(null);
+  const [loaded, setLoaded] = useState<Record<string, BlankHistoryResult | null>>({});
+  const [loading, setLoading] = useState<Set<string>>(new Set());
+  const [error, setError] = useState<string | null>(null);
 
-  const fetchCountry = useCallback(async (key: string) => {
-    if (loaded[key] !== undefined || loading.has(key)) return;
-    setLoading((prev) => new Set([...prev, key]));
-    try {
-      const data = await getBlankHistory(key);
-      setLoaded((prev) => ({ ...prev, [key]: data }));
-    } catch {
-      setLoaded((prev) => ({ ...prev, [key]: null }));
-      setError(`Impossible de charger les données pour "${key}".`);
-    } finally {
-      setLoading((prev) => { const s = new Set(prev); s.delete(key); return s; });
-    }
-  }, [loaded, loading]);
+  const fetchCountry = useCallback(
+    async (key: string) => {
+      if (loaded[key] !== undefined || loading.has(key)) return;
+      setLoading((prev) => new Set([...prev, key]));
+      try {
+        const data = await getBlankHistory(key);
+        setLoaded((prev) => ({ ...prev, [key]: data }));
+      } catch {
+        setLoaded((prev) => ({ ...prev, [key]: null }));
+        setError(`Impossible de charger les données pour "${key}".`);
+      } finally {
+        setLoading((prev) => {
+          const s = new Set(prev);
+          s.delete(key);
+          return s;
+        });
+      }
+    },
+    [loaded, loading]
+  );
 
   // Fetch on mount and when selection changes
   useEffect(() => {
@@ -206,20 +230,19 @@ const BlankVoteTimeSeries: React.FC = () => {
   });
 
   // Visible events for selected countries
-  const visibleEvents = EVENTS.filter(
-    (e) => !e.country || selected.has(e.country),
-  );
+  const visibleEvents = EVENTS.filter((e) => !e.country || selected.has(e.country));
 
   // Trend analyses
-  const trends = COUNTRIES.filter(({ key }) => selected.has(key) && loaded[key])
-    .map(({ key }) => computeTrend(loaded[key]!));
+  const trends = COUNTRIES.filter(({ key }) => selected.has(key) && loaded[key]).map(({ key }) =>
+    computeTrend(loaded[key]!)
+  );
 
   const isAnyLoading = loading.size > 0;
 
   return (
     <div>
       {/* Country selector */}
-      <div className="d-flex gap-3 mb-3 flex-wrap" role="group" aria-label="Choisir les pays">
+      <div className="flex gap-3 mb-3 flex-wrap" role="group" aria-label="Choisir les pays">
         {COUNTRIES.map(({ key, label, color }) => (
           <Check
             key={key}
@@ -231,24 +254,39 @@ const BlankVoteTimeSeries: React.FC = () => {
             style={{ accentColor: color, fontWeight: selected.has(key) ? 600 : 400 }}
           />
         ))}
-        {isAnyLoading && <Spinner size="sm" className="align-self-center" />}
+        {isAnyLoading && <Spinner size="sm" className="self-center" />}
       </div>
 
-      {error && <Alert variant="danger" className="py-2">{error}</Alert>}
+      {error && (
+        <Alert variant="danger" className="py-2">
+          {error}
+        </Alert>
+      )}
 
       {/* Chart */}
       <Card className="mb-3">
-        <CardHeader className="block space-y-0 border-b border-border px-4 py-2 d-flex align-items-center justify-content-between">
+        <CardHeader className="block space-y-0 border-b border-border px-4 py-2 flex items-center justify-between">
           <strong>Taux de vote blanc dans le temps</strong>
-          <div className="d-flex gap-3" style={{ fontSize: '0.78rem' }}>
-            {[['<2%', '#1b5e20', 'Faible'], ['2–5%', '#b35c00', 'Modéré'], ['>5%', '#b71c1c', 'Élevé']].map(
-              ([range, color, label]) => (
-                <span key={range}>
-                  <span style={{ display: 'inline-block', width: 10, height: 10, borderRadius: '50%', background: color, marginRight: 4 }} />
-                  {label} ({range})
-                </span>
-              ),
-            )}
+          <div className="flex gap-3" style={{ fontSize: '0.78rem' }}>
+            {[
+              ['<2%', '#1b5e20', 'Faible'],
+              ['2–5%', '#b35c00', 'Modéré'],
+              ['>5%', '#b71c1c', 'Élevé'],
+            ].map(([range, color, label]) => (
+              <span key={range}>
+                <span
+                  style={{
+                    display: 'inline-block',
+                    width: 10,
+                    height: 10,
+                    borderRadius: '50%',
+                    background: color,
+                    marginRight: 4,
+                  }}
+                />
+                {label} ({range})
+              </span>
+            ))}
           </div>
         </CardHeader>
         <CardBody>
@@ -266,7 +304,12 @@ const BlankVoteTimeSeries: React.FC = () => {
               <YAxis
                 domain={[0, 8]}
                 tickFormatter={(v) => `${v}%`}
-                label={{ value: 'Vote blanc (%)', angle: -90, position: 'insideLeft', fontSize: 11 }}
+                label={{
+                  value: 'Vote blanc (%)',
+                  angle: -90,
+                  position: 'insideLeft',
+                  fontSize: 11,
+                }}
                 tick={{ fontSize: 11 }}
                 width={52}
               />
@@ -274,10 +317,20 @@ const BlankVoteTimeSeries: React.FC = () => {
               <Legend verticalAlign="top" />
 
               {/* Threshold reference lines */}
-              <ReferenceLine y={2} stroke="#b35c00" strokeDasharray="4 2" strokeOpacity={0.5}
-                label={{ value: '2%', position: 'right', fontSize: 10, fill: '#b35c00' }} />
-              <ReferenceLine y={5} stroke="#b71c1c" strokeDasharray="4 2" strokeOpacity={0.5}
-                label={{ value: '5%', position: 'right', fontSize: 10, fill: '#b71c1c' }} />
+              <ReferenceLine
+                y={2}
+                stroke="#b35c00"
+                strokeDasharray="4 2"
+                strokeOpacity={0.5}
+                label={{ value: '2%', position: 'right', fontSize: 10, fill: '#b35c00' }}
+              />
+              <ReferenceLine
+                y={5}
+                stroke="#b71c1c"
+                strokeDasharray="4 2"
+                strokeOpacity={0.5}
+                label={{ value: '5%', position: 'right', fontSize: 10, fill: '#b71c1c' }}
+              />
 
               {/* Event lines */}
               {visibleEvents.map((ev) => (
@@ -292,26 +345,33 @@ const BlankVoteTimeSeries: React.FC = () => {
               ))}
 
               {/* Country lines */}
-              {COUNTRIES.filter(({ key }) => selected.has(key) && loaded[key]).map(({ key, label, color }) => (
-                <Line
-                  key={key}
-                  type="monotone"
-                  dataKey={label}
-                  stroke={color}
-                  strokeWidth={2}
-                  connectNulls
-                  dot={(props: any) => <ColoredDot {...props} />}
-                  activeDot={{ r: 6, strokeWidth: 2, stroke: 'white' }}
-                />
-              ))}
+              {COUNTRIES.filter(({ key }) => selected.has(key) && loaded[key]).map(
+                ({ key, label, color }) => (
+                  <Line
+                    key={key}
+                    type="monotone"
+                    dataKey={label}
+                    stroke={color}
+                    strokeWidth={2}
+                    connectNulls
+                    dot={(props: any) => <ColoredDot {...props} />}
+                    activeDot={{ r: 6, strokeWidth: 2, stroke: 'white' }}
+                  />
+                )
+              )}
             </LineChart>
           </ResponsiveContainer>
 
           {/* Event legend */}
           {visibleEvents.length > 0 && (
-            <div className="mt-1 d-flex flex-wrap gap-3" style={{ fontSize: '0.75rem', color: '#6c757d' }}>
+            <div
+              className="mt-1 flex flex-wrap gap-3"
+              style={{ fontSize: '0.75rem', color: '#6c757d' }}
+            >
               {visibleEvents.map((ev) => (
-                <span key={ev.label}>● {ev.year} — {ev.label}</span>
+                <span key={ev.label}>
+                  ● {ev.year} — {ev.label}
+                </span>
               ))}
             </div>
           )}
@@ -321,18 +381,24 @@ const BlankVoteTimeSeries: React.FC = () => {
       {/* Trend analysis */}
       {trends.length > 0 && (
         <Card>
-          <CardHeader className="block space-y-0 border-b border-border px-4 py-2 py-2"><strong>📈 Analyse tendancielle</strong></CardHeader>
+          <CardHeader className="block space-y-0 border-b border-border px-4 py-2 py-2">
+            <strong>📈 Analyse tendancielle</strong>
+          </CardHeader>
           <CardBody>
             {trends.map((trend, i) => (
               <div key={i} className="mb-3">
-                <div className="fw-semibold mb-1" style={{ fontSize: '0.88rem' }}>
+                <div className="font-semibold mb-1" style={{ fontSize: '0.88rem' }}>
                   {trend.displayName.split('—')[0].trim()}
                 </div>
-                <ul className="mb-0" style={{ fontSize: '0.83rem', lineHeight: 1.7, paddingLeft: '1.2rem' }}>
+                <ul
+                  className="mb-0"
+                  style={{ fontSize: '0.83rem', lineHeight: 1.7, paddingLeft: '1.2rem' }}
+                >
                   <li>
                     Tendance {trend.slopePerDecade >= 0 ? '↑ hausse' : '↓ baisse'} de{' '}
                     <strong>
-                      {trend.slopePerDecade >= 0 ? '+' : ''}{trend.slopePerDecade.toFixed(2)} pt
+                      {trend.slopePerDecade >= 0 ? '+' : ''}
+                      {trend.slopePerDecade.toFixed(2)} pt
                     </strong>{' '}
                     par décennie depuis {trend.startYear}
                     {trend.slopePerDecade > 0.3 && (
@@ -342,12 +408,13 @@ const BlankVoteTimeSeries: React.FC = () => {
                     )}
                   </li>
                   <li>
-                    Pic en <strong>{trend.peak.year}</strong> : <strong>{trend.peak.blank_pct.toFixed(1)} %</strong>
-                    {' '}(+{(trend.peak.blank_pct - trend.min.blank_pct).toFixed(1)} pts vs minimum)
+                    Pic en <strong>{trend.peak.year}</strong> :{' '}
+                    <strong>{trend.peak.blank_pct.toFixed(1)} %</strong> (+
+                    {(trend.peak.blank_pct - trend.min.blank_pct).toFixed(1)} pts vs minimum)
                   </li>
                   <li>
-                    Niveau le plus bas : <strong>{trend.min.blank_pct.toFixed(1)} %</strong>{' '}
-                    en {trend.min.year}
+                    Niveau le plus bas : <strong>{trend.min.blank_pct.toFixed(1)} %</strong> en{' '}
+                    {trend.min.year}
                   </li>
                 </ul>
               </div>
@@ -358,7 +425,12 @@ const BlankVoteTimeSeries: React.FC = () => {
 
       {/* Country notes */}
       {COUNTRIES.filter(({ key }) => selected.has(key) && loaded[key]).map(({ key, label }) => (
-        <Alert key={key} variant="light" className="mt-2 py-2" style={{ fontSize: '0.78rem', borderLeft: '3px solid #0d6efd' }}>
+        <Alert
+          key={key}
+          variant="light"
+          className="mt-2 py-2"
+          style={{ fontSize: '0.78rem', borderLeft: '3px solid #0d6efd' }}
+        >
           <strong>{label} :</strong> {loaded[key]!.note}
         </Alert>
       ))}

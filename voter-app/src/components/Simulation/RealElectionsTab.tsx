@@ -56,7 +56,7 @@ const RealElectionsTab: React.FC = () => {
     <Card className="mb-4">
       <CardHeader className="block space-y-0 border-b border-border px-4 py-2">
         <strong>{t('simulation.realElections.title')}</strong>
-        <span className="text-muted ms-2" style={{ fontSize: '0.85rem' }}>
+        <span className="text-muted-foreground ms-2" style={{ fontSize: '0.85rem' }}>
           {t('simulation.realElections.subtitle')}
         </span>
       </CardHeader>
@@ -64,16 +64,20 @@ const RealElectionsTab: React.FC = () => {
         <Tabs defaultActiveKey="analysis" className="mb-3">
           {/* ── Tab 1: Election analysis ── */}
           <Tab eventKey="analysis" title="Analyse de l'élection">
-            <Row className="g-3 align-items-end mb-4">
+            <Row className="g-3 items-end mb-4">
               <Col md={5}>
-                <label htmlFor="real-election-select" className="mb-1 inline-block small mb-1">
+                <label htmlFor="real-election-select" className="mb-1 inline-block text-sm mb-1">
                   {t('simulation.realElections.electionLabel')}
                 </label>
                 <Select
                   id="real-election-select"
                   size="sm"
                   value={selected}
-                  onChange={(e) => { setSelected(e.target.value); setResult(null); setBlankVote(false); }}
+                  onChange={(e) => {
+                    setSelected(e.target.value);
+                    setResult(null);
+                    setBlankVote(false);
+                  }}
                 >
                   {elections.length === 0 && (
                     <option value="">{t('simulation.realElections.loadingOption')}</option>
@@ -87,13 +91,20 @@ const RealElectionsTab: React.FC = () => {
               </Col>
               <Col md={2}>
                 <Button
-                  variant="primary" size="sm" className="w-100"
+                  variant="primary"
+                  size="sm"
+                  className="w-full"
                   onClick={() => handleAnalyze(false)}
                   disabled={loading || !selected}
                 >
-                  {loading
-                    ? <><Spinner size="sm" className="me-2" />{t('simulation.realElections.analyzing')}</>
-                    : t('simulation.realElections.analyze')}
+                  {loading ? (
+                    <>
+                      <Spinner size="sm" className="me-2" />
+                      {t('simulation.realElections.analyzing')}
+                    </>
+                  ) : (
+                    t('simulation.realElections.analyze')
+                  )}
                 </Button>
               </Col>
             </Row>
@@ -115,14 +126,7 @@ const RealElectionsTab: React.FC = () => {
           </Tab>
 
           {/* ── Tab 2: Time series ── */}
-          <Tab
-            eventKey="timeseries"
-            title={
-              <span>
-                📈 Évolution historique
-              </span>
-            }
-          >
+          <Tab eventKey="timeseries" title={<span>📈 Évolution historique</span>}>
             <BlankVoteTimeSeries />
           </Tab>
         </Tabs>

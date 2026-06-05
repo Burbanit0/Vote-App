@@ -11,16 +11,23 @@ import AnimatedVoteCount, {
 
 const THREE_CANDIDATES: VoteCandidate[] = [
   { name: 'Alice', color: '#1a56cc' },
-  { name: 'Bob',   color: '#b35c00' },
+  { name: 'Bob', color: '#b35c00' },
   { name: 'Carol', color: '#b71c1c' },
 ];
 
 // 10 voters: 5 Alice-first, 3 Bob-first, 2 Carol-first
 // indices: Alice=0, Bob=1, Carol=2
 const SIMPLE_BALLOTS: number[][] = [
-  [0, 1, 2], [0, 1, 2], [0, 1, 2], [0, 1, 2], [0, 1, 2], // 5× Alice first
-  [1, 0, 2], [1, 0, 2], [1, 0, 2],                         // 3× Bob first
-  [2, 1, 0], [2, 1, 0],                                     // 2× Carol first
+  [0, 1, 2],
+  [0, 1, 2],
+  [0, 1, 2],
+  [0, 1, 2],
+  [0, 1, 2], // 5× Alice first
+  [1, 0, 2],
+  [1, 0, 2],
+  [1, 0, 2], // 3× Bob first
+  [2, 1, 0],
+  [2, 1, 0], // 2× Carol first
 ];
 
 // ── generateSteps — plurality ───────────────────────────────────────────────
@@ -45,7 +52,11 @@ describe('generateSteps — plurality', () => {
 
   it('returns 1 step even when winner has no absolute majority', () => {
     // Plurality: no majority required — most votes wins
-    const close: number[][] = [[0, 1, 2], [1, 0, 2], [2, 1, 0]]; // 1-1-1 tie, first one wins
+    const close: number[][] = [
+      [0, 1, 2],
+      [1, 0, 2],
+      [2, 1, 0],
+    ]; // 1-1-1 tie, first one wins
     const steps = generateSteps('plurality', THREE_CANDIDATES, close);
     expect(steps).toHaveLength(1);
   });
@@ -101,9 +112,16 @@ describe('generateSteps — irv', () => {
   it('with a clear majority candidate, stops after 1 round', () => {
     // 7 Alice first-choice out of 10 → immediate majority (>5)
     const ballots: number[][] = [
-      [0, 1, 2], [0, 1, 2], [0, 1, 2], [0, 1, 2], [0, 1, 2], [0, 1, 2], // 6× Alice
-      [1, 0, 2], [1, 0, 2],                                                 // 2× Bob
-      [2, 1, 0], [2, 1, 0],                                                 // 2× Carol
+      [0, 1, 2],
+      [0, 1, 2],
+      [0, 1, 2],
+      [0, 1, 2],
+      [0, 1, 2],
+      [0, 1, 2], // 6× Alice
+      [1, 0, 2],
+      [1, 0, 2], // 2× Bob
+      [2, 1, 0],
+      [2, 1, 0], // 2× Carol
     ];
     const steps = generateSteps('irv', THREE_CANDIDATES, ballots);
     expect(steps[0].winner).toBe('Alice');
@@ -199,7 +217,7 @@ describe('AnimatedVoteCount — render', () => {
         candidates={THREE_CANDIDATES}
         ballots={SIMPLE_BALLOTS}
         speed="normal"
-      />,
+      />
     );
     expect(screen.getByRole('toolbar')).toBeInTheDocument();
   });
@@ -211,7 +229,7 @@ describe('AnimatedVoteCount — render', () => {
         candidates={THREE_CANDIDATES}
         ballots={SIMPLE_BALLOTS}
         speed="normal"
-      />,
+      />
     );
     expect(screen.getByTitle('Début')).toBeInTheDocument();
     expect(screen.getByTitle('Fin')).toBeInTheDocument();
@@ -225,7 +243,7 @@ describe('AnimatedVoteCount — render', () => {
         candidates={THREE_CANDIDATES}
         ballots={SIMPLE_BALLOTS}
         speed="normal"
-      />,
+      />
     );
     // Candidate names appear in multiple places (bar label + description text)
     expect(screen.getAllByText(/Alice/).length).toBeGreaterThanOrEqual(1);
@@ -240,7 +258,7 @@ describe('AnimatedVoteCount — render', () => {
         candidates={THREE_CANDIDATES}
         ballots={SIMPLE_BALLOTS}
         speed="fast"
-      />,
+      />
     );
     expect(screen.getByText(/Étape/)).toBeInTheDocument();
   });
@@ -252,7 +270,7 @@ describe('AnimatedVoteCount — render', () => {
         candidates={THREE_CANDIDATES}
         ballots={[]}
         speed="normal"
-      />,
+      />
     );
     expect(screen.getByText(/Pas de données/)).toBeInTheDocument();
   });

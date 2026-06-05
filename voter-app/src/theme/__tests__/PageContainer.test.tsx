@@ -17,8 +17,8 @@ describe('PageContainer', () => {
   it.each([
     ['narrow', LAYOUT.pageNarrow],
     ['medium', LAYOUT.pageMedium],
-    ['wide',   LAYOUT.pageWide],
-    ['full',   LAYOUT.pageFull],
+    ['wide', LAYOUT.pageWide],
+    ['full', LAYOUT.pageFull],
   ] as const)('applies the %s variant width (%i)', (variant, expected) => {
     render(
       <PageContainer variant={variant} data-testid="pc">
@@ -49,12 +49,20 @@ describe('PageContainer', () => {
   });
 
   it('uses the configured padding class (default py-4)', () => {
-    render(<PageContainer data-testid="pc"><span>x</span></PageContainer>);
+    render(
+      <PageContainer data-testid="pc">
+        <span>x</span>
+      </PageContainer>
+    );
     expect(screen.getByTestId('pc').className).toContain('py-4');
   });
 
   it('honours a custom padding override', () => {
-    render(<PageContainer padding="py-2" data-testid="pc"><span>x</span></PageContainer>);
+    render(
+      <PageContainer padding="py-2" data-testid="pc">
+        <span>x</span>
+      </PageContainer>
+    );
     expect(screen.getByTestId('pc').className).toContain('py-2');
   });
 });

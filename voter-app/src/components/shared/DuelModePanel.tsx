@@ -13,60 +13,75 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Select } from '@/components/ui/form-controls';
 import { Col, Row } from '@/components/ui/grid';
-import {
-  BarChart, Bar, XAxis, YAxis, Tooltip, Cell, ResponsiveContainer,
-} from 'recharts';
+import { BarChart, Bar, XAxis, YAxis, Tooltip, Cell, ResponsiveContainer } from 'recharts';
 import { ElectionResult } from '../../services/electionApi';
 import { useNavigate } from 'react-router';
 
 // ── Constants ─────────────────────────────────────────────────────────────────
 
 const METHODS = [
-  'plurality', 'two_round', 'borda', 'approval', 'irv', 'coombs', 'bucklin',
-  'minimax', 'schulze', 'kemeny_young', 'positional_score',
-  'simple_score', 'star_voting', 'median_voting', 'mean_median_hybrid',
+  'plurality',
+  'two_round',
+  'borda',
+  'approval',
+  'irv',
+  'coombs',
+  'bucklin',
+  'minimax',
+  'schulze',
+  'kemeny_young',
+  'positional_score',
+  'simple_score',
+  'star_voting',
+  'median_voting',
+  'mean_median_hybrid',
   'variance_based',
 ];
 
-const COLOR_LEFT  = '#005CAB';
+const COLOR_LEFT = '#005CAB';
 const COLOR_RIGHT = '#C8590A';
 
-const CANDIDATE_COLORS = [
-  '#005CAB', '#C8590A', '#007A33', '#6c757d', '#9b59b6', '#e67e22',
-];
+const CANDIDATE_COLORS = ['#005CAB', '#C8590A', '#007A33', '#6c757d', '#9b59b6', '#e67e22'];
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
 /** Approximate vote shares via Voronoi (nearest candidate per voter). */
 function approximateShares(
-  voters:     { x: number; y: number }[],
-  candidates: { name: string; x: number; y: number }[],
+  voters: { x: number; y: number }[],
+  candidates: { name: string; x: number; y: number }[]
 ): Record<string, number> {
   const counts: Record<string, number> = {};
-  candidates.forEach((c) => { counts[c.name] = 0; });
+  candidates.forEach((c) => {
+    counts[c.name] = 0;
+  });
   for (const v of voters) {
     let best = candidates[0];
     let bestD = Infinity;
     for (const c of candidates) {
       const d = (v.x - c.x) ** 2 + (v.y - c.y) ** 2;
-      if (d < bestD) { bestD = d; best = c; }
+      if (d < bestD) {
+        bestD = d;
+        best = c;
+      }
     }
     counts[best.name]++;
   }
   const total = voters.length || 1;
   const result: Record<string, number> = {};
-  candidates.forEach((c) => { result[c.name] = Math.round((counts[c.name] / total) * 100); });
+  candidates.forEach((c) => {
+    result[c.name] = Math.round((counts[c.name] / total) * 100);
+  });
   return result;
 }
 
 /** Auto-generate a pedagogical note based on available metrics. */
 function buildNote(
-  result:  ElectionResult,
-  mA:      string,
-  mB:      string,
+  result: ElectionResult,
+  mA: string,
+  mB: string,
   winnerA: string | null,
   winnerB: string | null,
-  t:       (k: string, opts?: Record<string, unknown>) => string,
+  t: (k: string, opts?: Record<string, unknown>) => string
 ): string {
   if (!winnerA || !winnerB) return '';
   const { condorcet_winner, blank_rate } = result;
@@ -79,10 +94,20 @@ function buildNote(
 
   // Condorcet spoiler?
   if (condorcet_winner && winnerA !== condorcet_winner && winnerB === condorcet_winner) {
-    return t('duel.pedagogicalCondorcet', { miss: mA, hit: mB, cw: condorcet_winner, winner: winnerA });
+    return t('duel.pedagogicalCondorcet', {
+      miss: mA,
+      hit: mB,
+      cw: condorcet_winner,
+      winner: winnerA,
+    });
   }
   if (condorcet_winner && winnerB !== condorcet_winner && winnerA === condorcet_winner) {
-    return t('duel.pedagogicalCondorcet', { miss: mB, hit: mA, cw: condorcet_winner, winner: winnerB });
+    return t('duel.pedagogicalCondorcet', {
+      miss: mB,
+      hit: mA,
+      cw: condorcet_winner,
+      winner: winnerB,
+    });
   }
 
   // Regret comparison?
@@ -94,7 +119,13 @@ function buildNote(
 
   // Blank rate?
   if (blank_rate > 0.15) {
-    return t('duel.pedagogicalBlank', { winA: winnerA, winB: winnerB, pct: Math.round(blank_rate * 100), mA, mB });
+    return t('duel.pedagogicalBlank', {
+      winA: winnerA,
+      winB: winnerB,
+      pct: Math.round(blank_rate * 100),
+      mA,
+      mB,
+    });
   }
 
   return t('duel.pedagogicalDefault', { winA: winnerA, winB: winnerB, mA, mB });
@@ -124,16 +155,16 @@ const FlipBadge: React.FC<{ winner: string | null; color: string }> = ({ winner,
     <div
       data-testid="winner-badge-wrapper"
       style={{
-        transform:  visible ? 'rotateY(0deg)' : 'rotateY(90deg)',
+        transform: visible ? 'rotateY(0deg)' : 'rotateY(90deg)',
         transition: 'transform 0.15s ease',
-        display:    'inline-block',
+        display: 'inline-block',
       }}
     >
       <Badge
         style={{
           background: color,
-          fontSize:   '1rem',
-          padding:    '0.4em 0.75em',
+          fontSize: '1rem',
+          padding: '0.4em 0.75em',
         }}
       >
         {display ?? '—'}
@@ -145,26 +176,34 @@ const FlipBadge: React.FC<{ winner: string | null; color: string }> = ({ winner,
 // ── Single method panel ───────────────────────────────────────────────────────
 
 interface PanelProps {
-  result:     ElectionResult;
-  method:     string;
-  color:      string;
-  shareData:  { name: string; pct: number; color: string }[];
-  onChange:   (m: string) => void;
-  side:       'left' | 'right';
+  result: ElectionResult;
+  method: string;
+  color: string;
+  shareData: { name: string; pct: number; color: string }[];
+  onChange: (m: string) => void;
+  side: 'left' | 'right';
 }
 
-const MethodPanel: React.FC<PanelProps> = ({ result, method, color, shareData, onChange, side }) => {
+const MethodPanel: React.FC<PanelProps> = ({
+  result,
+  method,
+  color,
+  shareData,
+  onChange,
+  side,
+}) => {
   const { t } = useTranslation();
-  const md         = result.methods[method];
-  const winner     = md?.winner ?? null;
-  const regret     = md?.bayesian_regret;
-  const majSat     = md?.majority_satisfaction;
+  const md = result.methods[method];
+  const winner = md?.winner ?? null;
+  const regret = md?.bayesian_regret;
+  const majSat = md?.majority_satisfaction;
   const isCondorcet = winner !== null && winner === result.condorcet_winner;
-  const kemenyApprox = method === 'kemeny_young' && (result.methods[method] as any)?.kemeny_exact === false;
+  const kemenyApprox =
+    method === 'kemeny_young' && (result.methods[method] as any)?.kemeny_exact === false;
 
   return (
     <div
-      className="border rounded p-3 h-100"
+      className="border border-border rounded p-3 h-full"
       style={{ borderColor: color, borderWidth: 2, borderStyle: 'solid' }}
       data-testid={`panel-${side}`}
     >
@@ -176,12 +215,16 @@ const MethodPanel: React.FC<PanelProps> = ({ result, method, color, shareData, o
         style={{ borderLeft: `4px solid ${color}` }}
         data-testid={`method-select-${side}`}
       >
-        {METHODS.map((m) => <option key={m} value={m}>{m.replace(/_/g, ' ')}</option>)}
+        {METHODS.map((m) => (
+          <option key={m} value={m}>
+            {m.replace(/_/g, ' ')}
+          </option>
+        ))}
       </Select>
 
       {/* Winner badge with flip animation */}
       <div className="text-center mb-2">
-        <div className="text-muted mb-1" style={{ fontSize: '0.75rem' }}>
+        <div className="text-muted-foreground mb-1" style={{ fontSize: '0.75rem' }}>
           {t('duel.winner')}
         </div>
         <FlipBadge winner={winner} color={color} />
@@ -200,12 +243,20 @@ const MethodPanel: React.FC<PanelProps> = ({ result, method, color, shareData, o
       {/* Mini bar chart (approximate vote shares via Voronoi) */}
       <div style={{ height: 120 }} data-testid={`bar-chart-${side}`}>
         <ResponsiveContainer width="100%" height="100%">
-          <BarChart data={shareData} layout="vertical" margin={{ top: 2, right: 30, bottom: 2, left: 55 }}>
+          <BarChart
+            data={shareData}
+            layout="vertical"
+            margin={{ top: 2, right: 30, bottom: 2, left: 55 }}
+          >
             <XAxis type="number" domain={[0, 100]} unit="%" tick={{ fontSize: 9 }} />
             <YAxis type="category" dataKey="name" tick={{ fontSize: 9 }} width={52} />
             <Tooltip formatter={(v: number) => `${v}%`} />
-            <Bar dataKey="pct" radius={[0, 3, 3, 0]} isAnimationActive={false}
-              style={{ transition: 'fill 0.4s ease' }}>
+            <Bar
+              dataKey="pct"
+              radius={[0, 3, 3, 0]}
+              isAnimationActive={false}
+              style={{ transition: 'fill 0.4s ease' }}
+            >
               {shareData.map((entry, i) => (
                 <Cell key={i} fill={entry.color} opacity={entry.name === winner ? 1 : 0.4} />
               ))}
@@ -215,7 +266,7 @@ const MethodPanel: React.FC<PanelProps> = ({ result, method, color, shareData, o
       </div>
 
       {/* Metrics */}
-      <div className="d-flex flex-wrap gap-2 mt-2 justify-content-center">
+      <div className="flex flex-wrap gap-2 mt-2 justify-center">
         {regret != null && (
           <Badge variant="secondary" style={{ fontSize: '0.7rem' }}>
             Regret: {regret.toFixed(4)}
@@ -234,15 +285,19 @@ const MethodPanel: React.FC<PanelProps> = ({ result, method, color, shareData, o
 // ── Main component ────────────────────────────────────────────────────────────
 
 export interface DuelModePanelProps {
-  result:          ElectionResult;
-  methodA:         string;
-  methodB:         string;
+  result: ElectionResult;
+  methodA: string;
+  methodB: string;
   onMethodAChange: (m: string) => void;
   onMethodBChange: (m: string) => void;
 }
 
 const DuelModePanel: React.FC<DuelModePanelProps> = ({
-  result, methodA, methodB, onMethodAChange, onMethodBChange,
+  result,
+  methodA,
+  methodB,
+  onMethodAChange,
+  onMethodBChange,
 }) => {
   const { t } = useTranslation();
   const navigate = useNavigate();
@@ -257,15 +312,15 @@ const DuelModePanel: React.FC<DuelModePanelProps> = ({
     return result.candidates
       .sort((a, b) => (shares[b.name] ?? 0) - (shares[a.name] ?? 0))
       .map((c, i) => ({
-        name:  c.name,
-        pct:   shares[c.name] ?? 0,
+        name: c.name,
+        pct: shares[c.name] ?? 0,
         color: CANDIDATE_COLORS[i % CANDIDATE_COLORS.length],
       }));
   }, [result.voters_snapshot, result.candidates]);
 
   const note = useMemo(
     () => buildNote(result, methodA, methodB, winnerA, winnerB, t),
-    [result, methodA, methodB, winnerA, winnerB, t],
+    [result, methodA, methodB, winnerA, winnerB, t]
   );
 
   return (
@@ -274,25 +329,30 @@ const DuelModePanel: React.FC<DuelModePanelProps> = ({
       <div
         className="rounded py-2 px-3 mb-3 text-center"
         style={{
-          background:  diverge ? '#fff3f3' : '#f0fff4',
-          border:      `1px solid ${diverge ? '#dc3545' : '#007A33'}`,
-          transition:  'background 0.5s ease, border-color 0.5s ease',
+          background: diverge ? '#fff3f3' : '#f0fff4',
+          border: `1px solid ${diverge ? '#dc3545' : '#007A33'}`,
+          transition: 'background 0.5s ease, border-color 0.5s ease',
         }}
         data-testid="comparison-band"
       >
         {diverge ? (
           <>
-            <span style={{ color: '#dc3545', fontWeight: 600 }}>
-              ⚠ {t('duel.diverge')}
-            </span>
+            <span style={{ color: '#dc3545', fontWeight: 600 }}>⚠ {t('duel.diverge')}</span>
             <span className="ms-2" style={{ fontSize: '0.85rem' }}>
-              ← {winnerA} <span className="text-muted">vs</span> {winnerB} →
+              ← {winnerA} <span className="text-muted-foreground">vs</span> {winnerB} →
             </span>
           </>
         ) : (
           <span style={{ color: '#007A33', fontWeight: 600 }}>
             ✓ {t('duel.converge')}
-            {winnerA && <span className="ms-2 text-muted fw-normal" style={{ fontSize: '0.85rem' }}>({winnerA})</span>}
+            {winnerA && (
+              <span
+                className="ms-2 text-muted-foreground font-normal"
+                style={{ fontSize: '0.85rem' }}
+              >
+                ({winnerA})
+              </span>
+            )}
           </span>
         )}
       </div>
@@ -334,7 +394,7 @@ const DuelModePanel: React.FC<DuelModePanelProps> = ({
       )}
 
       {/* "Same electorate" reminder */}
-      <div className="text-center text-muted" style={{ fontSize: '0.75rem' }}>
+      <div className="text-center text-muted-foreground" style={{ fontSize: '0.75rem' }}>
         {t('duel.sameElectorate')} ·{' '}
         <Button
           variant="link"

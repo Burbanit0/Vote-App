@@ -10,39 +10,51 @@ vi.mock('../../../api/client', () => ({
   apiClient: { GET: vi.fn(), POST: vi.fn(), PUT: vi.fn(), DELETE: vi.fn(), PATCH: vi.fn() },
   getAccessToken: vi.fn(() => null),
 }));
-const { apiClient } = (await import('../../../api/client')) as unknown as { apiClient: { POST: jest.Mock } };
+const { apiClient } = (await import('../../../api/client')) as unknown as {
+  apiClient: { POST: jest.Mock };
+};
 
 vi.mock('recharts', () => {
   const React = require('react');
   return {
-    BarChart:            ({ children }: any) => <div>{children}</div>,
-    Bar:                 () => null,
-    Cell:                () => null,
-    LineChart:           ({ children }: any) => <div>{children}</div>,
-    Line:                ({ dataKey }: any) => <div data-testid={`line-${dataKey}`} />,
-    XAxis:               () => null,
-    YAxis:               () => null,
-    CartesianGrid:       () => null,
-    Tooltip:             () => null,
-    Legend:              () => null,
-    ResponsiveContainer: ({ children }: any) => <div style={{ width: 400, height: 220 }}>{children}</div>,
+    BarChart: ({ children }: any) => <div>{children}</div>,
+    Bar: () => null,
+    Cell: () => null,
+    LineChart: ({ children }: any) => <div>{children}</div>,
+    Line: ({ dataKey }: any) => <div data-testid={`line-${dataKey}`} />,
+    XAxis: () => null,
+    YAxis: () => null,
+    CartesianGrid: () => null,
+    Tooltip: () => null,
+    Legend: () => null,
+    ResponsiveContainer: ({ children }: any) => (
+      <div style={{ width: 400, height: 220 }}>{children}</div>
+    ),
   };
 });
 
 // ── Fixture ───────────────────────────────────────────────────────────────────
 
-const METHODS = ['plurality', 'approval', 'irv', 'borda', 'star_voting', 'majority_judgment', 'schulze'];
+const METHODS = [
+  'plurality',
+  'approval',
+  'irv',
+  'borda',
+  'star_voting',
+  'majority_judgment',
+  'schulze',
+];
 
 function makeData(winnerChanged = false) {
   return {
     data: {
       results: METHODS.map((m, i) => ({
-        method:           m,
-        null_rate:        0.01 + i * 0.007,
-        blank_rate:       0.03,
+        method: m,
+        null_rate: 0.01 + i * 0.007,
+        blank_rate: 0.03,
         effective_voters: 100 - Math.round((0.01 + i * 0.007) * 100),
-        winner:           'Alice',
-        winner_changed:   winnerChanged && m === 'schulze',
+        winner: 'Alice',
+        winner_changed: winnerChanged && m === 'schulze',
       })),
       candidate_count_curve: Array.from({ length: 9 }, (_, i) => ({
         n_candidates: i + 2,
@@ -50,9 +62,9 @@ function makeData(winnerChanged = false) {
           METHODS.map((m, j) => [m, (0.01 + j * 0.007) * (1 + i * 0.08)])
         ),
       })),
-      most_inclusive_method:  'plurality',
+      most_inclusive_method: 'plurality',
       least_inclusive_method: 'schulze',
-      pedagogical_note:       'Test note.',
+      pedagogical_note: 'Test note.',
     },
     error: undefined,
   };
@@ -76,7 +88,9 @@ beforeEach(() => {
   vi.useFakeTimers();
 });
 
-afterEach(() => { vi.useRealTimers(); });
+afterEach(() => {
+  vi.useRealTimers();
+});
 
 // ── Tests ─────────────────────────────────────────────────────────────────────
 
@@ -110,7 +124,7 @@ describe('BallotComplexityPanel', () => {
     // default since Phase 3 batch 3).
     expect(apiClient.POST).toHaveBeenCalledWith(
       expect.stringMatching(/\/api\/(v2\/)?election\/ballot-complexity/),
-      expect.any(Object),
+      expect.any(Object)
     );
     vi.runAllTimers();
   });
@@ -185,7 +199,9 @@ describe('BallotComplexityPanel', () => {
     await waitFor(() => expect(apiClient.POST).toHaveBeenCalledTimes(1));
 
     fireEvent.change(screen.getByTestId('education-slider'), { target: { value: '0.3' } });
-    act(() => { vi.advanceTimersByTime(450); });
+    act(() => {
+      vi.advanceTimersByTime(450);
+    });
     await waitFor(() => expect(apiClient.POST).toHaveBeenCalledTimes(2));
     vi.runAllTimers();
   });
@@ -197,7 +213,9 @@ describe('BallotComplexityPanel', () => {
     await waitFor(() => expect(apiClient.POST).toHaveBeenCalledTimes(1));
 
     fireEvent.change(screen.getByTestId('ftv-slider'), { target: { value: '0.4' } });
-    act(() => { vi.advanceTimersByTime(450); });
+    act(() => {
+      vi.advanceTimersByTime(450);
+    });
     await waitFor(() => expect(apiClient.POST).toHaveBeenCalledTimes(2));
     vi.runAllTimers();
   });

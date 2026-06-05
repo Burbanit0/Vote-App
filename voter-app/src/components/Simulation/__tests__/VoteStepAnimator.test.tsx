@@ -8,14 +8,14 @@ vi.mock('../../../services/simulationCompareApi', () => ({
 
 vi.mock('recharts', () => ({
   ResponsiveContainer: ({ children }: any) => <div>{children}</div>,
-  BarChart:            ({ children }: any) => <div data-testid="bar-chart">{children}</div>,
-  Bar:                 ({ children }: any) => <div>{children}</div>,
+  BarChart: ({ children }: any) => <div data-testid="bar-chart">{children}</div>,
+  Bar: ({ children }: any) => <div>{children}</div>,
   CartesianGrid: () => null,
-  Cell:          () => null,
-  LabelList:     () => null,
-  XAxis:         () => null,
-  YAxis:         () => null,
-  Tooltip:       () => null,
+  Cell: () => null,
+  LabelList: () => null,
+  XAxis: () => null,
+  YAxis: () => null,
+  Tooltip: () => null,
 }));
 
 const { getVoteSteps } = (await import('../../../services/simulationCompareApi')) as unknown as {
@@ -25,16 +25,34 @@ const { getVoteSteps } = (await import('../../../services/simulationCompareApi')
 const IRV_MOCK = {
   method: 'irv',
   rounds: [
-    { round: 1, scores: { Alice: 0.42, Bob: 0.31, Carol: 0.27 }, eliminated: null, transfers: null },
-    { round: 2, scores: { Alice: 0.55, Bob: 0.45 }, eliminated: 'Carol', transfers: { Alice: 0.08, Bob: 0.19 } },
+    {
+      round: 1,
+      scores: { Alice: 0.42, Bob: 0.31, Carol: 0.27 },
+      eliminated: null,
+      transfers: null,
+    },
+    {
+      round: 2,
+      scores: { Alice: 0.55, Bob: 0.45 },
+      eliminated: 'Carol',
+      transfers: { Alice: 0.08, Bob: 0.19 },
+    },
     { round: 3, winner: 'Alice' },
   ],
 };
 
 const SCHULZE_MOCK = {
   method: 'schulze',
-  duel_matrix:  { Alice: { Bob: 0.58, Carol: 0.71 }, Bob: { Alice: 0.42, Carol: 0.53 }, Carol: { Alice: 0.29, Bob: 0.47 } },
-  path_matrix:  { Alice: { Bob: 0.58, Carol: 0.58 }, Bob: { Alice: 0.47, Carol: 0.53 }, Carol: { Alice: 0.29, Bob: 0.47 } },
+  duel_matrix: {
+    Alice: { Bob: 0.58, Carol: 0.71 },
+    Bob: { Alice: 0.42, Carol: 0.53 },
+    Carol: { Alice: 0.29, Bob: 0.47 },
+  },
+  path_matrix: {
+    Alice: { Bob: 0.58, Carol: 0.58 },
+    Bob: { Alice: 0.47, Carol: 0.53 },
+    Carol: { Alice: 0.29, Bob: 0.47 },
+  },
   winner: 'Alice',
 };
 
@@ -97,10 +115,10 @@ describe('VoteStepAnimator', () => {
     render(<VoteStepAnimator defaultCandidates={['Alice', 'Bob', 'Carol']} />);
     await waitFor(() => expect(getVoteSteps).toHaveBeenCalled());
 
-    const nextBtn     = screen.getByText(/Suivant|Next/i);
-    const restartBtn  = screen.getByText(/Recommencer|Restart/i);
+    const nextBtn = screen.getByText(/Suivant|Next/i);
+    const restartBtn = screen.getByText(/Recommencer|Restart/i);
 
-    fireEvent.click(nextBtn);    // advance step
+    fireEvent.click(nextBtn); // advance step
     fireEvent.click(restartBtn); // restart
 
     // No extra API call — still only 1 fetch

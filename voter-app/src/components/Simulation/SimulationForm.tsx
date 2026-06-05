@@ -3,7 +3,7 @@ import { Accordion } from '@/components/ui/accordion';
 import { Button } from '@/components/ui/button';
 import { Card, CardBody, CardHeader } from '@/components/ui/card';
 import { Check, Control, Range } from '@/components/ui/form-controls';
-import { Col, Container, Row } from '@/components/ui/grid';
+import { Col, Container } from '@/components/ui/grid';
 import { Spinner } from '@/components/ui/spinner';
 import { Table } from '@/components/ui/table';
 import { OverlayTrigger, Tooltip } from '@/components/ui/tooltip-overlay';
@@ -123,13 +123,13 @@ const SimulationForm: React.FC<SimulationFormProps> = ({
   return (
     <Container className="mt-4">
       <Card>
-        <CardHeader className="block space-y-0 border-b border-border px-4 py-2">Voting Simulation Form</CardHeader>
+        <CardHeader className="block space-y-0 border-b border-border px-4 py-2">
+          Voting Simulation Form
+        </CardHeader>
         <CardBody>
           <form className="vote-form">
             <div className="mb-3">
-              <label className="mb-1 inline-block">
-                Simulation Type
-              </label>
+              <label className="mb-1 inline-block">Simulation Type</label>
               <Col sm={10}>
                 <Check
                   type="checkbox"
@@ -162,9 +162,7 @@ const SimulationForm: React.FC<SimulationFormProps> = ({
             </div>
 
             <div className="mb-3">
-              <label className="mb-1 inline-block">
-                Population Size
-              </label>
+              <label className="mb-1 inline-block">Population Size</label>
               <Col sm={10}>
                 <Control
                   type="number"
@@ -176,9 +174,7 @@ const SimulationForm: React.FC<SimulationFormProps> = ({
             </div>
 
             <div className="mb-3">
-              <label className="mb-1 inline-block">
-                Turnout Rate
-              </label>
+              <label className="mb-1 inline-block">Turnout Rate</label>
               <Col sm={10}>
                 <Control
                   type="number"
@@ -191,9 +187,7 @@ const SimulationForm: React.FC<SimulationFormProps> = ({
             </div>
 
             <div className="mb-3">
-              <label className="mb-1 inline-block">
-                Candidates
-              </label>
+              <label className="mb-1 inline-block">Candidates</label>
               <Col sm={10}>
                 {formData.candidates.map((candidate: Candidate, index: number) => (
                   <Control
@@ -218,7 +212,9 @@ const SimulationForm: React.FC<SimulationFormProps> = ({
             </div>
 
             <Card className="mb-3">
-              <CardHeader className="block space-y-0 border-b border-border px-4 py-2">Demographics</CardHeader>
+              <CardHeader className="block space-y-0 border-b border-border px-4 py-2">
+                Demographics
+              </CardHeader>
               <CardBody>
                 <Accordion defaultActiveKey="0">
                   {Object.entries(formData.demographics).map(([category, subCategories], index) => (
@@ -230,9 +226,7 @@ const SimulationForm: React.FC<SimulationFormProps> = ({
                         <div className="mb-3" key={category}>
                           {Object.entries(subCategories).map(([subCategory, value]) => (
                             <div key={subCategory}>
-                              <label className="mb-1 inline-block">
-                                {subCategory}
-                              </label>
+                              <label className="mb-1 inline-block">{subCategory}</label>
                               <Col sm={10}>
                                 <Control
                                   key={subCategory}
@@ -261,7 +255,7 @@ const SimulationForm: React.FC<SimulationFormProps> = ({
             </Card>
 
             <Card className="mb-3">
-              <CardHeader className="block space-y-0 border-b border-border px-4 py-2 bg-light">
+              <CardHeader className="block space-y-0 border-b border-border px-4 py-2 bg-slate-100">
                 Influence Weights
               </CardHeader>
               <CardBody>

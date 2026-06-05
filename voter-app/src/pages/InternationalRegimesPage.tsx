@@ -1,6 +1,13 @@
 import React, { useMemo, useState } from 'react';
 import {
-  Bar, BarChart, CartesianGrid, Cell, ResponsiveContainer, Tooltip, XAxis, YAxis,
+  Bar,
+  BarChart,
+  CartesianGrid,
+  Cell,
+  ResponsiveContainer,
+  Tooltip,
+  XAxis,
+  YAxis,
 } from 'recharts';
 import { Alert } from '@/components/ui/alert';
 import { Badge } from '@/components/ui/badge';
@@ -8,7 +15,10 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader } from '@/components/ui/card';
 import { Table } from '@/components/ui/table';
 import regimes, {
-  BlankVoteRegime, BlankVoteStatus, filterByImpact, sortByBlankRate,
+  BlankVoteRegime,
+  BlankVoteStatus,
+  filterByImpact,
+  sortByBlankRate,
 } from '../data/blankVoteRegimes';
 import { useMetaTags } from '../hooks/useMetaTags';
 
@@ -23,12 +33,12 @@ const STATUS_META: Record<BlankVoteStatus, { label: string; color: string; desc:
   symbolic: {
     label: 'Symbolique',
     color: '#006957',
-    desc: 'Comptabilisé, poids politique mais pas d\'effet procédural',
+    desc: "Comptabilisé, poids politique mais pas d'effet procédural",
   },
   competitive: {
     label: 'Compétitif',
     color: '#b71c1c',
-    desc: 'Peut gagner l\'élection comme un candidat',
+    desc: "Peut gagner l'élection comme un candidat",
   },
   threshold: {
     label: 'Seuil constitutionnel',
@@ -144,27 +154,35 @@ const BubbleMap: React.FC<MapProps> = ({ data, highlighted, onHover }) => (
     })}
 
     {/* Tooltip-like highlight label */}
-    {highlighted && (() => {
-      const r = data.find((d) => d.country === highlighted);
-      if (!r) return null;
-      const { x, y } = toSvg(r.lat, r.lon);
-      const boxX = Math.min(Math.max(x - 60, 4), MAP_W - 130);
-      const boxY = y > MAP_H - 80 ? y - 58 : y + 20;
-      return (
-        <g style={{ pointerEvents: 'none' }}>
-          <rect x={boxX} y={boxY} width={122} height={42} rx={6} fill="rgba(0,0,0,0.75)" />
-          <text x={boxX + 61} y={boxY + 14} textAnchor="middle" fontSize={10} fill="white" fontWeight={700}>
-            {r.flag} {r.country}
-          </text>
-          <text x={boxX + 61} y={boxY + 28} textAnchor="middle" fontSize={9} fill="#d1d5db">
-            {STATUS_META[r.legal_status].label}
-          </text>
-          <text x={boxX + 61} y={boxY + 38} textAnchor="middle" fontSize={9} fill="#fbbf24">
-            {r.blank_rate_typical}% en moy.
-          </text>
-        </g>
-      );
-    })()}
+    {highlighted &&
+      (() => {
+        const r = data.find((d) => d.country === highlighted);
+        if (!r) return null;
+        const { x, y } = toSvg(r.lat, r.lon);
+        const boxX = Math.min(Math.max(x - 60, 4), MAP_W - 130);
+        const boxY = y > MAP_H - 80 ? y - 58 : y + 20;
+        return (
+          <g style={{ pointerEvents: 'none' }}>
+            <rect x={boxX} y={boxY} width={122} height={42} rx={6} fill="rgba(0,0,0,0.75)" />
+            <text
+              x={boxX + 61}
+              y={boxY + 14}
+              textAnchor="middle"
+              fontSize={10}
+              fill="white"
+              fontWeight={700}
+            >
+              {r.flag} {r.country}
+            </text>
+            <text x={boxX + 61} y={boxY + 28} textAnchor="middle" fontSize={9} fill="#d1d5db">
+              {STATUS_META[r.legal_status].label}
+            </text>
+            <text x={boxX + 61} y={boxY + 38} textAnchor="middle" fontSize={9} fill="#fbbf24">
+              {r.blank_rate_typical}% en moy.
+            </text>
+          </g>
+        );
+      })()}
   </svg>
 );
 
@@ -174,19 +192,27 @@ function ChartTooltip({ active, payload }: any) {
   if (!active || !payload?.length) return null;
   const r: BlankVoteRegime = payload[0].payload;
   return (
-    <div style={{
-      background: 'var(--bs-body-bg, white)',
-      border: '1px solid var(--bs-border-color, #dee2e6)',
-      borderRadius: 8, padding: '8px 12px', fontSize: '0.82rem',
-      boxShadow: '0 2px 8px rgba(0,0,0,0.1)',
-    }}>
-      <div className="fw-bold">{r.flag} {r.country}</div>
+    <div
+      style={{
+        background: 'var(--bs-body-bg, white)',
+        border: '1px solid var(--bs-border-color, #dee2e6)',
+        borderRadius: 8,
+        padding: '8px 12px',
+        fontSize: '0.82rem',
+        boxShadow: '0 2px 8px rgba(0,0,0,0.1)',
+      }}
+    >
+      <div className="font-bold">
+        {r.flag} {r.country}
+      </div>
       <div style={{ color: STATUS_META[r.legal_status].color }}>
         {STATUS_META[r.legal_status].label}
       </div>
-      <div>Taux typique : <strong>{r.blank_rate_typical} %</strong></div>
+      <div>
+        Taux typique : <strong>{r.blank_rate_typical} %</strong>
+      </div>
       {r.impact_on_result && (
-        <div className="text-danger mt-1">⚠️ Peut modifier le résultat</div>
+        <div className="text-[#dc3545] mt-1">⚠️ Peut modifier le résultat</div>
       )}
     </div>
   );
@@ -201,8 +227,8 @@ const InternationalRegimesPage: React.FC = () => {
       'Comparaison de 15 pays : statut juridique, taux et impact constitutionnel du vote blanc.',
   });
 
-  const [impactOnly,  setImpactOnly]  = useState(false);
-  const [sortAsc,     setSortAsc]     = useState(false);
+  const [impactOnly, setImpactOnly] = useState(false);
+  const [sortAsc, setSortAsc] = useState(false);
   const [highlighted, setHighlighted] = useState<string | null>(null);
 
   const displayed = useMemo(() => {
@@ -211,8 +237,8 @@ const InternationalRegimesPage: React.FC = () => {
   }, [impactOnly, sortAsc]);
 
   const impactCount = regimes.filter((r) => r.impact_on_result).length;
-  const total       = regimes.length;
-  const avgRate     = regimes.reduce((s, r) => s + r.blank_rate_typical, 0) / total;
+  const total = regimes.length;
+  const avgRate = regimes.reduce((s, r) => s + r.blank_rate_typical, 0) / total;
 
   const chartData = sortByBlankRate(regimes, true);
 
@@ -220,21 +246,23 @@ const InternationalRegimesPage: React.FC = () => {
     <div data-style="tailwind" className="mx-auto w-full max-w-[1300px] px-3 py-6">
       <h2 className="mb-1 text-[1.5rem] font-bold">🌍 Régimes internationaux du vote blanc</h2>
       <p className="mb-6 text-[0.9rem] text-muted-foreground">
-        Comparaison juridique de {total} pays : statut légal, taux de vote blanc,
-        et impact constitutionnel sur le résultat de l'élection.
+        Comparaison juridique de {total} pays : statut légal, taux de vote blanc, et impact
+        constitutionnel sur le résultat de l'élection.
       </p>
 
       {/* ── Summary stats ── */}
       <div className="mb-6 grid grid-cols-2 gap-4 md:grid-cols-4">
         {[
-          { value: total,             label: 'Pays analysés', color: '#1a56cc' },
-          { value: impactCount,       label: 'Où le blanc compte', color: '#b35c00' },
+          { value: total, label: 'Pays analysés', color: '#1a56cc' },
+          { value: impactCount, label: 'Où le blanc compte', color: '#b35c00' },
           { value: `${avgRate.toFixed(1)} %`, label: 'Taux moyen', color: '#006957' },
-          { value: 2,                 label: 'Peuvent invalider',   color: '#b71c1c' },
+          { value: 2, label: 'Peuvent invalider', color: '#b71c1c' },
         ].map(({ value, label, color }) => (
           <Card className="h-full text-center" key={label}>
             <CardContent className="p-6 py-4">
-              <div className="text-[2rem] font-extrabold" style={{ color }}>{value}</div>
+              <div className="text-[2rem] font-extrabold" style={{ color }}>
+                {value}
+              </div>
               <div className="mt-1 text-sm text-muted-foreground">{label}</div>
             </CardContent>
           </Card>
@@ -247,7 +275,9 @@ const InternationalRegimesPage: React.FC = () => {
           <Card className="mb-4">
             <CardHeader className="flex flex-row items-center justify-between p-6 py-3">
               <strong>Carte des régimes</strong>
-              <span className="text-sm text-muted-foreground">Passer la souris sur un pays pour les détails</span>
+              <span className="text-sm text-muted-foreground">
+                Passer la souris sur un pays pour les détails
+              </span>
             </CardHeader>
             <CardContent className="p-2">
               <BubbleMap
@@ -260,23 +290,30 @@ const InternationalRegimesPage: React.FC = () => {
 
           {/* Legend */}
           <Card>
-            <CardHeader className="p-6 py-2"><strong>Légende</strong></CardHeader>
+            <CardHeader className="p-6 py-2">
+              <strong>Légende</strong>
+            </CardHeader>
             <CardContent className="p-6 py-2">
               <div className="flex flex-wrap gap-3">
-                {(Object.entries(STATUS_META) as [BlankVoteStatus, typeof STATUS_META[BlankVoteStatus]][]).map(
-                  ([key, { label, color, desc }]) => (
-                    <div key={key} className="flex items-start gap-2">
-                      <span
-                        className="mt-0.5 inline-block h-3.5 w-3.5 shrink-0 rounded-full"
-                        style={{ background: color }}
-                      />
-                      <div>
-                        <div className="text-[0.82rem] font-semibold" style={{ color }}>{label}</div>
-                        <div className="text-[0.75rem] text-muted-foreground">{desc}</div>
+                {(
+                  Object.entries(STATUS_META) as [
+                    BlankVoteStatus,
+                    (typeof STATUS_META)[BlankVoteStatus],
+                  ][]
+                ).map(([key, { label, color, desc }]) => (
+                  <div key={key} className="flex items-start gap-2">
+                    <span
+                      className="mt-0.5 inline-block h-3.5 w-3.5 shrink-0 rounded-full"
+                      style={{ background: color }}
+                    />
+                    <div>
+                      <div className="text-[0.82rem] font-semibold" style={{ color }}>
+                        {label}
                       </div>
+                      <div className="text-[0.75rem] text-muted-foreground">{desc}</div>
                     </div>
-                  ),
-                )}
+                  </div>
+                ))}
               </div>
             </CardContent>
           </Card>
@@ -286,7 +323,9 @@ const InternationalRegimesPage: React.FC = () => {
         <div className="lg:col-span-5">
           {/* Bar chart */}
           <Card className="mb-4">
-            <CardHeader className="p-6 py-3"><strong>Taux de vote blanc par pays</strong></CardHeader>
+            <CardHeader className="p-6 py-3">
+              <strong>Taux de vote blanc par pays</strong>
+            </CardHeader>
             <CardContent className="p-2">
               <ResponsiveContainer width="100%" height={310}>
                 <BarChart
@@ -294,7 +333,11 @@ const InternationalRegimesPage: React.FC = () => {
                   layout="vertical"
                   margin={{ top: 4, right: 40, left: 4, bottom: 4 }}
                 >
-                  <CartesianGrid strokeDasharray="3 3" horizontal={false} stroke="var(--bs-border-color, #dee2e6)" />
+                  <CartesianGrid
+                    strokeDasharray="3 3"
+                    horizontal={false}
+                    stroke="var(--bs-border-color, #dee2e6)"
+                  />
                   <XAxis
                     type="number"
                     domain={[0, 8]}
@@ -308,7 +351,13 @@ const InternationalRegimesPage: React.FC = () => {
                     tick={({ x, y, payload }) => {
                       const r = regimes.find((d) => d.country === payload.value);
                       return (
-                        <text x={x - 4} y={y + 4} textAnchor="end" fontSize={11} fill="var(--bs-body-color, #333)">
+                        <text
+                          x={x - 4}
+                          y={y + 4}
+                          textAnchor="end"
+                          fontSize={11}
+                          fill="var(--bs-body-color, #333)"
+                        >
                           {r?.flag} {payload.value}
                         </text>
                       );
@@ -390,9 +439,11 @@ const InternationalRegimesPage: React.FC = () => {
                     {r.blank_rate_typical.toFixed(1)} %
                   </td>
                   <td className="p-2 text-center">
-                    {r.impact_on_result
-                      ? <span className="font-bold text-[#dc3545]">⚠️ Oui</span>
-                      : <span className="text-muted-foreground">Non</span>}
+                    {r.impact_on_result ? (
+                      <span className="font-bold text-[#dc3545]">⚠️ Oui</span>
+                    ) : (
+                      <span className="text-muted-foreground">Non</span>
+                    )}
                   </td>
                   <td className="p-2 text-muted-foreground">{r.since_year ?? '—'}</td>
                 </tr>
@@ -404,17 +455,19 @@ const InternationalRegimesPage: React.FC = () => {
 
       {/* ── Conclusion ── */}
       <Alert variant="info" className="text-[0.88rem] leading-7">
-        <strong>📊 Synthèse :</strong>{' '}
-        Dans <strong>{impactCount} pays sur {total}</strong> analysés, le vote blanc peut
-        modifier le résultat de l'élection — soit en agissant comme un candidat compétitif
-        (Uruguay), soit en déclenchant une nouvelle élection si un seuil est dépassé
-        (Colombie). Dans les {total - impactCount} autres pays, le vote blanc est reconnu
-        symboliquement ou noyé dans les bulletins invalides, sans effet constitutionnel
-        direct. Le taux moyen de vote blanc dans l'échantillon est de{' '}
-        <strong>{avgRate.toFixed(1)} %</strong>,
-        avec des pics notables en Colombie ({regimes.find((r) => r.country === 'Colombie')?.blank_rate_typical} %),
-        Australie ({regimes.find((r) => r.country === 'Australie')?.blank_rate_typical} %),
-        et Belgique ({regimes.find((r) => r.country === 'Belgique')?.blank_rate_typical} %).
+        <strong>📊 Synthèse :</strong> Dans{' '}
+        <strong>
+          {impactCount} pays sur {total}
+        </strong>{' '}
+        analysés, le vote blanc peut modifier le résultat de l'élection — soit en agissant comme un
+        candidat compétitif (Uruguay), soit en déclenchant une nouvelle élection si un seuil est
+        dépassé (Colombie). Dans les {total - impactCount} autres pays, le vote blanc est reconnu
+        symboliquement ou noyé dans les bulletins invalides, sans effet constitutionnel direct. Le
+        taux moyen de vote blanc dans l'échantillon est de <strong>{avgRate.toFixed(1)} %</strong>,
+        avec des pics notables en Colombie (
+        {regimes.find((r) => r.country === 'Colombie')?.blank_rate_typical} %), Australie (
+        {regimes.find((r) => r.country === 'Australie')?.blank_rate_typical} %), et Belgique (
+        {regimes.find((r) => r.country === 'Belgique')?.blank_rate_typical} %).
       </Alert>
 
       <div className="mt-1 text-[0.75rem] text-muted-foreground">

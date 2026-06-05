@@ -22,73 +22,63 @@ export const MJ_GRADE_KEYS = [
 ] as const;
 
 const MJ_COLORS = [
-  '#dc3545',   // À Rejeter  — red
-  '#e67e22',   // Passable   — orange
-  '#f0c040',   // Assez Bien — amber
-  '#5cb85c',   // Bien       — light green
-  '#007A33',   // Très Bien  — green
-  '#004d1f',   // Excellent  — dark green
+  '#dc3545', // À Rejeter  — red
+  '#e67e22', // Passable   — orange
+  '#f0c040', // Assez Bien — amber
+  '#5cb85c', // Bien       — light green
+  '#007A33', // Très Bien  — green
+  '#004d1f', // Excellent  — dark green
 ];
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
 export interface MJGradeDistribution {
-  [gradeName: string]: number;   // grade label → count
+  [gradeName: string]: number; // grade label → count
 }
 
 export interface MJResult {
-  winner:              string | null;
-  grades:              Record<string, MJGradeDistribution>;
-  medians:             Record<string, string>;
-  scores:              Record<string, number>;
-  grade_distributions: Record<string, number[]>;  // candidate → [count_g0 … count_g5]
+  winner: string | null;
+  grades: Record<string, MJGradeDistribution>;
+  medians: Record<string, string>;
+  scores: Record<string, number>;
+  grade_distributions: Record<string, number[]>; // candidate → [count_g0 … count_g5]
 }
 
 // ── SVG layout ────────────────────────────────────────────────────────────────
 
-const ROW_H    = 36;
-const LABEL_W  = 100;
-const BAR_W    = 380;
-const PAD_TOP  = 4;
-const SVG_W    = LABEL_W + BAR_W + 8;
+const ROW_H = 36;
+const LABEL_W = 100;
+const BAR_W = 380;
+const PAD_TOP = 4;
+const SVG_W = LABEL_W + BAR_W + 8;
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
 /** Grade index (0-5) for a given grade label string. */
-export function gradeIndex(
-  gradeLabel: string,
-  allLabels:  string[],
-): number {
+export function gradeIndex(gradeLabel: string, allLabels: string[]): number {
   const i = allLabels.indexOf(gradeLabel);
   return i >= 0 ? i : 0;
 }
 
 /** Compute the x-pixel position of the median line within the bar area. */
-export function medianLineX(
-  dist:      number[],
-  gradeIdx:  number,
-  barWidth:  number,
-): number {
+export function medianLineX(dist: number[], gradeIdx: number, barWidth: number): number {
   const total = dist.reduce((a, b) => a + b, 0) || 1;
   // Sum of fractions for grades below median + half of median grade
-  const below  = dist.slice(0, gradeIdx).reduce((a, b) => a + b, 0);
-  const atMed  = dist[gradeIdx] ?? 0;
-  const x      = ((below + atMed / 2) / total) * barWidth;
+  const below = dist.slice(0, gradeIdx).reduce((a, b) => a + b, 0);
+  const atMed = dist[gradeIdx] ?? 0;
+  const x = ((below + atMed / 2) / total) * barWidth;
   return Math.round(x);
 }
 
 // ── Component ─────────────────────────────────────────────────────────────────
 
 export interface MajorityJudgmentChartProps {
-  mjResult:   MJResult;
+  mjResult: MJResult;
   /** All candidate names in this election (for ordering). */
   candidates: string[];
 }
 
-const MajorityJudgmentChart: React.FC<MajorityJudgmentChartProps> = ({
-  mjResult,
-  candidates,
-}) => {
+const MajorityJudgmentChart: React.FC<MajorityJudgmentChartProps> = ({ mjResult, candidates }) => {
   const { t } = useTranslation();
 
   const gradeLabels = MJ_GRADE_KEYS.map((k) => t(k));
@@ -112,11 +102,11 @@ const MajorityJudgmentChart: React.FC<MajorityJudgmentChartProps> = ({
     <div data-testid="mj-chart">
       {/* Winner badge */}
       {mjResult.winner && (
-        <div className="d-flex align-items-center gap-2 mb-2">
+        <div className="flex items-center gap-2 mb-2">
           <Badge variant="success" style={{ fontSize: '0.78rem' }} data-testid="mj-winner-badge">
             🏆 {t('mj.winner')}: {mjResult.winner}
           </Badge>
-          <span className="text-muted" style={{ fontSize: '0.75rem' }}>
+          <span className="text-muted-foreground" style={{ fontSize: '0.75rem' }}>
             {t('mj.median')}: <strong>{mjResult.medians[mjResult.winner] ?? '—'}</strong>
           </span>
         </div>
@@ -129,12 +119,12 @@ const MajorityJudgmentChart: React.FC<MajorityJudgmentChartProps> = ({
         aria-label={t('mj.chartAriaLabel')}
       >
         {sorted.map((cand, rowIdx) => {
-          const dist     = mjResult.grade_distributions[cand] ?? [];
-          const total    = dist.reduce((a, b) => a + b, 0) || 1;
+          const dist = mjResult.grade_distributions[cand] ?? [];
+          const total = dist.reduce((a, b) => a + b, 0) || 1;
           const medLabel = mjResult.medians[cand] ?? '';
-          const medIdx   = gradeIndex(medLabel, gradeLabels);
-          const medX     = medianLineX(dist, medIdx, BAR_W);
-          const y        = PAD_TOP + rowIdx * ROW_H;
+          const medIdx = gradeIndex(medLabel, gradeLabels);
+          const medX = medianLineX(dist, medIdx, BAR_W);
+          const y = PAD_TOP + rowIdx * ROW_H;
           const isWinner = cand === mjResult.winner;
 
           // Build segments
@@ -158,7 +148,8 @@ const MajorityJudgmentChart: React.FC<MajorityJudgmentChartProps> = ({
                 fontWeight={isWinner ? 700 : 400}
                 fill={isWinner ? '#007A33' : 'currentColor'}
               >
-                {isWinner ? '🏆 ' : ''}{cand}
+                {isWinner ? '🏆 ' : ''}
+                {cand}
               </text>
 
               {/* Grade segments */}
@@ -235,7 +226,7 @@ const MajorityJudgmentChart: React.FC<MajorityJudgmentChartProps> = ({
       </svg>
 
       {/* Tooltip hint */}
-      <div className="text-muted mt-1" style={{ fontSize: '0.72rem' }}>
+      <div className="text-muted-foreground mt-1" style={{ fontSize: '0.72rem' }}>
         — {t('mj.medianLineHint')}
       </div>
     </div>

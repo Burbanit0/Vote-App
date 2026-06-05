@@ -13,7 +13,7 @@ const CORE_METHODS = ['plurality', 'irv', 'borda', 'schulze', 'approval'] as con
 
 const PHENOMENON_VARIANT: Record<string, string> = {
   'Paradoxe de Condorcet': 'danger',
-  'Effet spoiler':          'warning',
+  'Effet spoiler': 'warning',
   'Fragmentation & coalition': 'info',
   "Cycle d'Arrow (intransitivité)": 'secondary',
   'Consensus parfait (Condorcet)': 'success',
@@ -26,9 +26,9 @@ interface Props {
 }
 
 const HistoricalReferencePanel: React.FC<Props> = ({ result }) => {
-  const { t }           = useTranslation();
+  const { t } = useTranslation();
   const { scenarioMeta } = useElection();
-  const navigate        = useNavigate();
+  const navigate = useNavigate();
 
   if (!scenarioMeta) return null;
 
@@ -38,7 +38,11 @@ const HistoricalReferencePanel: React.FC<Props> = ({ result }) => {
   const variant = PHENOMENON_VARIANT[data.phenomenon] ?? 'secondary';
 
   return (
-    <Card className="mt-4 border-2" style={{ borderColor: `var(--bs-${variant})` }} data-style="tailwind">
+    <Card
+      className="mt-4 border-2"
+      style={{ borderColor: `var(--bs-${variant})` }}
+      data-style="tailwind"
+    >
       <CardHeader
         className="flex flex-row flex-wrap items-center gap-2 p-6 py-2"
         style={{ background: `var(--bs-${variant}-bg-subtle, #f8f9fa)` }}
@@ -46,7 +50,9 @@ const HistoricalReferencePanel: React.FC<Props> = ({ result }) => {
         <span className="text-[1.2rem]">{data.flag}</span>
         <strong className="text-[0.9rem]">{data.name}</strong>
         {data.year > 0 && (
-          <Badge variant="secondary" className="text-[0.65rem]">{data.year}</Badge>
+          <Badge variant="secondary" className="text-[0.65rem]">
+            {data.year}
+          </Badge>
         )}
         <Badge variant={variant as never} className="text-[0.65rem]">
           {t('scenarios.phenomenon')}: {data.phenomenon}
@@ -142,9 +148,9 @@ const HistoricalReferencePanel: React.FC<Props> = ({ result }) => {
                 </thead>
                 <tbody>
                   {CORE_METHODS.map((method) => {
-                    const md      = result.methods[method];
-                    const simWin  = md?.winner ?? '—';
-                    const sameAs  = simWin === data.real_result.winner;
+                    const md = result.methods[method];
+                    const simWin = md?.winner ?? '—';
+                    const sameAs = simWin === data.real_result.winner;
                     return (
                       <tr key={method} className="[&>td]:border [&>td]:border-border [&>td]:p-1.5">
                         <td className="font-semibold">{method}</td>
@@ -157,11 +163,13 @@ const HistoricalReferencePanel: React.FC<Props> = ({ result }) => {
                           </span>
                         </td>
                         <td className="text-center">
-                          {data.real_result.winner === '—'
-                            ? <span className="text-muted-foreground">—</span>
-                            : sameAs
-                              ? <span style={{ color: '#007A33' }}>✓</span>
-                              : <span style={{ color: '#B71C1C' }}>✗</span>}
+                          {data.real_result.winner === '—' ? (
+                            <span className="text-muted-foreground">—</span>
+                          ) : sameAs ? (
+                            <span style={{ color: '#007A33' }}>✓</span>
+                          ) : (
+                            <span style={{ color: '#B71C1C' }}>✗</span>
+                          )}
                         </td>
                       </tr>
                     );

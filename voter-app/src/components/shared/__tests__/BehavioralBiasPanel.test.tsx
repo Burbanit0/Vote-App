@@ -10,7 +10,9 @@ vi.mock('../../../api/client', () => ({
   apiClient: { GET: vi.fn(), POST: vi.fn(), PUT: vi.fn(), DELETE: vi.fn(), PATCH: vi.fn() },
   getAccessToken: vi.fn(() => null),
 }));
-const { apiClient } = (await import('../../../api/client')) as unknown as { apiClient: { POST: jest.Mock } };
+const { apiClient } = (await import('../../../api/client')) as unknown as {
+  apiClient: { POST: jest.Mock };
+};
 
 // ── Fixture ───────────────────────────────────────────────────────────────────
 
@@ -18,21 +20,21 @@ function makeData(winnerChanged = false) {
   return {
     data: {
       sincere_winner: 'Alice',
-      biased_winner:  winnerChanged ? 'Bob' : 'Alice',
+      biased_winner: winnerChanged ? 'Bob' : 'Alice',
       winner_changed: winnerChanged,
       vote_breakdown: {
         expressive_voters: 20,
-        bullet_voters:     20,
-        primacy_affected:  2,
-        first_listed:      'Carol',
-        candidate_order:   ['Carol', 'Alice', 'Bob'],
+        bullet_voters: 20,
+        primacy_affected: 2,
+        first_listed: 'Carol',
+        candidate_order: ['Carol', 'Alice', 'Bob'],
       },
       method_sensitivity: {
         plurality: { sincere: 'Alice', biased: winnerChanged ? 'Bob' : 'Alice' },
-        approval:  { sincere: 'Alice', biased: winnerChanged ? 'Bob' : 'Alice' },
-        borda:     { sincere: 'Alice', biased: 'Alice' },
-        irv:       { sincere: 'Alice', biased: 'Alice' },
-        schulze:   { sincere: 'Alice', biased: 'Alice' },
+        approval: { sincere: 'Alice', biased: winnerChanged ? 'Bob' : 'Alice' },
+        borda: { sincere: 'Alice', biased: 'Alice' },
+        irv: { sincere: 'Alice', biased: 'Alice' },
+        schulze: { sincere: 'Alice', biased: 'Alice' },
         majority_judgment: { sincere: 'Alice', biased: 'Alice' },
       },
       bullet_immune_methods: ['majority_judgment', 'borda', 'irv', 'schulze', 'star_voting'],
@@ -60,7 +62,9 @@ beforeEach(() => {
   vi.useFakeTimers();
 });
 
-afterEach(() => { vi.useRealTimers(); });
+afterEach(() => {
+  vi.useRealTimers();
+});
 
 // ── Tests ─────────────────────────────────────────────────────────────────────
 
@@ -89,7 +93,7 @@ describe('BehavioralBiasPanel', () => {
     await waitFor(() => expect(apiClient.POST).toHaveBeenCalledTimes(1));
     expect(apiClient.POST).toHaveBeenCalledWith(
       expect.stringMatching(/\/api\/(v2\/)?election\/behavioral-biases/),
-      expect.any(Object),
+      expect.any(Object)
     );
     vi.runAllTimers();
   });
@@ -134,7 +138,9 @@ describe('BehavioralBiasPanel', () => {
     apiClient.POST.mockResolvedValue(makeData());
     renderPanel();
     fireEvent.click(screen.getByRole('button', { name: /simuler|simulate/i }));
-    await waitFor(() => expect(screen.getByTestId('expressive-breakdown-badge')).toBeInTheDocument());
+    await waitFor(() =>
+      expect(screen.getByTestId('expressive-breakdown-badge')).toBeInTheDocument()
+    );
     vi.runAllTimers();
   });
 
@@ -213,7 +219,9 @@ describe('BehavioralBiasPanel', () => {
 
     // Toggle expressive ON → triggers debounced re-run
     fireEvent.click(screen.getByTestId('expressive-switch'));
-    act(() => { vi.advanceTimersByTime(450); });
+    act(() => {
+      vi.advanceTimersByTime(450);
+    });
     await waitFor(() => expect(apiClient.POST).toHaveBeenCalledTimes(2));
     vi.runAllTimers();
   });

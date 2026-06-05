@@ -23,10 +23,10 @@ export interface VoronoiRegion {
  */
 export function buildVoronoiPaths(
   candidates: { x: number; y: number; name: string }[],
-  svgWidth:   number,
-  svgHeight:  number,
+  svgWidth: number,
+  svgHeight: number,
   domainToSvg: (v: number, axis: 'x' | 'y') => number,
-  margin = 40,
+  margin = 40
 ): VoronoiRegion[] {
   if (candidates.length < 2) return [];
 
@@ -40,13 +40,13 @@ export function buildVoronoiPaths(
   const bounds: [number, number, number, number] = [
     margin,
     margin,
-    svgWidth  - margin,
+    svgWidth - margin,
     svgHeight - margin,
   ];
 
   try {
     const delaunay = Delaunay.from(svgPoints);
-    const voronoi  = delaunay.voronoi(bounds);
+    const voronoi = delaunay.voronoi(bounds);
 
     return candidates.map((c, i) => ({
       name: c.name,

@@ -10,19 +10,23 @@ vi.mock('../../../api/client', () => ({
   apiClient: { GET: vi.fn(), POST: vi.fn(), PUT: vi.fn(), DELETE: vi.fn(), PATCH: vi.fn() },
   getAccessToken: vi.fn(() => null),
 }));
-const { apiClient } = (await import('../../../api/client')) as unknown as { apiClient: { POST: jest.Mock } };
+const { apiClient } = (await import('../../../api/client')) as unknown as {
+  apiClient: { POST: jest.Mock };
+};
 
 vi.mock('recharts', () => {
   const React = require('react');
   return {
-    ScatterChart:        ({ children }: any) => <div data-testid="scatter-chart">{children}</div>,
-    Scatter:             ({ name }: any) => <div data-testid={`scatter-${name}`} />,
-    XAxis:               () => null,
-    YAxis:               () => null,
-    CartesianGrid:       () => null,
-    Tooltip:             () => null,
-    Label:               () => null,
-    ResponsiveContainer: ({ children }: any) => <div style={{ width: 400, height: 260 }}>{children}</div>,
+    ScatterChart: ({ children }: any) => <div data-testid="scatter-chart">{children}</div>,
+    Scatter: ({ name }: any) => <div data-testid={`scatter-${name}`} />,
+    XAxis: () => null,
+    YAxis: () => null,
+    CartesianGrid: () => null,
+    Tooltip: () => null,
+    Label: () => null,
+    ResponsiveContainer: ({ children }: any) => (
+      <div style={{ width: 400, height: 260 }}>{children}</div>
+    ),
   };
 });
 
@@ -33,24 +37,24 @@ function makeData() {
     data: {
       results: [
         {
-          ideology:           'centrist',
+          ideology: 'centrist',
           polarization_index: 0.12,
-          condorcet_rate:     0.90,
-          agreement_rate:     0.85,
-          winner_stability:   0.15,
-          best_method:        'schulze',
-          worst_method:       'plurality',
-          method_regrets:     { plurality: 0.089, schulze: 0.031, borda: 0.045 },
+          condorcet_rate: 0.9,
+          agreement_rate: 0.85,
+          winner_stability: 0.15,
+          best_method: 'schulze',
+          worst_method: 'plurality',
+          method_regrets: { plurality: 0.089, schulze: 0.031, borda: 0.045 },
         },
         {
-          ideology:           'polarized',
+          ideology: 'polarized',
           polarization_index: 0.48,
-          condorcet_rate:     0.35,
-          agreement_rate:     0.42,
-          winner_stability:   0.72,
-          best_method:        'schulze',
-          worst_method:       'plurality',
-          method_regrets:     { plurality: 0.134, schulze: 0.062, borda: 0.091 },
+          condorcet_rate: 0.35,
+          agreement_rate: 0.42,
+          winner_stability: 0.72,
+          best_method: 'schulze',
+          worst_method: 'plurality',
+          method_regrets: { plurality: 0.134, schulze: 0.062, borda: 0.091 },
         },
       ],
       key_findings: [
@@ -80,7 +84,9 @@ beforeEach(() => {
   vi.useFakeTimers();
 });
 
-afterEach(() => { vi.useRealTimers(); });
+afterEach(() => {
+  vi.useRealTimers();
+});
 
 // ── Tests ─────────────────────────────────────────────────────────────────────
 
@@ -117,7 +123,7 @@ describe('PolarizationPanel', () => {
     await waitFor(() => expect(apiClient.POST).toHaveBeenCalledTimes(1));
     expect(apiClient.POST).toHaveBeenCalledWith(
       expect.stringMatching(/\/api\/(v2\/)?election\/polarization/),
-      expect.any(Object),
+      expect.any(Object)
     );
     vi.runAllTimers();
   });
@@ -174,7 +180,9 @@ describe('PolarizationPanel', () => {
     await waitFor(() => expect(apiClient.POST).toHaveBeenCalledTimes(1));
     // Move slider → debounce fires after 500ms
     fireEvent.change(screen.getByTestId('sims-slider'), { target: { value: '20' } });
-    act(() => { vi.advanceTimersByTime(550); });
+    act(() => {
+      vi.advanceTimersByTime(550);
+    });
     await waitFor(() => expect(apiClient.POST).toHaveBeenCalledTimes(2));
     vi.runAllTimers();
   });

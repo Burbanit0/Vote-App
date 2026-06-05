@@ -186,11 +186,9 @@ const IssuePrioritiesVisualization: React.FC<IssuePrioritiesVisualizationProps> 
         <CardTitle>{t('simulation.issuePriorities.title')}</CardTitle>
       </CardHeader>
       <CardBody>
-        <Row className="mb-3 align-items-center">
+        <Row className="mb-3 items-center">
           <Col sm={2}>
-            <label className="mb-1 inline-block">
-              {t('simulation.issuePriorities.groupBy')}
-            </label>
+            <label className="mb-1 inline-block">{t('simulation.issuePriorities.groupBy')}</label>
           </Col>
           <Col sm={3}>
             <Select
@@ -225,13 +223,15 @@ const IssuePrioritiesVisualization: React.FC<IssuePrioritiesVisualizationProps> 
               <CardHeader className="block space-y-0 border-b border-border px-4 py-2">
                 <CardTitle>
                   {t('simulation.issuePriorities.avgPrioritiesBy')}{' '}
-                  {{
-                    age: t('simulation.issuePriorities.byAgeGroup'),
-                    region: t('simulation.issuePriorities.byRegion'),
-                    income: t('simulation.issuePriorities.byIncome'),
-                    gender: t('simulation.issuePriorities.byGender'),
-                    education: t('simulation.issuePriorities.byEducation'),
-                  }[selectedGroup]}
+                  {
+                    {
+                      age: t('simulation.issuePriorities.byAgeGroup'),
+                      region: t('simulation.issuePriorities.byRegion'),
+                      income: t('simulation.issuePriorities.byIncome'),
+                      gender: t('simulation.issuePriorities.byGender'),
+                      education: t('simulation.issuePriorities.byEducation'),
+                    }[selectedGroup]
+                  }
                 </CardTitle>
               </CardHeader>
               <CardBody>
@@ -265,7 +265,7 @@ const IssuePrioritiesVisualization: React.FC<IssuePrioritiesVisualizationProps> 
                     </ResponsiveContainer>
                   </div>
                 ) : (
-                  <p className="text-center text-muted">Pas de données disponibles</p>
+                  <p className="text-center text-muted-foreground">Pas de données disponibles</p>
                 )}
               </CardBody>
             </Card>
@@ -299,14 +299,16 @@ const IssuePrioritiesVisualization: React.FC<IssuePrioritiesVisualizationProps> 
                           <Tooltip
                             formatter={(value: number) => [
                               `${(value * 100).toFixed(1)}%`,
-                            t('simulation.issuePriorities.priority'),
-                          ]}
-                        />
-                      </RadarChart>
+                              t('simulation.issuePriorities.priority'),
+                            ]}
+                          />
+                        </RadarChart>
                       </ResponsiveContainer>
                     </div>
                   ) : (
-                  <p className="text-center text-muted">{t('simulation.issuePriorities.noData')}</p>
+                    <p className="text-center text-muted-foreground">
+                      {t('simulation.issuePriorities.noData')}
+                    </p>
                   )}
                 </CardBody>
               </Card>
@@ -354,7 +356,7 @@ const IssuePrioritiesVisualization: React.FC<IssuePrioritiesVisualizationProps> 
                     </ResponsiveContainer>
                   </div>
                 ) : (
-                  <p className="text-center text-muted">Pas de données disponibles</p>
+                  <p className="text-center text-muted-foreground">Pas de données disponibles</p>
                 )}
               </CardBody>
             </Card>

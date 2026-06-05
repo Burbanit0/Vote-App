@@ -22,14 +22,14 @@ if (typeof window !== 'undefined' && !window.matchMedia) {
   Object.defineProperty(window, 'matchMedia', {
     writable: true,
     value: (query: string) => ({
-      matches:             false,
-      media:               query,
-      onchange:            null,
-      addListener:         () => {},      // legacy API still used by some libs
-      removeListener:      () => {},
-      addEventListener:    () => {},
+      matches: false,
+      media: query,
+      onchange: null,
+      addListener: () => {}, // legacy API still used by some libs
+      removeListener: () => {},
+      addEventListener: () => {},
       removeEventListener: () => {},
-      dispatchEvent:       () => false,
+      dispatchEvent: () => false,
     }),
   });
 }
@@ -38,8 +38,8 @@ if (typeof window !== 'undefined' && !window.matchMedia) {
 // and any component that watches its own size.
 if (typeof window !== 'undefined' && !(window as any).ResizeObserver) {
   (window as any).ResizeObserver = class {
-    observe()    {}
-    unobserve()  {}
+    observe() {}
+    unobserve() {}
     disconnect() {}
   };
 }

@@ -83,7 +83,10 @@ const SimulateVotesPage: React.FC = () => {
             setFormData={setFormData}
           />
           {error && (
-            <div role="alert" className="mt-4 rounded-md border border-red-300 bg-red-100 px-3 py-2 text-sm text-red-800">
+            <div
+              role="alert"
+              className="mt-4 rounded-md border border-border border-red-300 bg-red-100 px-3 py-2 text-sm text-red-800"
+            >
               {error}
             </div>
           )}

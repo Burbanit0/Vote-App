@@ -13,10 +13,8 @@ const buttonVariants = cva(
     variants: {
       variant: {
         default: 'bg-primary text-primary-foreground hover:bg-primary/90',
-        destructive:
-          'bg-destructive text-destructive-foreground hover:bg-destructive/90',
-        outline:
-          'border border-input bg-background hover:bg-accent hover:text-accent-foreground',
+        destructive: 'bg-destructive text-destructive-foreground hover:bg-destructive/90',
+        outline: 'border border-input bg-background hover:bg-accent hover:text-accent-foreground',
         secondary: 'bg-secondary text-secondary-foreground hover:bg-secondary/80',
         ghost: 'hover:bg-accent hover:text-accent-foreground',
         link: 'text-primary underline-offset-4 hover:underline',
@@ -31,7 +29,8 @@ const buttonVariants = cva(
         dark: 'bg-slate-900 text-white hover:bg-slate-900/90',
         light: 'bg-slate-100 text-slate-900 hover:bg-slate-200',
         'outline-primary': 'border border-primary text-primary hover:bg-primary/10',
-        'outline-secondary': 'border border-input bg-background hover:bg-accent hover:text-accent-foreground',
+        'outline-secondary':
+          'border border-input bg-background hover:bg-accent hover:text-accent-foreground',
         'outline-success': 'border border-[#198754] text-[#198754] hover:bg-[#198754]/10',
         'outline-danger': 'border border-[#dc3545] text-[#dc3545] hover:bg-[#dc3545]/10',
         'outline-warning': 'border border-[#ffc107] text-[#9a7400] hover:bg-[#ffc107]/10',
@@ -63,11 +62,7 @@ const Button = React.forwardRef<HTMLButtonElement, ButtonProps>(
   ({ className, variant, size, asChild = false, ...props }, ref) => {
     const Comp = asChild ? Slot : 'button';
     return (
-      <Comp
-        className={cn(buttonVariants({ variant, size, className }))}
-        ref={ref}
-        {...props}
-      />
+      <Comp className={cn(buttonVariants({ variant, size, className }))} ref={ref} {...props} />
     );
   }
 );

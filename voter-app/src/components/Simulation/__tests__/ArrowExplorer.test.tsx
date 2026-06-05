@@ -9,20 +9,24 @@ vi.mock('../../../api/client', () => ({
   apiClient: { GET: vi.fn(), POST: vi.fn(), PUT: vi.fn(), DELETE: vi.fn(), PATCH: vi.fn() },
   getAccessToken: vi.fn(() => null),
 }));
-const { apiClient } = (await import('../../../api/client')) as unknown as { apiClient: { POST: jest.Mock } };
+const { apiClient } = (await import('../../../api/client')) as unknown as {
+  apiClient: { POST: jest.Mock };
+};
 
 vi.mock('recharts', () => {
   const React = require('react');
   return {
-    LineChart:           ({ children }: any) => <div>{children}</div>,
-    Line:                ({ dataKey }: any) => <div data-testid={`line-${dataKey}`} />,
-    XAxis:               () => null,
-    YAxis:               () => null,
-    CartesianGrid:       () => null,
-    Tooltip:             () => null,
-    Legend:              () => null,
-    ReferenceLine:       () => null,
-    ResponsiveContainer: ({ children }: any) => <div style={{ width: 400, height: 200 }}>{children}</div>,
+    LineChart: ({ children }: any) => <div>{children}</div>,
+    Line: ({ dataKey }: any) => <div data-testid={`line-${dataKey}`} />,
+    XAxis: () => null,
+    YAxis: () => null,
+    CartesianGrid: () => null,
+    Tooltip: () => null,
+    Legend: () => null,
+    ReferenceLine: () => null,
+    ResponsiveContainer: ({ children }: any) => (
+      <div style={{ width: 400, height: 200 }}>{children}</div>
+    ),
   };
 });
 
@@ -33,12 +37,26 @@ function makeArrowData(method = 'plurality') {
     data: {
       method,
       violations: {
-        iia:              { violated: true, counterexample: {
-          profile: [['A','C','B'],['A','C','B'],['A','C','B'],['B','A','C'],['B','A','C'],['C','B','A'],['C','B','A']],
-          without_c: 'B', with_c: 'A', spoiler: 'C', note: 'Test note.',
-        }},
-        pareto:           { violated: false, counterexample: null },
-        transitivity:     { violated: false, counterexample: null },
+        iia: {
+          violated: true,
+          counterexample: {
+            profile: [
+              ['A', 'C', 'B'],
+              ['A', 'C', 'B'],
+              ['A', 'C', 'B'],
+              ['B', 'A', 'C'],
+              ['B', 'A', 'C'],
+              ['C', 'B', 'A'],
+              ['C', 'B', 'A'],
+            ],
+            without_c: 'B',
+            with_c: 'A',
+            spoiler: 'C',
+            note: 'Test note.',
+          },
+        },
+        pareto: { violated: false, counterexample: null },
+        transitivity: { violated: false, counterexample: null },
         non_dictatorship: { violated: false, counterexample: null },
       },
       arrow_summary: 'Test summary.',
@@ -78,7 +96,9 @@ beforeEach(() => {
   vi.useFakeTimers();
 });
 
-afterEach(() => { vi.useRealTimers(); });
+afterEach(() => {
+  vi.useRealTimers();
+});
 
 // ── Tests ─────────────────────────────────────────────────────────────────────
 
@@ -107,19 +127,17 @@ describe('ArrowExplorer', () => {
   });
 
   it('calls both API endpoints on analyze click', async () => {
-    apiClient.POST
-      .mockResolvedValueOnce(makeArrowData())
-      .mockResolvedValueOnce(makeRateData());
+    apiClient.POST.mockResolvedValueOnce(makeArrowData()).mockResolvedValueOnce(makeRateData());
     renderExplorer();
     fireEvent.click(screen.getByTestId('analyze-btn'));
     await waitFor(() => expect(apiClient.POST).toHaveBeenCalledTimes(2));
     expect(apiClient.POST).toHaveBeenCalledWith(
       expect.stringMatching(/\/api\/(v2\/)?theory\/arrow/),
-      expect.any(Object),
+      expect.any(Object)
     );
     expect(apiClient.POST).toHaveBeenCalledWith(
       expect.stringMatching(/\/api\/(v2\/)?theory\/iia-rate/),
-      expect.any(Object),
+      expect.any(Object)
     );
     vi.runAllTimers();
   });
@@ -128,7 +146,9 @@ describe('ArrowExplorer', () => {
     apiClient.POST.mockResolvedValueOnce(makeArrowData()).mockResolvedValueOnce(makeRateData());
     renderExplorer();
     fireEvent.click(screen.getByTestId('analyze-btn'));
-    await waitFor(() => expect(screen.getByTestId('arrow-pentagon')).toBeInTheDocument(), { timeout: 8000 });
+    await waitFor(() => expect(screen.getByTestId('arrow-pentagon')).toBeInTheDocument(), {
+      timeout: 8000,
+    });
     vi.runAllTimers();
   });
 
@@ -136,7 +156,9 @@ describe('ArrowExplorer', () => {
     apiClient.POST.mockResolvedValueOnce(makeArrowData()).mockResolvedValueOnce(makeRateData());
     renderExplorer();
     fireEvent.click(screen.getByTestId('analyze-btn'));
-    await waitFor(() => expect(screen.getByTestId('counterexample-iia')).toBeInTheDocument(), { timeout: 8000 });
+    await waitFor(() => expect(screen.getByTestId('counterexample-iia')).toBeInTheDocument(), {
+      timeout: 8000,
+    });
     vi.runAllTimers();
   });
 
@@ -144,7 +166,9 @@ describe('ArrowExplorer', () => {
     apiClient.POST.mockResolvedValueOnce(makeArrowData()).mockResolvedValueOnce(makeRateData());
     renderExplorer();
     fireEvent.click(screen.getByTestId('analyze-btn'));
-    await waitFor(() => expect(screen.getByTestId('iia-rate-chart')).toBeInTheDocument(), { timeout: 8000 });
+    await waitFor(() => expect(screen.getByTestId('iia-rate-chart')).toBeInTheDocument(), {
+      timeout: 8000,
+    });
     vi.runAllTimers();
   });
 

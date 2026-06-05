@@ -1,18 +1,31 @@
-import { registerUser, loginUser, googleLogin, fetchProfileData, fetchUserProfile } from './authApi';
+import {
+  registerUser,
+  loginUser,
+  googleLogin,
+  fetchProfileData,
+  fetchUserProfile,
+} from './authApi';
 
 // JSON calls go through apiGet/apiPost; the form-encoded login + its /users/me
 // read use raw fetch — so we mock both transports.
 vi.mock('../api/client', () => ({ apiGet: vi.fn(), apiPost: vi.fn(), apiDelete: vi.fn() }));
 const { apiGet, apiPost } = (await import('../api/client')) as unknown as {
-  apiGet: jest.Mock; apiPost: jest.Mock;
+  apiGet: jest.Mock;
+  apiPost: jest.Mock;
 };
 
 const mockToken = 'test-jwt-token';
 
 const v2Profile = {
-  id: 1, username: 'alice', email: 'alice@vote-app.local',
-  role: 'User', first_name: 'Alice', last_name: 'Smith',
-  is_active: true, is_superuser: false, is_verified: true,
+  id: 1,
+  username: 'alice',
+  email: 'alice@vote-app.local',
+  role: 'User',
+  first_name: 'Alice',
+  last_name: 'Smith',
+  is_active: true,
+  is_superuser: false,
+  is_verified: true,
 };
 
 /** Build a minimal Response-like object for the global.fetch mock. */
@@ -35,24 +48,25 @@ afterEach(() => {
 describe('authApi', () => {
   describe('registerUser', () => {
     it('calls register then login, returning merged user data', async () => {
-      apiPost.mockResolvedValueOnce(v2Profile);                 // /auth/register
+      apiPost.mockResolvedValueOnce(v2Profile); // /auth/register
       fetchMock
         .mockResolvedValueOnce(fetchOk({ access_token: mockToken, token_type: 'bearer' })) // jwt/login
-        .mockResolvedValueOnce(fetchOk(v2Profile));                                          // /users/me
+        .mockResolvedValueOnce(fetchOk(v2Profile)); // /users/me
 
       const result = await registerUser('alice', 'Strong-1!', 'User', 'Alice', 'Smith');
       expect(result.access_token).toBe(mockToken);
       expect(result.username).toBe('alice');
       expect(result.user_id).toBe(1);
-      expect(apiPost).toHaveBeenCalledWith('/api/v2/auth/register', expect.objectContaining({ username: 'alice' }));
+      expect(apiPost).toHaveBeenCalledWith(
+        '/api/v2/auth/register',
+        expect.objectContaining({ username: 'alice' })
+      );
     });
 
     it('throws when register endpoint fails', async () => {
       vi.spyOn(console, 'error').mockImplementation(() => {});
       apiPost.mockRejectedValueOnce(new Error('400'));
-      await expect(
-        registerUser('alice', 'Strong-1!', 'User', 'A', 'S'),
-      ).rejects.toThrow();
+      await expect(registerUser('alice', 'Strong-1!', 'User', 'A', 'S')).rejects.toThrow();
     });
   });
 
@@ -78,17 +92,20 @@ describe('authApi', () => {
     it('throws on wrong password (400 from fastapi-users)', async () => {
       vi.spyOn(console, 'error').mockImplementation(() => {});
       fetchMock.mockResolvedValueOnce(fetchOk({}, false, 400));
-      await expect(
-        loginUser('alice@vote-app.local', 'wrong'),
-      ).rejects.toThrow();
+      await expect(loginUser('alice@vote-app.local', 'wrong')).rejects.toThrow();
     });
   });
 
   describe('googleLogin', () => {
     it('returns user data on successful Google login', async () => {
-      const backendResp = { access_token: 'jwt', user_id: 1,
-                            username: 'googler', role: 'User',
-                            first_name: 'Goo', last_name: 'Gler' };
+      const backendResp = {
+        access_token: 'jwt',
+        user_id: 1,
+        username: 'googler',
+        role: 'User',
+        first_name: 'Goo',
+        last_name: 'Gler',
+      };
       apiPost.mockResolvedValueOnce(backendResp);
       const result = await googleLogin('google-credential-token');
       expect(result.id).toBe(1);
@@ -96,7 +113,9 @@ describe('authApi', () => {
       expect(result.access_token).toBe('jwt');
       expect(result.username).toBe('googler');
       expect(result.first_name).toBe('Goo');
-      expect(apiPost).toHaveBeenCalledWith('/api/v2/auth/google', { token: 'google-credential-token' });
+      expect(apiPost).toHaveBeenCalledWith('/api/v2/auth/google', {
+        token: 'google-credential-token',
+      });
     });
 
     it('throws on Google login error', async () => {

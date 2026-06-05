@@ -26,8 +26,8 @@ const OfflineBanner: React.FC = () => {
       data-style="tailwind"
       className="mb-0 border-y border-amber-300 bg-amber-100 px-3 py-2 text-center text-[0.85rem] leading-snug text-amber-900"
     >
-      Mode hors-ligne — certaines simulations peuvent être indisponibles. Les pages Quiz,
-      Régimes internationaux et Galerie fonctionnent sans réseau.
+      Mode hors-ligne — certaines simulations peuvent être indisponibles. Les pages Quiz, Régimes
+      internationaux et Galerie fonctionnent sans réseau.
     </div>
   );
 };

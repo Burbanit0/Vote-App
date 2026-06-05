@@ -9,18 +9,15 @@ import { Table } from '@/components/ui/table';
 import { useElection } from '../../stores/useElectionStore';
 import type { CoalitionResponse } from '../../api';
 
-
 // ── Types ─────────────────────────────────────────────────────────────────────
 // Source of truth is the generated `CoalitionResponse` (Phase 6 response_model).
 
 type CoalitionData = CoalitionResponse;
-type MethodResult  = CoalitionResponse['methods'][number];
+type MethodResult = CoalitionResponse['methods'][number];
 
 // ── Palette ───────────────────────────────────────────────────────────────────
 
-const PALETTE = [
-  '#005CAB', '#C8590A', '#007A33', '#6c757d', '#9b59b6', '#e67e22',
-];
+const PALETTE = ['#005CAB', '#C8590A', '#007A33', '#6c757d', '#9b59b6', '#e67e22'];
 
 function candidateColor(name: string, names: string[]): string {
   return PALETTE[names.indexOf(name) % PALETTE.length] ?? '#888';
@@ -97,32 +94,35 @@ const Hémicycle: React.FC<HémicycleProps> = ({ seats, coalition, candidateName
             stroke="#fff"
             strokeWidth={1.5}
           >
-            <title>{name}: {seats[name]} seats{inCoalition ? ' (coalition)' : ''}</title>
+            <title>
+              {name}: {seats[name]} seats{inCoalition ? ' (coalition)' : ''}
+            </title>
           </path>
         );
       })}
 
       {/* Coalition boundary outline */}
-      {coalition.length > 0 && (() => {
-        const coalSeg = segments.filter((s) => coalition.includes(s.name));
-        if (!coalSeg.length) return null;
-        const a1 = coalSeg[0].startAngle;
-        const a2 = coalSeg[coalSeg.length - 1].endAngle;
-        const [ox1, oy1] = polar(rInner, a1);
-        const [ox2, oy2] = polar(rOuter, a1);
-        const [ox3, oy3] = polar(rOuter, a2);
-        const [ox4, oy4] = polar(rInner, a2);
-        const la = a2 - a1 > Math.PI ? 1 : 0;
-        return (
-          <path
-            d={`M${ox1} ${oy1} L${ox2} ${oy2} A${rOuter} ${rOuter} 0 ${la} 0 ${ox3} ${oy3} L${ox4} ${oy4} A${rInner} ${rInner} 0 ${la} 1 ${ox1} ${oy1} Z`}
-            fill="none"
-            stroke="#212529"
-            strokeWidth={2}
-            strokeDasharray="4 2"
-          />
-        );
-      })()}
+      {coalition.length > 0 &&
+        (() => {
+          const coalSeg = segments.filter((s) => coalition.includes(s.name));
+          if (!coalSeg.length) return null;
+          const a1 = coalSeg[0].startAngle;
+          const a2 = coalSeg[coalSeg.length - 1].endAngle;
+          const [ox1, oy1] = polar(rInner, a1);
+          const [ox2, oy2] = polar(rOuter, a1);
+          const [ox3, oy3] = polar(rOuter, a2);
+          const [ox4, oy4] = polar(rInner, a2);
+          const la = a2 - a1 > Math.PI ? 1 : 0;
+          return (
+            <path
+              d={`M${ox1} ${oy1} L${ox2} ${oy2} A${rOuter} ${rOuter} 0 ${la} 0 ${ox3} ${oy3} L${ox4} ${oy4} A${rInner} ${rInner} 0 ${la} 1 ${ox1} ${oy1} Z`}
+              fill="none"
+              stroke="#212529"
+              strokeWidth={2}
+              strokeDasharray="4 2"
+            />
+          );
+        })()}
 
       {/* Majority line */}
       <line
@@ -152,7 +152,11 @@ const SpreadBar: React.FC<{ value: number; max: number }> = ({ value, max }) => 
     <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
       <div
         style={{
-          flex: 1, height: 8, background: '#e9ecef', borderRadius: 4, overflow: 'hidden',
+          flex: 1,
+          height: 8,
+          background: '#e9ecef',
+          borderRadius: 4,
+          overflow: 'hidden',
         }}
       >
         <div
@@ -181,39 +185,48 @@ const CoalitionPanel: React.FC = () => {
   const error = sim.isError ? t('coalition.error') : null;
   const [selectedMethod, setSelectedMethod] = useState<string | null>(null);
 
-  const candidateNames = useMemo(
-    () => config.candidates.map((c) => c.name),
-    [config.candidates]
-  );
+  const candidateNames = useMemo(() => config.candidates.map((c) => c.name), [config.candidates]);
 
   function run() {
-    sim.mutate({ body: {
-      candidates:           config.candidates,
-      num_voters:           config.num_voters,
-      ideology:             config.ideology,
-      seed:                 config.seed,
-      total_seats:          100,
-      government_threshold: 0.5,
-    } }, {
-      onSuccess: (res) => setSelectedMethod(res.methods[0]?.method ?? null),
-    });
+    sim.mutate(
+      {
+        body: {
+          candidates: config.candidates,
+          num_voters: config.num_voters,
+          ideology: config.ideology,
+          seed: config.seed,
+          total_seats: 100,
+          government_threshold: 0.5,
+        },
+      },
+      {
+        onSuccess: (res) => setSelectedMethod(res.methods[0]?.method ?? null),
+      }
+    );
   }
 
   const selected = data?.methods.find((m) => m.method === selectedMethod) ?? data?.methods[0];
-  const maxSpread = data
-    ? Math.max(...data.methods.map((m) => m.coalition_spread), 0.01)
-    : 1;
+  const maxSpread = data ? Math.max(...data.methods.map((m) => m.coalition_spread), 0.01) : 1;
 
   if (!data) {
     return (
       <div className="text-center py-4">
-        <p className="text-muted mb-3">{t('coalition.prompt')}</p>
+        <p className="text-muted-foreground mb-3">{t('coalition.prompt')}</p>
         <Button variant="primary" onClick={run} disabled={loading}>
-          {loading
-            ? <><Spinner size="sm" className="me-2" />{t('coalition.computing')}</>
-            : `🏛 ${t('coalition.run')}`}
+          {loading ? (
+            <>
+              <Spinner size="sm" className="me-2" />
+              {t('coalition.computing')}
+            </>
+          ) : (
+            `🏛 ${t('coalition.run')}`
+          )}
         </Button>
-        {error && <Alert variant="danger" className="mt-3">{error}</Alert>}
+        {error && (
+          <Alert variant="danger" className="mt-3">
+            {error}
+          </Alert>
+        )}
       </div>
     );
   }
@@ -221,8 +234,8 @@ const CoalitionPanel: React.FC = () => {
   return (
     <div>
       {/* Header */}
-      <div className="d-flex align-items-center justify-content-between flex-wrap gap-2 mb-3">
-        <div className="d-flex gap-2 flex-wrap">
+      <div className="flex items-center justify-between flex-wrap gap-2 mb-3">
+        <div className="flex gap-2 flex-wrap">
           <Badge variant="primary">
             {t('coalition.totalSeats')}: {data.total_seats}
           </Badge>
@@ -251,7 +264,7 @@ const CoalitionPanel: React.FC = () => {
       <Alert variant="info" className="py-2 mb-3" style={{ fontSize: '0.84rem' }}>
         {data.most_centrist_method && data.most_divergent_method
           ? t('coalition.pedagogical', {
-              centrist:  data.most_centrist_method,
+              centrist: data.most_centrist_method,
               divergent: data.most_divergent_method,
             })
           : t('coalition.pedagogicalDefault')}
@@ -259,8 +272,11 @@ const CoalitionPanel: React.FC = () => {
 
       <div className="row g-3">
         {/* Left: method selector table */}
-        <div className="col-12 col-lg-5">
-          <Table className="[&_th]:p-1 [&_td]:p-1 [&_th]:text-left [&_td]:border-t [&_th]:border-b [&_td]:border-border [&_th]:border-border [&_*]:align-middle [&_th]:border [&_td]:border [&_tbody_tr:hover]:bg-muted/50" style={{ fontSize: '0.8rem' }}>
+        <div className="w-full lg:w-5/12">
+          <Table
+            className="[&_th]:p-1 [&_td]:p-1 [&_th]:text-left [&_td]:border-t [&_th]:border-b [&_td]:border-border [&_th]:border-border [&_*]:align-middle [&_th]:border [&_td]:border [&_tbody_tr:hover]:bg-muted/50"
+            style={{ fontSize: '0.8rem' }}
+          >
             <thead className="table-light">
               <tr>
                 <th>{t('common.method')}</th>
@@ -279,13 +295,18 @@ const CoalitionPanel: React.FC = () => {
                     background: selectedMethod === m.method ? 'var(--bs-primary-bg-subtle)' : '',
                   }}
                 >
-                  <td className="fw-semibold" style={{ fontSize: '0.75rem' }}>{m.method}</td>
+                  <td className="font-semibold" style={{ fontSize: '0.75rem' }}>
+                    {m.method}
+                  </td>
                   <td>
                     {m.coalition_parties.map((p) => (
                       <span
                         key={p}
                         className="badge me-1"
-                        style={{ background: candidateColor(p, candidateNames), fontSize: '0.7rem' }}
+                        style={{
+                          background: candidateColor(p, candidateNames),
+                          fontSize: '0.7rem',
+                        }}
                       >
                         {p}
                       </span>
@@ -295,9 +316,11 @@ const CoalitionPanel: React.FC = () => {
                     <SpreadBar value={m.coalition_spread} max={maxSpread} />
                   </td>
                   <td className="text-center">
-                    {m.government_possible
-                      ? <span style={{ color: '#007A33' }}>✓</span>
-                      : <span style={{ color: '#dc3545' }}>✗</span>}
+                    {m.government_possible ? (
+                      <span style={{ color: '#007A33' }}>✓</span>
+                    ) : (
+                      <span style={{ color: '#dc3545' }}>✗</span>
+                    )}
                   </td>
                 </tr>
               ))}
@@ -307,17 +330,19 @@ const CoalitionPanel: React.FC = () => {
 
         {/* Right: hémicycle for selected method */}
         {selected && (
-          <div className="col-12 col-lg-7">
+          <div className="w-full lg:w-7/12">
             <div
-              className="border rounded p-3"
+              className="border border-border rounded p-3"
               style={{ background: 'var(--bs-body-bg)' }}
             >
               <div className="text-center mb-2" style={{ fontSize: '0.85rem', fontWeight: 600 }}>
                 {selected.method}
                 {' — '}
-                {selected.government_possible
-                  ? <span className="text-success">{t('coalition.governmentPossible')}</span>
-                  : <span className="text-danger">{t('coalition.governmentImpossible')}</span>}
+                {selected.government_possible ? (
+                  <span className="text-[#198754]">{t('coalition.governmentPossible')}</span>
+                ) : (
+                  <span className="text-[#dc3545]">{t('coalition.governmentImpossible')}</span>
+                )}
               </div>
 
               <Hémicycle
@@ -328,12 +353,18 @@ const CoalitionPanel: React.FC = () => {
               />
 
               {/* Legend */}
-              <div className="d-flex flex-wrap gap-2 justify-content-center mt-2">
+              <div className="flex flex-wrap gap-2 justify-center mt-2">
                 {candidateNames.map((name) => (
-                  <div key={name} className="d-flex align-items-center gap-1" style={{ fontSize: '0.78rem' }}>
+                  <div
+                    key={name}
+                    className="flex items-center gap-1"
+                    style={{ fontSize: '0.78rem' }}
+                  >
                     <div
                       style={{
-                        width: 12, height: 12, borderRadius: 2,
+                        width: 12,
+                        height: 12,
+                        borderRadius: 2,
                         background: candidateColor(name, candidateNames),
                         opacity: selected.coalition_parties.includes(name) ? 1 : 0.3,
                       }}
@@ -348,20 +379,20 @@ const CoalitionPanel: React.FC = () => {
               {/* Seat breakdown */}
               <div className="mt-3" style={{ fontSize: '0.8rem' }}>
                 <strong>{t('coalition.seatBreakdown')}</strong>
-                <div className="d-flex flex-wrap gap-2 mt-1">
+                <div className="flex flex-wrap gap-2 mt-1">
                   {selected.coalition_parties.map((p) => (
                     <Badge key={p} style={{ background: candidateColor(p, candidateNames) }}>
                       {p}: {selected.seats[p] ?? 0} {t('coalition.seats')}
                     </Badge>
                   ))}
                 </div>
-                <div className="mt-1 text-muted">
-                  {t('coalition.total')}: {selected.coalition_seats} / {data.seat_threshold} {t('coalition.required')}
+                <div className="mt-1 text-muted-foreground">
+                  {t('coalition.total')}: {selected.coalition_seats} / {data.seat_threshold}{' '}
+                  {t('coalition.required')}
                 </div>
                 <div className="mt-1">
-                  {t('coalition.spread')}: <strong>{selected.coalition_spread.toFixed(3)}</strong>
-                  {' '}
-                  <span className="text-muted" style={{ fontSize: '0.75rem' }}>
+                  {t('coalition.spread')}: <strong>{selected.coalition_spread.toFixed(3)}</strong>{' '}
+                  <span className="text-muted-foreground" style={{ fontSize: '0.75rem' }}>
                     ({t('coalition.spreadHint')})
                   </span>
                 </div>

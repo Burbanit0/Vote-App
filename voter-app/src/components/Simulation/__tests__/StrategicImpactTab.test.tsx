@@ -17,9 +17,9 @@ vi.mock('../simulationConstants', () => ({
   METHOD_LINE_COLORS: { plurality: '#e15759', irv: '#59a14f' },
 }));
 
-vi.mock('../../shared/EmptyChart', () => ({ default: ({ height }: { height?: number }) => (
-  <div data-testid="empty-chart" />
-) }));
+vi.mock('../../shared/EmptyChart', () => ({
+  default: ({ height }: { height?: number }) => <div data-testid="empty-chart" />,
+}));
 
 // Recharts ResponsiveContainer needs a width mock in JSDOM
 vi.mock('recharts', () => ({
@@ -45,16 +45,12 @@ const mockData = [
 
 describe('StrategicImpactTab', () => {
   it('renders card title', () => {
-    render(
-      <StrategicImpactTab strategicData={mockData} allMethodNames={['plurality', 'irv']} />
-    );
+    render(<StrategicImpactTab strategicData={mockData} allMethodNames={['plurality', 'irv']} />);
     expect(screen.getByText(/Impact of strategic voting on Bayesian regret/)).toBeInTheDocument();
   });
 
   it('renders description text', () => {
-    render(
-      <StrategicImpactTab strategicData={mockData} allMethodNames={['plurality']} />
-    );
+    render(<StrategicImpactTab strategicData={mockData} allMethodNames={['plurality']} />);
     expect(screen.getByText(/vulnerable to tactical voting/)).toBeInTheDocument();
   });
 
@@ -64,9 +60,7 @@ describe('StrategicImpactTab', () => {
   });
 
   it('renders chart when data is present', () => {
-    render(
-      <StrategicImpactTab strategicData={mockData} allMethodNames={['plurality', 'irv']} />
-    );
+    render(<StrategicImpactTab strategicData={mockData} allMethodNames={['plurality', 'irv']} />);
     expect(screen.getByTestId('line-chart')).toBeInTheDocument();
   });
 });

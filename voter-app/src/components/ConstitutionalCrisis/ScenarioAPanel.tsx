@@ -18,11 +18,21 @@ interface Props {
   onRun: (round2Candidates: CandidateConfig[]) => void;
 }
 
-function WinnerBadge({ winner, colorMap }: { winner: string | null; colorMap: Record<string, string> }) {
+function WinnerBadge({
+  winner,
+  colorMap,
+}: {
+  winner: string | null;
+  colorMap: Record<string, string>;
+}) {
   const { t } = useTranslation();
-  if (!winner) return <span className="text-muted">—</span>;
+  if (!winner) return <span className="text-muted-foreground">—</span>;
   if (winner === 'Blank') return <Badge variant="warning">{t('common.blankBadge')}</Badge>;
-  return <Badge style={{ backgroundColor: colorMap[winner] ?? '#999', fontSize: '0.75rem' }}>{winner}</Badge>;
+  return (
+    <Badge style={{ backgroundColor: colorMap[winner] ?? '#999', fontSize: '0.75rem' }}>
+      {winner}
+    </Badge>
+  );
 }
 
 const ScenarioAPanel: React.FC<Props> = ({ initialCandidates, result, loading, onRun }) => {
@@ -33,7 +43,10 @@ const ScenarioAPanel: React.FC<Props> = ({ initialCandidates, result, loading, o
   );
 
   const colorMap: Record<string, string> = Object.fromEntries(
-    [...realInitial, ...round2Candidates.filter((c) => !c.isBlank)].map((c, i) => [c.name, COLORS[i % COLORS.length]])
+    [...realInitial, ...round2Candidates.filter((c) => !c.isBlank)].map((c, i) => [
+      c.name,
+      COLORS[i % COLORS.length],
+    ])
   );
 
   // Candidates from round 1 who must change position (> 0.08 move required)
@@ -51,26 +64,34 @@ const ScenarioAPanel: React.FC<Props> = ({ initialCandidates, result, loading, o
     .filter((c) => !c.isBlank && disqualified.has(c.name) && !moved.has(c.name))
     .map((c) => c.name);
 
-  const canRun = round2Candidates.filter((c) => !c.isBlank).length >= 2 && stillBlocked.length === 0;
+  const canRun =
+    round2Candidates.filter((c) => !c.isBlank).length >= 2 && stillBlocked.length === 0;
 
   const methods = result ? Object.keys(result.round1?.methods ?? {}) : [];
 
   return (
     <div>
-      <p className="text-muted small mb-3"><Trans i18nKey="crisis.scenarioADesc" /></p>
+      <p className="text-muted-foreground text-sm mb-3">
+        <Trans i18nKey="crisis.scenarioADesc" />
+      </p>
 
       {/* Round 2 candidate editor */}
       <Card className="mb-3">
-        <CardHeader className="block space-y-0 border-b border-border px-4 py-2 fw-semibold">
+        <CardHeader className="block space-y-0 border-b border-border px-4 py-2 font-semibold">
           {t('crisis.scenarioAEditors')}
           {stillBlocked.length > 0 && (
-            <Badge variant="danger" className="ms-2">{t('crisis.scenarioABlocked', { count: stillBlocked.length })}</Badge>
+            <Badge variant="danger" className="ms-2">
+              {t('crisis.scenarioABlocked', { count: stillBlocked.length })}
+            </Badge>
           )}
         </CardHeader>
         <CardBody>
           {stillBlocked.length > 0 && (
             <Alert variant="warning" className="py-2 mb-3" style={{ fontSize: '0.85rem' }}>
-              {t('crisis.scenarioAAlert', { names: stillBlocked.join(', '), must: stillBlocked.length > 1 ? 'ils doivent' : 'il doit' })}
+              {t('crisis.scenarioAAlert', {
+                names: stillBlocked.join(', '),
+                must: stillBlocked.length > 1 ? 'ils doivent' : 'il doit',
+              })}
             </Alert>
           )}
           <CandidateEditor candidates={round2Candidates} onChange={setRound2Candidates} />
@@ -78,11 +99,22 @@ const ScenarioAPanel: React.FC<Props> = ({ initialCandidates, result, loading, o
       </Card>
 
       <div className="mb-4">
-        <Button variant="success" onClick={() => onRun(round2Candidates)} disabled={loading || !canRun}>
-          {loading ? <><Spinner size="sm" className="me-2" />{t('crisis.simulating')}</> : t('crisis.runRound2')}
+        <Button
+          variant="success"
+          onClick={() => onRun(round2Candidates)}
+          disabled={loading || !canRun}
+        >
+          {loading ? (
+            <>
+              <Spinner size="sm" className="me-2" />
+              {t('crisis.simulating')}
+            </>
+          ) : (
+            t('crisis.runRound2')
+          )}
         </Button>
         {!canRun && stillBlocked.length > 0 && (
-          <small className="text-danger ms-3">{t('crisis.scenarioAHint')}</small>
+          <small className="text-[#dc3545] ms-3">{t('crisis.scenarioAHint')}</small>
         )}
       </div>
 
@@ -100,16 +132,30 @@ const ScenarioAPanel: React.FC<Props> = ({ initialCandidates, result, loading, o
             </thead>
             <tbody>
               {methods.map((m) => {
-                const w1 = (result.round1!.methods[m] as ScenarioMethodResult)?.blank_rule_applied?.winner ?? result.round1!.methods[m]?.winner ?? null;
-                const w2 = (result.round2!.methods[m] as ScenarioMethodResult)?.blank_rule_applied?.winner ?? result.round2!.methods[m]?.winner ?? null;
+                const w1 =
+                  (result.round1!.methods[m] as ScenarioMethodResult)?.blank_rule_applied?.winner ??
+                  result.round1!.methods[m]?.winner ??
+                  null;
+                const w2 =
+                  (result.round2!.methods[m] as ScenarioMethodResult)?.blank_rule_applied?.winner ??
+                  result.round2!.methods[m]?.winner ??
+                  null;
                 const changed = w1 !== w2;
                 return (
                   <tr key={m} style={changed ? { backgroundColor: '#e8f4e8' } : undefined}>
-                    <td className="ps-2 fw-semibold">{t(`methods.${m}.label`)}</td>
-                    <td className="text-center"><WinnerBadge winner={w1} colorMap={colorMap} /></td>
-                    <td className="text-center"><WinnerBadge winner={w2} colorMap={colorMap} /></td>
+                    <td className="ps-2 font-semibold">{t(`methods.${m}.label`)}</td>
                     <td className="text-center">
-                      {changed ? <span style={{ color: '#198754' }}>{t('crisis.newWinner')}</span> : <span className="text-muted">{t('crisis.same')}</span>}
+                      <WinnerBadge winner={w1} colorMap={colorMap} />
+                    </td>
+                    <td className="text-center">
+                      <WinnerBadge winner={w2} colorMap={colorMap} />
+                    </td>
+                    <td className="text-center">
+                      {changed ? (
+                        <span style={{ color: '#198754' }}>{t('crisis.newWinner')}</span>
+                      ) : (
+                        <span className="text-muted-foreground">{t('crisis.same')}</span>
+                      )}
                     </td>
                   </tr>
                 );
@@ -119,8 +165,10 @@ const ScenarioAPanel: React.FC<Props> = ({ initialCandidates, result, loading, o
 
           <Card className="border-0" style={{ backgroundColor: '#f8f9fa' }}>
             <CardBody>
-              <small className="fw-semibold">{t('crisis.analysis')}</small>
-              <p className="mb-0 mt-1 text-muted" style={{ fontSize: '0.85rem' }}>{result.conclusion}</p>
+              <small className="font-semibold">{t('crisis.analysis')}</small>
+              <p className="mb-0 mt-1 text-muted-foreground" style={{ fontSize: '0.85rem' }}>
+                {result.conclusion}
+              </p>
             </CardBody>
           </Card>
         </>

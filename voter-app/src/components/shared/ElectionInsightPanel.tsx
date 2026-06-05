@@ -11,19 +11,17 @@ import MethodGroupDonut from './MethodGroupDonut';
 
 // ── Colour helpers ────────────────────────────────────────────────────────────
 
-const CANDIDATE_COLORS = [
-  '#005CAB', '#C8590A', '#007A33', '#7B2D8B', '#9C3A00', '#005f73',
-];
+const CANDIDATE_COLORS = ['#005CAB', '#C8590A', '#007A33', '#7B2D8B', '#9C3A00', '#005f73'];
 
 function agreementVariant(agreement: number): 'success' | 'warning' | 'danger' {
-  if (agreement > 0.80) return 'success';
-  if (agreement >= 0.50) return 'warning';
+  if (agreement > 0.8) return 'success';
+  if (agreement >= 0.5) return 'warning';
   return 'danger';
 }
 
 function agreementLabel(agreement: number, t: (k: string) => string): string {
-  if (agreement > 0.80) return t('insight.consensusLabel');
-  if (agreement >= 0.50) return t('insight.moderateLabel');
+  if (agreement > 0.8) return t('insight.consensusLabel');
+  if (agreement >= 0.5) return t('insight.moderateLabel');
   return t('insight.strongLabel');
 }
 
@@ -34,16 +32,19 @@ interface Props {
 }
 
 const ElectionInsightPanel: React.FC<Props> = ({ result }) => {
-  const { t }    = useTranslation();
-  const lang     = (i18n.language?.startsWith('en') ? 'en' : 'fr') as 'fr' | 'en';
+  const { t } = useTranslation();
+  const lang = (i18n.language?.startsWith('en') ? 'en' : 'fr') as 'fr' | 'en';
 
-  const [insight,  setInsight]  = useState<InterpretResult | null>(null);
-  const [loading,  setLoading]  = useState(false);
-  const [error,    setError]    = useState<string | null>(null);
+  const [insight, setInsight] = useState<InterpretResult | null>(null);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
   const runIdRef = useRef(0);
 
   useEffect(() => {
-    if (!result) { setInsight(null); return; }
+    if (!result) {
+      setInsight(null);
+      return;
+    }
 
     const myRun = ++runIdRef.current;
     setLoading(true);
@@ -51,27 +52,42 @@ const ElectionInsightPanel: React.FC<Props> = ({ result }) => {
 
     interpretElection(result, lang)
       .then((ins) => {
-        if (runIdRef.current === myRun) { setInsight(ins); setLoading(false); }
+        if (runIdRef.current === myRun) {
+          setInsight(ins);
+          setLoading(false);
+        }
       })
       .catch(() => {
-        if (runIdRef.current === myRun) { setError(t('insight.error')); setLoading(false); }
+        if (runIdRef.current === myRun) {
+          setError(t('insight.error'));
+          setLoading(false);
+        }
       });
   }, [result, lang, t]);
 
   if (!result) return null;
-  if (loading && !insight) return (
-    <div className="flex items-center gap-2 py-2 text-[0.8rem] text-muted-foreground">
-      <Spinner size="sm" />
-      {t('insight.loading')}
-    </div>
-  );
-  if (error) return <Alert variant="warning" className="mt-2 py-2">{error}</Alert>;
+  if (loading && !insight)
+    return (
+      <div className="flex items-center gap-2 py-2 text-[0.8rem] text-muted-foreground">
+        <Spinner size="sm" />
+        {t('insight.loading')}
+      </div>
+    );
+  if (error)
+    return (
+      <Alert variant="warning" className="mt-2 py-2">
+        {error}
+      </Alert>
+    );
   if (!insight) return null;
 
-  const variant    = agreementVariant(result.inter_method_agreement);
-  const variantBg  = variant === 'success' ? 'rgba(0,122,51,0.08)'
-                   : variant === 'warning' ? 'rgba(200,89,10,0.08)'
-                   : 'rgba(183,28,28,0.08)';
+  const variant = agreementVariant(result.inter_method_agreement);
+  const variantBg =
+    variant === 'success'
+      ? 'rgba(0,122,51,0.08)'
+      : variant === 'warning'
+        ? 'rgba(200,89,10,0.08)'
+        : 'rgba(183,28,28,0.08)';
 
   return (
     <Card className="mt-4" style={{ border: `1.5px solid var(--bs-${variant})` }}>
@@ -79,9 +95,7 @@ const ElectionInsightPanel: React.FC<Props> = ({ result }) => {
         className="flex flex-row items-center justify-between p-6 py-2"
         style={{ background: variantBg }}
       >
-        <strong className="text-[0.88rem]">
-          🔍 {t('insight.title')}
-        </strong>
+        <strong className="text-[0.88rem]">🔍 {t('insight.title')}</strong>
         <div className="flex items-center gap-2">
           <Badge variant={variant} className="text-[0.72rem]">
             {agreementLabel(result.inter_method_agreement, t)}
@@ -92,9 +106,7 @@ const ElectionInsightPanel: React.FC<Props> = ({ result }) => {
 
       <CardContent className="p-4">
         {/* A) Headline + method groups ───────────────────────────────── */}
-        <p className="mb-4 text-[0.9rem] font-semibold">
-          {insight.headline}
-        </p>
+        <p className="mb-4 text-[0.9rem] font-semibold">{insight.headline}</p>
 
         {/* Method groups — donut chart + optional divergence text */}
         <div className="mb-4 flex flex-wrap items-start gap-4">
@@ -111,9 +123,7 @@ const ElectionInsightPanel: React.FC<Props> = ({ result }) => {
 
         {/* B) Condorcet analysis ─────────────────────────────────────── */}
         <div className="mb-4 flex items-start gap-2 rounded bg-muted p-2 text-[0.82rem]">
-          <span className="text-base leading-snug">
-            {result.condorcet_exists ? '✓' : '✗'}
-          </span>
+          <span className="text-base leading-snug">{result.condorcet_exists ? '✓' : '✗'}</span>
           <span>{insight.condorcet_analysis}</span>
         </div>
 
@@ -149,7 +159,9 @@ const ElectionInsightPanel: React.FC<Props> = ({ result }) => {
         {insight.key_facts.length > 0 && (
           <ul className="mb-0 list-disc pl-5 text-[0.78rem]">
             {insight.key_facts.map((fact, i) => (
-              <li key={i} className="text-muted-foreground">{fact}</li>
+              <li key={i} className="text-muted-foreground">
+                {fact}
+              </li>
             ))}
           </ul>
         )}

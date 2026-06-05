@@ -11,10 +11,7 @@ describe('mostCommonWinner', () => {
   });
 
   it('returns null when no results have winners', () => {
-    const results = [
-      { methods: { plurality: {} } },
-      { methods: { plurality: {} } },
-    ] as any;
+    const results = [{ methods: { plurality: {} } }, { methods: { plurality: {} } }] as any;
     expect(mostCommonWinner(results, 'plurality')).toBeNull();
   });
 
@@ -23,9 +20,7 @@ describe('mostCommonWinner', () => {
   });
 
   it('handles single result', () => {
-    const results = [
-      { methods: { borda: { winner: 'Charlie' } } },
-    ] as any;
+    const results = [{ methods: { borda: { winner: 'Charlie' } } }] as any;
     expect(mostCommonWinner(results, 'borda')).toBe('Charlie');
   });
 });

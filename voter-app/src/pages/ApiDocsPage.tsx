@@ -22,7 +22,11 @@ const CopyButton: React.FC<{ text: string }> = ({ text }) => {
       size="sm"
       className="float-right h-auto px-2 py-0.5 text-[0.72rem]"
       onClick={async () => {
-        try { await navigator.clipboard.writeText(text); } catch { /* ignore */ }
+        try {
+          await navigator.clipboard.writeText(text);
+        } catch {
+          /* ignore */
+        }
         setCopied(true);
         setTimeout(() => setCopied(false), 2000);
       }}
@@ -35,7 +39,14 @@ const CopyButton: React.FC<{ text: string }> = ({ text }) => {
 
 // ── Endpoint card ─────────────────────────────────────────────────────────────
 
-interface Param { name: string; type: string; range?: string; desc: string; required?: boolean; default?: string }
+interface Param {
+  name: string;
+  type: string;
+  range?: string;
+  desc: string;
+  required?: boolean;
+  default?: string;
+}
 
 interface EndpointProps {
   method: 'GET' | 'POST';
@@ -49,7 +60,14 @@ interface EndpointProps {
 }
 
 const EndpointCard: React.FC<EndpointProps> = ({
-  method, path, summary, description, rateLimit, params, curlExample, responseExample,
+  method,
+  path,
+  summary,
+  description,
+  rateLimit,
+  params,
+  curlExample,
+  responseExample,
 }) => (
   <Card className="mb-6 shadow-sm">
     <CardHeader className="flex flex-row flex-wrap items-center gap-2 p-6 py-3">
@@ -76,14 +94,23 @@ const EndpointCard: React.FC<EndpointProps> = ({
           <table className="w-full border-collapse text-[0.82rem]">
             <thead className="bg-muted">
               <tr className="border-b border-border [&>th]:p-1.5 [&>th]:text-left">
-                <th>Nom</th><th>Type</th><th>Plage / Options</th><th>Défaut</th><th>Description</th>
+                <th>Nom</th>
+                <th>Type</th>
+                <th>Plage / Options</th>
+                <th>Défaut</th>
+                <th>Description</th>
               </tr>
             </thead>
             <tbody>
               {params.map((p) => (
                 <tr key={p.name} className="border-b border-border [&>td]:p-1.5">
-                  <td><code>{p.name}</code>{p.required && <span className="ml-1 text-[#dc3545]">*</span>}</td>
-                  <td><code>{p.type}</code></td>
+                  <td>
+                    <code>{p.name}</code>
+                    {p.required && <span className="ml-1 text-[#dc3545]">*</span>}
+                  </td>
+                  <td>
+                    <code>{p.type}</code>
+                  </td>
                   <td className="text-muted-foreground">{p.range ?? '—'}</td>
                   <td className="text-muted-foreground">{p.default ?? '—'}</td>
                   <td>{p.desc}</td>
@@ -127,9 +154,16 @@ const ENDPOINTS: EndpointProps[] = [
     method: 'GET',
     path: '/api/v1/methods',
     summary: 'Lister les méthodes de vote',
-    description: 'Retourne le catalogue complet des 16+ méthodes de vote supportées par le moteur Vote Lab, avec leur famille et référence académique.',
+    description:
+      'Retourne le catalogue complet des 16+ méthodes de vote supportées par le moteur Vote Lab, avec leur famille et référence académique.',
     params: [
-      { name: 'family', type: 'string', range: 'ranked | score | intensity', desc: 'Filtrer par famille de méthode', default: '(toutes)' },
+      {
+        name: 'family',
+        type: 'string',
+        range: 'ranked | score | intensity',
+        desc: 'Filtrer par famille de méthode',
+        default: '(toutes)',
+      },
     ],
     curlExample: `curl "${API_BASE}/api/v1/methods"`,
     responseExample: `{
@@ -146,13 +180,38 @@ const ENDPOINTS: EndpointProps[] = [
     method: 'POST',
     path: '/api/v1/simulate',
     summary: 'Lancer une simulation',
-    description: 'Exécute une simulation multi-méthodes sur une population synthétique générée par le modèle spatial de Vote Lab. Les utilités sont calculées sur 20 enjeux politiques.',
+    description:
+      'Exécute une simulation multi-méthodes sur une population synthétique générée par le modèle spatial de Vote Lab. Les utilités sont calculées sur 20 enjeux politiques.',
     rateLimit: '10 req/min par IP',
     params: [
-      { name: 'num_candidates',        type: 'int',    range: '2–8',    desc: 'Nombre de candidats',            default: '4' },
-      { name: 'num_voters',            type: 'int',    range: '50–2000', desc: 'Nombre d\'électeurs',           default: '500' },
-      { name: 'methods',               type: 'array|string', range: '"all" ou liste de clés', desc: 'Méthodes à simuler', default: '"all"' },
-      { name: 'ideology_distribution', type: 'string', range: 'random|centrist|polarized|left_skewed|right_skewed', desc: 'Distribution idéologique', default: '"random"' },
+      {
+        name: 'num_candidates',
+        type: 'int',
+        range: '2–8',
+        desc: 'Nombre de candidats',
+        default: '4',
+      },
+      {
+        name: 'num_voters',
+        type: 'int',
+        range: '50–2000',
+        desc: "Nombre d'électeurs",
+        default: '500',
+      },
+      {
+        name: 'methods',
+        type: 'array|string',
+        range: '"all" ou liste de clés',
+        desc: 'Méthodes à simuler',
+        default: '"all"',
+      },
+      {
+        name: 'ideology_distribution',
+        type: 'string',
+        range: 'random|centrist|polarized|left_skewed|right_skewed',
+        desc: 'Distribution idéologique',
+        default: '"random"',
+      },
     ],
     curlExample: `curl -X POST "${API_BASE}/api/v1/simulate" \\
   -H "Content-Type: application/json" \\
@@ -181,14 +240,45 @@ const ENDPOINTS: EndpointProps[] = [
     method: 'POST',
     path: '/api/v1/compare',
     summary: 'Comparaison avec vote blanc',
-    description: 'Comme /simulate mais avec une règle constitutionnelle de vote blanc optionnelle. Retourne l\'impact de la règle sur chaque méthode.',
+    description:
+      "Comme /simulate mais avec une règle constitutionnelle de vote blanc optionnelle. Retourne l'impact de la règle sur chaque méthode.",
     rateLimit: '5 req/min par IP',
     params: [
-      { name: 'num_candidates',        type: 'int',    range: '2–8',    desc: 'Nombre de candidats',  default: '4' },
-      { name: 'num_voters',            type: 'int',    range: '50–2000', desc: 'Nombre d\'électeurs', default: '500' },
-      { name: 'blank_rule',            type: 'string', range: 'symbolic|competitive|threshold_30|majority_required', desc: 'Règle du vote blanc (optionnelle)', default: '(désactivé)' },
-      { name: 'methods',               type: 'array|string', range: '"all" ou liste', desc: 'Méthodes', default: '"all"' },
-      { name: 'ideology_distribution', type: 'string', range: 'random|centrist|polarized|…', desc: 'Distribution idéologique', default: '"random"' },
+      {
+        name: 'num_candidates',
+        type: 'int',
+        range: '2–8',
+        desc: 'Nombre de candidats',
+        default: '4',
+      },
+      {
+        name: 'num_voters',
+        type: 'int',
+        range: '50–2000',
+        desc: "Nombre d'électeurs",
+        default: '500',
+      },
+      {
+        name: 'blank_rule',
+        type: 'string',
+        range: 'symbolic|competitive|threshold_30|majority_required',
+        desc: 'Règle du vote blanc (optionnelle)',
+        default: '(désactivé)',
+      },
+      {
+        name: 'methods',
+        type: 'array|string',
+        range: '"all" ou liste',
+        desc: 'Méthodes',
+        default: '"all"',
+      },
+      {
+        name: 'ideology_distribution',
+        type: 'string',
+        range: 'random|centrist|polarized|…',
+        desc: 'Distribution idéologique',
+        default: '"random"',
+      },
     ],
     curlExample: `curl -X POST "${API_BASE}/api/v1/compare" \\
   -H "Content-Type: application/json" \\
@@ -215,7 +305,8 @@ const ENDPOINTS: EndpointProps[] = [
     method: 'GET',
     path: '/api/v1/real-elections',
     summary: 'Élections historiques',
-    description: 'Retourne les métadonnées des élections réelles incluses dans Vote Lab : France 2002/2022, USA 1992, UK 2015, etc., avec le taux de vote blanc estimé.',
+    description:
+      'Retourne les métadonnées des élections réelles incluses dans Vote Lab : France 2002/2022, USA 1992, UK 2015, etc., avec le taux de vote blanc estimé.',
     curlExample: `curl "${API_BASE}/api/v1/real-elections"`,
     responseExample: `{
   "count": 5,
@@ -280,7 +371,8 @@ table(winners)`,
 const ApiDocsPage: React.FC = () => {
   useMetaTags({
     title: 'API Documentation — Vote Lab',
-    description: 'Public REST API for integrating Vote Lab\'s voting simulation engine into research projects.',
+    description:
+      "Public REST API for integrating Vote Lab's voting simulation engine into research projects.",
   });
 
   return (
@@ -296,11 +388,7 @@ const ApiDocsPage: React.FC = () => {
         </div>
         <div className="flex gap-2">
           <Button asChild variant="outline-secondary" size="sm">
-            <a
-              href={`${API_BASE}/api/v1/openapi.json`}
-              target="_blank"
-              rel="noopener noreferrer"
-            >
+            <a href={`${API_BASE}/api/v1/openapi.json`} target="_blank" rel="noopener noreferrer">
               📄 openapi.json
             </a>
           </Button>
@@ -309,8 +397,7 @@ const ApiDocsPage: React.FC = () => {
 
       {/* Base URL */}
       <Alert variant="secondary" className="mb-6 py-2">
-        <strong>Base URL :</strong>{' '}
-        <code>{API_BASE}/api/v1</code>
+        <strong>Base URL :</strong> <code>{API_BASE}/api/v1</code>
         {' · '}
         <span className="text-muted-foreground">Toutes les réponses sont en JSON · UTF-8</span>
       </Alert>
@@ -319,8 +406,12 @@ const ApiDocsPage: React.FC = () => {
       <Card className="mb-6 border-[#ffc107]">
         <CardContent className="p-6 py-2">
           <div className="flex flex-wrap gap-4 text-[0.85rem]">
-            <span>⏱ <strong>POST /simulate</strong> : 10 requêtes/min par IP</span>
-            <span>⏱ <strong>POST /compare</strong> : 5 requêtes/min par IP</span>
+            <span>
+              ⏱ <strong>POST /simulate</strong> : 10 requêtes/min par IP
+            </span>
+            <span>
+              ⏱ <strong>POST /compare</strong> : 5 requêtes/min par IP
+            </span>
             <span>✓ GET endpoints : illimités</span>
           </div>
         </CardContent>
@@ -365,12 +456,30 @@ const ApiDocsPage: React.FC = () => {
         <TabsContent value="usecases">
           <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
             {[
-              { title: 'Comparaison systématique', desc: 'Simulez la même élection sous 16 méthodes et comparez les vainqueurs pour illustrer le théorème d\'impossibilité d\'Arrow dans vos cours ou publications.' },
-              { title: 'Analyse Monte Carlo', desc: 'Répétez 1 000 simulations avec différentes distributions idéologiques et calculez la robustesse de chaque méthode à la variance de l\'électorat.' },
-              { title: 'Étude du vote blanc', desc: 'Utilisez /compare avec blank_rule=threshold_30 pour modéliser l\'impact de la règle colombienne (> 50% → nouvelle élection) sur différentes configurations.' },
-              { title: 'Dataset pour ML', desc: 'Générez des milliers de simulations avec graine fixe pour entraîner des modèles prédictifs sur les comportements des méthodes de vote.' },
-              { title: 'Enseignement interactif', desc: 'Intégrez Vote Lab dans un notebook Jupyter ou une app Shiny pour montrer en temps réel comment le résultat change selon la méthode choisie.' },
-              { title: 'Réplication de résultats', desc: 'Utilisez ideology_distribution=polarized pour reproduire des scénarios proches des élections de 2002 en France ou 1992 aux USA.' },
+              {
+                title: 'Comparaison systématique',
+                desc: "Simulez la même élection sous 16 méthodes et comparez les vainqueurs pour illustrer le théorème d'impossibilité d'Arrow dans vos cours ou publications.",
+              },
+              {
+                title: 'Analyse Monte Carlo',
+                desc: "Répétez 1 000 simulations avec différentes distributions idéologiques et calculez la robustesse de chaque méthode à la variance de l'électorat.",
+              },
+              {
+                title: 'Étude du vote blanc',
+                desc: "Utilisez /compare avec blank_rule=threshold_30 pour modéliser l'impact de la règle colombienne (> 50% → nouvelle élection) sur différentes configurations.",
+              },
+              {
+                title: 'Dataset pour ML',
+                desc: 'Générez des milliers de simulations avec graine fixe pour entraîner des modèles prédictifs sur les comportements des méthodes de vote.',
+              },
+              {
+                title: 'Enseignement interactif',
+                desc: 'Intégrez Vote Lab dans un notebook Jupyter ou une app Shiny pour montrer en temps réel comment le résultat change selon la méthode choisie.',
+              },
+              {
+                title: 'Réplication de résultats',
+                desc: 'Utilisez ideology_distribution=polarized pour reproduire des scénarios proches des élections de 2002 en France ou 1992 aux USA.',
+              },
             ].map(({ title, desc }) => (
               <Card className="h-full" key={title}>
                 <CardContent className="p-6">

@@ -3,9 +3,11 @@ import { render, screen } from '@testing-library/react';
 import ProfilePage from '../ProfilePage';
 
 vi.mock('../../components/User/Profile', () => {
-  return { default: function MockProfile() {
-    return <div data-testid="profile-component">Profile</div>;
-  } };
+  return {
+    default: function MockProfile() {
+      return <div data-testid="profile-component">Profile</div>;
+    },
+  };
 });
 
 describe('ProfilePage', () => {

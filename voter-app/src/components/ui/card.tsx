@@ -62,9 +62,7 @@ CardFooter.displayName = 'CardFooter';
 // for react-bootstrap's <Card.Body> (whereas shadcn's CardContent uses p-6 pt-0,
 // which assumes a CardHeader above it).
 const CardBody = React.forwardRef<HTMLDivElement, React.HTMLAttributes<HTMLDivElement>>(
-  ({ className, ...props }, ref) => (
-    <div ref={ref} className={cn('p-4', className)} {...props} />
-  )
+  ({ className, ...props }, ref) => <div ref={ref} className={cn('p-4', className)} {...props} />
 );
 CardBody.displayName = 'CardBody';
 

@@ -25,11 +25,7 @@ import {
 import type { VotingMethodVisualizationProps } from './votingMethods/types';
 import { VIZ_COLORS } from './votingMethods/types';
 import MethodBarChart from './votingMethods/MethodBarChart';
-import {
-  PluralityVisualization,
-  BordaVisualization,
-  IRVVisualization,
-} from './votingMethods';
+import { PluralityVisualization, BordaVisualization, IRVVisualization } from './votingMethods';
 
 const VotingMethodVisualizations: React.FC<VotingMethodVisualizationProps> = ({
   method,
@@ -86,7 +82,6 @@ const VotingMethodVisualizations: React.FC<VotingMethodVisualizationProps> = ({
     </Card>
   );
 };
-
 
 // 4. Approval Voting Visualization
 const ApprovalVisualization: React.FC<VotingMethodVisualizationProps> = ({
@@ -226,7 +221,9 @@ const CondorcetVisualization: React.FC<VotingMethodVisualizationProps> = ({
       </p>
 
       <Card className="mt-3">
-        <CardHeader className="block space-y-0 border-b border-border px-4 py-2">Pairwise Comparison Matrix</CardHeader>
+        <CardHeader className="block space-y-0 border-b border-border px-4 py-2">
+          Pairwise Comparison Matrix
+        </CardHeader>
         <CardBody>
           <Table className="[&_th]:p-2 [&_td]:p-2 [&_th]:text-left [&_td]:border-t [&_th]:border-b [&_td]:border-border [&_th]:border-border [&_*]:align-middle [&_th]:border [&_td]:border [&_tbody_tr:hover]:bg-muted/50">
             <thead>
@@ -348,7 +345,7 @@ const TwoRoundVisualization: React.FC<VotingMethodVisualizationProps> = ({
         <>
           <p className="mt-3">
             <strong>Top Two Candidates Proceed to Second Round:</strong>
-            <div className="d-flex flex-wrap gap-2 mt-1">
+            <div className="flex flex-wrap gap-2 mt-1">
               {secondRoundCandidates.map((candidate) => (
                 <Badge key={candidate} variant="primary" className="p-2">
                   {candidate}
@@ -486,7 +483,9 @@ const CoombsVisualization: React.FC<VotingMethodVisualizationProps> = ({
       {!winner ? (
         <>
           <Card className="mt-3">
-            <CardHeader className="block space-y-0 border-b border-border px-4 py-2">Round {round} - Last Place Votes</CardHeader>
+            <CardHeader className="block space-y-0 border-b border-border px-4 py-2">
+              Round {round} - Last Place Votes
+            </CardHeader>
             <CardBody>
               <MethodBarChart
                 labels={candidates.filter((c) => !eliminated.includes(c))}
@@ -502,9 +501,11 @@ const CoombsVisualization: React.FC<VotingMethodVisualizationProps> = ({
 
           {eliminated.length > 0 && (
             <Card className="mt-3">
-              <CardHeader className="block space-y-0 border-b border-border px-4 py-2">Eliminated Candidates</CardHeader>
+              <CardHeader className="block space-y-0 border-b border-border px-4 py-2">
+                Eliminated Candidates
+              </CardHeader>
               <CardBody>
-                <div className="d-flex flex-wrap gap-2">
+                <div className="flex flex-wrap gap-2">
                   {eliminated.map((candidate) => (
                     <Badge key={candidate} variant="secondary" className="p-2">
                       {candidate}
@@ -602,9 +603,11 @@ const ScoreVisualization: React.FC<VotingMethodVisualizationProps> = ({ rankings
       </p>
 
       <div className="row">
-        <div className="col-md-6">
+        <div className="md:w-6/12">
           <Card>
-            <CardHeader className="block space-y-0 border-b border-border px-4 py-2">Average Scores</CardHeader>
+            <CardHeader className="block space-y-0 border-b border-border px-4 py-2">
+              Average Scores
+            </CardHeader>
             <CardBody>
               <ResponsiveContainer width="100%" height={300}>
                 <RadarChart data={radarRows} outerRadius="72%">
@@ -626,21 +629,36 @@ const ScoreVisualization: React.FC<VotingMethodVisualizationProps> = ({ rankings
           </Card>
         </div>
 
-        <div className="col-md-6">
+        <div className="md:w-6/12">
           <Card>
-            <CardHeader className="block space-y-0 border-b border-border px-4 py-2">Score Distribution</CardHeader>
+            <CardHeader className="block space-y-0 border-b border-border px-4 py-2">
+              Score Distribution
+            </CardHeader>
             <CardBody>
               <ResponsiveContainer width="100%" height={300}>
-                <BarChart data={distributionRows} margin={{ top: 8, right: 16, left: 8, bottom: 16 }}>
+                <BarChart
+                  data={distributionRows}
+                  margin={{ top: 8, right: 16, left: 8, bottom: 16 }}
+                >
                   <XAxis
                     dataKey="score"
                     tick={{ fontSize: 11 }}
-                    label={{ value: 'Score (0-5)', position: 'insideBottom', offset: -8, style: { fontSize: 12 } }}
+                    label={{
+                      value: 'Score (0-5)',
+                      position: 'insideBottom',
+                      offset: -8,
+                      style: { fontSize: 12 },
+                    }}
                   />
                   <YAxis
                     allowDecimals={false}
                     tick={{ fontSize: 12 }}
-                    label={{ value: 'Number of Voters', angle: -90, position: 'insideLeft', style: { fontSize: 12 } }}
+                    label={{
+                      value: 'Number of Voters',
+                      angle: -90,
+                      position: 'insideLeft',
+                      style: { fontSize: 12 },
+                    }}
                   />
                   <Tooltip />
                   <Legend wrapperStyle={{ fontSize: 12 }} />
@@ -747,9 +765,7 @@ const BucklinVisualization: React.FC<VotingMethodVisualizationProps> = ({
         yLabel="Number of Votes"
       />
 
-      <p className="mt-3">
-        Majority threshold: {Math.ceil(rankings.length / 2)} votes
-      </p>
+      <p className="mt-3">Majority threshold: {Math.ceil(rankings.length / 2)} votes</p>
 
       {winner && (
         <div className="alert alert-success mt-3">
@@ -813,7 +829,9 @@ const MinimaxVisualization: React.FC<VotingMethodVisualizationProps> = ({
       </p>
 
       <Card className="mt-3">
-        <CardHeader className="block space-y-0 border-b border-border px-4 py-2">Pairwise Opposition Matrix</CardHeader>
+        <CardHeader className="block space-y-0 border-b border-border px-4 py-2">
+          Pairwise Opposition Matrix
+        </CardHeader>
         <CardBody>
           <div className="table-responsive">
             <Table className="[&_th]:p-2 [&_td]:p-2 [&_th]:text-left [&_td]:border-t [&_th]:border-b [&_td]:border-border [&_th]:border-border [&_*]:align-middle [&_th]:border [&_td]:border [&_tbody_tr:hover]:bg-muted/50">
@@ -830,7 +848,7 @@ const MinimaxVisualization: React.FC<VotingMethodVisualizationProps> = ({
                   <tr key={c1}>
                     <th>{c1}</th>
                     {candidates.map((c2) => (
-                      <td key={`${c1}-${c2}`} className={c1 === c2 ? 'bg-light' : ''}>
+                      <td key={`${c1}-${c2}`} className={c1 === c2 ? 'bg-slate-100' : ''}>
                         {c1 === c2
                           ? '-'
                           : `${opposition[c1][c2]} vs ${opposition[c2] ? opposition[c2][c1] : 0}`}
@@ -845,7 +863,9 @@ const MinimaxVisualization: React.FC<VotingMethodVisualizationProps> = ({
       </Card>
 
       <Card className="mt-3">
-        <CardHeader className="block space-y-0 border-b border-border px-4 py-2">Maximum Opposition per Candidate</CardHeader>
+        <CardHeader className="block space-y-0 border-b border-border px-4 py-2">
+          Maximum Opposition per Candidate
+        </CardHeader>
         <CardBody>
           <MethodBarChart
             labels={candidates}
@@ -960,7 +980,9 @@ const SchulzeVisualization: React.FC<VotingMethodVisualizationProps> = ({
       </p>
 
       <Card className="mt-3">
-        <CardHeader className="block space-y-0 border-b border-border px-4 py-2">Strength of Strongest Paths</CardHeader>
+        <CardHeader className="block space-y-0 border-b border-border px-4 py-2">
+          Strength of Strongest Paths
+        </CardHeader>
         <CardBody>
           <div className="table-responsive">
             <Table className="[&_th]:p-2 [&_td]:p-2 [&_th]:text-left [&_td]:border-t [&_th]:border-b [&_td]:border-border [&_th]:border-border [&_*]:align-middle [&_th]:border [&_td]:border [&_tbody_tr:hover]:bg-muted/50">
@@ -977,7 +999,7 @@ const SchulzeVisualization: React.FC<VotingMethodVisualizationProps> = ({
                   <tr key={c1}>
                     <th>{c1}</th>
                     {candidates.map((c2, j) => (
-                      <td key={`${c1}-${c2}`} className={i === j ? 'bg-light' : ''}>
+                      <td key={`${c1}-${c2}`} className={i === j ? 'bg-slate-100' : ''}>
                         {i === j ? '-' : matrixData[i][j]}
                       </td>
                     ))}
@@ -1044,7 +1066,9 @@ const KemenyYoungVisualization: React.FC<VotingMethodVisualizationProps> = ({
       </p>
 
       <Card className="mt-3">
-        <CardHeader className="block space-y-0 border-b border-border px-4 py-2">Pairwise Preference Matrix</CardHeader>
+        <CardHeader className="block space-y-0 border-b border-border px-4 py-2">
+          Pairwise Preference Matrix
+        </CardHeader>
         <CardBody>
           <div className="table-responsive">
             <Table className="[&_th]:p-2 [&_td]:p-2 [&_th]:text-left [&_td]:border-t [&_th]:border-b [&_td]:border-border [&_th]:border-border [&_*]:align-middle [&_th]:border [&_td]:border [&_tbody_tr:hover]:bg-muted/50">
@@ -1061,7 +1085,7 @@ const KemenyYoungVisualization: React.FC<VotingMethodVisualizationProps> = ({
                   <tr key={c1}>
                     <th>{c1}</th>
                     {candidates.map((c2) => (
-                      <td key={`${c1}-${c2}`} className={c1 === c2 ? 'bg-light' : ''}>
+                      <td key={`${c1}-${c2}`} className={c1 === c2 ? 'bg-slate-100' : ''}>
                         {c1 === c2 ? '-' : pref[c1][c2]}
                       </td>
                     ))}

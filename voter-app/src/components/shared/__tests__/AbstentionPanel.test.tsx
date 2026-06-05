@@ -19,14 +19,16 @@ const { apiClient } = (await import('../../../api/client')) as unknown as {
 vi.mock('recharts', () => {
   const React = require('react');
   return {
-    LineChart:           ({ children }: any) => <div data-testid="line-chart">{children}</div>,
-    Line:                ({ name }: any) => <div data-testid={`line-${name ?? 'unknown'}`} />,
-    XAxis:               () => null,
-    YAxis:               () => null,
-    Tooltip:             () => null,
-    Legend:              () => null,
-    ReferenceLine:       () => null,
-    ResponsiveContainer: ({ children }: any) => <div style={{ width: 400, height: 200 }}>{children}</div>,
+    LineChart: ({ children }: any) => <div data-testid="line-chart">{children}</div>,
+    Line: ({ name }: any) => <div data-testid={`line-${name ?? 'unknown'}`} />,
+    XAxis: () => null,
+    YAxis: () => null,
+    Tooltip: () => null,
+    Legend: () => null,
+    ReferenceLine: () => null,
+    ResponsiveContainer: ({ children }: any) => (
+      <div style={{ width: 400, height: 200 }}>{children}</div>
+    ),
   };
 });
 
@@ -34,17 +36,24 @@ vi.mock('recharts', () => {
 
 function makeRound(rnd: number, turnout: number, hasAbstained = false) {
   const abstentionMap = [
-    { id: 0, x: -0.3, y: 0.1, preferred: 'Alice', abstained: hasAbstained && rnd > 0, prob_abstention: hasAbstained ? 0.35 : 0 },
-    { id: 1, x:  0.4, y: -0.1, preferred: 'Bob',   abstained: false,                  prob_abstention: 0.05 },
-    { id: 2, x:  0.0, y:  0.3, preferred: 'Carol',  abstained: false,                  prob_abstention: 0.10 },
+    {
+      id: 0,
+      x: -0.3,
+      y: 0.1,
+      preferred: 'Alice',
+      abstained: hasAbstained && rnd > 0,
+      prob_abstention: hasAbstained ? 0.35 : 0,
+    },
+    { id: 1, x: 0.4, y: -0.1, preferred: 'Bob', abstained: false, prob_abstention: 0.05 },
+    { id: 2, x: 0.0, y: 0.3, preferred: 'Carol', abstained: false, prob_abstention: 0.1 },
   ];
   return {
-    round:            rnd,
+    round: rnd,
     turnout,
-    vote_shares:      { Alice: 0.45, Bob: 0.35, Carol: 0.20 },
-    winner_fptp:      'Alice',
+    vote_shares: { Alice: 0.45, Bob: 0.35, Carol: 0.2 },
+    winner_fptp: 'Alice',
     winner_condorcet: 'Alice',
-    abstention_map:   abstentionMap,
+    abstention_map: abstentionMap,
   };
 }
 
@@ -56,11 +65,11 @@ function makeData(winnerChanged = false) {
       makeRound(2, 0.72, true),
       makeRound(3, 0.65, true),
     ],
-    sincere_winner:  'Alice',
-    final_winner:    winnerChanged ? 'Bob' : 'Alice',
-    winner_changed:  winnerChanged,
-    turnout_by_camp: { Alice: 0.65, Bob: 0.90, Carol: 0.80 },
-    candidates:      [{ name: 'Alice' }, { name: 'Bob' }, { name: 'Carol' }],
+    sincere_winner: 'Alice',
+    final_winner: winnerChanged ? 'Bob' : 'Alice',
+    winner_changed: winnerChanged,
+    turnout_by_camp: { Alice: 0.65, Bob: 0.9, Carol: 0.8 },
+    candidates: [{ name: 'Alice' }, { name: 'Bob' }, { name: 'Carol' }],
   };
 }
 
@@ -115,7 +124,7 @@ describe('AbstentionPanel', () => {
     await waitFor(() => expect(apiClient.POST).toHaveBeenCalledTimes(1));
     expect(apiClient.POST).toHaveBeenCalledWith(
       '/api/v2/election/abstention',
-      expect.objectContaining({ body: expect.any(Object) }),
+      expect.objectContaining({ body: expect.any(Object) })
     );
   });
 
@@ -133,7 +142,9 @@ describe('AbstentionPanel', () => {
     fireEvent.click(screen.getByRole('button', { name: /simuler|simulate/i }));
     await waitFor(() => expect(screen.getByTestId('abstention-map-svg')).toBeInTheDocument());
     fireEvent.change(screen.getByTestId('round-slider'), { target: { value: '1' } });
-    act(() => { vi.runAllTimers(); });
+    act(() => {
+      vi.runAllTimers();
+    });
     const abstainedDots = container.querySelectorAll('[data-testid="abstained-voter"]');
     expect(abstainedDots.length).toBeGreaterThan(0);
     vi.runAllTimers();

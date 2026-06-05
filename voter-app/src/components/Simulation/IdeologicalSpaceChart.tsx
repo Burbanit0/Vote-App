@@ -23,8 +23,14 @@ const VOTER_SINCERE = '#4e79a7';
 const VOTER_STRATEGIC = '#f28e2b';
 
 const CANDIDATE_PALETTE = [
-  '#e15759', '#59a14f', '#76b7b2', '#edc948',
-  '#b07aa1', '#ff9da7', '#86bcb6', '#4e79a7',
+  '#e15759',
+  '#59a14f',
+  '#76b7b2',
+  '#edc948',
+  '#b07aa1',
+  '#ff9da7',
+  '#86bcb6',
+  '#4e79a7',
 ];
 
 const getMethodLabel = (t: (key: string) => string, method: string): string => {
@@ -203,14 +209,7 @@ const IdeologicalSpaceChart: React.FC<Props> = ({
           opacity={0.9}
         />
         {isWinner && (
-          <text
-            x={cx}
-            y={cy + 5}
-            textAnchor="middle"
-            fontSize={14}
-            fill="white"
-            fontWeight="bold"
-          >
+          <text x={cx} y={cy + 5} textAnchor="middle" fontSize={14} fill="white" fontWeight="bold">
             ★
           </text>
         )}
@@ -235,7 +234,7 @@ const IdeologicalSpaceChart: React.FC<Props> = ({
       <CardHeader className="block space-y-0 border-b border-border px-4 py-2">
         <strong>{t('simulation.ideologicalSpace.title')}</strong>
         {winnersByMethod && (
-          <div className="mt-2 d-flex flex-wrap gap-1">
+          <div className="mt-2 flex flex-wrap gap-1">
             {Object.entries(winnersByMethod).map(([method, winner]) => (
               <Button
                 key={method}
@@ -264,13 +263,15 @@ const IdeologicalSpaceChart: React.FC<Props> = ({
 
       <CardBody>
         {/* Voter colour legend */}
-        <div className="d-flex gap-4 mb-3 flex-wrap align-items-center">
-          <span className="fw-semibold small text-muted">{t('simulation.ideologicalSpace.voters')}</span>
+        <div className="flex gap-4 mb-3 flex-wrap items-center">
+          <span className="font-semibold text-sm text-muted-foreground">
+            {t('simulation.ideologicalSpace.voters')}
+          </span>
           {[
             { label: t('simulation.ideologicalSpace.sincere'), color: VOTER_SINCERE },
             { label: t('simulation.ideologicalSpace.strategic'), color: VOTER_STRATEGIC },
           ].map(({ label, color }) => (
-            <span key={label} className="d-flex align-items-center gap-1">
+            <span key={label} className="flex items-center gap-1">
               <svg width={12} height={12}>
                 <circle cx={6} cy={6} r={5} fill={color} opacity={0.7} />
               </svg>
@@ -278,9 +279,11 @@ const IdeologicalSpaceChart: React.FC<Props> = ({
             </span>
           ))}
 
-          <span className="fw-semibold small text-muted ms-3">{t('simulation.ideologicalSpace.candidates')}</span>
+          <span className="font-semibold text-sm text-muted-foreground ms-3">
+            {t('simulation.ideologicalSpace.candidates')}
+          </span>
           {candidates.map((c) => (
-            <span key={c.name} className="d-flex align-items-center gap-1">
+            <span key={c.name} className="flex items-center gap-1">
               <svg width={12} height={12}>
                 <circle cx={6} cy={6} r={5} fill={candidateColorMap[c.name] ?? '#999'} />
               </svg>
@@ -340,20 +343,12 @@ const IdeologicalSpaceChart: React.FC<Props> = ({
             <ReferenceLine x={0.5} stroke="#bbb" strokeDasharray="4 2" />
             <ReferenceLine y={0} stroke="#bbb" strokeDasharray="4 2" />
 
-            <Scatter
-              data={voterData}
-              shape={<VoterShape />}
-              isAnimationActive={false}
-            />
-            <Scatter
-              data={candidateData}
-              shape={<CandidateShape />}
-              isAnimationActive={false}
-            />
+            <Scatter data={voterData} shape={<VoterShape />} isAnimationActive={false} />
+            <Scatter data={candidateData} shape={<CandidateShape />} isAnimationActive={false} />
           </ScatterChart>
         </ResponsiveContainer>
 
-        <p className="text-muted small mt-1 mb-0">
+        <p className="text-muted-foreground text-sm mt-1 mb-0">
           {t('simulation.ideologicalSpace.description')}
           {winnersByMethod && activeMethod && (
             <>

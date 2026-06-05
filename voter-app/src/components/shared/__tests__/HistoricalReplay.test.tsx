@@ -9,18 +9,22 @@ vi.mock('../../../api/client', () => ({
   apiClient: { GET: vi.fn(), POST: vi.fn(), PUT: vi.fn(), DELETE: vi.fn(), PATCH: vi.fn() },
   getAccessToken: vi.fn(() => null),
 }));
-const { apiClient } = (await import('../../../api/client')) as unknown as { apiClient: { POST: jest.Mock } };
+const { apiClient } = (await import('../../../api/client')) as unknown as {
+  apiClient: { POST: jest.Mock };
+};
 
 vi.mock('recharts', () => {
   const React = require('react');
   return {
-    BarChart:            ({ children }: any) => <div data-testid="bar-chart">{children}</div>,
-    Bar:                 ({ children }: any) => <div>{children}</div>,
-    XAxis:               () => null,
-    YAxis:               () => null,
-    Tooltip:             () => null,
-    Cell:                () => null,
-    ResponsiveContainer: ({ children }: any) => <div style={{ width: 400, height: 200 }}>{children}</div>,
+    BarChart: ({ children }: any) => <div data-testid="bar-chart">{children}</div>,
+    Bar: ({ children }: any) => <div>{children}</div>,
+    XAxis: () => null,
+    YAxis: () => null,
+    Tooltip: () => null,
+    Cell: () => null,
+    ResponsiveContainer: ({ children }: any) => (
+      <div style={{ width: 400, height: 200 }}>{children}</div>
+    ),
   };
 });
 
@@ -29,29 +33,29 @@ vi.mock('recharts', () => {
 function makeReplay(differs = false) {
   const numDays = 10;
   const days = Array.from({ length: numDays + 1 }, (_, i) => ({
-    day:              i,
-    vote_shares:      { Chirac: 0.40, Jospin: 0.35, 'Le Pen': 0.16, Bayrou: 0.09 },
-    winner_fptp:      'Chirac',
+    day: i,
+    vote_shares: { Chirac: 0.4, Jospin: 0.35, 'Le Pen': 0.16, Bayrou: 0.09 },
+    winner_fptp: 'Chirac',
     winner_condorcet: 'Jospin',
-    winner_borda:     'Jospin',
+    winner_borda: 'Jospin',
   }));
 
   return {
     data: {
-      scenario:   { id: 'france2002', name: 'France 2002', real_winner: 'Chirac' },
+      scenario: { id: 'france2002', name: 'France 2002', real_winner: 'Chirac' },
       candidates: [
-        { name: 'Chirac',  x:  0.30, y: 0.10, modified: false },
-        { name: 'Jospin',  x: -0.30, y: -0.10, modified: differs },
-        { name: 'Le Pen',  x:  0.85, y: 0.20, modified: false },
-        { name: 'Bayrou',  x:  0.05, y: 0.00, modified: false },
+        { name: 'Chirac', x: 0.3, y: 0.1, modified: false },
+        { name: 'Jospin', x: -0.3, y: -0.1, modified: differs },
+        { name: 'Le Pen', x: 0.85, y: 0.2, modified: false },
+        { name: 'Bayrou', x: 0.05, y: 0.0, modified: false },
       ],
       days,
       final: {
-        winner_fptp:         differs ? 'Jospin' : 'Chirac',
-        winner_condorcet:    'Jospin',
-        winner_borda:        'Jospin',
-        differs_from_real:   differs,
-        pedagogical_note:    differs
+        winner_fptp: differs ? 'Jospin' : 'Chirac',
+        winner_condorcet: 'Jospin',
+        winner_borda: 'Jospin',
+        differs_from_real: differs,
+        pedagogical_note: differs
           ? 'En déplaçant Jospin, il devient vainqueur.'
           : 'La simulation converge vers Chirac.',
         pedagogical_note_en: differs
@@ -106,7 +110,7 @@ describe('HistoricalReplay', () => {
     await waitFor(() => expect(apiClient.POST).toHaveBeenCalledTimes(1));
     expect(apiClient.POST).toHaveBeenCalledWith(
       expect.stringMatching(/\/api\/(v2\/)?election\/historical-replay/),
-      expect.objectContaining({ body: expect.objectContaining({ scenario_id: 'france2002' }) }),
+      expect.objectContaining({ body: expect.objectContaining({ scenario_id: 'france2002' }) })
     );
   });
 

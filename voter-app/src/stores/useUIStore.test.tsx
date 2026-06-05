@@ -6,7 +6,9 @@ const ThemeConsumer = () => {
   return (
     <div>
       <span data-testid="theme">{theme}</span>
-      <button data-testid="toggle" onClick={toggleTheme}>toggle</button>
+      <button data-testid="toggle" onClick={toggleTheme}>
+        toggle
+      </button>
     </div>
   );
 };
@@ -16,8 +18,12 @@ const ExpertConsumer = () => {
   return (
     <div>
       <span data-testid="expert">{expertMode ? 'on' : 'off'}</span>
-      <button data-testid="enable" onClick={() => setExpertMode(true)}>on</button>
-      <button data-testid="disable" onClick={() => setExpertMode(false)}>off</button>
+      <button data-testid="enable" onClick={() => setExpertMode(true)}>
+        on
+      </button>
+      <button data-testid="disable" onClick={() => setExpertMode(false)}>
+        off
+      </button>
     </div>
   );
 };

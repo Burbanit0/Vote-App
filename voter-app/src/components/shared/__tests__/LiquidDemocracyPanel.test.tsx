@@ -10,46 +10,57 @@ vi.mock('../../../api/client', () => ({
   apiClient: { GET: vi.fn(), POST: vi.fn(), PUT: vi.fn(), DELETE: vi.fn(), PATCH: vi.fn() },
   getAccessToken: vi.fn(() => null),
 }));
-const { apiClient } = (await import('../../../api/client')) as unknown as { apiClient: { POST: jest.Mock } };
+const { apiClient } = (await import('../../../api/client')) as unknown as {
+  apiClient: { POST: jest.Mock };
+};
 
 // D3 mock — force simulation not available in JSDOM
 vi.mock('d3', () => {
   const sel: any = {
     selectAll: vi.fn().mockReturnThis(),
-    append:    vi.fn().mockReturnThis(),
-    attr:      vi.fn().mockReturnThis(),
-    style:     vi.fn().mockReturnThis(),
-    data:      vi.fn().mockReturnThis(),
-    join:      vi.fn().mockReturnThis(),
-    remove:    vi.fn().mockReturnThis(),
-    filter:    vi.fn().mockReturnThis(),
-    on:        vi.fn().mockReturnThis(),
-    text:      vi.fn().mockReturnThis(),
+    append: vi.fn().mockReturnThis(),
+    attr: vi.fn().mockReturnThis(),
+    style: vi.fn().mockReturnThis(),
+    data: vi.fn().mockReturnThis(),
+    join: vi.fn().mockReturnThis(),
+    remove: vi.fn().mockReturnThis(),
+    filter: vi.fn().mockReturnThis(),
+    on: vi.fn().mockReturnThis(),
+    text: vi.fn().mockReturnThis(),
   };
   return {
-    select:           vi.fn(() => sel),
-    forceSimulation:  vi.fn(() => ({
+    select: vi.fn(() => sel),
+    forceSimulation: vi.fn(() => ({
       force: vi.fn().mockReturnThis(),
-      on:    vi.fn((ev: string, cb: () => void) => { if (ev === 'tick') cb(); return {}; }),
-      stop:  vi.fn(),
+      on: vi.fn((ev: string, cb: () => void) => {
+        if (ev === 'tick') cb();
+        return {};
+      }),
+      stop: vi.fn(),
     })),
-    forceLink:     vi.fn(() => ({ id: vi.fn().mockReturnThis(), distance: vi.fn().mockReturnThis(), links: vi.fn().mockReturnThis() })),
+    forceLink: vi.fn(() => ({
+      id: vi.fn().mockReturnThis(),
+      distance: vi.fn().mockReturnThis(),
+      links: vi.fn().mockReturnThis(),
+    })),
     forceManyBody: vi.fn(() => ({ strength: vi.fn().mockReturnThis() })),
-    forceCenter:   vi.fn(() => ({})),
-    forceCollide:  vi.fn(() => ({})),
+    forceCenter: vi.fn(() => ({})),
+    forceCollide: vi.fn(() => ({})),
   };
 });
 
 vi.mock('recharts', () => {
   const React = require('react');
   return {
-    LineChart:           ({ children }: any) => <div data-testid="gini-line-chart">{children}</div>,
-    Line:                () => null,
-    XAxis:               () => null,
-    YAxis:               () => null,
-    CartesianGrid:       () => null,
-    Tooltip:             () => null,
-    ResponsiveContainer: ({ children }: any) => <div style={{ width: 400, height: 180 }}>{children}</div>,
+    LineChart: ({ children }: any) => <div data-testid="gini-line-chart">{children}</div>,
+    Line: () => null,
+    XAxis: () => null,
+    YAxis: () => null,
+    CartesianGrid: () => null,
+    Tooltip: () => null,
+    ResponsiveContainer: ({ children }: any) => (
+      <div style={{ width: 400, height: 180 }}>{children}</div>
+    ),
   };
 });
 
@@ -59,29 +70,31 @@ function makeData(winnerChanged = false) {
   return {
     data: {
       weighted_results: { Alice: 60, Bob: 25, Carol: 15 },
-      direct_voters:    40,
-      delegators:       60,
+      direct_voters: 40,
+      delegators: 60,
       super_voters: [
         { id: 5, weight: 15, x: -0.3, y: 0.1, choice: 'Alice' },
         { id: 12, weight: 8, x: 0.1, y: 0.2, choice: 'Bob' },
       ],
       delegation_graph: [
-        { from: 0, to: 5 }, { from: 1, to: 5 }, { from: 2, to: 12 },
+        { from: 0, to: 5 },
+        { from: 1, to: 5 },
+        { from: 2, to: 12 },
       ],
-      cycles_detected:  4,
-      cycle_voter_ids:  [20, 21, 22, 23],
-      chain_stats:      { mean: 1.8, max: 3 },
+      cycles_detected: 4,
+      cycle_voter_ids: [20, 21, 22, 23],
+      chain_stats: { mean: 1.8, max: 3 },
       gini_curve: Array.from({ length: 11 }, (_, i) => ({
         probability: i / 10,
-        gini:        i * 0.07,
+        gini: i * 0.07,
       })),
       comparison: {
-        liquid_winner:  winnerChanged ? 'Bob' : 'Alice',
-        direct_winner:  'Alice',
+        liquid_winner: winnerChanged ? 'Bob' : 'Alice',
+        direct_winner: 'Alice',
         winner_changed: winnerChanged,
       },
       gini_voting_weight: 0.45,
-      pedagogical_note:   'Test note.',
+      pedagogical_note: 'Test note.',
     },
     error: undefined,
   };
@@ -105,7 +118,9 @@ beforeEach(() => {
   vi.useFakeTimers();
 });
 
-afterEach(() => { vi.useRealTimers(); });
+afterEach(() => {
+  vi.useRealTimers();
+});
 
 // ── Tests ─────────────────────────────────────────────────────────────────────
 
@@ -137,7 +152,7 @@ describe('LiquidDemocracyPanel', () => {
     await waitFor(() => expect(apiClient.POST).toHaveBeenCalledTimes(1));
     expect(apiClient.POST).toHaveBeenCalledWith(
       expect.stringMatching(/\/api\/(v2\/)?election\/liquid-democracy/),
-      expect.any(Object),
+      expect.any(Object)
     );
     vi.runAllTimers();
   });
@@ -230,7 +245,9 @@ describe('LiquidDemocracyPanel', () => {
     await waitFor(() => expect(apiClient.POST).toHaveBeenCalledTimes(1));
 
     fireEvent.change(screen.getByTestId('delegation-prob-slider'), { target: { value: '0.8' } });
-    act(() => { vi.advanceTimersByTime(450); });
+    act(() => {
+      vi.advanceTimersByTime(450);
+    });
     await waitFor(() => expect(apiClient.POST).toHaveBeenCalledTimes(2));
     vi.runAllTimers();
   });

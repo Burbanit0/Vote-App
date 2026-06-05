@@ -10,16 +10,16 @@ vi.mock('react-joyride', () => ({
     <div data-testid="joyride">
       <span data-testid="run">{props.run ? 'true' : 'false'}</span>
       <span data-testid="step-count">{props.steps?.length ?? 0}</span>
-      <span data-testid="targets">
-        {(props.steps ?? []).map((s: any) => s.target).join('|')}
-      </span>
+      <span data-testid="targets">{(props.steps ?? []).map((s: any) => s.target).join('|')}</span>
     </div>
   ),
   STATUS: { FINISHED: 'finished', SKIPPED: 'skipped' },
 }));
 
 describe('LabOnboardingTour', () => {
-  beforeEach(() => { localStorage.clear(); });
+  beforeEach(() => {
+    localStorage.clear();
+  });
 
   it('exports the LS key used to persist completion', () => {
     expect(LAB_TOUR_LS_KEY).toBe('lab_tour_completed');

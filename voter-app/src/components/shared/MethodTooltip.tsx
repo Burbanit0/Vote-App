@@ -19,20 +19,20 @@ interface Props {
  */
 const MethodTooltip: React.FC<Props> = ({ method, children }) => {
   const methodLabels = useMethodLabels();
-  const methodPros   = useMethodPros();
-  const methodCons   = useMethodCons();
+  const methodPros = useMethodPros();
+  const methodCons = useMethodCons();
 
-  const label       = children ?? methodLabels[method] ?? method;
+  const label = children ?? methodLabels[method] ?? method;
   const description = METHOD_DESCRIPTIONS[method];
-  const pro         = methodPros[method];
-  const con         = methodCons[method];
+  const pro = methodPros[method];
+  const con = methodCons[method];
 
-  const [show, setShow]   = useState(false);
-  const triggerRef        = useRef<HTMLSpanElement>(null);
+  const [show, setShow] = useState(false);
+  const triggerRef = useRef<HTMLSpanElement>(null);
 
   if (!description) return <span>{label}</span>;
 
-  const open  = () => setShow(true);
+  const open = () => setShow(true);
   const close = () => setShow(false);
 
   const handleKeyDown = (e: React.KeyboardEvent<HTMLSpanElement>) => {
@@ -79,12 +79,18 @@ const MethodTooltip: React.FC<Props> = ({ method, children }) => {
           <span className="mb-2 block leading-snug text-slate-200">{description}</span>
           {pro && (
             <span className="block text-[#a8d5a2]">
-              <span className="font-semibold" aria-hidden="true">✓ </span>{pro}
+              <span className="font-semibold" aria-hidden="true">
+                ✓{' '}
+              </span>
+              {pro}
             </span>
           )}
           {con && (
             <span className="mt-[3px] block text-[#f5a5a5]">
-              <span className="font-semibold" aria-hidden="true">✗ </span>{con}
+              <span className="font-semibold" aria-hidden="true">
+                ✗{' '}
+              </span>
+              {con}
             </span>
           )}
         </span>

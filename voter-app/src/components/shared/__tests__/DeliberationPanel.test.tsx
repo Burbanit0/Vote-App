@@ -10,20 +10,24 @@ vi.mock('../../../api/client', () => ({
   apiClient: { GET: vi.fn(), POST: vi.fn(), PUT: vi.fn(), DELETE: vi.fn(), PATCH: vi.fn() },
   getAccessToken: vi.fn(() => null),
 }));
-const { apiClient } = (await import('../../../api/client')) as unknown as { apiClient: { POST: jest.Mock } };
+const { apiClient } = (await import('../../../api/client')) as unknown as {
+  apiClient: { POST: jest.Mock };
+};
 
 vi.mock('recharts', () => {
   const React = require('react');
   return {
-    LineChart:           ({ children }: any) => <div>{children}</div>,
-    Line:                ({ dataKey }: any) => <div data-testid={`line-${dataKey}`} />,
-    XAxis:               () => null,
-    YAxis:               () => null,
-    CartesianGrid:       () => null,
-    Tooltip:             () => null,
-    Legend:              () => null,
-    ReferenceLine:       () => null,
-    ResponsiveContainer: ({ children }: any) => <div style={{ width: 400, height: 200 }}>{children}</div>,
+    LineChart: ({ children }: any) => <div>{children}</div>,
+    Line: ({ dataKey }: any) => <div data-testid={`line-${dataKey}`} />,
+    XAxis: () => null,
+    YAxis: () => null,
+    CartesianGrid: () => null,
+    Tooltip: () => null,
+    Legend: () => null,
+    ReferenceLine: () => null,
+    ResponsiveContainer: ({ children }: any) => (
+      <div style={{ width: 400, height: 200 }}>{children}</div>
+    ),
   };
 });
 
@@ -33,33 +37,37 @@ function makeData(winnerChanged = false, polarPos = false) {
   return {
     data: {
       pre_deliberation: {
-        winner:           'Alice',
-        vote_shares:      { Alice: 0.44, Bob: 0.33, Carol: 0.23 },
+        winner: 'Alice',
+        vote_shares: { Alice: 0.44, Bob: 0.33, Carol: 0.23 },
         condorcet_winner: 'Alice',
-        mean_regret:      0.18,
+        mean_regret: 0.18,
         ideology_variance: 0.32,
       },
       post_deliberation: {
-        winner:           winnerChanged ? 'Carol' : 'Alice',
-        vote_shares:      { Alice: winnerChanged ? 0.35 : 0.42, Bob: 0.30, Carol: winnerChanged ? 0.35 : 0.28 },
+        winner: winnerChanged ? 'Carol' : 'Alice',
+        vote_shares: {
+          Alice: winnerChanged ? 0.35 : 0.42,
+          Bob: 0.3,
+          Carol: winnerChanged ? 0.35 : 0.28,
+        },
         condorcet_winner: 'Carol',
-        mean_regret:      0.12,
-        ideology_variance: polarPos ? 0.45 : 0.20,
+        mean_regret: 0.12,
+        ideology_variance: polarPos ? 0.45 : 0.2,
       },
       winner_changed: winnerChanged,
       deliberation_effect: {
-        opinion_shift_mean:  0.08,
-        convergence_rate:    0.38,
+        opinion_shift_mean: 0.08,
+        convergence_rate: 0.38,
         polarization_change: polarPos ? 0.13 : -0.12,
-        regret_improvement:  33.3,
+        regret_improvement: 33.3,
       },
       per_round: Array.from({ length: 5 }, (_, i) => ({
-        round:              i + 1,
-        variance:           0.32 - i * 0.025,
-        mean_position:      -0.01 + i * 0.005,
+        round: i + 1,
+        variance: 0.32 - i * 0.025,
+        mean_position: -0.01 + i * 0.005,
         winner_if_voted_now: 'Alice',
       })),
-      network_effect:   'Test network effect.',
+      network_effect: 'Test network effect.',
       pedagogical_note: 'Test note.',
     },
     error: undefined,
@@ -84,7 +92,9 @@ beforeEach(() => {
   vi.useFakeTimers();
 });
 
-afterEach(() => { vi.useRealTimers(); });
+afterEach(() => {
+  vi.useRealTimers();
+});
 
 // ── Tests ─────────────────────────────────────────────────────────────────────
 
@@ -129,7 +139,7 @@ describe('DeliberationPanel', () => {
     await waitFor(() => expect(apiClient.POST).toHaveBeenCalledTimes(1));
     expect(apiClient.POST).toHaveBeenCalledWith(
       expect.stringMatching(/\/api\/(v2\/)?election\/deliberation/),
-      expect.any(Object),
+      expect.any(Object)
     );
     vi.runAllTimers();
   });
@@ -213,7 +223,9 @@ describe('DeliberationPanel', () => {
   it('network button changes selection', () => {
     renderPanel();
     fireEvent.click(screen.getByTestId('network-echo_chamber'));
-    expect(screen.getByTestId('network-echo_chamber').className).toContain('text-primary-foreground');
+    expect(screen.getByTestId('network-echo_chamber').className).toContain(
+      'text-primary-foreground'
+    );
     expect(screen.getByTestId('network-random').className).not.toContain('text-primary-foreground');
   });
 

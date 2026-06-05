@@ -38,15 +38,15 @@ export const CHART_COLORS_DARK: string[] = [
 // ── Named semantic colours for specific chart metrics ─────────────────────
 
 /** Bar / line colour for primary metric (e.g., Bayesian Regret). Light theme. */
-export const CHART_BLUE_LIGHT   = '#1a56cc';
+export const CHART_BLUE_LIGHT = '#1a56cc';
 /** Bar / line colour for secondary metric. Light theme. */
-export const CHART_GREEN_LIGHT  = '#1b5e20';
+export const CHART_GREEN_LIGHT = '#1b5e20';
 /** Bar / line colour for tertiary metric. Light theme. */
 export const CHART_ORANGE_LIGHT = '#b35c00';
 
 /** Same semantics, dark-theme variants. */
-export const CHART_BLUE_DARK   = '#88b4ff';
-export const CHART_GREEN_DARK  = '#8ce99a';
+export const CHART_BLUE_DARK = '#88b4ff';
+export const CHART_GREEN_DARK = '#8ce99a';
 export const CHART_ORANGE_DARK = '#ffaa5c';
 
 // ── Candidate palette ─────────────────────────────────────────────────────
@@ -72,7 +72,7 @@ export const CANDIDATE_COLORS_DARK: string[] = [
 ];
 
 // ── Voter colours (ideological-space chart) ───────────────────────────────
-export const VOTER_SINCERE_LIGHT   = '#1a56cc'; // blue
+export const VOTER_SINCERE_LIGHT = '#1a56cc'; // blue
 export const VOTER_STRATEGIC_LIGHT = '#b71c1c'; // red
-export const VOTER_SINCERE_DARK    = '#88b4ff';
-export const VOTER_STRATEGIC_DARK  = '#ff8787';
+export const VOTER_SINCERE_DARK = '#88b4ff';
+export const VOTER_STRATEGIC_DARK = '#ff8787';

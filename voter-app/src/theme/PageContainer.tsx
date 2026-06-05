@@ -17,18 +17,18 @@ import { LAYOUT, LayoutVariant } from './tokens';
 const VARIANT_MAP: Record<'narrow' | 'medium' | 'wide' | 'full', LayoutVariant> = {
   narrow: 'pageNarrow',
   medium: 'pageMedium',
-  wide:   'pageWide',
-  full:   'pageFull',
+  wide: 'pageWide',
+  full: 'pageFull',
 };
 
 interface Props {
-  variant?:   'narrow' | 'medium' | 'wide' | 'full';
+  variant?: 'narrow' | 'medium' | 'wide' | 'full';
   className?: string;
   /** Extra inline style merged onto the container. */
-  style?:     React.CSSProperties;
-  children:   React.ReactNode;
+  style?: React.CSSProperties;
+  children: React.ReactNode;
   /** Default vertical padding class. Override with eg "py-3". */
-  padding?:   string;
+  padding?: string;
   /** Data-testid hook for tests. */
   'data-testid'?: string;
 }

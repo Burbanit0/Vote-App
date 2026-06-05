@@ -10,30 +10,35 @@ vi.mock('../../../api/client', () => ({
   apiClient: { GET: vi.fn(), POST: vi.fn(), PUT: vi.fn(), DELETE: vi.fn(), PATCH: vi.fn() },
   getAccessToken: vi.fn(() => null),
 }));
-const { apiClient } = (await import('../../../api/client')) as unknown as { apiClient: { POST: jest.Mock } };
+const { apiClient } = (await import('../../../api/client')) as unknown as {
+  apiClient: { POST: jest.Mock };
+};
 
 vi.mock('../MethodGroupDonut', () => ({ default: () => <div data-testid="donut" /> }));
 
 // Minimal pipeline result
 const makePipeline = (stepIds: string[]) => ({
   data: {
-    num_steps:  stepIds.length,
+    num_steps: stepIds.length,
     candidates: [
       { name: 'Alice', x: -0.5, y: 0.0, party: 'Liberal' },
-      { name: 'Bob',   x:  0.5, y: 0.0, party: 'Conservative' },
+      { name: 'Bob', x: 0.5, y: 0.0, party: 'Conservative' },
     ],
     steps: stepIds.map((id) => ({
       id,
-      label:   { fr: `Étape ${id}`, en: `Step ${id}` },
-      desc:    { fr: 'desc fr', en: 'desc en' },
-      voters:  [
+      label: { fr: `Étape ${id}`, en: `Step ${id}` },
+      desc: { fr: 'desc fr', en: 'desc en' },
+      voters: [
         { id: 0, x: -0.3, y: 0.1, preference: 'Alice', is_blank: false },
-        { id: 1, x:  0.4, y: -0.1, preference: 'Bob',   is_blank: false },
+        { id: 1, x: 0.4, y: -0.1, preference: 'Bob', is_blank: false },
       ],
-      metrics: id === 'results'
-        ? { inter_method_agreement: 0.85, condorcet_winner: 'Alice', blank_rate: 0 }
-        : { num_voters: 2 },
-      ...(id === 'results' ? { winner_groups: [{ winner: 'Alice', methods: ['plurality'], pct: 1.0 }] } : {}),
+      metrics:
+        id === 'results'
+          ? { inter_method_agreement: 0.85, condorcet_winner: 'Alice', blank_rate: 0 }
+          : { num_voters: 2 },
+      ...(id === 'results'
+        ? { winner_groups: [{ winner: 'Alice', methods: ['plurality'], pct: 1.0 }] }
+        : {}),
     })),
   },
   error: undefined,

@@ -49,7 +49,10 @@ const OAuthCallback: React.FC = () => {
   if (error) {
     return (
       <div data-style="tailwind" className="mx-auto mt-12 w-full max-w-[1140px] px-3 text-center">
-        <div role="alert" className="rounded-md border border-red-300 bg-red-100 px-3 py-2 text-sm text-red-800">
+        <div
+          role="alert"
+          className="rounded-md border border-border border-red-300 bg-red-100 px-3 py-2 text-sm text-red-800"
+        >
           {error}
         </div>
       </div>

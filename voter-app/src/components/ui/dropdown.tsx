@@ -41,7 +41,11 @@ const DropdownBase: React.FC<DropdownProps> = ({ className, children, align, ...
   );
 };
 
-const Toggle: React.FC<ButtonProps & { caret?: boolean }> = ({ children, caret = true, ...props }) => {
+const Toggle: React.FC<ButtonProps & { caret?: boolean }> = ({
+  children,
+  caret = true,
+  ...props
+}) => {
   const ctx = React.useContext(DropdownContext)!;
   return (
     <Button
@@ -121,7 +125,10 @@ const Item: React.FC<DropdownItemProps> = ({
 
 const Divider: React.FC = () => <div className="my-1 h-px bg-border" />;
 const HeaderEl: React.FC<React.HTMLAttributes<HTMLDivElement>> = ({ className, ...props }) => (
-  <div className={cn('px-3 py-1.5 text-xs font-semibold text-muted-foreground', className)} {...props} />
+  <div
+    className={cn('px-3 py-1.5 text-xs font-semibold text-muted-foreground', className)}
+    {...props}
+  />
 );
 
 export const Dropdown = Object.assign(DropdownBase, {
@@ -136,8 +143,18 @@ export const Dropdown = Object.assign(DropdownBase, {
 export interface NavDropdownProps extends Omit<React.HTMLAttributes<HTMLDivElement>, 'title'> {
   title: React.ReactNode;
   align?: 'start' | 'end';
+  renderMenuOnMount?: boolean;
+  menuVariant?: 'light' | 'dark';
 }
-const NavDropdownBase: React.FC<NavDropdownProps> = ({ title, align, className, children, ...props }) => (
+const NavDropdownBase: React.FC<NavDropdownProps> = ({
+  title,
+  align,
+  className,
+  children,
+  renderMenuOnMount,
+  menuVariant,
+  ...props
+}) => (
   <DropdownBase className={className} {...props}>
     <Toggle variant="ghost" size="sm">
       {title}

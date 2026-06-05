@@ -3,44 +3,46 @@ import { render, screen, fireEvent, act, waitFor } from '@testing-library/react'
 import MonteCarloRaceChart from '../MonteCarloRaceChart';
 
 vi.mock('recharts', () => ({
-  ResponsiveContainer:  ({ children }: any) => <div>{children}</div>,
-  AreaChart:            ({ children }: any) => <div data-testid="area-chart">{children}</div>,
-  Area:                 ({ dataKey }: any) => <div data-testid={`area-${dataKey}`} />,
-  CartesianGrid:        () => null,
-  XAxis:                () => null,
-  YAxis:                () => null,
-  Tooltip:              () => null,
-  ReferenceLine:        () => null,
+  ResponsiveContainer: ({ children }: any) => <div>{children}</div>,
+  AreaChart: ({ children }: any) => <div data-testid="area-chart">{children}</div>,
+  Area: ({ dataKey }: any) => <div data-testid={`area-${dataKey}`} />,
+  CartesianGrid: () => null,
+  XAxis: () => null,
+  YAxis: () => null,
+  Tooltip: () => null,
+  ReferenceLine: () => null,
 }));
 
 // ── Fixtures ──────────────────────────────────────────────────────────────────
 
 const PARTIAL = {
   plurality: {
-    winner_distribution:  { Alice: 0.62, Bob: 0.31, Carol: 0.07 },
-    most_common_winner:   'Alice',
+    winner_distribution: { Alice: 0.62, Bob: 0.31, Carol: 0.07 },
+    most_common_winner: 'Alice',
   },
   schulze: {
-    winner_distribution:  { Alice: 0.55, Bob: 0.38, Carol: 0.07 },
-    most_common_winner:   'Alice',
+    winner_distribution: { Alice: 0.55, Bob: 0.38, Carol: 0.07 },
+    most_common_winner: 'Alice',
   },
   borda: {
-    winner_distribution:  { Alice: 0.48, Bob: 0.45, Carol: 0.07 },
-    most_common_winner:   'Alice',
+    winner_distribution: { Alice: 0.48, Bob: 0.45, Carol: 0.07 },
+    most_common_winner: 'Alice',
   },
 };
 
 const BASE_PROPS = {
-  regretHistory:        { plurality: [0.04], schulze: [0.02], borda: [0.03] },
+  regretHistory: { plurality: [0.04], schulze: [0.02], borda: [0.03] },
   iterationCheckpoints: [50],
-  partialResults:       PARTIAL,
-  isRunning:            true,
+  partialResults: PARTIAL,
+  isRunning: true,
 };
 
 // Helper: render and advance timers so effects run
 function renderChart(props = BASE_PROPS) {
   let result: ReturnType<typeof render>;
-  act(() => { result = render(<MonteCarloRaceChart {...props} />); });
+  act(() => {
+    result = render(<MonteCarloRaceChart {...props} />);
+  });
   return result!;
 }
 
@@ -51,7 +53,7 @@ describe('MonteCarloRaceChart', () => {
     const { container } = renderChart({
       ...BASE_PROPS,
       iterationCheckpoints: [],
-      partialResults:       {} as any,
+      partialResults: {} as any,
     });
     expect(container.firstChild).toBeNull();
   });
@@ -94,7 +96,7 @@ describe('MonteCarloRaceChart', () => {
   it('Candidates button is active by default', () => {
     renderChart();
     const candidatesBtn = screen.getByTestId('view-candidates');
-    const methodBtn     = screen.getByTestId('view-one-method');
+    const methodBtn = screen.getByTestId('view-one-method');
     expect(candidatesBtn.className).toContain('text-secondary-foreground');
     expect(methodBtn.className).toContain('border-input');
   });
@@ -115,7 +117,7 @@ describe('MonteCarloRaceChart', () => {
     fireEvent.click(screen.getByTestId('view-one-method'));
 
     const dropdown = screen.getByRole('combobox');
-    const options  = Array.from(dropdown.querySelectorAll('option')).map((o) => o.textContent);
+    const options = Array.from(dropdown.querySelectorAll('option')).map((o) => o.textContent);
     expect(options).toContain('plurality');
     expect(options).toContain('schulze');
   });

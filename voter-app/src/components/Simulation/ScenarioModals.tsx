@@ -4,7 +4,7 @@ import { Button } from '@/components/ui/button';
 import { Modal } from '@/components/ui/modal';
 import { Spinner } from '@/components/ui/spinner';
 import { Table } from '@/components/ui/table';
-import { Form } from 'react-bootstrap';
+import { Control } from '@/components/ui/form-controls';
 import { ScenarioDetail, ScenarioSummary } from '../../types';
 import { getScenario } from '../../services/scenariosApi';
 
@@ -25,8 +25,18 @@ interface Props {
 }
 
 const ScenarioModals: React.FC<Props> = ({
-  showSaveModal, setShowSaveModal, saveName, setSaveName, saving, handleSave,
-  showLoadModal, setShowLoadModal, scenarioList, loadingList, handleLoad, handleDelete,
+  showSaveModal,
+  setShowSaveModal,
+  saveName,
+  setSaveName,
+  saving,
+  handleSave,
+  showLoadModal,
+  setShowLoadModal,
+  scenarioList,
+  loadingList,
+  handleLoad,
+  handleDelete,
 }) => (
   <>
     <Modal show={showSaveModal} onHide={() => setShowSaveModal(false)} centered>
@@ -34,20 +44,31 @@ const ScenarioModals: React.FC<Props> = ({
         <Modal.Title>Save scenario</Modal.Title>
       </Modal.Header>
       <Modal.Body>
-        <Form.Label>Scenario name</Form.Label>
-        <Form.Control
+        <label className="mb-1 inline-block">Scenario name</label>
+        <Control
           type="text"
           value={saveName}
           onChange={(e) => setSaveName(e.target.value)}
-          onKeyDown={(e) => { if (e.key === 'Enter') handleSave(); }}
+          onKeyDown={(e) => {
+            if (e.key === 'Enter') handleSave();
+          }}
           placeholder="My scenario"
           autoFocus
         />
       </Modal.Body>
       <Modal.Footer>
-        <Button variant="secondary" onClick={() => setShowSaveModal(false)}>Cancel</Button>
+        <Button variant="secondary" onClick={() => setShowSaveModal(false)}>
+          Cancel
+        </Button>
         <Button variant="success" onClick={handleSave} disabled={saving || !saveName.trim()}>
-          {saving ? <><Spinner size="sm" className="me-2" />Saving…</> : 'Save'}
+          {saving ? (
+            <>
+              <Spinner size="sm" className="me-2" />
+              Saving…
+            </>
+          ) : (
+            'Save'
+          )}
         </Button>
       </Modal.Footer>
     </Modal>
@@ -58,10 +79,13 @@ const ScenarioModals: React.FC<Props> = ({
       </Modal.Header>
       <Modal.Body style={{ maxHeight: '60vh', overflowY: 'auto' }}>
         {loadingList ? (
-          <div className="text-center py-3"><Spinner /></div>
+          <div className="text-center py-3">
+            <Spinner />
+          </div>
         ) : scenarioList.length === 0 ? (
           <Alert variant="info" className="mb-0">
-            No saved scenarios yet. Run an analysis and click <strong>Save scenario</strong> to save one.
+            No saved scenarios yet. Run an analysis and click <strong>Save scenario</strong> to save
+            one.
           </Alert>
         ) : (
           <Table className="[&_th]:p-1 [&_td]:p-1 [&_th]:text-left [&_td]:border-t [&_th]:border-b [&_td]:border-border [&_th]:border-border [&_*]:align-middle [&_th]:border [&_td]:border [&_tbody_tr:hover]:bg-muted/50">
@@ -76,7 +100,7 @@ const ScenarioModals: React.FC<Props> = ({
               {scenarioList.map((s) => (
                 <tr key={s.id}>
                   <td className="align-middle">{s.name}</td>
-                  <td className="align-middle text-muted small">
+                  <td className="align-middle text-muted-foreground text-sm">
                     {new Date(s.created_at).toLocaleString()}
                   </td>
                   <td className="text-center">
@@ -99,7 +123,9 @@ const ScenarioModals: React.FC<Props> = ({
         )}
       </Modal.Body>
       <Modal.Footer>
-        <Button variant="secondary" onClick={() => setShowLoadModal(false)}>Close</Button>
+        <Button variant="secondary" onClick={() => setShowLoadModal(false)}>
+          Close
+        </Button>
       </Modal.Footer>
     </Modal>
   </>

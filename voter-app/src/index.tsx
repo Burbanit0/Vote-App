@@ -38,9 +38,7 @@ i18nReady.finally(() => {
         <GoogleOAuthProvider clientId={googleClientId}>
           <App />
         </GoogleOAuthProvider>
-        {process.env.NODE_ENV !== 'production' && (
-          <ReactQueryDevtools initialIsOpen={false} />
-        )}
+        {process.env.NODE_ENV !== 'production' && <ReactQueryDevtools initialIsOpen={false} />}
       </QueryClientProvider>
     </React.StrictMode>
   );
