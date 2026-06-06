@@ -20,6 +20,12 @@ vi.mock('./pages/SimulationComparePage', () => ({
 vi.mock('./pages/ScenarioBuilderPage', () => ({
   default: () => <div data-testid="scenario-builder-page">ScenarioBuilderPage</div>,
 }));
+vi.mock('./pages/ScenarioGalleryPage', () => ({
+  default: () => <div data-testid="gallery-page">ScenarioGalleryPage</div>,
+}));
+vi.mock('./pages/NotFoundPage', () => ({
+  default: () => <div data-testid="not-found-page">NotFoundPage</div>,
+}));
 vi.mock('./pages/Login', () => ({ default: () => <div data-testid="login-page">Login</div> }));
 vi.mock('./pages/Register', () => ({
   default: () => <div data-testid="register-page">Register</div>,
@@ -108,6 +114,24 @@ describe('App', () => {
     window.history.pushState({}, '', '/simulation/compare');
     render(<App />);
     expect(await screen.findByTestId('simulation-compare-page')).toBeInTheDocument();
+  });
+
+  it('renders ScenarioGalleryPage on /galerie', async () => {
+    window.history.pushState({}, '', '/galerie');
+    render(<App />);
+    expect(await screen.findByTestId('gallery-page')).toBeInTheDocument();
+  });
+
+  it('renders NotFoundPage on an unknown route', async () => {
+    window.history.pushState({}, '', '/this-route-does-not-exist');
+    render(<App />);
+    expect(await screen.findByTestId('not-found-page')).toBeInTheDocument();
+  });
+
+  it('renders NotFoundPage on a removed route (e.g. /campaign)', async () => {
+    window.history.pushState({}, '', '/campaign');
+    render(<App />);
+    expect(await screen.findByTestId('not-found-page')).toBeInTheDocument();
   });
 
   // Auth-protected routes
