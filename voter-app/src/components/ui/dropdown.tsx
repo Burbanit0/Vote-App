@@ -83,12 +83,15 @@ const Menu: React.FC<React.HTMLAttributes<HTMLDivElement> & { align?: 'start' | 
   );
 };
 
-export interface DropdownItemProps extends React.HTMLAttributes<HTMLButtonElement> {
+export interface DropdownItemProps extends React.HTMLAttributes<HTMLElement> {
   active?: boolean;
   disabled?: boolean;
   href?: string;
   eventKey?: string;
 }
+
+const ITEM_CLASS =
+  'block w-full cursor-pointer rounded-sm px-3 py-1.5 text-left text-sm transition-colors hover:bg-accent hover:text-accent-foreground';
 
 const Item: React.FC<DropdownItemProps> = ({
   className,
@@ -101,6 +104,31 @@ const Item: React.FC<DropdownItemProps> = ({
   ...props
 }) => {
   const ctx = React.useContext(DropdownContext)!;
+  const classes = cn(
+    ITEM_CLASS,
+    active && 'bg-accent text-accent-foreground',
+    disabled && 'pointer-events-none opacity-50',
+    className
+  );
+
+  // react-bootstrap parity: an Item with `href` is a link, not a button.
+  if (href && !disabled) {
+    return (
+      <a
+        href={href}
+        role="menuitem"
+        onClick={(e) => {
+          onClick?.(e);
+          ctx.setOpen(false);
+        }}
+        className={cn(classes, 'no-underline')}
+        {...props}
+      >
+        {children}
+      </a>
+    );
+  }
+
   return (
     <button
       type="button"
@@ -110,13 +138,8 @@ const Item: React.FC<DropdownItemProps> = ({
         onClick?.(e);
         ctx.setOpen(false);
       }}
-      className={cn(
-        'block w-full cursor-pointer rounded-sm px-3 py-1.5 text-left text-sm transition-colors hover:bg-accent hover:text-accent-foreground',
-        active && 'bg-accent text-accent-foreground',
-        disabled && 'pointer-events-none opacity-50',
-        className
-      )}
-      {...props}
+      className={classes}
+      {...(props as React.ButtonHTMLAttributes<HTMLButtonElement>)}
     >
       {children}
     </button>
