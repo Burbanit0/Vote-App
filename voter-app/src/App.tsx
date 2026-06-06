@@ -27,6 +27,8 @@ const ElectionLabPage = React.lazy(() => import('./pages/ElectionLabPage'));
 const QuadraticFundingPage = React.lazy(() => import('./pages/QuadraticFundingPage'));
 const TechDemocracyPage = React.lazy(() => import('./pages/TechDemocracyPage'));
 const TheoryPage = React.lazy(() => import('./pages/TheoryPage'));
+const ScenarioGalleryPage = React.lazy(() => import('./pages/ScenarioGalleryPage'));
+const NotFoundPage = React.lazy(() => import('./pages/NotFoundPage'));
 const ProfilePage = React.lazy(() => import('./pages/ProfilePage'));
 const UserProfilePage = React.lazy(() => import('./pages/UserProfilePage'));
 
@@ -99,11 +101,15 @@ const AppContent: React.FC = () => {
               element={<Navigate to="/election-lab?tab=party-dynamics" replace />}
             />
             <Route path="/theory" element={<TheoryPage />} />
+            <Route path="/galerie" element={<ScenarioGalleryPage />} />
 
             {/* Auth-protected routes */}
             <Route path="/profile" element={<AuthGuard component={ProfilePage} />} />
             <Route path="users/:id" element={<AuthGuard component={UserProfilePage} />} />
             <Route path="/simulation" element={<AuthGuard component={SimulationPage} />} />
+
+            {/* Catch-all 404 — unknown / removed routes */}
+            <Route path="*" element={<NotFoundPage />} />
           </Routes>
         </Suspense>
       </ErrorBoundary>
