@@ -11,10 +11,16 @@ vi.mock('../hooks/useMetaTags', () => ({ useMetaTags: () => {} }));
 const localStorageMock = (() => {
   let store: Record<string, string> = {};
   return {
-    getItem:   (key: string) => store[key] ?? null,
-    setItem:   (key: string, val: string) => { store[key] = val; },
-    removeItem:(key: string) => { delete store[key]; },
-    clear:     () => { store = {}; },
+    getItem: (key: string) => store[key] ?? null,
+    setItem: (key: string, val: string) => {
+      store[key] = val;
+    },
+    removeItem: (key: string) => {
+      delete store[key];
+    },
+    clear: () => {
+      store = {};
+    },
   };
 })();
 Object.defineProperty(window, 'localStorage', { value: localStorageMock });
@@ -34,9 +40,12 @@ function clickFilter(label: RegExp) {
  */
 function clickNextIfPresent(): boolean {
   const btn = screen.queryAllByRole('button').find(
-    (b) => (b.textContent ?? '').includes('→'), // → (right arrow)
+    (b) => (b.textContent ?? '').includes('→') // → (right arrow)
   );
-  if (btn) { fireEvent.click(btn); return true; }
+  if (btn) {
+    fireEvent.click(btn);
+    return true;
+  }
   return false;
 }
 
@@ -53,9 +62,7 @@ function findCurrentQuestion(): QuizQuestion | undefined {
 }
 
 function getOptionButtons() {
-  return screen.getAllByRole('button').filter(
-    (b) => /^[A-D]\./.test(b.textContent ?? ''),
-  );
+  return screen.getAllByRole('button').filter((b) => /^[A-D]\./.test(b.textContent ?? ''));
 }
 
 function answerCorrectly(q: QuizQuestion) {
@@ -113,10 +120,10 @@ describe('QuizPage — difficulty filter', () => {
   it('filter buttons show the correct counts', () => {
     render(<QuizPage />);
     const debutantCount = questions.filter((q) => q.difficulty === 'débutant').length;
-    const expertCount   = questions.filter((q) => q.difficulty === 'expert').length;
+    const expertCount = questions.filter((q) => q.difficulty === 'expert').length;
 
     const debutantBtn = screen.getByRole('button', { name: /Débutant/i });
-    const expertBtn   = screen.getByRole('button', { name: /Expert/i });
+    const expertBtn = screen.getByRole('button', { name: /Expert/i });
 
     expect(debutantBtn.textContent).toContain(String(debutantCount));
     expect(expertBtn.textContent).toContain(String(expertCount));
@@ -199,9 +206,9 @@ describe('QuizPage — answering questions', () => {
   it('"Question suivante" button appears after answering', () => {
     render(<QuizPage />);
     fireEvent.click(getOptionButtons()[0]);
-    const nextBtn = screen.queryAllByRole('button').find(
-      (b) => (b.textContent ?? '').includes('→'),
-    );
+    const nextBtn = screen
+      .queryAllByRole('button')
+      .find((b) => (b.textContent ?? '').includes('→'));
     expect(nextBtn).toBeInTheDocument();
   });
 
@@ -273,7 +280,7 @@ describe('QuizPage — results screen', () => {
     const total = questions.length;
     for (let i = 0; i < total + 1; i++) {
       const opts = getOptionButtons();
-      if (!opts.length) break;        // results screen has no option buttons
+      if (!opts.length) break; // results screen has no option buttons
       fireEvent.click(opts[0]);
       if (!clickNextIfPresent()) break;
     }

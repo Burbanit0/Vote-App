@@ -31,7 +31,7 @@ describe('SensitivityTab', () => {
   });
 
   it('calls getSensitivityAnalysis on button click', async () => {
-    const { getSensitivityAnalysis } = (await import('../../../services/simulationCompareApi'));
+    const { getSensitivityAnalysis } = await import('../../../services/simulationCompareApi');
     (getSensitivityAnalysis as jest.Mock).mockResolvedValue(mockSensitivityData);
     render(<SensitivityTab baseConfig={baseConfig} />);
     const button = screen.getByRole('button', { name: /Run Sensitivity/ });
@@ -42,7 +42,7 @@ describe('SensitivityTab', () => {
   });
 
   it('shows loading state during analysis', async () => {
-    const { getSensitivityAnalysis } = (await import('../../../services/simulationCompareApi'));
+    const { getSensitivityAnalysis } = await import('../../../services/simulationCompareApi');
     (getSensitivityAnalysis as jest.Mock).mockReturnValue(new Promise(() => {}));
     render(<SensitivityTab baseConfig={baseConfig} />);
     fireEvent.click(screen.getByRole('button', { name: /Run Sensitivity/ }));

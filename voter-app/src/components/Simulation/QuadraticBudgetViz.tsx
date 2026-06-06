@@ -7,7 +7,8 @@
  *   3. "Indice de Gini des crédits" (0 = equal, 1 = all on one candidate)
  */
 import React, { useMemo } from 'react';
-import { Badge, Card } from 'react-bootstrap';
+import { Badge } from '@/components/ui/badge';
+import { Card, CardBody, CardHeader } from '@/components/ui/card';
 import {
   Bar,
   BarChart,
@@ -30,7 +31,10 @@ function gini(values: number[]): number {
   if (total <= 0) return 0;
   const sorted = [...values].sort((a, b) => a - b);
   const weighted = sorted.reduce((acc, v, i) => acc + (i + 1) * v, 0);
-  return Math.max(0, Math.min(1, parseFloat((2 * weighted / (n * total) - (n + 1) / n).toFixed(3))));
+  return Math.max(
+    0,
+    Math.min(1, parseFloat(((2 * weighted) / (n * total) - (n + 1) / n).toFixed(3)))
+  );
 }
 
 // ── Types ─────────────────────────────────────────────────────────────────────
@@ -52,16 +56,24 @@ function QVTooltip({ active, payload }: any) {
   if (!active || !payload?.length) return null;
   const entry = payload[0];
   return (
-    <div style={{
-      background: 'var(--bs-body-bg, white)',
-      border: '1px solid var(--bs-border-color, #dee2e6)',
-      borderRadius: 8, padding: '8px 12px', fontSize: '0.82rem',
-      boxShadow: '0 2px 8px rgba(0,0,0,0.1)',
-    }}>
-      <div className="fw-bold mb-1">{entry.payload.candidate}</div>
-      <div>Crédits moyens : <strong>{entry.value?.toFixed(1)}</strong></div>
+    <div
+      style={{
+        background: 'var(--bs-body-bg, white)',
+        border: '1px solid var(--bs-border-color, #dee2e6)',
+        borderRadius: 8,
+        padding: '8px 12px',
+        fontSize: '0.82rem',
+        boxShadow: '0 2px 8px rgba(0,0,0,0.1)',
+      }}
+    >
+      <div className="font-bold mb-1">{entry.payload.candidate}</div>
+      <div>
+        Crédits moyens : <strong>{entry.value?.toFixed(1)}</strong>
+      </div>
       {entry.payload.votes != null && (
-        <div className="text-muted">Votes QV totaux : {entry.payload.votes.toFixed(0)}</div>
+        <div className="text-muted-foreground">
+          Votes QV totaux : {entry.payload.votes.toFixed(0)}
+        </div>
       )}
     </div>
   );
@@ -77,57 +89,68 @@ const QuadraticBudgetViz: React.FC<Props> = ({
 }) => {
   const candidates = Object.keys(creditDistribution);
 
-  const chartData = useMemo(() =>
-    candidates.map((c, i) => ({
-      candidate: c,
-      credits:   parseFloat((creditDistribution[c] ?? 0).toFixed(1)),
-      votes:     scores?.[c],
-      fill:      CHART_COLORS_LIGHT[i % CHART_COLORS_LIGHT.length],
-    })).sort((a, b) => b.credits - a.credits),
-    [creditDistribution, candidates, scores],
+  const chartData = useMemo(
+    () =>
+      candidates
+        .map((c, i) => ({
+          candidate: c,
+          credits: parseFloat((creditDistribution[c] ?? 0).toFixed(1)),
+          votes: scores?.[c],
+          fill: CHART_COLORS_LIGHT[i % CHART_COLORS_LIGHT.length],
+        }))
+        .sort((a, b) => b.credits - a.credits),
+    [creditDistribution, candidates, scores]
   );
 
-  const creditValues  = candidates.map((c) => creditDistribution[c] ?? 0);
-  const giniIndex     = gini(creditValues);
-  const avgPerCand    = totalCreditsUsed / Math.max(1, candidates.length);
-  const unused        = Math.max(0, budget - totalCreditsUsed);
+  const creditValues = candidates.map((c) => creditDistribution[c] ?? 0);
+  const giniIndex = gini(creditValues);
+  const avgPerCand = totalCreditsUsed / Math.max(1, candidates.length);
+  const unused = Math.max(0, budget - totalCreditsUsed);
 
   // Gini label colour
   const giniColor = giniIndex < 0.3 ? '#1b5e20' : giniIndex < 0.6 ? '#b35c00' : '#b71c1c';
 
   return (
     <Card className="mt-3 mb-0">
-      <Card.Header className="py-2">
+      <CardHeader className="block space-y-0 border-b border-border px-4 py-2 py-2">
         <strong>💎 Répartition des crédits (Vote Quadratique)</strong>
-        <span className="text-muted ms-2" style={{ fontSize: '0.82rem' }}>
+        <span className="text-muted-foreground ms-2" style={{ fontSize: '0.82rem' }}>
           — budget de {budget} crédits par électeur
         </span>
-      </Card.Header>
-      <Card.Body>
+      </CardHeader>
+      <CardBody>
         {/* ── Summary stats ── */}
-        <div className="d-flex gap-4 mb-3 flex-wrap" style={{ fontSize: '0.85rem' }}>
+        <div className="flex gap-4 mb-3 flex-wrap" style={{ fontSize: '0.85rem' }}>
           <div>
-            <span className="text-muted">Crédits utilisés en moy. :</span>{' '}
-            <strong>{totalCreditsUsed.toFixed(1)} / {budget}</strong>
+            <span className="text-muted-foreground">Crédits utilisés en moy. :</span>{' '}
+            <strong>
+              {totalCreditsUsed.toFixed(1)} / {budget}
+            </strong>
           </div>
           <div>
-            <span className="text-muted">Budget moy. / candidat :</span>{' '}
+            <span className="text-muted-foreground">Budget moy. / candidat :</span>{' '}
             <strong>{avgPerCand.toFixed(1)}</strong>
           </div>
           <div>
-            <span className="text-muted">Crédits non utilisés :</span>{' '}
+            <span className="text-muted-foreground">Crédits non utilisés :</span>{' '}
             <strong>{unused.toFixed(1)}</strong>
             {unused > 5 && (
-              <Badge bg="warning" text="dark" className="ms-1" style={{ fontSize: '0.7rem' }}>
+              <Badge variant="warning" className="ms-1" style={{ fontSize: '0.7rem' }}>
                 budget non épuisé
               </Badge>
             )}
           </div>
           <div>
-            <span className="text-muted">Indice de Gini :</span>{' '}
+            <span className="text-muted-foreground">Indice de Gini :</span>{' '}
             <strong style={{ color: giniColor }}>{giniIndex.toFixed(3)}</strong>
-            <span className="text-muted ms-1" style={{ fontSize: '0.78rem' }}>
-              ({giniIndex < 0.3 ? 'faible concentration' : giniIndex < 0.6 ? 'concentration modérée' : 'forte concentration'})
+            <span className="text-muted-foreground ms-1" style={{ fontSize: '0.78rem' }}>
+              (
+              {giniIndex < 0.3
+                ? 'faible concentration'
+                : giniIndex < 0.6
+                  ? 'concentration modérée'
+                  : 'forte concentration'}
+              )
             </span>
           </div>
         </div>
@@ -139,20 +162,24 @@ const QuadraticBudgetViz: React.FC<Props> = ({
             layout="vertical"
             margin={{ top: 4, right: 60, left: 0, bottom: 4 }}
           >
-            <CartesianGrid strokeDasharray="3 3" horizontal={false} stroke="var(--bs-border-color, #dee2e6)" />
+            <CartesianGrid
+              strokeDasharray="3 3"
+              horizontal={false}
+              stroke="var(--bs-border-color, #dee2e6)"
+            />
             <XAxis
               type="number"
               domain={[0, budget]}
               tickFormatter={(v) => `${v}`}
-              label={{ value: 'Crédits moyens', position: 'insideBottom', offset: -4, fontSize: 11 }}
+              label={{
+                value: 'Crédits moyens',
+                position: 'insideBottom',
+                offset: -4,
+                fontSize: 11,
+              }}
               tick={{ fontSize: 11 }}
             />
-            <YAxis
-              type="category"
-              dataKey="candidate"
-              width={72}
-              tick={{ fontSize: 12 }}
-            />
+            <YAxis type="category" dataKey="candidate" width={72} tick={{ fontSize: 12 }} />
             <Tooltip content={<QVTooltip />} />
             <Bar dataKey="credits" radius={[0, 4, 4, 0]} maxBarSize={28}>
               {chartData.map((entry) => (
@@ -161,7 +188,7 @@ const QuadraticBudgetViz: React.FC<Props> = ({
               <LabelList
                 dataKey="credits"
                 position="right"
-                formatter={(v: unknown) => typeof v === 'number' ? `${v.toFixed(0)} cr.` : ''}
+                formatter={(v: unknown) => (typeof v === 'number' ? `${v.toFixed(0)} cr.` : '')}
                 style={{ fontSize: '0.8rem', fill: 'var(--bs-body-color, #333)' }}
               />
             </Bar>
@@ -169,13 +196,16 @@ const QuadraticBudgetViz: React.FC<Props> = ({
         </ResponsiveContainer>
 
         {/* ── Pedagogical note ── */}
-        <div className="text-muted mt-2" style={{ fontSize: '0.78rem', lineHeight: 1.5 }}>
+        <div
+          className="text-muted-foreground mt-2"
+          style={{ fontSize: '0.78rem', lineHeight: 1.5 }}
+        >
           <strong>Comment lire ce graphique :</strong> chaque barre représente les crédits moyens
-          qu'un électeur consacre à ce candidat. Un vote coûte v² crédits — obtenir 3 votes
-          coûte 9 crédits, pas 3. Un indice de Gini élevé signifie que les crédits sont concentrés
-          sur un seul candidat (forte intensité des préférences).
+          qu'un électeur consacre à ce candidat. Un vote coûte v² crédits — obtenir 3 votes coûte 9
+          crédits, pas 3. Un indice de Gini élevé signifie que les crédits sont concentrés sur un
+          seul candidat (forte intensité des préférences).
         </div>
-      </Card.Body>
+      </CardBody>
     </Card>
   );
 };

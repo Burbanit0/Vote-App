@@ -83,12 +83,12 @@ const OnboardingTour: React.FC<Props> = ({ run, onFinish }) => {
   ];
 
   const locale = {
-    back:  t('onboarding.back'),
+    back: t('onboarding.back'),
     close: t('onboarding.close'),
-    last:  t('onboarding.last'),
-    next:  t('onboarding.next'),
-    open:  t('onboarding.open'),
-    skip:  t('onboarding.skip'),
+    last: t('onboarding.last'),
+    next: t('onboarding.next'),
+    open: t('onboarding.open'),
+    skip: t('onboarding.skip'),
   };
 
   const handleCallback = useCallback(

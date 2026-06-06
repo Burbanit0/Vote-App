@@ -39,9 +39,9 @@ describe('computeMedian', () => {
 
 describe('nearestCandidate', () => {
   const candidates: MedianCandidate[] = [
-    { name: 'Alice', x: -0.5, y:  0.0 },
-    { name: 'Bob',   x:  0.5, y:  0.0 },
-    { name: 'Carol', x:  0.0, y:  0.5 },
+    { name: 'Alice', x: -0.5, y: 0.0 },
+    { name: 'Bob', x: 0.5, y: 0.0 },
+    { name: 'Carol', x: 0.0, y: 0.5 },
   ];
 
   it('returns null for empty candidate list', () => {
@@ -75,15 +75,15 @@ describe('nearestCandidate', () => {
 
 const VOTERS: MedianVoterPoint[] = [
   { x: -0.3, y: 0.1 },
-  { x:  0.1, y: -0.1 },
+  { x: 0.1, y: -0.1 },
   { x: -0.1, y: 0.0 },
-  { x:  0.2, y: 0.2 },
+  { x: 0.2, y: 0.2 },
   { x: -0.2, y: -0.2 },
 ];
 
 const CANDIDATES: MedianCandidate[] = [
   { name: 'Alice', x: -0.5, y: 0.0 },
-  { name: 'Bob',   x:  0.5, y: 0.0 },
+  { name: 'Bob', x: 0.5, y: 0.0 },
 ];
 
 function renderLayer(props?: Partial<React.ComponentProps<typeof MedianVoterLayer>>) {
@@ -133,7 +133,9 @@ describe('MedianVoterLayer', () => {
   it('renders green match line when winner matches prediction', () => {
     // VOTERS median_x ≈ -0.1, nearest to Alice (x=-0.5)... let's force it
     const leftVoters: MedianVoterPoint[] = [
-      { x: -0.5, y: 0 }, { x: -0.4, y: 0 }, { x: -0.6, y: 0 },
+      { x: -0.5, y: 0 },
+      { x: -0.4, y: 0 },
+      { x: -0.6, y: 0 },
     ];
     renderLayer({ voters: leftVoters, winnerA: 'Alice' });
     // Alice is nearest to median at ≈ -0.5 and winnerA=Alice → match
@@ -143,7 +145,9 @@ describe('MedianVoterLayer', () => {
   it('renders red miss line when winner does not match prediction', () => {
     // Put median near Alice but winnerA=Bob
     const leftVoters: MedianVoterPoint[] = [
-      { x: -0.5, y: 0 }, { x: -0.4, y: 0 }, { x: -0.6, y: 0 },
+      { x: -0.5, y: 0 },
+      { x: -0.4, y: 0 },
+      { x: -0.6, y: 0 },
     ];
     renderLayer({ voters: leftVoters, winnerA: 'Bob' });
     expect(screen.getByTestId('median-miss-line')).toBeInTheDocument();
@@ -151,7 +155,9 @@ describe('MedianVoterLayer', () => {
 
   it('shows miss label when winner misses', () => {
     const leftVoters: MedianVoterPoint[] = [
-      { x: -0.5, y: 0 }, { x: -0.4, y: 0 }, { x: -0.6, y: 0 },
+      { x: -0.5, y: 0 },
+      { x: -0.4, y: 0 },
+      { x: -0.6, y: 0 },
     ];
     renderLayer({ voters: leftVoters, winnerA: 'Bob' });
     expect(screen.getByTestId('median-miss-label')).toBeInTheDocument();

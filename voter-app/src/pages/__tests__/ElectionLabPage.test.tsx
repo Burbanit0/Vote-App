@@ -5,33 +5,53 @@ import ElectionLabPage from '../ElectionLabPage';
 import { ElectionProvider } from '../../stores/useElectionStore';
 
 vi.mock('../../services/electionApi', () => ({
-  simulateElection:   vi.fn(),
-  interpretElection:  vi.fn(),
+  simulateElection: vi.fn(),
+  interpretElection: vi.fn(),
 }));
 
-vi.mock('../../components/Simulation/IdeologyMapChart',    () => ({ default: () => <div data-testid="ideology-map" /> }));
-vi.mock('../../components/Simulation/VoteStepAnimator',    () => ({ default: () => <div data-testid="vote-step" /> }));
-vi.mock('../../components/Simulation/MonteCarloResults',   () => ({ default: () => <div data-testid="monte-carlo" /> }));
-vi.mock('../../components/Simulation/ManipulabilityChart', () => ({ default: () => <div data-testid="manipulability" /> }));
+vi.mock('../../components/Simulation/IdeologyMapChart', () => ({
+  default: () => <div data-testid="ideology-map" />,
+}));
+vi.mock('../../components/Simulation/VoteStepAnimator', () => ({
+  default: () => <div data-testid="vote-step" />,
+}));
+vi.mock('../../components/Simulation/MonteCarloResults', () => ({
+  default: () => <div data-testid="monte-carlo" />,
+}));
+vi.mock('../../components/Simulation/ManipulabilityChart', () => ({
+  default: () => <div data-testid="manipulability" />,
+}));
 
-const { simulateElection, interpretElection } = (await import('../../services/electionApi')) as unknown as {
-  simulateElection:  jest.Mock;
+const { simulateElection, interpretElection } = (await import(
+  '../../services/electionApi'
+)) as unknown as {
+  simulateElection: jest.Mock;
   interpretElection: jest.Mock;
 };
 
 const MOCK_RESULT = {
-  config:                  {},
-  voters_snapshot:         [],
-  candidates:              [{ name: 'Alice', x: -0.5, y: 0.0, party: 'Liberal' }],
+  config: {},
+  voters_snapshot: [],
+  candidates: [{ name: 'Alice', x: -0.5, y: 0.0, party: 'Liberal' }],
   methods: {
-    plurality: { winner: 'Alice', bayesian_regret: 0.02, majority_satisfaction: 0.8, condorcet_consistent: true },
-    schulze:   { winner: 'Alice', bayesian_regret: 0.01, majority_satisfaction: 0.85, condorcet_consistent: true },
+    plurality: {
+      winner: 'Alice',
+      bayesian_regret: 0.02,
+      majority_satisfaction: 0.8,
+      condorcet_consistent: true,
+    },
+    schulze: {
+      winner: 'Alice',
+      bayesian_regret: 0.01,
+      majority_satisfaction: 0.85,
+      condorcet_consistent: true,
+    },
   },
-  condorcet_winner:        'Alice',
-  blank_rate:              0,
-  campaign_trajectory:     null,
-  inter_method_agreement:  1.0,
-  condorcet_exists:        true,
+  condorcet_winner: 'Alice',
+  blank_rate: 0,
+  campaign_trajectory: null,
+  inter_method_agreement: 1.0,
+  condorcet_exists: true,
 };
 
 function renderPage() {
@@ -48,10 +68,15 @@ beforeEach(() => {
   vi.clearAllMocks();
   simulateElection.mockResolvedValue(MOCK_RESULT);
   interpretElection.mockResolvedValue({
-    headline: 'Test headline', condorcet_analysis: 'Condorcet ok',
-    divergence_reason: '', method_groups: [], best_by_regret: 'schulze',
-    worst_by_regret: 'plurality', blank_analysis: null,
-    pedagogical_note: 'Note', key_facts: [],
+    headline: 'Test headline',
+    condorcet_analysis: 'Condorcet ok',
+    divergence_reason: '',
+    method_groups: [],
+    best_by_regret: 'schulze',
+    worst_by_regret: 'plurality',
+    blank_analysis: null,
+    pedagogical_note: 'Note',
+    key_facts: [],
   });
   localStorage.clear();
 });
@@ -73,9 +98,9 @@ describe('ElectionLabPage', () => {
 
   it('clicking Simulate calls simulateElection', async () => {
     renderPage();
-    const btn = screen.getAllByText(/Simuler|Simulate/i).find(
-      (el) => el.closest('button') !== null
-    );
+    const btn = screen
+      .getAllByText(/Simuler|Simulate/i)
+      .find((el) => el.closest('button') !== null);
     expect(btn).toBeTruthy();
     fireEvent.click(btn!.closest('button')!);
     await waitFor(() => expect(simulateElection).toHaveBeenCalledTimes(1));
@@ -83,9 +108,9 @@ describe('ElectionLabPage', () => {
 
   it('shows results tab after simulation', async () => {
     renderPage();
-    const btn = screen.getAllByText(/Simuler|Simulate/i).find(
-      (el) => el.closest('button') !== null
-    );
+    const btn = screen
+      .getAllByText(/Simuler|Simulate/i)
+      .find((el) => el.closest('button') !== null);
     fireEvent.click(btn!.closest('button')!);
     await waitFor(() => expect(screen.getAllByText(/plurality/i).length).toBeGreaterThan(0));
   });

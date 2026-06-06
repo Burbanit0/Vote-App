@@ -8,7 +8,9 @@ vi.mock('../../../api/client', () => ({
   apiClient: { GET: vi.fn(), POST: vi.fn(), PUT: vi.fn(), DELETE: vi.fn(), PATCH: vi.fn() },
   getAccessToken: vi.fn(() => null),
 }));
-const { apiClient } = (await import('../../../api/client')) as unknown as { apiClient: { POST: jest.Mock } };
+const { apiClient } = (await import('../../../api/client')) as unknown as {
+  apiClient: { POST: jest.Mock };
+};
 
 vi.mock('react-i18next', () => ({
   useTranslation: () => ({
@@ -21,9 +23,17 @@ vi.mock('recharts', () => {
   const stub = ({ children }: { children?: React.ReactNode }) =>
     React.createElement('div', { 'data-testid': 'recharts-stub' }, children);
   return {
-    RadarChart: stub, Radar: stub, PolarGrid: stub, PolarAngleAxis: stub,
-    LineChart: stub, Line: stub, XAxis: stub, YAxis: stub,
-    CartesianGrid: stub, Tooltip: stub, Legend: stub,
+    RadarChart: stub,
+    Radar: stub,
+    PolarGrid: stub,
+    PolarAngleAxis: stub,
+    LineChart: stub,
+    Line: stub,
+    XAxis: stub,
+    YAxis: stub,
+    CartesianGrid: stub,
+    Tooltip: stub,
+    Legend: stub,
     ResponsiveContainer: ({ children }: { children?: React.ReactNode }) =>
       React.createElement('div', null, children),
   };
@@ -31,19 +41,61 @@ vi.mock('recharts', () => {
 
 const MOCK_DATA = {
   results: {
-    simple_majority:    { minority_win_rate: 0.0,  minority_satisfaction: 0.0,  majority_satisfaction: 1.0,  total_welfare: 0.6, efficiency_loss: 0.50, tyranny_index: 1.0 },
-    supermajority_2_3:  { minority_win_rate: 1.0,  minority_satisfaction: 1.0,  majority_satisfaction: 0.0,  total_welfare: 1.2, efficiency_loss: 0.01, tyranny_index: 0.0 },
-    supermajority_3_4:  { minority_win_rate: 1.0,  minority_satisfaction: 1.0,  majority_satisfaction: 0.0,  total_welfare: 1.2, efficiency_loss: 0.01, tyranny_index: 0.0 },
-    unanimous:          { minority_win_rate: 1.0,  minority_satisfaction: 1.0,  majority_satisfaction: 0.0,  total_welfare: 1.2, efficiency_loss: 0.01, tyranny_index: 0.0 },
-    qv:                 { minority_win_rate: 0.6,  minority_satisfaction: 0.6,  majority_satisfaction: 0.5,  total_welfare: 1.0, efficiency_loss: 0.20, tyranny_index: 0.4 },
-    mj:                 { minority_win_rate: 0.0,  minority_satisfaction: 0.0,  majority_satisfaction: 1.0,  total_welfare: 0.6, efficiency_loss: 0.50, tyranny_index: 1.0 },
+    simple_majority: {
+      minority_win_rate: 0.0,
+      minority_satisfaction: 0.0,
+      majority_satisfaction: 1.0,
+      total_welfare: 0.6,
+      efficiency_loss: 0.5,
+      tyranny_index: 1.0,
+    },
+    supermajority_2_3: {
+      minority_win_rate: 1.0,
+      minority_satisfaction: 1.0,
+      majority_satisfaction: 0.0,
+      total_welfare: 1.2,
+      efficiency_loss: 0.01,
+      tyranny_index: 0.0,
+    },
+    supermajority_3_4: {
+      minority_win_rate: 1.0,
+      minority_satisfaction: 1.0,
+      majority_satisfaction: 0.0,
+      total_welfare: 1.2,
+      efficiency_loss: 0.01,
+      tyranny_index: 0.0,
+    },
+    unanimous: {
+      minority_win_rate: 1.0,
+      minority_satisfaction: 1.0,
+      majority_satisfaction: 0.0,
+      total_welfare: 1.2,
+      efficiency_loss: 0.01,
+      tyranny_index: 0.0,
+    },
+    qv: {
+      minority_win_rate: 0.6,
+      minority_satisfaction: 0.6,
+      majority_satisfaction: 0.5,
+      total_welfare: 1.0,
+      efficiency_loss: 0.2,
+      tyranny_index: 0.4,
+    },
+    mj: {
+      minority_win_rate: 0.0,
+      minority_satisfaction: 0.0,
+      majority_satisfaction: 1.0,
+      total_welfare: 0.6,
+      efficiency_loss: 0.5,
+      tyranny_index: 1.0,
+    },
   },
   tyranny_curve: [
     { majority_pct: 0.51, tyranny_by_rule: { simple_majority: 1.0, unanimous: 0.0 } },
-    { majority_pct: 0.60, tyranny_by_rule: { simple_majority: 1.0, unanimous: 0.0 } },
-    { majority_pct: 0.80, tyranny_by_rule: { simple_majority: 1.0, unanimous: 0.0 } },
+    { majority_pct: 0.6, tyranny_by_rule: { simple_majority: 1.0, unanimous: 0.0 } },
+    { majority_pct: 0.8, tyranny_by_rule: { simple_majority: 1.0, unanimous: 0.0 } },
   ],
-  best_protector:  'unanimous',
+  best_protector: 'unanimous',
   least_efficient: 'simple_majority',
   pedagogical_note: 'Tocqueville: la tyrannie de la majorité.',
 };
@@ -62,7 +114,9 @@ function renderPanel() {
 async function renderAndRun() {
   apiClient.POST.mockResolvedValueOnce(ok(MOCK_DATA));
   renderPanel();
-  await act(async () => { fireEvent.click(screen.getByTestId('run-btn')); });
+  await act(async () => {
+    fireEvent.click(screen.getByTestId('run-btn'));
+  });
   await waitFor(() => expect(apiClient.POST).toHaveBeenCalledTimes(1));
   await act(async () => {});
 }
@@ -88,8 +142,12 @@ describe('MajorityTyrannyPanel', () => {
   it('shows rule toggles for all 6 rules', () => {
     renderPanel();
     const allRules = [
-      'simple_majority', 'supermajority_2_3', 'supermajority_3_4',
-      'unanimous', 'qv', 'mj',
+      'simple_majority',
+      'supermajority_2_3',
+      'supermajority_3_4',
+      'unanimous',
+      'qv',
+      'mj',
     ];
     allRules.forEach((r) => {
       expect(screen.getByTestId(`rule-badge-${r}`)).toBeInTheDocument();
@@ -160,7 +218,9 @@ describe('MajorityTyrannyPanel', () => {
   it('shows error alert on API failure', async () => {
     apiClient.POST.mockRejectedValueOnce(new Error('Network error'));
     renderPanel();
-    await act(async () => { fireEvent.click(screen.getByTestId('run-btn')); });
+    await act(async () => {
+      fireEvent.click(screen.getByTestId('run-btn'));
+    });
     await waitFor(() => expect(screen.getByTestId('error-alert')).toBeInTheDocument());
   });
 

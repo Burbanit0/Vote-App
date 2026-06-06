@@ -9,31 +9,55 @@ vi.mock('../../../api/client', () => ({
   apiClient: { GET: vi.fn(), POST: vi.fn(), PUT: vi.fn(), DELETE: vi.fn(), PATCH: vi.fn() },
   getAccessToken: vi.fn(() => null),
 }));
-const { apiClient } = (await import('../../../api/client')) as unknown as { apiClient: { POST: jest.Mock } };
+const { apiClient } = (await import('../../../api/client')) as unknown as {
+  apiClient: { POST: jest.Mock };
+};
 
 function makeData(hasParadox = true) {
   return {
     data: {
-      paradox_exists:    hasParadox,
-      paradox_examples: hasParadox ? [{
-        name:                "Exemple classique (Sen 1970)",
-        voters_preferences:  [['z','x','y'], ['x','y','z']],
-        private_spheres:     { voter_1: ['x','z'], voter_2: ['y','z'] },
-        liberal_outcome:     'y',
-        pareto_outcome:      'x',
-        conflict:            true,
-        explanation:         'Libéralisme : y ≻ x. Pareto : x ≻ y. Contradiction !',
-      }] : [],
-      paradox_frequency:   hasParadox ? 0.25 : 0,
-      alternative_names:   { x: 'Personne 1 lit', y: 'Personne 2 lit', z: 'Personne ne lit' },
+      paradox_exists: hasParadox,
+      paradox_examples: hasParadox
+        ? [
+            {
+              name: 'Exemple classique (Sen 1970)',
+              voters_preferences: [
+                ['z', 'x', 'y'],
+                ['x', 'y', 'z'],
+              ],
+              private_spheres: { voter_1: ['x', 'z'], voter_2: ['y', 'z'] },
+              liberal_outcome: 'y',
+              pareto_outcome: 'x',
+              conflict: true,
+              explanation: 'Libéralisme : y ≻ x. Pareto : x ≻ y. Contradiction !',
+            },
+          ]
+        : [],
+      paradox_frequency: hasParadox ? 0.25 : 0,
+      alternative_names: { x: 'Personne 1 lit', y: 'Personne 2 lit', z: 'Personne ne lit' },
       resolution_options: [
-        { name: 'Pareto prioritaire',      outcome: 'Efficacité',    cost: 'Liberté perdue',  theorist: 'Utilitarisme' },
-        { name: 'Libéralisme prioritaire', outcome: 'Autonomie',     cost: 'Sous-optimal',    theorist: 'Sen' },
-        { name: 'Restriction du domaine',  outcome: 'Paradoxe évité', cost: 'Qui décide ?',  theorist: 'Gaertner' },
-        { name: 'Droits absolus',          outcome: 'Sphères OK',    cost: 'Définition',      theorist: 'Sugden' },
+        {
+          name: 'Pareto prioritaire',
+          outcome: 'Efficacité',
+          cost: 'Liberté perdue',
+          theorist: 'Utilitarisme',
+        },
+        {
+          name: 'Libéralisme prioritaire',
+          outcome: 'Autonomie',
+          cost: 'Sous-optimal',
+          theorist: 'Sen',
+        },
+        {
+          name: 'Restriction du domaine',
+          outcome: 'Paradoxe évité',
+          cost: 'Qui décide ?',
+          theorist: 'Gaertner',
+        },
+        { name: 'Droits absolus', outcome: 'Sphères OK', cost: 'Définition', theorist: 'Sugden' },
       ],
       real_world_analogy: 'Exemple du voisin.',
-      pedagogical_note:   'Test note.',
+      pedagogical_note: 'Test note.',
     },
     error: undefined,
   };
@@ -49,8 +73,13 @@ function renderPanel() {
   );
 }
 
-beforeEach(() => { vi.clearAllMocks(); vi.useFakeTimers(); });
-afterEach(() => { vi.useRealTimers(); });
+beforeEach(() => {
+  vi.clearAllMocks();
+  vi.useFakeTimers();
+});
+afterEach(() => {
+  vi.useRealTimers();
+});
 
 describe('SenParadoxPanel', () => {
   it('shows simulate button', () => {
@@ -75,7 +104,7 @@ describe('SenParadoxPanel', () => {
     await waitFor(() => expect(apiClient.POST).toHaveBeenCalledTimes(1));
     expect(apiClient.POST).toHaveBeenCalledWith(
       expect.stringMatching(/\/api\/(v2\/)?theory\/sen-paradox/),
-      expect.any(Object),
+      expect.any(Object)
     );
     vi.runAllTimers();
   });
@@ -86,7 +115,7 @@ describe('SenParadoxPanel', () => {
     fireEvent.click(screen.getByTestId('simulate-btn'));
     await waitFor(() => {
       const badge = screen.getByTestId('paradox-badge');
-      expect(badge.className).toContain('bg-danger');
+      expect(badge.className).toContain('bg-[#dc3545]');
     });
     vi.runAllTimers();
   });
@@ -97,7 +126,7 @@ describe('SenParadoxPanel', () => {
     fireEvent.click(screen.getByTestId('simulate-btn'));
     await waitFor(() => {
       const badge = screen.getByTestId('paradox-badge');
-      expect(badge.className).toContain('bg-success');
+      expect(badge.className).toContain('bg-[#198754]');
     });
     vi.runAllTimers();
   });

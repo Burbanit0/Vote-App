@@ -27,15 +27,15 @@ const cycleResult: CondorcetMatrixResult = {
   candidates: ['X', 'Y', 'Z'],
   matrix: {
     X: {
-      Y: { pct_a: 0.60, pct_b: 0.40, winner: 'X' },
-      Z: { pct_a: 0.30, pct_b: 0.70, winner: 'Z' },
+      Y: { pct_a: 0.6, pct_b: 0.4, winner: 'X' },
+      Z: { pct_a: 0.3, pct_b: 0.7, winner: 'Z' },
     },
     Y: {
-      X: { pct_a: 0.40, pct_b: 0.60, winner: 'X' },
+      X: { pct_a: 0.4, pct_b: 0.6, winner: 'X' },
       Z: { pct_a: 0.55, pct_b: 0.45, winner: 'Y' },
     },
     Z: {
-      X: { pct_a: 0.70, pct_b: 0.30, winner: 'Z' },
+      X: { pct_a: 0.7, pct_b: 0.3, winner: 'Z' },
       Y: { pct_a: 0.45, pct_b: 0.55, winner: 'Y' },
     },
   },
@@ -79,8 +79,8 @@ describe('CondorcetMatrix', () => {
     const tieResult: CondorcetMatrixResult = {
       candidates: ['A', 'B'],
       matrix: {
-        A: { B: { pct_a: 0.50, pct_b: 0.50, winner: 'tie' } },
-        B: { A: { pct_a: 0.50, pct_b: 0.50, winner: 'tie' } },
+        A: { B: { pct_a: 0.5, pct_b: 0.5, winner: 'tie' } },
+        B: { A: { pct_a: 0.5, pct_b: 0.5, winner: 'tie' } },
       },
       condorcet_winner: null,
       condorcet_cycles: [],

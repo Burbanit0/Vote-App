@@ -1,18 +1,13 @@
 import React, { useState } from 'react';
-import {
-  Card,
-  Row,
-  Col,
-  Form,
-  Button,
-  Table,
-  Alert,
-  Tabs,
-  Tab,
-  Spinner,
-  Modal,
-  Container,
-} from 'react-bootstrap';
+import { Alert } from '@/components/ui/alert';
+import { Tab, Tabs } from '@/components/ui/bootstrap-tabs';
+import { Button } from '@/components/ui/button';
+import { Card, CardBody, CardHeader, CardTitle } from '@/components/ui/card';
+import { Control } from '@/components/ui/form-controls';
+import { Col, Container, Row } from '@/components/ui/grid';
+import { Modal } from '@/components/ui/modal';
+import { Spinner } from '@/components/ui/spinner';
+import { Table } from '@/components/ui/table';
 import { useTranslation } from 'react-i18next';
 import {
   BarChart,
@@ -192,55 +187,55 @@ const CandidatesVisualization: React.FC = () => {
 
       {/* Configuration Form */}
       <Card className="mb-4">
-        <Card.Header>
-          <Card.Title>{t('simulation.candidatesViz.configTitle')}</Card.Title>
-        </Card.Header>
-        <Card.Body>
-          <Form onSubmit={handleSubmit}>
+        <CardHeader className="block space-y-0 border-b border-border px-4 py-2">
+          <CardTitle>{t('simulation.candidatesViz.configTitle')}</CardTitle>
+        </CardHeader>
+        <CardBody>
+          <form onSubmit={handleSubmit}>
             <Row className="mb-3">
-              <Form.Group as={Col} md={3}>
-                <Form.Label>{t('simulation.candidatesViz.numCandidates')}</Form.Label>
-                <Form.Control
+              <Col md={3}>
+                <label className="mb-1 inline-block">
+                  {t('simulation.candidatesViz.numCandidates')}
+                </label>
+                <Control
                   type="number"
                   min="1"
                   max="20"
                   value={numCandidates}
                   onChange={(e) => setNumCandidates(parseInt(e.target.value) || 1)}
                 />
-              </Form.Group>
+              </Col>
 
-              <Form.Group as={Col} md={5}>
-                <Form.Label>{t('simulation.candidatesViz.politicalIssues')}</Form.Label>
-                <Form.Control
+              <Col md={5}>
+                <label className="mb-1 inline-block">
+                  {t('simulation.candidatesViz.politicalIssues')}
+                </label>
+                <Control
                   type="text"
                   value={issues.join(', ')}
                   onChange={(e) => setIssues(e.target.value.split(',').map((i) => i.trim()))}
                   placeholder={t('simulation.candidatesViz.issuesPlaceholder')}
                 />
-              </Form.Group>
+              </Col>
 
-              <Form.Group as={Col} md={4}>
-                <Form.Label>{t('simulation.candidatesViz.politicalParties')}</Form.Label>
-                <Form.Control
+              <Col md={4}>
+                <label className="mb-1 inline-block">
+                  {t('simulation.candidatesViz.politicalParties')}
+                </label>
+                <Control
                   type="text"
                   value={parties.join(', ')}
                   onChange={(e) => setParties(e.target.value.split(',').map((p) => p.trim()))}
                   placeholder={t('simulation.candidatesViz.partiesPlaceholder')}
                 />
-              </Form.Group>
+              </Col>
             </Row>
 
-            <div className="d-grid gap-2 d-md-flex justify-content-md-end">
+            <div className="grid gap-2 md:flex md:justify-end">
               <Button variant="primary" type="submit" disabled={loading}>
                 {loading ? (
                   <>
-                    <Spinner
-                      as="span"
-                      animation="border"
-                      size="sm"
-                      role="status"
-                      aria-hidden="true"
-                    />{' '}
+                    <Spinner size="sm" role="status" aria-hidden="true" />{' '}
                     {t('simulation.candidatesViz.generating')}
                   </>
                 ) : (
@@ -248,8 +243,8 @@ const CandidatesVisualization: React.FC = () => {
                 )}
               </Button>
             </div>
-          </Form>
-        </Card.Body>
+          </form>
+        </CardBody>
       </Card>
 
       {/* Error Alert */}
@@ -265,12 +260,12 @@ const CandidatesVisualization: React.FC = () => {
           {/* Summary Tab */}
           <Tab eventKey="summary" title={t('simulation.candidatesViz.tabSummary')}>
             <Card className="mb-4">
-              <Card.Header>
-                <Card.Title>{t('simulation.candidatesViz.tabSummary')}</Card.Title>
-              </Card.Header>
-              <Card.Body>
+              <CardHeader className="block space-y-0 border-b border-border px-4 py-2">
+                <CardTitle>{t('simulation.candidatesViz.tabSummary')}</CardTitle>
+              </CardHeader>
+              <CardBody>
                 <div className="table-responsive">
-                  <Table striped bordered hover>
+                  <Table className="[&_th]:p-2 [&_td]:p-2 [&_th]:text-left [&_td]:border-t [&_th]:border-b [&_td]:border-border [&_th]:border-border [&_*]:align-middle [&_th]:border [&_td]:border [&_tbody_tr:nth-child(odd)]:bg-muted/40 [&_tbody_tr:hover]:bg-muted/50">
                     <thead>
                       <tr>
                         <th>{t('simulation.candidatesViz.nameCol')}</th>
@@ -320,7 +315,7 @@ const CandidatesVisualization: React.FC = () => {
                           <td>
                             <div className="progress" style={{ height: '20px' }}>
                               <div
-                                className="progress-bar bg-info"
+                                className="progress-bar bg-[#0dcaf0]"
                                 role="progressbar"
                                 style={{ width: `${candidate.charisma * 100}%` }}
                               >
@@ -331,7 +326,7 @@ const CandidatesVisualization: React.FC = () => {
                           <td>
                             <div className="progress" style={{ height: '20px' }}>
                               <div
-                                className="progress-bar bg-warning"
+                                className="progress-bar bg-[#ffc107]"
                                 role="progressbar"
                                 style={{ width: `${candidate.popularity * 100}%` }}
                               >
@@ -339,7 +334,9 @@ const CandidatesVisualization: React.FC = () => {
                               </div>
                             </div>
                           </td>
-                           <td>{candidate.experience} {t('simulation.candidatesViz.years')}</td>
+                          <td>
+                            {candidate.experience} {t('simulation.candidatesViz.years')}
+                          </td>
                           <td>
                             <span
                               className={`badge bg-${candidate.scandals > 0 ? 'danger' : 'secondary'}`}
@@ -365,7 +362,7 @@ const CandidatesVisualization: React.FC = () => {
                     </tbody>
                   </Table>
                 </div>
-              </Card.Body>
+              </CardBody>
             </Card>
           </Tab>
 
@@ -374,10 +371,10 @@ const CandidatesVisualization: React.FC = () => {
             <Row>
               <Col md={6}>
                 <Card className="mb-4">
-                  <Card.Header>
-                    <Card.Title>{t('simulation.candidatesViz.avgImportance')}</Card.Title>
-                  </Card.Header>
-                  <Card.Body>
+                  <CardHeader className="block space-y-0 border-b border-border px-4 py-2">
+                    <CardTitle>{t('simulation.candidatesViz.avgImportance')}</CardTitle>
+                  </CardHeader>
+                  <CardBody>
                     <div style={{ height: '400px' }}>
                       <ResponsiveContainer width="100%" height="100%">
                         <BarChart
@@ -393,7 +390,10 @@ const CandidatesVisualization: React.FC = () => {
                           />
                           <YAxis />
                           <Tooltip
-                            formatter={(value: number) => [`${value.toFixed(1)}%`, t('simulation.candidatesViz.importance')]}
+                            formatter={(value: number) => [
+                              `${value.toFixed(1)}%`,
+                              t('simulation.candidatesViz.importance'),
+                            ]}
                           />
                           <Legend />
                           <Bar dataKey="value" fill="#1a56cc">
@@ -404,16 +404,16 @@ const CandidatesVisualization: React.FC = () => {
                         </BarChart>
                       </ResponsiveContainer>
                     </div>
-                  </Card.Body>
+                  </CardBody>
                 </Card>
               </Col>
 
               <Col md={6}>
                 <Card className="mb-4">
-                  <Card.Header>
-                    <Card.Title>{t('simulation.candidatesViz.partyComparison')}</Card.Title>
-                  </Card.Header>
-                  <Card.Body>
+                  <CardHeader className="block space-y-0 border-b border-border px-4 py-2">
+                    <CardTitle>{t('simulation.candidatesViz.partyComparison')}</CardTitle>
+                  </CardHeader>
+                  <CardBody>
                     <div style={{ height: '400px' }}>
                       <ResponsiveContainer width="100%" height="100%">
                         <BarChart
@@ -436,16 +436,16 @@ const CandidatesVisualization: React.FC = () => {
                         </BarChart>
                       </ResponsiveContainer>
                     </div>
-                  </Card.Body>
+                  </CardBody>
                 </Card>
               </Col>
             </Row>
 
             <Card>
-              <Card.Header>
-                <Card.Title>{t('simulation.candidatesViz.candidateRadar')}</Card.Title>
-              </Card.Header>
-              <Card.Body>
+              <CardHeader className="block space-y-0 border-b border-border px-4 py-2">
+                <CardTitle>{t('simulation.candidatesViz.candidateRadar')}</CardTitle>
+              </CardHeader>
+              <CardBody>
                 <div style={{ height: '500px' }}>
                   <ResponsiveContainer width="100%" height="100%">
                     <RadarChart data={prepareCandidateComparison()}>
@@ -467,7 +467,7 @@ const CandidatesVisualization: React.FC = () => {
                     </RadarChart>
                   </ResponsiveContainer>
                 </div>
-              </Card.Body>
+              </CardBody>
             </Card>
           </Tab>
 
@@ -476,21 +476,35 @@ const CandidatesVisualization: React.FC = () => {
             <Row>
               <Col md={6}>
                 <Card className="mb-4">
-                  <Card.Header>
-                    <Card.Title>{t('simulation.candidatesViz.partyStatsTitle')}</Card.Title>
-                  </Card.Header>
-                  <Card.Body>
+                  <CardHeader className="block space-y-0 border-b border-border px-4 py-2">
+                    <CardTitle>{t('simulation.candidatesViz.partyStatsTitle')}</CardTitle>
+                  </CardHeader>
+                  <CardBody>
                     <div className="table-responsive" style={{ maxHeight: '400px' }}>
-                      <Table striped bordered hover>
+                      <Table className="[&_th]:p-2 [&_td]:p-2 [&_th]:text-left [&_td]:border-t [&_th]:border-b [&_td]:border-border [&_th]:border-border [&_*]:align-middle [&_th]:border [&_td]:border [&_tbody_tr:nth-child(odd)]:bg-muted/40 [&_tbody_tr:hover]:bg-muted/50">
                         <thead>
                           <tr>
-                            <th style={{ minWidth: '120px' }}>{t('simulation.candidatesViz.partyCol')}</th>
-                            <th style={{ minWidth: '80px' }}>{t('simulation.candidatesViz.candidatesCount')}</th>
-                            <th style={{ minWidth: '100px' }}>{t('simulation.candidatesViz.charismaCol')}</th>
-                            <th style={{ minWidth: '100px' }}>{t('simulation.candidatesViz.popularityCol')}</th>
-                            <th style={{ minWidth: '100px' }}>{t('simulation.candidatesViz.experienceCol')}</th>
-                            <th style={{ minWidth: '80px' }}>{t('simulation.candidatesViz.scandalsCol')}</th>
-                            <th style={{ minWidth: '120px' }}>{t('simulation.candidatesViz.fundsCol')}</th>
+                            <th style={{ minWidth: '120px' }}>
+                              {t('simulation.candidatesViz.partyCol')}
+                            </th>
+                            <th style={{ minWidth: '80px' }}>
+                              {t('simulation.candidatesViz.candidatesCount')}
+                            </th>
+                            <th style={{ minWidth: '100px' }}>
+                              {t('simulation.candidatesViz.charismaCol')}
+                            </th>
+                            <th style={{ minWidth: '100px' }}>
+                              {t('simulation.candidatesViz.popularityCol')}
+                            </th>
+                            <th style={{ minWidth: '100px' }}>
+                              {t('simulation.candidatesViz.experienceCol')}
+                            </th>
+                            <th style={{ minWidth: '80px' }}>
+                              {t('simulation.candidatesViz.scandalsCol')}
+                            </th>
+                            <th style={{ minWidth: '120px' }}>
+                              {t('simulation.candidatesViz.fundsCol')}
+                            </th>
                           </tr>
                         </thead>
                         <tbody>
@@ -514,7 +528,10 @@ const CandidatesVisualization: React.FC = () => {
                               <td>{party.count}</td>
                               <td>{formatNumber(party.charisma)}%</td>
                               <td>{formatNumber(party.popularity)}%</td>
-                              <td>{formatNumber(party.experience, 0)} {t('simulation.candidatesViz.years')}</td>
+                              <td>
+                                {formatNumber(party.experience, 0)}{' '}
+                                {t('simulation.candidatesViz.years')}
+                              </td>
                               <td>{formatNumber(party.scandals, 1)}</td>
                               <td>{formatCurrency(party.funds)}</td>
                             </tr>
@@ -522,16 +539,16 @@ const CandidatesVisualization: React.FC = () => {
                         </tbody>
                       </Table>
                     </div>
-                  </Card.Body>
+                  </CardBody>
                 </Card>
               </Col>
 
               <Col md={6}>
                 <Card className="mb-4">
-                  <Card.Header>
-                    <Card.Title>{t('simulation.candidatesViz.correlationsTitle')}</Card.Title>
-                  </Card.Header>
-                  <Card.Body>
+                  <CardHeader className="block space-y-0 border-b border-border px-4 py-2">
+                    <CardTitle>{t('simulation.candidatesViz.correlationsTitle')}</CardTitle>
+                  </CardHeader>
+                  <CardBody>
                     <h6>{t('simulation.candidatesViz.charismaVsPopularity')}</h6>
                     <div style={{ height: '300px' }}>
                       <ResponsiveContainer width="100%" height="100%">
@@ -547,12 +564,20 @@ const CandidatesVisualization: React.FC = () => {
                           <YAxis />
                           <Tooltip />
                           <Legend />
-                          <Bar dataKey="charisma" fill="#1a56cc" name={t('simulation.candidatesViz.charisma')} />
-                          <Bar dataKey="popularity" fill="#1b5e20" name={t('simulation.candidatesViz.popularity')} />
+                          <Bar
+                            dataKey="charisma"
+                            fill="#1a56cc"
+                            name={t('simulation.candidatesViz.charisma')}
+                          />
+                          <Bar
+                            dataKey="popularity"
+                            fill="#1b5e20"
+                            name={t('simulation.candidatesViz.popularity')}
+                          />
                         </BarChart>
                       </ResponsiveContainer>
                     </div>
-                  </Card.Body>
+                  </CardBody>
                 </Card>
               </Col>
             </Row>
@@ -573,9 +598,9 @@ const CandidatesVisualization: React.FC = () => {
               <Row>
                 <Col md={6}>
                   <Card className="mb-3">
-                    <Card.Body>
+                    <CardBody>
                       <h6>{t('simulation.candidatesViz.generalInfo')}</h6>
-                      <Table borderless size="sm">
+                      <Table className="[&_th]:p-1 [&_td]:p-1 [&_th]:text-left [&_td]:border-t [&_th]:border-b [&_td]:border-border [&_th]:border-border [&_*]:align-middle">
                         <tbody>
                           <tr>
                             <th>{t('simulation.candidatesViz.party')}:</th>
@@ -622,7 +647,9 @@ const CandidatesVisualization: React.FC = () => {
                           </tr>
                           <tr>
                             <th>{t('simulation.candidatesViz.experience')}:</th>
-                            <td>{selectedCandidate.experience} {t('simulation.candidatesViz.years')}</td>
+                            <td>
+                              {selectedCandidate.experience} {t('simulation.candidatesViz.years')}
+                            </td>
                           </tr>
                           <tr>
                             <th>{t('simulation.candidatesViz.scandals')}:</th>
@@ -634,11 +661,11 @@ const CandidatesVisualization: React.FC = () => {
                           </tr>
                         </tbody>
                       </Table>
-                    </Card.Body>
+                    </CardBody>
                   </Card>
 
                   <Card>
-                    <Card.Body>
+                    <CardBody>
                       <h6>{t('simulation.candidatesViz.politicalPriorities')}</h6>
                       <div style={{ height: '250px' }}>
                         <ResponsiveContainer width="100%" height="100%">
@@ -654,19 +681,22 @@ const CandidatesVisualization: React.FC = () => {
                             <XAxis type="number" domain={[0, 100]} />
                             <YAxis dataKey="issue" type="category" width={120} />
                             <Tooltip
-                              formatter={(value: number) => [`${value.toFixed(1)}%`, t('simulation.candidatesViz.priority')]}
+                              formatter={(value: number) => [
+                                `${value.toFixed(1)}%`,
+                                t('simulation.candidatesViz.priority'),
+                              ]}
                             />
                             <Bar dataKey="value" fill="#1a56cc" />
                           </BarChart>
                         </ResponsiveContainer>
                       </div>
-                    </Card.Body>
+                    </CardBody>
                   </Card>
                 </Col>
 
                 <Col md={6}>
-                  <Card className="h-100">
-                    <Card.Body>
+                  <Card className="h-full">
+                    <CardBody>
                       <h6>{t('simulation.candidatesViz.politicalProfile')}</h6>
                       <div style={{ height: '400px' }}>
                         <ResponsiveContainer width="100%" height="100%">
@@ -699,7 +729,7 @@ const CandidatesVisualization: React.FC = () => {
                           </RadarChart>
                         </ResponsiveContainer>
                       </div>
-                    </Card.Body>
+                    </CardBody>
                   </Card>
                 </Col>
               </Row>

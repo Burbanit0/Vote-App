@@ -1,13 +1,5 @@
 import React from 'react';
-import {
-  Bar,
-  BarChart,
-  Cell,
-  ResponsiveContainer,
-  Tooltip,
-  XAxis,
-  YAxis,
-} from 'recharts';
+import { Bar, BarChart, Cell, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts';
 import { VIZ_COLORS } from './types';
 
 /**
@@ -50,7 +42,7 @@ const MethodBarChart: React.FC<MethodBarChartProps> = ({
   return (
     <figure className="mb-0">
       {title && (
-        <figcaption className="text-center fw-semibold mb-2" style={{ fontSize: '0.95rem' }}>
+        <figcaption className="text-center font-semibold mb-2" style={{ fontSize: '0.95rem' }}>
           {title}
         </figcaption>
       )}

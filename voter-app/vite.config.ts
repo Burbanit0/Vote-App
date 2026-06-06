@@ -1,13 +1,22 @@
 import { defineConfig, loadEnv } from 'vite';
 import react from '@vitejs/plugin-react';
+import tailwindcss from '@tailwindcss/vite';
 import { VitePWA } from 'vite-plugin-pwa';
+import { fileURLToPath } from 'node:url';
 
 export default defineConfig(({ mode }) => {
   const env = loadEnv(mode, process.cwd(), '');
 
   return {
+    resolve: {
+      alias: {
+        // shadcn/ui convention: `@/` → src (Tailwind migration, Phase 6).
+        '@': fileURLToPath(new URL('./src', import.meta.url)),
+      },
+    },
     plugins: [
       react(),
+      tailwindcss(),
       VitePWA({
         registerType: 'autoUpdate',
         devOptions: {

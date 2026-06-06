@@ -11,13 +11,12 @@ beforeEach(() => {
   vi.clearAllMocks();
 });
 
-const csvBody = 'scenario_id,num_candidates,num_voters,method,winner\n1,4,200,plurality,Alice\n2,4,200,borda,Bob';
+const csvBody =
+  'scenario_id,num_candidates,num_voters,method,winner\n1,4,200,plurality,Alice\n2,4,200,borda,Bob';
 
 describe('DatasetExportModal', () => {
   it('does not render when show is false', () => {
-    const { container } = render(
-      <DatasetExportModal show={false} onHide={vi.fn()} />
-    );
+    const { container } = render(<DatasetExportModal show={false} onHide={vi.fn()} />);
     expect(container.innerHTML).toBe('');
   });
 
@@ -82,7 +81,14 @@ describe('DatasetExportModal', () => {
 
   it('generates JSON format when JSON button is clicked', async () => {
     const jsonResponse = {
-      meta: { num_scenarios: 10, num_candidates: 4, num_voters: 200, seed: 42, ideology: 'random', total_rows: 2 },
+      meta: {
+        num_scenarios: 10,
+        num_candidates: 4,
+        num_voters: 200,
+        seed: 42,
+        ideology: 'random',
+        total_rows: 2,
+      },
       columns: ['scenario_id', 'num_candidates', 'winner'],
       rows: [
         { scenario_id: 1, num_candidates: 4, winner: 'Alice' },

@@ -10,40 +10,42 @@ vi.mock('../../../api/client', () => ({
   apiClient: { GET: vi.fn(), POST: vi.fn(), PUT: vi.fn(), DELETE: vi.fn(), PATCH: vi.fn() },
   getAccessToken: vi.fn(() => null),
 }));
-const { apiClient } = (await import('../../../api/client')) as unknown as { apiClient: { POST: jest.Mock } };
+const { apiClient } = (await import('../../../api/client')) as unknown as {
+  apiClient: { POST: jest.Mock };
+};
 
 const makeCoalitionData = () => ({
   data: {
     methods: [
       {
-        method:               'plurality',
-        winner:               'Alice',
-        seats:                { Alice: 55, Bob: 30, Carol: 15 },
-        vote_shares:          { Alice: 0.55, Bob: 0.30, Carol: 0.15 },
-        coalition_parties:    ['Alice'],
-        coalition_seats:      55,
-        coalition_spread:     0.0,
-        government_possible:  true,
+        method: 'plurality',
+        winner: 'Alice',
+        seats: { Alice: 55, Bob: 30, Carol: 15 },
+        vote_shares: { Alice: 0.55, Bob: 0.3, Carol: 0.15 },
+        coalition_parties: ['Alice'],
+        coalition_seats: 55,
+        coalition_spread: 0.0,
+        government_possible: true,
       },
       {
-        method:               'borda',
-        winner:               'Carol',
-        seats:                { Alice: 35, Bob: 35, Carol: 30 },
-        vote_shares:          { Alice: 0.35, Bob: 0.35, Carol: 0.30 },
-        coalition_parties:    ['Alice', 'Carol'],
-        coalition_seats:      65,
-        coalition_spread:     0.25,
-        government_possible:  true,
+        method: 'borda',
+        winner: 'Carol',
+        seats: { Alice: 35, Bob: 35, Carol: 30 },
+        vote_shares: { Alice: 0.35, Bob: 0.35, Carol: 0.3 },
+        coalition_parties: ['Alice', 'Carol'],
+        coalition_seats: 65,
+        coalition_spread: 0.25,
+        government_possible: true,
       },
     ],
-    candidates:            [
+    candidates: [
       { name: 'Alice', x: -0.5 },
-      { name: 'Bob',   x:  0.5 },
-      { name: 'Carol', x:  0.0 },
+      { name: 'Bob', x: 0.5 },
+      { name: 'Carol', x: 0.0 },
     ],
-    total_seats:           100,
-    seat_threshold:        50,
-    most_centrist_method:  'plurality',
+    total_seats: 100,
+    seat_threshold: 50,
+    most_centrist_method: 'plurality',
     most_divergent_method: 'borda',
     inter_method_agreement: 0.5,
   },
@@ -115,7 +117,9 @@ describe('CoalitionPanel', () => {
     renderPanel();
     fireEvent.click(screen.getByRole('button', { name: /coalition|simuler/i }));
     await waitFor(() => {
-      expect(screen.getAllByText(/✓|Majorité possible|Majority possible/i).length).toBeGreaterThan(0);
+      expect(screen.getAllByText(/✓|Majorité possible|Majority possible/i).length).toBeGreaterThan(
+        0
+      );
     });
   });
 

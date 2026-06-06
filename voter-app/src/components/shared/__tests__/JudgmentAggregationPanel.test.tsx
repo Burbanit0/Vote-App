@@ -9,29 +9,55 @@ vi.mock('../../../api/client', () => ({
   apiClient: { GET: vi.fn(), POST: vi.fn(), PUT: vi.fn(), DELETE: vi.fn(), PATCH: vi.fn() },
   getAccessToken: vi.fn(() => null),
 }));
-const { apiClient } = (await import('../../../api/client')) as unknown as { apiClient: { POST: jest.Mock } };
+const { apiClient } = (await import('../../../api/client')) as unknown as {
+  apiClient: { POST: jest.Mock };
+};
 
 // ── Fixtures ──────────────────────────────────────────────────────────────────
 
 function makeData(coherent = false) {
-  const incoherences = coherent ? [] : [
-    { premises: ['P1', 'P2'], conclusion: 'C', problem: 'Prémisses acceptées, conclusion rejetée' },
-  ];
+  const incoherences = coherent
+    ? []
+    : [
+        {
+          premises: ['P1', 'P2'],
+          conclusion: 'C',
+          problem: 'Prémisses acceptées, conclusion rejetée',
+        },
+      ];
   return {
     data: {
-      scenario:           'legal',
-      scenario_name:      'Responsabilité contractuelle',
+      scenario: 'legal',
+      scenario_name: 'Responsabilité contractuelle',
       propositions: [
-        { text: 'Le contrat existait',                    type: 'premise',    id: 'P1', yes_pct: 0.67, collective_vote: true },
-        { text: 'Les obligations non remplies',           type: 'premise',    id: 'P2', yes_pct: 0.67, collective_vote: true },
-        { text: 'Responsabilité contractuelle',           type: 'conclusion', id: 'C',  yes_pct: 0.33, collective_vote: !coherent },
+        {
+          text: 'Le contrat existait',
+          type: 'premise',
+          id: 'P1',
+          yes_pct: 0.67,
+          collective_vote: true,
+        },
+        {
+          text: 'Les obligations non remplies',
+          type: 'premise',
+          id: 'P2',
+          yes_pct: 0.67,
+          collective_vote: true,
+        },
+        {
+          text: 'Responsabilité contractuelle',
+          type: 'conclusion',
+          id: 'C',
+          yes_pct: 0.33,
+          collective_vote: !coherent,
+        },
       ],
-      collective_coherent:  coherent,
+      collective_coherent: coherent,
       incoherences,
       voter_coherence_rate: 1.0,
-      paradox_severity:     coherent ? 0 : 1.0,
+      paradox_severity: coherent ? 0 : 1.0,
       resolution_methods: {
-        premise_based:    { C: true },
+        premise_based: { C: true },
         conclusion_based: { premise_override: true },
       },
       pedagogical_note: 'Test note.',
@@ -55,7 +81,9 @@ beforeEach(() => {
   vi.useFakeTimers();
 });
 
-afterEach(() => { vi.useRealTimers(); });
+afterEach(() => {
+  vi.useRealTimers();
+});
 
 // ── Tests ─────────────────────────────────────────────────────────────────────
 
@@ -88,7 +116,7 @@ describe('JudgmentAggregationPanel', () => {
     await waitFor(() => expect(apiClient.POST).toHaveBeenCalledTimes(1));
     expect(apiClient.POST).toHaveBeenCalledWith(
       expect.stringMatching(/\/api\/(v2\/)?theory\/judgment-aggregation/),
-      expect.any(Object),
+      expect.any(Object)
     );
     vi.runAllTimers();
   });
@@ -99,7 +127,7 @@ describe('JudgmentAggregationPanel', () => {
     fireEvent.click(screen.getByTestId('simulate-btn'));
     await waitFor(() => {
       const badge = screen.getByTestId('coherence-badge');
-      expect(badge.className).toContain('bg-success');
+      expect(badge.className).toContain('bg-[#198754]');
     });
     vi.runAllTimers();
   });
@@ -110,7 +138,7 @@ describe('JudgmentAggregationPanel', () => {
     fireEvent.click(screen.getByTestId('simulate-btn'));
     await waitFor(() => {
       const badge = screen.getByTestId('coherence-badge');
-      expect(badge.className).toContain('bg-danger');
+      expect(badge.className).toContain('bg-[#dc3545]');
     });
     vi.runAllTimers();
   });

@@ -1,4 +1,10 @@
-import { encodeShareConfig, decodeShareConfig, buildShareURL, copyShareURL, readShareParam } from '../shareUtils';
+import {
+  encodeShareConfig,
+  decodeShareConfig,
+  buildShareURL,
+  copyShareURL,
+  readShareParam,
+} from '../shareUtils';
 
 const mockConfig = { numVoters: 100, ideology: 'centrist' };
 

@@ -21,8 +21,7 @@ declare global {
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       mock: { calls: any[]; results: any[]; instances: any[] };
     };
-    type MockedFunction<T extends (...args: any[]) => any> =
-      import('vitest').MockedFunction<T>;
+    type MockedFunction<T extends (...args: any[]) => any> = import('vitest').MockedFunction<T>;
   }
 }
 

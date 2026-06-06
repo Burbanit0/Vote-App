@@ -5,7 +5,9 @@
 // imported from there; the other 9 still live in this file pending extraction.
 // See ./votingMethods/index.ts for migration status.
 import React from 'react';
-import { Card, Table, Badge } from 'react-bootstrap';
+import { Badge } from '@/components/ui/badge';
+import { Card, CardBody, CardHeader } from '@/components/ui/card';
+import { Table } from '@/components/ui/table';
 import {
   Bar,
   BarChart,
@@ -23,11 +25,7 @@ import {
 import type { VotingMethodVisualizationProps } from './votingMethods/types';
 import { VIZ_COLORS } from './votingMethods/types';
 import MethodBarChart from './votingMethods/MethodBarChart';
-import {
-  PluralityVisualization,
-  BordaVisualization,
-  IRVVisualization,
-} from './votingMethods';
+import { PluralityVisualization, BordaVisualization, IRVVisualization } from './votingMethods';
 
 const VotingMethodVisualizations: React.FC<VotingMethodVisualizationProps> = ({
   method,
@@ -77,14 +75,13 @@ const VotingMethodVisualizations: React.FC<VotingMethodVisualizationProps> = ({
 
   return (
     <Card className="mb-4">
-      <Card.Header>
+      <CardHeader className="block space-y-0 border-b border-border px-4 py-2">
         <h5>{method.charAt(0).toUpperCase() + method.slice(1)} Method Visualization</h5>
-      </Card.Header>
-      <Card.Body>{renderMethodVisualization()}</Card.Body>
+      </CardHeader>
+      <CardBody>{renderMethodVisualization()}</CardBody>
     </Card>
   );
 };
-
 
 // 4. Approval Voting Visualization
 const ApprovalVisualization: React.FC<VotingMethodVisualizationProps> = ({
@@ -140,10 +137,10 @@ const ApprovalVisualization: React.FC<VotingMethodVisualizationProps> = ({
         yLabel="Number of Approvals"
       />
 
-      <Card.Text className="mt-3">
+      <p className="mt-3">
         <strong>Winner:</strong>{' '}
         {candidates.reduce((a, b) => (approvalVotes[a] > approvalVotes[b] ? a : b))}
-      </Card.Text>
+      </p>
     </>
   );
 };
@@ -210,7 +207,7 @@ const CondorcetVisualization: React.FC<VotingMethodVisualizationProps> = ({
         such a candidate exists, they are the winner.
       </p>
 
-      <Card.Text className="mt-3">
+      <p className="mt-3">
         {condorcetWinner ? (
           <>
             <strong>Condorcet Winner:</strong> {condorcetWinner}
@@ -221,12 +218,14 @@ const CondorcetVisualization: React.FC<VotingMethodVisualizationProps> = ({
         ) : (
           <strong>No Condorcet winner exists for this election.</strong>
         )}
-      </Card.Text>
+      </p>
 
       <Card className="mt-3">
-        <Card.Header>Pairwise Comparison Matrix</Card.Header>
-        <Card.Body>
-          <Table bordered hover>
+        <CardHeader className="block space-y-0 border-b border-border px-4 py-2">
+          Pairwise Comparison Matrix
+        </CardHeader>
+        <CardBody>
+          <Table className="[&_th]:p-2 [&_td]:p-2 [&_th]:text-left [&_td]:border-t [&_th]:border-b [&_td]:border-border [&_th]:border-border [&_*]:align-middle [&_th]:border [&_td]:border [&_tbody_tr:hover]:bg-muted/50">
             <thead>
               <tr>
                 <th></th>
@@ -250,7 +249,7 @@ const CondorcetVisualization: React.FC<VotingMethodVisualizationProps> = ({
               ))}
             </tbody>
           </Table>
-        </Card.Body>
+        </CardBody>
       </Card>
     </>
   );
@@ -323,9 +322,9 @@ const TwoRoundVisualization: React.FC<VotingMethodVisualizationProps> = ({
         majority of votes, they win. If not, the top two candidates proceed to a second round.
       </p>
 
-      <Card.Text className="mt-3">
+      <p className="mt-3">
         <strong>First Round Results:</strong>
-      </Card.Text>
+      </p>
 
       <MethodBarChart
         labels={candidates}
@@ -335,7 +334,7 @@ const TwoRoundVisualization: React.FC<VotingMethodVisualizationProps> = ({
         yLabel="Number of Votes"
       />
 
-      <Card.Text className="mt-2">Majority threshold: {majority} votes</Card.Text>
+      <p className="mt-2">Majority threshold: {majority} votes</p>
 
       {firstRoundWinner ? (
         <div className="alert alert-success mt-3">
@@ -344,22 +343,22 @@ const TwoRoundVisualization: React.FC<VotingMethodVisualizationProps> = ({
         </div>
       ) : (
         <>
-          <Card.Text className="mt-3">
+          <p className="mt-3">
             <strong>Top Two Candidates Proceed to Second Round:</strong>
-            <div className="d-flex flex-wrap gap-2 mt-1">
+            <div className="flex flex-wrap gap-2 mt-1">
               {secondRoundCandidates.map((candidate) => (
-                <Badge key={candidate} bg="primary" className="p-2">
+                <Badge key={candidate} variant="primary" className="p-2">
                   {candidate}
                 </Badge>
               ))}
             </div>
-          </Card.Text>
+          </p>
 
           {secondRoundCandidates.length > 0 && (
             <>
-              <Card.Text className="mt-3">
+              <p className="mt-3">
                 <strong>Second Round Results:</strong>
-              </Card.Text>
+              </p>
 
               <MethodBarChart
                 labels={secondRoundCandidates}
@@ -484,8 +483,10 @@ const CoombsVisualization: React.FC<VotingMethodVisualizationProps> = ({
       {!winner ? (
         <>
           <Card className="mt-3">
-            <Card.Header>Round {round} - Last Place Votes</Card.Header>
-            <Card.Body>
+            <CardHeader className="block space-y-0 border-b border-border px-4 py-2">
+              Round {round} - Last Place Votes
+            </CardHeader>
+            <CardBody>
               <MethodBarChart
                 labels={candidates.filter((c) => !eliminated.includes(c))}
                 values={candidates
@@ -495,21 +496,23 @@ const CoombsVisualization: React.FC<VotingMethodVisualizationProps> = ({
                 title={`Last Place Votes - Round ${round}`}
                 yLabel="Number of Last Place Votes"
               />
-            </Card.Body>
+            </CardBody>
           </Card>
 
           {eliminated.length > 0 && (
             <Card className="mt-3">
-              <Card.Header>Eliminated Candidates</Card.Header>
-              <Card.Body>
-                <div className="d-flex flex-wrap gap-2">
+              <CardHeader className="block space-y-0 border-b border-border px-4 py-2">
+                Eliminated Candidates
+              </CardHeader>
+              <CardBody>
+                <div className="flex flex-wrap gap-2">
                   {eliminated.map((candidate) => (
-                    <Badge key={candidate} bg="secondary" className="p-2">
+                    <Badge key={candidate} variant="secondary" className="p-2">
                       {candidate}
                     </Badge>
                   ))}
                 </div>
-              </Card.Body>
+              </CardBody>
             </Card>
           )}
 
@@ -600,10 +603,12 @@ const ScoreVisualization: React.FC<VotingMethodVisualizationProps> = ({ rankings
       </p>
 
       <div className="row">
-        <div className="col-md-6">
+        <div className="md:w-6/12">
           <Card>
-            <Card.Header>Average Scores</Card.Header>
-            <Card.Body>
+            <CardHeader className="block space-y-0 border-b border-border px-4 py-2">
+              Average Scores
+            </CardHeader>
+            <CardBody>
               <ResponsiveContainer width="100%" height={300}>
                 <RadarChart data={radarRows} outerRadius="72%">
                   <PolarGrid />
@@ -620,25 +625,40 @@ const ScoreVisualization: React.FC<VotingMethodVisualizationProps> = ({ rankings
                   <Tooltip />
                 </RadarChart>
               </ResponsiveContainer>
-            </Card.Body>
+            </CardBody>
           </Card>
         </div>
 
-        <div className="col-md-6">
+        <div className="md:w-6/12">
           <Card>
-            <Card.Header>Score Distribution</Card.Header>
-            <Card.Body>
+            <CardHeader className="block space-y-0 border-b border-border px-4 py-2">
+              Score Distribution
+            </CardHeader>
+            <CardBody>
               <ResponsiveContainer width="100%" height={300}>
-                <BarChart data={distributionRows} margin={{ top: 8, right: 16, left: 8, bottom: 16 }}>
+                <BarChart
+                  data={distributionRows}
+                  margin={{ top: 8, right: 16, left: 8, bottom: 16 }}
+                >
                   <XAxis
                     dataKey="score"
                     tick={{ fontSize: 11 }}
-                    label={{ value: 'Score (0-5)', position: 'insideBottom', offset: -8, style: { fontSize: 12 } }}
+                    label={{
+                      value: 'Score (0-5)',
+                      position: 'insideBottom',
+                      offset: -8,
+                      style: { fontSize: 12 },
+                    }}
                   />
                   <YAxis
                     allowDecimals={false}
                     tick={{ fontSize: 12 }}
-                    label={{ value: 'Number of Voters', angle: -90, position: 'insideLeft', style: { fontSize: 12 } }}
+                    label={{
+                      value: 'Number of Voters',
+                      angle: -90,
+                      position: 'insideLeft',
+                      style: { fontSize: 12 },
+                    }}
                   />
                   <Tooltip />
                   <Legend wrapperStyle={{ fontSize: 12 }} />
@@ -652,19 +672,19 @@ const ScoreVisualization: React.FC<VotingMethodVisualizationProps> = ({ rankings
                   ))}
                 </BarChart>
               </ResponsiveContainer>
-            </Card.Body>
+            </CardBody>
           </Card>
         </div>
       </div>
 
-      <Card.Text className="mt-3">
+      <p className="mt-3">
         <strong>Winner:</strong>{' '}
         {candidates.reduce((a, b) => (scoreData[a].avg > scoreData[b].avg ? a : b))}
         <span>
           {' '}
           (Average score: {Math.max(...candidates.map((c) => scoreData[c].avg)).toFixed(2)})
         </span>
-      </Card.Text>
+      </p>
     </>
   );
 };
@@ -745,9 +765,7 @@ const BucklinVisualization: React.FC<VotingMethodVisualizationProps> = ({
         yLabel="Number of Votes"
       />
 
-      <Card.Text className="mt-3">
-        Majority threshold: {Math.ceil(rankings.length / 2)} votes
-      </Card.Text>
+      <p className="mt-3">Majority threshold: {Math.ceil(rankings.length / 2)} votes</p>
 
       {winner && (
         <div className="alert alert-success mt-3">
@@ -811,10 +829,12 @@ const MinimaxVisualization: React.FC<VotingMethodVisualizationProps> = ({
       </p>
 
       <Card className="mt-3">
-        <Card.Header>Pairwise Opposition Matrix</Card.Header>
-        <Card.Body>
+        <CardHeader className="block space-y-0 border-b border-border px-4 py-2">
+          Pairwise Opposition Matrix
+        </CardHeader>
+        <CardBody>
           <div className="table-responsive">
-            <Table bordered hover>
+            <Table className="[&_th]:p-2 [&_td]:p-2 [&_th]:text-left [&_td]:border-t [&_th]:border-b [&_td]:border-border [&_th]:border-border [&_*]:align-middle [&_th]:border [&_td]:border [&_tbody_tr:hover]:bg-muted/50">
               <thead>
                 <tr>
                   <th></th>
@@ -828,7 +848,7 @@ const MinimaxVisualization: React.FC<VotingMethodVisualizationProps> = ({
                   <tr key={c1}>
                     <th>{c1}</th>
                     {candidates.map((c2) => (
-                      <td key={`${c1}-${c2}`} className={c1 === c2 ? 'bg-light' : ''}>
+                      <td key={`${c1}-${c2}`} className={c1 === c2 ? 'bg-slate-100' : ''}>
                         {c1 === c2
                           ? '-'
                           : `${opposition[c1][c2]} vs ${opposition[c2] ? opposition[c2][c1] : 0}`}
@@ -839,12 +859,14 @@ const MinimaxVisualization: React.FC<VotingMethodVisualizationProps> = ({
               </tbody>
             </Table>
           </div>
-        </Card.Body>
+        </CardBody>
       </Card>
 
       <Card className="mt-3">
-        <Card.Header>Maximum Opposition per Candidate</Card.Header>
-        <Card.Body>
+        <CardHeader className="block space-y-0 border-b border-border px-4 py-2">
+          Maximum Opposition per Candidate
+        </CardHeader>
+        <CardBody>
           <MethodBarChart
             labels={candidates}
             values={candidates.map((candidate) => maxOpposition[candidate])}
@@ -852,15 +874,15 @@ const MinimaxVisualization: React.FC<VotingMethodVisualizationProps> = ({
             title="Maximum Opposition per Candidate"
             yLabel="Number of Votes Against"
           />
-        </Card.Body>
+        </CardBody>
       </Card>
 
-      <Card.Text className="mt-3">
+      <p className="mt-3">
         <strong>Minimax Winner:</strong> {winner}
         <p className="mt-1">
           {winner} has the smallest maximum opposition ({maxOpposition[winner]} votes)
         </p>
-      </Card.Text>
+      </p>
     </>
   );
 };
@@ -958,10 +980,12 @@ const SchulzeVisualization: React.FC<VotingMethodVisualizationProps> = ({
       </p>
 
       <Card className="mt-3">
-        <Card.Header>Strength of Strongest Paths</Card.Header>
-        <Card.Body>
+        <CardHeader className="block space-y-0 border-b border-border px-4 py-2">
+          Strength of Strongest Paths
+        </CardHeader>
+        <CardBody>
           <div className="table-responsive">
-            <Table bordered hover>
+            <Table className="[&_th]:p-2 [&_td]:p-2 [&_th]:text-left [&_td]:border-t [&_th]:border-b [&_td]:border-border [&_th]:border-border [&_*]:align-middle [&_th]:border [&_td]:border [&_tbody_tr:hover]:bg-muted/50">
               <thead>
                 <tr>
                   <th></th>
@@ -975,7 +999,7 @@ const SchulzeVisualization: React.FC<VotingMethodVisualizationProps> = ({
                   <tr key={c1}>
                     <th>{c1}</th>
                     {candidates.map((c2, j) => (
-                      <td key={`${c1}-${c2}`} className={i === j ? 'bg-light' : ''}>
+                      <td key={`${c1}-${c2}`} className={i === j ? 'bg-slate-100' : ''}>
                         {i === j ? '-' : matrixData[i][j]}
                       </td>
                     ))}
@@ -984,12 +1008,12 @@ const SchulzeVisualization: React.FC<VotingMethodVisualizationProps> = ({
               </tbody>
             </Table>
           </div>
-        </Card.Body>
+        </CardBody>
       </Card>
 
-      <Card.Text className="mt-3">
+      <p className="mt-3">
         <strong>Schulze Winner:</strong> {winner}
-      </Card.Text>
+      </p>
     </>
   );
 };
@@ -1042,10 +1066,12 @@ const KemenyYoungVisualization: React.FC<VotingMethodVisualizationProps> = ({
       </p>
 
       <Card className="mt-3">
-        <Card.Header>Pairwise Preference Matrix</Card.Header>
-        <Card.Body>
+        <CardHeader className="block space-y-0 border-b border-border px-4 py-2">
+          Pairwise Preference Matrix
+        </CardHeader>
+        <CardBody>
           <div className="table-responsive">
-            <Table bordered hover>
+            <Table className="[&_th]:p-2 [&_td]:p-2 [&_th]:text-left [&_td]:border-t [&_th]:border-b [&_td]:border-border [&_th]:border-border [&_*]:align-middle [&_th]:border [&_td]:border [&_tbody_tr:hover]:bg-muted/50">
               <thead>
                 <tr>
                   <th></th>
@@ -1059,7 +1085,7 @@ const KemenyYoungVisualization: React.FC<VotingMethodVisualizationProps> = ({
                   <tr key={c1}>
                     <th>{c1}</th>
                     {candidates.map((c2) => (
-                      <td key={`${c1}-${c2}`} className={c1 === c2 ? 'bg-light' : ''}>
+                      <td key={`${c1}-${c2}`} className={c1 === c2 ? 'bg-slate-100' : ''}>
                         {c1 === c2 ? '-' : pref[c1][c2]}
                       </td>
                     ))}
@@ -1068,7 +1094,7 @@ const KemenyYoungVisualization: React.FC<VotingMethodVisualizationProps> = ({
               </tbody>
             </Table>
           </div>
-        </Card.Body>
+        </CardBody>
       </Card>
 
       <div className="alert alert-info mt-3">

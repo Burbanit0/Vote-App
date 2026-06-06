@@ -10,22 +10,26 @@ vi.mock('../../../api/client', () => ({
   apiClient: { GET: vi.fn(), POST: vi.fn(), PUT: vi.fn(), DELETE: vi.fn(), PATCH: vi.fn() },
   getAccessToken: vi.fn(() => null),
 }));
-const { apiClient } = (await import('../../../api/client')) as unknown as { apiClient: { POST: jest.Mock } };
+const { apiClient } = (await import('../../../api/client')) as unknown as {
+  apiClient: { POST: jest.Mock };
+};
 
 vi.mock('recharts', () => {
   const React = require('react');
   return {
-    LineChart:           ({ children }: any) => <div>{children}</div>,
-    AreaChart:           ({ children }: any) => <div>{children}</div>,
-    Line:                ({ dataKey }: any) => <div data-testid={`line-${dataKey}`} />,
-    Area:                ({ dataKey }: any) => <div data-testid={`area-${dataKey}`} />,
-    XAxis:               () => null,
-    YAxis:               () => null,
-    CartesianGrid:       () => null,
-    Tooltip:             () => null,
-    Legend:              () => null,
-    ReferenceLine:       () => null,
-    ResponsiveContainer: ({ children }: any) => <div style={{ width: 400, height: 200 }}>{children}</div>,
+    LineChart: ({ children }: any) => <div>{children}</div>,
+    AreaChart: ({ children }: any) => <div>{children}</div>,
+    Line: ({ dataKey }: any) => <div data-testid={`line-${dataKey}`} />,
+    Area: ({ dataKey }: any) => <div data-testid={`area-${dataKey}`} />,
+    XAxis: () => null,
+    YAxis: () => null,
+    CartesianGrid: () => null,
+    Tooltip: () => null,
+    Legend: () => null,
+    ReferenceLine: () => null,
+    ResponsiveContainer: ({ children }: any) => (
+      <div style={{ width: 400, height: 200 }}>{children}</div>
+    ),
   };
 });
 
@@ -37,20 +41,26 @@ function makeData(winnerChanged = false) {
     data: {
       elections: Array.from({ length: 6 }, (_, k) => ({
         election_n: k + 1,
-        turnout:    Math.max(0.25, 1 - k * 0.07),
-        winner:     winnerChanged && k >= 3 ? 'Bob' : 'Alice',
+        turnout: Math.max(0.25, 1 - k * 0.07),
+        winner: winnerChanged && k >= 3 ? 'Bob' : 'Alice',
         voter_profile: {
           mean_ideology_x: k * 0.03,
-          partisan_pct:    0.2 + k * 0.04,
+          partisan_pct: 0.2 + k * 0.04,
         },
-        vote_shares: { Alice: winnerChanged && k >= 3 ? 0.35 : 0.44, Bob: winnerChanged && k >= 3 ? 0.45 : 0.33, Carol: 0.23 },
+        vote_shares: {
+          Alice: winnerChanged && k >= 3 ? 0.35 : 0.44,
+          Bob: winnerChanged && k >= 3 ? 0.45 : 0.33,
+          Carol: 0.23,
+        },
       })),
-      winner_drift:         Array.from({ length: 6 }, (_, k) => winnerChanged && k >= 3 ? 'Bob' : 'Alice'),
-      winner_changed_at:    winnerChanged ? 4 : null,
-      ideology_drift:       0.15,
-      representation_gap:   0.09,
-      full_mean_ideology:   0.03,
-      pedagogical_note:     'Test note.',
+      winner_drift: Array.from({ length: 6 }, (_, k) =>
+        winnerChanged && k >= 3 ? 'Bob' : 'Alice'
+      ),
+      winner_changed_at: winnerChanged ? 4 : null,
+      ideology_drift: 0.15,
+      representation_gap: 0.09,
+      full_mean_ideology: 0.03,
+      pedagogical_note: 'Test note.',
     },
     error: undefined,
   };
@@ -74,7 +84,9 @@ beforeEach(() => {
   vi.useFakeTimers();
 });
 
-afterEach(() => { vi.useRealTimers(); });
+afterEach(() => {
+  vi.useRealTimers();
+});
 
 // ── Tests ─────────────────────────────────────────────────────────────────────
 
@@ -106,7 +118,7 @@ describe('ElectoralFatiguePanel', () => {
     await waitFor(() => expect(apiClient.POST).toHaveBeenCalledTimes(1));
     expect(apiClient.POST).toHaveBeenCalledWith(
       expect.stringMatching(/\/api\/(v2\/)?election\/electoral-fatigue/),
-      expect.any(Object),
+      expect.any(Object)
     );
     vi.runAllTimers();
   });
@@ -191,7 +203,9 @@ describe('ElectoralFatiguePanel', () => {
     await waitFor(() => expect(apiClient.POST).toHaveBeenCalledTimes(1));
 
     fireEvent.change(screen.getByTestId('fatigue-rate-slider'), { target: { value: '0.1' } });
-    act(() => { vi.advanceTimersByTime(450); });
+    act(() => {
+      vi.advanceTimersByTime(450);
+    });
     await waitFor(() => expect(apiClient.POST).toHaveBeenCalledTimes(2));
     vi.runAllTimers();
   });

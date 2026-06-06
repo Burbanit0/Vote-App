@@ -11,7 +11,8 @@
  * (the user can repin from the relevant tab if they want fresh data).
  */
 import React, { useCallback, useRef, useState } from 'react';
-import { Button, Toast, ToastContainer } from 'react-bootstrap';
+import { Button } from '@/components/ui/button';
+import { Toast, ToastContainer } from '@/components/ui/toast';
 import { useTranslation } from 'react-i18next';
 import { useElection, ElectionConfig } from '../../../stores/useElectionStore';
 import { usePerturbations, PinnedPerturbation } from '../../../stores/useLabStore';
@@ -19,19 +20,19 @@ import { usePerturbations, PinnedPerturbation } from '../../../stores/useLabStor
 export const SCENARIO_FORMAT_VERSION = 1;
 
 export interface ScenarioBundle {
-  version:     number;
-  exportedAt:  string;
-  config:      ElectionConfig;
-  pinned:      PinnedPerturbation[];
+  version: number;
+  exportedAt: string;
+  config: ElectionConfig;
+  pinned: PinnedPerturbation[];
 }
 
 /** Build the export payload from current context state. */
 export function buildScenarioBundle(
   config: ElectionConfig,
-  pinned: PinnedPerturbation[],
+  pinned: PinnedPerturbation[]
 ): ScenarioBundle {
   return {
-    version:    SCENARIO_FORMAT_VERSION,
+    version: SCENARIO_FORMAT_VERSION,
     exportedAt: new Date().toISOString(),
     config,
     pinned,
@@ -59,18 +60,18 @@ export function validateScenarioBundle(raw: unknown): ScenarioBundle | null {
   // pinned is optional; default to empty array
   const pinned = Array.isArray(obj.pinned) ? obj.pinned : [];
   return {
-    version:    obj.version,
+    version: obj.version,
     exportedAt: typeof obj.exportedAt === 'string' ? obj.exportedAt : new Date().toISOString(),
-    config:     obj.config as ElectionConfig,
-    pinned:     pinned as PinnedPerturbation[],
+    config: obj.config as ElectionConfig,
+    pinned: pinned as PinnedPerturbation[],
   };
 }
 
 function downloadJSON(filename: string, payload: unknown): void {
   const blob = new Blob([JSON.stringify(payload, null, 2)], { type: 'application/json' });
-  const url  = URL.createObjectURL(blob);
-  const a    = document.createElement('a');
-  a.href     = url;
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
   a.download = filename;
   document.body.appendChild(a);
   a.click();
@@ -132,7 +133,8 @@ const ScenarioIO: React.FC = () => {
   return (
     <>
       <Button
-        variant="outline-secondary" size="sm"
+        variant="outline-secondary"
+        size="sm"
         onClick={handleExport}
         data-testid="scenario-export-btn"
         title={t('scenarioIO.exportTitle')}
@@ -140,7 +142,8 @@ const ScenarioIO: React.FC = () => {
         📤 {t('scenarioIO.export')}
       </Button>
       <Button
-        variant="outline-secondary" size="sm"
+        variant="outline-secondary"
+        size="sm"
         onClick={handleImportClick}
         data-testid="scenario-import-btn"
         title={t('scenarioIO.importTitle')}

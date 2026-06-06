@@ -10,20 +10,24 @@ vi.mock('../../../api/client', () => ({
   apiClient: { GET: vi.fn(), POST: vi.fn(), PUT: vi.fn(), DELETE: vi.fn(), PATCH: vi.fn() },
   getAccessToken: vi.fn(() => null),
 }));
-const { apiClient } = (await import('../../../api/client')) as unknown as { apiClient: { POST: jest.Mock } };
+const { apiClient } = (await import('../../../api/client')) as unknown as {
+  apiClient: { POST: jest.Mock };
+};
 
 vi.mock('recharts', () => {
   const React = require('react');
   return {
-    BarChart:            ({ children }: any) => <div>{children}</div>,
-    Bar:                 () => null,
-    Cell:                () => null,
-    XAxis:               () => null,
-    YAxis:               () => null,
-    CartesianGrid:       () => null,
-    Tooltip:             () => null,
-    Legend:              () => null,
-    ResponsiveContainer: ({ children }: any) => <div style={{ width: 400, height: 100 }}>{children}</div>,
+    BarChart: ({ children }: any) => <div>{children}</div>,
+    Bar: () => null,
+    Cell: () => null,
+    XAxis: () => null,
+    YAxis: () => null,
+    CartesianGrid: () => null,
+    Tooltip: () => null,
+    Legend: () => null,
+    ResponsiveContainer: ({ children }: any) => (
+      <div style={{ width: 400, height: 100 }}>{children}</div>
+    ),
   };
 });
 
@@ -33,24 +37,28 @@ function makeData(winnerChanged = false) {
   return {
     data: {
       voluntary: {
-        turnout:     0.65,
-        winner:      'Alice',
+        turnout: 0.65,
+        winner: 'Alice',
         vote_shares: { Alice: 0.44, Bob: 0.33, Carol: 0.23 },
-        null_rate:   0.0,
+        null_rate: 0.0,
         voter_profile: { mean_ideology_x: 0.08, partisan_pct: 0.45 },
       },
       compulsory: {
-        turnout:          0.92,
-        winner:           winnerChanged ? 'Bob' : 'Alice',
-        vote_shares:      { Alice: winnerChanged ? 0.35 : 0.42, Bob: winnerChanged ? 0.43 : 0.35, Carol: 0.23 },
-        null_rate:        0.035,
-        reluctant_count:  81,
-        noise_effect:     0.04,
+        turnout: 0.92,
+        winner: winnerChanged ? 'Bob' : 'Alice',
+        vote_shares: {
+          Alice: winnerChanged ? 0.35 : 0.42,
+          Bob: winnerChanged ? 0.43 : 0.35,
+          Carol: 0.23,
+        },
+        null_rate: 0.035,
+        reluctant_count: 81,
+        noise_effect: 0.04,
       },
-      winner_changed:             winnerChanged,
+      winner_changed: winnerChanged,
       representation_improvement: 0.06,
-      quality_degradation:        0.04,
-      pedagogical_note:           'Test note.',
+      quality_degradation: 0.04,
+      pedagogical_note: 'Test note.',
     },
     error: undefined,
   };
@@ -74,7 +82,9 @@ beforeEach(() => {
   vi.useFakeTimers();
 });
 
-afterEach(() => { vi.useRealTimers(); });
+afterEach(() => {
+  vi.useRealTimers();
+});
 
 // ── Tests ─────────────────────────────────────────────────────────────────────
 
@@ -109,7 +119,7 @@ describe('CompulsoryVotingPanel', () => {
     await waitFor(() => expect(apiClient.POST).toHaveBeenCalledTimes(1));
     expect(apiClient.POST).toHaveBeenCalledWith(
       expect.stringMatching(/\/api\/(v2\/)?election\/compulsory-voting/),
-      expect.any(Object),
+      expect.any(Object)
     );
     vi.runAllTimers();
   });
@@ -169,7 +179,9 @@ describe('CompulsoryVotingPanel', () => {
     await waitFor(() => expect(apiClient.POST).toHaveBeenCalledTimes(1));
 
     fireEvent.change(screen.getByTestId('vol-turnout-slider'), { target: { value: '0.55' } });
-    act(() => { vi.advanceTimersByTime(450); });
+    act(() => {
+      vi.advanceTimersByTime(450);
+    });
     await waitFor(() => expect(apiClient.POST).toHaveBeenCalledTimes(2));
     vi.runAllTimers();
   });
@@ -181,7 +193,9 @@ describe('CompulsoryVotingPanel', () => {
     await waitFor(() => expect(apiClient.POST).toHaveBeenCalledTimes(1));
 
     fireEvent.change(screen.getByTestId('random-pct-slider'), { target: { value: '0.25' } });
-    act(() => { vi.advanceTimersByTime(450); });
+    act(() => {
+      vi.advanceTimersByTime(450);
+    });
     await waitFor(() => expect(apiClient.POST).toHaveBeenCalledTimes(2));
     vi.runAllTimers();
   });

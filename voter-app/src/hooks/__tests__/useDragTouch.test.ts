@@ -16,8 +16,8 @@ describe('useDragTouch — coordinate normalisation', () => {
   // We reproduce it here to test the contract:
   function mockToDomain(clientX: number, clientY: number, rect: DOMRect) {
     return {
-      x: Math.max(-1, Math.min(1, ((clientX - rect.left) / rect.width)  * 2 - 1)),
-      y: Math.max(-1, Math.min(1, 1 - ((clientY - rect.top)  / rect.height) * 2)),
+      x: Math.max(-1, Math.min(1, ((clientX - rect.left) / rect.width) * 2 - 1)),
+      y: Math.max(-1, Math.min(1, 1 - ((clientY - rect.top) / rect.height) * 2)),
     };
   }
 
@@ -65,9 +65,9 @@ describe('makeDragHandlers', () => {
   }
 
   it('onMouseDown sets dragging to true and calls onStart', async () => {
-    const { makeDragHandlers } = (await import('../useDragTouch'));
+    const { makeDragHandlers } = await import('../useDragTouch');
     const dragging = { current: false };
-    const onStart  = vi.fn();
+    const onStart = vi.fn();
     const { onMouseDown } = makeDragHandlers(mockSvgRef(), dragging, onStart);
 
     const e = { preventDefault: vi.fn(), clientX: 100, clientY: 100 } as any;
@@ -79,9 +79,9 @@ describe('makeDragHandlers', () => {
   });
 
   it('onTouchStart sets dragging to true and calls onStart', async () => {
-    const { makeDragHandlers } = (await import('../useDragTouch'));
+    const { makeDragHandlers } = await import('../useDragTouch');
     const dragging = { current: false };
-    const onStart  = vi.fn();
+    const onStart = vi.fn();
     const { onTouchStart } = makeDragHandlers(mockSvgRef(), dragging, onStart);
 
     const e = {
@@ -100,10 +100,10 @@ describe('makeDragHandlers', () => {
   });
 
   it('returns no-op handlers when svgRef.current is null', async () => {
-    const { makeDragHandlers } = (await import('../useDragTouch'));
+    const { makeDragHandlers } = await import('../useDragTouch');
     const dragging = { current: false };
-    const onStart  = vi.fn();
-    const nullRef  = { current: null } as any;
+    const onStart = vi.fn();
+    const nullRef = { current: null } as any;
     const { onMouseDown } = makeDragHandlers(nullRef, dragging, onStart);
 
     const e = { preventDefault: vi.fn(), clientX: 0, clientY: 0 } as any;
@@ -133,17 +133,21 @@ describe('useSwipe', () => {
   }
 
   it('calls onSwipeLeft when swiping left (|deltaX| > 40)', async () => {
-    const { useSwipe } = (await import('../useSwipe'));
+    const { useSwipe } = await import('../useSwipe');
     const { el, cleanup } = setup();
     const ref = { current: el };
-    const onSwipeLeft  = vi.fn();
+    const onSwipeLeft = vi.fn();
     const onSwipeRight = vi.fn();
 
     renderHook(() => useSwipe(ref, { onSwipeLeft, onSwipeRight, threshold: 40, maxDuration: 400 }));
 
     act(() => {
-      el.dispatchEvent(new TouchEvent('touchstart', { touches: [{ clientX: 200, clientY: 0 } as Touch] }));
-      el.dispatchEvent(new TouchEvent('touchend', { changedTouches: [{ clientX: 100, clientY: 0 } as Touch] }));
+      el.dispatchEvent(
+        new TouchEvent('touchstart', { touches: [{ clientX: 200, clientY: 0 } as Touch] })
+      );
+      el.dispatchEvent(
+        new TouchEvent('touchend', { changedTouches: [{ clientX: 100, clientY: 0 } as Touch] })
+      );
     });
 
     expect(onSwipeLeft).toHaveBeenCalledTimes(1);
@@ -152,17 +156,21 @@ describe('useSwipe', () => {
   });
 
   it('calls onSwipeRight when swiping right (|deltaX| > 40)', async () => {
-    const { useSwipe } = (await import('../useSwipe'));
+    const { useSwipe } = await import('../useSwipe');
     const { el, cleanup } = setup();
     const ref = { current: el };
-    const onSwipeLeft  = vi.fn();
+    const onSwipeLeft = vi.fn();
     const onSwipeRight = vi.fn();
 
     renderHook(() => useSwipe(ref, { onSwipeLeft, onSwipeRight, threshold: 40, maxDuration: 400 }));
 
     act(() => {
-      el.dispatchEvent(new TouchEvent('touchstart', { touches: [{ clientX: 100, clientY: 0 } as Touch] }));
-      el.dispatchEvent(new TouchEvent('touchend', { changedTouches: [{ clientX: 200, clientY: 0 } as Touch] }));
+      el.dispatchEvent(
+        new TouchEvent('touchstart', { touches: [{ clientX: 100, clientY: 0 } as Touch] })
+      );
+      el.dispatchEvent(
+        new TouchEvent('touchend', { changedTouches: [{ clientX: 200, clientY: 0 } as Touch] })
+      );
     });
 
     expect(onSwipeRight).toHaveBeenCalledTimes(1);
@@ -171,7 +179,7 @@ describe('useSwipe', () => {
   });
 
   it('does NOT trigger swipe when movement < threshold', async () => {
-    const { useSwipe } = (await import('../useSwipe'));
+    const { useSwipe } = await import('../useSwipe');
     const { el, cleanup } = setup();
     const ref = { current: el };
     const onSwipeLeft = vi.fn();
@@ -179,8 +187,12 @@ describe('useSwipe', () => {
     renderHook(() => useSwipe(ref, { onSwipeLeft, threshold: 40 }));
 
     act(() => {
-      el.dispatchEvent(new TouchEvent('touchstart', { touches: [{ clientX: 100, clientY: 0 } as Touch] }));
-      el.dispatchEvent(new TouchEvent('touchend', { changedTouches: [{ clientX: 85, clientY: 0 } as Touch] }));
+      el.dispatchEvent(
+        new TouchEvent('touchstart', { touches: [{ clientX: 100, clientY: 0 } as Touch] })
+      );
+      el.dispatchEvent(
+        new TouchEvent('touchend', { changedTouches: [{ clientX: 85, clientY: 0 } as Touch] })
+      );
     });
 
     expect(onSwipeLeft).not.toHaveBeenCalled();
@@ -188,7 +200,7 @@ describe('useSwipe', () => {
   });
 
   it('does NOT trigger swipe when mostly vertical', async () => {
-    const { useSwipe } = (await import('../useSwipe'));
+    const { useSwipe } = await import('../useSwipe');
     const { el, cleanup } = setup();
     const ref = { current: el };
     const onSwipeLeft = vi.fn();
@@ -196,9 +208,13 @@ describe('useSwipe', () => {
     renderHook(() => useSwipe(ref, { onSwipeLeft, threshold: 40 }));
 
     act(() => {
-      el.dispatchEvent(new TouchEvent('touchstart', { touches: [{ clientX: 100, clientY: 0 } as Touch] }));
+      el.dispatchEvent(
+        new TouchEvent('touchstart', { touches: [{ clientX: 100, clientY: 0 } as Touch] })
+      );
       // deltaX = 50, deltaY = 80 → mostly vertical
-      el.dispatchEvent(new TouchEvent('touchend', { changedTouches: [{ clientX: 50, clientY: 80 } as Touch] }));
+      el.dispatchEvent(
+        new TouchEvent('touchend', { changedTouches: [{ clientX: 50, clientY: 80 } as Touch] })
+      );
     });
 
     expect(onSwipeLeft).not.toHaveBeenCalled();

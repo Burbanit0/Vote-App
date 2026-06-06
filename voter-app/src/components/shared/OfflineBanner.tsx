@@ -1,31 +1,34 @@
 import React, { useEffect, useState } from 'react';
-import { Alert } from 'react-bootstrap';
 
+// ── Tailwind-migrated (Phase 6) ──────────────────────────────────────────────
+// First component moved off react-bootstrap to Tailwind utilities. Marked with
+// data-style="tailwind" so migration progress is greppable. The amber palette
+// mirrors Bootstrap's `variant="warning"` alert.
 const OfflineBanner: React.FC = () => {
   const [offline, setOffline] = useState(!navigator.onLine);
 
   useEffect(() => {
     const goOffline = () => setOffline(true);
-    const goOnline  = () => setOffline(false);
+    const goOnline = () => setOffline(false);
     window.addEventListener('offline', goOffline);
-    window.addEventListener('online',  goOnline);
+    window.addEventListener('online', goOnline);
     return () => {
       window.removeEventListener('offline', goOffline);
-      window.removeEventListener('online',  goOnline);
+      window.removeEventListener('online', goOnline);
     };
   }, []);
 
   if (!offline) return null;
 
   return (
-    <Alert
-      variant="warning"
-      className="mb-0 py-2 text-center rounded-0"
-      style={{ fontSize: '0.85rem', borderRadius: 0, borderLeft: 'none', borderRight: 'none' }}
+    <div
+      role="alert"
+      data-style="tailwind"
+      className="mb-0 border-y border-amber-300 bg-amber-100 px-3 py-2 text-center text-[0.85rem] leading-snug text-amber-900"
     >
-      Mode hors-ligne — certaines simulations peuvent être indisponibles.
-      Les pages Quiz, Régimes internationaux et Galerie fonctionnent sans réseau.
-    </Alert>
+      Mode hors-ligne — certaines simulations peuvent être indisponibles. Les pages Quiz, Régimes
+      internationaux et Galerie fonctionnent sans réseau.
+    </div>
   );
 };
 

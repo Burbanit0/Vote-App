@@ -10,33 +10,73 @@ vi.mock('../../../api/client', () => ({
   apiClient: { GET: vi.fn(), POST: vi.fn(), PUT: vi.fn(), DELETE: vi.fn(), PATCH: vi.fn() },
   getAccessToken: vi.fn(() => null),
 }));
-const { apiClient } = (await import('../../../api/client')) as unknown as { apiClient: { POST: jest.Mock } };
+const { apiClient } = (await import('../../../api/client')) as unknown as {
+  apiClient: { POST: jest.Mock };
+};
 
 // ── Fixture ───────────────────────────────────────────────────────────────────
 
 function makeData(winnersAgree = true) {
   const STMTS = [
-    { text: 'Proposition A', global_approval: 0.88, is_consensus: true,  is_polarizing: false, cluster_approvals: [0.90, 0.85, 0.88] },
-    { text: 'Proposition B', global_approval: 0.35, is_consensus: false, is_polarizing: true,  cluster_approvals: [0.70, 0.15, 0.40] },
-    { text: 'Proposition C', global_approval: 0.55, is_consensus: false, is_polarizing: false, cluster_approvals: [0.55, 0.55, 0.55] },
+    {
+      text: 'Proposition A',
+      global_approval: 0.88,
+      is_consensus: true,
+      is_polarizing: false,
+      cluster_approvals: [0.9, 0.85, 0.88],
+    },
+    {
+      text: 'Proposition B',
+      global_approval: 0.35,
+      is_consensus: false,
+      is_polarizing: true,
+      cluster_approvals: [0.7, 0.15, 0.4],
+    },
+    {
+      text: 'Proposition C',
+      global_approval: 0.55,
+      is_consensus: false,
+      is_polarizing: false,
+      cluster_approvals: [0.55, 0.55, 0.55],
+    },
   ];
   return {
     data: {
       clusters: [
-        { id: 0, size: 35, label: 'progressistes', center: { x: -0.6, y: 0.1 }, votes: { 0: 0.90, 1: 0.70, 2: 0.55 } },
-        { id: 1, size: 35, label: 'conservateurs', center: { x:  0.6, y: 0.1 }, votes: { 0: 0.85, 1: 0.15, 2: 0.55 } },
-        { id: 2, size: 30, label: 'groupe 3',      center: { x:  0.0, y: 0.5 }, votes: { 0: 0.88, 1: 0.40, 2: 0.55 } },
+        {
+          id: 0,
+          size: 35,
+          label: 'progressistes',
+          center: { x: -0.6, y: 0.1 },
+          votes: { 0: 0.9, 1: 0.7, 2: 0.55 },
+        },
+        {
+          id: 1,
+          size: 35,
+          label: 'conservateurs',
+          center: { x: 0.6, y: 0.1 },
+          votes: { 0: 0.85, 1: 0.15, 2: 0.55 },
+        },
+        {
+          id: 2,
+          size: 30,
+          label: 'groupe 3',
+          center: { x: 0.0, y: 0.5 },
+          votes: { 0: 0.88, 1: 0.4, 2: 0.55 },
+        },
       ],
       statements: STMTS,
       participant_positions: Array.from({ length: 20 }, (_, i) => ({
-        id: i, x_pca: (i - 10) * 0.1, y_pca: (i - 10) * 0.05,
+        id: i,
+        x_pca: (i - 10) * 0.1,
+        y_pca: (i - 10) * 0.05,
         cluster_id: i % 3,
       })),
-      polis_winner:    'Carol',
+      polis_winner: 'Carol',
       election_winner: winnersAgree ? 'Carol' : 'Alice',
-      winners_agree:   winnersAgree,
-      consensus_count:       1,
-      polarizing_count:      1,
+      winners_agree: winnersAgree,
+      consensus_count: 1,
+      polarizing_count: 1,
       silent_majority_count: 0,
       candidate_scores: { Alice: 0.72, Bob: 0.68, Carol: 0.88 },
       pedagogical_note: 'Test note.',
@@ -63,7 +103,9 @@ beforeEach(() => {
   vi.useFakeTimers();
 });
 
-afterEach(() => { vi.useRealTimers(); });
+afterEach(() => {
+  vi.useRealTimers();
+});
 
 // ── Tests ─────────────────────────────────────────────────────────────────────
 
@@ -100,7 +142,7 @@ describe('PolisPanel', () => {
     await waitFor(() => expect(apiClient.POST).toHaveBeenCalledTimes(1));
     expect(apiClient.POST).toHaveBeenCalledWith(
       expect.stringMatching(/\/api\/(v2\/)?tech\/polis/),
-      expect.any(Object),
+      expect.any(Object)
     );
     vi.runAllTimers();
   });

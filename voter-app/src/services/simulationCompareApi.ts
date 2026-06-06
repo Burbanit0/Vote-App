@@ -17,7 +17,7 @@ import { apiGet, apiPost } from '../api/client';
 
 export interface InformationModelConfig {
   enabled: boolean;
-  media_bias: Record<string, number>;   // str(candidate_idx) → [-1, 1]
+  media_bias: Record<string, number>; // str(candidate_idx) → [-1, 1]
   voter_segments: {
     low_info: number;
     medium_info: number;
@@ -56,7 +56,8 @@ export const runStrategicImpactAnalysis = async (
 ): Promise<StrategicImpactPoint[]> => {
   try {
     const data = await apiPost<{ results: StrategicImpactPoint[] }>(
-      '/api/v2/simulations/strategic-impact', params,
+      '/api/v2/simulations/strategic-impact',
+      params
     );
     return data.results;
   } catch (error) {
@@ -103,9 +104,7 @@ export interface BandwagonParams extends CompareParams {
   seed?: number | null;
 }
 
-export const getBandwagonAnalysis = async (
-  params: BandwagonParams
-): Promise<BandwagonResult> => {
+export const getBandwagonAnalysis = async (params: BandwagonParams): Promise<BandwagonResult> => {
   try {
     return await apiPost<BandwagonResult>('/api/v2/simulations/bandwagon', params);
   } catch (error) {
@@ -114,9 +113,7 @@ export const getBandwagonAnalysis = async (
   }
 };
 
-export const getArrowCriteria = async (
-  params: CompareParams
-): Promise<ArrowCriteriaResult> => {
+export const getArrowCriteria = async (params: CompareParams): Promise<ArrowCriteriaResult> => {
   try {
     return await apiPost<ArrowCriteriaResult>('/api/v2/simulations/arrow-criteria', params);
   } catch (error) {
@@ -131,9 +128,7 @@ export interface MultiwinnerParams {
   mode?: 'proportional' | 'stv';
 }
 
-export const getMultiwinner = async (
-  params: MultiwinnerParams
-): Promise<MultiwinnerResult> => {
+export const getMultiwinner = async (params: MultiwinnerParams): Promise<MultiwinnerResult> => {
   try {
     return await apiPost<MultiwinnerResult>('/api/v2/simulations/multiwinner', params);
   } catch (error) {
@@ -146,9 +141,7 @@ export interface MonteCarloParams extends CompareParams {
   num_runs?: number;
 }
 
-export const getMonteCarlo = async (
-  params: MonteCarloParams
-): Promise<MonteCarloResult> => {
+export const getMonteCarlo = async (params: MonteCarloParams): Promise<MonteCarloResult> => {
   try {
     return await apiPost<MonteCarloResult>('/api/v2/simulations/monte-carlo', params);
   } catch (error) {
@@ -166,9 +159,7 @@ export interface IdeologyMapParams {
   method_b: string;
 }
 
-export const getIdeologyMap = async (
-  params: IdeologyMapParams
-): Promise<IdeologyMapResult> => {
+export const getIdeologyMap = async (params: IdeologyMapParams): Promise<IdeologyMapResult> => {
   try {
     return await apiPost<IdeologyMapResult>('/api/v2/simulations/ideology-map', params);
   } catch (error) {
@@ -204,9 +195,7 @@ export interface BlankHistoryResult {
   series: BlankHistoryPoint[];
 }
 
-export const getBlankHistory = async (
-  country: string,
-): Promise<BlankHistoryResult> => {
+export const getBlankHistory = async (country: string): Promise<BlankHistoryResult> => {
   return apiGet<BlankHistoryResult>('/api/v2/simulations/blank-history', { country });
 };
 
@@ -222,11 +211,13 @@ export const getRealElections = async (): Promise<RealElectionSummary[]> => {
 export const analyzeRealElection = async (
   electionName: string,
   numVoters: number = 1000,
-  blankVote: boolean = false,
+  blankVote: boolean = false
 ): Promise<RealElectionResult> => {
   try {
     return await apiPost<RealElectionResult>('/api/v2/simulations/real-election', {
-      election_name: electionName, num_voters: numVoters, blank_vote: blankVote,
+      election_name: electionName,
+      num_voters: numVoters,
+      blank_vote: blankVote,
     });
   } catch (error) {
     console.error('Failed to analyse real election', error);
@@ -312,7 +303,10 @@ export const runConstitutionalScenario = async (
   params: ConstitutionalParams
 ): Promise<ConstitutionalResult> => {
   try {
-    return await apiPost<ConstitutionalResult>('/api/v2/simulations/constitutional-scenario', params);
+    return await apiPost<ConstitutionalResult>(
+      '/api/v2/simulations/constitutional-scenario',
+      params
+    );
   } catch (error) {
     console.error('Failed to run constitutional scenario', error);
     throw error;

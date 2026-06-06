@@ -34,7 +34,7 @@ describe('simulationsApi', () => {
       expect(result).toEqual(mockResponse);
       expect(apiPost).toHaveBeenCalledWith(
         '/api/v2/simulations/simulate_voters',
-        expect.objectContaining({ num_voters: 10 }),
+        expect.objectContaining({ num_voters: 10 })
       );
     });
   });
@@ -47,7 +47,7 @@ describe('simulationsApi', () => {
       expect(result).toEqual(mockResponse);
       expect(apiPost).toHaveBeenCalledWith(
         '/api/v2/simulations/simulate_candidates',
-        expect.objectContaining({ num_candidates: 5 }),
+        expect.objectContaining({ num_candidates: 5 })
       );
     });
   });
@@ -58,7 +58,10 @@ describe('simulationsApi', () => {
       apiPost.mockResolvedValueOnce(mockResponse);
       const result = await simulateUtility(['issue1'], [], []);
       expect(result).toEqual(mockResponse);
-      expect(apiPost).toHaveBeenCalledWith('/api/v2/simulations/simulate_utility', expect.any(Object));
+      expect(apiPost).toHaveBeenCalledWith(
+        '/api/v2/simulations/simulate_utility',
+        expect.any(Object)
+      );
     });
   });
 
@@ -68,7 +71,10 @@ describe('simulationsApi', () => {
       apiPost.mockResolvedValueOnce(mockResponse);
       const result = await getUtilityMatrix([], [], ['issue1']);
       expect(result).toEqual(mockResponse);
-      expect(apiPost).toHaveBeenCalledWith('/api/v2/simulations/get_utility_matrix', expect.any(Object));
+      expect(apiPost).toHaveBeenCalledWith(
+        '/api/v2/simulations/get_utility_matrix',
+        expect.any(Object)
+      );
     });
   });
 
@@ -78,7 +84,10 @@ describe('simulationsApi', () => {
       apiPost.mockResolvedValueOnce(mockResponse);
       const result = await getVoterSegments([], [], ['issue1']);
       expect(result).toEqual(mockResponse);
-      expect(apiPost).toHaveBeenCalledWith('/api/v2/simulations/get_voter_segments', expect.any(Object));
+      expect(apiPost).toHaveBeenCalledWith(
+        '/api/v2/simulations/get_voter_segments',
+        expect.any(Object)
+      );
     });
   });
 
@@ -88,7 +97,10 @@ describe('simulationsApi', () => {
       apiPost.mockResolvedValueOnce(mockResponse);
       const result = await closestCandidate([1], [1]);
       expect(result).toEqual(mockResponse.result);
-      expect(apiPost).toHaveBeenCalledWith('/api/v2/simulations/get_closest_candidate', expect.any(Object));
+      expect(apiPost).toHaveBeenCalledWith(
+        '/api/v2/simulations/get_closest_candidate',
+        expect.any(Object)
+      );
     });
   });
 });

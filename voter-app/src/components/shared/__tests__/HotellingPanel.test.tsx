@@ -10,7 +10,9 @@ vi.mock('../../../api/client', () => ({
   apiClient: { GET: vi.fn(), POST: vi.fn(), PUT: vi.fn(), DELETE: vi.fn(), PATCH: vi.fn() },
   getAccessToken: vi.fn(() => null),
 }));
-const { apiClient } = (await import('../../../api/client')) as unknown as { apiClient: { POST: jest.Mock } };
+const { apiClient } = (await import('../../../api/client')) as unknown as {
+  apiClient: { POST: jest.Mock };
+};
 
 // ── Fixture ───────────────────────────────────────────────────────────────────
 
@@ -19,9 +21,9 @@ function makeIteration(step: number, ax: number, bx: number, converged: string[]
     step,
     candidates: [
       { name: 'Alice', x: ax, y: 0.0 },
-      { name: 'Bob',   x: bx, y: 0.0 },
+      { name: 'Bob', x: bx, y: 0.0 },
     ],
-    scores:               { Alice: 0.5, Bob: 0.5 },
+    scores: { Alice: 0.5, Bob: 0.5 },
     converged_candidates: converged,
   };
 }
@@ -30,18 +32,21 @@ function makeData(eqType = 'center_convergence') {
   return {
     data: {
       iterations: [
-        makeIteration(0, -0.5,  0.5),
-        makeIteration(1, -0.3,  0.3),
-        makeIteration(2, -0.1,  0.1),
-        makeIteration(3,  0.0,  0.0, ['Alice', 'Bob']),
+        makeIteration(0, -0.5, 0.5),
+        makeIteration(1, -0.3, 0.3),
+        makeIteration(2, -0.1, 0.1),
+        makeIteration(3, 0.0, 0.0, ['Alice', 'Bob']),
       ],
-      converged:        true,
+      converged: true,
       convergence_step: 3,
-      final_positions:  [{ name: 'Alice', x: 0.0, y: 0.0 }, { name: 'Bob', x: 0.0, y: 0.0 }],
+      final_positions: [
+        { name: 'Alice', x: 0.0, y: 0.0 },
+        { name: 'Bob', x: 0.0, y: 0.0 },
+      ],
       equilibrium_type: eqType,
-      voters:           Array.from({ length: 50 }, (_, i) => ({ x: (i - 25) / 25, y: 0 })),
-      candidates:       ['Alice', 'Bob'],
-      method:           'plurality',
+      voters: Array.from({ length: 50 }, (_, i) => ({ x: (i - 25) / 25, y: 0 })),
+      candidates: ['Alice', 'Bob'],
+      method: 'plurality',
     },
     error: undefined,
   };
@@ -65,7 +70,9 @@ beforeEach(() => {
   vi.useFakeTimers();
 });
 
-afterEach(() => { vi.useRealTimers(); });
+afterEach(() => {
+  vi.useRealTimers();
+});
 
 // ── Tests ─────────────────────────────────────────────────────────────────────
 
@@ -87,7 +94,7 @@ describe('HotellingPanel', () => {
     await waitFor(() => expect(apiClient.POST).toHaveBeenCalledTimes(1));
     expect(apiClient.POST).toHaveBeenCalledWith(
       expect.stringMatching(/\/api\/(v2\/)?election\/hotelling/),
-      expect.any(Object),
+      expect.any(Object)
     );
     vi.runAllTimers();
   });
@@ -124,14 +131,14 @@ describe('HotellingPanel', () => {
 
   it('shows no-convergence badge when not converged', async () => {
     const data = makeData('unstable');
-    data.data.converged        = false;
+    data.data.converged = false;
     data.data.convergence_step = null as any;
     apiClient.POST.mockResolvedValue(data);
     renderPanel();
     fireEvent.click(screen.getByRole('button', { name: /simuler|simulate/i }));
     await waitFor(() => {
       const badge = screen.getByTestId('convergence-badge');
-      expect(badge.className).toContain('bg-danger');
+      expect(badge.className).toContain('bg-[#dc3545]');
     });
     vi.runAllTimers();
   });

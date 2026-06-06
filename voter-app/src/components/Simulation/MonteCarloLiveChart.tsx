@@ -1,7 +1,19 @@
 import React, { useMemo } from 'react';
-import { Alert, Badge, Button, Card, ProgressBar, Spinner } from 'react-bootstrap';
+import { Alert } from '@/components/ui/alert';
+import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
+import { Card, CardBody, CardHeader } from '@/components/ui/card';
+import { Progress } from '@/components/ui/progress';
+import { Spinner } from '@/components/ui/spinner';
 import {
-  Bar, BarChart, CartesianGrid, Cell, ResponsiveContainer, Tooltip, XAxis, YAxis,
+  Bar,
+  BarChart,
+  CartesianGrid,
+  Cell,
+  ResponsiveContainer,
+  Tooltip,
+  XAxis,
+  YAxis,
 } from 'recharts';
 import { useTranslation } from 'react-i18next';
 import { useChartTheme } from '../../hooks/useChartTheme';
@@ -21,7 +33,14 @@ interface Props {
 }
 
 const MonteCarloLiveChart: React.FC<Props> = ({
-  isRunning, progress, iteration, total, condorcetRate, partialResults, error, onStop,
+  isRunning,
+  progress,
+  iteration,
+  total,
+  condorcetRate,
+  partialResults,
+  error,
+  onStop,
 }) => {
   const { t } = useTranslation();
   const ct = useChartTheme();
@@ -35,18 +54,22 @@ const MonteCarloLiveChart: React.FC<Props> = ({
   }, [partialResults]);
 
   const colorMap = useMemo(
-    () => Object.fromEntries(candidates.map((c, i) => [c, CANDIDATE_PALETTE[i % CANDIDATE_PALETTE.length]])),
+    () =>
+      Object.fromEntries(
+        candidates.map((c, i) => [c, CANDIDATE_PALETTE[i % CANDIDATE_PALETTE.length]])
+      ),
     [candidates]
   );
 
-  const chartData = useMemo(() =>
-    Object.entries(partialResults).map(([method, stats]) => {
-      const entry: Record<string, string | number> = { method };
-      candidates.forEach((c) => {
-        entry[c] = Math.round((stats.winner_distribution[c] ?? 0) * 100);
-      });
-      return entry;
-    }),
+  const chartData = useMemo(
+    () =>
+      Object.entries(partialResults).map(([method, stats]) => {
+        const entry: Record<string, string | number> = { method };
+        candidates.forEach((c) => {
+          entry[c] = Math.round((stats.winner_distribution[c] ?? 0) * 100);
+        });
+        return entry;
+      }),
     [partialResults, candidates]
   );
 
@@ -56,16 +79,16 @@ const MonteCarloLiveChart: React.FC<Props> = ({
 
   return (
     <Card className="mb-4 border-primary">
-      <Card.Header className="d-flex align-items-center justify-content-between gap-2 flex-wrap">
-        <div className="d-flex align-items-center gap-2">
-          {isRunning && <Spinner size="sm" variant="primary" />}
+      <CardHeader className="block space-y-0 border-b border-border px-4 py-2 flex items-center justify-between gap-2 flex-wrap">
+        <div className="flex items-center gap-2">
+          {isRunning && <Spinner size="sm" />}
           <strong>
             {isRunning
               ? t('simulation.streamingProgress', { iteration, total })
               : t('simulation.streamingDone', { total })}
           </strong>
           {!isRunning && iteration > 0 && (
-            <Badge bg="success">{t('simulation.complete')}</Badge>
+            <Badge variant="success">{t('simulation.complete')}</Badge>
           )}
         </div>
         {isRunning && (
@@ -73,19 +96,17 @@ const MonteCarloLiveChart: React.FC<Props> = ({
             {t('simulation.stop')}
           </Button>
         )}
-      </Card.Header>
-      <Card.Body>
-        <ProgressBar
+      </CardHeader>
+      <CardBody>
+        <Progress
           now={progress}
           label={`${progress}%`}
-          animated={isRunning}
-          striped={isRunning}
           variant="primary"
           className="mb-3"
           style={{ height: 18 }}
         />
         {condorcetRate > 0 && (
-          <p className="text-muted small mb-3">
+          <p className="text-muted-foreground text-sm mb-3">
             {t('simulation.condorcetExistsRate', { pct: (condorcetRate * 100).toFixed(1) })}
           </p>
         )}
@@ -101,10 +122,7 @@ const MonteCarloLiveChart: React.FC<Props> = ({
                 interval={0}
               />
               <YAxis unit="%" tick={{ fontSize: 10, fill: ct.tickFill }} domain={[0, 100]} />
-              <Tooltip
-                formatter={(v: number) => `${v}%`}
-                contentStyle={ct.tooltipStyle}
-              />
+              <Tooltip formatter={(v: number) => `${v}%`} contentStyle={ct.tooltipStyle} />
               {candidates.map((c) => (
                 <Bar key={c} dataKey={c} stackId="a" name={c}>
                   {chartData.map((_, idx) => (
@@ -115,7 +133,7 @@ const MonteCarloLiveChart: React.FC<Props> = ({
             </BarChart>
           </ResponsiveContainer>
         )}
-      </Card.Body>
+      </CardBody>
     </Card>
   );
 };

@@ -15,25 +15,29 @@
 describe('WorkerRequest message contracts', () => {
   it('COMPUTE_HEATMAP has all required fields', () => {
     const msg = {
-      id:         'test-id',
-      type:       'COMPUTE_HEATMAP' as const,
-      voters:     [{ id: 0, x: -0.3, y: 0.1 }],
+      id: 'test-id',
+      type: 'COMPUTE_HEATMAP' as const,
+      voters: [{ id: 0, x: -0.3, y: 0.1 }],
       candidates: [{ name: 'Alice', x: -0.5, y: 0.0 }],
     };
     expect(msg.id).toBeTruthy();
     expect(msg.type).toBe('COMPUTE_HEATMAP');
     expect(Array.isArray(msg.voters)).toBe(true);
     expect(Array.isArray(msg.candidates)).toBe(true);
-    expect(msg.voters[0]).toMatchObject({ id: expect.any(Number), x: expect.any(Number), y: expect.any(Number) });
+    expect(msg.voters[0]).toMatchObject({
+      id: expect.any(Number),
+      x: expect.any(Number),
+      y: expect.any(Number),
+    });
   });
 
   it('COMPUTE_MATRIX has partialResults', () => {
     const msg = {
-      id:             'test-id',
-      type:           'COMPUTE_MATRIX' as const,
+      id: 'test-id',
+      type: 'COMPUTE_MATRIX' as const,
       partialResults: {
         plurality: { winner_distribution: { Alice: 0.6 }, most_common_winner: 'Alice' },
-        borda:     { winner_distribution: { Alice: 0.5 }, most_common_winner: 'Alice' },
+        borda: { winner_distribution: { Alice: 0.5 }, most_common_winner: 'Alice' },
       },
     };
     expect(msg.type).toBe('COMPUTE_MATRIX');
@@ -42,8 +46,8 @@ describe('WorkerRequest message contracts', () => {
 
   it('SORT_MC_RESULTS has partialResults', () => {
     const msg = {
-      id:             'test-id',
-      type:           'SORT_MC_RESULTS' as const,
+      id: 'test-id',
+      type: 'SORT_MC_RESULTS' as const,
       partialResults: { plurality: { winner_distribution: { A: 0.7 }, most_common_winner: 'A' } },
     };
     expect(msg.type).toBe('SORT_MC_RESULTS');
@@ -55,10 +59,15 @@ describe('WorkerRequest message contracts', () => {
 describe('WorkerResponse contracts', () => {
   it('HEATMAP_DONE contains cells and metrics', () => {
     const response = {
-      id:      'test-id',
-      type:    'HEATMAP_DONE' as const,
-      cells:   [],
-      metrics: { maxContestedCell: null, fortressCell: null, fortressCandidate: null, maxDensity: 1 },
+      id: 'test-id',
+      type: 'HEATMAP_DONE' as const,
+      cells: [],
+      metrics: {
+        maxContestedCell: null,
+        fortressCell: null,
+        fortressCandidate: null,
+        maxDensity: 1,
+      },
     };
     expect(response.type).toBe('HEATMAP_DONE');
     expect(Array.isArray(response.cells)).toBe(true);
@@ -67,8 +76,8 @@ describe('WorkerResponse contracts', () => {
 
   it('MATRIX_DONE contains a nested matrix', () => {
     const response = {
-      id:     'test-id',
-      type:   'MATRIX_DONE' as const,
+      id: 'test-id',
+      type: 'MATRIX_DONE' as const,
       matrix: { plurality: { borda: 0.8, schulze: 0.75 } },
     };
     expect(response.type).toBe('MATRIX_DONE');
@@ -78,7 +87,7 @@ describe('WorkerResponse contracts', () => {
 
   it('SORT_DONE contains rows array', () => {
     const response = {
-      id:   'test-id',
+      id: 'test-id',
       type: 'SORT_DONE' as const,
       rows: [{ method: 'plurality', winner: 'Alice', stability: 0.72, rank: 0 }],
     };
@@ -88,8 +97,8 @@ describe('WorkerResponse contracts', () => {
 
   it('ERROR response contains error string', () => {
     const response = {
-      id:    'test-id',
-      type:  'ERROR' as const,
+      id: 'test-id',
+      type: 'ERROR' as const,
       error: 'Unknown message type: FOO',
     };
     expect(response.type).toBe('ERROR');

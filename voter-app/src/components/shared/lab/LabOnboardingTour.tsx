@@ -19,35 +19,38 @@ const LS_KEY = 'lab_tour_completed';
 
 const STYLES = {
   options: {
-    primaryColor:    '#0d6efd',
-    textColor:       '#333',
+    primaryColor: '#0d6efd',
+    textColor: '#333',
     backgroundColor: '#fff',
-    arrowColor:      '#fff',
-    zIndex:          10500,
+    arrowColor: '#fff',
+    zIndex: 10500,
   },
   tooltip: {
     borderRadius: 10,
-    boxShadow:    '0 4px 24px rgba(0,0,0,0.15)',
-    padding:      '1rem 1.25rem',
+    boxShadow: '0 4px 24px rgba(0,0,0,0.15)',
+    padding: '1rem 1.25rem',
   },
   tooltipTitle: {
-    fontSize:    '1rem',
-    fontWeight:  700,
+    fontSize: '1rem',
+    fontWeight: 700,
     marginBottom: '0.5rem',
-    color:       '#0d6efd',
+    color: '#0d6efd',
   },
   tooltipContent: { fontSize: '0.88rem', lineHeight: 1.55, color: '#444' },
   buttonNext: {
-    backgroundColor: '#0d6efd', color: 'white',
-    borderRadius: 6, padding: '6px 16px', fontSize: '0.85rem',
+    backgroundColor: '#0d6efd',
+    color: 'white',
+    borderRadius: 6,
+    padding: '6px 16px',
+    fontSize: '0.85rem',
   },
-  buttonBack:  { color: '#0d6efd', fontSize: '0.85rem' },
-  buttonSkip:  { color: '#6c757d', fontSize: '0.8rem' },
+  buttonBack: { color: '#0d6efd', fontSize: '0.85rem' },
+  buttonSkip: { color: '#6c757d', fontSize: '0.8rem' },
   buttonClose: { color: '#adb5bd' },
 };
 
 interface Props {
-  run:      boolean;
+  run: boolean;
   onFinish: () => void;
 }
 
@@ -56,52 +59,56 @@ const LabOnboardingTour: React.FC<Props> = ({ run, onFinish }) => {
 
   const steps = [
     {
-      target:         '[data-tour="lab-central"]',
-      title:          t('labTour.step1Title'),
-      content:        t('labTour.step1Content'),
-      placement:      'bottom',
-      disableBeacon:  true,
+      target: '[data-tour="lab-central"]',
+      title: t('labTour.step1Title'),
+      content: t('labTour.step1Content'),
+      placement: 'bottom',
+      disableBeacon: true,
     },
     {
-      target:    '[data-tour="lab-tabs"]',
-      title:     t('labTour.step2Title'),
-      content:   t('labTour.step2Content'),
+      target: '[data-tour="lab-tabs"]',
+      title: t('labTour.step2Title'),
+      content: t('labTour.step2Content'),
       placement: 'top',
     },
     {
-      target:    '[data-tour="lab-perturb-tab"]',
-      title:     t('labTour.step3Title'),
-      content:   t('labTour.step3Content'),
+      target: '[data-tour="lab-perturb-tab"]',
+      title: t('labTour.step3Title'),
+      content: t('labTour.step3Content'),
       placement: 'bottom',
     },
     {
-      target:    '[data-tour="lab-animation-tab"]',
-      title:     t('labTour.step4Title'),
-      content:   t('labTour.step4Content'),
+      target: '[data-tour="lab-animation-tab"]',
+      title: t('labTour.step4Title'),
+      content: t('labTour.step4Content'),
       placement: 'bottom',
     },
     {
-      target:    '[data-tour="lab-focus"]',
-      title:     t('labTour.step5Title'),
-      content:   t('labTour.step5Content'),
+      target: '[data-tour="lab-focus"]',
+      title: t('labTour.step5Title'),
+      content: t('labTour.step5Content'),
       placement: 'left',
     },
   ];
 
   const locale = {
-    back:  t('onboarding.back'),
+    back: t('onboarding.back'),
     close: t('onboarding.close'),
-    last:  t('onboarding.last'),
-    next:  t('onboarding.next'),
-    open:  t('onboarding.open'),
-    skip:  t('onboarding.skip'),
+    last: t('onboarding.last'),
+    next: t('onboarding.next'),
+    open: t('onboarding.open'),
+    skip: t('onboarding.skip'),
   };
 
   const handleCallback = useCallback(
     (data: any) => {
       const { status } = data;
       if (status === STATUS.FINISHED || status === STATUS.SKIPPED) {
-        try { localStorage.setItem(LS_KEY, 'true'); } catch { /* */ }
+        try {
+          localStorage.setItem(LS_KEY, 'true');
+        } catch {
+          /* */
+        }
         onFinish();
       }
     },

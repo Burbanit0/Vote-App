@@ -10,20 +10,24 @@ vi.mock('../../../api/client', () => ({
   apiClient: { GET: vi.fn(), POST: vi.fn(), PUT: vi.fn(), DELETE: vi.fn(), PATCH: vi.fn() },
   getAccessToken: vi.fn(() => null),
 }));
-const { apiClient } = (await import('../../../api/client')) as unknown as { apiClient: { POST: jest.Mock } };
+const { apiClient } = (await import('../../../api/client')) as unknown as {
+  apiClient: { POST: jest.Mock };
+};
 
 vi.mock('recharts', () => {
   const React = require('react');
   return {
-    LineChart:           ({ children }: any) => <div data-testid="nota-line-chart">{children}</div>,
-    Line:                ({ name }: any) => <div data-testid={`line-${name ?? 'unknown'}`} />,
-    XAxis:               () => null,
-    YAxis:               () => null,
-    CartesianGrid:       () => null,
-    Tooltip:             () => null,
-    Legend:              () => null,
-    ReferenceLine:       () => null,
-    ResponsiveContainer: ({ children }: any) => <div style={{ width: 400, height: 200 }}>{children}</div>,
+    LineChart: ({ children }: any) => <div data-testid="nota-line-chart">{children}</div>,
+    Line: ({ name }: any) => <div data-testid={`line-${name ?? 'unknown'}`} />,
+    XAxis: () => null,
+    YAxis: () => null,
+    CartesianGrid: () => null,
+    Tooltip: () => null,
+    Legend: () => null,
+    ReferenceLine: () => null,
+    ResponsiveContainer: ({ children }: any) => (
+      <div style={{ width: 400, height: 200 }}>{children}</div>
+    ),
   };
 });
 
@@ -32,26 +36,26 @@ vi.mock('recharts', () => {
 function makeData(valid = true, notaPct = 0.15, winner: string | null = 'Alice') {
   return {
     data: {
-      nota_pct:       notaPct,
+      nota_pct: notaPct,
       election_valid: valid,
       winner,
       nota_curve: Array.from({ length: 20 }, (_, i) => ({
         threshold: i * 0.05,
-        nota_pct:  Math.min(1, i * 0.05),
+        nota_pct: Math.min(1, i * 0.05),
         nota_wins: i * 0.05 >= 0.5,
-        winner:    i * 0.05 >= 0.5 ? null : 'Alice',
+        winner: i * 0.05 >= 0.5 ? null : 'Alice',
       })),
       method_comparison: {
-        plurality:         { winner: 'Alice', nota_pct: notaPct,        election_valid: valid },
-        approval:          { winner: 'Alice', nota_pct: notaPct * 0.5,  election_valid: true  },
-        borda:             { winner: 'Alice', nota_pct: notaPct * 0.95, election_valid: valid },
-        irv:               { winner: 'Alice', nota_pct: notaPct * 0.95, election_valid: valid },
-        schulze:           { winner: 'Alice', nota_pct: notaPct * 0.9,  election_valid: valid },
-        majority_judgment: { winner: 'Alice', nota_pct: notaPct * 0.7,  election_valid: valid },
+        plurality: { winner: 'Alice', nota_pct: notaPct, election_valid: valid },
+        approval: { winner: 'Alice', nota_pct: notaPct * 0.5, election_valid: true },
+        borda: { winner: 'Alice', nota_pct: notaPct * 0.95, election_valid: valid },
+        irv: { winner: 'Alice', nota_pct: notaPct * 0.95, election_valid: valid },
+        schulze: { winner: 'Alice', nota_pct: notaPct * 0.9, election_valid: valid },
+        majority_judgment: { winner: 'Alice', nota_pct: notaPct * 0.7, election_valid: valid },
       },
-      pedagogical_note:  'Test note.',
-      nota_rule:         'invalidate',
-      nota_threshold:    0.3,
+      pedagogical_note: 'Test note.',
+      nota_rule: 'invalidate',
+      nota_threshold: 0.3,
     },
     error: undefined,
   };
@@ -75,7 +79,9 @@ beforeEach(() => {
   vi.useFakeTimers();
 });
 
-afterEach(() => { vi.useRealTimers(); });
+afterEach(() => {
+  vi.useRealTimers();
+});
 
 // ── Tests ─────────────────────────────────────────────────────────────────────
 
@@ -107,7 +113,7 @@ describe('NOTAPanel', () => {
     await waitFor(() => expect(apiClient.POST).toHaveBeenCalledTimes(1));
     expect(apiClient.POST).toHaveBeenCalledWith(
       expect.stringMatching(/\/api\/(v2\/)?election\/nota/),
-      expect.any(Object),
+      expect.any(Object)
     );
     vi.runAllTimers();
   });
@@ -177,7 +183,14 @@ describe('NOTAPanel', () => {
     renderPanel();
     fireEvent.click(screen.getByRole('button', { name: /simuler|simulate/i }));
     await waitFor(() => {
-      for (const meth of ['plurality', 'approval', 'borda', 'irv', 'schulze', 'majority_judgment']) {
+      for (const meth of [
+        'plurality',
+        'approval',
+        'borda',
+        'irv',
+        'schulze',
+        'majority_judgment',
+      ]) {
         expect(screen.getByTestId(`method-row-${meth}`)).toBeInTheDocument();
       }
     });
@@ -187,7 +200,9 @@ describe('NOTAPanel', () => {
   it('shows nota-elected alert when NOTA wins with winner_take_all rule', async () => {
     apiClient.POST.mockResolvedValue(makeData(true, 0.6, 'NOTA'));
     renderPanel();
-    fireEvent.change(screen.getByTestId('nota-rule-select'), { target: { value: 'winner_take_all' } });
+    fireEvent.change(screen.getByTestId('nota-rule-select'), {
+      target: { value: 'winner_take_all' },
+    });
     fireEvent.click(screen.getByRole('button', { name: /simuler|simulate/i }));
     await waitFor(() => expect(screen.getByTestId('nota-elected-alert')).toBeInTheDocument());
     vi.runAllTimers();
@@ -200,7 +215,9 @@ describe('NOTAPanel', () => {
     await waitFor(() => expect(apiClient.POST).toHaveBeenCalledTimes(1));
 
     fireEvent.change(screen.getByTestId('nota-threshold-slider'), { target: { value: '0.7' } });
-    act(() => { vi.advanceTimersByTime(450); });
+    act(() => {
+      vi.advanceTimersByTime(450);
+    });
     await waitFor(() => expect(apiClient.POST).toHaveBeenCalledTimes(2));
     vi.runAllTimers();
   });

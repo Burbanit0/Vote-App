@@ -10,23 +10,27 @@ vi.mock('../../../api/client', () => ({
   apiClient: { GET: vi.fn(), POST: vi.fn(), PUT: vi.fn(), DELETE: vi.fn(), PATCH: vi.fn() },
   getAccessToken: vi.fn(() => null),
 }));
-const { apiClient } = (await import('../../../api/client')) as unknown as { apiClient: { POST: jest.Mock } };
+const { apiClient } = (await import('../../../api/client')) as unknown as {
+  apiClient: { POST: jest.Mock };
+};
 
 vi.mock('recharts', () => {
   const React = require('react');
   return {
-    LineChart:           ({ children }: any) => <div>{children}</div>,
-    BarChart:            ({ children }: any) => <div>{children}</div>,
-    Line:                ({ dataKey }: any) => <div data-testid={`line-${dataKey}`} />,
-    Bar:                 ({ dataKey }: any) => <div data-testid={`bar-${dataKey}`} />,
-    Cell:                () => null,
-    XAxis:               () => null,
-    YAxis:               () => null,
-    CartesianGrid:       () => null,
-    Tooltip:             () => null,
-    Legend:              () => null,
-    ReferenceLine:       () => null,
-    ResponsiveContainer: ({ children }: any) => <div style={{ width: 400, height: 220 }}>{children}</div>,
+    LineChart: ({ children }: any) => <div>{children}</div>,
+    BarChart: ({ children }: any) => <div>{children}</div>,
+    Line: ({ dataKey }: any) => <div data-testid={`line-${dataKey}`} />,
+    Bar: ({ dataKey }: any) => <div data-testid={`bar-${dataKey}`} />,
+    Cell: () => null,
+    XAxis: () => null,
+    YAxis: () => null,
+    CartesianGrid: () => null,
+    Tooltip: () => null,
+    Legend: () => null,
+    ReferenceLine: () => null,
+    ResponsiveContainer: ({ children }: any) => (
+      <div style={{ width: 400, height: 220 }}>{children}</div>
+    ),
   };
 });
 
@@ -39,19 +43,19 @@ function makeData() {
   return {
     data: {
       results_by_n: COUNTS.map((n, i) => ({
-        num_candidates:         n,
-        mean_voter_regret:      n <= 5 ? 0 : 0.01 + i * 0.01,
-        heuristic_voters:       n <= 5 ? 0 : 0.4,
-        winner_by_method:       Object.fromEntries(METHODS.map((m) => [m, 'Alice'])),
-        condorcet_winner:       'Alice',
+        num_candidates: n,
+        mean_voter_regret: n <= 5 ? 0 : 0.01 + i * 0.01,
+        heuristic_voters: n <= 5 ? 0 : 0.4,
+        winner_by_method: Object.fromEntries(METHODS.map((m) => [m, 'Alice'])),
+        condorcet_winner: 'Alice',
         methods_elect_condorcet: Object.fromEntries(METHODS.map((m) => [m, true])),
       })),
       regret_curve: COUNTS.map((n, i) => ({ n_candidates: n, regret: n <= 5 ? 0 : 0.01 * i })),
-      most_robust_method:   'majority_judgment',
-      least_robust_method:  'plurality',
-      overload_threshold:   5,
-      heuristic_weights:    { notoriety: 0.2, primacy: 0.1, partisan: 0.2 },
-      pedagogical_note:     'Test note.',
+      most_robust_method: 'majority_judgment',
+      least_robust_method: 'plurality',
+      overload_threshold: 5,
+      heuristic_weights: { notoriety: 0.2, primacy: 0.1, partisan: 0.2 },
+      pedagogical_note: 'Test note.',
     },
     error: undefined,
   };
@@ -75,7 +79,9 @@ beforeEach(() => {
   vi.useFakeTimers();
 });
 
-afterEach(() => { vi.useRealTimers(); });
+afterEach(() => {
+  vi.useRealTimers();
+});
 
 // ── Tests ─────────────────────────────────────────────────────────────────────
 
@@ -105,7 +111,7 @@ describe('ChoiceOverloadPanel', () => {
     await waitFor(() => expect(apiClient.POST).toHaveBeenCalledTimes(1));
     expect(apiClient.POST).toHaveBeenCalledWith(
       expect.stringMatching(/\/api\/(v2\/)?election\/choice-overload/),
-      expect.any(Object),
+      expect.any(Object)
     );
     vi.runAllTimers();
   });
@@ -157,7 +163,9 @@ describe('ChoiceOverloadPanel', () => {
     await waitFor(() => expect(apiClient.POST).toHaveBeenCalledTimes(1));
 
     fireEvent.change(screen.getByTestId('notoriety-slider'), { target: { value: '0.35' } });
-    act(() => { vi.advanceTimersByTime(450); });
+    act(() => {
+      vi.advanceTimersByTime(450);
+    });
     await waitFor(() => expect(apiClient.POST).toHaveBeenCalledTimes(2));
     vi.runAllTimers();
   });
@@ -169,7 +177,9 @@ describe('ChoiceOverloadPanel', () => {
     await waitFor(() => expect(apiClient.POST).toHaveBeenCalledTimes(1));
 
     fireEvent.change(screen.getByTestId('threshold-slider'), { target: { value: '7' } });
-    act(() => { vi.advanceTimersByTime(450); });
+    act(() => {
+      vi.advanceTimersByTime(450);
+    });
     await waitFor(() => expect(apiClient.POST).toHaveBeenCalledTimes(2));
     vi.runAllTimers();
   });

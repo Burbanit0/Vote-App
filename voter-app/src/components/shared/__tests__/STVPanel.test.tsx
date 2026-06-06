@@ -10,7 +10,9 @@ vi.mock('../../../api/client', () => ({
   apiClient: { GET: vi.fn(), POST: vi.fn(), PUT: vi.fn(), DELETE: vi.fn(), PATCH: vi.fn() },
   getAccessToken: vi.fn(() => null),
 }));
-const { apiClient } = (await import('../../../api/client')) as unknown as { apiClient: { POST: jest.Mock } };
+const { apiClient } = (await import('../../../api/client')) as unknown as {
+  apiClient: { POST: jest.Mock };
+};
 
 // ── Fixture ───────────────────────────────────────────────────────────────────
 
@@ -21,41 +23,47 @@ function makeData() {
     data: {
       stv: {
         elected: ['Alice', 'Bob'],
-        quota:   26,
-        seats:   { Alice: 1, Bob: 1, Carol: 0, Dave: 0 },
+        quota: 26,
+        seats: { Alice: 1, Bob: 1, Carol: 0, Dave: 0 },
         rounds: [
           {
-            round: 0, action: 'elect', candidate: 'Alice',
-            tallies:   { Alice: 0, Bob: 38, Carol: 22, Dave: 14 },
+            round: 0,
+            action: 'elect',
+            candidate: 'Alice',
+            tallies: { Alice: 0, Bob: 38, Carol: 22, Dave: 14 },
             transfers: { Bob: 9 },
           },
           {
-            round: 1, action: 'eliminate', candidate: 'Dave',
-            tallies:   { Bob: 43, Carol: 31 },
+            round: 1,
+            action: 'eliminate',
+            candidate: 'Dave',
+            tallies: { Bob: 43, Carol: 31 },
             transfers: {},
           },
           {
-            round: 2, action: 'elect', candidate: 'Bob',
-            tallies:   { Bob: 0, Carol: 31 },
+            round: 2,
+            action: 'elect',
+            candidate: 'Bob',
+            tallies: { Bob: 0, Carol: 31 },
             transfers: { Carol: 17 },
           },
         ],
       },
       dhondt: {
-        seats:   { Alice: 1, Bob: 1, Carol: 0, Dave: 0 },
+        seats: { Alice: 1, Bob: 1, Carol: 0, Dave: 0 },
         elected: ['Alice', 'Bob'],
       },
       fptp: {
-        seats:   { Alice: 1, Bob: 1, Carol: 0, Dave: 0 },
+        seats: { Alice: 1, Bob: 1, Carol: 0, Dave: 0 },
         elected: ['Alice', 'Bob'],
       },
-      vote_shares:           { Alice: 0.40, Bob: 0.35, Carol: 0.15, Dave: 0.10 },
-      num_seats:             2,
-      quota:                 26,
-      quota_type:            'droop',
+      vote_shares: { Alice: 0.4, Bob: 0.35, Carol: 0.15, Dave: 0.1 },
+      num_seats: 2,
+      quota: 26,
+      quota_type: 'droop',
       distortion_stv_dhondt: 0,
-      distortion_stv_fptp:   0,
-      candidates:            NAMES,
+      distortion_stv_fptp: 0,
+      candidates: NAMES,
     },
     error: undefined,
   };
@@ -79,7 +87,9 @@ beforeEach(() => {
   vi.useFakeTimers();
 });
 
-afterEach(() => { vi.useRealTimers(); });
+afterEach(() => {
+  vi.useRealTimers();
+});
 
 // ── Tests ─────────────────────────────────────────────────────────────────────
 
@@ -101,7 +111,7 @@ describe('STVPanel', () => {
     await waitFor(() => expect(apiClient.POST).toHaveBeenCalledTimes(1));
     expect(apiClient.POST).toHaveBeenCalledWith(
       expect.stringMatching(/\/api\/(v2\/)?election\/stv/),
-      expect.any(Object),
+      expect.any(Object)
     );
     vi.runAllTimers();
   });

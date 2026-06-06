@@ -10,20 +10,24 @@ vi.mock('../../../api/client', () => ({
   apiClient: { GET: vi.fn(), POST: vi.fn(), PUT: vi.fn(), DELETE: vi.fn(), PATCH: vi.fn() },
   getAccessToken: vi.fn(() => null),
 }));
-const { apiClient } = (await import('../../../api/client')) as unknown as { apiClient: { POST: jest.Mock } };
+const { apiClient } = (await import('../../../api/client')) as unknown as {
+  apiClient: { POST: jest.Mock };
+};
 
 vi.mock('recharts', () => {
   const React = require('react');
   return {
-    BarChart:            ({ children }: any) => <div data-testid="compare-bar-chart">{children}</div>,
-    Bar:                 () => null,
-    Cell:                () => null,
-    XAxis:               () => null,
-    YAxis:               () => null,
-    CartesianGrid:       () => null,
-    Tooltip:             () => null,
-    Legend:              () => null,
-    ResponsiveContainer: ({ children }: any) => <div style={{ width: 400, height: 180 }}>{children}</div>,
+    BarChart: ({ children }: any) => <div data-testid="compare-bar-chart">{children}</div>,
+    Bar: () => null,
+    Cell: () => null,
+    XAxis: () => null,
+    YAxis: () => null,
+    CartesianGrid: () => null,
+    Tooltip: () => null,
+    Legend: () => null,
+    ResponsiveContainer: ({ children }: any) => (
+      <div style={{ width: 400, height: 180 }}>{children}</div>
+    ),
   };
 });
 
@@ -33,30 +37,48 @@ function makeData(winnerChanged = false) {
   return {
     data: {
       conviction_winner: winnerChanged ? 'B' : 'A',
-      token_winner:      'A',
-      winner_changed:    winnerChanged,
+      token_winner: 'A',
+      winner_changed: winnerChanged,
       proposals: [
-        { name: 'A', conviction_score: 80000, token_score: 60000,
-          avg_conviction_of_supporters: 2.5, avg_tokens_of_supporters: 1200 },
-        { name: 'B', conviction_score: winnerChanged ? 90000 : 55000, token_score: 50000,
-          avg_conviction_of_supporters: 4.0, avg_tokens_of_supporters: 800 },
-        { name: 'C', conviction_score: 30000, token_score: 25000,
-          avg_conviction_of_supporters: 1.5, avg_tokens_of_supporters: 900 },
+        {
+          name: 'A',
+          conviction_score: 80000,
+          token_score: 60000,
+          avg_conviction_of_supporters: 2.5,
+          avg_tokens_of_supporters: 1200,
+        },
+        {
+          name: 'B',
+          conviction_score: winnerChanged ? 90000 : 55000,
+          token_score: 50000,
+          avg_conviction_of_supporters: 4.0,
+          avg_tokens_of_supporters: 800,
+        },
+        {
+          name: 'C',
+          conviction_score: 30000,
+          token_score: 25000,
+          avg_conviction_of_supporters: 1.5,
+          avg_tokens_of_supporters: 900,
+        },
       ],
       voter_scatter: Array.from({ length: 50 }, (_, i) => ({
-        id: i, tokens: 500 + i * 20, lock_days: [0, 7, 28, 224][i % 4],
-        conviction_mult: [0.1, 1, 3, 6][i % 4], conviction_weight: (500 + i * 20) * [0.1, 1, 3, 6][i % 4],
+        id: i,
+        tokens: 500 + i * 20,
+        lock_days: [0, 7, 28, 224][i % 4],
+        conviction_mult: [0.1, 1, 3, 6][i % 4],
+        conviction_weight: (500 + i * 20) * [0.1, 1, 3, 6][i % 4],
         choice: ['A', 'B', 'C'][i % 3],
       })),
       voter_stats: {
-        gini_tokens:          0.62,
-        gini_conviction:      0.45,
-        whale_pct_tokens:     0.55,
-        whale_pct_conviction: 0.30,
+        gini_tokens: 0.62,
+        gini_conviction: 0.45,
+        whale_pct_tokens: 0.55,
+        whale_pct_conviction: 0.3,
       },
       pedagogical_note: 'Test note.',
       lock_options: [0, 7, 14, 28, 56, 112, 224],
-      multipliers:   { '0': 0.1, '7': 1, '14': 2, '28': 3, '56': 4, '112': 5, '224': 6 },
+      multipliers: { '0': 0.1, '7': 1, '14': 2, '28': 3, '56': 4, '112': 5, '224': 6 },
     },
     error: undefined,
   };
@@ -80,7 +102,9 @@ beforeEach(() => {
   vi.useFakeTimers();
 });
 
-afterEach(() => { vi.useRealTimers(); });
+afterEach(() => {
+  vi.useRealTimers();
+});
 
 // ── Tests ─────────────────────────────────────────────────────────────────────
 
@@ -107,7 +131,7 @@ describe('ConvictionVotingPanel', () => {
     await waitFor(() => expect(apiClient.POST).toHaveBeenCalledTimes(1));
     expect(apiClient.POST).toHaveBeenCalledWith(
       expect.stringMatching(/\/api\/(v2\/)?election\/conviction-voting/),
-      expect.any(Object),
+      expect.any(Object)
     );
     vi.runAllTimers();
   });
@@ -217,7 +241,7 @@ describe('ConvictionVotingPanel', () => {
     fireEvent.click(screen.getByRole('button', { name: /simuler|simulate/i }));
     await waitFor(() => {
       const badge = screen.getByTestId('gini-conviction-badge');
-      expect(badge.className).toContain('bg-success');
+      expect(badge.className).toContain('bg-[#198754]');
     });
     vi.runAllTimers();
   });

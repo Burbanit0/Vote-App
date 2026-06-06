@@ -9,20 +9,24 @@ vi.mock('../../../api/client', () => ({
   apiClient: { GET: vi.fn(), POST: vi.fn(), PUT: vi.fn(), DELETE: vi.fn(), PATCH: vi.fn() },
   getAccessToken: vi.fn(() => null),
 }));
-const { apiClient } = (await import('../../../api/client')) as unknown as { apiClient: { POST: jest.Mock } };
+const { apiClient } = (await import('../../../api/client')) as unknown as {
+  apiClient: { POST: jest.Mock };
+};
 
 vi.mock('recharts', () => {
   const React = require('react');
   return {
-    LineChart:           ({ children }: any) => <div>{children}</div>,
-    Line:                ({ dataKey }: any) => <div data-testid={`line-${dataKey}`} />,
-    XAxis:               () => null,
-    YAxis:               () => null,
-    CartesianGrid:       () => null,
-    Tooltip:             () => null,
-    Legend:              () => null,
-    ReferenceLine:       () => null,
-    ResponsiveContainer: ({ children }: any) => <div style={{ width: 400, height: 180 }}>{children}</div>,
+    LineChart: ({ children }: any) => <div>{children}</div>,
+    Line: ({ dataKey }: any) => <div data-testid={`line-${dataKey}`} />,
+    XAxis: () => null,
+    YAxis: () => null,
+    CartesianGrid: () => null,
+    Tooltip: () => null,
+    Legend: () => null,
+    ReferenceLine: () => null,
+    ResponsiveContainer: ({ children }: any) => (
+      <div style={{ width: 400, height: 180 }}>{children}</div>
+    ),
   };
 });
 
@@ -30,34 +34,39 @@ vi.mock('recharts', () => {
 
 function makeData(duverger = false) {
   const mkElection = (n: number, parties: string[], nEff: number) => ({
-    election_n:        n,
-    active_parties:    parties.length,
-    parties:           parties.map((name, i) => ({
-      name, x: -0.8 + i * 0.4, y: 0,
+    election_n: n,
+    active_parties: parties.length,
+    parties: parties.map((name, i) => ({
+      name,
+      x: -0.8 + i * 0.4,
+      y: 0,
       vote_pct: 100 / parties.length,
-      seats:    100 / parties.length,
+      seats: 100 / parties.length,
       survived: true,
     })),
     effective_parties: nEff,
-    winner:            parties[0],
-    new_entrants:      [],
-    eliminated:        n === 3 && duverger ? ['E'] : [],
+    winner: parties[0],
+    new_entrants: [],
+    eliminated: n === 3 && duverger ? ['E'] : [],
   });
 
   const elections = [
     mkElection(1, ['A', 'B', 'C', 'D', 'E'], 5.0),
     mkElection(2, ['A', 'B', 'C', 'D', 'E'], 4.5),
-    mkElection(3, duverger ? ['A', 'B', 'C', 'D'] : ['A', 'B', 'C', 'D', 'E'],
-               duverger ? 3.2 : 4.8),
+    mkElection(
+      3,
+      duverger ? ['A', 'B', 'C', 'D'] : ['A', 'B', 'C', 'D', 'E'],
+      duverger ? 3.2 : 4.8
+    ),
   ];
 
   return {
     data: {
       elections,
-      final_system:            duverger ? 'tripartite' : 'fragmented',
+      final_system: duverger ? 'tripartite' : 'fragmented',
       effective_parties_curve: elections.map((e) => e.effective_parties),
-      duverger_confirmed:      duverger,
-      convergence_speed:       duverger ? null : null,
+      duverger_confirmed: duverger,
+      convergence_speed: duverger ? null : null,
       ideology_drift: [
         { party: 'A', initial_x: -0.8, final_x: -0.7 },
         { party: 'B', initial_x: -0.3, final_x: -0.2 },
@@ -84,7 +93,9 @@ beforeEach(() => {
   vi.useFakeTimers();
 });
 
-afterEach(() => { vi.useRealTimers(); });
+afterEach(() => {
+  vi.useRealTimers();
+});
 
 // ── Tests ─────────────────────────────────────────────────────────────────────
 
@@ -116,7 +127,7 @@ describe('PartyDynamicsPanel', () => {
     await waitFor(() => expect(apiClient.POST).toHaveBeenCalledTimes(1));
     expect(apiClient.POST).toHaveBeenCalledWith(
       expect.stringMatching(/\/api\/(v2\/)?election\/party-dynamics/),
-      expect.any(Object),
+      expect.any(Object)
     );
     vi.runAllTimers();
   });

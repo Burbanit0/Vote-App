@@ -6,11 +6,19 @@
  *   [0, 2, 1] → candidate 0 first, candidate 2 second, candidate 1 third.
  */
 import React, { useCallback, useEffect, useRef, useState } from 'react';
-import { Button, ProgressBar } from 'react-bootstrap';
+import { Button } from '@/components/ui/button';
+import { Progress } from '@/components/ui/progress';
 
 // ── Types ───────────────────────────────────────────────────────────────────
 
-export type VoteMethod = 'plurality' | 'borda' | 'irv' | 'two-round' | 'approval' | 'schulze' | 'star';
+export type VoteMethod =
+  | 'plurality'
+  | 'borda'
+  | 'irv'
+  | 'two-round'
+  | 'approval'
+  | 'schulze'
+  | 'star';
 
 export interface VoteCandidate {
   name: string;
@@ -62,8 +70,8 @@ function pluralitySteps(names: string[], ballots: number[][]): VoteStep[] {
     if (first !== undefined && names[first]) scores[names[first]]++;
   }
   const winner = winnerOf(scores);
-  const total  = ballots.length;
-  const pct    = winner ? ((scores[winner] / total) * 100).toFixed(1) : '?';
+  const total = ballots.length;
+  const pct = winner ? ((scores[winner] / total) * 100).toFixed(1) : '?';
   return [
     {
       round: 1,
@@ -80,7 +88,7 @@ function pluralitySteps(names: string[], ballots: number[][]): VoteStep[] {
 
 // ── borda ──────────────────────────────────────────────────────────────────
 function bordaSteps(names: string[], ballots: number[][]): VoteStep[] {
-  const n      = names.length;
+  const n = names.length;
   const scores = initScores(names);
   for (const ballot of ballots) {
     ballot.forEach((idx, rank) => {
@@ -112,7 +120,7 @@ function irvSteps(names: string[], ballots: number[][]): VoteStep[] {
 
   while (remaining.length > 1) {
     const scores = initScores(remaining);
-    const total  = activeBallots.length;
+    const total = activeBallots.length;
 
     for (const ballot of activeBallots) {
       const top = ballot.find((i) => remaining.includes(names[i]));
@@ -121,7 +129,7 @@ function irvSteps(names: string[], ballots: number[][]): VoteStep[] {
 
     const sorted = [...remaining].sort((a, b) => scores[b] - scores[a]);
     const frontRunner = sorted[0];
-    const lastPlace   = sorted[sorted.length - 1];
+    const lastPlace = sorted[sorted.length - 1];
 
     if (scores[frontRunner] > total / 2) {
       steps.push({
@@ -149,17 +157,14 @@ function irvSteps(names: string[], ballots: number[][]): VoteStep[] {
     });
 
     remaining = remaining.filter((n) => n !== lastPlace);
-    activeBallots = activeBallots.map((b) =>
-      b.filter((i) => remaining.includes(names[i]))
-    );
+    activeBallots = activeBallots.map((b) => b.filter((i) => remaining.includes(names[i])));
   }
 
   if (remaining.length === 1 && !steps.some((s) => s.winner)) {
     steps.push({
       round: steps.length + 1,
       title: `Tour ${steps.length + 1} — Vainqueur par défaut`,
-      description:
-        `Il ne reste qu'un seul candidat : ${remaining[0]}. L'élection est terminée.`,
+      description: `Il ne reste qu'un seul candidat : ${remaining[0]}. L'élection est terminée.`,
       scores: { [remaining[0]]: activeBallots.length },
       winner: remaining[0],
     });
@@ -181,7 +186,7 @@ function twoRoundSteps(names: string[], ballots: number[][]): VoteStep[] {
   }
 
   const sortedR1 = [...names].sort((a, b) => r1scores[b] - r1scores[a]);
-  const frontR1  = sortedR1[0];
+  const frontR1 = sortedR1[0];
 
   if (r1scores[frontR1] > total / 2) {
     steps.push({
@@ -235,7 +240,7 @@ function approvalSteps(names: string[], ballots: number[][]): VoteStep[] {
   const n = names.length;
   // Approve top ⌈n/2⌉ candidates on each ballot
   const threshold = Math.ceil(n / 2);
-  const scores    = initScores(names);
+  const scores = initScores(names);
   for (const ballot of ballots) {
     for (let rank = 0; rank < Math.min(threshold, ballot.length); rank++) {
       const idx = ballot[rank];
@@ -301,9 +306,10 @@ function schulzeSteps(names: string[], ballots: number[][]): VoteStep[] {
 
 // ── star (simplified) ──────────────────────────────────────────────────────
 function starSteps(names: string[], ballots: number[][]): VoteStep[] {
-  const n      = names.length;
+  const n = names.length;
   // Derive 0–5 score from rank position
-  const scoreOf = (rank: number) => Math.round((5 * Math.max(0, n - 1 - rank)) / Math.max(1, n - 1));
+  const scoreOf = (rank: number) =>
+    Math.round((5 * Math.max(0, n - 1 - rank)) / Math.max(1, n - 1));
 
   const step1scores = initScores(names);
   for (const ballot of ballots) {
@@ -313,7 +319,7 @@ function starSteps(names: string[], ballots: number[][]): VoteStep[] {
   }
 
   const sortedByScore = [...names].sort((a, b) => step1scores[b] - step1scores[a]);
-  const finalists     = sortedByScore.slice(0, 2);
+  const finalists = sortedByScore.slice(0, 2);
 
   // Step 2 — preference between top 2
   const step2scores = Object.fromEntries(finalists.map((nm) => [nm, 0]));
@@ -351,19 +357,27 @@ function starSteps(names: string[], ballots: number[][]): VoteStep[] {
 export function generateSteps(
   method: VoteMethod,
   candidates: VoteCandidate[],
-  ballots: number[][],
+  ballots: number[][]
 ): VoteStep[] {
   const names = candidates.map((c) => c.name);
   if (!names.length || !ballots.length) return [];
   switch (method) {
-    case 'plurality':  return pluralitySteps(names, ballots);
-    case 'borda':      return bordaSteps(names, ballots);
-    case 'irv':        return irvSteps(names, ballots);
-    case 'two-round':  return twoRoundSteps(names, ballots);
-    case 'approval':   return approvalSteps(names, ballots);
-    case 'schulze':    return schulzeSteps(names, ballots);
-    case 'star':       return starSteps(names, ballots);
-    default:           return [];
+    case 'plurality':
+      return pluralitySteps(names, ballots);
+    case 'borda':
+      return bordaSteps(names, ballots);
+    case 'irv':
+      return irvSteps(names, ballots);
+    case 'two-round':
+      return twoRoundSteps(names, ballots);
+    case 'approval':
+      return approvalSteps(names, ballots);
+    case 'schulze':
+      return schulzeSteps(names, ballots);
+    case 'star':
+      return starSteps(names, ballots);
+    default:
+      return [];
   }
 }
 
@@ -375,10 +389,10 @@ export function generateSteps(
 export function generateDemoBallots(
   candidateNames: string[],
   winner: string,
-  numBallots = 120,
+  numBallots = 120
 ): number[][] {
-  const n          = candidateNames.length;
-  const winnerIdx  = Math.max(0, candidateNames.indexOf(winner));
+  const n = candidateNames.length;
+  const winnerIdx = Math.max(0, candidateNames.indexOf(winner));
   const ballots: number[][] = [];
 
   // Deterministic LCG seeded from winner index and candidate count
@@ -406,10 +420,10 @@ export function generateDemoBallots(
       ballots.push([winnerIdx, ...rest]);
     } else {
       // Spread remaining votes among other candidates
-      const otherPool  = indices.filter((j) => j !== winnerIdx);
-      const othersIdx  = (i - favorWinner) % otherPool.length;
+      const otherPool = indices.filter((j) => j !== winnerIdx);
+      const othersIdx = (i - favorWinner) % otherPool.length;
       const firstChoice = otherPool[othersIdx];
-      const rest       = shuffle(indices.filter((j) => j !== firstChoice));
+      const rest = shuffle(indices.filter((j) => j !== firstChoice));
       ballots.push([firstChoice, ...rest]);
     }
   }
@@ -430,23 +444,32 @@ interface BarProps {
 }
 
 const CandidateBar: React.FC<BarProps> = ({
-  name, color, score, maxValue, totalBallots, isEliminated, isWinner, animDuration,
+  name,
+  color,
+  score,
+  maxValue,
+  totalBallots,
+  isEliminated,
+  isWinner,
+  animDuration,
 }) => {
-  const pct     = maxValue > 0 ? Math.round((score / maxValue) * 100) : 0;
+  const pct = maxValue > 0 ? Math.round((score / maxValue) * 100) : 0;
   const totalPct = totalBallots > 0 ? ((score / totalBallots) * 100).toFixed(1) : '—';
   const barColor = isEliminated ? '#dc3545' : isWinner ? color : color;
 
   return (
     <div className="mb-3" role="row">
-      <div className="d-flex justify-content-between align-items-center mb-1">
-        <span className="fw-semibold" style={{ fontSize: '0.92rem' }}>
+      <div className="flex justify-between items-center mb-1">
+        <span className="font-semibold" style={{ fontSize: '0.92rem' }}>
           {isEliminated && <span aria-hidden="true">❌ </span>}
           {isWinner && <span aria-hidden="true">🏆 </span>}
           {name}
-          {isEliminated && <span className="text-danger ms-1 fw-normal small">(éliminé)</span>}
-          {isWinner && <span className="text-success ms-1 fw-normal small">(vainqueur)</span>}
+          {isEliminated && (
+            <span className="text-[#dc3545] ms-1 font-normal text-sm">(éliminé)</span>
+          )}
+          {isWinner && <span className="text-[#198754] ms-1 font-normal text-sm">(vainqueur)</span>}
         </span>
-        <span className="text-muted small">
+        <span className="text-muted-foreground text-sm">
           {score} {totalBallots > 0 && !isEliminated && `(${totalPct}%)`}
         </span>
       </div>
@@ -477,20 +500,23 @@ const CandidateBar: React.FC<BarProps> = ({
 // ── AnimatedVoteCount ───────────────────────────────────────────────────────
 
 const AnimatedVoteCount: React.FC<Props> = ({ method, candidates, ballots, speed }) => {
-  const steps       = generateSteps(method, candidates, ballots);
+  const steps = generateSteps(method, candidates, ballots);
   const animDuration = SPEED_MS[speed];
 
-  const [stepIdx, setStepIdx]   = useState(0);
-  const [playing, setPlaying]   = useState(false);
-  const timerRef                = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const [stepIdx, setStepIdx] = useState(0);
+  const [playing, setPlaying] = useState(false);
+  const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const clamp = (n: number) => Math.max(0, Math.min(steps.length - 1, n));
 
-  const go = useCallback((idx: number) => {
-    if (timerRef.current) clearTimeout(timerRef.current);
-    setPlaying(false);
-    setStepIdx(clamp(idx));
-  }, [steps.length]); // eslint-disable-line react-hooks/exhaustive-deps
+  const go = useCallback(
+    (idx: number) => {
+      if (timerRef.current) clearTimeout(timerRef.current);
+      setPlaying(false);
+      setStepIdx(clamp(idx));
+    },
+    [steps.length]
+  ); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Auto-play
   useEffect(() => {
@@ -504,47 +530,55 @@ const AnimatedVoteCount: React.FC<Props> = ({ method, candidates, ballots, speed
         return prev + 1;
       });
     }, animDuration);
-    return () => { if (timerRef.current) clearTimeout(timerRef.current); };
+    return () => {
+      if (timerRef.current) clearTimeout(timerRef.current);
+    };
   }, [playing, stepIdx, steps.length, animDuration]);
 
   if (!steps.length) {
     return (
-      <div className="text-muted text-center py-4">
+      <div className="text-muted-foreground text-center py-4">
         Pas de données suffisantes pour visualiser cette méthode.
       </div>
     );
   }
 
-  const step          = steps[stepIdx];
-  const allCandNames  = candidates.map((c) => c.name);
-  const eliminatedSoFar = steps.slice(0, stepIdx + 1).map((s) => s.eliminated).filter(Boolean) as string[];
-  const stepMax       = maxScore(step.scores);
-  const totalBallots  = ballots.length;
+  const step = steps[stepIdx];
+  const allCandNames = candidates.map((c) => c.name);
+  const eliminatedSoFar = steps
+    .slice(0, stepIdx + 1)
+    .map((s) => s.eliminated)
+    .filter(Boolean) as string[];
+  const stepMax = maxScore(step.scores);
+  const totalBallots = ballots.length;
 
   return (
     <div>
       {/* Step header */}
-      <div className="d-flex align-items-center justify-content-between mb-1">
+      <div className="flex items-center justify-between mb-1">
         <span className="badge bg-primary" style={{ fontSize: '0.75rem' }}>
           Étape {stepIdx + 1} / {steps.length}
         </span>
-        <span className="text-muted small">{totalBallots} bulletins</span>
+        <span className="text-muted-foreground text-sm">{totalBallots} bulletins</span>
       </div>
 
-      <h6 className="fw-bold mb-1" style={{ fontSize: '1rem' }}>{step.title}</h6>
-      <p className="text-muted mb-3" style={{ fontSize: '0.85rem', lineHeight: 1.5 }}>
+      <h6 className="font-bold mb-1" style={{ fontSize: '1rem' }}>
+        {step.title}
+      </h6>
+      <p className="text-muted-foreground mb-3" style={{ fontSize: '0.85rem', lineHeight: 1.5 }}>
         {step.description}
       </p>
 
       {/* Candidate bars */}
       {allCandNames.map((name) => {
-        const cand     = candidates.find((c) => c.name === name)!;
-        const score    = step.scores[name] ?? 0;
-        const isElim   = eliminatedSoFar.includes(name) && step.eliminated !== name
-          ? false                            // already gone, skip bar
-          : step.eliminated === name;        // eliminated THIS step → red
+        const cand = candidates.find((c) => c.name === name)!;
+        const score = step.scores[name] ?? 0;
+        const isElim =
+          eliminatedSoFar.includes(name) && step.eliminated !== name
+            ? false // already gone, skip bar
+            : step.eliminated === name; // eliminated THIS step → red
         const alreadyGone = eliminatedSoFar.includes(name) && step.eliminated !== name;
-        if (alreadyGone) return null;        // hidden in later rounds
+        if (alreadyGone) return null; // hidden in later rounds
 
         return (
           <CandidateBar
@@ -563,7 +597,7 @@ const AnimatedVoteCount: React.FC<Props> = ({ method, candidates, ballots, speed
 
       {/* Step indicator dots */}
       {steps.length > 1 && (
-        <div className="d-flex justify-content-center gap-1 my-2">
+        <div className="flex justify-center gap-1 my-2">
           {steps.map((_, i) => (
             <button
               key={i}
@@ -576,7 +610,8 @@ const AnimatedVoteCount: React.FC<Props> = ({ method, candidates, ballots, speed
                 border: 'none',
                 padding: 0,
                 cursor: 'pointer',
-                backgroundColor: i === stepIdx ? 'var(--bs-primary, #0d6efd)' : 'var(--bs-border-color, #dee2e6)',
+                backgroundColor:
+                  i === stepIdx ? 'var(--bs-primary, #0d6efd)' : 'var(--bs-border-color, #dee2e6)',
                 transition: 'background-color 0.2s',
               }}
             />
@@ -585,13 +620,29 @@ const AnimatedVoteCount: React.FC<Props> = ({ method, candidates, ballots, speed
       )}
 
       {/* Navigation controls */}
-      <div className="d-flex gap-2 justify-content-center mt-3" role="toolbar" aria-label="Contrôles de navigation">
-        <Button variant="outline-secondary" size="sm" onClick={() => go(0)}
-          disabled={stepIdx === 0} aria-label="Revenir au début" title="Début">
+      <div
+        className="flex gap-2 justify-center mt-3"
+        role="toolbar"
+        aria-label="Contrôles de navigation"
+      >
+        <Button
+          variant="outline-secondary"
+          size="sm"
+          onClick={() => go(0)}
+          disabled={stepIdx === 0}
+          aria-label="Revenir au début"
+          title="Début"
+        >
           ⏮
         </Button>
-        <Button variant="outline-secondary" size="sm" onClick={() => go(stepIdx - 1)}
-          disabled={stepIdx === 0} aria-label="Étape précédente" title="Précédente">
+        <Button
+          variant="outline-secondary"
+          size="sm"
+          onClick={() => go(stepIdx - 1)}
+          disabled={stepIdx === 0}
+          aria-label="Étape précédente"
+          title="Précédente"
+        >
           ◀
         </Button>
         <Button
@@ -604,12 +655,24 @@ const AnimatedVoteCount: React.FC<Props> = ({ method, candidates, ballots, speed
         >
           {playing ? '⏸' : '⏯'}
         </Button>
-        <Button variant="outline-secondary" size="sm" onClick={() => go(stepIdx + 1)}
-          disabled={stepIdx === steps.length - 1} aria-label="Étape suivante" title="Suivante">
+        <Button
+          variant="outline-secondary"
+          size="sm"
+          onClick={() => go(stepIdx + 1)}
+          disabled={stepIdx === steps.length - 1}
+          aria-label="Étape suivante"
+          title="Suivante"
+        >
           ▶
         </Button>
-        <Button variant="outline-secondary" size="sm" onClick={() => go(steps.length - 1)}
-          disabled={stepIdx === steps.length - 1} aria-label="Aller à la fin" title="Fin">
+        <Button
+          variant="outline-secondary"
+          size="sm"
+          onClick={() => go(steps.length - 1)}
+          disabled={stepIdx === steps.length - 1}
+          aria-label="Aller à la fin"
+          title="Fin"
+        >
           ⏭
         </Button>
       </div>

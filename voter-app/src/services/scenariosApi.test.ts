@@ -1,10 +1,14 @@
 import { listScenarios, saveScenario, getScenario, deleteScenario } from './scenariosApi';
 
 vi.mock('../api/client', () => ({
-  apiGet: vi.fn(), apiPost: vi.fn(), apiDelete: vi.fn(),
+  apiGet: vi.fn(),
+  apiPost: vi.fn(),
+  apiDelete: vi.fn(),
 }));
 const { apiGet, apiPost, apiDelete } = (await import('../api/client')) as unknown as {
-  apiGet: jest.Mock; apiPost: jest.Mock; apiDelete: jest.Mock;
+  apiGet: jest.Mock;
+  apiPost: jest.Mock;
+  apiDelete: jest.Mock;
 };
 
 beforeEach(() => {
@@ -33,14 +37,20 @@ describe('scenariosApi', () => {
       expect(result).toEqual(created);
       expect(apiPost).toHaveBeenCalledWith(
         '/api/v2/scenarios',
-        expect.objectContaining({ name: 'My Scenario' }),
+        expect.objectContaining({ name: 'My Scenario' })
       );
     });
   });
 
   describe('getScenario', () => {
     it('returns a scenario by id', async () => {
-      const detail = { id: 1, name: 'Test', config: {}, results: null, created_at: '2024-01-01T00:00:00Z' };
+      const detail = {
+        id: 1,
+        name: 'Test',
+        config: {},
+        results: null,
+        created_at: '2024-01-01T00:00:00Z',
+      };
       apiGet.mockResolvedValueOnce(detail);
       const result = await getScenario(1);
       expect(result).toEqual(detail);

@@ -1,5 +1,7 @@
 import React from 'react';
-import { Alert, Badge, Table } from 'react-bootstrap';
+import { Alert } from '@/components/ui/alert';
+import { Badge } from '@/components/ui/badge';
+import { Table } from '@/components/ui/table';
 import { ArrowCriteriaResult, MethodCriteria } from '../../types';
 import MethodTooltip from '../shared/MethodTooltip';
 import ResponsiveTable from '../shared/ResponsiveTable';
@@ -25,7 +27,7 @@ const CriterionCell: React.FC<CellProps> = ({ value, violationRate }) => {
   if (value === null) {
     return (
       <td className="text-center" style={{ backgroundColor: '#f8f9fa' }}>
-        <span className="text-muted small">N/A</span>
+        <span className="text-muted-foreground text-sm">N/A</span>
       </td>
     );
   }
@@ -44,7 +46,7 @@ const CriterionCell: React.FC<CellProps> = ({ value, violationRate }) => {
 
   return (
     <td
-      className="text-center fw-bold"
+      className="text-center font-bold"
       style={{ backgroundColor: bg, color, fontSize: '1rem' }}
       title={tooltip}
     >
@@ -74,11 +76,11 @@ const ArrowCriteriaMatrix: React.FC<Props> = ({ result }) => {
   }
 
   const CRITERIA_LABELS: Record<string, string> = {
-    condorcet_winner:  t('simulation.criteria.condorcetWinner'),
-    condorcet_loser:   t('simulation.criteria.condorcetLoser'),
-    monotonicity:      t('simulation.criteria.monotonicity'),
-    iia:               t('simulation.criteria.iia'),
-    majority:          t('simulation.criteria.majority'),
+    condorcet_winner: t('simulation.criteria.condorcetWinner'),
+    condorcet_loser: t('simulation.criteria.condorcetLoser'),
+    monotonicity: t('simulation.criteria.monotonicity'),
+    iia: t('simulation.criteria.iia'),
+    majority: t('simulation.criteria.majority'),
     reversal_symmetry: t('simulation.criteria.reversalSymmetry'),
   };
 
@@ -91,33 +93,44 @@ const ArrowCriteriaMatrix: React.FC<Props> = ({ result }) => {
     reversal_symmetry: t('simulation.criteriaDesc.reversalSymmetry'),
   };
 
-  const scoreOf = (name: string) =>
-    summary?.criteria_satisfaction_count?.[name] ?? 0;
+  const scoreOf = (name: string) => summary?.criteria_satisfaction_count?.[name] ?? 0;
 
   return (
     <div>
       <Alert variant="warning" className="py-2 mb-3">
-        <strong>{t('simulation.arrowTheorem')}</strong> — {t('simulation.arrowExplanation')}
-        {' '}{t('simulation.arrowEachMethod')}
+        <strong>{t('simulation.arrowTheorem')}</strong> — {t('simulation.arrowExplanation')}{' '}
+        {t('simulation.arrowEachMethod')}
       </Alert>
 
-      <div className="d-flex gap-3 mb-3 flex-wrap">
+      <div className="flex gap-3 mb-3 flex-wrap">
         {[
           { bg: '#d4edda', color: '#155724', label: t('simulation.criteriaStatus.satisfied') },
           { bg: '#f8d7da', color: '#721c24', label: t('simulation.criteriaStatus.violated') },
           { bg: '#fff3cd', color: '#856404', label: t('simulation.criteriaStatus.softViolated') },
           { bg: '#f8f9fa', color: '#6c757d', label: t('simulation.criteriaStatus.notTestable') },
         ].map(({ bg, color, label }) => (
-          <span key={label} className="d-flex align-items-center gap-1">
-            <span style={{ display: 'inline-block', width: 16, height: 16, backgroundColor: bg, border: `1px solid ${color}`, borderRadius: 2 }} />
+          <span key={label} className="flex items-center gap-1">
+            <span
+              style={{
+                display: 'inline-block',
+                width: 16,
+                height: 16,
+                backgroundColor: bg,
+                border: `1px solid ${color}`,
+                borderRadius: 2,
+              }}
+            />
             <small style={{ color }}>{label}</small>
           </span>
         ))}
-        <small className="text-muted ms-2">{t('simulation.hoverIIA')}</small>
+        <small className="text-muted-foreground ms-2">{t('simulation.hoverIIA')}</small>
       </div>
 
       <ResponsiveTable>
-        <Table bordered size="sm" className="text-center" style={{ minWidth: 600 }}>
+        <Table
+          className="[&_th]:p-1 [&_td]:p-1 [&_th]:text-left [&_td]:border-t [&_th]:border-b [&_td]:border-border [&_th]:border-border [&_*]:align-middle [&_th]:border [&_td]:border text-center"
+          style={{ minWidth: 600 }}
+        >
           <thead className="table-light">
             <tr>
               <th style={{ minWidth: 140, textAlign: 'left' }}>{t('common.method')}</th>
@@ -144,17 +157,21 @@ const ArrowCriteriaMatrix: React.FC<Props> = ({ result }) => {
 
               return (
                 <tr key={method} style={isBest ? { outline: '2px solid #198754' } : undefined}>
-                  <td className="text-start ps-2 fw-semibold">
+                  <td className="text-left ps-2 font-semibold">
                     <MethodTooltip method={method} />
                     {isBest && (
-                      <Badge bg="success" className="ms-2" style={{ fontSize: '0.65rem' }}>{t('simulation.better')}</Badge>
+                      <Badge variant="success" className="ms-2" style={{ fontSize: '0.65rem' }}>
+                        {t('simulation.better')}
+                      </Badge>
                     )}
                     {isWorst && !isBest && (
-                      <Badge bg="danger" className="ms-2" style={{ fontSize: '0.65rem' }}>{t('simulation.worse')}</Badge>
+                      <Badge variant="danger" className="ms-2" style={{ fontSize: '0.65rem' }}>
+                        {t('simulation.worse')}
+                      </Badge>
                     )}
                   </td>
                   <td className="text-center">
-                    <small className="text-muted">{m.winner ?? '—'}</small>
+                    <small className="text-muted-foreground">{m.winner ?? '—'}</small>
                   </td>
                   {CRITERIA_KEYS.map((key) => (
                     <CriterionCell
@@ -164,7 +181,7 @@ const ArrowCriteriaMatrix: React.FC<Props> = ({ result }) => {
                     />
                   ))}
                   <td
-                    className="fw-bold text-center"
+                    className="font-bold text-center"
                     style={{
                       backgroundColor: score >= 5 ? '#d4edda' : score >= 3 ? '#fff3cd' : '#f8d7da',
                     }}
@@ -178,13 +195,13 @@ const ArrowCriteriaMatrix: React.FC<Props> = ({ result }) => {
 
           <tfoot>
             <tr className="table-light">
-              <td colSpan={2} className="text-start ps-2 fw-semibold small">
+              <td colSpan={2} className="text-left ps-2 font-semibold text-sm">
                 {t('simulation.criteriaSatisfied')}
               </td>
               {CRITERIA_KEYS.map((key) => {
                 const satisfiedCount = methodNames.filter((m) => methods[m][key] === true).length;
                 return (
-                  <td key={key} className="text-center small text-muted">
+                  <td key={key} className="text-center text-sm text-muted-foreground">
                     {satisfiedCount}/{methodNames.length}
                   </td>
                 );
@@ -196,23 +213,21 @@ const ArrowCriteriaMatrix: React.FC<Props> = ({ result }) => {
       </ResponsiveTable>
 
       {summary && (
-        <div className="d-flex gap-3 mt-3 flex-wrap">
-          <Alert variant="success" className="py-2 mb-0 flex-grow-1">
+        <div className="flex gap-3 mt-3 flex-wrap">
+          <Alert variant="success" className="py-2 mb-0 grow">
             <strong>{t('simulation.mostCriteria')}</strong>{' '}
-            <MethodTooltip method={summary.most_criteria_satisfied} />
-            {' '}({scoreOf(summary.most_criteria_satisfied)}/6)
+            <MethodTooltip method={summary.most_criteria_satisfied} /> (
+            {scoreOf(summary.most_criteria_satisfied)}/6)
           </Alert>
-          <Alert variant="danger" className="py-2 mb-0 flex-grow-1">
+          <Alert variant="danger" className="py-2 mb-0 grow">
             <strong>{t('simulation.leastCriteria')}</strong>{' '}
-            <MethodTooltip method={summary.least_criteria_satisfied} />
-            {' '}({scoreOf(summary.least_criteria_satisfied)}/6)
+            <MethodTooltip method={summary.least_criteria_satisfied} /> (
+            {scoreOf(summary.least_criteria_satisfied)}/6)
           </Alert>
         </div>
       )}
 
-      <p className="text-muted small mt-3 mb-0">
-        {t('simulation.criteriaNote')}
-      </p>
+      <p className="text-muted-foreground text-sm mt-3 mb-0">{t('simulation.criteriaNote')}</p>
     </div>
   );
 };

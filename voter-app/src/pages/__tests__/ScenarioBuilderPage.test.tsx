@@ -3,10 +3,15 @@ import { render, screen, fireEvent, waitFor } from '@testing-library/react';
 import ScenarioBuilderPage from '../ScenarioBuilderPage';
 
 vi.mock('../../components/ScenarioBuilder/CandidateEditor', () => {
-  const MockCandidateEditor: React.FC<{ candidates: { name: string; isBlank?: boolean }[] }> = ({ candidates }) => (
+  const MockCandidateEditor: React.FC<{ candidates: { name: string; isBlank?: boolean }[] }> = ({
+    candidates,
+  }) => (
     <div data-testid="candidate-editor">
       {candidates.map((c, i) => (
-        <span key={i}>{c.name}{c.isBlank ? ' (blank)' : ''}</span>
+        <span key={i}>
+          {c.name}
+          {c.isBlank ? ' (blank)' : ''}
+        </span>
       ))}
     </div>
   );
@@ -14,24 +19,38 @@ vi.mock('../../components/ScenarioBuilder/CandidateEditor', () => {
     __esModule: true,
     default: MockCandidateEditor,
     newCandidate: (name: string, ideology: number) => ({
-      name, ideology, economy: 0.5, environment: 0.5, social: 0.5, isBlank: false,
+      name,
+      ideology,
+      economy: 0.5,
+      environment: 0.5,
+      social: 0.5,
+      isBlank: false,
     }),
     newBlankCandidate: () => ({
-      name: 'Blanc', ideology: 0, economy: 0.5, environment: 0.5, social: 0.5, isBlank: true,
+      name: 'Blanc',
+      ideology: 0,
+      economy: 0.5,
+      environment: 0.5,
+      social: 0.5,
+      isBlank: true,
     }),
   };
 });
 
 vi.mock('../../components/ScenarioBuilder/ElectorateConfig', () => {
-  return { default: function MockElectorateConfig() {
-    return <div data-testid="electorate-config">ElectorateConfig</div>;
-  } };
+  return {
+    default: function MockElectorateConfig() {
+      return <div data-testid="electorate-config">ElectorateConfig</div>;
+    },
+  };
 });
 
 vi.mock('../../components/ScenarioBuilder/BlankVoteRuleSelector', () => {
-  return { default: function MockBlankVoteRuleSelector() {
-    return <div data-testid="blank-rule-selector">BlankVoteRuleSelector</div>;
-  } };
+  return {
+    default: function MockBlankVoteRuleSelector() {
+      return <div data-testid="blank-rule-selector">BlankVoteRuleSelector</div>;
+    },
+  };
 });
 
 vi.mock('../../services/simulationCompareApi', () => ({
@@ -58,7 +77,7 @@ vi.mock('../../hooks/useMetaTags', () => ({
   useMetaTags: vi.fn(),
 }));
 
-const { runScenario } = (await import('../../services/simulationCompareApi'));
+const { runScenario } = await import('../../services/simulationCompareApi');
 
 describe('ScenarioBuilderPage', () => {
   beforeEach(() => {

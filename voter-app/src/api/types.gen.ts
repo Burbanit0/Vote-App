@@ -4,11248 +4,11250 @@
  */
 
 export interface paths {
-    "/api/v1/compare": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /** Multi-method comparison with optional blank-vote rule */
-        post: operations["compare_api_v1_compare_post"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/v1/methods": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /** List the voting methods supported by the engine */
-        get: operations["list_methods_api_v1_methods_get"];
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/v1/openapi.json": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /** Hand-written OpenAPI 3.0 specification for /api/v1 */
-        get: operations["openapi_spec_api_v1_openapi_json_get"];
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/v1/real-elections": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /** List the historical elections in the dataset */
-        get: operations["real_elections_api_v1_real_elections_get"];
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/v1/simulate": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /** Run a multi-method simulation on a synthetic population */
-        post: operations["simulate_api_v1_simulate_post"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/v2": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /**
-         * Root
-         * @description Tiny landing endpoint so visiting /api/v2 directly doesn't 404.
-         */
-        get: operations["root_api_v2_get"];
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/v2/auth/github": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /** Redirect the user to the GitHub OAuth consent page */
-        get: operations["github_redirect_api_v2_auth_github_get"];
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/v2/auth/github/callback": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /**
-         * Handle GitHub's OAuth callback and bounce to the frontend
-         * @description Exchange the OAuth code for a GitHub access token, fetch the user
-         *     profile, find-or-create the local account, mint our own JWT, and
-         *     redirect the browser to `<FRONTEND>/oauth/callback?token=...`.
-         */
-        get: operations["github_callback_api_v2_auth_github_callback_get"];
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/v2/auth/google": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /**
-         * Exchange a Google ID token for a Vote Lab JWT
-         * @description The Google Sign-In SDK on the frontend produces a JWT-encoded ID
-         *     token. We verify it against Google's public keys (via the official
-         *     google-auth library), trust the `sub`/`email` claims, then mint our
-         *     own JWT.
-         */
-        post: operations["google_login_api_v2_auth_google_post"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/v2/auth/jwt/login": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /** Auth:Jwt.Login */
-        post: operations["auth_jwt_login_api_v2_auth_jwt_login_post"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/v2/auth/jwt/logout": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /** Auth:Jwt.Logout */
-        post: operations["auth_jwt_logout_api_v2_auth_jwt_logout_post"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/v2/auth/register": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /** Register:Register */
-        post: operations["register_register_api_v2_auth_register_post"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/v2/election/abstention": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /**
-         * Iterated abstention model with poll feedback
-         * @description Round 0 is sincere. From round 1 onwards, voters whose preferred
-         *     candidate is trailing in the previous round's polls abstain with
-         *     probability ∝ demobilization_factor × poll_influence.
-         */
-        post: operations["abstention_endpoint_api_v2_election_abstention_post"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/v2/election/adaptive": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /**
-         * N rounds of adaptive/tactical voting with poll feedback
-         * @description Each round, voters whose 1st choice polls below `strategic_threshold`
-         *     may switch to their best viable alternative. Tracks convergence
-         *     (winner stable for 2 consecutive rounds) and strategic drift.
-         */
-        post: operations["adaptive_endpoint_api_v2_election_adaptive_post"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/v2/election/affective-polarization": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /**
-         * Iyengar 2019: in/out-group hostility distorts voting
-         * @description Voters penalise candidates from the opposing political camp
-         *     proportionally to `affect_hostility`. `camp_threshold` defines the
-         *     x-axis distance for in/out-group splitting.
-         */
-        post: operations["affective_polarization_endpoint_api_v2_election_affective_polarization_post"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/v2/election/ballot-complexity": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /**
-         * Null-vote rate per method as a function of ballot complexity
-         * @description P(null | method) = error_base × candidate_factor × education_factor
-         *     × first_time_voter_factor. Complex ballots (Schulze, IRV) exclude
-         *     more voters than simple ones (Plurality).
-         */
-        post: operations["ballot_complexity_endpoint_api_v2_election_ballot_complexity_post"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/v2/election/behavioral-biases": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /**
-         * Expressive voting + bullet voting + primacy effect
-         * @description Three empirical biases stacked: expressive voting (Fiorina 1976),
-         *     bullet voting (collapses Approval to Plurality for affected voters),
-         *     primacy effect (Krosnick 1991, first-listed candidate bonus).
-         */
-        post: operations["behavioral_biases_endpoint_api_v2_election_behavioral_biases_post"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/v2/election/campaign-sensitivity": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /**
-         * Snapshot the election at multiple campaign days
-         * @description Runs the same electorate at multiple campaign snapshots (days 0, 7,
-         *     14, 21, 28, 'final' by default) to measure how each voting method's
-         *     winner changes over the campaign.
-         */
-        post: operations["campaign_sensitivity_endpoint_api_v2_election_campaign_sensitivity_post"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/v2/election/cascade": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /**
-         * Sequential voting with information cascades
-         * @description Each voter observes the last `observation_window` votes and may follow
-         *     the public signal instead of their sincere preference with probability
-         *     `cascade_strength`. Bikhchandani, Hirshleifer, Welch (1992).
-         */
-        post: operations["cascade_endpoint_api_v2_election_cascade_post"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/v2/election/choice-overload": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /**
-         * Heuristics dominate beyond overload_threshold candidates
-         * @description Schwartz 2004 paradox of choice: beyond `overload_threshold`
-         *     candidates, voters use heuristics (notoriety / primacy / partisan
-         *     affiliation) instead of their sincere preferences. Compares method
-         *     robustness.
-         */
-        post: operations["choice_overload_endpoint_api_v2_election_choice_overload_post"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/v2/election/coalition": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /**
-         * Per-method D'Hondt + greedy coalition formation
-         * @description For each voting method, allocates `total_seats` proportionally via
-         *     D'Hondt then greedily picks the smallest ideologically-coherent
-         *     coalition that crosses `government_threshold * total_seats`.
-         */
-        post: operations["coalition_endpoint_api_v2_election_coalition_post"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/v2/election/combined-effects": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /**
-         * 2³ factorial — isolate each model's contribution to divergence
-         * @description 8 simulations on the same electorate, with each model factor toggled
-         *     independently. Identifies which factor disrupts inter-method agreement
-         *     the most. Heaviest single endpoint (8 × full election pipeline).
-         */
-        post: operations["combined_effects_endpoint_api_v2_election_combined_effects_post"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/v2/election/compulsory-voting": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /**
-         * Voluntary vs compulsory voting on the same electorate
-         * @description Voluntary turnout is right-biased (empirical pattern); compulsory
-         *     elections add reluctant left-leaning voters who may vote null,
-         *     randomly, or sincerely.
-         */
-        post: operations["compulsory_voting_endpoint_api_v2_election_compulsory_voting_post"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/v2/election/conviction-voting": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /**
-         * Polkadot-style conviction voting: tokens × multiplier(lock_days)
-         * @description Voters with longer locks amplify their votes (×0.1 at 0 days,
-         *     ×6.0 at 224 days). Compares the conviction-weighted result with a
-         *     plain 1-token-1-vote baseline.
-         */
-        post: operations["conviction_voting_endpoint_api_v2_election_conviction_voting_post"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/v2/election/deliberation": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /**
-         * DeGroot opinion update across a network, then vote
-         * @description Voters update their ideology toward a network-weighted mean for
-         *     `deliberation_rounds` rounds, then vote. `network_type` echo_chamber
-         *     amplifies polarisation; bridge / complete reduce it.
-         */
-        post: operations["deliberation_endpoint_api_v2_election_deliberation_post"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/v2/election/demographic-turnout": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /**
-         * Full population vs effective electorate via age × education gaps
-         * @description Distortion between the real electorate and the effective electorate
-         *     driven by differential turnout across demographic groups. The
-         *     `correct_for_turnout` flag toggles the turnout-correction model
-         *     on/off so the user can compare both.
-         */
-        post: operations["demographic_turnout_endpoint_api_v2_election_demographic_turnout_post"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/v2/election/districts": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /**
-         * N districts with locally shifted ideology, FPTP vs proportional
-         * @description Each district elects its winner by FPTP from a locally biased
-         *     electorate. Aggregates to a national parliament under FPTP (sum of
-         *     district wins) vs D'Hondt proportional on national vote shares.
-         */
-        post: operations["districts_endpoint_api_v2_election_districts_post"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/v2/election/divergence": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /**
-         * Same electorate, with vs without blank vote
-         * @description Isolates the effect of blank-vote rules on inter-method agreement
-         *     by running the same electorate twice (without and with blank).
-         */
-        post: operations["divergence_endpoint_api_v2_election_divergence_post"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/v2/election/electoral-fatigue": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /**
-         * Turnout decay across repeated elections
-         * @description P(vote | election k) = max(engaged_voter_pct, 1 - k × fatigue_rate).
-         *     Engaged voters (top engaged_voter_pct by max-utility) always vote;
-         *     casual voters drop out faster each election, shifting the residual
-         *     electorate toward partisans.
-         */
-        post: operations["electoral_fatigue_endpoint_api_v2_election_electoral_fatigue_post"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/v2/election/gerrymander": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /**
-         * Voters assigned to user-drawn rectangular districts
-         * @description Voters assigned to the (smallest) overlapping district or the
-         *     nearest one. Compares the gerrymandered FPTP parliament to a
-         *     D'Hondt proportional reference.
-         */
-        post: operations["gerrymander_endpoint_api_v2_election_gerrymander_post"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/v2/election/historical-replay": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /**
-         * Day-by-day historical replay with candidate-position overrides
-         * @description Brownian campaign simulation for 4 historical scenarios
-         *     (France 2002, USA 1992, Germany 2021, Condorcet cycle). Drag a
-         *     candidate's x/y position to rewrite history.
-         */
-        post: operations["historical_replay_endpoint_api_v2_election_historical_replay_post"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/v2/election/hotelling": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /**
-         * Hotelling-Downs iterative best-response (Nash equilibrium)
-         * @description Each candidate iteratively moves in the direction (±x, ±y) that
-         *     maximises their vote score under `method`. Converges when no
-         *     candidate can improve by moving by `step_size`.
-         */
-        post: operations["hotelling_endpoint_api_v2_election_hotelling_post"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/v2/election/interpret": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /**
-         * Deterministic interpretation of a /simulate result
-         * @description Pure rule-based text interpretation of an existing /simulate
-         *     response. No new simulation.
-         */
-        post: operations["interpret_endpoint_api_v2_election_interpret_post"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/v2/election/jury": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /**
-         * Condorcet Jury Theorem under N voting methods
-         * @description Voters with individual competence p > 0.5 aggregate collectively
-         *     toward the 'correct' option. Runs `num_simulations` Monte Carlo
-         *     trials and compares plurality, IRV, Borda, Schulze, MJ on the same
-         *     juries.
-         */
-        post: operations["jury_endpoint_api_v2_election_jury_post"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/v2/election/liquid-democracy": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /**
-         * Transitive delegation up to max_chain_length hops
-         * @description Each voter votes directly or delegates. Delegation chains are
-         *     resolved up to `max_chain_length` hops; cycles fall back to direct
-         *     voting. Reports voting-weight Gini and a super-voter list.
-         */
-        post: operations["liquid_democracy_endpoint_api_v2_election_liquid_democracy_post"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/v2/election/multiwinner_compare": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /**
-         * STV / D'Hondt / SPAV / Phragmén / FPTP on the same electorate
-         * @description Same electorate, 5 multi-winner methods. Reports per-method
-         *     seat allocation, distortion against the proportional reference,
-         *     and which method comes closest to / furthest from proportional.
-         */
-        post: operations["multiwinner_compare_endpoint_api_v2_election_multiwinner_compare_post"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/v2/election/nota": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /**
-         * NOTA (None Of The Above) as a ballot option
-         * @description A voter casts NOTA when their max-utility for any candidate is below
-         *     nota_threshold. Three constitutional outcomes after NOTA wins:
-         *     `invalidate` (null election), `runoff` (new candidates), or
-         *     `winner_take_all` (seat NOTA, Nevada-style).
-         */
-        post: operations["nota_endpoint_api_v2_election_nota_post"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/v2/election/party-dynamics": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /**
-         * Multi-election party-system evolution (Duverger's Law)
-         * @description Parties adapt positions (Hotelling), get eliminated below
-         *     `survival_threshold`, and new parties may emerge. Tactical voting
-         *     squeezes small parties under FPTP, driving the system toward
-         *     bipartism.
-         */
-        post: operations["party_dynamics_endpoint_api_v2_election_party_dynamics_post"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/v2/election/polarization": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /**
-         * Per-ideology Esteban-Ray index + voting-method robustness
-         * @description For each voter distribution in `ideology_range`, computes the
-         *     Esteban-Ray polarisation index and runs `num_simulations` Monte
-         *     Carlo elections to measure how method agreement and Condorcet
-         *     rate degrade with polarisation.
-         */
-        post: operations["polarization_endpoint_api_v2_election_polarization_post"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/v2/election/power-indices": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /**
-         * Shapley-Shubik and Banzhaf power indices for coalition bargaining
-         * @description Shapley-Shubik (pivot-in-permutation) and Banzhaf
-         *     (critical-in-winning-coalition) power indices, accounting for
-         *     pariah parties (cordon sanitaire) and bilateral coalition vetoes.
-         */
-        post: operations["power_indices_endpoint_api_v2_election_power_indices_post"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/v2/election/primary": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /**
-         * Internal party primaries + general election
-         * @description Each party holds an internal primary among its partisan voters;
-         *     the primary winner runs in the general election. The
-         *     `without_primaries_winner` field reports what would have happened
-         *     if each party centre had run directly.
-         */
-        post: operations["primary_endpoint_api_v2_election_primary_post"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/v2/election/quadratic-funding": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /**
-         * Buterin/Hitzig/Weyl 2019 quadratic funding for public goods
-         * @description QF amplifies projects with many small donors over those with few
-         *     large ones via matching(P) ∝ (Σᵢ √c_ip)². Compared against 1p1v
-         *     and proportional allocations on the same matching pool.
-         */
-        post: operations["quadratic_funding_endpoint_api_v2_election_quadratic_funding_post"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/v2/election/shy-voter": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /**
-         * Bradley / Shy Tory effect — socially-sensitive candidates underpolled
-         * @description Voters intending to vote for the 'sensitive' candidate (index
-         *     `shy_candidate_idx`) declare a more acceptable preference in polls
-         *     with probability `social_desirability_factor`, but vote sincerely
-         *     in the booth.
-         */
-        post: operations["shy_voter_endpoint_api_v2_election_shy_voter_post"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/v2/election/simulate": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /**
-         * Run the unified election simulation
-         * @description Pure-compute election. Same seed = same result.
-         *
-         *     The heavy simulation runs in a real OS thread (`asyncio.to_thread`)
-         *     so it doesn't block the FastAPI event loop. That replaces the
-         *     `eventlet.tpool.execute(...)` pattern from the Flask side — no more
-         *     eventlet anywhere on the v2 path.
-         */
-        post: operations["simulate_endpoint_api_v2_election_simulate_post"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/v2/election/simulate-pipeline": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /**
-         * Step-by-step pipeline animation
-         * @description Same compute as /simulate, but emits a per-step snapshot of voter
-         *     state and method winners so the frontend can animate the pipeline.
-         */
-        post: operations["simulate_pipeline_endpoint_api_v2_election_simulate_pipeline_post"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/v2/election/sortition": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /**
-         * Elected vs sortition pure vs sortition stratified
-         * @description Compares three assembly-selection methods on the same population:
-         *     elected (electoral bias), sortition pure (random sample), sortition
-         *     stratified (demographically balanced random sample).
-         */
-        post: operations["sortition_endpoint_api_v2_election_sortition_post"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/v2/election/stv": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /**
-         * Single Transferable Vote + D'Hondt + FPTP comparison
-         * @description Multi-seat STV (Droop, Hare, or Imperiali quota) compared to
-         *     D'Hondt and multi-seat FPTP on the same simulated ballots.
-         */
-        post: operations["stv_endpoint_api_v2_election_stv_post"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/v2/export/simulation-dataset": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /**
-         * Export a reproducible research dataset as CSV
-         * @description Same compute as the JSON variant, but emitted as RFC-4180 CSV with
-         *     an attachment Content-Disposition so the browser triggers a download.
-         */
-        post: operations["export_csv_api_v2_export_simulation_dataset_post"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/v2/export/simulation-dataset-json": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /** Export a reproducible research dataset as JSON */
-        post: operations["export_json_api_v2_export_simulation_dataset_json_post"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/v2/health": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /**
-         * Health
-         * @description Return 200 when healthy, 503 when degraded — same contract as
-         *     `/api/health` on the Flask side.
-         */
-        get: operations["health_api_v2_health_get"];
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/v2/scenarios": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /**
-         * List the current user's saved scenarios
-         * @description Returns the user's saved scenarios, newest first. Empty list for new accounts.
-         */
-        get: operations["list_scenarios_api_v2_scenarios_get"];
-        put?: never;
-        /**
-         * Save a new scenario for the current user
-         * @description Persists a config snapshot (and optionally cached results) under the user's account.
-         */
-        post: operations["create_scenario_api_v2_scenarios_post"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/v2/scenarios/gallery": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /** Paginated gallery list */
-        get: operations["list_gallery_api_v2_scenarios_gallery_get"];
-        put?: never;
-        /**
-         * Submit a scenario to the public gallery
-         * @description No auth — the gallery is public. Featured flag stays False until an admin
-         *     promotes the scenario directly in the database.
-         */
-        post: operations["create_gallery_scenario_api_v2_scenarios_gallery_post"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/v2/scenarios/gallery/featured": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /** Top featured scenarios by view count */
-        get: operations["get_featured_api_v2_scenarios_gallery_featured_get"];
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/v2/scenarios/gallery/{scenario_id}": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /** Fetch a single scenario (increments the view counter) */
-        get: operations["get_scenario_api_v2_scenarios_gallery__scenario_id__get"];
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/v2/scenarios/{scenario_id}": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /**
-         * Fetch a single scenario by id
-         * @description Per-user scoping is enforced in the WHERE clause — asking for someone
-         *     else's scenario gets 404, not 403, to avoid leaking foreign ids.
-         */
-        get: operations["get_scenario_api_v2_scenarios__scenario_id__get"];
-        put?: never;
-        post?: never;
-        /**
-         * Delete one of the current user's scenarios
-         * @description Hard-deletes the row — same behaviour as the Flask side.
-         */
-        delete: operations["delete_scenario_api_v2_scenarios__scenario_id__delete"];
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/v2/simulations": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /** Legacy form-based vote simulation (deprecated) */
-        post: operations["legacy_simulate_api_v2_simulations_post"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/v2/simulations/arrow-criteria": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /** Empirically check Arrow's criteria */
-        post: operations["arrow_criteria_api_v2_simulations_arrow_criteria_post"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/v2/simulations/bandwagon": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /** Cascading social-influence simulation */
-        post: operations["bandwagon_api_v2_simulations_bandwagon_post"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/v2/simulations/blank-contagion": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /** SIS blank-vote contagion simulation */
-        post: operations["blank_contagion_api_v2_simulations_blank_contagion_post"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/v2/simulations/blank-history": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /** Blank-vote time series for a country */
-        get: operations["blank_history_api_v2_simulations_blank_history_get"];
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/v2/simulations/calculate_utility": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /** Compute utility for a single voter × candidate */
-        post: operations["calculate_utility_api_v2_simulations_calculate_utility_post"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/v2/simulations/campaign": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /** Day-by-day electoral campaign simulation */
-        post: operations["campaign_api_v2_simulations_campaign_post"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/v2/simulations/compare": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /** Per-method metrics on a fresh population */
-        post: operations["compare_api_v2_simulations_compare_post"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/v2/simulations/condorcet-matrix": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /** Full pairwise duel matrix */
-        post: operations["condorcet_matrix_api_v2_simulations_condorcet_matrix_post"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/v2/simulations/constitutional-scenario": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /** Constitutional aftermath of a blank-vote victory */
-        post: operations["constitutional_scenario_api_v2_simulations_constitutional_scenario_post"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/v2/simulations/get_closest_candidate": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /** Assign voters to their nearest candidate (2-D spatial) */
-        post: operations["get_closest_candidate_api_v2_simulations_get_closest_candidate_post"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/v2/simulations/get_utility_matrix": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /** Full utility matrix + vote-share stats */
-        post: operations["get_utility_matrix_api_v2_simulations_get_utility_matrix_post"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/v2/simulations/get_voter_segments": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /** Per-demographic-segment utility & top-candidate breakdown */
-        post: operations["get_voter_segments_api_v2_simulations_get_voter_segments_post"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/v2/simulations/ideology-map": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /** 2-D ideological map of voter preferences */
-        post: operations["ideology_map_api_v2_simulations_ideology_map_post"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/v2/simulations/manipulability": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /** Gibbard-Satterthwaite manipulability index */
-        get: operations["manipulability_api_v2_simulations_manipulability_get"];
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/v2/simulations/monte-carlo": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /** Aggregate Monte Carlo over N runs (sync variant) */
-        post: operations["monte_carlo_api_v2_simulations_monte_carlo_post"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/v2/simulations/multiwinner": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /** Compare proportional multi-winner methods */
-        post: operations["multiwinner_api_v2_simulations_multiwinner_post"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/v2/simulations/real-election": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /** Analyse a real historical election */
-        post: operations["real_election_api_v2_simulations_real_election_post"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/v2/simulations/real-elections": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /** List available historical elections */
-        get: operations["real_elections_api_v2_simulations_real_elections_get"];
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/v2/simulations/scenario": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /** Citizen-configured scenario, with/without blank vote */
-        post: operations["scenario_api_v2_simulations_scenario_post"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/v2/simulations/sensitivity": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /** Vary one parameter, track winners & regret */
-        post: operations["sensitivity_api_v2_simulations_sensitivity_post"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/v2/simulations/simulate_candidates": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /** Generate synthetic candidates across parties */
-        post: operations["simulate_candidates_api_v2_simulations_simulate_candidates_post"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/v2/simulations/simulate_utility": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /** Compute utility for every voter × candidate pair */
-        post: operations["simulate_utility_api_v2_simulations_simulate_utility_post"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/v2/simulations/simulate_voters": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /** Generate a synthetic voter population */
-        post: operations["simulate_voters_api_v2_simulations_simulate_voters_post"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/v2/simulations/strategic-impact": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /** Regret vs proportion of strategic voters */
-        post: operations["strategic_impact_api_v2_simulations_strategic_impact_post"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/v2/simulations/vote-steps": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /** Step-by-step ballot-counting animation data */
-        post: operations["vote_steps_api_v2_simulations_vote_steps_post"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/v2/simulations/what-if": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /** Vary one parameter and compare method winners across values */
-        post: operations["what_if_api_v2_simulations_what_if_post"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/v2/tech/e2e-demo": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /** End-to-end verifiable voting pedagogical simulation */
-        post: operations["e2e_demo_endpoint_api_v2_tech_e2e_demo_post"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/v2/tech/polis": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /** Pol.is clustering + classical election cross-comparison */
-        post: operations["polis_with_candidates_endpoint_api_v2_tech_polis_post"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/v2/tech/polis-simulation": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /** Pol.is consensus clustering on a statement set */
-        post: operations["polis_simulation_endpoint_api_v2_tech_polis_simulation_post"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/v2/theory/agenda-manipulation": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /**
-         * McKelvey-style agenda manipulation under binary elimination
-         * @description Enumerates all `n!` agendas for `n` alternatives and reports which
-         *     outcomes the agenda-setter can engineer. A consequence of Plott's
-         *     Chaos Theorem when no Condorcet winner exists.
-         */
-        post: operations["agenda_manipulation_endpoint_api_v2_theory_agenda_manipulation_post"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/v2/theory/apportionment": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /**
-         * Apportionment methods + Balinski-Young impossibility
-         * @description Hamilton + 4 divisor methods (Jefferson, Webster, Adams,
-         *     Huntington-Hill) with quota-violation / Alabama / population
-         *     paradox detection. Demonstrates Balinski-Young (1982): no method
-         *     avoids all three paradoxes.
-         */
-        post: operations["apportionment_endpoint_api_v2_theory_apportionment_post"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/v2/theory/arrow": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /**
-         * Per-method Arrow axiom violation analysis
-         * @description For a voting method, lists which Arrow axioms it violates with a
-         *     minimal counterexample for each. Pure lookup + boilerplate text;
-         *     `seed` reserved for future randomized counterexamples.
-         */
-        post: operations["arrow_endpoint_api_v2_theory_arrow_post"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/v2/theory/assumption-testing": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /**
-         * Test spatial-model robustness by relaxing core assumptions
-         * @description For each of single_peaked / stable_preferences / rational_voters /
-         *     fixed_electorate / measurable_utilities, relaxes the assumption
-         *     and measures how often the winner changes vs the baseline. Reports
-         *     which assumption the result depends on most.
-         */
-        post: operations["assumption_testing_endpoint_api_v2_theory_assumption_testing_post"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/v2/theory/collective-will": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /**
-         * Does the general will exist, or is it a procedural artefact?
-         * @description Same electorate, many methods, many binary-agenda orderings.
-         *     Counts how many distinct winners emerge. A high count supports
-         *     Schumpeter's procedural view; a low count supports Rousseau's
-         *     general-will view. Cross-checks against the Condorcet winner.
-         */
-        post: operations["collective_will_endpoint_api_v2_theory_collective_will_post"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/v2/theory/democratic-backsliding": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /**
-         * Path toward autocracy across successive elections
-         * @description Models gerrymandering / media-capture / voter-suppression
-         *     compounding across elections. Optional guardrails (constitutional
-         *     court, free press, international pressure, supermajority lock-in)
-         *     slow the decay.
-         */
-        post: operations["democratic_backsliding_endpoint_api_v2_theory_democratic_backsliding_post"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/v2/theory/epistocracy": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /**
-         * Epistocratic voting vs standard democracy (Caplan / Brennan)
-         * @description Compares 4 weighting schemes: equal democracy, competence-weighted
-         *     voting, epistocratic (threshold-gated), and lottery. Models Caplan's
-         *     4 systematic biases as a competence reduction. Reports the
-         *     democracy-vs-expert tradeoff.
-         */
-        post: operations["epistocracy_endpoint_api_v2_theory_epistocracy_post"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/v2/theory/identity-voting": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /**
-         * Green/Palmquist/Schickler 2002 identity-based voting
-         * @description Models the empirical pattern where voters adopt their camp's
-         *     positions instead of choosing camps from their positions. The
-         *     `identity_weight` parameter sweeps from pure ideological voting
-         *     (0.0) to pure identity voting (1.0).
-         */
-        post: operations["identity_voting_endpoint_api_v2_theory_identity_voting_post"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/v2/theory/iia-rate": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /**
-         * Empirical IIA violation rate vs number of candidates
-         * @description Monte-Carlo simulation: for each n, generate `num_trials` random
-         *     profiles, run plurality on the full profile then on the profile
-         *     with one random candidate removed, count winner changes. Other
-         *     methods are scaled from the plurality baseline.
-         */
-        post: operations["iia_rate_endpoint_api_v2_theory_iia_rate_post"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/v2/theory/intergenerational": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /**
-         * Future-generation representation in long-horizon decisions
-         * @description How institutional representation of future generations changes the
-         *     adoption rate of decisions whose costs are present and benefits
-         *     are future. Rawls' veil-of-ignorance heuristic.
-         */
-        post: operations["intergenerational_endpoint_api_v2_theory_intergenerational_post"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/v2/theory/judgment-aggregation": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /**
-         * Discursive dilemma (List & Pettit 2002)
-         * @description Majority rule on propositions can produce collectively incoherent
-         *     results even when every individual voter is perfectly coherent.
-         *     Pre-defined scenarios: legal liability, fiscal trilemma, climate.
-         */
-        post: operations["judgment_aggregation_endpoint_api_v2_theory_judgment_aggregation_post"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/v2/theory/majority-tyranny": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /**
-         * Tocqueville's tyranny of the majority across decision rules
-         * @description Same electorate, 6 decision rules (simple majority, 2/3 + 3/4
-         *     supermajorities, unanimous, QV, MJ). Measures how often a fixed
-         *     majority can override a high-intensity minority.
-         */
-        post: operations["majority_tyranny_endpoint_api_v2_theory_majority_tyranny_post"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/v2/theory/manipulation-analysis": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /**
-         * Gibbard-Satterthwaite manipulator identification
-         * @description For each voter, tests four manipulation strategies (compromising,
-         *     burying, pushover, truncating) and keeps the one with the highest
-         *     utility gain. Empirical demonstration of Gibbard-Satterthwaite.
-         */
-        post: operations["manipulation_analysis_endpoint_api_v2_theory_manipulation_analysis_post"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/v2/theory/plott-chaos": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /**
-         * Plott's Chaos Theorem in 2-D policy space
-         * @description In ≥2-D policy space with ≥3 voters, a Condorcet winner almost
-         *     never exists, and from any starting point the agenda-setter can
-         *     reach ANY other point via a sequence of majority votes.
-         */
-        post: operations["plott_chaos_endpoint_api_v2_theory_plott_chaos_post"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/v2/theory/sen-paradox": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /**
-         * Sen's Impossibility of a Paretian Liberal (1970)
-         * @description Sen 1970: no social choice rule satisfies Pareto efficiency AND
-         *     minimal individual liberalism simultaneously. Tests the canonical
-         *     case and samples random preference profiles to estimate paradox
-         *     frequency.
-         */
-        post: operations["sen_paradox_endpoint_api_v2_theory_sen_paradox_post"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/v2/users/me": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /** Users:Current User */
-        get: operations["users_current_user_api_v2_users_me_get"];
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        /** Users:Patch Current User */
-        patch: operations["users_patch_current_user_api_v2_users_me_patch"];
-        trace?: never;
-    };
-    "/api/v2/users/{id}": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /** Users:User */
-        get: operations["users_user_api_v2_users__id__get"];
-        put?: never;
-        post?: never;
-        /** Users:Delete User */
-        delete: operations["users_delete_user_api_v2_users__id__delete"];
-        options?: never;
-        head?: never;
-        /** Users:Patch User */
-        patch: operations["users_patch_user_api_v2_users__id__patch"];
-        trace?: never;
-    };
+  '/api/v1/compare': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /** Multi-method comparison with optional blank-vote rule */
+    post: operations['compare_api_v1_compare_post'];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  '/api/v1/methods': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /** List the voting methods supported by the engine */
+    get: operations['list_methods_api_v1_methods_get'];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  '/api/v1/openapi.json': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /** Hand-written OpenAPI 3.0 specification for /api/v1 */
+    get: operations['openapi_spec_api_v1_openapi_json_get'];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  '/api/v1/real-elections': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /** List the historical elections in the dataset */
+    get: operations['real_elections_api_v1_real_elections_get'];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  '/api/v1/simulate': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /** Run a multi-method simulation on a synthetic population */
+    post: operations['simulate_api_v1_simulate_post'];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  '/api/v2': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /**
+     * Root
+     * @description Tiny landing endpoint so visiting /api/v2 directly doesn't 404.
+     */
+    get: operations['root_api_v2_get'];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  '/api/v2/auth/github': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /** Redirect the user to the GitHub OAuth consent page */
+    get: operations['github_redirect_api_v2_auth_github_get'];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  '/api/v2/auth/github/callback': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /**
+     * Handle GitHub's OAuth callback and bounce to the frontend
+     * @description Exchange the OAuth code for a GitHub access token, fetch the user
+     *     profile, find-or-create the local account, mint our own JWT, and
+     *     redirect the browser to `<FRONTEND>/oauth/callback?token=...`.
+     */
+    get: operations['github_callback_api_v2_auth_github_callback_get'];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  '/api/v2/auth/google': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /**
+     * Exchange a Google ID token for a Vote Lab JWT
+     * @description The Google Sign-In SDK on the frontend produces a JWT-encoded ID
+     *     token. We verify it against Google's public keys (via the official
+     *     google-auth library), trust the `sub`/`email` claims, then mint our
+     *     own JWT.
+     */
+    post: operations['google_login_api_v2_auth_google_post'];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  '/api/v2/auth/jwt/login': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /** Auth:Jwt.Login */
+    post: operations['auth_jwt_login_api_v2_auth_jwt_login_post'];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  '/api/v2/auth/jwt/logout': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /** Auth:Jwt.Logout */
+    post: operations['auth_jwt_logout_api_v2_auth_jwt_logout_post'];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  '/api/v2/auth/register': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /** Register:Register */
+    post: operations['register_register_api_v2_auth_register_post'];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  '/api/v2/election/abstention': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /**
+     * Iterated abstention model with poll feedback
+     * @description Round 0 is sincere. From round 1 onwards, voters whose preferred
+     *     candidate is trailing in the previous round's polls abstain with
+     *     probability ∝ demobilization_factor × poll_influence.
+     */
+    post: operations['abstention_endpoint_api_v2_election_abstention_post'];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  '/api/v2/election/adaptive': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /**
+     * N rounds of adaptive/tactical voting with poll feedback
+     * @description Each round, voters whose 1st choice polls below `strategic_threshold`
+     *     may switch to their best viable alternative. Tracks convergence
+     *     (winner stable for 2 consecutive rounds) and strategic drift.
+     */
+    post: operations['adaptive_endpoint_api_v2_election_adaptive_post'];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  '/api/v2/election/affective-polarization': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /**
+     * Iyengar 2019: in/out-group hostility distorts voting
+     * @description Voters penalise candidates from the opposing political camp
+     *     proportionally to `affect_hostility`. `camp_threshold` defines the
+     *     x-axis distance for in/out-group splitting.
+     */
+    post: operations['affective_polarization_endpoint_api_v2_election_affective_polarization_post'];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  '/api/v2/election/ballot-complexity': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /**
+     * Null-vote rate per method as a function of ballot complexity
+     * @description P(null | method) = error_base × candidate_factor × education_factor
+     *     × first_time_voter_factor. Complex ballots (Schulze, IRV) exclude
+     *     more voters than simple ones (Plurality).
+     */
+    post: operations['ballot_complexity_endpoint_api_v2_election_ballot_complexity_post'];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  '/api/v2/election/behavioral-biases': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /**
+     * Expressive voting + bullet voting + primacy effect
+     * @description Three empirical biases stacked: expressive voting (Fiorina 1976),
+     *     bullet voting (collapses Approval to Plurality for affected voters),
+     *     primacy effect (Krosnick 1991, first-listed candidate bonus).
+     */
+    post: operations['behavioral_biases_endpoint_api_v2_election_behavioral_biases_post'];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  '/api/v2/election/campaign-sensitivity': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /**
+     * Snapshot the election at multiple campaign days
+     * @description Runs the same electorate at multiple campaign snapshots (days 0, 7,
+     *     14, 21, 28, 'final' by default) to measure how each voting method's
+     *     winner changes over the campaign.
+     */
+    post: operations['campaign_sensitivity_endpoint_api_v2_election_campaign_sensitivity_post'];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  '/api/v2/election/cascade': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /**
+     * Sequential voting with information cascades
+     * @description Each voter observes the last `observation_window` votes and may follow
+     *     the public signal instead of their sincere preference with probability
+     *     `cascade_strength`. Bikhchandani, Hirshleifer, Welch (1992).
+     */
+    post: operations['cascade_endpoint_api_v2_election_cascade_post'];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  '/api/v2/election/choice-overload': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /**
+     * Heuristics dominate beyond overload_threshold candidates
+     * @description Schwartz 2004 paradox of choice: beyond `overload_threshold`
+     *     candidates, voters use heuristics (notoriety / primacy / partisan
+     *     affiliation) instead of their sincere preferences. Compares method
+     *     robustness.
+     */
+    post: operations['choice_overload_endpoint_api_v2_election_choice_overload_post'];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  '/api/v2/election/coalition': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /**
+     * Per-method D'Hondt + greedy coalition formation
+     * @description For each voting method, allocates `total_seats` proportionally via
+     *     D'Hondt then greedily picks the smallest ideologically-coherent
+     *     coalition that crosses `government_threshold * total_seats`.
+     */
+    post: operations['coalition_endpoint_api_v2_election_coalition_post'];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  '/api/v2/election/combined-effects': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /**
+     * 2³ factorial — isolate each model's contribution to divergence
+     * @description 8 simulations on the same electorate, with each model factor toggled
+     *     independently. Identifies which factor disrupts inter-method agreement
+     *     the most. Heaviest single endpoint (8 × full election pipeline).
+     */
+    post: operations['combined_effects_endpoint_api_v2_election_combined_effects_post'];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  '/api/v2/election/compulsory-voting': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /**
+     * Voluntary vs compulsory voting on the same electorate
+     * @description Voluntary turnout is right-biased (empirical pattern); compulsory
+     *     elections add reluctant left-leaning voters who may vote null,
+     *     randomly, or sincerely.
+     */
+    post: operations['compulsory_voting_endpoint_api_v2_election_compulsory_voting_post'];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  '/api/v2/election/conviction-voting': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /**
+     * Polkadot-style conviction voting: tokens × multiplier(lock_days)
+     * @description Voters with longer locks amplify their votes (×0.1 at 0 days,
+     *     ×6.0 at 224 days). Compares the conviction-weighted result with a
+     *     plain 1-token-1-vote baseline.
+     */
+    post: operations['conviction_voting_endpoint_api_v2_election_conviction_voting_post'];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  '/api/v2/election/deliberation': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /**
+     * DeGroot opinion update across a network, then vote
+     * @description Voters update their ideology toward a network-weighted mean for
+     *     `deliberation_rounds` rounds, then vote. `network_type` echo_chamber
+     *     amplifies polarisation; bridge / complete reduce it.
+     */
+    post: operations['deliberation_endpoint_api_v2_election_deliberation_post'];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  '/api/v2/election/demographic-turnout': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /**
+     * Full population vs effective electorate via age × education gaps
+     * @description Distortion between the real electorate and the effective electorate
+     *     driven by differential turnout across demographic groups. The
+     *     `correct_for_turnout` flag toggles the turnout-correction model
+     *     on/off so the user can compare both.
+     */
+    post: operations['demographic_turnout_endpoint_api_v2_election_demographic_turnout_post'];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  '/api/v2/election/districts': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /**
+     * N districts with locally shifted ideology, FPTP vs proportional
+     * @description Each district elects its winner by FPTP from a locally biased
+     *     electorate. Aggregates to a national parliament under FPTP (sum of
+     *     district wins) vs D'Hondt proportional on national vote shares.
+     */
+    post: operations['districts_endpoint_api_v2_election_districts_post'];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  '/api/v2/election/divergence': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /**
+     * Same electorate, with vs without blank vote
+     * @description Isolates the effect of blank-vote rules on inter-method agreement
+     *     by running the same electorate twice (without and with blank).
+     */
+    post: operations['divergence_endpoint_api_v2_election_divergence_post'];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  '/api/v2/election/electoral-fatigue': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /**
+     * Turnout decay across repeated elections
+     * @description P(vote | election k) = max(engaged_voter_pct, 1 - k × fatigue_rate).
+     *     Engaged voters (top engaged_voter_pct by max-utility) always vote;
+     *     casual voters drop out faster each election, shifting the residual
+     *     electorate toward partisans.
+     */
+    post: operations['electoral_fatigue_endpoint_api_v2_election_electoral_fatigue_post'];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  '/api/v2/election/gerrymander': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /**
+     * Voters assigned to user-drawn rectangular districts
+     * @description Voters assigned to the (smallest) overlapping district or the
+     *     nearest one. Compares the gerrymandered FPTP parliament to a
+     *     D'Hondt proportional reference.
+     */
+    post: operations['gerrymander_endpoint_api_v2_election_gerrymander_post'];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  '/api/v2/election/historical-replay': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /**
+     * Day-by-day historical replay with candidate-position overrides
+     * @description Brownian campaign simulation for 4 historical scenarios
+     *     (France 2002, USA 1992, Germany 2021, Condorcet cycle). Drag a
+     *     candidate's x/y position to rewrite history.
+     */
+    post: operations['historical_replay_endpoint_api_v2_election_historical_replay_post'];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  '/api/v2/election/hotelling': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /**
+     * Hotelling-Downs iterative best-response (Nash equilibrium)
+     * @description Each candidate iteratively moves in the direction (±x, ±y) that
+     *     maximises their vote score under `method`. Converges when no
+     *     candidate can improve by moving by `step_size`.
+     */
+    post: operations['hotelling_endpoint_api_v2_election_hotelling_post'];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  '/api/v2/election/interpret': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /**
+     * Deterministic interpretation of a /simulate result
+     * @description Pure rule-based text interpretation of an existing /simulate
+     *     response. No new simulation.
+     */
+    post: operations['interpret_endpoint_api_v2_election_interpret_post'];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  '/api/v2/election/jury': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /**
+     * Condorcet Jury Theorem under N voting methods
+     * @description Voters with individual competence p > 0.5 aggregate collectively
+     *     toward the 'correct' option. Runs `num_simulations` Monte Carlo
+     *     trials and compares plurality, IRV, Borda, Schulze, MJ on the same
+     *     juries.
+     */
+    post: operations['jury_endpoint_api_v2_election_jury_post'];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  '/api/v2/election/liquid-democracy': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /**
+     * Transitive delegation up to max_chain_length hops
+     * @description Each voter votes directly or delegates. Delegation chains are
+     *     resolved up to `max_chain_length` hops; cycles fall back to direct
+     *     voting. Reports voting-weight Gini and a super-voter list.
+     */
+    post: operations['liquid_democracy_endpoint_api_v2_election_liquid_democracy_post'];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  '/api/v2/election/multiwinner_compare': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /**
+     * STV / D'Hondt / SPAV / Phragmén / FPTP on the same electorate
+     * @description Same electorate, 5 multi-winner methods. Reports per-method
+     *     seat allocation, distortion against the proportional reference,
+     *     and which method comes closest to / furthest from proportional.
+     */
+    post: operations['multiwinner_compare_endpoint_api_v2_election_multiwinner_compare_post'];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  '/api/v2/election/nota': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /**
+     * NOTA (None Of The Above) as a ballot option
+     * @description A voter casts NOTA when their max-utility for any candidate is below
+     *     nota_threshold. Three constitutional outcomes after NOTA wins:
+     *     `invalidate` (null election), `runoff` (new candidates), or
+     *     `winner_take_all` (seat NOTA, Nevada-style).
+     */
+    post: operations['nota_endpoint_api_v2_election_nota_post'];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  '/api/v2/election/party-dynamics': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /**
+     * Multi-election party-system evolution (Duverger's Law)
+     * @description Parties adapt positions (Hotelling), get eliminated below
+     *     `survival_threshold`, and new parties may emerge. Tactical voting
+     *     squeezes small parties under FPTP, driving the system toward
+     *     bipartism.
+     */
+    post: operations['party_dynamics_endpoint_api_v2_election_party_dynamics_post'];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  '/api/v2/election/polarization': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /**
+     * Per-ideology Esteban-Ray index + voting-method robustness
+     * @description For each voter distribution in `ideology_range`, computes the
+     *     Esteban-Ray polarisation index and runs `num_simulations` Monte
+     *     Carlo elections to measure how method agreement and Condorcet
+     *     rate degrade with polarisation.
+     */
+    post: operations['polarization_endpoint_api_v2_election_polarization_post'];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  '/api/v2/election/power-indices': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /**
+     * Shapley-Shubik and Banzhaf power indices for coalition bargaining
+     * @description Shapley-Shubik (pivot-in-permutation) and Banzhaf
+     *     (critical-in-winning-coalition) power indices, accounting for
+     *     pariah parties (cordon sanitaire) and bilateral coalition vetoes.
+     */
+    post: operations['power_indices_endpoint_api_v2_election_power_indices_post'];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  '/api/v2/election/primary': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /**
+     * Internal party primaries + general election
+     * @description Each party holds an internal primary among its partisan voters;
+     *     the primary winner runs in the general election. The
+     *     `without_primaries_winner` field reports what would have happened
+     *     if each party centre had run directly.
+     */
+    post: operations['primary_endpoint_api_v2_election_primary_post'];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  '/api/v2/election/quadratic-funding': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /**
+     * Buterin/Hitzig/Weyl 2019 quadratic funding for public goods
+     * @description QF amplifies projects with many small donors over those with few
+     *     large ones via matching(P) ∝ (Σᵢ √c_ip)². Compared against 1p1v
+     *     and proportional allocations on the same matching pool.
+     */
+    post: operations['quadratic_funding_endpoint_api_v2_election_quadratic_funding_post'];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  '/api/v2/election/shy-voter': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /**
+     * Bradley / Shy Tory effect — socially-sensitive candidates underpolled
+     * @description Voters intending to vote for the 'sensitive' candidate (index
+     *     `shy_candidate_idx`) declare a more acceptable preference in polls
+     *     with probability `social_desirability_factor`, but vote sincerely
+     *     in the booth.
+     */
+    post: operations['shy_voter_endpoint_api_v2_election_shy_voter_post'];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  '/api/v2/election/simulate': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /**
+     * Run the unified election simulation
+     * @description Pure-compute election. Same seed = same result.
+     *
+     *     The heavy simulation runs in a real OS thread (`asyncio.to_thread`)
+     *     so it doesn't block the FastAPI event loop. That replaces the
+     *     `eventlet.tpool.execute(...)` pattern from the Flask side — no more
+     *     eventlet anywhere on the v2 path.
+     */
+    post: operations['simulate_endpoint_api_v2_election_simulate_post'];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  '/api/v2/election/simulate-pipeline': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /**
+     * Step-by-step pipeline animation
+     * @description Same compute as /simulate, but emits a per-step snapshot of voter
+     *     state and method winners so the frontend can animate the pipeline.
+     */
+    post: operations['simulate_pipeline_endpoint_api_v2_election_simulate_pipeline_post'];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  '/api/v2/election/sortition': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /**
+     * Elected vs sortition pure vs sortition stratified
+     * @description Compares three assembly-selection methods on the same population:
+     *     elected (electoral bias), sortition pure (random sample), sortition
+     *     stratified (demographically balanced random sample).
+     */
+    post: operations['sortition_endpoint_api_v2_election_sortition_post'];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  '/api/v2/election/stv': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /**
+     * Single Transferable Vote + D'Hondt + FPTP comparison
+     * @description Multi-seat STV (Droop, Hare, or Imperiali quota) compared to
+     *     D'Hondt and multi-seat FPTP on the same simulated ballots.
+     */
+    post: operations['stv_endpoint_api_v2_election_stv_post'];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  '/api/v2/export/simulation-dataset': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /**
+     * Export a reproducible research dataset as CSV
+     * @description Same compute as the JSON variant, but emitted as RFC-4180 CSV with
+     *     an attachment Content-Disposition so the browser triggers a download.
+     */
+    post: operations['export_csv_api_v2_export_simulation_dataset_post'];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  '/api/v2/export/simulation-dataset-json': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /** Export a reproducible research dataset as JSON */
+    post: operations['export_json_api_v2_export_simulation_dataset_json_post'];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  '/api/v2/health': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /**
+     * Health
+     * @description Return 200 when healthy, 503 when degraded — same contract as
+     *     `/api/health` on the Flask side.
+     */
+    get: operations['health_api_v2_health_get'];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  '/api/v2/scenarios': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /**
+     * List the current user's saved scenarios
+     * @description Returns the user's saved scenarios, newest first. Empty list for new accounts.
+     */
+    get: operations['list_scenarios_api_v2_scenarios_get'];
+    put?: never;
+    /**
+     * Save a new scenario for the current user
+     * @description Persists a config snapshot (and optionally cached results) under the user's account.
+     */
+    post: operations['create_scenario_api_v2_scenarios_post'];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  '/api/v2/scenarios/gallery': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /** Paginated gallery list */
+    get: operations['list_gallery_api_v2_scenarios_gallery_get'];
+    put?: never;
+    /**
+     * Submit a scenario to the public gallery
+     * @description No auth — the gallery is public. Featured flag stays False until an admin
+     *     promotes the scenario directly in the database.
+     */
+    post: operations['create_gallery_scenario_api_v2_scenarios_gallery_post'];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  '/api/v2/scenarios/gallery/featured': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /** Top featured scenarios by view count */
+    get: operations['get_featured_api_v2_scenarios_gallery_featured_get'];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  '/api/v2/scenarios/gallery/{scenario_id}': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /** Fetch a single scenario (increments the view counter) */
+    get: operations['get_scenario_api_v2_scenarios_gallery__scenario_id__get'];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  '/api/v2/scenarios/{scenario_id}': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /**
+     * Fetch a single scenario by id
+     * @description Per-user scoping is enforced in the WHERE clause — asking for someone
+     *     else's scenario gets 404, not 403, to avoid leaking foreign ids.
+     */
+    get: operations['get_scenario_api_v2_scenarios__scenario_id__get'];
+    put?: never;
+    post?: never;
+    /**
+     * Delete one of the current user's scenarios
+     * @description Hard-deletes the row — same behaviour as the Flask side.
+     */
+    delete: operations['delete_scenario_api_v2_scenarios__scenario_id__delete'];
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  '/api/v2/simulations': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /** Legacy form-based vote simulation (deprecated) */
+    post: operations['legacy_simulate_api_v2_simulations_post'];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  '/api/v2/simulations/arrow-criteria': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /** Empirically check Arrow's criteria */
+    post: operations['arrow_criteria_api_v2_simulations_arrow_criteria_post'];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  '/api/v2/simulations/bandwagon': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /** Cascading social-influence simulation */
+    post: operations['bandwagon_api_v2_simulations_bandwagon_post'];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  '/api/v2/simulations/blank-contagion': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /** SIS blank-vote contagion simulation */
+    post: operations['blank_contagion_api_v2_simulations_blank_contagion_post'];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  '/api/v2/simulations/blank-history': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /** Blank-vote time series for a country */
+    get: operations['blank_history_api_v2_simulations_blank_history_get'];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  '/api/v2/simulations/calculate_utility': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /** Compute utility for a single voter × candidate */
+    post: operations['calculate_utility_api_v2_simulations_calculate_utility_post'];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  '/api/v2/simulations/campaign': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /** Day-by-day electoral campaign simulation */
+    post: operations['campaign_api_v2_simulations_campaign_post'];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  '/api/v2/simulations/compare': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /** Per-method metrics on a fresh population */
+    post: operations['compare_api_v2_simulations_compare_post'];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  '/api/v2/simulations/condorcet-matrix': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /** Full pairwise duel matrix */
+    post: operations['condorcet_matrix_api_v2_simulations_condorcet_matrix_post'];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  '/api/v2/simulations/constitutional-scenario': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /** Constitutional aftermath of a blank-vote victory */
+    post: operations['constitutional_scenario_api_v2_simulations_constitutional_scenario_post'];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  '/api/v2/simulations/get_closest_candidate': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /** Assign voters to their nearest candidate (2-D spatial) */
+    post: operations['get_closest_candidate_api_v2_simulations_get_closest_candidate_post'];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  '/api/v2/simulations/get_utility_matrix': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /** Full utility matrix + vote-share stats */
+    post: operations['get_utility_matrix_api_v2_simulations_get_utility_matrix_post'];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  '/api/v2/simulations/get_voter_segments': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /** Per-demographic-segment utility & top-candidate breakdown */
+    post: operations['get_voter_segments_api_v2_simulations_get_voter_segments_post'];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  '/api/v2/simulations/ideology-map': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /** 2-D ideological map of voter preferences */
+    post: operations['ideology_map_api_v2_simulations_ideology_map_post'];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  '/api/v2/simulations/manipulability': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /** Gibbard-Satterthwaite manipulability index */
+    get: operations['manipulability_api_v2_simulations_manipulability_get'];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  '/api/v2/simulations/monte-carlo': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /** Aggregate Monte Carlo over N runs (sync variant) */
+    post: operations['monte_carlo_api_v2_simulations_monte_carlo_post'];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  '/api/v2/simulations/multiwinner': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /** Compare proportional multi-winner methods */
+    post: operations['multiwinner_api_v2_simulations_multiwinner_post'];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  '/api/v2/simulations/real-election': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /** Analyse a real historical election */
+    post: operations['real_election_api_v2_simulations_real_election_post'];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  '/api/v2/simulations/real-elections': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /** List available historical elections */
+    get: operations['real_elections_api_v2_simulations_real_elections_get'];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  '/api/v2/simulations/scenario': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /** Citizen-configured scenario, with/without blank vote */
+    post: operations['scenario_api_v2_simulations_scenario_post'];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  '/api/v2/simulations/sensitivity': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /** Vary one parameter, track winners & regret */
+    post: operations['sensitivity_api_v2_simulations_sensitivity_post'];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  '/api/v2/simulations/simulate_candidates': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /** Generate synthetic candidates across parties */
+    post: operations['simulate_candidates_api_v2_simulations_simulate_candidates_post'];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  '/api/v2/simulations/simulate_utility': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /** Compute utility for every voter × candidate pair */
+    post: operations['simulate_utility_api_v2_simulations_simulate_utility_post'];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  '/api/v2/simulations/simulate_voters': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /** Generate a synthetic voter population */
+    post: operations['simulate_voters_api_v2_simulations_simulate_voters_post'];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  '/api/v2/simulations/strategic-impact': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /** Regret vs proportion of strategic voters */
+    post: operations['strategic_impact_api_v2_simulations_strategic_impact_post'];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  '/api/v2/simulations/vote-steps': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /** Step-by-step ballot-counting animation data */
+    post: operations['vote_steps_api_v2_simulations_vote_steps_post'];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  '/api/v2/simulations/what-if': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /** Vary one parameter and compare method winners across values */
+    post: operations['what_if_api_v2_simulations_what_if_post'];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  '/api/v2/tech/e2e-demo': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /** End-to-end verifiable voting pedagogical simulation */
+    post: operations['e2e_demo_endpoint_api_v2_tech_e2e_demo_post'];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  '/api/v2/tech/polis': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /** Pol.is clustering + classical election cross-comparison */
+    post: operations['polis_with_candidates_endpoint_api_v2_tech_polis_post'];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  '/api/v2/tech/polis-simulation': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /** Pol.is consensus clustering on a statement set */
+    post: operations['polis_simulation_endpoint_api_v2_tech_polis_simulation_post'];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  '/api/v2/theory/agenda-manipulation': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /**
+     * McKelvey-style agenda manipulation under binary elimination
+     * @description Enumerates all `n!` agendas for `n` alternatives and reports which
+     *     outcomes the agenda-setter can engineer. A consequence of Plott's
+     *     Chaos Theorem when no Condorcet winner exists.
+     */
+    post: operations['agenda_manipulation_endpoint_api_v2_theory_agenda_manipulation_post'];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  '/api/v2/theory/apportionment': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /**
+     * Apportionment methods + Balinski-Young impossibility
+     * @description Hamilton + 4 divisor methods (Jefferson, Webster, Adams,
+     *     Huntington-Hill) with quota-violation / Alabama / population
+     *     paradox detection. Demonstrates Balinski-Young (1982): no method
+     *     avoids all three paradoxes.
+     */
+    post: operations['apportionment_endpoint_api_v2_theory_apportionment_post'];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  '/api/v2/theory/arrow': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /**
+     * Per-method Arrow axiom violation analysis
+     * @description For a voting method, lists which Arrow axioms it violates with a
+     *     minimal counterexample for each. Pure lookup + boilerplate text;
+     *     `seed` reserved for future randomized counterexamples.
+     */
+    post: operations['arrow_endpoint_api_v2_theory_arrow_post'];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  '/api/v2/theory/assumption-testing': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /**
+     * Test spatial-model robustness by relaxing core assumptions
+     * @description For each of single_peaked / stable_preferences / rational_voters /
+     *     fixed_electorate / measurable_utilities, relaxes the assumption
+     *     and measures how often the winner changes vs the baseline. Reports
+     *     which assumption the result depends on most.
+     */
+    post: operations['assumption_testing_endpoint_api_v2_theory_assumption_testing_post'];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  '/api/v2/theory/collective-will': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /**
+     * Does the general will exist, or is it a procedural artefact?
+     * @description Same electorate, many methods, many binary-agenda orderings.
+     *     Counts how many distinct winners emerge. A high count supports
+     *     Schumpeter's procedural view; a low count supports Rousseau's
+     *     general-will view. Cross-checks against the Condorcet winner.
+     */
+    post: operations['collective_will_endpoint_api_v2_theory_collective_will_post'];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  '/api/v2/theory/democratic-backsliding': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /**
+     * Path toward autocracy across successive elections
+     * @description Models gerrymandering / media-capture / voter-suppression
+     *     compounding across elections. Optional guardrails (constitutional
+     *     court, free press, international pressure, supermajority lock-in)
+     *     slow the decay.
+     */
+    post: operations['democratic_backsliding_endpoint_api_v2_theory_democratic_backsliding_post'];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  '/api/v2/theory/epistocracy': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /**
+     * Epistocratic voting vs standard democracy (Caplan / Brennan)
+     * @description Compares 4 weighting schemes: equal democracy, competence-weighted
+     *     voting, epistocratic (threshold-gated), and lottery. Models Caplan's
+     *     4 systematic biases as a competence reduction. Reports the
+     *     democracy-vs-expert tradeoff.
+     */
+    post: operations['epistocracy_endpoint_api_v2_theory_epistocracy_post'];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  '/api/v2/theory/identity-voting': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /**
+     * Green/Palmquist/Schickler 2002 identity-based voting
+     * @description Models the empirical pattern where voters adopt their camp's
+     *     positions instead of choosing camps from their positions. The
+     *     `identity_weight` parameter sweeps from pure ideological voting
+     *     (0.0) to pure identity voting (1.0).
+     */
+    post: operations['identity_voting_endpoint_api_v2_theory_identity_voting_post'];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  '/api/v2/theory/iia-rate': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /**
+     * Empirical IIA violation rate vs number of candidates
+     * @description Monte-Carlo simulation: for each n, generate `num_trials` random
+     *     profiles, run plurality on the full profile then on the profile
+     *     with one random candidate removed, count winner changes. Other
+     *     methods are scaled from the plurality baseline.
+     */
+    post: operations['iia_rate_endpoint_api_v2_theory_iia_rate_post'];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  '/api/v2/theory/intergenerational': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /**
+     * Future-generation representation in long-horizon decisions
+     * @description How institutional representation of future generations changes the
+     *     adoption rate of decisions whose costs are present and benefits
+     *     are future. Rawls' veil-of-ignorance heuristic.
+     */
+    post: operations['intergenerational_endpoint_api_v2_theory_intergenerational_post'];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  '/api/v2/theory/judgment-aggregation': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /**
+     * Discursive dilemma (List & Pettit 2002)
+     * @description Majority rule on propositions can produce collectively incoherent
+     *     results even when every individual voter is perfectly coherent.
+     *     Pre-defined scenarios: legal liability, fiscal trilemma, climate.
+     */
+    post: operations['judgment_aggregation_endpoint_api_v2_theory_judgment_aggregation_post'];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  '/api/v2/theory/majority-tyranny': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /**
+     * Tocqueville's tyranny of the majority across decision rules
+     * @description Same electorate, 6 decision rules (simple majority, 2/3 + 3/4
+     *     supermajorities, unanimous, QV, MJ). Measures how often a fixed
+     *     majority can override a high-intensity minority.
+     */
+    post: operations['majority_tyranny_endpoint_api_v2_theory_majority_tyranny_post'];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  '/api/v2/theory/manipulation-analysis': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /**
+     * Gibbard-Satterthwaite manipulator identification
+     * @description For each voter, tests four manipulation strategies (compromising,
+     *     burying, pushover, truncating) and keeps the one with the highest
+     *     utility gain. Empirical demonstration of Gibbard-Satterthwaite.
+     */
+    post: operations['manipulation_analysis_endpoint_api_v2_theory_manipulation_analysis_post'];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  '/api/v2/theory/plott-chaos': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /**
+     * Plott's Chaos Theorem in 2-D policy space
+     * @description In ≥2-D policy space with ≥3 voters, a Condorcet winner almost
+     *     never exists, and from any starting point the agenda-setter can
+     *     reach ANY other point via a sequence of majority votes.
+     */
+    post: operations['plott_chaos_endpoint_api_v2_theory_plott_chaos_post'];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  '/api/v2/theory/sen-paradox': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /**
+     * Sen's Impossibility of a Paretian Liberal (1970)
+     * @description Sen 1970: no social choice rule satisfies Pareto efficiency AND
+     *     minimal individual liberalism simultaneously. Tests the canonical
+     *     case and samples random preference profiles to estimate paradox
+     *     frequency.
+     */
+    post: operations['sen_paradox_endpoint_api_v2_theory_sen_paradox_post'];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  '/api/v2/users/me': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /** Users:Current User */
+    get: operations['users_current_user_api_v2_users_me_get'];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    /** Users:Patch Current User */
+    patch: operations['users_patch_current_user_api_v2_users_me_patch'];
+    trace?: never;
+  };
+  '/api/v2/users/{id}': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /** Users:User */
+    get: operations['users_user_api_v2_users__id__get'];
+    put?: never;
+    post?: never;
+    /** Users:Delete User */
+    delete: operations['users_delete_user_api_v2_users__id__delete'];
+    options?: never;
+    head?: never;
+    /** Users:Patch User */
+    patch: operations['users_patch_user_api_v2_users__id__patch'];
+    trace?: never;
+  };
 }
 export type webhooks = Record<string, never>;
 export interface components {
-    schemas: {
-        /** ATBaseCandidate */
-        ATBaseCandidate: {
-            /** Name */
-            name: string;
-            /** X */
-            x: number;
-            /**
-             * Y
-             * @default 0
-             */
-            y: number;
-        };
-        /** ATBaseSimulation */
-        ATBaseSimulation: {
-            /** Candidates */
-            candidates?: components["schemas"]["ATBaseCandidate"][];
-            /**
-             * Ideology
-             * @default random
-             */
-            ideology: string;
-            /**
-             * Num Voters
-             * @default 100
-             */
-            num_voters: number;
-            /**
-             * Seed
-             * @default 42
-             */
-            seed: number;
-        };
-        /** AbstentionRequest */
-        AbstentionRequest: {
-            /** Candidates */
-            candidates: components["schemas"]["CandidateSpec"][];
-            /**
-             * Demobilization Factor
-             * @description 0 = no abstention, 1 = aggressive demobilisation.
-             * @default 0.5
-             */
-            demobilization_factor: number;
-            /**
-             * Ideology
-             * @default random
-             */
-            ideology: string;
-            /**
-             * Num Rounds
-             * @default 3
-             */
-            num_rounds: number;
-            /**
-             * Num Voters
-             * @default 200
-             */
-            num_voters: number;
-            /**
-             * Poll Influence
-             * @description How much polls affect abstention probability.
-             * @default 0.8
-             */
-            poll_influence: number;
-            /**
-             * Seed
-             * @default 42
-             */
-            seed: number;
-        };
-        /** AbstentionResponse */
-        AbstentionResponse: {
-            /** Candidates */
-            candidates: {
-                [key: string]: unknown;
-            }[];
-            /** Final Winner */
-            final_winner: string | null;
-            /** Rounds */
-            rounds: components["schemas"]["AbstentionRound"][];
-            /** Sincere Winner */
-            sincere_winner: string | null;
-            /** Turnout By Camp */
-            turnout_by_camp: {
-                [key: string]: number;
-            };
-            /** Winner Changed */
-            winner_changed: boolean;
-            /** Winners By Method */
-            winners_by_method?: {
-                [key: string]: string | null;
-            } | null;
-        } & {
-            [key: string]: unknown;
-        };
-        /** AbstentionRound */
-        AbstentionRound: {
-            /** Abstention Map */
-            abstention_map: components["schemas"]["AbstentionVoter"][];
-            /** Round */
-            round: number;
-            /** Turnout */
-            turnout: number;
-            /** Vote Shares */
-            vote_shares: {
-                [key: string]: number;
-            };
-            /** Winner Condorcet */
-            winner_condorcet: string | null;
-            /** Winner Fptp */
-            winner_fptp: string | null;
-        } & {
-            [key: string]: unknown;
-        };
-        /** AbstentionVoter */
-        AbstentionVoter: {
-            /** Abstained */
-            abstained: boolean;
-            /** Id */
-            id: number;
-            /** Preferred */
-            preferred: string;
-            /** Prob Abstention */
-            prob_abstention: number;
-            /** X */
-            x: number;
-            /** Y */
-            y: number;
-        };
-        /** AdaptiveCandPos */
-        AdaptiveCandPos: {
-            /** Name */
-            name: string;
-            /** X */
-            x: number;
-        } & {
-            [key: string]: unknown;
-        };
-        /**
-         * AdaptiveRequest
-         * @description N rounds of adaptive/tactical voting with poll feedback.
-         */
-        AdaptiveRequest: {
-            /** Candidates */
-            candidates: components["schemas"]["CandidateSpec"][];
-            /**
-             * Ideology
-             * @default random
-             */
-            ideology: string;
-            /**
-             * Method
-             * @default plurality
-             */
-            method: string;
-            /**
-             * Num Rounds
-             * @default 5
-             */
-            num_rounds: number;
-            /**
-             * Num Voters
-             * @default 300
-             */
-            num_voters: number;
-            /**
-             * Seed
-             * @default 42
-             */
-            seed: number;
-            /**
-             * Strategic Threshold
-             * @description Polling level below which voters become tactical.
-             * @default 0.15
-             */
-            strategic_threshold: number;
-        };
-        /**
-         * AdaptiveResponse
-         * @description Iterated adaptive (tactical) voting rounds until convergence.
-         */
-        AdaptiveResponse: {
-            /** Candidates */
-            candidates: components["schemas"]["AdaptiveCandPos"][];
-            /** Converged */
-            converged: boolean;
-            /** Convergence Round */
-            convergence_round?: number | null;
-            /** Final Winner */
-            final_winner?: string | null;
-            /** Rounds */
-            rounds: components["schemas"]["AdaptiveRound"][];
-            /** Sincere Winner */
-            sincere_winner?: string | null;
-            /** Strategic Drift */
-            strategic_drift: number;
-        } & {
-            [key: string]: unknown;
-        };
-        /** AdaptiveRound */
-        AdaptiveRound: {
-            /** Round */
-            round: number;
-            /** Sincere Shares */
-            sincere_shares: {
-                [key: string]: number;
-            };
-            /** Sincere Winner */
-            sincere_winner?: string | null;
-            /** Strategic Voters Pct */
-            strategic_voters_pct: number;
-            /** Vote Shares */
-            vote_shares: {
-                [key: string]: number;
-            };
-            /** Voter Snapshot */
-            voter_snapshot: components["schemas"]["AdaptiveVoterSnap"][];
-            /** Winner */
-            winner?: string | null;
-        } & {
-            [key: string]: unknown;
-        };
-        /** AdaptiveVoterSnap */
-        AdaptiveVoterSnap: {
-            /** Effective Vote */
-            effective_vote: string;
-            /** Id */
-            id: number;
-            /** Sincere Vote */
-            sincere_vote: string;
-            /** Tactical */
-            tactical: boolean;
-            /** X */
-            x: number;
-            /** Y */
-            y: number;
-        } & {
-            [key: string]: unknown;
-        };
-        /**
-         * AffectivePolarizationRequest
-         * @description Iyengar 2019: voters penalise candidates from the opposing political camp.
-         */
-        AffectivePolarizationRequest: {
-            /**
-             * Affect Hostility
-             * @description 0 = no hostility, 1 = maximum out-group penalty.
-             * @default 0.5
-             */
-            affect_hostility: number;
-            /**
-             * Camp Threshold
-             * @description x-axis distance defining the in/out-group split.
-             * @default 0.1
-             */
-            camp_threshold: number;
-            /** Candidates */
-            candidates: components["schemas"]["CandidateSpec"][];
-            /**
-             * Ideology
-             * @default random
-             */
-            ideology: string;
-            /**
-             * Num Simulations
-             * @default 20
-             */
-            num_simulations: number;
-            /**
-             * Num Voters
-             * @default 200
-             */
-            num_voters: number;
-            /**
-             * Seed
-             * @default 42
-             */
-            seed: number;
-        };
-        /**
-         * AffectivePolarizationResponse
-         * @description Sincere vs affect-driven (in-group/out-group) voting outcomes.
-         */
-        AffectivePolarizationResponse: {
-            /** Affect Curve */
-            affect_curve: {
-                [key: string]: unknown;
-            }[];
-            /** Affective Cw */
-            affective_cw?: string | null;
-            /** Affective Results */
-            affective_results: {
-                [key: string]: unknown;
-            };
-            /** Candidate Camps */
-            candidate_camps: {
-                [key: string]: unknown;
-            };
-            /** Candidates */
-            candidates: {
-                [key: string]: unknown;
-            }[];
-            /** Condorcet Violation */
-            condorcet_violation: boolean;
-            /** Method Sensitivity */
-            method_sensitivity: {
-                [key: string]: unknown;
-            };
-            /** Pedagogical Note */
-            pedagogical_note: string;
-            /** Sincere Cw */
-            sincere_cw?: string | null;
-            /** Sincere Results */
-            sincere_results: {
-                [key: string]: unknown;
-            };
-            /** Voters */
-            voters: {
-                [key: string]: unknown;
-            }[];
-            /** Winner Changed */
-            winner_changed: boolean;
-        } & {
-            [key: string]: unknown;
-        };
-        /**
-         * AgendaManipulationRequest
-         * @description McKelvey-style agenda manipulation under binary elimination.
-         */
-        AgendaManipulationRequest: {
-            /** Alternatives */
-            alternatives?: string[];
-            /**
-             * Constraint Type
-             * @description Currently only binary_elimination is supported.
-             * @default binary_elimination
-             */
-            constraint_type: string;
-            /**
-             * Num Voters
-             * @default 21
-             */
-            num_voters: number;
-            /**
-             * Seed
-             * @default 42
-             */
-            seed: number;
-            /**
-             * Target Outcome
-             * @description Outcome the agenda-setter wants. Falls back to first alternative.
-             */
-            target_outcome?: string | null;
-        };
-        /** AgendaManipulationResponse */
-        AgendaManipulationResponse: {
-            /** Achievable Outcomes */
-            achievable_outcomes: string[];
-            /** All Outcomes */
-            all_outcomes: {
-                [key: string]: unknown;
-            };
-            /** Condorcet Winner */
-            condorcet_winner?: string | null;
-            /** Manipulation Power */
-            manipulation_power: number;
-            optimal_agenda: components["schemas"]["OptimalAgenda"];
-            /** Pairwise Matrix */
-            pairwise_matrix: {
-                [key: string]: {
-                    [key: string]: number;
-                };
-            };
-            /** Pedagogical Note */
-            pedagogical_note: string;
-        };
-        /** AlternativePath */
-        AlternativePath: {
-            /** Steps */
-            steps: number[][];
-            /** To */
-            to: number[];
-        };
-        /** ApportionmentMethodResult */
-        ApportionmentMethodResult: {
-            /** Alabama Paradox */
-            alabama_paradox: boolean;
-            /** Description */
-            description: string;
-            /** Favors */
-            favors: string;
-            /** New State Paradox */
-            new_state_paradox: boolean;
-            /** Population Paradox */
-            population_paradox: boolean;
-            /** Quota Violation */
-            quota_violation: boolean;
-            /** Seats */
-            seats: {
-                [key: string]: number;
-            };
-        };
-        /** ApportionmentParty */
-        ApportionmentParty: {
-            /** Name */
-            name: string;
-            /** Votes */
-            votes: number;
-        };
-        /**
-         * ApportionmentRequest
-         * @description Compare apportionment methods + Balinski-Young paradoxes.
-         */
-        ApportionmentRequest: {
-            /**
-             * Find Paradoxes
-             * @description Run alabama/population/quota paradox checks (costlier).
-             * @default true
-             */
-            find_paradoxes: boolean;
-            /**
-             * Methods
-             * @description Defaults to all 5 methods.
-             */
-            methods?: string[] | null;
-            /**
-             * Num Seats
-             * @default 10
-             */
-            num_seats: number;
-            /** Parties */
-            parties: components["schemas"]["ApportionmentParty"][];
-        };
-        /** ApportionmentResponse */
-        ApportionmentResponse: {
-            /** Balinski Young Summary */
-            balinski_young_summary: string;
-            /** Impossible To Avoid */
-            impossible_to_avoid: string[];
-            /** Pedagogical Note */
-            pedagogical_note: string;
-            /** Results */
-            results: {
-                [key: string]: components["schemas"]["ApportionmentMethodResult"];
-            };
-        };
-        /**
-         * ArrowCriteriaRequest
-         * @description POST /simulations/arrow-criteria.
-         */
-        ArrowCriteriaRequest: {
-            /** Candidates */
-            candidates?: unknown[];
-            /**
-             * Ideology Distribution
-             * @default random
-             */
-            ideology_distribution: string;
-            /**
-             * Num Voters
-             * @default 300
-             */
-            num_voters: number;
-        };
-        /** ArrowCriteriaResponse */
-        ArrowCriteriaResponse: {
-            /** Methods */
-            methods: {
-                [key: string]: unknown;
-            };
-            /** Summary */
-            summary: {
-                [key: string]: unknown;
-            };
-        } & {
-            [key: string]: unknown;
-        };
-        /**
-         * ArrowRequest
-         * @description Per-method Arrow axiom violation analysis.
-         */
-        ArrowRequest: {
-            /**
-             * Method
-             * @description One of plurality | borda | irv | schulze | condorcet | approval | majority_judgment | kemeny_young | minimax | star_voting | two_round.
-             * @default plurality
-             */
-            method: string;
-            /**
-             * Seed
-             * @default 42
-             */
-            seed: number;
-        };
-        /** ArrowResponse */
-        ArrowResponse: {
-            /** Arrow Summary */
-            arrow_summary: string;
-            /** Method */
-            method: string;
-            /**
-             * Tradeoff Type
-             * @description majority_focus | utility_focus | condorcet_focus.
-             */
-            tradeoff_type: string;
-            violations: components["schemas"]["ArrowViolations"];
-        };
-        /**
-         * ArrowViolation
-         * @description One axiom: was it violated, and if so what's the counterexample.
-         */
-        ArrowViolation: {
-            /** Counterexample */
-            counterexample?: {
-                [key: string]: unknown;
-            } | null;
-            /** Violated */
-            violated: boolean;
-        };
-        /** ArrowViolations */
-        ArrowViolations: {
-            iia: components["schemas"]["ArrowViolation"];
-            non_dictatorship: components["schemas"]["ArrowViolation"];
-            pareto: components["schemas"]["ArrowViolation"];
-            transitivity: components["schemas"]["ArrowViolation"];
-        };
-        /** AssumptionResult */
-        AssumptionResult: {
-            /** Confidence Interval */
-            confidence_interval: number[];
-            /** Pct Trials Changed */
-            pct_trials_changed: number;
-            /** Result Variance */
-            result_variance: number;
-            /** Winner */
-            winner: string;
-            /** Winner Changed */
-            winner_changed: boolean;
-            /** Winner Distribution */
-            winner_distribution: {
-                [key: string]: number;
-            };
-        };
-        /**
-         * AssumptionTestingRequest
-         * @description Test model robustness by relaxing core spatial-model assumptions.
-         */
-        AssumptionTestingRequest: {
-            /**
-             * Assumptions To Relax
-             * @description Subset of single_peaked / stable_preferences / rational_voters / fixed_electorate / measurable_utilities.
-             */
-            assumptions_to_relax?: string[] | null;
-            base_simulation?: components["schemas"]["ATBaseSimulation"] | null;
-        };
-        /** AssumptionTestingResponse */
-        AssumptionTestingResponse: {
-            baseline_result: components["schemas"]["BaselineResult"];
-            /** Most Fragile Assumption */
-            most_fragile_assumption: string;
-            /** Pedagogical Note */
-            pedagogical_note: string;
-            /** Relaxed Results */
-            relaxed_results: {
-                [key: string]: components["schemas"]["AssumptionResult"];
-            };
-            /** Robust Result */
-            robust_result: boolean;
-        };
-        /** BacksliddingCandidate */
-        BacksliddingCandidate: {
-            /** Name */
-            name: string;
-            /** X */
-            x: number;
-            /**
-             * Y
-             * @default 0
-             */
-            y: number;
-        };
-        /** BacksliddingElection */
-        BacksliddingElection: {
-            /** Advantages */
-            advantages: {
-                [key: string]: number;
-            };
-            /** Democratic Quality */
-            democratic_quality: number;
-            /** Election N */
-            election_n: number;
-            /** Guardrails Triggered */
-            guardrails_triggered: string[];
-            /** Point Of No Return */
-            point_of_no_return: boolean;
-            /** Vote Shares */
-            vote_shares: {
-                [key: string]: number;
-            };
-            /** Winner */
-            winner: string;
-        };
-        /**
-         * BallotComplexityRequest
-         * @description Ballot-complexity-driven null vote model.
-         */
-        BallotComplexityRequest: {
-            /** Candidates */
-            candidates: components["schemas"]["CandidateSpec"][];
-            /**
-             * Education Level
-             * @description Higher = lower null-vote rate.
-             * @default 0.7
-             */
-            education_level: number;
-            /**
-             * First Time Voter Pct
-             * @description Higher = higher null-vote rate.
-             * @default 0.1
-             */
-            first_time_voter_pct: number;
-            /**
-             * Ideology
-             * @default random
-             */
-            ideology: string;
-            /**
-             * Methods To Compare
-             * @description Voting methods to compare. If None, uses the server default set.
-             */
-            methods_to_compare?: string[] | null;
-            /**
-             * Num Voters
-             * @default 200
-             */
-            num_voters: number;
-            /**
-             * Seed
-             * @default 42
-             */
-            seed: number;
-        };
-        /**
-         * BallotComplexityResponse
-         * @description Null-vote rate per method as ballot complexity (candidate count) grows.
-         */
-        BallotComplexityResponse: {
-            /** Candidate Count Curve */
-            candidate_count_curve: {
-                [key: string]: unknown;
-            }[];
-            /** Least Inclusive Method */
-            least_inclusive_method: string | null;
-            /** Most Inclusive Method */
-            most_inclusive_method: string | null;
-            /** Pedagogical Note */
-            pedagogical_note: string;
-            /** Results */
-            results: {
-                [key: string]: unknown;
-            }[];
-        } & {
-            [key: string]: unknown;
-        };
-        /**
-         * BandwagonRequest
-         * @description POST /simulations/bandwagon.
-         */
-        BandwagonRequest: {
-            /** Candidates */
-            candidates?: unknown[];
-            /**
-             * Ideology Distribution
-             * @default random
-             */
-            ideology_distribution: string;
-            /**
-             * Influence Strength
-             * @default 0.3
-             */
-            influence_strength: number;
-            /**
-             * Num Rounds
-             * @default 5
-             */
-            num_rounds: number;
-            /**
-             * Num Voters
-             * @default 300
-             */
-            num_voters: number;
-            /** Seed */
-            seed?: number | null;
-        };
-        /** BandwagonResponse */
-        BandwagonResponse: {
-            /** Amplification By Method */
-            amplification_by_method: {
-                [key: string]: unknown;
-            };
-            /** Convergence Round */
-            convergence_round?: number | null;
-            /** Influence Strength */
-            influence_strength?: unknown;
-            /** Num Rounds */
-            num_rounds: number;
-            /** Rounds */
-            rounds: unknown[];
-        } & {
-            [key: string]: unknown;
-        };
-        /** BaselineResult */
-        BaselineResult: {
-            /** Regret */
-            regret: number;
-            /** Winner */
-            winner: string;
-        };
-        /** BearerResponse */
-        BearerResponse: {
-            /** Access Token */
-            access_token: string;
-            /** Token Type */
-            token_type: string;
-        };
-        /**
-         * BehavioralBiasesRequest
-         * @description Expressive + bullet voting + primacy effect on approval/plurality outcomes.
-         */
-        BehavioralBiasesRequest: {
-            /**
-             * Bullet Voting Pct
-             * @description Approval voters who approve only their top choice.
-             * @default 0.2
-             */
-            bullet_voting_pct: number;
-            /**
-             * Candidate Order
-             * @description Optional ballot ordering for primacy effect.
-             */
-            candidate_order?: string[] | null;
-            /** Candidates */
-            candidates: components["schemas"]["CandidateSpec"][];
-            /**
-             * Expressive Pct
-             * @description Fraction of voters who boost their ideal candidate ×10.
-             * @default 0.2
-             */
-            expressive_pct: number;
-            /**
-             * Ideology
-             * @default random
-             */
-            ideology: string;
-            /**
-             * Method
-             * @default plurality
-             */
-            method: string;
-            /**
-             * Num Voters
-             * @default 200
-             */
-            num_voters: number;
-            /**
-             * Primacy Bonus
-             * @description Vote bonus for the first-listed candidate.
-             * @default 0.02
-             */
-            primacy_bonus: number;
-            /**
-             * Seed
-             * @default 42
-             */
-            seed: number;
-        };
-        /**
-         * BehavioralBiasesResponse
-         * @description Expressive + bullet + primacy biases vs sincere voting.
-         */
-        BehavioralBiasesResponse: {
-            /** Biased Winner */
-            biased_winner: string | null;
-            /** Bullet Immune Methods */
-            bullet_immune_methods: string[];
-            /** Method Sensitivity */
-            method_sensitivity: {
-                [key: string]: unknown;
-            };
-            /** Pedagogical Note */
-            pedagogical_note: string;
-            /** Sincere Winner */
-            sincere_winner: string | null;
-            /** Vote Breakdown */
-            vote_breakdown: {
-                [key: string]: unknown;
-            };
-            /** Winner Changed */
-            winner_changed: boolean;
-        } & {
-            [key: string]: unknown;
-        };
-        /**
-         * BlankContagionRequest
-         * @description POST /simulations/blank-contagion.
-         */
-        BlankContagionRequest: {
-            /**
-             * Contagion Rate
-             * @default 0.3
-             */
-            contagion_rate: number;
-            /**
-             * Initial Blank Rate
-             * @default 0.1
-             */
-            initial_blank_rate: number;
-            /**
-             * Network Type
-             * @default random
-             */
-            network_type: string;
-            /**
-             * Num Rounds
-             * @default 15
-             */
-            num_rounds: number;
-            /**
-             * Num Voters
-             * @default 300
-             */
-            num_voters: number;
-            /**
-             * Recovery Rate
-             * @default 0.15
-             */
-            recovery_rate: number;
-            /** Seed */
-            seed?: number | null;
-        };
-        /** BlankContagionResponse */
-        BlankContagionResponse: {
-            /** Blank Rate By Round */
-            blank_rate_by_round: unknown[];
-            /** Epidemic Threshold */
-            epidemic_threshold?: unknown;
-            /** Final Blank Rate */
-            final_blank_rate: number;
-            /** Network Type */
-            network_type: string;
-            /** R0 */
-            r0?: unknown;
-            /** Reached Equilibrium */
-            reached_equilibrium: boolean;
-            /** Rounds */
-            rounds: unknown[];
-        } & {
-            [key: string]: unknown;
-        };
-        /** BlankHistoryResponse */
-        BlankHistoryResponse: {
-            /** Country */
-            country: string;
-            /** Display Name */
-            display_name: string;
-            /** Note */
-            note: string;
-            /** Series */
-            series: unknown;
-        } & {
-            [key: string]: unknown;
-        };
-        /**
-         * BlankVoteConfig
-         * @description Constitutional blank-vote rule + optional contagion.
-         */
-        BlankVoteConfig: {
-            contagion?: components["schemas"]["ContagionConfig"];
-            /**
-             * Enabled
-             * @description Apply the constitutional rule to the winner.
-             * @default false
-             */
-            enabled: boolean;
-            /**
-             * Rule
-             * @description 'symbolic' | 'competitive' | 'threshold_30'.
-             * @default symbolic
-             */
-            rule: string;
-        };
-        /** Body_auth_jwt_login_api_v2_auth_jwt_login_post */
-        Body_auth_jwt_login_api_v2_auth_jwt_login_post: {
-            /** Client Id */
-            client_id?: string | null;
-            /**
-             * Client Secret
-             * Format: password
-             */
-            client_secret?: string | null;
-            /** Grant Type */
-            grant_type?: string | null;
-            /**
-             * Password
-             * Format: password
-             */
-            password: string;
-            /**
-             * Scope
-             * @default
-             */
-            scope: string;
-            /** Username */
-            username: string;
-        };
-        /** CVProposal */
-        CVProposal: {
-            /** Name */
-            name: string;
-            /** X */
-            x: number;
-        };
-        /** CWCandidate */
-        CWCandidate: {
-            /** Name */
-            name: string;
-            /** X */
-            x: number;
-            /**
-             * Y
-             * @default 0
-             */
-            y: number;
-        };
-        /**
-         * CalculateUtilityRequest
-         * @description POST /simulations/calculate_utility (single voter × candidate).
-         */
-        CalculateUtilityRequest: {
-            /** Candidate */
-            candidate?: {
-                [key: string]: unknown;
-            };
-            /** Issues */
-            issues?: string[];
-            /** Voter */
-            voter?: {
-                [key: string]: unknown;
-            };
-        };
-        /** CalculateUtilityResponse */
-        CalculateUtilityResponse: {
-            /** Message */
-            message: string;
-            /** Result */
-            result: {
-                [key: string]: unknown;
-            };
-            /** Success */
-            success: boolean;
-        } & {
-            [key: string]: unknown;
-        };
-        /**
-         * CampaignConfig
-         * @description Polling-bandwagon dynamics over a few days.
-         */
-        CampaignConfig: {
-            /**
-             * Enabled
-             * @description Apply campaign dynamics to true utilities.
-             * @default false
-             */
-            enabled: boolean;
-            /**
-             * Num Days
-             * @description Campaign length in days.
-             * @default 30
-             */
-            num_days: number;
-            /**
-             * Polling Effect
-             * @description 0 = ignore polls, 1 = ballots follow polls.
-             * @default 0.3
-             */
-            polling_effect: number;
-        };
-        /** CampaignEventResult */
-        CampaignEventResult: {
-            /** Candidate */
-            candidate: number;
-            /** Day */
-            day: number;
-            /** Magnitude */
-            magnitude: number;
-            /** Measured Impact */
-            measured_impact: number;
-            /** Type */
-            type: string;
-        } & {
-            [key: string]: unknown;
-        };
-        /**
-         * CampaignRequest
-         * @description POST /simulations/campaign (day-by-day campaign simulation).
-         */
-        CampaignRequest: {
-            /** Events */
-            events?: {
-                [key: string]: unknown;
-            }[];
-            /**
-             * Method
-             * @default plurality
-             */
-            method: string;
-            /**
-             * Num Candidates
-             * @default 4
-             */
-            num_candidates: number;
-            /**
-             * Num Days
-             * @default 30
-             */
-            num_days: number;
-            /**
-             * Num Voters
-             * @default 500
-             */
-            num_voters: number;
-            /** Seed */
-            seed?: number | null;
-        };
-        /** CampaignResponse */
-        CampaignResponse: {
-            /** Candidates */
-            candidates: string[];
-            /** Daily Leader */
-            daily_leader: string[];
-            /** Daily Scores */
-            daily_scores: {
-                [key: string]: number[];
-            };
-            /** Days */
-            days: number[];
-            /** Events */
-            events: components["schemas"]["CampaignEventResult"][];
-            /** Final Winner */
-            final_winner?: string | null;
-            /** Lead Changes */
-            lead_changes: number;
-        } & {
-            [key: string]: unknown;
-        };
-        /** CampaignSensitivityRequest */
-        CampaignSensitivityRequest: {
-            blank_vote?: components["schemas"]["BlankVoteConfig"];
-            campaign?: components["schemas"]["CampaignConfig"];
-            /** Candidates */
-            candidates: components["schemas"]["CandidateSpec"][];
-            /**
-             * Ideology
-             * @default random
-             */
-            ideology: string;
-            /**
-             * Num Voters
-             * @default 150
-             */
-            num_voters: number;
-            /**
-             * Seed
-             * @default 42
-             */
-            seed: number;
-            /**
-             * Snapshot Days
-             * @description Days at which to snapshot — strings ('final') and ints are both accepted.
-             */
-            snapshot_days?: unknown[];
-        };
-        /** CampaignSensitivityResponse */
-        CampaignSensitivityResponse: {
-            /** Least Stable Method */
-            least_stable_method: string | null;
-            /**
-             * Method Stability
-             * @description Per-method: winner_changes count, final_winner, stability_score [0..1].
-             */
-            method_stability: {
-                [key: string]: {
-                    [key: string]: unknown;
-                };
-            };
-            /** Most Stable Method */
-            most_stable_method: string | null;
-            /** Snapshots */
-            snapshots: components["schemas"]["CampaignSnapshot"][];
-        };
-        /**
-         * CampaignSnapshot
-         * @description Tolerant of extra fields the worker emits per-snapshot (vote shares,
-         *     method-specific scores, ...). Only the strictly-required fields are
-         *     typed; the rest pass through unchanged.
-         */
-        CampaignSnapshot: {
-            /** Condorcet Winner */
-            condorcet_winner?: string | null;
-            /**
-             * Day
-             * @description Day index or 'final'.
-             */
-            day: unknown;
-            /** Methods */
-            methods?: {
-                [key: string]: components["schemas"]["MethodResult"];
-            };
-        } & {
-            [key: string]: unknown;
-        };
-        /** CandidateOverride */
-        CandidateOverride: {
-            /** Name */
-            name: string;
-            /** X */
-            x: number;
-            /** Y */
-            y: number;
-        };
-        /**
-         * CandidateSnapshot
-         * @description Candidate as returned in /simulate (with derived party label).
-         */
-        CandidateSnapshot: {
-            /** Name */
-            name: string;
-            /** Party */
-            party: string;
-            /** X */
-            x: number;
-            /** Y */
-            y: number;
-        };
-        /**
-         * CandidateSpec
-         * @description A single candidate placed at a 2D ideological position on [-1, 1]².
-         */
-        CandidateSpec: {
-            /**
-             * Name
-             * @description Candidate display name.
-             */
-            name: string;
-            /**
-             * X
-             * @description Economy axis. -1 = far left, +1 = far right.
-             */
-            x: number;
-            /**
-             * Y
-             * @description Social axis. -1 = liberal, +1 = conservative.
-             */
-            y: number;
-        };
-        /**
-         * CascadeRequest
-         * @description Sequential voting with information cascades (Bikhchandani et al., 1992).
-         */
-        CascadeRequest: {
-            /** Candidates */
-            candidates: components["schemas"]["CandidateSpec"][];
-            /**
-             * Cascade Strength
-             * @description Probability of following the public signal vs. sincere vote.
-             * @default 0.5
-             */
-            cascade_strength: number;
-            /**
-             * Ideology
-             * @default random
-             */
-            ideology: string;
-            /**
-             * Num Voters
-             * @default 100
-             */
-            num_voters: number;
-            /**
-             * Observation Window
-             * @description Number of recent votes each voter observes.
-             * @default 10
-             */
-            observation_window: number;
-            /**
-             * Seed
-             * @default 42
-             */
-            seed: number;
-        };
-        /**
-         * CascadeResponse
-         * @description Information cascade: sequential voting where later voters follow the herd.
-         */
-        CascadeResponse: {
-            /** Candidates */
-            candidates: string[];
-            /** Cascade Occurred */
-            cascade_occurred: boolean;
-            /** Cascade Start At */
-            cascade_start_at: number | null;
-            /** Cascade Strength Curve */
-            cascade_strength_curve: {
-                [key: string]: unknown;
-            }[];
-            /** Cascade Winner */
-            cascade_winner: string | null;
-            /** Comparison Runs */
-            comparison_runs: {
-                [key: string]: unknown;
-            }[];
-            /** Sincere Winner */
-            sincere_winner: string | null;
-            /** Vote Sequence */
-            vote_sequence: {
-                [key: string]: unknown;
-            }[];
-        } & {
-            [key: string]: unknown;
-        };
-        /** ChaosPath */
-        ChaosPath: {
-            /** From */
-            from: number[];
-            /** Num Steps */
-            num_steps: number;
-            /** Steps */
-            steps: number[][];
-            /** To */
-            to: number[];
-        };
-        /**
-         * ChoiceOverloadRequest
-         * @description Schwartz 2004 paradox: heuristics dominate beyond overload_threshold candidates.
-         */
-        ChoiceOverloadRequest: {
-            /**
-             * Candidate Counts
-             * @description Candidate counts to compare. Each clamped to [2, 15].
-             */
-            candidate_counts?: number[];
-            heuristic_weights?: components["schemas"]["HeuristicWeights"] | null;
-            /**
-             * Ideology
-             * @default random
-             */
-            ideology: string;
-            /**
-             * Methods
-             * @description Voting methods to compare.
-             */
-            methods?: string[] | null;
-            /**
-             * Num Voters
-             * @default 150
-             */
-            num_voters: number;
-            /**
-             * Overload Threshold
-             * @description Above this candidate count, voters switch to heuristics.
-             * @default 5
-             */
-            overload_threshold: number;
-            /**
-             * Seed
-             * @default 42
-             */
-            seed: number;
-        };
-        /**
-         * ChoiceOverloadResponse
-         * @description Heuristic voting beyond an overload threshold of candidates.
-         */
-        ChoiceOverloadResponse: {
-            /** Heuristic Weights */
-            heuristic_weights: {
-                [key: string]: number;
-            };
-            /** Least Robust Method */
-            least_robust_method: string | null;
-            /** Most Robust Method */
-            most_robust_method: string | null;
-            /** Overload Threshold */
-            overload_threshold: number;
-            /** Pedagogical Note */
-            pedagogical_note: string;
-            /** Regret Curve */
-            regret_curve: {
-                [key: string]: unknown;
-            }[];
-            /** Results By N */
-            results_by_n: {
-                [key: string]: unknown;
-            }[];
-        } & {
-            [key: string]: unknown;
-        };
-        /**
-         * ClosestCandidateRequest
-         * @description POST /simulations/get_closest_candidate (2-D spatial assignment).
-         */
-        ClosestCandidateRequest: {
-            /** Candidates */
-            candidates?: unknown[];
-            /** Voters */
-            voters?: unknown[];
-        };
-        /** ClosestCandidateResponse */
-        ClosestCandidateResponse: {
-            /** Result */
-            result: unknown;
-        } & {
-            [key: string]: unknown;
-        };
-        /** CoalitionCandidate */
-        CoalitionCandidate: {
-            /** Name */
-            name: string;
-            /** X */
-            x: number;
-        };
-        /** CoalitionConstraint */
-        CoalitionConstraint: {
-            /** Party A */
-            party_a: string;
-            /** Party B */
-            party_b: string;
-        };
-        /**
-         * CoalitionMethodResult
-         * @description Coalition analysis for one voting method.
-         */
-        CoalitionMethodResult: {
-            /** Coalition Parties */
-            coalition_parties: string[];
-            /** Coalition Seats */
-            coalition_seats: number;
-            /**
-             * Coalition Spread
-             * @description Ideological variance of coalition (0 = monolithic).
-             */
-            coalition_spread: number;
-            /** Government Possible */
-            government_possible: boolean;
-            /** Method */
-            method: string;
-            /** Seats */
-            seats: {
-                [key: string]: number;
-            };
-            /** Vote Shares */
-            vote_shares: {
-                [key: string]: number;
-            };
-            /** Winner */
-            winner: string;
-        } & {
-            [key: string]: unknown;
-        };
-        /**
-         * CoalitionRequest
-         * @description Per-method D'Hondt seat allocation + greedy coalition formation.
-         */
-        CoalitionRequest: {
-            /** Candidates */
-            candidates: components["schemas"]["CandidateSpec"][];
-            /**
-             * Government Threshold
-             * @description Share of seats needed to form a government.
-             * @default 0.5
-             */
-            government_threshold: number;
-            /**
-             * Ideology
-             * @default random
-             */
-            ideology: string;
-            /**
-             * Num Voters
-             * @default 300
-             */
-            num_voters: number;
-            /**
-             * Seed
-             * @default 42
-             */
-            seed: number;
-            /**
-             * Total Seats
-             * @description Size of the parliament.
-             * @default 100
-             */
-            total_seats: number;
-        };
-        /** CoalitionResponse */
-        CoalitionResponse: {
-            /** Candidates */
-            candidates: components["schemas"]["CoalitionCandidate"][];
-            /** Inter Method Agreement */
-            inter_method_agreement: number;
-            /** Methods */
-            methods: components["schemas"]["CoalitionMethodResult"][];
-            /** Most Centrist Method */
-            most_centrist_method: string | null;
-            /** Most Divergent Method */
-            most_divergent_method: string | null;
-            /**
-             * Seat Threshold
-             * @description ceil(total_seats * government_threshold).
-             */
-            seat_threshold: number;
-            /** Total Seats */
-            total_seats: number;
-        };
-        /**
-         * CollectiveWillRequest
-         * @description Does the general will exist, or is it a procedural artefact?
-         */
-        CollectiveWillRequest: {
-            /** Candidates */
-            candidates?: components["schemas"]["CWCandidate"][];
-            /**
-             * Ideology
-             * @default random
-             */
-            ideology: string;
-            /**
-             * Num Agendas
-             * @default 4
-             */
-            num_agendas: number;
-            /**
-             * Num Methods
-             * @default 5
-             */
-            num_methods: number;
-            /**
-             * Num Simulations
-             * @default 1
-             */
-            num_simulations: number;
-            /**
-             * Num Voters
-             * @default 100
-             */
-            num_voters: number;
-            /**
-             * Seed
-             * @default 42
-             */
-            seed: number;
-        };
-        /** CollectiveWillResponse */
-        CollectiveWillResponse: {
-            /** Condorcet Exists */
-            condorcet_exists: boolean;
-            /** Condorcet Winner */
-            condorcet_winner?: string | null;
-            /** Most Frequent Pct */
-            most_frequent_pct: number;
-            /** Most Frequent Winner */
-            most_frequent_winner: string;
-            /** Pedagogical Note */
-            pedagogical_note: string;
-            /** Philosophical Conclusion */
-            philosophical_conclusion: string;
-            /** Rousseau Score */
-            rousseau_score: number;
-            /** Unique Winner Count */
-            unique_winner_count: number;
-            /** Unique Winners */
-            unique_winners: string[];
-            /** Winner By Agenda */
-            winner_by_agenda: {
-                [key: string]: string;
-            };
-            /** Winner By Method */
-            winner_by_method: {
-                [key: string]: string;
-            };
-        };
-        /** CombinedEffectsCombination */
-        CombinedEffectsCombination: {
-            /** Blank */
-            blank: boolean;
-            /** Campaign */
-            campaign: boolean;
-            /** Condorcet Winner */
-            condorcet_winner: string | null;
-            /** Id */
-            id: string;
-            /** Information Model */
-            information_model: boolean;
-            /** Inter Method Agreement */
-            inter_method_agreement: number;
-            /** Plurality Winner */
-            plurality_winner: string | null;
-            /** Winner Differs From Base */
-            winner_differs_from_base: boolean;
-        };
-        /**
-         * CombinedEffectsRequest
-         * @description Same shape as SimulateRequest but with a tighter num_voters cap (2³=8 simulations).
-         */
-        CombinedEffectsRequest: {
-            blank_vote?: components["schemas"]["BlankVoteConfig"];
-            campaign?: components["schemas"]["CampaignConfig"];
-            /** Candidates */
-            candidates: components["schemas"]["CandidateSpec"][];
-            /**
-             * Ideology
-             * @default random
-             */
-            ideology: string;
-            information_model?: components["schemas"]["InformationModelConfig"];
-            /**
-             * Num Voters
-             * @default 150
-             */
-            num_voters: number;
-            /**
-             * Seed
-             * @default 42
-             */
-            seed: number;
-        };
-        /** CombinedEffectsResponse */
-        CombinedEffectsResponse: {
-            /** Base Winner */
-            base_winner: string | null;
-            /** Combinations */
-            combinations: components["schemas"]["CombinedEffectsCombination"][];
-            /**
-             * Factor Deltas
-             * @description Agreement delta per factor (in %). Negative = factor disrupts agreement.
-             */
-            factor_deltas: {
-                [key: string]: number;
-            };
-            /** Least Disruptive Factor */
-            least_disruptive_factor: string;
-            /** Max Disruption Combination */
-            max_disruption_combination: string;
-            /** Most Disruptive Factor */
-            most_disruptive_factor: string;
-        };
-        /**
-         * CompareMethodsRequest
-         * @description POST /simulations/compare.
-         */
-        CompareMethodsRequest: {
-            /**
-             * Blank Rule
-             * @default symbolic
-             */
-            blank_rule: string;
-            /**
-             * Blank Vote
-             * @default false
-             */
-            blank_vote: boolean;
-            /** Candidates */
-            candidates?: unknown[];
-            /**
-             * Ideology Distribution
-             * @default random
-             */
-            ideology_distribution: string;
-            /** Information Model */
-            information_model?: {
-                [key: string]: unknown;
-            };
-            /**
-             * Num Voters
-             * @default 500
-             */
-            num_voters: number;
-        };
-        /** CompareMethodsResponse */
-        CompareMethodsResponse: {
-            /** Condorcet Winner */
-            condorcet_winner?: string | null;
-            /** Information Model */
-            information_model: {
-                [key: string]: unknown;
-            };
-            /** Methods */
-            methods: {
-                [key: string]: unknown;
-            };
-        } & {
-            [key: string]: unknown;
-        };
-        /** CompetenceParams */
-        CompetenceParams: {
-            /**
-             * Caplan Bias
-             * @default true
-             */
-            caplan_bias: boolean;
-            /**
-             * Expert Pct
-             * @default 0.1
-             */
-            expert_pct: number;
-            /**
-             * Mean
-             * @default 0.55
-             */
-            mean: number;
-            /**
-             * Std
-             * @default 0.15
-             */
-            std: number;
-        };
-        /**
-         * CompulsoryVotingRequest
-         * @description Voluntary vs compulsory turnout: reluctant voters add null/random ballots.
-         */
-        CompulsoryVotingRequest: {
-            /** Candidates */
-            candidates: components["schemas"]["CandidateSpec"][];
-            /**
-             * Compulsory Turnout
-             * @default 0.92
-             */
-            compulsory_turnout: number;
-            /**
-             * Ideology
-             * @default random
-             */
-            ideology: string;
-            /**
-             * Method
-             * @default plurality
-             */
-            method: string;
-            /**
-             * Num Voters
-             * @default 300
-             */
-            num_voters: number;
-            /**
-             * Reluctant Null Rate
-             * @description Fraction of reluctant voters who cast null ballots.
-             * @default 0.04
-             */
-            reluctant_null_rate: number;
-            /**
-             * Reluctant Random Pct
-             * @description Fraction who vote randomly rather than sincerely.
-             * @default 0.08
-             */
-            reluctant_random_pct: number;
-            /**
-             * Seed
-             * @default 42
-             */
-            seed: number;
-            /**
-             * Voluntary Turnout
-             * @default 0.65
-             */
-            voluntary_turnout: number;
-        };
-        /**
-         * CompulsoryVotingResponse
-         * @description Voluntary vs compulsory turnout and the quality/representation trade-off.
-         */
-        CompulsoryVotingResponse: {
-            /** Compulsory */
-            compulsory: {
-                [key: string]: unknown;
-            };
-            /** Pedagogical Note */
-            pedagogical_note: string;
-            /** Quality Degradation */
-            quality_degradation: number;
-            /** Representation Improvement */
-            representation_improvement: number;
-            /** Voluntary */
-            voluntary: {
-                [key: string]: unknown;
-            };
-            /** Winner Changed */
-            winner_changed: boolean;
-        } & {
-            [key: string]: unknown;
-        };
-        /**
-         * CondorcetMatrixRequest
-         * @description POST /simulations/condorcet-matrix.
-         */
-        CondorcetMatrixRequest: {
-            /** Candidates */
-            candidates?: unknown[];
-            /**
-             * Ideology Distribution
-             * @default random
-             */
-            ideology_distribution: string;
-            /**
-             * Num Voters
-             * @default 500
-             */
-            num_voters: number;
-        };
-        /** CondorcetMatrixResponse */
-        CondorcetMatrixResponse: {
-            /** Candidates */
-            candidates: unknown[];
-            /** Condorcet Cycles */
-            condorcet_cycles?: unknown;
-            /** Condorcet Winner */
-            condorcet_winner?: string | null;
-            /** Matrix */
-            matrix: unknown;
-        } & {
-            [key: string]: unknown;
-        };
-        /**
-         * ConstitutionalScenarioRequest
-         * @description POST /simulations/constitutional-scenario.
-         */
-        ConstitutionalScenarioRequest: {
-            /** Initial Election */
-            initial_election?: {
-                [key: string]: unknown;
-            };
-            /** Params */
-            params?: {
-                [key: string]: unknown;
-            };
-            /**
-             * Scenario Type
-             * @default new_election
-             */
-            scenario_type: string;
-        };
-        /**
-         * ConstitutionalScenarioResponse
-         * @description Polymorphic by scenario_type (new_election/provisional/dissolution);
-         *     `scenario_type` + `conclusion` are common to every branch.
-         */
-        ConstitutionalScenarioResponse: {
-            /** Conclusion */
-            conclusion: string;
-            /** Scenario Type */
-            scenario_type: string;
-        } & {
-            [key: string]: unknown;
-        };
-        /**
-         * ContagionConfig
-         * @description SIS-style blank-vote contagion parameters.
-         */
-        ContagionConfig: {
-            /**
-             * Beta
-             * @description Infection rate β (probability of converting per neighbour).
-             * @default 0.15
-             */
-            beta: number;
-            /**
-             * Enabled
-             * @description Whether contagion is applied.
-             * @default false
-             */
-            enabled: boolean;
-            /**
-             * Gamma
-             * @description Recovery rate γ.
-             * @default 0.1
-             */
-            gamma: number;
-            /**
-             * Network
-             * @description Network topology: 'random' | 'watts_strogatz' | 'block'.
-             * @default random
-             */
-            network: string;
-        };
-        /**
-         * ConvictionVotingRequest
-         * @description Polkadot-style conviction voting: tokens × multiplier(lock_days).
-         */
-        ConvictionVotingRequest: {
-            /**
-             * Conviction Distribution
-             * @description 'uniform' | 'skewed' | 'whale' | 'zero_lock'.
-             * @default uniform
-             */
-            conviction_distribution: string;
-            /**
-             * Ideology
-             * @default random
-             */
-            ideology: string;
-            /**
-             * Num Voters
-             * @default 200
-             */
-            num_voters: number;
-            /** Proposals */
-            proposals: components["schemas"]["CVProposal"][];
-            /**
-             * Seed
-             * @default 42
-             */
-            seed: number;
-            /**
-             * Small Lock Days
-             * @description Lock days for non-whale voters.
-             * @default 224
-             */
-            small_lock_days: number;
-            /**
-             * Whale Pct
-             * @default 0.1
-             */
-            whale_pct: number;
-        };
-        /**
-         * ConvictionVotingResponse
-         * @description Conviction voting: tokens × lock-multiplier vs plain token weight.
-         */
-        ConvictionVotingResponse: {
-            /** Conviction Winner */
-            conviction_winner: string | null;
-            /** Lock Options */
-            lock_options: number[];
-            /** Multipliers */
-            multipliers: {
-                [key: string]: number;
-            };
-            /** Pedagogical Note */
-            pedagogical_note: string;
-            /** Proposals */
-            proposals: {
-                [key: string]: unknown;
-            }[];
-            /** Token Winner */
-            token_winner: string | null;
-            /** Voter Scatter */
-            voter_scatter: {
-                [key: string]: unknown;
-            }[];
-            /** Voter Stats */
-            voter_stats: {
-                [key: string]: unknown;
-            };
-            /** Winner Changed */
-            winner_changed: boolean;
-        } & {
-            [key: string]: unknown;
-        };
-        /** CrossPressured */
-        CrossPressured: {
-            /** Abstention Rate */
-            abstention_rate: number;
-            /** Count */
-            count: number;
-        };
-        /**
-         * DeliberationRequest
-         * @description DeGroot deliberation: voters update ideology toward a network-weighted mean.
-         */
-        DeliberationRequest: {
-            /**
-             * Argument Quality
-             * @description Higher = updates pull toward better-informed positions.
-             * @default 0.5
-             */
-            argument_quality: number;
-            /** Candidates */
-            candidates: components["schemas"]["CandidateSpec"][];
-            /**
-             * Deliberation Rounds
-             * @default 5
-             */
-            deliberation_rounds: number;
-            /**
-             * Group Size
-             * @default 5
-             */
-            group_size: number;
-            /**
-             * Ideology
-             * @default random
-             */
-            ideology: string;
-            /**
-             * Influence Weight
-             * @description How strongly the group mean pulls each voter.
-             * @default 0.3
-             */
-            influence_weight: number;
-            /**
-             * Method
-             * @default plurality
-             */
-            method: string;
-            /**
-             * Network Type
-             * @description 'random' | 'echo_chamber' | 'bridge' | 'complete'.
-             * @default random
-             */
-            network_type: string;
-            /**
-             * Num Voters
-             * @default 200
-             */
-            num_voters: number;
-            /**
-             * Seed
-             * @default 42
-             */
-            seed: number;
-        };
-        /**
-         * DeliberationResponse
-         * @description Pre/post deliberation comparison under a social-influence network.
-         */
-        DeliberationResponse: {
-            /** Deliberation Effect */
-            deliberation_effect: {
-                [key: string]: unknown;
-            };
-            /** Network Effect */
-            network_effect: string;
-            /** Pedagogical Note */
-            pedagogical_note: string;
-            /** Per Round */
-            per_round: {
-                [key: string]: unknown;
-            }[];
-            /** Post Deliberation */
-            post_deliberation: {
-                [key: string]: unknown;
-            };
-            /** Pre Deliberation */
-            pre_deliberation: {
-                [key: string]: unknown;
-            };
-            /** Winner Changed */
-            winner_changed: boolean;
-        } & {
-            [key: string]: unknown;
-        };
-        /** DemocracyVsExpert */
-        DemocracyVsExpert: {
-            /** Democracy Regret */
-            democracy_regret: number;
-            /** Expert Regret */
-            expert_regret: number;
-            /** Omniscient Regret */
-            omniscient_regret: number;
-        };
-        /**
-         * DemocraticBacksliddingRequest
-         * @description Path toward autocracy across successive elections.
-         */
-        DemocraticBacksliddingRequest: {
-            /**
-             * Backsliding Intensity
-             * @default 0.5
-             */
-            backsliding_intensity: number;
-            /**
-             * Backsliding Method
-             * @description gerrymandering | media_capture | voter_suppression.
-             * @default gerrymandering
-             */
-            backsliding_method: string;
-            /** Candidates */
-            candidates?: components["schemas"]["BacksliddingCandidate"][];
-            guardrails?: components["schemas"]["Guardrails"] | null;
-            /**
-             * Ideology
-             * @default random
-             */
-            ideology: string;
-            /**
-             * Num Elections
-             * @default 8
-             */
-            num_elections: number;
-            /**
-             * Num Voters
-             * @default 100
-             */
-            num_voters: number;
-            /**
-             * Seed
-             * @default 42
-             */
-            seed: number;
-        };
-        /** DemocraticBacksliddingResponse */
-        DemocraticBacksliddingResponse: {
-            /** Autocracy At Election */
-            autocracy_at_election?: number | null;
-            /** Autocracy Reached */
-            autocracy_reached: boolean;
-            /** Elections */
-            elections: components["schemas"]["BacksliddingElection"][];
-            /** Guardrails Effectiveness */
-            guardrails_effectiveness: {
-                [key: string]: number;
-            };
-            /** Pedagogical Note */
-            pedagogical_note: string;
-            /** Tipping Points */
-            tipping_points: number[];
-        };
-        /** DemographicProfile */
-        DemographicProfile: {
-            /** Age Distribution */
-            age_distribution?: number[] | null;
-            /** Education Distribution */
-            education_distribution?: number[] | null;
-            /** Ideology By Age */
-            ideology_by_age?: number[] | null;
-            /** Ideology By Education */
-            ideology_by_education?: number[] | null;
-            /** Turnout By Age */
-            turnout_by_age?: number[] | null;
-            /** Turnout By Education */
-            turnout_by_education?: number[] | null;
-        };
-        /**
-         * DemographicTurnoutRequest
-         * @description Distortion between full population and effective electorate via age × education turnout gaps.
-         */
-        DemographicTurnoutRequest: {
-            /** Candidates */
-            candidates: components["schemas"]["CandidateSpec"][];
-            /**
-             * Correct For Turnout
-             * @description Whether to apply the turnout-correction model.
-             * @default true
-             */
-            correct_for_turnout: boolean;
-            demographic_profile?: components["schemas"]["DemographicProfile"] | null;
-            /**
-             * Method
-             * @default plurality
-             */
-            method: string;
-            /**
-             * Num Voters
-             * @default 300
-             */
-            num_voters: number;
-            /**
-             * Seed
-             * @default 42
-             */
-            seed: number;
-        };
-        /**
-         * DemographicTurnoutResponse
-         * @description Distortion between full population and effective (turnout-weighted) electorate.
-         */
-        DemographicTurnoutResponse: {
-            /** Biased Result */
-            biased_result: {
-                [key: string]: unknown;
-            };
-            /** Corrected Result */
-            corrected_result: {
-                [key: string]: unknown;
-            };
-            /** Demographic Breakdown */
-            demographic_breakdown: {
-                [key: string]: unknown;
-            }[];
-            /** Pedagogical Note */
-            pedagogical_note: string;
-            /** Representation Gap */
-            representation_gap: {
-                [key: string]: unknown;
-            };
-            /** Winner Changed */
-            winner_changed: boolean;
-        } & {
-            [key: string]: unknown;
-        };
-        /** DistrictBounds */
-        DistrictBounds: {
-            /** X Max */
-            x_max: number;
-            /** X Min */
-            x_min: number;
-            /** Y Max */
-            y_max: number;
-            /** Y Min */
-            y_min: number;
-        };
-        /** DistrictResult */
-        DistrictResult: {
-            /** Id */
-            id: number;
-            /** Ideology Center */
-            ideology_center: number;
-            /** Vote Shares */
-            vote_shares: {
-                [key: string]: number;
-            };
-            /** Winner Fptp */
-            winner_fptp: string;
-        } & {
-            [key: string]: unknown;
-        };
-        /** DistrictSpec */
-        DistrictSpec: {
-            bounds: components["schemas"]["DistrictBounds"];
-            /** Id */
-            id: number;
-        };
-        /**
-         * DistrictsRequest
-         * @description N districts with locally shifted ideology, FPTP vs proportional.
-         */
-        DistrictsRequest: {
-            /** Candidates */
-            candidates: components["schemas"]["CandidateSpec"][];
-            /**
-             * District Ideology Variance
-             * @default 0.3
-             */
-            district_ideology_variance: number;
-            /**
-             * Num Districts
-             * @default 10
-             */
-            num_districts: number;
-            /**
-             * Seed
-             * @default 42
-             */
-            seed: number;
-            /**
-             * Voters Per District
-             * @default 100
-             */
-            voters_per_district: number;
-        };
-        /**
-         * DistrictsResponse
-         * @description N single-member districts: FPTP parliament vs proportional.
-         */
-        DistrictsResponse: {
-            /** Condorcet Winner National */
-            condorcet_winner_national?: string | null;
-            /** Distortion */
-            distortion: number;
-            /** Districts */
-            districts: components["schemas"]["DistrictResult"][];
-            /** Fptp Winner */
-            fptp_winner: string;
-            /** National Vote Share */
-            national_vote_share: {
-                [key: string]: number;
-            };
-            /** Num Districts */
-            num_districts: number;
-            /** Parliament Fptp */
-            parliament_fptp: {
-                [key: string]: number;
-            };
-            /** Parliament Proportional */
-            parliament_proportional: {
-                [key: string]: number;
-            };
-            /** Proportional Winner */
-            proportional_winner: string;
-        } & {
-            [key: string]: unknown;
-        };
-        /**
-         * DivergenceRequest
-         * @description Same electorate, without vs with blank vote.
-         */
-        DivergenceRequest: {
-            /** Blank Vote */
-            blank_vote?: {
-                [key: string]: unknown;
-            } | null;
-            /** Candidates */
-            candidates: components["schemas"]["CandidateSpec"][];
-            /**
-             * Ideology
-             * @default random
-             */
-            ideology: string;
-            /**
-             * Num Voters
-             * @default 200
-             */
-            num_voters: number;
-            /**
-             * Seed
-             * @default 42
-             */
-            seed: number;
-        };
-        /**
-         * DivergenceResponse
-         * @description Inter-method agreement with vs without the blank-vote rule.
-         */
-        DivergenceResponse: {
-            /** Blank Rule */
-            blank_rule: string;
-            /** Delta Agreement */
-            delta_agreement: number;
-            /** Methods Changed */
-            methods_changed: unknown[];
-            /** Pct Methods Changed */
-            pct_methods_changed: number;
-            /** With Blank */
-            with_blank: {
-                [key: string]: unknown;
-            };
-            /** Without Blank */
-            without_blank: {
-                [key: string]: unknown;
-            };
-        } & {
-            [key: string]: unknown;
-        };
-        /**
-         * E2EDemoRequest
-         * @description End-to-end verifiable voting pedagogical demo.
-         */
-        E2EDemoRequest: {
-            /** Candidates */
-            candidates?: string[];
-            /** Num Demo Voters */
-            num_demo_voters?: number | null;
-            /** Num Voters */
-            num_voters?: number | null;
-            /**
-             * Seed
-             * @default 42
-             */
-            seed: number;
-            /**
-             * User Vote
-             * @description If non-empty and present in candidates, voter #1's vote.
-             * @default
-             */
-            user_vote: string;
-        };
-        /** E2EDemoResponse */
-        E2EDemoResponse: {
-            /** Aggregate Result */
-            aggregate_result: unknown;
-            /** Audit Proof */
-            audit_proof: unknown;
-            /** Candidates */
-            candidates: unknown[];
-            /** Encrypted Ballots */
-            encrypted_ballots: unknown;
-            /** Num Voters */
-            num_voters: number;
-            /** Privacy Guarantee */
-            privacy_guarantee: unknown;
-            /** Public Bulletin Board */
-            public_bulletin_board: unknown;
-            /** Verification Demonstration */
-            verification_demonstration: unknown;
-            /** Voters */
-            voters: unknown[];
-            /** Winner */
-            winner?: string | null;
-        } & {
-            [key: string]: unknown;
-        };
-        /** ElectionRecord */
-        ElectionRecord: {
-            /** Active Parties */
-            active_parties: number;
-            /** Effective Parties */
-            effective_parties: number;
-            /** Election N */
-            election_n: number;
-            /** Eliminated */
-            eliminated: string[];
-            /** New Entrants */
-            new_entrants: string[];
-            /** Parties */
-            parties: components["schemas"]["PartySnap"][];
-            /** Winner */
-            winner: string;
-        } & {
-            [key: string]: unknown;
-        };
-        /**
-         * ElectoralFatigueRequest
-         * @description Turnout decay across repeated elections.
-         */
-        ElectoralFatigueRequest: {
-            /** Candidates */
-            candidates: components["schemas"]["CandidateSpec"][];
-            /**
-             * Engaged Voter Pct
-             * @description Share of always-voting partisans.
-             * @default 0.2
-             */
-            engaged_voter_pct: number;
-            /**
-             * Fatigue Rate
-             * @description Per-election turnout drop (0.07 = 7 pp).
-             * @default 0.07
-             */
-            fatigue_rate: number;
-            /**
-             * Ideology
-             * @default random
-             */
-            ideology: string;
-            /**
-             * Method
-             * @default plurality
-             */
-            method: string;
-            /**
-             * Num Elections
-             * @default 6
-             */
-            num_elections: number;
-            /**
-             * Num Voters
-             * @default 200
-             */
-            num_voters: number;
-            /**
-             * Seed
-             * @default 42
-             */
-            seed: number;
-        };
-        /**
-         * ElectoralFatigueResponse
-         * @description Repeated elections: turnout decay + ideological drift of the electorate.
-         */
-        ElectoralFatigueResponse: {
-            /** Elections */
-            elections: {
-                [key: string]: unknown;
-            }[];
-            /** Full Mean Ideology */
-            full_mean_ideology: number;
-            /** Ideology Drift */
-            ideology_drift: number;
-            /** Pedagogical Note */
-            pedagogical_note: string;
-            /** Representation Gap */
-            representation_gap: number;
-            /** Winner Changed At */
-            winner_changed_at: number | null;
-            /** Winner Drift */
-            winner_drift: string[];
-        } & {
-            [key: string]: unknown;
-        };
-        /** EpistCandidate */
-        EpistCandidate: {
-            /** Name */
-            name: string;
-            /** X */
-            x: number;
-            /**
-             * Y
-             * @default 0
-             */
-            y: number;
-        };
-        /**
-         * EpistocracyRequest
-         * @description Epistocratic voting vs standard democracy (Caplan / Brennan).
-         */
-        EpistocracyRequest: {
-            /** Candidates */
-            candidates?: components["schemas"]["EpistCandidate"][];
-            competence_params?: components["schemas"]["CompetenceParams"] | null;
-            /**
-             * Epistocracy Threshold
-             * @default 0.7
-             */
-            epistocracy_threshold: number;
-            /**
-             * Num Voters
-             * @default 100
-             */
-            num_voters: number;
-            /**
-             * Seed
-             * @default 42
-             */
-            seed: number;
-            /**
-             * Voter Competence Distribution
-             * @description uniform | bimodal | expert_minority.
-             * @default uniform
-             */
-            voter_competence_distribution: string;
-            /**
-             * Weighting Scheme
-             * @description Currently always reports all 4 schemes (equal/competence_weighted/epistocratic/lottery).
-             * @default equal
-             */
-            weighting_scheme: string;
-        };
-        /** EpistocracyResponse */
-        EpistocracyResponse: {
-            /** Condorcet Threshold */
-            condorcet_threshold: number;
-            democracy_vs_expert: components["schemas"]["DemocracyVsExpert"];
-            /** Pedagogical Note */
-            pedagogical_note: string;
-            /** Results */
-            results: {
-                [key: string]: components["schemas"]["EpistocracySchemeResult"];
-            };
-            voter_competence_stats: components["schemas"]["VoterCompetenceStats"];
-        };
-        /** EpistocracySchemeResult */
-        EpistocracySchemeResult: {
-            /** Bayesian Regret */
-            bayesian_regret: number;
-            /** Correct Choice Pct */
-            correct_choice_pct: number;
-            /** Participates Pct */
-            participates_pct: number;
-            /** Winner */
-            winner: string;
-        };
-        /** ErrorModel */
-        ErrorModel: {
-            /** Detail */
-            detail: string | {
-                [key: string]: string;
-            };
-        };
-        /**
-         * ExportDatasetJSON
-         * @description Body of the JSON export endpoint.
-         */
-        ExportDatasetJSON: {
-            /** Columns */
-            columns: string[];
-            meta: components["schemas"]["ExportDatasetMeta"];
-            /** Rows */
-            rows: {
-                [key: string]: unknown;
-            }[];
-        };
-        /** ExportDatasetMeta */
-        ExportDatasetMeta: {
-            /** Ideology */
-            ideology: string;
-            /** Num Candidates */
-            num_candidates: number;
-            /** Num Scenarios */
-            num_scenarios: number;
-            /** Num Voters */
-            num_voters: number;
-            /** Seed */
-            seed: number;
-            /** Total Rows */
-            total_rows: number;
-        };
-        /**
-         * ExportDatasetRequest
-         * @description Shared body for both /simulation-dataset and /simulation-dataset-json.
-         */
-        ExportDatasetRequest: {
-            /**
-             * Ideology
-             * @default random
-             */
-            ideology: string;
-            /**
-             * Num Candidates
-             * @default 4
-             */
-            num_candidates: number;
-            /**
-             * Num Scenarios
-             * @default 100
-             */
-            num_scenarios: number;
-            /**
-             * Num Voters
-             * @default 500
-             */
-            num_voters: number;
-            /**
-             * Seed
-             * @default 42
-             */
-            seed: number;
-        };
-        /**
-         * GalleryCreateRequest
-         * @description Body for `POST /api/v2/scenarios/gallery`.
-         */
-        GalleryCreateRequest: {
-            /** Description */
-            description: string;
-            /** Params */
-            params?: {
-                [key: string]: unknown;
-            };
-            /** Results Summary */
-            results_summary?: {
-                [key: string]: unknown;
-            };
-            /** Tags */
-            tags?: string[];
-            /** Title */
-            title: string;
-        };
-        /**
-         * GalleryDetail
-         * @description Detail view — adds the raw `params` blob.
-         */
-        GalleryDetail: {
-            /** Created At */
-            created_at?: string | null;
-            /** Description */
-            description: string;
-            /** Id */
-            id: number;
-            /** Is Featured */
-            is_featured: boolean;
-            /** Params */
-            params?: {
-                [key: string]: unknown;
-            };
-            /** Results Summary */
-            results_summary?: {
-                [key: string]: unknown;
-            };
-            /** Tags */
-            tags?: string[];
-            /** Title */
-            title: string;
-            /** Views */
-            views: number;
-        };
-        /**
-         * GalleryItem
-         * @description Summary view — what `/featured` and `/list` items look like.
-         */
-        GalleryItem: {
-            /** Created At */
-            created_at?: string | null;
-            /** Description */
-            description: string;
-            /** Id */
-            id: number;
-            /** Is Featured */
-            is_featured: boolean;
-            /** Results Summary */
-            results_summary?: {
-                [key: string]: unknown;
-            };
-            /** Tags */
-            tags?: string[];
-            /** Title */
-            title: string;
-            /** Views */
-            views: number;
-        };
-        /**
-         * GalleryPage
-         * @description Pagination envelope returned by `GET /api/v2/scenarios/gallery`.
-         */
-        GalleryPage: {
-            /** Items */
-            items: components["schemas"]["GalleryItem"][];
-            /** Page */
-            page: number;
-            /** Pages */
-            pages: number;
-            /** Per Page */
-            per_page: number;
-            /** Total */
-            total: number;
-        };
-        /**
-         * GerrymanderRequest
-         * @description Voters assigned to user-drawn rectangular districts.
-         */
-        GerrymanderRequest: {
-            /** Candidates */
-            candidates: components["schemas"]["CandidateSpec"][];
-            /** Districts */
-            districts: components["schemas"]["DistrictSpec"][];
-            /**
-             * Ideology
-             * @default random
-             */
-            ideology: string;
-            /**
-             * Num Voters
-             * @default 300
-             */
-            num_voters: number;
-            /**
-             * Seed
-             * @default 42
-             */
-            seed: number;
-        };
-        /**
-         * GerrymanderResponse
-         * @description Editable-boundary districts: gerrymandered parliament vs proportional.
-         */
-        GerrymanderResponse: {
-            /** Candidates */
-            candidates: string[];
-            /** Distortion */
-            distortion: number;
-            /** Districts */
-            districts: {
-                [key: string]: unknown;
-            }[];
-            /** Gerrymander Index */
-            gerrymander_index: number;
-            /** National Vote Share */
-            national_vote_share: {
-                [key: string]: unknown;
-            };
-            /** Num Seats */
-            num_seats: number;
-            /** Parliament Gerrymander */
-            parliament_gerrymander: {
-                [key: string]: unknown;
-            };
-            /** Parliament Proportional */
-            parliament_proportional: {
-                [key: string]: unknown;
-            };
-            /** Voters */
-            voters: {
-                [key: string]: unknown;
-            }[];
-            /** Winner */
-            winner?: string | null;
-        } & {
-            [key: string]: unknown;
-        };
-        /** GroupResult */
-        GroupResult: {
-            /** Affiliation */
-            affiliation: string;
-            /** Group Name */
-            group_name: string;
-            /** Group Vote Pct */
-            group_vote_pct: number;
-            /** Ideology Match */
-            ideology_match: number;
-            /** Loyalty */
-            loyalty: number;
-            /** Size Pct */
-            size_pct: number;
-        };
-        /** Guardrails */
-        Guardrails: {
-            /**
-             * Constitutional Court
-             * @default false
-             */
-            constitutional_court: boolean;
-            /**
-             * International Pressure
-             * @default false
-             */
-            international_pressure: boolean;
-            /**
-             * Opposition Media
-             * @default false
-             */
-            opposition_media: boolean;
-            /**
-             * Supermajority Required
-             * @default false
-             */
-            supermajority_required: boolean;
-        };
-        /** HTTPValidationError */
-        HTTPValidationError: {
-            /** Detail */
-            detail?: components["schemas"]["ValidationError"][];
-        };
-        /** HeuristicWeights */
-        HeuristicWeights: {
-            /**
-             * Notoriety
-             * @default 0.2
-             */
-            notoriety: number;
-            /**
-             * Partisan
-             * @default 0.2
-             */
-            partisan: number;
-            /**
-             * Primacy
-             * @default 0.1
-             */
-            primacy: number;
-        };
-        /**
-         * HistoricalReplayRequest
-         * @description Day-by-day historical replay with optional candidate-position overrides.
-         */
-        HistoricalReplayRequest: {
-            /**
-             * Num Days
-             * @default 30
-             */
-            num_days: number;
-            /** Overrides */
-            overrides?: components["schemas"]["CandidateOverride"][] | null;
-            /**
-             * Scenario Id
-             * @description One of france2002 | usa1992 | germany2021 | condorcet_cycle
-             * @default france2002
-             */
-            scenario_id: string;
-            /**
-             * Seed
-             * @default 42
-             */
-            seed: number;
-        };
-        /**
-         * HistoricalReplayResponse
-         * @description Brownian replay of a historical election day-by-day.
-         */
-        HistoricalReplayResponse: {
-            /** Candidates */
-            candidates: components["schemas"]["ReplayCandidate"][];
-            /** Days */
-            days: components["schemas"]["ReplayDay"][];
-            final: components["schemas"]["ReplayFinal"];
-            scenario: components["schemas"]["ReplayScenario"];
-        } & {
-            [key: string]: unknown;
-        };
-        /** HotellingCandPos */
-        HotellingCandPos: {
-            /** Name */
-            name: string;
-            /** X */
-            x: number;
-            /** Y */
-            y: number;
-        } & {
-            [key: string]: unknown;
-        };
-        /** HotellingIteration */
-        HotellingIteration: {
-            /** Candidates */
-            candidates: components["schemas"]["HotellingCandPos"][];
-            /** Converged Candidates */
-            converged_candidates: string[];
-            /** Scores */
-            scores: {
-                [key: string]: number;
-            };
-            /** Step */
-            step: number;
-        } & {
-            [key: string]: unknown;
-        };
-        /**
-         * HotellingRequest
-         * @description Hotelling-Downs iterative best-response: candidates move to maximise votes.
-         */
-        HotellingRequest: {
-            /** Candidates */
-            candidates: components["schemas"]["CandidateSpec"][];
-            /**
-             * Ideology
-             * @default random
-             */
-            ideology: string;
-            /**
-             * Method
-             * @default plurality
-             */
-            method: string;
-            /**
-             * Num Iterations
-             * @default 10
-             */
-            num_iterations: number;
-            /**
-             * Num Voters
-             * @default 200
-             */
-            num_voters: number;
-            /**
-             * Seed
-             * @default 42
-             */
-            seed: number;
-            /**
-             * Step Size
-             * @description Per-step distance each candidate moves on the (x, y) grid.
-             * @default 0.05
-             */
-            step_size: number;
-        };
-        /**
-         * HotellingResponse
-         * @description Hotelling-Downs convergence: candidates chasing the median voter.
-         */
-        HotellingResponse: {
-            /** Candidates */
-            candidates: string[];
-            /** Converged */
-            converged: boolean;
-            /** Convergence Step */
-            convergence_step?: number | null;
-            /** Equilibrium Type */
-            equilibrium_type: string;
-            /** Final Positions */
-            final_positions: components["schemas"]["HotellingCandPos"][];
-            /** Iterations */
-            iterations: components["schemas"]["HotellingIteration"][];
-            /** Method */
-            method: string;
-            /** Voters */
-            voters: components["schemas"]["HotellingVoter"][];
-        } & {
-            [key: string]: unknown;
-        };
-        /** HotellingVoter */
-        HotellingVoter: {
-            /** X */
-            x: number;
-            /** Y */
-            y: number;
-        } & {
-            [key: string]: unknown;
-        };
-        /** IDCandidate */
-        IDCandidate: {
-            /** Name */
-            name: string;
-            /** X */
-            x: number;
-            /**
-             * Y
-             * @default 0
-             */
-            y: number;
-        };
-        /** IGDecision */
-        IGDecision: {
-            /** Benefit Future */
-            benefit_future: number;
-            /** Cost Present */
-            cost_present: number;
-            /** Name */
-            name: string;
-            /** Time Horizon Years */
-            time_horizon_years: number;
-        };
-        /** IGDecisionResult */
-        IGDecisionResult: {
-            /** By Mechanism */
-            by_mechanism: {
-                [key: string]: {
-                    [key: string]: unknown;
-                };
-            };
-            /** Decision Name */
-            decision_name: string;
-        };
-        /** IIARatePoint */
-        IIARatePoint: {
-            /** N Candidates */
-            n_candidates: number;
-            /** Violation Rate */
-            violation_rate: number;
-        };
-        /**
-         * IIARateRequest
-         * @description Empirical IIA violation rate vs number of candidates.
-         */
-        IIARateRequest: {
-            /**
-             * Max Candidates
-             * @default 8
-             */
-            max_candidates: number;
-            /**
-             * Method
-             * @default plurality
-             */
-            method: string;
-            /**
-             * Num Trials
-             * @default 100
-             */
-            num_trials: number;
-            /**
-             * Seed
-             * @default 42
-             */
-            seed: number;
-        };
-        /** IIARateResponse */
-        IIARateResponse: {
-            /** Curve */
-            curve: components["schemas"]["IIARatePoint"][];
-            /** Method */
-            method: string;
-        };
-        /** IdentityCurvePoint */
-        IdentityCurvePoint: {
-            /** Agreement Rate */
-            agreement_rate: number;
-            /** Weight */
-            weight: number;
-            /** Winner */
-            winner: string;
-        };
-        /** IdentityGroup */
-        IdentityGroup: {
-            /** Candidate Affiliation */
-            candidate_affiliation: string;
-            /** Ideology Center */
-            ideology_center: number;
-            /** Loyalty */
-            loyalty: number;
-            /** Name */
-            name: string;
-            /** Pct */
-            pct: number;
-        };
-        /**
-         * IdentityVotingRequest
-         * @description Green/Palmquist/Schickler 2002 identity-based voting.
-         */
-        IdentityVotingRequest: {
-            /** Candidates */
-            candidates?: components["schemas"]["IDCandidate"][];
-            /**
-             * Cross Pressure
-             * @default true
-             */
-            cross_pressure: boolean;
-            /**
-             * Identity Groups
-             * @description Defaults to 3 groups derived from candidates.
-             */
-            identity_groups?: components["schemas"]["IdentityGroup"][] | null;
-            /**
-             * Identity Weight
-             * @default 0.5
-             */
-            identity_weight: number;
-            /**
-             * Method
-             * @default plurality
-             */
-            method: string;
-            /**
-             * Num Voters
-             * @default 200
-             */
-            num_voters: number;
-            /**
-             * Seed
-             * @default 42
-             */
-            seed: number;
-        };
-        /** IdentityVotingResponse */
-        IdentityVotingResponse: {
-            cross_pressured: components["schemas"]["CrossPressured"];
-            /** Group Results */
-            group_results: components["schemas"]["GroupResult"][];
-            /** Identity Weight Curve */
-            identity_weight_curve: components["schemas"]["IdentityCurvePoint"][];
-            /** Identity Winner */
-            identity_winner: string;
-            /** Mixed Winner */
-            mixed_winner: string;
-            /** Pedagogical Note */
-            pedagogical_note: string;
-            /** Sincere Winner */
-            sincere_winner: string;
-            /** Winner Changed */
-            winner_changed: boolean;
-        };
-        /** IdeologyDrift */
-        IdeologyDrift: {
-            /** Final X */
-            final_x: number;
-            /** Initial X */
-            initial_x: number;
-            /** Party */
-            party: string;
-        } & {
-            [key: string]: unknown;
-        };
-        /**
-         * IdeologyMapRequest
-         * @description POST /simulations/ideology-map.
-         */
-        IdeologyMapRequest: {
-            /** Candidates */
-            candidates?: {
-                [key: string]: unknown;
-            }[];
-            /**
-             * Ideology
-             * @default random
-             */
-            ideology: string;
-            /**
-             * Method A
-             * @default plurality
-             */
-            method_a: string;
-            /**
-             * Method B
-             * @default schulze
-             */
-            method_b: string;
-            /**
-             * Num Voters
-             * @default 200
-             */
-            num_voters: number;
-            /**
-             * Seed
-             * @default 42
-             */
-            seed: number;
-        };
-        /** IdeologyMapResponse */
-        IdeologyMapResponse: {
-            /** Candidates */
-            candidates: {
-                [key: string]: unknown;
-            }[];
-            /** Condorcet Winner */
-            condorcet_winner?: string | null;
-            /** Method A */
-            method_a: string;
-            /** Method B */
-            method_b: string;
-            /** Pct Better Off With A */
-            pct_better_off_with_a: number;
-            /** Pct Better Off With B */
-            pct_better_off_with_b: number;
-            /** Voters */
-            voters: {
-                [key: string]: unknown;
-            }[];
-            /** Winner A */
-            winner_a?: string | null;
-            /** Winner B */
-            winner_b?: string | null;
-        } & {
-            [key: string]: unknown;
-        };
-        /**
-         * InformationModelConfig
-         * @description Media bias × voter information level adjustment of perceived utilities.
-         */
-        InformationModelConfig: {
-            /**
-             * Enabled
-             * @description Apply information asymmetry.
-             * @default false
-             */
-            enabled: boolean;
-            /**
-             * Media Bias
-             * @description Per-candidate media bias [-1, +1].
-             */
-            media_bias?: {
-                [key: string]: number;
-            };
-            /**
-             * Voter Segments
-             * @description Share of voters in each information bucket. Sums should be ~1.
-             */
-            voter_segments?: {
-                [key: string]: number;
-            };
-        };
-        /** InitialParty */
-        InitialParty: {
-            /** Name */
-            name: string;
-            /** Support Pct */
-            support_pct: number;
-            /** X */
-            x: number;
-            /** Y */
-            y: number;
-        };
-        /**
-         * IntergenerationalRequest
-         * @description How future-gen representation changes long-horizon decisions.
-         */
-        IntergenerationalRequest: {
-            /**
-             * Age Distribution
-             * @description [young, adult, senior] fractions; renormalized server-side.
-             */
-            age_distribution?: number[] | null;
-            /**
-             * Decisions
-             * @description Defaults to a 5-decision battery (retirement, education, debt, insulation, sovereign-fund).
-             */
-            decisions?: components["schemas"]["IGDecision"][] | null;
-            /**
-             * Future Generations Mechanism
-             * @description none | proxy | age_weighted | veto.
-             * @default none
-             */
-            future_generations_mechanism: string;
-            /**
-             * Num Voters
-             * @default 100
-             */
-            num_voters: number;
-            /**
-             * Seed
-             * @default 42
-             */
-            seed: number;
-        };
-        /** IntergenerationalResponse */
-        IntergenerationalResponse: {
-            /** Decisions Results */
-            decisions_results: components["schemas"]["IGDecisionResult"][];
-            /** Mechanism Comparison */
-            mechanism_comparison: {
-                [key: string]: {
-                    [key: string]: number;
-                };
-            };
-            /** Pedagogical Note */
-            pedagogical_note: string;
-        };
-        /**
-         * InterpretRequest
-         * @description Deterministic interpretation of a /simulate result.
-         */
-        InterpretRequest: {
-            /**
-             * Blank Rate
-             * @default 0
-             */
-            blank_rate: number;
-            /** Condorcet Exists */
-            condorcet_exists?: boolean | null;
-            /** Condorcet Winner */
-            condorcet_winner?: string | null;
-            /** Config */
-            config?: {
-                [key: string]: unknown;
-            } | null;
-            /**
-             * Inter Method Agreement
-             * @default 0
-             */
-            inter_method_agreement: number;
-            /**
-             * Lang
-             * @description UI language: 'fr' | 'en'.
-             * @default fr
-             */
-            lang: string;
-            /**
-             * Methods
-             * @description Methods dict from /simulate response.
-             */
-            methods: {
-                [key: string]: unknown;
-            };
-        } & {
-            [key: string]: unknown;
-        };
-        /**
-         * InterpretResponse
-         * @description Deterministic textual interpretation of a simulation result.
-         */
-        InterpretResponse: {
-            /** Best By Regret */
-            best_by_regret: unknown;
-            /** Blank Analysis */
-            blank_analysis: unknown;
-            /** Condorcet Analysis */
-            condorcet_analysis: unknown;
-            /** Divergence Reason */
-            divergence_reason: unknown;
-            /** Headline */
-            headline: string;
-            /** Key Facts */
-            key_facts: unknown;
-            /** Method Groups */
-            method_groups: unknown;
-            /** Pedagogical Note */
-            pedagogical_note: string;
-            /** Worst By Regret */
-            worst_by_regret: unknown;
-        } & {
-            [key: string]: unknown;
-        };
-        /** JAIncoherence */
-        JAIncoherence: {
-            /** Conclusion */
-            conclusion: string;
-            /** Premises */
-            premises: string[];
-            /** Problem */
-            problem: string;
-        };
-        /** JAProposition */
-        JAProposition: {
-            /** Collective Vote */
-            collective_vote: boolean;
-            /** Id */
-            id: string;
-            /** Text */
-            text: string;
-            /**
-             * Type
-             * @description 'premise' | 'conclusion'.
-             */
-            type: string;
-            /** Yes Pct */
-            yes_pct: number;
-        };
-        /** JAResolutionMethods */
-        JAResolutionMethods: {
-            /** Conclusion Based */
-            conclusion_based?: {
-                [key: string]: unknown;
-            };
-            /** Premise Based */
-            premise_based?: {
-                [key: string]: unknown;
-            };
-        };
-        /**
-         * JudgmentAggregationRequest
-         * @description Discursive dilemma (List & Pettit 2002).
-         */
-        JudgmentAggregationRequest: {
-            /**
-             * Num Voters
-             * @default 12
-             */
-            num_voters: number;
-            /**
-             * Scenario
-             * @description One of legal | budget | climate.
-             * @default legal
-             */
-            scenario: string;
-            /**
-             * Seed
-             * @default 42
-             */
-            seed: number;
-        };
-        /** JudgmentAggregationResponse */
-        JudgmentAggregationResponse: {
-            /** Collective Coherent */
-            collective_coherent: boolean;
-            /** Incoherences */
-            incoherences: components["schemas"]["JAIncoherence"][];
-            /** Paradox Severity */
-            paradox_severity: number;
-            /** Pedagogical Note */
-            pedagogical_note: string;
-            /** Propositions */
-            propositions: components["schemas"]["JAProposition"][];
-            resolution_methods: components["schemas"]["JAResolutionMethods"];
-            /** Scenario */
-            scenario: string;
-            /** Scenario Name */
-            scenario_name: string;
-            /** Voter Coherence Rate */
-            voter_coherence_rate: number;
-        };
-        /** JuryMethodResult */
-        JuryMethodResult: {
-            /** Accuracy */
-            accuracy: number;
-            /** Beats Majority */
-            beats_majority: boolean;
-            /** Beats Theory */
-            beats_theory: boolean;
-        } & {
-            [key: string]: unknown;
-        };
-        /**
-         * JuryRequest
-         * @description Condorcet Jury Theorem: P(majority correct) when each voter is right with p>0.5.
-         */
-        JuryRequest: {
-            /**
-             * Correct Option Index
-             * @default 0
-             */
-            correct_option_index: number;
-            /**
-             * Num Options
-             * @default 2
-             */
-            num_options: number;
-            /**
-             * Num Simulations
-             * @default 200
-             */
-            num_simulations: number;
-            /**
-             * Num Voters
-             * @default 100
-             */
-            num_voters: number;
-            /**
-             * Seed
-             * @default 42
-             */
-            seed: number;
-            /**
-             * Voter Competence
-             * @description Per-voter probability of picking the correct option.
-             * @default 0.7
-             */
-            voter_competence: number;
-        };
-        /**
-         * JuryResponse
-         * @description Condorcet Jury Theorem — per-method accuracy + competence-curve scan.
-         */
-        JuryResponse: {
-            /** Best Method */
-            best_method: string;
-            /** Competence Curve */
-            competence_curve: {
-                [key: string]: number;
-            }[];
-            /** Methods */
-            methods: {
-                [key: string]: components["schemas"]["JuryMethodResult"];
-            };
-            /** Num Voters */
-            num_voters: number;
-            /** Pedagogical Note */
-            pedagogical_note: string;
-            /** Pedagogical Note En */
-            pedagogical_note_en: string;
-            /** Theoretical Accuracy */
-            theoretical_accuracy: number;
-            /** Voter Competence */
-            voter_competence: number;
-            /** Worst Method */
-            worst_method: string;
-        } & {
-            [key: string]: unknown;
-        };
-        /** KeyManipulator */
-        KeyManipulator: {
-            /** Gain */
-            gain: number;
-            /** Strategy */
-            strategy: string;
-            /** Voter Id */
-            voter_id: number;
-        };
-        /**
-         * LegacySimulateRequest
-         * @description POST /simulations (legacy form-based simulation).
-         */
-        LegacySimulateRequest: {
-            /** Formdata */
-            formData: {
-                [key: string]: unknown;
-            };
-        };
-        /**
-         * LegacySimulateResponse
-         * @description POST /simulations (legacy). Conditional vote/ranked/score blocks +
-         *     dynamic per-method winners ride through on `extra="allow"`.
-         */
-        LegacySimulateResponse: {
-            /** Deprecation Warning */
-            deprecation_warning: string;
-            /** Metadata */
-            metadata: {
-                [key: string]: unknown;
-            };
-            /** Simulation Type */
-            simulation_type: string;
-        } & {
-            [key: string]: unknown;
-        };
-        /**
-         * LiquidDemocracyRequest
-         * @description Transitive delegation up to max_chain_length hops.
-         */
-        LiquidDemocracyRequest: {
-            /** Candidates */
-            candidates: components["schemas"]["CandidateSpec"][];
-            /**
-             * Delegation Probability
-             * @default 0.5
-             */
-            delegation_probability: number;
-            /**
-             * Delegation Strategy
-             * @description 'nearest' | 'most_competent' | 'random'.
-             * @default nearest
-             */
-            delegation_strategy: string;
-            /**
-             * Ideology
-             * @default random
-             */
-            ideology: string;
-            /**
-             * Max Chain Length
-             * @default 5
-             */
-            max_chain_length: number;
-            /**
-             * Num Voters
-             * @default 100
-             */
-            num_voters: number;
-            /**
-             * Seed
-             * @default 42
-             */
-            seed: number;
-        };
-        /**
-         * LiquidDemocracyResponse
-         * @description Transitive delegation: super-voters, cycles, and Gini of voting weight.
-         */
-        LiquidDemocracyResponse: {
-            /** Chain Stats */
-            chain_stats: {
-                [key: string]: unknown;
-            };
-            /** Comparison */
-            comparison: {
-                [key: string]: unknown;
-            };
-            /** Cycle Voter Ids */
-            cycle_voter_ids: number[];
-            /** Cycles Detected */
-            cycles_detected: number;
-            /** Delegation Graph */
-            delegation_graph: {
-                [key: string]: unknown;
-            }[];
-            /** Delegators */
-            delegators: number;
-            /** Direct Voters */
-            direct_voters: number;
-            /** Gini Curve */
-            gini_curve: {
-                [key: string]: unknown;
-            }[];
-            /** Gini Voting Weight */
-            gini_voting_weight: number;
-            /** Pedagogical Note */
-            pedagogical_note: string;
-            /** Super Voters */
-            super_voters: {
-                [key: string]: unknown;
-            }[];
-            /** Weighted Results */
-            weighted_results: {
-                [key: string]: number;
-            };
-        } & {
-            [key: string]: unknown;
-        };
-        /**
-         * MajorityTyrannyRequest
-         * @description Tocqueville's tyranny of the majority across decision rules.
-         */
-        MajorityTyrannyRequest: {
-            /**
-             * Decision Rules
-             * @description Defaults to all 6 rules.
-             */
-            decision_rules?: string[] | null;
-            /**
-             * Majority Pct
-             * @default 0.6
-             */
-            majority_pct: number;
-            /**
-             * Minority Intensity
-             * @default 3
-             */
-            minority_intensity: number;
-            /**
-             * Num Decisions
-             * @default 50
-             */
-            num_decisions: number;
-            /**
-             * Num Voters
-             * @default 100
-             */
-            num_voters: number;
-            /**
-             * Seed
-             * @default 42
-             */
-            seed: number;
-        };
-        /** MajorityTyrannyResponse */
-        MajorityTyrannyResponse: {
-            /** Best Protector */
-            best_protector: string;
-            /** Least Efficient */
-            least_efficient: string;
-            /** Pedagogical Note */
-            pedagogical_note: string;
-            /** Results */
-            results: {
-                [key: string]: components["schemas"]["MajorityTyrannyRuleResult"];
-            };
-            /** Tyranny Curve */
-            tyranny_curve: components["schemas"]["TyrannyCurvePoint"][];
-        };
-        /** MajorityTyrannyRuleResult */
-        MajorityTyrannyRuleResult: {
-            /** Efficiency Loss */
-            efficiency_loss: number;
-            /** Majority Satisfaction */
-            majority_satisfaction: number;
-            /** Minority Satisfaction */
-            minority_satisfaction: number;
-            /** Minority Win Rate */
-            minority_win_rate: number;
-            /** Total Welfare */
-            total_welfare: number;
-            /** Tyranny Index */
-            tyranny_index: number;
-        };
-        /** ManipulabilityResponse */
-        ManipulabilityResponse: {
-            /** Ideology */
-            ideology: string;
-            /** Num Candidates */
-            num_candidates: number;
-            /** Num Trials */
-            num_trials: number;
-            /** Num Voters */
-            num_voters: number;
-            /** Results */
-            results: unknown;
-        } & {
-            [key: string]: unknown;
-        };
-        /**
-         * ManipulationAnalysisRequest
-         * @description Gibbard-Satterthwaite manipulator identification.
-         */
-        ManipulationAnalysisRequest: {
-            /** Candidates */
-            candidates?: components["schemas"]["ManipulationCandidate"][];
-            /**
-             * Ideology
-             * @default random
-             */
-            ideology: string;
-            /** Manipulation Strategies */
-            manipulation_strategies?: string[];
-            /**
-             * Method
-             * @default plurality
-             */
-            method: string;
-            /**
-             * Num Voters
-             * @default 30
-             */
-            num_voters: number;
-            /**
-             * Seed
-             * @default 42
-             */
-            seed: number;
-        };
-        /** ManipulationAnalysisResponse */
-        ManipulationAnalysisResponse: {
-            key_manipulator?: components["schemas"]["KeyManipulator"] | null;
-            /** Manipulable */
-            manipulable: boolean;
-            /** Manipulation Count */
-            manipulation_count: number;
-            /** Manipulators */
-            manipulators: components["schemas"]["Manipulator"][];
-            /** Pedagogical Note */
-            pedagogical_note: string;
-            /** Sincere Winner */
-            sincere_winner: string | null;
-            /** Strategy Breakdown */
-            strategy_breakdown: {
-                [key: string]: number;
-            };
-        };
-        /** ManipulationCandidate */
-        ManipulationCandidate: {
-            /** Name */
-            name: string;
-            /** X */
-            x: number;
-            /** Y */
-            y: number;
-        };
-        /** Manipulator */
-        Manipulator: {
-            /** Sincere Result */
-            sincere_result: string | null;
-            /** Sincere Vote */
-            sincere_vote: string[];
-            /** Strategic Result */
-            strategic_result: string | null;
-            /** Strategic Vote */
-            strategic_vote: string[];
-            /** Strategy Type */
-            strategy_type: string;
-            /** Utility Gain */
-            utility_gain: number;
-            /** Voter Id */
-            voter_id: number;
-            /** Voter Ideology */
-            voter_ideology: number[];
-        };
-        /**
-         * MethodResult
-         * @description Result of a single voting method on one electorate.
-         */
-        MethodResult: {
-            /**
-             * Bayesian Regret
-             * @description Lower = better welfare.
-             */
-            bayesian_regret?: number | null;
-            /**
-             * Blank Triggered
-             * @description Did the blank-vote rule fire?
-             */
-            blank_triggered?: boolean | null;
-            /**
-             * Condorcet Consistent
-             * @description Did the method elect the Condorcet winner?
-             */
-            condorcet_consistent?: boolean | null;
-            /**
-             * Majority Satisfaction
-             * @description Share of voters satisfied (0..1).
-             */
-            majority_satisfaction?: number | null;
-            /**
-             * Winner
-             * @description Method winner.
-             */
-            winner?: string | null;
-            /**
-             * Winner With Blank
-             * @description Winner after blank-vote rule (if enabled).
-             */
-            winner_with_blank?: string | null;
-        } & {
-            [key: string]: unknown;
-        };
-        /**
-         * MonteCarloRequest
-         * @description POST /simulations/monte-carlo (synchronous aggregation variant).
-         */
-        MonteCarloRequest: {
-            /** Candidates */
-            candidates?: unknown[];
-            /**
-             * Ideology Distribution
-             * @default random
-             */
-            ideology_distribution: string;
-            /**
-             * Num Runs
-             * @default 100
-             */
-            num_runs: number;
-            /**
-             * Num Voters
-             * @default 150
-             */
-            num_voters: number;
-        };
-        /** MonteCarloResponse */
-        MonteCarloResponse: {
-            /** Condorcet Winner Exists Rate */
-            condorcet_winner_exists_rate: number;
-            /** Config */
-            config: {
-                [key: string]: unknown;
-            };
-            /** Inter Method Agreement */
-            inter_method_agreement?: unknown;
-            /** Methods */
-            methods: {
-                [key: string]: unknown;
-            };
-            /** Num Runs */
-            num_runs: number;
-            /** Num Voters Per Run */
-            num_voters_per_run: number;
-        } & {
-            [key: string]: unknown;
-        };
-        /**
-         * MultiwinnerCompareRequest
-         * @description STV / D'Hondt / SPAV / Phragmén / FPTP on the same electorate.
-         */
-        MultiwinnerCompareRequest: {
-            /** Candidates */
-            candidates: components["schemas"]["CandidateSpec"][];
-            /**
-             * Ideology
-             * @default random
-             */
-            ideology: string;
-            /**
-             * Num Seats
-             * @default 5
-             */
-            num_seats: number;
-            /**
-             * Num Voters
-             * @default 200
-             */
-            num_voters: number;
-            /**
-             * Seed
-             * @default 42
-             */
-            seed: number;
-        };
-        /**
-         * MultiwinnerCompareResponse
-         * @description Several multiwinner methods scored against a proportional reference.
-         */
-        MultiwinnerCompareResponse: {
-            /** Best Method */
-            best_method: string;
-            /** Candidates */
-            candidates: string[];
-            /** Methods */
-            methods: {
-                [key: string]: unknown;
-            };
-            /** Num Seats */
-            num_seats: number;
-            /** Proportional Reference */
-            proportional_reference: {
-                [key: string]: unknown;
-            };
-            /** Vote Shares */
-            vote_shares: {
-                [key: string]: number;
-            };
-            /** Worst Method */
-            worst_method: string;
-        } & {
-            [key: string]: unknown;
-        };
-        /**
-         * MultiwinnerRequest
-         * @description POST /simulations/multiwinner.
-         */
-        MultiwinnerRequest: {
-            /**
-             * Mode
-             * @default proportional
-             */
-            mode: string;
-            /**
-             * Num Seats
-             * @default 10
-             */
-            num_seats: number;
-            /** Party Votes */
-            party_votes?: {
-                [key: string]: unknown;
-            };
-        };
-        /** MultiwinnerResponse */
-        MultiwinnerResponse: {
-            /** Comparison */
-            comparison: {
-                [key: string]: unknown;
-            };
-            /** Dhondt */
-            dhondt?: {
-                [key: string]: unknown;
-            } | null;
-            /** Largest Remainder Droop */
-            largest_remainder_droop?: {
-                [key: string]: unknown;
-            } | null;
-            /** Largest Remainder Hare */
-            largest_remainder_hare?: {
-                [key: string]: unknown;
-            } | null;
-            /** Sainte Lague */
-            sainte_lague?: {
-                [key: string]: unknown;
-            } | null;
-            /** Stv */
-            stv?: {
-                [key: string]: unknown;
-            } | null;
-        } & {
-            [key: string]: unknown;
-        };
-        /**
-         * NotaRequest
-         * @description NOTA (None Of The Above) as an official ballot option.
-         */
-        NotaRequest: {
-            /** Candidates */
-            candidates: components["schemas"]["CandidateSpec"][];
-            /**
-             * Ideology
-             * @default random
-             */
-            ideology: string;
-            /**
-             * Method
-             * @description Primary method to display in the curve ('plurality' | 'irv' | 'borda' | 'schulze' | ...).
-             * @default plurality
-             */
-            method: string;
-            /**
-             * Nota Rule
-             * @description Constitutional response when NOTA wins: 'invalidate' | 'runoff' | 'winner_take_all'.
-             * @default invalidate
-             */
-            nota_rule: string;
-            /**
-             * Nota Threshold
-             * @description Minimum max-utility a voter needs for any candidate before they cast NOTA.
-             * @default 0.3
-             */
-            nota_threshold: number;
-            /**
-             * Num Voters
-             * @default 200
-             */
-            num_voters: number;
-            /**
-             * Seed
-             * @default 42
-             */
-            seed: number;
-        };
-        /**
-         * NotaResponse
-         * @description None-Of-The-Above: validity + per-method comparison + threshold curve.
-         */
-        NotaResponse: {
-            /** Election Valid */
-            election_valid: boolean;
-            /** Method Comparison */
-            method_comparison: {
-                [key: string]: unknown;
-            };
-            /** Nota Curve */
-            nota_curve: {
-                [key: string]: unknown;
-            }[];
-            /** Nota Pct */
-            nota_pct: number;
-            /** Nota Rule */
-            nota_rule: string;
-            /** Nota Threshold */
-            nota_threshold: number;
-            /** Pedagogical Note */
-            pedagogical_note: string;
-            /** Winner */
-            winner: string | null;
-        } & {
-            [key: string]: unknown;
-        };
-        /** OptimalAgenda */
-        OptimalAgenda: {
-            /** For Target */
-            for_target: string[];
-            /** Neutral */
-            neutral: string[];
-            /** Worst Case */
-            worst_case: string[];
-        };
-        /**
-         * PartyDynamicsRequest
-         * @description Multi-election party-system evolution (Duverger's Law).
-         */
-        PartyDynamicsRequest: {
-            /**
-             * Emergence Probability
-             * @description Per-election chance of a new party emerging.
-             * @default 0.1
-             */
-            emergence_probability: number;
-            /**
-             * Hotelling Adaptation
-             * @description How strongly parties move toward the centre over time.
-             * @default 0.1
-             */
-            hotelling_adaptation: number;
-            /**
-             * Ideology
-             * @default random
-             */
-            ideology: string;
-            /**
-             * Initial Parties
-             * @description Starting parties. If None, server uses a 7-party default spread across the spectrum.
-             */
-            initial_parties?: components["schemas"]["InitialParty"][] | null;
-            /**
-             * Method
-             * @default plurality
-             */
-            method: string;
-            /**
-             * Num Elections
-             * @default 10
-             */
-            num_elections: number;
-            /**
-             * Num Voters
-             * @default 500
-             */
-            num_voters: number;
-            /**
-             * Seed
-             * @default 42
-             */
-            seed: number;
-            /**
-             * Survival Threshold
-             * @description Vote share below which a party is eliminated.
-             * @default 0.05
-             */
-            survival_threshold: number;
-            /**
-             * Tactical Voting
-             * @description Apply tactical voting (squeezes small parties under FPTP).
-             * @default true
-             */
-            tactical_voting: boolean;
-        };
-        /**
-         * PartyDynamicsResponse
-         * @description Multi-election party system evolution (Duverger's law).
-         */
-        PartyDynamicsResponse: {
-            /** Convergence Speed */
-            convergence_speed?: number | null;
-            /** Duverger Confirmed */
-            duverger_confirmed: boolean;
-            /** Effective Parties Curve */
-            effective_parties_curve: number[];
-            /** Elections */
-            elections: components["schemas"]["ElectionRecord"][];
-            /** Final System */
-            final_system: string;
-            /** Ideology Drift */
-            ideology_drift: components["schemas"]["IdeologyDrift"][];
-            /** Pedagogical Note */
-            pedagogical_note: string;
-        } & {
-            [key: string]: unknown;
-        };
-        /** PartySnap */
-        PartySnap: {
-            /** Name */
-            name: string;
-            /** Seats */
-            seats: number;
-            /** Survived */
-            survived: boolean;
-            /** Vote Pct */
-            vote_pct: number;
-            /** X */
-            x: number;
-            /** Y */
-            y: number;
-        } & {
-            [key: string]: unknown;
-        };
-        /** PartySpec */
-        PartySpec: {
-            /**
-             * Ideology Center
-             * @default 0
-             */
-            ideology_center: number;
-            /** Name */
-            name: string;
-            /** Primary Candidates */
-            primary_candidates: components["schemas"]["PrimaryCandidateSpec"][];
-            /**
-             * Primary Voters Pct
-             * @default 0.3
-             */
-            primary_voters_pct: number;
-        };
-        /**
-         * PlottChaosRequest
-         * @description Plott's Chaos Theorem in 2-D policy space.
-         */
-        PlottChaosRequest: {
-            /**
-             * Max Steps
-             * @default 15
-             */
-            max_steps: number;
-            /**
-             * Num Dimensions
-             * @default 2
-             */
-            num_dimensions: number;
-            /**
-             * Num Voters
-             * @default 5
-             */
-            num_voters: number;
-            /**
-             * Seed
-             * @default 42
-             */
-            seed: number;
-            /** Start Policy */
-            start_policy?: number[];
-            /** Target Policy */
-            target_policy?: number[];
-        };
-        /** PlottChaosResponse */
-        PlottChaosResponse: {
-            alternative_path: components["schemas"]["AlternativePath"];
-            chaos_path: components["schemas"]["ChaosPath"];
-            /** Condorcet Winner Exists */
-            condorcet_winner_exists: boolean;
-            /** Pedagogical Note */
-            pedagogical_note: string;
-            top_cycle: components["schemas"]["TopCycle"];
-            /** Voter Ideal Points */
-            voter_ideal_points: number[][];
-        };
-        /**
-         * PolarizationRequest
-         * @description Per-ideology distribution: Esteban-Ray index + method robustness scan.
-         */
-        PolarizationRequest: {
-            /** Candidates */
-            candidates: components["schemas"]["CandidateSpec"][];
-            /**
-             * Ideology Range
-             * @description Voter distributions to compare. Defaults to [centrist, random, left_skewed, right_skewed, polarized].
-             */
-            ideology_range?: string[] | null;
-            /**
-             * Num Simulations
-             * @default 20
-             */
-            num_simulations: number;
-            /**
-             * Num Voters
-             * @default 150
-             */
-            num_voters: number;
-            /**
-             * Seed
-             * @default 42
-             */
-            seed: number;
-        };
-        /**
-         * PolarizationResponse
-         * @description Effect of electorate polarization on method outcomes.
-         */
-        PolarizationResponse: {
-            /** Key Findings */
-            key_findings: unknown;
-            /** Results */
-            results: unknown;
-        } & {
-            [key: string]: unknown;
-        };
-        /**
-         * PolisSimulationRequest
-         * @description Pol.is consensus clustering on a fresh statement set.
-         */
-        PolisSimulationRequest: {
-            /**
-             * Ideology
-             * @default random
-             */
-            ideology: string;
-            /**
-             * Num Clusters
-             * @default 3
-             */
-            num_clusters: number;
-            /**
-             * Num Participants
-             * @default 100
-             */
-            num_participants: number;
-            /**
-             * Seed
-             * @default 42
-             */
-            seed: number;
-            /**
-             * Statements
-             * @description Defaults to the built-in 10-statement battery.
-             */
-            statements?: string[] | null;
-        };
-        /** PolisSimulationResponse */
-        PolisSimulationResponse: {
-            /** Clusters */
-            clusters: unknown;
-            /** Consensus Statements */
-            consensus_statements: unknown;
-            /** Num Clusters */
-            num_clusters: number;
-            /** Num Participants */
-            num_participants: number;
-            /** Participant Positions */
-            participant_positions: unknown;
-            /** Polarizing Statements */
-            polarizing_statements: unknown;
-        } & {
-            [key: string]: unknown;
-        };
-        /**
-         * PolisWithCandidatesRequest
-         * @description Pol.is clustering + classical election cross-comparison.
-         */
-        PolisWithCandidatesRequest: {
-            /** Candidates */
-            candidates: components["schemas"]["CandidateSpec"][];
-            /**
-             * Ideology
-             * @default random
-             */
-            ideology: string;
-            /**
-             * Method To Compare
-             * @default plurality
-             */
-            method_to_compare: string;
-            /**
-             * Min Consensus Threshold
-             * @default 0.8
-             */
-            min_consensus_threshold: number;
-            /**
-             * Num Clusters
-             * @default 3
-             */
-            num_clusters: number;
-            /**
-             * Num Participants
-             * @default 100
-             */
-            num_participants: number;
-            /**
-             * Seed
-             * @default 42
-             */
-            seed: number;
-            /** Statements */
-            statements?: string[] | null;
-        };
-        /** PolisWithCandidatesResponse */
-        PolisWithCandidatesResponse: {
-            /** Candidate Scores */
-            candidate_scores: unknown;
-            /** Clusters */
-            clusters: unknown;
-            /** Consensus Count */
-            consensus_count: number;
-            /** Election Winner */
-            election_winner?: string | null;
-            /** Participant Positions */
-            participant_positions: unknown;
-            /** Pedagogical Note */
-            pedagogical_note: string;
-            /** Polarizing Count */
-            polarizing_count: number;
-            /** Polis Winner */
-            polis_winner?: string | null;
-            /** Silent Majority Count */
-            silent_majority_count: number;
-            /** Statements */
-            statements: unknown;
-            /** Winners Agree */
-            winners_agree: boolean;
-        } & {
-            [key: string]: unknown;
-        };
-        /**
-         * PowerIndicesRequest
-         * @description Shapley-Shubik and Banzhaf power indices.
-         */
-        PowerIndicesRequest: {
-            /**
-             * Calculate Banzhaf
-             * @default true
-             */
-            calculate_banzhaf: boolean;
-            /**
-             * Calculate Shapley
-             * @default true
-             */
-            calculate_shapley: boolean;
-            /** Coalition Constraints */
-            coalition_constraints?: components["schemas"]["CoalitionConstraint"][] | null;
-            /**
-             * Majority Threshold
-             * @description 0 → seats // 2 + 1.
-             * @default 0
-             */
-            majority_threshold: number;
-            /** Parties */
-            parties: components["schemas"]["PowerParty"][];
-        };
-        /**
-         * PowerIndicesResponse
-         * @description Banzhaf/Shapley-Shubik coalition power vs raw seat share.
-         */
-        PowerIndicesResponse: {
-            /** Majority Threshold */
-            majority_threshold: number;
-            /** Parties */
-            parties: unknown;
-            /** Pedagogical Note */
-            pedagogical_note: string;
-            /** Power Surprises */
-            power_surprises: unknown[];
-            /** Total Seats */
-            total_seats: number;
-            /** Viable Coalitions */
-            viable_coalitions: unknown[];
-        } & {
-            [key: string]: unknown;
-        };
-        /** PowerParty */
-        PowerParty: {
-            /** Name */
-            name: string;
-            /**
-             * Pariah
-             * @default false
-             */
-            pariah: boolean;
-            /** Seats */
-            seats: number;
-        };
-        /** PrimaryCandidateSpec */
-        PrimaryCandidateSpec: {
-            /** Ideology Position */
-            ideology_position: number;
-            /** Name */
-            name: string;
-        };
-        /**
-         * PrimaryRequest
-         * @description Internal primaries + general election.
-         */
-        PrimaryRequest: {
-            /**
-             * General Ideology
-             * @default random
-             */
-            general_ideology: string;
-            /**
-             * General Method
-             * @default plurality
-             */
-            general_method: string;
-            /**
-             * General Num Voters
-             * @default 500
-             */
-            general_num_voters: number;
-            /** Parties */
-            parties: components["schemas"]["PartySpec"][];
-            /**
-             * Primary Method
-             * @default plurality
-             */
-            primary_method: string;
-            /**
-             * Seed
-             * @default 42
-             */
-            seed: number;
-        };
-        /**
-         * PrimaryResponse
-         * @description Internal party primaries followed by a general election.
-         */
-        PrimaryResponse: {
-            /** General Ballot */
-            general_ballot: string[];
-            /** General Runner Up */
-            general_runner_up?: string | null;
-            /** General Vote Shares */
-            general_vote_shares: {
-                [key: string]: unknown;
-            };
-            /** General Winner */
-            general_winner?: string | null;
-            /** Median Voter Distance */
-            median_voter_distance: unknown;
-            /** Primaries */
-            primaries: unknown;
-            /** Without Primaries Winner */
-            without_primaries_winner?: string | null;
-        } & {
-            [key: string]: unknown;
-        };
-        /**
-         * PublicCompareRequest
-         * @description POST /api/v1/compare.
-         */
-        PublicCompareRequest: {
-            /**
-             * Blank Rule
-             * @default
-             */
-            blank_rule: string;
-            /**
-             * Ideology Distribution
-             * @default random
-             */
-            ideology_distribution: string;
-            /**
-             * Methods
-             * @default all
-             */
-            methods: "all" | string[];
-            /**
-             * Num Candidates
-             * @default 4
-             */
-            num_candidates: number;
-            /**
-             * Num Voters
-             * @default 500
-             */
-            num_voters: number;
-        };
-        /**
-         * PublicCompareResponse
-         * @description POST /api/v1/compare — same envelope, plus blank_pct / per-method
-         *     blank_rule_applied (carried via extra) when a blank rule is set.
-         */
-        PublicCompareResponse: {
-            /** Condorcet Winner */
-            condorcet_winner?: string | null;
-            /** Methods */
-            methods: {
-                [key: string]: unknown;
-            };
-        } & {
-            [key: string]: unknown;
-        };
-        /**
-         * PublicMethodsResponse
-         * @description GET /api/v1/methods.
-         */
-        PublicMethodsResponse: {
-            /** Count */
-            count: number;
-            /** Families */
-            families: unknown;
-            /** Methods */
-            methods: unknown;
-        } & {
-            [key: string]: unknown;
-        };
-        /**
-         * PublicRealElectionsResponse
-         * @description GET /api/v1/real-elections.
-         */
-        PublicRealElectionsResponse: {
-            /** Count */
-            count: number;
-            /** Elections */
-            elections: unknown[];
-        } & {
-            [key: string]: unknown;
-        };
-        /**
-         * PublicSimulateRequest
-         * @description POST /api/v1/simulate.
-         */
-        PublicSimulateRequest: {
-            /**
-             * Ideology Distribution
-             * @default random
-             */
-            ideology_distribution: string;
-            /**
-             * Methods
-             * @default all
-             */
-            methods: "all" | string[];
-            /**
-             * Num Candidates
-             * @default 4
-             */
-            num_candidates: number;
-            /**
-             * Num Voters
-             * @default 500
-             */
-            num_voters: number;
-        };
-        /**
-         * PublicSimulateResponse
-         * @description POST /api/v1/simulate — the compare_all_methods envelope.
-         */
-        PublicSimulateResponse: {
-            /** Condorcet Winner */
-            condorcet_winner?: string | null;
-            /** Methods */
-            methods: {
-                [key: string]: unknown;
-            };
-        } & {
-            [key: string]: unknown;
-        };
-        /** QFProject */
-        QFProject: {
-            /** Name */
-            name: string;
-            /** X */
-            x: number;
-        };
-        /**
-         * QuadraticFundingRequest
-         * @description Buterin/Hitzig/Weyl 2019 quadratic funding for public goods.
-         */
-        QuadraticFundingRequest: {
-            /**
-             * Budget Per Voter
-             * @default 100
-             */
-            budget_per_voter: number;
-            /**
-             * Ideology
-             * @default random
-             */
-            ideology: string;
-            /**
-             * Matching Pool
-             * @default 10000
-             */
-            matching_pool: number;
-            /**
-             * Num Voters
-             * @default 100
-             */
-            num_voters: number;
-            /** Projects */
-            projects: components["schemas"]["QFProject"][];
-            /**
-             * Seed
-             * @default 42
-             */
-            seed: number;
-        };
-        /**
-         * QuadraticFundingResponse
-         * @description Quadratic funding vs 1p1v/plutocracy with Gini inequality metrics.
-         */
-        QuadraticFundingResponse: {
-            /** Budget Per Voter */
-            budget_per_voter: unknown;
-            /** Gini Coefficients */
-            gini_coefficients: {
-                [key: string]: unknown;
-            };
-            /** Matching Pool */
-            matching_pool: unknown;
-            /** Mechanism Comparison */
-            mechanism_comparison: {
-                [key: string]: unknown;
-            };
-            /** Pedagogical Note */
-            pedagogical_note: string;
-            /** Projects */
-            projects: {
-                [key: string]: unknown;
-            }[];
-            /** Vote Shares */
-            vote_shares: {
-                [key: string]: number;
-            };
-            /** Winner */
-            winner?: string | null;
-        } & {
-            [key: string]: unknown;
-        };
-        /**
-         * RealElectionRequest
-         * @description POST /simulations/real-election.
-         */
-        RealElectionRequest: {
-            /**
-             * Blank Vote
-             * @default false
-             */
-            blank_vote: boolean;
-            /**
-             * Election Name
-             * @default
-             */
-            election_name: string;
-            /**
-             * Num Voters
-             * @default 1000
-             */
-            num_voters: number;
-        };
-        /** RealElectionResponse */
-        RealElectionResponse: {
-            /** Blank Vote Analysis */
-            blank_vote_analysis?: unknown;
-            /** Divergences */
-            divergences?: unknown;
-            /** Election */
-            election: unknown;
-            /** First Round Results */
-            first_round_results?: unknown;
-            /** Methods */
-            methods: {
-                [key: string]: unknown;
-            };
-            /** Methods With Blank */
-            methods_with_blank?: {
-                [key: string]: unknown;
-            } | null;
-            /** Plurality Winner */
-            plurality_winner?: string | null;
-            /** Summary */
-            summary?: unknown;
-        } & {
-            [key: string]: unknown;
-        };
-        /**
-         * RealElectionSummary
-         * @description One item of GET /simulations/real-elections (a list).
-         */
-        RealElectionSummary: {
-            /** Country */
-            country: string;
-            /** Key */
-            key: string;
-            /** Name */
-            name: string;
-            /** Year */
-            year: unknown;
-        } & {
-            [key: string]: unknown;
-        };
-        /** ReplayCandidate */
-        ReplayCandidate: {
-            /** Modified */
-            modified: boolean;
-            /** Name */
-            name: string;
-            /** X */
-            x: number;
-            /** Y */
-            y: number;
-        } & {
-            [key: string]: unknown;
-        };
-        /** ReplayDay */
-        ReplayDay: {
-            /** Day */
-            day: number;
-            /** Vote Shares */
-            vote_shares: {
-                [key: string]: number;
-            };
-            /** Winner Borda */
-            winner_borda: string;
-            /** Winner Condorcet */
-            winner_condorcet?: string | null;
-            /** Winner Fptp */
-            winner_fptp: string;
-        } & {
-            [key: string]: unknown;
-        };
-        /** ReplayFinal */
-        ReplayFinal: {
-            /** Differs From Real */
-            differs_from_real: boolean;
-            /** Pedagogical Note */
-            pedagogical_note: string;
-            /** Pedagogical Note En */
-            pedagogical_note_en: string;
-            /** Winner Borda */
-            winner_borda: string;
-            /** Winner Condorcet */
-            winner_condorcet?: string | null;
-            /** Winner Fptp */
-            winner_fptp: string;
-        } & {
-            [key: string]: unknown;
-        };
-        /** ReplayScenario */
-        ReplayScenario: {
-            /** Id */
-            id: string;
-            /** Name */
-            name: string;
-            /** Real Winner */
-            real_winner: string;
-        } & {
-            [key: string]: unknown;
-        };
-        /**
-         * ScenarioCreateRequest
-         * @description Body for POST /scenarios — name + config + optional results.
-         */
-        ScenarioCreateRequest: {
-            /**
-             * Config
-             * @description Election config snapshot — candidates, num_voters, ideology, blank_vote, campaign, etc.
-             */
-            config?: {
-                [key: string]: unknown;
-            };
-            /** Name */
-            name: string;
-            /**
-             * Results
-             * @description Optional cached results from the last simulation run on this config. Null means 'never simulated yet'.
-             */
-            results?: {
-                [key: string]: unknown;
-            } | null;
-        };
-        /**
-         * ScenarioDetail
-         * @description Single view — adds the results blob.
-         */
-        ScenarioDetail: {
-            /** Config */
-            config: {
-                [key: string]: unknown;
-            };
-            /** Created At */
-            created_at?: string | null;
-            /** Id */
-            id: number;
-            /** Name */
-            name: string;
-            /** Results */
-            results?: {
-                [key: string]: unknown;
-            } | null;
-        };
-        /**
-         * ScenarioRequest
-         * @description POST /simulations/scenario.
-         */
-        ScenarioRequest: {
-            /**
-             * Blank Rule
-             * @default symbolic
-             */
-            blank_rule: string;
-            /** Candidates */
-            candidates?: {
-                [key: string]: unknown;
-            }[];
-            /** Electorate */
-            electorate?: {
-                [key: string]: unknown;
-            };
-            /** Methods */
-            methods?: string[] | null;
-        };
-        /** ScenarioResponse */
-        ScenarioResponse: {
-            /** With Blank */
-            with_blank: {
-                [key: string]: unknown;
-            };
-            /** Without Blank */
-            without_blank: {
-                [key: string]: unknown;
-            };
-        } & {
-            [key: string]: unknown;
-        };
-        /**
-         * ScenarioSummary
-         * @description List view — matches `SimulationScenario.to_summary()`.
-         */
-        ScenarioSummary: {
-            /** Config */
-            config: {
-                [key: string]: unknown;
-            };
-            /** Created At */
-            created_at?: string | null;
-            /** Id */
-            id: number;
-            /** Name */
-            name: string;
-        };
-        /** SenExample */
-        SenExample: {
-            /** Conflict */
-            conflict: boolean;
-            /** Explanation */
-            explanation: string;
-            /** Liberal Outcome */
-            liberal_outcome: string;
-            /** Name */
-            name: string;
-            /** Pareto Outcome */
-            pareto_outcome: string;
-            /** Private Spheres */
-            private_spheres: {
-                [key: string]: string[];
-            };
-            /** Voters Preferences */
-            voters_preferences: string[][];
-        };
-        /**
-         * SenParadoxRequest
-         * @description Sen's Impossibility of a Paretian Liberal (always uses 2 voters).
-         */
-        SenParadoxRequest: {
-            /**
-             * Num Voters
-             * @description Fixed at 2 for the canonical formulation.
-             * @default 2
-             */
-            num_voters: number;
-            /**
-             * Rights Definition
-             * @default liberal
-             */
-            rights_definition: string;
-            /**
-             * Seed
-             * @default 42
-             */
-            seed: number;
-        };
-        /** SenParadoxResponse */
-        SenParadoxResponse: {
-            /** Alternative Names */
-            alternative_names: {
-                [key: string]: string;
-            };
-            /** Paradox Examples */
-            paradox_examples: components["schemas"]["SenExample"][];
-            /** Paradox Exists */
-            paradox_exists: boolean;
-            /** Paradox Frequency */
-            paradox_frequency: number;
-            /** Pedagogical Note */
-            pedagogical_note: string;
-            /** Real World Analogy */
-            real_world_analogy: string;
-            /** Resolution Options */
-            resolution_options: components["schemas"]["SenResolutionOption"][];
-        };
-        /** SenResolutionOption */
-        SenResolutionOption: {
-            /** Cost */
-            cost: string;
-            /** Name */
-            name: string;
-            /** Outcome */
-            outcome: string;
-            /** Theorist */
-            theorist: string;
-        };
-        /**
-         * SensitivityRequest
-         * @description POST /simulations/sensitivity.
-         */
-        SensitivityRequest: {
-            /** Base Config */
-            base_config?: {
-                [key: string]: unknown;
-            };
-            /** Values */
-            values?: unknown[];
-            /**
-             * Variable
-             * @default ideology_distribution
-             */
-            variable: string;
-        };
-        /** SensitivityResponse */
-        SensitivityResponse: {
-            /** Results */
-            results: {
-                [key: string]: unknown;
-            }[];
-            /** Values */
-            values: unknown[];
-            /** Variable */
-            variable: string;
-        } & {
-            [key: string]: unknown;
-        };
-        /**
-         * ShyVoterRequest
-         * @description Bradley / Shy Tory effect: socially-sensitive candidates underpolled.
-         */
-        ShyVoterRequest: {
-            /** Candidates */
-            candidates: components["schemas"]["CandidateSpec"][];
-            /**
-             * Ideology
-             * @default random
-             */
-            ideology: string;
-            /**
-             * Num Polls
-             * @default 10
-             */
-            num_polls: number;
-            /**
-             * Num Voters
-             * @default 300
-             */
-            num_voters: number;
-            /**
-             * Seed
-             * @default 42
-             */
-            seed: number;
-            /**
-             * Shy Candidate Idx
-             * @description Index of the 'sensitive' candidate.
-             * @default 0
-             */
-            shy_candidate_idx: number;
-            /**
-             * Social Desirability Factor
-             * @description Fraction of shy voters who lie in polls.
-             * @default 0.4
-             */
-            social_desirability_factor: number;
-        };
-        /**
-         * ShyVoterResponse
-         * @description Shy-voter effect: poll vs real winner under social-desirability bias.
-         */
-        ShyVoterResponse: {
-            /** Avg Poll Results */
-            avg_poll_results: {
-                [key: string]: number;
-            };
-            /** Pedagogical Note */
-            pedagogical_note: string;
-            /** Poll Results */
-            poll_results: {
-                [key: string]: unknown;
-            }[];
-            /** Poll Winner */
-            poll_winner: string | null;
-            /** Polls Wrong */
-            polls_wrong: boolean;
-            /** Real Results */
-            real_results: {
-                [key: string]: number;
-            };
-            /** Real Winner */
-            real_winner: string | null;
-            /** Shy Candidate */
-            shy_candidate: string | null;
-            /** Social Desirability Curve */
-            social_desirability_curve: {
-                [key: string]: unknown;
-            }[];
-            /** Systematic Error */
-            systematic_error: {
-                [key: string]: number;
-            };
-        } & {
-            [key: string]: unknown;
-        };
-        /**
-         * SimulateCandidatesRequest
-         * @description POST /simulations/simulate_candidates.
-         */
-        SimulateCandidatesRequest: {
-            /** Issues */
-            issues?: string[];
-            /**
-             * Num Candidates
-             * @default 4
-             */
-            num_candidates: number;
-            /** Parties */
-            parties?: string[];
-        };
-        /** SimulateCandidatesResponse */
-        SimulateCandidatesResponse: {
-            /** Candidates */
-            candidates: {
-                [key: string]: unknown;
-            }[];
-            /** Message */
-            message: string;
-            /** Success */
-            success: boolean;
-        } & {
-            [key: string]: unknown;
-        };
-        /**
-         * SimulatePipelineRequest
-         * @description Step-by-step pipeline animation for the simulation hub.
-         */
-        SimulatePipelineRequest: {
-            /** Blank Vote */
-            blank_vote?: {
-                [key: string]: unknown;
-            } | null;
-            /** Campaign */
-            campaign?: {
-                [key: string]: unknown;
-            } | null;
-            /** Candidates */
-            candidates: components["schemas"]["CandidateSpec"][];
-            /**
-             * Ideology
-             * @default random
-             */
-            ideology: string;
-            /** Information Model */
-            information_model?: {
-                [key: string]: unknown;
-            } | null;
-            /**
-             * Num Voters
-             * @default 150
-             */
-            num_voters: number;
-            /**
-             * Seed
-             * @default 42
-             */
-            seed: number;
-        };
-        /**
-         * SimulatePipelineResponse
-         * @description Step-by-step pipeline of model stages for animation.
-         */
-        SimulatePipelineResponse: {
-            /** Candidates */
-            candidates: {
-                [key: string]: unknown;
-            }[];
-            /** Num Steps */
-            num_steps: number;
-            /** Steps */
-            steps: {
-                [key: string]: unknown;
-            }[];
-        } & {
-            [key: string]: unknown;
-        };
-        /**
-         * SimulateRequest
-         * @description POST /api/election/simulate — full pipeline run.
-         */
-        SimulateRequest: {
-            blank_vote?: components["schemas"]["BlankVoteConfig"];
-            campaign?: components["schemas"]["CampaignConfig"];
-            /**
-             * Candidates
-             * @description 2 to 8 candidates. Beyond that, Kemeny-Young falls back to KwikSort approximation.
-             */
-            candidates: components["schemas"]["CandidateSpec"][];
-            /**
-             * Ideology
-             * @description Voter distribution: 'random' | 'centrist' | 'polarized' | 'left_skewed' | 'right_skewed'.
-             * @default random
-             */
-            ideology: string;
-            information_model?: components["schemas"]["InformationModelConfig"];
-            /**
-             * Num Voters
-             * @default 300
-             */
-            num_voters: number;
-            /**
-             * Seed
-             * @description PRNG seed for reproducibility.
-             * @default 42
-             */
-            seed: number;
-        };
-        /**
-         * SimulateResponse
-         * @description Result of /simulate — keys read by LabCentralView, IdeologyMap, MethodMatrix.
-         */
-        SimulateResponse: {
-            /** Blank Rate */
-            blank_rate: number;
-            /** Campaign Trajectory */
-            campaign_trajectory?: {
-                [key: string]: unknown;
-            } | null;
-            /** Candidates */
-            candidates: components["schemas"]["CandidateSnapshot"][];
-            /** Condorcet Exists */
-            condorcet_exists: boolean;
-            /** Condorcet Winner */
-            condorcet_winner?: string | null;
-            /**
-             * Config
-             * @description Echo of the original request.
-             */
-            config: {
-                [key: string]: unknown;
-            };
-            /** Inter Method Agreement */
-            inter_method_agreement: number;
-            /**
-             * Methods
-             * @description Keyed by method slug.
-             */
-            methods: {
-                [key: string]: components["schemas"]["MethodResult"];
-            };
-            /** Voters Snapshot */
-            voters_snapshot: components["schemas"]["VoterSnapshot"][];
-        };
-        /**
-         * SimulateUtilityRequest
-         * @description POST /simulations/simulate_utility.
-         */
-        SimulateUtilityRequest: {
-            /** Candidates */
-            candidates?: {
-                [key: string]: unknown;
-            }[];
-            /** Issues */
-            issues?: string[];
-            /** Voters */
-            voters?: {
-                [key: string]: unknown;
-            }[];
-        };
-        /** SimulateUtilityResponse */
-        SimulateUtilityResponse: {
-            /** Success */
-            success: boolean;
-            /** Utility Results */
-            utility_results: {
-                [key: string]: unknown;
-            }[];
-        } & {
-            [key: string]: unknown;
-        };
-        /**
-         * SimulateVotersRequest
-         * @description POST /simulations/simulate_voters.
-         */
-        SimulateVotersRequest: {
-            /**
-             * Num Voters
-             * @default 1000
-             */
-            num_voters: number;
-        };
-        /** SimulateVotersResponse */
-        SimulateVotersResponse: {
-            /** Voters */
-            voters: {
-                [key: string]: unknown;
-            }[];
-        } & {
-            [key: string]: unknown;
-        };
-        /**
-         * SortitionRequest
-         * @description Compare elected vs sortition pure vs sortition stratified assembly selection.
-         */
-        SortitionRequest: {
-            /**
-             * Assembly Size
-             * @default 50
-             */
-            assembly_size: number;
-            /** Candidates */
-            candidates: components["schemas"]["CandidateSpec"][];
-            /**
-             * Ideology
-             * @default random
-             */
-            ideology: string;
-            /**
-             * Method
-             * @default plurality
-             */
-            method: string;
-            /**
-             * Num Simulations
-             * @default 20
-             */
-            num_simulations: number;
-            /**
-             * Num Voters
-             * @default 300
-             */
-            num_voters: number;
-            /**
-             * Realistic Candidates
-             * @default true
-             */
-            realistic_candidates: boolean;
-            /**
-             * Seed
-             * @default 42
-             */
-            seed: number;
-            stratification?: components["schemas"]["StratificationConfig"] | null;
-        };
-        /**
-         * SortitionResponse
-         * @description Elected vs sortition (pure / stratified) assembly representativeness.
-         */
-        SortitionResponse: {
-            /** Assemblies */
-            assemblies: {
-                [key: string]: unknown;
-            };
-            /** Consensus Possible */
-            consensus_possible: boolean;
-            /** Pedagogical Note */
-            pedagogical_note: string;
-            /** Population */
-            population: {
-                [key: string]: unknown;
-            };
-            /** Variance */
-            variance: {
-                [key: string]: unknown;
-            };
-            /** Winner By Method */
-            winner_by_method: {
-                [key: string]: unknown;
-            };
-        } & {
-            [key: string]: unknown;
-        };
-        /**
-         * StrategicImpactRequest
-         * @description POST /simulations/strategic-impact.
-         */
-        StrategicImpactRequest: {
-            /** Candidates */
-            candidates?: unknown[];
-            /**
-             * Ideology Distribution
-             * @default random
-             */
-            ideology_distribution: string;
-            /**
-             * Num Voters
-             * @default 500
-             */
-            num_voters: number;
-            /** Strategic Percentages */
-            strategic_percentages?: unknown[];
-        };
-        /** StrategicImpactResponse */
-        StrategicImpactResponse: {
-            /** Results */
-            results: {
-                [key: string]: unknown;
-            }[];
-        } & {
-            [key: string]: unknown;
-        };
-        /** StratificationConfig */
-        StratificationConfig: {
-            /** Age Groups */
-            age_groups?: number[] | null;
-            /**
-             * Education Quota
-             * @default true
-             */
-            education_quota: boolean;
-            /**
-             * Gender Parity
-             * @default true
-             */
-            gender_parity: boolean;
-        };
-        /**
-         * StvRequest
-         * @description Single Transferable Vote + D'Hondt + FPTP comparison.
-         */
-        StvRequest: {
-            /** Candidates */
-            candidates: components["schemas"]["CandidateSpec"][];
-            /**
-             * Ideology
-             * @default random
-             */
-            ideology: string;
-            /**
-             * Num Seats
-             * @default 5
-             */
-            num_seats: number;
-            /**
-             * Num Voters
-             * @default 300
-             */
-            num_voters: number;
-            /**
-             * Quota Type
-             * @description STV quota: 'droop' | 'hare' | 'imperiali'.
-             * @default droop
-             */
-            quota_type: string;
-            /**
-             * Seed
-             * @default 42
-             */
-            seed: number;
-        };
-        /**
-         * StvResponse
-         * @description STV vs D'Hondt vs FPTP multiwinner comparison.
-         */
-        StvResponse: {
-            /** Candidates */
-            candidates: string[];
-            /** Dhondt */
-            dhondt: {
-                [key: string]: unknown;
-            };
-            /** Distortion Stv Dhondt */
-            distortion_stv_dhondt: number;
-            /** Distortion Stv Fptp */
-            distortion_stv_fptp: number;
-            /** Fptp */
-            fptp: {
-                [key: string]: unknown;
-            };
-            /** Num Seats */
-            num_seats: number;
-            /** Quota */
-            quota: unknown;
-            /** Quota Type */
-            quota_type: string;
-            /** Stv */
-            stv: {
-                [key: string]: unknown;
-            };
-            /** Vote Shares */
-            vote_shares: {
-                [key: string]: number;
-            };
-        } & {
-            [key: string]: unknown;
-        };
-        /** TopCycle */
-        TopCycle: {
-            /** Center */
-            center: number[];
-            /** Size */
-            size: number;
-        };
-        /** TyrannyCurvePoint */
-        TyrannyCurvePoint: {
-            /** Majority Pct */
-            majority_pct: number;
-            /** Tyranny By Rule */
-            tyranny_by_rule: {
-                [key: string]: number;
-            };
-        };
-        /**
-         * UserCreate
-         * @description Registration body. Email + password come from BaseUserCreate.
-         */
-        UserCreate: {
-            /**
-             * Email
-             * Format: email
-             */
-            email: string;
-            /** First Name */
-            first_name?: string | null;
-            /**
-             * Is Active
-             * @default true
-             */
-            is_active: boolean | null;
-            /**
-             * Is Superuser
-             * @default false
-             */
-            is_superuser: boolean | null;
-            /**
-             * Is Verified
-             * @default false
-             */
-            is_verified: boolean | null;
-            /** Last Name */
-            last_name?: string | null;
-            /** Password */
-            password: string;
-            /**
-             * Role
-             * @description 'User' or 'Admin' — admin creation gated server-side.
-             * @default User
-             */
-            role: string;
-            /** Username */
-            username: string;
-        };
-        /**
-         * UserRead
-         * @description Public view of a user (what /users/me and similar return).
-         */
-        UserRead: {
-            /** Bio */
-            bio?: string | null;
-            /**
-             * Email
-             * Format: email
-             */
-            email: string;
-            /** First Name */
-            first_name?: string | null;
-            /** Id */
-            id: number;
-            /**
-             * Is Active
-             * @default true
-             */
-            is_active: boolean;
-            /**
-             * Is Superuser
-             * @default false
-             */
-            is_superuser: boolean;
-            /**
-             * Is Verified
-             * @default false
-             */
-            is_verified: boolean;
-            /** Last Name */
-            last_name?: string | null;
-            /** Profile Picture */
-            profile_picture?: string | null;
-            /**
-             * Role
-             * @description Legacy 'Admin' | 'User' — shadowed by is_superuser.
-             */
-            role: string;
-            /** Username */
-            username: string;
-        };
-        /**
-         * UserUpdate
-         * @description PATCH body for /users/me. Everything optional.
-         */
-        UserUpdate: {
-            /** Bio */
-            bio?: string | null;
-            /** Email */
-            email?: string | null;
-            /** First Name */
-            first_name?: string | null;
-            /** Is Active */
-            is_active?: boolean | null;
-            /** Is Superuser */
-            is_superuser?: boolean | null;
-            /** Is Verified */
-            is_verified?: boolean | null;
-            /** Last Name */
-            last_name?: string | null;
-            /** Password */
-            password?: string | null;
-            /** Profile Picture */
-            profile_picture?: string | null;
-            /** Username */
-            username?: string | null;
-        };
-        /**
-         * UtilityMatrixRequest
-         * @description POST /simulations/get_utility_matrix.
-         */
-        UtilityMatrixRequest: {
-            /** Candidates */
-            candidates?: {
-                [key: string]: unknown;
-            }[];
-            /** Issues */
-            issues?: string[];
-            /** Voters */
-            voters?: {
-                [key: string]: unknown;
-            }[];
-        };
-        /** UtilityMatrixResponse */
-        UtilityMatrixResponse: {
-            /** Matrix */
-            matrix: {
-                [key: string]: unknown;
-            };
-            /** Message */
-            message: string;
-            /** Stats */
-            stats: {
-                [key: string]: unknown;
-            };
-            /** Success */
-            success: boolean;
-        } & {
-            [key: string]: unknown;
-        };
-        /** ValidationError */
-        ValidationError: {
-            /** Location */
-            loc: (string | number)[];
-            /** Message */
-            msg: string;
-            /** Error Type */
-            type: string;
-        };
-        /**
-         * VoteStepsRequest
-         * @description POST /simulations/vote-steps.
-         */
-        VoteStepsRequest: {
-            /** Candidates */
-            candidates?: unknown[];
-            /**
-             * Ideology
-             * @default random
-             */
-            ideology: string;
-            /**
-             * Method
-             * @default plurality
-             */
-            method: string;
-            /**
-             * Num Voters
-             * @default 100
-             */
-            num_voters: number;
-            /**
-             * Seed
-             * @default 42
-             */
-            seed: number;
-        };
-        /**
-         * VoteStepsResponse
-         * @description POST /simulations/vote-steps. Shape is polymorphic by `method`
-         *     (irv/borda/plurality/schulze/approval); only `method` is guaranteed.
-         */
-        VoteStepsResponse: {
-            /** Method */
-            method: string;
-        } & {
-            [key: string]: unknown;
-        };
-        /** VoterCompetenceStats */
-        VoterCompetenceStats: {
-            /** Biased Mean */
-            biased_mean: number;
-            /** Expert Count */
-            expert_count: number;
-            /** Mean */
-            mean: number;
-        };
-        /**
-         * VoterSegmentsRequest
-         * @description POST /simulations/get_voter_segments.
-         */
-        VoterSegmentsRequest: {
-            /** Candidates */
-            candidates?: {
-                [key: string]: unknown;
-            }[];
-            /** Issues */
-            issues?: string[];
-            /** Segments */
-            segments?: string[];
-            /** Voters */
-            voters?: {
-                [key: string]: unknown;
-            }[];
-        };
-        /** VoterSegmentsResponse */
-        VoterSegmentsResponse: {
-            /** Message */
-            message: string;
-            /** Segments */
-            segments: {
-                [key: string]: unknown;
-            };
-            /** Success */
-            success: boolean;
-        } & {
-            [key: string]: unknown;
-        };
-        /**
-         * VoterSnapshot
-         * @description One voter row in the ideology map.
-         */
-        VoterSnapshot: {
-            /** Blank Threshold Final */
-            blank_threshold_final: number;
-            /** Id */
-            id: number;
-            /** X */
-            x: number;
-            /** Y */
-            y: number;
-        };
-        /**
-         * WhatIfRequest
-         * @description POST /simulations/what-if (vary one parameter, compare methods).
-         */
-        WhatIfRequest: {
-            /** Base */
-            base?: {
-                [key: string]: unknown;
-            };
-            /**
-             * Variant Param
-             * @default num_voters
-             */
-            variant_param: string;
-            /** Variant Values */
-            variant_values?: unknown[];
-        };
-        /** WhatIfResponse */
-        WhatIfResponse: {
-            /** Results */
-            results: {
-                [key: string]: unknown;
-            }[];
-            /** Variant Param */
-            variant_param: string;
-        } & {
-            [key: string]: unknown;
-        };
-        /** _GoogleTokenBody */
-        _GoogleTokenBody: {
-            /**
-             * Token
-             * @description Google ID token from the JS SDK.
-             */
-            token: string;
-        };
+  schemas: {
+    /** ATBaseCandidate */
+    ATBaseCandidate: {
+      /** Name */
+      name: string;
+      /** X */
+      x: number;
+      /**
+       * Y
+       * @default 0
+       */
+      y: number;
     };
-    responses: never;
-    parameters: never;
-    requestBodies: never;
-    headers: never;
-    pathItems: never;
+    /** ATBaseSimulation */
+    ATBaseSimulation: {
+      /** Candidates */
+      candidates?: components['schemas']['ATBaseCandidate'][];
+      /**
+       * Ideology
+       * @default random
+       */
+      ideology: string;
+      /**
+       * Num Voters
+       * @default 100
+       */
+      num_voters: number;
+      /**
+       * Seed
+       * @default 42
+       */
+      seed: number;
+    };
+    /** AbstentionRequest */
+    AbstentionRequest: {
+      /** Candidates */
+      candidates: components['schemas']['CandidateSpec'][];
+      /**
+       * Demobilization Factor
+       * @description 0 = no abstention, 1 = aggressive demobilisation.
+       * @default 0.5
+       */
+      demobilization_factor: number;
+      /**
+       * Ideology
+       * @default random
+       */
+      ideology: string;
+      /**
+       * Num Rounds
+       * @default 3
+       */
+      num_rounds: number;
+      /**
+       * Num Voters
+       * @default 200
+       */
+      num_voters: number;
+      /**
+       * Poll Influence
+       * @description How much polls affect abstention probability.
+       * @default 0.8
+       */
+      poll_influence: number;
+      /**
+       * Seed
+       * @default 42
+       */
+      seed: number;
+    };
+    /** AbstentionResponse */
+    AbstentionResponse: {
+      /** Candidates */
+      candidates: {
+        [key: string]: unknown;
+      }[];
+      /** Final Winner */
+      final_winner: string | null;
+      /** Rounds */
+      rounds: components['schemas']['AbstentionRound'][];
+      /** Sincere Winner */
+      sincere_winner: string | null;
+      /** Turnout By Camp */
+      turnout_by_camp: {
+        [key: string]: number;
+      };
+      /** Winner Changed */
+      winner_changed: boolean;
+      /** Winners By Method */
+      winners_by_method?: {
+        [key: string]: string | null;
+      } | null;
+    } & {
+      [key: string]: unknown;
+    };
+    /** AbstentionRound */
+    AbstentionRound: {
+      /** Abstention Map */
+      abstention_map: components['schemas']['AbstentionVoter'][];
+      /** Round */
+      round: number;
+      /** Turnout */
+      turnout: number;
+      /** Vote Shares */
+      vote_shares: {
+        [key: string]: number;
+      };
+      /** Winner Condorcet */
+      winner_condorcet: string | null;
+      /** Winner Fptp */
+      winner_fptp: string | null;
+    } & {
+      [key: string]: unknown;
+    };
+    /** AbstentionVoter */
+    AbstentionVoter: {
+      /** Abstained */
+      abstained: boolean;
+      /** Id */
+      id: number;
+      /** Preferred */
+      preferred: string;
+      /** Prob Abstention */
+      prob_abstention: number;
+      /** X */
+      x: number;
+      /** Y */
+      y: number;
+    };
+    /** AdaptiveCandPos */
+    AdaptiveCandPos: {
+      /** Name */
+      name: string;
+      /** X */
+      x: number;
+    } & {
+      [key: string]: unknown;
+    };
+    /**
+     * AdaptiveRequest
+     * @description N rounds of adaptive/tactical voting with poll feedback.
+     */
+    AdaptiveRequest: {
+      /** Candidates */
+      candidates: components['schemas']['CandidateSpec'][];
+      /**
+       * Ideology
+       * @default random
+       */
+      ideology: string;
+      /**
+       * Method
+       * @default plurality
+       */
+      method: string;
+      /**
+       * Num Rounds
+       * @default 5
+       */
+      num_rounds: number;
+      /**
+       * Num Voters
+       * @default 300
+       */
+      num_voters: number;
+      /**
+       * Seed
+       * @default 42
+       */
+      seed: number;
+      /**
+       * Strategic Threshold
+       * @description Polling level below which voters become tactical.
+       * @default 0.15
+       */
+      strategic_threshold: number;
+    };
+    /**
+     * AdaptiveResponse
+     * @description Iterated adaptive (tactical) voting rounds until convergence.
+     */
+    AdaptiveResponse: {
+      /** Candidates */
+      candidates: components['schemas']['AdaptiveCandPos'][];
+      /** Converged */
+      converged: boolean;
+      /** Convergence Round */
+      convergence_round?: number | null;
+      /** Final Winner */
+      final_winner?: string | null;
+      /** Rounds */
+      rounds: components['schemas']['AdaptiveRound'][];
+      /** Sincere Winner */
+      sincere_winner?: string | null;
+      /** Strategic Drift */
+      strategic_drift: number;
+    } & {
+      [key: string]: unknown;
+    };
+    /** AdaptiveRound */
+    AdaptiveRound: {
+      /** Round */
+      round: number;
+      /** Sincere Shares */
+      sincere_shares: {
+        [key: string]: number;
+      };
+      /** Sincere Winner */
+      sincere_winner?: string | null;
+      /** Strategic Voters Pct */
+      strategic_voters_pct: number;
+      /** Vote Shares */
+      vote_shares: {
+        [key: string]: number;
+      };
+      /** Voter Snapshot */
+      voter_snapshot: components['schemas']['AdaptiveVoterSnap'][];
+      /** Winner */
+      winner?: string | null;
+    } & {
+      [key: string]: unknown;
+    };
+    /** AdaptiveVoterSnap */
+    AdaptiveVoterSnap: {
+      /** Effective Vote */
+      effective_vote: string;
+      /** Id */
+      id: number;
+      /** Sincere Vote */
+      sincere_vote: string;
+      /** Tactical */
+      tactical: boolean;
+      /** X */
+      x: number;
+      /** Y */
+      y: number;
+    } & {
+      [key: string]: unknown;
+    };
+    /**
+     * AffectivePolarizationRequest
+     * @description Iyengar 2019: voters penalise candidates from the opposing political camp.
+     */
+    AffectivePolarizationRequest: {
+      /**
+       * Affect Hostility
+       * @description 0 = no hostility, 1 = maximum out-group penalty.
+       * @default 0.5
+       */
+      affect_hostility: number;
+      /**
+       * Camp Threshold
+       * @description x-axis distance defining the in/out-group split.
+       * @default 0.1
+       */
+      camp_threshold: number;
+      /** Candidates */
+      candidates: components['schemas']['CandidateSpec'][];
+      /**
+       * Ideology
+       * @default random
+       */
+      ideology: string;
+      /**
+       * Num Simulations
+       * @default 20
+       */
+      num_simulations: number;
+      /**
+       * Num Voters
+       * @default 200
+       */
+      num_voters: number;
+      /**
+       * Seed
+       * @default 42
+       */
+      seed: number;
+    };
+    /**
+     * AffectivePolarizationResponse
+     * @description Sincere vs affect-driven (in-group/out-group) voting outcomes.
+     */
+    AffectivePolarizationResponse: {
+      /** Affect Curve */
+      affect_curve: {
+        [key: string]: unknown;
+      }[];
+      /** Affective Cw */
+      affective_cw?: string | null;
+      /** Affective Results */
+      affective_results: {
+        [key: string]: unknown;
+      };
+      /** Candidate Camps */
+      candidate_camps: {
+        [key: string]: unknown;
+      };
+      /** Candidates */
+      candidates: {
+        [key: string]: unknown;
+      }[];
+      /** Condorcet Violation */
+      condorcet_violation: boolean;
+      /** Method Sensitivity */
+      method_sensitivity: {
+        [key: string]: unknown;
+      };
+      /** Pedagogical Note */
+      pedagogical_note: string;
+      /** Sincere Cw */
+      sincere_cw?: string | null;
+      /** Sincere Results */
+      sincere_results: {
+        [key: string]: unknown;
+      };
+      /** Voters */
+      voters: {
+        [key: string]: unknown;
+      }[];
+      /** Winner Changed */
+      winner_changed: boolean;
+    } & {
+      [key: string]: unknown;
+    };
+    /**
+     * AgendaManipulationRequest
+     * @description McKelvey-style agenda manipulation under binary elimination.
+     */
+    AgendaManipulationRequest: {
+      /** Alternatives */
+      alternatives?: string[];
+      /**
+       * Constraint Type
+       * @description Currently only binary_elimination is supported.
+       * @default binary_elimination
+       */
+      constraint_type: string;
+      /**
+       * Num Voters
+       * @default 21
+       */
+      num_voters: number;
+      /**
+       * Seed
+       * @default 42
+       */
+      seed: number;
+      /**
+       * Target Outcome
+       * @description Outcome the agenda-setter wants. Falls back to first alternative.
+       */
+      target_outcome?: string | null;
+    };
+    /** AgendaManipulationResponse */
+    AgendaManipulationResponse: {
+      /** Achievable Outcomes */
+      achievable_outcomes: string[];
+      /** All Outcomes */
+      all_outcomes: {
+        [key: string]: unknown;
+      };
+      /** Condorcet Winner */
+      condorcet_winner?: string | null;
+      /** Manipulation Power */
+      manipulation_power: number;
+      optimal_agenda: components['schemas']['OptimalAgenda'];
+      /** Pairwise Matrix */
+      pairwise_matrix: {
+        [key: string]: {
+          [key: string]: number;
+        };
+      };
+      /** Pedagogical Note */
+      pedagogical_note: string;
+    };
+    /** AlternativePath */
+    AlternativePath: {
+      /** Steps */
+      steps: number[][];
+      /** To */
+      to: number[];
+    };
+    /** ApportionmentMethodResult */
+    ApportionmentMethodResult: {
+      /** Alabama Paradox */
+      alabama_paradox: boolean;
+      /** Description */
+      description: string;
+      /** Favors */
+      favors: string;
+      /** New State Paradox */
+      new_state_paradox: boolean;
+      /** Population Paradox */
+      population_paradox: boolean;
+      /** Quota Violation */
+      quota_violation: boolean;
+      /** Seats */
+      seats: {
+        [key: string]: number;
+      };
+    };
+    /** ApportionmentParty */
+    ApportionmentParty: {
+      /** Name */
+      name: string;
+      /** Votes */
+      votes: number;
+    };
+    /**
+     * ApportionmentRequest
+     * @description Compare apportionment methods + Balinski-Young paradoxes.
+     */
+    ApportionmentRequest: {
+      /**
+       * Find Paradoxes
+       * @description Run alabama/population/quota paradox checks (costlier).
+       * @default true
+       */
+      find_paradoxes: boolean;
+      /**
+       * Methods
+       * @description Defaults to all 5 methods.
+       */
+      methods?: string[] | null;
+      /**
+       * Num Seats
+       * @default 10
+       */
+      num_seats: number;
+      /** Parties */
+      parties: components['schemas']['ApportionmentParty'][];
+    };
+    /** ApportionmentResponse */
+    ApportionmentResponse: {
+      /** Balinski Young Summary */
+      balinski_young_summary: string;
+      /** Impossible To Avoid */
+      impossible_to_avoid: string[];
+      /** Pedagogical Note */
+      pedagogical_note: string;
+      /** Results */
+      results: {
+        [key: string]: components['schemas']['ApportionmentMethodResult'];
+      };
+    };
+    /**
+     * ArrowCriteriaRequest
+     * @description POST /simulations/arrow-criteria.
+     */
+    ArrowCriteriaRequest: {
+      /** Candidates */
+      candidates?: unknown[];
+      /**
+       * Ideology Distribution
+       * @default random
+       */
+      ideology_distribution: string;
+      /**
+       * Num Voters
+       * @default 300
+       */
+      num_voters: number;
+    };
+    /** ArrowCriteriaResponse */
+    ArrowCriteriaResponse: {
+      /** Methods */
+      methods: {
+        [key: string]: unknown;
+      };
+      /** Summary */
+      summary: {
+        [key: string]: unknown;
+      };
+    } & {
+      [key: string]: unknown;
+    };
+    /**
+     * ArrowRequest
+     * @description Per-method Arrow axiom violation analysis.
+     */
+    ArrowRequest: {
+      /**
+       * Method
+       * @description One of plurality | borda | irv | schulze | condorcet | approval | majority_judgment | kemeny_young | minimax | star_voting | two_round.
+       * @default plurality
+       */
+      method: string;
+      /**
+       * Seed
+       * @default 42
+       */
+      seed: number;
+    };
+    /** ArrowResponse */
+    ArrowResponse: {
+      /** Arrow Summary */
+      arrow_summary: string;
+      /** Method */
+      method: string;
+      /**
+       * Tradeoff Type
+       * @description majority_focus | utility_focus | condorcet_focus.
+       */
+      tradeoff_type: string;
+      violations: components['schemas']['ArrowViolations'];
+    };
+    /**
+     * ArrowViolation
+     * @description One axiom: was it violated, and if so what's the counterexample.
+     */
+    ArrowViolation: {
+      /** Counterexample */
+      counterexample?: {
+        [key: string]: unknown;
+      } | null;
+      /** Violated */
+      violated: boolean;
+    };
+    /** ArrowViolations */
+    ArrowViolations: {
+      iia: components['schemas']['ArrowViolation'];
+      non_dictatorship: components['schemas']['ArrowViolation'];
+      pareto: components['schemas']['ArrowViolation'];
+      transitivity: components['schemas']['ArrowViolation'];
+    };
+    /** AssumptionResult */
+    AssumptionResult: {
+      /** Confidence Interval */
+      confidence_interval: number[];
+      /** Pct Trials Changed */
+      pct_trials_changed: number;
+      /** Result Variance */
+      result_variance: number;
+      /** Winner */
+      winner: string;
+      /** Winner Changed */
+      winner_changed: boolean;
+      /** Winner Distribution */
+      winner_distribution: {
+        [key: string]: number;
+      };
+    };
+    /**
+     * AssumptionTestingRequest
+     * @description Test model robustness by relaxing core spatial-model assumptions.
+     */
+    AssumptionTestingRequest: {
+      /**
+       * Assumptions To Relax
+       * @description Subset of single_peaked / stable_preferences / rational_voters / fixed_electorate / measurable_utilities.
+       */
+      assumptions_to_relax?: string[] | null;
+      base_simulation?: components['schemas']['ATBaseSimulation'] | null;
+    };
+    /** AssumptionTestingResponse */
+    AssumptionTestingResponse: {
+      baseline_result: components['schemas']['BaselineResult'];
+      /** Most Fragile Assumption */
+      most_fragile_assumption: string;
+      /** Pedagogical Note */
+      pedagogical_note: string;
+      /** Relaxed Results */
+      relaxed_results: {
+        [key: string]: components['schemas']['AssumptionResult'];
+      };
+      /** Robust Result */
+      robust_result: boolean;
+    };
+    /** BacksliddingCandidate */
+    BacksliddingCandidate: {
+      /** Name */
+      name: string;
+      /** X */
+      x: number;
+      /**
+       * Y
+       * @default 0
+       */
+      y: number;
+    };
+    /** BacksliddingElection */
+    BacksliddingElection: {
+      /** Advantages */
+      advantages: {
+        [key: string]: number;
+      };
+      /** Democratic Quality */
+      democratic_quality: number;
+      /** Election N */
+      election_n: number;
+      /** Guardrails Triggered */
+      guardrails_triggered: string[];
+      /** Point Of No Return */
+      point_of_no_return: boolean;
+      /** Vote Shares */
+      vote_shares: {
+        [key: string]: number;
+      };
+      /** Winner */
+      winner: string;
+    };
+    /**
+     * BallotComplexityRequest
+     * @description Ballot-complexity-driven null vote model.
+     */
+    BallotComplexityRequest: {
+      /** Candidates */
+      candidates: components['schemas']['CandidateSpec'][];
+      /**
+       * Education Level
+       * @description Higher = lower null-vote rate.
+       * @default 0.7
+       */
+      education_level: number;
+      /**
+       * First Time Voter Pct
+       * @description Higher = higher null-vote rate.
+       * @default 0.1
+       */
+      first_time_voter_pct: number;
+      /**
+       * Ideology
+       * @default random
+       */
+      ideology: string;
+      /**
+       * Methods To Compare
+       * @description Voting methods to compare. If None, uses the server default set.
+       */
+      methods_to_compare?: string[] | null;
+      /**
+       * Num Voters
+       * @default 200
+       */
+      num_voters: number;
+      /**
+       * Seed
+       * @default 42
+       */
+      seed: number;
+    };
+    /**
+     * BallotComplexityResponse
+     * @description Null-vote rate per method as ballot complexity (candidate count) grows.
+     */
+    BallotComplexityResponse: {
+      /** Candidate Count Curve */
+      candidate_count_curve: {
+        [key: string]: unknown;
+      }[];
+      /** Least Inclusive Method */
+      least_inclusive_method: string | null;
+      /** Most Inclusive Method */
+      most_inclusive_method: string | null;
+      /** Pedagogical Note */
+      pedagogical_note: string;
+      /** Results */
+      results: {
+        [key: string]: unknown;
+      }[];
+    } & {
+      [key: string]: unknown;
+    };
+    /**
+     * BandwagonRequest
+     * @description POST /simulations/bandwagon.
+     */
+    BandwagonRequest: {
+      /** Candidates */
+      candidates?: unknown[];
+      /**
+       * Ideology Distribution
+       * @default random
+       */
+      ideology_distribution: string;
+      /**
+       * Influence Strength
+       * @default 0.3
+       */
+      influence_strength: number;
+      /**
+       * Num Rounds
+       * @default 5
+       */
+      num_rounds: number;
+      /**
+       * Num Voters
+       * @default 300
+       */
+      num_voters: number;
+      /** Seed */
+      seed?: number | null;
+    };
+    /** BandwagonResponse */
+    BandwagonResponse: {
+      /** Amplification By Method */
+      amplification_by_method: {
+        [key: string]: unknown;
+      };
+      /** Convergence Round */
+      convergence_round?: number | null;
+      /** Influence Strength */
+      influence_strength?: unknown;
+      /** Num Rounds */
+      num_rounds: number;
+      /** Rounds */
+      rounds: unknown[];
+    } & {
+      [key: string]: unknown;
+    };
+    /** BaselineResult */
+    BaselineResult: {
+      /** Regret */
+      regret: number;
+      /** Winner */
+      winner: string;
+    };
+    /** BearerResponse */
+    BearerResponse: {
+      /** Access Token */
+      access_token: string;
+      /** Token Type */
+      token_type: string;
+    };
+    /**
+     * BehavioralBiasesRequest
+     * @description Expressive + bullet voting + primacy effect on approval/plurality outcomes.
+     */
+    BehavioralBiasesRequest: {
+      /**
+       * Bullet Voting Pct
+       * @description Approval voters who approve only their top choice.
+       * @default 0.2
+       */
+      bullet_voting_pct: number;
+      /**
+       * Candidate Order
+       * @description Optional ballot ordering for primacy effect.
+       */
+      candidate_order?: string[] | null;
+      /** Candidates */
+      candidates: components['schemas']['CandidateSpec'][];
+      /**
+       * Expressive Pct
+       * @description Fraction of voters who boost their ideal candidate ×10.
+       * @default 0.2
+       */
+      expressive_pct: number;
+      /**
+       * Ideology
+       * @default random
+       */
+      ideology: string;
+      /**
+       * Method
+       * @default plurality
+       */
+      method: string;
+      /**
+       * Num Voters
+       * @default 200
+       */
+      num_voters: number;
+      /**
+       * Primacy Bonus
+       * @description Vote bonus for the first-listed candidate.
+       * @default 0.02
+       */
+      primacy_bonus: number;
+      /**
+       * Seed
+       * @default 42
+       */
+      seed: number;
+    };
+    /**
+     * BehavioralBiasesResponse
+     * @description Expressive + bullet + primacy biases vs sincere voting.
+     */
+    BehavioralBiasesResponse: {
+      /** Biased Winner */
+      biased_winner: string | null;
+      /** Bullet Immune Methods */
+      bullet_immune_methods: string[];
+      /** Method Sensitivity */
+      method_sensitivity: {
+        [key: string]: unknown;
+      };
+      /** Pedagogical Note */
+      pedagogical_note: string;
+      /** Sincere Winner */
+      sincere_winner: string | null;
+      /** Vote Breakdown */
+      vote_breakdown: {
+        [key: string]: unknown;
+      };
+      /** Winner Changed */
+      winner_changed: boolean;
+    } & {
+      [key: string]: unknown;
+    };
+    /**
+     * BlankContagionRequest
+     * @description POST /simulations/blank-contagion.
+     */
+    BlankContagionRequest: {
+      /**
+       * Contagion Rate
+       * @default 0.3
+       */
+      contagion_rate: number;
+      /**
+       * Initial Blank Rate
+       * @default 0.1
+       */
+      initial_blank_rate: number;
+      /**
+       * Network Type
+       * @default random
+       */
+      network_type: string;
+      /**
+       * Num Rounds
+       * @default 15
+       */
+      num_rounds: number;
+      /**
+       * Num Voters
+       * @default 300
+       */
+      num_voters: number;
+      /**
+       * Recovery Rate
+       * @default 0.15
+       */
+      recovery_rate: number;
+      /** Seed */
+      seed?: number | null;
+    };
+    /** BlankContagionResponse */
+    BlankContagionResponse: {
+      /** Blank Rate By Round */
+      blank_rate_by_round: unknown[];
+      /** Epidemic Threshold */
+      epidemic_threshold?: unknown;
+      /** Final Blank Rate */
+      final_blank_rate: number;
+      /** Network Type */
+      network_type: string;
+      /** R0 */
+      r0?: unknown;
+      /** Reached Equilibrium */
+      reached_equilibrium: boolean;
+      /** Rounds */
+      rounds: unknown[];
+    } & {
+      [key: string]: unknown;
+    };
+    /** BlankHistoryResponse */
+    BlankHistoryResponse: {
+      /** Country */
+      country: string;
+      /** Display Name */
+      display_name: string;
+      /** Note */
+      note: string;
+      /** Series */
+      series: unknown;
+    } & {
+      [key: string]: unknown;
+    };
+    /**
+     * BlankVoteConfig
+     * @description Constitutional blank-vote rule + optional contagion.
+     */
+    BlankVoteConfig: {
+      contagion?: components['schemas']['ContagionConfig'];
+      /**
+       * Enabled
+       * @description Apply the constitutional rule to the winner.
+       * @default false
+       */
+      enabled: boolean;
+      /**
+       * Rule
+       * @description 'symbolic' | 'competitive' | 'threshold_30'.
+       * @default symbolic
+       */
+      rule: string;
+    };
+    /** Body_auth_jwt_login_api_v2_auth_jwt_login_post */
+    Body_auth_jwt_login_api_v2_auth_jwt_login_post: {
+      /** Client Id */
+      client_id?: string | null;
+      /**
+       * Client Secret
+       * Format: password
+       */
+      client_secret?: string | null;
+      /** Grant Type */
+      grant_type?: string | null;
+      /**
+       * Password
+       * Format: password
+       */
+      password: string;
+      /**
+       * Scope
+       * @default
+       */
+      scope: string;
+      /** Username */
+      username: string;
+    };
+    /** CVProposal */
+    CVProposal: {
+      /** Name */
+      name: string;
+      /** X */
+      x: number;
+    };
+    /** CWCandidate */
+    CWCandidate: {
+      /** Name */
+      name: string;
+      /** X */
+      x: number;
+      /**
+       * Y
+       * @default 0
+       */
+      y: number;
+    };
+    /**
+     * CalculateUtilityRequest
+     * @description POST /simulations/calculate_utility (single voter × candidate).
+     */
+    CalculateUtilityRequest: {
+      /** Candidate */
+      candidate?: {
+        [key: string]: unknown;
+      };
+      /** Issues */
+      issues?: string[];
+      /** Voter */
+      voter?: {
+        [key: string]: unknown;
+      };
+    };
+    /** CalculateUtilityResponse */
+    CalculateUtilityResponse: {
+      /** Message */
+      message: string;
+      /** Result */
+      result: {
+        [key: string]: unknown;
+      };
+      /** Success */
+      success: boolean;
+    } & {
+      [key: string]: unknown;
+    };
+    /**
+     * CampaignConfig
+     * @description Polling-bandwagon dynamics over a few days.
+     */
+    CampaignConfig: {
+      /**
+       * Enabled
+       * @description Apply campaign dynamics to true utilities.
+       * @default false
+       */
+      enabled: boolean;
+      /**
+       * Num Days
+       * @description Campaign length in days.
+       * @default 30
+       */
+      num_days: number;
+      /**
+       * Polling Effect
+       * @description 0 = ignore polls, 1 = ballots follow polls.
+       * @default 0.3
+       */
+      polling_effect: number;
+    };
+    /** CampaignEventResult */
+    CampaignEventResult: {
+      /** Candidate */
+      candidate: number;
+      /** Day */
+      day: number;
+      /** Magnitude */
+      magnitude: number;
+      /** Measured Impact */
+      measured_impact: number;
+      /** Type */
+      type: string;
+    } & {
+      [key: string]: unknown;
+    };
+    /**
+     * CampaignRequest
+     * @description POST /simulations/campaign (day-by-day campaign simulation).
+     */
+    CampaignRequest: {
+      /** Events */
+      events?: {
+        [key: string]: unknown;
+      }[];
+      /**
+       * Method
+       * @default plurality
+       */
+      method: string;
+      /**
+       * Num Candidates
+       * @default 4
+       */
+      num_candidates: number;
+      /**
+       * Num Days
+       * @default 30
+       */
+      num_days: number;
+      /**
+       * Num Voters
+       * @default 500
+       */
+      num_voters: number;
+      /** Seed */
+      seed?: number | null;
+    };
+    /** CampaignResponse */
+    CampaignResponse: {
+      /** Candidates */
+      candidates: string[];
+      /** Daily Leader */
+      daily_leader: string[];
+      /** Daily Scores */
+      daily_scores: {
+        [key: string]: number[];
+      };
+      /** Days */
+      days: number[];
+      /** Events */
+      events: components['schemas']['CampaignEventResult'][];
+      /** Final Winner */
+      final_winner?: string | null;
+      /** Lead Changes */
+      lead_changes: number;
+    } & {
+      [key: string]: unknown;
+    };
+    /** CampaignSensitivityRequest */
+    CampaignSensitivityRequest: {
+      blank_vote?: components['schemas']['BlankVoteConfig'];
+      campaign?: components['schemas']['CampaignConfig'];
+      /** Candidates */
+      candidates: components['schemas']['CandidateSpec'][];
+      /**
+       * Ideology
+       * @default random
+       */
+      ideology: string;
+      /**
+       * Num Voters
+       * @default 150
+       */
+      num_voters: number;
+      /**
+       * Seed
+       * @default 42
+       */
+      seed: number;
+      /**
+       * Snapshot Days
+       * @description Days at which to snapshot — strings ('final') and ints are both accepted.
+       */
+      snapshot_days?: unknown[];
+    };
+    /** CampaignSensitivityResponse */
+    CampaignSensitivityResponse: {
+      /** Least Stable Method */
+      least_stable_method: string | null;
+      /**
+       * Method Stability
+       * @description Per-method: winner_changes count, final_winner, stability_score [0..1].
+       */
+      method_stability: {
+        [key: string]: {
+          [key: string]: unknown;
+        };
+      };
+      /** Most Stable Method */
+      most_stable_method: string | null;
+      /** Snapshots */
+      snapshots: components['schemas']['CampaignSnapshot'][];
+    };
+    /**
+     * CampaignSnapshot
+     * @description Tolerant of extra fields the worker emits per-snapshot (vote shares,
+     *     method-specific scores, ...). Only the strictly-required fields are
+     *     typed; the rest pass through unchanged.
+     */
+    CampaignSnapshot: {
+      /** Condorcet Winner */
+      condorcet_winner?: string | null;
+      /**
+       * Day
+       * @description Day index or 'final'.
+       */
+      day: unknown;
+      /** Methods */
+      methods?: {
+        [key: string]: components['schemas']['MethodResult'];
+      };
+    } & {
+      [key: string]: unknown;
+    };
+    /** CandidateOverride */
+    CandidateOverride: {
+      /** Name */
+      name: string;
+      /** X */
+      x: number;
+      /** Y */
+      y: number;
+    };
+    /**
+     * CandidateSnapshot
+     * @description Candidate as returned in /simulate (with derived party label).
+     */
+    CandidateSnapshot: {
+      /** Name */
+      name: string;
+      /** Party */
+      party: string;
+      /** X */
+      x: number;
+      /** Y */
+      y: number;
+    };
+    /**
+     * CandidateSpec
+     * @description A single candidate placed at a 2D ideological position on [-1, 1]².
+     */
+    CandidateSpec: {
+      /**
+       * Name
+       * @description Candidate display name.
+       */
+      name: string;
+      /**
+       * X
+       * @description Economy axis. -1 = far left, +1 = far right.
+       */
+      x: number;
+      /**
+       * Y
+       * @description Social axis. -1 = liberal, +1 = conservative.
+       */
+      y: number;
+    };
+    /**
+     * CascadeRequest
+     * @description Sequential voting with information cascades (Bikhchandani et al., 1992).
+     */
+    CascadeRequest: {
+      /** Candidates */
+      candidates: components['schemas']['CandidateSpec'][];
+      /**
+       * Cascade Strength
+       * @description Probability of following the public signal vs. sincere vote.
+       * @default 0.5
+       */
+      cascade_strength: number;
+      /**
+       * Ideology
+       * @default random
+       */
+      ideology: string;
+      /**
+       * Num Voters
+       * @default 100
+       */
+      num_voters: number;
+      /**
+       * Observation Window
+       * @description Number of recent votes each voter observes.
+       * @default 10
+       */
+      observation_window: number;
+      /**
+       * Seed
+       * @default 42
+       */
+      seed: number;
+    };
+    /**
+     * CascadeResponse
+     * @description Information cascade: sequential voting where later voters follow the herd.
+     */
+    CascadeResponse: {
+      /** Candidates */
+      candidates: string[];
+      /** Cascade Occurred */
+      cascade_occurred: boolean;
+      /** Cascade Start At */
+      cascade_start_at: number | null;
+      /** Cascade Strength Curve */
+      cascade_strength_curve: {
+        [key: string]: unknown;
+      }[];
+      /** Cascade Winner */
+      cascade_winner: string | null;
+      /** Comparison Runs */
+      comparison_runs: {
+        [key: string]: unknown;
+      }[];
+      /** Sincere Winner */
+      sincere_winner: string | null;
+      /** Vote Sequence */
+      vote_sequence: {
+        [key: string]: unknown;
+      }[];
+    } & {
+      [key: string]: unknown;
+    };
+    /** ChaosPath */
+    ChaosPath: {
+      /** From */
+      from: number[];
+      /** Num Steps */
+      num_steps: number;
+      /** Steps */
+      steps: number[][];
+      /** To */
+      to: number[];
+    };
+    /**
+     * ChoiceOverloadRequest
+     * @description Schwartz 2004 paradox: heuristics dominate beyond overload_threshold candidates.
+     */
+    ChoiceOverloadRequest: {
+      /**
+       * Candidate Counts
+       * @description Candidate counts to compare. Each clamped to [2, 15].
+       */
+      candidate_counts?: number[];
+      heuristic_weights?: components['schemas']['HeuristicWeights'] | null;
+      /**
+       * Ideology
+       * @default random
+       */
+      ideology: string;
+      /**
+       * Methods
+       * @description Voting methods to compare.
+       */
+      methods?: string[] | null;
+      /**
+       * Num Voters
+       * @default 150
+       */
+      num_voters: number;
+      /**
+       * Overload Threshold
+       * @description Above this candidate count, voters switch to heuristics.
+       * @default 5
+       */
+      overload_threshold: number;
+      /**
+       * Seed
+       * @default 42
+       */
+      seed: number;
+    };
+    /**
+     * ChoiceOverloadResponse
+     * @description Heuristic voting beyond an overload threshold of candidates.
+     */
+    ChoiceOverloadResponse: {
+      /** Heuristic Weights */
+      heuristic_weights: {
+        [key: string]: number;
+      };
+      /** Least Robust Method */
+      least_robust_method: string | null;
+      /** Most Robust Method */
+      most_robust_method: string | null;
+      /** Overload Threshold */
+      overload_threshold: number;
+      /** Pedagogical Note */
+      pedagogical_note: string;
+      /** Regret Curve */
+      regret_curve: {
+        [key: string]: unknown;
+      }[];
+      /** Results By N */
+      results_by_n: {
+        [key: string]: unknown;
+      }[];
+    } & {
+      [key: string]: unknown;
+    };
+    /**
+     * ClosestCandidateRequest
+     * @description POST /simulations/get_closest_candidate (2-D spatial assignment).
+     */
+    ClosestCandidateRequest: {
+      /** Candidates */
+      candidates?: unknown[];
+      /** Voters */
+      voters?: unknown[];
+    };
+    /** ClosestCandidateResponse */
+    ClosestCandidateResponse: {
+      /** Result */
+      result: unknown;
+    } & {
+      [key: string]: unknown;
+    };
+    /** CoalitionCandidate */
+    CoalitionCandidate: {
+      /** Name */
+      name: string;
+      /** X */
+      x: number;
+    };
+    /** CoalitionConstraint */
+    CoalitionConstraint: {
+      /** Party A */
+      party_a: string;
+      /** Party B */
+      party_b: string;
+    };
+    /**
+     * CoalitionMethodResult
+     * @description Coalition analysis for one voting method.
+     */
+    CoalitionMethodResult: {
+      /** Coalition Parties */
+      coalition_parties: string[];
+      /** Coalition Seats */
+      coalition_seats: number;
+      /**
+       * Coalition Spread
+       * @description Ideological variance of coalition (0 = monolithic).
+       */
+      coalition_spread: number;
+      /** Government Possible */
+      government_possible: boolean;
+      /** Method */
+      method: string;
+      /** Seats */
+      seats: {
+        [key: string]: number;
+      };
+      /** Vote Shares */
+      vote_shares: {
+        [key: string]: number;
+      };
+      /** Winner */
+      winner: string;
+    } & {
+      [key: string]: unknown;
+    };
+    /**
+     * CoalitionRequest
+     * @description Per-method D'Hondt seat allocation + greedy coalition formation.
+     */
+    CoalitionRequest: {
+      /** Candidates */
+      candidates: components['schemas']['CandidateSpec'][];
+      /**
+       * Government Threshold
+       * @description Share of seats needed to form a government.
+       * @default 0.5
+       */
+      government_threshold: number;
+      /**
+       * Ideology
+       * @default random
+       */
+      ideology: string;
+      /**
+       * Num Voters
+       * @default 300
+       */
+      num_voters: number;
+      /**
+       * Seed
+       * @default 42
+       */
+      seed: number;
+      /**
+       * Total Seats
+       * @description Size of the parliament.
+       * @default 100
+       */
+      total_seats: number;
+    };
+    /** CoalitionResponse */
+    CoalitionResponse: {
+      /** Candidates */
+      candidates: components['schemas']['CoalitionCandidate'][];
+      /** Inter Method Agreement */
+      inter_method_agreement: number;
+      /** Methods */
+      methods: components['schemas']['CoalitionMethodResult'][];
+      /** Most Centrist Method */
+      most_centrist_method: string | null;
+      /** Most Divergent Method */
+      most_divergent_method: string | null;
+      /**
+       * Seat Threshold
+       * @description ceil(total_seats * government_threshold).
+       */
+      seat_threshold: number;
+      /** Total Seats */
+      total_seats: number;
+    };
+    /**
+     * CollectiveWillRequest
+     * @description Does the general will exist, or is it a procedural artefact?
+     */
+    CollectiveWillRequest: {
+      /** Candidates */
+      candidates?: components['schemas']['CWCandidate'][];
+      /**
+       * Ideology
+       * @default random
+       */
+      ideology: string;
+      /**
+       * Num Agendas
+       * @default 4
+       */
+      num_agendas: number;
+      /**
+       * Num Methods
+       * @default 5
+       */
+      num_methods: number;
+      /**
+       * Num Simulations
+       * @default 1
+       */
+      num_simulations: number;
+      /**
+       * Num Voters
+       * @default 100
+       */
+      num_voters: number;
+      /**
+       * Seed
+       * @default 42
+       */
+      seed: number;
+    };
+    /** CollectiveWillResponse */
+    CollectiveWillResponse: {
+      /** Condorcet Exists */
+      condorcet_exists: boolean;
+      /** Condorcet Winner */
+      condorcet_winner?: string | null;
+      /** Most Frequent Pct */
+      most_frequent_pct: number;
+      /** Most Frequent Winner */
+      most_frequent_winner: string;
+      /** Pedagogical Note */
+      pedagogical_note: string;
+      /** Philosophical Conclusion */
+      philosophical_conclusion: string;
+      /** Rousseau Score */
+      rousseau_score: number;
+      /** Unique Winner Count */
+      unique_winner_count: number;
+      /** Unique Winners */
+      unique_winners: string[];
+      /** Winner By Agenda */
+      winner_by_agenda: {
+        [key: string]: string;
+      };
+      /** Winner By Method */
+      winner_by_method: {
+        [key: string]: string;
+      };
+    };
+    /** CombinedEffectsCombination */
+    CombinedEffectsCombination: {
+      /** Blank */
+      blank: boolean;
+      /** Campaign */
+      campaign: boolean;
+      /** Condorcet Winner */
+      condorcet_winner: string | null;
+      /** Id */
+      id: string;
+      /** Information Model */
+      information_model: boolean;
+      /** Inter Method Agreement */
+      inter_method_agreement: number;
+      /** Plurality Winner */
+      plurality_winner: string | null;
+      /** Winner Differs From Base */
+      winner_differs_from_base: boolean;
+    };
+    /**
+     * CombinedEffectsRequest
+     * @description Same shape as SimulateRequest but with a tighter num_voters cap (2³=8 simulations).
+     */
+    CombinedEffectsRequest: {
+      blank_vote?: components['schemas']['BlankVoteConfig'];
+      campaign?: components['schemas']['CampaignConfig'];
+      /** Candidates */
+      candidates: components['schemas']['CandidateSpec'][];
+      /**
+       * Ideology
+       * @default random
+       */
+      ideology: string;
+      information_model?: components['schemas']['InformationModelConfig'];
+      /**
+       * Num Voters
+       * @default 150
+       */
+      num_voters: number;
+      /**
+       * Seed
+       * @default 42
+       */
+      seed: number;
+    };
+    /** CombinedEffectsResponse */
+    CombinedEffectsResponse: {
+      /** Base Winner */
+      base_winner: string | null;
+      /** Combinations */
+      combinations: components['schemas']['CombinedEffectsCombination'][];
+      /**
+       * Factor Deltas
+       * @description Agreement delta per factor (in %). Negative = factor disrupts agreement.
+       */
+      factor_deltas: {
+        [key: string]: number;
+      };
+      /** Least Disruptive Factor */
+      least_disruptive_factor: string;
+      /** Max Disruption Combination */
+      max_disruption_combination: string;
+      /** Most Disruptive Factor */
+      most_disruptive_factor: string;
+    };
+    /**
+     * CompareMethodsRequest
+     * @description POST /simulations/compare.
+     */
+    CompareMethodsRequest: {
+      /**
+       * Blank Rule
+       * @default symbolic
+       */
+      blank_rule: string;
+      /**
+       * Blank Vote
+       * @default false
+       */
+      blank_vote: boolean;
+      /** Candidates */
+      candidates?: unknown[];
+      /**
+       * Ideology Distribution
+       * @default random
+       */
+      ideology_distribution: string;
+      /** Information Model */
+      information_model?: {
+        [key: string]: unknown;
+      };
+      /**
+       * Num Voters
+       * @default 500
+       */
+      num_voters: number;
+    };
+    /** CompareMethodsResponse */
+    CompareMethodsResponse: {
+      /** Condorcet Winner */
+      condorcet_winner?: string | null;
+      /** Information Model */
+      information_model: {
+        [key: string]: unknown;
+      };
+      /** Methods */
+      methods: {
+        [key: string]: unknown;
+      };
+    } & {
+      [key: string]: unknown;
+    };
+    /** CompetenceParams */
+    CompetenceParams: {
+      /**
+       * Caplan Bias
+       * @default true
+       */
+      caplan_bias: boolean;
+      /**
+       * Expert Pct
+       * @default 0.1
+       */
+      expert_pct: number;
+      /**
+       * Mean
+       * @default 0.55
+       */
+      mean: number;
+      /**
+       * Std
+       * @default 0.15
+       */
+      std: number;
+    };
+    /**
+     * CompulsoryVotingRequest
+     * @description Voluntary vs compulsory turnout: reluctant voters add null/random ballots.
+     */
+    CompulsoryVotingRequest: {
+      /** Candidates */
+      candidates: components['schemas']['CandidateSpec'][];
+      /**
+       * Compulsory Turnout
+       * @default 0.92
+       */
+      compulsory_turnout: number;
+      /**
+       * Ideology
+       * @default random
+       */
+      ideology: string;
+      /**
+       * Method
+       * @default plurality
+       */
+      method: string;
+      /**
+       * Num Voters
+       * @default 300
+       */
+      num_voters: number;
+      /**
+       * Reluctant Null Rate
+       * @description Fraction of reluctant voters who cast null ballots.
+       * @default 0.04
+       */
+      reluctant_null_rate: number;
+      /**
+       * Reluctant Random Pct
+       * @description Fraction who vote randomly rather than sincerely.
+       * @default 0.08
+       */
+      reluctant_random_pct: number;
+      /**
+       * Seed
+       * @default 42
+       */
+      seed: number;
+      /**
+       * Voluntary Turnout
+       * @default 0.65
+       */
+      voluntary_turnout: number;
+    };
+    /**
+     * CompulsoryVotingResponse
+     * @description Voluntary vs compulsory turnout and the quality/representation trade-off.
+     */
+    CompulsoryVotingResponse: {
+      /** Compulsory */
+      compulsory: {
+        [key: string]: unknown;
+      };
+      /** Pedagogical Note */
+      pedagogical_note: string;
+      /** Quality Degradation */
+      quality_degradation: number;
+      /** Representation Improvement */
+      representation_improvement: number;
+      /** Voluntary */
+      voluntary: {
+        [key: string]: unknown;
+      };
+      /** Winner Changed */
+      winner_changed: boolean;
+    } & {
+      [key: string]: unknown;
+    };
+    /**
+     * CondorcetMatrixRequest
+     * @description POST /simulations/condorcet-matrix.
+     */
+    CondorcetMatrixRequest: {
+      /** Candidates */
+      candidates?: unknown[];
+      /**
+       * Ideology Distribution
+       * @default random
+       */
+      ideology_distribution: string;
+      /**
+       * Num Voters
+       * @default 500
+       */
+      num_voters: number;
+    };
+    /** CondorcetMatrixResponse */
+    CondorcetMatrixResponse: {
+      /** Candidates */
+      candidates: unknown[];
+      /** Condorcet Cycles */
+      condorcet_cycles?: unknown;
+      /** Condorcet Winner */
+      condorcet_winner?: string | null;
+      /** Matrix */
+      matrix: unknown;
+    } & {
+      [key: string]: unknown;
+    };
+    /**
+     * ConstitutionalScenarioRequest
+     * @description POST /simulations/constitutional-scenario.
+     */
+    ConstitutionalScenarioRequest: {
+      /** Initial Election */
+      initial_election?: {
+        [key: string]: unknown;
+      };
+      /** Params */
+      params?: {
+        [key: string]: unknown;
+      };
+      /**
+       * Scenario Type
+       * @default new_election
+       */
+      scenario_type: string;
+    };
+    /**
+     * ConstitutionalScenarioResponse
+     * @description Polymorphic by scenario_type (new_election/provisional/dissolution);
+     *     `scenario_type` + `conclusion` are common to every branch.
+     */
+    ConstitutionalScenarioResponse: {
+      /** Conclusion */
+      conclusion: string;
+      /** Scenario Type */
+      scenario_type: string;
+    } & {
+      [key: string]: unknown;
+    };
+    /**
+     * ContagionConfig
+     * @description SIS-style blank-vote contagion parameters.
+     */
+    ContagionConfig: {
+      /**
+       * Beta
+       * @description Infection rate β (probability of converting per neighbour).
+       * @default 0.15
+       */
+      beta: number;
+      /**
+       * Enabled
+       * @description Whether contagion is applied.
+       * @default false
+       */
+      enabled: boolean;
+      /**
+       * Gamma
+       * @description Recovery rate γ.
+       * @default 0.1
+       */
+      gamma: number;
+      /**
+       * Network
+       * @description Network topology: 'random' | 'watts_strogatz' | 'block'.
+       * @default random
+       */
+      network: string;
+    };
+    /**
+     * ConvictionVotingRequest
+     * @description Polkadot-style conviction voting: tokens × multiplier(lock_days).
+     */
+    ConvictionVotingRequest: {
+      /**
+       * Conviction Distribution
+       * @description 'uniform' | 'skewed' | 'whale' | 'zero_lock'.
+       * @default uniform
+       */
+      conviction_distribution: string;
+      /**
+       * Ideology
+       * @default random
+       */
+      ideology: string;
+      /**
+       * Num Voters
+       * @default 200
+       */
+      num_voters: number;
+      /** Proposals */
+      proposals: components['schemas']['CVProposal'][];
+      /**
+       * Seed
+       * @default 42
+       */
+      seed: number;
+      /**
+       * Small Lock Days
+       * @description Lock days for non-whale voters.
+       * @default 224
+       */
+      small_lock_days: number;
+      /**
+       * Whale Pct
+       * @default 0.1
+       */
+      whale_pct: number;
+    };
+    /**
+     * ConvictionVotingResponse
+     * @description Conviction voting: tokens × lock-multiplier vs plain token weight.
+     */
+    ConvictionVotingResponse: {
+      /** Conviction Winner */
+      conviction_winner: string | null;
+      /** Lock Options */
+      lock_options: number[];
+      /** Multipliers */
+      multipliers: {
+        [key: string]: number;
+      };
+      /** Pedagogical Note */
+      pedagogical_note: string;
+      /** Proposals */
+      proposals: {
+        [key: string]: unknown;
+      }[];
+      /** Token Winner */
+      token_winner: string | null;
+      /** Voter Scatter */
+      voter_scatter: {
+        [key: string]: unknown;
+      }[];
+      /** Voter Stats */
+      voter_stats: {
+        [key: string]: unknown;
+      };
+      /** Winner Changed */
+      winner_changed: boolean;
+    } & {
+      [key: string]: unknown;
+    };
+    /** CrossPressured */
+    CrossPressured: {
+      /** Abstention Rate */
+      abstention_rate: number;
+      /** Count */
+      count: number;
+    };
+    /**
+     * DeliberationRequest
+     * @description DeGroot deliberation: voters update ideology toward a network-weighted mean.
+     */
+    DeliberationRequest: {
+      /**
+       * Argument Quality
+       * @description Higher = updates pull toward better-informed positions.
+       * @default 0.5
+       */
+      argument_quality: number;
+      /** Candidates */
+      candidates: components['schemas']['CandidateSpec'][];
+      /**
+       * Deliberation Rounds
+       * @default 5
+       */
+      deliberation_rounds: number;
+      /**
+       * Group Size
+       * @default 5
+       */
+      group_size: number;
+      /**
+       * Ideology
+       * @default random
+       */
+      ideology: string;
+      /**
+       * Influence Weight
+       * @description How strongly the group mean pulls each voter.
+       * @default 0.3
+       */
+      influence_weight: number;
+      /**
+       * Method
+       * @default plurality
+       */
+      method: string;
+      /**
+       * Network Type
+       * @description 'random' | 'echo_chamber' | 'bridge' | 'complete'.
+       * @default random
+       */
+      network_type: string;
+      /**
+       * Num Voters
+       * @default 200
+       */
+      num_voters: number;
+      /**
+       * Seed
+       * @default 42
+       */
+      seed: number;
+    };
+    /**
+     * DeliberationResponse
+     * @description Pre/post deliberation comparison under a social-influence network.
+     */
+    DeliberationResponse: {
+      /** Deliberation Effect */
+      deliberation_effect: {
+        [key: string]: unknown;
+      };
+      /** Network Effect */
+      network_effect: string;
+      /** Pedagogical Note */
+      pedagogical_note: string;
+      /** Per Round */
+      per_round: {
+        [key: string]: unknown;
+      }[];
+      /** Post Deliberation */
+      post_deliberation: {
+        [key: string]: unknown;
+      };
+      /** Pre Deliberation */
+      pre_deliberation: {
+        [key: string]: unknown;
+      };
+      /** Winner Changed */
+      winner_changed: boolean;
+    } & {
+      [key: string]: unknown;
+    };
+    /** DemocracyVsExpert */
+    DemocracyVsExpert: {
+      /** Democracy Regret */
+      democracy_regret: number;
+      /** Expert Regret */
+      expert_regret: number;
+      /** Omniscient Regret */
+      omniscient_regret: number;
+    };
+    /**
+     * DemocraticBacksliddingRequest
+     * @description Path toward autocracy across successive elections.
+     */
+    DemocraticBacksliddingRequest: {
+      /**
+       * Backsliding Intensity
+       * @default 0.5
+       */
+      backsliding_intensity: number;
+      /**
+       * Backsliding Method
+       * @description gerrymandering | media_capture | voter_suppression.
+       * @default gerrymandering
+       */
+      backsliding_method: string;
+      /** Candidates */
+      candidates?: components['schemas']['BacksliddingCandidate'][];
+      guardrails?: components['schemas']['Guardrails'] | null;
+      /**
+       * Ideology
+       * @default random
+       */
+      ideology: string;
+      /**
+       * Num Elections
+       * @default 8
+       */
+      num_elections: number;
+      /**
+       * Num Voters
+       * @default 100
+       */
+      num_voters: number;
+      /**
+       * Seed
+       * @default 42
+       */
+      seed: number;
+    };
+    /** DemocraticBacksliddingResponse */
+    DemocraticBacksliddingResponse: {
+      /** Autocracy At Election */
+      autocracy_at_election?: number | null;
+      /** Autocracy Reached */
+      autocracy_reached: boolean;
+      /** Elections */
+      elections: components['schemas']['BacksliddingElection'][];
+      /** Guardrails Effectiveness */
+      guardrails_effectiveness: {
+        [key: string]: number;
+      };
+      /** Pedagogical Note */
+      pedagogical_note: string;
+      /** Tipping Points */
+      tipping_points: number[];
+    };
+    /** DemographicProfile */
+    DemographicProfile: {
+      /** Age Distribution */
+      age_distribution?: number[] | null;
+      /** Education Distribution */
+      education_distribution?: number[] | null;
+      /** Ideology By Age */
+      ideology_by_age?: number[] | null;
+      /** Ideology By Education */
+      ideology_by_education?: number[] | null;
+      /** Turnout By Age */
+      turnout_by_age?: number[] | null;
+      /** Turnout By Education */
+      turnout_by_education?: number[] | null;
+    };
+    /**
+     * DemographicTurnoutRequest
+     * @description Distortion between full population and effective electorate via age × education turnout gaps.
+     */
+    DemographicTurnoutRequest: {
+      /** Candidates */
+      candidates: components['schemas']['CandidateSpec'][];
+      /**
+       * Correct For Turnout
+       * @description Whether to apply the turnout-correction model.
+       * @default true
+       */
+      correct_for_turnout: boolean;
+      demographic_profile?: components['schemas']['DemographicProfile'] | null;
+      /**
+       * Method
+       * @default plurality
+       */
+      method: string;
+      /**
+       * Num Voters
+       * @default 300
+       */
+      num_voters: number;
+      /**
+       * Seed
+       * @default 42
+       */
+      seed: number;
+    };
+    /**
+     * DemographicTurnoutResponse
+     * @description Distortion between full population and effective (turnout-weighted) electorate.
+     */
+    DemographicTurnoutResponse: {
+      /** Biased Result */
+      biased_result: {
+        [key: string]: unknown;
+      };
+      /** Corrected Result */
+      corrected_result: {
+        [key: string]: unknown;
+      };
+      /** Demographic Breakdown */
+      demographic_breakdown: {
+        [key: string]: unknown;
+      }[];
+      /** Pedagogical Note */
+      pedagogical_note: string;
+      /** Representation Gap */
+      representation_gap: {
+        [key: string]: unknown;
+      };
+      /** Winner Changed */
+      winner_changed: boolean;
+    } & {
+      [key: string]: unknown;
+    };
+    /** DistrictBounds */
+    DistrictBounds: {
+      /** X Max */
+      x_max: number;
+      /** X Min */
+      x_min: number;
+      /** Y Max */
+      y_max: number;
+      /** Y Min */
+      y_min: number;
+    };
+    /** DistrictResult */
+    DistrictResult: {
+      /** Id */
+      id: number;
+      /** Ideology Center */
+      ideology_center: number;
+      /** Vote Shares */
+      vote_shares: {
+        [key: string]: number;
+      };
+      /** Winner Fptp */
+      winner_fptp: string;
+    } & {
+      [key: string]: unknown;
+    };
+    /** DistrictSpec */
+    DistrictSpec: {
+      bounds: components['schemas']['DistrictBounds'];
+      /** Id */
+      id: number;
+    };
+    /**
+     * DistrictsRequest
+     * @description N districts with locally shifted ideology, FPTP vs proportional.
+     */
+    DistrictsRequest: {
+      /** Candidates */
+      candidates: components['schemas']['CandidateSpec'][];
+      /**
+       * District Ideology Variance
+       * @default 0.3
+       */
+      district_ideology_variance: number;
+      /**
+       * Num Districts
+       * @default 10
+       */
+      num_districts: number;
+      /**
+       * Seed
+       * @default 42
+       */
+      seed: number;
+      /**
+       * Voters Per District
+       * @default 100
+       */
+      voters_per_district: number;
+    };
+    /**
+     * DistrictsResponse
+     * @description N single-member districts: FPTP parliament vs proportional.
+     */
+    DistrictsResponse: {
+      /** Condorcet Winner National */
+      condorcet_winner_national?: string | null;
+      /** Distortion */
+      distortion: number;
+      /** Districts */
+      districts: components['schemas']['DistrictResult'][];
+      /** Fptp Winner */
+      fptp_winner: string;
+      /** National Vote Share */
+      national_vote_share: {
+        [key: string]: number;
+      };
+      /** Num Districts */
+      num_districts: number;
+      /** Parliament Fptp */
+      parliament_fptp: {
+        [key: string]: number;
+      };
+      /** Parliament Proportional */
+      parliament_proportional: {
+        [key: string]: number;
+      };
+      /** Proportional Winner */
+      proportional_winner: string;
+    } & {
+      [key: string]: unknown;
+    };
+    /**
+     * DivergenceRequest
+     * @description Same electorate, without vs with blank vote.
+     */
+    DivergenceRequest: {
+      /** Blank Vote */
+      blank_vote?: {
+        [key: string]: unknown;
+      } | null;
+      /** Candidates */
+      candidates: components['schemas']['CandidateSpec'][];
+      /**
+       * Ideology
+       * @default random
+       */
+      ideology: string;
+      /**
+       * Num Voters
+       * @default 200
+       */
+      num_voters: number;
+      /**
+       * Seed
+       * @default 42
+       */
+      seed: number;
+    };
+    /**
+     * DivergenceResponse
+     * @description Inter-method agreement with vs without the blank-vote rule.
+     */
+    DivergenceResponse: {
+      /** Blank Rule */
+      blank_rule: string;
+      /** Delta Agreement */
+      delta_agreement: number;
+      /** Methods Changed */
+      methods_changed: unknown[];
+      /** Pct Methods Changed */
+      pct_methods_changed: number;
+      /** With Blank */
+      with_blank: {
+        [key: string]: unknown;
+      };
+      /** Without Blank */
+      without_blank: {
+        [key: string]: unknown;
+      };
+    } & {
+      [key: string]: unknown;
+    };
+    /**
+     * E2EDemoRequest
+     * @description End-to-end verifiable voting pedagogical demo.
+     */
+    E2EDemoRequest: {
+      /** Candidates */
+      candidates?: string[];
+      /** Num Demo Voters */
+      num_demo_voters?: number | null;
+      /** Num Voters */
+      num_voters?: number | null;
+      /**
+       * Seed
+       * @default 42
+       */
+      seed: number;
+      /**
+       * User Vote
+       * @description If non-empty and present in candidates, voter #1's vote.
+       * @default
+       */
+      user_vote: string;
+    };
+    /** E2EDemoResponse */
+    E2EDemoResponse: {
+      /** Aggregate Result */
+      aggregate_result: unknown;
+      /** Audit Proof */
+      audit_proof: unknown;
+      /** Candidates */
+      candidates: unknown[];
+      /** Encrypted Ballots */
+      encrypted_ballots: unknown;
+      /** Num Voters */
+      num_voters: number;
+      /** Privacy Guarantee */
+      privacy_guarantee: unknown;
+      /** Public Bulletin Board */
+      public_bulletin_board: unknown;
+      /** Verification Demonstration */
+      verification_demonstration: unknown;
+      /** Voters */
+      voters: unknown[];
+      /** Winner */
+      winner?: string | null;
+    } & {
+      [key: string]: unknown;
+    };
+    /** ElectionRecord */
+    ElectionRecord: {
+      /** Active Parties */
+      active_parties: number;
+      /** Effective Parties */
+      effective_parties: number;
+      /** Election N */
+      election_n: number;
+      /** Eliminated */
+      eliminated: string[];
+      /** New Entrants */
+      new_entrants: string[];
+      /** Parties */
+      parties: components['schemas']['PartySnap'][];
+      /** Winner */
+      winner: string;
+    } & {
+      [key: string]: unknown;
+    };
+    /**
+     * ElectoralFatigueRequest
+     * @description Turnout decay across repeated elections.
+     */
+    ElectoralFatigueRequest: {
+      /** Candidates */
+      candidates: components['schemas']['CandidateSpec'][];
+      /**
+       * Engaged Voter Pct
+       * @description Share of always-voting partisans.
+       * @default 0.2
+       */
+      engaged_voter_pct: number;
+      /**
+       * Fatigue Rate
+       * @description Per-election turnout drop (0.07 = 7 pp).
+       * @default 0.07
+       */
+      fatigue_rate: number;
+      /**
+       * Ideology
+       * @default random
+       */
+      ideology: string;
+      /**
+       * Method
+       * @default plurality
+       */
+      method: string;
+      /**
+       * Num Elections
+       * @default 6
+       */
+      num_elections: number;
+      /**
+       * Num Voters
+       * @default 200
+       */
+      num_voters: number;
+      /**
+       * Seed
+       * @default 42
+       */
+      seed: number;
+    };
+    /**
+     * ElectoralFatigueResponse
+     * @description Repeated elections: turnout decay + ideological drift of the electorate.
+     */
+    ElectoralFatigueResponse: {
+      /** Elections */
+      elections: {
+        [key: string]: unknown;
+      }[];
+      /** Full Mean Ideology */
+      full_mean_ideology: number;
+      /** Ideology Drift */
+      ideology_drift: number;
+      /** Pedagogical Note */
+      pedagogical_note: string;
+      /** Representation Gap */
+      representation_gap: number;
+      /** Winner Changed At */
+      winner_changed_at: number | null;
+      /** Winner Drift */
+      winner_drift: string[];
+    } & {
+      [key: string]: unknown;
+    };
+    /** EpistCandidate */
+    EpistCandidate: {
+      /** Name */
+      name: string;
+      /** X */
+      x: number;
+      /**
+       * Y
+       * @default 0
+       */
+      y: number;
+    };
+    /**
+     * EpistocracyRequest
+     * @description Epistocratic voting vs standard democracy (Caplan / Brennan).
+     */
+    EpistocracyRequest: {
+      /** Candidates */
+      candidates?: components['schemas']['EpistCandidate'][];
+      competence_params?: components['schemas']['CompetenceParams'] | null;
+      /**
+       * Epistocracy Threshold
+       * @default 0.7
+       */
+      epistocracy_threshold: number;
+      /**
+       * Num Voters
+       * @default 100
+       */
+      num_voters: number;
+      /**
+       * Seed
+       * @default 42
+       */
+      seed: number;
+      /**
+       * Voter Competence Distribution
+       * @description uniform | bimodal | expert_minority.
+       * @default uniform
+       */
+      voter_competence_distribution: string;
+      /**
+       * Weighting Scheme
+       * @description Currently always reports all 4 schemes (equal/competence_weighted/epistocratic/lottery).
+       * @default equal
+       */
+      weighting_scheme: string;
+    };
+    /** EpistocracyResponse */
+    EpistocracyResponse: {
+      /** Condorcet Threshold */
+      condorcet_threshold: number;
+      democracy_vs_expert: components['schemas']['DemocracyVsExpert'];
+      /** Pedagogical Note */
+      pedagogical_note: string;
+      /** Results */
+      results: {
+        [key: string]: components['schemas']['EpistocracySchemeResult'];
+      };
+      voter_competence_stats: components['schemas']['VoterCompetenceStats'];
+    };
+    /** EpistocracySchemeResult */
+    EpistocracySchemeResult: {
+      /** Bayesian Regret */
+      bayesian_regret: number;
+      /** Correct Choice Pct */
+      correct_choice_pct: number;
+      /** Participates Pct */
+      participates_pct: number;
+      /** Winner */
+      winner: string;
+    };
+    /** ErrorModel */
+    ErrorModel: {
+      /** Detail */
+      detail:
+        | string
+        | {
+            [key: string]: string;
+          };
+    };
+    /**
+     * ExportDatasetJSON
+     * @description Body of the JSON export endpoint.
+     */
+    ExportDatasetJSON: {
+      /** Columns */
+      columns: string[];
+      meta: components['schemas']['ExportDatasetMeta'];
+      /** Rows */
+      rows: {
+        [key: string]: unknown;
+      }[];
+    };
+    /** ExportDatasetMeta */
+    ExportDatasetMeta: {
+      /** Ideology */
+      ideology: string;
+      /** Num Candidates */
+      num_candidates: number;
+      /** Num Scenarios */
+      num_scenarios: number;
+      /** Num Voters */
+      num_voters: number;
+      /** Seed */
+      seed: number;
+      /** Total Rows */
+      total_rows: number;
+    };
+    /**
+     * ExportDatasetRequest
+     * @description Shared body for both /simulation-dataset and /simulation-dataset-json.
+     */
+    ExportDatasetRequest: {
+      /**
+       * Ideology
+       * @default random
+       */
+      ideology: string;
+      /**
+       * Num Candidates
+       * @default 4
+       */
+      num_candidates: number;
+      /**
+       * Num Scenarios
+       * @default 100
+       */
+      num_scenarios: number;
+      /**
+       * Num Voters
+       * @default 500
+       */
+      num_voters: number;
+      /**
+       * Seed
+       * @default 42
+       */
+      seed: number;
+    };
+    /**
+     * GalleryCreateRequest
+     * @description Body for `POST /api/v2/scenarios/gallery`.
+     */
+    GalleryCreateRequest: {
+      /** Description */
+      description: string;
+      /** Params */
+      params?: {
+        [key: string]: unknown;
+      };
+      /** Results Summary */
+      results_summary?: {
+        [key: string]: unknown;
+      };
+      /** Tags */
+      tags?: string[];
+      /** Title */
+      title: string;
+    };
+    /**
+     * GalleryDetail
+     * @description Detail view — adds the raw `params` blob.
+     */
+    GalleryDetail: {
+      /** Created At */
+      created_at?: string | null;
+      /** Description */
+      description: string;
+      /** Id */
+      id: number;
+      /** Is Featured */
+      is_featured: boolean;
+      /** Params */
+      params?: {
+        [key: string]: unknown;
+      };
+      /** Results Summary */
+      results_summary?: {
+        [key: string]: unknown;
+      };
+      /** Tags */
+      tags?: string[];
+      /** Title */
+      title: string;
+      /** Views */
+      views: number;
+    };
+    /**
+     * GalleryItem
+     * @description Summary view — what `/featured` and `/list` items look like.
+     */
+    GalleryItem: {
+      /** Created At */
+      created_at?: string | null;
+      /** Description */
+      description: string;
+      /** Id */
+      id: number;
+      /** Is Featured */
+      is_featured: boolean;
+      /** Results Summary */
+      results_summary?: {
+        [key: string]: unknown;
+      };
+      /** Tags */
+      tags?: string[];
+      /** Title */
+      title: string;
+      /** Views */
+      views: number;
+    };
+    /**
+     * GalleryPage
+     * @description Pagination envelope returned by `GET /api/v2/scenarios/gallery`.
+     */
+    GalleryPage: {
+      /** Items */
+      items: components['schemas']['GalleryItem'][];
+      /** Page */
+      page: number;
+      /** Pages */
+      pages: number;
+      /** Per Page */
+      per_page: number;
+      /** Total */
+      total: number;
+    };
+    /**
+     * GerrymanderRequest
+     * @description Voters assigned to user-drawn rectangular districts.
+     */
+    GerrymanderRequest: {
+      /** Candidates */
+      candidates: components['schemas']['CandidateSpec'][];
+      /** Districts */
+      districts: components['schemas']['DistrictSpec'][];
+      /**
+       * Ideology
+       * @default random
+       */
+      ideology: string;
+      /**
+       * Num Voters
+       * @default 300
+       */
+      num_voters: number;
+      /**
+       * Seed
+       * @default 42
+       */
+      seed: number;
+    };
+    /**
+     * GerrymanderResponse
+     * @description Editable-boundary districts: gerrymandered parliament vs proportional.
+     */
+    GerrymanderResponse: {
+      /** Candidates */
+      candidates: string[];
+      /** Distortion */
+      distortion: number;
+      /** Districts */
+      districts: {
+        [key: string]: unknown;
+      }[];
+      /** Gerrymander Index */
+      gerrymander_index: number;
+      /** National Vote Share */
+      national_vote_share: {
+        [key: string]: unknown;
+      };
+      /** Num Seats */
+      num_seats: number;
+      /** Parliament Gerrymander */
+      parliament_gerrymander: {
+        [key: string]: unknown;
+      };
+      /** Parliament Proportional */
+      parliament_proportional: {
+        [key: string]: unknown;
+      };
+      /** Voters */
+      voters: {
+        [key: string]: unknown;
+      }[];
+      /** Winner */
+      winner?: string | null;
+    } & {
+      [key: string]: unknown;
+    };
+    /** GroupResult */
+    GroupResult: {
+      /** Affiliation */
+      affiliation: string;
+      /** Group Name */
+      group_name: string;
+      /** Group Vote Pct */
+      group_vote_pct: number;
+      /** Ideology Match */
+      ideology_match: number;
+      /** Loyalty */
+      loyalty: number;
+      /** Size Pct */
+      size_pct: number;
+    };
+    /** Guardrails */
+    Guardrails: {
+      /**
+       * Constitutional Court
+       * @default false
+       */
+      constitutional_court: boolean;
+      /**
+       * International Pressure
+       * @default false
+       */
+      international_pressure: boolean;
+      /**
+       * Opposition Media
+       * @default false
+       */
+      opposition_media: boolean;
+      /**
+       * Supermajority Required
+       * @default false
+       */
+      supermajority_required: boolean;
+    };
+    /** HTTPValidationError */
+    HTTPValidationError: {
+      /** Detail */
+      detail?: components['schemas']['ValidationError'][];
+    };
+    /** HeuristicWeights */
+    HeuristicWeights: {
+      /**
+       * Notoriety
+       * @default 0.2
+       */
+      notoriety: number;
+      /**
+       * Partisan
+       * @default 0.2
+       */
+      partisan: number;
+      /**
+       * Primacy
+       * @default 0.1
+       */
+      primacy: number;
+    };
+    /**
+     * HistoricalReplayRequest
+     * @description Day-by-day historical replay with optional candidate-position overrides.
+     */
+    HistoricalReplayRequest: {
+      /**
+       * Num Days
+       * @default 30
+       */
+      num_days: number;
+      /** Overrides */
+      overrides?: components['schemas']['CandidateOverride'][] | null;
+      /**
+       * Scenario Id
+       * @description One of france2002 | usa1992 | germany2021 | condorcet_cycle
+       * @default france2002
+       */
+      scenario_id: string;
+      /**
+       * Seed
+       * @default 42
+       */
+      seed: number;
+    };
+    /**
+     * HistoricalReplayResponse
+     * @description Brownian replay of a historical election day-by-day.
+     */
+    HistoricalReplayResponse: {
+      /** Candidates */
+      candidates: components['schemas']['ReplayCandidate'][];
+      /** Days */
+      days: components['schemas']['ReplayDay'][];
+      final: components['schemas']['ReplayFinal'];
+      scenario: components['schemas']['ReplayScenario'];
+    } & {
+      [key: string]: unknown;
+    };
+    /** HotellingCandPos */
+    HotellingCandPos: {
+      /** Name */
+      name: string;
+      /** X */
+      x: number;
+      /** Y */
+      y: number;
+    } & {
+      [key: string]: unknown;
+    };
+    /** HotellingIteration */
+    HotellingIteration: {
+      /** Candidates */
+      candidates: components['schemas']['HotellingCandPos'][];
+      /** Converged Candidates */
+      converged_candidates: string[];
+      /** Scores */
+      scores: {
+        [key: string]: number;
+      };
+      /** Step */
+      step: number;
+    } & {
+      [key: string]: unknown;
+    };
+    /**
+     * HotellingRequest
+     * @description Hotelling-Downs iterative best-response: candidates move to maximise votes.
+     */
+    HotellingRequest: {
+      /** Candidates */
+      candidates: components['schemas']['CandidateSpec'][];
+      /**
+       * Ideology
+       * @default random
+       */
+      ideology: string;
+      /**
+       * Method
+       * @default plurality
+       */
+      method: string;
+      /**
+       * Num Iterations
+       * @default 10
+       */
+      num_iterations: number;
+      /**
+       * Num Voters
+       * @default 200
+       */
+      num_voters: number;
+      /**
+       * Seed
+       * @default 42
+       */
+      seed: number;
+      /**
+       * Step Size
+       * @description Per-step distance each candidate moves on the (x, y) grid.
+       * @default 0.05
+       */
+      step_size: number;
+    };
+    /**
+     * HotellingResponse
+     * @description Hotelling-Downs convergence: candidates chasing the median voter.
+     */
+    HotellingResponse: {
+      /** Candidates */
+      candidates: string[];
+      /** Converged */
+      converged: boolean;
+      /** Convergence Step */
+      convergence_step?: number | null;
+      /** Equilibrium Type */
+      equilibrium_type: string;
+      /** Final Positions */
+      final_positions: components['schemas']['HotellingCandPos'][];
+      /** Iterations */
+      iterations: components['schemas']['HotellingIteration'][];
+      /** Method */
+      method: string;
+      /** Voters */
+      voters: components['schemas']['HotellingVoter'][];
+    } & {
+      [key: string]: unknown;
+    };
+    /** HotellingVoter */
+    HotellingVoter: {
+      /** X */
+      x: number;
+      /** Y */
+      y: number;
+    } & {
+      [key: string]: unknown;
+    };
+    /** IDCandidate */
+    IDCandidate: {
+      /** Name */
+      name: string;
+      /** X */
+      x: number;
+      /**
+       * Y
+       * @default 0
+       */
+      y: number;
+    };
+    /** IGDecision */
+    IGDecision: {
+      /** Benefit Future */
+      benefit_future: number;
+      /** Cost Present */
+      cost_present: number;
+      /** Name */
+      name: string;
+      /** Time Horizon Years */
+      time_horizon_years: number;
+    };
+    /** IGDecisionResult */
+    IGDecisionResult: {
+      /** By Mechanism */
+      by_mechanism: {
+        [key: string]: {
+          [key: string]: unknown;
+        };
+      };
+      /** Decision Name */
+      decision_name: string;
+    };
+    /** IIARatePoint */
+    IIARatePoint: {
+      /** N Candidates */
+      n_candidates: number;
+      /** Violation Rate */
+      violation_rate: number;
+    };
+    /**
+     * IIARateRequest
+     * @description Empirical IIA violation rate vs number of candidates.
+     */
+    IIARateRequest: {
+      /**
+       * Max Candidates
+       * @default 8
+       */
+      max_candidates: number;
+      /**
+       * Method
+       * @default plurality
+       */
+      method: string;
+      /**
+       * Num Trials
+       * @default 100
+       */
+      num_trials: number;
+      /**
+       * Seed
+       * @default 42
+       */
+      seed: number;
+    };
+    /** IIARateResponse */
+    IIARateResponse: {
+      /** Curve */
+      curve: components['schemas']['IIARatePoint'][];
+      /** Method */
+      method: string;
+    };
+    /** IdentityCurvePoint */
+    IdentityCurvePoint: {
+      /** Agreement Rate */
+      agreement_rate: number;
+      /** Weight */
+      weight: number;
+      /** Winner */
+      winner: string;
+    };
+    /** IdentityGroup */
+    IdentityGroup: {
+      /** Candidate Affiliation */
+      candidate_affiliation: string;
+      /** Ideology Center */
+      ideology_center: number;
+      /** Loyalty */
+      loyalty: number;
+      /** Name */
+      name: string;
+      /** Pct */
+      pct: number;
+    };
+    /**
+     * IdentityVotingRequest
+     * @description Green/Palmquist/Schickler 2002 identity-based voting.
+     */
+    IdentityVotingRequest: {
+      /** Candidates */
+      candidates?: components['schemas']['IDCandidate'][];
+      /**
+       * Cross Pressure
+       * @default true
+       */
+      cross_pressure: boolean;
+      /**
+       * Identity Groups
+       * @description Defaults to 3 groups derived from candidates.
+       */
+      identity_groups?: components['schemas']['IdentityGroup'][] | null;
+      /**
+       * Identity Weight
+       * @default 0.5
+       */
+      identity_weight: number;
+      /**
+       * Method
+       * @default plurality
+       */
+      method: string;
+      /**
+       * Num Voters
+       * @default 200
+       */
+      num_voters: number;
+      /**
+       * Seed
+       * @default 42
+       */
+      seed: number;
+    };
+    /** IdentityVotingResponse */
+    IdentityVotingResponse: {
+      cross_pressured: components['schemas']['CrossPressured'];
+      /** Group Results */
+      group_results: components['schemas']['GroupResult'][];
+      /** Identity Weight Curve */
+      identity_weight_curve: components['schemas']['IdentityCurvePoint'][];
+      /** Identity Winner */
+      identity_winner: string;
+      /** Mixed Winner */
+      mixed_winner: string;
+      /** Pedagogical Note */
+      pedagogical_note: string;
+      /** Sincere Winner */
+      sincere_winner: string;
+      /** Winner Changed */
+      winner_changed: boolean;
+    };
+    /** IdeologyDrift */
+    IdeologyDrift: {
+      /** Final X */
+      final_x: number;
+      /** Initial X */
+      initial_x: number;
+      /** Party */
+      party: string;
+    } & {
+      [key: string]: unknown;
+    };
+    /**
+     * IdeologyMapRequest
+     * @description POST /simulations/ideology-map.
+     */
+    IdeologyMapRequest: {
+      /** Candidates */
+      candidates?: {
+        [key: string]: unknown;
+      }[];
+      /**
+       * Ideology
+       * @default random
+       */
+      ideology: string;
+      /**
+       * Method A
+       * @default plurality
+       */
+      method_a: string;
+      /**
+       * Method B
+       * @default schulze
+       */
+      method_b: string;
+      /**
+       * Num Voters
+       * @default 200
+       */
+      num_voters: number;
+      /**
+       * Seed
+       * @default 42
+       */
+      seed: number;
+    };
+    /** IdeologyMapResponse */
+    IdeologyMapResponse: {
+      /** Candidates */
+      candidates: {
+        [key: string]: unknown;
+      }[];
+      /** Condorcet Winner */
+      condorcet_winner?: string | null;
+      /** Method A */
+      method_a: string;
+      /** Method B */
+      method_b: string;
+      /** Pct Better Off With A */
+      pct_better_off_with_a: number;
+      /** Pct Better Off With B */
+      pct_better_off_with_b: number;
+      /** Voters */
+      voters: {
+        [key: string]: unknown;
+      }[];
+      /** Winner A */
+      winner_a?: string | null;
+      /** Winner B */
+      winner_b?: string | null;
+    } & {
+      [key: string]: unknown;
+    };
+    /**
+     * InformationModelConfig
+     * @description Media bias × voter information level adjustment of perceived utilities.
+     */
+    InformationModelConfig: {
+      /**
+       * Enabled
+       * @description Apply information asymmetry.
+       * @default false
+       */
+      enabled: boolean;
+      /**
+       * Media Bias
+       * @description Per-candidate media bias [-1, +1].
+       */
+      media_bias?: {
+        [key: string]: number;
+      };
+      /**
+       * Voter Segments
+       * @description Share of voters in each information bucket. Sums should be ~1.
+       */
+      voter_segments?: {
+        [key: string]: number;
+      };
+    };
+    /** InitialParty */
+    InitialParty: {
+      /** Name */
+      name: string;
+      /** Support Pct */
+      support_pct: number;
+      /** X */
+      x: number;
+      /** Y */
+      y: number;
+    };
+    /**
+     * IntergenerationalRequest
+     * @description How future-gen representation changes long-horizon decisions.
+     */
+    IntergenerationalRequest: {
+      /**
+       * Age Distribution
+       * @description [young, adult, senior] fractions; renormalized server-side.
+       */
+      age_distribution?: number[] | null;
+      /**
+       * Decisions
+       * @description Defaults to a 5-decision battery (retirement, education, debt, insulation, sovereign-fund).
+       */
+      decisions?: components['schemas']['IGDecision'][] | null;
+      /**
+       * Future Generations Mechanism
+       * @description none | proxy | age_weighted | veto.
+       * @default none
+       */
+      future_generations_mechanism: string;
+      /**
+       * Num Voters
+       * @default 100
+       */
+      num_voters: number;
+      /**
+       * Seed
+       * @default 42
+       */
+      seed: number;
+    };
+    /** IntergenerationalResponse */
+    IntergenerationalResponse: {
+      /** Decisions Results */
+      decisions_results: components['schemas']['IGDecisionResult'][];
+      /** Mechanism Comparison */
+      mechanism_comparison: {
+        [key: string]: {
+          [key: string]: number;
+        };
+      };
+      /** Pedagogical Note */
+      pedagogical_note: string;
+    };
+    /**
+     * InterpretRequest
+     * @description Deterministic interpretation of a /simulate result.
+     */
+    InterpretRequest: {
+      /**
+       * Blank Rate
+       * @default 0
+       */
+      blank_rate: number;
+      /** Condorcet Exists */
+      condorcet_exists?: boolean | null;
+      /** Condorcet Winner */
+      condorcet_winner?: string | null;
+      /** Config */
+      config?: {
+        [key: string]: unknown;
+      } | null;
+      /**
+       * Inter Method Agreement
+       * @default 0
+       */
+      inter_method_agreement: number;
+      /**
+       * Lang
+       * @description UI language: 'fr' | 'en'.
+       * @default fr
+       */
+      lang: string;
+      /**
+       * Methods
+       * @description Methods dict from /simulate response.
+       */
+      methods: {
+        [key: string]: unknown;
+      };
+    } & {
+      [key: string]: unknown;
+    };
+    /**
+     * InterpretResponse
+     * @description Deterministic textual interpretation of a simulation result.
+     */
+    InterpretResponse: {
+      /** Best By Regret */
+      best_by_regret: unknown;
+      /** Blank Analysis */
+      blank_analysis: unknown;
+      /** Condorcet Analysis */
+      condorcet_analysis: unknown;
+      /** Divergence Reason */
+      divergence_reason: unknown;
+      /** Headline */
+      headline: string;
+      /** Key Facts */
+      key_facts: unknown;
+      /** Method Groups */
+      method_groups: unknown;
+      /** Pedagogical Note */
+      pedagogical_note: string;
+      /** Worst By Regret */
+      worst_by_regret: unknown;
+    } & {
+      [key: string]: unknown;
+    };
+    /** JAIncoherence */
+    JAIncoherence: {
+      /** Conclusion */
+      conclusion: string;
+      /** Premises */
+      premises: string[];
+      /** Problem */
+      problem: string;
+    };
+    /** JAProposition */
+    JAProposition: {
+      /** Collective Vote */
+      collective_vote: boolean;
+      /** Id */
+      id: string;
+      /** Text */
+      text: string;
+      /**
+       * Type
+       * @description 'premise' | 'conclusion'.
+       */
+      type: string;
+      /** Yes Pct */
+      yes_pct: number;
+    };
+    /** JAResolutionMethods */
+    JAResolutionMethods: {
+      /** Conclusion Based */
+      conclusion_based?: {
+        [key: string]: unknown;
+      };
+      /** Premise Based */
+      premise_based?: {
+        [key: string]: unknown;
+      };
+    };
+    /**
+     * JudgmentAggregationRequest
+     * @description Discursive dilemma (List & Pettit 2002).
+     */
+    JudgmentAggregationRequest: {
+      /**
+       * Num Voters
+       * @default 12
+       */
+      num_voters: number;
+      /**
+       * Scenario
+       * @description One of legal | budget | climate.
+       * @default legal
+       */
+      scenario: string;
+      /**
+       * Seed
+       * @default 42
+       */
+      seed: number;
+    };
+    /** JudgmentAggregationResponse */
+    JudgmentAggregationResponse: {
+      /** Collective Coherent */
+      collective_coherent: boolean;
+      /** Incoherences */
+      incoherences: components['schemas']['JAIncoherence'][];
+      /** Paradox Severity */
+      paradox_severity: number;
+      /** Pedagogical Note */
+      pedagogical_note: string;
+      /** Propositions */
+      propositions: components['schemas']['JAProposition'][];
+      resolution_methods: components['schemas']['JAResolutionMethods'];
+      /** Scenario */
+      scenario: string;
+      /** Scenario Name */
+      scenario_name: string;
+      /** Voter Coherence Rate */
+      voter_coherence_rate: number;
+    };
+    /** JuryMethodResult */
+    JuryMethodResult: {
+      /** Accuracy */
+      accuracy: number;
+      /** Beats Majority */
+      beats_majority: boolean;
+      /** Beats Theory */
+      beats_theory: boolean;
+    } & {
+      [key: string]: unknown;
+    };
+    /**
+     * JuryRequest
+     * @description Condorcet Jury Theorem: P(majority correct) when each voter is right with p>0.5.
+     */
+    JuryRequest: {
+      /**
+       * Correct Option Index
+       * @default 0
+       */
+      correct_option_index: number;
+      /**
+       * Num Options
+       * @default 2
+       */
+      num_options: number;
+      /**
+       * Num Simulations
+       * @default 200
+       */
+      num_simulations: number;
+      /**
+       * Num Voters
+       * @default 100
+       */
+      num_voters: number;
+      /**
+       * Seed
+       * @default 42
+       */
+      seed: number;
+      /**
+       * Voter Competence
+       * @description Per-voter probability of picking the correct option.
+       * @default 0.7
+       */
+      voter_competence: number;
+    };
+    /**
+     * JuryResponse
+     * @description Condorcet Jury Theorem — per-method accuracy + competence-curve scan.
+     */
+    JuryResponse: {
+      /** Best Method */
+      best_method: string;
+      /** Competence Curve */
+      competence_curve: {
+        [key: string]: number;
+      }[];
+      /** Methods */
+      methods: {
+        [key: string]: components['schemas']['JuryMethodResult'];
+      };
+      /** Num Voters */
+      num_voters: number;
+      /** Pedagogical Note */
+      pedagogical_note: string;
+      /** Pedagogical Note En */
+      pedagogical_note_en: string;
+      /** Theoretical Accuracy */
+      theoretical_accuracy: number;
+      /** Voter Competence */
+      voter_competence: number;
+      /** Worst Method */
+      worst_method: string;
+    } & {
+      [key: string]: unknown;
+    };
+    /** KeyManipulator */
+    KeyManipulator: {
+      /** Gain */
+      gain: number;
+      /** Strategy */
+      strategy: string;
+      /** Voter Id */
+      voter_id: number;
+    };
+    /**
+     * LegacySimulateRequest
+     * @description POST /simulations (legacy form-based simulation).
+     */
+    LegacySimulateRequest: {
+      /** Formdata */
+      formData: {
+        [key: string]: unknown;
+      };
+    };
+    /**
+     * LegacySimulateResponse
+     * @description POST /simulations (legacy). Conditional vote/ranked/score blocks +
+     *     dynamic per-method winners ride through on `extra="allow"`.
+     */
+    LegacySimulateResponse: {
+      /** Deprecation Warning */
+      deprecation_warning: string;
+      /** Metadata */
+      metadata: {
+        [key: string]: unknown;
+      };
+      /** Simulation Type */
+      simulation_type: string;
+    } & {
+      [key: string]: unknown;
+    };
+    /**
+     * LiquidDemocracyRequest
+     * @description Transitive delegation up to max_chain_length hops.
+     */
+    LiquidDemocracyRequest: {
+      /** Candidates */
+      candidates: components['schemas']['CandidateSpec'][];
+      /**
+       * Delegation Probability
+       * @default 0.5
+       */
+      delegation_probability: number;
+      /**
+       * Delegation Strategy
+       * @description 'nearest' | 'most_competent' | 'random'.
+       * @default nearest
+       */
+      delegation_strategy: string;
+      /**
+       * Ideology
+       * @default random
+       */
+      ideology: string;
+      /**
+       * Max Chain Length
+       * @default 5
+       */
+      max_chain_length: number;
+      /**
+       * Num Voters
+       * @default 100
+       */
+      num_voters: number;
+      /**
+       * Seed
+       * @default 42
+       */
+      seed: number;
+    };
+    /**
+     * LiquidDemocracyResponse
+     * @description Transitive delegation: super-voters, cycles, and Gini of voting weight.
+     */
+    LiquidDemocracyResponse: {
+      /** Chain Stats */
+      chain_stats: {
+        [key: string]: unknown;
+      };
+      /** Comparison */
+      comparison: {
+        [key: string]: unknown;
+      };
+      /** Cycle Voter Ids */
+      cycle_voter_ids: number[];
+      /** Cycles Detected */
+      cycles_detected: number;
+      /** Delegation Graph */
+      delegation_graph: {
+        [key: string]: unknown;
+      }[];
+      /** Delegators */
+      delegators: number;
+      /** Direct Voters */
+      direct_voters: number;
+      /** Gini Curve */
+      gini_curve: {
+        [key: string]: unknown;
+      }[];
+      /** Gini Voting Weight */
+      gini_voting_weight: number;
+      /** Pedagogical Note */
+      pedagogical_note: string;
+      /** Super Voters */
+      super_voters: {
+        [key: string]: unknown;
+      }[];
+      /** Weighted Results */
+      weighted_results: {
+        [key: string]: number;
+      };
+    } & {
+      [key: string]: unknown;
+    };
+    /**
+     * MajorityTyrannyRequest
+     * @description Tocqueville's tyranny of the majority across decision rules.
+     */
+    MajorityTyrannyRequest: {
+      /**
+       * Decision Rules
+       * @description Defaults to all 6 rules.
+       */
+      decision_rules?: string[] | null;
+      /**
+       * Majority Pct
+       * @default 0.6
+       */
+      majority_pct: number;
+      /**
+       * Minority Intensity
+       * @default 3
+       */
+      minority_intensity: number;
+      /**
+       * Num Decisions
+       * @default 50
+       */
+      num_decisions: number;
+      /**
+       * Num Voters
+       * @default 100
+       */
+      num_voters: number;
+      /**
+       * Seed
+       * @default 42
+       */
+      seed: number;
+    };
+    /** MajorityTyrannyResponse */
+    MajorityTyrannyResponse: {
+      /** Best Protector */
+      best_protector: string;
+      /** Least Efficient */
+      least_efficient: string;
+      /** Pedagogical Note */
+      pedagogical_note: string;
+      /** Results */
+      results: {
+        [key: string]: components['schemas']['MajorityTyrannyRuleResult'];
+      };
+      /** Tyranny Curve */
+      tyranny_curve: components['schemas']['TyrannyCurvePoint'][];
+    };
+    /** MajorityTyrannyRuleResult */
+    MajorityTyrannyRuleResult: {
+      /** Efficiency Loss */
+      efficiency_loss: number;
+      /** Majority Satisfaction */
+      majority_satisfaction: number;
+      /** Minority Satisfaction */
+      minority_satisfaction: number;
+      /** Minority Win Rate */
+      minority_win_rate: number;
+      /** Total Welfare */
+      total_welfare: number;
+      /** Tyranny Index */
+      tyranny_index: number;
+    };
+    /** ManipulabilityResponse */
+    ManipulabilityResponse: {
+      /** Ideology */
+      ideology: string;
+      /** Num Candidates */
+      num_candidates: number;
+      /** Num Trials */
+      num_trials: number;
+      /** Num Voters */
+      num_voters: number;
+      /** Results */
+      results: unknown;
+    } & {
+      [key: string]: unknown;
+    };
+    /**
+     * ManipulationAnalysisRequest
+     * @description Gibbard-Satterthwaite manipulator identification.
+     */
+    ManipulationAnalysisRequest: {
+      /** Candidates */
+      candidates?: components['schemas']['ManipulationCandidate'][];
+      /**
+       * Ideology
+       * @default random
+       */
+      ideology: string;
+      /** Manipulation Strategies */
+      manipulation_strategies?: string[];
+      /**
+       * Method
+       * @default plurality
+       */
+      method: string;
+      /**
+       * Num Voters
+       * @default 30
+       */
+      num_voters: number;
+      /**
+       * Seed
+       * @default 42
+       */
+      seed: number;
+    };
+    /** ManipulationAnalysisResponse */
+    ManipulationAnalysisResponse: {
+      key_manipulator?: components['schemas']['KeyManipulator'] | null;
+      /** Manipulable */
+      manipulable: boolean;
+      /** Manipulation Count */
+      manipulation_count: number;
+      /** Manipulators */
+      manipulators: components['schemas']['Manipulator'][];
+      /** Pedagogical Note */
+      pedagogical_note: string;
+      /** Sincere Winner */
+      sincere_winner: string | null;
+      /** Strategy Breakdown */
+      strategy_breakdown: {
+        [key: string]: number;
+      };
+    };
+    /** ManipulationCandidate */
+    ManipulationCandidate: {
+      /** Name */
+      name: string;
+      /** X */
+      x: number;
+      /** Y */
+      y: number;
+    };
+    /** Manipulator */
+    Manipulator: {
+      /** Sincere Result */
+      sincere_result: string | null;
+      /** Sincere Vote */
+      sincere_vote: string[];
+      /** Strategic Result */
+      strategic_result: string | null;
+      /** Strategic Vote */
+      strategic_vote: string[];
+      /** Strategy Type */
+      strategy_type: string;
+      /** Utility Gain */
+      utility_gain: number;
+      /** Voter Id */
+      voter_id: number;
+      /** Voter Ideology */
+      voter_ideology: number[];
+    };
+    /**
+     * MethodResult
+     * @description Result of a single voting method on one electorate.
+     */
+    MethodResult: {
+      /**
+       * Bayesian Regret
+       * @description Lower = better welfare.
+       */
+      bayesian_regret?: number | null;
+      /**
+       * Blank Triggered
+       * @description Did the blank-vote rule fire?
+       */
+      blank_triggered?: boolean | null;
+      /**
+       * Condorcet Consistent
+       * @description Did the method elect the Condorcet winner?
+       */
+      condorcet_consistent?: boolean | null;
+      /**
+       * Majority Satisfaction
+       * @description Share of voters satisfied (0..1).
+       */
+      majority_satisfaction?: number | null;
+      /**
+       * Winner
+       * @description Method winner.
+       */
+      winner?: string | null;
+      /**
+       * Winner With Blank
+       * @description Winner after blank-vote rule (if enabled).
+       */
+      winner_with_blank?: string | null;
+    } & {
+      [key: string]: unknown;
+    };
+    /**
+     * MonteCarloRequest
+     * @description POST /simulations/monte-carlo (synchronous aggregation variant).
+     */
+    MonteCarloRequest: {
+      /** Candidates */
+      candidates?: unknown[];
+      /**
+       * Ideology Distribution
+       * @default random
+       */
+      ideology_distribution: string;
+      /**
+       * Num Runs
+       * @default 100
+       */
+      num_runs: number;
+      /**
+       * Num Voters
+       * @default 150
+       */
+      num_voters: number;
+    };
+    /** MonteCarloResponse */
+    MonteCarloResponse: {
+      /** Condorcet Winner Exists Rate */
+      condorcet_winner_exists_rate: number;
+      /** Config */
+      config: {
+        [key: string]: unknown;
+      };
+      /** Inter Method Agreement */
+      inter_method_agreement?: unknown;
+      /** Methods */
+      methods: {
+        [key: string]: unknown;
+      };
+      /** Num Runs */
+      num_runs: number;
+      /** Num Voters Per Run */
+      num_voters_per_run: number;
+    } & {
+      [key: string]: unknown;
+    };
+    /**
+     * MultiwinnerCompareRequest
+     * @description STV / D'Hondt / SPAV / Phragmén / FPTP on the same electorate.
+     */
+    MultiwinnerCompareRequest: {
+      /** Candidates */
+      candidates: components['schemas']['CandidateSpec'][];
+      /**
+       * Ideology
+       * @default random
+       */
+      ideology: string;
+      /**
+       * Num Seats
+       * @default 5
+       */
+      num_seats: number;
+      /**
+       * Num Voters
+       * @default 200
+       */
+      num_voters: number;
+      /**
+       * Seed
+       * @default 42
+       */
+      seed: number;
+    };
+    /**
+     * MultiwinnerCompareResponse
+     * @description Several multiwinner methods scored against a proportional reference.
+     */
+    MultiwinnerCompareResponse: {
+      /** Best Method */
+      best_method: string;
+      /** Candidates */
+      candidates: string[];
+      /** Methods */
+      methods: {
+        [key: string]: unknown;
+      };
+      /** Num Seats */
+      num_seats: number;
+      /** Proportional Reference */
+      proportional_reference: {
+        [key: string]: unknown;
+      };
+      /** Vote Shares */
+      vote_shares: {
+        [key: string]: number;
+      };
+      /** Worst Method */
+      worst_method: string;
+    } & {
+      [key: string]: unknown;
+    };
+    /**
+     * MultiwinnerRequest
+     * @description POST /simulations/multiwinner.
+     */
+    MultiwinnerRequest: {
+      /**
+       * Mode
+       * @default proportional
+       */
+      mode: string;
+      /**
+       * Num Seats
+       * @default 10
+       */
+      num_seats: number;
+      /** Party Votes */
+      party_votes?: {
+        [key: string]: unknown;
+      };
+    };
+    /** MultiwinnerResponse */
+    MultiwinnerResponse: {
+      /** Comparison */
+      comparison: {
+        [key: string]: unknown;
+      };
+      /** Dhondt */
+      dhondt?: {
+        [key: string]: unknown;
+      } | null;
+      /** Largest Remainder Droop */
+      largest_remainder_droop?: {
+        [key: string]: unknown;
+      } | null;
+      /** Largest Remainder Hare */
+      largest_remainder_hare?: {
+        [key: string]: unknown;
+      } | null;
+      /** Sainte Lague */
+      sainte_lague?: {
+        [key: string]: unknown;
+      } | null;
+      /** Stv */
+      stv?: {
+        [key: string]: unknown;
+      } | null;
+    } & {
+      [key: string]: unknown;
+    };
+    /**
+     * NotaRequest
+     * @description NOTA (None Of The Above) as an official ballot option.
+     */
+    NotaRequest: {
+      /** Candidates */
+      candidates: components['schemas']['CandidateSpec'][];
+      /**
+       * Ideology
+       * @default random
+       */
+      ideology: string;
+      /**
+       * Method
+       * @description Primary method to display in the curve ('plurality' | 'irv' | 'borda' | 'schulze' | ...).
+       * @default plurality
+       */
+      method: string;
+      /**
+       * Nota Rule
+       * @description Constitutional response when NOTA wins: 'invalidate' | 'runoff' | 'winner_take_all'.
+       * @default invalidate
+       */
+      nota_rule: string;
+      /**
+       * Nota Threshold
+       * @description Minimum max-utility a voter needs for any candidate before they cast NOTA.
+       * @default 0.3
+       */
+      nota_threshold: number;
+      /**
+       * Num Voters
+       * @default 200
+       */
+      num_voters: number;
+      /**
+       * Seed
+       * @default 42
+       */
+      seed: number;
+    };
+    /**
+     * NotaResponse
+     * @description None-Of-The-Above: validity + per-method comparison + threshold curve.
+     */
+    NotaResponse: {
+      /** Election Valid */
+      election_valid: boolean;
+      /** Method Comparison */
+      method_comparison: {
+        [key: string]: unknown;
+      };
+      /** Nota Curve */
+      nota_curve: {
+        [key: string]: unknown;
+      }[];
+      /** Nota Pct */
+      nota_pct: number;
+      /** Nota Rule */
+      nota_rule: string;
+      /** Nota Threshold */
+      nota_threshold: number;
+      /** Pedagogical Note */
+      pedagogical_note: string;
+      /** Winner */
+      winner: string | null;
+    } & {
+      [key: string]: unknown;
+    };
+    /** OptimalAgenda */
+    OptimalAgenda: {
+      /** For Target */
+      for_target: string[];
+      /** Neutral */
+      neutral: string[];
+      /** Worst Case */
+      worst_case: string[];
+    };
+    /**
+     * PartyDynamicsRequest
+     * @description Multi-election party-system evolution (Duverger's Law).
+     */
+    PartyDynamicsRequest: {
+      /**
+       * Emergence Probability
+       * @description Per-election chance of a new party emerging.
+       * @default 0.1
+       */
+      emergence_probability: number;
+      /**
+       * Hotelling Adaptation
+       * @description How strongly parties move toward the centre over time.
+       * @default 0.1
+       */
+      hotelling_adaptation: number;
+      /**
+       * Ideology
+       * @default random
+       */
+      ideology: string;
+      /**
+       * Initial Parties
+       * @description Starting parties. If None, server uses a 7-party default spread across the spectrum.
+       */
+      initial_parties?: components['schemas']['InitialParty'][] | null;
+      /**
+       * Method
+       * @default plurality
+       */
+      method: string;
+      /**
+       * Num Elections
+       * @default 10
+       */
+      num_elections: number;
+      /**
+       * Num Voters
+       * @default 500
+       */
+      num_voters: number;
+      /**
+       * Seed
+       * @default 42
+       */
+      seed: number;
+      /**
+       * Survival Threshold
+       * @description Vote share below which a party is eliminated.
+       * @default 0.05
+       */
+      survival_threshold: number;
+      /**
+       * Tactical Voting
+       * @description Apply tactical voting (squeezes small parties under FPTP).
+       * @default true
+       */
+      tactical_voting: boolean;
+    };
+    /**
+     * PartyDynamicsResponse
+     * @description Multi-election party system evolution (Duverger's law).
+     */
+    PartyDynamicsResponse: {
+      /** Convergence Speed */
+      convergence_speed?: number | null;
+      /** Duverger Confirmed */
+      duverger_confirmed: boolean;
+      /** Effective Parties Curve */
+      effective_parties_curve: number[];
+      /** Elections */
+      elections: components['schemas']['ElectionRecord'][];
+      /** Final System */
+      final_system: string;
+      /** Ideology Drift */
+      ideology_drift: components['schemas']['IdeologyDrift'][];
+      /** Pedagogical Note */
+      pedagogical_note: string;
+    } & {
+      [key: string]: unknown;
+    };
+    /** PartySnap */
+    PartySnap: {
+      /** Name */
+      name: string;
+      /** Seats */
+      seats: number;
+      /** Survived */
+      survived: boolean;
+      /** Vote Pct */
+      vote_pct: number;
+      /** X */
+      x: number;
+      /** Y */
+      y: number;
+    } & {
+      [key: string]: unknown;
+    };
+    /** PartySpec */
+    PartySpec: {
+      /**
+       * Ideology Center
+       * @default 0
+       */
+      ideology_center: number;
+      /** Name */
+      name: string;
+      /** Primary Candidates */
+      primary_candidates: components['schemas']['PrimaryCandidateSpec'][];
+      /**
+       * Primary Voters Pct
+       * @default 0.3
+       */
+      primary_voters_pct: number;
+    };
+    /**
+     * PlottChaosRequest
+     * @description Plott's Chaos Theorem in 2-D policy space.
+     */
+    PlottChaosRequest: {
+      /**
+       * Max Steps
+       * @default 15
+       */
+      max_steps: number;
+      /**
+       * Num Dimensions
+       * @default 2
+       */
+      num_dimensions: number;
+      /**
+       * Num Voters
+       * @default 5
+       */
+      num_voters: number;
+      /**
+       * Seed
+       * @default 42
+       */
+      seed: number;
+      /** Start Policy */
+      start_policy?: number[];
+      /** Target Policy */
+      target_policy?: number[];
+    };
+    /** PlottChaosResponse */
+    PlottChaosResponse: {
+      alternative_path: components['schemas']['AlternativePath'];
+      chaos_path: components['schemas']['ChaosPath'];
+      /** Condorcet Winner Exists */
+      condorcet_winner_exists: boolean;
+      /** Pedagogical Note */
+      pedagogical_note: string;
+      top_cycle: components['schemas']['TopCycle'];
+      /** Voter Ideal Points */
+      voter_ideal_points: number[][];
+    };
+    /**
+     * PolarizationRequest
+     * @description Per-ideology distribution: Esteban-Ray index + method robustness scan.
+     */
+    PolarizationRequest: {
+      /** Candidates */
+      candidates: components['schemas']['CandidateSpec'][];
+      /**
+       * Ideology Range
+       * @description Voter distributions to compare. Defaults to [centrist, random, left_skewed, right_skewed, polarized].
+       */
+      ideology_range?: string[] | null;
+      /**
+       * Num Simulations
+       * @default 20
+       */
+      num_simulations: number;
+      /**
+       * Num Voters
+       * @default 150
+       */
+      num_voters: number;
+      /**
+       * Seed
+       * @default 42
+       */
+      seed: number;
+    };
+    /**
+     * PolarizationResponse
+     * @description Effect of electorate polarization on method outcomes.
+     */
+    PolarizationResponse: {
+      /** Key Findings */
+      key_findings: unknown;
+      /** Results */
+      results: unknown;
+    } & {
+      [key: string]: unknown;
+    };
+    /**
+     * PolisSimulationRequest
+     * @description Pol.is consensus clustering on a fresh statement set.
+     */
+    PolisSimulationRequest: {
+      /**
+       * Ideology
+       * @default random
+       */
+      ideology: string;
+      /**
+       * Num Clusters
+       * @default 3
+       */
+      num_clusters: number;
+      /**
+       * Num Participants
+       * @default 100
+       */
+      num_participants: number;
+      /**
+       * Seed
+       * @default 42
+       */
+      seed: number;
+      /**
+       * Statements
+       * @description Defaults to the built-in 10-statement battery.
+       */
+      statements?: string[] | null;
+    };
+    /** PolisSimulationResponse */
+    PolisSimulationResponse: {
+      /** Clusters */
+      clusters: unknown;
+      /** Consensus Statements */
+      consensus_statements: unknown;
+      /** Num Clusters */
+      num_clusters: number;
+      /** Num Participants */
+      num_participants: number;
+      /** Participant Positions */
+      participant_positions: unknown;
+      /** Polarizing Statements */
+      polarizing_statements: unknown;
+    } & {
+      [key: string]: unknown;
+    };
+    /**
+     * PolisWithCandidatesRequest
+     * @description Pol.is clustering + classical election cross-comparison.
+     */
+    PolisWithCandidatesRequest: {
+      /** Candidates */
+      candidates: components['schemas']['CandidateSpec'][];
+      /**
+       * Ideology
+       * @default random
+       */
+      ideology: string;
+      /**
+       * Method To Compare
+       * @default plurality
+       */
+      method_to_compare: string;
+      /**
+       * Min Consensus Threshold
+       * @default 0.8
+       */
+      min_consensus_threshold: number;
+      /**
+       * Num Clusters
+       * @default 3
+       */
+      num_clusters: number;
+      /**
+       * Num Participants
+       * @default 100
+       */
+      num_participants: number;
+      /**
+       * Seed
+       * @default 42
+       */
+      seed: number;
+      /** Statements */
+      statements?: string[] | null;
+    };
+    /** PolisWithCandidatesResponse */
+    PolisWithCandidatesResponse: {
+      /** Candidate Scores */
+      candidate_scores: unknown;
+      /** Clusters */
+      clusters: unknown;
+      /** Consensus Count */
+      consensus_count: number;
+      /** Election Winner */
+      election_winner?: string | null;
+      /** Participant Positions */
+      participant_positions: unknown;
+      /** Pedagogical Note */
+      pedagogical_note: string;
+      /** Polarizing Count */
+      polarizing_count: number;
+      /** Polis Winner */
+      polis_winner?: string | null;
+      /** Silent Majority Count */
+      silent_majority_count: number;
+      /** Statements */
+      statements: unknown;
+      /** Winners Agree */
+      winners_agree: boolean;
+    } & {
+      [key: string]: unknown;
+    };
+    /**
+     * PowerIndicesRequest
+     * @description Shapley-Shubik and Banzhaf power indices.
+     */
+    PowerIndicesRequest: {
+      /**
+       * Calculate Banzhaf
+       * @default true
+       */
+      calculate_banzhaf: boolean;
+      /**
+       * Calculate Shapley
+       * @default true
+       */
+      calculate_shapley: boolean;
+      /** Coalition Constraints */
+      coalition_constraints?: components['schemas']['CoalitionConstraint'][] | null;
+      /**
+       * Majority Threshold
+       * @description 0 → seats // 2 + 1.
+       * @default 0
+       */
+      majority_threshold: number;
+      /** Parties */
+      parties: components['schemas']['PowerParty'][];
+    };
+    /**
+     * PowerIndicesResponse
+     * @description Banzhaf/Shapley-Shubik coalition power vs raw seat share.
+     */
+    PowerIndicesResponse: {
+      /** Majority Threshold */
+      majority_threshold: number;
+      /** Parties */
+      parties: unknown;
+      /** Pedagogical Note */
+      pedagogical_note: string;
+      /** Power Surprises */
+      power_surprises: unknown[];
+      /** Total Seats */
+      total_seats: number;
+      /** Viable Coalitions */
+      viable_coalitions: unknown[];
+    } & {
+      [key: string]: unknown;
+    };
+    /** PowerParty */
+    PowerParty: {
+      /** Name */
+      name: string;
+      /**
+       * Pariah
+       * @default false
+       */
+      pariah: boolean;
+      /** Seats */
+      seats: number;
+    };
+    /** PrimaryCandidateSpec */
+    PrimaryCandidateSpec: {
+      /** Ideology Position */
+      ideology_position: number;
+      /** Name */
+      name: string;
+    };
+    /**
+     * PrimaryRequest
+     * @description Internal primaries + general election.
+     */
+    PrimaryRequest: {
+      /**
+       * General Ideology
+       * @default random
+       */
+      general_ideology: string;
+      /**
+       * General Method
+       * @default plurality
+       */
+      general_method: string;
+      /**
+       * General Num Voters
+       * @default 500
+       */
+      general_num_voters: number;
+      /** Parties */
+      parties: components['schemas']['PartySpec'][];
+      /**
+       * Primary Method
+       * @default plurality
+       */
+      primary_method: string;
+      /**
+       * Seed
+       * @default 42
+       */
+      seed: number;
+    };
+    /**
+     * PrimaryResponse
+     * @description Internal party primaries followed by a general election.
+     */
+    PrimaryResponse: {
+      /** General Ballot */
+      general_ballot: string[];
+      /** General Runner Up */
+      general_runner_up?: string | null;
+      /** General Vote Shares */
+      general_vote_shares: {
+        [key: string]: unknown;
+      };
+      /** General Winner */
+      general_winner?: string | null;
+      /** Median Voter Distance */
+      median_voter_distance: unknown;
+      /** Primaries */
+      primaries: unknown;
+      /** Without Primaries Winner */
+      without_primaries_winner?: string | null;
+    } & {
+      [key: string]: unknown;
+    };
+    /**
+     * PublicCompareRequest
+     * @description POST /api/v1/compare.
+     */
+    PublicCompareRequest: {
+      /**
+       * Blank Rule
+       * @default
+       */
+      blank_rule: string;
+      /**
+       * Ideology Distribution
+       * @default random
+       */
+      ideology_distribution: string;
+      /**
+       * Methods
+       * @default all
+       */
+      methods: 'all' | string[];
+      /**
+       * Num Candidates
+       * @default 4
+       */
+      num_candidates: number;
+      /**
+       * Num Voters
+       * @default 500
+       */
+      num_voters: number;
+    };
+    /**
+     * PublicCompareResponse
+     * @description POST /api/v1/compare — same envelope, plus blank_pct / per-method
+     *     blank_rule_applied (carried via extra) when a blank rule is set.
+     */
+    PublicCompareResponse: {
+      /** Condorcet Winner */
+      condorcet_winner?: string | null;
+      /** Methods */
+      methods: {
+        [key: string]: unknown;
+      };
+    } & {
+      [key: string]: unknown;
+    };
+    /**
+     * PublicMethodsResponse
+     * @description GET /api/v1/methods.
+     */
+    PublicMethodsResponse: {
+      /** Count */
+      count: number;
+      /** Families */
+      families: unknown;
+      /** Methods */
+      methods: unknown;
+    } & {
+      [key: string]: unknown;
+    };
+    /**
+     * PublicRealElectionsResponse
+     * @description GET /api/v1/real-elections.
+     */
+    PublicRealElectionsResponse: {
+      /** Count */
+      count: number;
+      /** Elections */
+      elections: unknown[];
+    } & {
+      [key: string]: unknown;
+    };
+    /**
+     * PublicSimulateRequest
+     * @description POST /api/v1/simulate.
+     */
+    PublicSimulateRequest: {
+      /**
+       * Ideology Distribution
+       * @default random
+       */
+      ideology_distribution: string;
+      /**
+       * Methods
+       * @default all
+       */
+      methods: 'all' | string[];
+      /**
+       * Num Candidates
+       * @default 4
+       */
+      num_candidates: number;
+      /**
+       * Num Voters
+       * @default 500
+       */
+      num_voters: number;
+    };
+    /**
+     * PublicSimulateResponse
+     * @description POST /api/v1/simulate — the compare_all_methods envelope.
+     */
+    PublicSimulateResponse: {
+      /** Condorcet Winner */
+      condorcet_winner?: string | null;
+      /** Methods */
+      methods: {
+        [key: string]: unknown;
+      };
+    } & {
+      [key: string]: unknown;
+    };
+    /** QFProject */
+    QFProject: {
+      /** Name */
+      name: string;
+      /** X */
+      x: number;
+    };
+    /**
+     * QuadraticFundingRequest
+     * @description Buterin/Hitzig/Weyl 2019 quadratic funding for public goods.
+     */
+    QuadraticFundingRequest: {
+      /**
+       * Budget Per Voter
+       * @default 100
+       */
+      budget_per_voter: number;
+      /**
+       * Ideology
+       * @default random
+       */
+      ideology: string;
+      /**
+       * Matching Pool
+       * @default 10000
+       */
+      matching_pool: number;
+      /**
+       * Num Voters
+       * @default 100
+       */
+      num_voters: number;
+      /** Projects */
+      projects: components['schemas']['QFProject'][];
+      /**
+       * Seed
+       * @default 42
+       */
+      seed: number;
+    };
+    /**
+     * QuadraticFundingResponse
+     * @description Quadratic funding vs 1p1v/plutocracy with Gini inequality metrics.
+     */
+    QuadraticFundingResponse: {
+      /** Budget Per Voter */
+      budget_per_voter: unknown;
+      /** Gini Coefficients */
+      gini_coefficients: {
+        [key: string]: unknown;
+      };
+      /** Matching Pool */
+      matching_pool: unknown;
+      /** Mechanism Comparison */
+      mechanism_comparison: {
+        [key: string]: unknown;
+      };
+      /** Pedagogical Note */
+      pedagogical_note: string;
+      /** Projects */
+      projects: {
+        [key: string]: unknown;
+      }[];
+      /** Vote Shares */
+      vote_shares: {
+        [key: string]: number;
+      };
+      /** Winner */
+      winner?: string | null;
+    } & {
+      [key: string]: unknown;
+    };
+    /**
+     * RealElectionRequest
+     * @description POST /simulations/real-election.
+     */
+    RealElectionRequest: {
+      /**
+       * Blank Vote
+       * @default false
+       */
+      blank_vote: boolean;
+      /**
+       * Election Name
+       * @default
+       */
+      election_name: string;
+      /**
+       * Num Voters
+       * @default 1000
+       */
+      num_voters: number;
+    };
+    /** RealElectionResponse */
+    RealElectionResponse: {
+      /** Blank Vote Analysis */
+      blank_vote_analysis?: unknown;
+      /** Divergences */
+      divergences?: unknown;
+      /** Election */
+      election: unknown;
+      /** First Round Results */
+      first_round_results?: unknown;
+      /** Methods */
+      methods: {
+        [key: string]: unknown;
+      };
+      /** Methods With Blank */
+      methods_with_blank?: {
+        [key: string]: unknown;
+      } | null;
+      /** Plurality Winner */
+      plurality_winner?: string | null;
+      /** Summary */
+      summary?: unknown;
+    } & {
+      [key: string]: unknown;
+    };
+    /**
+     * RealElectionSummary
+     * @description One item of GET /simulations/real-elections (a list).
+     */
+    RealElectionSummary: {
+      /** Country */
+      country: string;
+      /** Key */
+      key: string;
+      /** Name */
+      name: string;
+      /** Year */
+      year: unknown;
+    } & {
+      [key: string]: unknown;
+    };
+    /** ReplayCandidate */
+    ReplayCandidate: {
+      /** Modified */
+      modified: boolean;
+      /** Name */
+      name: string;
+      /** X */
+      x: number;
+      /** Y */
+      y: number;
+    } & {
+      [key: string]: unknown;
+    };
+    /** ReplayDay */
+    ReplayDay: {
+      /** Day */
+      day: number;
+      /** Vote Shares */
+      vote_shares: {
+        [key: string]: number;
+      };
+      /** Winner Borda */
+      winner_borda: string;
+      /** Winner Condorcet */
+      winner_condorcet?: string | null;
+      /** Winner Fptp */
+      winner_fptp: string;
+    } & {
+      [key: string]: unknown;
+    };
+    /** ReplayFinal */
+    ReplayFinal: {
+      /** Differs From Real */
+      differs_from_real: boolean;
+      /** Pedagogical Note */
+      pedagogical_note: string;
+      /** Pedagogical Note En */
+      pedagogical_note_en: string;
+      /** Winner Borda */
+      winner_borda: string;
+      /** Winner Condorcet */
+      winner_condorcet?: string | null;
+      /** Winner Fptp */
+      winner_fptp: string;
+    } & {
+      [key: string]: unknown;
+    };
+    /** ReplayScenario */
+    ReplayScenario: {
+      /** Id */
+      id: string;
+      /** Name */
+      name: string;
+      /** Real Winner */
+      real_winner: string;
+    } & {
+      [key: string]: unknown;
+    };
+    /**
+     * ScenarioCreateRequest
+     * @description Body for POST /scenarios — name + config + optional results.
+     */
+    ScenarioCreateRequest: {
+      /**
+       * Config
+       * @description Election config snapshot — candidates, num_voters, ideology, blank_vote, campaign, etc.
+       */
+      config?: {
+        [key: string]: unknown;
+      };
+      /** Name */
+      name: string;
+      /**
+       * Results
+       * @description Optional cached results from the last simulation run on this config. Null means 'never simulated yet'.
+       */
+      results?: {
+        [key: string]: unknown;
+      } | null;
+    };
+    /**
+     * ScenarioDetail
+     * @description Single view — adds the results blob.
+     */
+    ScenarioDetail: {
+      /** Config */
+      config: {
+        [key: string]: unknown;
+      };
+      /** Created At */
+      created_at?: string | null;
+      /** Id */
+      id: number;
+      /** Name */
+      name: string;
+      /** Results */
+      results?: {
+        [key: string]: unknown;
+      } | null;
+    };
+    /**
+     * ScenarioRequest
+     * @description POST /simulations/scenario.
+     */
+    ScenarioRequest: {
+      /**
+       * Blank Rule
+       * @default symbolic
+       */
+      blank_rule: string;
+      /** Candidates */
+      candidates?: {
+        [key: string]: unknown;
+      }[];
+      /** Electorate */
+      electorate?: {
+        [key: string]: unknown;
+      };
+      /** Methods */
+      methods?: string[] | null;
+    };
+    /** ScenarioResponse */
+    ScenarioResponse: {
+      /** With Blank */
+      with_blank: {
+        [key: string]: unknown;
+      };
+      /** Without Blank */
+      without_blank: {
+        [key: string]: unknown;
+      };
+    } & {
+      [key: string]: unknown;
+    };
+    /**
+     * ScenarioSummary
+     * @description List view — matches `SimulationScenario.to_summary()`.
+     */
+    ScenarioSummary: {
+      /** Config */
+      config: {
+        [key: string]: unknown;
+      };
+      /** Created At */
+      created_at?: string | null;
+      /** Id */
+      id: number;
+      /** Name */
+      name: string;
+    };
+    /** SenExample */
+    SenExample: {
+      /** Conflict */
+      conflict: boolean;
+      /** Explanation */
+      explanation: string;
+      /** Liberal Outcome */
+      liberal_outcome: string;
+      /** Name */
+      name: string;
+      /** Pareto Outcome */
+      pareto_outcome: string;
+      /** Private Spheres */
+      private_spheres: {
+        [key: string]: string[];
+      };
+      /** Voters Preferences */
+      voters_preferences: string[][];
+    };
+    /**
+     * SenParadoxRequest
+     * @description Sen's Impossibility of a Paretian Liberal (always uses 2 voters).
+     */
+    SenParadoxRequest: {
+      /**
+       * Num Voters
+       * @description Fixed at 2 for the canonical formulation.
+       * @default 2
+       */
+      num_voters: number;
+      /**
+       * Rights Definition
+       * @default liberal
+       */
+      rights_definition: string;
+      /**
+       * Seed
+       * @default 42
+       */
+      seed: number;
+    };
+    /** SenParadoxResponse */
+    SenParadoxResponse: {
+      /** Alternative Names */
+      alternative_names: {
+        [key: string]: string;
+      };
+      /** Paradox Examples */
+      paradox_examples: components['schemas']['SenExample'][];
+      /** Paradox Exists */
+      paradox_exists: boolean;
+      /** Paradox Frequency */
+      paradox_frequency: number;
+      /** Pedagogical Note */
+      pedagogical_note: string;
+      /** Real World Analogy */
+      real_world_analogy: string;
+      /** Resolution Options */
+      resolution_options: components['schemas']['SenResolutionOption'][];
+    };
+    /** SenResolutionOption */
+    SenResolutionOption: {
+      /** Cost */
+      cost: string;
+      /** Name */
+      name: string;
+      /** Outcome */
+      outcome: string;
+      /** Theorist */
+      theorist: string;
+    };
+    /**
+     * SensitivityRequest
+     * @description POST /simulations/sensitivity.
+     */
+    SensitivityRequest: {
+      /** Base Config */
+      base_config?: {
+        [key: string]: unknown;
+      };
+      /** Values */
+      values?: unknown[];
+      /**
+       * Variable
+       * @default ideology_distribution
+       */
+      variable: string;
+    };
+    /** SensitivityResponse */
+    SensitivityResponse: {
+      /** Results */
+      results: {
+        [key: string]: unknown;
+      }[];
+      /** Values */
+      values: unknown[];
+      /** Variable */
+      variable: string;
+    } & {
+      [key: string]: unknown;
+    };
+    /**
+     * ShyVoterRequest
+     * @description Bradley / Shy Tory effect: socially-sensitive candidates underpolled.
+     */
+    ShyVoterRequest: {
+      /** Candidates */
+      candidates: components['schemas']['CandidateSpec'][];
+      /**
+       * Ideology
+       * @default random
+       */
+      ideology: string;
+      /**
+       * Num Polls
+       * @default 10
+       */
+      num_polls: number;
+      /**
+       * Num Voters
+       * @default 300
+       */
+      num_voters: number;
+      /**
+       * Seed
+       * @default 42
+       */
+      seed: number;
+      /**
+       * Shy Candidate Idx
+       * @description Index of the 'sensitive' candidate.
+       * @default 0
+       */
+      shy_candidate_idx: number;
+      /**
+       * Social Desirability Factor
+       * @description Fraction of shy voters who lie in polls.
+       * @default 0.4
+       */
+      social_desirability_factor: number;
+    };
+    /**
+     * ShyVoterResponse
+     * @description Shy-voter effect: poll vs real winner under social-desirability bias.
+     */
+    ShyVoterResponse: {
+      /** Avg Poll Results */
+      avg_poll_results: {
+        [key: string]: number;
+      };
+      /** Pedagogical Note */
+      pedagogical_note: string;
+      /** Poll Results */
+      poll_results: {
+        [key: string]: unknown;
+      }[];
+      /** Poll Winner */
+      poll_winner: string | null;
+      /** Polls Wrong */
+      polls_wrong: boolean;
+      /** Real Results */
+      real_results: {
+        [key: string]: number;
+      };
+      /** Real Winner */
+      real_winner: string | null;
+      /** Shy Candidate */
+      shy_candidate: string | null;
+      /** Social Desirability Curve */
+      social_desirability_curve: {
+        [key: string]: unknown;
+      }[];
+      /** Systematic Error */
+      systematic_error: {
+        [key: string]: number;
+      };
+    } & {
+      [key: string]: unknown;
+    };
+    /**
+     * SimulateCandidatesRequest
+     * @description POST /simulations/simulate_candidates.
+     */
+    SimulateCandidatesRequest: {
+      /** Issues */
+      issues?: string[];
+      /**
+       * Num Candidates
+       * @default 4
+       */
+      num_candidates: number;
+      /** Parties */
+      parties?: string[];
+    };
+    /** SimulateCandidatesResponse */
+    SimulateCandidatesResponse: {
+      /** Candidates */
+      candidates: {
+        [key: string]: unknown;
+      }[];
+      /** Message */
+      message: string;
+      /** Success */
+      success: boolean;
+    } & {
+      [key: string]: unknown;
+    };
+    /**
+     * SimulatePipelineRequest
+     * @description Step-by-step pipeline animation for the simulation hub.
+     */
+    SimulatePipelineRequest: {
+      /** Blank Vote */
+      blank_vote?: {
+        [key: string]: unknown;
+      } | null;
+      /** Campaign */
+      campaign?: {
+        [key: string]: unknown;
+      } | null;
+      /** Candidates */
+      candidates: components['schemas']['CandidateSpec'][];
+      /**
+       * Ideology
+       * @default random
+       */
+      ideology: string;
+      /** Information Model */
+      information_model?: {
+        [key: string]: unknown;
+      } | null;
+      /**
+       * Num Voters
+       * @default 150
+       */
+      num_voters: number;
+      /**
+       * Seed
+       * @default 42
+       */
+      seed: number;
+    };
+    /**
+     * SimulatePipelineResponse
+     * @description Step-by-step pipeline of model stages for animation.
+     */
+    SimulatePipelineResponse: {
+      /** Candidates */
+      candidates: {
+        [key: string]: unknown;
+      }[];
+      /** Num Steps */
+      num_steps: number;
+      /** Steps */
+      steps: {
+        [key: string]: unknown;
+      }[];
+    } & {
+      [key: string]: unknown;
+    };
+    /**
+     * SimulateRequest
+     * @description POST /api/election/simulate — full pipeline run.
+     */
+    SimulateRequest: {
+      blank_vote?: components['schemas']['BlankVoteConfig'];
+      campaign?: components['schemas']['CampaignConfig'];
+      /**
+       * Candidates
+       * @description 2 to 8 candidates. Beyond that, Kemeny-Young falls back to KwikSort approximation.
+       */
+      candidates: components['schemas']['CandidateSpec'][];
+      /**
+       * Ideology
+       * @description Voter distribution: 'random' | 'centrist' | 'polarized' | 'left_skewed' | 'right_skewed'.
+       * @default random
+       */
+      ideology: string;
+      information_model?: components['schemas']['InformationModelConfig'];
+      /**
+       * Num Voters
+       * @default 300
+       */
+      num_voters: number;
+      /**
+       * Seed
+       * @description PRNG seed for reproducibility.
+       * @default 42
+       */
+      seed: number;
+    };
+    /**
+     * SimulateResponse
+     * @description Result of /simulate — keys read by LabCentralView, IdeologyMap, MethodMatrix.
+     */
+    SimulateResponse: {
+      /** Blank Rate */
+      blank_rate: number;
+      /** Campaign Trajectory */
+      campaign_trajectory?: {
+        [key: string]: unknown;
+      } | null;
+      /** Candidates */
+      candidates: components['schemas']['CandidateSnapshot'][];
+      /** Condorcet Exists */
+      condorcet_exists: boolean;
+      /** Condorcet Winner */
+      condorcet_winner?: string | null;
+      /**
+       * Config
+       * @description Echo of the original request.
+       */
+      config: {
+        [key: string]: unknown;
+      };
+      /** Inter Method Agreement */
+      inter_method_agreement: number;
+      /**
+       * Methods
+       * @description Keyed by method slug.
+       */
+      methods: {
+        [key: string]: components['schemas']['MethodResult'];
+      };
+      /** Voters Snapshot */
+      voters_snapshot: components['schemas']['VoterSnapshot'][];
+    };
+    /**
+     * SimulateUtilityRequest
+     * @description POST /simulations/simulate_utility.
+     */
+    SimulateUtilityRequest: {
+      /** Candidates */
+      candidates?: {
+        [key: string]: unknown;
+      }[];
+      /** Issues */
+      issues?: string[];
+      /** Voters */
+      voters?: {
+        [key: string]: unknown;
+      }[];
+    };
+    /** SimulateUtilityResponse */
+    SimulateUtilityResponse: {
+      /** Success */
+      success: boolean;
+      /** Utility Results */
+      utility_results: {
+        [key: string]: unknown;
+      }[];
+    } & {
+      [key: string]: unknown;
+    };
+    /**
+     * SimulateVotersRequest
+     * @description POST /simulations/simulate_voters.
+     */
+    SimulateVotersRequest: {
+      /**
+       * Num Voters
+       * @default 1000
+       */
+      num_voters: number;
+    };
+    /** SimulateVotersResponse */
+    SimulateVotersResponse: {
+      /** Voters */
+      voters: {
+        [key: string]: unknown;
+      }[];
+    } & {
+      [key: string]: unknown;
+    };
+    /**
+     * SortitionRequest
+     * @description Compare elected vs sortition pure vs sortition stratified assembly selection.
+     */
+    SortitionRequest: {
+      /**
+       * Assembly Size
+       * @default 50
+       */
+      assembly_size: number;
+      /** Candidates */
+      candidates: components['schemas']['CandidateSpec'][];
+      /**
+       * Ideology
+       * @default random
+       */
+      ideology: string;
+      /**
+       * Method
+       * @default plurality
+       */
+      method: string;
+      /**
+       * Num Simulations
+       * @default 20
+       */
+      num_simulations: number;
+      /**
+       * Num Voters
+       * @default 300
+       */
+      num_voters: number;
+      /**
+       * Realistic Candidates
+       * @default true
+       */
+      realistic_candidates: boolean;
+      /**
+       * Seed
+       * @default 42
+       */
+      seed: number;
+      stratification?: components['schemas']['StratificationConfig'] | null;
+    };
+    /**
+     * SortitionResponse
+     * @description Elected vs sortition (pure / stratified) assembly representativeness.
+     */
+    SortitionResponse: {
+      /** Assemblies */
+      assemblies: {
+        [key: string]: unknown;
+      };
+      /** Consensus Possible */
+      consensus_possible: boolean;
+      /** Pedagogical Note */
+      pedagogical_note: string;
+      /** Population */
+      population: {
+        [key: string]: unknown;
+      };
+      /** Variance */
+      variance: {
+        [key: string]: unknown;
+      };
+      /** Winner By Method */
+      winner_by_method: {
+        [key: string]: unknown;
+      };
+    } & {
+      [key: string]: unknown;
+    };
+    /**
+     * StrategicImpactRequest
+     * @description POST /simulations/strategic-impact.
+     */
+    StrategicImpactRequest: {
+      /** Candidates */
+      candidates?: unknown[];
+      /**
+       * Ideology Distribution
+       * @default random
+       */
+      ideology_distribution: string;
+      /**
+       * Num Voters
+       * @default 500
+       */
+      num_voters: number;
+      /** Strategic Percentages */
+      strategic_percentages?: unknown[];
+    };
+    /** StrategicImpactResponse */
+    StrategicImpactResponse: {
+      /** Results */
+      results: {
+        [key: string]: unknown;
+      }[];
+    } & {
+      [key: string]: unknown;
+    };
+    /** StratificationConfig */
+    StratificationConfig: {
+      /** Age Groups */
+      age_groups?: number[] | null;
+      /**
+       * Education Quota
+       * @default true
+       */
+      education_quota: boolean;
+      /**
+       * Gender Parity
+       * @default true
+       */
+      gender_parity: boolean;
+    };
+    /**
+     * StvRequest
+     * @description Single Transferable Vote + D'Hondt + FPTP comparison.
+     */
+    StvRequest: {
+      /** Candidates */
+      candidates: components['schemas']['CandidateSpec'][];
+      /**
+       * Ideology
+       * @default random
+       */
+      ideology: string;
+      /**
+       * Num Seats
+       * @default 5
+       */
+      num_seats: number;
+      /**
+       * Num Voters
+       * @default 300
+       */
+      num_voters: number;
+      /**
+       * Quota Type
+       * @description STV quota: 'droop' | 'hare' | 'imperiali'.
+       * @default droop
+       */
+      quota_type: string;
+      /**
+       * Seed
+       * @default 42
+       */
+      seed: number;
+    };
+    /**
+     * StvResponse
+     * @description STV vs D'Hondt vs FPTP multiwinner comparison.
+     */
+    StvResponse: {
+      /** Candidates */
+      candidates: string[];
+      /** Dhondt */
+      dhondt: {
+        [key: string]: unknown;
+      };
+      /** Distortion Stv Dhondt */
+      distortion_stv_dhondt: number;
+      /** Distortion Stv Fptp */
+      distortion_stv_fptp: number;
+      /** Fptp */
+      fptp: {
+        [key: string]: unknown;
+      };
+      /** Num Seats */
+      num_seats: number;
+      /** Quota */
+      quota: unknown;
+      /** Quota Type */
+      quota_type: string;
+      /** Stv */
+      stv: {
+        [key: string]: unknown;
+      };
+      /** Vote Shares */
+      vote_shares: {
+        [key: string]: number;
+      };
+    } & {
+      [key: string]: unknown;
+    };
+    /** TopCycle */
+    TopCycle: {
+      /** Center */
+      center: number[];
+      /** Size */
+      size: number;
+    };
+    /** TyrannyCurvePoint */
+    TyrannyCurvePoint: {
+      /** Majority Pct */
+      majority_pct: number;
+      /** Tyranny By Rule */
+      tyranny_by_rule: {
+        [key: string]: number;
+      };
+    };
+    /**
+     * UserCreate
+     * @description Registration body. Email + password come from BaseUserCreate.
+     */
+    UserCreate: {
+      /**
+       * Email
+       * Format: email
+       */
+      email: string;
+      /** First Name */
+      first_name?: string | null;
+      /**
+       * Is Active
+       * @default true
+       */
+      is_active: boolean | null;
+      /**
+       * Is Superuser
+       * @default false
+       */
+      is_superuser: boolean | null;
+      /**
+       * Is Verified
+       * @default false
+       */
+      is_verified: boolean | null;
+      /** Last Name */
+      last_name?: string | null;
+      /** Password */
+      password: string;
+      /**
+       * Role
+       * @description 'User' or 'Admin' — admin creation gated server-side.
+       * @default User
+       */
+      role: string;
+      /** Username */
+      username: string;
+    };
+    /**
+     * UserRead
+     * @description Public view of a user (what /users/me and similar return).
+     */
+    UserRead: {
+      /** Bio */
+      bio?: string | null;
+      /**
+       * Email
+       * Format: email
+       */
+      email: string;
+      /** First Name */
+      first_name?: string | null;
+      /** Id */
+      id: number;
+      /**
+       * Is Active
+       * @default true
+       */
+      is_active: boolean;
+      /**
+       * Is Superuser
+       * @default false
+       */
+      is_superuser: boolean;
+      /**
+       * Is Verified
+       * @default false
+       */
+      is_verified: boolean;
+      /** Last Name */
+      last_name?: string | null;
+      /** Profile Picture */
+      profile_picture?: string | null;
+      /**
+       * Role
+       * @description Legacy 'Admin' | 'User' — shadowed by is_superuser.
+       */
+      role: string;
+      /** Username */
+      username: string;
+    };
+    /**
+     * UserUpdate
+     * @description PATCH body for /users/me. Everything optional.
+     */
+    UserUpdate: {
+      /** Bio */
+      bio?: string | null;
+      /** Email */
+      email?: string | null;
+      /** First Name */
+      first_name?: string | null;
+      /** Is Active */
+      is_active?: boolean | null;
+      /** Is Superuser */
+      is_superuser?: boolean | null;
+      /** Is Verified */
+      is_verified?: boolean | null;
+      /** Last Name */
+      last_name?: string | null;
+      /** Password */
+      password?: string | null;
+      /** Profile Picture */
+      profile_picture?: string | null;
+      /** Username */
+      username?: string | null;
+    };
+    /**
+     * UtilityMatrixRequest
+     * @description POST /simulations/get_utility_matrix.
+     */
+    UtilityMatrixRequest: {
+      /** Candidates */
+      candidates?: {
+        [key: string]: unknown;
+      }[];
+      /** Issues */
+      issues?: string[];
+      /** Voters */
+      voters?: {
+        [key: string]: unknown;
+      }[];
+    };
+    /** UtilityMatrixResponse */
+    UtilityMatrixResponse: {
+      /** Matrix */
+      matrix: {
+        [key: string]: unknown;
+      };
+      /** Message */
+      message: string;
+      /** Stats */
+      stats: {
+        [key: string]: unknown;
+      };
+      /** Success */
+      success: boolean;
+    } & {
+      [key: string]: unknown;
+    };
+    /** ValidationError */
+    ValidationError: {
+      /** Location */
+      loc: (string | number)[];
+      /** Message */
+      msg: string;
+      /** Error Type */
+      type: string;
+    };
+    /**
+     * VoteStepsRequest
+     * @description POST /simulations/vote-steps.
+     */
+    VoteStepsRequest: {
+      /** Candidates */
+      candidates?: unknown[];
+      /**
+       * Ideology
+       * @default random
+       */
+      ideology: string;
+      /**
+       * Method
+       * @default plurality
+       */
+      method: string;
+      /**
+       * Num Voters
+       * @default 100
+       */
+      num_voters: number;
+      /**
+       * Seed
+       * @default 42
+       */
+      seed: number;
+    };
+    /**
+     * VoteStepsResponse
+     * @description POST /simulations/vote-steps. Shape is polymorphic by `method`
+     *     (irv/borda/plurality/schulze/approval); only `method` is guaranteed.
+     */
+    VoteStepsResponse: {
+      /** Method */
+      method: string;
+    } & {
+      [key: string]: unknown;
+    };
+    /** VoterCompetenceStats */
+    VoterCompetenceStats: {
+      /** Biased Mean */
+      biased_mean: number;
+      /** Expert Count */
+      expert_count: number;
+      /** Mean */
+      mean: number;
+    };
+    /**
+     * VoterSegmentsRequest
+     * @description POST /simulations/get_voter_segments.
+     */
+    VoterSegmentsRequest: {
+      /** Candidates */
+      candidates?: {
+        [key: string]: unknown;
+      }[];
+      /** Issues */
+      issues?: string[];
+      /** Segments */
+      segments?: string[];
+      /** Voters */
+      voters?: {
+        [key: string]: unknown;
+      }[];
+    };
+    /** VoterSegmentsResponse */
+    VoterSegmentsResponse: {
+      /** Message */
+      message: string;
+      /** Segments */
+      segments: {
+        [key: string]: unknown;
+      };
+      /** Success */
+      success: boolean;
+    } & {
+      [key: string]: unknown;
+    };
+    /**
+     * VoterSnapshot
+     * @description One voter row in the ideology map.
+     */
+    VoterSnapshot: {
+      /** Blank Threshold Final */
+      blank_threshold_final: number;
+      /** Id */
+      id: number;
+      /** X */
+      x: number;
+      /** Y */
+      y: number;
+    };
+    /**
+     * WhatIfRequest
+     * @description POST /simulations/what-if (vary one parameter, compare methods).
+     */
+    WhatIfRequest: {
+      /** Base */
+      base?: {
+        [key: string]: unknown;
+      };
+      /**
+       * Variant Param
+       * @default num_voters
+       */
+      variant_param: string;
+      /** Variant Values */
+      variant_values?: unknown[];
+    };
+    /** WhatIfResponse */
+    WhatIfResponse: {
+      /** Results */
+      results: {
+        [key: string]: unknown;
+      }[];
+      /** Variant Param */
+      variant_param: string;
+    } & {
+      [key: string]: unknown;
+    };
+    /** _GoogleTokenBody */
+    _GoogleTokenBody: {
+      /**
+       * Token
+       * @description Google ID token from the JS SDK.
+       */
+      token: string;
+    };
+  };
+  responses: never;
+  parameters: never;
+  requestBodies: never;
+  headers: never;
+  pathItems: never;
 }
 export type $defs = Record<string, never>;
 export interface operations {
-    compare_api_v1_compare_post: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["PublicCompareRequest"];
-            };
-        };
-        responses: {
-            /** @description Same shape as /simulate, plus blank_pct & per-method blank_rule_applied when a rule is set. */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["PublicCompareResponse"];
-                };
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
-                };
-            };
-        };
-    };
-    list_methods_api_v1_methods_get: {
-        parameters: {
-            query?: {
-                family?: string;
-            };
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Catalogue of 16+ methods with name, family, and ref. */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["PublicMethodsResponse"];
-                };
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
-                };
-            };
-        };
-    };
-    openapi_spec_api_v1_openapi_json_get: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description The public API contract (kept hand-written so the external surface stays stable across the migration). */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": {
-                        [key: string]: unknown;
-                    };
-                };
-            };
-        };
-    };
-    real_elections_api_v1_real_elections_get: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Per-election metadata + estimated blank-vote pct. */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["PublicRealElectionsResponse"];
-                };
-            };
-        };
-    };
-    simulate_api_v1_simulate_post: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["PublicSimulateRequest"];
-            };
-        };
-        responses: {
-            /** @description condorcet_winner + per-method winner & metrics. */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["PublicSimulateResponse"];
-                };
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
-                };
-            };
-        };
-    };
-    root_api_v2_get: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Successful Response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": {
-                        [key: string]: unknown;
-                    };
-                };
-            };
-        };
-    };
-    github_redirect_api_v2_auth_github_get: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Successful Response */
-            307: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content?: never;
-            };
-        };
-    };
-    github_callback_api_v2_auth_github_callback_get: {
-        parameters: {
-            query?: {
-                /** @description Authorization code from GitHub. */
-                code?: string | null;
-            };
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Successful Response */
-            307: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content?: never;
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
-                };
-            };
-        };
-    };
-    google_login_api_v2_auth_google_post: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["_GoogleTokenBody"];
-            };
-        };
-        responses: {
-            /** @description JWT access token + user summary, identical shape to the Flask route. */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": {
-                        [key: string]: unknown;
-                    };
-                };
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
-                };
-            };
-        };
-    };
-    auth_jwt_login_api_v2_auth_jwt_login_post: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/x-www-form-urlencoded": components["schemas"]["Body_auth_jwt_login_api_v2_auth_jwt_login_post"];
-            };
-        };
-        responses: {
-            /** @description Successful Response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    /**
-                     * @example {
-                     *       "access_token": "eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9.eyJ1c2VyX2lkIjoiOTIyMWZmYzktNjQwZi00MzcyLTg2ZDMtY2U2NDJjYmE1NjAzIiwiYXVkIjoiZmFzdGFwaS11c2VyczphdXRoIiwiZXhwIjoxNTcxNTA0MTkzfQ.M10bjOe45I5Ncu_uXvOmVV8QxnL-nZfcH96U90JaocI",
-                     *       "token_type": "bearer"
-                     *     }
-                     */
-                    "application/json": components["schemas"]["BearerResponse"];
-                };
-            };
-            /** @description Bad Request */
-            400: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["ErrorModel"];
-                };
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
-                };
-            };
-        };
-    };
-    auth_jwt_logout_api_v2_auth_jwt_logout_post: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Successful Response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": unknown;
-                };
-            };
-            /** @description Missing token or inactive user. */
-            401: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content?: never;
-            };
-        };
-    };
-    register_register_api_v2_auth_register_post: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["UserCreate"];
-            };
-        };
-        responses: {
-            /** @description Successful Response */
-            201: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["UserRead"];
-                };
-            };
-            /** @description Bad Request */
-            400: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["ErrorModel"];
-                };
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
-                };
-            };
-        };
-    };
-    abstention_endpoint_api_v2_election_abstention_post: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["AbstentionRequest"];
-            };
-        };
-        responses: {
-            /** @description Round-by-round turnout, vote shares, and winner. Includes per-method comparison (sincere vs final) so the Lab matrix can show how abstention shifts winners across all methods. */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["AbstentionResponse"];
-                };
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
-                };
-            };
-        };
-    };
-    adaptive_endpoint_api_v2_election_adaptive_post: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["AdaptiveRequest"];
-            };
-        };
-        responses: {
-            /** @description Per-round vote shares, sincere vs effective winners, convergence flag, strategic drift. */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["AdaptiveResponse"];
-                };
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
-                };
-            };
-        };
-    };
-    affective_polarization_endpoint_api_v2_election_affective_polarization_post: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["AffectivePolarizationRequest"];
-            };
-        };
-        responses: {
-            /** @description Sincere vs affective winners, method sensitivity, hostility-vs-agreement affect curve. */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["AffectivePolarizationResponse"];
-                };
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
-                };
-            };
-        };
-    };
-    ballot_complexity_endpoint_api_v2_election_ballot_complexity_post: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["BallotComplexityRequest"];
-            };
-        };
-        responses: {
-            /** @description Per-method null rate, winner with and without nulls, and a curve of null rate as the candidate count grows. */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["BallotComplexityResponse"];
-                };
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
-                };
-            };
-        };
-    };
-    behavioral_biases_endpoint_api_v2_election_behavioral_biases_post: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["BehavioralBiasesRequest"];
-            };
-        };
-        responses: {
-            /** @description Sincere vs biased winner, per-method sensitivity, and breakdown of which voters were affected. */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["BehavioralBiasesResponse"];
-                };
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
-                };
-            };
-        };
-    };
-    campaign_sensitivity_endpoint_api_v2_election_campaign_sensitivity_post: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["CampaignSensitivityRequest"];
-            };
-        };
-        responses: {
-            /** @description Per-method stability score over the campaign timeline. */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["CampaignSensitivityResponse"];
-                };
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
-                };
-            };
-        };
-    };
-    cascade_endpoint_api_v2_election_cascade_post: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["CascadeRequest"];
-            };
-        };
-        responses: {
-            /** @description Sincere vs cascade winner, vote sequence with timeline, cascade-strength sensitivity curve. */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["CascadeResponse"];
-                };
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
-                };
-            };
-        };
-    };
-    choice_overload_endpoint_api_v2_election_choice_overload_post: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["ChoiceOverloadRequest"];
-            };
-        };
-        responses: {
-            /** @description Per-candidate-count winners, regret curve, most/least robust method. */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["ChoiceOverloadResponse"];
-                };
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
-                };
-            };
-        };
-    };
-    coalition_endpoint_api_v2_election_coalition_post: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["CoalitionRequest"];
-            };
-        };
-        responses: {
-            /** @description One coalition analysis per voting method, with coalition_spread (ideological variance) and most_centrist / most_divergent method rankings. */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["CoalitionResponse"];
-                };
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
-                };
-            };
-        };
-    };
-    combined_effects_endpoint_api_v2_election_combined_effects_post: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["CombinedEffectsRequest"];
-            };
-        };
-        responses: {
-            /** @description One row per combination (blank × campaign × info), plus per-factor agreement delta and disruptive ranking. */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["CombinedEffectsResponse"];
-                };
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
-                };
-            };
-        };
-    };
-    compulsory_voting_endpoint_api_v2_election_compulsory_voting_post: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["CompulsoryVotingRequest"];
-            };
-        };
-        responses: {
-            /** @description Per-system winner, vote shares, null rate, voter profile, representation improvement, quality degradation. */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["CompulsoryVotingResponse"];
-                };
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
-                };
-            };
-        };
-    };
-    conviction_voting_endpoint_api_v2_election_conviction_voting_post: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["ConvictionVotingRequest"];
-            };
-        };
-        responses: {
-            /** @description Conviction winner vs token winner + per-proposal stats + Gini tokens vs Gini conviction. */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["ConvictionVotingResponse"];
-                };
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
-                };
-            };
-        };
-    };
-    deliberation_endpoint_api_v2_election_deliberation_post: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["DeliberationRequest"];
-            };
-        };
-        responses: {
-            /** @description Pre vs post-deliberation winner, opinion convergence rate, polarisation change, per-round trace. */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["DeliberationResponse"];
-                };
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
-                };
-            };
-        };
-    };
-    demographic_turnout_endpoint_api_v2_election_demographic_turnout_post: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["DemographicTurnoutRequest"];
-            };
-        };
-        responses: {
-            /** @description Biased vs corrected winner, representation gap, demographic breakdown. */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["DemographicTurnoutResponse"];
-                };
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
-                };
-            };
-        };
-    };
-    districts_endpoint_api_v2_election_districts_post: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["DistrictsRequest"];
-            };
-        };
-        responses: {
-            /** @description Per-district winners + national parliaments (FPTP and D'Hondt proportional) + distortion index. */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["DistrictsResponse"];
-                };
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
-                };
-            };
-        };
-    };
-    divergence_endpoint_api_v2_election_divergence_post: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["DivergenceRequest"];
-            };
-        };
-        responses: {
-            /** @description Methods, agreement, and per-method winner deltas for the two runs. */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["DivergenceResponse"];
-                };
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
-                };
-            };
-        };
-    };
-    electoral_fatigue_endpoint_api_v2_election_electoral_fatigue_post: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["ElectoralFatigueRequest"];
-            };
-        };
-        responses: {
-            /** @description Per-election turnout, winner, ideology drift, and a representation-gap measure of how much the residual electorate diverges from the full population. */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["ElectoralFatigueResponse"];
-                };
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
-                };
-            };
-        };
-    };
-    gerrymander_endpoint_api_v2_election_gerrymander_post: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["GerrymanderRequest"];
-            };
-        };
-        responses: {
-            /** @description Per-district winners + gerrymander parliament + proportional reference + gerrymander index. */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["GerrymanderResponse"];
-                };
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
-                };
-            };
-        };
-    };
-    historical_replay_endpoint_api_v2_election_historical_replay_post: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["HistoricalReplayRequest"];
-            };
-        };
-        responses: {
-            /** @description Per-day winners (FPTP/Condorcet/Borda), scenario metadata, and a pedagogical note on divergence from the real winner. */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HistoricalReplayResponse"];
-                };
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
-                };
-            };
-        };
-    };
-    hotelling_endpoint_api_v2_election_hotelling_post: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["HotellingRequest"];
-            };
-        };
-        responses: {
-            /** @description Iteration-by-iteration candidate positions, convergence status, equilibrium type. */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HotellingResponse"];
-                };
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
-                };
-            };
-        };
-    };
-    interpret_endpoint_api_v2_election_interpret_post: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["InterpretRequest"];
-            };
-        };
-        responses: {
-            /** @description Headline + Condorcet analysis + divergence reason + per-winner method groups + pedagogical note + key facts. */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["InterpretResponse"];
-                };
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
-                };
-            };
-        };
-    };
-    jury_endpoint_api_v2_election_jury_post: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["JuryRequest"];
-            };
-        };
-        responses: {
-            /** @description Per-method accuracy, theoretical majority-rule accuracy, and a competence-curve sensitivity chart. */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["JuryResponse"];
-                };
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
-                };
-            };
-        };
-    };
-    liquid_democracy_endpoint_api_v2_election_liquid_democracy_post: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["LiquidDemocracyRequest"];
-            };
-        };
-        responses: {
-            /** @description Weighted tallies + super-voter list + delegation graph + Gini curve of voting weight. */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["LiquidDemocracyResponse"];
-                };
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
-                };
-            };
-        };
-    };
-    multiwinner_compare_endpoint_api_v2_election_multiwinner_compare_post: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["MultiwinnerCompareRequest"];
-            };
-        };
-        responses: {
-            /** @description Per-method seats + distortion vs proportional + best/worst methods. */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["MultiwinnerCompareResponse"];
-                };
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
-                };
-            };
-        };
-    };
-    nota_endpoint_api_v2_election_nota_post: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["NotaRequest"];
-            };
-        };
-        responses: {
-            /** @description Sincere winner, NOTA percentage, election validity per the constitutional rule, NOTA-vs-threshold curve, and a per-method comparison of NOTA inclusiveness. */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["NotaResponse"];
-                };
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
-                };
-            };
-        };
-    };
-    party_dynamics_endpoint_api_v2_election_party_dynamics_post: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["PartyDynamicsRequest"];
-            };
-        };
-        responses: {
-            /** @description Per-election parties, effective parties curve, final system (bipartite vs multipartite), convergence speed. */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["PartyDynamicsResponse"];
-                };
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
-                };
-            };
-        };
-    };
-    polarization_endpoint_api_v2_election_polarization_post: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["PolarizationRequest"];
-            };
-        };
-        responses: {
-            /** @description One result per ideology distribution: ER index, Condorcet rate, inter-method agreement, regret by method. */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["PolarizationResponse"];
-                };
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
-                };
-            };
-        };
-    };
-    power_indices_endpoint_api_v2_election_power_indices_post: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["PowerIndicesRequest"];
-            };
-        };
-        responses: {
-            /** @description Per-party Shapley + Banzhaf indices + power ratio + viable coalitions + power-surprise list. */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["PowerIndicesResponse"];
-                };
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
-                };
-            };
-        };
-    };
-    primary_endpoint_api_v2_election_primary_post: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["PrimaryRequest"];
-            };
-        };
-        responses: {
-            /** @description Per-party primary results + general election winner + counterfactual without-primaries winner. */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["PrimaryResponse"];
-                };
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
-                };
-            };
-        };
-    };
-    quadratic_funding_endpoint_api_v2_election_quadratic_funding_post: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["QuadraticFundingRequest"];
-            };
-        };
-        responses: {
-            /** @description Per-project funding + mechanism comparison + Gini coefficients + pedagogical note. */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["QuadraticFundingResponse"];
-                };
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
-                };
-            };
-        };
-    };
-    shy_voter_endpoint_api_v2_election_shy_voter_post: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["ShyVoterRequest"];
-            };
-        };
-        responses: {
-            /** @description Real vs polled winner, systematic poll error, and a social-desirability-vs-systematic-error curve. */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["ShyVoterResponse"];
-                };
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
-                };
-            };
-        };
-    };
-    simulate_endpoint_api_v2_election_simulate_post: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["SimulateRequest"];
-            };
-        };
-        responses: {
-            /** @description Simulation result with all 17 voting methods, Condorcet winner, blank rate, and inter-method agreement. */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["SimulateResponse"];
-                };
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
-                };
-            };
-        };
-    };
-    simulate_pipeline_endpoint_api_v2_election_simulate_pipeline_post: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["SimulatePipelineRequest"];
-            };
-        };
-        responses: {
-            /** @description Ordered list of pipeline steps (base electorate, campaign, contagion, information, results) for the ElectionPipelineAnimator component. */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["SimulatePipelineResponse"];
-                };
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
-                };
-            };
-        };
-    };
-    sortition_endpoint_api_v2_election_sortition_post: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["SortitionRequest"];
-            };
-        };
-        responses: {
-            /** @description Per-method assembly: representativity, diversity, decision regret, Gini of representation, Monte Carlo variance. */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["SortitionResponse"];
-                };
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
-                };
-            };
-        };
-    };
-    stv_endpoint_api_v2_election_stv_post: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["StvRequest"];
-            };
-        };
-        responses: {
-            /** @description Round-by-round STV audit + D'Hondt and FPTP parliaments + seat-distortion index. */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["StvResponse"];
-                };
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
-                };
-            };
-        };
-    };
-    export_csv_api_v2_export_simulation_dataset_post: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["ExportDatasetRequest"];
-            };
-        };
-        responses: {
-            /** @description One row per (scenario × voting method). */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "text/csv": unknown;
-                };
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
-                };
-            };
-        };
-    };
-    export_json_api_v2_export_simulation_dataset_json_post: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["ExportDatasetRequest"];
-            };
-        };
-        responses: {
-            /** @description { meta, columns, rows } — drop-in for pandas/dplyr. */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["ExportDatasetJSON"];
-                };
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
-                };
-            };
-        };
-    };
-    health_api_v2_health_get: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Successful Response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": {
-                        [key: string]: unknown;
-                    };
-                };
-            };
-        };
-    };
-    list_scenarios_api_v2_scenarios_get: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Most recently created first. */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["ScenarioSummary"][];
-                };
-            };
-        };
-    };
-    create_scenario_api_v2_scenarios_post: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["ScenarioCreateRequest"];
-            };
-        };
-        responses: {
-            /** @description The freshly created scenario including its server-assigned id. */
-            201: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["ScenarioDetail"];
-                };
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
-                };
-            };
-        };
-    };
-    list_gallery_api_v2_scenarios_gallery_get: {
-        parameters: {
-            query?: {
-                page?: number;
-                per_page?: number;
-                /** @description 'recent' | 'popular' | 'featured' */
-                sort?: string;
-                /** @description Filter by exact tag (case-sensitive). */
-                tag?: string;
-            };
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Items + total + page metadata. */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["GalleryPage"];
-                };
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
-                };
-            };
-        };
-    };
-    create_gallery_scenario_api_v2_scenarios_gallery_post: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["GalleryCreateRequest"];
-            };
-        };
-        responses: {
-            /** @description The freshly created scenario including its id. */
-            201: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["GalleryDetail"];
-                };
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
-                };
-            };
-        };
-    };
-    get_featured_api_v2_scenarios_gallery_featured_get: {
-        parameters: {
-            query?: {
-                limit?: number;
-            };
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Successful Response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["GalleryItem"][];
-                };
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
-                };
-            };
-        };
-    };
-    get_scenario_api_v2_scenarios_gallery__scenario_id__get: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                scenario_id: number;
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Successful Response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["GalleryDetail"];
-                };
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
-                };
-            };
-        };
-    };
-    get_scenario_api_v2_scenarios__scenario_id__get: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                scenario_id: number;
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description 404 if the scenario doesn't exist or belongs to another user. */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["ScenarioDetail"];
-                };
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
-                };
-            };
-        };
-    };
-    delete_scenario_api_v2_scenarios__scenario_id__delete: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                scenario_id: number;
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description `{message: 'Deleted'}` on success, 404 otherwise. */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": {
-                        [key: string]: unknown;
-                    };
-                };
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
-                };
-            };
-        };
-    };
-    legacy_simulate_api_v2_simulations_post: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["LegacySimulateRequest"];
-            };
-        };
-        responses: {
-            /** @description Per-method winners + voter samples. Carries an X-Deprecation-Warning header — prefer the spatial pipeline or /api/v2/election/simulate. */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["LegacySimulateResponse"];
-                };
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
-                };
-            };
-        };
-    };
-    arrow_criteria_api_v2_simulations_arrow_criteria_post: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["ArrowCriteriaRequest"];
-            };
-        };
-        responses: {
-            /** @description Successful Response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["ArrowCriteriaResponse"];
-                };
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
-                };
-            };
-        };
-    };
-    bandwagon_api_v2_simulations_bandwagon_post: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["BandwagonRequest"];
-            };
-        };
-        responses: {
-            /** @description Successful Response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["BandwagonResponse"];
-                };
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
-                };
-            };
-        };
-    };
-    blank_contagion_api_v2_simulations_blank_contagion_post: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["BlankContagionRequest"];
-            };
-        };
-        responses: {
-            /** @description Successful Response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["BlankContagionResponse"];
-                };
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
-                };
-            };
-        };
-    };
-    blank_history_api_v2_simulations_blank_history_get: {
-        parameters: {
-            query?: {
-                country?: string;
-            };
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Successful Response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["BlankHistoryResponse"];
-                };
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
-                };
-            };
-        };
-    };
-    calculate_utility_api_v2_simulations_calculate_utility_post: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["CalculateUtilityRequest"];
-            };
-        };
-        responses: {
-            /** @description Successful Response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["CalculateUtilityResponse"];
-                };
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
-                };
-            };
-        };
-    };
-    campaign_api_v2_simulations_campaign_post: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["CampaignRequest"];
-            };
-        };
-        responses: {
-            /** @description Successful Response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["CampaignResponse"];
-                };
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
-                };
-            };
-        };
-    };
-    compare_api_v2_simulations_compare_post: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["CompareMethodsRequest"];
-            };
-        };
-        responses: {
-            /** @description Successful Response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["CompareMethodsResponse"];
-                };
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
-                };
-            };
-        };
-    };
-    condorcet_matrix_api_v2_simulations_condorcet_matrix_post: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["CondorcetMatrixRequest"];
-            };
-        };
-        responses: {
-            /** @description Successful Response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["CondorcetMatrixResponse"];
-                };
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
-                };
-            };
-        };
-    };
-    constitutional_scenario_api_v2_simulations_constitutional_scenario_post: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["ConstitutionalScenarioRequest"];
-            };
-        };
-        responses: {
-            /** @description Successful Response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["ConstitutionalScenarioResponse"];
-                };
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
-                };
-            };
-        };
-    };
-    get_closest_candidate_api_v2_simulations_get_closest_candidate_post: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["ClosestCandidateRequest"];
-            };
-        };
-        responses: {
-            /** @description Successful Response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["ClosestCandidateResponse"];
-                };
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
-                };
-            };
-        };
-    };
-    get_utility_matrix_api_v2_simulations_get_utility_matrix_post: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["UtilityMatrixRequest"];
-            };
-        };
-        responses: {
-            /** @description Successful Response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["UtilityMatrixResponse"];
-                };
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
-                };
-            };
-        };
-    };
-    get_voter_segments_api_v2_simulations_get_voter_segments_post: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["VoterSegmentsRequest"];
-            };
-        };
-        responses: {
-            /** @description Successful Response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["VoterSegmentsResponse"];
-                };
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
-                };
-            };
-        };
-    };
-    ideology_map_api_v2_simulations_ideology_map_post: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["IdeologyMapRequest"];
-            };
-        };
-        responses: {
-            /** @description Successful Response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["IdeologyMapResponse"];
-                };
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
-                };
-            };
-        };
-    };
-    manipulability_api_v2_simulations_manipulability_get: {
-        parameters: {
-            query?: {
-                num_candidates?: number;
-                num_voters?: number;
-                num_trials?: number;
-                ideology?: string;
-                methods?: string;
-            };
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Successful Response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["ManipulabilityResponse"];
-                };
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
-                };
-            };
-        };
-    };
-    monte_carlo_api_v2_simulations_monte_carlo_post: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["MonteCarloRequest"];
-            };
-        };
-        responses: {
-            /** @description Successful Response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["MonteCarloResponse"];
-                };
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
-                };
-            };
-        };
-    };
-    multiwinner_api_v2_simulations_multiwinner_post: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["MultiwinnerRequest"];
-            };
-        };
-        responses: {
-            /** @description Successful Response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["MultiwinnerResponse"];
-                };
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
-                };
-            };
-        };
-    };
-    real_election_api_v2_simulations_real_election_post: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["RealElectionRequest"];
-            };
-        };
-        responses: {
-            /** @description Successful Response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["RealElectionResponse"];
-                };
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
-                };
-            };
-        };
-    };
-    real_elections_api_v2_simulations_real_elections_get: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Successful Response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["RealElectionSummary"][];
-                };
-            };
-        };
-    };
-    scenario_api_v2_simulations_scenario_post: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["ScenarioRequest"];
-            };
-        };
-        responses: {
-            /** @description Successful Response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["ScenarioResponse"];
-                };
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
-                };
-            };
-        };
-    };
-    sensitivity_api_v2_simulations_sensitivity_post: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["SensitivityRequest"];
-            };
-        };
-        responses: {
-            /** @description Successful Response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["SensitivityResponse"];
-                };
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
-                };
-            };
-        };
-    };
-    simulate_candidates_api_v2_simulations_simulate_candidates_post: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["SimulateCandidatesRequest"];
-            };
-        };
-        responses: {
-            /** @description Successful Response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["SimulateCandidatesResponse"];
-                };
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
-                };
-            };
-        };
-    };
-    simulate_utility_api_v2_simulations_simulate_utility_post: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["SimulateUtilityRequest"];
-            };
-        };
-        responses: {
-            /** @description Successful Response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["SimulateUtilityResponse"];
-                };
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
-                };
-            };
-        };
-    };
-    simulate_voters_api_v2_simulations_simulate_voters_post: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["SimulateVotersRequest"];
-            };
-        };
-        responses: {
-            /** @description Successful Response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["SimulateVotersResponse"];
-                };
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
-                };
-            };
-        };
-    };
-    strategic_impact_api_v2_simulations_strategic_impact_post: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["StrategicImpactRequest"];
-            };
-        };
-        responses: {
-            /** @description Successful Response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["StrategicImpactResponse"];
-                };
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
-                };
-            };
-        };
-    };
-    vote_steps_api_v2_simulations_vote_steps_post: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["VoteStepsRequest"];
-            };
-        };
-        responses: {
-            /** @description Successful Response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["VoteStepsResponse"];
-                };
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
-                };
-            };
-        };
-    };
-    what_if_api_v2_simulations_what_if_post: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["WhatIfRequest"];
-            };
-        };
-        responses: {
-            /** @description Successful Response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["WhatIfResponse"];
-                };
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
-                };
-            };
-        };
-    };
-    e2e_demo_endpoint_api_v2_tech_e2e_demo_post: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["E2EDemoRequest"];
-            };
-        };
-        responses: {
-            /** @description Per-voter encrypted ballots + shuffled bulletin board + homomorphic aggregate + audit proof. */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["E2EDemoResponse"];
-                };
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
-                };
-            };
-        };
-    };
-    polis_with_candidates_endpoint_api_v2_tech_polis_post: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["PolisWithCandidatesRequest"];
-            };
-        };
-        responses: {
-            /** @description Same outputs as /polis-simulation plus per-candidate consensus-alignment scores and the 'Pol.is winner' vs the classical election winner. */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["PolisWithCandidatesResponse"];
-                };
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
-                };
-            };
-        };
-    };
-    polis_simulation_endpoint_api_v2_tech_polis_simulation_post: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["PolisSimulationRequest"];
-            };
-        };
-        responses: {
-            /** @description PCA-2D coords + k-means cluster labels + per-cluster vote rates + consensus / polarising statements. */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["PolisSimulationResponse"];
-                };
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
-                };
-            };
-        };
-    };
-    agenda_manipulation_endpoint_api_v2_theory_agenda_manipulation_post: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["AgendaManipulationRequest"];
-            };
-        };
-        responses: {
-            /** @description Pairwise matrix + Condorcet winner + every achievable outcome over all agenda permutations + manipulation power. */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["AgendaManipulationResponse"];
-                };
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
-                };
-            };
-        };
-    };
-    apportionment_endpoint_api_v2_theory_apportionment_post: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["ApportionmentRequest"];
-            };
-        };
-        responses: {
-            /** @description Per-method seat allocation + paradox flags + Balinski-Young summary. */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["ApportionmentResponse"];
-                };
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
-                };
-            };
-        };
-    };
-    arrow_endpoint_api_v2_theory_arrow_post: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["ArrowRequest"];
-            };
-        };
-        responses: {
-            /** @description Per-axiom violation flag + minimal counterexamples + human-readable summary + tradeoff type. */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["ArrowResponse"];
-                };
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
-                };
-            };
-        };
-    };
-    assumption_testing_endpoint_api_v2_theory_assumption_testing_post: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["AssumptionTestingRequest"];
-            };
-        };
-        responses: {
-            /** @description Per-assumption Monte-Carlo result + most fragile assumption + overall robustness flag. */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["AssumptionTestingResponse"];
-                };
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
-                };
-            };
-        };
-    };
-    collective_will_endpoint_api_v2_theory_collective_will_post: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["CollectiveWillRequest"];
-            };
-        };
-        responses: {
-            /** @description Per-method + per-agenda winners + Rousseau score (=1 iff all procedures agree) + Condorcet check + philosophical conclusion. */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["CollectiveWillResponse"];
-                };
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
-                };
-            };
-        };
-    };
-    democratic_backsliding_endpoint_api_v2_theory_democratic_backsliding_post: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["DemocraticBacksliddingRequest"];
-            };
-        };
-        responses: {
-            /** @description Per-election state (vote shares, democratic quality, guardrails triggered) + autocracy detection + tipping points. */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["DemocraticBacksliddingResponse"];
-                };
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
-                };
-            };
-        };
-    };
-    epistocracy_endpoint_api_v2_theory_epistocracy_post: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["EpistocracyRequest"];
-            };
-        };
-        responses: {
-            /** @description Per-scheme Bayesian regret + correct-choice rate + voter competence stats + democracy-vs-expert delta. */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["EpistocracyResponse"];
-                };
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
-                };
-            };
-        };
-    };
-    identity_voting_endpoint_api_v2_theory_identity_voting_post: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["IdentityVotingRequest"];
-            };
-        };
-        responses: {
-            /** @description Sincere vs identity vs mixed winners + per-group loyalty / ideology match + cross-pressured abstention + identity-weight sweep curve. */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["IdentityVotingResponse"];
-                };
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
-                };
-            };
-        };
-    };
-    iia_rate_endpoint_api_v2_theory_iia_rate_post: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["IIARateRequest"];
-            };
-        };
-        responses: {
-            /** @description Curve of (n_candidates, violation_rate) for n in [2, max_candidates]. */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["IIARateResponse"];
-                };
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
-                };
-            };
-        };
-    };
-    intergenerational_endpoint_api_v2_theory_intergenerational_post: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["IntergenerationalRequest"];
-            };
-        };
-        responses: {
-            /** @description Per-decision outcome under 4 mechanisms (none / proxy / age_weighted / veto) + cross-mechanism aggregates. */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["IntergenerationalResponse"];
-                };
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
-                };
-            };
-        };
-    };
-    judgment_aggregation_endpoint_api_v2_theory_judgment_aggregation_post: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["JudgmentAggregationRequest"];
-            };
-        };
-        responses: {
-            /** @description Per-proposition collective vote + coherence diagnosis + premise-based vs conclusion-based resolution. */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["JudgmentAggregationResponse"];
-                };
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
-                };
-            };
-        };
-    };
-    majority_tyranny_endpoint_api_v2_theory_majority_tyranny_post: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["MajorityTyrannyRequest"];
-            };
-        };
-        responses: {
-            /** @description Per-rule minority-protection metrics + tyranny curve (majority share 0.51 -> 0.80) + best/worst rule. */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["MajorityTyrannyResponse"];
-                };
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
-                };
-            };
-        };
-    };
-    manipulation_analysis_endpoint_api_v2_theory_manipulation_analysis_post: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["ManipulationAnalysisRequest"];
-            };
-        };
-        responses: {
-            /** @description Per-voter best manipulation (strategy + utility gain) + key manipulator + pedagogical note. */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["ManipulationAnalysisResponse"];
-                };
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
-                };
-            };
-        };
-    };
-    plott_chaos_endpoint_api_v2_theory_plott_chaos_post: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["PlottChaosRequest"];
-            };
-        };
-        responses: {
-            /** @description Condorcet-winner flag, top cycle (Smith set), and two BFS paths showing the agenda-setter can reach diametrically opposite outcomes from the same start. */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["PlottChaosResponse"];
-                };
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
-                };
-            };
-        };
-    };
-    sen_paradox_endpoint_api_v2_theory_sen_paradox_post: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["SenParadoxRequest"];
-            };
-        };
-        responses: {
-            /** @description Canonical Lady-Chatterley example + random profiles + resolution options. */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["SenParadoxResponse"];
-                };
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
-                };
-            };
-        };
-    };
-    users_current_user_api_v2_users_me_get: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Successful Response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["UserRead"];
-                };
-            };
-            /** @description Missing token or inactive user. */
-            401: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content?: never;
-            };
-        };
-    };
-    users_patch_current_user_api_v2_users_me_patch: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["UserUpdate"];
-            };
-        };
-        responses: {
-            /** @description Successful Response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["UserRead"];
-                };
-            };
-            /** @description Bad Request */
-            400: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["ErrorModel"];
-                };
-            };
-            /** @description Missing token or inactive user. */
-            401: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content?: never;
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
-                };
-            };
-        };
-    };
-    users_user_api_v2_users__id__get: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                id: string;
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Successful Response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["UserRead"];
-                };
-            };
-            /** @description Missing token or inactive user. */
-            401: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content?: never;
-            };
-            /** @description Not a superuser. */
-            403: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content?: never;
-            };
-            /** @description The user does not exist. */
-            404: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content?: never;
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
-                };
-            };
-        };
-    };
-    users_delete_user_api_v2_users__id__delete: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                id: string;
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Successful Response */
-            204: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content?: never;
-            };
-            /** @description Missing token or inactive user. */
-            401: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content?: never;
-            };
-            /** @description Not a superuser. */
-            403: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content?: never;
-            };
-            /** @description The user does not exist. */
-            404: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content?: never;
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
-                };
-            };
-        };
-    };
-    users_patch_user_api_v2_users__id__patch: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                id: string;
-            };
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["UserUpdate"];
-            };
-        };
-        responses: {
-            /** @description Successful Response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["UserRead"];
-                };
-            };
-            /** @description Bad Request */
-            400: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["ErrorModel"];
-                };
-            };
-            /** @description Missing token or inactive user. */
-            401: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content?: never;
-            };
-            /** @description Not a superuser. */
-            403: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content?: never;
-            };
-            /** @description The user does not exist. */
-            404: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content?: never;
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
-                };
-            };
-        };
-    };
+  compare_api_v1_compare_post: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        'application/json': components['schemas']['PublicCompareRequest'];
+      };
+    };
+    responses: {
+      /** @description Same shape as /simulate, plus blank_pct & per-method blank_rule_applied when a rule is set. */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['PublicCompareResponse'];
+        };
+      };
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['HTTPValidationError'];
+        };
+      };
+    };
+  };
+  list_methods_api_v1_methods_get: {
+    parameters: {
+      query?: {
+        family?: string;
+      };
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Catalogue of 16+ methods with name, family, and ref. */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['PublicMethodsResponse'];
+        };
+      };
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['HTTPValidationError'];
+        };
+      };
+    };
+  };
+  openapi_spec_api_v1_openapi_json_get: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description The public API contract (kept hand-written so the external surface stays stable across the migration). */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': {
+            [key: string]: unknown;
+          };
+        };
+      };
+    };
+  };
+  real_elections_api_v1_real_elections_get: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Per-election metadata + estimated blank-vote pct. */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['PublicRealElectionsResponse'];
+        };
+      };
+    };
+  };
+  simulate_api_v1_simulate_post: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        'application/json': components['schemas']['PublicSimulateRequest'];
+      };
+    };
+    responses: {
+      /** @description condorcet_winner + per-method winner & metrics. */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['PublicSimulateResponse'];
+        };
+      };
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['HTTPValidationError'];
+        };
+      };
+    };
+  };
+  root_api_v2_get: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': {
+            [key: string]: unknown;
+          };
+        };
+      };
+    };
+  };
+  github_redirect_api_v2_auth_github_get: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Successful Response */
+      307: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+    };
+  };
+  github_callback_api_v2_auth_github_callback_get: {
+    parameters: {
+      query?: {
+        /** @description Authorization code from GitHub. */
+        code?: string | null;
+      };
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Successful Response */
+      307: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['HTTPValidationError'];
+        };
+      };
+    };
+  };
+  google_login_api_v2_auth_google_post: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        'application/json': components['schemas']['_GoogleTokenBody'];
+      };
+    };
+    responses: {
+      /** @description JWT access token + user summary, identical shape to the Flask route. */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': {
+            [key: string]: unknown;
+          };
+        };
+      };
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['HTTPValidationError'];
+        };
+      };
+    };
+  };
+  auth_jwt_login_api_v2_auth_jwt_login_post: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        'application/x-www-form-urlencoded': components['schemas']['Body_auth_jwt_login_api_v2_auth_jwt_login_post'];
+      };
+    };
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          /**
+           * @example {
+           *       "access_token": "eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9.eyJ1c2VyX2lkIjoiOTIyMWZmYzktNjQwZi00MzcyLTg2ZDMtY2U2NDJjYmE1NjAzIiwiYXVkIjoiZmFzdGFwaS11c2VyczphdXRoIiwiZXhwIjoxNTcxNTA0MTkzfQ.M10bjOe45I5Ncu_uXvOmVV8QxnL-nZfcH96U90JaocI",
+           *       "token_type": "bearer"
+           *     }
+           */
+          'application/json': components['schemas']['BearerResponse'];
+        };
+      };
+      /** @description Bad Request */
+      400: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['ErrorModel'];
+        };
+      };
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['HTTPValidationError'];
+        };
+      };
+    };
+  };
+  auth_jwt_logout_api_v2_auth_jwt_logout_post: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': unknown;
+        };
+      };
+      /** @description Missing token or inactive user. */
+      401: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+    };
+  };
+  register_register_api_v2_auth_register_post: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        'application/json': components['schemas']['UserCreate'];
+      };
+    };
+    responses: {
+      /** @description Successful Response */
+      201: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['UserRead'];
+        };
+      };
+      /** @description Bad Request */
+      400: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['ErrorModel'];
+        };
+      };
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['HTTPValidationError'];
+        };
+      };
+    };
+  };
+  abstention_endpoint_api_v2_election_abstention_post: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        'application/json': components['schemas']['AbstentionRequest'];
+      };
+    };
+    responses: {
+      /** @description Round-by-round turnout, vote shares, and winner. Includes per-method comparison (sincere vs final) so the Lab matrix can show how abstention shifts winners across all methods. */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['AbstentionResponse'];
+        };
+      };
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['HTTPValidationError'];
+        };
+      };
+    };
+  };
+  adaptive_endpoint_api_v2_election_adaptive_post: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        'application/json': components['schemas']['AdaptiveRequest'];
+      };
+    };
+    responses: {
+      /** @description Per-round vote shares, sincere vs effective winners, convergence flag, strategic drift. */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['AdaptiveResponse'];
+        };
+      };
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['HTTPValidationError'];
+        };
+      };
+    };
+  };
+  affective_polarization_endpoint_api_v2_election_affective_polarization_post: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        'application/json': components['schemas']['AffectivePolarizationRequest'];
+      };
+    };
+    responses: {
+      /** @description Sincere vs affective winners, method sensitivity, hostility-vs-agreement affect curve. */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['AffectivePolarizationResponse'];
+        };
+      };
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['HTTPValidationError'];
+        };
+      };
+    };
+  };
+  ballot_complexity_endpoint_api_v2_election_ballot_complexity_post: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        'application/json': components['schemas']['BallotComplexityRequest'];
+      };
+    };
+    responses: {
+      /** @description Per-method null rate, winner with and without nulls, and a curve of null rate as the candidate count grows. */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['BallotComplexityResponse'];
+        };
+      };
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['HTTPValidationError'];
+        };
+      };
+    };
+  };
+  behavioral_biases_endpoint_api_v2_election_behavioral_biases_post: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        'application/json': components['schemas']['BehavioralBiasesRequest'];
+      };
+    };
+    responses: {
+      /** @description Sincere vs biased winner, per-method sensitivity, and breakdown of which voters were affected. */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['BehavioralBiasesResponse'];
+        };
+      };
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['HTTPValidationError'];
+        };
+      };
+    };
+  };
+  campaign_sensitivity_endpoint_api_v2_election_campaign_sensitivity_post: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        'application/json': components['schemas']['CampaignSensitivityRequest'];
+      };
+    };
+    responses: {
+      /** @description Per-method stability score over the campaign timeline. */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['CampaignSensitivityResponse'];
+        };
+      };
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['HTTPValidationError'];
+        };
+      };
+    };
+  };
+  cascade_endpoint_api_v2_election_cascade_post: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        'application/json': components['schemas']['CascadeRequest'];
+      };
+    };
+    responses: {
+      /** @description Sincere vs cascade winner, vote sequence with timeline, cascade-strength sensitivity curve. */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['CascadeResponse'];
+        };
+      };
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['HTTPValidationError'];
+        };
+      };
+    };
+  };
+  choice_overload_endpoint_api_v2_election_choice_overload_post: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        'application/json': components['schemas']['ChoiceOverloadRequest'];
+      };
+    };
+    responses: {
+      /** @description Per-candidate-count winners, regret curve, most/least robust method. */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['ChoiceOverloadResponse'];
+        };
+      };
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['HTTPValidationError'];
+        };
+      };
+    };
+  };
+  coalition_endpoint_api_v2_election_coalition_post: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        'application/json': components['schemas']['CoalitionRequest'];
+      };
+    };
+    responses: {
+      /** @description One coalition analysis per voting method, with coalition_spread (ideological variance) and most_centrist / most_divergent method rankings. */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['CoalitionResponse'];
+        };
+      };
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['HTTPValidationError'];
+        };
+      };
+    };
+  };
+  combined_effects_endpoint_api_v2_election_combined_effects_post: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        'application/json': components['schemas']['CombinedEffectsRequest'];
+      };
+    };
+    responses: {
+      /** @description One row per combination (blank × campaign × info), plus per-factor agreement delta and disruptive ranking. */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['CombinedEffectsResponse'];
+        };
+      };
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['HTTPValidationError'];
+        };
+      };
+    };
+  };
+  compulsory_voting_endpoint_api_v2_election_compulsory_voting_post: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        'application/json': components['schemas']['CompulsoryVotingRequest'];
+      };
+    };
+    responses: {
+      /** @description Per-system winner, vote shares, null rate, voter profile, representation improvement, quality degradation. */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['CompulsoryVotingResponse'];
+        };
+      };
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['HTTPValidationError'];
+        };
+      };
+    };
+  };
+  conviction_voting_endpoint_api_v2_election_conviction_voting_post: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        'application/json': components['schemas']['ConvictionVotingRequest'];
+      };
+    };
+    responses: {
+      /** @description Conviction winner vs token winner + per-proposal stats + Gini tokens vs Gini conviction. */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['ConvictionVotingResponse'];
+        };
+      };
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['HTTPValidationError'];
+        };
+      };
+    };
+  };
+  deliberation_endpoint_api_v2_election_deliberation_post: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        'application/json': components['schemas']['DeliberationRequest'];
+      };
+    };
+    responses: {
+      /** @description Pre vs post-deliberation winner, opinion convergence rate, polarisation change, per-round trace. */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['DeliberationResponse'];
+        };
+      };
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['HTTPValidationError'];
+        };
+      };
+    };
+  };
+  demographic_turnout_endpoint_api_v2_election_demographic_turnout_post: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        'application/json': components['schemas']['DemographicTurnoutRequest'];
+      };
+    };
+    responses: {
+      /** @description Biased vs corrected winner, representation gap, demographic breakdown. */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['DemographicTurnoutResponse'];
+        };
+      };
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['HTTPValidationError'];
+        };
+      };
+    };
+  };
+  districts_endpoint_api_v2_election_districts_post: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        'application/json': components['schemas']['DistrictsRequest'];
+      };
+    };
+    responses: {
+      /** @description Per-district winners + national parliaments (FPTP and D'Hondt proportional) + distortion index. */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['DistrictsResponse'];
+        };
+      };
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['HTTPValidationError'];
+        };
+      };
+    };
+  };
+  divergence_endpoint_api_v2_election_divergence_post: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        'application/json': components['schemas']['DivergenceRequest'];
+      };
+    };
+    responses: {
+      /** @description Methods, agreement, and per-method winner deltas for the two runs. */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['DivergenceResponse'];
+        };
+      };
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['HTTPValidationError'];
+        };
+      };
+    };
+  };
+  electoral_fatigue_endpoint_api_v2_election_electoral_fatigue_post: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        'application/json': components['schemas']['ElectoralFatigueRequest'];
+      };
+    };
+    responses: {
+      /** @description Per-election turnout, winner, ideology drift, and a representation-gap measure of how much the residual electorate diverges from the full population. */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['ElectoralFatigueResponse'];
+        };
+      };
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['HTTPValidationError'];
+        };
+      };
+    };
+  };
+  gerrymander_endpoint_api_v2_election_gerrymander_post: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        'application/json': components['schemas']['GerrymanderRequest'];
+      };
+    };
+    responses: {
+      /** @description Per-district winners + gerrymander parliament + proportional reference + gerrymander index. */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['GerrymanderResponse'];
+        };
+      };
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['HTTPValidationError'];
+        };
+      };
+    };
+  };
+  historical_replay_endpoint_api_v2_election_historical_replay_post: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        'application/json': components['schemas']['HistoricalReplayRequest'];
+      };
+    };
+    responses: {
+      /** @description Per-day winners (FPTP/Condorcet/Borda), scenario metadata, and a pedagogical note on divergence from the real winner. */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['HistoricalReplayResponse'];
+        };
+      };
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['HTTPValidationError'];
+        };
+      };
+    };
+  };
+  hotelling_endpoint_api_v2_election_hotelling_post: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        'application/json': components['schemas']['HotellingRequest'];
+      };
+    };
+    responses: {
+      /** @description Iteration-by-iteration candidate positions, convergence status, equilibrium type. */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['HotellingResponse'];
+        };
+      };
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['HTTPValidationError'];
+        };
+      };
+    };
+  };
+  interpret_endpoint_api_v2_election_interpret_post: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        'application/json': components['schemas']['InterpretRequest'];
+      };
+    };
+    responses: {
+      /** @description Headline + Condorcet analysis + divergence reason + per-winner method groups + pedagogical note + key facts. */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['InterpretResponse'];
+        };
+      };
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['HTTPValidationError'];
+        };
+      };
+    };
+  };
+  jury_endpoint_api_v2_election_jury_post: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        'application/json': components['schemas']['JuryRequest'];
+      };
+    };
+    responses: {
+      /** @description Per-method accuracy, theoretical majority-rule accuracy, and a competence-curve sensitivity chart. */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['JuryResponse'];
+        };
+      };
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['HTTPValidationError'];
+        };
+      };
+    };
+  };
+  liquid_democracy_endpoint_api_v2_election_liquid_democracy_post: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        'application/json': components['schemas']['LiquidDemocracyRequest'];
+      };
+    };
+    responses: {
+      /** @description Weighted tallies + super-voter list + delegation graph + Gini curve of voting weight. */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['LiquidDemocracyResponse'];
+        };
+      };
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['HTTPValidationError'];
+        };
+      };
+    };
+  };
+  multiwinner_compare_endpoint_api_v2_election_multiwinner_compare_post: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        'application/json': components['schemas']['MultiwinnerCompareRequest'];
+      };
+    };
+    responses: {
+      /** @description Per-method seats + distortion vs proportional + best/worst methods. */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['MultiwinnerCompareResponse'];
+        };
+      };
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['HTTPValidationError'];
+        };
+      };
+    };
+  };
+  nota_endpoint_api_v2_election_nota_post: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        'application/json': components['schemas']['NotaRequest'];
+      };
+    };
+    responses: {
+      /** @description Sincere winner, NOTA percentage, election validity per the constitutional rule, NOTA-vs-threshold curve, and a per-method comparison of NOTA inclusiveness. */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['NotaResponse'];
+        };
+      };
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['HTTPValidationError'];
+        };
+      };
+    };
+  };
+  party_dynamics_endpoint_api_v2_election_party_dynamics_post: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        'application/json': components['schemas']['PartyDynamicsRequest'];
+      };
+    };
+    responses: {
+      /** @description Per-election parties, effective parties curve, final system (bipartite vs multipartite), convergence speed. */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['PartyDynamicsResponse'];
+        };
+      };
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['HTTPValidationError'];
+        };
+      };
+    };
+  };
+  polarization_endpoint_api_v2_election_polarization_post: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        'application/json': components['schemas']['PolarizationRequest'];
+      };
+    };
+    responses: {
+      /** @description One result per ideology distribution: ER index, Condorcet rate, inter-method agreement, regret by method. */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['PolarizationResponse'];
+        };
+      };
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['HTTPValidationError'];
+        };
+      };
+    };
+  };
+  power_indices_endpoint_api_v2_election_power_indices_post: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        'application/json': components['schemas']['PowerIndicesRequest'];
+      };
+    };
+    responses: {
+      /** @description Per-party Shapley + Banzhaf indices + power ratio + viable coalitions + power-surprise list. */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['PowerIndicesResponse'];
+        };
+      };
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['HTTPValidationError'];
+        };
+      };
+    };
+  };
+  primary_endpoint_api_v2_election_primary_post: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        'application/json': components['schemas']['PrimaryRequest'];
+      };
+    };
+    responses: {
+      /** @description Per-party primary results + general election winner + counterfactual without-primaries winner. */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['PrimaryResponse'];
+        };
+      };
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['HTTPValidationError'];
+        };
+      };
+    };
+  };
+  quadratic_funding_endpoint_api_v2_election_quadratic_funding_post: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        'application/json': components['schemas']['QuadraticFundingRequest'];
+      };
+    };
+    responses: {
+      /** @description Per-project funding + mechanism comparison + Gini coefficients + pedagogical note. */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['QuadraticFundingResponse'];
+        };
+      };
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['HTTPValidationError'];
+        };
+      };
+    };
+  };
+  shy_voter_endpoint_api_v2_election_shy_voter_post: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        'application/json': components['schemas']['ShyVoterRequest'];
+      };
+    };
+    responses: {
+      /** @description Real vs polled winner, systematic poll error, and a social-desirability-vs-systematic-error curve. */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['ShyVoterResponse'];
+        };
+      };
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['HTTPValidationError'];
+        };
+      };
+    };
+  };
+  simulate_endpoint_api_v2_election_simulate_post: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        'application/json': components['schemas']['SimulateRequest'];
+      };
+    };
+    responses: {
+      /** @description Simulation result with all 17 voting methods, Condorcet winner, blank rate, and inter-method agreement. */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['SimulateResponse'];
+        };
+      };
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['HTTPValidationError'];
+        };
+      };
+    };
+  };
+  simulate_pipeline_endpoint_api_v2_election_simulate_pipeline_post: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        'application/json': components['schemas']['SimulatePipelineRequest'];
+      };
+    };
+    responses: {
+      /** @description Ordered list of pipeline steps (base electorate, campaign, contagion, information, results) for the ElectionPipelineAnimator component. */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['SimulatePipelineResponse'];
+        };
+      };
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['HTTPValidationError'];
+        };
+      };
+    };
+  };
+  sortition_endpoint_api_v2_election_sortition_post: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        'application/json': components['schemas']['SortitionRequest'];
+      };
+    };
+    responses: {
+      /** @description Per-method assembly: representativity, diversity, decision regret, Gini of representation, Monte Carlo variance. */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['SortitionResponse'];
+        };
+      };
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['HTTPValidationError'];
+        };
+      };
+    };
+  };
+  stv_endpoint_api_v2_election_stv_post: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        'application/json': components['schemas']['StvRequest'];
+      };
+    };
+    responses: {
+      /** @description Round-by-round STV audit + D'Hondt and FPTP parliaments + seat-distortion index. */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['StvResponse'];
+        };
+      };
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['HTTPValidationError'];
+        };
+      };
+    };
+  };
+  export_csv_api_v2_export_simulation_dataset_post: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        'application/json': components['schemas']['ExportDatasetRequest'];
+      };
+    };
+    responses: {
+      /** @description One row per (scenario × voting method). */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'text/csv': unknown;
+        };
+      };
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['HTTPValidationError'];
+        };
+      };
+    };
+  };
+  export_json_api_v2_export_simulation_dataset_json_post: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        'application/json': components['schemas']['ExportDatasetRequest'];
+      };
+    };
+    responses: {
+      /** @description { meta, columns, rows } — drop-in for pandas/dplyr. */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['ExportDatasetJSON'];
+        };
+      };
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['HTTPValidationError'];
+        };
+      };
+    };
+  };
+  health_api_v2_health_get: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': {
+            [key: string]: unknown;
+          };
+        };
+      };
+    };
+  };
+  list_scenarios_api_v2_scenarios_get: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Most recently created first. */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['ScenarioSummary'][];
+        };
+      };
+    };
+  };
+  create_scenario_api_v2_scenarios_post: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        'application/json': components['schemas']['ScenarioCreateRequest'];
+      };
+    };
+    responses: {
+      /** @description The freshly created scenario including its server-assigned id. */
+      201: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['ScenarioDetail'];
+        };
+      };
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['HTTPValidationError'];
+        };
+      };
+    };
+  };
+  list_gallery_api_v2_scenarios_gallery_get: {
+    parameters: {
+      query?: {
+        page?: number;
+        per_page?: number;
+        /** @description 'recent' | 'popular' | 'featured' */
+        sort?: string;
+        /** @description Filter by exact tag (case-sensitive). */
+        tag?: string;
+      };
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Items + total + page metadata. */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['GalleryPage'];
+        };
+      };
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['HTTPValidationError'];
+        };
+      };
+    };
+  };
+  create_gallery_scenario_api_v2_scenarios_gallery_post: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        'application/json': components['schemas']['GalleryCreateRequest'];
+      };
+    };
+    responses: {
+      /** @description The freshly created scenario including its id. */
+      201: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['GalleryDetail'];
+        };
+      };
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['HTTPValidationError'];
+        };
+      };
+    };
+  };
+  get_featured_api_v2_scenarios_gallery_featured_get: {
+    parameters: {
+      query?: {
+        limit?: number;
+      };
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['GalleryItem'][];
+        };
+      };
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['HTTPValidationError'];
+        };
+      };
+    };
+  };
+  get_scenario_api_v2_scenarios_gallery__scenario_id__get: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        scenario_id: number;
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['GalleryDetail'];
+        };
+      };
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['HTTPValidationError'];
+        };
+      };
+    };
+  };
+  get_scenario_api_v2_scenarios__scenario_id__get: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        scenario_id: number;
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description 404 if the scenario doesn't exist or belongs to another user. */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['ScenarioDetail'];
+        };
+      };
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['HTTPValidationError'];
+        };
+      };
+    };
+  };
+  delete_scenario_api_v2_scenarios__scenario_id__delete: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        scenario_id: number;
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description `{message: 'Deleted'}` on success, 404 otherwise. */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': {
+            [key: string]: unknown;
+          };
+        };
+      };
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['HTTPValidationError'];
+        };
+      };
+    };
+  };
+  legacy_simulate_api_v2_simulations_post: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        'application/json': components['schemas']['LegacySimulateRequest'];
+      };
+    };
+    responses: {
+      /** @description Per-method winners + voter samples. Carries an X-Deprecation-Warning header — prefer the spatial pipeline or /api/v2/election/simulate. */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['LegacySimulateResponse'];
+        };
+      };
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['HTTPValidationError'];
+        };
+      };
+    };
+  };
+  arrow_criteria_api_v2_simulations_arrow_criteria_post: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        'application/json': components['schemas']['ArrowCriteriaRequest'];
+      };
+    };
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['ArrowCriteriaResponse'];
+        };
+      };
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['HTTPValidationError'];
+        };
+      };
+    };
+  };
+  bandwagon_api_v2_simulations_bandwagon_post: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        'application/json': components['schemas']['BandwagonRequest'];
+      };
+    };
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['BandwagonResponse'];
+        };
+      };
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['HTTPValidationError'];
+        };
+      };
+    };
+  };
+  blank_contagion_api_v2_simulations_blank_contagion_post: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        'application/json': components['schemas']['BlankContagionRequest'];
+      };
+    };
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['BlankContagionResponse'];
+        };
+      };
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['HTTPValidationError'];
+        };
+      };
+    };
+  };
+  blank_history_api_v2_simulations_blank_history_get: {
+    parameters: {
+      query?: {
+        country?: string;
+      };
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['BlankHistoryResponse'];
+        };
+      };
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['HTTPValidationError'];
+        };
+      };
+    };
+  };
+  calculate_utility_api_v2_simulations_calculate_utility_post: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        'application/json': components['schemas']['CalculateUtilityRequest'];
+      };
+    };
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['CalculateUtilityResponse'];
+        };
+      };
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['HTTPValidationError'];
+        };
+      };
+    };
+  };
+  campaign_api_v2_simulations_campaign_post: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        'application/json': components['schemas']['CampaignRequest'];
+      };
+    };
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['CampaignResponse'];
+        };
+      };
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['HTTPValidationError'];
+        };
+      };
+    };
+  };
+  compare_api_v2_simulations_compare_post: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        'application/json': components['schemas']['CompareMethodsRequest'];
+      };
+    };
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['CompareMethodsResponse'];
+        };
+      };
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['HTTPValidationError'];
+        };
+      };
+    };
+  };
+  condorcet_matrix_api_v2_simulations_condorcet_matrix_post: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        'application/json': components['schemas']['CondorcetMatrixRequest'];
+      };
+    };
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['CondorcetMatrixResponse'];
+        };
+      };
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['HTTPValidationError'];
+        };
+      };
+    };
+  };
+  constitutional_scenario_api_v2_simulations_constitutional_scenario_post: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        'application/json': components['schemas']['ConstitutionalScenarioRequest'];
+      };
+    };
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['ConstitutionalScenarioResponse'];
+        };
+      };
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['HTTPValidationError'];
+        };
+      };
+    };
+  };
+  get_closest_candidate_api_v2_simulations_get_closest_candidate_post: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        'application/json': components['schemas']['ClosestCandidateRequest'];
+      };
+    };
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['ClosestCandidateResponse'];
+        };
+      };
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['HTTPValidationError'];
+        };
+      };
+    };
+  };
+  get_utility_matrix_api_v2_simulations_get_utility_matrix_post: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        'application/json': components['schemas']['UtilityMatrixRequest'];
+      };
+    };
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['UtilityMatrixResponse'];
+        };
+      };
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['HTTPValidationError'];
+        };
+      };
+    };
+  };
+  get_voter_segments_api_v2_simulations_get_voter_segments_post: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        'application/json': components['schemas']['VoterSegmentsRequest'];
+      };
+    };
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['VoterSegmentsResponse'];
+        };
+      };
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['HTTPValidationError'];
+        };
+      };
+    };
+  };
+  ideology_map_api_v2_simulations_ideology_map_post: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        'application/json': components['schemas']['IdeologyMapRequest'];
+      };
+    };
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['IdeologyMapResponse'];
+        };
+      };
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['HTTPValidationError'];
+        };
+      };
+    };
+  };
+  manipulability_api_v2_simulations_manipulability_get: {
+    parameters: {
+      query?: {
+        num_candidates?: number;
+        num_voters?: number;
+        num_trials?: number;
+        ideology?: string;
+        methods?: string;
+      };
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['ManipulabilityResponse'];
+        };
+      };
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['HTTPValidationError'];
+        };
+      };
+    };
+  };
+  monte_carlo_api_v2_simulations_monte_carlo_post: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        'application/json': components['schemas']['MonteCarloRequest'];
+      };
+    };
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['MonteCarloResponse'];
+        };
+      };
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['HTTPValidationError'];
+        };
+      };
+    };
+  };
+  multiwinner_api_v2_simulations_multiwinner_post: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        'application/json': components['schemas']['MultiwinnerRequest'];
+      };
+    };
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['MultiwinnerResponse'];
+        };
+      };
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['HTTPValidationError'];
+        };
+      };
+    };
+  };
+  real_election_api_v2_simulations_real_election_post: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        'application/json': components['schemas']['RealElectionRequest'];
+      };
+    };
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['RealElectionResponse'];
+        };
+      };
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['HTTPValidationError'];
+        };
+      };
+    };
+  };
+  real_elections_api_v2_simulations_real_elections_get: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['RealElectionSummary'][];
+        };
+      };
+    };
+  };
+  scenario_api_v2_simulations_scenario_post: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        'application/json': components['schemas']['ScenarioRequest'];
+      };
+    };
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['ScenarioResponse'];
+        };
+      };
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['HTTPValidationError'];
+        };
+      };
+    };
+  };
+  sensitivity_api_v2_simulations_sensitivity_post: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        'application/json': components['schemas']['SensitivityRequest'];
+      };
+    };
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['SensitivityResponse'];
+        };
+      };
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['HTTPValidationError'];
+        };
+      };
+    };
+  };
+  simulate_candidates_api_v2_simulations_simulate_candidates_post: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        'application/json': components['schemas']['SimulateCandidatesRequest'];
+      };
+    };
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['SimulateCandidatesResponse'];
+        };
+      };
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['HTTPValidationError'];
+        };
+      };
+    };
+  };
+  simulate_utility_api_v2_simulations_simulate_utility_post: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        'application/json': components['schemas']['SimulateUtilityRequest'];
+      };
+    };
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['SimulateUtilityResponse'];
+        };
+      };
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['HTTPValidationError'];
+        };
+      };
+    };
+  };
+  simulate_voters_api_v2_simulations_simulate_voters_post: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        'application/json': components['schemas']['SimulateVotersRequest'];
+      };
+    };
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['SimulateVotersResponse'];
+        };
+      };
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['HTTPValidationError'];
+        };
+      };
+    };
+  };
+  strategic_impact_api_v2_simulations_strategic_impact_post: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        'application/json': components['schemas']['StrategicImpactRequest'];
+      };
+    };
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['StrategicImpactResponse'];
+        };
+      };
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['HTTPValidationError'];
+        };
+      };
+    };
+  };
+  vote_steps_api_v2_simulations_vote_steps_post: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        'application/json': components['schemas']['VoteStepsRequest'];
+      };
+    };
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['VoteStepsResponse'];
+        };
+      };
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['HTTPValidationError'];
+        };
+      };
+    };
+  };
+  what_if_api_v2_simulations_what_if_post: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        'application/json': components['schemas']['WhatIfRequest'];
+      };
+    };
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['WhatIfResponse'];
+        };
+      };
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['HTTPValidationError'];
+        };
+      };
+    };
+  };
+  e2e_demo_endpoint_api_v2_tech_e2e_demo_post: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        'application/json': components['schemas']['E2EDemoRequest'];
+      };
+    };
+    responses: {
+      /** @description Per-voter encrypted ballots + shuffled bulletin board + homomorphic aggregate + audit proof. */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['E2EDemoResponse'];
+        };
+      };
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['HTTPValidationError'];
+        };
+      };
+    };
+  };
+  polis_with_candidates_endpoint_api_v2_tech_polis_post: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        'application/json': components['schemas']['PolisWithCandidatesRequest'];
+      };
+    };
+    responses: {
+      /** @description Same outputs as /polis-simulation plus per-candidate consensus-alignment scores and the 'Pol.is winner' vs the classical election winner. */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['PolisWithCandidatesResponse'];
+        };
+      };
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['HTTPValidationError'];
+        };
+      };
+    };
+  };
+  polis_simulation_endpoint_api_v2_tech_polis_simulation_post: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        'application/json': components['schemas']['PolisSimulationRequest'];
+      };
+    };
+    responses: {
+      /** @description PCA-2D coords + k-means cluster labels + per-cluster vote rates + consensus / polarising statements. */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['PolisSimulationResponse'];
+        };
+      };
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['HTTPValidationError'];
+        };
+      };
+    };
+  };
+  agenda_manipulation_endpoint_api_v2_theory_agenda_manipulation_post: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        'application/json': components['schemas']['AgendaManipulationRequest'];
+      };
+    };
+    responses: {
+      /** @description Pairwise matrix + Condorcet winner + every achievable outcome over all agenda permutations + manipulation power. */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['AgendaManipulationResponse'];
+        };
+      };
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['HTTPValidationError'];
+        };
+      };
+    };
+  };
+  apportionment_endpoint_api_v2_theory_apportionment_post: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        'application/json': components['schemas']['ApportionmentRequest'];
+      };
+    };
+    responses: {
+      /** @description Per-method seat allocation + paradox flags + Balinski-Young summary. */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['ApportionmentResponse'];
+        };
+      };
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['HTTPValidationError'];
+        };
+      };
+    };
+  };
+  arrow_endpoint_api_v2_theory_arrow_post: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        'application/json': components['schemas']['ArrowRequest'];
+      };
+    };
+    responses: {
+      /** @description Per-axiom violation flag + minimal counterexamples + human-readable summary + tradeoff type. */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['ArrowResponse'];
+        };
+      };
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['HTTPValidationError'];
+        };
+      };
+    };
+  };
+  assumption_testing_endpoint_api_v2_theory_assumption_testing_post: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        'application/json': components['schemas']['AssumptionTestingRequest'];
+      };
+    };
+    responses: {
+      /** @description Per-assumption Monte-Carlo result + most fragile assumption + overall robustness flag. */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['AssumptionTestingResponse'];
+        };
+      };
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['HTTPValidationError'];
+        };
+      };
+    };
+  };
+  collective_will_endpoint_api_v2_theory_collective_will_post: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        'application/json': components['schemas']['CollectiveWillRequest'];
+      };
+    };
+    responses: {
+      /** @description Per-method + per-agenda winners + Rousseau score (=1 iff all procedures agree) + Condorcet check + philosophical conclusion. */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['CollectiveWillResponse'];
+        };
+      };
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['HTTPValidationError'];
+        };
+      };
+    };
+  };
+  democratic_backsliding_endpoint_api_v2_theory_democratic_backsliding_post: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        'application/json': components['schemas']['DemocraticBacksliddingRequest'];
+      };
+    };
+    responses: {
+      /** @description Per-election state (vote shares, democratic quality, guardrails triggered) + autocracy detection + tipping points. */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['DemocraticBacksliddingResponse'];
+        };
+      };
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['HTTPValidationError'];
+        };
+      };
+    };
+  };
+  epistocracy_endpoint_api_v2_theory_epistocracy_post: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        'application/json': components['schemas']['EpistocracyRequest'];
+      };
+    };
+    responses: {
+      /** @description Per-scheme Bayesian regret + correct-choice rate + voter competence stats + democracy-vs-expert delta. */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['EpistocracyResponse'];
+        };
+      };
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['HTTPValidationError'];
+        };
+      };
+    };
+  };
+  identity_voting_endpoint_api_v2_theory_identity_voting_post: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        'application/json': components['schemas']['IdentityVotingRequest'];
+      };
+    };
+    responses: {
+      /** @description Sincere vs identity vs mixed winners + per-group loyalty / ideology match + cross-pressured abstention + identity-weight sweep curve. */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['IdentityVotingResponse'];
+        };
+      };
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['HTTPValidationError'];
+        };
+      };
+    };
+  };
+  iia_rate_endpoint_api_v2_theory_iia_rate_post: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        'application/json': components['schemas']['IIARateRequest'];
+      };
+    };
+    responses: {
+      /** @description Curve of (n_candidates, violation_rate) for n in [2, max_candidates]. */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['IIARateResponse'];
+        };
+      };
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['HTTPValidationError'];
+        };
+      };
+    };
+  };
+  intergenerational_endpoint_api_v2_theory_intergenerational_post: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        'application/json': components['schemas']['IntergenerationalRequest'];
+      };
+    };
+    responses: {
+      /** @description Per-decision outcome under 4 mechanisms (none / proxy / age_weighted / veto) + cross-mechanism aggregates. */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['IntergenerationalResponse'];
+        };
+      };
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['HTTPValidationError'];
+        };
+      };
+    };
+  };
+  judgment_aggregation_endpoint_api_v2_theory_judgment_aggregation_post: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        'application/json': components['schemas']['JudgmentAggregationRequest'];
+      };
+    };
+    responses: {
+      /** @description Per-proposition collective vote + coherence diagnosis + premise-based vs conclusion-based resolution. */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['JudgmentAggregationResponse'];
+        };
+      };
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['HTTPValidationError'];
+        };
+      };
+    };
+  };
+  majority_tyranny_endpoint_api_v2_theory_majority_tyranny_post: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        'application/json': components['schemas']['MajorityTyrannyRequest'];
+      };
+    };
+    responses: {
+      /** @description Per-rule minority-protection metrics + tyranny curve (majority share 0.51 -> 0.80) + best/worst rule. */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['MajorityTyrannyResponse'];
+        };
+      };
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['HTTPValidationError'];
+        };
+      };
+    };
+  };
+  manipulation_analysis_endpoint_api_v2_theory_manipulation_analysis_post: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        'application/json': components['schemas']['ManipulationAnalysisRequest'];
+      };
+    };
+    responses: {
+      /** @description Per-voter best manipulation (strategy + utility gain) + key manipulator + pedagogical note. */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['ManipulationAnalysisResponse'];
+        };
+      };
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['HTTPValidationError'];
+        };
+      };
+    };
+  };
+  plott_chaos_endpoint_api_v2_theory_plott_chaos_post: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        'application/json': components['schemas']['PlottChaosRequest'];
+      };
+    };
+    responses: {
+      /** @description Condorcet-winner flag, top cycle (Smith set), and two BFS paths showing the agenda-setter can reach diametrically opposite outcomes from the same start. */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['PlottChaosResponse'];
+        };
+      };
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['HTTPValidationError'];
+        };
+      };
+    };
+  };
+  sen_paradox_endpoint_api_v2_theory_sen_paradox_post: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        'application/json': components['schemas']['SenParadoxRequest'];
+      };
+    };
+    responses: {
+      /** @description Canonical Lady-Chatterley example + random profiles + resolution options. */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['SenParadoxResponse'];
+        };
+      };
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['HTTPValidationError'];
+        };
+      };
+    };
+  };
+  users_current_user_api_v2_users_me_get: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['UserRead'];
+        };
+      };
+      /** @description Missing token or inactive user. */
+      401: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+    };
+  };
+  users_patch_current_user_api_v2_users_me_patch: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        'application/json': components['schemas']['UserUpdate'];
+      };
+    };
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['UserRead'];
+        };
+      };
+      /** @description Bad Request */
+      400: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['ErrorModel'];
+        };
+      };
+      /** @description Missing token or inactive user. */
+      401: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['HTTPValidationError'];
+        };
+      };
+    };
+  };
+  users_user_api_v2_users__id__get: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        id: string;
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['UserRead'];
+        };
+      };
+      /** @description Missing token or inactive user. */
+      401: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+      /** @description Not a superuser. */
+      403: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+      /** @description The user does not exist. */
+      404: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['HTTPValidationError'];
+        };
+      };
+    };
+  };
+  users_delete_user_api_v2_users__id__delete: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        id: string;
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Successful Response */
+      204: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+      /** @description Missing token or inactive user. */
+      401: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+      /** @description Not a superuser. */
+      403: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+      /** @description The user does not exist. */
+      404: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['HTTPValidationError'];
+        };
+      };
+    };
+  };
+  users_patch_user_api_v2_users__id__patch: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        id: string;
+      };
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        'application/json': components['schemas']['UserUpdate'];
+      };
+    };
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['UserRead'];
+        };
+      };
+      /** @description Bad Request */
+      400: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['ErrorModel'];
+        };
+      };
+      /** @description Missing token or inactive user. */
+      401: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+      /** @description Not a superuser. */
+      403: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+      /** @description The user does not exist. */
+      404: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['HTTPValidationError'];
+        };
+      };
+    };
+  };
 }

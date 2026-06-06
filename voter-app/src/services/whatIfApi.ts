@@ -19,8 +19,8 @@ export interface WhatIfRequest {
 
 export interface MethodResult {
   winner: string | null;
-  score: number | null;   // majority_satisfaction × 100
-  regret: number | null;  // bayesian_regret
+  score: number | null; // majority_satisfaction × 100
+  regret: number | null; // bayesian_regret
 }
 
 export interface WhatIfDataPoint {

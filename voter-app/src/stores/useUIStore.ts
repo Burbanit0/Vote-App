@@ -162,7 +162,10 @@ export const useUIStore = create<UIState>((set, get) => ({
       const { default: html2canvas } = await import('html2canvas');
       const target = document.getElementById('teacher-capture-root') ?? document.body;
       const canvas = await html2canvas(target, {
-        useCORS: true, allowTaint: true, scale: 1, logging: false,
+        useCORS: true,
+        allowTaint: true,
+        scale: 1,
+        logging: false,
       });
       const screenshot = canvas.toDataURL('image/png');
       get().addSlide({
@@ -195,7 +198,8 @@ export const useUIStore = create<UIState>((set, get) => ({
       ]);
 
       const pdf = new jsPDF({ orientation: 'landscape', unit: 'mm', format: 'a4' });
-      const W = 297, H = 210;
+      const W = 297,
+        H = 210;
       const NOTES_H = 18;
 
       for (let i = 0; i < slides.length; i++) {
@@ -225,7 +229,9 @@ export const useUIStore = create<UIState>((set, get) => ({
             pdf.rect(10, contentY, W - 20, contentH, 'F');
             pdf.setFontSize(11);
             pdf.setTextColor(100, 100, 100);
-            pdf.text(slide.content.description ?? slide.title, W / 2, contentY + contentH / 2, { align: 'center' });
+            pdf.text(slide.content.description ?? slide.title, W / 2, contentY + contentH / 2, {
+              align: 'center',
+            });
           }
         }
 
@@ -284,7 +290,16 @@ export function useTeacherMode() {
   const exportPresentation = useUIStore((s) => s.exportPresentation);
   const capturing = useUIStore((s) => s.capturing);
   return {
-    teacherMode, setTeacherMode, slides, addSlide, removeSlide, reorderSlides,
-    updateSlideNotes, updateSlideTitle, captureScreen, exportPresentation, capturing,
+    teacherMode,
+    setTeacherMode,
+    slides,
+    addSlide,
+    removeSlide,
+    reorderSlides,
+    updateSlideNotes,
+    updateSlideTitle,
+    captureScreen,
+    exportPresentation,
+    capturing,
   };
 }

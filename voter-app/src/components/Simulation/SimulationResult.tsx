@@ -1,5 +1,6 @@
 import React from 'react';
-import { Card, Container, Row, Col } from 'react-bootstrap';
+import { Card, CardBody, CardHeader } from '@/components/ui/card';
+import { Col, Container, Row } from '@/components/ui/grid';
 import {
   Legend,
   PolarAngleAxis,
@@ -161,31 +162,31 @@ const SimulationResult: React.FC<SimulationResultProps> = ({ result }) => {
     <Container>
       <Row className="mt-4">
         <Card>
-          <Card.Header as="h3">Simulation Results</Card.Header>
-          <Card.Body>
-            <Card.Text>
+          <CardHeader className="block space-y-0 border-b border-border px-4 py-2">
+            Simulation Results
+          </CardHeader>
+          <CardBody>
+            <p>
               <strong>Simulation Types:</strong> {result.simulation_type.join(', ')}
-            </Card.Text>
-            <Card.Text>
+            </p>
+            <p>
               <strong>Population Size:</strong> {result.metadata.population_size}
-            </Card.Text>
-            <Card.Text>
+            </p>
+            <p>
               <strong>Turnout Rate:</strong> {(result.metadata.turnout_rate * 100).toFixed(1)}%
-            </Card.Text>
-            <Card.Text>
+            </p>
+            <p>
               <strong>Candidates:</strong> {result.metadata.candidates.join(', ')}
-            </Card.Text>
+            </p>
 
             {/* Votes Simulation Results */}
             {hasVotes && (
               <>
-                <Card.Text as="h4" className="mt-4">
-                  Standard Voting Results
-                </Card.Text>
+                <p className="mt-4">Standard Voting Results</p>
 
                 {result.votes && (
                   <>
-                    <Card.Text as="h5">Sample Votes:</Card.Text>
+                    <p>Sample Votes:</p>
                     <ul>
                       {result.votes.slice(0, 5).map((vote, index) => (
                         <li key={index}>
@@ -198,9 +199,7 @@ const SimulationResult: React.FC<SimulationResultProps> = ({ result }) => {
 
                 {result.tally && (
                   <>
-                    <Card.Text as="h5" className="mt-3">
-                      Vote Tally:
-                    </Card.Text>
+                    <p className="mt-3">Vote Tally:</p>
                     <ul>
                       {Object.entries(result.tally).map(([candidate, count]) => (
                         <li key={candidate}>
@@ -214,8 +213,10 @@ const SimulationResult: React.FC<SimulationResultProps> = ({ result }) => {
                         <Row className="mt-3">
                           <Col md={6}>
                             <Card>
-                              <Card.Header as="h5">Sankey Chart</Card.Header>
-                              <Card.Body>
+                              <CardHeader className="block space-y-0 border-b border-border px-4 py-2">
+                                Sankey Chart
+                              </CardHeader>
+                              <CardBody>
                                 <div data-testid="sankey-chart">
                                   {sankeyData.links.length > 0 && (
                                     <ResponsiveContainer width="100%" height={300}>
@@ -230,22 +231,31 @@ const SimulationResult: React.FC<SimulationResultProps> = ({ result }) => {
                                     </ResponsiveContainer>
                                   )}
                                 </div>
-                              </Card.Body>
+                              </CardBody>
                             </Card>
                           </Col>
                           <Col md={6}>
                             <Card>
-                              <Card.Header as="h5">Radar Chart</Card.Header>
-                              <Card.Body>
+                              <CardHeader className="block space-y-0 border-b border-border px-4 py-2">
+                                Radar Chart
+                              </CardHeader>
+                              <CardBody>
                                 <div data-testid="radar-chart">
-                                  <p className="text-center fw-semibold mb-2" style={{ fontSize: '0.95rem' }}>
+                                  <p
+                                    className="text-center font-semibold mb-2"
+                                    style={{ fontSize: '0.95rem' }}
+                                  >
                                     Voter Consensus (Normalized)
                                   </p>
                                   <ResponsiveContainer width="100%" height={300}>
                                     <RadarChart data={radarRows} outerRadius="70%">
                                       <PolarGrid />
                                       <PolarAngleAxis dataKey="rank" tick={{ fontSize: 11 }} />
-                                      <PolarRadiusAxis domain={[0, 1]} tickCount={6} tick={{ fontSize: 10 }} />
+                                      <PolarRadiusAxis
+                                        domain={[0, 1]}
+                                        tickCount={6}
+                                        tick={{ fontSize: 10 }}
+                                      />
                                       {radarSeries.map((ds, ci) => (
                                         <Radar
                                           key={ds.label}
@@ -262,7 +272,7 @@ const SimulationResult: React.FC<SimulationResultProps> = ({ result }) => {
                                     </RadarChart>
                                   </ResponsiveContainer>
                                 </div>
-                              </Card.Body>
+                              </CardBody>
                             </Card>
                           </Col>
                         </Row>
@@ -285,9 +295,7 @@ const SimulationResult: React.FC<SimulationResultProps> = ({ result }) => {
                   result.minimax_winner ||
                   result.schulze_winner) && (
                   <>
-                    <Card.Text as="h5" className="mt-4">
-                      Voting Method Winners:
-                    </Card.Text>
+                    <p className="mt-4">Voting Method Winners:</p>
                     <VotingMethodsComparison
                       rankings={rankings}
                       candidates={candidates}
@@ -297,14 +305,14 @@ const SimulationResult: React.FC<SimulationResultProps> = ({ result }) => {
                 )}
                 {result.all_scores && result.all_scores.length > 0 && (
                   <Card>
-                    <Card.Body>
+                    <CardBody>
                       <ScoreVotingComparison scores={result.all_scores} candidates={candidates} />
-                    </Card.Body>
+                    </CardBody>
                   </Card>
                 )}
               </>
             )}
-          </Card.Body>
+          </CardBody>
         </Card>
       </Row>
     </Container>

@@ -10,7 +10,11 @@ beforeEach(() => {
 describe('useLabStore — perturbations', () => {
   const pin = (over: { label?: string } = {}) =>
     useLabStore.getState().pinPerturbation({
-      type: 'abstention', icon: '🗳', label: 'Abstention 30%', summary: 'stable', ...over,
+      type: 'abstention',
+      icon: '🗳',
+      label: 'Abstention 30%',
+      summary: 'stable',
+      ...over,
     });
 
   it('pins, exposes via isPinned, and persists', () => {
@@ -37,10 +41,14 @@ describe('useLabStore — perturbations', () => {
   });
 
   it('hydratePinned drops malformed localStorage entries', () => {
-    localStorage.setItem(LS_KEY, JSON.stringify([
-      { type: 'a', label: 'ok', summary: 's', pinnedAt: 1, icon: '🗳', id: 'a' },
-      { foo: 'bar' }, null,
-    ]));
+    localStorage.setItem(
+      LS_KEY,
+      JSON.stringify([
+        { type: 'a', label: 'ok', summary: 's', pinnedAt: 1, icon: '🗳', id: 'a' },
+        { foo: 'bar' },
+        null,
+      ])
+    );
     useLabStore.getState().hydratePinned();
     expect(useLabStore.getState().pinned).toHaveLength(1);
   });

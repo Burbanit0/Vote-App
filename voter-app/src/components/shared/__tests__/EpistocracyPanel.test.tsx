@@ -8,7 +8,9 @@ vi.mock('../../../api/client', () => ({
   apiClient: { GET: vi.fn(), POST: vi.fn(), PUT: vi.fn(), DELETE: vi.fn(), PATCH: vi.fn() },
   getAccessToken: vi.fn(() => null),
 }));
-const { apiClient } = (await import('../../../api/client')) as unknown as { apiClient: { POST: jest.Mock } };
+const { apiClient } = (await import('../../../api/client')) as unknown as {
+  apiClient: { POST: jest.Mock };
+};
 
 vi.mock('react-i18next', () => ({
   useTranslation: () => ({
@@ -24,9 +26,17 @@ vi.mock('recharts', () => {
   const stub = ({ children }: { children?: React.ReactNode }) =>
     React.createElement('div', { 'data-testid': 'recharts-stub' }, children);
   return {
-    BarChart: stub, Bar: stub, XAxis: stub, YAxis: stub,
-    CartesianGrid: stub, Tooltip: stub, Legend: stub,
-    LineChart: stub, Line: stub, ReferenceLine: stub, Cell: stub,
+    BarChart: stub,
+    Bar: stub,
+    XAxis: stub,
+    YAxis: stub,
+    CartesianGrid: stub,
+    Tooltip: stub,
+    Legend: stub,
+    LineChart: stub,
+    Line: stub,
+    ReferenceLine: stub,
+    Cell: stub,
     ResponsiveContainer: ({ children }: { children?: React.ReactNode }) =>
       React.createElement('div', null, children),
   };
@@ -35,16 +45,31 @@ vi.mock('recharts', () => {
 // ── Mock data ─────────────────────────────────────────────────────────────────
 
 const MOCK_DATA = {
-  voter_competence_stats: { mean: 0.60, biased_mean: 0.53, expert_count: 12 },
+  voter_competence_stats: { mean: 0.6, biased_mean: 0.53, expert_count: 12 },
   results: {
-    equal:                { winner: 'B', bayesian_regret: 0.35, correct_choice_pct: 0.60, participates_pct: 1.00 },
-    competence_weighted:  { winner: 'B', bayesian_regret: 0.28, correct_choice_pct: 0.68, participates_pct: 1.00 },
-    epistocratic:         { winner: 'B', bayesian_regret: 0.20, correct_choice_pct: 0.78, participates_pct: 0.25 },
-    lottery:              { winner: 'B', bayesian_regret: 0.45, correct_choice_pct: 0.55, participates_pct: 1.00 },
+    equal: { winner: 'B', bayesian_regret: 0.35, correct_choice_pct: 0.6, participates_pct: 1.0 },
+    competence_weighted: {
+      winner: 'B',
+      bayesian_regret: 0.28,
+      correct_choice_pct: 0.68,
+      participates_pct: 1.0,
+    },
+    epistocratic: {
+      winner: 'B',
+      bayesian_regret: 0.2,
+      correct_choice_pct: 0.78,
+      participates_pct: 0.25,
+    },
+    lottery: {
+      winner: 'B',
+      bayesian_regret: 0.45,
+      correct_choice_pct: 0.55,
+      participates_pct: 1.0,
+    },
   },
-  democracy_vs_expert: { democracy_regret: 0.35, expert_regret: 0.18, omniscient_regret: 0.00 },
+  democracy_vs_expert: { democracy_regret: 0.35, expert_regret: 0.18, omniscient_regret: 0.0 },
   condorcet_threshold: 0.5,
-  pedagogical_note:    'Brennan 2016: against democracy.',
+  pedagogical_note: 'Brennan 2016: against democracy.',
 };
 
 const BELOW_RANDOM_DATA = {
@@ -66,7 +91,9 @@ function renderPanel() {
 async function renderAndRun(responseData = MOCK_DATA) {
   apiClient.POST.mockResolvedValueOnce(ok(responseData));
   renderPanel();
-  await act(async () => { fireEvent.click(screen.getByTestId('run-btn')); });
+  await act(async () => {
+    fireEvent.click(screen.getByTestId('run-btn'));
+  });
   await waitFor(() => expect(apiClient.POST).toHaveBeenCalledTimes(1));
   await screen.findByTestId('comparison-badges');
 }
@@ -180,7 +207,9 @@ describe('EpistocracyPanel', () => {
   it('shows error alert on API failure', async () => {
     apiClient.POST.mockRejectedValueOnce(new Error('Network error'));
     renderPanel();
-    await act(async () => { fireEvent.click(screen.getByTestId('run-btn')); });
+    await act(async () => {
+      fireEvent.click(screen.getByTestId('run-btn'));
+    });
     await waitFor(() => expect(screen.getByTestId('error-alert')).toBeInTheDocument());
   });
 });

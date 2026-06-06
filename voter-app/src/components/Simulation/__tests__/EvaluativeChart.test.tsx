@@ -11,8 +11,8 @@ function makeResult(winner = 'Alice'): EvaluativeResult {
     scores: { Alice: 30, Bob: -5, Carol: 10 },
     ev_distribution: {
       Alice: { '+1': 40, '0': 10, '-1': 10 },
-      Bob:   { '+1': 15, '0': 20, '-1': 25 },
-      Carol: { '+1': 25, '0': 20, '-1': 5  },
+      Bob: { '+1': 15, '0': 20, '-1': 25 },
+      Carol: { '+1': 25, '0': 20, '-1': 5 },
     },
   };
 }
@@ -20,11 +20,7 @@ function makeResult(winner = 'Alice'): EvaluativeResult {
 function render_chart(props?: Partial<React.ComponentProps<typeof EvaluativeChart>>) {
   return render(
     <MemoryRouter>
-      <EvaluativeChart
-        evResult={makeResult()}
-        candidates={['Alice', 'Bob', 'Carol']}
-        {...props}
-      />
+      <EvaluativeChart evResult={makeResult()} candidates={['Alice', 'Bob', 'Carol']} {...props} />
     </MemoryRouter>
   );
 }
@@ -88,7 +84,7 @@ describe('EvaluativeChart', () => {
   it('sorts candidates: winner first, then by net score desc', () => {
     const { container } = render_chart();
     const rows = Array.from(container.querySelectorAll('[data-testid^="ev-row-"]'));
-    const names = rows.map(r => r.getAttribute('data-testid')!.replace('ev-row-', ''));
+    const names = rows.map((r) => r.getAttribute('data-testid')!.replace('ev-row-', ''));
     // Alice (winner, +30) · Carol (+10) · Bob (-5)
     expect(names[0]).toBe('Alice');
     expect(names[1]).toBe('Carol');

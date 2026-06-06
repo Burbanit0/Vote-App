@@ -8,10 +8,22 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { $api } from '../../api/hooks';
 import { useTranslation } from 'react-i18next';
-import { Alert, Badge, Button, Col, Form, Row, Spinner } from 'react-bootstrap';
+import { Alert } from '@/components/ui/alert';
+import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
+import { Control, Range } from '@/components/ui/form-controls';
+import { Col, Row } from '@/components/ui/grid';
+import { Spinner } from '@/components/ui/spinner';
 import {
-  LineChart, Line, XAxis, YAxis, Tooltip, Legend,
-  ResponsiveContainer, ReferenceLine, CartesianGrid,
+  LineChart,
+  Line,
+  XAxis,
+  YAxis,
+  Tooltip,
+  Legend,
+  ResponsiveContainer,
+  ReferenceLine,
+  CartesianGrid,
 } from 'recharts';
 import { useElection } from '../../stores/useElectionStore';
 import PinToCentralButton from './PinToCentralButton';
@@ -21,27 +33,27 @@ const ANIM_STEP_MS = 80;
 // ── Types ─────────────────────────────────────────────────────────────────────
 
 interface VoteEntry {
-  voter_id:        number;
-  sincere_choice:  string;
-  actual_vote:     string;
+  voter_id: number;
+  sincere_choice: string;
+  actual_vote: string;
   followed_cascade: boolean;
 }
 
 interface ComparisonRun {
-  strength:     number;
-  winner:       string;
+  strength: number;
+  winner: string;
   cascade_rate: number;
 }
 
 interface CascadeData {
-  sincere_winner:          string;
-  cascade_winner:          string;
-  cascade_occurred:        boolean;
-  vote_sequence:           VoteEntry[];
-  cascade_start_at:        number | null;
-  cascade_strength_curve:  { strength: number; winner: string; cascade_rate: number }[];
-  comparison_runs:         ComparisonRun[];
-  candidates:              string[];
+  sincere_winner: string;
+  cascade_winner: string;
+  cascade_occurred: boolean;
+  vote_sequence: VoteEntry[];
+  cascade_start_at: number | null;
+  cascade_strength_curve: { strength: number; winner: string; cascade_rate: number }[];
+  comparison_runs: ComparisonRun[];
+  candidates: string[];
 }
 
 // ── Palette ───────────────────────────────────────────────────────────────────
@@ -69,23 +81,26 @@ const DOT_R = 4;
 const DOT_MARGIN = 2;
 
 interface TimelineProps {
-  sequence:        VoteEntry[];
-  visibleN:        number;
-  cascadeStartAt:  number | null;
-  candidates:      string[];
+  sequence: VoteEntry[];
+  visibleN: number;
+  cascadeStartAt: number | null;
+  candidates: string[];
 }
 
-const TimelineSVG: React.FC<TimelineProps> = ({ sequence, visibleN, cascadeStartAt, candidates }) => {
-  const n   = sequence.length;
+const TimelineSVG: React.FC<TimelineProps> = ({
+  sequence,
+  visibleN,
+  cascadeStartAt,
+  candidates,
+}) => {
+  const n = sequence.length;
   if (n === 0) return null;
 
   const cellW = Math.max(DOT_R * 2 + DOT_MARGIN, 600 / n);
-  const svgW  = Math.max(600, n * cellW);
+  const svgW = Math.max(600, n * cellW);
 
   // cascade line x position
-  const cascadeX = cascadeStartAt != null
-    ? (cascadeStartAt / n) * svgW + cellW / 2
-    : null;
+  const cascadeX = cascadeStartAt != null ? (cascadeStartAt / n) * svgW + cellW / 2 : null;
 
   return (
     <div style={{ overflowX: 'auto' }}>
@@ -99,8 +114,13 @@ const TimelineSVG: React.FC<TimelineProps> = ({ sequence, visibleN, cascadeStart
         {cascadeX != null && (
           <line
             data-testid="cascade-start-line"
-            x1={cascadeX} y1={0} x2={cascadeX} y2={TIMELINE_H}
-            stroke="#dc3545" strokeWidth={1.5} strokeDasharray="4 2"
+            x1={cascadeX}
+            y1={0}
+            x2={cascadeX}
+            y2={TIMELINE_H}
+            stroke="#dc3545"
+            strokeWidth={1.5}
+            strokeDasharray="4 2"
           />
         )}
 
@@ -114,8 +134,13 @@ const TimelineSVG: React.FC<TimelineProps> = ({ sequence, visibleN, cascadeStart
               {entry.followed_cascade && (
                 <circle
                   data-testid="cascade-follower-ring"
-                  cx={cx} cy={cy} r={DOT_R + 3}
-                  fill="none" stroke={color} strokeWidth={1} strokeDasharray="2 2"
+                  cx={cx}
+                  cy={cy}
+                  r={DOT_R + 3}
+                  fill="none"
+                  stroke={color}
+                  strokeWidth={1}
+                  strokeDasharray="2 2"
                 />
               )}
               <circle cx={cx} cy={cy} r={DOT_R} fill={color} opacity={0.85} />
@@ -130,23 +155,31 @@ const TimelineSVG: React.FC<TimelineProps> = ({ sequence, visibleN, cascadeStart
 // ── Running tally bar ─────────────────────────────────────────────────────────
 
 interface TallyBarProps {
-  tally:      Record<string, number>;
-  total:      number;
+  tally: Record<string, number>;
+  total: number;
   candidates: string[];
 }
 
 const TallyBar: React.FC<TallyBarProps> = ({ tally, total, candidates }) => (
-  <div className="d-flex gap-2 flex-wrap mt-2" data-testid="tally-bar">
+  <div className="flex gap-2 flex-wrap mt-2" data-testid="tally-bar">
     {candidates.map((c) => {
-      const n    = tally[c] ?? 0;
-      const pct  = total > 0 ? Math.round((n / total) * 100) : 0;
+      const n = tally[c] ?? 0;
+      const pct = total > 0 ? Math.round((n / total) * 100) : 0;
       const color = candColor(c, candidates);
       return (
-        <div key={c} className="d-flex align-items-center gap-1" style={{ fontSize: '0.8rem' }}>
-          <span style={{ width: 10, height: 10, borderRadius: '50%', background: color, display: 'inline-block' }} />
+        <div key={c} className="flex items-center gap-1" style={{ fontSize: '0.8rem' }}>
+          <span
+            style={{
+              width: 10,
+              height: 10,
+              borderRadius: '50%',
+              background: color,
+              display: 'inline-block',
+            }}
+          />
           <span style={{ color }}>{c}</span>
           <strong>{pct}%</strong>
-          <span className="text-muted">({n})</span>
+          <span className="text-muted-foreground">({n})</span>
         </div>
       );
     })}
@@ -156,18 +189,18 @@ const TallyBar: React.FC<TallyBarProps> = ({ tally, total, candidates }) => (
 // ── Comparison badges ─────────────────────────────────────────────────────────
 
 interface ComparisonProps {
-  runs:       ComparisonRun[];
+  runs: ComparisonRun[];
   candidates: string[];
-  t:          (k: string) => string;
+  t: (k: string) => string;
 }
 
 const ComparisonBadges: React.FC<ComparisonProps> = ({ runs, candidates, t }) => (
-  <div className="d-flex gap-3 flex-wrap mt-3" data-testid="comparison-badges">
+  <div className="flex gap-3 flex-wrap mt-3" data-testid="comparison-badges">
     {runs.map((r) => {
       const color = candColor(r.winner, candidates);
       return (
         <div key={r.strength} className="text-center" style={{ minWidth: 90 }}>
-          <div className="text-muted" style={{ fontSize: '0.7rem' }}>
+          <div className="text-muted-foreground" style={{ fontSize: '0.7rem' }}>
             {t('cascade.strength')} {r.strength.toFixed(1)}
           </div>
           <Badge
@@ -176,7 +209,7 @@ const ComparisonBadges: React.FC<ComparisonProps> = ({ runs, candidates, t }) =>
           >
             {r.winner}
           </Badge>
-          <div className="text-muted" style={{ fontSize: '0.7rem' }}>
+          <div className="text-muted-foreground" style={{ fontSize: '0.7rem' }}>
             {Math.round(r.cascade_rate * 100)}% {t('cascade.followed')}
           </div>
         </div>
@@ -188,33 +221,38 @@ const ComparisonBadges: React.FC<ComparisonProps> = ({ runs, candidates, t }) =>
 // ── Main panel ────────────────────────────────────────────────────────────────
 
 const CascadePanel: React.FC = () => {
-  const { t }    = useTranslation();
+  const { t } = useTranslation();
   const { config } = useElection();
 
-  const [cascadeStrength,   setCascadeStrength]   = useState(0.5);
+  const [cascadeStrength, setCascadeStrength] = useState(0.5);
   const [observationWindow, setObservationWindow] = useState(10);
   const sim = $api.useMutation('post', '/api/v2/election/cascade');
   const data: CascadeData | null = (sim.data as CascadeData | undefined) ?? null;
   const loading = sim.isPending;
   const error = sim.isError ? t('cascade.error') : null;
-  const [animIndex,         setAnimIndex]         = useState(0);
-  const [playing,           setPlaying]           = useState(false);
+  const [animIndex, setAnimIndex] = useState(0);
+  const [playing, setPlaying] = useState(false);
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const animRef     = useRef<ReturnType<typeof setInterval> | null>(null);
+  const animRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
-  const runSimulation = useCallback((strength: number, window: number) => {
-    setPlaying(false);
-    setAnimIndex(0);
-    sim.mutate({ body: {
-      candidates:         config.candidates.map((c) => ({ name: c.name, x: c.x, y: c.y })),
-      num_voters:         config.num_voters,
-      ideology:           config.ideology,
-      seed:               config.seed,
-      cascade_strength:   strength,
-      observation_window: window,
-    } });
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [config, t, sim]);
+  const runSimulation = useCallback(
+    (strength: number, window: number) => {
+      setPlaying(false);
+      setAnimIndex(0);
+      sim.mutate({
+        body: {
+          candidates: config.candidates.map((c) => ({ name: c.name, x: c.x, y: c.y })),
+          num_voters: config.num_voters,
+          ideology: config.ideology,
+          seed: config.seed,
+          cascade_strength: strength,
+          observation_window: window,
+        },
+      });
+      // eslint-disable-next-line react-hooks/exhaustive-deps
+    },
+    [config, t, sim]
+  );
 
   const handleSimulate = () => runSimulation(cascadeStrength, observationWindow);
 
@@ -240,7 +278,9 @@ const CascadePanel: React.FC = () => {
         return prev + 1;
       });
     }, ANIM_STEP_MS);
-    return () => { if (animRef.current) clearInterval(animRef.current); };
+    return () => {
+      if (animRef.current) clearInterval(animRef.current);
+    };
   }, [playing, data]);
 
   const handlePlayPause = () => {
@@ -249,43 +289,44 @@ const CascadePanel: React.FC = () => {
     setPlaying((p) => !p);
   };
 
-  const visibleN   = data ? (playing || animIndex > 0 ? animIndex : data.vote_sequence.length) : 0;
-  const tally      = data ? tallyUpTo(data.vote_sequence, visibleN) : {};
+  const visibleN = data ? (playing || animIndex > 0 ? animIndex : data.vote_sequence.length) : 0;
+  const tally = data ? tallyUpTo(data.vote_sequence, visibleN) : {};
   const visibleTotal = Object.values(tally).reduce((a, b) => a + b, 0);
   const candidates = data?.candidates ?? [];
 
   return (
     <div>
       {/* Controls */}
-      <Row className="g-2 mb-3 align-items-end">
+      <Row className="g-2 mb-3 items-end">
         <Col xs={12} md={5}>
-          <Form.Label className="small mb-0">
+          <label className="mb-1 inline-block text-sm mb-0">
             {t('cascade.strengthSlider')}: <strong>{cascadeStrength.toFixed(2)}</strong>
-          </Form.Label>
-          <Form.Range
+          </label>
+          <Range
             data-testid="cascade-strength-slider"
-            min={0} max={1} step={0.05}
+            min={0}
+            max={1}
+            step={0.05}
             value={cascadeStrength}
             onChange={(e) => handleStrengthChange(Number(e.target.value))}
           />
         </Col>
         <Col xs={12} md={3}>
-          <Form.Label className="small mb-0">{t('cascade.window')}</Form.Label>
-          <Form.Control
+          <label className="mb-1 inline-block text-sm mb-0">{t('cascade.window')}</label>
+          <Control
             type="number"
             size="sm"
-            min={0} max={50}
+            min={0}
+            max={50}
             value={observationWindow}
-            onChange={(e) => setObservationWindow(Math.max(0, Math.min(50, Number(e.target.value))))}
+            onChange={(e) =>
+              setObservationWindow(Math.max(0, Math.min(50, Number(e.target.value))))
+            }
           />
         </Col>
         <Col xs="auto">
-          <Button
-            variant="primary"
-            onClick={handleSimulate}
-            disabled={loading}
-          >
-            {loading ? <Spinner size="sm" animation="border" /> : t('cascade.run')}
+          <Button variant="primary" onClick={handleSimulate} disabled={loading}>
+            {loading ? <Spinner size="sm" /> : t('cascade.run')}
           </Button>
         </Col>
         {data && (
@@ -307,7 +348,9 @@ const CascadePanel: React.FC = () => {
 
       {/* Prompt */}
       {!data && !loading && !error && (
-        <Alert variant="info" role="alert">{t('cascade.prompt')}</Alert>
+        <Alert variant="info" role="alert">
+          {t('cascade.prompt')}
+        </Alert>
       )}
 
       {error && <Alert variant="danger">{error}</Alert>}
@@ -315,21 +358,23 @@ const CascadePanel: React.FC = () => {
       {data && (
         <>
           {/* Winner badges */}
-          <div className="d-flex gap-2 flex-wrap mb-3">
-            <Badge bg="secondary">{t('cascade.sincereWinner')}: {data.sincere_winner}</Badge>
+          <div className="flex gap-2 flex-wrap mb-3">
+            <Badge variant="secondary">
+              {t('cascade.sincereWinner')}: {data.sincere_winner}
+            </Badge>
             <Badge
               data-testid="cascade-winner-badge"
-              bg={data.cascade_occurred ? 'danger' : 'success'}
+              variant={data.cascade_occurred ? 'danger' : 'success'}
             >
               {t('cascade.cascadeWinner')}: {data.cascade_winner}
             </Badge>
             {data.cascade_occurred && (
-              <Badge bg="warning" text="dark" data-testid="cascade-occurred-badge">
+              <Badge variant="warning" data-testid="cascade-occurred-badge">
                 {t('cascade.cascadeOccurred')}
               </Badge>
             )}
             {data.cascade_start_at != null && (
-              <Badge bg="info" text="dark" data-testid="cascade-start-badge">
+              <Badge variant="info" data-testid="cascade-start-badge">
                 {t('cascade.cascadeStartAt')} #{data.cascade_start_at + 1}
               </Badge>
             )}
@@ -340,8 +385,8 @@ const CascadePanel: React.FC = () => {
 
           {/* Timeline */}
           <div className="mt-4">
-            <div className="d-flex align-items-center gap-2 mb-2">
-              <span className="fw-semibold" style={{ fontSize: '0.85rem' }}>
+            <div className="flex items-center gap-2 mb-2">
+              <span className="font-semibold" style={{ fontSize: '0.85rem' }}>
                 {t('cascade.timelineTitle')}
               </span>
               <Button
@@ -353,7 +398,7 @@ const CascadePanel: React.FC = () => {
                 {playing ? '⏸' : '▶'}
               </Button>
               {(playing || animIndex > 0) && (
-                <span className="text-muted" style={{ fontSize: '0.75rem' }}>
+                <span className="text-muted-foreground" style={{ fontSize: '0.75rem' }}>
                   {visibleN} / {data.vote_sequence.length}
                 </span>
               )}
@@ -365,7 +410,7 @@ const CascadePanel: React.FC = () => {
               cascadeStartAt={data.cascade_start_at}
               candidates={candidates}
             />
-            <div className="d-flex gap-3 mt-1" style={{ fontSize: '0.72rem', color: '#6c757d' }}>
+            <div className="flex gap-3 mt-1" style={{ fontSize: '0.72rem', color: '#6c757d' }}>
               <span>● {t('cascade.legendVote')}</span>
               <span>◌ {t('cascade.legendFollowed')}</span>
               <span style={{ color: '#dc3545' }}>╎ {t('cascade.legendCascadeStart')}</span>
@@ -374,11 +419,14 @@ const CascadePanel: React.FC = () => {
 
           {/* Strength curve */}
           <div className="mt-4" data-testid="cascade-curve-chart">
-            <div className="fw-semibold mb-2" style={{ fontSize: '0.85rem' }}>
+            <div className="font-semibold mb-2" style={{ fontSize: '0.85rem' }}>
               {t('cascade.curveTitle')}
             </div>
             <ResponsiveContainer width="100%" height={200}>
-              <LineChart data={data.cascade_strength_curve} margin={{ top: 4, right: 16, bottom: 4, left: 0 }}>
+              <LineChart
+                data={data.cascade_strength_curve}
+                margin={{ top: 4, right: 16, bottom: 4, left: 0 }}
+              >
                 <CartesianGrid strokeDasharray="3 3" />
                 <XAxis dataKey="strength" tickFormatter={(v: number) => v.toFixed(1)} />
                 <YAxis domain={[0, 1]} tickFormatter={(v: number) => `${Math.round(v * 100)}%`} />

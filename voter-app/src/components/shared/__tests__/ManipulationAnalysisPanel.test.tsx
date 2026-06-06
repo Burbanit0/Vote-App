@@ -10,7 +10,9 @@ vi.mock('../../../api/client', () => ({
   apiClient: { GET: vi.fn(), POST: vi.fn(), PUT: vi.fn(), DELETE: vi.fn(), PATCH: vi.fn() },
   getAccessToken: vi.fn(() => null),
 }));
-const { apiClient } = (await import('../../../api/client')) as unknown as { apiClient: { POST: jest.Mock } };
+const { apiClient } = (await import('../../../api/client')) as unknown as {
+  apiClient: { POST: jest.Mock };
+};
 
 // ── Fixtures ──────────────────────────────────────────────────────────────────
 
@@ -18,37 +20,42 @@ function makeData(manipulable = true) {
   const manipulators = manipulable
     ? [
         {
-          voter_id:        3,
-          voter_ideology:  [-0.2, 0.4] as [number, number],
-          sincere_vote:    ['Alice', 'Carol', 'Bob'],
-          strategic_vote:  ['Carol', 'Alice', 'Bob'],
-          strategy_type:   'compromising' as const,
-          sincere_result:  'Bob',
+          voter_id: 3,
+          voter_ideology: [-0.2, 0.4] as [number, number],
+          sincere_vote: ['Alice', 'Carol', 'Bob'],
+          strategic_vote: ['Carol', 'Alice', 'Bob'],
+          strategy_type: 'compromising' as const,
+          sincere_result: 'Bob',
           strategic_result: 'Carol',
-          utility_gain:    0.32,
+          utility_gain: 0.32,
         },
         {
-          voter_id:        7,
-          voter_ideology:  [0.3, -0.1] as [number, number],
-          sincere_vote:    ['Alice', 'Bob', 'Carol'],
-          strategic_vote:  ['Alice', 'Carol', 'Bob'],
-          strategy_type:   'burying' as const,
-          sincere_result:  'Bob',
+          voter_id: 7,
+          voter_ideology: [0.3, -0.1] as [number, number],
+          sincere_vote: ['Alice', 'Bob', 'Carol'],
+          strategic_vote: ['Alice', 'Carol', 'Bob'],
+          strategy_type: 'burying' as const,
+          sincere_result: 'Bob',
           strategic_result: 'Alice',
-          utility_gain:    0.45,
+          utility_gain: 0.45,
         },
       ]
     : [];
 
   return {
     data: {
-      sincere_winner:     'Bob',
+      sincere_winner: 'Bob',
       manipulable,
       manipulation_count: manipulators.length,
       manipulators,
-      strategy_breakdown: { compromising: manipulable ? 1 : 0, burying: manipulable ? 1 : 0, pushover: 0, truncating: 0 },
-      key_manipulator:    manipulable ? { voter_id: 7, strategy: 'burying', gain: 0.45 } : null,
-      pedagogical_note:   'Test note.',
+      strategy_breakdown: {
+        compromising: manipulable ? 1 : 0,
+        burying: manipulable ? 1 : 0,
+        pushover: 0,
+        truncating: 0,
+      },
+      key_manipulator: manipulable ? { voter_id: 7, strategy: 'burying', gain: 0.45 } : null,
+      pedagogical_note: 'Test note.',
     },
     error: undefined,
   };
@@ -72,7 +79,9 @@ beforeEach(() => {
   vi.useFakeTimers();
 });
 
-afterEach(() => { vi.useRealTimers(); });
+afterEach(() => {
+  vi.useRealTimers();
+});
 
 // ── Tests ─────────────────────────────────────────────────────────────────────
 
@@ -99,7 +108,7 @@ describe('ManipulationAnalysisPanel', () => {
     await waitFor(() => expect(apiClient.POST).toHaveBeenCalledTimes(1));
     expect(apiClient.POST).toHaveBeenCalledWith(
       expect.stringMatching(/\/api\/(v2\/)?theory\/manipulation-analysis/),
-      expect.any(Object),
+      expect.any(Object)
     );
     vi.runAllTimers();
   });
@@ -110,7 +119,7 @@ describe('ManipulationAnalysisPanel', () => {
     fireEvent.click(screen.getByTestId('analyze-btn'));
     await waitFor(() => {
       const badge = screen.getByTestId('manipulable-badge');
-      expect(badge.className).toContain('bg-danger');
+      expect(badge.className).toContain('bg-[#dc3545]');
     });
     vi.runAllTimers();
   });
@@ -121,7 +130,7 @@ describe('ManipulationAnalysisPanel', () => {
     fireEvent.click(screen.getByTestId('analyze-btn'));
     await waitFor(() => {
       const badge = screen.getByTestId('manipulable-badge');
-      expect(badge.className).toContain('bg-success');
+      expect(badge.className).toContain('bg-[#198754]');
     });
     vi.runAllTimers();
   });

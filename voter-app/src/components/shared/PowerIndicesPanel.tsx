@@ -4,56 +4,73 @@
  */
 import React, { useState } from 'react';
 import { useTranslation } from 'react-i18next';
+import { Alert } from '@/components/ui/alert';
+import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
+import { Check, Control } from '@/components/ui/form-controls';
+import { Col, Row } from '@/components/ui/grid';
+import { Spinner } from '@/components/ui/spinner';
+import { Table } from '@/components/ui/table';
 import {
-  Alert, Badge, Button, Col, Form, Row, Spinner, Table,
-} from 'react-bootstrap';
-import {
-  ScatterChart, Scatter, XAxis, YAxis, CartesianGrid, Tooltip,
-  ReferenceLine, ResponsiveContainer, Cell,
+  ScatterChart,
+  Scatter,
+  XAxis,
+  YAxis,
+  CartesianGrid,
+  Tooltip,
+  ReferenceLine,
+  ResponsiveContainer,
+  Cell,
 } from 'recharts';
 import { $api } from '../../api/hooks';
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
 interface PartyInput {
-  name:   string;
-  seats:  number;
+  name: string;
+  seats: number;
   pariah: boolean;
-  color:  string;
+  color: string;
 }
 
 interface PartyResult {
-  name:           string;
-  seats:          number;
-  seat_pct:       number;
-  shapley_index:  number;
-  banzhaf_index:  number;
-  power_ratio:    number;
+  name: string;
+  seats: number;
+  seat_pct: number;
+  shapley_index: number;
+  banzhaf_index: number;
+  power_ratio: number;
   critical_count: number;
-  pivot_count:    number;
-  is_pariah:      boolean;
+  pivot_count: number;
+  is_pariah: boolean;
 }
 
 interface Coalition {
   parties: string[];
-  seats:   number;
+  seats: number;
   minimal: boolean;
 }
 
 interface PowerData {
-  total_seats:        number;
+  total_seats: number;
   majority_threshold: number;
-  parties:            PartyResult[];
-  viable_coalitions:  Coalition[];
-  power_surprises:    string[];
-  pedagogical_note:   string;
+  parties: PartyResult[];
+  viable_coalitions: Coalition[];
+  power_surprises: string[];
+  pedagogical_note: string;
 }
 
 // ── Colour palette ────────────────────────────────────────────────────────────
 
 const PALETTE = [
-  '#0d6efd', '#dc3545', '#198754', '#fd7e14',
-  '#6f42c1', '#20c997', '#ffc107', '#0dcaf0',
+  '#0d6efd',
+  '#dc3545',
+  '#198754',
+  '#fd7e14',
+  '#6f42c1',
+  '#20c997',
+  '#ffc107',
+  '#0dcaf0',
 ];
 
 // ── Preset scenarios ──────────────────────────────────────────────────────────
@@ -94,12 +111,16 @@ const PRESETS: Record<string, { label: string; parties: Omit<PartyInput, 'color'
 
 interface HemicycleProps {
   parties: PartyResult[];
-  colors:  Record<string, string>;
+  colors: Record<string, string>;
 }
 
 const PowerHemicycle: React.FC<HemicycleProps> = ({ parties, colors }) => {
-  const W = 340, H = 200, cx = W / 2, cy = H - 10;
-  const R_outer = 150, R_inner = 80;
+  const W = 340,
+    H = 200,
+    cx = W / 2,
+    cy = H - 10;
+  const R_outer = 150,
+    R_inner = 80;
   const totalPower = parties.reduce((s, p) => s + p.shapley_index, 0);
 
   const slices: React.ReactElement[] = [];
@@ -110,10 +131,14 @@ const PowerHemicycle: React.FC<HemicycleProps> = ({ parties, colors }) => {
     const sweep = share * Math.PI;
     const aEnd = angle + sweep;
 
-    const x1o = cx + R_outer * Math.cos(angle), y1o = cy + R_outer * Math.sin(angle);
-    const x2o = cx + R_outer * Math.cos(aEnd),  y2o = cy + R_outer * Math.sin(aEnd);
-    const x1i = cx + R_inner * Math.cos(angle), y1i = cy + R_inner * Math.sin(angle);
-    const x2i = cx + R_inner * Math.cos(aEnd),  y2i = cy + R_inner * Math.sin(aEnd);
+    const x1o = cx + R_outer * Math.cos(angle),
+      y1o = cy + R_outer * Math.sin(angle);
+    const x2o = cx + R_outer * Math.cos(aEnd),
+      y2o = cy + R_outer * Math.sin(aEnd);
+    const x1i = cx + R_inner * Math.cos(angle),
+      y1i = cy + R_inner * Math.sin(angle);
+    const x2i = cx + R_inner * Math.cos(aEnd),
+      y2i = cy + R_inner * Math.sin(aEnd);
 
     const large = sweep > Math.PI ? 1 : 0;
     const d = [
@@ -126,20 +151,29 @@ const PowerHemicycle: React.FC<HemicycleProps> = ({ parties, colors }) => {
 
     const fill = p.shapley_index === 0 ? '#adb5bd' : (colors[p.name] ?? '#6c757d');
     slices.push(
-      <path key={p.name} d={d} fill={fill} stroke="#fff" strokeWidth={1.5}
-        opacity={0.9}>
-        <title>{p.name}: Shapley {Math.round(p.shapley_index * 100)}%</title>
+      <path key={p.name} d={d} fill={fill} stroke="#fff" strokeWidth={1.5} opacity={0.9}>
+        <title>
+          {p.name}: Shapley {Math.round(p.shapley_index * 100)}%
+        </title>
       </path>
     );
     angle = aEnd;
   });
 
   return (
-    <svg data-testid="power-hemicycle" width={W} height={H}
-      style={{ display: 'block', margin: '0 auto' }}>
+    <svg
+      data-testid="power-hemicycle"
+      width={W}
+      height={H}
+      style={{ display: 'block', margin: '0 auto' }}
+    >
       {slices}
-      <text x={cx} y={cy - 20} textAnchor="middle"
-        style={{ fontSize: 11, fill: '#495057', fontWeight: 600 }}>
+      <text
+        x={cx}
+        y={cy - 20}
+        textAnchor="middle"
+        style={{ fontSize: 11, fill: '#495057', fontWeight: 600 }}
+      >
         Pouvoir Shapley
       </text>
     </svg>
@@ -148,7 +182,10 @@ const PowerHemicycle: React.FC<HemicycleProps> = ({ parties, colors }) => {
 
 // ── Scatter: seats% vs Shapley% ───────────────────────────────────────────────
 
-interface ScatterProps { parties: PartyResult[]; colors: Record<string, string>; }
+interface ScatterProps {
+  parties: PartyResult[];
+  colors: Record<string, string>;
+}
 
 const PowerScatter: React.FC<ScatterProps> = ({ parties, colors }) => {
   const pts = parties.map((p) => ({
@@ -162,19 +199,48 @@ const PowerScatter: React.FC<ScatterProps> = ({ parties, colors }) => {
     <ResponsiveContainer width="100%" height={220}>
       <ScatterChart margin={{ top: 10, right: 20, bottom: 20, left: 10 }}>
         <CartesianGrid strokeDasharray="3 3" />
-        <XAxis type="number" dataKey="x" name="Sièges" unit="%" domain={[0, 100]}
-          tick={{ fontSize: 10 }} label={{ value: 'Sièges %', position: 'insideBottom', offset: -10, fontSize: 10 }} />
-        <YAxis type="number" dataKey="y" name="Shapley" unit="%" domain={[0, 100]}
-          tick={{ fontSize: 10 }} label={{ value: 'Shapley %', angle: -90, position: 'insideLeft', fontSize: 10 }} />
-        <ReferenceLine segment={[{ x: 0, y: 0 }, { x: 100, y: 100 }]}
-          stroke="#adb5bd" strokeDasharray="4 4" />
+        <XAxis
+          type="number"
+          dataKey="x"
+          name="Sièges"
+          unit="%"
+          domain={[0, 100]}
+          tick={{ fontSize: 10 }}
+          label={{ value: 'Sièges %', position: 'insideBottom', offset: -10, fontSize: 10 }}
+        />
+        <YAxis
+          type="number"
+          dataKey="y"
+          name="Shapley"
+          unit="%"
+          domain={[0, 100]}
+          tick={{ fontSize: 10 }}
+          label={{ value: 'Shapley %', angle: -90, position: 'insideLeft', fontSize: 10 }}
+        />
+        <ReferenceLine
+          segment={[
+            { x: 0, y: 0 },
+            { x: 100, y: 100 },
+          ]}
+          stroke="#adb5bd"
+          strokeDasharray="4 4"
+        />
         <Tooltip
           content={({ payload }) => {
             if (!payload?.length) return null;
             const d = payload[0].payload;
             return (
-              <div style={{ background: '#fff', border: '1px solid #dee2e6', borderRadius: 4, padding: '4px 8px', fontSize: '0.75rem' }}>
-                <strong>{d.name}</strong><br />
+              <div
+                style={{
+                  background: '#fff',
+                  border: '1px solid #dee2e6',
+                  borderRadius: 4,
+                  padding: '4px 8px',
+                  fontSize: '0.75rem',
+                }}
+              >
+                <strong>{d.name}</strong>
+                <br />
                 Sièges: {d.x}% · Shapley: {d.y}%
               </div>
             );
@@ -201,8 +267,8 @@ const DEFAULT_PARTIES: PartyInput[] = [
 const PowerIndicesPanel: React.FC = () => {
   const { t } = useTranslation();
 
-  const [parties,    setParties]    = useState<PartyInput[]>(DEFAULT_PARTIES);
-  const [threshold,  setThreshold]  = useState(0);
+  const [parties, setParties] = useState<PartyInput[]>(DEFAULT_PARTIES);
+  const [threshold, setThreshold] = useState(0);
   const sim = $api.useMutation('post', '/api/v2/election/power-indices');
   const data: PowerData | null = (sim.data as PowerData | undefined) ?? null;
   const loading = sim.isPending;
@@ -212,7 +278,9 @@ const PowerIndicesPanel: React.FC = () => {
   const [calcBanzhaf, setCalcBanzhaf] = useState(true);
 
   const colorsMap: Record<string, string> = {};
-  parties.forEach((p) => { colorsMap[p.name] = p.color; });
+  parties.forEach((p) => {
+    colorsMap[p.name] = p.color;
+  });
 
   const totalSeats = parties.reduce((s, p) => s + p.seats, 0);
 
@@ -221,7 +289,8 @@ const PowerIndicesPanel: React.FC = () => {
     if (!preset) return;
     setParties(
       preset.parties.map((p, i) => ({
-        ...p, color: PALETTE[i % PALETTE.length],
+        ...p,
+        color: PALETTE[i % PALETTE.length],
       }))
     );
     sim.reset();
@@ -229,36 +298,39 @@ const PowerIndicesPanel: React.FC = () => {
 
   const addParty = () => {
     const idx = parties.length;
-    setParties([...parties, {
-      name: `Parti ${String.fromCharCode(65 + idx)}`,
-      seats: 10, pariah: false,
-      color: PALETTE[idx % PALETTE.length],
-    }]);
+    setParties([
+      ...parties,
+      {
+        name: `Parti ${String.fromCharCode(65 + idx)}`,
+        seats: 10,
+        pariah: false,
+        color: PALETTE[idx % PALETTE.length],
+      },
+    ]);
   };
 
-  const removeParty = (i: number) =>
-    setParties(parties.filter((_, j) => j !== i));
+  const removeParty = (i: number) => setParties(parties.filter((_, j) => j !== i));
 
   const updateParty = (i: number, field: keyof PartyInput, val: string | number | boolean) =>
-    setParties(parties.map((p, j) => j === i ? { ...p, [field]: val } : p));
+    setParties(parties.map((p, j) => (j === i ? { ...p, [field]: val } : p)));
 
   const togglePariah = (i: number) => {
-    const updated = parties.map((p, j) =>
-      j === i ? { ...p, pariah: !p.pariah } : p
-    );
+    const updated = parties.map((p, j) => (j === i ? { ...p, pariah: !p.pariah } : p));
     setParties(updated);
     // Auto-recalculate if we already have results
     if (data) runWith(updated, threshold);
   };
 
   const runWith = (pts: PartyInput[], thr: number) => {
-    sim.mutate({ body: {
-      parties: pts.map(({ name, seats, pariah }) => ({ name, seats, pariah })),
-      majority_threshold: thr,
-      coalition_constraints: [],
-      calculate_shapley: calcShapley,
-      calculate_banzhaf: calcBanzhaf,
-    } });
+    sim.mutate({
+      body: {
+        parties: pts.map(({ name, seats, pariah }) => ({ name, seats, pariah })),
+        majority_threshold: thr,
+        coalition_constraints: [],
+        calculate_shapley: calcShapley,
+        calculate_banzhaf: calcBanzhaf,
+      },
+    });
   };
 
   const handleRun = () => runWith(parties, threshold);
@@ -266,39 +338,58 @@ const PowerIndicesPanel: React.FC = () => {
   return (
     <div>
       {/* ── Presets ── */}
-      <div className="d-flex flex-wrap gap-2 mb-3" data-testid="presets">
+      <div className="flex flex-wrap gap-2 mb-3" data-testid="presets">
         {Object.entries(PRESETS).map(([key, preset]) => (
-          <Button key={key} size="sm" variant="outline-secondary"
+          <Button
+            key={key}
+            size="sm"
+            variant="outline-secondary"
             data-testid={`preset-${key}`}
-            onClick={() => loadPreset(key)}>
+            onClick={() => loadPreset(key)}
+          >
             {preset.label}
           </Button>
         ))}
       </div>
 
       {/* ── Party editor ── */}
-      <div className="mb-3 border rounded p-2" style={{ background: '#f8f9fa' }}
-        data-testid="party-editor">
-        <div className="fw-semibold mb-2" style={{ fontSize: '0.82rem' }}>
+      <div
+        className="mb-3 border border-border rounded p-2"
+        style={{ background: '#f8f9fa' }}
+        data-testid="party-editor"
+      >
+        <div className="font-semibold mb-2" style={{ fontSize: '0.82rem' }}>
           {t('power.partiesTitle')}
-          <span className="text-muted ms-2" style={{ fontSize: '0.72rem' }}>
+          <span className="text-muted-foreground ms-2" style={{ fontSize: '0.72rem' }}>
             Total: {totalSeats} {t('power.seats')}
           </span>
         </div>
         {parties.map((p, i) => (
-          <Row key={i} className="g-1 mb-1 align-items-center">
+          <Row key={i} className="g-1 mb-1 items-center">
             <Col xs={4} md={3}>
-              <Form.Control size="sm" value={p.name} placeholder={t('power.partyName')}
+              <Control
+                size="sm"
+                value={p.name}
+                placeholder={t('power.partyName')}
                 data-testid={`party-name-${i}`}
-                onChange={(e) => updateParty(i, 'name', e.target.value)} />
+                onChange={(e) => updateParty(i, 'name', e.target.value)}
+              />
             </Col>
             <Col xs={3} md={2}>
-              <Form.Control type="number" size="sm" min={0} max={9999} value={p.seats}
+              <Control
+                type="number"
+                size="sm"
+                min={0}
+                max={9999}
+                value={p.seats}
                 data-testid={`party-seats-${i}`}
-                onChange={(e) => updateParty(i, 'seats', Number(e.target.value))} />
+                onChange={(e) => updateParty(i, 'seats', Number(e.target.value))}
+              />
             </Col>
             <Col xs="auto">
-              <Form.Check type="switch" id={`pariah-${i}`}
+              <Check
+                type="switch"
+                id={`pariah-${i}`}
                 label={
                   <span style={{ fontSize: '0.72rem', color: p.pariah ? '#dc3545' : '#6c757d' }}>
                     {t('power.pariah')}
@@ -306,73 +397,120 @@ const PowerIndicesPanel: React.FC = () => {
                 }
                 checked={p.pariah}
                 data-testid={`pariah-toggle-${i}`}
-                onChange={() => togglePariah(i)} />
+                onChange={() => togglePariah(i)}
+              />
             </Col>
             <Col xs="auto">
-              <div style={{ width: 16, height: 16, borderRadius: '50%',
-                background: p.color, border: '1px solid #dee2e6', cursor: 'pointer' }}
+              <div
+                style={{
+                  width: 16,
+                  height: 16,
+                  borderRadius: '50%',
+                  background: p.color,
+                  border: '1px solid #dee2e6',
+                  cursor: 'pointer',
+                }}
                 onClick={() => {
                   const idx = PALETTE.indexOf(p.color);
                   updateParty(i, 'color', PALETTE[(idx + 1) % PALETTE.length]);
-                }} />
+                }}
+              />
             </Col>
             <Col xs="auto">
-              <Button size="sm" variant="link" className="text-danger p-0"
-                onClick={() => removeParty(i)}>×</Button>
+              <Button
+                size="sm"
+                variant="link"
+                className="text-[#dc3545] p-0"
+                onClick={() => removeParty(i)}
+              >
+                ×
+              </Button>
             </Col>
           </Row>
         ))}
-        <Button size="sm" variant="outline-primary" className="mt-1"
-          data-testid="add-party-btn" onClick={addParty}>
+        <Button
+          size="sm"
+          variant="outline-primary"
+          className="mt-1"
+          data-testid="add-party-btn"
+          onClick={addParty}
+        >
           + {t('power.addParty')}
         </Button>
       </div>
 
       {/* ── Controls ── */}
-      <Row className="g-2 mb-3 align-items-end">
+      <Row className="g-2 mb-3 items-end">
         <Col xs={6} md={3}>
-          <Form.Label className="small mb-0">{t('power.threshold')}</Form.Label>
-          <Form.Control type="number" size="sm" min={0} value={threshold}
+          <label className="mb-1 inline-block text-sm mb-0">{t('power.threshold')}</label>
+          <Control
+            type="number"
+            size="sm"
+            min={0}
+            value={threshold}
             data-testid="threshold-input"
             placeholder={`Auto (${Math.floor(totalSeats / 2) + 1})`}
-            onChange={(e) => setThreshold(Number(e.target.value))} />
+            onChange={(e) => setThreshold(Number(e.target.value))}
+          />
         </Col>
         <Col xs="auto">
-          <Form.Check inline type="checkbox" id="cb-shapley"
+          <Check
+            inline
+            type="checkbox"
+            id="cb-shapley"
             label={<span style={{ fontSize: '0.8rem' }}>Shapley-Shubik</span>}
             checked={calcShapley}
             data-testid="cb-shapley"
-            onChange={(e) => setCalcShapley(e.target.checked)} />
+            onChange={(e) => setCalcShapley(e.target.checked)}
+          />
         </Col>
         <Col xs="auto">
-          <Form.Check inline type="checkbox" id="cb-banzhaf"
+          <Check
+            inline
+            type="checkbox"
+            id="cb-banzhaf"
             label={<span style={{ fontSize: '0.8rem' }}>Banzhaf</span>}
             checked={calcBanzhaf}
             data-testid="cb-banzhaf"
-            onChange={(e) => setCalcBanzhaf(e.target.checked)} />
+            onChange={(e) => setCalcBanzhaf(e.target.checked)}
+          />
         </Col>
         <Col xs="auto">
-          <Button variant="primary" size="sm" onClick={handleRun} disabled={loading}
-            data-testid="run-btn">
-            {loading ? <Spinner size="sm" animation="border" /> : t('power.run')}
+          <Button
+            variant="primary"
+            size="sm"
+            onClick={handleRun}
+            disabled={loading}
+            data-testid="run-btn"
+          >
+            {loading ? <Spinner size="sm" /> : t('power.run')}
           </Button>
         </Col>
       </Row>
 
       {!data && !loading && !error && (
-        <Alert variant="info" data-testid="prompt-alert">{t('power.prompt')}</Alert>
+        <Alert variant="info" data-testid="prompt-alert">
+          {t('power.prompt')}
+        </Alert>
       )}
-      {error && <Alert variant="danger" data-testid="error-alert">{error}</Alert>}
+      {error && (
+        <Alert variant="danger" data-testid="error-alert">
+          {error}
+        </Alert>
+      )}
 
       {data && (
         <>
           {/* ── View tabs ── */}
-          <div className="d-flex gap-2 mb-3">
+          <div className="flex gap-2 mb-3">
             {(['scatter', 'hemi', 'coalitions'] as const).map((v) => (
-              <Button key={v} size="sm"
+              <Button
+                key={v}
+                size="sm"
                 variant={activeView === v ? 'dark' : 'outline-secondary'}
                 data-testid={`view-btn-${v}`}
-                onClick={() => setActiveView(v)}>
+                onClick={() => setActiveView(v)}
+              >
                 {t(`power.view_${v}`)}
               </Button>
             ))}
@@ -381,11 +519,11 @@ const PowerIndicesPanel: React.FC = () => {
           {/* ── Scatter view ── */}
           {activeView === 'scatter' && (
             <div data-testid="scatter-view">
-              <div className="fw-semibold mb-1" style={{ fontSize: '0.82rem' }}>
+              <div className="font-semibold mb-1" style={{ fontSize: '0.82rem' }}>
                 {t('power.scatterTitle')}
               </div>
               <PowerScatter parties={data.parties} colors={colorsMap} />
-              <div className="text-muted" style={{ fontSize: '0.7rem' }}>
+              <div className="text-muted-foreground" style={{ fontSize: '0.7rem' }}>
                 {t('power.scatterDesc')}
               </div>
             </div>
@@ -394,7 +532,7 @@ const PowerIndicesPanel: React.FC = () => {
           {/* ── Hemicycle view ── */}
           {activeView === 'hemi' && (
             <div data-testid="hemi-view">
-              <div className="fw-semibold mb-1" style={{ fontSize: '0.82rem' }}>
+              <div className="font-semibold mb-1" style={{ fontSize: '0.82rem' }}>
                 {t('power.hemiTitle')}
               </div>
               <PowerHemicycle parties={data.parties} colors={colorsMap} />
@@ -404,26 +542,38 @@ const PowerIndicesPanel: React.FC = () => {
           {/* ── Coalitions view ── */}
           {activeView === 'coalitions' && (
             <div data-testid="coalitions-view">
-              <div className="fw-semibold mb-1" style={{ fontSize: '0.82rem' }}>
+              <div className="font-semibold mb-1" style={{ fontSize: '0.82rem' }}>
                 {t('power.coalitionsTitle')}
-                <Badge bg="secondary" className="ms-2" style={{ fontSize: '0.65rem' }}>
+                <Badge variant="secondary" className="ms-2" style={{ fontSize: '0.65rem' }}>
                   {data.viable_coalitions.length}
                 </Badge>
               </div>
               <div style={{ maxHeight: 200, overflowY: 'auto' }}>
                 {data.viable_coalitions.map((c, i) => (
-                  <div key={i}
-                    className={`d-flex gap-2 align-items-center px-2 py-1 mb-1 rounded ${c.minimal ? 'border border-success' : ''}`}
+                  <div
+                    key={i}
+                    className={`d-flex gap-2 align-items-center px-2 py-1 mb-1 rounded ${c.minimal ? 'border border-border border-success' : ''}`}
                     style={{ background: c.minimal ? '#d1e7dd' : '#f8f9fa', fontSize: '0.75rem' }}
-                    data-testid={`coalition-row-${i}`}>
+                    data-testid={`coalition-row-${i}`}
+                  >
                     {c.parties.map((pn) => (
-                      <Badge key={pn} style={{
-                        background: colorsMap[pn] ?? '#6c757d', fontSize: '0.65rem',
-                      }}>{pn}</Badge>
+                      <Badge
+                        key={pn}
+                        style={{
+                          background: colorsMap[pn] ?? '#6c757d',
+                          fontSize: '0.65rem',
+                        }}
+                      >
+                        {pn}
+                      </Badge>
                     ))}
-                    <span className="text-muted ms-auto">{c.seats} {t('power.seats')}</span>
+                    <span className="text-muted-foreground ml-auto">
+                      {c.seats} {t('power.seats')}
+                    </span>
                     {c.minimal && (
-                      <Badge bg="success" style={{ fontSize: '0.6rem' }}>minimal</Badge>
+                      <Badge variant="success" style={{ fontSize: '0.6rem' }}>
+                        minimal
+                      </Badge>
                     )}
                   </div>
                 ))}
@@ -433,7 +583,10 @@ const PowerIndicesPanel: React.FC = () => {
 
           {/* ── Power table ── */}
           <div className="mt-3" data-testid="power-table">
-            <Table size="sm" bordered style={{ fontSize: '0.74rem' }}>
+            <Table
+              className="[&_th]:p-1 [&_td]:p-1 [&_th]:text-left [&_td]:border-t [&_th]:border-b [&_td]:border-border [&_th]:border-border [&_*]:align-middle [&_th]:border [&_td]:border"
+              style={{ fontSize: '0.74rem' }}
+            >
               <thead className="table-light">
                 <tr>
                   <th>{t('power.colParty')}</th>
@@ -447,29 +600,51 @@ const PowerIndicesPanel: React.FC = () => {
               <tbody>
                 {data.parties.map((p) => {
                   const isHighPower = p.power_ratio > 1.5;
-                  const isLowPower  = p.power_ratio < 0.5 || p.is_pariah;
+                  const isLowPower = p.power_ratio < 0.5 || p.is_pariah;
                   return (
-                    <tr key={p.name}
+                    <tr
+                      key={p.name}
                       style={{
-                        background: p.is_pariah ? '#f8d7da'
-                          : isHighPower ? '#d1e7dd'
-                          : isLowPower  ? '#fff3cd' : undefined,
+                        background: p.is_pariah
+                          ? '#f8d7da'
+                          : isHighPower
+                            ? '#d1e7dd'
+                            : isLowPower
+                              ? '#fff3cd'
+                              : undefined,
                       }}
-                      data-testid={`table-row-${p.name}`}>
+                      data-testid={`table-row-${p.name}`}
+                    >
                       <td>
                         <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}>
-                          <span style={{ width: 8, height: 8, borderRadius: '50%',
-                            background: p.is_pariah ? '#adb5bd' : (colorsMap[p.name] ?? '#6c757d'),
-                            display: 'inline-block' }} />
+                          <span
+                            style={{
+                              width: 8,
+                              height: 8,
+                              borderRadius: '50%',
+                              background: p.is_pariah
+                                ? '#adb5bd'
+                                : (colorsMap[p.name] ?? '#6c757d'),
+                              display: 'inline-block',
+                            }}
+                          />
                           {p.name}
                           {p.is_pariah && (
-                            <Badge bg="danger" style={{ fontSize: '0.55rem' }}>paria</Badge>
+                            <Badge variant="danger" style={{ fontSize: '0.55rem' }}>
+                              paria
+                            </Badge>
                           )}
                         </span>
                       </td>
-                      <td>{p.seats} ({Math.round(p.seat_pct * 100)}%)</td>
-                      <td style={{ fontWeight: isHighPower ? 700 : undefined,
-                        color: p.shapley_index === 0 ? '#adb5bd' : undefined }}>
+                      <td>
+                        {p.seats} ({Math.round(p.seat_pct * 100)}%)
+                      </td>
+                      <td
+                        style={{
+                          fontWeight: isHighPower ? 700 : undefined,
+                          color: p.shapley_index === 0 ? '#adb5bd' : undefined,
+                        }}
+                      >
                         {Math.round(p.shapley_index * 1000) / 10}%
                       </td>
                       <td style={{ color: p.banzhaf_index === 0 ? '#adb5bd' : undefined }}>
@@ -477,11 +652,17 @@ const PowerIndicesPanel: React.FC = () => {
                       </td>
                       <td>
                         <Badge
-                          bg={p.is_pariah ? 'secondary'
-                            : isHighPower ? 'success'
-                            : isLowPower  ? 'warning' : 'light'}
-                          text={(!p.is_pariah && !isHighPower && isLowPower) ? 'dark' : undefined}
-                          style={{ fontSize: '0.65rem' }}>
+                          variant={
+                            p.is_pariah
+                              ? 'secondary'
+                              : isHighPower
+                                ? 'success'
+                                : isLowPower
+                                  ? 'warning'
+                                  : 'light'
+                          }
+                          style={{ fontSize: '0.65rem' }}
+                        >
                           ×{p.power_ratio.toFixed(2)}
                         </Badge>
                       </td>
@@ -496,12 +677,16 @@ const PowerIndicesPanel: React.FC = () => {
           {/* ── Surprises ── */}
           {data.power_surprises.length > 0 && (
             <div className="mt-2" data-testid="surprises-section">
-              <div className="fw-semibold mb-1" style={{ fontSize: '0.82rem' }}>
+              <div className="font-semibold mb-1" style={{ fontSize: '0.82rem' }}>
                 {t('power.surprisesTitle')}
               </div>
               {data.power_surprises.map((s, i) => (
-                <Alert key={i} variant="warning" className="py-1 mb-1"
-                  style={{ fontSize: '0.75rem' }}>
+                <Alert
+                  key={i}
+                  variant="warning"
+                  className="py-1 mb-1"
+                  style={{ fontSize: '0.75rem' }}
+                >
                   ⚡ {s}
                 </Alert>
               ))}
@@ -509,19 +694,38 @@ const PowerIndicesPanel: React.FC = () => {
           )}
 
           {/* ── Historical examples ── */}
-          <div className="mt-3 border rounded p-3" data-testid="examples-section"
-            style={{ background: '#f8f9fa', fontSize: '0.75rem' }}>
-            <div className="fw-semibold mb-2">{t('power.examplesTitle')}</div>
+          <div
+            className="mt-3 border border-border rounded p-3"
+            data-testid="examples-section"
+            style={{ background: '#f8f9fa', fontSize: '0.75rem' }}
+          >
+            <div className="font-semibold mb-2">{t('power.examplesTitle')}</div>
             <Row className="g-2">
               {[
-                { flag: '🇩🇪', country: 'Allemagne 2021', desc: 'AfD : 83 sièges, Banzhaf = 0 (exclu de tout)' },
-                { flag: '🇫🇷', country: 'France 2022',    desc: 'RN : 89 sièges, Banzhaf ≈ 0 (cordon sanitaire)' },
-                { flag: '🇮🇱', country: 'Israël 2022',    desc: 'Partis ultra-orth. : ~10 sièges, Shapley élevé (pivots)' },
+                {
+                  flag: '🇩🇪',
+                  country: 'Allemagne 2021',
+                  desc: 'AfD : 83 sièges, Banzhaf = 0 (exclu de tout)',
+                },
+                {
+                  flag: '🇫🇷',
+                  country: 'France 2022',
+                  desc: 'RN : 89 sièges, Banzhaf ≈ 0 (cordon sanitaire)',
+                },
+                {
+                  flag: '🇮🇱',
+                  country: 'Israël 2022',
+                  desc: 'Partis ultra-orth. : ~10 sièges, Shapley élevé (pivots)',
+                },
               ].map(({ flag, country, desc }) => (
                 <Col key={country} xs={12} md={4}>
-                  <div className="border rounded p-2" style={{ background: '#fff' }}>
-                    <strong>{flag} {country}</strong>
-                    <div className="text-muted" style={{ fontSize: '0.7rem' }}>{desc}</div>
+                  <div className="border border-border rounded p-2" style={{ background: '#fff' }}>
+                    <strong>
+                      {flag} {country}
+                    </strong>
+                    <div className="text-muted-foreground" style={{ fontSize: '0.7rem' }}>
+                      {desc}
+                    </div>
                   </div>
                 </Col>
               ))}
@@ -529,8 +733,12 @@ const PowerIndicesPanel: React.FC = () => {
           </div>
 
           {/* ── Pedagogical note ── */}
-          <Alert variant="secondary" className="mt-3" style={{ fontSize: '0.8rem' }}
-            data-testid="pedagogical-note">
+          <Alert
+            variant="secondary"
+            className="mt-3"
+            style={{ fontSize: '0.8rem' }}
+            data-testid="pedagogical-note"
+          >
             <strong>{t('power.noteTitle')}</strong> {data.pedagogical_note}
           </Alert>
         </>

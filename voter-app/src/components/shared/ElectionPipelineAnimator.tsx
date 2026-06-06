@@ -1,5 +1,10 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
-import { Alert, Badge, Button, Card, Col, Row, Spinner } from 'react-bootstrap';
+import { Alert } from '@/components/ui/alert';
+import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
+import { Card, CardBody, CardHeader } from '@/components/ui/card';
+import { Col, Row } from '@/components/ui/grid';
+import { Spinner } from '@/components/ui/spinner';
 import { useTranslation } from 'react-i18next';
 import i18n from '../../i18n';
 import { useElection } from '../../stores/useElectionStore';
@@ -8,11 +13,11 @@ import { $api } from '../../api/hooks';
 
 // ── SVG constants (same coord system as IdeologyMapChart) ─────────────────────
 
-const SVG_W   = 400;
-const SVG_H   = 400;
-const MARGIN  = 28;
-const PLOT_W  = SVG_W - 2 * MARGIN;
-const PLOT_H  = SVG_H - 2 * MARGIN;
+const SVG_W = 400;
+const SVG_H = 400;
+const MARGIN = 28;
+const PLOT_W = SVG_W - 2 * MARGIN;
+const PLOT_H = SVG_H - 2 * MARGIN;
 
 function domainToSvg(v: number, axis: 'x' | 'y'): number {
   if (axis === 'x') return MARGIN + ((v + 1) / 2) * PLOT_W;
@@ -21,67 +26,68 @@ function domainToSvg(v: number, axis: 'x' | 'y'): number {
 
 // ── Colours ───────────────────────────────────────────────────────────────────
 
-const CAND_COLORS = [
-  '#005CAB', '#C8590A', '#007A33', '#7B2D8B',
-  '#9C3A00', '#005f73',
-];
+const CAND_COLORS = ['#005CAB', '#C8590A', '#007A33', '#7B2D8B', '#9C3A00', '#005f73'];
 const BLANK_COLOR = '#adb5bd';
 const PARTY_COLORS: Record<string, string> = {
-  Green: '#007A33', Liberal: '#005CAB',
-  Conservative: '#C8590A', Independent: '#6c757d',
+  Green: '#007A33',
+  Liberal: '#005CAB',
+  Conservative: '#C8590A',
+  Independent: '#6c757d',
 };
 
 // ── Step icon mapping ─────────────────────────────────────────────────────────
 
 const STEP_ICONS: Record<string, string> = {
-  base:        '👥',
-  campaign:    '📅',
-  contagion:   '🦠',
+  base: '👥',
+  campaign: '📅',
+  contagion: '🦠',
   information: '📡',
-  results:     '🏆',
+  results: '🏆',
 };
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
 interface VoterSnap {
-  id:         number;
-  x:          number;
-  y:          number;
+  id: number;
+  x: number;
+  y: number;
   preference: string | null;
-  is_blank:   boolean;
+  is_blank: boolean;
 }
 
 interface WinnerGroup {
-  winner:  string;
+  winner: string;
   methods: string[];
-  pct:     number;
+  pct: number;
 }
 
 interface PipelineStep {
-  id:           string;
-  label:        { fr: string; en: string };
-  desc:         { fr: string; en: string };
-  voters:       VoterSnap[];
-  metrics:      Record<string, number | string | null>;
+  id: string;
+  label: { fr: string; en: string };
+  desc: { fr: string; en: string };
+  voters: VoterSnap[];
+  metrics: Record<string, number | string | null>;
   winner_groups?: WinnerGroup[];
 }
 
 interface PipelineResult {
-  steps:      PipelineStep[];
+  steps: PipelineStep[];
   candidates: { name: string; x: number; y: number; party: string }[];
-  num_steps:  number;
+  num_steps: number;
 }
 
 // ── SVG voter scatter ─────────────────────────────────────────────────────────
 
 const VoterScatter: React.FC<{
-  step:       PipelineStep;
+  step: PipelineStep;
   candidates: PipelineResult['candidates'];
-  candNames:  string[];
-  animating:  boolean;
+  candNames: string[];
+  animating: boolean;
 }> = ({ step, candidates, candNames, animating }) => {
   const colorMap: Record<string, string> = {};
-  candNames.forEach((n, i) => { colorMap[n] = CAND_COLORS[i % CAND_COLORS.length]; });
+  candNames.forEach((n, i) => {
+    colorMap[n] = CAND_COLORS[i % CAND_COLORS.length];
+  });
 
   return (
     <svg
@@ -93,15 +99,19 @@ const VoterScatter: React.FC<{
       {[-0.5, 0, 0.5].map((v) => (
         <React.Fragment key={v}>
           <line
-            x1={domainToSvg(v, 'x')} y1={MARGIN}
-            x2={domainToSvg(v, 'x')} y2={SVG_H - MARGIN}
+            x1={domainToSvg(v, 'x')}
+            y1={MARGIN}
+            x2={domainToSvg(v, 'x')}
+            y2={SVG_H - MARGIN}
             stroke={v === 0 ? '#adb5bd' : '#dee2e6'}
             strokeWidth={v === 0 ? 1 : 0.5}
             strokeDasharray={v === 0 ? undefined : '3 3'}
           />
           <line
-            x1={MARGIN} y1={domainToSvg(v, 'y')}
-            x2={SVG_W - MARGIN} y2={domainToSvg(v, 'y')}
+            x1={MARGIN}
+            y1={domainToSvg(v, 'y')}
+            x2={SVG_W - MARGIN}
+            y2={domainToSvg(v, 'y')}
             stroke={v === 0 ? '#adb5bd' : '#dee2e6'}
             strokeWidth={v === 0 ? 1 : 0.5}
             strokeDasharray={v === 0 ? undefined : '3 3'}
@@ -111,11 +121,15 @@ const VoterScatter: React.FC<{
 
       {/* Voter dots */}
       {step.voters.map((v) => {
-        const cx    = domainToSvg(v.x, 'x');
-        const cy    = domainToSvg(v.y, 'y');
-        const fill  = v.is_blank ? BLANK_COLOR : (v.preference ? (colorMap[v.preference] ?? '#888') : '#dee2e6');
-        const op    = v.is_blank ? 0.35 : 0.55;
-        const r     = v.is_blank ? 2 : 3;
+        const cx = domainToSvg(v.x, 'x');
+        const cy = domainToSvg(v.y, 'y');
+        const fill = v.is_blank
+          ? BLANK_COLOR
+          : v.preference
+            ? (colorMap[v.preference] ?? '#888')
+            : '#dee2e6';
+        const op = v.is_blank ? 0.35 : 0.55;
+        const r = v.is_blank ? 2 : 3;
         return (
           <circle
             key={v.id}
@@ -124,29 +138,46 @@ const VoterScatter: React.FC<{
             r={r}
             fill={fill}
             fillOpacity={op}
-            style={{ transition: animating ? 'fill 0.6s ease, fill-opacity 0.6s ease, r 0.3s ease' : 'none' }}
+            style={{
+              transition: animating
+                ? 'fill 0.6s ease, fill-opacity 0.6s ease, r 0.3s ease'
+                : 'none',
+            }}
           />
         );
       })}
 
       {/* Candidate stars */}
       {candidates.map((c, idx) => {
-        const cx    = domainToSvg(c.x, 'x');
-        const cy    = domainToSvg(c.y, 'y');
+        const cx = domainToSvg(c.x, 'x');
+        const cy = domainToSvg(c.y, 'y');
         const color = PARTY_COLORS[c.party] ?? CAND_COLORS[idx % CAND_COLORS.length];
         return (
           <g key={c.name} transform={`translate(${cx},${cy})`}>
             <text
-              textAnchor="middle" dominantBaseline="central"
-              fontSize={20} fill={color} stroke="#fff" strokeWidth={0.8}
+              textAnchor="middle"
+              dominantBaseline="central"
+              fontSize={20}
+              fill={color}
+              stroke="#fff"
+              strokeWidth={0.8}
               style={{ pointerEvents: 'none', userSelect: 'none' }}
-            >★</text>
+            >
+              ★
+            </text>
             <text
-              y={-18} textAnchor="middle" fontSize={10}
-              fill={color} fontWeight={600}
-              stroke="#fff" strokeWidth={2.5} paintOrder="stroke"
+              y={-18}
+              textAnchor="middle"
+              fontSize={10}
+              fill={color}
+              fontWeight={600}
+              stroke="#fff"
+              strokeWidth={2.5}
+              paintOrder="stroke"
               style={{ pointerEvents: 'none' }}
-            >{c.name}</text>
+            >
+              {c.name}
+            </text>
           </g>
         );
       })}
@@ -157,35 +188,37 @@ const VoterScatter: React.FC<{
 // ── Stepper ───────────────────────────────────────────────────────────────────
 
 const Stepper: React.FC<{
-  steps:   PipelineStep[];
+  steps: PipelineStep[];
   current: number;
   onSelect: (i: number) => void;
-  lang:    'fr' | 'en';
+  lang: 'fr' | 'en';
 }> = ({ steps, current, onSelect, lang }) => (
-  <div className="d-flex align-items-center gap-1 flex-wrap mb-3">
+  <div className="flex items-center gap-1 flex-wrap mb-3">
     {steps.map((s, i) => (
       <React.Fragment key={s.id}>
         <button
           type="button"
           onClick={() => onSelect(i)}
-          className="d-flex flex-column align-items-center border-0 rounded-3 px-2 py-1"
+          className="flex flex-col items-center border-0 rounded-3 px-2 py-1"
           style={{
             background: i === current ? 'var(--bs-primary)' : 'var(--bs-secondary-bg, #f8f9fa)',
-            color:      i === current ? '#fff' : 'var(--bs-body-color)',
-            cursor:     'pointer',
+            color: i === current ? '#fff' : 'var(--bs-body-color)',
+            cursor: 'pointer',
             transition: 'all 0.2s',
-            minWidth:   70,
-            fontSize:   '0.72rem',
+            minWidth: 70,
+            fontSize: '0.72rem',
           }}
           data-testid={`pipeline-step-${s.id}`}
         >
           <span style={{ fontSize: '1.1rem' }}>{STEP_ICONS[s.id] ?? '●'}</span>
-          <span className="fw-semibold" style={{ lineHeight: 1.2 }}>
+          <span className="font-semibold" style={{ lineHeight: 1.2 }}>
             {s.label[lang]}
           </span>
         </button>
         {i < steps.length - 1 && (
-          <span style={{ color: 'var(--bs-border-color)', fontSize: '1.2rem', lineHeight: 1 }}>→</span>
+          <span style={{ color: 'var(--bs-border-color)', fontSize: '1.2rem', lineHeight: 1 }}>
+            →
+          </span>
         )}
       </React.Fragment>
     ))}
@@ -195,17 +228,17 @@ const Stepper: React.FC<{
 // ── Main component ────────────────────────────────────────────────────────────
 
 const ElectionPipelineAnimator: React.FC = () => {
-  const { t }           = useTranslation();
-  const lang            = (i18n.language?.startsWith('en') ? 'en' : 'fr') as 'fr' | 'en';
-  const { config }      = useElection();
+  const { t } = useTranslation();
+  const lang = (i18n.language?.startsWith('en') ? 'en' : 'fr') as 'fr' | 'en';
+  const { config } = useElection();
 
   const sim = $api.useMutation('post', '/api/v2/election/simulate-pipeline');
   const pipeline: PipelineResult | null = (sim.data as PipelineResult | undefined) ?? null;
   const loading = sim.isPending;
   const error = sim.isError ? t('pipeline.error') : null;
-  const [currentStep,  setCurrentStep]  = useState(0);
-  const [playing,      setPlaying]      = useState(false);
-  const [animating,    setAnimating]    = useState(false);
+  const [currentStep, setCurrentStep] = useState(0);
+  const [playing, setPlaying] = useState(false);
+  const [animating, setAnimating] = useState(false);
 
   const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
@@ -213,13 +246,18 @@ const ElectionPipelineAnimator: React.FC = () => {
   const fetchPipeline = useCallback(() => {
     setCurrentStep(0);
     setPlaying(false);
-    sim.mutate({ body: {
-      ...config,
-      num_voters: Math.min(config.num_voters, 150),
-    } }, {
-      onSuccess: () => setCurrentStep(0),
-    });
-  // eslint-disable-next-line react-hooks/exhaustive-deps
+    sim.mutate(
+      {
+        body: {
+          ...config,
+          num_voters: Math.min(config.num_voters, 150),
+        },
+      },
+      {
+        onSuccess: () => setCurrentStep(0),
+      }
+    );
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [config, t, sim]);
 
   // ── Auto-play ─────────────────────────────────────────────────────────
@@ -237,7 +275,9 @@ const ElectionPipelineAnimator: React.FC = () => {
         return s + 1;
       });
     }, 1800);
-    return () => { if (intervalRef.current) clearInterval(intervalRef.current); };
+    return () => {
+      if (intervalRef.current) clearInterval(intervalRef.current);
+    };
   }, [playing, pipeline]);
 
   // ── Trigger animation flag on step change ─────────────────────────────
@@ -247,22 +287,23 @@ const ElectionPipelineAnimator: React.FC = () => {
     return () => clearTimeout(id);
   }, [currentStep]);
 
-  const step       = pipeline?.steps[currentStep];
-  const candNames  = pipeline?.candidates.map((c) => c.name) ?? [];
+  const step = pipeline?.steps[currentStep];
+  const candNames = pipeline?.candidates.map((c) => c.name) ?? [];
   const totalSteps = pipeline?.steps.length ?? 0;
 
   return (
     <div>
       {/* Controls */}
-      <div className="d-flex align-items-center gap-2 mb-3 flex-wrap">
-        <Button
-          variant="primary" size="sm"
-          onClick={fetchPipeline}
-          disabled={loading}
-        >
-          {loading
-            ? <><Spinner size="sm" className="me-2" />{t('pipeline.loading')}</>
-            : t('pipeline.run')}
+      <div className="flex items-center gap-2 mb-3 flex-wrap">
+        <Button variant="primary" size="sm" onClick={fetchPipeline} disabled={loading}>
+          {loading ? (
+            <>
+              <Spinner size="sm" className="me-2" />
+              {t('pipeline.loading')}
+            </>
+          ) : (
+            t('pipeline.run')
+          )}
         </Button>
         {pipeline && (
           <>
@@ -275,29 +316,40 @@ const ElectionPipelineAnimator: React.FC = () => {
               {playing ? '⏸ Pause' : '▶ Jouer'}
             </Button>
             <Button
-              variant="outline-secondary" size="sm"
+              variant="outline-secondary"
+              size="sm"
               onClick={() => setCurrentStep((s) => Math.min(s + 1, totalSteps - 1))}
               disabled={currentStep >= totalSteps - 1 || playing}
             >
               → {t('pipeline.next')}
             </Button>
             <Button
-              variant="outline-secondary" size="sm"
-              onClick={() => { setCurrentStep(0); setPlaying(false); }}
+              variant="outline-secondary"
+              size="sm"
+              onClick={() => {
+                setCurrentStep(0);
+                setPlaying(false);
+              }}
             >
               ↺ {t('pipeline.restart')}
             </Button>
-            <span className="text-muted small">
+            <span className="text-muted-foreground text-sm">
               {t('pipeline.stepOf', { current: currentStep + 1, total: totalSteps })}
             </span>
           </>
         )}
       </div>
 
-      {error && <Alert variant="danger" className="py-2">{error}</Alert>}
+      {error && (
+        <Alert variant="danger" className="py-2">
+          {error}
+        </Alert>
+      )}
 
       {!pipeline && !loading && (
-        <Alert variant="info" className="py-2">{t('pipeline.prompt')}</Alert>
+        <Alert variant="info" className="py-2">
+          {t('pipeline.prompt')}
+        </Alert>
       )}
 
       {pipeline && step && (
@@ -307,7 +359,10 @@ const ElectionPipelineAnimator: React.FC = () => {
             <Stepper
               steps={pipeline.steps}
               current={currentStep}
-              onSelect={(i) => { setCurrentStep(i); setPlaying(false); }}
+              onSelect={(i) => {
+                setCurrentStep(i);
+                setPlaying(false);
+              }}
               lang={lang}
             />
           </Col>
@@ -315,14 +370,16 @@ const ElectionPipelineAnimator: React.FC = () => {
           {/* SVG scatter */}
           <Col xs={12} md={7}>
             <Card>
-              <Card.Header className="py-2 d-flex align-items-center gap-2">
+              <CardHeader className="block space-y-0 border-b border-border px-4 py-2 py-2 flex items-center gap-2">
                 <span style={{ fontSize: '1.2rem' }}>{STEP_ICONS[step.id]}</span>
                 <div>
                   <strong style={{ fontSize: '0.88rem' }}>{step.label[lang]}</strong>
-                  <div className="text-muted" style={{ fontSize: '0.75rem' }}>{step.desc[lang]}</div>
+                  <div className="text-muted-foreground" style={{ fontSize: '0.75rem' }}>
+                    {step.desc[lang]}
+                  </div>
                 </div>
-              </Card.Header>
-              <Card.Body className="p-2">
+              </CardHeader>
+              <CardBody className="p-2">
                 <VoterScatter
                   step={step}
                   candidates={pipeline.candidates}
@@ -330,35 +387,55 @@ const ElectionPipelineAnimator: React.FC = () => {
                   animating={animating}
                 />
                 {/* Colour legend */}
-                <div className="d-flex gap-3 mt-1 flex-wrap" style={{ fontSize: '0.72rem' }}>
+                <div className="flex gap-3 mt-1 flex-wrap" style={{ fontSize: '0.72rem' }}>
                   {candNames.map((name, idx) => (
-                    <span key={name} className="d-flex align-items-center gap-1">
-                      <span style={{ width: 9, height: 9, borderRadius: 2, background: CAND_COLORS[idx % CAND_COLORS.length], display: 'inline-block' }} />
+                    <span key={name} className="flex items-center gap-1">
+                      <span
+                        style={{
+                          width: 9,
+                          height: 9,
+                          borderRadius: 2,
+                          background: CAND_COLORS[idx % CAND_COLORS.length],
+                          display: 'inline-block',
+                        }}
+                      />
                       {name}
                     </span>
                   ))}
                   {pipeline.steps.some((s) => s.voters.some((v) => v.is_blank)) && (
-                    <span className="d-flex align-items-center gap-1">
-                      <span style={{ width: 9, height: 9, borderRadius: 2, background: BLANK_COLOR, display: 'inline-block', opacity: 0.5 }} />
+                    <span className="flex items-center gap-1">
+                      <span
+                        style={{
+                          width: 9,
+                          height: 9,
+                          borderRadius: 2,
+                          background: BLANK_COLOR,
+                          display: 'inline-block',
+                          opacity: 0.5,
+                        }}
+                      />
                       Vote blanc
                     </span>
                   )}
                 </div>
-              </Card.Body>
+              </CardBody>
             </Card>
           </Col>
 
           {/* Step-specific info panel */}
           <Col xs={12} md={5}>
-            <Card className="h-100">
-              <Card.Header className="py-2">
+            <Card className="h-full">
+              <CardHeader className="block space-y-0 border-b border-border px-4 py-2 py-2">
                 <strong style={{ fontSize: '0.85rem' }}>{t('pipeline.metricsTitle')}</strong>
-              </Card.Header>
-              <Card.Body className="p-3">
-
+              </CardHeader>
+              <CardBody className="p-3">
                 {/* Generic metrics */}
                 {step.metrics.num_voters && (
-                  <MetricRow icon="👥" label={t('pipeline.metricVoters')} value={String(step.metrics.num_voters)} />
+                  <MetricRow
+                    icon="👥"
+                    label={t('pipeline.metricVoters')}
+                    value={String(step.metrics.num_voters)}
+                  />
                 )}
                 {step.metrics.changed !== undefined && (
                   <MetricRow
@@ -381,14 +458,18 @@ const ElectionPipelineAnimator: React.FC = () => {
                     icon="🤝"
                     label={t('pipeline.metricAgreement')}
                     value={`${Math.round(Number(step.metrics.inter_method_agreement) * 100)}%`}
-                    variant={Number(step.metrics.inter_method_agreement) > 0.8 ? 'success' : 'warning'}
+                    variant={
+                      Number(step.metrics.inter_method_agreement) > 0.8 ? 'success' : 'warning'
+                    }
                   />
                 )}
                 {step.metrics.condorcet_winner !== undefined && (
                   <MetricRow
                     icon={step.metrics.condorcet_winner ? '✓' : '✗'}
                     label="Condorcet"
-                    value={step.metrics.condorcet_winner ? String(step.metrics.condorcet_winner) : '—'}
+                    value={
+                      step.metrics.condorcet_winner ? String(step.metrics.condorcet_winner) : '—'
+                    }
                     variant={step.metrics.condorcet_winner ? 'success' : 'secondary'}
                   />
                 )}
@@ -398,9 +479,9 @@ const ElectionPipelineAnimator: React.FC = () => {
                   <div className="mt-3">
                     <MethodGroupDonut
                       methodGroups={step.winner_groups.map((g) => ({
-                        winner:  g.winner,
+                        winner: g.winner,
                         methods: g.methods,
-                        pct:     g.pct,
+                        pct: g.pct,
                       }))}
                       totalMethods={step.winner_groups.reduce((s, g) => s + g.methods.length, 0)}
                     />
@@ -408,12 +489,17 @@ const ElectionPipelineAnimator: React.FC = () => {
                 )}
 
                 {/* Step navigation hint */}
-                <div className="mt-auto pt-3" style={{ fontSize: '0.72rem', color: 'var(--bs-secondary-color)' }}>
+                <div
+                  className="mt-auto pt-3"
+                  style={{ fontSize: '0.72rem', color: 'var(--bs-secondary-color)' }}
+                >
                   {currentStep < totalSteps - 1
-                    ? t('pipeline.nextStepHint', { next: pipeline.steps[currentStep + 1]?.label[lang] ?? '' })
+                    ? t('pipeline.nextStepHint', {
+                        next: pipeline.steps[currentStep + 1]?.label[lang] ?? '',
+                      })
                     : t('pipeline.finalStepHint')}
                 </div>
-              </Card.Body>
+              </CardBody>
             </Card>
           </Col>
         </Row>
@@ -425,17 +511,19 @@ const ElectionPipelineAnimator: React.FC = () => {
 // ── Metric row helper ─────────────────────────────────────────────────────────
 
 const MetricRow: React.FC<{
-  icon:     string;
-  label:    string;
-  value:    string;
-  variant?: string;
+  icon: string;
+  label: string;
+  value: string;
+  variant?: React.ComponentProps<typeof Badge>['variant'];
 }> = ({ icon, label, value, variant = 'secondary' }) => (
-  <div className="d-flex align-items-center justify-content-between mb-2">
+  <div className="flex items-center justify-between mb-2">
     <span style={{ fontSize: '0.8rem' }}>
       <span className="me-1">{icon}</span>
       {label}
     </span>
-    <Badge bg={variant} style={{ fontSize: '0.72rem' }}>{value}</Badge>
+    <Badge variant={variant} style={{ fontSize: '0.72rem' }}>
+      {value}
+    </Badge>
   </div>
 );
 

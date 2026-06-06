@@ -13,10 +13,9 @@ export const simulateVote = async (formData: SimulationFormData): Promise<any> =
 
 export const simulateVoters = async (numVoters: number): Promise<{ voters: VoterSimu[] }> => {
   try {
-    return await apiPost<{ voters: VoterSimu[] }>(
-      '/api/v2/simulations/simulate_voters',
-      { num_voters: numVoters },
-    );
+    return await apiPost<{ voters: VoterSimu[] }>('/api/v2/simulations/simulate_voters', {
+      num_voters: numVoters,
+    });
   } catch (error) {
     console.error('Failed to create voters', error);
     throw error;
@@ -31,7 +30,7 @@ export const simulateCandidates = async (
   try {
     return await apiPost<{ candidates: CandidateSimu[] }>(
       '/api/v2/simulations/simulate_candidates',
-      { num_candidates: numCandidates, issues, parties },
+      { num_candidates: numCandidates, issues, parties }
     );
   } catch (error) {
     console.error('Failed to create candidates', error);
@@ -72,7 +71,10 @@ export const getVoterSegments = async (
 ): Promise<any> => {
   try {
     return await apiPost('/api/v2/simulations/get_voter_segments', {
-      voters, candidates, issues, segments: ['young_female', 'old_male', 'high_edu', 'urban'],
+      voters,
+      candidates,
+      issues,
+      segments: ['young_female', 'old_male', 'high_edu', 'urban'],
     });
   } catch (error) {
     console.error('Error getting voter segments:', error);
@@ -80,15 +82,12 @@ export const getVoterSegments = async (
   }
 };
 
-export const closestCandidate = async (
-  voters: number[],
-  candidates: number[]
-): Promise<any> => {
+export const closestCandidate = async (voters: number[], candidates: number[]): Promise<any> => {
   try {
-    const data = await apiPost<{ result: any }>(
-      '/api/v2/simulations/get_closest_candidate',
-      { candidates, voters },
-    );
+    const data = await apiPost<{ result: any }>('/api/v2/simulations/get_closest_candidate', {
+      candidates,
+      voters,
+    });
     return data.result;
   } catch (error) {
     console.error('Failed to get the closest candidates', error);

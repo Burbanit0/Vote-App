@@ -6,36 +6,38 @@ import { useAuth } from './stores/useAuthStore';
 // ── Component mocks ────────────────────────────────────────────────────────
 
 vi.mock('./components/Navbar', () => ({ default: () => <div data-testid="navbar">Navbar</div> }));
-vi.mock(
-  './components/Route/ErrorBoundary',
-  () => ({ default: ({ children }: { children: React.ReactNode }) => <>{children}</> }));
+vi.mock('./components/Route/ErrorBoundary', () => ({
+  default: ({ children }: { children: React.ReactNode }) => <>{children}</>,
+}));
 
 vi.mock('./pages/HomePage', () => ({ default: () => <div data-testid="home-page">HomePage</div> }));
-vi.mock('./pages/SimulationPage', () => ({ default: () => (
-  <div data-testid="simulation-page">SimulationPage</div>
-) }));
-vi.mock('./pages/SimulationComparePage', () => ({ default: () => (
-  <div data-testid="simulation-compare-page">SimulationComparePage</div>
-) }));
-vi.mock('./pages/ScenarioBuilderPage', () => ({ default: () => (
-  <div data-testid="scenario-builder-page">ScenarioBuilderPage</div>
-) }));
-vi.mock('./pages/ConstitutionalCrisisPage', () => ({ default: () => (
-  <div data-testid="constitutional-crisis-page">ConstitutionalCrisisPage</div>
-) }));
+vi.mock('./pages/SimulationPage', () => ({
+  default: () => <div data-testid="simulation-page">SimulationPage</div>,
+}));
+vi.mock('./pages/SimulationComparePage', () => ({
+  default: () => <div data-testid="simulation-compare-page">SimulationComparePage</div>,
+}));
+vi.mock('./pages/ScenarioBuilderPage', () => ({
+  default: () => <div data-testid="scenario-builder-page">ScenarioBuilderPage</div>,
+}));
+vi.mock('./pages/ConstitutionalCrisisPage', () => ({
+  default: () => <div data-testid="constitutional-crisis-page">ConstitutionalCrisisPage</div>,
+}));
 vi.mock('./pages/Login', () => ({ default: () => <div data-testid="login-page">Login</div> }));
-vi.mock('./pages/Register', () => ({ default: () => <div data-testid="register-page">Register</div> }));
-vi.mock('./pages/ProfilePage', () => ({ default: () => (
-  <div data-testid="profile-page">ProfilePage</div>
-) }));
-vi.mock('./pages/UserProfilePage', () => ({ default: () => (
-  <div data-testid="user-profile-page">UserProfilePage</div>
-) }));
+vi.mock('./pages/Register', () => ({
+  default: () => <div data-testid="register-page">Register</div>,
+}));
+vi.mock('./pages/ProfilePage', () => ({
+  default: () => <div data-testid="profile-page">ProfilePage</div>,
+}));
+vi.mock('./pages/UserProfilePage', () => ({
+  default: () => <div data-testid="user-profile-page">UserProfilePage</div>,
+}));
 
 // AuthGuard: render the wrapped component directly (skip auth logic in tests)
-vi.mock(
-  './components/Route/AuthGuard',
-  () => ({ default: ({ component: Component }: { component: React.ComponentType }) => <Component /> }));
+vi.mock('./components/Route/AuthGuard', () => ({
+  default: ({ component: Component }: { component: React.ComponentType }) => <Component />,
+}));
 
 vi.mock('./stores/useAuthStore', async () => ({
   ...(await vi.importActual('./stores/useAuthStore')),

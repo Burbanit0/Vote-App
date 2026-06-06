@@ -43,14 +43,14 @@ export function useMetaTags({ title, description, image }: MetaTagsConfig) {
     const url = window.location.href;
 
     // Open Graph
-    setOgMeta('og:title',       title);
+    setOgMeta('og:title', title);
     setOgMeta('og:description', description);
-    setOgMeta('og:url',         url);
+    setOgMeta('og:url', url);
     if (image) setOgMeta('og:image', image);
 
     // Twitter / X
-    setNameMeta('twitter:title',       title);
+    setNameMeta('twitter:title', title);
     setNameMeta('twitter:description', description);
-    setNameMeta('twitter:card',        'summary');
+    setNameMeta('twitter:card', 'summary');
   }, [title, description, image]);
 }

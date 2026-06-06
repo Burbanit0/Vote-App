@@ -54,24 +54,12 @@ describe('MonteCarloLiveChart', () => {
   });
 
   it('shows error alert when error is present', () => {
-    render(
-      <MonteCarloLiveChart
-        {...baseProps}
-        error="Something went wrong"
-      />
-    );
+    render(<MonteCarloLiveChart {...baseProps} error="Something went wrong" />);
     expect(screen.getByText('Something went wrong')).toBeInTheDocument();
   });
 
   it('shows complete badge when done', () => {
-    render(
-      <MonteCarloLiveChart
-        {...baseProps}
-        iteration={100}
-        total={100}
-        progress={100}
-      />
-    );
+    render(<MonteCarloLiveChart {...baseProps} iteration={100} total={100} progress={100} />);
     expect(screen.getByText(/Complete/)).toBeInTheDocument();
   });
 

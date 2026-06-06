@@ -14,24 +14,30 @@
  *   />
  */
 import React from 'react';
-import { Button } from 'react-bootstrap';
+import { Button } from '@/components/ui/button';
 import { useTranslation } from 'react-i18next';
 import { usePerturbations } from '../../stores/useLabStore';
 
 interface Props {
-  type:             string;
-  icon:             string;
-  label:            string;
-  summary:          string;
-  methodsChanged?:  number;
+  type: string;
+  icon: string;
+  label: string;
+  summary: string;
+  methodsChanged?: number;
   /** Per-method winners under this perturbation. When provided, the central
    *  matrix renders a comparison row with diff coloring. */
   winnersByMethod?: Record<string, string | null>;
-  disabled?:        boolean;
+  disabled?: boolean;
 }
 
 const PinToCentralButton: React.FC<Props> = ({
-  type, icon, label, summary, methodsChanged, winnersByMethod, disabled,
+  type,
+  icon,
+  label,
+  summary,
+  methodsChanged,
+  winnersByMethod,
+  disabled,
 }) => {
   const { t } = useTranslation();
   const { isPinned, pinPerturbation, unpinPerturbation } = usePerturbations();
@@ -49,7 +55,7 @@ const PinToCentralButton: React.FC<Props> = ({
           pinPerturbation({ type, icon, label, summary, methodsChanged, winnersByMethod });
         }
       }}
-      style={{ fontSize: '0.72rem', whiteSpace: 'nowrap' }}
+      className="whitespace-nowrap text-[0.72rem]"
       data-testid={`pin-btn-${type}`}
     >
       {pinned ? '✓ ' + t('lab.pinnedCentral') : '📌 ' + t('lab.pinToCentral')}

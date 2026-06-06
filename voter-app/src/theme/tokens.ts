@@ -15,31 +15,31 @@
 export const COLORS = {
   // ── Brand ────────────────────────────────────────────────────────────────
   brand: {
-    primary:   '#005CAB',  // Vote Lab blue
-    secondary: '#C8590A',  // Vote Lab orange (used for method-B comparisons)
-    accent:    '#7B2D8B',  // violet (Condorcet, multi-winner, dual-mode tags)
+    primary: '#005CAB', // Vote Lab blue
+    secondary: '#C8590A', // Vote Lab orange (used for method-B comparisons)
+    accent: '#7B2D8B', // violet (Condorcet, multi-winner, dual-mode tags)
   },
 
   // ── Party / candidate palette ────────────────────────────────────────────
   // Used consistently across the map, hémicycles, and result badges.
   party: {
-    Green:        '#007A33',
-    Liberal:      '#005CAB',
+    Green: '#007A33',
+    Liberal: '#005CAB',
     Conservative: '#C8590A',
-    Independent:  '#6c757d',
+    Independent: '#6c757d',
   } as Record<string, string>,
 
   // ── Status (matches Bootstrap variants) ──────────────────────────────────
   status: {
     success: '#198754',
-    danger:  '#dc3545',
+    danger: '#dc3545',
     warning: '#ffc107',
-    info:    '#0dcaf0',
+    info: '#0dcaf0',
   },
 
   // ── Neutral / greyscale (Bootstrap 5) ────────────────────────────────────
   neutral: {
-    50:  '#f8f9fa',
+    50: '#f8f9fa',
     100: '#e9ecef',
     200: '#dee2e6',
     300: '#ced4da',
@@ -52,9 +52,9 @@ export const COLORS = {
   },
 
   // ── Common aliases (Bootstrap convention) ────────────────────────────────
-  primary:  '#0d6efd',  // Bootstrap primary (subtly different from brand)
-  white:    '#ffffff',
-  black:    '#000000',
+  primary: '#0d6efd', // Bootstrap primary (subtly different from brand)
+  white: '#ffffff',
+  black: '#000000',
 } as const;
 
 /**
@@ -67,8 +67,8 @@ export const COLORS = {
 export const LAYOUT = {
   pageNarrow: 680,
   pageMedium: 960,
-  pageWide:   1200,
-  pageFull:   1400,
+  pageWide: 1200,
+  pageFull: 1400,
 } as const;
 
 export type LayoutVariant = keyof typeof LAYOUT;
@@ -79,11 +79,11 @@ export type LayoutVariant = keyof typeof LAYOUT;
  * inline style for a precise pixel value.
  */
 export const SPACING = {
-  xs:  4,
-  sm:  8,
-  md:  12,
-  lg:  16,
-  xl:  24,
+  xs: 4,
+  sm: 8,
+  md: 12,
+  lg: 16,
+  xl: 24,
   xxl: 32,
 } as const;
 

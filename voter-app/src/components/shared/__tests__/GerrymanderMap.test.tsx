@@ -10,7 +10,9 @@ vi.mock('../../../api/client', () => ({
   apiClient: { GET: vi.fn(), POST: vi.fn(), PUT: vi.fn(), DELETE: vi.fn(), PATCH: vi.fn() },
   getAccessToken: vi.fn(() => null),
 }));
-const { apiClient } = (await import('../../../api/client')) as unknown as { apiClient: { POST: jest.Mock } };
+const { apiClient } = (await import('../../../api/client')) as unknown as {
+  apiClient: { POST: jest.Mock };
+};
 
 // ── Fixture ───────────────────────────────────────────────────────────────────
 
@@ -19,21 +21,21 @@ function makeData(gerryIndex = 0.6) {
     data: {
       districts: [
         { id: 0, num_voters: 55, winner: 'Alice', vote_shares: { Alice: 0.7, Bob: 0.3 } },
-        { id: 1, num_voters: 45, winner: 'Bob',   vote_shares: { Alice: 0.2, Bob: 0.8 } },
+        { id: 1, num_voters: 45, winner: 'Bob', vote_shares: { Alice: 0.2, Bob: 0.8 } },
       ],
       voters: [
         { id: 0, x: -0.3, y: 0.2, preferred: 'Alice' },
-        { id: 1, x:  0.4, y: -0.1, preferred: 'Bob' },
-        { id: 2, x: -0.1, y: 0.1,  preferred: 'Alice' },
+        { id: 1, x: 0.4, y: -0.1, preferred: 'Bob' },
+        { id: 2, x: -0.1, y: 0.1, preferred: 'Alice' },
       ],
       parliament_gerrymander: { Alice: 2, Bob: 0 },
-      parliament_proportional:{ Alice: 1, Bob: 1 },
-      national_vote_share:    { Alice: 0.55, Bob: 0.45 },
-      distortion:             0.25,
-      gerrymander_index:      gerryIndex,
-      winner:                 'Alice',
-      candidates:             ['Alice', 'Bob'],
-      num_seats:              2,
+      parliament_proportional: { Alice: 1, Bob: 1 },
+      national_vote_share: { Alice: 0.55, Bob: 0.45 },
+      distortion: 0.25,
+      gerrymander_index: gerryIndex,
+      winner: 'Alice',
+      candidates: ['Alice', 'Bob'],
+      num_seats: 2,
     },
     error: undefined,
   };
@@ -57,7 +59,9 @@ beforeEach(() => {
   vi.useFakeTimers();
 });
 
-afterEach(() => { vi.useRealTimers(); });
+afterEach(() => {
+  vi.useRealTimers();
+});
 
 // ── Tests ─────────────────────────────────────────────────────────────────────
 
@@ -89,7 +93,9 @@ describe('GerrymanderMap', () => {
     const initialDistrict = cell.getAttribute('data-district');
     fireEvent.click(cell);
     // After one click, district should be (initialDistrict + 1) % numDist
-    const newDistrict = container.querySelectorAll('[data-testid="grid-cell"]')[0].getAttribute('data-district');
+    const newDistrict = container
+      .querySelectorAll('[data-testid="grid-cell"]')[0]
+      .getAttribute('data-district');
     expect(newDistrict).not.toBeNull();
     // District changes (wraps around mod numDist)
     expect(Number(newDistrict)).toBe((Number(initialDistrict) + 1) % 5);
@@ -117,7 +123,7 @@ describe('GerrymanderMap', () => {
     await waitFor(() => expect(apiClient.POST).toHaveBeenCalledTimes(1));
     expect(apiClient.POST).toHaveBeenCalledWith(
       expect.stringMatching(/\/api\/(v2\/)?election\/gerrymander/),
-      expect.any(Object),
+      expect.any(Object)
     );
     vi.runAllTimers();
   });
@@ -159,7 +165,7 @@ describe('GerrymanderMap', () => {
     fireEvent.click(screen.getByRole('button', { name: /simuler|simulate/i }));
     await waitFor(() => expect(screen.getByTestId('gerrymander-alert')).toBeInTheDocument());
     const alert = screen.getByTestId('gerrymander-alert');
-    expect(alert.className).toContain('alert-warning');
+    expect(alert.className).toContain('bg-amber-100');
     vi.runAllTimers();
   });
 
@@ -169,7 +175,7 @@ describe('GerrymanderMap', () => {
     fireEvent.click(screen.getByRole('button', { name: /simuler|simulate/i }));
     await waitFor(() => expect(screen.getByTestId('gerrymander-alert')).toBeInTheDocument());
     const alert = screen.getByTestId('gerrymander-alert');
-    expect(alert.className).toContain('alert-success');
+    expect(alert.className).toContain('bg-green-100');
     vi.runAllTimers();
   });
 

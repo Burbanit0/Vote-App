@@ -29,10 +29,7 @@ describe('newBlankCandidate', () => {
 });
 
 describe('CandidateEditor', () => {
-  const defaultCandidates = [
-    newCandidate('Alice', 0.5),
-    newCandidate('Bob', -0.3),
-  ];
+  const defaultCandidates = [newCandidate('Alice', 0.5), newCandidate('Bob', -0.3)];
 
   it('renders candidate cards', () => {
     render(<CandidateEditor candidates={defaultCandidates} onChange={vi.fn()} />);

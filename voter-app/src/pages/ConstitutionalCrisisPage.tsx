@@ -1,8 +1,18 @@
 import React, { useState } from 'react';
-import { Alert, Badge, Button, Card, Col, Container, Row, Spinner, Tab, Tabs } from 'react-bootstrap';
+import { Alert } from '@/components/ui/alert';
+import { Badge } from '@/components/ui/badge';
+import { Tab, Tabs } from '@/components/ui/bootstrap-tabs';
+import { Button } from '@/components/ui/button';
+import { Card, CardBody, CardHeader } from '@/components/ui/card';
+import { Col, Container, Row } from '@/components/ui/grid';
+import { Spinner } from '@/components/ui/spinner';
 import { Trans, useTranslation } from 'react-i18next';
 import { useToast } from '../components/shared/ToastNotification';
-import CandidateEditor, { CandidateConfig, newCandidate, newBlankCandidate } from '../components/ScenarioBuilder/CandidateEditor';
+import CandidateEditor, {
+  CandidateConfig,
+  newCandidate,
+  newBlankCandidate,
+} from '../components/ScenarioBuilder/CandidateEditor';
 import ElectorateConfig, { ElectorateState } from '../components/ScenarioBuilder/ElectorateConfig';
 import ScenarioAPanel from '../components/ConstitutionalCrisis/ScenarioAPanel';
 import ScenarioBPanel from '../components/ConstitutionalCrisis/ScenarioBPanel';
@@ -26,47 +36,60 @@ function toApiCandidates(candidates: CandidateConfig[]) {
 }
 
 function toApiElectorate(e: ElectorateState) {
-  return { num_voters: e.numVoters, ideology_preset: e.ideologyPreset, dissatisfaction_rate: e.dissatisfactionRate };
+  return {
+    num_voters: e.numVoters,
+    ideology_preset: e.ideologyPreset,
+    dissatisfaction_rate: e.dissatisfactionRate,
+  };
 }
 
 // ── Initial results banner ─────────────────────────────────────────────────
 
-const InitialResultsBanner: React.FC<{ results: ScenarioResult; candidates: CandidateConfig[] }> = ({ results, candidates }) => {
+const InitialResultsBanner: React.FC<{
+  results: ScenarioResult;
+  candidates: CandidateConfig[];
+}> = ({ results, candidates }) => {
   const { t } = useTranslation();
   const colorMap = Object.fromEntries(
     candidates.filter((c) => !c.isBlank).map((c, i) => [c.name, COLORS[i % COLORS.length]])
   );
   const blankPct = results.with_blank.blank_pct ?? 0;
-  const blankWins = Object.values(results.with_blank.methods).some((m) => m.winner === 'Blank' || m.blank_rule_applied?.blank_triggered);
+  const blankWins = Object.values(results.with_blank.methods).some(
+    (m) => m.winner === 'Blank' || m.blank_rule_applied?.blank_triggered
+  );
 
   return (
     <Card className={`mb-4 border-${blankWins ? 'danger' : 'success'}`}>
-      <Card.Header className={`bg-${blankWins ? 'danger' : 'success'} text-white`}>
-        <strong>
-          {blankWins ? t('crisis.blankWins') : t('crisis.blankNotDecisive')}
-        </strong>
-        <span className="ms-3 fw-normal" style={{ fontSize: '0.9rem' }}>
+      <CardHeader
+        className={`block space-y-0 border-b border-border px-4 py-2 bg-${blankWins ? 'danger' : 'success'} text-white`}
+      >
+        <strong>{blankWins ? t('crisis.blankWins') : t('crisis.blankNotDecisive')}</strong>
+        <span className="ms-3 font-normal" style={{ fontSize: '0.9rem' }}>
           {t('crisis.blanksVoted', { pct: Math.round(blankPct * 100) })}
         </span>
-      </Card.Header>
-      <Card.Body className="py-2">
-        <div className="d-flex flex-wrap gap-3">
+      </CardHeader>
+      <CardBody className="py-2">
+        <div className="flex flex-wrap gap-3">
           {Object.entries(results.with_blank.methods).map(([m, d]) => {
             const effective = d.blank_rule_applied?.winner ?? d.winner;
             return (
               <div key={m} style={{ fontSize: '0.82rem' }}>
-                <span className="text-muted">{m} → </span>
+                <span className="text-muted-foreground">{m} → </span>
                 {effective === 'Blank' || effective == null ? (
-                  <Badge bg="warning" text="dark">{t('common.blankBadge')}</Badge>
+                  <Badge variant="warning">{t('common.blankBadge')}</Badge>
                 ) : (
-                  <Badge style={{ backgroundColor: colorMap[effective] ?? '#999' }}>{effective}</Badge>
+                  <Badge style={{ backgroundColor: colorMap[effective] ?? '#999' }}>
+                    {effective}
+                  </Badge>
                 )}
-                {d.blank_rule_applied?.blank_triggered && <span className="ms-1 text-danger">🚨</span>}
+                {d.blank_rule_applied?.blank_triggered && (
+                  <span className="ms-1 text-[#dc3545]">🚨</span>
+                )}
               </div>
             );
           })}
         </div>
-      </Card.Body>
+      </CardBody>
     </Card>
   );
 };
@@ -88,7 +111,7 @@ const ConstitutionalCrisisPage: React.FC = () => {
   });
 
   // Initial simulation
-  const [initResult, setInitResult]   = useState<ScenarioResult | null>(null);
+  const [initResult, setInitResult] = useState<ScenarioResult | null>(null);
   const [initLoading, setInitLoading] = useState(false);
   const toast = useToast();
 
@@ -141,7 +164,9 @@ const ConstitutionalCrisisPage: React.FC = () => {
         params: { new_candidates: toApiCandidates(round2) },
       });
       setResA(r);
-    } finally { setLoadA(false); }
+    } finally {
+      setLoadA(false);
+    }
   };
 
   const runB = async (duration: 3 | 6, drift: number) => {
@@ -154,7 +179,9 @@ const ConstitutionalCrisisPage: React.FC = () => {
         params: { provisional_duration: duration, drift_magnitude: drift },
       });
       setResB(r);
-    } finally { setLoadB(false); }
+    } finally {
+      setLoadB(false);
+    }
   };
 
   const runC = async (numSeats: number) => {
@@ -167,37 +194,58 @@ const ConstitutionalCrisisPage: React.FC = () => {
         params: { num_seats: numSeats },
       });
       setResC(r);
-    } finally { setLoadC(false); }
+    } finally {
+      setLoadC(false);
+    }
   };
 
   return (
     <Container className="py-4" style={{ maxWidth: 960 }}>
       <h2 className="mb-1">{t('crisis.pageTitle')}</h2>
-      <p className="text-muted mb-4"><Trans i18nKey="crisis.pageSubtitle" /></p>
+      <p className="text-muted-foreground mb-4">
+        <Trans i18nKey="crisis.pageSubtitle" />
+      </p>
 
       {/* Initial election config */}
       <Card className="mb-4">
-        <Card.Header className="fw-semibold d-flex justify-content-between align-items-center">
+        <CardHeader className="block space-y-0 border-b border-border px-4 py-2 font-semibold flex justify-between items-center">
           {t('crisis.initialConfig')}
-          <Button variant="primary" size="sm" onClick={runInitial} disabled={initLoading || realCandidates.length < 2}>
-            {initLoading ? <><Spinner size="sm" className="me-2" />{t('crisis.simulating')}</> : t('crisis.simulateInitial')}
+          <Button
+            variant="primary"
+            size="sm"
+            onClick={runInitial}
+            disabled={initLoading || realCandidates.length < 2}
+          >
+            {initLoading ? (
+              <>
+                <Spinner size="sm" className="me-2" />
+                {t('crisis.simulating')}
+              </>
+            ) : (
+              t('crisis.simulateInitial')
+            )}
           </Button>
-        </Card.Header>
-        <Card.Body>
+        </CardHeader>
+        <CardBody>
           <Row className="g-4">
             <Col md={7}>
-              <p className="fw-semibold small text-muted mb-2">{t('common.candidates')}</p>
+              <p className="font-semibold text-sm text-muted-foreground mb-2">
+                {t('common.candidates')}
+              </p>
               <CandidateEditor candidates={candidates} onChange={setCandidates} />
             </Col>
             <Col md={5}>
-              <p className="fw-semibold small text-muted mb-2">{t('common.electorate')}</p>
-              <ElectorateConfig config={electorate} onChange={(p) => setElectorate((e) => ({ ...e, ...p }))} />
+              <p className="font-semibold text-sm text-muted-foreground mb-2">
+                {t('common.electorate')}
+              </p>
+              <ElectorateConfig
+                config={electorate}
+                onChange={(p) => setElectorate((e) => ({ ...e, ...p }))}
+              />
             </Col>
           </Row>
-        </Card.Body>
+        </CardBody>
       </Card>
-
-
 
       {!initResult && !initLoading && (
         <Alert variant="info">
@@ -209,58 +257,41 @@ const ConstitutionalCrisisPage: React.FC = () => {
         <>
           <InitialResultsBanner results={initResult} candidates={candidates} />
 
-          {!blankWins && (
-            <Alert variant="warning">
-              {t('crisis.blankNotWon')}
-            </Alert>
-          )}
+          {!blankWins && <Alert variant="warning">{t('crisis.blankNotWon')}</Alert>}
 
           {blankWins && (
             <Tabs defaultActiveKey="A" className="mb-3">
-              <Tab
-                eventKey="A"
-                title={<span>{t('crisis.tabA')}</span>}
-              >
+              <Tab eventKey="A" title={<span>{t('crisis.tabA')}</span>}>
                 <Card>
-                  <Card.Body>
+                  <CardBody>
                     <ScenarioAPanel
                       initialCandidates={candidates}
                       result={resA}
                       loading={loadA}
                       onRun={runA}
                     />
-                  </Card.Body>
+                  </CardBody>
                 </Card>
               </Tab>
 
-              <Tab
-                eventKey="B"
-                title={<span>{t('crisis.tabB')}</span>}
-              >
+              <Tab eventKey="B" title={<span>{t('crisis.tabB')}</span>}>
                 <Card>
-                  <Card.Body>
+                  <CardBody>
                     <ScenarioBPanel
                       candidateNames={realCandidates.map((c) => c.name)}
                       result={resB}
                       loading={loadB}
                       onRun={runB}
                     />
-                  </Card.Body>
+                  </CardBody>
                 </Card>
               </Tab>
 
-              <Tab
-                eventKey="C"
-                title={<span>{t('crisis.tabC')}</span>}
-              >
+              <Tab eventKey="C" title={<span>{t('crisis.tabC')}</span>}>
                 <Card>
-                  <Card.Body>
-                    <ScenarioCPanel
-                      result={resC}
-                      loading={loadC}
-                      onRun={runC}
-                    />
-                  </Card.Body>
+                  <CardBody>
+                    <ScenarioCPanel result={resC} loading={loadC} onRun={runC} />
+                  </CardBody>
                 </Card>
               </Tab>
             </Tabs>

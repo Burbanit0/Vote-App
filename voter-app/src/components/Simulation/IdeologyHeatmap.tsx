@@ -10,52 +10,58 @@
  */
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { Badge } from 'react-bootstrap';
+import { Badge } from '@/components/ui/badge';
 import { useSimulationWorker } from '../../hooks/useSimulationWorker';
 
 // ── Constants ─────────────────────────────────────────────────────────────────
 
-export const GRID_N   = 30;
-const SVG_W           = 480;
-const SVG_H           = 480;
-const MARGIN          = 40;
-const PLOT_W          = SVG_W - 2 * MARGIN;
-const PLOT_H          = SVG_H - 2 * MARGIN;
-const CELL_W          = PLOT_W / GRID_N;
-const CELL_H          = PLOT_H / GRID_N;
+export const GRID_N = 30;
+const SVG_W = 480;
+const SVG_H = 480;
+const MARGIN = 40;
+const PLOT_W = SVG_W - 2 * MARGIN;
+const PLOT_H = SVG_H - 2 * MARGIN;
+const CELL_W = PLOT_W / GRID_N;
+const CELL_H = PLOT_H / GRID_N;
 
-const CANDIDATE_COLORS = [
-  '#005CAB', '#C8590A', '#007A33', '#6c757d', '#9b59b6', '#e67e22',
-];
+const CANDIDATE_COLORS = ['#005CAB', '#C8590A', '#007A33', '#6c757d', '#9b59b6', '#e67e22'];
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
-export interface HeatmapVoter   { id: number; x: number; y: number }
-export interface HeatmapCandidate { name: string; x: number; y: number }
+export interface HeatmapVoter {
+  id: number;
+  x: number;
+  y: number;
+}
+export interface HeatmapCandidate {
+  name: string;
+  x: number;
+  y: number;
+}
 
 export interface GridCell {
-  i:          number;   // column  [0, N)
-  j:          number;   // row     [0, N), j=0 → domain y=-1 (bottom)
-  density:    number;   // voter count
-  winnerIdx:  number;   // index into candidates array (-1 = no winner)
-  distRatio:  number;   // 1st_dist / 2nd_dist — low = contested
-  cx:         number;   // domain x of cell center
-  cy:         number;   // domain y of cell center
+  i: number; // column  [0, N)
+  j: number; // row     [0, N), j=0 → domain y=-1 (bottom)
+  density: number; // voter count
+  winnerIdx: number; // index into candidates array (-1 = no winner)
+  distRatio: number; // 1st_dist / 2nd_dist — low = contested
+  cx: number; // domain x of cell center
+  cy: number; // domain y of cell center
 }
 
 export interface HeatmapMetrics {
   maxContestedCell: GridCell | null;
-  fortressCell:     GridCell | null;
+  fortressCell: GridCell | null;
   fortressCandidate: string | null;
-  maxDensity:       number;
+  maxDensity: number;
 }
 
 // ── Pure grid computation (exported for tests) ────────────────────────────────
 
 export function computeGrid(
-  voters:     HeatmapVoter[],
+  voters: HeatmapVoter[],
   candidates: HeatmapCandidate[],
-  N = GRID_N,
+  N = GRID_N
 ): { cells: GridCell[]; metrics: HeatmapMetrics } {
   // Bucket voters into cells
   const counts = new Int32Array(N * N);
@@ -71,27 +77,36 @@ export function computeGrid(
 
   for (let j = 0; j < N; j++) {
     for (let i = 0; i < N; i++) {
-      const cx = -1 + (i + 0.5) * 2 / N;
-      const cy = -1 + (j + 0.5) * 2 / N;
+      const cx = -1 + ((i + 0.5) * 2) / N;
+      const cy = -1 + ((j + 0.5) * 2) / N;
 
       // Nearest-candidate (Voronoi) winner
-      let d1 = Infinity, d2 = Infinity, winnerIdx = -1;
+      let d1 = Infinity,
+        d2 = Infinity,
+        winnerIdx = -1;
       for (let k = 0; k < candidates.length; k++) {
         const dx = cx - candidates[k].x;
         const dy = cy - candidates[k].y;
-        const d  = dx * dx + dy * dy;
-        if (d < d1) { d2 = d1; d1 = d; winnerIdx = k; }
-        else if (d < d2) { d2 = d; }
+        const d = dx * dx + dy * dy;
+        if (d < d1) {
+          d2 = d1;
+          d1 = d;
+          winnerIdx = k;
+        } else if (d < d2) {
+          d2 = d;
+        }
       }
 
       const distRatio = d2 === Infinity ? 1 : Math.sqrt(d1) / Math.sqrt(d2);
 
       cells.push({
-        i, j,
-        density:   counts[j * N + i],
+        i,
+        j,
+        density: counts[j * N + i],
         winnerIdx,
         distRatio,
-        cx, cy,
+        cx,
+        cy,
       });
     }
   }
@@ -99,20 +114,24 @@ export function computeGrid(
   // Metrics — only count populated cells
   const populated = cells.filter((c) => c.density > 0);
 
-  const maxContestedCell = populated.length > 0
-    ? populated.reduce((best, c) => c.distRatio < best.distRatio ? c : best)
-    : null;
+  const maxContestedCell =
+    populated.length > 0
+      ? populated.reduce((best, c) => (c.distRatio < best.distRatio ? c : best))
+      : null;
 
   // Fortress: populated cell with highest density AND largest advantage (distRatio near 0 = dominance)
-  const fortressCell = populated.length > 0
-    ? populated.reduce((best, c) =>
-        (c.density > best.density && c.distRatio < 0.5) ? c : best,
-        populated[0])
-    : null;
+  const fortressCell =
+    populated.length > 0
+      ? populated.reduce(
+          (best, c) => (c.density > best.density && c.distRatio < 0.5 ? c : best),
+          populated[0]
+        )
+      : null;
 
-  const fortressCandidate = fortressCell && fortressCell.winnerIdx >= 0
-    ? candidates[fortressCell.winnerIdx]?.name ?? null
-    : null;
+  const fortressCandidate =
+    fortressCell && fortressCell.winnerIdx >= 0
+      ? (candidates[fortressCell.winnerIdx]?.name ?? null)
+      : null;
 
   return { cells, metrics: { maxContestedCell, fortressCell, fortressCandidate, maxDensity } };
 }
@@ -134,9 +153,9 @@ function domainToSvg(v: number, axis: 'x' | 'y'): number {
 // ── Component ─────────────────────────────────────────────────────────────────
 
 export interface IdeologyHeatmapProps {
-  voters:     HeatmapVoter[];
+  voters: HeatmapVoter[];
   candidates: HeatmapCandidate[];
-  colors?:    string[];
+  colors?: string[];
   /** Called when a candidate mousedown event fires */
   onCandidateMouseDown?: (e: React.MouseEvent, idx: number) => void;
   draggingIdx?: number | null;
@@ -148,17 +167,18 @@ const IdeologyHeatmap = React.forwardRef<SVGSVGElement, IdeologyHeatmapProps>(
     const { t } = useTranslation();
     const { dispatch, isComputing } = useSimulationWorker();
 
-    const candColors = colors ?? candidates.map((_, i) => CANDIDATE_COLORS[i % CANDIDATE_COLORS.length]);
+    const candColors =
+      colors ?? candidates.map((_, i) => CANDIDATE_COLORS[i % CANDIDATE_COLORS.length]);
 
     // ── Async grid computation via Web Worker ─────────────────────────────
-    const [cells, setCells]     = useState<GridCell[]>([]);
+    const [cells, setCells] = useState<GridCell[]>([]);
     const [metrics, setMetrics] = useState<HeatmapMetrics>({
-      maxContestedCell:  null,
-      fortressCell:      null,
+      maxContestedCell: null,
+      fortressCell: null,
       fortressCandidate: null,
-      maxDensity:        1,
+      maxDensity: 1,
     });
-    const abortRef = useRef<string | null>(null);  // track last dispatch id to ignore stale results
+    const abortRef = useRef<string | null>(null); // track last dispatch id to ignore stale results
 
     useEffect(() => {
       const dispatchId = `${Date.now()}`;
@@ -166,7 +186,7 @@ const IdeologyHeatmap = React.forwardRef<SVGSVGElement, IdeologyHeatmapProps>(
 
       dispatch('COMPUTE_HEATMAP', { voters, candidates, gridN })
         .then(({ cells: c, metrics: m }) => {
-          if (abortRef.current !== dispatchId) return;  // stale — discard
+          if (abortRef.current !== dispatchId) return; // stale — discard
           setCells(c);
           setMetrics(m);
         })
@@ -234,13 +254,11 @@ const IdeologyHeatmap = React.forwardRef<SVGSVGElement, IdeologyHeatmapProps>(
                 const j = Math.floor(k / GRID_N);
                 const { x, y, w, h } = cellRect(i, j);
                 return (
-                  <rect
-                    key={k} x={x} y={y} width={w} height={h}
-                    fill="#dee2e6"
-                  >
+                  <rect key={k} x={x} y={y} width={w} height={h} fill="#dee2e6">
                     <animate
                       attributeName="fill-opacity"
-                      values="0.3;0.7;0.3" dur="1.6s"
+                      values="0.3;0.7;0.3"
+                      dur="1.6s"
                       begin={`${(i + j) * 0.02}s`}
                       repeatCount="indefinite"
                     />
@@ -257,15 +275,17 @@ const IdeologyHeatmap = React.forwardRef<SVGSVGElement, IdeologyHeatmapProps>(
           >
             {cells.map((cell) => {
               const { x, y, w, h } = cellRect(cell.i, cell.j);
-              const opacity = cell.density === 0
-                ? 0
-                : 0.15 + (cell.density / metrics.maxDensity) * 0.75;
+              const opacity =
+                cell.density === 0 ? 0 : 0.15 + (cell.density / metrics.maxDensity) * 0.75;
               const fill = cell.winnerIdx >= 0 ? candColors[cell.winnerIdx] : '#dee2e6';
               return (
                 <rect
                   key={`${cell.i}-${cell.j}`}
                   data-testid="heatmap-cell"
-                  x={x} y={y} width={w} height={h}
+                  x={x}
+                  y={y}
+                  width={w}
+                  height={h}
                   fill={fill}
                   fillOpacity={opacity}
                   style={{ transition: 'fill 0.5s ease, fill-opacity 0.3s' }}
@@ -279,7 +299,10 @@ const IdeologyHeatmap = React.forwardRef<SVGSVGElement, IdeologyHeatmapProps>(
             {contourLines.map((l, i) => (
               <line
                 key={i}
-                x1={l.x1} y1={l.y1} x2={l.x2} y2={l.y2}
+                x1={l.x1}
+                y1={l.y1}
+                x2={l.x2}
+                y2={l.y2}
                 stroke="#fff"
                 strokeWidth={0.7}
                 strokeOpacity={0.6}
@@ -288,14 +311,33 @@ const IdeologyHeatmap = React.forwardRef<SVGSVGElement, IdeologyHeatmapProps>(
           </g>
 
           {/* ── Grid axes ── */}
-          <line x1={SVG_W / 2} y1={MARGIN} x2={SVG_W / 2} y2={SVG_H - MARGIN}
-            stroke="#adb5bd" strokeWidth={1} />
-          <line x1={MARGIN} y1={SVG_H / 2} x2={SVG_W - MARGIN} y2={SVG_H / 2}
-            stroke="#adb5bd" strokeWidth={1} />
+          <line
+            x1={SVG_W / 2}
+            y1={MARGIN}
+            x2={SVG_W / 2}
+            y2={SVG_H - MARGIN}
+            stroke="#adb5bd"
+            strokeWidth={1}
+          />
+          <line
+            x1={MARGIN}
+            y1={SVG_H / 2}
+            x2={SVG_W - MARGIN}
+            y2={SVG_H / 2}
+            stroke="#adb5bd"
+            strokeWidth={1}
+          />
 
           {/* ── Border ── */}
-          <rect x={MARGIN} y={MARGIN} width={PLOT_W} height={PLOT_H}
-            fill="none" stroke="#dee2e6" strokeWidth={1} />
+          <rect
+            x={MARGIN}
+            y={MARGIN}
+            width={PLOT_W}
+            height={PLOT_H}
+            fill="none"
+            stroke="#dee2e6"
+            strokeWidth={1}
+          />
 
           {/* ── Axis labels ── */}
           <text x={MARGIN} y={SVG_H - 6} fontSize={10} fill="#6c757d">
@@ -306,18 +348,27 @@ const IdeologyHeatmap = React.forwardRef<SVGSVGElement, IdeologyHeatmapProps>(
           </text>
 
           {/* ── Contested zone highlight ── */}
-          {metrics.maxContestedCell && metrics.maxContestedCell.density > 0 && (() => {
-            const { x, y, w, h } = cellRect(
-              metrics.maxContestedCell.i, metrics.maxContestedCell.j,
-            );
-            return (
-              <rect
-                x={x - 2} y={y - 2} width={w + 4} height={h + 4}
-                fill="none" stroke="#dc3545" strokeWidth={1.5} strokeDasharray="3 2"
-                data-testid="contested-highlight"
-              />
-            );
-          })()}
+          {metrics.maxContestedCell &&
+            metrics.maxContestedCell.density > 0 &&
+            (() => {
+              const { x, y, w, h } = cellRect(
+                metrics.maxContestedCell.i,
+                metrics.maxContestedCell.j
+              );
+              return (
+                <rect
+                  x={x - 2}
+                  y={y - 2}
+                  width={w + 4}
+                  height={h + 4}
+                  fill="none"
+                  stroke="#dc3545"
+                  strokeWidth={1.5}
+                  strokeDasharray="3 2"
+                  data-testid="contested-highlight"
+                />
+              );
+            })()}
 
           {/* ── Candidate markers (★) ── */}
           {candidates.map((cp, idx) => {
@@ -334,55 +385,75 @@ const IdeologyHeatmap = React.forwardRef<SVGSVGElement, IdeologyHeatmapProps>(
               >
                 <circle r={14} fill={color} fillOpacity={0.18} />
                 <text
-                  textAnchor="middle" dominantBaseline="central"
-                  fontSize={22} fill={color} stroke="#fff" strokeWidth={0.8}
+                  textAnchor="middle"
+                  dominantBaseline="central"
+                  fontSize={22}
+                  fill={color}
+                  stroke="#fff"
+                  strokeWidth={0.8}
                   style={{ pointerEvents: 'none', userSelect: 'none' }}
-                >★</text>
+                >
+                  ★
+                </text>
                 <text
-                  y={-20} textAnchor="middle" fontSize={11}
-                  fill={color} fontWeight={600}
-                  stroke="#fff" strokeWidth={3} paintOrder="stroke"
+                  y={-20}
+                  textAnchor="middle"
+                  fontSize={11}
+                  fill={color}
+                  fontWeight={600}
+                  stroke="#fff"
+                  strokeWidth={3}
+                  paintOrder="stroke"
                   style={{ pointerEvents: 'none' }}
-                >{cp.name}</text>
+                >
+                  {cp.name}
+                </text>
               </g>
             );
           })}
         </svg>
 
         {/* ── Metrics ── */}
-        <div className="d-flex flex-wrap gap-3 mt-2" style={{ fontSize: '0.78rem' }}>
+        <div className="flex flex-wrap gap-3 mt-2" style={{ fontSize: '0.78rem' }}>
           {metrics.maxContestedCell && metrics.maxContestedCell.density > 0 && (
-            <Badge bg="danger" data-testid="contested-badge">
-              {t('heatmap.mostContested')}:{' '}
-              ({metrics.maxContestedCell.cx.toFixed(2)}, {metrics.maxContestedCell.cy.toFixed(2)})
+            <Badge variant="danger" data-testid="contested-badge">
+              {t('heatmap.mostContested')}: ({metrics.maxContestedCell.cx.toFixed(2)},{' '}
+              {metrics.maxContestedCell.cy.toFixed(2)})
             </Badge>
           )}
-          {metrics.fortressCandidate && metrics.fortressCell && metrics.fortressCell.density > 0 && (
-            <Badge
-              style={{ background: candColors[metrics.fortressCell.winnerIdx] }}
-              data-testid="fortress-badge"
-            >
-              {t('heatmap.fortress')}: {metrics.fortressCandidate}
-            </Badge>
-          )}
+          {metrics.fortressCandidate &&
+            metrics.fortressCell &&
+            metrics.fortressCell.density > 0 && (
+              <Badge
+                style={{ background: candColors[metrics.fortressCell.winnerIdx] }}
+                data-testid="fortress-badge"
+              >
+                {t('heatmap.fortress')}: {metrics.fortressCandidate}
+              </Badge>
+            )}
         </div>
 
         {/* Legend */}
-        <div className="d-flex flex-wrap gap-3 mt-1" style={{ fontSize: '0.74rem' }}>
+        <div className="flex flex-wrap gap-3 mt-1" style={{ fontSize: '0.74rem' }}>
           {candidates.map((c, i) => (
-            <span key={c.name} className="d-flex align-items-center gap-1">
-              <span style={{
-                display: 'inline-block', width: 12, height: 12,
-                background: candColors[i], borderRadius: 2,
-              }} />
+            <span key={c.name} className="flex items-center gap-1">
+              <span
+                style={{
+                  display: 'inline-block',
+                  width: 12,
+                  height: 12,
+                  background: candColors[i],
+                  borderRadius: 2,
+                }}
+              />
               {c.name}
             </span>
           ))}
-          <span className="text-muted">{t('heatmap.opacityHint')}</span>
+          <span className="text-muted-foreground">{t('heatmap.opacityHint')}</span>
         </div>
       </div>
     );
-  },
+  }
 );
 IdeologyHeatmap.displayName = 'IdeologyHeatmap';
 

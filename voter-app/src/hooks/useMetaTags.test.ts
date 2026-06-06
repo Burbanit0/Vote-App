@@ -24,21 +24,19 @@ describe('useMetaTags', () => {
       ({ title, description }) => useMetaTags({ title, description }),
       { initialProps: { title: 'A', description: 'First' } }
     );
-    expect(
-      document.querySelector('meta[property="og:description"]')?.getAttribute('content')
-    ).toBe('First');
+    expect(document.querySelector('meta[property="og:description"]')?.getAttribute('content')).toBe(
+      'First'
+    );
 
     rerender({ title: 'B', description: 'Second' });
-    expect(
-      document.querySelector('meta[property="og:description"]')?.getAttribute('content')
-    ).toBe('Second');
+    expect(document.querySelector('meta[property="og:description"]')?.getAttribute('content')).toBe(
+      'Second'
+    );
   });
 
   it('sets twitter:title and twitter:description meta tags', () => {
     renderHook(() => useMetaTags({ title: 'T', description: 'D' }));
-    expect(
-      document.querySelector('meta[name="twitter:title"]')?.getAttribute('content')
-    ).toBe('T');
+    expect(document.querySelector('meta[name="twitter:title"]')?.getAttribute('content')).toBe('T');
     expect(
       document.querySelector('meta[name="twitter:description"]')?.getAttribute('content')
     ).toBe('D');
@@ -48,9 +46,9 @@ describe('useMetaTags', () => {
     renderHook(() =>
       useMetaTags({ title: 'T', description: 'D', image: 'https://example.com/img.png' })
     );
-    expect(
-      document.querySelector('meta[property="og:image"]')?.getAttribute('content')
-    ).toBe('https://example.com/img.png');
+    expect(document.querySelector('meta[property="og:image"]')?.getAttribute('content')).toBe(
+      'https://example.com/img.png'
+    );
   });
 
   it('does not set og:image when image prop is omitted', () => {
@@ -59,9 +57,7 @@ describe('useMetaTags', () => {
   });
 
   it('removes meta tags on unmount', () => {
-    const { unmount } = renderHook(() =>
-      useMetaTags({ title: 'T', description: 'D' })
-    );
+    const { unmount } = renderHook(() => useMetaTags({ title: 'T', description: 'D' }));
 
     expect(document.querySelector('meta[property="og:title"]')).not.toBeNull();
 

@@ -37,12 +37,9 @@ export const galleryApi = {
   list: (params: { page?: number; per_page?: number; sort?: string; tag?: string } = {}) =>
     apiGet<GalleryPage>(ROOT, params),
 
-  featured: () =>
-    apiGet<GalleryScenario[]>(`${ROOT}/featured`),
+  featured: () => apiGet<GalleryScenario[]>(`${ROOT}/featured`),
 
-  get: (id: number) =>
-    apiGet<GalleryScenario>(`${ROOT}/${id}`),
+  get: (id: number) => apiGet<GalleryScenario>(`${ROOT}/${id}`),
 
-  create: (payload: CreateGalleryPayload) =>
-    apiPost<GalleryScenario>(ROOT, payload),
+  create: (payload: CreateGalleryPayload) => apiPost<GalleryScenario>(ROOT, payload),
 };

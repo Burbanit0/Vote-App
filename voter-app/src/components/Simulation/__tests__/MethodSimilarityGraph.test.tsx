@@ -34,10 +34,7 @@ function makeMatrix(methods: string[], agreement = 0.75): Record<string, Record<
 function renderGraph(props?: Partial<React.ComponentProps<typeof MethodSimilarityGraph>>) {
   return render(
     <MemoryRouter>
-      <MethodSimilarityGraph
-        agreementMatrix={makeMatrix(FIVE_METHODS)}
-        {...props}
-      />
+      <MethodSimilarityGraph agreementMatrix={makeMatrix(FIVE_METHODS)} {...props} />
     </MemoryRouter>
   );
 }
@@ -62,7 +59,7 @@ describe('partialResultsToMatrix', () => {
   it('computes agreement as overlap of winner distributions', () => {
     const pr = {
       plurality: { winner_distribution: { Alice: 0.7, Bob: 0.3 }, most_common_winner: 'Alice' },
-      borda:     { winner_distribution: { Alice: 0.7, Bob: 0.3 }, most_common_winner: 'Alice' },
+      borda: { winner_distribution: { Alice: 0.7, Bob: 0.3 }, most_common_winner: 'Alice' },
     };
     const mat = partialResultsToMatrix(pr);
     expect(mat['plurality']['borda']).toBeCloseTo(1.0, 1); // identical distributions
@@ -72,7 +69,7 @@ describe('partialResultsToMatrix', () => {
   it('gives 0 when distributions are disjoint', () => {
     const pr = {
       plurality: { winner_distribution: { Alice: 1.0 }, most_common_winner: 'Alice' },
-      borda:     { winner_distribution: { Bob:   1.0 }, most_common_winner: 'Bob'   },
+      borda: { winner_distribution: { Bob: 1.0 }, most_common_winner: 'Bob' },
     };
     const mat = partialResultsToMatrix(pr);
     expect(mat['plurality']['borda']).toBe(0);
@@ -126,7 +123,7 @@ describe('MethodSimilarityGraph', () => {
     const btn = screen.getByTestId('group-by-family-btn');
     expect(btn).toBeInTheDocument();
     fireEvent.click(btn);
-    expect(btn.className).toContain('btn-secondary');
+    expect(btn.className).toContain('text-secondary-foreground');
   });
 
   it.skip('shows hover tooltip when hovering a node', () => {

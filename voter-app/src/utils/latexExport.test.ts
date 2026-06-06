@@ -13,16 +13,34 @@ import { ScenarioConfig } from '../components/Simulation/simulationConstants';
 
 const METHOD_LABELS: Record<string, string> = {
   plurality: 'Pluralité',
-  borda:     'Borda',
-  schulze:   'Schulze',
+  borda: 'Borda',
+  schulze: 'Schulze',
 };
 
 const SINGLE_RESULT: SimulationCompareResult = {
   condorcet_winner: 'Alice',
   methods: {
-    plurality: { winner: 'Alice', bayesian_regret: 0.12, condorcet_consistent: true, majority_satisfaction: 0.7, strategic_vulnerability: 0.3 },
-    borda:     { winner: 'Bob',   bayesian_regret: 0.08, condorcet_consistent: false, majority_satisfaction: 0.8, strategic_vulnerability: 0.2 },
-    schulze:   { winner: 'Alice', bayesian_regret: 0.06, condorcet_consistent: true,  majority_satisfaction: 0.75, strategic_vulnerability: 0.15 },
+    plurality: {
+      winner: 'Alice',
+      bayesian_regret: 0.12,
+      condorcet_consistent: true,
+      majority_satisfaction: 0.7,
+      strategic_vulnerability: 0.3,
+    },
+    borda: {
+      winner: 'Bob',
+      bayesian_regret: 0.08,
+      condorcet_consistent: false,
+      majority_satisfaction: 0.8,
+      strategic_vulnerability: 0.2,
+    },
+    schulze: {
+      winner: 'Alice',
+      bayesian_regret: 0.06,
+      condorcet_consistent: true,
+      majority_satisfaction: 0.75,
+      strategic_vulnerability: 0.15,
+    },
   },
 };
 
@@ -32,17 +50,53 @@ const MULTI_RESULTS: SimulationCompareResult[] = [
   {
     condorcet_winner: 'Alice',
     methods: {
-      plurality: { winner: 'Alice', bayesian_regret: 0.11, condorcet_consistent: true, majority_satisfaction: 0.72, strategic_vulnerability: 0.28 },
-      borda:     { winner: 'Alice', bayesian_regret: 0.07, condorcet_consistent: true, majority_satisfaction: 0.82, strategic_vulnerability: 0.18 },
-      schulze:   { winner: 'Alice', bayesian_regret: 0.05, condorcet_consistent: true, majority_satisfaction: 0.77, strategic_vulnerability: 0.13 },
+      plurality: {
+        winner: 'Alice',
+        bayesian_regret: 0.11,
+        condorcet_consistent: true,
+        majority_satisfaction: 0.72,
+        strategic_vulnerability: 0.28,
+      },
+      borda: {
+        winner: 'Alice',
+        bayesian_regret: 0.07,
+        condorcet_consistent: true,
+        majority_satisfaction: 0.82,
+        strategic_vulnerability: 0.18,
+      },
+      schulze: {
+        winner: 'Alice',
+        bayesian_regret: 0.05,
+        condorcet_consistent: true,
+        majority_satisfaction: 0.77,
+        strategic_vulnerability: 0.13,
+      },
     },
   },
   {
     condorcet_winner: null,
     methods: {
-      plurality: { winner: 'Bob',   bayesian_regret: 0.14, condorcet_consistent: false, majority_satisfaction: 0.65, strategic_vulnerability: 0.35 },
-      borda:     { winner: 'Alice', bayesian_regret: 0.09, condorcet_consistent: null,  majority_satisfaction: 0.78, strategic_vulnerability: 0.22 },
-      schulze:   { winner: 'Alice', bayesian_regret: 0.07, condorcet_consistent: null,  majority_satisfaction: 0.73, strategic_vulnerability: 0.17 },
+      plurality: {
+        winner: 'Bob',
+        bayesian_regret: 0.14,
+        condorcet_consistent: false,
+        majority_satisfaction: 0.65,
+        strategic_vulnerability: 0.35,
+      },
+      borda: {
+        winner: 'Alice',
+        bayesian_regret: 0.09,
+        condorcet_consistent: null,
+        majority_satisfaction: 0.78,
+        strategic_vulnerability: 0.22,
+      },
+      schulze: {
+        winner: 'Alice',
+        bayesian_regret: 0.07,
+        condorcet_consistent: null,
+        majority_satisfaction: 0.73,
+        strategic_vulnerability: 0.17,
+      },
     },
   },
 ];
@@ -54,11 +108,11 @@ const CONFIG: ScenarioConfig = {
 };
 
 const PARAMS: SimulationExportParams = {
-  config:         CONFIG,
+  config: CONFIG,
   numSimulations: 10,
-  methodCount:    3,
-  date:           '2026-05-15',
-  shareUrl:       'https://example.com/sim?cfg=abc123',
+  methodCount: 3,
+  date: '2026-05-15',
+  shareUrl: 'https://example.com/sim?cfg=abc123',
 };
 
 // ── escapeLaTeX ───────────────────────────────────────────────────────────────
@@ -131,19 +185,31 @@ describe('generateLatexTable', () => {
     const result: SimulationCompareResult = {
       condorcet_winner: null,
       methods: {
-        my_method: { winner: 'Alice', bayesian_regret: 0.1, condorcet_consistent: null, majority_satisfaction: null, strategic_vulnerability: null },
+        my_method: {
+          winner: 'Alice',
+          bayesian_regret: 0.1,
+          condorcet_consistent: null,
+          majority_satisfaction: null,
+          strategic_vulnerability: null,
+        },
       },
     };
     const out = generateLatexTable([result], labelsWithUnderscore);
     expect(out).toContain('\\_');
-    expect(out).not.toMatch(/(?<!\\)_/);  // no unescaped underscore
+    expect(out).not.toMatch(/(?<!\\)_/); // no unescaped underscore
   });
 
   it('escapes ampersands in candidate names', () => {
     const result: SimulationCompareResult = {
       condorcet_winner: null,
       methods: {
-        plurality: { winner: 'A & B', bayesian_regret: null, condorcet_consistent: null, majority_satisfaction: null, strategic_vulnerability: null },
+        plurality: {
+          winner: 'A & B',
+          bayesian_regret: null,
+          condorcet_consistent: null,
+          majority_satisfaction: null,
+          strategic_vulnerability: null,
+        },
       },
     };
     const out = generateLatexTable([result], { plurality: 'Pluralité' });

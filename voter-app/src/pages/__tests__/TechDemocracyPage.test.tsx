@@ -9,7 +9,9 @@ vi.mock('../../api/client', () => ({
   apiClient: { GET: vi.fn(), POST: vi.fn(), PUT: vi.fn(), DELETE: vi.fn(), PATCH: vi.fn() },
   getAccessToken: vi.fn(() => null),
 }));
-const { apiClient } = (await import('../../api/client')) as unknown as { apiClient: { POST: jest.Mock } };
+const { apiClient } = (await import('../../api/client')) as unknown as {
+  apiClient: { POST: jest.Mock };
+};
 
 // ── Fixtures ──────────────────────────────────────────────────────────────────
 
@@ -21,13 +23,13 @@ function makeE2EData() {
       encrypted_ballots: Array.from({ length: 5 }, (_, i) => ({
         voter_id: i + 1,
         encrypted: `[AB${i}CD${i}EF…]`,
-        code:      `A${i}B-C${i}D-E${i}F`,
+        code: `A${i}B-C${i}D-E${i}F`,
       })),
       aggregate_result: { Alice: 4, Bob: 3, Carol: 3 },
       verification_demonstration: {
         sample_voter_id: 1,
-        sample_code:     'A0B-C0D-E0F',
-        board_excerpt:   ['A0B-C0D-E0F', 'A1B-C1D-E1F', 'A2B-C2D-E2F'],
+        sample_code: 'A0B-C0D-E0F',
+        board_excerpt: ['A0B-C0D-E0F', 'A1B-C1D-E1F', 'A2B-C2D-E2F'],
       },
       privacy_guarantee: 'Test guarantee.',
     },
@@ -38,7 +40,8 @@ function makeE2EData() {
 function makePolisData(numClusters = 2) {
   const statements = ['Stmt A', 'Stmt B', 'Stmt C'];
   const clusters = Array.from({ length: numClusters }, (_, i) => ({
-    id: i, size: 50,
+    id: i,
+    size: 50,
     votes: Object.fromEntries(statements.map((s) => [s, i === 0 ? 0.85 : 0.25])),
   }));
   return {
@@ -47,7 +50,9 @@ function makePolisData(numClusters = 2) {
       consensus_statements: [{ statement: 'Stmt A', approval_rate: 0.85 }],
       polarizing_statements: [{ statement: 'Stmt B', cluster_delta: 0.6 }],
       participant_positions: Array.from({ length: 10 }, (_, i) => ({
-        id: i, x_pca: (i - 5) * 0.2, y_pca: (i - 5) * 0.1,
+        id: i,
+        x_pca: (i - 5) * 0.2,
+        y_pca: (i - 5) * 0.1,
         cluster_id: i % numClusters,
       })),
       num_clusters: numClusters,
@@ -72,7 +77,9 @@ beforeEach(() => {
   vi.useFakeTimers();
 });
 
-afterEach(() => { vi.useRealTimers(); });
+afterEach(() => {
+  vi.useRealTimers();
+});
 
 // ── Tests ─────────────────────────────────────────────────────────────────────
 
@@ -125,7 +132,7 @@ describe('TechDemocracyPage', () => {
     await waitFor(() => expect(apiClient.POST).toHaveBeenCalledTimes(1));
     expect(apiClient.POST).toHaveBeenCalledWith(
       expect.stringMatching(/\/api\/(v2\/)?tech\/e2e-demo/),
-      expect.any(Object),
+      expect.any(Object)
     );
     vi.runAllTimers();
   });
@@ -182,7 +189,7 @@ describe('TechDemocracyPage', () => {
     await waitFor(() => expect(apiClient.POST).toHaveBeenCalledTimes(1));
     expect(apiClient.POST).toHaveBeenCalledWith(
       expect.stringMatching(/\/api\/(v2\/)?tech\/polis-simulation/),
-      expect.any(Object),
+      expect.any(Object)
     );
     vi.runAllTimers();
   });

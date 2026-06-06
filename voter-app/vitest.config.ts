@@ -23,6 +23,8 @@ export default defineConfig({
     // they share ONE module instance (else the Router context mismatches).
     dedupe: ['react', 'react-dom', 'react-router', 'react-router-dom'],
     alias: [
+      // shadcn `@/` → src (must precede the regex aliases below).
+      { find: /^@\//, replacement: r('./src/') },
       // The app mixes `react-router` (65 files) and `react-router-dom` (re-export,
       // 9 files) imports. Under Vitest those resolve to two module instances →
       // two Router contexts → "useNavigate must be inside a Router". react-router-dom@7

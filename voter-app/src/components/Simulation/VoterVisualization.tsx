@@ -11,7 +11,10 @@ import {
   Cell,
   ResponsiveContainer,
 } from 'recharts';
-import { Container, Row, Col, Form, Button, Card } from 'react-bootstrap';
+import { Button } from '@/components/ui/button';
+import { Card, CardBody, CardHeader, CardTitle } from '@/components/ui/card';
+import { Control } from '@/components/ui/form-controls';
+import { Col, Container, Row } from '@/components/ui/grid';
 import { useTranslation } from 'react-i18next';
 import { simulateVoters } from '../../services';
 import IssuePrioritiesVisualization from './IssuePrioritiesVisualization';
@@ -299,13 +302,13 @@ const VoterVisualization: React.FC = () => {
       <h1 className="text-center mb-4">{t('simulation.voterViz.pageTitle')}</h1>
 
       <Card className="mb-4">
-        <Card.Body>
-          <Form.Group as={Row} className="align-items-center">
-            <Form.Label column sm="2">
-              {t('simulation.voterViz.numVoters')}
-            </Form.Label>
+        <CardBody>
+          <Row className="items-center">
+            <Col sm="2">
+              <label className="mb-1 inline-block">{t('simulation.voterViz.numVoters')}</label>
+            </Col>
             <Col sm="4">
-              <Form.Control
+              <Control
                 type="number"
                 value={numVoters}
                 onChange={(e) => setNumVoters(parseInt(e.target.value) || 1000)}
@@ -318,17 +321,17 @@ const VoterVisualization: React.FC = () => {
                 {loading ? t('simulation.voterViz.loading') : t('simulation.voterViz.update')}
               </Button>
             </Col>
-          </Form.Group>
-        </Card.Body>
+          </Row>
+        </CardBody>
       </Card>
 
       <Row className="mb-4">
         <Col md={6}>
           <Card>
-            <Card.Header>
-              <Card.Title>{t('simulation.voterViz.ageDist')}</Card.Title>
-            </Card.Header>
-            <Card.Body>
+            <CardHeader className="block space-y-0 border-b border-border px-4 py-2">
+              <CardTitle>{t('simulation.voterViz.ageDist')}</CardTitle>
+            </CardHeader>
+            <CardBody>
               <div style={{ height: '300px' }}>
                 <ResponsiveContainer width="100%" height="100%">
                   <BarChart data={ageData()}>
@@ -340,16 +343,16 @@ const VoterVisualization: React.FC = () => {
                   </BarChart>
                 </ResponsiveContainer>
               </div>
-            </Card.Body>
+            </CardBody>
           </Card>
         </Col>
 
         <Col md={6}>
           <Card>
-            <Card.Header>
-              <Card.Title>{t('simulation.voterViz.genderDist')}</Card.Title>
-            </Card.Header>
-            <Card.Body>
+            <CardHeader className="block space-y-0 border-b border-border px-4 py-2">
+              <CardTitle>{t('simulation.voterViz.genderDist')}</CardTitle>
+            </CardHeader>
+            <CardBody>
               <div style={{ height: '300px' }}>
                 <ResponsiveContainer width="100%" height="100%">
                   <PieChart>
@@ -372,7 +375,7 @@ const VoterVisualization: React.FC = () => {
                   </PieChart>
                 </ResponsiveContainer>
               </div>
-            </Card.Body>
+            </CardBody>
           </Card>
         </Col>
       </Row>
@@ -380,10 +383,10 @@ const VoterVisualization: React.FC = () => {
       <Row className="mb-4">
         <Col md={6}>
           <Card>
-            <Card.Header>
-              <Card.Title>{t('simulation.voterViz.regionDist')}</Card.Title>
-            </Card.Header>
-            <Card.Body>
+            <CardHeader className="block space-y-0 border-b border-border px-4 py-2">
+              <CardTitle>{t('simulation.voterViz.regionDist')}</CardTitle>
+            </CardHeader>
+            <CardBody>
               <div style={{ height: '300px' }}>
                 <ResponsiveContainer width="100%" height="100%">
                   <PieChart>
@@ -406,16 +409,16 @@ const VoterVisualization: React.FC = () => {
                   </PieChart>
                 </ResponsiveContainer>
               </div>
-            </Card.Body>
+            </CardBody>
           </Card>
         </Col>
 
         <Col md={6}>
           <Card>
-            <Card.Header>
-              <Card.Title>{t('simulation.voterViz.incomeDist')}</Card.Title>
-            </Card.Header>
-            <Card.Body>
+            <CardHeader className="block space-y-0 border-b border-border px-4 py-2">
+              <CardTitle>{t('simulation.voterViz.incomeDist')}</CardTitle>
+            </CardHeader>
+            <CardBody>
               <div style={{ height: '300px' }}>
                 <ResponsiveContainer width="100%" height="100%">
                   <PieChart>
@@ -438,7 +441,7 @@ const VoterVisualization: React.FC = () => {
                   </PieChart>
                 </ResponsiveContainer>
               </div>
-            </Card.Body>
+            </CardBody>
           </Card>
         </Col>
       </Row>
@@ -446,10 +449,10 @@ const VoterVisualization: React.FC = () => {
       <Row className="mb-4">
         <Col md={6}>
           <Card>
-            <Card.Header>
-              <Card.Title>{t('simulation.voterViz.politicalLean')}</Card.Title>
-            </Card.Header>
-            <Card.Body>
+            <CardHeader className="block space-y-0 border-b border-border px-4 py-2">
+              <CardTitle>{t('simulation.voterViz.politicalLean')}</CardTitle>
+            </CardHeader>
+            <CardBody>
               <div style={{ height: '300px' }}>
                 <ResponsiveContainer width="100%" height="100%">
                   <BarChart data={politicalLeanData()}>
@@ -461,16 +464,16 @@ const VoterVisualization: React.FC = () => {
                   </BarChart>
                 </ResponsiveContainer>
               </div>
-            </Card.Body>
+            </CardBody>
           </Card>
         </Col>
 
         <Col md={6}>
           <Card>
-            <Card.Header>
-              <Card.Title>{t('simulation.voterViz.partyPref')}</Card.Title>
-            </Card.Header>
-            <Card.Body>
+            <CardHeader className="block space-y-0 border-b border-border px-4 py-2">
+              <CardTitle>{t('simulation.voterViz.partyPref')}</CardTitle>
+            </CardHeader>
+            <CardBody>
               <div style={{ height: '300px' }}>
                 <ResponsiveContainer width="100%" height="100%">
                   <PieChart>
@@ -493,17 +496,17 @@ const VoterVisualization: React.FC = () => {
                   </PieChart>
                 </ResponsiveContainer>
               </div>
-            </Card.Body>
+            </CardBody>
           </Card>
         </Col>
       </Row>
       <Row className="mb-4">
         <Col md={6}>
           <Card>
-            <Card.Header>
-              <Card.Title>{t('simulation.voterViz.educationDist')}</Card.Title>
-            </Card.Header>
-            <Card.Body>
+            <CardHeader className="block space-y-0 border-b border-border px-4 py-2">
+              <CardTitle>{t('simulation.voterViz.educationDist')}</CardTitle>
+            </CardHeader>
+            <CardBody>
               <div style={{ height: '300px' }}>
                 <ResponsiveContainer width="100%" height="100%">
                   <PieChart>
@@ -526,16 +529,16 @@ const VoterVisualization: React.FC = () => {
                   </PieChart>
                 </ResponsiveContainer>
               </div>
-            </Card.Body>
+            </CardBody>
           </Card>
         </Col>
 
         <Col md={6}>
           <Card>
-            <Card.Header>
-              <Card.Title>{t('simulation.voterViz.jobStatus')}</Card.Title>
-            </Card.Header>
-            <Card.Body>
+            <CardHeader className="block space-y-0 border-b border-border px-4 py-2">
+              <CardTitle>{t('simulation.voterViz.jobStatus')}</CardTitle>
+            </CardHeader>
+            <CardBody>
               <div style={{ height: '300px' }}>
                 <ResponsiveContainer width="100%" height="100%">
                   <PieChart>
@@ -557,7 +560,7 @@ const VoterVisualization: React.FC = () => {
                   </PieChart>
                 </ResponsiveContainer>
               </div>
-            </Card.Body>
+            </CardBody>
           </Card>
         </Col>
       </Row>
@@ -565,10 +568,10 @@ const VoterVisualization: React.FC = () => {
       <Row className="mb-4">
         <Col md={6}>
           <Card>
-            <Card.Header>
-              <Card.Title>{t('simulation.voterViz.familyStatus')}</Card.Title>
-            </Card.Header>
-            <Card.Body>
+            <CardHeader className="block space-y-0 border-b border-border px-4 py-2">
+              <CardTitle>{t('simulation.voterViz.familyStatus')}</CardTitle>
+            </CardHeader>
+            <CardBody>
               <div style={{ height: '300px' }}>
                 <ResponsiveContainer width="100%" height="100%">
                   <PieChart>
@@ -594,15 +597,15 @@ const VoterVisualization: React.FC = () => {
                   </PieChart>
                 </ResponsiveContainer>
               </div>
-            </Card.Body>
+            </CardBody>
           </Card>
         </Col>
         <Col md={6}>
           <Card>
-            <Card.Header>
-              <Card.Title>{t('simulation.voterViz.ethnicityImmigration')}</Card.Title>
-            </Card.Header>
-            <Card.Body>
+            <CardHeader className="block space-y-0 border-b border-border px-4 py-2">
+              <CardTitle>{t('simulation.voterViz.ethnicityImmigration')}</CardTitle>
+            </CardHeader>
+            <CardBody>
               <div style={{ height: '300px' }}>
                 <ResponsiveContainer width="100%" height="100%">
                   <BarChart data={ethnicityData()}>
@@ -622,17 +625,17 @@ const VoterVisualization: React.FC = () => {
                   </BarChart>
                 </ResponsiveContainer>
               </div>
-            </Card.Body>
+            </CardBody>
           </Card>
         </Col>
       </Row>
       <Row className="mb-4">
         <Col md={6}>
           <Card>
-            <Card.Header>
-              <Card.Title>{t('simulation.voterViz.religion')}</Card.Title>
-            </Card.Header>
-            <Card.Body>
+            <CardHeader className="block space-y-0 border-b border-border px-4 py-2">
+              <CardTitle>{t('simulation.voterViz.religion')}</CardTitle>
+            </CardHeader>
+            <CardBody>
               <div style={{ height: '300px' }}>
                 <ResponsiveContainer width="100%" height="100%">
                   <BarChart data={religionData()}>
@@ -652,17 +655,17 @@ const VoterVisualization: React.FC = () => {
                   </BarChart>
                 </ResponsiveContainer>
               </div>
-            </Card.Body>
+            </CardBody>
           </Card>
         </Col>
       </Row>
       <Row className="mb-4">
         <Col md={12}>
           <Card>
-            <Card.Header>
-              <Card.Title>{t('simulation.voterViz.employmentXFamily')}</Card.Title>
-            </Card.Header>
-            <Card.Body>
+            <CardHeader className="block space-y-0 border-b border-border px-4 py-2">
+              <CardTitle>{t('simulation.voterViz.employmentXFamily')}</CardTitle>
+            </CardHeader>
+            <CardBody>
               <div style={{ height: '400px' }}>
                 <ResponsiveContainer width="100%" height="100%">
                   <BarChart
@@ -685,7 +688,7 @@ const VoterVisualization: React.FC = () => {
                   </BarChart>
                 </ResponsiveContainer>
               </div>
-            </Card.Body>
+            </CardBody>
           </Card>
         </Col>
       </Row>
@@ -693,10 +696,10 @@ const VoterVisualization: React.FC = () => {
       <Row className="mb-4">
         <Col md={12}>
           <Card>
-            <Card.Header>
-              <Card.Title>{t('simulation.voterViz.ethnicityXReligion')}</Card.Title>
-            </Card.Header>
-            <Card.Body>
+            <CardHeader className="block space-y-0 border-b border-border px-4 py-2">
+              <CardTitle>{t('simulation.voterViz.ethnicityXReligion')}</CardTitle>
+            </CardHeader>
+            <CardBody>
               <div style={{ height: '400px' }}>
                 <ResponsiveContainer width="100%" height="100%">
                   <BarChart
@@ -719,7 +722,7 @@ const VoterVisualization: React.FC = () => {
                   </BarChart>
                 </ResponsiveContainer>
               </div>
-            </Card.Body>
+            </CardBody>
           </Card>
         </Col>
       </Row>
@@ -728,10 +731,10 @@ const VoterVisualization: React.FC = () => {
       <Row className="mb-4">
         <Col md={12}>
           <Card>
-            <Card.Header>
-              <Card.Title>{t('simulation.voterViz.resumeDemographic')}</Card.Title>
-            </Card.Header>
-            <Card.Body>
+            <CardHeader className="block space-y-0 border-b border-border px-4 py-2">
+              <CardTitle>{t('simulation.voterViz.resumeDemographic')}</CardTitle>
+            </CardHeader>
+            <CardBody>
               <div className="table-responsive">
                 <table className="table table-striped table-bordered">
                   <thead>
@@ -764,7 +767,7 @@ const VoterVisualization: React.FC = () => {
                                   {item ? (
                                     <>
                                       {item.count}{' '}
-                                      <small className="text-muted">
+                                      <small className="text-muted-foreground">
                                         ({formatPercentage(item.count, voters.length)})
                                       </small>
                                     </>
@@ -777,7 +780,7 @@ const VoterVisualization: React.FC = () => {
                           )}
                           <td>
                             {total}{' '}
-                            <small className="text-muted">
+                            <small className="text-muted-foreground">
                               ({formatPercentage(total, voters.length)})
                             </small>
                           </td>
@@ -787,7 +790,7 @@ const VoterVisualization: React.FC = () => {
                   </tbody>
                 </table>
               </div>
-            </Card.Body>
+            </CardBody>
           </Card>
         </Col>
       </Row>

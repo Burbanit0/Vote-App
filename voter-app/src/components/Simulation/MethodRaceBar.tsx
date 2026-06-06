@@ -12,25 +12,34 @@
  */
 import React, { useMemo } from 'react';
 import { useTranslation } from 'react-i18next';
-import { Badge } from 'react-bootstrap';
+import { Badge } from '@/components/ui/badge';
 import { MethodStreamStats } from '../../hooks/useMonteCarloStream';
 
 // ── Constants ─────────────────────────────────────────────────────────────────
 
-const ROW_H          = 36;
-const LABEL_W        = 130;  // left label column
-const RIGHT_LABEL_W  = 120;  // right label column
-const H_PADDING      = 12;
-const SVG_INNER_W    = 480;  // bar area width
-const TOTAL_W        = LABEL_W + SVG_INNER_W + RIGHT_LABEL_W + H_PADDING * 2;
+const ROW_H = 36;
+const LABEL_W = 130; // left label column
+const RIGHT_LABEL_W = 120; // right label column
+const H_PADDING = 12;
+const SVG_INNER_W = 480; // bar area width
+const TOTAL_W = LABEL_W + SVG_INNER_W + RIGHT_LABEL_W + H_PADDING * 2;
 const STABILITY_LINE = 0.5;
 const BADGE_THRESHOLD = 0.8;
 
 // Candidate colour palette (matches RACE_COLORS in MonteCarloRaceChart)
 const CAND_COLORS = [
-  '#1a56cc', '#b35c00', '#b71c1c', '#006957',
-  '#1b5e20', '#544200', '#7B2D8B', '#005f73',
-  '#b35c00', '#2A9D8F', '#9C3A00', '#264653',
+  '#1a56cc',
+  '#b35c00',
+  '#b71c1c',
+  '#006957',
+  '#1b5e20',
+  '#544200',
+  '#7B2D8B',
+  '#005f73',
+  '#b35c00',
+  '#2A9D8F',
+  '#9C3A00',
+  '#264653',
 ];
 
 function candidateColor(name: string, allCandidates: string[]): string {
@@ -41,19 +50,17 @@ function candidateColor(name: string, allCandidates: string[]): string {
 // ── Types ─────────────────────────────────────────────────────────────────────
 
 export interface MethodRow {
-  method:      string;
-  winner:      string | null;
-  stability:   number;   // [0, 1]
-  rank:        number;   // 0 = most stable
+  method: string;
+  winner: string | null;
+  stability: number; // [0, 1]
+  rank: number; // 0 = most stable
 }
 
 /** Pure sort function — exported for testing. */
-export function sortMethods(
-  partialResults: Record<string, MethodStreamStats>,
-): MethodRow[] {
+export function sortMethods(partialResults: Record<string, MethodStreamStats>): MethodRow[] {
   return Object.entries(partialResults)
     .map(([method, stats]) => {
-      const winner    = stats.most_common_winner;
+      const winner = stats.most_common_winner;
       const stability = winner ? (stats.winner_distribution[winner] ?? 0) : 0;
       return { method, winner, stability, rank: 0 };
     })
@@ -65,7 +72,7 @@ export function sortMethods(
 
 interface Props {
   partialResults: Record<string, MethodStreamStats>;
-  isRunning:      boolean;
+  isRunning: boolean;
 }
 
 const MethodRaceBar: React.FC<Props> = ({ partialResults, isRunning }) => {
@@ -83,14 +90,11 @@ const MethodRaceBar: React.FC<Props> = ({ partialResults, isRunning }) => {
     return [...names].sort();
   }, [partialResults]);
 
-  const svgH     = Math.max(40, rows.length * ROW_H + 20);
-  const barMaxW  = SVG_INNER_W - 8;
+  const svgH = Math.max(40, rows.length * ROW_H + 20);
+  const barMaxW = SVG_INNER_W - 8;
 
   // Methods that crossed the badge threshold
-  const stableLeaders = useMemo(
-    () => rows.filter((r) => r.stability >= BADGE_THRESHOLD),
-    [rows],
-  );
+  const stableLeaders = useMemo(() => rows.filter((r) => r.stability >= BADGE_THRESHOLD), [rows]);
 
   if (rows.length === 0) return null;
 
@@ -98,11 +102,14 @@ const MethodRaceBar: React.FC<Props> = ({ partialResults, isRunning }) => {
     <div>
       {/* Header badges */}
       {!isRunning && stableLeaders.length > 0 && (
-        <div className="d-flex flex-wrap gap-2 mb-2">
+        <div className="flex flex-wrap gap-2 mb-2">
           {stableLeaders.map((r) => (
             <Badge
               key={r.method}
-              style={{ background: candidateColor(r.winner ?? '', allCandidates), fontSize: '0.72rem' }}
+              style={{
+                background: candidateColor(r.winner ?? '', allCandidates),
+                fontSize: '0.72rem',
+              }}
               data-testid={`stable-badge-${r.method}`}
             >
               🏆 {r.method}: {r.winner} {Math.round(r.stability * 100)}%
@@ -159,9 +166,9 @@ const MethodRaceBar: React.FC<Props> = ({ partialResults, isRunning }) => {
 
         {/* Method rows — keyed by method name so CSS transitions animate correctly */}
         {rows.map((row) => {
-          const barW  = Math.max(0, row.stability * barMaxW);
+          const barW = Math.max(0, row.stability * barMaxW);
           const color = candidateColor(row.winner ?? '', allCandidates);
-          const y     = row.rank * ROW_H + 16;
+          const y = row.rank * ROW_H + 16;
 
           return (
             <g
@@ -170,7 +177,7 @@ const MethodRaceBar: React.FC<Props> = ({ partialResults, isRunning }) => {
               data-method={row.method}
               data-stability={row.stability.toFixed(4)}
               style={{
-                transform:  `translateY(${y}px)`,
+                transform: `translateY(${y}px)`,
                 transition: 'transform 0.4s ease',
               }}
             >
@@ -241,7 +248,7 @@ const MethodRaceBar: React.FC<Props> = ({ partialResults, isRunning }) => {
       </svg>
 
       {/* Legend */}
-      <div className="d-flex flex-wrap gap-3 mt-1" style={{ fontSize: '0.72rem', color: '#6c757d' }}>
+      <div className="flex flex-wrap gap-3 mt-1" style={{ fontSize: '0.72rem', color: '#6c757d' }}>
         <span>
           <span style={{ color: '#dc3545' }}>—— </span>
           {t('methodRace.majority50')}
@@ -250,7 +257,7 @@ const MethodRaceBar: React.FC<Props> = ({ partialResults, isRunning }) => {
           <span style={{ color: '#198754' }}>·· </span>
           {t('methodRace.stable80')}
         </span>
-        {isRunning && <span className="text-muted">{t('methodRace.liveHint')}</span>}
+        {isRunning && <span className="text-muted-foreground">{t('methodRace.liveHint')}</span>}
       </div>
     </div>
   );

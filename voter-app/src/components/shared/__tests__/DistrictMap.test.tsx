@@ -10,33 +10,35 @@ vi.mock('../../../api/client', () => ({
   apiClient: { GET: vi.fn(), POST: vi.fn(), PUT: vi.fn(), DELETE: vi.fn(), PATCH: vi.fn() },
   getAccessToken: vi.fn(() => null),
 }));
-const { apiClient } = (await import('../../../api/client')) as unknown as { apiClient: { POST: jest.Mock } };
+const { apiClient } = (await import('../../../api/client')) as unknown as {
+  apiClient: { POST: jest.Mock };
+};
 
 const makeData = (numDistricts = 10) => ({
   data: {
     num_districts: numDistricts,
     districts: Array.from({ length: numDistricts }, (_, i) => ({
-      id:              i,
+      id: i,
       ideology_center: (i - numDistricts / 2) * 0.1,
-      winner_fptp:     i < numDistricts * 0.6 ? 'Alice' : 'Bob',
-      vote_shares:     { Alice: 0.55, Bob: 0.31, Carol: 0.14 },
+      winner_fptp: i < numDistricts * 0.6 ? 'Alice' : 'Bob',
+      vote_shares: { Alice: 0.55, Bob: 0.31, Carol: 0.14 },
     })),
-    parliament_fptp:         { Alice: 6, Bob: 4, Carol: 0 },
+    parliament_fptp: { Alice: 6, Bob: 4, Carol: 0 },
     parliament_proportional: { Alice: 5, Bob: 3, Carol: 2 },
-    national_vote_share:     { Alice: 0.55, Bob: 0.31, Carol: 0.14 },
-    distortion:              0.14,
+    national_vote_share: { Alice: 0.55, Bob: 0.31, Carol: 0.14 },
+    distortion: 0.14,
     condorcet_winner_national: 'Alice',
-    fptp_winner:             'Alice',
-    proportional_winner:     'Alice',
+    fptp_winner: 'Alice',
+    proportional_winner: 'Alice',
   },
   error: undefined,
 });
 
 const makeDivergentData = () => {
   const d = makeData(10);
-  d.data.fptp_winner         = 'Alice';
+  d.data.fptp_winner = 'Alice';
   d.data.proportional_winner = 'Bob';
-  d.data.distortion          = 0.22;
+  d.data.distortion = 0.22;
   return d;
 };
 
@@ -127,7 +129,7 @@ describe('DistrictMap', () => {
     fireEvent.click(screen.getByRole('button', { name: /district/i }));
     await waitFor(() => {
       // Warning alert appears when winners differ
-      const alerts = document.querySelectorAll('.alert-warning');
+      const alerts = document.querySelectorAll('.bg-amber-100');
       expect(alerts.length).toBeGreaterThan(0);
     });
     vi.runAllTimers();

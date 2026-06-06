@@ -10,32 +10,36 @@ vi.mock('../../../api/client', () => ({
   apiClient: { GET: vi.fn(), POST: vi.fn(), PUT: vi.fn(), DELETE: vi.fn(), PATCH: vi.fn() },
   getAccessToken: vi.fn(() => null),
 }));
-const { apiClient } = (await import('../../../api/client')) as unknown as { apiClient: { POST: jest.Mock } };
+const { apiClient } = (await import('../../../api/client')) as unknown as {
+  apiClient: { POST: jest.Mock };
+};
 
 vi.mock('recharts', () => {
   const React = require('react');
   return {
-    LineChart:           ({ children }: any) => <div data-testid="line-chart">{children}</div>,
-    Line:                () => null,
-    XAxis:               () => null,
-    YAxis:               () => null,
-    Tooltip:             () => null,
-    Legend:              () => null,
-    ReferenceLine:       () => null,
-    ResponsiveContainer: ({ children }: any) => <div style={{ width: 400, height: 300 }}>{children}</div>,
+    LineChart: ({ children }: any) => <div data-testid="line-chart">{children}</div>,
+    Line: () => null,
+    XAxis: () => null,
+    YAxis: () => null,
+    Tooltip: () => null,
+    Legend: () => null,
+    ReferenceLine: () => null,
+    ResponsiveContainer: ({ children }: any) => (
+      <div style={{ width: 400, height: 300 }}>{children}</div>
+    ),
   };
 });
 
 const makeRound = (rnd: number, winner: string, tacticalPct = 0): any => ({
-  round:                rnd,
-  vote_shares:          { Alice: 0.45, Bob: 0.35, Carol: 0.20 },
-  sincere_shares:       { Alice: 0.40, Bob: 0.38, Carol: 0.22 },
+  round: rnd,
+  vote_shares: { Alice: 0.45, Bob: 0.35, Carol: 0.2 },
+  sincere_shares: { Alice: 0.4, Bob: 0.38, Carol: 0.22 },
   winner,
-  sincere_winner:       'Alice',
+  sincere_winner: 'Alice',
   strategic_voters_pct: tacticalPct,
   voter_snapshot: [
     { id: 0, x: -0.3, y: 0.1, sincere_vote: 'Carol', effective_vote: 'Alice', tactical: true },
-    { id: 1, x:  0.4, y: -0.1, sincere_vote: 'Bob',   effective_vote: 'Bob',   tactical: false },
+    { id: 1, x: 0.4, y: -0.1, sincere_vote: 'Bob', effective_vote: 'Bob', tactical: false },
   ],
 });
 
@@ -47,15 +51,15 @@ const makeData = (winnerChanged = false) => ({
       makeRound(2, winnerChanged ? 'Bob' : 'Alice', 0.15),
       makeRound(3, winnerChanged ? 'Bob' : 'Alice', 0.14),
     ],
-    converged:          true,
-    convergence_round:  2,
-    final_winner:       winnerChanged ? 'Bob' : 'Alice',
-    sincere_winner:     'Alice',
-    strategic_drift:    winnerChanged ? 0.22 : 0.0,
+    converged: true,
+    convergence_round: 2,
+    final_winner: winnerChanged ? 'Bob' : 'Alice',
+    sincere_winner: 'Alice',
+    strategic_drift: winnerChanged ? 0.22 : 0.0,
     candidates: [
       { name: 'Alice', x: -0.5 },
-      { name: 'Bob',   x:  0.5 },
-      { name: 'Carol', x:  0.0 },
+      { name: 'Bob', x: 0.5 },
+      { name: 'Carol', x: 0.0 },
     ],
   },
   error: undefined,
@@ -112,7 +116,9 @@ describe('AdaptiveVotingPanel', () => {
     await waitFor(() => {
       expect(screen.getByTestId('race-chart')).toBeInTheDocument();
     });
-    act(() => { vi.runAllTimers(); });
+    act(() => {
+      vi.runAllTimers();
+    });
   });
 
   it('shows convergence badge', async () => {
@@ -122,7 +128,9 @@ describe('AdaptiveVotingPanel', () => {
     await waitFor(() => {
       expect(screen.getByTestId('convergence-badge')).toBeInTheDocument();
     });
-    act(() => { vi.runAllTimers(); });
+    act(() => {
+      vi.runAllTimers();
+    });
   });
 
   it('shows final winner badge', async () => {
@@ -132,7 +140,9 @@ describe('AdaptiveVotingPanel', () => {
     await waitFor(() => {
       expect(screen.getByTestId('final-winner-badge')).toBeInTheDocument();
     });
-    act(() => { vi.runAllTimers(); });
+    act(() => {
+      vi.runAllTimers();
+    });
   });
 
   it('shows sincere winner badge', async () => {
@@ -142,7 +152,9 @@ describe('AdaptiveVotingPanel', () => {
     await waitFor(() => {
       expect(screen.getByTestId('sincere-winner-badge')).toBeInTheDocument();
     });
-    act(() => { vi.runAllTimers(); });
+    act(() => {
+      vi.runAllTimers();
+    });
   });
 
   it('shows drift badge when winner changed and drift > 0.15', async () => {
@@ -152,7 +164,9 @@ describe('AdaptiveVotingPanel', () => {
     await waitFor(() => {
       expect(screen.getByTestId('drift-badge')).toBeInTheDocument();
     });
-    act(() => { vi.runAllTimers(); });
+    act(() => {
+      vi.runAllTimers();
+    });
   });
 
   it('renders ideology overlay SVG', async () => {
@@ -162,7 +176,9 @@ describe('AdaptiveVotingPanel', () => {
     await waitFor(() => {
       expect(screen.getByTestId('ideology-overlay')).toBeInTheDocument();
     });
-    act(() => { vi.runAllTimers(); });
+    act(() => {
+      vi.runAllTimers();
+    });
   });
 
   it('shows warning alert when tacticals changed the winner', async () => {
@@ -170,10 +186,12 @@ describe('AdaptiveVotingPanel', () => {
     renderPanel();
     fireEvent.click(screen.getByRole('button', { name: /simuler|simulate/i }));
     await waitFor(() => {
-      const warnings = document.querySelectorAll('.alert-warning');
+      const warnings = document.querySelectorAll('.bg-amber-100');
       expect(warnings.length).toBeGreaterThan(0);
     });
-    act(() => { vi.runAllTimers(); });
+    act(() => {
+      vi.runAllTimers();
+    });
   });
 
   it('shows replay button after data loads', async () => {
@@ -183,7 +201,9 @@ describe('AdaptiveVotingPanel', () => {
     await waitFor(() => {
       expect(screen.getByRole('button', { name: /replay|rejouer/i })).toBeInTheDocument();
     });
-    act(() => { vi.runAllTimers(); });
+    act(() => {
+      vi.runAllTimers();
+    });
   });
 
   it('shows error on API failure', async () => {

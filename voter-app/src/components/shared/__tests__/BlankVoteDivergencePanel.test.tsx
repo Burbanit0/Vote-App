@@ -10,13 +10,13 @@ vi.mock('../../../services/electionApi', () => ({
 
 vi.mock('recharts', () => ({
   ResponsiveContainer: ({ children }: any) => <div>{children}</div>,
-  BarChart:            ({ children }: any) => <div data-testid="bar-chart">{children}</div>,
-  Bar:                 ({ children }: any) => <div>{children}</div>,
+  BarChart: ({ children }: any) => <div data-testid="bar-chart">{children}</div>,
+  Bar: ({ children }: any) => <div>{children}</div>,
   CartesianGrid: () => null,
-  Cell:          () => null,
-  XAxis:         () => null,
-  YAxis:         () => null,
-  Tooltip:       () => null,
+  Cell: () => null,
+  XAxis: () => null,
+  YAxis: () => null,
+  Tooltip: () => null,
 }));
 
 const { fetchDivergence } = (await import('../../../services/electionApi')) as unknown as {
@@ -27,52 +27,52 @@ const MOCK_NO_EFFECT: import('../../../services/electionApi').DivergenceResult =
   without_blank: {
     methods: {
       plurality: { winner: 'Alice' },
-      schulze:   { winner: 'Alice' },
+      schulze: { winner: 'Alice' },
     },
     inter_method_agreement: 1.0,
-    condorcet_winner:       'Alice',
+    condorcet_winner: 'Alice',
   },
   with_blank: {
     methods: {
       plurality: { winner: 'Alice', winner_after_rule: 'Alice' },
-      schulze:   { winner: 'Alice', winner_after_rule: 'Alice' },
+      schulze: { winner: 'Alice', winner_after_rule: 'Alice' },
     },
     inter_method_agreement: 1.0,
-    condorcet_winner:       'Alice',
-    blank_rate:             0.05,
+    condorcet_winner: 'Alice',
+    blank_rate: 0.05,
   },
-  delta_agreement:     0.0,
-  methods_changed:     [],
+  delta_agreement: 0.0,
+  methods_changed: [],
   pct_methods_changed: 0.0,
-  blank_rule:          'symbolic',
+  blank_rule: 'symbolic',
 };
 
 const MOCK_HIGH_IMPACT: import('../../../services/electionApi').DivergenceResult = {
   without_blank: {
     methods: {
       plurality: { winner: 'Alice' },
-      schulze:   { winner: 'Bob'   },
-      borda:     { winner: 'Alice' },
-      irv:       { winner: 'Bob'   },
+      schulze: { winner: 'Bob' },
+      borda: { winner: 'Alice' },
+      irv: { winner: 'Bob' },
     },
     inter_method_agreement: 0.5,
-    condorcet_winner:       'Alice',
+    condorcet_winner: 'Alice',
   },
   with_blank: {
     methods: {
-      plurality: { winner: 'Alice', winner_after_rule: 'Blank'  },
-      schulze:   { winner: 'Bob',   winner_after_rule: 'Bob'    },
-      borda:     { winner: 'Alice', winner_after_rule: 'Blank'  },
-      irv:       { winner: 'Bob',   winner_after_rule: 'Blank'  },
+      plurality: { winner: 'Alice', winner_after_rule: 'Blank' },
+      schulze: { winner: 'Bob', winner_after_rule: 'Bob' },
+      borda: { winner: 'Alice', winner_after_rule: 'Blank' },
+      irv: { winner: 'Bob', winner_after_rule: 'Blank' },
     },
     inter_method_agreement: 0.25,
-    condorcet_winner:       null,
-    blank_rate:             0.38,
+    condorcet_winner: null,
+    blank_rate: 0.38,
   },
-  delta_agreement:     -0.25,
-  methods_changed:     ['plurality', 'borda', 'irv'],
+  delta_agreement: -0.25,
+  methods_changed: ['plurality', 'borda', 'irv'],
   pct_methods_changed: 0.75,
-  blank_rule:          'competitive',
+  blank_rule: 'competitive',
 };
 
 function renderPanel() {

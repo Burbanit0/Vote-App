@@ -1,11 +1,15 @@
 /**
  * ModelAssumptionsBanner — collapsible permanent reminder of model limitations.
  * Shown on ElectionLabPage and any simulation-heavy view.
+ *
+ * Tailwind-migrated (Phase 6): the react-bootstrap <Collapse> is replaced by an
+ * always-rendered detail div toggled with `hidden`, so the `banner-detail`
+ * testid stays in the DOM (matching the old collapse behaviour).
  */
 import React, { useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { Collapse } from 'react-bootstrap';
 import { Link } from 'react-router-dom';
+import { cn } from '@/lib/utils';
 
 const ASSUMPTIONS = [
   'stable_preferences',
@@ -23,52 +27,43 @@ const ModelAssumptionsBanner: React.FC = () => {
   return (
     <div
       data-testid="assumptions-banner"
-      style={{
-        background: '#fff3cd',
-        border: '1px solid #ffc107',
-        borderRadius: 6,
-        marginBottom: 12,
-        fontSize: '0.75rem',
-      }}
+      data-style="tailwind"
+      className="mb-3 rounded-md border border-border border-[#ffc107] bg-[#fff3cd] text-[0.75rem]"
     >
       {/* ── Always-visible header ── */}
       <div
         role="button"
-        style={{
-          display: 'flex', alignItems: 'center', gap: 8,
-          padding: '6px 12px', cursor: 'pointer', userSelect: 'none',
-        }}
-        onClick={() => setOpen(o => !o)}
+        className="flex cursor-pointer select-none items-center gap-2 px-3 py-1.5"
+        onClick={() => setOpen((o) => !o)}
         aria-expanded={open}
         data-testid="banner-toggle"
       >
         <span>⚠️</span>
-        <span className="fw-semibold">{t('assumptions.bannerTitle')}</span>
-        <span className="text-muted ms-auto" style={{ fontSize: '0.7rem' }}>
+        <span className="font-semibold">{t('assumptions.bannerTitle')}</span>
+        <span className="ml-auto text-[0.7rem] text-muted-foreground">
           {open ? '▲' : '▼'} {t('assumptions.bannerToggle')}
         </span>
       </div>
 
       {/* ── Collapsible detail ── */}
-      <Collapse in={open}>
-        <div data-testid="banner-detail" style={{ padding: '4px 12px 10px' }}>
-          <div className="d-flex flex-wrap gap-2 mb-2">
-            {ASSUMPTIONS.map(a => (
-              <span key={a}
-                className="badge"
-                style={{ background: '#ffc107', color: '#333', fontSize: '0.65rem' }}>
-                {t(`assumptions.short_${a}`)}
-              </span>
-            ))}
-          </div>
-          <div className="text-muted" style={{ fontSize: '0.72rem', lineHeight: 1.5 }}>
-            {t('assumptions.bannerDesc')}
-          </div>
-          <Link to="/theory" style={{ fontSize: '0.72rem' }}>
-            {t('assumptions.bannerLink')} →
-          </Link>
+      <div data-testid="banner-detail" className={cn('px-3 pb-2.5 pt-1', !open && 'hidden')}>
+        <div className="mb-2 flex flex-wrap gap-2">
+          {ASSUMPTIONS.map((a) => (
+            <span
+              key={a}
+              className="inline-flex items-center rounded-md bg-[#ffc107] px-2 py-0.5 text-[0.65rem] text-[#333]"
+            >
+              {t(`assumptions.short_${a}`)}
+            </span>
+          ))}
         </div>
-      </Collapse>
+        <div className="text-[0.72rem] leading-normal text-muted-foreground">
+          {t('assumptions.bannerDesc')}
+        </div>
+        <Link to="/theory" className="text-[0.72rem]">
+          {t('assumptions.bannerLink')} →
+        </Link>
+      </div>
     </div>
   );
 };

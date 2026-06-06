@@ -16,14 +16,14 @@ import { create } from 'zustand';
 const LS_KEY = 'votelab_pinned_perturbations';
 
 export interface PinnedPerturbation {
-  id:        string;
-  type:      string;
-  icon:      string;
-  label:     string;
-  summary:   string;
+  id: string;
+  type: string;
+  icon: string;
+  label: string;
+  summary: string;
   methodsChanged?: number;
   winnersByMethod?: Record<string, string | null>;
-  pinnedAt:  number;
+  pinnedAt: number;
 }
 
 function loadFromStorage(): PinnedPerturbation[] {
@@ -33,11 +33,13 @@ function loadFromStorage(): PinnedPerturbation[] {
     if (!raw) return [];
     const parsed = JSON.parse(raw);
     if (!Array.isArray(parsed)) return [];
-    return parsed.filter((x: unknown): x is PinnedPerturbation =>
-      typeof x === 'object' && x !== null &&
-      typeof (x as PinnedPerturbation).type === 'string' &&
-      typeof (x as PinnedPerturbation).label === 'string' &&
-      typeof (x as PinnedPerturbation).summary === 'string'
+    return parsed.filter(
+      (x: unknown): x is PinnedPerturbation =>
+        typeof x === 'object' &&
+        x !== null &&
+        typeof (x as PinnedPerturbation).type === 'string' &&
+        typeof (x as PinnedPerturbation).label === 'string' &&
+        typeof (x as PinnedPerturbation).summary === 'string'
     );
   } catch {
     return [];
@@ -56,14 +58,14 @@ function saveToStorage(pinned: PinnedPerturbation[]): void {
 // ── Animation broadcast ─────────────────────────────────────────────────────
 
 export interface AnimationFrame {
-  method:           string;
-  step:             number;
-  totalSteps:       number;
-  eliminated?:      string | null;
-  eliminatedSet?:   string[];
-  transfers?:       Record<string, number>;
-  currentWinner?:   string | null;
-  final?:           boolean;
+  method: string;
+  step: number;
+  totalSteps: number;
+  eliminated?: string | null;
+  eliminatedSet?: string[];
+  transfers?: Record<string, number>;
+  currentWinner?: string | null;
+  final?: boolean;
 }
 
 // ── Store ─────────────────────────────────────────────────────────────────

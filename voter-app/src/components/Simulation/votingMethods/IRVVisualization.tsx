@@ -1,5 +1,6 @@
 import React from 'react';
-import { Badge, Card } from 'react-bootstrap';
+import { Badge } from '@/components/ui/badge';
+import { Card, CardBody, CardHeader } from '@/components/ui/card';
 import MethodBarChart from './MethodBarChart';
 import { VotingMethodVisualizationProps } from './types';
 
@@ -128,16 +129,18 @@ const IRVVisualization: React.FC<VotingMethodVisualizationProps> = ({ rankings, 
 
           {eliminated.length > 0 && (
             <Card className="mt-3">
-              <Card.Header>Eliminated Candidates</Card.Header>
-              <Card.Body>
-                <div className="d-flex flex-wrap gap-2">
+              <CardHeader className="block space-y-0 border-b border-border px-4 py-2">
+                Eliminated Candidates
+              </CardHeader>
+              <CardBody>
+                <div className="flex flex-wrap gap-2">
                   {eliminated.map((candidate) => (
-                    <Badge key={candidate} bg="secondary" className="p-2">
+                    <Badge key={candidate} variant="secondary" className="p-2">
                       {candidate}
                     </Badge>
                   ))}
                 </div>
-              </Card.Body>
+              </CardBody>
             </Card>
           )}
 

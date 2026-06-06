@@ -340,11 +340,21 @@ export interface BordaStep {
 }
 
 export type VoteStepsResult =
-  | { method: 'irv';      rounds: IRVRound[] }
-  | { method: 'borda';    num_candidates: number; steps: BordaStep[]; winner: string | null }
+  | { method: 'irv'; rounds: IRVRound[] }
+  | { method: 'borda'; num_candidates: number; steps: BordaStep[]; winner: string | null }
   | { method: 'plurality'; first_choices: Record<string, number>; winner: string | null }
-  | { method: 'schulze';  duel_matrix: Record<string, Record<string, number>>; path_matrix: Record<string, Record<string, number>>; winner: string | null }
-  | { method: 'approval'; threshold_used: number; approval_scores: Record<string, number>; winner: string | null };
+  | {
+      method: 'schulze';
+      duel_matrix: Record<string, Record<string, number>>;
+      path_matrix: Record<string, Record<string, number>>;
+      winner: string | null;
+    }
+  | {
+      method: 'approval';
+      threshold_used: number;
+      approval_scores: Record<string, number>;
+      winner: string | null;
+    };
 
 // ── Ideology map ──────────────────────────────────────────────────────────────
 

@@ -9,22 +9,24 @@ vi.mock('../../../api/client', () => ({
   apiClient: { GET: vi.fn(), POST: vi.fn(), PUT: vi.fn(), DELETE: vi.fn(), PATCH: vi.fn() },
   getAccessToken: vi.fn(() => null),
 }));
-const { apiClient } = (await import('../../../api/client')) as unknown as { apiClient: { POST: jest.Mock } };
+const { apiClient } = (await import('../../../api/client')) as unknown as {
+  apiClient: { POST: jest.Mock };
+};
 
 // ── Fixture ───────────────────────────────────────────────────────────────────
 
 function makeData(userVote = 'Alice') {
   const VOTERS = 12;
   const voters = Array.from({ length: VOTERS }, (_, i) => ({
-    id:                i + 1,
-    encrypted_ballot:  `[AB${i}CD${i}EF…]`,
+    id: i + 1,
+    encrypted_ballot: `[AB${i}CD${i}EF…]`,
     verification_code: `A${i}B-C${i}D-E${i}F`,
-    vote_HIDDEN:       i === 0 ? userVote : ['Alice', 'Bob', 'Carol'][i % 3],
+    vote_HIDDEN: i === 0 ? userVote : ['Alice', 'Bob', 'Carol'][i % 3],
   }));
 
   // Shuffled board (voter 1's code at index 7)
   const board = [...voters].map((v) => ({
-    encrypted_ballot:  v.encrypted_ballot,
+    encrypted_ballot: v.encrypted_ballot,
     verification_code: v.verification_code,
   }));
   // Put voter 1 code somewhere in the middle
@@ -37,11 +39,19 @@ function makeData(userVote = 'Alice') {
       public_bulletin_board: board,
       aggregate_result: { Alice: 6, Bob: 4, Carol: 2 },
       winner: 'Alice',
-      audit_proof: 'Tous les 12 bulletins sont dans l\'urne.',
+      audit_proof: "Tous les 12 bulletins sont dans l'urne.",
       num_voters: VOTERS,
       candidates: ['Alice', 'Bob', 'Carol'],
-      encrypted_ballots: voters.map((v) => ({ voter_id: v.id, encrypted: v.encrypted_ballot, code: v.verification_code })),
-      verification_demonstration: { sample_voter_id: 1, sample_code: voters[0].verification_code, board_excerpt: [] },
+      encrypted_ballots: voters.map((v) => ({
+        voter_id: v.id,
+        encrypted: v.encrypted_ballot,
+        code: v.verification_code,
+      })),
+      verification_demonstration: {
+        sample_voter_id: 1,
+        sample_code: voters[0].verification_code,
+        board_excerpt: [],
+      },
       privacy_guarantee: 'Test.',
     },
     error: undefined,
@@ -63,7 +73,9 @@ beforeEach(() => {
   vi.useFakeTimers();
 });
 
-afterEach(() => { vi.useRealTimers(); });
+afterEach(() => {
+  vi.useRealTimers();
+});
 
 // ── Tests ─────────────────────────────────────────────────────────────────────
 
@@ -94,7 +106,7 @@ describe('E2EVDemo', () => {
     await waitFor(() => expect(apiClient.POST).toHaveBeenCalledTimes(1));
     expect(apiClient.POST).toHaveBeenCalledWith(
       expect.stringMatching(/\/api\/(v2\/)?tech\/e2e-demo/),
-      expect.objectContaining({ body: expect.objectContaining({ user_vote: 'Bob' }) }),
+      expect.objectContaining({ body: expect.objectContaining({ user_vote: 'Bob' }) })
     );
     vi.runAllTimers();
   });

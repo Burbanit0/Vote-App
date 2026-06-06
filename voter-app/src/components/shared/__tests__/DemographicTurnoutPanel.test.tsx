@@ -10,20 +10,24 @@ vi.mock('../../../api/client', () => ({
   apiClient: { GET: vi.fn(), POST: vi.fn(), PUT: vi.fn(), DELETE: vi.fn(), PATCH: vi.fn() },
   getAccessToken: vi.fn(() => null),
 }));
-const { apiClient } = (await import('../../../api/client')) as unknown as { apiClient: { POST: jest.Mock } };
+const { apiClient } = (await import('../../../api/client')) as unknown as {
+  apiClient: { POST: jest.Mock };
+};
 
 vi.mock('recharts', () => {
   const React = require('react');
   return {
-    BarChart:            ({ children }: any) => <div>{children}</div>,
-    Bar:                 () => null,
-    Cell:                () => null,
-    XAxis:               () => null,
-    YAxis:               () => null,
-    CartesianGrid:       () => null,
-    Tooltip:             () => null,
-    Legend:              () => null,
-    ResponsiveContainer: ({ children }: any) => <div style={{ width: 400, height: 200 }}>{children}</div>,
+    BarChart: ({ children }: any) => <div>{children}</div>,
+    Bar: () => null,
+    Cell: () => null,
+    XAxis: () => null,
+    YAxis: () => null,
+    CartesianGrid: () => null,
+    Tooltip: () => null,
+    Legend: () => null,
+    ResponsiveContainer: ({ children }: any) => (
+      <div style={{ width: 400, height: 200 }}>{children}</div>
+    ),
   };
 });
 
@@ -34,29 +38,63 @@ function makeData(winnerChanged = false) {
   return {
     data: {
       biased_result: {
-        winner:         winnerChanged ? 'Bob' : 'Alice',
-        vote_shares:    { Alice: winnerChanged ? 0.35 : 0.44, Bob: winnerChanged ? 0.45 : 0.33, Carol: 0.23 },
+        winner: winnerChanged ? 'Bob' : 'Alice',
+        vote_shares: {
+          Alice: winnerChanged ? 0.35 : 0.44,
+          Bob: winnerChanged ? 0.45 : 0.33,
+          Carol: 0.23,
+        },
         actual_turnout: 0.71,
-        voter_profile:  { mean_age_group: 1.4, mean_education_level: 0.6, mean_ideology_x: 0.08 },
+        voter_profile: { mean_age_group: 1.4, mean_education_level: 0.6, mean_ideology_x: 0.08 },
       },
       corrected_result: {
-        winner:         'Alice',
-        vote_shares:    { Alice: 0.44, Bob: 0.33, Carol: 0.23 },
+        winner: 'Alice',
+        vote_shares: { Alice: 0.44, Bob: 0.33, Carol: 0.23 },
         mean_ideology_x: -0.01,
       },
       winner_changed: winnerChanged,
       representation_gap: {
-        ideology_drift:          0.09,
-        overrepresented_groups:  ['seniors (65+), éducation élevée'],
+        ideology_drift: 0.09,
+        overrepresented_groups: ['seniors (65+), éducation élevée'],
         underrepresented_groups: ['jeunes (18-34), faible éducation'],
       },
       demographic_breakdown: [
-        { group: 'jeunes (18-34), faible éducation',    population_pct: 0.10, voter_pct: 0.06, ideology_mean: -0.12 },
-        { group: 'jeunes (18-34), éducation élevée',    population_pct: 0.15, voter_pct: 0.11, ideology_mean: -0.09 },
-        { group: 'adultes (35-64), faible éducation',   population_pct: 0.18, voter_pct: 0.16, ideology_mean:  0.03 },
-        { group: 'adultes (35-64), éducation élevée',   population_pct: 0.27, voter_pct: 0.25, ideology_mean: -0.01 },
-        { group: 'seniors (65+), faible éducation',     population_pct: 0.12, voter_pct: 0.18, ideology_mean:  0.14 },
-        { group: 'seniors (65+), éducation élevée',     population_pct: 0.18, voter_pct: 0.24, ideology_mean:  0.11 },
+        {
+          group: 'jeunes (18-34), faible éducation',
+          population_pct: 0.1,
+          voter_pct: 0.06,
+          ideology_mean: -0.12,
+        },
+        {
+          group: 'jeunes (18-34), éducation élevée',
+          population_pct: 0.15,
+          voter_pct: 0.11,
+          ideology_mean: -0.09,
+        },
+        {
+          group: 'adultes (35-64), faible éducation',
+          population_pct: 0.18,
+          voter_pct: 0.16,
+          ideology_mean: 0.03,
+        },
+        {
+          group: 'adultes (35-64), éducation élevée',
+          population_pct: 0.27,
+          voter_pct: 0.25,
+          ideology_mean: -0.01,
+        },
+        {
+          group: 'seniors (65+), faible éducation',
+          population_pct: 0.12,
+          voter_pct: 0.18,
+          ideology_mean: 0.14,
+        },
+        {
+          group: 'seniors (65+), éducation élevée',
+          population_pct: 0.18,
+          voter_pct: 0.24,
+          ideology_mean: 0.11,
+        },
       ],
       pedagogical_note: 'Test note.',
     },
@@ -82,7 +120,9 @@ beforeEach(() => {
   vi.useFakeTimers();
 });
 
-afterEach(() => { vi.useRealTimers(); });
+afterEach(() => {
+  vi.useRealTimers();
+});
 
 // ── Tests ─────────────────────────────────────────────────────────────────────
 
@@ -116,7 +156,7 @@ describe('DemographicTurnoutPanel', () => {
     await waitFor(() => expect(apiClient.POST).toHaveBeenCalledTimes(1));
     expect(apiClient.POST).toHaveBeenCalledWith(
       expect.stringMatching(/\/api\/(v2\/)?election\/demographic-turnout/),
-      expect.any(Object),
+      expect.any(Object)
     );
     vi.runAllTimers();
   });

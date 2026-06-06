@@ -9,7 +9,9 @@ vi.mock('../../../api/client', () => ({
   apiClient: { GET: vi.fn(), POST: vi.fn(), PUT: vi.fn(), DELETE: vi.fn(), PATCH: vi.fn() },
   getAccessToken: vi.fn(() => null),
 }));
-const { apiClient } = (await import('../../../api/client')) as unknown as { apiClient: { POST: jest.Mock } };
+const { apiClient } = (await import('../../../api/client')) as unknown as {
+  apiClient: { POST: jest.Mock };
+};
 
 function makeData(alabamaHamilton = true) {
   const baseResult = (al: boolean, qv: boolean, favors: string) => ({
@@ -24,15 +26,15 @@ function makeData(alabamaHamilton = true) {
   return {
     data: {
       results: {
-        hamilton:        baseResult(alabamaHamilton, false, 'neutral'),
-        jefferson:       baseResult(false, true, 'large_parties'),
-        webster:         baseResult(false, false, 'neutral'),
-        adams:           baseResult(false, false, 'small_parties'),
+        hamilton: baseResult(alabamaHamilton, false, 'neutral'),
+        jefferson: baseResult(false, true, 'large_parties'),
+        webster: baseResult(false, false, 'neutral'),
+        adams: baseResult(false, false, 'small_parties'),
         huntington_hill: baseResult(false, false, 'neutral'),
       },
       balinski_young_summary: 'Aucune méthode ne peut satisfaire simultanément tous les axiomes.',
-      impossible_to_avoid:    ['Quotient strict', 'Monotonie chambre', 'Monotonie population'],
-      pedagogical_note:       'Test note.',
+      impossible_to_avoid: ['Quotient strict', 'Monotonie chambre', 'Monotonie population'],
+      pedagogical_note: 'Test note.',
     },
     error: undefined,
   };
@@ -48,8 +50,13 @@ function renderPanel() {
   );
 }
 
-beforeEach(() => { vi.clearAllMocks(); vi.useFakeTimers(); });
-afterEach(() => { vi.useRealTimers(); });
+beforeEach(() => {
+  vi.clearAllMocks();
+  vi.useFakeTimers();
+});
+afterEach(() => {
+  vi.useRealTimers();
+});
 
 describe('ApportionmentPanel', () => {
   it('shows simulate button', () => {
@@ -74,7 +81,7 @@ describe('ApportionmentPanel', () => {
     await waitFor(() => expect(apiClient.POST).toHaveBeenCalledTimes(1));
     expect(apiClient.POST).toHaveBeenCalledWith(
       expect.stringMatching(/\/api\/(v2\/)?theory\/apportionment/),
-      expect.any(Object),
+      expect.any(Object)
     );
     vi.runAllTimers();
   });

@@ -8,7 +8,9 @@ vi.mock('../../../api/client', () => ({
   apiClient: { GET: vi.fn(), POST: vi.fn(), PUT: vi.fn(), DELETE: vi.fn(), PATCH: vi.fn() },
   getAccessToken: vi.fn(() => null),
 }));
-const { apiClient } = (await import('../../../api/client')) as unknown as { apiClient: { POST: jest.Mock } };
+const { apiClient } = (await import('../../../api/client')) as unknown as {
+  apiClient: { POST: jest.Mock };
+};
 
 vi.mock('react-i18next', () => ({
   useTranslation: () => ({
@@ -21,9 +23,17 @@ vi.mock('recharts', () => {
   const stub = ({ children }: { children?: React.ReactNode }) =>
     React.createElement('div', { 'data-testid': 'recharts-stub' }, children);
   return {
-    BarChart: stub, Bar: stub, XAxis: stub, YAxis: stub,
-    CartesianGrid: stub, Tooltip: stub, Legend: stub,
-    LineChart: stub, Line: stub, ReferenceLine: stub, Cell: stub,
+    BarChart: stub,
+    Bar: stub,
+    XAxis: stub,
+    YAxis: stub,
+    CartesianGrid: stub,
+    Tooltip: stub,
+    Legend: stub,
+    LineChart: stub,
+    Line: stub,
+    ReferenceLine: stub,
+    Cell: stub,
     ResponsiveContainer: ({ children }: { children?: React.ReactNode }) =>
       React.createElement('div', null, children),
   };
@@ -32,14 +42,35 @@ vi.mock('recharts', () => {
 // ── Mock data ─────────────────────────────────────────────────────────────────
 
 const MOCK_DATA_NO_CHANGE = {
-  sincere_winner:  'Alice',
+  sincere_winner: 'Alice',
   identity_winner: 'Alice',
-  mixed_winner:    'Alice',
-  winner_changed:  false,
+  mixed_winner: 'Alice',
+  winner_changed: false,
   group_results: [
-    { group_name: 'Groupe A', affiliation: 'Alice', group_vote_pct: 0.82, ideology_match: 0.75, loyalty: 0.75, size_pct: 0.40 },
-    { group_name: 'Groupe B', affiliation: 'Bob',   group_vote_pct: 0.65, ideology_match: 0.60, loyalty: 0.60, size_pct: 0.35 },
-    { group_name: 'Groupe C', affiliation: 'Carol', group_vote_pct: 0.88, ideology_match: 0.70, loyalty: 0.80, size_pct: 0.25 },
+    {
+      group_name: 'Groupe A',
+      affiliation: 'Alice',
+      group_vote_pct: 0.82,
+      ideology_match: 0.75,
+      loyalty: 0.75,
+      size_pct: 0.4,
+    },
+    {
+      group_name: 'Groupe B',
+      affiliation: 'Bob',
+      group_vote_pct: 0.65,
+      ideology_match: 0.6,
+      loyalty: 0.6,
+      size_pct: 0.35,
+    },
+    {
+      group_name: 'Groupe C',
+      affiliation: 'Carol',
+      group_vote_pct: 0.88,
+      ideology_match: 0.7,
+      loyalty: 0.8,
+      size_pct: 0.25,
+    },
   ],
   cross_pressured: { count: 42, abstention_rate: 0.08 },
   identity_weight_curve: [
@@ -52,7 +83,7 @@ const MOCK_DATA_NO_CHANGE = {
 
 const MOCK_DATA_CHANGED = {
   ...MOCK_DATA_NO_CHANGE,
-  mixed_winner:   'Carol',
+  mixed_winner: 'Carol',
   winner_changed: true,
 };
 
@@ -70,7 +101,9 @@ function renderPanel() {
 async function renderAndRun(responseData = MOCK_DATA_NO_CHANGE) {
   apiClient.POST.mockResolvedValueOnce(ok(responseData));
   renderPanel();
-  await act(async () => { fireEvent.click(screen.getByTestId('run-btn')); });
+  await act(async () => {
+    fireEvent.click(screen.getByTestId('run-btn'));
+  });
   await waitFor(() => expect(apiClient.POST).toHaveBeenCalledTimes(1));
   await act(async () => {});
 }
@@ -205,7 +238,9 @@ describe('IdentityVotingPanel', () => {
   it('shows error alert on API failure', async () => {
     apiClient.POST.mockRejectedValueOnce(new Error('Network error'));
     renderPanel();
-    await act(async () => { fireEvent.click(screen.getByTestId('run-btn')); });
+    await act(async () => {
+      fireEvent.click(screen.getByTestId('run-btn'));
+    });
     await waitFor(() => expect(screen.getByTestId('error-alert')).toBeInTheDocument());
   });
 });

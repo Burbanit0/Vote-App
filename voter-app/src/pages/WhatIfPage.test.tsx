@@ -1,11 +1,7 @@
 import React from 'react';
 import { render, screen, fireEvent, waitFor } from '@testing-library/react';
 import '@testing-library/jest-dom';
-import WhatIfPage, {
-  generateValues,
-  detectWinnerChanges,
-  WinnerChange,
-} from './WhatIfPage';
+import WhatIfPage, { generateValues, detectWinnerChanges, WinnerChange } from './WhatIfPage';
 import { WhatIfDataPoint } from '../services/whatIfApi';
 
 // ── Mocks ─────────────────────────────────────────────────────────────────
@@ -32,10 +28,10 @@ const MOCK_RESULTS: WhatIfDataPoint[] = [
     condorcet_winner: 'Alice',
     methods: {
       plurality: { winner: 'Alice', score: 42.5, regret: 0.12 },
-      borda:     { winner: 'Alice', score: 55.0, regret: 0.08 },
-      irv:       { winner: 'Alice', score: 48.0, regret: 0.10 },
-      schulze:   { winner: 'Alice', score: 50.0, regret: 0.09 },
-      approval:  { winner: 'Alice', score: 44.0, regret: 0.11 },
+      borda: { winner: 'Alice', score: 55.0, regret: 0.08 },
+      irv: { winner: 'Alice', score: 48.0, regret: 0.1 },
+      schulze: { winner: 'Alice', score: 50.0, regret: 0.09 },
+      approval: { winner: 'Alice', score: 44.0, regret: 0.11 },
     },
   },
   {
@@ -43,10 +39,10 @@ const MOCK_RESULTS: WhatIfDataPoint[] = [
     condorcet_winner: 'Bob',
     methods: {
       plurality: { winner: 'Alice', score: 40.0, regret: 0.13 },
-      borda:     { winner: 'Bob',   score: 52.0, regret: 0.09 }, // Borda changes winner
-      irv:       { winner: 'Alice', score: 46.0, regret: 0.11 },
-      schulze:   { winner: 'Bob',   score: 49.0, regret: 0.10 }, // Schulze changes winner
-      approval:  { winner: 'Alice', score: 41.0, regret: 0.12 },
+      borda: { winner: 'Bob', score: 52.0, regret: 0.09 }, // Borda changes winner
+      irv: { winner: 'Alice', score: 46.0, regret: 0.11 },
+      schulze: { winner: 'Bob', score: 49.0, regret: 0.1 }, // Schulze changes winner
+      approval: { winner: 'Alice', score: 41.0, regret: 0.12 },
     },
   },
   {
@@ -54,10 +50,10 @@ const MOCK_RESULTS: WhatIfDataPoint[] = [
     condorcet_winner: 'Bob',
     methods: {
       plurality: { winner: 'Alice', score: 39.0, regret: 0.14 },
-      borda:     { winner: 'Bob',   score: 54.0, regret: 0.08 },
-      irv:       { winner: 'Bob',   score: 47.0, regret: 0.10 }, // IRV changes winner
-      schulze:   { winner: 'Bob',   score: 51.0, regret: 0.09 },
-      approval:  { winner: 'Bob',   score: 43.0, regret: 0.11 }, // Approval changes winner
+      borda: { winner: 'Bob', score: 54.0, regret: 0.08 },
+      irv: { winner: 'Bob', score: 47.0, regret: 0.1 }, // IRV changes winner
+      schulze: { winner: 'Bob', score: 51.0, regret: 0.09 },
+      approval: { winner: 'Bob', score: 43.0, regret: 0.11 }, // Approval changes winner
     },
   },
 ];
@@ -89,16 +85,32 @@ describe('generateValues', () => {
 describe('detectWinnerChanges', () => {
   it('detects no changes when all winners are the same', () => {
     const uniform: WhatIfDataPoint[] = [
-      { value: 100, condorcet_winner: 'A', methods: { plurality: { winner: 'A', score: 50, regret: 0 } } },
-      { value: 200, condorcet_winner: 'A', methods: { plurality: { winner: 'A', score: 50, regret: 0 } } },
+      {
+        value: 100,
+        condorcet_winner: 'A',
+        methods: { plurality: { winner: 'A', score: 50, regret: 0 } },
+      },
+      {
+        value: 200,
+        condorcet_winner: 'A',
+        methods: { plurality: { winner: 'A', score: 50, regret: 0 } },
+      },
     ];
     expect(detectWinnerChanges(uniform, ['plurality'])).toEqual([]);
   });
 
   it('detects a winner change between consecutive data points', () => {
     const data: WhatIfDataPoint[] = [
-      { value: 200,  condorcet_winner: null, methods: { plurality: { winner: 'Alice', score: 40, regret: 0 } } },
-      { value: 1000, condorcet_winner: null, methods: { plurality: { winner: 'Bob',   score: 38, regret: 0 } } },
+      {
+        value: 200,
+        condorcet_winner: null,
+        methods: { plurality: { winner: 'Alice', score: 40, regret: 0 } },
+      },
+      {
+        value: 1000,
+        condorcet_winner: null,
+        methods: { plurality: { winner: 'Bob', score: 38, regret: 0 } },
+      },
     ];
     const changes = detectWinnerChanges(data, ['plurality']);
     expect(changes).toHaveLength(1);
@@ -109,7 +121,13 @@ describe('detectWinnerChanges', () => {
   });
 
   it('detects multiple method changes in MOCK_RESULTS', () => {
-    const changes = detectWinnerChanges(MOCK_RESULTS, ['plurality', 'borda', 'irv', 'schulze', 'approval']);
+    const changes = detectWinnerChanges(MOCK_RESULTS, [
+      'plurality',
+      'borda',
+      'irv',
+      'schulze',
+      'approval',
+    ]);
     // borda: Alice→Bob at index 1
     // schulze: Alice→Bob at index 1
     // irv: Alice→Bob at index 2
@@ -134,7 +152,11 @@ describe('detectWinnerChanges', () => {
 
   it('handles single result (no change possible)', () => {
     const single: WhatIfDataPoint[] = [
-      { value: 100, condorcet_winner: null, methods: { plurality: { winner: 'X', score: 50, regret: 0 } } },
+      {
+        value: 100,
+        condorcet_winner: null,
+        methods: { plurality: { winner: 'X', score: 50, regret: 0 } },
+      },
     ];
     expect(detectWinnerChanges(single, ['plurality'])).toEqual([]);
   });
@@ -199,7 +221,7 @@ describe('WhatIfPage — API integration', () => {
     // Merge both assertions into one waitFor so the act() wrapper covers both
     await waitFor(() => {
       expect(mockRunWhatIf).toHaveBeenCalledWith(
-        expect.objectContaining({ variant_param: 'num_voters' }),
+        expect.objectContaining({ variant_param: 'num_voters' })
       );
       expect(screen.getByText(/Score de majorité/i)).toBeInTheDocument();
     });
@@ -251,7 +273,10 @@ describe('WhatIfPage — API integration', () => {
   it('shows loading spinner during request', async () => {
     let resolve: (v: any) => void = () => {};
     mockRunWhatIf.mockImplementation(
-      () => new Promise((r) => { resolve = r; }),
+      () =>
+        new Promise((r) => {
+          resolve = r;
+        })
     );
 
     render(<WhatIfPage />);

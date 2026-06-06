@@ -8,7 +8,9 @@ vi.mock('../../../api/client', () => ({
   apiClient: { GET: vi.fn(), POST: vi.fn(), PUT: vi.fn(), DELETE: vi.fn(), PATCH: vi.fn() },
   getAccessToken: vi.fn(() => null),
 }));
-const { apiClient } = (await import('../../../api/client')) as unknown as { apiClient: { POST: jest.Mock } };
+const { apiClient } = (await import('../../../api/client')) as unknown as {
+  apiClient: { POST: jest.Mock };
+};
 
 vi.mock('react-i18next', () => ({
   useTranslation: () => ({
@@ -19,31 +21,31 @@ vi.mock('react-i18next', () => ({
 // ── Mock data ─────────────────────────────────────────────────────────────────
 
 const MOCK_ROBUST: object = {
-  unique_winners:           ['Alice'],
-  unique_winner_count:      1,
-  winner_by_method:         { plurality: 'Alice', borda: 'Alice', irv: 'Alice' },
-  winner_by_agenda:         { 'Alice → Bob → Carol': 'Alice', 'Bob → Alice → Carol': 'Alice' },
-  rousseau_score:           1.0,
-  most_frequent_winner:     'Alice',
-  most_frequent_pct:        1.0,
-  condorcet_exists:         true,
-  condorcet_winner:         'Alice',
+  unique_winners: ['Alice'],
+  unique_winner_count: 1,
+  winner_by_method: { plurality: 'Alice', borda: 'Alice', irv: 'Alice' },
+  winner_by_agenda: { 'Alice → Bob → Carol': 'Alice', 'Bob → Alice → Carol': 'Alice' },
+  rousseau_score: 1.0,
+  most_frequent_winner: 'Alice',
+  most_frequent_pct: 1.0,
+  condorcet_exists: true,
+  condorcet_winner: 'Alice',
   philosophical_conclusion: 'Alice wins under all procedures tested.',
-  pedagogical_note:         'Vote Lab cannot answer "what is the will of the people?"',
+  pedagogical_note: 'Vote Lab cannot answer "what is the will of the people?"',
 };
 
 const MOCK_FRAGILE: object = {
-  unique_winners:           ['Alice', 'Bob', 'Carol'],
-  unique_winner_count:      3,
-  winner_by_method:         { plurality: 'Alice', borda: 'Bob', irv: 'Carol' },
-  winner_by_agenda:         { 'Alice → Bob → Carol': 'Alice', 'Bob → Carol → Alice': 'Bob' },
-  rousseau_score:           0.333,
-  most_frequent_winner:     'Alice',
-  most_frequent_pct:        0.40,
-  condorcet_exists:         false,
-  condorcet_winner:         null,
+  unique_winners: ['Alice', 'Bob', 'Carol'],
+  unique_winner_count: 3,
+  winner_by_method: { plurality: 'Alice', borda: 'Bob', irv: 'Carol' },
+  winner_by_agenda: { 'Alice → Bob → Carol': 'Alice', 'Bob → Carol → Alice': 'Bob' },
+  rousseau_score: 0.333,
+  most_frequent_winner: 'Alice',
+  most_frequent_pct: 0.4,
+  condorcet_exists: false,
+  condorcet_winner: null,
   philosophical_conclusion: 'Three different winners — Schumpeter was right.',
-  pedagogical_note:         'The result depends on procedure alone.',
+  pedagogical_note: 'The result depends on procedure alone.',
 };
 
 /** openapi-fetch resolves to { data, error }. */
@@ -60,7 +62,9 @@ function renderPanel() {
 async function renderAndRun(responseData: object = MOCK_ROBUST) {
   apiClient.POST.mockResolvedValueOnce(ok(responseData));
   renderPanel();
-  await act(async () => { fireEvent.click(screen.getByTestId('run-btn')); });
+  await act(async () => {
+    fireEvent.click(screen.getByTestId('run-btn'));
+  });
   await waitFor(() => expect(apiClient.POST).toHaveBeenCalledTimes(1));
   await act(async () => {});
 }
@@ -156,8 +160,9 @@ describe('CollectiveWillPanel', () => {
   it('renders philosophical conclusion', async () => {
     await renderAndRun(MOCK_ROBUST);
     expect(screen.getByTestId('philo-conclusion')).toBeInTheDocument();
-    expect(screen.getByTestId('philo-conclusion'))
-      .toHaveTextContent('Alice wins under all procedures');
+    expect(screen.getByTestId('philo-conclusion')).toHaveTextContent(
+      'Alice wins under all procedures'
+    );
   });
 
   it('renders open conclusion section', async () => {
@@ -191,7 +196,9 @@ describe('CollectiveWillPanel', () => {
   it('shows error alert on API failure', async () => {
     apiClient.POST.mockRejectedValueOnce(new Error('Network error'));
     renderPanel();
-    await act(async () => { fireEvent.click(screen.getByTestId('run-btn')); });
+    await act(async () => {
+      fireEvent.click(screen.getByTestId('run-btn'));
+    });
     await waitFor(() => expect(screen.getByTestId('error-alert')).toBeInTheDocument());
   });
 });

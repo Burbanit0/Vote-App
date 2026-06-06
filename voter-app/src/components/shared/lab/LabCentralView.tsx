@@ -12,7 +12,10 @@
  */
 import React, { useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { Badge, Button, Card, Col, Row } from 'react-bootstrap';
+import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
+import { Card, CardBody, CardHeader } from '@/components/ui/card';
+import { Col, Row } from '@/components/ui/grid';
 import { ElectionResult } from '../../../services/electionApi';
 import { usePerturbations, PinnedPerturbation } from '../../../stores/useLabStore';
 import { useAnimationBroadcast } from '../../../stores/useLabStore';
@@ -22,8 +25,10 @@ import MetricTooltip from '../MetricTooltip';
 // ── Color palette per party (matches ElectionLabPage) ───────────────────────
 
 const PARTY_COLORS: Record<string, string> = {
-  Green: '#007A33', Liberal: '#005CAB',
-  Conservative: '#C8590A', Independent: '#6c757d',
+  Green: '#007A33',
+  Liberal: '#005CAB',
+  Conservative: '#C8590A',
+  Independent: '#6c757d',
 };
 
 function candColor(result: ElectionResult, name: string | null): string {
@@ -52,10 +57,7 @@ const MethodsMatrix: React.FC<MatrixProps> = React.memo(({ result, pinned, t }) 
   const cw = result.condorcet_winner;
 
   // Only perturbations that actually published per-method winners
-  const pertsWithMethods = useMemo(
-    () => pinned.filter((p) => p.winnersByMethod),
-    [pinned]
-  );
+  const pertsWithMethods = useMemo(() => pinned.filter((p) => p.winnersByMethod), [pinned]);
 
   // Count winners frequency for sorting (most-frequent first)
   const winnerCounts = useMemo(() => {
@@ -80,11 +82,11 @@ const MethodsMatrix: React.FC<MatrixProps> = React.memo(({ result, pinned, t }) 
           >
             <thead>
               <tr style={{ background: '#f8f9fa' }}>
-                <th style={{ width: 110, fontWeight: 600, color: '#6c757d' }}>
-                  {t('lab.method')}
-                </th>
-                <th style={{ width: 130, fontWeight: 600, color: '#6c757d' }}
-                  title={t('lab.baselineWinner')}>
+                <th style={{ width: 110, fontWeight: 600, color: '#6c757d' }}>{t('lab.method')}</th>
+                <th
+                  style={{ width: 130, fontWeight: 600, color: '#6c757d' }}
+                  title={t('lab.baselineWinner')}
+                >
                   {t('lab.baselineWinner')}
                 </th>
                 {pertsWithMethods.map((p) => (
@@ -120,9 +122,13 @@ const MethodsMatrix: React.FC<MatrixProps> = React.memo(({ result, pinned, t }) 
                           {baseWinner}
                         </span>
                       ) : (
-                        <span className="text-muted">—</span>
+                        <span className="text-muted-foreground">—</span>
                       )}
-                      {isCW && <span style={{ color: '#198754', fontSize: '0.7rem', marginLeft: 4 }}>✓</span>}
+                      {isCW && (
+                        <span style={{ color: '#198754', fontSize: '0.7rem', marginLeft: 4 }}>
+                          ✓
+                        </span>
+                      )}
                     </td>
                     {pertsWithMethods.map((p) => {
                       const pertWinner = p.winnersByMethod?.[method];
@@ -146,7 +152,8 @@ const MethodsMatrix: React.FC<MatrixProps> = React.memo(({ result, pinned, t }) 
                             className="badge"
                             style={{
                               background: changed ? '#dc3545' : '#198754',
-                              color: '#fff', fontSize: '0.6rem',
+                              color: '#fff',
+                              fontSize: '0.6rem',
                             }}
                             title={`${p.label}: ${pertWinner ?? '—'}`}
                           >
@@ -167,7 +174,7 @@ const MethodsMatrix: React.FC<MatrixProps> = React.memo(({ result, pinned, t }) 
           </table>
         </div>
       ) : (
-        <div className="d-flex flex-wrap gap-1" style={{ fontSize: '0.72rem' }}>
+        <div className="flex flex-wrap gap-1" style={{ fontSize: '0.72rem' }}>
           {methods.map(([method, md]) => {
             const isCW = cw && md.winner === cw;
             const color = candColor(result, md.winner);
@@ -175,7 +182,7 @@ const MethodsMatrix: React.FC<MatrixProps> = React.memo(({ result, pinned, t }) 
             return (
               <div
                 key={method}
-                className="d-flex align-items-center gap-1 px-2 py-1 rounded flex-wrap"
+                className="flex items-center gap-1 px-2 py-1 rounded flex-wrap"
                 style={{
                   background: '#f8f9fa',
                   border: `1px solid ${color}33`,
@@ -195,7 +202,7 @@ const MethodsMatrix: React.FC<MatrixProps> = React.memo(({ result, pinned, t }) 
                     {baseWinner}
                   </span>
                 ) : (
-                  <span className="text-muted">—</span>
+                  <span className="text-muted-foreground">—</span>
                 )}
                 {isCW && <span style={{ color: '#198754', fontSize: '0.7rem' }}>✓</span>}
               </div>
@@ -204,22 +211,18 @@ const MethodsMatrix: React.FC<MatrixProps> = React.memo(({ result, pinned, t }) 
         </div>
       )}
       {/* Compact summary */}
-      <div className="mt-2 d-flex flex-wrap gap-2" style={{ fontSize: '0.7rem' }}>
-        <Badge bg="primary" className="d-inline-flex align-items-center gap-1">
+      <div className="mt-2 flex flex-wrap gap-2" style={{ fontSize: '0.7rem' }}>
+        <Badge variant="primary" className="inline-flex items-center gap-1">
           {t('electionLab.methodAgreement')}: {Math.round(result.inter_method_agreement * 100)}%
           <MetricTooltip metric="method_agreement" placement="bottom" />
         </Badge>
         {cw ? (
-          <Badge bg="success">
-            Condorcet: {cw} ✓
-          </Badge>
+          <Badge variant="success">Condorcet: {cw} ✓</Badge>
         ) : (
-          <Badge bg="warning" text="dark">
-            {t('lab.noCondorcet')}
-          </Badge>
+          <Badge variant="warning">{t('lab.noCondorcet')}</Badge>
         )}
         {Object.keys(winnerCounts).length > 1 && (
-          <Badge bg="danger">
+          <Badge variant="danger">
             ⚠ {Object.keys(winnerCounts).length} {t('lab.differentWinners')}
           </Badge>
         )}
@@ -253,14 +256,18 @@ const ActiveModulesBar: React.FC<ModulesProps> = React.memo(({ config, t }) => {
 
   if (active.length === 0) {
     return (
-      <div className="text-muted" style={{ fontSize: '0.7rem' }} data-testid="active-modules-none">
+      <div
+        className="text-muted-foreground"
+        style={{ fontSize: '0.7rem' }}
+        data-testid="active-modules-none"
+      >
         {t('lab.noActivePerturbations')}
       </div>
     );
   }
 
   return (
-    <div className="d-flex gap-1 flex-wrap" data-testid="active-modules-bar">
+    <div className="flex gap-1 flex-wrap" data-testid="active-modules-bar">
       {active.map((m) => (
         <span
           key={m.key}
@@ -284,94 +291,100 @@ interface PinnedProps {
   t: (k: string) => string;
 }
 
-const PinnedPerturbationsPanel: React.FC<PinnedProps> = React.memo(({
-  pinned, onUnpin, onClear, t,
-}) => {
-  if (pinned.length === 0) {
+const PinnedPerturbationsPanel: React.FC<PinnedProps> = React.memo(
+  ({ pinned, onUnpin, onClear, t }) => {
+    if (pinned.length === 0) {
+      return (
+        <div
+          className="text-muted-foreground text-center py-2"
+          style={{ fontSize: '0.72rem', borderTop: '1px dashed #dee2e6', marginTop: 12 }}
+          data-testid="pinned-empty"
+        >
+          {t('lab.pinHint')}
+        </div>
+      );
+    }
+
     return (
       <div
-        className="text-muted text-center py-2"
-        style={{ fontSize: '0.72rem', borderTop: '1px dashed #dee2e6', marginTop: 12 }}
-        data-testid="pinned-empty"
+        className="mt-3 pt-3"
+        style={{ borderTop: '1px dashed #dee2e6' }}
+        data-testid="pinned-section"
       >
-        {t('lab.pinHint')}
+        <div className="flex items-center justify-between mb-2">
+          <span className="font-semibold" style={{ fontSize: '0.78rem' }}>
+            📌 {t('lab.pinnedTitle')} ({pinned.length})
+          </span>
+          <Button
+            variant="link"
+            size="sm"
+            className="text-muted-foreground p-0"
+            style={{ fontSize: '0.7rem' }}
+            onClick={onClear}
+            data-testid="pinned-clear"
+          >
+            {t('lab.pinnedClearAll')}
+          </Button>
+        </div>
+        <div className="flex gap-2 flex-wrap">
+          {pinned.map((p) => {
+            const changed = p.methodsChanged ?? 0;
+            const borderColor = changed > 0 ? '#dc3545' : '#198754';
+            return (
+              <div
+                key={p.id}
+                className="border border-border rounded p-2"
+                style={{
+                  background: '#fff',
+                  borderLeft: `3px solid ${borderColor}`,
+                  minWidth: 220,
+                  maxWidth: 340,
+                  fontSize: '0.74rem',
+                }}
+                data-testid={`pinned-card-${p.type}`}
+              >
+                <div className="flex items-start gap-1">
+                  <span style={{ fontSize: '0.95rem' }}>{p.icon}</span>
+                  <div style={{ flex: 1, minWidth: 0 }}>
+                    <div className="font-semibold" style={{ fontSize: '0.76rem' }}>
+                      {p.label}
+                    </div>
+                    <div
+                      className="text-muted-foreground"
+                      style={{ fontSize: '0.7rem', lineHeight: 1.3 }}
+                    >
+                      {p.summary}
+                    </div>
+                    {changed > 0 ? (
+                      <Badge variant="danger" className="mt-1" style={{ fontSize: '0.6rem' }}>
+                        ⚡ {changed} {t('lab.methodsChanged')}
+                      </Badge>
+                    ) : (
+                      <Badge variant="success" className="mt-1" style={{ fontSize: '0.6rem' }}>
+                        ✓ {t('lab.winnerStable')}
+                      </Badge>
+                    )}
+                  </div>
+                  <Button
+                    size="sm"
+                    variant="link"
+                    className="text-muted-foreground p-0 leading-none"
+                    style={{ fontSize: '0.9rem' }}
+                    onClick={() => onUnpin(p.id)}
+                    aria-label={t('lab.unpinAria')}
+                    data-testid={`pinned-unpin-${p.type}`}
+                  >
+                    ×
+                  </Button>
+                </div>
+              </div>
+            );
+          })}
+        </div>
       </div>
     );
   }
-
-  return (
-    <div className="mt-3 pt-3" style={{ borderTop: '1px dashed #dee2e6' }}
-      data-testid="pinned-section">
-      <div className="d-flex align-items-center justify-content-between mb-2">
-        <span className="fw-semibold" style={{ fontSize: '0.78rem' }}>
-          📌 {t('lab.pinnedTitle')} ({pinned.length})
-        </span>
-        <Button
-          variant="link"
-          size="sm"
-          className="text-muted p-0"
-          style={{ fontSize: '0.7rem' }}
-          onClick={onClear}
-          data-testid="pinned-clear"
-        >
-          {t('lab.pinnedClearAll')}
-        </Button>
-      </div>
-      <div className="d-flex gap-2 flex-wrap">
-        {pinned.map((p) => {
-          const changed = p.methodsChanged ?? 0;
-          const borderColor = changed > 0 ? '#dc3545' : '#198754';
-          return (
-            <div
-              key={p.id}
-              className="border rounded p-2"
-              style={{
-                background: '#fff',
-                borderLeft: `3px solid ${borderColor}`,
-                minWidth: 220,
-                maxWidth: 340,
-                fontSize: '0.74rem',
-              }}
-              data-testid={`pinned-card-${p.type}`}
-            >
-              <div className="d-flex align-items-start gap-1">
-                <span style={{ fontSize: '0.95rem' }}>{p.icon}</span>
-                <div style={{ flex: 1, minWidth: 0 }}>
-                  <div className="fw-semibold" style={{ fontSize: '0.76rem' }}>
-                    {p.label}
-                  </div>
-                  <div className="text-muted" style={{ fontSize: '0.7rem', lineHeight: 1.3 }}>
-                    {p.summary}
-                  </div>
-                  {changed > 0 ? (
-                    <Badge bg="danger" className="mt-1" style={{ fontSize: '0.6rem' }}>
-                      ⚡ {changed} {t('lab.methodsChanged')}
-                    </Badge>
-                  ) : (
-                    <Badge bg="success" className="mt-1" style={{ fontSize: '0.6rem' }}>
-                      ✓ {t('lab.winnerStable')}
-                    </Badge>
-                  )}
-                </div>
-                <Button
-                  size="sm"
-                  variant="link"
-                  className="text-muted p-0 lh-1"
-                  style={{ fontSize: '0.9rem' }}
-                  onClick={() => onUnpin(p.id)}
-                  aria-label={t('lab.unpinAria')}
-                  data-testid={`pinned-unpin-${p.type}`}
-                >
-                  ×
-                </Button>
-              </div>
-            </div>
-          );
-        })}
-      </div>
-    </div>
-  );
-});
+);
 PinnedPerturbationsPanel.displayName = 'PinnedPerturbationsPanel';
 
 // ── Main LabCentralView ──────────────────────────────────────────────────────
@@ -383,7 +396,7 @@ interface Props {
 
 // Persist collapsed/focus state across page navigations and refreshes.
 const COLLAPSED_LS_KEY = 'votelab_central_collapsed';
-const FOCUS_LS_KEY     = 'votelab_central_focus_mode';
+const FOCUS_LS_KEY = 'votelab_central_focus_mode';
 
 function readBool(key: string, fallback: boolean): boolean {
   if (typeof window === 'undefined') return fallback;
@@ -396,7 +409,11 @@ function readBool(key: string, fallback: boolean): boolean {
 }
 function writeBool(key: string, value: boolean): void {
   if (typeof window === 'undefined') return;
-  try { window.localStorage.setItem(key, value ? '1' : '0'); } catch { /* */ }
+  try {
+    window.localStorage.setItem(key, value ? '1' : '0');
+  } catch {
+    /* */
+  }
 }
 
 const LabCentralView: React.FC<Props> = ({ result, loading }) => {
@@ -409,28 +426,29 @@ const LabCentralView: React.FC<Props> = ({ result, loading }) => {
   const { frame } = useAnimationBroadcast();
 
   // Persist toggle state
-  React.useEffect(() => { writeBool(COLLAPSED_LS_KEY, collapsed); }, [collapsed]);
-  React.useEffect(() => { writeBool(FOCUS_LS_KEY,     focusMode); }, [focusMode]);
+  React.useEffect(() => {
+    writeBool(COLLAPSED_LS_KEY, collapsed);
+  }, [collapsed]);
+  React.useEffect(() => {
+    writeBool(FOCUS_LS_KEY, focusMode);
+  }, [focusMode]);
 
   // Nothing to show before first simulation
   if (!result) {
     return (
       <Card className="mb-3" data-testid="lab-central-empty" style={{ background: '#f8f9fa' }}>
-        <Card.Body className="text-center py-3">
-          <div className="text-muted" style={{ fontSize: '0.85rem' }}>
+        <CardBody className="text-center py-3">
+          <div className="text-muted-foreground" style={{ fontSize: '0.85rem' }}>
             {loading ? t('lab.loadingCentral') : t('lab.runToSee')}
           </div>
-        </Card.Body>
+        </CardBody>
       </Card>
     );
   }
 
   // Memoised so child IdeologyMapChart doesn't see a new array each parent
   // render (matters because its useEffect deps key off this prop reference).
-  const candidateNames = useMemo(
-    () => result.candidates.map((c) => c.name),
-    [result.candidates]
-  );
+  const candidateNames = useMemo(() => result.candidates.map((c) => c.name), [result.candidates]);
 
   return (
     <Card
@@ -442,30 +460,27 @@ const LabCentralView: React.FC<Props> = ({ result, loading }) => {
         transition: 'opacity 0.25s',
       }}
     >
-      <Card.Header
-        className="d-flex align-items-center justify-content-between py-2"
+      <CardHeader
+        className="block space-y-0 border-b border-border px-4 py-2 flex items-center justify-between py-2"
         style={{ background: '#f8f9fa', fontSize: '0.85rem' }}
       >
-        <span className="fw-semibold">
-          🔬 {t('lab.centralViewTitle')}
-        </span>
-        <div className="d-flex align-items-center gap-2">
+        <span className="font-semibold">🔬 {t('lab.centralViewTitle')}</span>
+        <div className="flex items-center gap-2">
           {/* ── Live animation badge ── */}
           {frame && (
-            <Badge bg="info" className="d-inline-flex align-items-center gap-1"
+            <Badge
+              variant="info"
+              className="inline-flex items-center gap-1"
               style={{ fontSize: '0.65rem' }}
               data-testid="animation-frame-badge"
-              title={t('lab.animationLive')}>
+              title={t('lab.animationLive')}
+            >
               ▶ {frame.method.toUpperCase()} — {t('lab.round')} {frame.step}/{frame.totalSteps}
               {frame.eliminated && (
-                <span style={{ marginLeft: 4, opacity: 0.85 }}>
-                  ✗ {frame.eliminated}
-                </span>
+                <span style={{ marginLeft: 4, opacity: 0.85 }}>✗ {frame.eliminated}</span>
               )}
               {frame.currentWinner && (
-                <span style={{ marginLeft: 4, fontWeight: 700 }}>
-                  🏆 {frame.currentWinner}
-                </span>
+                <span style={{ marginLeft: 4, fontWeight: 700 }}>🏆 {frame.currentWinner}</span>
               )}
             </Badge>
           )}
@@ -473,7 +488,7 @@ const LabCentralView: React.FC<Props> = ({ result, loading }) => {
           <Button
             size="sm"
             variant={focusMode ? 'secondary' : 'link'}
-            className={focusMode ? '' : 'text-muted p-0'}
+            className={focusMode ? '' : 'text-muted-foreground p-0'}
             style={{ fontSize: '0.7rem', padding: focusMode ? '2px 8px' : undefined }}
             onClick={() => setFocusMode((f) => !f)}
             data-testid="central-focus-toggle"
@@ -485,7 +500,7 @@ const LabCentralView: React.FC<Props> = ({ result, loading }) => {
           <Button
             size="sm"
             variant="link"
-            className="text-muted p-0"
+            className="text-muted-foreground p-0"
             style={{ fontSize: '0.72rem' }}
             onClick={() => setCollapsed((c) => !c)}
             data-testid="central-collapse-toggle"
@@ -493,21 +508,27 @@ const LabCentralView: React.FC<Props> = ({ result, loading }) => {
             {collapsed ? '▼ ' + t('lab.expand') : '▲ ' + t('lab.collapse')}
           </Button>
         </div>
-      </Card.Header>
+      </CardHeader>
       {!collapsed && (
-        <Card.Body className="p-3" data-testid="central-body">
+        <CardBody className="p-3" data-testid="central-body">
           <Row className="g-3">
             {/* ── Ideology map (compact) — hidden in focus mode to give the
                 active tab more vertical space ── */}
             {!focusMode && (
               <Col xs={12} lg={6}>
-                <div className="fw-semibold mb-1" style={{ fontSize: '0.78rem' }}>
+                <div className="font-semibold mb-1" style={{ fontSize: '0.78rem' }}>
                   🗺 {t('lab.ideologyMapTitle')}
                 </div>
-                <div style={{
-                  maxHeight: 340, overflow: 'auto', border: '1px solid #dee2e6',
-                  borderRadius: 4, padding: 4,
-                }} data-testid="central-ideology-map">
+                <div
+                  style={{
+                    maxHeight: 340,
+                    overflow: 'auto',
+                    border: '1px solid #dee2e6',
+                    borderRadius: 4,
+                    padding: 4,
+                  }}
+                  data-testid="central-ideology-map"
+                >
                   <IdeologyMapChart
                     embedded
                     defaultCandidates={candidateNames}
@@ -522,11 +543,15 @@ const LabCentralView: React.FC<Props> = ({ result, loading }) => {
 
             {/* ── Methods matrix (compact) — full width in focus mode ── */}
             <Col xs={12} lg={focusMode ? 12 : 6}>
-              <div className="fw-semibold mb-1" style={{ fontSize: '0.78rem' }}>
+              <div className="font-semibold mb-1" style={{ fontSize: '0.78rem' }}>
                 📊 {t('lab.methodsMatrixTitle')}
-                {pinned.filter(p => p.winnersByMethod).length > 0 && (
-                  <span className="text-muted ms-2" style={{ fontSize: '0.65rem', fontWeight: 400 }}>
-                    + {pinned.filter(p => p.winnersByMethod).length} {t('lab.perturbationsCompared')}
+                {pinned.filter((p) => p.winnersByMethod).length > 0 && (
+                  <span
+                    className="text-muted-foreground ms-2"
+                    style={{ fontSize: '0.65rem', fontWeight: 400 }}
+                  >
+                    + {pinned.filter((p) => p.winnersByMethod).length}{' '}
+                    {t('lab.perturbationsCompared')}
                   </span>
                 )}
               </div>
@@ -541,7 +566,7 @@ const LabCentralView: React.FC<Props> = ({ result, loading }) => {
             onClear={clearPinned}
             t={t}
           />
-        </Card.Body>
+        </CardBody>
       )}
     </Card>
   );

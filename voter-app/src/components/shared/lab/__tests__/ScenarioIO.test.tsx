@@ -1,7 +1,9 @@
 import React from 'react';
 import { render, screen, fireEvent, waitFor, act } from '@testing-library/react';
 import ScenarioIO, {
-  buildScenarioBundle, validateScenarioBundle, SCENARIO_FORMAT_VERSION,
+  buildScenarioBundle,
+  validateScenarioBundle,
+  SCENARIO_FORMAT_VERSION,
 } from '../ScenarioIO';
 import { ElectionProvider, useElection } from '../../../../stores/useElectionStore';
 import { usePerturbations } from '../../../../stores/useLabStore';
@@ -54,11 +56,19 @@ describe('buildScenarioBundle', () => {
     const cfg: any = {
       candidates: [{ name: 'A', x: 0, y: 0 }],
       num_voters: 100,
-      ideology:   'random',
-      seed:       42,
-      blank_vote:        { enabled: false, rule: 'symbolic', contagion: { enabled: false, beta: 0, gamma: 0, network: 'random' } },
-      information_model: { enabled: false, media_bias: {}, voter_segments: { low_info: 0.3, medium_info: 0.5, high_info: 0.2 } },
-      campaign:          { enabled: false, num_days: 30, polling_effect: 0.3 },
+      ideology: 'random',
+      seed: 42,
+      blank_vote: {
+        enabled: false,
+        rule: 'symbolic',
+        contagion: { enabled: false, beta: 0, gamma: 0, network: 'random' },
+      },
+      information_model: {
+        enabled: false,
+        media_bias: {},
+        voter_segments: { low_info: 0.3, medium_info: 0.5, high_info: 0.2 },
+      },
+      campaign: { enabled: false, num_days: 30, polling_effect: 0.3 },
     };
     const pinned = [{ id: 'x', type: 't', icon: '🗳', label: 'L', summary: 'S', pinnedAt: 1 }];
     const b = buildScenarioBundle(cfg, pinned);
@@ -74,14 +84,19 @@ describe('validateScenarioBundle', () => {
   const minimalCfg = {
     candidates: [{ name: 'A', x: 0, y: 0 }],
     num_voters: 100,
-    ideology:   'random',
-    seed:       1,
+    ideology: 'random',
+    seed: 1,
   };
 
   it('accepts a well-formed bundle', () => {
-    expect(validateScenarioBundle({
-      version: 1, exportedAt: 'now', config: minimalCfg, pinned: [],
-    })).not.toBeNull();
+    expect(
+      validateScenarioBundle({
+        version: 1,
+        exportedAt: 'now',
+        config: minimalCfg,
+        pinned: [],
+      })
+    ).not.toBeNull();
   });
 
   it('rejects non-object input', () => {
@@ -100,9 +115,12 @@ describe('validateScenarioBundle', () => {
   });
 
   it('rejects candidates with missing fields', () => {
-    expect(validateScenarioBundle({
-      version: 1, config: { ...minimalCfg, candidates: [{ name: 'A' }] },
-    })).toBeNull();
+    expect(
+      validateScenarioBundle({
+        version: 1,
+        config: { ...minimalCfg, candidates: [{ name: 'A' }] },
+      })
+    ).toBeNull();
   });
 
   it('defaults pinned to [] when absent', () => {
@@ -130,7 +148,9 @@ describe('ScenarioIO component', () => {
 
   it('export click shows a success toast', async () => {
     render(wrap(<ScenarioIO />));
-    act(() => { fireEvent.click(screen.getByTestId('scenario-export-btn')); });
+    act(() => {
+      fireEvent.click(screen.getByTestId('scenario-export-btn'));
+    });
     await waitFor(() => expect(screen.getByTestId('scenario-toast-success')).toBeInTheDocument());
   });
 
@@ -139,22 +159,37 @@ describe('ScenarioIO component', () => {
     expect(screen.getByTestId('seed').textContent).toBe('42');
 
     const bundle = {
-      version:    1,
+      version: 1,
       exportedAt: '2026-05-23T00:00:00Z',
       config: {
         candidates: [
           { name: 'X', x: -0.1, y: 0.1 },
-          { name: 'Y', x:  0.5, y: 0.0 },
+          { name: 'Y', x: 0.5, y: 0.0 },
         ],
         num_voters: 777,
-        ideology:   'centrist',
-        seed:       1337,
-        blank_vote:        { enabled: false, rule: 'symbolic', contagion: { enabled: false, beta: 0, gamma: 0, network: 'random' } },
-        information_model: { enabled: false, media_bias: {}, voter_segments: { low_info: 0.3, medium_info: 0.5, high_info: 0.2 } },
-        campaign:          { enabled: false, num_days: 30, polling_effect: 0.3 },
+        ideology: 'centrist',
+        seed: 1337,
+        blank_vote: {
+          enabled: false,
+          rule: 'symbolic',
+          contagion: { enabled: false, beta: 0, gamma: 0, network: 'random' },
+        },
+        information_model: {
+          enabled: false,
+          media_bias: {},
+          voter_segments: { low_info: 0.3, medium_info: 0.5, high_info: 0.2 },
+        },
+        campaign: { enabled: false, num_days: 30, polling_effect: 0.3 },
       },
       pinned: [
-        { id: 'old', type: 'abstention', icon: '🗳', label: 'Imported card', summary: 'sum', pinnedAt: 0 },
+        {
+          id: 'old',
+          type: 'abstention',
+          icon: '🗳',
+          label: 'Imported card',
+          summary: 'sum',
+          pinnedAt: 0,
+        },
       ],
     };
     const file = makeFile(JSON.stringify(bundle));

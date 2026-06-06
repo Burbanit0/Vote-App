@@ -48,7 +48,7 @@ function dispatchInline<T>(type: string, payload: unknown): Promise<T> {
 
 export function useSimulationWorker() {
   return {
-    dispatch:    vi.fn((type: string, payload: unknown) => dispatchInline(type, payload)),
+    dispatch: vi.fn((type: string, payload: unknown) => dispatchInline(type, payload)),
     isComputing: false,
   };
 }

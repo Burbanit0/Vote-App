@@ -9,28 +9,91 @@ vi.mock('../services/simulationCompareApi', () => ({
   runComparisonSimulation: vi.fn().mockResolvedValue({
     condorcet_winner: 'Alice',
     methods: {
-      plurality: { winner: 'Alice', bayesian_regret: 0.12, majority_satisfaction: 0.75, strategic_vulnerability: 0.2, condorcet_consistent: true },
-      borda:     { winner: 'Bob',   bayesian_regret: 0.05, majority_satisfaction: 0.9,  strategic_vulnerability: 0.08, condorcet_consistent: false },
-      irv:       { winner: 'Alice', bayesian_regret: 0.09, majority_satisfaction: 0.82, strategic_vulnerability: 0.11, condorcet_consistent: true },
+      plurality: {
+        winner: 'Alice',
+        bayesian_regret: 0.12,
+        majority_satisfaction: 0.75,
+        strategic_vulnerability: 0.2,
+        condorcet_consistent: true,
+      },
+      borda: {
+        winner: 'Bob',
+        bayesian_regret: 0.05,
+        majority_satisfaction: 0.9,
+        strategic_vulnerability: 0.08,
+        condorcet_consistent: false,
+      },
+      irv: {
+        winner: 'Alice',
+        bayesian_regret: 0.09,
+        majority_satisfaction: 0.82,
+        strategic_vulnerability: 0.11,
+        condorcet_consistent: true,
+      },
     },
   }),
 }));
 
 vi.mock('../services/electionApi', () => ({
-  simulateElection:  vi.fn().mockResolvedValue({
-    config: {}, voters_snapshot: [], candidates: [],
+  simulateElection: vi.fn().mockResolvedValue({
+    config: {},
+    voters_snapshot: [],
+    candidates: [],
     methods: {
-      plurality:     { winner: 'Chirac', bayesian_regret: 0.03, majority_satisfaction: 0.7, condorcet_consistent: null },
-      schulze:       { winner: 'Jospin', bayesian_regret: 0.02, majority_satisfaction: 0.8, condorcet_consistent: null },
-      borda:         { winner: 'Chirac', bayesian_regret: 0.03, majority_satisfaction: 0.7, condorcet_consistent: null },
-      irv:           { winner: 'Chirac', bayesian_regret: 0.03, majority_satisfaction: 0.7, condorcet_consistent: null },
-      two_round:     { winner: 'Chirac', bayesian_regret: 0.03, majority_satisfaction: 0.7, condorcet_consistent: null },
-      approval:      { winner: 'Chirac', bayesian_regret: 0.03, majority_satisfaction: 0.7, condorcet_consistent: null },
-      star_voting:   { winner: 'Chirac', bayesian_regret: 0.03, majority_satisfaction: 0.7, condorcet_consistent: null },
-      median_voting: { winner: 'Chirac', bayesian_regret: 0.03, majority_satisfaction: 0.7, condorcet_consistent: null },
+      plurality: {
+        winner: 'Chirac',
+        bayesian_regret: 0.03,
+        majority_satisfaction: 0.7,
+        condorcet_consistent: null,
+      },
+      schulze: {
+        winner: 'Jospin',
+        bayesian_regret: 0.02,
+        majority_satisfaction: 0.8,
+        condorcet_consistent: null,
+      },
+      borda: {
+        winner: 'Chirac',
+        bayesian_regret: 0.03,
+        majority_satisfaction: 0.7,
+        condorcet_consistent: null,
+      },
+      irv: {
+        winner: 'Chirac',
+        bayesian_regret: 0.03,
+        majority_satisfaction: 0.7,
+        condorcet_consistent: null,
+      },
+      two_round: {
+        winner: 'Chirac',
+        bayesian_regret: 0.03,
+        majority_satisfaction: 0.7,
+        condorcet_consistent: null,
+      },
+      approval: {
+        winner: 'Chirac',
+        bayesian_regret: 0.03,
+        majority_satisfaction: 0.7,
+        condorcet_consistent: null,
+      },
+      star_voting: {
+        winner: 'Chirac',
+        bayesian_regret: 0.03,
+        majority_satisfaction: 0.7,
+        condorcet_consistent: null,
+      },
+      median_voting: {
+        winner: 'Chirac',
+        bayesian_regret: 0.03,
+        majority_satisfaction: 0.7,
+        condorcet_consistent: null,
+      },
     },
-    condorcet_winner: 'Jospin', blank_rate: 0,
-    campaign_trajectory: null, inter_method_agreement: 0.5, condorcet_exists: true,
+    condorcet_winner: 'Jospin',
+    blank_rate: 0,
+    campaign_trajectory: null,
+    inter_method_agreement: 0.5,
+    condorcet_exists: true,
   }),
   interpretElection: vi.fn().mockResolvedValue(null),
 }));
@@ -50,14 +113,16 @@ async function renderPage() {
 }
 
 describe('HomePage', () => {
-  beforeEach(() => { localStorage.clear(); });
+  beforeEach(() => {
+    localStorage.clear();
+  });
 
   it('renders the hero title', async () => {
     await renderPage();
     // heroTitle key → English or French
     expect(
       screen.queryByText(/ballot changes everything|bulletin de vote change/i) ??
-      screen.queryByText(/testez|see how/i)
+        screen.queryByText(/testez|see how/i)
     ).not.toBeNull();
   });
 
@@ -78,7 +143,9 @@ describe('HomePage', () => {
 
   it('renders the stats section', async () => {
     await renderPage();
-    expect(screen.getByText(/voting methods compared|méthodes de vote comparées/i)).toBeInTheDocument();
+    expect(
+      screen.getByText(/voting methods compared|méthodes de vote comparées/i)
+    ).toBeInTheDocument();
   });
 
   it('shows disagreeing methods count after API resolves', async () => {

@@ -16,9 +16,9 @@ export interface DragCallbacks {
   /** Called when a drag starts. Returns domain {x, y}. */
   onStart: (x: number, y: number) => void;
   /** Called on each move while dragging. */
-  onMove:  (x: number, y: number) => void;
+  onMove: (x: number, y: number) => void;
   /** Called when the drag ends. */
-  onEnd:   () => void;
+  onEnd: () => void;
 }
 
 export interface UseDragTouchOptions extends DragCallbacks {
@@ -33,16 +33,16 @@ export interface UseDragTouchOptions extends DragCallbacks {
 
 function defaultToDomain(clientX: number, clientY: number, rect: DOMRect) {
   return {
-    x: Math.max(-1, Math.min(1, ((clientX - rect.left) / rect.width)  * 2 - 1)),
-    y: Math.max(-1, Math.min(1, 1 - ((clientY - rect.top)  / rect.height) * 2)),
+    x: Math.max(-1, Math.min(1, ((clientX - rect.left) / rect.width) * 2 - 1)),
+    y: Math.max(-1, Math.min(1, 1 - ((clientY - rect.top) / rect.height) * 2)),
   };
 }
 
 // ── Hook ──────────────────────────────────────────────────────────────────────
 
 export function useDragTouch(
-  svgRef:  RefObject<SVGSVGElement | null>,
-  options: UseDragTouchOptions,
+  svgRef: RefObject<SVGSVGElement | null>,
+  options: UseDragTouchOptions
 ): void {
   const { onStart, onMove, onEnd, toDomain = defaultToDomain } = options;
 
@@ -51,16 +51,21 @@ export function useDragTouch(
 
   // Keep callbacks stable so effects don't re-run on every render
   const cbRef = useRef({ onStart, onMove, onEnd, toDomain });
-  useEffect(() => { cbRef.current = { onStart, onMove, onEnd, toDomain }; });
+  useEffect(() => {
+    cbRef.current = { onStart, onMove, onEnd, toDomain };
+  });
 
   // ── Mouse events (window-level to capture fast pointer movement) ───────────
 
-  const handleMouseMove = useCallback((e: MouseEvent) => {
-    if (!draggingRef.current || !svgRef.current) return;
-    const rect = svgRef.current.getBoundingClientRect();
-    const { x, y } = cbRef.current.toDomain(e.clientX, e.clientY, rect);
-    cbRef.current.onMove(x, y);
-  }, [svgRef]);
+  const handleMouseMove = useCallback(
+    (e: MouseEvent) => {
+      if (!draggingRef.current || !svgRef.current) return;
+      const rect = svgRef.current.getBoundingClientRect();
+      const { x, y } = cbRef.current.toDomain(e.clientX, e.clientY, rect);
+      cbRef.current.onMove(x, y);
+    },
+    [svgRef]
+  );
 
   const handleMouseUp = useCallback(() => {
     if (!draggingRef.current) return;
@@ -70,10 +75,10 @@ export function useDragTouch(
 
   useEffect(() => {
     window.addEventListener('mousemove', handleMouseMove, { passive: true });
-    window.addEventListener('mouseup',   handleMouseUp,   { passive: true });
+    window.addEventListener('mouseup', handleMouseUp, { passive: true });
     return () => {
       window.removeEventListener('mousemove', handleMouseMove);
-      window.removeEventListener('mouseup',   handleMouseUp);
+      window.removeEventListener('mouseup', handleMouseUp);
     };
   }, [handleMouseMove, handleMouseUp]);
 
@@ -102,12 +107,12 @@ export function useDragTouch(
 
     // passive: false so we can preventDefault() on touchmove during drag
     svg.addEventListener('touchmove', handleTouchMove, { passive: false });
-    svg.addEventListener('touchend',  handleTouchEnd,  { passive: true });
+    svg.addEventListener('touchend', handleTouchEnd, { passive: true });
     svg.addEventListener('touchcancel', handleTouchEnd, { passive: true });
 
     return () => {
       svg.removeEventListener('touchmove', handleTouchMove);
-      svg.removeEventListener('touchend',  handleTouchEnd);
+      svg.removeEventListener('touchend', handleTouchEnd);
       svg.removeEventListener('touchcancel', handleTouchEnd);
     };
   }, [svgRef]);
@@ -136,10 +141,14 @@ export function useDragTouch(
  * @param toDomain Optional domain converter
  */
 export function makeDragHandlers(
-  svgRef:   RefObject<SVGSVGElement | null>,
+  svgRef: RefObject<SVGSVGElement | null>,
   dragging: { current: boolean },
-  onStart:  (x: number, y: number) => void,
-  toDomain: (clientX: number, clientY: number, rect: DOMRect) => { x: number; y: number } = defaultToDomain,
+  onStart: (x: number, y: number) => void,
+  toDomain: (
+    clientX: number,
+    clientY: number,
+    rect: DOMRect
+  ) => { x: number; y: number } = defaultToDomain
 ) {
   function getCoords(clientX: number, clientY: number) {
     if (!svgRef.current) return { x: 0, y: 0 };
@@ -169,12 +178,12 @@ export function makeDragHandlers(
  * Returns { dragHandlers, draggingRef } — wire dragHandlers to draggable elements.
  */
 export function useDragTouchWithHandlers(
-  svgRef:   RefObject<SVGSVGElement | null>,
+  svgRef: RefObject<SVGSVGElement | null>,
   callbacks: DragCallbacks,
-  toDomain?: (clientX: number, clientY: number, rect: DOMRect) => { x: number; y: number },
+  toDomain?: (clientX: number, clientY: number, rect: DOMRect) => { x: number; y: number }
 ): {
   draggingRef: { current: boolean };
-  onMouseDown:  (e: React.MouseEvent) => void;
+  onMouseDown: (e: React.MouseEvent) => void;
   onTouchStart: (e: React.TouchEvent) => void;
 } {
   const draggingRef = useRef(false);
