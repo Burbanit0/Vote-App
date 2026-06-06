@@ -22,8 +22,20 @@ export interface ElectionResult {
   condorcet_exists: boolean;
 }
 
+/**
+ * The /simulate request schema is `extra="forbid"`, so we must send ONLY the
+ * simulation-input fields. Scenarios attach UI-only metadata (`description`,
+ * `phenomenon`) to the config, which would otherwise trigger a 422 — strip to
+ * the contract shape here.
+ */
+export function toSimulatePayload(config: ElectionConfig) {
+  const { candidates, num_voters, ideology, seed, blank_vote, information_model, campaign } =
+    config;
+  return { candidates, num_voters, ideology, seed, blank_vote, information_model, campaign };
+}
+
 export async function simulateElection(config: ElectionConfig): Promise<ElectionResult> {
-  return apiPost<ElectionResult>('/api/v2/election/simulate', config);
+  return apiPost<ElectionResult>('/api/v2/election/simulate', toSimulatePayload(config));
 }
 
 // ── Divergence types ──────────────────────────────────────────────────────────
