@@ -47,7 +47,7 @@ class PolisWithCandidatesRequest(BaseModel):
     """Pol.is clustering + classical election cross-comparison."""
     model_config = ConfigDict(extra="forbid")
 
-    candidates:              List[CandidateSpec] = Field(..., min_length=2, max_length=6)
+    candidates:              List[CandidateSpec] = Field(..., min_length=2, max_length=8)
     statements:              Optional[List[str]] = Field(None, max_length=15)
     num_participants:        int   = Field(100, ge=20, le=500)
     ideology:                str   = Field("random")

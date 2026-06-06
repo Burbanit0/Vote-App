@@ -62,7 +62,7 @@ class TestCampaignSensitivity:
             assert 0.0 <= stats["stability_score"] <= 1.0
 
     def test_rejects_too_many_candidates(self, client):
-        many = [{"name": f"C{i}", "x": 0.0, "y": 0.0} for i in range(7)]
+        many = [{"name": f"C{i}", "x": 0.0, "y": 0.0} for i in range(9)]
         r = client.post("/api/v2/election/campaign-sensitivity",
                         json=_payload(candidates=many))
         assert r.status_code == 422
