@@ -18,19 +18,14 @@ import OAuthCallback from './pages/OAuthCallback';
 const SimulationPage = React.lazy(() => import('./pages/SimulationPage'));
 const SimulationComparePage = React.lazy(() => import('./pages/SimulationComparePage'));
 const ScenarioBuilderPage = React.lazy(() => import('./pages/ScenarioBuilderPage'));
-const ConstitutionalCrisisPage = React.lazy(() => import('./pages/ConstitutionalCrisisPage'));
 const QuizPage = React.lazy(() => import('./pages/QuizPage'));
 const WhatIfPage = React.lazy(() => import('./pages/WhatIfPage'));
-const CampaignSimulatorPage = React.lazy(() => import('./pages/CampaignSimulatorPage'));
-const BlankContagionPage = React.lazy(() => import('./pages/BlankContagionPage'));
 const InternationalRegimesPage = React.lazy(() => import('./pages/InternationalRegimesPage'));
 const ApiDocsPage = React.lazy(() => import('./pages/ApiDocsPage'));
 const TeacherPresentationPage = React.lazy(() => import('./pages/TeacherPresentationPage'));
 const ElectionLabPage = React.lazy(() => import('./pages/ElectionLabPage'));
 const QuadraticFundingPage = React.lazy(() => import('./pages/QuadraticFundingPage'));
 const TechDemocracyPage = React.lazy(() => import('./pages/TechDemocracyPage'));
-const SortitionPage = React.lazy(() => import('./pages/SortitionPage'));
-const PartyDynamicsPage = React.lazy(() => import('./pages/PartyDynamicsPage'));
 const TheoryPage = React.lazy(() => import('./pages/TheoryPage'));
 const ProfilePage = React.lazy(() => import('./pages/ProfilePage'));
 const UserProfilePage = React.lazy(() => import('./pages/UserProfilePage'));
@@ -89,22 +84,20 @@ const AppContent: React.FC = () => {
               path="/simulation/compare"
               element={<AuthGuard component={SimulationComparePage} requireAuth={false} />}
             />
-            <Route
-              path="/constitutional-crisis"
-              element={<AuthGuard component={ConstitutionalCrisisPage} requireAuth={false} />}
-            />
             <Route path="/quiz" element={<QuizPage />} />
             <Route path="/what-if" element={<WhatIfPage />} />
-            <Route path="/campaign" element={<CampaignSimulatorPage />} />
-            <Route path="/blank-contagion" element={<BlankContagionPage />} />
             <Route path="/regimes-internationaux" element={<InternationalRegimesPage />} />
             <Route path="/api-docs" element={<ApiDocsPage />} />
             <Route path="/teacher/presentation" element={<TeacherPresentationPage />} />
             <Route path="/election-lab" element={<ElectionLabPage />} />
             <Route path="/quadratic-funding" element={<QuadraticFundingPage />} />
             <Route path="/tech-democracy" element={<TechDemocracyPage />} />
-            <Route path="/sortition" element={<SortitionPage />} />
-            <Route path="/party-dynamics" element={<PartyDynamicsPage />} />
+            {/* Absorbed into the Election Lab (Phase 7) — redirect old routes to the tab. */}
+            <Route path="/sortition" element={<Navigate to="/election-lab?tab=sortition" replace />} />
+            <Route
+              path="/party-dynamics"
+              element={<Navigate to="/election-lab?tab=party-dynamics" replace />}
+            />
             <Route path="/theory" element={<TheoryPage />} />
 
             {/* Auth-protected routes */}

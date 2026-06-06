@@ -280,22 +280,27 @@ Pour chaque route, le workflow est :
 
 **Objectif** : derniers détails avant ouverture publique.
 
-- [ ] **PDF export côté backend** :
+**État (2026-06-04)** : volet *code/docs* terminé et mergé dans `develop`. Les items
+restants sont *deploy-time* (comptes externes / secrets / environnement live), pas du
+code — listés ci-dessous comme ⏳ deferred.
+
+- [~] **PDF export côté backend** — **reporté** (décision utilisateur : non prioritaire) :
   - Nouveau endpoint FastAPI `/api/export/pdf` avec WeasyPrint
   - Frontend supprime `jspdf` + `html2canvas` (−1 MB)
-- [ ] **Décisions sur les 9 pages secondaires** :
-  - WhatIfPage, QuizPage, BlankContagionPage, CampaignSimulatorPage, ConstitutionalCrisisPage, InternationalRegimesPage, PartyDynamicsPage, SortitionPage, TechDemocracyPage
-  - Pour chacune : **absorber dans le Lab** OU **retirer du Navbar** (garder en URL secrète) OU **supprimer**
-- [ ] **Sécurité** :
-  - hCaptcha ou Cloudflare Turnstile sur `/register` et `/login`
-  - Content Security Policy headers
-  - security.txt
-- [ ] **Operational** :
-  - Healthcheck endpoint `/api/health` (DB + Redis + Sentry status)
-  - Status page (UptimeRobot free tier)
-  - Backup pg_dump quotidien (cron dans le compose prod)
-- [ ] **ADR (Architecture Decision Records)** :
-  - Créer `docs/adr/` avec 10 ADR concis :
+- [x] **Décisions sur les 9 pages secondaires** (fait) :
+  - **Absorbées dans le Lab** (onglets + redirection de route) : PartyDynamics, Sortition
+  - **Supprimées** (orphelines, hors Navbar, recouvrement avec onglets Lab) :
+    BlankContagion, CampaignSimulator, ConstitutionalCrisis
+  - **Gardées dans le Navbar** : WhatIf, Quiz, InternationalRegimes, TechDemocracy
+- [~] **Sécurité** :
+  - [x] `security.txt` (`voter-app/public/.well-known/security.txt`)
+  - ⏳ hCaptcha / Cloudflare Turnstile sur `/register` + `/login` (besoin de clés)
+  - ⏳ Content Security Policy headers (à régler en prod — l'app utilise bcp de styles inline)
+- [~] **Operational** :
+  - [x] Healthcheck `GET /api/v2/health` (Redis + uptime + version ; **DB ping ⏳**)
+  - ⏳ Status page (UptimeRobot free tier) — externe
+  - ⏳ Backup `pg_dump` quotidien (cron dans le compose prod)
+- [x] **ADR (Architecture Decision Records)** — `docs/adr/` créé avec 10 ADR concis :
     - 001 — Pourquoi FastAPI plutôt que Flask
     - 002 — Pourquoi Pydantic comme source de vérité
     - 003 — Pourquoi TanStack Query + Zustand
@@ -306,7 +311,9 @@ Pour chaque route, le workflow est :
     - 008 — Schema localStorage versioning
     - 009 — Internationalization namespacing
     - 010 — Observability stack (Sentry + structlog)
-- [ ] **README aligné sur la réalité** : `git clone && ./scripts/bootstrap.sh && docker-compose up` doit marcher de bout en bout
+- [x] **README aligné sur la réalité** : stack table corrigée (FastAPI, Tailwind+shadcn,
+  TanStack/Zustand, Vitest ; Bootstrap/Flask/Jest retirés). `./scripts/bootstrap.sh`
+  end-to-end reste ⏳ à valider en prod.
 
 ---
 

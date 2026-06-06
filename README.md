@@ -27,11 +27,12 @@ Vote Lab lets you configure a complete election and observe it through multiple 
 | WebSockets | python-socketio (ASGI, Monte Carlo streaming) |
 | Auth | JWT + bcrypt + OAuth (Google / GitHub) |
 | Frontend | React 19 · TypeScript · React Router v7 · Vite |
-| UI | Bootstrap 5 · react-bootstrap |
+| Data/State | TanStack Query + openapi-fetch (typed) · Zustand stores |
+| UI | Tailwind v4 + shadcn/ui (hand-written primitives in `src/components/ui/`) |
 | Charts | Recharts · D3 (Voronoi, hexbin) |
-| i18n | i18next (FR / EN toggle, persisted) |
+| i18n | i18next (FR / EN toggle, persisted, lazy-loaded) |
 | PWA | vite-plugin-pwa · Workbox (offline, installable) |
-| Tests | Jest (unit) · Playwright (E2E + axe-core a11y) |
+| Tests | Vitest (unit) · Playwright (E2E + axe-core a11y) |
 | Type checking | mypy strict on `api/` |
 | CI/CD | GitHub Actions (path-based triggers for backend and frontend) |
 

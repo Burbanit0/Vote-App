@@ -1,0 +1,6 @@
+# Vote Lab — security contact (RFC 9116)
+# Update Expires periodically (must be a future date) and set a real contact
+# before public launch.
+Contact: mailto:gaultier.burban@gmail.com
+Preferred-Languages: fr, en
+Expires: 2027-01-01T00:00:00.000Z
