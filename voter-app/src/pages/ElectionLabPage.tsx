@@ -62,6 +62,8 @@ import CompulsoryVotingPanel from '../components/shared/CompulsoryVotingPanel';
 import DeliberationPanel from '../components/shared/DeliberationPanel';
 import HotellingPanel from '../components/shared/HotellingPanel';
 import PolarizationPanel from '../components/shared/PolarizationPanel';
+import SortitionPanel from '../components/shared/SortitionPanel';
+import PartyDynamicsPanel from '../components/shared/PartyDynamicsPanel';
 
 const COLORS: Record<string, string> = {
   Green: '#007A33',
@@ -928,6 +930,18 @@ const ElectionLabPage: React.FC = () => {
                     label: t('electionLab.tabConviction'),
                     group: 'variant' as const,
                   },
+                  {
+                    key: 'party-dynamics',
+                    icon: '📊',
+                    label: t('electionLab.tabPartyDynamics'),
+                    group: 'variant' as const,
+                  },
+                  {
+                    key: 'sortition',
+                    icon: '🎲',
+                    label: t('electionLab.tabSortition'),
+                    group: 'variant' as const,
+                  },
                 ];
 
                 // ── Group metadata (label + color dot) ──────────────────────
@@ -987,6 +1001,8 @@ const ElectionLabPage: React.FC = () => {
                   behavioral: <BehavioralBiasPanel />,
                   liquid: <LiquidDemocracyPanel />,
                   conviction: <ConvictionVotingPanel />,
+                  'party-dynamics': <PartyDynamicsPanel />,
+                  sortition: <SortitionPanel />,
                   nota: <NOTAPanel />,
                   ballot: <BallotComplexityPanel />,
                   shyvoter: <ShyVoterPanel />,

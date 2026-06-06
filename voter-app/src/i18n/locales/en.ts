@@ -1323,6 +1323,8 @@ const en: TranslationKeys = {
     tabBehavioral: 'Behavioral Biases',
     tabLiquid: 'Liquid Democracy',
     tabConviction: 'Conviction Voting',
+    tabPartyDynamics: 'Party Dynamics',
+    tabSortition: 'Sortition',
     tabNota: 'NOTA',
     tabBallot: 'Ballot Design',
     tabShyVoter: 'Shy Voter',

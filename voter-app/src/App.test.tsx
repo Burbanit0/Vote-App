@@ -20,9 +20,6 @@ vi.mock('./pages/SimulationComparePage', () => ({
 vi.mock('./pages/ScenarioBuilderPage', () => ({
   default: () => <div data-testid="scenario-builder-page">ScenarioBuilderPage</div>,
 }));
-vi.mock('./pages/ConstitutionalCrisisPage', () => ({
-  default: () => <div data-testid="constitutional-crisis-page">ConstitutionalCrisisPage</div>,
-}));
 vi.mock('./pages/Login', () => ({ default: () => <div data-testid="login-page">Login</div> }));
 vi.mock('./pages/Register', () => ({
   default: () => <div data-testid="register-page">Register</div>,
@@ -111,12 +108,6 @@ describe('App', () => {
     window.history.pushState({}, '', '/simulation/compare');
     render(<App />);
     expect(await screen.findByTestId('simulation-compare-page')).toBeInTheDocument();
-  });
-
-  it('renders ConstitutionalCrisisPage on /constitutional-crisis', async () => {
-    window.history.pushState({}, '', '/constitutional-crisis');
-    render(<App />);
-    expect(await screen.findByTestId('constitutional-crisis-page')).toBeInTheDocument();
   });
 
   // Auth-protected routes

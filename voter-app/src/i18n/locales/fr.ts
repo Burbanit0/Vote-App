@@ -1332,6 +1332,8 @@ const fr = {
     tabBehavioral: 'Biais comportementaux',
     tabLiquid: 'Liquid Democracy',
     tabConviction: 'Conviction Voting',
+    tabPartyDynamics: 'Dynamique des partis',
+    tabSortition: 'Tirage au sort',
     tabNota: 'NOTA',
     tabBallot: 'Design du bulletin',
     tabShyVoter: 'Shy voter',
