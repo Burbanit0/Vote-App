@@ -89,7 +89,7 @@ class TestPolarization:
         assert client.post("/api/v2/election/polarization", json=bad).status_code == 422
 
     def test_rejects_too_many_candidates(self, client):
-        many = [{"name": f"C{i}", "x": 0.0, "y": 0.0} for i in range(5)]
+        many = [{"name": f"C{i}", "x": 0.0, "y": 0.0} for i in range(9)]
         assert client.post("/api/v2/election/polarization",
                            json={**self.payload, "candidates": many}).status_code == 422
 

@@ -73,7 +73,7 @@ class TestCombinedEffects:
         assert r.status_code == 422
 
     def test_rejects_too_many_candidates_via_422(self, client):
-        many = [{"name": f"C{i}", "x": 0.0, "y": 0.0} for i in range(7)]
+        many = [{"name": f"C{i}", "x": 0.0, "y": 0.0} for i in range(9)]
         r = client.post("/api/v2/election/combined-effects", json=_payload(candidates=many))
         assert r.status_code == 422
 

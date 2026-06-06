@@ -333,7 +333,7 @@ class MajorityTyrannyRequest(BaseModel):
     """Tocqueville's tyranny of the majority across decision rules."""
     model_config = ConfigDict(extra="forbid")
 
-    num_voters:         int   = Field(100, ge=10, le=500)
+    num_voters:         int   = Field(100, ge=10, le=1000)
     majority_pct:       float = Field(0.60, ge=0.51, le=0.95)
     minority_intensity: float = Field(3.0, ge=1.0, le=10.0)
     num_decisions:      int   = Field(50, ge=10, le=200)
@@ -390,7 +390,7 @@ class DemocraticBacksliddingRequest(BaseModel):
             BacksliddingCandidate(name="Incumbent",  x=0.2),
             BacksliddingCandidate(name="Opposition", x=-0.4),
         ],
-        min_length=2, max_length=6,
+        min_length=2, max_length=8,
     )
     num_voters:             int   = Field(100, ge=20, le=1000)
     ideology:               str   = Field("random")
@@ -489,7 +489,7 @@ class EpistocracyRequest(BaseModel):
             EpistCandidate(name="B", x= 0.0),
             EpistCandidate(name="C", x= 0.5),
         ],
-        min_length=2, max_length=6,
+        min_length=2, max_length=8,
     )
     num_voters:                      int = Field(100, ge=10, le=1000)
     seed:                            int = Field(42, ge=0)
@@ -557,7 +557,7 @@ class IdentityVotingRequest(BaseModel):
             IDCandidate(name="Bob",   x= 0.0),
             IDCandidate(name="Carol", x= 0.5),
         ],
-        min_length=2, max_length=6,
+        min_length=2, max_length=8,
     )
     num_voters:       int   = Field(200, ge=20, le=2000)
     seed:             int   = Field(42, ge=0)
@@ -677,9 +677,9 @@ class CollectiveWillRequest(BaseModel):
             CWCandidate(name="Bob",   x= 0.1),
             CWCandidate(name="Carol", x= 0.5),
         ],
-        min_length=2, max_length=6,
+        min_length=2, max_length=8,
     )
-    num_voters:      int = Field(100, ge=10, le=500)
+    num_voters:      int = Field(100, ge=10, le=1000)
     ideology:        str = Field("random")
     seed:            int = Field(42, ge=0)
     num_methods:     int = Field(5, ge=2, le=10)

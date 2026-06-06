@@ -71,7 +71,7 @@ class CombinedEffectsRequest(BaseModel):
     """Same shape as SimulateRequest but with a tighter num_voters cap (2³=8 simulations)."""
     model_config = ConfigDict(extra="forbid")
 
-    candidates: List[CandidateSpec] = Field(..., min_length=2, max_length=6)
+    candidates: List[CandidateSpec] = Field(..., min_length=2, max_length=8)
     num_voters: int = Field(150, ge=10, le=200)
     ideology:   str = Field("random")
     seed:       int = Field(42, ge=0)
@@ -113,7 +113,7 @@ class CombinedEffectsResponse(BaseModel):
 class CampaignSensitivityRequest(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
-    candidates: List[CandidateSpec] = Field(..., min_length=2, max_length=6)
+    candidates: List[CandidateSpec] = Field(..., min_length=2, max_length=8)
     num_voters: int = Field(150, ge=10, le=200)
     ideology:   str = Field("random")
     seed:       int = Field(42, ge=0)
@@ -154,7 +154,7 @@ class AbstentionRequest(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
     candidates: List[CandidateSpec] = Field(..., min_length=2, max_length=8)
-    num_voters: int   = Field(200, ge=10, le=500)
+    num_voters: int   = Field(200, ge=10, le=1000)
     ideology:   str   = Field("random")
     seed:       int   = Field(42, ge=0)
     demobilization_factor: float = Field(0.5, ge=0.0, le=1.0,
@@ -204,7 +204,7 @@ class CoalitionRequest(BaseModel):
     """Per-method D'Hondt seat allocation + greedy coalition formation."""
     model_config = ConfigDict(extra="forbid")
 
-    candidates:           List[CandidateSpec] = Field(..., min_length=2, max_length=6)
+    candidates:           List[CandidateSpec] = Field(..., min_length=2, max_length=8)
     num_voters:           int   = Field(300, ge=10, le=1000)
     ideology:             str   = Field("random")
     seed:                 int   = Field(42, ge=0)
