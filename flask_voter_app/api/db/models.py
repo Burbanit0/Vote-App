@@ -75,13 +75,13 @@ class SimulationScenario(Base):
     id:         Mapped[int] = mapped_column(Integer, primary_key=True)
     user_id:    Mapped[int] = mapped_column(ForeignKey("users.id"), nullable=False)
     name:       Mapped[str] = mapped_column(String(100), nullable=False)
-    config:     Mapped[dict] = mapped_column(JSON, nullable=False)
-    results:    Mapped[Optional[dict]] = mapped_column(JSON, nullable=True)
+    config:     Mapped[dict[str, Any]] = mapped_column(JSON, nullable=False)
+    results:    Mapped[Optional[dict[str, Any]]] = mapped_column(JSON, nullable=True)
     created_at: Mapped[Optional[datetime.datetime]] = mapped_column(DateTime, default=_utcnow)
 
     user: Mapped["User"] = relationship("User", backref="simulation_scenarios", lazy="selectin")
 
-    def to_summary(self) -> dict:
+    def to_summary(self) -> dict[str, Any]:
         return {
             "id": self.id,
             "name": self.name,
@@ -89,7 +89,7 @@ class SimulationScenario(Base):
             "config": self.config,
         }
 
-    def to_detail(self) -> dict:
+    def to_detail(self) -> dict[str, Any]:
         return {**self.to_summary(), "results": self.results}
 
 
@@ -100,14 +100,14 @@ class GalleryScenario(Base):
     id:          Mapped[int] = mapped_column(Integer, primary_key=True)
     title:       Mapped[str] = mapped_column(String(200), nullable=False)
     description: Mapped[str] = mapped_column(Text, nullable=False)
-    params:          Mapped[dict] = mapped_column(JSON, nullable=False, default=dict)
-    results_summary: Mapped[dict] = mapped_column(JSON, nullable=False, default=dict)
-    tags:        Mapped[list] = mapped_column(JSON, nullable=False, default=list)
+    params:          Mapped[dict[str, Any]] = mapped_column(JSON, nullable=False, default=dict)
+    results_summary: Mapped[dict[str, Any]] = mapped_column(JSON, nullable=False, default=dict)
+    tags:        Mapped[list[Any]] = mapped_column(JSON, nullable=False, default=list)
     created_at:  Mapped[Optional[datetime.datetime]] = mapped_column(DateTime, default=_utcnow)
     views:       Mapped[int] = mapped_column(Integer, default=0, nullable=False)
     is_featured: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
 
-    def to_dict(self, include_params: bool = False) -> dict:
+    def to_dict(self, include_params: bool = False) -> dict[str, Any]:
         data: dict[str, Any] = {
             "id":              self.id,
             "title":           self.title,

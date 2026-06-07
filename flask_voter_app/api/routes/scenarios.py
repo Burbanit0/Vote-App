@@ -7,7 +7,7 @@ async SQLAlchemy layer in `api.db` — no more `run_in_flask_db` bridge.
 """
 from __future__ import annotations
 
-from typing import Annotated, List, Optional
+from typing import Annotated, Any, List, Optional
 
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy import select
@@ -95,7 +95,7 @@ async def delete_scenario(
     scenario_id: int,
     user_id: CurrentUserId,
     db: DbSession,
-) -> dict:
+) -> dict[str, Any]:
     """Hard-deletes the row — same behaviour as the Flask side."""
     scenario = await _owned_scenario(db, scenario_id, user_id)
     if scenario is None:

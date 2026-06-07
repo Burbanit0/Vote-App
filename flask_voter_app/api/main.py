@@ -15,9 +15,9 @@ from __future__ import annotations
 import sys
 import time
 from contextlib import asynccontextmanager
-from typing import AsyncIterator
+from typing import Any, AsyncIterator, Awaitable, Callable
 
-from fastapi import FastAPI
+from fastapi import FastAPI, Request, Response
 from fastapi.middleware.cors import CORSMiddleware
 
 # Re-use the project's existing structlog config so logs look identical
@@ -93,7 +93,7 @@ app = FastAPI(
 # slowapi attaches the limiter to app.state and converts a tripped limit into
 # a 429. Only the public router declares @limiter.limit decorators today.
 app.state.limiter = limiter
-app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
+app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)  # type: ignore[arg-type]
 
 
 # ── CORS ────────────────────────────────────────────────────────────────────
@@ -113,7 +113,9 @@ _access_log = get_logger("api.access")
 
 
 @app.middleware("http")
-async def log_requests(request, call_next):
+async def log_requests(
+    request: Request, call_next: Callable[[Request], Awaitable[Response]]
+) -> Response:
     """One JSON line per request, with duration_ms. Skips /api/v2/health
     to keep uptime-monitor noise out of the stream."""
     t0 = time.perf_counter()
@@ -148,7 +150,7 @@ app.include_router(users_routes.router)
 
 
 @app.get("/api/v2", tags=["meta"])
-def root() -> dict:
+def root() -> dict[str, Any]:
     """Tiny landing endpoint so visiting /api/v2 directly doesn't 404."""
     return {
         "name":    "Vote Lab API v2",

@@ -11,7 +11,7 @@ counterexamples, resolution-method dicts) stay `Dict[str, Any]`.
 from __future__ import annotations
 
 import asyncio
-from typing import Any, Callable, Dict
+from typing import Any, Callable, Dict, TypeVar
 
 from fastapi import APIRouter, HTTPException, status
 from pydantic import BaseModel
@@ -72,11 +72,14 @@ router = APIRouter(prefix="/api/v2/theory", tags=["theory"])
 
 # ── Shared helper ───────────────────────────────────────────────────────────
 
+_ResponseT = TypeVar("_ResponseT", bound=BaseModel)
+
+
 async def _run_typed(
     domain_fn: Callable[[Dict[str, Any]], tuple[Dict[str, Any], int]],
     request: BaseModel,
-    response_model: type[BaseModel],
-) -> BaseModel:
+    response_model: type[_ResponseT],
+) -> _ResponseT:
     """Adapt (body, status) contract to FastAPI's exception-based model."""
     body, status_code = await asyncio.to_thread(domain_fn, request.model_dump())
     if status_code == 400:
