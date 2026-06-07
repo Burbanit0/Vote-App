@@ -56,9 +56,14 @@ class TestDemographicTurnout:
     def test_happy_path(self, client):
         r = client.post("/api/v2/election/demographic-turnout", json=self.payload)
         assert r.status_code == 200, r.text
+        body = r.json()
         for k in ("biased_result", "corrected_result", "winner_changed",
                   "representation_gap", "demographic_breakdown"):
-            assert k in r.json()
+            assert k in body
+        # Regression guard: per-method winners must be populated (a swallowed
+        # NameError used to leave both maps empty — see workers.py raw_voters fix).
+        assert body["biased_result"]["winners_by_method"], "biased winners_by_method is empty"
+        assert body["corrected_result"]["winners_by_method"], "corrected winners_by_method is empty"
 
     def test_accepts_explicit_demographic_profile(self, client):
         ok = {**self.payload, "demographic_profile": {

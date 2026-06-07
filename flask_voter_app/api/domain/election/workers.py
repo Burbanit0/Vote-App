@@ -5376,7 +5376,7 @@ def _demographic_turnout_worker(data: Dict[str, Any]) -> tuple[Dict[str, Any], i
     # ── Per-method winners for both voter subsets ─────────────────────────
     try:
         bias_compare = compare_all_methods(actual_voters, candidates, issues)
-        full_compare = compare_all_methods(voters,        candidates, issues)
+        full_compare = compare_all_methods(raw_voters,    candidates, issues)
         biased_winners_by_method = {
             m: d.get("winner") for m, d in bias_compare.get("methods", {}).items()
         }
