@@ -71,6 +71,11 @@ export default defineConfig({
       provider: 'istanbul',
       reporter: ['text', 'lcov', 'html'],
       include: ['src/**/*.{ts,tsx}'],
+      // Do NOT load/instrument untested files to report them at 0%. That pass
+      // (`?vitest-uncovered-coverage=true`) bypasses the resolver on the Linux CI
+      // runner and fails to resolve `@/…` imports, crashing the coverage step.
+      // With `all: false` coverage reflects files actually exercised by tests.
+      all: false,
       exclude: [
         'src/**/*.d.ts',
         'src/index.tsx',
