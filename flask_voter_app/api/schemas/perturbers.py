@@ -24,7 +24,7 @@ the worker's actual output shape.
 """
 from __future__ import annotations
 
-from typing import List, Optional
+from typing import Any, List, Optional
 
 from pydantic import BaseModel, ConfigDict, Field
 
@@ -367,9 +367,9 @@ class SimulatePipelineRequest(BaseModel):
     num_voters:        int   = Field(150, ge=10, le=200)
     ideology:          str   = Field("random")
     seed:              int   = Field(42, ge=0)
-    blank_vote:        Optional[dict] = Field(default_factory=dict)
-    campaign:          Optional[dict] = Field(default_factory=dict)
-    information_model: Optional[dict] = Field(default_factory=dict)
+    blank_vote:        Optional[dict[str, Any]] = Field(default_factory=dict)
+    campaign:          Optional[dict[str, Any]] = Field(default_factory=dict)
+    information_model: Optional[dict[str, Any]] = Field(default_factory=dict)
 
 
 # ── /districts ──────────────────────────────────────────────────────────────
@@ -514,7 +514,7 @@ class DivergenceRequest(BaseModel):
     num_voters: int   = Field(200, ge=10, le=500)
     ideology:   str   = Field("random")
     seed:       int   = Field(42, ge=0)
-    blank_vote: Optional[dict] = Field(default_factory=dict)
+    blank_vote: Optional[dict[str, Any]] = Field(default_factory=dict)
 
 
 # ── /interpret ──────────────────────────────────────────────────────────────
@@ -525,12 +525,12 @@ class InterpretRequest(BaseModel):
 
     lang:                    str   = Field("fr",
                                            description="UI language: 'fr' | 'en'.")
-    methods:                 dict  = Field(..., description="Methods dict from /simulate response.")
+    methods:                 dict[str, Any]  = Field(..., description="Methods dict from /simulate response.")
     condorcet_winner:        Optional[str] = Field(None)
     condorcet_exists:        Optional[bool] = Field(None)
     inter_method_agreement:  float = Field(0.0, ge=0.0, le=1.0)
     blank_rate:              float = Field(0.0, ge=0.0, le=1.0)
-    config:                  Optional[dict] = Field(None)
+    config:                  Optional[dict[str, Any]] = Field(None)
 
 
 # ── /quadratic-funding ──────────────────────────────────────────────────────
