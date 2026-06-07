@@ -38,7 +38,9 @@ jobs:
         working-directory: ./voter-app
 
       - name: Tests with coverage
-        run: npm test -- --coverage --coverageReporters=text --coverageReporters=lcov
+        # Vitest (post Jest→Vitest migration): coverage reporters are configured
+        # in vitest.config.ts (text, lcov, html). test:coverage = `vitest run --coverage`.
+        run: npm run test:coverage
         working-directory: ./voter-app
         env:
           CI: 'true'
