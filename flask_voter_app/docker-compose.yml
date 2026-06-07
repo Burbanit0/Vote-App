@@ -20,15 +20,15 @@ services:
       timeout: 5s
       retries: 5
 
-  # The backend — FastAPI (Flask retired in Phase 4.5.b). uvicorn serves the
-  # whole API; the frontend reaches it via /api/* (proxied by Vite in dev).
+  # The backend — FastAPI served by uvicorn. It serves the whole API; the
+  # frontend reaches it via /api/* (proxied by Vite in dev).
   api:
     restart: always
     build: .
     container_name: fastapi_app
     command: ["uvicorn", "api.main:app", "--host", "0.0.0.0", "--port", "4434"]
     environment:
-      - FLASK_ENV=development
+      - APP_ENV=development
       - DATABASE_URL=postgresql://myuser:mypassword@db:5432/mydatabase
       - REDIS_URL=redis://redis:6379
       - CORS_ORIGINS=http://localhost:3000

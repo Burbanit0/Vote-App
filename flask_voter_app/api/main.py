@@ -66,7 +66,7 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
 
     log.info(
         "api.startup",
-        env=settings.flask_env,
+        env=settings.app_env,
         cors_origins=settings.allowed_origins,
         log_level=settings.log_level,
     )

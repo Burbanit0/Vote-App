@@ -22,7 +22,7 @@ sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..")
 
 # A secret must be set or the production-guard in main's lifespan is irrelevant
 # (we never start the server here), but config import is cheap and side-effect free.
-os.environ.setdefault("FLASK_ENV", "development")
+os.environ.setdefault("APP_ENV", "development")
 
 from api.main import fastapi_app  # noqa: E402
 

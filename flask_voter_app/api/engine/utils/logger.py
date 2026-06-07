@@ -38,15 +38,15 @@ def configure_logging(level: str | None = None) -> None:
     """Idempotent setup. Called once at app startup.
 
     Environment-aware:
-      - FLASK_ENV=production  → JSON output (one log line = one JSON object)
-      - otherwise             → human-friendly coloured console output
+      - APP_ENV=production  → JSON output (one log line = one JSON object)
+      - otherwise           → human-friendly coloured console output
     """
     global _CONFIGURED
     if _CONFIGURED:
         return
 
     log_level = (level or os.environ.get("LOG_LEVEL", "INFO")).upper()
-    is_prod = os.environ.get("FLASK_ENV") == "production"
+    is_prod = (os.environ.get("APP_ENV") or os.environ.get("FLASK_ENV")) == "production"
 
     # Route stdlib logging through structlog so Flask/SQLAlchemy/etc.
     # output is also captured uniformly.

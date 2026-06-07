@@ -13,7 +13,7 @@ from __future__ import annotations
 from functools import lru_cache
 from typing import List
 
-from pydantic import Field
+from pydantic import AliasChoices, Field
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
@@ -21,13 +21,17 @@ class Settings(BaseSettings):
     model_config = SettingsConfigDict(
         env_file=".env",
         env_file_encoding="utf-8",
-        extra="ignore",          # Flask vars unknown to us are fine
+        extra="ignore",
         case_sensitive=False,
     )
 
     # ── Environment ─────────────────────────────────────────────────────────
-    # development | testing | production. Same vocabulary as Flask's FLASK_ENV.
-    flask_env: str = Field(default="development")
+    # development | testing | production. Reads APP_ENV, with a FLASK_ENV
+    # fallback for backward compatibility with older env files / CI.
+    app_env: str = Field(
+        default="development",
+        validation_alias=AliasChoices("APP_ENV", "FLASK_ENV"),
+    )
 
     # ── HTTP ────────────────────────────────────────────────────────────────
     # Comma-separated allowed origins, matches the Flask CORS_ORIGINS var.
@@ -57,7 +61,7 @@ class Settings(BaseSettings):
     # ── Derived ─────────────────────────────────────────────────────────────
     @property
     def is_production(self) -> bool:
-        return self.flask_env == "production"
+        return self.app_env == "production"
 
     @property
     def allowed_origins(self) -> List[str]:

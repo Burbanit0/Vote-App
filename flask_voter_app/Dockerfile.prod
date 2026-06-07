@@ -1,5 +1,5 @@
 # ──────────────────────────────────────────────────────────────────────────────
-# flask_voter_app/Dockerfile.prod — production multi-stage build.
+# Vote Lab backend — production multi-stage build (FastAPI / ASGI / uvicorn).
 #
 # Strategy:
 #   Stage 1 (builder)  : compile wheels for psycopg2 + numpy + scipy, then
@@ -7,11 +7,11 @@
 #                        the final image, so the runtime is small.
 #   Stage 2 (runtime)  : minimal python:3.11-slim with the wheelhouse
 #                        installed + only the libraries needed at runtime
-#                        (libpq for psycopg2). Runs gunicorn + eventlet
-#                        worker as a non-root user.
+#                        (libpq for psycopg2). Runs the uvicorn ASGI server as
+#                        a non-root user.
 #
 # Build:    docker build -t votelab-backend:prod -f Dockerfile.prod .
-# Run:      docker run -p 4433:4433 --env-file .env votelab-backend:prod
+# Run:      docker run -p 4434:4434 --env-file .env votelab-backend:prod
 # Compose:  see docker-compose.prod.yml (separate file, not bundled here).
 # ──────────────────────────────────────────────────────────────────────────────
 
@@ -58,7 +58,7 @@ COPY --chown=app:app . .
 # Drop to non-root.
 USER app
 
-ENV FLASK_ENV=production \
+ENV APP_ENV=production \
     PYTHONDONTWRITEBYTECODE=1 \
     PYTHONUNBUFFERED=1 \
     LOG_LEVEL=INFO
@@ -69,7 +69,7 @@ EXPOSE 4434
 HEALTHCHECK --interval=30s --timeout=5s --start-period=20s --retries=3 \
     CMD curl -fsS http://localhost:4434/api/v2/health || exit 1
 
-# uvicorn ASGI server (Flask + eventlet retired in Phase 4.5.b). 1 worker suits
-# the current I/O-bound scale; bump --workers when load demands it.
+# uvicorn ASGI server. 1 worker suits the current I/O-bound scale; bump
+# --workers when load demands it.
 CMD ["uvicorn", "api.main:app", "--host", "0.0.0.0", "--port", "4434", \
      "--workers", "1"]
