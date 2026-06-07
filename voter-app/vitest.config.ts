@@ -1,5 +1,6 @@
 import { defineConfig } from 'vitest/config';
 import react from '@vitejs/plugin-react';
+import tsconfigPaths from 'vite-tsconfig-paths';
 import { fileURLToPath } from 'node:url';
 
 // Resolve a path relative to this config file → absolute (for alias replacements).
@@ -10,7 +11,11 @@ const r = (p: string) => fileURLToPath(new URL(p, import.meta.url));
 // thresholds. CSS is left at Vitest's default (CSS Modules → class-name proxy,
 // like identity-obj-proxy; plain CSS imports are ignored), so no css alias.
 export default defineConfig({
-  plugins: [react()],
+  // tsconfigPaths resolves `@/*` (from tsconfig paths) at the RESOLVER level, so it
+  // works in every transform context — including coverage instrumentation, where a
+  // plain resolve.alias regex was silently dropped on the Linux CI runner (causing
+  // `@/lib/utils` resolve failures + "0 test" cascades under --coverage).
+  plugins: [tsconfigPaths(), react()],
   define: {
     'process.env.VITE_API_URL': JSON.stringify(
       process.env.VITE_API_URL || 'http://localhost:4434'
@@ -23,8 +28,13 @@ export default defineConfig({
     // they share ONE module instance (else the Router context mismatches).
     dedupe: ['react', 'react-dom', 'react-router', 'react-router-dom'],
     alias: [
-      // shadcn `@/` → src (must precede the regex aliases below).
-      { find: /^@\//, replacement: r('./src/') },
+      // shadcn `@/` → src. Use the SAME string-alias form as vite.config.ts
+      // (`{ find: '@', replacement: <abs src> }`) rather than a regex: the regex
+      // form isn't honoured by the coverage-instrumentation transform on the
+      // Linux CI runner, so `@/lib/utils` fails to resolve under --coverage
+      // (cascading to "0 test" + a failed uncovered-coverage pass). Must precede
+      // the regex aliases below.
+      { find: '@', replacement: r('./src') },
       // The app mixes `react-router` (65 files) and `react-router-dom` (re-export,
       // 9 files) imports. Under Vitest those resolve to two module instances →
       // two Router contexts → "useNavigate must be inside a Router". react-router-dom@7
