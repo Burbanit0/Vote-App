@@ -54,7 +54,11 @@ export default defineConfig({
     setupFiles: ['./src/setupTests.ts'],
     include: ['src/**/*.test.{ts,tsx}'],
     coverage: {
-      provider: 'v8',
+      // istanbul (not v8): instruments through Vitest's normal Vite transform.
+      // The v8 provider parses uncovered files with rolldown's native parser,
+      // which chokes on TS/TSX on the Linux CI runner (rolldown 1.0.0-rc.*),
+      // failing the coverage step. istanbul sidesteps that path.
+      provider: 'istanbul',
       reporter: ['text', 'lcov', 'html'],
       include: ['src/**/*.{ts,tsx}'],
       exclude: [
