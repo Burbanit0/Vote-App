@@ -60,17 +60,19 @@ export default defineConfig({
     setupFiles: ['./src/setupTests.ts'],
     include: ['src/**/*.test.{ts,tsx}'],
     coverage: {
-      // istanbul (not v8): instruments through Vitest's normal Vite transform.
-      // The v8 provider parses uncovered files with rolldown's native parser,
-      // which chokes on TS/TSX on the Linux CI runner (rolldown 1.0.0-rc.*),
-      // failing the coverage step. istanbul sidesteps that path.
-      provider: 'istanbul',
+      // provider: 'v8' (NOT istanbul). Root cause of the Linux CI failure: istanbul
+      // SOURCE-instruments every module, and on the GitHub runner that transform
+      // dropped the `@/…` alias resolution (`vite:import-analysis` couldn't resolve
+      // `@/lib/utils`), failing ~every component test under --coverage. v8 uses Node's
+      // RUNTIME coverage and does NOT transform source, so `@/` resolves exactly like
+      // the (passing) plain `vitest run`. Combined with NO `include` below, v8 also
+      // never hits the rolldown uncovered-file parser that broke the earlier attempt.
+      provider: 'v8',
       reporter: ['text', 'lcov', 'html'],
-      // NO `include` + `all: false`: never scan/instrument untested files. The
-      // uncovered-file pass (`?vitest-uncovered-coverage=true`) was the actual
-      // crash on the Linux CI runner — it failed to resolve `@/…` imports and took
-      // the whole step down. Without it, coverage reflects only files exercised by
-      // tests (essentially the whole app — every src file is imported by a test).
+      // NO `include` + `all: false`: never scan/instrument untested files (that
+      // uncovered-file pass, `?vitest-uncovered-coverage=true`, was the original
+      // crash). Coverage reflects only files exercised by tests — essentially the
+      // whole app, since every src file is imported by a test.
       all: false,
       exclude: [
         'src/**/*.d.ts',
