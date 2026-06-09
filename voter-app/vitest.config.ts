@@ -1,36 +1,55 @@
 import { defineConfig } from 'vitest/config';
+import type { Plugin } from 'vite';
 import react from '@vitejs/plugin-react';
 import { fileURLToPath } from 'node:url';
 
 // Resolve a path relative to this config file → absolute (for alias replacements).
 const r = (p: string) => fileURLToPath(new URL(p, import.meta.url));
 
+// `@/…` → src resolver implemented as an `enforce: 'pre'` plugin (NOT resolve.alias).
+//
+// Why a plugin instead of resolve.alias / resolve.tsconfigPaths: enabling coverage
+// changes Vitest's module-fetch pipeline, and on the Linux CI runner that pipeline
+// did NOT apply Vite's `resolve.alias`/native tsconfig-paths for `@/…` — so EVERY
+// component test failed under --coverage with `Failed to resolve import "@/lib/utils"`
+// (vite:import-analysis), even though the real `vite build` and plain `vitest run`
+// resolve it fine. A `resolveId` hook with `enforce: 'pre'` runs in EVERY transform
+// context (build, plain run, AND the coverage fetch), so it can't be skipped by
+// ordering. We rewrite `@/x` → `<src>/x` and hand it back to Vite's own resolver via
+// `this.resolve` so extension probing (.ts/.tsx/index) still works.
+const atAlias = (srcDir: string): Plugin => ({
+  name: 'vote-app:at-alias',
+  enforce: 'pre',
+  async resolveId(source, importer, options) {
+    if (source === '@' || source.startsWith('@/')) {
+      const rewritten = source === '@' ? srcDir : `${srcDir}/${source.slice(2)}`;
+      const resolved = await this.resolve(rewritten, importer, { ...options, skipSelf: true });
+      if (resolved) return resolved;
+    }
+    return null;
+  },
+});
+
 // Vitest config (Phase 6 — migrated from Jest/ts-jest). Mirrors the old
 // jest.config.cjs: jsdom env, the same module mocks, and the same coverage
 // thresholds. CSS is left at Vitest's default (CSS Modules → class-name proxy,
 // like identity-obj-proxy; plain CSS imports are ignored), so no css alias.
 export default defineConfig({
-  plugins: [react()],
+  plugins: [atAlias(r('./src')), react()],
   define: {
     'process.env.VITE_API_URL': JSON.stringify(
       process.env.VITE_API_URL || 'http://localhost:4434'
     ),
   },
   resolve: {
-    // Vite 8 native tsconfig `paths` resolution — resolves `@/*` (from
-    // tsconfig.json) at the resolver level in EVERY context, including coverage
-    // instrumentation (where the plain resolve.alias / vite-tsconfig-paths plugin
-    // was unreliable on the Linux CI runner → `@/lib/utils` resolve failures).
-    tsconfigPaths: true,
+    // NB: `@/…` is resolved by the `atAlias` plugin above (NOT here) — see its
+    // comment for why the plugin is required for coverage on the Linux CI runner.
     // react-router v7 splits into react-router (context + hooks) and
     // react-router-dom (re-export). Tests wrap in react-router-dom's
     // MemoryRouter while components call react-router's useNavigate; dedupe so
     // they share ONE module instance (else the Router context mismatches).
     dedupe: ['react', 'react-dom', 'react-router', 'react-router-dom'],
     alias: [
-      // `@/` → src as a belt-and-suspenders fallback to the native tsconfigPaths
-      // above (string form, matching vite.config.ts). Must precede the regex aliases.
-      { find: '@', replacement: r('./src') },
       // The app mixes `react-router` (65 files) and `react-router-dom` (re-export,
       // 9 files) imports. Under Vitest those resolve to two module instances →
       // two Router contexts → "useNavigate must be inside a Router". react-router-dom@7
@@ -60,20 +79,15 @@ export default defineConfig({
     setupFiles: ['./src/setupTests.ts'],
     include: ['src/**/*.test.{ts,tsx}'],
     coverage: {
-      // provider: 'v8' (NOT istanbul). Root cause of the Linux CI failure: istanbul
-      // SOURCE-instruments every module, and on the GitHub runner that transform
-      // dropped the `@/…` alias resolution (`vite:import-analysis` couldn't resolve
-      // `@/lib/utils`), failing ~every component test under --coverage. v8 uses Node's
-      // RUNTIME coverage and does NOT transform source, so `@/` resolves exactly like
-      // the (passing) plain `vitest run`. Combined with NO `include` below, v8 also
-      // never hits the rolldown uncovered-file parser that broke the earlier attempt.
+      // provider: 'v8' (runtime coverage, no source transform). The Linux-CI
+      // `@/lib/utils` resolve failure under --coverage is fixed by the `atAlias`
+      // plugin above, not here — see that comment.
       provider: 'v8',
       reporter: ['text', 'lcov', 'html'],
-      // NO `include` + `all: false`: never scan/instrument untested files (that
-      // uncovered-file pass, `?vitest-uncovered-coverage=true`, was the original
-      // crash). Coverage reflects only files exercised by tests — essentially the
+      // NO `include`: never scan/instrument untested files (that uncovered-file
+      // pass, `?vitest-uncovered-coverage=true`, was a rolldown-parser crash on
+      // Linux). Coverage reflects only files exercised by tests — essentially the
       // whole app, since every src file is imported by a test.
-      all: false,
       exclude: [
         'src/**/*.d.ts',
         'src/index.tsx',
