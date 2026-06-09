@@ -1,6 +1,5 @@
 import { defineConfig } from 'vitest/config';
 import react from '@vitejs/plugin-react';
-import tsconfigPaths from 'vite-tsconfig-paths';
 import { fileURLToPath } from 'node:url';
 
 // Resolve a path relative to this config file → absolute (for alias replacements).
@@ -11,29 +10,26 @@ const r = (p: string) => fileURLToPath(new URL(p, import.meta.url));
 // thresholds. CSS is left at Vitest's default (CSS Modules → class-name proxy,
 // like identity-obj-proxy; plain CSS imports are ignored), so no css alias.
 export default defineConfig({
-  // tsconfigPaths resolves `@/*` (from tsconfig paths) at the RESOLVER level, so it
-  // works in every transform context — including coverage instrumentation, where a
-  // plain resolve.alias regex was silently dropped on the Linux CI runner (causing
-  // `@/lib/utils` resolve failures + "0 test" cascades under --coverage).
-  plugins: [tsconfigPaths(), react()],
+  plugins: [react()],
   define: {
     'process.env.VITE_API_URL': JSON.stringify(
       process.env.VITE_API_URL || 'http://localhost:4434'
     ),
   },
   resolve: {
+    // Vite 8 native tsconfig `paths` resolution — resolves `@/*` (from
+    // tsconfig.json) at the resolver level in EVERY context, including coverage
+    // instrumentation (where the plain resolve.alias / vite-tsconfig-paths plugin
+    // was unreliable on the Linux CI runner → `@/lib/utils` resolve failures).
+    tsconfigPaths: true,
     // react-router v7 splits into react-router (context + hooks) and
     // react-router-dom (re-export). Tests wrap in react-router-dom's
     // MemoryRouter while components call react-router's useNavigate; dedupe so
     // they share ONE module instance (else the Router context mismatches).
     dedupe: ['react', 'react-dom', 'react-router', 'react-router-dom'],
     alias: [
-      // shadcn `@/` → src. Use the SAME string-alias form as vite.config.ts
-      // (`{ find: '@', replacement: <abs src> }`) rather than a regex: the regex
-      // form isn't honoured by the coverage-instrumentation transform on the
-      // Linux CI runner, so `@/lib/utils` fails to resolve under --coverage
-      // (cascading to "0 test" + a failed uncovered-coverage pass). Must precede
-      // the regex aliases below.
+      // `@/` → src as a belt-and-suspenders fallback to the native tsconfigPaths
+      // above (string form, matching vite.config.ts). Must precede the regex aliases.
       { find: '@', replacement: r('./src') },
       // The app mixes `react-router` (65 files) and `react-router-dom` (re-export,
       // 9 files) imports. Under Vitest those resolve to two module instances →
@@ -70,11 +66,11 @@ export default defineConfig({
       // failing the coverage step. istanbul sidesteps that path.
       provider: 'istanbul',
       reporter: ['text', 'lcov', 'html'],
-      include: ['src/**/*.{ts,tsx}'],
-      // Do NOT load/instrument untested files to report them at 0%. That pass
-      // (`?vitest-uncovered-coverage=true`) bypasses the resolver on the Linux CI
-      // runner and fails to resolve `@/…` imports, crashing the coverage step.
-      // With `all: false` coverage reflects files actually exercised by tests.
+      // NO `include` + `all: false`: never scan/instrument untested files. The
+      // uncovered-file pass (`?vitest-uncovered-coverage=true`) was the actual
+      // crash on the Linux CI runner — it failed to resolve `@/…` imports and took
+      // the whole step down. Without it, coverage reflects only files exercised by
+      // tests (essentially the whole app — every src file is imported by a test).
       all: false,
       exclude: [
         'src/**/*.d.ts',
