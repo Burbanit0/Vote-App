@@ -1,0 +1,15 @@
+# BuildKit reads this (<dockerfile>.dockerignore) for the backend build.
+# Patterns are relative to the build context root (the repo root).
+.git
+ci-local
+voter-app
+**/node_modules
+**/__pycache__
+**/*.pyc
+flask_voter_app/.pytest_cache
+flask_voter_app/.mypy_cache
+flask_voter_app/htmlcov
+flask_voter_app/coverage.xml
+flask_voter_app/.coverage
+**/*.db
+**/*.sqlite3
