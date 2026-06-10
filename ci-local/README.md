@@ -54,6 +54,16 @@ minutes). Both are cached in their own layer, so later runs only re-copy source 
 re-run the checks. Use `-NoCache` to force a clean install (e.g. after a lockfile
 change you want to validate from scratch).
 
+## Tracked-content guard
+
+GitHub checks out only git-**tracked** files; the images COPY the working tree. A
+source file on disk that git doesn't track (untracked or gitignored) is absent on
+CI → "passes locally, fails on PR". Both runners run a preflight that **fails loudly**
+if any `.ts/.tsx/.js/.jsx/.py` under `voter-app/src` or `flask_voter_app/api` is
+untracked/ignored. (This caught nothing in the end only because it was *added after*
+the `src/lib/utils.ts` gitignore bug it was designed to prevent — commit before you
+validate, or it can't help.)
+
 ## Fidelity caveats
 
 - Backend base is Debian-slim (for the exact 3.11.x interpreter); the runner is

@@ -12,6 +12,20 @@ export DOCKER_BUILDKIT=1
 REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 cd "$REPO_ROOT"
 
+# ── Preflight: tracked-content guard ────────────────────────────────────────
+# The images COPY the working tree, but GitHub checks out only git-TRACKED files.
+# A source file on disk that git doesn't track (untracked OR gitignored) is absent
+# on CI → "passes locally, fails on PR". This is the exact bug that cost a day:
+# src/lib/utils.ts was swept up by a broad `lib/` .gitignore pattern. Fail loudly.
+STRAY=$(git status --porcelain --ignored -- voter-app/src flask_voter_app/api 2>/dev/null \
+  | grep -E '^(\?\?|!!)' | grep -E '\.(ts|tsx|js|jsx|py)$' | grep -vE '__pycache__|\.pyc' || true)
+if [[ -n "$STRAY" ]]; then
+  echo "ERROR: source files exist on disk but are NOT tracked by git (absent on CI):" >&2
+  echo "$STRAY" >&2
+  echo "Commit them (or fix .gitignore) before validating — CI will not see them." >&2
+  exit 1
+fi
+
 declare -A RESULTS
 
 run_job() {

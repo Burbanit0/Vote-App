@@ -34,6 +34,21 @@ $env:DOCKER_BUILDKIT = '1'
 $RepoRoot = Split-Path -Parent $PSScriptRoot
 Push-Location $RepoRoot
 
+# ── Preflight: tracked-content guard ─────────────────────────────────────────
+# The images COPY the working tree, but GitHub checks out only git-TRACKED files.
+# A source file on disk that git doesn't track (untracked OR gitignored) is absent
+# on CI → "passes locally, fails on PR". This is the exact bug that cost a day:
+# src/lib/utils.ts was swept up by a broad `lib/` .gitignore pattern. Fail loudly.
+$stray = (git status --porcelain --ignored -- voter-app/src flask_voter_app/api 2>$null) |
+  Where-Object { $_ -match '^(\?\?|!!)' -and $_ -match '\.(ts|tsx|js|jsx|py)$' -and $_ -notmatch '__pycache__|\.pyc' }
+if ($stray) {
+  Write-Host "ERROR: source files exist on disk but are NOT tracked by git (absent on CI):" -ForegroundColor Red
+  $stray | ForEach-Object { Write-Host "  $_" -ForegroundColor Red }
+  Write-Host "Commit them (or fix .gitignore) before validating — CI will not see them." -ForegroundColor Red
+  Pop-Location
+  exit 1
+}
+
 $cacheArg = if ($NoCache) { '--no-cache' } else { $null }
 $results = [ordered]@{}
 
