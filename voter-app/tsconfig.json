@@ -8,6 +8,8 @@
 
     /* Bundler mode — Vite handles module resolution */
     "moduleResolution": "bundler",
+    "baseUrl": ".",
+    "paths": { "@/*": ["src/*"] },
     "allowImportingTsExtensions": true,
     "resolveJsonModule": true,
     "isolatedModules": true,
@@ -26,7 +28,7 @@
     "downlevelIteration": true,
 
     /* Vite client types (import.meta.env, etc.) */
-    "types": ["vite/client", "vite-plugin-pwa/client", "jest", "node"]
+    "types": ["vite/client", "vite-plugin-pwa/client", "vitest/globals", "node"]
   },
   "include": ["src", "vite.config.ts", "declarations.d.ts"]
 }

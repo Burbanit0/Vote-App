@@ -2,12 +2,8 @@ import React from 'react';
 import { render, screen, waitFor, fireEvent } from '@testing-library/react';
 import SensitivityTab from '../SensitivityTab';
 
-jest.mock('../../../services/simulationCompareApi', () => ({
-  getSensitivityAnalysis: jest.fn(),
-}));
-
-jest.mock('react-google-charts', () => ({
-  Chart: () => <div data-testid="google-chart" />,
+vi.mock('../../../services/simulationCompareApi', () => ({
+  getSensitivityAnalysis: vi.fn(),
 }));
 
 const mockSensitivityData = {
@@ -25,7 +21,7 @@ const baseConfig = {
 
 describe('SensitivityTab', () => {
   beforeEach(() => {
-    jest.clearAllMocks();
+    vi.clearAllMocks();
   });
 
   it('renders parameter select and run button', () => {
@@ -35,7 +31,7 @@ describe('SensitivityTab', () => {
   });
 
   it('calls getSensitivityAnalysis on button click', async () => {
-    const { getSensitivityAnalysis } = jest.requireMock('../../../services/simulationCompareApi');
+    const { getSensitivityAnalysis } = await import('../../../services/simulationCompareApi');
     (getSensitivityAnalysis as jest.Mock).mockResolvedValue(mockSensitivityData);
     render(<SensitivityTab baseConfig={baseConfig} />);
     const button = screen.getByRole('button', { name: /Run Sensitivity/ });
@@ -45,8 +41,8 @@ describe('SensitivityTab', () => {
     });
   });
 
-  it('shows loading state during analysis', () => {
-    const { getSensitivityAnalysis } = jest.requireMock('../../../services/simulationCompareApi');
+  it('shows loading state during analysis', async () => {
+    const { getSensitivityAnalysis } = await import('../../../services/simulationCompareApi');
     (getSensitivityAnalysis as jest.Mock).mockReturnValue(new Promise(() => {}));
     render(<SensitivityTab baseConfig={baseConfig} />);
     fireEvent.click(screen.getByRole('button', { name: /Run Sensitivity/ }));

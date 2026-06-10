@@ -1,5 +1,7 @@
 import React, { useMemo } from 'react';
-import { Card, Col, Form, Row } from 'react-bootstrap';
+import { Card, CardBody } from '@/components/ui/card';
+import { Range } from '@/components/ui/form-controls';
+import { Col, Row } from '@/components/ui/grid';
 import { Area, AreaChart, ResponsiveContainer, XAxis } from 'recharts';
 import { Trans, useTranslation } from 'react-i18next';
 
@@ -87,93 +89,113 @@ const ElectorateConfig: React.FC<Props> = ({ config, onChange, expertMode = fals
 
   return (
     <div>
-      <p className="text-muted small mb-3">
-        {t('scenario.electorateIntro')}
-      </p>
+      <p className="text-muted-foreground text-sm mb-3">{t('scenario.electorateIntro')}</p>
 
       {/* Voter count */}
       <Card className="mb-4">
-        <Card.Body>
-          <Form.Label>
+        <CardBody>
+          <label className="mb-1 inline-block">
             {t('scenario.numVoters', { n: config.numVoters.toLocaleString() })}
-          </Form.Label>
-          <Form.Range
-            min={100} max={10000} step={100} value={config.numVoters}
+          </label>
+          <Range
+            min={100}
+            max={10000}
+            step={100}
+            value={config.numVoters}
             onChange={(e) => onChange({ numVoters: Number(e.target.value) })}
           />
-          <div className="d-flex justify-content-between">
-            <small className="text-muted">100</small>
-            <small className="text-muted">{t('scenario.voterRangeMax')}</small>
+          <div className="flex justify-between">
+            <small className="text-muted-foreground">100</small>
+            <small className="text-muted-foreground">{t('scenario.voterRangeMax')}</small>
           </div>
-        </Card.Body>
+        </CardBody>
       </Card>
 
       {/* Ideology preset */}
-      <p className="fw-semibold mb-2">{t('scenario.ideologyDistribution')}</p>
+      <p className="font-semibold mb-2">{t('scenario.ideologyDistribution')}</p>
       <Row className="g-2 mb-4">
-        {(Object.entries(PRESETS) as [ElectorateState['ideologyPreset'], typeof PRESETS[keyof typeof PRESETS]][]).filter(([key]) => visiblePresetKeys.includes(key)).map(([key, preset]) => (
-          <Col xs={6} md={4} key={key}>
-            <Card
-              className={`h-100 ${config.ideologyPreset === key ? 'border-primary' : ''}`}
-              style={{ cursor: 'pointer', transition: 'border-color 0.15s' }}
-              onClick={() => onChange({ ideologyPreset: key })}
-            >
-              <Card.Body className="p-2">
-                <div className="d-flex align-items-center gap-1 mb-1">
-                  {config.ideologyPreset === key && (
-                    <span style={{ color: preset.color, fontWeight: 700 }}>●</span>
-                  )}
-                  <small className="fw-semibold">{preset.label}</small>
-                </div>
-                <ResponsiveContainer width="100%" height={50}>
-                  <AreaChart data={preset.data} margin={{ top: 2, right: 2, bottom: 0, left: 2 }}>
-                    <XAxis dataKey="x" hide />
-                    <Area
-                      type="monotone" dataKey="y"
-                      stroke={preset.color}
-                      fill={preset.color}
-                      fillOpacity={config.ideologyPreset === key ? 0.4 : 0.15}
-                      strokeWidth={config.ideologyPreset === key ? 2 : 1}
-                      dot={false} isAnimationActive={false}
-                    />
-                  </AreaChart>
-                </ResponsiveContainer>
-                <div className="d-flex justify-content-between mt-1">
-                  <small style={{ fontSize: '0.65rem', color: '#6c757d' }}>{t('scenario.leftShort')}</small>
-                  <small style={{ fontSize: '0.65rem', color: '#6c757d' }}>{t('scenario.rightShort')}</small>
-                </div>
-                <small className="text-muted d-block mt-1" style={{ fontSize: '0.72rem' }}>{preset.desc}</small>
-              </Card.Body>
-            </Card>
-          </Col>
-        ))}
+        {(
+          Object.entries(PRESETS) as [
+            ElectorateState['ideologyPreset'],
+            (typeof PRESETS)[keyof typeof PRESETS],
+          ][]
+        )
+          .filter(([key]) => visiblePresetKeys.includes(key))
+          .map(([key, preset]) => (
+            <Col xs={6} md={4} key={key}>
+              <Card
+                className={`h-100 ${config.ideologyPreset === key ? 'border-primary' : ''}`}
+                style={{ cursor: 'pointer', transition: 'border-color 0.15s' }}
+                onClick={() => onChange({ ideologyPreset: key })}
+              >
+                <CardBody className="p-2">
+                  <div className="flex items-center gap-1 mb-1">
+                    {config.ideologyPreset === key && (
+                      <span style={{ color: preset.color, fontWeight: 700 }}>●</span>
+                    )}
+                    <small className="font-semibold">{preset.label}</small>
+                  </div>
+                  <ResponsiveContainer width="100%" height={50}>
+                    <AreaChart data={preset.data} margin={{ top: 2, right: 2, bottom: 0, left: 2 }}>
+                      <XAxis dataKey="x" hide />
+                      <Area
+                        type="monotone"
+                        dataKey="y"
+                        stroke={preset.color}
+                        fill={preset.color}
+                        fillOpacity={config.ideologyPreset === key ? 0.4 : 0.15}
+                        strokeWidth={config.ideologyPreset === key ? 2 : 1}
+                        dot={false}
+                        isAnimationActive={false}
+                      />
+                    </AreaChart>
+                  </ResponsiveContainer>
+                  <div className="flex justify-between mt-1">
+                    <small style={{ fontSize: '0.65rem', color: '#6c757d' }}>
+                      {t('scenario.leftShort')}
+                    </small>
+                    <small style={{ fontSize: '0.65rem', color: '#6c757d' }}>
+                      {t('scenario.rightShort')}
+                    </small>
+                  </div>
+                  <small
+                    className="text-muted-foreground block mt-1"
+                    style={{ fontSize: '0.72rem' }}
+                  >
+                    {preset.desc}
+                  </small>
+                </CardBody>
+              </Card>
+            </Col>
+          ))}
       </Row>
 
       {/* Dissatisfaction rate — expert only */}
       {!expertMode && (
-        <small className="text-muted d-block mb-3">
+        <small className="text-muted-foreground block mb-3">
           <Trans i18nKey="scenario.expertModeHint" />
         </small>
       )}
       <Card style={expertMode ? undefined : { display: 'none' }}>
-        <Card.Body>
-          <Form.Label>
+        <CardBody>
+          <label className="mb-1 inline-block">
             {t('scenario.dissatisfactionRate')}
-            <span className="text-muted ms-2" style={{ fontSize: '0.85rem' }}>
+            <span className="text-muted-foreground ms-2" style={{ fontSize: '0.85rem' }}>
               {t('scenario.dissatisfactionSubtitle')}
             </span>
-          </Form.Label>
-          <Form.Range
-            min={0} max={1} step={0.05} value={config.dissatisfactionRate}
+          </label>
+          <Range
+            min={0}
+            max={1}
+            step={0.05}
+            value={config.dissatisfactionRate}
             onChange={(e) => onChange({ dissatisfactionRate: Number(e.target.value) })}
           />
-          <small className="text-muted">{dissatisfactionLabel}</small>
+          <small className="text-muted-foreground">{dissatisfactionLabel}</small>
           <div className="mt-2">
-            <small className="text-info">
-              {t('scenario.dissatisfactionHint')}
-            </small>
+            <small className="text-[#0a93ad]">{t('scenario.dissatisfactionHint')}</small>
           </div>
-        </Card.Body>
+        </CardBody>
       </Card>
     </div>
   );

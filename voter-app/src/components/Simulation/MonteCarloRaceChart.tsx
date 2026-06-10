@@ -1,9 +1,19 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
-import { Badge, ButtonGroup, Button, Card, Form } from 'react-bootstrap';
+import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
+import { ButtonGroup } from '@/components/ui/button-group';
+import { Card, CardBody, CardHeader } from '@/components/ui/card';
+import { Select } from '@/components/ui/form-controls';
 import MethodRaceBar from './MethodRaceBar';
 import {
-  Area, AreaChart, CartesianGrid, ReferenceLine,
-  ResponsiveContainer, Tooltip, XAxis, YAxis,
+  Area,
+  AreaChart,
+  CartesianGrid,
+  ReferenceLine,
+  ResponsiveContainer,
+  Tooltip,
+  XAxis,
+  YAxis,
 } from 'recharts';
 import { useTranslation } from 'react-i18next';
 import { useChartTheme } from '../../hooks/useChartTheme';
@@ -12,26 +22,32 @@ import { MethodStreamStats } from '../../hooks/useMonteCarloStream';
 // ── Palette ───────────────────────────────────────────────────────────────────
 
 const RACE_COLORS = [
-  '#1a56cc', '#b35c00', '#b71c1c', '#006957',
-  '#1b5e20', '#544200', '#7B2D8B', '#005f73',
+  '#1a56cc',
+  '#b35c00',
+  '#b71c1c',
+  '#006957',
+  '#1b5e20',
+  '#544200',
+  '#7B2D8B',
+  '#005f73',
 ];
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
 interface HistoryPoint {
-  iter:      number;
-  allMethods: Record<string, number>;  // candidate → max pct across all methods
-  byMethod:   Record<string, Record<string, number>>;  // method → {candidate: pct}
+  iter: number;
+  allMethods: Record<string, number>; // candidate → max pct across all methods
+  byMethod: Record<string, Record<string, number>>; // method → {candidate: pct}
 }
 
 type ViewMode = 'all' | 'method' | 'methods-race';
 
 interface Props {
-  regretHistory:        Record<string, number[]>;
+  regretHistory: Record<string, number[]>;
   iterationCheckpoints: number[];
-  partialResults:       Record<string, MethodStreamStats>;
-  isRunning:            boolean;
-  defaultView?:         'candidates' | 'methods';
+  partialResults: Record<string, MethodStreamStats>;
+  isRunning: boolean;
+  defaultView?: 'candidates' | 'methods';
 }
 
 // ── Tooltip ───────────────────────────────────────────────────────────────────
@@ -39,12 +55,17 @@ interface Props {
 const RaceTooltip = ({ active, payload, label, t }: any) => {
   if (!active || !payload?.length) return null;
   return (
-    <div className="rounded p-2" style={{
-      background: 'var(--bs-body-bg)',
-      border: '1px solid var(--bs-border-color)',
-      fontSize: '0.75rem',
-    }}>
-      <strong>{t('simulation.convergenceIter')} {label}</strong>
+    <div
+      className="rounded p-2"
+      style={{
+        background: 'var(--bs-body-bg)',
+        border: '1px solid var(--bs-border-color)',
+        fontSize: '0.75rem',
+      }}
+    >
+      <strong>
+        {t('simulation.convergenceIter')} {label}
+      </strong>
       {payload.map((p: any) => (
         <div key={p.dataKey} style={{ color: p.color }}>
           {p.dataKey}: <strong>{Math.round(p.value * 100)}%</strong>
@@ -63,19 +84,17 @@ const MonteCarloRaceChart: React.FC<Props> = ({
   isRunning,
   defaultView = 'candidates',
 }) => {
-  const { t }  = useTranslation();
-  const ct     = useChartTheme();
+  const { t } = useTranslation();
+  const ct = useChartTheme();
 
-  const [view,           setView]           = useState<ViewMode>(
-    defaultView === 'methods' ? 'methods-race' : 'all',
-  );
+  const [view, setView] = useState<ViewMode>(defaultView === 'methods' ? 'methods-race' : 'all');
   const [selectedMethod, setSelectedMethod] = useState<string>('');
 
   // ── Accumulate history snapshots ──────────────────────────────────────────
   // We keep a ref so updates don't thrash the component; a renderTick state
   // forces a re-render only when a genuinely new checkpoint arrives.
-  const historyRef          = useRef<HistoryPoint[]>([]);
-  const partialResultsRef   = useRef(partialResults);
+  const historyRef = useRef<HistoryPoint[]>([]);
+  const partialResultsRef = useRef(partialResults);
   const [renderTick, setRenderTick] = useState(0);
 
   // Always keep partialResultsRef current (no re-renders from this)
@@ -90,14 +109,14 @@ const MonteCarloRaceChart: React.FC<Props> = ({
     }
 
     const latestIter = iterationCheckpoints[iterationCheckpoints.length - 1];
-    const last       = historyRef.current[historyRef.current.length - 1];
-    if (last?.iter === latestIter) return;   // already recorded this checkpoint
+    const last = historyRef.current[historyRef.current.length - 1];
+    if (last?.iter === latestIter) return; // already recorded this checkpoint
 
     const pr = partialResultsRef.current;
 
     // "All methods" aggregation: max win rate per candidate across all methods
     const allMethods: Record<string, number> = {};
-    const byMethod:   Record<string, Record<string, number>> = {};
+    const byMethod: Record<string, Record<string, number>> = {};
 
     for (const [method, stats] of Object.entries(pr)) {
       byMethod[method] = { ...stats.winner_distribution };
@@ -139,7 +158,9 @@ const MonteCarloRaceChart: React.FC<Props> = ({
     } else {
       return historyRef.current.map((p) => ({
         iter: p.iter,
-        ...Object.fromEntries(candidates.map((c) => [c, Math.round((p.byMethod[selectedMethod]?.[c] ?? 0) * 100)])),
+        ...Object.fromEntries(
+          candidates.map((c) => [c, Math.round((p.byMethod[selectedMethod]?.[c] ?? 0) * 100)])
+        ),
       }));
     }
   }, [renderTick, view, candidates, selectedMethod]);
@@ -149,8 +170,8 @@ const MonteCarloRaceChart: React.FC<Props> = ({
     if (isRunning || historyRef.current.length === 0) return null;
     const last = historyRef.current[historyRef.current.length - 1];
     if (view === 'all') {
-      return candidates.reduce((best, c) =>
-        (last.allMethods[c] ?? 0) > (last.allMethods[best] ?? 0) ? c : best,
+      return candidates.reduce(
+        (best, c) => ((last.allMethods[c] ?? 0) > (last.allMethods[best] ?? 0) ? c : best),
         candidates[0] ?? ''
       );
     } else {
@@ -163,12 +184,14 @@ const MonteCarloRaceChart: React.FC<Props> = ({
 
   return (
     <Card className="mb-4">
-      <Card.Header className="d-flex align-items-center justify-content-between flex-wrap gap-2 py-2">
+      <CardHeader className="block space-y-0 border-b border-border px-4 py-2 flex items-center justify-between flex-wrap gap-2 py-2">
         <div>
           <strong style={{ fontSize: '0.88rem' }}>{t('simulation.raceTitle')}</strong>
-          <div className="text-muted" style={{ fontSize: '0.75rem' }}>{t('simulation.raceDesc')}</div>
+          <div className="text-muted-foreground" style={{ fontSize: '0.75rem' }}>
+            {t('simulation.raceDesc')}
+          </div>
         </div>
-        <div className="d-flex align-items-center gap-2 flex-wrap">
+        <div className="flex items-center gap-2 flex-wrap">
           {/* View toggle — candidates race / single method / methods race */}
           <ButtonGroup size="sm">
             <Button
@@ -199,27 +222,31 @@ const MonteCarloRaceChart: React.FC<Props> = ({
 
           {/* Method selector (only in single-method view) */}
           {view === 'method' && (
-            <Form.Select
+            <Select
               size="sm"
               value={selectedMethod}
               onChange={(e) => setSelectedMethod(e.target.value)}
               style={{ width: 150 }}
               aria-label={t('simulation.raceOneMethod')}
             >
-              {methods.map((m) => <option key={m} value={m}>{m}</option>)}
-            </Form.Select>
+              {methods.map((m) => (
+                <option key={m} value={m}>
+                  {m}
+                </option>
+              ))}
+            </Select>
           )}
 
           {/* Final winner badge */}
           {finalWinner && !isRunning && view !== 'methods-race' && (
-            <Badge bg="success" style={{ fontSize: '0.72rem' }}>
+            <Badge variant="success" style={{ fontSize: '0.72rem' }}>
               🏆 {t('simulation.raceFinalWinner', { winner: finalWinner })}
             </Badge>
           )}
         </div>
-      </Card.Header>
+      </CardHeader>
 
-      <Card.Body className="p-2">
+      <CardBody className="p-2">
         {view === 'methods-race' ? (
           <MethodRaceBar partialResults={partialResults} isRunning={isRunning} />
         ) : (
@@ -230,7 +257,13 @@ const MonteCarloRaceChart: React.FC<Props> = ({
                 <XAxis
                   dataKey="iter"
                   tick={{ fontSize: 10, fill: ct.tickFill }}
-                  label={{ value: t('simulation.convergenceIter'), position: 'insideBottomRight', offset: -4, fontSize: 10, fill: ct.tickFill }}
+                  label={{
+                    value: t('simulation.convergenceIter'),
+                    position: 'insideBottomRight',
+                    offset: -4,
+                    fontSize: 10,
+                    fill: ct.tickFill,
+                  }}
                 />
                 <YAxis
                   domain={[0, 100]}
@@ -244,7 +277,12 @@ const MonteCarloRaceChart: React.FC<Props> = ({
                   stroke={ct.gridStroke}
                   strokeDasharray="4 2"
                   strokeWidth={1.5}
-                  label={{ value: t('simulation.raceMajority'), position: 'insideTopLeft', fontSize: 9, fill: ct.tickFill }}
+                  label={{
+                    value: t('simulation.raceMajority'),
+                    position: 'insideTopLeft',
+                    fontSize: 9,
+                    fill: ct.tickFill,
+                  }}
                 />
                 {candidates.map((cand, idx) => {
                   const color = RACE_COLORS[idx % RACE_COLORS.length];
@@ -267,10 +305,18 @@ const MonteCarloRaceChart: React.FC<Props> = ({
             </ResponsiveContainer>
 
             {/* Candidate legend */}
-            <div className="d-flex gap-3 mt-1 flex-wrap" style={{ fontSize: '0.72rem' }}>
+            <div className="flex gap-3 mt-1 flex-wrap" style={{ fontSize: '0.72rem' }}>
               {candidates.map((cand, idx) => (
-                <span key={cand} className="d-flex align-items-center gap-1">
-                  <span style={{ width: 10, height: 10, borderRadius: 2, background: RACE_COLORS[idx % RACE_COLORS.length], display: 'inline-block' }} />
+                <span key={cand} className="flex items-center gap-1">
+                  <span
+                    style={{
+                      width: 10,
+                      height: 10,
+                      borderRadius: 2,
+                      background: RACE_COLORS[idx % RACE_COLORS.length],
+                      display: 'inline-block',
+                    }}
+                  />
                   {cand}
                   {!isRunning && finalWinner === cand && ' 🏆'}
                 </span>
@@ -278,7 +324,7 @@ const MonteCarloRaceChart: React.FC<Props> = ({
             </div>
           </>
         )}
-      </Card.Body>
+      </CardBody>
     </Card>
   );
 };

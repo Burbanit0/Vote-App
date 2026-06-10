@@ -3,9 +3,9 @@ import { render, screen, fireEvent } from '@testing-library/react';
 import UpdatePrompt from '../UpdatePrompt';
 
 let mockNeedRefresh = false;
-const mockUpdateServiceWorker = jest.fn();
+const mockUpdateServiceWorker = vi.fn();
 
-jest.mock('virtual:pwa-register/react', () => ({
+vi.mock('virtual:pwa-register/react', () => ({
   useRegisterSW: () => ({
     needRefresh: [mockNeedRefresh],
     updateServiceWorker: mockUpdateServiceWorker,
@@ -14,7 +14,7 @@ jest.mock('virtual:pwa-register/react', () => ({
 
 beforeEach(() => {
   mockNeedRefresh = false;
-  jest.clearAllMocks();
+  vi.clearAllMocks();
 });
 
 describe('UpdatePrompt', () => {
@@ -36,6 +36,4 @@ describe('UpdatePrompt', () => {
     fireEvent.click(screen.getByRole('button', { name: /Recharger/ }));
     expect(mockUpdateServiceWorker).toHaveBeenCalledWith(true);
   });
-
-
 });

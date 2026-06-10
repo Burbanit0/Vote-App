@@ -2,7 +2,7 @@ import React from 'react';
 import { render, screen, fireEvent } from '@testing-library/react';
 import MultiwinnerAnalysis from '../MultiwinnerAnalysis';
 
-jest.mock('recharts', () => ({
+vi.mock('recharts', () => ({
   ResponsiveContainer: ({ children }: any) => <div>{children}</div>,
   BarChart: ({ children }: any) => <div>{children}</div>,
   Bar: () => <div />,
@@ -15,9 +15,11 @@ jest.mock('recharts', () => ({
   YAxis: () => <div />,
 }));
 
-jest.mock('../../shared/ResponsiveTable', () => ({ children, className }: any) => <div className={className}>{children}</div>);
-jest.mock('../../../services/simulationCompareApi', () => ({
-  getMultiwinner: jest.fn(),
+vi.mock('../../shared/ResponsiveTable', () => ({
+  default: ({ children, className }: any) => <div className={className}>{children}</div>,
+}));
+vi.mock('../../../services/simulationCompareApi', () => ({
+  getMultiwinner: vi.fn(),
 }));
 
 describe('MultiwinnerAnalysis', () => {
@@ -28,7 +30,7 @@ describe('MultiwinnerAnalysis', () => {
   });
 
   it('renders results when getMultiwinner resolves', async () => {
-    const { getMultiwinner } = jest.requireMock('../../../services/simulationCompareApi');
+    const { getMultiwinner } = await import('../../../services/simulationCompareApi');
     const mockMethod = (seatsA: number, seatsB: number, gallagher: number) => ({
       seats: { A: seatsA, B: seatsB },
       metrics: {
@@ -48,7 +50,12 @@ describe('MultiwinnerAnalysis', () => {
       comparison: {
         most_proportional: 'sainte_lague',
         least_proportional: 'dhondt',
-        gallagher_ranking: ['sainte_lague', 'largest_remainder_droop', 'largest_remainder_hare', 'dhondt'],
+        gallagher_ranking: [
+          'sainte_lague',
+          'largest_remainder_droop',
+          'largest_remainder_hare',
+          'dhondt',
+        ],
       },
     });
 

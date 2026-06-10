@@ -1,4 +1,10 @@
-import { encodeShareConfig, decodeShareConfig, buildShareURL, copyShareURL, readShareParam } from '../shareUtils';
+import {
+  encodeShareConfig,
+  decodeShareConfig,
+  buildShareURL,
+  copyShareURL,
+  readShareParam,
+} from '../shareUtils';
 
 const mockConfig = { numVoters: 100, ideology: 'centrist' };
 
@@ -41,7 +47,7 @@ describe('copyShareURL', () => {
   beforeEach(() => {
     window.history.replaceState({}, '', '/app');
     Object.assign(navigator, {
-      clipboard: { writeText: jest.fn().mockResolvedValue(undefined) },
+      clipboard: { writeText: vi.fn().mockResolvedValue(undefined) },
     });
   });
 

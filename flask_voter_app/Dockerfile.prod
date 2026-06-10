@@ -1,0 +1,75 @@
+# ──────────────────────────────────────────────────────────────────────────────
+# Vote Lab backend — production multi-stage build (FastAPI / ASGI / uvicorn).
+#
+# Strategy:
+#   Stage 1 (builder)  : compile wheels for psycopg2 + numpy + scipy, then
+#                        produce a slim wheelhouse. Build tools never reach
+#                        the final image, so the runtime is small.
+#   Stage 2 (runtime)  : minimal python:3.11-slim with the wheelhouse
+#                        installed + only the libraries needed at runtime
+#                        (libpq for psycopg2). Runs the uvicorn ASGI server as
+#                        a non-root user.
+#
+# Build:    docker build -t votelab-backend:prod -f Dockerfile.prod .
+# Run:      docker run -p 4434:4434 --env-file .env votelab-backend:prod
+# Compose:  see docker-compose.prod.yml (separate file, not bundled here).
+# ──────────────────────────────────────────────────────────────────────────────
+
+# ── Stage 1: build wheels ───────────────────────────────────────────────────
+FROM python:3.11-slim AS builder
+
+WORKDIR /build
+
+RUN apt-get update && apt-get install -y --no-install-recommends \
+        build-essential \
+        libpq-dev \
+        gcc \
+    && rm -rf /var/lib/apt/lists/*
+
+COPY requirements.txt .
+
+# Pre-build wheels — faster final install + smaller final layer.
+RUN pip wheel --no-cache-dir --wheel-dir=/wheels -r requirements.txt
+
+
+# ── Stage 2: runtime ────────────────────────────────────────────────────────
+FROM python:3.11-slim AS runtime
+
+# Non-root runtime user (UID 1000 — matches most CI/dev environments).
+RUN groupadd --gid 1000 app && useradd --uid 1000 --gid app --shell /bin/bash app
+
+# Runtime libs only — no compiler in the final image.
+RUN apt-get update && apt-get install -y --no-install-recommends \
+        libpq5 \
+        curl \
+    && rm -rf /var/lib/apt/lists/*
+
+WORKDIR /app
+
+# Install pre-built wheels from the builder stage.
+COPY --from=builder /wheels /wheels
+COPY requirements.txt .
+RUN pip install --no-cache-dir --no-index --find-links=/wheels -r requirements.txt \
+    && rm -rf /wheels
+
+# Copy app code (after deps so layers cache well).
+COPY --chown=app:app . .
+
+# Drop to non-root.
+USER app
+
+ENV APP_ENV=production \
+    PYTHONDONTWRITEBYTECODE=1 \
+    PYTHONUNBUFFERED=1 \
+    LOG_LEVEL=INFO
+
+EXPOSE 4434
+
+# Healthcheck — FastAPI /api/v2/health.
+HEALTHCHECK --interval=30s --timeout=5s --start-period=20s --retries=3 \
+    CMD curl -fsS http://localhost:4434/api/v2/health || exit 1
+
+# uvicorn ASGI server. 1 worker suits the current I/O-bound scale; bump
+# --workers when load demands it.
+CMD ["uvicorn", "api.main:app", "--host", "0.0.0.0", "--port", "4434", \
+     "--workers", "1"]

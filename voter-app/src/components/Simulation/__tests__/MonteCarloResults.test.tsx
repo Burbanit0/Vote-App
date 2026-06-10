@@ -2,7 +2,7 @@ import React from 'react';
 import { render, screen, fireEvent } from '@testing-library/react';
 import MonteCarloResults from '../MonteCarloResults';
 
-jest.mock('recharts', () => ({
+vi.mock('recharts', () => ({
   ResponsiveContainer: ({ children }: any) => <div>{children}</div>,
   BarChart: ({ children }: any) => <div>{children}</div>,
   Bar: ({ children }: any) => <div>{children}</div>,
@@ -14,9 +14,13 @@ jest.mock('recharts', () => ({
   YAxis: () => <div />,
 }));
 
-jest.mock('../../shared/ResponsiveTable', () => ({ children, className }: any) => <div className={className}>{children}</div>);
-jest.mock('../../shared/SkeletonCard', () => ({ height }: any) => <div style={{ height }} />);
-jest.mock('../../../hooks/useChartTheme', () => ({
+vi.mock('../../shared/ResponsiveTable', () => ({
+  default: ({ children, className }: any) => <div className={className}>{children}</div>,
+}));
+vi.mock('../../shared/SkeletonCard', () => ({
+  default: ({ height }: any) => <div style={{ height }} />,
+}));
+vi.mock('../../../hooks/useChartTheme', () => ({
   useChartTheme: () => ({
     isDark: false,
     gridStroke: '#e0e0e0',
@@ -24,19 +28,30 @@ jest.mock('../../../hooks/useChartTheme', () => ({
     tooltipStyle: {},
   }),
 }));
-jest.mock('../../../services/simulationCompareApi', () => ({
-  getMonteCarlo: jest.fn(),
+vi.mock('../../../services/simulationCompareApi', () => ({
+  getMonteCarlo: vi.fn(),
 }));
-jest.mock('../../../hooks/useMonteCarloStream', () => ({
+vi.mock('../../../hooks/useMonteCarloStream', () => ({
   useMonteCarloStream: () => ({
-    progress: 0, iteration: 0, total: 0, condorcetRate: 0,
-    partialResults: {}, isRunning: false, complete: null, error: null,
-    regretHistory: {}, agreementHistory: [], ciHalfLatest: {}, iterationCheckpoints: [],
-    start: jest.fn(), stop: jest.fn(), reset: jest.fn(),
+    progress: 0,
+    iteration: 0,
+    total: 0,
+    condorcetRate: 0,
+    partialResults: {},
+    isRunning: false,
+    complete: null,
+    error: null,
+    regretHistory: {},
+    agreementHistory: [],
+    ciHalfLatest: {},
+    iterationCheckpoints: [],
+    start: vi.fn(),
+    stop: vi.fn(),
+    reset: vi.fn(),
   }),
 }));
-jest.mock('../MonteCarloLiveChart', () => () => null);
-jest.mock('../MonteCarloConvergencePanel', () => () => null);
+vi.mock('../MonteCarloLiveChart', () => ({ default: () => null }));
+vi.mock('../MonteCarloConvergencePanel', () => ({ default: () => null }));
 
 describe('MonteCarloResults', () => {
   it('renders config form and initial prompt', () => {
@@ -46,7 +61,7 @@ describe('MonteCarloResults', () => {
   });
 
   it('renders results when getMonteCarlo resolves (standard mode)', async () => {
-    const { getMonteCarlo } = jest.requireMock('../../../services/simulationCompareApi');
+    const { getMonteCarlo } = await import('../../../services/simulationCompareApi');
     (getMonteCarlo as jest.Mock).mockResolvedValue({
       num_runs: 50,
       num_voters_per_run: 200,
@@ -71,7 +86,9 @@ describe('MonteCarloResults', () => {
     render(<MonteCarloResults baseParams={{}} />);
 
     // Disable streaming to use the HTTP path
-    const streamingToggle = screen.getByRole('checkbox', { name: /Real-time streaming|Streaming temps réel/i });
+    const streamingToggle = screen.getByRole('checkbox', {
+      name: /Real-time streaming|Streaming temps réel/i,
+    });
     fireEvent.click(streamingToggle);
 
     fireEvent.click(screen.getByRole('button', { name: /Run Monte Carlo/ }));

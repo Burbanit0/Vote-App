@@ -1,81 +1,141 @@
-import axios from 'axios';
-import MockAdapter from 'axios-mock-adapter';
-import { registerUser, loginUser, googleLogin, fetchProfileData, fetchUserProfile } from './authApi';
+import {
+  registerUser,
+  loginUser,
+  googleLogin,
+  fetchProfileData,
+  fetchUserProfile,
+} from './authApi';
 
-const mockAxios = new MockAdapter(axios);
-const BASE = 'http://localhost:4433';
+// JSON calls go through apiGet/apiPost; the form-encoded login + its /users/me
+// read use raw fetch — so we mock both transports.
+vi.mock('../api/client', () => ({ apiGet: vi.fn(), apiPost: vi.fn(), apiDelete: vi.fn() }));
+const { apiGet, apiPost } = (await import('../api/client')) as unknown as {
+  apiGet: jest.Mock;
+  apiPost: jest.Mock;
+};
 
 const mockToken = 'test-jwt-token';
-const mockUser = { id: 1, username: 'alice', role: 'User', access_token: mockToken };
+
+const v2Profile = {
+  id: 1,
+  username: 'alice',
+  email: 'alice@vote-app.local',
+  role: 'User',
+  first_name: 'Alice',
+  last_name: 'Smith',
+  is_active: true,
+  is_superuser: false,
+  is_verified: true,
+};
+
+/** Build a minimal Response-like object for the global.fetch mock. */
+function fetchOk(body: unknown, ok = true, status = 200): Response {
+  return { ok, status, json: async () => body } as unknown as Response;
+}
+
+const fetchMock = vi.fn();
+
+beforeEach(() => {
+  vi.clearAllMocks();
+  localStorage.clear();
+  global.fetch = fetchMock as unknown as typeof fetch;
+});
+
+afterEach(() => {
+  vi.restoreAllMocks();
+});
 
 describe('authApi', () => {
-  beforeEach(() => {
-    mockAxios.reset();
-    localStorage.clear();
-  });
-
-  afterEach(() => {
-    jest.restoreAllMocks();
-  });
-
   describe('registerUser', () => {
-    it('returns user data on successful registration', async () => {
-      mockAxios.onPost(`${BASE}/api/auth/register`).reply(200, mockUser);
-      const result = await registerUser('alice', 'secret', 'User', 'Alice', 'Smith');
-      expect(result).toEqual(mockUser);
+    it('calls register then login, returning merged user data', async () => {
+      apiPost.mockResolvedValueOnce(v2Profile); // /auth/register
+      fetchMock
+        .mockResolvedValueOnce(fetchOk({ access_token: mockToken, token_type: 'bearer' })) // jwt/login
+        .mockResolvedValueOnce(fetchOk(v2Profile)); // /users/me
+
+      const result = await registerUser('alice', 'Strong-1!', 'User', 'Alice', 'Smith');
+      expect(result.access_token).toBe(mockToken);
+      expect(result.username).toBe('alice');
+      expect(result.user_id).toBe(1);
+      expect(apiPost).toHaveBeenCalledWith(
+        '/api/v2/auth/register',
+        expect.objectContaining({ username: 'alice' })
+      );
     });
 
-    it('throws on registration error', async () => {
-      jest.spyOn(console, 'error').mockImplementation(() => {});
-      mockAxios.onPost(`${BASE}/api/auth/register`).reply(400, { message: 'Username taken' });
-      await expect(registerUser('alice', 'secret', 'User', 'A', 'S')).rejects.toThrow();
+    it('throws when register endpoint fails', async () => {
+      vi.spyOn(console, 'error').mockImplementation(() => {});
+      apiPost.mockRejectedValueOnce(new Error('400'));
+      await expect(registerUser('alice', 'Strong-1!', 'User', 'A', 'S')).rejects.toThrow();
     });
   });
 
   describe('loginUser', () => {
-    it('returns user data on successful login', async () => {
-      mockAxios.onPost(`${BASE}/api/auth/login`).reply(200, mockUser);
-      const result = await loginUser('alice', 'secret');
-      expect(result).toEqual(mockUser);
+    it('issues form-encoded login then hydrates /users/me', async () => {
+      fetchMock
+        .mockResolvedValueOnce(fetchOk({ access_token: mockToken, token_type: 'bearer' }))
+        .mockResolvedValueOnce(fetchOk(v2Profile));
+
+      const result = await loginUser('alice@vote-app.local', 'Strong-1!');
+      expect(result.access_token).toBe(mockToken);
+      expect(result.user_id).toBe(1);
+      expect(result.role).toBe('User');
+
+      // login POST is form-encoded
+      const [, loginInit] = fetchMock.mock.calls[0];
+      expect(loginInit.headers['Content-Type']).toBe('application/x-www-form-urlencoded');
+      // /users/me carries the freshly-issued token explicitly
+      const [, meInit] = fetchMock.mock.calls[1];
+      expect(meInit.headers.Authorization).toBe(`Bearer ${mockToken}`);
     });
 
-    it('throws on wrong password (401)', async () => {
-      jest.spyOn(console, 'error').mockImplementation(() => {});
-      mockAxios.onPost(`${BASE}/api/auth/login`).reply(401, { message: 'Invalid credentials' });
-      await expect(loginUser('alice', 'wrong')).rejects.toThrow();
+    it('throws on wrong password (400 from fastapi-users)', async () => {
+      vi.spyOn(console, 'error').mockImplementation(() => {});
+      fetchMock.mockResolvedValueOnce(fetchOk({}, false, 400));
+      await expect(loginUser('alice@vote-app.local', 'wrong')).rejects.toThrow();
     });
   });
 
   describe('googleLogin', () => {
     it('returns user data on successful Google login', async () => {
-      const mockUser = { access_token: 'jwt', username: 'googler', role: 'User' };
-      mockAxios.onPost(`${BASE}/api/auth/google`).reply(200, mockUser);
+      const backendResp = {
+        access_token: 'jwt',
+        user_id: 1,
+        username: 'googler',
+        role: 'User',
+        first_name: 'Goo',
+        last_name: 'Gler',
+      };
+      apiPost.mockResolvedValueOnce(backendResp);
       const result = await googleLogin('google-credential-token');
-      expect(result).toEqual(mockUser);
+      expect(result.id).toBe(1);
+      expect(result.user_id).toBe(1);
+      expect(result.access_token).toBe('jwt');
+      expect(result.username).toBe('googler');
+      expect(result.first_name).toBe('Goo');
+      expect(apiPost).toHaveBeenCalledWith('/api/v2/auth/google', {
+        token: 'google-credential-token',
+      });
     });
 
     it('throws on Google login error', async () => {
-      jest.spyOn(console, 'error').mockImplementation(() => {});
-      mockAxios.onPost(`${BASE}/api/auth/google`).reply(401, { message: 'Invalid token' });
+      vi.spyOn(console, 'error').mockImplementation(() => {});
+      apiPost.mockRejectedValueOnce(new Error('401'));
       await expect(googleLogin('bad-token')).rejects.toThrow();
     });
   });
 
   describe('fetchProfileData', () => {
-    it('returns profile with auth header', async () => {
+    it('returns profile through apiGet', async () => {
       localStorage.setItem('user', JSON.stringify({ access_token: mockToken }));
-      const profile = { id: 1, username: 'alice', role: 'User' };
-      mockAxios.onGet(`${BASE}/api/auth/profile`).reply((config: any) => {
-        const auth = config.headers?.Authorization;
-        if (auth === `Bearer ${mockToken}`) return [200, profile];
-        return [401, { message: 'Unauthorized' }];
-      });
+      apiGet.mockResolvedValueOnce(v2Profile);
       const result = await fetchProfileData();
-      expect(result).toEqual(profile);
+      expect(result).toEqual(v2Profile);
+      expect(apiGet).toHaveBeenCalledWith('/api/v2/users/me');
     });
 
     it('throws when no token in localStorage', async () => {
-      jest.spyOn(console, 'error').mockImplementation(() => {});
+      vi.spyOn(console, 'error').mockImplementation(() => {});
       localStorage.removeItem('user');
       await expect(fetchProfileData()).rejects.toThrow('No token found');
     });
@@ -84,18 +144,15 @@ describe('authApi', () => {
   describe('fetchUserProfile', () => {
     it('returns profile for given user id', async () => {
       localStorage.setItem('user', JSON.stringify({ access_token: mockToken }));
-      const profile = { id: 2, username: 'bob', role: 'Admin' };
-      mockAxios.onGet(`${BASE}/api/auth/2`).reply((config: any) => {
-        const auth = config.headers?.Authorization;
-        if (auth === `Bearer ${mockToken}`) return [200, profile];
-        return [401, { message: 'Unauthorized' }];
-      });
+      const profile = { ...v2Profile, id: 2, username: 'bob', role: 'Admin' };
+      apiGet.mockResolvedValueOnce(profile);
       const result = await fetchUserProfile(2);
       expect(result).toEqual(profile);
+      expect(apiGet).toHaveBeenCalledWith('/api/v2/users/2');
     });
 
     it('throws when no token in localStorage', async () => {
-      jest.spyOn(console, 'error').mockImplementation(() => {});
+      vi.spyOn(console, 'error').mockImplementation(() => {});
       localStorage.removeItem('user');
       await expect(fetchUserProfile(1)).rejects.toThrow('No token found');
     });

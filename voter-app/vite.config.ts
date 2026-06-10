@@ -1,13 +1,22 @@
 import { defineConfig, loadEnv } from 'vite';
 import react from '@vitejs/plugin-react';
+import tailwindcss from '@tailwindcss/vite';
 import { VitePWA } from 'vite-plugin-pwa';
+import { fileURLToPath } from 'node:url';
 
 export default defineConfig(({ mode }) => {
   const env = loadEnv(mode, process.cwd(), '');
 
   return {
+    resolve: {
+      alias: {
+        // shadcn/ui convention: `@/` → src (Tailwind migration, Phase 6).
+        '@': fileURLToPath(new URL('./src', import.meta.url)),
+      },
+    },
     plugins: [
       react(),
+      tailwindcss(),
       VitePWA({
         registerType: 'autoUpdate',
         devOptions: {
@@ -17,7 +26,7 @@ export default defineConfig(({ mode }) => {
           globPatterns: ['**/*.{js,css,html,ico,png,svg,woff2}'],
           runtimeCaching: [
             {
-              urlPattern: /^http:\/\/localhost:4433\/api\/(v1\/methods|scenarios\/gallery\/featured)/,
+              urlPattern: /^http:\/\/localhost:4434\/api\/(v1\/methods|scenarios\/gallery\/featured)/,
               handler: 'StaleWhileRevalidate',
               options: {
                 cacheName: 'api-cache',
@@ -55,9 +64,17 @@ export default defineConfig(({ mode }) => {
       port: 3000,
       open: true,
       proxy: {
-        '/api/election': {
-          target: 'http://localhost:4433',
+        // The backend is FastAPI-only (Flask retired in Phase 4.5.b). Everything
+        // under /api/* (the /api/v1/* public API + /api/v2/* app surface) and the
+        // Socket.IO stream is served by uvicorn on :4434.
+        '/api': {
+          target: 'http://localhost:4434',
           changeOrigin: true,
+        },
+        '/socket.io': {
+          target: 'http://localhost:4434',
+          changeOrigin: true,
+          ws: true,
         },
       },
     },
@@ -67,11 +84,27 @@ export default defineConfig(({ mode }) => {
     build: {
       outDir: 'build',
       sourcemap: false,
+      // Manual vendor splits so heavy libs (recharts, d3, jspdf) land in
+      // separate chunks that the browser can cache long-term and that pages
+      // not needing them never have to download.
+      rollupOptions: {
+        output: {
+          manualChunks(id: string): string | undefined {
+            if (id.includes('node_modules')) {
+              if (id.includes('recharts'))                          return 'recharts';
+              if (/[\\/]d3-(delaunay|hexbin|force)[\\/]/.test(id))  return 'd3';
+              if (id.includes('jspdf') || id.includes('html2canvas')) return 'pdf';
+              if (id.includes('react-bootstrap') || /[\\/]bootstrap[\\/]/.test(id)) return 'bootstrap';
+            }
+            return undefined;
+          },
+        },
+      },
     },
     envPrefix: 'VITE_',
     define: {
       'process.env.VITE_API_URL': JSON.stringify(
-        env.VITE_API_URL || 'http://localhost:4433'
+        env.VITE_API_URL || 'http://localhost:4434'
       ),
     },
   };

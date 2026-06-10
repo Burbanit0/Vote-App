@@ -4,8 +4,8 @@ import { MemoryRouter } from 'react-router-dom';
 import Register from './Register';
 import { registerUser } from '../services/authApi';
 
-jest.mock('../services/authApi', () => ({
-  registerUser: jest.fn(),
+vi.mock('../services/authApi', () => ({
+  registerUser: vi.fn(),
 }));
 
 function renderPage() {
@@ -18,7 +18,7 @@ function renderPage() {
 
 describe('Register', () => {
   beforeEach(() => {
-    jest.clearAllMocks();
+    vi.clearAllMocks();
     localStorage.clear();
   });
 
@@ -38,15 +38,15 @@ describe('Register', () => {
 
     fireEvent.change(screen.getByLabelText('Username'), { target: { value: 'alice' } });
     fireEvent.change(screen.getByLabelText('Password'), { target: { value: 'secret' } });
-    fireEvent.change(screen.getByPlaceholderText('Confirm password'), { target: { value: 'different' } });
+    fireEvent.change(screen.getByPlaceholderText('Confirm password'), {
+      target: { value: 'different' },
+    });
     fireEvent.change(screen.getByLabelText('First name'), { target: { value: 'Alice' } });
     fireEvent.change(screen.getByLabelText('Last name'), { target: { value: 'Smith' } });
     fireEvent.click(screen.getByRole('button', { name: 'Register' }));
 
     await waitFor(() => {
-      expect(
-        screen.getByText('Passwords do not match.')
-      ).toBeInTheDocument();
+      expect(screen.getByText('Passwords do not match.')).toBeInTheDocument();
     });
   });
 
@@ -57,7 +57,9 @@ describe('Register', () => {
 
     fireEvent.change(screen.getByLabelText('Username'), { target: { value: 'alice' } });
     fireEvent.change(screen.getByLabelText('Password'), { target: { value: 'secret' } });
-    fireEvent.change(screen.getByPlaceholderText('Confirm password'), { target: { value: 'secret' } });
+    fireEvent.change(screen.getByPlaceholderText('Confirm password'), {
+      target: { value: 'secret' },
+    });
     fireEvent.change(screen.getByLabelText('First name'), { target: { value: 'Alice' } });
     fireEvent.change(screen.getByLabelText('Last name'), { target: { value: 'Smith' } });
     fireEvent.click(screen.getByRole('button', { name: 'Register' }));
@@ -68,9 +70,7 @@ describe('Register', () => {
 
     await waitFor(() => {
       expect(localStorage.getItem('user')).toBe(JSON.stringify(response));
-      expect(
-        screen.getByText('Registration successful! Redirecting…')
-      ).toBeInTheDocument();
+      expect(screen.getByText('Registration successful! Redirecting…')).toBeInTheDocument();
     });
   });
 
@@ -82,7 +82,9 @@ describe('Register', () => {
 
     fireEvent.change(screen.getByLabelText('Username'), { target: { value: 'existing' } });
     fireEvent.change(screen.getByLabelText('Password'), { target: { value: 'secret' } });
-    fireEvent.change(screen.getByPlaceholderText('Confirm password'), { target: { value: 'secret' } });
+    fireEvent.change(screen.getByPlaceholderText('Confirm password'), {
+      target: { value: 'secret' },
+    });
     fireEvent.change(screen.getByLabelText('First name'), { target: { value: 'A' } });
     fireEvent.change(screen.getByLabelText('Last name'), { target: { value: 'B' } });
     fireEvent.click(screen.getByRole('button', { name: 'Register' }));

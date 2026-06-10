@@ -5,12 +5,14 @@ import i18n from '../../../i18n';
 import RealElectionsTab from '../RealElectionsTab';
 import { getRealElections, analyzeRealElection } from '../../../services/simulationCompareApi';
 
-jest.mock('../../../services/simulationCompareApi', () => ({
-  getRealElections: jest.fn(),
-  analyzeRealElection: jest.fn(),
+vi.mock('../../../services/simulationCompareApi', () => ({
+  getRealElections: vi.fn(),
+  analyzeRealElection: vi.fn(),
 }));
 
-jest.mock('../RealElectionAnalysis', () => () => <div data-testid="real-election-analysis" />);
+vi.mock('../RealElectionAnalysis', () => ({
+  default: () => <div data-testid="real-election-analysis" />,
+}));
 
 const mockElections = [
   { key: 'fr-2022', name: 'Présidentielle 2022', year: 2022, country: 'France' },
@@ -18,7 +20,16 @@ const mockElections = [
 ];
 
 const mockResult = {
-  election: { key: 'fr-2022', name: 'Présidentielle 2022', year: 2022, country: 'France', description: '', source: '', candidates: [], estimated_blank_pct: 5 },
+  election: {
+    key: 'fr-2022',
+    name: 'Présidentielle 2022',
+    year: 2022,
+    country: 'France',
+    description: '',
+    source: '',
+    candidates: [],
+    estimated_blank_pct: 5,
+  },
   plurality_winner: 'A',
   first_round_results: { A: 30, B: 25 },
   methods: { plurality: 'A', irv: 'B' },
@@ -26,16 +37,17 @@ const mockResult = {
   summary: { methods_with_different_winner: 1, total_methods_with_winner: 2 },
 };
 
-const renderWithI18n = (ui: React.ReactElement) => render(<I18nextProvider i18n={i18n}>{ui}</I18nextProvider>);
+const renderWithI18n = (ui: React.ReactElement) =>
+  render(<I18nextProvider i18n={i18n}>{ui}</I18nextProvider>);
 
 describe('RealElectionsTab', () => {
   beforeEach(() => {
-    jest.clearAllMocks();
+    vi.clearAllMocks();
     (getRealElections as jest.Mock).mockResolvedValue(mockElections);
   });
 
   afterEach(() => {
-    jest.restoreAllMocks();
+    vi.restoreAllMocks();
   });
 
   it('loads election list on mount', async () => {

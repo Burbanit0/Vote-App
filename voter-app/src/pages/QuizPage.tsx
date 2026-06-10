@@ -1,24 +1,58 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
-import { Alert, Badge, Button, Card, Col, Container, ProgressBar, Row } from 'react-bootstrap';
 import questions, { QuizQuestion } from '../data/quizQuestions';
 import { useMetaTags } from '../hooks/useMetaTags';
+import { Alert } from '@/components/ui/alert';
+import { Card, CardContent } from '@/components/ui/card';
+import { Progress } from '@/components/ui/progress';
+import { cn } from '@/lib/utils';
+
+// ── Tailwind-migrated (Phase 6) ──────────────────────────────────────────────
+// The quiz uses many stateful Bootstrap button/badge colours (success/danger/
+// outline-*), so buttons + badges are explicit Tailwind via these helpers.
+const BTN_BASE =
+  'inline-flex items-center justify-center gap-1 rounded-md text-sm font-medium transition-colors disabled:opacity-50 disabled:pointer-events-none h-9 px-4 py-2';
+const BTN_SM = 'h-8 px-3 text-xs';
+const BTN_VARIANT: Record<string, string> = {
+  primary: 'bg-primary text-primary-foreground hover:bg-primary/90',
+  success: 'bg-[#198754] text-white hover:bg-[#198754]/90',
+  danger: 'bg-[#dc3545] text-white hover:bg-[#dc3545]/90',
+  warning: 'bg-[#ffc107] text-black hover:bg-[#ffc107]/90',
+  secondary: 'bg-slate-500 text-white hover:bg-slate-500/90',
+  'outline-secondary': 'border border-input bg-background hover:bg-accent',
+  'outline-success': 'border border-[#198754] text-[#198754] hover:bg-[#198754]/10',
+  'outline-warning': 'border border-[#ffc107] text-[#9a7400] hover:bg-[#ffc107]/10',
+  'outline-danger': 'border border-[#dc3545] text-[#dc3545] hover:bg-[#dc3545]/10',
+};
+const btn = (variant: string) =>
+  cn(BTN_BASE, BTN_VARIANT[variant] ?? BTN_VARIANT['outline-secondary']);
+
+const BADGE_BASE = 'inline-flex items-center rounded-md px-2.5 py-0.5 text-xs font-semibold';
+const BADGE_VARIANT: Record<string, string> = {
+  secondary: 'bg-slate-500 text-white',
+  success: 'bg-[#198754] text-white',
+  warning: 'bg-[#ffc107] text-black',
+  danger: 'bg-[#dc3545] text-white',
+  light: 'bg-slate-100 text-slate-900',
+};
+const badge = (variant: string) =>
+  cn(BADGE_BASE, BADGE_VARIANT[variant] ?? BADGE_VARIANT['secondary']);
 
 // ── Types & constants ───────────────────────────────────────────────────────
 
 type Difficulty = 'all' | QuizQuestion['difficulty'];
 
 const DIFFICULTY_LABELS: Record<Difficulty, string> = {
-  all:           'Toutes',
-  'débutant':    'Débutant',
-  'intermédiaire':'Intermédiaire',
-  'expert':      'Expert',
+  all: 'Toutes',
+  débutant: 'Débutant',
+  intermédiaire: 'Intermédiaire',
+  expert: 'Expert',
 };
 
 const DIFFICULTY_VARIANTS: Record<Difficulty, string> = {
-  all:            'secondary',
-  'débutant':     'success',
-  'intermédiaire':'warning',
-  'expert':       'danger',
+  all: 'secondary',
+  débutant: 'success',
+  intermédiaire: 'warning',
+  expert: 'danger',
 };
 
 const LS_KEY = (d: Difficulty) => `votelab_quiz_best_${d}`;
@@ -38,9 +72,9 @@ function shuffle<T>(arr: T[]): T[] {
 
 function scoreMessage(score: number, total: number): { text: string; variant: string } {
   const pct = score / total;
-  if (pct > 0.75)  return { text: '🏆 Expert en théorie du vote !',  variant: 'success' };
-  if (pct >= 0.5)  return { text: '👍 Bon niveau — continuez !',      variant: 'primary' };
-  return              { text: '📚 Réessayez — vous progresserez !',   variant: 'warning' };
+  if (pct > 0.75) return { text: '🏆 Expert en théorie du vote !', variant: 'success' };
+  if (pct >= 0.5) return { text: '👍 Bon niveau — continuez !', variant: 'primary' };
+  return { text: '📚 Réessayez — vous progresserez !', variant: 'warning' };
 }
 
 // ── Option button ────────────────────────────────────────────────────────────
@@ -57,32 +91,36 @@ const OptionButton: React.FC<OptionProps> = ({ text, index, chosen, correct, onC
   const answered = chosen !== null;
   let variant = 'outline-secondary';
   if (answered) {
-    if (index === correct)         variant = 'success';
-    else if (index === chosen)     variant = 'danger';
-    else                           variant = 'outline-secondary';
+    if (index === correct) variant = 'success';
+    else if (index === chosen) variant = 'danger';
+    else variant = 'outline-secondary';
   }
 
   return (
-    <Button
-      variant={variant}
-      className="w-100 text-start mb-2"
-      style={{
-        whiteSpace: 'normal',
-        wordBreak: 'break-word',
-        transition: 'background-color 0.25s, border-color 0.25s',
-        minHeight: 44,
-      }}
+    <button
+      className={cn(
+        btn(variant),
+        'mb-2 min-h-[44px] w-full justify-start whitespace-normal break-words text-left'
+      )}
       onClick={!answered ? onClick : undefined}
       disabled={answered && index !== correct && index !== chosen}
       aria-pressed={answered ? index === chosen : undefined}
     >
-      <span className="me-2 fw-bold" aria-hidden="true">
+      <span className="mr-2 font-bold" aria-hidden="true">
         {String.fromCharCode(65 + index)}.
       </span>
       {text}
-      {answered && index === correct && <span className="ms-2" aria-label="bonne réponse">✓</span>}
-      {answered && index === chosen && index !== correct && <span className="ms-2" aria-label="mauvaise réponse">✗</span>}
-    </Button>
+      {answered && index === correct && (
+        <span className="ml-2" aria-label="bonne réponse">
+          ✓
+        </span>
+      )}
+      {answered && index === chosen && index !== correct && (
+        <span className="ml-2" aria-label="mauvaise réponse">
+          ✗
+        </span>
+      )}
+    </button>
   );
 };
 
@@ -95,19 +133,25 @@ const QuizPage: React.FC = () => {
   });
 
   const [difficulty, setDifficulty] = useState<Difficulty>('all');
-  const [deck, setDeck]             = useState<QuizQuestion[]>([]);
-  const [qIndex, setQIndex]         = useState(0);
-  const [chosen, setChosen]         = useState<number | null>(null);
-  const [score, setScore]           = useState(0);
-  const [finished, setFinished]     = useState(false);
+  const [deck, setDeck] = useState<QuizQuestion[]>([]);
+  const [qIndex, setQIndex] = useState(0);
+  const [chosen, setChosen] = useState<number | null>(null);
+  const [score, setScore] = useState(0);
+  const [finished, setFinished] = useState(false);
   const [bestScores, setBestScores] = useState<Record<Difficulty, number | null>>({
-    all: null, 'débutant': null, 'intermédiaire': null, 'expert': null,
+    all: null,
+    débutant: null,
+    intermédiaire: null,
+    expert: null,
   });
 
   // ── Load best scores from localStorage ────────────────────────────────────
   useEffect(() => {
     const loaded: Record<Difficulty, number | null> = {
-      all: null, 'débutant': null, 'intermédiaire': null, 'expert': null,
+      all: null,
+      débutant: null,
+      intermédiaire: null,
+      expert: null,
     };
     (Object.keys(loaded) as Difficulty[]).forEach((d) => {
       const raw = localStorage.getItem(LS_KEY(d));
@@ -126,7 +170,9 @@ const QuizPage: React.FC = () => {
     setFinished(false);
   }, []);
 
-  useEffect(() => { buildDeck(difficulty); }, [difficulty, buildDeck]);
+  useEffect(() => {
+    buildDeck(difficulty);
+  }, [difficulty, buildDeck]);
 
   // ── Answer handler ────────────────────────────────────────────────────────
   const handleAnswer = (index: number) => {
@@ -171,27 +217,28 @@ const QuizPage: React.FC = () => {
     }
   }, [finished]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  const current   = deck[qIndex];
-  const total     = deck.length;
-  const progress  = total > 0 ? Math.round(((qIndex + (chosen !== null ? 1 : 0)) / total) * 100) : 0;
-  const best      = bestScores[difficulty];
+  const current = deck[qIndex];
+  const total = deck.length;
+  const progress = total > 0 ? Math.round(((qIndex + (chosen !== null ? 1 : 0)) / total) * 100) : 0;
+  const best = bestScores[difficulty];
 
   // ── Difficulty filter ─────────────────────────────────────────────────────
   const DiffFilter = (
-    <div className="d-flex gap-2 flex-wrap mb-4" role="group" aria-label="Filtrer par difficulté">
+    <div className="mb-6 flex flex-wrap gap-2" role="group" aria-label="Filtrer par difficulté">
       {(Object.keys(DIFFICULTY_LABELS) as Difficulty[]).map((d) => {
-        const count = d === 'all' ? questions.length : questions.filter((q) => q.difficulty === d).length;
+        const count =
+          d === 'all' ? questions.length : questions.filter((q) => q.difficulty === d).length;
+        const v = DIFFICULTY_VARIANTS[d];
         return (
-          <Button
+          <button
             key={d}
-            variant={difficulty === d ? DIFFICULTY_VARIANTS[d] : `outline-${DIFFICULTY_VARIANTS[d]}`}
-            size="sm"
+            className={cn(btn(difficulty === d ? v : `outline-${v}`), BTN_SM)}
             onClick={() => setDifficulty(d)}
             aria-pressed={difficulty === d}
           >
             {DIFFICULTY_LABELS[d]}
-            <Badge bg="light" text="dark" className="ms-1">{count}</Badge>
-          </Button>
+            <span className={cn(badge('light'), 'ml-1')}>{count}</span>
+          </button>
         );
       })}
     </div>
@@ -203,52 +250,59 @@ const QuizPage: React.FC = () => {
     const isNewBest = best !== null && finalScore >= best;
 
     return (
-      <Container className="py-5" style={{ maxWidth: 680 }}>
-        <h1 className="mb-1 fw-bold">🗳️ Quiz — Théorie du vote</h1>
+      <div data-style="tailwind" className="mx-auto w-full max-w-[680px] px-3 py-12">
+        <h1 className="mb-1 text-3xl font-bold">🗳️ Quiz — Théorie du vote</h1>
         {DiffFilter}
 
         <Card className="text-center shadow-sm">
-          <Card.Body className="py-5">
-            <div style={{ fontSize: '3.5rem', lineHeight: 1 }} aria-hidden="true">
+          <CardContent className="p-6 py-12">
+            <div className="text-[3.5rem] leading-none" aria-hidden="true">
               {finalScore > total * 0.75 ? '🏆' : finalScore >= total * 0.5 ? '👍' : '📚'}
             </div>
-            <h2 className="mt-3 fw-bold">
-              {finalScore} <span className="text-muted fw-normal">/ {total}</span>
+            <h2 className="mt-4 text-2xl font-bold">
+              {finalScore} <span className="font-normal text-muted-foreground">/ {total}</span>
             </h2>
-            <Alert variant={variant} className="mt-3 mb-3">
+            <Alert variant={variant as never} className="mb-4 mt-4">
               {text}
             </Alert>
 
             {isNewBest && (
-              <Alert variant="success" className="py-2 mb-3" style={{ fontSize: '0.9rem' }}>
+              <Alert variant="success" className="mb-4 py-2 text-[0.9rem]">
                 🎉 Nouveau record pour ce niveau !
               </Alert>
             )}
 
             {best !== null && (
-              <p className="text-muted small mb-4">
-                Votre record ({DIFFICULTY_LABELS[difficulty]}) : <strong>{best} / {total}</strong>
+              <p className="mb-6 text-sm text-muted-foreground">
+                Votre record ({DIFFICULTY_LABELS[difficulty]}) :{' '}
+                <strong>
+                  {best} / {total}
+                </strong>
               </p>
             )}
 
-            <Row className="g-2 justify-content-center">
-              <Col xs="auto">
-                <Button variant="primary" onClick={() => buildDeck(difficulty)}>
-                  🔄 Rejouer
-                </Button>
-              </Col>
-              <Col xs="auto">
-                <Button variant="outline-secondary" onClick={() => {
-                  const d: Difficulty = difficulty === 'débutant' ? 'intermédiaire' : difficulty === 'intermédiaire' ? 'expert' : 'débutant';
+            <div className="flex flex-wrap justify-center gap-2">
+              <button className={btn('primary')} onClick={() => buildDeck(difficulty)}>
+                🔄 Rejouer
+              </button>
+              <button
+                className={btn('outline-secondary')}
+                onClick={() => {
+                  const d: Difficulty =
+                    difficulty === 'débutant'
+                      ? 'intermédiaire'
+                      : difficulty === 'intermédiaire'
+                        ? 'expert'
+                        : 'débutant';
                   setDifficulty(d);
-                }}>
-                  Changer de niveau
-                </Button>
-              </Col>
-            </Row>
-          </Card.Body>
+                }}
+              >
+                Changer de niveau
+              </button>
+            </div>
+          </CardContent>
         </Card>
-      </Container>
+      </div>
     );
   }
 
@@ -258,12 +312,15 @@ const QuizPage: React.FC = () => {
 
   // ── Question screen ───────────────────────────────────────────────────────
   return (
-    <Container className="py-4" style={{ maxWidth: 680 }}>
-      <div className="d-flex align-items-start justify-content-between mb-1 flex-wrap gap-2">
-        <h1 className="fw-bold mb-0 h4">🗳️ Quiz — Théorie du vote</h1>
+    <div data-style="tailwind" className="mx-auto w-full max-w-[680px] px-3 py-6">
+      <div className="mb-1 flex flex-wrap items-start justify-between gap-2">
+        <h1 className="mb-0 text-xl font-bold">🗳️ Quiz — Théorie du vote</h1>
         {best !== null && (
-          <span className="text-muted small align-self-center">
-            Record : <strong>{best} / {total}</strong>
+          <span className="self-center text-sm text-muted-foreground">
+            Record :{' '}
+            <strong>
+              {best} / {total}
+            </strong>
           </span>
         )}
       </div>
@@ -271,44 +328,42 @@ const QuizPage: React.FC = () => {
       {DiffFilter}
 
       {/* Progress */}
-      <div className="d-flex align-items-center gap-2 mb-3">
-        <ProgressBar
+      <div className="mb-4 flex items-center gap-2">
+        <Progress
           now={progress}
-          className="flex-grow-1"
-          style={{ height: 8 }}
+          className="h-2 flex-grow"
           aria-label={`Progression : question ${qIndex + 1} sur ${total}`}
         />
-        <span className="text-muted small" style={{ whiteSpace: 'nowrap' }}>
+        <span className="whitespace-nowrap text-sm text-muted-foreground">
           {qIndex + 1} / {total}
         </span>
-        <span className="text-success small" style={{ whiteSpace: 'nowrap' }}>
-          ✓ {score}
-        </span>
+        <span className="whitespace-nowrap text-sm text-[#198754]">✓ {score}</span>
       </div>
 
       {/* Question card */}
-      <Card className="shadow-sm mb-3">
-        <Card.Body>
-          <div className="d-flex align-items-start justify-content-between mb-3 gap-2">
-            <Badge bg={diffBadgeVariant} style={{ fontSize: '0.72rem', whiteSpace: 'nowrap' }}>
+      <Card className="mb-4 shadow-sm">
+        <CardContent className="p-6">
+          <div className="mb-4 flex items-start justify-between gap-2">
+            <span className={cn(badge(diffBadgeVariant), 'whitespace-nowrap text-[0.72rem]')}>
               {current.difficulty}
-            </Badge>
+            </span>
             {current.method && (
-              <Badge bg="secondary" style={{ fontSize: '0.72rem', whiteSpace: 'nowrap' }}>
+              <span className={cn(badge('secondary'), 'whitespace-nowrap text-[0.72rem]')}>
                 {current.method}
-              </Badge>
+              </span>
             )}
           </div>
 
           {current.context && (
-            <Alert variant="light" className="py-2 mb-3" style={{ fontSize: '0.88rem', borderLeft: '3px solid #0d6efd' }}>
+            <Alert
+              variant="light"
+              className="mb-4 border-l-[3px] border-l-[#0d6efd] py-2 text-[0.88rem]"
+            >
               {current.context}
             </Alert>
           )}
 
-          <p className="fw-semibold mb-4" style={{ fontSize: '1.05rem', lineHeight: 1.5 }}>
-            {current.question}
-          </p>
+          <p className="mb-6 text-[1.05rem] font-semibold leading-normal">{current.question}</p>
 
           {current.options.map((opt, i) => (
             <OptionButton
@@ -325,25 +380,24 @@ const QuizPage: React.FC = () => {
           {chosen !== null && (
             <Alert
               variant={chosen === current.correctIndex ? 'success' : 'danger'}
-              className="mt-3 mb-0"
-              style={{ fontSize: '0.88rem', lineHeight: 1.55 }}
+              className="mb-0 mt-4 text-[0.88rem] leading-relaxed"
             >
               <strong>{chosen === current.correctIndex ? '✓ Correct !' : '✗ Incorrect.'}</strong>{' '}
               {current.explanation}
             </Alert>
           )}
-        </Card.Body>
+        </CardContent>
       </Card>
 
       {/* Next button */}
       {chosen !== null && (
-        <div className="text-end">
-          <Button variant="primary" onClick={handleNext}>
+        <div className="text-right">
+          <button className={btn('primary')} onClick={handleNext}>
             {qIndex + 1 < total ? 'Question suivante →' : 'Voir mes résultats →'}
-          </Button>
+          </button>
         </div>
       )}
-    </Container>
+    </div>
   );
 };
 

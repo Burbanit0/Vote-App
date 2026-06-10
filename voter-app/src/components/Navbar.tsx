@@ -1,26 +1,33 @@
 import React, { useCallback, useRef, useState } from 'react';
 import { useNavigate } from 'react-router';
-import { useAuth } from '../context/AuthContext';
-import {
-  Badge, Button, Dropdown, Form, Modal, Nav,
-  NavDropdown, Navbar as BootstrapNavbar, Container,
-} from 'react-bootstrap';
-import { useTheme } from '../context/ThemeContext';
-import { useExpertMode } from '../context/ExpertModeContext';
-import { useTeacherMode } from '../context/TeacherModeContext';
+import { useAuth } from '../stores/useAuthStore';
+import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
+import { Dropdown, NavDropdown } from '@/components/ui/dropdown';
+import { Modal } from '@/components/ui/modal';
+import { Control, Check } from '@/components/ui/form-controls';
+import { Navbar as BootstrapNavbar, Nav } from '@/components/ui/navbar';
+import { Container } from '@/components/ui/grid';
+import { useTheme } from '../stores/useUIStore';
+import { useExpertMode } from '../stores/useUIStore';
+import { useTeacherMode } from '../stores/useUIStore';
 import { useTranslation } from 'react-i18next';
-import i18n from '../i18n';
+import i18n, { switchLanguage } from '../i18n';
 
 // ── Navigation groups ─────────────────────────────────────────────────────────
 
 const NAV_LEARN = [
-  { href: '/quiz',                  icon: '📝', key: 'nav.quiz' },
+  { href: '/quiz', icon: '📝', key: 'nav.quiz' },
   { href: '/regimes-internationaux', icon: '🌍', key: 'nav.regimesInternationaux' },
 ];
 
 const NAV_EXPLORE = [
-  { href: '/galerie',   icon: '🗃️', key: 'nav.gallery' },
-  { href: '/api-docs',  icon: '🔌', key: 'nav.apiDocs' },
+  { href: '/what-if', icon: '🔮', key: 'nav.whatIf' },
+  { href: '/quadratic-funding', icon: '💰', key: 'nav.quadraticFunding' },
+  { href: '/tech-democracy', icon: '💻', key: 'nav.techDemocracy' },
+  { href: '/theory', icon: '🏛', key: 'nav.theory' },
+  { href: '/galerie', icon: '🗃️', key: 'nav.gallery' },
+  { href: '/api-docs', icon: '🔌', key: 'nav.apiDocs' },
 ];
 
 const LS_PASS = 'votelab_teacher_pass';
@@ -28,28 +35,38 @@ const LS_PASS = 'votelab_teacher_pass';
 // ── Settings row (used inside user dropdown) ──────────────────────────────────
 
 const SettingRow: React.FC<{
-  icon:    string;
-  label:   string;
+  icon: string;
+  label: string;
   checked: boolean;
   onToggle: () => void;
-  badge?:  string;
+  badge?: string;
 }> = ({ icon, label, checked, onToggle, badge }) => (
   <div
     role="button"
     tabIndex={0}
-    className="dropdown-item d-flex align-items-center justify-content-between px-3 py-2"
+    className="dropdown-item flex items-center justify-between px-3 py-2"
     style={{ cursor: 'pointer', userSelect: 'none', fontSize: '0.85rem' }}
-    onClick={(e) => { e.stopPropagation(); onToggle(); }}
-    onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onToggle(); } }}
+    onClick={(e) => {
+      e.stopPropagation();
+      onToggle();
+    }}
+    onKeyDown={(e) => {
+      if (e.key === 'Enter' || e.key === ' ') {
+        e.preventDefault();
+        onToggle();
+      }
+    }}
   >
-    <span className="d-flex align-items-center gap-2">
+    <span className="flex items-center gap-2">
       <span>{icon}</span>
       <span>{label}</span>
       {badge && (
-        <Badge bg="primary" style={{ fontSize: '0.6rem' }}>{badge}</Badge>
+        <Badge variant="primary" style={{ fontSize: '0.6rem' }}>
+          {badge}
+        </Badge>
       )}
     </span>
-    <Form.Check
+    <Check
       type="switch"
       checked={checked}
       onChange={onToggle}
@@ -64,23 +81,29 @@ const SettingRow: React.FC<{
 const Navbar: React.FC = () => {
   const { user, logout, loading } = useAuth();
   const navigate = useNavigate();
-  const { theme, toggleTheme }       = useTheme();
+  const { theme, toggleTheme } = useTheme();
   const { expertMode, setExpertMode } = useExpertMode();
   const { teacherMode, setTeacherMode, slides } = useTeacherMode();
   const { t } = useTranslation();
+  const [navExpanded, setNavExpanded] = useState(false);
 
   // ── Teacher mode password modal ──────────────────────────────────────────
   const [showPassModal, setShowPassModal] = useState(false);
-  const [passInput,     setPassInput]     = useState('');
-  const [passConfirm,   setPassConfirm]   = useState('');
-  const [passError,     setPassError]     = useState('');
+  const [passInput, setPassInput] = useState('');
+  const [passConfirm, setPassConfirm] = useState('');
+  const [passError, setPassError] = useState('');
   const passInputRef = useRef<HTMLInputElement>(null);
 
   const storedPass = useCallback(() => localStorage.getItem(LS_PASS), []);
 
   const handleTeacherClick = () => {
-    if (teacherMode) { setTeacherMode(false); return; }
-    setPassInput(''); setPassConfirm(''); setPassError('');
+    if (teacherMode) {
+      setTeacherMode(false);
+      return;
+    }
+    setPassInput('');
+    setPassConfirm('');
+    setPassError('');
     setShowPassModal(true);
     setTimeout(() => passInputRef.current?.focus(), 80);
   };
@@ -88,20 +111,34 @@ const Navbar: React.FC = () => {
   const handlePassSubmit = () => {
     const saved = storedPass();
     if (!saved) {
-      if (passInput.length < 4) { setPassError('Mot de passe trop court (min. 4 caractères).'); return; }
-      if (passInput !== passConfirm) { setPassError('Les mots de passe ne correspondent pas.'); return; }
+      if (passInput.length < 4) {
+        setPassError('Mot de passe trop court (min. 4 caractères).');
+        return;
+      }
+      if (passInput !== passConfirm) {
+        setPassError('Les mots de passe ne correspondent pas.');
+        return;
+      }
       localStorage.setItem(LS_PASS, passInput);
-      setTeacherMode(true); setShowPassModal(false);
+      setTeacherMode(true);
+      setShowPassModal(false);
     } else {
-      if (passInput !== saved) { setPassError('Mot de passe incorrect.'); return; }
-      setTeacherMode(true); setShowPassModal(false);
+      if (passInput !== saved) {
+        setPassError('Mot de passe incorrect.');
+        return;
+      }
+      setTeacherMode(true);
+      setShowPassModal(false);
     }
   };
 
-  const handleLogout = () => { logout(); navigate('/login'); };
-  const toggleLang   = () => i18n.changeLanguage(i18n.language === 'fr' ? 'en' : 'fr');
+  const handleLogout = () => {
+    logout();
+    navigate('/login');
+  };
+  const toggleLang = () => switchLanguage(i18n.language === 'fr' ? 'en' : 'fr');
   const isPasswordSet = !!storedPass();
-  const currentPath   = typeof window !== 'undefined' ? window.location.pathname : '';
+  const currentPath = typeof window !== 'undefined' ? window.location.pathname : '';
 
   if (loading) return null;
 
@@ -110,91 +147,94 @@ const Navbar: React.FC = () => {
       <BootstrapNavbar
         data-tour="navbar"
         expand="lg"
-        className="border-bottom shadow-sm"
+        expanded={navExpanded}
+        onToggle={setNavExpanded}
+        className="border-b border-border shadow-sm"
         sticky="top"
         style={{ backgroundColor: 'var(--bs-body-bg)', borderColor: 'var(--bs-border-color)' }}
       >
-        <Container>
+        <Container className="flex flex-wrap items-center justify-between">
           {/* ── Brand ── */}
           <BootstrapNavbar.Brand
             href="/"
-            className="d-flex align-items-center gap-2 fw-bold me-4"
+            className="flex items-center gap-2 font-bold me-4"
             style={{ fontSize: '1.1rem' }}
+            onClick={() => setNavExpanded(false)}
           >
             <span style={{ fontSize: '1.2rem' }}>🗳️</span>
             Vote Lab
-            <Badge bg="info" text="dark" style={{ fontSize: '0.58rem', fontWeight: 600, padding: '2px 5px' }}>
+            <Badge
+              variant="info"
+              style={{ fontSize: '0.58rem', fontWeight: 600, padding: '2px 5px' }}
+            >
               Bêta
             </Badge>
           </BootstrapNavbar.Brand>
 
-          <BootstrapNavbar.Toggle aria-controls="votelab-nav" />
+          <BootstrapNavbar.Toggle aria-controls="votelab-nav" aria-expanded={navExpanded} />
 
           <BootstrapNavbar.Collapse id="votelab-nav">
             {/* ── Main nav ── */}
-            <Nav className="me-auto align-items-lg-center gap-1">
+            <Nav className="mr-auto lg:items-center gap-1">
               {/* Election Lab — hero link */}
               <Nav.Link
                 href="/election-lab"
-                className="fw-semibold px-3 py-1 rounded"
+                className="font-semibold px-3 py-1 rounded"
                 active={currentPath === '/election-lab'}
+                onClick={() => setNavExpanded(false)}
                 style={{
-                  background:  currentPath === '/election-lab'
-                    ? 'var(--bs-primary)'
-                    : 'transparent',
-                  color:       currentPath === '/election-lab'
-                    ? '#fff'
-                    : 'var(--bs-primary)',
-                  border:      '1.5px solid var(--bs-primary)',
-                  fontSize:    '0.88rem',
-                  transition:  'all 0.15s',
+                  background: currentPath === '/election-lab' ? 'var(--bs-primary)' : 'transparent',
+                  color: currentPath === '/election-lab' ? '#fff' : 'var(--bs-primary)',
+                  border: '1.5px solid var(--bs-primary)',
+                  fontSize: '0.88rem',
+                  transition: 'all 0.15s',
                 }}
               >
                 🔬 {t('nav.electionLab')}
               </Nav.Link>
 
               {/* Apprendre dropdown */}
-              <NavDropdown
-                title={t('nav.learn')}
-                id="nav-learn"
-                renderMenuOnMount
-              >
+              <NavDropdown title={t('nav.learn')} id="nav-learn" renderMenuOnMount>
                 {NAV_LEARN.map(({ href, icon, key }) => (
                   <NavDropdown.Item key={href} href={href}>
-                    <span className="me-2">{icon}</span>{t(key)}
+                    <span className="me-2">{icon}</span>
+                    {t(key)}
                   </NavDropdown.Item>
                 ))}
                 <NavDropdown.Divider />
                 <NavDropdown.Item href="/?tour=1">
-                  <span className="me-2">🎓</span>{t('nav.guidedTour')}
+                  <span className="me-2">🎓</span>
+                  {t('nav.guidedTour')}
                 </NavDropdown.Item>
               </NavDropdown>
 
               {/* Explorer dropdown */}
-              <NavDropdown
-                title={t('nav.explore')}
-                id="nav-explore"
-                renderMenuOnMount
-              >
+              <NavDropdown title={t('nav.explore')} id="nav-explore" renderMenuOnMount>
                 {NAV_EXPLORE.map(({ href, icon, key }) => (
                   <NavDropdown.Item key={href} href={href}>
-                    <span className="me-2">{icon}</span>{t(key)}
+                    <span className="me-2">{icon}</span>
+                    {t(key)}
                   </NavDropdown.Item>
                 ))}
               </NavDropdown>
             </Nav>
 
             {/* ── Right side ── */}
-            <Nav className="align-items-lg-center gap-2">
+            <Nav className="lg:items-center gap-2">
               {/* Tour ? */}
               <Nav.Link
                 href="/?tour=1"
-                className="d-flex align-items-center justify-content-center"
+                className="flex items-center justify-center"
                 style={{
-                  width: 28, height: 28, borderRadius: '50%',
+                  width: 28,
+                  height: 28,
+                  borderRadius: '50%',
                   border: '1.5px solid var(--bs-secondary-color, #6c757d)',
                   color: 'var(--bs-secondary-color, #6c757d)',
-                  fontWeight: 700, fontSize: '0.8rem', padding: 0, flexShrink: 0,
+                  fontWeight: 700,
+                  fontSize: '0.8rem',
+                  padding: 0,
+                  flexShrink: 0,
                 }}
                 aria-label={t('nav.tourLabel')}
               >
@@ -204,15 +244,25 @@ const Navbar: React.FC = () => {
               {/* ── User / Settings dropdown ── */}
               <Dropdown align="end">
                 <Dropdown.Toggle
-                  as="button"
-                  className="btn btn-sm btn-outline-secondary d-flex align-items-center gap-2"
+                  variant="outline-secondary"
+                  size="sm"
+                  caret={false}
+                  className="flex items-center gap-2"
                   style={{ border: '1px solid var(--bs-border-color)' }}
                   id="user-settings-dropdown"
                 >
                   {user ? (
                     <>
                       <span>👤</span>
-                      <span style={{ maxWidth: 100, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', fontSize: '0.82rem' }}>
+                      <span
+                        style={{
+                          maxWidth: 100,
+                          overflow: 'hidden',
+                          textOverflow: 'ellipsis',
+                          whiteSpace: 'nowrap',
+                          fontSize: '0.82rem',
+                        }}
+                      >
                         {user.username}
                       </span>
                     </>
@@ -226,8 +276,10 @@ const Navbar: React.FC = () => {
                   {user && (
                     <>
                       <Dropdown.Header>
-                        <span className="fw-semibold">{user.username}</span>
-                        <div className="text-muted" style={{ fontSize: '0.75rem' }}>{user.role}</div>
+                        <span className="font-semibold">{user.username}</span>
+                        <div className="text-muted-foreground" style={{ fontSize: '0.75rem' }}>
+                          {user.role}
+                        </div>
                       </Dropdown.Header>
                       <Dropdown.Divider />
                     </>
@@ -235,7 +287,14 @@ const Navbar: React.FC = () => {
 
                   {/* ── Settings section ── */}
                   <div className="px-1 pb-1">
-                    <div className="text-muted px-2 py-1" style={{ fontSize: '0.72rem', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+                    <div
+                      className="text-muted-foreground px-2 py-1"
+                      style={{
+                        fontSize: '0.72rem',
+                        textTransform: 'uppercase',
+                        letterSpacing: '0.05em',
+                      }}
+                    >
                       {t('nav.preferences')}
                     </div>
 
@@ -275,20 +334,30 @@ const Navbar: React.FC = () => {
                   {user ? (
                     <>
                       <Dropdown.Item href="/profile">
-                        <span className="me-2">👤</span>{t('nav.profile')}
+                        <span className="me-2">👤</span>
+                        {t('nav.profile')}
                       </Dropdown.Item>
-                      <Dropdown.Item onClick={handleLogout} className="text-danger">
-                        <span className="me-2">↩</span>{t('nav.logout')}
+                      <Dropdown.Item onClick={handleLogout} className="text-[#dc3545]">
+                        <span className="me-2">↩</span>
+                        {t('nav.logout')}
                       </Dropdown.Item>
                     </>
                   ) : (
-                    <div className="d-flex gap-2 px-3 py-2">
-                      <Button variant="outline-primary" size="sm" className="flex-grow-1"
-                        onClick={() => navigate('/login')}>
+                    <div className="flex gap-2 px-3 py-2">
+                      <Button
+                        variant="outline-primary"
+                        size="sm"
+                        className="grow"
+                        onClick={() => navigate('/login')}
+                      >
                         {t('nav.login')}
                       </Button>
-                      <Button variant="primary" size="sm" className="flex-grow-1"
-                        onClick={() => navigate('/register')}>
+                      <Button
+                        variant="primary"
+                        size="sm"
+                        className="grow"
+                        onClick={() => navigate('/register')}
+                      >
                         {t('nav.register')}
                       </Button>
                     </div>
@@ -309,45 +378,58 @@ const Navbar: React.FC = () => {
         </Modal.Header>
         <Modal.Body>
           {!isPasswordSet && (
-            <p className="text-muted small mb-3">
+            <p className="text-muted-foreground text-sm mb-3">
               Définissez un mot de passe pour protéger le Mode Enseignant.
             </p>
           )}
-          <Form onSubmit={(e) => { e.preventDefault(); handlePassSubmit(); }}>
-            <Form.Group className="mb-2">
-              <Form.Label className="small">
+          <form
+            onSubmit={(e) => {
+              e.preventDefault();
+              handlePassSubmit();
+            }}
+          >
+            <div className="mb-2">
+              <label className="text-sm mb-1 inline-block">
                 {isPasswordSet ? 'Mot de passe' : 'Nouveau mot de passe'}
-              </Form.Label>
-              <Form.Control
+              </label>
+              <Control
                 ref={passInputRef}
-                type="password" size="sm"
+                type="password"
+                size="sm"
                 value={passInput}
-                onChange={(e) => { setPassInput(e.target.value); setPassError(''); }}
+                onChange={(e) => {
+                  setPassInput(e.target.value);
+                  setPassError('');
+                }}
                 placeholder={isPasswordSet ? '••••••' : 'Min. 4 caractères'}
                 autoComplete="current-password"
               />
-            </Form.Group>
+            </div>
             {!isPasswordSet && (
-              <Form.Group className="mb-2">
-                <Form.Label className="small">Confirmer</Form.Label>
-                <Form.Control
-                  type="password" size="sm"
+              <div className="mb-2">
+                <label className="text-sm mb-1 inline-block">Confirmer</label>
+                <Control
+                  type="password"
+                  size="sm"
                   value={passConfirm}
-                  onChange={(e) => { setPassConfirm(e.target.value); setPassError(''); }}
+                  onChange={(e) => {
+                    setPassConfirm(e.target.value);
+                    setPassError('');
+                  }}
                   placeholder="Répéter le mot de passe"
                   autoComplete="new-password"
                 />
-              </Form.Group>
+              </div>
             )}
-            {passError && <div className="text-danger small mb-2">{passError}</div>}
-            <Button type="submit" variant="success" size="sm" className="w-100">
+            {passError && <div className="text-[#dc3545] text-sm mb-2">{passError}</div>}
+            <Button type="submit" variant="success" size="sm" className="w-full">
               {isPasswordSet ? 'Activer' : 'Créer et activer'}
             </Button>
-          </Form>
+          </form>
           {isPasswordSet && (
             <div className="mt-2 text-center">
               <button
-                className="btn btn-link btn-sm text-muted"
+                className="btn btn-link btn-sm text-muted-foreground"
                 style={{ fontSize: '0.75rem' }}
                 onClick={() => {
                   if (window.confirm('Réinitialiser le mot de passe enseignant ?')) {

@@ -2,27 +2,26 @@ import React from 'react';
 import { render, screen, fireEvent, waitFor } from '@testing-library/react';
 import DatasetExportModal from '../DatasetExportModal';
 
-const mockFetch = jest.fn();
+const mockFetch = vi.fn();
 global.fetch = mockFetch;
-global.URL.createObjectURL = jest.fn(() => 'blob:mock');
-global.URL.revokeObjectURL = jest.fn();
+global.URL.createObjectURL = vi.fn(() => 'blob:mock');
+global.URL.revokeObjectURL = vi.fn();
 
 beforeEach(() => {
-  jest.clearAllMocks();
+  vi.clearAllMocks();
 });
 
-const csvBody = 'scenario_id,num_candidates,num_voters,method,winner\n1,4,200,plurality,Alice\n2,4,200,borda,Bob';
+const csvBody =
+  'scenario_id,num_candidates,num_voters,method,winner\n1,4,200,plurality,Alice\n2,4,200,borda,Bob';
 
 describe('DatasetExportModal', () => {
   it('does not render when show is false', () => {
-    const { container } = render(
-      <DatasetExportModal show={false} onHide={jest.fn()} />
-    );
+    const { container } = render(<DatasetExportModal show={false} onHide={vi.fn()} />);
     expect(container.innerHTML).toBe('');
   });
 
   it('renders form controls when show is true', () => {
-    render(<DatasetExportModal show={true} onHide={jest.fn()} />);
+    render(<DatasetExportModal show={true} onHide={vi.fn()} />);
     expect(screen.getByText(/Export simulation dataset/)).toBeInTheDocument();
     expect(screen.getByText(/Number of scenarios/)).toBeInTheDocument();
     expect(screen.getByText(/Candidates/)).toBeInTheDocument();
@@ -31,7 +30,7 @@ describe('DatasetExportModal', () => {
   });
 
   it('shows CSV and JSON format buttons (lowercase text)', () => {
-    render(<DatasetExportModal show={true} onHide={jest.fn()} />);
+    render(<DatasetExportModal show={true} onHide={vi.fn()} />);
     expect(screen.getByText('csv')).toBeInTheDocument();
     expect(screen.getByText('json')).toBeInTheDocument();
   });
@@ -42,7 +41,7 @@ describe('DatasetExportModal', () => {
       text: () => Promise.resolve(csvBody),
     });
 
-    render(<DatasetExportModal show={true} onHide={jest.fn()} />);
+    render(<DatasetExportModal show={true} onHide={vi.fn()} />);
 
     fireEvent.click(screen.getByText(/Generate CSV/));
 
@@ -61,7 +60,7 @@ describe('DatasetExportModal', () => {
       json: () => Promise.resolve({ error: 'Invalid parameters' }),
     });
 
-    render(<DatasetExportModal show={true} onHide={jest.fn()} />);
+    render(<DatasetExportModal show={true} onHide={vi.fn()} />);
 
     fireEvent.click(screen.getByText(/Generate CSV/));
 
@@ -71,7 +70,7 @@ describe('DatasetExportModal', () => {
   });
 
   it('calls onHide when close button is clicked', () => {
-    const onHide = jest.fn();
+    const onHide = vi.fn();
     render(<DatasetExportModal show={true} onHide={onHide} />);
 
     const closeButton = screen.getByLabelText(/Close/);
@@ -82,7 +81,14 @@ describe('DatasetExportModal', () => {
 
   it('generates JSON format when JSON button is clicked', async () => {
     const jsonResponse = {
-      meta: { num_scenarios: 10, num_candidates: 4, num_voters: 200, seed: 42, ideology: 'random', total_rows: 2 },
+      meta: {
+        num_scenarios: 10,
+        num_candidates: 4,
+        num_voters: 200,
+        seed: 42,
+        ideology: 'random',
+        total_rows: 2,
+      },
       columns: ['scenario_id', 'num_candidates', 'winner'],
       rows: [
         { scenario_id: 1, num_candidates: 4, winner: 'Alice' },
@@ -95,7 +101,7 @@ describe('DatasetExportModal', () => {
       json: () => Promise.resolve(jsonResponse),
     });
 
-    render(<DatasetExportModal show={true} onHide={jest.fn()} />);
+    render(<DatasetExportModal show={true} onHide={vi.fn()} />);
 
     fireEvent.click(screen.getByText('json'));
     fireEvent.click(screen.getByText(/Generate JSON/));
@@ -106,7 +112,7 @@ describe('DatasetExportModal', () => {
   });
 
   it('toggles column groups by clicking checkbox', () => {
-    render(<DatasetExportModal show={true} onHide={jest.fn()} />);
+    render(<DatasetExportModal show={true} onHide={vi.fn()} />);
 
     const blankVote = screen.getByText(/Blank vote/);
     fireEvent.click(blankVote);
@@ -118,7 +124,7 @@ describe('DatasetExportModal', () => {
       text: () => Promise.resolve(csvBody),
     });
 
-    render(<DatasetExportModal show={true} onHide={jest.fn()} />);
+    render(<DatasetExportModal show={true} onHide={vi.fn()} />);
 
     fireEvent.click(screen.getByText(/Generate CSV/));
 

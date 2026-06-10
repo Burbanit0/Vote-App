@@ -4,7 +4,7 @@ import { I18nextProvider } from 'react-i18next';
 import i18n from '../../../i18n';
 import IdeologicalSpaceChart from '../IdeologicalSpaceChart';
 
-jest.mock('recharts', () => ({
+vi.mock('recharts', () => ({
   ResponsiveContainer: ({ children }: any) => <div>{children}</div>,
   ScatterChart: ({ children }: any) => <div>{children}</div>,
   Scatter: () => <div />,
@@ -26,7 +26,8 @@ const mockCandidates = [
   { id: 2, name: 'Bob', party: 'B', ideology_position: 0.5, policies: {} },
 ];
 
-const renderWithI18n = (ui: React.ReactElement) => render(<I18nextProvider i18n={i18n}>{ui}</I18nextProvider>);
+const renderWithI18n = (ui: React.ReactElement) =>
+  render(<I18nextProvider i18n={i18n}>{ui}</I18nextProvider>);
 
 describe('IdeologicalSpaceChart', () => {
   it('renders chart title', () => {
@@ -36,7 +37,13 @@ describe('IdeologicalSpaceChart', () => {
 
   it('renders method buttons when winnersByMethod provided', () => {
     const winners = { plurality: 'Alice' };
-    renderWithI18n(<IdeologicalSpaceChart voters={mockVoters} candidates={mockCandidates} winnersByMethod={winners} />);
+    renderWithI18n(
+      <IdeologicalSpaceChart
+        voters={mockVoters}
+        candidates={mockCandidates}
+        winnersByMethod={winners}
+      />
+    );
     expect(screen.getAllByText('Plurality').length).toBeGreaterThanOrEqual(1);
   });
 });

@@ -1,10 +1,9 @@
 import React, { useEffect, useState } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
-import { useAuth } from '../context/AuthContext';
-import axios from 'axios';
-import { Container, Spinner, Alert } from 'react-bootstrap';
+import { Loader2 } from 'lucide-react';
+import { useAuth } from '../stores/useAuthStore';
 
-const API_BASE_URL = process.env.VITE_API_URL || 'http://localhost:4433';
+const API_BASE_URL = process.env.VITE_API_URL || 'http://localhost:4434';
 
 const OAuthCallback: React.FC = () => {
   const [searchParams] = useSearchParams();
@@ -21,10 +20,15 @@ const OAuthCallback: React.FC = () => {
 
     (async () => {
       try {
-        const profileResp = await axios.get(`${API_BASE_URL}/api/auth/profile`, {
+        // Phase 4.3.e: profile lives on /api/v2/users/me now (fastapi-users).
+        // The token came in via the URL and isn't persisted yet, so we carry it
+        // explicitly with a raw fetch (the apiClient middleware reads the stored
+        // token, which isn't set until login() below).
+        const profileResp = await fetch(`${API_BASE_URL}/api/v2/users/me`, {
           headers: { Authorization: `Bearer ${token}` },
         });
-        const profile = profileResp.data;
+        if (!profileResp.ok) throw new Error('profile fetch failed');
+        const profile = await profileResp.json();
         login({
           id: profile.id,
           access_token: token,
@@ -44,17 +48,22 @@ const OAuthCallback: React.FC = () => {
 
   if (error) {
     return (
-      <Container className="mt-5 text-center">
-        <Alert variant="danger">{error}</Alert>
-      </Container>
+      <div data-style="tailwind" className="mx-auto mt-12 w-full max-w-[1140px] px-3 text-center">
+        <div
+          role="alert"
+          className="rounded-md border border-border border-red-300 bg-red-100 px-3 py-2 text-sm text-red-800"
+        >
+          {error}
+        </div>
+      </div>
     );
   }
 
   return (
-    <Container className="mt-5 text-center">
-      <Spinner animation="border" />
-      <p className="mt-3">Signing you in…</p>
-    </Container>
+    <div data-style="tailwind" className="mx-auto mt-12 w-full max-w-[1140px] px-3 text-center">
+      <Loader2 className="mx-auto h-8 w-8 animate-spin text-primary" aria-label="loading" />
+      <p className="mt-4">Signing you in…</p>
+    </div>
   );
 };
 

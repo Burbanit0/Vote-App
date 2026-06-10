@@ -3,65 +3,85 @@ import { render, screen, waitFor } from '@testing-library/react';
 import { MemoryRouter } from 'react-router';
 import ElectionInsightPanel from '../ElectionInsightPanel';
 
-jest.mock('../../../services/electionApi', () => ({
-  interpretElection: jest.fn(),
+vi.mock('../../../services/electionApi', () => ({
+  interpretElection: vi.fn(),
 }));
 
-const { interpretElection } = jest.requireMock('../../../services/electionApi') as {
+const { interpretElection } = (await import('../../../services/electionApi')) as unknown as {
   interpretElection: jest.Mock;
 };
 
 // Sample ElectionResult with high agreement (consensus)
 const HIGH_AGREEMENT_RESULT: any = {
-  config:                  { blank_vote: { enabled: false, rule: 'symbolic' } },
-  voters_snapshot:         [],
-  candidates:              [{ name: 'Alice', x: 0, y: 0, party: 'Liberal' }],
+  config: { blank_vote: { enabled: false, rule: 'symbolic' } },
+  voters_snapshot: [],
+  candidates: [{ name: 'Alice', x: 0, y: 0, party: 'Liberal' }],
   methods: {
-    plurality: { winner: 'Alice', bayesian_regret: 0.05, majority_satisfaction: 0.7, condorcet_consistent: true },
-    schulze:   { winner: 'Alice', bayesian_regret: 0.02, majority_satisfaction: 0.8, condorcet_consistent: true },
+    plurality: {
+      winner: 'Alice',
+      bayesian_regret: 0.05,
+      majority_satisfaction: 0.7,
+      condorcet_consistent: true,
+    },
+    schulze: {
+      winner: 'Alice',
+      bayesian_regret: 0.02,
+      majority_satisfaction: 0.8,
+      condorcet_consistent: true,
+    },
   },
-  condorcet_winner:        'Alice',
-  blank_rate:              0,
-  campaign_trajectory:     null,
-  inter_method_agreement:  0.90,
-  condorcet_exists:        true,
+  condorcet_winner: 'Alice',
+  blank_rate: 0,
+  campaign_trajectory: null,
+  inter_method_agreement: 0.9,
+  condorcet_exists: true,
 };
 
 // Sample ElectionResult with low agreement (divergence)
 const LOW_AGREEMENT_RESULT: any = {
   ...HIGH_AGREEMENT_RESULT,
   methods: {
-    plurality: { winner: 'Alice', bayesian_regret: 0.08, majority_satisfaction: 0.6, condorcet_consistent: false },
-    schulze:   { winner: 'Bob',   bayesian_regret: 0.02, majority_satisfaction: 0.85, condorcet_consistent: true },
+    plurality: {
+      winner: 'Alice',
+      bayesian_regret: 0.08,
+      majority_satisfaction: 0.6,
+      condorcet_consistent: false,
+    },
+    schulze: {
+      winner: 'Bob',
+      bayesian_regret: 0.02,
+      majority_satisfaction: 0.85,
+      condorcet_consistent: true,
+    },
   },
-  condorcet_winner:       'Bob',
-  inter_method_agreement: 0.40,
-  condorcet_exists:       true,
+  condorcet_winner: 'Bob',
+  inter_method_agreement: 0.4,
+  condorcet_exists: true,
 };
 
 const CONSENSUS_INSIGHT = {
-  headline:           '✓ Large consensus: 90% of methods elect Alice.',
+  headline: '✓ Large consensus: 90% of methods elect Alice.',
   condorcet_analysis: 'Alice is the Condorcet winner.',
-  divergence_reason:  'Alice is the Condorcet winner.',
-  method_groups:      [{ winner: 'Alice', methods: ['plurality', 'schulze'], pct: 1.0 }],
-  best_by_regret:     'schulze',
-  worst_by_regret:    'plurality',
-  blank_analysis:     null,
-  pedagogical_note:   'Ideal case: methods converge.',
-  key_facts:          ['90% elect Alice', 'Condorcet: Alice', 'Best method: schulze'],
+  divergence_reason: 'Alice is the Condorcet winner.',
+  method_groups: [{ winner: 'Alice', methods: ['plurality', 'schulze'], pct: 1.0 }],
+  best_by_regret: 'schulze',
+  worst_by_regret: 'plurality',
+  blank_analysis: null,
+  pedagogical_note: 'Ideal case: methods converge.',
+  key_facts: ['90% elect Alice', 'Condorcet: Alice', 'Best method: schulze'],
 };
 
 const DIVERGENCE_INSIGHT = {
   ...CONSENSUS_INSIGHT,
-  headline:      '🚨 Strong divergence: only 40% agree.',
+  headline: '🚨 Strong divergence: only 40% agree.',
   method_groups: [
     { winner: 'Alice', methods: ['plurality'], pct: 0.5 },
-    { winner: 'Bob',   methods: ['schulze'],   pct: 0.5 },
+    { winner: 'Bob', methods: ['schulze'], pct: 0.5 },
   ],
 };
 
 beforeEach(() => {
-  jest.clearAllMocks();
+  vi.clearAllMocks();
   interpretElection.mockResolvedValue(CONSENSUS_INSIGHT);
 });
 

@@ -1,22 +1,22 @@
 import React from 'react';
-import { Card, Container, Row, Col } from 'react-bootstrap';
-import { Radar } from 'react-chartjs-2';
-import { Chart } from 'react-google-charts';
+import { Card, CardBody, CardHeader } from '@/components/ui/card';
+import { Col, Container, Row } from '@/components/ui/grid';
+import {
+  Legend,
+  PolarAngleAxis,
+  PolarGrid,
+  PolarRadiusAxis,
+  Radar,
+  RadarChart,
+  ResponsiveContainer,
+  Sankey,
+  Tooltip,
+} from 'recharts';
 import preprocessForGoogleSankey from './SimulationSankey';
 import preprocessRadarData from './SimulationRadar';
-import {
-  Chart as ChartJS,
-  RadialLinearScale,
-  PointElement,
-  LineElement,
-  Filler,
-  Tooltip,
-  Legend,
-} from 'chart.js';
+import { VIZ_COLORS } from './votingMethods/types';
 import VotingMethodsComparison from './VotingMethodsComparison';
 import ScoreVotingComparison from './ScoreVotingComparison';
-
-ChartJS.register(RadialLinearScale, PointElement, LineElement, Filler, Tooltip, Legend);
 
 // Basic types
 type VoterId = number;
@@ -112,6 +112,37 @@ const SimulationResult: React.FC<SimulationResultProps> = ({ result }) => {
   const rankings = result.rankings || [];
   const candidates = result.metadata.candidates;
 
+  // Reshape the legacy preprocessor outputs into Recharts shapes (the
+  // preprocessors + their unit tests stay untouched; we only adapt here).
+  const sankeyRows = (
+    preprocessForGoogleSankey(rankings) as unknown as Array<[string, string, number]>
+  ).slice(1); // drop the ['From','To','Weight'] header row
+  const sankeyNodeNames = [...new Set(sankeyRows.flatMap(([from, to]) => [from, to]))];
+  const sankeyIndex: Record<string, number> = Object.fromEntries(
+    sankeyNodeNames.map((name, i) => [name, i])
+  );
+  const sankeyData = {
+    nodes: sankeyNodeNames.map((name) => ({ name })),
+    links: sankeyRows.map(([from, to, value]) => ({
+      source: sankeyIndex[from],
+      target: sankeyIndex[to],
+      value,
+    })),
+  };
+
+  const radarRaw = preprocessRadarData(rankings) as {
+    labels?: string[];
+    datasets?: Array<{ label: string; data: number[] }>;
+  };
+  const radarSeries = radarRaw.datasets ?? [];
+  const radarRows = (radarRaw.labels ?? []).map((label, ri) => {
+    const row: Record<string, number | string> = { rank: label };
+    radarSeries.forEach((ds) => {
+      row[ds.label] = ds.data[ri] ?? 0;
+    });
+    return row;
+  });
+
   const winners = {
     condorcet_winner: result.condorcet_winner,
     two_round_winner: result.two_round_winner,
@@ -131,31 +162,31 @@ const SimulationResult: React.FC<SimulationResultProps> = ({ result }) => {
     <Container>
       <Row className="mt-4">
         <Card>
-          <Card.Header as="h3">Simulation Results</Card.Header>
-          <Card.Body>
-            <Card.Text>
+          <CardHeader className="block space-y-0 border-b border-border px-4 py-2">
+            Simulation Results
+          </CardHeader>
+          <CardBody>
+            <p>
               <strong>Simulation Types:</strong> {result.simulation_type.join(', ')}
-            </Card.Text>
-            <Card.Text>
+            </p>
+            <p>
               <strong>Population Size:</strong> {result.metadata.population_size}
-            </Card.Text>
-            <Card.Text>
+            </p>
+            <p>
               <strong>Turnout Rate:</strong> {(result.metadata.turnout_rate * 100).toFixed(1)}%
-            </Card.Text>
-            <Card.Text>
+            </p>
+            <p>
               <strong>Candidates:</strong> {result.metadata.candidates.join(', ')}
-            </Card.Text>
+            </p>
 
             {/* Votes Simulation Results */}
             {hasVotes && (
               <>
-                <Card.Text as="h4" className="mt-4">
-                  Standard Voting Results
-                </Card.Text>
+                <p className="mt-4">Standard Voting Results</p>
 
                 {result.votes && (
                   <>
-                    <Card.Text as="h5">Sample Votes:</Card.Text>
+                    <p>Sample Votes:</p>
                     <ul>
                       {result.votes.slice(0, 5).map((vote, index) => (
                         <li key={index}>
@@ -168,9 +199,7 @@ const SimulationResult: React.FC<SimulationResultProps> = ({ result }) => {
 
                 {result.tally && (
                   <>
-                    <Card.Text as="h5" className="mt-3">
-                      Vote Tally:
-                    </Card.Text>
+                    <p className="mt-3">Vote Tally:</p>
                     <ul>
                       {Object.entries(result.tally).map(([candidate, count]) => (
                         <li key={candidate}>
@@ -184,68 +213,66 @@ const SimulationResult: React.FC<SimulationResultProps> = ({ result }) => {
                         <Row className="mt-3">
                           <Col md={6}>
                             <Card>
-                              <Card.Header as="h5">Sankey Chart</Card.Header>
-                              <Card.Body>
-                                <Chart
-                                  chartType="Sankey"
-                                  width="100%"
-                                  height="300px"
-                                  data={preprocessForGoogleSankey(result.rankings)}
-                                  options={{
-                                    sankey: {
-                                      node: {
-                                        colors: [
-                                          '#a6cee3',
-                                          '#1f78b4',
-                                          '#b2df8a',
-                                          '#33a02c',
-                                          '#fb9a99',
-                                          '#e31a1c',
-                                        ],
-                                        width: 20,
-                                      },
-                                      link: {
-                                        colorMode: 'gradient',
-                                        colors: [
-                                          '#a6cee3',
-                                          '#1f78b4',
-                                          '#b2df8a',
-                                          '#33a02c',
-                                          '#fb9a99',
-                                          '#e31a1c',
-                                        ],
-                                      },
-                                    },
-                                  }}
-                                />
-                              </Card.Body>
+                              <CardHeader className="block space-y-0 border-b border-border px-4 py-2">
+                                Sankey Chart
+                              </CardHeader>
+                              <CardBody>
+                                <div data-testid="sankey-chart">
+                                  {sankeyData.links.length > 0 && (
+                                    <ResponsiveContainer width="100%" height={300}>
+                                      <Sankey
+                                        data={sankeyData}
+                                        nodePadding={24}
+                                        node={{ stroke: '#777', strokeWidth: 1 }}
+                                        link={{ stroke: '#1f78b4', strokeOpacity: 0.25 }}
+                                      >
+                                        <Tooltip />
+                                      </Sankey>
+                                    </ResponsiveContainer>
+                                  )}
+                                </div>
+                              </CardBody>
                             </Card>
                           </Col>
                           <Col md={6}>
                             <Card>
-                              <Card.Header as="h5">Radar Chart</Card.Header>
-                              <Card.Body>
-                                <Radar
-                                  data={preprocessRadarData(result.rankings)}
-                                  options={{
-                                    scales: {
-                                      r: {
-                                        min: 0,
-                                        max: 1,
-                                        ticks: {
-                                          stepSize: 0.2,
-                                        },
-                                      },
-                                    },
-                                    plugins: {
-                                      title: {
-                                        display: true,
-                                        text: 'Voter Consensus (Normalized)',
-                                      },
-                                    },
-                                  }}
-                                />
-                              </Card.Body>
+                              <CardHeader className="block space-y-0 border-b border-border px-4 py-2">
+                                Radar Chart
+                              </CardHeader>
+                              <CardBody>
+                                <div data-testid="radar-chart">
+                                  <p
+                                    className="text-center font-semibold mb-2"
+                                    style={{ fontSize: '0.95rem' }}
+                                  >
+                                    Voter Consensus (Normalized)
+                                  </p>
+                                  <ResponsiveContainer width="100%" height={300}>
+                                    <RadarChart data={radarRows} outerRadius="70%">
+                                      <PolarGrid />
+                                      <PolarAngleAxis dataKey="rank" tick={{ fontSize: 11 }} />
+                                      <PolarRadiusAxis
+                                        domain={[0, 1]}
+                                        tickCount={6}
+                                        tick={{ fontSize: 10 }}
+                                      />
+                                      {radarSeries.map((ds, ci) => (
+                                        <Radar
+                                          key={ds.label}
+                                          name={ds.label}
+                                          dataKey={ds.label}
+                                          stroke={VIZ_COLORS[ci % VIZ_COLORS.length]}
+                                          fill={VIZ_COLORS[ci % VIZ_COLORS.length]}
+                                          fillOpacity={0.15}
+                                          isAnimationActive={false}
+                                        />
+                                      ))}
+                                      <Legend wrapperStyle={{ fontSize: 12 }} />
+                                      <Tooltip />
+                                    </RadarChart>
+                                  </ResponsiveContainer>
+                                </div>
+                              </CardBody>
                             </Card>
                           </Col>
                         </Row>
@@ -268,9 +295,7 @@ const SimulationResult: React.FC<SimulationResultProps> = ({ result }) => {
                   result.minimax_winner ||
                   result.schulze_winner) && (
                   <>
-                    <Card.Text as="h5" className="mt-4">
-                      Voting Method Winners:
-                    </Card.Text>
+                    <p className="mt-4">Voting Method Winners:</p>
                     <VotingMethodsComparison
                       rankings={rankings}
                       candidates={candidates}
@@ -280,14 +305,14 @@ const SimulationResult: React.FC<SimulationResultProps> = ({ result }) => {
                 )}
                 {result.all_scores && result.all_scores.length > 0 && (
                   <Card>
-                    <Card.Body>
+                    <CardBody>
                       <ScoreVotingComparison scores={result.all_scores} candidates={candidates} />
-                    </Card.Body>
+                    </CardBody>
                   </Card>
                 )}
               </>
             )}
-          </Card.Body>
+          </CardBody>
         </Card>
       </Row>
     </Container>

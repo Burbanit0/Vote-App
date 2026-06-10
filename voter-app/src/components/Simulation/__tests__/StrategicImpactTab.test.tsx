@@ -2,7 +2,7 @@ import React from 'react';
 import { render, screen } from '@testing-library/react';
 import StrategicImpactTab from '../StrategicImpactTab';
 
-jest.mock('../../../hooks/useChartTheme', () => ({
+vi.mock('../../../hooks/useChartTheme', () => ({
   useChartTheme: () => ({
     isDark: false,
     gridStroke: '#e0e0e0',
@@ -12,17 +12,17 @@ jest.mock('../../../hooks/useChartTheme', () => ({
   }),
 }));
 
-jest.mock('../simulationConstants', () => ({
+vi.mock('../simulationConstants', () => ({
   METHOD_LABELS: { plurality: 'Plurality', irv: 'IRV' },
   METHOD_LINE_COLORS: { plurality: '#e15759', irv: '#59a14f' },
 }));
 
-jest.mock('../../shared/EmptyChart', () => ({ height }: { height?: number }) => (
-  <div data-testid="empty-chart" />
-));
+vi.mock('../../shared/EmptyChart', () => ({
+  default: ({ height }: { height?: number }) => <div data-testid="empty-chart" />,
+}));
 
 // Recharts ResponsiveContainer needs a width mock in JSDOM
-jest.mock('recharts', () => ({
+vi.mock('recharts', () => ({
   ResponsiveContainer: ({ children }: any) => (
     <div style={{ width: 800, height: 440 }}>{children}</div>
   ),
@@ -45,16 +45,12 @@ const mockData = [
 
 describe('StrategicImpactTab', () => {
   it('renders card title', () => {
-    render(
-      <StrategicImpactTab strategicData={mockData} allMethodNames={['plurality', 'irv']} />
-    );
+    render(<StrategicImpactTab strategicData={mockData} allMethodNames={['plurality', 'irv']} />);
     expect(screen.getByText(/Impact of strategic voting on Bayesian regret/)).toBeInTheDocument();
   });
 
   it('renders description text', () => {
-    render(
-      <StrategicImpactTab strategicData={mockData} allMethodNames={['plurality']} />
-    );
+    render(<StrategicImpactTab strategicData={mockData} allMethodNames={['plurality']} />);
     expect(screen.getByText(/vulnerable to tactical voting/)).toBeInTheDocument();
   });
 
@@ -64,9 +60,7 @@ describe('StrategicImpactTab', () => {
   });
 
   it('renders chart when data is present', () => {
-    render(
-      <StrategicImpactTab strategicData={mockData} allMethodNames={['plurality', 'irv']} />
-    );
+    render(<StrategicImpactTab strategicData={mockData} allMethodNames={['plurality', 'irv']} />);
     expect(screen.getByTestId('line-chart')).toBeInTheDocument();
   });
 });

@@ -3,59 +3,67 @@ import { render, screen, fireEvent, waitFor } from '@testing-library/react';
 import SimulationPage from './SimulationPage';
 import { simulateVote } from '../services/simulationsApi';
 
-jest.mock('../services/simulationsApi', () => ({
-  simulateVote: jest.fn(),
+vi.mock('../services/simulationsApi', () => ({
+  simulateVote: vi.fn(),
 }));
 
-jest.mock('../components/Simulation/SimulationForm', () => {
-  return function MockForm({
-    simulateVotes,
-    loading,
-  }: {
-    simulateVotes: () => void;
-    loading: boolean;
-  }) {
-    return (
-      <div>
-        <button data-testid="simulate-btn" onClick={simulateVotes} disabled={loading}>
-          {loading ? 'Chargement...' : 'Lancer'}
-        </button>
-      </div>
-    );
+vi.mock('../components/Simulation/SimulationForm', () => {
+  return {
+    default: function MockForm({
+      simulateVotes,
+      loading,
+    }: {
+      simulateVotes: () => void;
+      loading: boolean;
+    }) {
+      return (
+        <div>
+          <button data-testid="simulate-btn" onClick={simulateVotes} disabled={loading}>
+            {loading ? 'Chargement...' : 'Lancer'}
+          </button>
+        </div>
+      );
+    },
   };
 });
 
-jest.mock('../components/Simulation/SimulationResult', () => {
-  return function MockResult({ result }: { result: any }) {
-    return (
-      <div data-testid="simulation-result">
-        {result ? 'Résultats chargés' : 'Aucun résultat'}
-      </div>
-    );
+vi.mock('../components/Simulation/SimulationResult', () => {
+  return {
+    default: function MockResult({ result }: { result: any }) {
+      return (
+        <div data-testid="simulation-result">{result ? 'Résultats chargés' : 'Aucun résultat'}</div>
+      );
+    },
   };
 });
 
-jest.mock('../components/Simulation/VoterVisualization', () => {
-  return function MockVoterVis() {
-    return <div data-testid="voter-vis">VoterVis</div>;
+vi.mock('../components/Simulation/VoterVisualization', () => {
+  return {
+    default: function MockVoterVis() {
+      return <div data-testid="voter-vis">VoterVis</div>;
+    },
   };
 });
 
-jest.mock('../components/Simulation/CandidatesVisualization', () => {
-  return function MockCandVis() {
-    return <div data-testid="candidate-vis">CandidateVis</div>;
+vi.mock('../components/Simulation/CandidatesVisualization', () => {
+  return {
+    default: function MockCandVis() {
+      return <div data-testid="candidate-vis">CandidateVis</div>;
+    },
   };
 });
 
-jest.mock('../components/Simulation/UtilityVisualization', () => {
-  return function MockUtilVis() {
-    return <div data-testid="utility-vis">UtilityVis</div>;
+vi.mock('../components/Simulation/UtilityVisualization', () => {
+  return {
+    default: function MockUtilVis() {
+      return <div data-testid="utility-vis">UtilityVis</div>;
+    },
   };
 });
 
 describe('SimulationPage', () => {
   beforeEach(() => {
-    jest.clearAllMocks();
+    vi.clearAllMocks();
   });
 
   it('renders the simulation form on initial load', () => {
@@ -97,9 +105,7 @@ describe('SimulationPage', () => {
     fireEvent.click(screen.getByTestId('simulate-btn'));
 
     await waitFor(() => {
-      expect(
-        screen.getByText('Simulation failed. Please try again.')
-      ).toBeInTheDocument();
+      expect(screen.getByText('Simulation failed. Please try again.')).toBeInTheDocument();
     });
   });
 });

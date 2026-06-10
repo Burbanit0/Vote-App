@@ -1,25 +1,26 @@
 import { renderHook, act } from '@testing-library/react';
 import { useMonteCarloStream } from './useMonteCarloStream';
 
-jest.mock('socket.io-client', () => {
+vi.mock('socket.io-client', () => {
   const mockSocket = {
-    on: jest.fn(),
-    emit: jest.fn(),
-    disconnect: jest.fn(),
+    on: vi.fn(),
+    emit: vi.fn(),
+    disconnect: vi.fn(),
   };
   return {
-    io: jest.fn(() => mockSocket),
+    io: vi.fn(() => mockSocket),
   };
 });
 
-const { io } = jest.requireMock('socket.io-client');
+const { io } = await import('socket.io-client');
 
 beforeEach(() => {
-  jest.clearAllMocks();
+  vi.clearAllMocks();
 });
 
 function getSocket() {
-  return io();
+  // io() is the mocked socket; cast so .on/.emit expose the vi.fn() `.mock` API.
+  return io() as unknown as { on: jest.Mock; emit: jest.Mock; disconnect: jest.Mock };
 }
 
 describe('useMonteCarloStream', () => {
@@ -39,7 +40,8 @@ describe('useMonteCarloStream', () => {
       result.current.start({ num_iterations: 50, num_voters: 200 });
     });
 
-    expect(io).toHaveBeenCalledWith('http://localhost:4433', {
+    expect(io).toHaveBeenCalledWith('http://localhost:4434', {
+      path: '/api/v2/socket.io',
       transports: ['websocket', 'polling'],
     });
 
@@ -47,9 +49,7 @@ describe('useMonteCarloStream', () => {
     expect(result.current.isRunning).toBe(true);
     expect(result.current.total).toBe(50);
 
-    const connectHandler = socket.on.mock.calls.find(
-      ([event]: [string]) => event === 'connect'
-    );
+    const connectHandler = socket.on.mock.calls.find(([event]: [string]) => event === 'connect');
     expect(connectHandler).toBeDefined();
 
     connectHandler[1]();

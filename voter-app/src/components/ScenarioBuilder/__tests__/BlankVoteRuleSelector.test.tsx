@@ -5,7 +5,7 @@ import BlankVoteRuleSelector from '../BlankVoteRuleSelector';
 describe('BlankVoteRuleSelector', () => {
   const defaultProps = {
     selected: 'symbolic' as const,
-    onChange: jest.fn(),
+    onChange: vi.fn(),
     hasBlankCandidate: true,
   };
 
@@ -18,7 +18,7 @@ describe('BlankVoteRuleSelector', () => {
   });
 
   it('calls onChange when clicking a rule', () => {
-    const onChange = jest.fn();
+    const onChange = vi.fn();
     render(<BlankVoteRuleSelector {...defaultProps} onChange={onChange} />);
     fireEvent.click(screen.getByText('Competitive'));
     expect(onChange).toHaveBeenCalledWith('competitive');

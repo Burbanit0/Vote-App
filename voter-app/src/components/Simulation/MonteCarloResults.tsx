@@ -1,16 +1,13 @@
 import React, { useMemo, useState } from 'react';
-import {
-  Alert,
-  Badge,
-  Button,
-  Card,
-  Col,
-  Form,
-  ProgressBar,
-  Row,
-  Spinner,
-  Table,
-} from 'react-bootstrap';
+import { Alert } from '@/components/ui/alert';
+import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
+import { Card, CardBody, CardHeader } from '@/components/ui/card';
+import { Check, Control, Range, Select } from '@/components/ui/form-controls';
+import { Col, Row } from '@/components/ui/grid';
+import { Progress } from '@/components/ui/progress';
+import { Spinner } from '@/components/ui/spinner';
+import { Table } from '@/components/ui/table';
 import {
   Bar,
   BarChart,
@@ -32,7 +29,11 @@ import { useMonteCarloStream } from '../../hooks/useMonteCarloStream';
 import MonteCarloLiveChart from './MonteCarloLiveChart';
 import MonteCarloRaceChart from './MonteCarloRaceChart';
 import MonteCarloConvergencePanel from './MonteCarloConvergencePanel';
-import MethodSimilarityGraph, { flatToMatrix, partialResultsToMatrix } from './MethodSimilarityGraph';
+import MethodSimilarityGraph, {
+  flatToMatrix,
+  partialResultsToMatrix,
+} from './MethodSimilarityGraph';
+import { useSimulationWorker } from '../../hooks/useSimulationWorker';
 import MetricTooltip from '../shared/MetricTooltip';
 
 const CANDIDATE_PALETTE = ['#4e79a7', '#f28e2b', '#e15759', '#76b7b2', '#59a14f', '#edc948'];
@@ -64,39 +65,44 @@ interface Props {
 const MonteCarloResults: React.FC<Props> = ({ baseParams }) => {
   const { t } = useTranslation();
   const ct = useChartTheme();
+  const { dispatch: workerDispatch } = useSimulationWorker();
   const [sortByRegret, setSortByRegret] = useState(false);
   const [numRuns, setNumRuns] = useState(100);
   const [numVoters, setNumVoters] = useState(baseParams.num_voters ?? 150);
   const [ideologyDist, setIdeologyDist] = useState(baseParams.ideology_distribution ?? 'random');
   const [result, setResult] = useState<MonteCarloResult | null>(null);
   const [loading, setLoading] = useState(false);
+  const [streamMatrix, setStreamMatrix] = useState<Record<string, Record<string, number>>>({});
   const [error, setError] = useState<string | null>(null);
   const [useStreaming, setUseStreaming] = useState(true);
 
   const stream = useMonteCarloStream();
 
-  const METHOD_LABELS: Record<string, string> = useMemo(() => ({
-    plurality:            t('methods.plurality.label'),
-    two_round:            t('methods.two_round.label'),
-    borda:                t('methods.borda.label'),
-    approval:             t('methods.approval.label'),
-    irv:                  t('methods.irv.label'),
-    coombs:               t('methods.coombs.label'),
-    bucklin:              t('methods.bucklin.label'),
-    minimax:              t('methods.minimax.label'),
-    schulze:              t('methods.schulze.label'),
-    simple_score:         t('methods.simple_score.label'),
-    star_voting:          t('methods.star_voting.label'),
-    median_voting:        t('methods.median_voting.label'),
-    mean_median_hybrid:   t('methods.mean_median_hybrid.label'),
-    variance_based:       t('methods.variance_based.label'),
-  }), [t]);
+  const METHOD_LABELS: Record<string, string> = useMemo(
+    () => ({
+      plurality: t('methods.plurality.label'),
+      two_round: t('methods.two_round.label'),
+      borda: t('methods.borda.label'),
+      approval: t('methods.approval.label'),
+      irv: t('methods.irv.label'),
+      coombs: t('methods.coombs.label'),
+      bucklin: t('methods.bucklin.label'),
+      minimax: t('methods.minimax.label'),
+      schulze: t('methods.schulze.label'),
+      simple_score: t('methods.simple_score.label'),
+      star_voting: t('methods.star_voting.label'),
+      median_voting: t('methods.median_voting.label'),
+      mean_median_hybrid: t('methods.mean_median_hybrid.label'),
+      variance_based: t('methods.variance_based.label'),
+    }),
+    [t]
+  );
 
   const ideologyOptions = [
-    { value: 'random',       label: t('ideology.random') },
-    { value: 'centrist',     label: t('ideology.centrist') },
-    { value: 'polarized',    label: t('ideology.polarized') },
-    { value: 'left_skewed',  label: t('ideology.left_skewed') },
+    { value: 'random', label: t('ideology.random') },
+    { value: 'centrist', label: t('ideology.centrist') },
+    { value: 'polarized', label: t('ideology.polarized') },
+    { value: 'left_skewed', label: t('ideology.left_skewed') },
     { value: 'right_skewed', label: t('ideology.right_skewed') },
   ];
 
@@ -131,6 +137,15 @@ const MonteCarloResults: React.FC<Props> = ({ baseParams }) => {
     }
   };
 
+  // ── Offload matrix computation to worker on each streaming tick ───────
+  React.useEffect(() => {
+    const keys = Object.keys(stream.partialResults);
+    if (keys.length < 2) return;
+    workerDispatch('COMPUTE_MATRIX', { partialResults: stream.partialResults })
+      .then(({ matrix }) => setStreamMatrix(matrix))
+      .catch(() => setStreamMatrix(partialResultsToMatrix(stream.partialResults)));
+  }, [stream.partialResults, workerDispatch]);
+
   // ── Derived ────────────────────────────────────────────────────────────
 
   const methodNames = useMemo(() => (result ? Object.keys(result.methods) : []), [result]);
@@ -146,7 +161,10 @@ const MonteCarloResults: React.FC<Props> = ({ baseParams }) => {
   }, [result]);
 
   const colorMap = useMemo(
-    () => Object.fromEntries(candidateNames.map((c, i) => [c, CANDIDATE_PALETTE[i % CANDIDATE_PALETTE.length]])),
+    () =>
+      Object.fromEntries(
+        candidateNames.map((c, i) => [c, CANDIDATE_PALETTE[i % CANDIDATE_PALETTE.length]])
+      ),
     [candidateNames]
   );
 
@@ -168,9 +186,7 @@ const MonteCarloResults: React.FC<Props> = ({ baseParams }) => {
       methodNames
         .map((m) => {
           const s = result!.methods[m];
-          const pct = s.most_common_winner
-            ? (s.winner_distribution[s.most_common_winner] ?? 0)
-            : 0;
+          const pct = s.most_common_winner ? (s.winner_distribution[s.most_common_winner] ?? 0) : 0;
           return {
             method: m,
             winner: s.most_common_winner,
@@ -198,7 +214,11 @@ const MonteCarloResults: React.FC<Props> = ({ baseParams }) => {
   const getAgreement = (a: string, b: string): number | null => {
     if (!result) return null;
     if (a === b) return 1;
-    return result.inter_method_agreement[`${a}|${b}`] ?? result.inter_method_agreement[`${b}|${a}`] ?? null;
+    return (
+      result.inter_method_agreement[`${a}|${b}`] ??
+      result.inter_method_agreement[`${b}|${a}`] ??
+      null
+    );
   };
 
   // ── Render ─────────────────────────────────────────────────────────────
@@ -207,69 +227,96 @@ const MonteCarloResults: React.FC<Props> = ({ baseParams }) => {
     <div>
       {/* Config */}
       <Card className="mb-4">
-        <Card.Header><strong>{t('simulation.monteCarloConfig')}</strong></Card.Header>
-        <Card.Body>
-          <Row className="g-3 align-items-end">
+        <CardHeader className="block space-y-0 border-b border-border px-4 py-2">
+          <strong>{t('simulation.monteCarloConfig')}</strong>
+        </CardHeader>
+        <CardBody>
+          <Row className="g-3 items-end">
             <Col md={3}>
-              <Form.Label className="small mb-1">
+              <label className="mb-1 inline-block text-sm mb-1">
                 {t('simulation.monteCarloSims')} : <strong>{numRuns}</strong>
-              </Form.Label>
-              <Form.Range
-                min={20} max={500} step={10} value={numRuns}
+              </label>
+              <Range
+                min={20}
+                max={500}
+                step={10}
+                value={numRuns}
                 onChange={(e) => setNumRuns(Number(e.target.value))}
               />
             </Col>
             <Col md={2}>
-              <Form.Label className="small mb-1">{t('simulation.votersPerSim')}</Form.Label>
-              <Form.Control
-                size="sm" type="number" min={50} max={500} value={numVoters}
+              <label className="mb-1 inline-block text-sm mb-1">
+                {t('simulation.votersPerSim')}
+              </label>
+              <Control
+                size="sm"
+                type="number"
+                min={50}
+                max={500}
+                value={numVoters}
                 onChange={(e) => setNumVoters(Number(e.target.value))}
               />
             </Col>
             <Col md={3}>
-              <Form.Label className="small mb-1">{t('simulation.distribution')}</Form.Label>
-              <Form.Select
-                size="sm" value={ideologyDist}
+              <label className="mb-1 inline-block text-sm mb-1">
+                {t('simulation.distribution')}
+              </label>
+              <Select
+                size="sm"
+                value={ideologyDist}
                 onChange={(e) => setIdeologyDist(e.target.value)}
               >
                 {ideologyOptions.map((o) => (
-                  <option key={o.value} value={o.value}>{o.label}</option>
+                  <option key={o.value} value={o.value}>
+                    {o.label}
+                  </option>
                 ))}
-              </Form.Select>
+              </Select>
             </Col>
             <Col md={2}>
               <Button
-                variant="primary" size="sm" className="w-100"
+                variant="primary"
+                size="sm"
+                className="w-full"
                 onClick={runMC}
                 disabled={loading || stream.isRunning}
               >
-                {loading
-                  ? <><Spinner size="sm" className="me-2" />{t('simulation.runningEllipsis')}</>
-                  : t('simulation.runMonteCarlo')}
+                {loading ? (
+                  <>
+                    <Spinner size="sm" className="me-2" />
+                    {t('simulation.runningEllipsis')}
+                  </>
+                ) : (
+                  t('simulation.runMonteCarlo')
+                )}
               </Button>
             </Col>
-            <Col md={2} className="d-flex align-items-end">
-              <Form.Check
+            <Col md={2} className="flex items-end">
+              <Check
                 type="switch"
                 id="streaming-toggle"
-                label={<span className="small">{t('simulation.useStreaming')}</span>}
+                label={<span className="text-sm">{t('simulation.useStreaming')}</span>}
                 checked={useStreaming}
                 onChange={(e) => setUseStreaming(e.target.checked)}
                 disabled={loading || stream.isRunning}
               />
             </Col>
           </Row>
-          <p className="text-muted small mt-2 mb-0">
+          <p className="text-muted-foreground text-sm mt-2 mb-0">
             {t('simulation.monteCarloInfo')}
           </p>
-        </Card.Body>
+        </CardBody>
       </Card>
 
       {(error || stream.error) && <Alert variant="danger">{error ?? stream.error}</Alert>}
 
       {loading && (
         <Row className="g-3 mb-2">
-          {[220, 300, 200].map((h, i) => <Col key={i} md={4}><SkeletonCard height={h} /></Col>)}
+          {[220, 300, 200].map((h, i) => (
+            <Col key={i} md={4}>
+              <SkeletonCard height={h} />
+            </Col>
+          ))}
         </Row>
       )}
 
@@ -306,43 +353,47 @@ const MonteCarloResults: React.FC<Props> = ({ baseParams }) => {
       {/* Similarity graph — shown once streaming has partial results */}
       {Object.keys(stream.partialResults).length > 1 && (
         <Card className="mb-4">
-          <Card.Header>
+          <CardHeader className="block space-y-0 border-b border-border px-4 py-2">
             <strong>{t('graph.title')}</strong>
-            <span className="text-muted ms-2" style={{ fontSize: '0.85rem' }}>
+            <span className="text-muted-foreground ms-2" style={{ fontSize: '0.85rem' }}>
               {t('graph.subtitle')}
             </span>
-          </Card.Header>
-          <Card.Body>
-            <MethodSimilarityGraph
-              agreementMatrix={partialResultsToMatrix(stream.partialResults)}
-            />
-          </Card.Body>
+          </CardHeader>
+          <CardBody>
+            <MethodSimilarityGraph agreementMatrix={streamMatrix} />
+          </CardBody>
         </Card>
       )}
 
       {!result && !loading && !stream.isRunning && stream.iteration === 0 && (
         <Alert variant="info">
-          <Trans i18nKey="simulation.monteCarloPrompt" values={{ sec: Math.round(numRuns * numVoters / 1000 * 2) }} />
+          <Trans
+            i18nKey="simulation.monteCarloPrompt"
+            values={{ sec: Math.round(((numRuns * numVoters) / 1000) * 2) }}
+          />
         </Alert>
       )}
 
       {result && (
         <>
           <Alert variant="secondary" className="py-2 mb-4">
-            <Trans i18nKey="simulation.monteCarloSummary" values={{
-              numRuns: result.num_runs,
-              numVoters: result.num_voters_per_run,
-              pct: (result.condorcet_winner_exists_rate * 100).toFixed(0),
-            }} />
+            <Trans
+              i18nKey="simulation.monteCarloSummary"
+              values={{
+                numRuns: result.num_runs,
+                numVoters: result.num_voters_per_run,
+                pct: (result.condorcet_winner_exists_rate * 100).toFixed(0),
+              }}
+            />
           </Alert>
 
           {/* 1. Regret bar chart with CI error bars */}
           <Card className="mb-4">
-            <Card.Header className="d-flex align-items-center justify-content-between flex-wrap gap-2">
+            <CardHeader className="block space-y-0 border-b border-border px-4 py-2 flex items-center justify-between flex-wrap gap-2">
               <div>
                 <strong>{t('simulation.bayesianRegretCI')}</strong>
-                  <MetricTooltip metric="bayesian_regret" placement="bottom" />
-                <span className="text-muted ms-2" style={{ fontSize: '0.85rem' }}>
+                <MetricTooltip metric="bayesian_regret" placement="bottom" />
+                <span className="text-muted-foreground ms-2" style={{ fontSize: '0.85rem' }}>
                   {t('simulation.bayesianRegretCIDesc')}
                 </span>
               </div>
@@ -354,10 +405,13 @@ const MonteCarloResults: React.FC<Props> = ({ baseParams }) => {
               >
                 {sortByRegret ? t('simulation.originalOrder') : t('simulation.sortByRegret')}
               </Button>
-            </Card.Header>
-            <Card.Body>
+            </CardHeader>
+            <CardBody>
               <ResponsiveContainer width="100%" height={380}>
-                <BarChart data={regretBarData} margin={{ top: 10, bottom: 80, left: 10, right: 10 }}>
+                <BarChart
+                  data={regretBarData}
+                  margin={{ top: 10, bottom: 80, left: 10, right: 10 }}
+                >
                   <CartesianGrid strokeDasharray="3 3" stroke={ct.gridStroke} />
                   <XAxis
                     dataKey="method"
@@ -382,32 +436,44 @@ const MonteCarloResults: React.FC<Props> = ({ baseParams }) => {
                   </Bar>
                 </BarChart>
               </ResponsiveContainer>
-            </Card.Body>
+            </CardBody>
           </Card>
 
           {/* 2. Inter-method agreement heatmap */}
           <Card className="mb-4">
-            <Card.Header>
+            <CardHeader className="block space-y-0 border-b border-border px-4 py-2">
               <strong>{t('simulation.interMethodAgreement')}</strong>
-              <span className="text-muted ms-2" style={{ fontSize: '0.85rem' }}>
+              <span className="text-muted-foreground ms-2" style={{ fontSize: '0.85rem' }}>
                 {t('simulation.interMethodAgreementDesc')}
               </span>
-            </Card.Header>
-            <Card.Body>
-              <div className="d-flex gap-3 mb-3">
+            </CardHeader>
+            <CardBody>
+              <div className="flex gap-3 mb-3">
                 {[
                   { bg: '#d4edda', color: '#155724', label: t('simulation.agreement80') },
                   { bg: '#fff3cd', color: '#856404', label: t('simulation.agreement50_80') },
                   { bg: '#f8d7da', color: '#721c24', label: t('simulation.agreementLess50') },
                 ].map(({ bg, color, label }) => (
-                  <span key={label} className="d-flex align-items-center gap-1">
-                    <span style={{ display: 'inline-block', width: 14, height: 14, backgroundColor: bg, border: `1px solid ${color}`, borderRadius: 2 }} />
+                  <span key={label} className="flex items-center gap-1">
+                    <span
+                      style={{
+                        display: 'inline-block',
+                        width: 14,
+                        height: 14,
+                        backgroundColor: bg,
+                        border: `1px solid ${color}`,
+                        borderRadius: 2,
+                      }}
+                    />
                     <small style={{ color }}>{label}</small>
                   </span>
                 ))}
               </div>
               <ResponsiveTable>
-                <Table bordered size="sm" className="text-center" style={{ minWidth: 400 }}>
+                <Table
+                  className="[&_th]:p-1 [&_td]:p-1 [&_th]:text-left [&_td]:border-t [&_th]:border-b [&_td]:border-border [&_th]:border-border [&_*]:align-middle [&_th]:border [&_td]:border text-center"
+                  style={{ minWidth: 400 }}
+                >
                   <thead className="table-light">
                     <tr>
                       <th style={{ minWidth: 120, textAlign: 'left' }}>{t('common.method')}</th>
@@ -421,20 +487,26 @@ const MonteCarloResults: React.FC<Props> = ({ baseParams }) => {
                   <tbody>
                     {agreementMethodNames.map((rowMethod) => (
                       <tr key={rowMethod}>
-                        <td className="text-start ps-1 fw-semibold" style={{ fontSize: '0.8rem' }}>
+                        <td className="text-left ps-1 font-semibold" style={{ fontSize: '0.8rem' }}>
                           {METHOD_LABELS[rowMethod] ?? rowMethod}
                         </td>
                         {agreementMethodNames.map((colMethod) => {
                           const rate = getAgreement(rowMethod, colMethod);
                           if (rowMethod === colMethod) {
                             return (
-                              <td key={colMethod} style={{ backgroundColor: '#e9ecef', color: '#6c757d' }}>
+                              <td
+                                key={colMethod}
+                                style={{ backgroundColor: '#e9ecef', color: '#6c757d' }}
+                              >
                                 —
                               </td>
                             );
                           }
                           return (
-                            <td key={colMethod} style={rate != null ? cellStyle(rate, ct.isDark) : undefined}>
+                            <td
+                              key={colMethod}
+                              style={rate != null ? cellStyle(rate, ct.isDark) : undefined}
+                            >
                               {rate != null ? `${(rate * 100).toFixed(0)}%` : '?'}
                             </td>
                           );
@@ -444,39 +516,41 @@ const MonteCarloResults: React.FC<Props> = ({ baseParams }) => {
                   </tbody>
                 </Table>
               </ResponsiveTable>
-            </Card.Body>
+            </CardBody>
           </Card>
 
           {/* 3. Similarity graph */}
           <Card className="mb-4">
-            <Card.Header>
+            <CardHeader className="block space-y-0 border-b border-border px-4 py-2">
               <strong>{t('graph.title')}</strong>
-              <span className="text-muted ms-2" style={{ fontSize: '0.85rem' }}>
+              <span className="text-muted-foreground ms-2" style={{ fontSize: '0.85rem' }}>
                 {t('graph.subtitle')}
               </span>
-            </Card.Header>
-            <Card.Body>
+            </CardHeader>
+            <CardBody>
               <MethodSimilarityGraph
                 agreementMatrix={flatToMatrix(result.inter_method_agreement)}
               />
-            </Card.Body>
+            </CardBody>
           </Card>
 
           {/* 4. Stability table */}
           <Card>
-            <Card.Header>
+            <CardHeader className="block space-y-0 border-b border-border px-4 py-2">
               <strong>{t('simulation.winnerStability')}</strong>
-              <span className="text-muted ms-2" style={{ fontSize: '0.85rem' }}>
+              <span className="text-muted-foreground ms-2" style={{ fontSize: '0.85rem' }}>
                 {t('simulation.winnerStabilityDesc')}
               </span>
-            </Card.Header>
-            <Card.Body className="p-0">
-              <Table bordered size="sm" className="mb-0">
+            </CardHeader>
+            <CardBody className="p-0">
+              <Table className="[&_th]:p-1 [&_td]:p-1 [&_th]:text-left [&_td]:border-t [&_th]:border-b [&_td]:border-border [&_th]:border-border [&_*]:align-middle [&_th]:border [&_td]:border mb-0">
                 <thead className="table-light">
                   <tr>
                     <th style={{ minWidth: 150 }}>{t('common.method')}</th>
                     <th className="text-center">{t('simulation.mostFrequentWinnerLabel')}</th>
-                    <th className="text-center" style={{ minWidth: 80 }}>{t('simulation.pctSims')}</th>
+                    <th className="text-center" style={{ minWidth: 80 }}>
+                      {t('simulation.pctSims')}
+                    </th>
                     <th style={{ minWidth: 160 }}>{t('simulation.stability')}</th>
                     <th className="text-center" title={t('simulation.condorcetCompliance')}>
                       {t('simulation.condorcetCompliance')}
@@ -486,41 +560,50 @@ const MonteCarloResults: React.FC<Props> = ({ baseParams }) => {
                 <tbody>
                   {stabilityRows.map(({ method, winner, pct, stability, compliance }) => (
                     <tr key={method}>
-                      <td className="fw-semibold ps-2">{METHOD_LABELS[method] ?? method}</td>
+                      <td className="font-semibold ps-2">{METHOD_LABELS[method] ?? method}</td>
                       <td className="text-center">
                         {winner ? (
-                          <Badge style={{ backgroundColor: colorMap[winner] ?? '#999', fontSize: '0.75rem' }}>
+                          <Badge
+                            style={{
+                              backgroundColor: colorMap[winner] ?? '#999',
+                              fontSize: '0.75rem',
+                            }}
+                          >
                             {winner}
                           </Badge>
                         ) : (
-                          <span className="text-muted">—</span>
+                          <span className="text-muted-foreground">—</span>
                         )}
                       </td>
                       <td className="text-center">
                         <strong>{(pct * 100).toFixed(0)}%</strong>
                       </td>
                       <td>
-                        <div className="d-flex align-items-center gap-2">
-                          <ProgressBar
+                        <div className="flex items-center gap-2">
+                          <Progress
                             now={(1 - stability) * 100}
-                            variant={stability < 0.25 ? 'success' : stability < 0.6 ? 'warning' : 'danger'}
+                            variant={
+                              stability < 0.25 ? 'success' : stability < 0.6 ? 'warning' : 'danger'
+                            }
                             style={{ flex: 1, height: 8 }}
                           />
-                          <small className="text-muted" style={{ minWidth: 36 }}>
+                          <small className="text-muted-foreground" style={{ minWidth: 36 }}>
                             {(stability * 100).toFixed(0)}%
                           </small>
                         </div>
                       </td>
                       <td className="text-center">
-                        {compliance != null
-                          ? `${(compliance * 100).toFixed(0)}%`
-                          : <span className="text-muted small">N/A</span>}
+                        {compliance != null ? (
+                          `${(compliance * 100).toFixed(0)}%`
+                        ) : (
+                          <span className="text-muted-foreground text-sm">N/A</span>
+                        )}
                       </td>
                     </tr>
                   ))}
                 </tbody>
               </Table>
-            </Card.Body>
+            </CardBody>
           </Card>
         </>
       )}

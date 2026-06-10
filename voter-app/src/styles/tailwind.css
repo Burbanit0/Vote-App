@@ -1,0 +1,114 @@
+/*
+ * Tailwind v4 entry (Phase 6 — UI modernisation).
+ *
+ * Bootstrap is fully removed: every component now uses Tailwind/shadcn classes
+ * and the hand-written primitives in src/components/ui/. Preflight (Tailwind's
+ * global reset) is enabled via the full `@import "tailwindcss"`.
+ */
+@import 'tailwindcss';
+
+/* ── shadcn/ui design tokens — light (default) ────────────────────────────── */
+/* Values mirror src/theme/tokens.ts (the existing single source of truth). */
+:root {
+  --radius: 0.5rem;
+
+  --background: #ffffff;
+  --foreground: #212529;
+  --card: #ffffff;
+  --card-foreground: #212529;
+  --popover: #ffffff;
+  --popover-foreground: #212529;
+  --primary: #005cab; /* Vote Lab blue (COLORS.brand.primary) */
+  --primary-foreground: #ffffff;
+  --secondary: #e9ecef;
+  --secondary-foreground: #212529;
+  --muted: #f8f9fa;
+  --muted-foreground: #6c757d;
+  --accent: #f1f5f9;
+  --accent-foreground: #212529;
+  --destructive: #dc3545;
+  --destructive-foreground: #ffffff;
+  --border: #dee2e6;
+  --input: #dee2e6;
+  --ring: #005cab;
+
+  /* Legacy Bootstrap CSS variables still referenced by inline styles in ~30
+     components/charts (var(--bs-…)). Defined here so they keep resolving now
+     that bootstrap.css is removed. */
+  --bs-body-bg: #ffffff;
+  --bs-body-color: #212529;
+  --bs-border-color: #dee2e6;
+  --bs-secondary-bg: #e9ecef;
+  --bs-secondary-color: #6c757d;
+  --bs-secondary: #6c757d;
+  --bs-primary: #005cab;
+  --bs-primary-bg-subtle: #cfe2ff;
+  --bs-table-bg: transparent;
+}
+
+/* Dark mode rides the existing toggle (useUIStore sets data-bs-theme on <html>). */
+[data-bs-theme='dark'] {
+  --background: #1a1d21;
+  --foreground: #e9ecef;
+  --card: #212529;
+  --card-foreground: #e9ecef;
+  --popover: #212529;
+  --popover-foreground: #e9ecef;
+  --primary: #4ea3e0;
+  --primary-foreground: #0b0c0d;
+  --secondary: #343a40;
+  --secondary-foreground: #e9ecef;
+  --muted: #2b3035;
+  --muted-foreground: #adb5bd;
+  --accent: #2b3035;
+  --accent-foreground: #e9ecef;
+  --destructive: #e4606d;
+  --destructive-foreground: #0b0c0d;
+  --border: #343a40;
+  --input: #343a40;
+  --ring: #4ea3e0;
+
+  --bs-body-bg: #1a1d21;
+  --bs-body-color: #e9ecef;
+  --bs-border-color: #343a40;
+  --bs-secondary-bg: #343a40;
+  --bs-secondary-color: #adb5bd;
+  --bs-secondary: #adb5bd;
+  --bs-primary: #4ea3e0;
+  --bs-primary-bg-subtle: #031633;
+  --bs-table-bg: transparent;
+}
+
+/* Map the CSS variables to Tailwind color/​radius utilities (bg-primary,
+ * text-foreground, border-border, rounded-lg, …) + Vote Lab brand colours. */
+@theme inline {
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-card: var(--card);
+  --color-card-foreground: var(--card-foreground);
+  --color-popover: var(--popover);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-primary: var(--primary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-secondary: var(--secondary);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-accent: var(--accent);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-destructive: var(--destructive);
+  --color-destructive-foreground: var(--destructive-foreground);
+  --color-border: var(--border);
+  --color-input: var(--input);
+  --color-ring: var(--ring);
+
+  /* Brand palette (COLORS.brand) */
+  --color-brand: #005cab;
+  --color-brand-secondary: #c8590a;
+  --color-brand-accent: #7b2d8b;
+
+  --radius-sm: calc(var(--radius) - 4px);
+  --radius-md: calc(var(--radius) - 2px);
+  --radius-lg: var(--radius);
+  --radius-xl: calc(var(--radius) + 4px);
+}

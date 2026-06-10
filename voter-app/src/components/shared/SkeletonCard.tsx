@@ -29,11 +29,7 @@ const SkeletonLine: React.FC<{ width?: string; height?: number }> = ({
   width = '100%',
   height = 12,
 }) => (
-  <div
-    className="skeleton-line"
-    style={{ width, height, marginBottom: 10 }}
-    aria-hidden="true"
-  />
+  <div className="skeleton-line" style={{ width, height, marginBottom: 10 }} aria-hidden="true" />
 );
 
 // ── SkeletonCard ────────────────────────────────────────────────────────────
@@ -53,19 +49,25 @@ const SkeletonCard: React.FC<Props> = ({ height = 180, width = '100%' }) => {
   const { t } = useTranslation();
   return (
     <div
-      className="skeleton-pulse rounded border"
-      style={{ width, height, backgroundColor: 'var(--bs-secondary-bg, #f8f9fa)', padding: '0.75rem', overflow: 'hidden' }}
+      className="skeleton-pulse rounded border border-border"
+      style={{
+        width,
+        height,
+        backgroundColor: 'var(--bs-secondary-bg, #f8f9fa)',
+        padding: '0.75rem',
+        overflow: 'hidden',
+      }}
       role="status"
       aria-label={t('common.loading')}
     >
-    {/* Card header simulation */}
-    <SkeletonLine width="55%" height={16} />
-    <div style={{ height: 1, backgroundColor: '#dee2e6', margin: '10px 0 14px' }} />
-    {/* 3 text lines with varying widths */}
-    <SkeletonLine width="90%" />
-    <SkeletonLine width="75%" />
-    <SkeletonLine width="82%" />
-  </div>
+      {/* Card header simulation */}
+      <SkeletonLine width="55%" height={16} />
+      <div style={{ height: 1, backgroundColor: '#dee2e6', margin: '10px 0 14px' }} />
+      {/* 3 text lines with varying widths */}
+      <SkeletonLine width="90%" />
+      <SkeletonLine width="75%" />
+      <SkeletonLine width="82%" />
+    </div>
   );
 };
 

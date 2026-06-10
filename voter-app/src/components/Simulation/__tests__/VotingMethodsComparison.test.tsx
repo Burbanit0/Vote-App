@@ -2,7 +2,7 @@ import React from 'react';
 import { render, screen } from '@testing-library/react';
 import VotingMethodsComparison from '../VotingMethodsComparison';
 
-jest.mock('../VotingMethodVisualizations', () => ({
+vi.mock('../VotingMethodVisualizations', () => ({
   __esModule: true,
   default: () => <div data-testid="mock-viz">Visualization</div>,
 }));

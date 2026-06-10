@@ -1,23 +1,32 @@
 import React from 'react';
 import { render, screen, fireEvent, waitFor } from '@testing-library/react';
 import { MemoryRouter } from 'react-router';
+import { QueryClientProvider } from '@tanstack/react-query';
 import PrimarySimulator from '../PrimarySimulator';
-import { ElectionProvider } from '../../../context/ElectionContext';
+import { ElectionProvider } from '../../../stores/useElectionStore';
+import { makeTestQueryClient } from '../../../test/queryWrapper';
 
-jest.mock('axios', () => ({ post: jest.fn() }));
-const { post: mockPost } = jest.requireMock('axios') as { post: jest.Mock };
+vi.mock('../../../api/client', () => ({
+  apiClient: { GET: vi.fn(), POST: vi.fn(), PUT: vi.fn(), DELETE: vi.fn(), PATCH: vi.fn() },
+  getAccessToken: vi.fn(() => null),
+}));
+const { apiClient } = (await import('../../../api/client')) as unknown as {
+  apiClient: { POST: jest.Mock };
+};
 
 // Mock Recharts to avoid SVG measurement issues in jsdom
-jest.mock('recharts', () => {
+vi.mock('recharts', () => {
   const React = require('react');
   return {
-    BarChart:          ({ children }: any) => <div data-testid="bar-chart">{children}</div>,
-    Bar:               ({ children }: any) => <div>{children}</div>,
-    XAxis:             () => null,
-    YAxis:             () => null,
-    Tooltip:           () => null,
-    ResponsiveContainer: ({ children }: any) => <div style={{ width: 400, height: 300 }}>{children}</div>,
-    Cell:              () => null,
+    BarChart: ({ children }: any) => <div data-testid="bar-chart">{children}</div>,
+    Bar: ({ children }: any) => <div>{children}</div>,
+    XAxis: () => null,
+    YAxis: () => null,
+    Tooltip: () => null,
+    ResponsiveContainer: ({ children }: any) => (
+      <div style={{ width: 400, height: 300 }}>{children}</div>
+    ),
+    Cell: () => null,
   };
 });
 
@@ -25,57 +34,60 @@ const makeData = (winnerChanged = false) => ({
   data: {
     primaries: [
       {
-        party:               'Left',
-        winner:              'Marc',
-        runner_up:           'Sophie',
-        distortion:          0.25,
-        winner_pos:          -0.75,
-        party_center:        -0.5,
-        vote_shares:         { Marc: 0.6, Sophie: 0.4 },
-        num_primary_voters:  50,
+        party: 'Left',
+        winner: 'Marc',
+        runner_up: 'Sophie',
+        distortion: 0.25,
+        winner_pos: -0.75,
+        party_center: -0.5,
+        vote_shares: { Marc: 0.6, Sophie: 0.4 },
+        num_primary_voters: 50,
       },
       {
-        party:               'Right',
-        winner:              'Paul',
-        runner_up:           'Elise',
-        distortion:          0.25,
-        winner_pos:          0.75,
-        party_center:        0.5,
-        vote_shares:         { Paul: 0.55, Elise: 0.45 },
-        num_primary_voters:  50,
+        party: 'Right',
+        winner: 'Paul',
+        runner_up: 'Elise',
+        distortion: 0.25,
+        winner_pos: 0.75,
+        party_center: 0.5,
+        vote_shares: { Paul: 0.55, Elise: 0.45 },
+        num_primary_voters: 50,
       },
       {
-        party:               'Centre',
-        winner:              'Anna',
-        runner_up:           'Tom',
-        distortion:          0.0,
-        winner_pos:          0.0,
-        party_center:        0.0,
-        vote_shares:         { Anna: 0.65, Tom: 0.35 },
-        num_primary_voters:  30,
+        party: 'Centre',
+        winner: 'Anna',
+        runner_up: 'Tom',
+        distortion: 0.0,
+        winner_pos: 0.0,
+        party_center: 0.0,
+        vote_shares: { Anna: 0.65, Tom: 0.35 },
+        num_primary_voters: 30,
       },
     ],
-    general_ballot:           ['Marc', 'Paul', 'Anna'],
-    general_winner:           winnerChanged ? 'Marc' : 'Anna',
-    general_runner_up:        winnerChanged ? 'Anna' : 'Marc',
-    general_vote_shares:      { Marc: 0.38, Paul: 0.35, Anna: 0.27 },
-    median_voter_distance:    0.18,
+    general_ballot: ['Marc', 'Paul', 'Anna'],
+    general_winner: winnerChanged ? 'Marc' : 'Anna',
+    general_runner_up: winnerChanged ? 'Anna' : 'Marc',
+    general_vote_shares: { Marc: 0.38, Paul: 0.35, Anna: 0.27 },
+    median_voter_distance: 0.18,
     without_primaries_winner: winnerChanged ? 'Anna' : 'Anna',
   },
+  error: undefined,
 });
 
 function renderPanel() {
   return render(
     <MemoryRouter>
-      <ElectionProvider>
-        <PrimarySimulator />
-      </ElectionProvider>
+      <QueryClientProvider client={makeTestQueryClient()}>
+        <ElectionProvider>
+          <PrimarySimulator />
+        </ElectionProvider>
+      </QueryClientProvider>
     </MemoryRouter>
   );
 }
 
 beforeEach(() => {
-  jest.clearAllMocks();
+  vi.clearAllMocks();
   localStorage.clear();
 });
 
@@ -90,19 +102,19 @@ describe('PrimarySimulator', () => {
     expect(screen.getByRole('alert')).toBeInTheDocument();
   });
 
-  it('calls axios.post with correct URL on click', async () => {
-    mockPost.mockResolvedValue(makeData());
+  it('calls API with correct URL on click', async () => {
+    apiClient.POST.mockResolvedValue(makeData());
     renderPanel();
     fireEvent.click(screen.getByRole('button', { name: /simuler|simulate/i }));
-    await waitFor(() => expect(mockPost).toHaveBeenCalledTimes(1));
-    expect(mockPost).toHaveBeenCalledWith(
-      expect.stringContaining('/api/election/primary'),
+    await waitFor(() => expect(apiClient.POST).toHaveBeenCalledTimes(1));
+    expect(apiClient.POST).toHaveBeenCalledWith(
+      expect.stringMatching(/\/api\/(v2\/)?election\/primary/),
       expect.any(Object)
     );
   });
 
   it('renders Phase 1 primaries section after data loads', async () => {
-    mockPost.mockResolvedValue(makeData());
+    apiClient.POST.mockResolvedValue(makeData());
     renderPanel();
     fireEvent.click(screen.getByRole('button', { name: /simuler|simulate/i }));
     await waitFor(() => {
@@ -111,7 +123,7 @@ describe('PrimarySimulator', () => {
   });
 
   it('renders Phase 2 general election section', async () => {
-    mockPost.mockResolvedValue(makeData());
+    apiClient.POST.mockResolvedValue(makeData());
     renderPanel();
     fireEvent.click(screen.getByRole('button', { name: /simuler|simulate/i }));
     await waitFor(() => {
@@ -120,7 +132,7 @@ describe('PrimarySimulator', () => {
   });
 
   it('shows general winner badge', async () => {
-    mockPost.mockResolvedValue(makeData());
+    apiClient.POST.mockResolvedValue(makeData());
     renderPanel();
     fireEvent.click(screen.getByRole('button', { name: /simuler|simulate/i }));
     await waitFor(() => {
@@ -129,7 +141,7 @@ describe('PrimarySimulator', () => {
   });
 
   it('shows drift badge when distortion > 0.1', async () => {
-    mockPost.mockResolvedValue(makeData());
+    apiClient.POST.mockResolvedValue(makeData());
     renderPanel();
     fireEvent.click(screen.getByRole('button', { name: /simuler|simulate/i }));
     await waitFor(() => {
@@ -138,7 +150,7 @@ describe('PrimarySimulator', () => {
   });
 
   it('shows per-party drift badge when distortion > 0.1', async () => {
-    mockPost.mockResolvedValue(makeData());
+    apiClient.POST.mockResolvedValue(makeData());
     renderPanel();
     fireEvent.click(screen.getByRole('button', { name: /simuler|simulate/i }));
     await waitFor(() => {
@@ -148,7 +160,7 @@ describe('PrimarySimulator', () => {
   });
 
   it('shows ideology axis SVG', async () => {
-    mockPost.mockResolvedValue(makeData());
+    apiClient.POST.mockResolvedValue(makeData());
     renderPanel();
     fireEvent.click(screen.getByRole('button', { name: /simuler|simulate/i }));
     await waitFor(() => {
@@ -157,17 +169,17 @@ describe('PrimarySimulator', () => {
   });
 
   it('shows warning alert when primaries change the winner', async () => {
-    mockPost.mockResolvedValue(makeData(true));
+    apiClient.POST.mockResolvedValue(makeData(true));
     renderPanel();
     fireEvent.click(screen.getByRole('button', { name: /simuler|simulate/i }));
     await waitFor(() => {
-      const alerts = document.querySelectorAll('.alert-warning');
+      const alerts = document.querySelectorAll('.bg-amber-100');
       expect(alerts.length).toBeGreaterThan(0);
     });
   });
 
   it('shows error on API failure', async () => {
-    mockPost.mockRejectedValue(new Error('Network error'));
+    apiClient.POST.mockRejectedValue(new Error('Network error'));
     renderPanel();
     fireEvent.click(screen.getByRole('button', { name: /simuler|simulate/i }));
     await waitFor(() => {
@@ -176,7 +188,7 @@ describe('PrimarySimulator', () => {
   });
 
   it('renders bar charts for primary results', async () => {
-    mockPost.mockResolvedValue(makeData());
+    apiClient.POST.mockResolvedValue(makeData());
     renderPanel();
     fireEvent.click(screen.getByRole('button', { name: /simuler|simulate/i }));
     await waitFor(() => {

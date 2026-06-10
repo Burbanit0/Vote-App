@@ -47,11 +47,11 @@ const LiveBadge: React.FC<Props> = ({ loading, className }) => {
       aria-label={t('simulation.recalculating')}
       className={className}
       style={{
-        display:     'inline-flex',
-        alignItems:  'center',
-        fontSize:    '0.75rem',
-        color:       '#6c757d',
-        userSelect:  'none',
+        display: 'inline-flex',
+        alignItems: 'center',
+        fontSize: '0.75rem',
+        color: '#6c757d',
+        userSelect: 'none',
       }}
     >
       <span className="_vl-live-dot" aria-hidden="true" />

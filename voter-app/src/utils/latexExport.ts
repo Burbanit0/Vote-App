@@ -12,14 +12,14 @@ import references, { MethodReference, toBibtex } from '../data/methodReferences'
 
 const LATEX_ESCAPE: [RegExp, string][] = [
   [/\\/g, '\\textbackslash{}'],
-  [/&/g,  '\\&'],
-  [/%/g,  '\\%'],
+  [/&/g, '\\&'],
+  [/%/g, '\\%'],
   [/\$/g, '\\$'],
-  [/#/g,  '\\#'],
-  [/_/g,  '\\_'],
+  [/#/g, '\\#'],
+  [/_/g, '\\_'],
   [/\{/g, '\\{'],
   [/\}/g, '\\}'],
-  [/~/g,  '\\textasciitilde{}'],
+  [/~/g, '\\textasciitilde{}'],
   [/\^/g, '\\textasciicircum{}'],
 ];
 
@@ -32,7 +32,9 @@ export function escapeLaTeX(text: string): string {
 
 function mostCommon(arr: (string | null)[]): string | null {
   const counts: Record<string, number> = {};
-  for (const v of arr) { if (v) counts[v] = (counts[v] ?? 0) + 1; }
+  for (const v of arr) {
+    if (v) counts[v] = (counts[v] ?? 0) + 1;
+  }
   const entries = Object.entries(counts);
   if (!entries.length) return null;
   return entries.sort((a, b) => b[1] - a[1])[0][0];
@@ -51,38 +53,42 @@ function fmtNum(n: number | null, decimals = 4): string {
 
 interface MethodSummary {
   methodKey: string;
-  label:     string;
-  winner:    string | null;    // most common winner
-  winCount:  number;           // how many runs this winner appeared in
+  label: string;
+  winner: string | null; // most common winner
+  winCount: number; // how many runs this winner appeared in
   totalRuns: number;
-  regret:    number | null;    // average bayesian_regret
-  condorcet: boolean | null;   // true/false/null if mixed
+  regret: number | null; // average bayesian_regret
+  condorcet: boolean | null; // true/false/null if mixed
 }
 
 function buildMethodSummaries(
   results: SimulationCompareResult[],
   methodKeys: string[],
-  methodLabels: Record<string, string>,
+  methodLabels: Record<string, string>
 ): MethodSummary[] {
   return methodKeys.map((key) => {
-    const winners  = results.map((r) => r.methods[key]?.winner ?? null);
-    const regrets  = results.map((r) => r.methods[key]?.bayesian_regret);
+    const winners = results.map((r) => r.methods[key]?.winner ?? null);
+    const regrets = results.map((r) => r.methods[key]?.bayesian_regret);
     const condorcets = results.map((r) => r.methods[key]?.condorcet_consistent);
     const dominant = mostCommon(winners);
-    const trueCount  = condorcets.filter((v) => v === true).length;
+    const trueCount = condorcets.filter((v) => v === true).length;
     const falseCount = condorcets.filter((v) => v === false).length;
     const condorcetSummary =
-      trueCount + falseCount === 0 ? null :
-      trueCount > falseCount       ? true  :
-      falseCount > trueCount       ? false : null;
+      trueCount + falseCount === 0
+        ? null
+        : trueCount > falseCount
+          ? true
+          : falseCount > trueCount
+            ? false
+            : null;
 
     return {
       methodKey: key,
-      label:     methodLabels[key] ?? key,
-      winner:    dominant,
-      winCount:  dominant ? winners.filter((w) => w === dominant).length : 0,
+      label: methodLabels[key] ?? key,
+      winner: dominant,
+      winCount: dominant ? winners.filter((w) => w === dominant).length : 0,
       totalRuns: results.length,
-      regret:    avg(regrets),
+      regret: avg(regrets),
       condorcet: condorcetSummary,
     };
   });
@@ -93,17 +99,17 @@ function buildMethodSummaries(
 export function generateLatexTable(
   results: SimulationCompareResult[],
   methodLabels: Record<string, string>,
-  caption = 'Résultats de la simulation — Vote Lab',
+  caption = 'Résultats de la simulation — Vote Lab'
 ): string {
   if (!results.length) return '% No simulation results available.\n';
 
   const methodKeys = Object.keys(results[0]?.methods ?? {});
-  const summaries  = buildMethodSummaries(results, methodKeys, methodLabels);
+  const summaries = buildMethodSummaries(results, methodKeys, methodLabels);
 
   const rows = summaries.map((s) => {
-    const winnerStr  = s.winner ? `${escapeLaTeX(s.winner)} (${s.winCount}/${s.totalRuns})` : '—';
-    const condStr    = s.condorcet === null ? '—' : s.condorcet ? 'Oui' : 'Non';
-    const regretStr  = fmtNum(s.regret, 4);
+    const winnerStr = s.winner ? `${escapeLaTeX(s.winner)} (${s.winCount}/${s.totalRuns})` : '—';
+    const condStr = s.condorcet === null ? '—' : s.condorcet ? 'Oui' : 'Non';
+    const regretStr = fmtNum(s.regret, 4);
     return `    ${escapeLaTeX(s.label)} & ${winnerStr} & ${condStr} & ${regretStr} \\\\`;
   });
 
@@ -129,18 +135,20 @@ export function generateLatexTable(
 // ── 2. generateBibtex ─────────────────────────────────────────────────────────
 
 export interface SimulationExportParams {
-  config:         ScenarioConfig;
+  config: ScenarioConfig;
   numSimulations: number;
-  methodCount:    number;
-  date:           string;    // ISO date string
-  shareUrl?:      string;
+  methodCount: number;
+  date: string; // ISO date string
+  shareUrl?: string;
 }
 
 export function generateBibtex(params: SimulationExportParams): string {
   const { config, numSimulations, methodCount, date, shareUrl } = params;
-  const year    = new Date(date).getFullYear();
+  const year = new Date(date).getFullYear();
   const candidates = config.candidateInput
-    .split(',').map((s) => s.trim()).filter(Boolean);
+    .split(',')
+    .map((s) => s.trim())
+    .filter(Boolean);
   const title = `Vote Lab Simulation: ${candidates.join(' vs ')}`;
 
   const fields = [
@@ -159,16 +167,18 @@ export function generateBibtex(params: SimulationExportParams): string {
 export function generateLatexReport(
   params: SimulationExportParams,
   results: SimulationCompareResult[],
-  methodLabels: Record<string, string>,
+  methodLabels: Record<string, string>
 ): string {
   if (!results.length) return '% No results to export.\n';
 
   const { config, numSimulations, date, shareUrl } = params;
   const year = new Date(date).getFullYear();
   const candidates = config.candidateInput
-    .split(',').map((s) => s.trim()).filter(Boolean);
-  const methodKeys  = Object.keys(results[0]?.methods ?? {});
-  const summaries   = buildMethodSummaries(results, methodKeys, methodLabels);
+    .split(',')
+    .map((s) => s.trim())
+    .filter(Boolean);
+  const methodKeys = Object.keys(results[0]?.methods ?? {});
+  const summaries = buildMethodSummaries(results, methodKeys, methodLabels);
 
   // Determine best method (lowest average regret)
   const byRegret = summaries
@@ -198,11 +208,11 @@ export function generateLatexReport(
 
   // ── Table rows ──────────────────────────────────────────────────────────────
   const tableRows = summaries.map((s) => {
-    const winStr     = s.winner ? `${escapeLaTeX(s.winner)} (${s.winCount}/${s.totalRuns})` : '—';
-    const condStr    = s.condorcet === null ? '—' : s.condorcet ? 'Oui' : 'Non';
-    const regretStr  = fmtNum(s.regret, 4);
-    const msData     = results.map((r) => r.methods[s.methodKey]?.majority_satisfaction);
-    const msStr      = fmtNum(avg(msData), 3);
+    const winStr = s.winner ? `${escapeLaTeX(s.winner)} (${s.winCount}/${s.totalRuns})` : '—';
+    const condStr = s.condorcet === null ? '—' : s.condorcet ? 'Oui' : 'Non';
+    const regretStr = fmtNum(s.regret, 4);
+    const msData = results.map((r) => r.methods[s.methodKey]?.majority_satisfaction);
+    const msStr = fmtNum(avg(msData), 3);
     return `    ${escapeLaTeX(s.label)} & ${winStr} & ${condStr} & ${regretStr} & ${msStr} \\\\`;
   });
 
@@ -211,30 +221,27 @@ export function generateLatexReport(
   if (bestMethod) {
     analysisLines.push(
       `La méthode présentant le regret bayésien moyen le plus faible est ` +
-      `\\textbf{${escapeLaTeX(bestMethod.label)}} (${fmtNum(bestMethod.regret, 4)}), ` +
-      `ce qui indique qu'elle génère le moins d'insatisfaction collective.`,
+        `\\textbf{${escapeLaTeX(bestMethod.label)}} (${fmtNum(bestMethod.regret, 4)}), ` +
+        `ce qui indique qu'elle génère le moins d'insatisfaction collective.`
     );
   }
   if (condorcetWinner) {
     const condMethod = summaries.find((s) => s.condorcet === true);
     analysisLines.push(
       `Le vainqueur de Condorcet identifié est \\textbf{${escapeLaTeX(condorcetWinner)}}.` +
-      (condMethod
-        ? ` La méthode ${escapeLaTeX(condMethod.label)} est cohérente avec ce critère.`
-        : ' Certaines méthodes ne respectent pas ce critère.'),
+        (condMethod
+          ? ` La méthode ${escapeLaTeX(condMethod.label)} est cohérente avec ce critère.`
+          : ' Certaines méthodes ne respectent pas ce critère.')
     );
   }
   analysisLines.push(
     `Ces résultats illustrent le théorème d'impossibilité d'Arrow~\\cite{arrow1951} : ` +
-    `aucune méthode ne peut satisfaire simultanément tous les critères de justice ` +
-    `avec trois candidats ou plus.`,
+      `aucune méthode ne peut satisfaire simultanément tous les critères de justice ` +
+      `avec trois candidats ou plus.`
   );
 
   // ── BibTeX entries ──────────────────────────────────────────────────────────
-  const bibtexEntries = [
-    ...usedRefs.map(toBibtex),
-    generateBibtex(params),
-  ].join('\n\n');
+  const bibtexEntries = [...usedRefs.map(toBibtex), generateBibtex(params)].join('\n\n');
 
   const bibContent = bibtexEntries
     .split('\n')
@@ -325,15 +332,20 @@ export function generateLatexReport(
     bibContent,
     '',
     '\\begin{thebibliography}{99}',
-    ...usedRefs.map((r) => (
-      `\\bibitem{${r.bibtexKey}} ${escapeLaTeX(r.author)} (${r.year}). ` +
-      `\\textit{${escapeLaTeX(r.title)}}. ` +
-      (r.journal ? `\\textit{${escapeLaTeX(r.journal)}}` +
-        (r.volume ? `, ${r.volume}` : '') +
-        (r.pages  ? `, pp.~${r.pages}` : '') + '.' :
-       r.publisher ? `${escapeLaTeX(r.publisher)}.` : '.') +
-      (r.doi ? ` \\doi{${r.doi}}` : '')
-    )),
+    ...usedRefs.map(
+      (r) =>
+        `\\bibitem{${r.bibtexKey}} ${escapeLaTeX(r.author)} (${r.year}). ` +
+        `\\textit{${escapeLaTeX(r.title)}}. ` +
+        (r.journal
+          ? `\\textit{${escapeLaTeX(r.journal)}}` +
+            (r.volume ? `, ${r.volume}` : '') +
+            (r.pages ? `, pp.~${r.pages}` : '') +
+            '.'
+          : r.publisher
+            ? `${escapeLaTeX(r.publisher)}.`
+            : '.') +
+        (r.doi ? ` \\doi{${r.doi}}` : '')
+    ),
     `\\bibitem{votelab${year}} Vote Lab (${year}). ${escapeLaTeX(`Vote Lab Simulation: ${candidates.join(' vs ')}`)}. \\url{${shareUrl ?? 'https://github.com/Burbanit0/Vote-App'}}`,
     '\\end{thebibliography}',
     '',
@@ -346,10 +358,7 @@ export function generateLatexReport(
 // ── 4. generateFullBibtex ─────────────────────────────────────────────────────
 // Returns all method references as a single .bib file string
 
-export function generateFullBibtex(
-  methodKeys: string[],
-  params: SimulationExportParams,
-): string {
+export function generateFullBibtex(methodKeys: string[], params: SimulationExportParams): string {
   const header = [
     '% Vote Lab — BibTeX references',
     `% Generated ${params.date}`,
@@ -376,9 +385,9 @@ export function generateFullBibtex(
 
 export function downloadText(content: string, filename: string, mimeType = 'text/plain'): void {
   const blob = new Blob([content], { type: `${mimeType};charset=utf-8` });
-  const url  = URL.createObjectURL(blob);
-  const a    = document.createElement('a');
-  a.href     = url;
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
   a.download = filename;
   a.click();
   setTimeout(() => URL.revokeObjectURL(url), 1000);

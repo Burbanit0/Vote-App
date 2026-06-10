@@ -2,9 +2,11 @@ import React from 'react';
 import { render, screen } from '@testing-library/react';
 import ProfilePage from '../ProfilePage';
 
-jest.mock('../../components/User/Profile', () => {
-  return function MockProfile() {
-    return <div data-testid="profile-component">Profile</div>;
+vi.mock('../../components/User/Profile', () => {
+  return {
+    default: function MockProfile() {
+      return <div data-testid="profile-component">Profile</div>;
+    },
   };
 });
 

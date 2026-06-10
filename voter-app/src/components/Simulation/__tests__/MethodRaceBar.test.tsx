@@ -9,26 +9,24 @@ import { MethodStreamStats } from '../../../hooks/useMonteCarloStream';
 
 function makeStats(winner: string, winnerPct: number, others: string[] = []): MethodStreamStats {
   const dist: Record<string, number> = { [winner]: winnerPct };
-  others.forEach((o, i) => { dist[o] = (1 - winnerPct) / (i + 1); });
+  others.forEach((o, i) => {
+    dist[o] = (1 - winnerPct) / (i + 1);
+  });
   return { winner_distribution: dist, most_common_winner: winner };
 }
 
 const FIVE_METHODS: Record<string, MethodStreamStats> = {
-  plurality:   makeStats('Alice', 0.72),
-  borda:       makeStats('Carol', 0.55),
-  irv:         makeStats('Alice', 0.61),
-  schulze:     makeStats('Carol', 0.48),
-  approval:    makeStats('Bob',   0.35),
+  plurality: makeStats('Alice', 0.72),
+  borda: makeStats('Carol', 0.55),
+  irv: makeStats('Alice', 0.61),
+  schulze: makeStats('Carol', 0.48),
+  approval: makeStats('Bob', 0.35),
 };
 
 function renderBar(props?: Partial<React.ComponentProps<typeof MethodRaceBar>>) {
   return render(
     <MemoryRouter>
-      <MethodRaceBar
-        partialResults={FIVE_METHODS}
-        isRunning={false}
-        {...props}
-      />
+      <MethodRaceBar partialResults={FIVE_METHODS} isRunning={false} {...props} />
     </MemoryRouter>
   );
 }
@@ -98,12 +96,12 @@ describe('MethodRaceBar', () => {
     const rows: { method: string; width: number }[] = [];
     fills.forEach((el) => {
       const method = el.getAttribute('data-method') ?? '';
-      const width  = parseFloat(el.getAttribute('width') ?? '0');
+      const width = parseFloat(el.getAttribute('width') ?? '0');
       rows.push({ method, width });
     });
     // plurality (0.72) should have a wider bar than approval (0.35)
     const plurality = rows.find((r) => r.method === 'plurality')!;
-    const approval  = rows.find((r) => r.method === 'approval')!;
+    const approval = rows.find((r) => r.method === 'approval')!;
     expect(plurality.width).toBeGreaterThan(approval.width);
   });
 
@@ -112,7 +110,7 @@ describe('MethodRaceBar', () => {
     const rows = container.querySelectorAll<SVGGElement>('[data-testid="method-bar-row"]');
     // Find the plurality row (most stable at 0.72)
     const pluralityRow = Array.from(rows).find(
-      (el) => el.getAttribute('data-method') === 'plurality',
+      (el) => el.getAttribute('data-method') === 'plurality'
     );
     // Its transform should be translateY(16px) — rank 0, y = 0*ROW_H + 16 = 16
     const transform = pluralityRow?.style.transform ?? '';
@@ -152,10 +150,10 @@ describe('MethodRaceBar', () => {
 
 describe('MonteCarloRaceChart method race toggle', () => {
   const baseProps = {
-    regretHistory:        {},
+    regretHistory: {},
     iterationCheckpoints: [50, 100],
-    partialResults:       FIVE_METHODS,
-    isRunning:            false,
+    partialResults: FIVE_METHODS,
+    isRunning: false,
   };
 
   it('renders without crash with defaultView=candidates', () => {

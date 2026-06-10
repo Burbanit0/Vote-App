@@ -4,6 +4,13 @@
 # Tests
 pytest==9.0.3
 pytest-cov==6.1.0
+# Phase 4.4 — async tests for the v2 Socket.IO server. Drives the FastAPI
+# ASGI app via a uvicorn-on-a-thread fixture (see api/tests/test_sockets.py).
+pytest-asyncio==1.3.0
+# socketio.AsyncClient needs aiohttp for its client-side WebSocket transport
+# (test-only; the server uses uvicorn's ASGI websockets). Without it the
+# test_sockets.py clients fail with "namespaces failed to connect".
+aiohttp==3.14.1
 
 # Security
 bandit==1.8.3        # Python SAST (static analysis)
@@ -12,6 +19,5 @@ pip-audit==2.9.0     # Dependency CVE scan
 # Code quality
 flake8==7.2.0
 mypy==1.16.0         # Static type checking
-types-Flask==1.1.6   # Flask type stubs
 types-redis==4.6.0.20241004  # Redis type stubs
 types-requests==2.32.0.20250328  # Requests type stubs

@@ -4,15 +4,15 @@ import MethodGroupDonut from '../MethodGroupDonut';
 import type { MethodGroup } from '../../../services/electionApi';
 
 // Mock Recharts — expose Cell dataKey for assertions
-jest.mock('recharts', () => ({
+vi.mock('recharts', () => ({
   PieChart: ({ children }: any) => <div data-testid="pie-chart">{children}</div>,
-  Pie:      ({ children, data }: any) => (
+  Pie: ({ children, data }: any) => (
     <div data-testid="pie" data-count={data?.length}>
       {/* Render children (Cell elements) */}
       {children}
     </div>
   ),
-  Cell:    ({ fill }: any) => <div data-testid="pie-cell" data-fill={fill} />,
+  Cell: ({ fill }: any) => <div data-testid="pie-cell" data-fill={fill} />,
   Tooltip: () => null,
 }));
 
@@ -21,14 +21,14 @@ const SINGLE_GROUP: MethodGroup[] = [
 ];
 
 const TWO_GROUPS: MethodGroup[] = [
-  { winner: 'Alice', methods: ['borda', 'irv', 'schulze'],  pct: 0.64 },
-  { winner: 'Bob',   methods: ['plurality', 'approval'],    pct: 0.36 },
+  { winner: 'Alice', methods: ['borda', 'irv', 'schulze'], pct: 0.64 },
+  { winner: 'Bob', methods: ['plurality', 'approval'], pct: 0.36 },
 ];
 
 const THREE_GROUPS: MethodGroup[] = [
-  { winner: 'Alice', methods: ['borda'],     pct: 0.40 },
-  { winner: 'Bob',   methods: ['plurality'], pct: 0.40 },
-  { winner: 'Carol', methods: ['schulze'],   pct: 0.20 },
+  { winner: 'Alice', methods: ['borda'], pct: 0.4 },
+  { winner: 'Bob', methods: ['plurality'], pct: 0.4 },
+  { winner: 'Carol', methods: ['schulze'], pct: 0.2 },
 ];
 
 describe('MethodGroupDonut', () => {
@@ -57,9 +57,7 @@ describe('MethodGroupDonut', () => {
   it('single group → shows consensus text', () => {
     render(<MethodGroupDonut methodGroups={SINGLE_GROUP} totalMethods={4} />);
     // donutSingle key or its translation
-    expect(
-      screen.queryByText(/accord total|full agreement|donutSingle/i)
-    ).not.toBeNull();
+    expect(screen.queryByText(/accord total|full agreement|donutSingle/i)).not.toBeNull();
   });
 
   // ── Two groups (divergence) ────────────────────────────────────────────────
@@ -110,8 +108,6 @@ describe('MethodGroupDonut', () => {
   });
 
   it('does not render no-group case without crashing', () => {
-    expect(() =>
-      render(<MethodGroupDonut methodGroups={[]} totalMethods={0} />)
-    ).not.toThrow();
+    expect(() => render(<MethodGroupDonut methodGroups={[]} totalMethods={0} />)).not.toThrow();
   });
 });

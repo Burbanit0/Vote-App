@@ -2,27 +2,27 @@ import React from 'react';
 import { render, screen, fireEvent, waitFor } from '@testing-library/react';
 import { MemoryRouter } from 'react-router';
 import CampaignSensitivityPanel from '../CampaignSensitivityPanel';
-import { ElectionProvider } from '../../../context/ElectionContext';
+import { ElectionProvider } from '../../../stores/useElectionStore';
 
-jest.mock('../../../services/electionApi', () => ({
-  fetchCampaignSensitivity: jest.fn(),
+vi.mock('../../../services/electionApi', () => ({
+  fetchCampaignSensitivity: vi.fn(),
 }));
 
-jest.mock('recharts', () => ({
+vi.mock('recharts', () => ({
   ResponsiveContainer: ({ children }: any) => <div>{children}</div>,
-  BarChart:            ({ children }: any) => <div data-testid="bar-chart">{children}</div>,
-  Bar:                 ({ children }: any) => <div>{children}</div>,
-  AreaChart:           ({ children }: any) => <div data-testid="area-chart">{children}</div>,
-  Area:                () => null,
-  CartesianGrid:       () => null,
-  Cell:                () => null,
-  XAxis:               () => null,
-  YAxis:               () => null,
-  Tooltip:             () => null,
-  Legend:              () => null,
+  BarChart: ({ children }: any) => <div data-testid="bar-chart">{children}</div>,
+  Bar: ({ children }: any) => <div>{children}</div>,
+  AreaChart: ({ children }: any) => <div data-testid="area-chart">{children}</div>,
+  Area: () => null,
+  CartesianGrid: () => null,
+  Cell: () => null,
+  XAxis: () => null,
+  YAxis: () => null,
+  Tooltip: () => null,
+  Legend: () => null,
 }));
 
-const { fetchCampaignSensitivity } = jest.requireMock('../../../services/electionApi') as {
+const { fetchCampaignSensitivity } = (await import('../../../services/electionApi')) as unknown as {
   fetchCampaignSensitivity: jest.Mock;
 };
 
@@ -32,7 +32,7 @@ const MOCK_RESULT = {
       day: 0,
       methods: {
         plurality: { winner: 'Alice', vote_share: 0.6 },
-        schulze:   { winner: 'Bob',   vote_share: 0.4 },
+        schulze: { winner: 'Bob', vote_share: 0.4 },
       },
       inter_method_agreement: 0.5,
     },
@@ -40,16 +40,16 @@ const MOCK_RESULT = {
       day: 14,
       methods: {
         plurality: { winner: 'Alice', vote_share: 0.65 },
-        schulze:   { winner: 'Alice', vote_share: 0.6 },
+        schulze: { winner: 'Alice', vote_share: 0.6 },
       },
       inter_method_agreement: 1.0,
     },
   ],
   method_stability: {
     plurality: { winner_changes: 0, final_winner: 'Alice', stability_score: 1.0 },
-    schulze:   { winner_changes: 1, final_winner: 'Alice', stability_score: 0.0 },
+    schulze: { winner_changes: 1, final_winner: 'Alice', stability_score: 0.0 },
   },
-  most_stable_method:  'plurality',
+  most_stable_method: 'plurality',
   least_stable_method: 'schulze',
 };
 
@@ -64,7 +64,7 @@ function renderPanel() {
 }
 
 beforeEach(() => {
-  jest.clearAllMocks();
+  vi.clearAllMocks();
   localStorage.clear();
   fetchCampaignSensitivity.mockResolvedValue(MOCK_RESULT);
 });

@@ -2,11 +2,16 @@ import React from 'react';
 import { render, screen, fireEvent, waitFor } from '@testing-library/react';
 import ScenarioBuilderPage from '../ScenarioBuilderPage';
 
-jest.mock('../../components/ScenarioBuilder/CandidateEditor', () => {
-  const MockCandidateEditor: React.FC<{ candidates: { name: string; isBlank?: boolean }[] }> = ({ candidates }) => (
+vi.mock('../../components/ScenarioBuilder/CandidateEditor', () => {
+  const MockCandidateEditor: React.FC<{ candidates: { name: string; isBlank?: boolean }[] }> = ({
+    candidates,
+  }) => (
     <div data-testid="candidate-editor">
       {candidates.map((c, i) => (
-        <span key={i}>{c.name}{c.isBlank ? ' (blank)' : ''}</span>
+        <span key={i}>
+          {c.name}
+          {c.isBlank ? ' (blank)' : ''}
+        </span>
       ))}
     </div>
   );
@@ -14,54 +19,69 @@ jest.mock('../../components/ScenarioBuilder/CandidateEditor', () => {
     __esModule: true,
     default: MockCandidateEditor,
     newCandidate: (name: string, ideology: number) => ({
-      name, ideology, economy: 0.5, environment: 0.5, social: 0.5, isBlank: false,
+      name,
+      ideology,
+      economy: 0.5,
+      environment: 0.5,
+      social: 0.5,
+      isBlank: false,
     }),
     newBlankCandidate: () => ({
-      name: 'Blanc', ideology: 0, economy: 0.5, environment: 0.5, social: 0.5, isBlank: true,
+      name: 'Blanc',
+      ideology: 0,
+      economy: 0.5,
+      environment: 0.5,
+      social: 0.5,
+      isBlank: true,
     }),
   };
 });
 
-jest.mock('../../components/ScenarioBuilder/ElectorateConfig', () => {
-  return function MockElectorateConfig() {
-    return <div data-testid="electorate-config">ElectorateConfig</div>;
+vi.mock('../../components/ScenarioBuilder/ElectorateConfig', () => {
+  return {
+    default: function MockElectorateConfig() {
+      return <div data-testid="electorate-config">ElectorateConfig</div>;
+    },
   };
 });
 
-jest.mock('../../components/ScenarioBuilder/BlankVoteRuleSelector', () => {
-  return function MockBlankVoteRuleSelector() {
-    return <div data-testid="blank-rule-selector">BlankVoteRuleSelector</div>;
+vi.mock('../../components/ScenarioBuilder/BlankVoteRuleSelector', () => {
+  return {
+    default: function MockBlankVoteRuleSelector() {
+      return <div data-testid="blank-rule-selector">BlankVoteRuleSelector</div>;
+    },
   };
 });
 
-jest.mock('../../services/simulationCompareApi', () => ({
-  runScenario: jest.fn(),
+vi.mock('../../services/simulationCompareApi', () => ({
+  runScenario: vi.fn(),
 }));
 
-jest.mock('../../utils/shareUtils', () => ({
-  buildShareURL: jest.fn(() => 'http://example.com/share'),
-  copyShareURL: jest.fn(),
-  decodeShareConfig: jest.fn(),
-  readShareParam: jest.fn(() => null),
+vi.mock('../../utils/shareUtils', () => ({
+  buildShareURL: vi.fn(() => 'http://example.com/share'),
+  copyShareURL: vi.fn(),
+  decodeShareConfig: vi.fn(),
+  readShareParam: vi.fn(() => null),
 }));
 
-jest.mock('../../components/shared/ToastNotification', () => ({
-  useToast: () => ({ error: jest.fn() }),
+vi.mock('../../components/shared/ToastNotification', () => ({
+  useToast: () => ({ error: vi.fn() }),
 }));
 
-jest.mock('../../context/ExpertModeContext', () => ({
+vi.mock('../../stores/useUIStore', async () => ({
+  ...(await vi.importActual('../../stores/useUIStore')),
   useExpertMode: () => ({ expertMode: false }),
 }));
 
-jest.mock('../../hooks/useMetaTags', () => ({
-  useMetaTags: jest.fn(),
+vi.mock('../../hooks/useMetaTags', () => ({
+  useMetaTags: vi.fn(),
 }));
 
-const { runScenario } = require('../../services/simulationCompareApi');
+const { runScenario } = await import('../../services/simulationCompareApi');
 
 describe('ScenarioBuilderPage', () => {
   beforeEach(() => {
-    jest.clearAllMocks();
+    vi.clearAllMocks();
   });
 
   it('renders the page title and step indicator', () => {

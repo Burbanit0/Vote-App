@@ -1,48 +1,50 @@
 import React from 'react';
 import { render, screen } from '@testing-library/react';
 import App from './App';
-import { useAuth } from './context/AuthContext';
+import { useAuth } from './stores/useAuthStore';
 
 // ── Component mocks ────────────────────────────────────────────────────────
 
-jest.mock('./components/Navbar', () => () => <div data-testid="navbar">Navbar</div>);
-jest.mock(
-  './components/Route/ErrorBoundary',
-  () =>
-    ({ children }: { children: React.ReactNode }) => <>{children}</>
-);
+vi.mock('./components/Navbar', () => ({ default: () => <div data-testid="navbar">Navbar</div> }));
+vi.mock('./components/Route/ErrorBoundary', () => ({
+  default: ({ children }: { children: React.ReactNode }) => <>{children}</>,
+}));
 
-jest.mock('./pages/HomePage', () => () => <div data-testid="home-page">HomePage</div>);
-jest.mock('./pages/SimulationPage', () => () => (
-  <div data-testid="simulation-page">SimulationPage</div>
-));
-jest.mock('./pages/SimulationComparePage', () => () => (
-  <div data-testid="simulation-compare-page">SimulationComparePage</div>
-));
-jest.mock('./pages/ScenarioBuilderPage', () => () => (
-  <div data-testid="scenario-builder-page">ScenarioBuilderPage</div>
-));
-jest.mock('./pages/ConstitutionalCrisisPage', () => () => (
-  <div data-testid="constitutional-crisis-page">ConstitutionalCrisisPage</div>
-));
-jest.mock('./pages/Login', () => () => <div data-testid="login-page">Login</div>);
-jest.mock('./pages/Register', () => () => <div data-testid="register-page">Register</div>);
-jest.mock('./pages/ProfilePage', () => () => (
-  <div data-testid="profile-page">ProfilePage</div>
-));
-jest.mock('./pages/UserProfilePage', () => () => (
-  <div data-testid="user-profile-page">UserProfilePage</div>
-));
+vi.mock('./pages/HomePage', () => ({ default: () => <div data-testid="home-page">HomePage</div> }));
+vi.mock('./pages/SimulationPage', () => ({
+  default: () => <div data-testid="simulation-page">SimulationPage</div>,
+}));
+vi.mock('./pages/SimulationComparePage', () => ({
+  default: () => <div data-testid="simulation-compare-page">SimulationComparePage</div>,
+}));
+vi.mock('./pages/ScenarioBuilderPage', () => ({
+  default: () => <div data-testid="scenario-builder-page">ScenarioBuilderPage</div>,
+}));
+vi.mock('./pages/ScenarioGalleryPage', () => ({
+  default: () => <div data-testid="gallery-page">ScenarioGalleryPage</div>,
+}));
+vi.mock('./pages/NotFoundPage', () => ({
+  default: () => <div data-testid="not-found-page">NotFoundPage</div>,
+}));
+vi.mock('./pages/Login', () => ({ default: () => <div data-testid="login-page">Login</div> }));
+vi.mock('./pages/Register', () => ({
+  default: () => <div data-testid="register-page">Register</div>,
+}));
+vi.mock('./pages/ProfilePage', () => ({
+  default: () => <div data-testid="profile-page">ProfilePage</div>,
+}));
+vi.mock('./pages/UserProfilePage', () => ({
+  default: () => <div data-testid="user-profile-page">UserProfilePage</div>,
+}));
 
 // AuthGuard: render the wrapped component directly (skip auth logic in tests)
-jest.mock(
-  './context/AuthGuard',
-  () =>
-    ({ component: Component }: { component: React.ComponentType }) => <Component />
-);
+vi.mock('./components/Route/AuthGuard', () => ({
+  default: ({ component: Component }: { component: React.ComponentType }) => <Component />,
+}));
 
-jest.mock('./context/AuthContext', () => ({
-  useAuth: jest.fn(),
+vi.mock('./stores/useAuthStore', async () => ({
+  ...(await vi.importActual('./stores/useAuthStore')),
+  useAuth: vi.fn(),
 }));
 
 // ── Tests ──────────────────────────────────────────────────────────────────
@@ -55,7 +57,7 @@ describe('App', () => {
   });
 
   afterEach(() => {
-    jest.clearAllMocks();
+    vi.clearAllMocks();
   });
 
   // Navbar visibility
@@ -99,43 +101,58 @@ describe('App', () => {
     expect(screen.getByTestId('home-page')).toBeInTheDocument();
   });
 
-  it('renders ScenarioBuilderPage on /scenario-builder', () => {
+  // NOTE: every route below was made lazy in A1 (commit a6497ad) so we need
+  // findByTestId (async) — getByTestId returns before Suspense resolves.
+
+  it('renders ScenarioBuilderPage on /scenario-builder', async () => {
     window.history.pushState({}, '', '/scenario-builder');
     render(<App />);
-    expect(screen.getByTestId('scenario-builder-page')).toBeInTheDocument();
+    expect(await screen.findByTestId('scenario-builder-page')).toBeInTheDocument();
   });
 
-  it('renders SimulationComparePage on /simulation/compare', () => {
+  it('renders SimulationComparePage on /simulation/compare', async () => {
     window.history.pushState({}, '', '/simulation/compare');
     render(<App />);
-    expect(screen.getByTestId('simulation-compare-page')).toBeInTheDocument();
+    expect(await screen.findByTestId('simulation-compare-page')).toBeInTheDocument();
   });
 
-  it('renders ConstitutionalCrisisPage on /constitutional-crisis', () => {
-    window.history.pushState({}, '', '/constitutional-crisis');
+  it('renders ScenarioGalleryPage on /galerie', async () => {
+    window.history.pushState({}, '', '/galerie');
     render(<App />);
-    expect(screen.getByTestId('constitutional-crisis-page')).toBeInTheDocument();
+    expect(await screen.findByTestId('gallery-page')).toBeInTheDocument();
+  });
+
+  it('renders NotFoundPage on an unknown route', async () => {
+    window.history.pushState({}, '', '/this-route-does-not-exist');
+    render(<App />);
+    expect(await screen.findByTestId('not-found-page')).toBeInTheDocument();
+  });
+
+  it('renders NotFoundPage on a removed route (e.g. /campaign)', async () => {
+    window.history.pushState({}, '', '/campaign');
+    render(<App />);
+    expect(await screen.findByTestId('not-found-page')).toBeInTheDocument();
   });
 
   // Auth-protected routes
-  it('renders ProfilePage on /profile', () => {
+  it('renders ProfilePage on /profile', async () => {
     mockUseAuth.mockReturnValue({ user: { name: 'Test User' } });
     window.history.pushState({}, '', '/profile');
     render(<App />);
-    expect(screen.getByTestId('profile-page')).toBeInTheDocument();
+    expect(await screen.findByTestId('profile-page')).toBeInTheDocument();
   });
 
-  it('renders UserProfilePage on /users/:id', () => {
+  it('renders UserProfilePage on /users/:id', async () => {
     mockUseAuth.mockReturnValue({ user: { name: 'Test User' } });
     window.history.pushState({}, '', '/users/1');
     render(<App />);
-    expect(screen.getByTestId('user-profile-page')).toBeInTheDocument();
+    expect(await screen.findByTestId('user-profile-page')).toBeInTheDocument();
   });
 
-  it('renders SimulationPage on /simulation', () => {
+  it('renders SimulationPage on /simulation', async () => {
     mockUseAuth.mockReturnValue({ user: { name: 'Test User' } });
     window.history.pushState({}, '', '/simulation');
     render(<App />);
-    expect(screen.getByTestId('simulation-page')).toBeInTheDocument();
+    expect(await screen.findByTestId('simulation-page')).toBeInTheDocument();
   });
 });

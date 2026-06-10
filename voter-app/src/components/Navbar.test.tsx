@@ -2,21 +2,25 @@ import React from 'react';
 import { render, screen } from '@testing-library/react';
 import { MemoryRouter } from 'react-router-dom';
 import Navbar from './Navbar';
-import { useAuth } from '../context/AuthContext';
-import { useTheme } from '../context/ThemeContext';
-import { useExpertMode } from '../context/ExpertModeContext';
-import { useTeacherMode } from '../context/TeacherModeContext';
+import { useAuth } from '../stores/useAuthStore';
+import { useTheme, useExpertMode, useTeacherMode } from '../stores/useUIStore';
 
-jest.mock('../context/AuthContext',        () => ({ useAuth:        jest.fn() }));
-jest.mock('../context/ThemeContext',       () => ({ useTheme:       jest.fn() }));
-jest.mock('../context/ExpertModeContext',  () => ({ useExpertMode:  jest.fn() }));
-jest.mock('../context/TeacherModeContext', () => ({ useTeacherMode: jest.fn() }));
-jest.mock('../i18n', () => ({
-  default: { language: 'en', changeLanguage: jest.fn() },
+vi.mock('../stores/useAuthStore', async () => ({
+  ...(await vi.importActual('../stores/useAuthStore')),
+  useAuth: vi.fn(),
+}));
+vi.mock('../stores/useUIStore', () => ({
+  useTheme: vi.fn(),
+  useExpertMode: vi.fn(),
+  useTeacherMode: vi.fn(),
+}));
+vi.mock('../i18n', () => ({
+  default: { language: 'en', changeLanguage: vi.fn() },
+  switchLanguage: vi.fn(),
 }));
 
 function renderNavbar(user: { username: string; role: string } | null = null) {
-  (useAuth as jest.Mock).mockReturnValue({ user, logout: jest.fn(), loading: false });
+  (useAuth as jest.Mock).mockReturnValue({ user, logout: vi.fn(), loading: false });
   return render(
     <MemoryRouter>
       <Navbar />
@@ -26,11 +30,13 @@ function renderNavbar(user: { username: string; role: string } | null = null) {
 
 describe('Navbar', () => {
   beforeEach(() => {
-    jest.clearAllMocks();
-    (useTheme as jest.Mock).mockReturnValue({ theme: 'light', toggleTheme: jest.fn() });
-    (useExpertMode as jest.Mock).mockReturnValue({ expertMode: false, setExpertMode: jest.fn() });
+    vi.clearAllMocks();
+    (useTheme as jest.Mock).mockReturnValue({ theme: 'light', toggleTheme: vi.fn() });
+    (useExpertMode as jest.Mock).mockReturnValue({ expertMode: false, setExpertMode: vi.fn() });
     (useTeacherMode as jest.Mock).mockReturnValue({
-      teacherMode: false, setTeacherMode: jest.fn(), slides: [],
+      teacherMode: false,
+      setTeacherMode: vi.fn(),
+      slides: [],
     });
   });
 
@@ -54,8 +60,9 @@ describe('Navbar', () => {
   it('shows settings toggle when not authenticated', () => {
     renderNavbar();
     // The user/settings dropdown toggle should be visible
-    expect(screen.getByRole('button', { name: /user-settings-dropdown|settings|préférences/i })
-      ?? screen.getByText(/settings|préférences/i)
+    expect(
+      screen.getByRole('button', { name: /user-settings-dropdown|settings|préférences/i }) ??
+        screen.getByText(/settings|préférences/i)
     ).toBeTruthy();
   });
 
@@ -75,8 +82,12 @@ describe('Navbar', () => {
   });
 
   it('returns null while loading', () => {
-    (useAuth as jest.Mock).mockReturnValue({ user: null, logout: jest.fn(), loading: true });
-    const { container } = render(<MemoryRouter><Navbar /></MemoryRouter>);
+    (useAuth as jest.Mock).mockReturnValue({ user: null, logout: vi.fn(), loading: true });
+    const { container } = render(
+      <MemoryRouter>
+        <Navbar />
+      </MemoryRouter>
+    );
     expect(container.innerHTML).toBe('');
   });
 });

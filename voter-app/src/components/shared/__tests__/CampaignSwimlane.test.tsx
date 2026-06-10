@@ -14,15 +14,15 @@ function makeSnapshot(day: number, winners: Record<string, string>): CampaignSna
 }
 
 const SNAPSHOTS: CampaignSnapshot[] = [
-  makeSnapshot(0,  { plurality: 'Alice', schulze: 'Alice', borda: 'Bob'   }),
-  makeSnapshot(7,  { plurality: 'Alice', schulze: 'Alice', borda: 'Alice' }),
-  makeSnapshot(14, { plurality: 'Bob',   schulze: 'Alice', borda: 'Alice' }),
+  makeSnapshot(0, { plurality: 'Alice', schulze: 'Alice', borda: 'Bob' }),
+  makeSnapshot(7, { plurality: 'Alice', schulze: 'Alice', borda: 'Alice' }),
+  makeSnapshot(14, { plurality: 'Bob', schulze: 'Alice', borda: 'Alice' }),
 ];
 
 const METHOD_STABILITY: Record<string, MethodStability> = {
-  schulze:  { winner_changes: 0, final_winner: 'Alice', stability_score: 1.0 },
-  plurality:{ winner_changes: 1, final_winner: 'Bob',   stability_score: 0.5 },
-  borda:    { winner_changes: 1, final_winner: 'Alice', stability_score: 0.5 },
+  schulze: { winner_changes: 0, final_winner: 'Alice', stability_score: 1.0 },
+  plurality: { winner_changes: 1, final_winner: 'Bob', stability_score: 0.5 },
+  borda: { winner_changes: 1, final_winner: 'Alice', stability_score: 0.5 },
 };
 
 const CANDIDATES = ['Alice', 'Bob'];
@@ -68,7 +68,7 @@ describe('CampaignSwimlane', () => {
   it('sorts methods by stability_score descending (schulze=1.0 first)', () => {
     const { container } = renderSwimlane();
     const labels = container.querySelectorAll('[data-testid^="swimlane-label"]');
-    expect(labels[0].textContent).toBe('schulze');  // stability=1.0 → first
+    expect(labels[0].textContent).toBe('schulze'); // stability=1.0 → first
   });
 
   it('shows candidate legend badges', () => {

@@ -4,43 +4,73 @@ import { MemoryRouter } from 'react-router';
 import HistoricalReferencePanel from '../HistoricalReferencePanel';
 
 // Mock the ElectionContext so we control scenarioMeta directly
-jest.mock('../../../context/ElectionContext', () => ({
-  useElection: jest.fn(),
+vi.mock('../../../stores/useElectionStore', () => ({
+  useElection: vi.fn(),
 }));
 
-const { useElection } = jest.requireMock('../../../context/ElectionContext') as {
+const { useElection } = (await import('../../../stores/useElectionStore')) as unknown as {
   useElection: jest.Mock;
 };
 
 const FRANCE2002_META = {
-  id:          'france2002',
-  name:        'france2002',
+  id: 'france2002',
+  name: 'france2002',
   description: 'La gauche fragmentée en 6 candidats élimine Jospin dès le 1er tour.',
-  phenomenon:  'Paradoxe de Condorcet',
+  phenomenon: 'Paradoxe de Condorcet',
 };
 
 const USA1992_META = {
-  id:          'usa1992',
-  name:        'usa1992',
+  id: 'usa1992',
+  name: 'usa1992',
   description: 'Perot capture 19% des voix en tant que tiers candidat.',
-  phenomenon:  'Effet spoiler',
+  phenomenon: 'Effet spoiler',
 };
 
 const MOCK_RESULT = {
-  config: {}, voters_snapshot: [], candidates: [],
+  config: {},
+  voters_snapshot: [],
+  candidates: [],
   methods: {
-    plurality: { winner: 'Chirac',  bayesian_regret: 0.03, majority_satisfaction: 0.7, condorcet_consistent: false },
-    irv:       { winner: 'Jospin',  bayesian_regret: 0.01, majority_satisfaction: 0.85, condorcet_consistent: true },
-    borda:     { winner: 'Jospin',  bayesian_regret: 0.01, majority_satisfaction: 0.85, condorcet_consistent: true },
-    schulze:   { winner: 'Jospin',  bayesian_regret: 0.01, majority_satisfaction: 0.85, condorcet_consistent: true },
-    approval:  { winner: 'Jospin',  bayesian_regret: 0.01, majority_satisfaction: 0.85, condorcet_consistent: true },
+    plurality: {
+      winner: 'Chirac',
+      bayesian_regret: 0.03,
+      majority_satisfaction: 0.7,
+      condorcet_consistent: false,
+    },
+    irv: {
+      winner: 'Jospin',
+      bayesian_regret: 0.01,
+      majority_satisfaction: 0.85,
+      condorcet_consistent: true,
+    },
+    borda: {
+      winner: 'Jospin',
+      bayesian_regret: 0.01,
+      majority_satisfaction: 0.85,
+      condorcet_consistent: true,
+    },
+    schulze: {
+      winner: 'Jospin',
+      bayesian_regret: 0.01,
+      majority_satisfaction: 0.85,
+      condorcet_consistent: true,
+    },
+    approval: {
+      winner: 'Jospin',
+      bayesian_regret: 0.01,
+      majority_satisfaction: 0.85,
+      condorcet_consistent: true,
+    },
   },
-  condorcet_winner: 'Jospin', blank_rate: 0,
-  campaign_trajectory: null, inter_method_agreement: 0.2, condorcet_exists: true,
+  condorcet_winner: 'Jospin',
+  blank_rate: 0,
+  campaign_trajectory: null,
+  inter_method_agreement: 0.2,
+  condorcet_exists: true,
 };
 
 function renderPanel(meta: typeof FRANCE2002_META | null, result: any = null) {
-  useElection.mockReturnValue({ scenarioMeta: meta, clearScenarioMeta: jest.fn() });
+  useElection.mockReturnValue({ scenarioMeta: meta, clearScenarioMeta: vi.fn() });
   return render(
     <MemoryRouter>
       <HistoricalReferencePanel result={result} />
@@ -48,7 +78,7 @@ function renderPanel(meta: typeof FRANCE2002_META | null, result: any = null) {
   );
 }
 
-beforeEach(() => jest.clearAllMocks());
+beforeEach(() => vi.clearAllMocks());
 
 describe('HistoricalReferencePanel', () => {
   it('renders nothing when scenarioMeta is null', () => {
@@ -59,7 +89,11 @@ describe('HistoricalReferencePanel', () => {
   it('renders nothing for an unknown scenario id', () => {
     const unknownMeta = { id: 'unknown_id', name: 'X', description: 'X', phenomenon: 'X' };
     useElection.mockReturnValue({ scenarioMeta: unknownMeta });
-    const { container } = render(<MemoryRouter><HistoricalReferencePanel result={null} /></MemoryRouter>);
+    const { container } = render(
+      <MemoryRouter>
+        <HistoricalReferencePanel result={null} />
+      </MemoryRouter>
+    );
     expect(container.firstChild).toBeNull();
   });
 
@@ -116,7 +150,7 @@ describe('HistoricalReferencePanel', () => {
   it('shows pedagogical alert when result is provided', () => {
     renderPanel(FRANCE2002_META, MOCK_RESULT);
     // The scenario-specific pedagogical note should appear
-    const alerts = document.querySelectorAll('.alert');
+    const alerts = document.querySelectorAll('[role="alert"]');
     expect(alerts.length).toBeGreaterThan(0);
   });
 });

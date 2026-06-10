@@ -2,34 +2,34 @@ import React from 'react';
 import { render, screen, fireEvent, waitFor, act } from '@testing-library/react';
 import IdeologyMapChart from '../IdeologyMapChart';
 
-jest.mock('../../../services/simulationCompareApi', () => ({
-  getIdeologyMap: jest.fn(),
+vi.mock('../../../services/simulationCompareApi', () => ({
+  getIdeologyMap: vi.fn(),
 }));
 
-const { getIdeologyMap } = jest.requireMock('../../../services/simulationCompareApi') as {
+const { getIdeologyMap } = (await import('../../../services/simulationCompareApi')) as unknown as {
   getIdeologyMap: jest.Mock;
 };
 
 const MOCK_RESULT = {
   voters: [
     { id: 0, x: -0.5, y: -0.2, utility_winner_a: 0.7, utility_winner_b: 0.4, prefers_a: true },
-    { id: 1, x:  0.3, y:  0.1, utility_winner_a: 0.3, utility_winner_b: 0.6, prefers_a: false },
+    { id: 1, x: 0.3, y: 0.1, utility_winner_a: 0.3, utility_winner_b: 0.6, prefers_a: false },
   ],
   candidates: [
     { name: 'Alice', x: -0.5, y: 0.0, party: 'Liberal' },
-    { name: 'Bob',   x:  0.5, y: 0.0, party: 'Conservative' },
+    { name: 'Bob', x: 0.5, y: 0.0, party: 'Conservative' },
   ],
-  winner_a:             'Alice',
-  winner_b:             'Bob',
-  method_a:             'plurality',
-  method_b:             'schulze',
-  condorcet_winner:     'Alice',
+  winner_a: 'Alice',
+  winner_b: 'Bob',
+  method_a: 'plurality',
+  method_b: 'schulze',
+  condorcet_winner: 'Alice',
   pct_better_off_with_a: 0.5,
   pct_better_off_with_b: 0.5,
 };
 
 beforeEach(() => {
-  jest.clearAllMocks();
+  vi.clearAllMocks();
   getIdeologyMap.mockResolvedValue(MOCK_RESULT);
 });
 
@@ -82,21 +82,27 @@ describe('IdeologyMapChart', () => {
   });
 
   it('shows "show losers" toggle (unchecked by default)', async () => {
-    await act(async () => { render(<IdeologyMapChart defaultCandidates={['Alice', 'Bob']} />); });
+    await act(async () => {
+      render(<IdeologyMapChart defaultCandidates={['Alice', 'Bob']} />);
+    });
     const toggle = document.getElementById('show-losers-toggle') as HTMLInputElement;
     expect(toggle).toBeInTheDocument();
     expect(toggle).not.toBeChecked();
   });
 
   it('checking "show losers" toggle changes its state', async () => {
-    await act(async () => { render(<IdeologyMapChart defaultCandidates={['Alice', 'Bob']} />); });
+    await act(async () => {
+      render(<IdeologyMapChart defaultCandidates={['Alice', 'Bob']} />);
+    });
     const toggle = document.getElementById('show-losers-toggle') as HTMLInputElement;
     fireEvent.click(toggle);
     expect(toggle).toBeChecked();
   });
 
   it('Voronoi toggle is OFF by default', async () => {
-    await act(async () => { render(<IdeologyMapChart defaultCandidates={['Alice', 'Bob']} />); });
+    await act(async () => {
+      render(<IdeologyMapChart defaultCandidates={['Alice', 'Bob']} />);
+    });
     const toggle = document.getElementById('show-voronoi-toggle') as HTMLInputElement;
     expect(toggle).toBeInTheDocument();
     expect(toggle).not.toBeChecked();
@@ -137,7 +143,9 @@ describe('IdeologyMapChart', () => {
   });
 
   it('renders regenerate button', async () => {
-    await act(async () => { render(<IdeologyMapChart defaultCandidates={['Alice', 'Bob']} />); });
+    await act(async () => {
+      render(<IdeologyMapChart defaultCandidates={['Alice', 'Bob']} />);
+    });
     expect(screen.getByText(/Régénérer|Regenerate/i)).toBeInTheDocument();
   });
 

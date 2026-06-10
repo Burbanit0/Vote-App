@@ -1,53 +1,63 @@
 import React from 'react';
 import { render, screen, fireEvent, waitFor } from '@testing-library/react';
 import { MemoryRouter } from 'react-router';
+import { QueryClientProvider } from '@tanstack/react-query';
 import ElectionPipelineAnimator from '../ElectionPipelineAnimator';
-import { ElectionProvider } from '../../../context/ElectionContext';
+import { ElectionProvider } from '../../../stores/useElectionStore';
+import { makeTestQueryClient } from '../../../test/queryWrapper';
 
-jest.mock('axios', () => ({
-  post: jest.fn(),
+vi.mock('../../../api/client', () => ({
+  apiClient: { GET: vi.fn(), POST: vi.fn(), PUT: vi.fn(), DELETE: vi.fn(), PATCH: vi.fn() },
+  getAccessToken: vi.fn(() => null),
 }));
+const { apiClient } = (await import('../../../api/client')) as unknown as {
+  apiClient: { POST: jest.Mock };
+};
 
-const { post: mockPost } = jest.requireMock('axios') as { post: jest.Mock };
-
-jest.mock('../MethodGroupDonut', () => () => <div data-testid="donut" />);
+vi.mock('../MethodGroupDonut', () => ({ default: () => <div data-testid="donut" /> }));
 
 // Minimal pipeline result
 const makePipeline = (stepIds: string[]) => ({
   data: {
-    num_steps:  stepIds.length,
+    num_steps: stepIds.length,
     candidates: [
       { name: 'Alice', x: -0.5, y: 0.0, party: 'Liberal' },
-      { name: 'Bob',   x:  0.5, y: 0.0, party: 'Conservative' },
+      { name: 'Bob', x: 0.5, y: 0.0, party: 'Conservative' },
     ],
     steps: stepIds.map((id) => ({
       id,
-      label:   { fr: `Étape ${id}`, en: `Step ${id}` },
-      desc:    { fr: 'desc fr', en: 'desc en' },
-      voters:  [
+      label: { fr: `Étape ${id}`, en: `Step ${id}` },
+      desc: { fr: 'desc fr', en: 'desc en' },
+      voters: [
         { id: 0, x: -0.3, y: 0.1, preference: 'Alice', is_blank: false },
-        { id: 1, x:  0.4, y: -0.1, preference: 'Bob',   is_blank: false },
+        { id: 1, x: 0.4, y: -0.1, preference: 'Bob', is_blank: false },
       ],
-      metrics: id === 'results'
-        ? { inter_method_agreement: 0.85, condorcet_winner: 'Alice', blank_rate: 0 }
-        : { num_voters: 2 },
-      ...(id === 'results' ? { winner_groups: [{ winner: 'Alice', methods: ['plurality'], pct: 1.0 }] } : {}),
+      metrics:
+        id === 'results'
+          ? { inter_method_agreement: 0.85, condorcet_winner: 'Alice', blank_rate: 0 }
+          : { num_voters: 2 },
+      ...(id === 'results'
+        ? { winner_groups: [{ winner: 'Alice', methods: ['plurality'], pct: 1.0 }] }
+        : {}),
     })),
   },
+  error: undefined,
 });
 
 function renderPanel() {
   return render(
     <MemoryRouter>
-      <ElectionProvider>
-        <ElectionPipelineAnimator />
-      </ElectionProvider>
+      <QueryClientProvider client={makeTestQueryClient()}>
+        <ElectionProvider>
+          <ElectionPipelineAnimator />
+        </ElectionProvider>
+      </QueryClientProvider>
     </MemoryRouter>
   );
 }
 
 beforeEach(() => {
-  jest.clearAllMocks();
+  vi.clearAllMocks();
   localStorage.clear();
 });
 
@@ -62,19 +72,19 @@ describe('ElectionPipelineAnimator', () => {
     expect(screen.getByRole('button', { name: /pipeline|animer/i })).toBeInTheDocument();
   });
 
-  it('calls axios.post on button click', async () => {
-    mockPost.mockResolvedValue(makePipeline(['base', 'results']));
+  it('calls API on button click', async () => {
+    apiClient.POST.mockResolvedValue(makePipeline(['base', 'results']));
     renderPanel();
     fireEvent.click(screen.getByRole('button', { name: /pipeline|animer/i }));
-    await waitFor(() => expect(mockPost).toHaveBeenCalledTimes(1));
-    expect(mockPost).toHaveBeenCalledWith(
-      expect.stringContaining('/api/election/simulate-pipeline'),
+    await waitFor(() => expect(apiClient.POST).toHaveBeenCalledTimes(1));
+    expect(apiClient.POST).toHaveBeenCalledWith(
+      expect.stringMatching(/\/api\/(v2\/)?election\/simulate-pipeline/),
       expect.any(Object)
     );
   });
 
   it('renders step buttons after pipeline loads', async () => {
-    mockPost.mockResolvedValue(makePipeline(['base', 'results']));
+    apiClient.POST.mockResolvedValue(makePipeline(['base', 'results']));
     renderPanel();
     fireEvent.click(screen.getByRole('button', { name: /pipeline|animer/i }));
     await waitFor(() => {
@@ -84,7 +94,7 @@ describe('ElectionPipelineAnimator', () => {
   });
 
   it('shows SVG scatter after pipeline loads', async () => {
-    mockPost.mockResolvedValue(makePipeline(['base', 'results']));
+    apiClient.POST.mockResolvedValue(makePipeline(['base', 'results']));
     const { container } = renderPanel();
     fireEvent.click(screen.getByRole('button', { name: /pipeline|animer/i }));
     await waitFor(() => {
@@ -93,7 +103,7 @@ describe('ElectionPipelineAnimator', () => {
   });
 
   it('clicking a step button navigates to that step', async () => {
-    mockPost.mockResolvedValue(makePipeline(['base', 'campaign', 'results']));
+    apiClient.POST.mockResolvedValue(makePipeline(['base', 'campaign', 'results']));
     renderPanel();
     fireEvent.click(screen.getByRole('button', { name: /pipeline|animer/i }));
     await waitFor(() => expect(screen.getByTestId('pipeline-step-campaign')).toBeInTheDocument());
@@ -104,7 +114,7 @@ describe('ElectionPipelineAnimator', () => {
   });
 
   it('shows donut in results step', async () => {
-    mockPost.mockResolvedValue(makePipeline(['base', 'results']));
+    apiClient.POST.mockResolvedValue(makePipeline(['base', 'results']));
     renderPanel();
     fireEvent.click(screen.getByRole('button', { name: /pipeline|animer/i }));
 
@@ -116,7 +126,7 @@ describe('ElectionPipelineAnimator', () => {
   });
 
   it('shows error when API fails', async () => {
-    mockPost.mockRejectedValue(new Error('Network error'));
+    apiClient.POST.mockRejectedValue(new Error('Network error'));
     renderPanel();
     fireEvent.click(screen.getByRole('button', { name: /pipeline|animer/i }));
     await waitFor(() => {

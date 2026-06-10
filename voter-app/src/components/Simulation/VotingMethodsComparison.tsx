@@ -1,6 +1,6 @@
 // VotingMethodsComparison.tsx
 import React from 'react';
-import { Accordion } from 'react-bootstrap';
+import { Accordion } from '@/components/ui/accordion';
 import VotingMethodVisualizations from './VotingMethodVisualizations';
 
 type VotingMethodKey =
@@ -77,8 +77,8 @@ const VotingMethodsComparison: React.FC<VotingMethodsComparisonProps> = ({
             {votingMethods.map(
               (method) =>
                 winners[method.winnerKey] && (
-                  <div key={method.key} className="col-md-4 mb-3">
-                    <div className="card h-100">
+                  <div key={method.key} className="md:w-4/12 mb-3">
+                    <div className="card h-full">
                       <div className="card-body">
                         <h6 className="card-title">{method.name}</h6>
                         <p className="card-text">

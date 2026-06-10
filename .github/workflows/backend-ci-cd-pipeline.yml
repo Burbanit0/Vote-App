@@ -37,7 +37,7 @@ jobs:
       # ── Security ───────────────────────────────────────────────────────────
       - name: Bandit (Python SAST)
         run: |
-          bandit -r flask_voter_app/app \
+          bandit -r flask_voter_app/api \
             -ll \
             --skip B104,B311 \
             --exit-zero
@@ -48,10 +48,10 @@ jobs:
         continue-on-error: true   # informational for now
 
       # ── Type checking ─────────────────────────────────────────────────────
-      - name: Mypy (strict type checking on utils/ and routes/)
+      - name: Mypy (strict type checking on api/)
         run: |
           cd flask_voter_app
-          python -m mypy app/utils/ app/routes/ --config-file mypy.ini
+          python -m mypy api/ --config-file mypy.ini
 
       # ── Tests + Coverage ───────────────────────────────────────────────────
       - name: Tests with coverage (30% minimum)
@@ -60,8 +60,8 @@ jobs:
           JWT_SECRET_KEY: ci-test-secret
         run: |
           cd flask_voter_app
-          python -m pytest tests -v \
-            --cov=app \
+          python -m pytest api/tests -v \
+            --cov=api \
             --cov-report=term-missing \
             --cov-report=xml \
             --cov-fail-under=30

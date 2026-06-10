@@ -4,12 +4,13 @@ build-backend = "setuptools.backends._legacy:_Backend"
 
 [tool.pytest.ini_options]
 minversion = "7.0"
-testpaths = ["tests"]
-addopts = "--cov=app --cov-report=term --cov-report=html --cov-fail-under=30 -v"
+testpaths = ["api/tests"]
+asyncio_mode = "strict"
+addopts = "--cov=api --cov-report=term --cov-report=html --cov-fail-under=30 -v"
 
 [tool.coverage.run]
-source = ["app"]
-omit = ["app/simulation/*"]
+source = ["api"]
+omit = ["api/tests/*"]
 
 [tool.coverage.report]
 show_missing = true

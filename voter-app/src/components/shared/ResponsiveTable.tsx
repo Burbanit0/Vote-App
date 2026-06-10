@@ -24,8 +24,8 @@ interface Props {
 const ResponsiveTable: React.FC<Props> = ({ children, className, 'aria-label': ariaLabel }) => {
   const { t } = useTranslation();
   const containerRef = useRef<HTMLDivElement>(null);
-  const [showHint, setShowHint]   = useState(false);
-  const isMobile                  = useIsMobile();
+  const [showHint, setShowHint] = useState(false);
+  const isMobile = useIsMobile();
 
   useEffect(() => {
     if (!document.getElementById(STYLE_ID)) {
@@ -57,9 +57,7 @@ const ResponsiveTable: React.FC<Props> = ({ children, className, 'aria-label': a
     const check = () => setShowHint(el.scrollWidth > el.clientWidth + 4);
     check();
 
-    const ro = typeof ResizeObserver !== 'undefined'
-      ? new ResizeObserver(check)
-      : null;
+    const ro = typeof ResizeObserver !== 'undefined' ? new ResizeObserver(check) : null;
     ro?.observe(el);
 
     return () => ro?.disconnect();
@@ -79,14 +77,12 @@ const ResponsiveTable: React.FC<Props> = ({ children, className, 'aria-label': a
           position: 'relative',
         }}
       >
-        <div className="rsp-table">
-          {children}
-        </div>
+        <div className="rsp-table">{children}</div>
       </div>
 
       {showHint && isMobile && (
         <div
-          className="text-center text-muted"
+          className="text-center text-muted-foreground"
           style={{ fontSize: '0.72rem', padding: '2px 0 4px', userSelect: 'none' }}
           aria-hidden="true"
         >

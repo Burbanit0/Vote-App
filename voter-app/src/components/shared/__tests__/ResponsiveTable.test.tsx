@@ -2,7 +2,7 @@ import React from 'react';
 import { render, screen } from '@testing-library/react';
 import ResponsiveTable from '../ResponsiveTable';
 
-jest.mock('../../../hooks/useIsMobile', () => ({
+vi.mock('../../../hooks/useIsMobile', () => ({
   useIsMobile: () => false,
 }));
 
@@ -16,7 +16,13 @@ describe('ResponsiveTable', () => {
   it('renders children inside rsp-table wrapper', () => {
     render(
       <ResponsiveTable>
-        <table><tbody><tr><td>cell content</td></tr></tbody></table>
+        <table>
+          <tbody>
+            <tr>
+              <td>cell content</td>
+            </tr>
+          </tbody>
+        </table>
       </ResponsiveTable>
     );
     expect(screen.getByText('cell content')).toBeInTheDocument();
@@ -25,7 +31,13 @@ describe('ResponsiveTable', () => {
   it('injects style tag on mount', () => {
     render(
       <ResponsiveTable>
-        <table><tbody><tr><td>test</td></tr></tbody></table>
+        <table>
+          <tbody>
+            <tr>
+              <td>test</td>
+            </tr>
+          </tbody>
+        </table>
       </ResponsiveTable>
     );
     const style = document.getElementById('responsive-table-styles');
@@ -36,12 +48,24 @@ describe('ResponsiveTable', () => {
   it('does not inject duplicate style tag', () => {
     render(
       <ResponsiveTable>
-        <table><tbody><tr><td>first</td></tr></tbody></table>
+        <table>
+          <tbody>
+            <tr>
+              <td>first</td>
+            </tr>
+          </tbody>
+        </table>
       </ResponsiveTable>
     );
     render(
       <ResponsiveTable>
-        <table><tbody><tr><td>second</td></tr></tbody></table>
+        <table>
+          <tbody>
+            <tr>
+              <td>second</td>
+            </tr>
+          </tbody>
+        </table>
       </ResponsiveTable>
     );
     const styles = document.querySelectorAll('#responsive-table-styles');
@@ -51,7 +75,13 @@ describe('ResponsiveTable', () => {
   it('applies custom className', () => {
     const { container } = render(
       <ResponsiveTable className="my-custom-class">
-        <table><tbody><tr><td>test</td></tr></tbody></table>
+        <table>
+          <tbody>
+            <tr>
+              <td>test</td>
+            </tr>
+          </tbody>
+        </table>
       </ResponsiveTable>
     );
     const outer = container.firstChild as HTMLElement;

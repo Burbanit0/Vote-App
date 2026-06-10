@@ -2,7 +2,7 @@ import React from 'react';
 import { render, screen } from '@testing-library/react';
 import MonteCarloLiveChart from '../MonteCarloLiveChart';
 
-jest.mock('recharts', () => ({
+vi.mock('recharts', () => ({
   ResponsiveContainer: ({ children }: any) => <div>{children}</div>,
   BarChart: ({ children }: any) => <div>{children}</div>,
   Bar: ({ children }: any) => <div>{children}</div>,
@@ -13,7 +13,7 @@ jest.mock('recharts', () => ({
   YAxis: () => <div />,
 }));
 
-jest.mock('../../../hooks/useChartTheme', () => ({
+vi.mock('../../../hooks/useChartTheme', () => ({
   useChartTheme: () => ({
     isDark: false,
     gridStroke: '#e0e0e0',
@@ -30,7 +30,7 @@ const baseProps = {
   condorcetRate: 0,
   partialResults: {},
   error: null,
-  onStop: jest.fn(),
+  onStop: vi.fn(),
 };
 
 describe('MonteCarloLiveChart', () => {
@@ -54,24 +54,12 @@ describe('MonteCarloLiveChart', () => {
   });
 
   it('shows error alert when error is present', () => {
-    render(
-      <MonteCarloLiveChart
-        {...baseProps}
-        error="Something went wrong"
-      />
-    );
+    render(<MonteCarloLiveChart {...baseProps} error="Something went wrong" />);
     expect(screen.getByText('Something went wrong')).toBeInTheDocument();
   });
 
   it('shows complete badge when done', () => {
-    render(
-      <MonteCarloLiveChart
-        {...baseProps}
-        iteration={100}
-        total={100}
-        progress={100}
-      />
-    );
+    render(<MonteCarloLiveChart {...baseProps} iteration={100} total={100} progress={100} />);
     expect(screen.getByText(/Complete/)).toBeInTheDocument();
   });
 

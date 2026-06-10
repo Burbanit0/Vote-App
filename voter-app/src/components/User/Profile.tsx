@@ -1,8 +1,10 @@
 // src/components/Profile.tsx
 
 import React, { useState, useEffect } from 'react';
-import { Card, Container, Alert } from 'react-bootstrap';
-import { useAuth } from '../../context/AuthContext';
+import { Alert } from '@/components/ui/alert';
+import { Card, CardBody, CardTitle } from '@/components/ui/card';
+import { Container } from '@/components/ui/grid';
+import { useAuth } from '../../stores/useAuthStore';
 import { Profile_ } from '../../types';
 import { fetchProfileData } from '../../services';
 import profilePicture from '../../../src/assets/profile_picture/profile_picture_user3.jpg';
@@ -46,26 +48,30 @@ const Profile: React.FC = () => {
   return (
     <Container className="mt-5">
       <Card>
-        <Card.Body>
-          <Card.Title className="text-center">{profile?.username}</Card.Title>
+        <CardBody>
+          <CardTitle className="text-center">{profile?.username}</CardTitle>
           {profile && (
             <div>
               <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
                 <div>
-                  <Card.Img src={profilePicture} style={{ maxWidth: '100px' }} />
+                  <img
+                    className="rounded-t-xl"
+                    src={profilePicture}
+                    style={{ maxWidth: '100px' }}
+                  />
                 </div>
                 <div>
-                  <Card.Text>
+                  <p>
                     <strong>First Name:</strong> {profile.first_name}
-                  </Card.Text>
-                  <Card.Text>
+                  </p>
+                  <p>
                     <strong>Last Name:</strong> {profile.last_name}
-                  </Card.Text>
+                  </p>
                 </div>
               </div>
             </div>
           )}
-        </Card.Body>
+        </CardBody>
       </Card>
     </Container>
   );

@@ -1,7 +1,11 @@
 import React, { useCallback, useMemo, useState } from 'react';
-import {
-  Alert, Badge, Button, Card, Col, Container, Form, Row, Spinner,
-} from 'react-bootstrap';
+import { Alert } from '@/components/ui/alert';
+import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
+import { Card, CardBody, CardHeader } from '@/components/ui/card';
+import { Range, Select } from '@/components/ui/form-controls';
+import { Col, Container, Row } from '@/components/ui/grid';
+import { Spinner } from '@/components/ui/spinner';
 import {
   CartesianGrid,
   Dot,
@@ -18,25 +22,70 @@ import { useMetaTags } from '../hooks/useMetaTags';
 import { runWhatIf, VariantParam, WhatIfDataPoint } from '../services/whatIfApi';
 import { CHART_COLORS_LIGHT } from '../constants/chartColors';
 import { METHOD_LABELS } from '../components/Simulation/simulationConstants';
-import { useExpertMode } from '../context/ExpertModeContext';
+import { useExpertMode } from '../stores/useUIStore';
 
 // ── Constants ──────────────────────────────────────────────────────────────
 
 const SHOWN_METHODS = ['plurality', 'borda', 'irv', 'schulze', 'approval'] as const;
 
-const VARIANT_PARAMS: { value: VariantParam; label: string; unit: string; min: number; max: number; step: number; defaultMin: number; defaultMax: number }[] = [
-  { value: 'num_voters',     label: "Nombre d'électeurs",   unit: 'électeurs',  min: 100,  max: 10000, step: 100,  defaultMin: 200,   defaultMax: 5000 },
-  { value: 'num_candidates', label: 'Nombre de candidats',  unit: 'candidats',  min: 2,    max: 8,     step: 1,    defaultMin: 2,     defaultMax: 8    },
-  { value: 'blank_pct',      label: 'Vote blanc (%)',        unit: '%',          min: 0,    max: 0.5,   step: 0.05, defaultMin: 0,     defaultMax: 0.40 },
-  { value: 'polarization',   label: 'Polarisation',          unit: 'indice',     min: 0.1,  max: 2.0,   step: 0.1,  defaultMin: 0.2,   defaultMax: 2.0  },
+const VARIANT_PARAMS: {
+  value: VariantParam;
+  label: string;
+  unit: string;
+  min: number;
+  max: number;
+  step: number;
+  defaultMin: number;
+  defaultMax: number;
+}[] = [
+  {
+    value: 'num_voters',
+    label: "Nombre d'électeurs",
+    unit: 'électeurs',
+    min: 100,
+    max: 10000,
+    step: 100,
+    defaultMin: 200,
+    defaultMax: 5000,
+  },
+  {
+    value: 'num_candidates',
+    label: 'Nombre de candidats',
+    unit: 'candidats',
+    min: 2,
+    max: 8,
+    step: 1,
+    defaultMin: 2,
+    defaultMax: 8,
+  },
+  {
+    value: 'blank_pct',
+    label: 'Vote blanc (%)',
+    unit: '%',
+    min: 0,
+    max: 0.5,
+    step: 0.05,
+    defaultMin: 0,
+    defaultMax: 0.4,
+  },
+  {
+    value: 'polarization',
+    label: 'Polarisation',
+    unit: 'indice',
+    min: 0.1,
+    max: 2.0,
+    step: 0.1,
+    defaultMin: 0.2,
+    defaultMax: 2.0,
+  },
 ];
 
 const IDEOLOGY_OPTIONS = [
-  { value: 'random',      label: 'Aléatoire' },
-  { value: 'centrist',    label: 'Centriste' },
-  { value: 'polarized',   label: 'Polarisé' },
+  { value: 'random', label: 'Aléatoire' },
+  { value: 'centrist', label: 'Centriste' },
+  { value: 'polarized', label: 'Polarisé' },
   { value: 'left_skewed', label: 'Gauche' },
-  { value: 'right_skewed',label: 'Droite' },
+  { value: 'right_skewed', label: 'Droite' },
 ];
 
 const N_POINTS = 6;
@@ -67,7 +116,7 @@ export interface WinnerChange {
 
 export function detectWinnerChanges(
   results: WhatIfDataPoint[],
-  methods: readonly string[],
+  methods: readonly string[]
 ): WinnerChange[] {
   const changes: WinnerChange[] = [];
   for (const method of methods) {
@@ -87,7 +136,7 @@ export function detectWinnerChanges(
 function buildDivergenceMessage(
   results: WhatIfDataPoint[],
   variantLabel: string,
-  variantUnit: string,
+  variantUnit: string
 ): string | null {
   if (!results.length) return null;
 
@@ -108,9 +157,8 @@ function buildDivergenceMessage(
   }
 
   const parts = Object.entries(winnerMap).map(([w, ms]) => `${ms.join(' et ')} → ${w}`);
-  const valueStr = variantUnit === '%'
-    ? `${(divergent.value * 100).toFixed(0)} %`
-    : `${divergent.value}`;
+  const valueStr =
+    variantUnit === '%' ? `${(divergent.value * 100).toFixed(0)} %` : `${divergent.value}`;
 
   return `Pour ${variantLabel.toLowerCase()} = ${valueStr} : ${parts.join(' / ')}`;
 }
@@ -125,7 +173,14 @@ function WinnerChangeDot(props: any) {
   const prev = results[idx - 1].methods[method]?.winner;
   const curr = results[idx].methods[method]?.winner;
   const changed = prev && curr && prev !== curr;
-  return <Dot {...props} r={changed ? 7 : 3} fill={changed ? '#f59e0b' : props.fill} stroke={changed ? '#b45309' : props.stroke} />;
+  return (
+    <Dot
+      {...props}
+      r={changed ? 7 : 3}
+      fill={changed ? '#f59e0b' : props.fill}
+      stroke={changed ? '#b45309' : props.stroke}
+    />
+  );
 }
 
 // ── Custom tooltip ────────────────────────────────────────────────────────
@@ -139,18 +194,26 @@ function WhatIfTooltip({ active, payload, label, variantUnit, results }: any) {
       style={{
         background: 'var(--bs-body-bg, white)',
         border: '1px solid var(--bs-border-color, #dee2e6)',
-        borderRadius: 8, padding: '10px 14px', fontSize: '0.82rem',
+        borderRadius: 8,
+        padding: '10px 14px',
+        fontSize: '0.82rem',
         boxShadow: '0 2px 8px rgba(0,0,0,0.12)',
       }}
     >
-      <div className="fw-bold mb-1">{labelStr}</div>
+      <div className="font-bold mb-1">{labelStr}</div>
       {payload.map((entry: any) => {
         const methodKey = entry.dataKey?.replace('_score', '');
         const winner = r?.methods[methodKey]?.winner ?? '—';
         return (
-          <div key={methodKey} style={{ color: entry.color }} className="d-flex justify-content-between gap-3">
+          <div
+            key={methodKey}
+            style={{ color: entry.color }}
+            className="flex justify-between gap-3"
+          >
             <span>{METHOD_LABELS[methodKey] ?? methodKey}</span>
-            <span className="fw-semibold">{entry.value != null ? `${entry.value} %` : '—'} · {winner}</span>
+            <span className="font-semibold">
+              {entry.value != null ? `${entry.value} %` : '—'} · {winner}
+            </span>
           </div>
         );
       })}
@@ -163,60 +226,59 @@ function WhatIfTooltip({ active, payload, label, variantUnit, results }: any) {
 const WhatIfPage: React.FC = () => {
   useMetaTags({
     title: 'Et si… — Analyse comparative — Vote Lab',
-    description: 'Variez un paramètre électoral et observez comment les méthodes de vote changent de vainqueur.',
+    description:
+      'Variez un paramètre électoral et observez comment les méthodes de vote changent de vainqueur.',
   });
 
   const { expertMode } = useExpertMode();
 
   // ── Base config ──
   const [numCandidates, setNumCandidates] = useState(4);
-  const [numVoters,     setNumVoters]     = useState(500);
-  const [ideoDistrib,   setIdeoDistrib]   = useState('random');
+  const [numVoters, setNumVoters] = useState(500);
+  const [ideoDistrib, setIdeoDistrib] = useState('random');
 
   // ── Variant config ──
-  const [variantParam,  setVariantParam]  = useState<VariantParam>('num_voters');
-  const [variantMin,    setVariantMin]    = useState(200);
-  const [variantMax,    setVariantMax]    = useState(5000);
+  const [variantParam, setVariantParam] = useState<VariantParam>('num_voters');
+  const [variantMin, setVariantMin] = useState(200);
+  const [variantMax, setVariantMax] = useState(5000);
 
   const paramDef = useMemo(
     () => VARIANT_PARAMS.find((p) => p.value === variantParam)!,
-    [variantParam],
+    [variantParam]
   );
 
   const variantValues = useMemo(
     () => generateValues(variantMin, variantMax, N_POINTS),
-    [variantMin, variantMax],
+    [variantMin, variantMax]
   );
 
   // ── Results ──
-  const [results,  setResults]  = useState<WhatIfDataPoint[]>([]);
-  const [loading,  setLoading]  = useState(false);
-  const [error,    setError]    = useState<string | null>(null);
+  const [results, setResults] = useState<WhatIfDataPoint[]>([]);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
   // ── Chart data ──
-  const chartData = useMemo(() =>
-    results.map((r) => ({
-      value: r.value,
-      ...Object.fromEntries(
-        SHOWN_METHODS.map((m) => [`${m}_score`, r.methods[m]?.score ?? null])
-      ),
-    })),
-    [results],
+  const chartData = useMemo(
+    () =>
+      results.map((r) => ({
+        value: r.value,
+        ...Object.fromEntries(
+          SHOWN_METHODS.map((m) => [`${m}_score`, r.methods[m]?.score ?? null])
+        ),
+      })),
+    [results]
   );
 
-  const winnerChanges = useMemo(
-    () => detectWinnerChanges(results, SHOWN_METHODS),
-    [results],
-  );
+  const winnerChanges = useMemo(() => detectWinnerChanges(results, SHOWN_METHODS), [results]);
 
   const changeValueIndices = useMemo(
     () => new Set(winnerChanges.map((c) => c.value)),
-    [winnerChanges],
+    [winnerChanges]
   );
 
   const divergenceMsg = useMemo(
     () => buildDivergenceMessage(results, paramDef.label, paramDef.unit),
-    [results, paramDef],
+    [results, paramDef]
   );
 
   // ── Handle variant param change ──
@@ -235,13 +297,17 @@ const WhatIfPage: React.FC = () => {
     setError(null);
     try {
       const resp = await runWhatIf({
-        base: { num_candidates: numCandidates, num_voters: numVoters, ideology_distribution: ideoDistrib },
+        base: {
+          num_candidates: numCandidates,
+          num_voters: numVoters,
+          ideology_distribution: ideoDistrib,
+        },
         variant_param: variantParam,
         variant_values: variantValues,
       });
       setResults(resp.results);
     } catch (e: any) {
-      setError(e?.response?.data?.error ?? e?.message ?? 'Erreur lors de l\'analyse');
+      setError(e?.response?.data?.error ?? e?.message ?? "Erreur lors de l'analyse");
     } finally {
       setLoading(false);
     }
@@ -249,67 +315,82 @@ const WhatIfPage: React.FC = () => {
 
   // ── X-axis label formatter ──
   const xFormatter = useCallback(
-    (v: number) => paramDef.unit === '%' ? `${(v * 100).toFixed(0)}%` : String(v),
-    [paramDef],
+    (v: number) => (paramDef.unit === '%' ? `${(v * 100).toFixed(0)}%` : String(v)),
+    [paramDef]
   );
 
   const hasResults = results.length > 0;
 
   return (
     <Container className="py-4" style={{ maxWidth: 1100 }}>
-      <h2 className="mb-1 fw-bold">Et si…</h2>
-      <p className="text-muted mb-4" style={{ fontSize: '0.95rem' }}>
-        Faites varier un seul paramètre et observez comment chaque méthode de vote change de vainqueur.
+      <h2 className="mb-1 font-bold">Et si…</h2>
+      <p className="text-muted-foreground mb-4" style={{ fontSize: '0.95rem' }}>
+        Faites varier un seul paramètre et observez comment chaque méthode de vote change de
+        vainqueur.
       </p>
 
       <Row className="g-4 mb-4">
         {/* ── Left column — base config ── */}
         <Col md={5}>
-          <Card className="h-100">
-            <Card.Header className="fw-semibold">⚙️ Scénario de base</Card.Header>
-            <Card.Body>
+          <Card className="h-full">
+            <CardHeader className="block space-y-0 border-b border-border px-4 py-2 font-semibold">
+              ⚙️ Scénario de base
+            </CardHeader>
+            <CardBody>
               {/* num_candidates */}
-              <Form.Group className="mb-3">
-                <Form.Label htmlFor="wi-num-cand" className="small mb-1">
+              <div className="mb-3">
+                <label htmlFor="wi-num-cand" className="mb-1 inline-block text-sm mb-1">
                   Candidats : <strong>{numCandidates}</strong>
-                </Form.Label>
-                <Form.Range
+                </label>
+                <Range
                   id="wi-num-cand"
-                  min={2} max={8} step={1}
+                  min={2}
+                  max={8}
+                  step={1}
                   value={numCandidates}
                   onChange={(e) => setNumCandidates(Number(e.target.value))}
-                  aria-valuemin={2} aria-valuemax={8} aria-valuenow={numCandidates}
+                  aria-valuemin={2}
+                  aria-valuemax={8}
+                  aria-valuenow={numCandidates}
                   disabled={variantParam === 'num_candidates'}
                 />
                 {variantParam === 'num_candidates' && (
-                  <Form.Text muted>Paramètre en cours de variation — slider désactivé</Form.Text>
+                  <small className="block text-sm text-muted-foreground">
+                    Paramètre en cours de variation — slider désactivé
+                  </small>
                 )}
-              </Form.Group>
+              </div>
 
               {/* num_voters */}
-              <Form.Group className="mb-3">
-                <Form.Label htmlFor="wi-num-voters" className="small mb-1">
+              <div className="mb-3">
+                <label htmlFor="wi-num-voters" className="mb-1 inline-block text-sm mb-1">
                   Électeurs : <strong>{numVoters.toLocaleString()}</strong>
-                </Form.Label>
-                <Form.Range
+                </label>
+                <Range
                   id="wi-num-voters"
-                  min={100} max={3000} step={100}
+                  min={100}
+                  max={3000}
+                  step={100}
                   value={numVoters}
                   onChange={(e) => setNumVoters(Number(e.target.value))}
-                  aria-valuemin={100} aria-valuemax={3000} aria-valuenow={numVoters}
+                  aria-valuemin={100}
+                  aria-valuemax={3000}
+                  aria-valuenow={numVoters}
                   disabled={variantParam === 'num_voters'}
                 />
                 {variantParam === 'num_voters' && (
-                  <Form.Text muted>Paramètre en cours de variation — slider désactivé</Form.Text>
+                  <small className="block text-sm text-muted-foreground">
+                    Paramètre en cours de variation — slider désactivé
+                  </small>
                 )}
-              </Form.Group>
+              </div>
 
               {/* ideology_distribution */}
-              <Form.Group className="mb-0">
-                <Form.Label htmlFor="wi-ideo" className="small mb-1">
+              <div className="mb-0">
+                <label htmlFor="wi-ideo" className="mb-1 inline-block text-sm mb-1">
                   Distribution idéologique
-                </Form.Label>
-                <Form.Select
+                </label>
+                <Select
                   id="wi-ideo"
                   size="sm"
                   value={ideoDistrib}
@@ -317,24 +398,34 @@ const WhatIfPage: React.FC = () => {
                   disabled={variantParam === 'polarization'}
                 >
                   {IDEOLOGY_OPTIONS.map((o) => (
-                    <option key={o.value} value={o.value}>{o.label}</option>
+                    <option key={o.value} value={o.value}>
+                      {o.label}
+                    </option>
                   ))}
-                </Form.Select>
+                </Select>
                 {variantParam === 'polarization' && (
-                  <Form.Text muted>La polarisation varie automatiquement</Form.Text>
+                  <small className="block text-sm text-muted-foreground">
+                    La polarisation varie automatiquement
+                  </small>
                 )}
-              </Form.Group>
-            </Card.Body>
+              </div>
+            </CardBody>
           </Card>
         </Col>
 
         {/* ── Right column — variant config ── */}
         <Col md={7}>
-          <Card className="h-100">
-            <Card.Header className="fw-semibold">🔀 Paramètre variable</Card.Header>
-            <Card.Body>
+          <Card className="h-full">
+            <CardHeader className="block space-y-0 border-b border-border px-4 py-2 font-semibold">
+              🔀 Paramètre variable
+            </CardHeader>
+            <CardBody>
               {/* Variant param selector */}
-              <div className="d-flex gap-2 flex-wrap mb-4" role="group" aria-label="Paramètre à faire varier">
+              <div
+                className="flex gap-2 flex-wrap mb-4"
+                role="group"
+                aria-label="Paramètre à faire varier"
+              >
                 {VARIANT_PARAMS.map((p) => (
                   <Button
                     key={p.value}
@@ -351,67 +442,75 @@ const WhatIfPage: React.FC = () => {
               {/* Min / Max sliders */}
               <Row className="g-3 mb-3">
                 <Col md={6}>
-                  <Form.Group>
-                    <Form.Label htmlFor="wi-var-min" className="small mb-1">
-                      Valeur min : <strong>
+                  <div>
+                    <label htmlFor="wi-var-min" className="mb-1 inline-block text-sm mb-1">
+                      Valeur min :{' '}
+                      <strong>
                         {paramDef.unit === '%' ? `${(variantMin * 100).toFixed(0)} %` : variantMin}
                       </strong>
-                    </Form.Label>
-                    <Form.Range
+                    </label>
+                    <Range
                       id="wi-var-min"
-                      min={paramDef.min} max={paramDef.max} step={paramDef.step}
+                      min={paramDef.min}
+                      max={paramDef.max}
+                      step={paramDef.step}
                       value={variantMin}
                       onChange={(e) => {
                         const v = Number(e.target.value);
                         setVariantMin(v);
-                        if (v >= variantMax) setVariantMax(Math.min(paramDef.max, v + paramDef.step * 3));
+                        if (v >= variantMax)
+                          setVariantMax(Math.min(paramDef.max, v + paramDef.step * 3));
                       }}
                     />
-                  </Form.Group>
+                  </div>
                 </Col>
                 <Col md={6}>
-                  <Form.Group>
-                    <Form.Label htmlFor="wi-var-max" className="small mb-1">
-                      Valeur max : <strong>
+                  <div>
+                    <label htmlFor="wi-var-max" className="mb-1 inline-block text-sm mb-1">
+                      Valeur max :{' '}
+                      <strong>
                         {paramDef.unit === '%' ? `${(variantMax * 100).toFixed(0)} %` : variantMax}
                       </strong>
-                    </Form.Label>
-                    <Form.Range
+                    </label>
+                    <Range
                       id="wi-var-max"
-                      min={paramDef.min} max={paramDef.max} step={paramDef.step}
+                      min={paramDef.min}
+                      max={paramDef.max}
+                      step={paramDef.step}
                       value={variantMax}
                       onChange={(e) => {
                         const v = Number(e.target.value);
                         setVariantMax(v);
-                        if (v <= variantMin) setVariantMin(Math.max(paramDef.min, v - paramDef.step * 3));
+                        if (v <= variantMin)
+                          setVariantMin(Math.max(paramDef.min, v - paramDef.step * 3));
                       }}
                     />
-                  </Form.Group>
+                  </div>
                 </Col>
               </Row>
 
               {/* Values preview */}
               <div className="mb-3">
-                <small className="text-muted">
+                <small className="text-muted-foreground">
                   Valeurs testées ({N_POINTS}) :{' '}
-                  {variantValues.map((v) =>
-                    paramDef.unit === '%' ? `${(v * 100).toFixed(0)}%` : v
-                  ).join(' · ')}
+                  {variantValues
+                    .map((v) => (paramDef.unit === '%' ? `${(v * 100).toFixed(0)}%` : v))
+                    .join(' · ')}
                 </small>
               </div>
 
               {/* Run button */}
-              <Button
-                variant="primary"
-                className="w-100"
-                onClick={runAnalysis}
-                disabled={loading}
-              >
+              <Button variant="primary" className="w-full" onClick={runAnalysis} disabled={loading}>
                 {loading ? (
-                  <><Spinner size="sm" className="me-2" />Analyse en cours…</>
-                ) : '▶ Lancer l\'analyse Et si…'}
+                  <>
+                    <Spinner size="sm" className="me-2" />
+                    Analyse en cours…
+                  </>
+                ) : (
+                  "▶ Lancer l'analyse Et si…"
+                )}
               </Button>
-            </Card.Body>
+            </CardBody>
           </Card>
         </Col>
       </Row>
@@ -427,37 +526,50 @@ const WhatIfPage: React.FC = () => {
       {hasResults && (
         <>
           <Card className="mb-3">
-            <Card.Header className="d-flex align-items-center justify-content-between">
+            <CardHeader className="block space-y-0 border-b border-border px-4 py-2 flex items-center justify-between">
               <strong>Score de majorité par méthode</strong>
-              <small className="text-muted">
+              <small className="text-muted-foreground">
                 {paramDef.label} varie de {xFormatter(variantMin)} à {xFormatter(variantMax)}
                 {' · '}⭐ = changement de vainqueur
               </small>
-            </Card.Header>
-            <Card.Body>
+            </CardHeader>
+            <CardBody>
               <ResponsiveContainer width="100%" height={320}>
                 <LineChart data={chartData} margin={{ top: 8, right: 24, left: 0, bottom: 8 }}>
                   <CartesianGrid strokeDasharray="3 3" stroke="var(--bs-border-color, #dee2e6)" />
                   <XAxis
                     dataKey="value"
                     tickFormatter={xFormatter}
-                    label={{ value: paramDef.label, position: 'insideBottom', offset: -4, fontSize: 12 }}
+                    label={{
+                      value: paramDef.label,
+                      position: 'insideBottom',
+                      offset: -4,
+                      fontSize: 12,
+                    }}
                     tick={{ fontSize: 11 }}
                   />
                   <YAxis
                     domain={[0, 100]}
                     tickFormatter={(v) => `${v}%`}
-                    label={{ value: 'Score majorité (%)', angle: -90, position: 'insideLeft', fontSize: 12 }}
+                    label={{
+                      value: 'Score majorité (%)',
+                      angle: -90,
+                      position: 'insideLeft',
+                      fontSize: 12,
+                    }}
                     tick={{ fontSize: 11 }}
                     width={60}
                   />
                   <Tooltip
                     content={<WhatIfTooltip variantUnit={paramDef.unit} results={results} />}
                   />
-                  <Legend verticalAlign="top" formatter={(value) => {
-                    const m = String(value).replace('_score', '');
-                    return METHOD_LABELS[m] ?? m;
-                  }} />
+                  <Legend
+                    verticalAlign="top"
+                    formatter={(value) => {
+                      const m = String(value).replace('_score', '');
+                      return METHOD_LABELS[m] ?? m;
+                    }}
+                  />
 
                   {/* Reference lines where winner changes */}
                   {[...changeValueIndices].map((v) => (
@@ -487,7 +599,7 @@ const WhatIfPage: React.FC = () => {
                   ))}
                 </LineChart>
               </ResponsiveContainer>
-            </Card.Body>
+            </CardBody>
           </Card>
 
           {/* ── Divergence message ── */}
@@ -500,18 +612,24 @@ const WhatIfPage: React.FC = () => {
           {/* ── Winner changes detail ── */}
           {winnerChanges.length > 0 && expertMode && (
             <Card className="mb-3">
-              <Card.Header><strong>Changements de vainqueur</strong></Card.Header>
-              <Card.Body className="py-2">
+              <CardHeader className="block space-y-0 border-b border-border px-4 py-2">
+                <strong>Changements de vainqueur</strong>
+              </CardHeader>
+              <CardBody className="py-2">
                 {winnerChanges.map((c, i) => (
-                  <div key={i} className="d-flex align-items-center gap-2 mb-1" style={{ fontSize: '0.85rem' }}>
-                    <Badge bg="secondary">{METHOD_LABELS[c.method] ?? c.method}</Badge>
+                  <div
+                    key={i}
+                    className="flex items-center gap-2 mb-1"
+                    style={{ fontSize: '0.85rem' }}
+                  >
+                    <Badge variant="secondary">{METHOD_LABELS[c.method] ?? c.method}</Badge>
                     <span>{xFormatter(c.value)} →</span>
-                    <span className="text-muted">{c.from ?? '—'}</span>
+                    <span className="text-muted-foreground">{c.from ?? '—'}</span>
                     <span>→</span>
-                    <span className="fw-semibold">{c.to ?? '—'}</span>
+                    <span className="font-semibold">{c.to ?? '—'}</span>
                   </div>
                 ))}
-              </Card.Body>
+              </CardBody>
             </Card>
           )}
 
@@ -522,16 +640,18 @@ const WhatIfPage: React.FC = () => {
                 <tr>
                   <th>{paramDef.label}</th>
                   {SHOWN_METHODS.map((m) => (
-                    <th key={m} className="text-center">{METHOD_LABELS[m] ?? m}</th>
+                    <th key={m} className="text-center">
+                      {METHOD_LABELS[m] ?? m}
+                    </th>
                   ))}
                 </tr>
               </thead>
               <tbody>
                 {results.map((r, i) => (
                   <tr key={i}>
-                    <td className="fw-semibold">{xFormatter(r.value)}</td>
+                    <td className="font-semibold">{xFormatter(r.value)}</td>
                     {SHOWN_METHODS.map((m) => {
-                      const md   = r.methods[m];
+                      const md = r.methods[m];
                       const prev = i > 0 ? results[i - 1].methods[m]?.winner : null;
                       const changed = prev !== null && prev !== md?.winner;
                       return (

@@ -5,9 +5,11 @@
  * ANY view can be pinned without modifying existing page components.
  */
 import React, { useRef, useState } from 'react';
-import { Button, Form, InputGroup, Spinner } from 'react-bootstrap';
+import { Button } from '@/components/ui/button';
+import { Control } from '@/components/ui/form-controls';
+import { Spinner } from '@/components/ui/spinner';
 import { useNavigate } from 'react-router';
-import { useTeacherMode } from '../../context/TeacherModeContext';
+import { useTeacherMode } from '../../stores/useUIStore';
 
 // ── Teacher Banner ────────────────────────────────────────────────────────
 
@@ -34,8 +36,8 @@ export const TeacherBanner: React.FC = () => {
       }}
     >
       <span>
-        🎓 <strong>Mode Enseignant actif</strong>{' '}
-        — {slides.length} slide{slides.length !== 1 ? 's' : ''} en mémoire
+        🎓 <strong>Mode Enseignant actif</strong> — {slides.length} slide
+        {slides.length !== 1 ? 's' : ''} en mémoire
       </span>
       <Button
         variant="outline-light"
@@ -53,9 +55,9 @@ export const TeacherBanner: React.FC = () => {
 
 export const TeacherCaptureButton: React.FC = () => {
   const { teacherMode, captureScreen, capturing } = useTeacherMode();
-  const [open, setOpen]   = useState(false);
+  const [open, setOpen] = useState(false);
   const [title, setTitle] = useState('');
-  const inputRef          = useRef<HTMLInputElement>(null);
+  const inputRef = useRef<HTMLInputElement>(null);
 
   if (!teacherMode) return null;
 
@@ -96,11 +98,11 @@ export const TeacherCaptureButton: React.FC = () => {
             width: 280,
           }}
         >
-          <div className="fw-semibold mb-2" style={{ fontSize: '0.88rem' }}>
+          <div className="font-semibold mb-2" style={{ fontSize: '0.88rem' }}>
             Titre de la slide
           </div>
-          <InputGroup size="sm" className="mb-2">
-            <Form.Control
+          <div className="flex items-stretch mb-2">
+            <Control
               ref={inputRef}
               value={title}
               onChange={(e) => setTitle(e.target.value)}
@@ -111,16 +113,23 @@ export const TeacherCaptureButton: React.FC = () => {
               }}
               aria-label="Titre de la slide à capturer"
             />
-          </InputGroup>
-          <div className="d-flex gap-2">
+          </div>
+          <div className="flex gap-2">
             <Button
               variant="success"
               size="sm"
               onClick={handleCapture}
               disabled={capturing}
-              className="flex-grow-1"
+              className="grow"
             >
-              {capturing ? <><Spinner size="sm" className="me-1" />Capture…</> : '📌 Capturer'}
+              {capturing ? (
+                <>
+                  <Spinner size="sm" className="me-1" />
+                  Capture…
+                </>
+              ) : (
+                '📌 Capturer'
+              )}
             </Button>
             <Button variant="outline-secondary" size="sm" onClick={() => setOpen(false)}>
               ✕
@@ -138,7 +147,11 @@ export const TeacherCaptureButton: React.FC = () => {
         title="Ajouter à la présentation"
       >
         {capturing ? <Spinner size="sm" /> : '📌'}
-        {!open && <span className="ms-1" style={{ fontSize: '0.82rem' }}>Ajouter</span>}
+        {!open && (
+          <span className="ms-1" style={{ fontSize: '0.82rem' }}>
+            Ajouter
+          </span>
+        )}
       </Button>
     </div>
   );
@@ -159,27 +172,30 @@ interface PinZoneProps {
  * Use this in NEW pages/sections — no need to touch existing chart components.
  */
 export const PinZone: React.FC<PinZoneProps> = ({
-  title, content, type = 'chart', children, className,
+  title,
+  content,
+  type = 'chart',
+  children,
+  className,
 }) => {
   const { teacherMode, addSlide } = useTeacherMode();
 
   return (
-    <div
-      style={{ position: 'relative' }}
-      className={className}
-    >
+    <div style={{ position: 'relative' }} className={className}>
       {children}
       {teacherMode && (
         <button
-          onClick={() => addSlide({
-            type,
-            title,
-            content: {
-              description: title,
-              data: content,
-              route: window.location.pathname,
-            },
-          })}
+          onClick={() =>
+            addSlide({
+              type,
+              title,
+              content: {
+                description: title,
+                data: content,
+                route: window.location.pathname,
+              },
+            })
+          }
           title="Ajouter à la présentation enseignant"
           aria-label={`Ajouter « ${title} » à la présentation`}
           style={{
@@ -197,8 +213,12 @@ export const PinZone: React.FC<PinZoneProps> = ({
             opacity: 0.85,
             transition: 'opacity 0.15s',
           }}
-          onMouseEnter={(e) => { (e.currentTarget as HTMLButtonElement).style.opacity = '1'; }}
-          onMouseLeave={(e) => { (e.currentTarget as HTMLButtonElement).style.opacity = '0.85'; }}
+          onMouseEnter={(e) => {
+            (e.currentTarget as HTMLButtonElement).style.opacity = '1';
+          }}
+          onMouseLeave={(e) => {
+            (e.currentTarget as HTMLButtonElement).style.opacity = '0.85';
+          }}
         >
           📌 Ajouter
         </button>

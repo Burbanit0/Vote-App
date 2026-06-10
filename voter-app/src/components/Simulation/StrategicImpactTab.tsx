@@ -1,5 +1,5 @@
 import React, { useMemo } from 'react';
-import { Card } from 'react-bootstrap';
+import { Card, CardContent, CardHeader } from '@/components/ui/card';
 import { useChartTheme } from '../../hooks/useChartTheme';
 import {
   CartesianGrid,
@@ -41,28 +41,22 @@ const StrategicImpactTab: React.FC<Props> = ({ strategicData, allMethodNames }) 
   // Maximum observed regret — used for the "vulnérables" annotation placement
   const maxRegret = useMemo(() => {
     if (!strategicData.length) return 0.5;
-    const vals = strategicData.flatMap((p) =>
-      Object.values(p.methods).map((v) => v ?? 0)
-    );
+    const vals = strategicData.flatMap((p) => Object.values(p.methods).map((v) => v ?? 0));
     return Math.max(...vals, 0.1);
   }, [strategicData]);
 
   return (
     <Card className="mb-4">
-      <Card.Header>
+      <CardHeader className="p-6 py-3">
         <strong>{t('simulation.strategicImpactTitle')}</strong>
-        <span className="text-muted ms-2" style={{ fontSize: '0.85rem' }}>
+        <span className="ml-2 text-[0.85rem] text-muted-foreground">
           {t('simulation.strategicImpactSubtitle')}
         </span>
-      </Card.Header>
-      <Card.Body>
-        <p className="text-muted small mb-3">
-          {t('simulation.strategicRise')}
-          {' '}
-          {t('simulation.strategicFlat')}
-          {' '}
-          <strong style={{ color: '#dc3545' }}>{t('methods.plurality.label')}</strong>
-          {' '}
+      </CardHeader>
+      <CardContent className="p-6">
+        <p className="text-muted-foreground text-sm mb-3">
+          {t('simulation.strategicRise')} {t('simulation.strategicFlat')}{' '}
+          <strong style={{ color: '#dc3545' }}>{t('methods.plurality.label')}</strong>{' '}
           {t('simulation.strategicHighlighted')}
         </p>
 
@@ -118,13 +112,28 @@ const StrategicImpactTab: React.FC<Props> = ({ strategicData, allMethodNames }) 
               <XAxis
                 dataKey="pct"
                 tick={{ fill: ct.tickFill }}
-                label={{ value: t('simulation.strategicVotersAxis'), position: 'insideBottom', offset: -15, fontSize: 12, fill: ct.tickFill }}
+                label={{
+                  value: t('simulation.strategicVotersAxis'),
+                  position: 'insideBottom',
+                  offset: -15,
+                  fontSize: 12,
+                  fill: ct.tickFill,
+                }}
               />
               <YAxis
                 tick={{ fontSize: 11, fill: ct.tickFill }}
-                label={{ value: t('simulation.bayesianRegret'), angle: -90, position: 'insideLeft', fontSize: 12, fill: ct.tickFill }}
+                label={{
+                  value: t('simulation.bayesianRegret'),
+                  angle: -90,
+                  position: 'insideLeft',
+                  fontSize: 12,
+                  fill: ct.tickFill,
+                }}
               />
-              <Tooltip formatter={(v: number) => (v !== null ? v.toFixed(4) : '—')} contentStyle={ct.tooltipStyle} />
+              <Tooltip
+                formatter={(v: number) => (v !== null ? v.toFixed(4) : '—')}
+                contentStyle={ct.tooltipStyle}
+              />
               <Legend verticalAlign="bottom" wrapperStyle={{ paddingTop: 24, fontSize: 11 }} />
 
               {allMethodNames.map((method) => {
@@ -134,7 +143,7 @@ const StrategicImpactTab: React.FC<Props> = ({ strategicData, allMethodNames }) 
                     key={method}
                     type="monotone"
                     dataKey={METHOD_LABELS[method] || method}
-                    stroke={isPlurality ? '#dc3545' : METHOD_LINE_COLORS[method] ?? '#999'}
+                    stroke={isPlurality ? '#dc3545' : (METHOD_LINE_COLORS[method] ?? '#999')}
                     strokeWidth={isPlurality ? 3 : 1.5}
                     strokeDasharray={isPlurality ? undefined : undefined}
                     dot={false}
@@ -146,7 +155,7 @@ const StrategicImpactTab: React.FC<Props> = ({ strategicData, allMethodNames }) 
             </LineChart>
           </ResponsiveContainer>
         )}
-      </Card.Body>
+      </CardContent>
     </Card>
   );
 };
