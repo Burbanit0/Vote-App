@@ -31,6 +31,11 @@ eggs/
 .eggs/
 lib/
 lib64/
+# The bare `lib/` above is a Python-packaging artifact pattern; it must NOT swallow
+# the frontend source dir voter-app/src/lib/ (shadcn `cn` helper). Without this the
+# file was untracked → absent on CI → every `@/lib/utils` import failed under coverage.
+!voter-app/src/lib/
+!voter-app/src/lib/**
 parts/
 sdist/
 var/
