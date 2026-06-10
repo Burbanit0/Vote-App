@@ -35,17 +35,19 @@ const resolveAtPath = (srcDir: string, source: string): string | null => {
   }
   return null;
 };
-let _atDiagLogged = false; // TEMP diagnostic — remove once CI is confirmed green.
 const atAlias = (srcDir: string): Plugin => ({
   name: 'vote-app:at-alias',
   enforce: 'pre',
   resolveId(source) {
     if (source === '@' || source.startsWith('@/')) {
       const resolved = resolveAtPath(srcDir, source);
-      if (!_atDiagLogged) {
-        _atDiagLogged = true;
-        // eslint-disable-next-line no-console
-        console.error(`[atAlias] plugin active — ${source} -> ${resolved}`);
+      // TEMP conclusive diagnostic: a throw cannot be swallowed by Vitest's console
+      // interception (a plain console.error was). If CI shows this marker, the plugin
+      // IS invoked under coverage (bug is downstream); if CI instead shows Vite's own
+      // "Failed to resolve import @/lib/utils", the plugin is BYPASSED under coverage.
+      // Remove once the root cause is settled.
+      if (source === '@/lib/utils') {
+        throw new Error(`ATALIAS_PLUGIN_REACHED resolved=${resolved}`);
       }
       return resolved;
     }
