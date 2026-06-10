@@ -2,29 +2,52 @@ import { defineConfig } from 'vitest/config';
 import type { Plugin } from 'vite';
 import react from '@vitejs/plugin-react';
 import { fileURLToPath } from 'node:url';
+import { existsSync, statSync } from 'node:fs';
 
 // Resolve a path relative to this config file → absolute (for alias replacements).
 const r = (p: string) => fileURLToPath(new URL(p, import.meta.url));
 
-// `@/…` → src resolver implemented as an `enforce: 'pre'` plugin (NOT resolve.alias).
+// `@/…` → src resolver implemented as an `enforce: 'pre'` plugin that returns a
+// fully-resolved ABSOLUTE FILE PATH via raw fs — deliberately NOT delegating to
+// Vite's resolver (resolve.alias / tsconfigPaths / this.resolve).
 //
-// Why a plugin instead of resolve.alias / resolve.tsconfigPaths: enabling coverage
-// changes Vitest's module-fetch pipeline, and on the Linux CI runner that pipeline
-// did NOT apply Vite's `resolve.alias`/native tsconfig-paths for `@/…` — so EVERY
-// component test failed under --coverage with `Failed to resolve import "@/lib/utils"`
-// (vite:import-analysis), even though the real `vite build` and plain `vitest run`
-// resolve it fine. A `resolveId` hook with `enforce: 'pre'` runs in EVERY transform
-// context (build, plain run, AND the coverage fetch), so it can't be skipped by
-// ordering. We rewrite `@/x` → `<src>/x` and hand it back to Vite's own resolver via
-// `this.resolve` so extension probing (.ts/.tsx/index) still works.
+// History: under `vitest run --coverage` on the GitHub Linux runner, EVERY `@/…`
+// import failed with `Failed to resolve import "@/lib/utils"` (vite:import-analysis),
+// while `vite build` and plain `vitest run` resolved it fine. We tried resolve.alias,
+// native resolve.tsconfigPaths, vite-tsconfig-paths, and an enforce:pre plugin that
+// delegated to `this.resolve` — ALL passed locally and ALL failed on that runner.
+// That rules out "which alias mechanism" and points at Vite's underlying (native
+// rolldown/oxc) resolver mis-resolving the aliased path specifically in the coverage
+// fetch context. So we stop routing through it: probe the filesystem ourselves and
+// return a concrete `<src>/x.tsx` path that needs no further resolution. Non-JS/TS
+// or unfound specifiers fall through (return null) so Vite handles them as before.
+const AT_EXTS = ['', '.ts', '.tsx', '.js', '.jsx', '.mjs', '.cjs', '.json'];
+const resolveAtPath = (srcDir: string, source: string): string | null => {
+  const base = source === '@' ? srcDir : `${srcDir}/${source.slice(2)}`;
+  for (const ext of AT_EXTS) {
+    const p = base + ext;
+    if (existsSync(p) && statSync(p).isFile()) return p;
+  }
+  for (const ext of AT_EXTS) {
+    if (!ext) continue;
+    const p = `${base}/index${ext}`;
+    if (existsSync(p)) return p;
+  }
+  return null;
+};
+let _atDiagLogged = false; // TEMP diagnostic — remove once CI is confirmed green.
 const atAlias = (srcDir: string): Plugin => ({
   name: 'vote-app:at-alias',
   enforce: 'pre',
-  async resolveId(source, importer, options) {
+  resolveId(source) {
     if (source === '@' || source.startsWith('@/')) {
-      const rewritten = source === '@' ? srcDir : `${srcDir}/${source.slice(2)}`;
-      const resolved = await this.resolve(rewritten, importer, { ...options, skipSelf: true });
-      if (resolved) return resolved;
+      const resolved = resolveAtPath(srcDir, source);
+      if (!_atDiagLogged) {
+        _atDiagLogged = true;
+        // eslint-disable-next-line no-console
+        console.error(`[atAlias] plugin active — ${source} -> ${resolved}`);
+      }
+      return resolved;
     }
     return null;
   },
