@@ -3,7 +3,9 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
 import { useElection, usePlayground } from '../stores/useElectionStore';
+import type { ElectionConfig, PlaygroundState } from '../stores/useElectionStore';
 import { useMetaTags } from '../hooks/useMetaTags';
+import { runProfileSimulate, type ProfileSimulateResult } from '../services/profileApi';
 
 // Lab reshape — Phase P0: the two-mode playground shell. Two questions over ONE
 // shared electorate: "Élire un dirigeant" (single office) vs "Composer un parlement"
@@ -28,6 +30,57 @@ const Field: React.FC<{ label: string; htmlFor?: string; children: React.ReactNo
 
 const selectCls =
   'w-full rounded-md border border-input bg-background px-2 py-1.5 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring';
+
+// ── Live profile diagnostics (P1) ───────────────────────────────────────────
+// Debounced call to the profile engine on every assumption change, surfacing the
+// paradox/cycle rate. The number visibly moves as the source/dims change — the
+// meta-lesson that conclusions are conditional on the model.
+function useProfileDiagnostics(
+  config: ElectionConfig,
+  playground: PlaygroundState
+): { result: ProfileSimulateResult | null; loading: boolean } {
+  const [result, setResult] = React.useState<ProfileSimulateResult | null>(null);
+  const [loading, setLoading] = React.useState(false);
+  const key = JSON.stringify(toProfileKey(config, playground));
+
+  React.useEffect(() => {
+    let alive = true;
+    setLoading(true);
+    const t = setTimeout(() => {
+      runProfileSimulate(config, playground)
+        .then((r) => {
+          if (alive) setResult(r);
+        })
+        .catch(() => {
+          if (alive) setResult(null);
+        })
+        .finally(() => {
+          if (alive) setLoading(false);
+        });
+    }, 350);
+    return () => {
+      alive = false;
+      clearTimeout(t);
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [key]);
+
+  return { result, loading };
+}
+
+// The minimal set of fields that change the profile (avoids re-fetch on unrelated state).
+function toProfileKey(config: ElectionConfig, pg: PlaygroundState) {
+  return {
+    source: pg.prefSource,
+    dims: pg.space.dims,
+    valence: pg.space.valenceEnabled,
+    behavior: pg.behavior,
+    prefParams: pg.prefParams,
+    num_voters: config.num_voters,
+    seed: config.seed,
+    candidates: config.candidates.map((c) => [c.name, c.x, c.y]),
+  };
+}
 
 // ── Canvas / Scorecard placeholders (replaced by live viz in P2/P3/P5) ──────
 
@@ -95,6 +148,7 @@ const PlaygroundPage: React.FC = () => {
     usePlayground();
   const { mode, space, behavior, prefSource, assembly } = playground;
   const pointWord = mode === 'leader' ? 'candidats' : 'partis';
+  const { result, loading } = useProfileDiagnostics(config, playground);
 
   return (
     <div data-testid="playground-page" className="container mx-auto px-3 py-4">
@@ -157,6 +211,29 @@ const PlaygroundPage: React.FC = () => {
             <div className="rounded-md bg-muted/40 px-2.5 py-2 text-xs text-muted-foreground">
               {config.candidates.length} {pointWord} · {config.num_voters} électeurs ·{' '}
               {config.ideology}
+            </div>
+
+            {/* Paradox/cycle rate read-out (P1) */}
+            <div
+              data-testid="cycle-rate"
+              className="rounded-md border border-border px-2.5 py-2"
+              title="Part des électorats ré-échantillonnés sans vainqueur de Condorcet — un taux élevé signale que le résultat dépend fortement des hypothèses."
+            >
+              <div className="flex items-center justify-between">
+                <span className="text-xs font-medium text-muted-foreground">
+                  Taux de paradoxe (cycles)
+                </span>
+                <span className="text-sm font-semibold tabular-nums">
+                  {loading || !result ? '…' : `${Math.round(result.cycle_rate * 100)} %`}
+                </span>
+              </div>
+              {result && (
+                <p className="mt-1 text-[0.7rem] text-muted-foreground/80">
+                  {result.condorcet_winner
+                    ? `Vainqueur de Condorcet : ${result.condorcet_winner}`
+                    : 'Aucun vainqueur de Condorcet (cycle).'}
+                </p>
+              )}
             </div>
 
             {/* Knobs */}

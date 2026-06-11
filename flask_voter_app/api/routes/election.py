@@ -96,6 +96,8 @@ from api.schemas import (
     ShyVoterResponse,
     SimulatePipelineRequest,
     SimulatePipelineResponse,
+    ProfileSimulateRequest,
+    ProfileSimulateResponse,
     SimulateRequest,
     SimulateResponse,
     SortitionRequest,
@@ -134,6 +136,7 @@ from api.domain.election import (
     polarization as polarization_domain,
     power_indices as power_indices_domain,
     primary as primary_domain,
+    profile_simulate as profile_simulate_domain,
     quadratic_funding as quadratic_funding_domain,
     shy_voter as shy_voter_domain,
     simulate as simulate_domain,
@@ -219,6 +222,25 @@ async def simulate_endpoint(request: SimulateRequest) -> SimulateResponse:
     eventlet anywhere on the v2 path.
     """
     return await _run_typed(simulate_domain, request, SimulateResponse)
+
+
+# ── /profile-simulate (Lab reshape P1) ────────────────────────────────────────
+
+@router.post(
+    "/profile-simulate",
+    response_model=ProfileSimulateResponse,
+    summary="Run every method over a configurable preference profile",
+    response_description="Per-method winners, the profile's 2D embedding, and the "
+                         "paradox/cycle rate, for a user-chosen preference source.",
+)
+async def profile_simulate_endpoint(
+    request: ProfileSimulateRequest,
+) -> ProfileSimulateResponse:
+    """The profile-as-interface core: build a profile from the chosen source
+    (spatial / impartial culture / Mallows / Pólya urn / handcrafted), apply the
+    behaviour transform, then run all methods. The cycle_rate read-out exposes how
+    conclusions are conditional on the assumptions."""
+    return await _run_typed(profile_simulate_domain, request, ProfileSimulateResponse)
 
 
 # ── /combined-effects ───────────────────────────────────────────────────────

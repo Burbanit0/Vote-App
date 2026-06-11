@@ -13,7 +13,7 @@ when the routes themselves move to FastAPI.
 """
 from __future__ import annotations
 
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List, Literal, Optional
 
 from pydantic import BaseModel, ConfigDict, Field
 
@@ -26,6 +26,60 @@ from .common import (
     MethodResult,
     VoterSnapshot,
 )
+
+
+# ── /profile-simulate (Lab reshape P1) ────────────────────────────────────────
+
+class ProfileCandidateSpec(BaseModel):
+    """A candidate/party for the profile engine. Adds an optional 3rd axis and a
+    valence (off-ideology quality) term over the plain 2D CandidateSpec."""
+    model_config = ConfigDict(extra="forbid")
+
+    name:    str   = Field(..., min_length=1, max_length=64)
+    x:       float = Field(0.0, ge=-1.0, le=1.0, description="Axis 1 position.")
+    y:       float = Field(0.0, ge=-1.0, le=1.0, description="Axis 2 position.")
+    z:       float = Field(0.0, ge=-1.0, le=1.0, description="Axis 3 position (dims=3).")
+    valence: float = Field(0.0, ge=-1.0, le=1.0, description="Off-ideology quality bonus.")
+
+
+class ProfileSimulateRequest(BaseModel):
+    """POST /api/v2/election/profile-simulate — the profile-as-interface core.
+
+    Every assumption is an explicit knob: the preference source and its params, the
+    dimensionality, valence, and the voter behaviour. Nothing is smuggled in.
+    """
+    model_config = ConfigDict(extra="forbid")
+
+    source: Literal["spatial", "impartial", "mallows", "urn", "handcrafted"] = Field("spatial")
+    candidates: List[ProfileCandidateSpec] = Field(..., min_length=2, max_length=8)
+    num_voters: int = Field(300, ge=10, le=1000)
+    dims:       int = Field(2, ge=1, le=3)
+    valence:    bool = Field(False)
+    behavior: Literal["sincere", "strategic", "mixed"] = Field("sincere")
+    source_params: Dict[str, float] = Field(
+        default_factory=dict,
+        description="Source knobs: Mallows {phi}, Pólya urn {alpha}.",
+    )
+    handcrafted_matrix: Optional[List[List[float]]] = Field(
+        None, description="Rows = voters, cols = candidates (aligned), for source=handcrafted."
+    )
+    seed: int = Field(42, ge=0)
+
+
+class ProfileSimulateResponse(BaseModel):
+    """Per-method winners over the built profile + its 2D embedding + the
+    paradox/cycle rate read-out."""
+    model_config = ConfigDict(extra="forbid")
+
+    methods:                Dict[str, MethodResult] = Field(..., description="Keyed by method slug.")
+    condorcet_winner:       Optional[str]           = Field(None)
+    inter_method_agreement: float                   = Field(..., ge=0.0, le=1.0)
+    cycle_rate:             float                   = Field(..., ge=0.0, le=1.0,
+                                                            description="Share of resampled profiles with no Condorcet winner.")
+    candidate_names:        List[str]               = Field(...)
+    display_points:         List[List[float]]       = Field(..., description="Per-voter 2D embedding for the map.")
+    candidate_points:       Optional[List[List[float]]] = Field(None, description="Candidate 2D points (spatial source only).")
+    num_voters:             int                     = Field(..., ge=1)
 
 
 # ── /simulate ───────────────────────────────────────────────────────────────

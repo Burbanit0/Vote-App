@@ -67,6 +67,8 @@ from .election import (
     StvResponse,
     SimulateRequest,
     SimulateResponse,
+    ProfileSimulateRequest,
+    ProfileSimulateResponse,
 )
 from .export import (
     ExportDatasetJSON,
@@ -240,6 +242,7 @@ __all__ = [
     "PrimaryResponse", "QuadraticFundingResponse", "SimulatePipelineResponse",
     "StvResponse",
     "SimulateRequest", "SimulateResponse",
+    "ProfileSimulateRequest", "ProfileSimulateResponse",
     # perturbers (request-only — see perturbers.py)
     "AdaptiveRequest",
     "AffectivePolarizationRequest", "BallotComplexityRequest",

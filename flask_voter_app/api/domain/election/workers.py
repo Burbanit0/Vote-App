@@ -23,6 +23,7 @@ import numpy as _np
 from api.engine.constants import DEFAULT_ISSUES
 from api.engine.utils.simulation_voting_utils import calculate_utility, create_candidate, create_voter
 from api.engine.utils.simulation_metrics      import compare_all_methods
+from api.engine.utils.profile_engine          import build_profile, cycle_rate
 from api.engine.utils.simulation_ranked_utils import (
     get_plurality_winner,
     get_condorcet_winner,
@@ -6490,6 +6491,74 @@ def _power_indices_worker(data: Dict[str, Any]) -> tuple[Dict[str, Any], int]:
         "viable_coalitions":  viable_coalitions[:50],
         "power_surprises":    surprises,
         "pedagogical_note":   note,
+    }, 200
+
+
+# ── Profile-simulate (Lab reshape P1) ─────────────────────────────────────────
+
+_PROFILE_DEFAULT_CANDS = [
+    {"name": "Alice", "x": -0.5, "y": -0.2},
+    {"name": "Bob",   "x":  0.5, "y":  0.2},
+    {"name": "Carol", "x":  0.0, "y":  0.3},
+]
+
+
+def _profile_simulate_worker(data: Dict[str, Any]) -> tuple[Dict[str, Any], int]:
+    """Pure worker for /profile-simulate (Lab reshape P1).
+
+    Builds a preference profile from a user-chosen source (spatial / impartial /
+    mallows / urn / handcrafted), applies the behaviour transform, runs every method
+    via compare_all_methods(override_utilities=...), and returns winners + the
+    profile's 2D embedding + the paradox/cycle rate (the robustness read-out).
+    """
+    source       = str(data.get("source", "spatial"))
+    behavior     = str(data.get("behavior", "sincere"))
+    dims         = max(1, min(3, int(data.get("dims", 2))))
+    valence      = bool(data.get("valence", False))
+    num_voters   = max(10, min(1000, int(data.get("num_voters", 300))))
+    seed         = int(data.get("seed", 42))
+    source_params: Dict[str, float] = {
+        k: float(v) for k, v in (data.get("source_params") or {}).items()
+    }
+    cand_specs   = (data.get("candidates") or _PROFILE_DEFAULT_CANDS)[:8]
+    handcrafted  = data.get("handcrafted_matrix")
+
+    names_in = [str(c.get("name", f"C{i}")) for i, c in enumerate(cand_specs)]
+    if len(names_in) < 2:
+        return {"error": "At least 2 candidates required"}, 400
+    if source == "handcrafted":
+        if not handcrafted or len(handcrafted) < 1:
+            return {"error": "handcrafted source requires a non-empty matrix"}, 400
+        if any(len(row) != len(names_in) for row in handcrafted):
+            return {"error": "each handcrafted row must match the candidate count"}, 400
+
+    try:
+        built = build_profile(
+            source, cand_specs, num_voters, dims, valence, behavior,
+            source_params, seed, handcrafted_matrix=handcrafted,
+        )
+    except ValueError as exc:
+        return {"error": str(exc)}, 400
+
+    matrix = built["matrix"]
+    names  = built["names"]
+    voters     = [{"id": vid} for vid in matrix]
+    candidates = [{"name": n} for n in names]
+
+    result = compare_all_methods(voters, candidates, [], override_utilities=matrix)
+    methods_out: Dict[str, Any] = {
+        name: {"winner": md.get("winner")} for name, md in result.get("methods", {}).items()
+    }
+
+    return {
+        "methods":                methods_out,
+        "condorcet_winner":       result.get("condorcet_winner"),
+        "inter_method_agreement": _inter_method_agreement(methods_out),
+        "cycle_rate":             cycle_rate(source, names, min(num_voters, 200), source_params, seed),
+        "candidate_names":        names,
+        "display_points":         built["display_points"],
+        "candidate_points":       built["candidate_points"],
+        "num_voters":             len(matrix),
     }, 200
 
 

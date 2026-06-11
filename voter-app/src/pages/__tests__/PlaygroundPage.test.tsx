@@ -1,8 +1,20 @@
 import React from 'react';
-import { render, screen, fireEvent } from '@testing-library/react';
+import { render, screen, fireEvent, waitFor } from '@testing-library/react';
 import '@testing-library/jest-dom';
 
 vi.mock('../../hooks/useMetaTags', () => ({ useMetaTags: () => {} }));
+vi.mock('../../services/profileApi', () => ({
+  runProfileSimulate: vi.fn().mockResolvedValue({
+    methods: { plurality: { winner: 'A' } },
+    condorcet_winner: 'A',
+    inter_method_agreement: 1,
+    cycle_rate: 0.12,
+    candidate_names: ['A', 'B'],
+    display_points: [],
+    candidate_points: null,
+    num_voters: 300,
+  }),
+}));
 
 import PlaygroundPage from '../PlaygroundPage';
 import { useElectionStore, DEFAULT_PLAYGROUND, DEFAULT_CONFIG } from '../../stores/useElectionStore';
@@ -55,5 +67,10 @@ describe('PlaygroundPage (P0 shell)', () => {
 
     expect(useElectionStore.getState().playground.space.dims).toBe(3);
     expect(JSON.parse(localStorage.getItem(LS_PG) as string).space.dims).toBe(3);
+  });
+
+  it('surfaces the cycle-rate read-out from the profile engine', async () => {
+    render(<PlaygroundPage />);
+    await waitFor(() => expect(screen.getByTestId('cycle-rate')).toHaveTextContent('12 %'));
   });
 });
