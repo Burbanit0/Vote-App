@@ -17,6 +17,7 @@ Flask workers will be deleted.
 from api.domain.election.workers import (
     _abstention_worker,
     _adaptive_worker,
+    _assembly_worker,
     _affective_polarization_worker,
     _ballot_complexity_worker,
     _behavioral_biases_worker,
@@ -63,6 +64,12 @@ def profile_simulate(data: dict) -> tuple[dict, int]:
     """Lab reshape P1: run every method over a profile built from a user-chosen
     preference source (spatial / impartial / mallows / urn / handcrafted)."""
     return _profile_simulate_worker(data)
+
+
+def assembly(data: dict) -> tuple[dict, int]:
+    """Lab reshape P3: party-level seats under PR / FPTP / MMP over one shared
+    electorate — proportionality, fragmentation, wasted votes, coalitions."""
+    return _assembly_worker(data)
 
 
 def combined_effects(data: dict) -> tuple[dict, int]:

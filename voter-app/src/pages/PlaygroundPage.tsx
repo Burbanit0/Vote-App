@@ -7,7 +7,9 @@ import type { ElectionConfig, PlaygroundState } from '../stores/useElectionStore
 import { useMetaTags } from '../hooks/useMetaTags';
 import { runProfileSimulate, type ProfileSimulateResult } from '../services/profileApi';
 import LeaderCanvas from '../components/playground/LeaderCanvas';
+import ParliamentCanvas from '../components/playground/ParliamentCanvas';
 import { sampleVoters, type Rule } from '../lib/playgroundVoting';
+import { runAssembly, type AssemblyResult } from '../services/assemblyApi';
 
 // Lab reshape — Phase P0: the two-mode playground shell. Two questions over ONE
 // shared electorate: "Élire un dirigeant" (single office) vs "Composer un parlement"
@@ -70,6 +72,49 @@ function useProfileDiagnostics(
   return { result, loading };
 }
 
+// Debounced call to /assembly (P3) — only while in parliament mode.
+function useAssembly(
+  config: ElectionConfig,
+  playground: PlaygroundState,
+  enabled: boolean
+): { assembly: AssemblyResult | null; loading: boolean } {
+  const [assembly, setAssembly] = React.useState<AssemblyResult | null>(null);
+  const [loading, setLoading] = React.useState(false);
+  const key = JSON.stringify({
+    enabled,
+    a: playground.assembly,
+    num_voters: config.num_voters,
+    ideology: config.ideology,
+    seed: config.seed,
+    parties: config.candidates.map((c) => [c.name, c.x, c.y]),
+  });
+
+  React.useEffect(() => {
+    if (!enabled) return;
+    let alive = true;
+    setLoading(true);
+    const t = setTimeout(() => {
+      runAssembly(config, playground)
+        .then((r) => {
+          if (alive) setAssembly(r);
+        })
+        .catch(() => {
+          if (alive) setAssembly(null);
+        })
+        .finally(() => {
+          if (alive) setLoading(false);
+        });
+    }, 300);
+    return () => {
+      alive = false;
+      clearTimeout(t);
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [key]);
+
+  return { assembly, loading };
+}
+
 // The minimal set of fields that change the profile (avoids re-fetch on unrelated state).
 function toProfileKey(config: ElectionConfig, pg: PlaygroundState) {
   return {
@@ -84,26 +129,7 @@ function toProfileKey(config: ElectionConfig, pg: PlaygroundState) {
   };
 }
 
-// ── Canvas / Scorecard placeholders (replaced by live viz in P2/P3/P5) ──────
-
-const CanvasPlaceholder: React.FC<{ mode: 'leader' | 'parliament'; subtitle: string }> = ({
-  mode,
-  subtitle,
-}) => (
-  <div
-    data-testid={`canvas-${mode}`}
-    className="flex h-full min-h-[20rem] flex-col items-center justify-center rounded-lg border border-dashed border-border bg-muted/30 p-8 text-center"
-  >
-    <div className="text-5xl">{mode === 'leader' ? '👑' : '🏛'}</div>
-    <p className="mt-3 font-semibold">
-      {mode === 'leader' ? 'Canvas — Élire un dirigeant' : 'Canvas — Composer un parlement'}
-    </p>
-    <p className="mt-1 max-w-md text-sm text-muted-foreground">{subtitle}</p>
-    <p className="mt-3 text-xs text-muted-foreground/70">
-      Visualisation dynamique à venir (phase P2/P3).
-    </p>
-  </div>
-);
+// ── Scorecard placeholder (replaced by the live scorecard in P5) ─────────────
 
 const LEADER_AXES = [
   'Efficacité Condorcet',
@@ -151,6 +177,11 @@ const PlaygroundPage: React.FC = () => {
   const { mode, space, behavior, prefSource, assembly } = playground;
   const pointWord = mode === 'leader' ? 'candidats' : 'partis';
   const { result, loading } = useProfileDiagnostics(config, playground);
+  const { assembly: assemblyResult, loading: assemblyLoading } = useAssembly(
+    config,
+    playground,
+    mode === 'parliament'
+  );
 
   // Single-office canvas (P2): a deterministic voter cloud + draggable candidates.
   const [leaderRule, setLeaderRule] = React.useState<Rule>('plurality');
@@ -383,9 +414,12 @@ const PlaygroundPage: React.FC = () => {
                 onMoveCandidate={moveCandidate}
               />
             ) : (
-              <CanvasPlaceholder
-                mode="parliament"
-                subtitle="Les points sont des partis. Composez l’hémicycle et observez la proportionnalité selon la structure."
+              <ParliamentCanvas
+                parties={config.candidates}
+                voters={voters}
+                result={assemblyResult}
+                loading={assemblyLoading}
+                onMoveParty={moveCandidate}
               />
             )}
           </CardContent>

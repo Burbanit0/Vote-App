@@ -96,6 +96,8 @@ from api.schemas import (
     ShyVoterResponse,
     SimulatePipelineRequest,
     SimulatePipelineResponse,
+    AssemblyRequest,
+    AssemblyResponse,
     ProfileSimulateRequest,
     ProfileSimulateResponse,
     SimulateRequest,
@@ -109,6 +111,7 @@ from api.schemas import (
 from api.domain.election import (
     abstention as abstention_domain,
     adaptive as adaptive_domain,
+    assembly as assembly_domain,
     affective_polarization as affective_polarization_domain,
     ballot_complexity as ballot_complexity_domain,
     behavioral_biases as behavioral_biases_domain,
@@ -241,6 +244,23 @@ async def profile_simulate_endpoint(
     behaviour transform, then run all methods. The cycle_rate read-out exposes how
     conclusions are conditional on the assumptions."""
     return await _run_typed(profile_simulate_domain, request, ProfileSimulateResponse)
+
+
+# ── /assembly (Lab reshape P3) ────────────────────────────────────────────────
+
+@router.post(
+    "/assembly",
+    response_model=AssemblyResponse,
+    summary="Compose a parliament: votes → seats under PR / FPTP / MMP",
+    response_description="Seats per party, proportionality (Gallagher), fragmentation "
+                         "(effective number of parties), wasted votes, and the minimal "
+                         "winning coalitions.",
+)
+async def assembly_endpoint(request: AssemblyRequest) -> AssemblyResponse:
+    """Party-level assembly over one shared electorate. The same voters under
+    PR vs FPTP vs MMP expose the proportionality/governability trade-off; the
+    threshold knob shows small parties dropping off the cliff."""
+    return await _run_typed(assembly_domain, request, AssemblyResponse)
 
 
 # ── /combined-effects ───────────────────────────────────────────────────────

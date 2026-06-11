@@ -3,6 +3,20 @@ import { render, screen, fireEvent, waitFor } from '@testing-library/react';
 import '@testing-library/jest-dom';
 
 vi.mock('../../hooks/useMetaTags', () => ({ useMetaTags: () => {} }));
+vi.mock('../../services/assemblyApi', () => ({
+  runAssembly: vi.fn().mockResolvedValue({
+    structure: 'pr',
+    assembly_size: 100,
+    majority: 51,
+    threshold_waived: false,
+    parties: [],
+    gallagher_index: 1.0,
+    effective_parties_votes: 3.0,
+    effective_parties_seats: 2.9,
+    wasted_vote_share: 0.02,
+    coalitions: [],
+  }),
+}));
 vi.mock('../../services/profileApi', () => ({
   runProfileSimulate: vi.fn().mockResolvedValue({
     methods: { plurality: { winner: 'A' } },

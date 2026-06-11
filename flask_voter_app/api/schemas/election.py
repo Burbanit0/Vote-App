@@ -82,6 +82,75 @@ class ProfileSimulateResponse(BaseModel):
     num_voters:             int                     = Field(..., ge=1)
 
 
+# ── /assembly (Lab reshape P3) ────────────────────────────────────────────────
+
+class AssemblyPartySpec(BaseModel):
+    """A party placed on the ideological plane (the shared electorate's points
+    in parliament mode)."""
+    model_config = ConfigDict(extra="forbid")
+
+    name: str   = Field(..., min_length=1, max_length=64)
+    x:    float = Field(0.0, ge=-1.0, le=1.0)
+    y:    float = Field(0.0, ge=-1.0, le=1.0)
+
+
+class AssemblyRequest(BaseModel):
+    """POST /api/v2/election/assembly — votes → seats under PR / FPTP / MMP.
+
+    FPTP draws one single-member district per seat as equal-population bands
+    along the x axis (geography correlates with ideology). MMP allocates half
+    the seats in districts and tops up proportionally (overhang kept).
+    """
+    model_config = ConfigDict(extra="forbid")
+
+    parties: List[AssemblyPartySpec] = Field(..., min_length=2, max_length=8)
+    num_voters: int = Field(400, ge=10, le=1000)
+    ideology:   str = Field("random")
+    seed:       int = Field(42, ge=0)
+    structure: Literal["pr", "fptp", "mmp"] = Field("pr")
+    seats:     int   = Field(100, ge=10, le=500)
+    threshold: float = Field(0.05, ge=0.0, le=0.15,
+                             description="National vote-share threshold (PR/MMP lists).")
+    apportionment: Literal["dhondt", "sainte_lague"] = Field("dhondt")
+
+
+class AssemblyPartyResult(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    name:           str
+    x:              float
+    y:              float
+    votes:          int
+    vote_share:     float = Field(..., ge=0.0, le=1.0)
+    seats:          int
+    seat_share:     float = Field(..., ge=0.0, le=1.0)
+    district_seats: int   = Field(0, description="District wins (MMP only; 0 otherwise).")
+    excluded_by_threshold: bool
+
+
+class AssemblyCoalition(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    parties: List[str]
+    seats:   int
+    span:    float = Field(..., description="Max pairwise ideological distance inside the coalition.")
+
+
+class AssemblyResponse(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    structure:        str
+    assembly_size:    int = Field(..., description="Actual size (MMP overhang can exceed the nominal seats).")
+    majority:         int
+    threshold_waived: bool = Field(..., description="True if no party passed the threshold and it was waived.")
+    parties:          List[AssemblyPartyResult]
+    gallagher_index:          Optional[float] = Field(None)
+    effective_parties_votes:  Optional[float] = Field(None)
+    effective_parties_seats:  Optional[float] = Field(None)
+    wasted_vote_share:        float = Field(..., ge=0.0, le=1.0)
+    coalitions:               List[AssemblyCoalition] = Field(..., description="Minimal winning coalitions, most cohesive first.")
+
+
 # ── /simulate ───────────────────────────────────────────────────────────────
 
 class SimulateRequest(BaseModel):

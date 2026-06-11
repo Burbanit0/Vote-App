@@ -35,6 +35,7 @@ from api.engine.utils.simulation_ranked_utils import (
 from api.engine.utils.blank_vote_rules        import BlankVoteRule, apply_blank_rule
 from api.engine.utils.simulation_multiwinner_utils import (
     get_stv_result, get_dhondt_winners,
+    get_sainte_lague_winners, compute_proportionality_metrics,
     get_spav_result, get_phragmen_result,
 )
 from api.engine.utils.blank_contagion         import simulate_blank_contagion
@@ -6559,6 +6560,167 @@ def _profile_simulate_worker(data: Dict[str, Any]) -> tuple[Dict[str, Any], int]
         "display_points":         built["display_points"],
         "candidate_points":       built["candidate_points"],
         "num_voters":             len(matrix),
+    }, 200
+
+
+# ── Assembly (Lab reshape P3) ─────────────────────────────────────────────────
+
+def _assembly_voters(n: int, seed: int, ideology: str) -> "_np.ndarray":
+    """Deterministic 2D voter cloud matching the playground ideology presets."""
+    rng = _np.random.default_rng(seed)
+    if ideology == "polarized":
+        left = rng.random(n) < 0.5
+        cx = _np.where(left, -0.5, 0.5)
+        cy = _np.where(left, -0.3, 0.3)
+        pts = _np.column_stack([rng.normal(cx, 0.22), rng.normal(cy, 0.3)])
+    elif ideology == "centrist":
+        pts = rng.normal(0.0, 0.25, size=(n, 2))
+    else:
+        pts = rng.normal(0.0, 0.45, size=(n, 2))
+    return _np.clip(pts, -1.0, 1.0)
+
+
+def _minimal_winning_coalitions(
+    seats: Dict[str, int], positions: Dict[str, tuple], majority: int
+) -> List[Dict[str, Any]]:
+    """Minimal winning coalitions (every member pivotal), with ideological span =
+    max pairwise distance between member parties. Sorted by smallest span (the
+    'governable' ones first), capped at 12."""
+    names = [p for p, s in seats.items() if s > 0]
+    out: List[Dict[str, Any]] = []
+    for mask in range(1, 1 << len(names)):
+        members = [names[i] for i in range(len(names)) if mask >> i & 1]
+        total = sum(seats[m] for m in members)
+        if total < majority:
+            continue
+        # minimal: removing any member must drop below majority
+        if any(total - seats[m] >= majority for m in members):
+            continue
+        span = 0.0
+        for i in range(len(members)):
+            for j in range(i + 1, len(members)):
+                a, b = positions[members[i]], positions[members[j]]
+                span = max(span, math.hypot(a[0] - b[0], a[1] - b[1]))
+        out.append({"parties": sorted(members), "seats": total, "span": round(span, 4)})
+    out.sort(key=lambda c: (c["span"], -c["seats"]))
+    return out[:12]
+
+
+def _assembly_worker(data: Dict[str, Any]) -> tuple[Dict[str, Any], int]:
+    """Pure worker for /assembly (Lab reshape P3).
+
+    One shared electorate, party-level question: votes → seats under
+    PR (national lists, threshold + apportionment), FPTP (one single-member
+    district per seat, districts drawn as equal-population bands along the x
+    axis — geography correlates with ideology, which is what makes wasted votes
+    and the winner's bonus legible), or MMP (half district seats, half
+    compensatory top-up; overhang seats are kept, so the assembly can slightly
+    exceed the nominal size).
+    """
+    parties_in  = (data.get("parties") or [])[:8]
+    num_voters  = max(10, min(1000, int(data.get("num_voters", 400))))
+    ideology    = str(data.get("ideology", "random"))
+    seed        = int(data.get("seed", 42))
+    structure   = str(data.get("structure", "pr"))
+    seats_total = max(10, min(500, int(data.get("seats", 100))))
+    threshold   = max(0.0, min(0.15, float(data.get("threshold", 0.05))))
+    appt        = str(data.get("apportionment", "dhondt"))
+
+    if len(parties_in) < 2:
+        return {"error": "At least 2 parties required"}, 400
+
+    names     = [str(p.get("name", f"P{i}")) for i, p in enumerate(parties_in)]
+    positions = {n: (float(p.get("x", 0.0)), float(p.get("y", 0.0)))
+                 for n, p in zip(names, parties_in)}
+    pts = _np.array([[positions[n][0], positions[n][1]] for n in names])
+
+    voters = _assembly_voters(num_voters, seed, ideology)
+    # Sincere party vote: nearest party in the plane.
+    d2 = ((voters[:, None, :] - pts[None, :, :]) ** 2).sum(axis=2)
+    choice = d2.argmin(axis=1)
+    votes = {n: int((choice == i).sum()) for i, n in enumerate(names)}
+    vote_share = {n: votes[n] / num_voters for n in names}
+
+    allocate = get_sainte_lague_winners if appt == "sainte_lague" else get_dhondt_winners
+
+    def _pr_alloc(n_seats: int) -> tuple[Dict[str, int], List[str], bool]:
+        """Threshold-filtered proportional allocation. Returns (seats, excluded, waived)."""
+        eligible = {n: votes[n] for n in names if vote_share[n] >= threshold and votes[n] > 0}
+        waived = False
+        if not eligible:  # nobody passes → waive the threshold rather than fail
+            eligible = {n: votes[n] for n in names if votes[n] > 0}
+            waived = True
+        alloc = allocate(eligible, n_seats)
+        seats = {n: int(alloc.get(n, 0)) for n in names}
+        excluded = [n for n in names if n not in eligible]
+        return seats, excluded, waived
+
+    district_seats = {n: 0 for n in names}
+    excluded: List[str] = []
+    threshold_waived = False
+    wasted = 0
+
+    if structure == "fptp":
+        # One single-member district per seat: equal-population bands along x.
+        order = _np.argsort(voters[:, 0], kind="stable")
+        bands = _np.array_split(order, seats_total)
+        seats = {n: 0 for n in names}
+        for band in bands:
+            if len(band) == 0:
+                continue
+            counts = _np.bincount(choice[band], minlength=len(names))
+            win = int(counts.argmax())
+            seats[names[win]] += 1
+            wasted += int(len(band) - counts[win])  # votes for district losers
+        assembly_size = seats_total
+    elif structure == "mmp":
+        n_districts = max(1, seats_total // 2)
+        order = _np.argsort(voters[:, 0], kind="stable")
+        bands = _np.array_split(order, n_districts)
+        for band in bands:
+            if len(band) == 0:
+                continue
+            counts = _np.bincount(choice[band], minlength=len(names))
+            district_seats[names[int(counts.argmax())]] += 1
+        target, excluded, threshold_waived = _pr_alloc(seats_total)
+        # Compensatory top-up; overhang (district wins beyond target) is kept.
+        seats = {n: max(target[n], district_seats[n]) for n in names}
+        assembly_size = sum(seats.values())
+        wasted = sum(votes[n] for n in excluded)
+    else:  # pr
+        seats, excluded, threshold_waived = _pr_alloc(seats_total)
+        assembly_size = seats_total
+        wasted = sum(votes[n] for n in excluded)
+
+    metrics = compute_proportionality_metrics(
+        {n: float(votes[n]) for n in names}, seats
+    )
+    majority = assembly_size // 2 + 1
+
+    return {
+        "structure":      structure,
+        "assembly_size":  assembly_size,
+        "majority":       majority,
+        "threshold_waived": threshold_waived,
+        "parties": [
+            {
+                "name":           n,
+                "x":              positions[n][0],
+                "y":              positions[n][1],
+                "votes":          votes[n],
+                "vote_share":     round(vote_share[n], 4),
+                "seats":          seats[n],
+                "seat_share":     round(seats[n] / assembly_size, 4) if assembly_size else 0.0,
+                "district_seats": district_seats[n],
+                "excluded_by_threshold": n in excluded,
+            }
+            for n in names
+        ],
+        "gallagher_index":          metrics["gallagher_index"],
+        "effective_parties_votes":  metrics["effective_parties_votes"],
+        "effective_parties_seats":  metrics["effective_parties_seats"],
+        "wasted_vote_share":        round(wasted / num_voters, 4),
+        "coalitions": _minimal_winning_coalitions(seats, positions, majority),
     }, 200
 
 
