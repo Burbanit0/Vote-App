@@ -6638,6 +6638,43 @@ def _assembly_worker(data: Dict[str, Any]) -> tuple[Dict[str, Any], int]:
     # Sincere party vote: nearest party in the plane.
     d2 = ((voters[:, None, :] - pts[None, :, :]) ** 2).sum(axis=2)
     choice = d2.argmin(axis=1)
+
+    # ── Duverger demo (P4): strategic desertion ────────────────────────────
+    # Voters iteratively abandon non-viable parties for their nearest viable one.
+    # Viability: FPTP → the top-2 in the voter's district (the Duverger squeeze);
+    # PR/MMP list vote → parties at/above the national threshold. With a zero
+    # threshold under PR nothing is non-viable, so the party system survives —
+    # exactly the FPTP-vs-PR contrast the demo teaches.
+    if bool(data.get("strategic_desertion", False)):
+        order_x = _np.argsort(voters[:, 0], kind="stable")
+        d_bands = _np.array_split(order_x, seats_total) if structure == "fptp" else []
+        for _ in range(3):  # a few best-response rounds reach a near fixed point
+            new_choice = choice.copy()
+            if structure == "fptp":
+                for band in d_bands:
+                    if len(band) < 2:
+                        continue
+                    counts = _np.bincount(choice[band], minlength=len(names))
+                    viable = [int(i) for i in counts.argsort()[-2:] if counts[i] > 0]
+                    if len(viable) < 2:
+                        continue
+                    sub = d2[_np.ix_(band, viable)]
+                    nearest_viable = _np.array(viable)[sub.argmin(axis=1)]
+                    movers = ~_np.isin(choice[band], viable)
+                    new_choice[band[movers]] = nearest_viable[movers]
+            else:
+                counts = _np.bincount(choice, minlength=len(names))
+                viable = [i for i in range(len(names))
+                          if counts[i] > 0 and counts[i] / num_voters >= threshold]
+                if viable and len(viable) < len(names):
+                    sub = d2[:, viable]
+                    nearest_viable = _np.array(viable)[sub.argmin(axis=1)]
+                    movers = ~_np.isin(choice, viable)
+                    new_choice[movers] = nearest_viable[movers]
+            if (new_choice == choice).all():
+                break
+            choice = new_choice
+
     votes = {n: int((choice == i).sum()) for i, n in enumerate(names)}
     vote_share = {n: votes[n] / num_voters for n in names}
 

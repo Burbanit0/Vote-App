@@ -112,6 +112,12 @@ class AssemblyRequest(BaseModel):
     threshold: float = Field(0.05, ge=0.0, le=0.15,
                              description="National vote-share threshold (PR/MMP lists).")
     apportionment: Literal["dhondt", "sainte_lague"] = Field("dhondt")
+    strategic_desertion: bool = Field(
+        False,
+        description="Duverger demo: voters iteratively desert non-viable parties "
+                    "(FPTP: outside the district top-2; PR/MMP: below the threshold) "
+                    "for their nearest viable party.",
+    )
 
 
 class AssemblyPartyResult(BaseModel):

@@ -87,4 +87,50 @@ describe('PlaygroundPage (P0 shell)', () => {
     render(<PlaygroundPage />);
     await waitFor(() => expect(screen.getByTestId('cycle-rate')).toHaveTextContent('12 %'));
   });
+
+  // ── P4: the dynamic layer ────────────────────────────────────────────────
+
+  it('the flip button toggles the mode and shows the flip caption', () => {
+    render(<PlaygroundPage />);
+    fireEvent.click(screen.getByTestId('flip-button'));
+    expect(useElectionStore.getState().playground.mode).toBe('parliament');
+    expect(screen.getByTestId('flip-caption')).toHaveTextContent('Mêmes électeurs');
+    // Replayable in the other direction.
+    fireEvent.click(screen.getByTestId('flip-button'));
+    expect(useElectionStore.getState().playground.mode).toBe('leader');
+    expect(screen.getByTestId('flip-caption')).toBeInTheDocument();
+  });
+
+  it('the campaign scrubber advances the day label and disables candidate edits', () => {
+    render(<PlaygroundPage />);
+    fireEvent.change(screen.getByTestId('campaign-slider'), { target: { value: '0.5' } });
+    expect(screen.getByTestId('campaign-scrubber')).toHaveTextContent('J15');
+    expect(screen.getByTestId('campaign-scrubber')).toHaveTextContent('revenez à J0');
+  });
+
+  it('shake-the-assumptions renders win-rate bands that sum to ~100%', async () => {
+    render(<PlaygroundPage />);
+    fireEvent.click(screen.getByTestId('shake-toggle'));
+    await waitFor(
+      () => expect(screen.getByTestId('shake-bands')).toHaveTextContent('ré-échantillonnages'),
+      { timeout: 5000 }
+    );
+    const text = screen.getByTestId('shake-bands').textContent ?? '';
+    const pcts = [...text.matchAll(/(\d+)\s?%/g)].map((m) => Number(m[1]));
+    // headline % + one per candidate; the per-candidate rates sum to ~100.
+    const perCandidate = pcts.slice(1);
+    const sum = perCandidate.reduce((s, p) => s + p, 0);
+    expect(sum).toBeGreaterThanOrEqual(97);
+    expect(sum).toBeLessThanOrEqual(103);
+  });
+
+  it('the Duverger toggle persists strategic desertion in the store', () => {
+    render(<PlaygroundPage />);
+    fireEvent.click(screen.getByTestId('mode-toggle-parliament'));
+    fireEvent.click(screen.getByTestId('duverger-toggle'));
+    expect(useElectionStore.getState().playground.assembly.strategic_desertion).toBe(true);
+    expect(JSON.parse(localStorage.getItem(LS_PG) as string).assembly.strategic_desertion).toBe(
+      true
+    );
+  });
 });

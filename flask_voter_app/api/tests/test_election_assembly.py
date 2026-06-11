@@ -107,3 +107,34 @@ def test_deterministic_same_seed(client: TestClient):
 def test_rejects_single_party(client: TestClient):
     res = client.post("/api/v2/election/assembly", json=_payload(parties=SIX_PARTIES[:1]))
     assert res.status_code == 422  # Pydantic min_length=2
+
+
+# ── Duverger demo (P4): strategic desertion ───────────────────────────────────
+
+def test_duverger_desertion_compresses_under_fptp(client: TestClient):
+    """Under FPTP, strategic desertion shrinks the effective number of parties
+    (votes) — Duverger's law mechanically."""
+    sincere  = client.post("/api/v2/election/assembly", json=_payload(structure="fptp")).json()
+    deserted = client.post("/api/v2/election/assembly",
+                           json=_payload(structure="fptp", strategic_desertion=True)).json()
+    assert deserted["effective_parties_votes"] < sincere["effective_parties_votes"]
+
+
+def test_duverger_pr_no_threshold_survives(client: TestClient):
+    """Under PR with no threshold every party is viable — desertion changes
+    nothing: the multiparty system survives."""
+    sincere  = client.post("/api/v2/election/assembly",
+                           json=_payload(structure="pr", threshold=0.0)).json()
+    deserted = client.post("/api/v2/election/assembly",
+                           json=_payload(structure="pr", threshold=0.0,
+                                         strategic_desertion=True)).json()
+    assert deserted == sincere
+
+
+def test_desertion_reduces_wasted_votes_under_pr_threshold(client: TestClient):
+    """With a PR threshold, deserters leave sub-threshold parties, so fewer
+    votes end up unrepresented."""
+    sincere  = client.post("/api/v2/election/assembly", json=_payload(threshold=0.1)).json()
+    deserted = client.post("/api/v2/election/assembly",
+                           json=_payload(threshold=0.1, strategic_desertion=True)).json()
+    assert deserted["wasted_vote_share"] <= sincere["wasted_vote_share"]

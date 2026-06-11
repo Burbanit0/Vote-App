@@ -264,6 +264,8 @@ export interface PlaygroundState {
     threshold: number;
     apportionment: Apportionment;
     num_districts: number;
+    /** Duverger demo (P4): voters desert non-viable parties. */
+    strategic_desertion: boolean;
   };
 }
 
@@ -279,6 +281,7 @@ export const DEFAULT_PLAYGROUND: PlaygroundState = {
     threshold: 0.05,
     apportionment: 'dhondt',
     num_districts: 1,
+    strategic_desertion: false,
   },
 };
 
@@ -327,6 +330,7 @@ export const PLAYGROUND_PRESETS: PlaygroundPreset[] = [
         threshold: 0.05,
         apportionment: 'dhondt',
         num_districts: 1,
+        strategic_desertion: false,
       },
     },
     electorate: {
@@ -411,8 +415,16 @@ function saveConfig(config: ElectionConfig): void {
 function loadPlayground(): PlaygroundState {
   try {
     const raw = localStorage.getItem(LS_PLAYGROUND_KEY);
-    // Merge over defaults so a stored partial (older shape) keeps every knob present.
-    return raw ? { ...DEFAULT_PLAYGROUND, ...(JSON.parse(raw) as PlaygroundState) } : DEFAULT_PLAYGROUND;
+    if (!raw) return DEFAULT_PLAYGROUND;
+    const parsed = JSON.parse(raw) as Partial<PlaygroundState>;
+    // Merge over defaults (nested slices too) so a stored older shape keeps
+    // every knob present — e.g. assembly.strategic_desertion added in P4.
+    return {
+      ...DEFAULT_PLAYGROUND,
+      ...parsed,
+      space: { ...DEFAULT_PLAYGROUND.space, ...(parsed.space ?? {}) },
+      assembly: { ...DEFAULT_PLAYGROUND.assembly, ...(parsed.assembly ?? {}) },
+    };
   } catch {
     return DEFAULT_PLAYGROUND;
   }

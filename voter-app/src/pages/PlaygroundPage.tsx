@@ -8,7 +8,14 @@ import { useMetaTags } from '../hooks/useMetaTags';
 import { runProfileSimulate, type ProfileSimulateResult } from '../services/profileApi';
 import LeaderCanvas from '../components/playground/LeaderCanvas';
 import ParliamentCanvas from '../components/playground/ParliamentCanvas';
+import FlipReveal from '../components/playground/FlipReveal';
 import { sampleVoters, type Rule } from '../lib/playgroundVoting';
+import {
+  driftCandidates,
+  medianPoint,
+  shakeWinRates,
+  type ShakeResult,
+} from '../lib/playgroundDynamics';
 import { runAssembly, type AssemblyResult } from '../services/assemblyApi';
 
 // Lab reshape — Phase P0: the two-mode playground shell. Two questions over ONE
@@ -197,6 +204,62 @@ const PlaygroundPage: React.FC = () => {
     },
     [config.candidates, setConfig]
   );
+
+  // ── Dynamic layer (P4) ────────────────────────────────────────────────────
+  // Campaign time scrubber: vote-seeking drift toward the median voter.
+  const [campaignT, setCampaignT] = React.useState(0);
+  const [playing, setPlaying] = React.useState(false);
+  const median = React.useMemo(() => medianPoint(voters), [voters]);
+  const displayedCandidates = React.useMemo(
+    () => (campaignT > 0 ? driftCandidates(config.candidates, median, campaignT) : config.candidates),
+    [config.candidates, median, campaignT]
+  );
+  React.useEffect(() => {
+    if (!playing) return;
+    const id = setInterval(() => {
+      setCampaignT((t) => {
+        if (t >= 1) {
+          setPlaying(false);
+          return 1;
+        }
+        return Math.min(1, t + 0.02);
+      });
+    }, 80);
+    return () => clearInterval(id);
+  }, [playing]);
+  // Dragging edits the configured (J0) positions — disable while scrubbed.
+  const moveDisplayed = campaignT > 0 ? () => {} : moveCandidate;
+
+  // "Shake the assumptions": re-roll the electorate, win-rate per candidate.
+  const [shakeOn, setShakeOn] = React.useState(false);
+  const [shake, setShake] = React.useState<ShakeResult | null>(null);
+  const shakeKey = JSON.stringify({
+    on: shakeOn,
+    rule: leaderRule,
+    cands: displayedCandidates.map((c) => [c.name, c.x, c.y]),
+    n: config.num_voters,
+    seed: config.seed,
+    ideology: config.ideology,
+  });
+  React.useEffect(() => {
+    if (!shakeOn) {
+      setShake(null);
+      return;
+    }
+    const t = setTimeout(() => {
+      setShake(
+        shakeWinRates(
+          displayedCandidates,
+          leaderRule,
+          Math.min(config.num_voters, 300),
+          config.seed,
+          config.ideology
+        )
+      );
+    }, 200);
+    return () => clearTimeout(t);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [shakeKey]);
 
   return (
     <div data-testid="playground-page" className="container mx-auto px-3 py-4">
@@ -397,6 +460,20 @@ const PlaygroundPage: React.FC = () => {
                     <option value="sainte_lague">Sainte-Laguë</option>
                   </select>
                 </Field>
+                <label
+                  className="flex items-center gap-2 text-sm"
+                  title="Les électeurs désertent les partis non viables (FPTP : hors du top-2 de leur circonscription ; proportionnelle : sous le seuil) pour leur parti viable le plus proche — la loi de Duverger en mécanique."
+                >
+                  <input
+                    data-testid="duverger-toggle"
+                    type="checkbox"
+                    checked={assembly.strategic_desertion}
+                    onChange={(e) =>
+                      setPlaygroundDeep('assembly.strategic_desertion', e.target.checked)
+                    }
+                  />
+                  Désertion stratégique (Duverger)
+                </label>
               </div>
             )}
           </CardContent>
@@ -405,23 +482,124 @@ const PlaygroundPage: React.FC = () => {
         {/* ── Canvas slot ── */}
         <Card>
           <CardContent className="p-3">
-            {mode === 'leader' ? (
-              <LeaderCanvas
-                candidates={config.candidates}
-                voters={voters}
-                rule={leaderRule}
-                onRuleChange={setLeaderRule}
-                onMoveCandidate={moveCandidate}
-              />
-            ) : (
-              <ParliamentCanvas
-                parties={config.candidates}
-                voters={voters}
-                result={assemblyResult}
-                loading={assemblyLoading}
-                onMoveParty={moveCandidate}
-              />
-            )}
+            {/* The flip centerpiece (P4): same electorate, the question flips. */}
+            <div className="mb-2 flex items-center justify-between">
+              <span className="text-sm font-medium">
+                {mode === 'leader' ? '👑 Élire un dirigeant' : '🏛 Composer un parlement'}
+              </span>
+              <Button
+                data-testid="flip-button"
+                variant="outline"
+                size="sm"
+                onClick={() => setMode(mode === 'leader' ? 'parliament' : 'leader')}
+              >
+                ↔ Basculer la question
+              </Button>
+            </div>
+            <FlipReveal modeKey={mode} caption="Mêmes électeurs, caractère opposé.">
+              {mode === 'leader' ? (
+                <div className="flex flex-col gap-3">
+                  <LeaderCanvas
+                    candidates={displayedCandidates}
+                    voters={voters}
+                    rule={leaderRule}
+                    onRuleChange={setLeaderRule}
+                    onMoveCandidate={moveDisplayed}
+                  />
+
+                  {/* Time scrubber (P4): campaign drift toward the median voter. */}
+                  <div data-testid="campaign-scrubber" className="flex items-center gap-2 text-sm">
+                    <Button
+                      data-testid="campaign-play"
+                      variant="outline"
+                      size="sm"
+                      onClick={() => {
+                        if (!playing && campaignT >= 1) setCampaignT(0);
+                        setPlaying((p) => !p);
+                      }}
+                    >
+                      {playing ? '⏸' : '▶'}
+                    </Button>
+                    <span className="w-28 shrink-0 tabular-nums text-muted-foreground">
+                      Campagne — J{Math.round(campaignT * 30)}
+                    </span>
+                    <input
+                      data-testid="campaign-slider"
+                      type="range"
+                      className="flex-1"
+                      min={0}
+                      max={1}
+                      step={0.02}
+                      value={campaignT}
+                      onChange={(e) => {
+                        setPlaying(false);
+                        setCampaignT(Number(e.target.value));
+                      }}
+                      title="Modèle affiché : les candidats en quête de voix dérivent vers l'électeur médian (Hotelling–Downs)."
+                    />
+                    {campaignT > 0 && (
+                      <span className="text-xs text-muted-foreground/70">
+                        (revenez à J0 pour déplacer les candidats)
+                      </span>
+                    )}
+                  </div>
+
+                  {/* Shake the assumptions (P4): re-roll the electorate → win-rate bands. */}
+                  <div className="flex flex-col gap-1.5">
+                    <Button
+                      data-testid="shake-toggle"
+                      variant={shakeOn ? 'primary' : 'outline'}
+                      size="sm"
+                      className="self-start"
+                      onClick={() => setShakeOn((s) => !s)}
+                      title="Ré-échantillonne l'électorat 60 fois (mêmes hypothèses, nouveaux tirages) — sépare une propriété structurelle d'un réglage choisi."
+                    >
+                      🎲 Secouer les hypothèses
+                    </Button>
+                    {shakeOn && shake && (
+                      <div data-testid="shake-bands" className="flex flex-col gap-1">
+                        <p className="text-sm">
+                          {shake.top ? (
+                            <>
+                              <strong>{shake.top}</strong> tient{' '}
+                              <strong>{Math.round((shake.rates[shake.top] ?? 0) * 100)} %</strong>{' '}
+                              des {shake.replications} ré-échantillonnages.
+                            </>
+                          ) : (
+                            '—'
+                          )}
+                        </p>
+                        {displayedCandidates.map((c) => (
+                          <div key={c.name} className="flex items-center gap-2 text-xs">
+                            <span className="w-24 truncate text-muted-foreground">{c.name}</span>
+                            <div className="h-2.5 flex-1 overflow-hidden rounded bg-muted/50">
+                              <div
+                                className="h-full animate-pulse rounded bg-primary/70"
+                                style={{
+                                  width: `${(shake.rates[c.name] ?? 0) * 100}%`,
+                                  transition: 'width 400ms ease',
+                                }}
+                              />
+                            </div>
+                            <span className="w-10 text-right tabular-nums text-muted-foreground">
+                              {Math.round((shake.rates[c.name] ?? 0) * 100)} %
+                            </span>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                </div>
+              ) : (
+                <ParliamentCanvas
+                  parties={config.candidates}
+                  voters={voters}
+                  result={assemblyResult}
+                  loading={assemblyLoading}
+                  onMoveParty={moveCandidate}
+                />
+              )}
+            </FlipReveal>
           </CardContent>
         </Card>
 

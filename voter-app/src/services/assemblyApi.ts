@@ -47,6 +47,7 @@ export function toAssemblyPayload(config: ElectionConfig, pg: PlaygroundState) {
     seats: pg.assembly.seats,
     threshold: pg.assembly.threshold,
     apportionment: pg.assembly.apportionment,
+    strategic_desertion: pg.assembly.strategic_desertion,
   };
 }
 
