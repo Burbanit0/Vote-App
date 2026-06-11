@@ -31,7 +31,7 @@ describe('PlaygroundPage (P0 shell)', () => {
   it('renders and shows the leader canvas by default', () => {
     render(<PlaygroundPage />);
     expect(screen.getByTestId('playground-page')).toBeInTheDocument();
-    expect(screen.getByTestId('canvas-leader')).toBeInTheDocument();
+    expect(screen.getByTestId('leader-canvas')).toBeInTheDocument();
     expect(screen.queryByTestId('canvas-parliament')).not.toBeInTheDocument();
   });
 
@@ -40,7 +40,7 @@ describe('PlaygroundPage (P0 shell)', () => {
     fireEvent.click(screen.getByTestId('mode-toggle-parliament'));
 
     expect(screen.getByTestId('canvas-parliament')).toBeInTheDocument();
-    expect(screen.queryByTestId('canvas-leader')).not.toBeInTheDocument();
+    expect(screen.queryByTestId('leader-canvas')).not.toBeInTheDocument();
     // Assembly-only knob appears in parliament mode.
     expect(screen.getByLabelText('Structure')).toBeInTheDocument();
 

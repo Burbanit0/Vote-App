@@ -6,6 +6,8 @@ import { useElection, usePlayground } from '../stores/useElectionStore';
 import type { ElectionConfig, PlaygroundState } from '../stores/useElectionStore';
 import { useMetaTags } from '../hooks/useMetaTags';
 import { runProfileSimulate, type ProfileSimulateResult } from '../services/profileApi';
+import LeaderCanvas from '../components/playground/LeaderCanvas';
+import { sampleVoters, type Rule } from '../lib/playgroundVoting';
 
 // Lab reshape — Phase P0: the two-mode playground shell. Two questions over ONE
 // shared electorate: "Élire un dirigeant" (single office) vs "Composer un parlement"
@@ -143,12 +145,27 @@ const PlaygroundPage: React.FC = () => {
       'Un même électorat, deux questions : élire un dirigeant ou composer un parlement. Configurez chaque hypothèse et observez le caractère politique s’inverser.',
   });
 
-  const { config } = useElection();
+  const { config, setConfig } = useElection();
   const { playground, setMode, setPlayground, setPlaygroundDeep, applyPreset, presets } =
     usePlayground();
   const { mode, space, behavior, prefSource, assembly } = playground;
   const pointWord = mode === 'leader' ? 'candidats' : 'partis';
   const { result, loading } = useProfileDiagnostics(config, playground);
+
+  // Single-office canvas (P2): a deterministic voter cloud + draggable candidates.
+  const [leaderRule, setLeaderRule] = React.useState<Rule>('plurality');
+  const voters = React.useMemo(
+    () => sampleVoters(config.num_voters, config.seed, config.ideology),
+    [config.num_voters, config.seed, config.ideology]
+  );
+  const moveCandidate = React.useCallback(
+    (index: number, x: number, y: number) => {
+      setConfig({
+        candidates: config.candidates.map((c, i) => (i === index ? { ...c, x, y } : c)),
+      });
+    },
+    [config.candidates, setConfig]
+  );
 
   return (
     <div data-testid="playground-page" className="container mx-auto px-3 py-4">
@@ -358,9 +375,12 @@ const PlaygroundPage: React.FC = () => {
         <Card>
           <CardContent className="p-3">
             {mode === 'leader' ? (
-              <CanvasPlaceholder
-                mode="leader"
-                subtitle="Les points sont des candidats rivaux. Glissez-les pour voir le vainqueur changer selon la règle."
+              <LeaderCanvas
+                candidates={config.candidates}
+                voters={voters}
+                rule={leaderRule}
+                onRuleChange={setLeaderRule}
+                onMoveCandidate={moveCandidate}
               />
             ) : (
               <CanvasPlaceholder
