@@ -229,6 +229,42 @@ describe('PlaygroundPage (P0 shell)', () => {
     expect(screen.getByTestId('ballot-flips')).toHaveTextContent('irv, borda');
   });
 
+  // ── FA-2 : la lentille Lijphart ───────────────────────────────────────────
+
+  it('parliament mode renders the democracy map with the three live structures', async () => {
+    renderPage();
+    fireEvent.click(screen.getByTestId('mode-toggle-parliament'));
+    await waitFor(() => expect(screen.getByTestId('democracy-map')).toBeInTheDocument(), {
+      timeout: 5000,
+    });
+    expect(screen.getByTestId('dm-pr')).toBeInTheDocument();
+    expect(screen.getByTestId('dm-fptp')).toBeInTheDocument();
+  });
+
+  it('the identity dial moves the spotlight along the frontier', async () => {
+    renderPage();
+    fireEvent.click(screen.getByTestId('mode-toggle-parliament'));
+    await waitFor(() => expect(screen.getByTestId('lens-item-pr')).toBeInTheDocument(), {
+      timeout: 5000,
+    });
+    // Majoritarian end → governability wins → FPTP spotlighted.
+    fireEvent.change(screen.getByTestId('lijphart-dial'), { target: { value: '0' } });
+    expect(screen.getByTestId('lens-item-fptp')).toHaveTextContent('selon vos pondérations');
+    // Consensualist end → proportional axes win → PR spotlighted.
+    fireEvent.change(screen.getByTestId('lijphart-dial'), { target: { value: '1' } });
+    expect(screen.getByTestId('lens-item-pr')).toHaveTextContent('selon vos pondérations');
+  });
+
+  it('the granular escape hatch reveals the sliders and a touch switches modes', async () => {
+    renderPage();
+    // Dial mode by default: granular sliders not rendered.
+    expect(screen.getByTestId('lijphart-dial')).toBeInTheDocument();
+    expect(screen.queryByTestId('weight-condorcet_efficiency')).not.toBeInTheDocument();
+    fireEvent.click(screen.getByTestId('lens-granular-toggle'));
+    expect(screen.queryByTestId('lijphart-dial')).not.toBeInTheDocument();
+    expect(screen.getByTestId('weight-condorcet_efficiency')).toBeInTheDocument();
+  });
+
   // ── Drill-downs Playground → Lab (shared electorate) ─────────────────────
 
   it('a scorecard axis drill-down navigates to the matching Lab tab', () => {

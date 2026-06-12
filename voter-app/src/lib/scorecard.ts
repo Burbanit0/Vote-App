@@ -192,6 +192,85 @@ export function leaderScorecard(
   return out;
 }
 
+// ── Lijphart lens (frontier FA-2) ────────────────────────────────────────────
+//
+// Lijphart (Patterns of Democracy): real systems cluster on a MAJORITARIAN
+// (decisive, accountable, winner-take-all) ↔ CONSENSUS (proportional,
+// power-sharing, minority-protective) axis. We compute a consensus index in
+// [0,1] from the parliament scorecard axes — a stated convention, the mean of
+// proportionality, pluralism, minority representation and (1 − governability),
+// i.e. the executives-parties dimension our model can actually speak to.
+// (Lijphart's second, federal-unitary dimension is NOT modelled — we stay 1D.)
+
+/** Approximate executives-parties scores (Lijphart 2012, ~1981–2010 period),
+ * on his standardised scale ≈ [-2, +2], positive = consensus. Orders of
+ * magnitude for context, not data claims. */
+export const LIJPHART_REFERENCE: { name: string; score: number }[] = [
+  { name: 'Royaume-Uni', score: -1.2 },
+  { name: 'Canada', score: -1.3 },
+  { name: 'France', score: -1.0 },
+  { name: 'Australie', score: -0.8 },
+  { name: 'Nouvelle-Zélande', score: -0.5 },
+  { name: 'États-Unis', score: -0.4 },
+  { name: 'Espagne', score: -0.3 },
+  { name: 'Japon', score: -0.1 },
+  { name: 'Allemagne', score: 0.7 },
+  { name: 'Suède', score: 0.7 },
+  { name: 'Italie', score: 0.7 },
+  { name: 'Israël', score: 1.0 },
+  { name: 'Pays-Bas', score: 1.2 },
+  { name: 'Belgique', score: 1.3 },
+  { name: 'Suisse', score: 1.8 },
+];
+
+/** Map a Lijphart-scale score (≈[-2,2]) onto the display strip [0,1]. */
+export const lijphartTo01 = (score: number): number =>
+  Math.max(0, Math.min(1, (score + 2) / 4));
+
+/** Consensus index of a structure from its scorecard axes (band-propagated). */
+export function consensusIndex(axes: AxisScores): Band {
+  const pick = (k: string) => axes[k] ?? { mean: 0.5, lo: 0.5, hi: 0.5 };
+  const p = pick('proportionality');
+  const pl = pick('pluralism');
+  const mr = pick('minority_representation');
+  const g = pick('governability');
+  const agg = (f: (b: Band) => number, gv: number) =>
+    (f(p) + f(pl) + f(mr) + gv) / 4;
+  return {
+    mean: agg((b) => b.mean, 1 - g.mean),
+    lo: agg((b) => b.lo, 1 - g.hi),
+    hi: agg((b) => b.hi, 1 - g.lo),
+  };
+}
+
+/**
+ * The identity dial: one majoritarian↔consensualist position `d` ∈ [0,1] sets
+ * CORRELATED axis weights (stated mapping). d=0 weighs decisiveness/simplicity,
+ * d=1 weighs proportionality/inclusion. The granular sliders remain the
+ * escape hatch — the dial is a shortcut, not a hidden assumption.
+ */
+export function dialWeights(d: number, mode: 'leader' | 'parliament'): Record<string, number> {
+  const x = Math.max(0, Math.min(1, d));
+  if (mode === 'parliament') {
+    return {
+      proportionality: x,
+      pluralism: x,
+      effective_votes: x,
+      minority_representation: x,
+      governability: 1 - x,
+      gerrymander_resistance: 0.5,
+    };
+  }
+  return {
+    condorcet_efficiency: x,
+    welfare: x,
+    majority_satisfaction: x,
+    simplicity: 1 - x,
+    stability: 1 - x,
+    strategic_resistance: 0.5,
+  };
+}
+
 // ── Values lens (shared) ──────────────────────────────────────────────────────
 
 export interface LensItem {

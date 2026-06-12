@@ -15,6 +15,8 @@ export interface ValuesPanelProps {
   itemLabels: Record<string, string>;
   weights: Record<string, number>;
   onWeightChange: (key: string, value: number) => void;
+  /** FA-2: hide the per-axis sliders when the identity dial drives the weights. */
+  granular?: boolean;
 }
 
 const ValuesPanel: React.FC<ValuesPanelProps> = ({
@@ -24,6 +26,7 @@ const ValuesPanel: React.FC<ValuesPanelProps> = ({
   itemLabels,
   weights,
   onWeightChange,
+  granular = true,
 }) => {
   const { frontier, dominated } = React.useMemo(
     () => paretoSplit(items, axisKeys),
@@ -37,7 +40,8 @@ const ValuesPanel: React.FC<ValuesPanelProps> = ({
 
   return (
     <div data-testid="values-panel" className="flex flex-col gap-3">
-      {/* Weights */}
+      {/* Weights (not rendered while the identity dial drives them) */}
+      {granular && (
       <div className="flex flex-col gap-1.5">
         <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
           Vos pondérations
@@ -60,6 +64,7 @@ const ValuesPanel: React.FC<ValuesPanelProps> = ({
           </label>
         ))}
       </div>
+      )}
 
       {/* Systems — fixed order, no rank numbers */}
       <div className="flex flex-col gap-1.5">

@@ -27,11 +27,14 @@ import Scorecard, { type ScorecardAxis } from '../components/playground/Scorecar
 import ValuesPanel from '../components/playground/ValuesPanel';
 import {
   leaderScorecard,
+  consensusIndex,
+  dialWeights,
   LEADER_AXES_KEYS,
   LEADER_RULES,
   type LeaderScorecard,
   type LensItem,
 } from '../lib/scorecard';
+import DemocracyMap from '../components/playground/DemocracyMap';
 
 // Lab reshape — Phase P0: the two-mode playground shell. Two questions over ONE
 // shared electorate: "Élire un dirigeant" (single office) vs "Composer un parlement"
@@ -392,6 +395,27 @@ const PlaygroundPage: React.FC = () => {
 
   const [leaderWeights, setLeaderWeights] = React.useState(() => defaultWeights(LEADER_AXES_KEYS));
   const [parlWeights, setParlWeights] = React.useState(() => defaultWeights(PARLIAMENT_AXES_KEYS));
+
+  // FA-2 — the Lijphart identity dial drives correlated weights; any granular
+  // slider touch switches to manual mode (the stated escape hatch).
+  const [lensMode, setLensMode] = React.useState<'dial' | 'granular'>('dial');
+  const [dial, setDial] = React.useState(0.5);
+  const manualWeights = mode === 'leader' ? leaderWeights : parlWeights;
+  const effectiveWeights =
+    lensMode === 'dial' ? dialWeights(dial, mode) : manualWeights;
+
+  // Consensus index per structure (parliament mode) for the democracy map.
+  const democracyEntries = React.useMemo(
+    () =>
+      parlSc
+        ? Object.keys(STRUCTURE_LABELS).map((s) => ({
+            structure: s,
+            label: STRUCTURE_LABELS[s].split(' ')[0],
+            index: consensusIndex(parlSc.structures[s]),
+          }))
+        : [],
+    [parlSc]
+  );
 
   const axisMeta = mode === 'leader' ? LEADER_AXIS_META : PARLIAMENT_AXIS_META;
   const currentAxes: ScorecardAxis[] = axisMeta.map(({ key, label, hint, drillTab }) => ({
@@ -866,13 +890,18 @@ const PlaygroundPage: React.FC = () => {
                   </div>
                 </div>
               ) : (
-                <ParliamentCanvas
-                  parties={config.candidates}
-                  voters={voters}
-                  result={assemblyResult}
-                  loading={assemblyLoading}
-                  onMoveParty={moveCandidate}
-                />
+                <div className="flex flex-col gap-3">
+                  <ParliamentCanvas
+                    parties={config.candidates}
+                    voters={voters}
+                    result={assemblyResult}
+                    loading={assemblyLoading}
+                    onMoveParty={moveCandidate}
+                  />
+                  {democracyEntries.length > 0 && (
+                    <DemocracyMap entries={democracyEntries} current={assembly.structure} />
+                  )}
+                </div>
               )}
             </FlipReveal>
           </CardContent>
@@ -899,17 +928,64 @@ const PlaygroundPage: React.FC = () => {
               }
             />
             <hr className="border-border" />
+
+            {/* FA-2 — the identity dial (one value, correlated weights) */}
+            <div data-testid="lijphart-dial-block" className="flex flex-col gap-1">
+              <div className="flex items-center justify-between text-xs">
+                <span className="font-semibold uppercase tracking-wide text-muted-foreground">
+                  Votre sensibilité
+                </span>
+                <button
+                  type="button"
+                  data-testid="lens-granular-toggle"
+                  className="text-[0.7rem] text-primary underline-offset-2 hover:underline"
+                  onClick={() => {
+                    if (lensMode === 'dial') {
+                      // Seed the granular sliders from the dial so nothing jumps.
+                      const seeded = dialWeights(dial, mode);
+                      if (mode === 'leader') setLeaderWeights(seeded);
+                      else setParlWeights(seeded);
+                      setLensMode('granular');
+                    } else {
+                      setLensMode('dial');
+                    }
+                  }}
+                >
+                  {lensMode === 'dial' ? 'Réglage fin…' : '← Cadran simple'}
+                </button>
+              </div>
+              {lensMode === 'dial' && (
+                <>
+                  <input
+                    data-testid="lijphart-dial"
+                    type="range"
+                    min={0}
+                    max={1}
+                    step={0.05}
+                    value={dial}
+                    onChange={(e) => setDial(Number(e.target.value))}
+                    title="Un seul cadran qui règle des pondérations corrélées (convention déclarée) — le réglage fin reste disponible."
+                  />
+                  <div className="flex justify-between text-[0.68rem] text-muted-foreground">
+                    <span>Majoritaire (décisif)</span>
+                    <span>Consensualiste (inclusif)</span>
+                  </div>
+                </>
+              )}
+            </div>
+
             <ValuesPanel
               items={lensItems}
               axisKeys={mode === 'leader' ? [...LEADER_AXES_KEYS] : PARLIAMENT_AXES_KEYS}
               axisLabels={Object.fromEntries(axisMeta.map((a) => [a.key, a.label]))}
               itemLabels={mode === 'leader' ? RULE_LABELS_LENS : STRUCTURE_LABELS}
-              weights={mode === 'leader' ? leaderWeights : parlWeights}
-              onWeightChange={(k, v) =>
-                mode === 'leader'
-                  ? setLeaderWeights((w) => ({ ...w, [k]: v }))
-                  : setParlWeights((w) => ({ ...w, [k]: v }))
-              }
+              weights={effectiveWeights}
+              granular={lensMode === 'granular'}
+              onWeightChange={(k, v) => {
+                setLensMode('granular');
+                if (mode === 'leader') setLeaderWeights((w) => ({ ...w, [k]: v }));
+                else setParlWeights((w) => ({ ...w, [k]: v }));
+              }}
             />
           </CardContent>
         </Card>
