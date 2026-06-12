@@ -16,7 +16,21 @@ import {
   shakeWinRates,
   type ShakeResult,
 } from '../lib/playgroundDynamics';
-import { runAssembly, type AssemblyResult } from '../services/assemblyApi';
+import {
+  runAssembly,
+  runAssemblyScorecard,
+  type AssemblyResult,
+  type AssemblyScorecardResult,
+} from '../services/assemblyApi';
+import Scorecard, { type ScorecardAxis } from '../components/playground/Scorecard';
+import ValuesPanel from '../components/playground/ValuesPanel';
+import {
+  leaderScorecard,
+  LEADER_AXES_KEYS,
+  LEADER_RULES,
+  type LeaderScorecard,
+  type LensItem,
+} from '../lib/scorecard';
 
 // Lab reshape — Phase P0: the two-mode playground shell. Two questions over ONE
 // shared electorate: "Élire un dirigeant" (single office) vs "Composer un parlement"
@@ -136,38 +150,55 @@ function toProfileKey(config: ElectionConfig, pg: PlaygroundState) {
   };
 }
 
-// ── Scorecard placeholder (replaced by the live scorecard in P5) ─────────────
+// ── Scorecard axes (P5): labels + stated conventions, by mode ────────────────
 
-const LEADER_AXES = [
-  'Efficacité Condorcet',
-  'Résistance stratégique',
-  'Bien-être (regret bayésien)',
-  'Satisfaction majorité / minorité',
-  'Simplicité',
-  'Décisivité',
-];
-const PARLIAMENT_AXES = [
-  'Proportionnalité (Gallagher)',
-  'Fragmentation (NEP)',
-  'Voix gaspillées',
-  'Représentation des minorités',
-  'Gouvernabilité / coalitions',
-  'Vulnérabilité au charcutage',
+const LEADER_AXIS_META: { key: string; label: string; hint: string }[] = [
+  { key: 'condorcet_efficiency', label: 'Efficacité Condorcet',
+    hint: "Part des ré-échantillonnages (avec vainqueur de Condorcet) où la règle l'élit." },
+  { key: 'strategic_resistance', label: 'Résistance stratégique',
+    hint: 'Le vainqueur survit-il à une compression stratégique vers les deux favoris ? (heuristique documentée)' },
+  { key: 'welfare', label: 'Bien-être (regret)',
+    hint: '1 − regret bayésien normalisé du vainqueur (utilité = −distance).' },
+  { key: 'majority_satisfaction', label: 'Satisfaction majoritaire',
+    hint: 'Part des électeurs pour qui le vainqueur vaut au moins leur candidat médian.' },
+  { key: 'simplicity', label: 'Simplicité',
+    hint: 'Convention déclarée : complexité du bulletin et du dépouillement (sans bande).' },
+  { key: 'stability', label: 'Stabilité',
+    hint: 'Part des ré-échantillonnages élisant le vainqueur modal.' },
 ];
 
-const ScorecardPlaceholder: React.FC<{ mode: 'leader' | 'parliament' }> = ({ mode }) => {
-  const axes = mode === 'leader' ? LEADER_AXES : PARLIAMENT_AXES;
-  return (
-    <ul data-testid={`scorecard-${mode}`} className="flex flex-col gap-2">
-      {axes.map((axis) => (
-        <li key={axis} className="flex items-center justify-between gap-2 text-sm">
-          <span className="text-muted-foreground">{axis}</span>
-          <span className="h-1.5 w-16 rounded-full bg-muted" aria-hidden />
-        </li>
-      ))}
-    </ul>
-  );
+const PARLIAMENT_AXIS_META: { key: string; label: string; hint: string }[] = [
+  { key: 'proportionality', label: 'Proportionnalité',
+    hint: '1 − indice de Gallagher (normalisé).' },
+  { key: 'pluralism', label: 'Pluralisme (diversité)',
+    hint: 'Part de la diversité des voix (NEP) qui survit en sièges.' },
+  { key: 'effective_votes', label: 'Voix utiles',
+    hint: '1 − part des voix gaspillées.' },
+  { key: 'minority_representation', label: 'Représentation des minorités',
+    hint: 'Partis ≥ 3 % des voix détenant au moins un siège.' },
+  { key: 'governability', label: 'Gouvernabilité',
+    hint: '1 / taille de la plus petite coalition majoritaire.' },
+  { key: 'gerrymander_resistance', label: 'Résistance au charcutage',
+    hint: 'Stabilité des sièges quand la carte des circonscriptions change (re-découpage x→y).' },
+];
+
+const PARLIAMENT_AXES_KEYS = PARLIAMENT_AXIS_META.map((a) => a.key);
+const STRUCTURE_LABELS: Record<string, string> = {
+  pr: 'Proportionnelle (listes)',
+  fptp: 'Circonscriptions (FPTP)',
+  mmp: 'Mixte (MMP)',
 };
+const RULE_LABELS_LENS: Record<string, string> = {
+  plurality: 'Pluralité (1 tour)',
+  two_round: 'Deux tours',
+  irv: 'Vote alternatif (IRV)',
+  borda: 'Borda',
+  approval: 'Approbation',
+  condorcet: 'Condorcet (Copeland)',
+};
+
+const defaultWeights = (keys: readonly string[]): Record<string, number> =>
+  Object.fromEntries(keys.map((k) => [k, 0.5]));
 
 // ── Page ────────────────────────────────────────────────────────────────────
 
@@ -260,6 +291,85 @@ const PlaygroundPage: React.FC = () => {
     return () => clearTimeout(t);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [shakeKey]);
+
+  // ── Scorecard + values lens (P5) ──────────────────────────────────────────
+  const [leaderSc, setLeaderSc] = React.useState<LeaderScorecard | null>(null);
+  const leaderScKey = JSON.stringify({
+    on: mode === 'leader',
+    cands: config.candidates.map((c) => [c.name, c.x, c.y]),
+    n: config.num_voters,
+    seed: config.seed,
+    ideology: config.ideology,
+  });
+  React.useEffect(() => {
+    if (mode !== 'leader') return;
+    const t = setTimeout(() => {
+      setLeaderSc(
+        leaderScorecard(
+          config.candidates,
+          Math.min(config.num_voters, 200),
+          config.seed,
+          config.ideology,
+          20
+        )
+      );
+    }, 250);
+    return () => clearTimeout(t);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [leaderScKey]);
+
+  const [parlSc, setParlSc] = React.useState<AssemblyScorecardResult | null>(null);
+  const parlScKey = JSON.stringify({
+    on: mode === 'parliament',
+    parties: config.candidates.map((c) => [c.name, c.x, c.y]),
+    n: config.num_voters,
+    seed: config.seed,
+    ideology: config.ideology,
+    seats: assembly.seats,
+    threshold: assembly.threshold,
+    appt: assembly.apportionment,
+    des: assembly.strategic_desertion,
+  });
+  React.useEffect(() => {
+    if (mode !== 'parliament') return;
+    let alive = true;
+    const t = setTimeout(() => {
+      runAssemblyScorecard(config, playground)
+        .then((r) => {
+          if (alive) setParlSc(r);
+        })
+        .catch(() => {
+          if (alive) setParlSc(null);
+        });
+    }, 350);
+    return () => {
+      alive = false;
+      clearTimeout(t);
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [parlScKey]);
+
+  const [leaderWeights, setLeaderWeights] = React.useState(() => defaultWeights(LEADER_AXES_KEYS));
+  const [parlWeights, setParlWeights] = React.useState(() => defaultWeights(PARLIAMENT_AXES_KEYS));
+
+  const axisMeta = mode === 'leader' ? LEADER_AXIS_META : PARLIAMENT_AXIS_META;
+  const currentAxes: ScorecardAxis[] = axisMeta.map(({ key, label, hint }) => ({
+    key,
+    label,
+    hint,
+    band:
+      mode === 'leader'
+        ? leaderSc?.[leaderRule]?.[key] ?? null
+        : parlSc?.structures?.[assembly.structure]?.[key] ?? null,
+  }));
+  const lensItems: LensItem[] =
+    mode === 'leader'
+      ? leaderSc
+        ? LEADER_RULES.map((r) => ({ id: r, axes: leaderSc[r] }))
+        : []
+      : parlSc
+        ? Object.keys(STRUCTURE_LABELS).map((s) => ({ id: s, axes: parlSc.structures[s] }))
+        : [];
 
   return (
     <div data-testid="playground-page" className="container mx-auto px-3 py-4">
@@ -603,16 +713,38 @@ const PlaygroundPage: React.FC = () => {
           </CardContent>
         </Card>
 
-        {/* ── Scorecard slot ── */}
+        {/* ── Scorecard + values lens (P5) ── */}
         <Card className="h-fit">
           <CardHeader className="p-4 pb-2">
-            <CardTitle className="text-base">Bilan</CardTitle>
+            <CardTitle className="text-base">
+              Bilan —{' '}
+              {mode === 'leader'
+                ? RULE_LABELS_LENS[leaderRule]
+                : STRUCTURE_LABELS[assembly.structure]}
+            </CardTitle>
           </CardHeader>
-          <CardContent className="p-4 pt-2">
-            <ScorecardPlaceholder mode={mode} />
-            <p className="mt-3 text-xs text-muted-foreground/70">
-              Bandes Monte-Carlo et arbitrage par valeurs à venir (phase P5).
-            </p>
+          <CardContent className="flex flex-col gap-4 p-4 pt-2">
+            <Scorecard
+              axes={currentAxes}
+              bandNote={
+                mode === 'leader'
+                  ? '20 ré-échantillonnages'
+                  : `${parlSc?.replications ?? 24} ré-échantillonnages`
+              }
+            />
+            <hr className="border-border" />
+            <ValuesPanel
+              items={lensItems}
+              axisKeys={mode === 'leader' ? [...LEADER_AXES_KEYS] : PARLIAMENT_AXES_KEYS}
+              axisLabels={Object.fromEntries(axisMeta.map((a) => [a.key, a.label]))}
+              itemLabels={mode === 'leader' ? RULE_LABELS_LENS : STRUCTURE_LABELS}
+              weights={mode === 'leader' ? leaderWeights : parlWeights}
+              onWeightChange={(k, v) =>
+                mode === 'leader'
+                  ? setLeaderWeights((w) => ({ ...w, [k]: v }))
+                  : setParlWeights((w) => ({ ...w, [k]: v }))
+              }
+            />
           </CardContent>
         </Card>
       </div>

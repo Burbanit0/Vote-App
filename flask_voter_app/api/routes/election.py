@@ -98,6 +98,8 @@ from api.schemas import (
     SimulatePipelineResponse,
     AssemblyRequest,
     AssemblyResponse,
+    AssemblyScorecardRequest,
+    AssemblyScorecardResponse,
     ProfileSimulateRequest,
     ProfileSimulateResponse,
     SimulateRequest,
@@ -112,6 +114,7 @@ from api.domain.election import (
     abstention as abstention_domain,
     adaptive as adaptive_domain,
     assembly as assembly_domain,
+    assembly_scorecard as assembly_scorecard_domain,
     affective_polarization as affective_polarization_domain,
     ballot_complexity as ballot_complexity_domain,
     behavioral_biases as behavioral_biases_domain,
@@ -261,6 +264,25 @@ async def assembly_endpoint(request: AssemblyRequest) -> AssemblyResponse:
     PR vs FPTP vs MMP expose the proportionality/governability trade-off; the
     threshold knob shows small parties dropping off the cliff."""
     return await _run_typed(assembly_domain, request, AssemblyResponse)
+
+
+# ── /assembly-scorecard (Lab reshape P5) ──────────────────────────────────────
+
+@router.post(
+    "/assembly-scorecard",
+    response_model=AssemblyScorecardResponse,
+    summary="Monte-Carlo scorecard: six axes × pr/fptp/mmp, every number banded",
+    response_description="Per-structure axis bands (mean/p10/p90 over re-rolled "
+                         "electorates): proportionality, pluralism, effective votes, "
+                         "minority representation, governability, gerrymander resistance.",
+)
+async def assembly_scorecard_endpoint(
+    request: AssemblyScorecardRequest,
+) -> AssemblyScorecardResponse:
+    """Feeds the playground's parliament scorecard + values lens. Axes are
+    oriented higher-is-better with stated conventions; the lens then removes
+    Pareto-dominated structures and lets user weights spotlight the frontier."""
+    return await _run_typed(assembly_scorecard_domain, request, AssemblyScorecardResponse)
 
 
 # ── /combined-effects ───────────────────────────────────────────────────────

@@ -3,8 +3,30 @@ import { render, screen, fireEvent, waitFor } from '@testing-library/react';
 import '@testing-library/jest-dom';
 
 vi.mock('../../hooks/useMetaTags', () => ({ useMetaTags: () => {} }));
-vi.mock('../../services/assemblyApi', () => ({
-  runAssembly: vi.fn().mockResolvedValue({
+vi.mock('../../services/assemblyApi', () => {
+  // NB: declared inside the factory — vi.mock is hoisted above file-level consts.
+  const sc = (
+    p: number, pl: number, ev: number, mr: number, g: number, gr: number
+  ) => ({
+    proportionality: { mean: p, lo: p - 0.05, hi: p + 0.05 },
+    pluralism: { mean: pl, lo: pl - 0.05, hi: pl + 0.05 },
+    effective_votes: { mean: ev, lo: ev - 0.05, hi: ev + 0.05 },
+    minority_representation: { mean: mr, lo: mr - 0.05, hi: mr + 0.05 },
+    governability: { mean: g, lo: g - 0.05, hi: g + 0.05 },
+    gerrymander_resistance: { mean: gr, lo: gr - 0.05, hi: gr + 0.05 },
+  });
+  return {
+    runAssemblyScorecard: vi.fn().mockResolvedValue({
+      replications: 24,
+      structures: {
+        // PR and FPTP trade off (proportionality vs governability); MMP is
+        // strictly below PR on every axis → dominated.
+        pr: sc(0.9, 0.9, 0.9, 0.9, 0.4, 0.9),
+        fptp: sc(0.5, 0.5, 0.5, 0.5, 0.9, 0.6),
+        mmp: sc(0.6, 0.6, 0.6, 0.6, 0.3, 0.6),
+      },
+    }),
+    runAssembly: vi.fn().mockResolvedValue({
     structure: 'pr',
     assembly_size: 100,
     majority: 51,
@@ -15,8 +37,9 @@ vi.mock('../../services/assemblyApi', () => ({
     effective_parties_seats: 2.9,
     wasted_vote_share: 0.02,
     coalitions: [],
-  }),
-}));
+    }),
+  };
+});
 vi.mock('../../services/profileApi', () => ({
   runProfileSimulate: vi.fn().mockResolvedValue({
     methods: { plurality: { winner: 'A' } },
@@ -132,5 +155,34 @@ describe('PlaygroundPage (P0 shell)', () => {
     expect(JSON.parse(localStorage.getItem(LS_PG) as string).assembly.strategic_desertion).toBe(
       true
     );
+  });
+
+  // ── P5: scorecard + values lens ──────────────────────────────────────────
+
+  it('leader mode renders the banded scorecard and the values lens over the 6 rules', async () => {
+    render(<PlaygroundPage />);
+    await waitFor(
+      () =>
+        expect(
+          screen.getByTestId('axis-condorcet_efficiency').textContent
+        ).toMatch(/\d+\s?%/),
+      { timeout: 5000 }
+    );
+    expect(screen.getByTestId('values-panel')).toBeInTheDocument();
+    expect(screen.getByTestId('lens-item-condorcet')).toBeInTheDocument();
+    expect(screen.getByTestId('lens-item-plurality')).toBeInTheDocument();
+  });
+
+  it('parliament mode shows the structure scorecard from the backend with bands', async () => {
+    render(<PlaygroundPage />);
+    fireEvent.click(screen.getByTestId('mode-toggle-parliament'));
+    await waitFor(
+      () => expect(screen.getByTestId('axis-proportionality')).toHaveTextContent('90 %'),
+      { timeout: 5000 }
+    );
+    // The three structures appear in the lens; with the mocked axes FPTP and PR
+    // trade off (neither dominates), while MMP is dominated by PR.
+    expect(screen.getByTestId('lens-item-mmp')).toHaveTextContent('écarté (dominé)');
+    expect(screen.getByTestId('lens-item-pr')).not.toHaveTextContent('écarté');
   });
 });

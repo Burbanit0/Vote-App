@@ -36,13 +36,15 @@ export const RULE_LABELS: Record<Rule, string> = {
 const dist = (a: Pt, b: Pt): number => Math.hypot(a.x - b.x, a.y - b.y);
 
 /** Per-voter candidate-index ranking, best→worst (nearest first). */
-function rankings(voters: Pt[], cands: Pt[]): number[][] {
+export function computeRanks(voters: Pt[], cands: Pt[]): number[][] {
   return voters.map((v) => {
     const idx = cands.map((_, i) => i);
     idx.sort((a, b) => dist(v, cands[a]) - dist(v, cands[b]));
     return idx;
   });
 }
+
+const rankings = computeRanks;
 
 function pluralityCounts(ranks: number[][], alive: boolean[], m: number): number[] {
   const counts = new Array(m).fill(0);
@@ -114,7 +116,7 @@ function winBorda(ranks: number[][], m: number): number {
 }
 
 /** Cardinal score in [0,1] per voter via min-max of -distance. */
-function scoreMatrix(voters: Pt[], cands: Pt[]): number[][] {
+export function computeScores(voters: Pt[], cands: Pt[]): number[][] {
   return voters.map((v) => {
     const u = cands.map((c) => -dist(v, c));
     const lo = Math.min(...u);
@@ -161,13 +163,20 @@ function winCondorcet(ranks: number[][], m: number): number {
 
 // ── Public API ────────────────────────────────────────────────────────────────
 
-/** Winning candidate INDEX under the given rule over a spatial electorate. */
-export function ruleWinner(voters: Pt[], cands: NamedPt[], rule: Rule): number {
-  const m = cands.length;
-  if (m === 0 || voters.length === 0) return -1;
-  if (rule === 'approval') return winApproval(scoreMatrix(voters, cands), m);
-  const ranks = rankings(voters, cands);
+/**
+ * Winning candidate INDEX under the given rule from pre-computed ballots —
+ * lets the scorecard inject *modified* ballots (e.g. a strategic-compression
+ * manipulation probe). `scores` is required for 'approval' (cardinal rule).
+ */
+export function ruleWinnerFromRanks(
+  ranks: number[][],
+  m: number,
+  rule: Rule,
+  scores?: number[][]
+): number {
+  if (m === 0 || ranks.length === 0) return -1;
   switch (rule) {
+    case 'approval': return scores ? winApproval(scores, m) : winPlurality(ranks, m);
     case 'plurality': return winPlurality(ranks, m);
     case 'two_round': return winTwoRound(ranks, m);
     case 'irv': return winIRV(ranks, m);
@@ -175,6 +184,18 @@ export function ruleWinner(voters: Pt[], cands: NamedPt[], rule: Rule): number {
     case 'condorcet': return winCondorcet(ranks, m);
     default: return winPlurality(ranks, m);
   }
+}
+
+/** Winning candidate INDEX under the given rule over a spatial electorate. */
+export function ruleWinner(voters: Pt[], cands: NamedPt[], rule: Rule): number {
+  const m = cands.length;
+  if (m === 0 || voters.length === 0) return -1;
+  return ruleWinnerFromRanks(
+    rankings(voters, cands),
+    m,
+    rule,
+    rule === 'approval' ? computeScores(voters, cands) : undefined
+  );
 }
 
 export function fieldWinnerName(voters: Pt[], cands: NamedPt[], rule: Rule): string | null {

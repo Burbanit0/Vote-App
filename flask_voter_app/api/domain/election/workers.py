@@ -6606,6 +6606,125 @@ def _minimal_winning_coalitions(
     return out[:12]
 
 
+def _allocate_assembly(
+    d2: "_np.ndarray",
+    band_axis: "_np.ndarray",
+    names: List[str],
+    sincere_choice: "_np.ndarray",
+    structure: str,
+    seats_total: int,
+    threshold: float,
+    appt: str,
+    desertion: bool,
+) -> Dict[str, Any]:
+    """Core votes→seats allocation, shared by /assembly and /assembly-scorecard.
+
+    `band_axis` is the voter coordinate used to draw the equal-population
+    single-member districts (x normally; the gerrymander probe re-runs with y —
+    a different 'map' over the same voters).
+    Returns {choice, votes, seats, district_seats, excluded, threshold_waived,
+    wasted, assembly_size}.
+    """
+    num_voters = len(sincere_choice)
+    choice = sincere_choice.copy()
+
+    # Duverger (P4): voters iteratively abandon non-viable parties for the
+    # nearest viable one (FPTP: district top-2; PR/MMP lists: above-threshold).
+    if desertion:
+        order_b = _np.argsort(band_axis, kind="stable")
+        d_bands = _np.array_split(order_b, seats_total) if structure == "fptp" else []
+        for _ in range(3):  # a few best-response rounds reach a near fixed point
+            new_choice = choice.copy()
+            if structure == "fptp":
+                for band in d_bands:
+                    if len(band) < 2:
+                        continue
+                    counts = _np.bincount(choice[band], minlength=len(names))
+                    viable = [int(i) for i in counts.argsort()[-2:] if counts[i] > 0]
+                    if len(viable) < 2:
+                        continue
+                    sub = d2[_np.ix_(band, viable)]
+                    nearest_viable = _np.array(viable)[sub.argmin(axis=1)]
+                    movers = ~_np.isin(choice[band], viable)
+                    new_choice[band[movers]] = nearest_viable[movers]
+            else:
+                counts = _np.bincount(choice, minlength=len(names))
+                viable = [i for i in range(len(names))
+                          if counts[i] > 0 and counts[i] / num_voters >= threshold]
+                if viable and len(viable) < len(names):
+                    sub = d2[:, viable]
+                    nearest_viable = _np.array(viable)[sub.argmin(axis=1)]
+                    movers = ~_np.isin(choice, viable)
+                    new_choice[movers] = nearest_viable[movers]
+            if (new_choice == choice).all():
+                break
+            choice = new_choice
+
+    votes = {n: int((choice == i).sum()) for i, n in enumerate(names)}
+    vote_share = {n: votes[n] / num_voters for n in names}
+    allocate = get_sainte_lague_winners if appt == "sainte_lague" else get_dhondt_winners
+
+    def _pr_alloc(n_seats: int) -> tuple[Dict[str, int], List[str], bool]:
+        """Threshold-filtered proportional allocation. Returns (seats, excluded, waived)."""
+        eligible = {n: votes[n] for n in names if vote_share[n] >= threshold and votes[n] > 0}
+        waived = False
+        if not eligible:  # nobody passes → waive the threshold rather than fail
+            eligible = {n: votes[n] for n in names if votes[n] > 0}
+            waived = True
+        alloc = allocate(eligible, n_seats)
+        seats = {n: int(alloc.get(n, 0)) for n in names}
+        excluded = [n for n in names if n not in eligible]
+        return seats, excluded, waived
+
+    district_seats = {n: 0 for n in names}
+    excluded: List[str] = []
+    threshold_waived = False
+    wasted = 0
+
+    if structure == "fptp":
+        # One single-member district per seat: equal-population bands along band_axis.
+        order = _np.argsort(band_axis, kind="stable")
+        bands = _np.array_split(order, seats_total)
+        seats = {n: 0 for n in names}
+        for band in bands:
+            if len(band) == 0:
+                continue
+            counts = _np.bincount(choice[band], minlength=len(names))
+            win = int(counts.argmax())
+            seats[names[win]] += 1
+            wasted += int(len(band) - counts[win])  # votes for district losers
+        assembly_size = seats_total
+    elif structure == "mmp":
+        n_districts = max(1, seats_total // 2)
+        order = _np.argsort(band_axis, kind="stable")
+        bands = _np.array_split(order, n_districts)
+        for band in bands:
+            if len(band) == 0:
+                continue
+            counts = _np.bincount(choice[band], minlength=len(names))
+            district_seats[names[int(counts.argmax())]] += 1
+        target, excluded, threshold_waived = _pr_alloc(seats_total)
+        # Compensatory top-up; overhang (district wins beyond target) is kept.
+        seats = {n: max(target[n], district_seats[n]) for n in names}
+        assembly_size = sum(seats.values())
+        wasted = sum(votes[n] for n in excluded)
+    else:  # pr
+        seats, excluded, threshold_waived = _pr_alloc(seats_total)
+        assembly_size = seats_total
+        wasted = sum(votes[n] for n in excluded)
+
+    return {
+        "choice":           choice,
+        "votes":            votes,
+        "seats":            seats,
+        "district_seats":   district_seats,
+        "excluded":         excluded,
+        "threshold_waived": threshold_waived,
+        "wasted":           wasted,
+        "assembly_size":    assembly_size,
+    }
+
+
 def _assembly_worker(data: Dict[str, Any]) -> tuple[Dict[str, Any], int]:
     """Pure worker for /assembly (Lab reshape P3).
 
@@ -6637,97 +6756,20 @@ def _assembly_worker(data: Dict[str, Any]) -> tuple[Dict[str, Any], int]:
     voters = _assembly_voters(num_voters, seed, ideology)
     # Sincere party vote: nearest party in the plane.
     d2 = ((voters[:, None, :] - pts[None, :, :]) ** 2).sum(axis=2)
-    choice = d2.argmin(axis=1)
+    sincere = d2.argmin(axis=1)
 
-    # ── Duverger demo (P4): strategic desertion ────────────────────────────
-    # Voters iteratively abandon non-viable parties for their nearest viable one.
-    # Viability: FPTP → the top-2 in the voter's district (the Duverger squeeze);
-    # PR/MMP list vote → parties at/above the national threshold. With a zero
-    # threshold under PR nothing is non-viable, so the party system survives —
-    # exactly the FPTP-vs-PR contrast the demo teaches.
-    if bool(data.get("strategic_desertion", False)):
-        order_x = _np.argsort(voters[:, 0], kind="stable")
-        d_bands = _np.array_split(order_x, seats_total) if structure == "fptp" else []
-        for _ in range(3):  # a few best-response rounds reach a near fixed point
-            new_choice = choice.copy()
-            if structure == "fptp":
-                for band in d_bands:
-                    if len(band) < 2:
-                        continue
-                    counts = _np.bincount(choice[band], minlength=len(names))
-                    viable = [int(i) for i in counts.argsort()[-2:] if counts[i] > 0]
-                    if len(viable) < 2:
-                        continue
-                    sub = d2[_np.ix_(band, viable)]
-                    nearest_viable = _np.array(viable)[sub.argmin(axis=1)]
-                    movers = ~_np.isin(choice[band], viable)
-                    new_choice[band[movers]] = nearest_viable[movers]
-            else:
-                counts = _np.bincount(choice, minlength=len(names))
-                viable = [i for i in range(len(names))
-                          if counts[i] > 0 and counts[i] / num_voters >= threshold]
-                if viable and len(viable) < len(names):
-                    sub = d2[:, viable]
-                    nearest_viable = _np.array(viable)[sub.argmin(axis=1)]
-                    movers = ~_np.isin(choice, viable)
-                    new_choice[movers] = nearest_viable[movers]
-            if (new_choice == choice).all():
-                break
-            choice = new_choice
-
-    votes = {n: int((choice == i).sum()) for i, n in enumerate(names)}
-    vote_share = {n: votes[n] / num_voters for n in names}
-
-    allocate = get_sainte_lague_winners if appt == "sainte_lague" else get_dhondt_winners
-
-    def _pr_alloc(n_seats: int) -> tuple[Dict[str, int], List[str], bool]:
-        """Threshold-filtered proportional allocation. Returns (seats, excluded, waived)."""
-        eligible = {n: votes[n] for n in names if vote_share[n] >= threshold and votes[n] > 0}
-        waived = False
-        if not eligible:  # nobody passes → waive the threshold rather than fail
-            eligible = {n: votes[n] for n in names if votes[n] > 0}
-            waived = True
-        alloc = allocate(eligible, n_seats)
-        seats = {n: int(alloc.get(n, 0)) for n in names}
-        excluded = [n for n in names if n not in eligible]
-        return seats, excluded, waived
-
-    district_seats = {n: 0 for n in names}
-    excluded: List[str] = []
-    threshold_waived = False
-    wasted = 0
-
-    if structure == "fptp":
-        # One single-member district per seat: equal-population bands along x.
-        order = _np.argsort(voters[:, 0], kind="stable")
-        bands = _np.array_split(order, seats_total)
-        seats = {n: 0 for n in names}
-        for band in bands:
-            if len(band) == 0:
-                continue
-            counts = _np.bincount(choice[band], minlength=len(names))
-            win = int(counts.argmax())
-            seats[names[win]] += 1
-            wasted += int(len(band) - counts[win])  # votes for district losers
-        assembly_size = seats_total
-    elif structure == "mmp":
-        n_districts = max(1, seats_total // 2)
-        order = _np.argsort(voters[:, 0], kind="stable")
-        bands = _np.array_split(order, n_districts)
-        for band in bands:
-            if len(band) == 0:
-                continue
-            counts = _np.bincount(choice[band], minlength=len(names))
-            district_seats[names[int(counts.argmax())]] += 1
-        target, excluded, threshold_waived = _pr_alloc(seats_total)
-        # Compensatory top-up; overhang (district wins beyond target) is kept.
-        seats = {n: max(target[n], district_seats[n]) for n in names}
-        assembly_size = sum(seats.values())
-        wasted = sum(votes[n] for n in excluded)
-    else:  # pr
-        seats, excluded, threshold_waived = _pr_alloc(seats_total)
-        assembly_size = seats_total
-        wasted = sum(votes[n] for n in excluded)
+    alloc = _allocate_assembly(
+        d2, voters[:, 0], names, sincere, structure, seats_total,
+        threshold, appt, bool(data.get("strategic_desertion", False)),
+    )
+    votes            = alloc["votes"]
+    vote_share       = {n: votes[n] / num_voters for n in names}
+    seats            = alloc["seats"]
+    district_seats   = alloc["district_seats"]
+    excluded         = alloc["excluded"]
+    threshold_waived = alloc["threshold_waived"]
+    wasted           = alloc["wasted"]
+    assembly_size    = alloc["assembly_size"]
 
     metrics = compute_proportionality_metrics(
         {n: float(votes[n]) for n in names}, seats
@@ -6758,6 +6800,112 @@ def _assembly_worker(data: Dict[str, Any]) -> tuple[Dict[str, Any], int]:
         "effective_parties_seats":  metrics["effective_parties_seats"],
         "wasted_vote_share":        round(wasted / num_voters, 4),
         "coalitions": _minimal_winning_coalitions(seats, positions, majority),
+    }, 200
+
+
+# ── Assembly scorecard (Lab reshape P5) ───────────────────────────────────────
+
+_SCORECARD_STRUCTURES = ("pr", "fptp", "mmp")
+_SCORECARD_AXES = (
+    "proportionality", "pluralism", "effective_votes",
+    "minority_representation", "governability", "gerrymander_resistance",
+)
+
+
+def _assembly_scorecard_worker(data: Dict[str, Any]) -> tuple[Dict[str, Any], int]:
+    """Pure worker for /assembly-scorecard (Lab reshape P5).
+
+    Monte-Carlo scorecard: re-rolls the electorate `replications` times and, for
+    EACH structure (pr / fptp / mmp) at the requested knobs, scores six axes in
+    [0, 1] (higher = better, orientations stated):
+      proportionality          1 − Gallagher/0.2 (clamped)
+      pluralism                ENP(seats) / ENP(votes) — vote diversity surviving into seats
+      effective_votes          1 − wasted-vote share
+      minority_representation  share of parties ≥3% votes holding ≥1 seat
+      governability            1 / size of the smallest winning coalition
+      gerrymander_resistance   1 − seat-share shift when districts are redrawn
+                               along y instead of x (PR: immune → 1)
+    Every number carries a band (mean, p10, p90 over the re-rolls).
+    """
+    parties_in   = (data.get("parties") or [])[:8]
+    num_voters   = max(10, min(1000, int(data.get("num_voters", 400))))
+    ideology     = str(data.get("ideology", "random"))
+    seed         = int(data.get("seed", 42))
+    seats_total  = max(10, min(500, int(data.get("seats", 100))))
+    threshold    = max(0.0, min(0.15, float(data.get("threshold", 0.05))))
+    appt         = str(data.get("apportionment", "dhondt"))
+    desertion    = bool(data.get("strategic_desertion", False))
+    replications = max(8, min(40, int(data.get("replications", 24))))
+
+    if len(parties_in) < 2:
+        return {"error": "At least 2 parties required"}, 400
+
+    names     = [str(p.get("name", f"P{i}")) for i, p in enumerate(parties_in)]
+    positions = {n: (float(p.get("x", 0.0)), float(p.get("y", 0.0)))
+                 for n, p in zip(names, parties_in)}
+    pts = _np.array([[positions[n][0], positions[n][1]] for n in names])
+
+    acc: Dict[str, Dict[str, List[float]]] = {
+        s: {a: [] for a in _SCORECARD_AXES} for s in _SCORECARD_STRUCTURES
+    }
+
+    for k in range(replications):
+        voters = _assembly_voters(num_voters, seed + 101 * k, ideology)
+        d2 = ((voters[:, None, :] - pts[None, :, :]) ** 2).sum(axis=2)
+        sincere = d2.argmin(axis=1)
+
+        for structure in _SCORECARD_STRUCTURES:
+            a = _allocate_assembly(d2, voters[:, 0], names, sincere, structure,
+                                   seats_total, threshold, appt, desertion)
+            votes, seats = a["votes"], a["seats"]
+            size = max(1, a["assembly_size"])
+
+            metrics = compute_proportionality_metrics(
+                {n: float(votes[n]) for n in names}, seats
+            )
+            g   = float(metrics["gallagher_index"] or 0.0)
+            env = float(metrics["effective_parties_votes"] or 1.0)
+            ens = float(metrics["effective_parties_seats"] or 1.0)
+
+            proportionality = max(0.0, 1.0 - g / 0.2)
+            pluralism = min(1.0, ens / env) if env > 0 else 1.0
+            effective_votes = 1.0 - a["wasted"] / num_voters
+            visible = [n for n in names if votes[n] / num_voters >= 0.03]
+            minority = (sum(1 for n in visible if seats[n] > 0) / len(visible)) if visible else 1.0
+            majority = size // 2 + 1
+            coalitions = _minimal_winning_coalitions(seats, positions, majority)
+            min_size = min((len(c["parties"]) for c in coalitions), default=len(names))
+            governability = 1.0 / max(1, min_size)
+            if structure == "pr":
+                gerry = 1.0  # no districts → redistricting cannot move seats
+            else:
+                b = _allocate_assembly(d2, voters[:, 1], names, sincere, structure,
+                                       seats_total, threshold, appt, desertion)
+                size_b = max(1, b["assembly_size"])
+                tv = 0.5 * sum(abs(seats[n] / size - b["seats"][n] / size_b) for n in names)
+                gerry = max(0.0, 1.0 - tv)
+
+            acc[structure]["proportionality"].append(proportionality)
+            acc[structure]["pluralism"].append(pluralism)
+            acc[structure]["effective_votes"].append(effective_votes)
+            acc[structure]["minority_representation"].append(minority)
+            acc[structure]["governability"].append(governability)
+            acc[structure]["gerrymander_resistance"].append(gerry)
+
+    def _band(xs: List[float]) -> Dict[str, float]:
+        arr = _np.array(xs, dtype=float)
+        return {
+            "mean": round(float(arr.mean()), 4),
+            "lo":   round(float(_np.percentile(arr, 10)), 4),
+            "hi":   round(float(_np.percentile(arr, 90)), 4),
+        }
+
+    return {
+        "replications": replications,
+        "structures": {
+            s: {a: _band(acc[s][a]) for a in _SCORECARD_AXES}
+            for s in _SCORECARD_STRUCTURES
+        },
     }, 200
 
 

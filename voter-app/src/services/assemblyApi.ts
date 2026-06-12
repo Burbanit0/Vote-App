@@ -57,3 +57,42 @@ export async function runAssembly(
 ): Promise<AssemblyResult> {
   return apiPost<AssemblyResult>('/api/v2/election/assembly', toAssemblyPayload(config, pg));
 }
+
+// ── Assembly scorecard (Lab reshape P5) ──────────────────────────────────────
+
+export interface AxisBand {
+  mean: number;
+  lo: number;
+  hi: number;
+}
+
+export interface AssemblyScorecardResult {
+  replications: number;
+  /** structure (pr|fptp|mmp) → axis → band */
+  structures: Record<string, Record<string, AxisBand>>;
+}
+
+/** All three structures are scored at once, so `structure` is not sent. */
+export function toScorecardPayload(config: ElectionConfig, pg: PlaygroundState) {
+  return {
+    parties: config.candidates.map((c) => ({ name: c.name, x: c.x, y: c.y })),
+    num_voters: config.num_voters,
+    ideology: config.ideology,
+    seed: config.seed,
+    seats: pg.assembly.seats,
+    threshold: pg.assembly.threshold,
+    apportionment: pg.assembly.apportionment,
+    strategic_desertion: pg.assembly.strategic_desertion,
+    replications: 24,
+  };
+}
+
+export async function runAssemblyScorecard(
+  config: ElectionConfig,
+  pg: PlaygroundState
+): Promise<AssemblyScorecardResult> {
+  return apiPost<AssemblyScorecardResult>(
+    '/api/v2/election/assembly-scorecard',
+    toScorecardPayload(config, pg)
+  );
+}

@@ -17,6 +17,7 @@ Flask workers will be deleted.
 from api.domain.election.workers import (
     _abstention_worker,
     _adaptive_worker,
+    _assembly_scorecard_worker,
     _assembly_worker,
     _affective_polarization_worker,
     _ballot_complexity_worker,
@@ -70,6 +71,12 @@ def assembly(data: dict) -> tuple[dict, int]:
     """Lab reshape P3: party-level seats under PR / FPTP / MMP over one shared
     electorate — proportionality, fragmentation, wasted votes, coalitions."""
     return _assembly_worker(data)
+
+
+def assembly_scorecard(data: dict) -> tuple[dict, int]:
+    """Lab reshape P5: Monte-Carlo scorecard — six [0,1] axes with bands for
+    each structure (pr/fptp/mmp) over re-rolled electorates."""
+    return _assembly_scorecard_worker(data)
 
 
 def combined_effects(data: dict) -> tuple[dict, int]:

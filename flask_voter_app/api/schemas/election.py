@@ -157,6 +157,43 @@ class AssemblyResponse(BaseModel):
     coalitions:               List[AssemblyCoalition] = Field(..., description="Minimal winning coalitions, most cohesive first.")
 
 
+# ── /assembly-scorecard (Lab reshape P5) ──────────────────────────────────────
+
+class AxisBand(BaseModel):
+    """A scorecard number with its Monte-Carlo band (mean, p10, p90), all in [0,1]."""
+    model_config = ConfigDict(extra="forbid")
+
+    mean: float = Field(..., ge=0.0, le=1.0)
+    lo:   float = Field(..., ge=0.0, le=1.0)
+    hi:   float = Field(..., ge=0.0, le=1.0)
+
+
+class AssemblyScorecardRequest(BaseModel):
+    """POST /api/v2/election/assembly-scorecard — six axes × all three structures
+    over `replications` re-rolled electorates. Axis orientations are stated in the
+    endpoint docs; every number carries a band."""
+    model_config = ConfigDict(extra="forbid")
+
+    parties: List[AssemblyPartySpec] = Field(..., min_length=2, max_length=8)
+    num_voters: int = Field(400, ge=10, le=1000)
+    ideology:   str = Field("random")
+    seed:       int = Field(42, ge=0)
+    seats:     int   = Field(100, ge=10, le=500)
+    threshold: float = Field(0.05, ge=0.0, le=0.15)
+    apportionment: Literal["dhondt", "sainte_lague"] = Field("dhondt")
+    strategic_desertion: bool = Field(False)
+    replications: int = Field(24, ge=8, le=40)
+
+
+class AssemblyScorecardResponse(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    replications: int
+    structures: Dict[str, Dict[str, AxisBand]] = Field(
+        ..., description="structure (pr|fptp|mmp) → axis → band."
+    )
+
+
 # ── /simulate ───────────────────────────────────────────────────────────────
 
 class SimulateRequest(BaseModel):

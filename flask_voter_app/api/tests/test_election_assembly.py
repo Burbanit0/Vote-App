@@ -138,3 +138,56 @@ def test_desertion_reduces_wasted_votes_under_pr_threshold(client: TestClient):
     deserted = client.post("/api/v2/election/assembly",
                            json=_payload(threshold=0.1, strategic_desertion=True)).json()
     assert deserted["wasted_vote_share"] <= sincere["wasted_vote_share"]
+
+
+# ── /assembly-scorecard (P5) ──────────────────────────────────────────────────
+
+AXES = ["proportionality", "pluralism", "effective_votes",
+        "minority_representation", "governability", "gerrymander_resistance"]
+
+
+def _sc_payload(**overrides) -> dict:
+    base = {
+        "parties": SIX_PARTIES,
+        "num_voters": 300,
+        "ideology": "random",
+        "seed": 42,
+        "seats": 100,
+        "threshold": 0.05,
+        "apportionment": "dhondt",
+        "replications": 10,
+    }
+    base.update(overrides)
+    return base
+
+
+def test_scorecard_shape_and_bands(client: TestClient):
+    res = client.post("/api/v2/election/assembly-scorecard", json=_sc_payload())
+    assert res.status_code == 200
+    body = res.json()
+    assert body["replications"] == 10
+    assert set(body["structures"]) == {"pr", "fptp", "mmp"}
+    for s in body["structures"].values():
+        assert set(s) == set(AXES)
+        for axis in s.values():
+            assert 0.0 <= axis["lo"] <= axis["mean"] <= axis["hi"] <= 1.0
+
+
+def test_scorecard_pr_is_gerrymander_immune_and_more_proportional(client: TestClient):
+    body = client.post("/api/v2/election/assembly-scorecard", json=_sc_payload()).json()
+    pr, fptp = body["structures"]["pr"], body["structures"]["fptp"]
+    assert pr["gerrymander_resistance"] == {"mean": 1.0, "lo": 1.0, "hi": 1.0}
+    assert pr["proportionality"]["mean"] >= fptp["proportionality"]["mean"]
+
+
+def test_scorecard_fptp_more_governable(client: TestClient):
+    """The winner's bonus concentrates seats → smaller winning coalitions."""
+    body = client.post("/api/v2/election/assembly-scorecard", json=_sc_payload()).json()
+    assert (body["structures"]["fptp"]["governability"]["mean"]
+            >= body["structures"]["pr"]["governability"]["mean"])
+
+
+def test_scorecard_deterministic(client: TestClient):
+    a = client.post("/api/v2/election/assembly-scorecard", json=_sc_payload()).json()
+    b = client.post("/api/v2/election/assembly-scorecard", json=_sc_payload()).json()
+    assert a == b
