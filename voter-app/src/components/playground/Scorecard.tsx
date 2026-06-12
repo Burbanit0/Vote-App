@@ -10,6 +10,8 @@ export interface ScorecardAxis {
   label: string;
   hint: string;
   band: Band | null;
+  /** Lab tab key to drill into for this axis (renders a 🔬 button when set). */
+  drillTab?: string;
 }
 
 export interface ScorecardProps {
@@ -17,14 +19,30 @@ export interface ScorecardProps {
   loading?: boolean;
   /** e.g. "24 ré-échantillonnages" */
   bandNote?: string;
+  /** Called with the Lab tab key when an axis drill-down is clicked. */
+  onDrill?: (tab: string) => void;
 }
 
-const Scorecard: React.FC<ScorecardProps> = ({ axes, loading = false, bandNote }) => (
+const Scorecard: React.FC<ScorecardProps> = ({ axes, loading = false, bandNote, onDrill }) => (
   <div data-testid="scorecard" className="flex flex-col gap-2.5">
-    {axes.map(({ key, label, hint, band }) => (
+    {axes.map(({ key, label, hint, band, drillTab }) => (
       <div key={key} data-testid={`axis-${key}`} title={hint}>
         <div className="flex items-center justify-between text-xs">
-          <span className="text-muted-foreground">{label}</span>
+          <span className="flex items-center gap-1 text-muted-foreground">
+            {label}
+            {drillTab && onDrill && (
+              <button
+                type="button"
+                data-testid={`drill-${key}`}
+                onClick={() => onDrill(drillTab)}
+                className="rounded px-0.5 leading-none opacity-60 transition-opacity hover:opacity-100"
+                title="Approfondir dans le Lab"
+                aria-label={`Approfondir « ${label} » dans le Lab`}
+              >
+                🔬
+              </button>
+            )}
+          </span>
           <span className="font-semibold tabular-nums">
             {band && !loading ? `${Math.round(band.mean * 100)} %` : '…'}
           </span>

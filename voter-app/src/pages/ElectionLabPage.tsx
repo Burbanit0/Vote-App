@@ -1,4 +1,5 @@
 import React, { useCallback, useRef, useState } from 'react';
+import { useNavigate } from 'react-router';
 import { Accordion } from '@/components/ui/accordion';
 import { Alert } from '@/components/ui/alert';
 import { Badge } from '@/components/ui/badge';
@@ -485,6 +486,7 @@ const ElectionLabPage: React.FC = () => {
   });
 
   const { config, applyScenario, resetConfig, scenarioNames, scenarioMeta } = useElection();
+  const navigate = useNavigate();
 
   const [result, setResult] = useState<ElectionResult | null>(null);
   const [loading, setLoading] = useState(false);
@@ -594,6 +596,16 @@ const ElectionLabPage: React.FC = () => {
           )}
         </div>
         <div className="flex gap-2 flex-wrap">
+          {/* Bridge to the playground — same shared electorate (useElectionStore). */}
+          <Button
+            data-testid="open-playground"
+            variant="outline-secondary"
+            size="sm"
+            onClick={() => navigate('/playground')}
+            title="Ouvrir cet électorat dans le Playground"
+          >
+            🎛 Playground
+          </Button>
           <Dropdown>
             <Dropdown.Toggle variant="outline-secondary" size="sm">
               📋 {t('electionLab.scenario')}

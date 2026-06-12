@@ -53,10 +53,24 @@ vi.mock('../../services/profileApi', () => ({
   }),
 }));
 
+import { MemoryRouter, Routes, Route } from 'react-router';
 import PlaygroundPage from '../PlaygroundPage';
 import { useElectionStore, DEFAULT_PLAYGROUND, DEFAULT_CONFIG } from '../../stores/useElectionStore';
 
 const LS_PG = 'votelab_playground';
+
+// The page navigates (drill-downs to the Lab), so render it under a router with
+// a probe route standing in for /election-lab.
+function renderPage() {
+  return render(
+    <MemoryRouter initialEntries={['/playground']}>
+      <Routes>
+        <Route path="/playground" element={<PlaygroundPage />} />
+        <Route path="/election-lab" element={<div data-testid="lab-probe" />} />
+      </Routes>
+    </MemoryRouter>
+  );
+}
 
 beforeEach(() => {
   localStorage.clear();
@@ -66,14 +80,14 @@ beforeEach(() => {
 
 describe('PlaygroundPage (P0 shell)', () => {
   it('renders and shows the leader canvas by default', () => {
-    render(<PlaygroundPage />);
+    renderPage();
     expect(screen.getByTestId('playground-page')).toBeInTheDocument();
     expect(screen.getByTestId('leader-canvas')).toBeInTheDocument();
     expect(screen.queryByTestId('canvas-parliament')).not.toBeInTheDocument();
   });
 
   it('mode toggle swaps the canvas, reveals assembly knobs, and persists', () => {
-    render(<PlaygroundPage />);
+    renderPage();
     fireEvent.click(screen.getByTestId('mode-toggle-parliament'));
 
     expect(screen.getByTestId('canvas-parliament')).toBeInTheDocument();
@@ -86,7 +100,7 @@ describe('PlaygroundPage (P0 shell)', () => {
   });
 
   it('a preset mutates shared electorate + playground state and persists', () => {
-    render(<PlaygroundPage />);
+    renderPage();
     fireEvent.click(screen.getByTestId('preset-fragmented'));
 
     const { playground, config } = useElectionStore.getState();
@@ -99,7 +113,7 @@ describe('PlaygroundPage (P0 shell)', () => {
   });
 
   it('a knob change (dimensions) persists to the store', () => {
-    render(<PlaygroundPage />);
+    renderPage();
     fireEvent.change(screen.getByLabelText('Dimensions de l’espace'), { target: { value: '3' } });
 
     expect(useElectionStore.getState().playground.space.dims).toBe(3);
@@ -107,14 +121,14 @@ describe('PlaygroundPage (P0 shell)', () => {
   });
 
   it('surfaces the cycle-rate read-out from the profile engine', async () => {
-    render(<PlaygroundPage />);
+    renderPage();
     await waitFor(() => expect(screen.getByTestId('cycle-rate')).toHaveTextContent('12 %'));
   });
 
   // ── P4: the dynamic layer ────────────────────────────────────────────────
 
   it('the flip button toggles the mode and shows the flip caption', () => {
-    render(<PlaygroundPage />);
+    renderPage();
     fireEvent.click(screen.getByTestId('flip-button'));
     expect(useElectionStore.getState().playground.mode).toBe('parliament');
     expect(screen.getByTestId('flip-caption')).toHaveTextContent('Mêmes électeurs');
@@ -125,14 +139,14 @@ describe('PlaygroundPage (P0 shell)', () => {
   });
 
   it('the campaign scrubber advances the day label and disables candidate edits', () => {
-    render(<PlaygroundPage />);
+    renderPage();
     fireEvent.change(screen.getByTestId('campaign-slider'), { target: { value: '0.5' } });
     expect(screen.getByTestId('campaign-scrubber')).toHaveTextContent('J15');
     expect(screen.getByTestId('campaign-scrubber')).toHaveTextContent('revenez à J0');
   });
 
   it('shake-the-assumptions renders win-rate bands that sum to ~100%', async () => {
-    render(<PlaygroundPage />);
+    renderPage();
     fireEvent.click(screen.getByTestId('shake-toggle'));
     await waitFor(
       () => expect(screen.getByTestId('shake-bands')).toHaveTextContent('ré-échantillonnages'),
@@ -148,7 +162,7 @@ describe('PlaygroundPage (P0 shell)', () => {
   });
 
   it('the Duverger toggle persists strategic desertion in the store', () => {
-    render(<PlaygroundPage />);
+    renderPage();
     fireEvent.click(screen.getByTestId('mode-toggle-parliament'));
     fireEvent.click(screen.getByTestId('duverger-toggle'));
     expect(useElectionStore.getState().playground.assembly.strategic_desertion).toBe(true);
@@ -160,7 +174,7 @@ describe('PlaygroundPage (P0 shell)', () => {
   // ── P5: scorecard + values lens ──────────────────────────────────────────
 
   it('leader mode renders the banded scorecard and the values lens over the 6 rules', async () => {
-    render(<PlaygroundPage />);
+    renderPage();
     await waitFor(
       () =>
         expect(
@@ -174,7 +188,7 @@ describe('PlaygroundPage (P0 shell)', () => {
   });
 
   it('parliament mode shows the structure scorecard from the backend with bands', async () => {
-    render(<PlaygroundPage />);
+    renderPage();
     fireEvent.click(screen.getByTestId('mode-toggle-parliament'));
     await waitFor(
       () => expect(screen.getByTestId('axis-proportionality')).toHaveTextContent('90 %'),
@@ -184,5 +198,26 @@ describe('PlaygroundPage (P0 shell)', () => {
     // trade off (neither dominates), while MMP is dominated by PR.
     expect(screen.getByTestId('lens-item-mmp')).toHaveTextContent('écarté (dominé)');
     expect(screen.getByTestId('lens-item-pr')).not.toHaveTextContent('écarté');
+  });
+
+  // ── Drill-downs Playground → Lab (shared electorate) ─────────────────────
+
+  it('a scorecard axis drill-down navigates to the matching Lab tab', () => {
+    renderPage();
+    fireEvent.click(screen.getByTestId('drill-strategic_resistance'));
+    expect(screen.getByTestId('lab-probe')).toBeInTheDocument();
+  });
+
+  it('the cycle-rate read-out drills into the Lab', () => {
+    renderPage();
+    fireEvent.click(screen.getByTestId('drill-ctl-manipulability'));
+    expect(screen.getByTestId('lab-probe')).toBeInTheDocument();
+  });
+
+  it('the Duverger toggle drills into party dynamics', () => {
+    renderPage();
+    fireEvent.click(screen.getByTestId('mode-toggle-parliament'));
+    fireEvent.click(screen.getByTestId('drill-ctl-party-dynamics'));
+    expect(screen.getByTestId('lab-probe')).toBeInTheDocument();
   });
 });

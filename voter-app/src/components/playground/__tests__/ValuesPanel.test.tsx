@@ -83,4 +83,21 @@ describe('Scorecard', () => {
     expect(screen.getByTestId('axis-b')).toHaveTextContent('…');
     expect(screen.getByTestId('scorecard')).toHaveTextContent('p10–p90');
   });
+
+  it('axis drill-down buttons call back with the Lab tab key', () => {
+    const onDrill = vi.fn();
+    render(
+      <Scorecard
+        axes={[
+          { key: 'a', label: 'Axe A', hint: 'h', drillTab: 'gerrymander',
+            band: { mean: 0.7, lo: 0.6, hi: 0.8 } },
+          { key: 'b', label: 'Axe B', hint: 'h', band: null }, // no drillTab → no button
+        ]}
+        onDrill={onDrill}
+      />
+    );
+    fireEvent.click(screen.getByTestId('drill-a'));
+    expect(onDrill).toHaveBeenCalledWith('gerrymander');
+    expect(screen.queryByTestId('drill-b')).not.toBeInTheDocument();
+  });
 });
