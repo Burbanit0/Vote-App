@@ -14,6 +14,7 @@ override_utilities=matrix)`, which is the existing profile-as-interface hook.
 """
 from __future__ import annotations
 
+import math
 from typing import Any, Dict, List, Optional, Tuple
 
 import numpy as np
@@ -136,6 +137,139 @@ def handcrafted_profile(matrix_in: List[List[float]], names: List[str]) -> Utili
     for i, row in enumerate(matrix_in):
         matrix[i] = {names[j]: float(row[j]) for j in range(len(names))}
     return matrix
+
+
+# ── Ballot projection (frontier FA-1) ────────────────────────────────────────
+#
+# The BALLOT (how a voter may express) is half the design space, separate from
+# the counting rule. project_ballot() converts each voter's underlying utility
+# vector into the ballot the rule actually sees — information is LOST on
+# purpose, and that loss can flip winners at equal counting rule.
+#
+# Stated conventions:
+#  · per-voter utilities are min-max normalised to [0,1] before projection;
+#  · approve marks candidates at ≥ 0.5;
+#  · rank_truncated keeps the top-k (top = 1.0 … k-th = 1/k), the rest at 0 —
+#    methods needing a total order break those ties in stable name order
+#    (an artifact of truncation itself, stated, not hidden);
+#  · score/grade quantise to L levels; cumulative spreads a 10-point budget
+#    proportionally to positive utilities.
+
+BALLOT_TYPES = (
+    "full", "choose_one", "approve", "rank_full", "rank_truncated",
+    "score", "grade", "cumulative",
+)
+
+# Method slugs (compare_all_methods keys) that need CARDINAL intensity.
+_CARDINAL_METHODS = {
+    "evaluative", "majority_judgment", "mean_median_hybrid", "median_voting",
+    "quadratic", "simple_score", "star_voting", "variance_based",
+}
+_ORDINAL_METHODS = {
+    "baldwin", "borda", "bucklin", "coombs", "copeland", "irv", "kemeny_young",
+    "minimax", "nanson", "plurality", "schulze", "two_round",
+}
+_ALL_METHODS = _CARDINAL_METHODS | _ORDINAL_METHODS | {"approval"}
+
+
+def compatible_methods(ballot_type: str) -> set:
+    """Which counting rules can HONESTLY run on this ballot's information."""
+    if ballot_type in ("full", "score", "grade", "cumulative"):
+        return set(_ALL_METHODS)
+    if ballot_type in ("rank_full", "rank_truncated"):
+        return set(_ORDINAL_METHODS)
+    if ballot_type == "approve":
+        return {"approval"}
+    if ballot_type == "choose_one":
+        return {"plurality", "two_round"}
+    return set(_ALL_METHODS)
+
+
+def _normalise_row(utils: Dict[str, float]) -> Dict[str, float]:
+    vals = list(utils.values())
+    lo, hi = min(vals), max(vals)
+    span = (hi - lo) or 1.0
+    return {n: (u - lo) / span for n, u in utils.items()}
+
+
+def project_ballot(
+    matrix: UtilityMatrix,
+    names: List[str],
+    ballot_type: str,
+    truncate_at: Optional[int] = None,
+    score_levels: int = 6,
+) -> UtilityMatrix:
+    """Project true utilities onto the expressed ballot (as an effective
+    utility matrix consumable by compare_all_methods unchanged)."""
+    if ballot_type == "full":
+        return matrix
+    k = max(1, min(len(names), truncate_at or 3))
+    levels = max(2, min(10, score_levels))
+    out: UtilityMatrix = {}
+    for vid, utils in matrix.items():
+        norm = _normalise_row(utils)
+        ranked = sorted(names, key=lambda n: -norm[n])
+        if ballot_type == "choose_one":
+            out[vid] = {n: (1.0 if n == ranked[0] else 0.0) for n in names}
+        elif ballot_type == "approve":
+            out[vid] = {n: (1.0 if norm[n] >= 0.5 else 0.0) for n in names}
+        elif ballot_type == "rank_full":
+            m = len(names)
+            pos = {n: i for i, n in enumerate(ranked)}
+            out[vid] = {n: (m - 1 - pos[n]) / max(1, m - 1) for n in names}
+        elif ballot_type == "rank_truncated":
+            top = ranked[:k]
+            out[vid] = {
+                n: ((k - top.index(n)) / k if n in top else 0.0) for n in names
+            }
+        elif ballot_type in ("score", "grade"):
+            lv = 7 if ballot_type == "grade" else levels
+            out[vid] = {n: round(norm[n] * (lv - 1)) / (lv - 1) for n in names}
+        elif ballot_type == "cumulative":
+            budget = 10.0
+            total = sum(norm.values()) or 1.0
+            out[vid] = {n: round(budget * norm[n] / total) / budget for n in names}
+        else:
+            raise ValueError(f"unknown ballot type: {ballot_type}")
+    return out
+
+
+def ballot_metrics(
+    ballot_type: str, m: int, truncate_at: Optional[int] = None, score_levels: int = 6
+) -> Dict[str, float]:
+    """Expressiveness (bits a ballot can carry) vs cognitive load (decisions it
+    demands), both normalised to [0,1]. Stated conventions, not measurements."""
+    k = max(1, min(m, truncate_at or 3))
+    lv = 7 if ballot_type == "grade" else max(2, min(10, score_levels))
+    log2 = math.log2
+
+    def perm_bits(n: int, r: int) -> float:  # log2(n!/(n-r)!)
+        return sum(log2(n - i) for i in range(r))
+
+    bits = {
+        "full":           m * log2(101),
+        "choose_one":     log2(max(2, m)),
+        "approve":        float(m),
+        "rank_full":      perm_bits(m, m),
+        "rank_truncated": perm_bits(m, k),
+        "score":          m * log2(lv),
+        "grade":          m * log2(7),
+        "cumulative":     m * log2(11),
+    }[ballot_type]
+    load = {
+        "full":           3.0 * m,
+        "choose_one":     1.0 * m,        # scan for your favourite, one mark
+        "approve":        2.0 * m,        # one threshold decision per candidate
+        "rank_full":      m * max(1.0, log2(max(2, m))) + m,
+        "rank_truncated": m + k * max(1.0, log2(max(2, k))),
+        "score":          3.0 * m,        # calibrate each on the scale
+        "grade":          3.0 * m,
+        "cumulative":     4.0 * m,        # budget juggling on top
+    }[ballot_type]
+    return {
+        "expressiveness": round(min(1.0, bits / (m * log2(101))), 4),
+        "cognitive_load": round(min(1.0, load / (4.0 * m)), 4),
+    }
 
 
 # ── Behaviour transform ──────────────────────────────────────────────────────

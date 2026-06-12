@@ -50,6 +50,12 @@ vi.mock('../../services/profileApi', () => ({
     display_points: [],
     candidate_points: null,
     num_voters: 300,
+    ballot_type: 'rank_truncated',
+    ballot_expressiveness: 0.4,
+    ballot_cognitive_load: 0.3,
+    sample_ballot: { A: 1, B: 0.5, C: 0 },
+    winner_flips: ['irv', 'borda'],
+    incompatible_methods: ['star_voting'],
   }),
 }));
 
@@ -198,6 +204,29 @@ describe('PlaygroundPage (P0 shell)', () => {
     // trade off (neither dominates), while MMP is dominated by PR.
     expect(screen.getByTestId('lens-item-mmp')).toHaveTextContent('écarté (dominé)');
     expect(screen.getByTestId('lens-item-pr')).not.toHaveTextContent('écarté');
+  });
+
+  // ── FA-1 : la couche bulletin ─────────────────────────────────────────────
+
+  it('the ballot selector persists and reveals the truncation slider', () => {
+    renderPage();
+    fireEvent.change(screen.getByTestId('ballot-select'), {
+      target: { value: 'rank_truncated' },
+    });
+    expect(useElectionStore.getState().playground.ballot.type).toBe('rank_truncated');
+    expect(JSON.parse(localStorage.getItem(LS_PG) as string).ballot.type).toBe('rank_truncated');
+    fireEvent.change(screen.getByTestId('ballot-truncate'), { target: { value: '2' } });
+    expect(useElectionStore.getState().playground.ballot.truncate_at).toBe(2);
+  });
+
+  it('shows the sample ballot, the expressiveness/load trade-off and the winner flips', async () => {
+    renderPage();
+    await waitFor(() => expect(screen.getByTestId('ballot-preview')).toBeInTheDocument());
+    expect(screen.getByTestId('ballot-preview').textContent).toContain('A 1');
+    expect(screen.getByTestId('ballot-tradeoff')).toHaveTextContent('Expressivité');
+    expect(screen.getByTestId('ballot-tradeoff')).toHaveTextContent('Charge cognitive');
+    expect(screen.getByTestId('ballot-flips')).toHaveTextContent('2 méthodes');
+    expect(screen.getByTestId('ballot-flips')).toHaveTextContent('irv, borda');
   });
 
   // ── Drill-downs Playground → Lab (shared electorate) ─────────────────────

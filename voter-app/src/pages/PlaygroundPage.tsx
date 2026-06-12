@@ -145,11 +145,23 @@ function toProfileKey(config: ElectionConfig, pg: PlaygroundState) {
     valence: pg.space.valenceEnabled,
     behavior: pg.behavior,
     prefParams: pg.prefParams,
+    ballot: pg.ballot,
     num_voters: config.num_voters,
     seed: config.seed,
     candidates: config.candidates.map((c) => [c.name, c.x, c.y]),
   };
 }
+
+const BALLOT_LABELS: Record<string, string> = {
+  full: 'Information complète',
+  choose_one: 'Choix unique (1 croix)',
+  approve: 'Approbation',
+  rank_full: 'Classement complet',
+  rank_truncated: 'Classement tronqué (top-k)',
+  score: 'Notes (échelle)',
+  grade: 'Mentions (JM)',
+  cumulative: 'Cumulatif (budget de points)',
+};
 
 // ── Scorecard axes (P5): labels + stated conventions, by mode ────────────────
 
@@ -540,6 +552,120 @@ const PlaygroundPage: React.FC = () => {
               />
               Valence (qualité hors-idéologie)
             </label>
+
+            {/* ── Bulletin (frontier FA-1) ── */}
+            <div className="flex flex-col gap-2 rounded-md border border-border p-3">
+              <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                Bulletin (expression)
+              </p>
+              <Field label="Type de bulletin" htmlFor="pg-ballot">
+                <select
+                  id="pg-ballot"
+                  data-testid="ballot-select"
+                  className={selectCls}
+                  value={playground.ballot.type}
+                  onChange={(e) => setPlaygroundDeep('ballot.type', e.target.value)}
+                >
+                  {Object.entries(BALLOT_LABELS).map(([k, label]) => (
+                    <option key={k} value={k}>
+                      {label}
+                    </option>
+                  ))}
+                </select>
+              </Field>
+              {playground.ballot.type === 'rank_truncated' && (
+                <Field
+                  label={`Classer le top ${playground.ballot.truncate_at}`}
+                  htmlFor="pg-truncate"
+                >
+                  <input
+                    id="pg-truncate"
+                    data-testid="ballot-truncate"
+                    type="range"
+                    min={1}
+                    max={Math.max(1, config.candidates.length)}
+                    step={1}
+                    value={playground.ballot.truncate_at}
+                    onChange={(e) =>
+                      setPlaygroundDeep('ballot.truncate_at', Number(e.target.value))
+                    }
+                  />
+                </Field>
+              )}
+              {(playground.ballot.type === 'score' || playground.ballot.type === 'grade') && (
+                <Field
+                  label={`Niveaux : ${playground.ballot.type === 'grade' ? 7 : playground.ballot.score_levels}`}
+                  htmlFor="pg-levels"
+                >
+                  <input
+                    id="pg-levels"
+                    type="range"
+                    min={2}
+                    max={10}
+                    step={1}
+                    value={playground.ballot.score_levels}
+                    disabled={playground.ballot.type === 'grade'}
+                    onChange={(e) =>
+                      setPlaygroundDeep('ballot.score_levels', Number(e.target.value))
+                    }
+                  />
+                </Field>
+              )}
+
+              {/* Sample-ballot preview (voter #0) */}
+              {result && (
+                <div
+                  data-testid="ballot-preview"
+                  className="rounded bg-muted/40 px-2 py-1.5 text-[0.7rem] text-muted-foreground"
+                  title="Le bulletin tel que l'électeur n°1 le remplirait — ce que la règle voit vraiment."
+                >
+                  {Object.entries(result.sample_ballot)
+                    .sort((a, b) => b[1] - a[1])
+                    .map(([n, v]) => `${n} ${v}`)
+                    .join(' · ')}
+                </div>
+              )}
+
+              {/* Expressiveness vs cognitive load */}
+              {result && (
+                <div data-testid="ballot-tradeoff" className="flex flex-col gap-1">
+                  {(
+                    [
+                      ['Expressivité', result.ballot_expressiveness],
+                      ['Charge cognitive', result.ballot_cognitive_load],
+                    ] as const
+                  ).map(([label, v]) => (
+                    <div key={label} className="flex items-center gap-2 text-[0.7rem]">
+                      <span className="w-24 shrink-0 text-muted-foreground">{label}</span>
+                      <div className="h-1.5 flex-1 overflow-hidden rounded bg-muted/50">
+                        <div
+                          className="h-full rounded bg-primary/70"
+                          style={{ width: `${v * 100}%`, transition: 'width 300ms ease' }}
+                        />
+                      </div>
+                      <span className="w-8 text-right tabular-nums text-muted-foreground">
+                        {Math.round(v * 100)}
+                      </span>
+                    </div>
+                  ))}
+                </div>
+              )}
+
+              {/* Headline: same counting rule, this ballot → different winner */}
+              {result && result.winner_flips.length > 0 && (
+                <p data-testid="ballot-flips" className="text-[0.7rem] font-medium text-amber-600 dark:text-amber-400">
+                  ⚠ À règle égale, ce bulletin change le vainqueur pour{' '}
+                  {result.winner_flips.length} méthode{result.winner_flips.length > 1 ? 's' : ''} :{' '}
+                  {result.winner_flips.join(', ')}.
+                </p>
+              )}
+              {result && result.incompatible_methods.length > 0 && (
+                <p className="text-[0.65rem] text-muted-foreground/70">
+                  {result.incompatible_methods.length} méthodes exclues (l’information du
+                  bulletin ne permet pas de les dépouiller honnêtement).
+                </p>
+              )}
+            </div>
 
             {/* Assembly knobs — only relevant in parliament mode */}
             {mode === 'parliament' && (

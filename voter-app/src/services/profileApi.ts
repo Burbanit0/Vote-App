@@ -14,6 +14,16 @@ export interface ProfileSimulateResult {
   display_points: number[][];
   candidate_points: number[][] | null;
   num_voters: number;
+  // FA-1 — the ballot layer
+  ballot_type: string;
+  ballot_expressiveness: number;
+  ballot_cognitive_load: number;
+  /** Voter #0's projected ballot (candidate → expressed value). */
+  sample_ballot: Record<string, number>;
+  /** Methods whose winner differs from the full-information ballot. */
+  winner_flips: string[];
+  /** Methods that cannot honestly run on this ballot (excluded). */
+  incompatible_methods: string[];
 }
 
 /** Build the `extra="forbid"` request body from shared electorate + playground knobs. */
@@ -26,6 +36,11 @@ export function toProfilePayload(config: ElectionConfig, pg: PlaygroundState) {
     valence: pg.space.valenceEnabled,
     behavior: pg.behavior,
     source_params: pg.prefParams,
+    ballot: {
+      type: pg.ballot.type,
+      truncate_at: pg.ballot.type === 'rank_truncated' ? pg.ballot.truncate_at : null,
+      score_levels: pg.ballot.score_levels,
+    },
     seed: config.seed,
   };
 }

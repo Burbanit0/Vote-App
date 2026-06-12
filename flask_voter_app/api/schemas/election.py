@@ -42,11 +42,25 @@ class ProfileCandidateSpec(BaseModel):
     valence: float = Field(0.0, ge=-1.0, le=1.0, description="Off-ideology quality bonus.")
 
 
+class BallotConfig(BaseModel):
+    """How voters may EXPRESS their preference (frontier FA-1) — half the design
+    space, separate from the counting rule. Information is lost on purpose."""
+    model_config = ConfigDict(extra="forbid")
+
+    type: Literal[
+        "full", "choose_one", "approve", "rank_full", "rank_truncated",
+        "score", "grade", "cumulative",
+    ] = Field("full")
+    truncate_at: Optional[int] = Field(None, ge=1, le=8,
+                                       description="Top-k for rank_truncated.")
+    score_levels: int = Field(6, ge=2, le=10, description="Levels for score ballots.")
+
+
 class ProfileSimulateRequest(BaseModel):
     """POST /api/v2/election/profile-simulate — the profile-as-interface core.
 
     Every assumption is an explicit knob: the preference source and its params, the
-    dimensionality, valence, and the voter behaviour. Nothing is smuggled in.
+    dimensionality, valence, the voter behaviour, and the ballot. Nothing is smuggled in.
     """
     model_config = ConfigDict(extra="forbid")
 
@@ -63,6 +77,7 @@ class ProfileSimulateRequest(BaseModel):
     handcrafted_matrix: Optional[List[List[float]]] = Field(
         None, description="Rows = voters, cols = candidates (aligned), for source=handcrafted."
     )
+    ballot: BallotConfig = Field(default_factory=BallotConfig)
     seed: int = Field(42, ge=0)
 
 
@@ -80,6 +95,14 @@ class ProfileSimulateResponse(BaseModel):
     display_points:         List[List[float]]       = Field(..., description="Per-voter 2D embedding for the map.")
     candidate_points:       Optional[List[List[float]]] = Field(None, description="Candidate 2D points (spatial source only).")
     num_voters:             int                     = Field(..., ge=1)
+    ballot_type:            str                     = Field("full")
+    ballot_expressiveness:  float                   = Field(..., ge=0.0, le=1.0,
+                                                            description="Bits the ballot can carry (normalised convention).")
+    ballot_cognitive_load:  float                   = Field(..., ge=0.0, le=1.0,
+                                                            description="Decisions the ballot demands (normalised convention).")
+    sample_ballot:          Dict[str, float]        = Field(..., description="Voter #0's projected ballot.")
+    winner_flips:           List[str]               = Field(..., description="Methods whose winner differs from the full-information ballot.")
+    incompatible_methods:   List[str]               = Field(..., description="Methods that cannot honestly run on this ballot (excluded).")
 
 
 # ── /assembly (Lab reshape P3) ────────────────────────────────────────────────

@@ -23,7 +23,9 @@ import numpy as _np
 from api.engine.constants import DEFAULT_ISSUES
 from api.engine.utils.simulation_voting_utils import calculate_utility, create_candidate, create_voter
 from api.engine.utils.simulation_metrics      import compare_all_methods
-from api.engine.utils.profile_engine          import build_profile, cycle_rate
+from api.engine.utils.profile_engine          import (
+    build_profile, cycle_rate, project_ballot, ballot_metrics, compatible_methods,
+)
 from api.engine.utils.simulation_ranked_utils import (
     get_plurality_winner,
     get_condorcet_winner,
@@ -6546,10 +6548,48 @@ def _profile_simulate_worker(data: Dict[str, Any]) -> tuple[Dict[str, Any], int]
     voters     = [{"id": vid} for vid in matrix]
     candidates = [{"name": n} for n in names]
 
-    result = compare_all_methods(voters, candidates, [], override_utilities=matrix)
+    # ── Ballot projection (frontier FA-1) ──────────────────────────────────
+    # The counting rules see the EXPRESSED ballot, not the true utilities.
+    ballot_cfg  = data.get("ballot") or {}
+    ballot_type = str(ballot_cfg.get("type", "full"))
+    truncate_at = ballot_cfg.get("truncate_at")
+    score_lv    = int(ballot_cfg.get("score_levels") or 6)
+    try:
+        projected = project_ballot(
+            matrix, names, ballot_type,
+            truncate_at=int(truncate_at) if truncate_at else None,
+            score_levels=score_lv,
+        )
+    except ValueError as exc:
+        return {"error": str(exc)}, 400
+
+    compat = compatible_methods(ballot_type)
+    result = compare_all_methods(voters, candidates, [], override_utilities=projected)
+    raw_methods = result.get("methods", {})
     methods_out: Dict[str, Any] = {
-        name: {"winner": md.get("winner")} for name, md in result.get("methods", {}).items()
+        name: {"winner": md.get("winner")}
+        for name, md in raw_methods.items()
+        if name in compat
     }
+    incompatible = sorted(set(raw_methods) - compat)
+
+    # Headline demo: same counting rule, different ballot → different winner.
+    winner_flips: List[str] = []
+    if ballot_type != "full":
+        full_run = compare_all_methods(voters, candidates, [], override_utilities=matrix)
+        full_methods = full_run.get("methods", {})
+        winner_flips = sorted(
+            name for name in methods_out
+            if full_methods.get(name, {}).get("winner") != methods_out[name]["winner"]
+        )
+
+    metrics = ballot_metrics(
+        ballot_type, len(names),
+        truncate_at=int(truncate_at) if truncate_at else None,
+        score_levels=score_lv,
+    )
+    first_vid = next(iter(projected))
+    sample_ballot = {n: round(float(v), 3) for n, v in projected[first_vid].items()}
 
     return {
         "methods":                methods_out,
@@ -6560,6 +6600,12 @@ def _profile_simulate_worker(data: Dict[str, Any]) -> tuple[Dict[str, Any], int]
         "display_points":         built["display_points"],
         "candidate_points":       built["candidate_points"],
         "num_voters":             len(matrix),
+        "ballot_type":            ballot_type,
+        "ballot_expressiveness":  metrics["expressiveness"],
+        "ballot_cognitive_load":  metrics["cognitive_load"],
+        "sample_ballot":          sample_ballot,
+        "winner_flips":           winner_flips,
+        "incompatible_methods":   incompatible,
     }, 200
 
 
