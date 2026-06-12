@@ -96,6 +96,12 @@ from api.schemas import (
     ShyVoterResponse,
     SimulatePipelineRequest,
     SimulatePipelineResponse,
+    AssemblyRequest,
+    AssemblyResponse,
+    AssemblyScorecardRequest,
+    AssemblyScorecardResponse,
+    ProfileSimulateRequest,
+    ProfileSimulateResponse,
     SimulateRequest,
     SimulateResponse,
     SortitionRequest,
@@ -107,6 +113,8 @@ from api.schemas import (
 from api.domain.election import (
     abstention as abstention_domain,
     adaptive as adaptive_domain,
+    assembly as assembly_domain,
+    assembly_scorecard as assembly_scorecard_domain,
     affective_polarization as affective_polarization_domain,
     ballot_complexity as ballot_complexity_domain,
     behavioral_biases as behavioral_biases_domain,
@@ -134,6 +142,7 @@ from api.domain.election import (
     polarization as polarization_domain,
     power_indices as power_indices_domain,
     primary as primary_domain,
+    profile_simulate as profile_simulate_domain,
     quadratic_funding as quadratic_funding_domain,
     shy_voter as shy_voter_domain,
     simulate as simulate_domain,
@@ -219,6 +228,61 @@ async def simulate_endpoint(request: SimulateRequest) -> SimulateResponse:
     eventlet anywhere on the v2 path.
     """
     return await _run_typed(simulate_domain, request, SimulateResponse)
+
+
+# ── /profile-simulate (Lab reshape P1) ────────────────────────────────────────
+
+@router.post(
+    "/profile-simulate",
+    response_model=ProfileSimulateResponse,
+    summary="Run every method over a configurable preference profile",
+    response_description="Per-method winners, the profile's 2D embedding, and the "
+                         "paradox/cycle rate, for a user-chosen preference source.",
+)
+async def profile_simulate_endpoint(
+    request: ProfileSimulateRequest,
+) -> ProfileSimulateResponse:
+    """The profile-as-interface core: build a profile from the chosen source
+    (spatial / impartial culture / Mallows / Pólya urn / handcrafted), apply the
+    behaviour transform, then run all methods. The cycle_rate read-out exposes how
+    conclusions are conditional on the assumptions."""
+    return await _run_typed(profile_simulate_domain, request, ProfileSimulateResponse)
+
+
+# ── /assembly (Lab reshape P3) ────────────────────────────────────────────────
+
+@router.post(
+    "/assembly",
+    response_model=AssemblyResponse,
+    summary="Compose a parliament: votes → seats under PR / FPTP / MMP",
+    response_description="Seats per party, proportionality (Gallagher), fragmentation "
+                         "(effective number of parties), wasted votes, and the minimal "
+                         "winning coalitions.",
+)
+async def assembly_endpoint(request: AssemblyRequest) -> AssemblyResponse:
+    """Party-level assembly over one shared electorate. The same voters under
+    PR vs FPTP vs MMP expose the proportionality/governability trade-off; the
+    threshold knob shows small parties dropping off the cliff."""
+    return await _run_typed(assembly_domain, request, AssemblyResponse)
+
+
+# ── /assembly-scorecard (Lab reshape P5) ──────────────────────────────────────
+
+@router.post(
+    "/assembly-scorecard",
+    response_model=AssemblyScorecardResponse,
+    summary="Monte-Carlo scorecard: six axes × pr/fptp/mmp, every number banded",
+    response_description="Per-structure axis bands (mean/p10/p90 over re-rolled "
+                         "electorates): proportionality, pluralism, effective votes, "
+                         "minority representation, governability, gerrymander resistance.",
+)
+async def assembly_scorecard_endpoint(
+    request: AssemblyScorecardRequest,
+) -> AssemblyScorecardResponse:
+    """Feeds the playground's parliament scorecard + values lens. Axes are
+    oriented higher-is-better with stated conventions; the lens then removes
+    Pareto-dominated structures and lets user weights spotlight the frontier."""
+    return await _run_typed(assembly_scorecard_domain, request, AssemblyScorecardResponse)
 
 
 # ── /combined-effects ───────────────────────────────────────────────────────

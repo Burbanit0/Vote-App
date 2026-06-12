@@ -17,6 +17,8 @@ Flask workers will be deleted.
 from api.domain.election.workers import (
     _abstention_worker,
     _adaptive_worker,
+    _assembly_scorecard_worker,
+    _assembly_worker,
     _affective_polarization_worker,
     _ballot_complexity_worker,
     _behavioral_biases_worker,
@@ -44,6 +46,7 @@ from api.domain.election.workers import (
     _polarization_worker,
     _power_indices_worker,
     _primary_worker,
+    _profile_simulate_worker,
     _quadratic_funding_worker,
     _shy_voter_worker,
     _simulate_pipeline_worker,
@@ -56,6 +59,24 @@ from api.domain.election.election_service import ElectionService
 def simulate(data: dict) -> tuple[dict, int]:
     """Run the unified election pipeline."""
     return ElectionService.simulate(data)
+
+
+def profile_simulate(data: dict) -> tuple[dict, int]:
+    """Lab reshape P1: run every method over a profile built from a user-chosen
+    preference source (spatial / impartial / mallows / urn / handcrafted)."""
+    return _profile_simulate_worker(data)
+
+
+def assembly(data: dict) -> tuple[dict, int]:
+    """Lab reshape P3: party-level seats under PR / FPTP / MMP over one shared
+    electorate — proportionality, fragmentation, wasted votes, coalitions."""
+    return _assembly_worker(data)
+
+
+def assembly_scorecard(data: dict) -> tuple[dict, int]:
+    """Lab reshape P5: Monte-Carlo scorecard — six [0,1] axes with bands for
+    each structure (pr/fptp/mmp) over re-rolled electorates."""
+    return _assembly_scorecard_worker(data)
 
 
 def combined_effects(data: dict) -> tuple[dict, int]:

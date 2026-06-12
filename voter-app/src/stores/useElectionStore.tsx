@@ -240,9 +240,152 @@ export const SCENARIOS: Record<string, ElectionConfig> = {
   },
 };
 
+// ── Playground slice (Lab reshape Phase P0) ───────────────────────────────────
+//
+// The two-mode playground ("Elect a leader" vs "Compose a parliament") shares the
+// electorate (config above); only the question, rules, scorecard and viz differ.
+// These knobs are the user-configurable assumptions — nothing is smuggled in.
+
+export type PlaygroundMode = 'leader' | 'parliament';
+export type PrefSource = 'spatial' | 'impartial' | 'mallows' | 'urn' | 'handcrafted';
+export type Behavior = 'sincere' | 'strategic' | 'mixed';
+export type AssemblyStructure = 'pr' | 'fptp' | 'mmp';
+export type Apportionment = 'dhondt' | 'sainte_lague';
+
+export interface PlaygroundState {
+  mode: PlaygroundMode;
+  space: { dims: 1 | 2 | 3; axisLabels: string[]; valenceEnabled: boolean };
+  behavior: Behavior;
+  prefSource: PrefSource;
+  prefParams: Record<string, number>;
+  assembly: {
+    structure: AssemblyStructure;
+    seats: number;
+    threshold: number;
+    apportionment: Apportionment;
+    num_districts: number;
+    /** Duverger demo (P4): voters desert non-viable parties. */
+    strategic_desertion: boolean;
+  };
+}
+
+export const DEFAULT_PLAYGROUND: PlaygroundState = {
+  mode: 'leader',
+  space: { dims: 2, axisLabels: ['Économique', 'Sociétal'], valenceEnabled: false },
+  behavior: 'sincere',
+  prefSource: 'spatial',
+  prefParams: {},
+  assembly: {
+    structure: 'pr',
+    seats: 100,
+    threshold: 0.05,
+    apportionment: 'dhondt',
+    num_districts: 1,
+    strategic_desertion: false,
+  },
+};
+
+export interface PlaygroundPreset {
+  id: string;
+  label: string;
+  description: string;
+  playground: Partial<PlaygroundState>;
+  electorate: Partial<ElectionConfig>;
+}
+
+/**
+ * Synthetic starting states — defaults you override, never data and never walls.
+ * Each preset seeds BOTH the shared electorate and the playground knobs.
+ */
+export const PLAYGROUND_PRESETS: PlaygroundPreset[] = [
+  {
+    id: 'two_party',
+    label: 'Bipartisme',
+    description: 'Deux camps sur un axe gauche–droite — le terrain du votant médian.',
+    playground: {
+      mode: 'leader',
+      space: { dims: 1, axisLabels: ['Gauche–Droite'], valenceEnabled: false },
+      prefSource: 'spatial',
+    },
+    electorate: {
+      candidates: [
+        { name: 'Gauche', x: -0.5, y: 0 },
+        { name: 'Droite', x: 0.5, y: 0 },
+      ],
+      num_voters: 400,
+      ideology: 'random',
+    },
+  },
+  {
+    id: 'fragmented',
+    label: 'Multipartisme fragmenté',
+    description: 'Six partis en 2D — proportionnelle, seuils et coalitions.',
+    playground: {
+      mode: 'parliament',
+      space: { dims: 2, axisLabels: ['Économique', 'Sociétal'], valenceEnabled: false },
+      prefSource: 'spatial',
+      assembly: {
+        structure: 'pr',
+        seats: 100,
+        threshold: 0.05,
+        apportionment: 'dhondt',
+        num_districts: 1,
+        strategic_desertion: false,
+      },
+    },
+    electorate: {
+      candidates: [
+        { name: 'Verts', x: -0.3, y: -0.4 },
+        { name: 'Soc.', x: -0.5, y: -0.1 },
+        { name: 'Centre', x: 0.0, y: 0.0 },
+        { name: 'Libéraux', x: 0.3, y: 0.0 },
+        { name: 'Cons.', x: 0.5, y: 0.3 },
+        { name: 'Droite rad.', x: 0.8, y: 0.7 },
+      ],
+      num_voters: 600,
+      ideology: 'polarized',
+    },
+  },
+  {
+    id: 'single_issue',
+    label: 'Enjeu unique',
+    description: 'Trois options sur un seul axe — la clarté du votant médian.',
+    playground: {
+      mode: 'leader',
+      space: { dims: 1, axisLabels: ['Pour ↔ Contre'], valenceEnabled: false },
+      prefSource: 'spatial',
+    },
+    electorate: {
+      candidates: [
+        { name: 'Pour', x: -0.6, y: 0 },
+        { name: 'Compromis', x: 0.0, y: 0 },
+        { name: 'Contre', x: 0.6, y: 0 },
+      ],
+      num_voters: 300,
+      ideology: 'centrist',
+    },
+  },
+  {
+    id: 'france2002_like',
+    label: 'France 2002 (synthétique)',
+    description: 'Gauche fragmentée, extrêmes polarisés — le terrain du spoiler.',
+    playground: {
+      mode: 'leader',
+      space: { dims: 2, axisLabels: ['Économique', 'Sociétal'], valenceEnabled: false },
+      prefSource: 'spatial',
+    },
+    electorate: {
+      candidates: SCENARIOS.france2002.candidates,
+      num_voters: 500,
+      ideology: 'polarized',
+    },
+  },
+];
+
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
 const LS_KEY = 'votelab_election_config';
+const LS_PLAYGROUND_KEY = 'votelab_playground';
 
 function deepSet(obj: unknown, path: string, value: unknown): unknown {
   const parts = path.split('.');
@@ -269,6 +412,32 @@ function saveConfig(config: ElectionConfig): void {
   }
 }
 
+function loadPlayground(): PlaygroundState {
+  try {
+    const raw = localStorage.getItem(LS_PLAYGROUND_KEY);
+    if (!raw) return DEFAULT_PLAYGROUND;
+    const parsed = JSON.parse(raw) as Partial<PlaygroundState>;
+    // Merge over defaults (nested slices too) so a stored older shape keeps
+    // every knob present — e.g. assembly.strategic_desertion added in P4.
+    return {
+      ...DEFAULT_PLAYGROUND,
+      ...parsed,
+      space: { ...DEFAULT_PLAYGROUND.space, ...(parsed.space ?? {}) },
+      assembly: { ...DEFAULT_PLAYGROUND.assembly, ...(parsed.assembly ?? {}) },
+    };
+  } catch {
+    return DEFAULT_PLAYGROUND;
+  }
+}
+
+function savePlayground(pg: PlaygroundState): void {
+  try {
+    localStorage.setItem(LS_PLAYGROUND_KEY, JSON.stringify(pg));
+  } catch {
+    /* ignore */
+  }
+}
+
 // ── Store ─────────────────────────────────────────────────────────────────
 
 export const SCENARIO_NAMES = Object.keys(SCENARIOS);
@@ -276,18 +445,24 @@ export const SCENARIO_NAMES = Object.keys(SCENARIOS);
 interface ElectionState {
   config: ElectionConfig;
   scenarioMeta: ScenarioMeta | null;
+  playground: PlaygroundState;
   setConfig: (patch: Partial<ElectionConfig>) => void;
   setConfigDeep: (path: string, value: unknown) => void;
   replaceConfig: (next: ElectionConfig) => void;
   resetConfig: () => void;
   applyScenario: (name: string) => void;
   clearScenarioMeta: () => void;
+  setMode: (mode: PlaygroundMode) => void;
+  setPlayground: (patch: Partial<PlaygroundState>) => void;
+  setPlaygroundDeep: (path: string, value: unknown) => void;
+  applyPreset: (id: string) => void;
   hydrate: () => void;
 }
 
 export const useElectionStore = create<ElectionState>((set) => ({
   config: loadConfig(),
   scenarioMeta: null,
+  playground: loadPlayground(),
 
   setConfig: (patch) =>
     set((s) => {
@@ -332,7 +507,40 @@ export const useElectionStore = create<ElectionState>((set) => ({
 
   clearScenarioMeta: () => set({ scenarioMeta: null }),
 
-  hydrate: () => set({ config: loadConfig() }),
+  // ── Playground actions ──────────────────────────────────────────────────
+  setMode: (mode) =>
+    set((s) => {
+      const playground = { ...s.playground, mode };
+      savePlayground(playground);
+      return { playground };
+    }),
+
+  setPlayground: (patch) =>
+    set((s) => {
+      const playground = { ...s.playground, ...patch };
+      savePlayground(playground);
+      return { playground };
+    }),
+
+  setPlaygroundDeep: (path, value) =>
+    set((s) => {
+      const playground = deepSet(s.playground, path, value) as PlaygroundState;
+      savePlayground(playground);
+      return { playground };
+    }),
+
+  applyPreset: (id) =>
+    set((s) => {
+      const preset = PLAYGROUND_PRESETS.find((p) => p.id === id);
+      if (!preset) return {};
+      const playground = { ...DEFAULT_PLAYGROUND, ...preset.playground };
+      const config = { ...s.config, ...preset.electorate };
+      savePlayground(playground);
+      saveConfig(config);
+      return { playground, config, scenarioMeta: null };
+    }),
+
+  hydrate: () => set({ config: loadConfig(), playground: loadPlayground() }),
 }));
 
 // ── Convenience hook (former ElectionContext API) ─────────────────────────────
@@ -383,4 +591,24 @@ export function useElection(): ElectionContextValue {
     scenarioMeta,
     clearScenarioMeta,
   };
+}
+
+// ── Playground convenience hook ───────────────────────────────────────────────
+
+export interface PlaygroundContextValue {
+  playground: PlaygroundState;
+  setMode: (mode: PlaygroundMode) => void;
+  setPlayground: (patch: Partial<PlaygroundState>) => void;
+  setPlaygroundDeep: (path: string, value: unknown) => void;
+  applyPreset: (id: string) => void;
+  presets: PlaygroundPreset[];
+}
+
+export function usePlayground(): PlaygroundContextValue {
+  const playground = useElectionStore((s) => s.playground);
+  const setMode = useElectionStore((s) => s.setMode);
+  const setPlayground = useElectionStore((s) => s.setPlayground);
+  const setPlaygroundDeep = useElectionStore((s) => s.setPlaygroundDeep);
+  const applyPreset = useElectionStore((s) => s.applyPreset);
+  return { playground, setMode, setPlayground, setPlaygroundDeep, applyPreset, presets: PLAYGROUND_PRESETS };
 }

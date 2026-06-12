@@ -24,6 +24,7 @@ const InternationalRegimesPage = React.lazy(() => import('./pages/InternationalR
 const ApiDocsPage = React.lazy(() => import('./pages/ApiDocsPage'));
 const TeacherPresentationPage = React.lazy(() => import('./pages/TeacherPresentationPage'));
 const ElectionLabPage = React.lazy(() => import('./pages/ElectionLabPage'));
+const PlaygroundPage = React.lazy(() => import('./pages/PlaygroundPage'));
 const QuadraticFundingPage = React.lazy(() => import('./pages/QuadraticFundingPage'));
 const TechDemocracyPage = React.lazy(() => import('./pages/TechDemocracyPage'));
 const TheoryPage = React.lazy(() => import('./pages/TheoryPage'));
@@ -92,6 +93,7 @@ const AppContent: React.FC = () => {
             <Route path="/api-docs" element={<ApiDocsPage />} />
             <Route path="/teacher/presentation" element={<TeacherPresentationPage />} />
             <Route path="/election-lab" element={<ElectionLabPage />} />
+            <Route path="/playground" element={<PlaygroundPage />} />
             <Route path="/quadratic-funding" element={<QuadraticFundingPage />} />
             <Route path="/tech-democracy" element={<TechDemocracyPage />} />
             {/* Absorbed into the Election Lab (Phase 7) — redirect old routes to the tab. */}

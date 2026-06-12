@@ -13,7 +13,7 @@ when the routes themselves move to FastAPI.
 """
 from __future__ import annotations
 
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List, Literal, Optional
 
 from pydantic import BaseModel, ConfigDict, Field
 
@@ -26,6 +26,172 @@ from .common import (
     MethodResult,
     VoterSnapshot,
 )
+
+
+# ── /profile-simulate (Lab reshape P1) ────────────────────────────────────────
+
+class ProfileCandidateSpec(BaseModel):
+    """A candidate/party for the profile engine. Adds an optional 3rd axis and a
+    valence (off-ideology quality) term over the plain 2D CandidateSpec."""
+    model_config = ConfigDict(extra="forbid")
+
+    name:    str   = Field(..., min_length=1, max_length=64)
+    x:       float = Field(0.0, ge=-1.0, le=1.0, description="Axis 1 position.")
+    y:       float = Field(0.0, ge=-1.0, le=1.0, description="Axis 2 position.")
+    z:       float = Field(0.0, ge=-1.0, le=1.0, description="Axis 3 position (dims=3).")
+    valence: float = Field(0.0, ge=-1.0, le=1.0, description="Off-ideology quality bonus.")
+
+
+class ProfileSimulateRequest(BaseModel):
+    """POST /api/v2/election/profile-simulate — the profile-as-interface core.
+
+    Every assumption is an explicit knob: the preference source and its params, the
+    dimensionality, valence, and the voter behaviour. Nothing is smuggled in.
+    """
+    model_config = ConfigDict(extra="forbid")
+
+    source: Literal["spatial", "impartial", "mallows", "urn", "handcrafted"] = Field("spatial")
+    candidates: List[ProfileCandidateSpec] = Field(..., min_length=2, max_length=8)
+    num_voters: int = Field(300, ge=10, le=1000)
+    dims:       int = Field(2, ge=1, le=3)
+    valence:    bool = Field(False)
+    behavior: Literal["sincere", "strategic", "mixed"] = Field("sincere")
+    source_params: Dict[str, float] = Field(
+        default_factory=dict,
+        description="Source knobs: Mallows {phi}, Pólya urn {alpha}.",
+    )
+    handcrafted_matrix: Optional[List[List[float]]] = Field(
+        None, description="Rows = voters, cols = candidates (aligned), for source=handcrafted."
+    )
+    seed: int = Field(42, ge=0)
+
+
+class ProfileSimulateResponse(BaseModel):
+    """Per-method winners over the built profile + its 2D embedding + the
+    paradox/cycle rate read-out."""
+    model_config = ConfigDict(extra="forbid")
+
+    methods:                Dict[str, MethodResult] = Field(..., description="Keyed by method slug.")
+    condorcet_winner:       Optional[str]           = Field(None)
+    inter_method_agreement: float                   = Field(..., ge=0.0, le=1.0)
+    cycle_rate:             float                   = Field(..., ge=0.0, le=1.0,
+                                                            description="Share of resampled profiles with no Condorcet winner.")
+    candidate_names:        List[str]               = Field(...)
+    display_points:         List[List[float]]       = Field(..., description="Per-voter 2D embedding for the map.")
+    candidate_points:       Optional[List[List[float]]] = Field(None, description="Candidate 2D points (spatial source only).")
+    num_voters:             int                     = Field(..., ge=1)
+
+
+# ── /assembly (Lab reshape P3) ────────────────────────────────────────────────
+
+class AssemblyPartySpec(BaseModel):
+    """A party placed on the ideological plane (the shared electorate's points
+    in parliament mode)."""
+    model_config = ConfigDict(extra="forbid")
+
+    name: str   = Field(..., min_length=1, max_length=64)
+    x:    float = Field(0.0, ge=-1.0, le=1.0)
+    y:    float = Field(0.0, ge=-1.0, le=1.0)
+
+
+class AssemblyRequest(BaseModel):
+    """POST /api/v2/election/assembly — votes → seats under PR / FPTP / MMP.
+
+    FPTP draws one single-member district per seat as equal-population bands
+    along the x axis (geography correlates with ideology). MMP allocates half
+    the seats in districts and tops up proportionally (overhang kept).
+    """
+    model_config = ConfigDict(extra="forbid")
+
+    parties: List[AssemblyPartySpec] = Field(..., min_length=2, max_length=8)
+    num_voters: int = Field(400, ge=10, le=1000)
+    ideology:   str = Field("random")
+    seed:       int = Field(42, ge=0)
+    structure: Literal["pr", "fptp", "mmp"] = Field("pr")
+    seats:     int   = Field(100, ge=10, le=500)
+    threshold: float = Field(0.05, ge=0.0, le=0.15,
+                             description="National vote-share threshold (PR/MMP lists).")
+    apportionment: Literal["dhondt", "sainte_lague"] = Field("dhondt")
+    strategic_desertion: bool = Field(
+        False,
+        description="Duverger demo: voters iteratively desert non-viable parties "
+                    "(FPTP: outside the district top-2; PR/MMP: below the threshold) "
+                    "for their nearest viable party.",
+    )
+
+
+class AssemblyPartyResult(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    name:           str
+    x:              float
+    y:              float
+    votes:          int
+    vote_share:     float = Field(..., ge=0.0, le=1.0)
+    seats:          int
+    seat_share:     float = Field(..., ge=0.0, le=1.0)
+    district_seats: int   = Field(0, description="District wins (MMP only; 0 otherwise).")
+    excluded_by_threshold: bool
+
+
+class AssemblyCoalition(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    parties: List[str]
+    seats:   int
+    span:    float = Field(..., description="Max pairwise ideological distance inside the coalition.")
+
+
+class AssemblyResponse(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    structure:        str
+    assembly_size:    int = Field(..., description="Actual size (MMP overhang can exceed the nominal seats).")
+    majority:         int
+    threshold_waived: bool = Field(..., description="True if no party passed the threshold and it was waived.")
+    parties:          List[AssemblyPartyResult]
+    gallagher_index:          Optional[float] = Field(None)
+    effective_parties_votes:  Optional[float] = Field(None)
+    effective_parties_seats:  Optional[float] = Field(None)
+    wasted_vote_share:        float = Field(..., ge=0.0, le=1.0)
+    coalitions:               List[AssemblyCoalition] = Field(..., description="Minimal winning coalitions, most cohesive first.")
+
+
+# ── /assembly-scorecard (Lab reshape P5) ──────────────────────────────────────
+
+class AxisBand(BaseModel):
+    """A scorecard number with its Monte-Carlo band (mean, p10, p90), all in [0,1]."""
+    model_config = ConfigDict(extra="forbid")
+
+    mean: float = Field(..., ge=0.0, le=1.0)
+    lo:   float = Field(..., ge=0.0, le=1.0)
+    hi:   float = Field(..., ge=0.0, le=1.0)
+
+
+class AssemblyScorecardRequest(BaseModel):
+    """POST /api/v2/election/assembly-scorecard — six axes × all three structures
+    over `replications` re-rolled electorates. Axis orientations are stated in the
+    endpoint docs; every number carries a band."""
+    model_config = ConfigDict(extra="forbid")
+
+    parties: List[AssemblyPartySpec] = Field(..., min_length=2, max_length=8)
+    num_voters: int = Field(400, ge=10, le=1000)
+    ideology:   str = Field("random")
+    seed:       int = Field(42, ge=0)
+    seats:     int   = Field(100, ge=10, le=500)
+    threshold: float = Field(0.05, ge=0.0, le=0.15)
+    apportionment: Literal["dhondt", "sainte_lague"] = Field("dhondt")
+    strategic_desertion: bool = Field(False)
+    replications: int = Field(24, ge=8, le=40)
+
+
+class AssemblyScorecardResponse(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    replications: int
+    structures: Dict[str, Dict[str, AxisBand]] = Field(
+        ..., description="structure (pr|fptp|mmp) → axis → band."
+    )
 
 
 # ── /simulate ───────────────────────────────────────────────────────────────
