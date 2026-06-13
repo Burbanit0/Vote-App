@@ -327,7 +327,7 @@ const ParliamentCanvas: React.FC<ParliamentCanvasProps> = ({
         {/* ── Hemicycle + metrics ── */}
         <div className="flex flex-col gap-2">
           <svg
-            viewBox={`0 0 ${SVG} 250`}
+            viewBox={`0 0 ${SVG} 272`}
             width="100%"
             role="img"
             aria-label="Hémicycle — sièges par parti"
@@ -345,7 +345,7 @@ const ParliamentCanvas: React.FC<ParliamentCanvasProps> = ({
                 />
               ))}
             </g>
-            <text x={SVG / 2} y={242} textAnchor="middle" fontSize={12} fill="currentColor" opacity={result ? 1 : 0.6}>
+            <text x={SVG / 2} y={266} textAnchor="middle" fontSize={12} fill="currentColor" opacity={result ? 1 : 0.6}>
               {result
                 ? `${result.assembly_size} sièges · majorité ${result.majority}${loading ? ' · …' : ''}`
                 : loading
