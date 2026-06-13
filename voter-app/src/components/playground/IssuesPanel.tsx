@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
-import type { ElectionConfig } from '../../stores/useElectionStore';
+import type { ElectionConfig, PlaygroundState } from '../../stores/useElectionStore';
 import {
   runIssueVoting,
   runOstrogorskiDemo,
@@ -14,7 +14,10 @@ import {
 // the constructed demo shows the full Ostrogorski paradox (the winner opposed
 // by the majority on EVERY issue).
 
-const IssuesPanel: React.FC<{ config: ElectionConfig }> = ({ config }) => {
+const IssuesPanel: React.FC<{ config: ElectionConfig; playground?: PlaygroundState }> = ({
+  config,
+  playground,
+}) => {
   const [numIssues, setNumIssues] = useState(4);
   const [data, setData] = useState<IssueVotingResult | null>(null);
   const [loading, setLoading] = useState(false);
@@ -22,7 +25,9 @@ const IssuesPanel: React.FC<{ config: ElectionConfig }> = ({ config }) => {
   const run = async (demo: boolean) => {
     setLoading(true);
     try {
-      setData(demo ? await runOstrogorskiDemo() : await runIssueVoting(config, numIssues));
+      setData(
+        demo ? await runOstrogorskiDemo() : await runIssueVoting(config, numIssues, playground)
+      );
     } catch {
       setData(null);
     } finally {
@@ -33,7 +38,10 @@ const IssuesPanel: React.FC<{ config: ElectionConfig }> = ({ config }) => {
   const mark = (v: number): string => (v > 0 ? 'Oui' : 'Non');
 
   return (
-    <div data-testid="issues-panel" className="flex flex-col gap-2 rounded-md border border-border p-3">
+    <div
+      data-testid="issues-panel"
+      className="flex flex-col gap-2 rounded-md border border-border p-3"
+    >
       <div className="flex flex-wrap items-center justify-between gap-2">
         <span className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
           🗳 Enjeux & groupage (Ostrogorski)
@@ -52,7 +60,13 @@ const IssuesPanel: React.FC<{ config: ElectionConfig }> = ({ config }) => {
             />
             {numIssues}
           </label>
-          <Button data-testid="issues-run" variant="outline" size="sm" onClick={() => run(false)} disabled={loading}>
+          <Button
+            data-testid="issues-run"
+            variant="outline"
+            size="sm"
+            onClick={() => run(false)}
+            disabled={loading}
+          >
             {loading ? '…' : '▶ Analyser'}
           </Button>
           <Button
@@ -67,9 +81,9 @@ const IssuesPanel: React.FC<{ config: ElectionConfig }> = ({ config }) => {
         </div>
       </div>
       <p className="text-[0.68rem] text-muted-foreground/70">
-        Élire un programme groupe les enjeux ; les majorités enjeu par enjeu peuvent dire
-        l’inverse. Mode spatial : chaque enjeu est une ligne de partage du plan (convention
-        déclarée, même graine = mêmes enjeux).
+        Élire un programme groupe les enjeux ; les majorités enjeu par enjeu peuvent dire l’inverse.
+        Mode spatial : chaque enjeu est une ligne de partage du plan (convention déclarée, même
+        graine = mêmes enjeux).
       </p>
 
       {data && (
@@ -85,9 +99,9 @@ const IssuesPanel: React.FC<{ config: ElectionConfig }> = ({ config }) => {
             )}
           >
             {data.ostrogorski_paradox ? '⚠ Paradoxe d’Ostrogorski : ' : ''}
-            <strong>{data.bundled_winner}</strong> remporte le vote par programme, mais la
-            majorité le désavoue sur <strong>{data.divergent_count}</strong>/{data.num_issues}{' '}
-            enjeu{data.divergent_count > 1 ? 'x' : ''}.
+            <strong>{data.bundled_winner}</strong> remporte le vote par programme, mais la majorité
+            le désavoue sur <strong>{data.divergent_count}</strong>/{data.num_issues} enjeu
+            {data.divergent_count > 1 ? 'x' : ''}.
           </p>
 
           {/* Issue matrix: referendum majority vs elected platform */}
@@ -130,7 +144,10 @@ const IssuesPanel: React.FC<{ config: ElectionConfig }> = ({ config }) => {
           </div>
 
           {/* Parties + platforms */}
-          <div data-testid="issues-parties" className="flex flex-wrap gap-2 text-[0.7rem] text-muted-foreground">
+          <div
+            data-testid="issues-parties"
+            className="flex flex-wrap gap-2 text-[0.7rem] text-muted-foreground"
+          >
             {data.parties.map((p) => (
               <span
                 key={p.name}

@@ -25,6 +25,7 @@ from api.engine.utils.simulation_voting_utils import calculate_utility, create_c
 from api.engine.utils.simulation_metrics      import compare_all_methods
 from api.engine.utils.profile_engine          import (
     build_profile, cycle_rate, project_ballot, ballot_metrics, compatible_methods,
+    turnout_mask, community_voters, spatial_cycle_rate,
 )
 from api.engine.utils.simulation_ranked_utils import (
     get_plurality_winner,
@@ -6525,6 +6526,9 @@ def _profile_simulate_worker(data: Dict[str, Any]) -> tuple[Dict[str, Any], int]
     }
     cand_specs   = (data.get("candidates") or _PROFILE_DEFAULT_CANDS)[:8]
     handcrafted  = data.get("handcrafted_matrix")
+    turnout_cfg  = data.get("turnout") or {}
+    turnout_model = str(turnout_cfg.get("model", "full"))
+    turnout_int   = float(turnout_cfg.get("intensity", 0.0))
 
     names_in = [str(c.get("name", f"C{i}")) for i, c in enumerate(cand_specs)]
     if len(names_in) < 2:
@@ -6535,10 +6539,15 @@ def _profile_simulate_worker(data: Dict[str, Any]) -> tuple[Dict[str, Any], int]
         if any(len(row) != len(names_in) for row in handcrafted):
             return {"error": "each handcrafted row must match the candidate count"}, 400
 
+    electorate = data.get("electorate")
+    composed = bool(electorate and electorate.get("mode") == "composed"
+                    and electorate.get("communities"))
     try:
         built = build_profile(
             source, cand_specs, num_voters, dims, valence, behavior,
             source_params, seed, handcrafted_matrix=handcrafted,
+            turnout_model=turnout_model, turnout_intensity=turnout_int,
+            electorate=electorate if composed else None,
         )
     except ValueError as exc:
         return {"error": str(exc)}, 400
@@ -6564,10 +6573,20 @@ def _profile_simulate_worker(data: Dict[str, Any]) -> tuple[Dict[str, Any], int]
         return {"error": str(exc)}, 400
 
     compat = compatible_methods(ballot_type)
-    result = compare_all_methods(voters, candidates, [], override_utilities=projected)
+    # The live read-out only needs winners + cycle rate, so the O(voters × methods)
+    # strategic-vulnerability pass is skipped by default; the on-demand strategic
+    # module opts in via compute_strategic=True.
+    want_strategic = bool(data.get("compute_strategic", False))
+    result = compare_all_methods(
+        voters, candidates, [], override_utilities=projected,
+        compute_strategic=want_strategic,
+    )
     raw_methods = result.get("methods", {})
     methods_out: Dict[str, Any] = {
-        name: {"winner": md.get("winner")}
+        name: (
+            {"winner": md.get("winner"), "strategic_vulnerability": md.get("strategic_vulnerability")}
+            if want_strategic else {"winner": md.get("winner")}
+        )
         for name, md in raw_methods.items()
         if name in compat
     }
@@ -6576,7 +6595,9 @@ def _profile_simulate_worker(data: Dict[str, Any]) -> tuple[Dict[str, Any], int]
     # Headline demo: same counting rule, different ballot → different winner.
     winner_flips: List[str] = []
     if ballot_type != "full":
-        full_run = compare_all_methods(voters, candidates, [], override_utilities=matrix)
+        full_run = compare_all_methods(
+            voters, candidates, [], override_utilities=matrix, compute_strategic=False
+        )
         full_methods = full_run.get("methods", {})
         winner_flips = sorted(
             name for name in methods_out
@@ -6591,15 +6612,25 @@ def _profile_simulate_worker(data: Dict[str, Any]) -> tuple[Dict[str, Any], int]
     first_vid = next(iter(projected))
     sample_ballot = {n: round(float(v), 3) for n, v in projected[first_vid].items()}
 
+    # Paradox rate: for a COMPOSED spatial electorate, compute a real spatial
+    # cycle rate by re-sampling the mixture (a multimodal electorate can produce
+    # genuine majority cycles); otherwise the statistical-culture estimator (0 for
+    # the single-Gaussian spatial source).
+    if source == "spatial" and composed:
+        paradox_rate = spatial_cycle_rate(cand_specs, electorate, min(num_voters, 200), seed)
+    else:
+        paradox_rate = cycle_rate(source, names, min(num_voters, 200), source_params, seed)
+
     return {
         "methods":                methods_out,
         "condorcet_winner":       result.get("condorcet_winner"),
         "inter_method_agreement": _inter_method_agreement(methods_out),
-        "cycle_rate":             cycle_rate(source, names, min(num_voters, 200), source_params, seed),
+        "cycle_rate":             paradox_rate,
         "candidate_names":        names,
         "display_points":         built["display_points"],
         "candidate_points":       built["candidate_points"],
         "num_voters":             len(matrix),
+        "turnout_rate":           round(len(matrix) / max(1, num_voters), 4),
         "ballot_type":            ballot_type,
         "ballot_expressiveness":  metrics["expressiveness"],
         "ballot_cognitive_load":  metrics["cognitive_load"],
@@ -6611,8 +6642,25 @@ def _profile_simulate_worker(data: Dict[str, Any]) -> tuple[Dict[str, Any], int]
 
 # ── Assembly (Lab reshape P3) ─────────────────────────────────────────────────
 
-def _assembly_voters(n: int, seed: int, ideology: str) -> "_np.ndarray":
-    """Deterministic 2D voter cloud matching the playground ideology presets."""
+def _assembly_voters(
+    n: int, seed: int, ideology: str, electorate: Optional[Dict[str, Any]] = None
+) -> "_np.ndarray":
+    """Deterministic 2D voter cloud.
+
+    When a composed `electorate` (community mixture) is supplied, the cloud is
+    sampled from it so the parliament reflects the same electorate the leader
+    views show; otherwise it falls back to the ideology presets.
+    """
+    if electorate and electorate.get("communities"):
+        pts = community_voters(
+            electorate["communities"],
+            float(electorate.get("correlation", 0.0)),
+            float(electorate.get("noise", 0.0)),
+            n, seed, dims=2,
+        )
+        if pts.shape[0] >= 2:
+            return pts
+        # degenerate composition → fall through to the default cloud
     rng = _np.random.default_rng(seed)
     if ideology == "polarized":
         left = rng.random(n) < 0.5
@@ -6799,7 +6847,12 @@ def _assembly_worker(data: Dict[str, Any]) -> tuple[Dict[str, Any], int]:
                  for n, p in zip(names, parties_in)}
     pts = _np.array([[positions[n][0], positions[n][1]] for n in names])
 
-    voters = _assembly_voters(num_voters, seed, ideology)
+    voters = _assembly_voters(num_voters, seed, ideology, data.get("electorate"))
+    # Differential turnout (electorate realism): abstainers leave first.
+    _tcfg = data.get("turnout") or {}
+    voters = voters[turnout_mask(voters, pts, str(_tcfg.get("model", "full")),
+                                 float(_tcfg.get("intensity", 0.0)))]
+    num_voters = voters.shape[0]
     # Sincere party vote: nearest party in the plane.
     d2 = ((voters[:, None, :] - pts[None, :, :]) ** 2).sum(axis=2)
     sincere = d2.argmin(axis=1)
@@ -6943,8 +6996,13 @@ def _assembly_scorecard_worker(data: Dict[str, Any]) -> tuple[Dict[str, Any], in
         s: {a: [] for a in _SCORECARD_AXES} for s in _SCORECARD_STRUCTURES
     }
 
+    _tcfg = data.get("turnout") or {}
+    _tmodel, _tint = str(_tcfg.get("model", "full")), float(_tcfg.get("intensity", 0.0))
+    _electorate = data.get("electorate")
     for k in range(replications):
-        voters = _assembly_voters(num_voters, seed + 101 * k, ideology)
+        voters = _assembly_voters(num_voters, seed + 101 * k, ideology, _electorate)
+        voters = voters[turnout_mask(voters, pts, _tmodel, _tint)]
+        nv = max(1, voters.shape[0])  # effective electorate after abstention
         d2 = ((voters[:, None, :] - pts[None, :, :]) ** 2).sum(axis=2)
         sincere = d2.argmin(axis=1)
 
@@ -6963,8 +7021,8 @@ def _assembly_scorecard_worker(data: Dict[str, Any]) -> tuple[Dict[str, Any], in
 
             proportionality = max(0.0, 1.0 - g / 0.2)
             pluralism = min(1.0, ens / env) if env > 0 else 1.0
-            effective_votes = 1.0 - a["wasted"] / num_voters
-            visible = [n for n in names if votes[n] / num_voters >= 0.03]
+            effective_votes = 1.0 - a["wasted"] / nv
+            visible = [n for n in names if votes[n] / nv >= 0.03]
             minority = (sum(1 for n in visible if seats[n] > 0) / len(visible)) if visible else 1.0
             majority = size // 2 + 1
             coalitions = _minimal_winning_coalitions(seats, positions, majority)
@@ -7036,7 +7094,11 @@ def _structural_fairness_worker(data: Dict[str, Any]) -> tuple[Dict[str, Any], i
     names = [str(p.get("name", f"P{i}")) for i, p in enumerate(parties_in)]
     pts = _np.array([[float(p.get("x", 0.0)), float(p.get("y", 0.0))]
                      for p in parties_in])
-    voters = _assembly_voters(num_voters, seed, ideology)
+    voters = _assembly_voters(num_voters, seed, ideology, data.get("electorate"))
+    # A composed electorate is thinned by per-bloc turnout, so the effective count
+    # can be below the request — use the actual count for the district splits and
+    # the vote shares (otherwise over-scaled cuts leave empty trailing districts).
+    num_voters = int(voters.shape[0])
     d2 = ((voters[:, None, :] - pts[None, :, :]) ** 2).sum(axis=2)
     choice = d2.argmin(axis=1)
     order = _np.argsort(voters[:, 0], kind="stable")
@@ -7103,7 +7165,10 @@ def _structural_fairness_worker(data: Dict[str, Any]) -> tuple[Dict[str, Any], i
     }
 
     # ── Penrose square-root council over the unequal districts ─────────────
-    pops = _np.array(pops_sk, dtype=float)
+    # Floor populations at 1: a clustered (composed) electorate can leave a band
+    # empty, and an empty district must not divide by zero — it is simply the
+    # most malapportioned (a citizen there has unbounded relative weight, clamped).
+    pops = _np.maximum(_np.array(pops_sk, dtype=float), 1.0)
     schemes = {
         "equal":        _np.ones(n_dist),
         "proportional": pops,
@@ -7198,7 +7263,7 @@ def _issue_voting_worker(data: Dict[str, Any]) -> tuple[Dict[str, Any], int]:
         names = [str(p.get("name", f"P{i}")) for i, p in enumerate(parties_in)]
         pts = _np.array([[float(p.get("x", 0.0)), float(p.get("y", 0.0))]
                          for p in parties_in])
-        voters = _assembly_voters(num_voters, seed, ideology)
+        voters = _assembly_voters(num_voters, seed, ideology, data.get("electorate"))
         rng = _np.random.default_rng(seed + 7)
         # Issue k = a hyperplane w·x + b through the plane (stated convention).
         w = rng.normal(size=(k, 2))
@@ -7293,7 +7358,7 @@ def _temporal_worker(data: Dict[str, Any]) -> tuple[Dict[str, Any], int]:
         [[float(p.get("x", 0.0)), float(p.get("y", 0.0))] for p in parties_in],
         dtype=float,
     )
-    voters = _assembly_voters(num_voters, seed, ideology)
+    voters = _assembly_voters(num_voters, seed, ideology, data.get("electorate"))
 
     compass = _np.array(
         [[1, 0], [-1, 0], [0, 1], [0, -1], [1, 1], [1, -1], [-1, 1], [-1, -1]],

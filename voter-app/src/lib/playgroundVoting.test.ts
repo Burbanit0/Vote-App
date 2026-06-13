@@ -5,6 +5,7 @@ import {
   fieldWinnerName,
   winRegionGrid,
   sampleVoters,
+  applyTurnout,
   RULE_LABELS,
   type NamedPt,
   type Pt,
@@ -139,6 +140,105 @@ describe('extended method set (15 rules)', () => {
     ];
     expect(ruleWinnerFromRanks(ranks, 3, 'plurality', undefined)).toBe(0);
     expect(ruleWinnerFromRanks(ranks, 3, 'coombs', undefined)).toBe(1);
+  });
+});
+
+describe('dimensionality (1/2/3-D)', () => {
+  it('sampleVoters collapses unused axes and keeps x identical across dims', () => {
+    const d1 = sampleVoters(50, 9, 'random', 1);
+    const d2 = sampleVoters(50, 9, 'random', 2);
+    const d3 = sampleVoters(50, 9, 'random', 3);
+    // 1-D: y and z are exactly 0.
+    expect(d1.every((p) => p.y === 0 && (p.z ?? 0) === 0)).toBe(true);
+    // 2-D: z is 0 but y varies.
+    expect(d2.every((p) => (p.z ?? 0) === 0)).toBe(true);
+    expect(d2.some((p) => p.y !== 0)).toBe(true);
+    // 3-D: z genuinely varies.
+    expect(d3.some((p) => (p.z ?? 0) !== 0)).toBe(true);
+    // The dimension only ADDS axes — x is the same first draw for all dims.
+    expect(d1.map((p) => p.x)).toEqual(d2.map((p) => p.x));
+    expect(d2.map((p) => p.x)).toEqual(d3.map((p) => p.x));
+  });
+
+  it('distance uses the 3rd axis (a z-separated rival can lose voters)', () => {
+    // Two candidates at the same x,y; one offset in z. Voters sit at z=0,
+    // so the z=0 candidate wins everyone under plurality.
+    const voters: Pt[] = Array.from({ length: 20 }, (_, i) => ({ x: (i - 10) / 20, y: 0, z: 0 }));
+    const cands: NamedPt[] = [
+      { name: 'Near', x: 0, y: 0, z: 0 },
+      { name: 'Far', x: 0, y: 0, z: 0.9 },
+    ];
+    expect(fieldWinnerName(voters, cands, 'plurality')).toBe('Near');
+  });
+
+  it('winRegionGrid is a 1-row strip in 1-D and an n×n grid otherwise', () => {
+    const voters = sampleVoters(80, 1, 'random', 1);
+    const cands: NamedPt[] = [
+      { name: 'L', x: -0.6, y: 0, z: 0 },
+      { name: 'R', x: 0.6, y: 0, z: 0 },
+    ];
+    const g1 = winRegionGrid(voters, cands, 'plurality', 8, 1);
+    expect(g1.rows).toBe(1);
+    expect(g1.cells).toHaveLength(8);
+    const g2 = winRegionGrid(sampleVoters(80, 1, 'random', 2), cands, 'plurality', 8, 2);
+    expect(g2.rows).toBe(8);
+    expect(g2.cells).toHaveLength(64);
+  });
+});
+
+describe('applyTurnout (electorate realism)', () => {
+  const cands: NamedPt[] = [
+    { name: 'L', x: -0.6, y: 0 },
+    { name: 'R', x: 0.6, y: 0 },
+  ];
+
+  it('full turnout keeps everyone (rate 1)', () => {
+    const voters = sampleVoters(100, 3, 'random');
+    const out = applyTurnout(voters, cands, 'full', 0.8);
+    expect(out.rate).toBe(1);
+    expect(out.voters).toBe(voters);
+  });
+
+  it('alienation drops voters far from every candidate, more as intensity rises', () => {
+    // A cloud spread across the plane; candidates only on the left/right of x.
+    const voters = sampleVoters(400, 5, 'random');
+    const mild = applyTurnout(voters, cands, 'alienation', 0.3).rate;
+    const harsh = applyTurnout(voters, cands, 'alienation', 0.9).rate;
+    expect(harsh).toBeLessThan(mild);
+    expect(harsh).toBeLessThan(1);
+  });
+
+  it('indifference drops voters torn between their top two', () => {
+    // Voters near the x=0 midline are equidistant from L and R → abstain.
+    const voters: Pt[] = Array.from({ length: 200 }, (_, i) => ({ x: (i - 100) / 100, y: 0 }));
+    const out = applyTurnout(voters, cands, 'indifference', 0.8);
+    expect(out.rate).toBeLessThan(1);
+    // The survivors lean clearly toward one side (|x| not tiny).
+    expect(out.voters.every((v) => Math.abs(v.x) > 0.05)).toBe(true);
+  });
+
+  it('never empties the electorate (falls back to full)', () => {
+    const voters = sampleVoters(50, 1, 'random');
+    const out = applyTurnout(voters, cands, 'alienation', 1);
+    expect(out.voters.length).toBeGreaterThanOrEqual(2);
+  });
+
+  it('differential turnout can flip the winner', () => {
+    // A leads on raw plurality, but its voters are alienated extremists who
+    // abstain at high intensity, handing it to the centrist M.
+    const c: NamedPt[] = [
+      { name: 'A', x: -0.95, y: 0 },
+      { name: 'M', x: 0.1, y: 0 },
+    ];
+    const voters: Pt[] = [
+      ...Array.from({ length: 45 }, () => ({ x: -0.99, y: 0.9 })), // far from both (alienated)
+      ...Array.from({ length: 40 }, () => ({ x: 0.12, y: 0 })), // close to M
+    ];
+    const full = fieldWinnerName(voters, c, 'plurality');
+    const filtered = applyTurnout(voters, c, 'alienation', 0.95).voters;
+    const withAbstention = fieldWinnerName(filtered, c, 'plurality');
+    expect(full).toBe('A');
+    expect(withAbstention).toBe('M');
   });
 });
 

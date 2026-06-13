@@ -56,11 +56,47 @@ class BallotConfig(BaseModel):
     score_levels: int = Field(6, ge=2, le=10, description="Levels for score ballots.")
 
 
+class TurnoutConfig(BaseModel):
+    """Electorate realism: differential turnout (Downsian abstention)."""
+    model_config = ConfigDict(extra="forbid")
+
+    model: Literal["full", "alienation", "indifference"] = Field("full")
+    intensity: float = Field(0.0, ge=0.0, le=1.0)
+
+
+class CommunitySpec(BaseModel):
+    """One bloc of the composed electorate: a Gaussian community with its own
+    centre, dispersion, relative size and turnout propensity."""
+    model_config = ConfigDict(extra="forbid")
+
+    id:      str   = Field(..., min_length=1, max_length=64)
+    label:   str   = Field("", max_length=64)
+    x:       float = Field(0.0, ge=-1.0, le=1.0)
+    y:       float = Field(0.0, ge=-1.0, le=1.0)
+    z:       float = Field(0.0, ge=-1.0, le=1.0, description="3rd-axis centre (dims=3).")
+    spread:  float = Field(0.15, ge=0.0, le=1.0, description="Bloc standard deviation.")
+    weight:  float = Field(1.0, ge=0.0, le=100.0, description="Relative size (sampling weight).")
+    turnout: float = Field(1.0, ge=0.0, le=1.0, description="Per-bloc participation propensity.")
+
+
+class ElectorateConfig(BaseModel):
+    """The composed electorate (community mixture). When present and mode is
+    'composed', the worker samples voters from this mixture instead of the
+    ideology preset, so every view shares the same electorate."""
+    model_config = ConfigDict(extra="forbid")
+
+    mode: Literal["simple", "composed"] = Field("simple")
+    correlation: float = Field(0.0, ge=-1.0, le=1.0, description="Couples the x↔y axes.")
+    noise: float = Field(0.0, ge=0.0, le=1.0, description="Global measurement jitter.")
+    communities: List[CommunitySpec] = Field(default_factory=list, max_length=12)
+
+
 class ProfileSimulateRequest(BaseModel):
     """POST /api/v2/election/profile-simulate — the profile-as-interface core.
 
     Every assumption is an explicit knob: the preference source and its params, the
-    dimensionality, valence, the voter behaviour, and the ballot. Nothing is smuggled in.
+    dimensionality, valence, the voter behaviour, the ballot, and turnout. Nothing
+    is smuggled in.
     """
     model_config = ConfigDict(extra="forbid")
 
@@ -78,6 +114,16 @@ class ProfileSimulateRequest(BaseModel):
         None, description="Rows = voters, cols = candidates (aligned), for source=handcrafted."
     )
     ballot: BallotConfig = Field(default_factory=BallotConfig)
+    turnout: TurnoutConfig = Field(default_factory=TurnoutConfig)
+    electorate: Optional[ElectorateConfig] = Field(
+        None, description="Composed electorate (community mixture); shapes the spatial "
+                          "voter cloud and the paradox rate when mode='composed'.",
+    )
+    compute_strategic: bool = Field(
+        False,
+        description="Compute the per-method Gibbard–Satterthwaite individual "
+                    "manipulability rate (slow; opt-in). Off for the live read-out.",
+    )
     seed: int = Field(42, ge=0)
 
 
@@ -95,6 +141,8 @@ class ProfileSimulateResponse(BaseModel):
     display_points:         List[List[float]]       = Field(..., description="Per-voter 2D embedding for the map.")
     candidate_points:       Optional[List[List[float]]] = Field(None, description="Candidate 2D points (spatial source only).")
     num_voters:             int                     = Field(..., ge=1)
+    turnout_rate:           float                   = Field(1.0, ge=0.0, le=1.0,
+                                                            description="Share of the electorate that voted (1 = full turnout).")
     ballot_type:            str                     = Field("full")
     ballot_expressiveness:  float                   = Field(..., ge=0.0, le=1.0,
                                                             description="Bits the ballot can carry (normalised convention).")
@@ -140,6 +188,10 @@ class AssemblyRequest(BaseModel):
         description="Duverger demo: voters iteratively desert non-viable parties "
                     "(FPTP: outside the district top-2; PR/MMP: below the threshold) "
                     "for their nearest viable party.",
+    )
+    turnout: TurnoutConfig = Field(default_factory=TurnoutConfig)
+    electorate: Optional[ElectorateConfig] = Field(
+        None, description="Composed electorate (community mixture); overrides `ideology` when mode='composed'."
     )
 
 
@@ -227,6 +279,10 @@ class AssemblyScorecardRequest(BaseModel):
     threshold: float = Field(0.05, ge=0.0, le=0.15)
     apportionment: Literal["dhondt", "sainte_lague"] = Field("dhondt")
     strategic_desertion: bool = Field(False)
+    turnout: TurnoutConfig = Field(default_factory=TurnoutConfig)
+    electorate: Optional[ElectorateConfig] = Field(
+        None, description="Composed electorate (community mixture); overrides `ideology` when mode='composed'."
+    )
     replications: int = Field(24, ge=8, le=40)
 
 
@@ -257,6 +313,9 @@ class TemporalRequest(BaseModel):
     threshold: float = Field(0.05, ge=0.0, le=0.15)
     apportionment: Literal["dhondt", "sainte_lague"] = Field("dhondt")
     strategic_desertion: bool = Field(False)
+    electorate: Optional[ElectorateConfig] = Field(
+        None, description="Composed electorate (community mixture); overrides `ideology` when mode='composed'."
+    )
     rounds: int = Field(20, ge=2, le=30)
     adaptation_step: float = Field(0.06, ge=0.0, le=0.2,
                                    description="Party vote-seeking step per round.")
@@ -317,6 +376,10 @@ class IssueVotingRequest(BaseModel):
     ideology:   str = Field("random")
     seed:       int = Field(42, ge=0)
     num_issues: int = Field(4, ge=2, le=7)
+    electorate: Optional[ElectorateConfig] = Field(
+        None, description="Composed electorate (community mixture) for spatial mode; "
+                          "overrides `ideology` when mode='composed'."
+    )
     # handcrafted mode
     voter_stances:   Optional[List[List[int]]] = Field(None, max_length=1000)
     party_platforms: Optional[List[List[int]]] = Field(None, max_length=8)
@@ -371,6 +434,9 @@ class StructuralFairnessRequest(BaseModel):
     malapportionment: float = Field(0.6, ge=0.0, le=1.0,
                                     description="0 = equal districts; 1 = strongly unequal (≈4:1).")
     at_large_seats: int = Field(5, ge=3, le=9)
+    electorate: Optional[ElectorateConfig] = Field(
+        None, description="Composed electorate (community mixture); overrides `ideology` when mode='composed'."
+    )
 
 
 class MalapportionmentOut(BaseModel):

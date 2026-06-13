@@ -3,17 +3,31 @@
 // Monte-Carlo robustness read-out. Both are explicit, documented models — knobs,
 // not smuggled assumptions.
 
-import { ruleWinner, sampleVoters, type NamedPt, type Pt, type Rule } from './playgroundVoting';
+import {
+  applyTurnout,
+  ruleWinner,
+  sampleVoters,
+  type Dims,
+  type NamedPt,
+  type Pt,
+  type Rule,
+  type TurnoutModel,
+} from './playgroundVoting';
+import { composeElectorate, type Community } from './playgroundElectorate';
 
-/** Coordinate-wise median of a point cloud (the median voter in 2D). */
+/** Coordinate-wise median of a point cloud (the median voter), all 3 axes. */
 export function medianPoint(voters: Pt[]): Pt {
-  if (!voters.length) return { x: 0, y: 0 };
+  if (!voters.length) return { x: 0, y: 0, z: 0 };
   const med = (xs: number[]): number => {
     const s = [...xs].sort((a, b) => a - b);
     const m = Math.floor(s.length / 2);
     return s.length % 2 ? s[m] : (s[m - 1] + s[m]) / 2;
   };
-  return { x: med(voters.map((v) => v.x)), y: med(voters.map((v) => v.y)) };
+  return {
+    x: med(voters.map((v) => v.x)),
+    y: med(voters.map((v) => v.y)),
+    z: med(voters.map((v) => v.z ?? 0)),
+  };
 }
 
 /**
@@ -34,6 +48,7 @@ export function driftCandidates(
     name: c.name,
     x: c.x + (target.x - c.x) * k,
     y: c.y + (target.y - c.y) * k,
+    z: (c.z ?? 0) + ((target.z ?? 0) - (c.z ?? 0)) * k,
   }));
 }
 
@@ -57,14 +72,32 @@ export function shakeWinRates(
   numVoters: number,
   baseSeed: number,
   ideology: string,
-  n = 60
+  n = 60,
+  dims: Dims = 2,
+  turnout: { model: TurnoutModel; intensity: number } = { model: 'full', intensity: 0 },
+  electorate: { communities: Community[]; correlation: number; noise?: number } | null = null
 ): ShakeResult {
   const wins: Record<string, number> = {};
   candidates.forEach((c) => {
     wins[c.name] = 0;
   });
   for (let i = 0; i < n; i++) {
-    const voters = sampleVoters(numVoters, baseSeed + 1009 + i * 17, ideology);
+    const seed = baseSeed + 1009 + i * 17;
+    const voters = applyTurnout(
+      electorate
+        ? composeElectorate(
+            electorate.communities,
+            electorate.correlation,
+            numVoters,
+            seed,
+            dims,
+            electorate.noise ?? 0
+          ).voters
+        : sampleVoters(numVoters, seed, ideology, dims),
+      candidates,
+      turnout.model,
+      turnout.intensity
+    ).voters;
     const w = ruleWinner(voters, candidates, rule);
     if (w >= 0) wins[candidates[w].name] += 1;
   }

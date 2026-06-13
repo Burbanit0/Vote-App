@@ -50,7 +50,8 @@ describe('IssuesPanel (FB-2)', () => {
     fireEvent.change(screen.getByTestId('issues-count'), { target: { value: '6' } });
     fireEvent.click(screen.getByTestId('issues-run'));
     await waitFor(() => expect(screen.getByTestId('issues-matrix')).toBeInTheDocument());
-    expect(runIssueVoting).toHaveBeenCalledWith(DEFAULT_CONFIG, 6);
+    // 3rd arg = the composed-electorate source (undefined here: no playground prop).
+    expect(runIssueVoting).toHaveBeenCalledWith(DEFAULT_CONFIG, 6, undefined);
     // Aligned profile: no paradox headline, no divergence marks.
     expect(screen.getByTestId('issues-headline')).not.toHaveTextContent('Paradoxe');
     expect(screen.getByTestId('issues-headline')).toHaveTextContent('0/3');

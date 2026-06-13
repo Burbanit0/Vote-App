@@ -6,15 +6,21 @@
 // Voter utility for a candidate is -distance (closer = better). Everything derives
 // from that: rankings for ordinal rules, per-voter min-max scores for cardinal ones.
 
+// Points carry an optional 3rd axis. 1-D uses x (y=z=0); 2-D uses x,y (z=0);
+// 3-D uses all three. z is optional so every existing 2-D caller is unchanged.
 export interface NamedPt {
   name: string;
   x: number;
   y: number;
+  z?: number;
 }
 export interface Pt {
   x: number;
   y: number;
+  z?: number;
 }
+
+export type Dims = 1 | 2 | 3;
 
 export type Rule =
   | 'plurality'
@@ -56,7 +62,8 @@ export const CARDINAL_RULES: ReadonlySet<Rule> = new Set<Rule>([
   'approval', 'star', 'majority_judgment', 'score',
 ]);
 
-const dist = (a: Pt, b: Pt): number => Math.hypot(a.x - b.x, a.y - b.y);
+const dist = (a: Pt, b: Pt): number =>
+  Math.hypot(a.x - b.x, a.y - b.y, (a.z ?? 0) - (b.z ?? 0));
 
 /** Per-voter candidate-index ranking, best→worst (nearest first). */
 export function computeRanks(voters: Pt[], cands: Pt[]): number[][] {
@@ -397,6 +404,8 @@ export function fieldWinnerName(voters: Pt[], cands: NamedPt[], rule: Rule): str
 
 export interface WinRegion {
   n: number;
+  /** Number of rows (=== n in 2-D/3-D; 1 in 1-D, a strip along x). */
+  rows: number;
   /** Flat row-major winner index per cell; cands.length === the hypothetical entrant H. */
   cells: number[];
 }
@@ -411,19 +420,64 @@ export function winRegionGrid(
   voters: Pt[],
   cands: NamedPt[],
   rule: Rule,
-  n: number
+  n: number,
+  dims: Dims = 2
 ): WinRegion {
-  const cells = new Array(n * n);
-  // A cell value === cands.length means the hypothetical entrant H wins there.
-  for (let r = 0; r < n; r++) {
-    const y = 1 - ((r + 0.5) / n) * 2;
+  // 1-D: a single row swept along x. 2-D/3-D: an n×n x–y grid (in 3-D the
+  // hypothetical entrant sits at z=0, so it reads as a z=0 slice of the space).
+  const rows = dims === 1 ? 1 : n;
+  const cells = new Array(rows * n);
+  for (let r = 0; r < rows; r++) {
+    const y = dims === 1 ? 0 : 1 - ((r + 0.5) / n) * 2;
     for (let c = 0; c < n; c++) {
       const x = ((c + 0.5) / n) * 2 - 1;
-      const field: NamedPt[] = [...cands, { name: 'H', x, y }];
+      const field: NamedPt[] = [...cands, { name: 'H', x, y, z: 0 }];
       cells[r * n + c] = ruleWinner(voters, field, rule);
     }
   }
-  return { n, cells };
+  return { n, rows, cells };
+}
+
+// ── Turnout / abstention (electorate-realism layer) ──────────────────────────
+//
+// Downsian abstention: a voter stays home either from ALIENATION (even their
+// best option is too far — "none of these represent me") or INDIFFERENCE (their
+// top two are nearly equidistant — "no real stake"). Both are stated models;
+// `intensity` ∈ [0,1] dials how readily voters abstain. Differential turnout
+// reshapes the effective electorate and can flip the winner — the point.
+
+export type TurnoutModel = 'full' | 'alienation' | 'indifference';
+
+export interface TurnoutResult {
+  voters: Pt[];
+  /** Share of the electorate that actually votes, in [0,1]. */
+  rate: number;
+}
+
+export function applyTurnout(
+  voters: Pt[],
+  cands: NamedPt[],
+  model: TurnoutModel,
+  intensity: number
+): TurnoutResult {
+  if (model === 'full' || intensity <= 0 || cands.length === 0 || !voters.length) {
+    return { voters, rate: 1 };
+  }
+  const k = Math.max(0, Math.min(1, intensity));
+  const votes = voters.filter((v) => {
+    const ds = cands.map((c) => dist(v, c)).sort((a, b) => a - b);
+    if (model === 'alienation') {
+      // Abstain if the nearest candidate is beyond a shrinking radius.
+      const radius = (1 - k) * 1.5 + 0.2;
+      return ds[0] <= radius;
+    }
+    // indifference: abstain if the top-two are within a growing margin.
+    const margin = k * 0.4;
+    return ds.length < 2 || ds[1] - ds[0] > margin;
+  });
+  // The model can thin the electorate but never empty it (keep the demo sane).
+  if (votes.length < 2) return { voters, rate: 1 };
+  return { voters: votes, rate: votes.length / voters.length };
 }
 
 // ── Seeded spatial electorate (deterministic from seed/ideology) ──────────────
@@ -446,21 +500,37 @@ function gauss(rng: () => number, mu: number, sigma: number): number {
   return mu + sigma * Math.sqrt(-2 * Math.log(u)) * Math.cos(2 * Math.PI * v);
 }
 
-/** Deterministic voter cloud matching the playground's ideology presets. */
-export function sampleVoters(n: number, seed: number, ideology: string): Pt[] {
+/**
+ * Deterministic voter cloud matching the playground's ideology presets, in
+ * `dims` dimensions: 1-D collapses y,z to 0; 2-D collapses z; 3-D is full. So
+ * the same seed gives the SAME x for 1/2/3-D — the dimension only *adds* axes.
+ */
+export function sampleVoters(n: number, seed: number, ideology: string, dims: Dims = 2): Pt[] {
   const rng = mulberry32(seed);
-  const clamp = (x: number) => Math.max(-1, Math.min(1, x));
+  const clamp = (v: number) => Math.max(-1, Math.min(1, v));
   const out: Pt[] = [];
   for (let i = 0; i < n; i++) {
+    // Always draw all three axes (constant RNG consumption) so the same seed
+    // gives the SAME x for 1/2/3-D — the dimension only *reveals* further axes.
+    let x: number;
+    let y: number;
+    let z: number;
     if (ideology === 'polarized') {
       const left = rng() < 0.5;
-      const cx = left ? -0.5 : 0.5;
-      out.push({ x: clamp(gauss(rng, cx, 0.22)), y: clamp(gauss(rng, left ? -0.3 : 0.3, 0.3)) });
-    } else if (ideology === 'centrist') {
-      out.push({ x: clamp(gauss(rng, 0, 0.25)), y: clamp(gauss(rng, 0, 0.25)) });
+      x = gauss(rng, left ? -0.5 : 0.5, 0.22);
+      y = gauss(rng, left ? -0.3 : 0.3, 0.3);
+      z = gauss(rng, 0, 0.3);
     } else {
-      out.push({ x: clamp(gauss(rng, 0, 0.45)), y: clamp(gauss(rng, 0, 0.45)) });
+      const sigma = ideology === 'centrist' ? 0.25 : 0.45;
+      x = gauss(rng, 0, sigma);
+      y = gauss(rng, 0, sigma);
+      z = gauss(rng, 0, sigma);
     }
+    out.push({
+      x: clamp(x),
+      y: dims >= 2 ? clamp(y) : 0,
+      z: dims >= 3 ? clamp(z) : 0,
+    });
   }
   return out;
 }

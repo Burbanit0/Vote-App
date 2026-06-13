@@ -1,11 +1,8 @@
 import React, { useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
-import type { ElectionConfig } from '../../stores/useElectionStore';
-import {
-  runStructuralFairness,
-  type StructuralFairnessResult,
-} from '../../services/structuralApi';
+import type { ElectionConfig, PlaygroundState } from '../../stores/useElectionStore';
+import { runStructuralFairness, type StructuralFairnessResult } from '../../services/structuralApi';
 import { PARTY_PALETTE } from './ParliamentCanvas';
 
 // StructuralPanel (frontier FC-2) — the rules AROUND the rule: unequal district
@@ -14,10 +11,11 @@ import { PARTY_PALETTE } from './ParliamentCanvas';
 // councils, and cumulative voting wins minorities the at-large seats that bloc
 // voting denies them.
 
-const StructuralPanel: React.FC<{ config: ElectionConfig; partyNames: string[] }> = ({
-  config,
-  partyNames,
-}) => {
+const StructuralPanel: React.FC<{
+  config: ElectionConfig;
+  partyNames: string[];
+  playground?: PlaygroundState;
+}> = ({ config, partyNames, playground }) => {
   const [mal, setMal] = useState(0.6);
   const [data, setData] = useState<StructuralFairnessResult | null>(null);
   const [loading, setLoading] = useState(false);
@@ -25,7 +23,7 @@ const StructuralPanel: React.FC<{ config: ElectionConfig; partyNames: string[] }
   const run = async () => {
     setLoading(true);
     try {
-      setData(await runStructuralFairness(config, mal));
+      setData(await runStructuralFairness(config, mal, 20, 5, playground));
     } catch {
       setData(null);
     } finally {
@@ -39,7 +37,10 @@ const StructuralPanel: React.FC<{ config: ElectionConfig; partyNames: string[] }
   };
 
   return (
-    <div data-testid="structural-panel" className="flex flex-col gap-2 rounded-md border border-border p-3">
+    <div
+      data-testid="structural-panel"
+      className="flex flex-col gap-2 rounded-md border border-border p-3"
+    >
       <div className="flex flex-wrap items-center justify-between gap-2">
         <span className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
           ⚖ Équités structurelles
@@ -61,21 +62,29 @@ const StructuralPanel: React.FC<{ config: ElectionConfig; partyNames: string[] }
             />
             {Math.round(mal * 100)} %
           </label>
-          <Button data-testid="structural-run" variant="outline" size="sm" onClick={run} disabled={loading}>
+          <Button
+            data-testid="structural-run"
+            variant="outline"
+            size="sm"
+            onClick={run}
+            disabled={loading}
+          >
             {loading ? '…' : '▶ Analyser'}
           </Button>
         </div>
       </div>
       <p className="text-[0.68rem] text-muted-foreground/70">
-        Les règles autour de la règle : taille des circonscriptions, découpage, pondération
-        des conseils, scrutin plurinominal — chacune déplace le pouvoir sans toucher au mode
-        de scrutin.
+        Les règles autour de la règle : taille des circonscriptions, découpage, pondération des
+        conseils, scrutin plurinominal — chacune déplace le pouvoir sans toucher au mode de scrutin.
       </p>
 
       {data && (
         <div className="grid grid-cols-1 gap-2 xl:grid-cols-2">
           {/* Malapportionment */}
-          <div data-testid="malapportionment-out" className="rounded-md border border-border px-3 py-2 text-xs">
+          <div
+            data-testid="malapportionment-out"
+            className="rounded-md border border-border px-3 py-2 text-xs"
+          >
             <p className="font-semibold uppercase tracking-wide text-muted-foreground">
               Poids inégal des voix
             </p>
@@ -96,7 +105,10 @@ const StructuralPanel: React.FC<{ config: ElectionConfig; partyNames: string[] }
           </div>
 
           {/* Efficiency gap */}
-          <div data-testid="efficiency-gap-out" className="rounded-md border border-border px-3 py-2 text-xs">
+          <div
+            data-testid="efficiency-gap-out"
+            className="rounded-md border border-border px-3 py-2 text-xs"
+          >
             <p
               className="font-semibold uppercase tracking-wide text-muted-foreground"
               title="(voix gaspillées A − voix gaspillées B) / total bipartite — la métrique standard du charcutage. Gaspillé = voix perdantes + surplus au-delà de 50 % + 1."
@@ -108,7 +120,8 @@ const StructuralPanel: React.FC<{ config: ElectionConfig; partyNames: string[] }
               <div
                 className="absolute inset-y-0 bg-primary/70"
                 style={{
-                  left: data.efficiency_gap.gap < 0 ? `${50 + data.efficiency_gap.gap * 50}%` : '50%',
+                  left:
+                    data.efficiency_gap.gap < 0 ? `${50 + data.efficiency_gap.gap * 50}%` : '50%',
                   width: `${Math.abs(data.efficiency_gap.gap) * 50}%`,
                   transition: 'all 300ms ease',
                 }}
@@ -125,7 +138,10 @@ const StructuralPanel: React.FC<{ config: ElectionConfig; partyNames: string[] }
           </div>
 
           {/* Penrose council */}
-          <div data-testid="penrose-out" className="rounded-md border border-border px-3 py-2 text-xs">
+          <div
+            data-testid="penrose-out"
+            className="rounded-md border border-border px-3 py-2 text-xs"
+          >
             <p
               className="font-semibold uppercase tracking-wide text-muted-foreground"
               title="Pondérer les délégués par √population égalise l'influence des citoyens (approximation de Penrose) ; les pondérations égale ou proportionnelle la déséquilibrent."
@@ -136,11 +152,17 @@ const StructuralPanel: React.FC<{ config: ElectionConfig; partyNames: string[] }
               {(['equal', 'proportional', 'penrose'] as const).map((scheme) => (
                 <div key={scheme} className="flex justify-between">
                   <span className="text-muted-foreground">
-                    {scheme === 'equal' ? '1 circonscription = 1 voix'
-                      : scheme === 'proportional' ? 'Poids ∝ population'
-                      : 'Poids ∝ √population'}
+                    {scheme === 'equal'
+                      ? '1 circonscription = 1 voix'
+                      : scheme === 'proportional'
+                        ? 'Poids ∝ population'
+                        : 'Poids ∝ √population'}
                   </span>
-                  <span className={cn(scheme === 'penrose' && 'font-semibold text-green-700 dark:text-green-400')}>
+                  <span
+                    className={cn(
+                      scheme === 'penrose' && 'font-semibold text-green-700 dark:text-green-400'
+                    )}
+                  >
                     pouvoir citoyen max/min : {data.penrose[scheme]?.toFixed(2)}
                   </span>
                 </div>
@@ -149,7 +171,10 @@ const StructuralPanel: React.FC<{ config: ElectionConfig; partyNames: string[] }
           </div>
 
           {/* Cumulative vs bloc */}
-          <div data-testid="cumulative-out" className="rounded-md border border-border px-3 py-2 text-xs">
+          <div
+            data-testid="cumulative-out"
+            className="rounded-md border border-border px-3 py-2 text-xs"
+          >
             <p
               className="font-semibold uppercase tracking-wide text-muted-foreground"
               title="M sièges dans une circonscription unique : en vote en bloc, le parti en tête rafle tout ; en vote cumulatif, une minorité cohésive concentre ses voix et obtient des sièges."
@@ -182,8 +207,8 @@ const StructuralPanel: React.FC<{ config: ElectionConfig; partyNames: string[] }
               Sièges des minorités : {data.cumulative.minority_seats_bloc} (bloc) →{' '}
               <strong
                 className={cn(
-                  data.cumulative.minority_seats_cumulative >
-                    data.cumulative.minority_seats_bloc && 'text-green-700 dark:text-green-400'
+                  data.cumulative.minority_seats_cumulative > data.cumulative.minority_seats_bloc &&
+                    'text-green-700 dark:text-green-400'
                 )}
               >
                 {data.cumulative.minority_seats_cumulative}

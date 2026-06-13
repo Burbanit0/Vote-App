@@ -5,9 +5,7 @@ import '@testing-library/jest-dom';
 vi.mock('../../hooks/useMetaTags', () => ({ useMetaTags: () => {} }));
 vi.mock('../../services/assemblyApi', () => {
   // NB: declared inside the factory — vi.mock is hoisted above file-level consts.
-  const sc = (
-    p: number, pl: number, ev: number, mr: number, g: number, gr: number
-  ) => ({
+  const sc = (p: number, pl: number, ev: number, mr: number, g: number, gr: number) => ({
     proportionality: { mean: p, lo: p - 0.05, hi: p + 0.05 },
     pluralism: { mean: pl, lo: pl - 0.05, hi: pl + 0.05 },
     effective_votes: { mean: ev, lo: ev - 0.05, hi: ev + 0.05 },
@@ -27,29 +25,29 @@ vi.mock('../../services/assemblyApi', () => {
       },
     }),
     runAssembly: vi.fn().mockResolvedValue({
-    structure: 'pr',
-    assembly_size: 100,
-    majority: 51,
-    threshold_waived: false,
-    parties: [],
-    gallagher_index: 1.0,
-    effective_parties_votes: 3.0,
-    effective_parties_seats: 2.9,
-    wasted_vote_share: 0.02,
-    coalitions: [],
-    congruence: {
-      electorate_median: [0, 0],
-      assembly_position: [0.05, 0],
-      governing_position: null,
-      assembly_gap: 0.05,
-      governing_gap: null,
-    },
-    mirror: [
-      { region: 'left_lib', electorate_share: 0.25, assembly_share: 0.25 },
-      { region: 'left_cons', electorate_share: 0.25, assembly_share: 0.25 },
-      { region: 'right_lib', electorate_share: 0.25, assembly_share: 0.25 },
-      { region: 'right_cons', electorate_share: 0.25, assembly_share: 0.25 },
-    ],
+      structure: 'pr',
+      assembly_size: 100,
+      majority: 51,
+      threshold_waived: false,
+      parties: [],
+      gallagher_index: 1.0,
+      effective_parties_votes: 3.0,
+      effective_parties_seats: 2.9,
+      wasted_vote_share: 0.02,
+      coalitions: [],
+      congruence: {
+        electorate_median: [0, 0],
+        assembly_position: [0.05, 0],
+        governing_position: null,
+        assembly_gap: 0.05,
+        governing_gap: null,
+      },
+      mirror: [
+        { region: 'left_lib', electorate_share: 0.25, assembly_share: 0.25 },
+        { region: 'left_cons', electorate_share: 0.25, assembly_share: 0.25 },
+        { region: 'right_lib', electorate_share: 0.25, assembly_share: 0.25 },
+        { region: 'right_cons', electorate_share: 0.25, assembly_share: 0.25 },
+      ],
     }),
   };
 });
@@ -74,7 +72,11 @@ vi.mock('../../services/profileApi', () => ({
 
 import { MemoryRouter, Routes, Route } from 'react-router';
 import PlaygroundPage from '../PlaygroundPage';
-import { useElectionStore, DEFAULT_PLAYGROUND, DEFAULT_CONFIG } from '../../stores/useElectionStore';
+import {
+  useElectionStore,
+  DEFAULT_PLAYGROUND,
+  DEFAULT_CONFIG,
+} from '../../stores/useElectionStore';
 
 const LS_PG = 'votelab_playground';
 
@@ -94,7 +96,10 @@ function renderPage() {
 beforeEach(() => {
   localStorage.clear();
   // Reset the module-singleton store to a known baseline between tests.
-  useElectionStore.setState({ playground: { ...DEFAULT_PLAYGROUND }, config: { ...DEFAULT_CONFIG } });
+  useElectionStore.setState({
+    playground: { ...DEFAULT_PLAYGROUND },
+    config: { ...DEFAULT_CONFIG },
+  });
 });
 
 describe('PlaygroundPage (P0 shell)', () => {
@@ -137,6 +142,21 @@ describe('PlaygroundPage (P0 shell)', () => {
 
     expect(useElectionStore.getState().playground.space.dims).toBe(3);
     expect(JSON.parse(localStorage.getItem(LS_PG) as string).space.dims).toBe(3);
+  });
+
+  it('the dimension knob reshapes the leader canvas (1-D line, 3-D z controls)', () => {
+    renderPage();
+    const dimsSelect = screen.getByLabelText('Dimensions de l’espace');
+    // 2-D by default: no z controls, canvas tagged dims=2.
+    expect(screen.getByTestId('leader-canvas')).toHaveAttribute('data-dims', '2');
+    expect(screen.queryByTestId('z-controls')).not.toBeInTheDocument();
+    // 1-D → the canvas collapses to a line.
+    fireEvent.change(dimsSelect, { target: { value: '1' } });
+    expect(screen.getByTestId('leader-canvas')).toHaveAttribute('data-dims', '1');
+    // 3-D → per-candidate z sliders appear.
+    fireEvent.change(dimsSelect, { target: { value: '3' } });
+    expect(screen.getByTestId('leader-canvas')).toHaveAttribute('data-dims', '3');
+    expect(screen.getByTestId('z-controls')).toBeInTheDocument();
   });
 
   it('surfaces the cycle-rate read-out from the profile engine', async () => {
@@ -195,10 +215,7 @@ describe('PlaygroundPage (P0 shell)', () => {
   it('leader mode renders the banded scorecard and the values lens over the 6 rules', async () => {
     renderPage();
     await waitFor(
-      () =>
-        expect(
-          screen.getByTestId('axis-condorcet_efficiency').textContent
-        ).toMatch(/\d+\s?%/),
+      () => expect(screen.getByTestId('axis-condorcet_efficiency').textContent).toMatch(/\d+\s?%/),
       { timeout: 5000 }
     );
     expect(screen.getByTestId('values-panel')).toBeInTheDocument();
@@ -261,11 +278,46 @@ describe('PlaygroundPage (P0 shell)', () => {
   it('parliament mode renders the democracy map with the three live structures', async () => {
     renderPage();
     fireEvent.click(screen.getByTestId('mode-toggle-parliament'));
+    // Advanced modules ship collapsed (progressive disclosure) — open it first.
+    await waitFor(() => expect(screen.getByTestId('module-democracy-toggle')).toBeInTheDocument());
+    fireEvent.click(screen.getByTestId('module-democracy-toggle'));
     await waitFor(() => expect(screen.getByTestId('democracy-map')).toBeInTheDocument(), {
       timeout: 5000,
     });
     expect(screen.getByTestId('dm-pr')).toBeInTheDocument();
     expect(screen.getByTestId('dm-fptp')).toBeInTheDocument();
+  });
+
+  // ── Réalisme électoral : participation / abstention ──────────────────────
+
+  it('the turnout control persists and the live rate drops under abstention', () => {
+    renderPage();
+    fireEvent.change(screen.getByTestId('turnout-select'), { target: { value: 'alienation' } });
+    expect(useElectionStore.getState().playground.turnout.model).toBe('alienation');
+    expect(JSON.parse(localStorage.getItem(LS_PG) as string).turnout.model).toBe('alienation');
+    fireEvent.change(screen.getByTestId('turnout-intensity'), { target: { value: '0.9' } });
+    // The live participation read-out appears and reports below 100%.
+    const rate = screen.getByTestId('turnout-rate').textContent ?? '';
+    const pct = Number((rate.match(/(\d+)\s?%/) ?? [])[1]);
+    expect(pct).toBeLessThan(100);
+  });
+
+  it('the strategic-vulnerability module is collapsed in leader mode, opens on demand', () => {
+    renderPage();
+    expect(screen.getByTestId('module-strategic')).toBeInTheDocument();
+    expect(screen.queryByTestId('strategic-module')).not.toBeInTheDocument();
+    fireEvent.click(screen.getByTestId('module-strategic-toggle'));
+    expect(screen.getByTestId('strategic-module')).toBeInTheDocument();
+    expect(screen.getByTestId('strategic-run')).toBeInTheDocument();
+  });
+
+  it('the advanced modules are collapsed by default and open on demand', () => {
+    renderPage();
+    fireEvent.click(screen.getByTestId('mode-toggle-parliament'));
+    expect(screen.getByTestId('module-structural')).toBeInTheDocument();
+    expect(screen.queryByTestId('structural-panel')).not.toBeInTheDocument();
+    fireEvent.click(screen.getByTestId('module-structural-toggle'));
+    expect(screen.getByTestId('structural-panel')).toBeInTheDocument();
   });
 
   it('the identity dial moves the spotlight along the frontier', async () => {
@@ -311,5 +363,112 @@ describe('PlaygroundPage (P0 shell)', () => {
     fireEvent.click(screen.getByTestId('mode-toggle-parliament'));
     fireEvent.click(screen.getByTestId('drill-ctl-party-dynamics'));
     expect(screen.getByTestId('lab-probe')).toBeInTheDocument();
+  });
+
+  // ── Composer l'électorat : moteur d'électorat ─────────────────────────────
+
+  it('the electorate composer ships collapsed and opens on demand', () => {
+    renderPage();
+    expect(screen.getByTestId('module-electorate')).toBeInTheDocument();
+    expect(screen.queryByTestId('electorate-composer')).not.toBeInTheDocument();
+    fireEvent.click(screen.getByTestId('module-electorate-toggle'));
+    expect(screen.getByTestId('electorate-composer')).toBeInTheDocument();
+    // Defaults to the simple gaussian; community editing is hidden until composed.
+    expect(screen.queryByTestId('community-list')).not.toBeInTheDocument();
+  });
+
+  it('switching to a composed electorate persists, reveals blocs and a colour legend', () => {
+    renderPage();
+    fireEvent.click(screen.getByTestId('module-electorate-toggle'));
+    fireEvent.click(screen.getByTestId('electorate-mode-composed'));
+
+    expect(useElectionStore.getState().playground.electorate.mode).toBe('composed');
+    expect(JSON.parse(localStorage.getItem(LS_PG) as string).electorate.mode).toBe('composed');
+    expect(screen.getByTestId('community-list')).toBeInTheDocument();
+    // The leader cloud is now coloured by community → a legend appears.
+    expect(screen.getByTestId('electorate-legend')).toBeInTheDocument();
+  });
+
+  it('a composed preset and add/remove community mutate the store', () => {
+    renderPage();
+    fireEvent.click(screen.getByTestId('module-electorate-toggle'));
+    fireEvent.click(screen.getByTestId('electorate-mode-composed'));
+    fireEvent.click(screen.getByTestId('electorate-preset-fragmented'));
+
+    const e1 = useElectionStore.getState().playground.electorate;
+    expect(e1.mode).toBe('composed');
+    const n = e1.communities.length;
+    fireEvent.click(screen.getByTestId('community-add'));
+    expect(useElectionStore.getState().playground.electorate.communities).toHaveLength(n + 1);
+  });
+
+  it('the sample controls (voter count, seed, ideology) update the shared config', () => {
+    renderPage();
+    fireEvent.click(screen.getByTestId('module-electorate-toggle'));
+    // Voter count + seed apply in both modes (simple by default).
+    fireEvent.change(screen.getByTestId('electorate-num-voters'), { target: { value: '750' } });
+    expect(useElectionStore.getState().config.num_voters).toBe(750);
+    fireEvent.change(screen.getByTestId('electorate-seed'), { target: { value: '1234' } });
+    expect(useElectionStore.getState().config.seed).toBe(1234);
+    // Re-roll changes the seed to something else (new electorate draw).
+    fireEvent.click(screen.getByTestId('electorate-seed-reroll'));
+    expect(useElectionStore.getState().config.seed).not.toBe(1234);
+    // Ideology is a simple-mode-only knob (composed overrides it).
+    fireEvent.change(screen.getByTestId('electorate-ideology'), { target: { value: 'polarized' } });
+    expect(useElectionStore.getState().config.ideology).toBe('polarized');
+    fireEvent.click(screen.getByTestId('electorate-mode-composed'));
+    expect(screen.queryByTestId('electorate-ideology')).not.toBeInTheDocument();
+  });
+
+  it('the measurement-noise slider persists to the electorate', () => {
+    renderPage();
+    fireEvent.click(screen.getByTestId('module-electorate-toggle'));
+    fireEvent.click(screen.getByTestId('electorate-mode-composed'));
+    fireEvent.change(screen.getByTestId('electorate-noise'), { target: { value: '0.5' } });
+    expect(useElectionStore.getState().playground.electorate.noise).toBe(0.5);
+    expect(JSON.parse(localStorage.getItem(LS_PG) as string).electorate.noise).toBe(0.5);
+  });
+
+  it('per-community z sliders appear only when the map is in 3-D', () => {
+    renderPage();
+    fireEvent.click(screen.getByTestId('module-electorate-toggle'));
+    fireEvent.click(screen.getByTestId('electorate-mode-composed'));
+    // 2-D by default: no z sub-list.
+    expect(screen.queryByTestId('community-z-list')).not.toBeInTheDocument();
+    fireEvent.change(screen.getByLabelText('Dimensions de l’espace'), { target: { value: '3' } });
+    expect(screen.getByTestId('community-z-list')).toBeInTheDocument();
+  });
+
+  it('importing a JSON composition replaces the electorate (données d’entrée)', () => {
+    renderPage();
+    fireEvent.click(screen.getByTestId('module-electorate-toggle'));
+    fireEvent.click(screen.getByTestId('electorate-mode-composed'));
+    const payload = JSON.stringify({
+      correlation: 0.5,
+      noise: 0.2,
+      communities: [
+        { id: 'x', label: 'Importé', x: -0.4, y: 0.1, spread: 0.2, weight: 2, turnout: 0.7 },
+      ],
+    });
+    fireEvent.change(screen.getByTestId('electorate-json'), { target: { value: payload } });
+    fireEvent.click(screen.getByTestId('electorate-import'));
+
+    const e = useElectionStore.getState().playground.electorate;
+    expect(e.mode).toBe('composed');
+    expect(e.correlation).toBe(0.5);
+    expect(e.noise).toBe(0.2);
+    expect(e.communities).toHaveLength(1);
+    expect(e.communities[0].label).toBe('Importé');
+  });
+
+  it('a malformed import surfaces an error and leaves the electorate intact', () => {
+    renderPage();
+    fireEvent.click(screen.getByTestId('module-electorate-toggle'));
+    fireEvent.click(screen.getByTestId('electorate-mode-composed'));
+    const before = useElectionStore.getState().playground.electorate.communities.length;
+    fireEvent.change(screen.getByTestId('electorate-json'), { target: { value: '{ not json' } });
+    fireEvent.click(screen.getByTestId('electorate-import'));
+    expect(screen.getByTestId('electorate-json-error')).toBeInTheDocument();
+    expect(useElectionStore.getState().playground.electorate.communities).toHaveLength(before);
   });
 });

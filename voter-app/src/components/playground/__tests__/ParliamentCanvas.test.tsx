@@ -122,9 +122,24 @@ describe('ParliamentCanvas', () => {
     expect(onMoveParty.mock.calls[0][0]).toBe(0);
   });
 
-  it('renders without a backend result (map only)', () => {
-    setup(null);
+  it('renders a grey default hemicycle without a result (no party influence)', () => {
+    render(
+      <ParliamentCanvas
+        parties={PARTIES}
+        voters={sampleVoters(150, 42, 'random')}
+        result={null}
+        loading={false}
+        nominalSeats={80}
+        onMoveParty={vi.fn()}
+      />
+    );
     expect(screen.getByTestId('canvas-parliament')).toBeInTheDocument();
+    // The hemicycle still draws its structure…
+    const seats = screen.getByTestId('hemicycle').querySelectorAll('circle');
+    expect(seats.length).toBe(80);
+    // …but every seat is grey (unassigned) — no party influence.
+    expect(Array.from(seats).every((c) => c.getAttribute('fill') === '#9ca3af')).toBe(true);
+    // And the data-driven sections stay hidden until a result lands.
     expect(screen.queryByTestId('votes-seats-bars')).not.toBeInTheDocument();
     expect(screen.queryByTestId('congruence-overlay')).not.toBeInTheDocument();
   });

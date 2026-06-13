@@ -9,7 +9,7 @@ describe('medianPoint', () => {
       { x: 0, y: 0.5 },
       { x: 1, y: 1 },
     ];
-    expect(medianPoint(pts)).toEqual({ x: 0, y: 0.5 });
+    expect(medianPoint(pts)).toEqual({ x: 0, y: 0.5, z: 0 });
   });
 });
 
@@ -17,7 +17,8 @@ describe('driftCandidates', () => {
   const cands: NamedPt[] = [{ name: 'A', x: -0.8, y: 0.4 }];
 
   it('t=0 leaves positions unchanged', () => {
-    expect(driftCandidates(cands, { x: 0, y: 0 }, 0)).toEqual(cands);
+    // t=0 leaves x,y,z unchanged (z added as 0 for 2-D candidates).
+    expect(driftCandidates(cands, { x: 0, y: 0 }, 0)).toEqual(cands.map((c) => ({ ...c, z: 0 })));
   });
 
   it('t=1 with strength 0.5 moves halfway to the target', () => {

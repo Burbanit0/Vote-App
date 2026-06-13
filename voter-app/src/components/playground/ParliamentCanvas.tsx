@@ -110,6 +110,8 @@ export interface ParliamentCanvasProps {
   voters: Pt[];
   result: AssemblyResult | null;
   loading: boolean;
+  /** Nominal seat count, for the grey default hemicycle before a result lands. */
+  nominalSeats?: number;
   onMoveParty: (index: number, x: number, y: number) => void;
 }
 
@@ -118,6 +120,7 @@ const ParliamentCanvas: React.FC<ParliamentCanvasProps> = ({
   voters,
   result,
   loading,
+  nominalSeats = 100,
   onMoveParty,
 }) => {
   const svgRef = useRef<SVGSVGElement>(null);
@@ -170,16 +173,20 @@ const ParliamentCanvas: React.FC<ParliamentCanvasProps> = ({
     [voters, parties]
   );
 
-  // Hemicycle from the backend result (party colors follow the parties prop order).
+  // Hemicycle from the backend result (party colours follow the parties prop
+  // order). Before a result lands, a GREY default arc shows the structure with
+  // no party influence (empty partySeats → every seat unassigned → grey).
   const seats = useMemo(() => {
-    if (!result) return [];
+    if (!result) {
+      return hemicycleSeats(Math.max(10, nominalSeats), [], SVG, 250);
+    }
     const partySeats = result.parties.map((p) => ({
       idx: parties.findIndex((q) => q.name === p.name),
       seats: p.seats,
       x: p.x,
     }));
     return hemicycleSeats(result.assembly_size, partySeats, SVG, 250);
-  }, [result, parties]);
+  }, [result, parties, nominalSeats]);
 
   const colorOf = (idx: number): string =>
     idx >= 0 ? PARTY_PALETTE[idx % PARTY_PALETTE.length] : '#9ca3af';
@@ -209,6 +216,18 @@ const ParliamentCanvas: React.FC<ParliamentCanvasProps> = ({
 
   return (
     <div data-testid="canvas-parliament" className="flex flex-col gap-3">
+      {/* Make a failed/absent assembly result explicit instead of silently
+          hiding the hemicycle (e.g. if the backend is out of date). */}
+      {!result && !loading && (
+        <div
+          data-testid="assembly-unavailable"
+          className="rounded-md border border-amber-500/50 bg-amber-500/10 px-3 py-2 text-xs text-amber-700 dark:text-amber-400"
+        >
+          ⚠ Hémicycle indisponible : le calcul de l’assemblée n’a pas abouti. Si vous
+          venez de mettre à jour, redémarrez le serveur backend (uvicorn) pour qu’il
+          prenne le nouveau schéma.
+        </div>
+      )}
       <div className="grid grid-cols-1 gap-3 xl:grid-cols-2">
         {/* ── Ideology map: party territories ── */}
         <svg
@@ -308,7 +327,7 @@ const ParliamentCanvas: React.FC<ParliamentCanvasProps> = ({
         {/* ── Hemicycle + metrics ── */}
         <div className="flex flex-col gap-2">
           <svg
-            viewBox={`0 0 ${SVG} 250`}
+            viewBox={`0 0 ${SVG} 272`}
             width="100%"
             role="img"
             aria-label="Hémicycle — sièges par parti"
@@ -326,12 +345,13 @@ const ParliamentCanvas: React.FC<ParliamentCanvasProps> = ({
                 />
               ))}
             </g>
-            {result && (
-              <text x={SVG / 2} y={242} textAnchor="middle" fontSize={12} fill="currentColor">
-                {result.assembly_size} sièges · majorité {result.majority}
-                {loading ? ' · …' : ''}
-              </text>
-            )}
+            <text x={SVG / 2} y={266} textAnchor="middle" fontSize={12} fill="currentColor" opacity={result ? 1 : 0.6}>
+              {result
+                ? `${result.assembly_size} sièges · majorité ${result.majority}${loading ? ' · …' : ''}`
+                : loading
+                  ? 'Calcul de l’assemblée…'
+                  : `${Math.max(10, nominalSeats)} sièges — en attente de la répartition`}
+            </text>
           </svg>
 
           {/* Headline metrics */}

@@ -56,7 +56,8 @@ describe('StructuralPanel (FC-2)', () => {
     fireEvent.change(screen.getByTestId('malapportionment-slider'), { target: { value: '0.9' } });
     fireEvent.click(screen.getByTestId('structural-run'));
     await waitFor(() => expect(screen.getByTestId('malapportionment-out')).toBeInTheDocument());
-    expect(runStructuralFairness).toHaveBeenCalledWith(DEFAULT_CONFIG, 0.9);
+    // trailing args: districts, at-large seats, composed-electorate source (undefined here).
+    expect(runStructuralFairness).toHaveBeenCalledWith(DEFAULT_CONFIG, 0.9, 20, 5, undefined);
     // The visible distortion: 18 % of votes can control the seat majority (vs 27 %).
     expect(screen.getByTestId('malapportionment-out')).toHaveTextContent('3.7 : 1');
     expect(screen.getByTestId('malapportionment-out')).toHaveTextContent('18 %');
