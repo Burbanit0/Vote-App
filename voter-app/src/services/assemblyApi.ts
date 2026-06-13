@@ -23,6 +23,20 @@ export interface AssemblyCoalition {
   span: number;
 }
 
+export interface AssemblyCongruence {
+  electorate_median: number[];
+  assembly_position: number[];
+  governing_position: number[] | null;
+  assembly_gap: number;
+  governing_gap: number | null;
+}
+
+export interface MirrorRegion {
+  region: string;
+  electorate_share: number;
+  assembly_share: number;
+}
+
 export interface AssemblyResult {
   structure: string;
   assembly_size: number;
@@ -34,6 +48,8 @@ export interface AssemblyResult {
   effective_parties_seats: number | null;
   wasted_vote_share: number;
   coalitions: AssemblyCoalition[];
+  congruence: AssemblyCongruence;
+  mirror: MirrorRegion[];
 }
 
 /** Build the `extra="forbid"` request body from shared electorate + assembly knobs. */

@@ -22,6 +22,13 @@ export const PARTY_PALETTE = [
   '#ea580c', '#0891b2', '#ca8a04', '#db2777',
 ];
 
+const MIRROR_LABELS: Record<string, string> = {
+  left_lib: 'Gauche · libéral',
+  left_cons: 'Gauche · conservateur',
+  right_lib: 'Droite · libéral',
+  right_cons: 'Droite · conservateur',
+};
+
 const toSvg = (v: number, axis: 'x' | 'y'): number =>
   axis === 'x' ? MARGIN + ((v + 1) / 2) * PLOT : MARGIN + ((1 - v) / 2) * PLOT;
 
@@ -232,6 +239,39 @@ const ParliamentCanvas: React.FC<ParliamentCanvasProps> = ({
               />
             ))}
           </g>
+          {/* Congruence overlay (FB-1): ✚ electorate median · ● assembly · ◆ government */}
+          {result && (
+            <g data-testid="congruence-overlay">
+              <g
+                transform={`translate(${toSvg(result.congruence.electorate_median[0], 'x')}, ${toSvg(result.congruence.electorate_median[1], 'y')})`}
+              >
+                <line x1={-7} x2={7} y1={0} y2={0} stroke="#111827" strokeWidth={2} />
+                <line x1={0} x2={0} y1={-7} y2={7} stroke="#111827" strokeWidth={2} />
+              </g>
+              <circle
+                cx={toSvg(result.congruence.assembly_position[0], 'x')}
+                cy={toSvg(result.congruence.assembly_position[1], 'y')}
+                r={6}
+                fill="none"
+                stroke="#111827"
+                strokeWidth={2.5}
+                style={{ transition: 'cx 400ms ease, cy 400ms ease' }}
+              />
+              {result.congruence.governing_position && (
+                <rect
+                  x={toSvg(result.congruence.governing_position[0], 'x') - 5}
+                  y={toSvg(result.congruence.governing_position[1], 'y') - 5}
+                  width={10}
+                  height={10}
+                  transform={`rotate(45 ${toSvg(result.congruence.governing_position[0], 'x')} ${toSvg(result.congruence.governing_position[1], 'y')})`}
+                  fill="none"
+                  stroke="#111827"
+                  strokeWidth={2}
+                />
+              )}
+            </g>
+          )}
+
           {/* Draggable parties */}
           <g>
             {parties.map((p, i) => (
@@ -358,6 +398,64 @@ const ParliamentCanvas: React.FC<ParliamentCanvasProps> = ({
           <p className="text-[0.7rem] text-muted-foreground/70">
             Barre claire = voix, barre pleine = sièges. ✕ = exclu par le seuil.
           </p>
+        </div>
+      )}
+
+      {/* ── Representation → governance (FB-1): congruence + descriptive mirror ── */}
+      {result && (
+        <div className="grid grid-cols-1 gap-2 xl:grid-cols-2">
+          <div
+            data-testid="congruence-readout"
+            className="rounded-md border border-border px-3 py-2 text-xs"
+            title="Distance entre la position du corps élu (pondérée par sièges) et l'électeur médian — sur la carte : ✚ médiane, ● assemblée, ◆ coalition gouvernante."
+          >
+            <p className="font-semibold uppercase tracking-wide text-muted-foreground">
+              Congruence (✚ médiane · ● assemblée · ◆ gouvernement)
+            </p>
+            <p className="mt-1 tabular-nums">
+              Écart assemblée–médiane : <strong>{result.congruence.assembly_gap.toFixed(2)}</strong>
+              {result.congruence.governing_gap !== null && (
+                <>
+                  {' · '}coalition gouvernante :{' '}
+                  <strong>{result.congruence.governing_gap.toFixed(2)}</strong>
+                </>
+              )}
+            </p>
+          </div>
+
+          <div data-testid="mirror-bars" className="rounded-md border border-border px-3 py-2">
+            <p
+              className="text-xs font-semibold uppercase tracking-wide text-muted-foreground"
+              title="L'assemblée ressemble-t-elle à l'électorat, région idéologique par région ? (Représentation descriptive sur l'espace modélisé — aucune démographie n'est inventée.)"
+            >
+              Miroir descriptif (régions idéologiques)
+            </p>
+            <div className="mt-1 flex flex-col gap-1">
+              {result.mirror.map((m) => (
+                <div key={m.region} className="flex items-center gap-2 text-[0.7rem]">
+                  <span className="w-28 shrink-0 truncate text-muted-foreground">
+                    {MIRROR_LABELS[m.region] ?? m.region}
+                  </span>
+                  <div className="relative h-3.5 flex-1 overflow-hidden rounded bg-muted/50">
+                    <div
+                      className="absolute inset-y-0 left-0 bg-slate-400/50"
+                      style={{ width: `${m.electorate_share * 100}%`, transition: 'width 400ms ease' }}
+                    />
+                    <div
+                      className="absolute left-0 top-1 h-1.5 bg-primary"
+                      style={{ width: `${m.assembly_share * 100}%`, transition: 'width 400ms ease' }}
+                    />
+                  </div>
+                  <span className="w-20 text-right tabular-nums text-muted-foreground">
+                    {Math.round(m.electorate_share * 100)} % → {Math.round(m.assembly_share * 100)} %
+                  </span>
+                </div>
+              ))}
+            </div>
+            <p className="mt-1 text-[0.65rem] text-muted-foreground/70">
+              Barre grise = électorat, barre pleine = sièges.
+            </p>
+          </div>
         </div>
       )}
 

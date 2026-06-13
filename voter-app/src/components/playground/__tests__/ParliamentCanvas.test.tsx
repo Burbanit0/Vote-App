@@ -27,6 +27,19 @@ const RESULT: AssemblyResult = {
   effective_parties_seats: 2.8,
   wasted_vote_share: 0.0,
   coalitions: [{ parties: ['Centre', 'Gauche'], seats: 76, span: 0.63 }],
+  congruence: {
+    electorate_median: [0.02, -0.01],
+    assembly_position: [-0.08, 0.0],
+    governing_position: [-0.25, -0.08],
+    assembly_gap: 0.1,
+    governing_gap: 0.28,
+  },
+  mirror: [
+    { region: 'left_lib', electorate_share: 0.3, assembly_share: 0.35 },
+    { region: 'left_cons', electorate_share: 0.2, assembly_share: 0.0 },
+    { region: 'right_lib', electorate_share: 0.25, assembly_share: 0.41 },
+    { region: 'right_cons', electorate_share: 0.25, assembly_share: 0.24 },
+  ],
 };
 
 function setup(result: AssemblyResult | null = RESULT) {
@@ -113,5 +126,25 @@ describe('ParliamentCanvas', () => {
     setup(null);
     expect(screen.getByTestId('canvas-parliament')).toBeInTheDocument();
     expect(screen.queryByTestId('votes-seats-bars')).not.toBeInTheDocument();
+    expect(screen.queryByTestId('congruence-overlay')).not.toBeInTheDocument();
+  });
+
+  // ── FB-1: representation → governance ─────────────────────────────────────
+
+  it('overlays median/assembly/government markers and reports the gaps', () => {
+    setup();
+    const overlay = screen.getByTestId('congruence-overlay');
+    expect(overlay.querySelector('circle')).toBeTruthy(); // assembly ●
+    expect(overlay.querySelector('rect')).toBeTruthy(); // government ◆
+    expect(screen.getByTestId('congruence-readout')).toHaveTextContent('0.10');
+    expect(screen.getByTestId('congruence-readout')).toHaveTextContent('0.28');
+  });
+
+  it('the descriptive mirror shows electorate vs assembly per ideological region', () => {
+    setup();
+    const mirror = screen.getByTestId('mirror-bars');
+    expect(mirror).toHaveTextContent('Gauche · conservateur');
+    expect(mirror).toHaveTextContent('20 % → 0 %'); // the unrepresented region
+    expect(mirror).toHaveTextContent('25 % → 41 %');
   });
 });

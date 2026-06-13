@@ -102,6 +102,8 @@ from api.schemas import (
     AssemblyScorecardResponse,
     TemporalRequest,
     TemporalResponse,
+    IssueVotingRequest,
+    IssueVotingResponse,
     ProfileSimulateRequest,
     ProfileSimulateResponse,
     SimulateRequest,
@@ -117,6 +119,7 @@ from api.domain.election import (
     adaptive as adaptive_domain,
     assembly as assembly_domain,
     assembly_scorecard as assembly_scorecard_domain,
+    issue_voting as issue_voting_domain,
     temporal as temporal_domain,
     affective_polarization as affective_polarization_domain,
     ballot_complexity as ballot_complexity_domain,
@@ -304,6 +307,23 @@ async def temporal_endpoint(request: TemporalRequest) -> TemporalResponse:
     polarization and alternation evolve. Duverger's law shows up over time:
     FPTP with strategic desertion compresses the party system, PR sustains it."""
     return await _run_typed(temporal_domain, request, TemporalResponse)
+
+
+# ── /issue-voting (frontier FB-2) ─────────────────────────────────────────────
+
+@router.post(
+    "/issue-voting",
+    response_model=IssueVotingResponse,
+    summary="Issue-by-issue majorities vs the bundled platform vote",
+    response_description="Per-issue referendum majorities, the elected platform, "
+                         "divergences, and the Ostrogorski-paradox flag.",
+)
+async def issue_voting_endpoint(request: IssueVotingRequest) -> IssueVotingResponse:
+    """The bundling problem: a platform can win the election while the majority
+    disagrees with it issue by issue (Ostrogorski / discursive dilemma).
+    Spatial mode derives K issues from the shared electorate; handcrafted mode
+    builds exact paradoxes."""
+    return await _run_typed(issue_voting_domain, request, IssueVotingResponse)
 
 
 # ── /combined-effects ───────────────────────────────────────────────────────

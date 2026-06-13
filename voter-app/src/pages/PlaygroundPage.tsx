@@ -36,6 +36,7 @@ import {
 } from '../lib/scorecard';
 import DemocracyMap from '../components/playground/DemocracyMap';
 import TemporalPanel from '../components/playground/TemporalPanel';
+import IssuesPanel from '../components/playground/IssuesPanel';
 
 // Lab reshape — Phase P0: the two-mode playground shell. Two questions over ONE
 // shared electorate: "Élire un dirigeant" (single office) vs "Composer un parlement"
@@ -903,6 +904,7 @@ const PlaygroundPage: React.FC = () => {
                     <DemocracyMap entries={democracyEntries} current={assembly.structure} />
                   )}
                   <TemporalPanel config={config} playground={playground} />
+                  <IssuesPanel config={config} />
                 </div>
               )}
             </FlipReveal>

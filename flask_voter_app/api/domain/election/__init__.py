@@ -38,6 +38,7 @@ from api.domain.election.workers import (
     _historical_replay_worker,
     _hotelling_worker,
     _interpret_worker,
+    _issue_voting_worker,
     _jury_worker,
     _liquid_democracy_worker,
     _multiwinner_compare_worker,
@@ -84,6 +85,12 @@ def temporal(data: dict) -> tuple[dict, int]:
     """Frontier FA-3: N sequential elections with party adaptation and voter
     attachment — is the system still good after repeated play?"""
     return _temporal_worker(data)
+
+
+def issue_voting(data: dict) -> tuple[dict, int]:
+    """Frontier FB-2: issue-by-issue majorities vs the bundled platform vote —
+    the Ostrogorski paradox / discursive dilemma."""
+    return _issue_voting_worker(data)
 
 
 def combined_effects(data: dict) -> tuple[dict, int]:
