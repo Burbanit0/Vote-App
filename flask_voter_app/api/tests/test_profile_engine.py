@@ -260,6 +260,23 @@ def test_assembly_turnout_changes_wasted_share(client: TestClient):
            (abst["gallagher_index"], [p["seats"] for p in abst["parties"]])
 
 
+def test_strategic_vulnerability_opt_in(client: TestClient):
+    """Off by default (winners only); opt-in adds a per-method manipulability
+    rate in [0,1]. Plurality is gameable, so its rate is > 0."""
+    cands = [{"name": "A", "x": -0.6, "y": 0}, {"name": "B", "x": 0.1, "y": 0},
+             {"name": "C", "x": 0.6, "y": 0}]
+    base = {"source": "spatial", "candidates": cands, "num_voters": 120, "seed": 3}
+    off = client.post("/api/v2/election/profile-simulate", json=base).json()
+    assert "strategic_vulnerability" not in off["methods"]["plurality"]
+    on = client.post("/api/v2/election/profile-simulate",
+                     json={**base, "compute_strategic": True}).json()
+    sv = on["methods"]["plurality"]["strategic_vulnerability"]
+    assert sv is not None and 0.0 <= sv <= 1.0
+    # Winners are unchanged whether or not strategy is computed.
+    assert {m: on["methods"][m]["winner"] for m in on["methods"]} == \
+           {m: off["methods"][m]["winner"] for m in off["methods"]}
+
+
 def test_endpoint_full_ballot_reports_no_flips(client: TestClient):
     res = client.post("/api/v2/election/profile-simulate", json={
         "source": "spatial",

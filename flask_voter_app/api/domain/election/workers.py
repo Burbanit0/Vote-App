@@ -6569,14 +6569,20 @@ def _profile_simulate_worker(data: Dict[str, Any]) -> tuple[Dict[str, Any], int]
         return {"error": str(exc)}, 400
 
     compat = compatible_methods(ballot_type)
-    # The playground only displays per-method winners + the cycle rate, so skip
-    # the O(voters × methods) strategic-vulnerability pass (the dominant cost).
+    # The live read-out only needs winners + cycle rate, so the O(voters × methods)
+    # strategic-vulnerability pass is skipped by default; the on-demand strategic
+    # module opts in via compute_strategic=True.
+    want_strategic = bool(data.get("compute_strategic", False))
     result = compare_all_methods(
-        voters, candidates, [], override_utilities=projected, compute_strategic=False
+        voters, candidates, [], override_utilities=projected,
+        compute_strategic=want_strategic,
     )
     raw_methods = result.get("methods", {})
     methods_out: Dict[str, Any] = {
-        name: {"winner": md.get("winner")}
+        name: (
+            {"winner": md.get("winner"), "strategic_vulnerability": md.get("strategic_vulnerability")}
+            if want_strategic else {"winner": md.get("winner")}
+        )
         for name, md in raw_methods.items()
         if name in compat
     }

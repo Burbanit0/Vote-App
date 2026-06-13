@@ -300,6 +300,15 @@ describe('PlaygroundPage (P0 shell)', () => {
     expect(pct).toBeLessThan(100);
   });
 
+  it('the strategic-vulnerability module is collapsed in leader mode, opens on demand', () => {
+    renderPage();
+    expect(screen.getByTestId('module-strategic')).toBeInTheDocument();
+    expect(screen.queryByTestId('strategic-module')).not.toBeInTheDocument();
+    fireEvent.click(screen.getByTestId('module-strategic-toggle'));
+    expect(screen.getByTestId('strategic-module')).toBeInTheDocument();
+    expect(screen.getByTestId('strategic-run')).toBeInTheDocument();
+  });
+
   it('the advanced modules are collapsed by default and open on demand', () => {
     renderPage();
     fireEvent.click(screen.getByTestId('mode-toggle-parliament'));

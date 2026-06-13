@@ -88,6 +88,11 @@ class ProfileSimulateRequest(BaseModel):
     )
     ballot: BallotConfig = Field(default_factory=BallotConfig)
     turnout: TurnoutConfig = Field(default_factory=TurnoutConfig)
+    compute_strategic: bool = Field(
+        False,
+        description="Compute the per-method Gibbard–Satterthwaite individual "
+                    "manipulability rate (slow; opt-in). Off for the live read-out.",
+    )
     seed: int = Field(42, ge=0)
 
 

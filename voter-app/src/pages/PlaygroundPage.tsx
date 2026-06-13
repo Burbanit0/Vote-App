@@ -41,6 +41,7 @@ import TemporalPanel from '../components/playground/TemporalPanel';
 import IssuesPanel from '../components/playground/IssuesPanel';
 import StructuralPanel from '../components/playground/StructuralPanel';
 import Collapsible from '../components/playground/Collapsible';
+import StrategicModule from '../components/playground/StrategicModule';
 
 // Lab reshape — Phase P0: the two-mode playground shell. Two questions over ONE
 // shared electorate: "Élire un dirigeant" (single office) vs "Composer un parlement"
@@ -976,6 +977,15 @@ const PlaygroundPage: React.FC = () => {
                       </div>
                     )}
                   </div>
+
+                  {/* On-demand module: the rigorous (slow) strategic analysis. */}
+                  <Collapsible
+                    title="⚡ Vulnérabilité stratégique (Gibbard–Satterthwaite)"
+                    subtitle="à la demande · lent"
+                    testid="module-strategic"
+                  >
+                    <StrategicModule config={config} playground={playground} />
+                  </Collapsible>
                 </div>
               ) : (
                 <div className="flex flex-col gap-3">

@@ -6,7 +6,7 @@ import { ElectionConfig, PlaygroundState } from '../stores/useElectionStore';
 // paradox read-out that exposes how conclusions depend on the assumptions.
 
 export interface ProfileSimulateResult {
-  methods: Record<string, { winner: string | null }>;
+  methods: Record<string, { winner: string | null; strategic_vulnerability?: number | null }>;
   condorcet_winner: string | null;
   inter_method_agreement: number;
   cycle_rate: number;
@@ -29,7 +29,11 @@ export interface ProfileSimulateResult {
 }
 
 /** Build the `extra="forbid"` request body from shared electorate + playground knobs. */
-export function toProfilePayload(config: ElectionConfig, pg: PlaygroundState) {
+export function toProfilePayload(
+  config: ElectionConfig,
+  pg: PlaygroundState,
+  computeStrategic = false
+) {
   return {
     source: pg.prefSource,
     candidates: config.candidates.map((c) => ({ name: c.name, x: c.x, y: c.y, z: c.z ?? 0 })),
@@ -44,16 +48,20 @@ export function toProfilePayload(config: ElectionConfig, pg: PlaygroundState) {
       score_levels: pg.ballot.score_levels,
     },
     turnout: { model: pg.turnout.model, intensity: pg.turnout.intensity },
+    compute_strategic: computeStrategic,
     seed: config.seed,
   };
 }
 
+/** `computeStrategic` opts into the slow per-method Gibbard–Satterthwaite
+ * manipulability pass (the on-demand strategic module); off for the live call. */
 export async function runProfileSimulate(
   config: ElectionConfig,
-  pg: PlaygroundState
+  pg: PlaygroundState,
+  computeStrategic = false
 ): Promise<ProfileSimulateResult> {
   return apiPost<ProfileSimulateResult>(
     '/api/v2/election/profile-simulate',
-    toProfilePayload(config, pg)
+    toProfilePayload(config, pg, computeStrategic)
   );
 }
