@@ -263,16 +263,20 @@ const PlaygroundPage: React.FC = () => {
     mode === 'parliament'
   );
 
-  // Single-office canvas (P2): a deterministic voter cloud + draggable candidates.
+  // Single-office canvas (P2): a deterministic voter cloud + draggable candidates,
+  // in the configured number of spatial dimensions (1/2/3).
+  const dims = space.dims;
   const [leaderRule, setLeaderRule] = React.useState<Rule>('plurality');
   const voters = React.useMemo(
-    () => sampleVoters(config.num_voters, config.seed, config.ideology),
-    [config.num_voters, config.seed, config.ideology]
+    () => sampleVoters(config.num_voters, config.seed, config.ideology, dims),
+    [config.num_voters, config.seed, config.ideology, dims]
   );
   const moveCandidate = React.useCallback(
-    (index: number, x: number, y: number) => {
+    (index: number, x: number, y: number, z?: number) => {
       setConfig({
-        candidates: config.candidates.map((c, i) => (i === index ? { ...c, x, y } : c)),
+        candidates: config.candidates.map((c, i) =>
+          i === index ? { ...c, x, y, ...(z !== undefined ? { z } : {}) } : c
+        ),
       });
     },
     [config.candidates, setConfig]
@@ -286,6 +290,17 @@ const PlaygroundPage: React.FC = () => {
   const displayedCandidates = React.useMemo(
     () => (campaignT > 0 ? driftCandidates(config.candidates, median, campaignT) : config.candidates),
     [config.candidates, median, campaignT]
+  );
+  // Project candidates onto the active dimension count so the math, the map and
+  // the re-rolls all agree (1-D zeroes y,z; 2-D zeroes z; 3-D keeps all).
+  const leaderCandidates = React.useMemo(
+    () =>
+      displayedCandidates.map((c) => ({
+        ...c,
+        y: dims >= 2 ? c.y : 0,
+        z: dims >= 3 ? c.z ?? 0 : 0,
+      })),
+    [displayedCandidates, dims]
   );
   React.useEffect(() => {
     if (!playing) return;
@@ -309,10 +324,11 @@ const PlaygroundPage: React.FC = () => {
   const shakeKey = JSON.stringify({
     on: shakeOn,
     rule: leaderRule,
-    cands: displayedCandidates.map((c) => [c.name, c.x, c.y]),
+    cands: leaderCandidates.map((c) => [c.name, c.x, c.y, c.z]),
     n: config.num_voters,
     seed: config.seed,
     ideology: config.ideology,
+    dims,
   });
   React.useEffect(() => {
     if (!shakeOn) {
@@ -322,11 +338,13 @@ const PlaygroundPage: React.FC = () => {
     const t = setTimeout(() => {
       setShake(
         shakeWinRates(
-          displayedCandidates,
+          leaderCandidates,
           leaderRule,
           Math.min(config.num_voters, 300),
           config.seed,
-          config.ideology
+          config.ideology,
+          60,
+          dims
         )
       );
     }, 200);
@@ -338,21 +356,23 @@ const PlaygroundPage: React.FC = () => {
   const [leaderSc, setLeaderSc] = React.useState<LeaderScorecard | null>(null);
   const leaderScKey = JSON.stringify({
     on: mode === 'leader',
-    cands: config.candidates.map((c) => [c.name, c.x, c.y]),
+    cands: leaderCandidates.map((c) => [c.name, c.x, c.y, c.z]),
     n: config.num_voters,
     seed: config.seed,
     ideology: config.ideology,
+    dims,
   });
   React.useEffect(() => {
     if (mode !== 'leader') return;
     const t = setTimeout(() => {
       setLeaderSc(
         leaderScorecard(
-          config.candidates,
+          leaderCandidates,
           Math.min(config.num_voters, 200),
           config.seed,
           config.ideology,
-          20
+          20,
+          dims
         )
       );
     }, 250);
@@ -420,11 +440,11 @@ const PlaygroundPage: React.FC = () => {
   const manipDetail = React.useMemo(() => {
     if (mode !== 'leader') return null;
     return {
-      probe: manipulationProbe(voters, displayedCandidates, leaderRule),
-      easy: manipulationProbe(voters, displayedCandidates, 'plurality'),
-      hard: manipulationProbe(voters, displayedCandidates, 'irv'),
+      probe: manipulationProbe(voters, leaderCandidates, leaderRule),
+      easy: manipulationProbe(voters, leaderCandidates, 'plurality'),
+      hard: manipulationProbe(voters, leaderCandidates, 'irv'),
     };
-  }, [mode, voters, displayedCandidates, leaderRule]);
+  }, [mode, voters, leaderCandidates, leaderRule]);
 
   const axisMeta = mode === 'leader' ? LEADER_AXIS_META : PARLIAMENT_AXIS_META;
   const currentAxes: ScorecardAxis[] = axisMeta.map(({ key, label, hint, drillTab }) => ({
@@ -801,9 +821,10 @@ const PlaygroundPage: React.FC = () => {
               {mode === 'leader' ? (
                 <div className="flex flex-col gap-3">
                   <LeaderCanvas
-                    candidates={displayedCandidates}
+                    candidates={leaderCandidates}
                     voters={voters}
                     rule={leaderRule}
+                    dims={dims}
                     onRuleChange={setLeaderRule}
                     onMoveCandidate={moveDisplayed}
                   />

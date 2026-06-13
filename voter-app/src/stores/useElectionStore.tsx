@@ -18,6 +18,8 @@ export interface ElectionCandidate {
   name: string;
   x: number;
   y: number;
+  /** Optional 3rd ideological axis (playground dims=3). Defaults to 0. */
+  z?: number;
 }
 
 export interface ElectionConfig {

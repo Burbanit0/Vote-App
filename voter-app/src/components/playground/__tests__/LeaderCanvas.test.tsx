@@ -19,6 +19,7 @@ function setup(overrides: Partial<React.ComponentProps<typeof LeaderCanvas>> = {
       candidates={CANDS}
       voters={sampleVoters(120, 42, 'random')}
       rule="plurality"
+      dims={2}
       onRuleChange={onRuleChange}
       onMoveCandidate={onMoveCandidate}
       {...overrides}
@@ -58,5 +59,24 @@ describe('LeaderCanvas', () => {
     fireEvent.mouseMove(window, { clientX: 100, clientY: 100 });
     expect(onMoveCandidate).toHaveBeenCalled();
     expect(onMoveCandidate.mock.calls[0][0]).toBe(0);
+  });
+
+  it('1-D collapses to a line: dragging forces y=0 and no z controls', () => {
+    const { onMoveCandidate } = setup({ dims: 1, voters: sampleVoters(80, 1, 'random', 1) });
+    expect(screen.getByTestId('leader-canvas')).toHaveAttribute('data-dims', '1');
+    expect(screen.queryByTestId('z-controls')).not.toBeInTheDocument();
+    fireEvent.mouseDown(screen.getByTestId('candidate-0'));
+    fireEvent.mouseMove(window, { clientX: 200, clientY: 300 });
+    // y is pinned to 0 regardless of the pointer's vertical position.
+    expect(onMoveCandidate.mock.calls[0][1]).toBeTypeOf('number');
+    expect(onMoveCandidate.mock.calls[0][2]).toBe(0);
+  });
+
+  it('3-D exposes per-candidate z sliders that report the new z', () => {
+    const cands: NamedPt[] = CANDS.map((c) => ({ ...c, z: 0 }));
+    const { onMoveCandidate } = setup({ dims: 3, candidates: cands, voters: sampleVoters(80, 1, 'random', 3) });
+    expect(screen.getByTestId('z-controls')).toBeInTheDocument();
+    fireEvent.change(screen.getByTestId('z-slider-2'), { target: { value: '0.6' } });
+    expect(onMoveCandidate).toHaveBeenCalledWith(2, cands[2].x, cands[2].y, 0.6);
   });
 });

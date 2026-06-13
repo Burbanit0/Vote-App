@@ -139,6 +139,21 @@ describe('PlaygroundPage (P0 shell)', () => {
     expect(JSON.parse(localStorage.getItem(LS_PG) as string).space.dims).toBe(3);
   });
 
+  it('the dimension knob reshapes the leader canvas (1-D line, 3-D z controls)', () => {
+    renderPage();
+    const dimsSelect = screen.getByLabelText('Dimensions de l’espace');
+    // 2-D by default: no z controls, canvas tagged dims=2.
+    expect(screen.getByTestId('leader-canvas')).toHaveAttribute('data-dims', '2');
+    expect(screen.queryByTestId('z-controls')).not.toBeInTheDocument();
+    // 1-D → the canvas collapses to a line.
+    fireEvent.change(dimsSelect, { target: { value: '1' } });
+    expect(screen.getByTestId('leader-canvas')).toHaveAttribute('data-dims', '1');
+    // 3-D → per-candidate z sliders appear.
+    fireEvent.change(dimsSelect, { target: { value: '3' } });
+    expect(screen.getByTestId('leader-canvas')).toHaveAttribute('data-dims', '3');
+    expect(screen.getByTestId('z-controls')).toBeInTheDocument();
+  });
+
   it('surfaces the cycle-rate read-out from the profile engine', async () => {
     renderPage();
     await waitFor(() => expect(screen.getByTestId('cycle-rate')).toHaveTextContent('12 %'));

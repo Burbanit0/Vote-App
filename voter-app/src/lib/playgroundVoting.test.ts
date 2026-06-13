@@ -142,6 +142,49 @@ describe('extended method set (15 rules)', () => {
   });
 });
 
+describe('dimensionality (1/2/3-D)', () => {
+  it('sampleVoters collapses unused axes and keeps x identical across dims', () => {
+    const d1 = sampleVoters(50, 9, 'random', 1);
+    const d2 = sampleVoters(50, 9, 'random', 2);
+    const d3 = sampleVoters(50, 9, 'random', 3);
+    // 1-D: y and z are exactly 0.
+    expect(d1.every((p) => p.y === 0 && (p.z ?? 0) === 0)).toBe(true);
+    // 2-D: z is 0 but y varies.
+    expect(d2.every((p) => (p.z ?? 0) === 0)).toBe(true);
+    expect(d2.some((p) => p.y !== 0)).toBe(true);
+    // 3-D: z genuinely varies.
+    expect(d3.some((p) => (p.z ?? 0) !== 0)).toBe(true);
+    // The dimension only ADDS axes — x is the same first draw for all dims.
+    expect(d1.map((p) => p.x)).toEqual(d2.map((p) => p.x));
+    expect(d2.map((p) => p.x)).toEqual(d3.map((p) => p.x));
+  });
+
+  it('distance uses the 3rd axis (a z-separated rival can lose voters)', () => {
+    // Two candidates at the same x,y; one offset in z. Voters sit at z=0,
+    // so the z=0 candidate wins everyone under plurality.
+    const voters: Pt[] = Array.from({ length: 20 }, (_, i) => ({ x: (i - 10) / 20, y: 0, z: 0 }));
+    const cands: NamedPt[] = [
+      { name: 'Near', x: 0, y: 0, z: 0 },
+      { name: 'Far', x: 0, y: 0, z: 0.9 },
+    ];
+    expect(fieldWinnerName(voters, cands, 'plurality')).toBe('Near');
+  });
+
+  it('winRegionGrid is a 1-row strip in 1-D and an n×n grid otherwise', () => {
+    const voters = sampleVoters(80, 1, 'random', 1);
+    const cands: NamedPt[] = [
+      { name: 'L', x: -0.6, y: 0, z: 0 },
+      { name: 'R', x: 0.6, y: 0, z: 0 },
+    ];
+    const g1 = winRegionGrid(voters, cands, 'plurality', 8, 1);
+    expect(g1.rows).toBe(1);
+    expect(g1.cells).toHaveLength(8);
+    const g2 = winRegionGrid(sampleVoters(80, 1, 'random', 2), cands, 'plurality', 8, 2);
+    expect(g2.rows).toBe(8);
+    expect(g2.cells).toHaveLength(64);
+  });
+});
+
 describe('sampleVoters', () => {
   it('is deterministic for a fixed seed and stays in [-1,1]²', () => {
     const a = sampleVoters(50, 7, 'random');

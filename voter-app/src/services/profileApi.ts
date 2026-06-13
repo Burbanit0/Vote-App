@@ -30,7 +30,7 @@ export interface ProfileSimulateResult {
 export function toProfilePayload(config: ElectionConfig, pg: PlaygroundState) {
   return {
     source: pg.prefSource,
-    candidates: config.candidates.map((c) => ({ name: c.name, x: c.x, y: c.y })),
+    candidates: config.candidates.map((c) => ({ name: c.name, x: c.x, y: c.y, z: c.z ?? 0 })),
     num_voters: config.num_voters,
     dims: pg.space.dims,
     valence: pg.space.valenceEnabled,

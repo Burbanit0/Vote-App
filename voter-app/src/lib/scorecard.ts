@@ -26,6 +26,7 @@ import {
   computeScores,
   ruleWinnerFromRanks,
   sampleVoters,
+  type Dims,
   type NamedPt,
   type Pt,
   type Rule,
@@ -152,14 +153,15 @@ export function leaderScorecard(
   numVoters: number,
   baseSeed: number,
   ideology: string,
-  replications = 24
+  replications = 24,
+  dims: Dims = 2
 ): LeaderScorecard {
   const m = candidates.length;
   const perRule: Record<string, { ce: number[]; sr: number[]; wf: number[]; ms: number[]; winners: number[] }> = {};
   for (const r of LEADER_RULES) perRule[r] = { ce: [], sr: [], wf: [], ms: [], winners: [] };
 
   for (let k = 0; k < replications; k++) {
-    const voters = sampleVoters(numVoters, baseSeed + 211 + k * 13, ideology);
+    const voters = sampleVoters(numVoters, baseSeed + 211 + k * 13, ideology, dims);
     const ranks = computeRanks(voters, candidates);
     const scores = computeScores(voters, candidates);
     const cw = condorcetFromRanks(ranks, m);
