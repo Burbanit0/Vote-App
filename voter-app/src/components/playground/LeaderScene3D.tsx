@@ -86,10 +86,15 @@ const LeaderScene3D: React.FC<LeaderScene3DProps> = ({
   // Pointer orbit.
   useEffect(() => {
     const move = (cx: number, cy: number) => {
-      if (!drag.current) return;
-      setYaw((y) => y + (cx - drag.current!.x) * 0.01);
-      setPitch((p) => Math.max(-1.4, Math.min(1.4, p + (cy - drag.current!.y) * 0.01)));
+      const d = drag.current;
+      if (!d) return;
+      // Capture the delta BEFORE updating the ref — the setState updaters run
+      // later, so they must not dereference drag.current (it may be reset/null).
+      const dx = cx - d.x;
+      const dy = cy - d.y;
       drag.current = { x: cx, y: cy };
+      setYaw((y) => y + dx * 0.01);
+      setPitch((p) => Math.max(-1.4, Math.min(1.4, p + dy * 0.01)));
     };
     const onMM = (e: MouseEvent) => move(e.clientX, e.clientY);
     const onUp = () => { drag.current = null; };
