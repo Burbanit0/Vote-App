@@ -325,9 +325,13 @@ const PlaygroundPage: React.FC = () => {
   const electorateSampler = React.useMemo(
     () =>
       composed
-        ? { communities: electorate.communities, correlation: electorate.correlation }
+        ? {
+            communities: electorate.communities,
+            correlation: electorate.correlation,
+            noise: electorate.noise,
+          }
         : null,
-    [composed, electorate.communities, electorate.correlation]
+    [composed, electorate.communities, electorate.correlation, electorate.noise]
   );
   const voters = React.useMemo(() => {
     if (electorateSampler) {
@@ -336,7 +340,8 @@ const PlaygroundPage: React.FC = () => {
         electorateSampler.correlation,
         config.num_voters,
         config.seed,
-        dims
+        dims,
+        electorateSampler.noise
       );
       // Tag each voter with its bloc index (extra prop survives applyTurnout,
       // which preserves object identity) for downstream colouring.

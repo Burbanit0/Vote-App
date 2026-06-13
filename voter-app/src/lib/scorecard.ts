@@ -46,6 +46,7 @@ const NO_TURNOUT: TurnoutConfig = { model: 'full', intensity: 0 };
 export interface ElectorateSampler {
   communities: Community[];
   correlation: number;
+  noise?: number;
 }
 function rollVoters(
   electorate: ElectorateSampler | null,
@@ -55,8 +56,14 @@ function rollVoters(
   dims: Dims
 ): Pt[] {
   return electorate
-    ? composeElectorate(electorate.communities, electorate.correlation, numVoters, seed, dims)
-        .voters
+    ? composeElectorate(
+        electorate.communities,
+        electorate.correlation,
+        numVoters,
+        seed,
+        dims,
+        electorate.noise ?? 0
+      ).voters
     : sampleVoters(numVoters, seed, ideology, dims);
 }
 

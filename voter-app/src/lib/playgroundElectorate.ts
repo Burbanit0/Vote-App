@@ -14,6 +14,8 @@ export interface Community {
   label: string;
   x: number;
   y: number;
+  /** 3rd-axis centre (only used when dims === 3); optional, defaults to 0. */
+  z?: number;
   /** Standard deviation of the bloc cloud. */
   spread: number;
   /** Relative size (sampling weight). */
@@ -63,14 +65,18 @@ const clamp = (v: number): number => Math.max(-1, Math.min(1, v));
  * Sample an electorate of (up to) `n` voters from the community mixture.
  * `correlation` ∈ [-1,1] couples the x and y deviations within each bloc.
  * Per-community `turnout` thins that bloc (Bernoulli) — abstainers are dropped,
- * so the result is the *voting* electorate. Always returns ≥ 2 voters.
+ * so the result is the *voting* electorate. `noise` ∈ [0,1] adds a global
+ * measurement/polling jitter on every active axis — distinct from each bloc's
+ * (real) `spread`: it blurs the observed positions uniformly, the way a survey
+ * measures the electorate with error. Always returns ≥ 2 voters.
  */
 export function composeElectorate(
   communities: Community[],
   correlation: number,
   n: number,
   seed: number,
-  dims: Dims = 2
+  dims: Dims = 2,
+  noise = 0
 ): ComposedElectorate {
   const live = communities.filter((c) => c.weight > 0);
   if (!live.length) return { voters: [], community: [] };
@@ -84,6 +90,8 @@ export function composeElectorate(
   }
   const rho = Math.max(-1, Math.min(1, correlation));
   const coShare = Math.sqrt(Math.max(0, 1 - rho * rho));
+  // Measurement jitter: a modest absolute σ so the slider stays legible.
+  const nSigma = Math.max(0, Math.min(1, noise)) * 0.3;
 
   const voters: Pt[] = [];
   const community: number[] = [];
@@ -96,12 +104,16 @@ export function composeElectorate(
     const ex = gauss(rng, 0, bloc.spread);
     const ey = gauss(rng, 0, bloc.spread);
     const ez = gauss(rng, 0, bloc.spread);
+    // Measurement noise draws (always consumed → determinism across noise=0).
+    const nx = gauss(rng, 0, nSigma);
+    const ny = gauss(rng, 0, nSigma);
+    const nz = gauss(rng, 0, nSigma);
     const turn = rng(); // turnout draw (always consumed for determinism)
     if (turn > bloc.turnout) continue; // abstains
     voters.push({
-      x: clamp(bloc.x + ex),
-      y: dims >= 2 ? clamp(bloc.y + (rho * ex + coShare * ey)) : 0,
-      z: dims >= 3 ? clamp(ez) : 0,
+      x: clamp(bloc.x + ex + nx),
+      y: dims >= 2 ? clamp(bloc.y + (rho * ex + coShare * ey) + ny) : 0,
+      z: dims >= 3 ? clamp((bloc.z ?? 0) + ez + nz) : 0,
     });
     // Map back to the original community index (for stable colours).
     community.push(communities.indexOf(bloc));
@@ -109,7 +121,11 @@ export function composeElectorate(
   // Never hand back an empty electorate — fall back to bloc centres.
   if (voters.length < 2) {
     return {
-      voters: live.map((c) => ({ x: clamp(c.x), y: dims >= 2 ? clamp(c.y) : 0, z: 0 })),
+      voters: live.map((c) => ({
+        x: clamp(c.x),
+        y: dims >= 2 ? clamp(c.y) : 0,
+        z: dims >= 3 ? clamp(c.z ?? 0) : 0,
+      })),
       community: live.map((c) => communities.indexOf(c)),
     };
   }

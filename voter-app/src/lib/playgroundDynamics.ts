@@ -75,7 +75,7 @@ export function shakeWinRates(
   n = 60,
   dims: Dims = 2,
   turnout: { model: TurnoutModel; intensity: number } = { model: 'full', intensity: 0 },
-  electorate: { communities: Community[]; correlation: number } | null = null
+  electorate: { communities: Community[]; correlation: number; noise?: number } | null = null
 ): ShakeResult {
   const wins: Record<string, number> = {};
   candidates.forEach((c) => {
@@ -85,8 +85,14 @@ export function shakeWinRates(
     const seed = baseSeed + 1009 + i * 17;
     const voters = applyTurnout(
       electorate
-        ? composeElectorate(electorate.communities, electorate.correlation, numVoters, seed, dims)
-            .voters
+        ? composeElectorate(
+            electorate.communities,
+            electorate.correlation,
+            numVoters,
+            seed,
+            dims,
+            electorate.noise ?? 0
+          ).voters
         : sampleVoters(numVoters, seed, ideology, dims),
       candidates,
       turnout.model,

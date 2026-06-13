@@ -19,6 +19,8 @@ export type { Community };
 export interface ElectorateComposition {
   mode: 'simple' | 'composed';
   correlation: number;
+  /** Global measurement/polling jitter in [0,1] (blurs observed positions). */
+  noise: number;
   communities: Community[];
 }
 
@@ -303,8 +305,9 @@ const _co = (
   y: number,
   spread: number,
   weight: number,
-  turnout: number
-): Community => ({ id, label, x, y, spread, weight, turnout });
+  turnout: number,
+  z = 0
+): Community => ({ id, label, x, y, z, spread, weight, turnout });
 
 /** Electorate composition presets — from textbook shapes to "near-real". */
 export const ELECTORATE_PRESETS: Record<
@@ -360,6 +363,40 @@ export const ELECTORATE_PRESETS: Record<
       _co('aines', 'Aînés assidus', 0.35, 0.25, 0.18, 1.5, 0.92),
     ],
   },
+  polarized: {
+    // Two tight, distant blocs with strongly correlated axes — affective
+    // polarisation: the two camps diverge on every dimension at once.
+    label: 'Polarisé',
+    correlation: 0.8,
+    communities: [
+      _co('camp_a', 'Camp A', -0.7, -0.55, 0.12, 1, 0.92),
+      _co('camp_b', 'Camp B', 0.7, 0.55, 0.12, 1, 0.92),
+    ],
+  },
+  nordic: {
+    // Consensus electorate: several moderate, overlapping blocs near the centre,
+    // uniformly high turnout — short distances, few cleavages.
+    label: 'Consensus nordique',
+    correlation: 0.1,
+    communities: [
+      _co('soc_dem', 'Sociaux-dém.', -0.3, -0.1, 0.2, 1.4, 0.86),
+      _co('verts', 'Verts/centre-g.', -0.15, -0.3, 0.18, 1, 0.84),
+      _co('centre', 'Centre/agrariens', 0.05, 0.05, 0.2, 1.1, 0.85),
+      _co('conserv', 'Conservateurs', 0.3, 0.2, 0.2, 1.2, 0.87),
+    ],
+  },
+  cleavages_3d: {
+    // A 3rd-axis preset: blocs that AGREE on the economic/social plane but split
+    // on a hidden axis (e.g. centre↔périphérie, ouverture↔fermeture). Visible
+    // only with the map set to 3 dimensions.
+    label: '3 clivages (3D)',
+    correlation: 0.2,
+    communities: [
+      _co('open', 'Ouverts', -0.3, -0.1, 0.16, 1.2, 0.85, 0.7),
+      _co('closed', 'Repliés', 0.3, 0.2, 0.16, 1.2, 0.85, -0.7),
+      _co('pragmat', 'Pragmatiques', 0.0, 0.0, 0.18, 1, 0.8, 0.0),
+    ],
+  },
 };
 
 export const DEFAULT_PLAYGROUND: PlaygroundState = {
@@ -373,6 +410,7 @@ export const DEFAULT_PLAYGROUND: PlaygroundState = {
   electorate: {
     mode: 'simple',
     correlation: ELECTORATE_PRESETS.three_poles.correlation,
+    noise: 0,
     communities: ELECTORATE_PRESETS.three_poles.communities,
   },
   assembly: {
@@ -705,6 +743,7 @@ export const useElectionStore = create<ElectionState>((set) => ({
       const electorate: ElectorateComposition = {
         mode: 'composed',
         correlation: preset.correlation,
+        noise: s.playground.electorate.noise, // keep the user's measurement noise
         communities: preset.communities.map((c) => ({ ...c })), // deep copy (editable)
       };
       const playground = { ...s.playground, electorate };

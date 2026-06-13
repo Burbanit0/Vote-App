@@ -401,4 +401,56 @@ describe('PlaygroundPage (P0 shell)', () => {
     fireEvent.click(screen.getByTestId('community-add'));
     expect(useElectionStore.getState().playground.electorate.communities).toHaveLength(n + 1);
   });
+
+  it('the measurement-noise slider persists to the electorate', () => {
+    renderPage();
+    fireEvent.click(screen.getByTestId('module-electorate-toggle'));
+    fireEvent.click(screen.getByTestId('electorate-mode-composed'));
+    fireEvent.change(screen.getByTestId('electorate-noise'), { target: { value: '0.5' } });
+    expect(useElectionStore.getState().playground.electorate.noise).toBe(0.5);
+    expect(JSON.parse(localStorage.getItem(LS_PG) as string).electorate.noise).toBe(0.5);
+  });
+
+  it('per-community z sliders appear only when the map is in 3-D', () => {
+    renderPage();
+    fireEvent.click(screen.getByTestId('module-electorate-toggle'));
+    fireEvent.click(screen.getByTestId('electorate-mode-composed'));
+    // 2-D by default: no z sub-list.
+    expect(screen.queryByTestId('community-z-list')).not.toBeInTheDocument();
+    fireEvent.change(screen.getByLabelText('Dimensions de l’espace'), { target: { value: '3' } });
+    expect(screen.getByTestId('community-z-list')).toBeInTheDocument();
+  });
+
+  it('importing a JSON composition replaces the electorate (données d’entrée)', () => {
+    renderPage();
+    fireEvent.click(screen.getByTestId('module-electorate-toggle'));
+    fireEvent.click(screen.getByTestId('electorate-mode-composed'));
+    const payload = JSON.stringify({
+      correlation: 0.5,
+      noise: 0.2,
+      communities: [
+        { id: 'x', label: 'Importé', x: -0.4, y: 0.1, spread: 0.2, weight: 2, turnout: 0.7 },
+      ],
+    });
+    fireEvent.change(screen.getByTestId('electorate-json'), { target: { value: payload } });
+    fireEvent.click(screen.getByTestId('electorate-import'));
+
+    const e = useElectionStore.getState().playground.electorate;
+    expect(e.mode).toBe('composed');
+    expect(e.correlation).toBe(0.5);
+    expect(e.noise).toBe(0.2);
+    expect(e.communities).toHaveLength(1);
+    expect(e.communities[0].label).toBe('Importé');
+  });
+
+  it('a malformed import surfaces an error and leaves the electorate intact', () => {
+    renderPage();
+    fireEvent.click(screen.getByTestId('module-electorate-toggle'));
+    fireEvent.click(screen.getByTestId('electorate-mode-composed'));
+    const before = useElectionStore.getState().playground.electorate.communities.length;
+    fireEvent.change(screen.getByTestId('electorate-json'), { target: { value: '{ not json' } });
+    fireEvent.click(screen.getByTestId('electorate-import'));
+    expect(screen.getByTestId('electorate-json-error')).toBeInTheDocument();
+    expect(useElectionStore.getState().playground.electorate.communities).toHaveLength(before);
+  });
 });
