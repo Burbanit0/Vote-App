@@ -984,6 +984,7 @@ const PlaygroundPage: React.FC = () => {
                     voters={voters}
                     result={assemblyResult}
                     loading={assemblyLoading}
+                    nominalSeats={assembly.seats}
                     onMoveParty={moveCandidate}
                   />
                   {/* Advanced modules — progressive disclosure keeps the core clean. */}

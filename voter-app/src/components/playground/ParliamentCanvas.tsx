@@ -110,6 +110,8 @@ export interface ParliamentCanvasProps {
   voters: Pt[];
   result: AssemblyResult | null;
   loading: boolean;
+  /** Nominal seat count, for the grey default hemicycle before a result lands. */
+  nominalSeats?: number;
   onMoveParty: (index: number, x: number, y: number) => void;
 }
 
@@ -118,6 +120,7 @@ const ParliamentCanvas: React.FC<ParliamentCanvasProps> = ({
   voters,
   result,
   loading,
+  nominalSeats = 100,
   onMoveParty,
 }) => {
   const svgRef = useRef<SVGSVGElement>(null);
@@ -170,16 +173,20 @@ const ParliamentCanvas: React.FC<ParliamentCanvasProps> = ({
     [voters, parties]
   );
 
-  // Hemicycle from the backend result (party colors follow the parties prop order).
+  // Hemicycle from the backend result (party colours follow the parties prop
+  // order). Before a result lands, a GREY default arc shows the structure with
+  // no party influence (empty partySeats → every seat unassigned → grey).
   const seats = useMemo(() => {
-    if (!result) return [];
+    if (!result) {
+      return hemicycleSeats(Math.max(10, nominalSeats), [], SVG, 250);
+    }
     const partySeats = result.parties.map((p) => ({
       idx: parties.findIndex((q) => q.name === p.name),
       seats: p.seats,
       x: p.x,
     }));
     return hemicycleSeats(result.assembly_size, partySeats, SVG, 250);
-  }, [result, parties]);
+  }, [result, parties, nominalSeats]);
 
   const colorOf = (idx: number): string =>
     idx >= 0 ? PARTY_PALETTE[idx % PARTY_PALETTE.length] : '#9ca3af';
@@ -338,12 +345,13 @@ const ParliamentCanvas: React.FC<ParliamentCanvasProps> = ({
                 />
               ))}
             </g>
-            {result && (
-              <text x={SVG / 2} y={242} textAnchor="middle" fontSize={12} fill="currentColor">
-                {result.assembly_size} sièges · majorité {result.majority}
-                {loading ? ' · …' : ''}
-              </text>
-            )}
+            <text x={SVG / 2} y={242} textAnchor="middle" fontSize={12} fill="currentColor" opacity={result ? 1 : 0.6}>
+              {result
+                ? `${result.assembly_size} sièges · majorité ${result.majority}${loading ? ' · …' : ''}`
+                : loading
+                  ? 'Calcul de l’assemblée…'
+                  : `${Math.max(10, nominalSeats)} sièges — en attente de la répartition`}
+            </text>
           </svg>
 
           {/* Headline metrics */}
