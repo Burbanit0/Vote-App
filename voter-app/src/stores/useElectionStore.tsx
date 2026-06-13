@@ -11,6 +11,16 @@
  */
 import React, { useEffect } from 'react';
 import { create } from 'zustand';
+import type { Community } from '../lib/playgroundElectorate';
+
+export type { Community };
+
+/** A composable electorate: a mixture of communities + axis correlation. */
+export interface ElectorateComposition {
+  mode: 'simple' | 'composed';
+  correlation: number;
+  communities: Community[];
+}
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -273,6 +283,8 @@ export interface PlaygroundState {
   ballot: { type: BallotType; truncate_at: number; score_levels: number };
   /** Electorate realism: differential turnout (Downsian abstention). */
   turnout: { model: 'full' | 'alienation' | 'indifference'; intensity: number };
+  /** Composable electorate (community mixture); 'simple' = the ideology Gaussian. */
+  electorate: ElectorateComposition;
   assembly: {
     structure: AssemblyStructure;
     seats: number;
@@ -284,6 +296,72 @@ export interface PlaygroundState {
   };
 }
 
+const _co = (
+  id: string,
+  label: string,
+  x: number,
+  y: number,
+  spread: number,
+  weight: number,
+  turnout: number
+): Community => ({ id, label, x, y, spread, weight, turnout });
+
+/** Electorate composition presets — from textbook shapes to "near-real". */
+export const ELECTORATE_PRESETS: Record<
+  string,
+  { label: string; correlation: number; communities: Community[] }
+> = {
+  two_blocs: {
+    label: 'Bipolaire',
+    correlation: 0,
+    communities: [
+      _co('g', 'Gauche', -0.55, -0.1, 0.18, 1, 0.9),
+      _co('d', 'Droite', 0.55, 0.15, 0.18, 1, 0.9),
+    ],
+  },
+  three_poles: {
+    label: 'Trois pôles',
+    correlation: 0,
+    communities: [
+      _co('g', 'Gauche', -0.6, -0.1, 0.16, 1, 0.9),
+      _co('c', 'Centre', 0.0, 0.0, 0.16, 1, 0.85),
+      _co('d', 'Droite', 0.6, 0.2, 0.16, 1, 0.9),
+    ],
+  },
+  center_extremes: {
+    label: 'Centre + extrêmes',
+    correlation: 0,
+    communities: [
+      _co('c', 'Centre', 0.0, 0.0, 0.22, 3, 0.85),
+      _co('xg', 'Extrême g.', -0.85, -0.5, 0.1, 1, 0.95),
+      _co('xd', 'Extrême d.', 0.85, 0.7, 0.1, 1, 0.95),
+    ],
+  },
+  fragmented: {
+    label: 'Fragmenté (6)',
+    correlation: 0.2,
+    communities: [
+      _co('verts', 'Verts', -0.3, -0.45, 0.12, 1, 0.85),
+      _co('soc', 'Sociaux', -0.55, -0.05, 0.13, 1.2, 0.88),
+      _co('cen', 'Centre', 0.0, 0.0, 0.13, 1, 0.8),
+      _co('lib', 'Libéraux', 0.35, 0.0, 0.12, 1, 0.85),
+      _co('con', 'Conserv.', 0.55, 0.35, 0.13, 1.1, 0.9),
+      _co('rad', 'Droite rad.', 0.85, 0.7, 0.1, 0.8, 0.92),
+    ],
+  },
+  realistic: {
+    label: 'Proche du réel',
+    correlation: 0.35,
+    communities: [
+      _co('metro', 'Métropoles progressistes', -0.45, -0.4, 0.22, 1.6, 0.78),
+      _co('periurb', 'Périurbain modéré', 0.1, 0.0, 0.28, 2.2, 0.7),
+      _co('rural', 'Rural conservateur', 0.55, 0.45, 0.2, 1.4, 0.82),
+      _co('jeunes', 'Jeunes désengagés', -0.25, -0.1, 0.35, 1.2, 0.45),
+      _co('aines', 'Aînés assidus', 0.35, 0.25, 0.18, 1.5, 0.92),
+    ],
+  },
+};
+
 export const DEFAULT_PLAYGROUND: PlaygroundState = {
   mode: 'leader',
   space: { dims: 2, axisLabels: ['Économique', 'Sociétal'], valenceEnabled: false },
@@ -292,6 +370,11 @@ export const DEFAULT_PLAYGROUND: PlaygroundState = {
   prefParams: {},
   ballot: { type: 'full', truncate_at: 3, score_levels: 6 },
   turnout: { model: 'full', intensity: 0.5 },
+  electorate: {
+    mode: 'simple',
+    correlation: ELECTORATE_PRESETS.three_poles.correlation,
+    communities: ELECTORATE_PRESETS.three_poles.communities,
+  },
   assembly: {
     structure: 'pr',
     seats: 100,
@@ -442,6 +525,7 @@ function loadPlayground(): PlaygroundState {
       space: { ...DEFAULT_PLAYGROUND.space, ...(parsed.space ?? {}) },
       ballot: { ...DEFAULT_PLAYGROUND.ballot, ...(parsed.ballot ?? {}) },
       turnout: { ...DEFAULT_PLAYGROUND.turnout, ...(parsed.turnout ?? {}) },
+      electorate: { ...DEFAULT_PLAYGROUND.electorate, ...(parsed.electorate ?? {}) },
       assembly: { ...DEFAULT_PLAYGROUND.assembly, ...(parsed.assembly ?? {}) },
     };
   } catch {
@@ -475,6 +559,11 @@ interface ElectionState {
   setPlayground: (patch: Partial<PlaygroundState>) => void;
   setPlaygroundDeep: (path: string, value: unknown) => void;
   applyPreset: (id: string) => void;
+  setElectorate: (patch: Partial<ElectorateComposition>) => void;
+  updateCommunity: (id: string, patch: Partial<Community>) => void;
+  addCommunity: () => void;
+  removeCommunity: (id: string) => void;
+  applyElectoratePreset: (id: string) => void;
   hydrate: () => void;
 }
 
@@ -559,6 +648,70 @@ export const useElectionStore = create<ElectionState>((set) => ({
       return { playground, config, scenarioMeta: null };
     }),
 
+  // ── Electorate composer actions ─────────────────────────────────────────
+  setElectorate: (patch) =>
+    set((s) => {
+      const playground = { ...s.playground, electorate: { ...s.playground.electorate, ...patch } };
+      savePlayground(playground);
+      return { playground };
+    }),
+
+  updateCommunity: (id, patch) =>
+    set((s) => {
+      const electorate = {
+        ...s.playground.electorate,
+        communities: s.playground.electorate.communities.map((c) =>
+          c.id === id ? { ...c, ...patch } : c
+        ),
+      };
+      const playground = { ...s.playground, electorate };
+      savePlayground(playground);
+      return { playground };
+    }),
+
+  addCommunity: () =>
+    set((s) => {
+      const existing = s.playground.electorate.communities;
+      const n = existing.length + 1;
+      const community: Community = {
+        id: `c${Date.now().toString(36)}`,
+        label: `Communauté ${n}`,
+        x: 0,
+        y: 0,
+        spread: 0.18,
+        weight: 1,
+        turnout: 0.85,
+      };
+      const electorate = { ...s.playground.electorate, communities: [...existing, community] };
+      const playground = { ...s.playground, electorate };
+      savePlayground(playground);
+      return { playground };
+    }),
+
+  removeCommunity: (id) =>
+    set((s) => {
+      const rest = s.playground.electorate.communities.filter((c) => c.id !== id);
+      if (rest.length < 1) return {}; // keep at least one bloc
+      const electorate = { ...s.playground.electorate, communities: rest };
+      const playground = { ...s.playground, electorate };
+      savePlayground(playground);
+      return { playground };
+    }),
+
+  applyElectoratePreset: (id) =>
+    set((s) => {
+      const preset = ELECTORATE_PRESETS[id];
+      if (!preset) return {};
+      const electorate: ElectorateComposition = {
+        mode: 'composed',
+        correlation: preset.correlation,
+        communities: preset.communities.map((c) => ({ ...c })), // deep copy (editable)
+      };
+      const playground = { ...s.playground, electorate };
+      savePlayground(playground);
+      return { playground };
+    }),
+
   hydrate: () => set({ config: loadConfig(), playground: loadPlayground() }),
 }));
 
@@ -621,6 +774,11 @@ export interface PlaygroundContextValue {
   setPlaygroundDeep: (path: string, value: unknown) => void;
   applyPreset: (id: string) => void;
   presets: PlaygroundPreset[];
+  setElectorate: (patch: Partial<ElectorateComposition>) => void;
+  updateCommunity: (id: string, patch: Partial<Community>) => void;
+  addCommunity: () => void;
+  removeCommunity: (id: string) => void;
+  applyElectoratePreset: (id: string) => void;
 }
 
 export function usePlayground(): PlaygroundContextValue {
@@ -629,5 +787,22 @@ export function usePlayground(): PlaygroundContextValue {
   const setPlayground = useElectionStore((s) => s.setPlayground);
   const setPlaygroundDeep = useElectionStore((s) => s.setPlaygroundDeep);
   const applyPreset = useElectionStore((s) => s.applyPreset);
-  return { playground, setMode, setPlayground, setPlaygroundDeep, applyPreset, presets: PLAYGROUND_PRESETS };
+  const setElectorate = useElectionStore((s) => s.setElectorate);
+  const updateCommunity = useElectionStore((s) => s.updateCommunity);
+  const addCommunity = useElectionStore((s) => s.addCommunity);
+  const removeCommunity = useElectionStore((s) => s.removeCommunity);
+  const applyElectoratePreset = useElectionStore((s) => s.applyElectoratePreset);
+  return {
+    playground,
+    setMode,
+    setPlayground,
+    setPlaygroundDeep,
+    applyPreset,
+    presets: PLAYGROUND_PRESETS,
+    setElectorate,
+    updateCommunity,
+    addCommunity,
+    removeCommunity,
+    applyElectoratePreset,
+  };
 }

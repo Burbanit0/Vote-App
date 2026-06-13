@@ -33,12 +33,32 @@ import {
   type Rule,
   type TurnoutModel,
 } from './playgroundVoting';
+import { composeElectorate, type Community } from './playgroundElectorate';
 
 export interface TurnoutConfig {
   model: TurnoutModel;
   intensity: number;
 }
 const NO_TURNOUT: TurnoutConfig = { model: 'full', intensity: 0 };
+
+/** Optional composed electorate; when set, re-rolls use it instead of the
+ * ideology Gaussian, so the scorecard matches the displayed cloud. */
+export interface ElectorateSampler {
+  communities: Community[];
+  correlation: number;
+}
+function rollVoters(
+  electorate: ElectorateSampler | null,
+  numVoters: number,
+  seed: number,
+  ideology: string,
+  dims: Dims
+): Pt[] {
+  return electorate
+    ? composeElectorate(electorate.communities, electorate.correlation, numVoters, seed, dims)
+        .voters
+    : sampleVoters(numVoters, seed, ideology, dims);
+}
 
 export interface Band {
   mean: number;
@@ -94,8 +114,7 @@ const SIMPLICITY: Record<Rule, number> = {
   schulze: 0.3,
 };
 
-const mean = (xs: number[]): number =>
-  xs.length ? xs.reduce((s, x) => s + x, 0) / xs.length : 0;
+const mean = (xs: number[]): number => (xs.length ? xs.reduce((s, x) => s + x, 0) / xs.length : 0);
 
 const pct = (xs: number[], p: number): number => {
   if (!xs.length) return 0;
@@ -130,7 +149,10 @@ export function condorcetFromRanks(ranks: number[][], m: number): number {
 }
 
 /** Duverger-style compression probe: preferred frontrunner top, other bottom. */
-export function compressRanks(ranks: number[][], m: number): { ranks: number[][]; scores: number[][] } {
+export function compressRanks(
+  ranks: number[][],
+  m: number
+): { ranks: number[][]; scores: number[][] } {
   // Frontrunners = top-2 by sincere first preferences.
   const firsts = new Array(m).fill(0);
   for (const r of ranks) firsts[r[0]] += 1;
@@ -163,16 +185,22 @@ export function leaderScorecard(
   ideology: string,
   replications = 24,
   dims: Dims = 2,
-  turnout: TurnoutConfig = NO_TURNOUT
+  turnout: TurnoutConfig = NO_TURNOUT,
+  electorate: ElectorateSampler | null = null
 ): LeaderScorecard {
   const m = candidates.length;
-  const perRule: Record<string, { ce: number[]; sr: number[]; wf: number[]; ms: number[]; winners: number[] }> = {};
+  const perRule: Record<
+    string,
+    { ce: number[]; sr: number[]; wf: number[]; ms: number[]; winners: number[] }
+  > = {};
   for (const r of LEADER_RULES) perRule[r] = { ce: [], sr: [], wf: [], ms: [], winners: [] };
 
   for (let k = 0; k < replications; k++) {
     const voters = applyTurnout(
-      sampleVoters(numVoters, baseSeed + 211 + k * 13, ideology, dims),
-      candidates, turnout.model, turnout.intensity
+      rollVoters(electorate, numVoters, baseSeed + 211 + k * 13, ideology, dims),
+      candidates,
+      turnout.model,
+      turnout.intensity
     ).voters;
     const ranks = computeRanks(voters, candidates);
     const scores = computeScores(voters, candidates);
@@ -192,9 +220,7 @@ export function leaderScorecard(
       if (cw >= 0) perRule[rule].ce.push(w === cw ? 1 : 0);
       const wProbe = ruleWinnerFromRanks(probe.ranks, m, rule, probe.scores);
       perRule[rule].sr.push(wProbe === w ? 1 : 0);
-      perRule[rule].wf.push(
-        bestU - worstU > 1e-9 ? 1 - (bestU - meanU[w]) / (bestU - worstU) : 1
-      );
+      perRule[rule].wf.push(bestU - worstU > 1e-9 ? 1 - (bestU - meanU[w]) / (bestU - worstU) : 1);
       // Majority satisfaction: winner at least as good as the voter's median candidate.
       let sat = 0;
       for (const s of scores) {
@@ -246,10 +272,7 @@ export interface ManipProbe {
   backfired: boolean;
 }
 
-export const MANIP_COMPLEXITY: Record<
-  Rule,
-  { hard: boolean; label: string; ref: string }
-> = {
+export const MANIP_COMPLEXITY: Record<Rule, { hard: boolean; label: string; ref: string }> = {
   plurality: { hard: false, label: 'P (calcul trivial)', ref: 'compromission directe' },
   approval: { hard: false, label: 'P (calcul trivial)', ref: 'approuver le challenger' },
   score: { hard: false, label: 'P (calcul trivial)', ref: 'note maximale au challenger' },
@@ -292,11 +315,7 @@ const COALITION_STEPS = [0.02, 0.05, 0.1, 0.15, 0.2, 0.3, 0.4];
  * flips. Reports the smallest working share, and whether any attempt
  * backfired (elected someone the coalition likes less).
  */
-export function manipulationProbe(
-  voters: Pt[],
-  cands: NamedPt[],
-  rule: Rule
-): ManipProbe {
+export function manipulationProbe(voters: Pt[], cands: NamedPt[], rule: Rule): ManipProbe {
   const m = cands.length;
   if (m < 3 || voters.length === 0) return { minCoalitionShare: null, backfired: false };
   const ranks = computeRanks(voters, cands);
@@ -390,8 +409,7 @@ export const LIJPHART_REFERENCE: { name: string; score: number }[] = [
 ];
 
 /** Map a Lijphart-scale score (≈[-2,2]) onto the display strip [0,1]. */
-export const lijphartTo01 = (score: number): number =>
-  Math.max(0, Math.min(1, (score + 2) / 4));
+export const lijphartTo01 = (score: number): number => Math.max(0, Math.min(1, (score + 2) / 4));
 
 /** Consensus index of a structure from its scorecard axes (band-propagated). */
 export function consensusIndex(axes: AxisScores): Band {
@@ -400,8 +418,7 @@ export function consensusIndex(axes: AxisScores): Band {
   const pl = pick('pluralism');
   const mr = pick('minority_representation');
   const g = pick('governability');
-  const agg = (f: (b: Band) => number, gv: number) =>
-    (f(p) + f(pl) + f(mr) + gv) / 4;
+  const agg = (f: (b: Band) => number, gv: number) => (f(p) + f(pl) + f(mr) + gv) / 4;
   return {
     mean: agg((b) => b.mean, 1 - g.mean),
     lo: agg((b) => b.lo, 1 - g.hi),

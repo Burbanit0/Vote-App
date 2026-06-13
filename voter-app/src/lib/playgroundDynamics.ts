@@ -13,6 +13,7 @@ import {
   type Rule,
   type TurnoutModel,
 } from './playgroundVoting';
+import { composeElectorate, type Community } from './playgroundElectorate';
 
 /** Coordinate-wise median of a point cloud (the median voter), all 3 axes. */
 export function medianPoint(voters: Pt[]): Pt {
@@ -73,16 +74,23 @@ export function shakeWinRates(
   ideology: string,
   n = 60,
   dims: Dims = 2,
-  turnout: { model: TurnoutModel; intensity: number } = { model: 'full', intensity: 0 }
+  turnout: { model: TurnoutModel; intensity: number } = { model: 'full', intensity: 0 },
+  electorate: { communities: Community[]; correlation: number } | null = null
 ): ShakeResult {
   const wins: Record<string, number> = {};
   candidates.forEach((c) => {
     wins[c.name] = 0;
   });
   for (let i = 0; i < n; i++) {
+    const seed = baseSeed + 1009 + i * 17;
     const voters = applyTurnout(
-      sampleVoters(numVoters, baseSeed + 1009 + i * 17, ideology, dims),
-      candidates, turnout.model, turnout.intensity
+      electorate
+        ? composeElectorate(electorate.communities, electorate.correlation, numVoters, seed, dims)
+            .voters
+        : sampleVoters(numVoters, seed, ideology, dims),
+      candidates,
+      turnout.model,
+      turnout.intensity
     ).voters;
     const w = ruleWinner(voters, candidates, rule);
     if (w >= 0) wins[candidates[w].name] += 1;

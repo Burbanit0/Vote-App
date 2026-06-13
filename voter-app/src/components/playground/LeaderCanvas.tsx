@@ -26,8 +26,14 @@ const GRID_N = 16;
 const VOTER_CAP = 160;
 
 const PALETTE = [
-  '#2563eb', '#dc2626', '#16a34a', '#9333ea',
-  '#ea580c', '#0891b2', '#ca8a04', '#db2777',
+  '#2563eb',
+  '#dc2626',
+  '#16a34a',
+  '#9333ea',
+  '#ea580c',
+  '#0891b2',
+  '#ca8a04',
+  '#db2777',
 ];
 const ENTRY_COLOR = '#fbbf24';
 
@@ -55,6 +61,8 @@ export interface LeaderCanvasProps {
   voters: Pt[];
   rule: Rule;
   dims: Dims;
+  /** Optional per-voter colour (e.g. by community); falls back to neutral grey. */
+  voterColors?: string[];
   onRuleChange: (rule: Rule) => void;
   onMoveCandidate: (index: number, x: number, y: number, z?: number) => void;
 }
@@ -64,6 +72,7 @@ const LeaderCanvas: React.FC<LeaderCanvasProps> = ({
   voters,
   rule,
   dims,
+  voterColors,
   onRuleChange,
   onMoveCandidate,
 }) => {
@@ -105,7 +114,9 @@ const LeaderCanvas: React.FC<LeaderCanvasProps> = ({
       onMoveCandidate(draggingIdx.current, x, dims === 1 ? 0 : y);
     };
     const onMM = (e: MouseEvent) => move(e.clientX, e.clientY);
-    const onUp = () => { draggingIdx.current = null; };
+    const onUp = () => {
+      draggingIdx.current = null;
+    };
     const onTM = (e: TouchEvent) => {
       if (draggingIdx.current === null || !e.touches[0]) return;
       e.preventDefault();
@@ -144,7 +155,9 @@ const LeaderCanvas: React.FC<LeaderCanvasProps> = ({
             onChange={(e) => onRuleChange(e.target.value as Rule)}
           >
             {(Object.keys(RULE_LABELS) as Rule[]).map((r) => (
-              <option key={r} value={r}>{RULE_LABELS[r]}</option>
+              <option key={r} value={r}>
+                {RULE_LABELS[r]}
+              </option>
             ))}
           </select>
         </label>
@@ -175,9 +188,7 @@ const LeaderCanvas: React.FC<LeaderCanvasProps> = ({
         </div>
       )}
 
-      {show3d && (
-        <LeaderScene3D voters={voters} candidates={candidates} palette={PALETTE} />
-      )}
+      {show3d && <LeaderScene3D voters={voters} candidates={candidates} palette={PALETTE} />}
 
       <svg
         ref={svgRef}
@@ -209,25 +220,74 @@ const LeaderCanvas: React.FC<LeaderCanvasProps> = ({
         </g>
 
         {/* Plot border + axes */}
-        <rect x={MARGIN} y={MARGIN} width={PLOT} height={PLOT} fill="none" stroke="var(--bs-border-color, #ccc)" />
-        <line x1={MARGIN} y1={dims === 1 ? CENTER : toSvg(0, 'y')} x2={MARGIN + PLOT} y2={dims === 1 ? CENTER : toSvg(0, 'y')} stroke="var(--bs-border-color, #ddd)" strokeDasharray="3 3" />
+        <rect
+          x={MARGIN}
+          y={MARGIN}
+          width={PLOT}
+          height={PLOT}
+          fill="none"
+          stroke="var(--bs-border-color, #ccc)"
+        />
+        <line
+          x1={MARGIN}
+          y1={dims === 1 ? CENTER : toSvg(0, 'y')}
+          x2={MARGIN + PLOT}
+          y2={dims === 1 ? CENTER : toSvg(0, 'y')}
+          stroke="var(--bs-border-color, #ddd)"
+          strokeDasharray="3 3"
+        />
         {dims !== 1 && (
-          <line x1={toSvg(0, 'x')} y1={MARGIN} x2={toSvg(0, 'x')} y2={MARGIN + PLOT} stroke="var(--bs-border-color, #ddd)" strokeDasharray="3 3" />
+          <line
+            x1={toSvg(0, 'x')}
+            y1={MARGIN}
+            x2={toSvg(0, 'x')}
+            y2={MARGIN + PLOT}
+            stroke="var(--bs-border-color, #ddd)"
+            strokeDasharray="3 3"
+          />
         )}
 
-        {/* Voters */}
+        {/* Voters (coloured by community when a composed electorate is active) */}
         <g>
           {voters.map((v, i) => (
-            <circle key={i} cx={toSvg(v.x, 'x')} cy={cyOf(v)} r={1.6} fill="#64748b" opacity={0.5} />
+            <circle
+              key={i}
+              cx={toSvg(v.x, 'x')}
+              cy={cyOf(v)}
+              r={1.6}
+              fill={voterColors?.[i] ?? '#64748b'}
+              opacity={voterColors ? 0.6 : 0.5}
+            />
           ))}
         </g>
 
         {/* Median-voter marker */}
         <g data-testid="median-marker">
-          <circle cx={toSvg(mx, 'x')} cy={dims === 1 ? CENTER : toSvg(my, 'y')} r={5} fill="none" stroke="#111827" strokeWidth={1.5} />
-          <line x1={toSvg(mx, 'x') - 8} y1={dims === 1 ? CENTER : toSvg(my, 'y')} x2={toSvg(mx, 'x') + 8} y2={dims === 1 ? CENTER : toSvg(my, 'y')} stroke="#111827" strokeWidth={1} />
+          <circle
+            cx={toSvg(mx, 'x')}
+            cy={dims === 1 ? CENTER : toSvg(my, 'y')}
+            r={5}
+            fill="none"
+            stroke="#111827"
+            strokeWidth={1.5}
+          />
+          <line
+            x1={toSvg(mx, 'x') - 8}
+            y1={dims === 1 ? CENTER : toSvg(my, 'y')}
+            x2={toSvg(mx, 'x') + 8}
+            y2={dims === 1 ? CENTER : toSvg(my, 'y')}
+            stroke="#111827"
+            strokeWidth={1}
+          />
           {dims !== 1 && (
-            <line x1={toSvg(mx, 'x')} y1={toSvg(my, 'y') - 8} x2={toSvg(mx, 'x')} y2={toSvg(my, 'y') + 8} stroke="#111827" strokeWidth={1} />
+            <line
+              x1={toSvg(mx, 'x')}
+              y1={toSvg(my, 'y') - 8}
+              x2={toSvg(mx, 'x')}
+              y2={toSvg(my, 'y') + 8}
+              stroke="#111827"
+              strokeWidth={1}
+            />
           )}
         </g>
 
@@ -242,14 +302,42 @@ const LeaderCanvas: React.FC<LeaderCanvasProps> = ({
                 key={`${cand.name}-${i}`}
                 data-testid={`candidate-${i}`}
                 style={{ cursor: 'grab' }}
-                onMouseDown={(e) => { e.preventDefault(); draggingIdx.current = i; }}
-                onTouchStart={() => { draggingIdx.current = i; }}
+                onMouseDown={(e) => {
+                  e.preventDefault();
+                  draggingIdx.current = i;
+                }}
+                onTouchStart={() => {
+                  draggingIdx.current = i;
+                }}
               >
                 {dims === 3 && (cand.z ?? 0) !== 0 && (
-                  <circle cx={cx} cy={cy} r={zr} fill="none" stroke={PALETTE[i % PALETTE.length]} strokeWidth={1} strokeDasharray="2 2" opacity={0.7} />
+                  <circle
+                    cx={cx}
+                    cy={cy}
+                    r={zr}
+                    fill="none"
+                    stroke={PALETTE[i % PALETTE.length]}
+                    strokeWidth={1}
+                    strokeDasharray="2 2"
+                    opacity={0.7}
+                  />
                 )}
-                <circle cx={cx} cy={cy} r={9} fill={PALETTE[i % PALETTE.length]} stroke="#fff" strokeWidth={2} />
-                <text x={cx} y={cy - 13} textAnchor="middle" fontSize={11} fontWeight={600} fill="currentColor">
+                <circle
+                  cx={cx}
+                  cy={cy}
+                  r={9}
+                  fill={PALETTE[i % PALETTE.length]}
+                  stroke="#fff"
+                  strokeWidth={2}
+                />
+                <text
+                  x={cx}
+                  y={cy - 13}
+                  textAnchor="middle"
+                  fontSize={11}
+                  fontWeight={600}
+                  fill="currentColor"
+                >
                   {cand.name}
                   {dims === 3 && (cand.z ?? 0) !== 0 ? ` (z ${(cand.z ?? 0).toFixed(1)})` : ''}
                 </text>
@@ -261,13 +349,19 @@ const LeaderCanvas: React.FC<LeaderCanvasProps> = ({
 
       {/* 3-D depth controls — the z axis can't be dragged on a 2-D plane. */}
       {dims === 3 && (
-        <div data-testid="z-controls" className="flex flex-col gap-1 rounded-md border border-border p-2">
+        <div
+          data-testid="z-controls"
+          className="flex flex-col gap-1 rounded-md border border-border p-2"
+        >
           <span className="text-[0.7rem] font-medium text-muted-foreground">
             Axe z (profondeur) — réglé par curseur
           </span>
           {candidates.map((cand, i) => (
             <label key={i} className="flex items-center gap-2 text-xs">
-              <span className="w-20 shrink-0 truncate" style={{ color: PALETTE[i % PALETTE.length] }}>
+              <span
+                className="w-20 shrink-0 truncate"
+                style={{ color: PALETTE[i % PALETTE.length] }}
+              >
                 {cand.name}
               </span>
               <input
@@ -292,12 +386,18 @@ const LeaderCanvas: React.FC<LeaderCanvasProps> = ({
       <div className="flex flex-wrap items-center gap-3 text-xs text-muted-foreground">
         {candidates.map((c, i) => (
           <span key={i} className="flex items-center gap-1">
-            <span className="inline-block h-2.5 w-2.5 rounded-sm" style={{ background: PALETTE[i % PALETTE.length] }} />
+            <span
+              className="inline-block h-2.5 w-2.5 rounded-sm"
+              style={{ background: PALETTE[i % PALETTE.length] }}
+            />
             {c.name}
           </span>
         ))}
         <span className="flex items-center gap-1">
-          <span className="inline-block h-2.5 w-2.5 rounded-sm" style={{ background: ENTRY_COLOR }} />
+          <span
+            className="inline-block h-2.5 w-2.5 rounded-sm"
+            style={{ background: ENTRY_COLOR }}
+          />
           Zone d’un nouvel entrant
         </span>
       </div>
@@ -306,9 +406,11 @@ const LeaderCanvas: React.FC<LeaderCanvasProps> = ({
           'Espace à 1 dimension : tout se joue sur un axe — le terrain du théorème de l’électeur médian.'}
         {dims === 2 &&
           'Glissez les candidats. Les zones colorées montrent qui gagnerait si un candidat était placé là — les frontières révèlent les régions vulnérables au vote stratégique.'}
-        {dims === 3 && show3d &&
+        {dims === 3 &&
+          show3d &&
           'Vue 3D orbitale : glissez pour pivoter, les électeurs sont colorés par candidat le plus proche (en 3-D). Basculez en « Plan x–y » pour éditer et voir l’overlay.'}
-        {dims === 3 && !show3d &&
+        {dims === 3 &&
+          !show3d &&
           'Plan x–y (réglez z au curseur) ; le calcul du vainqueur est bien en 3-D, mais l’overlay n’est qu’une tranche z=0.'}
       </p>
     </div>

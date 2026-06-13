@@ -5,9 +5,7 @@ import '@testing-library/jest-dom';
 vi.mock('../../hooks/useMetaTags', () => ({ useMetaTags: () => {} }));
 vi.mock('../../services/assemblyApi', () => {
   // NB: declared inside the factory — vi.mock is hoisted above file-level consts.
-  const sc = (
-    p: number, pl: number, ev: number, mr: number, g: number, gr: number
-  ) => ({
+  const sc = (p: number, pl: number, ev: number, mr: number, g: number, gr: number) => ({
     proportionality: { mean: p, lo: p - 0.05, hi: p + 0.05 },
     pluralism: { mean: pl, lo: pl - 0.05, hi: pl + 0.05 },
     effective_votes: { mean: ev, lo: ev - 0.05, hi: ev + 0.05 },
@@ -27,29 +25,29 @@ vi.mock('../../services/assemblyApi', () => {
       },
     }),
     runAssembly: vi.fn().mockResolvedValue({
-    structure: 'pr',
-    assembly_size: 100,
-    majority: 51,
-    threshold_waived: false,
-    parties: [],
-    gallagher_index: 1.0,
-    effective_parties_votes: 3.0,
-    effective_parties_seats: 2.9,
-    wasted_vote_share: 0.02,
-    coalitions: [],
-    congruence: {
-      electorate_median: [0, 0],
-      assembly_position: [0.05, 0],
-      governing_position: null,
-      assembly_gap: 0.05,
-      governing_gap: null,
-    },
-    mirror: [
-      { region: 'left_lib', electorate_share: 0.25, assembly_share: 0.25 },
-      { region: 'left_cons', electorate_share: 0.25, assembly_share: 0.25 },
-      { region: 'right_lib', electorate_share: 0.25, assembly_share: 0.25 },
-      { region: 'right_cons', electorate_share: 0.25, assembly_share: 0.25 },
-    ],
+      structure: 'pr',
+      assembly_size: 100,
+      majority: 51,
+      threshold_waived: false,
+      parties: [],
+      gallagher_index: 1.0,
+      effective_parties_votes: 3.0,
+      effective_parties_seats: 2.9,
+      wasted_vote_share: 0.02,
+      coalitions: [],
+      congruence: {
+        electorate_median: [0, 0],
+        assembly_position: [0.05, 0],
+        governing_position: null,
+        assembly_gap: 0.05,
+        governing_gap: null,
+      },
+      mirror: [
+        { region: 'left_lib', electorate_share: 0.25, assembly_share: 0.25 },
+        { region: 'left_cons', electorate_share: 0.25, assembly_share: 0.25 },
+        { region: 'right_lib', electorate_share: 0.25, assembly_share: 0.25 },
+        { region: 'right_cons', electorate_share: 0.25, assembly_share: 0.25 },
+      ],
     }),
   };
 });
@@ -74,7 +72,11 @@ vi.mock('../../services/profileApi', () => ({
 
 import { MemoryRouter, Routes, Route } from 'react-router';
 import PlaygroundPage from '../PlaygroundPage';
-import { useElectionStore, DEFAULT_PLAYGROUND, DEFAULT_CONFIG } from '../../stores/useElectionStore';
+import {
+  useElectionStore,
+  DEFAULT_PLAYGROUND,
+  DEFAULT_CONFIG,
+} from '../../stores/useElectionStore';
 
 const LS_PG = 'votelab_playground';
 
@@ -94,7 +96,10 @@ function renderPage() {
 beforeEach(() => {
   localStorage.clear();
   // Reset the module-singleton store to a known baseline between tests.
-  useElectionStore.setState({ playground: { ...DEFAULT_PLAYGROUND }, config: { ...DEFAULT_CONFIG } });
+  useElectionStore.setState({
+    playground: { ...DEFAULT_PLAYGROUND },
+    config: { ...DEFAULT_CONFIG },
+  });
 });
 
 describe('PlaygroundPage (P0 shell)', () => {
@@ -210,10 +215,7 @@ describe('PlaygroundPage (P0 shell)', () => {
   it('leader mode renders the banded scorecard and the values lens over the 6 rules', async () => {
     renderPage();
     await waitFor(
-      () =>
-        expect(
-          screen.getByTestId('axis-condorcet_efficiency').textContent
-        ).toMatch(/\d+\s?%/),
+      () => expect(screen.getByTestId('axis-condorcet_efficiency').textContent).toMatch(/\d+\s?%/),
       { timeout: 5000 }
     );
     expect(screen.getByTestId('values-panel')).toBeInTheDocument();
@@ -361,5 +363,42 @@ describe('PlaygroundPage (P0 shell)', () => {
     fireEvent.click(screen.getByTestId('mode-toggle-parliament'));
     fireEvent.click(screen.getByTestId('drill-ctl-party-dynamics'));
     expect(screen.getByTestId('lab-probe')).toBeInTheDocument();
+  });
+
+  // ── Composer l'électorat : moteur d'électorat ─────────────────────────────
+
+  it('the electorate composer ships collapsed and opens on demand', () => {
+    renderPage();
+    expect(screen.getByTestId('module-electorate')).toBeInTheDocument();
+    expect(screen.queryByTestId('electorate-composer')).not.toBeInTheDocument();
+    fireEvent.click(screen.getByTestId('module-electorate-toggle'));
+    expect(screen.getByTestId('electorate-composer')).toBeInTheDocument();
+    // Defaults to the simple gaussian; community editing is hidden until composed.
+    expect(screen.queryByTestId('community-list')).not.toBeInTheDocument();
+  });
+
+  it('switching to a composed electorate persists, reveals blocs and a colour legend', () => {
+    renderPage();
+    fireEvent.click(screen.getByTestId('module-electorate-toggle'));
+    fireEvent.click(screen.getByTestId('electorate-mode-composed'));
+
+    expect(useElectionStore.getState().playground.electorate.mode).toBe('composed');
+    expect(JSON.parse(localStorage.getItem(LS_PG) as string).electorate.mode).toBe('composed');
+    expect(screen.getByTestId('community-list')).toBeInTheDocument();
+    // The leader cloud is now coloured by community → a legend appears.
+    expect(screen.getByTestId('electorate-legend')).toBeInTheDocument();
+  });
+
+  it('a composed preset and add/remove community mutate the store', () => {
+    renderPage();
+    fireEvent.click(screen.getByTestId('module-electorate-toggle'));
+    fireEvent.click(screen.getByTestId('electorate-mode-composed'));
+    fireEvent.click(screen.getByTestId('electorate-preset-fragmented'));
+
+    const e1 = useElectionStore.getState().playground.electorate;
+    expect(e1.mode).toBe('composed');
+    const n = e1.communities.length;
+    fireEvent.click(screen.getByTestId('community-add'));
+    expect(useElectionStore.getState().playground.electorate.communities).toHaveLength(n + 1);
   });
 });

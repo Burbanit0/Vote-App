@@ -42,6 +42,8 @@ import IssuesPanel from '../components/playground/IssuesPanel';
 import StructuralPanel from '../components/playground/StructuralPanel';
 import Collapsible from '../components/playground/Collapsible';
 import StrategicModule from '../components/playground/StrategicModule';
+import ElectorateComposer from '../components/playground/ElectorateComposer';
+import { composeElectorate, COMMUNITY_PALETTE } from '../lib/playgroundElectorate';
 
 // Lab reshape — Phase P0: the two-mode playground shell. Two questions over ONE
 // shared electorate: "Élire un dirigeant" (single office) vs "Composer un parlement"
@@ -98,7 +100,6 @@ function useProfileDiagnostics(
       alive = false;
       clearTimeout(t);
     };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [key]);
 
   return { result, loading };
@@ -141,7 +142,6 @@ function useAssembly(
       alive = false;
       clearTimeout(t);
     };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [key]);
 
   return { assembly, loading };
@@ -179,33 +179,81 @@ const BALLOT_LABELS: Record<string, string> = {
 // Election Lab panel (the migration map: the playground builds the intuition,
 // the Lab panel gives the depth, with the SAME shared electorate).
 const LEADER_AXIS_META: { key: string; label: string; hint: string; drillTab: string }[] = [
-  { key: 'condorcet_efficiency', label: 'Efficacité Condorcet', drillTab: 'results',
-    hint: "Part des ré-échantillonnages (avec vainqueur de Condorcet) où la règle l'élit." },
-  { key: 'strategic_resistance', label: 'Résistance stratégique', drillTab: 'manipulation',
-    hint: 'Le vainqueur survit-il à une compression stratégique vers les deux favoris ? (heuristique documentée)' },
-  { key: 'welfare', label: 'Bien-être (regret)', drillTab: 'montecarlo',
-    hint: '1 − regret bayésien normalisé du vainqueur (utilité = −distance).' },
-  { key: 'majority_satisfaction', label: 'Satisfaction majoritaire', drillTab: 'lab-collective-will',
-    hint: 'Part des électeurs pour qui le vainqueur vaut au moins leur candidat médian.' },
-  { key: 'simplicity', label: 'Simplicité', drillTab: 'ballot',
-    hint: 'Convention déclarée : complexité du bulletin et du dépouillement (sans bande).' },
-  { key: 'stability', label: 'Stabilité', drillTab: 'lab-assumptions',
-    hint: 'Part des ré-échantillonnages élisant le vainqueur modal.' },
+  {
+    key: 'condorcet_efficiency',
+    label: 'Efficacité Condorcet',
+    drillTab: 'results',
+    hint: "Part des ré-échantillonnages (avec vainqueur de Condorcet) où la règle l'élit.",
+  },
+  {
+    key: 'strategic_resistance',
+    label: 'Résistance stratégique',
+    drillTab: 'manipulation',
+    hint: 'Le vainqueur survit-il à une compression stratégique vers les deux favoris ? (heuristique documentée)',
+  },
+  {
+    key: 'welfare',
+    label: 'Bien-être (regret)',
+    drillTab: 'montecarlo',
+    hint: '1 − regret bayésien normalisé du vainqueur (utilité = −distance).',
+  },
+  {
+    key: 'majority_satisfaction',
+    label: 'Satisfaction majoritaire',
+    drillTab: 'lab-collective-will',
+    hint: 'Part des électeurs pour qui le vainqueur vaut au moins leur candidat médian.',
+  },
+  {
+    key: 'simplicity',
+    label: 'Simplicité',
+    drillTab: 'ballot',
+    hint: 'Convention déclarée : complexité du bulletin et du dépouillement (sans bande).',
+  },
+  {
+    key: 'stability',
+    label: 'Stabilité',
+    drillTab: 'lab-assumptions',
+    hint: 'Part des ré-échantillonnages élisant le vainqueur modal.',
+  },
 ];
 
 const PARLIAMENT_AXIS_META: { key: string; label: string; hint: string; drillTab: string }[] = [
-  { key: 'proportionality', label: 'Proportionnalité', drillTab: 'multiwinner',
-    hint: '1 − indice de Gallagher (normalisé).' },
-  { key: 'pluralism', label: 'Pluralisme (diversité)', drillTab: 'party-dynamics',
-    hint: 'Part de la diversité des voix (NEP) qui survit en sièges.' },
-  { key: 'effective_votes', label: 'Voix utiles', drillTab: 'districts',
-    hint: '1 − part des voix gaspillées.' },
-  { key: 'minority_representation', label: 'Représentation des minorités', drillTab: 'stv',
-    hint: 'Partis ≥ 3 % des voix détenant au moins un siège.' },
-  { key: 'governability', label: 'Gouvernabilité', drillTab: 'coalition',
-    hint: '1 / taille de la plus petite coalition majoritaire.' },
-  { key: 'gerrymander_resistance', label: 'Résistance au charcutage', drillTab: 'gerrymander',
-    hint: 'Stabilité des sièges quand la carte des circonscriptions change (re-découpage x→y).' },
+  {
+    key: 'proportionality',
+    label: 'Proportionnalité',
+    drillTab: 'multiwinner',
+    hint: '1 − indice de Gallagher (normalisé).',
+  },
+  {
+    key: 'pluralism',
+    label: 'Pluralisme (diversité)',
+    drillTab: 'party-dynamics',
+    hint: 'Part de la diversité des voix (NEP) qui survit en sièges.',
+  },
+  {
+    key: 'effective_votes',
+    label: 'Voix utiles',
+    drillTab: 'districts',
+    hint: '1 − part des voix gaspillées.',
+  },
+  {
+    key: 'minority_representation',
+    label: 'Représentation des minorités',
+    drillTab: 'stv',
+    hint: 'Partis ≥ 3 % des voix détenant au moins un siège.',
+  },
+  {
+    key: 'governability',
+    label: 'Gouvernabilité',
+    drillTab: 'coalition',
+    hint: '1 / taille de la plus petite coalition majoritaire.',
+  },
+  {
+    key: 'gerrymander_resistance',
+    label: 'Résistance au charcutage',
+    drillTab: 'gerrymander',
+    hint: 'Stabilité des sièges quand la carte des circonscriptions change (re-découpage x→y).',
+  },
 ];
 
 /** Small 🔬 affordance for control-level drill-downs into a Lab tab. */
@@ -269,10 +317,33 @@ const PlaygroundPage: React.FC = () => {
   // in the configured number of spatial dimensions (1/2/3).
   const dims = space.dims;
   const [leaderRule, setLeaderRule] = React.useState<Rule>('plurality');
-  const voters = React.useMemo(
-    () => sampleVoters(config.num_voters, config.seed, config.ideology, dims),
-    [config.num_voters, config.seed, config.ideology, dims]
+  // The composable electorate (engine): when 'composed', a community mixture
+  // replaces the single ideology Gaussian and tags each voter with its bloc so
+  // the leader views can colour the cloud. 'simple' keeps the prior behaviour.
+  const electorate = playground.electorate;
+  const composed = electorate.mode === 'composed';
+  const electorateSampler = React.useMemo(
+    () =>
+      composed
+        ? { communities: electorate.communities, correlation: electorate.correlation }
+        : null,
+    [composed, electorate.communities, electorate.correlation]
   );
+  const voters = React.useMemo(() => {
+    if (electorateSampler) {
+      const { voters: vs, community } = composeElectorate(
+        electorateSampler.communities,
+        electorateSampler.correlation,
+        config.num_voters,
+        config.seed,
+        dims
+      );
+      // Tag each voter with its bloc index (extra prop survives applyTurnout,
+      // which preserves object identity) for downstream colouring.
+      return vs.map((v, i) => ({ ...v, _community: community[i] }));
+    }
+    return sampleVoters(config.num_voters, config.seed, config.ideology, dims);
+  }, [electorateSampler, config.num_voters, config.seed, config.ideology, dims]);
   const moveCandidate = React.useCallback(
     (index: number, x: number, y: number, z?: number) => {
       setConfig({
@@ -290,7 +361,8 @@ const PlaygroundPage: React.FC = () => {
   const [playing, setPlaying] = React.useState(false);
   const median = React.useMemo(() => medianPoint(voters), [voters]);
   const displayedCandidates = React.useMemo(
-    () => (campaignT > 0 ? driftCandidates(config.candidates, median, campaignT) : config.candidates),
+    () =>
+      campaignT > 0 ? driftCandidates(config.candidates, median, campaignT) : config.candidates,
     [config.candidates, median, campaignT]
   );
   // Project candidates onto the active dimension count so the math, the map and
@@ -300,7 +372,7 @@ const PlaygroundPage: React.FC = () => {
       displayedCandidates.map((c) => ({
         ...c,
         y: dims >= 2 ? c.y : 0,
-        z: dims >= 3 ? c.z ?? 0 : 0,
+        z: dims >= 3 ? (c.z ?? 0) : 0,
       })),
     [displayedCandidates, dims]
   );
@@ -310,6 +382,20 @@ const PlaygroundPage: React.FC = () => {
     [voters, leaderCandidates, turnout.model, turnout.intensity]
   );
   const votingVoters = turnoutResult.voters;
+  // Per-voter colour by community (composed electorate only) — aligned with the
+  // post-turnout cloud since applyTurnout preserves the tagged objects.
+  const voterColors = React.useMemo(
+    () =>
+      composed
+        ? votingVoters.map(
+            (v) =>
+              COMMUNITY_PALETTE[
+                ((v as { _community?: number })._community ?? 0) % COMMUNITY_PALETTE.length
+              ]
+          )
+        : undefined,
+    [composed, votingVoters]
+  );
   React.useEffect(() => {
     if (!playing) return;
     const id = setInterval(() => {
@@ -338,6 +424,7 @@ const PlaygroundPage: React.FC = () => {
     ideology: config.ideology,
     dims,
     turnout,
+    electorate: electorateSampler,
   });
   React.useEffect(() => {
     if (!shakeOn) {
@@ -354,12 +441,12 @@ const PlaygroundPage: React.FC = () => {
           config.ideology,
           60,
           dims,
-          turnout
+          turnout,
+          electorateSampler
         )
       );
     }, 200);
     return () => clearTimeout(t);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [shakeKey]);
 
   // ── Scorecard + values lens (P5) ──────────────────────────────────────────
@@ -372,6 +459,7 @@ const PlaygroundPage: React.FC = () => {
     ideology: config.ideology,
     dims,
     turnout,
+    electorate: electorateSampler,
   });
   React.useEffect(() => {
     if (mode !== 'leader') return;
@@ -384,12 +472,12 @@ const PlaygroundPage: React.FC = () => {
           config.ideology,
           20,
           dims,
-          turnout
+          turnout,
+          electorateSampler
         )
       );
     }, 250);
     return () => clearTimeout(t);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [leaderScKey]);
 
   const [parlSc, setParlSc] = React.useState<AssemblyScorecardResult | null>(null);
@@ -420,7 +508,6 @@ const PlaygroundPage: React.FC = () => {
       alive = false;
       clearTimeout(t);
     };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [parlScKey]);
 
   const [leaderWeights, setLeaderWeights] = React.useState(() => defaultWeights(LEADER_AXES_KEYS));
@@ -431,8 +518,7 @@ const PlaygroundPage: React.FC = () => {
   const [lensMode, setLensMode] = React.useState<'dial' | 'granular'>('dial');
   const [dial, setDial] = React.useState(0.5);
   const manualWeights = mode === 'leader' ? leaderWeights : parlWeights;
-  const effectiveWeights =
-    lensMode === 'dial' ? dialWeights(dial, mode) : manualWeights;
+  const effectiveWeights = lensMode === 'dial' ? dialWeights(dial, mode) : manualWeights;
 
   // Consensus index per structure (parliament mode) for the democracy map.
   const democracyEntries = React.useMemo(
@@ -466,8 +552,8 @@ const PlaygroundPage: React.FC = () => {
     drillTab,
     band:
       mode === 'leader'
-        ? leaderSc?.[leaderRule]?.[key] ?? null
-        : parlSc?.structures?.[assembly.structure]?.[key] ?? null,
+        ? (leaderSc?.[leaderRule]?.[key] ?? null)
+        : (parlSc?.structures?.[assembly.structure]?.[key] ?? null),
   }));
   const lensItems: LensItem[] =
     mode === 'leader'
@@ -487,6 +573,19 @@ const PlaygroundPage: React.FC = () => {
           politique s’inverser — rien n’est caché, chaque hypothèse est un réglage.
         </p>
       </header>
+
+      {/* ── Electorate composer (engine): a collapsible block above everything ── */}
+      <div className="mb-4">
+        <Collapsible
+          title="🧭 Composer l’électorat"
+          subtitle={
+            composed ? `${electorate.communities.length} communautés · mélange` : 'gaussien simple'
+          }
+          testid="module-electorate"
+        >
+          <ElectorateComposer />
+        </Collapsible>
+      </div>
 
       <div className="grid grid-cols-1 gap-4 lg:grid-cols-[20rem_1fr_18rem]">
         {/* ── Setup rail ── */}
@@ -584,9 +683,7 @@ const PlaygroundPage: React.FC = () => {
                 id="pg-source"
                 className={selectCls}
                 value={prefSource}
-                onChange={(e) =>
-                  setPlayground({ prefSource: e.target.value as typeof prefSource })
-                }
+                onChange={(e) => setPlayground({ prefSource: e.target.value as typeof prefSource })}
               >
                 <option value="spatial">Spatiale (carte)</option>
                 <option value="impartial">Culture impartiale</option>
@@ -638,7 +735,10 @@ const PlaygroundPage: React.FC = () => {
               </Field>
               {turnout.model !== 'full' && (
                 <>
-                  <Field label={`Intensité : ${Math.round(turnout.intensity * 100)} %`} htmlFor="pg-turnout-int">
+                  <Field
+                    label={`Intensité : ${Math.round(turnout.intensity * 100)} %`}
+                    htmlFor="pg-turnout-int"
+                  >
                     <input
                       id="pg-turnout-int"
                       data-testid="turnout-intensity"
@@ -647,13 +747,17 @@ const PlaygroundPage: React.FC = () => {
                       max={1}
                       step={0.05}
                       value={turnout.intensity}
-                      onChange={(e) => setPlaygroundDeep('turnout.intensity', Number(e.target.value))}
+                      onChange={(e) =>
+                        setPlaygroundDeep('turnout.intensity', Number(e.target.value))
+                      }
                     />
                   </Field>
                   {mode === 'leader' && (
                     <p data-testid="turnout-rate" className="text-[0.7rem] text-muted-foreground">
                       Taux de participation :{' '}
-                      <strong>{Math.round((votingVoters.length / Math.max(1, voters.length)) * 100)} %</strong>{' '}
+                      <strong>
+                        {Math.round((votingVoters.length / Math.max(1, voters.length)) * 100)} %
+                      </strong>{' '}
                       ({voters.length - votingVoters.length} abstentions)
                     </p>
                   )}
@@ -765,7 +869,10 @@ const PlaygroundPage: React.FC = () => {
 
               {/* Headline: same counting rule, this ballot → different winner */}
               {result && result.winner_flips.length > 0 && (
-                <p data-testid="ballot-flips" className="text-[0.7rem] font-medium text-amber-600 dark:text-amber-400">
+                <p
+                  data-testid="ballot-flips"
+                  className="text-[0.7rem] font-medium text-amber-600 dark:text-amber-400"
+                >
                   ⚠ À règle égale, ce bulletin change le vainqueur pour{' '}
                   {result.winner_flips.length} méthode{result.winner_flips.length > 1 ? 's' : ''} :{' '}
                   {result.winner_flips.join(', ')}.
@@ -773,8 +880,8 @@ const PlaygroundPage: React.FC = () => {
               )}
               {result && result.incompatible_methods.length > 0 && (
                 <p className="text-[0.65rem] text-muted-foreground/70">
-                  {result.incompatible_methods.length} méthodes exclues (l’information du
-                  bulletin ne permet pas de les dépouiller honnêtement).
+                  {result.incompatible_methods.length} méthodes exclues (l’information du bulletin
+                  ne permet pas de les dépouiller honnêtement).
                 </p>
               )}
             </div>
@@ -790,9 +897,7 @@ const PlaygroundPage: React.FC = () => {
                     id="pg-structure"
                     className={selectCls}
                     value={assembly.structure}
-                    onChange={(e) =>
-                      setPlaygroundDeep('assembly.structure', e.target.value)
-                    }
+                    onChange={(e) => setPlaygroundDeep('assembly.structure', e.target.value)}
                   >
                     <option value="pr">Proportionnelle (listes)</option>
                     <option value="fptp">Circonscriptions (FPTP)</option>
@@ -831,9 +936,7 @@ const PlaygroundPage: React.FC = () => {
                     id="pg-appt"
                     className={selectCls}
                     value={assembly.apportionment}
-                    onChange={(e) =>
-                      setPlaygroundDeep('assembly.apportionment', e.target.value)
-                    }
+                    onChange={(e) => setPlaygroundDeep('assembly.apportionment', e.target.value)}
                   >
                     <option value="dhondt">D’Hondt</option>
                     <option value="sainte_lague">Sainte-Laguë</option>
@@ -884,9 +987,28 @@ const PlaygroundPage: React.FC = () => {
                     voters={votingVoters}
                     rule={leaderRule}
                     dims={dims}
+                    voterColors={voterColors}
                     onRuleChange={setLeaderRule}
                     onMoveCandidate={moveDisplayed}
                   />
+
+                  {/* Community legend (composed electorate) — what each colour means. */}
+                  {composed && (
+                    <div
+                      data-testid="electorate-legend"
+                      className="flex flex-wrap items-center gap-x-3 gap-y-1 text-[0.7rem] text-muted-foreground"
+                    >
+                      {electorate.communities.map((c, i) => (
+                        <span key={c.id} className="inline-flex items-center gap-1">
+                          <span
+                            className="inline-block h-2.5 w-2.5 rounded-full"
+                            style={{ background: COMMUNITY_PALETTE[i % COMMUNITY_PALETTE.length] }}
+                          />
+                          {c.label}
+                        </span>
+                      ))}
+                    </div>
+                  )}
 
                   {/* Time scrubber (P4): campaign drift toward the median voter. */}
                   <div data-testid="campaign-scrubber" className="flex items-center gap-2 text-sm">
@@ -903,7 +1025,11 @@ const PlaygroundPage: React.FC = () => {
                     </Button>
                     <span className="flex w-32 shrink-0 items-center gap-1 tabular-nums text-muted-foreground">
                       Campagne — J{Math.round(campaignT * 30)}
-                      <DrillBtn tab="campaign-sensitivity" label="sensibilité de campagne" onDrill={goLab} />
+                      <DrillBtn
+                        tab="campaign-sensitivity"
+                        label="sensibilité de campagne"
+                        onDrill={goLab}
+                      />
                     </span>
                     <input
                       data-testid="campaign-slider"
@@ -1032,9 +1158,7 @@ const PlaygroundPage: React.FC = () => {
           <CardHeader className="p-4 pb-2">
             <CardTitle className="text-base">
               Bilan —{' '}
-              {mode === 'leader'
-                ? RULE_LABELS[leaderRule]
-                : STRUCTURE_LABELS[assembly.structure]}
+              {mode === 'leader' ? RULE_LABELS[leaderRule] : STRUCTURE_LABELS[assembly.structure]}
             </CardTitle>
           </CardHeader>
           <CardContent className="flex flex-col gap-4 p-4 pt-2">
@@ -1082,7 +1206,8 @@ const PlaygroundPage: React.FC = () => {
                   ) : (
                     <>aucune compromission naïve ≤ 40 % ne renverse le vainqueur ici</>
                   )}
-                  {manipDetail.probe.backfired && ' · des tentatives se retournent contre la coalition'}
+                  {manipDetail.probe.backfired &&
+                    ' · des tentatives se retournent contre la coalition'}
                   .
                 </p>
                 <p className="mt-0.5 text-muted-foreground/80">
