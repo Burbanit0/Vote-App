@@ -27,6 +27,7 @@ import {
   ruleWinnerFromRanks,
   sampleVoters,
   type NamedPt,
+  type Pt,
   type Rule,
 } from './playgroundVoting';
 
@@ -190,6 +191,122 @@ export function leaderScorecard(
     };
   }
   return out;
+}
+
+// ── Manipulation hardness (frontier FC-1) ────────────────────────────────────
+//
+// Bartholdi–Tovey–Trick: resistance to strategic voting is partly
+// COMPUTATIONAL. Gibbard–Satterthwaite says every reasonable rule is gameable
+// in principle; what differs is whether finding the right lie is tractable.
+// Two parts, kept separate and honest:
+//  · an EMPIRICAL probe — the smallest coalition share whose naive
+//    "compromise" strategy (rank the strongest challenger first, the winner
+//    last) actually flips the winner on THIS electorate;
+//  · the LITERATURE flag — the known complexity class of computing a
+//    manipulation, with the citation (a stated reference, not our claim).
+
+export interface ManipProbe {
+  /** Smallest coalition share (of all voters) whose compromise flips the
+   * winner, or null if none ≤ maxShare succeeded. */
+  minCoalitionShare: number | null;
+  /** A tried coalition produced a winner the coalition likes LESS than the
+   * original (the strategy backfired) — the practical face of hardness. */
+  backfired: boolean;
+}
+
+export const MANIP_COMPLEXITY: Record<
+  Rule,
+  { hard: boolean; label: string; ref: string }
+> = {
+  plurality: { hard: false, label: 'P (calcul trivial)', ref: 'compromission directe' },
+  approval: { hard: false, label: 'P (calcul trivial)', ref: 'approuver le challenger' },
+  borda: {
+    hard: false,
+    label: 'P pour un manipulateur · NP-difficile en coalition',
+    ref: 'Bartholdi–Tovey–Trick 1989 ; Betzler et al. / Davies et al. 2011',
+  },
+  two_round: { hard: false, label: 'P (un manipulateur)', ref: 'Conitzer–Sandholm–Lang 2007' },
+  condorcet: { hard: false, label: 'P (Copeland)', ref: 'Bartholdi–Tovey–Trick 1989' },
+  irv: {
+    hard: true,
+    label: 'NP-difficile, même pour un seul manipulateur',
+    ref: 'Bartholdi–Orlin 1991 (STV/IRV)',
+  },
+};
+
+const COALITION_STEPS = [0.02, 0.05, 0.1, 0.15, 0.2, 0.3, 0.4];
+
+/**
+ * Empirical compromise probe for one rule on one electorate. For each of the
+ * two strongest challengers: voters preferring them to the winner (most
+ * motivated first) compromise in increasing coalition sizes until the winner
+ * flips. Reports the smallest working share, and whether any attempt
+ * backfired (elected someone the coalition likes less).
+ */
+export function manipulationProbe(
+  voters: Pt[],
+  cands: NamedPt[],
+  rule: Rule
+): ManipProbe {
+  const m = cands.length;
+  if (m < 3 || voters.length === 0) return { minCoalitionShare: null, backfired: false };
+  const ranks = computeRanks(voters, cands);
+  const scores = computeScores(voters, cands);
+  const w = ruleWinnerFromRanks(ranks, m, rule, scores);
+  if (w < 0) return { minCoalitionShare: null, backfired: false };
+
+  // Two strongest challengers by first preferences (excluding the winner).
+  const firsts = new Array(m).fill(0);
+  for (const r of ranks) firsts[r[0]] += 1;
+  const challengers = firsts
+    .map((_, i) => i)
+    .filter((i) => i !== w)
+    .sort((a, b) => firsts[b] - firsts[a])
+    .slice(0, 2);
+
+  let best: number | null = null;
+  let backfired = false;
+
+  for (const c of challengers) {
+    // Coalition: voters strictly preferring c to w whose ballot actually
+    // CHANGES under the compromise (already-c-first voters add nothing),
+    // the most motivated first.
+    const sympathisers = ranks
+      .map((r, v) => ({ v, gain: r.indexOf(w) - r.indexOf(c) }))
+      .filter((s) => s.gain > 0 && ranks[s.v][0] !== c)
+      .sort((a, b) => b.gain - a.gain);
+    for (const share of COALITION_STEPS) {
+      if (best !== null && share >= best) break;
+      const size = Math.floor(share * voters.length);
+      if (size === 0 || size > sympathisers.length) continue;
+      const coalition = new Set(sympathisers.slice(0, size).map((s) => s.v));
+      const ranks2 = ranks.map((r, v) => {
+        if (!coalition.has(v)) return r;
+        // Compromise: challenger first, winner last, the rest sincere.
+        return [c, ...r.filter((x) => x !== c && x !== w), w];
+      });
+      const scores2 = scores.map((s, v) => {
+        if (!coalition.has(v)) return s;
+        const s2 = new Array(m).fill(0);
+        s2[c] = 1;
+        return s2;
+      });
+      const w2 = ruleWinnerFromRanks(ranks2, m, rule, scores2);
+      if (w2 === c) {
+        best = share;
+        break;
+      }
+      if (w2 !== w) {
+        // The lie elected a third candidate — worse than honesty if the
+        // coalition prefers w to w2 on average.
+        const prefersOld = ranks.filter(
+          (r, v) => coalition.has(v) && r.indexOf(w) < r.indexOf(w2)
+        ).length;
+        if (prefersOld * 2 > coalition.size) backfired = true;
+      }
+    }
+  }
+  return { minCoalitionShare: best, backfired };
 }
 
 // ── Lijphart lens (frontier FA-2) ────────────────────────────────────────────

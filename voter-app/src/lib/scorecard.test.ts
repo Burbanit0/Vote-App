@@ -107,6 +107,60 @@ describe('values lens (Pareto + spotlight)', () => {
   });
 });
 
+// ── Manipulation hardness (FC-1) ──────────────────────────────────────────────
+
+import { manipulationProbe, MANIP_COMPLEXITY } from './scorecard';
+import type { Pt } from './playgroundVoting';
+
+describe('manipulation hardness (FC-1)', () => {
+  // Classic spoiler electorate: A leads on first preferences, but a B–C
+  // majority exists. Compromising is trivial under plurality; under IRV the
+  // transfers already protect the majority winner, so the naive lie has
+  // nothing to flip.
+  const cands: NamedPt[] = [
+    { name: 'A', x: -0.9, y: 0 },
+    { name: 'B', x: 0.5, y: 0 },
+    { name: 'C', x: 0.9, y: 0 },
+  ];
+  const voters: Pt[] = [];
+  for (let i = 0; i < 40; i++) voters.push({ x: -0.95, y: 0 });
+  for (let i = 0; i < 35; i++) voters.push({ x: 0.45, y: 0 });
+  for (let i = 0; i < 25; i++) voters.push({ x: 0.95, y: 0 });
+
+  it('plurality is easy: a small compromise coalition flips the winner', () => {
+    const probe = manipulationProbe(voters, cands, 'plurality');
+    expect(probe.minCoalitionShare).not.toBeNull();
+    expect(probe.minCoalitionShare as number).toBeLessThanOrEqual(0.15);
+  });
+
+  it('the same naive strategy under IRV fails or needs a larger coalition', () => {
+    const plurality = manipulationProbe(voters, cands, 'plurality');
+    const irv = manipulationProbe(voters, cands, 'irv');
+    if (irv.minCoalitionShare === null) {
+      expect(irv.minCoalitionShare).toBeNull();
+    } else {
+      expect(irv.minCoalitionShare).toBeGreaterThanOrEqual(
+        plurality.minCoalitionShare as number
+      );
+    }
+  });
+
+  it('literature flags: IRV NP-hard, plurality/Borda/approval easy', () => {
+    expect(MANIP_COMPLEXITY.irv.hard).toBe(true);
+    expect(MANIP_COMPLEXITY.irv.ref).toContain('Bartholdi');
+    expect(MANIP_COMPLEXITY.plurality.hard).toBe(false);
+    expect(MANIP_COMPLEXITY.borda.hard).toBe(false);
+    expect(MANIP_COMPLEXITY.approval.hard).toBe(false);
+  });
+
+  it('returns null cleanly on degenerate inputs', () => {
+    expect(manipulationProbe([], cands, 'plurality').minCoalitionShare).toBeNull();
+    expect(
+      manipulationProbe(voters, cands.slice(0, 2), 'plurality').minCoalitionShare
+    ).toBeNull();
+  });
+});
+
 // ── Lijphart lens (FA-2) ──────────────────────────────────────────────────────
 
 const axScores = (p: number, pl: number, mr: number, g: number): AxisScores => ({

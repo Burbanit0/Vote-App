@@ -29,6 +29,8 @@ import {
   leaderScorecard,
   consensusIndex,
   dialWeights,
+  manipulationProbe,
+  MANIP_COMPLEXITY,
   LEADER_AXES_KEYS,
   LEADER_RULES,
   type LeaderScorecard,
@@ -418,6 +420,17 @@ const PlaygroundPage: React.FC = () => {
         : [],
     [parlSc]
   );
+
+  // FC-1 — manipulation hardness: the empirical compromise probe on THIS
+  // electorate for the selected rule, plus the plurality-vs-IRV worked example.
+  const manipDetail = React.useMemo(() => {
+    if (mode !== 'leader') return null;
+    return {
+      probe: manipulationProbe(voters, displayedCandidates, leaderRule),
+      easy: manipulationProbe(voters, displayedCandidates, 'plurality'),
+      hard: manipulationProbe(voters, displayedCandidates, 'irv'),
+    };
+  }, [mode, voters, displayedCandidates, leaderRule]);
 
   const axisMeta = mode === 'leader' ? LEADER_AXIS_META : PARLIAMENT_AXIS_META;
   const currentAxes: ScorecardAxis[] = axisMeta.map(({ key, label, hint, drillTab }) => ({
@@ -931,6 +944,58 @@ const PlaygroundPage: React.FC = () => {
                   : `${parlSc?.replications ?? 24} ré-échantillonnages`
               }
             />
+            {/* FC-1 — manipulation: gameable in principle vs intractable in practice */}
+            {mode === 'leader' && manipDetail && (
+              <div
+                data-testid="manip-hardness"
+                className="rounded-md border border-border px-2.5 py-2 text-[0.7rem]"
+              >
+                <p className="font-semibold uppercase tracking-wide text-muted-foreground">
+                  Manipulation : principe vs pratique
+                </p>
+                <p className="mt-1">
+                  Jouable en principe (Gibbard–Satterthwaite) · calcul du bon mensonge :{' '}
+                  <strong
+                    className={
+                      MANIP_COMPLEXITY[leaderRule].hard
+                        ? 'text-green-700 dark:text-green-400'
+                        : 'text-amber-600 dark:text-amber-400'
+                    }
+                  >
+                    {MANIP_COMPLEXITY[leaderRule].label}
+                  </strong>{' '}
+                  <span className="text-muted-foreground">
+                    ({MANIP_COMPLEXITY[leaderRule].ref})
+                  </span>
+                </p>
+                <p className="mt-0.5 text-muted-foreground">
+                  Sonde sur cet électorat :{' '}
+                  {manipDetail.probe.minCoalitionShare !== null ? (
+                    <>
+                      une coalition de{' '}
+                      <strong>{Math.round(manipDetail.probe.minCoalitionShare * 100)} %</strong>{' '}
+                      suffit (compromission naïve)
+                    </>
+                  ) : (
+                    <>aucune compromission naïve ≤ 40 % ne renverse le vainqueur ici</>
+                  )}
+                  {manipDetail.probe.backfired && ' · des tentatives se retournent contre la coalition'}
+                  .
+                </p>
+                <p className="mt-0.5 text-muted-foreground/80">
+                  Exemple :{' '}
+                  {manipDetail.easy.minCoalitionShare !== null
+                    ? `sous pluralité, ${Math.round(manipDetail.easy.minCoalitionShare * 100)} % suffisent`
+                    : 'sous pluralité, la compromission échoue ici'}
+                  {' ; la même stratégie sous IRV '}
+                  {manipDetail.hard.minCoalitionShare !== null
+                    ? `demande ${Math.round(manipDetail.hard.minCoalitionShare * 100)} %`
+                    : 'échoue'}
+                  {manipDetail.hard.backfired ? ' (et peut se retourner contre elle)' : ''}.
+                </p>
+              </div>
+            )}
+
             <hr className="border-border" />
 
             {/* FA-2 — the identity dial (one value, correlated weights) */}
