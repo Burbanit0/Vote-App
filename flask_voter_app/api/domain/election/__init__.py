@@ -52,6 +52,7 @@ from api.domain.election.workers import (
     _shy_voter_worker,
     _simulate_pipeline_worker,
     _sortition_worker,
+    _structural_fairness_worker,
     _stv_worker,
     _temporal_worker,
 )
@@ -91,6 +92,12 @@ def issue_voting(data: dict) -> tuple[dict, int]:
     """Frontier FB-2: issue-by-issue majorities vs the bundled platform vote —
     the Ostrogorski paradox / discursive dilemma."""
     return _issue_voting_worker(data)
+
+
+def structural_fairness(data: dict) -> tuple[dict, int]:
+    """Frontier FC-2: malapportionment, efficiency gap, Penrose square-root
+    council, and cumulative-vs-bloc at-large voting."""
+    return _structural_fairness_worker(data)
 
 
 def combined_effects(data: dict) -> tuple[dict, int]:

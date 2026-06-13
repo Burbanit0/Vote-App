@@ -39,6 +39,7 @@ import {
 import DemocracyMap from '../components/playground/DemocracyMap';
 import TemporalPanel from '../components/playground/TemporalPanel';
 import IssuesPanel from '../components/playground/IssuesPanel';
+import StructuralPanel from '../components/playground/StructuralPanel';
 
 // Lab reshape — Phase P0: the two-mode playground shell. Two questions over ONE
 // shared electorate: "Élire un dirigeant" (single office) vs "Composer un parlement"
@@ -918,6 +919,10 @@ const PlaygroundPage: React.FC = () => {
                   )}
                   <TemporalPanel config={config} playground={playground} />
                   <IssuesPanel config={config} />
+                  <StructuralPanel
+                    config={config}
+                    partyNames={config.candidates.map((c) => c.name)}
+                  />
                 </div>
               )}
             </FlipReveal>

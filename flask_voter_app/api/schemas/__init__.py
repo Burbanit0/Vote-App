@@ -77,6 +77,8 @@ from .election import (
     TemporalResponse,
     IssueVotingRequest,
     IssueVotingResponse,
+    StructuralFairnessRequest,
+    StructuralFairnessResponse,
 )
 from .export import (
     ExportDatasetJSON,
@@ -255,6 +257,7 @@ __all__ = [
     "AssemblyScorecardRequest", "AssemblyScorecardResponse",
     "TemporalRequest", "TemporalResponse",
     "IssueVotingRequest", "IssueVotingResponse",
+    "StructuralFairnessRequest", "StructuralFairnessResponse",
     # perturbers (request-only — see perturbers.py)
     "AdaptiveRequest",
     "AffectivePolarizationRequest", "BallotComplexityRequest",
