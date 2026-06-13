@@ -6,8 +6,9 @@ import { ElectionConfig, PlaygroundState } from '../stores/useElectionStore';
 // wasted-vote and coalition read-outs.
 
 /** Composed electorate (community mixture) → backend payload, only when active.
- * When 'simple', returns null so the backend keeps the ideology preset cloud. */
-function electoratePayload(pg: PlaygroundState) {
+ * When 'simple', returns null so the backend keeps the ideology preset cloud.
+ * Shared by every parliament-side endpoint so they all read the same electorate. */
+export function electoratePayload(pg: PlaygroundState) {
   const e = pg.electorate;
   if (e.mode !== 'composed') return null;
   return {
@@ -189,6 +190,7 @@ export async function runTemporal(
     apportionment: pg.assembly.apportionment,
     strategic_desertion: pg.assembly.strategic_desertion,
     turnout: { model: pg.turnout.model, intensity: pg.turnout.intensity },
+    electorate: electoratePayload(pg),
     rounds,
   });
 }

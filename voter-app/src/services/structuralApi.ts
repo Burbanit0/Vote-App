@@ -1,5 +1,6 @@
 import { apiPost } from '../api/client';
-import { ElectionConfig } from '../stores/useElectionStore';
+import { ElectionConfig, PlaygroundState } from '../stores/useElectionStore';
+import { electoratePayload } from './assemblyApi';
 
 // Frontier FC-2 — structural (un)fairness: malapportionment, efficiency gap,
 // Penrose square-root council, cumulative vs bloc at-large voting.
@@ -41,7 +42,8 @@ export async function runStructuralFairness(
   config: ElectionConfig,
   malapportionment: number,
   districts = 20,
-  atLargeSeats = 5
+  atLargeSeats = 5,
+  pg?: PlaygroundState
 ): Promise<StructuralFairnessResult> {
   return apiPost<StructuralFairnessResult>('/api/v2/election/structural-fairness', {
     parties: config.candidates.map((c) => ({ name: c.name, x: c.x, y: c.y })),
@@ -51,5 +53,6 @@ export async function runStructuralFairness(
     districts,
     malapportionment,
     at_large_seats: atLargeSeats,
+    electorate: pg ? electoratePayload(pg) : null,
   });
 }

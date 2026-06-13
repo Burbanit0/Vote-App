@@ -342,6 +342,33 @@ def test_profile_simulate_composed_paradox_rate(client: TestClient):
     assert composed["cycle_rate"] > 0.0
 
 
+def test_advanced_modules_accept_composed_electorate(client: TestClient):
+    """The temporal, issue-voting and structural-fairness endpoints all sample
+    the composed electorate when supplied (completeness), and a clustered mixture
+    that empties some districts must not crash structural-fairness (Penrose stays
+    finite)."""
+    parties = [{"name": "G", "x": -0.6, "y": 0}, {"name": "C", "x": 0.0, "y": 0},
+               {"name": "D", "x": 0.6, "y": 0}]
+    # Two tight, distant blocs → many district bands along x are empty.
+    electorate = {"mode": "composed", "correlation": 0.0, "noise": 0.0, "communities": [
+        {"id": "g", "label": "G", "x": -0.85, "y": 0, "z": 0, "spread": 0.05, "weight": 2, "turnout": 0.8},
+        {"id": "d", "label": "D", "x": 0.85, "y": 0, "z": 0, "spread": 0.05, "weight": 1, "turnout": 0.8}]}
+    temporal = client.post("/api/v2/election/temporal", json={
+        "parties": parties, "num_voters": 400, "seed": 42, "structure": "fptp",
+        "seats": 30, "rounds": 6, "electorate": electorate})
+    assert temporal.status_code == 200
+    issues = client.post("/api/v2/election/issue-voting", json={
+        "mode": "spatial", "parties": parties, "num_voters": 400, "seed": 42,
+        "num_issues": 4, "electorate": electorate})
+    assert issues.status_code == 200
+    struct = client.post("/api/v2/election/structural-fairness", json={
+        "parties": parties, "num_voters": 400, "seed": 42, "districts": 20,
+        "malapportionment": 0.8, "at_large_seats": 5, "electorate": electorate})
+    assert struct.status_code == 200
+    penrose = struct.json()["penrose"]
+    assert all(v == v and v not in (float("inf"), float("-inf")) for v in penrose.values())
+
+
 def test_strategic_vulnerability_opt_in(client: TestClient):
     """Off by default (winners only); opt-in adds a per-method manipulability
     rate in [0,1]. Plurality is gameable, so its rate is > 0."""

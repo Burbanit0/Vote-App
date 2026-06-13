@@ -313,6 +313,9 @@ class TemporalRequest(BaseModel):
     threshold: float = Field(0.05, ge=0.0, le=0.15)
     apportionment: Literal["dhondt", "sainte_lague"] = Field("dhondt")
     strategic_desertion: bool = Field(False)
+    electorate: Optional[ElectorateConfig] = Field(
+        None, description="Composed electorate (community mixture); overrides `ideology` when mode='composed'."
+    )
     rounds: int = Field(20, ge=2, le=30)
     adaptation_step: float = Field(0.06, ge=0.0, le=0.2,
                                    description="Party vote-seeking step per round.")
@@ -373,6 +376,10 @@ class IssueVotingRequest(BaseModel):
     ideology:   str = Field("random")
     seed:       int = Field(42, ge=0)
     num_issues: int = Field(4, ge=2, le=7)
+    electorate: Optional[ElectorateConfig] = Field(
+        None, description="Composed electorate (community mixture) for spatial mode; "
+                          "overrides `ideology` when mode='composed'."
+    )
     # handcrafted mode
     voter_stances:   Optional[List[List[int]]] = Field(None, max_length=1000)
     party_platforms: Optional[List[List[int]]] = Field(None, max_length=8)
@@ -427,6 +434,9 @@ class StructuralFairnessRequest(BaseModel):
     malapportionment: float = Field(0.6, ge=0.0, le=1.0,
                                     description="0 = equal districts; 1 = strongly unequal (≈4:1).")
     at_large_seats: int = Field(5, ge=3, le=9)
+    electorate: Optional[ElectorateConfig] = Field(
+        None, description="Composed electorate (community mixture); overrides `ideology` when mode='composed'."
+    )
 
 
 class MalapportionmentOut(BaseModel):

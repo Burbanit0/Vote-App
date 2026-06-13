@@ -7094,7 +7094,11 @@ def _structural_fairness_worker(data: Dict[str, Any]) -> tuple[Dict[str, Any], i
     names = [str(p.get("name", f"P{i}")) for i, p in enumerate(parties_in)]
     pts = _np.array([[float(p.get("x", 0.0)), float(p.get("y", 0.0))]
                      for p in parties_in])
-    voters = _assembly_voters(num_voters, seed, ideology)
+    voters = _assembly_voters(num_voters, seed, ideology, data.get("electorate"))
+    # A composed electorate is thinned by per-bloc turnout, so the effective count
+    # can be below the request — use the actual count for the district splits and
+    # the vote shares (otherwise over-scaled cuts leave empty trailing districts).
+    num_voters = int(voters.shape[0])
     d2 = ((voters[:, None, :] - pts[None, :, :]) ** 2).sum(axis=2)
     choice = d2.argmin(axis=1)
     order = _np.argsort(voters[:, 0], kind="stable")
@@ -7161,7 +7165,10 @@ def _structural_fairness_worker(data: Dict[str, Any]) -> tuple[Dict[str, Any], i
     }
 
     # ── Penrose square-root council over the unequal districts ─────────────
-    pops = _np.array(pops_sk, dtype=float)
+    # Floor populations at 1: a clustered (composed) electorate can leave a band
+    # empty, and an empty district must not divide by zero — it is simply the
+    # most malapportioned (a citizen there has unbounded relative weight, clamped).
+    pops = _np.maximum(_np.array(pops_sk, dtype=float), 1.0)
     schemes = {
         "equal":        _np.ones(n_dist),
         "proportional": pops,
@@ -7256,7 +7263,7 @@ def _issue_voting_worker(data: Dict[str, Any]) -> tuple[Dict[str, Any], int]:
         names = [str(p.get("name", f"P{i}")) for i, p in enumerate(parties_in)]
         pts = _np.array([[float(p.get("x", 0.0)), float(p.get("y", 0.0))]
                          for p in parties_in])
-        voters = _assembly_voters(num_voters, seed, ideology)
+        voters = _assembly_voters(num_voters, seed, ideology, data.get("electorate"))
         rng = _np.random.default_rng(seed + 7)
         # Issue k = a hyperplane w·x + b through the plane (stated convention).
         w = rng.normal(size=(k, 2))
@@ -7351,7 +7358,7 @@ def _temporal_worker(data: Dict[str, Any]) -> tuple[Dict[str, Any], int]:
         [[float(p.get("x", 0.0)), float(p.get("y", 0.0))] for p in parties_in],
         dtype=float,
     )
-    voters = _assembly_voters(num_voters, seed, ideology)
+    voters = _assembly_voters(num_voters, seed, ideology, data.get("electorate"))
 
     compass = _np.array(
         [[1, 0], [-1, 0], [0, 1], [0, -1], [1, 1], [1, -1], [-1, 1], [-1, -1]],

@@ -1144,12 +1144,13 @@ const PlaygroundPage: React.FC = () => {
                     <TemporalPanel config={config} playground={playground} />
                   </Collapsible>
                   <Collapsible title="🗳 Enjeux & groupage (Ostrogorski)" testid="module-issues">
-                    <IssuesPanel config={config} />
+                    <IssuesPanel config={config} playground={playground} />
                   </Collapsible>
                   <Collapsible title="⚖ Équités structurelles" testid="module-structural">
                     <StructuralPanel
                       config={config}
                       partyNames={config.candidates.map((c) => c.name)}
+                      playground={playground}
                     />
                   </Collapsible>
                 </div>
