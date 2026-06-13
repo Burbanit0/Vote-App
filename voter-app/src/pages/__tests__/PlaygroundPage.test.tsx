@@ -50,6 +50,12 @@ vi.mock('../../services/profileApi', () => ({
     display_points: [],
     candidate_points: null,
     num_voters: 300,
+    ballot_type: 'rank_truncated',
+    ballot_expressiveness: 0.4,
+    ballot_cognitive_load: 0.3,
+    sample_ballot: { A: 1, B: 0.5, C: 0 },
+    winner_flips: ['irv', 'borda'],
+    incompatible_methods: ['star_voting'],
   }),
 }));
 
@@ -198,6 +204,65 @@ describe('PlaygroundPage (P0 shell)', () => {
     // trade off (neither dominates), while MMP is dominated by PR.
     expect(screen.getByTestId('lens-item-mmp')).toHaveTextContent('écarté (dominé)');
     expect(screen.getByTestId('lens-item-pr')).not.toHaveTextContent('écarté');
+  });
+
+  // ── FA-1 : la couche bulletin ─────────────────────────────────────────────
+
+  it('the ballot selector persists and reveals the truncation slider', () => {
+    renderPage();
+    fireEvent.change(screen.getByTestId('ballot-select'), {
+      target: { value: 'rank_truncated' },
+    });
+    expect(useElectionStore.getState().playground.ballot.type).toBe('rank_truncated');
+    expect(JSON.parse(localStorage.getItem(LS_PG) as string).ballot.type).toBe('rank_truncated');
+    fireEvent.change(screen.getByTestId('ballot-truncate'), { target: { value: '2' } });
+    expect(useElectionStore.getState().playground.ballot.truncate_at).toBe(2);
+  });
+
+  it('shows the sample ballot, the expressiveness/load trade-off and the winner flips', async () => {
+    renderPage();
+    await waitFor(() => expect(screen.getByTestId('ballot-preview')).toBeInTheDocument());
+    expect(screen.getByTestId('ballot-preview').textContent).toContain('A 1');
+    expect(screen.getByTestId('ballot-tradeoff')).toHaveTextContent('Expressivité');
+    expect(screen.getByTestId('ballot-tradeoff')).toHaveTextContent('Charge cognitive');
+    expect(screen.getByTestId('ballot-flips')).toHaveTextContent('2 méthodes');
+    expect(screen.getByTestId('ballot-flips')).toHaveTextContent('irv, borda');
+  });
+
+  // ── FA-2 : la lentille Lijphart ───────────────────────────────────────────
+
+  it('parliament mode renders the democracy map with the three live structures', async () => {
+    renderPage();
+    fireEvent.click(screen.getByTestId('mode-toggle-parliament'));
+    await waitFor(() => expect(screen.getByTestId('democracy-map')).toBeInTheDocument(), {
+      timeout: 5000,
+    });
+    expect(screen.getByTestId('dm-pr')).toBeInTheDocument();
+    expect(screen.getByTestId('dm-fptp')).toBeInTheDocument();
+  });
+
+  it('the identity dial moves the spotlight along the frontier', async () => {
+    renderPage();
+    fireEvent.click(screen.getByTestId('mode-toggle-parliament'));
+    await waitFor(() => expect(screen.getByTestId('lens-item-pr')).toBeInTheDocument(), {
+      timeout: 5000,
+    });
+    // Majoritarian end → governability wins → FPTP spotlighted.
+    fireEvent.change(screen.getByTestId('lijphart-dial'), { target: { value: '0' } });
+    expect(screen.getByTestId('lens-item-fptp')).toHaveTextContent('selon vos pondérations');
+    // Consensualist end → proportional axes win → PR spotlighted.
+    fireEvent.change(screen.getByTestId('lijphart-dial'), { target: { value: '1' } });
+    expect(screen.getByTestId('lens-item-pr')).toHaveTextContent('selon vos pondérations');
+  });
+
+  it('the granular escape hatch reveals the sliders and a touch switches modes', async () => {
+    renderPage();
+    // Dial mode by default: granular sliders not rendered.
+    expect(screen.getByTestId('lijphart-dial')).toBeInTheDocument();
+    expect(screen.queryByTestId('weight-condorcet_efficiency')).not.toBeInTheDocument();
+    fireEvent.click(screen.getByTestId('lens-granular-toggle'));
+    expect(screen.queryByTestId('lijphart-dial')).not.toBeInTheDocument();
+    expect(screen.getByTestId('weight-condorcet_efficiency')).toBeInTheDocument();
   });
 
   // ── Drill-downs Playground → Lab (shared electorate) ─────────────────────

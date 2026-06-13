@@ -251,6 +251,15 @@ export type PrefSource = 'spatial' | 'impartial' | 'mallows' | 'urn' | 'handcraf
 export type Behavior = 'sincere' | 'strategic' | 'mixed';
 export type AssemblyStructure = 'pr' | 'fptp' | 'mmp';
 export type Apportionment = 'dhondt' | 'sainte_lague';
+export type BallotType =
+  | 'full'
+  | 'choose_one'
+  | 'approve'
+  | 'rank_full'
+  | 'rank_truncated'
+  | 'score'
+  | 'grade'
+  | 'cumulative';
 
 export interface PlaygroundState {
   mode: PlaygroundMode;
@@ -258,6 +267,8 @@ export interface PlaygroundState {
   behavior: Behavior;
   prefSource: PrefSource;
   prefParams: Record<string, number>;
+  /** FA-1: how voters may EXPRESS preferences — separate from the counting rule. */
+  ballot: { type: BallotType; truncate_at: number; score_levels: number };
   assembly: {
     structure: AssemblyStructure;
     seats: number;
@@ -275,6 +286,7 @@ export const DEFAULT_PLAYGROUND: PlaygroundState = {
   behavior: 'sincere',
   prefSource: 'spatial',
   prefParams: {},
+  ballot: { type: 'full', truncate_at: 3, score_levels: 6 },
   assembly: {
     structure: 'pr',
     seats: 100,
@@ -423,6 +435,7 @@ function loadPlayground(): PlaygroundState {
       ...DEFAULT_PLAYGROUND,
       ...parsed,
       space: { ...DEFAULT_PLAYGROUND.space, ...(parsed.space ?? {}) },
+      ballot: { ...DEFAULT_PLAYGROUND.ballot, ...(parsed.ballot ?? {}) },
       assembly: { ...DEFAULT_PLAYGROUND.assembly, ...(parsed.assembly ?? {}) },
     };
   } catch {

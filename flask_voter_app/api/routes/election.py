@@ -100,6 +100,8 @@ from api.schemas import (
     AssemblyResponse,
     AssemblyScorecardRequest,
     AssemblyScorecardResponse,
+    TemporalRequest,
+    TemporalResponse,
     ProfileSimulateRequest,
     ProfileSimulateResponse,
     SimulateRequest,
@@ -115,6 +117,7 @@ from api.domain.election import (
     adaptive as adaptive_domain,
     assembly as assembly_domain,
     assembly_scorecard as assembly_scorecard_domain,
+    temporal as temporal_domain,
     affective_polarization as affective_polarization_domain,
     ballot_complexity as ballot_complexity_domain,
     behavioral_biases as behavioral_biases_domain,
@@ -283,6 +286,24 @@ async def assembly_scorecard_endpoint(
     oriented higher-is-better with stated conventions; the lens then removes
     Pareto-dominated structures and lets user weights spotlight the frontier."""
     return await _run_typed(assembly_scorecard_domain, request, AssemblyScorecardResponse)
+
+
+# ── /temporal (frontier FA-3) ─────────────────────────────────────────────────
+
+@router.post(
+    "/temporal",
+    response_model=TemporalResponse,
+    summary="Democracy as a repeated game: N sequential elections",
+    response_description="Per-round positions, seats, winner, ENP, Gallagher, "
+                         "polarization, alternation and congruence over N rounds of "
+                         "party adaptation + voter attachment.",
+)
+async def temporal_endpoint(request: TemporalRequest) -> TemporalResponse:
+    """A system good ONCE can degrade over repeated play. Parties chase votes
+    (Downsian local search), voters attach to their party — watch ENP,
+    polarization and alternation evolve. Duverger's law shows up over time:
+    FPTP with strategic desertion compresses the party system, PR sustains it."""
+    return await _run_typed(temporal_domain, request, TemporalResponse)
 
 
 # ── /combined-effects ───────────────────────────────────────────────────────

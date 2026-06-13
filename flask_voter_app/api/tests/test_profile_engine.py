@@ -152,3 +152,94 @@ def test_endpoint_handcrafted_bad_width_rejected(client: TestClient):
         "handcrafted_matrix": [[1.0, 0.0, 0.0]],  # 3 cols vs 2 candidates
     })
     assert res.status_code == 400
+
+
+# ── Ballot projection (frontier FA-1) ─────────────────────────────────────────
+
+from api.engine.utils.profile_engine import (  # noqa: E402
+    project_ballot,
+    ballot_metrics,
+    compatible_methods,
+)
+
+
+def test_project_choose_one_is_one_hot():
+    names = ["A", "B", "C"]
+    matrix = handcrafted_profile([[0.9, 0.5, 0.1], [0.2, 0.8, 0.3]], names)
+    out = project_ballot(matrix, names, "choose_one")
+    assert out[0] == {"A": 1.0, "B": 0.0, "C": 0.0}
+    assert out[1] == {"A": 0.0, "B": 1.0, "C": 0.0}
+
+
+def test_project_truncation_zeroes_below_k():
+    names = ["A", "B", "C", "D"]
+    matrix = handcrafted_profile([[1.0, 0.7, 0.4, 0.1]], names)
+    out = project_ballot(matrix, names, "rank_truncated", truncate_at=2)
+    assert out[0]["A"] == 1.0 and out[0]["B"] == 0.5
+    assert out[0]["C"] == 0.0 and out[0]["D"] == 0.0
+
+
+def test_project_score_quantises_to_levels():
+    names = ["A", "B"]
+    matrix = handcrafted_profile([[0.63, 0.0]], names)
+    out = project_ballot(matrix, names, "score", score_levels=3)
+    # 3 levels → only {0, 0.5, 1} possible after min-max normalisation.
+    assert set(out[0].values()) <= {0.0, 0.5, 1.0}
+
+
+def test_ballot_metrics_orderings():
+    """Expressiveness and load rise together with richer ballots (conventions)."""
+    m = 5
+    e = {b: ballot_metrics(b, m)["expressiveness"] for b in
+         ("choose_one", "rank_truncated", "rank_full", "score")}
+    l_ = {b: ballot_metrics(b, m)["cognitive_load"] for b in
+          ("choose_one", "rank_full", "cumulative")}
+    assert e["choose_one"] < e["rank_truncated"] < e["rank_full"]
+    assert l_["choose_one"] < l_["rank_full"] <= l_["cumulative"]
+
+
+def test_compatibility_whitelists():
+    assert compatible_methods("choose_one") == {"plurality", "two_round"}
+    assert "borda" in compatible_methods("rank_truncated")
+    assert "star_voting" not in compatible_methods("rank_full")
+    assert compatible_methods("approve") == {"approval"}
+
+
+def test_endpoint_truncation_flips_a_winner(client: TestClient):
+    """Headline demo: same counting rules, truncated ballots → different winner.
+
+    On the textbook 100-voter profile, rank_truncated k=1 collapses every
+    ranking to a bullet vote: IRV (winner C under full information) degrades
+    to plurality behaviour (winner A) — a reported winner flip.
+    """
+    base = {
+        "source": "handcrafted",
+        "candidates": [{"name": "A"}, {"name": "B"}, {"name": "C"}],
+        "handcrafted_matrix":
+            [[1.0, 0.5, 0.0]] * 42 + [[0.0, 1.0, 0.5]] * 26
+            + [[0.5, 0.0, 1.0]] * 15 + [[0.0, 0.5, 1.0]] * 17,
+    }
+    full = client.post("/api/v2/election/profile-simulate", json=base).json()
+    trunc = client.post("/api/v2/election/profile-simulate",
+                        json={**base, "ballot": {"type": "rank_truncated",
+                                                 "truncate_at": 1}}).json()
+    assert full["methods"]["irv"]["winner"] == "C"
+    assert trunc["methods"]["irv"]["winner"] == "A"
+    assert "irv" in trunc["winner_flips"]
+    # Cardinal methods cannot run on a ranked ballot — excluded and reported.
+    assert "star_voting" in trunc["incompatible_methods"]
+    assert "star_voting" not in trunc["methods"]
+    # Read-outs present and ordered.
+    assert 0 <= trunc["ballot_expressiveness"] < full["ballot_expressiveness"] <= 1
+    assert set(trunc["sample_ballot"]) == {"A", "B", "C"}
+
+
+def test_endpoint_full_ballot_reports_no_flips(client: TestClient):
+    res = client.post("/api/v2/election/profile-simulate", json={
+        "source": "spatial",
+        "candidates": [{"name": "A", "x": -0.5}, {"name": "B", "x": 0.5}],
+        "num_voters": 100,
+    }).json()
+    assert res["ballot_type"] == "full"
+    assert res["winner_flips"] == []
+    assert res["incompatible_methods"] == []

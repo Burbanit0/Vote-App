@@ -6,9 +6,14 @@ import {
   dominates,
   compressRanks,
   condorcetFromRanks,
+  consensusIndex,
+  dialWeights,
+  lijphartTo01,
+  LIJPHART_REFERENCE,
   LEADER_AXES_KEYS,
   LEADER_RULES,
   type LensItem,
+  type AxisScores,
 } from './scorecard';
 import type { NamedPt } from './playgroundVoting';
 
@@ -99,5 +104,67 @@ describe('values lens (Pareto + spotlight)', () => {
     const { frontier } = paretoSplit(items, keys);
     // Even with weights that would favour bad's profile, it was eliminated first.
     expect(spotlight(frontier, { ax1: 0.1, ax2: 0.1 }, keys)).not.toBe('bad');
+  });
+});
+
+// ── Lijphart lens (FA-2) ──────────────────────────────────────────────────────
+
+const axScores = (p: number, pl: number, mr: number, g: number): AxisScores => ({
+  proportionality: { mean: p, lo: p - 0.05, hi: p + 0.05 },
+  pluralism: { mean: pl, lo: pl - 0.05, hi: pl + 0.05 },
+  minority_representation: { mean: mr, lo: mr - 0.05, hi: mr + 0.05 },
+  governability: { mean: g, lo: g - 0.05, hi: g + 0.05 },
+});
+
+describe('consensusIndex (FA-2)', () => {
+  // Typical scorecard shapes: PR proportional/plural but coalition-bound;
+  // FPTP disproportional but governable.
+  const pr = consensusIndex(axScores(0.9, 0.9, 1.0, 0.4));
+  const fptp = consensusIndex(axScores(0.45, 0.5, 0.5, 0.9));
+
+  it('a PR-shaped scorecard lands consensus-side, FPTP majoritarian-side', () => {
+    expect(pr.mean).toBeGreaterThan(fptp.mean);
+    // Acceptance: nearest reference neighbours are on the right sides.
+    const nl = lijphartTo01(1.2); // Pays-Bas (consensus)
+    const uk = lijphartTo01(-1.2); // Royaume-Uni (majoritarian)
+    expect(Math.abs(pr.mean - nl)).toBeLessThan(Math.abs(pr.mean - uk));
+    expect(Math.abs(fptp.mean - uk)).toBeLessThan(Math.abs(fptp.mean - nl));
+  });
+
+  it('bands propagate (lo ≤ mean ≤ hi)', () => {
+    for (const b of [pr, fptp]) {
+      expect(b.lo).toBeLessThanOrEqual(b.mean);
+      expect(b.mean).toBeLessThanOrEqual(b.hi);
+    }
+  });
+
+  it('reference data is on the stated scale and includes both poles', () => {
+    expect(LIJPHART_REFERENCE.some((c) => c.score < -1)).toBe(true);
+    expect(LIJPHART_REFERENCE.some((c) => c.score > 1)).toBe(true);
+    for (const c of LIJPHART_REFERENCE) {
+      const x = lijphartTo01(c.score);
+      expect(x).toBeGreaterThanOrEqual(0);
+      expect(x).toBeLessThanOrEqual(1);
+    }
+  });
+});
+
+describe('dialWeights (FA-2)', () => {
+  it('the consensualist end weighs proportionality, the majoritarian end governability', () => {
+    const consensual = dialWeights(1, 'parliament');
+    const majoritarian = dialWeights(0, 'parliament');
+    expect(consensual.proportionality).toBe(1);
+    expect(consensual.governability).toBe(0);
+    expect(majoritarian.proportionality).toBe(0);
+    expect(majoritarian.governability).toBe(1);
+  });
+
+  it('leader-mode mapping trades consensus quality against simplicity/stability', () => {
+    const consensual = dialWeights(1, 'leader');
+    expect(consensual.condorcet_efficiency).toBe(1);
+    expect(consensual.simplicity).toBe(0);
+    const majoritarian = dialWeights(0, 'leader');
+    expect(majoritarian.simplicity).toBe(1);
+    expect(majoritarian.condorcet_efficiency).toBe(0);
   });
 });
