@@ -9,6 +9,7 @@ import {
   type Rule,
   type WinRegion,
 } from '../../lib/playgroundVoting';
+import LeaderScene3D from './LeaderScene3D';
 
 // LeaderCanvas (Lab reshape P2 · dims FA-2bis) — the live single-office viz over
 // a 1/2/3-D ideological space. Candidates are draggable; the plane is shaded by
@@ -69,6 +70,10 @@ const LeaderCanvas: React.FC<LeaderCanvasProps> = ({
   const svgRef = useRef<SVGSVGElement>(null);
   const draggingIdx = useRef<number | null>(null);
   const [region, setRegion] = useState<WinRegion | null>(null);
+  // In 3-D, default to the orbital scene (what the dimension is *for*); the
+  // x–y plane stays available for editing + the win-region overlay.
+  const [scene3d, setScene3d] = useState(true);
+  const show3d = dims === 3 && scene3d;
 
   // y maps to the plane in 2/3-D, to the centre line in 1-D.
   const cyOf = (p: Pt): number => (dims === 1 ? CENTER : toSvg(p.y, 'y'));
@@ -148,6 +153,32 @@ const LeaderCanvas: React.FC<LeaderCanvasProps> = ({
         </span>
       </div>
 
+      {/* 3-D view toggle: orbital scene vs the editable x–y plane. */}
+      {dims === 3 && (
+        <div className="flex gap-1 text-xs">
+          <button
+            type="button"
+            data-testid="view-3d"
+            className={`rounded border px-2 py-0.5 ${scene3d ? 'border-primary text-primary' : 'border-border'}`}
+            onClick={() => setScene3d(true)}
+          >
+            🧊 Vue 3D
+          </button>
+          <button
+            type="button"
+            data-testid="view-plane"
+            className={`rounded border px-2 py-0.5 ${!scene3d ? 'border-primary text-primary' : 'border-border'}`}
+            onClick={() => setScene3d(false)}
+          >
+            ▦ Plan x–y (édition)
+          </button>
+        </div>
+      )}
+
+      {show3d && (
+        <LeaderScene3D voters={voters} candidates={candidates} palette={PALETTE} />
+      )}
+
       <svg
         ref={svgRef}
         viewBox={`0 0 ${SVG} ${SVG}`}
@@ -155,7 +186,7 @@ const LeaderCanvas: React.FC<LeaderCanvasProps> = ({
         role="img"
         aria-label="Carte idéologique — élire un dirigeant"
         className="touch-none select-none rounded-lg bg-card"
-        style={{ maxHeight: '70vh' }}
+        style={{ maxHeight: '70vh', display: show3d ? 'none' : undefined }}
       >
         {/* Win/entry-region overlay (full-height columns in 1-D) */}
         <g data-testid="winregion" opacity={0.28}>
@@ -275,8 +306,10 @@ const LeaderCanvas: React.FC<LeaderCanvasProps> = ({
           'Espace à 1 dimension : tout se joue sur un axe — le terrain du théorème de l’électeur médian.'}
         {dims === 2 &&
           'Glissez les candidats. Les zones colorées montrent qui gagnerait si un candidat était placé là — les frontières révèlent les régions vulnérables au vote stratégique.'}
-        {dims === 3 &&
-          'Espace à 3 dimensions : la carte montre le plan x–y (réglez z au curseur) ; le calcul du vainqueur est bien en 3-D, mais l’overlay n’est qu’une tranche z=0.'}
+        {dims === 3 && show3d &&
+          'Vue 3D orbitale : glissez pour pivoter, les électeurs sont colorés par candidat le plus proche (en 3-D). Basculez en « Plan x–y » pour éditer et voir l’overlay.'}
+        {dims === 3 && !show3d &&
+          'Plan x–y (réglez z au curseur) ; le calcul du vainqueur est bien en 3-D, mais l’overlay n’est qu’une tranche z=0.'}
       </p>
     </div>
   );
