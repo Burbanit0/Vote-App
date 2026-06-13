@@ -7003,6 +7003,107 @@ def _assembly_scorecard_worker(data: Dict[str, Any]) -> tuple[Dict[str, Any], in
     }, 200
 
 
+# ── Issue voting & bundling paradoxes (frontier FB-2) ─────────────────────────
+
+def _issue_voting_worker(data: Dict[str, Any]) -> tuple[Dict[str, Any], int]:
+    """Pure worker for /issue-voting (frontier FB-2).
+
+    The bundling problem: voters elect a PACKAGE (the closest party platform,
+    issue-agreement count), yet policy could also be decided ISSUE BY ISSUE
+    (referendum majorities). The two can diverge — Ostrogorski's paradox /
+    the discursive dilemma: a platform can win the election while the
+    majority disagrees with it on every single issue.
+
+    Modes (stated):
+      · spatial — K issues are hyperplanes through the shared 2D electorate
+        (deterministic from seed): a voter's stance on issue k is the side of
+        hyperplane k they sit on; a party's platform likewise.
+      · handcrafted — voter stances (V×K of ±1) and party platforms supplied
+        directly, to build exact paradoxes.
+    """
+    mode = str(data.get("mode", "spatial"))
+
+    if mode == "handcrafted":
+        stances_in = data.get("voter_stances") or []
+        platforms_in = data.get("party_platforms") or []
+        if not stances_in or not platforms_in:
+            return {"error": "handcrafted mode requires voter_stances and party_platforms"}, 400
+        k = len(stances_in[0])
+        if any(len(r) != k for r in stances_in) or any(len(p) != k for p in platforms_in):
+            return {"error": "all stance/platform rows must share the same issue count"}, 400
+        stances = _np.sign(_np.array(stances_in, dtype=float))
+        platforms = _np.sign(_np.array(platforms_in, dtype=float))
+        stances[stances == 0] = 1.0
+        platforms[platforms == 0] = 1.0
+        names = [str(n) for n in (data.get("party_names") or
+                                  [f"P{i + 1}" for i in range(len(platforms_in))])]
+        issue_labels = [f"Enjeu {j + 1}" for j in range(k)]
+    else:
+        parties_in = (data.get("parties") or [])[:8]
+        if len(parties_in) < 2:
+            return {"error": "At least 2 parties required"}, 400
+        num_voters = max(10, min(1000, int(data.get("num_voters", 400))))
+        ideology = str(data.get("ideology", "random"))
+        seed = int(data.get("seed", 42))
+        k = max(2, min(7, int(data.get("num_issues", 4))))
+        names = [str(p.get("name", f"P{i}")) for i, p in enumerate(parties_in)]
+        pts = _np.array([[float(p.get("x", 0.0)), float(p.get("y", 0.0))]
+                         for p in parties_in])
+        voters = _assembly_voters(num_voters, seed, ideology)
+        rng = _np.random.default_rng(seed + 7)
+        # Issue k = a hyperplane w·x + b through the plane (stated convention).
+        w = rng.normal(size=(k, 2))
+        w /= _np.linalg.norm(w, axis=1, keepdims=True)
+        b = rng.uniform(-0.25, 0.25, size=k)
+        stances = _np.sign(voters @ w.T + b)
+        platforms = _np.sign(pts @ w.T + b)
+        stances[stances == 0] = 1.0
+        platforms[platforms == 0] = 1.0
+        issue_labels = [f"Enjeu {j + 1}" for j in range(k)]
+
+    n_voters = stances.shape[0]
+    # Bundled vote: closest platform by issue agreement (ties → first party).
+    agreement = (stances[:, None, :] == platforms[None, :, :]).sum(axis=2)
+    choice = agreement.argmax(axis=1)
+    votes = _np.bincount(choice, minlength=len(names))
+    winner_idx = int(votes.argmax())
+
+    issues = []
+    divergent_count = 0
+    for j in range(stances.shape[1]):
+        yes_share = float((stances[:, j] > 0).mean())
+        majority = 1 if yes_share >= 0.5 else -1
+        winner_plank = int(platforms[winner_idx, j])
+        divergent = winner_plank != majority
+        if divergent:
+            divergent_count += 1
+        issues.append({
+            "label":          issue_labels[j],
+            "yes_share":      round(yes_share, 4),
+            "majority":       majority,
+            "winner_plank":   winner_plank,
+            "divergent":      divergent,
+        })
+
+    return {
+        "mode":            mode,
+        "parties": [
+            {"name": names[i],
+             "platform": [int(p) for p in platforms[i]],
+             "votes": int(votes[i]),
+             "vote_share": round(float(votes[i]) / n_voters, 4)}
+            for i in range(len(names))
+        ],
+        "bundled_winner":   names[winner_idx],
+        "issues":           issues,
+        "divergent_count":  divergent_count,
+        "num_issues":       stances.shape[1],
+        # Strong Ostrogorski: the elected platform loses the issue-by-issue
+        # majority on MORE THAN HALF of the issues.
+        "ostrogorski_paradox": divergent_count * 2 > stances.shape[1],
+    }, 200
+
+
 # ── Temporal mode (frontier FA-3): democracy as a repeated game ───────────────
 
 def _temporal_worker(data: Dict[str, Any]) -> tuple[Dict[str, Any], int]:

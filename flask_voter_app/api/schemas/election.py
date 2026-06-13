@@ -299,6 +299,63 @@ class TemporalResponse(BaseModel):
     polarization_final:   float
 
 
+# ── /issue-voting (frontier FB-2) ─────────────────────────────────────────────
+
+class IssueVotingRequest(BaseModel):
+    """POST /api/v2/election/issue-voting — issue-by-issue majorities vs the
+    bundled platform vote (Ostrogorski / discursive dilemma).
+
+    spatial: K issues are hyperplanes through the shared 2D electorate.
+    handcrafted: ±1 stance/platform matrices supplied directly (exact paradoxes).
+    """
+    model_config = ConfigDict(extra="forbid")
+
+    mode: Literal["spatial", "handcrafted"] = Field("spatial")
+    # spatial mode
+    parties: Optional[List[AssemblyPartySpec]] = Field(None, min_length=2, max_length=8)
+    num_voters: int = Field(400, ge=10, le=1000)
+    ideology:   str = Field("random")
+    seed:       int = Field(42, ge=0)
+    num_issues: int = Field(4, ge=2, le=7)
+    # handcrafted mode
+    voter_stances:   Optional[List[List[int]]] = Field(None, max_length=1000)
+    party_platforms: Optional[List[List[int]]] = Field(None, max_length=8)
+    party_names:     Optional[List[str]] = Field(None, max_length=8)
+
+
+class IssueOutcome(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    label:        str
+    yes_share:    float = Field(..., ge=0.0, le=1.0)
+    majority:     int   = Field(..., description="+1 yes / −1 no, issue-by-issue referendum.")
+    winner_plank: int   = Field(..., description="The elected platform's position on this issue.")
+    divergent:    bool
+
+
+class IssuePartyResult(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    name: str
+    platform: List[int]
+    votes: int
+    vote_share: float = Field(..., ge=0.0, le=1.0)
+
+
+class IssueVotingResponse(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    mode:            str
+    parties:         List[IssuePartyResult]
+    bundled_winner:  str
+    issues:          List[IssueOutcome]
+    divergent_count: int
+    num_issues:      int
+    ostrogorski_paradox: bool = Field(
+        ..., description="The elected platform loses the issue-wise majority on more than half the issues."
+    )
+
+
 # ── /simulate ───────────────────────────────────────────────────────────────
 
 class SimulateRequest(BaseModel):
