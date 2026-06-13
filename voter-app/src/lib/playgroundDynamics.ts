@@ -4,12 +4,14 @@
 // not smuggled assumptions.
 
 import {
+  applyTurnout,
   ruleWinner,
   sampleVoters,
   type Dims,
   type NamedPt,
   type Pt,
   type Rule,
+  type TurnoutModel,
 } from './playgroundVoting';
 
 /** Coordinate-wise median of a point cloud (the median voter), all 3 axes. */
@@ -70,14 +72,18 @@ export function shakeWinRates(
   baseSeed: number,
   ideology: string,
   n = 60,
-  dims: Dims = 2
+  dims: Dims = 2,
+  turnout: { model: TurnoutModel; intensity: number } = { model: 'full', intensity: 0 }
 ): ShakeResult {
   const wins: Record<string, number> = {};
   candidates.forEach((c) => {
     wins[c.name] = 0;
   });
   for (let i = 0; i < n; i++) {
-    const voters = sampleVoters(numVoters, baseSeed + 1009 + i * 17, ideology, dims);
+    const voters = applyTurnout(
+      sampleVoters(numVoters, baseSeed + 1009 + i * 17, ideology, dims),
+      candidates, turnout.model, turnout.intensity
+    ).voters;
     const w = ruleWinner(voters, candidates, rule);
     if (w >= 0) wins[candidates[w].name] += 1;
   }

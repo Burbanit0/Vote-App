@@ -51,11 +51,15 @@ def spatial_profile(
     dims: int,
     valence: bool,
     seed: int,
+    turnout_model: str = "full",
+    turnout_intensity: float = 0.0,
 ) -> Tuple[UtilityMatrix, np.ndarray, np.ndarray, List[str]]:
     """Voters & candidates as vectors in ℝ^dims; utility = -distance (+ valence).
 
-    Returns (matrix, voter_points, candidate_points, names). Points are real
-    coordinates used directly as the display embedding for the spatial source.
+    Differential turnout (turnout_model/intensity) removes abstainers before the
+    profile is built, so the effective electorate — and the winners — shift.
+    Returns (matrix, voter_points, candidate_points, names) over the voters who
+    actually vote.
     """
     rng = np.random.default_rng(seed)
     names = [str(c["name"]) for c in candidates]
@@ -64,13 +68,15 @@ def spatial_profile(
         [[float(c.get(ax, 0.0)) for ax in axes] for c in candidates], dtype=float
     )
     voter_pts = np.clip(rng.normal(0.0, 0.4, size=(num_voters, dims)), -1.0, 1.0)
+    mask = turnout_mask(voter_pts, cand_pts, turnout_model, turnout_intensity)
+    voter_pts = voter_pts[mask]
     valences = (
         np.array([float(c.get("valence", 0.0)) for c in candidates], dtype=float)
         if valence
         else np.zeros(len(names), dtype=float)
     )
     matrix: UtilityMatrix = {}
-    for i in range(num_voters):
+    for i in range(voter_pts.shape[0]):
         dist = np.linalg.norm(cand_pts - voter_pts[i], axis=1)
         util = -dist + valences
         matrix[i] = {names[j]: float(util[j]) for j in range(len(names))}
@@ -272,6 +278,38 @@ def ballot_metrics(
     }
 
 
+# ── Turnout / abstention (electorate-realism layer) ──────────────────────────
+
+
+def turnout_mask(
+    voter_pts: np.ndarray, cand_pts: np.ndarray, model: str, intensity: float
+) -> np.ndarray:
+    """Boolean mask of voters who actually vote, under Downsian abstention.
+
+    alienation  — abstain if the nearest candidate is beyond a shrinking radius
+                  ("none of these represent me").
+    indifference— abstain if the top-two candidates are within a growing margin
+                  ("no real stake").
+    `intensity` ∈ [0,1] dials how readily voters abstain. Never empties the
+    electorate (caller falls back to full turnout if <2 remain).
+    """
+    n = voter_pts.shape[0]
+    if model == "full" or intensity <= 0 or cand_pts.shape[0] == 0 or n == 0:
+        return np.ones(n, dtype=bool)
+    k = float(min(max(intensity, 0.0), 1.0))
+    d = np.linalg.norm(voter_pts[:, None, :] - cand_pts[None, :, :], axis=2)
+    d.sort(axis=1)
+    if model == "alienation":
+        radius = (1.0 - k) * 1.5 + 0.2
+        mask = d[:, 0] <= radius
+    elif model == "indifference":
+        margin = k * 0.4
+        mask = (d.shape[1] < 2) | (d[:, 1] - d[:, 0] > margin)
+    else:
+        return np.ones(n, dtype=bool)
+    return mask if int(mask.sum()) >= 2 else np.ones(n, dtype=bool)
+
+
 # ── Behaviour transform ──────────────────────────────────────────────────────
 
 
@@ -408,6 +446,8 @@ def build_profile(
     source_params: Dict[str, float],
     seed: int,
     handcrafted_matrix: Optional[List[List[float]]] = None,
+    turnout_model: str = "full",
+    turnout_intensity: float = 0.0,
 ) -> Dict[str, Any]:
     """Build a profile from the chosen source, apply the behaviour transform, and
     return the utility matrix plus a 2D display embedding and the candidate names.
@@ -418,8 +458,10 @@ def build_profile(
 
     if source == "spatial":
         matrix, voter_pts, cand_pts, names = spatial_profile(
-            candidates, num_voters, dims, valence, seed
+            candidates, num_voters, dims, valence, seed,
+            turnout_model, turnout_intensity,
         )
+        num_voters = voter_pts.shape[0]
         display = voter_pts[:, :2] if dims >= 2 else np.column_stack(
             [voter_pts[:, 0], np.zeros(num_voters)]
         )

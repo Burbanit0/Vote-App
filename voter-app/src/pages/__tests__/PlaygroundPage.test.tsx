@@ -276,11 +276,37 @@ describe('PlaygroundPage (P0 shell)', () => {
   it('parliament mode renders the democracy map with the three live structures', async () => {
     renderPage();
     fireEvent.click(screen.getByTestId('mode-toggle-parliament'));
+    // Advanced modules ship collapsed (progressive disclosure) — open it first.
+    await waitFor(() => expect(screen.getByTestId('module-democracy-toggle')).toBeInTheDocument());
+    fireEvent.click(screen.getByTestId('module-democracy-toggle'));
     await waitFor(() => expect(screen.getByTestId('democracy-map')).toBeInTheDocument(), {
       timeout: 5000,
     });
     expect(screen.getByTestId('dm-pr')).toBeInTheDocument();
     expect(screen.getByTestId('dm-fptp')).toBeInTheDocument();
+  });
+
+  // ── Réalisme électoral : participation / abstention ──────────────────────
+
+  it('the turnout control persists and the live rate drops under abstention', () => {
+    renderPage();
+    fireEvent.change(screen.getByTestId('turnout-select'), { target: { value: 'alienation' } });
+    expect(useElectionStore.getState().playground.turnout.model).toBe('alienation');
+    expect(JSON.parse(localStorage.getItem(LS_PG) as string).turnout.model).toBe('alienation');
+    fireEvent.change(screen.getByTestId('turnout-intensity'), { target: { value: '0.9' } });
+    // The live participation read-out appears and reports below 100%.
+    const rate = screen.getByTestId('turnout-rate').textContent ?? '';
+    const pct = Number((rate.match(/(\d+)\s?%/) ?? [])[1]);
+    expect(pct).toBeLessThan(100);
+  });
+
+  it('the advanced modules are collapsed by default and open on demand', () => {
+    renderPage();
+    fireEvent.click(screen.getByTestId('mode-toggle-parliament'));
+    expect(screen.getByTestId('module-structural')).toBeInTheDocument();
+    expect(screen.queryByTestId('structural-panel')).not.toBeInTheDocument();
+    fireEvent.click(screen.getByTestId('module-structural-toggle'));
+    expect(screen.getByTestId('structural-panel')).toBeInTheDocument();
   });
 
   it('the identity dial moves the spotlight along the frontier', async () => {

@@ -56,11 +56,20 @@ class BallotConfig(BaseModel):
     score_levels: int = Field(6, ge=2, le=10, description="Levels for score ballots.")
 
 
+class TurnoutConfig(BaseModel):
+    """Electorate realism: differential turnout (Downsian abstention)."""
+    model_config = ConfigDict(extra="forbid")
+
+    model: Literal["full", "alienation", "indifference"] = Field("full")
+    intensity: float = Field(0.0, ge=0.0, le=1.0)
+
+
 class ProfileSimulateRequest(BaseModel):
     """POST /api/v2/election/profile-simulate — the profile-as-interface core.
 
     Every assumption is an explicit knob: the preference source and its params, the
-    dimensionality, valence, the voter behaviour, and the ballot. Nothing is smuggled in.
+    dimensionality, valence, the voter behaviour, the ballot, and turnout. Nothing
+    is smuggled in.
     """
     model_config = ConfigDict(extra="forbid")
 
@@ -78,6 +87,7 @@ class ProfileSimulateRequest(BaseModel):
         None, description="Rows = voters, cols = candidates (aligned), for source=handcrafted."
     )
     ballot: BallotConfig = Field(default_factory=BallotConfig)
+    turnout: TurnoutConfig = Field(default_factory=TurnoutConfig)
     seed: int = Field(42, ge=0)
 
 
@@ -95,6 +105,8 @@ class ProfileSimulateResponse(BaseModel):
     display_points:         List[List[float]]       = Field(..., description="Per-voter 2D embedding for the map.")
     candidate_points:       Optional[List[List[float]]] = Field(None, description="Candidate 2D points (spatial source only).")
     num_voters:             int                     = Field(..., ge=1)
+    turnout_rate:           float                   = Field(1.0, ge=0.0, le=1.0,
+                                                            description="Share of the electorate that voted (1 = full turnout).")
     ballot_type:            str                     = Field("full")
     ballot_expressiveness:  float                   = Field(..., ge=0.0, le=1.0,
                                                             description="Bits the ballot can carry (normalised convention).")
@@ -141,6 +153,7 @@ class AssemblyRequest(BaseModel):
                     "(FPTP: outside the district top-2; PR/MMP: below the threshold) "
                     "for their nearest viable party.",
     )
+    turnout: TurnoutConfig = Field(default_factory=TurnoutConfig)
 
 
 class AssemblyPartyResult(BaseModel):
@@ -227,6 +240,7 @@ class AssemblyScorecardRequest(BaseModel):
     threshold: float = Field(0.05, ge=0.0, le=0.15)
     apportionment: Literal["dhondt", "sainte_lague"] = Field("dhondt")
     strategic_desertion: bool = Field(False)
+    turnout: TurnoutConfig = Field(default_factory=TurnoutConfig)
     replications: int = Field(24, ge=8, le=40)
 
 

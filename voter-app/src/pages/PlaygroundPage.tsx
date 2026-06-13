@@ -10,7 +10,7 @@ import { runProfileSimulate, type ProfileSimulateResult } from '../services/prof
 import LeaderCanvas from '../components/playground/LeaderCanvas';
 import ParliamentCanvas from '../components/playground/ParliamentCanvas';
 import FlipReveal from '../components/playground/FlipReveal';
-import { sampleVoters, RULE_LABELS, type Rule } from '../lib/playgroundVoting';
+import { sampleVoters, applyTurnout, RULE_LABELS, type Rule } from '../lib/playgroundVoting';
 import {
   driftCandidates,
   medianPoint,
@@ -40,6 +40,7 @@ import DemocracyMap from '../components/playground/DemocracyMap';
 import TemporalPanel from '../components/playground/TemporalPanel';
 import IssuesPanel from '../components/playground/IssuesPanel';
 import StructuralPanel from '../components/playground/StructuralPanel';
+import Collapsible from '../components/playground/Collapsible';
 
 // Lab reshape — Phase P0: the two-mode playground shell. Two questions over ONE
 // shared electorate: "Élire un dirigeant" (single office) vs "Composer un parlement"
@@ -254,7 +255,7 @@ const PlaygroundPage: React.FC = () => {
   const { config, setConfig } = useElection();
   const { playground, setMode, setPlayground, setPlaygroundDeep, applyPreset, presets } =
     usePlayground();
-  const { mode, space, behavior, prefSource, assembly } = playground;
+  const { mode, space, behavior, prefSource, assembly, turnout } = playground;
   const pointWord = mode === 'leader' ? 'candidats' : 'partis';
   const { result, loading } = useProfileDiagnostics(config, playground);
   const { assembly: assemblyResult, loading: assemblyLoading } = useAssembly(
@@ -302,6 +303,12 @@ const PlaygroundPage: React.FC = () => {
       })),
     [displayedCandidates, dims]
   );
+  // Differential turnout: the abstainers leave, reshaping the live electorate.
+  const turnoutResult = React.useMemo(
+    () => applyTurnout(voters, leaderCandidates, turnout.model, turnout.intensity),
+    [voters, leaderCandidates, turnout.model, turnout.intensity]
+  );
+  const votingVoters = turnoutResult.voters;
   React.useEffect(() => {
     if (!playing) return;
     const id = setInterval(() => {
@@ -329,6 +336,7 @@ const PlaygroundPage: React.FC = () => {
     seed: config.seed,
     ideology: config.ideology,
     dims,
+    turnout,
   });
   React.useEffect(() => {
     if (!shakeOn) {
@@ -344,7 +352,8 @@ const PlaygroundPage: React.FC = () => {
           config.seed,
           config.ideology,
           60,
-          dims
+          dims,
+          turnout
         )
       );
     }, 200);
@@ -361,6 +370,7 @@ const PlaygroundPage: React.FC = () => {
     seed: config.seed,
     ideology: config.ideology,
     dims,
+    turnout,
   });
   React.useEffect(() => {
     if (mode !== 'leader') return;
@@ -372,7 +382,8 @@ const PlaygroundPage: React.FC = () => {
           config.seed,
           config.ideology,
           20,
-          dims
+          dims,
+          turnout
         )
       );
     }, 250);
@@ -440,11 +451,11 @@ const PlaygroundPage: React.FC = () => {
   const manipDetail = React.useMemo(() => {
     if (mode !== 'leader') return null;
     return {
-      probe: manipulationProbe(voters, leaderCandidates, leaderRule),
-      easy: manipulationProbe(voters, leaderCandidates, 'plurality'),
-      hard: manipulationProbe(voters, leaderCandidates, 'irv'),
+      probe: manipulationProbe(votingVoters, leaderCandidates, leaderRule),
+      easy: manipulationProbe(votingVoters, leaderCandidates, 'plurality'),
+      hard: manipulationProbe(votingVoters, leaderCandidates, 'irv'),
     };
-  }, [mode, voters, leaderCandidates, leaderRule]);
+  }, [mode, votingVoters, leaderCandidates, leaderRule]);
 
   const axisMeta = mode === 'leader' ? LEADER_AXIS_META : PARLIAMENT_AXIS_META;
   const currentAxes: ScorecardAxis[] = axisMeta.map(({ key, label, hint, drillTab }) => ({
@@ -605,6 +616,53 @@ const PlaygroundPage: React.FC = () => {
               />
               Valence (qualité hors-idéologie)
             </label>
+
+            {/* ── Participation / abstention (réalisme électoral) ── */}
+            <div className="flex flex-col gap-2 rounded-md border border-border p-3">
+              <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                Participation (abstention)
+              </p>
+              <Field label="Modèle d’abstention" htmlFor="pg-turnout">
+                <select
+                  id="pg-turnout"
+                  data-testid="turnout-select"
+                  className={selectCls}
+                  value={turnout.model}
+                  onChange={(e) => setPlaygroundDeep('turnout.model', e.target.value)}
+                >
+                  <option value="full">Participation totale</option>
+                  <option value="alienation">Aliénation (trop loin de tous)</option>
+                  <option value="indifference">Indifférence (départage trop serré)</option>
+                </select>
+              </Field>
+              {turnout.model !== 'full' && (
+                <>
+                  <Field label={`Intensité : ${Math.round(turnout.intensity * 100)} %`} htmlFor="pg-turnout-int">
+                    <input
+                      id="pg-turnout-int"
+                      data-testid="turnout-intensity"
+                      type="range"
+                      min={0}
+                      max={1}
+                      step={0.05}
+                      value={turnout.intensity}
+                      onChange={(e) => setPlaygroundDeep('turnout.intensity', Number(e.target.value))}
+                    />
+                  </Field>
+                  {mode === 'leader' && (
+                    <p data-testid="turnout-rate" className="text-[0.7rem] text-muted-foreground">
+                      Taux de participation :{' '}
+                      <strong>{Math.round((votingVoters.length / Math.max(1, voters.length)) * 100)} %</strong>{' '}
+                      ({voters.length - votingVoters.length} abstentions)
+                    </p>
+                  )}
+                </>
+              )}
+              <p className="text-[0.65rem] text-muted-foreground/70">
+                Abstention de Downs : aliénation (même le meilleur choix est trop loin) ou
+                indifférence (pas d’écart net entre les deux premiers).
+              </p>
+            </div>
 
             {/* ── Bulletin (frontier FA-1) ── */}
             <div className="flex flex-col gap-2 rounded-md border border-border p-3">
@@ -822,7 +880,7 @@ const PlaygroundPage: React.FC = () => {
                 <div className="flex flex-col gap-3">
                   <LeaderCanvas
                     candidates={leaderCandidates}
-                    voters={voters}
+                    voters={votingVoters}
                     rule={leaderRule}
                     dims={dims}
                     onRuleChange={setLeaderRule}
@@ -928,15 +986,30 @@ const PlaygroundPage: React.FC = () => {
                     loading={assemblyLoading}
                     onMoveParty={moveCandidate}
                   />
-                  {democracyEntries.length > 0 && (
-                    <DemocracyMap entries={democracyEntries} current={assembly.structure} />
-                  )}
-                  <TemporalPanel config={config} playground={playground} />
-                  <IssuesPanel config={config} />
-                  <StructuralPanel
-                    config={config}
-                    partyNames={config.candidates.map((c) => c.name)}
-                  />
+                  {/* Advanced modules — progressive disclosure keeps the core clean. */}
+                  <Collapsible
+                    title="🗺 Carte des démocraties (Lijphart)"
+                    subtitle="majoritaire ↔ consensus"
+                    testid="module-democracy"
+                  >
+                    {democracyEntries.length > 0 ? (
+                      <DemocracyMap entries={democracyEntries} current={assembly.structure} />
+                    ) : (
+                      <p className="text-xs text-muted-foreground">Calcul en cours…</p>
+                    )}
+                  </Collapsible>
+                  <Collapsible title="⏳ Démocratie répétée (long terme)" testid="module-temporal">
+                    <TemporalPanel config={config} playground={playground} />
+                  </Collapsible>
+                  <Collapsible title="🗳 Enjeux & groupage (Ostrogorski)" testid="module-issues">
+                    <IssuesPanel config={config} />
+                  </Collapsible>
+                  <Collapsible title="⚖ Équités structurelles" testid="module-structural">
+                    <StructuralPanel
+                      config={config}
+                      partyNames={config.candidates.map((c) => c.name)}
+                    />
+                  </Collapsible>
                 </div>
               )}
             </FlipReveal>

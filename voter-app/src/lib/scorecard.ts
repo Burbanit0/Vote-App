@@ -22,6 +22,7 @@
 // SPOTLIGHT a point on the remaining frontier. Never a leaderboard.
 
 import {
+  applyTurnout,
   computeRanks,
   computeScores,
   ruleWinnerFromRanks,
@@ -30,7 +31,14 @@ import {
   type NamedPt,
   type Pt,
   type Rule,
+  type TurnoutModel,
 } from './playgroundVoting';
+
+export interface TurnoutConfig {
+  model: TurnoutModel;
+  intensity: number;
+}
+const NO_TURNOUT: TurnoutConfig = { model: 'full', intensity: 0 };
 
 export interface Band {
   mean: number;
@@ -154,14 +162,18 @@ export function leaderScorecard(
   baseSeed: number,
   ideology: string,
   replications = 24,
-  dims: Dims = 2
+  dims: Dims = 2,
+  turnout: TurnoutConfig = NO_TURNOUT
 ): LeaderScorecard {
   const m = candidates.length;
   const perRule: Record<string, { ce: number[]; sr: number[]; wf: number[]; ms: number[]; winners: number[] }> = {};
   for (const r of LEADER_RULES) perRule[r] = { ce: [], sr: [], wf: [], ms: [], winners: [] };
 
   for (let k = 0; k < replications; k++) {
-    const voters = sampleVoters(numVoters, baseSeed + 211 + k * 13, ideology, dims);
+    const voters = applyTurnout(
+      sampleVoters(numVoters, baseSeed + 211 + k * 13, ideology, dims),
+      candidates, turnout.model, turnout.intensity
+    ).voters;
     const ranks = computeRanks(voters, candidates);
     const scores = computeScores(voters, candidates);
     const cw = condorcetFromRanks(ranks, m);

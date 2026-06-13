@@ -25,6 +25,7 @@ from api.engine.utils.simulation_voting_utils import calculate_utility, create_c
 from api.engine.utils.simulation_metrics      import compare_all_methods
 from api.engine.utils.profile_engine          import (
     build_profile, cycle_rate, project_ballot, ballot_metrics, compatible_methods,
+    turnout_mask,
 )
 from api.engine.utils.simulation_ranked_utils import (
     get_plurality_winner,
@@ -6525,6 +6526,9 @@ def _profile_simulate_worker(data: Dict[str, Any]) -> tuple[Dict[str, Any], int]
     }
     cand_specs   = (data.get("candidates") or _PROFILE_DEFAULT_CANDS)[:8]
     handcrafted  = data.get("handcrafted_matrix")
+    turnout_cfg  = data.get("turnout") or {}
+    turnout_model = str(turnout_cfg.get("model", "full"))
+    turnout_int   = float(turnout_cfg.get("intensity", 0.0))
 
     names_in = [str(c.get("name", f"C{i}")) for i, c in enumerate(cand_specs)]
     if len(names_in) < 2:
@@ -6539,6 +6543,7 @@ def _profile_simulate_worker(data: Dict[str, Any]) -> tuple[Dict[str, Any], int]
         built = build_profile(
             source, cand_specs, num_voters, dims, valence, behavior,
             source_params, seed, handcrafted_matrix=handcrafted,
+            turnout_model=turnout_model, turnout_intensity=turnout_int,
         )
     except ValueError as exc:
         return {"error": str(exc)}, 400
@@ -6600,6 +6605,7 @@ def _profile_simulate_worker(data: Dict[str, Any]) -> tuple[Dict[str, Any], int]
         "display_points":         built["display_points"],
         "candidate_points":       built["candidate_points"],
         "num_voters":             len(matrix),
+        "turnout_rate":           round(len(matrix) / max(1, num_voters), 4),
         "ballot_type":            ballot_type,
         "ballot_expressiveness":  metrics["expressiveness"],
         "ballot_cognitive_load":  metrics["cognitive_load"],
@@ -6800,6 +6806,11 @@ def _assembly_worker(data: Dict[str, Any]) -> tuple[Dict[str, Any], int]:
     pts = _np.array([[positions[n][0], positions[n][1]] for n in names])
 
     voters = _assembly_voters(num_voters, seed, ideology)
+    # Differential turnout (electorate realism): abstainers leave first.
+    _tcfg = data.get("turnout") or {}
+    voters = voters[turnout_mask(voters, pts, str(_tcfg.get("model", "full")),
+                                 float(_tcfg.get("intensity", 0.0)))]
+    num_voters = voters.shape[0]
     # Sincere party vote: nearest party in the plane.
     d2 = ((voters[:, None, :] - pts[None, :, :]) ** 2).sum(axis=2)
     sincere = d2.argmin(axis=1)
@@ -6943,8 +6954,12 @@ def _assembly_scorecard_worker(data: Dict[str, Any]) -> tuple[Dict[str, Any], in
         s: {a: [] for a in _SCORECARD_AXES} for s in _SCORECARD_STRUCTURES
     }
 
+    _tcfg = data.get("turnout") or {}
+    _tmodel, _tint = str(_tcfg.get("model", "full")), float(_tcfg.get("intensity", 0.0))
     for k in range(replications):
         voters = _assembly_voters(num_voters, seed + 101 * k, ideology)
+        voters = voters[turnout_mask(voters, pts, _tmodel, _tint)]
+        nv = max(1, voters.shape[0])  # effective electorate after abstention
         d2 = ((voters[:, None, :] - pts[None, :, :]) ** 2).sum(axis=2)
         sincere = d2.argmin(axis=1)
 
@@ -6963,8 +6978,8 @@ def _assembly_scorecard_worker(data: Dict[str, Any]) -> tuple[Dict[str, Any], in
 
             proportionality = max(0.0, 1.0 - g / 0.2)
             pluralism = min(1.0, ens / env) if env > 0 else 1.0
-            effective_votes = 1.0 - a["wasted"] / num_voters
-            visible = [n for n in names if votes[n] / num_voters >= 0.03]
+            effective_votes = 1.0 - a["wasted"] / nv
+            visible = [n for n in names if votes[n] / nv >= 0.03]
             minority = (sum(1 for n in visible if seats[n] > 0) / len(visible)) if visible else 1.0
             majority = size // 2 + 1
             coalitions = _minimal_winning_coalitions(seats, positions, majority)

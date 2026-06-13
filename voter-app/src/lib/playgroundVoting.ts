@@ -438,6 +438,48 @@ export function winRegionGrid(
   return { n, rows, cells };
 }
 
+// ── Turnout / abstention (electorate-realism layer) ──────────────────────────
+//
+// Downsian abstention: a voter stays home either from ALIENATION (even their
+// best option is too far — "none of these represent me") or INDIFFERENCE (their
+// top two are nearly equidistant — "no real stake"). Both are stated models;
+// `intensity` ∈ [0,1] dials how readily voters abstain. Differential turnout
+// reshapes the effective electorate and can flip the winner — the point.
+
+export type TurnoutModel = 'full' | 'alienation' | 'indifference';
+
+export interface TurnoutResult {
+  voters: Pt[];
+  /** Share of the electorate that actually votes, in [0,1]. */
+  rate: number;
+}
+
+export function applyTurnout(
+  voters: Pt[],
+  cands: NamedPt[],
+  model: TurnoutModel,
+  intensity: number
+): TurnoutResult {
+  if (model === 'full' || intensity <= 0 || cands.length === 0 || !voters.length) {
+    return { voters, rate: 1 };
+  }
+  const k = Math.max(0, Math.min(1, intensity));
+  const votes = voters.filter((v) => {
+    const ds = cands.map((c) => dist(v, c)).sort((a, b) => a - b);
+    if (model === 'alienation') {
+      // Abstain if the nearest candidate is beyond a shrinking radius.
+      const radius = (1 - k) * 1.5 + 0.2;
+      return ds[0] <= radius;
+    }
+    // indifference: abstain if the top-two are within a growing margin.
+    const margin = k * 0.4;
+    return ds.length < 2 || ds[1] - ds[0] > margin;
+  });
+  // The model can thin the electorate but never empty it (keep the demo sane).
+  if (votes.length < 2) return { voters, rate: 1 };
+  return { voters: votes, rate: votes.length / voters.length };
+}
+
 // ── Seeded spatial electorate (deterministic from seed/ideology) ──────────────
 
 function mulberry32(seed: number): () => number {

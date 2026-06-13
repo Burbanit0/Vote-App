@@ -64,6 +64,7 @@ export function toAssemblyPayload(config: ElectionConfig, pg: PlaygroundState) {
     threshold: pg.assembly.threshold,
     apportionment: pg.assembly.apportionment,
     strategic_desertion: pg.assembly.strategic_desertion,
+    turnout: { model: pg.turnout.model, intensity: pg.turnout.intensity },
   };
 }
 
@@ -99,6 +100,7 @@ export function toScorecardPayload(config: ElectionConfig, pg: PlaygroundState) 
     threshold: pg.assembly.threshold,
     apportionment: pg.assembly.apportionment,
     strategic_desertion: pg.assembly.strategic_desertion,
+    turnout: { model: pg.turnout.model, intensity: pg.turnout.intensity },
     replications: 24,
   };
 }
@@ -162,6 +164,7 @@ export async function runTemporal(
     threshold: pg.assembly.threshold,
     apportionment: pg.assembly.apportionment,
     strategic_desertion: pg.assembly.strategic_desertion,
+    turnout: { model: pg.turnout.model, intensity: pg.turnout.intensity },
     rounds,
   });
 }

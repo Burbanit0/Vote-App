@@ -271,6 +271,8 @@ export interface PlaygroundState {
   prefParams: Record<string, number>;
   /** FA-1: how voters may EXPRESS preferences — separate from the counting rule. */
   ballot: { type: BallotType; truncate_at: number; score_levels: number };
+  /** Electorate realism: differential turnout (Downsian abstention). */
+  turnout: { model: 'full' | 'alienation' | 'indifference'; intensity: number };
   assembly: {
     structure: AssemblyStructure;
     seats: number;
@@ -289,6 +291,7 @@ export const DEFAULT_PLAYGROUND: PlaygroundState = {
   prefSource: 'spatial',
   prefParams: {},
   ballot: { type: 'full', truncate_at: 3, score_levels: 6 },
+  turnout: { model: 'full', intensity: 0.5 },
   assembly: {
     structure: 'pr',
     seats: 100,
@@ -438,6 +441,7 @@ function loadPlayground(): PlaygroundState {
       ...parsed,
       space: { ...DEFAULT_PLAYGROUND.space, ...(parsed.space ?? {}) },
       ballot: { ...DEFAULT_PLAYGROUND.ballot, ...(parsed.ballot ?? {}) },
+      turnout: { ...DEFAULT_PLAYGROUND.turnout, ...(parsed.turnout ?? {}) },
       assembly: { ...DEFAULT_PLAYGROUND.assembly, ...(parsed.assembly ?? {}) },
     };
   } catch {

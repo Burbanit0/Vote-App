@@ -234,6 +234,32 @@ def test_endpoint_truncation_flips_a_winner(client: TestClient):
     assert set(trunc["sample_ballot"]) == {"A", "B", "C"}
 
 
+def test_turnout_thins_the_electorate_and_can_flip(client: TestClient):
+    """Alienation abstention removes voters far from every candidate, lowering
+    the turnout rate (an extreme + a centrist; high intensity strands the
+    extreme's distant base)."""
+    cands = [{"name": "A", "x": -0.95, "y": 0.9}, {"name": "M", "x": 0.1, "y": 0.0}]
+    base = {"source": "spatial", "candidates": cands, "num_voters": 400, "seed": 7}
+    full = client.post("/api/v2/election/profile-simulate", json=base).json()
+    abst = client.post("/api/v2/election/profile-simulate",
+                       json={**base, "turnout": {"model": "alienation", "intensity": 0.9}}).json()
+    assert full["turnout_rate"] == 1.0
+    assert abst["turnout_rate"] < 1.0
+    assert abst["num_voters"] < full["num_voters"]
+
+
+def test_assembly_turnout_changes_wasted_share(client: TestClient):
+    """Differential turnout reshapes the parliament electorate too."""
+    from api.tests.test_election_assembly import SIX_PARTIES  # reuse fixture
+    base = {"parties": SIX_PARTIES, "num_voters": 600, "seed": 42, "structure": "pr"}
+    full = client.post("/api/v2/election/assembly", json=base).json()
+    abst = client.post("/api/v2/election/assembly",
+                       json={**base, "turnout": {"model": "indifference", "intensity": 0.8}}).json()
+    # The two runs differ somewhere (seats or proportionality) once abstention bites.
+    assert (full["gallagher_index"], [p["seats"] for p in full["parties"]]) != \
+           (abst["gallagher_index"], [p["seats"] for p in abst["parties"]])
+
+
 def test_endpoint_full_ballot_reports_no_flips(client: TestClient):
     res = client.post("/api/v2/election/profile-simulate", json={
         "source": "spatial",

@@ -14,6 +14,8 @@ export interface ProfileSimulateResult {
   display_points: number[][];
   candidate_points: number[][] | null;
   num_voters: number;
+  /** Share of the electorate that voted (1 = full turnout). */
+  turnout_rate: number;
   // FA-1 — the ballot layer
   ballot_type: string;
   ballot_expressiveness: number;
@@ -41,6 +43,7 @@ export function toProfilePayload(config: ElectionConfig, pg: PlaygroundState) {
       truncate_at: pg.ballot.type === 'rank_truncated' ? pg.ballot.truncate_at : null,
       score_levels: pg.ballot.score_levels,
     },
+    turnout: { model: pg.turnout.model, intensity: pg.turnout.intensity },
     seed: config.seed,
   };
 }

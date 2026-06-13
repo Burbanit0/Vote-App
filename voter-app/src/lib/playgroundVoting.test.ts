@@ -5,6 +5,7 @@ import {
   fieldWinnerName,
   winRegionGrid,
   sampleVoters,
+  applyTurnout,
   RULE_LABELS,
   type NamedPt,
   type Pt,
@@ -182,6 +183,62 @@ describe('dimensionality (1/2/3-D)', () => {
     const g2 = winRegionGrid(sampleVoters(80, 1, 'random', 2), cands, 'plurality', 8, 2);
     expect(g2.rows).toBe(8);
     expect(g2.cells).toHaveLength(64);
+  });
+});
+
+describe('applyTurnout (electorate realism)', () => {
+  const cands: NamedPt[] = [
+    { name: 'L', x: -0.6, y: 0 },
+    { name: 'R', x: 0.6, y: 0 },
+  ];
+
+  it('full turnout keeps everyone (rate 1)', () => {
+    const voters = sampleVoters(100, 3, 'random');
+    const out = applyTurnout(voters, cands, 'full', 0.8);
+    expect(out.rate).toBe(1);
+    expect(out.voters).toBe(voters);
+  });
+
+  it('alienation drops voters far from every candidate, more as intensity rises', () => {
+    // A cloud spread across the plane; candidates only on the left/right of x.
+    const voters = sampleVoters(400, 5, 'random');
+    const mild = applyTurnout(voters, cands, 'alienation', 0.3).rate;
+    const harsh = applyTurnout(voters, cands, 'alienation', 0.9).rate;
+    expect(harsh).toBeLessThan(mild);
+    expect(harsh).toBeLessThan(1);
+  });
+
+  it('indifference drops voters torn between their top two', () => {
+    // Voters near the x=0 midline are equidistant from L and R → abstain.
+    const voters: Pt[] = Array.from({ length: 200 }, (_, i) => ({ x: (i - 100) / 100, y: 0 }));
+    const out = applyTurnout(voters, cands, 'indifference', 0.8);
+    expect(out.rate).toBeLessThan(1);
+    // The survivors lean clearly toward one side (|x| not tiny).
+    expect(out.voters.every((v) => Math.abs(v.x) > 0.05)).toBe(true);
+  });
+
+  it('never empties the electorate (falls back to full)', () => {
+    const voters = sampleVoters(50, 1, 'random');
+    const out = applyTurnout(voters, cands, 'alienation', 1);
+    expect(out.voters.length).toBeGreaterThanOrEqual(2);
+  });
+
+  it('differential turnout can flip the winner', () => {
+    // A leads on raw plurality, but its voters are alienated extremists who
+    // abstain at high intensity, handing it to the centrist M.
+    const c: NamedPt[] = [
+      { name: 'A', x: -0.95, y: 0 },
+      { name: 'M', x: 0.1, y: 0 },
+    ];
+    const voters: Pt[] = [
+      ...Array.from({ length: 45 }, () => ({ x: -0.99, y: 0.9 })), // far from both (alienated)
+      ...Array.from({ length: 40 }, () => ({ x: 0.12, y: 0 })), // close to M
+    ];
+    const full = fieldWinnerName(voters, c, 'plurality');
+    const filtered = applyTurnout(voters, c, 'alienation', 0.95).voters;
+    const withAbstention = fieldWinnerName(filtered, c, 'plurality');
+    expect(full).toBe('A');
+    expect(withAbstention).toBe('M');
   });
 });
 
