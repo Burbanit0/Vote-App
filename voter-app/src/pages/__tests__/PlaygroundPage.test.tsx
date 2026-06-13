@@ -402,6 +402,24 @@ describe('PlaygroundPage (P0 shell)', () => {
     expect(useElectionStore.getState().playground.electorate.communities).toHaveLength(n + 1);
   });
 
+  it('the sample controls (voter count, seed, ideology) update the shared config', () => {
+    renderPage();
+    fireEvent.click(screen.getByTestId('module-electorate-toggle'));
+    // Voter count + seed apply in both modes (simple by default).
+    fireEvent.change(screen.getByTestId('electorate-num-voters'), { target: { value: '750' } });
+    expect(useElectionStore.getState().config.num_voters).toBe(750);
+    fireEvent.change(screen.getByTestId('electorate-seed'), { target: { value: '1234' } });
+    expect(useElectionStore.getState().config.seed).toBe(1234);
+    // Re-roll changes the seed to something else (new electorate draw).
+    fireEvent.click(screen.getByTestId('electorate-seed-reroll'));
+    expect(useElectionStore.getState().config.seed).not.toBe(1234);
+    // Ideology is a simple-mode-only knob (composed overrides it).
+    fireEvent.change(screen.getByTestId('electorate-ideology'), { target: { value: 'polarized' } });
+    expect(useElectionStore.getState().config.ideology).toBe('polarized');
+    fireEvent.click(screen.getByTestId('electorate-mode-composed'));
+    expect(screen.queryByTestId('electorate-ideology')).not.toBeInTheDocument();
+  });
+
   it('the measurement-noise slider persists to the electorate', () => {
     renderPage();
     fireEvent.click(screen.getByTestId('module-electorate-toggle'));

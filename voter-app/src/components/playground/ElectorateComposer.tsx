@@ -1,6 +1,6 @@
 import React from 'react';
 import { cn } from '@/lib/utils';
-import { usePlayground } from '../../stores/useElectionStore';
+import { usePlayground, useElection } from '../../stores/useElectionStore';
 import { ELECTORATE_PRESETS } from '../../stores/useElectionStore';
 import { COMMUNITY_PALETTE, type Community } from '../../lib/playgroundElectorate';
 
@@ -52,9 +52,16 @@ const ElectorateComposer: React.FC = () => {
     removeCommunity,
     applyElectoratePreset,
   } = usePlayground();
+  const { config, setConfig } = useElection();
   const e = playground.electorate;
   const composed = e.mode === 'composed';
   const dims = playground.space.dims;
+
+  const IDEOLOGIES: { value: string; label: string }[] = [
+    { value: 'random', label: 'Aléatoire (large)' },
+    { value: 'centrist', label: 'Centriste (resserré)' },
+    { value: 'polarized', label: 'Polarisé (deux camps)' },
+  ];
 
   const [imp, setImp] = React.useState('');
   const [impErr, setImpErr] = React.useState(false);
@@ -96,6 +103,72 @@ const ElectorateComposer: React.FC = () => {
 
   return (
     <div data-testid="electorate-composer" className="flex flex-col gap-3">
+      {/* Sample size, seed, ideology — apply to BOTH modes (shared with the Lab). */}
+      <div className="flex flex-col gap-2 rounded-md border border-border p-3">
+        <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+          Échantillon
+        </p>
+        <label className="flex items-center gap-2 text-xs">
+          <span className="w-44 shrink-0 text-muted-foreground">
+            Nombre d’électeurs : {config.num_voters}
+          </span>
+          <input
+            data-testid="electorate-num-voters"
+            type="range"
+            className="flex-1"
+            min={10}
+            max={1000}
+            step={10}
+            value={config.num_voters}
+            onChange={(ev) => setConfig({ num_voters: num(ev.target.value) })}
+          />
+        </label>
+        <div className="flex flex-wrap items-center gap-2 text-xs">
+          <span className="w-44 shrink-0 text-muted-foreground">Graine : {config.seed}</span>
+          <input
+            data-testid="electorate-seed"
+            type="number"
+            className="w-24 rounded border border-input bg-background px-1.5 py-0.5"
+            min={0}
+            value={config.seed}
+            onChange={(ev) =>
+              setConfig({ seed: Math.max(0, Math.floor(num(ev.target.value) || 0)) })
+            }
+          />
+          <button
+            type="button"
+            data-testid="electorate-seed-reroll"
+            onClick={() => setConfig({ seed: Math.floor(Math.random() * 100000) })}
+            className="rounded border border-border px-2 py-0.5 hover:bg-accent"
+            title="Tire un nouvel électorat (mêmes réglages, autre échantillon)."
+          >
+            🎲 Re-tirer
+          </button>
+        </div>
+        {!composed && (
+          <label className="flex items-center gap-2 text-xs">
+            <span
+              className="w-44 shrink-0 text-muted-foreground"
+              title="Forme du nuage gaussien en mode simple (le mode composé la remplace par les communautés)."
+            >
+              Idéologie (mode simple)
+            </span>
+            <select
+              data-testid="electorate-ideology"
+              className="flex-1 rounded border border-input bg-background px-2 py-1"
+              value={config.ideology}
+              onChange={(ev) => setConfig({ ideology: ev.target.value })}
+            >
+              {IDEOLOGIES.map((o) => (
+                <option key={o.value} value={o.value}>
+                  {o.label}
+                </option>
+              ))}
+            </select>
+          </label>
+        )}
+      </div>
+
       {/* Mode */}
       <div className="flex flex-wrap items-center gap-2">
         <div className="grid grid-cols-2 overflow-hidden rounded-md border border-border text-xs">
