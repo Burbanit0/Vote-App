@@ -63,6 +63,7 @@ def compare_all_methods(
     blank_vote: bool = False,
     blank_candidate_name: str = "Blank",
     override_utilities: Optional[Dict[Any, Dict[str, float]]] = None,
+    compute_strategic: bool = True,
 ) -> Dict[str, Any]:
     """
     Run every available voting method on the same population and return a
@@ -261,7 +262,12 @@ def compare_all_methods(
             "bayesian_regret": _bayesian_regret(winner_name),
             "condorcet_consistent": _condorcet_consistent(winner_name),
             "majority_satisfaction": _majority_satisfaction(winner_name),
-            "strategic_vulnerability": _strategic_vulnerability_ranked(method_fn, winner_name),
+            # strategic_vulnerability re-runs the method while perturbing every
+            # sampled voter's ballot — the dominant cost. Callers that only need
+            # winners (e.g. the playground) pass compute_strategic=False.
+            "strategic_vulnerability":
+                _strategic_vulnerability_ranked(method_fn, winner_name)
+                if compute_strategic else None,
         }
 
     def _build_metrics_score(
@@ -272,7 +278,9 @@ def compare_all_methods(
             "bayesian_regret": _bayesian_regret(winner_name),
             "condorcet_consistent": _condorcet_consistent(winner_name),
             "majority_satisfaction": _majority_satisfaction(winner_name),
-            "strategic_vulnerability": _strategic_vulnerability_score(method_fn, winner_name),
+            "strategic_vulnerability":
+                _strategic_vulnerability_score(method_fn, winner_name)
+                if compute_strategic else None,
         }
 
     # ------------------------------------------------------------------

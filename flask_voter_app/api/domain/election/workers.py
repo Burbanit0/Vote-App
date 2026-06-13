@@ -6569,7 +6569,11 @@ def _profile_simulate_worker(data: Dict[str, Any]) -> tuple[Dict[str, Any], int]
         return {"error": str(exc)}, 400
 
     compat = compatible_methods(ballot_type)
-    result = compare_all_methods(voters, candidates, [], override_utilities=projected)
+    # The playground only displays per-method winners + the cycle rate, so skip
+    # the O(voters × methods) strategic-vulnerability pass (the dominant cost).
+    result = compare_all_methods(
+        voters, candidates, [], override_utilities=projected, compute_strategic=False
+    )
     raw_methods = result.get("methods", {})
     methods_out: Dict[str, Any] = {
         name: {"winner": md.get("winner")}
@@ -6581,7 +6585,9 @@ def _profile_simulate_worker(data: Dict[str, Any]) -> tuple[Dict[str, Any], int]
     # Headline demo: same counting rule, different ballot → different winner.
     winner_flips: List[str] = []
     if ballot_type != "full":
-        full_run = compare_all_methods(voters, candidates, [], override_utilities=matrix)
+        full_run = compare_all_methods(
+            voters, candidates, [], override_utilities=matrix, compute_strategic=False
+        )
         full_methods = full_run.get("methods", {})
         winner_flips = sorted(
             name for name in methods_out
