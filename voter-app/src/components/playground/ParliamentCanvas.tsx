@@ -209,6 +209,18 @@ const ParliamentCanvas: React.FC<ParliamentCanvasProps> = ({
 
   return (
     <div data-testid="canvas-parliament" className="flex flex-col gap-3">
+      {/* Make a failed/absent assembly result explicit instead of silently
+          hiding the hemicycle (e.g. if the backend is out of date). */}
+      {!result && !loading && (
+        <div
+          data-testid="assembly-unavailable"
+          className="rounded-md border border-amber-500/50 bg-amber-500/10 px-3 py-2 text-xs text-amber-700 dark:text-amber-400"
+        >
+          ⚠ Hémicycle indisponible : le calcul de l’assemblée n’a pas abouti. Si vous
+          venez de mettre à jour, redémarrez le serveur backend (uvicorn) pour qu’il
+          prenne le nouveau schéma.
+        </div>
+      )}
       <div className="grid grid-cols-1 gap-3 xl:grid-cols-2">
         {/* ── Ideology map: party territories ── */}
         <svg
