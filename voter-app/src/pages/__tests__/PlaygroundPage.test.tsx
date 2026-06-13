@@ -37,6 +37,19 @@ vi.mock('../../services/assemblyApi', () => {
     effective_parties_seats: 2.9,
     wasted_vote_share: 0.02,
     coalitions: [],
+    congruence: {
+      electorate_median: [0, 0],
+      assembly_position: [0.05, 0],
+      governing_position: null,
+      assembly_gap: 0.05,
+      governing_gap: null,
+    },
+    mirror: [
+      { region: 'left_lib', electorate_share: 0.25, assembly_share: 0.25 },
+      { region: 'left_cons', electorate_share: 0.25, assembly_share: 0.25 },
+      { region: 'right_lib', electorate_share: 0.25, assembly_share: 0.25 },
+      { region: 'right_cons', electorate_share: 0.25, assembly_share: 0.25 },
+    ],
     }),
   };
 });

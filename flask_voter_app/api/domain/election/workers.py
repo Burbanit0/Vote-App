@@ -6821,6 +6821,46 @@ def _assembly_worker(data: Dict[str, Any]) -> tuple[Dict[str, Any], int]:
         {n: float(votes[n]) for n in names}, seats
     )
     majority = assembly_size // 2 + 1
+    coalitions = _minimal_winning_coalitions(seats, positions, majority)
+
+    # ── Representation → governance (frontier FB-1) ─────────────────────────
+    # (a) Ideological congruence: how far the elected body sits from the
+    #     electorate's median — for the whole assembly (seat-weighted) and for
+    #     the most cohesive minimal winning coalition (the likely government).
+    seat_share_arr = _np.array([seats[n] for n in names], dtype=float) / max(1, assembly_size)
+    assembly_pos = (seat_share_arr[:, None] * pts).sum(axis=0)
+    median_pt = _np.median(voters, axis=0)
+    governing_pos: Optional[List[float]] = None
+    governing_gap: Optional[float] = None
+    if coalitions:
+        gov = coalitions[0]  # sorted most-cohesive first
+        gov_seats = _np.array(
+            [seats[n] if n in gov["parties"] else 0 for n in names], dtype=float
+        )
+        gov_seats /= max(1.0, gov_seats.sum())
+        gp = (gov_seats[:, None] * pts).sum(axis=0)
+        governing_pos = [round(float(gp[0]), 4), round(float(gp[1]), 4)]
+        governing_gap = round(float(_np.linalg.norm(gp - median_pt)), 4)
+
+    # (b) Descriptive mirror over the MODELLED attribute space: does the
+    #     assembly look like the electorate, region by region of the plane?
+    #     (No demographics are modelled, so none are invented.)
+    regions = {
+        "left_lib":   lambda a: (a[:, 0] < 0) & (a[:, 1] < 0),
+        "left_cons":  lambda a: (a[:, 0] < 0) & (a[:, 1] >= 0),
+        "right_lib":  lambda a: (a[:, 0] >= 0) & (a[:, 1] < 0),
+        "right_cons": lambda a: (a[:, 0] >= 0) & (a[:, 1] >= 0),
+    }
+    mirror = []
+    for key, pred in regions.items():
+        elec = float(pred(voters).mean())
+        in_region = pred(pts)
+        asm = float((seat_share_arr * in_region).sum())
+        mirror.append({
+            "region": key,
+            "electorate_share": round(elec, 4),
+            "assembly_share": round(asm, 4),
+        })
 
     return {
         "structure":      structure,
@@ -6845,7 +6885,15 @@ def _assembly_worker(data: Dict[str, Any]) -> tuple[Dict[str, Any], int]:
         "effective_parties_votes":  metrics["effective_parties_votes"],
         "effective_parties_seats":  metrics["effective_parties_seats"],
         "wasted_vote_share":        round(wasted / num_voters, 4),
-        "coalitions": _minimal_winning_coalitions(seats, positions, majority),
+        "coalitions": coalitions,
+        "congruence": {
+            "electorate_median": [round(float(median_pt[0]), 4), round(float(median_pt[1]), 4)],
+            "assembly_position": [round(float(assembly_pos[0]), 4), round(float(assembly_pos[1]), 4)],
+            "governing_position": governing_pos,
+            "assembly_gap":  round(float(_np.linalg.norm(assembly_pos - median_pt)), 4),
+            "governing_gap": governing_gap,
+        },
+        "mirror": mirror,
     }, 200
 
 

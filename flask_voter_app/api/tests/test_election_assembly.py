@@ -140,6 +140,44 @@ def test_desertion_reduces_wasted_votes_under_pr_threshold(client: TestClient):
     assert deserted["wasted_vote_share"] <= sincere["wasted_vote_share"]
 
 
+# ── Representation → governance (frontier FB-1) ──────────────────────────────
+
+def test_congruence_pr_beats_fptp(client: TestClient):
+    """Acceptance: PR's assembly sits closer to the electorate's median than
+    FPTP's on the same electorate (the winner's bonus drags the body away)."""
+    pr   = client.post("/api/v2/election/assembly", json=_payload(threshold=0.0)).json()
+    fptp = client.post("/api/v2/election/assembly", json=_payload(structure="fptp")).json()
+    assert pr["congruence"]["assembly_gap"] <= fptp["congruence"]["assembly_gap"]
+
+
+def test_congruence_block_is_coherent(client: TestClient):
+    body = client.post("/api/v2/election/assembly", json=_payload()).json()
+    c = body["congruence"]
+    assert len(c["electorate_median"]) == 2 and len(c["assembly_position"]) == 2
+    assert c["assembly_gap"] >= 0
+    # A governing coalition exists here, with its own (≥ assembly?) gap reported.
+    assert c["governing_position"] is not None
+    assert c["governing_gap"] >= 0
+
+
+def test_mirror_shares_sum_to_one(client: TestClient):
+    body = client.post("/api/v2/election/assembly", json=_payload()).json()
+    mirror = body["mirror"]
+    assert {m["region"] for m in mirror} == {"left_lib", "left_cons", "right_lib", "right_cons"}
+    assert abs(sum(m["electorate_share"] for m in mirror) - 1.0) < 1e-6
+    # Assembly shares sum to ≈1 (seat shares distributed over regions).
+    assert abs(sum(m["assembly_share"] for m in mirror) - 1.0) < 1e-3
+
+
+def test_mirror_reflects_threshold_exclusion(client: TestClient):
+    """Excluding small parties (high threshold) can only keep or worsen the
+    total mirror deviation, never improve it on this fixture."""
+    lo = client.post("/api/v2/election/assembly", json=_payload(threshold=0.0)).json()
+    hi = client.post("/api/v2/election/assembly", json=_payload(threshold=0.15)).json()
+    dev = lambda b: sum(abs(m["electorate_share"] - m["assembly_share"]) for m in b["mirror"])  # noqa: E731
+    assert dev(lo) <= dev(hi) + 1e-9
+
+
 # ── /assembly-scorecard (P5) ──────────────────────────────────────────────────
 
 AXES = ["proportionality", "pluralism", "effective_votes",

@@ -165,6 +165,26 @@ class AssemblyCoalition(BaseModel):
     span:    float = Field(..., description="Max pairwise ideological distance inside the coalition.")
 
 
+class AssemblyCongruence(BaseModel):
+    """FB-1: how far the elected body sits from the electorate's median."""
+    model_config = ConfigDict(extra="forbid")
+
+    electorate_median:  List[float]
+    assembly_position:  List[float] = Field(..., description="Seat-weighted mean party position.")
+    governing_position: Optional[List[float]] = Field(None, description="Most cohesive minimal winning coalition, seat-weighted.")
+    assembly_gap:  float
+    governing_gap: Optional[float] = Field(None)
+
+
+class MirrorRegion(BaseModel):
+    """FB-1: descriptive representation over the modelled attribute space."""
+    model_config = ConfigDict(extra="forbid")
+
+    region: str
+    electorate_share: float = Field(..., ge=0.0, le=1.0)
+    assembly_share:   float = Field(..., ge=0.0, le=1.0)
+
+
 class AssemblyResponse(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
@@ -178,6 +198,8 @@ class AssemblyResponse(BaseModel):
     effective_parties_seats:  Optional[float] = Field(None)
     wasted_vote_share:        float = Field(..., ge=0.0, le=1.0)
     coalitions:               List[AssemblyCoalition] = Field(..., description="Minimal winning coalitions, most cohesive first.")
+    congruence:               AssemblyCongruence
+    mirror:                   List[MirrorRegion] = Field(..., description="Ideological-region composition: electorate vs assembly.")
 
 
 # ── /assembly-scorecard (Lab reshape P5) ──────────────────────────────────────
