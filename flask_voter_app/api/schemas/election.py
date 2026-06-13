@@ -356,6 +356,66 @@ class IssueVotingResponse(BaseModel):
     )
 
 
+# ── /structural-fairness (frontier FC-2) ──────────────────────────────────────
+
+class StructuralFairnessRequest(BaseModel):
+    """POST /api/v2/election/structural-fairness — malapportionment, efficiency
+    gap, Penrose square-root council, cumulative vs bloc at-large voting."""
+    model_config = ConfigDict(extra="forbid")
+
+    parties: List[AssemblyPartySpec] = Field(..., min_length=2, max_length=8)
+    num_voters: int = Field(400, ge=50, le=1000)
+    ideology:   str = Field("random")
+    seed:       int = Field(42, ge=0)
+    districts:  int = Field(20, ge=5, le=60)
+    malapportionment: float = Field(0.6, ge=0.0, le=1.0,
+                                    description="0 = equal districts; 1 = strongly unequal (≈4:1).")
+    at_large_seats: int = Field(5, ge=3, le=9)
+
+
+class MalapportionmentOut(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    pop_per_seat_ratio: float
+    gallagher_equal:  Optional[float] = Field(None)
+    gallagher_skewed: Optional[float] = Field(None)
+    min_share_majority_equal:  float = Field(..., ge=0.0, le=1.0)
+    min_share_majority_skewed: float = Field(..., ge=0.0, le=1.0)
+
+
+class EfficiencyGapOut(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    party_a: str
+    party_b: str
+    gap: float = Field(..., description="(wasted_a − wasted_b)/two-party total; sign = disadvantage of a.")
+    wasted_a: int
+    wasted_b: int
+
+
+class CumulativeOut(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    at_large_seats: int
+    largest_party: str
+    seats_bloc: Dict[str, int]
+    seats_cumulative: Dict[str, int]
+    minority_seats_bloc: int
+    minority_seats_cumulative: int
+
+
+class StructuralFairnessResponse(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    districts: int
+    malapportionment: MalapportionmentOut
+    efficiency_gap: EfficiencyGapOut
+    penrose: Dict[str, float] = Field(
+        ..., description="Citizen-power max/min ratio per weighting scheme (equal/proportional/penrose)."
+    )
+    cumulative: CumulativeOut
+
+
 # ── /simulate ───────────────────────────────────────────────────────────────
 
 class SimulateRequest(BaseModel):

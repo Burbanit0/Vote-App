@@ -7003,6 +7003,155 @@ def _assembly_scorecard_worker(data: Dict[str, Any]) -> tuple[Dict[str, Any], in
     }, 200
 
 
+# ── Structural (un)fairness (frontier FC-2) ───────────────────────────────────
+
+def _structural_fairness_worker(data: Dict[str, Any]) -> tuple[Dict[str, Any], int]:
+    """Pure worker for /structural-fairness (frontier FC-2).
+
+    Four structural levers over the shared electorate, all stated conventions:
+      · MALAPPORTIONMENT — districts of unequal population (sizes skewed by the
+        `malapportionment` knob; bands along x): unequal vote weight, and the
+        minimal vote share that can control a seat majority drops.
+      · EFFICIENCY GAP — the gerrymander metric between the two largest
+        parties on the (skewed) districting: (wasted_A − wasted_B) / two-party
+        total, wasted = losing votes + surplus beyond 50 %+1.
+      · PENROSE — council weighting demo over the same unequal districts:
+        equal / proportional / square-root weights, with the citizen-power
+        proxy weight_i/√pop_i (Penrose's approximation): √n equalises it.
+      · CUMULATIVE vs BLOC at-large — M seats, one district: party-line bloc
+        voting lets the plurality party sweep; cumulative voting with
+        poll-informed nomination (k_i ≈ share·M candidates, votes spread
+        evenly) lets a cohesive minority concentrate and win seats.
+    """
+    parties_in = (data.get("parties") or [])[:8]
+    if len(parties_in) < 2:
+        return {"error": "At least 2 parties required"}, 400
+    num_voters = max(50, min(1000, int(data.get("num_voters", 400))))
+    ideology   = str(data.get("ideology", "random"))
+    seed       = int(data.get("seed", 42))
+    n_dist     = max(5, min(60, int(data.get("districts", 20))))
+    mal        = max(0.0, min(1.0, float(data.get("malapportionment", 0.6))))
+    m_seats    = max(3, min(9, int(data.get("at_large_seats", 5))))
+
+    names = [str(p.get("name", f"P{i}")) for i, p in enumerate(parties_in)]
+    pts = _np.array([[float(p.get("x", 0.0)), float(p.get("y", 0.0))]
+                     for p in parties_in])
+    voters = _assembly_voters(num_voters, seed, ideology)
+    d2 = ((voters[:, None, :] - pts[None, :, :]) ** 2).sum(axis=2)
+    choice = d2.argmin(axis=1)
+    order = _np.argsort(voters[:, 0], kind="stable")
+
+    # ── District splits: equal vs skewed populations (bands along x) ───────
+    def _split(weights: "_np.ndarray") -> List["_np.ndarray"]:
+        cuts = _np.cumsum(weights / weights.sum())[:-1]
+        idx = (cuts * num_voters).astype(int)
+        return _np.split(order, idx)
+
+    equal_w  = _np.ones(n_dist)
+    skewed_w = 1.0 + 3.0 * mal * (_np.arange(n_dist) / max(1, n_dist - 1))
+    bands_eq, bands_sk = _split(equal_w), _split(skewed_w)
+
+    def _fptp(bands: List["_np.ndarray"]) -> Dict[str, int]:
+        seats = {n: 0 for n in names}
+        for band in bands:
+            if len(band) == 0:
+                continue
+            counts = _np.bincount(choice[band], minlength=len(names))
+            seats[names[int(counts.argmax())]] += 1
+        return seats
+
+    votes_nat = {n: int((choice == i).sum()) for i, n in enumerate(names)}
+    seats_eq, seats_sk = _fptp(bands_eq), _fptp(bands_sk)
+    g_eq = compute_proportionality_metrics({n: float(votes_nat[n]) for n in names}, seats_eq)
+    g_sk = compute_proportionality_metrics({n: float(votes_nat[n]) for n in names}, seats_sk)
+
+    def _min_share_for_majority(bands: List["_np.ndarray"]) -> float:
+        pops = sorted(len(b) for b in bands)
+        need = n_dist // 2 + 1
+        return sum(p // 2 + 1 for p in pops[:need]) / num_voters
+
+    pops_sk = [len(b) for b in bands_sk]
+    malapportionment_out = {
+        "pop_per_seat_ratio": round(max(pops_sk) / max(1, min(pops_sk)), 3),
+        "gallagher_equal":  g_eq["gallagher_index"],
+        "gallagher_skewed": g_sk["gallagher_index"],
+        "min_share_majority_equal":  round(_min_share_for_majority(bands_eq), 4),
+        "min_share_majority_skewed": round(_min_share_for_majority(bands_sk), 4),
+    }
+
+    # ── Efficiency gap (two largest parties, skewed districting) ───────────
+    top2 = sorted(range(len(names)), key=lambda i: -votes_nat[names[i]])[:2]
+    a_i, b_i = top2
+    wasted_a = wasted_b = two_party_total = 0
+    for band in bands_sk:
+        counts = _np.bincount(choice[band], minlength=len(names))
+        va, vb = int(counts[a_i]), int(counts[b_i])
+        two_party_total += va + vb
+        win_threshold = (va + vb) // 2 + 1
+        if va > vb:
+            wasted_a += va - win_threshold
+            wasted_b += vb
+        else:
+            wasted_b += vb - win_threshold
+            wasted_a += va
+    efficiency_gap_out = {
+        "party_a": names[a_i],
+        "party_b": names[b_i],
+        "gap": round((wasted_a - wasted_b) / max(1, two_party_total), 4),
+        "wasted_a": wasted_a,
+        "wasted_b": wasted_b,
+    }
+
+    # ── Penrose square-root council over the unequal districts ─────────────
+    pops = _np.array(pops_sk, dtype=float)
+    schemes = {
+        "equal":        _np.ones(n_dist),
+        "proportional": pops,
+        "penrose":      _np.sqrt(pops),
+    }
+    penrose_out = {}
+    for scheme, w in schemes.items():
+        w = w / w.sum()
+        citizen_power = w / _np.sqrt(pops)  # Penrose's per-citizen influence proxy
+        penrose_out[scheme] = round(float(citizen_power.max() / citizen_power.min()), 3)
+
+    # ── Cumulative vs bloc voting, M seats at large ─────────────────────────
+    shares = _np.array([votes_nat[n] for n in names], dtype=float) / num_voters
+    sweep = names[int(shares.argmax())]
+    seats_bloc = {n: (m_seats if n == sweep else 0) for n in names}
+    # Cumulative with poll-informed nomination: party i fields k_i candidates,
+    # voters spread their M votes evenly → per-candidate strength share/k.
+    k = _np.maximum(1, _np.round(shares * m_seats).astype(int))
+    candidates = []
+    for i, n in enumerate(names):
+        if shares[i] <= 0:
+            continue
+        for _c in range(int(k[i])):
+            candidates.append((shares[i] / k[i], n))
+    candidates.sort(key=lambda t: -t[0])
+    seats_cum = {n: 0 for n in names}
+    for _strength, n in candidates[:m_seats]:
+        seats_cum[n] += 1
+    minority_seats_bloc = sum(s for n, s in seats_bloc.items() if n != sweep)
+    minority_seats_cum  = sum(s for n, s in seats_cum.items() if n != sweep)
+    cumulative_out = {
+        "at_large_seats": m_seats,
+        "largest_party": sweep,
+        "seats_bloc": seats_bloc,
+        "seats_cumulative": seats_cum,
+        "minority_seats_bloc": minority_seats_bloc,
+        "minority_seats_cumulative": minority_seats_cum,
+    }
+
+    return {
+        "districts":        n_dist,
+        "malapportionment": malapportionment_out,
+        "efficiency_gap":   efficiency_gap_out,
+        "penrose":          penrose_out,
+        "cumulative":       cumulative_out,
+    }, 200
+
+
 # ── Issue voting & bundling paradoxes (frontier FB-2) ─────────────────────────
 
 def _issue_voting_worker(data: Dict[str, Any]) -> tuple[Dict[str, Any], int]:

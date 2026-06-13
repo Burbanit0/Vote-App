@@ -242,6 +242,20 @@ describe('PlaygroundPage (P0 shell)', () => {
     expect(screen.getByTestId('ballot-flips')).toHaveTextContent('irv, borda');
   });
 
+  // ── FC-1 : manipulation, principe vs pratique ────────────────────────────
+
+  it('the hardness readout shows the complexity flag for the selected rule', () => {
+    renderPage();
+    expect(screen.getByTestId('manip-hardness')).toHaveTextContent('Gibbard–Satterthwaite');
+    expect(screen.getByTestId('manip-hardness')).toHaveTextContent('P (calcul trivial)');
+    // Switch to IRV → the NP-hardness flag and its citation appear.
+    fireEvent.change(screen.getByTestId('rule-select'), { target: { value: 'irv' } });
+    expect(screen.getByTestId('manip-hardness')).toHaveTextContent('NP-difficile');
+    expect(screen.getByTestId('manip-hardness')).toHaveTextContent('Bartholdi–Orlin');
+    // The worked example compares plurality vs IRV on this electorate.
+    expect(screen.getByTestId('manip-hardness')).toHaveTextContent('Exemple');
+  });
+
   // ── FA-2 : la lentille Lijphart ───────────────────────────────────────────
 
   it('parliament mode renders the democracy map with the three live structures', async () => {

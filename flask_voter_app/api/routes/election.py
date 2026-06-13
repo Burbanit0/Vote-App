@@ -104,6 +104,8 @@ from api.schemas import (
     TemporalResponse,
     IssueVotingRequest,
     IssueVotingResponse,
+    StructuralFairnessRequest,
+    StructuralFairnessResponse,
     ProfileSimulateRequest,
     ProfileSimulateResponse,
     SimulateRequest,
@@ -120,6 +122,7 @@ from api.domain.election import (
     assembly as assembly_domain,
     assembly_scorecard as assembly_scorecard_domain,
     issue_voting as issue_voting_domain,
+    structural_fairness as structural_fairness_domain,
     temporal as temporal_domain,
     affective_polarization as affective_polarization_domain,
     ballot_complexity as ballot_complexity_domain,
@@ -324,6 +327,26 @@ async def issue_voting_endpoint(request: IssueVotingRequest) -> IssueVotingRespo
     Spatial mode derives K issues from the shared electorate; handcrafted mode
     builds exact paradoxes."""
     return await _run_typed(issue_voting_domain, request, IssueVotingResponse)
+
+
+# ── /structural-fairness (frontier FC-2) ──────────────────────────────────────
+
+@router.post(
+    "/structural-fairness",
+    response_model=StructuralFairnessResponse,
+    summary="Structural (un)fairness: malapportionment, efficiency gap, Penrose, cumulative",
+    response_description="Vote-weight distortion under unequal districts, the "
+                         "two-party efficiency gap, citizen-power ratios under three "
+                         "council weightings, and bloc-vs-cumulative at-large seats.",
+)
+async def structural_fairness_endpoint(
+    request: StructuralFairnessRequest,
+) -> StructuralFairnessResponse:
+    """The rules AROUND the rule: unequal district populations distort the
+    seat-vote relationship, the efficiency gap quantifies gerrymanders, the
+    Penrose √-law equalises citizen power in councils, and cumulative voting
+    lets cohesive minorities win at-large seats that bloc voting denies them."""
+    return await _run_typed(structural_fairness_domain, request, StructuralFairnessResponse)
 
 
 # ── /combined-effects ───────────────────────────────────────────────────────
