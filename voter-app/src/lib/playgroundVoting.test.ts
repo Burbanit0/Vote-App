@@ -1,11 +1,14 @@
 import { describe, it, expect } from 'vitest';
 import {
   ruleWinner,
+  ruleWinnerFromRanks,
   fieldWinnerName,
   winRegionGrid,
   sampleVoters,
+  RULE_LABELS,
   type NamedPt,
   type Pt,
+  type Rule,
 } from './playgroundVoting';
 
 // Build a spatial electorate whose 1-D layout reproduces the textbook
@@ -67,6 +70,75 @@ describe('playgroundVoting rules', () => {
     expect(grid.cells).toHaveLength(64);
     expect(grid.cells.every((w) => w >= 0 && w <= cands.length)).toBe(true);
     expect(grid.cells.some((w) => w === cands.length)).toBe(true);
+  });
+});
+
+describe('extended method set (15 rules)', () => {
+  it('every rule has a label and resolves to a winner', () => {
+    const cands: NamedPt[] = [
+      { name: 'A', x: -0.5, y: 0 },
+      { name: 'B', x: 0.0, y: 0.1 },
+      { name: 'C', x: 0.5, y: 0 },
+    ];
+    const voters = sampleVoters(120, 3, 'random');
+    for (const rule of Object.keys(RULE_LABELS) as Rule[]) {
+      expect(RULE_LABELS[rule]).toBeTruthy();
+      const w = ruleWinner(voters, cands, rule);
+      expect(w).toBeGreaterThanOrEqual(0);
+      expect(w).toBeLessThan(cands.length);
+    }
+  });
+
+  it('every Condorcet method elects the Condorcet winner; plurality does not', () => {
+    // 1-D: M (index 1) beats both flanks pairwise but is nobody's plurality lead.
+    const cands: NamedPt[] = [
+      { name: 'L', x: -0.8, y: 0 },
+      { name: 'M', x: 0.0, y: 0 },
+      { name: 'R', x: 0.8, y: 0 },
+    ];
+    const voters: Pt[] = [];
+    for (let i = 0; i < 40; i++) voters.push({ x: -0.7, y: 0 });
+    for (let i = 0; i < 25; i++) voters.push({ x: 0.0, y: 0 });
+    for (let i = 0; i < 40; i++) voters.push({ x: 0.7, y: 0 });
+    for (const rule of ['condorcet', 'minimax', 'schulze', 'nanson', 'baldwin'] as Rule[]) {
+      expect(ruleWinner(voters, cands, rule)).toBe(1);
+    }
+    expect(ruleWinner(voters, cands, 'plurality')).not.toBe(1);
+  });
+
+  it('STAR runoff can overturn the score leader', () => {
+    // Score leader = B (broad), but A wins the automatic top-2 runoff 6–5.
+    const ranks = [...Array(6).fill([0, 1, 2]), ...Array(5).fill([2, 1, 0])];
+    const scores = [
+      ...Array(6).fill([1.0, 0.8, 0.0]),
+      ...Array(5).fill([0.0, 0.6, 1.0]),
+    ];
+    expect(ruleWinnerFromRanks(ranks, 3, 'score', scores)).toBe(1); // B leads on sum
+    expect(ruleWinnerFromRanks(ranks, 3, 'star', scores)).toBe(0); // A wins the runoff
+  });
+
+  it('majority judgment ranks by median grade, not mean', () => {
+    // A: grades [5,5,0] median 5; B: [4,4,4] median 4 but higher mean.
+    const ranks = [[0, 1], [0, 1], [1, 0]];
+    const scores = [[1.0, 0.7], [1.0, 0.7], [0.0, 0.7]];
+    expect(ruleWinnerFromRanks(ranks, 2, 'majority_judgment', scores)).toBe(0);
+    expect(ruleWinnerFromRanks(ranks, 2, 'score', scores)).toBe(1); // mean favours B
+  });
+
+  it('Bucklin elects a first-round majority', () => {
+    const ranks = [[0, 1, 2], [0, 1, 2], [0, 2, 1], [1, 0, 2], [1, 2, 0]];
+    expect(ruleWinnerFromRanks(ranks, 3, 'bucklin', undefined)).toBe(0); // A: 3/5 firsts
+  });
+
+  it('Coombs eliminates the most-rejected candidate (≠ plurality)', () => {
+    // A leads first prefs but is last for a majority → Coombs elects B.
+    const ranks = [
+      ...Array(4).fill([0, 1, 2]),
+      ...Array(3).fill([1, 2, 0]),
+      ...Array(2).fill([2, 1, 0]),
+    ];
+    expect(ruleWinnerFromRanks(ranks, 3, 'plurality', undefined)).toBe(0);
+    expect(ruleWinnerFromRanks(ranks, 3, 'coombs', undefined)).toBe(1);
   });
 });
 

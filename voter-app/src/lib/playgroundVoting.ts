@@ -22,7 +22,16 @@ export type Rule =
   | 'irv'
   | 'borda'
   | 'approval'
-  | 'condorcet';
+  | 'condorcet'
+  | 'minimax'
+  | 'schulze'
+  | 'bucklin'
+  | 'coombs'
+  | 'nanson'
+  | 'baldwin'
+  | 'star'
+  | 'majority_judgment'
+  | 'score';
 
 export const RULE_LABELS: Record<Rule, string> = {
   plurality: 'Pluralité (1 tour)',
@@ -31,7 +40,21 @@ export const RULE_LABELS: Record<Rule, string> = {
   borda: 'Borda',
   approval: 'Approbation',
   condorcet: 'Condorcet (Copeland)',
+  minimax: 'Condorcet (minimax)',
+  schulze: 'Condorcet (Schulze)',
+  bucklin: 'Bucklin',
+  coombs: 'Coombs',
+  nanson: 'Nanson',
+  baldwin: 'Baldwin',
+  star: 'STAR',
+  majority_judgment: 'Jugement majoritaire',
+  score: 'Note (score)',
 };
+
+/** Cardinal rules need the per-voter score matrix, not just rankings. */
+export const CARDINAL_RULES: ReadonlySet<Rule> = new Set<Rule>([
+  'approval', 'star', 'majority_judgment', 'score',
+]);
 
 const dist = (a: Pt, b: Pt): number => Math.hypot(a.x - b.x, a.y - b.y);
 
@@ -134,8 +157,8 @@ function winApproval(scores: number[][], m: number): number {
   return argmax(counts);
 }
 
-function winCondorcet(ranks: number[][], m: number): number {
-  // Copeland: pairwise wins − losses; ties broken by Borda.
+/** Pairwise tally: beats[i][j] = number of voters ranking i above j. */
+function pairwise(ranks: number[][], m: number): number[][] {
   const beats = Array.from({ length: m }, () => new Array(m).fill(0));
   for (const r of ranks) {
     const pos = new Array(m).fill(0);
@@ -147,6 +170,12 @@ function winCondorcet(ranks: number[][], m: number): number {
       }
     }
   }
+  return beats;
+}
+
+function winCondorcet(ranks: number[][], m: number): number {
+  // Copeland: pairwise wins − losses; ties broken by Borda.
+  const beats = pairwise(ranks, m);
   const copeland = new Array(m).fill(0);
   for (let i = 0; i < m; i++) {
     for (let j = 0; j < m; j++) {
@@ -159,6 +188,158 @@ function winCondorcet(ranks: number[][], m: number): number {
   const tied = copeland.map((c, i) => (c === best ? i : -1)).filter((i) => i >= 0);
   if (tied.length === 1) return tied[0];
   return winBorda(ranks, m); // tie-break
+}
+
+/** Minimax (margins): elect the candidate whose worst pairwise defeat is least. */
+function winMinimax(ranks: number[][], m: number): number {
+  const b = pairwise(ranks, m);
+  let best = 0;
+  let bestWorst = Infinity;
+  for (let i = 0; i < m; i++) {
+    let worst = -Infinity;
+    for (let j = 0; j < m; j++) {
+      if (i === j) continue;
+      worst = Math.max(worst, b[j][i] - b[i][j]); // margin of defeat by j
+    }
+    if (worst < bestWorst) { bestWorst = worst; best = i; }
+  }
+  return best;
+}
+
+/** Schulze (beatpaths): strongest-path winner via Floyd–Warshall. */
+function winSchulze(ranks: number[][], m: number): number {
+  const b = pairwise(ranks, m);
+  const p = Array.from({ length: m }, () => new Array(m).fill(0));
+  for (let i = 0; i < m; i++)
+    for (let j = 0; j < m; j++)
+      if (i !== j) p[i][j] = b[i][j] > b[j][i] ? b[i][j] : 0;
+  for (let i = 0; i < m; i++)
+    for (let j = 0; j < m; j++)
+      if (i !== j)
+        for (let k = 0; k < m; k++)
+          if (i !== k && j !== k)
+            p[j][k] = Math.max(p[j][k], Math.min(p[j][i], p[i][k]));
+  for (let i = 0; i < m; i++) {
+    let wins = true;
+    for (let j = 0; j < m; j++) if (i !== j && p[j][i] > p[i][j]) { wins = false; break; }
+    if (wins) return i;
+  }
+  return winBorda(ranks, m); // rare cyclic tie
+}
+
+/** Bucklin: descend ranks until a candidate reaches a majority of mentions. */
+function winBucklin(ranks: number[][], m: number): number {
+  const n = ranks.length;
+  const tally = new Array(m).fill(0);
+  for (let k = 0; k < m; k++) {
+    for (const r of ranks) tally[r[k]] += 1;
+    let best = -1;
+    for (let i = 0; i < m; i++) if (tally[i] > n / 2 && (best === -1 || tally[i] > tally[best])) best = i;
+    if (best >= 0) return best;
+  }
+  return argmax(tally);
+}
+
+/** Coombs: IRV but eliminate the candidate with the most LAST-place votes. */
+function winCoombs(ranks: number[][], m: number): number {
+  const alive = new Array(m).fill(true);
+  let remaining = m;
+  while (remaining > 1) {
+    const first = new Array(m).fill(0);
+    const last = new Array(m).fill(0);
+    for (const r of ranks) {
+      const top = r.find((i) => alive[i]);
+      if (top !== undefined) first[top] += 1;
+      for (let k = r.length - 1; k >= 0; k--) if (alive[r[k]]) { last[r[k]] += 1; break; }
+    }
+    const total = first.reduce((s, x) => s + x, 0);
+    const leader = argmax(first);
+    if (first[leader] > total / 2) return leader;
+    let worst = -1;
+    for (let i = 0; i < m; i++) if (alive[i] && (worst === -1 || last[i] > last[worst])) worst = i;
+    alive[worst] = false;
+    remaining--;
+  }
+  return alive.findIndex((a) => a);
+}
+
+/** Borda scores counting only candidates still alive. */
+function bordaAlive(ranks: number[][], m: number, alive: boolean[]): number[] {
+  const k = alive.filter(Boolean).length;
+  const score = new Array(m).fill(0);
+  for (const r of ranks) {
+    let rank = 0;
+    for (const c of r) if (alive[c]) { score[c] += k - 1 - rank; rank += 1; }
+  }
+  return score;
+}
+
+/** Nanson: iteratively eliminate every candidate with below-average Borda. */
+function winNanson(ranks: number[][], m: number): number {
+  const alive = new Array(m).fill(true);
+  let remaining = m;
+  while (remaining > 1) {
+    const score = bordaAlive(ranks, m, alive);
+    const idx = [];
+    for (let i = 0; i < m; i++) if (alive[i]) idx.push(i);
+    const avg = idx.reduce((s, i) => s + score[i], 0) / idx.length;
+    const elim = idx.filter((i) => score[i] < avg - 1e-9);
+    if (elim.length === 0) return idx.reduce((b, i) => (score[i] > score[b] ? i : b), idx[0]);
+    for (const i of elim) { alive[i] = false; remaining -= 1; }
+  }
+  return alive.findIndex((a) => a);
+}
+
+/** Baldwin: iteratively eliminate the single lowest-Borda candidate. */
+function winBaldwin(ranks: number[][], m: number): number {
+  const alive = new Array(m).fill(true);
+  let remaining = m;
+  while (remaining > 1) {
+    const score = bordaAlive(ranks, m, alive);
+    let worst = -1;
+    for (let i = 0; i < m; i++) if (alive[i] && (worst === -1 || score[i] < score[worst])) worst = i;
+    alive[worst] = false;
+    remaining -= 1;
+  }
+  return alive.findIndex((a) => a);
+}
+
+/** STAR: score, then an automatic runoff between the two highest totals. */
+function winStar(scores: number[][], m: number): number {
+  const total = new Array(m).fill(0);
+  for (const s of scores) for (let i = 0; i < m; i++) total[i] += s[i];
+  const order = total.map((_, i) => i).sort((a, b) => total[b] - total[a]);
+  const [a, b] = [order[0], order[1]];
+  let av = 0;
+  let bv = 0;
+  for (const s of scores) { if (s[a] > s[b]) av += 1; else if (s[b] > s[a]) bv += 1; }
+  return av >= bv ? a : b;
+}
+
+/** Majority judgment: highest median grade, tie-broken by removing medians. */
+function winMajorityJudgment(scores: number[][], m: number): number {
+  const L = 6;
+  const work: number[][] = Array.from({ length: m }, () => []);
+  for (const s of scores) for (let i = 0; i < m; i++) work[i].push(Math.round(s[i] * (L - 1)));
+  for (let i = 0; i < m; i++) work[i].sort((x, y) => x - y);
+  const lowerMedian = (g: number[]): number => (g.length ? g[Math.floor((g.length - 1) / 2)] : -1);
+  let pool = Array.from({ length: m }, (_, i) => i);
+  while (pool.length > 1 && work[pool[0]].length > 0) {
+    let bestMed = -Infinity;
+    for (const c of pool) bestMed = Math.max(bestMed, lowerMedian(work[c]));
+    const top = pool.filter((c) => lowerMedian(work[c]) === bestMed);
+    if (top.length === 1) return top[0];
+    for (const c of top) work[c].splice(Math.floor((work[c].length - 1) / 2), 1);
+    pool = top;
+  }
+  return pool[0];
+}
+
+/** Score / evaluative: highest summed cardinal score. */
+function winScore(scores: number[][], m: number): number {
+  const total = new Array(m).fill(0);
+  for (const s of scores) for (let i = 0; i < m; i++) total[i] += s[i];
+  return argmax(total);
 }
 
 // ── Public API ────────────────────────────────────────────────────────────────
@@ -176,12 +357,23 @@ export function ruleWinnerFromRanks(
 ): number {
   if (m === 0 || ranks.length === 0) return -1;
   switch (rule) {
+    // Cardinal rules — fall back to plurality if scores weren't supplied.
     case 'approval': return scores ? winApproval(scores, m) : winPlurality(ranks, m);
+    case 'star': return scores ? winStar(scores, m) : winPlurality(ranks, m);
+    case 'majority_judgment': return scores ? winMajorityJudgment(scores, m) : winPlurality(ranks, m);
+    case 'score': return scores ? winScore(scores, m) : winPlurality(ranks, m);
+    // Ordinal rules.
     case 'plurality': return winPlurality(ranks, m);
     case 'two_round': return winTwoRound(ranks, m);
     case 'irv': return winIRV(ranks, m);
     case 'borda': return winBorda(ranks, m);
     case 'condorcet': return winCondorcet(ranks, m);
+    case 'minimax': return winMinimax(ranks, m);
+    case 'schulze': return winSchulze(ranks, m);
+    case 'bucklin': return winBucklin(ranks, m);
+    case 'coombs': return winCoombs(ranks, m);
+    case 'nanson': return winNanson(ranks, m);
+    case 'baldwin': return winBaldwin(ranks, m);
     default: return winPlurality(ranks, m);
   }
 }
@@ -194,7 +386,7 @@ export function ruleWinner(voters: Pt[], cands: NamedPt[], rule: Rule): number {
     rankings(voters, cands),
     m,
     rule,
-    rule === 'approval' ? computeScores(voters, cands) : undefined
+    CARDINAL_RULES.has(rule) ? computeScores(voters, cands) : undefined
   );
 }
 
