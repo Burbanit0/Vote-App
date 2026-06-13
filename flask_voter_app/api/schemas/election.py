@@ -115,6 +115,10 @@ class ProfileSimulateRequest(BaseModel):
     )
     ballot: BallotConfig = Field(default_factory=BallotConfig)
     turnout: TurnoutConfig = Field(default_factory=TurnoutConfig)
+    electorate: Optional[ElectorateConfig] = Field(
+        None, description="Composed electorate (community mixture); shapes the spatial "
+                          "voter cloud and the paradox rate when mode='composed'.",
+    )
     compute_strategic: bool = Field(
         False,
         description="Compute the per-method Gibbard–Satterthwaite individual "

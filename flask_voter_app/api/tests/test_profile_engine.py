@@ -307,6 +307,41 @@ def test_assembly_composed_electorate_drives_seats(client: TestClient):
     assert simple.status_code == 200
 
 
+def test_spatial_cycle_rate_detects_and_bounds():
+    """The composed paradox rate is a real spatial cycle rate: it stays in [0,1],
+    is 0 when there is nothing to resample, and detects genuine majority cycles
+    that a cycle-prone candidate geometry over a multimodal electorate produces."""
+    from api.engine.utils.profile_engine import spatial_cycle_rate
+    cands = [{"name": "A", "x": -0.6, "y": 0.6}, {"name": "B", "x": 0.6, "y": 0.6},
+             {"name": "C", "x": 0.6, "y": -0.6}, {"name": "D", "x": -0.6, "y": -0.6}]
+    prone = {"communities": [
+        {"id": "1", "x": -0.5, "y": 0.5, "z": 0, "spread": 0.5, "weight": 1, "turnout": 1},
+        {"id": "2", "x": 0.5, "y": -0.5, "z": 0, "spread": 0.5, "weight": 1, "turnout": 1}],
+        "correlation": -0.9, "noise": 0.3}
+    r = spatial_cycle_rate(cands, prone, 200, 1)
+    assert 0.0 < r <= 1.0  # detects cycles, stays a probability
+    # No communities → defined as 0 (nothing to resample).
+    assert spatial_cycle_rate(cands, {"communities": []}, 200, 1) == 0.0
+    # Deterministic for a fixed seed.
+    assert spatial_cycle_rate(cands, prone, 200, 1) == r
+
+
+def test_profile_simulate_composed_paradox_rate(client: TestClient):
+    """Endpoint: a plain spatial electorate reports 0 paradox; the same call with a
+    cycle-prone composed electorate reports a real, higher rate."""
+    cands = [{"name": "A", "x": -0.6, "y": 0.6}, {"name": "B", "x": 0.6, "y": 0.6},
+             {"name": "C", "x": 0.6, "y": -0.6}, {"name": "D", "x": -0.6, "y": -0.6}]
+    base = {"source": "spatial", "candidates": cands, "num_voters": 200, "seed": 1}
+    plain = client.post("/api/v2/election/profile-simulate", json=base).json()
+    composed_e = {"mode": "composed", "correlation": -0.9, "noise": 0.3, "communities": [
+        {"id": "1", "label": "1", "x": -0.5, "y": 0.5, "z": 0, "spread": 0.5, "weight": 1, "turnout": 1},
+        {"id": "2", "label": "2", "x": 0.5, "y": -0.5, "z": 0, "spread": 0.5, "weight": 1, "turnout": 1}]}
+    composed = client.post("/api/v2/election/profile-simulate",
+                           json={**base, "electorate": composed_e}).json()
+    assert plain["cycle_rate"] == 0.0
+    assert composed["cycle_rate"] > 0.0
+
+
 def test_strategic_vulnerability_opt_in(client: TestClient):
     """Off by default (winners only); opt-in adds a per-method manipulability
     rate in [0,1]. Plurality is gameable, so its rate is > 0."""

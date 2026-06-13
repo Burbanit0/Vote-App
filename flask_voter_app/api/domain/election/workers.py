@@ -25,7 +25,7 @@ from api.engine.utils.simulation_voting_utils import calculate_utility, create_c
 from api.engine.utils.simulation_metrics      import compare_all_methods
 from api.engine.utils.profile_engine          import (
     build_profile, cycle_rate, project_ballot, ballot_metrics, compatible_methods,
-    turnout_mask, community_voters,
+    turnout_mask, community_voters, spatial_cycle_rate,
 )
 from api.engine.utils.simulation_ranked_utils import (
     get_plurality_winner,
@@ -6539,11 +6539,15 @@ def _profile_simulate_worker(data: Dict[str, Any]) -> tuple[Dict[str, Any], int]
         if any(len(row) != len(names_in) for row in handcrafted):
             return {"error": "each handcrafted row must match the candidate count"}, 400
 
+    electorate = data.get("electorate")
+    composed = bool(electorate and electorate.get("mode") == "composed"
+                    and electorate.get("communities"))
     try:
         built = build_profile(
             source, cand_specs, num_voters, dims, valence, behavior,
             source_params, seed, handcrafted_matrix=handcrafted,
             turnout_model=turnout_model, turnout_intensity=turnout_int,
+            electorate=electorate if composed else None,
         )
     except ValueError as exc:
         return {"error": str(exc)}, 400
@@ -6608,11 +6612,20 @@ def _profile_simulate_worker(data: Dict[str, Any]) -> tuple[Dict[str, Any], int]
     first_vid = next(iter(projected))
     sample_ballot = {n: round(float(v), 3) for n, v in projected[first_vid].items()}
 
+    # Paradox rate: for a COMPOSED spatial electorate, compute a real spatial
+    # cycle rate by re-sampling the mixture (a multimodal electorate can produce
+    # genuine majority cycles); otherwise the statistical-culture estimator (0 for
+    # the single-Gaussian spatial source).
+    if source == "spatial" and composed:
+        paradox_rate = spatial_cycle_rate(cand_specs, electorate, min(num_voters, 200), seed)
+    else:
+        paradox_rate = cycle_rate(source, names, min(num_voters, 200), source_params, seed)
+
     return {
         "methods":                methods_out,
         "condorcet_winner":       result.get("condorcet_winner"),
         "inter_method_agreement": _inter_method_agreement(methods_out),
-        "cycle_rate":             cycle_rate(source, names, min(num_voters, 200), source_params, seed),
+        "cycle_rate":             paradox_rate,
         "candidate_names":        names,
         "display_points":         built["display_points"],
         "candidate_points":       built["candidate_points"],

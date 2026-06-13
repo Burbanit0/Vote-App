@@ -48,6 +48,24 @@ export function toProfilePayload(
       score_levels: pg.ballot.score_levels,
     },
     turnout: { model: pg.turnout.model, intensity: pg.turnout.intensity },
+    electorate:
+      pg.electorate.mode === 'composed'
+        ? {
+            mode: 'composed' as const,
+            correlation: pg.electorate.correlation,
+            noise: pg.electorate.noise,
+            communities: pg.electorate.communities.map((c) => ({
+              id: c.id,
+              label: c.label,
+              x: c.x,
+              y: c.y,
+              z: c.z ?? 0,
+              spread: c.spread,
+              weight: c.weight,
+              turnout: c.turnout,
+            })),
+          }
+        : null,
     compute_strategic: computeStrategic,
     seed: config.seed,
   };
