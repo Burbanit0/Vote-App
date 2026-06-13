@@ -52,6 +52,7 @@ from api.domain.election.workers import (
     _simulate_pipeline_worker,
     _sortition_worker,
     _stv_worker,
+    _temporal_worker,
 )
 from api.domain.election.election_service import ElectionService
 
@@ -77,6 +78,12 @@ def assembly_scorecard(data: dict) -> tuple[dict, int]:
     """Lab reshape P5: Monte-Carlo scorecard — six [0,1] axes with bands for
     each structure (pr/fptp/mmp) over re-rolled electorates."""
     return _assembly_scorecard_worker(data)
+
+
+def temporal(data: dict) -> tuple[dict, int]:
+    """Frontier FA-3: N sequential elections with party adaptation and voter
+    attachment — is the system still good after repeated play?"""
+    return _temporal_worker(data)
 
 
 def combined_effects(data: dict) -> tuple[dict, int]:
