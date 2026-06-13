@@ -364,9 +364,10 @@ const ElectorateComposer: React.FC = () => {
           </details>
 
           <p className="text-[0.68rem] text-muted-foreground/70">
-            L’électorat composé alimente et s’affiche sur la vue dirigeant (carte, zones, bilan),
-            coloré par communauté. Le 3ᵉ axe n’agit qu’en mode carte 3D ; le bruit de mesure simule
-            l’incertitude d’un sondage. Le parlement/taux de paradoxe suivront.
+            L’électorat composé alimente la vue dirigeant (carte, zones, bilan, coloré par
+            communauté) et le parlement (sièges, bilan d’assemblée). Le 3ᵉ axe n’agit qu’en mode
+            carte 3D ; le bruit de mesure simule l’incertitude d’un sondage. Le taux de paradoxe
+            suivra.
           </p>
         </>
       )}

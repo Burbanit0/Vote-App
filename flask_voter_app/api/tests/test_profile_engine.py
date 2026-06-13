@@ -14,6 +14,7 @@ from api.engine.utils.profile_engine import (
     gallagher_index,
     handcrafted_profile,
     build_profile,
+    community_voters,
 )
 from api.engine.utils.simulation_metrics import compare_all_methods
 
@@ -258,6 +259,52 @@ def test_assembly_turnout_changes_wasted_share(client: TestClient):
     # The two runs differ somewhere (seats or proportionality) once abstention bites.
     assert (full["gallagher_index"], [p["seats"] for p in full["parties"]]) != \
            (abst["gallagher_index"], [p["seats"] for p in abst["parties"]])
+
+
+def _bloc(id_, x, **kw):
+    return {"id": id_, "label": id_, "x": x, "y": kw.get("y", 0.0), "z": kw.get("z", 0.0),
+            "spread": kw.get("spread", 0.1), "weight": kw.get("weight", 1.0),
+            "turnout": kw.get("turnout", 1.0)}
+
+
+def test_community_voters_is_deterministic_and_multimodal():
+    """The composed electorate engine: a fixed seed is reproducible, and a
+    two-bloc mixture clusters near each centre with a sparse middle."""
+    import numpy as np
+    blocs = [_bloc("l", -0.7, spread=0.08), _bloc("r", 0.7, spread=0.08)]
+    a = community_voters(blocs, 0.0, 0.0, 600, 7, 2)
+    b = community_voters(blocs, 0.0, 0.0, 600, 7, 2)
+    assert np.array_equal(a, b)
+    assert a.shape == (600, 2)
+    assert (a[:, 0] < 0).sum() > 150 and (a[:, 0] > 0).sum() > 150
+    assert (np.abs(a[:, 0]) < 0.2).sum() < a.shape[0] * 0.2  # sparse middle
+
+
+def test_community_voters_weight_and_turnout():
+    """Weight controls bloc size; per-bloc turnout thins a bloc."""
+    big = community_voters([_bloc("b", -0.6, weight=4), _bloc("s", 0.6, weight=1)], 0, 0, 1000, 3, 2)
+    assert (big[:, 0] < 0).sum() > big.shape[0] * 0.6  # ~80% in the heavy bloc
+    full = community_voters([_bloc("a", 0.0, turnout=1.0)], 0, 0, 500, 1, 2)
+    half = community_voters([_bloc("a", 0.0, turnout=0.5)], 0, 0, 500, 1, 2)
+    assert half.shape[0] < full.shape[0] * 0.7
+
+
+def test_assembly_composed_electorate_drives_seats(client: TestClient):
+    """A composed electorate (community mixture) overrides the ideology cloud:
+    seats reflect bloc weights, and an empty region wins nothing."""
+    parties = [{"name": "G", "x": -0.6, "y": 0}, {"name": "C", "x": 0.0, "y": 0},
+               {"name": "D", "x": 0.6, "y": 0}]
+    base = {"parties": parties, "num_voters": 400, "seed": 42, "structure": "pr"}
+    # Two blocs (no centre), left twice as large as right.
+    electorate = {"mode": "composed", "correlation": 0.0, "noise": 0.0, "communities": [
+        _bloc("g", -0.7, weight=2, turnout=0.9), _bloc("d", 0.7, weight=1, turnout=0.9)]}
+    composed = client.post("/api/v2/election/assembly", json={**base, "electorate": electorate}).json()
+    by = {p["name"]: p for p in composed["parties"]}
+    assert by["C"]["seats"] == 0          # nobody sits in the empty centre
+    assert by["G"]["seats"] > by["D"]["seats"]  # heavier bloc → more seats
+    # 'simple' (no electorate) keeps the ideology preset and still succeeds.
+    simple = client.post("/api/v2/election/assembly", json={**base, "electorate": None})
+    assert simple.status_code == 200
 
 
 def test_strategic_vulnerability_opt_in(client: TestClient):

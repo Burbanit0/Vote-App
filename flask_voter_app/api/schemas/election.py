@@ -64,6 +64,33 @@ class TurnoutConfig(BaseModel):
     intensity: float = Field(0.0, ge=0.0, le=1.0)
 
 
+class CommunitySpec(BaseModel):
+    """One bloc of the composed electorate: a Gaussian community with its own
+    centre, dispersion, relative size and turnout propensity."""
+    model_config = ConfigDict(extra="forbid")
+
+    id:      str   = Field(..., min_length=1, max_length=64)
+    label:   str   = Field("", max_length=64)
+    x:       float = Field(0.0, ge=-1.0, le=1.0)
+    y:       float = Field(0.0, ge=-1.0, le=1.0)
+    z:       float = Field(0.0, ge=-1.0, le=1.0, description="3rd-axis centre (dims=3).")
+    spread:  float = Field(0.15, ge=0.0, le=1.0, description="Bloc standard deviation.")
+    weight:  float = Field(1.0, ge=0.0, le=100.0, description="Relative size (sampling weight).")
+    turnout: float = Field(1.0, ge=0.0, le=1.0, description="Per-bloc participation propensity.")
+
+
+class ElectorateConfig(BaseModel):
+    """The composed electorate (community mixture). When present and mode is
+    'composed', the worker samples voters from this mixture instead of the
+    ideology preset, so every view shares the same electorate."""
+    model_config = ConfigDict(extra="forbid")
+
+    mode: Literal["simple", "composed"] = Field("simple")
+    correlation: float = Field(0.0, ge=-1.0, le=1.0, description="Couples the x↔y axes.")
+    noise: float = Field(0.0, ge=0.0, le=1.0, description="Global measurement jitter.")
+    communities: List[CommunitySpec] = Field(default_factory=list, max_length=12)
+
+
 class ProfileSimulateRequest(BaseModel):
     """POST /api/v2/election/profile-simulate — the profile-as-interface core.
 
@@ -159,6 +186,9 @@ class AssemblyRequest(BaseModel):
                     "for their nearest viable party.",
     )
     turnout: TurnoutConfig = Field(default_factory=TurnoutConfig)
+    electorate: Optional[ElectorateConfig] = Field(
+        None, description="Composed electorate (community mixture); overrides `ideology` when mode='composed'."
+    )
 
 
 class AssemblyPartyResult(BaseModel):
@@ -246,6 +276,9 @@ class AssemblyScorecardRequest(BaseModel):
     apportionment: Literal["dhondt", "sainte_lague"] = Field("dhondt")
     strategic_desertion: bool = Field(False)
     turnout: TurnoutConfig = Field(default_factory=TurnoutConfig)
+    electorate: Optional[ElectorateConfig] = Field(
+        None, description="Composed electorate (community mixture); overrides `ideology` when mode='composed'."
+    )
     replications: int = Field(24, ge=8, le=40)
 
 

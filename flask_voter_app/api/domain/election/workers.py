@@ -25,7 +25,7 @@ from api.engine.utils.simulation_voting_utils import calculate_utility, create_c
 from api.engine.utils.simulation_metrics      import compare_all_methods
 from api.engine.utils.profile_engine          import (
     build_profile, cycle_rate, project_ballot, ballot_metrics, compatible_methods,
-    turnout_mask,
+    turnout_mask, community_voters,
 )
 from api.engine.utils.simulation_ranked_utils import (
     get_plurality_winner,
@@ -6629,8 +6629,25 @@ def _profile_simulate_worker(data: Dict[str, Any]) -> tuple[Dict[str, Any], int]
 
 # ── Assembly (Lab reshape P3) ─────────────────────────────────────────────────
 
-def _assembly_voters(n: int, seed: int, ideology: str) -> "_np.ndarray":
-    """Deterministic 2D voter cloud matching the playground ideology presets."""
+def _assembly_voters(
+    n: int, seed: int, ideology: str, electorate: Optional[Dict[str, Any]] = None
+) -> "_np.ndarray":
+    """Deterministic 2D voter cloud.
+
+    When a composed `electorate` (community mixture) is supplied, the cloud is
+    sampled from it so the parliament reflects the same electorate the leader
+    views show; otherwise it falls back to the ideology presets.
+    """
+    if electorate and electorate.get("communities"):
+        pts = community_voters(
+            electorate["communities"],
+            float(electorate.get("correlation", 0.0)),
+            float(electorate.get("noise", 0.0)),
+            n, seed, dims=2,
+        )
+        if pts.shape[0] >= 2:
+            return pts
+        # degenerate composition → fall through to the default cloud
     rng = _np.random.default_rng(seed)
     if ideology == "polarized":
         left = rng.random(n) < 0.5
@@ -6817,7 +6834,7 @@ def _assembly_worker(data: Dict[str, Any]) -> tuple[Dict[str, Any], int]:
                  for n, p in zip(names, parties_in)}
     pts = _np.array([[positions[n][0], positions[n][1]] for n in names])
 
-    voters = _assembly_voters(num_voters, seed, ideology)
+    voters = _assembly_voters(num_voters, seed, ideology, data.get("electorate"))
     # Differential turnout (electorate realism): abstainers leave first.
     _tcfg = data.get("turnout") or {}
     voters = voters[turnout_mask(voters, pts, str(_tcfg.get("model", "full")),
@@ -6968,8 +6985,9 @@ def _assembly_scorecard_worker(data: Dict[str, Any]) -> tuple[Dict[str, Any], in
 
     _tcfg = data.get("turnout") or {}
     _tmodel, _tint = str(_tcfg.get("model", "full")), float(_tcfg.get("intensity", 0.0))
+    _electorate = data.get("electorate")
     for k in range(replications):
-        voters = _assembly_voters(num_voters, seed + 101 * k, ideology)
+        voters = _assembly_voters(num_voters, seed + 101 * k, ideology, _electorate)
         voters = voters[turnout_mask(voters, pts, _tmodel, _tint)]
         nv = max(1, voters.shape[0])  # effective electorate after abstention
         d2 = ((voters[:, None, :] - pts[None, :, :]) ** 2).sum(axis=2)

@@ -83,6 +83,67 @@ def spatial_profile(
     return matrix, voter_pts, cand_pts, names
 
 
+def community_voters(
+    communities: List[Dict[str, Any]],
+    correlation: float,
+    noise: float,
+    num_voters: int,
+    seed: int,
+    dims: int = 2,
+) -> np.ndarray:
+    """Generate a community-mixture voter cloud — the *composed electorate* engine.
+
+    Mirrors the frontend `composeElectorate` statistically (not bit-identical):
+    a weighted mixture of blocs, each Gaussian with its own `spread`, centre
+    (x/y/z) and per-bloc `turnout` propensity; `correlation` ∈ [-1,1] couples the
+    x↔y deviations; `noise` ∈ [0,1] adds a global measurement jitter on every axis
+    (distinct from each bloc's real spread). Returns the (k, dims) clipped points
+    of the voters who turn out. Falls back to the bloc centres if too few remain.
+    """
+    live = [c for c in communities if float(c.get("weight", 0.0)) > 0.0]
+    if not live:
+        return np.zeros((0, dims), dtype=float)
+    rng = np.random.default_rng(seed)
+    weights = np.array([float(c["weight"]) for c in live], dtype=float)
+    probs = weights / weights.sum()
+    idx = rng.choice(len(live), size=num_voters, p=probs)
+
+    cx = np.array([float(c.get("x", 0.0)) for c in live], dtype=float)[idx]
+    cy = np.array([float(c.get("y", 0.0)) for c in live], dtype=float)[idx]
+    cz = np.array([float(c.get("z", 0.0)) for c in live], dtype=float)[idx]
+    sigma = np.maximum(np.array([float(c.get("spread", 0.15)) for c in live], dtype=float)[idx], 1e-9)
+    turn = np.array([float(c.get("turnout", 1.0)) for c in live], dtype=float)[idx]
+
+    rho = float(min(max(correlation, -1.0), 1.0))
+    co = math.sqrt(max(0.0, 1.0 - rho * rho))
+    n_sigma = float(min(max(noise, 0.0), 1.0)) * 0.3
+
+    ex = rng.normal(0.0, sigma)
+    ey = rng.normal(0.0, sigma)
+    ez = rng.normal(0.0, sigma)
+    nx = rng.normal(0.0, n_sigma, num_voters) if n_sigma > 0 else 0.0
+    ny = rng.normal(0.0, n_sigma, num_voters) if n_sigma > 0 else 0.0
+    nz = rng.normal(0.0, n_sigma, num_voters) if n_sigma > 0 else 0.0
+
+    x = cx + ex + nx
+    y = cy + (rho * ex + co * ey) + ny if dims >= 2 else np.zeros(num_voters)
+    z = cz + ez + nz if dims >= 3 else np.zeros(num_voters)
+    voted = rng.random(num_voters) <= turn
+
+    cols = [x, y, z][:dims]
+    pts = np.clip(np.column_stack(cols), -1.0, 1.0)[voted]
+    if pts.shape[0] >= 2:
+        return pts
+    centres = np.clip(
+        np.column_stack([
+            np.array([float(c.get(ax, 0.0)) for c in live], dtype=float)
+            for ax in _AXES[:dims]
+        ]),
+        -1.0, 1.0,
+    )
+    return centres
+
+
 def impartial_culture_profile(
     names: List[str], num_voters: int, seed: int
 ) -> UtilityMatrix:
