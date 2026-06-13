@@ -54,17 +54,35 @@ export const LEADER_RULES: Rule[] = [
   'irv',
   'borda',
   'approval',
+  'score',
+  'star',
+  'majority_judgment',
+  'bucklin',
+  'coombs',
   'condorcet',
+  'minimax',
+  'schulze',
+  'nanson',
+  'baldwin',
 ];
 
 /** Stated convention: ballot expressiveness + tally complexity, 1 = simplest. */
 const SIMPLICITY: Record<Rule, number> = {
   plurality: 1.0,
+  score: 0.8,
   two_round: 0.85,
   approval: 0.8,
+  star: 0.7,
+  bucklin: 0.55,
+  majority_judgment: 0.6,
   borda: 0.6,
+  coombs: 0.5,
   irv: 0.5,
+  nanson: 0.4,
+  baldwin: 0.4,
   condorcet: 0.35,
+  minimax: 0.35,
+  schulze: 0.3,
 };
 
 const mean = (xs: number[]): number =>
@@ -220,6 +238,9 @@ export const MANIP_COMPLEXITY: Record<
 > = {
   plurality: { hard: false, label: 'P (calcul trivial)', ref: 'compromission directe' },
   approval: { hard: false, label: 'P (calcul trivial)', ref: 'approuver le challenger' },
+  score: { hard: false, label: 'P (calcul trivial)', ref: 'note maximale au challenger' },
+  star: { hard: false, label: 'P (note + finale)', ref: 'STAR — note puis duel' },
+  majority_judgment: { hard: false, label: 'P (médiane)', ref: 'Balinski–Laraki 2010' },
   borda: {
     hard: false,
     label: 'P pour un manipulateur · NP-difficile en coalition',
@@ -227,6 +248,20 @@ export const MANIP_COMPLEXITY: Record<
   },
   two_round: { hard: false, label: 'P (un manipulateur)', ref: 'Conitzer–Sandholm–Lang 2007' },
   condorcet: { hard: false, label: 'P (Copeland)', ref: 'Bartholdi–Tovey–Trick 1989' },
+  minimax: { hard: false, label: 'P (paires)', ref: 'minimax — calcul polynomial' },
+  schulze: { hard: false, label: 'P (chemin le plus fort)', ref: 'Schulze 2011' },
+  bucklin: { hard: false, label: 'P (calcul direct)', ref: 'Xia et al. 2009' },
+  coombs: { hard: false, label: 'P (élimination par derniers)', ref: 'élimination, cf. IRV' },
+  nanson: {
+    hard: true,
+    label: 'NP-difficile à manipuler',
+    ref: 'Narodytska–Walsh–Xia 2011',
+  },
+  baldwin: {
+    hard: true,
+    label: 'NP-difficile à manipuler',
+    ref: 'Narodytska–Walsh–Xia 2011',
+  },
   irv: {
     hard: true,
     label: 'NP-difficile, même pour un seul manipulateur',

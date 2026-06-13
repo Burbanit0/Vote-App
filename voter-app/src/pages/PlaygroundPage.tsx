@@ -10,7 +10,7 @@ import { runProfileSimulate, type ProfileSimulateResult } from '../services/prof
 import LeaderCanvas from '../components/playground/LeaderCanvas';
 import ParliamentCanvas from '../components/playground/ParliamentCanvas';
 import FlipReveal from '../components/playground/FlipReveal';
-import { sampleVoters, type Rule } from '../lib/playgroundVoting';
+import { sampleVoters, RULE_LABELS, type Rule } from '../lib/playgroundVoting';
 import {
   driftCandidates,
   medianPoint,
@@ -230,15 +230,8 @@ const STRUCTURE_LABELS: Record<string, string> = {
   fptp: 'Circonscriptions (FPTP)',
   mmp: 'Mixte (MMP)',
 };
-const RULE_LABELS_LENS: Record<string, string> = {
-  plurality: 'Pluralité (1 tour)',
-  two_round: 'Deux tours',
-  irv: 'Vote alternatif (IRV)',
-  borda: 'Borda',
-  approval: 'Approbation',
-  condorcet: 'Condorcet (Copeland)',
-};
-
+// The 15 leader rules' labels come from the voting lib (RULE_LABELS) so the
+// selector, scorecard title and values lens stay in sync.
 const defaultWeights = (keys: readonly string[]): Record<string, number> =>
   Object.fromEntries(keys.map((k) => [k, 0.5]));
 
@@ -935,7 +928,7 @@ const PlaygroundPage: React.FC = () => {
             <CardTitle className="text-base">
               Bilan —{' '}
               {mode === 'leader'
-                ? RULE_LABELS_LENS[leaderRule]
+                ? RULE_LABELS[leaderRule]
                 : STRUCTURE_LABELS[assembly.structure]}
             </CardTitle>
           </CardHeader>
@@ -1052,7 +1045,7 @@ const PlaygroundPage: React.FC = () => {
               items={lensItems}
               axisKeys={mode === 'leader' ? [...LEADER_AXES_KEYS] : PARLIAMENT_AXES_KEYS}
               axisLabels={Object.fromEntries(axisMeta.map((a) => [a.key, a.label]))}
-              itemLabels={mode === 'leader' ? RULE_LABELS_LENS : STRUCTURE_LABELS}
+              itemLabels={mode === 'leader' ? RULE_LABELS : STRUCTURE_LABELS}
               weights={effectiveWeights}
               granular={lensMode === 'granular'}
               onWeightChange={(k, v) => {
