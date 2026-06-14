@@ -18,7 +18,7 @@ from __future__ import annotations
 
 import random
 from types import SimpleNamespace
-from typing import Annotated, Any
+from typing import Annotated
 
 import httpx
 from fastapi import APIRouter, Depends, HTTPException, Query, status

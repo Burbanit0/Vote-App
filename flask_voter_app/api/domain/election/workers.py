@@ -13,34 +13,21 @@ logical order:
 """
 from __future__ import annotations
 
-import math
 import random as _random
 from collections import Counter
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, Optional
 
 import numpy as _np
 
 from api.engine.constants import DEFAULT_ISSUES
-from api.engine.utils.simulation_voting_utils import calculate_utility, create_candidate, create_voter
+from api.engine.utils.simulation_voting_utils import calculate_utility, create_voter
 from api.engine.utils.simulation_metrics      import compare_all_methods
-from api.engine.utils.profile_engine          import (
-    build_profile, cycle_rate, project_ballot, ballot_metrics, compatible_methods,
-    turnout_mask, community_voters, spatial_cycle_rate,
-)
 from api.engine.utils.simulation_ranked_utils import (
     get_plurality_winner,
-    get_condorcet_winner,
     get_irv_winner,
     get_approval_winner_sincere,
-    get_borda_winner,
-    get_schulze_winner,
 )
-from api.engine.utils.blank_vote_rules        import BlankVoteRule, apply_blank_rule
-from api.engine.utils.simulation_multiwinner_utils import (
-    get_stv_result, get_dhondt_winners,
-    get_sainte_lague_winners, compute_proportionality_metrics,
-    get_spav_result, get_phragmen_result,
-)
+from api.engine.utils.blank_vote_rules        import BlankVoteRule
 from api.engine.utils.blank_contagion         import simulate_blank_contagion
 from api.engine.utils.campaign_dynamics       import simulate_campaign
 from api.engine.utils.information_model       import apply_information_asymmetry
@@ -50,11 +37,8 @@ from api.engine.utils.cache import cache_result
 # this package. Re-exported under their original private names so the
 # 30+ existing call sites in this file continue to work unchanged.
 from ._helpers import (
-    PARTY_CYCLE       as _PARTY_CYCLE,
-    SINGLE_WINNER_CAP,
     build_candidate_from_xy as _build_candidate_from_xy,
     inter_method_agreement  as _inter_method_agreement,
-    gini                    as _gini,
     dhondt                  as _dhondt,
 )
 from ._electorate import (
@@ -195,7 +179,6 @@ def _divergence_worker(data: Dict[str, Any]) -> tuple[Dict[str, Any], int]:
 
 def _campaign_sensitivity_worker(data: Dict[str, Any]) -> tuple[Dict[str, Any], int]:
     """Pure-compute worker for /campaign-sensitivity (multiple snapshots)."""
-    import copy
 
     num_voters      = max(10, min(200, int(data.get("num_voters",  150))))  # cap for speed
     ideology        = str(data.get("ideology",   "random"))
@@ -741,7 +724,6 @@ def _count_changed(prev: list[Dict[str, Any]], curr: list[Dict[str, Any]]) -> in
 
 def _simulate_pipeline_worker(data: Dict[str, Any]) -> tuple[Dict[str, Any], int]:
     """Pure-compute worker for /simulate-pipeline (step-by-step animation)."""
-    import copy
 
     num_voters     = max(10, min(200, int(data.get("num_voters",  150))))
     ideology       = str(data.get("ideology",   "random"))
@@ -754,7 +736,7 @@ def _simulate_pipeline_worker(data: Dict[str, Any]) -> tuple[Dict[str, Any], int
 
     blank_cfg      = data.get("blank_vote", {}) or {}
     blank_enabled  = bool(blank_cfg.get("enabled", False))
-    blank_rule_str = str(blank_cfg.get("rule", "symbolic"))
+    str(blank_cfg.get("rule", "symbolic"))
     contagion_cfg  = blank_cfg.get("contagion", {}) or {}
     contagion_on   = bool(contagion_cfg.get("enabled", False))
 

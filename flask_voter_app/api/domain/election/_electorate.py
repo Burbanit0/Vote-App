@@ -111,12 +111,11 @@ def _snapshot_election_winners(
     Lighter than compare_all_methods() — skips strategic_vulnerability so
     calling it once per snapshot day is tractable.
     """
-    import copy
     from api.engine.utils.simulation_ranked_utils import (
-        get_condorcet_winner,
-        get_plurality_winner, get_two_round_winner, get_borda_winner,
-        get_approval_winner, get_irv_winner, get_coombs_winner,
-        get_bucklin_winner, get_minimax_winner, get_schulze_winner,
+        get_plurality_winner,
+        get_two_round_winner, get_borda_winner, get_approval_winner,
+        get_irv_winner, get_coombs_winner, get_bucklin_winner,
+        get_minimax_winner, get_schulze_winner,
     )
     from api.engine.utils.simulation_score_utils import (
         get_simple_score_winner, get_star_voting_winner,

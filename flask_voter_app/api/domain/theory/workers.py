@@ -452,8 +452,8 @@ def _plott_chaos_worker(data: Dict[str, Any]) -> tuple[Dict[str, Any], int]:
     # ── Pedagogical note ──────────────────────────────────────────────────
     if condorcet_winner_exists:
         note = (
-            f"Un gagnant de Condorcet existe — le chaos de Plott ne s'applique pas ici. "
-            f"Essayez avec num_dimensions=2 et des positions d'électeurs moins régulières."
+            "Un gagnant de Condorcet existe — le chaos de Plott ne s'applique pas ici. "
+            "Essayez avec num_dimensions=2 et des positions d'électeurs moins régulières."
         )
     else:
         n_path = len(chaos_steps) - 1 if chaos_steps else 0
@@ -585,9 +585,9 @@ def _judgment_aggregation_worker(data: Dict[str, Any]) -> tuple[Dict[str, Any], 
         )
     else:
         note = (
-            f"Aucune incohérence sur ce profil — le paradoxe ne se manifeste pas toujours. "
-            f"Il dépend de la distribution des préférences et de la structure logique "
-            f"des propositions."
+            "Aucune incohérence sur ce profil — le paradoxe ne se manifeste pas toujours. "
+            "Il dépend de la distribution des préférences et de la structure logique "
+            "des propositions."
         )
 
     return {
@@ -980,9 +980,7 @@ def _check_sen(pref1: List[str], pref2: List[str],
 
 def _sen_paradox_worker(data: Dict[str, Any]) -> tuple[Dict[str, Any], int]:
     """Pure worker for /sen-paradox — extracted for FastAPI v2."""
-    num_voters = int(data.get("num_voters", 2))   # always 2 for Sen paradox
     seed       = int(data.get("seed", 42))
-    rights_def = str(data.get("rights_definition", "liberal"))
 
     # ── Canonical example (Sen 1970, Lady Chatterley) ─────────────────────
     canon_pref1 = ["z", "x", "y"]   # prude : nobody > self > other
@@ -1296,7 +1294,7 @@ def _majority_tyranny_worker(data: Dict[str, Any]) -> tuple[Dict[str, Any], int]
         "unanimous", "qv", "mj",
     ]
 
-    rng = _rnd.Random(seed)
+    _rnd.Random(seed)
 
     n_majority = int(round(num_voters * majority_pct))
     n_minority = num_voters - n_majority
@@ -1387,9 +1385,6 @@ def _majority_tyranny_worker(data: Dict[str, Any]) -> tuple[Dict[str, Any], int]
         avg_min_util   = sum(d["min_util"] for d in decisions) / num_decisions
 
         # Pareto-optimal: minority wins ≥ minority_intensity * minority_wins
-        # Simple majority baseline welfare
-        simple_maj_welfare = n_majority * 1.0 * num_decisions  # all decisions go to majority
-        actual_welfare     = (n_majority * avg_maj_util + n_minority * avg_min_util) * num_decisions
         # Efficiency loss relative to utilitarian optimum
         # Utilitarian opt: give each decision to whoever has higher total utility
         util_opt = num_decisions * max(n_majority * 1.0, n_minority * minority_intensity)
@@ -1501,7 +1496,7 @@ def _democratic_backsliding_worker(data: Dict[str, Any]) -> tuple[Dict[str, Any]
     }
 
     rng = _rnd.Random(seed)
-    np_rng = _np_bs.random.default_rng(seed)
+    _np_bs.random.default_rng(seed)
 
     # ── Candidate setup ───────────────────────────────────────────────────────
     if len(candidates_raw) < 2:
@@ -1741,7 +1736,6 @@ _DISCOUNT = 0.03   # 3% per year
 def _intergenerational_worker(data: Dict[str, Any]) -> tuple[Dict[str, Any], int]:
     """Pure worker for /intergenerational — extracted for FastAPI v2."""
     raw_decisions: List[Dict[str, Any]] = data.get("decisions") or _DEFAULT_DECISIONS
-    num_voters:    int   = max(20, min(int(data.get("num_voters", 100)), 1000))
     age_dist_raw:  List[float] = data.get("age_distribution") or [0.30, 0.45, 0.25]
     seed:          int   = int(data.get("seed", 42))
     mechanism_req: str   = data.get("future_generations_mechanism", "none")
@@ -1924,7 +1918,7 @@ def _intergenerational_worker(data: Dict[str, Any]) -> tuple[Dict[str, Any], int
         }
 
     # ── Pedagogical note ──────────────────────────────────────────────────────
-    veto_adopt = mechanism_comparison["veto"]["adoption_rate"]
+    mechanism_comparison["veto"]["adoption_rate"]
     none_adopt = mechanism_comparison["none"]["adoption_rate"]
     best_future_mech = max(all_mechs, key=lambda m: mechanism_comparison[m]["future_welfare_gain"])
 
@@ -2172,7 +2166,6 @@ def _identity_voting_worker(data: Dict[str, Any]) -> tuple[Dict[str, Any], int]:
     seed:            int   = int(data.get("seed", 42))
     identity_weight: float = max(0.0, min(float(data.get("identity_weight", 0.5)), 1.0))
     cross_pressure:  bool  = bool(data.get("cross_pressure", True))
-    method:          str   = data.get("method", "plurality")
 
     default_groups = [
         {"name": "Groupe A", "pct": 0.40, "ideology_center": -0.3,
@@ -2646,7 +2639,7 @@ def _collective_will_worker(data: Dict[str, Any]) -> tuple[Dict[str, Any], int]:
 
     # ── Minimax helper ────────────────────────────────────────────────────────
     def _minimax(rankings: List[List[str]]) -> str:
-        n_v = len(rankings)
+        len(rankings)
         worst_loss: Dict[str, int] = {}
         for cand in cand_names:
             losses = []
@@ -2672,7 +2665,6 @@ def _collective_will_worker(data: Dict[str, Any]) -> tuple[Dict[str, Any], int]:
         if method == "approval":
             # Approve top 40% of candidates
             threshold = max(1, int(n_cands * 0.4) + 1)
-            from collections import Counter as _C3
             scores: Dict[str, int] = {c: 0 for c in cand_names}
             for r in rankings:
                 for c in r[:threshold]:

@@ -19,8 +19,7 @@ from api.engine.constants import DEFAULT_ISSUES
 from api.engine.utils.simulation_voting_utils import calculate_utility, create_voter
 from api.engine.utils.simulation_metrics import compare_all_methods
 from api.engine.utils.simulation_ranked_utils import (
-    get_plurality_winner, get_condorcet_winner, get_irv_winner,
-    get_borda_winner, get_schulze_winner,
+    get_plurality_winner, get_condorcet_winner,
 )
 from ._electorate import _build_base_electorate
 from ._helpers import build_candidate_from_xy as _build_candidate_from_xy
@@ -252,7 +251,7 @@ def _compulsory_voting_worker(data: Dict[str, Any]) -> tuple[Dict[str, Any], int
     comp_to      = max(0.70, min(0.99, float(data.get("compulsory_turnout",  0.92))))
     rel_null     = max(0.00, min(0.20, float(data.get("reluctant_null_rate",  0.04))))
     rel_rnd      = max(0.00, min(1.00, float(data.get("reluctant_random_pct", 0.08))))
-    primary_method = str(data.get("method", "plurality"))
+    str(data.get("method", "plurality"))
     cand_specs   = data.get("candidates", [
         {"name": "Alice", "x": -0.5, "y": -0.2},
         {"name": "Bob",   "x":  0.5, "y":  0.2},
@@ -269,8 +268,6 @@ def _compulsory_voting_worker(data: Dict[str, Any]) -> tuple[Dict[str, Any], int
     candidates, voters, sincere_utilities, cand_names = _build_base_electorate(
         cand_specs, num_voters, ideology, seed, issues
     )
-    all_ids: list[int] = [v["id"] for v in voters]
-
     voter_ideo:     Dict[int, float] = {
         v["id"]: round(2.0 * v["issue_positions"].get("economy", 0.5) - 1.0, 3)
         for v in voters
@@ -426,7 +423,7 @@ def _sortition_worker(data: Dict[str, Any]) -> tuple[Dict[str, Any], int]:
     assembly_size   = max(5,   min(300, int(data.get("assembly_size",      50))))
     ideology        = str(data.get("ideology",          "random"))
     seed            = int(data.get("seed",               42))
-    primary_method  = str(data.get("method",            "plurality"))
+    str(data.get("method",            "plurality"))
     num_sims        = max(5,   min(100, int(data.get("num_simulations",   20))))
     realistic_cands = bool(data.get("realistic_candidates", True))
     cand_specs      = data.get("candidates", [
@@ -438,7 +435,7 @@ def _sortition_worker(data: Dict[str, Any]) -> tuple[Dict[str, Any], int]:
     # Pydantic may pass null for the whole stratification object — guard.
     strat_cfg   = data.get("stratification") or {}
     age_dist_raw = strat_cfg.get("age_groups") or [0.25, 0.45, 0.30]
-    gender_par  = bool(strat_cfg.get("gender_parity", True))
+    bool(strat_cfg.get("gender_parity", True))
     edu_quota   = bool(strat_cfg.get("education_quota", True))
 
     if len(cand_specs) < 2:
@@ -458,9 +455,6 @@ def _sortition_worker(data: Dict[str, Any]) -> tuple[Dict[str, Any], int]:
         v["id"]: round(2.0 * v["issue_positions"].get("economy", 0.5) - 1.0, 3)
         for v in voters
     }
-    voter_max_util: Dict[int, float] = {
-        v["id"]: max(sincere_utilities[v["id"]].values()) for v in voters
-    }
     full_mean_ideo = round(sum(voter_ideo.values()) / num_voters, 4)
 
     # Demographics (for stratified sortition)
@@ -477,7 +471,6 @@ def _sortition_worker(data: Dict[str, Any]) -> tuple[Dict[str, Any], int]:
 
     voter_age: Dict[int, int] = {v["id"]: _age_group(d_rng.random()) for v in voters}
     voter_edu: Dict[int, int] = {v["id"]: (0 if d_rng.random() < 0.40 else 1) for v in voters}
-    voter_gen: Dict[int, int] = {v["id"]: (0 if d_rng.random() < 0.50 else 1) for v in voters}
 
     # ── Metric helpers ────────────────────────────────────────────────────
     def _representativity(asm: set) -> float:
@@ -691,7 +684,6 @@ def _party_dynamics_worker(data: Dict[str, Any]) -> tuple[Dict[str, Any], int]:
 
     Simulate multi-election party system evolution (Duverger's Law).
     """
-    import copy as _cp
 
     num_voters    = max(100, min(1000, int(data.get("num_voters",        500))))
     ideology      = str(data.get("ideology",                "random"))
@@ -923,7 +915,7 @@ def _deliberation_worker(data: Dict[str, Any]) -> tuple[Dict[str, Any], int]:
     network_type   = str(data.get("network_type",           "random"))
     group_size     = max(3,  min(20,  int(data.get("group_size",           5))))
     arg_quality    = max(0.0, min(1.0, float(data.get("argument_quality",  0.5))))
-    primary_method = str(data.get("method",                 "plurality"))
+    str(data.get("method",                 "plurality"))
     cand_specs     = data.get("candidates", [
         {"name": "Alice", "x": -0.5, "y": -0.2},
         {"name": "Bob",   "x":  0.5, "y":  0.2},
@@ -1211,13 +1203,10 @@ def _power_indices_worker(data: Dict[str, Any]) -> tuple[Dict[str, Any], int]:
                 coalition = frozenset(combo)
                 if _coalition_wins(coalition):
                     # Track critical parties
-                    is_minimal = True
                     for member in combo:
                         without = coalition - {member}
                         if not _coalition_wins(without):
                             critical_counts[member] += 1
-                        else:
-                            is_minimal = False  # member is superfluous
                     viable_coalitions.append({
                         "parties": sorted(combo),
                         "seats":   sum(seats_map[m] for m in combo),

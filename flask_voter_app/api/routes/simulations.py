@@ -26,7 +26,7 @@ from __future__ import annotations
 import asyncio
 from typing import Any, Callable, Dict, List, TypeVar
 
-from fastapi import APIRouter, HTTPException, Response, status
+from fastapi import APIRouter, HTTPException, Response
 from pydantic import BaseModel
 
 _ResponseT = TypeVar("_ResponseT", bound=BaseModel)

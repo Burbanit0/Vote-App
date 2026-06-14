@@ -18,11 +18,10 @@ import numpy as _np
 from api.engine.constants import DEFAULT_ISSUES
 from api.engine.utils.simulation_voting_utils import calculate_utility, create_voter
 from api.engine.utils.simulation_ranked_utils import (
-    get_plurality_winner, get_condorcet_winner, get_irv_winner,
-    get_borda_winner, get_schulze_winner,
+    get_plurality_winner, get_condorcet_winner,
 )
 from ._electorate import _build_base_electorate
-from ._helpers import build_candidate_from_xy as _build_candidate_from_xy, gini as _gini
+from ._helpers import build_candidate_from_xy as _build_candidate_from_xy
 
 
 # ── Information Cascade ───────────────────────────────────────────────────────
@@ -309,8 +308,8 @@ def _behavioral_biases_worker(data: Dict[str, Any]) -> tuple[Dict[str, Any], int
             )
         else:
             note = (
-                f"Aucune méthode ne change de vainqueur malgré ces biais comportementaux. "
-                f"L'électorat est suffisamment homogène pour résister aux distorsions."
+                "Aucune méthode ne change de vainqueur malgré ces biais comportementaux. "
+                "L'électorat est suffisamment homogène pour résister aux distorsions."
             )
 
     return {

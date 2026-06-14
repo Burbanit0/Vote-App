@@ -1,6 +1,11 @@
 [flake8]
 max-line-length = 88
-ignore = F824, W503, E203
+# Gate on real-bug categories only: E9 (syntax) + F (pyflakes — unused
+# imports/vars, undefined names, f-string mistakes). The cosmetic E2xx/E5xx/W
+# codes are intentionally not selected: the codebase uses column-aligned style
+# that those checks dislike, and they carry no correctness signal.
+select = E9, F
+ignore = F824
 exclude =
     dist,
     build,

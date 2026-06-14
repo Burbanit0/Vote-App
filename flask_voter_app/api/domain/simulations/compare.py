@@ -28,7 +28,6 @@ from api.engine.utils.information_model import apply_information_asymmetry, comp
 from api.domain.simulations.helpers import (
     _parse_candidate_configs, _build_population,
     _PRESET_TO_DISTRIBUTION, _SCENARIO_METHODS,
-    _build_scenario_candidates, _build_scenario_voters,
 )
 from api.engine.constants import DEFAULT_ISSUES, ECONOMY_ISSUES, ENV_ISSUES, SOCIAL_ISSUES
 

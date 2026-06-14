@@ -8,7 +8,6 @@ engine utils + the shared ._electorate / ._helpers.
 """
 from __future__ import annotations
 
-import math
 import random as _random
 from collections import Counter
 from typing import Any, Dict, List, Optional  # noqa: F401
@@ -146,7 +145,6 @@ def _hotelling_worker(data: Dict[str, Any]) -> tuple[Dict[str, Any], int]:
             "converged_candidates": sorted(converged_set),
         })
 
-        moved_any = False
         for j in range(C):
             if cand_names[j] in converged_set:
                 continue
@@ -167,7 +165,6 @@ def _hotelling_worker(data: Dict[str, Any]) -> tuple[Dict[str, Any], int]:
 
             if _np.any(best_delta != 0):
                 cand_xy[j] = _np.clip(cand_xy[j] + best_delta, -1.0, 1.0)
-                moved_any = True
             else:
                 converged_set.add(cand_names[j])
 

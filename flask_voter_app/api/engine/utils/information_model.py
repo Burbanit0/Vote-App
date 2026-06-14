@@ -32,7 +32,6 @@ or ±0.045 (high_info) shift on the perceived utility.
 from __future__ import annotations
 
 import random
-from typing import Any
 
 # ── Segment configuration ────────────────────────────────────────────────────
 
