@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { galleryApi } from '../../services/galleryApi';
+import { errorMessage } from '../../utils/errorMessage';
 import { Alert } from '@/components/ui/alert';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -79,8 +80,8 @@ const GalleryShareModal: React.FC<Props> = ({
         tags,
       });
       setSuccess(true);
-    } catch (e: any) {
-      setError(e?.response?.data?.error ?? 'Erreur lors de la publication.');
+    } catch (e: unknown) {
+      setError(errorMessage(e, 'Erreur lors de la publication.'));
     } finally {
       setSaving(false);
     }
