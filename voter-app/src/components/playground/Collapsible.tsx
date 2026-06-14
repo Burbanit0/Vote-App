@@ -10,6 +10,8 @@ export interface CollapsibleProps {
   subtitle?: string;
   defaultOpen?: boolean;
   testid?: string;
+  /** Notified whenever the open state changes (e.g. to reveal a linked overlay). */
+  onOpenChange?: (open: boolean) => void;
   children: React.ReactNode;
 }
 
@@ -18,6 +20,7 @@ const Collapsible: React.FC<CollapsibleProps> = ({
   subtitle,
   defaultOpen = false,
   testid,
+  onOpenChange,
   children,
 }) => {
   const [open, setOpen] = useState(defaultOpen);
@@ -27,11 +30,19 @@ const Collapsible: React.FC<CollapsibleProps> = ({
         type="button"
         data-testid={testid ? `${testid}-toggle` : undefined}
         aria-expanded={open}
-        onClick={() => setOpen((o) => !o)}
+        onClick={() =>
+          setOpen((o) => {
+            onOpenChange?.(!o);
+            return !o;
+          })
+        }
         className="flex w-full items-center justify-between gap-2 px-3 py-2 text-left text-sm font-medium hover:bg-accent/50"
       >
         <span className="flex items-center gap-2">
-          <span className="text-muted-foreground transition-transform" style={{ transform: open ? 'rotate(90deg)' : 'none' }}>
+          <span
+            className="text-muted-foreground transition-transform"
+            style={{ transform: open ? 'rotate(90deg)' : 'none' }}
+          >
             ▸
           </span>
           {title}

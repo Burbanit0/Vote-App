@@ -306,8 +306,11 @@ describe('PlaygroundPage (P0 shell)', () => {
     renderPage();
     expect(screen.getByTestId('module-sincerity')).toBeInTheDocument();
     expect(screen.queryByTestId('sincerity-module')).not.toBeInTheDocument();
+    // The "you" marker is only on the map while the module is open.
+    expect(screen.queryByTestId('you-marker')).not.toBeInTheDocument();
     fireEvent.click(screen.getByTestId('module-sincerity-toggle'));
     expect(screen.getByTestId('sincerity-module')).toBeInTheDocument();
+    expect(screen.getByTestId('you-marker')).toBeInTheDocument();
     // Live (no button): the headline + bloc control render immediately.
     expect(screen.getByTestId('sincerity-headline')).toHaveTextContent('/15 méthodes');
     expect(screen.getByTestId('sincerity-bloc')).toBeInTheDocument();

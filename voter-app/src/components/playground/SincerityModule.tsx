@@ -29,12 +29,15 @@ const TYPE_LABEL: Record<NonNullable<SincerityVerdict['temptation']>['type'], st
   burying: 'enterrement d’un rival',
 };
 
-const SincerityModule: React.FC<{ voters: Pt[]; candidates: NamedPt[]; dims: number }> = ({
-  voters,
-  candidates,
-  dims,
-}) => {
-  const [you, setYou] = React.useState<Pt>({ x: -0.5, y: 0, z: 0 });
+const SincerityModule: React.FC<{
+  voters: Pt[];
+  candidates: NamedPt[];
+  dims: number;
+  /** Your sincere position — controlled so the marker is draggable on the map. */
+  you: Pt;
+  onYouChange: (p: Pt) => void;
+}> = ({ voters, candidates, dims, you, onYouChange }) => {
+  const setYou = (updater: (p: Pt) => Pt) => onYouChange(updater(you));
   const [blocShare, setBlocShare] = React.useState(0.12);
 
   const others = React.useMemo(() => subsample(voters, 400), [voters]);
@@ -98,6 +101,9 @@ const SincerityModule: React.FC<{ voters: Pt[]; candidates: NamedPt[]; dims: num
         )}
         <p className="text-[0.7rem] text-muted-foreground">
           Votre ordre sincère : <strong>{report.ranking.join(' ＞ ')}</strong>
+        </p>
+        <p className="text-[0.65rem] text-muted-foreground/70">
+          Astuce : glissez le marqueur <strong>◆ Vous</strong> directement sur la carte.
         </p>
       </div>
 
