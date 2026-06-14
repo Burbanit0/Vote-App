@@ -126,16 +126,16 @@ describe('MethodSimilarityGraph', () => {
     expect(btn.className).toContain('text-secondary-foreground');
   });
 
-  it.skip('shows hover tooltip when hovering a node', () => {
-    // ⚠ The graph uses Pointer Events + D3 force simulation, neither of which
-    // settle deterministically in jsdom. Skipped until we wire a force
-    // simulation seed for tests or migrate to a different hover trigger.
+  it('shows the hover tooltip when a node is hovered', () => {
+    // The node circle uses onPointerEnter (not mouseEnter), and the tooltip
+    // position falls back to the canvas centre, so it renders regardless of
+    // whether the D3 force simulation has settled in jsdom.
     const { container } = renderGraph();
-    const circles = container.querySelectorAll('[data-testid="graph-node"] circle');
-    if (circles.length > 0) {
-      fireEvent.mouseEnter(circles[0]);
-      const tooltip = container.querySelector('[data-testid="hover-tooltip"]');
-      expect(tooltip).toBeInTheDocument();
-    }
+    const nodes = container.querySelectorAll('[data-testid="graph-node"]');
+    expect(nodes.length).toBeGreaterThan(0);
+    const circle = nodes[0].querySelector('circle');
+    expect(circle).not.toBeNull();
+    fireEvent.pointerEnter(circle as Element);
+    expect(container.querySelector('[data-testid="hover-tooltip"]')).toBeInTheDocument();
   });
 });
