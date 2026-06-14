@@ -302,6 +302,17 @@ describe('PlaygroundPage (P0 shell)', () => {
     expect(pct).toBeLessThan(100);
   });
 
+  it('the sincere-vote module is collapsed in leader mode and opens with a live verdict', () => {
+    renderPage();
+    expect(screen.getByTestId('module-sincerity')).toBeInTheDocument();
+    expect(screen.queryByTestId('sincerity-module')).not.toBeInTheDocument();
+    fireEvent.click(screen.getByTestId('module-sincerity-toggle'));
+    expect(screen.getByTestId('sincerity-module')).toBeInTheDocument();
+    // Live (no button): the headline + bloc control render immediately.
+    expect(screen.getByTestId('sincerity-headline')).toHaveTextContent('/15 méthodes');
+    expect(screen.getByTestId('sincerity-bloc')).toBeInTheDocument();
+  });
+
   it('the strategic-vulnerability module is collapsed in leader mode, opens on demand', () => {
     renderPage();
     expect(screen.getByTestId('module-strategic')).toBeInTheDocument();

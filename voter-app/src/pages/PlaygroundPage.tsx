@@ -42,6 +42,7 @@ import IssuesPanel from '../components/playground/IssuesPanel';
 import StructuralPanel from '../components/playground/StructuralPanel';
 import Collapsible from '../components/playground/Collapsible';
 import StrategicModule from '../components/playground/StrategicModule';
+import SincerityModule from '../components/playground/SincerityModule';
 import ElectorateComposer from '../components/playground/ElectorateComposer';
 import { composeElectorate, COMMUNITY_PALETTE } from '../lib/playgroundElectorate';
 
@@ -1108,6 +1109,19 @@ const PlaygroundPage: React.FC = () => {
                       </div>
                     )}
                   </div>
+
+                  {/* Voter-centric: would YOU be tempted to vote "utile"? (live) */}
+                  <Collapsible
+                    title="🗳️ Vote sincère ou vote utile ?"
+                    subtitle="votre conviction, méthode par méthode"
+                    testid="module-sincerity"
+                  >
+                    <SincerityModule
+                      voters={votingVoters}
+                      candidates={leaderCandidates}
+                      dims={dims}
+                    />
+                  </Collapsible>
 
                   {/* On-demand module: the rigorous (slow) strategic analysis. */}
                   <Collapsible
