@@ -17,7 +17,8 @@ const API_BASE_URL = process.env.VITE_API_URL || 'http://localhost:4434';
 // middleware (which reads the stored token) can't carry it — we pass it explicitly.
 
 // Build a `User` object compatible with the existing AuthContext consumer.
-function profileToUser(profile: any, access_token: string): User {
+// The /users/me payload is a Profile_ plus an optional created_at timestamp.
+function profileToUser(profile: Profile_ & { created_at?: string }, access_token: string): User {
   return {
     id: profile.id,
     user_id: profile.id,

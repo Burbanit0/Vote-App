@@ -11,8 +11,8 @@ export const listScenarios = async (): Promise<ScenarioSummary[]> => {
 
 export const saveScenario = async (
   name: string,
-  config: Record<string, any>,
-  results?: Record<string, any> | null
+  config: Record<string, unknown>,
+  results?: Record<string, unknown> | null
 ): Promise<ScenarioDetail> => {
   return apiPost<ScenarioDetail>(ROOT, { name, config, results: results ?? null });
 };
