@@ -58,6 +58,19 @@ def build_candidate_from_xy(
     }
 
 
+def gini(values: List[float]) -> float:
+    """Normalised Gini coefficient for a list of non-negative values ∈ [0,1]."""
+    n = len(values)
+    if n <= 1:
+        return 0.0
+    total = sum(values)
+    if total == 0.0:
+        return 0.0
+    sv = sorted(values)
+    cum = sum((2 * (i + 1) - n - 1) * x for i, x in enumerate(sv))
+    return round(cum / (n * total), 4)
+
+
 def inter_method_agreement(methods_data: Dict[str, Any]) -> float:
     """Fraction of voting methods that agree on the same winner (0..1)."""
     winners = [md.get("winner") for md in methods_data.values() if md.get("winner")]
