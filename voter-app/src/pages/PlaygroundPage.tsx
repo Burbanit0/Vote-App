@@ -10,7 +10,13 @@ import { runProfileSimulate, type ProfileSimulateResult } from '../services/prof
 import LeaderCanvas from '../components/playground/LeaderCanvas';
 import ParliamentCanvas from '../components/playground/ParliamentCanvas';
 import FlipReveal from '../components/playground/FlipReveal';
-import { sampleVoters, applyTurnout, RULE_LABELS, type Rule } from '../lib/playgroundVoting';
+import {
+  sampleVoters,
+  applyTurnout,
+  RULE_LABELS,
+  type Rule,
+  type Pt,
+} from '../lib/playgroundVoting';
 import {
   driftCandidates,
   medianPoint,
@@ -42,6 +48,7 @@ import IssuesPanel from '../components/playground/IssuesPanel';
 import StructuralPanel from '../components/playground/StructuralPanel';
 import Collapsible from '../components/playground/Collapsible';
 import StrategicModule from '../components/playground/StrategicModule';
+import SincerityModule from '../components/playground/SincerityModule';
 import ElectorateComposer from '../components/playground/ElectorateComposer';
 import { composeElectorate, COMMUNITY_PALETTE } from '../lib/playgroundElectorate';
 
@@ -317,6 +324,9 @@ const PlaygroundPage: React.FC = () => {
   // in the configured number of spatial dimensions (1/2/3).
   const dims = space.dims;
   const [leaderRule, setLeaderRule] = React.useState<Rule>('plurality');
+  // "You" — the sincere-vote voter, draggable on the map while its module is open.
+  const [youPos, setYouPos] = React.useState<Pt>({ x: -0.5, y: 0, z: 0 });
+  const [sincerityOpen, setSincerityOpen] = React.useState(false);
   // The composable electorate (engine): when 'composed', a community mixture
   // replaces the single ideology Gaussian and tags each voter with its bloc so
   // the leader views can colour the cloud. 'simple' keeps the prior behaviour.
@@ -993,6 +1003,8 @@ const PlaygroundPage: React.FC = () => {
                     rule={leaderRule}
                     dims={dims}
                     voterColors={voterColors}
+                    youMarker={sincerityOpen ? youPos : null}
+                    onMoveYou={(x, y) => setYouPos((p) => ({ ...p, x, y }))}
                     onRuleChange={setLeaderRule}
                     onMoveCandidate={moveDisplayed}
                   />
@@ -1108,6 +1120,22 @@ const PlaygroundPage: React.FC = () => {
                       </div>
                     )}
                   </div>
+
+                  {/* Voter-centric: would YOU be tempted to vote "utile"? (live) */}
+                  <Collapsible
+                    title="🗳️ Vote sincère ou vote utile ?"
+                    subtitle="votre conviction, méthode par méthode"
+                    testid="module-sincerity"
+                    onOpenChange={setSincerityOpen}
+                  >
+                    <SincerityModule
+                      voters={votingVoters}
+                      candidates={leaderCandidates}
+                      dims={dims}
+                      you={youPos}
+                      onYouChange={setYouPos}
+                    />
+                  </Collapsible>
 
                   {/* On-demand module: the rigorous (slow) strategic analysis. */}
                   <Collapsible

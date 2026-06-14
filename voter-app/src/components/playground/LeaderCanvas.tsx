@@ -63,6 +63,9 @@ export interface LeaderCanvasProps {
   dims: Dims;
   /** Optional per-voter colour (e.g. by community); falls back to neutral grey. */
   voterColors?: string[];
+  /** Optional "you" marker (the sincere-vote module): a draggable diamond. */
+  youMarker?: Pt | null;
+  onMoveYou?: (x: number, y: number) => void;
   onRuleChange: (rule: Rule) => void;
   onMoveCandidate: (index: number, x: number, y: number, z?: number) => void;
 }
@@ -73,11 +76,14 @@ const LeaderCanvas: React.FC<LeaderCanvasProps> = ({
   rule,
   dims,
   voterColors,
+  youMarker,
+  onMoveYou,
   onRuleChange,
   onMoveCandidate,
 }) => {
   const svgRef = useRef<SVGSVGElement>(null);
   const draggingIdx = useRef<number | null>(null);
+  const draggingYou = useRef<boolean>(false);
   const [region, setRegion] = useState<WinRegion | null>(null);
   // In 3-D, default to the orbital scene (what the dimension is *for*); the
   // x–y plane stays available for editing + the win-region overlay.
@@ -109,16 +115,22 @@ const LeaderCanvas: React.FC<LeaderCanvasProps> = ({
 
   useEffect(() => {
     const move = (clientX: number, clientY: number) => {
-      if (draggingIdx.current === null || !svgRef.current) return;
+      if (!svgRef.current) return;
       const { x, y } = svgToDomain(clientX, clientY, svgRef.current.getBoundingClientRect());
+      if (draggingYou.current) {
+        onMoveYou?.(x, dims === 1 ? 0 : y);
+        return;
+      }
+      if (draggingIdx.current === null) return;
       onMoveCandidate(draggingIdx.current, x, dims === 1 ? 0 : y);
     };
     const onMM = (e: MouseEvent) => move(e.clientX, e.clientY);
     const onUp = () => {
       draggingIdx.current = null;
+      draggingYou.current = false;
     };
     const onTM = (e: TouchEvent) => {
-      if (draggingIdx.current === null || !e.touches[0]) return;
+      if ((draggingIdx.current === null && !draggingYou.current) || !e.touches[0]) return;
       e.preventDefault();
       move(e.touches[0].clientX, e.touches[0].clientY);
     };
@@ -133,7 +145,7 @@ const LeaderCanvas: React.FC<LeaderCanvasProps> = ({
       svg?.removeEventListener('touchmove', onTM);
       svg?.removeEventListener('touchend', onUp);
     };
-  }, [onMoveCandidate, dims]);
+  }, [onMoveCandidate, onMoveYou, dims]);
 
   const winner = fieldWinnerName(voters, candidates, rule);
   const mx = median(voters.map((v) => v.x));
@@ -345,6 +357,50 @@ const LeaderCanvas: React.FC<LeaderCanvasProps> = ({
             );
           })}
         </g>
+
+        {/* "You" marker (sincere-vote module) — a draggable diamond. */}
+        {youMarker && (
+          <g
+            data-testid="you-marker"
+            style={{ cursor: 'grab' }}
+            onMouseDown={(e) => {
+              e.preventDefault();
+              draggingYou.current = true;
+            }}
+            onTouchStart={() => {
+              draggingYou.current = true;
+            }}
+          >
+            {(() => {
+              const cx = toSvg(youMarker.x, 'x');
+              const cy = cyOf(youMarker);
+              return (
+                <>
+                  <rect
+                    x={cx - 7}
+                    y={cy - 7}
+                    width={14}
+                    height={14}
+                    transform={`rotate(45 ${cx} ${cy})`}
+                    fill="#0f172a"
+                    stroke="#fff"
+                    strokeWidth={2}
+                  />
+                  <text
+                    x={cx}
+                    y={cy + 20}
+                    textAnchor="middle"
+                    fontSize={11}
+                    fontWeight={700}
+                    fill="currentColor"
+                  >
+                    Vous
+                  </text>
+                </>
+              );
+            })()}
+          </g>
+        )}
       </svg>
 
       {/* 3-D depth controls — the z axis can't be dragged on a 2-D plane. */}
