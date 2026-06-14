@@ -329,20 +329,18 @@ const ScenarioGalleryPage: React.FC = () => {
                   <div className="mb-1 text-sm font-semibold">
                     Résultats (vainqueurs par méthode)
                   </div>
-                  {(detailData.results_summary as any).winners && (
+                  {detailData.results_summary.winners && (
                     <div className="flex flex-wrap gap-2">
-                      {Object.entries(
-                        (detailData.results_summary as any).winners as Record<string, string>
-                      ).map(([m, w]) => (
+                      {Object.entries(detailData.results_summary.winners).map(([m, w]) => (
                         <span key={m} className="text-[0.8rem]">
                           <span className="text-muted-foreground">{m}:</span> <strong>{w}</strong>
                         </span>
                       ))}
                     </div>
                   )}
-                  {(detailData.results_summary as any).note && (
+                  {detailData.results_summary.note && (
                     <div className="mt-2 text-[0.8rem] text-muted-foreground">
-                      {String((detailData.results_summary as any).note)}
+                      {detailData.results_summary.note}
                     </div>
                   )}
                 </div>

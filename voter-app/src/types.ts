@@ -104,11 +104,18 @@ export interface ScenarioSummary {
   id: number;
   name: string;
   created_at: string;
-  config: Record<string, any>;
+  config: Record<string, unknown>;
+}
+
+/** Compact, display-ready summary of a saved scenario's results. */
+export interface ScenarioResultsSummary {
+  winners?: Record<string, string>;
+  note?: string;
 }
 
 export interface ScenarioDetail extends ScenarioSummary {
-  results: Record<string, any> | null;
+  results: Record<string, unknown> | null;
+  results_summary?: ScenarioResultsSummary | null;
 }
 
 // --- Sensitivity analysis ---

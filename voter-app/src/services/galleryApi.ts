@@ -1,4 +1,5 @@
 import { apiGet, apiPost } from '../api/client';
+import type { ScenarioResultsSummary } from '../types';
 
 export interface GalleryScenario {
   id: number;
@@ -8,7 +9,7 @@ export interface GalleryScenario {
   views: number;
   is_featured: boolean;
   created_at: string;
-  results_summary: Record<string, unknown>;
+  results_summary: ScenarioResultsSummary;
   params?: Record<string, unknown>;
 }
 
