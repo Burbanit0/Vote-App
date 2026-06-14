@@ -15,20 +15,23 @@ canonical implementations moved here for real, and the corresponding
 Flask workers will be deleted.
 """
 from api.domain.election.workers import (
-    _abstention_worker,
-    _adaptive_worker,
     _campaign_sensitivity_worker,
     _coalition_worker,
     _combined_effects_worker,
     _districts_worker,
     _divergence_worker,
-    _gerrymander_worker,
-    _historical_replay_worker,
     _interpret_worker,
-    _jury_worker,
-    _multiwinner_compare_worker,
     _primary_worker,
     _simulate_pipeline_worker,
+)
+# Electoral-mechanism workers (workers.py decomposition).
+from api.domain.election.workers_mechanisms import (
+    _abstention_worker,
+    _adaptive_worker,
+    _gerrymander_worker,
+    _historical_replay_worker,
+    _jury_worker,
+    _multiwinner_compare_worker,
     _stv_worker,
 )
 # Spatial-dynamics / equilibrium workers (workers.py decomposition).

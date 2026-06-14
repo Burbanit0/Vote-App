@@ -71,6 +71,20 @@ def gini(values: List[float]) -> float:
     return round(cum / (n * total), 4)
 
 
+def dhondt(vote_shares: Dict[str, float], total_seats: int) -> Dict[str, int]:
+    """D'Hondt proportional seat allocation.
+
+    vote_shares: {party_name: fraction_of_vote}  (values sum ≈ 1)
+    Returns {party_name: seats_awarded}.
+    """
+    seats: Dict[str, int] = {p: 0 for p in vote_shares}
+    for _ in range(total_seats):
+        quotients = {p: vote_shares[p] / (seats[p] + 1) for p in vote_shares}
+        winner = max(quotients, key=lambda k: quotients[k])
+        seats[winner] += 1
+    return seats
+
+
 def inter_method_agreement(methods_data: Dict[str, Any]) -> float:
     """Fraction of voting methods that agree on the same winner (0..1)."""
     winners = [md.get("winner") for md in methods_data.values() if md.get("winner")]
