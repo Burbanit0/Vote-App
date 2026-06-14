@@ -17,8 +17,6 @@ Flask workers will be deleted.
 from api.domain.election.workers import (
     _abstention_worker,
     _adaptive_worker,
-    _assembly_scorecard_worker,
-    _assembly_worker,
     _affective_polarization_worker,
     _ballot_complexity_worker,
     _behavioral_biases_worker,
@@ -38,7 +36,6 @@ from api.domain.election.workers import (
     _historical_replay_worker,
     _hotelling_worker,
     _interpret_worker,
-    _issue_voting_worker,
     _jury_worker,
     _liquid_democracy_worker,
     _multiwinner_compare_worker,
@@ -47,13 +44,19 @@ from api.domain.election.workers import (
     _polarization_worker,
     _power_indices_worker,
     _primary_worker,
-    _profile_simulate_worker,
     _quadratic_funding_worker,
     _shy_voter_worker,
     _simulate_pipeline_worker,
     _sortition_worker,
-    _structural_fairness_worker,
     _stv_worker,
+)
+# Lab-reshape playground workers, split into their own module (workers.py decomposition).
+from api.domain.election.workers_playground import (
+    _assembly_scorecard_worker,
+    _assembly_worker,
+    _issue_voting_worker,
+    _profile_simulate_worker,
+    _structural_fairness_worker,
     _temporal_worker,
 )
 from api.domain.election.election_service import ElectionService
