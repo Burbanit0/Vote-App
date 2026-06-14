@@ -208,7 +208,6 @@ const PlottChaosPanel: React.FC = () => {
           max_steps: 15,
         },
       });
-      // eslint-disable-next-line react-hooks/exhaustive-deps
     },
     [t, sim]
   );

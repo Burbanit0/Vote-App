@@ -1,9 +1,5 @@
 import React from 'react';
-import {
-  LIJPHART_REFERENCE,
-  lijphartTo01,
-  type Band,
-} from '../../lib/scorecard';
+import { LIJPHART_REFERENCE, lijphartTo01, type Band } from '../../lib/scorecard';
 
 // DemocracyMap (frontier FA-2) — the Lijphart strip. Real democracies are
 // plotted by their (approximate) executives-parties score for CONTEXT; the
@@ -44,11 +40,25 @@ const DemocracyMap: React.FC<DemocracyMapProps> = ({ entries, current }) => (
     </p>
     <svg viewBox={`0 0 ${W} ${H}`} width="100%" role="img" aria-label="Axe majoritaire–consensus">
       {/* Axis */}
-      <line x1={PAD} y1={AXIS_Y} x2={W - PAD} y2={AXIS_Y} stroke="var(--bs-border-color, #ccc)" strokeWidth={1.5} />
+      <line
+        x1={PAD}
+        y1={AXIS_Y}
+        x2={W - PAD}
+        y2={AXIS_Y}
+        stroke="var(--bs-border-color, #ccc)"
+        strokeWidth={1.5}
+      />
       <text x={PAD} y={AXIS_Y + 34} fontSize={10} fill="currentColor" opacity={0.7}>
         ← Majoritaire (décisif, winner-take-all)
       </text>
-      <text x={W - PAD} y={AXIS_Y + 34} fontSize={10} fill="currentColor" opacity={0.7} textAnchor="end">
+      <text
+        x={W - PAD}
+        y={AXIS_Y + 34}
+        fontSize={10}
+        fill="currentColor"
+        opacity={0.7}
+        textAnchor="end"
+      >
         Consensus (proportionnel, partage) →
       </text>
 
@@ -62,7 +72,9 @@ const DemocracyMap: React.FC<DemocracyMapProps> = ({ entries, current }) => (
               <circle cx={cx} cy={AXIS_Y} r={2.5} fill="#64748b" />
               <text
                 x={cx}
-                y={above ? AXIS_Y - 8 - (i % 4 === 0 ? 10 : 0) : AXIS_Y + 14 + (i % 4 === 1 ? 10 : 0)}
+                y={
+                  above ? AXIS_Y - 8 - (i % 4 === 0 ? 10 : 0) : AXIS_Y + 14 + (i % 4 === 1 ? 10 : 0)
+                }
                 fontSize={7.5}
                 fill="currentColor"
                 opacity={0.65}
@@ -116,10 +128,10 @@ const DemocracyMap: React.FC<DemocracyMapProps> = ({ entries, current }) => (
       </g>
     </svg>
     <p className="text-[0.65rem] text-muted-foreground/70">
-      Pays : scores « exécutifs-partis » approximatifs (Lijphart 2012), pour situer. Vos
-      structures sont positionnées en direct : moyenne de proportionnalité, pluralisme,
-      minorités et (1 − gouvernabilité) sur l’électorat courant — convention déclarée,
-      1 seule dimension (le fédéralisme n’est pas modélisé).
+      Pays : scores « exécutifs-partis » approximatifs (Lijphart 2012), pour situer. Vos structures
+      sont positionnées en direct : moyenne de proportionnalité, pluralisme, minorités et (1 −
+      gouvernabilité) sur l’électorat courant — convention déclarée, 1 seule dimension (le
+      fédéralisme n’est pas modélisé).
     </p>
   </div>
 );

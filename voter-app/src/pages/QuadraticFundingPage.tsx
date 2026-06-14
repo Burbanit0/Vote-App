@@ -11,7 +11,7 @@ import { Card, CardBody, CardHeader } from '@/components/ui/card';
 import { Control, Range, Select } from '@/components/ui/form-controls';
 import { Col, Container, Row } from '@/components/ui/grid';
 import { Spinner } from '@/components/ui/spinner';
-import { BarChart, Bar, XAxis, YAxis, Tooltip, Cell, ResponsiveContainer, Legend } from 'recharts';
+import { BarChart, Bar, XAxis, YAxis, Tooltip, Cell, ResponsiveContainer } from 'recharts';
 import { useMetaTags } from '../hooks/useMetaTags';
 import { $api } from '../api/hooks';
 const DEBOUNCE_MS = 400;
@@ -183,7 +183,6 @@ const QuadraticFundingPage: React.FC = () => {
           seed: 42,
         },
       });
-      // eslint-disable-next-line react-hooks/exhaustive-deps
     },
     [projects, numVoters, budgetPV, ideology, t, sim]
   );

@@ -201,7 +201,6 @@ const PolarizationPanel: React.FC = () => {
           num_simulations: sims,
         },
       });
-      // eslint-disable-next-line react-hooks/exhaustive-deps
     },
     [config, t, sim]
   );

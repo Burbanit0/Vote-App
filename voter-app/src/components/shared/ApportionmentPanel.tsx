@@ -81,7 +81,6 @@ const ApportionmentPanel: React.FC = () => {
           find_paradoxes: true,
         },
       });
-      // eslint-disable-next-line react-hooks/exhaustive-deps
     },
     [t, sim]
   );

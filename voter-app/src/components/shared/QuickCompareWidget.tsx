@@ -4,7 +4,6 @@ import { Button } from '@/components/ui/button';
 import { Select } from '@/components/ui/form-controls';
 import { Col, Row } from '@/components/ui/grid';
 import { Spinner } from '@/components/ui/spinner';
-import { ElectionResult } from '../../services/electionApi';
 import { useNavigate } from 'react-router';
 import { useTranslation } from 'react-i18next';
 import { useElection } from '../../stores/useElectionStore';

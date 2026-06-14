@@ -18,7 +18,6 @@ import {
   Tooltip,
   CartesianGrid,
   ReferenceLine,
-  Legend,
   ResponsiveContainer,
 } from 'recharts';
 import { $api } from '../../api/hooks';
@@ -268,7 +267,6 @@ const PartyDynamicsPanel: React.FC<Props> = ({ onDataLoaded }) => {
         onSuccess: (res) => onDataLoaded?.(res),
       }
     );
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [parties, numElections, method, survThr, emerge, hotelling, tactical, t, onDataLoaded, sim]);
 
   // Animation

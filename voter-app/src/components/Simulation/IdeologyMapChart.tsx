@@ -5,7 +5,6 @@ import { ButtonGroup } from '@/components/ui/button-group';
 import { Card, CardBody, CardHeader } from '@/components/ui/card';
 import { Check, Range, Select } from '@/components/ui/form-controls';
 import { Col, Row } from '@/components/ui/grid';
-import { Progress } from '@/components/ui/progress';
 import { Spinner } from '@/components/ui/spinner';
 import IdeologyHeatmap from './IdeologyHeatmap';
 import MedianVoterLayer, { MedianVoterLegend } from './MedianVoterLayer';
@@ -261,12 +260,9 @@ const IdeologyMapChart: React.FC<Props> = ({
   );
 
   // Initial fetch
-  useEffect(
-    () => {
-      fetchMap(candidatePositions);
-    }, // eslint-disable-next-line
-    [numVoters, ideology, seed, methodA, methodB]
-  );
+  useEffect(() => {
+    fetchMap(candidatePositions);
+  }, [numVoters, ideology, seed, methodA, methodB]);
 
   // ── Unified mouse + touch drag via useDragTouch ───────────────────────────
   useDragTouch(svgRef, {

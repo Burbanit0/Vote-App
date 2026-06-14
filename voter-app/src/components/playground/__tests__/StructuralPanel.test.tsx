@@ -45,9 +45,7 @@ beforeEach(() => {
 });
 
 function setup() {
-  render(
-    <StructuralPanel config={DEFAULT_CONFIG} partyNames={['Gauche', 'Droite', 'Marges']} />
-  );
+  render(<StructuralPanel config={DEFAULT_CONFIG} partyNames={['Gauche', 'Droite', 'Marges']} />);
 }
 
 describe('StructuralPanel (FC-2)', () => {

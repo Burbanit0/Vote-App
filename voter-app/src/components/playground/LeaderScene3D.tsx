@@ -12,7 +12,11 @@ const CX = SVG / 2;
 const CY = SVG / 2;
 const SCALE = 150;
 
-interface R3 { x: number; y: number; z: number }
+interface R3 {
+  x: number;
+  y: number;
+  z: number;
+}
 
 function rotate(p: Pt, yaw: number, pitch: number): R3 {
   const cy = Math.cos(yaw);
@@ -35,18 +39,37 @@ function nearestCandidate(v: Pt, cands: NamedPt[]): number {
   let bd = Infinity;
   cands.forEach((c, i) => {
     const d = (v.x - c.x) ** 2 + (v.y - c.y) ** 2 + ((v.z ?? 0) - (c.z ?? 0)) ** 2;
-    if (d < bd) { bd = d; best = i; }
+    if (d < bd) {
+      bd = d;
+      best = i;
+    }
   });
   return best;
 }
 
 const CUBE: [number, number, number][] = [
-  [-1, -1, -1], [1, -1, -1], [1, 1, -1], [-1, 1, -1],
-  [-1, -1, 1], [1, -1, 1], [1, 1, 1], [-1, 1, 1],
+  [-1, -1, -1],
+  [1, -1, -1],
+  [1, 1, -1],
+  [-1, 1, -1],
+  [-1, -1, 1],
+  [1, -1, 1],
+  [1, 1, 1],
+  [-1, 1, 1],
 ];
 const CUBE_EDGES: [number, number][] = [
-  [0, 1], [1, 2], [2, 3], [3, 0], [4, 5], [5, 6], [6, 7], [7, 4],
-  [0, 4], [1, 5], [2, 6], [3, 7],
+  [0, 1],
+  [1, 2],
+  [2, 3],
+  [3, 0],
+  [4, 5],
+  [5, 6],
+  [6, 7],
+  [7, 4],
+  [0, 4],
+  [1, 5],
+  [2, 6],
+  [3, 7],
 ];
 
 export interface LeaderScene3DProps {
@@ -97,7 +120,9 @@ const LeaderScene3D: React.FC<LeaderScene3DProps> = ({
       setPitch((p) => Math.max(-1.4, Math.min(1.4, p + dy * 0.01)));
     };
     const onMM = (e: MouseEvent) => move(e.clientX, e.clientY);
-    const onUp = () => { drag.current = null; };
+    const onUp = () => {
+      drag.current = null;
+    };
     const onTM = (e: TouchEvent) => {
       if (!drag.current || !e.touches[0]) return;
       e.preventDefault();
@@ -169,9 +194,12 @@ const LeaderScene3D: React.FC<LeaderScene3DProps> = ({
           {CUBE_EDGES.map(([a, b], k) => (
             <line
               key={k}
-              x1={sx(cubePts[a])} y1={sy(cubePts[a])}
-              x2={sx(cubePts[b])} y2={sy(cubePts[b])}
-              stroke="var(--bs-border-color, #999)" strokeWidth={0.75}
+              x1={sx(cubePts[a])}
+              y1={sy(cubePts[a])}
+              x2={sx(cubePts[b])}
+              y2={sy(cubePts[b])}
+              stroke="var(--bs-border-color, #999)"
+              strokeWidth={0.75}
             />
           ))}
         </g>
@@ -179,8 +207,17 @@ const LeaderScene3D: React.FC<LeaderScene3DProps> = ({
         {/* Axes */}
         {axisEnds.map((e, k) => (
           <g key={k}>
-            <line x1={sx(origin)} y1={sy(origin)} x2={sx(e)} y2={sy(e)} stroke="#94a3b8" strokeWidth={1} />
-            <text x={sx(e)} y={sy(e)} fontSize={10} fill="#94a3b8">{axisLabels[k] ?? ['x', 'y', 'z'][k]}</text>
+            <line
+              x1={sx(origin)}
+              y1={sy(origin)}
+              x2={sx(e)}
+              y2={sy(e)}
+              stroke="#94a3b8"
+              strokeWidth={1}
+            />
+            <text x={sx(e)} y={sy(e)} fontSize={10} fill="#94a3b8">
+              {axisLabels[k] ?? ['x', 'y', 'z'][k]}
+            </text>
           </g>
         ))}
 
@@ -191,7 +228,8 @@ const LeaderScene3D: React.FC<LeaderScene3DProps> = ({
             return (
               <circle
                 key={k}
-                cx={sx(d.r)} cy={sy(d.r)}
+                cx={sx(d.r)}
+                cy={sy(d.r)}
                 r={1.1 + t * 1.8}
                 fill={palette[d.party % palette.length]}
                 opacity={0.25 + t * 0.5}
@@ -206,8 +244,22 @@ const LeaderScene3D: React.FC<LeaderScene3DProps> = ({
             const t = depth01(d.r.z);
             return (
               <g key={d.i} data-testid={`scene-candidate-${d.i}`}>
-                <circle cx={sx(d.r)} cy={sy(d.r)} r={6 + t * 5} fill={palette[d.i % palette.length]} stroke="#fff" strokeWidth={1.5} />
-                <text x={sx(d.r)} y={sy(d.r) - 10 - t * 4} textAnchor="middle" fontSize={11} fontWeight={600} fill="currentColor">
+                <circle
+                  cx={sx(d.r)}
+                  cy={sy(d.r)}
+                  r={6 + t * 5}
+                  fill={palette[d.i % palette.length]}
+                  stroke="#fff"
+                  strokeWidth={1.5}
+                />
+                <text
+                  x={sx(d.r)}
+                  y={sy(d.r) - 10 - t * 4}
+                  textAnchor="middle"
+                  fontSize={11}
+                  fontWeight={600}
+                  fill="currentColor"
+                >
                   {d.name}
                 </text>
               </g>

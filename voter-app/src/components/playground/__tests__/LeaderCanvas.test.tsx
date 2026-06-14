@@ -74,7 +74,11 @@ describe('LeaderCanvas', () => {
 
   it('3-D exposes per-candidate z sliders that report the new z', () => {
     const cands: NamedPt[] = CANDS.map((c) => ({ ...c, z: 0 }));
-    const { onMoveCandidate } = setup({ dims: 3, candidates: cands, voters: sampleVoters(80, 1, 'random', 3) });
+    const { onMoveCandidate } = setup({
+      dims: 3,
+      candidates: cands,
+      voters: sampleVoters(80, 1, 'random', 3),
+    });
     expect(screen.getByTestId('z-controls')).toBeInTheDocument();
     fireEvent.change(screen.getByTestId('z-slider-2'), { target: { value: '0.6' } });
     expect(onMoveCandidate).toHaveBeenCalledWith(2, cands[2].x, cands[2].y, 0.6);

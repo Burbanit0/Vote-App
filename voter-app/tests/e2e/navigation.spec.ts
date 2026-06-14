@@ -3,9 +3,9 @@ import { AxeBuilder } from '@axe-core/playwright';
 
 // Public routes accessible without authentication
 const PUBLIC_ROUTES = [
-  { path: '/',                      label: 'HomePage' },
-  { path: '/simulation/compare',    label: 'SimulationComparePage' },
-  { path: '/scenario-builder',      label: 'ScenarioBuilderPage' },
+  { path: '/', label: 'HomePage' },
+  { path: '/simulation/compare', label: 'SimulationComparePage' },
+  { path: '/scenario-builder', label: 'ScenarioBuilderPage' },
   { path: '/constitutional-crisis', label: 'ConstitutionalCrisisPage' },
 ];
 
@@ -47,11 +47,11 @@ test.describe('Navigation — all public routes load', () => {
         .disableRules(['color-contrast'])
         .analyze();
       const blocking = a11y.violations.filter(
-        (v) => v.impact === 'critical' || v.impact === 'serious',
+        (v) => v.impact === 'critical' || v.impact === 'serious'
       );
       expect(
         blocking.map((v) => `${v.id}: ${v.description}`),
-        `a11y violations on ${path}`,
+        `a11y violations on ${path}`
       ).toEqual([]);
     });
   }
@@ -80,7 +80,10 @@ test.describe('Navigation — all public routes load', () => {
 
   test('brand link on navbar navigates to home', async ({ page }) => {
     await page.goto('/simulation/compare');
-    await page.locator('[data-tour="navbar"]').getByRole('link', { name: /vote lab/i }).click();
+    await page
+      .locator('[data-tour="navbar"]')
+      .getByRole('link', { name: /vote lab/i })
+      .click();
     await expect(page).toHaveURL('/');
   });
 
@@ -88,25 +91,38 @@ test.describe('Navigation — all public routes load', () => {
     await page.goto('/');
 
     // Simulateur → /scenario-builder
-    await page.locator('[data-tour="navbar"]').getByRole('link', { name: /simulateur|simulator/i }).click();
+    await page
+      .locator('[data-tour="navbar"]')
+      .getByRole('link', { name: /simulateur|simulator/i })
+      .click();
     await expect(page).toHaveURL('/scenario-builder');
 
     // Méthodes → /simulation/compare
-    await page.locator('[data-tour="navbar"]').getByRole('link', { name: /méthodes|methods/i }).click();
+    await page
+      .locator('[data-tour="navbar"]')
+      .getByRole('link', { name: /méthodes|methods/i })
+      .click();
     await expect(page).toHaveURL('/simulation/compare');
 
     // Vote Blanc → /constitutional-crisis
-    await page.locator('[data-tour="navbar"]').getByRole('link', { name: /vote blanc|blank vote/i }).click();
+    await page
+      .locator('[data-tour="navbar"]')
+      .getByRole('link', { name: /vote blanc|blank vote/i })
+      .click();
     await expect(page).toHaveURL('/constitutional-crisis');
   });
 
   // /real-elections is a tab inside /simulation/compare, not a standalone route.
   // This test verifies the tab is reachable after enabling expert mode.
-  test('real elections tab is accessible in /simulation/compare (expert mode)', async ({ page }) => {
+  test('real elections tab is accessible in /simulation/compare (expert mode)', async ({
+    page,
+  }) => {
     await page.goto('/simulation/compare');
 
     // Switch to expert mode if currently in beginner mode
-    const modeBtn = page.locator('[data-tour="navbar"]').getByRole('button', { name: /débutant|beginner/i });
+    const modeBtn = page
+      .locator('[data-tour="navbar"]')
+      .getByRole('button', { name: /débutant|beginner/i });
     if (await modeBtn.isVisible()) {
       await modeBtn.click();
     }

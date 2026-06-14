@@ -118,7 +118,6 @@ const MajorityTyrannyPanel: React.FC = () => {
         decision_rules: rules,
       },
     });
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [numVoters, majorityPct, intensity, numDecisions, seed, rules, sim]);
 
   const nMin = Math.round(numVoters * (1 - majorityPct));

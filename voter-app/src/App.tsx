@@ -97,7 +97,10 @@ const AppContent: React.FC = () => {
             <Route path="/quadratic-funding" element={<QuadraticFundingPage />} />
             <Route path="/tech-democracy" element={<TechDemocracyPage />} />
             {/* Absorbed into the Election Lab (Phase 7) — redirect old routes to the tab. */}
-            <Route path="/sortition" element={<Navigate to="/election-lab?tab=sortition" replace />} />
+            <Route
+              path="/sortition"
+              element={<Navigate to="/election-lab?tab=sortition" replace />}
+            />
             <Route
               path="/party-dynamics"
               element={<Navigate to="/election-lab?tab=party-dynamics" replace />}

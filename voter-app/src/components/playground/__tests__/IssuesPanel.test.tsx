@@ -60,7 +60,9 @@ describe('IssuesPanel (FB-2)', () => {
   it('the constructed demo shows the full Ostrogorski paradox with divergences highlighted', async () => {
     render(<IssuesPanel config={DEFAULT_CONFIG} />);
     fireEvent.click(screen.getByTestId('issues-demo'));
-    await waitFor(() => expect(screen.getByTestId('issues-headline')).toHaveTextContent('Paradoxe'));
+    await waitFor(() =>
+      expect(screen.getByTestId('issues-headline')).toHaveTextContent('Paradoxe')
+    );
     expect(screen.getByTestId('issues-headline')).toHaveTextContent('3/3');
     // Every issue row carries the divergence mark: majority Non vs platform Oui ✕.
     for (const label of ['Enjeu 1', 'Enjeu 2', 'Enjeu 3']) {

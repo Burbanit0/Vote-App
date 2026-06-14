@@ -630,7 +630,6 @@ const UtilityVisualization: React.FC = () => {
                             </Pie>
                             <Tooltip
                               formatter={(value: number, _name: string, props: any) => {
-                                // eslint-disable-next-line react/prop-types
                                 const segment = prepareVoterSegmentsData()[props.dataIndex];
                                 return segment
                                   ? [

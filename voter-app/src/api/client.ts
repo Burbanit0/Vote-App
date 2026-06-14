@@ -55,7 +55,6 @@ apiClient.use(authMiddleware);
  * Panels use the fully-typed `$api`/`apiClient` directly instead.
  */
 export async function apiPost<T>(path: string, body: unknown): Promise<T> {
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const { data, error } = await (apiClient.POST as any)(path, { body });
   if (error) throw error instanceof Error ? error : new Error('Request failed');
   return data as T;
@@ -63,7 +62,6 @@ export async function apiPost<T>(path: string, body: unknown): Promise<T> {
 
 /** GET counterpart of {@link apiPost}; `query` becomes the URL query string. */
 export async function apiGet<T>(path: string, query?: Record<string, unknown>): Promise<T> {
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const { data, error } = await (apiClient.GET as any)(path, query ? { params: { query } } : {});
   if (error) throw error instanceof Error ? error : new Error('Request failed');
   return data as T;
@@ -71,7 +69,6 @@ export async function apiGet<T>(path: string, query?: Record<string, unknown>): 
 
 /** DELETE counterpart of {@link apiPost}; resolves to the parsed body (often void). */
 export async function apiDelete<T = void>(path: string): Promise<T> {
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const { data, error } = await (apiClient.DELETE as any)(path, {});
   if (error) throw error instanceof Error ? error : new Error('Request failed');
   return data as T;

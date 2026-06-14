@@ -41,8 +41,8 @@ const StrategicModule: React.FC<{ config: ElectionConfig; playground: Playground
     <div data-testid="strategic-module" className="flex flex-col gap-2">
       <p className="text-[0.7rem] text-muted-foreground/80">
         Part des électeurs qui pourraient améliorer leur résultat en votant insincèrement
-        (Gibbard–Satterthwaite, par force brute). Plus c’est bas, plus la méthode résiste.
-        Calcul lourd — à la demande, hors lecture temps-réel.
+        (Gibbard–Satterthwaite, par force brute). Plus c’est bas, plus la méthode résiste. Calcul
+        lourd — à la demande, hors lecture temps-réel.
       </p>
       <Button
         data-testid="strategic-run"

@@ -5,7 +5,7 @@
  * district. The backend then runs FPTP per district and compares the result
  * with D'Hondt proportional.
  */
-import React, { useCallback, useRef, useState, useMemo } from 'react';
+import React, { useCallback, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Alert } from '@/components/ui/alert';
 import { Badge } from '@/components/ui/badge';

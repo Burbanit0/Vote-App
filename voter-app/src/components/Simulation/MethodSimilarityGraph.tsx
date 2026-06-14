@@ -19,7 +19,6 @@ import {
   SimulationLinkDatum,
 } from 'd3';
 import { useTranslation } from 'react-i18next';
-import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Range } from '@/components/ui/form-controls';
 
@@ -135,7 +134,6 @@ const MethodSimilarityGraph: React.FC<MethodSimilarityGraphProps> = ({
   const [hoveredNode, setHoveredNode] = useState<string | null>(null);
   const [positions, setPositions] = useState<Map<string, { x: number; y: number }>>(new Map());
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const simRef = useRef<any>(null);
   const dragRef = useRef<{ id: string | null; ox: number; oy: number }>({ id: null, ox: 0, oy: 0 });
   const svgRef = useRef<SVGSVGElement>(null);
@@ -223,7 +221,6 @@ const MethodSimilarityGraph: React.FC<MethodSimilarityGraphProps> = ({
       if (rafRef.current) cancelAnimationFrame(rafRef.current);
       sim.stop();
     };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [nodes.length, methodNames.join(','), threshold, groupByFamily]);
 
   // ── Drag handlers ──────────────────────────────────────────────────────────

@@ -290,7 +290,6 @@ const IdentityVotingPanel: React.FC<IdentityVotingLabProps> = ({
         method: 'plurality',
       },
     });
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [
     candidates,
     numVoters,

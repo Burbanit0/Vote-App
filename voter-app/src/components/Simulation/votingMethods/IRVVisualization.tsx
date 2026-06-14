@@ -19,7 +19,6 @@ const IRVVisualization: React.FC<VotingMethodVisualizationProps> = ({ rankings, 
 
   React.useEffect(() => {
     simulateIRV();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const simulateIRV = () => {

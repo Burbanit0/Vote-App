@@ -20,7 +20,6 @@ import {
   YAxis,
   Tooltip,
   CartesianGrid,
-  Legend,
   ResponsiveContainer,
   ReferenceLine,
 } from 'recharts';
@@ -301,7 +300,6 @@ const ArrowExplorer: React.FC = () => {
   const runAnalysis = useCallback(() => {
     simArrow.mutate({ body: { method, seed: 42 } });
     simRate.mutate({ body: { method, max_candidates: 8, num_trials: 100, seed: 42 } });
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [method, t, simArrow, simRate]);
 
   const toggleAxiom = (key: string) => {

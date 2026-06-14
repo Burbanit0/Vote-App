@@ -163,7 +163,6 @@ const DemocraticBackslidingPanel: React.FC = () => {
           guardrails: gr,
         },
       });
-      // eslint-disable-next-line react-hooks/exhaustive-deps
     },
     [guardrails, numVoters, seed, numElections, method, intensity, t, sim]
   );

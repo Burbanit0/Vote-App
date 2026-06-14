@@ -20,8 +20,14 @@ test.describe('SimulationComparePage — golden path', () => {
 
   test('configuration card is rendered with default candidates', async ({ page }) => {
     // Default candidate input: "Alice, Bob, Charlie"
-    const candidateInput = page.locator('input[type="text"], textarea').filter({ hasText: '' }).first();
-    const val = await page.locator('input[value*="Alice"]').inputValue().catch(() => '');
+    const candidateInput = page
+      .locator('input[type="text"], textarea')
+      .filter({ hasText: '' })
+      .first();
+    const val = await page
+      .locator('input[value*="Alice"]')
+      .inputValue()
+      .catch(() => '');
     // The candidate input field defaults to Alice, Bob, Charlie
     expect(val || 'Alice, Bob, Charlie').toContain('Alice');
   });
@@ -36,7 +42,9 @@ test.describe('SimulationComparePage — golden path', () => {
     await runBtn.click();
 
     // Wait for spinner to disappear and results to appear
-    await expect(page.getByRole('button', { name: /analyse…|running…/i })).toBeHidden({ timeout: 45_000 });
+    await expect(page.getByRole('button', { name: /analyse…|running…/i })).toBeHidden({
+      timeout: 45_000,
+    });
 
     // Tabs appear only after hasResults = true
     await expect(page.locator('[role="tablist"]')).toBeVisible({ timeout: 45_000 });
@@ -52,7 +60,7 @@ test.describe('SimulationComparePage — golden path', () => {
     await page.getByRole('button', { name: /lancer l['']analyse|run analysis/i }).click();
     await expect(page.locator('[role="tablist"]')).toBeVisible({ timeout: 45_000 });
 
-    const tableText = await page.locator('table').first().textContent() ?? '';
+    const tableText = (await page.locator('table').first().textContent()) ?? '';
 
     // At least 3 method names must be present (works for both FR and EN)
     const frMatches = METHODS_FR.filter((m) => tableText.includes(m)).length;
@@ -62,7 +70,9 @@ test.describe('SimulationComparePage — golden path', () => {
 
   test('all 15 methods appear in expert mode', async ({ page }) => {
     // Enable expert mode
-    const beginnerBtn = page.locator('[data-tour="navbar"]').getByRole('button', { name: /débutant|beginner/i });
+    const beginnerBtn = page
+      .locator('[data-tour="navbar"]')
+      .getByRole('button', { name: /débutant|beginner/i });
     if (await beginnerBtn.isVisible()) {
       await beginnerBtn.click();
     }
@@ -72,7 +82,7 @@ test.describe('SimulationComparePage — golden path', () => {
     await page.getByRole('button', { name: /lancer l['']analyse|run analysis/i }).click();
     await expect(page.locator('[role="tablist"]')).toBeVisible({ timeout: 45_000 });
 
-    const tableText = await page.locator('table').first().textContent() ?? '';
+    const tableText = (await page.locator('table').first().textContent()) ?? '';
 
     // Expert mode exposes all 15 methods — check for 10+ names
     const frMatches = METHODS_FR.filter((m) => tableText.includes(m)).length;

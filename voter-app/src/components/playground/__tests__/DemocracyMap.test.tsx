@@ -34,7 +34,9 @@ describe('DemocracyMap (FA-2)', () => {
   it('highlights the current structure', () => {
     render(<DemocracyMap entries={ENTRIES} current="mmp" />);
     expect(screen.getByTestId('dm-mmp').querySelector('path')?.getAttribute('opacity')).toBe('1');
-    expect(screen.getByTestId('dm-pr').querySelector('path')?.getAttribute('opacity')).not.toBe('1');
+    expect(screen.getByTestId('dm-pr').querySelector('path')?.getAttribute('opacity')).not.toBe(
+      '1'
+    );
   });
 
   it('states the convention (no hidden second dimension)', () => {

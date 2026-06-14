@@ -7,7 +7,6 @@
  */
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { Button } from '@/components/ui/button';
-import { Progress } from '@/components/ui/progress';
 
 // ── Types ───────────────────────────────────────────────────────────────────
 
@@ -516,7 +515,7 @@ const AnimatedVoteCount: React.FC<Props> = ({ method, candidates, ballots, speed
       setStepIdx(clamp(idx));
     },
     [steps.length]
-  ); // eslint-disable-line react-hooks/exhaustive-deps
+  );
 
   // Auto-play
   useEffect(() => {

@@ -59,11 +59,13 @@ export const RULE_LABELS: Record<Rule, string> = {
 
 /** Cardinal rules need the per-voter score matrix, not just rankings. */
 export const CARDINAL_RULES: ReadonlySet<Rule> = new Set<Rule>([
-  'approval', 'star', 'majority_judgment', 'score',
+  'approval',
+  'star',
+  'majority_judgment',
+  'score',
 ]);
 
-const dist = (a: Pt, b: Pt): number =>
-  Math.hypot(a.x - b.x, a.y - b.y, (a.z ?? 0) - (b.z ?? 0));
+const dist = (a: Pt, b: Pt): number => Math.hypot(a.x - b.x, a.y - b.y, (a.z ?? 0) - (b.z ?? 0));
 
 /** Per-voter candidate-index ranking, best→worst (nearest first). */
 export function computeRanks(voters: Pt[], cands: Pt[]): number[][] {
@@ -109,8 +111,14 @@ function winTwoRound(ranks: number[][], m: number): number {
   let bv = 0;
   for (const r of ranks) {
     for (const i of r) {
-      if (i === a) { av++; break; }
-      if (i === b) { bv++; break; }
+      if (i === a) {
+        av++;
+        break;
+      }
+      if (i === b) {
+        bv++;
+        break;
+      }
     }
   }
   return av >= bv ? a : b;
@@ -169,7 +177,9 @@ function pairwise(ranks: number[][], m: number): number[][] {
   const beats = Array.from({ length: m }, () => new Array(m).fill(0));
   for (const r of ranks) {
     const pos = new Array(m).fill(0);
-    r.forEach((cand, rank) => { pos[cand] = rank; });
+    r.forEach((cand, rank) => {
+      pos[cand] = rank;
+    });
     for (let i = 0; i < m; i++) {
       for (let j = i + 1; j < m; j++) {
         if (pos[i] < pos[j]) beats[i][j] += 1;
@@ -208,7 +218,10 @@ function winMinimax(ranks: number[][], m: number): number {
       if (i === j) continue;
       worst = Math.max(worst, b[j][i] - b[i][j]); // margin of defeat by j
     }
-    if (worst < bestWorst) { bestWorst = worst; best = i; }
+    if (worst < bestWorst) {
+      bestWorst = worst;
+      best = i;
+    }
   }
   return best;
 }
@@ -218,17 +231,19 @@ function winSchulze(ranks: number[][], m: number): number {
   const b = pairwise(ranks, m);
   const p = Array.from({ length: m }, () => new Array(m).fill(0));
   for (let i = 0; i < m; i++)
-    for (let j = 0; j < m; j++)
-      if (i !== j) p[i][j] = b[i][j] > b[j][i] ? b[i][j] : 0;
+    for (let j = 0; j < m; j++) if (i !== j) p[i][j] = b[i][j] > b[j][i] ? b[i][j] : 0;
   for (let i = 0; i < m; i++)
     for (let j = 0; j < m; j++)
       if (i !== j)
         for (let k = 0; k < m; k++)
-          if (i !== k && j !== k)
-            p[j][k] = Math.max(p[j][k], Math.min(p[j][i], p[i][k]));
+          if (i !== k && j !== k) p[j][k] = Math.max(p[j][k], Math.min(p[j][i], p[i][k]));
   for (let i = 0; i < m; i++) {
     let wins = true;
-    for (let j = 0; j < m; j++) if (i !== j && p[j][i] > p[i][j]) { wins = false; break; }
+    for (let j = 0; j < m; j++)
+      if (i !== j && p[j][i] > p[i][j]) {
+        wins = false;
+        break;
+      }
     if (wins) return i;
   }
   return winBorda(ranks, m); // rare cyclic tie
@@ -241,7 +256,8 @@ function winBucklin(ranks: number[][], m: number): number {
   for (let k = 0; k < m; k++) {
     for (const r of ranks) tally[r[k]] += 1;
     let best = -1;
-    for (let i = 0; i < m; i++) if (tally[i] > n / 2 && (best === -1 || tally[i] > tally[best])) best = i;
+    for (let i = 0; i < m; i++)
+      if (tally[i] > n / 2 && (best === -1 || tally[i] > tally[best])) best = i;
     if (best >= 0) return best;
   }
   return argmax(tally);
@@ -257,7 +273,11 @@ function winCoombs(ranks: number[][], m: number): number {
     for (const r of ranks) {
       const top = r.find((i) => alive[i]);
       if (top !== undefined) first[top] += 1;
-      for (let k = r.length - 1; k >= 0; k--) if (alive[r[k]]) { last[r[k]] += 1; break; }
+      for (let k = r.length - 1; k >= 0; k--)
+        if (alive[r[k]]) {
+          last[r[k]] += 1;
+          break;
+        }
     }
     const total = first.reduce((s, x) => s + x, 0);
     const leader = argmax(first);
@@ -276,7 +296,11 @@ function bordaAlive(ranks: number[][], m: number, alive: boolean[]): number[] {
   const score = new Array(m).fill(0);
   for (const r of ranks) {
     let rank = 0;
-    for (const c of r) if (alive[c]) { score[c] += k - 1 - rank; rank += 1; }
+    for (const c of r)
+      if (alive[c]) {
+        score[c] += k - 1 - rank;
+        rank += 1;
+      }
   }
   return score;
 }
@@ -292,7 +316,10 @@ function winNanson(ranks: number[][], m: number): number {
     const avg = idx.reduce((s, i) => s + score[i], 0) / idx.length;
     const elim = idx.filter((i) => score[i] < avg - 1e-9);
     if (elim.length === 0) return idx.reduce((b, i) => (score[i] > score[b] ? i : b), idx[0]);
-    for (const i of elim) { alive[i] = false; remaining -= 1; }
+    for (const i of elim) {
+      alive[i] = false;
+      remaining -= 1;
+    }
   }
   return alive.findIndex((a) => a);
 }
@@ -304,7 +331,8 @@ function winBaldwin(ranks: number[][], m: number): number {
   while (remaining > 1) {
     const score = bordaAlive(ranks, m, alive);
     let worst = -1;
-    for (let i = 0; i < m; i++) if (alive[i] && (worst === -1 || score[i] < score[worst])) worst = i;
+    for (let i = 0; i < m; i++)
+      if (alive[i] && (worst === -1 || score[i] < score[worst])) worst = i;
     alive[worst] = false;
     remaining -= 1;
   }
@@ -319,7 +347,10 @@ function winStar(scores: number[][], m: number): number {
   const [a, b] = [order[0], order[1]];
   let av = 0;
   let bv = 0;
-  for (const s of scores) { if (s[a] > s[b]) av += 1; else if (s[b] > s[a]) bv += 1; }
+  for (const s of scores) {
+    if (s[a] > s[b]) av += 1;
+    else if (s[b] > s[a]) bv += 1;
+  }
   return av >= bv ? a : b;
 }
 
@@ -365,23 +396,39 @@ export function ruleWinnerFromRanks(
   if (m === 0 || ranks.length === 0) return -1;
   switch (rule) {
     // Cardinal rules — fall back to plurality if scores weren't supplied.
-    case 'approval': return scores ? winApproval(scores, m) : winPlurality(ranks, m);
-    case 'star': return scores ? winStar(scores, m) : winPlurality(ranks, m);
-    case 'majority_judgment': return scores ? winMajorityJudgment(scores, m) : winPlurality(ranks, m);
-    case 'score': return scores ? winScore(scores, m) : winPlurality(ranks, m);
+    case 'approval':
+      return scores ? winApproval(scores, m) : winPlurality(ranks, m);
+    case 'star':
+      return scores ? winStar(scores, m) : winPlurality(ranks, m);
+    case 'majority_judgment':
+      return scores ? winMajorityJudgment(scores, m) : winPlurality(ranks, m);
+    case 'score':
+      return scores ? winScore(scores, m) : winPlurality(ranks, m);
     // Ordinal rules.
-    case 'plurality': return winPlurality(ranks, m);
-    case 'two_round': return winTwoRound(ranks, m);
-    case 'irv': return winIRV(ranks, m);
-    case 'borda': return winBorda(ranks, m);
-    case 'condorcet': return winCondorcet(ranks, m);
-    case 'minimax': return winMinimax(ranks, m);
-    case 'schulze': return winSchulze(ranks, m);
-    case 'bucklin': return winBucklin(ranks, m);
-    case 'coombs': return winCoombs(ranks, m);
-    case 'nanson': return winNanson(ranks, m);
-    case 'baldwin': return winBaldwin(ranks, m);
-    default: return winPlurality(ranks, m);
+    case 'plurality':
+      return winPlurality(ranks, m);
+    case 'two_round':
+      return winTwoRound(ranks, m);
+    case 'irv':
+      return winIRV(ranks, m);
+    case 'borda':
+      return winBorda(ranks, m);
+    case 'condorcet':
+      return winCondorcet(ranks, m);
+    case 'minimax':
+      return winMinimax(ranks, m);
+    case 'schulze':
+      return winSchulze(ranks, m);
+    case 'bucklin':
+      return winBucklin(ranks, m);
+    case 'coombs':
+      return winCoombs(ranks, m);
+    case 'nanson':
+      return winNanson(ranks, m);
+    case 'baldwin':
+      return winBaldwin(ranks, m);
+    default:
+      return winPlurality(ranks, m);
   }
 }
 

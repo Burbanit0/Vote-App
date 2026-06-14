@@ -199,7 +199,6 @@ const JudgmentAggregationPanel: React.FC = () => {
         scenario,
       },
     });
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [scenario, numVoters, seed, t, sim]);
 
   return (
