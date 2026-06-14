@@ -30,6 +30,9 @@ export interface SincerityVerdict {
   sincereWinner: string;
   /** True = sincere voting is your best response (conviction rewarded). */
   sincereIsBest: boolean;
+  /** How much closer (proximity gained) the lie's winner is to you vs the sincere
+   *  winner — the size of the betrayal incentive. 0 when sincere is best. */
+  gain: number;
   /** The cheapest beneficial lie, when one exists. */
   temptation: {
     type: 'compromise' | 'burying';
@@ -87,6 +90,7 @@ export function sincerityProbe(
         rule,
         sincereWinner: w >= 0 ? cands[w].name : '—',
         sincereIsBest: true,
+        gain: 0,
         temptation: null,
       });
     }
@@ -109,10 +113,11 @@ export function sincerityProbe(
   for (const rule of LEADER_RULES) {
     const w0 = ruleWinnerFromRanks(baseRanks, m, rule, baseScores);
     if (w0 < 0) {
-      verdicts.push({ rule, sincereWinner: '—', sincereIsBest: true, temptation: null });
+      verdicts.push({ rule, sincereWinner: '—', sincereIsBest: true, gain: 0, temptation: null });
       continue;
     }
     let temptation: SincerityVerdict['temptation'] = null;
+    let gain = 0;
 
     // ── Compromise ("vote utile"): rank a candidate you prefer to w0 first,
     //    burying w0 last. Try your most-preferred such candidate first. ──
@@ -123,6 +128,7 @@ export function sincerityProbe(
       const w1 = winnerWith(rule, stratRank, stratScore);
       if (util[w1] > util[w0] + EPS) {
         temptation = { type: 'compromise', voteFor: cands[c].name, newWinner: cands[w1].name };
+        gain = util[w1] - util[w0];
         break;
       }
     }
@@ -135,6 +141,7 @@ export function sincerityProbe(
       const w1 = winnerWith(rule, stratRank, stratScore);
       if (util[w1] > util[w0] + EPS) {
         temptation = { type: 'burying', voteFor: cands[fav].name, newWinner: cands[w1].name };
+        gain = util[w1] - util[w0];
       }
     }
 
@@ -142,9 +149,58 @@ export function sincerityProbe(
       rule,
       sincereWinner: cands[w0].name,
       sincereIsBest: temptation === null,
+      gain: Math.round(gain * 1000) / 1000,
       temptation,
     });
   }
 
   return { ranking: rankingNames, blocSize, verdicts };
+}
+
+export interface ScanRow {
+  rule: Rule;
+  /** Share of sampled voters whom the method tempts to vote strategically, [0,1]. */
+  temptRate: number;
+}
+
+export interface SincerityScan {
+  /** Number of voter archetypes sampled from the electorate. */
+  sampled: number;
+  /** One row per rule, sorted best-first (lowest temptation rate). */
+  rows: ScanRow[];
+}
+
+/**
+ * Sweep the electorate: take `sampleSize` real voters as sincere archetypes and,
+ * for each method, measure how OFTEN a voter (with a conviction bloc of
+ * `blocShare`) is tempted to vote strategically. The synthesis the project's goal
+ * asks for — on THIS electorate, which methods best let voters keep their
+ * conviction. A stated convention (the two canonical strategies), not a theorem.
+ */
+export function sincerityScan(
+  others: Pt[],
+  cands: NamedPt[],
+  blocShare: number,
+  sampleSize = 40
+): SincerityScan {
+  if (others.length === 0 || cands.length < 3) {
+    return { sampled: 0, rows: LEADER_RULES.map((rule) => ({ rule, temptRate: 0 })) };
+  }
+  // Evenly-strided voter archetypes (deterministic).
+  const step = Math.max(1, others.length / sampleSize);
+  const picks: Pt[] = [];
+  for (let i = 0; i < others.length && picks.length < sampleSize; i += step) {
+    picks.push(others[Math.floor(i)]);
+  }
+  const tempted: Record<string, number> = {};
+  for (const rule of LEADER_RULES) tempted[rule] = 0;
+  for (const you of picks) {
+    const { verdicts } = sincerityProbe(you, blocShare, others, cands);
+    for (const v of verdicts) if (!v.sincereIsBest) tempted[v.rule] += 1;
+  }
+  const rows: ScanRow[] = LEADER_RULES.map((rule) => ({
+    rule,
+    temptRate: Math.round((tempted[rule] / picks.length) * 1000) / 1000,
+  })).sort((a, b) => a.temptRate - b.temptRate);
+  return { sampled: picks.length, rows };
 }

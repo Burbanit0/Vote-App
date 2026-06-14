@@ -1,6 +1,12 @@
 import React from 'react';
+import { Button } from '@/components/ui/button';
 import { RULE_LABELS, type NamedPt, type Pt, type Rule } from '../../lib/playgroundVoting';
-import { sincerityProbe, type SincerityVerdict } from '../../lib/playgroundSincerity';
+import {
+  sincerityProbe,
+  sincerityScan,
+  type SincerityVerdict,
+  type SincerityScan,
+} from '../../lib/playgroundSincerity';
 
 // SincerityModule — the project's central constraint made interactive: should YOU
 // vote by conviction, or does the method tempt you to vote "utile"? You set your
@@ -38,8 +44,14 @@ const SincerityModule: React.FC<{ voters: Pt[]; candidates: NamedPt[]; dims: num
   );
 
   const safe = report.verdicts.filter((v) => v.sincereIsBest);
-  const tempting = report.verdicts.filter((v) => !v.sincereIsBest);
+  // Tempting methods, the most rewarding lie first (biggest betrayal incentive).
+  const tempting = report.verdicts.filter((v) => !v.sincereIsBest).sort((a, b) => b.gain - a.gain);
   const label = (r: Rule) => RULE_LABELS[r] ?? r;
+
+  // Electorate sweep (on-demand): per-method temptation rate over many voters.
+  const [scan, setScan] = React.useState<SincerityScan | null>(null);
+  // Drop a stale scan whenever the electorate or bloc changes.
+  React.useEffect(() => setScan(null), [others, candidates, blocShare]);
 
   return (
     <div data-testid="sincerity-module" className="flex flex-col gap-3">
@@ -155,6 +167,57 @@ const SincerityModule: React.FC<{ voters: Pt[]; candidates: NamedPt[]; dims: num
           </div>
         </div>
       )}
+
+      {/* Electorate sweep — the synthesis: which methods minimise the vote utile? */}
+      <div className="flex flex-col gap-1.5 border-t border-border pt-2">
+        <Button
+          data-testid="sincerity-scan-run"
+          variant="outline"
+          size="sm"
+          className="self-start"
+          onClick={() => setScan(sincerityScan(others, candidates, blocShare))}
+          title="Échantillonne de vrais électeurs de cet électorat et mesure, par méthode, à quelle fréquence ils seraient tentés de voter stratégiquement."
+        >
+          {scan ? '↻ Re-balayer l’électorat' : '▶ Balayer l’électorat (toutes méthodes)'}
+        </Button>
+
+        {scan && scan.sampled > 0 && (
+          <div data-testid="sincerity-scan" className="flex flex-col gap-1">
+            <p className="text-xs">
+              Sur {scan.sampled} électeurs, la méthode qui minimise le vote utile :{' '}
+              <strong className="text-green-700 dark:text-green-400">
+                {label(scan.rows[0].rule)}
+              </strong>{' '}
+              ({Math.round(scan.rows[0].temptRate * 100)} %).
+            </p>
+            {scan.rows.map(({ rule, temptRate }) => (
+              <div key={rule} className="flex items-center gap-2 text-xs">
+                <span className="w-40 shrink-0 truncate text-muted-foreground">{label(rule)}</span>
+                <div className="h-2.5 flex-1 overflow-hidden rounded bg-muted/50">
+                  <div
+                    className={
+                      'h-full rounded ' +
+                      (temptRate <= 0.1
+                        ? 'bg-green-600/70'
+                        : temptRate <= 0.33
+                          ? 'bg-amber-500/70'
+                          : 'bg-red-500/70')
+                    }
+                    style={{ width: `${temptRate * 100}%`, transition: 'width 300ms ease' }}
+                  />
+                </div>
+                <span className="w-10 text-right tabular-nums text-muted-foreground">
+                  {Math.round(temptRate * 100)} %
+                </span>
+              </div>
+            ))}
+            <p className="text-[0.65rem] text-muted-foreground/70">
+              Barre = part d’électeurs tentés de trahir leur conviction (plus court = méthode plus
+              sincère sur cet électorat).
+            </p>
+          </div>
+        )}
+      </div>
 
       <p className="text-[0.65rem] text-muted-foreground/70">
         Contrainte centrale du projet : voter par conviction, jamais par élimination. On teste les
