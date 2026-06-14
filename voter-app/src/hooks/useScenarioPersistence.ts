@@ -93,7 +93,10 @@ export interface UseScenarioPersistenceResult {
   closeSave: () => void;
   setName: (s: string) => void;
   /** Persist the snapshot; resolves once the request has completed (success or fail). */
-  saveCurrent: (config: Record<string, any>, results?: Record<string, any> | null) => Promise<void>;
+  saveCurrent: (
+    config: Record<string, unknown>,
+    results?: Record<string, unknown> | null
+  ) => Promise<void>;
   openLoad: () => Promise<void>;
   closeLoad: () => void;
   removeFromList: (id: number) => Promise<void>;
@@ -108,7 +111,7 @@ export function useScenarioPersistence(): UseScenarioPersistenceResult {
   const closeLoad = useCallback(() => dispatch({ type: 'CLOSE_LOAD' }), []);
 
   const saveCurrent = useCallback(
-    async (config: Record<string, any>, results?: Record<string, any> | null) => {
+    async (config: Record<string, unknown>, results?: Record<string, unknown> | null) => {
       dispatch({ type: 'SAVE_START' });
       try {
         await saveScenario(state.saveName.trim(), config, results);

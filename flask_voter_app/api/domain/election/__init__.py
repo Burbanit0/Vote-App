@@ -15,46 +15,61 @@ canonical implementations moved here for real, and the corresponding
 Flask workers will be deleted.
 """
 from api.domain.election.workers import (
-    _abstention_worker,
-    _adaptive_worker,
-    _assembly_scorecard_worker,
-    _assembly_worker,
-    _affective_polarization_worker,
-    _ballot_complexity_worker,
-    _behavioral_biases_worker,
     _campaign_sensitivity_worker,
-    _cascade_worker,
-    _choice_overload_worker,
     _coalition_worker,
     _combined_effects_worker,
-    _compulsory_voting_worker,
-    _conviction_voting_worker,
-    _deliberation_worker,
-    _demographic_turnout_worker,
     _districts_worker,
     _divergence_worker,
-    _electoral_fatigue_worker,
+    _interpret_worker,
+    _primary_worker,
+    _simulate_pipeline_worker,
+)
+# Electoral-mechanism workers (workers.py decomposition).
+from api.domain.election.workers_mechanisms import (
+    _abstention_worker,
+    _adaptive_worker,
     _gerrymander_worker,
     _historical_replay_worker,
-    _hotelling_worker,
-    _interpret_worker,
-    _issue_voting_worker,
     _jury_worker,
-    _liquid_democracy_worker,
     _multiwinner_compare_worker,
-    _nota_worker,
-    _party_dynamics_worker,
-    _polarization_worker,
-    _power_indices_worker,
-    _primary_worker,
-    _profile_simulate_worker,
-    _quadratic_funding_worker,
-    _shy_voter_worker,
-    _simulate_pipeline_worker,
-    _sortition_worker,
-    _structural_fairness_worker,
     _stv_worker,
+)
+# Spatial-dynamics / equilibrium workers (workers.py decomposition).
+from api.domain.election.workers_dynamics import (
+    _affective_polarization_worker,
+    _hotelling_worker,
+    _polarization_worker,
+    _quadratic_funding_worker,
+)
+# Behavioural / research-panel workers (workers.py decomposition).
+from api.domain.election.workers_behavioral import (
+    _ballot_complexity_worker,
+    _behavioral_biases_worker,
+    _cascade_worker,
+    _choice_overload_worker,
+    _conviction_voting_worker,
+    _electoral_fatigue_worker,
+    _liquid_democracy_worker,
+    _nota_worker,
+    _shy_voter_worker,
+)
+# Lab-reshape playground workers, split into their own module (workers.py decomposition).
+from api.domain.election.workers_playground import (
+    _assembly_scorecard_worker,
+    _assembly_worker,
+    _issue_voting_worker,
+    _profile_simulate_worker,
+    _structural_fairness_worker,
     _temporal_worker,
+)
+# Governance / advanced-mechanism workers (workers.py decomposition).
+from api.domain.election.workers_advanced import (
+    _compulsory_voting_worker,
+    _deliberation_worker,
+    _demographic_turnout_worker,
+    _party_dynamics_worker,
+    _power_indices_worker,
+    _sortition_worker,
 )
 from api.domain.election.election_service import ElectionService
 

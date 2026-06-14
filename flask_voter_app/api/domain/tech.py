@@ -10,7 +10,7 @@ import hashlib
 import math
 import random as _random
 from collections import Counter
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List
 
 import numpy as _np
 

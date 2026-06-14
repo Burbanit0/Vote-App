@@ -28,7 +28,6 @@ from api.engine.constants import DEFAULT_ISSUES
 from api.domain.simulations.helpers import (
     _parse_candidate_configs, _build_population,
     _build_scenario_candidates, _build_scenario_voters, _run_five_methods,
-    _SCENARIO_METHODS,
 )
 
 

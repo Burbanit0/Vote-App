@@ -5,7 +5,6 @@ Real historical election data and analysis tools.
 Empirical demonstration: the same real population, different winners
 depending on the voting method used.
 """
-import math
 from typing import Dict, List, Optional, Any
 
 from .simulation_ranked_utils import (
@@ -504,7 +503,7 @@ def analyze_real_election(
             "triggered":   estimated_blank_pct >= 0.30,
             "winner":      None if estimated_blank_pct >= 0.30 else plurality_winner,
             "consequence": (
-                f"Le vote blanc dépasse 30 % — élection invalidée, "
+                "Le vote blanc dépasse 30 % — élection invalidée, "
                 "nouvelles candidatures requises."
                 if estimated_blank_pct >= 0.30 else
                 f"Le vote blanc ({blank_pct_as_display:.1f}%) reste sous le seuil de 30 %. "

@@ -18,7 +18,7 @@ import asyncio
 import csv
 import io
 
-from fastapi import APIRouter, Response
+from fastapi import APIRouter
 from fastapi.responses import StreamingResponse
 
 from api.domain.export import _generate_rows, CSV_COLUMNS   # noqa: F401

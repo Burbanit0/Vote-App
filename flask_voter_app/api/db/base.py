@@ -6,4 +6,3 @@ from sqlalchemy.orm import DeclarativeBase
 
 class Base(DeclarativeBase):
     """Standalone SQLAlchemy 2.0 declarative base (no Flask-SQLAlchemy)."""
-    pass

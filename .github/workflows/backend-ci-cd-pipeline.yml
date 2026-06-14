@@ -30,9 +30,10 @@ jobs:
           pip install -r flask_voter_app/requirements-dev.txt
 
       # ── Linting ────────────────────────────────────────────────────────────
-      - name: Flake8
+      # Blocking: .flake8 now selects only E9 + F (syntax + pyflakes real bugs),
+      # so this gates on genuine issues, not the cosmetic column-alignment style.
+      - name: Flake8 (E9 + pyflakes — blocking)
         run: flake8 --config=flask_voter_app/.flake8 flask_voter_app
-        continue-on-error: true
 
       # ── Security ───────────────────────────────────────────────────────────
       - name: Bandit (Python SAST)

@@ -1,4 +1,5 @@
 import React, { useCallback, useMemo, useState } from 'react';
+import { errorMessage } from '../utils/errorMessage';
 import { Alert } from '@/components/ui/alert';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -306,8 +307,8 @@ const WhatIfPage: React.FC = () => {
         variant_values: variantValues,
       });
       setResults(resp.results);
-    } catch (e: any) {
-      setError(e?.response?.data?.error ?? e?.message ?? "Erreur lors de l'analyse");
+    } catch (e: unknown) {
+      setError(errorMessage(e, "Erreur lors de l'analyse"));
     } finally {
       setLoading(false);
     }
