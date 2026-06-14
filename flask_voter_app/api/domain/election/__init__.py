@@ -17,7 +17,6 @@ Flask workers will be deleted.
 from api.domain.election.workers import (
     _abstention_worker,
     _adaptive_worker,
-    _affective_polarization_worker,
     _campaign_sensitivity_worker,
     _coalition_worker,
     _combined_effects_worker,
@@ -25,15 +24,19 @@ from api.domain.election.workers import (
     _divergence_worker,
     _gerrymander_worker,
     _historical_replay_worker,
-    _hotelling_worker,
     _interpret_worker,
     _jury_worker,
     _multiwinner_compare_worker,
-    _polarization_worker,
     _primary_worker,
-    _quadratic_funding_worker,
     _simulate_pipeline_worker,
     _stv_worker,
+)
+# Spatial-dynamics / equilibrium workers (workers.py decomposition).
+from api.domain.election.workers_dynamics import (
+    _affective_polarization_worker,
+    _hotelling_worker,
+    _polarization_worker,
+    _quadratic_funding_worker,
 )
 # Behavioural / research-panel workers (workers.py decomposition).
 from api.domain.election.workers_behavioral import (
