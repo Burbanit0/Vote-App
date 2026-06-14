@@ -3,7 +3,7 @@
  * vote_weight = tokens × multiplier(lock_days)
  * Compares conviction-weighted results with plain 1-token-1-vote.
  */
-import React, { useCallback, useRef, useState } from 'react';
+import React, { useCallback, useState } from 'react';
 import { $api } from '../../api/hooks';
 import { useTranslation } from 'react-i18next';
 import { Alert } from '@/components/ui/alert';
@@ -252,7 +252,6 @@ const ConvictionVotingPanel: React.FC = () => {
         small_lock_days: smallLock,
       },
     });
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [config, cvDist, whalePct, smallLock, t, sim]);
 
   const pNames = data?.proposals.map((p) => p.name) ?? proposalNames;

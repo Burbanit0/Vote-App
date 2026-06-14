@@ -89,8 +89,13 @@ describe('Scorecard', () => {
     render(
       <Scorecard
         axes={[
-          { key: 'a', label: 'Axe A', hint: 'h', drillTab: 'gerrymander',
-            band: { mean: 0.7, lo: 0.6, hi: 0.8 } },
+          {
+            key: 'a',
+            label: 'Axe A',
+            hint: 'h',
+            drillTab: 'gerrymander',
+            band: { mean: 0.7, lo: 0.6, hi: 0.8 },
+          },
           { key: 'b', label: 'Axe B', hint: 'h', band: null }, // no drillTab → no button
         ]}
         onDrill={onDrill}

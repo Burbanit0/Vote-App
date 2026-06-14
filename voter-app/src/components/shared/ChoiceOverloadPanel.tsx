@@ -25,7 +25,6 @@ import {
   Legend,
   ReferenceLine,
   ResponsiveContainer,
-  Cell,
 } from 'recharts';
 import { useElection } from '../../stores/useElectionStore';
 import PinToCentralButton from './PinToCentralButton';
@@ -81,7 +80,6 @@ const ChoiceOverloadPanel: React.FC = () => {
           methods: ['plurality', 'approval', 'borda', 'majority_judgment'],
         },
       });
-      // eslint-disable-next-line react-hooks/exhaustive-deps
     },
     [config, t, sim]
   );

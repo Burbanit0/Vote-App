@@ -215,7 +215,7 @@ const QuizPage: React.FC = () => {
       localStorage.setItem(LS_KEY(difficulty), String(finalScore));
       setBestScores((b) => ({ ...b, [difficulty]: finalScore }));
     }
-  }, [finished]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [finished]);
 
   const current = deck[qIndex];
   const total = deck.length;

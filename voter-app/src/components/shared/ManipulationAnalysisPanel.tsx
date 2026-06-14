@@ -203,7 +203,6 @@ const ManipulationAnalysisPanel: React.FC = () => {
         manipulation_strategies: ['compromising', 'burying', 'pushover', 'truncating'],
       },
     });
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [config, method, t, sim]);
 
   const selectedManip = data?.manipulators.find((m) => m.voter_id === selected) ?? null;

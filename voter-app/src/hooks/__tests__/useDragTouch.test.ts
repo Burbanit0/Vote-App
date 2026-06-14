@@ -6,7 +6,6 @@
  * We also test useSwipe through the same test infrastructure.
  */
 import { renderHook, act } from '@testing-library/react';
-import { useRef } from 'react';
 
 // ── useDragTouch helpers ──────────────────────────────────────────────────────
 

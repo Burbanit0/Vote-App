@@ -13,17 +13,7 @@ import { Card, CardBody, CardHeader } from '@/components/ui/card';
 import { Range } from '@/components/ui/form-controls';
 import { Col, Row } from '@/components/ui/grid';
 import { Spinner } from '@/components/ui/spinner';
-import {
-  BarChart,
-  Bar,
-  XAxis,
-  YAxis,
-  Tooltip,
-  CartesianGrid,
-  Legend,
-  ResponsiveContainer,
-  Cell,
-} from 'recharts';
+import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, Cell } from 'recharts';
 import { useElection } from '../../stores/useElectionStore';
 import PinToCentralButton from './PinToCentralButton';
 
@@ -177,7 +167,6 @@ const CompulsoryVotingPanel: React.FC = () => {
           method: 'plurality',
         },
       });
-      // eslint-disable-next-line react-hooks/exhaustive-deps
     },
     [config, sim]
   );

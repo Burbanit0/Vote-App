@@ -30,11 +30,7 @@ export interface TemporalPanelProps {
 }
 
 /** Polyline for one metric over rounds, mapped into the chart box. */
-function metricPath(
-  values: (number | null)[],
-  yMax: number,
-  yOffset: number
-): string {
+function metricPath(values: (number | null)[], yMax: number, yOffset: number): string {
   const pts = values
     .map((v, i) => {
       if (v === null) return null;
@@ -72,16 +68,16 @@ const TemporalPanel: React.FC<TemporalPanelProps> = ({ config, playground }) => 
     }
   };
 
-  const partyNames = useMemo(
-    () => (data ? data.rounds[0].parties.map((p) => p.name) : []),
-    [data]
-  );
+  const partyNames = useMemo(() => (data ? data.rounds[0].parties.map((p) => p.name) : []), [data]);
   const round = data ? data.rounds[Math.min(scrub, data.rounds.length - 1)] : null;
   const enpMax = 8;
   const polMax = 1;
 
   return (
-    <div data-testid="temporal-panel" className="flex flex-col gap-2 rounded-md border border-border p-3">
+    <div
+      data-testid="temporal-panel"
+      className="flex flex-col gap-2 rounded-md border border-border p-3"
+    >
       <div className="flex flex-wrap items-center justify-between gap-2">
         <span className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
           ⏳ Démocratie répétée — le long terme
@@ -101,22 +97,40 @@ const TemporalPanel: React.FC<TemporalPanelProps> = ({ config, playground }) => 
               </option>
             ))}
           </select>
-          <Button data-testid="temporal-run" variant="outline" size="sm" onClick={run} disabled={loading}>
+          <Button
+            data-testid="temporal-run"
+            variant="outline"
+            size="sm"
+            onClick={run}
+            disabled={loading}
+          >
             {loading ? '…' : '▶ 20 cycles'}
           </Button>
         </div>
       </div>
       <p className="text-[0.68rem] text-muted-foreground/70">
-        Modèle déclaré : à chaque cycle les partis font un pas vers les voix (ressources ∝
-        votes reçus) et les électeurs dérivent vers le parti qu’ils ont voté. Même graine =
-        même trajectoire.
+        Modèle déclaré : à chaque cycle les partis font un pas vers les voix (ressources ∝ votes
+        reçus) et les électeurs dérivent vers le parti qu’ils ont voté. Même graine = même
+        trajectoire.
       </p>
 
       {data && round && (
         <>
           {/* ── Trajectory map: party drift trails ── */}
-          <svg viewBox={`0 0 ${W} ${MAP_H}`} width="100%" role="img" aria-label="Trajectoires des partis">
-            <rect x={PAD} y={PAD} width={W - 2 * PAD} height={MAP_H - 2 * PAD} fill="none" stroke="var(--bs-border-color, #ccc)" />
+          <svg
+            viewBox={`0 0 ${W} ${MAP_H}`}
+            width="100%"
+            role="img"
+            aria-label="Trajectoires des partis"
+          >
+            <rect
+              x={PAD}
+              y={PAD}
+              width={W - 2 * PAD}
+              height={MAP_H - 2 * PAD}
+              fill="none"
+              stroke="var(--bs-border-color, #ccc)"
+            />
             <g data-testid="temporal-trails">
               {partyNames.map((name, i) => {
                 const trail = data.rounds.map((r) => {
@@ -164,19 +178,31 @@ const TemporalPanel: React.FC<TemporalPanelProps> = ({ config, playground }) => 
               value={scrub}
               onChange={(e) => setScrub(Number(e.target.value))}
             />
-            <span data-testid="temporal-round-winner" className="w-32 truncate text-right text-muted-foreground">
+            <span
+              data-testid="temporal-round-winner"
+              className="w-32 truncate text-right text-muted-foreground"
+            >
               en tête : <strong>{round.winner}</strong>
             </span>
           </div>
 
           {/* ── ENP + polarization over rounds ── */}
-          <svg viewBox={`0 0 ${W} ${2 * CHART_H + 36}`} width="100%" role="img" aria-label="NEP et polarisation au fil des cycles">
+          <svg
+            viewBox={`0 0 ${W} ${2 * CHART_H + 36}`}
+            width="100%"
+            role="img"
+            aria-label="NEP et polarisation au fil des cycles"
+          >
             <text x={PAD} y={10} fontSize={9} fill="currentColor" opacity={0.7}>
               Nombre effectif de partis (voix)
             </text>
             <path
               data-testid="enp-line"
-              d={metricPath(data.rounds.map((r) => r.enp_votes), enpMax, 14)}
+              d={metricPath(
+                data.rounds.map((r) => r.enp_votes),
+                enpMax,
+                14
+              )}
               fill="none"
               stroke="#2563eb"
               strokeWidth={1.8}
@@ -184,7 +210,11 @@ const TemporalPanel: React.FC<TemporalPanelProps> = ({ config, playground }) => 
             {compareData && (
               <path
                 data-testid="enp-line-compare"
-                d={metricPath(compareData.rounds.map((r) => r.enp_votes), enpMax, 14)}
+                d={metricPath(
+                  compareData.rounds.map((r) => r.enp_votes),
+                  enpMax,
+                  14
+                )}
                 fill="none"
                 stroke="#2563eb"
                 strokeWidth={1.5}
@@ -197,14 +227,22 @@ const TemporalPanel: React.FC<TemporalPanelProps> = ({ config, playground }) => 
             </text>
             <path
               data-testid="polarization-line"
-              d={metricPath(data.rounds.map((r) => r.polarization), polMax, CHART_H + 34)}
+              d={metricPath(
+                data.rounds.map((r) => r.polarization),
+                polMax,
+                CHART_H + 34
+              )}
               fill="none"
               stroke="#dc2626"
               strokeWidth={1.8}
             />
             {compareData && (
               <path
-                d={metricPath(compareData.rounds.map((r) => r.polarization), polMax, CHART_H + 34)}
+                d={metricPath(
+                  compareData.rounds.map((r) => r.polarization),
+                  polMax,
+                  CHART_H + 34
+                )}
                 fill="none"
                 stroke="#dc2626"
                 strokeWidth={1.5}
@@ -215,18 +253,32 @@ const TemporalPanel: React.FC<TemporalPanelProps> = ({ config, playground }) => 
           </svg>
 
           {/* ── Readouts ── */}
-          <div data-testid="temporal-readouts" className="grid grid-cols-3 gap-2 text-center text-xs">
-            <div className="rounded-md border border-border px-1 py-1.5" title="Fréquence de changement du parti en tête — l'alternance, condition de la redevabilité.">
-              <div className="font-semibold tabular-nums">{Math.round(data.alternation_rate * 100)} %</div>
+          <div
+            data-testid="temporal-readouts"
+            className="grid grid-cols-3 gap-2 text-center text-xs"
+          >
+            <div
+              className="rounded-md border border-border px-1 py-1.5"
+              title="Fréquence de changement du parti en tête — l'alternance, condition de la redevabilité."
+            >
+              <div className="font-semibold tabular-nums">
+                {Math.round(data.alternation_rate * 100)} %
+              </div>
               <div className="text-muted-foreground">Alternance</div>
             </div>
-            <div className="rounded-md border border-border px-1 py-1.5" title="Nombre effectif de partis (voix), du premier au dernier cycle.">
+            <div
+              className="rounded-md border border-border px-1 py-1.5"
+              title="Nombre effectif de partis (voix), du premier au dernier cycle."
+            >
               <div className="font-semibold tabular-nums">
                 {data.enp_votes_initial?.toFixed(1)} → {data.enp_votes_final?.toFixed(1)}
               </div>
               <div className="text-muted-foreground">NEP voix</div>
             </div>
-            <div className="rounded-md border border-border px-1 py-1.5" title="Écart entre la position de l'assemblée (pondérée par sièges) et l'électeur médian, au cycle affiché.">
+            <div
+              className="rounded-md border border-border px-1 py-1.5"
+              title="Écart entre la position de l'assemblée (pondérée par sièges) et l'électeur médian, au cycle affiché."
+            >
               <div className="font-semibold tabular-nums">{round.congruence_gap.toFixed(2)}</div>
               <div className="text-muted-foreground">Écart de congruence</div>
             </div>

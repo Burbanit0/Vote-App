@@ -18,8 +18,14 @@ const MARGIN = 28;
 const PLOT = SVG - 2 * MARGIN;
 
 export const PARTY_PALETTE = [
-  '#2563eb', '#dc2626', '#16a34a', '#9333ea',
-  '#ea580c', '#0891b2', '#ca8a04', '#db2777',
+  '#2563eb',
+  '#dc2626',
+  '#16a34a',
+  '#9333ea',
+  '#ea580c',
+  '#0891b2',
+  '#ca8a04',
+  '#db2777',
 ];
 
 const MIRROR_LABELS: Record<string, string> = {
@@ -135,7 +141,9 @@ const ParliamentCanvas: React.FC<ParliamentCanvasProps> = ({
       onMoveParty(draggingIdx.current, x, y);
     };
     const onMM = (e: MouseEvent) => move(e.clientX, e.clientY);
-    const onUp = () => { draggingIdx.current = null; };
+    const onUp = () => {
+      draggingIdx.current = null;
+    };
     const onTM = (e: TouchEvent) => {
       if (draggingIdx.current === null || !e.touches[0]) return;
       e.preventDefault();
@@ -155,10 +163,7 @@ const ParliamentCanvas: React.FC<ParliamentCanvasProps> = ({
   }, [onMoveParty]);
 
   // Party territories + instant voter re-attachment (local, live during drag).
-  const territories = useMemo(
-    () => buildVoronoiPaths(parties, SVG, SVG, toSvg, MARGIN),
-    [parties]
-  );
+  const territories = useMemo(() => buildVoronoiPaths(parties, SVG, SVG, toSvg, MARGIN), [parties]);
   const nearestParty = useMemo(
     () =>
       voters.map((v) => {
@@ -166,7 +171,10 @@ const ParliamentCanvas: React.FC<ParliamentCanvasProps> = ({
         let bd = Infinity;
         parties.forEach((p, i) => {
           const d = (v.x - p.x) ** 2 + (v.y - p.y) ** 2;
-          if (d < bd) { bd = d; best = i; }
+          if (d < bd) {
+            bd = d;
+            best = i;
+          }
         });
         return best;
       }),
@@ -223,9 +231,9 @@ const ParliamentCanvas: React.FC<ParliamentCanvasProps> = ({
           data-testid="assembly-unavailable"
           className="rounded-md border border-amber-500/50 bg-amber-500/10 px-3 py-2 text-xs text-amber-700 dark:text-amber-400"
         >
-          ⚠ Hémicycle indisponible : le calcul de l’assemblée n’a pas abouti. Si vous
-          venez de mettre à jour, redémarrez le serveur backend (uvicorn) pour qu’il
-          prenne le nouveau schéma.
+          ⚠ Hémicycle indisponible : le calcul de l’assemblée n’a pas abouti. Si vous venez de
+          mettre à jour, redémarrez le serveur backend (uvicorn) pour qu’il prenne le nouveau
+          schéma.
         </div>
       )}
       <div className="grid grid-cols-1 gap-3 xl:grid-cols-2">
@@ -244,7 +252,14 @@ const ParliamentCanvas: React.FC<ParliamentCanvasProps> = ({
               <path key={t.name} d={t.path} fill={colorOf(i)} />
             ))}
           </g>
-          <rect x={MARGIN} y={MARGIN} width={PLOT} height={PLOT} fill="none" stroke="var(--bs-border-color, #ccc)" />
+          <rect
+            x={MARGIN}
+            y={MARGIN}
+            width={PLOT}
+            height={PLOT}
+            fill="none"
+            stroke="var(--bs-border-color, #ccc)"
+          />
           {/* Voters coloured by nearest party — re-attach live during drag */}
           <g>
             {voters.map((v, i) => (
@@ -316,7 +331,14 @@ const ParliamentCanvas: React.FC<ParliamentCanvasProps> = ({
                   stroke="#fff"
                   strokeWidth={2}
                 />
-                <text x={toSvg(p.x, 'x')} y={toSvg(p.y, 'y') - 12} textAnchor="middle" fontSize={11} fontWeight={600} fill="currentColor">
+                <text
+                  x={toSvg(p.x, 'x')}
+                  y={toSvg(p.y, 'y') - 12}
+                  textAnchor="middle"
+                  fontSize={11}
+                  fontWeight={600}
+                  fill="currentColor"
+                >
                   {p.name}
                 </text>
               </g>
@@ -345,7 +367,14 @@ const ParliamentCanvas: React.FC<ParliamentCanvasProps> = ({
                 />
               ))}
             </g>
-            <text x={SVG / 2} y={266} textAnchor="middle" fontSize={12} fill="currentColor" opacity={result ? 1 : 0.6}>
+            <text
+              x={SVG / 2}
+              y={266}
+              textAnchor="middle"
+              fontSize={12}
+              fill="currentColor"
+              opacity={result ? 1 : 0.6}
+            >
               {result
                 ? `${result.assembly_size} sièges · majorité ${result.majority}${loading ? ' · …' : ''}`
                 : loading
@@ -356,17 +385,35 @@ const ParliamentCanvas: React.FC<ParliamentCanvasProps> = ({
 
           {/* Headline metrics */}
           {result && (
-            <div data-testid="assembly-metrics" className="grid grid-cols-3 gap-2 text-center text-xs">
-              <div className="rounded-md border border-border px-1 py-1.5" title="Indice de Gallagher — 0 = parfaitement proportionnel">
-                <div className="font-semibold tabular-nums">{result.gallagher_index?.toFixed(1) ?? '—'}</div>
+            <div
+              data-testid="assembly-metrics"
+              className="grid grid-cols-3 gap-2 text-center text-xs"
+            >
+              <div
+                className="rounded-md border border-border px-1 py-1.5"
+                title="Indice de Gallagher — 0 = parfaitement proportionnel"
+              >
+                <div className="font-semibold tabular-nums">
+                  {result.gallagher_index?.toFixed(1) ?? '—'}
+                </div>
                 <div className="text-muted-foreground">Disproportion</div>
               </div>
-              <div className="rounded-md border border-border px-1 py-1.5" title="Nombre effectif de partis (sièges)">
-                <div className="font-semibold tabular-nums">{result.effective_parties_seats?.toFixed(1) ?? '—'}</div>
+              <div
+                className="rounded-md border border-border px-1 py-1.5"
+                title="Nombre effectif de partis (sièges)"
+              >
+                <div className="font-semibold tabular-nums">
+                  {result.effective_parties_seats?.toFixed(1) ?? '—'}
+                </div>
                 <div className="text-muted-foreground">Partis effectifs</div>
               </div>
-              <div className="rounded-md border border-border px-1 py-1.5" title="Part des voix sans représentation">
-                <div className="font-semibold tabular-nums">{Math.round(result.wasted_vote_share * 100)} %</div>
+              <div
+                className="rounded-md border border-border px-1 py-1.5"
+                title="Part des voix sans représentation"
+              >
+                <div className="font-semibold tabular-nums">
+                  {Math.round(result.wasted_vote_share * 100)} %
+                </div>
                 <div className="text-muted-foreground">Voix gaspillées</div>
               </div>
             </div>
@@ -400,12 +447,20 @@ const ParliamentCanvas: React.FC<ParliamentCanvasProps> = ({
                   {/* votes (hatched underlay) */}
                   <div
                     className="absolute inset-y-0 left-0 opacity-35"
-                    style={{ width: `${p.vote_share * 100}%`, background: colorOf(idx), transition: 'width 400ms ease' }}
+                    style={{
+                      width: `${p.vote_share * 100}%`,
+                      background: colorOf(idx),
+                      transition: 'width 400ms ease',
+                    }}
                   />
                   {/* seats (solid) */}
                   <div
                     className="absolute left-0 top-1 h-2"
-                    style={{ width: `${p.seat_share * 100}%`, background: colorOf(idx), transition: 'width 400ms ease' }}
+                    style={{
+                      width: `${p.seat_share * 100}%`,
+                      background: colorOf(idx),
+                      transition: 'width 400ms ease',
+                    }}
                   />
                 </div>
                 <span className="w-28 text-right tabular-nums text-muted-foreground">
@@ -459,15 +514,22 @@ const ParliamentCanvas: React.FC<ParliamentCanvasProps> = ({
                   <div className="relative h-3.5 flex-1 overflow-hidden rounded bg-muted/50">
                     <div
                       className="absolute inset-y-0 left-0 bg-slate-400/50"
-                      style={{ width: `${m.electorate_share * 100}%`, transition: 'width 400ms ease' }}
+                      style={{
+                        width: `${m.electorate_share * 100}%`,
+                        transition: 'width 400ms ease',
+                      }}
                     />
                     <div
                       className="absolute left-0 top-1 h-1.5 bg-primary"
-                      style={{ width: `${m.assembly_share * 100}%`, transition: 'width 400ms ease' }}
+                      style={{
+                        width: `${m.assembly_share * 100}%`,
+                        transition: 'width 400ms ease',
+                      }}
                     />
                   </div>
                   <span className="w-20 text-right tabular-nums text-muted-foreground">
-                    {Math.round(m.electorate_share * 100)} % → {Math.round(m.assembly_share * 100)} %
+                    {Math.round(m.electorate_share * 100)} % → {Math.round(m.assembly_share * 100)}{' '}
+                    %
                   </span>
                 </div>
               ))}
@@ -493,7 +555,10 @@ const ParliamentCanvas: React.FC<ParliamentCanvasProps> = ({
           )}
         >
           {coalition.size === 0 ? (
-            <>Cliquez sur des partis pour assembler une coalition majoritaire ({result.majority} sièges).</>
+            <>
+              Cliquez sur des partis pour assembler une coalition majoritaire ({result.majority}{' '}
+              sièges).
+            </>
           ) : (
             <>
               Coalition : <strong>{coalitionSeats}</strong> / {result.majority} sièges

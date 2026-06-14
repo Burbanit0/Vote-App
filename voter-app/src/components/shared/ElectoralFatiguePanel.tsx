@@ -176,7 +176,6 @@ const ElectoralFatiguePanel: React.FC = () => {
           method: 'plurality',
         },
       });
-      // eslint-disable-next-line react-hooks/exhaustive-deps
     },
     [config, t, sim]
   );
@@ -195,7 +194,6 @@ const ElectoralFatiguePanel: React.FC = () => {
   useEffect(() => {
     if (!hasData) return;
     schedule(fatigueRate, engagedPct, numElections);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [fatigueRate, engagedPct, numElections]);
 
   // ── Chart data ──────────────────────────────────────────────────────────

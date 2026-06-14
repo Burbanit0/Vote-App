@@ -121,7 +121,6 @@ export function useDebouncedSimulation(
     return () => {
       if (timerRef.current) clearTimeout(timerRef.current);
     };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [
     candidatesKey,
     params.num_voters,

@@ -107,7 +107,9 @@ test.describe('ScenarioBuilderPage — 4-step wizard', () => {
     await runBtn.click();
 
     // Wait for results — spinner disappears, results table appears
-    await expect(page.getByRole('button', { name: /simulation en cours|running/i })).toBeHidden({ timeout: 45_000 });
+    await expect(page.getByRole('button', { name: /simulation en cours|running/i })).toBeHidden({
+      timeout: 45_000,
+    });
     await expect(page.locator('table').first()).toBeVisible({ timeout: 45_000 });
   });
 
@@ -116,7 +118,7 @@ test.describe('ScenarioBuilderPage — 4-step wizard', () => {
     await page.getByRole('button', { name: /lancer la simulation|run simulation/i }).click();
     await expect(page.locator('table').first()).toBeVisible({ timeout: 45_000 });
 
-    const tableText = await page.locator('table').first().textContent() ?? '';
+    const tableText = (await page.locator('table').first().textContent()) ?? '';
     // Methods should appear in the table (FR or EN)
     expect(tableText).toMatch(/pluralité|plurality|scrutin uninominal|first.past/i);
     expect(tableText).toMatch(/IRV|préférentiel|instant runoff/i);
@@ -128,9 +130,11 @@ test.describe('ScenarioBuilderPage — 4-step wizard', () => {
     await expect(page.locator('table').first()).toBeVisible({ timeout: 45_000 });
 
     // The summary shows "XX% Électeurs votent blanc" or similar
-    await expect(page.locator('text=/%/')).toHaveCount({ minimum: 1 }).catch(() => {
-      // Alternative: any element with % text
-    });
+    await expect(page.locator('text=/%/'))
+      .toHaveCount({ minimum: 1 })
+      .catch(() => {
+        // Alternative: any element with % text
+      });
     const percentText = page.locator(':text("%")');
     await expect(percentText.first()).toBeVisible();
   });
@@ -163,7 +167,9 @@ test.describe('ScenarioBuilderPage — 4-step wizard', () => {
     await expect(page.locator('table').first()).toBeVisible({ timeout: 45_000 });
 
     // After results, "Partager les résultats" button opens a modal
-    const shareResultsBtn = page.getByRole('button', { name: /partager les résultats|share results/i });
+    const shareResultsBtn = page.getByRole('button', {
+      name: /partager les résultats|share results/i,
+    });
     if (await shareResultsBtn.isVisible()) {
       await shareResultsBtn.click();
       // Modal opens with a readonly input showing the share URL

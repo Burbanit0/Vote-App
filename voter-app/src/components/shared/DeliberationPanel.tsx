@@ -21,7 +21,6 @@ import {
   Tooltip,
   CartesianGrid,
   Legend,
-  ReferenceLine,
   ResponsiveContainer,
 } from 'recharts';
 import { useElection } from '../../stores/useElectionStore';
@@ -105,7 +104,6 @@ const DeliberationPanel: React.FC = () => {
         method: 'plurality',
       },
     });
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [config, rounds, influence, network, groupSize, argQuality, t, sim]);
 
   // Chart data: per_round evolution

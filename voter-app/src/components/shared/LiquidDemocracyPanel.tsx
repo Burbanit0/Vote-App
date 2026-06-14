@@ -240,7 +240,6 @@ const LiquidDemocracyPanel: React.FC = () => {
           max_chain_length: chain,
         },
       });
-      // eslint-disable-next-line react-hooks/exhaustive-deps
     },
     [config, t, sim]
   );

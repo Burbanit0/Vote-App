@@ -146,7 +146,7 @@ const ScenarioGalleryPage: React.FC = () => {
 
   useEffect(() => {
     fetchItems(1, sort, activeTag);
-  }, [sort, activeTag]); // eslint-disable-line
+  }, [sort, activeTag]);
 
   useEffect(() => {
     if (!detailId) return;

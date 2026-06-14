@@ -1,7 +1,7 @@
 import React from 'react';
 import { render, screen, fireEvent, waitFor } from '@testing-library/react';
 import '@testing-library/jest-dom';
-import WhatIfPage, { generateValues, detectWinnerChanges, WinnerChange } from './WhatIfPage';
+import WhatIfPage, { generateValues, detectWinnerChanges } from './WhatIfPage';
 import { WhatIfDataPoint } from '../services/whatIfApi';
 
 // ── Mocks ─────────────────────────────────────────────────────────────────

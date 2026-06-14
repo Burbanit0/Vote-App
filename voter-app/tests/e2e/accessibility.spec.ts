@@ -3,9 +3,9 @@ import { AxeBuilder } from '@axe-core/playwright';
 
 // Pages to audit — all public (no login required)
 const PAGES = [
-  { path: '/',                      name: 'HomePage' },
-  { path: '/simulation/compare',    name: 'SimulationComparePage' },
-  { path: '/scenario-builder',      name: 'ScenarioBuilderPage' },
+  { path: '/', name: 'HomePage' },
+  { path: '/simulation/compare', name: 'SimulationComparePage' },
+  { path: '/scenario-builder', name: 'ScenarioBuilderPage' },
   { path: '/constitutional-crisis', name: 'ConstitutionalCrisisPage' },
 ];
 
@@ -28,28 +28,32 @@ test.describe('WCAG 2.1 AA — axe-core audit', () => {
       // Fail only on critical and serious violations — minor and moderate are
       // surfaced as informational warnings.
       const blocking = results.violations.filter(
-        (v) => v.impact === 'critical' || v.impact === 'serious',
+        (v) => v.impact === 'critical' || v.impact === 'serious'
       );
 
       if (blocking.length > 0) {
-        const summary = blocking.map((v) =>
-          `[${v.impact?.toUpperCase()}] ${v.id}: ${v.description}\n` +
-          `  Affected nodes:\n` +
-          v.nodes.slice(0, 3).map((n) => `    ${n.html.substring(0, 120)}`).join('\n'),
-        ).join('\n\n');
-        throw new Error(
-          `${blocking.length} accessibility violation(s) on ${name}:\n\n${summary}`,
-        );
+        const summary = blocking
+          .map(
+            (v) =>
+              `[${v.impact?.toUpperCase()}] ${v.id}: ${v.description}\n` +
+              `  Affected nodes:\n` +
+              v.nodes
+                .slice(0, 3)
+                .map((n) => `    ${n.html.substring(0, 120)}`)
+                .join('\n')
+          )
+          .join('\n\n');
+        throw new Error(`${blocking.length} accessibility violation(s) on ${name}:\n\n${summary}`);
       }
 
       // Surface moderate/minor violations as console info (non-blocking)
       const informational = results.violations.filter(
-        (v) => v.impact !== 'critical' && v.impact !== 'serious',
+        (v) => v.impact !== 'critical' && v.impact !== 'serious'
       );
       if (informational.length > 0) {
         console.info(
           `[a11y] ${name}: ${informational.length} minor/moderate violation(s) — ` +
-          informational.map((v) => v.id).join(', '),
+            informational.map((v) => v.id).join(', ')
         );
       }
     });
@@ -71,7 +75,7 @@ test.describe('WCAG 2.1 AA — axe-core audit', () => {
 
     // Find a MethodTooltip trigger (has role="button" and aria-haspopup="true")
     const trigger = page.locator('[role="button"][aria-haspopup="true"]').first();
-    if (await trigger.count() === 0) {
+    if ((await trigger.count()) === 0) {
       test.skip();
       return;
     }
@@ -101,7 +105,7 @@ test.describe('WCAG 2.1 AA — axe-core audit', () => {
       const el = inputs.nth(i);
       if (!(await el.isVisible())) continue;
 
-      const id       = await el.getAttribute('id');
+      const id = await el.getAttribute('id');
       const ariaLabel = await el.getAttribute('aria-label');
       const ariaLabelledby = await el.getAttribute('aria-labelledby');
       const labelFor = id ? await page.locator(`label[for="${id}"]`).count() : 0;
@@ -130,7 +134,7 @@ test.describe('WCAG 2.1 AA — axe-core audit', () => {
       .analyze();
 
     const blocking = results.violations.filter(
-      (v) => v.impact === 'critical' || v.impact === 'serious',
+      (v) => v.impact === 'critical' || v.impact === 'serious'
     );
     expect(blocking, `Dark-mode violations: ${JSON.stringify(blocking, null, 2)}`).toHaveLength(0);
   });

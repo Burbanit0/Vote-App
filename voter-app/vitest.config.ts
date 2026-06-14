@@ -12,9 +12,7 @@ const r = (p: string) => fileURLToPath(new URL(p, import.meta.url));
 export default defineConfig({
   plugins: [react()],
   define: {
-    'process.env.VITE_API_URL': JSON.stringify(
-      process.env.VITE_API_URL || 'http://localhost:4434'
-    ),
+    'process.env.VITE_API_URL': JSON.stringify(process.env.VITE_API_URL || 'http://localhost:4434'),
   },
   resolve: {
     // react-router v7 splits into react-router (context + hooks) and
@@ -40,7 +38,10 @@ export default defineConfig({
       // replace project-wide with the no-op mock so chart/heatmap tests work.
       // NB: Vite regex aliases do a *substring* replace, so anchor with ^.* to
       // swallow the whole specifier (else the `../../` prefix is kept → bad path).
-      { find: /^.*hooks\/useSimulationWorker$/, replacement: r('./src/__mocks__/useSimulationWorker.ts') },
+      {
+        find: /^.*hooks\/useSimulationWorker$/,
+        replacement: r('./src/__mocks__/useSimulationWorker.ts'),
+      },
       // Static image imports → file stub.
       { find: /^.*\.(jpg|jpeg|png|gif|webp|svg)$/, replacement: r('./src/__mocks__/fileMock.ts') },
     ],

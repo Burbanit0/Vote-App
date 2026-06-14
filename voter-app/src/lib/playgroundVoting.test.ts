@@ -110,24 +110,35 @@ describe('extended method set (15 rules)', () => {
   it('STAR runoff can overturn the score leader', () => {
     // Score leader = B (broad), but A wins the automatic top-2 runoff 6–5.
     const ranks = [...Array(6).fill([0, 1, 2]), ...Array(5).fill([2, 1, 0])];
-    const scores = [
-      ...Array(6).fill([1.0, 0.8, 0.0]),
-      ...Array(5).fill([0.0, 0.6, 1.0]),
-    ];
+    const scores = [...Array(6).fill([1.0, 0.8, 0.0]), ...Array(5).fill([0.0, 0.6, 1.0])];
     expect(ruleWinnerFromRanks(ranks, 3, 'score', scores)).toBe(1); // B leads on sum
     expect(ruleWinnerFromRanks(ranks, 3, 'star', scores)).toBe(0); // A wins the runoff
   });
 
   it('majority judgment ranks by median grade, not mean', () => {
     // A: grades [5,5,0] median 5; B: [4,4,4] median 4 but higher mean.
-    const ranks = [[0, 1], [0, 1], [1, 0]];
-    const scores = [[1.0, 0.7], [1.0, 0.7], [0.0, 0.7]];
+    const ranks = [
+      [0, 1],
+      [0, 1],
+      [1, 0],
+    ];
+    const scores = [
+      [1.0, 0.7],
+      [1.0, 0.7],
+      [0.0, 0.7],
+    ];
     expect(ruleWinnerFromRanks(ranks, 2, 'majority_judgment', scores)).toBe(0);
     expect(ruleWinnerFromRanks(ranks, 2, 'score', scores)).toBe(1); // mean favours B
   });
 
   it('Bucklin elects a first-round majority', () => {
-    const ranks = [[0, 1, 2], [0, 1, 2], [0, 2, 1], [1, 0, 2], [1, 2, 0]];
+    const ranks = [
+      [0, 1, 2],
+      [0, 1, 2],
+      [0, 2, 1],
+      [1, 0, 2],
+      [1, 2, 0],
+    ];
     expect(ruleWinnerFromRanks(ranks, 3, 'bucklin', undefined)).toBe(0); // A: 3/5 firsts
   });
 
@@ -252,7 +263,8 @@ describe('sampleVoters', () => {
   });
 
   it('polarized produces a wider economic spread than centrist', () => {
-    const spread = (pts: Pt[]) => Math.max(...pts.map((p) => p.x)) - Math.min(...pts.map((p) => p.x));
+    const spread = (pts: Pt[]) =>
+      Math.max(...pts.map((p) => p.x)) - Math.min(...pts.map((p) => p.x));
     expect(spread(sampleVoters(400, 1, 'polarized'))).toBeGreaterThan(
       spread(sampleVoters(400, 1, 'centrist'))
     );

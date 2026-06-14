@@ -106,7 +106,6 @@ const JuryTheoremPanel: React.FC = () => {
           seed: 42,
         },
       });
-      // eslint-disable-next-line react-hooks/exhaustive-deps
     },
     [t, sim]
   );

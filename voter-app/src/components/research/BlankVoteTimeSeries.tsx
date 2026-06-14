@@ -11,13 +11,11 @@
 import React, { useCallback, useEffect, useState } from 'react';
 import { Alert } from '@/components/ui/alert';
 import { Badge } from '@/components/ui/badge';
-import { Button } from '@/components/ui/button';
 import { Card, CardBody, CardHeader } from '@/components/ui/card';
 import { Check } from '@/components/ui/form-controls';
 import { Spinner } from '@/components/ui/spinner';
 import {
   CartesianGrid,
-  Dot,
   Legend,
   Line,
   LineChart,

@@ -227,7 +227,6 @@ const AgendaManipulationPanel: React.FC = () => {
         },
         { onSuccess: () => setAgendaOrder([...as]) }
       );
-      // eslint-disable-next-line react-hooks/exhaustive-deps
     },
     [sim]
   );

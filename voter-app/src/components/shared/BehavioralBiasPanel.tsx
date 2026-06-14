@@ -211,7 +211,6 @@ const BehavioralBiasPanel: React.FC = () => {
       const added = candidateNames.filter((n) => !prev.includes(n));
       return [...next, ...added];
     });
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [config.candidates]);
 
   const sim = $api.useMutation('post', '/api/v2/election/behavioral-biases');
@@ -235,7 +234,6 @@ const BehavioralBiasPanel: React.FC = () => {
           method: 'plurality',
         },
       });
-      // eslint-disable-next-line react-hooks/exhaustive-deps
     },
     [config, expressiveOn, bulletOn, primacyOn, t, sim]
   );
@@ -262,7 +260,6 @@ const BehavioralBiasPanel: React.FC = () => {
   useEffect(() => {
     if (!hasData) return;
     scheduleRun(currentParams);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [expressiveOn, expressivePct, bulletOn, bulletPct, primacyOn, primacyBonus, ballotOrder]);
 
   return (

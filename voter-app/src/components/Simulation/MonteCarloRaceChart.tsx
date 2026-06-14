@@ -127,7 +127,7 @@ const MonteCarloRaceChart: React.FC<Props> = ({
 
     historyRef.current = [...historyRef.current, { iter: latestIter, allMethods, byMethod }];
     setRenderTick((n) => n + 1);
-  }, [iterationCheckpoints.length]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [iterationCheckpoints.length]);
 
   // ── Derive candidates + methods ───────────────────────────────────────────
   const candidates = useMemo(() => {
@@ -147,7 +147,6 @@ const MonteCarloRaceChart: React.FC<Props> = ({
 
   // ── Build chart data ──────────────────────────────────────────────────────
   const chartData = useMemo(() => {
-    // eslint-disable-next-line @typescript-eslint/no-unused-expressions
     renderTick; // depend on renderTick to recompute when history grows
 
     if (view === 'all') {
@@ -177,7 +176,7 @@ const MonteCarloRaceChart: React.FC<Props> = ({
     } else {
       return partialResults[selectedMethod]?.most_common_winner ?? null;
     }
-  }, [isRunning, view, candidates, partialResults, selectedMethod, renderTick]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [isRunning, view, candidates, partialResults, selectedMethod, renderTick]);
 
   // ── Don't render until we have data ──────────────────────────────────────
   if (iterationCheckpoints.length === 0 || candidates.length === 0) return null;

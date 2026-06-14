@@ -113,7 +113,6 @@ const ShyVoterPanel: React.FC = () => {
           num_polls: 10,
         },
       });
-      // eslint-disable-next-line react-hooks/exhaustive-deps
     },
     [config, t, sim]
   );

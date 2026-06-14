@@ -257,7 +257,6 @@ const ElectionPipelineAnimator: React.FC = () => {
         onSuccess: () => setCurrentStep(0),
       }
     );
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [config, t, sim]);
 
   // ── Auto-play ─────────────────────────────────────────────────────────

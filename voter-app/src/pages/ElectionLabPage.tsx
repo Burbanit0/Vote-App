@@ -17,7 +17,6 @@ import { useMetaTags } from '../hooks/useMetaTags';
 import { useElection, ElectionCandidate } from '../stores/useElectionStore';
 import { simulateElection, ElectionResult } from '../services/electionApi';
 import LiveBadge from '../components/shared/LiveBadge';
-import IdeologyMapChart from '../components/Simulation/IdeologyMapChart';
 import VoteStepAnimator from '../components/Simulation/VoteStepAnimator';
 import MonteCarloResults from '../components/Simulation/MonteCarloResults';
 import ManipulabilityChart from '../components/Simulation/ManipulabilityChart';

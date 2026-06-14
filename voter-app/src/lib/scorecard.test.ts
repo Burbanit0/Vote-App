@@ -26,14 +26,39 @@ const CANDS: NamedPt[] = [
 describe('condorcetFromRanks / compressRanks', () => {
   it('finds the Condorcet winner and detects cycles', () => {
     // 3 voters, cycle: 0>1>2, 1>2>0, 2>0>1
-    expect(condorcetFromRanks([[0, 1, 2], [1, 2, 0], [2, 0, 1]], 3)).toBe(-1);
+    expect(
+      condorcetFromRanks(
+        [
+          [0, 1, 2],
+          [1, 2, 0],
+          [2, 0, 1],
+        ],
+        3
+      )
+    ).toBe(-1);
     // Clear winner 1 (majority puts it above both others)
-    expect(condorcetFromRanks([[1, 0, 2], [1, 2, 0], [0, 1, 2]], 3)).toBe(1);
+    expect(
+      condorcetFromRanks(
+        [
+          [1, 0, 2],
+          [1, 2, 0],
+          [0, 1, 2],
+        ],
+        3
+      )
+    ).toBe(1);
   });
 
   it('compression pushes the preferred frontrunner first and the other last', () => {
     // Frontrunners by firsts: 0 and 2 (one first each + tie-break by order).
-    const { ranks } = compressRanks([[0, 1, 2], [2, 1, 0], [0, 2, 1]], 3);
+    const { ranks } = compressRanks(
+      [
+        [0, 1, 2],
+        [2, 1, 0],
+        [0, 2, 1],
+      ],
+      3
+    );
     for (const r of ranks) {
       expect([0, 2]).toContain(r[0]);
       expect([0, 2]).toContain(r[r.length - 1]);
@@ -139,9 +164,7 @@ describe('manipulation hardness (FC-1)', () => {
     if (irv.minCoalitionShare === null) {
       expect(irv.minCoalitionShare).toBeNull();
     } else {
-      expect(irv.minCoalitionShare).toBeGreaterThanOrEqual(
-        plurality.minCoalitionShare as number
-      );
+      expect(irv.minCoalitionShare).toBeGreaterThanOrEqual(plurality.minCoalitionShare as number);
     }
   });
 
@@ -155,9 +178,7 @@ describe('manipulation hardness (FC-1)', () => {
 
   it('returns null cleanly on degenerate inputs', () => {
     expect(manipulationProbe([], cands, 'plurality').minCoalitionShare).toBeNull();
-    expect(
-      manipulationProbe(voters, cands.slice(0, 2), 'plurality').minCoalitionShare
-    ).toBeNull();
+    expect(manipulationProbe(voters, cands.slice(0, 2), 'plurality').minCoalitionShare).toBeNull();
   });
 });
 

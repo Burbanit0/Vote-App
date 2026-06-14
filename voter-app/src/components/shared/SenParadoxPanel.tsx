@@ -142,7 +142,6 @@ const SenParadoxPanel: React.FC = () => {
         rights_definition: 'liberal',
       },
     });
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [seed, t, sim]);
 
   const testCustomPrefs = useCallback(() => {
@@ -162,7 +161,6 @@ const SenParadoxPanel: React.FC = () => {
         },
       }
     );
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [data, seed, simCustom]);
 
   const swapPref1 = (arr: string[], i: number, j: number) => {

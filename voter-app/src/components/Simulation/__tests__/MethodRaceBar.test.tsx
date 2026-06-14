@@ -1,7 +1,7 @@
 import React from 'react';
 import { render, screen, fireEvent } from '@testing-library/react';
 import { MemoryRouter } from 'react-router';
-import MethodRaceBar, { sortMethods, type MethodRow } from '../MethodRaceBar';
+import MethodRaceBar, { sortMethods } from '../MethodRaceBar';
 import MonteCarloRaceChart from '../MonteCarloRaceChart';
 import { MethodStreamStats } from '../../../hooks/useMonteCarloStream';
 

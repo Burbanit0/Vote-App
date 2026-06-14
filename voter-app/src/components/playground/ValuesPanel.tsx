@@ -42,28 +42,28 @@ const ValuesPanel: React.FC<ValuesPanelProps> = ({
     <div data-testid="values-panel" className="flex flex-col gap-3">
       {/* Weights (not rendered while the identity dial drives them) */}
       {granular && (
-      <div className="flex flex-col gap-1.5">
-        <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-          Vos pondérations
-        </p>
-        {axisKeys.map((k) => (
-          <label key={k} className="flex items-center gap-2 text-xs">
-            <span className="w-36 shrink-0 truncate text-muted-foreground" title={axisLabels[k]}>
-              {axisLabels[k] ?? k}
-            </span>
-            <input
-              data-testid={`weight-${k}`}
-              type="range"
-              className="flex-1"
-              min={0}
-              max={1}
-              step={0.05}
-              value={weights[k] ?? 0.5}
-              onChange={(e) => onWeightChange(k, Number(e.target.value))}
-            />
-          </label>
-        ))}
-      </div>
+        <div className="flex flex-col gap-1.5">
+          <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+            Vos pondérations
+          </p>
+          {axisKeys.map((k) => (
+            <label key={k} className="flex items-center gap-2 text-xs">
+              <span className="w-36 shrink-0 truncate text-muted-foreground" title={axisLabels[k]}>
+                {axisLabels[k] ?? k}
+              </span>
+              <input
+                data-testid={`weight-${k}`}
+                type="range"
+                className="flex-1"
+                min={0}
+                max={1}
+                step={0.05}
+                value={weights[k] ?? 0.5}
+                onChange={(e) => onWeightChange(k, Number(e.target.value))}
+              />
+            </label>
+          ))}
+        </div>
       )}
 
       {/* Systems — fixed order, no rank numbers */}
@@ -100,9 +100,9 @@ const ValuesPanel: React.FC<ValuesPanelProps> = ({
       </div>
 
       <p className="text-[0.7rem] text-muted-foreground/70">
-        Les options dominées sont écartées — un fait objectif. Entre celles qui restent, il
-        n’existe pas de « meilleur » système : vos curseurs ne font qu’éclairer un point de la
-        frontière, et pondérer est déjà un choix de valeurs.
+        Les options dominées sont écartées — un fait objectif. Entre celles qui restent, il n’existe
+        pas de « meilleur » système : vos curseurs ne font qu’éclairer un point de la frontière, et
+        pondérer est déjà un choix de valeurs.
       </p>
     </div>
   );

@@ -134,7 +134,6 @@ const E2EVSection: React.FC<{ t: (k: string) => string }> = ({ t }) => {
         onSuccess: () => setStep(1),
       }
     );
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [t, sim]);
 
   const advance = () => setStep((s) => Math.min(s + 1, STEPS.length - 1));
@@ -417,7 +416,6 @@ const PolisSection: React.FC<{ t: (k: string) => string }> = ({ t }) => {
         num_clusters: numClusters,
       },
     });
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [numClusters, ideology, numParticipants, t, sim]);
 
   return (

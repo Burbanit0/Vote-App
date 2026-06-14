@@ -343,7 +343,6 @@ const CollectiveWillPanel: React.FC<CollectiveWillLabProps> = ({
     if (labMode && labCandidates?.length) {
       handleRun(labCandidates, labNumVoters, labSeed, labIdeology);
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [labMode, labCandidates, labNumVoters, labSeed, labIdeology]);
 
   const score = data?.rousseau_score ?? 0;

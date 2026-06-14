@@ -13,7 +13,9 @@ const CANDS: NamedPt[] = [
 const PALETTE = ['#2563eb', '#dc2626', '#16a34a'];
 
 function setup() {
-  render(<LeaderScene3D voters={sampleVoters(60, 7, 'random', 3)} candidates={CANDS} palette={PALETTE} />);
+  render(
+    <LeaderScene3D voters={sampleVoters(60, 7, 'random', 3)} candidates={CANDS} palette={PALETTE} />
+  );
 }
 
 describe('LeaderScene3D', () => {
