@@ -25,10 +25,7 @@ from api.domain.election.workers import (
     _choice_overload_worker,
     _coalition_worker,
     _combined_effects_worker,
-    _compulsory_voting_worker,
     _conviction_voting_worker,
-    _deliberation_worker,
-    _demographic_turnout_worker,
     _districts_worker,
     _divergence_worker,
     _electoral_fatigue_worker,
@@ -40,14 +37,11 @@ from api.domain.election.workers import (
     _liquid_democracy_worker,
     _multiwinner_compare_worker,
     _nota_worker,
-    _party_dynamics_worker,
     _polarization_worker,
-    _power_indices_worker,
     _primary_worker,
     _quadratic_funding_worker,
     _shy_voter_worker,
     _simulate_pipeline_worker,
-    _sortition_worker,
     _stv_worker,
 )
 # Lab-reshape playground workers, split into their own module (workers.py decomposition).
@@ -58,6 +52,15 @@ from api.domain.election.workers_playground import (
     _profile_simulate_worker,
     _structural_fairness_worker,
     _temporal_worker,
+)
+# Governance / advanced-mechanism workers (workers.py decomposition).
+from api.domain.election.workers_advanced import (
+    _compulsory_voting_worker,
+    _deliberation_worker,
+    _demographic_turnout_worker,
+    _party_dynamics_worker,
+    _power_indices_worker,
+    _sortition_worker,
 )
 from api.domain.election.election_service import ElectionService
 
