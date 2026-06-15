@@ -58,6 +58,10 @@ const BallotComplexityPanel = React.lazy(() => import('../shared/BallotComplexit
 const AbstentionPanel = React.lazy(() => import('../shared/AbstentionPanel'));
 const ElectionPipelineAnimator = React.lazy(() => import('../shared/ElectionPipelineAnimator'));
 
+// ── Lazy panels (Résultats & dépouillement family) ───────────────────────────
+const FullResultsModule = React.lazy(() => import('./FullResultsModule'));
+const VoteStepAnimator = React.lazy(() => import('../Simulation/VoteStepAnimator'));
+
 const Fallback: React.FC = () => <p className="p-2 text-xs text-muted-foreground">Chargement…</p>;
 
 /** A leaf module: a collapsed sub-section that lazy-mounts its panel on open. */
@@ -257,6 +261,30 @@ const SystemsFamily: React.FC = () => (
   </div>
 );
 
+const ResultsFamily: React.FC = () => {
+  const { config } = useElection();
+  return (
+    <div className="flex flex-col gap-2">
+      <p className="text-[0.7rem] text-muted-foreground/80">
+        Le résultat « brut » de l’élection sur l’électorat partagé : la table de toutes les méthodes
+        et le dépouillement animé.
+      </p>
+      <Leaf title="📋 Résultats complets (toutes méthodes)" testid="res-table">
+        <FullResultsModule />
+      </Leaf>
+      <Leaf title="🎬 Dépouillement animé" testid="res-animation">
+        <VoteStepAnimator
+          defaultCandidates={config.candidates.map((c) => c.name)}
+          candidateConfigs={config.candidates}
+          numVoters={config.num_voters}
+          ideology={config.ideology}
+          seed={config.seed}
+        />
+      </Leaf>
+    </div>
+  );
+};
+
 const AdvancedExplorations: React.FC = () => (
   <div className="mt-4">
     <Collapsible
@@ -291,6 +319,13 @@ const AdvancedExplorations: React.FC = () => (
           testid="family-systems"
         >
           <SystemsFamily />
+        </Collapsible>
+        <Collapsible
+          title="📋 Résultats & dépouillement"
+          subtitle="table + animation"
+          testid="family-results"
+        >
+          <ResultsFamily />
         </Collapsible>
       </div>
     </Collapsible>
