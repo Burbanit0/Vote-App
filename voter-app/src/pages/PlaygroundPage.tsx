@@ -50,6 +50,7 @@ import Collapsible from '../components/playground/Collapsible';
 import StrategicModule from '../components/playground/StrategicModule';
 import SincerityModule from '../components/playground/SincerityModule';
 import ElectorateComposer from '../components/playground/ElectorateComposer';
+import AdvancedExplorations from '../components/playground/AdvancedExplorations';
 import { composeElectorate, COMMUNITY_PALETTE } from '../lib/playgroundElectorate';
 
 // Lab reshape — Phase P0: the two-mode playground shell. Two questions over ONE
@@ -1321,6 +1322,10 @@ const PlaygroundPage: React.FC = () => {
           </CardContent>
         </Card>
       </div>
+
+      {/* Lab phenomena absorbed as a single collapsed row — off the critical
+          path (lazy + on-demand), so the two-mode core is untouched. */}
+      <AdvancedExplorations />
     </div>
   );
 };
