@@ -34,6 +34,30 @@ const HistoricalReplay = React.lazy(() => import('../shared/HistoricalReplay'));
 const EpistocracyPanel = React.lazy(() => import('../shared/EpistocracyPanel'));
 const IdentityVotingPanel = React.lazy(() => import('../shared/IdentityVotingPanel'));
 
+// ── Lazy panels (Analyse comparative family) ─────────────────────────────────
+const ManipulationAnalysisPanel = React.lazy(() => import('../shared/ManipulationAnalysisPanel'));
+const ManipulabilityChart = React.lazy(() => import('../Simulation/ManipulabilityChart'));
+const MonteCarloResults = React.lazy(() => import('../Simulation/MonteCarloResults'));
+const CollectiveWillPanel = React.lazy(() => import('../shared/CollectiveWillPanel'));
+const AssumptionTesterPanel = React.lazy(() => import('../shared/AssumptionTesterPanel'));
+const CombinedEffectsMatrix = React.lazy(() => import('../shared/CombinedEffectsMatrix'));
+
+// ── Lazy panels (Espace & dynamiques family) ─────────────────────────────────
+const HotellingPanel = React.lazy(() => import('../shared/HotellingPanel'));
+const PolarizationPanel = React.lazy(() => import('../shared/PolarizationPanel'));
+const PartyDynamicsPanel = React.lazy(() => import('../shared/PartyDynamicsPanel'));
+const CampaignSensitivityPanel = React.lazy(() => import('../shared/CampaignSensitivityPanel'));
+
+// ── Lazy panels (Systèmes & circonscriptions family) ─────────────────────────
+const CoalitionPanel = React.lazy(() => import('../shared/CoalitionPanel'));
+const MultiwinnerCompare = React.lazy(() => import('../shared/MultiwinnerCompare'));
+const DistrictMap = React.lazy(() => import('../shared/DistrictMap'));
+const GerrymanderMap = React.lazy(() => import('../shared/GerrymanderMap'));
+const STVPanel = React.lazy(() => import('../shared/STVPanel'));
+const BallotComplexityPanel = React.lazy(() => import('../shared/BallotComplexityPanel'));
+const AbstentionPanel = React.lazy(() => import('../shared/AbstentionPanel'));
+const ElectionPipelineAnimator = React.lazy(() => import('../shared/ElectionPipelineAnimator'));
+
 const Fallback: React.FC = () => <p className="p-2 text-xs text-muted-foreground">Chargement…</p>;
 
 /** A leaf module: a collapsed sub-section that lazy-mounts its panel on open. */
@@ -136,6 +160,103 @@ const MechanismsFamily: React.FC = () => {
   );
 };
 
+const AnalysisFamily: React.FC = () => {
+  const { config } = useElection();
+  const baseParams = {
+    num_candidates: config.candidates.length,
+    candidates: config.candidates.map((c) => c.name),
+    num_voters: config.num_voters,
+    ideology_distribution: config.ideology,
+    seed: config.seed,
+  };
+  const lab = {
+    labMode: true as const,
+    labCandidates: config.candidates,
+    labNumVoters: config.num_voters,
+    labSeed: config.seed,
+    labIdeology: config.ideology,
+  };
+  return (
+    <div className="flex flex-col gap-2">
+      <p className="text-[0.7rem] text-muted-foreground/80">
+        Mesures comparatives approfondies sur le même électorat — distributions, regret,
+        manipulabilité, volonté collective.
+      </p>
+      <Leaf title="🎲 Monte-Carlo (distributions)" testid="ana-montecarlo">
+        <MonteCarloResults baseParams={baseParams} />
+      </Leaf>
+      <Leaf title="🕵 Manipulabilité (par méthode)" testid="ana-manipulability">
+        <ManipulabilityChart baseParams={baseParams} />
+      </Leaf>
+      <Leaf title="🎯 Analyse de manipulation" testid="ana-manipulation">
+        <ManipulationAnalysisPanel />
+      </Leaf>
+      <Leaf title="🤝 Volonté collective" testid="ana-collective">
+        <CollectiveWillPanel {...lab} />
+      </Leaf>
+      <Leaf title="🧪 Test des hypothèses" testid="ana-assumptions">
+        <AssumptionTesterPanel {...lab} />
+      </Leaf>
+      <Leaf title="🧮 Effets combinés (factoriel)" testid="ana-combined">
+        <CombinedEffectsMatrix />
+      </Leaf>
+    </div>
+  );
+};
+
+const DynamicsFamily: React.FC = () => (
+  <div className="flex flex-col gap-2">
+    <p className="text-[0.7rem] text-muted-foreground/80">
+      Comment les positions et les dynamiques de campagne déplacent le résultat dans le temps.
+    </p>
+    <Leaf title="📐 Équilibre de Hotelling-Downs" testid="dyn-hotelling">
+      <HotellingPanel />
+    </Leaf>
+    <Leaf title="↔️ Polarisation" testid="dyn-polarization">
+      <PolarizationPanel />
+    </Leaf>
+    <Leaf title="🏳️ Dynamique des partis" testid="dyn-party">
+      <PartyDynamicsPanel />
+    </Leaf>
+    <Leaf title="📣 Sensibilité de campagne" testid="dyn-campaign">
+      <CampaignSensitivityPanel />
+    </Leaf>
+  </div>
+);
+
+const SystemsFamily: React.FC = () => (
+  <div className="flex flex-col gap-2">
+    <p className="text-[0.7rem] text-muted-foreground/80">
+      Systèmes électoraux et géographie : sièges, coalitions, circonscriptions, bulletin,
+      participation.
+    </p>
+    <Leaf title="🤝 Coalitions" testid="sys-coalition">
+      <CoalitionPanel />
+    </Leaf>
+    <Leaf title="🪑 Multiwinner (STV/SPAV/Phragmén)" testid="sys-multiwinner">
+      <MultiwinnerCompare />
+    </Leaf>
+    <Leaf title="🗺️ Circonscriptions" testid="sys-districts">
+      <DistrictMap />
+    </Leaf>
+    <Leaf title="✂️ Charcutage (gerrymander)" testid="sys-gerrymander">
+      <GerrymanderMap />
+    </Leaf>
+    <Leaf title="🔁 Vote unique transférable (STV)" testid="sys-stv">
+      <STVPanel />
+    </Leaf>
+    <Leaf title="📋 Complexité du bulletin" testid="sys-ballot">
+      <BallotComplexityPanel />
+    </Leaf>
+    <Leaf title="🚪 Abstention différentielle" testid="sys-abstention">
+      <AbstentionPanel />
+    </Leaf>
+    <Leaf title="🎬 Pipeline d’élection (animation)" testid="sys-pipeline">
+      <ElectionPipelineAnimator />
+    </Leaf>
+  </div>
+);
+
 const AdvancedExplorations: React.FC = () => (
   <div className="mt-4">
     <Collapsible
@@ -157,6 +278,19 @@ const AdvancedExplorations: React.FC = () => (
           testid="family-mechanisms"
         >
           <MechanismsFamily />
+        </Collapsible>
+        <Collapsible title="📊 Analyse comparative" subtitle="6 mesures" testid="family-analysis">
+          <AnalysisFamily />
+        </Collapsible>
+        <Collapsible title="📐 Espace & dynamiques" subtitle="4 vues" testid="family-dynamics">
+          <DynamicsFamily />
+        </Collapsible>
+        <Collapsible
+          title="🏛️ Systèmes & circonscriptions"
+          subtitle="8 vues"
+          testid="family-systems"
+        >
+          <SystemsFamily />
         </Collapsible>
       </div>
     </Collapsible>
