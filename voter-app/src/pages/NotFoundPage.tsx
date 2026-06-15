@@ -33,10 +33,10 @@ const NotFoundPage: React.FC = () => {
           🏠 {t('notFound.home', "Retour à l'accueil")}
         </Link>
         <Link
-          to="/election-lab"
+          to="/playground"
           className="rounded-md border border-border px-4 py-2 text-sm font-medium no-underline transition-colors hover:bg-accent"
         >
-          🔬 {t('notFound.lab', 'Election Lab')}
+          🎛 {t('notFound.playground', 'Playground')}
         </Link>
       </div>
     </div>

@@ -225,7 +225,7 @@ const TheoryPage: React.FC = () => {
           <div>{t('theory.disambig.body')}</div>
           <div className="mt-2">
             <Button asChild variant="outline" size="sm">
-              <Link to="/election-lab">{t('theory.disambig.cta')} →</Link>
+              <Link to="/playground">{t('theory.disambig.cta')} →</Link>
             </Button>
           </div>
         </CardContent>
@@ -277,12 +277,12 @@ const TheoryPage: React.FC = () => {
                 </span>
                 {p.labTab && (
                   <Link
-                    to={`/election-lab?tab=${p.labTab}`}
+                    to="/playground"
                     className="no-underline"
                     data-testid={`also-in-lab-${p.id}`}
                   >
                     <Badge className="rounded-full text-[0.7rem]">
-                      🔬 {t('theory.alsoInLab')} →
+                      🎛 {t('theory.alsoInLab')} →
                     </Badge>
                   </Link>
                 )}

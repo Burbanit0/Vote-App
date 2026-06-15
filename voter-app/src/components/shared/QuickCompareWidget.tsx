@@ -187,7 +187,7 @@ const QuickCompareWidget: React.FC = () => {
 
   const handleExplore = () => {
     applyScenario(selected);
-    navigate('/election-lab');
+    navigate('/playground');
   };
 
   const differ = hasResult && winnerA && winnerB && winnerA !== winnerB;

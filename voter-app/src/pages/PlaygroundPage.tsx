@@ -1,5 +1,4 @@
 import React from 'react';
-import { useNavigate } from 'react-router';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
@@ -183,104 +182,71 @@ const BALLOT_LABELS: Record<string, string> = {
 
 // ── Scorecard axes (P5): labels + stated conventions, by mode ────────────────
 
-// `drillTab` = Lab tab key — each axis can be deepened in the corresponding
-// Election Lab panel (the migration map: the playground builds the intuition,
-// the Lab panel gives the depth, with the SAME shared electorate).
-const LEADER_AXIS_META: { key: string; label: string; hint: string; drillTab: string }[] = [
+const LEADER_AXIS_META: { key: string; label: string; hint: string }[] = [
   {
     key: 'condorcet_efficiency',
     label: 'Efficacité Condorcet',
-    drillTab: 'results',
     hint: "Part des ré-échantillonnages (avec vainqueur de Condorcet) où la règle l'élit.",
   },
   {
     key: 'strategic_resistance',
     label: 'Résistance stratégique',
-    drillTab: 'manipulation',
     hint: 'Le vainqueur survit-il à une compression stratégique vers les deux favoris ? (heuristique documentée)',
   },
   {
     key: 'welfare',
     label: 'Bien-être (regret)',
-    drillTab: 'montecarlo',
     hint: '1 − regret bayésien normalisé du vainqueur (utilité = −distance).',
   },
   {
     key: 'majority_satisfaction',
     label: 'Satisfaction majoritaire',
-    drillTab: 'lab-collective-will',
     hint: 'Part des électeurs pour qui le vainqueur vaut au moins leur candidat médian.',
   },
   {
     key: 'simplicity',
     label: 'Simplicité',
-    drillTab: 'ballot',
     hint: 'Convention déclarée : complexité du bulletin et du dépouillement (sans bande).',
   },
   {
     key: 'stability',
     label: 'Stabilité',
-    drillTab: 'lab-assumptions',
     hint: 'Part des ré-échantillonnages élisant le vainqueur modal.',
   },
 ];
 
-const PARLIAMENT_AXIS_META: { key: string; label: string; hint: string; drillTab: string }[] = [
+const PARLIAMENT_AXIS_META: { key: string; label: string; hint: string }[] = [
   {
     key: 'proportionality',
     label: 'Proportionnalité',
-    drillTab: 'multiwinner',
     hint: '1 − indice de Gallagher (normalisé).',
   },
   {
     key: 'pluralism',
     label: 'Pluralisme (diversité)',
-    drillTab: 'party-dynamics',
     hint: 'Part de la diversité des voix (NEP) qui survit en sièges.',
   },
   {
     key: 'effective_votes',
     label: 'Voix utiles',
-    drillTab: 'districts',
     hint: '1 − part des voix gaspillées.',
   },
   {
     key: 'minority_representation',
     label: 'Représentation des minorités',
-    drillTab: 'stv',
     hint: 'Partis ≥ 3 % des voix détenant au moins un siège.',
   },
   {
     key: 'governability',
     label: 'Gouvernabilité',
-    drillTab: 'coalition',
     hint: '1 / taille de la plus petite coalition majoritaire.',
   },
   {
     key: 'gerrymander_resistance',
     label: 'Résistance au charcutage',
-    drillTab: 'gerrymander',
     hint: 'Stabilité des sièges quand la carte des circonscriptions change (re-découpage x→y).',
   },
 ];
-
-/** Small 🔬 affordance for control-level drill-downs into a Lab tab. */
-const DrillBtn: React.FC<{ tab: string; label: string; onDrill: (tab: string) => void }> = ({
-  tab,
-  label,
-  onDrill,
-}) => (
-  <button
-    type="button"
-    data-testid={`drill-ctl-${tab}`}
-    onClick={() => onDrill(tab)}
-    className="rounded px-0.5 leading-none opacity-60 transition-opacity hover:opacity-100"
-    title={`Approfondir dans le Lab — ${label}`}
-    aria-label={`Approfondir dans le Lab — ${label}`}
-  >
-    🔬
-  </button>
-);
 
 const PARLIAMENT_AXES_KEYS = PARLIAMENT_AXIS_META.map((a) => a.key);
 const STRUCTURE_LABELS: Record<string, string> = {
@@ -302,13 +268,6 @@ const PlaygroundPage: React.FC = () => {
       'Un même électorat, deux questions : élire un dirigeant ou composer un parlement. Configurez chaque hypothèse et observez le caractère politique s’inverser.',
   });
 
-  const navigate = useNavigate();
-  // Drill-down bridge: open the relevant Lab panel on the SAME electorate
-  // (the playground and the Lab share useElectionStore.config).
-  const goLab = React.useCallback(
-    (tab: string) => navigate(`/election-lab?tab=${tab}`),
-    [navigate]
-  );
   const { config, setConfig } = useElection();
   const { playground, setMode, setPlayground, setPlaygroundDeep, applyPreset, presets } =
     usePlayground();
@@ -561,11 +520,10 @@ const PlaygroundPage: React.FC = () => {
   }, [mode, votingVoters, leaderCandidates, leaderRule]);
 
   const axisMeta = mode === 'leader' ? LEADER_AXIS_META : PARLIAMENT_AXIS_META;
-  const currentAxes: ScorecardAxis[] = axisMeta.map(({ key, label, hint, drillTab }) => ({
+  const currentAxes: ScorecardAxis[] = axisMeta.map(({ key, label, hint }) => ({
     key,
     label,
     hint,
-    drillTab,
     band:
       mode === 'leader'
         ? (leaderSc?.[leaderRule]?.[key] ?? null)
@@ -665,7 +623,6 @@ const PlaygroundPage: React.FC = () => {
               <div className="flex items-center justify-between">
                 <span className="flex items-center gap-1 text-xs font-medium text-muted-foreground">
                   Taux de paradoxe (cycles)
-                  <DrillBtn tab="manipulability" label="critères et paradoxes" onDrill={goLab} />
                 </span>
                 <span className="text-sm font-semibold tabular-nums">
                   {loading || !result ? '…' : `${Math.round(result.cycle_rate * 100)} %`}
@@ -971,7 +928,6 @@ const PlaygroundPage: React.FC = () => {
                     }
                   />
                   Désertion stratégique (Duverger)
-                  <DrillBtn tab="party-dynamics" label="dynamique des partis" onDrill={goLab} />
                 </label>
               </div>
             )}
@@ -1043,11 +999,6 @@ const PlaygroundPage: React.FC = () => {
                     </Button>
                     <span className="flex w-32 shrink-0 items-center gap-1 tabular-nums text-muted-foreground">
                       Campagne — J{Math.round(campaignT * 30)}
-                      <DrillBtn
-                        tab="campaign-sensitivity"
-                        label="sensibilité de campagne"
-                        onDrill={goLab}
-                      />
                     </span>
                     <input
                       data-testid="campaign-slider"
@@ -1084,8 +1035,7 @@ const PlaygroundPage: React.FC = () => {
                     </Button>
                     {shakeOn && (
                       <span className="text-xs text-muted-foreground">
-                        Monte-Carlo complet dans le Lab{' '}
-                        <DrillBtn tab="montecarlo" label="Monte-Carlo" onDrill={goLab} />
+                        Monte-Carlo complet dans les Explorations avancées (Analyse)
                       </span>
                     )}
                     {shakeOn && shake && (
@@ -1199,7 +1149,6 @@ const PlaygroundPage: React.FC = () => {
           <CardContent className="flex flex-col gap-4 p-4 pt-2">
             <Scorecard
               axes={currentAxes}
-              onDrill={goLab}
               bandNote={
                 mode === 'leader'
                   ? '20 ré-échantillonnages'
