@@ -10,7 +10,6 @@ import { Dropdown } from '@/components/ui/dropdown';
 import { Check, Control, Range, Select } from '@/components/ui/form-controls';
 import { Col, Row } from '@/components/ui/grid';
 import { Spinner } from '@/components/ui/spinner';
-import { Table } from '@/components/ui/table';
 import { PageContainer } from '../theme';
 import { useTranslation } from 'react-i18next';
 import { useMetaTags } from '../hooks/useMetaTags';
@@ -24,7 +23,6 @@ import CampaignSensitivityPanel from '../components/shared/CampaignSensitivityPa
 import CombinedEffectsMatrix from '../components/shared/CombinedEffectsMatrix';
 import ElectionPipelineAnimator from '../components/shared/ElectionPipelineAnimator';
 import HistoricalReferencePanel from '../components/shared/HistoricalReferencePanel';
-import MetricTooltip from '../components/shared/MetricTooltip';
 import ElectionInsightPanel from '../components/shared/ElectionInsightPanel';
 import ModelAssumptionsBanner from '../components/shared/ModelAssumptionsBanner';
 import LabCentralView from '../components/shared/lab/LabCentralView';
@@ -45,109 +43,7 @@ import HotellingPanel from '../components/shared/HotellingPanel';
 import PolarizationPanel from '../components/shared/PolarizationPanel';
 import PartyDynamicsPanel from '../components/shared/PartyDynamicsPanel';
 
-const COLORS: Record<string, string> = {
-  Green: '#007A33',
-  Liberal: '#005CAB',
-  Conservative: '#C8590A',
-  Independent: '#6c757d',
-};
-
-// ── Results table ─────────────────────────────────────────────────────────────
-
-const ResultsTab: React.FC<{ result: ElectionResult; t: (k: string) => string }> = ({
-  result,
-  t,
-}) => {
-  const hasBlank = result.config.blank_vote?.enabled;
-  const rows = Object.entries(result.methods).sort(([a], [b]) => a.localeCompare(b));
-
-  return (
-    <div>
-      {/* Summary badges */}
-      <div className="flex gap-2 flex-wrap mb-3">
-        <Badge variant="primary" className="inline-flex items-center gap-1">
-          {t('electionLab.methodAgreement')}: {Math.round(result.inter_method_agreement * 100)}%
-          <MetricTooltip metric="method_agreement" placement="bottom" />
-        </Badge>
-        {result.condorcet_winner && (
-          <Badge variant="success">Condorcet: {result.condorcet_winner} ✓</Badge>
-        )}
-        {hasBlank && (
-          <Badge variant="warning">
-            {t('electionLab.blankRate')}: {Math.round(result.blank_rate * 100)}%
-          </Badge>
-        )}
-      </div>
-
-      <Table className="[&_th]:p-1 [&_td]:p-1 [&_th]:text-left [&_td]:border-t [&_th]:border-b [&_td]:border-border [&_th]:border-border [&_*]:align-middle [&_th]:border [&_td]:border">
-        <thead className="table-light">
-          <tr>
-            <th>{t('common.method')}</th>
-            <th>{t('electionLab.winner')}</th>
-            {hasBlank && <th>{t('electionLab.winnerWithBlank')}</th>}
-            <th className="flex items-center gap-1">
-              {t('simulation.bayesianRegret')}
-              <MetricTooltip metric="bayesian_regret" placement="bottom" />
-            </th>
-            <th>
-              Condorcet ✓
-              <MetricTooltip metric="condorcet_compliance" placement="bottom" />
-            </th>
-          </tr>
-        </thead>
-        <tbody>
-          {rows.map(([method, md]) => {
-            const isCondorcet = result.condorcet_winner && md.winner === result.condorcet_winner;
-            return (
-              <tr key={method}>
-                <td className="font-semibold" style={{ fontSize: '0.82rem' }}>
-                  {method}
-                </td>
-                <td>
-                  {md.winner ? (
-                    <Badge
-                      style={{
-                        background:
-                          COLORS[
-                            result.candidates.find((c) => c.name === md.winner)?.party ?? ''
-                          ] ?? '#666',
-                      }}
-                    >
-                      {md.winner}
-                    </Badge>
-                  ) : (
-                    <span className="text-muted-foreground">—</span>
-                  )}
-                  {isCondorcet && ' ✓'}
-                </td>
-                {hasBlank && (
-                  <td>
-                    {md.winner_with_blank ? (
-                      <Badge variant={md.blank_triggered ? 'warning' : 'secondary'}>
-                        {md.winner_with_blank}
-                      </Badge>
-                    ) : (
-                      <span className="text-muted-foreground">—</span>
-                    )}
-                    {md.blank_triggered && <span className="text-[#cc9a00] ms-1">⚠</span>}
-                  </td>
-                )}
-                <td style={{ fontSize: '0.8rem' }}>{md.bayesian_regret?.toFixed(4) ?? '—'}</td>
-                <td className="text-center">
-                  {md.condorcet_consistent === true && <span style={{ color: '#007A33' }}>✓</span>}
-                  {md.condorcet_consistent === false && <span style={{ color: '#B71C1C' }}>✗</span>}
-                  {md.condorcet_consistent === null && (
-                    <span className="text-muted-foreground">—</span>
-                  )}
-                </td>
-              </tr>
-            );
-          })}
-        </tbody>
-      </Table>
-    </div>
-  );
-};
+import ResultsMethodTable from '../components/shared/ResultsMethodTable';
 
 // ── Parameter panel ───────────────────────────────────────────────────────────
 
@@ -834,7 +730,7 @@ const ElectionLabPage: React.FC = () => {
                     />
                   ) : (
                     <>
-                      <ResultsTab result={result} t={t} />
+                      <ResultsMethodTable result={result} />
                       <ElectionInsightPanel result={result} />
                       <HistoricalReferencePanel result={result} />
                     </>

@@ -507,11 +507,13 @@ describe('PlaygroundPage (P0 shell)', () => {
       'family-analysis',
       'family-dynamics',
       'family-systems',
+      'family-results',
       'beh-cascade',
       'mech-jury',
       'ana-montecarlo',
       'dyn-hotelling',
       'sys-coalition',
+      'res-table',
     ]) {
       expect(screen.queryByTestId(id)).not.toBeInTheDocument();
     }
@@ -527,6 +529,7 @@ describe('PlaygroundPage (P0 shell)', () => {
       'family-analysis',
       'family-dynamics',
       'family-systems',
+      'family-results',
     ]) {
       expect(screen.getByTestId(fam)).toBeInTheDocument();
     }
