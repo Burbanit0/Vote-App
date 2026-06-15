@@ -22,7 +22,6 @@ const NAV_LEARN = [
 ];
 
 const NAV_EXPLORE = [
-  { href: '/playground', icon: '🎛', key: 'nav.playground' },
   { href: '/what-if', icon: '🔮', key: 'nav.whatIf' },
   { href: '/quadratic-funding', icon: '💰', key: 'nav.quadraticFunding' },
   { href: '/tech-democracy', icon: '💻', key: 'nav.techDemocracy' },
@@ -177,21 +176,21 @@ const Navbar: React.FC = () => {
           <BootstrapNavbar.Collapse id="votelab-nav">
             {/* ── Main nav ── */}
             <Nav className="mr-auto lg:items-center gap-1">
-              {/* Election Lab — hero link */}
+              {/* Playground — hero link */}
               <Nav.Link
-                href="/election-lab"
+                href="/playground"
                 className="font-semibold px-3 py-1 rounded"
-                active={currentPath === '/election-lab'}
+                active={currentPath === '/playground'}
                 onClick={() => setNavExpanded(false)}
                 style={{
-                  background: currentPath === '/election-lab' ? 'var(--bs-primary)' : 'transparent',
-                  color: currentPath === '/election-lab' ? '#fff' : 'var(--bs-primary)',
+                  background: currentPath === '/playground' ? 'var(--bs-primary)' : 'transparent',
+                  color: currentPath === '/playground' ? '#fff' : 'var(--bs-primary)',
                   border: '1.5px solid var(--bs-primary)',
                   fontSize: '0.88rem',
                   transition: 'all 0.15s',
                 }}
               >
-                🔬 {t('nav.electionLab')}
+                🎛 {t('nav.playground')}
               </Nav.Link>
 
               {/* Apprendre dropdown */}

@@ -1277,7 +1277,7 @@ const en: TranslationKeys = {
     simulating: 'Simulating…',
     error: 'Error. Is the backend running?',
     noResults: 'Configure the election and click "Simulate".',
-    openInLab: 'Election Lab',
+    openInLab: 'Playground',
     sectionCandidates: 'Candidates',
     sectionElectorate: 'Electorate',
     sectionCampaign: 'Campaign',
@@ -2227,11 +2227,11 @@ const en: TranslationKeys = {
     pageSubtitle:
       'Theorems, paradoxes and limits of voting methods. To apply these effects to a configured election (candidates, voters, scenarios), use the Lab.',
     toc: 'Table of contents',
-    alsoInLab: 'Also in the Lab',
+    alsoInLab: 'Also in the Playground',
     disambig: {
-      title: 'Theory vs Lab — when to use which?',
-      body: 'This page presents theorems and paradoxes as standalone illustrations. To apply the same effects to an election you have configured (France 2002, custom scenario, etc.) and stack them with other perturbations, open the Lab.',
-      cta: 'Open the Lab',
+      title: 'Theory vs Playground — when to use which?',
+      body: 'This page presents theorems and paradoxes as standalone illustrations. To apply the same effects to an election you have configured (France 2002, custom scenario, etc.) and stack them with other perturbations, open the Playground.',
+      cta: 'Open the Playground',
     },
     section: {
       impossibility: {

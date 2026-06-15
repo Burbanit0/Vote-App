@@ -401,7 +401,7 @@ const DuelModePanel: React.FC<DuelModePanelProps> = ({
           size="sm"
           className="p-0"
           style={{ fontSize: '0.75rem' }}
-          onClick={() => navigate('/election-lab')}
+          onClick={() => navigate('/playground')}
           data-testid="open-full-btn"
         >
           {t('duel.openFull')} →

@@ -147,7 +147,7 @@ const HomePage: React.FC = () => {
 
   const goToLab = useCallback(() => {
     applyScenario('france2002');
-    navigate('/election-lab');
+    navigate('/playground');
   }, [applyScenario, navigate]);
 
   return (
@@ -221,7 +221,7 @@ const HomePage: React.FC = () => {
               icon="🔬"
               title={t('home.feature1Title')}
               desc={t('home.feature1Desc')}
-              onClick={() => navigate('/election-lab')}
+              onClick={() => navigate('/playground')}
             />
             <FeatureItem
               icon="📊"
@@ -229,7 +229,7 @@ const HomePage: React.FC = () => {
               desc={t('home.feature2Desc')}
               onClick={() => {
                 applyScenario('france2002');
-                navigate('/election-lab');
+                navigate('/playground');
               }}
             />
             <FeatureItem

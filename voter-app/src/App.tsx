@@ -23,7 +23,6 @@ const WhatIfPage = React.lazy(() => import('./pages/WhatIfPage'));
 const InternationalRegimesPage = React.lazy(() => import('./pages/InternationalRegimesPage'));
 const ApiDocsPage = React.lazy(() => import('./pages/ApiDocsPage'));
 const TeacherPresentationPage = React.lazy(() => import('./pages/TeacherPresentationPage'));
-const ElectionLabPage = React.lazy(() => import('./pages/ElectionLabPage'));
 const PlaygroundPage = React.lazy(() => import('./pages/PlaygroundPage'));
 const QuadraticFundingPage = React.lazy(() => import('./pages/QuadraticFundingPage'));
 const TechDemocracyPage = React.lazy(() => import('./pages/TechDemocracyPage'));
@@ -92,19 +91,14 @@ const AppContent: React.FC = () => {
             <Route path="/regimes-internationaux" element={<InternationalRegimesPage />} />
             <Route path="/api-docs" element={<ApiDocsPage />} />
             <Route path="/teacher/presentation" element={<TeacherPresentationPage />} />
-            <Route path="/election-lab" element={<ElectionLabPage />} />
             <Route path="/playground" element={<PlaygroundPage />} />
             <Route path="/quadratic-funding" element={<QuadraticFundingPage />} />
             <Route path="/tech-democracy" element={<TechDemocracyPage />} />
-            {/* Absorbed into the Election Lab (Phase 7) — redirect old routes to the tab. */}
-            <Route
-              path="/sortition"
-              element={<Navigate to="/election-lab?tab=sortition" replace />}
-            />
-            <Route
-              path="/party-dynamics"
-              element={<Navigate to="/election-lab?tab=party-dynamics" replace />}
-            />
+            {/* Election Lab retired — fully absorbed into the playground. Redirect the
+                old route (and any ?tab= deep links) to the playground. */}
+            <Route path="/election-lab" element={<Navigate to="/playground" replace />} />
+            <Route path="/sortition" element={<Navigate to="/playground" replace />} />
+            <Route path="/party-dynamics" element={<Navigate to="/playground" replace />} />
             <Route path="/theory" element={<TheoryPage />} />
             <Route path="/galerie" element={<ScenarioGalleryPage />} />
 

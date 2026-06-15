@@ -886,10 +886,10 @@ const SimulationComparePage: React.FC = () => {
                     num_voters: configA.numVoters,
                     ideology: configA.ideology_distribution,
                   });
-                  navigate('/election-lab');
+                  navigate('/playground');
                 }}
               >
-                🔬 {t('electionLab.openInLab')}
+                🎛 {t('electionLab.openInLab')}
               </Button>
               {expertMode && (
                 <Button variant="outline-info" size="sm" onClick={() => setShowDatasetExport(true)}>

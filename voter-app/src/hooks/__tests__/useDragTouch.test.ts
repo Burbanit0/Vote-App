@@ -220,13 +220,3 @@ describe('useSwipe', () => {
     cleanup();
   });
 });
-
-// ── Mobile tab nav ────────────────────────────────────────────────────────────
-
-describe('ElectionLabPage mobile navigation', () => {
-  it('tab-select testid exists in the mocked component (integration covered by render)', async () => {
-    // Full rendering requires the full ElectionLabPage context.
-    // We verify the structural contract here; rendering tested in ElectionLabPage.test.tsx
-    expect(true).toBe(true);
-  });
-});

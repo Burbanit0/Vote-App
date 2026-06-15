@@ -80,14 +80,12 @@ import {
 
 const LS_PG = 'votelab_playground';
 
-// The page navigates (drill-downs to the Lab), so render it under a router with
-// a probe route standing in for /election-lab.
+// Rendered under a router (the page uses router context).
 function renderPage() {
   return render(
     <MemoryRouter initialEntries={['/playground']}>
       <Routes>
         <Route path="/playground" element={<PlaygroundPage />} />
-        <Route path="/election-lab" element={<div data-testid="lab-probe" />} />
       </Routes>
     </MemoryRouter>
   );
@@ -362,26 +360,8 @@ describe('PlaygroundPage (P0 shell)', () => {
     expect(screen.getByTestId('weight-condorcet_efficiency')).toBeInTheDocument();
   });
 
-  // ── Drill-downs Playground → Lab (shared electorate) ─────────────────────
-
-  it('a scorecard axis drill-down navigates to the matching Lab tab', () => {
-    renderPage();
-    fireEvent.click(screen.getByTestId('drill-strategic_resistance'));
-    expect(screen.getByTestId('lab-probe')).toBeInTheDocument();
-  });
-
-  it('the cycle-rate read-out drills into the Lab', () => {
-    renderPage();
-    fireEvent.click(screen.getByTestId('drill-ctl-manipulability'));
-    expect(screen.getByTestId('lab-probe')).toBeInTheDocument();
-  });
-
-  it('the Duverger toggle drills into party dynamics', () => {
-    renderPage();
-    fireEvent.click(screen.getByTestId('mode-toggle-parliament'));
-    fireEvent.click(screen.getByTestId('drill-ctl-party-dynamics'));
-    expect(screen.getByTestId('lab-probe')).toBeInTheDocument();
-  });
+  // The Lab is retired — its depth now lives in the playground's Explorations
+  // row, so the old 🔬 drill-downs to /election-lab were removed.
 
   // ── Composer l'électorat : moteur d'électorat ─────────────────────────────
 
