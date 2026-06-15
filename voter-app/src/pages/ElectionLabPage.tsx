@@ -32,28 +32,17 @@ import LabOnboardingTour, { LAB_TOUR_LS_KEY } from '../components/shared/lab/Lab
 import ScenarioIO from '../components/shared/lab/ScenarioIO';
 import CollectiveWillPanel from '../components/shared/CollectiveWillPanel';
 import AssumptionTesterPanel from '../components/shared/AssumptionTesterPanel';
-import EpistocracyPanel from '../components/shared/EpistocracyPanel';
-import IdentityVotingPanel from '../components/shared/IdentityVotingPanel';
 import CoalitionPanel from '../components/shared/CoalitionPanel';
 import DuelModePanel from '../components/shared/DuelModePanel';
 import DistrictMap from '../components/shared/DistrictMap';
-import PrimarySimulator from '../components/shared/PrimarySimulator';
-import HistoricalReplay from '../components/shared/HistoricalReplay';
-import JuryTheoremPanel from '../components/shared/JuryTheoremPanel';
-import AdaptiveVotingPanel from '../components/shared/AdaptiveVotingPanel';
 import AbstentionPanel from '../components/shared/AbstentionPanel';
 import STVPanel from '../components/shared/STVPanel';
 import GerrymanderMap from '../components/shared/GerrymanderMap';
 import MultiwinnerCompare from '../components/shared/MultiwinnerCompare';
-import LiquidDemocracyPanel from '../components/shared/LiquidDemocracyPanel';
-import ConvictionVotingPanel from '../components/shared/ConvictionVotingPanel';
-import NOTAPanel from '../components/shared/NOTAPanel';
 import BallotComplexityPanel from '../components/shared/BallotComplexityPanel';
 import ManipulationAnalysisPanel from '../components/shared/ManipulationAnalysisPanel';
-import DeliberationPanel from '../components/shared/DeliberationPanel';
 import HotellingPanel from '../components/shared/HotellingPanel';
 import PolarizationPanel from '../components/shared/PolarizationPanel';
-import SortitionPanel from '../components/shared/SortitionPanel';
 import PartyDynamicsPanel from '../components/shared/PartyDynamicsPanel';
 
 const COLORS: Record<string, string> = {
@@ -781,39 +770,9 @@ const ElectionLabPage: React.FC = () => {
                     group: 'perturb' as const,
                   },
                   {
-                    key: 'adaptive',
-                    icon: '⚙',
-                    label: t('electionLab.tabAdaptive'),
-                    group: 'perturb' as const,
-                  },
-                  {
-                    key: 'deliberation',
-                    icon: '🗣',
-                    label: t('electionLab.tabDeliberation'),
-                    group: 'perturb' as const,
-                  },
-                  {
-                    key: 'nota',
-                    icon: '🚫',
-                    label: t('electionLab.tabNota'),
-                    group: 'perturb' as const,
-                  },
-                  {
                     key: 'ballot',
                     icon: '📋',
                     label: t('electionLab.tabBallot'),
-                    group: 'perturb' as const,
-                  },
-                  {
-                    key: 'lab-epistocracy',
-                    icon: '🎓',
-                    label: t('electionLab.tabLabEpistocracy'),
-                    group: 'perturb' as const,
-                  },
-                  {
-                    key: 'lab-identity',
-                    icon: '🏳',
-                    label: t('electionLab.tabLabIdentity'),
                     group: 'perturb' as const,
                   },
 
@@ -837,24 +796,6 @@ const ElectionLabPage: React.FC = () => {
                     group: 'variant' as const,
                   },
                   {
-                    key: 'primary',
-                    icon: '🗳',
-                    label: t('electionLab.tabPrimary'),
-                    group: 'variant' as const,
-                  },
-                  {
-                    key: 'replay',
-                    icon: '📺',
-                    label: t('electionLab.tabReplay'),
-                    group: 'variant' as const,
-                  },
-                  {
-                    key: 'jury',
-                    icon: '⚖️',
-                    label: t('electionLab.tabJury'),
-                    group: 'variant' as const,
-                  },
-                  {
                     key: 'stv',
                     icon: '🔄',
                     label: t('electionLab.tabSTV'),
@@ -867,27 +808,9 @@ const ElectionLabPage: React.FC = () => {
                     group: 'variant' as const,
                   },
                   {
-                    key: 'liquid',
-                    icon: '💧',
-                    label: t('electionLab.tabLiquid'),
-                    group: 'variant' as const,
-                  },
-                  {
-                    key: 'conviction',
-                    icon: '⛓',
-                    label: t('electionLab.tabConviction'),
-                    group: 'variant' as const,
-                  },
-                  {
                     key: 'party-dynamics',
                     icon: '📊',
                     label: t('electionLab.tabPartyDynamics'),
-                    group: 'variant' as const,
-                  },
-                  {
-                    key: 'sortition',
-                    icon: '🎲',
-                    label: t('electionLab.tabSortition'),
                     group: 'variant' as const,
                   },
                 ];
@@ -933,24 +856,15 @@ const ElectionLabPage: React.FC = () => {
                   'combined-effects': <CombinedEffectsMatrix />,
                   coalition: <CoalitionPanel />,
                   districts: <DistrictMap />,
-                  primary: <PrimarySimulator />,
-                  replay: <HistoricalReplay />,
-                  jury: <JuryTheoremPanel />,
-                  adaptive: <AdaptiveVotingPanel />,
                   abstention: <AbstentionPanel />,
                   stv: <STVPanel />,
                   gerrymander: <GerrymanderMap />,
                   multiwinner: <MultiwinnerCompare />,
                   hotelling: <HotellingPanel />,
                   polarization: <PolarizationPanel />,
-                  liquid: <LiquidDemocracyPanel />,
-                  conviction: <ConvictionVotingPanel />,
                   'party-dynamics': <PartyDynamicsPanel />,
-                  sortition: <SortitionPanel />,
-                  nota: <NOTAPanel />,
                   ballot: <BallotComplexityPanel />,
                   manipulation: <ManipulationAnalysisPanel />,
-                  deliberation: <DeliberationPanel />,
                   // ── Théorie & limites — utilisent la config ElectionLab ─────────
                   'lab-collective-will': (
                     <CollectiveWillPanel
@@ -968,22 +882,6 @@ const ElectionLabPage: React.FC = () => {
                       labNumVoters={config.num_voters}
                       labSeed={config.seed}
                       labIdeology={config.ideology}
-                    />
-                  ),
-                  'lab-epistocracy': (
-                    <EpistocracyPanel
-                      labMode
-                      labCandidates={config.candidates}
-                      labNumVoters={config.num_voters}
-                      labSeed={config.seed}
-                    />
-                  ),
-                  'lab-identity': (
-                    <IdentityVotingPanel
-                      labMode
-                      labCandidates={config.candidates}
-                      labNumVoters={config.num_voters}
-                      labSeed={config.seed}
                     />
                   ),
                 };
