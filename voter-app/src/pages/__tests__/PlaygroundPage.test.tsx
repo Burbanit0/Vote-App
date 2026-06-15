@@ -499,23 +499,28 @@ describe('PlaygroundPage (P0 shell)', () => {
     // The two-mode core is intact and visible.
     expect(screen.getByTestId('leader-canvas')).toBeInTheDocument();
     expect(screen.getByTestId('cycle-rate')).toBeInTheDocument();
-    // Exactly one new collapsed row; its family + panels are NOT mounted.
+    // Exactly one new collapsed row; its families + panels are NOT mounted.
     expect(screen.getByTestId('module-advanced')).toBeInTheDocument();
     expect(screen.queryByTestId('family-behavior')).not.toBeInTheDocument();
+    expect(screen.queryByTestId('family-mechanisms')).not.toBeInTheDocument();
     expect(screen.queryByTestId('beh-cascade')).not.toBeInTheDocument();
-    expect(screen.queryByTestId('beh-affective')).not.toBeInTheDocument();
+    expect(screen.queryByTestId('mech-jury')).not.toBeInTheDocument();
   });
 
   it('form-lock: advanced explorations open lazily on demand without touching the core', () => {
     renderPage();
     fireEvent.click(screen.getByTestId('module-advanced-toggle'));
-    // Family revealed but still collapsed → leaf panels not yet mounted.
+    // Families revealed but still collapsed → leaf panels not yet mounted.
     expect(screen.getByTestId('family-behavior')).toBeInTheDocument();
+    expect(screen.getByTestId('family-mechanisms')).toBeInTheDocument();
     expect(screen.queryByTestId('beh-cascade')).not.toBeInTheDocument();
+    expect(screen.queryByTestId('mech-jury')).not.toBeInTheDocument();
     fireEvent.click(screen.getByTestId('family-behavior-toggle'));
+    fireEvent.click(screen.getByTestId('family-mechanisms-toggle'));
     // Leaf collapsibles appear (their lazy panels stay unmounted until opened).
     expect(screen.getByTestId('beh-cascade')).toBeInTheDocument();
-    expect(screen.getByTestId('beh-blank')).toBeInTheDocument();
+    expect(screen.getByTestId('mech-jury')).toBeInTheDocument();
+    expect(screen.getByTestId('mech-identity')).toBeInTheDocument();
     // The core canvas is unaffected throughout.
     expect(screen.getByTestId('leader-canvas')).toBeInTheDocument();
   });

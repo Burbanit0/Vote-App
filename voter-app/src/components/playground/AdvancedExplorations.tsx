@@ -1,5 +1,6 @@
 import React from 'react';
 import Collapsible from './Collapsible';
+import { useElection } from '../../stores/useElectionStore';
 
 // AdvancedExplorations — the Lab phenomena absorbed into the playground without
 // touching its two-mode core. Everything here is OFF the critical path:
@@ -19,6 +20,19 @@ const ChoiceOverloadPanel = React.lazy(() => import('../shared/ChoiceOverloadPan
 const CompulsoryVotingPanel = React.lazy(() => import('../shared/CompulsoryVotingPanel'));
 const DemographicTurnoutPanel = React.lazy(() => import('../shared/DemographicTurnoutPanel'));
 const BlankVoteDivergencePanel = React.lazy(() => import('../shared/BlankVoteDivergencePanel'));
+
+// ── Lazy panels (Mécanismes alternatifs family) ──────────────────────────────
+const JuryTheoremPanel = React.lazy(() => import('../shared/JuryTheoremPanel'));
+const NOTAPanel = React.lazy(() => import('../shared/NOTAPanel'));
+const LiquidDemocracyPanel = React.lazy(() => import('../shared/LiquidDemocracyPanel'));
+const SortitionPanel = React.lazy(() => import('../shared/SortitionPanel'));
+const DeliberationPanel = React.lazy(() => import('../shared/DeliberationPanel'));
+const ConvictionVotingPanel = React.lazy(() => import('../shared/ConvictionVotingPanel'));
+const AdaptiveVotingPanel = React.lazy(() => import('../shared/AdaptiveVotingPanel'));
+const PrimarySimulator = React.lazy(() => import('../shared/PrimarySimulator'));
+const HistoricalReplay = React.lazy(() => import('../shared/HistoricalReplay'));
+const EpistocracyPanel = React.lazy(() => import('../shared/EpistocracyPanel'));
+const IdentityVotingPanel = React.lazy(() => import('../shared/IdentityVotingPanel'));
 
 const Fallback: React.FC = () => <p className="p-2 text-xs text-muted-foreground">Chargement…</p>;
 
@@ -70,6 +84,58 @@ const BehaviorFamily: React.FC = () => (
   </div>
 );
 
+const MechanismsFamily: React.FC = () => {
+  // Epistocracy + Identity read the shared electorate (labMode), like the Lab did.
+  const { config } = useElection();
+  const lab = {
+    labMode: true as const,
+    labCandidates: config.candidates,
+    labNumVoters: config.num_voters,
+    labSeed: config.seed,
+  };
+  return (
+    <div className="flex flex-col gap-2">
+      <p className="text-[0.7rem] text-muted-foreground/80">
+        D’autres <strong>mécanismes</strong> de décision collective que l’élection classique —
+        chacun sur le même électorat, calculé à la demande.
+      </p>
+      <Leaf title="⚖️ Théorème du jury (Condorcet)" testid="mech-jury">
+        <JuryTheoremPanel />
+      </Leaf>
+      <Leaf title="🚫 Vote NOTA (aucun des candidats)" testid="mech-nota">
+        <NOTAPanel />
+      </Leaf>
+      <Leaf title="💧 Démocratie liquide (délégation)" testid="mech-liquid">
+        <LiquidDemocracyPanel />
+      </Leaf>
+      <Leaf title="🎲 Sortition (tirage au sort)" testid="mech-sortition">
+        <SortitionPanel />
+      </Leaf>
+      <Leaf title="🗣️ Délibération puis vote" testid="mech-deliberation">
+        <DeliberationPanel />
+      </Leaf>
+      <Leaf title="🪙 Vote par conviction" testid="mech-conviction">
+        <ConvictionVotingPanel />
+      </Leaf>
+      <Leaf title="⚙️ Vote adaptatif (tactique sur durée)" testid="mech-adaptive">
+        <AdaptiveVotingPanel />
+      </Leaf>
+      <Leaf title="🥇 Primaires" testid="mech-primary">
+        <PrimarySimulator />
+      </Leaf>
+      <Leaf title="🕰️ Rejeu historique" testid="mech-replay">
+        <HistoricalReplay />
+      </Leaf>
+      <Leaf title="🎓 Épistocratie (vote pondéré par compétence)" testid="mech-epistocracy">
+        <EpistocracyPanel {...lab} />
+      </Leaf>
+      <Leaf title="🪪 Vote identitaire" testid="mech-identity">
+        <IdentityVotingPanel {...lab} />
+      </Leaf>
+    </div>
+  );
+};
+
 const AdvancedExplorations: React.FC = () => (
   <div className="mt-4">
     <Collapsible
@@ -84,6 +150,13 @@ const AdvancedExplorations: React.FC = () => (
           testid="family-behavior"
         >
           <BehaviorFamily />
+        </Collapsible>
+        <Collapsible
+          title="⚙️ Mécanismes alternatifs"
+          subtitle="11 mécanismes"
+          testid="family-mechanisms"
+        >
+          <MechanismsFamily />
         </Collapsible>
       </div>
     </Collapsible>
