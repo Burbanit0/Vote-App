@@ -489,4 +489,34 @@ describe('PlaygroundPage (P0 shell)', () => {
     expect(screen.getByTestId('electorate-json-error')).toBeInTheDocument();
     expect(useElectionStore.getState().playground.electorate.communities).toHaveLength(before);
   });
+
+  // ── FORM-LOCK: the absorbed Lab phenomena must never deteriorate the core ──
+  // The two-mode playground's first paint stays the same; everything absorbed is
+  // a single collapsed row, off the critical path (lazy + on-demand).
+
+  it('form-lock: the advanced section ships collapsed — no Lab module mounted on first paint', () => {
+    renderPage();
+    // The two-mode core is intact and visible.
+    expect(screen.getByTestId('leader-canvas')).toBeInTheDocument();
+    expect(screen.getByTestId('cycle-rate')).toBeInTheDocument();
+    // Exactly one new collapsed row; its family + panels are NOT mounted.
+    expect(screen.getByTestId('module-advanced')).toBeInTheDocument();
+    expect(screen.queryByTestId('family-behavior')).not.toBeInTheDocument();
+    expect(screen.queryByTestId('beh-cascade')).not.toBeInTheDocument();
+    expect(screen.queryByTestId('beh-affective')).not.toBeInTheDocument();
+  });
+
+  it('form-lock: advanced explorations open lazily on demand without touching the core', () => {
+    renderPage();
+    fireEvent.click(screen.getByTestId('module-advanced-toggle'));
+    // Family revealed but still collapsed → leaf panels not yet mounted.
+    expect(screen.getByTestId('family-behavior')).toBeInTheDocument();
+    expect(screen.queryByTestId('beh-cascade')).not.toBeInTheDocument();
+    fireEvent.click(screen.getByTestId('family-behavior-toggle'));
+    // Leaf collapsibles appear (their lazy panels stay unmounted until opened).
+    expect(screen.getByTestId('beh-cascade')).toBeInTheDocument();
+    expect(screen.getByTestId('beh-blank')).toBeInTheDocument();
+    // The core canvas is unaffected throughout.
+    expect(screen.getByTestId('leader-canvas')).toBeInTheDocument();
+  });
 });

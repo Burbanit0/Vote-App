@@ -20,7 +20,6 @@ import LiveBadge from '../components/shared/LiveBadge';
 import VoteStepAnimator from '../components/Simulation/VoteStepAnimator';
 import MonteCarloResults from '../components/Simulation/MonteCarloResults';
 import ManipulabilityChart from '../components/Simulation/ManipulabilityChart';
-import BlankVoteDivergencePanel from '../components/shared/BlankVoteDivergencePanel';
 import CampaignSensitivityPanel from '../components/shared/CampaignSensitivityPanel';
 import CombinedEffectsMatrix from '../components/shared/CombinedEffectsMatrix';
 import ElectionPipelineAnimator from '../components/shared/ElectionPipelineAnimator';
@@ -46,19 +45,11 @@ import AbstentionPanel from '../components/shared/AbstentionPanel';
 import STVPanel from '../components/shared/STVPanel';
 import GerrymanderMap from '../components/shared/GerrymanderMap';
 import MultiwinnerCompare from '../components/shared/MultiwinnerCompare';
-import AffectivePolarizationPanel from '../components/shared/AffectivePolarizationPanel';
-import CascadePanel from '../components/shared/CascadePanel';
-import BehavioralBiasPanel from '../components/shared/BehavioralBiasPanel';
 import LiquidDemocracyPanel from '../components/shared/LiquidDemocracyPanel';
 import ConvictionVotingPanel from '../components/shared/ConvictionVotingPanel';
 import NOTAPanel from '../components/shared/NOTAPanel';
 import BallotComplexityPanel from '../components/shared/BallotComplexityPanel';
-import ShyVoterPanel from '../components/shared/ShyVoterPanel';
-import ElectoralFatiguePanel from '../components/shared/ElectoralFatiguePanel';
 import ManipulationAnalysisPanel from '../components/shared/ManipulationAnalysisPanel';
-import ChoiceOverloadPanel from '../components/shared/ChoiceOverloadPanel';
-import DemographicTurnoutPanel from '../components/shared/DemographicTurnoutPanel';
-import CompulsoryVotingPanel from '../components/shared/CompulsoryVotingPanel';
 import DeliberationPanel from '../components/shared/DeliberationPanel';
 import HotellingPanel from '../components/shared/HotellingPanel';
 import PolarizationPanel from '../components/shared/PolarizationPanel';
@@ -778,45 +769,9 @@ const ElectionLabPage: React.FC = () => {
                     group: 'perturb' as const,
                   },
                   {
-                    key: 'blank-divergence',
-                    icon: '⬜',
-                    label: t('electionLab.tabBlankDivergence'),
-                    group: 'perturb' as const,
-                  },
-                  {
                     key: 'abstention',
                     icon: '📉',
                     label: t('electionLab.tabAbstention'),
-                    group: 'perturb' as const,
-                  },
-                  {
-                    key: 'compulsory',
-                    icon: '⚖️',
-                    label: t('electionLab.tabCompulsory'),
-                    group: 'perturb' as const,
-                  },
-                  {
-                    key: 'demographic',
-                    icon: '👥',
-                    label: t('electionLab.tabDemographic'),
-                    group: 'perturb' as const,
-                  },
-                  {
-                    key: 'cascade',
-                    icon: '📡',
-                    label: t('electionLab.tabCascade'),
-                    group: 'perturb' as const,
-                  },
-                  {
-                    key: 'behavioral',
-                    icon: '🧠',
-                    label: t('electionLab.tabBehavioral'),
-                    group: 'perturb' as const,
-                  },
-                  {
-                    key: 'affective',
-                    icon: '💔',
-                    label: t('electionLab.tabAffective'),
                     group: 'perturb' as const,
                   },
                   {
@@ -829,24 +784,6 @@ const ElectionLabPage: React.FC = () => {
                     key: 'adaptive',
                     icon: '⚙',
                     label: t('electionLab.tabAdaptive'),
-                    group: 'perturb' as const,
-                  },
-                  {
-                    key: 'shyvoter',
-                    icon: '🤫',
-                    label: t('electionLab.tabShyVoter'),
-                    group: 'perturb' as const,
-                  },
-                  {
-                    key: 'fatigue',
-                    icon: '😴',
-                    label: t('electionLab.tabFatigue'),
-                    group: 'perturb' as const,
-                  },
-                  {
-                    key: 'overload',
-                    icon: '🤯',
-                    label: t('electionLab.tabOverload'),
                     group: 'perturb' as const,
                   },
                   {
@@ -991,7 +928,6 @@ const ElectionLabPage: React.FC = () => {
                   ),
                   montecarlo: <MonteCarloResults baseParams={baseParams} />,
                   manipulability: <ManipulabilityChart baseParams={baseParams} />,
-                  'blank-divergence': <BlankVoteDivergencePanel />,
                   'campaign-sensitivity': <CampaignSensitivityPanel />,
                   pipeline: <ElectionPipelineAnimator />,
                   'combined-effects': <CombinedEffectsMatrix />,
@@ -1005,23 +941,15 @@ const ElectionLabPage: React.FC = () => {
                   stv: <STVPanel />,
                   gerrymander: <GerrymanderMap />,
                   multiwinner: <MultiwinnerCompare />,
-                  affective: <AffectivePolarizationPanel />,
                   hotelling: <HotellingPanel />,
                   polarization: <PolarizationPanel />,
-                  cascade: <CascadePanel />,
-                  behavioral: <BehavioralBiasPanel />,
                   liquid: <LiquidDemocracyPanel />,
                   conviction: <ConvictionVotingPanel />,
                   'party-dynamics': <PartyDynamicsPanel />,
                   sortition: <SortitionPanel />,
                   nota: <NOTAPanel />,
                   ballot: <BallotComplexityPanel />,
-                  shyvoter: <ShyVoterPanel />,
-                  fatigue: <ElectoralFatiguePanel />,
-                  overload: <ChoiceOverloadPanel />,
                   manipulation: <ManipulationAnalysisPanel />,
-                  demographic: <DemographicTurnoutPanel />,
-                  compulsory: <CompulsoryVotingPanel />,
                   deliberation: <DeliberationPanel />,
                   // ── Théorie & limites — utilisent la config ElectionLab ─────────
                   'lab-collective-will': (
