@@ -52,6 +52,18 @@ import ElectorateComposer from '../components/playground/ElectorateComposer';
 import AdvancedExplorations from '../components/playground/AdvancedExplorations';
 import { composeElectorate, COMMUNITY_PALETTE } from '../lib/playgroundElectorate';
 
+// Contextual anchors — Lab phenomena re-homed next to the concept they deepen.
+// Lazy + Collapsible-gated, so they add no compute until opened (perf invariant).
+const BehaviorAnchor = React.lazy(() => import('../components/playground/anchors/BehaviorAnchor'));
+const AbstentionPanel = React.lazy(() => import('../components/shared/AbstentionPanel'));
+const BlankVoteDivergencePanel = React.lazy(
+  () => import('../components/shared/BlankVoteDivergencePanel')
+);
+
+const AnchorFallback: React.FC = () => (
+  <p className="p-2 text-xs text-muted-foreground">Chargement…</p>
+);
+
 // Lab reshape — Phase P0: the two-mode playground shell. Two questions over ONE
 // shared electorate: "Élire un dirigeant" (single office) vs "Composer un parlement"
 // (party assembly). The canvas + scorecard are mode-driven placeholders here; the
@@ -679,6 +691,17 @@ const PlaygroundPage: React.FC = () => {
               </select>
             </Field>
 
+            {/* Anchor: the "Comportement" Lab family, re-homed beside its knob. */}
+            <Collapsible
+              title="🔬 Approfondir le comportement"
+              subtitle="8 phénomènes"
+              testid="anchor-behavior"
+            >
+              <React.Suspense fallback={<AnchorFallback />}>
+                <BehaviorAnchor />
+              </React.Suspense>
+            </Collapsible>
+
             <label className="flex items-center gap-2 text-sm">
               <input
                 type="checkbox"
@@ -740,6 +763,16 @@ const PlaygroundPage: React.FC = () => {
                 Abstention de Downs : aliénation (même le meilleur choix est trop loin) ou
                 indifférence (pas d’écart net entre les deux premiers).
               </p>
+              {/* Anchor: the full differential-abstention distribution (slow). */}
+              <Collapsible
+                title="🔬 Abstention différentielle (analyse)"
+                subtitle="distribution complète"
+                testid="anchor-abstention"
+              >
+                <React.Suspense fallback={<AnchorFallback />}>
+                  <AbstentionPanel />
+                </React.Suspense>
+              </Collapsible>
             </div>
 
             {/* ── Bulletin (frontier FA-1) ── */}
@@ -857,6 +890,16 @@ const PlaygroundPage: React.FC = () => {
                   ne permet pas de les dépouiller honnêtement).
                 </p>
               )}
+              {/* Anchor: how the blank-vote rule diverges the methods (deep dive). */}
+              <Collapsible
+                title="🔬 Divergence du vote blanc (analyse)"
+                subtitle="règle du blanc"
+                testid="anchor-blank"
+              >
+                <React.Suspense fallback={<AnchorFallback />}>
+                  <BlankVoteDivergencePanel />
+                </React.Suspense>
+              </Collapsible>
             </div>
 
             {/* Assembly knobs — only relevant in parliament mode */}
