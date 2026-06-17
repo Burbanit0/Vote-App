@@ -479,16 +479,14 @@ describe('PlaygroundPage (P0 shell)', () => {
     // The two-mode core is intact and visible.
     expect(screen.getByTestId('leader-canvas')).toBeInTheDocument();
     expect(screen.getByTestId('cycle-rate')).toBeInTheDocument();
-    // Exactly one new collapsed row; none of its 5 families/panels are mounted.
+    // The remaining collapsed row; none of its families/panels are mounted.
     expect(screen.getByTestId('module-advanced')).toBeInTheDocument();
     for (const id of [
-      'family-behavior',
       'family-mechanisms',
       'family-analysis',
       'family-dynamics',
       'family-systems',
       'family-results',
-      'beh-cascade',
       'mech-jury',
       'ana-montecarlo',
       'dyn-hotelling',
@@ -497,14 +495,18 @@ describe('PlaygroundPage (P0 shell)', () => {
     ]) {
       expect(screen.queryByTestId(id)).not.toBeInTheDocument();
     }
+    // Contextual anchors ship collapsed too — their panels are not mounted.
+    for (const anchor of ['anchor-behavior', 'anchor-abstention', 'anchor-blank']) {
+      expect(screen.getByTestId(`${anchor}-toggle`)).toBeInTheDocument();
+    }
+    expect(screen.queryByTestId('beh-cascade')).not.toBeInTheDocument();
   });
 
   it('form-lock: advanced explorations open lazily on demand without touching the core', () => {
     renderPage();
     fireEvent.click(screen.getByTestId('module-advanced-toggle'));
-    // All 5 families revealed but still collapsed → leaf panels not yet mounted.
+    // All remaining families revealed but still collapsed → panels not mounted.
     for (const fam of [
-      'family-behavior',
       'family-mechanisms',
       'family-analysis',
       'family-dynamics',
@@ -519,6 +521,21 @@ describe('PlaygroundPage (P0 shell)', () => {
     expect(screen.getByTestId('sys-coalition')).toBeInTheDocument();
     expect(screen.getByTestId('sys-pipeline')).toBeInTheDocument();
     // The core canvas is unaffected throughout.
+    expect(screen.getByTestId('leader-canvas')).toBeInTheDocument();
+  });
+
+  it('form-lock: the behaviour anchor (Setup rail) reveals its leaves lazily', async () => {
+    renderPage();
+    // The anchor sits next to the behaviour knob, collapsed: no leaf mounted.
+    expect(screen.getByTestId('anchor-behavior')).toBeInTheDocument();
+    expect(screen.queryByTestId('beh-cascade')).not.toBeInTheDocument();
+    fireEvent.click(screen.getByTestId('anchor-behavior-toggle'));
+    // The anchor itself is React.lazy → leaves appear after it resolves; their
+    // own lazy panels stay unmounted until each Leaf is opened.
+    expect(await screen.findByTestId('beh-biases')).toBeInTheDocument();
+    expect(screen.getByTestId('beh-cascade')).toBeInTheDocument();
+    expect(screen.getByTestId('beh-demographic')).toBeInTheDocument();
+    // The core canvas is unaffected.
     expect(screen.getByTestId('leader-canvas')).toBeInTheDocument();
   });
 });

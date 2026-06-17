@@ -1,25 +1,17 @@
 import React from 'react';
 import Collapsible from './Collapsible';
+import Leaf from './anchors/Leaf';
 import { useElection } from '../../stores/useElectionStore';
 
-// AdvancedExplorations — the Lab phenomena absorbed into the playground without
-// touching its two-mode core. Everything here is OFF the critical path:
+// AdvancedExplorations — the Lab phenomena that have not yet been re-homed to a
+// contextual anchor. Everything here is OFF the critical path:
 //   · ships collapsed (Collapsible only mounts children when open → 0 compute,
 //     0 network until the user asks);
 //   · each panel is React.lazy (code-split out of the playground chunk);
 //   · panels read the SAME shared electorate via useElection() (no new props).
-// The playground's default first paint gains exactly one collapsed row.
-
-// ── Lazy panels (Comportement family) ────────────────────────────────────────
-const CascadePanel = React.lazy(() => import('../shared/CascadePanel'));
-const BehavioralBiasPanel = React.lazy(() => import('../shared/BehavioralBiasPanel'));
-const AffectivePolarizationPanel = React.lazy(() => import('../shared/AffectivePolarizationPanel'));
-const ShyVoterPanel = React.lazy(() => import('../shared/ShyVoterPanel'));
-const ElectoralFatiguePanel = React.lazy(() => import('../shared/ElectoralFatiguePanel'));
-const ChoiceOverloadPanel = React.lazy(() => import('../shared/ChoiceOverloadPanel'));
-const CompulsoryVotingPanel = React.lazy(() => import('../shared/CompulsoryVotingPanel'));
-const DemographicTurnoutPanel = React.lazy(() => import('../shared/DemographicTurnoutPanel'));
-const BlankVoteDivergencePanel = React.lazy(() => import('../shared/BlankVoteDivergencePanel'));
+// As families are re-homed next to the concept they deepen (Comportement →
+// Setup rail, Dynamiques → mode campagne, …), they leave this row; the goal is
+// for the catch-all to shrink to nothing.
 
 // ── Lazy panels (Mécanismes alternatifs family) ──────────────────────────────
 const JuryTheoremPanel = React.lazy(() => import('../shared/JuryTheoremPanel'));
@@ -55,62 +47,11 @@ const DistrictMap = React.lazy(() => import('../shared/DistrictMap'));
 const GerrymanderMap = React.lazy(() => import('../shared/GerrymanderMap'));
 const STVPanel = React.lazy(() => import('../shared/STVPanel'));
 const BallotComplexityPanel = React.lazy(() => import('../shared/BallotComplexityPanel'));
-const AbstentionPanel = React.lazy(() => import('../shared/AbstentionPanel'));
 const ElectionPipelineAnimator = React.lazy(() => import('../shared/ElectionPipelineAnimator'));
 
 // ── Lazy panels (Résultats & dépouillement family) ───────────────────────────
 const FullResultsModule = React.lazy(() => import('./FullResultsModule'));
 const VoteStepAnimator = React.lazy(() => import('../Simulation/VoteStepAnimator'));
-
-const Fallback: React.FC = () => <p className="p-2 text-xs text-muted-foreground">Chargement…</p>;
-
-/** A leaf module: a collapsed sub-section that lazy-mounts its panel on open. */
-const Leaf: React.FC<{ title: string; testid: string; children: React.ReactNode }> = ({
-  title,
-  testid,
-  children,
-}) => (
-  <Collapsible title={title} testid={testid}>
-    <React.Suspense fallback={<Fallback />}>{children}</React.Suspense>
-  </Collapsible>
-);
-
-const BehaviorFamily: React.FC = () => (
-  <div className="flex flex-col gap-2">
-    <p className="text-[0.7rem] text-muted-foreground/80">
-      Comment le <strong>comportement</strong> réel des électeurs (biais, cascades, abstention
-      différentielle, fatigue…) déplace le résultat sur le même électorat. Chaque module se calcule
-      à la demande.
-    </p>
-    <Leaf title="📊 Biais de vote (ordre, ancrage)" testid="beh-biases">
-      <BehavioralBiasPanel />
-    </Leaf>
-    <Leaf title="🌊 Cascade d’information" testid="beh-cascade">
-      <CascadePanel />
-    </Leaf>
-    <Leaf title="🔥 Polarisation affective" testid="beh-affective">
-      <AffectivePolarizationPanel />
-    </Leaf>
-    <Leaf title="🤐 Électeur timide (effet Bradley)" testid="beh-shyvoter">
-      <ShyVoterPanel />
-    </Leaf>
-    <Leaf title="😮‍💨 Fatigue électorale" testid="beh-fatigue">
-      <ElectoralFatiguePanel />
-    </Leaf>
-    <Leaf title="🤯 Surcharge de choix" testid="beh-overload">
-      <ChoiceOverloadPanel />
-    </Leaf>
-    <Leaf title="🗳️ Vote obligatoire" testid="beh-compulsory">
-      <CompulsoryVotingPanel />
-    </Leaf>
-    <Leaf title="👥 Participation par démographie" testid="beh-demographic">
-      <DemographicTurnoutPanel />
-    </Leaf>
-    <Leaf title="⬜ Divergence du vote blanc" testid="beh-blank">
-      <BlankVoteDivergencePanel />
-    </Leaf>
-  </div>
-);
 
 const MechanismsFamily: React.FC = () => {
   // Epistocracy + Identity read the shared electorate (labMode), like the Lab did.
@@ -231,8 +172,7 @@ const DynamicsFamily: React.FC = () => (
 const SystemsFamily: React.FC = () => (
   <div className="flex flex-col gap-2">
     <p className="text-[0.7rem] text-muted-foreground/80">
-      Systèmes électoraux et géographie : sièges, coalitions, circonscriptions, bulletin,
-      participation.
+      Systèmes électoraux et géographie : sièges, coalitions, circonscriptions, bulletin.
     </p>
     <Leaf title="🤝 Coalitions" testid="sys-coalition">
       <CoalitionPanel />
@@ -251,9 +191,6 @@ const SystemsFamily: React.FC = () => (
     </Leaf>
     <Leaf title="📋 Complexité du bulletin" testid="sys-ballot">
       <BallotComplexityPanel />
-    </Leaf>
-    <Leaf title="🚪 Abstention différentielle" testid="sys-abstention">
-      <AbstentionPanel />
     </Leaf>
     <Leaf title="🎬 Pipeline d’élection (animation)" testid="sys-pipeline">
       <ElectionPipelineAnimator />
@@ -294,13 +231,6 @@ const AdvancedExplorations: React.FC = () => (
     >
       <div className="flex flex-col gap-3">
         <Collapsible
-          title="🧠 Comportement des électeurs"
-          subtitle="9 phénomènes"
-          testid="family-behavior"
-        >
-          <BehaviorFamily />
-        </Collapsible>
-        <Collapsible
           title="⚙️ Mécanismes alternatifs"
           subtitle="11 mécanismes"
           testid="family-mechanisms"
@@ -315,7 +245,7 @@ const AdvancedExplorations: React.FC = () => (
         </Collapsible>
         <Collapsible
           title="🏛️ Systèmes & circonscriptions"
-          subtitle="8 vues"
+          subtitle="7 vues"
           testid="family-systems"
         >
           <SystemsFamily />
