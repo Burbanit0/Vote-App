@@ -56,6 +56,10 @@ import { composeElectorate, COMMUNITY_PALETTE } from '../lib/playgroundElectorat
 // Lazy + Collapsible-gated, so they add no compute until opened (perf invariant).
 const BehaviorAnchor = React.lazy(() => import('../components/playground/anchors/BehaviorAnchor'));
 const CampaignAnchor = React.lazy(() => import('../components/playground/anchors/CampaignAnchor'));
+const MechanismsAnchor = React.lazy(
+  () => import('../components/playground/anchors/MechanismsAnchor')
+);
+const AnalysisAnchor = React.lazy(() => import('../components/playground/anchors/AnalysisAnchor'));
 const AbstentionPanel = React.lazy(() => import('../components/shared/AbstentionPanel'));
 const BlankVoteDivergencePanel = React.lazy(
   () => import('../components/shared/BlankVoteDivergencePanel')
@@ -1151,6 +1155,17 @@ const PlaygroundPage: React.FC = () => {
                   >
                     <StrategicModule config={config} playground={playground} />
                   </Collapsible>
+
+                  {/* Anchor: other procedures to designate a single outcome. */}
+                  <Collapsible
+                    title="⚙️ Autres procédures de décision"
+                    subtitle="11 mécanismes (jury, sortition, délégation…)"
+                    testid="anchor-mechanisms"
+                  >
+                    <React.Suspense fallback={<AnchorFallback />}>
+                      <MechanismsAnchor />
+                    </React.Suspense>
+                  </Collapsible>
                 </div>
               ) : (
                 <div className="flex flex-col gap-3">
@@ -1329,6 +1344,20 @@ const PlaygroundPage: React.FC = () => {
             />
           </CardContent>
         </Card>
+      </div>
+
+      {/* Anchor: deep comparative analysis of the current result — full width
+          (its charts need the room the narrow Bilan column lacks). */}
+      <div className="mt-4">
+        <Collapsible
+          title="🔬 Analyse approfondie du résultat courant"
+          subtitle="distributions · regret · manipulabilité"
+          testid="anchor-analysis"
+        >
+          <React.Suspense fallback={<AnchorFallback />}>
+            <AnalysisAnchor />
+          </React.Suspense>
+        </Collapsible>
       </div>
 
       {/* Lab phenomena absorbed as a single collapsed row — off the critical
