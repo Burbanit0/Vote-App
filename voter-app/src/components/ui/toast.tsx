@@ -90,7 +90,7 @@ const ToastBase: React.FC<ToastProps> = ({
 const Header: React.FC<React.HTMLAttributes<HTMLDivElement> & { closeButton?: boolean }> = ({
   className,
   children,
-  closeButton = true,
+  closeButton: _closeButton = true,
   ...props
 }) => (
   <div

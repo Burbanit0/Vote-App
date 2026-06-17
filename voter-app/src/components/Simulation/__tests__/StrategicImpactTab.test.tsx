@@ -18,7 +18,7 @@ vi.mock('../simulationConstants', () => ({
 }));
 
 vi.mock('../../shared/EmptyChart', () => ({
-  default: ({ height }: { height?: number }) => <div data-testid="empty-chart" />,
+  default: () => <div data-testid="empty-chart" />,
 }));
 
 // Recharts ResponsiveContainer needs a width mock in JSDOM
@@ -26,7 +26,7 @@ vi.mock('recharts', () => ({
   ResponsiveContainer: ({ children }: any) => (
     <div style={{ width: 800, height: 440 }}>{children}</div>
   ),
-  CartesianGrid: ({ strokeDasharray }: any) => <div data-testid="cartesian-grid" />,
+  CartesianGrid: () => <div data-testid="cartesian-grid" />,
   XAxis: () => <div data-testid="x-axis" />,
   YAxis: () => <div data-testid="y-axis" />,
   Tooltip: () => <div data-testid="tooltip" />,

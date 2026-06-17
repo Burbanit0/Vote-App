@@ -15,7 +15,6 @@ import { Table } from '@/components/ui/table';
 import { $api } from '../../api/hooks';
 
 const METHODS = ['hamilton', 'jefferson', 'webster', 'adams', 'huntington_hill'] as const;
-type Method = (typeof METHODS)[number];
 
 const COUNTRY_DATA = [
   { country: '🇺🇸 USA', method: 'Huntington-Hill', note: 'Paradoxe Alabama possible' },

@@ -20,10 +20,6 @@ test.describe('SimulationComparePage — golden path', () => {
 
   test('configuration card is rendered with default candidates', async ({ page }) => {
     // Default candidate input: "Alice, Bob, Charlie"
-    const candidateInput = page
-      .locator('input[type="text"], textarea')
-      .filter({ hasText: '' })
-      .first();
     const val = await page
       .locator('input[value*="Alice"]')
       .inputValue()

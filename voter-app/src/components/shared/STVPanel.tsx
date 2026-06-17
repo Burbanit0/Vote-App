@@ -366,7 +366,7 @@ const STVPanel: React.FC = () => {
 
               {/* Elected so far */}
               <div className="flex flex-wrap gap-1 mb-2">
-                {data.stv.elected.map((c, i) => (
+                {data.stv.elected.map((c) => (
                   <Badge
                     key={c}
                     style={{

@@ -44,8 +44,11 @@ const ScenarioModals: React.FC<Props> = ({
         <Modal.Title>Save scenario</Modal.Title>
       </Modal.Header>
       <Modal.Body>
-        <label className="mb-1 inline-block">Scenario name</label>
+        <label className="mb-1 inline-block" htmlFor="scenario-name">
+          Scenario name
+        </label>
         <Control
+          id="scenario-name"
           type="text"
           value={saveName}
           onChange={(e) => setSaveName(e.target.value)}

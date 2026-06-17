@@ -35,7 +35,6 @@ vi.mock('recharts', () => {
 // ── Fixture ───────────────────────────────────────────────────────────────────
 
 function makeData(winnerChanged = false) {
-  const candidates = ['Alice', 'Bob', 'Carol'];
   return {
     data: {
       elections: Array.from({ length: 6 }, (_, k) => ({

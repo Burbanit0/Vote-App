@@ -390,7 +390,7 @@ const ElectoralFatiguePanel: React.FC = () => {
                 />
                 <Tooltip formatter={(v: number) => `${Math.round(v * 100)}%`} />
                 <Legend wrapperStyle={{ fontSize: 10 }} />
-                {candidateNames.map((c, i) => (
+                {candidateNames.map((c) => (
                   <Area
                     key={c}
                     type="monotone"

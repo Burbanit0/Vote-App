@@ -226,8 +226,8 @@ const PartyDynamicsPanel: React.FC<Props> = ({ onDataLoaded }) => {
   const [method, setMethod] = useState('plurality');
   const [numElections, setNumElections] = useState(15);
   const [survThr, setSurvThr] = useState(0.05);
-  const [hotelling, setHotelling] = useState(0.1);
-  const [emerge, setEmerge] = useState(0.0);
+  const [hotelling] = useState(0.1);
+  const [emerge] = useState(0.0);
   const [tactical, setTactical] = useState(true);
   const [preset, setPreset] = useState('default');
   const [parties, setParties] = useState(PRESETS.default.parties);

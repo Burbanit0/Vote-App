@@ -57,6 +57,7 @@ const Profile: React.FC = () => {
                   <img
                     className="rounded-t-xl"
                     src={profilePicture}
+                    alt="Photo de profil"
                     style={{ maxWidth: '100px' }}
                   />
                 </div>

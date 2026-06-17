@@ -407,8 +407,11 @@ const Navbar: React.FC = () => {
             </div>
             {!isPasswordSet && (
               <div className="mb-2">
-                <label className="text-sm mb-1 inline-block">Confirmer</label>
+                <label className="text-sm mb-1 inline-block" htmlFor="pass-confirm">
+                  Confirmer
+                </label>
                 <Control
+                  id="pass-confirm"
                   type="password"
                   size="sm"
                   value={passConfirm}

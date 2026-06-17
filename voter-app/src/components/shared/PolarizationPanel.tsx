@@ -65,8 +65,7 @@ interface HeatmapProps {
   metric: 'agreement_rate' | 'condorcet_rate';
 }
 
-const PolarHeatmap: React.FC<HeatmapProps> = ({ results, metric }) => {
-  const { t } = useTranslation();
+const PolarHeatmap: React.FC<HeatmapProps> = ({ results }) => {
   if (results.length === 0) return null;
 
   const sorted = [...results].sort((a, b) => a.polarization_index - b.polarization_index);

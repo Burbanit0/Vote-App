@@ -121,8 +121,6 @@ const ChoiceOverloadPanel: React.FC = () => {
 
   // ── Method table data ───────────────────────────────────────────────────
   const methods = data ? Object.keys(data.results_by_n[0]?.winner_by_method ?? {}) : [];
-  const overThreshold =
-    data?.results_by_n.filter((r) => r.num_candidates > data.overload_threshold) ?? [];
 
   return (
     <div>

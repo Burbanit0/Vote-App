@@ -13,7 +13,6 @@ import {
   BarChart,
   CartesianGrid,
   Cell,
-  Legend,
   ResponsiveContainer,
   Tooltip,
   XAxis,
@@ -30,22 +29,6 @@ import CampaignSwimlane from './CampaignSwimlane';
 // ── Constants ─────────────────────────────────────────────────────────────────
 
 const SNAPSHOT_DAYS = [0, 7, 14, 21, 28, 'final'] as const;
-const METHOD_COLORS = [
-  '#005CAB',
-  '#C8590A',
-  '#007A33',
-  '#7B2D8B',
-  '#9C3A00',
-  '#005f73',
-  '#ae2012',
-  '#94d2bd',
-  '#e9d8a6',
-  '#ee9b00',
-  '#ca6702',
-  '#bb3e03',
-  '#0a9396',
-  '#001219',
-];
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
@@ -56,95 +39,6 @@ function stabilityColor(score: number): string {
 }
 
 // ── Sub-charts ────────────────────────────────────────────────────────────────
-
-/**
- * A) Timeline of winners per method.
- * Maps candidates → numeric Y-values so Recharts LineChart can draw step lines.
- */
-const WinnerTimeline: React.FC<{
-  result: CampaignSensitivityResult;
-  ct: ReturnType<typeof useChartTheme>;
-  t: (k: string, opts?: Record<string, unknown>) => string;
-}> = ({ result, ct, t }) => {
-  const { snapshots, method_stability } = result;
-
-  // Sort methods: most stable first, show top 5
-  const top5 = useMemo(
-    () =>
-      Object.entries(method_stability)
-        .sort(([, a], [, b]) => b.stability_score - a.stability_score)
-        .slice(0, 5)
-        .map(([m]) => m),
-    [method_stability]
-  );
-
-  // Collect all unique candidates (for Y-axis mapping)
-  const allCandidates = useMemo(() => {
-    const names = new Set<string>();
-    snapshots.forEach((s) =>
-      Object.values(s.methods).forEach((md) => {
-        if (md.winner) names.add(md.winner);
-      })
-    );
-    return [...names].sort();
-  }, [snapshots]);
-
-  const candIndex = useMemo(
-    () => Object.fromEntries(allCandidates.map((c, i) => [c, i])),
-    [allCandidates]
-  );
-
-  const data = snapshots.map((s) => {
-    const row: Record<string, number | string> = { day: s.day };
-    top5.forEach((m) => {
-      const winner = s.methods[m]?.winner ?? null;
-      row[m] = winner != null ? (candIndex[winner] ?? 0) : -1;
-    });
-    return row;
-  });
-
-  if (allCandidates.length === 0) return null;
-
-  return (
-    <ResponsiveContainer width="100%" height={220}>
-      <BarChart data={data} margin={{ top: 8, right: 16, bottom: 8, left: 8 }}>
-        <CartesianGrid strokeDasharray="3 3" stroke={ct.gridStroke} />
-        <XAxis
-          dataKey="day"
-          tick={{ fontSize: 10, fill: ct.tickFill }}
-          label={{
-            value: t('campaign.day'),
-            position: 'insideBottomRight',
-            offset: -4,
-            fontSize: 10,
-            fill: ct.tickFill,
-          }}
-        />
-        <YAxis
-          tick={{ fontSize: 10, fill: ct.tickFill }}
-          tickFormatter={(v: number) => allCandidates[v] ?? ''}
-          domain={[0, allCandidates.length - 1]}
-          ticks={allCandidates.map((_, i) => i)}
-        />
-        <Tooltip
-          contentStyle={ct.tooltipStyle}
-          formatter={(v: number, name: string) => [allCandidates[v] ?? '—', name]}
-          labelFormatter={(l) => `${t('campaign.day')} ${l}`}
-        />
-        <Legend wrapperStyle={{ fontSize: 11 }} />
-        {top5.map((m, idx) => (
-          <Bar
-            key={m}
-            dataKey={m}
-            fill={METHOD_COLORS[idx % METHOD_COLORS.length]}
-            isAnimationActive={false}
-            barSize={12}
-          />
-        ))}
-      </BarChart>
-    </ResponsiveContainer>
-  );
-};
 
 /**
  * B) Horizontal BarChart of stability scores, sorted descending.

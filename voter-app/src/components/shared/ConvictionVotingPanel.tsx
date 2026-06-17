@@ -195,7 +195,7 @@ interface CompareChartProps {
   t: (k: string) => string;
 }
 
-const CompareChart: React.FC<CompareChartProps> = ({ proposals, proposalNames, t }) => {
+const CompareChart: React.FC<CompareChartProps> = ({ proposals, t }) => {
   const chartData = proposals.map((p) => ({
     name: p.name.length > 14 ? p.name.slice(0, 12) + '…' : p.name,
     conviction: Math.round(p.conviction_score),

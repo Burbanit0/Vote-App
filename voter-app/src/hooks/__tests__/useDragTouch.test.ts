@@ -114,17 +114,6 @@ describe('makeDragHandlers', () => {
 // ── useSwipe ─────────────────────────────────────────────────────────────────
 
 describe('useSwipe', () => {
-  function makeSwipeEvent(startX: number, endX: number, deltaY = 0) {
-    return {
-      touchstart: new TouchEvent('touchstart', {
-        touches: [{ clientX: startX, clientY: 0 } as Touch],
-      }),
-      touchend: new TouchEvent('touchend', {
-        changedTouches: [{ clientX: endX, clientY: deltaY } as Touch],
-      }),
-    };
-  }
-
   function setup() {
     const el = document.createElement('div');
     document.body.appendChild(el);

@@ -68,12 +68,6 @@ interface NodeDatum extends SimulationNodeDatum {
   family: 'ranked' | 'score' | 'special';
 }
 
-interface LinkDatum extends SimulationLinkDatum<NodeDatum> {
-  source: NodeDatum;
-  target: NodeDatum;
-  value: number; // agreement rate [0,1]
-}
-
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
 /** Convert flat "A|B" → value map to a symmetric nested matrix. */
@@ -282,7 +276,6 @@ const MethodSimilarityGraph: React.FC<MethodSimilarityGraphProps> = ({
 
   // Links with resolved positions
   const resolvedLinks = useMemo(() => {
-    const nodeMap = new Map(nodes.map((n) => [n.id, n]));
     return links.map((l) => {
       const src = typeof l.source === 'string' ? l.source : (l.source as any).id;
       const tgt = typeof l.target === 'string' ? l.target : (l.target as any).id;

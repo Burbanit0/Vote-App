@@ -79,7 +79,6 @@ const MedianVoterLayer: React.FC<MedianVoterLayerProps> = ({
   winnerA,
   winnerB,
   methodA,
-  methodB,
 }) => {
   const { t } = useTranslation();
 
