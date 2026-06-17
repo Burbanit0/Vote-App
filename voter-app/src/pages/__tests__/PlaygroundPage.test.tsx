@@ -484,22 +484,26 @@ describe('PlaygroundPage (P0 shell)', () => {
     for (const id of [
       'family-mechanisms',
       'family-analysis',
-      'family-dynamics',
       'family-systems',
       'family-results',
       'mech-jury',
       'ana-montecarlo',
-      'dyn-hotelling',
       'sys-coalition',
       'res-table',
     ]) {
       expect(screen.queryByTestId(id)).not.toBeInTheDocument();
     }
     // Contextual anchors ship collapsed too — their panels are not mounted.
-    for (const anchor of ['anchor-behavior', 'anchor-abstention', 'anchor-blank']) {
+    for (const anchor of [
+      'anchor-behavior',
+      'anchor-campaign',
+      'anchor-abstention',
+      'anchor-blank',
+    ]) {
       expect(screen.getByTestId(`${anchor}-toggle`)).toBeInTheDocument();
     }
     expect(screen.queryByTestId('beh-cascade')).not.toBeInTheDocument();
+    expect(screen.queryByTestId('dyn-hotelling')).not.toBeInTheDocument();
   });
 
   it('form-lock: advanced explorations open lazily on demand without touching the core', () => {
@@ -509,7 +513,6 @@ describe('PlaygroundPage (P0 shell)', () => {
     for (const fam of [
       'family-mechanisms',
       'family-analysis',
-      'family-dynamics',
       'family-systems',
       'family-results',
     ]) {
@@ -537,5 +540,18 @@ describe('PlaygroundPage (P0 shell)', () => {
     expect(screen.getByTestId('beh-demographic')).toBeInTheDocument();
     // The core canvas is unaffected.
     expect(screen.getByTestId('leader-canvas')).toBeInTheDocument();
+  });
+
+  it('form-lock: the campaign anchor (leader canvas) reveals its steps lazily', async () => {
+    renderPage();
+    // Sits below the campaign scrubber, collapsed: no dynamics panel mounted.
+    expect(screen.getByTestId('anchor-campaign')).toBeInTheDocument();
+    expect(screen.queryByTestId('dyn-hotelling')).not.toBeInTheDocument();
+    fireEvent.click(screen.getByTestId('anchor-campaign-toggle'));
+    // The lazy anchor resolves → the four narrative steps appear (still collapsed).
+    expect(await screen.findByTestId('dyn-hotelling')).toBeInTheDocument();
+    expect(screen.getByTestId('dyn-campaign')).toBeInTheDocument();
+    expect(screen.getByTestId('dyn-polarization')).toBeInTheDocument();
+    expect(screen.getByTestId('dyn-party')).toBeInTheDocument();
   });
 });

@@ -34,12 +34,6 @@ const CollectiveWillPanel = React.lazy(() => import('../shared/CollectiveWillPan
 const AssumptionTesterPanel = React.lazy(() => import('../shared/AssumptionTesterPanel'));
 const CombinedEffectsMatrix = React.lazy(() => import('../shared/CombinedEffectsMatrix'));
 
-// ── Lazy panels (Espace & dynamiques family) ─────────────────────────────────
-const HotellingPanel = React.lazy(() => import('../shared/HotellingPanel'));
-const PolarizationPanel = React.lazy(() => import('../shared/PolarizationPanel'));
-const PartyDynamicsPanel = React.lazy(() => import('../shared/PartyDynamicsPanel'));
-const CampaignSensitivityPanel = React.lazy(() => import('../shared/CampaignSensitivityPanel'));
-
 // ── Lazy panels (Systèmes & circonscriptions family) ─────────────────────────
 const CoalitionPanel = React.lazy(() => import('../shared/CoalitionPanel'));
 const MultiwinnerCompare = React.lazy(() => import('../shared/MultiwinnerCompare'));
@@ -149,26 +143,6 @@ const AnalysisFamily: React.FC = () => {
   );
 };
 
-const DynamicsFamily: React.FC = () => (
-  <div className="flex flex-col gap-2">
-    <p className="text-[0.7rem] text-muted-foreground/80">
-      Comment les positions et les dynamiques de campagne déplacent le résultat dans le temps.
-    </p>
-    <Leaf title="📐 Équilibre de Hotelling-Downs" testid="dyn-hotelling">
-      <HotellingPanel />
-    </Leaf>
-    <Leaf title="↔️ Polarisation" testid="dyn-polarization">
-      <PolarizationPanel />
-    </Leaf>
-    <Leaf title="🏳️ Dynamique des partis" testid="dyn-party">
-      <PartyDynamicsPanel />
-    </Leaf>
-    <Leaf title="📣 Sensibilité de campagne" testid="dyn-campaign">
-      <CampaignSensitivityPanel />
-    </Leaf>
-  </div>
-);
-
 const SystemsFamily: React.FC = () => (
   <div className="flex flex-col gap-2">
     <p className="text-[0.7rem] text-muted-foreground/80">
@@ -239,9 +213,6 @@ const AdvancedExplorations: React.FC = () => (
         </Collapsible>
         <Collapsible title="📊 Analyse comparative" subtitle="6 mesures" testid="family-analysis">
           <AnalysisFamily />
-        </Collapsible>
-        <Collapsible title="📐 Espace & dynamiques" subtitle="4 vues" testid="family-dynamics">
-          <DynamicsFamily />
         </Collapsible>
         <Collapsible
           title="🏛️ Systèmes & circonscriptions"

@@ -55,6 +55,7 @@ import { composeElectorate, COMMUNITY_PALETTE } from '../lib/playgroundElectorat
 // Contextual anchors — Lab phenomena re-homed next to the concept they deepen.
 // Lazy + Collapsible-gated, so they add no compute until opened (perf invariant).
 const BehaviorAnchor = React.lazy(() => import('../components/playground/anchors/BehaviorAnchor'));
+const CampaignAnchor = React.lazy(() => import('../components/playground/anchors/CampaignAnchor'));
 const AbstentionPanel = React.lazy(() => import('../components/shared/AbstentionPanel'));
 const BlankVoteDivergencePanel = React.lazy(
   () => import('../components/shared/BlankVoteDivergencePanel')
@@ -1064,6 +1065,17 @@ const PlaygroundPage: React.FC = () => {
                     )}
                   </div>
 
+                  {/* Anchor: the campaign narrative deepening the scrubber above. */}
+                  <Collapsible
+                    title="🎬 Campagne — approfondir la trajectoire"
+                    subtitle="équilibre · sondages · polarisation · partis"
+                    testid="anchor-campaign"
+                  >
+                    <React.Suspense fallback={<AnchorFallback />}>
+                      <CampaignAnchor />
+                    </React.Suspense>
+                  </Collapsible>
+
                   {/* Shake the assumptions (P4): re-roll the electorate → win-rate bands. */}
                   <div className="flex flex-col gap-1.5">
                     <Button
@@ -1162,7 +1174,11 @@ const PlaygroundPage: React.FC = () => {
                       <p className="text-xs text-muted-foreground">Calcul en cours…</p>
                     )}
                   </Collapsible>
-                  <Collapsible title="⏳ Démocratie répétée (long terme)" testid="module-temporal">
+                  <Collapsible
+                    title="🎬 Campagne dans la durée (démocratie répétée)"
+                    subtitle="Duverger sur plusieurs élections"
+                    testid="module-temporal"
+                  >
                     <TemporalPanel config={config} playground={playground} />
                   </Collapsible>
                   <Collapsible title="🗳 Enjeux & groupage (Ostrogorski)" testid="module-issues">
