@@ -126,7 +126,6 @@ describe('CampaignSensitivityPanel', () => {
   it('contagion toggle changes checkbox state', () => {
     renderPanel();
     const checkbox = screen.getByRole('checkbox');
-    const initial = checkbox.getAttribute('checked');
     fireEvent.click(checkbox);
     expect(checkbox).toBeInTheDocument(); // no crash
   });

@@ -35,7 +35,6 @@ vi.mock('recharts', () => {
 // ── Fixture ───────────────────────────────────────────────────────────────────
 
 function makeData(pollsWrong = false) {
-  const candidates = ['Alice', 'Bob', 'Carol'];
   return {
     data: {
       real_winner: pollsWrong ? 'Alice' : 'Bob',

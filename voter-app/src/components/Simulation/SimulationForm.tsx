@@ -129,7 +129,9 @@ const SimulationForm: React.FC<SimulationFormProps> = ({
         <CardBody>
           <form className="vote-form">
             <div className="mb-3">
-              <label className="mb-1 inline-block">Simulation Type</label>
+              <label className="mb-1 inline-block" htmlFor="simulationType-votes">
+                Simulation Type
+              </label>
               <Col sm={10}>
                 <Check
                   type="checkbox"
@@ -162,10 +164,13 @@ const SimulationForm: React.FC<SimulationFormProps> = ({
             </div>
 
             <div className="mb-3">
-              <label className="mb-1 inline-block">Population Size</label>
+              <label className="mb-1 inline-block" htmlFor="populationSize">
+                Population Size
+              </label>
               <Col sm={10}>
                 <Control
                   type="number"
+                  id="populationSize"
                   name="populationSize"
                   value={formData.populationSize}
                   onChange={() => handleInputChange}
@@ -174,11 +179,14 @@ const SimulationForm: React.FC<SimulationFormProps> = ({
             </div>
 
             <div className="mb-3">
-              <label className="mb-1 inline-block">Turnout Rate</label>
+              <label className="mb-1 inline-block" htmlFor="turnoutRate">
+                Turnout Rate
+              </label>
               <Col sm={10}>
                 <Control
                   type="number"
                   step="0.01"
+                  id="turnoutRate"
                   name="turnoutRate"
                   value={formData.turnoutRate}
                   onChange={() => handleInputChange}
@@ -187,11 +195,14 @@ const SimulationForm: React.FC<SimulationFormProps> = ({
             </div>
 
             <div className="mb-3">
-              <label className="mb-1 inline-block">Candidates</label>
+              <label className="mb-1 inline-block" htmlFor="candidate-0">
+                Candidates
+              </label>
               <Col sm={10}>
                 {formData.candidates.map((candidate: Candidate, index: number) => (
                   <Control
                     key={index}
+                    id={`candidate-${index}`}
                     type="text"
                     value={candidate}
                     onChange={(e: ChangeEvent<HTMLInputElement>) => handleCandidateChange(index, e)}

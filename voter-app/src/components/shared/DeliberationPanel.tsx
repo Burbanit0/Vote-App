@@ -82,7 +82,7 @@ const DeliberationPanel: React.FC = () => {
   const [network, setNetwork] = useState('random');
   const [rounds, setRounds] = useState(5);
   const [influence, setInfluence] = useState(0.3);
-  const [groupSize, setGroupSize] = useState(5);
+  const [groupSize] = useState(5);
   const [argQuality, setArgQuality] = useState(0.5);
   const sim = $api.useMutation('post', '/api/v2/election/deliberation');
   const data: DelibData | null = (sim.data as DelibData | undefined) ?? null;

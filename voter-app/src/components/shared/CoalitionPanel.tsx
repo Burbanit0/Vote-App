@@ -13,7 +13,6 @@ import type { CoalitionResponse } from '../../api';
 // Source of truth is the generated `CoalitionResponse` (Phase 6 response_model).
 
 type CoalitionData = CoalitionResponse;
-type MethodResult = CoalitionResponse['methods'][number];
 
 // ── Palette ───────────────────────────────────────────────────────────────────
 

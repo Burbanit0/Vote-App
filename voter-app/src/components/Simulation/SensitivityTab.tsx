@@ -108,8 +108,11 @@ const SensitivityTab: React.FC<Props> = ({ baseConfig }) => {
       <CardBody>
         <Row className="g-3 items-end mb-4">
           <Col md={3}>
-            <label className="mb-1 inline-block text-sm mb-1">Variable</label>
+            <label className="mb-1 inline-block text-sm mb-1" htmlFor="sensitivity-variable">
+              Variable
+            </label>
             <Select
+              id="sensitivity-variable"
               size="sm"
               value={variable}
               onChange={(e) => {

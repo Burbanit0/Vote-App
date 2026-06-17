@@ -73,20 +73,13 @@ const MECHANISM_LABELS: Record<string, string> = {
   qf: 'Quadratic Funding',
 };
 
-const MECHANISM_COLORS: Record<string, string> = {
-  '1p1v': '#6c757d',
-  proportional: '#005CAB',
-  qf: '#007A33',
-};
-
 // ── Mini bar chart for one mechanism ─────────────────────────────────────────
 
 const MechChart: React.FC<{
   mechanism: string;
   data: QFData;
   poolSize: number;
-}> = ({ mechanism, data, poolSize }) => {
-  const { t } = useTranslation();
+}> = ({ mechanism, data }) => {
   const alloc = data.mechanism_comparison[mechanism] ?? {};
   const names = data.projects.map((p) => p.name);
   const chartData = names.map((name) => ({

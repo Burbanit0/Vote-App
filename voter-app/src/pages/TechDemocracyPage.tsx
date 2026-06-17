@@ -112,7 +112,9 @@ const STEPS = [
   { id: 'result', icon: '✅' },
 ];
 
-const E2EVSection: React.FC<{ t: (k: string) => string }> = ({ t }) => {
+// Parked variant, superseded by E2EVInteractiveSection below but kept for
+// reference; the `_` prefix marks it intentionally unused (eslint escape hatch).
+const _E2EVSection: React.FC<{ t: (k: string) => string }> = ({ t }) => {
   const [step, setStep] = useState(0);
   const sim = $api.useMutation('post', '/api/v2/tech/e2e-demo');
   const data: E2EData | null = (sim.data as E2EData | undefined) ?? null;

@@ -78,7 +78,6 @@ const RaceTooltip = ({ active, payload, label, t }: any) => {
 // ── Main component ────────────────────────────────────────────────────────────
 
 const MonteCarloRaceChart: React.FC<Props> = ({
-  regretHistory,
   iterationCheckpoints,
   partialResults,
   isRunning,

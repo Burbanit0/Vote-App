@@ -237,8 +237,6 @@ const GerrymanderMap: React.FC = () => {
 
   const svgRef = useRef<SVGSVGElement>(null);
 
-  const candidateNames = config.candidates.map((c) => c.name);
-
   // Paint a cell to a district id
   const paintCell = useCallback((col: number, row: number, distId: number) => {
     setGrid((prev) => {

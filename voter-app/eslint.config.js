@@ -51,10 +51,10 @@ export default [
       // flagging dead locals/params (underscore-prefixed names are intentional).
       '@typescript-eslint/no-unused-vars': 'off',
       'unused-imports/no-unused-imports': 'error',
-      // Dead local vars/params are a code smell, not a bug: surface as warnings
-      // (a burn-down backlog) so the gate can block on real issues today.
+      // Dead local vars/params are a code smell: the backlog was burned down to
+      // zero, so this now blocks (underscore-prefixed names stay intentional).
       'unused-imports/no-unused-vars': [
-        'warn',
+        'error',
         {
           args: 'after-used',
           argsIgnorePattern: '^_',
@@ -64,17 +64,16 @@ export default [
         },
       ],
       'prettier/prettier': ['error', { endOfLine: 'auto' }],
-      // WCAG 2.1 AA accessibility rules. alt-text + label-has-associated-control
-      // have pre-existing violations (lint was never enforced); kept as 'warn'
-      // (visible burn-down backlog) so the gate can block today — ratchet back to
-      // 'error' once the warnings are cleared.
-      'jsx-a11y/alt-text': 'warn',
+      // WCAG 2.1 AA accessibility rules. The alt-text / interactive-supports-focus
+      // / label-has-associated-control backlog was burned down to zero, so these
+      // now block (ratcheted from 'warn' → 'error').
+      'jsx-a11y/alt-text': 'error',
       'jsx-a11y/aria-props': 'error',
       'jsx-a11y/aria-proptypes': 'error',
       'jsx-a11y/aria-role': 'error',
       'jsx-a11y/aria-unsupported-elements': 'error',
-      'jsx-a11y/interactive-supports-focus': 'warn',
-      'jsx-a11y/label-has-associated-control': 'warn',
+      'jsx-a11y/interactive-supports-focus': 'error',
+      'jsx-a11y/label-has-associated-control': 'error',
       'jsx-a11y/no-noninteractive-element-interactions': 'warn',
       'jsx-a11y/no-redundant-roles': 'error',
     },

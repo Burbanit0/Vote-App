@@ -293,7 +293,6 @@ const STARVotingVisualization: React.FC<ScoreVotingVisualizationProps> = ({
 
 // 3. Median Voting Visualization
 const MedianVotingVisualization: React.FC<ScoreVotingVisualizationProps> = ({
-  scores,
   candidates,
   result,
 }) => {
@@ -357,7 +356,6 @@ const MedianVotingVisualization: React.FC<ScoreVotingVisualizationProps> = ({
 
 // 4. Mean-Median Hybrid Visualization
 const MeanMedianHybridVisualization: React.FC<ScoreVotingVisualizationProps> = ({
-  scores,
   candidates,
   result,
 }) => {
@@ -445,7 +443,6 @@ const MeanMedianHybridVisualization: React.FC<ScoreVotingVisualizationProps> = (
 
 // 5. Variance-Based Visualization
 const VarianceBasedVisualization: React.FC<ScoreVotingVisualizationProps> = ({
-  scores,
   candidates,
   result,
 }) => {
@@ -533,7 +530,6 @@ const VarianceBasedVisualization: React.FC<ScoreVotingVisualizationProps> = ({
 
 // 6. Score Distribution Visualization
 const ScoreDistributionVisualization: React.FC<ScoreVotingVisualizationProps> = ({
-  scores,
   candidates,
   result,
 }) => {
@@ -618,7 +614,6 @@ const ScoreDistributionVisualization: React.FC<ScoreVotingVisualizationProps> = 
 
 // 7. Bayesian Regret Visualization
 const BayesianRegretVisualization: React.FC<ScoreVotingVisualizationProps> = ({
-  scores,
   candidates,
   result,
 }) => {

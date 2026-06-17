@@ -186,7 +186,6 @@ const QuizPage: React.FC = () => {
     if (qIndex + 1 >= deck.length) {
       setFinished(true);
       // Save best score
-      const newScore = score + (chosen === deck[qIndex].correctIndex ? 0 : 0); // already incremented
       const actualScore = chosen === deck[qIndex].correctIndex ? score : score;
       const finalScore = actualScore; // score is already updated in handleAnswer
       const prev = bestScores[difficulty];
