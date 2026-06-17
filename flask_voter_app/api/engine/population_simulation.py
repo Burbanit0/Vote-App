@@ -1,3 +1,5 @@
+from typing import Any
+
 import numpy as np
 from scipy.stats import truncnorm
 
@@ -8,7 +10,7 @@ from scipy.stats import truncnorm
 ######################################################################
 
 
-def repartition_votants(age_moyen, nb_voters):
+def repartition_votants(age_moyen: float, nb_voters: int) -> Any:
     # Paramètres pour la distribution tronquée
     age_min = 18
     age_max = 85
@@ -24,7 +26,7 @@ def repartition_votants(age_moyen, nb_voters):
     return ages
 
 
-def generate_coordinates(age):
+def generate_coordinates(age: float) -> dict[str, float]:
     if age < 18 or age > 85:
         raise ValueError("L'âge doit être compris entre 18 et 85 ans.")
 
@@ -49,7 +51,7 @@ def generate_coordinates(age):
     return {"x": x, "y": y}
 
 
-def simulate_population(nb_voters, avg_age):
+def simulate_population(nb_voters: int, avg_age: float) -> list[dict[str, float]]:
     coord = []
     for age in repartition_votants(avg_age, nb_voters):
         coord += [generate_coordinates(age)]
@@ -57,14 +59,14 @@ def simulate_population(nb_voters, avg_age):
     return coord
 
 
-def generate_coord_candidates(nb_candidates):
+def generate_coord_candidates(nb_candidates: int) -> list[tuple[Any, Any]]:
     x_coords = np.random.uniform(-5, 5, nb_candidates)
     y_coords = np.random.uniform(-5, 5, nb_candidates)
 
     return list(zip(x_coords, y_coords))
 
 
-def assign_voters_to_candidates(voters, candidates):
+def assign_voters_to_candidates(voters: Any, candidates: Any) -> list[Any]:
     assignements = []
     for voter in voters:
         distances = [
