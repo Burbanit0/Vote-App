@@ -45,11 +45,11 @@ def _stable_hash(data: Dict[str, Any]) -> str:
 
 
 
-_redis_client = None
+_redis_client: Any = None
 _redis_tried = False
 
 
-def _get_redis_client():
+def _get_redis_client() -> Any:
     """Best-effort redis handle built once from REDIS_URL. Returns None (cache
     disabled) when REDIS_URL is unset or the redis package/connection is
     unavailable — all redis ops in cache_result are already try/except'd."""
@@ -59,7 +59,7 @@ def _get_redis_client():
         url = os.environ.get("REDIS_URL")
         if url:
             try:
-                import redis  # type: ignore
+                import redis
                 _redis_client = redis.from_url(url)
             except Exception:
                 _redis_client = None

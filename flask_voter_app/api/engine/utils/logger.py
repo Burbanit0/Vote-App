@@ -26,7 +26,7 @@ from __future__ import annotations
 import logging
 import os
 import sys
-from typing import Any
+from typing import Any, cast
 
 import structlog
 
@@ -86,4 +86,4 @@ def get_logger(name: str | None = None) -> structlog.stdlib.BoundLogger:
     Always safe to call — auto-configures on first use.
     """
     configure_logging()
-    return structlog.get_logger(name)
+    return cast("structlog.stdlib.BoundLogger", structlog.get_logger(name))

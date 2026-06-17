@@ -14,6 +14,8 @@ When Phase 4 retires Flask, these aliases will be replaced with the
 canonical implementations moved here for real, and the corresponding
 Flask workers will be deleted.
 """
+from typing import Any
+
 from api.domain.election.workers import (
     _campaign_sensitivity_worker,
     _coalition_worker,
@@ -74,228 +76,228 @@ from api.domain.election.workers_advanced import (
 from api.domain.election.election_service import ElectionService
 
 
-def simulate(data: dict) -> tuple[dict, int]:
+def simulate(data: dict[str, Any]) -> tuple[dict[str, Any], int]:
     """Run the unified election pipeline."""
     return ElectionService.simulate(data)
 
 
-def profile_simulate(data: dict) -> tuple[dict, int]:
+def profile_simulate(data: dict[str, Any]) -> tuple[dict[str, Any], int]:
     """Lab reshape P1: run every method over a profile built from a user-chosen
     preference source (spatial / impartial / mallows / urn / handcrafted)."""
     return _profile_simulate_worker(data)
 
 
-def assembly(data: dict) -> tuple[dict, int]:
+def assembly(data: dict[str, Any]) -> tuple[dict[str, Any], int]:
     """Lab reshape P3: party-level seats under PR / FPTP / MMP over one shared
     electorate — proportionality, fragmentation, wasted votes, coalitions."""
     return _assembly_worker(data)
 
 
-def assembly_scorecard(data: dict) -> tuple[dict, int]:
+def assembly_scorecard(data: dict[str, Any]) -> tuple[dict[str, Any], int]:
     """Lab reshape P5: Monte-Carlo scorecard — six [0,1] axes with bands for
     each structure (pr/fptp/mmp) over re-rolled electorates."""
     return _assembly_scorecard_worker(data)
 
 
-def temporal(data: dict) -> tuple[dict, int]:
+def temporal(data: dict[str, Any]) -> tuple[dict[str, Any], int]:
     """Frontier FA-3: N sequential elections with party adaptation and voter
     attachment — is the system still good after repeated play?"""
     return _temporal_worker(data)
 
 
-def issue_voting(data: dict) -> tuple[dict, int]:
+def issue_voting(data: dict[str, Any]) -> tuple[dict[str, Any], int]:
     """Frontier FB-2: issue-by-issue majorities vs the bundled platform vote —
     the Ostrogorski paradox / discursive dilemma."""
     return _issue_voting_worker(data)
 
 
-def structural_fairness(data: dict) -> tuple[dict, int]:
+def structural_fairness(data: dict[str, Any]) -> tuple[dict[str, Any], int]:
     """Frontier FC-2: malapportionment, efficiency gap, Penrose square-root
     council, and cumulative-vs-bloc at-large voting."""
     return _structural_fairness_worker(data)
 
 
-def combined_effects(data: dict) -> tuple[dict, int]:
+def combined_effects(data: dict[str, Any]) -> tuple[dict[str, Any], int]:
     """2x2x2 factorial: run the same electorate under all 8 combinations
     of blank-vote / campaign / information-model ON-OFF."""
     return _combined_effects_worker(data)
 
 
-def campaign_sensitivity(data: dict) -> tuple[dict, int]:
+def campaign_sensitivity(data: dict[str, Any]) -> tuple[dict[str, Any], int]:
     """Snapshot the same electorate at multiple campaign days to measure
     method-by-method winner stability over time."""
     return _campaign_sensitivity_worker(data)
 
 
-def coalition(data: dict) -> tuple[dict, int]:
+def coalition(data: dict[str, Any]) -> tuple[dict[str, Any], int]:
     """Per-method D'Hondt seat allocation + greedy coalition formation."""
     return _coalition_worker(data)
 
 
-def abstention(data: dict) -> tuple[dict, int]:
+def abstention(data: dict[str, Any]) -> tuple[dict[str, Any], int]:
     """Iterated abstention model with poll-feedback over N rounds."""
     return _abstention_worker(data)
 
 
 # ── Perturber endpoints (Phase 3 batch 3) ──────────────────────────────────
 
-def nota(data: dict) -> tuple[dict, int]:
+def nota(data: dict[str, Any]) -> tuple[dict[str, Any], int]:
     """NOTA (None Of The Above) as an official ballot option."""
     return _nota_worker(data)
 
 
-def ballot_complexity(data: dict) -> tuple[dict, int]:
+def ballot_complexity(data: dict[str, Any]) -> tuple[dict[str, Any], int]:
     """Null-vote rate per method as a function of ballot complexity."""
     return _ballot_complexity_worker(data)
 
 
-def shy_voter(data: dict) -> tuple[dict, int]:
+def shy_voter(data: dict[str, Any]) -> tuple[dict[str, Any], int]:
     """Bradley / Shy Tory effect: socially-sensitive candidates underpolled."""
     return _shy_voter_worker(data)
 
 
-def electoral_fatigue(data: dict) -> tuple[dict, int]:
+def electoral_fatigue(data: dict[str, Any]) -> tuple[dict[str, Any], int]:
     """Turnout decay over repeated elections; residual electorate drifts toward partisans."""
     return _electoral_fatigue_worker(data)
 
 
 # ── Perturber endpoints (Phase 3 batch 4) ──────────────────────────────────
 
-def cascade(data: dict) -> tuple[dict, int]:
+def cascade(data: dict[str, Any]) -> tuple[dict[str, Any], int]:
     """Sequential voting with information cascades (Bikhchandani 1992)."""
     return _cascade_worker(data)
 
 
-def behavioral_biases(data: dict) -> tuple[dict, int]:
+def behavioral_biases(data: dict[str, Any]) -> tuple[dict[str, Any], int]:
     """Expressive voting + bullet voting + primacy effect on outcomes."""
     return _behavioral_biases_worker(data)
 
 
-def choice_overload(data: dict) -> tuple[dict, int]:
+def choice_overload(data: dict[str, Any]) -> tuple[dict[str, Any], int]:
     """Schwartz 2004 paradox: heuristics dominate beyond overload_threshold."""
     return _choice_overload_worker(data)
 
 
-def deliberation(data: dict) -> tuple[dict, int]:
+def deliberation(data: dict[str, Any]) -> tuple[dict[str, Any], int]:
     """DeGroot opinion update across a network, then vote."""
     return _deliberation_worker(data)
 
 
 # ── Perturber endpoints (Phase 3 batch 5) ──────────────────────────────────
 
-def jury(data: dict) -> tuple[dict, int]:
+def jury(data: dict[str, Any]) -> tuple[dict[str, Any], int]:
     """Condorcet Jury Theorem: P(majority correct | per-voter competence p)."""
     return _jury_worker(data)
 
 
-def hotelling(data: dict) -> tuple[dict, int]:
+def hotelling(data: dict[str, Any]) -> tuple[dict[str, Any], int]:
     """Hotelling-Downs iterative best-response Nash equilibrium."""
     return _hotelling_worker(data)
 
 
-def polarization(data: dict) -> tuple[dict, int]:
+def polarization(data: dict[str, Any]) -> tuple[dict[str, Any], int]:
     """Per-ideology Esteban-Ray index + method robustness scan."""
     return _polarization_worker(data)
 
 
-def sortition(data: dict) -> tuple[dict, int]:
+def sortition(data: dict[str, Any]) -> tuple[dict[str, Any], int]:
     """Elected vs sortition pure vs stratified assembly comparison."""
     return _sortition_worker(data)
 
 
 # ── Perturber endpoints (Phase 3 batch 6) ──────────────────────────────────
 
-def affective_polarization(data: dict) -> tuple[dict, int]:
+def affective_polarization(data: dict[str, Any]) -> tuple[dict[str, Any], int]:
     """Iyengar 2019: voters penalise candidates from the opposing political camp."""
     return _affective_polarization_worker(data)
 
 
-def demographic_turnout(data: dict) -> tuple[dict, int]:
+def demographic_turnout(data: dict[str, Any]) -> tuple[dict[str, Any], int]:
     """Full population vs effective electorate via age × education turnout gaps."""
     return _demographic_turnout_worker(data)
 
 
-def compulsory_voting(data: dict) -> tuple[dict, int]:
+def compulsory_voting(data: dict[str, Any]) -> tuple[dict[str, Any], int]:
     """Voluntary vs compulsory voting: reluctant voters add null/random ballots."""
     return _compulsory_voting_worker(data)
 
 
-def party_dynamics(data: dict) -> tuple[dict, int]:
+def party_dynamics(data: dict[str, Any]) -> tuple[dict[str, Any], int]:
     """Multi-election party-system evolution (Duverger's Law)."""
     return _party_dynamics_worker(data)
 
 
 # ── Phase 3 batch 7 ─────────────────────────────────────────────────────────
 
-def simulate_pipeline(data: dict) -> tuple[dict, int]:
+def simulate_pipeline(data: dict[str, Any]) -> tuple[dict[str, Any], int]:
     """Step-by-step pipeline animation for the simulation hub."""
     return _simulate_pipeline_worker(data)
 
 
-def districts(data: dict) -> tuple[dict, int]:
+def districts(data: dict[str, Any]) -> tuple[dict[str, Any], int]:
     """N districts with locally shifted ideology, FPTP vs proportional."""
     return _districts_worker(data)
 
 
-def primary(data: dict) -> tuple[dict, int]:
+def primary(data: dict[str, Any]) -> tuple[dict[str, Any], int]:
     """Internal primaries + general election."""
     return _primary_worker(data)
 
 
-def stv(data: dict) -> tuple[dict, int]:
+def stv(data: dict[str, Any]) -> tuple[dict[str, Any], int]:
     """Single Transferable Vote + D'Hondt + FPTP comparison."""
     return _stv_worker(data)
 
 
 # ── Phase 3 batch 8 ─────────────────────────────────────────────────────────
 
-def adaptive(data: dict) -> tuple[dict, int]:
+def adaptive(data: dict[str, Any]) -> tuple[dict[str, Any], int]:
     """N rounds of adaptive/tactical voting with poll feedback."""
     return _adaptive_worker(data)
 
 
-def historical_replay(data: dict) -> tuple[dict, int]:
+def historical_replay(data: dict[str, Any]) -> tuple[dict[str, Any], int]:
     """Day-by-day historical replay with candidate overrides."""
     return _historical_replay_worker(data)
 
 
-def gerrymander(data: dict) -> tuple[dict, int]:
+def gerrymander(data: dict[str, Any]) -> tuple[dict[str, Any], int]:
     """Voters assigned to user-drawn rectangular districts."""
     return _gerrymander_worker(data)
 
 
-def multiwinner_compare(data: dict) -> tuple[dict, int]:
+def multiwinner_compare(data: dict[str, Any]) -> tuple[dict[str, Any], int]:
     """STV / D'Hondt / SPAV / Phragmén / FPTP on the same electorate."""
     return _multiwinner_compare_worker(data)
 
 
 # ── Phase 3 batch 9 (final) ────────────────────────────────────────────────
 
-def divergence(data: dict) -> tuple[dict, int]:
+def divergence(data: dict[str, Any]) -> tuple[dict[str, Any], int]:
     """Same electorate, with vs without blank vote."""
     return _divergence_worker(data)
 
 
-def interpret(data: dict) -> tuple[dict, int]:
+def interpret(data: dict[str, Any]) -> tuple[dict[str, Any], int]:
     """Deterministic interpretation of a /simulate result."""
     return _interpret_worker(data)
 
 
-def quadratic_funding(data: dict) -> tuple[dict, int]:
+def quadratic_funding(data: dict[str, Any]) -> tuple[dict[str, Any], int]:
     """Buterin/Hitzig/Weyl 2019 quadratic funding."""
     return _quadratic_funding_worker(data)
 
 
-def liquid_democracy(data: dict) -> tuple[dict, int]:
+def liquid_democracy(data: dict[str, Any]) -> tuple[dict[str, Any], int]:
     """Transitive delegation up to max_chain_length hops."""
     return _liquid_democracy_worker(data)
 
 
-def conviction_voting(data: dict) -> tuple[dict, int]:
+def conviction_voting(data: dict[str, Any]) -> tuple[dict[str, Any], int]:
     """Polkadot-style conviction voting: tokens × multiplier(lock_days)."""
     return _conviction_voting_worker(data)
 
 
-def power_indices(data: dict) -> tuple[dict, int]:
+def power_indices(data: dict[str, Any]) -> tuple[dict[str, Any], int]:
     """Shapley-Shubik and Banzhaf power indices for coalition bargaining."""
     return _power_indices_worker(data)
