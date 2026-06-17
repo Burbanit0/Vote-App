@@ -471,50 +471,60 @@ describe('PlaygroundPage (P0 shell)', () => {
   });
 
   // ── FORM-LOCK: the absorbed Lab phenomena must never deteriorate the core ──
-  // The two-mode playground's first paint stays the same; everything absorbed is
-  // a single collapsed row, off the critical path (lazy + on-demand).
+  // Every Lab family now lives in a contextual anchor next to the concept it
+  // deepens — all lazy + Collapsible-gated, so first paint mounts none of them.
 
-  it('form-lock: the advanced section ships collapsed — no Lab module mounted on first paint', () => {
+  it('form-lock: no Lab module is mounted on first paint — only anchor toggles', () => {
     renderPage();
     // The two-mode core is intact and visible.
     expect(screen.getByTestId('leader-canvas')).toBeInTheDocument();
     expect(screen.getByTestId('cycle-rate')).toBeInTheDocument();
-    // The remaining collapsed row; none of its families/panels are mounted.
-    expect(screen.getByTestId('module-advanced')).toBeInTheDocument();
-    for (const id of ['family-systems', 'family-results', 'sys-coalition', 'res-table']) {
-      expect(screen.queryByTestId(id)).not.toBeInTheDocument();
-    }
-    // Contextual anchors ship collapsed too — their panels are not mounted.
+    // The old terminal catch-all is gone.
+    expect(screen.queryByTestId('module-advanced')).not.toBeInTheDocument();
+    // Leader-visible anchors ship collapsed: their toggles exist, panels do not.
     for (const anchor of [
       'anchor-behavior',
       'anchor-campaign',
       'anchor-mechanisms',
       'anchor-analysis',
+      'anchor-results',
       'anchor-abstention',
       'anchor-blank',
     ]) {
       expect(screen.getByTestId(`${anchor}-toggle`)).toBeInTheDocument();
     }
-    expect(screen.queryByTestId('beh-cascade')).not.toBeInTheDocument();
-    expect(screen.queryByTestId('dyn-hotelling')).not.toBeInTheDocument();
-    expect(screen.queryByTestId('mech-jury')).not.toBeInTheDocument();
-    expect(screen.queryByTestId('ana-montecarlo')).not.toBeInTheDocument();
+    for (const panel of [
+      'beh-cascade',
+      'dyn-hotelling',
+      'mech-jury',
+      'ana-montecarlo',
+      'res-table',
+      'sys-coalition',
+    ]) {
+      expect(screen.queryByTestId(panel)).not.toBeInTheDocument();
+    }
   });
 
-  it('form-lock: advanced explorations open lazily on demand without touching the core', () => {
+  it('form-lock: the systems anchor (parliament canvas) reveals its leaves lazily', async () => {
     renderPage();
-    fireEvent.click(screen.getByTestId('module-advanced-toggle'));
-    // All remaining families revealed but still collapsed → panels not mounted.
-    for (const fam of ['family-systems', 'family-results']) {
-      expect(screen.getByTestId(fam)).toBeInTheDocument();
-    }
+    fireEvent.click(screen.getByTestId('mode-toggle-parliament'));
+    // Anchored in the parliament canvas, collapsed: no system panel mounted.
+    expect(screen.getByTestId('anchor-systems')).toBeInTheDocument();
     expect(screen.queryByTestId('sys-coalition')).not.toBeInTheDocument();
-    fireEvent.click(screen.getByTestId('family-systems-toggle'));
-    // Leaf collapsibles appear (their lazy panels stay unmounted until opened).
-    expect(screen.getByTestId('sys-coalition')).toBeInTheDocument();
+    fireEvent.click(screen.getByTestId('anchor-systems-toggle'));
+    // The lazy anchor resolves → leaf collapsibles appear (panels stay unmounted).
+    expect(await screen.findByTestId('sys-coalition')).toBeInTheDocument();
     expect(screen.getByTestId('sys-pipeline')).toBeInTheDocument();
-    // The core canvas is unaffected throughout.
-    expect(screen.getByTestId('leader-canvas')).toBeInTheDocument();
+    expect(screen.getByTestId('canvas-parliament')).toBeInTheDocument();
+  });
+
+  it('form-lock: the results anchor (full width) reveals its leaves lazily', async () => {
+    renderPage();
+    expect(screen.getByTestId('anchor-results')).toBeInTheDocument();
+    expect(screen.queryByTestId('res-table')).not.toBeInTheDocument();
+    fireEvent.click(screen.getByTestId('anchor-results-toggle'));
+    expect(await screen.findByTestId('res-table')).toBeInTheDocument();
+    expect(screen.getByTestId('res-animation')).toBeInTheDocument();
   });
 
   it('form-lock: the behaviour anchor (Setup rail) reveals its leaves lazily', async () => {
