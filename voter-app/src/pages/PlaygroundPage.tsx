@@ -49,7 +49,6 @@ import Collapsible from '../components/playground/Collapsible';
 import StrategicModule from '../components/playground/StrategicModule';
 import SincerityModule from '../components/playground/SincerityModule';
 import ElectorateComposer from '../components/playground/ElectorateComposer';
-import AdvancedExplorations from '../components/playground/AdvancedExplorations';
 import { composeElectorate, COMMUNITY_PALETTE } from '../lib/playgroundElectorate';
 
 // Contextual anchors — Lab phenomena re-homed next to the concept they deepen.
@@ -60,6 +59,8 @@ const MechanismsAnchor = React.lazy(
   () => import('../components/playground/anchors/MechanismsAnchor')
 );
 const AnalysisAnchor = React.lazy(() => import('../components/playground/anchors/AnalysisAnchor'));
+const SystemsAnchor = React.lazy(() => import('../components/playground/anchors/SystemsAnchor'));
+const ResultsAnchor = React.lazy(() => import('../components/playground/anchors/ResultsAnchor'));
 const AbstentionPanel = React.lazy(() => import('../components/shared/AbstentionPanel'));
 const BlankVoteDivergencePanel = React.lazy(
   () => import('../components/shared/BlankVoteDivergencePanel')
@@ -1206,6 +1207,16 @@ const PlaygroundPage: React.FC = () => {
                       playground={playground}
                     />
                   </Collapsible>
+                  {/* Anchor: electoral systems & geography (the parliament question). */}
+                  <Collapsible
+                    title="🔬 Systèmes & circonscriptions"
+                    subtitle="7 vues (coalitions, districts, gerrymander…)"
+                    testid="anchor-systems"
+                  >
+                    <React.Suspense fallback={<AnchorFallback />}>
+                      <SystemsAnchor />
+                    </React.Suspense>
+                  </Collapsible>
                 </div>
               )}
             </FlipReveal>
@@ -1346,6 +1357,20 @@ const PlaygroundPage: React.FC = () => {
         </Card>
       </div>
 
+      {/* Anchor: the raw outcome (all-methods table + animated count), full width
+          below the canvas, relevant in both modes. */}
+      <div className="mt-4">
+        <Collapsible
+          title="📋 Résultats complets (dépouillement)"
+          subtitle="toutes les méthodes · animation"
+          testid="anchor-results"
+        >
+          <React.Suspense fallback={<AnchorFallback />}>
+            <ResultsAnchor />
+          </React.Suspense>
+        </Collapsible>
+      </div>
+
       {/* Anchor: deep comparative analysis of the current result — full width
           (its charts need the room the narrow Bilan column lacks). */}
       <div className="mt-4">
@@ -1359,10 +1384,6 @@ const PlaygroundPage: React.FC = () => {
           </React.Suspense>
         </Collapsible>
       </div>
-
-      {/* Lab phenomena absorbed as a single collapsed row — off the critical
-          path (lazy + on-demand), so the two-mode core is untouched. */}
-      <AdvancedExplorations />
     </div>
   );
 };
