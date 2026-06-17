@@ -481,22 +481,15 @@ describe('PlaygroundPage (P0 shell)', () => {
     expect(screen.getByTestId('cycle-rate')).toBeInTheDocument();
     // The remaining collapsed row; none of its families/panels are mounted.
     expect(screen.getByTestId('module-advanced')).toBeInTheDocument();
-    for (const id of [
-      'family-mechanisms',
-      'family-analysis',
-      'family-systems',
-      'family-results',
-      'mech-jury',
-      'ana-montecarlo',
-      'sys-coalition',
-      'res-table',
-    ]) {
+    for (const id of ['family-systems', 'family-results', 'sys-coalition', 'res-table']) {
       expect(screen.queryByTestId(id)).not.toBeInTheDocument();
     }
     // Contextual anchors ship collapsed too — their panels are not mounted.
     for (const anchor of [
       'anchor-behavior',
       'anchor-campaign',
+      'anchor-mechanisms',
+      'anchor-analysis',
       'anchor-abstention',
       'anchor-blank',
     ]) {
@@ -504,18 +497,15 @@ describe('PlaygroundPage (P0 shell)', () => {
     }
     expect(screen.queryByTestId('beh-cascade')).not.toBeInTheDocument();
     expect(screen.queryByTestId('dyn-hotelling')).not.toBeInTheDocument();
+    expect(screen.queryByTestId('mech-jury')).not.toBeInTheDocument();
+    expect(screen.queryByTestId('ana-montecarlo')).not.toBeInTheDocument();
   });
 
   it('form-lock: advanced explorations open lazily on demand without touching the core', () => {
     renderPage();
     fireEvent.click(screen.getByTestId('module-advanced-toggle'));
     // All remaining families revealed but still collapsed → panels not mounted.
-    for (const fam of [
-      'family-mechanisms',
-      'family-analysis',
-      'family-systems',
-      'family-results',
-    ]) {
+    for (const fam of ['family-systems', 'family-results']) {
       expect(screen.getByTestId(fam)).toBeInTheDocument();
     }
     expect(screen.queryByTestId('sys-coalition')).not.toBeInTheDocument();
@@ -553,5 +543,25 @@ describe('PlaygroundPage (P0 shell)', () => {
     expect(screen.getByTestId('dyn-campaign')).toBeInTheDocument();
     expect(screen.getByTestId('dyn-polarization')).toBeInTheDocument();
     expect(screen.getByTestId('dyn-party')).toBeInTheDocument();
+  });
+
+  it('form-lock: the mechanisms anchor (leader canvas) reveals its leaves lazily', async () => {
+    renderPage();
+    expect(screen.getByTestId('anchor-mechanisms')).toBeInTheDocument();
+    expect(screen.queryByTestId('mech-jury')).not.toBeInTheDocument();
+    fireEvent.click(screen.getByTestId('anchor-mechanisms-toggle'));
+    expect(await screen.findByTestId('mech-jury')).toBeInTheDocument();
+    expect(screen.getByTestId('mech-sortition')).toBeInTheDocument();
+    expect(screen.getByTestId('mech-identity')).toBeInTheDocument();
+  });
+
+  it('form-lock: the analysis anchor (full width) reveals its leaves lazily', async () => {
+    renderPage();
+    expect(screen.getByTestId('anchor-analysis')).toBeInTheDocument();
+    expect(screen.queryByTestId('ana-montecarlo')).not.toBeInTheDocument();
+    fireEvent.click(screen.getByTestId('anchor-analysis-toggle'));
+    expect(await screen.findByTestId('ana-montecarlo')).toBeInTheDocument();
+    expect(screen.getByTestId('ana-manipulability')).toBeInTheDocument();
+    expect(screen.getByTestId('ana-combined')).toBeInTheDocument();
   });
 });
