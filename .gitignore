@@ -228,6 +228,10 @@ Thumbs.db
 .claude/
 # .vscode/ already ignored above
 
+# ── graphify knowledge-graph (regeneratable via `graphify update .`) ─────────
+graphify-out/
+.graphifyignore
+
 # ── Process / planning / design docs (kept local, not in the repo) ──────────
 # App stays: README*, THEORY.md, GUIDE_UTILISATEUR.md, CONTRIBUTING.md, research/, .github/
 /docs/
