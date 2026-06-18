@@ -30,6 +30,7 @@ import {
 } from '../services/assemblyApi';
 import Scorecard, { type ScorecardAxis } from '../components/playground/Scorecard';
 import MethodInfo from '../components/playground/MethodInfo';
+import ScenarioInfo from '../components/playground/ScenarioInfo';
 import ValuesPanel from '../components/playground/ValuesPanel';
 import {
   leaderScorecard,
@@ -611,18 +612,20 @@ const PlaygroundPage: React.FC = () => {
             <Field label="Point de départ (synthétique)">
               <div className="flex flex-col gap-1.5">
                 {presets.map((p) => (
-                  <button
-                    key={p.id}
-                    data-testid={`preset-${p.id}`}
-                    type="button"
-                    onClick={() => applyPreset(p.id)}
-                    className={cn(
-                      'rounded-md border border-border px-2.5 py-1.5 text-left text-sm transition-colors hover:bg-accent hover:text-accent-foreground'
-                    )}
-                    title={p.description}
-                  >
-                    {p.label}
-                  </button>
+                  <div key={p.id} className="flex items-center gap-1">
+                    <button
+                      data-testid={`preset-${p.id}`}
+                      type="button"
+                      onClick={() => applyPreset(p.id)}
+                      className={cn(
+                        'flex-1 rounded-md border border-border px-2.5 py-1.5 text-left text-sm transition-colors hover:bg-accent hover:text-accent-foreground'
+                      )}
+                      title={p.description}
+                    >
+                      {p.label}
+                    </button>
+                    <ScenarioInfo scenario={p.id} />
+                  </div>
                 ))}
               </div>
             </Field>
@@ -1232,12 +1235,14 @@ const PlaygroundPage: React.FC = () => {
                 Bilan —{' '}
                 {mode === 'leader' ? RULE_LABELS[leaderRule] : STRUCTURE_LABELS[assembly.structure]}
               </span>
-              {mode === 'leader' && (
+              {mode === 'leader' ? (
                 <MethodInfo
                   method={leaderRule}
                   context={{ condorcetExists: result?.condorcet_winner != null }}
                   placement="bottom"
                 />
+              ) : (
+                <MethodInfo method={assembly.structure} placement="bottom" />
               )}
             </CardTitle>
           </CardHeader>

@@ -6,14 +6,14 @@ import MethodInfo from '../MethodInfo';
 describe('MethodInfo', () => {
   it('ships collapsed — only the ⓘ trigger, no content until clicked', () => {
     render(<MethodInfo method="irv" />);
-    expect(screen.getByTestId('method-info-irv')).toBeInTheDocument();
-    expect(screen.queryByTestId('method-pop-irv')).not.toBeInTheDocument();
+    expect(screen.getByTestId('info-irv')).toBeInTheDocument();
+    expect(screen.queryByTestId('pop-irv')).not.toBeInTheDocument();
   });
 
   it('reveals the method explanation on click', () => {
     render(<MethodInfo method="irv" />);
-    fireEvent.click(screen.getByTestId('method-info-irv'));
-    const pop = screen.getByTestId('method-pop-irv');
+    fireEvent.click(screen.getByTestId('info-irv'));
+    const pop = screen.getByTestId('pop-irv');
     expect(pop).toHaveTextContent(/Vote alternatif|Instant-runoff/);
     // The pedagogical fields are present.
     expect(pop).toHaveTextContent(/Principe|How/);
@@ -22,13 +22,19 @@ describe('MethodInfo', () => {
 
   it('resolves backend aliases (star_voting → STAR, copeland → Condorcet)', () => {
     const { unmount } = render(<MethodInfo method="star_voting" />);
-    fireEvent.click(screen.getByTestId('method-info-star_voting'));
-    expect(screen.getByTestId('method-pop-star_voting')).toHaveTextContent(/STAR/);
+    fireEvent.click(screen.getByTestId('info-star_voting'));
+    expect(screen.getByTestId('pop-star_voting')).toHaveTextContent(/STAR/);
     unmount();
 
     render(<MethodInfo method="copeland" />);
-    fireEvent.click(screen.getByTestId('method-info-copeland'));
-    expect(screen.getByTestId('method-pop-copeland')).toHaveTextContent(/Condorcet/);
+    fireEvent.click(screen.getByTestId('info-copeland'));
+    expect(screen.getByTestId('pop-copeland')).toHaveTextContent(/Condorcet/);
+  });
+
+  it('covers parliament structures (pr/fptp/mmp)', () => {
+    render(<MethodInfo method="fptp" />);
+    fireEvent.click(screen.getByTestId('info-fptp'));
+    expect(screen.getByTestId('pop-fptp')).toHaveTextContent(/Circonscriptions|Districts/);
   });
 
   it('renders nothing for an unknown method id (safe to drop anywhere)', () => {
@@ -38,15 +44,15 @@ describe('MethodInfo', () => {
 
   it('adds the live cycle note for the Condorcet family when no Condorcet winner exists', () => {
     render(<MethodInfo method="schulze" context={{ condorcetExists: false }} />);
-    fireEvent.click(screen.getByTestId('method-info-schulze'));
-    expect(screen.getByTestId('method-pop-schulze')).toHaveTextContent(
+    fireEvent.click(screen.getByTestId('info-schulze'));
+    expect(screen.getByTestId('pop-schulze')).toHaveTextContent(
       /vainqueur de Condorcet|Condorcet winner/
     );
   });
 
   it('omits the cycle note when a Condorcet winner exists', () => {
     render(<MethodInfo method="schulze" context={{ condorcetExists: true }} />);
-    fireEvent.click(screen.getByTestId('method-info-schulze'));
-    expect(screen.getByTestId('method-pop-schulze')).not.toHaveTextContent(/⚡/);
+    fireEvent.click(screen.getByTestId('info-schulze'));
+    expect(screen.getByTestId('pop-schulze')).not.toHaveTextContent(/⚡/);
   });
 });
