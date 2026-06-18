@@ -28,7 +28,7 @@ def _pca_2d(matrix: _np.ndarray) -> _np.ndarray:
     coords = centered @ vt[:n_comp].T
     if n_comp < 2:
         coords = _np.column_stack([coords, _np.zeros(len(coords))])
-    return coords
+    return _np.asarray(coords)
 
 
 def _kmeans(data: _np.ndarray, k: int, seed: int, max_iter: int = 150) -> _np.ndarray:
@@ -399,13 +399,13 @@ def _polis_with_candidates_worker(data: Dict[str, Any]) -> tuple[Dict[str, Any],
     consensus_count = polarizing_count = silent_count = 0
 
     for j, stmt in enumerate(stmts):
-        ca          = [c["votes"][j] for c in clusters_out]
+        ca_list     = [c["votes"][j] for c in clusters_out]
         global_app  = round(float((votes[:, j] == 1).sum()) / num_participants, 3)
-        delta       = (max(ca) - min(ca)) if len(ca) > 1 else 0.0
+        delta       = (max(ca_list) - min(ca_list)) if len(ca_list) > 1 else 0.0
 
-        is_cons     = all(v >= min_thr for v in ca)
+        is_cons     = all(v >= min_thr for v in ca_list)
         is_pol      = (delta > 0.5) and not is_cons
-        is_silent   = (global_app > 0.60) and not is_cons and (min(ca) < min_thr)
+        is_silent   = (global_app > 0.60) and not is_cons and (min(ca_list) < min_thr)
 
         if is_cons:   consensus_count  += 1
         if is_pol:    polarizing_count += 1
@@ -416,7 +416,7 @@ def _polis_with_candidates_worker(data: Dict[str, Any]) -> tuple[Dict[str, Any],
             "global_approval":   global_app,
             "is_consensus":      is_cons,
             "is_polarizing":     is_pol,
-            "cluster_approvals": ca,
+            "cluster_approvals": ca_list,
         })
 
     # ── Candidate scoring ─────────────────────────────────────────────────
@@ -433,7 +433,7 @@ def _polis_with_candidates_worker(data: Dict[str, Any]) -> tuple[Dict[str, Any],
     polis_winner    = max(cand_scores, key=cand_scores.__getitem__)
 
     # ── Classical election (plurality by ideology proximity) ──────────────
-    vote_tally: Counter = Counter()
+    vote_tally: Counter[str] = Counter()
     for px in pax:
         vote_tally[cand_names[int(_np.argmin([abs(px - cx) for cx in cand_x]))]] += 1
     election_winner = vote_tally.most_common(1)[0][0] if vote_tally else cand_names[0]
