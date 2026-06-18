@@ -36,7 +36,7 @@ from api.db.session import get_async_session
 
 # ── User database adapter ──────────────────────────────────────────────────
 
-class AsyncUserDatabase(BaseUserDatabase):
+class AsyncUserDatabase(BaseUserDatabase[Any, int]):
     """fastapi-users adapter over an async SQLAlchemy session + our User model.
 
     The User model exposes `hashed_password` (mapped to the DB column
@@ -97,7 +97,7 @@ async def get_user_db(
 
 # ── User manager ───────────────────────────────────────────────────────────
 
-class UserManager(IntegerIDMixin, BaseUserManager):
+class UserManager(IntegerIDMixin, BaseUserManager[Any, int]):
     """Lifecycle hooks for register / login / password reset / verify.
 
     Reset + verification token secrets reuse `settings.jwt_secret_key` so we
@@ -126,7 +126,7 @@ _bearer_transport = BearerTransport(tokenUrl="/api/v2/auth/jwt/login")
 
 def _get_jwt_strategy(
     settings: Annotated[Settings, Depends(get_settings)],
-) -> JWTStrategy:
+) -> JWTStrategy[Any, int]:
     """One-hour HS256 tokens, same secret as Flask-JWT-Extended so the
     cross-backend token bridge stays valid."""
     return JWTStrategy(secret=settings.jwt_secret_key, lifetime_seconds=3600)

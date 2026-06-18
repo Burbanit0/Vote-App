@@ -18,7 +18,7 @@ from __future__ import annotations
 
 import random
 from types import SimpleNamespace
-from typing import Annotated
+from typing import Annotated, Any
 
 import httpx
 from fastapi import APIRouter, Depends, HTTPException, Query, status
@@ -101,10 +101,12 @@ async def _social_login(db: AsyncSession, provider: str, provider_id: str, *,
 async def _issue_token(user: SimpleNamespace, settings: Settings) -> str:
     """Mint a fastapi-users-compatible JWT for `user`."""
     strategy = auth_backend.get_strategy(settings)
-    return await strategy.write_token(user)
+    # get_strategy is a DependencyCallable (sync/async/generator union); ours is
+    # the plain sync _get_jwt_strategy, so write_token is always present.
+    return await strategy.write_token(user)  # type: ignore[union-attr]
 
 
-def _user_payload(user: SimpleNamespace, access_token: str) -> dict:
+def _user_payload(user: SimpleNamespace, access_token: str) -> dict[str, Any]:
     """Same shape the Flask Google route returns — frontend doesn't have
     to switch on backend version."""
     return {
@@ -129,7 +131,7 @@ async def google_login(
     body: _GoogleTokenBody,
     settings: Annotated[Settings, Depends(get_settings)],
     db: DbSession,
-) -> dict:
+) -> dict[str, Any]:
     """The Google Sign-In SDK on the frontend produces a JWT-encoded ID
     token. We verify it against Google's public keys (via the official
     google-auth library), trust the `sub`/`email` claims, then mint our
@@ -145,7 +147,7 @@ async def google_login(
     from google.oauth2 import id_token as google_id_token
 
     try:
-        info = google_id_token.verify_oauth2_token(
+        info = google_id_token.verify_oauth2_token(  # type: ignore[no-untyped-call]
             body.token, google_requests.Request(), settings.google_client_id,
         )
     except ValueError as exc:

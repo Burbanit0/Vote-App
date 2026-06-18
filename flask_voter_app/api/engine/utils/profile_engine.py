@@ -146,7 +146,7 @@ def community_voters(
     cols = [x, y, z][:dims]
     pts = np.clip(np.column_stack(cols), -1.0, 1.0)[voted]
     if pts.shape[0] >= 2:
-        return pts
+        return np.asarray(pts)
     centres = np.clip(
         np.column_stack([
             np.array([float(c.get(ax, 0.0)) for c in live], dtype=float)
@@ -154,7 +154,7 @@ def community_voters(
         ]),
         -1.0, 1.0,
     )
-    return centres
+    return np.asarray(centres)
 
 
 def impartial_culture_profile(
@@ -252,7 +252,7 @@ _ORDINAL_METHODS = {
 _ALL_METHODS = _CARDINAL_METHODS | _ORDINAL_METHODS | {"approval"}
 
 
-def compatible_methods(ballot_type: str) -> set:
+def compatible_methods(ballot_type: str) -> set[str]:
     """Which counting rules can HONESTLY run on this ballot's information."""
     if ballot_type in ("full", "score", "grade", "cumulative"):
         return set(_ALL_METHODS)
@@ -549,7 +549,7 @@ def pca_embed_2d(matrix: UtilityMatrix, num_points: int) -> np.ndarray:
     coords = centered @ vt[:2].T
     # Normalise into roughly [-1, 1] for display.
     span = np.abs(coords).max() or 1.0
-    return coords / span
+    return np.asarray(coords / span)
 
 
 def gallagher_index(vote_shares: List[float], seat_shares: List[float]) -> float:
