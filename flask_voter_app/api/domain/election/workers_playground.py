@@ -10,7 +10,7 @@ Self-contained: depends only on the engine utils and ._helpers.
 from __future__ import annotations
 
 import math
-from typing import Any, Dict, List, Optional
+from typing import Any, Callable, Dict, List, Optional
 
 import numpy as _np
 
@@ -144,7 +144,7 @@ def _profile_simulate_worker(data: Dict[str, Any]) -> tuple[Dict[str, Any], int]
     # genuine majority cycles); otherwise the statistical-culture estimator (0 for
     # the single-Gaussian spatial source).
     if source == "spatial" and composed:
-        paradox_rate = spatial_cycle_rate(cand_specs, electorate, min(num_voters, 200), seed)
+        paradox_rate = spatial_cycle_rate(cand_specs, electorate or {}, min(num_voters, 200), seed)
     else:
         paradox_rate = cycle_rate(source, names, min(num_voters, 200), source_params, seed)
 
@@ -202,7 +202,7 @@ def _assembly_voters(
 
 
 def _minimal_winning_coalitions(
-    seats: Dict[str, int], positions: Dict[str, tuple], majority: int
+    seats: Dict[str, int], positions: Dict[str, tuple[float, float]], majority: int
 ) -> List[Dict[str, Any]]:
     """Minimal winning coalitions (every member pivotal), with ideological span =
     max pairwise distance between member parties. Sorted by smallest span (the
@@ -264,7 +264,7 @@ def _allocate_assembly(
                     viable = [int(i) for i in counts.argsort()[-2:] if counts[i] > 0]
                     if len(viable) < 2:
                         continue
-                    sub = d2[_np.ix_(band, viable)]
+                    sub = d2[_np.ix_(band, viable)]  # type: ignore[arg-type]
                     nearest_viable = _np.array(viable)[sub.argmin(axis=1)]
                     movers = ~_np.isin(choice[band], viable)
                     new_choice[band[movers]] = nearest_viable[movers]
@@ -292,7 +292,7 @@ def _allocate_assembly(
         if not eligible:  # nobody passes → waive the threshold rather than fail
             eligible = {n: votes[n] for n in names if votes[n] > 0}
             waived = True
-        alloc = allocate(eligible, n_seats)
+        alloc = allocate({k: float(v) for k, v in eligible.items()}, n_seats)
         seats = {n: int(alloc.get(n, 0)) for n in names}
         excluded = [n for n in names if n not in eligible]
         return seats, excluded, waived
@@ -425,7 +425,7 @@ def _assembly_worker(data: Dict[str, Any]) -> tuple[Dict[str, Any], int]:
     # (b) Descriptive mirror over the MODELLED attribute space: does the
     #     assembly look like the electorate, region by region of the plane?
     #     (No demographics are modelled, so none are invented.)
-    regions = {
+    regions: Dict[str, Callable[[Any], Any]] = {
         "left_lib":   lambda a: (a[:, 0] < 0) & (a[:, 1] < 0),
         "left_cons":  lambda a: (a[:, 0] < 0) & (a[:, 1] >= 0),
         "right_lib":  lambda a: (a[:, 0] >= 0) & (a[:, 1] < 0),
