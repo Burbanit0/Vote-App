@@ -252,8 +252,8 @@ def _behavioral_biases_worker(data: Dict[str, Any]) -> tuple[Dict[str, Any], int
         return out
 
     # ── Approval with bullet voting ───────────────────────────────────────
-    def _approval_winner(utils: Dict[Any, Dict[str, float]], bids: set) -> str:
-        tally: Counter = Counter()
+    def _approval_winner(utils: Dict[Any, Dict[str, float]], bids: set[Any]) -> str:
+        tally: Counter[Any] = Counter()
         for v in voters:
             vid = v["id"]
             u   = utils[vid]
@@ -392,9 +392,9 @@ def _liquid_democracy_worker(data: Dict[str, Any]) -> tuple[Dict[str, Any], int]
     }
 
     # ── Cycle detection (functional graph — each node has ≤1 outgoing edge) ─
-    def _detect_cycles(delg: Dict[int, int]) -> set:
-        in_cycle: set = set()
-        visited:  set = set()
+    def _detect_cycles(delg: Dict[int, int]) -> set[int]:
+        in_cycle: set[int] = set()
+        visited:  set[int] = set()
         for start in list(delg.keys()):
             if start in visited:
                 continue
@@ -432,10 +432,10 @@ def _liquid_democracy_worker(data: Dict[str, Any]) -> tuple[Dict[str, Any], int]
             effective[vid] = vid   # max chain exhausted → vote directly
 
     # ── Voting weights ────────────────────────────────────────────────────
-    weights: Counter = Counter(effective.values())
+    weights: Counter[Any] = Counter(effective.values())
 
     # ── Liquid winner (weighted plurality) ────────────────────────────────
-    liquid_tally: Counter = Counter()
+    liquid_tally: Counter[Any] = Counter()
     for vid, w in weights.items():
         choice = max(sincere_utilities[vid], key=lambda k: sincere_utilities[vid][k])
         liquid_tally[choice] += w
@@ -444,7 +444,7 @@ def _liquid_democracy_worker(data: Dict[str, Any]) -> tuple[Dict[str, Any], int]
     )
 
     # ── Direct winner (unweighted baseline) ──────────────────────────────
-    direct_tally: Counter = Counter()
+    direct_tally: Counter[Any] = Counter()
     for v in voters:
         choice = max(sincere_utilities[v["id"]], key=lambda k: sincere_utilities[v["id"]][k])
         direct_tally[choice] += 1
@@ -818,7 +818,7 @@ def _nota_worker(data: Dict[str, Any]) -> tuple[Dict[str, Any], int]:
     # ── Winner with NOTA (plurality model for simplicity) ─────────────────
     def _winner_with_nota(threshold: float) -> tuple[Optional[str], float]:
         """Returns (sincere plurality winner or 'NOTA', nota_pct)."""
-        tally: Counter = Counter()
+        tally: Counter[Any] = Counter()
         for v in voters:
             vid      = v["id"]
             max_util = max(sincere_utilities[vid].values())
@@ -854,7 +854,7 @@ def _nota_worker(data: Dict[str, Any]) -> tuple[Dict[str, Any], int]:
             return _schulze(rnk)
         if method == "approval":
             # sincere approval: approve above voter mean
-            tally: Counter = Counter()
+            tally: Counter[Any] = Counter()
             for v in voters:
                 u  = sincere_utilities[v["id"]]
                 th = sum(u.values()) / len(u) if u else 0.5
@@ -1037,7 +1037,7 @@ def _ballot_complexity_worker(data: Dict[str, Any]) -> tuple[Dict[str, Any], int
         if method == "schulze":
             return _sch_w(rnk)
         if method == "approval":
-            tally: Counter = Counter()
+            tally: Counter[Any] = Counter()
             for v in vlist:
                 u  = sincere_utilities[v["id"]]
                 th = sum(u.values()) / len(u) if u else 0.5
@@ -1307,11 +1307,11 @@ def _electoral_fatigue_worker(data: Dict[str, Any]) -> tuple[Dict[str, Any], int
         v["id"]: max(sincere_utilities[v["id"]].values()) for v in voters
     }
     n_engaged      = max(1, round(engaged_pct * num_voters))
-    engaged_ids: set = set(
+    engaged_ids: set[Any] = set(
         sorted(all_ids, key=lambda vid: -voter_max_util[vid])[:n_engaged]
     )
     partisan_threshold = 0.7  # "very partisan" label
-    partisan_ids: set = {vid for vid, mu in voter_max_util.items() if mu > partisan_threshold}
+    partisan_ids: set[Any] = {vid for vid, mu in voter_max_util.items() if mu > partisan_threshold}
 
     # ── Fast winner per method ────────────────────────────────────────────
     from api.engine.utils.simulation_ranked_utils import (
@@ -1335,7 +1335,7 @@ def _electoral_fatigue_worker(data: Dict[str, Any]) -> tuple[Dict[str, Any], int
         elif primary_method == "schulze":
             w = _sw(rnk)
         elif primary_method == "approval":
-            tally: Counter = Counter()
+            tally: Counter[Any] = Counter()
             for v in vlist:
                 u  = sincere_utilities[v["id"]]
                 th = sum(u.values()) / len(u) if u else 0.5
@@ -1473,7 +1473,7 @@ def _choice_overload_worker(data: Dict[str, Any]) -> tuple[Dict[str, Any], int]:
         if not v_list:
             return cnames[0] if cnames else None
         if method == "plurality":
-            t: Counter = Counter(voted[v["id"]] for v in v_list)
+            t: Counter[Any] = Counter(voted[v["id"]] for v in v_list)
             return max(t, key=t.__getitem__) if t else cnames[0]
         if method == "borda":
             return _bw_co(rnk)
@@ -1482,7 +1482,7 @@ def _choice_overload_worker(data: Dict[str, Any]) -> tuple[Dict[str, Any], int]:
         if method == "schulze":
             return _sw_co(rnk)
         if method == "approval":
-            t2: Counter = Counter()
+            t2: Counter[Any] = Counter()
             for v in v_list:
                 vid = v["id"]
                 if is_h[vid]:
