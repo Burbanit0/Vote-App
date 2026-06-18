@@ -8,7 +8,7 @@ representational proportionality rather than a single collective choice.
 """
 import math
 from collections import defaultdict
-from typing import Dict, List, Optional, Any
+from typing import Callable, Dict, List, Optional, Any
 
 
 # ── Internal helpers ───────────────────────────────────────────────────────
@@ -20,7 +20,7 @@ def _normalise_votes(party_votes: Dict[str, float]) -> Dict[str, float]:
 
 # ── Single Transferable Vote ───────────────────────────────────────────────
 
-def get_stv_winners(votes: list, num_winners: int) -> List[str]:
+def get_stv_winners(votes: list[Any], num_winners: int) -> List[str]:
     """
     Single Transferable Vote with Droop quota and fractional surplus transfer.
 
@@ -44,12 +44,12 @@ def get_stv_winners(votes: list, num_winners: int) -> List[str]:
     droop_quota = n // (num_winners + 1) + 1
 
     # Pool: list of (weight, remaining_ranking)
-    pool: List[tuple] = [(1.0, r[:]) for r in ballots]
+    pool: List[tuple[float, List[str]]] = [(1.0, r[:]) for r in ballots]
 
     elected: List[str] = []
-    eliminated: set = set()
+    eliminated: set[str] = set()
 
-    def _first_active(ranking: List[str], excl: set) -> Optional[str]:
+    def _first_active(ranking: List[str], excl: set[str]) -> Optional[str]:
         return next((c for c in ranking if c not in excl), None)
 
     while len(elected) < num_winners:
@@ -84,7 +84,7 @@ def get_stv_winners(votes: list, num_winners: int) -> List[str]:
 
             # Rebuild pool: ballots going to winner get multiplied by transfer_factor
             prev_excluded = eliminated | set(elected)  # state BEFORE electing winner
-            new_pool: List[tuple] = []
+            new_pool: List[tuple[float, List[str]]] = []
             for w, r in pool:
                 first = _first_active(r, prev_excluded)
                 new_r = [c for c in r if c != winner]
@@ -150,10 +150,10 @@ def get_stv_result(
         quota = n // (num_seats + 1) + 1
 
     # Pool: each entry is (weight: float, ranking: List[str])
-    pool: List[tuple] = [(1.0, list(r)) for r in votes]
+    pool: List[tuple[float, List[str]]] = [(1.0, list(r)) for r in votes]
 
     elected:   List[str] = []
-    eliminated: set      = set()
+    eliminated: set[str] = set()
     rounds:    List[Dict[str, Any]] = []
     round_num  = 0
 
@@ -204,7 +204,7 @@ def get_stv_result(
 
             prev_excl     = eliminated | set(elected)
             transfers: Dict[str, float] = defaultdict(float)
-            new_pool:  List[tuple]      = []
+            new_pool:  List[tuple[float, List[str]]] = []
 
             for w, r in pool:
                 first = next((c for c in r if c not in prev_excl), None)
@@ -308,7 +308,7 @@ def get_largest_remainder_winners(
     remainders: Dict[str, float] = {p: (pv[p] / q) - auto[p] for p in pv}
 
     remaining = num_seats - sum(auto.values())
-    for p in sorted(remainders, key=remainders.get, reverse=True)[:remaining]:
+    for p in sorted(remainders, key=lambda p: remainders[p], reverse=True)[:remaining]:
         auto[p] += 1
 
     return auto
@@ -370,7 +370,7 @@ def compute_proportionality_metrics(
 def compare_multiwinner_methods(
     party_votes: Dict[str, float],
     num_seats: int,
-    voter_rankings: Optional[List] = None,
+    voter_rankings: Optional[List[Any]] = None,
 ) -> Dict[str, Any]:
     """
     Run all proportional methods on the same vote distribution and return
@@ -385,12 +385,13 @@ def compare_multiwinner_methods(
     results: Dict[str, Any] = {}
 
     # Party-list methods
-    for key, fn in [
+    party_list_methods: List[tuple[str, Callable[[], Any]]] = [
         ("dhondt",                  lambda: get_dhondt_winners(pv, num_seats)),
         ("sainte_lague",            lambda: get_sainte_lague_winners(pv, num_seats)),
         ("largest_remainder_hare",  lambda: get_largest_remainder_winners(pv, num_seats, "hare")),
         ("largest_remainder_droop", lambda: get_largest_remainder_winners(pv, num_seats, "droop")),
-    ]:
+    ]
+    for key, fn in party_list_methods:
         seats = fn()
         results[key] = {
             "seats": seats,

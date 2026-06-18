@@ -5,6 +5,7 @@ These are not simulation logic (that lives in app/utils/) — they are
 request-parsing and population-building helpers specific to the route layer.
 """
 import random as _rng
+from typing import Any
 
 from api.engine.utils.simulation_voting_utils import create_voter, create_candidate
 from api.engine.utils.simulation_metrics import compare_all_methods
@@ -23,7 +24,9 @@ _PRESET_TO_DISTRIBUTION = {
 _SCENARIO_METHODS = ["plurality", "irv", "borda", "schulze", "approval"]
 
 
-def _build_scenario_candidates(candidates_raw: list, issues: list) -> list:
+def _build_scenario_candidates(
+    candidates_raw: list[dict[str, Any]], issues: list[str]
+) -> list[dict[str, Any]]:
     """
     Build backend candidate dicts from the 3-issue frontend format.
     Skips entries with is_blank=True (those are handled via blank_vote flag).
@@ -56,10 +59,10 @@ def _build_scenario_candidates(candidates_raw: list, issues: list) -> list:
 
 
 def _build_scenario_voters(
-    electorate: dict,
-    issues: list,
-    dissatisfaction_override: float = None,
-) -> list:
+    electorate: dict[str, Any],
+    issues: list[str],
+    dissatisfaction_override: float | None = None,
+) -> list[dict[str, Any]]:
     """Build voters from an electorate config dict."""
     num_voters    = max(10, int(electorate.get("num_voters", 500)))
     ideology_dist = _PRESET_TO_DISTRIBUTION.get(electorate.get("ideology_preset", "random"), "random")
@@ -76,18 +79,18 @@ def _build_scenario_voters(
 
 
 def _run_five_methods(
-    voters: list,
-    candidates: list,
-    issues: list,
+    voters: list[Any],
+    candidates: list[Any],
+    issues: list[str],
     blank_vote: bool = False,
     blank_rule: BlankVoteRule = BlankVoteRule.COMPETITIVE,
-) -> dict:
+) -> dict[str, Any]:
     """
     Run compare_all_methods and filter results to the 5 citizen-facing methods.
     When blank_vote=True, applies blank_rule to each method result.
     """
     result = compare_all_methods(voters, candidates, issues, blank_vote=blank_vote)
-    filtered = {
+    filtered: dict[str, Any] = {
         "condorcet_winner": result.get("condorcet_winner"),
         "methods": {m: result["methods"][m] for m in _SCENARIO_METHODS if m in result["methods"]},
     }
@@ -106,7 +109,7 @@ def _run_five_methods(
 _PARTY_CYCLE = ["Green", "Conservative", "Liberal", "Independent"]
 
 
-def _parse_candidate_configs(raw: list) -> list:
+def _parse_candidate_configs(raw: list[Any]) -> list[dict[str, Any]]:
     """
     Normalise the candidates field from the request body.
 
@@ -135,10 +138,10 @@ def _parse_candidate_configs(raw: list) -> list:
 
 
 def _build_population(
-    candidate_configs: list,
+    candidate_configs: list[dict[str, Any]],
     num_voters: int,
     ideology_distribution: str = "random",
-):
+) -> tuple[list[Any], list[Any], list[str]]:
     """
     Create voters and candidates for a simulation run.
 
