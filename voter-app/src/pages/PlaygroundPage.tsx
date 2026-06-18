@@ -61,6 +61,7 @@ const MechanismsAnchor = React.lazy(
   () => import('../components/playground/anchors/MechanismsAnchor')
 );
 const AnalysisAnchor = React.lazy(() => import('../components/playground/anchors/AnalysisAnchor'));
+const TheoryAnchor = React.lazy(() => import('../components/playground/anchors/TheoryAnchor'));
 const SystemsAnchor = React.lazy(() => import('../components/playground/anchors/SystemsAnchor'));
 const ResultsAnchor = React.lazy(() => import('../components/playground/anchors/ResultsAnchor'));
 const AbstentionPanel = React.lazy(() => import('../components/shared/AbstentionPanel'));
@@ -1396,6 +1397,20 @@ const PlaygroundPage: React.FC = () => {
         >
           <React.Suspense fallback={<AnchorFallback />}>
             <AnalysisAnchor />
+          </React.Suspense>
+        </Collapsible>
+      </div>
+
+      {/* Anchor: social-choice paradoxes & democratic theory (re-homed from
+          TheoryPage), full width, relevant in both modes. */}
+      <div className="mt-4">
+        <Collapsible
+          title="🔬 Théorie & paradoxes du choix social"
+          subtitle="Sen · jugements · McKelvey · pouvoir · recul démocratique…"
+          testid="anchor-theory"
+        >
+          <React.Suspense fallback={<AnchorFallback />}>
+            <TheoryAnchor />
           </React.Suspense>
         </Collapsible>
       </div>

@@ -1,22 +1,24 @@
 import React from 'react';
 import { useTranslation } from 'react-i18next';
 import InfoPopover, { InfoLine } from './InfoPopover';
-import { getScenarioInfo, type ScenarioLang } from '@/lib/scenarioInfo';
+import { getScenarioInfo, type ScenarioLang, type ScenarioKind } from '@/lib/scenarioInfo';
 
 // ScenarioInfo — the ⓘ next to a synthetic preset: explains what the scenario is,
 // the lesson it sets up, and what to watch. Renders nothing for an unknown id.
-// Test hooks: `info-scenario-<id>` / `pop-scenario-<id>`.
+// `kind` selects the registry (field presets vs electorate-mixture presets).
+// Test hooks: `info-<kind>-<id>` / `pop-<kind>-<id>`.
 
 interface Props {
   scenario: string;
+  kind?: ScenarioKind;
   placement?: 'top' | 'bottom' | 'left' | 'right';
 }
 
-const ScenarioInfo: React.FC<Props> = ({ scenario, placement = 'right' }) => {
+const ScenarioInfo: React.FC<Props> = ({ scenario, kind = 'scenario', placement = 'right' }) => {
   const { i18n } = useTranslation();
   const lang: ScenarioLang = i18n.language?.startsWith('en') ? 'en' : 'fr';
 
-  const entry = getScenarioInfo(scenario);
+  const entry = getScenarioInfo(scenario, kind);
   if (!entry) return null;
 
   const c = entry[lang];
@@ -27,7 +29,7 @@ const ScenarioInfo: React.FC<Props> = ({ scenario, placement = 'right' }) => {
 
   return (
     <InfoPopover
-      testid={`scenario-${scenario}`}
+      testid={`${kind}-${scenario}`}
       placement={placement}
       ariaLabel={`${lang === 'en' ? 'About' : 'À propos de'} ${c.name}`}
     >

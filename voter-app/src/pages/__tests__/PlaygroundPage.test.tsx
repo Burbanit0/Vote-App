@@ -488,6 +488,7 @@ describe('PlaygroundPage (P0 shell)', () => {
       'anchor-mechanisms',
       'anchor-analysis',
       'anchor-results',
+      'anchor-theory',
       'anchor-abstention',
       'anchor-blank',
     ]) {
@@ -500,9 +501,20 @@ describe('PlaygroundPage (P0 shell)', () => {
       'ana-montecarlo',
       'res-table',
       'sys-coalition',
+      'thy-sen',
     ]) {
       expect(screen.queryByTestId(panel)).not.toBeInTheDocument();
     }
+  });
+
+  it('form-lock: the theory anchor (full width) reveals its leaves lazily', async () => {
+    renderPage();
+    expect(screen.getByTestId('anchor-theory')).toBeInTheDocument();
+    expect(screen.queryByTestId('thy-sen')).not.toBeInTheDocument();
+    fireEvent.click(screen.getByTestId('anchor-theory-toggle'));
+    expect(await screen.findByTestId('thy-sen')).toBeInTheDocument();
+    expect(screen.getByTestId('thy-judgment')).toBeInTheDocument();
+    expect(screen.getByTestId('thy-polis')).toBeInTheDocument();
   });
 
   it('form-lock: the systems anchor (parliament canvas) reveals its leaves lazily', async () => {
