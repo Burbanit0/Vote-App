@@ -84,7 +84,7 @@ def sample_age() -> int:
 
 
 def sample_region() -> str:
-    return np.random.choice(["urban", "suburban", "rural"], p=[0.8, 0.15, 0.05])
+    return str(np.random.choice(["urban", "suburban", "rural"], p=[0.8, 0.15, 0.05]))
 
 
 def sample_income() -> str:
@@ -142,22 +142,22 @@ def sample_religion() -> str:
 
 
 def sample_gender() -> str:
-    return np.random.choice(["male", "female"], p=[0.49, 0.51])
+    return str(np.random.choice(["male", "female"], p=[0.49, 0.51]))
 
 
 def sample_education(age: int) -> str:
     if age < 22:
-        return np.random.choice(["high_school", "bachelor"], p=[0.7, 0.3])
+        return str(np.random.choice(["high_school", "bachelor"], p=[0.7, 0.3]))
     if age < 25:
-        return np.random.choice(["high_school", "bachelor", "master"], p=[0.3, 0.6, 0.1])
+        return str(np.random.choice(["high_school", "bachelor", "master"], p=[0.3, 0.6, 0.1]))
     if age < 30:
-        return np.random.choice(
+        return str(np.random.choice(
             ["high_school", "bachelor", "master", "phd"], p=[0.2, 0.4, 0.35, 0.05]
-        )
+        ))
     if age < 40:
-        return np.random.choice(
+        return str(np.random.choice(
             ["high_school", "bachelor", "master", "phd"], p=[0.2, 0.4, 0.3, 0.1]
-        )
+        ))
 
     base_probs = {"none": 0.1, "high_school": 0.4, "bachelor": 0.3, "master": 0.15, "phd": 0.05}
 
@@ -169,4 +169,4 @@ def sample_education(age: int) -> str:
     adjusted = {k: base_probs[k] * multipliers[k] for k in base_probs}
     total = sum(adjusted.values())
     probs = [v / total for v in adjusted.values()]
-    return np.random.choice(list(adjusted.keys()), p=probs)
+    return str(np.random.choice(list(adjusted.keys()), p=probs))
