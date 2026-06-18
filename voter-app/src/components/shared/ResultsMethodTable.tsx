@@ -3,6 +3,7 @@ import { useTranslation } from 'react-i18next';
 import { Badge } from '@/components/ui/badge';
 import { Table } from '@/components/ui/table';
 import MetricTooltip from './MetricTooltip';
+import MethodInfo from '../playground/MethodInfo';
 import type { ElectionResult } from '../../services/electionApi';
 
 // ResultsMethodTable — the per-method winner / Bayesian-regret / Condorcet table.
@@ -62,6 +63,10 @@ const ResultsMethodTable: React.FC<{ result: ElectionResult }> = ({ result }) =>
               <tr key={method}>
                 <td className="font-semibold" style={{ fontSize: '0.82rem' }}>
                   {method}
+                  <MethodInfo
+                    method={method}
+                    context={{ condorcetExists: result.condorcet_winner != null }}
+                  />
                 </td>
                 <td>
                   {md.winner ? (
