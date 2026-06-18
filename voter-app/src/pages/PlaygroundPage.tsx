@@ -29,6 +29,7 @@ import {
   type AssemblyScorecardResult,
 } from '../services/assemblyApi';
 import Scorecard, { type ScorecardAxis } from '../components/playground/Scorecard';
+import MethodInfo from '../components/playground/MethodInfo';
 import ValuesPanel from '../components/playground/ValuesPanel';
 import {
   leaderScorecard,
@@ -1226,9 +1227,18 @@ const PlaygroundPage: React.FC = () => {
         {/* ── Scorecard + values lens (P5) ── */}
         <Card className="h-fit">
           <CardHeader className="p-4 pb-2">
-            <CardTitle className="text-base">
-              Bilan —{' '}
-              {mode === 'leader' ? RULE_LABELS[leaderRule] : STRUCTURE_LABELS[assembly.structure]}
+            <CardTitle className="flex items-center gap-1 text-base">
+              <span>
+                Bilan —{' '}
+                {mode === 'leader' ? RULE_LABELS[leaderRule] : STRUCTURE_LABELS[assembly.structure]}
+              </span>
+              {mode === 'leader' && (
+                <MethodInfo
+                  method={leaderRule}
+                  context={{ condorcetExists: result?.condorcet_winner != null }}
+                  placement="bottom"
+                />
+              )}
             </CardTitle>
           </CardHeader>
           <CardContent className="flex flex-col gap-4 p-4 pt-2">

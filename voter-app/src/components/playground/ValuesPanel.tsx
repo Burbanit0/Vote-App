@@ -1,6 +1,7 @@
 import React from 'react';
 import { cn } from '@/lib/utils';
 import { paretoSplit, spotlight, type LensItem } from '../../lib/scorecard';
+import MethodInfo from './MethodInfo';
 
 // ValuesPanel (Lab reshape P5) — decide by your sensitivity, honestly.
 // Step 1 (objective): strictly Pareto-dominated systems are ELIMINATED and shown
@@ -83,7 +84,10 @@ const ValuesPanel: React.FC<ValuesPanelProps> = ({
               )}
             >
               <span className="flex items-center justify-between gap-2">
-                <span>{itemLabels[it.id] ?? it.id}</span>
+                <span className="flex items-center gap-0.5">
+                  {itemLabels[it.id] ?? it.id}
+                  <MethodInfo method={it.id} placement="left" />
+                </span>
                 {isDominated ? (
                   <span className="text-[0.68rem] no-underline">écarté (dominé)</span>
                 ) : isLit ? (
