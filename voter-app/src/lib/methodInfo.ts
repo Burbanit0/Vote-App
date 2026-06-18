@@ -10,7 +10,7 @@
 // (copeland, star_voting, simple_score, …) are mapped via METHOD_ALIASES so a
 // single entry serves every surface.
 
-export type MethodFamily = 'ordinal' | 'condorcet' | 'cardinal';
+export type MethodFamily = 'ordinal' | 'condorcet' | 'cardinal' | 'apportionment';
 
 export interface MethodCopy {
   /** Display name (matches the playground label). */
@@ -472,6 +472,72 @@ export const METHOD_INFO: Record<string, MethodEntry> = {
       weakness: 'The variance penalty is an arbitrary choice; manipulable.',
       criterion: 'A “consensus” heuristic; no axiomatic guarantee.',
       example: 'A flat-3 candidate can beat a polarising 5/0 one.',
+    },
+  },
+
+  // ── Parliament structures (seat allocation) ────────────────────────────────
+  pr: {
+    family: 'apportionment',
+    fr: {
+      name: 'Proportionnelle (listes)',
+      summary: 'Les sièges sont répartis en proportion des voix de chaque parti.',
+      how: 'Une règle d’apportionnement (D’Hondt, Sainte-Laguë) convertit les % de voix en sièges, souvent au-dessus d’un seuil.',
+      strength: 'Représentation fidèle : peu de voix gaspillées, pluralisme préservé.',
+      weakness: 'Fragmentation possible : majorités de coalition, parfois instables.',
+      criterion: 'Vise la proportionnalité (faible indice de Gallagher).',
+      example: 'Pays-Bas, Israël : assemblées très proportionnelles et multipartites.',
+    },
+    en: {
+      name: 'Proportional (party lists)',
+      summary: 'Seats are shared in proportion to each party’s vote share.',
+      how: 'An apportionment rule (D’Hondt, Sainte-Laguë) turns vote % into seats, usually above a threshold.',
+      strength: 'Faithful representation: few wasted votes, pluralism preserved.',
+      weakness: 'Possible fragmentation: coalition majorities, sometimes unstable.',
+      criterion: 'Targets proportionality (low Gallagher index).',
+      example: 'Netherlands, Israel: highly proportional, multi-party assemblies.',
+    },
+  },
+  fptp: {
+    family: 'apportionment',
+    fr: {
+      name: 'Circonscriptions (FPTP)',
+      summary: 'Une circonscription = un siège, gagné par le candidat en tête localement.',
+      how: 'Le territoire est découpé en bandes d’égale population ; pluralité dans chacune.',
+      strength: 'Lien élu–territoire fort ; tend à dégager des majorités nettes.',
+      weakness: 'Forte distorsion voix/sièges et sensibilité au découpage (charcutage).',
+      criterion: 'Échoue la proportionnalité ; favorise le bipartisme (loi de Duverger).',
+      example:
+        'Royaume-Uni, USA (Chambre) : un parti peut avoir une majorité de sièges sans majorité de voix.',
+    },
+    en: {
+      name: 'Districts (first-past-the-post)',
+      summary: 'One district = one seat, won by the locally leading candidate.',
+      how: 'The territory is cut into equal-population bands; plurality wins each.',
+      strength: 'Strong representative–district link; tends to manufacture clear majorities.',
+      weakness: 'Large vote/seat distortion and sensitivity to the map (gerrymandering).',
+      criterion: 'Fails proportionality; favours two-party systems (Duverger’s law).',
+      example: 'UK, US House: a party can hold a seat majority without a vote majority.',
+    },
+  },
+  mmp: {
+    family: 'apportionment',
+    fr: {
+      name: 'Mixte (MMP)',
+      summary: 'Moitié circonscriptions, moitié compensation proportionnelle.',
+      how: 'On élit des députés locaux (FPTP) puis on ajoute des sièges de liste pour rétablir la proportionnalité globale.',
+      strength: 'Combine ancrage local et proportionnalité d’ensemble.',
+      weakness: 'Sièges de surplomb (« overhang ») et complexité de compréhension.',
+      criterion: 'Quasi-proportionnel tout en gardant un lien territorial.',
+      example: 'Allemagne, Nouvelle-Zélande : le modèle mixte de référence.',
+    },
+    en: {
+      name: 'Mixed-member proportional (MMP)',
+      summary: 'Half local districts, half proportional top-up.',
+      how: 'Elect local MPs (FPTP), then add list seats to restore overall proportionality.',
+      strength: 'Combines local anchoring with overall proportionality.',
+      weakness: 'Overhang seats and harder-to-grasp mechanics.',
+      criterion: 'Near-proportional while keeping a territorial link.',
+      example: 'Germany, New Zealand: the reference mixed model.',
     },
   },
 };
