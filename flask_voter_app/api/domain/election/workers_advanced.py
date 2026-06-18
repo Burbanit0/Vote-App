@@ -109,7 +109,7 @@ def _demographic_turnout_worker(data: Dict[str, Any]) -> tuple[Dict[str, Any], i
 
     # ── Determine effective voters ─────────────────────────────────────────
     t_rng      = _random.Random(seed + 100)
-    voted_ids: set = {
+    voted_ids: set[Any] = {
         v["id"] for v in raw_voters
         if t_rng.random() < voter_demo[v["id"]]["p_vote"]
     }
@@ -150,9 +150,9 @@ def _demographic_turnout_worker(data: Dict[str, Any]) -> tuple[Dict[str, Any], i
     ideo_drift = round(bias_mean - full_mean, 4)
 
     # ── Demographic breakdown (3 age × 2 edu groups) ─────────────────────
-    grp_pop: Dict[tuple, int]   = {}
-    grp_vot: Dict[tuple, int]   = {}
-    grp_ideo: Dict[tuple, list] = {}
+    grp_pop: Dict[tuple[Any, ...], int]   = {}
+    grp_vot: Dict[tuple[Any, ...], int]   = {}
+    grp_ideo: Dict[tuple[Any, ...], list[Any]] = {}
     for v in raw_voters:
         d   = voter_demo[v["id"]]
         key = (d["age"], d["edu"])
@@ -283,15 +283,15 @@ def _compulsory_voting_worker(data: Dict[str, Any]) -> tuple[Dict[str, Any], int
 
     # Voluntary: right-leaning voters have higher effective threshold
     # Compulsory: same bias, higher base threshold
-    voluntary_ids:  set = {
+    voluntary_ids:  set[Any] = {
         vid for vid, sc in part_score.items()
         if sc < vol_to + _COMPULSORY_BIAS * voter_ideo[vid]
     }
-    compulsory_ids: set = {
+    compulsory_ids: set[Any] = {
         vid for vid, sc in part_score.items()
         if sc < comp_to + _COMPULSORY_BIAS * voter_ideo[vid]
     }
-    reluctant_ids: set = compulsory_ids - voluntary_ids
+    reluctant_ids: set[Any] = compulsory_ids - voluntary_ids
 
     # ── Sincere votes ─────────────────────────────────────────────────────
     sincere_vote: Dict[int, str] = {
@@ -321,8 +321,8 @@ def _compulsory_voting_worker(data: Dict[str, Any]) -> tuple[Dict[str, Any], int
             comp_vote[vid] = sincere_vote[vid]
 
     # ── Election runner (plurality) ───────────────────────────────────────
-    def _run(vote_dict: Dict[int, str], voter_set: set) -> tuple[str, Dict[str, float], float]:
-        tally: Counter = Counter()
+    def _run(vote_dict: Dict[int, str], voter_set: set[Any]) -> tuple[str, Dict[str, float], float]:
+        tally: Counter[Any] = Counter()
         n_null = sum(1 for vid in voter_set if vote_dict.get(vid, _NULL) == _NULL)
         for vid in voter_set:
             v = vote_dict.get(vid, sincere_vote[vid])
@@ -473,13 +473,13 @@ def _sortition_worker(data: Dict[str, Any]) -> tuple[Dict[str, Any], int]:
     voter_edu: Dict[int, int] = {v["id"]: (0 if d_rng.random() < 0.40 else 1) for v in voters}
 
     # ── Metric helpers ────────────────────────────────────────────────────
-    def _representativity(asm: set) -> float:
+    def _representativity(asm: set[Any]) -> float:
         if not asm:
             return 0.0
         mean = sum(voter_ideo[vid] for vid in asm) / len(asm)
         return round(max(0.0, 1.0 - 2.0 * abs(mean - full_mean_ideo)), 4)
 
-    def _diversity(asm: set) -> float:
+    def _diversity(asm: set[Any]) -> float:
         if not asm:
             return 0.0
         ideos = [voter_ideo[vid] for vid in asm]
@@ -497,7 +497,7 @@ def _sortition_worker(data: Dict[str, Any]) -> tuple[Dict[str, Any], int]:
         ent = -sum(p * _math.log(p) for p in ps)
         return round(ent / _math.log(4), 4)
 
-    def _decision_regret(asm: set) -> float:
+    def _decision_regret(asm: set[Any]) -> float:
         if not asm:
             return 0.0
         asm_mean = sum(voter_ideo[vid] for vid in asm) / len(asm)
@@ -505,7 +505,7 @@ def _sortition_worker(data: Dict[str, Any]) -> tuple[Dict[str, Any], int]:
             sum(abs(voter_ideo[vid] - asm_mean) for vid in all_ids) / num_voters, 4
         )
 
-    def _gini_repr(asm: set) -> float:
+    def _gini_repr(asm: set[Any]) -> float:
         if not asm:
             return 0.0
         pop_s = sorted(voter_ideo.values())
@@ -522,7 +522,7 @@ def _sortition_worker(data: Dict[str, Any]) -> tuple[Dict[str, Any], int]:
         cs  = sum((i + 1) * v for i, v in enumerate(s))
         return round(abs(2.0 * cs / (4 * tot) - (4 + 1) / 4), 4)
 
-    def _asm_metrics(asm: set) -> Dict[str, Any]:
+    def _asm_metrics(asm: set[Any]) -> Dict[str, Any]:
         n = len(asm)
         if n == 0:
             return {k: 0.0 for k in ("members_ideology_mean", "representativity",
@@ -541,7 +541,7 @@ def _sortition_worker(data: Dict[str, Any]) -> tuple[Dict[str, Any], int]:
         }
 
     # ── Assembly constructors ─────────────────────────────────────────────
-    def _elected_asm(rng: _random.Random) -> set:
+    def _elected_asm(rng: _random.Random) -> set[Any]:
         cand_n = min(assembly_size * 3, num_voters)
         if realistic_cands:
             # Add noise so each MC run gets a slightly different candidate pool
@@ -554,7 +554,7 @@ def _sortition_worker(data: Dict[str, Any]) -> tuple[Dict[str, Any], int]:
         else:
             pool = set(rng.sample(all_ids, cand_n))
 
-        tally: Counter = Counter()
+        tally: Counter[Any] = Counter()
         for vid in all_ids:
             closest = min(pool, key=lambda cid: abs(voter_ideo[vid] - voter_ideo[cid]))
             tally[closest] += 1
@@ -562,10 +562,10 @@ def _sortition_worker(data: Dict[str, Any]) -> tuple[Dict[str, Any], int]:
         elected = sorted(pool, key=lambda cid: -tally[cid])[:assembly_size]
         return set(elected)
 
-    def _pure_asm(rng: _random.Random) -> set:
+    def _pure_asm(rng: _random.Random) -> set[Any]:
         return set(rng.sample(all_ids, min(assembly_size, num_voters)))
 
-    def _stratified_asm(rng: _random.Random) -> set:
+    def _stratified_asm(rng: _random.Random) -> set[Any]:
         age_targets = [max(1, round(p * assembly_size)) for p in age_dist]
         while sum(age_targets) > assembly_size:
             age_targets[age_targets.index(max(age_targets))] -= 1
@@ -610,7 +610,7 @@ def _sortition_worker(data: Dict[str, Any]) -> tuple[Dict[str, Any], int]:
     }
 
     # ── Winner by assembly ────────────────────────────────────────────────
-    def _asm_winner(asm: set) -> Optional[str]:
+    def _asm_winner(asm: set[Any]) -> Optional[str]:
         rnk = [
             sorted(sincere_utilities[vid].keys(), key=lambda k: -sincere_utilities[vid][k])
             for vid in asm
@@ -631,7 +631,7 @@ def _sortition_worker(data: Dict[str, Any]) -> tuple[Dict[str, Any], int]:
 
     for sim_i in range(num_sims):
         r = _random.Random(seed + 1000 + sim_i)
-        def _mean_ideo(asm: set) -> float:
+        def _mean_ideo(asm: set[Any]) -> float:
             return sum(voter_ideo[vid] for vid in asm) / len(asm) if asm else 0.0
         mc_elected.append(_mean_ideo(_elected_asm(r)))
         mc_pure.append(_mean_ideo(_pure_asm(_random.Random(seed + 2000 + sim_i))))
@@ -747,7 +747,7 @@ def _party_dynamics_worker(data: Dict[str, Any]) -> tuple[Dict[str, Any], int]:
     tactical_methods = {"plurality", "two_round", "irv"}
 
     # ── Vote-share helper ─────────────────────────────────────────────────
-    def _vote_shares(parties: list, polls: Dict[str, float]) -> Dict[str, float]:
+    def _vote_shares(parties: list[Any], polls: Dict[str, float]) -> Dict[str, float]:
         pxs = _np.array([p["x"] for p in parties])
         dists = _np.abs(voter_x[:, None] - pxs[None, :])   # (N, K)
         nearest = _np.argmin(dists, axis=1)
@@ -767,7 +767,7 @@ def _party_dynamics_worker(data: Dict[str, Any]) -> tuple[Dict[str, Any], int]:
         return {p["name"]: float(counts[i] / num_voters) for i, p in enumerate(parties)}
 
     # ── Gap finder for party emergence ────────────────────────────────────
-    def _find_gap(pxs: list) -> float:
+    def _find_gap(pxs: list[Any]) -> float:
         cands = _np.linspace(-1.0, 1.0, 60)
         best_x, best_gap = 0.0, 0.0
         for cx in cands:
@@ -947,7 +947,7 @@ def _deliberation_worker(data: Dict[str, Any]) -> tuple[Dict[str, Any], int]:
 
     def _shares(utils: Dict[Any, Dict[str, float]]) -> Dict[str, float]:
         rnk = [sorted(utils[v["id"]], key=lambda k: -utils[v["id"]][k]) for v in voters]
-        tally: Counter = Counter(r[0] for r in rnk if r)
+        tally: Counter[Any] = Counter(r[0] for r in rnk if r)
         total = len(voters)
         return {c: round(tally.get(c, 0) / total, 4) for c in cand_names}
 
@@ -976,7 +976,7 @@ def _deliberation_worker(data: Dict[str, Any]) -> tuple[Dict[str, Any], int]:
             v["issue_positions"]["economy"] = orig
         return out
 
-    def _form_groups(ideo: _np.ndarray, rng: _random.Random) -> list:
+    def _form_groups(ideo: _np.ndarray, rng: _random.Random) -> list[Any]:
         n   = len(ideo)
         idx = list(range(n))
         if network_type == "complete":
@@ -1143,10 +1143,10 @@ def _power_indices_worker(data: Dict[str, Any]) -> tuple[Dict[str, Any], int]:
     names = [p["name"] for p in parties]
     n = len(names)
     seats_map: Dict[str, int] = {p["name"]: p["seats"] for p in parties}
-    pariah_set: set = {p["name"] for p in parties if p["pariah"]}
+    pariah_set: set[Any] = {p["name"] for p in parties if p["pariah"]}
 
     # Build forbidden pairs: explicit constraints + pariah rules
-    forbidden: set = set()
+    forbidden: set[Any] = set()
     for c in constraints_raw:
         a, b = c.get("party_a", ""), c.get("party_b", "")
         if a in names and b in names:
@@ -1157,14 +1157,14 @@ def _power_indices_worker(data: Dict[str, Any]) -> tuple[Dict[str, Any], int]:
             if other != par:
                 forbidden.add(frozenset([par, other]))
 
-    def _coalition_valid(members: frozenset) -> bool:
+    def _coalition_valid(members: frozenset[Any]) -> bool:
         """Returns True if no forbidden pair is fully inside members."""
         for pair in forbidden:
             if pair.issubset(members):
                 return False
         return True
 
-    def _coalition_wins(members: frozenset) -> bool:
+    def _coalition_wins(members: frozenset[Any]) -> bool:
         return _coalition_valid(members) and sum(seats_map[m] for m in members) >= majority_threshold
 
     # ── Shapley-Shubik ────────────────────────────────────────────────────────
@@ -1174,7 +1174,7 @@ def _power_indices_worker(data: Dict[str, Any]) -> tuple[Dict[str, Any], int]:
     if calc_shapley and n <= 10:
         for perm in _it_pi.permutations(names):
             total_perms += 1
-            running: frozenset = frozenset()
+            running: frozenset[Any] = frozenset()
             already_won = False
             for party in perm:
                 new_coalition = running | {party}
