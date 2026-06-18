@@ -86,7 +86,7 @@ _TRADEOFF_TYPE: Dict[str, str] = {
 
 
 def _plurality_winner(profile: List[List[str]]) -> Optional[str]:
-    tally: Counter = Counter(v[0] for v in profile if v)
+    tally: Counter[Any] = Counter(v[0] for v in profile if v)
     return tally.most_common(1)[0][0] if tally else None
 
 
@@ -282,10 +282,10 @@ def _majority_beats(dists: "_np_t.ndarray", num_voters: int) -> "_np_t.ndarray":
     # dists shape: (n_voters, n_policies)
     # beats_count[j,k] = #{v: dists[v,j] < dists[v,k]}
     beats_count = _np_t.sum(dists[:, :, None] < dists[:, None, :], axis=0)
-    return beats_count > num_voters / 2
+    return _np_t.asarray(beats_count > num_voters / 2)
 
 
-def _top_cycle_scc(n: int, beats: "_np_t.ndarray") -> set:
+def _top_cycle_scc(n: int, beats: "_np_t.ndarray") -> set[Any]:
     """Find the Smith set (top SCC) using Kosaraju's algorithm."""
     adj  = [[k for k in range(n) if k != j and beats[j, k]] for j in range(n)]
     radj = [[k for k in range(n) if k != j and beats[k, j]] for j in range(n)]
@@ -341,14 +341,14 @@ def _top_cycle_scc(n: int, beats: "_np_t.ndarray") -> set:
         for v in comp:
             comp_of[v] = ci
 
-    in_edges = [set() for _ in range(len(components))]
+    in_edges: list[set[Any]] = [set() for _ in range(len(components))]
     for j in range(n):
         for k in adj[j]:
             if comp_of[j] != comp_of[k]:
                 in_edges[comp_of[k]].add(comp_of[j])
 
     top_comps = [ci for ci in range(len(components)) if not in_edges[ci]]
-    top_set: set = set()
+    top_set: set[Any] = set()
     for ci in top_comps:
         top_set.update(components[ci])
     return top_set
@@ -519,7 +519,7 @@ def _judgment_aggregation_worker(data: Dict[str, Any]) -> tuple[Dict[str, Any], 
     collective: List[bool] = [pct > 0.5 for pct in yes_pcts]
 
     # ── Constraint check helper ───────────────────────────────────────────
-    def _check(votes: List[bool], cstr: tuple) -> bool:
+    def _check(votes: List[bool], cstr: tuple[Any, ...]) -> bool:
         """Return True if votes satisfy the constraint."""
         prem_ids, conc_id, rule = cstr
         p_vals = [votes[id_to_idx[pid]] for pid in prem_ids]
@@ -676,7 +676,7 @@ def _agenda_manipulation_worker(data: Dict[str, Any]) -> tuple[Dict[str, Any], i
     # ── Enumerate all permutations ────────────────────────────────────────
     all_perms = list(_itertools_ag.permutations(alternatives))
 
-    achievable:          set                = set()
+    achievable:          set[Any]           = set()
     sample_outcomes:     Dict[str, Any]     = {}
     optimal_for_target:  Optional[List[str]] = None
     neutral_agenda:      Optional[List[str]] = None
@@ -821,7 +821,7 @@ def _population_paradox(votes: Dict[str, int], fn: Any, n: int) -> bool:
     return False
 
 
-_AP_METHODS: Dict[str, tuple] = {
+_AP_METHODS: Dict[str, tuple[Any, ...]] = {
     "hamilton":        (_hamilton,    "neutral",       "Quotient garanti, paradoxe d'Alabama possible"),
     "jefferson":       (_jefferson,   "large_parties", "Monotone, favorise les grands partis, peut violer quota sup."),
     "webster":         (_webster,     "neutral",       "Plus neutre, monotone, léger risque de violation quota"),
@@ -896,7 +896,7 @@ _SEN_ALT_NAMES = {
 
 
 def _check_sen(pref1: List[str], pref2: List[str],
-               sphere1: tuple, sphere2: tuple) -> Dict[str, Any]:
+               sphere1: tuple[Any, ...], sphere2: tuple[Any, ...]) -> Dict[str, Any]:
     """
     Check the Sen paradox for 2 voters, 3 alternatives.
     Returns liberal_outcome, pareto_outcome, conflict flag, explanation.
@@ -904,7 +904,7 @@ def _check_sen(pref1: List[str], pref2: List[str],
     alts = _SEN_ALTS
 
     # ── Liberal order from private spheres ────────────────────────────────
-    lib: Dict[tuple, bool] = {}   # (a, b): a ≻L b
+    lib: Dict[tuple[Any, ...], bool] = {}   # (a, b): a ≻L b
 
     for (a, b), pref in [(sphere1, pref1), (sphere2, pref2)]:
         if pref.index(a) < pref.index(b):
@@ -925,7 +925,7 @@ def _check_sen(pref1: List[str], pref2: List[str],
                             changed = True
 
     # ── Pareto order ──────────────────────────────────────────────────────
-    par: Dict[tuple, bool] = {}   # (a, b): a ≻P b
+    par: Dict[tuple[Any, ...], bool] = {}   # (a, b): a ≻P b
 
     for a in alts:
         for b in alts:
@@ -935,7 +935,7 @@ def _check_sen(pref1: List[str], pref2: List[str],
 
     # ── Conflict detection ────────────────────────────────────────────────
     conflict = False
-    conflict_pair: Optional[tuple] = None
+    conflict_pair: Optional[tuple[Any, ...]] = None
     for a in alts:
         for b in alts:
             if a != b and lib.get((a, b)) and par.get((b, a)):
@@ -1091,7 +1091,7 @@ def _sen_paradox_worker(data: Dict[str, Any]) -> tuple[Dict[str, Any], int]:
 def _manipulation_analysis_worker(data: Dict[str, Any]) -> tuple[Dict[str, Any], int]:
     """Pure worker for /manipulation-analysis — extracted for FastAPI v2."""
     import copy as _cp_m  # noqa: F401  (kept for parity with original imports)
-    from api.domain.election.workers import _build_base_electorate
+    from api.domain.election.workers import _build_base_electorate  # type: ignore[attr-defined]
     from api.engine.utils.simulation_ranked_utils import (
         get_plurality_winner as _plur,
         get_borda_winner     as _bord,
@@ -1166,11 +1166,11 @@ def _manipulation_analysis_worker(data: Dict[str, Any]) -> tuple[Dict[str, Any],
     sincere_winner = _run(sincere_rankings)
 
     # ── Strategy generators ───────────────────────────────────────────────
-    def _compromising(sr: List[str]) -> List[tuple]:
+    def _compromising(sr: List[str]) -> List[tuple[Any, ...]]:
         return [([alt] + [c for c in sr if c != alt], "compromising")
                 for alt in cand_names if alt != sr[0]]
 
-    def _burying(sr: List[str]) -> List[tuple]:
+    def _burying(sr: List[str]) -> List[tuple[Any, ...]]:
         # Push each non-top candidate to the bottom
         res = []
         for to_bury in cand_names:
@@ -1178,9 +1178,9 @@ def _manipulation_analysis_worker(data: Dict[str, Any]) -> tuple[Dict[str, Any],
                 res.append(([c for c in sr if c != to_bury] + [to_bury], "burying"))
         return res
 
-    def _pushover(sr: List[str]) -> List[tuple]:
+    def _pushover(sr: List[str]) -> List[tuple[Any, ...]]:
         # Elevate the weakest (last) candidate to second place to create spoiler
-        res = []
+        res: list[Any] = []
         if len(sr) < 3:
             return res
         weak = sr[-1]  # weakest
@@ -1189,7 +1189,7 @@ def _manipulation_analysis_worker(data: Dict[str, Any]) -> tuple[Dict[str, Any],
             res.append((alt, "pushover"))
         return res
 
-    def _truncating(sr: List[str]) -> List[tuple]:
+    def _truncating(sr: List[str]) -> List[tuple[Any, ...]]:
         if method not in ("irv", "two_round", "approval"):
             return []
         res = []
@@ -1211,7 +1211,7 @@ def _manipulation_analysis_worker(data: Dict[str, Any]) -> tuple[Dict[str, Any],
     for v_idx, v in enumerate(voters):
         vid    = v["id"]
         sr     = sincere_rankings[v_idx]
-        u_sinc = sincere_utilities[vid].get(sincere_winner, 0)
+        u_sinc = sincere_utilities[vid].get(sincere_winner or "", 0)
 
         best_gain, best_m = 0.0, None
 
@@ -1229,7 +1229,7 @@ def _manipulation_analysis_worker(data: Dict[str, Any]) -> tuple[Dict[str, Any],
                 if strat_w == sincere_winner:
                     continue
 
-                gain = sincere_utilities[vid].get(strat_w, 0) - u_sinc
+                gain = sincere_utilities[vid].get(strat_w or "", 0) - u_sinc
                 if gain > 0 and gain > best_gain:
                     best_gain = gain
                     best_m = {
@@ -1687,6 +1687,7 @@ def _democratic_backsliding_worker(data: Dict[str, Any]) -> tuple[Dict[str, Any]
     # ── Pedagogical note ──────────────────────────────────────────────────────
     active_gr = [k for k, v in guardrails.items() if v]
     if autocracy_reached:
+        assert autocracy_at_election is not None
         note = (
             f"Autocratie atteinte à l'élection n°{autocracy_at_election} "
             f"(qualité démocratique : {elections[autocracy_at_election - 1]['democratic_quality']:.2f}). "
@@ -1780,7 +1781,7 @@ def _intergenerational_worker(data: Dict[str, Any]) -> tuple[Dict[str, Any], int
             future_weight = max(0.15, 0.30 - horizon * 0.008)
             util = (1 - future_weight) * (cp + 1) / 2 + future_weight * (bf + 1) / 2
 
-        return max(0.0, min(1.0, util + noise))
+        return float(max(0.0, min(1.0, util + noise)))
 
     # ── Per-mechanism vote outcome ────────────────────────────────────────────
 
@@ -2380,7 +2381,7 @@ def _assumption_testing_worker(data: Dict[str, Any]) -> tuple[Dict[str, Any], in
     def _nearest(pos: float, bump: Dict[str, float]) -> str:
         dists = {c["name"]: abs(pos - c.get("x", 0.0) + bump.get(c["name"], 0.0))
                  for c in candidates_raw}
-        return min(dists, key=dists.get)  # type: ignore[arg-type]
+        return str(min(dists, key=lambda d: dists[d]))
 
     def _plurality_winner(votes: List[str]) -> Optional[str]:
         from collections import Counter as _C
@@ -2611,7 +2612,7 @@ def _collective_will_worker(data: Dict[str, Any]) -> tuple[Dict[str, Any], int]:
                     beats_all = False
                     break
             if beats_all:
-                return cand
+                return str(cand)
         return None
 
     # ── IRV helper ────────────────────────────────────────────────────────────
@@ -2624,18 +2625,18 @@ def _collective_will_worker(data: Dict[str, Any]) -> tuple[Dict[str, Any], int]:
                 next((c for c in r if c in remaining), None)
                 for r in current
             )
-            tally.pop(None, None)  # type: ignore[arg-type]
+            tally.pop(None, None)
             if not tally:
                 break
             total = sum(tally.values())
             # Check majority
             leader = tally.most_common(1)[0][0]
-            if tally[leader] > total / 2:
+            if leader is not None and tally[leader] > total / 2:
                 return leader
             # Eliminate last
             last = tally.most_common()[-1][0]
             remaining.remove(last)
-        return remaining[0] if remaining else cand_names[0]
+        return str(remaining[0]) if remaining else cand_names[0]
 
     # ── Minimax helper ────────────────────────────────────────────────────────
     def _minimax(rankings: List[List[str]]) -> str:
