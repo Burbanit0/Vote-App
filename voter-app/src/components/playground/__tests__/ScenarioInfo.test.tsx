@@ -14,6 +14,14 @@ describe('ScenarioInfo', () => {
     expect(pop).toHaveTextContent(/observer|Try/);
   });
 
+  it('covers electorate-mixture presets via kind="electorate"', () => {
+    render(<ScenarioInfo scenario="cleavages_3d" kind="electorate" />);
+    fireEvent.click(screen.getByTestId('info-electorate-cleavages_3d'));
+    expect(screen.getByTestId('pop-electorate-cleavages_3d')).toHaveTextContent(
+      /clivages|cleavages/
+    );
+  });
+
   it('renders nothing for an unknown scenario id', () => {
     const { container } = render(<ScenarioInfo scenario="nope" />);
     expect(container).toBeEmptyDOMElement();

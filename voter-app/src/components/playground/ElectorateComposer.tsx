@@ -3,6 +3,7 @@ import { cn } from '@/lib/utils';
 import { usePlayground, useElection } from '../../stores/useElectionStore';
 import { ELECTORATE_PRESETS } from '../../stores/useElectionStore';
 import { COMMUNITY_PALETTE, type Community } from '../../lib/playgroundElectorate';
+import ScenarioInfo from './ScenarioInfo';
 
 // ElectorateComposer (electorate engine) — build a varied electorate as a
 // mixture of communities, from textbook shapes to near-real compositions.
@@ -202,15 +203,17 @@ const ElectorateComposer: React.FC = () => {
           <div className="flex flex-wrap items-center gap-1.5">
             <span className="text-xs font-medium text-muted-foreground">Modèles :</span>
             {Object.entries(ELECTORATE_PRESETS).map(([id, p]) => (
-              <button
-                key={id}
-                type="button"
-                data-testid={`electorate-preset-${id}`}
-                onClick={() => applyElectoratePreset(id)}
-                className="rounded border border-border px-2 py-0.5 text-xs hover:bg-accent"
-              >
-                {p.label}
-              </button>
+              <span key={id} className="inline-flex items-center gap-0.5">
+                <button
+                  type="button"
+                  data-testid={`electorate-preset-${id}`}
+                  onClick={() => applyElectoratePreset(id)}
+                  className="rounded border border-border px-2 py-0.5 text-xs hover:bg-accent"
+                >
+                  {p.label}
+                </button>
+                <ScenarioInfo scenario={id} kind="electorate" placement="bottom" />
+              </span>
             ))}
           </div>
 
