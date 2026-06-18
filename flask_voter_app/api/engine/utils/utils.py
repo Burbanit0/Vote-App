@@ -1,10 +1,11 @@
 from collections import defaultdict, Counter
 from itertools import combinations
+from typing import Any
 import numpy as np
 
 
 # return the Condorcet winner
-def get_condorcet_winner(votes):
+def get_condorcet_winner(votes: Any) -> Any:
     """
     Determine the Condorcet winner from a set of votes.
 
@@ -18,7 +19,7 @@ def get_condorcet_winner(votes):
     voters = set(vote.voter_id for vote in votes)
 
     # Initialize a dictionary to store the head-to-head wins
-    wins = defaultdict(int)
+    wins: "defaultdict[Any, int]" = defaultdict(int)
 
     # Compare each pair of candidates
     for candidate_1, candidate_2 in combinations(candidates, 2):
@@ -63,7 +64,7 @@ def get_condorcet_winner(votes):
 
 
 # return the winner
-def get_two_round_winner(votes):
+def get_two_round_winner(votes: Any) -> Any:
     """
     Determine the winner of a two-round system from a set of votes.
 
@@ -72,7 +73,7 @@ def get_two_round_winner(votes):
     :return: The ID of the winner.
     """
     # Count the first-choice votes for each candidate
-    first_choice_votes = Counter()
+    first_choice_votes: "Counter[Any]" = Counter()
     for vote in votes:
         if vote.rank == 1:
             first_choice_votes[vote.candidate_id] += 1
@@ -88,23 +89,24 @@ def get_two_round_winner(votes):
 
     # If no majority, proceed to the second round with the top two candidates
     top_two_candidates = first_choice_votes.most_common(2)
-    candidate_1, candidate_2 = (top_two_candidates[0][0],)
-    top_two_candidates[1][0]
+    candidate_1, candidate_2 = top_two_candidates[0][0], top_two_candidates[1][0]
 
     # Count the votes for the top two candidates in the second round
-    second_round_votes = Counter()
+    second_round_votes: "Counter[Any]" = Counter()
     for vote in votes:
         if vote.candidate_id in (candidate_1, candidate_2):
             second_round_votes[vote.candidate_id] += 1
 
     # Determine the winner of the second round
-    winner = max(second_round_votes, key=second_round_votes.get)
+    winner = max(second_round_votes, key=lambda c: second_round_votes[c])
     return winner
 
 
-def bucklin_voting(votes):
+def bucklin_voting(votes: Any) -> Any:
     # Group votes by candidate_id and rank
-    candidate_votes = defaultdict(lambda: defaultdict(int))
+    candidate_votes: "defaultdict[Any, defaultdict[Any, int]]" = defaultdict(
+        lambda: defaultdict(int)
+    )
     for vote in votes:
         candidate_id = vote["candidate_id"]
         rank = vote["rank"]
@@ -117,7 +119,7 @@ def bucklin_voting(votes):
     majority = total_voters // 2 + 1
 
     # Accumulate votes by rank
-    accumulated_votes = defaultdict(int)
+    accumulated_votes: "defaultdict[Any, int]" = defaultdict(int)
     for rank in sorted(set(vote["rank"] for vote in votes)):
         for candidate_id in candidate_votes:
             accumulated_votes[candidate_id] += candidate_votes[candidate_id][rank]
@@ -126,13 +128,13 @@ def bucklin_voting(votes):
 
     # If no candidate achieves a majority, return the candidate with
     # the most accumulated votes
-    return max(accumulated_votes, key=accumulated_votes.get)
+    return max(accumulated_votes, key=lambda c: accumulated_votes[c])
 
 
 # Getting the intermediate candidates
-def two_round_system(votes):
+def two_round_system(votes: Any) -> tuple[Any, list[Any]]:
     # Group votes by candidate_id and count their first-choice votes
-    first_choice_votes = defaultdict(int)
+    first_choice_votes: "defaultdict[Any, int]" = defaultdict(int)
     for vote in votes:
         if vote["rank"] == 1:
             first_choice_votes[vote["candidate_id"]] += 1
@@ -155,18 +157,18 @@ def two_round_system(votes):
     top_two_candidates = [candidate_id for candidate_id, _ in first_round_results[:2]]
 
     # Count votes for the top two candidates in the second round
-    second_round_votes = defaultdict(int)
+    second_round_votes: "defaultdict[Any, int]" = defaultdict(int)
     for vote in votes:
         if vote["candidate_id"] in top_two_candidates:
             second_round_votes[vote["candidate_id"]] += 1
 
     # Determine the winner of the second round
-    second_round_winner = max(second_round_votes, key=second_round_votes.get)
+    second_round_winner = max(second_round_votes, key=lambda c: second_round_votes[c])
 
     return second_round_winner, top_two_candidates
 
 
-def schulze_method(votes):
+def schulze_method(votes: Any) -> Any:
     # Group votes by voter_id
     voter_preferences = defaultdict(list)
     for vote in votes:
@@ -222,10 +224,10 @@ def schulze_method(votes):
 
 
 # Using the rating poart of the votes
-def score_voting(votes):
+def score_voting(votes: Any) -> Any:
     # Group votes by candidate_id and sum their ratings
-    candidate_scores = defaultdict(float)
-    candidate_counts = defaultdict(int)
+    candidate_scores: "defaultdict[Any, float]" = defaultdict(float)
+    candidate_counts: "defaultdict[Any, int]" = defaultdict(int)
 
     for vote in votes:
         candidate_id = vote["candidate_id"]
@@ -240,6 +242,6 @@ def score_voting(votes):
     }
 
     # Determine the winner
-    winner = max(average_scores, key=average_scores.get)
+    winner = max(average_scores, key=lambda c: average_scores[c])
 
     return winner

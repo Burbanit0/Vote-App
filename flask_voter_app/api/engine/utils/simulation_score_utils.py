@@ -1,14 +1,16 @@
 from collections import defaultdict
-from typing import Dict, List, Optional
+from typing import Any, Dict, List, Optional
 import math
 import statistics
 
 
-def get_simple_score_winner(all_scores):
+def get_simple_score_winner(all_scores: Any) -> Dict[str, Any]:
     """
     Determine the winner using simple score sum/average method.
     """
-    candidate_scores = defaultdict(lambda: {"sum": 0, "count": 0})
+    candidate_scores: "defaultdict[Any, dict[str, Any]]" = defaultdict(
+        lambda: {"sum": 0, "count": 0}
+    )
 
     for vote in all_scores:
         for candidate, score in vote.items():
@@ -31,12 +33,14 @@ def get_simple_score_winner(all_scores):
     }
 
 
-def get_star_voting_winner(all_scores):
+def get_star_voting_winner(all_scores: Any) -> Dict[str, Any]:
     """
     Determine the winner using STAR (Score Then Automatic Runoff) voting.
     """
     # First round: calculate average scores
-    candidate_scores = defaultdict(lambda: {"sum": 0, "count": 0})
+    candidate_scores: "defaultdict[Any, dict[str, Any]]" = defaultdict(
+        lambda: {"sum": 0, "count": 0}
+    )
 
     for vote in all_scores:
         for candidate, score in vote.items():
@@ -100,11 +104,11 @@ def get_star_voting_winner(all_scores):
     }
 
 
-def get_median_voting_winner(all_scores):
+def get_median_voting_winner(all_scores: Any) -> Dict[str, Any]:
     """
     Determine the winner using median score method.
     """
-    candidate_scores = defaultdict(list)
+    candidate_scores: "defaultdict[Any, list[Any]]" = defaultdict(list)
 
     for vote in all_scores:
         for candidate, score in vote.items():
@@ -125,11 +129,13 @@ def get_median_voting_winner(all_scores):
     }
 
 
-def get_mean_median_hybrid_winner(all_scores):
+def get_mean_median_hybrid_winner(all_scores: Any) -> Dict[str, Any]:
     """
     Determine the winner using a combination of mean and median scores.
     """
-    candidate_stats = defaultdict(lambda: {"sum": 0, "count": 0, "scores": []})
+    candidate_stats: "defaultdict[Any, dict[str, Any]]" = defaultdict(
+        lambda: {"sum": 0, "count": 0, "scores": []}
+    )
 
     for vote in all_scores:
         for candidate, score in vote.items():
@@ -164,11 +170,13 @@ def get_mean_median_hybrid_winner(all_scores):
     }
 
 
-def get_variance_based_winner(all_scores):
+def get_variance_based_winner(all_scores: Any) -> Dict[str, Any]:
     """
     Determine the winner considering both average score and variance.
     """
-    candidate_stats = defaultdict(lambda: {"sum": 0, "sum_sq": 0, "count": 0})
+    candidate_stats: "defaultdict[Any, dict[str, Any]]" = defaultdict(
+        lambda: {"sum": 0, "sum_sq": 0, "count": 0}
+    )
 
     for vote in all_scores:
         for candidate, score in vote.items():
@@ -210,13 +218,15 @@ def get_variance_based_winner(all_scores):
     }
 
 
-def get_score_distribution_analysis(all_scores):
+def get_score_distribution_analysis(all_scores: Any) -> Dict[str, Any]:
     """
     Analyze the distribution of scores for each candidate.
     """
     # Define score bins (0-0.5, 0.5-1, ..., 4.5-5)
     bins = [i * 0.5 for i in range(0, 11)]  # 0, 0.5, 1, ..., 5
-    candidate_distributions = defaultdict(lambda: [0] * (len(bins) - 1))
+    candidate_distributions: "defaultdict[Any, list[int]]" = defaultdict(
+        lambda: [0] * (len(bins) - 1)
+    )
 
     for vote in all_scores:
         for candidate, score in vote.items():
@@ -251,17 +261,17 @@ def get_score_distribution_analysis(all_scores):
     return {"method": "Score Distribution Analysis", "details": results}
 
 
-def calculate_bayesian_regret(all_scores):
+def calculate_bayesian_regret(all_scores: Any) -> Dict[str, Any]:
     """
     Calculate Bayesian regret for each candidate.
     """
-    candidates = set()
+    candidate_set: set[Any] = set()
     for vote in all_scores:
-        candidates.update(vote.keys())
-    candidates = list(candidates)
+        candidate_set.update(vote.keys())
+    candidates = list(candidate_set)
 
     # Calculate utilities (normalized scores)
-    utilities = defaultdict(list)
+    utilities: "defaultdict[Any, list[Any]]" = defaultdict(list)
     for vote in all_scores:
         for candidate, score in vote.items():
             # Normalize to 0-1 range
@@ -439,9 +449,9 @@ def get_majority_judgment_winner(
 
     for c in candidate_names:
         dist = [0] * n_grades
-        for g in all_grades[c]:
-            if 0 <= g < n_grades:
-                dist[g] += 1
+        for grade in all_grades[c]:
+            if 0 <= grade < n_grades:
+                dist[grade] += 1
         grade_distributions[c] = dist
         grades_labeled[c]      = {grade_labels[i]: dist[i] for i in range(n_grades)}
         # Continuous score: weighted average of grade indices
@@ -518,7 +528,7 @@ def get_evaluative_winner(
     return {"winner": winner, "scores": net, "distribution": dist}
 
 
-def run_all_score_voting_methods(all_scores):
+def run_all_score_voting_methods(all_scores: Any) -> Dict[str, Any]:
     """
     Run all score voting methods and return the results.
     """
