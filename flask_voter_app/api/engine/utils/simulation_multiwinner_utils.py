@@ -8,6 +8,7 @@ representational proportionality rather than a single collective choice.
 """
 import math
 from collections import defaultdict
+from itertools import combinations
 from typing import Callable, Dict, List, Optional, Any
 
 
@@ -574,3 +575,152 @@ def get_phragmen_result(
         })
 
     return {"elected": elected, "rounds": rounds}
+
+
+# ── Method of Equal Shares (Rule X) ─────────────────────────────────────────
+
+def _mes_rho(budgets_sorted: List[float]) -> float:
+    """
+    Smallest per-voter price rho such that sum_i min(budget_i, rho) == 1, for a
+    candidate whose supporters can collectively afford the unit cost (their total
+    budget is >= 1). `budgets_sorted` is the supporters' budgets, ascending.
+    """
+    n = len(budgets_sorted)
+    prefix = 0.0  # sum of budgets fully spent by voters below the price
+    for j in range(n):
+        payers = n - j  # voters j..n-1 pay the full price rho
+        rho = (1.0 - prefix) / payers
+        if rho <= budgets_sorted[j] + 1e-12:
+            return rho
+        prefix += budgets_sorted[j]
+    return (1.0 - prefix) / max(n, 1)  # fallback (shouldn't be reached when affordable)
+
+
+def get_equal_shares_result(
+    approval_ballots: List[List[str]],
+    num_seats:        int,
+) -> Dict[str, Any]:
+    """
+    Method of Equal Shares / Rule X (Peters & Skowron, 2020) for an equal-size
+    committee from approval ballots, unit candidate cost.
+
+    Each voter starts with a budget of num_seats / n (total budget = num_seats).
+    A candidate is affordable when its supporters' remaining budgets sum to >= 1;
+    among affordable candidates we pick the one with the smallest per-voter price
+    rho (the most "equally cheap"), and its supporters pay min(budget_i, rho).
+    When no candidate is affordable, the committee is completed by approval score
+    (a stated completion rule). Satisfies Extended Justified Representation (EJR).
+
+    Returns
+    -------
+    {"elected": List[str], "rounds": [{"round", "winner", "rho"|None}]}
+    """
+    n = len(approval_ballots)
+    if n == 0 or num_seats <= 0:
+        return {"elected": [], "rounds": []}
+
+    all_cands: List[str] = []
+    for b in approval_ballots:
+        for c in b:
+            if c not in all_cands:
+                all_cands.append(c)
+    if not all_cands:
+        return {"elected": [], "rounds": []}
+
+    k = min(num_seats, len(all_cands))
+    budget = [k / n] * n
+    supporters = {c: [i for i, b in enumerate(approval_ballots) if c in b] for c in all_cands}
+
+    elected: List[str] = []
+    rounds: List[Dict[str, Any]] = []
+    remaining = list(all_cands)
+
+    while len(elected) < k:
+        best_c: Optional[str] = None
+        best_rho = math.inf
+        for c in remaining:
+            supp = supporters[c]
+            if sum(budget[i] for i in supp) < 1.0 - 1e-9:
+                continue  # supporters cannot afford the unit cost
+            rho = _mes_rho(sorted(budget[i] for i in supp))
+            if rho < best_rho - 1e-12 or (
+                abs(rho - best_rho) <= 1e-12 and (best_c is None or c < best_c)
+            ):
+                best_rho = rho
+                best_c = c
+
+        if best_c is None:
+            break  # nobody affordable → completion below
+
+        for i in supporters[best_c]:
+            budget[i] = max(0.0, budget[i] - min(budget[i], best_rho))
+        elected.append(best_c)
+        remaining.remove(best_c)
+        rounds.append({"round": len(elected) - 1, "winner": best_c, "rho": round(best_rho, 4)})
+
+    # Completion (budget exhausted): fill remaining seats by raw approval score.
+    if len(elected) < k:
+        appro = {c: len(supporters[c]) for c in remaining}
+        for c in sorted(remaining, key=lambda x: (-appro[x], all_cands.index(x))):
+            if len(elected) >= k:
+                break
+            elected.append(c)
+            rounds.append({"round": len(elected) - 1, "winner": c, "rho": None})
+
+    return {"elected": elected, "rounds": rounds}
+
+
+# ── Justified Representation axioms (JR ⊆ PJR ⊆ EJR) ─────────────────────────
+
+def check_justified_representation(
+    approval_ballots: List[List[str]],
+    committee:        List[str],
+    num_seats:        int,
+) -> Dict[str, bool]:
+    """
+    Verify which proportionality axioms an approval committee satisfies, by brute
+    force over cohesive groups (feasible for the playground's small instances).
+
+    A group is ℓ-cohesive if at least ℓ·n/k voters jointly approve ℓ common
+    candidates. Then:
+      · JR  (ℓ=1): some such voter has an approved candidate in the committee;
+      · EJR: some voter in the group has >= ℓ approved candidates in the committee;
+      · PJR: the group's approved candidates inside the committee number >= ℓ.
+    JR ⊆ PJR ⊆ EJR — the output is made consistent with these implications.
+    """
+    n = len(approval_ballots)
+    k = num_seats
+    if n == 0 or k <= 0:
+        return {"jr": True, "pjr": True, "ejr": True}
+
+    W = set(committee)
+    quota = n / k
+    sets = [set(b) for b in approval_ballots]
+    cands = sorted({c for b in approval_ballots for c in b} | W)
+    max_l = min(k, len(cands))
+
+    jr = pjr = ejr = True
+    for ell in range(1, max_l + 1):
+        for combo in combinations(cands, ell):
+            t = set(combo)
+            group = [i for i in range(n) if t <= sets[i]]
+            if len(group) < ell * quota - 1e-9:
+                continue
+            # EJR: some voter in the group has >= ell approved candidates in W.
+            if not any(len(sets[i] & W) >= ell for i in group):
+                ejr = False
+                if ell == 1:
+                    jr = False
+            # PJR: the union of the group's approved-and-elected candidates is >= ell.
+            union: set[str] = set()
+            for i in group:
+                union |= sets[i] & W
+            if len(union) < ell:
+                pjr = False
+                if ell == 1:
+                    jr = False
+
+    # Enforce the textbook implications EJR ⇒ PJR ⇒ JR on the reported flags.
+    pjr = pjr and jr
+    ejr = ejr and pjr
+    return {"jr": jr, "pjr": pjr, "ejr": ejr}

@@ -19,12 +19,14 @@ const { apiClient } = (await import('../../../api/client')) as unknown as {
 const NAMES = ['Alice', 'Bob', 'Carol', 'Dave'];
 
 function makeData() {
-  const makeMethod = (seats: Record<string, number>, distortion: number) => ({
+  const jrAll = { jr: true, pjr: true, ejr: true };
+  const makeMethod = (seats: Record<string, number>, distortion: number, jr = jrAll) => ({
     seats,
     elected: Object.entries(seats)
       .filter(([, s]) => s > 0)
       .map(([c]) => c),
     distortion,
+    justified_representation: jr,
     seat_vs_votes: Object.fromEntries(
       NAMES.map((n) => [
         n,
@@ -50,7 +52,13 @@ function makeData() {
         dhondt: makeMethod({ Alice: 2, Bob: 2, Carol: 0, Dave: 0 }, 0.1),
         spav: makeMethod({ Alice: 2, Bob: 1, Carol: 1, Dave: 0 }, 0.04),
         phragmen: makeMethod({ Alice: 2, Bob: 1, Carol: 1, Dave: 0 }, 0.04),
-        fptp: makeMethod({ Alice: 4, Bob: 0, Carol: 0, Dave: 0 }, 0.3),
+        equal_shares: makeMethod({ Alice: 2, Bob: 1, Carol: 1, Dave: 0 }, 0.04),
+        // FPTP elects only Alice — fails justified representation.
+        fptp: makeMethod({ Alice: 4, Bob: 0, Carol: 0, Dave: 0 }, 0.3, {
+          jr: false,
+          pjr: false,
+          ejr: false,
+        }),
       },
     },
     error: undefined,
@@ -136,7 +144,7 @@ describe('MultiwinnerCompare', () => {
     vi.runAllTimers();
   });
 
-  it('comparison table shows all 5 methods', async () => {
+  it('comparison table shows all methods including Method of Equal Shares', async () => {
     apiClient.POST.mockResolvedValue(makeData());
     renderPanel();
     fireEvent.click(screen.getByRole('button', { name: /comparer|compare/i }));
@@ -145,7 +153,20 @@ describe('MultiwinnerCompare', () => {
       expect(screen.getAllByText("D'Hondt").length).toBeGreaterThan(0);
       expect(screen.getAllByText('SPAV').length).toBeGreaterThan(0);
       expect(screen.getAllByText('Phragmén').length).toBeGreaterThan(0);
+      expect(screen.getAllByText('Parts égales').length).toBeGreaterThan(0);
       expect(screen.getAllByText('FPTP').length).toBeGreaterThan(0);
+    });
+    vi.runAllTimers();
+  });
+
+  it('shows justified-representation badges (EJR for MES, none for FPTP)', async () => {
+    apiClient.POST.mockResolvedValue(makeData());
+    renderPanel();
+    fireEvent.click(screen.getByRole('button', { name: /comparer|compare/i }));
+    await waitFor(() => {
+      expect(screen.getByTestId('jr-note')).toBeInTheDocument();
+      expect(screen.getByTestId('jr-badge-Parts égales')).toHaveTextContent('EJR');
+      expect(screen.getByTestId('jr-badge-FPTP')).toHaveTextContent('aucun');
     });
     vi.runAllTimers();
   });

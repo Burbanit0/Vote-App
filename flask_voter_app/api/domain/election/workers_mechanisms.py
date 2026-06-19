@@ -24,6 +24,7 @@ from api.engine.utils.simulation_ranked_utils import (
 )
 from api.engine.utils.simulation_multiwinner_utils import (
     get_stv_result, get_dhondt_winners, get_spav_result, get_phragmen_result,
+    get_equal_shares_result, check_justified_representation,
 )
 from ._electorate import _build_base_electorate
 from ._helpers import dhondt as _dhondt
@@ -1110,6 +1111,7 @@ def _multiwinner_compare_worker(data: Dict[str, Any]) -> tuple[Dict[str, Any], i
     dhondt_raw = get_dhondt_winners(vote_shares, num_seats)
     spav_raw   = get_spav_result(approval_ballots, num_seats)
     phrag_raw  = get_phragmen_result(approval_ballots, num_seats)
+    mes_raw    = get_equal_shares_result(approval_ballots, num_seats)
     top_n      = sorted(cand_names, key=lambda c: -first_choice.get(c, 0))[:num_seats]
 
     def _to_seat_dict(elected: List[str]) -> Dict[str, int]:
@@ -1118,13 +1120,21 @@ def _multiwinner_compare_worker(data: Dict[str, Any]) -> tuple[Dict[str, Any], i
             d[c] = d.get(c, 0) + 1
         return d
 
+    dhondt_elected = [c for c, s in sorted(dhondt_raw.items(), key=lambda kv: -kv[1]) if s > 0]
     methods: Dict[str, Dict[str, Any]] = {
-        "stv":     {"seats": _to_seat_dict(stv_raw["elected"]),    "elected": stv_raw["elected"]},
-        "dhondt":  {"seats": dhondt_raw,                           "elected": [c for c, s in sorted(dhondt_raw.items(), key=lambda kv: -kv[1]) if s > 0]},
-        "spav":    {"seats": _to_seat_dict(spav_raw["elected"]),   "elected": spav_raw["elected"]},
-        "phragmen":{"seats": _to_seat_dict(phrag_raw["elected"]),  "elected": phrag_raw["elected"]},
-        "fptp":    {"seats": _to_seat_dict(top_n),                 "elected": top_n},
+        "stv":          {"seats": _to_seat_dict(stv_raw["elected"]),   "elected": stv_raw["elected"]},
+        "dhondt":       {"seats": dhondt_raw,                          "elected": dhondt_elected},
+        "spav":         {"seats": _to_seat_dict(spav_raw["elected"]),  "elected": spav_raw["elected"]},
+        "phragmen":     {"seats": _to_seat_dict(phrag_raw["elected"]), "elected": phrag_raw["elected"]},
+        "equal_shares": {"seats": _to_seat_dict(mes_raw["elected"]),   "elected": mes_raw["elected"]},
+        "fptp":         {"seats": _to_seat_dict(top_n),                "elected": top_n},
     }
+
+    # Justified-representation axioms (approval-based) for each method's committee.
+    for mdata in methods.values():
+        mdata["justified_representation"] = check_justified_representation(
+            approval_ballots, mdata["elected"], num_seats
+        )
 
     # ── Distortion metrics ─────────────────────────────────────────────────
     prop_seats = _dhondt(vote_shares, num_seats)   # proportional reference

@@ -25,11 +25,18 @@ interface SeatVsVotes {
   delta: number;
 }
 
+interface JustifiedRepresentation {
+  jr: boolean;
+  pjr: boolean;
+  ejr: boolean;
+}
+
 interface MethodResult {
   seats: Record<string, number>;
   elected: string[];
   distortion: number;
   seat_vs_votes: Record<string, SeatVsVotes>;
+  justified_representation?: JustifiedRepresentation;
 }
 
 interface CompareData {
@@ -63,10 +70,20 @@ const METHOD_LABELS: Record<string, string> = {
   dhondt: "D'Hondt",
   spav: 'SPAV',
   phragmen: 'Phragmén',
+  equal_shares: 'Parts égales',
   fptp: 'FPTP',
 };
 
-const METHOD_ORDER = ['stv', 'dhondt', 'spav', 'phragmen', 'fptp'];
+const METHOD_ORDER = ['stv', 'dhondt', 'spav', 'phragmen', 'equal_shares', 'fptp'];
+
+// Strongest proportionality axiom a committee satisfies (EJR ⊃ PJR ⊃ JR).
+function strongestJR(jr?: JustifiedRepresentation): { label: string; variant: string } {
+  if (!jr) return { label: '—', variant: 'secondary' };
+  if (jr.ejr) return { label: 'EJR', variant: 'success' };
+  if (jr.pjr) return { label: 'PJR', variant: 'success' };
+  if (jr.jr) return { label: 'JR', variant: 'warning' };
+  return { label: 'aucun', variant: 'danger' };
+}
 
 // ── Hémicycle SVG ─────────────────────────────────────────────────────────────
 
@@ -77,7 +94,9 @@ const Hémicycle: React.FC<{
   label: string;
   distortion: number;
   isBest: boolean;
-}> = ({ seats, names, total, label, distortion, isBest }) => {
+  jr?: JustifiedRepresentation;
+}> = ({ seats, names, total, label, distortion, isBest, jr }) => {
+  const jrBadge = strongestJR(jr);
   const W = 200;
   const H = 125;
   const cx = W / 2;
@@ -133,13 +152,23 @@ const Hémicycle: React.FC<{
           </path>
         ))}
       </svg>
-      <Badge
-        variant={distortion > 0.1 ? 'danger' : distortion > 0.05 ? 'warning' : 'success'}
-        style={{ fontSize: '0.65rem' }}
-        data-testid={`distortion-badge-${label}`}
-      >
-        Δ {Math.round(distortion * 100)}pp
-      </Badge>
+      <div className="flex flex-wrap justify-center gap-1">
+        <Badge
+          variant={distortion > 0.1 ? 'danger' : distortion > 0.05 ? 'warning' : 'success'}
+          style={{ fontSize: '0.65rem' }}
+          data-testid={`distortion-badge-${label}`}
+        >
+          Δ {Math.round(distortion * 100)}pp
+        </Badge>
+        <Badge
+          variant={jrBadge.variant as React.ComponentProps<typeof Badge>['variant']}
+          style={{ fontSize: '0.65rem' }}
+          data-testid={`jr-badge-${label}`}
+          title="Plus forte garantie de représentation justifiée satisfaite (EJR ⊃ PJR ⊃ JR)"
+        >
+          {jrBadge.label}
+        </Badge>
+      </div>
     </div>
   );
 };
@@ -250,11 +279,24 @@ const MultiwinnerCompare: React.FC = () => {
                     label={METHOD_LABELS[m]}
                     distortion={data.methods[m]?.distortion ?? 0}
                     isBest={m === data.best_method}
+                    jr={data.methods[m]?.justified_representation}
                   />
                 </div>
               </Col>
             ))}
           </Row>
+
+          {/* Justified-representation note */}
+          <div
+            className="text-muted-foreground mb-2"
+            style={{ fontSize: '0.72rem' }}
+            data-testid="jr-note"
+          >
+            Badge de représentation justifiée (approbation) : <strong>EJR</strong> ⊃{' '}
+            <strong>PJR</strong> ⊃ <strong>JR</strong> — tout groupe cohésif de taille ≥ ℓ·n/k
+            obtient une représentation proportionnelle. La méthode des <em>parts égales</em> (Rule
+            X) garantit l’EJR.
+          </div>
 
           {/* Legend */}
           <div className="flex flex-wrap gap-2 mb-3">
