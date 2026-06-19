@@ -548,6 +548,17 @@ export function getMethodInfo(id: string): MethodEntry | null {
   return METHOD_INFO[methodKey(id)] ?? null;
 }
 
+/**
+ * Human-readable name for a method id (canonical or backend alias), in the given
+ * language. Falls back to a prettified id (snake_case → Title Case) so raw
+ * backend ids never leak into the UI.
+ */
+export function methodDisplayName(id: string, lang: Lang): string {
+  const entry = METHOD_INFO[methodKey(id)];
+  if (entry) return entry[lang].name;
+  return id.replace(/_/g, ' ').replace(/\b\w/g, (ch) => ch.toUpperCase());
+}
+
 export interface MethodContext {
   /** Whether a Condorcet winner exists on the live electorate. */
   condorcetExists?: boolean;
