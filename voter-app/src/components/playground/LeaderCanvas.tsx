@@ -13,19 +13,30 @@ import {
   type WinRegion,
 } from '../../lib/playgroundVoting';
 import LeaderScene3D from './LeaderScene3D';
+import { manipulationField, type ManipKind } from '../../lib/playgroundSincerity';
 
 // Lenses are overlays rendered IN PLACE on the central map, driven by the same
-// knobs (rule, drag, scrubber). 'winner' is the default win-region; 'probability'
-// reads the map as the random-ballot lottery. 'manipulation'/'criteria' arrive in
-// later batches — only implemented lenses appear in the switch.
+// knobs (rule, drag, scrubber). 'winner' is the default win-region; 'manipulation'
+// tints voters by their incentive to vote strategically; 'probability' reads the
+// map as the random-ballot lottery. 'criteria' arrives in a later batch — only
+// implemented lenses appear in the switch.
 export type Lens = 'winner' | 'manipulation' | 'probability' | 'criteria';
 
 const AVAILABLE_LENSES: { id: Lens; label: string }[] = [
   { id: 'winner', label: 'Vainqueur' },
+  { id: 'manipulation', label: 'Manipulation' },
   { id: 'probability', label: 'Probabilité' },
 ];
 
 const PROB_HUE = '#4f46e5';
+
+// Manipulation lens — each voter as a conviction bloc; colour by temptation.
+const MANIP_BLOC_SHARE = 0.12;
+const MANIP_COLORS: Record<'compromise' | 'burying', string> = {
+  compromise: '#f59e0b', // amber — "vote utile"
+  burying: '#dc2626', // red — bury the sincere winner
+};
+const MANIP_SAFE = '#16a34a'; // green — sincere voting is best (conviction wins)
 
 // LeaderCanvas (Lab reshape P2 · dims FA-2bis) — the live single-office viz over
 // a 1/2/3-D ideological space. Candidates are draggable; the plane is shaded by
@@ -107,6 +118,7 @@ const LeaderCanvas: React.FC<LeaderCanvasProps> = ({
   const draggingYou = useRef<boolean>(false);
   const [region, setRegion] = useState<WinRegion | null>(null);
   const [probRegion, setProbRegion] = useState<ProbRegion | null>(null);
+  const [manipField, setManipField] = useState<ManipKind[] | null>(null);
   // In 3-D, default to the orbital scene (what the dimension is *for*); the
   // x–y plane stays available for editing + the win-region overlay.
   const [scene3d, setScene3d] = useState(true);
@@ -132,6 +144,8 @@ const LeaderCanvas: React.FC<LeaderCanvasProps> = ({
       if (!alive) return;
       if (lens === 'probability') {
         setProbRegion(randomBallotProbGrid(gridVoters, candidates, GRID_N, dims));
+      } else if (lens === 'manipulation') {
+        setManipField(manipulationField(gridVoters, candidates, rule, MANIP_BLOC_SHARE));
       } else {
         setRegion(winRegionGrid(gridVoters, candidates, rule, GRID_N, dims));
       }
@@ -141,6 +155,16 @@ const LeaderCanvas: React.FC<LeaderCanvasProps> = ({
       clearTimeout(t);
     };
   }, [gridVoters, candidates, rule, dims, lens]);
+
+  // Manipulation summary (the Gibbard-Satterthwaite boundary, inline): how many
+  // voters this rule tempts vs random ballot's guaranteed zero.
+  const manipSummary = useMemo(() => {
+    if (lens !== 'manipulation' || !manipField || manipField.length === 0) return null;
+    const compromise = manipField.filter((k) => k === 'compromise').length;
+    const burying = manipField.filter((k) => k === 'burying').length;
+    const tempted = compromise + burying;
+    return { compromise, burying, rate: tempted / manipField.length };
+  }, [lens, manipField]);
 
   // Current field's lottery (existing candidates' first-preference shares).
   const lotteryShares = useMemo(
@@ -347,19 +371,38 @@ const LeaderCanvas: React.FC<LeaderCanvasProps> = ({
           />
         )}
 
-        {/* Voters (coloured by community when a composed electorate is active) */}
-        <g>
-          {voters.map((v, i) => (
-            <circle
-              key={i}
-              cx={toSvg(v.x, 'x')}
-              cy={cyOf(v)}
-              r={1.6}
-              fill={voterColors?.[i] ?? '#64748b'}
-              opacity={voterColors ? 0.6 : 0.5}
-            />
-          ))}
-        </g>
+        {/* Voters. In the manipulation lens the sampled cloud is tinted by each
+            voter's strategic temptation; otherwise by community (or neutral). */}
+        {lens === 'manipulation' && manipField ? (
+          <g data-testid="manip-voters">
+            {gridVoters.map((v, i) => {
+              const kind = manipField[i];
+              return (
+                <circle
+                  key={i}
+                  cx={toSvg(v.x, 'x')}
+                  cy={cyOf(v)}
+                  r={2.6}
+                  fill={kind ? MANIP_COLORS[kind] : MANIP_SAFE}
+                  opacity={kind ? 0.9 : 0.55}
+                />
+              );
+            })}
+          </g>
+        ) : (
+          <g>
+            {voters.map((v, i) => (
+              <circle
+                key={i}
+                cx={toSvg(v.x, 'x')}
+                cy={cyOf(v)}
+                r={1.6}
+                fill={voterColors?.[i] ?? '#64748b'}
+                opacity={voterColors ? 0.6 : 0.5}
+              />
+            ))}
+          </g>
+        )}
 
         {/* Median-voter marker */}
         <g data-testid="median-marker">
@@ -491,6 +534,47 @@ const LeaderCanvas: React.FC<LeaderCanvasProps> = ({
         )}
       </svg>
 
+      {/* Manipulation lens — strategy legend + the Gibbard-Satterthwaite boundary
+          made concrete: this rule's tempted share vs random ballot's zero. */}
+      {lens === 'manipulation' && manipSummary && (
+        <div
+          data-testid="manip-summary"
+          className="flex flex-col gap-1 rounded-md border border-border p-2 text-xs"
+        >
+          <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
+            <span className="flex items-center gap-1">
+              <span
+                className="inline-block h-2.5 w-2.5 rounded-full"
+                style={{ background: MANIP_COLORS.compromise }}
+              />
+              Compromis (vote utile)
+            </span>
+            <span className="flex items-center gap-1">
+              <span
+                className="inline-block h-2.5 w-2.5 rounded-full"
+                style={{ background: MANIP_COLORS.burying }}
+              />
+              Enterrement
+            </span>
+            <span className="flex items-center gap-1">
+              <span
+                className="inline-block h-2.5 w-2.5 rounded-full"
+                style={{ background: MANIP_SAFE }}
+              />
+              Conviction récompensée
+            </span>
+          </div>
+          <p className="text-muted-foreground">
+            Sous <strong>{RULE_LABELS[rule]}</strong> :{' '}
+            <strong>{Math.round(manipSummary.rate * 100)}%</strong> des électeurs tentés de voter
+            stratégiquement ({manipSummary.compromise} compromis · {manipSummary.burying}{' '}
+            enterrement). Vote au sort : <strong>0 %</strong> — la seule règle inmanipulable
+            (Gibbard 1977). Toute règle ordinale déterministe est manipulable : c’est la frontière
+            de Gibbard-Satterthwaite.
+          </p>
+        </div>
+      )}
+
       {/* Probability lens — the current field's lottery as animated bars. */}
       {lens === 'probability' && lotteryShares && (
         <div
@@ -581,6 +665,8 @@ const LeaderCanvas: React.FC<LeaderCanvasProps> = ({
         </span>
       </div>
       <p className="text-xs text-muted-foreground/70">
+        {lens === 'manipulation' &&
+          'Lentille Manipulation : chaque électeur est traité comme un bloc de conviction ; sa couleur dit si la règle le pousse à voter utile. Glissez un candidat ou changez de règle — les tentations se redessinent. '}
         {lens === 'probability' &&
           'Lentille Probabilité : sous le vote au sort, un bulletin est tiré au hasard — l’intensité montre la chance de victoire d’un nouvel entrant, et chaque bassin devient une probabilité (et non une frontière nette). '}
         {dims === 1 &&

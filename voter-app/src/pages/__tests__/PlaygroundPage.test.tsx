@@ -126,6 +126,14 @@ describe('PlaygroundPage (P0 shell)', () => {
     await waitFor(() => expect(screen.getByTestId('problens')).toBeInTheDocument());
   });
 
+  it('switching to the manipulation lens tints voters and states the G-S boundary', async () => {
+    renderPage();
+    fireEvent.click(screen.getByTestId('lens-manipulation'));
+    expect(screen.queryByTestId('winregion')).not.toBeInTheDocument();
+    await waitFor(() => expect(screen.getByTestId('manip-voters')).toBeInTheDocument());
+    expect(screen.getByTestId('manip-summary')).toHaveTextContent(/Gibbard/);
+  });
+
   it('mode toggle swaps the canvas, reveals assembly knobs, and persists', () => {
     renderPage();
     fireEvent.click(screen.getByTestId('mode-toggle-parliament'));
