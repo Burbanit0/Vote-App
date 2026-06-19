@@ -4,6 +4,7 @@ import {
   winRegionGrid,
   randomBallotProbGrid,
   randomBallotShares,
+  computeRanks,
   RULE_LABELS,
   type Dims,
   type NamedPt,
@@ -14,6 +15,8 @@ import {
 } from '../../lib/playgroundVoting';
 import LeaderScene3D from './LeaderScene3D';
 import { manipulationField, type ManipKind } from '../../lib/playgroundSincerity';
+import { condorcetFromRanks } from '../../lib/scorecard';
+import { criteriaMatrix, CRITERIA, type CriteriaRow } from '../../lib/playgroundCriteria';
 
 // Lenses are overlays rendered IN PLACE on the central map, driven by the same
 // knobs (rule, drag, scrubber). 'winner' is the default win-region; 'manipulation'
@@ -26,6 +29,7 @@ const AVAILABLE_LENSES: { id: Lens; label: string }[] = [
   { id: 'winner', label: 'Vainqueur' },
   { id: 'manipulation', label: 'Manipulation' },
   { id: 'probability', label: 'Probabilité' },
+  { id: 'criteria', label: 'Critères' },
 ];
 
 const PROB_HUE = '#4f46e5';
@@ -119,6 +123,7 @@ const LeaderCanvas: React.FC<LeaderCanvasProps> = ({
   const [region, setRegion] = useState<WinRegion | null>(null);
   const [probRegion, setProbRegion] = useState<ProbRegion | null>(null);
   const [manipField, setManipField] = useState<ManipKind[] | null>(null);
+  const [criteriaRows, setCriteriaRows] = useState<CriteriaRow[] | null>(null);
   // In 3-D, default to the orbital scene (what the dimension is *for*); the
   // x–y plane stays available for editing + the win-region overlay.
   const [scene3d, setScene3d] = useState(true);
@@ -146,6 +151,8 @@ const LeaderCanvas: React.FC<LeaderCanvasProps> = ({
         setProbRegion(randomBallotProbGrid(gridVoters, candidates, GRID_N, dims));
       } else if (lens === 'manipulation') {
         setManipField(manipulationField(gridVoters, candidates, rule, MANIP_BLOC_SHARE));
+      } else if (lens === 'criteria') {
+        setCriteriaRows(criteriaMatrix(gridVoters, candidates));
       } else {
         setRegion(winRegionGrid(gridVoters, candidates, rule, GRID_N, dims));
       }
@@ -165,6 +172,12 @@ const LeaderCanvas: React.FC<LeaderCanvasProps> = ({
     const tempted = compromise + burying;
     return { compromise, burying, rate: tempted / manipField.length };
   }, [lens, manipField]);
+
+  // Condorcet winner of the current electorate (criteria lens marks it on the map).
+  const cwIndex = useMemo(() => {
+    if (lens !== 'criteria' || candidates.length === 0) return -1;
+    return condorcetFromRanks(computeRanks(gridVoters, candidates), candidates.length);
+  }, [lens, gridVoters, candidates]);
 
   // Current field's lottery (existing candidates' first-preference shares).
   const lotteryShares = useMemo(
@@ -489,6 +502,32 @@ const LeaderCanvas: React.FC<LeaderCanvasProps> = ({
           })}
         </g>
 
+        {/* Criteria lens — ring the Condorcet winner of the current electorate so
+            it can be read against the selected rule's winner (a live Condorcet test). */}
+        {lens === 'criteria' && cwIndex >= 0 && (
+          <g data-testid="condorcet-marker">
+            <circle
+              cx={toSvg(candidates[cwIndex].x, 'x')}
+              cy={cyOf(candidates[cwIndex])}
+              r={15}
+              fill="none"
+              stroke="#0f766e"
+              strokeWidth={2}
+              strokeDasharray="3 2"
+            />
+            <text
+              x={toSvg(candidates[cwIndex].x, 'x')}
+              y={cyOf(candidates[cwIndex]) + 28}
+              textAnchor="middle"
+              fontSize={10}
+              fontWeight={700}
+              fill="#0f766e"
+            >
+              Condorcet
+            </text>
+          </g>
+        )}
+
         {/* "You" marker (sincere-vote module) — a draggable diamond. */}
         {youMarker && (
           <g
@@ -571,6 +610,53 @@ const LeaderCanvas: React.FC<LeaderCanvasProps> = ({
             enterrement). Vote au sort : <strong>0 %</strong> — la seule règle inmanipulable
             (Gibbard 1977). Toute règle ordinale déterministe est manipulable : c’est la frontière
             de Gibbard-Satterthwaite.
+          </p>
+        </div>
+      )}
+
+      {/* Criteria lens — the empirical methods × criteria matrix on this electorate. */}
+      {lens === 'criteria' && criteriaRows && (
+        <div
+          data-testid="criteria-matrix"
+          className="overflow-x-auto rounded-md border border-border p-2 text-[0.7rem]"
+        >
+          <table className="w-full border-collapse">
+            <thead>
+              <tr className="text-muted-foreground">
+                <th className="pr-2 text-left font-medium">Méthode</th>
+                {CRITERIA.map((c) => (
+                  <th
+                    key={c.id}
+                    className="px-1 font-medium"
+                    title={`${c.fr.label} — ${c.fr.desc}`}
+                  >
+                    {c.short}
+                  </th>
+                ))}
+              </tr>
+            </thead>
+            <tbody>
+              {criteriaRows.map((row) => (
+                <tr key={row.rule} className={row.rule === rule ? 'bg-primary/10 font-medium' : ''}>
+                  <td className="whitespace-nowrap pr-2">{RULE_LABELS[row.rule]}</td>
+                  {CRITERIA.map((c) => {
+                    const v = row.results[c.id];
+                    return (
+                      <td key={c.id} className="px-1 text-center">
+                        {v === true && <span style={{ color: '#16a34a' }}>✓</span>}
+                        {v === false && <span style={{ color: '#dc2626' }}>✗</span>}
+                        {v === null && <span className="text-muted-foreground">–</span>}
+                      </td>
+                    );
+                  })}
+                </tr>
+              ))}
+            </tbody>
+          </table>
+          <p className="mt-1 text-muted-foreground">
+            ✓ satisfait · ✗ violé · – non déclenché sur cet électorat. Mesuré en direct — glissez un
+            candidat pour provoquer une violation. Le vainqueur de Condorcet est cerclé sur la
+            carte.
           </p>
         </div>
       )}
@@ -667,6 +753,8 @@ const LeaderCanvas: React.FC<LeaderCanvasProps> = ({
       <p className="text-xs text-muted-foreground/70">
         {lens === 'manipulation' &&
           'Lentille Manipulation : chaque électeur est traité comme un bloc de conviction ; sa couleur dit si la règle le pousse à voter utile. Glissez un candidat ou changez de règle — les tentations se redessinent. '}
+        {lens === 'criteria' &&
+          'Lentille Critères : matrice axiomatique mesurée sur CET électorat. Le vainqueur de Condorcet (s’il existe) est cerclé sur la carte — comparez-le au vainqueur de la règle choisie. '}
         {lens === 'probability' &&
           'Lentille Probabilité : sous le vote au sort, un bulletin est tiré au hasard — l’intensité montre la chance de victoire d’un nouvel entrant, et chaque bassin devient une probabilité (et non une frontière nette). '}
         {dims === 1 &&
