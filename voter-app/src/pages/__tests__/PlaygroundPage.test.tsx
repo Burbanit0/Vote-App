@@ -134,6 +134,13 @@ describe('PlaygroundPage (P0 shell)', () => {
     expect(screen.getByTestId('manip-summary')).toHaveTextContent(/Gibbard/);
   });
 
+  it('switching to the criteria lens renders the empirical methods × criteria matrix', async () => {
+    renderPage();
+    fireEvent.click(screen.getByTestId('lens-criteria'));
+    expect(screen.queryByTestId('winregion')).not.toBeInTheDocument();
+    await waitFor(() => expect(screen.getByTestId('criteria-matrix')).toBeInTheDocument());
+  });
+
   it('mode toggle swaps the canvas, reveals assembly knobs, and persists', () => {
     renderPage();
     fireEvent.click(screen.getByTestId('mode-toggle-parliament'));

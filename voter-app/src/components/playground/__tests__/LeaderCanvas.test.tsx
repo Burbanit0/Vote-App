@@ -98,6 +98,29 @@ describe('LeaderCanvas', () => {
     expect(summary).toHaveTextContent(/Gibbard/);
   });
 
+  it('criteria lens renders the matrix and rings the Condorcet winner on the map', async () => {
+    // A centrist Condorcet winner exists with this layout.
+    setup({
+      lens: 'criteria',
+      candidates: [
+        { name: 'L', x: -0.8, y: 0 },
+        { name: 'M', x: 0, y: 0 },
+        { name: 'R', x: 0.8, y: 0 },
+      ],
+      voters: [
+        ...Array.from({ length: 40 }, () => ({ x: -0.7, y: 0 })),
+        ...Array.from({ length: 25 }, () => ({ x: 0, y: 0 })),
+        ...Array.from({ length: 40 }, () => ({ x: 0.7, y: 0 })),
+      ],
+    });
+    expect(screen.getByTestId('lens-criteria')).toHaveAttribute('aria-checked', 'true');
+    expect(screen.queryByTestId('winregion')).not.toBeInTheDocument();
+    await waitFor(() => expect(screen.getByTestId('criteria-matrix')).toBeInTheDocument());
+    // One row per rule (17 leader rules) and a Condorcet ring on the map.
+    expect(screen.getByTestId('criteria-matrix').querySelectorAll('tbody tr').length).toBe(17);
+    expect(screen.getByTestId('condorcet-marker')).toBeInTheDocument();
+  });
+
   it('grabbing a candidate then dragging moves it', () => {
     const { onMoveCandidate } = setup();
     // Grab candidate 0, then a window mousemove should report its new domain position.
