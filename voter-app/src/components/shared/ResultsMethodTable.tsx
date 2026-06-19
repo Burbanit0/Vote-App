@@ -4,6 +4,7 @@ import { Badge } from '@/components/ui/badge';
 import { Table } from '@/components/ui/table';
 import MetricTooltip from './MetricTooltip';
 import MethodInfo from '../playground/MethodInfo';
+import { methodDisplayName } from '../../lib/methodInfo';
 import type { ElectionResult } from '../../services/electionApi';
 
 // ResultsMethodTable — the per-method winner / Bayesian-regret / Condorcet table.
@@ -18,7 +19,8 @@ const COLORS: Record<string, string> = {
 };
 
 const ResultsMethodTable: React.FC<{ result: ElectionResult }> = ({ result }) => {
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
+  const lang = i18n.language?.startsWith('en') ? 'en' : 'fr';
   const hasBlank = result.config.blank_vote?.enabled;
   const rows = Object.entries(result.methods).sort(([a], [b]) => a.localeCompare(b));
 
@@ -62,7 +64,7 @@ const ResultsMethodTable: React.FC<{ result: ElectionResult }> = ({ result }) =>
             return (
               <tr key={method}>
                 <td className="font-semibold" style={{ fontSize: '0.82rem' }}>
-                  {method}
+                  {methodDisplayName(method, lang)}
                   <MethodInfo
                     method={method}
                     context={{ condorcetExists: result.condorcet_winner != null }}
