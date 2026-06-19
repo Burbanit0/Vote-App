@@ -247,7 +247,8 @@ _CARDINAL_METHODS = {
 }
 _ORDINAL_METHODS = {
     "baldwin", "borda", "bucklin", "coombs", "copeland", "irv", "kemeny_young",
-    "minimax", "nanson", "plurality", "schulze", "two_round",
+    "minimax", "nanson", "plurality", "ranked_pairs", "random_ballot",
+    "schulze", "two_round",
 }
 _ALL_METHODS = _CARDINAL_METHODS | _ORDINAL_METHODS | {"approval"}
 
@@ -261,7 +262,8 @@ def compatible_methods(ballot_type: str) -> set[str]:
     if ballot_type == "approve":
         return {"approval"}
     if ballot_type == "choose_one":
-        return {"plurality", "two_round"}
+        # Random ballot needs only each voter's single top choice.
+        return {"plurality", "two_round", "random_ballot"}
     return set(_ALL_METHODS)
 
 

@@ -52,6 +52,40 @@ describe('LeaderCanvas', () => {
     expect(onRuleChange).toHaveBeenCalledWith('irv');
   });
 
+  it('offers the new methods in the rule selector', () => {
+    setup();
+    const select = screen.getByTestId('rule-select') as HTMLSelectElement;
+    const values = Array.from(select.options).map((o) => o.value);
+    expect(values).toContain('ranked_pairs');
+    expect(values).toContain('random_ballot');
+  });
+
+  it('defaults to the winner lens: win-region shown, probability overlay absent', () => {
+    setup();
+    expect(screen.getByTestId('lens-switch')).toBeInTheDocument();
+    expect(screen.getByTestId('lens-winner')).toHaveAttribute('aria-checked', 'true');
+    expect(screen.queryByTestId('problens')).not.toBeInTheDocument();
+    expect(screen.queryByTestId('lottery-bars')).not.toBeInTheDocument();
+  });
+
+  it('clicking a lens button calls back', () => {
+    const onLensChange = vi.fn();
+    setup({ onLensChange });
+    fireEvent.click(screen.getByTestId('lens-probability'));
+    expect(onLensChange).toHaveBeenCalledWith('probability');
+  });
+
+  it('probability lens renders the lottery heatmap + bars and hides the win-region', async () => {
+    setup({ lens: 'probability' });
+    expect(screen.getByTestId('lens-probability')).toHaveAttribute('aria-checked', 'true');
+    expect(screen.queryByTestId('winregion')).not.toBeInTheDocument();
+    expect(screen.getByTestId('lottery-bars')).toBeInTheDocument();
+    await waitFor(() => {
+      const lens = screen.getByTestId('problens');
+      expect(lens.querySelectorAll('rect').length).toBe(16 * 16);
+    });
+  });
+
   it('grabbing a candidate then dragging moves it', () => {
     const { onMoveCandidate } = setup();
     // Grab candidate 0, then a window mousemove should report its new domain position.

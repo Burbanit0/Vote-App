@@ -617,3 +617,103 @@ def get_baldwin_winner(votes: list[Any], blank_candidate_name: str = "") -> Opti
     if not active:
         return min(all_cands)
     return min(active)  # alpha tie-break among survivors
+
+
+def get_ranked_pairs_winner(votes: list[Any], blank_candidate_name: str = "") -> Optional[str]:
+    """
+    Tideman's Ranked Pairs (1987).
+
+    Lock the strongest pairwise majorities first, skipping any that would create
+    a cycle; the source of the resulting acyclic tournament is the winner.
+    Elects the Condorcet winner whenever one exists, and is clone-independent.
+
+    Tie-break for equal margins: stronger winner support first, then alphabetical
+    on (winner, loser) so the lock order — and therefore the winner — is
+    deterministic. A pairwise tie contributes no locked edge.
+    """
+    if not votes:
+        return None
+
+    pw = _pairwise_wins(votes)
+    candidates = sorted(pw.keys())
+    if not candidates:
+        return None
+    if len(candidates) == 1:
+        return candidates[0]
+
+    # Majorities: (margin, winner_support, winner, loser), strongest first.
+    majorities: list[tuple[int, int, str, str]] = []
+    for a, b in combinations(candidates, 2):
+        ab, ba = pw[a][b], pw[b][a]
+        if ab > ba:
+            majorities.append((ab - ba, ab, a, b))
+        elif ba > ab:
+            majorities.append((ba - ab, ba, b, a))
+    majorities.sort(key=lambda m: (-m[0], -m[1], m[2], m[3]))
+
+    locked: dict[str, set[str]] = {c: set() for c in candidates}
+
+    def _reaches(src: str, dst: str) -> bool:
+        """DFS: is dst already reachable from src in the locked graph?"""
+        stack = [src]
+        seen: set[str] = set()
+        while stack:
+            node = stack.pop()
+            if node == dst:
+                return True
+            if node in seen:
+                continue
+            seen.add(node)
+            stack.extend(locked[node])
+        return False
+
+    for _margin, _support, winner, loser in majorities:
+        # winner → loser would form a cycle iff loser can already reach winner.
+        if not _reaches(loser, winner):
+            locked[winner].add(loser)
+
+    # The winner is the source: no locked edge points into it.
+    incoming: dict[str, int] = {c: 0 for c in candidates}
+    for losers in locked.values():
+        for loser in losers:
+            incoming[loser] += 1
+    sources = sorted(c for c in candidates if incoming[c] == 0)
+    return sources[0] if sources else None
+
+
+def random_ballot_probabilities(votes: list[Any]) -> dict[str, float]:
+    """
+    Win probabilities under the random-ballot rule (Gibbard, 1977).
+
+    A single ballot is drawn uniformly at random and its top choice elected, so
+    P(candidate wins) equals that candidate's first-preference share. Returns a
+    {candidate: probability} map that sums to 1 over the ballots cast.
+    """
+    if not votes:
+        return {}
+    is_dict = _is_dict_format(votes)
+    first_choice: "Counter[str]" = Counter()
+    cast = 0
+    for vote in votes:
+        ranking = _get_ranking(vote, is_dict)
+        if ranking:
+            first_choice[ranking[0]] += 1
+            cast += 1
+    if cast == 0:
+        return {}
+    return {c: n / cast for c, n in first_choice.items()}
+
+
+def get_random_ballot_winner(votes: list[Any], blank_candidate_name: str = "") -> Optional[str]:
+    """
+    Random ballot / random dictator (Gibbard, 1977) — the canonical strategyproof
+    rule. The realised winner is a lottery (see :func:`random_ballot_probabilities`);
+    this returns the *most probable* outcome — the candidate with the largest
+    first-preference share, alphabetical tie-break — so the rule has a stable,
+    comparable representative winner. Its strategyproofness and full distribution
+    are surfaced separately (the comparison report weights metrics by probability).
+    """
+    probs = random_ballot_probabilities(votes)
+    if not probs:
+        return None
+    return min(probs, key=lambda c: (-probs[c], c))

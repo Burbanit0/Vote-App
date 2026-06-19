@@ -21,13 +21,22 @@ describe('sincerityProbe', () => {
     const r = sincerityProbe(YOU, BLOC_SHARE, OTHERS, CANDS);
     expect(r.ranking).toEqual(['A', 'B', 'C']);
     expect(r.blocSize).toBe(10);
-    expect(r.verdicts).toHaveLength(15);
+    expect(r.verdicts).toHaveLength(17);
   });
 
   it('is deterministic', () => {
     expect(sincerityProbe(YOU, BLOC_SHARE, OTHERS, CANDS)).toEqual(
       sincerityProbe(YOU, BLOC_SHARE, OTHERS, CANDS)
     );
+  });
+
+  it('random ballot is never tempting (strategyproof, Gibbard 1977)', () => {
+    const v = sincerityProbe(YOU, BLOC_SHARE, OTHERS, CANDS).verdicts.find(
+      (x) => x.rule === 'random_ballot'
+    )!;
+    expect(v.sincereIsBest).toBe(true);
+    expect(v.temptation).toBeNull();
+    expect(v.gain).toBe(0);
   });
 
   it('plurality tempts the "vote utile" (compromise to B flips C→B)', () => {
@@ -66,7 +75,7 @@ describe('sincerityProbe', () => {
     ];
     const scan = sincerityScan(scanOthers, CANDS, BLOC_SHARE, 30);
     expect(scan.sampled).toBeGreaterThan(0);
-    expect(scan.rows).toHaveLength(15);
+    expect(scan.rows).toHaveLength(17);
     // Every rate is a probability.
     expect(scan.rows.every((r) => r.temptRate >= 0 && r.temptRate <= 1)).toBe(true);
     // Sorted ascending (lowest temptation = most conviction-friendly first).

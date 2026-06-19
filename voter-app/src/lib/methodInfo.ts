@@ -322,6 +322,64 @@ export const METHOD_INFO: Record<string, MethodEntry> = {
       example: 'A Nanson variant attributed to Joseph Baldwin.',
     },
   },
+  ranked_pairs: {
+    family: 'condorcet',
+    condorcet: true,
+    fr: {
+      name: 'Condorcet — paires ordonnées (Tideman)',
+      summary:
+        'On verrouille les duels les plus nets d’abord, en sautant ceux qui créeraient un cycle.',
+      how: 'Trie tous les duels par marge décroissante ; ajoute chaque duel au classement sauf s’il boucle un cycle. Le sommet du graphe obtenu gagne.',
+      strength:
+        'Respecte Condorcet ET l’indépendance aux clones ; la plus « explicable » des méthodes de Condorcet.',
+      weakness:
+        'Bulletin classé complet ; départage des marges égales à préciser ; reste manipulable.',
+      criterion: 'Respecte Condorcet, la monotonie et l’indépendance aux clones (Tideman 1987).',
+      example:
+        'Utilisée par plusieurs organisations open-source pour départager des cycles de duels.',
+    },
+    en: {
+      name: 'Ranked Pairs (Tideman)',
+      summary: 'Lock the most decisive head-to-heads first, skipping any that would form a cycle.',
+      how: 'Sort every duel by margin (largest first); add each to the order unless it closes a cycle. The source of the resulting graph wins.',
+      strength:
+        'Satisfies Condorcet AND clone-independence; the most "explainable" Condorcet method.',
+      weakness:
+        'Needs full rankings; equal-margin tie-breaks must be specified; still manipulable.',
+      criterion: 'Satisfies Condorcet, monotonicity and clone-independence (Tideman 1987).',
+      example: 'Used by several open-source organisations to resolve cycles of pairwise duels.',
+    },
+  },
+  random_ballot: {
+    family: 'ordinal',
+    fr: {
+      name: 'Vote au sort (loterie / dictateur aléatoire)',
+      summary:
+        'On tire un bulletin au hasard ; son premier choix l’emporte. La probabilité de gagner = la part de premières voix.',
+      how: 'Chaque électeur indique un favori ; un bulletin est tiré uniformément au sort et son premier choix est élu.',
+      strength:
+        'Seule règle vraiment non-manipulable (Gibbard 1977) : mentir n’améliore jamais son espérance. Représentation proportionnelle en probabilité.',
+      weakness:
+        'Le hasard peut élire un candidat minoritaire ; résultat non reproductible et politiquement contre-intuitif.',
+      criterion:
+        'Non-manipulable et neutre/anonyme — au prix du déterminisme (théorème de Gibbard 1977).',
+      example:
+        'Référence théorique : la « lentille Probabilité » montre la loterie ; ici le vainqueur affiché est l’issue la plus probable.',
+    },
+    en: {
+      name: 'Random ballot (lottery / random dictator)',
+      summary:
+        'Draw one ballot at random; its first choice wins. Win probability = first-preference share.',
+      how: 'Each voter names a favourite; a single ballot is drawn uniformly at random and its top choice is elected.',
+      strength:
+        'The only genuinely strategyproof rule (Gibbard 1977): lying never improves your expectation. Proportional in probability.',
+      weakness:
+        'Randomness can elect a minority candidate; the outcome is non-reproducible and politically counter-intuitive.',
+      criterion: 'Strategyproof and neutral/anonymous — at the cost of determinism (Gibbard 1977).',
+      example:
+        'A theoretical benchmark: the "Probability lens" shows the lottery; the displayed winner is the most likely outcome.',
+    },
+  },
   star: {
     family: 'cardinal',
     fr: {
