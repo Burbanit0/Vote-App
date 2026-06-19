@@ -133,8 +133,12 @@ class TestMultiwinnerCompare:
         for k in ("methods", "vote_shares", "proportional_reference",
                   "num_seats", "candidates", "best_method", "worst_method"):
             assert k in body
-        for m in ("stv", "dhondt", "spav", "phragmen", "fptp"):
+        for m in ("stv", "dhondt", "spav", "phragmen", "equal_shares", "fptp"):
             assert m in body["methods"]
+        # Each method's committee carries its justified-representation verdict.
+        jr = body["methods"]["equal_shares"]["justified_representation"]
+        assert set(jr) == {"jr", "pjr", "ejr"}
+        assert all(isinstance(v, bool) for v in jr.values())
 
     def test_rejects_seats_geq_candidates(self, client):
         bad = {**self.payload, "num_seats": 4}
