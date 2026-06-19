@@ -119,6 +119,8 @@ describe('LeaderCanvas', () => {
     // One row per rule (17 leader rules) and a Condorcet ring on the map.
     expect(screen.getByTestId('criteria-matrix').querySelectorAll('tbody tr').length).toBe(17);
     expect(screen.getByTestId('condorcet-marker')).toBeInTheDocument();
+    // The constructed no-show paradox demo accompanies the criteria matrix.
+    expect(screen.getByTestId('noshow-demo')).toBeInTheDocument();
   });
 
   it('grabbing a candidate then dragging moves it', () => {

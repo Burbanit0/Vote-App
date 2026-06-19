@@ -17,6 +17,7 @@ import LeaderScene3D from './LeaderScene3D';
 import { manipulationField, type ManipKind } from '../../lib/playgroundSincerity';
 import { condorcetFromRanks } from '../../lib/scorecard';
 import { criteriaMatrix, CRITERIA, type CriteriaRow } from '../../lib/playgroundCriteria';
+import NoShowParadox from './NoShowParadox';
 
 // Lenses are overlays rendered IN PLACE on the central map, driven by the same
 // knobs (rule, drag, scrubber). 'winner' is the default win-region; 'manipulation'
@@ -658,6 +659,9 @@ const LeaderCanvas: React.FC<LeaderCanvasProps> = ({
             candidat pour provoquer une violation. Le vainqueur de Condorcet est cerclé sur la
             carte.
           </p>
+          {/* The participation (no-show) paradox is too rare to surface live on a
+              spatial cloud — a constructed example makes it reliably visible. */}
+          <NoShowParadox />
         </div>
       )}
 
