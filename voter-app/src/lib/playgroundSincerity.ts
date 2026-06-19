@@ -116,6 +116,18 @@ export function sincerityProbe(
       verdicts.push({ rule, sincereWinner: '—', sincereIsBest: true, gain: 0, temptation: null });
       continue;
     }
+    // Random ballot is strategyproof (Gibbard, 1977): misrepresenting your top
+    // choice only lowers your expected utility — conviction is always best.
+    if (rule === 'random_ballot') {
+      verdicts.push({
+        rule,
+        sincereWinner: cands[w0].name,
+        sincereIsBest: true,
+        gain: 0,
+        temptation: null,
+      });
+      continue;
+    }
     let temptation: SincerityVerdict['temptation'] = null;
     let gain = 0;
 

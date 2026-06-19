@@ -100,6 +100,8 @@ export const LEADER_RULES: Rule[] = [
   'schulze',
   'nanson',
   'baldwin',
+  'ranked_pairs',
+  'random_ballot',
 ];
 
 /** Stated convention: ballot expressiveness + tally complexity, 1 = simplest. */
@@ -119,6 +121,8 @@ const SIMPLICITY: Record<Rule, number> = {
   condorcet: 0.35,
   minimax: 0.35,
   schulze: 0.3,
+  ranked_pairs: 0.32,
+  random_ballot: 0.95, // choose-one ballot, trivial tally — only the outcome is random
 };
 
 const mean = (xs: number[]): number => (xs.length ? xs.reduce((s, x) => s + x, 0) / xs.length : 0);
@@ -225,8 +229,9 @@ export function leaderScorecard(
       const w = ruleWinnerFromRanks(ranks, m, rule, scores);
       perRule[rule].winners.push(w);
       if (cw >= 0) perRule[rule].ce.push(w === cw ? 1 : 0);
+      // Random ballot is strategyproof (Gibbard, 1977): maximal resistance by design.
       const wProbe = ruleWinnerFromRanks(probe.ranks, m, rule, probe.scores);
-      perRule[rule].sr.push(wProbe === w ? 1 : 0);
+      perRule[rule].sr.push(rule === 'random_ballot' ? 1 : wProbe === w ? 1 : 0);
       perRule[rule].wf.push(bestU - worstU > 1e-9 ? 1 - (bestU - meanU[w]) / (bestU - worstU) : 1);
       // Majority satisfaction: winner at least as good as the voter's median candidate.
       let sat = 0;
@@ -311,6 +316,16 @@ export const MANIP_COMPLEXITY: Record<Rule, { hard: boolean; label: string; ref:
     label: 'NP-difficile, même pour un seul manipulateur',
     ref: 'Bartholdi–Orlin 1991 (STV/IRV)',
   },
+  ranked_pairs: {
+    hard: false,
+    label: 'P (paires ordonnées)',
+    ref: 'Tideman 1987 — calcul polynomial',
+  },
+  random_ballot: {
+    hard: true,
+    label: 'Inmanipulable — la stratégie n’apporte rien',
+    ref: 'Gibbard 1977 (seule règle non-manipulable, au prix du hasard)',
+  },
 };
 
 const COALITION_STEPS = [0.02, 0.05, 0.1, 0.15, 0.2, 0.3, 0.4];
@@ -325,6 +340,8 @@ const COALITION_STEPS = [0.02, 0.05, 0.1, 0.15, 0.2, 0.3, 0.4];
 export function manipulationProbe(voters: Pt[], cands: NamedPt[], rule: Rule): ManipProbe {
   const m = cands.length;
   if (m < 3 || voters.length === 0) return { minCoalitionShare: null, backfired: false };
+  // Random ballot is strategyproof (Gibbard, 1977): no coalition gains by lying.
+  if (rule === 'random_ballot') return { minCoalitionShare: null, backfired: false };
   const ranks = computeRanks(voters, cands);
   const scores = computeScores(voters, cands);
   const w = ruleWinnerFromRanks(ranks, m, rule, scores);

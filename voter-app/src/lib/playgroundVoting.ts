@@ -35,6 +35,8 @@ export type Rule =
   | 'coombs'
   | 'nanson'
   | 'baldwin'
+  | 'ranked_pairs'
+  | 'random_ballot'
   | 'star'
   | 'majority_judgment'
   | 'score';
@@ -52,6 +54,8 @@ export const RULE_LABELS: Record<Rule, string> = {
   coombs: 'Coombs',
   nanson: 'Nanson',
   baldwin: 'Baldwin',
+  ranked_pairs: 'Condorcet (paires ordonnées)',
+  random_ballot: 'Vote au sort (loterie)',
   star: 'STAR',
   majority_judgment: 'Jugement majoritaire',
   score: 'Note (score)',
@@ -339,6 +343,55 @@ function winBaldwin(ranks: number[][], m: number): number {
   return alive.findIndex((a) => a);
 }
 
+/**
+ * Ranked Pairs (Tideman, 1987): lock the strongest pairwise majorities first,
+ * skipping any that would create a cycle; the source of the resulting acyclic
+ * tournament wins. Elects the Condorcet winner when one exists, clone-independent.
+ */
+function winRankedPairs(ranks: number[][], m: number): number {
+  const beats = pairwise(ranks, m); // beats[i][j] = voters ranking i above j
+  const majorities: { margin: number; support: number; w: number; l: number }[] = [];
+  for (let i = 0; i < m; i++) {
+    for (let j = i + 1; j < m; j++) {
+      const ij = beats[i][j];
+      const ji = beats[j][i];
+      if (ij > ji) majorities.push({ margin: ij - ji, support: ij, w: i, l: j });
+      else if (ji > ij) majorities.push({ margin: ji - ij, support: ji, w: j, l: i });
+    }
+  }
+  // Strongest first: margin desc, then winner support desc, then index order.
+  majorities.sort((a, b) => b.margin - a.margin || b.support - a.support || a.w - b.w || a.l - b.l);
+
+  const locked: boolean[][] = Array.from({ length: m }, () => new Array(m).fill(false));
+  const reaches = (src: number, dst: number): boolean => {
+    const stack = [src];
+    const seen = new Array(m).fill(false);
+    while (stack.length) {
+      const node = stack.pop();
+      if (node === undefined) break;
+      if (node === dst) return true;
+      if (seen[node]) continue;
+      seen[node] = true;
+      for (let k = 0; k < m; k++) if (locked[node][k]) stack.push(k);
+    }
+    return false;
+  };
+  for (const { w, l } of majorities) {
+    // w → l would close a cycle iff l can already reach w.
+    if (!reaches(l, w)) locked[w][l] = true;
+  }
+  for (let i = 0; i < m; i++) {
+    let incoming = false;
+    for (let j = 0; j < m; j++)
+      if (locked[j][i]) {
+        incoming = true;
+        break;
+      }
+    if (!incoming) return i;
+  }
+  return winCondorcet(ranks, m); // degenerate fallback (all-tie field)
+}
+
 /** STAR: score, then an automatic runoff between the two highest totals. */
 function winStar(scores: number[][], m: number): number {
   const total = new Array(m).fill(0);
@@ -427,6 +480,13 @@ export function ruleWinnerFromRanks(
       return winNanson(ranks, m);
     case 'baldwin':
       return winBaldwin(ranks, m);
+    case 'ranked_pairs':
+      return winRankedPairs(ranks, m);
+    // Random ballot is a lottery; its single representative winner is the most
+    // probable outcome — the candidate with the largest first-preference share
+    // (i.e. the plurality winner). The full distribution drives the probability lens.
+    case 'random_ballot':
+      return winPlurality(ranks, m);
     default:
       return winPlurality(ranks, m);
   }
@@ -483,6 +543,76 @@ export function winRegionGrid(
     }
   }
   return { n, rows, cells };
+}
+
+export interface ProbRegion {
+  n: number;
+  rows: number;
+  /** Flat row-major P(entrant H wins under random ballot) per cell, in [0,1]. */
+  cells: number[];
+}
+
+/**
+ * Random-ballot win-probability field. For each cell, place a hypothetical
+ * entrant H and record the probability it would win under random ballot — i.e.
+ * the share of voters whose nearest candidate is H (H's first-preference basin).
+ * This is the natural "every basin is a probability" heatmap that distinguishes
+ * the lottery from a deterministic rule's hard win-region.
+ */
+export function randomBallotProbGrid(
+  voters: Pt[],
+  cands: NamedPt[],
+  n: number,
+  dims: Dims = 2
+): ProbRegion {
+  const rows = dims === 1 ? 1 : n;
+  const cells = new Array(rows * n).fill(0);
+  const denom = voters.length || 1;
+  for (let r = 0; r < rows; r++) {
+    const y = dims === 1 ? 0 : 1 - ((r + 0.5) / n) * 2;
+    for (let c = 0; c < n; c++) {
+      const x = ((c + 0.5) / n) * 2 - 1;
+      const h: Pt = { x, y, z: 0 };
+      let count = 0;
+      for (const v of voters) {
+        const dh = dist(v, h);
+        let nearest = true;
+        for (const cand of cands)
+          if (dist(v, cand) < dh) {
+            nearest = false;
+            break;
+          }
+        if (nearest) count += 1;
+      }
+      cells[r * n + c] = count / denom;
+    }
+  }
+  return { n, rows, cells };
+}
+
+/**
+ * Per-candidate win probabilities under random ballot — each existing
+ * candidate's first-preference share (nearest-candidate count / voters). Sums to
+ * 1 (minus any voters tied to a removed/empty field). Drives the lottery bars.
+ */
+export function randomBallotShares(voters: Pt[], cands: NamedPt[]): number[] {
+  const m = cands.length;
+  const counts = new Array(m).fill(0);
+  if (m === 0) return counts;
+  for (const v of voters) {
+    let best = -1;
+    let bd = Infinity;
+    for (let i = 0; i < m; i++) {
+      const d = dist(v, cands[i]);
+      if (d < bd) {
+        bd = d;
+        best = i;
+      }
+    }
+    if (best >= 0) counts[best] += 1;
+  }
+  const denom = voters.length || 1;
+  return counts.map((c) => c / denom);
 }
 
 // ── Turnout / abstention (electorate-realism layer) ──────────────────────────

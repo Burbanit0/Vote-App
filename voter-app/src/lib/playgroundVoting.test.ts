@@ -4,6 +4,8 @@ import {
   ruleWinnerFromRanks,
   fieldWinnerName,
   winRegionGrid,
+  randomBallotShares,
+  randomBallotProbGrid,
   sampleVoters,
   applyTurnout,
   RULE_LABELS,
@@ -74,7 +76,7 @@ describe('playgroundVoting rules', () => {
   });
 });
 
-describe('extended method set (15 rules)', () => {
+describe('extended method set (17 rules)', () => {
   it('every rule has a label and resolves to a winner', () => {
     const cands: NamedPt[] = [
       { name: 'A', x: -0.5, y: 0 },
@@ -101,10 +103,33 @@ describe('extended method set (15 rules)', () => {
     for (let i = 0; i < 40; i++) voters.push({ x: -0.7, y: 0 });
     for (let i = 0; i < 25; i++) voters.push({ x: 0.0, y: 0 });
     for (let i = 0; i < 40; i++) voters.push({ x: 0.7, y: 0 });
-    for (const rule of ['condorcet', 'minimax', 'schulze', 'nanson', 'baldwin'] as Rule[]) {
+    for (const rule of [
+      'condorcet',
+      'minimax',
+      'schulze',
+      'nanson',
+      'baldwin',
+      'ranked_pairs',
+    ] as Rule[]) {
       expect(ruleWinner(voters, cands, rule)).toBe(1);
     }
     expect(ruleWinner(voters, cands, 'plurality')).not.toBe(1);
+  });
+
+  it('Ranked Pairs resolves a top-cycle by locking the strongest margins', () => {
+    // Cycle A>B>C>A with margins B>C=7 (strongest), A>B=5, C>A=1 (skipped).
+    // Locking the first two leaves A as the source → A (index 0) wins.
+    const ranks = [
+      ...Array(6).fill([0, 1, 2]), // A > B > C
+      ...Array(4).fill([1, 2, 0]), // B > C > A
+      ...Array(3).fill([2, 0, 1]), // C > A > B
+    ];
+    expect(ruleWinnerFromRanks(ranks, 3, 'ranked_pairs', undefined)).toBe(0);
+  });
+
+  it('Random ballot returns the most-probable winner (modal first choice)', () => {
+    const ranks = [...Array(3).fill([0, 1, 2]), [1, 0, 2]]; // A first ×3, B first ×1
+    expect(ruleWinnerFromRanks(ranks, 3, 'random_ballot', undefined)).toBe(0);
   });
 
   it('STAR runoff can overturn the score leader', () => {
@@ -151,6 +176,34 @@ describe('extended method set (15 rules)', () => {
     ];
     expect(ruleWinnerFromRanks(ranks, 3, 'plurality', undefined)).toBe(0);
     expect(ruleWinnerFromRanks(ranks, 3, 'coombs', undefined)).toBe(1);
+  });
+});
+
+describe('random ballot (lottery) helpers', () => {
+  const cands: NamedPt[] = [
+    { name: 'A', x: -0.9, y: 0 },
+    { name: 'B', x: 0.0, y: 0 },
+    { name: 'C', x: 0.9, y: 0 },
+  ];
+
+  it('randomBallotShares are first-preference shares summing to 1', () => {
+    const voters: Pt[] = [
+      ...Array.from({ length: 3 }, () => ({ x: -0.95, y: 0 })), // nearest A
+      ...Array.from({ length: 1 }, () => ({ x: 0.92, y: 0 })), // nearest C
+    ];
+    const shares = randomBallotShares(voters, cands);
+    expect(shares).toEqual([0.75, 0, 0.25]);
+    expect(shares.reduce((s, x) => s + x, 0)).toBeCloseTo(1, 9);
+  });
+
+  it('randomBallotProbGrid is a valid probability field in [0,1]', () => {
+    const voters = sampleVoters(200, 4, 'random');
+    const grid = randomBallotProbGrid(voters, cands, 8, 2);
+    expect(grid.rows).toBe(8);
+    expect(grid.cells).toHaveLength(64);
+    expect(grid.cells.every((v) => v >= 0 && v <= 1)).toBe(true);
+    // An entrant somewhere wins a non-trivial slice of first preferences.
+    expect(Math.max(...grid.cells)).toBeGreaterThan(0);
   });
 });
 

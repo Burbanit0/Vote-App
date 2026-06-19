@@ -6,7 +6,7 @@ import { useElection, usePlayground } from '../stores/useElectionStore';
 import type { ElectionConfig, PlaygroundState } from '../stores/useElectionStore';
 import { useMetaTags } from '../hooks/useMetaTags';
 import { runProfileSimulate, type ProfileSimulateResult } from '../services/profileApi';
-import LeaderCanvas from '../components/playground/LeaderCanvas';
+import LeaderCanvas, { type Lens } from '../components/playground/LeaderCanvas';
 import ParliamentCanvas from '../components/playground/ParliamentCanvas';
 import FlipReveal from '../components/playground/FlipReveal';
 import {
@@ -305,6 +305,8 @@ const PlaygroundPage: React.FC = () => {
   // in the configured number of spatial dimensions (1/2/3).
   const dims = space.dims;
   const [leaderRule, setLeaderRule] = React.useState<Rule>('plurality');
+  // Central-map lens (win-region by default); overlays render in place.
+  const [lens, setLens] = React.useState<Lens>('winner');
   // "You" — the sincere-vote voter, draggable on the map while its module is open.
   const [youPos, setYouPos] = React.useState<Pt>({ x: -0.5, y: 0, z: 0 });
   const [sincerityOpen, setSincerityOpen] = React.useState(false);
@@ -1015,6 +1017,8 @@ const PlaygroundPage: React.FC = () => {
                     dims={dims}
                     voterColors={voterColors}
                     youMarker={sincerityOpen ? youPos : null}
+                    lens={lens}
+                    onLensChange={setLens}
                     onMoveYou={(x, y) => setYouPos((p) => ({ ...p, x, y }))}
                     onRuleChange={setLeaderRule}
                     onMoveCandidate={moveDisplayed}

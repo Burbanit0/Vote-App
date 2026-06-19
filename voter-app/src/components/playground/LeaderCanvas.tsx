@@ -2,14 +2,30 @@ import React, { useEffect, useMemo, useRef, useState } from 'react';
 import {
   fieldWinnerName,
   winRegionGrid,
+  randomBallotProbGrid,
+  randomBallotShares,
   RULE_LABELS,
   type Dims,
   type NamedPt,
   type Pt,
+  type ProbRegion,
   type Rule,
   type WinRegion,
 } from '../../lib/playgroundVoting';
 import LeaderScene3D from './LeaderScene3D';
+
+// Lenses are overlays rendered IN PLACE on the central map, driven by the same
+// knobs (rule, drag, scrubber). 'winner' is the default win-region; 'probability'
+// reads the map as the random-ballot lottery. 'manipulation'/'criteria' arrive in
+// later batches — only implemented lenses appear in the switch.
+export type Lens = 'winner' | 'manipulation' | 'probability' | 'criteria';
+
+const AVAILABLE_LENSES: { id: Lens; label: string }[] = [
+  { id: 'winner', label: 'Vainqueur' },
+  { id: 'probability', label: 'Probabilité' },
+];
+
+const PROB_HUE = '#4f46e5';
 
 // LeaderCanvas (Lab reshape P2 · dims FA-2bis) — the live single-office viz over
 // a 1/2/3-D ideological space. Candidates are draggable; the plane is shaded by
@@ -65,6 +81,9 @@ export interface LeaderCanvasProps {
   voterColors?: string[];
   /** Optional "you" marker (the sincere-vote module): a draggable diamond. */
   youMarker?: Pt | null;
+  /** Active overlay on the central map (defaults to the win-region). */
+  lens?: Lens;
+  onLensChange?: (lens: Lens) => void;
   onMoveYou?: (x: number, y: number) => void;
   onRuleChange: (rule: Rule) => void;
   onMoveCandidate: (index: number, x: number, y: number, z?: number) => void;
@@ -77,6 +96,8 @@ const LeaderCanvas: React.FC<LeaderCanvasProps> = ({
   dims,
   voterColors,
   youMarker,
+  lens = 'winner',
+  onLensChange,
   onMoveYou,
   onRuleChange,
   onMoveCandidate,
@@ -85,6 +106,7 @@ const LeaderCanvas: React.FC<LeaderCanvasProps> = ({
   const draggingIdx = useRef<number | null>(null);
   const draggingYou = useRef<boolean>(false);
   const [region, setRegion] = useState<WinRegion | null>(null);
+  const [probRegion, setProbRegion] = useState<ProbRegion | null>(null);
   // In 3-D, default to the orbital scene (what the dimension is *for*); the
   // x–y plane stays available for editing + the win-region overlay.
   const [scene3d, setScene3d] = useState(true);
@@ -101,17 +123,30 @@ const LeaderCanvas: React.FC<LeaderCanvasProps> = ({
     [voters]
   );
 
+  // Only the active lens computes (default 'winner' = identical to before — no
+  // extra work at first paint). The probability lens reads the random-ballot
+  // lottery; the win-region lens reads the current rule.
   useEffect(() => {
     let alive = true;
     const t = setTimeout(() => {
       if (!alive) return;
-      setRegion(winRegionGrid(gridVoters, candidates, rule, GRID_N, dims));
+      if (lens === 'probability') {
+        setProbRegion(randomBallotProbGrid(gridVoters, candidates, GRID_N, dims));
+      } else {
+        setRegion(winRegionGrid(gridVoters, candidates, rule, GRID_N, dims));
+      }
     }, 120);
     return () => {
       alive = false;
       clearTimeout(t);
     };
-  }, [gridVoters, candidates, rule, dims]);
+  }, [gridVoters, candidates, rule, dims, lens]);
+
+  // Current field's lottery (existing candidates' first-preference shares).
+  const lotteryShares = useMemo(
+    () => (lens === 'probability' ? randomBallotShares(voters, candidates) : null),
+    [lens, voters, candidates]
+  );
 
   useEffect(() => {
     const move = (clientX: number, clientY: number) => {
@@ -178,6 +213,31 @@ const LeaderCanvas: React.FC<LeaderCanvasProps> = ({
         </span>
       </div>
 
+      {/* Lens switch — overlays rendered in place on the same map. */}
+      <div
+        data-testid="lens-switch"
+        role="radiogroup"
+        aria-label="Vue de la carte"
+        className="flex items-center gap-1 text-xs"
+      >
+        <span className="text-muted-foreground">Vue</span>
+        {AVAILABLE_LENSES.map(({ id, label }) => (
+          <button
+            key={id}
+            type="button"
+            role="radio"
+            aria-checked={lens === id}
+            data-testid={`lens-${id}`}
+            className={`rounded border px-2 py-0.5 ${
+              lens === id ? 'border-primary text-primary' : 'border-border text-muted-foreground'
+            }`}
+            onClick={() => onLensChange?.(id)}
+          >
+            {label}
+          </button>
+        ))}
+      </div>
+
       {/* 3-D view toggle: orbital scene vs the editable x–y plane. */}
       {dims === 3 && (
         <div className="flex gap-1 text-xs">
@@ -212,24 +272,52 @@ const LeaderCanvas: React.FC<LeaderCanvasProps> = ({
         style={{ maxHeight: '70vh', display: show3d ? 'none' : undefined }}
       >
         {/* Win/entry-region overlay (full-height columns in 1-D) */}
-        <g data-testid="winregion" opacity={0.28}>
-          {region &&
-            region.cells.map((widx, k) => {
-              const cellH = PLOT / region.rows;
-              const r = Math.floor(k / region.n);
-              const c = k % region.n;
-              return (
-                <rect
-                  key={k}
-                  x={MARGIN + c * cellW}
-                  y={MARGIN + r * cellH}
-                  width={cellW + 0.5}
-                  height={cellH + 0.5}
-                  fill={colorFor(widx)}
-                />
-              );
-            })}
-        </g>
+        {lens === 'winner' && (
+          <g data-testid="winregion" opacity={0.28}>
+            {region &&
+              region.cells.map((widx, k) => {
+                const cellH = PLOT / region.rows;
+                const r = Math.floor(k / region.n);
+                const c = k % region.n;
+                return (
+                  <rect
+                    key={k}
+                    x={MARGIN + c * cellW}
+                    y={MARGIN + r * cellH}
+                    width={cellW + 0.5}
+                    height={cellH + 0.5}
+                    fill={colorFor(widx)}
+                  />
+                );
+              })}
+          </g>
+        )}
+
+        {/* Probability lens — random-ballot win-probability heatmap of a new
+            entrant: opacity ∝ its lottery chance (first-preference basin). */}
+        {lens === 'probability' && probRegion && (
+          <g data-testid="problens">
+            {(() => {
+              const maxV = Math.max(...probRegion.cells, 1e-6);
+              return probRegion.cells.map((val, k) => {
+                const cellH = PLOT / probRegion.rows;
+                const r = Math.floor(k / probRegion.n);
+                const c = k % probRegion.n;
+                return (
+                  <rect
+                    key={k}
+                    x={MARGIN + c * cellW}
+                    y={MARGIN + r * cellH}
+                    width={cellW + 0.5}
+                    height={cellH + 0.5}
+                    fill={PROB_HUE}
+                    opacity={(val / maxV) * 0.8}
+                  />
+                );
+              });
+            })()}
+          </g>
+        )}
 
         {/* Plot border + axes */}
         <rect
@@ -403,6 +491,41 @@ const LeaderCanvas: React.FC<LeaderCanvasProps> = ({
         )}
       </svg>
 
+      {/* Probability lens — the current field's lottery as animated bars. */}
+      {lens === 'probability' && lotteryShares && (
+        <div
+          data-testid="lottery-bars"
+          className="flex flex-col gap-1 rounded-md border border-border p-2"
+        >
+          <span className="text-[0.7rem] font-medium text-muted-foreground">
+            Loterie du vote au sort — probabilité de victoire (= part des premières voix)
+          </span>
+          {candidates.map((c, i) => (
+            <div key={i} className="flex items-center gap-2 text-xs">
+              <span
+                className="w-20 shrink-0 truncate"
+                style={{ color: PALETTE[i % PALETTE.length] }}
+              >
+                {c.name}
+              </span>
+              <div className="h-2 flex-1 overflow-hidden rounded bg-muted">
+                <div
+                  className="h-full animate-pulse rounded"
+                  style={{
+                    width: `${(lotteryShares[i] ?? 0) * 100}%`,
+                    background: PALETTE[i % PALETTE.length],
+                    transition: 'width 400ms ease',
+                  }}
+                />
+              </div>
+              <span className="w-10 text-right tabular-nums text-muted-foreground">
+                {Math.round((lotteryShares[i] ?? 0) * 100)}%
+              </span>
+            </div>
+          ))}
+        </div>
+      )}
+
       {/* 3-D depth controls — the z axis can't be dragged on a 2-D plane. */}
       {dims === 3 && (
         <div
@@ -458,6 +581,8 @@ const LeaderCanvas: React.FC<LeaderCanvasProps> = ({
         </span>
       </div>
       <p className="text-xs text-muted-foreground/70">
+        {lens === 'probability' &&
+          'Lentille Probabilité : sous le vote au sort, un bulletin est tiré au hasard — l’intensité montre la chance de victoire d’un nouvel entrant, et chaque bassin devient une probabilité (et non une frontière nette). '}
         {dims === 1 &&
           'Espace à 1 dimension : tout se joue sur un axe — le terrain du théorème de l’électeur médian.'}
         {dims === 2 &&

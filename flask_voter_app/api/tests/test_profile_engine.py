@@ -200,7 +200,7 @@ def test_ballot_metrics_orderings():
 
 
 def test_compatibility_whitelists():
-    assert compatible_methods("choose_one") == {"plurality", "two_round"}
+    assert compatible_methods("choose_one") == {"plurality", "two_round", "random_ballot"}
     assert "borda" in compatible_methods("rank_truncated")
     assert "star_voting" not in compatible_methods("rank_full")
     assert compatible_methods("approve") == {"approval"}

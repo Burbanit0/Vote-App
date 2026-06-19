@@ -108,6 +108,24 @@ describe('PlaygroundPage (P0 shell)', () => {
     expect(screen.queryByTestId('canvas-parliament')).not.toBeInTheDocument();
   });
 
+  it('the lens switch is present on first paint with no heavy overlay mounted', () => {
+    renderPage();
+    // The cheap lens control is always there; the default 'winner' lens means the
+    // probability overlay (and its compute) stays unmounted until selected.
+    expect(screen.getByTestId('lens-switch')).toBeInTheDocument();
+    expect(screen.getByTestId('lens-winner')).toHaveAttribute('aria-checked', 'true');
+    expect(screen.queryByTestId('problens')).not.toBeInTheDocument();
+    expect(screen.queryByTestId('lottery-bars')).not.toBeInTheDocument();
+  });
+
+  it('switching to the probability lens renders the lottery on the central map', async () => {
+    renderPage();
+    fireEvent.click(screen.getByTestId('lens-probability'));
+    expect(screen.getByTestId('lottery-bars')).toBeInTheDocument();
+    expect(screen.queryByTestId('winregion')).not.toBeInTheDocument();
+    await waitFor(() => expect(screen.getByTestId('problens')).toBeInTheDocument());
+  });
+
   it('mode toggle swaps the canvas, reveals assembly knobs, and persists', () => {
     renderPage();
     fireEvent.click(screen.getByTestId('mode-toggle-parliament'));
