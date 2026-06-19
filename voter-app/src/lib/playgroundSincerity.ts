@@ -216,3 +216,73 @@ export function sincerityScan(
   })).sort((a, b) => a.temptRate - b.temptRate);
   return { sampled: picks.length, rows };
 }
+
+export type ManipKind = 'compromise' | 'burying' | null;
+
+/**
+ * Per-voter strategic-temptation field under ONE rule — the spatial face of the
+ * sincerity question, for the central-map "Manipulation" lens. Each voter is
+ * treated as a conviction bloc (`blocShare` of the electorate, the rest sincere);
+ * we report whether a canonical lie elects a candidate they prefer:
+ *   · 'compromise' — rank a more viable preferred candidate first (vote utile);
+ *   · 'burying'    — keep the favourite first but push the sincere winner last;
+ *   · null         — sincere voting is the bloc's best response (conviction wins).
+ * Random ballot is strategyproof (Gibbard 1977) → every voter is null. Pure +
+ * deterministic; reuses the playground voting lib (same model as sincerityProbe).
+ */
+export function manipulationField(
+  voters: Pt[],
+  cands: NamedPt[],
+  rule: Rule,
+  blocShare: number
+): ManipKind[] {
+  const m = cands.length;
+  if (m < 3 || voters.length === 0 || rule === 'random_ballot') {
+    return voters.map(() => null);
+  }
+  const cardinal = CARDINAL_RULES.has(rule);
+  const baseRanks = computeRanks(voters, cands);
+  const baseScores = cardinal ? computeScores(voters, cands) : [];
+  const blocSize = Math.max(1, Math.round(Math.max(0, Math.min(1, blocShare)) * voters.length));
+  const blocStart = voters.length;
+
+  return voters.map((you) => {
+    const util = cands.map((c) => -dist(you, c));
+    const ranking = cands.map((_, i) => i).sort((a, b) => util[b] - util[a]);
+    const youScore = cardinal ? computeScores([you], cands)[0] : null;
+
+    const sincereRanks = baseRanks.concat(Array.from({ length: blocSize }, () => ranking));
+    const sincereScores =
+      cardinal && youScore
+        ? baseScores.concat(Array.from({ length: blocSize }, () => youScore))
+        : undefined;
+
+    const w0 = ruleWinnerFromRanks(sincereRanks, m, rule, sincereScores);
+    if (w0 < 0) return null;
+
+    const winnerWith = (stratRank: number[], stratScore: number[] | null): number => {
+      const ranks = sincereRanks.map((r, v) => (v >= blocStart ? stratRank : r));
+      const scores =
+        cardinal && sincereScores
+          ? sincereScores.map((s, v) => (v >= blocStart && stratScore ? stratScore : s))
+          : sincereScores;
+      return ruleWinnerFromRanks(ranks, m, rule, scores);
+    };
+
+    // Compromise ("vote utile"): a preferred candidate first, w0 buried last.
+    const better = ranking.filter((c) => c !== w0 && util[c] > util[w0] + EPS);
+    for (const c of better) {
+      const stratRank = [c, ...ranking.filter((x) => x !== c && x !== w0), w0];
+      const stratScore = cands.map((_, i) => (i === c ? 1 : 0));
+      if (util[winnerWith(stratRank, stratScore)] > util[w0] + EPS) return 'compromise';
+    }
+    // Burying: keep the favourite first, push the sincere winner last.
+    if (ranking[0] !== w0) {
+      const fav = ranking[0];
+      const stratRank = [fav, ...ranking.filter((x) => x !== fav && x !== w0), w0];
+      const stratScore = cands.map((_, i) => (i === w0 ? 0 : Math.max(0, util[i] - util[w0])));
+      if (util[winnerWith(stratRank, stratScore)] > util[w0] + EPS) return 'burying';
+    }
+    return null;
+  });
+}

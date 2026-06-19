@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { sincerityProbe, sincerityScan } from './playgroundSincerity';
+import { sincerityProbe, sincerityScan, manipulationField } from './playgroundSincerity';
 import type { NamedPt, Pt } from './playgroundVoting';
 
 // A textbook spoiler on a 1-D line: A (your favourite, left), B (centre), C (right).
@@ -94,5 +94,49 @@ describe('sincerityProbe', () => {
     ];
     const r = sincerityProbe(YOU, BLOC_SHARE, OTHERS, two);
     expect(r.verdicts.every((v) => v.sincereIsBest)).toBe(true);
+  });
+});
+
+describe('manipulationField (per-voter lens)', () => {
+  // A spoiler electorate: left bloc (favours A) is squeezed; B is the centre.
+  const cands: NamedPt[] = [
+    { name: 'A', x: -0.8, y: 0 },
+    { name: 'B', x: 0.0, y: 0 },
+    { name: 'C', x: 0.75, y: 0 },
+  ];
+  // Small A bloc (can't win even with its conviction bloc) → spoiler pressure to
+  // compromise on B; B beats C once the left consolidates.
+  const voters: Pt[] = [
+    ...Array.from({ length: 15 }, () => ({ x: -0.85, y: 0 })), // A-first (spoiler victims)
+    ...Array.from({ length: 25 }, () => ({ x: 0.05, y: 0 })), // B-first
+    ...Array.from({ length: 35 }, () => ({ x: 0.78, y: 0 })), // C-first (plurality winner)
+  ];
+
+  it('returns one verdict per voter and stays deterministic', () => {
+    const a = manipulationField(voters, cands, 'plurality', 0.15);
+    const b = manipulationField(voters, cands, 'plurality', 0.15);
+    expect(a).toHaveLength(voters.length);
+    expect(a).toEqual(b);
+    expect(a.every((k) => k === null || k === 'compromise' || k === 'burying')).toBe(true);
+  });
+
+  it('plurality tempts the squeezed left bloc to compromise (vote utile)', () => {
+    const field = manipulationField(voters, cands, 'plurality', 0.2);
+    // The A-first voters (whose favourite cannot win) are pushed to compromise.
+    expect(field.some((k) => k === 'compromise')).toBe(true);
+  });
+
+  it('random ballot tempts no one (strategyproof, Gibbard 1977)', () => {
+    const field = manipulationField(voters, cands, 'random_ballot', 0.2);
+    expect(field.every((k) => k === null)).toBe(true);
+  });
+
+  it('no temptation with fewer than three candidates', () => {
+    const two: NamedPt[] = [
+      { name: 'A', x: -0.5, y: 0 },
+      { name: 'B', x: 0.5, y: 0 },
+    ];
+    const field = manipulationField(voters, two, 'plurality', 0.2);
+    expect(field.every((k) => k === null)).toBe(true);
   });
 });

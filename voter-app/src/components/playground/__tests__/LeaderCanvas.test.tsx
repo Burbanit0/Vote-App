@@ -86,6 +86,18 @@ describe('LeaderCanvas', () => {
     });
   });
 
+  it('manipulation lens tints voters and shows the G-S boundary summary', async () => {
+    setup({ lens: 'manipulation' });
+    expect(screen.getByTestId('lens-manipulation')).toHaveAttribute('aria-checked', 'true');
+    expect(screen.queryByTestId('winregion')).not.toBeInTheDocument();
+    await waitFor(() => expect(screen.getByTestId('manip-voters')).toBeInTheDocument());
+    const summary = screen.getByTestId('manip-summary');
+    expect(summary).toBeInTheDocument();
+    // The Gibbard-Satterthwaite contrast (random ballot at 0%) is stated inline.
+    expect(summary).toHaveTextContent('0 %');
+    expect(summary).toHaveTextContent(/Gibbard/);
+  });
+
   it('grabbing a candidate then dragging moves it', () => {
     const { onMoveCandidate } = setup();
     // Grab candidate 0, then a window mousemove should report its new domain position.
