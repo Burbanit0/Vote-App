@@ -1,5 +1,6 @@
 import React from 'react';
 import Leaf from './Leaf';
+import { lazyWithPreload } from '../../../lib/lazyWithPreload';
 
 // CampaignAnchor — the "Espace & dynamiques" Lab family, re-framed as one
 // narrative around the live campaign scrubber (J0→J30 drift to the median).
@@ -9,11 +10,16 @@ import Leaf from './Leaf';
 //   3. how does a more *polarized* electorate degrade the result? (Esteban-Ray)
 //   4. how does the party system *evolve* over repeated elections? (Duverger)
 // All lazy + Collapsible-gated — no compute until a step is opened.
+//
+// Perf (Phase 0): panels use lazyWithPreload + Leaf `prefetch`, so hovering a
+// toggle warms its chunk before the click.
 
-const HotellingPanel = React.lazy(() => import('../../shared/HotellingPanel'));
-const CampaignSensitivityPanel = React.lazy(() => import('../../shared/CampaignSensitivityPanel'));
-const PolarizationPanel = React.lazy(() => import('../../shared/PolarizationPanel'));
-const PartyDynamicsPanel = React.lazy(() => import('../../shared/PartyDynamicsPanel'));
+const HotellingPanel = lazyWithPreload(() => import('../../shared/HotellingPanel'));
+const CampaignSensitivityPanel = lazyWithPreload(
+  () => import('../../shared/CampaignSensitivityPanel')
+);
+const PolarizationPanel = lazyWithPreload(() => import('../../shared/PolarizationPanel'));
+const PartyDynamicsPanel = lazyWithPreload(() => import('../../shared/PartyDynamicsPanel'));
 
 const CampaignAnchor: React.FC = () => (
   <div className="flex flex-col gap-2">
@@ -23,16 +29,32 @@ const CampaignAnchor: React.FC = () => (
       sondages, l’impact de la polarisation, puis l’évolution du système de partis sur plusieurs
       élections.
     </p>
-    <Leaf title="① 📐 Vers quel équilibre ? (Hotelling-Downs)" testid="dyn-hotelling">
+    <Leaf
+      title="① 📐 Vers quel équilibre ? (Hotelling-Downs)"
+      testid="dyn-hotelling"
+      prefetch={HotellingPanel.preload}
+    >
       <HotellingPanel />
     </Leaf>
-    <Leaf title="② 📣 Effet des sondages (sensibilité de campagne)" testid="dyn-campaign">
+    <Leaf
+      title="② 📣 Effet des sondages (sensibilité de campagne)"
+      testid="dyn-campaign"
+      prefetch={CampaignSensitivityPanel.preload}
+    >
       <CampaignSensitivityPanel />
     </Leaf>
-    <Leaf title="③ ↔️ Électorat polarisé (qualité du résultat)" testid="dyn-polarization">
+    <Leaf
+      title="③ ↔️ Électorat polarisé (qualité du résultat)"
+      testid="dyn-polarization"
+      prefetch={PolarizationPanel.preload}
+    >
       <PolarizationPanel />
     </Leaf>
-    <Leaf title="④ 🏳️ Évolution des partis (Duverger sur la durée)" testid="dyn-party">
+    <Leaf
+      title="④ 🏳️ Évolution des partis (Duverger sur la durée)"
+      testid="dyn-party"
+      prefetch={PartyDynamicsPanel.preload}
+    >
       <PartyDynamicsPanel />
     </Leaf>
   </div>

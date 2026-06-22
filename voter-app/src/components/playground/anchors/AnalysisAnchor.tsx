@@ -1,20 +1,24 @@
 import React from 'react';
 import Leaf from './Leaf';
+import { lazyWithPreload } from '../../../lib/lazyWithPreload';
 import { useElection } from '../../../stores/useElectionStore';
 
 // AnalysisAnchor — the "Analyse comparative" Lab family, re-homed as a full-width
 // drawer below the grid (its charts need room the narrow Bilan column lacks). It
 // deepens the scorecard: distributions, regret, manipulability, collective will,
 // all on the current shared electorate. Lazy + Collapsible-gated.
+//
+// Perf (Phase 0): panels use lazyWithPreload + Leaf `prefetch`, so hovering a
+// toggle warms its chunk (these panels pull in Recharts) before the click.
 
-const MonteCarloResults = React.lazy(() => import('../../Simulation/MonteCarloResults'));
-const ManipulabilityChart = React.lazy(() => import('../../Simulation/ManipulabilityChart'));
-const ManipulationAnalysisPanel = React.lazy(
+const MonteCarloResults = lazyWithPreload(() => import('../../Simulation/MonteCarloResults'));
+const ManipulabilityChart = lazyWithPreload(() => import('../../Simulation/ManipulabilityChart'));
+const ManipulationAnalysisPanel = lazyWithPreload(
   () => import('../../shared/ManipulationAnalysisPanel')
 );
-const CollectiveWillPanel = React.lazy(() => import('../../shared/CollectiveWillPanel'));
-const AssumptionTesterPanel = React.lazy(() => import('../../shared/AssumptionTesterPanel'));
-const CombinedEffectsMatrix = React.lazy(() => import('../../shared/CombinedEffectsMatrix'));
+const CollectiveWillPanel = lazyWithPreload(() => import('../../shared/CollectiveWillPanel'));
+const AssumptionTesterPanel = lazyWithPreload(() => import('../../shared/AssumptionTesterPanel'));
+const CombinedEffectsMatrix = lazyWithPreload(() => import('../../shared/CombinedEffectsMatrix'));
 
 const AnalysisAnchor: React.FC = () => {
   const { config } = useElection();
@@ -38,22 +42,46 @@ const AnalysisAnchor: React.FC = () => {
         Mesures comparatives approfondies sur le même électorat — distributions, regret,
         manipulabilité, volonté collective. Chaque module se calcule à la demande.
       </p>
-      <Leaf title="🎲 Monte-Carlo (distributions)" testid="ana-montecarlo">
+      <Leaf
+        title="🎲 Monte-Carlo (distributions)"
+        testid="ana-montecarlo"
+        prefetch={MonteCarloResults.preload}
+      >
         <MonteCarloResults baseParams={baseParams} />
       </Leaf>
-      <Leaf title="🕵 Manipulabilité (par méthode)" testid="ana-manipulability">
+      <Leaf
+        title="🕵 Manipulabilité (par méthode)"
+        testid="ana-manipulability"
+        prefetch={ManipulabilityChart.preload}
+      >
         <ManipulabilityChart baseParams={baseParams} />
       </Leaf>
-      <Leaf title="🎯 Analyse de manipulation" testid="ana-manipulation">
+      <Leaf
+        title="🎯 Analyse de manipulation"
+        testid="ana-manipulation"
+        prefetch={ManipulationAnalysisPanel.preload}
+      >
         <ManipulationAnalysisPanel />
       </Leaf>
-      <Leaf title="🤝 Volonté collective" testid="ana-collective">
+      <Leaf
+        title="🤝 Volonté collective"
+        testid="ana-collective"
+        prefetch={CollectiveWillPanel.preload}
+      >
         <CollectiveWillPanel {...lab} />
       </Leaf>
-      <Leaf title="🧪 Test des hypothèses" testid="ana-assumptions">
+      <Leaf
+        title="🧪 Test des hypothèses"
+        testid="ana-assumptions"
+        prefetch={AssumptionTesterPanel.preload}
+      >
         <AssumptionTesterPanel {...lab} />
       </Leaf>
-      <Leaf title="🧮 Effets combinés (factoriel)" testid="ana-combined">
+      <Leaf
+        title="🧮 Effets combinés (factoriel)"
+        testid="ana-combined"
+        prefetch={CombinedEffectsMatrix.preload}
+      >
         <CombinedEffectsMatrix />
       </Leaf>
     </div>
