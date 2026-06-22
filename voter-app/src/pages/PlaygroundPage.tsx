@@ -307,6 +307,27 @@ const PlaygroundPage: React.FC = () => {
   const [leaderRule, setLeaderRule] = React.useState<Rule>('plurality');
   // Central-map lens (win-region by default); overlays render in place.
   const [lens, setLens] = React.useState<Lens>('winner');
+
+  // Phase 0 perf: warm the heavy Recharts vendor chunk (its own split chunk) after
+  // first paint, so the first behaviour/analysis panel that uses it opens without a
+  // cold download+parse. Dynamic import keeps it a separate chunk; failure is ignored.
+  React.useEffect(() => {
+    let idle: number | undefined;
+    let timer: number | undefined;
+    const warm = () => {
+      import('recharts').catch(() => {});
+    };
+    if (typeof window.requestIdleCallback === 'function') {
+      idle = window.requestIdleCallback(warm);
+    } else {
+      timer = window.setTimeout(warm, 1500);
+    }
+    return () => {
+      if (idle !== undefined && typeof window.cancelIdleCallback === 'function')
+        window.cancelIdleCallback(idle);
+      if (timer !== undefined) window.clearTimeout(timer);
+    };
+  }, []);
   // "You" — the sincere-vote voter, draggable on the map while its module is open.
   const [youPos, setYouPos] = React.useState<Pt>({ x: -0.5, y: 0, z: 0 });
   const [sincerityOpen, setSincerityOpen] = React.useState(false);

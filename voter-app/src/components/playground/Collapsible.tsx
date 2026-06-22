@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useRef, useState } from 'react';
 
 // Collapsible — the progressive-disclosure primitive that lets the playground
 // gain depth without clutter: advanced modules ship collapsed and open on
@@ -12,6 +12,9 @@ export interface CollapsibleProps {
   testid?: string;
   /** Notified whenever the open state changes (e.g. to reveal a linked overlay). */
   onOpenChange?: (open: boolean) => void;
+  /** Fired once when the toggle is first hovered/focused — used to PRELOAD the
+   * panel's lazy chunk so the click feels instant (no mount, just a warm cache). */
+  onPrefetch?: () => void;
   children: React.ReactNode;
 }
 
@@ -21,15 +24,24 @@ const Collapsible: React.FC<CollapsibleProps> = ({
   defaultOpen = false,
   testid,
   onOpenChange,
+  onPrefetch,
   children,
 }) => {
   const [open, setOpen] = useState(defaultOpen);
+  const prefetched = useRef(false);
+  const prefetch = () => {
+    if (prefetched.current) return;
+    prefetched.current = true;
+    onPrefetch?.();
+  };
   return (
     <div data-testid={testid} className="rounded-md border border-border">
       <button
         type="button"
         data-testid={testid ? `${testid}-toggle` : undefined}
         aria-expanded={open}
+        onMouseEnter={onPrefetch ? prefetch : undefined}
+        onFocus={onPrefetch ? prefetch : undefined}
         onClick={() =>
           setOpen((o) => {
             onOpenChange?.(!o);
