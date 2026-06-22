@@ -7,6 +7,10 @@ here instead of on the PR. It mirrors the two gating jobs:
 |---|---|---|
 | `frontend` | `.github/workflows/frontend-ci-cd-pipeline.yml` | **Ubuntu 24.04** (= `ubuntu-latest`), **Node 20** |
 | `backend`  | `.github/workflows/backend-ci-cd-pipeline.yml`  | **Python 3.11** |
+| `audit`    | `.github/workflows/audit.yml`                   | **Python 3.11** + Semgrep / Gitleaks / Trivy |
+
+Targets: `all` (default) = frontend + backend + audit (**run before each push**) ·
+`code` = frontend + backend only (quick iteration) · plus the individual names.
 
 ## Why Docker and not just `npm`/`pytest` on Windows
 
@@ -46,6 +50,11 @@ checks run as the container's `CMD`, so `docker run` failing == the PR failing.
 **Backend** — `flake8` (non-blocking) → `bandit --exit-zero` (non-blocking) →
 `pip-audit` (non-blocking) → `mypy api/` (gating) →
 `pytest api/tests --cov=api --cov-fail-under=30` (gating).
+
+**Audit** — `Semgrep` SAST (informational) → `Trivy` deps/containers/misconfig
+(informational) → `Gitleaks` secret scan (**gating** — fails the run if a secret is
+found). Security findings are non-blocking by design except secrets; read the job log.
+First build is slower (it installs the three scanners); cached afterwards.
 
 ## Performance
 

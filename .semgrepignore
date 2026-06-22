@@ -1,0 +1,17 @@
+# Cuts scan time and token noise for Semgrep (and mirrors sensible audit excludes).
+voter-app/node_modules/
+voter-app/dist/
+voter-app/build/
+voter-app/.vite/
+voter-app/coverage/
+flask_voter_app/.venv/
+flask_voter_app/venv/
+flask_voter_app/htmlcov/
+**/__pycache__/
+**/*.min.js
+*.lock
+package-lock.json
+graphify-out/
+audit-reports/
+ci-local/
+.git/
