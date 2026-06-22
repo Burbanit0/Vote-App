@@ -76,6 +76,7 @@ jobs:
           severity: HIGH,CRITICAL
           format: table
           exit-code: "0"
+          skip-dirs: voter-app/node_modules,.claude,graphify-out
       - name: Trivy (JSON report artifact)
         uses: aquasecurity/trivy-action@master
         with:
@@ -84,6 +85,7 @@ jobs:
           severity: HIGH,CRITICAL
           format: json
           output: trivy.json
+          skip-dirs: voter-app/node_modules,.claude,graphify-out
       - uses: actions/upload-artifact@v4
         if: always()
         with:

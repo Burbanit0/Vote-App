@@ -27,6 +27,9 @@ COPY flask_voter_app/ flask_voter_app/
 
 # Mirror the workflow steps in order. flake8/bandit/pip-audit are non-blocking
 # upstream (continue-on-error / --exit-zero); mypy + pytest(--cov-fail-under=30) gate.
+# JWT_SECRET_KEY here is a documented TEST DUMMY (matches the CI env), baked only
+# into this local-only test image; it grants no real access.
+#trivy:ignore:AVD-DS-0031
 ENV FLASK_ENV=testing JWT_SECRET_KEY=ci-test-secret
 CMD ["bash","-euo","pipefail","-c","\
 echo '=== Flake8 (non-blocking) ===';   flake8 --config=flask_voter_app/.flake8 flask_voter_app || echo '(flake8 failed — non-blocking)'; \

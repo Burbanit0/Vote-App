@@ -3,7 +3,7 @@ FROM python:3.11-slim
 
 WORKDIR /app
 
-RUN apt-get update && apt-get install -y \
+RUN apt-get update && apt-get install -y --no-install-recommends \
     build-essential \
     libpq-dev \
     && rm -rf /var/lib/apt/lists/*
@@ -20,6 +20,11 @@ ENV APP_ENV=development
 
 # Port the FastAPI app listens on.
 EXPOSE 4434
+
+# Run as a non-root user (hardening). The app binds 4434 (> 1024) and writes
+# nothing under root-owned paths, so an unprivileged user is sufficient.
+RUN useradd --create-home --uid 10001 appuser && chown -R appuser:appuser /app
+USER appuser
 
 # uvicorn serves the whole API (FastAPI app at api.main:app).
 CMD ["uvicorn", "api.main:app", "--host", "0.0.0.0", "--port", "4434"]
