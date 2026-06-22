@@ -18,7 +18,7 @@ semgrep \
 echo ""
 echo "===== Trivy — dependencies / containers / misconfig (informational) ====="
 trivy fs --scanners vuln,secret,misconfig --severity HIGH,CRITICAL \
-      --skip-dirs voter-app/node_modules --exit-code 0 . \
+      --skip-dirs voter-app/node_modules,.claude,graphify-out --exit-code 0 . \
   || echo "⚠️  Trivy scan reported issues (informational)."
 
 echo ""
