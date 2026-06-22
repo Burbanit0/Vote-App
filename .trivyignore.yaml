@@ -1,0 +1,13 @@
+# Trivy ignore file — triaged misconfigurations (path-scoped, NOT global).
+misconfigurations:
+  - id: AVD-DS-0002 # "Image user should not be 'root'"
+    paths:
+      - "ci-local/audit.Dockerfile"
+      - "ci-local/backend.Dockerfile"
+      - "ci-local/frontend.Dockerfile"
+    statement: >-
+      Local-only CI/scanner images — built and run as throwaway containers, never
+      deployed. Running as root in a build/test container is standard (pip/npm/pytest
+      write freely; the scanner image reads the COPYed .git). The PRODUCTION images
+      (flask_voter_app/Dockerfile, voter-app/Dockerfile) ARE non-root, and this scope
+      keeps DS-0002 gating for any future production Dockerfile.
