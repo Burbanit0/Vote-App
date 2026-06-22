@@ -9,19 +9,23 @@
   PR would fail. Prints a PASS/FAIL summary and exits non-zero if any target failed.
 
 .PARAMETER Target
-  frontend | backend | all  (default: all)
+  frontend | backend | audit | code | all  (default: all)
+    all   = frontend + backend + audit (run before each push)
+    code  = frontend + backend (quick iteration, skips the security audit)
+    audit = security scanners only (Semgrep / Gitleaks / Trivy)
 
 .PARAMETER NoCache
   Force a clean rebuild (no Docker layer cache).
 
 .EXAMPLE
-  ./ci-local/run-ci.ps1                 # both jobs
-  ./ci-local/run-ci.ps1 -Target frontend
+  ./ci-local/run-ci.ps1                 # frontend + backend + audit
+  ./ci-local/run-ci.ps1 -Target code    # skip the audit for quick iteration
+  ./ci-local/run-ci.ps1 -Target audit   # security scan only
   ./ci-local/run-ci.ps1 -NoCache
 #>
 [CmdletBinding()]
 param(
-  [ValidateSet('frontend','backend','all')]
+  [ValidateSet('frontend','backend','audit','code','all')]
   [string]$Target = 'all',
   [switch]$NoCache
 )
@@ -66,8 +70,9 @@ function Invoke-CiJob([string]$Name, [string]$Dockerfile, [string]$Tag) {
 }
 
 try {
-  if ($Target -in 'frontend','all') { Invoke-CiJob 'Frontend CI' 'ci-local/frontend.Dockerfile' 'vote-ci-frontend' }
-  if ($Target -in 'backend','all')  { Invoke-CiJob 'Backend CI'  'ci-local/backend.Dockerfile'  'vote-ci-backend' }
+  if ($Target -in 'frontend','code','all') { Invoke-CiJob 'Frontend CI' 'ci-local/frontend.Dockerfile' 'vote-ci-frontend' }
+  if ($Target -in 'backend','code','all')  { Invoke-CiJob 'Backend CI'  'ci-local/backend.Dockerfile'  'vote-ci-backend' }
+  if ($Target -in 'audit','all')           { Invoke-CiJob 'Security Audit' 'ci-local/audit.Dockerfile' 'vote-ci-audit' }
 }
 finally {
   Pop-Location

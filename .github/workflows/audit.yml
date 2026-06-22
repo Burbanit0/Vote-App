@@ -1,0 +1,92 @@
+name: Security Audit
+
+# Supplementary SECURITY scanning only. The repo's lint/type/test gates already
+# live in backend-ci-cd-pipeline.yml + frontend-ci-cd-pipeline.yml (flake8, mypy,
+# pytest, bandit, pip-audit, eslint, tsc) — this workflow adds SAST / secret / CVE
+# coverage they don't have: Semgrep, Gitleaks, Trivy.
+#
+# PRIVATE-REPO MODE: the GitHub Security tab (code scanning / upload-sarif) and
+# CodeQL require GitHub Advanced Security on private repos. So instead of uploading
+# SARIF, each scanner publishes its report as a DOWNLOADABLE ARTIFACT and prints a
+# summary to the job log. If this repo goes public (or GHAS is enabled), re-add the
+# `github/codeql-action/upload-sarif` steps + a CodeQL job to feed the Security tab.
+
+on:
+  push:
+    branches: [main, develop]
+  pull_request:
+    branches: [main, develop]
+  schedule:
+    - cron: "0 6 * * 1" # weekly Monday 06:00 UTC
+
+permissions:
+  contents: read
+
+jobs:
+  # ---------------------------------------------------------------
+  semgrep:
+    name: Semgrep SAST
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with: { python-version: "3.11" }
+      - run: pip install semgrep
+      - name: Run Semgrep
+        run: |
+          semgrep \
+            --config=p/python --config=p/javascript --config=p/react \
+            --config=p/security-audit --config=p/secrets \
+            --config=p/sql-injection --config=p/owasp-top-ten \
+            --sarif --output semgrep.sarif --json --output semgrep.json \
+            --metrics=off || true
+          echo "::group::Semgrep findings"; semgrep --config=auto --error --metrics=off . || true; echo "::endgroup::"
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: semgrep-report
+          path: |
+            semgrep.sarif
+            semgrep.json
+          if-no-files-found: ignore
+
+  # ---------------------------------------------------------------
+  gitleaks:
+    name: Secret Scan
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: gitleaks/gitleaks-action@v2
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+  # ---------------------------------------------------------------
+  trivy:
+    name: Dependencies, Containers & Misconfig
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Trivy (summary to log)
+        uses: aquasecurity/trivy-action@master
+        with:
+          scan-type: fs
+          scanners: vuln,secret,misconfig
+          severity: HIGH,CRITICAL
+          format: table
+          exit-code: "0"
+      - name: Trivy (JSON report artifact)
+        uses: aquasecurity/trivy-action@master
+        with:
+          scan-type: fs
+          scanners: vuln,secret,misconfig
+          severity: HIGH,CRITICAL
+          format: json
+          output: trivy.json
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: trivy-report
+          path: trivy.json
+          if-no-files-found: ignore

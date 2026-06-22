@@ -1,0 +1,16 @@
+# Gitleaks baseline — triaged FALSE POSITIVES (fingerprint = commit:file:rule:line).
+# Reviewed 2026-06-21: none of these are live credentials.
+#
+# jwt in types.gen.ts / openapi.gen.json — GENERATED OpenAPI files; the tokens are
+#   example bearer values embedded in the schema (fastapi-users / OpenAPI examples),
+#   not secrets. They grant no access.
+8551b2234a7a67dc50328ce6e305c51251becad2:voter-app/src/api/types.gen.ts:jwt:7951
+bb6de4c765b062f032ec612bbe293459561fe6b7:voter-app/src/api/types.gen.ts:jwt:6357
+bb6de4c765b062f032ec612bbe293459561fe6b7:flask_voter_app/openapi.gen.json:jwt:8177
+#
+# generic-api-key in methodReferences.ts — a BIBLIOGRAPHY data file; the matches are
+#   citation identifiers (DOIs / keys), not API keys.
+f96ffe0d937ea01373d8c87f926136738862342e:voter-app/src/data/methodReferences.ts:generic-api-key:34
+f96ffe0d937ea01373d8c87f926136738862342e:voter-app/src/data/methodReferences.ts:generic-api-key:98
+f96ffe0d937ea01373d8c87f926136738862342e:voter-app/src/data/methodReferences.ts:generic-api-key:163
+f96ffe0d937ea01373d8c87f926136738862342e:voter-app/src/data/methodReferences.ts:generic-api-key:204
