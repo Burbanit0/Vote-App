@@ -32,15 +32,16 @@ jobs:
       - uses: actions/setup-python@v5
         with: { python-version: "3.11" }
       - run: pip install semgrep
-      - name: Run Semgrep
+      # Strict: --error makes Semgrep exit non-zero on any finding → the job fails.
+      # The report is still uploaded (if: always()) so findings are downloadable.
+      - name: Run Semgrep (gating)
         run: |
           semgrep \
             --config=p/python --config=p/javascript --config=p/react \
             --config=p/security-audit --config=p/secrets \
             --config=p/sql-injection --config=p/owasp-top-ten \
             --sarif --output semgrep.sarif --json --output semgrep.json \
-            --metrics=off || true
-          echo "::group::Semgrep findings"; semgrep --config=auto --error --metrics=off . || true; echo "::endgroup::"
+            --error --metrics=off
       - uses: actions/upload-artifact@v4
         if: always()
         with:
@@ -68,15 +69,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - name: Trivy (summary to log)
-        uses: aquasecurity/trivy-action@master
-        with:
-          scan-type: fs
-          scanners: vuln,secret,misconfig
-          severity: HIGH,CRITICAL
-          format: table
-          exit-code: "0"
-          skip-dirs: voter-app/node_modules,.claude,graphify-out
+      # 1) Non-gating JSON report → uploaded as an artifact (always).
       - name: Trivy (JSON report artifact)
         uses: aquasecurity/trivy-action@master
         with:
@@ -85,10 +78,23 @@ jobs:
           severity: HIGH,CRITICAL
           format: json
           output: trivy.json
+          exit-code: "0"
           skip-dirs: voter-app/node_modules,.claude,graphify-out
+          trivyignores: .trivyignore.yaml
       - uses: actions/upload-artifact@v4
         if: always()
         with:
           name: trivy-report
           path: trivy.json
           if-no-files-found: ignore
+      # 2) Strict gate: fail the job on any HIGH/CRITICAL (table to the log).
+      - name: Trivy (gating)
+        uses: aquasecurity/trivy-action@master
+        with:
+          scan-type: fs
+          scanners: vuln,secret,misconfig
+          severity: HIGH,CRITICAL
+          format: table
+          exit-code: "1"
+          skip-dirs: voter-app/node_modules,.claude,graphify-out
+          trivyignores: .trivyignore.yaml

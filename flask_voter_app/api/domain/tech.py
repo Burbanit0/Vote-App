@@ -85,9 +85,9 @@ def _e2e_demo_worker(data: Dict[str, Any]) -> tuple[Dict[str, Any], int]:
 
     for i, choice in enumerate(choices):
         salt        = rng.randint(100_000, 999_999)
-        bhash       = hashlib.md5(f"{choice}{salt}".encode()).hexdigest().upper()
+        bhash       = hashlib.sha256(f"{choice}{salt}".encode()).hexdigest().upper()
         display     = bhash[:8]
-        code_raw    = hashlib.md5(f"voter-{i}-{bhash}".encode()).hexdigest().upper()
+        code_raw    = hashlib.sha256(f"voter-{i}-{bhash}".encode()).hexdigest().upper()
         code        = f"{code_raw[:3]}-{code_raw[3:6]}-{code_raw[6:9]}"
 
         voters_out.append({
@@ -119,7 +119,7 @@ def _e2e_demo_worker(data: Dict[str, Any]) -> tuple[Dict[str, Any], int]:
     winner = max(aggregate, key=aggregate.__getitem__)
 
     # ── Audit proof ───────────────────────────────────────────────────────
-    ahash      = hashlib.md5(str(sorted(aggregate.items())).encode()).hexdigest().upper()[:16]
+    ahash      = hashlib.sha256(str(sorted(aggregate.items())).encode()).hexdigest().upper()[:16]
     audit_proof = (
         f"Tous les {num_voters} bulletins chiffrés sont dans l'urne. "
         f"Décompte effectué sans déchiffrement individuel. "

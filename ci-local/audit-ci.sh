@@ -1,25 +1,26 @@
 #!/usr/bin/env bash
 # Container entrypoint for the local CI Security Audit job (see audit.Dockerfile).
-# Runs the three scanners against the COPYed repo at /repo. Posture mirrors the
-# GitHub workflow: Gitleaks BLOCKS on secrets (exit 1); Semgrep + Trivy are
-# informational (findings printed, never gating — security is non-blocking here,
-# secrets excepted).
+# Runs the three scanners against the COPYed repo at /repo. STRICT posture: every
+# scanner GATES — Semgrep findings, Trivy HIGH/CRITICAL, or any Gitleaks secret all
+# fail the job. The repo was triaged to strict-clean first; triaged false positives
+# live in .gitleaksignore / .trivyignore.yaml, so only NEW problems break the build.
 set -uo pipefail
 fail=0
 
-echo "===== Semgrep — SAST (informational) ====="
+echo "===== Semgrep — SAST (gating) ====="
 semgrep \
   --config=p/python --config=p/javascript --config=p/react \
   --config=p/security-audit --config=p/secrets \
   --config=p/sql-injection --config=p/owasp-top-ten \
   --metrics=off --error --quiet . \
-  || echo "⚠️  Semgrep reported findings (informational — review above)."
+  || { echo "🔴 Semgrep: finding(s) above — failing the audit job."; fail=1; }
 
 echo ""
-echo "===== Trivy — dependencies / containers / misconfig (informational) ====="
+echo "===== Trivy — dependencies / containers / misconfig (gating) ====="
 trivy fs --scanners vuln,secret,misconfig --severity HIGH,CRITICAL \
-      --skip-dirs voter-app/node_modules,.claude,graphify-out --exit-code 0 . \
-  || echo "⚠️  Trivy scan reported issues (informational)."
+      --skip-dirs voter-app/node_modules,.claude,graphify-out \
+      --ignorefile .trivyignore.yaml --exit-code 1 . \
+  || { echo "🔴 Trivy: HIGH/CRITICAL finding(s) above — failing the audit job."; fail=1; }
 
 echo ""
 echo "===== Gitleaks — secret scan (BLOCKING) ====="

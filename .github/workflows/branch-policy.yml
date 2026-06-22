@@ -13,8 +13,9 @@ jobs:
     steps:
       - name: Check branch naming (PRs to develop)
         if: github.base_ref == 'develop'
+        env:
+          SOURCE: ${{ github.head_ref }}   # via env (untrusted) — never interpolate into the shell
         run: |
-          SOURCE="${{ github.head_ref }}"
           ALLOWED="^(feature|feat|fix|bugfix|hotfix|refactor|chore|docs|test|ci|perf)/.+"
 
           echo "Source branch : $SOURCE"
@@ -40,8 +41,9 @@ jobs:
 
       - name: Check source is develop (PRs to main)
         if: github.base_ref == 'main'
+        env:
+          SOURCE: ${{ github.head_ref }}   # via env (untrusted) — never interpolate into the shell
         run: |
-          SOURCE="${{ github.head_ref }}"
           echo "Source branch : $SOURCE"
           echo "Target branch : main"
 

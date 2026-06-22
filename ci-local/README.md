@@ -51,9 +51,10 @@ checks run as the container's `CMD`, so `docker run` failing == the PR failing.
 `pip-audit` (non-blocking) → `mypy api/` (gating) →
 `pytest api/tests --cov=api --cov-fail-under=30` (gating).
 
-**Audit** — `Semgrep` SAST (informational) → `Trivy` deps/containers/misconfig
-(informational) → `Gitleaks` secret scan (**gating** — fails the run if a secret is
-found). Security findings are non-blocking by design except secrets; read the job log.
+**Audit** (strict) — `Semgrep` SAST → `Trivy` deps/containers/misconfig → `Gitleaks`
+secrets. **All three GATE**: any Semgrep finding, Trivy HIGH/CRITICAL, or secret fails
+the run. The repo was triaged to strict-clean first; triaged false positives live in
+`.gitleaksignore` + `.trivyignore.yaml` (path-scoped), so only NEW problems break it.
 First build is slower (it installs the three scanners); cached afterwards.
 
 ## Performance

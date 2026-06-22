@@ -80,8 +80,10 @@ jobs:
       - name: Bump version in package.json
         id: bump
         working-directory: ./voter-app
+        env:
+          VERSION_TYPE: ${{ inputs.version_type }}   # via env (constrained choice, but never interpolate into the shell)
         run: |
-          npm version ${{ inputs.version_type }} --no-git-tag-version
+          npm version "$VERSION_TYPE" --no-git-tag-version
           VERSION=$(node -p "require('./package.json').version")
           echo "version=v${VERSION}" >> $GITHUB_OUTPUT
           echo "Bumped to v${VERSION}"
