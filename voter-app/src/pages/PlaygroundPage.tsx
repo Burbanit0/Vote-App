@@ -1,4 +1,5 @@
 import React from 'react';
+import { Link } from 'react-router';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
@@ -56,7 +57,6 @@ import { composeElectorate, COMMUNITY_PALETTE } from '../lib/playgroundElectorat
 // Contextual anchors — Lab phenomena re-homed next to the concept they deepen.
 // Lazy + Collapsible-gated, so they add no compute until opened (perf invariant).
 const BehaviorAnchor = React.lazy(() => import('../components/playground/anchors/BehaviorAnchor'));
-const CampaignAnchor = React.lazy(() => import('../components/playground/anchors/CampaignAnchor'));
 const MechanismsAnchor = React.lazy(
   () => import('../components/playground/anchors/MechanismsAnchor')
 );
@@ -1100,16 +1100,22 @@ const PlaygroundPage: React.FC = () => {
                     )}
                   </div>
 
-                  {/* Anchor: the campaign narrative deepening the scrubber above. */}
-                  <Collapsible
-                    title="🎬 Campagne — approfondir la trajectoire"
-                    subtitle="équilibre · sondages · polarisation · partis"
-                    testid="anchor-campaign"
+                  {/* Hand-off to page 2: the temporal "campaign" deepening (équilibre,
+                      sondages, polarisation, partis) now lives on its own page, which
+                      inherits THIS electorate as state J0 (sandbox — playground untouched). */}
+                  <Link
+                    to="/campagne"
+                    data-testid="launch-campaign"
+                    className={cn(
+                      'flex items-center justify-between gap-2 rounded-md border border-primary/40',
+                      'bg-primary/5 px-3 py-2 text-sm font-medium text-primary',
+                      'transition-colors hover:bg-primary/10'
+                    )}
+                    title="Ouvre la page « Campagne & dynamique » avec cet électorat comme état de départ (J0). Le playground n'est pas modifié."
                   >
-                    <React.Suspense fallback={<AnchorFallback />}>
-                      <CampaignAnchor />
-                    </React.Suspense>
-                  </Collapsible>
+                    <span>🎬 Lancer une campagne sur cet électorat</span>
+                    <span aria-hidden>→</span>
+                  </Link>
 
                   {/* Shake the assumptions (P4): re-roll the electorate → win-rate bands. */}
                   <div className="flex flex-col gap-1.5">

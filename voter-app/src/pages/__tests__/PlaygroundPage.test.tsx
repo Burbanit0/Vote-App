@@ -517,7 +517,6 @@ describe('PlaygroundPage (P0 shell)', () => {
     // Leader-visible anchors ship collapsed: their toggles exist, panels do not.
     for (const anchor of [
       'anchor-behavior',
-      'anchor-campaign',
       'anchor-mechanisms',
       'anchor-analysis',
       'anchor-results',
@@ -529,7 +528,6 @@ describe('PlaygroundPage (P0 shell)', () => {
     }
     for (const panel of [
       'beh-cascade',
-      'dyn-hotelling',
       'mech-jury',
       'ana-montecarlo',
       'res-table',
@@ -587,17 +585,15 @@ describe('PlaygroundPage (P0 shell)', () => {
     expect(screen.getByTestId('leader-canvas')).toBeInTheDocument();
   });
 
-  it('form-lock: the campaign anchor (leader canvas) reveals its steps lazily', async () => {
+  it('hand-off: the campaign deepening is a link to /campagne, not an in-page anchor', () => {
     renderPage();
-    // Sits below the campaign scrubber, collapsed: no dynamics panel mounted.
-    expect(screen.getByTestId('anchor-campaign')).toBeInTheDocument();
+    // The temporal "campaign" family migrated to page 2 (Q1 = B+C on its own page).
+    // The playground now shows only a CTA to it — no dynamics panel mounts here.
+    expect(screen.queryByTestId('anchor-campaign')).not.toBeInTheDocument();
     expect(screen.queryByTestId('dyn-hotelling')).not.toBeInTheDocument();
-    fireEvent.click(screen.getByTestId('anchor-campaign-toggle'));
-    // The lazy anchor resolves → the four narrative steps appear (still collapsed).
-    expect(await screen.findByTestId('dyn-hotelling')).toBeInTheDocument();
-    expect(screen.getByTestId('dyn-campaign')).toBeInTheDocument();
-    expect(screen.getByTestId('dyn-polarization')).toBeInTheDocument();
-    expect(screen.getByTestId('dyn-party')).toBeInTheDocument();
+    const cta = screen.getByTestId('launch-campaign');
+    expect(cta).toBeInTheDocument();
+    expect(cta).toHaveAttribute('href', '/campagne');
   });
 
   it('form-lock: the mechanisms anchor (leader canvas) reveals its leaves lazily', async () => {
