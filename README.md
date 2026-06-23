@@ -40,10 +40,25 @@ Vote Lab lets you configure a complete election and observe it through multiple 
 
 ## Quick Start
 
+### Everything at once (one command)
+
+From the repo root:
+
+```bash
+npm run setup   # once — installs frontend deps + backend Python deps
+npm run dev     # runs the backend (uvicorn :4434) AND the frontend (Vite :3000)
+```
+
+`npm run dev` launches both processes together with colour-coded, prefixed output
+(`[backend]` / `[frontend]`); press **Ctrl+C** once to stop both. It runs the
+backend directly with uvicorn (no Postgres/Redis containers) — enough for the
+voting-compute work. Use the Docker path below if you want the full DB stack.
+Run just one side with `npm run dev:backend` or `npm run dev:frontend`.
+
 ### Prerequisites
 
-- [Docker Desktop](https://www.docker.com/products/docker-desktop/) (includes Compose)
-- [Node.js](https://nodejs.org/) 20+
+- [Node.js](https://nodejs.org/) 20+ and [Python](https://www.python.org/) 3.11+ (for `npm run dev`)
+- [Docker Desktop](https://www.docker.com/products/docker-desktop/) (includes Compose) — for the full DB stack below
 
 ### 1. Clone & configure
 
