@@ -87,8 +87,8 @@ if [ "$MODE" != "quality" ]; then
     semgrep --config=p/python --config=p/javascript --config=p/react \
             --config=p/security-audit --config=p/secrets \
             --config=p/sql-injection --config=p/owasp-top-ten \
-            --sarif --output "$REPORT_DIR/semgrep.sarif" \
-            --json --output "$REPORT_DIR/semgrep.json" \
+            --sarif-output="$REPORT_DIR/semgrep.sarif" \
+            --json-output="$REPORT_DIR/semgrep.json" \
             --metrics=off --quiet $SEMGREP_TARGET 2>/dev/null
     if [ -f "$REPORT_DIR/semgrep.json" ]; then
       note "Findings: 🔴 $(count '[.results[]|select(.extra.severity=="ERROR")]|length' "$REPORT_DIR/semgrep.json") error · 🟠 $(count '[.results[]|select(.extra.severity=="WARNING")]|length' "$REPORT_DIR/semgrep.json") warning. See \`$REPORT_DIR/semgrep.sarif\`."
