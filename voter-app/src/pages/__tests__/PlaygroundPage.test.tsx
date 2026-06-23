@@ -527,7 +527,7 @@ describe('PlaygroundPage (P0 shell)', () => {
       expect(screen.getByTestId(`${anchor}-toggle`)).toBeInTheDocument();
     }
     for (const panel of [
-      'beh-cascade',
+      'beh-biases',
       'mech-jury',
       'ana-montecarlo',
       'res-table',
@@ -574,12 +574,13 @@ describe('PlaygroundPage (P0 shell)', () => {
     renderPage();
     // The anchor sits next to the behaviour knob, collapsed: no leaf mounted.
     expect(screen.getByTestId('anchor-behavior')).toBeInTheDocument();
-    expect(screen.queryByTestId('beh-cascade')).not.toBeInTheDocument();
+    expect(screen.queryByTestId('beh-overload')).not.toBeInTheDocument();
     fireEvent.click(screen.getByTestId('anchor-behavior-toggle'));
     // The anchor itself is React.lazy → leaves appear after it resolves; their
-    // own lazy panels stay unmounted until each Leaf is opened.
+    // own lazy panels stay unmounted until each Leaf is opened. (Temporal panels
+    // cascade/fatigue migrated to the Campagne page — C3.)
     expect(await screen.findByTestId('beh-biases')).toBeInTheDocument();
-    expect(screen.getByTestId('beh-cascade')).toBeInTheDocument();
+    expect(screen.getByTestId('beh-overload')).toBeInTheDocument();
     expect(screen.getByTestId('beh-demographic')).toBeInTheDocument();
     // The core canvas is unaffected.
     expect(screen.getByTestId('leader-canvas')).toBeInTheDocument();
