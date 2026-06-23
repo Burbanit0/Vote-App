@@ -56,7 +56,6 @@ import { composeElectorate, COMMUNITY_PALETTE } from '../lib/playgroundElectorat
 
 // Contextual anchors — Lab phenomena re-homed next to the concept they deepen.
 // Lazy + Collapsible-gated, so they add no compute until opened (perf invariant).
-const BehaviorAnchor = React.lazy(() => import('../components/playground/anchors/BehaviorAnchor'));
 const MechanismsAnchor = React.lazy(
   () => import('../components/playground/anchors/MechanismsAnchor')
 );
@@ -725,16 +724,16 @@ const PlaygroundPage: React.FC = () => {
               </select>
             </Field>
 
-            {/* Anchor: the "Comportement" Lab family, re-homed beside its knob. */}
-            <Collapsible
-              title="🔬 Approfondir le comportement"
-              subtitle="8 phénomènes"
-              testid="anchor-behavior"
+            {/* The behavioural-realism family (biases, shy voter, overload,
+                compulsory, demographic, affective) moved to the Campagne page —
+                it perturbs the idealized snapshot, so it lives with the dynamics. */}
+            <Link
+              to="/campagne"
+              data-testid="behavior-realism-link"
+              className="text-[0.7rem] text-muted-foreground hover:text-primary hover:underline"
             >
-              <React.Suspense fallback={<AnchorFallback />}>
-                <BehaviorAnchor />
-              </React.Suspense>
-            </Collapsible>
+              🧠 Réalisme comportemental (biais, timidité, surcharge…) → page Campagne
+            </Link>
 
             <label className="flex items-center gap-2 text-sm">
               <input
