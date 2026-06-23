@@ -17,15 +17,21 @@ import CampaignTimeline from '../components/campaign/CampaignTimeline';
 // playing with this page leaves the playground untouched. The store is the only
 // channel, so there is zero re-entry of the electorate.
 //
-// C1 (this commit) is the shell + hand-off: it inherits J0, shows it, and hosts
-// the temporal CampaignAnchor (Hotelling, polls, polarization, party dynamics)
-// migrated off the playground. C2 adds the unified timeline (continuous days +
-// discrete rounds) above it; C3/C4 migrate the remaining temporal + behavioural
-// panels here.
+// Structure: the inherited J0 electorate, then the unified timeline (C2,
+// continuous days + discrete rounds → live value-of-the-result), then three
+// lazy/Collapsible-gated families migrated off the playground:
+//   • CampaignAnchor (C1) — Hotelling, polls, polarization, party dynamics;
+//   • TemporalDynamicsAnchor (C3) — adaptive/replay/primary + cascade/fatigue;
+//   • BehavioralRealismAnchor (C4) — single-ballot B realism (biases, shy voter,
+//     overload, compulsory, demographic, affective).
+// The playground now keeps only the idealized snapshot (family A).
 
 const CampaignAnchor = React.lazy(() => import('../components/playground/anchors/CampaignAnchor'));
 const TemporalDynamicsAnchor = React.lazy(
   () => import('../components/campaign/TemporalDynamicsAnchor')
+);
+const BehavioralRealismAnchor = React.lazy(
+  () => import('../components/campaign/BehavioralRealismAnchor')
 );
 
 const AnchorFallback: React.FC = () => (
@@ -146,7 +152,7 @@ const CampaignDynamicsPage: React.FC = () => {
       {/* ── Temporal mechanisms + sequential behaviour (C3): migrated off the
           playground — they unfold over rounds/sequence, like the timeline. ── */}
       {hasElectorate && (
-        <Card data-testid="campaign-temporal-mechanisms">
+        <Card className="mb-4" data-testid="campaign-temporal-mechanisms">
           <CardHeader>
             <CardTitle className="text-base">
               🔁 Mécanismes &amp; comportements dans le temps
@@ -155,6 +161,21 @@ const CampaignDynamicsPage: React.FC = () => {
           <CardContent>
             <React.Suspense fallback={<AnchorFallback />}>
               <TemporalDynamicsAnchor />
+            </React.Suspense>
+          </CardContent>
+        </Card>
+      )}
+
+      {/* ── Behavioural realism (C4): the family-B single-ballot deformations,
+          migrated off the playground as a secondary "réalisme" facette. ── */}
+      {hasElectorate && (
+        <Card data-testid="campaign-behavioral-realism">
+          <CardHeader>
+            <CardTitle className="text-base">🧠 Réalisme comportemental (un scrutin)</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <React.Suspense fallback={<AnchorFallback />}>
+              <BehavioralRealismAnchor />
             </React.Suspense>
           </CardContent>
         </Card>

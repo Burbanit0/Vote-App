@@ -516,7 +516,6 @@ describe('PlaygroundPage (P0 shell)', () => {
     expect(screen.queryByTestId('module-advanced')).not.toBeInTheDocument();
     // Leader-visible anchors ship collapsed: their toggles exist, panels do not.
     for (const anchor of [
-      'anchor-behavior',
       'anchor-mechanisms',
       'anchor-analysis',
       'anchor-results',
@@ -526,14 +525,7 @@ describe('PlaygroundPage (P0 shell)', () => {
     ]) {
       expect(screen.getByTestId(`${anchor}-toggle`)).toBeInTheDocument();
     }
-    for (const panel of [
-      'beh-biases',
-      'mech-jury',
-      'ana-montecarlo',
-      'res-table',
-      'sys-coalition',
-      'thy-sen',
-    ]) {
+    for (const panel of ['mech-jury', 'ana-montecarlo', 'res-table', 'sys-coalition', 'thy-sen']) {
       expect(screen.queryByTestId(panel)).not.toBeInTheDocument();
     }
   });
@@ -570,18 +562,14 @@ describe('PlaygroundPage (P0 shell)', () => {
     expect(screen.getByTestId('res-animation')).toBeInTheDocument();
   });
 
-  it('form-lock: the behaviour anchor (Setup rail) reveals its leaves lazily', async () => {
+  it('hand-off: behavioural realism is a link to /campagne, not an in-page anchor', () => {
     renderPage();
-    // The anchor sits next to the behaviour knob, collapsed: no leaf mounted.
-    expect(screen.getByTestId('anchor-behavior')).toBeInTheDocument();
-    expect(screen.queryByTestId('beh-overload')).not.toBeInTheDocument();
-    fireEvent.click(screen.getByTestId('anchor-behavior-toggle'));
-    // The anchor itself is React.lazy → leaves appear after it resolves; their
-    // own lazy panels stay unmounted until each Leaf is opened. (Temporal panels
-    // cascade/fatigue migrated to the Campagne page — C3.)
-    expect(await screen.findByTestId('beh-biases')).toBeInTheDocument();
-    expect(screen.getByTestId('beh-overload')).toBeInTheDocument();
-    expect(screen.getByTestId('beh-demographic')).toBeInTheDocument();
+    // The whole "Comportement" family migrated to page 2 (Q1: C4 empties the
+    // playground of family-B realism). Only a hint link remains, no panel mounts.
+    expect(screen.queryByTestId('anchor-behavior')).not.toBeInTheDocument();
+    expect(screen.queryByTestId('breal-biases')).not.toBeInTheDocument();
+    const link = screen.getByTestId('behavior-realism-link');
+    expect(link).toHaveAttribute('href', '/campagne');
     // The core canvas is unaffected.
     expect(screen.getByTestId('leader-canvas')).toBeInTheDocument();
   });
