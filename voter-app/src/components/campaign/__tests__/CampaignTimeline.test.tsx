@@ -1,5 +1,5 @@
 import { render, screen, fireEvent, within } from '@testing-library/react';
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect, vi } from 'vitest';
 import CampaignTimeline from '../CampaignTimeline';
 import { DEFAULT_CONFIG, DEFAULT_PLAYGROUND } from '../../../stores/useElectionStore';
 
@@ -70,5 +70,42 @@ describe('CampaignTimeline (C2)', () => {
     // A winner is still resolved under the new rule.
     const readout = within(screen.getByTestId('timeline-readout'));
     expect(readout.getByTestId('timeline-winner').textContent).toBeTruthy();
+  });
+
+  it('shows no pin button without onPin (pure sandbox)', () => {
+    renderTimeline();
+    expect(screen.queryByTestId('timeline-pin')).not.toBeInTheDocument();
+  });
+
+  it('pins the drifted candidates back via onPin (J0 = original positions)', () => {
+    const onPin = vi.fn();
+    render(
+      <CampaignTimeline config={DEFAULT_CONFIG} playground={DEFAULT_PLAYGROUND} onPin={onPin} />
+    );
+    fireEvent.click(screen.getByTestId('timeline-pin'));
+    expect(onPin).toHaveBeenCalledTimes(1);
+    const pinned = onPin.mock.calls[0][0];
+    // At J0 (default t) the pinned positions equal the inherited candidates.
+    expect(pinned.map((c: { name: string }) => c.name)).toEqual(
+      DEFAULT_CONFIG.candidates.map((c) => c.name)
+    );
+    expect(pinned[0].x).toBeCloseTo(DEFAULT_CONFIG.candidates[0].x);
+    // Confirmation appears.
+    expect(screen.getByText(/Positions reportées/)).toBeInTheDocument();
+  });
+
+  it('pins drifted (moved) positions after scrubbing to the end', () => {
+    const onPin = vi.fn();
+    render(
+      <CampaignTimeline config={DEFAULT_CONFIG} playground={DEFAULT_PLAYGROUND} onPin={onPin} />
+    );
+    fireEvent.click(screen.getByTestId('round-stop-3')); // t = 1 → full drift
+    fireEvent.click(screen.getByTestId('timeline-pin'));
+    const pinned = onPin.mock.calls[0][0];
+    // At least one candidate moved from its J0 position.
+    const moved = pinned.some(
+      (c: { x: number }, i: number) => Math.abs(c.x - DEFAULT_CONFIG.candidates[i].x) > 1e-6
+    );
+    expect(moved).toBe(true);
   });
 });

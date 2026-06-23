@@ -1,12 +1,13 @@
 import React from 'react';
 import { cn } from '@/lib/utils';
-import { RULE_LABELS, type Rule } from '../../lib/playgroundVoting';
+import { RULE_LABELS, type NamedPt, type Rule } from '../../lib/playgroundVoting';
 import { LEADER_RULES } from '../../lib/scorecard';
 import { medianPoint } from '../../lib/playgroundDynamics';
 import {
   buildBaseVoters,
   trajectory,
   metricsAt,
+  driftedAt,
   roundStops,
   type TimelineParams,
 } from '../../lib/campaignTimeline';
@@ -37,15 +38,22 @@ const PALETTE = [
 interface Props {
   config: ElectionConfig;
   playground: PlaygroundState;
+  /**
+   * Explicit write-back (Q3): "pin" the candidate positions at the current
+   * instant back into the playground. When omitted, the page stays a pure
+   * sandbox (no button rendered).
+   */
+  onPin?: (candidates: NamedPt[]) => void;
 }
 
 const STEPS = 30;
 
-const CampaignTimeline: React.FC<Props> = ({ config, playground }) => {
+const CampaignTimeline: React.FC<Props> = ({ config, playground, onPin }) => {
   const [rule, setRule] = React.useState<Rule>('plurality');
   const [t, setT] = React.useState(0);
   const [rounds, setRounds] = React.useState(4);
   const [strength, setStrength] = React.useState(0.6);
+  const [pinned, setPinned] = React.useState(false);
 
   const dims = playground.space.dims;
   const numDays = config.campaign?.num_days ?? 30;
@@ -105,6 +113,11 @@ const CampaignTimeline: React.FC<Props> = ({ config, playground }) => {
     const next = Math.max(0, Math.min(stops.length - 1, idx + dir));
     setT(stops[next]);
   };
+
+  // Any move on the timeline invalidates the "pinned" confirmation.
+  React.useEffect(() => {
+    setPinned(false);
+  }, [t]);
 
   // ── SVG trajectory geometry ──
   const W = 320;
@@ -244,7 +257,26 @@ const CampaignTimeline: React.FC<Props> = ({ config, playground }) => {
           >
             ↺ J0
           </button>
+          {onPin && (
+            <button
+              type="button"
+              data-testid="timeline-pin"
+              className="ml-auto rounded border border-primary/50 bg-primary/5 px-2 py-0.5 text-xs font-medium text-primary hover:bg-primary/10"
+              onClick={() => {
+                onPin(driftedAt(config.candidates, target, t, params));
+                setPinned(true);
+              }}
+              title="Reporte les positions actuelles des candidats (après dérive de campagne) dans le playground comme nouvel état de départ. C'est la seule action qui modifie le playground."
+            >
+              📌 Épingler dans le playground
+            </button>
+          )}
         </div>
+        {pinned && (
+          <p className="text-[0.7rem] text-emerald-700 dark:text-emerald-400" aria-live="polite">
+            ✓ Positions reportées dans le playground (J{current.day}).
+          </p>
+        )}
       </div>
 
       {/* ── Current "value of the result" readout ── */}

@@ -3,6 +3,7 @@ import {
   buildBaseVoters,
   trajectory,
   metricsAt,
+  driftedAt,
   roundStops,
   type TimelineParams,
 } from '../campaignTimeline';
@@ -99,6 +100,28 @@ describe('campaignTimeline — metricsAt / Condorcet', () => {
     expect(m.winner).toBe('Center');
     expect(m.regret).toBeLessThan(0.05);
     expect(m.flippedFromStart).toBe(true);
+  });
+});
+
+describe('campaignTimeline — driftedAt (what "pin" writes back)', () => {
+  const cands: NamedPt[] = [
+    { name: 'Left', x: -0.8, y: 0 },
+    { name: 'Right', x: 0.8, y: 0 },
+  ];
+  const target = { x: 0, y: 0, z: 0 };
+
+  it('returns the original positions at J0', () => {
+    const at0 = driftedAt(cands, target, 0, PARAMS);
+    expect(at0[0].x).toBeCloseTo(-0.8);
+    expect(at0[1].x).toBeCloseTo(0.8);
+  });
+
+  it('moves candidates toward the median by J{end}', () => {
+    const at1 = driftedAt(cands, target, 1, PARAMS);
+    // strength 0.6 → travel 60% of the way to the target (0).
+    expect(Math.abs(at1[0].x)).toBeLessThan(0.8);
+    expect(Math.abs(at1[1].x)).toBeLessThan(0.8);
+    expect(at1[0].x).toBeCloseTo(-0.8 * (1 - 0.6));
   });
 });
 

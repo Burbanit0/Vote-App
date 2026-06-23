@@ -13,9 +13,10 @@ import CampaignTimeline from '../components/campaign/CampaignTimeline';
 // EVOLVE over time — campaign drift, mind-changes, real behaviour?").
 //
 // Hand-off (Q3 = sandbox): it READS the shared electorate (`config` = state J0)
-// and the playground knobs from the store, and never mutates them — opening or
-// playing with this page leaves the playground untouched. The store is the only
-// channel, so there is zero re-entry of the electorate.
+// and the playground knobs from the store — opening or playing with this page
+// leaves the playground untouched. The single exception is the explicit "pin"
+// action on the timeline, which writes the current drifted positions back as the
+// new baseline (carry the campaign's end-state into the snapshot tools).
 //
 // Structure: the inherited J0 electorate, then the unified timeline (C2,
 // continuous days + discrete rounds → live value-of-the-result), then three
@@ -45,11 +46,22 @@ const CampaignDynamicsPage: React.FC = () => {
       'À partir de l’électorat composé dans le playground (état J0), perturbez le résultat : dérive de campagne, sondages, polarisation, dynamique des partis — et observez la valeur du résultat évoluer.',
   });
 
-  // Read-only hand-off — never call a setter here (sandbox / Q3).
-  const { config } = useElection();
+  // Sandbox by default (Q3): only the explicit "pin" action writes back.
+  const { config, setConfig } = useElection();
   const { playground } = usePlayground();
   const { candidates, num_voters, ideology } = config;
   const hasElectorate = candidates.length > 0;
+
+  // "Pin this instant back into the playground": carry the drifted positions
+  // forward as the new baseline electorate (the one explicit write-back).
+  const pinToPlayground = React.useCallback(
+    (pinned: { name: string; x: number; y: number; z?: number }[]) => {
+      setConfig({
+        candidates: pinned.map((c) => ({ name: c.name, x: c.x, y: c.y, z: c.z })),
+      });
+    },
+    [setConfig]
+  );
 
   return (
     <div className="container mx-auto max-w-6xl px-3 py-4" data-testid="campaign-dynamics-page">
@@ -129,7 +141,7 @@ const CampaignDynamicsPage: React.FC = () => {
             </CardTitle>
           </CardHeader>
           <CardContent>
-            <CampaignTimeline config={config} playground={playground} />
+            <CampaignTimeline config={config} playground={playground} onPin={pinToPlayground} />
           </CardContent>
         </Card>
       )}
