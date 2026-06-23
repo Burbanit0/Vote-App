@@ -21,7 +21,6 @@ import {
   Tooltip,
   CartesianGrid,
   Legend,
-  ReferenceLine,
   ResponsiveContainer,
 } from 'recharts';
 import { useElection } from '../../stores/useElectionStore';
@@ -83,7 +82,7 @@ const DeliberationPanel: React.FC = () => {
   const [network, setNetwork] = useState('random');
   const [rounds, setRounds] = useState(5);
   const [influence, setInfluence] = useState(0.3);
-  const [groupSize, setGroupSize] = useState(5);
+  const [groupSize] = useState(5);
   const [argQuality, setArgQuality] = useState(0.5);
   const sim = $api.useMutation('post', '/api/v2/election/deliberation');
   const data: DelibData | null = (sim.data as DelibData | undefined) ?? null;
@@ -105,7 +104,6 @@ const DeliberationPanel: React.FC = () => {
         method: 'plurality',
       },
     });
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [config, rounds, influence, network, groupSize, argQuality, t, sim]);
 
   // Chart data: per_round evolution

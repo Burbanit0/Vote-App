@@ -140,11 +140,6 @@ const DemocraticBackslidingPanel: React.FC = () => {
   });
   const [showHistorical, setShowHistorical] = useState<string[]>([]);
 
-  const toggleGuardrail = (gr: Guardrail) => {
-    const updated = { ...guardrails, [gr]: !guardrails[gr] };
-    setGuardrails(updated);
-  };
-
   const run = useCallback(
     (grOverride?: Record<Guardrail, boolean>) => {
       const gr = grOverride ?? guardrails;
@@ -163,7 +158,6 @@ const DemocraticBackslidingPanel: React.FC = () => {
           guardrails: gr,
         },
       });
-      // eslint-disable-next-line react-hooks/exhaustive-deps
     },
     [guardrails, numVoters, seed, numElections, method, intensity, t, sim]
   );

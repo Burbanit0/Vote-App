@@ -72,19 +72,19 @@ def _ci_half(m2: float, n: int) -> float | None:
 
 # ── Handlers ───────────────────────────────────────────────────────────────
 
-@sio.event
+@sio.event  # type: ignore[untyped-decorator]  # python-socketio decorators are untyped
 async def disconnect(sid: str) -> None:
     """Drop any pending stop flag on disconnect."""
     _stop_flags.pop(sid, None)
 
 
-@sio.on("stop_monte_carlo")
+@sio.on("stop_monte_carlo")  # type: ignore[untyped-decorator]  # untyped socketio decorator
 async def stop_monte_carlo(sid: str, _data: Any = None) -> None:
     """Request the running iteration loop to abort at the next checkpoint."""
     _stop_flags[sid] = True
 
 
-@sio.on("start_monte_carlo")
+@sio.on("start_monte_carlo")  # type: ignore[untyped-decorator]  # untyped socketio decorator
 async def start_monte_carlo(sid: str, data: dict[str, Any]) -> None:
     """Stream Monte Carlo progress back to the caller.
 

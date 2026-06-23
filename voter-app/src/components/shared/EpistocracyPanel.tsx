@@ -18,7 +18,6 @@ import {
   YAxis,
   CartesianGrid,
   Tooltip,
-  Legend,
   LineChart,
   Line,
   ReferenceLine,
@@ -203,7 +202,7 @@ const EpistocracyPanel: React.FC<EpistocracyLabProps> = ({
   const [seed, setSeed] = useState(42);
   const [compDist, setCompDist] = useState('uniform');
   const [compMean, setCompMean] = useState(0.55);
-  const [compStd, setCompStd] = useState(0.15);
+  const [compStd] = useState(0.15);
   const [expertPct, setExpertPct] = useState(0.1);
   const [caplanBias, setCaplanBias] = useState(true);
   const [threshold, setThreshold] = useState(0.7);
@@ -233,7 +232,6 @@ const EpistocracyPanel: React.FC<EpistocracyLabProps> = ({
           epistocracy_threshold: threshold,
         },
       });
-      // eslint-disable-next-line react-hooks/exhaustive-deps
     },
     [numVoters, seed, compDist, compMean, compStd, expertPct, caplanBias, threshold, sim]
   );
@@ -242,7 +240,6 @@ const EpistocracyPanel: React.FC<EpistocracyLabProps> = ({
     if (labMode && labCandidates?.length) {
       run(labCandidates, labNumVoters, labSeed);
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [labMode, labCandidates, labNumVoters, labSeed]);
 
   // ── Chart data ─────────────────────────────────────────────────────────────

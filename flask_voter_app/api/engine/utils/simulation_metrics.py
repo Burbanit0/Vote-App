@@ -18,6 +18,8 @@ from .simulation_ranked_utils import (
     get_copeland_winner,
     get_nanson_winner,
     get_baldwin_winner,
+    get_ranked_pairs_winner,
+    random_ballot_probabilities,
 )
 from .simulation_score_utils import (
     get_simple_score_winner,
@@ -63,6 +65,7 @@ def compare_all_methods(
     blank_vote: bool = False,
     blank_candidate_name: str = "Blank",
     override_utilities: Optional[Dict[Any, Dict[str, float]]] = None,
+    compute_strategic: bool = True,
 ) -> Dict[str, Any]:
     """
     Run every available voting method on the same population and return a
@@ -261,7 +264,12 @@ def compare_all_methods(
             "bayesian_regret": _bayesian_regret(winner_name),
             "condorcet_consistent": _condorcet_consistent(winner_name),
             "majority_satisfaction": _majority_satisfaction(winner_name),
-            "strategic_vulnerability": _strategic_vulnerability_ranked(method_fn, winner_name),
+            # strategic_vulnerability re-runs the method while perturbing every
+            # sampled voter's ballot — the dominant cost. Callers that only need
+            # winners (e.g. the playground) pass compute_strategic=False.
+            "strategic_vulnerability":
+                _strategic_vulnerability_ranked(method_fn, winner_name)
+                if compute_strategic else None,
         }
 
     def _build_metrics_score(
@@ -272,7 +280,9 @@ def compare_all_methods(
             "bayesian_regret": _bayesian_regret(winner_name),
             "condorcet_consistent": _condorcet_consistent(winner_name),
             "majority_satisfaction": _majority_satisfaction(winner_name),
-            "strategic_vulnerability": _strategic_vulnerability_score(method_fn, winner_name),
+            "strategic_vulnerability":
+                _strategic_vulnerability_score(method_fn, winner_name)
+                if compute_strategic else None,
         }
 
     # ------------------------------------------------------------------
@@ -293,6 +303,7 @@ def compare_all_methods(
         "copeland":     get_copeland_winner,
         "nanson":       get_nanson_winner,
         "baldwin":      get_baldwin_winner,
+        "ranked_pairs": get_ranked_pairs_winner,
     }
 
     score_methods: Dict[str, Callable[..., Any]] = {
@@ -363,6 +374,29 @@ def compare_all_methods(
         "qv_credits_used":       qv_result.get("total_credits_used"),
         "qv_credit_distribution": qv_result.get("credit_distribution"),
     }
+
+    # ── Random ballot / random dictator (Gibbard, 1977) ──────────────────────
+    # The realised winner is a lottery; we report the most-probable winner but
+    # weight regret and majority-satisfaction by each candidate's win probability
+    # (P = first-preference share). It is provably strategyproof, so its
+    # strategic_vulnerability is exactly 0.
+    rb_probs = random_ballot_probabilities(rankings)
+    if rb_probs:
+        rb_winner = min(rb_probs, key=lambda c: (-rb_probs[c], c))
+        rb_regret = round(
+            sum(p * (_bayesian_regret(c) or 0.0) for c, p in rb_probs.items()), 6
+        )
+        rb_majsat = round(
+            sum(p * (_majority_satisfaction(c) or 0.0) for c, p in rb_probs.items()), 4
+        )
+        methods_result["random_ballot"] = {
+            "winner":                rb_winner,
+            "bayesian_regret":       rb_regret,
+            "condorcet_consistent":  _condorcet_consistent(rb_winner),
+            "majority_satisfaction": rb_majsat,
+            "strategic_vulnerability": 0.0,   # strategyproof (Gibbard, 1977)
+            "rb_probabilities":      {c: round(p, 4) for c, p in rb_probs.items()},
+        }
 
     output: Dict[str, Any] = {
         "condorcet_winner": condorcet_winner,

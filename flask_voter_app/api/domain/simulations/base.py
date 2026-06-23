@@ -203,8 +203,8 @@ def _closest_candidate_worker(data: Dict[str, Any]) -> tuple[Dict[str, Any], int
 
 def _simulate_utility_worker(data: Dict[str, Any]) -> tuple[Dict[str, Any], int]:
     try:
-        voters = data.get("voters")
-        candidates = data.get("candidates")
+        voters = data.get("voters") or []
+        candidates = data.get("candidates") or []
         issues = data.get("issues") or DEFAULT_ISSUES
         utility_results = [
             calculate_utility(voter, candidate, issues)
@@ -295,7 +295,7 @@ def _voter_segments_worker(data: Dict[str, Any]) -> tuple[Dict[str, Any], int]:
             return {"success": False,
                     "error": "Voters and candidates are required"}, 400
 
-        segment_definitions = {
+        segment_definitions: dict[str, dict[str, Any]] = {
             "young_female": {"test": lambda v: v["age"] <= 30 and v["gender"] == "female", "label": "Jeunes femmes (18-30)"},
             "old_male":     {"test": lambda v: v["age"] > 60 and v["gender"] == "male",   "label": "Hommes âgés (60+)"},
             "high_edu":     {"test": lambda v: v["education"] in ["master", "phd"],        "label": "Éducation élevée"},
@@ -323,11 +323,11 @@ def _voter_segments_worker(data: Dict[str, Any]) -> tuple[Dict[str, Any], int]:
             if not segment_utilities:
                 continue
             avg_utility = sum(u["utility"] for u in segment_utilities) / len(segment_utilities)
-            candidate_votes = {}
+            candidate_votes: dict[Any, int] = {}
             for u in segment_utilities:
                 candidate_votes[u["candidate_id"]] = candidate_votes.get(u["candidate_id"], 0) + 1
             if candidate_votes:
-                top_id = max(candidate_votes, key=candidate_votes.get)
+                top_id = max(candidate_votes, key=lambda c: candidate_votes[c])
                 top_candidate = next((c for c in candidates if c["id"] == top_id), None)
                 top_utility = next((u["utility"] for u in segment_utilities if u["candidate_id"] == top_id), 0)
             else:

@@ -291,7 +291,6 @@ const AssumptionTesterPanel: React.FC<AssumptionTesterLabProps> = ({
     if (labMode && labCandidates?.length) {
       handleRun(labCandidates, labNumVoters, labSeed, labIdeology);
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [labMode, labCandidates, labNumVoters, labSeed, labIdeology]);
 
   // ── Fragility radar data ─────────────────────────────────────────────────

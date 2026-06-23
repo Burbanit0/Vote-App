@@ -48,7 +48,6 @@ const CentreLabel = ({
   cx,
   cy,
   singleGroup,
-  winner,
   total,
   t,
 }: {

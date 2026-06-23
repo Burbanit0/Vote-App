@@ -43,4 +43,20 @@ describe('toSimulatePayload', () => {
       ].sort()
     );
   });
+
+  it('strips the 3rd ideological axis (z) the 2-D CandidateSpec forbids', () => {
+    const dims3 = {
+      ...base,
+      candidates: [
+        { name: 'A', x: -0.5, y: 0, z: 0.3 },
+        { name: 'B', x: 0.5, y: 0, z: -0.2 },
+      ],
+    };
+    const payload = toSimulatePayload(dims3);
+    expect(payload.candidates).toEqual([
+      { name: 'A', x: -0.5, y: 0 },
+      { name: 'B', x: 0.5, y: 0 },
+    ]);
+    expect(payload.candidates.every((c) => !('z' in c))).toBe(true);
+  });
 });

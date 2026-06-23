@@ -132,7 +132,6 @@ const BallotComplexityPanel: React.FC = () => {
           first_time_voter_pct: ftv,
         },
       });
-      // eslint-disable-next-line react-hooks/exhaustive-deps
     },
     [config, t, sim]
   );
@@ -152,7 +151,6 @@ const BallotComplexityPanel: React.FC = () => {
   useEffect(() => {
     if (!hasData) return;
     schedule(eduLevel, ftvPct);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [eduLevel, ftvPct]);
 
   // ── Bar chart data ──────────────────────────────────────────────────────

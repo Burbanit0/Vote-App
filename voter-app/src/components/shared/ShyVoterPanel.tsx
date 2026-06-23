@@ -113,7 +113,6 @@ const ShyVoterPanel: React.FC = () => {
           num_polls: 10,
         },
       });
-      // eslint-disable-next-line react-hooks/exhaustive-deps
     },
     [config, t, sim]
   );
@@ -303,7 +302,7 @@ const ShyVoterPanel: React.FC = () => {
                   strokeDasharray="4 2"
                   label={{ value: 'J-0', fill: '#dc3545', fontSize: 9 }}
                 />
-                {candidateNames.map((c, i) => (
+                {candidateNames.map((c) => (
                   <Line
                     key={c}
                     type="monotone"

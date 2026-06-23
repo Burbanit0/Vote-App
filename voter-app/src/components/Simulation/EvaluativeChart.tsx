@@ -55,9 +55,6 @@ const EvaluativeChart: React.FC<EvaluativeChartProps> = ({ evResult, candidates 
 
   const svgH = sorted.length * ROW_H + PAD_V * 2 + 24;
 
-  // Max absolute score for proportional bar widths
-  const maxAbs = Math.max(...sorted.map((c) => Math.abs(evResult.scores[c] ?? 0)), 1);
-
   return (
     <div data-testid="evaluative-chart">
       {/* Winner badge */}

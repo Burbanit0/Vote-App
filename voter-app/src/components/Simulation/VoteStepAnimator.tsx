@@ -4,7 +4,6 @@ import { Button } from '@/components/ui/button';
 import { ButtonGroup } from '@/components/ui/button-group';
 import { Card, CardBody, CardHeader } from '@/components/ui/card';
 import { Select } from '@/components/ui/form-controls';
-import { Col } from '@/components/ui/grid';
 import { Spinner } from '@/components/ui/spinner';
 import {
   Bar,
@@ -525,12 +524,9 @@ const VoteStepAnimator: React.FC<Props> = ({
   // Re-fetch when method or any input changes. We stringify the API candidates
   // (which may be names or full objects) to get a stable dep.
   const apiCandsKey = JSON.stringify(apiCandidates);
-  useEffect(
-    () => {
-      fetchSteps(method, apiCandidates);
-    }, // eslint-disable-next-line
-    [method, apiCandsKey, numVoters, ideology, seed]
-  );
+  useEffect(() => {
+    fetchSteps(method, apiCandidates);
+  }, [method, apiCandsKey, numVoters, ideology, seed]);
 
   // Clear central-view broadcast when the animator unmounts (user switches tab)
   useEffect(

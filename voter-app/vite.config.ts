@@ -26,7 +26,8 @@ export default defineConfig(({ mode }) => {
           globPatterns: ['**/*.{js,css,html,ico,png,svg,woff2}'],
           runtimeCaching: [
             {
-              urlPattern: /^http:\/\/localhost:4434\/api\/(v1\/methods|scenarios\/gallery\/featured)/,
+              urlPattern:
+                /^http:\/\/localhost:4434\/api\/(v1\/methods|scenarios\/gallery\/featured)/,
               handler: 'StaleWhileRevalidate',
               options: {
                 cacheName: 'api-cache',
@@ -91,10 +92,11 @@ export default defineConfig(({ mode }) => {
         output: {
           manualChunks(id: string): string | undefined {
             if (id.includes('node_modules')) {
-              if (id.includes('recharts'))                          return 'recharts';
-              if (/[\\/]d3-(delaunay|hexbin|force)[\\/]/.test(id))  return 'd3';
+              if (id.includes('recharts')) return 'recharts';
+              if (/[\\/]d3-(delaunay|hexbin|force)[\\/]/.test(id)) return 'd3';
               if (id.includes('jspdf') || id.includes('html2canvas')) return 'pdf';
-              if (id.includes('react-bootstrap') || /[\\/]bootstrap[\\/]/.test(id)) return 'bootstrap';
+              if (id.includes('react-bootstrap') || /[\\/]bootstrap[\\/]/.test(id))
+                return 'bootstrap';
             }
             return undefined;
           },
@@ -103,9 +105,7 @@ export default defineConfig(({ mode }) => {
     },
     envPrefix: 'VITE_',
     define: {
-      'process.env.VITE_API_URL': JSON.stringify(
-        env.VITE_API_URL || 'http://localhost:4434'
-      ),
+      'process.env.VITE_API_URL': JSON.stringify(env.VITE_API_URL || 'http://localhost:4434'),
     },
   };
 });

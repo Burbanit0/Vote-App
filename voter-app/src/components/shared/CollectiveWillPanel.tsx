@@ -246,6 +246,7 @@ const PhilosophersSection: React.FC<{ score: number; t: (k: string) => string }>
           <Col key={key} xs={12} md={6}>
             <div
               role="button"
+              tabIndex={0}
               className="border border-border rounded p-2"
               style={{
                 background: activePhilo === key ? '#f8f9fa' : '#fff',
@@ -254,6 +255,12 @@ const PhilosophersSection: React.FC<{ score: number; t: (k: string) => string }>
                 fontSize: '0.74rem',
               }}
               onClick={() => setActivePhilo(activePhilo === key ? null : key)}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter' || e.key === ' ') {
+                  e.preventDefault();
+                  setActivePhilo(activePhilo === key ? null : key);
+                }
+              }}
               data-testid={`philo-card-${key}`}
             >
               <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
@@ -343,7 +350,6 @@ const CollectiveWillPanel: React.FC<CollectiveWillLabProps> = ({
     if (labMode && labCandidates?.length) {
       handleRun(labCandidates, labNumVoters, labSeed, labIdeology);
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [labMode, labCandidates, labNumVoters, labSeed, labIdeology]);
 
   const score = data?.rousseau_score ?? 0;

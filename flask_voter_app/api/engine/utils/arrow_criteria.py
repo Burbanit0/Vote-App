@@ -29,7 +29,7 @@ from .simulation_ranked_utils import (
 
 # ── Method registry ────────────────────────────────────────────────────────
 
-RANKED_METHODS: Dict[str, Callable] = {
+RANKED_METHODS: Dict[str, Callable[..., Any]] = {
     "plurality":        get_plurality_winner,
     "two_round":        get_two_round_winner,
     "borda":            get_borda_winner,
@@ -137,7 +137,7 @@ def check_condorcet_loser_criterion(
 def check_monotonicity(
     rankings: List[List[str]],
     winner: Optional[str],
-    method_fn: Callable,
+    method_fn: Callable[..., Any],
 ) -> Optional[bool]:
     """
     True if: promoting the winner in some ballots cannot cause them to lose.
@@ -154,14 +154,14 @@ def check_monotonicity(
 
     modified = _promote_to_first(rankings, winner, fraction=0.05)
     new_winner = method_fn(modified)
-    return new_winner == winner
+    return bool(new_winner == winner)
 
 
 def check_iia(
     rankings: List[List[str]],
     candidate_names: List[str],
     winner: Optional[str],
-    method_fn: Callable,
+    method_fn: Callable[..., Any],
 ) -> Dict[str, Any]:
     """
     Independence of Irrelevant Alternatives.
@@ -220,7 +220,7 @@ def check_majority_criterion(
 def check_reversal_symmetry(
     rankings: List[List[str]],
     winner: Optional[str],
-    method_fn: Callable,
+    method_fn: Callable[..., Any],
 ) -> Optional[bool]:
     """
     True if: reversing all rankings does not elect the original winner.
@@ -230,14 +230,14 @@ def check_reversal_symmetry(
         return None
     reversed_rankings = _reverse_rankings(rankings)
     reversed_winner = method_fn(reversed_rankings)
-    return reversed_winner != winner
+    return bool(reversed_winner != winner)
 
 
 # ── Main function ──────────────────────────────────────────────────────────
 
 def check_all_criteria(
-    voters: List[Dict],
-    candidates: List[Dict],
+    voters: List[Dict[str, Any]],
+    candidates: List[Dict[str, Any]],
     issues: List[str],
 ) -> Dict[str, Any]:
     """
@@ -299,7 +299,7 @@ def check_all_criteria(
 
     # --- summary ---
     if satisfaction_counts:
-        ranked_by_score = sorted(satisfaction_counts, key=satisfaction_counts.get)
+        ranked_by_score = sorted(satisfaction_counts, key=lambda m: satisfaction_counts[m])
         summary = {
             "most_criteria_satisfied":  ranked_by_score[-1],
             "least_criteria_satisfied": ranked_by_score[0],

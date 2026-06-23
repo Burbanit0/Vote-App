@@ -265,7 +265,7 @@ const MethodRadarChart: React.FC<Props> = ({ comparisonResults, allMethodNames }
             tickFormatter={(v: number) => `${Math.round(v * 100)}%`}
           />
           <Tooltip content={<CustomTooltip />} />
-          {visibleCandidates.map((method, idx) => {
+          {visibleCandidates.map((method) => {
             const colorIdx = candidateMethods.indexOf(method);
             const color = RADAR_COLORS[colorIdx % RADAR_COLORS.length];
             return (

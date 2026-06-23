@@ -8,9 +8,12 @@ Target removal: future release.
 
 import random
 from collections import defaultdict
+from typing import Any
 
 
-def init(population_size, demographics, turnout_rate):
+def init(
+    population_size: int, demographics: dict[str, Any], turnout_rate: float
+) -> list[dict[str, Any]]:
     voters = []
     for voter_id in range(population_size):
         # Assign demographics
@@ -56,8 +59,12 @@ def init(population_size, demographics, turnout_rate):
 
 
 def simulate_voters(
-    population_size, candidates, demographics, influence_weights, turnout_rate
-):
+    population_size: int,
+    candidates: list[str],
+    demographics: dict[str, Any],
+    influence_weights: dict[str, Any],
+    turnout_rate: float,
+) -> tuple[list[dict[str, Any]], list[Any], "defaultdict[Any, int]"]:
 
     voters = init(population_size, demographics, turnout_rate)
 
@@ -88,7 +95,7 @@ def simulate_voters(
     votes = [voter["preference"] for voter in voters]
 
     # Tally votes
-    tally = defaultdict(int)
+    tally: "defaultdict[Any, int]" = defaultdict(int)
     for vote in votes:
         tally[vote] += 1
 
@@ -96,8 +103,12 @@ def simulate_voters(
 
 
 def simulate_ranked_voters(
-    population_size, candidates, demographics, influence_weights, turnout_rate
-):
+    population_size: int,
+    candidates: list[str],
+    demographics: dict[str, Any],
+    influence_weights: dict[str, Any],
+    turnout_rate: float,
+) -> tuple[list[dict[str, Any]], list[Any], "defaultdict[Any, int]"]:
     voters = voters = init(population_size, demographics, turnout_rate)
 
     # Assign ranked preferences
@@ -123,7 +134,7 @@ def simulate_ranked_voters(
 
     # Tally first choices (for demonstration)
     first_choices = [ranking[0] for ranking in rankings if ranking]
-    tally = defaultdict(int)
+    tally: "defaultdict[Any, int]" = defaultdict(int)
     for choice in first_choices:
         tally[choice] += 1
 
@@ -131,8 +142,12 @@ def simulate_ranked_voters(
 
 
 def simulate_score_voters(
-    population_size, candidates, demographics, influence_weights, turnout_rate
-):
+    population_size: int,
+    candidates: list[str],
+    demographics: dict[str, Any],
+    influence_weights: dict[str, Any],
+    turnout_rate: float,
+) -> tuple[list[dict[str, Any]], list[Any], "defaultdict[Any, float]"]:
     voters = init(population_size, demographics, turnout_rate)
 
     # Assign scores (0-5) to each candidate for each voter
@@ -176,7 +191,7 @@ def simulate_score_voters(
     all_scores = [voter["scores"] for voter in voters if voter["turnout"]]
 
     # Calculate average score per candidate
-    avg_scores = defaultdict(float)
+    avg_scores: "defaultdict[Any, float]" = defaultdict(float)
     for scores in all_scores:
         for candidate, score in scores.items():
             avg_scores[candidate] += score

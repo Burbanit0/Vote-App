@@ -25,13 +25,22 @@ export interface ElectionResult {
 /**
  * The /simulate request schema is `extra="forbid"`, so we must send ONLY the
  * simulation-input fields. Scenarios attach UI-only metadata (`description`,
- * `phenomenon`) to the config, which would otherwise trigger a 422 — strip to
+ * `phenomenon`) to the config, and candidates may carry a 3rd ideological axis
+ * (`z`, playground dims=3) that the 2-D `CandidateSpec` rejects — strip both to
  * the contract shape here.
  */
 export function toSimulatePayload(config: ElectionConfig) {
   const { candidates, num_voters, ideology, seed, blank_vote, information_model, campaign } =
     config;
-  return { candidates, num_voters, ideology, seed, blank_vote, information_model, campaign };
+  return {
+    candidates: candidates.map(({ name, x, y }) => ({ name, x, y })),
+    num_voters,
+    ideology,
+    seed,
+    blank_vote,
+    information_model,
+    campaign,
+  };
 }
 
 export async function simulateElection(config: ElectionConfig): Promise<ElectionResult> {

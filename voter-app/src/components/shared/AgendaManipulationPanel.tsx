@@ -207,7 +207,7 @@ const AgendaManipulationPanel: React.FC = () => {
   const data: AgendaData | null = (sim.data as AgendaData | undefined) ?? null;
   const loading = sim.isPending;
   const error = sim.isError ? t('agenda.error') : null;
-  const [alts, setAlts] = useState<string[]>(DEFAULT_ALTS);
+  const [alts] = useState<string[]>(DEFAULT_ALTS);
   const [agendaOrder, setAgendaOrder] = useState<string[]>(DEFAULT_ALTS);
   const [numVoters, setNumVoters] = useState(21);
   const [seed, setSeed] = useState(42);
@@ -227,7 +227,6 @@ const AgendaManipulationPanel: React.FC = () => {
         },
         { onSuccess: () => setAgendaOrder([...as]) }
       );
-      // eslint-disable-next-line react-hooks/exhaustive-deps
     },
     [sim]
   );

@@ -1,6 +1,9 @@
 #!/usr/bin/env bash
 # Portable runner for the local CI mirror (same Docker images as run-ci.ps1).
-# Usage: ci-local/run-ci.sh [frontend|backend|all] [--no-cache]
+# Usage: ci-local/run-ci.sh [frontend|backend|audit|code|all] [--no-cache]
+#   all   = frontend + backend + audit (run before each push)
+#   code  = frontend + backend (quick iteration, skips the security audit)
+#   audit = security scanners only (Semgrep · Gitleaks · Trivy)
 set -uo pipefail
 
 TARGET="${1:-all}"
@@ -42,8 +45,9 @@ run_job() {
   fi
 }
 
-[[ "$TARGET" == "frontend" || "$TARGET" == "all" ]] && run_job "Frontend CI" "ci-local/frontend.Dockerfile" "vote-ci-frontend"
-[[ "$TARGET" == "backend"  || "$TARGET" == "all" ]] && run_job "Backend CI"  "ci-local/backend.Dockerfile"  "vote-ci-backend"
+[[ "$TARGET" == "frontend" || "$TARGET" == "all" || "$TARGET" == "code" ]] && run_job "Frontend CI" "ci-local/frontend.Dockerfile" "vote-ci-frontend"
+[[ "$TARGET" == "backend"  || "$TARGET" == "all" || "$TARGET" == "code" ]] && run_job "Backend CI"  "ci-local/backend.Dockerfile"  "vote-ci-backend"
+[[ "$TARGET" == "audit"    || "$TARGET" == "all" ]] && run_job "Security Audit" "ci-local/audit.Dockerfile" "vote-ci-audit"
 
 echo -e "\n==================== SUMMARY ===================="
 FAILED=0

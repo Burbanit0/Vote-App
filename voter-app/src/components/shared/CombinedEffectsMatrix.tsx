@@ -48,7 +48,7 @@ const MatrixCell: React.FC<{
   combo: CombinedEffectsCombination | undefined;
   baseWinner: string | null;
   t: (k: string, opts?: Record<string, unknown>) => string;
-}> = ({ combo, baseWinner, t }) => {
+}> = ({ combo }) => {
   if (!combo) return <td style={{ background: '#f8f9fa' }} />;
 
   const agreement = combo.inter_method_agreement;
@@ -187,7 +187,7 @@ const FactorBars: React.FC<{
   ct: ReturnType<typeof useChartTheme>;
   t: (k: string, opts?: Record<string, unknown>) => string;
 }> = ({ result, ct, t }) => {
-  const { factor_deltas, most_disruptive_factor } = result;
+  const { factor_deltas } = result;
 
   const data = [
     { factor: t('combined.factorBlank'), delta: factor_deltas.blank ?? 0, key: 'blank' },

@@ -17,12 +17,7 @@ import {
   Radar,
   PolarGrid,
   PolarAngleAxis,
-  LineChart,
-  Line,
-  XAxis,
-  YAxis,
   Tooltip,
-  CartesianGrid,
   Legend,
   ResponsiveContainer,
 } from 'recharts';
@@ -184,7 +179,6 @@ const SortitionPanel: React.FC = () => {
           stratification: { age_groups: [0.25, 0.45, 0.3], gender_parity: gp, education_quota: eq },
         },
       });
-      // eslint-disable-next-line react-hooks/exhaustive-deps
     },
     [config, t, sim]
   );

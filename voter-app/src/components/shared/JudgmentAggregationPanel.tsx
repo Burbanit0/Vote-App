@@ -107,7 +107,7 @@ const LogicTreeSVG: React.FC<TreeProps> = ({ data, incoherences }) => {
               {p.text.length > 22 ? p.text.slice(0, 20) + '…' : p.text}
             </text>
             {/* Edge to conclusion */}
-            {conclusions.map((c, ci) => {
+            {conclusions.map((c) => {
               const cy = SVG_H / 2;
               const edgeCol = isInco && incoSet.has(c.id) ? '#dc3545' : '#adb5bd';
               return (
@@ -128,7 +128,7 @@ const LogicTreeSVG: React.FC<TreeProps> = ({ data, incoherences }) => {
       })}
 
       {/* Conclusion nodes */}
-      {conclusions.map((c, ci) => {
+      {conclusions.map((c) => {
         const cy = SVG_H / 2;
         const col = nodeColor(c);
         const isInco = incoSet.has(c.id);
@@ -199,7 +199,6 @@ const JudgmentAggregationPanel: React.FC = () => {
         scenario,
       },
     });
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [scenario, numVoters, seed, t, sim]);
 
   return (

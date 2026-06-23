@@ -15,23 +15,24 @@ const { apiClient } = (await import('../../api/client')) as unknown as {
 
 // ── Fixtures ──────────────────────────────────────────────────────────────────
 
+// Matches the E2EFullData shape consumed by E2EVDemo ($api.useMutation →
+// apiClient.POST returns { data, error }).
 function makeE2EData() {
   return {
     data: {
-      num_voters: 10,
-      candidates: ['Alice', 'Bob', 'Carol'],
-      encrypted_ballots: Array.from({ length: 5 }, (_, i) => ({
-        voter_id: i + 1,
-        encrypted: `[AB${i}CD${i}EF…]`,
-        code: `A${i}B-C${i}D-E${i}F`,
+      voters: Array.from({ length: 12 }, (_, i) => ({
+        id: i + 1,
+        encrypted_ballot: `[AB${i}CD${i}EF…]`,
+        verification_code: `A${i}B-C${i}D-E${i}F`,
+        vote_HIDDEN: 'Alice',
       })),
-      aggregate_result: { Alice: 4, Bob: 3, Carol: 3 },
-      verification_demonstration: {
-        sample_voter_id: 1,
-        sample_code: 'A0B-C0D-E0F',
-        board_excerpt: ['A0B-C0D-E0F', 'A1B-C1D-E1F', 'A2B-C2D-E2F'],
-      },
-      privacy_guarantee: 'Test guarantee.',
+      public_bulletin_board: Array.from({ length: 12 }, (_, i) => ({
+        encrypted_ballot: `[AB${i}CD${i}EF…]`,
+        verification_code: `A${i}B-C${i}D-E${i}F`,
+      })),
+      aggregate_result: { Alice: 5, Bob: 4, Carol: 3 },
+      winner: 'Alice',
+      audit_proof: 'Σ encrypted ballots = encrypted total (homomorphic).',
     },
     error: undefined,
   };
@@ -95,15 +96,21 @@ describe('TechDemocracyPage', () => {
     expect(screen.getByTestId('polis-section')).toBeInTheDocument();
   });
 
-  // ⚠ The 6 tests below exercise the *old* E2EVSection (defined at lines 85-280
-  // of TechDemocracyPage.tsx but no longer rendered — the page renders
-  // E2EVInteractiveSection instead, which has different testids and lives in
-  // components/shared/E2EVDemo.tsx). Skipping until the assertions are rewritten
-  // against the new component. TODO: rewrite or delete these tests.
-
-  it.skip('shows E2E run button', () => {
+  // The E2E-V demo is the interactive E2EVDemo component (components/shared/
+  // E2EVDemo.tsx): pick a candidate → vote → step through bulletin board →
+  // homomorphic count. Helper drives it to its first step.
+  async function voteAndAdvance() {
+    apiClient.POST.mockResolvedValue(makeE2EData());
     renderPage();
-    expect(screen.getByTestId('run-e2e-btn')).toBeInTheDocument();
+    fireEvent.click(screen.getByTestId('candidate-btn-Alice'));
+    fireEvent.click(screen.getByTestId('vote-btn'));
+    await waitFor(() => expect(screen.getByTestId('step1-content')).toBeInTheDocument());
+  }
+
+  it('shows the E2E-V vote controls (candidate buttons + vote)', () => {
+    renderPage();
+    expect(screen.getByTestId('candidate-btn-Alice')).toBeInTheDocument();
+    expect(screen.getByTestId('vote-btn')).toBeInTheDocument();
   });
 
   it('shows Pol.is run button', () => {
@@ -111,11 +118,11 @@ describe('TechDemocracyPage', () => {
     expect(screen.getByTestId('run-polis-btn')).toBeInTheDocument();
   });
 
-  it.skip('shows ideology selector for Pol.is', () => {
-    // ⚠ ideology-select testid lives on the old PolisSection that's no longer
-    // the primary Pol.is section rendered. Skipped pending rewrite.
+  it('shows ideology selector for Pol.is', () => {
     renderPage();
-    expect(screen.getByTestId('ideology-select')).toBeInTheDocument();
+    // The page mounts its own Pol.is controls plus the PolisPanel, both of which
+    // expose an ideology-select — assert at least one is present.
+    expect(screen.getAllByTestId('ideology-select').length).toBeGreaterThanOrEqual(1);
   });
 
   it('shows num-clusters input', () => {
@@ -123,61 +130,43 @@ describe('TechDemocracyPage', () => {
     expect(screen.getByTestId('num-clusters-input')).toBeInTheDocument();
   });
 
-  // ── E2E demo ────────────────────────────────────────────────────────────────
+  // ── E2E-V demo ────────────────────────────────────────────────────────────
 
-  it.skip('calls e2e-demo API on button click', async () => {
+  it('calls the e2e-demo API when a vote is cast', async () => {
     apiClient.POST.mockResolvedValue(makeE2EData());
     renderPage();
-    fireEvent.click(screen.getByTestId('run-e2e-btn'));
-    await waitFor(() => expect(apiClient.POST).toHaveBeenCalledTimes(1));
+    fireEvent.click(screen.getByTestId('candidate-btn-Alice'));
+    fireEvent.click(screen.getByTestId('vote-btn'));
+    await waitFor(() => expect(apiClient.POST).toHaveBeenCalled());
     expect(apiClient.POST).toHaveBeenCalledWith(
       expect.stringMatching(/\/api\/(v2\/)?tech\/e2e-demo/),
       expect.any(Object)
     );
-    vi.runAllTimers();
   });
 
-  it.skip('shows encrypted ballots after E2E run', async () => {
-    apiClient.POST.mockResolvedValue(makeE2EData());
-    renderPage();
-    fireEvent.click(screen.getByTestId('run-e2e-btn'));
-    await waitFor(() => {
-      const ballots = screen.getAllByTestId('encrypted-ballot');
-      expect(ballots.length).toBeGreaterThan(0);
-    });
-    vi.runAllTimers();
+  it('shows the encrypted ballot + verification code after voting', async () => {
+    await voteAndAdvance();
+    expect(screen.getByTestId('my-verification-code')).toBeInTheDocument();
+    expect(screen.getByTestId('my-verification-code')).toHaveTextContent('A0B-C0D-E0F');
   });
 
-  it.skip('shows next-step button after E2E run', async () => {
-    apiClient.POST.mockResolvedValue(makeE2EData());
-    renderPage();
-    fireEvent.click(screen.getByTestId('run-e2e-btn'));
-    await waitFor(() => expect(screen.getByTestId('next-step-btn')).toBeInTheDocument());
-    vi.runAllTimers();
+  it('shows the next-step button after voting', async () => {
+    await voteAndAdvance();
+    expect(screen.getByTestId('next-step-btn')).toBeInTheDocument();
   });
 
-  it.skip('shows verification board after step 2', async () => {
-    apiClient.POST.mockResolvedValue(makeE2EData());
-    renderPage();
-    fireEvent.click(screen.getByTestId('run-e2e-btn'));
-    await waitFor(() => screen.getByTestId('next-step-btn'));
-    fireEvent.click(screen.getByTestId('next-step-btn')); // step 2
-    expect(screen.getByTestId('verification-board')).toBeInTheDocument();
-    vi.runAllTimers();
+  it('shows the public bulletin board at step 2', async () => {
+    await voteAndAdvance();
+    fireEvent.click(screen.getByTestId('next-step-btn')); // → step 2
+    expect(screen.getByTestId('bulletin-board')).toBeInTheDocument();
   });
 
-  it.skip('shows final result after reaching last step', async () => {
-    apiClient.POST.mockResolvedValue(makeE2EData());
-    renderPage();
-    fireEvent.click(screen.getByTestId('run-e2e-btn'));
-    await waitFor(() => screen.getByTestId('next-step-btn'));
-    // Click through all remaining steps
-    for (let i = 0; i < 4; i++) {
-      const btn = screen.queryByTestId('next-step-btn');
-      if (btn) fireEvent.click(btn);
-    }
-    await waitFor(() => expect(screen.getByTestId('e2e-final-result')).toBeInTheDocument());
-    vi.runAllTimers();
+  it('shows the homomorphic aggregate result at step 3', async () => {
+    await voteAndAdvance();
+    fireEvent.click(screen.getByTestId('next-step-btn')); // → step 2
+    fireEvent.click(screen.getByTestId('to-step3-btn')); // → step 3
+    expect(screen.getByTestId('aggregate-display')).toBeInTheDocument();
+    expect(screen.getByTestId('aggregate-display')).toHaveTextContent('Alice');
   });
 
   // ── Pol.is section ──────────────────────────────────────────────────────────

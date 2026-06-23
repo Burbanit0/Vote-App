@@ -168,8 +168,11 @@ const MultiwinnerAnalysis: React.FC = () => {
           </Row>
           <Row className="g-3 items-end">
             <Col md={3}>
-              <label className="mb-1 inline-block text-sm mb-1">Seats to fill</label>
+              <label className="mb-1 inline-block text-sm mb-1" htmlFor="mw-seats">
+                Seats to fill
+              </label>
               <Control
+                id="mw-seats"
                 type="number"
                 min={2}
                 max={200}

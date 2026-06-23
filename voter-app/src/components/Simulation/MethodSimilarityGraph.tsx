@@ -19,7 +19,6 @@ import {
   SimulationLinkDatum,
 } from 'd3';
 import { useTranslation } from 'react-i18next';
-import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Range } from '@/components/ui/form-controls';
 
@@ -67,12 +66,6 @@ const FAMILY_CENTERS: Record<string, { x: number; y: number }> = {
 interface NodeDatum extends SimulationNodeDatum {
   id: string;
   family: 'ranked' | 'score' | 'special';
-}
-
-interface LinkDatum extends SimulationLinkDatum<NodeDatum> {
-  source: NodeDatum;
-  target: NodeDatum;
-  value: number; // agreement rate [0,1]
 }
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
@@ -135,7 +128,6 @@ const MethodSimilarityGraph: React.FC<MethodSimilarityGraphProps> = ({
   const [hoveredNode, setHoveredNode] = useState<string | null>(null);
   const [positions, setPositions] = useState<Map<string, { x: number; y: number }>>(new Map());
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const simRef = useRef<any>(null);
   const dragRef = useRef<{ id: string | null; ox: number; oy: number }>({ id: null, ox: 0, oy: 0 });
   const svgRef = useRef<SVGSVGElement>(null);
@@ -223,7 +215,6 @@ const MethodSimilarityGraph: React.FC<MethodSimilarityGraphProps> = ({
       if (rafRef.current) cancelAnimationFrame(rafRef.current);
       sim.stop();
     };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [nodes.length, methodNames.join(','), threshold, groupByFamily]);
 
   // ── Drag handlers ──────────────────────────────────────────────────────────
@@ -285,7 +276,6 @@ const MethodSimilarityGraph: React.FC<MethodSimilarityGraphProps> = ({
 
   // Links with resolved positions
   const resolvedLinks = useMemo(() => {
-    const nodeMap = new Map(nodes.map((n) => [n.id, n]));
     return links.map((l) => {
       const src = typeof l.source === 'string' ? l.source : (l.source as any).id;
       const tgt = typeof l.target === 'string' ? l.target : (l.target as any).id;

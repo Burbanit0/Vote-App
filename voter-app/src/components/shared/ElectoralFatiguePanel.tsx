@@ -176,7 +176,6 @@ const ElectoralFatiguePanel: React.FC = () => {
           method: 'plurality',
         },
       });
-      // eslint-disable-next-line react-hooks/exhaustive-deps
     },
     [config, t, sim]
   );
@@ -195,7 +194,6 @@ const ElectoralFatiguePanel: React.FC = () => {
   useEffect(() => {
     if (!hasData) return;
     schedule(fatigueRate, engagedPct, numElections);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [fatigueRate, engagedPct, numElections]);
 
   // ── Chart data ──────────────────────────────────────────────────────────
@@ -392,7 +390,7 @@ const ElectoralFatiguePanel: React.FC = () => {
                 />
                 <Tooltip formatter={(v: number) => `${Math.round(v * 100)}%`} />
                 <Legend wrapperStyle={{ fontSize: 10 }} />
-                {candidateNames.map((c, i) => (
+                {candidateNames.map((c) => (
                   <Area
                     key={c}
                     type="monotone"

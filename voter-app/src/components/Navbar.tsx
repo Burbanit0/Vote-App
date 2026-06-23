@@ -176,21 +176,38 @@ const Navbar: React.FC = () => {
           <BootstrapNavbar.Collapse id="votelab-nav">
             {/* ── Main nav ── */}
             <Nav className="mr-auto lg:items-center gap-1">
-              {/* Election Lab — hero link */}
+              {/* Playground — hero link */}
               <Nav.Link
-                href="/election-lab"
+                href="/playground"
                 className="font-semibold px-3 py-1 rounded"
-                active={currentPath === '/election-lab'}
+                active={currentPath === '/playground'}
                 onClick={() => setNavExpanded(false)}
                 style={{
-                  background: currentPath === '/election-lab' ? 'var(--bs-primary)' : 'transparent',
-                  color: currentPath === '/election-lab' ? '#fff' : 'var(--bs-primary)',
+                  background: currentPath === '/playground' ? 'var(--bs-primary)' : 'transparent',
+                  color: currentPath === '/playground' ? '#fff' : 'var(--bs-primary)',
                   border: '1.5px solid var(--bs-primary)',
                   fontSize: '0.88rem',
                   transition: 'all 0.15s',
                 }}
               >
-                🔬 {t('nav.electionLab')}
+                🎛 {t('nav.playground')}
+              </Nav.Link>
+
+              {/* Campagne & dynamique — page 2 of the journey (temporal) */}
+              <Nav.Link
+                href="/campagne"
+                className="font-semibold px-3 py-1 rounded"
+                active={currentPath === '/campagne'}
+                onClick={() => setNavExpanded(false)}
+                style={{
+                  background: currentPath === '/campagne' ? 'var(--bs-primary)' : 'transparent',
+                  color: currentPath === '/campagne' ? '#fff' : 'var(--bs-primary)',
+                  border: '1.5px solid var(--bs-primary)',
+                  fontSize: '0.88rem',
+                  transition: 'all 0.15s',
+                }}
+              >
+                📈 {t('nav.campaign')}
               </Nav.Link>
 
               {/* Apprendre dropdown */}
@@ -407,8 +424,11 @@ const Navbar: React.FC = () => {
             </div>
             {!isPasswordSet && (
               <div className="mb-2">
-                <label className="text-sm mb-1 inline-block">Confirmer</label>
+                <label className="text-sm mb-1 inline-block" htmlFor="pass-confirm">
+                  Confirmer
+                </label>
                 <Control
+                  id="pass-confirm"
                   type="password"
                   size="sm"
                   value={passConfirm}

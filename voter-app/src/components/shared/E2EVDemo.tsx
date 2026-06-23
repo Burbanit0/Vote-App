@@ -112,7 +112,6 @@ const E2EVDemo: React.FC<Props> = ({ candidates = DEFAULT_CANDIDATES, seed = 42 
         },
       }
     );
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [chosen, candidates, seed, t, sim]);
 
   const reset = () => {

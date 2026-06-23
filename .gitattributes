@@ -1,0 +1,8 @@
+# Force LF for files that run in Linux containers / CI. CRLF (from Windows
+# checkouts) breaks bash line-continuations and shebangs, and the ci-local Docker
+# images COPY the working tree — so a CRLF working copy would fail in-container.
+*.sh            text eol=lf
+*.bash          text eol=lf
+Dockerfile      text eol=lf
+*.Dockerfile    text eol=lf
+*.dockerignore  text eol=lf

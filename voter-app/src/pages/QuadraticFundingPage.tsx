@@ -11,7 +11,7 @@ import { Card, CardBody, CardHeader } from '@/components/ui/card';
 import { Control, Range, Select } from '@/components/ui/form-controls';
 import { Col, Container, Row } from '@/components/ui/grid';
 import { Spinner } from '@/components/ui/spinner';
-import { BarChart, Bar, XAxis, YAxis, Tooltip, Cell, ResponsiveContainer, Legend } from 'recharts';
+import { BarChart, Bar, XAxis, YAxis, Tooltip, Cell, ResponsiveContainer } from 'recharts';
 import { useMetaTags } from '../hooks/useMetaTags';
 import { $api } from '../api/hooks';
 const DEBOUNCE_MS = 400;
@@ -73,20 +73,13 @@ const MECHANISM_LABELS: Record<string, string> = {
   qf: 'Quadratic Funding',
 };
 
-const MECHANISM_COLORS: Record<string, string> = {
-  '1p1v': '#6c757d',
-  proportional: '#005CAB',
-  qf: '#007A33',
-};
-
 // ── Mini bar chart for one mechanism ─────────────────────────────────────────
 
 const MechChart: React.FC<{
   mechanism: string;
   data: QFData;
   poolSize: number;
-}> = ({ mechanism, data, poolSize }) => {
-  const { t } = useTranslation();
+}> = ({ mechanism, data }) => {
   const alloc = data.mechanism_comparison[mechanism] ?? {};
   const names = data.projects.map((p) => p.name);
   const chartData = names.map((name) => ({
@@ -183,7 +176,6 @@ const QuadraticFundingPage: React.FC = () => {
           seed: 42,
         },
       });
-      // eslint-disable-next-line react-hooks/exhaustive-deps
     },
     [projects, numVoters, budgetPV, ideology, t, sim]
   );

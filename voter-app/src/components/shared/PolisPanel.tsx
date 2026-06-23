@@ -266,7 +266,6 @@ const PolisPanel: React.FC = () => {
         method_to_compare: 'plurality',
       },
     });
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [config, numClusters, threshold, ideology, t, sim]);
 
   return (

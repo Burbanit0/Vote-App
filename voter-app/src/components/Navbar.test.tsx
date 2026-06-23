@@ -45,10 +45,10 @@ describe('Navbar', () => {
     expect(screen.getByText('Vote Lab')).toBeInTheDocument();
   });
 
-  it('renders Election Lab link (may include emoji)', () => {
+  it('renders the Playground hero link (may include emoji)', () => {
     renderNavbar();
-    // The link may render as "🔬 Election Lab" — match by partial text
-    expect(screen.getByText(/Election Lab/i)).toBeInTheDocument();
+    // The hero link may render as "🎛 Playground" — match by partial text
+    expect(screen.getByText(/Playground/i)).toBeInTheDocument();
   });
 
   it('renders Learn and Explore dropdown toggles', () => {

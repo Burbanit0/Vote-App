@@ -33,8 +33,15 @@ const ModelAssumptionsBanner: React.FC = () => {
       {/* ── Always-visible header ── */}
       <div
         role="button"
+        tabIndex={0}
         className="flex cursor-pointer select-none items-center gap-2 px-3 py-1.5"
         onClick={() => setOpen((o) => !o)}
+        onKeyDown={(e) => {
+          if (e.key === 'Enter' || e.key === ' ') {
+            e.preventDefault();
+            setOpen((o) => !o);
+          }
+        }}
         aria-expanded={open}
         data-testid="banner-toggle"
       >

@@ -1,0 +1,231 @@
+"""Tests for POST /api/v2/election/assembly — Lab reshape P3.
+
+Pins the party-level engine to structural truths: PR is more proportional than
+FPTP on the same electorate, thresholds exclude small parties, MMP compensates,
+and coalition math respects the majority line.
+"""
+import pytest
+from fastapi.testclient import TestClient
+
+from api.main import app
+
+
+@pytest.fixture
+def client() -> TestClient:
+    return TestClient(app)
+
+
+SIX_PARTIES = [
+    {"name": "Verts",      "x": -0.3, "y": -0.4},
+    {"name": "Soc",        "x": -0.5, "y": -0.1},
+    {"name": "Centre",     "x":  0.0, "y":  0.0},
+    {"name": "Lib",        "x":  0.3, "y":  0.0},
+    {"name": "Cons",       "x":  0.5, "y":  0.3},
+    {"name": "DroiteRad",  "x":  0.8, "y":  0.7},
+]
+
+
+def _payload(**overrides) -> dict:
+    base = {
+        "parties": SIX_PARTIES,
+        "num_voters": 600,
+        "ideology": "random",
+        "seed": 42,
+        "structure": "pr",
+        "seats": 100,
+        "threshold": 0.05,
+        "apportionment": "dhondt",
+    }
+    base.update(overrides)
+    return base
+
+
+def test_pr_basic_shape(client: TestClient):
+    res = client.post("/api/v2/election/assembly", json=_payload())
+    assert res.status_code == 200
+    body = res.json()
+    assert body["assembly_size"] == 100
+    assert body["majority"] == 51
+    assert sum(p["seats"] for p in body["parties"]) == 100
+    # Shares are consistent.
+    for p in body["parties"]:
+        assert abs(p["seat_share"] - p["seats"] / 100) < 1e-6
+    assert 0.0 <= body["wasted_vote_share"] <= 1.0
+
+
+def test_fptp_less_proportional_than_pr(client: TestClient):
+    """Same electorate: FPTP's Gallagher index ≥ PR's (winner's bonus)."""
+    pr   = client.post("/api/v2/election/assembly", json=_payload(structure="pr", threshold=0.0)).json()
+    fptp = client.post("/api/v2/election/assembly", json=_payload(structure="fptp")).json()
+    assert pr["gallagher_index"] is not None and fptp["gallagher_index"] is not None
+    assert fptp["gallagher_index"] >= pr["gallagher_index"]
+    # FPTP also reduces the effective number of parties in seats.
+    assert fptp["effective_parties_seats"] <= pr["effective_parties_seats"]
+
+
+def test_threshold_excludes_small_parties(client: TestClient):
+    """Raising the threshold can only exclude more (or equal) parties, and
+    excluded parties hold zero list seats."""
+    low  = client.post("/api/v2/election/assembly", json=_payload(threshold=0.0)).json()
+    high = client.post("/api/v2/election/assembly", json=_payload(threshold=0.15)).json()
+    excl_low  = {p["name"] for p in low["parties"] if p["excluded_by_threshold"]}
+    excl_high = {p["name"] for p in high["parties"] if p["excluded_by_threshold"]}
+    assert excl_low <= excl_high
+    if not high["threshold_waived"]:
+        for p in high["parties"]:
+            if p["excluded_by_threshold"]:
+                assert p["seats"] == 0
+
+
+def test_mmp_compensates_toward_proportionality(client: TestClient):
+    """MMP's disproportionality sits at or below FPTP's on the same electorate."""
+    fptp = client.post("/api/v2/election/assembly", json=_payload(structure="fptp")).json()
+    mmp  = client.post("/api/v2/election/assembly", json=_payload(structure="mmp")).json()
+    assert mmp["gallagher_index"] <= fptp["gallagher_index"]
+    # District wins are reported and bounded by total seats per party.
+    for p in mmp["parties"]:
+        assert 0 <= p["district_seats"] <= p["seats"]
+
+
+def test_coalitions_are_minimal_and_winning(client: TestClient):
+    body = client.post("/api/v2/election/assembly", json=_payload()).json()
+    seats = {p["name"]: p["seats"] for p in body["parties"]}
+    for c in body["coalitions"]:
+        assert c["seats"] >= body["majority"]
+        assert c["seats"] == sum(seats[m] for m in c["parties"])
+        # minimal: every member is pivotal
+        for m in c["parties"]:
+            assert c["seats"] - seats[m] < body["majority"]
+
+
+def test_deterministic_same_seed(client: TestClient):
+    a = client.post("/api/v2/election/assembly", json=_payload()).json()
+    b = client.post("/api/v2/election/assembly", json=_payload()).json()
+    assert a == b
+
+
+def test_rejects_single_party(client: TestClient):
+    res = client.post("/api/v2/election/assembly", json=_payload(parties=SIX_PARTIES[:1]))
+    assert res.status_code == 422  # Pydantic min_length=2
+
+
+# ── Duverger demo (P4): strategic desertion ───────────────────────────────────
+
+def test_duverger_desertion_compresses_under_fptp(client: TestClient):
+    """Under FPTP, strategic desertion shrinks the effective number of parties
+    (votes) — Duverger's law mechanically."""
+    sincere  = client.post("/api/v2/election/assembly", json=_payload(structure="fptp")).json()
+    deserted = client.post("/api/v2/election/assembly",
+                           json=_payload(structure="fptp", strategic_desertion=True)).json()
+    assert deserted["effective_parties_votes"] < sincere["effective_parties_votes"]
+
+
+def test_duverger_pr_no_threshold_survives(client: TestClient):
+    """Under PR with no threshold every party is viable — desertion changes
+    nothing: the multiparty system survives."""
+    sincere  = client.post("/api/v2/election/assembly",
+                           json=_payload(structure="pr", threshold=0.0)).json()
+    deserted = client.post("/api/v2/election/assembly",
+                           json=_payload(structure="pr", threshold=0.0,
+                                         strategic_desertion=True)).json()
+    assert deserted == sincere
+
+
+def test_desertion_reduces_wasted_votes_under_pr_threshold(client: TestClient):
+    """With a PR threshold, deserters leave sub-threshold parties, so fewer
+    votes end up unrepresented."""
+    sincere  = client.post("/api/v2/election/assembly", json=_payload(threshold=0.1)).json()
+    deserted = client.post("/api/v2/election/assembly",
+                           json=_payload(threshold=0.1, strategic_desertion=True)).json()
+    assert deserted["wasted_vote_share"] <= sincere["wasted_vote_share"]
+
+
+# ── Representation → governance (frontier FB-1) ──────────────────────────────
+
+def test_congruence_pr_beats_fptp(client: TestClient):
+    """Acceptance: PR's assembly sits closer to the electorate's median than
+    FPTP's on the same electorate (the winner's bonus drags the body away)."""
+    pr   = client.post("/api/v2/election/assembly", json=_payload(threshold=0.0)).json()
+    fptp = client.post("/api/v2/election/assembly", json=_payload(structure="fptp")).json()
+    assert pr["congruence"]["assembly_gap"] <= fptp["congruence"]["assembly_gap"]
+
+
+def test_congruence_block_is_coherent(client: TestClient):
+    body = client.post("/api/v2/election/assembly", json=_payload()).json()
+    c = body["congruence"]
+    assert len(c["electorate_median"]) == 2 and len(c["assembly_position"]) == 2
+    assert c["assembly_gap"] >= 0
+    # A governing coalition exists here, with its own (≥ assembly?) gap reported.
+    assert c["governing_position"] is not None
+    assert c["governing_gap"] >= 0
+
+
+def test_mirror_shares_sum_to_one(client: TestClient):
+    body = client.post("/api/v2/election/assembly", json=_payload()).json()
+    mirror = body["mirror"]
+    assert {m["region"] for m in mirror} == {"left_lib", "left_cons", "right_lib", "right_cons"}
+    assert abs(sum(m["electorate_share"] for m in mirror) - 1.0) < 1e-6
+    # Assembly shares sum to ≈1 (seat shares distributed over regions).
+    assert abs(sum(m["assembly_share"] for m in mirror) - 1.0) < 1e-3
+
+
+def test_mirror_reflects_threshold_exclusion(client: TestClient):
+    """Excluding small parties (high threshold) can only keep or worsen the
+    total mirror deviation, never improve it on this fixture."""
+    lo = client.post("/api/v2/election/assembly", json=_payload(threshold=0.0)).json()
+    hi = client.post("/api/v2/election/assembly", json=_payload(threshold=0.15)).json()
+    dev = lambda b: sum(abs(m["electorate_share"] - m["assembly_share"]) for m in b["mirror"])  # noqa: E731
+    assert dev(lo) <= dev(hi) + 1e-9
+
+
+# ── /assembly-scorecard (P5) ──────────────────────────────────────────────────
+
+AXES = ["proportionality", "pluralism", "effective_votes",
+        "minority_representation", "governability", "gerrymander_resistance"]
+
+
+def _sc_payload(**overrides) -> dict:
+    base = {
+        "parties": SIX_PARTIES,
+        "num_voters": 300,
+        "ideology": "random",
+        "seed": 42,
+        "seats": 100,
+        "threshold": 0.05,
+        "apportionment": "dhondt",
+        "replications": 10,
+    }
+    base.update(overrides)
+    return base
+
+
+def test_scorecard_shape_and_bands(client: TestClient):
+    res = client.post("/api/v2/election/assembly-scorecard", json=_sc_payload())
+    assert res.status_code == 200
+    body = res.json()
+    assert body["replications"] == 10
+    assert set(body["structures"]) == {"pr", "fptp", "mmp"}
+    for s in body["structures"].values():
+        assert set(s) == set(AXES)
+        for axis in s.values():
+            assert 0.0 <= axis["lo"] <= axis["mean"] <= axis["hi"] <= 1.0
+
+
+def test_scorecard_pr_is_gerrymander_immune_and_more_proportional(client: TestClient):
+    body = client.post("/api/v2/election/assembly-scorecard", json=_sc_payload()).json()
+    pr, fptp = body["structures"]["pr"], body["structures"]["fptp"]
+    assert pr["gerrymander_resistance"] == {"mean": 1.0, "lo": 1.0, "hi": 1.0}
+    assert pr["proportionality"]["mean"] >= fptp["proportionality"]["mean"]
+
+
+def test_scorecard_fptp_more_governable(client: TestClient):
+    """The winner's bonus concentrates seats → smaller winning coalitions."""
+    body = client.post("/api/v2/election/assembly-scorecard", json=_sc_payload()).json()
+    assert (body["structures"]["fptp"]["governability"]["mean"]
+            >= body["structures"]["pr"]["governability"]["mean"])
+
+
+def test_scorecard_deterministic(client: TestClient):
+    a = client.post("/api/v2/election/assembly-scorecard", json=_sc_payload()).json()
+    b = client.post("/api/v2/election/assembly-scorecard", json=_sc_payload()).json()
+    assert a == b

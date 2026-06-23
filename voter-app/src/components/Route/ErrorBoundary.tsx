@@ -36,7 +36,7 @@ class ErrorBoundary extends Component<Props, State> {
     // Console always — devtools is the primary debugging surface today.
     // When Sentry/Glitchtip arrives in Phase 7+, wire it here too:
     //   Sentry.captureException(error, { contexts: { react: info } });
-    // eslint-disable-next-line no-console
+
     console.error('[ErrorBoundary]', error, info);
   }
 

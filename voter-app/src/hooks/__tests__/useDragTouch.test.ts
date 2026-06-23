@@ -6,7 +6,6 @@
  * We also test useSwipe through the same test infrastructure.
  */
 import { renderHook, act } from '@testing-library/react';
-import { useRef } from 'react';
 
 // ── useDragTouch helpers ──────────────────────────────────────────────────────
 
@@ -115,17 +114,6 @@ describe('makeDragHandlers', () => {
 // ── useSwipe ─────────────────────────────────────────────────────────────────
 
 describe('useSwipe', () => {
-  function makeSwipeEvent(startX: number, endX: number, deltaY = 0) {
-    return {
-      touchstart: new TouchEvent('touchstart', {
-        touches: [{ clientX: startX, clientY: 0 } as Touch],
-      }),
-      touchend: new TouchEvent('touchend', {
-        changedTouches: [{ clientX: endX, clientY: deltaY } as Touch],
-      }),
-    };
-  }
-
   function setup() {
     const el = document.createElement('div');
     document.body.appendChild(el);
@@ -219,15 +207,5 @@ describe('useSwipe', () => {
 
     expect(onSwipeLeft).not.toHaveBeenCalled();
     cleanup();
-  });
-});
-
-// ── Mobile tab nav ────────────────────────────────────────────────────────────
-
-describe('ElectionLabPage mobile navigation', () => {
-  it('tab-select testid exists in the mocked component (integration covered by render)', async () => {
-    // Full rendering requires the full ElectionLabPage context.
-    // We verify the structural contract here; rendering tested in ElectionLabPage.test.tsx
-    expect(true).toBe(true);
   });
 });

@@ -36,18 +36,14 @@ test.describe('Dark mode', () => {
     const navbar = page.locator('[data-tour="navbar"]');
 
     // Light mode background
-    const lightBg = await navbar.evaluate((el) =>
-      window.getComputedStyle(el).backgroundColor
-    );
+    const lightBg = await navbar.evaluate((el) => window.getComputedStyle(el).backgroundColor);
 
     // Switch to dark mode
     await page.getByRole('button', { name: /passer en mode sombre|switch to dark/i }).click();
     await page.waitForTimeout(200); // allow CSS transition
 
     // Dark mode background
-    const darkBg = await navbar.evaluate((el) =>
-      window.getComputedStyle(el).backgroundColor
-    );
+    const darkBg = await navbar.evaluate((el) => window.getComputedStyle(el).backgroundColor);
 
     // The computed background color must differ between light and dark
     expect(lightBg).not.toEqual(darkBg);

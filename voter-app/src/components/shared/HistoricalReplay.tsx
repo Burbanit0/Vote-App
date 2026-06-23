@@ -17,7 +17,6 @@ import type { HistoricalReplayResponse } from '../../api';
 
 type ReplayData = HistoricalReplayResponse;
 type ReplayCandidate = HistoricalReplayResponse['candidates'][number];
-type DaySnapshot = HistoricalReplayResponse['days'][number];
 
 // ── Scenario cards config ─────────────────────────────────────────────────────
 
@@ -190,9 +189,6 @@ const HistoricalReplay: React.FC = () => {
   const [positions, setPositions] = useState<Record<string, { x: number; y: number }>>({});
 
   const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-
-  // Derive overrides from positions that differ from scenario defaults
-  const scenarioCandidates = SCENARIOS.find((s) => s.id === scenarioId) ? [] : [];
 
   const candidateNames = data?.candidates.map((c) => c.name) ?? [];
 

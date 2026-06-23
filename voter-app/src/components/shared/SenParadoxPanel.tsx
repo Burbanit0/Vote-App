@@ -15,14 +15,10 @@ import { Spinner } from '@/components/ui/spinner';
 import { $api } from '../../api/hooks';
 import type { SenParadoxResponse } from '../../api';
 
-const ALTS = ['x', 'y', 'z'] as const;
-
 // ── Types ─────────────────────────────────────────────────────────────────────
 // Source of truth is the generated `SenParadoxResponse` (Phase 6 response_model).
 
 type SenData = SenParadoxResponse;
-type ParadoxExample = SenParadoxResponse['paradox_examples'][number];
-type ResolutionOption = SenParadoxResponse['resolution_options'][number];
 
 // ── Conflict visualisation SVG ────────────────────────────────────────────────
 
@@ -123,18 +119,11 @@ const SenParadoxPanel: React.FC = () => {
 
   const [seed, setSeed] = useState(42);
   const sim = $api.useMutation('post', '/api/v2/theory/sen-paradox');
-  const simCustom = $api.useMutation('post', '/api/v2/theory/sen-paradox');
   const data: SenData | null = sim.data ?? null;
-  const loading = sim.isPending || simCustom.isPending;
+  const loading = sim.isPending;
   const error = sim.isError ? t('sen.error') : null;
 
-  // Interactive: user sets their own preferences for Person 1
-  const [userPref1, setUserPref1] = useState(['z', 'x', 'y']);
-  const [userPref2, setUserPref2] = useState(['x', 'y', 'z']);
-  const [customResult, setCustomResult] = useState<ParadoxExample | null>(null);
-
   const runSimulation = useCallback(() => {
-    setCustomResult(null);
     sim.mutate({
       body: {
         num_voters: 2,
@@ -142,39 +131,7 @@ const SenParadoxPanel: React.FC = () => {
         rights_definition: 'liberal',
       },
     });
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [seed, t, sim]);
-
-  const testCustomPrefs = useCallback(() => {
-    if (!data) return;
-    simCustom.mutate(
-      {
-        body: {
-          num_voters: 2,
-          seed,
-          rights_definition: 'liberal',
-        },
-      },
-      {
-        onSuccess: (res) => {
-          const ex = res.paradox_examples;
-          setCustomResult(ex.length > 0 ? ex[0] : null);
-        },
-      }
-    );
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [data, seed, simCustom]);
-
-  const swapPref1 = (arr: string[], i: number, j: number) => {
-    const next = [...arr];
-    [next[i], next[j]] = [next[j], next[i]];
-    setUserPref1(next);
-  };
-  const swapPref2 = (arr: string[], i: number, j: number) => {
-    const next = [...arr];
-    [next[i], next[j]] = [next[j], next[i]];
-    setUserPref2(next);
-  };
+  }, [seed, sim]);
 
   const altLabel = (a: string) => data?.alternative_names[a] ?? a;
 

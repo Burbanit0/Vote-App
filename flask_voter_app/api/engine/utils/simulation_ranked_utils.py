@@ -1,19 +1,19 @@
 from collections import defaultdict, Counter
 from itertools import combinations, permutations
-from typing import Optional
+from typing import Any, Optional
 
 
-def _is_dict_format(votes: list) -> bool:
+def _is_dict_format(votes: list[Any]) -> bool:
     """Return True when votes are dicts with a 'ranking' key, False for plain lists."""
     return bool(votes) and isinstance(votes[0], dict)
 
 
-def _get_ranking(vote, is_dict: bool) -> list:
+def _get_ranking(vote: Any, is_dict: bool) -> Any:
     """Extract the ranking list from a vote regardless of format."""
     return vote["ranking"] if is_dict else vote
 
 
-def get_condorcet_winner(votes: list, blank_candidate_name: str = "") -> Optional[str]:
+def get_condorcet_winner(votes: list[Any], blank_candidate_name: str = "") -> Optional[str]:
     """
     Determine the Condorcet winner from a set of rankings.
     :param votes: A list of rankings, where each ranking is either:
@@ -30,7 +30,7 @@ def get_condorcet_winner(votes: list, blank_candidate_name: str = "") -> Optiona
     for vote in votes:
         candidates.update(_get_ranking(vote, is_dict))
 
-    wins = defaultdict(int)
+    wins: "defaultdict[Any, int]" = defaultdict(int)
     for candidate_1, candidate_2 in combinations(candidates, 2):
         for vote in votes:
             ranking = _get_ranking(vote, is_dict)
@@ -47,11 +47,11 @@ def get_condorcet_winner(votes: list, blank_candidate_name: str = "") -> Optiona
             for other in candidates
             if other != candidate
         ):
-            return candidate
+            return str(candidate)
     return None
 
 
-def get_two_round_winner(votes: list, blank_candidate_name: str = "") -> Optional[str]:
+def get_two_round_winner(votes: list[Any], blank_candidate_name: str = "") -> Optional[str]:
     """
     Determine the winner of a two-round system from a set of rankings.
     :param votes: A list of rankings (see get_condorcet_winner for format)
@@ -61,7 +61,7 @@ def get_two_round_winner(votes: list, blank_candidate_name: str = "") -> Optiona
         return None
     is_dict = _is_dict_format(votes)
 
-    first_choice_votes = Counter()
+    first_choice_votes: "Counter[Any]" = Counter()
     for vote in votes:
         ranking = _get_ranking(vote, is_dict)
         if ranking:
@@ -70,11 +70,11 @@ def get_two_round_winner(votes: list, blank_candidate_name: str = "") -> Optiona
     majority = len(votes) // 2
     for candidate, count in first_choice_votes.items():
         if count > majority:
-            return candidate
+            return str(candidate)
 
     top_two_candidates = [c for c, _ in first_choice_votes.most_common(2)]
 
-    second_round_votes = Counter()
+    second_round_votes: "Counter[Any]" = Counter()
     for vote in votes:
         ranking = _get_ranking(vote, is_dict)
         for candidate in ranking:
@@ -84,10 +84,10 @@ def get_two_round_winner(votes: list, blank_candidate_name: str = "") -> Optiona
 
     if not second_round_votes:
         return None
-    return max(second_round_votes, key=second_round_votes.get)
+    return str(max(second_round_votes, key=lambda c: second_round_votes[c]))
 
 
-def get_borda_winner(votes: list, blank_candidate_name: str = "") -> Optional[str]:
+def get_borda_winner(votes: list[Any], blank_candidate_name: str = "") -> Optional[str]:
     """
     Determine the Borda count winner from a set of rankings.
     :param votes: A list of rankings (see get_condorcet_winner for format)
@@ -96,7 +96,7 @@ def get_borda_winner(votes: list, blank_candidate_name: str = "") -> Optional[st
     if not votes:
         return None
     is_dict = _is_dict_format(votes)
-    scores = defaultdict(int)
+    scores: "defaultdict[Any, int]" = defaultdict(int)
     for vote in votes:
         ranking = _get_ranking(vote, is_dict)
         num_candidates = len(ranking)
@@ -104,10 +104,10 @@ def get_borda_winner(votes: list, blank_candidate_name: str = "") -> Optional[st
             scores[candidate] += num_candidates - 1 - position
     if not scores:
         return None
-    return max(scores.items(), key=lambda x: x[1])[0]
+    return str(max(scores.items(), key=lambda x: x[1])[0])
 
 
-def get_plurality_winner(votes: list, blank_candidate_name: str = "") -> Optional[str]:
+def get_plurality_winner(votes: list[Any], blank_candidate_name: str = "") -> Optional[str]:
     """
     Determine the plurality winner from a set of rankings.
     :param votes: A list of rankings (see get_condorcet_winner for format)
@@ -116,20 +116,20 @@ def get_plurality_winner(votes: list, blank_candidate_name: str = "") -> Optiona
     if not votes:
         return None
     is_dict = _is_dict_format(votes)
-    first_choice_votes = Counter()
+    first_choice_votes: "Counter[Any]" = Counter()
     for vote in votes:
         ranking = _get_ranking(vote, is_dict)
         if ranking:
             first_choice_votes[ranking[0]] += 1
     if not first_choice_votes:
         return None
-    return max(first_choice_votes.items(), key=lambda x: x[1])[0]
+    return str(max(first_choice_votes.items(), key=lambda x: x[1])[0])
 
 
 def get_approval_winner(
-    votes: list,
+    votes: list[Any],
     approval_threshold: int = 2,
-    utility_scores: dict = None,
+    utility_scores: Optional[dict[Any, Any]] = None,
     blank_candidate_name: str = "",
 ) -> Optional[str]:
     """
@@ -146,7 +146,7 @@ def get_approval_winner(
     if not votes:
         return None
 
-    approval_votes = Counter()
+    approval_votes: "Counter[Any]" = Counter()
 
     if utility_scores is not None:
         # Sincere approval: approve candidates above the voter's mean utility.
@@ -171,10 +171,10 @@ def get_approval_winner(
 
     if not approval_votes:
         return None
-    return max(approval_votes.items(), key=lambda x: x[1])[0]
+    return str(max(approval_votes.items(), key=lambda x: x[1])[0])
 
 
-def get_approval_winner_sincere(utility_scores: dict) -> str:
+def get_approval_winner_sincere(utility_scores: dict[Any, Any]) -> Optional[str]:
     """
     Convenience wrapper that runs approval voting in sincere mode.
     Expects utility_scores as {voter_id: {candidate_name: float}}.
@@ -185,7 +185,7 @@ def get_approval_winner_sincere(utility_scores: dict) -> str:
     return get_approval_winner(votes, utility_scores=utility_scores)
 
 
-def get_irv_winner(votes: list, blank_candidate_name: str = "") -> Optional[str]:
+def get_irv_winner(votes: list[Any], blank_candidate_name: str = "") -> Optional[str]:
     """
     Determine the Instant Runoff Voting winner from a set of rankings.
     :param votes: A list of rankings (see get_condorcet_winner for format)
@@ -199,7 +199,7 @@ def get_irv_winner(votes: list, blank_candidate_name: str = "") -> Optional[str]
         candidates.update(_get_ranking(vote, is_dict))
 
     while len(candidates) > 1:
-        votes_count = Counter()
+        votes_count: "Counter[Any]" = Counter()
         for vote in votes:
             ranking = _get_ranking(vote, is_dict)
             for candidate in ranking:
@@ -211,7 +211,7 @@ def get_irv_winner(votes: list, blank_candidate_name: str = "") -> Optional[str]
         majority = total_votes / 2
         for candidate, count in votes_count.items():
             if count > majority:
-                return candidate
+                return str(candidate)
 
         if not votes_count:
             break
@@ -222,7 +222,7 @@ def get_irv_winner(votes: list, blank_candidate_name: str = "") -> Optional[str]
     return candidates.pop() if candidates else None
 
 
-def get_coombs_winner(votes: list, blank_candidate_name: str = "") -> Optional[str]:
+def get_coombs_winner(votes: list[Any], blank_candidate_name: str = "") -> Optional[str]:
     """
     Determine the Coombs' method winner from a set of rankings.
     :param votes: A list of rankings (see get_condorcet_winner for format)
@@ -236,7 +236,7 @@ def get_coombs_winner(votes: list, blank_candidate_name: str = "") -> Optional[s
         candidates.update(_get_ranking(vote, is_dict))
 
     while len(candidates) > 1:
-        last_choices = Counter()
+        last_choices: "Counter[Any]" = Counter()
         for vote in votes:
             ranking = _get_ranking(vote, is_dict)
             for candidate in reversed(ranking):
@@ -253,7 +253,7 @@ def get_coombs_winner(votes: list, blank_candidate_name: str = "") -> Optional[s
     return candidates.pop() if candidates else None
 
 
-def get_positional_score_winner(votes: list, **kwargs) -> Optional[str]:
+def get_positional_score_winner(votes: list[Any], **kwargs: Any) -> Optional[str]:
     """
     Determine the winner using positional scoring derived from rankings.
     Each candidate receives a score proportional to their rank position
@@ -264,7 +264,7 @@ def get_positional_score_winner(votes: list, **kwargs) -> Optional[str]:
     if not votes:
         return None
     is_dict = _is_dict_format(votes)
-    scores = defaultdict(float)
+    scores: "defaultdict[Any, float]" = defaultdict(float)
     for vote in votes:
         ranking = _get_ranking(vote, is_dict)
         num_candidates = len(ranking)
@@ -272,7 +272,7 @@ def get_positional_score_winner(votes: list, **kwargs) -> Optional[str]:
             scores[candidate] += 1 - (position / (num_candidates - 1)) if num_candidates > 1 else 1
     if not scores:
         return None
-    return max(scores.items(), key=lambda x: x[1])[0]
+    return str(max(scores.items(), key=lambda x: x[1])[0])
 
 
 # Backward-compatible alias used by existing route code.
@@ -289,7 +289,8 @@ def _kwik_sort(candidates: list[str], pairwise: dict[tuple[str, str], int]) -> l
     if len(candidates) <= 1:
         return list(candidates)
     pivot = _rnd.choice(candidates)
-    left, right = [], []
+    left: list[str] = []
+    right: list[str] = []
     for c in candidates:
         if c == pivot:
             continue
@@ -297,7 +298,7 @@ def _kwik_sort(candidates: list[str], pairwise: dict[tuple[str, str], int]) -> l
     return _kwik_sort(left, pairwise) + [pivot] + _kwik_sort(right, pairwise)
 
 
-def _build_pairwise(candidates: list[str], votes: list, is_dict: bool) -> dict[tuple[str, str], int]:
+def _build_pairwise(candidates: list[str], votes: list[Any], is_dict: bool) -> dict[tuple[str, str], int]:
     """Count pairwise wins: pairwise[(a, b)] = number of ballots where a is ranked above b."""
     pairwise: dict[tuple[str, str], int] = {}
     for vote in votes:
@@ -315,7 +316,7 @@ def _build_pairwise(candidates: list[str], votes: list, is_dict: bool) -> dict[t
 _KY_EXACT_CAP = 6
 
 
-def get_kemeny_young_winner(votes: list, **kwargs) -> Optional[str]:
+def get_kemeny_young_winner(votes: list[Any], **kwargs: Any) -> Optional[str]:
     """
     Determine the Kemeny-Young winner from a set of rankings.
 
@@ -355,7 +356,7 @@ def get_kemeny_young_winner(votes: list, **kwargs) -> Optional[str]:
     return best[0] if best else None
 
 
-def get_bucklin_winner(votes: list, blank_candidate_name: str = "") -> Optional[str]:
+def get_bucklin_winner(votes: list[Any], blank_candidate_name: str = "") -> Optional[str]:
     """
     Determine the Bucklin voting winner from a set of rankings.
     :param votes: A list of rankings (see get_condorcet_winner for format)
@@ -366,7 +367,7 @@ def get_bucklin_winner(votes: list, blank_candidate_name: str = "") -> Optional[
     is_dict = _is_dict_format(votes)
     max_rank = max(len(_get_ranking(vote, is_dict)) for vote in votes)
     majority = len(votes) / 2
-    votes_count: Counter = Counter()
+    votes_count: "Counter[Any]" = Counter()
 
     for rank in range(1, max_rank + 1):
         votes_count = Counter()
@@ -377,12 +378,12 @@ def get_bucklin_winner(votes: list, blank_candidate_name: str = "") -> Optional[
 
         winners = [c for c, v in votes_count.items() if v > majority]
         if winners:
-            return winners[0]
+            return str(winners[0])
 
-    return max(votes_count.items(), key=lambda x: x[1])[0] if votes_count else None
+    return str(max(votes_count.items(), key=lambda x: x[1])[0]) if votes_count else None
 
 
-def get_minimax_winner(votes: list, blank_candidate_name: str = "") -> Optional[str]:
+def get_minimax_winner(votes: list[Any], blank_candidate_name: str = "") -> Optional[str]:
     """
     Determine the Minimax winner from a set of rankings.
     :param votes: A list of rankings (see get_condorcet_winner for format)
@@ -395,7 +396,7 @@ def get_minimax_winner(votes: list, blank_candidate_name: str = "") -> Optional[
     for vote in votes:
         candidates.update(_get_ranking(vote, is_dict))
 
-    opposition = defaultdict(int)
+    opposition: "defaultdict[Any, int]" = defaultdict(int)
     for c1, c2 in combinations(candidates, 2):
         for vote in votes:
             ranking = _get_ranking(vote, is_dict)
@@ -415,10 +416,10 @@ def get_minimax_winner(votes: list, blank_candidate_name: str = "") -> Optional[
         )
         for candidate in candidates
     }
-    return min(max_opposition.items(), key=lambda x: x[1])[0]
+    return str(min(max_opposition.items(), key=lambda x: x[1])[0])
 
 
-def get_schulze_winner(votes: list, blank_candidate_name: str = "") -> Optional[str]:
+def get_schulze_winner(votes: list[Any], blank_candidate_name: str = "") -> Optional[str]:
     """
     Determine the Schulze method winner from a set of rankings.
     :param votes: A list of rankings (see get_condorcet_winner for format)
@@ -431,7 +432,7 @@ def get_schulze_winner(votes: list, blank_candidate_name: str = "") -> Optional[
     for vote in votes:
         candidates.update(_get_ranking(vote, is_dict))
 
-    pref = defaultdict(lambda: defaultdict(int))
+    pref: "defaultdict[Any, defaultdict[Any, int]]" = defaultdict(lambda: defaultdict(int))
     for c1, c2 in combinations(candidates, 2):
         for vote in votes:
             ranking = _get_ranking(vote, is_dict)
@@ -442,7 +443,7 @@ def get_schulze_winner(votes: list, blank_candidate_name: str = "") -> Optional[
             elif pos2 < pos1:
                 pref[c2][c1] += 1
 
-    strength = defaultdict(lambda: defaultdict(int))
+    strength: "defaultdict[Any, defaultdict[Any, int]]" = defaultdict(lambda: defaultdict(int))
     for c1, c2 in combinations(candidates, 2):
         strength[c1][c2] = pref[c1][c2]
         strength[c2][c1] = pref[c2][c1]
@@ -450,7 +451,7 @@ def get_schulze_winner(votes: list, blank_candidate_name: str = "") -> Optional[
     for c1, c2, c3 in permutations(candidates, 3):
         strength[c1][c2] = max(strength[c1][c2], min(strength[c1][c3], strength[c3][c2]))
 
-    wins: defaultdict = defaultdict(int)
+    wins: "defaultdict[Any, int]" = defaultdict(int)
     for c1, c2 in combinations(candidates, 2):
         if strength[c1][c2] > strength[c2][c1]:
             wins[c1] += 1
@@ -459,12 +460,12 @@ def get_schulze_winner(votes: list, blank_candidate_name: str = "") -> Optional[
 
     if not wins:
         return next(iter(candidates), None)
-    return max(wins.items(), key=lambda x: x[1])[0]
+    return str(max(wins.items(), key=lambda x: x[1])[0])
 
 
 # ── New methods ────────────────────────────────────────────────────────────────
 
-def _pairwise_wins(votes: list) -> dict[str, dict[str, int]]:
+def _pairwise_wins(votes: list[Any]) -> dict[str, dict[str, int]]:
     """
     Build a pairwise wins matrix from a list of rankings.
     pw[a][b] = number of ballots where a is ranked above b.
@@ -488,7 +489,7 @@ def _pairwise_wins(votes: list) -> dict[str, dict[str, int]]:
     return pw
 
 
-def get_copeland_winner(votes: list, blank_candidate_name: str = "") -> Optional[str]:
+def get_copeland_winner(votes: list[Any], blank_candidate_name: str = "") -> Optional[str]:
     """
     Copeland's method: score = pairwise wins − pairwise losses.
     Ties in Copeland score are broken by total wins (descending),
@@ -521,7 +522,7 @@ def get_copeland_winner(votes: list, blank_candidate_name: str = "") -> Optional
     return ranked[0]
 
 
-def get_nanson_winner(votes: list, blank_candidate_name: str = "") -> Optional[str]:
+def get_nanson_winner(votes: list[Any], blank_candidate_name: str = "") -> Optional[str]:
     """
     Nanson's method: iteratively eliminate all candidates whose Borda score
     is strictly below the mean Borda score of the remaining candidates.
@@ -574,7 +575,7 @@ def get_nanson_winner(votes: list, blank_candidate_name: str = "") -> Optional[s
     return min(active, key=lambda c: (-scores_final[c], c))
 
 
-def get_baldwin_winner(votes: list, blank_candidate_name: str = "") -> Optional[str]:
+def get_baldwin_winner(votes: list[Any], blank_candidate_name: str = "") -> Optional[str]:
     """
     Baldwin's method: iteratively eliminate the single candidate with the
     lowest Borda score among the remaining candidates.
@@ -616,3 +617,103 @@ def get_baldwin_winner(votes: list, blank_candidate_name: str = "") -> Optional[
     if not active:
         return min(all_cands)
     return min(active)  # alpha tie-break among survivors
+
+
+def get_ranked_pairs_winner(votes: list[Any], blank_candidate_name: str = "") -> Optional[str]:
+    """
+    Tideman's Ranked Pairs (1987).
+
+    Lock the strongest pairwise majorities first, skipping any that would create
+    a cycle; the source of the resulting acyclic tournament is the winner.
+    Elects the Condorcet winner whenever one exists, and is clone-independent.
+
+    Tie-break for equal margins: stronger winner support first, then alphabetical
+    on (winner, loser) so the lock order — and therefore the winner — is
+    deterministic. A pairwise tie contributes no locked edge.
+    """
+    if not votes:
+        return None
+
+    pw = _pairwise_wins(votes)
+    candidates = sorted(pw.keys())
+    if not candidates:
+        return None
+    if len(candidates) == 1:
+        return candidates[0]
+
+    # Majorities: (margin, winner_support, winner, loser), strongest first.
+    majorities: list[tuple[int, int, str, str]] = []
+    for a, b in combinations(candidates, 2):
+        ab, ba = pw[a][b], pw[b][a]
+        if ab > ba:
+            majorities.append((ab - ba, ab, a, b))
+        elif ba > ab:
+            majorities.append((ba - ab, ba, b, a))
+    majorities.sort(key=lambda m: (-m[0], -m[1], m[2], m[3]))
+
+    locked: dict[str, set[str]] = {c: set() for c in candidates}
+
+    def _reaches(src: str, dst: str) -> bool:
+        """DFS: is dst already reachable from src in the locked graph?"""
+        stack = [src]
+        seen: set[str] = set()
+        while stack:
+            node = stack.pop()
+            if node == dst:
+                return True
+            if node in seen:
+                continue
+            seen.add(node)
+            stack.extend(locked[node])
+        return False
+
+    for _margin, _support, winner, loser in majorities:
+        # winner → loser would form a cycle iff loser can already reach winner.
+        if not _reaches(loser, winner):
+            locked[winner].add(loser)
+
+    # The winner is the source: no locked edge points into it.
+    incoming: dict[str, int] = {c: 0 for c in candidates}
+    for losers in locked.values():
+        for loser in losers:
+            incoming[loser] += 1
+    sources = sorted(c for c in candidates if incoming[c] == 0)
+    return sources[0] if sources else None
+
+
+def random_ballot_probabilities(votes: list[Any]) -> dict[str, float]:
+    """
+    Win probabilities under the random-ballot rule (Gibbard, 1977).
+
+    A single ballot is drawn uniformly at random and its top choice elected, so
+    P(candidate wins) equals that candidate's first-preference share. Returns a
+    {candidate: probability} map that sums to 1 over the ballots cast.
+    """
+    if not votes:
+        return {}
+    is_dict = _is_dict_format(votes)
+    first_choice: "Counter[str]" = Counter()
+    cast = 0
+    for vote in votes:
+        ranking = _get_ranking(vote, is_dict)
+        if ranking:
+            first_choice[ranking[0]] += 1
+            cast += 1
+    if cast == 0:
+        return {}
+    return {c: n / cast for c, n in first_choice.items()}
+
+
+def get_random_ballot_winner(votes: list[Any], blank_candidate_name: str = "") -> Optional[str]:
+    """
+    Random ballot / random dictator (Gibbard, 1977) — the canonical strategyproof
+    rule. The realised winner is a lottery (see :func:`random_ballot_probabilities`);
+    this returns the *most probable* outcome — the candidate with the largest
+    first-preference share, alphabetical tie-break — so the rule has a stable,
+    comparable representative winner. Its strategyproofness and full distribution
+    are surfaced separately (the comparison report weights metrics by probability).
+    """
+    probs = random_ballot_probabilities(votes)
+    if not probs:
+        return None
+    return min(probs, key=lambda c: (-probs[c], c))

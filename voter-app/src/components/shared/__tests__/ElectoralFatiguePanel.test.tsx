@@ -1,4 +1,3 @@
-import React from 'react';
 import { render, screen, fireEvent, waitFor, act } from '@testing-library/react';
 import { MemoryRouter } from 'react-router';
 import { QueryClientProvider } from '@tanstack/react-query';
@@ -36,7 +35,6 @@ vi.mock('recharts', () => {
 // ── Fixture ───────────────────────────────────────────────────────────────────
 
 function makeData(winnerChanged = false) {
-  const candidates = ['Alice', 'Bob', 'Carol'];
   return {
     data: {
       elections: Array.from({ length: 6 }, (_, k) => ({

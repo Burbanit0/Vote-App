@@ -30,18 +30,20 @@ jobs:
           pip install -r flask_voter_app/requirements-dev.txt
 
       # ── Linting ────────────────────────────────────────────────────────────
-      - name: Flake8
+      # Blocking: .flake8 now selects only E9 + F (syntax + pyflakes real bugs),
+      # so this gates on genuine issues, not the cosmetic column-alignment style.
+      - name: Flake8 (E9 + pyflakes — blocking)
         run: flake8 --config=flask_voter_app/.flake8 flask_voter_app
-        continue-on-error: true
 
       # ── Security ───────────────────────────────────────────────────────────
-      - name: Bandit (Python SAST)
+      - name: Bandit (Python SAST — gating)
         run: |
           bandit -r flask_voter_app/api \
             -ll \
-            --skip B104,B311 \
-            --exit-zero
-        # -ll = medium+ severity; --exit-zero = report but don't block (adjust to remove when clean)
+            --skip B104,B311
+        # -ll = medium+ severity. Now GATING (the backend is bandit-clean: the only
+        # B324 md5 findings were switched to sha256). B104 (bind-all) / B311 (non-crypto
+        # random) stay skipped — both are intentional in this study app.
 
       - name: pip-audit (dependency CVEs)
         run: pip-audit --requirement flask_voter_app/requirements.txt

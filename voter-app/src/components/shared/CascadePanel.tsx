@@ -249,7 +249,6 @@ const CascadePanel: React.FC = () => {
           observation_window: window,
         },
       });
-      // eslint-disable-next-line react-hooks/exhaustive-deps
     },
     [config, t, sim]
   );

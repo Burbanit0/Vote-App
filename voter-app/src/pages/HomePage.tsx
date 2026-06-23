@@ -147,7 +147,7 @@ const HomePage: React.FC = () => {
 
   const goToLab = useCallback(() => {
     applyScenario('france2002');
-    navigate('/election-lab');
+    navigate('/playground');
   }, [applyScenario, navigate]);
 
   return (
@@ -197,6 +197,19 @@ const HomePage: React.FC = () => {
           <QuickCompareWidget />
         </div>
 
+        {/* ── Playground CTA (Lab reshape) ── */}
+        <div className="mb-12 flex flex-col items-center gap-3 rounded-xl border border-border bg-muted/30 px-4 py-6 text-center">
+          <div className="text-3xl">🎛</div>
+          <h2 className="text-xl font-bold">Playground</h2>
+          <p className="max-w-xl text-[0.9rem] text-muted-foreground">
+            Un même électorat, deux questions : élire un dirigeant ou composer un parlement.
+            Basculez de l’un à l’autre et regardez le caractère politique s’inverser.
+          </p>
+          <Button variant="primary" onClick={() => navigate('/playground')}>
+            Ouvrir le Playground →
+          </Button>
+        </div>
+
         {/* ── Section 3: 3 feature items ── */}
         <div className="mb-12">
           <h2 className="mb-1 text-center text-xl font-bold">{t('home.featuresTitle')}</h2>
@@ -208,7 +221,7 @@ const HomePage: React.FC = () => {
               icon="🔬"
               title={t('home.feature1Title')}
               desc={t('home.feature1Desc')}
-              onClick={() => navigate('/election-lab')}
+              onClick={() => navigate('/playground')}
             />
             <FeatureItem
               icon="📊"
@@ -216,7 +229,7 @@ const HomePage: React.FC = () => {
               desc={t('home.feature2Desc')}
               onClick={() => {
                 applyScenario('france2002');
-                navigate('/election-lab');
+                navigate('/playground');
               }}
             />
             <FeatureItem

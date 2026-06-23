@@ -1,0 +1,13 @@
+# Keep the build context lean — but DO keep .git (Gitleaks scans history) and the
+# lockfiles (Trivy reads them for CVEs).
+**/node_modules
+voter-app/dist
+voter-app/build
+voter-app/.vite
+voter-app/coverage
+**/__pycache__
+**/.venv
+**/venv
+**/htmlcov
+audit-reports
+graphify-out

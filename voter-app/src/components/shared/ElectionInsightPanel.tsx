@@ -11,8 +11,6 @@ import MethodGroupDonut from './MethodGroupDonut';
 
 // ── Colour helpers ────────────────────────────────────────────────────────────
 
-const CANDIDATE_COLORS = ['#005CAB', '#C8590A', '#007A33', '#7B2D8B', '#9C3A00', '#005f73'];
-
 function agreementVariant(agreement: number): 'success' | 'warning' | 'danger' {
   if (agreement > 0.8) return 'success';
   if (agreement >= 0.5) return 'warning';

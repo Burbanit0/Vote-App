@@ -28,10 +28,12 @@ jobs:
         run: npm ci
         working-directory: ./voter-app
 
-      - name: Lint
+      # Blocking: eslint now reports 0 errors (prettier-formatted, dead imports
+      # removed, no-undef/no-unused-vars deferred to TS). Pre-existing unused-var
+      # and a11y debt is surfaced as non-failing warnings (burn-down backlog).
+      - name: Lint (blocking — 0 errors)
         run: npm run lint
         working-directory: ./voter-app
-        continue-on-error: true
 
       - name: Security — npm audit (high CVEs block)
         run: npm audit --audit-level=high

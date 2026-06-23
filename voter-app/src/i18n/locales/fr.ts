@@ -16,6 +16,7 @@ const fr = {
     theory: 'Théorie du vote',
     gallery: 'Galerie',
     electionLab: 'Election Lab',
+    playground: 'Playground',
     learn: 'Apprendre',
     explore: 'Explorer',
     settings: 'Préférences',
@@ -1285,7 +1286,7 @@ const fr = {
     simulating: 'Simulation…',
     error: 'Erreur. Le backend est-il démarré ?',
     noResults: 'Configurez l\'élection et cliquez sur "Simuler".',
-    openInLab: 'Election Lab',
+    openInLab: 'Playground',
     sectionCandidates: 'Candidats',
     sectionElectorate: 'Électorat',
     sectionCampaign: 'Campagne',
@@ -2242,11 +2243,11 @@ const fr = {
     pageSubtitle:
       'Théorèmes, paradoxes et limites des méthodes de vote. Pour appliquer ces effets à une élection configurée (candidats, électeurs, scénarios), utilisez le Lab.',
     toc: 'Sommaire',
-    alsoInLab: 'Aussi dans le Lab',
+    alsoInLab: 'Aussi dans le Playground',
     disambig: {
-      title: 'Théorie vs Lab — quand utiliser quoi ?',
-      body: "Cette page présente les théorèmes et paradoxes en mode autonome (illustrations standalone). Pour appliquer ces mêmes effets à une élection que vous avez configurée (France 2002, scénario maison, etc.) et les empiler avec d'autres perturbations, ouvrez le Lab.",
-      cta: 'Ouvrir le Lab',
+      title: 'Théorie vs Playground — quand utiliser quoi ?',
+      body: "Cette page présente les théorèmes et paradoxes en mode autonome (illustrations standalone). Pour appliquer ces mêmes effets à une élection que vous avez configurée (France 2002, scénario maison, etc.) et les empiler avec d'autres perturbations, ouvrez le Playground.",
+      cta: 'Ouvrir le Playground',
     },
     section: {
       impossibility: {

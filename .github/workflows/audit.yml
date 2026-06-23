@@ -1,0 +1,151 @@
+name: Security Audit
+
+# Supplementary SECURITY scanning only. The repo's lint/type/test gates already
+# live in backend-ci-cd-pipeline.yml + frontend-ci-cd-pipeline.yml (flake8, mypy,
+# pytest, bandit, pip-audit, eslint, tsc) — this workflow adds SAST / secret / CVE
+# coverage they don't have: Semgrep, Gitleaks, Trivy, CodeQL.
+#
+# PUBLIC-REPO MODE: code scanning is free, so each scanner uploads SARIF to the
+# GitHub Security tab (in addition to the downloadable artifact), and a CodeQL job
+# runs the native analysis. The strict gates still fail the build: Semgrep findings,
+# Trivy HIGH/CRITICAL, and any detected secret.
+
+on:
+  push:
+    branches: [main, develop]
+  pull_request:
+    branches: [main, develop]
+  schedule:
+    - cron: "0 6 * * 1" # weekly Monday 06:00 UTC
+
+permissions:
+  contents: read
+  security-events: write # upload SARIF to the Security tab (Semgrep, Trivy, CodeQL)
+  actions: read
+
+jobs:
+  # ---------------------------------------------------------------
+  semgrep:
+    name: Semgrep SAST
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with: { python-version: "3.11" }
+      - run: pip install semgrep
+      # Strict: --error makes Semgrep exit non-zero on any finding → the job fails.
+      # The report is still uploaded (if: always()) so findings are downloadable.
+      - name: Run Semgrep (gating)
+        run: |
+          semgrep \
+            --config=p/python --config=p/javascript --config=p/react \
+            --config=p/security-audit --config=p/secrets \
+            --config=p/sql-injection --config=p/owasp-top-ten \
+            --sarif --output semgrep.sarif --json --output semgrep.json \
+            --error --metrics=off
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: semgrep-report
+          path: |
+            semgrep.sarif
+            semgrep.json
+          if-no-files-found: ignore
+      # Feed the Security tab too (runs even when the gate failed above).
+      - name: Upload Semgrep SARIF
+        if: always()
+        uses: github/codeql-action/upload-sarif@v3
+        with:
+          sarif_file: semgrep.sarif
+          category: semgrep
+
+  # ---------------------------------------------------------------
+  gitleaks:
+    name: Secret Scan
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: gitleaks/gitleaks-action@v2
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GITLEAKS_CONFIG: .gitleaks.toml # default ruleset + triaged FP allowlist
+
+  # ---------------------------------------------------------------
+  trivy:
+    name: Dependencies, Containers & Misconfig
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      # 1) Non-gating JSON report → uploaded as an artifact (always).
+      - name: Trivy (JSON report artifact)
+        uses: aquasecurity/trivy-action@master
+        with:
+          scan-type: fs
+          scanners: vuln,secret,misconfig
+          severity: HIGH,CRITICAL
+          format: json
+          output: trivy.json
+          exit-code: "0"
+          skip-dirs: voter-app/node_modules,.claude,graphify-out
+          trivyignores: .trivyignore.yaml
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: trivy-report
+          path: trivy.json
+          if-no-files-found: ignore
+      # 1b) SARIF report → Security tab (non-gating).
+      - name: Trivy (SARIF report)
+        if: always()
+        uses: aquasecurity/trivy-action@master
+        with:
+          scan-type: fs
+          scanners: vuln,secret,misconfig
+          severity: HIGH,CRITICAL
+          format: sarif
+          output: trivy.sarif
+          exit-code: "0"
+          skip-dirs: voter-app/node_modules,.claude,graphify-out
+          trivyignores: .trivyignore.yaml
+      - name: Upload Trivy SARIF
+        if: always()
+        uses: github/codeql-action/upload-sarif@v3
+        with:
+          sarif_file: trivy.sarif
+          category: trivy
+      # 2) Strict gate: fail the job on any HIGH/CRITICAL (table to the log).
+      - name: Trivy (gating)
+        uses: aquasecurity/trivy-action@master
+        with:
+          scan-type: fs
+          scanners: vuln,secret,misconfig
+          severity: HIGH,CRITICAL
+          format: table
+          exit-code: "1"
+          skip-dirs: voter-app/node_modules,.claude,graphify-out
+          trivyignores: .trivyignore.yaml
+
+  # ---------------------------------------------------------------
+  # CodeQL — GitHub's native code scanning (free on public repos). Results land
+  # in the Security tab. Non-gating by itself; severities show up as alerts.
+  codeql:
+    name: CodeQL
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        language: [javascript-typescript, python]
+    steps:
+      - uses: actions/checkout@v4
+      - name: Initialize CodeQL
+        uses: github/codeql-action/init@v3
+        with:
+          languages: ${{ matrix.language }}
+      - name: Autobuild
+        uses: github/codeql-action/autobuild@v3
+      - name: Analyze
+        uses: github/codeql-action/analyze@v3
+        with:
+          category: "/language:${{ matrix.language }}"

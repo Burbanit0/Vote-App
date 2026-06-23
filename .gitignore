@@ -56,6 +56,9 @@ MANIFEST
 pip-log.txt
 pip-delete-this-directory.txt
 
+# Security/quality audit output (scripts/audit.sh)
+audit-reports/
+
 # Unit test / coverage reports
 htmlcov/
 .tox/
@@ -227,6 +230,10 @@ Thumbs.db
 # ── Agent tooling (kept local, not in the repo) ─────────────────────────────
 .claude/
 # .vscode/ already ignored above
+
+# ── graphify knowledge-graph (regeneratable via `graphify update .`) ─────────
+graphify-out/
+.graphifyignore
 
 # ── Process / planning / design docs (kept local, not in the repo) ──────────
 # App stays: README*, THEORY.md, GUIDE_UTILISATEUR.md, CONTRIBUTING.md, research/, .github/

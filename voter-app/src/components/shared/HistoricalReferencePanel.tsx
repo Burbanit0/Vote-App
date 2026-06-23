@@ -62,7 +62,7 @@ const HistoricalReferencePanel: React.FC<Props> = ({ result }) => {
             size="sm"
             variant="outline-primary"
             className="px-2 py-0.5 text-[0.7rem]"
-            onClick={() => navigate('/election-lab#replay')}
+            onClick={() => navigate('/playground')}
             data-testid="open-replay-btn"
           >
             📺 {t('replay.openReplay')}
