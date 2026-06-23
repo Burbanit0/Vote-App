@@ -100,6 +100,24 @@ export interface TimelineParams {
   numDays: number;
 }
 
+/**
+ * The candidate positions at campaign progress `t`: drifted toward the median
+ * (Hotelling, when t>0) and projected onto the active dimensions. This is the
+ * geometry the map shows AND what "pin this state back into the playground"
+ * writes — so the pinned electorate is exactly what the user sees at `t`.
+ */
+export function driftedAt(
+  baseCandidates: NamedPt[],
+  target: Pt,
+  t: number,
+  params: TimelineParams
+): NamedPt[] {
+  return projectCandidates(
+    t > 0 ? driftCandidates(baseCandidates, target, t, params.strength) : baseCandidates,
+    params.dims
+  );
+}
+
 /** Social cost of a candidate = mean voter→candidate distance (lower = better). */
 function socialCosts(voters: Pt[], cands: NamedPt[]): number[] {
   return cands.map((c) => {
@@ -122,10 +140,7 @@ export function metricsAt(
   params: TimelineParams,
   startWinnerIdx: number
 ): ResultMetrics {
-  const drifted = projectCandidates(
-    t > 0 ? driftCandidates(baseCandidates, target, t, params.strength) : baseCandidates,
-    params.dims
-  );
+  const drifted = driftedAt(baseCandidates, target, t, params);
   const voters = applyTurnout(
     baseVoters,
     drifted,

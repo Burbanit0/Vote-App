@@ -1,4 +1,4 @@
-import { render, screen, within } from '@testing-library/react';
+import { render, screen, within, fireEvent } from '@testing-library/react';
 import { describe, it, expect, beforeEach, vi } from 'vitest';
 
 // Stub the heavy temporal anchor — this suite tests the page shell + hand-off,
@@ -71,6 +71,18 @@ describe('CampaignDynamicsPage (C1 shell + hand-off)', () => {
     const before = JSON.stringify(useElectionStore.getState().config);
     renderPage();
     expect(JSON.stringify(useElectionStore.getState().config)).toBe(before);
+  });
+
+  it('pin writes the current (drifted) positions back into the shared config', () => {
+    renderPage();
+    const before = useElectionStore.getState().config.candidates.map((c) => ({ ...c }));
+    fireEvent.click(screen.getByTestId('round-stop-3')); // scrub to end → full drift
+    fireEvent.click(screen.getByTestId('timeline-pin'));
+    const after = useElectionStore.getState().config.candidates;
+    // Same candidates (by name), but at least one position changed.
+    expect(after.map((c) => c.name)).toEqual(before.map((c) => c.name));
+    const moved = after.some((c, i) => Math.abs(c.x - before[i].x) > 1e-6);
+    expect(moved).toBe(true);
   });
 
   it('offers a way back to the playground', () => {
