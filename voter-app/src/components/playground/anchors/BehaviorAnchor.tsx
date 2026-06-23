@@ -12,12 +12,10 @@ import { lazyWithPreload } from '../../../lib/lazyWithPreload';
 // toggle warms its chunk (these panels pull in Recharts) before the click.
 
 const BehavioralBiasPanel = lazyWithPreload(() => import('../../shared/BehavioralBiasPanel'));
-const CascadePanel = lazyWithPreload(() => import('../../shared/CascadePanel'));
 const AffectivePolarizationPanel = lazyWithPreload(
   () => import('../../shared/AffectivePolarizationPanel')
 );
 const ShyVoterPanel = lazyWithPreload(() => import('../../shared/ShyVoterPanel'));
-const ElectoralFatiguePanel = lazyWithPreload(() => import('../../shared/ElectoralFatiguePanel'));
 const ChoiceOverloadPanel = lazyWithPreload(() => import('../../shared/ChoiceOverloadPanel'));
 const CompulsoryVotingPanel = lazyWithPreload(() => import('../../shared/CompulsoryVotingPanel'));
 const DemographicTurnoutPanel = lazyWithPreload(
@@ -27,9 +25,10 @@ const DemographicTurnoutPanel = lazyWithPreload(
 const BehaviorAnchor: React.FC = () => (
   <div className="flex flex-col gap-2">
     <p className="text-[0.7rem] text-muted-foreground/80">
-      Comment le <strong>comportement</strong> réel des électeurs (biais, cascades, fatigue,
+      Comment le <strong>comportement</strong> réel des électeurs (biais, timidité, surcharge,
       participation différentielle…) déplace le résultat sur le même électorat. Chaque module se
-      calcule à la demande.
+      calcule à la demande. Les phénomènes <em>temporels</em> (cascade, fatigue) sont passés sur la
+      page Campagne.
     </p>
     <Leaf
       title="📊 Biais de vote (ordre, ancrage)"
@@ -37,9 +36,6 @@ const BehaviorAnchor: React.FC = () => (
       prefetch={BehavioralBiasPanel.preload}
     >
       <BehavioralBiasPanel />
-    </Leaf>
-    <Leaf title="🌊 Cascade d’information" testid="beh-cascade" prefetch={CascadePanel.preload}>
-      <CascadePanel />
     </Leaf>
     <Leaf
       title="🔥 Polarisation affective"
@@ -54,13 +50,6 @@ const BehaviorAnchor: React.FC = () => (
       prefetch={ShyVoterPanel.preload}
     >
       <ShyVoterPanel />
-    </Leaf>
-    <Leaf
-      title="😮‍💨 Fatigue électorale"
-      testid="beh-fatigue"
-      prefetch={ElectoralFatiguePanel.preload}
-    >
-      <ElectoralFatiguePanel />
     </Leaf>
     <Leaf
       title="🤯 Surcharge de choix"

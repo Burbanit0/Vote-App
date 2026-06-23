@@ -24,6 +24,9 @@ import CampaignTimeline from '../components/campaign/CampaignTimeline';
 // panels here.
 
 const CampaignAnchor = React.lazy(() => import('../components/playground/anchors/CampaignAnchor'));
+const TemporalDynamicsAnchor = React.lazy(
+  () => import('../components/campaign/TemporalDynamicsAnchor')
+);
 
 const AnchorFallback: React.FC = () => (
   <p className="p-2 text-xs text-muted-foreground">Chargement…</p>
@@ -128,13 +131,30 @@ const CampaignDynamicsPage: React.FC = () => {
       {/* ── Deep-dive anchor (C1): the migrated temporal panels (Hotelling,
           polls, polarization, party dynamics). ── */}
       {hasElectorate && (
-        <Card data-testid="campaign-dynamics-core">
+        <Card className="mb-4" data-testid="campaign-dynamics-core">
           <CardHeader>
             <CardTitle className="text-base">🎬 Approfondir la trajectoire</CardTitle>
           </CardHeader>
           <CardContent>
             <React.Suspense fallback={<AnchorFallback />}>
               <CampaignAnchor />
+            </React.Suspense>
+          </CardContent>
+        </Card>
+      )}
+
+      {/* ── Temporal mechanisms + sequential behaviour (C3): migrated off the
+          playground — they unfold over rounds/sequence, like the timeline. ── */}
+      {hasElectorate && (
+        <Card data-testid="campaign-temporal-mechanisms">
+          <CardHeader>
+            <CardTitle className="text-base">
+              🔁 Mécanismes &amp; comportements dans le temps
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <React.Suspense fallback={<AnchorFallback />}>
+              <TemporalDynamicsAnchor />
             </React.Suspense>
           </CardContent>
         </Card>

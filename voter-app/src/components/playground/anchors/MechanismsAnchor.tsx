@@ -17,9 +17,6 @@ const LiquidDemocracyPanel = lazyWithPreload(() => import('../../shared/LiquidDe
 const SortitionPanel = lazyWithPreload(() => import('../../shared/SortitionPanel'));
 const DeliberationPanel = lazyWithPreload(() => import('../../shared/DeliberationPanel'));
 const ConvictionVotingPanel = lazyWithPreload(() => import('../../shared/ConvictionVotingPanel'));
-const AdaptiveVotingPanel = lazyWithPreload(() => import('../../shared/AdaptiveVotingPanel'));
-const PrimarySimulator = lazyWithPreload(() => import('../../shared/PrimarySimulator'));
-const HistoricalReplay = lazyWithPreload(() => import('../../shared/HistoricalReplay'));
 const EpistocracyPanel = lazyWithPreload(() => import('../../shared/EpistocracyPanel'));
 const IdentityVotingPanel = lazyWithPreload(() => import('../../shared/IdentityVotingPanel'));
 
@@ -79,19 +76,6 @@ const MechanismsAnchor: React.FC = () => {
         prefetch={ConvictionVotingPanel.preload}
       >
         <ConvictionVotingPanel />
-      </Leaf>
-      <Leaf
-        title="⚙️ Vote adaptatif (tactique sur durée)"
-        testid="mech-adaptive"
-        prefetch={AdaptiveVotingPanel.preload}
-      >
-        <AdaptiveVotingPanel />
-      </Leaf>
-      <Leaf title="🥇 Primaires" testid="mech-primary" prefetch={PrimarySimulator.preload}>
-        <PrimarySimulator />
-      </Leaf>
-      <Leaf title="🕰️ Rejeu historique" testid="mech-replay" prefetch={HistoricalReplay.preload}>
-        <HistoricalReplay />
       </Leaf>
       <Leaf
         title="🎓 Épistocratie (vote pondéré par compétence)"
