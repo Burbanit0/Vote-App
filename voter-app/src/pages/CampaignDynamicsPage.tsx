@@ -4,6 +4,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { useElection, usePlayground } from '../stores/useElectionStore';
 import { useMetaTags } from '../hooks/useMetaTags';
+import CampaignTimeline from '../components/campaign/CampaignTimeline';
 
 // CampaignDynamicsPage — page 2 of the journey ("Campagne & dynamique").
 //
@@ -73,7 +74,7 @@ const CampaignDynamicsPage: React.FC = () => {
         </CardHeader>
         <CardContent>
           {hasElectorate ? (
-            <div className="flex flex-col gap-2 text-sm">
+            <div className="flex flex-col gap-2 text-sm" data-testid="inherited-electorate">
               <div className="flex flex-wrap gap-x-6 gap-y-1 text-muted-foreground">
                 <span>
                   <strong className="text-foreground">{candidates.length}</strong>{' '}
@@ -109,11 +110,27 @@ const CampaignDynamicsPage: React.FC = () => {
         </CardContent>
       </Card>
 
-      {/* ── Dynamic core (C1: the migrated temporal anchor; C2 adds the timeline) ── */}
+      {/* ── Timeline (C2): the unified time axis — continuous days + discrete
+          rounds — driving the live "value of the result". ── */}
+      {hasElectorate && (
+        <Card className="mb-4" data-testid="campaign-timeline-card">
+          <CardHeader>
+            <CardTitle className="text-base">
+              🕰️ Timeline — la valeur du résultat dans le temps
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <CampaignTimeline config={config} playground={playground} />
+          </CardContent>
+        </Card>
+      )}
+
+      {/* ── Deep-dive anchor (C1): the migrated temporal panels (Hotelling,
+          polls, polarization, party dynamics). ── */}
       {hasElectorate && (
         <Card data-testid="campaign-dynamics-core">
           <CardHeader>
-            <CardTitle className="text-base">🎬 Trajectoire de campagne</CardTitle>
+            <CardTitle className="text-base">🎬 Approfondir la trajectoire</CardTitle>
           </CardHeader>
           <CardContent>
             <React.Suspense fallback={<AnchorFallback />}>

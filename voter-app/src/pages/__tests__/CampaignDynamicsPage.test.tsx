@@ -1,4 +1,4 @@
-import { render, screen } from '@testing-library/react';
+import { render, screen, within } from '@testing-library/react';
 import { describe, it, expect, beforeEach, vi } from 'vitest';
 
 // Stub the heavy temporal anchor — this suite tests the page shell + hand-off,
@@ -40,11 +40,13 @@ describe('CampaignDynamicsPage (C1 shell + hand-off)', () => {
 
   it('inherits the electorate (J0) from the shared store — names + counts', () => {
     renderPage();
+    // Scope to the inherited-electorate card (names also appear in the timeline).
+    const card = within(screen.getByTestId('inherited-electorate'));
     // DEFAULT_CONFIG: Alice, Bob, Carol · 300 voters.
     for (const name of ['Alice', 'Bob', 'Carol']) {
-      expect(screen.getByText(name)).toBeInTheDocument();
+      expect(card.getByText(name)).toBeInTheDocument();
     }
-    expect(screen.getByText('300')).toBeInTheDocument();
+    expect(card.getByText('300')).toBeInTheDocument();
   });
 
   it('reflects a different stored electorate (proves it reads the store, not a constant)', () => {
@@ -59,9 +61,10 @@ describe('CampaignDynamicsPage (C1 shell + hand-off)', () => {
       },
     });
     renderPage();
-    expect(screen.getByText('Zoe')).toBeInTheDocument();
-    expect(screen.getByText('Yann')).toBeInTheDocument();
-    expect(screen.getByText('512')).toBeInTheDocument();
+    const card = within(screen.getByTestId('inherited-electorate'));
+    expect(card.getByText('Zoe')).toBeInTheDocument();
+    expect(card.getByText('Yann')).toBeInTheDocument();
+    expect(card.getByText('512')).toBeInTheDocument();
   });
 
   it('is a sandbox — rendering the page does not mutate the shared config', () => {
