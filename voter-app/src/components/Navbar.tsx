@@ -157,7 +157,7 @@ const Navbar: React.FC = () => {
           {/* ── Brand ── */}
           <BootstrapNavbar.Brand
             href="/"
-            className="flex items-center gap-2 font-bold me-4"
+            className="font-display flex items-center gap-2 font-bold tracking-tight me-4"
             style={{ fontSize: '1.1rem' }}
             onClick={() => setNavExpanded(false)}
           >
