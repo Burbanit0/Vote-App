@@ -213,11 +213,11 @@ const CampaignTimeline: React.FC<Props> = ({ config, playground, onPin }) => {
             ))}
           </div>
 
-          <label className="flex items-center justify-between gap-2 text-sm">
+          <label className="flex flex-col gap-1 text-sm">
             <span className="text-muted-foreground">Méthode</span>
             <select
               data-testid="timeline-rule"
-              className="rounded border border-border bg-background px-2 py-1 text-sm"
+              className="w-full min-w-0 truncate rounded border border-border bg-background px-2 py-1 text-sm"
               value={rule}
               onChange={(e) => setRule(e.target.value as Rule)}
             >
@@ -228,11 +228,12 @@ const CampaignTimeline: React.FC<Props> = ({ config, playground, onPin }) => {
               ))}
             </select>
           </label>
-          <label className="flex items-center justify-between gap-2 text-sm">
+          <label className="flex flex-col gap-1 text-sm">
             <span className="text-muted-foreground">Intensité</span>
             <input
               type="range"
               data-testid="timeline-strength"
+              className="w-full"
               min={0}
               max={1}
               step={0.05}
@@ -241,7 +242,7 @@ const CampaignTimeline: React.FC<Props> = ({ config, playground, onPin }) => {
               title="Distance parcourue par les candidats d'ici la fin de campagne."
             />
           </label>
-          <label className="flex items-center justify-between gap-2 text-sm">
+          <label className="flex flex-col gap-1 text-sm">
             <span className="text-muted-foreground">Tours</span>
             <input
               type="number"
@@ -334,8 +335,8 @@ const CampaignTimeline: React.FC<Props> = ({ config, playground, onPin }) => {
           </Instrument>
 
           {/* ── Map + live readout (the console's bottom row) ── */}
-          <div className="grid gap-3 sm:grid-cols-[minmax(0,15rem)_1fr]">
-            <Instrument label="Idéologie — dérive" className="w-full max-w-[15rem]">
+          <div className="grid gap-3 sm:grid-cols-[minmax(0,22rem)_1fr]">
+            <Instrument label="Idéologie — dérive" className="w-full max-w-[22rem]">
               <CampaignMap
                 voters={baseVoters}
                 baseCandidates={config.candidates}
