@@ -1,5 +1,4 @@
 import React from 'react';
-import { Link } from 'react-router';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
@@ -17,12 +16,7 @@ import {
   type Rule,
   type Pt,
 } from '../lib/playgroundVoting';
-import {
-  driftCandidates,
-  medianPoint,
-  shakeWinRates,
-  type ShakeResult,
-} from '../lib/playgroundDynamics';
+import { shakeWinRates, type ShakeResult } from '../lib/playgroundDynamics';
 import {
   runAssembly,
   runAssemblyScorecard,
@@ -45,7 +39,6 @@ import {
   type LensItem,
 } from '../lib/scorecard';
 import DemocracyMap from '../components/playground/DemocracyMap';
-import TemporalPanel from '../components/playground/TemporalPanel';
 import IssuesPanel from '../components/playground/IssuesPanel';
 import StructuralPanel from '../components/playground/StructuralPanel';
 import Collapsible from '../components/playground/Collapsible';
@@ -373,26 +366,17 @@ const PlaygroundPage: React.FC = () => {
     [config.candidates, setConfig]
   );
 
-  // ── Dynamic layer (P4) ────────────────────────────────────────────────────
-  // Campaign time scrubber: vote-seeking drift toward the median voter.
-  const [campaignT, setCampaignT] = React.useState(0);
-  const [playing, setPlaying] = React.useState(false);
-  const median = React.useMemo(() => medianPoint(voters), [voters]);
-  const displayedCandidates = React.useMemo(
-    () =>
-      campaignT > 0 ? driftCandidates(config.candidates, median, campaignT) : config.candidates,
-    [config.candidates, median, campaignT]
-  );
+  // ── Derived electorate ────────────────────────────────────────────────────
   // Project candidates onto the active dimension count so the math, the map and
   // the re-rolls all agree (1-D zeroes y,z; 2-D zeroes z; 3-D keeps all).
   const leaderCandidates = React.useMemo(
     () =>
-      displayedCandidates.map((c) => ({
+      config.candidates.map((c) => ({
         ...c,
         y: dims >= 2 ? c.y : 0,
         z: dims >= 3 ? (c.z ?? 0) : 0,
       })),
-    [displayedCandidates, dims]
+    [config.candidates, dims]
   );
   // Differential turnout: the abstainers leave, reshaping the live electorate.
   const turnoutResult = React.useMemo(
@@ -414,21 +398,6 @@ const PlaygroundPage: React.FC = () => {
         : undefined,
     [composed, votingVoters]
   );
-  React.useEffect(() => {
-    if (!playing) return;
-    const id = setInterval(() => {
-      setCampaignT((t) => {
-        if (t >= 1) {
-          setPlaying(false);
-          return 1;
-        }
-        return Math.min(1, t + 0.02);
-      });
-    }, 80);
-    return () => clearInterval(id);
-  }, [playing]);
-  // Dragging edits the configured (J0) positions — disable while scrubbed.
-  const moveDisplayed = campaignT > 0 ? () => {} : moveCandidate;
 
   // "Shake the assumptions": re-roll the electorate, win-rate per candidate.
   const [shakeOn, setShakeOn] = React.useState(false);
@@ -669,7 +638,7 @@ const PlaygroundPage: React.FC = () => {
                 <span className="flex items-center gap-1 text-xs font-medium text-muted-foreground">
                   Taux de paradoxe (cycles)
                 </span>
-                <span className="text-sm font-semibold tabular-nums">
+                <span className="font-mono text-sm font-semibold tabular-nums">
                   {loading || !result ? '…' : `${Math.round(result.cycle_rate * 100)} %`}
                 </span>
               </div>
@@ -723,17 +692,6 @@ const PlaygroundPage: React.FC = () => {
                 <option value="mixed">Mixte</option>
               </select>
             </Field>
-
-            {/* The behavioural-realism family (biases, shy voter, overload,
-                compulsory, demographic, affective) moved to the Campagne page —
-                it perturbs the idealized snapshot, so it lives with the dynamics. */}
-            <Link
-              to="/campagne"
-              data-testid="behavior-realism-link"
-              className="text-[0.7rem] text-muted-foreground hover:text-primary hover:underline"
-            >
-              🧠 Réalisme comportemental (biais, timidité, surcharge…) → page Campagne
-            </Link>
 
             <label className="flex items-center gap-2 text-sm">
               <input
@@ -898,7 +856,7 @@ const PlaygroundPage: React.FC = () => {
                           style={{ width: `${v * 100}%`, transition: 'width 300ms ease' }}
                         />
                       </div>
-                      <span className="w-8 text-right tabular-nums text-muted-foreground">
+                      <span className="w-8 text-right font-mono tabular-nums text-muted-foreground">
                         {Math.round(v * 100)}
                       </span>
                     </div>
@@ -1041,7 +999,7 @@ const PlaygroundPage: React.FC = () => {
                     onLensChange={setLens}
                     onMoveYou={(x, y) => setYouPos((p) => ({ ...p, x, y }))}
                     onRuleChange={setLeaderRule}
-                    onMoveCandidate={moveDisplayed}
+                    onMoveCandidate={moveCandidate}
                   />
 
                   {/* Community legend (composed electorate) — what each colour means. */}
@@ -1061,60 +1019,6 @@ const PlaygroundPage: React.FC = () => {
                       ))}
                     </div>
                   )}
-
-                  {/* Time scrubber (P4): campaign drift toward the median voter. */}
-                  <div data-testid="campaign-scrubber" className="flex items-center gap-2 text-sm">
-                    <Button
-                      data-testid="campaign-play"
-                      variant="outline"
-                      size="sm"
-                      onClick={() => {
-                        if (!playing && campaignT >= 1) setCampaignT(0);
-                        setPlaying((p) => !p);
-                      }}
-                    >
-                      {playing ? '⏸' : '▶'}
-                    </Button>
-                    <span className="flex w-32 shrink-0 items-center gap-1 tabular-nums text-muted-foreground">
-                      Campagne — J{Math.round(campaignT * 30)}
-                    </span>
-                    <input
-                      data-testid="campaign-slider"
-                      type="range"
-                      className="flex-1"
-                      min={0}
-                      max={1}
-                      step={0.02}
-                      value={campaignT}
-                      onChange={(e) => {
-                        setPlaying(false);
-                        setCampaignT(Number(e.target.value));
-                      }}
-                      title="Modèle affiché : les candidats en quête de voix dérivent vers l'électeur médian (Hotelling–Downs)."
-                    />
-                    {campaignT > 0 && (
-                      <span className="text-xs text-muted-foreground/70">
-                        (revenez à J0 pour déplacer les candidats)
-                      </span>
-                    )}
-                  </div>
-
-                  {/* Hand-off to page 2: the temporal "campaign" deepening (équilibre,
-                      sondages, polarisation, partis) now lives on its own page, which
-                      inherits THIS electorate as state J0 (sandbox — playground untouched). */}
-                  <Link
-                    to="/campagne"
-                    data-testid="launch-campaign"
-                    className={cn(
-                      'flex items-center justify-between gap-2 rounded-md border border-primary/40',
-                      'bg-primary/5 px-3 py-2 text-sm font-medium text-primary',
-                      'transition-colors hover:bg-primary/10'
-                    )}
-                    title="Ouvre la page « Campagne & dynamique » avec cet électorat comme état de départ (J0). Le playground n'est pas modifié."
-                  >
-                    <span>🎬 Lancer une campagne sur cet électorat</span>
-                    <span aria-hidden>→</span>
-                  </Link>
 
                   {/* Shake the assumptions (P4): re-roll the electorate → win-rate bands. */}
                   <div className="flex flex-col gap-1.5">
@@ -1146,7 +1050,7 @@ const PlaygroundPage: React.FC = () => {
                             '—'
                           )}
                         </p>
-                        {displayedCandidates.map((c) => (
+                        {config.candidates.map((c) => (
                           <div key={c.name} className="flex items-center gap-2 text-xs">
                             <span className="w-24 truncate text-muted-foreground">{c.name}</span>
                             <div className="h-2.5 flex-1 overflow-hidden rounded bg-muted/50">
@@ -1158,7 +1062,7 @@ const PlaygroundPage: React.FC = () => {
                                 }}
                               />
                             </div>
-                            <span className="w-10 text-right tabular-nums text-muted-foreground">
+                            <span className="w-10 text-right font-mono tabular-nums text-muted-foreground">
                               {Math.round((shake.rates[c.name] ?? 0) * 100)} %
                             </span>
                           </div>
@@ -1224,13 +1128,6 @@ const PlaygroundPage: React.FC = () => {
                     ) : (
                       <p className="text-xs text-muted-foreground">Calcul en cours…</p>
                     )}
-                  </Collapsible>
-                  <Collapsible
-                    title="🎬 Campagne dans la durée (démocratie répétée)"
-                    subtitle="Duverger sur plusieurs élections"
-                    testid="module-temporal"
-                  >
-                    <TemporalPanel config={config} playground={playground} />
                   </Collapsible>
                   <Collapsible title="🗳 Enjeux & groupage (Ostrogorski)" testid="module-issues">
                     <IssuesPanel config={config} playground={playground} />
