@@ -208,13 +208,6 @@ describe('PlaygroundPage (P0 shell)', () => {
     expect(screen.getByTestId('flip-caption')).toBeInTheDocument();
   });
 
-  it('the campaign scrubber advances the day label and disables candidate edits', () => {
-    renderPage();
-    fireEvent.change(screen.getByTestId('campaign-slider'), { target: { value: '0.5' } });
-    expect(screen.getByTestId('campaign-scrubber')).toHaveTextContent('J15');
-    expect(screen.getByTestId('campaign-scrubber')).toHaveTextContent('revenez à J0');
-  });
-
   it('shake-the-assumptions renders win-rate bands that sum to ~100%', async () => {
     renderPage();
     fireEvent.click(screen.getByTestId('shake-toggle'));
@@ -562,27 +555,22 @@ describe('PlaygroundPage (P0 shell)', () => {
     expect(screen.getByTestId('res-animation')).toBeInTheDocument();
   });
 
-  it('hand-off: behavioural realism is a link to /campagne, not an in-page anchor', () => {
+  it('the playground holds no campaign references (it is the pure snapshot)', () => {
     renderPage();
-    // The whole "Comportement" family migrated to page 2 (Q1: C4 empties the
-    // playground of family-B realism). Only a hint link remains, no panel mounts.
-    expect(screen.queryByTestId('anchor-behavior')).not.toBeInTheDocument();
-    expect(screen.queryByTestId('breal-biases')).not.toBeInTheDocument();
-    const link = screen.getByTestId('behavior-realism-link');
-    expect(link).toHaveAttribute('href', '/campagne');
-    // The core canvas is unaffected.
+    // Campaign lives on its own page (reached via the navbar); the playground keeps
+    // none of its mechanics/links: no scrubber, no launch CTA, no temporal panel.
+    for (const id of [
+      'campaign-scrubber',
+      'campaign-slider',
+      'launch-campaign',
+      'behavior-realism-link',
+      'module-temporal',
+      'anchor-campaign',
+    ]) {
+      expect(screen.queryByTestId(id)).not.toBeInTheDocument();
+    }
+    // The core canvas is intact.
     expect(screen.getByTestId('leader-canvas')).toBeInTheDocument();
-  });
-
-  it('hand-off: the campaign deepening is a link to /campagne, not an in-page anchor', () => {
-    renderPage();
-    // The temporal "campaign" family migrated to page 2 (Q1 = B+C on its own page).
-    // The playground now shows only a CTA to it — no dynamics panel mounts here.
-    expect(screen.queryByTestId('anchor-campaign')).not.toBeInTheDocument();
-    expect(screen.queryByTestId('dyn-hotelling')).not.toBeInTheDocument();
-    const cta = screen.getByTestId('launch-campaign');
-    expect(cta).toBeInTheDocument();
-    expect(cta).toHaveAttribute('href', '/campagne');
   });
 
   it('form-lock: the mechanisms anchor (leader canvas) reveals its leaves lazily', async () => {
