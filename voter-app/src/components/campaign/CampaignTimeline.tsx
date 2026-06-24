@@ -13,6 +13,7 @@ import {
 } from '../../lib/campaignTimeline';
 import { CAMPAIGN_SCENARIOS, DEFAULT_SCENARIO } from '../../lib/campaignScenarios';
 import CampaignMap from './CampaignMap';
+import Instrument from '../ui/instrument';
 import type { ElectionConfig, PlaygroundState } from '../../stores/useElectionStore';
 
 // CampaignTimeline — the /campagne instrument. A scenario rail on the left; a
@@ -255,20 +256,17 @@ const CampaignTimeline: React.FC<Props> = ({ config, playground, onPin }) => {
         </div>
 
         {/* ── Instrument: the trajectory hero on top, map + live readout below ── */}
-        <div
-          className="flex flex-col gap-3 rounded-lg border border-border bg-muted/30 p-3"
-          data-testid="campaign-instrument"
-        >
-          <div className="flex flex-col gap-1">
-            <div className="flex items-center justify-between text-[0.65rem] text-muted-foreground">
-              <span>Valeur du résultat dans le temps</span>
-              <span className="flex items-center gap-2">
-                <span className="flex items-center gap-1">
-                  <span className="inline-block h-1.5 w-3 rounded bg-emerald-500" /> centralité
-                </span>
-                <span className="flex items-center gap-1">
-                  <span className="inline-block h-1.5 w-3 rounded bg-sky-500" /> optimalité
-                </span>
+        <div className="flex flex-col gap-3" data-testid="campaign-instrument">
+          <Instrument
+            label="Trajectoire — valeur du résultat"
+            readout={`J${current.day} / J${numDays}`}
+          >
+            <div className="mb-1 flex items-center justify-end gap-2 text-[0.65rem] text-muted-foreground">
+              <span className="flex items-center gap-1">
+                <span className="inline-block h-1.5 w-3 rounded bg-emerald-500" /> centralité
+              </span>
+              <span className="flex items-center gap-1">
+                <span className="inline-block h-1.5 w-3 rounded bg-sky-500" /> optimalité
               </span>
             </div>
             <svg
@@ -333,25 +331,20 @@ const CampaignTimeline: React.FC<Props> = ({ config, playground, onPin }) => {
               Ruban du bas = vainqueur ; un changement de couleur (trait vertical) est une bascule.
               Optimalité = 1 − regret.
             </p>
-          </div>
+          </Instrument>
 
           {/* ── Map + live readout (the console's bottom row) ── */}
           <div className="grid gap-3 sm:grid-cols-[minmax(0,15rem)_1fr]">
-            <div className="flex flex-col gap-1">
-              <span className="text-[0.65rem] text-muted-foreground">
-                Idéologie — dérive des candidats
-              </span>
-              <div className="w-full max-w-[15rem]">
-                <CampaignMap
-                  voters={baseVoters}
-                  baseCandidates={config.candidates}
-                  drifted={drifted}
-                  target={target}
-                  winner={current.winner}
-                  colorFor={colorFor}
-                />
-              </div>
-            </div>
+            <Instrument label="Idéologie — dérive" className="w-full max-w-[15rem]">
+              <CampaignMap
+                voters={baseVoters}
+                baseCandidates={config.candidates}
+                drifted={drifted}
+                target={target}
+                winner={current.winner}
+                colorFor={colorFor}
+              />
+            </Instrument>
 
             <div
               className="grid grid-cols-1 content-start gap-2 sm:grid-cols-2"
@@ -534,7 +527,7 @@ const Meter: React.FC<{ label: string; value: number; invert?: boolean; testid?:
     <div data-testid={testid}>
       <div className="flex justify-between text-[0.7rem]">
         <span className="text-muted-foreground">{label}</span>
-        <span className="tabular-nums">{pct} %</span>
+        <span className="font-mono tabular-nums">{pct} %</span>
       </div>
       <div className="h-2 overflow-hidden rounded bg-muted/50">
         <div
