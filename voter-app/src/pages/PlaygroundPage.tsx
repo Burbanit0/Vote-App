@@ -638,7 +638,7 @@ const PlaygroundPage: React.FC = () => {
                 <span className="flex items-center gap-1 text-xs font-medium text-muted-foreground">
                   Taux de paradoxe (cycles)
                 </span>
-                <span className="text-sm font-semibold tabular-nums">
+                <span className="font-mono text-sm font-semibold tabular-nums">
                   {loading || !result ? '…' : `${Math.round(result.cycle_rate * 100)} %`}
                 </span>
               </div>
@@ -856,7 +856,7 @@ const PlaygroundPage: React.FC = () => {
                           style={{ width: `${v * 100}%`, transition: 'width 300ms ease' }}
                         />
                       </div>
-                      <span className="w-8 text-right tabular-nums text-muted-foreground">
+                      <span className="w-8 text-right font-mono tabular-nums text-muted-foreground">
                         {Math.round(v * 100)}
                       </span>
                     </div>
@@ -1062,7 +1062,7 @@ const PlaygroundPage: React.FC = () => {
                                 }}
                               />
                             </div>
-                            <span className="w-10 text-right tabular-nums text-muted-foreground">
+                            <span className="w-10 text-right font-mono tabular-nums text-muted-foreground">
                               {Math.round((shake.rates[c.name] ?? 0) * 100)} %
                             </span>
                           </div>
