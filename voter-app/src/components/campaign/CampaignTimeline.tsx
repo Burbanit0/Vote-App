@@ -15,11 +15,11 @@ import { CAMPAIGN_SCENARIOS, DEFAULT_SCENARIO } from '../../lib/campaignScenario
 import CampaignMap from './CampaignMap';
 import type { ElectionConfig, PlaygroundState } from '../../stores/useElectionStore';
 
-// CampaignTimeline — the /campagne instrument. Organised like the playground: a
-// scenario rail on the left, two synced central graphs in the middle (the
-// ideology MAP where candidates drift + the value-of-the-result TRAJECTORY whose
-// winner ribbon is the signature — a colour change is a bascule), one timeline
-// transport underneath driving both, and the live readout below.
+// CampaignTimeline — the /campagne instrument. A scenario rail on the left; a
+// console in the middle stacking the value-of-the-result TRAJECTORY (the hero —
+// its winner ribbon is the signature, a colour change is a bascule) over a row of
+// the ideology MAP (candidate drift) + the live readout; one timeline transport
+// underneath drives everything.
 //
 // Picking a scenario swaps the drift model fed to the shared metrics; scrubbing
 // (or ▶ playing) moves both graphs. Pure + client-side, instant, sandbox.
@@ -164,16 +164,22 @@ const CampaignTimeline: React.FC<Props> = ({ config, playground, onPin }) => {
 
   return (
     <div className="flex flex-col gap-3" data-testid="campaign-timeline">
-      {/* ── Thesis ── */}
-      <p className="text-sm text-muted-foreground">
-        Au <strong className="text-foreground">J0</strong>,{' '}
-        {j0Winner ? (
-          <strong style={{ color: colorFor(j0Winner) }}>{j0Winner}</strong>
-        ) : (
-          <strong>—</strong>
-        )}{' '}
-        l’emporte. En campagne, le résultat peut bouger — choisissez un scénario, avancez le temps.
-      </p>
+      {/* ── Thesis (the hero: a result is provisional) ── */}
+      <div className="flex flex-col gap-0.5">
+        <p className="text-lg font-semibold tracking-tight sm:text-xl">
+          Au <span className="text-muted-foreground">J0</span>,{' '}
+          {j0Winner ? (
+            <span style={{ color: colorFor(j0Winner) }}>{j0Winner}</span>
+          ) : (
+            <span>—</span>
+          )}{' '}
+          l’emporte. En campagne, le résultat peut{' '}
+          <span className="underline decoration-2 underline-offset-2">bouger</span>.
+        </p>
+        <p className="text-xs text-muted-foreground">
+          Choisissez un scénario, puis avancez le temps pour voir si le vainqueur tient.
+        </p>
+      </div>
 
       <div className="grid gap-3 lg:grid-cols-[15rem_1fr]">
         {/* ── Rail: scenario + knobs ── */}
@@ -248,25 +254,11 @@ const CampaignTimeline: React.FC<Props> = ({ config, playground, onPin }) => {
           </label>
         </div>
 
-        {/* ── Instrument: the two synced central graphs ── */}
+        {/* ── Instrument: the trajectory hero on top, map + live readout below ── */}
         <div
-          className="grid gap-3 rounded-lg border border-border bg-muted/30 p-3 sm:grid-cols-2"
+          className="flex flex-col gap-3 rounded-lg border border-border bg-muted/30 p-3"
           data-testid="campaign-instrument"
         >
-          <div className="flex flex-col gap-1">
-            <span className="text-[0.65rem] text-muted-foreground">
-              Idéologie — dérive des candidats
-            </span>
-            <CampaignMap
-              voters={baseVoters}
-              baseCandidates={config.candidates}
-              drifted={drifted}
-              target={target}
-              winner={current.winner}
-              colorFor={colorFor}
-            />
-          </div>
-
           <div className="flex flex-col gap-1">
             <div className="flex items-center justify-between text-[0.65rem] text-muted-foreground">
               <span>Valeur du résultat dans le temps</span>
@@ -282,7 +274,7 @@ const CampaignTimeline: React.FC<Props> = ({ config, playground, onPin }) => {
             <svg
               data-testid="campaign-trajectory"
               viewBox={`0 0 ${W} ${H}`}
-              className="w-full flex-1"
+              className="h-40 w-full sm:h-44"
               preserveAspectRatio="none"
               role="img"
               aria-label="Trajectoire de la valeur du résultat au cours de la campagne"
@@ -341,6 +333,71 @@ const CampaignTimeline: React.FC<Props> = ({ config, playground, onPin }) => {
               Ruban du bas = vainqueur ; un changement de couleur (trait vertical) est une bascule.
               Optimalité = 1 − regret.
             </p>
+          </div>
+
+          {/* ── Map + live readout (the console's bottom row) ── */}
+          <div className="grid gap-3 sm:grid-cols-[minmax(0,15rem)_1fr]">
+            <div className="flex flex-col gap-1">
+              <span className="text-[0.65rem] text-muted-foreground">
+                Idéologie — dérive des candidats
+              </span>
+              <div className="w-full max-w-[15rem]">
+                <CampaignMap
+                  voters={baseVoters}
+                  baseCandidates={config.candidates}
+                  drifted={drifted}
+                  target={target}
+                  winner={current.winner}
+                  colorFor={colorFor}
+                />
+              </div>
+            </div>
+
+            <div
+              className="grid grid-cols-1 content-start gap-2 sm:grid-cols-2"
+              data-testid="timeline-readout"
+            >
+              <div className="rounded-md border border-border bg-background p-2">
+                <div className="text-xs text-muted-foreground">Vainqueur (J{current.day})</div>
+                <div className="flex items-center gap-2">
+                  <span
+                    className="inline-block h-3 w-3 rounded-full"
+                    style={{ background: colorFor(current.winner) }}
+                  />
+                  <span className="font-semibold" data-testid="timeline-winner">
+                    {current.winner ?? '—'}
+                  </span>
+                  {current.flippedFromStart && (
+                    <span
+                      className="rounded bg-amber-500/15 px-1.5 py-0.5 text-[0.65rem] font-medium text-amber-700 dark:text-amber-400"
+                      data-testid="timeline-flip"
+                    >
+                      bascule depuis J0
+                    </span>
+                  )}
+                </div>
+                <div className="mt-1.5" data-testid="timeline-condorcet">
+                  {current.condorcetHeld === null ? (
+                    <span className="text-[0.7rem] text-muted-foreground">
+                      Pas de vainqueur de Condorcet (cycle)
+                    </span>
+                  ) : current.condorcetHeld ? (
+                    <span className="text-[0.7rem] font-medium text-emerald-700 dark:text-emerald-400">
+                      ✓ Vainqueur de Condorcet respecté
+                    </span>
+                  ) : (
+                    <span className="text-[0.7rem] font-medium text-rose-700 dark:text-rose-400">
+                      ✗ Condorcet non respecté (CW : {current.condorcetWinner})
+                    </span>
+                  )}
+                </div>
+              </div>
+
+              <div className="flex flex-col justify-center gap-2 rounded-md border border-border bg-background p-2">
+                <Meter label="Regret" value={current.regret} invert testid="timeline-regret" />
+                <Meter label="Centralité" value={current.congruence} testid="timeline-congruence" />
+              </div>
+            </div>
           </div>
         </div>
       </div>
@@ -459,50 +516,6 @@ const CampaignTimeline: React.FC<Props> = ({ config, playground, onPin }) => {
             ✓ Positions reportées dans le playground (J{current.day}).
           </p>
         )}
-      </div>
-
-      {/* ── Readout: the value of the result, right now ── */}
-      <div className="grid grid-cols-1 gap-2 sm:grid-cols-2" data-testid="timeline-readout">
-        <div className="rounded-md border border-border p-2">
-          <div className="text-xs text-muted-foreground">Vainqueur (J{current.day})</div>
-          <div className="flex items-center gap-2">
-            <span
-              className="inline-block h-3 w-3 rounded-full"
-              style={{ background: colorFor(current.winner) }}
-            />
-            <span className="font-semibold" data-testid="timeline-winner">
-              {current.winner ?? '—'}
-            </span>
-            {current.flippedFromStart && (
-              <span
-                className="rounded bg-amber-500/15 px-1.5 py-0.5 text-[0.65rem] font-medium text-amber-700 dark:text-amber-400"
-                data-testid="timeline-flip"
-              >
-                bascule depuis J0
-              </span>
-            )}
-          </div>
-          <div className="mt-1.5" data-testid="timeline-condorcet">
-            {current.condorcetHeld === null ? (
-              <span className="text-[0.7rem] text-muted-foreground">
-                Pas de vainqueur de Condorcet (cycle)
-              </span>
-            ) : current.condorcetHeld ? (
-              <span className="text-[0.7rem] font-medium text-emerald-700 dark:text-emerald-400">
-                ✓ Vainqueur de Condorcet respecté
-              </span>
-            ) : (
-              <span className="text-[0.7rem] font-medium text-rose-700 dark:text-rose-400">
-                ✗ Condorcet non respecté (CW : {current.condorcetWinner})
-              </span>
-            )}
-          </div>
-        </div>
-
-        <div className="flex flex-col justify-center gap-2 rounded-md border border-border p-2">
-          <Meter label="Regret" value={current.regret} invert testid="timeline-regret" />
-          <Meter label="Centralité" value={current.congruence} testid="timeline-congruence" />
-        </div>
       </div>
     </div>
   );
