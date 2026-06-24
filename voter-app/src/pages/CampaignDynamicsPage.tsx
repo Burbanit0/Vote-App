@@ -63,7 +63,7 @@ const CampaignDynamicsPage: React.FC = () => {
   );
 
   return (
-    <div className="container mx-auto max-w-6xl px-3 py-4" data-testid="campaign-dynamics-page">
+    <div className="container mx-auto px-3 py-4" data-testid="campaign-dynamics-page">
       {/* ── Header ── */}
       <div className="mb-4 flex flex-col gap-2">
         <div className="flex flex-wrap items-center gap-2">
