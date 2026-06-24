@@ -11,18 +11,18 @@ import {
   roundStops,
   type TimelineParams,
 } from '../../lib/campaignTimeline';
+import { CAMPAIGN_SCENARIOS, DEFAULT_SCENARIO } from '../../lib/campaignScenarios';
+import CampaignMap from './CampaignMap';
 import type { ElectionConfig, PlaygroundState } from '../../stores/useElectionStore';
 
-// CampaignTimeline (C2) — the unified time axis of the "Campagne & dynamique"
-// page. ONE axis carries both readings of campaign time (Q2): a continuous
-// scrubber over campaign days (J0→J{numDays}, candidates drifting toward the
-// median — Hotelling) AND discrete round markers you can step through. Both feed
-// the SAME drift model and recompute the SAME "value of the result" (Q4):
-// winner, regret, congruence, Condorcet-held, and whether the winner has flipped.
+// CampaignTimeline — the /campagne instrument. Organised like the playground: a
+// scenario rail on the left, two synced central graphs in the middle (the
+// ideology MAP where candidates drift + the value-of-the-result TRAJECTORY whose
+// winner ribbon is the signature — a colour change is a bascule), one timeline
+// transport underneath driving both, and the live readout below.
 //
-// Everything is pure + client-side (campaignTimeline.ts), so scrubbing is
-// instant and the page never blocks. It reads the inherited J0 electorate; it
-// never mutates the store (sandbox).
+// Picking a scenario swaps the drift model fed to the shared metrics; scrubbing
+// (or ▶ playing) moves both graphs. Pure + client-side, instant, sandbox.
 
 const PALETTE = [
   '#4e79a7',
@@ -38,21 +38,19 @@ const PALETTE = [
 interface Props {
   config: ElectionConfig;
   playground: PlaygroundState;
-  /**
-   * Explicit write-back (Q3): "pin" the candidate positions at the current
-   * instant back into the playground. When omitted, the page stays a pure
-   * sandbox (no button rendered).
-   */
+  /** Explicit write-back (Q3): pin the current positions into the playground. */
   onPin?: (candidates: NamedPt[]) => void;
 }
 
 const STEPS = 30;
 
 const CampaignTimeline: React.FC<Props> = ({ config, playground, onPin }) => {
+  const [scenario, setScenario] = React.useState(DEFAULT_SCENARIO);
   const [rule, setRule] = React.useState<Rule>('plurality');
   const [t, setT] = React.useState(0);
   const [rounds, setRounds] = React.useState(4);
   const [strength, setStrength] = React.useState(0.6);
+  const [playing, setPlaying] = React.useState(false);
   const [pinned, setPinned] = React.useState(false);
 
   const dims = playground.space.dims;
@@ -65,15 +63,20 @@ const CampaignTimeline: React.FC<Props> = ({ config, playground, onPin }) => {
       turnout: { model: playground.turnout.model, intensity: playground.turnout.intensity },
       strength,
       numDays,
+      drift: scenario.drift,
     }),
-    [rule, dims, playground.turnout.model, playground.turnout.intensity, strength, numDays]
+    [
+      rule,
+      dims,
+      playground.turnout.model,
+      playground.turnout.intensity,
+      strength,
+      numDays,
+      scenario,
+    ]
   );
 
-  const baseVoters = React.useMemo(
-    () => buildBaseVoters(config, playground),
-    // Re-derive only when the electorate identity changes.
-    [config, playground]
-  );
+  const baseVoters = React.useMemo(() => buildBaseVoters(config, playground), [config, playground]);
   const target = React.useMemo(() => medianPoint(baseVoters), [baseVoters]);
 
   const traj = React.useMemo(
@@ -81,10 +84,15 @@ const CampaignTimeline: React.FC<Props> = ({ config, playground, onPin }) => {
     [baseVoters, config.candidates, params]
   );
   const startWinnerIdx = traj[0]?.winnerIdx ?? -1;
+  const j0Winner = traj[0]?.winner ?? null;
 
   const current = React.useMemo(
     () => metricsAt(baseVoters, config.candidates, target, t, params, startWinnerIdx),
     [baseVoters, config.candidates, target, t, params, startWinnerIdx]
+  );
+  const drifted = React.useMemo(
+    () => driftedAt(config.candidates, target, t, params),
+    [config.candidates, target, t, params]
   );
 
   const stops = React.useMemo(() => roundStops(rounds), [rounds]);
@@ -96,10 +104,8 @@ const CampaignTimeline: React.FC<Props> = ({ config, playground, onPin }) => {
   };
 
   const stepRound = (dir: -1 | 1) => {
-    // Snap to the nearest stop, then move one stop in `dir`.
     let idx = activeStop;
     if (idx < 0) {
-      // find nearest
       idx = 0;
       let best = Infinity;
       stops.forEach((s, i) => {
@@ -110,76 +116,236 @@ const CampaignTimeline: React.FC<Props> = ({ config, playground, onPin }) => {
         }
       });
     }
-    const next = Math.max(0, Math.min(stops.length - 1, idx + dir));
-    setT(stops[next]);
+    setT(stops[Math.max(0, Math.min(stops.length - 1, idx + dir))]);
   };
 
   // Any move on the timeline invalidates the "pinned" confirmation.
+  React.useEffect(() => setPinned(false), [t]);
+
+  // ▶ Play: sweep J0→J-end. Respect reduced motion by jumping to the end.
+  const reduceMotion =
+    typeof window !== 'undefined' &&
+    !!window.matchMedia?.('(prefers-reduced-motion: reduce)').matches;
   React.useEffect(() => {
-    setPinned(false);
-  }, [t]);
+    if (!playing) return;
+    if (reduceMotion) {
+      setT(1);
+      setPlaying(false);
+      return;
+    }
+    const id = window.setInterval(() => {
+      setT((prev) => {
+        const next = Math.round((prev + 0.02) * 100) / 100;
+        if (next >= 1) {
+          setPlaying(false);
+          return 1;
+        }
+        return next;
+      });
+    }, 50);
+    return () => window.clearInterval(id);
+  }, [playing, reduceMotion]);
 
   // ── SVG trajectory geometry ──
   const W = 320;
-  const H = 96;
+  const H = 110;
   const padX = 4;
   const lineTop = 6;
-  const bandH = 12;
-  const lineH = H - lineTop - bandH - 6;
+  const bandH = 16;
+  const lineH = H - lineTop - bandH - 8;
   const xAt = (tt: number) => padX + tt * (W - 2 * padX);
   const yAt = (v: number) => lineTop + (1 - Math.max(0, Math.min(1, v))) * lineH;
   const poly = (sel: (m: (typeof traj)[number]) => number) =>
     traj.map((m) => `${xAt(m.t).toFixed(1)},${yAt(sel(m)).toFixed(1)}`).join(' ');
   const congruenceLine = poly((m) => m.congruence);
   const optimalityLine = poly((m) => 1 - m.regret);
+  // Flip points: where the winner changes from the previous sample.
+  const flips = traj.filter((m, i) => i > 0 && m.winner !== traj[i - 1].winner).map((m) => m.t);
 
   return (
     <div className="flex flex-col gap-3" data-testid="campaign-timeline">
-      {/* ── Controls ── */}
-      <div className="flex flex-wrap items-center gap-3 text-sm">
-        <label className="flex items-center gap-1.5">
-          <span className="text-muted-foreground">Méthode</span>
-          <select
-            data-testid="timeline-rule"
-            className="rounded border border-border bg-background px-2 py-1 text-sm"
-            value={rule}
-            onChange={(e) => setRule(e.target.value as Rule)}
+      {/* ── Thesis ── */}
+      <p className="text-sm text-muted-foreground">
+        Au <strong className="text-foreground">J0</strong>,{' '}
+        {j0Winner ? (
+          <strong style={{ color: colorFor(j0Winner) }}>{j0Winner}</strong>
+        ) : (
+          <strong>—</strong>
+        )}{' '}
+        l’emporte. En campagne, le résultat peut bouger — choisissez un scénario, avancez le temps.
+      </p>
+
+      <div className="grid gap-3 lg:grid-cols-[15rem_1fr]">
+        {/* ── Rail: scenario + knobs ── */}
+        <div className="flex flex-col gap-3">
+          <div
+            className="flex flex-col gap-1"
+            role="radiogroup"
+            aria-label="Scénario de campagne"
+            data-testid="timeline-scenario"
           >
-            {LEADER_RULES.map((r) => (
-              <option key={r} value={r}>
-                {RULE_LABELS[r]}
-              </option>
+            <span className="text-xs font-medium text-muted-foreground">Scénario</span>
+            {CAMPAIGN_SCENARIOS.map((sc) => (
+              <button
+                key={sc.id}
+                type="button"
+                role="radio"
+                aria-checked={sc.id === scenario.id}
+                data-testid={`scenario-${sc.id}`}
+                onClick={() => setScenario(sc)}
+                className={cn(
+                  'rounded border px-2 py-1 text-left text-xs transition-colors',
+                  sc.id === scenario.id
+                    ? 'border-primary bg-primary/10 text-primary'
+                    : 'border-border hover:bg-muted'
+                )}
+              >
+                <div className="font-medium">{sc.label}</div>
+                <div className="text-[0.65rem] text-muted-foreground">{sc.blurb}</div>
+              </button>
             ))}
-          </select>
-        </label>
-        <label className="flex items-center gap-1.5">
-          <span className="text-muted-foreground">Intensité</span>
-          <input
-            type="range"
-            data-testid="timeline-strength"
-            min={0}
-            max={1}
-            step={0.05}
-            value={strength}
-            onChange={(e) => setStrength(Number(e.target.value))}
-            title="Distance parcourue par les candidats vers l'électeur médian d'ici la fin de campagne (Hotelling–Downs)."
-          />
-        </label>
-        <label className="flex items-center gap-1.5">
-          <span className="text-muted-foreground">Tours</span>
-          <input
-            type="number"
-            data-testid="timeline-rounds"
-            className="w-14 rounded border border-border bg-background px-2 py-1 text-sm"
-            min={2}
-            max={12}
-            value={rounds}
-            onChange={(e) => setRounds(Math.max(2, Math.min(12, Number(e.target.value) || 2)))}
-          />
-        </label>
+          </div>
+
+          <label className="flex items-center justify-between gap-2 text-sm">
+            <span className="text-muted-foreground">Méthode</span>
+            <select
+              data-testid="timeline-rule"
+              className="rounded border border-border bg-background px-2 py-1 text-sm"
+              value={rule}
+              onChange={(e) => setRule(e.target.value as Rule)}
+            >
+              {LEADER_RULES.map((r) => (
+                <option key={r} value={r}>
+                  {RULE_LABELS[r]}
+                </option>
+              ))}
+            </select>
+          </label>
+          <label className="flex items-center justify-between gap-2 text-sm">
+            <span className="text-muted-foreground">Intensité</span>
+            <input
+              type="range"
+              data-testid="timeline-strength"
+              min={0}
+              max={1}
+              step={0.05}
+              value={strength}
+              onChange={(e) => setStrength(Number(e.target.value))}
+              title="Distance parcourue par les candidats d'ici la fin de campagne."
+            />
+          </label>
+          <label className="flex items-center justify-between gap-2 text-sm">
+            <span className="text-muted-foreground">Tours</span>
+            <input
+              type="number"
+              data-testid="timeline-rounds"
+              className="w-14 rounded border border-border bg-background px-2 py-1 text-sm"
+              min={2}
+              max={12}
+              value={rounds}
+              onChange={(e) => setRounds(Math.max(2, Math.min(12, Number(e.target.value) || 2)))}
+            />
+          </label>
+        </div>
+
+        {/* ── Instrument: the two synced central graphs ── */}
+        <div
+          className="grid gap-3 rounded-lg border border-border bg-muted/30 p-3 sm:grid-cols-2"
+          data-testid="campaign-instrument"
+        >
+          <div className="flex flex-col gap-1">
+            <span className="text-[0.65rem] text-muted-foreground">
+              Idéologie — dérive des candidats
+            </span>
+            <CampaignMap
+              voters={baseVoters}
+              baseCandidates={config.candidates}
+              drifted={drifted}
+              target={target}
+              winner={current.winner}
+              colorFor={colorFor}
+            />
+          </div>
+
+          <div className="flex flex-col gap-1">
+            <div className="flex items-center justify-between text-[0.65rem] text-muted-foreground">
+              <span>Valeur du résultat dans le temps</span>
+              <span className="flex items-center gap-2">
+                <span className="flex items-center gap-1">
+                  <span className="inline-block h-1.5 w-3 rounded bg-emerald-500" /> centralité
+                </span>
+                <span className="flex items-center gap-1">
+                  <span className="inline-block h-1.5 w-3 rounded bg-sky-500" /> optimalité
+                </span>
+              </span>
+            </div>
+            <svg
+              data-testid="campaign-trajectory"
+              viewBox={`0 0 ${W} ${H}`}
+              className="w-full flex-1"
+              preserveAspectRatio="none"
+              role="img"
+              aria-label="Trajectoire de la valeur du résultat au cours de la campagne"
+            >
+              {stops.map((s, i) => (
+                <line
+                  key={i}
+                  x1={xAt(s)}
+                  x2={xAt(s)}
+                  y1={lineTop}
+                  y2={lineTop + lineH}
+                  stroke="currentColor"
+                  strokeWidth={0.5}
+                  className="text-border"
+                />
+              ))}
+              {/* metric curves (both "higher is better") */}
+              <polyline points={congruenceLine} fill="none" stroke="#10b981" strokeWidth={1.5} />
+              <polyline points={optimalityLine} fill="none" stroke="#0ea5e9" strokeWidth={1.5} />
+              {/* ── Signature: winner-identity ribbon — a colour change is a bascule ── */}
+              {traj.slice(0, -1).map((m, i) => (
+                <rect
+                  key={i}
+                  x={xAt(m.t)}
+                  y={H - bandH}
+                  width={xAt(traj[i + 1].t) - xAt(m.t) + 0.5}
+                  height={bandH}
+                  fill={colorFor(m.winner)}
+                  opacity={0.9}
+                />
+              ))}
+              {flips.map((ft, i) => (
+                <line
+                  key={`f${i}`}
+                  x1={xAt(ft)}
+                  x2={xAt(ft)}
+                  y1={H - bandH - 3}
+                  y2={H}
+                  stroke="currentColor"
+                  strokeWidth={1.25}
+                  className="text-foreground"
+                />
+              ))}
+              {/* current-time cursor */}
+              <line
+                x1={xAt(t)}
+                x2={xAt(t)}
+                y1={lineTop}
+                y2={H}
+                stroke="currentColor"
+                strokeWidth={1}
+                className="text-foreground"
+              />
+            </svg>
+            <p className="text-[0.6rem] text-muted-foreground">
+              Ruban du bas = vainqueur ; un changement de couleur (trait vertical) est une bascule.
+              Optimalité = 1 − regret.
+            </p>
+          </div>
+        </div>
       </div>
 
-      {/* ── Unified timeline: continuous scrubber + discrete round stops ── */}
+      {/* ── Transport: one axis driving both graphs ── */}
       <div className="flex flex-col gap-1">
         <div className="flex items-center justify-between text-xs text-muted-foreground">
           <span>
@@ -204,11 +370,13 @@ const CampaignTimeline: React.FC<Props> = ({ config, playground, onPin }) => {
           max={1}
           step={0.01}
           value={t}
-          onChange={(e) => setT(Number(e.target.value))}
+          onChange={(e) => {
+            setPlaying(false);
+            setT(Number(e.target.value));
+          }}
           aria-label="Avancement de campagne"
         />
 
-        {/* Discrete round markers on the same axis. */}
         <div className="relative h-6">
           {stops.map((s, i) => (
             <button
@@ -233,6 +401,17 @@ const CampaignTimeline: React.FC<Props> = ({ config, playground, onPin }) => {
         <div className="flex items-center gap-2">
           <button
             type="button"
+            data-testid="timeline-play"
+            className="rounded border border-primary/50 bg-primary/5 px-2 py-0.5 text-xs font-medium text-primary hover:bg-primary/10"
+            onClick={() => {
+              if (!playing && t >= 1) setT(0);
+              setPlaying((p) => !p);
+            }}
+          >
+            {playing ? '⏸ Pause' : '▶ Jouer la campagne'}
+          </button>
+          <button
+            type="button"
             data-testid="round-prev"
             className="rounded border border-border px-2 py-0.5 text-xs hover:bg-muted disabled:opacity-40"
             onClick={() => stepRound(-1)}
@@ -253,7 +432,10 @@ const CampaignTimeline: React.FC<Props> = ({ config, playground, onPin }) => {
             type="button"
             data-testid="timeline-reset"
             className="rounded border border-border px-2 py-0.5 text-xs hover:bg-muted"
-            onClick={() => setT(0)}
+            onClick={() => {
+              setPlaying(false);
+              setT(0);
+            }}
           >
             ↺ J0
           </button>
@@ -263,10 +445,10 @@ const CampaignTimeline: React.FC<Props> = ({ config, playground, onPin }) => {
               data-testid="timeline-pin"
               className="ml-auto rounded border border-primary/50 bg-primary/5 px-2 py-0.5 text-xs font-medium text-primary hover:bg-primary/10"
               onClick={() => {
-                onPin(driftedAt(config.candidates, target, t, params));
+                onPin(drifted);
                 setPinned(true);
               }}
-              title="Reporte les positions actuelles des candidats (après dérive de campagne) dans le playground comme nouvel état de départ. C'est la seule action qui modifie le playground."
+              title="Reporte les positions actuelles des candidats dans le playground comme nouvel état de départ. C'est la seule action qui modifie le playground."
             >
               📌 Épingler dans le playground
             </button>
@@ -279,7 +461,7 @@ const CampaignTimeline: React.FC<Props> = ({ config, playground, onPin }) => {
         )}
       </div>
 
-      {/* ── Current "value of the result" readout ── */}
+      {/* ── Readout: the value of the result, right now ── */}
       <div className="grid grid-cols-1 gap-2 sm:grid-cols-2" data-testid="timeline-readout">
         <div className="rounded-md border border-border p-2">
           <div className="text-xs text-muted-foreground">Vainqueur (J{current.day})</div>
@@ -322,72 +504,6 @@ const CampaignTimeline: React.FC<Props> = ({ config, playground, onPin }) => {
           <Meter label="Centralité" value={current.congruence} testid="timeline-congruence" />
         </div>
       </div>
-
-      {/* ── Trajectory over time ── */}
-      <div className="rounded-md border border-border p-2">
-        <div className="mb-1 flex items-center justify-between text-xs text-muted-foreground">
-          <span>Valeur du résultat dans le temps</span>
-          <span className="flex items-center gap-2">
-            <span className="flex items-center gap-1">
-              <span className="inline-block h-1.5 w-3 rounded bg-emerald-500" /> centralité
-            </span>
-            <span className="flex items-center gap-1">
-              <span className="inline-block h-1.5 w-3 rounded bg-sky-500" /> optimalité
-            </span>
-          </span>
-        </div>
-        <svg
-          data-testid="campaign-trajectory"
-          viewBox={`0 0 ${W} ${H}`}
-          className="h-24 w-full"
-          preserveAspectRatio="none"
-          role="img"
-          aria-label="Trajectoire de la valeur du résultat au cours de la campagne"
-        >
-          {/* round-stop gridlines */}
-          {stops.map((s, i) => (
-            <line
-              key={i}
-              x1={xAt(s)}
-              x2={xAt(s)}
-              y1={lineTop}
-              y2={lineTop + lineH}
-              stroke="currentColor"
-              strokeWidth={0.5}
-              className="text-border"
-            />
-          ))}
-          {/* winner identity band (flips show as colour changes) */}
-          {traj.slice(0, -1).map((m, i) => (
-            <rect
-              key={i}
-              x={xAt(m.t)}
-              y={H - bandH}
-              width={xAt(traj[i + 1].t) - xAt(m.t) + 0.5}
-              height={bandH}
-              fill={colorFor(m.winner)}
-              opacity={0.85}
-            />
-          ))}
-          {/* metric curves (both "higher is better") */}
-          <polyline points={congruenceLine} fill="none" stroke="#10b981" strokeWidth={1.5} />
-          <polyline points={optimalityLine} fill="none" stroke="#0ea5e9" strokeWidth={1.5} />
-          {/* current-time cursor */}
-          <line
-            x1={xAt(t)}
-            x2={xAt(t)}
-            y1={lineTop}
-            y2={H}
-            stroke="currentColor"
-            strokeWidth={1}
-            className="text-foreground"
-          />
-        </svg>
-        <p className="mt-1 text-[0.65rem] text-muted-foreground">
-          Bande du bas : identité du vainqueur — un changement de couleur est une bascule.
-          Optimalité = 1 − regret.
-        </p>
-      </div>
     </div>
   );
 };
@@ -399,7 +515,6 @@ const Meter: React.FC<{ label: string; value: number; invert?: boolean; testid?:
   testid,
 }) => {
   const pct = Math.round(Math.max(0, Math.min(1, value)) * 100);
-  // "invert" metrics (regret) are good when LOW → green at low, red at high.
   const good = invert ? 1 - value : value;
   const hue = Math.round(good * 120); // 0 = red, 120 = green
   return (
