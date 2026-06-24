@@ -12,70 +12,71 @@
 :root {
   --radius: 0.5rem;
 
-  --background: #ffffff;
-  --foreground: #212529;
+  /* Instrument identity — paper & ink, petrol accent (the "laboratory" look). */
+  --background: #f6f7f4; /* cool paper */
+  --foreground: #16202e; /* ink slate */
   --card: #ffffff;
-  --card-foreground: #212529;
+  --card-foreground: #16202e;
   --popover: #ffffff;
-  --popover-foreground: #212529;
-  --primary: #005cab; /* Vote Lab blue (COLORS.brand.primary) */
+  --popover-foreground: #16202e;
+  --primary: #0e7068; /* petrol — the instrument accent */
   --primary-foreground: #ffffff;
-  --secondary: #e9ecef;
-  --secondary-foreground: #212529;
-  --muted: #f8f9fa;
-  --muted-foreground: #6c757d;
-  --accent: #f1f5f9;
-  --accent-foreground: #212529;
-  --destructive: #dc3545;
+  --secondary: #e7e9e4;
+  --secondary-foreground: #16202e;
+  --muted: #eceee9;
+  --muted-foreground: #586677; /* slate-grey */
+  --accent: #e2ece9; /* faint petrol tint */
+  --accent-foreground: #16202e;
+  --destructive: #c0362c;
   --destructive-foreground: #ffffff;
-  --border: #dee2e6;
-  --input: #dee2e6;
-  --ring: #005cab;
+  --border: #dadcd4;
+  --input: #dadcd4;
+  --ring: #0e7068;
 
   /* Legacy Bootstrap CSS variables still referenced by inline styles in ~30
-     components/charts (var(--bs-…)). Defined here so they keep resolving now
-     that bootstrap.css is removed. */
-  --bs-body-bg: #ffffff;
-  --bs-body-color: #212529;
-  --bs-border-color: #dee2e6;
-  --bs-secondary-bg: #e9ecef;
-  --bs-secondary-color: #6c757d;
-  --bs-secondary: #6c757d;
-  --bs-primary: #005cab;
-  --bs-primary-bg-subtle: #cfe2ff;
+     components/charts (var(--bs-…)). Kept in sync with the tokens above. */
+  --bs-body-bg: #f6f7f4;
+  --bs-body-color: #16202e;
+  --bs-border-color: #dadcd4;
+  --bs-secondary-bg: #e7e9e4;
+  --bs-secondary-color: #586677;
+  --bs-secondary: #586677;
+  --bs-primary: #0e7068;
+  --bs-primary-bg-subtle: #d3e6e3;
   --bs-table-bg: transparent;
 }
 
 /* Dark mode rides the existing toggle (useUIStore sets data-bs-theme on <html>). */
 [data-bs-theme='dark'] {
-  --background: #1a1d21;
-  --foreground: #e9ecef;
-  --card: #212529;
-  --card-foreground: #e9ecef;
-  --popover: #212529;
-  --popover-foreground: #e9ecef;
-  --primary: #4ea3e0;
-  --primary-foreground: #0b0c0d;
-  --secondary: #343a40;
-  --secondary-foreground: #e9ecef;
-  --muted: #2b3035;
-  --muted-foreground: #adb5bd;
-  --accent: #2b3035;
-  --accent-foreground: #e9ecef;
+  /* Ink lab — deep slate-blue (not near-black), brighter petrol accent. */
+  --background: #0f1722;
+  --foreground: #e6e9ef;
+  --card: #16202e;
+  --card-foreground: #e6e9ef;
+  --popover: #16202e;
+  --popover-foreground: #e6e9ef;
+  --primary: #2bb3a3;
+  --primary-foreground: #06201d;
+  --secondary: #1e2a3a;
+  --secondary-foreground: #e6e9ef;
+  --muted: #1a2533;
+  --muted-foreground: #9aa7b8;
+  --accent: #163029;
+  --accent-foreground: #e6e9ef;
   --destructive: #e4606d;
-  --destructive-foreground: #0b0c0d;
-  --border: #343a40;
-  --input: #343a40;
-  --ring: #4ea3e0;
+  --destructive-foreground: #0f1722;
+  --border: #243244;
+  --input: #243244;
+  --ring: #2bb3a3;
 
-  --bs-body-bg: #1a1d21;
-  --bs-body-color: #e9ecef;
-  --bs-border-color: #343a40;
-  --bs-secondary-bg: #343a40;
-  --bs-secondary-color: #adb5bd;
-  --bs-secondary: #adb5bd;
-  --bs-primary: #4ea3e0;
-  --bs-primary-bg-subtle: #031633;
+  --bs-body-bg: #0f1722;
+  --bs-body-color: #e6e9ef;
+  --bs-border-color: #243244;
+  --bs-secondary-bg: #1e2a3a;
+  --bs-secondary-color: #9aa7b8;
+  --bs-secondary: #9aa7b8;
+  --bs-primary: #2bb3a3;
+  --bs-primary-bg-subtle: #0c2a27;
   --bs-table-bg: transparent;
 }
 
@@ -107,8 +108,31 @@
   --color-brand-secondary: #c8590a;
   --color-brand-accent: #7b2d8b;
 
+  /* Event accent — a bascule / flip / alert moment (the one "stamp" colour). */
+  --color-stamp: #e07a3f;
+
+  /* Type identity — Space Grotesk (display) · Inter (body) · Plex Mono (data). */
+  --font-sans: 'Inter', ui-sans-serif, system-ui, sans-serif;
+  --font-display: 'Space Grotesk', 'Inter', ui-sans-serif, sans-serif;
+  --font-mono: 'IBM Plex Mono', ui-monospace, 'SFMono-Regular', monospace;
+
   --radius-sm: calc(var(--radius) - 4px);
   --radius-md: calc(var(--radius) - 2px);
   --radius-lg: var(--radius);
   --radius-xl: calc(var(--radius) + 4px);
+}
+
+/* ── Base type: Inter everywhere, Space Grotesk for headings/display ───────── */
+@layer base {
+  body {
+    font-family: var(--font-sans);
+  }
+  h1,
+  h2,
+  h3,
+  h4,
+  .font-display {
+    font-family: var(--font-display);
+    letter-spacing: -0.011em;
+  }
 }

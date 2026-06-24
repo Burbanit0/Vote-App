@@ -13,6 +13,7 @@ import {
 } from '../../lib/campaignTimeline';
 import { CAMPAIGN_SCENARIOS, DEFAULT_SCENARIO } from '../../lib/campaignScenarios';
 import CampaignMap from './CampaignMap';
+import Instrument from '../ui/instrument';
 import type { ElectionConfig, PlaygroundState } from '../../stores/useElectionStore';
 
 // CampaignTimeline — the /campagne instrument. A scenario rail on the left; a
@@ -212,11 +213,11 @@ const CampaignTimeline: React.FC<Props> = ({ config, playground, onPin }) => {
             ))}
           </div>
 
-          <label className="flex items-center justify-between gap-2 text-sm">
+          <label className="flex flex-col gap-1 text-sm">
             <span className="text-muted-foreground">Méthode</span>
             <select
               data-testid="timeline-rule"
-              className="rounded border border-border bg-background px-2 py-1 text-sm"
+              className="w-full min-w-0 truncate rounded border border-border bg-background px-2 py-1 text-sm"
               value={rule}
               onChange={(e) => setRule(e.target.value as Rule)}
             >
@@ -227,11 +228,12 @@ const CampaignTimeline: React.FC<Props> = ({ config, playground, onPin }) => {
               ))}
             </select>
           </label>
-          <label className="flex items-center justify-between gap-2 text-sm">
+          <label className="flex flex-col gap-1 text-sm">
             <span className="text-muted-foreground">Intensité</span>
             <input
               type="range"
               data-testid="timeline-strength"
+              className="w-full"
               min={0}
               max={1}
               step={0.05}
@@ -240,7 +242,7 @@ const CampaignTimeline: React.FC<Props> = ({ config, playground, onPin }) => {
               title="Distance parcourue par les candidats d'ici la fin de campagne."
             />
           </label>
-          <label className="flex items-center justify-between gap-2 text-sm">
+          <label className="flex flex-col gap-1 text-sm">
             <span className="text-muted-foreground">Tours</span>
             <input
               type="number"
@@ -254,104 +256,98 @@ const CampaignTimeline: React.FC<Props> = ({ config, playground, onPin }) => {
           </label>
         </div>
 
-        {/* ── Instrument: the trajectory hero on top, map + live readout below ── */}
+        {/* ── Instrument: big ideology map on the left, trajectory + readout stacked right ── */}
         <div
-          className="flex flex-col gap-3 rounded-lg border border-border bg-muted/30 p-3"
+          className="grid gap-3 lg:grid-cols-[minmax(0,30rem)_1fr] lg:items-start"
           data-testid="campaign-instrument"
         >
-          <div className="flex flex-col gap-1">
-            <div className="flex items-center justify-between text-[0.65rem] text-muted-foreground">
-              <span>Valeur du résultat dans le temps</span>
-              <span className="flex items-center gap-2">
+          <Instrument label="Idéologie — dérive" className="w-full">
+            <CampaignMap
+              voters={baseVoters}
+              baseCandidates={config.candidates}
+              drifted={drifted}
+              target={target}
+              winner={current.winner}
+              colorFor={colorFor}
+            />
+          </Instrument>
+
+          <div className="flex min-w-0 flex-col gap-3">
+            <Instrument
+              label="Trajectoire — valeur du résultat"
+              readout={`J${current.day} / J${numDays}`}
+            >
+              <div className="mb-1 flex items-center justify-end gap-2 text-[0.65rem] text-muted-foreground">
                 <span className="flex items-center gap-1">
                   <span className="inline-block h-1.5 w-3 rounded bg-emerald-500" /> centralité
                 </span>
                 <span className="flex items-center gap-1">
                   <span className="inline-block h-1.5 w-3 rounded bg-sky-500" /> optimalité
                 </span>
-              </span>
-            </div>
-            <svg
-              data-testid="campaign-trajectory"
-              viewBox={`0 0 ${W} ${H}`}
-              className="h-40 w-full sm:h-44"
-              preserveAspectRatio="none"
-              role="img"
-              aria-label="Trajectoire de la valeur du résultat au cours de la campagne"
-            >
-              {stops.map((s, i) => (
+              </div>
+              <svg
+                data-testid="campaign-trajectory"
+                viewBox={`0 0 ${W} ${H}`}
+                className="h-40 w-full sm:h-44"
+                preserveAspectRatio="none"
+                role="img"
+                aria-label="Trajectoire de la valeur du résultat au cours de la campagne"
+              >
+                {stops.map((s, i) => (
+                  <line
+                    key={i}
+                    x1={xAt(s)}
+                    x2={xAt(s)}
+                    y1={lineTop}
+                    y2={lineTop + lineH}
+                    stroke="currentColor"
+                    strokeWidth={0.5}
+                    className="text-border"
+                  />
+                ))}
+                {/* metric curves (both "higher is better") */}
+                <polyline points={congruenceLine} fill="none" stroke="#10b981" strokeWidth={1.5} />
+                <polyline points={optimalityLine} fill="none" stroke="#0ea5e9" strokeWidth={1.5} />
+                {/* ── Signature: winner-identity ribbon — a colour change is a bascule ── */}
+                {traj.slice(0, -1).map((m, i) => (
+                  <rect
+                    key={i}
+                    x={xAt(m.t)}
+                    y={H - bandH}
+                    width={xAt(traj[i + 1].t) - xAt(m.t) + 0.5}
+                    height={bandH}
+                    fill={colorFor(m.winner)}
+                    opacity={0.9}
+                  />
+                ))}
+                {flips.map((ft, i) => (
+                  <line
+                    key={`f${i}`}
+                    x1={xAt(ft)}
+                    x2={xAt(ft)}
+                    y1={H - bandH - 3}
+                    y2={H}
+                    stroke="currentColor"
+                    strokeWidth={1.25}
+                    className="text-foreground"
+                  />
+                ))}
+                {/* current-time cursor */}
                 <line
-                  key={i}
-                  x1={xAt(s)}
-                  x2={xAt(s)}
+                  x1={xAt(t)}
+                  x2={xAt(t)}
                   y1={lineTop}
-                  y2={lineTop + lineH}
-                  stroke="currentColor"
-                  strokeWidth={0.5}
-                  className="text-border"
-                />
-              ))}
-              {/* metric curves (both "higher is better") */}
-              <polyline points={congruenceLine} fill="none" stroke="#10b981" strokeWidth={1.5} />
-              <polyline points={optimalityLine} fill="none" stroke="#0ea5e9" strokeWidth={1.5} />
-              {/* ── Signature: winner-identity ribbon — a colour change is a bascule ── */}
-              {traj.slice(0, -1).map((m, i) => (
-                <rect
-                  key={i}
-                  x={xAt(m.t)}
-                  y={H - bandH}
-                  width={xAt(traj[i + 1].t) - xAt(m.t) + 0.5}
-                  height={bandH}
-                  fill={colorFor(m.winner)}
-                  opacity={0.9}
-                />
-              ))}
-              {flips.map((ft, i) => (
-                <line
-                  key={`f${i}`}
-                  x1={xAt(ft)}
-                  x2={xAt(ft)}
-                  y1={H - bandH - 3}
                   y2={H}
                   stroke="currentColor"
-                  strokeWidth={1.25}
+                  strokeWidth={1}
                   className="text-foreground"
                 />
-              ))}
-              {/* current-time cursor */}
-              <line
-                x1={xAt(t)}
-                x2={xAt(t)}
-                y1={lineTop}
-                y2={H}
-                stroke="currentColor"
-                strokeWidth={1}
-                className="text-foreground"
-              />
-            </svg>
-            <p className="text-[0.6rem] text-muted-foreground">
-              Ruban du bas = vainqueur ; un changement de couleur (trait vertical) est une bascule.
-              Optimalité = 1 − regret.
-            </p>
-          </div>
-
-          {/* ── Map + live readout (the console's bottom row) ── */}
-          <div className="grid gap-3 sm:grid-cols-[minmax(0,15rem)_1fr]">
-            <div className="flex flex-col gap-1">
-              <span className="text-[0.65rem] text-muted-foreground">
-                Idéologie — dérive des candidats
-              </span>
-              <div className="w-full max-w-[15rem]">
-                <CampaignMap
-                  voters={baseVoters}
-                  baseCandidates={config.candidates}
-                  drifted={drifted}
-                  target={target}
-                  winner={current.winner}
-                  colorFor={colorFor}
-                />
-              </div>
-            </div>
+              </svg>
+              <p className="text-[0.6rem] text-muted-foreground">
+                Ruban du bas = vainqueur ; un changement de couleur (trait vertical) est une
+                bascule. Optimalité = 1 − regret.
+              </p>
+            </Instrument>
 
             <div
               className="grid grid-cols-1 content-start gap-2 sm:grid-cols-2"
@@ -534,7 +530,7 @@ const Meter: React.FC<{ label: string; value: number; invert?: boolean; testid?:
     <div data-testid={testid}>
       <div className="flex justify-between text-[0.7rem]">
         <span className="text-muted-foreground">{label}</span>
-        <span className="tabular-nums">{pct} %</span>
+        <span className="font-mono tabular-nums">{pct} %</span>
       </div>
       <div className="h-2 overflow-hidden rounded bg-muted/50">
         <div
