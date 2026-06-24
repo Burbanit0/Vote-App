@@ -95,12 +95,14 @@ describe('CampaignDynamicsPage (C1 shell + hand-off)', () => {
     useElectionStore.setState({ config: { ...DEFAULT_CONFIG, candidates: [] } });
     renderPage();
     expect(screen.getByTestId('empty-electorate')).toBeInTheDocument();
-    // The dynamic core is not rendered without an electorate.
-    expect(screen.queryByTestId('campaign-dynamics-core')).not.toBeInTheDocument();
+    // Neither the instrument nor the explorations drawer render without an electorate.
+    expect(screen.queryByTestId('campaign-explorations-toggle')).not.toBeInTheDocument();
   });
 
-  it('mounts the temporal core when an electorate is present', () => {
+  it('mounts the instrument and the (collapsed) explorations drawer with an electorate', () => {
     renderPage();
-    expect(screen.getByTestId('campaign-dynamics-core')).toBeInTheDocument();
+    expect(screen.getByTestId('campaign-timeline')).toBeInTheDocument();
+    // The deep panels are demoted into one collapsed drawer (form-lock: not mounted).
+    expect(screen.getByTestId('campaign-explorations-toggle')).toBeInTheDocument();
   });
 });

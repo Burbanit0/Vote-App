@@ -5,6 +5,7 @@ import { Badge } from '@/components/ui/badge';
 import { useElection, usePlayground } from '../stores/useElectionStore';
 import { useMetaTags } from '../hooks/useMetaTags';
 import CampaignTimeline from '../components/campaign/CampaignTimeline';
+import Collapsible from '../components/playground/Collapsible';
 
 // CampaignDynamicsPage — page 2 of the journey ("Campagne & dynamique").
 //
@@ -18,14 +19,12 @@ import CampaignTimeline from '../components/campaign/CampaignTimeline';
 // action on the timeline, which writes the current drifted positions back as the
 // new baseline (carry the campaign's end-state into the snapshot tools).
 //
-// Structure: the inherited J0 electorate, then the unified timeline (C2,
-// continuous days + discrete rounds → live value-of-the-result), then three
-// lazy/Collapsible-gated families migrated off the playground:
-//   • CampaignAnchor (C1) — Hotelling, polls, polarization, party dynamics;
-//   • TemporalDynamicsAnchor (C3) — adaptive/replay/primary + cascade/fatigue;
-//   • BehavioralRealismAnchor (C4) — single-ballot B realism (biases, shy voter,
-//     overload, compulsory, demographic, affective).
-// The playground now keeps only the idealized snapshot (family A).
+// Organised like the playground: the inherited J0 electorate, then the central
+// INSTRUMENT (CampaignTimeline — a scenario rail + two synced graphs that move as
+// you scrub), then ONE collapsed "Explorations approfondies" drawer holding the
+// deep per-phenomenon panels (CampaignAnchor, TemporalDynamicsAnchor,
+// BehavioralRealismAnchor) — demoted, lazy, never competing with the instrument.
+// The playground keeps only the idealized snapshot (family A).
 
 const CampaignAnchor = React.lazy(() => import('../components/playground/anchors/CampaignAnchor'));
 const TemporalDynamicsAnchor = React.lazy(
@@ -146,51 +145,38 @@ const CampaignDynamicsPage: React.FC = () => {
         </Card>
       )}
 
-      {/* ── Deep-dive anchor (C1): the migrated temporal panels (Hotelling,
-          polls, polarization, party dynamics). ── */}
+      {/* ── One demoted drawer (like the playground's Explorations row): the deep
+          per-phenomenon panels stay reachable but never compete with the central
+          instrument above. Collapsed + lazy → first paint mounts none of them. ── */}
       {hasElectorate && (
-        <Card className="mb-4" data-testid="campaign-dynamics-core">
-          <CardHeader>
-            <CardTitle className="text-base">🎬 Approfondir la trajectoire</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <React.Suspense fallback={<AnchorFallback />}>
-              <CampaignAnchor />
-            </React.Suspense>
-          </CardContent>
-        </Card>
-      )}
-
-      {/* ── Temporal mechanisms + sequential behaviour (C3): migrated off the
-          playground — they unfold over rounds/sequence, like the timeline. ── */}
-      {hasElectorate && (
-        <Card className="mb-4" data-testid="campaign-temporal-mechanisms">
-          <CardHeader>
-            <CardTitle className="text-base">
-              🔁 Mécanismes &amp; comportements dans le temps
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <React.Suspense fallback={<AnchorFallback />}>
-              <TemporalDynamicsAnchor />
-            </React.Suspense>
-          </CardContent>
-        </Card>
-      )}
-
-      {/* ── Behavioural realism (C4): the family-B single-ballot deformations,
-          migrated off the playground as a secondary "réalisme" facette. ── */}
-      {hasElectorate && (
-        <Card data-testid="campaign-behavioral-realism">
-          <CardHeader>
-            <CardTitle className="text-base">🧠 Réalisme comportemental (un scrutin)</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <React.Suspense fallback={<AnchorFallback />}>
-              <BehavioralRealismAnchor />
-            </React.Suspense>
-          </CardContent>
-        </Card>
+        <Collapsible
+          title="🔬 Explorations approfondies"
+          subtitle="trajectoire · mécanismes temporels · réalisme comportemental"
+          testid="campaign-explorations"
+        >
+          <div className="flex flex-col gap-5">
+            <section className="flex flex-col gap-2">
+              <h3 className="text-sm font-semibold">🎬 Approfondir la trajectoire</h3>
+              <React.Suspense fallback={<AnchorFallback />}>
+                <CampaignAnchor />
+              </React.Suspense>
+            </section>
+            <section className="flex flex-col gap-2">
+              <h3 className="text-sm font-semibold">
+                🔁 Mécanismes &amp; comportements dans le temps
+              </h3>
+              <React.Suspense fallback={<AnchorFallback />}>
+                <TemporalDynamicsAnchor />
+              </React.Suspense>
+            </section>
+            <section className="flex flex-col gap-2">
+              <h3 className="text-sm font-semibold">🧠 Réalisme comportemental (un scrutin)</h3>
+              <React.Suspense fallback={<AnchorFallback />}>
+                <BehavioralRealismAnchor />
+              </React.Suspense>
+            </section>
+          </div>
+        </Collapsible>
       )}
     </div>
   );

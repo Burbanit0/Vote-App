@@ -108,4 +108,35 @@ describe('CampaignTimeline (C2)', () => {
     );
     expect(moved).toBe(true);
   });
+
+  it('renders the central instrument: scenario rail, map, trajectory, play', () => {
+    renderTimeline();
+    expect(screen.getByTestId('timeline-scenario')).toBeInTheDocument();
+    expect(screen.getByTestId('campaign-map')).toBeInTheDocument();
+    expect(screen.getByTestId('campaign-trajectory')).toBeInTheDocument();
+    expect(screen.getByTestId('timeline-play')).toBeInTheDocument();
+    for (const id of ['derive', 'sondages', 'durcissement']) {
+      expect(screen.getByTestId(`scenario-${id}`)).toBeInTheDocument();
+    }
+  });
+
+  it('the scenario drives the drift: durcissement moves candidates outward, dérive inward', () => {
+    const onPin = vi.fn();
+    render(
+      <CampaignTimeline config={DEFAULT_CONFIG} playground={DEFAULT_PLAYGROUND} onPin={onPin} />
+    );
+    fireEvent.click(screen.getByTestId('round-stop-3')); // t = 1
+
+    // Default scenario (dérive) pulls the spread in.
+    fireEvent.click(screen.getByTestId('timeline-pin'));
+    const derive = onPin.mock.calls[0][0];
+
+    fireEvent.click(screen.getByTestId('scenario-durcissement'));
+    fireEvent.click(screen.getByTestId('round-stop-3')); // re-pin at t=1 (pinned confirmation resets)
+    fireEvent.click(screen.getByTestId('timeline-pin'));
+    const harden = onPin.mock.calls[1][0];
+
+    const spread = (cs: { x: number }[]) => Math.max(...cs.map((c) => Math.abs(c.x)));
+    expect(spread(harden)).toBeGreaterThan(spread(derive));
+  });
 });

@@ -90,21 +90,26 @@ export interface ResultMetrics {
   flippedFromStart: boolean;
 }
 
+/** How a scenario moves the candidates at progress `t` (the one injection point). */
+export type DriftFn = (base: NamedPt[], target: Pt, t: number, strength: number) => NamedPt[];
+
 export interface TimelineParams {
   rule: Rule;
   dims: Dims;
   turnout: { model: TurnoutModel; intensity: number };
-  /** How far candidates travel toward the median by t=1 (Hotelling strength). */
+  /** How far candidates travel by t=1 (Hotelling strength / scenario intensity). */
   strength: number;
   /** Campaign length in days (for the day readout). */
   numDays: number;
+  /** The active scenario's drift model; default = Hotelling (toward the median). */
+  drift?: DriftFn;
 }
 
 /**
- * The candidate positions at campaign progress `t`: drifted toward the median
- * (Hotelling, when t>0) and projected onto the active dimensions. This is the
- * geometry the map shows AND what "pin this state back into the playground"
- * writes — so the pinned electorate is exactly what the user sees at `t`.
+ * The candidate positions at campaign progress `t`, per the active scenario's
+ * drift (default Hotelling toward the median), projected onto the active
+ * dimensions. This is the geometry the map shows AND what "pin" writes back — so
+ * the pinned electorate is exactly what the user sees at `t`.
  */
 export function driftedAt(
   baseCandidates: NamedPt[],
@@ -112,10 +117,12 @@ export function driftedAt(
   t: number,
   params: TimelineParams
 ): NamedPt[] {
-  return projectCandidates(
-    t > 0 ? driftCandidates(baseCandidates, target, t, params.strength) : baseCandidates,
-    params.dims
-  );
+  const moved = params.drift
+    ? params.drift(baseCandidates, target, t, params.strength)
+    : t > 0
+      ? driftCandidates(baseCandidates, target, t, params.strength)
+      : baseCandidates;
+  return projectCandidates(moved, params.dims);
 }
 
 /** Social cost of a candidate = mean voter→candidate distance (lower = better). */
