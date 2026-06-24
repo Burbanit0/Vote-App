@@ -256,95 +256,97 @@ const CampaignTimeline: React.FC<Props> = ({ config, playground, onPin }) => {
           </label>
         </div>
 
-        {/* ── Instrument: the trajectory hero on top, map + live readout below ── */}
-        <div className="flex flex-col gap-3" data-testid="campaign-instrument">
-          <Instrument
-            label="Trajectoire — valeur du résultat"
-            readout={`J${current.day} / J${numDays}`}
-          >
-            <div className="mb-1 flex items-center justify-end gap-2 text-[0.65rem] text-muted-foreground">
-              <span className="flex items-center gap-1">
-                <span className="inline-block h-1.5 w-3 rounded bg-emerald-500" /> centralité
-              </span>
-              <span className="flex items-center gap-1">
-                <span className="inline-block h-1.5 w-3 rounded bg-sky-500" /> optimalité
-              </span>
-            </div>
-            <svg
-              data-testid="campaign-trajectory"
-              viewBox={`0 0 ${W} ${H}`}
-              className="h-40 w-full sm:h-44"
-              preserveAspectRatio="none"
-              role="img"
-              aria-label="Trajectoire de la valeur du résultat au cours de la campagne"
-            >
-              {stops.map((s, i) => (
-                <line
-                  key={i}
-                  x1={xAt(s)}
-                  x2={xAt(s)}
-                  y1={lineTop}
-                  y2={lineTop + lineH}
-                  stroke="currentColor"
-                  strokeWidth={0.5}
-                  className="text-border"
-                />
-              ))}
-              {/* metric curves (both "higher is better") */}
-              <polyline points={congruenceLine} fill="none" stroke="#10b981" strokeWidth={1.5} />
-              <polyline points={optimalityLine} fill="none" stroke="#0ea5e9" strokeWidth={1.5} />
-              {/* ── Signature: winner-identity ribbon — a colour change is a bascule ── */}
-              {traj.slice(0, -1).map((m, i) => (
-                <rect
-                  key={i}
-                  x={xAt(m.t)}
-                  y={H - bandH}
-                  width={xAt(traj[i + 1].t) - xAt(m.t) + 0.5}
-                  height={bandH}
-                  fill={colorFor(m.winner)}
-                  opacity={0.9}
-                />
-              ))}
-              {flips.map((ft, i) => (
-                <line
-                  key={`f${i}`}
-                  x1={xAt(ft)}
-                  x2={xAt(ft)}
-                  y1={H - bandH - 3}
-                  y2={H}
-                  stroke="currentColor"
-                  strokeWidth={1.25}
-                  className="text-foreground"
-                />
-              ))}
-              {/* current-time cursor */}
-              <line
-                x1={xAt(t)}
-                x2={xAt(t)}
-                y1={lineTop}
-                y2={H}
-                stroke="currentColor"
-                strokeWidth={1}
-                className="text-foreground"
-              />
-            </svg>
-            <p className="text-[0.6rem] text-muted-foreground">
-              Ruban du bas = vainqueur ; un changement de couleur (trait vertical) est une bascule.
-              Optimalité = 1 − regret.
-            </p>
+        {/* ── Instrument: big ideology map on the left, trajectory + readout stacked right ── */}
+        <div
+          className="grid gap-3 lg:grid-cols-[minmax(0,30rem)_1fr] lg:items-start"
+          data-testid="campaign-instrument"
+        >
+          <Instrument label="Idéologie — dérive" className="w-full">
+            <CampaignMap
+              voters={baseVoters}
+              baseCandidates={config.candidates}
+              drifted={drifted}
+              target={target}
+              winner={current.winner}
+              colorFor={colorFor}
+            />
           </Instrument>
 
-          {/* ── Map + live readout (the console's bottom row) ── */}
-          <div className="grid gap-3 sm:grid-cols-[minmax(0,22rem)_1fr]">
-            <Instrument label="Idéologie — dérive" className="w-full max-w-[22rem]">
-              <CampaignMap
-                voters={baseVoters}
-                baseCandidates={config.candidates}
-                drifted={drifted}
-                target={target}
-                winner={current.winner}
-                colorFor={colorFor}
-              />
+          <div className="flex min-w-0 flex-col gap-3">
+            <Instrument
+              label="Trajectoire — valeur du résultat"
+              readout={`J${current.day} / J${numDays}`}
+            >
+              <div className="mb-1 flex items-center justify-end gap-2 text-[0.65rem] text-muted-foreground">
+                <span className="flex items-center gap-1">
+                  <span className="inline-block h-1.5 w-3 rounded bg-emerald-500" /> centralité
+                </span>
+                <span className="flex items-center gap-1">
+                  <span className="inline-block h-1.5 w-3 rounded bg-sky-500" /> optimalité
+                </span>
+              </div>
+              <svg
+                data-testid="campaign-trajectory"
+                viewBox={`0 0 ${W} ${H}`}
+                className="h-40 w-full sm:h-44"
+                preserveAspectRatio="none"
+                role="img"
+                aria-label="Trajectoire de la valeur du résultat au cours de la campagne"
+              >
+                {stops.map((s, i) => (
+                  <line
+                    key={i}
+                    x1={xAt(s)}
+                    x2={xAt(s)}
+                    y1={lineTop}
+                    y2={lineTop + lineH}
+                    stroke="currentColor"
+                    strokeWidth={0.5}
+                    className="text-border"
+                  />
+                ))}
+                {/* metric curves (both "higher is better") */}
+                <polyline points={congruenceLine} fill="none" stroke="#10b981" strokeWidth={1.5} />
+                <polyline points={optimalityLine} fill="none" stroke="#0ea5e9" strokeWidth={1.5} />
+                {/* ── Signature: winner-identity ribbon — a colour change is a bascule ── */}
+                {traj.slice(0, -1).map((m, i) => (
+                  <rect
+                    key={i}
+                    x={xAt(m.t)}
+                    y={H - bandH}
+                    width={xAt(traj[i + 1].t) - xAt(m.t) + 0.5}
+                    height={bandH}
+                    fill={colorFor(m.winner)}
+                    opacity={0.9}
+                  />
+                ))}
+                {flips.map((ft, i) => (
+                  <line
+                    key={`f${i}`}
+                    x1={xAt(ft)}
+                    x2={xAt(ft)}
+                    y1={H - bandH - 3}
+                    y2={H}
+                    stroke="currentColor"
+                    strokeWidth={1.25}
+                    className="text-foreground"
+                  />
+                ))}
+                {/* current-time cursor */}
+                <line
+                  x1={xAt(t)}
+                  x2={xAt(t)}
+                  y1={lineTop}
+                  y2={H}
+                  stroke="currentColor"
+                  strokeWidth={1}
+                  className="text-foreground"
+                />
+              </svg>
+              <p className="text-[0.6rem] text-muted-foreground">
+                Ruban du bas = vainqueur ; un changement de couleur (trait vertical) est une
+                bascule. Optimalité = 1 − regret.
+              </p>
             </Instrument>
 
             <div
