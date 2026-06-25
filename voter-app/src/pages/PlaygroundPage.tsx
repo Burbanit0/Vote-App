@@ -8,7 +8,7 @@ import {
 } from '../components/playground/PlaygroundController';
 import MomentRail, { MOMENTS } from '../components/playground/MomentRail';
 import InstrumentPanel from '../components/playground/InstrumentPanel';
-import Frontieres from '../components/playground/Frontieres';
+import MomentExplorations from '../components/playground/MomentExplorations';
 import GuidedFooter from '../components/playground/GuidedFooter';
 import ElectorateMoment from '../components/playground/moments/ElectorateMoment';
 import MethodMoment from '../components/playground/moments/MethodMoment';
@@ -91,7 +91,7 @@ const PlaygroundShell: React.FC = () => {
         </div>
       )}
 
-      <Frontieres />
+      <MomentExplorations />
       <GuidedFooter />
     </div>
   );

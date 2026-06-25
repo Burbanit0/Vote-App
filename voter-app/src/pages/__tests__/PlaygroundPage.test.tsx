@@ -510,31 +510,32 @@ describe('PlaygroundPage (P0 shell)', () => {
   // Every Lab family now lives in a contextual anchor next to the concept it
   // deepens — all lazy + Collapsible-gated, so first paint mounts none of them.
 
-  it('form-lock: no Lab module is mounted on first paint — only anchor toggles', () => {
+  it('form-lock: no Lab module is mounted on first paint — anchors live in their moment', () => {
     renderPage();
     // The two-mode core is intact and visible.
     expect(screen.getByTestId('leader-canvas')).toBeInTheDocument();
     expect(screen.getByTestId('cycle-rate')).toBeInTheDocument();
     // The old terminal catch-all is gone.
     expect(screen.queryByTestId('module-advanced')).not.toBeInTheDocument();
-    // Anchors visible on the default Électorat moment ship collapsed: their
-    // toggles exist, panels do not. (anchor-blank lives in the Méthode moment.)
+    // The deep explorations no longer stack under every moment: on the default
+    // Électorat moment only its own anchor (abstention) is present, collapsed.
+    expect(screen.getByTestId('anchor-abstention-toggle')).toBeInTheDocument();
     for (const anchor of [
       'anchor-mechanisms',
       'anchor-analysis',
       'anchor-results',
       'anchor-theory',
-      'anchor-abstention',
     ]) {
-      expect(screen.getByTestId(`${anchor}-toggle`)).toBeInTheDocument();
+      expect(screen.queryByTestId(`${anchor}-toggle`)).not.toBeInTheDocument();
     }
     for (const panel of ['mech-jury', 'ana-montecarlo', 'res-table', 'sys-coalition', 'thy-sen']) {
       expect(screen.queryByTestId(panel)).not.toBeInTheDocument();
     }
   });
 
-  it('form-lock: the theory anchor (full width) reveals its leaves lazily', async () => {
+  it('form-lock: the theory anchor (in the Bilan moment) reveals its leaves lazily', async () => {
     renderPage();
+    fireEvent.click(screen.getByTestId('moment-bilan'));
     expect(screen.getByTestId('anchor-theory')).toBeInTheDocument();
     expect(screen.queryByTestId('thy-sen')).not.toBeInTheDocument();
     fireEvent.click(screen.getByTestId('anchor-theory-toggle'));
@@ -543,10 +544,11 @@ describe('PlaygroundPage (P0 shell)', () => {
     expect(screen.getByTestId('thy-polis')).toBeInTheDocument();
   });
 
-  it('form-lock: the systems anchor (parliament canvas) reveals its leaves lazily', async () => {
+  it('form-lock: the systems anchor (parliament Méthode moment) reveals its leaves lazily', async () => {
     renderPage();
     fireEvent.click(screen.getByTestId('mode-toggle-parliament'));
-    // Anchored in the parliament canvas, collapsed: no system panel mounted.
+    fireEvent.click(screen.getByTestId('moment-method'));
+    // Anchored in the Méthode moment, collapsed: no system panel mounted.
     expect(screen.getByTestId('anchor-systems')).toBeInTheDocument();
     expect(screen.queryByTestId('sys-coalition')).not.toBeInTheDocument();
     fireEvent.click(screen.getByTestId('anchor-systems-toggle'));
@@ -556,8 +558,9 @@ describe('PlaygroundPage (P0 shell)', () => {
     expect(screen.getByTestId('canvas-parliament')).toBeInTheDocument();
   });
 
-  it('form-lock: the results anchor (full width) reveals its leaves lazily', async () => {
+  it('form-lock: the results anchor (in the Bilan moment) reveals its leaves lazily', async () => {
     renderPage();
+    fireEvent.click(screen.getByTestId('moment-bilan'));
     expect(screen.getByTestId('anchor-results')).toBeInTheDocument();
     expect(screen.queryByTestId('res-table')).not.toBeInTheDocument();
     fireEvent.click(screen.getByTestId('anchor-results-toggle'));
@@ -590,8 +593,9 @@ describe('PlaygroundPage (P0 shell)', () => {
     expect(screen.queryByTestId('leader-canvas')).not.toBeInTheDocument();
   });
 
-  it('form-lock: the mechanisms anchor (leader canvas) reveals its leaves lazily', async () => {
+  it('form-lock: the mechanisms anchor (leader Méthode moment) reveals its leaves lazily', async () => {
     renderPage();
+    fireEvent.click(screen.getByTestId('moment-method'));
     expect(screen.getByTestId('anchor-mechanisms')).toBeInTheDocument();
     expect(screen.queryByTestId('mech-jury')).not.toBeInTheDocument();
     fireEvent.click(screen.getByTestId('anchor-mechanisms-toggle'));
@@ -600,8 +604,9 @@ describe('PlaygroundPage (P0 shell)', () => {
     expect(screen.getByTestId('mech-identity')).toBeInTheDocument();
   });
 
-  it('form-lock: the analysis anchor (full width) reveals its leaves lazily', async () => {
+  it('form-lock: the analysis anchor (in the Bilan moment) reveals its leaves lazily', async () => {
     renderPage();
+    fireEvent.click(screen.getByTestId('moment-bilan'));
     expect(screen.getByTestId('anchor-analysis')).toBeInTheDocument();
     expect(screen.queryByTestId('ana-montecarlo')).not.toBeInTheDocument();
     fireEvent.click(screen.getByTestId('anchor-analysis-toggle'));
