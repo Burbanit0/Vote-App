@@ -193,23 +193,6 @@ const Navbar: React.FC = () => {
                 🎛 {t('nav.playground')}
               </Nav.Link>
 
-              {/* Campagne & dynamique — page 2 of the journey (temporal) */}
-              <Nav.Link
-                href="/campagne"
-                className="font-semibold px-3 py-1 rounded"
-                active={currentPath === '/campagne'}
-                onClick={() => setNavExpanded(false)}
-                style={{
-                  background: currentPath === '/campagne' ? 'var(--bs-primary)' : 'transparent',
-                  color: currentPath === '/campagne' ? '#fff' : 'var(--bs-primary)',
-                  border: '1.5px solid var(--bs-primary)',
-                  fontSize: '0.88rem',
-                  transition: 'all 0.15s',
-                }}
-              >
-                📈 {t('nav.campaign')}
-              </Nav.Link>
-
               {/* Apprendre dropdown */}
               <NavDropdown title={t('nav.learn')} id="nav-learn" renderMenuOnMount>
                 {NAV_LEARN.map(({ href, icon, key }) => (

@@ -1,0 +1,121 @@
+import React from 'react';
+import { usePlaygroundCtx } from '../PlaygroundController';
+import Scorecard from '../Scorecard';
+import MethodInfo from '../MethodInfo';
+import ValuesPanel from '../ValuesPanel';
+import { RULE_LABELS } from '../../../lib/playgroundVoting';
+import { dialWeights, LEADER_AXES_KEYS } from '../../../lib/scorecard';
+import { STRUCTURE_LABELS, PARLIAMENT_AXES_KEYS } from '../../../lib/playgroundMeta';
+
+// Moment ⑤ Bilan — the verdict. What does the current method/structure score, and
+// what is it worth according to YOUR values? The synthesis the journey builds up to.
+const BilanMoment: React.FC = () => {
+  const {
+    mode,
+    leaderRule,
+    assembly,
+    result,
+    parlSc,
+    currentAxes,
+    axisMeta,
+    lensItems,
+    lensMode,
+    setLensMode,
+    dial,
+    setDial,
+    effectiveWeights,
+    setLeaderWeights,
+    setParlWeights,
+  } = usePlaygroundCtx();
+
+  return (
+    <div className="flex flex-col gap-4">
+      <div className="flex items-center gap-1 text-sm font-medium">
+        <span className="text-muted-foreground">Évalué pour&nbsp;:</span>
+        <span>
+          {mode === 'leader' ? RULE_LABELS[leaderRule] : STRUCTURE_LABELS[assembly.structure]}
+        </span>
+        {mode === 'leader' ? (
+          <MethodInfo
+            method={leaderRule}
+            context={{ condorcetExists: result?.condorcet_winner != null }}
+            placement="bottom"
+          />
+        ) : (
+          <MethodInfo method={assembly.structure} placement="bottom" />
+        )}
+      </div>
+
+      <Scorecard
+        axes={currentAxes}
+        bandNote={
+          mode === 'leader'
+            ? '20 ré-échantillonnages'
+            : `${parlSc?.replications ?? 24} ré-échantillonnages`
+        }
+      />
+
+      <hr className="border-border" />
+
+      {/* FA-2 — the identity dial (one value, correlated weights) */}
+      <div data-testid="lijphart-dial-block" className="flex flex-col gap-1">
+        <div className="flex items-center justify-between text-xs">
+          <span className="font-semibold uppercase tracking-wide text-muted-foreground">
+            Votre sensibilité
+          </span>
+          <button
+            type="button"
+            data-testid="lens-granular-toggle"
+            className="text-[0.7rem] text-primary underline-offset-2 hover:underline"
+            onClick={() => {
+              if (lensMode === 'dial') {
+                const seeded = dialWeights(dial, mode);
+                if (mode === 'leader') setLeaderWeights(seeded);
+                else setParlWeights(seeded);
+                setLensMode('granular');
+              } else {
+                setLensMode('dial');
+              }
+            }}
+          >
+            {lensMode === 'dial' ? 'Réglage fin…' : '← Cadran simple'}
+          </button>
+        </div>
+        {lensMode === 'dial' && (
+          <>
+            <input
+              data-testid="lijphart-dial"
+              type="range"
+              min={0}
+              max={1}
+              step={0.05}
+              value={dial}
+              onChange={(e) => setDial(Number(e.target.value))}
+              title="Un seul cadran qui règle des pondérations corrélées (convention déclarée) — le réglage fin reste disponible."
+            />
+            <div className="flex justify-between text-[0.68rem] text-muted-foreground">
+              <span>Majoritaire (décisif)</span>
+              <span>Consensualiste (inclusif)</span>
+            </div>
+          </>
+        )}
+      </div>
+
+      <ValuesPanel
+        items={lensItems}
+        axisKeys={mode === 'leader' ? [...LEADER_AXES_KEYS] : PARLIAMENT_AXES_KEYS}
+        axisLabels={Object.fromEntries(axisMeta.map((a) => [a.key, a.label]))}
+        itemLabels={mode === 'leader' ? RULE_LABELS : STRUCTURE_LABELS}
+        weights={effectiveWeights}
+        granular={lensMode === 'granular'}
+        onWeightChange={(k, v) => {
+          setLensMode('granular');
+          if (mode === 'leader') setLeaderWeights((w) => ({ ...w, [k]: v }));
+          else setParlWeights((w) => ({ ...w, [k]: v }));
+        }}
+      />
+    </div>
+  );
+};
+
+export default BilanMoment;

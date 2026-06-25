@@ -240,6 +240,7 @@ describe('PlaygroundPage (P0 shell)', () => {
 
   it('leader mode renders the banded scorecard and the values lens over the 6 rules', async () => {
     renderPage();
+    fireEvent.click(screen.getByTestId('moment-bilan'));
     await waitFor(
       () => expect(screen.getByTestId('axis-condorcet_efficiency').textContent).toMatch(/\d+\s?%/),
       { timeout: 5000 }
@@ -252,6 +253,7 @@ describe('PlaygroundPage (P0 shell)', () => {
   it('parliament mode shows the structure scorecard from the backend with bands', async () => {
     renderPage();
     fireEvent.click(screen.getByTestId('mode-toggle-parliament'));
+    fireEvent.click(screen.getByTestId('moment-bilan'));
     await waitFor(
       () => expect(screen.getByTestId('axis-proportionality')).toHaveTextContent('90 %'),
       { timeout: 5000 }
@@ -371,6 +373,7 @@ describe('PlaygroundPage (P0 shell)', () => {
   it('the identity dial moves the spotlight along the frontier', async () => {
     renderPage();
     fireEvent.click(screen.getByTestId('mode-toggle-parliament'));
+    fireEvent.click(screen.getByTestId('moment-bilan'));
     await waitFor(() => expect(screen.getByTestId('lens-item-pr')).toBeInTheDocument(), {
       timeout: 5000,
     });
@@ -384,6 +387,7 @@ describe('PlaygroundPage (P0 shell)', () => {
 
   it('the granular escape hatch reveals the sliders and a touch switches modes', async () => {
     renderPage();
+    fireEvent.click(screen.getByTestId('moment-bilan'));
     // Dial mode by default: granular sliders not rendered.
     expect(screen.getByTestId('lijphart-dial')).toBeInTheDocument();
     expect(screen.queryByTestId('weight-condorcet_efficiency')).not.toBeInTheDocument();
@@ -576,7 +580,7 @@ describe('PlaygroundPage (P0 shell)', () => {
     }
     // The journey rail carries the four moments; the core canvas is on the default one.
     expect(screen.getByTestId('moment-rail')).toBeInTheDocument();
-    for (const m of ['electorate', 'method', 'strategy', 'campaign']) {
+    for (const m of ['electorate', 'method', 'strategy', 'campaign', 'bilan']) {
       expect(screen.getByTestId(`moment-${m}`)).toBeInTheDocument();
     }
     expect(screen.getByTestId('leader-canvas')).toBeInTheDocument();

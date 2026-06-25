@@ -24,7 +24,6 @@ const InternationalRegimesPage = React.lazy(() => import('./pages/InternationalR
 const ApiDocsPage = React.lazy(() => import('./pages/ApiDocsPage'));
 const TeacherPresentationPage = React.lazy(() => import('./pages/TeacherPresentationPage'));
 const PlaygroundPage = React.lazy(() => import('./pages/PlaygroundPage'));
-const CampaignDynamicsPage = React.lazy(() => import('./pages/CampaignDynamicsPage'));
 const QuadraticFundingPage = React.lazy(() => import('./pages/QuadraticFundingPage'));
 const TechDemocracyPage = React.lazy(() => import('./pages/TechDemocracyPage'));
 const TheoryPage = React.lazy(() => import('./pages/TheoryPage'));
@@ -93,7 +92,8 @@ const AppContent: React.FC = () => {
             <Route path="/api-docs" element={<ApiDocsPage />} />
             <Route path="/teacher/presentation" element={<TeacherPresentationPage />} />
             <Route path="/playground" element={<PlaygroundPage />} />
-            <Route path="/campagne" element={<CampaignDynamicsPage />} />
+            {/* Campagne folded into the playground as moment ④ — redirect old links. */}
+            <Route path="/campagne" element={<Navigate to="/playground" replace />} />
             <Route path="/quadratic-funding" element={<QuadraticFundingPage />} />
             <Route path="/tech-democracy" element={<TechDemocracyPage />} />
             {/* Election Lab retired — fully absorbed into the playground. Redirect the

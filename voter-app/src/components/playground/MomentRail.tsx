@@ -6,7 +6,7 @@ import { cn } from '@/lib/utils';
 // their effect is already baked into the live instrument; the rail only swaps
 // which knobs are in your hand. Reads as a strip of stations on the instrument.
 
-export type MomentId = 'electorate' | 'method' | 'strategy' | 'campaign';
+export type MomentId = 'electorate' | 'method' | 'strategy' | 'campaign' | 'bilan';
 
 export const MOMENTS: { id: MomentId; n: string; icon: string; label: string; hint: string }[] = [
   {
@@ -36,6 +36,13 @@ export const MOMENTS: { id: MomentId; n: string; icon: string; label: string; hi
     icon: '📈',
     label: 'Campagne',
     hint: 'La réaction du vote dans le temps.',
+  },
+  {
+    id: 'bilan',
+    n: '5',
+    icon: '⚖',
+    label: 'Bilan',
+    hint: 'Le verdict — ce que ça vaut, selon vos valeurs.',
   },
 ];
 
