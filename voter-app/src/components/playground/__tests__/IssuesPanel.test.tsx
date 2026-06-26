@@ -53,7 +53,7 @@ describe('IssuesPanel (FB-2)', () => {
     // 3rd arg = the composed-electorate source (undefined here: no playground prop).
     expect(runIssueVoting).toHaveBeenCalledWith(DEFAULT_CONFIG, 6, undefined);
     // Aligned profile: no paradox headline, no divergence marks.
-    expect(screen.getByTestId('issues-headline')).not.toHaveTextContent('Paradoxe');
+    expect(screen.getByTestId('issues-headline')).not.toHaveTextContent('Ostrogorski');
     expect(screen.getByTestId('issues-headline')).toHaveTextContent('0/3');
   });
 
@@ -61,12 +61,12 @@ describe('IssuesPanel (FB-2)', () => {
     render(<IssuesPanel config={DEFAULT_CONFIG} />);
     fireEvent.click(screen.getByTestId('issues-demo'));
     await waitFor(() =>
-      expect(screen.getByTestId('issues-headline')).toHaveTextContent('Paradoxe')
+      expect(screen.getByTestId('issues-headline')).toHaveTextContent('Ostrogorski')
     );
     expect(screen.getByTestId('issues-headline')).toHaveTextContent('3/3');
     // Every issue row carries the divergence mark: majority Non vs platform Oui ✕.
     for (const label of ['Enjeu 1', 'Enjeu 2', 'Enjeu 3']) {
-      expect(screen.getByTestId(`issue-row-${label}`)).toHaveTextContent('Non');
+      expect(screen.getByTestId(`issue-row-${label}`)).toHaveTextContent('No');
       expect(screen.getByTestId(`issue-row-${label}`)).toHaveTextContent('✕');
     }
     // The winner and its platform are listed.

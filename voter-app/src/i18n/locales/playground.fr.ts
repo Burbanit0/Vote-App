@@ -198,6 +198,12 @@ const pgFr = {
       'Les électeurs désertent les partis non viables (FPTP : hors du top-2 de leur circonscription ; proportionnelle : sous le seuil) pour leur parti viable le plus proche — la loi de Duverger en mécanique.',
     duvergerNote:
       'La désertion comprime les partis non viables vers leur voisin viable : Duverger, en mécanique. L’effet se lit en direct sur la composition de l’assemblée →.',
+    svIntro:
+      'Part des électeurs qui pourraient améliorer leur résultat en votant insincèrement (Gibbard–Satterthwaite, par force brute). Plus c’est bas, plus la méthode résiste. Calcul lourd — à la demande, hors lecture temps-réel.',
+    svComputing: 'Calcul… (quelques secondes)',
+    svRun: '▶ Calculer la vulnérabilité stratégique',
+    svError: 'Calcul indisponible (backend). Réessayez après redémarrage.',
+    svFooter: 'Barre = part d’électeurs avec un mensonge profitable (0 % = aucun n’y gagne).',
   },
   parliament: {
     mirror: {
@@ -261,6 +267,65 @@ const pgFr = {
     drillTitle: 'Approfondir dans le Lab',
     drillAria: 'Approfondir « {{label}} » dans le Lab',
     bandFooter: 'Bande = p10–p90 sur {{note}} ; trait = moyenne.',
+  },
+  structural: {
+    title: '⚖ Équités structurelles',
+    malTitle: '0 = circonscriptions de population égale ; 1 = fortement inégales (≈ 4:1).',
+    mal: 'Malapportionnement',
+    analyze: '▶ Analyser',
+    intro:
+      'Les règles autour de la règle : taille des circonscriptions, découpage, pondération des conseils, scrutin plurinominal — chacune déplace le pouvoir sans toucher au mode de scrutin.',
+    unequalWeight: 'Poids inégal des voix',
+    popPerSeat: 'Population par siège : rapport',
+    controlShare: 'Part des voix pouvant contrôler la majorité des sièges :',
+    vsEqual: '(vs {{pct}} % à circonscriptions égales)',
+    egTitle:
+      '(voix gaspillées A − voix gaspillées B) / total bipartite — la métrique standard du charcutage. Gaspillé = voix perdantes + surplus au-delà de 50 % + 1.',
+    egLabel: 'Efficiency gap ({{a}} vs {{b}})',
+    disfavors: '{{pct}} % — défavorise',
+    penroseTitle:
+      'Pondérer les délégués par √population égalise l’influence des citoyens (approximation de Penrose) ; les pondérations égale ou proportionnelle la déséquilibrent.',
+    penroseHead: 'Conseil — loi de Penrose (√)',
+    schemeEqual: '1 circonscription = 1 voix',
+    schemeProp: 'Poids ∝ population',
+    schemePenrose: 'Poids ∝ √population',
+    citizenPower: 'pouvoir citoyen max/min :',
+    cumTitle:
+      'M sièges dans une circonscription unique : en vote en bloc, le parti en tête rafle tout ; en vote cumulatif, une minorité cohésive concentre ses voix et obtient des sièges.',
+    cumHead: 'Plurinominal : bloc vs cumulatif ({{seats}} sièges)',
+    bloc: 'Bloc',
+    cumulative: 'Cumulatif',
+    minorityLead: 'Sièges des minorités :',
+    blocSuffix: '(bloc) →',
+    cumSuffix: '(cumulatif)',
+  },
+  issues: {
+    yes: 'Oui',
+    no: 'Non',
+    title: '🗳 Enjeux & groupage (Ostrogorski)',
+    issuesLabel: 'Enjeux',
+    analyze: '▶ Analyser',
+    demoTitle:
+      'Le profil construit canonique : le programme gagnant est désavoué enjeu par enjeu par la majorité.',
+    demo: 'Paradoxe construit',
+    intro:
+      'Élire un programme groupe les enjeux ; les majorités enjeu par enjeu peuvent dire l’inverse. Mode spatial : chaque enjeu est une ligne de partage du plan (convention déclarée, même graine = mêmes enjeux).',
+    paradoxPrefix: '⚠ Paradoxe d’Ostrogorski : ',
+    divergeOn_one:
+      'remporte le vote par programme, mais la majorité le désavoue sur {{count}}/{{num}} enjeu.',
+    divergeOn_other:
+      'remporte le vote par programme, mais la majorité le désavoue sur {{count}}/{{num}} enjeux.',
+    yesShare: 'Oui (part)',
+    majorityCol: 'Majorité enjeu',
+    platformCol: 'Programme élu',
+  },
+  democracy: {
+    title: 'Carte des démocraties (axe de Lijphart)',
+    aria: 'Axe majoritaire–consensus',
+    majoritarian: '← Majoritaire (décisif, winner-take-all)',
+    consensus: 'Consensus (proportionnel, partage) →',
+    footer:
+      'Pays : scores « exécutifs-partis » approximatifs (Lijphart 2012), pour situer. Vos structures sont positionnées en direct : moyenne de proportionnalité, pluralisme, minorités et (1 − gouvernabilité) sur l’électorat courant — convention déclarée, 1 seule dimension (le fédéralisme n’est pas modélisé).',
   },
   values: {
     weightsTitle: 'Vos pondérations',

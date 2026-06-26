@@ -190,6 +190,12 @@ const pgEn: PlaygroundKeys = {
       'Voters desert non-viable parties (FPTP: outside their district’s top 2; PR: below the threshold) for their nearest viable party — Duverger’s law as mechanics.',
     duvergerNote:
       'Desertion squeezes non-viable parties toward their viable neighbour: Duverger, as mechanics. The effect reads live on the assembly’s composition →.',
+    svIntro:
+      'Share of voters who could improve their outcome by voting insincerely (Gibbard–Satterthwaite, brute force). The lower, the more resistant the method. Heavy compute — on demand, outside the real-time read-out.',
+    svComputing: 'Computing… (a few seconds)',
+    svRun: '▶ Compute strategic vulnerability',
+    svError: 'Compute unavailable (backend). Retry after a restart.',
+    svFooter: 'Bar = share of voters with a profitable lie (0 % = nobody gains).',
   },
   parliament: {
     mirror: {
@@ -252,6 +258,65 @@ const pgEn: PlaygroundKeys = {
     drillTitle: 'Dig deeper in the Lab',
     drillAria: 'Dig into “{{label}}” in the Lab',
     bandFooter: 'Band = p10–p90 over {{note}}; tick = mean.',
+  },
+  structural: {
+    title: '⚖ Structural fairness',
+    malTitle: '0 = equal-population districts; 1 = strongly unequal (≈ 4:1).',
+    mal: 'Malapportionment',
+    analyze: '▶ Analyse',
+    intro:
+      'The rules around the rule: district size, redistricting, council weighting, multi-member voting — each shifts power without touching the voting method.',
+    unequalWeight: 'Unequal vote weight',
+    popPerSeat: 'Population per seat: ratio',
+    controlShare: 'Vote share that can control a majority of seats:',
+    vsEqual: '(vs {{pct}} % with equal districts)',
+    egTitle:
+      '(wasted votes A − wasted votes B) / two-party total — the standard gerrymander metric. Wasted = losing votes + surplus beyond 50 % + 1.',
+    egLabel: 'Efficiency gap ({{a}} vs {{b}})',
+    disfavors: '{{pct}} % — disfavours',
+    penroseTitle:
+      'Weighting delegates by √population equalises citizen influence (Penrose approximation); equal or proportional weights unbalance it.',
+    penroseHead: 'Council — Penrose law (√)',
+    schemeEqual: '1 district = 1 vote',
+    schemeProp: 'Weight ∝ population',
+    schemePenrose: 'Weight ∝ √population',
+    citizenPower: 'citizen power max/min:',
+    cumTitle:
+      'M seats in a single district: under bloc voting the leading party takes all; under cumulative voting a cohesive minority concentrates its votes and wins seats.',
+    cumHead: 'Multi-member: bloc vs cumulative ({{seats}} seats)',
+    bloc: 'Bloc',
+    cumulative: 'Cumulative',
+    minorityLead: 'Minority seats:',
+    blocSuffix: '(bloc) →',
+    cumSuffix: '(cumulative)',
+  },
+  issues: {
+    yes: 'Yes',
+    no: 'No',
+    title: '🗳 Issues & bundling (Ostrogorski)',
+    issuesLabel: 'Issues',
+    analyze: '▶ Analyse',
+    demoTitle:
+      'The canonical constructed profile: the winning platform is rejected issue by issue by the majority.',
+    demo: 'Constructed paradox',
+    intro:
+      'Electing a platform bundles the issues; per-issue majorities can say the opposite. Spatial mode: each issue is a dividing line of the plane (stated convention, same seed = same issues).',
+    paradoxPrefix: '⚠ Ostrogorski paradox: ',
+    divergeOn_one:
+      'wins the platform vote, but the majority rejects it on {{count}}/{{num}} issue.',
+    divergeOn_other:
+      'wins the platform vote, but the majority rejects it on {{count}}/{{num}} issues.',
+    yesShare: 'Yes (share)',
+    majorityCol: 'Issue majority',
+    platformCol: 'Elected platform',
+  },
+  democracy: {
+    title: 'Map of democracies (Lijphart axis)',
+    aria: 'Majoritarian–consensus axis',
+    majoritarian: '← Majoritarian (decisive, winner-take-all)',
+    consensus: 'Consensus (proportional, power-sharing) →',
+    footer:
+      'Countries: approximate “executives-parties” scores (Lijphart 2012), for context. Your structures are placed live: mean of proportionality, pluralism, minorities and (1 − governability) over the current electorate — stated convention, a single dimension (federalism is not modelled).',
   },
   values: {
     weightsTitle: 'Your weights',

@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
 import type { ElectionConfig, PlaygroundState } from '../../stores/useElectionStore';
@@ -18,6 +19,7 @@ const IssuesPanel: React.FC<{ config: ElectionConfig; playground?: PlaygroundSta
   config,
   playground,
 }) => {
+  const { t } = useTranslation('playground');
   const [numIssues, setNumIssues] = useState(4);
   const [data, setData] = useState<IssueVotingResult | null>(null);
   const [loading, setLoading] = useState(false);
@@ -35,7 +37,7 @@ const IssuesPanel: React.FC<{ config: ElectionConfig; playground?: PlaygroundSta
     }
   };
 
-  const mark = (v: number): string => (v > 0 ? 'Oui' : 'Non');
+  const mark = (v: number): string => (v > 0 ? t('issues.yes') : t('issues.no'));
 
   return (
     <div
@@ -44,11 +46,11 @@ const IssuesPanel: React.FC<{ config: ElectionConfig; playground?: PlaygroundSta
     >
       <div className="flex flex-wrap items-center justify-between gap-2">
         <span className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-          🗳 Enjeux & groupage (Ostrogorski)
+          {t('issues.title')}
         </span>
         <div className="flex items-center gap-2 text-xs">
           <label className="flex items-center gap-1 text-muted-foreground">
-            Enjeux
+            {t('issues.issuesLabel')}
             <input
               data-testid="issues-count"
               type="range"
@@ -67,24 +69,20 @@ const IssuesPanel: React.FC<{ config: ElectionConfig; playground?: PlaygroundSta
             onClick={() => run(false)}
             disabled={loading}
           >
-            {loading ? '…' : '▶ Analyser'}
+            {loading ? '…' : t('issues.analyze')}
           </Button>
           <Button
             data-testid="issues-demo"
             variant="outline"
             size="sm"
             onClick={() => run(true)}
-            title="Le profil construit canonique : le programme gagnant est désavoué enjeu par enjeu par la majorité."
+            title={t('issues.demoTitle')}
           >
-            Paradoxe construit
+            {t('issues.demo')}
           </Button>
         </div>
       </div>
-      <p className="text-[0.68rem] text-muted-foreground/70">
-        Élire un programme groupe les enjeux ; les majorités enjeu par enjeu peuvent dire l’inverse.
-        Mode spatial : chaque enjeu est une ligne de partage du plan (convention déclarée, même
-        graine = mêmes enjeux).
-      </p>
+      <p className="text-[0.68rem] text-muted-foreground/70">{t('issues.intro')}</p>
 
       {data && (
         <>
@@ -98,19 +96,21 @@ const IssuesPanel: React.FC<{ config: ElectionConfig; playground?: PlaygroundSta
                 : 'text-muted-foreground'
             )}
           >
-            {data.ostrogorski_paradox ? '⚠ Paradoxe d’Ostrogorski : ' : ''}
-            <strong>{data.bundled_winner}</strong> remporte le vote par programme, mais la majorité
-            le désavoue sur <strong>{data.divergent_count}</strong>/{data.num_issues} enjeu
-            {data.divergent_count > 1 ? 'x' : ''}.
+            {data.ostrogorski_paradox ? t('issues.paradoxPrefix') : ''}
+            <strong>{data.bundled_winner}</strong>{' '}
+            {t('issues.divergeOn', {
+              count: data.divergent_count,
+              num: data.num_issues,
+            })}
           </p>
 
           {/* Issue matrix: referendum majority vs elected platform */}
           <div data-testid="issues-matrix" className="flex flex-col gap-1">
             <div className="flex items-center gap-2 text-[0.65rem] uppercase tracking-wide text-muted-foreground">
               <span className="w-20 shrink-0" />
-              <span className="flex-1">Oui (part)</span>
-              <span className="w-24 text-center">Majorité enjeu</span>
-              <span className="w-24 text-center">Programme élu</span>
+              <span className="flex-1">{t('issues.yesShare')}</span>
+              <span className="w-24 text-center">{t('issues.majorityCol')}</span>
+              <span className="w-24 text-center">{t('issues.platformCol')}</span>
             </div>
             {data.issues.map((issue) => (
               <div
