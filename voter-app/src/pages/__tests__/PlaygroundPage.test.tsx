@@ -170,7 +170,7 @@ describe('PlaygroundPage (P0 shell)', () => {
 
   it('a knob change (dimensions) persists to the store', () => {
     renderPage();
-    fireEvent.change(screen.getByLabelText('Dimensions de l’espace'), { target: { value: '3' } });
+    fireEvent.change(screen.getByLabelText('Dimensions of the space'), { target: { value: '3' } });
 
     expect(useElectionStore.getState().playground.space.dims).toBe(3);
     expect(JSON.parse(localStorage.getItem(LS_PG) as string).space.dims).toBe(3);
@@ -178,7 +178,7 @@ describe('PlaygroundPage (P0 shell)', () => {
 
   it('the dimension knob reshapes the leader canvas (1-D line, 3-D z controls)', () => {
     renderPage();
-    const dimsSelect = screen.getByLabelText('Dimensions de l’espace');
+    const dimsSelect = screen.getByLabelText('Dimensions of the space');
     // 2-D by default: no z controls, canvas tagged dims=2.
     expect(screen.getByTestId('leader-canvas')).toHaveAttribute('data-dims', '2');
     expect(screen.queryByTestId('z-controls')).not.toBeInTheDocument();
@@ -212,10 +212,9 @@ describe('PlaygroundPage (P0 shell)', () => {
   it('shake-the-assumptions renders win-rate bands that sum to ~100%', async () => {
     renderPage();
     fireEvent.click(screen.getByTestId('shake-toggle'));
-    await waitFor(
-      () => expect(screen.getByTestId('shake-bands')).toHaveTextContent('ré-échantillonnages'),
-      { timeout: 5000 }
-    );
+    await waitFor(() => expect(screen.getByTestId('shake-bands')).toHaveTextContent('resamples'), {
+      timeout: 5000,
+    });
     const text = screen.getByTestId('shake-bands').textContent ?? '';
     const pcts = [...text.matchAll(/(\d+)\s?%/g)].map((m) => Number(m[1]));
     // headline % + one per candidate; the per-candidate rates sum to ~100.
@@ -283,9 +282,9 @@ describe('PlaygroundPage (P0 shell)', () => {
     fireEvent.click(screen.getByTestId('moment-method'));
     await waitFor(() => expect(screen.getByTestId('ballot-preview')).toBeInTheDocument());
     expect(screen.getByTestId('ballot-preview').textContent).toContain('A 1');
-    expect(screen.getByTestId('ballot-tradeoff')).toHaveTextContent('Expressivité');
-    expect(screen.getByTestId('ballot-tradeoff')).toHaveTextContent('Charge cognitive');
-    expect(screen.getByTestId('ballot-flips')).toHaveTextContent('2 méthodes');
+    expect(screen.getByTestId('ballot-tradeoff')).toHaveTextContent('Expressiveness');
+    expect(screen.getByTestId('ballot-tradeoff')).toHaveTextContent('Cognitive load');
+    expect(screen.getByTestId('ballot-flips')).toHaveTextContent('2 methods');
     expect(screen.getByTestId('ballot-flips')).toHaveTextContent('irv, borda');
   });
 
@@ -301,7 +300,7 @@ describe('PlaygroundPage (P0 shell)', () => {
     expect(screen.getByTestId('manip-hardness')).toHaveTextContent('NP-difficile');
     expect(screen.getByTestId('manip-hardness')).toHaveTextContent('Bartholdi–Orlin');
     // The worked example compares plurality vs IRV on this electorate.
-    expect(screen.getByTestId('manip-hardness')).toHaveTextContent('Exemple');
+    expect(screen.getByTestId('manip-hardness')).toHaveTextContent('Example');
   });
 
   // ── FA-2 : la lentille Lijphart ───────────────────────────────────────────
@@ -469,7 +468,7 @@ describe('PlaygroundPage (P0 shell)', () => {
     fireEvent.click(screen.getByTestId('electorate-mode-composed'));
     // 2-D by default: no z sub-list.
     expect(screen.queryByTestId('community-z-list')).not.toBeInTheDocument();
-    fireEvent.change(screen.getByLabelText('Dimensions de l’espace'), { target: { value: '3' } });
+    fireEvent.change(screen.getByLabelText('Dimensions of the space'), { target: { value: '3' } });
     expect(screen.getByTestId('community-z-list')).toBeInTheDocument();
   });
 

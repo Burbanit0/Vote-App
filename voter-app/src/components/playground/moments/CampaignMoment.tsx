@@ -1,4 +1,5 @@
 import React from 'react';
+import { useTranslation } from 'react-i18next';
 import { Card, CardContent } from '@/components/ui/card';
 import { usePlaygroundCtx } from '../PlaygroundController';
 import { AnchorFallback } from '../playgroundFields';
@@ -15,16 +16,14 @@ const BehavioralRealismAnchor = React.lazy(() => import('../../campaign/Behavior
 // J0 electorate; the one explicit write-back is "pin this instant" as the new
 // baseline. Full-width: it replaces the static instrument for this moment.
 const CampaignMoment: React.FC = () => {
+  const { t } = useTranslation('playground');
   const { config, playground, pinToPlayground } = usePlaygroundCtx();
 
   if (config.candidates.length === 0) {
     return (
       <Card data-testid="moment-campaign-panel">
         <CardContent className="p-3">
-          <p className="p-2 text-sm text-muted-foreground">
-            Composez d’abord un électorat dans le moment ① Électorat, puis revenez lancer une
-            campagne.
-          </p>
+          <p className="p-2 text-sm text-muted-foreground">{t('campaign.emptyPrompt')}</p>
         </CardContent>
       </Card>
     );
@@ -39,27 +38,25 @@ const CampaignMoment: React.FC = () => {
       </Card>
 
       <Collapsible
-        title="🔬 Explorations approfondies"
-        subtitle="trajectoire · mécanismes temporels · réalisme comportemental"
+        title={t('campaign.deepTitle')}
+        subtitle={t('campaign.deepSub')}
         testid="campaign-explorations"
       >
         <div className="flex flex-col gap-5">
           <section className="flex flex-col gap-2">
-            <h3 className="text-sm font-semibold">🎬 Approfondir la trajectoire</h3>
+            <h3 className="text-sm font-semibold">{t('campaign.deepTrajectory')}</h3>
             <React.Suspense fallback={<AnchorFallback />}>
               <CampaignAnchor />
             </React.Suspense>
           </section>
           <section className="flex flex-col gap-2">
-            <h3 className="text-sm font-semibold">
-              🔁 Mécanismes &amp; comportements dans le temps
-            </h3>
+            <h3 className="text-sm font-semibold">{t('campaign.deepMechanisms')}</h3>
             <React.Suspense fallback={<AnchorFallback />}>
               <TemporalDynamicsAnchor />
             </React.Suspense>
           </section>
           <section className="flex flex-col gap-2">
-            <h3 className="text-sm font-semibold">🧠 Réalisme comportemental (un scrutin)</h3>
+            <h3 className="text-sm font-semibold">{t('campaign.deepRealism')}</h3>
             <React.Suspense fallback={<AnchorFallback />}>
               <BehavioralRealismAnchor />
             </React.Suspense>

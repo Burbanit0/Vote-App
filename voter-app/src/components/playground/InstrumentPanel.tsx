@@ -1,4 +1,5 @@
 import React from 'react';
+import { useTranslation } from 'react-i18next';
 import { Button } from '@/components/ui/button';
 import { Instrument } from '@/components/ui/instrument';
 import { usePlaygroundCtx } from './PlaygroundController';
@@ -16,6 +17,7 @@ import { COMMUNITY_PALETTE } from '../../lib/playgroundElectorate';
 // paradox rate is the instrument's live readout. The flip centerpiece swaps the
 // map for the active question with its inline robustness/structure readings.
 const InstrumentPanel: React.FC = () => {
+  const { t } = useTranslation('playground');
   const {
     config,
     playground,
@@ -48,13 +50,12 @@ const InstrumentPanel: React.FC = () => {
 
   return (
     <Instrument
-      label={mode === 'leader' ? 'Carte idéologique — dirigeant' : 'Composition de l’assemblée'}
+      label={mode === 'leader' ? t('instrument.labelLeader') : t('instrument.labelAssembly')}
       readout={
-        <span
-          data-testid="cycle-rate"
-          title="Part des électorats ré-échantillonnés sans vainqueur de Condorcet — un taux élevé signale que le résultat dépend fortement des hypothèses."
-        >
-          {loading || !result ? '· · ·' : `paradoxe ${Math.round(result.cycle_rate * 100)} %`}
+        <span data-testid="cycle-rate" title={t('instrument.paradoxTitle')}>
+          {loading || !result
+            ? t('instrument.paradoxLoading')
+            : t('instrument.paradox', { pct: Math.round(result.cycle_rate * 100) })}
         </span>
       }
     >
@@ -62,8 +63,8 @@ const InstrumentPanel: React.FC = () => {
         {result && (
           <p className="font-mono text-[0.68rem] tracking-tight text-muted-foreground">
             {result.condorcet_winner
-              ? `Condorcet : ${result.condorcet_winner}`
-              : 'aucun vainqueur de Condorcet (cycle)'}
+              ? t('instrument.condorcet', { name: result.condorcet_winner })
+              : t('instrument.condorcetNone')}
           </p>
         )}
 
@@ -109,23 +110,21 @@ const InstrumentPanel: React.FC = () => {
                   size="sm"
                   className="self-start"
                   onClick={() => setShakeOn((s) => !s)}
-                  title="Ré-échantillonne l'électorat 60 fois (mêmes hypothèses, nouveaux tirages) — sépare une propriété structurelle d'un réglage choisi."
+                  title={t('instrument.shakeTitle')}
                 >
-                  🎲 Secouer les hypothèses
+                  {t('instrument.shake')}
                 </Button>
                 {shakeOn && (
-                  <span className="text-xs text-muted-foreground">
-                    Monte-Carlo complet dans les Explorations avancées (Analyse)
-                  </span>
+                  <span className="text-xs text-muted-foreground">{t('instrument.shakeHint')}</span>
                 )}
                 {shakeOn && shake && (
                   <div data-testid="shake-bands" className="flex flex-col gap-1">
                     <p className="text-sm">
                       {shake.top ? (
                         <>
-                          <strong>{shake.top}</strong> tient{' '}
-                          <strong>{Math.round((shake.rates[shake.top] ?? 0) * 100)} %</strong> des{' '}
-                          {shake.replications} ré-échantillonnages.
+                          <strong>{shake.top}</strong> {t('instrument.shakeHoldsMid')}{' '}
+                          <strong>{Math.round((shake.rates[shake.top] ?? 0) * 100)} %</strong>{' '}
+                          {t('instrument.shakeHoldsEnd', { count: shake.replications })}
                         </>
                       ) : (
                         '—'
@@ -163,20 +162,22 @@ const InstrumentPanel: React.FC = () => {
                 onMoveParty={moveCandidate}
               />
               <Collapsible
-                title="🗺 Carte des démocraties (Lijphart)"
-                subtitle="majoritaire ↔ consensus"
+                title={t('instrument.democracyTitle')}
+                subtitle={t('instrument.democracySub')}
                 testid="module-democracy"
               >
                 {democracyEntries.length > 0 ? (
                   <DemocracyMap entries={democracyEntries} current={assembly.structure} />
                 ) : (
-                  <p className="text-xs text-muted-foreground">Calcul en cours…</p>
+                  <p className="text-xs text-muted-foreground">
+                    {t('instrument.democracyComputing')}
+                  </p>
                 )}
               </Collapsible>
-              <Collapsible title="🗳 Enjeux & groupage (Ostrogorski)" testid="module-issues">
+              <Collapsible title={t('instrument.issuesTitle')} testid="module-issues">
                 <IssuesPanel config={config} playground={playground} />
               </Collapsible>
-              <Collapsible title="⚖ Équités structurelles" testid="module-structural">
+              <Collapsible title={t('instrument.structuralTitle')} testid="module-structural">
                 <StructuralPanel
                   config={config}
                   partyNames={config.candidates.map((c) => c.name)}

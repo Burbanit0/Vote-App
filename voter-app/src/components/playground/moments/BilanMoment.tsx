@@ -1,4 +1,5 @@
 import React from 'react';
+import { useTranslation } from 'react-i18next';
 import { usePlaygroundCtx } from '../PlaygroundController';
 import Scorecard from '../Scorecard';
 import MethodInfo from '../MethodInfo';
@@ -10,6 +11,7 @@ import { STRUCTURE_LABELS, PARLIAMENT_AXES_KEYS } from '../../../lib/playgroundM
 // Moment ⑤ Bilan — the verdict. What does the current method/structure score, and
 // what is it worth according to YOUR values? The synthesis the journey builds up to.
 const BilanMoment: React.FC = () => {
+  const { t } = useTranslation('playground');
   const {
     mode,
     leaderRule,
@@ -31,7 +33,7 @@ const BilanMoment: React.FC = () => {
   return (
     <div className="flex flex-col gap-4">
       <div className="flex items-center gap-1 text-sm font-medium">
-        <span className="text-muted-foreground">Évalué pour&nbsp;:</span>
+        <span className="text-muted-foreground">{t('bilan.evaluatedFor')}</span>
         <span>
           {mode === 'leader' ? RULE_LABELS[leaderRule] : STRUCTURE_LABELS[assembly.structure]}
         </span>
@@ -48,11 +50,9 @@ const BilanMoment: React.FC = () => {
 
       <Scorecard
         axes={currentAxes}
-        bandNote={
-          mode === 'leader'
-            ? '20 ré-échantillonnages'
-            : `${parlSc?.replications ?? 24} ré-échantillonnages`
-        }
+        bandNote={t('bilan.bandNote', {
+          count: mode === 'leader' ? 20 : (parlSc?.replications ?? 24),
+        })}
       />
 
       <hr className="border-border" />
@@ -61,7 +61,7 @@ const BilanMoment: React.FC = () => {
       <div data-testid="lijphart-dial-block" className="flex flex-col gap-1">
         <div className="flex items-center justify-between text-xs">
           <span className="font-semibold uppercase tracking-wide text-muted-foreground">
-            Votre sensibilité
+            {t('bilan.sensibility')}
           </span>
           <button
             type="button"
@@ -78,7 +78,7 @@ const BilanMoment: React.FC = () => {
               }
             }}
           >
-            {lensMode === 'dial' ? 'Réglage fin…' : '← Cadran simple'}
+            {lensMode === 'dial' ? t('bilan.fineTune') : t('bilan.simpleDial')}
           </button>
         </div>
         {lensMode === 'dial' && (
@@ -94,8 +94,8 @@ const BilanMoment: React.FC = () => {
               title="Un seul cadran qui règle des pondérations corrélées (convention déclarée) — le réglage fin reste disponible."
             />
             <div className="flex justify-between text-[0.68rem] text-muted-foreground">
-              <span>Majoritaire (décisif)</span>
-              <span>Consensualiste (inclusif)</span>
+              <span>{t('bilan.majoritarian')}</span>
+              <span>{t('bilan.consensualist')}</span>
             </div>
           </>
         )}

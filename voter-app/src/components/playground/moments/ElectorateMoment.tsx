@@ -1,4 +1,5 @@
 import React from 'react';
+import { useTranslation } from 'react-i18next';
 import { cn } from '@/lib/utils';
 import { usePlaygroundCtx } from '../PlaygroundController';
 import { Field, selectCls, AnchorFallback } from '../playgroundFields';
@@ -10,6 +11,7 @@ const AbstentionPanel = React.lazy(() => import('../../shared/AbstentionPanel'))
 
 // Moment ① Électorat — who votes, how they cluster and behave.
 const ElectorateMoment: React.FC = () => {
+  const { t } = useTranslation('playground');
   const {
     config,
     setPlayground,
@@ -21,26 +23,28 @@ const ElectorateMoment: React.FC = () => {
     behavior,
     prefSource,
     turnout,
-    pointWord,
     composed,
     electorate,
     voters,
     votingVoters,
   } = usePlaygroundCtx();
+  const pointWord = mode === 'leader' ? t('common.candidates') : t('common.parties');
 
   return (
     <>
       <Collapsible
-        title="🧭 Composer l’électorat"
+        title={t('electorate.composeTitle')}
         subtitle={
-          composed ? `${electorate.communities.length} communautés · mélange` : 'gaussien simple'
+          composed
+            ? t('electorate.composeSubComposed', { count: electorate.communities.length })
+            : t('electorate.composeSubSimple')
         }
         testid="module-electorate"
       >
         <ElectorateComposer />
       </Collapsible>
 
-      <Field label="Point de départ (synthétique)">
+      <Field label={t('electorate.startLabel')}>
         <div className="flex flex-col gap-1.5">
           {presets.map((p) => (
             <div key={p.id} className="flex items-center gap-1">
@@ -62,47 +66,52 @@ const ElectorateMoment: React.FC = () => {
       </Field>
 
       <div className="rounded-md bg-muted/40 px-2.5 py-2 text-xs text-muted-foreground">
-        {config.candidates.length} {pointWord} · {config.num_voters} électeurs · {config.ideology}
+        {t('electorate.summary', {
+          points: config.candidates.length,
+          pointWord,
+          voters: config.num_voters,
+          ideology: config.ideology,
+        })}
       </div>
 
-      <Field label="Dimensions de l’espace" htmlFor="pg-dims">
+      <Field label={t('electorate.dimsLabel')} htmlFor="pg-dims">
         <select
           id="pg-dims"
           className={selectCls}
           value={space.dims}
           onChange={(e) => setPlaygroundDeep('space.dims', Number(e.target.value))}
         >
-          <option value={1}>1D — un seul axe</option>
-          <option value={2}>2D — deux axes</option>
-          <option value={3}>3D — trois axes</option>
+          <option value={1}>{t('electorate.dims1')}</option>
+          <option value={2}>{t('electorate.dims2')}</option>
+          <option value={3}>{t('electorate.dims3')}</option>
         </select>
       </Field>
 
-      <Field label="Source des préférences" htmlFor="pg-source">
+      <Field label={t('electorate.sourceLabel')} htmlFor="pg-source">
         <select
           id="pg-source"
           className={selectCls}
           value={prefSource}
           onChange={(e) => setPlayground({ prefSource: e.target.value as typeof prefSource })}
         >
-          <option value="spatial">Spatiale (carte)</option>
-          <option value="impartial">Culture impartiale</option>
-          <option value="mallows">Mallows</option>
-          <option value="urn">Urne de Pólya</option>
-          <option value="handcrafted">Matrice sur mesure</option>
+          <option value="spatial">{t('electorate.sourceSpatial')}</option>
+          <option value="impartial">{t('electorate.sourceImpartial')}</option>
+          <option value="mallows">{t('electorate.sourceMallows')}</option>
+          <option value="urn">{t('electorate.sourceUrn')}</option>
+          <option value="handcrafted">{t('electorate.sourceHandcrafted')}</option>
         </select>
       </Field>
 
-      <Field label="Comportement des électeurs" htmlFor="pg-behavior">
+      <Field label={t('electorate.behaviorLabel')} htmlFor="pg-behavior">
         <select
           id="pg-behavior"
           className={selectCls}
           value={behavior}
           onChange={(e) => setPlayground({ behavior: e.target.value as typeof behavior })}
         >
-          <option value="sincere">Sincère</option>
-          <option value="strategic">Stratégique</option>
-          <option value="mixed">Mixte</option>
+          <option value="sincere">{t('electorate.behaviorSincere')}</option>
+          <option value="strategic">{t('electorate.behaviorStrategic')}</option>
+          <option value="mixed">{t('electorate.behaviorMixed')}</option>
         </select>
       </Field>
 
@@ -112,15 +121,15 @@ const ElectorateMoment: React.FC = () => {
           checked={space.valenceEnabled}
           onChange={(e) => setPlaygroundDeep('space.valenceEnabled', e.target.checked)}
         />
-        Valence (qualité hors-idéologie)
+        {t('electorate.valence')}
       </label>
 
       {/* ── Participation / abstention (réalisme électoral) ── */}
       <div className="flex flex-col gap-2 rounded-md border border-border p-3">
         <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-          Participation (abstention)
+          {t('electorate.participationTitle')}
         </p>
-        <Field label="Modèle d’abstention" htmlFor="pg-turnout">
+        <Field label={t('electorate.abstentionModelLabel')} htmlFor="pg-turnout">
           <select
             id="pg-turnout"
             data-testid="turnout-select"
@@ -128,15 +137,15 @@ const ElectorateMoment: React.FC = () => {
             value={turnout.model}
             onChange={(e) => setPlaygroundDeep('turnout.model', e.target.value)}
           >
-            <option value="full">Participation totale</option>
-            <option value="alienation">Aliénation (trop loin de tous)</option>
-            <option value="indifference">Indifférence (départage trop serré)</option>
+            <option value="full">{t('electorate.abstentionFull')}</option>
+            <option value="alienation">{t('electorate.abstentionAlienation')}</option>
+            <option value="indifference">{t('electorate.abstentionIndifference')}</option>
           </select>
         </Field>
         {turnout.model !== 'full' && (
           <>
             <Field
-              label={`Intensité : ${Math.round(turnout.intensity * 100)} %`}
+              label={t('electorate.intensity', { pct: Math.round(turnout.intensity * 100) })}
               htmlFor="pg-turnout-int"
             >
               <input
@@ -152,22 +161,21 @@ const ElectorateMoment: React.FC = () => {
             </Field>
             {mode === 'leader' && (
               <p data-testid="turnout-rate" className="text-[0.7rem] text-muted-foreground">
-                Taux de participation :{' '}
+                {t('electorate.turnoutLabel')}{' '}
                 <strong>
                   {Math.round((votingVoters.length / Math.max(1, voters.length)) * 100)} %
                 </strong>{' '}
-                ({voters.length - votingVoters.length} abstentions)
+                {t('electorate.turnoutAbstentions', {
+                  count: voters.length - votingVoters.length,
+                })}
               </p>
             )}
           </>
         )}
-        <p className="text-[0.65rem] text-muted-foreground/70">
-          Abstention de Downs : aliénation (même le meilleur choix est trop loin) ou indifférence
-          (pas d’écart net entre les deux premiers).
-        </p>
+        <p className="text-[0.65rem] text-muted-foreground/70">{t('electorate.downsNote')}</p>
         <Collapsible
-          title="🔬 Abstention différentielle (analyse)"
-          subtitle="distribution complète"
+          title={t('electorate.abstentionAnchorTitle')}
+          subtitle={t('electorate.abstentionAnchorSub')}
           testid="anchor-abstention"
         >
           <React.Suspense fallback={<AnchorFallback />}>
