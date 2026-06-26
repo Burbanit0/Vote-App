@@ -56,6 +56,68 @@ const pgEn: PlaygroundKeys = {
     parties: 'parties',
     voters: 'voters',
   },
+  anchorBody: {
+    mechanisms: {
+      intro:
+        'Other collective-decision mechanisms than the classic election — each on the same electorate, computed on demand.',
+      jury: '⚖️ Jury theorem (Condorcet)',
+      nota: '🚫 NOTA vote (none of the candidates)',
+      liquid: '💧 Liquid democracy (delegation)',
+      sortition: '🎲 Sortition (random selection)',
+      deliberation: '🗣️ Deliberation then vote',
+      conviction: '🪙 Conviction voting',
+      epistocracy: '🎓 Epistocracy (competence-weighted vote)',
+      identity: '🪪 Identity voting',
+    },
+    analysis: {
+      intro:
+        'In-depth comparative measures on the same electorate — distributions, regret, manipulability, collective will. Each module computes on demand.',
+      montecarlo: '🎲 Monte-Carlo (distributions)',
+      manipulability: '🕵 Manipulability (per method)',
+      manipulation: '🎯 Manipulation analysis',
+      collective: '🤝 Collective will',
+      assumptions: '🧪 Assumption testing',
+      combined: '🧮 Combined effects (factorial)',
+    },
+    results: {
+      intro:
+        'The “raw” result of the election on the shared electorate: the all-methods table and the animated tally.',
+      table: '📋 Full results (all methods)',
+      animation: '🎬 Animated tally',
+    },
+    systems: {
+      intro:
+        'Electoral systems and geography: seats, coalitions, districts, ballot. Each module computes on demand.',
+      coalition: '🤝 Coalitions',
+      multiwinner: '🪑 Multiwinner (STV/SPAV/Phragmén)',
+      districts: '🗺️ Districts',
+      gerrymander: '✂️ Gerrymander',
+      stv: '🔁 Single transferable vote (STV)',
+      ballot: '📋 Ballot complexity',
+      pipeline: '🎬 Election pipeline (animation)',
+    },
+    campaign: {
+      intro:
+        'The scrubber above shows one trajectory (candidates drift toward the median voter). These four steps dig deeper: the targeted equilibrium, the polling effect, the impact of polarisation, then the evolution of the party system over several elections.',
+      hotelling: '① 📐 Toward which equilibrium? (Hotelling-Downs)',
+      campaign: '② 📣 Polling effect (campaign sensitivity)',
+      polarization: '③ ↔️ Polarised electorate (quality of the result)',
+      party: '④ 🏳️ Party evolution (Duverger over time)',
+    },
+    theory: {
+      intro:
+        'The paradoxes of social choice and democratic theory — the formal limits every voting rule must face. Each module computes on demand.',
+      sen: '🔓 Sen’s paradox (liberal paretian)',
+      judgment: '🧩 Judgment aggregation (discursive dilemma)',
+      agenda: '🎚️ Agenda manipulation (McKelvey)',
+      tyranny: '👥 Tyranny of the majority',
+      apportionment: '🧮 Apportionment (Balinski-Young)',
+      power: '⚖️ Power indices (Shapley-Shubik, Banzhaf)',
+      backsliding: '📉 Democratic backsliding (Levitsky-Ziblatt)',
+      intergen: '⏳ Intergenerational representation',
+      polis: '🗣️ Pol.is (deliberative clustering)',
+    },
+  },
   canvas: {
     ruleLabel: 'Rule',
     winnerLabel: 'Winner:',

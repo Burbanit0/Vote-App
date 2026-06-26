@@ -60,6 +60,68 @@ const pgFr = {
     parties: 'partis',
     voters: 'électeurs',
   },
+  anchorBody: {
+    mechanisms: {
+      intro:
+        'D’autres mécanismes de décision collective que l’élection classique — chacun sur le même électorat, calculé à la demande.',
+      jury: '⚖️ Théorème du jury (Condorcet)',
+      nota: '🚫 Vote NOTA (aucun des candidats)',
+      liquid: '💧 Démocratie liquide (délégation)',
+      sortition: '🎲 Sortition (tirage au sort)',
+      deliberation: '🗣️ Délibération puis vote',
+      conviction: '🪙 Vote par conviction',
+      epistocracy: '🎓 Épistocratie (vote pondéré par compétence)',
+      identity: '🪪 Vote identitaire',
+    },
+    analysis: {
+      intro:
+        'Mesures comparatives approfondies sur le même électorat — distributions, regret, manipulabilité, volonté collective. Chaque module se calcule à la demande.',
+      montecarlo: '🎲 Monte-Carlo (distributions)',
+      manipulability: '🕵 Manipulabilité (par méthode)',
+      manipulation: '🎯 Analyse de manipulation',
+      collective: '🤝 Volonté collective',
+      assumptions: '🧪 Test des hypothèses',
+      combined: '🧮 Effets combinés (factoriel)',
+    },
+    results: {
+      intro:
+        'Le résultat « brut » de l’élection sur l’électorat partagé : la table de toutes les méthodes et le dépouillement animé.',
+      table: '📋 Résultats complets (toutes méthodes)',
+      animation: '🎬 Dépouillement animé',
+    },
+    systems: {
+      intro:
+        'Systèmes électoraux et géographie : sièges, coalitions, circonscriptions, bulletin. Chaque module se calcule à la demande.',
+      coalition: '🤝 Coalitions',
+      multiwinner: '🪑 Multiwinner (STV/SPAV/Phragmén)',
+      districts: '🗺️ Circonscriptions',
+      gerrymander: '✂️ Charcutage (gerrymander)',
+      stv: '🔁 Vote unique transférable (STV)',
+      ballot: '📋 Complexité du bulletin',
+      pipeline: '🎬 Pipeline d’élection (animation)',
+    },
+    campaign: {
+      intro:
+        'Le scrubber ci-dessus montre une trajectoire (les candidats dérivent vers l’électeur médian). Ces quatre étapes l’approfondissent : l’équilibre visé, l’effet des sondages, l’impact de la polarisation, puis l’évolution du système de partis sur plusieurs élections.',
+      hotelling: '① 📐 Vers quel équilibre ? (Hotelling-Downs)',
+      campaign: '② 📣 Effet des sondages (sensibilité de campagne)',
+      polarization: '③ ↔️ Électorat polarisé (qualité du résultat)',
+      party: '④ 🏳️ Évolution des partis (Duverger sur la durée)',
+    },
+    theory: {
+      intro:
+        'Les paradoxes du choix social et la théorie démocratique — les limites formelles que toute règle de vote doit affronter. Chaque module se calcule à la demande.',
+      sen: '🔓 Paradoxe de Sen (libéral parétien)',
+      judgment: '🧩 Agrégation de jugements (dilemme discursif)',
+      agenda: '🎚️ Manipulation d’agenda (McKelvey)',
+      tyranny: '👥 Tyrannie de la majorité',
+      apportionment: '🧮 Apportionnement (Balinski-Young)',
+      power: '⚖️ Indices de pouvoir (Shapley-Shubik, Banzhaf)',
+      backsliding: '📉 Recul démocratique (Levitsky-Ziblatt)',
+      intergen: '⏳ Représentation intergénérationnelle',
+      polis: '🗣️ Pol.is (clustering délibératif)',
+    },
+  },
   canvas: {
     ruleLabel: 'Règle',
     winnerLabel: 'Vainqueur :',

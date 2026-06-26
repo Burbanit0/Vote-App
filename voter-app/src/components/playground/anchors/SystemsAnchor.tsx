@@ -1,4 +1,5 @@
 import React from 'react';
+import { useTranslation } from 'react-i18next';
 import Leaf from './Leaf';
 import { lazyWithPreload } from '../../../lib/lazyWithPreload';
 
@@ -20,50 +21,58 @@ const ElectionPipelineAnimator = lazyWithPreload(
   () => import('../../shared/ElectionPipelineAnimator')
 );
 
-const SystemsAnchor: React.FC = () => (
-  <div className="flex flex-col gap-2">
-    <p className="text-[0.7rem] text-muted-foreground/80">
-      Systèmes électoraux et géographie : sièges, coalitions, circonscriptions, bulletin. Chaque
-      module se calcule à la demande.
-    </p>
-    <Leaf title="🤝 Coalitions" testid="sys-coalition" prefetch={CoalitionPanel.preload}>
-      <CoalitionPanel />
-    </Leaf>
-    <Leaf
-      title="🪑 Multiwinner (STV/SPAV/Phragmén)"
-      testid="sys-multiwinner"
-      prefetch={MultiwinnerCompare.preload}
-    >
-      <MultiwinnerCompare />
-    </Leaf>
-    <Leaf title="🗺️ Circonscriptions" testid="sys-districts" prefetch={DistrictMap.preload}>
-      <DistrictMap />
-    </Leaf>
-    <Leaf
-      title="✂️ Charcutage (gerrymander)"
-      testid="sys-gerrymander"
-      prefetch={GerrymanderMap.preload}
-    >
-      <GerrymanderMap />
-    </Leaf>
-    <Leaf title="🔁 Vote unique transférable (STV)" testid="sys-stv" prefetch={STVPanel.preload}>
-      <STVPanel />
-    </Leaf>
-    <Leaf
-      title="📋 Complexité du bulletin"
-      testid="sys-ballot"
-      prefetch={BallotComplexityPanel.preload}
-    >
-      <BallotComplexityPanel />
-    </Leaf>
-    <Leaf
-      title="🎬 Pipeline d’élection (animation)"
-      testid="sys-pipeline"
-      prefetch={ElectionPipelineAnimator.preload}
-    >
-      <ElectionPipelineAnimator />
-    </Leaf>
-  </div>
-);
+const SystemsAnchor: React.FC = () => {
+  const { t } = useTranslation('playground');
+  return (
+    <div className="flex flex-col gap-2">
+      <p className="text-[0.7rem] text-muted-foreground/80">{t('anchorBody.systems.intro')}</p>
+      <Leaf
+        title={t('anchorBody.systems.coalition')}
+        testid="sys-coalition"
+        prefetch={CoalitionPanel.preload}
+      >
+        <CoalitionPanel />
+      </Leaf>
+      <Leaf
+        title={t('anchorBody.systems.multiwinner')}
+        testid="sys-multiwinner"
+        prefetch={MultiwinnerCompare.preload}
+      >
+        <MultiwinnerCompare />
+      </Leaf>
+      <Leaf
+        title={t('anchorBody.systems.districts')}
+        testid="sys-districts"
+        prefetch={DistrictMap.preload}
+      >
+        <DistrictMap />
+      </Leaf>
+      <Leaf
+        title={t('anchorBody.systems.gerrymander')}
+        testid="sys-gerrymander"
+        prefetch={GerrymanderMap.preload}
+      >
+        <GerrymanderMap />
+      </Leaf>
+      <Leaf title={t('anchorBody.systems.stv')} testid="sys-stv" prefetch={STVPanel.preload}>
+        <STVPanel />
+      </Leaf>
+      <Leaf
+        title={t('anchorBody.systems.ballot')}
+        testid="sys-ballot"
+        prefetch={BallotComplexityPanel.preload}
+      >
+        <BallotComplexityPanel />
+      </Leaf>
+      <Leaf
+        title={t('anchorBody.systems.pipeline')}
+        testid="sys-pipeline"
+        prefetch={ElectionPipelineAnimator.preload}
+      >
+        <ElectionPipelineAnimator />
+      </Leaf>
+    </div>
+  );
+};
 
 export default SystemsAnchor;

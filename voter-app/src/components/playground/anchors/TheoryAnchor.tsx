@@ -1,4 +1,5 @@
 import React from 'react';
+import { useTranslation } from 'react-i18next';
 import Leaf from './Leaf';
 import { lazyWithPreload } from '../../../lib/lazyWithPreload';
 
@@ -26,76 +27,68 @@ const DemocraticBackslidingPanel = lazyWithPreload(
 const IntergenerationalPanel = lazyWithPreload(() => import('../../shared/IntergenerationalPanel'));
 const PolisPanel = lazyWithPreload(() => import('../../shared/PolisPanel'));
 
-const TheoryAnchor: React.FC = () => (
-  <div className="flex flex-col gap-2">
-    <p className="text-[0.7rem] text-muted-foreground/80">
-      Les <strong>paradoxes</strong> du choix social et la théorie démocratique — les limites
-      formelles que toute règle de vote doit affronter. Chaque module se calcule à la demande.
-    </p>
-    <Leaf
-      title="🔓 Paradoxe de Sen (libéral parétien)"
-      testid="thy-sen"
-      prefetch={SenParadoxPanel.preload}
-    >
-      <SenParadoxPanel />
-    </Leaf>
-    <Leaf
-      title="🧩 Agrégation de jugements (dilemme discursif)"
-      testid="thy-judgment"
-      prefetch={JudgmentAggregationPanel.preload}
-    >
-      <JudgmentAggregationPanel />
-    </Leaf>
-    <Leaf
-      title="🎚️ Manipulation d’agenda (McKelvey)"
-      testid="thy-agenda"
-      prefetch={AgendaManipulationPanel.preload}
-    >
-      <AgendaManipulationPanel />
-    </Leaf>
-    <Leaf
-      title="👥 Tyrannie de la majorité"
-      testid="thy-tyranny"
-      prefetch={MajorityTyrannyPanel.preload}
-    >
-      <MajorityTyrannyPanel />
-    </Leaf>
-    <Leaf
-      title="🧮 Apportionnement (Balinski-Young)"
-      testid="thy-apportionment"
-      prefetch={ApportionmentPanel.preload}
-    >
-      <ApportionmentPanel />
-    </Leaf>
-    <Leaf
-      title="⚖️ Indices de pouvoir (Shapley-Shubik, Banzhaf)"
-      testid="thy-power"
-      prefetch={PowerIndicesPanel.preload}
-    >
-      <PowerIndicesPanel />
-    </Leaf>
-    <Leaf
-      title="📉 Recul démocratique (Levitsky-Ziblatt)"
-      testid="thy-backsliding"
-      prefetch={DemocraticBackslidingPanel.preload}
-    >
-      <DemocraticBackslidingPanel />
-    </Leaf>
-    <Leaf
-      title="⏳ Représentation intergénérationnelle"
-      testid="thy-intergen"
-      prefetch={IntergenerationalPanel.preload}
-    >
-      <IntergenerationalPanel />
-    </Leaf>
-    <Leaf
-      title="🗣️ Pol.is (clustering délibératif)"
-      testid="thy-polis"
-      prefetch={PolisPanel.preload}
-    >
-      <PolisPanel />
-    </Leaf>
-  </div>
-);
+const TheoryAnchor: React.FC = () => {
+  const { t } = useTranslation('playground');
+  return (
+    <div className="flex flex-col gap-2">
+      <p className="text-[0.7rem] text-muted-foreground/80">{t('anchorBody.theory.intro')}</p>
+      <Leaf title={t('anchorBody.theory.sen')} testid="thy-sen" prefetch={SenParadoxPanel.preload}>
+        <SenParadoxPanel />
+      </Leaf>
+      <Leaf
+        title={t('anchorBody.theory.judgment')}
+        testid="thy-judgment"
+        prefetch={JudgmentAggregationPanel.preload}
+      >
+        <JudgmentAggregationPanel />
+      </Leaf>
+      <Leaf
+        title={t('anchorBody.theory.agenda')}
+        testid="thy-agenda"
+        prefetch={AgendaManipulationPanel.preload}
+      >
+        <AgendaManipulationPanel />
+      </Leaf>
+      <Leaf
+        title={t('anchorBody.theory.tyranny')}
+        testid="thy-tyranny"
+        prefetch={MajorityTyrannyPanel.preload}
+      >
+        <MajorityTyrannyPanel />
+      </Leaf>
+      <Leaf
+        title={t('anchorBody.theory.apportionment')}
+        testid="thy-apportionment"
+        prefetch={ApportionmentPanel.preload}
+      >
+        <ApportionmentPanel />
+      </Leaf>
+      <Leaf
+        title={t('anchorBody.theory.power')}
+        testid="thy-power"
+        prefetch={PowerIndicesPanel.preload}
+      >
+        <PowerIndicesPanel />
+      </Leaf>
+      <Leaf
+        title={t('anchorBody.theory.backsliding')}
+        testid="thy-backsliding"
+        prefetch={DemocraticBackslidingPanel.preload}
+      >
+        <DemocraticBackslidingPanel />
+      </Leaf>
+      <Leaf
+        title={t('anchorBody.theory.intergen')}
+        testid="thy-intergen"
+        prefetch={IntergenerationalPanel.preload}
+      >
+        <IntergenerationalPanel />
+      </Leaf>
+      <Leaf title={t('anchorBody.theory.polis')} testid="thy-polis" prefetch={PolisPanel.preload}>
+        <PolisPanel />
+      </Leaf>
+    </div>
+  );
+};
 
 export default TheoryAnchor;
