@@ -56,6 +56,48 @@ const pgEn: PlaygroundKeys = {
     parties: 'parties',
     voters: 'voters',
   },
+  canvas: {
+    ruleLabel: 'Rule',
+    winnerLabel: 'Winner:',
+    viewLabel: 'View',
+    lensWinner: 'Winner',
+    lensManipulation: 'Manipulation',
+    lensProbability: 'Probability',
+    lensCriteria: 'Criteria',
+    view3d: '🧊 3D view',
+    viewPlane: '▦ x–y plane (edit)',
+    svgAria: 'Ideology map — electing a leader',
+    manipCompromise: 'Compromise (tactical vote)',
+    manipBurying: 'Burying',
+    manipSafe: 'Conviction rewarded',
+    manipUnder: 'Under',
+    manipMid:
+      ': {{pct}}% of voters tempted to vote tactically ({{compromise}} compromise · {{burying}} burying). Random ballot:',
+    manipEnd:
+      ' — the only strategyproof rule (Gibbard 1977). Every deterministic ordinal rule is manipulable: that is the Gibbard-Satterthwaite boundary.',
+    methodHeader: 'Method',
+    criteriaLegend:
+      '✓ satisfied · ✗ violated · – not triggered on this electorate. Measured live — drag a candidate to provoke a violation. The Condorcet winner is ringed on the map.',
+    condorcetMarker: 'Condorcet',
+    lotteryTitle: 'Random-ballot lottery — win probability (= share of first preferences)',
+    zAxis: 'z axis (depth) — set by slider',
+    entrantZone: 'A new entrant’s region',
+    youMarker: 'You',
+    capManip:
+      'Manipulation lens: each voter is treated as a conviction bloc; its colour says whether the rule pushes them to vote tactically. Drag a candidate or change the rule — the temptations redraw. ',
+    capCriteria:
+      'Criteria lens: an axiomatic matrix measured on THIS electorate. The Condorcet winner (if any) is ringed on the map — compare it to the chosen rule’s winner. ',
+    capProbability:
+      'Probability lens: under random ballot, one ballot is drawn at random — the intensity shows a new entrant’s win chance, and each basin becomes a probability (not a sharp boundary). ',
+    capDims1:
+      '1-dimensional space: everything plays out on one axis — the terrain of the median-voter theorem.',
+    capDims2:
+      'Drag the candidates. The coloured regions show who would win if a candidate were placed there — the boundaries reveal the regions vulnerable to tactical voting.',
+    capDims3Scene:
+      '3D orbital view: drag to rotate; voters are coloured by nearest candidate (in 3-D). Switch to “x–y plane” to edit and see the overlay.',
+    capDims3Plane:
+      'x–y plane (set z by slider); the winner is computed in full 3-D, but the overlay is only a z=0 slice.',
+  },
   electorate: {
     composeTitle: '🧭 Compose the electorate',
     composeSubComposed: '{{count}} communities · mixture',

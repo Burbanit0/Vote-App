@@ -35,7 +35,7 @@ describe('LeaderCanvas', () => {
     expect(screen.getByTestId('candidate-0')).toBeInTheDocument();
     expect(screen.getByTestId('candidate-2')).toBeInTheDocument();
     expect(screen.getByTestId('median-marker')).toBeInTheDocument();
-    expect(screen.getByTestId('field-winner')).toHaveTextContent('Vainqueur');
+    expect(screen.getByTestId('field-winner')).toHaveTextContent('Winner');
   });
 
   it('computes the win/entry-region overlay (debounced) with one cell per grid square', async () => {

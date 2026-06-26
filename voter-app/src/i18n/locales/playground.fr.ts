@@ -60,6 +60,48 @@ const pgFr = {
     parties: 'partis',
     voters: 'électeurs',
   },
+  canvas: {
+    ruleLabel: 'Règle',
+    winnerLabel: 'Vainqueur :',
+    viewLabel: 'Vue',
+    lensWinner: 'Vainqueur',
+    lensManipulation: 'Manipulation',
+    lensProbability: 'Probabilité',
+    lensCriteria: 'Critères',
+    view3d: '🧊 Vue 3D',
+    viewPlane: '▦ Plan x–y (édition)',
+    svgAria: 'Carte idéologique — élire un dirigeant',
+    manipCompromise: 'Compromis (vote utile)',
+    manipBurying: 'Enterrement',
+    manipSafe: 'Conviction récompensée',
+    manipUnder: 'Sous',
+    manipMid:
+      ' : {{pct}}% des électeurs tentés de voter stratégiquement ({{compromise}} compromis · {{burying}} enterrement). Vote au sort :',
+    manipEnd:
+      ' — la seule règle inmanipulable (Gibbard 1977). Toute règle ordinale déterministe est manipulable : c’est la frontière de Gibbard-Satterthwaite.',
+    methodHeader: 'Méthode',
+    criteriaLegend:
+      '✓ satisfait · ✗ violé · – non déclenché sur cet électorat. Mesuré en direct — glissez un candidat pour provoquer une violation. Le vainqueur de Condorcet est cerclé sur la carte.',
+    condorcetMarker: 'Condorcet',
+    lotteryTitle: 'Loterie du vote au sort — probabilité de victoire (= part des premières voix)',
+    zAxis: 'Axe z (profondeur) — réglé par curseur',
+    entrantZone: 'Zone d’un nouvel entrant',
+    youMarker: 'Vous',
+    capManip:
+      'Lentille Manipulation : chaque électeur est traité comme un bloc de conviction ; sa couleur dit si la règle le pousse à voter utile. Glissez un candidat ou changez de règle — les tentations se redessinent. ',
+    capCriteria:
+      'Lentille Critères : matrice axiomatique mesurée sur CET électorat. Le vainqueur de Condorcet (s’il existe) est cerclé sur la carte — comparez-le au vainqueur de la règle choisie. ',
+    capProbability:
+      'Lentille Probabilité : sous le vote au sort, un bulletin est tiré au hasard — l’intensité montre la chance de victoire d’un nouvel entrant, et chaque bassin devient une probabilité (et non une frontière nette). ',
+    capDims1:
+      'Espace à 1 dimension : tout se joue sur un axe — le terrain du théorème de l’électeur médian.',
+    capDims2:
+      'Glissez les candidats. Les zones colorées montrent qui gagnerait si un candidat était placé là — les frontières révèlent les régions vulnérables au vote stratégique.',
+    capDims3Scene:
+      'Vue 3D orbitale : glissez pour pivoter, les électeurs sont colorés par candidat le plus proche (en 3-D). Basculez en « Plan x–y » pour éditer et voir l’overlay.',
+    capDims3Plane:
+      'Plan x–y (réglez z au curseur) ; le calcul du vainqueur est bien en 3-D, mais l’overlay n’est qu’une tranche z=0.',
+  },
   electorate: {
     composeTitle: '🧭 Composer l’électorat',
     composeSubComposed: '{{count}} communautés · mélange',
