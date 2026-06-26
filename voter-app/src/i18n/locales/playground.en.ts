@@ -191,6 +191,54 @@ const pgEn: PlaygroundKeys = {
     duvergerNote:
       'Desertion squeezes non-viable parties toward their viable neighbour: Duverger, as mechanics. The effect reads live on the assembly’s composition →.',
   },
+  parliament: {
+    mirror: {
+      left_lib: 'Left · liberal',
+      left_cons: 'Left · conservative',
+      right_lib: 'Right · liberal',
+      right_cons: 'Right · conservative',
+    },
+    unavailable:
+      '⚠ Hemicycle unavailable: the assembly computation did not complete. If you just updated, restart the backend server (uvicorn) so it picks up the new schema.',
+    mapAria: 'Ideology map — parties and territories',
+    hemicycleAria: 'Hemicycle — seats per party',
+    seatsLine: '{{seats}} seats · majority {{majority}}',
+    computing: 'Computing the assembly…',
+    awaiting: '{{seats}} seats — awaiting apportionment',
+    gallagherTitle: 'Gallagher index — 0 = perfectly proportional',
+    disproportion: 'Disproportion',
+    effPartiesTitle: 'Effective number of parties (seats)',
+    effParties: 'Effective parties',
+    wastedTitle: 'Share of votes with no representation',
+    wasted: 'Wasted votes',
+    coalitionToggleTitle: 'Click to add/remove from the coalition',
+    votesSeatsNote: 'Light bar = votes, solid bar = seats. ✕ = excluded by the threshold.',
+    congruenceTitle:
+      'Distance between the elected body’s position (seat-weighted) and the median voter — on the map: ✚ median, ● assembly, ◆ governing coalition.',
+    congruenceHead: 'Congruence (✚ median · ● assembly · ◆ government)',
+    gapLine: 'Assembly–median gap:',
+    governingCoalition: 'governing coalition:',
+    mirrorTitle:
+      'Does the assembly resemble the electorate, ideological region by region? (Descriptive representation over the modelled space — no demographics are invented.)',
+    mirrorHead: 'Descriptive mirror (ideological regions)',
+    mirrorNote: 'Grey bar = electorate, solid bar = seats.',
+    coalitionEmpty: 'Click parties to assemble a majority coalition ({{majority}} seats).',
+    coalitionLabel: 'Coalition:',
+    seatsWord: 'seats',
+    coalitionMajority: ' — majority ✔',
+    coalitionNoMajority: ' — no majority',
+    coalitionSpan: ' · ideological span {{span}}',
+  },
+  noshow: {
+    title: '🚷 No-show paradox (example — two-round runoff)',
+    intro:
+      '34 voters, 3 candidates. C-supporters rank them C ▸ A ▸ B. Make a few of them abstain: watch the winner.',
+    abstainers: 'C-supporters who abstain: {{n}}',
+    winner: 'Winner:',
+    paradox:
+      ' — Paradox! By abstaining, C-supporters get {{winner}} elected (their choice #{{rank}}), whom they prefer to {{base}} (their choice #{{baseRank}}/last). Their participation was hurting them.',
+    noFlip: ' — with all voters, it is C-supporters’ 3rd choice that wins.',
+  },
   bilan: {
     evaluatedFor: 'Evaluated for:',
     sensibility: 'Your sensibility',

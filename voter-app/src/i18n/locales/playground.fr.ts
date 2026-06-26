@@ -199,6 +199,55 @@ const pgFr = {
     duvergerNote:
       'La désertion comprime les partis non viables vers leur voisin viable : Duverger, en mécanique. L’effet se lit en direct sur la composition de l’assemblée →.',
   },
+  parliament: {
+    mirror: {
+      left_lib: 'Gauche · libéral',
+      left_cons: 'Gauche · conservateur',
+      right_lib: 'Droite · libéral',
+      right_cons: 'Droite · conservateur',
+    },
+    unavailable:
+      '⚠ Hémicycle indisponible : le calcul de l’assemblée n’a pas abouti. Si vous venez de mettre à jour, redémarrez le serveur backend (uvicorn) pour qu’il prenne le nouveau schéma.',
+    mapAria: 'Carte idéologique — partis et territoires',
+    hemicycleAria: 'Hémicycle — sièges par parti',
+    seatsLine: '{{seats}} sièges · majorité {{majority}}',
+    computing: 'Calcul de l’assemblée…',
+    awaiting: '{{seats}} sièges — en attente de la répartition',
+    gallagherTitle: 'Indice de Gallagher — 0 = parfaitement proportionnel',
+    disproportion: 'Disproportion',
+    effPartiesTitle: 'Nombre effectif de partis (sièges)',
+    effParties: 'Partis effectifs',
+    wastedTitle: 'Part des voix sans représentation',
+    wasted: 'Voix gaspillées',
+    coalitionToggleTitle: 'Cliquer pour ajouter/retirer de la coalition',
+    votesSeatsNote: 'Barre claire = voix, barre pleine = sièges. ✕ = exclu par le seuil.',
+    congruenceTitle:
+      'Distance entre la position du corps élu (pondérée par sièges) et l’électeur médian — sur la carte : ✚ médiane, ● assemblée, ◆ coalition gouvernante.',
+    congruenceHead: 'Congruence (✚ médiane · ● assemblée · ◆ gouvernement)',
+    gapLine: 'Écart assemblée–médiane :',
+    governingCoalition: 'coalition gouvernante :',
+    mirrorTitle:
+      'L’assemblée ressemble-t-elle à l’électorat, région idéologique par région ? (Représentation descriptive sur l’espace modélisé — aucune démographie n’est inventée.)',
+    mirrorHead: 'Miroir descriptif (régions idéologiques)',
+    mirrorNote: 'Barre grise = électorat, barre pleine = sièges.',
+    coalitionEmpty:
+      'Cliquez sur des partis pour assembler une coalition majoritaire ({{majority}} sièges).',
+    coalitionLabel: 'Coalition :',
+    seatsWord: 'sièges',
+    coalitionMajority: ' — majorité ✔',
+    coalitionNoMajority: ' — pas de majorité',
+    coalitionSpan: ' · étendue idéologique {{span}}',
+  },
+  noshow: {
+    title: '🚷 Paradoxe du non-votant (exemple — scrutin à deux tours)',
+    intro:
+      '34 électeurs, 3 candidats. Les partisans de C les classent C ▸ A ▸ B. Faites-en abstenir quelques-uns : observez le vainqueur.',
+    abstainers: 'Partisans de C qui s’abstiennent : {{n}}',
+    winner: 'Vainqueur :',
+    paradox:
+      ' — Paradoxe ! En s’abstenant, les partisans de C font élire {{winner}} (leur choix nº {{rank}}), qu’ils préfèrent à {{base}} (leur choix nº {{baseRank}}/dernier). Leur participation leur nuisait.',
+    noFlip: ' — avec tous les votants, c’est le 3ᵉ choix des partisans de C qui l’emporte.',
+  },
   bilan: {
     evaluatedFor: 'Évalué pour :',
     sensibility: 'Votre sensibilité',
