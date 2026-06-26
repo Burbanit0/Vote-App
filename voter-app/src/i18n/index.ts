@@ -2,6 +2,7 @@ import i18n from 'i18next';
 import { initReactI18next } from 'react-i18next';
 import LanguageDetector from 'i18next-browser-languagedetector';
 import fr from './locales/fr';
+import pgFr from './locales/playground.fr';
 
 // i18n lazy-loading (Phase 6 — UI modernisation).
 //
@@ -13,16 +14,24 @@ import fr from './locales/fr';
 const lazyLoaders: Record<string, () => Promise<{ default: Record<string, unknown> }>> = {
   en: () => import('./locales/en'),
 };
+// The playground namespace is code-split the same way (its own large vocabulary).
+const pgLazyLoaders: Record<string, () => Promise<{ default: Record<string, unknown> }>> = {
+  en: () => import('./locales/playground.en'),
+};
 
-/** Ensure a language's translation bundle is registered (no-op for `fr` and for
- *  already-loaded languages). Safe to call repeatedly. */
+/** Ensure a language's bundles (translation + playground) are registered (no-op
+ *  for `fr` and for already-loaded languages). Safe to call repeatedly. */
 export async function loadLanguage(lng: string): Promise<void> {
   const base = lng.startsWith('en') ? 'en' : 'fr';
-  if (i18n.hasResourceBundle(base, 'translation')) return;
-  const loader = lazyLoaders[base];
-  if (!loader) return; // fr (and anything bundled) is already present
-  const mod = await loader();
-  i18n.addResourceBundle(base, 'translation', mod.default, true, true);
+  if (base === 'fr') return; // fr (and anything bundled) is already present
+  if (!i18n.hasResourceBundle(base, 'translation') && lazyLoaders[base]) {
+    const mod = await lazyLoaders[base]();
+    i18n.addResourceBundle(base, 'translation', mod.default, true, true);
+  }
+  if (!i18n.hasResourceBundle(base, 'playground') && pgLazyLoaders[base]) {
+    const mod = await pgLazyLoaders[base]();
+    i18n.addResourceBundle(base, 'playground', mod.default, true, true);
+  }
 }
 
 /** Load the target bundle, THEN switch — so the UI never flashes raw keys. */
@@ -36,7 +45,7 @@ const initPromise = i18n
   .use(initReactI18next)
   .init({
     resources: {
-      fr: { translation: fr },
+      fr: { translation: fr, playground: pgFr },
     },
     fallbackLng: 'fr',
     supportedLngs: ['fr', 'en'],

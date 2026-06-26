@@ -1,4 +1,5 @@
 import React from 'react';
+import { useTranslation } from 'react-i18next';
 import { Card, CardContent } from '@/components/ui/card';
 import { cn } from '@/lib/utils';
 import { useMetaTags } from '../hooks/useMetaTags';
@@ -34,17 +35,18 @@ const MOMENT_PANELS = {
 // Segmented hardware-style switch for the leader/assembly duality.
 const ModeSwitch: React.FC = () => {
   const { mode, setMode } = usePlaygroundCtx();
+  const { t } = useTranslation('playground');
   return (
     <div
       data-testid="mode-toggle"
       role="radiogroup"
-      aria-label="Question"
+      aria-label={t('mode.leader')}
       className="inline-flex shrink-0 items-center rounded-full border border-border bg-muted/50 p-0.5 text-sm shadow-inner"
     >
       {(
         [
-          ['leader', '👑', 'Dirigeant'],
-          ['parliament', '🏛', 'Assemblée'],
+          ['leader', '👑', t('mode.leader')],
+          ['parliament', '🏛', t('mode.assembly')],
         ] as const
       ).map(([id, icon, label]) => (
         <button
@@ -73,6 +75,7 @@ const ModeSwitch: React.FC = () => {
 
 const PlaygroundShell: React.FC = () => {
   const { activeMoment, setActiveMoment } = usePlaygroundCtx();
+  const { t } = useTranslation('playground');
   const meta = MOMENTS.find((m) => m.id === activeMoment) ?? MOMENTS[0];
   const Panel = activeMoment !== 'campaign' ? MOMENT_PANELS[activeMoment] : null;
 
@@ -82,15 +85,12 @@ const PlaygroundShell: React.FC = () => {
       <header className="mb-5 flex flex-wrap items-end justify-between gap-4 border-b border-border pb-4">
         <div>
           <p className="font-mono text-[0.66rem] uppercase tracking-[0.22em] text-primary">
-            Vote Lab — laboratoire de théorie du vote
+            {t('masthead.kicker')}
           </p>
           <h1 className="mt-1 font-display text-3xl font-bold tracking-tight sm:text-4xl">
-            Instrument de vote
+            {t('masthead.title')}
           </h1>
-          <p className="mt-1 max-w-xl text-sm text-muted-foreground">
-            Un seul appareil, du simple au complexe : choisissez la question, puis avancez moment
-            par moment et lisez les effets en direct.
-          </p>
+          <p className="mt-1 max-w-xl text-sm text-muted-foreground">{t('masthead.subtitle')}</p>
         </div>
         <ModeSwitch />
       </header>
@@ -109,8 +109,12 @@ const PlaygroundShell: React.FC = () => {
                   {meta.n}
                 </span>
                 <div className="min-w-0">
-                  <p className="font-display text-base font-semibold leading-tight">{meta.label}</p>
-                  <p className="truncate text-[0.7rem] text-muted-foreground">{meta.hint}</p>
+                  <p className="font-display text-base font-semibold leading-tight">
+                    {t(`moments.${activeMoment}.label`)}
+                  </p>
+                  <p className="truncate text-[0.7rem] text-muted-foreground">
+                    {t(`moments.${activeMoment}.hint`)}
+                  </p>
                 </div>
               </div>
               <CardContent className="flex flex-col gap-4 p-4">{Panel && <Panel />}</CardContent>

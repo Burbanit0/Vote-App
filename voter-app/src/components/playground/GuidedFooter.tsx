@@ -1,4 +1,5 @@
 import React from 'react';
+import { useTranslation } from 'react-i18next';
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
 import { usePlaygroundCtx } from './PlaygroundController';
@@ -12,6 +13,7 @@ const ORDER: MomentId[] = MOMENTS.map((m) => m.id);
 
 const GuidedFooter: React.FC = () => {
   const { activeMoment, setActiveMoment } = usePlaygroundCtx();
+  const { t } = useTranslation('playground');
   const idx = ORDER.indexOf(activeMoment);
   const current = MOMENTS[idx];
   const prev = idx > 0 ? MOMENTS[idx - 1] : null;
@@ -31,7 +33,7 @@ const GuidedFooter: React.FC = () => {
         onClick={() => prev && setActiveMoment(prev.id)}
         className="shrink-0"
       >
-        ← {prev ? prev.label : 'Début'}
+        ← {prev ? t(`moments.${prev.id}.label`) : t('guided.start')}
       </Button>
 
       <div className="flex min-w-0 flex-1 flex-col items-center gap-1 px-2 text-center">
@@ -48,13 +50,15 @@ const GuidedFooter: React.FC = () => {
             ))}
           </span>
           <span className="font-mono text-[0.7rem] uppercase tracking-[0.14em] text-muted-foreground">
-            Moment {current.n} / {MOMENTS.length}
+            {t('guided.moment', { n: current.n, total: MOMENTS.length })}
           </span>
         </div>
         <p className="truncate text-sm text-muted-foreground">
-          <span className="font-display font-medium text-foreground">{current.label}</span>
+          <span className="font-display font-medium text-foreground">
+            {t(`moments.${current.id}.label`)}
+          </span>
           {' — '}
-          {current.hint}
+          {t(`moments.${current.id}.hint`)}
         </p>
       </div>
 
@@ -65,7 +69,7 @@ const GuidedFooter: React.FC = () => {
         onClick={() => setActiveMoment((next ?? MOMENTS[0]).id)}
         className="shrink-0"
       >
-        {isLast ? '↻ Recommencer' : `${next?.label} →`}
+        {isLast ? t('guided.restart') : t('guided.next', { label: t(`moments.${next?.id}.label`) })}
       </Button>
     </div>
   );

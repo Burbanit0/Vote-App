@@ -1,4 +1,5 @@
 import React from 'react';
+import { useTranslation } from 'react-i18next';
 import { usePlaygroundCtx } from './PlaygroundController';
 import { AnchorFallback } from './playgroundFields';
 import Collapsible from './Collapsible';
@@ -16,6 +17,7 @@ const ResultsAnchor = React.lazy(() => import('./anchors/ResultsAnchor'));
 
 const MomentExplorations: React.FC = () => {
   const { activeMoment, mode } = usePlaygroundCtx();
+  const { t } = useTranslation('playground');
 
   let body: React.ReactNode = null;
 
@@ -23,8 +25,8 @@ const MomentExplorations: React.FC = () => {
     body =
       mode === 'leader' ? (
         <Collapsible
-          title="⚙️ Autres procédures de décision"
-          subtitle="11 mécanismes (jury, sortition, délégation…)"
+          title={t('anchors.mechanisms.title')}
+          subtitle={t('anchors.mechanisms.subtitle')}
           testid="anchor-mechanisms"
         >
           <React.Suspense fallback={<AnchorFallback />}>
@@ -33,8 +35,8 @@ const MomentExplorations: React.FC = () => {
         </Collapsible>
       ) : (
         <Collapsible
-          title="🔬 Systèmes & circonscriptions"
-          subtitle="7 vues (coalitions, districts, gerrymander…)"
+          title={t('anchors.systems.title')}
+          subtitle={t('anchors.systems.subtitle')}
           testid="anchor-systems"
         >
           <React.Suspense fallback={<AnchorFallback />}>
@@ -46,8 +48,8 @@ const MomentExplorations: React.FC = () => {
     body = (
       <>
         <Collapsible
-          title="📋 Résultats complets (dépouillement)"
-          subtitle="toutes les méthodes · animation"
+          title={t('anchors.results.title')}
+          subtitle={t('anchors.results.subtitle')}
           testid="anchor-results"
         >
           <React.Suspense fallback={<AnchorFallback />}>
@@ -55,8 +57,8 @@ const MomentExplorations: React.FC = () => {
           </React.Suspense>
         </Collapsible>
         <Collapsible
-          title="🔬 Analyse approfondie du résultat courant"
-          subtitle="distributions · regret · manipulabilité"
+          title={t('anchors.analysis.title')}
+          subtitle={t('anchors.analysis.subtitle')}
           testid="anchor-analysis"
         >
           <React.Suspense fallback={<AnchorFallback />}>
@@ -64,8 +66,8 @@ const MomentExplorations: React.FC = () => {
           </React.Suspense>
         </Collapsible>
         <Collapsible
-          title="🔬 Théorie & paradoxes du choix social"
-          subtitle="Sen · jugements · McKelvey · pouvoir · recul démocratique…"
+          title={t('anchors.theory.title')}
+          subtitle={t('anchors.theory.subtitle')}
           testid="anchor-theory"
         >
           <React.Suspense fallback={<AnchorFallback />}>
@@ -81,7 +83,7 @@ const MomentExplorations: React.FC = () => {
   return (
     <section className="mt-4 flex flex-col gap-3">
       <p className="px-1 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-        Pour aller plus loin
+        {t('explore.heading')}
       </p>
       {body}
     </section>
