@@ -56,45 +56,52 @@ const MomentRail: React.FC<MomentRailProps> = ({ active, onSelect }) => (
     data-testid="moment-rail"
     role="radiogroup"
     aria-label="Moment de l’exploration"
-    className="flex items-stretch gap-1 overflow-x-auto rounded-lg border border-border bg-card p-1"
+    className="grid grid-cols-2 gap-2 sm:flex sm:items-stretch"
   >
-    {MOMENTS.map((m, i) => {
+    {MOMENTS.map((m) => {
       const on = m.id === active;
       return (
-        <React.Fragment key={m.id}>
-          <button
-            type="button"
-            role="radio"
-            aria-checked={on}
-            data-testid={`moment-${m.id}`}
-            onClick={() => onSelect(m.id)}
+        <button
+          key={m.id}
+          type="button"
+          role="radio"
+          aria-checked={on}
+          data-testid={`moment-${m.id}`}
+          onClick={() => onSelect(m.id)}
+          className={cn(
+            'group relative flex min-w-0 flex-1 items-center gap-2.5 rounded-xl border px-3 py-2.5 text-left transition-all',
+            on
+              ? 'border-primary/40 bg-card shadow-sm'
+              : 'border-border bg-muted/30 hover:border-border hover:bg-card'
+          )}
+        >
+          <span
             className={cn(
-              'flex min-w-0 flex-1 items-center gap-2 rounded-md px-3 py-2 text-left transition-colors',
-              on ? 'bg-primary/10 text-primary' : 'text-muted-foreground hover:bg-accent/50'
+              'flex h-7 w-7 shrink-0 items-center justify-center rounded-md font-mono text-sm font-semibold tabular-nums transition-colors',
+              on
+                ? 'bg-primary text-primary-foreground'
+                : 'bg-background text-muted-foreground/70 group-hover:text-foreground'
             )}
           >
-            <span
-              className={cn(
-                'font-mono text-xs tabular-nums',
-                on ? 'text-primary' : 'text-muted-foreground/60'
-              )}
-            >
-              {m.n}
-            </span>
-            <span aria-hidden>{m.icon}</span>
-            <span className={cn('min-w-0 truncate text-sm font-medium', on && 'font-display')}>
-              {m.label}
-            </span>
-          </button>
-          {i < MOMENTS.length - 1 && (
+            {m.n}
+          </span>
+          <span
+            className={cn(
+              'min-w-0 truncate text-sm font-medium transition-colors',
+              on
+                ? 'font-display text-foreground'
+                : 'text-muted-foreground group-hover:text-foreground'
+            )}
+          >
+            {m.label}
+          </span>
+          {on && (
             <span
               aria-hidden
-              className="hidden self-center px-0.5 text-muted-foreground/40 sm:block"
-            >
-              →
-            </span>
+              className="absolute inset-x-3 -bottom-px h-0.5 rounded-full bg-primary"
+            />
           )}
-        </React.Fragment>
+        </button>
       );
     })}
   </div>

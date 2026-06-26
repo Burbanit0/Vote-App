@@ -1,6 +1,6 @@
 import React from 'react';
-import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
+import { Instrument } from '@/components/ui/instrument';
 import { usePlaygroundCtx } from './PlaygroundController';
 import LeaderCanvas from './LeaderCanvas';
 import ParliamentCanvas from './ParliamentCanvas';
@@ -11,9 +11,10 @@ import IssuesPanel from './IssuesPanel';
 import StructuralPanel from './StructuralPanel';
 import { COMMUNITY_PALETTE } from '../../lib/playgroundElectorate';
 
-// InstrumentPanel — the live centre: the headline paradox reading on top, then the
-// flip centerpiece (same electorate, the question flips) with the spatial map for
-// the active mode and its inline robustness/structure readings.
+// InstrumentPanel — the live screen. The spatial map sits inside the signature
+// instrument frame (corner ticks + a mono label/readout strip); the headline
+// paradox rate is the instrument's live readout. The flip centerpiece swaps the
+// map for the active question with its inline robustness/structure readings.
 const InstrumentPanel: React.FC = () => {
   const {
     config,
@@ -46,29 +47,25 @@ const InstrumentPanel: React.FC = () => {
   } = usePlaygroundCtx();
 
   return (
-    <Card>
-      <CardContent className="p-3">
-        <div
+    <Instrument
+      label={mode === 'leader' ? 'Carte idéologique — dirigeant' : 'Composition de l’assemblée'}
+      readout={
+        <span
           data-testid="cycle-rate"
-          className="mb-3 rounded-md border border-border px-2.5 py-2"
           title="Part des électorats ré-échantillonnés sans vainqueur de Condorcet — un taux élevé signale que le résultat dépend fortement des hypothèses."
         >
-          <div className="flex items-center justify-between">
-            <span className="text-xs font-medium text-muted-foreground">
-              Taux de paradoxe (cycles)
-            </span>
-            <span className="font-mono text-sm font-semibold tabular-nums">
-              {loading || !result ? '…' : `${Math.round(result.cycle_rate * 100)} %`}
-            </span>
-          </div>
-          {result && (
-            <p className="mt-1 text-[0.7rem] text-muted-foreground/80">
-              {result.condorcet_winner
-                ? `Vainqueur de Condorcet : ${result.condorcet_winner}`
-                : 'Aucun vainqueur de Condorcet (cycle).'}
-            </p>
-          )}
-        </div>
+          {loading || !result ? '· · ·' : `paradoxe ${Math.round(result.cycle_rate * 100)} %`}
+        </span>
+      }
+    >
+      <div className="flex flex-col gap-3">
+        {result && (
+          <p className="font-mono text-[0.68rem] tracking-tight text-muted-foreground">
+            {result.condorcet_winner
+              ? `Condorcet : ${result.condorcet_winner}`
+              : 'aucun vainqueur de Condorcet (cycle)'}
+          </p>
+        )}
 
         <FlipReveal modeKey={mode} caption="Mêmes électeurs, caractère opposé.">
           {mode === 'leader' ? (
@@ -189,8 +186,8 @@ const InstrumentPanel: React.FC = () => {
             </div>
           )}
         </FlipReveal>
-      </CardContent>
-    </Card>
+      </div>
+    </Instrument>
   );
 };
 
