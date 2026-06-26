@@ -342,12 +342,12 @@ describe('PlaygroundPage (P0 shell)', () => {
     expect(screen.getByTestId('sincerity-module')).toBeInTheDocument();
     expect(screen.getByTestId('you-marker')).toBeInTheDocument();
     // Live (no button): the headline + bloc control render immediately.
-    expect(screen.getByTestId('sincerity-headline')).toHaveTextContent('/15 méthodes');
+    expect(screen.getByTestId('sincerity-headline')).toHaveTextContent('/15 methods');
     expect(screen.getByTestId('sincerity-bloc')).toBeInTheDocument();
     // The electorate sweep is on-demand and renders a per-method ranking.
     expect(screen.queryByTestId('sincerity-scan')).not.toBeInTheDocument();
     fireEvent.click(screen.getByTestId('sincerity-scan-run'));
-    expect(screen.getByTestId('sincerity-scan')).toHaveTextContent('minimise le vote utile');
+    expect(screen.getByTestId('sincerity-scan')).toHaveTextContent('minimises the tactical vote');
   });
 
   it('the strategic-vulnerability module is collapsed in the Stratégie moment, opens on demand', () => {

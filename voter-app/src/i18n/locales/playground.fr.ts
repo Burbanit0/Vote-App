@@ -268,6 +268,37 @@ const pgFr = {
     drillAria: 'Approfondir « {{label}} » dans le Lab',
     bandFooter: 'Bande = p10–p90 sur {{note}} ; trait = moyenne.',
   },
+  sincerity: {
+    typeCompromise: 'vote utile (compromis)',
+    typeBurying: 'enterrement d’un rival',
+    intro:
+      'Vous êtes un électeur. Votre voix seule pèse peu — la tentation de voter « utile » est collective, alors réglez la taille de votre bloc de conviction. Pour chaque méthode : voter sincèrement est-il votre meilleure réponse, ou la méthode vous pousse-t-elle à trahir votre favori ?',
+    posEcon: 'Votre position (axe écon.) : {{val}}',
+    posSocial: 'Votre position (axe sociétal) : {{val}}',
+    sincereOrder: 'Votre ordre sincère :',
+    tip: 'Astuce : glissez le marqueur',
+    tipMarker: '◆ Vous',
+    tipEnd: 'directement sur la carte.',
+    blocTitle:
+      'Nombre d’électeurs qui partagent votre conviction et voteraient comme vous — votre levier collectif.',
+    blocLabel: 'Électeurs comme vous : {{n}}',
+    headlinePre: 'À votre place,',
+    headlineMid: '/15 méthodes récompensent la conviction ;',
+    headlineEnd: 'vous poussent au vote stratégique.',
+    temptingHead: '⚠ Vous seriez tenté de trahir votre favori',
+    temptSincere: 'sincère → {{winner}} ; mais votez',
+    safeHead: '✓ Voter sincèrement est votre meilleure réponse',
+    elects: 'Élit {{winner}}',
+    scanTitle:
+      'Échantillonne de vrais électeurs de cet électorat et mesure, par méthode, à quelle fréquence ils seraient tentés de voter stratégiquement.',
+    scanRescan: '↻ Re-balayer l’électorat',
+    scanRun: '▶ Balayer l’électorat (toutes méthodes)',
+    scanHeadPre: 'Sur {{sampled}} électeurs, la méthode qui minimise le vote utile :',
+    scanHeadEnd: '({{pct}} %).',
+    scanFooter:
+      'Barre = part d’électeurs tentés de trahir leur conviction (plus court = méthode plus sincère sur cet électorat).',
+    note: 'Contrainte centrale du projet : voter par conviction, jamais par élimination. On teste les stratégies classiques (compromis « vote utile » et enterrement d’un rival) ; l’absence de tentation ici ne prouve pas l’infaillibilité, mais signale une méthode robuste pour cet électorat.',
+  },
   structural: {
     title: '⚖ Équités structurelles',
     malTitle: '0 = circonscriptions de population égale ; 1 = fortement inégales (≈ 4:1).',

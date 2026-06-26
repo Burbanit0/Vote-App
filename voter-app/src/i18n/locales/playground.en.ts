@@ -259,6 +259,37 @@ const pgEn: PlaygroundKeys = {
     drillAria: 'Dig into “{{label}}” in the Lab',
     bandFooter: 'Band = p10–p90 over {{note}}; tick = mean.',
   },
+  sincerity: {
+    typeCompromise: 'tactical vote (compromise)',
+    typeBurying: 'burying a rival',
+    intro:
+      'You are a voter. Your single vote weighs little — the temptation to vote “tactically” is collective, so set the size of your conviction bloc. For each method: is voting sincerely your best response, or does the method push you to betray your favourite?',
+    posEcon: 'Your position (econ. axis): {{val}}',
+    posSocial: 'Your position (social axis): {{val}}',
+    sincereOrder: 'Your sincere order:',
+    tip: 'Tip: drag the marker',
+    tipMarker: '◆ You',
+    tipEnd: 'directly on the map.',
+    blocTitle:
+      'Number of voters who share your conviction and would vote like you — your collective leverage.',
+    blocLabel: 'Voters like you: {{n}}',
+    headlinePre: 'In your shoes,',
+    headlineMid: '/15 methods reward conviction;',
+    headlineEnd: 'push you toward a tactical vote.',
+    temptingHead: '⚠ You would be tempted to betray your favourite',
+    temptSincere: 'sincere → {{winner}} ; but vote',
+    safeHead: '✓ Voting sincerely is your best response',
+    elects: 'Elects {{winner}}',
+    scanTitle:
+      'Samples real voters from this electorate and measures, per method, how often they would be tempted to vote tactically.',
+    scanRescan: '↻ Re-sweep the electorate',
+    scanRun: '▶ Sweep the electorate (all methods)',
+    scanHeadPre: 'Over {{sampled}} voters, the method that minimises the tactical vote:',
+    scanHeadEnd: '({{pct}} %).',
+    scanFooter:
+      'Bar = share of voters tempted to betray their conviction (shorter = more sincere method on this electorate).',
+    note: 'The project’s central constraint: vote by conviction, never by elimination. We test the classic strategies (compromise “tactical vote” and burying a rival); the absence of temptation here does not prove infallibility, but signals a robust method for this electorate.',
+  },
   structural: {
     title: '⚖ Structural fairness',
     malTitle: '0 = equal-population districts; 1 = strongly unequal (≈ 4:1).',

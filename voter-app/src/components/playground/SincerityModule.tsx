@@ -1,6 +1,8 @@
 import React from 'react';
+import { useTranslation } from 'react-i18next';
 import { Button } from '@/components/ui/button';
-import { RULE_LABELS, type NamedPt, type Pt, type Rule } from '../../lib/playgroundVoting';
+import { type NamedPt, type Pt, type Rule } from '../../lib/playgroundVoting';
+import { useVotingLabels } from '../../hooks/useVotingLabels';
 import {
   sincerityProbe,
   sincerityScan,
@@ -24,11 +26,6 @@ function subsample<T>(arr: T[], cap: number): T[] {
   return out;
 }
 
-const TYPE_LABEL: Record<NonNullable<SincerityVerdict['temptation']>['type'], string> = {
-  compromise: 'vote utile (compromis)',
-  burying: 'enterrement d’un rival',
-};
-
 const SincerityModule: React.FC<{
   voters: Pt[];
   candidates: NamedPt[];
@@ -37,6 +34,10 @@ const SincerityModule: React.FC<{
   you: Pt;
   onYouChange: (p: Pt) => void;
 }> = ({ voters, candidates, dims, you, onYouChange }) => {
+  const { t } = useTranslation('playground');
+  const { ruleLabels } = useVotingLabels();
+  const typeLabel = (type: NonNullable<SincerityVerdict['temptation']>['type']): string =>
+    type === 'compromise' ? t('sincerity.typeCompromise') : t('sincerity.typeBurying');
   const setYou = (updater: (p: Pt) => Pt) => onYouChange(updater(you));
   const [blocShare, setBlocShare] = React.useState(0.12);
 
@@ -49,7 +50,7 @@ const SincerityModule: React.FC<{
   const safe = report.verdicts.filter((v) => v.sincereIsBest);
   // Tempting methods, the most rewarding lie first (biggest betrayal incentive).
   const tempting = report.verdicts.filter((v) => !v.sincereIsBest).sort((a, b) => b.gain - a.gain);
-  const label = (r: Rule) => RULE_LABELS[r] ?? r;
+  const label = (r: Rule) => ruleLabels[r] ?? r;
 
   // Electorate sweep (on-demand): per-method temptation rate over many voters.
   const [scan, setScan] = React.useState<SincerityScan | null>(null);
@@ -58,18 +59,13 @@ const SincerityModule: React.FC<{
 
   return (
     <div data-testid="sincerity-module" className="flex flex-col gap-3">
-      <p className="text-[0.7rem] text-muted-foreground/80">
-        Vous êtes un électeur. Votre voix seule pèse peu — la tentation de voter « utile » est
-        collective, alors réglez la taille de votre bloc de conviction. Pour chaque méthode : voter
-        sincèrement est-il votre meilleure réponse, ou la méthode vous pousse-t-elle à trahir votre
-        favori ?
-      </p>
+      <p className="text-[0.7rem] text-muted-foreground/80">{t('sincerity.intro')}</p>
 
       {/* Your sincere position */}
       <div className="flex flex-col gap-1.5">
         <label className="flex items-center gap-2 text-xs">
           <span className="w-40 shrink-0 text-muted-foreground">
-            Votre position (axe écon.) : {you.x.toFixed(2)}
+            {t('sincerity.posEcon', { val: you.x.toFixed(2) })}
           </span>
           <input
             data-testid="sincerity-you-x"
@@ -85,7 +81,7 @@ const SincerityModule: React.FC<{
         {dims >= 2 && (
           <label className="flex items-center gap-2 text-xs">
             <span className="w-40 shrink-0 text-muted-foreground">
-              Votre position (axe sociétal) : {you.y.toFixed(2)}
+              {t('sincerity.posSocial', { val: you.y.toFixed(2) })}
             </span>
             <input
               data-testid="sincerity-you-y"
@@ -100,20 +96,17 @@ const SincerityModule: React.FC<{
           </label>
         )}
         <p className="text-[0.7rem] text-muted-foreground">
-          Votre ordre sincère : <strong>{report.ranking.join(' ＞ ')}</strong>
+          {t('sincerity.sincereOrder')} <strong>{report.ranking.join(' ＞ ')}</strong>
         </p>
         <p className="text-[0.65rem] text-muted-foreground/70">
-          Astuce : glissez le marqueur <strong>◆ Vous</strong> directement sur la carte.
+          {t('sincerity.tip')} <strong>{t('sincerity.tipMarker')}</strong> {t('sincerity.tipEnd')}
         </p>
       </div>
 
       {/* Conviction bloc size */}
       <label className="flex items-center gap-2 text-xs">
-        <span
-          className="w-40 shrink-0 text-muted-foreground"
-          title="Nombre d'électeurs qui partagent votre conviction et voteraient comme vous — votre levier collectif."
-        >
-          Électeurs comme vous : {report.blocSize}
+        <span className="w-40 shrink-0 text-muted-foreground" title={t('sincerity.blocTitle')}>
+          {t('sincerity.blocLabel', { n: report.blocSize })}
         </span>
         <input
           data-testid="sincerity-bloc"
@@ -129,25 +122,27 @@ const SincerityModule: React.FC<{
 
       {/* Headline */}
       <p data-testid="sincerity-headline" className="text-sm">
-        À votre place, <strong className="text-green-700 dark:text-green-400">{safe.length}</strong>
-        /15 méthodes récompensent la conviction ;{' '}
-        <strong className="text-amber-600 dark:text-amber-400">{tempting.length}</strong> vous
-        poussent au vote stratégique.
+        {t('sincerity.headlinePre')}{' '}
+        <strong className="text-green-700 dark:text-green-400">{safe.length}</strong>
+        {t('sincerity.headlineMid')}{' '}
+        <strong className="text-amber-600 dark:text-amber-400">{tempting.length}</strong>{' '}
+        {t('sincerity.headlineEnd')}
       </p>
 
       {/* Strategy-tempting methods */}
       {tempting.length > 0 && (
         <div data-testid="sincerity-tempting" className="flex flex-col gap-1">
           <p className="text-[0.65rem] font-semibold uppercase tracking-wide text-amber-600 dark:text-amber-400">
-            ⚠ Vous seriez tenté de trahir votre favori
+            {t('sincerity.temptingHead')}
           </p>
           {tempting.map((v) => (
             <div key={v.rule} className="flex flex-col rounded bg-amber-500/10 px-2 py-1 text-xs">
               <span className="font-medium">{label(v.rule)}</span>
               <span className="text-[0.7rem] text-muted-foreground">
-                sincère → {v.sincereWinner} ; mais votez <strong>{v.temptation!.voteFor}</strong> →{' '}
+                {t('sincerity.temptSincere', { winner: v.sincereWinner })}{' '}
+                <strong>{v.temptation!.voteFor}</strong> →{' '}
                 <strong>{v.temptation!.newWinner}</strong>{' '}
-                <em>({TYPE_LABEL[v.temptation!.type]})</em>
+                <em>({typeLabel(v.temptation!.type)})</em>
               </span>
             </div>
           ))}
@@ -158,14 +153,14 @@ const SincerityModule: React.FC<{
       {safe.length > 0 && (
         <div data-testid="sincerity-safe" className="flex flex-col gap-1">
           <p className="text-[0.65rem] font-semibold uppercase tracking-wide text-green-700 dark:text-green-400">
-            ✓ Voter sincèrement est votre meilleure réponse
+            {t('sincerity.safeHead')}
           </p>
           <div className="flex flex-wrap gap-1.5">
             {safe.map((v) => (
               <span
                 key={v.rule}
                 className="rounded border border-border px-1.5 py-0.5 text-[0.7rem] text-muted-foreground"
-                title={`Élit ${v.sincereWinner}`}
+                title={t('sincerity.elects', { winner: v.sincereWinner })}
               >
                 {label(v.rule)}
               </span>
@@ -182,19 +177,19 @@ const SincerityModule: React.FC<{
           size="sm"
           className="self-start"
           onClick={() => setScan(sincerityScan(others, candidates, blocShare))}
-          title="Échantillonne de vrais électeurs de cet électorat et mesure, par méthode, à quelle fréquence ils seraient tentés de voter stratégiquement."
+          title={t('sincerity.scanTitle')}
         >
-          {scan ? '↻ Re-balayer l’électorat' : '▶ Balayer l’électorat (toutes méthodes)'}
+          {scan ? t('sincerity.scanRescan') : t('sincerity.scanRun')}
         </Button>
 
         {scan && scan.sampled > 0 && (
           <div data-testid="sincerity-scan" className="flex flex-col gap-1">
             <p className="text-xs">
-              Sur {scan.sampled} électeurs, la méthode qui minimise le vote utile :{' '}
+              {t('sincerity.scanHeadPre', { sampled: scan.sampled })}{' '}
               <strong className="text-green-700 dark:text-green-400">
                 {label(scan.rows[0].rule)}
               </strong>{' '}
-              ({Math.round(scan.rows[0].temptRate * 100)} %).
+              {t('sincerity.scanHeadEnd', { pct: Math.round(scan.rows[0].temptRate * 100) })}
             </p>
             {scan.rows.map(({ rule, temptRate }) => (
               <div key={rule} className="flex items-center gap-2 text-xs">
@@ -217,20 +212,12 @@ const SincerityModule: React.FC<{
                 </span>
               </div>
             ))}
-            <p className="text-[0.65rem] text-muted-foreground/70">
-              Barre = part d’électeurs tentés de trahir leur conviction (plus court = méthode plus
-              sincère sur cet électorat).
-            </p>
+            <p className="text-[0.65rem] text-muted-foreground/70">{t('sincerity.scanFooter')}</p>
           </div>
         )}
       </div>
 
-      <p className="text-[0.65rem] text-muted-foreground/70">
-        Contrainte centrale du projet : voter par conviction, jamais par élimination. On teste les
-        stratégies classiques (compromis « vote utile » et enterrement d’un rival) ; l’absence de
-        tentation ici ne prouve pas l’infaillibilité, mais signale une méthode robuste pour cet
-        électorat.
-      </p>
+      <p className="text-[0.65rem] text-muted-foreground/70">{t('sincerity.note')}</p>
     </div>
   );
 };
