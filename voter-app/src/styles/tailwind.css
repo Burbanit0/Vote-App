@@ -136,3 +136,23 @@
     letter-spacing: -0.011em;
   }
 }
+
+/* Homepage hero — the winner readout "pops" each time the rule changes it. */
+@keyframes hero-pop {
+  from {
+    opacity: 0;
+    transform: translateY(5px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+.hero-pop {
+  animation: hero-pop 0.34s cubic-bezier(0.2, 0.7, 0.2, 1);
+}
+@media (prefers-reduced-motion: reduce) {
+  .hero-pop {
+    animation: none;
+  }
+}

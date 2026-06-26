@@ -1,151 +1,54 @@
 import React, { useCallback, useEffect, useState } from 'react';
-import { useNavigate } from 'react-router';
-import { Loader2 } from 'lucide-react';
-import { runComparisonSimulation } from '../services/simulationCompareApi';
-import OnboardingTour from '../components/shared/OnboardingTour';
-import QuickCompareWidget from '../components/shared/QuickCompareWidget';
-import { useMetaTags } from '../hooks/useMetaTags';
+import { Link, useNavigate } from 'react-router';
 import { useTranslation } from 'react-i18next';
-import { useElection } from '../stores/useElectionStore';
 import { Button } from '@/components/ui/button';
+import { useMetaTags } from '../hooks/useMetaTags';
+import { useElection } from '../stores/useElectionStore';
+import OnboardingTour from '../components/shared/OnboardingTour';
+import HeroInstrument from '../components/home/HeroInstrument';
+import { MOMENTS } from '../components/playground/MomentRail';
 
-// ── Tailwind-migrated (Phase 6) ──────────────────────────────────────────────
-// Off react-bootstrap → Tailwind utilities + shadcn Button. Bootstrap spacing
-// (3=1rem, 4=1.5rem, 5=3rem) is converted to Tailwind's scale (4=1rem, 6=1.5rem,
-// 12=3rem). data-style="tailwind" marks migrated screens.
+// HomePage — the doorway. One job: land the thesis (the rule decides, not just the
+// voters) and drop the visitor into the instrument. The hero is that thesis made
+// live (HeroInstrument); everything below funnels to /playground.
 
-// ── Dynamic stats hook ──────────────────────────────────────────────────────
-
-interface QuickStats {
-  disagreeingMethods: number | null;
-  totalMethods: number;
-  condorcetExists: boolean | null;
-  loading: boolean;
-}
-
-function useQuickStats(): QuickStats {
-  const [state, setState] = useState<QuickStats>({
-    disagreeingMethods: null,
-    totalMethods: 15,
-    condorcetExists: null,
-    loading: true,
-  });
-
-  useEffect(() => {
-    let cancelled = false;
-    runComparisonSimulation({ num_voters: 200, candidates: ['Alice', 'Bob', 'Charlie'] })
-      .then((r) => {
-        if (cancelled) return;
-        const methods = Object.values(r.methods);
-        const pluralityWinner = r.methods['plurality']?.winner;
-        const disagreeing = methods.filter(
-          (m) => m.winner !== null && m.winner !== pluralityWinner
-        ).length;
-        setState({
-          disagreeingMethods: disagreeing,
-          totalMethods: methods.length,
-          condorcetExists: r.condorcet_winner !== null,
-          loading: false,
-        });
-      })
-      .catch(() => {
-        if (!cancelled)
-          setState({
-            disagreeingMethods: null,
-            totalMethods: 15,
-            condorcetExists: null,
-            loading: false,
-          });
-      });
-    return () => {
-      cancelled = true;
-    };
-  }, []);
-
-  return state;
-}
-
-const Spinner = () => <Loader2 className="inline h-4 w-4 animate-spin" aria-label="loading" />;
-
-// ── Stat card ───────────────────────────────────────────────────────────────
-
-const StatCard: React.FC<{ value: React.ReactNode; label: string; sub?: string }> = ({
-  value,
-  label,
-  sub,
-}) => (
-  <div className="rounded-lg bg-muted px-4 py-6 text-center">
-    <div className="text-[2.4rem] font-extrabold leading-none text-[#0d6efd]">{value}</div>
-    <div className="mt-2 font-semibold">{label}</div>
-    {sub && <div className="mt-1 text-sm text-muted-foreground">{sub}</div>}
-  </div>
-);
-
-// ── Feature item ────────────────────────────────────────────────────────────
-
-const FeatureItem: React.FC<{
-  icon: string;
-  title: string;
-  desc: string;
-  href?: string;
-  onClick?: () => void;
-}> = ({ icon, title, desc, href, onClick }) => (
-  <div
-    className="flex cursor-pointer items-start gap-4 rounded-lg bg-muted p-4 transition-colors hover:bg-accent"
-    onClick={
-      onClick ??
-      (() => {
-        if (href) window.location.href = href;
-      })
-    }
-    role="button"
-    tabIndex={0}
-    onKeyDown={(e) => {
-      if (e.key === 'Enter') {
-        if (onClick) onClick();
-        else if (href) window.location.href = href;
-      }
-    }}
-  >
-    <span className="shrink-0 text-[1.8rem]">{icon}</span>
-    <div>
-      <div className="text-[0.9rem] font-semibold">{title}</div>
-      <div className="text-[0.8rem] leading-snug text-muted-foreground">{desc}</div>
-    </div>
-  </div>
-);
-
-// ── Main page ───────────────────────────────────────────────────────────────
+const FOOTER_LINKS = [
+  { href: '/quiz', key: 'nav.quiz' },
+  { href: '/theory', key: 'nav.theory' },
+  { href: '/regimes-internationaux', key: 'nav.regimesInternationaux' },
+  { href: '/galerie', key: 'nav.gallery' },
+  { href: '/api-docs', key: 'nav.apiDocs' },
+];
 
 const HomePage: React.FC = () => {
   const { t } = useTranslation();
+  const { t: tp } = useTranslation('playground');
   const navigate = useNavigate();
   const { applyScenario } = useElection();
-  const stats = useQuickStats();
   const [tourRun, setTourRun] = useState(false);
 
   useMetaTags({
-    title: `Vote Lab — ${t('home.heroTitle')}`,
-    description: t('home.heroParagraph'),
+    title: `Vote Lab — ${t('home.h1Line1')} ${t('home.h1Line2')}`,
+    description: t('home.heroLede'),
   });
 
+  // Preserve the guided onboarding tour + its ?tour=1 deep link from the navbar.
   const startTour = useCallback(() => {
     localStorage.removeItem('tour_completed');
     setTourRun(false);
     setTimeout(() => setTourRun(true), 100);
   }, []);
-
   useEffect(() => {
-    const params = new URLSearchParams(window.location.search);
-    const forced = params.get('tour') === '1';
-    const completed = localStorage.getItem('tour_completed');
-    if (forced || !completed) {
-      const t2 = setTimeout(() => setTourRun(true), 600);
-      return () => clearTimeout(t2);
+    // Only the navbar's "?tour=1" deep link (or the button) starts the tour — the
+    // landing page leads with the instrument, not a popup.
+    if (new URLSearchParams(window.location.search).get('tour') === '1') {
+      const id = setTimeout(() => setTourRun(true), 600);
+      return () => clearTimeout(id);
     }
   }, []);
 
-  const goToLab = useCallback(() => {
+  // Primary CTA: seed the spoiler electorate (the hero's story) then open the instrument.
+  const openInstrument = useCallback(() => {
     applyScenario('france2002');
     navigate('/playground');
   }, [applyScenario, navigate]);
@@ -154,178 +57,114 @@ const HomePage: React.FC = () => {
     <div data-style="tailwind">
       <OnboardingTour run={tourRun} onFinish={() => setTourRun(false)} />
 
-      {/* ── Hero — compact ── */}
-      <div
-        data-tour="hero"
-        className="bg-gradient-to-br from-[#0d6efd] to-[#0a58ca] py-12 text-white"
-      >
-        <div className="mx-auto w-full max-w-[1140px] px-4">
-          <div className="flex flex-wrap justify-center py-4 text-center">
-            <div className="mx-auto max-w-2xl">
-              <div className="mb-4 text-[0.85rem] font-semibold uppercase tracking-[0.1em] opacity-80">
-                {t('home.heroBadge')}
-              </div>
-              <h1 className="mb-4 font-bold leading-tight text-[clamp(1.6rem,4vw,2.4rem)]">
-                {t('home.heroTitle')}
+      {/* ── Hero: thesis ⟷ live instrument ── */}
+      <section data-tour="hero" className="border-b border-border">
+        <div className="container mx-auto max-w-6xl px-4 py-12 sm:py-16">
+          <div className="grid items-start gap-10 lg:grid-cols-[1fr_minmax(0,26rem)]">
+            <div className="lg:pt-6">
+              <p className="font-mono text-[0.7rem] uppercase tracking-[0.22em] text-primary">
+                {t('home.eyebrow')}
+              </p>
+              <h1 className="mt-3 font-display text-4xl font-bold leading-[1.04] tracking-tight sm:text-5xl">
+                {t('home.h1Line1')}
+                <br />
+                <span className="text-primary">{t('home.h1Line2')}</span>
               </h1>
-              <p className="mb-6 text-base opacity-75">{t('home.heroParagraph')}</p>
-              <div className="flex flex-wrap justify-center gap-4">
-                <Button
-                  size="lg"
-                  className="bg-white px-6 font-semibold text-slate-900 hover:bg-white/90"
-                  onClick={goToLab}
-                >
-                  🔬 {t('home.ctaLab')}
+              <p className="mt-4 max-w-md text-base leading-relaxed text-muted-foreground">
+                {t('home.heroLede')}
+              </p>
+              <div className="mt-7 flex flex-wrap items-center gap-3">
+                <Button size="lg" variant="primary" className="px-5" onClick={openInstrument}>
+                  🎛 {t('home.ctaOpen')} →
                 </Button>
-                <Button
-                  variant="outline"
-                  size="lg"
-                  className="border-white/60 bg-transparent px-4 text-white opacity-85 hover:bg-white/10 hover:text-white"
-                  onClick={startTour}
-                >
-                  {t('home.ctaTour')}
+                <Button size="lg" variant="outline" onClick={startTour}>
+                  {t('home.ctaGuided')}
                 </Button>
               </div>
+              <p className="mt-4 font-mono text-[0.68rem] uppercase tracking-[0.12em] text-muted-foreground/70">
+                {t('home.reassure')}
+              </p>
             </div>
+
+            <HeroInstrument />
           </div>
         </div>
-      </div>
+      </section>
 
-      <div className="mx-auto w-full max-w-[1140px] px-4 py-12">
-        {/* ── Section 2: QuickCompare widget ── */}
-        <div className="mb-12">
-          <QuickCompareWidget />
+      {/* ── The journey: five moments, one instrument ── */}
+      <section className="container mx-auto max-w-6xl px-4 py-12 sm:py-16">
+        <p className="font-mono text-[0.7rem] uppercase tracking-[0.22em] text-primary">
+          {t('home.journeyKicker')}
+        </p>
+        <div className="mt-2 flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-between">
+          <h2 className="font-display text-2xl font-bold tracking-tight sm:text-3xl">
+            {t('home.journeyTitle')}
+          </h2>
+          <p className="max-w-md text-sm text-muted-foreground">{t('home.journeyLede')}</p>
         </div>
 
-        {/* ── Playground CTA (Lab reshape) ── */}
-        <div className="mb-12 flex flex-col items-center gap-3 rounded-xl border border-border bg-muted/30 px-4 py-6 text-center">
-          <div className="text-3xl">🎛</div>
-          <h2 className="text-xl font-bold">Playground</h2>
-          <p className="max-w-xl text-[0.9rem] text-muted-foreground">
-            Un même électorat, deux questions : élire un dirigeant ou composer un parlement.
-            Basculez de l’un à l’autre et regardez le caractère politique s’inverser.
-          </p>
+        <ol className="mt-6 grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-5">
+          {MOMENTS.map((m) => (
+            <li key={m.id}>
+              <Link
+                to="/playground"
+                className="group flex h-full flex-col gap-1.5 rounded-xl border border-border bg-card p-4 transition-colors hover:border-primary/40 hover:bg-accent/40"
+              >
+                <div className="flex items-center justify-between">
+                  <span className="font-mono text-sm font-semibold tabular-nums text-primary">
+                    {m.n}
+                  </span>
+                  <span aria-hidden className="text-lg">
+                    {m.icon}
+                  </span>
+                </div>
+                <span className="font-display text-base font-semibold leading-tight">
+                  {tp(`moments.${m.id}.label`)}
+                </span>
+                <span className="text-[0.78rem] leading-snug text-muted-foreground">
+                  {tp(`moments.${m.id}.hint`)}
+                </span>
+              </Link>
+            </li>
+          ))}
+        </ol>
+
+        <div className="mt-6">
           <Button variant="primary" onClick={() => navigate('/playground')}>
-            Ouvrir le Playground →
+            {t('home.journeyCta')} →
           </Button>
         </div>
+      </section>
 
-        {/* ── Section 3: 3 feature items ── */}
-        <div className="mb-12">
-          <h2 className="mb-1 text-center text-xl font-bold">{t('home.featuresTitle')}</h2>
-          <p className="mb-6 text-center text-[0.88rem] text-muted-foreground">
-            {t('home.featuresSubtitle')}
-          </p>
-          <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
-            <FeatureItem
-              icon="🔬"
-              title={t('home.feature1Title')}
-              desc={t('home.feature1Desc')}
-              onClick={() => navigate('/playground')}
-            />
-            <FeatureItem
-              icon="📊"
-              title={t('home.feature2Title')}
-              desc={t('home.feature2Desc')}
-              onClick={() => {
-                applyScenario('france2002');
-                navigate('/playground');
-              }}
-            />
-            <FeatureItem
-              icon="🎓"
-              title={t('home.feature3Title')}
-              desc={t('home.feature3Desc')}
-              href="/?tour=1"
-            />
-          </div>
-        </div>
-
-        {/* ── Section 4: Live stats ── */}
-        <div className="mb-2">
-          <h2 className="mb-1 text-center font-bold">{t('home.whySectionTitle')}</h2>
-          <p className="mb-6 text-center text-muted-foreground">{t('home.whySectionSubtitle')}</p>
-          <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
-            <StatCard
-              value={
-                stats.loading ? (
-                  <Spinner />
-                ) : stats.disagreeingMethods !== null ? (
-                  `${stats.disagreeingMethods}/${stats.totalMethods}`
-                ) : (
-                  '?'
-                )
-              }
-              label={t('home.statDisagree')}
-              sub={
-                stats.loading
-                  ? t('home.statLoading')
-                  : stats.disagreeingMethods !== null
-                    ? t('home.statDisagreeSub', { total: stats.totalMethods })
-                    : t('home.statBackendDown')
-              }
-            />
-            <StatCard
-              value="15"
-              label={t('home.statMethodsCompared')}
-              sub={t('home.statMethodsSub')}
-            />
-            <StatCard
-              value={
-                stats.loading ? (
-                  <Spinner />
-                ) : stats.condorcetExists !== null ? (
-                  stats.condorcetExists ? (
-                    '✓'
-                  ) : (
-                    '✗'
-                  )
-                ) : (
-                  '?'
-                )
-              }
-              label={
-                stats.condorcetExists === false
-                  ? t('home.statNoCondorcet')
-                  : t('home.statCondorcetExists')
-              }
-              sub={
-                stats.condorcetExists === false
-                  ? t('home.statCycle')
-                  : stats.condorcetExists === true
-                    ? t('home.statCondorcetDesc')
-                    : t('home.statWaiting')
-              }
-            />
-          </div>
-          <p className="mt-4 text-center text-[0.8rem] text-muted-foreground">
-            {t('home.reloadPrompt')}
-          </p>
-        </div>
-      </div>
-
-      {/* ── Footer strip ── */}
-      <div className="mt-4 border-t border-border bg-muted py-4">
-        <div className="mx-auto w-full max-w-[1140px] px-4">
-          <div className="flex flex-wrap items-center justify-between gap-2">
-            <span className="text-sm text-muted-foreground">
-              🗳️ <strong>Vote Lab</strong>
-              {t('home.footer')}
-            </span>
-            <div className="flex gap-4">
-              <a href="/simulation" className="text-sm text-muted-foreground">
-                {t('home.footerAdvanced')}
-              </a>
-              <a href="/login" className="text-sm text-muted-foreground">
-                {t('home.footerLogin')}
-              </a>
-              <a href="/register" className="text-sm text-muted-foreground">
-                {t('home.footerSignup')}
-              </a>
+      {/* ── Footer: go further ── */}
+      <footer className="border-t border-border bg-muted/30">
+        <div className="container mx-auto max-w-6xl px-4 py-6">
+          <div className="flex flex-wrap items-center justify-between gap-4">
+            <div className="flex flex-wrap items-center gap-x-5 gap-y-2">
+              <span className="font-mono text-[0.7rem] uppercase tracking-[0.14em] text-muted-foreground">
+                {t('home.footMore')}
+              </span>
+              {FOOTER_LINKS.map((l) => (
+                <Link
+                  key={l.href}
+                  to={l.href}
+                  className="text-sm text-muted-foreground transition-colors hover:text-foreground"
+                >
+                  {t(l.key)}
+                </Link>
+              ))}
+            </div>
+            <div className="flex items-center gap-4 text-sm text-muted-foreground">
+              <Link to="/login" className="transition-colors hover:text-foreground">
+                {t('nav.login')}
+              </Link>
+              <Link to="/register" className="transition-colors hover:text-foreground">
+                {t('nav.register')}
+              </Link>
             </div>
           </div>
         </div>
-      </div>
+      </footer>
     </div>
   );
 };

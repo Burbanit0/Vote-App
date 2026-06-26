@@ -38,6 +38,27 @@ const en: TranslationKeys = {
   },
 
   home: {
+    eyebrow: 'Vote Lab · a laboratory of voting theory',
+    h1Line1: 'The method decides,',
+    h1Line2: 'not just the voters.',
+    heroLede:
+      'Same ballots, another rule, another winner. Change the rule on the right — the winner flips before your eyes.',
+    ctaOpen: 'Open the instrument',
+    ctaGuided: 'Guided tour',
+    reassure: 'Free · no account · 15 methods · FR / EN',
+    heroInstrLabel: 'Ideology map — demo',
+    rulePick: 'Pick the rule',
+    heroWinner: 'Winner',
+    heroFlip: '↔ flip',
+    heroCapPlurality: 'The left splits: Bob wins with a minority.',
+    heroCapRunoff: 'In the runoff, the left rallies to Alice.',
+    heroCapApproval: 'Broadly approved, Carol is the consensus.',
+    journeyKicker: 'The journey',
+    journeyTitle: 'One instrument, five moments.',
+    journeyLede:
+      'From simple to complex — each moment lights up one more control on the same instrument.',
+    journeyCta: 'Start with the electorate',
+    footMore: 'Go further',
     heroBadge: 'Civic democracy laboratory',
     heroTitle: 'See how your ballot changes everything',
     heroParagraph:
