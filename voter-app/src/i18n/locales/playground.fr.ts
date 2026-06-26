@@ -60,6 +60,12 @@ const pgFr = {
     parties: 'partis',
     voters: 'électeurs',
   },
+  scene: {
+    drag: 'Glissez pour pivoter',
+    pauseSpin: '⏸ rotation',
+    playSpin: '▶ rotation',
+    aria: 'Vue 3D de l’électorat',
+  },
   timeline: {
     thesisAt: 'Au',
     thesisWins: 'l’emporte. En campagne, le résultat peut',
@@ -450,6 +456,7 @@ const pgFr = {
       'Vous êtes un électeur. Votre voix seule pèse peu — la tentation de voter « utile » est collective, alors réglez la taille de votre bloc de conviction. Pour chaque méthode : voter sincèrement est-il votre meilleure réponse, ou la méthode vous pousse-t-elle à trahir votre favori ?',
     posEcon: 'Votre position (axe écon.) : {{val}}',
     posSocial: 'Votre position (axe sociétal) : {{val}}',
+    posZ: 'Votre position (axe z) : {{val}}',
     sincereOrder: 'Votre ordre sincère :',
     tip: 'Astuce : glissez le marqueur',
     tipMarker: '◆ Vous',

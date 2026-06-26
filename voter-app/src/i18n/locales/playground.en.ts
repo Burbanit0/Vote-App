@@ -56,6 +56,12 @@ const pgEn: PlaygroundKeys = {
     parties: 'parties',
     voters: 'voters',
   },
+  scene: {
+    drag: 'Drag to rotate',
+    pauseSpin: '⏸ rotation',
+    playSpin: '▶ rotation',
+    aria: '3D view of the electorate',
+  },
   timeline: {
     thesisAt: 'On',
     thesisWins: 'wins. During a campaign, the result can',
@@ -441,6 +447,7 @@ const pgEn: PlaygroundKeys = {
       'You are a voter. Your single vote weighs little — the temptation to vote “tactically” is collective, so set the size of your conviction bloc. For each method: is voting sincerely your best response, or does the method push you to betray your favourite?',
     posEcon: 'Your position (econ. axis): {{val}}',
     posSocial: 'Your position (social axis): {{val}}',
+    posZ: 'Your position (z axis): {{val}}',
     sincereOrder: 'Your sincere order:',
     tip: 'Tip: drag the marker',
     tipMarker: '◆ You',

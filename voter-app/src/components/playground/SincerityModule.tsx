@@ -95,6 +95,23 @@ const SincerityModule: React.FC<{
             />
           </label>
         )}
+        {dims >= 3 && (
+          <label className="flex flex-col gap-1 text-xs">
+            <span className="text-muted-foreground">
+              {t('sincerity.posZ', { val: (you.z ?? 0).toFixed(2) })}
+            </span>
+            <input
+              data-testid="sincerity-you-z"
+              type="range"
+              className="w-full"
+              min={-1}
+              max={1}
+              step={0.05}
+              value={you.z ?? 0}
+              onChange={(e) => setYou((p) => ({ ...p, z: Number(e.target.value) }))}
+            />
+          </label>
+        )}
         <p className="text-[0.7rem] text-muted-foreground">
           {t('sincerity.sincereOrder')} <strong>{report.ranking.join(' ＞ ')}</strong>
         </p>

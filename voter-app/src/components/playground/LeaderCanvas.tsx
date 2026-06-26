@@ -297,7 +297,9 @@ const LeaderCanvas: React.FC<LeaderCanvasProps> = ({
         </div>
       )}
 
-      {show3d && <LeaderScene3D voters={voters} candidates={candidates} palette={PALETTE} />}
+      {show3d && (
+        <LeaderScene3D voters={voters} candidates={candidates} palette={PALETTE} you={youMarker} />
+      )}
 
       <svg
         ref={svgRef}

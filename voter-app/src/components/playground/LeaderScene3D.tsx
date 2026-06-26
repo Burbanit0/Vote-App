@@ -1,4 +1,5 @@
 import React, { useEffect, useRef, useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import type { NamedPt, Pt } from '../../lib/playgroundVoting';
 
 // LeaderScene3D — a dependency-free orbital 3-D view of the leader electorate.
@@ -77,6 +78,9 @@ export interface LeaderScene3DProps {
   candidates: NamedPt[];
   palette: string[];
   axisLabels?: string[];
+  /** Optional "you" marker (the sincere-vote module) — read-only here; the
+   *  x/y/z sliders drive it, since depth can't be dragged unambiguously. */
+  you?: Pt | null;
 }
 
 const LeaderScene3D: React.FC<LeaderScene3DProps> = ({
@@ -84,7 +88,9 @@ const LeaderScene3D: React.FC<LeaderScene3DProps> = ({
   candidates,
   palette,
   axisLabels = ['x', 'y', 'z'],
+  you,
 }) => {
+  const { t } = useTranslation('playground');
   const svgRef = useRef<SVGSVGElement>(null);
   const [yaw, setYaw] = useState(0.6);
   const [pitch, setPitch] = useState(0.35);
@@ -163,18 +169,19 @@ const LeaderScene3D: React.FC<LeaderScene3DProps> = ({
     rotate({ x: 0, y: 0, z: 1 }, yaw, pitch),
   ];
   const origin = rotate({ x: 0, y: 0, z: 0 }, yaw, pitch);
+  const youR = you ? rotate(you, yaw, pitch) : null;
 
   return (
     <div className="flex flex-col gap-1">
       <div className="flex items-center justify-between text-xs text-muted-foreground">
-        <span>Glissez pour pivoter</span>
+        <span>{t('scene.drag')}</span>
         <button
           type="button"
           data-testid="scene-spin"
           className="rounded border border-border px-1.5 py-0.5 hover:bg-accent"
           onClick={() => setSpin((s) => !s)}
         >
-          {spin ? '⏸ rotation' : '▶ rotation'}
+          {spin ? t('scene.pauseSpin') : t('scene.playSpin')}
         </button>
       </div>
       <svg
@@ -183,7 +190,7 @@ const LeaderScene3D: React.FC<LeaderScene3DProps> = ({
         viewBox={`0 0 ${SVG} ${SVG}`}
         width="100%"
         role="img"
-        aria-label="Vue 3D de l’électorat"
+        aria-label={t('scene.aria')}
         className="touch-none select-none rounded-lg bg-card"
         style={{ maxHeight: '70vh', cursor: 'grab' }}
         onMouseDown={(e) => startDrag(e.clientX, e.clientY)}
@@ -266,6 +273,42 @@ const LeaderScene3D: React.FC<LeaderScene3DProps> = ({
             );
           })}
         </g>
+
+        {/* "You" marker (sincere-vote module) — read-only; the sliders drive it. */}
+        {youR && (
+          <g data-testid="you-marker-3d">
+            {(() => {
+              const cx = sx(youR);
+              const cy = sy(youR);
+              const tdepth = depth01(youR.z);
+              const s = 5 + tdepth * 4;
+              return (
+                <>
+                  <rect
+                    x={cx - s}
+                    y={cy - s}
+                    width={s * 2}
+                    height={s * 2}
+                    transform={`rotate(45 ${cx} ${cy})`}
+                    fill="#0f172a"
+                    stroke="#fff"
+                    strokeWidth={1.5}
+                  />
+                  <text
+                    x={cx}
+                    y={cy - 11 - tdepth * 4}
+                    textAnchor="middle"
+                    fontSize={11}
+                    fontWeight={700}
+                    fill="currentColor"
+                  >
+                    {t('canvas.youMarker')}
+                  </text>
+                </>
+              );
+            })()}
+          </g>
+        )}
       </svg>
     </div>
   );
