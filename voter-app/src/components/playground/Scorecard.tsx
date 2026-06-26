@@ -1,4 +1,5 @@
 import React from 'react';
+import { useTranslation } from 'react-i18next';
 import type { Band } from '../../lib/scorecard';
 
 // Scorecard (Lab reshape P5) — the mode-aware axis read-out. Every number
@@ -23,58 +24,61 @@ export interface ScorecardProps {
   onDrill?: (tab: string) => void;
 }
 
-const Scorecard: React.FC<ScorecardProps> = ({ axes, loading = false, bandNote, onDrill }) => (
-  <div data-testid="scorecard" className="flex flex-col gap-2.5">
-    {axes.map(({ key, label, hint, band, drillTab }) => (
-      <div key={key} data-testid={`axis-${key}`} title={hint}>
-        <div className="flex items-center justify-between text-xs">
-          <span className="flex items-center gap-1 text-muted-foreground">
-            {label}
-            {drillTab && onDrill && (
-              <button
-                type="button"
-                data-testid={`drill-${key}`}
-                onClick={() => onDrill(drillTab)}
-                className="rounded px-0.5 leading-none opacity-60 transition-opacity hover:opacity-100"
-                title="Approfondir dans le Lab"
-                aria-label={`Approfondir « ${label} » dans le Lab`}
-              >
-                🔬
-              </button>
+const Scorecard: React.FC<ScorecardProps> = ({ axes, loading = false, bandNote, onDrill }) => {
+  const { t } = useTranslation('playground');
+  return (
+    <div data-testid="scorecard" className="flex flex-col gap-2.5">
+      {axes.map(({ key, label, hint, band, drillTab }) => (
+        <div key={key} data-testid={`axis-${key}`} title={hint}>
+          <div className="flex items-center justify-between text-xs">
+            <span className="flex items-center gap-1 text-muted-foreground">
+              {label}
+              {drillTab && onDrill && (
+                <button
+                  type="button"
+                  data-testid={`drill-${key}`}
+                  onClick={() => onDrill(drillTab)}
+                  className="rounded px-0.5 leading-none opacity-60 transition-opacity hover:opacity-100"
+                  title={t('scorecard.drillTitle')}
+                  aria-label={t('scorecard.drillAria', { label })}
+                >
+                  🔬
+                </button>
+              )}
+            </span>
+            <span className="font-semibold tabular-nums">
+              {band && !loading ? `${Math.round(band.mean * 100)} %` : '…'}
+            </span>
+          </div>
+          <div className="relative mt-1 h-2 overflow-hidden rounded-full bg-muted/60">
+            {band && !loading && (
+              <>
+                {/* The Monte-Carlo band [p10, p90] */}
+                <div
+                  className="absolute inset-y-0 rounded-full bg-primary/30"
+                  style={{
+                    left: `${band.lo * 100}%`,
+                    width: `${Math.max(1.5, (band.hi - band.lo) * 100)}%`,
+                    transition: 'left 400ms ease, width 400ms ease',
+                  }}
+                />
+                {/* The mean tick */}
+                <div
+                  className="absolute inset-y-0 w-1 rounded bg-primary"
+                  style={{ left: `calc(${band.mean * 100}% - 2px)`, transition: 'left 400ms ease' }}
+                />
+              </>
             )}
-          </span>
-          <span className="font-semibold tabular-nums">
-            {band && !loading ? `${Math.round(band.mean * 100)} %` : '…'}
-          </span>
+          </div>
         </div>
-        <div className="relative mt-1 h-2 overflow-hidden rounded-full bg-muted/60">
-          {band && !loading && (
-            <>
-              {/* The Monte-Carlo band [p10, p90] */}
-              <div
-                className="absolute inset-y-0 rounded-full bg-primary/30"
-                style={{
-                  left: `${band.lo * 100}%`,
-                  width: `${Math.max(1.5, (band.hi - band.lo) * 100)}%`,
-                  transition: 'left 400ms ease, width 400ms ease',
-                }}
-              />
-              {/* The mean tick */}
-              <div
-                className="absolute inset-y-0 w-1 rounded bg-primary"
-                style={{ left: `calc(${band.mean * 100}% - 2px)`, transition: 'left 400ms ease' }}
-              />
-            </>
-          )}
-        </div>
-      </div>
-    ))}
-    {bandNote && (
-      <p className="text-[0.7rem] text-muted-foreground/70">
-        Bande = p10–p90 sur {bandNote} ; trait = moyenne.
-      </p>
-    )}
-  </div>
-);
+      ))}
+      {bandNote && (
+        <p className="text-[0.7rem] text-muted-foreground/70">
+          {t('scorecard.bandFooter', { note: bandNote })}
+        </p>
+      )}
+    </div>
+  );
+};
 
 export default Scorecard;

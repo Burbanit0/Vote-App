@@ -248,6 +248,19 @@ const pgEn: PlaygroundKeys = {
     consensualist: 'Consensualist (inclusive)',
     bandNote: '{{count}} resamples',
   },
+  scorecard: {
+    drillTitle: 'Dig deeper in the Lab',
+    drillAria: 'Dig into “{{label}}” in the Lab',
+    bandFooter: 'Band = p10–p90 over {{note}}; tick = mean.',
+  },
+  values: {
+    weightsTitle: 'Your weights',
+    dominated: 'dropped (dominated)',
+    spotlight: 'by your weights',
+    onFrontier: 'on the frontier',
+    footer:
+      'Dominated options are dropped — an objective fact. Among those that remain there is no “best” system: your sliders only spotlight a point on the frontier, and weighting is already a value choice.',
+  },
   campaign: {
     emptyPrompt:
       'First compose an electorate in moment ① Electorate, then come back to run a campaign.',

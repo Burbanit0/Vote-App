@@ -259,8 +259,8 @@ describe('PlaygroundPage (P0 shell)', () => {
     );
     // The three structures appear in the lens; with the mocked axes FPTP and PR
     // trade off (neither dominates), while MMP is dominated by PR.
-    expect(screen.getByTestId('lens-item-mmp')).toHaveTextContent('écarté (dominé)');
-    expect(screen.getByTestId('lens-item-pr')).not.toHaveTextContent('écarté');
+    expect(screen.getByTestId('lens-item-mmp')).toHaveTextContent('dropped (dominated)');
+    expect(screen.getByTestId('lens-item-pr')).not.toHaveTextContent('dropped');
   });
 
   // ── FA-1 : la couche bulletin ─────────────────────────────────────────────
@@ -378,10 +378,10 @@ describe('PlaygroundPage (P0 shell)', () => {
     });
     // Majoritarian end → governability wins → FPTP spotlighted.
     fireEvent.change(screen.getByTestId('lijphart-dial'), { target: { value: '0' } });
-    expect(screen.getByTestId('lens-item-fptp')).toHaveTextContent('selon vos pondérations');
+    expect(screen.getByTestId('lens-item-fptp')).toHaveTextContent('by your weights');
     // Consensualist end → proportional axes win → PR spotlighted.
     fireEvent.change(screen.getByTestId('lijphart-dial'), { target: { value: '1' } });
-    expect(screen.getByTestId('lens-item-pr')).toHaveTextContent('selon vos pondérations');
+    expect(screen.getByTestId('lens-item-pr')).toHaveTextContent('by your weights');
   });
 
   it('the granular escape hatch reveals the sliders and a touch switches modes', async () => {

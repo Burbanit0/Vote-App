@@ -257,6 +257,19 @@ const pgFr = {
     consensualist: 'Consensualiste (inclusif)',
     bandNote: '{{count}} ré-échantillonnages',
   },
+  scorecard: {
+    drillTitle: 'Approfondir dans le Lab',
+    drillAria: 'Approfondir « {{label}} » dans le Lab',
+    bandFooter: 'Bande = p10–p90 sur {{note}} ; trait = moyenne.',
+  },
+  values: {
+    weightsTitle: 'Vos pondérations',
+    dominated: 'écarté (dominé)',
+    spotlight: 'selon vos pondérations',
+    onFrontier: 'sur la frontière',
+    footer:
+      'Les options dominées sont écartées — un fait objectif. Entre celles qui restent, il n’existe pas de « meilleur » système : vos curseurs ne font qu’éclairer un point de la frontière, et pondérer est déjà un choix de valeurs.',
+  },
   campaign: {
     emptyPrompt:
       'Composez d’abord un électorat dans le moment ① Électorat, puis revenez lancer une campagne.',
