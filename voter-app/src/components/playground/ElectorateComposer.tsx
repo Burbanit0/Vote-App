@@ -118,7 +118,7 @@ const ElectorateComposer: React.FC = () => {
           <input
             data-testid="electorate-num-voters"
             type="range"
-            className="flex-1"
+            className="min-w-0 flex-1"
             min={10}
             max={1000}
             step={10}
@@ -226,7 +226,7 @@ const ElectorateComposer: React.FC = () => {
             <input
               data-testid="electorate-correlation"
               type="range"
-              className="flex-1"
+              className="min-w-0 flex-1"
               min={-1}
               max={1}
               step={0.05}
@@ -243,7 +243,7 @@ const ElectorateComposer: React.FC = () => {
             <input
               data-testid="electorate-noise"
               type="range"
-              className="flex-1"
+              className="min-w-0 flex-1"
               min={0}
               max={1}
               step={0.05}
@@ -338,7 +338,7 @@ const ElectorateComposer: React.FC = () => {
                   <input
                     data-testid={`community-turnout-${c.id}`}
                     type="range"
-                    className="flex-1"
+                    className="min-w-0 flex-1"
                     min={0}
                     max={1}
                     step={0.05}
@@ -370,7 +370,7 @@ const ElectorateComposer: React.FC = () => {
                     <input
                       data-testid={`community-z-${c.id}`}
                       type="range"
-                      className="flex-1"
+                      className="min-w-0 flex-1"
                       min={-1}
                       max={1}
                       step={0.05}

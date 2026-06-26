@@ -63,14 +63,14 @@ const SincerityModule: React.FC<{
 
       {/* Your sincere position */}
       <div className="flex flex-col gap-1.5">
-        <label className="flex items-center gap-2 text-xs">
-          <span className="w-40 shrink-0 text-muted-foreground">
+        <label className="flex flex-col gap-1 text-xs">
+          <span className="text-muted-foreground">
             {t('sincerity.posEcon', { val: you.x.toFixed(2) })}
           </span>
           <input
             data-testid="sincerity-you-x"
             type="range"
-            className="flex-1"
+            className="w-full"
             min={-1}
             max={1}
             step={0.05}
@@ -79,14 +79,14 @@ const SincerityModule: React.FC<{
           />
         </label>
         {dims >= 2 && (
-          <label className="flex items-center gap-2 text-xs">
-            <span className="w-40 shrink-0 text-muted-foreground">
+          <label className="flex flex-col gap-1 text-xs">
+            <span className="text-muted-foreground">
               {t('sincerity.posSocial', { val: you.y.toFixed(2) })}
             </span>
             <input
               data-testid="sincerity-you-y"
               type="range"
-              className="flex-1"
+              className="w-full"
               min={-1}
               max={1}
               step={0.05}
@@ -104,14 +104,14 @@ const SincerityModule: React.FC<{
       </div>
 
       {/* Conviction bloc size */}
-      <label className="flex items-center gap-2 text-xs">
-        <span className="w-40 shrink-0 text-muted-foreground" title={t('sincerity.blocTitle')}>
+      <label className="flex flex-col gap-1 text-xs">
+        <span className="text-muted-foreground" title={t('sincerity.blocTitle')}>
           {t('sincerity.blocLabel', { n: report.blocSize })}
         </span>
         <input
           data-testid="sincerity-bloc"
           type="range"
-          className="flex-1"
+          className="w-full"
           min={0.02}
           max={0.4}
           step={0.02}
