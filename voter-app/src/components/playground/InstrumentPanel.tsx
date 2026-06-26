@@ -68,7 +68,7 @@ const InstrumentPanel: React.FC = () => {
           </p>
         )}
 
-        <FlipReveal modeKey={mode} caption="Mêmes électeurs, caractère opposé.">
+        <FlipReveal modeKey={mode} caption={t('instrument.flipCaption')}>
           {mode === 'leader' ? (
             <div className="flex flex-col gap-3">
               <LeaderCanvas

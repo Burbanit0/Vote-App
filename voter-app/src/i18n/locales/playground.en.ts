@@ -170,6 +170,7 @@ const pgEn: PlaygroundKeys = {
   instrument: {
     labelLeader: 'Ideology map — leader',
     labelAssembly: 'Composition of the assembly',
+    flipCaption: 'Same voters, opposite character.',
     paradox: 'paradox {{pct}} %',
     paradoxLoading: '· · ·',
     paradoxTitle:

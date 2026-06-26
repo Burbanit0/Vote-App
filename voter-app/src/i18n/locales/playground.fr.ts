@@ -178,6 +178,7 @@ const pgFr = {
   instrument: {
     labelLeader: 'Carte idéologique — dirigeant',
     labelAssembly: 'Composition de l’assemblée',
+    flipCaption: 'Mêmes électeurs, caractère opposé.',
     paradox: 'paradoxe {{pct}} %',
     paradoxLoading: '· · ·',
     paradoxTitle:

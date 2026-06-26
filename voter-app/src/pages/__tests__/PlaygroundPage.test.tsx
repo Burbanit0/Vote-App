@@ -202,7 +202,7 @@ describe('PlaygroundPage (P0 shell)', () => {
     renderPage();
     fireEvent.click(screen.getByTestId('mode-toggle-parliament'));
     expect(useElectionStore.getState().playground.mode).toBe('parliament');
-    expect(screen.getByTestId('flip-caption')).toHaveTextContent('Mêmes électeurs');
+    expect(screen.getByTestId('flip-caption')).toHaveTextContent('Same voters');
     // Replayable in the other direction.
     fireEvent.click(screen.getByTestId('mode-toggle-leader'));
     expect(useElectionStore.getState().playground.mode).toBe('leader');
