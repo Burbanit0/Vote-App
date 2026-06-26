@@ -1,6 +1,8 @@
 import React from 'react';
+import { useTranslation } from 'react-i18next';
 import { cn } from '@/lib/utils';
-import { RULE_LABELS, type NamedPt, type Rule } from '../../lib/playgroundVoting';
+import { type NamedPt, type Rule } from '../../lib/playgroundVoting';
+import { useVotingLabels } from '../../hooks/useVotingLabels';
 import { LEADER_RULES } from '../../lib/scorecard';
 import { medianPoint } from '../../lib/playgroundDynamics';
 import {
@@ -46,6 +48,8 @@ interface Props {
 const STEPS = 30;
 
 const CampaignTimeline: React.FC<Props> = ({ config, playground, onPin }) => {
+  const { t: tr } = useTranslation('playground');
+  const { ruleLabels } = useVotingLabels();
   const [scenario, setScenario] = React.useState(DEFAULT_SCENARIO);
   const [rule, setRule] = React.useState<Rule>('plurality');
   const [t, setT] = React.useState(0);
@@ -168,18 +172,19 @@ const CampaignTimeline: React.FC<Props> = ({ config, playground, onPin }) => {
       {/* ── Thesis (the hero: a result is provisional) ── */}
       <div className="flex flex-col gap-0.5">
         <p className="text-lg font-semibold tracking-tight sm:text-xl">
-          Au <span className="text-muted-foreground">J0</span>,{' '}
+          {tr('timeline.thesisAt')} <span className="text-muted-foreground">J0</span>,{' '}
           {j0Winner ? (
             <span style={{ color: colorFor(j0Winner) }}>{j0Winner}</span>
           ) : (
             <span>—</span>
           )}{' '}
-          l’emporte. En campagne, le résultat peut{' '}
-          <span className="underline decoration-2 underline-offset-2">bouger</span>.
+          {tr('timeline.thesisWins')}{' '}
+          <span className="underline decoration-2 underline-offset-2">
+            {tr('timeline.thesisMove')}
+          </span>
+          .
         </p>
-        <p className="text-xs text-muted-foreground">
-          Choisissez un scénario, puis avancez le temps pour voir si le vainqueur tient.
-        </p>
+        <p className="text-xs text-muted-foreground">{tr('timeline.subtitle')}</p>
       </div>
 
       <div className="grid gap-3 lg:grid-cols-[15rem_1fr]">
@@ -188,10 +193,12 @@ const CampaignTimeline: React.FC<Props> = ({ config, playground, onPin }) => {
           <div
             className="flex flex-col gap-1"
             role="radiogroup"
-            aria-label="Scénario de campagne"
+            aria-label={tr('timeline.scenarioAria')}
             data-testid="timeline-scenario"
           >
-            <span className="text-xs font-medium text-muted-foreground">Scénario</span>
+            <span className="text-xs font-medium text-muted-foreground">
+              {tr('timeline.scenarioLabel')}
+            </span>
             {CAMPAIGN_SCENARIOS.map((sc) => (
               <button
                 key={sc.id}
@@ -207,14 +214,18 @@ const CampaignTimeline: React.FC<Props> = ({ config, playground, onPin }) => {
                     : 'border-border hover:bg-muted'
                 )}
               >
-                <div className="font-medium">{sc.label}</div>
-                <div className="text-[0.65rem] text-muted-foreground">{sc.blurb}</div>
+                <div className="font-medium">
+                  {tr(`timeline.scenarios.${sc.id}.label`, { defaultValue: sc.label })}
+                </div>
+                <div className="text-[0.65rem] text-muted-foreground">
+                  {tr(`timeline.scenarios.${sc.id}.blurb`, { defaultValue: sc.blurb })}
+                </div>
               </button>
             ))}
           </div>
 
           <label className="flex flex-col gap-1 text-sm">
-            <span className="text-muted-foreground">Méthode</span>
+            <span className="text-muted-foreground">{tr('timeline.method')}</span>
             <select
               data-testid="timeline-rule"
               className="w-full min-w-0 truncate rounded border border-border bg-background px-2 py-1 text-sm"
@@ -223,13 +234,13 @@ const CampaignTimeline: React.FC<Props> = ({ config, playground, onPin }) => {
             >
               {LEADER_RULES.map((r) => (
                 <option key={r} value={r}>
-                  {RULE_LABELS[r]}
+                  {ruleLabels[r]}
                 </option>
               ))}
             </select>
           </label>
           <label className="flex flex-col gap-1 text-sm">
-            <span className="text-muted-foreground">Intensité</span>
+            <span className="text-muted-foreground">{tr('timeline.intensity')}</span>
             <input
               type="range"
               data-testid="timeline-strength"
@@ -239,11 +250,11 @@ const CampaignTimeline: React.FC<Props> = ({ config, playground, onPin }) => {
               step={0.05}
               value={strength}
               onChange={(e) => setStrength(Number(e.target.value))}
-              title="Distance parcourue par les candidats d'ici la fin de campagne."
+              title={tr('timeline.intensityTitle')}
             />
           </label>
           <label className="flex flex-col gap-1 text-sm">
-            <span className="text-muted-foreground">Tours</span>
+            <span className="text-muted-foreground">{tr('timeline.rounds')}</span>
             <input
               type="number"
               data-testid="timeline-rounds"
@@ -261,7 +272,7 @@ const CampaignTimeline: React.FC<Props> = ({ config, playground, onPin }) => {
           className="grid gap-3 lg:grid-cols-[minmax(0,30rem)_1fr] lg:items-start"
           data-testid="campaign-instrument"
         >
-          <Instrument label="Idéologie — dérive" className="w-full">
+          <Instrument label={tr('timeline.mapLabel')} className="w-full">
             <CampaignMap
               voters={baseVoters}
               baseCandidates={config.candidates}
@@ -273,16 +284,15 @@ const CampaignTimeline: React.FC<Props> = ({ config, playground, onPin }) => {
           </Instrument>
 
           <div className="flex min-w-0 flex-col gap-3">
-            <Instrument
-              label="Trajectoire — valeur du résultat"
-              readout={`J${current.day} / J${numDays}`}
-            >
+            <Instrument label={tr('timeline.trajLabel')} readout={`J${current.day} / J${numDays}`}>
               <div className="mb-1 flex items-center justify-end gap-2 text-[0.65rem] text-muted-foreground">
                 <span className="flex items-center gap-1">
-                  <span className="inline-block h-1.5 w-3 rounded bg-emerald-500" /> centralité
+                  <span className="inline-block h-1.5 w-3 rounded bg-emerald-500" />{' '}
+                  {tr('timeline.centrality')}
                 </span>
                 <span className="flex items-center gap-1">
-                  <span className="inline-block h-1.5 w-3 rounded bg-sky-500" /> optimalité
+                  <span className="inline-block h-1.5 w-3 rounded bg-sky-500" />{' '}
+                  {tr('timeline.optimality')}
                 </span>
               </div>
               <svg
@@ -291,7 +301,7 @@ const CampaignTimeline: React.FC<Props> = ({ config, playground, onPin }) => {
                 className="h-40 w-full sm:h-44"
                 preserveAspectRatio="none"
                 role="img"
-                aria-label="Trajectoire de la valeur du résultat au cours de la campagne"
+                aria-label={tr('timeline.trajAria')}
               >
                 {stops.map((s, i) => (
                   <line
@@ -343,10 +353,7 @@ const CampaignTimeline: React.FC<Props> = ({ config, playground, onPin }) => {
                   className="text-foreground"
                 />
               </svg>
-              <p className="text-[0.6rem] text-muted-foreground">
-                Ruban du bas = vainqueur ; un changement de couleur (trait vertical) est une
-                bascule. Optimalité = 1 − regret.
-              </p>
+              <p className="text-[0.6rem] text-muted-foreground">{tr('timeline.caption')}</p>
             </Instrument>
 
             <div
@@ -354,7 +361,9 @@ const CampaignTimeline: React.FC<Props> = ({ config, playground, onPin }) => {
               data-testid="timeline-readout"
             >
               <div className="rounded-md border border-border bg-background p-2">
-                <div className="text-xs text-muted-foreground">Vainqueur (J{current.day})</div>
+                <div className="text-xs text-muted-foreground">
+                  {tr('timeline.winnerAt', { day: current.day })}
+                </div>
                 <div className="flex items-center gap-2">
                   <span
                     className="inline-block h-3 w-3 rounded-full"
@@ -368,30 +377,39 @@ const CampaignTimeline: React.FC<Props> = ({ config, playground, onPin }) => {
                       className="rounded bg-amber-500/15 px-1.5 py-0.5 text-[0.65rem] font-medium text-amber-700 dark:text-amber-400"
                       data-testid="timeline-flip"
                     >
-                      bascule depuis J0
+                      {tr('timeline.flip')}
                     </span>
                   )}
                 </div>
                 <div className="mt-1.5" data-testid="timeline-condorcet">
                   {current.condorcetHeld === null ? (
                     <span className="text-[0.7rem] text-muted-foreground">
-                      Pas de vainqueur de Condorcet (cycle)
+                      {tr('timeline.condorcetNone')}
                     </span>
                   ) : current.condorcetHeld ? (
                     <span className="text-[0.7rem] font-medium text-emerald-700 dark:text-emerald-400">
-                      ✓ Vainqueur de Condorcet respecté
+                      {tr('timeline.condorcetHeld')}
                     </span>
                   ) : (
                     <span className="text-[0.7rem] font-medium text-rose-700 dark:text-rose-400">
-                      ✗ Condorcet non respecté (CW : {current.condorcetWinner})
+                      {tr('timeline.condorcetBroken', { cw: current.condorcetWinner })}
                     </span>
                   )}
                 </div>
               </div>
 
               <div className="flex flex-col justify-center gap-2 rounded-md border border-border bg-background p-2">
-                <Meter label="Regret" value={current.regret} invert testid="timeline-regret" />
-                <Meter label="Centralité" value={current.congruence} testid="timeline-congruence" />
+                <Meter
+                  label={tr('timeline.regret')}
+                  value={current.regret}
+                  invert
+                  testid="timeline-regret"
+                />
+                <Meter
+                  label={tr('timeline.centralityMeter')}
+                  value={current.congruence}
+                  testid="timeline-congruence"
+                />
               </div>
             </div>
           </div>
@@ -402,15 +420,17 @@ const CampaignTimeline: React.FC<Props> = ({ config, playground, onPin }) => {
       <div className="flex flex-col gap-1">
         <div className="flex items-center justify-between text-xs text-muted-foreground">
           <span>
-            Jour <strong className="text-foreground">J{current.day}</strong> / J{numDays}
+            {tr('timeline.day')} <strong className="text-foreground">J{current.day}</strong> / J
+            {numDays}
           </span>
           <span>
             {activeStop >= 0 ? (
               <>
-                Tour <strong className="text-foreground">{activeStop + 1}</strong> / {rounds}
+                {tr('timeline.round')} <strong className="text-foreground">{activeStop + 1}</strong>{' '}
+                / {rounds}
               </>
             ) : (
-              'entre deux tours'
+              tr('timeline.betweenRounds')
             )}
           </span>
         </div>
@@ -427,7 +447,7 @@ const CampaignTimeline: React.FC<Props> = ({ config, playground, onPin }) => {
             setPlaying(false);
             setT(Number(e.target.value));
           }}
-          aria-label="Avancement de campagne"
+          aria-label={tr('timeline.scrubberAria')}
         />
 
         <div className="relative h-6">
@@ -444,7 +464,7 @@ const CampaignTimeline: React.FC<Props> = ({ config, playground, onPin }) => {
                   : 'bg-muted text-muted-foreground hover:bg-muted/70'
               )}
               style={{ left: `${s * 100}%` }}
-              title={`Tour ${i + 1}`}
+              title={tr('timeline.roundTitle', { n: i + 1 })}
             >
               T{i + 1}
             </button>
@@ -461,7 +481,7 @@ const CampaignTimeline: React.FC<Props> = ({ config, playground, onPin }) => {
               setPlaying((p) => !p);
             }}
           >
-            {playing ? '⏸ Pause' : '▶ Jouer la campagne'}
+            {playing ? tr('timeline.pause') : tr('timeline.play')}
           </button>
           <button
             type="button"
@@ -470,7 +490,7 @@ const CampaignTimeline: React.FC<Props> = ({ config, playground, onPin }) => {
             onClick={() => stepRound(-1)}
             disabled={activeStop === 0}
           >
-            ◀ Tour préc.
+            {tr('timeline.prevRound')}
           </button>
           <button
             type="button"
@@ -479,7 +499,7 @@ const CampaignTimeline: React.FC<Props> = ({ config, playground, onPin }) => {
             onClick={() => stepRound(1)}
             disabled={activeStop === stops.length - 1}
           >
-            Tour suiv. ▶
+            {tr('timeline.nextRound')}
           </button>
           <button
             type="button"
@@ -490,7 +510,7 @@ const CampaignTimeline: React.FC<Props> = ({ config, playground, onPin }) => {
               setT(0);
             }}
           >
-            ↺ J0
+            {tr('timeline.resetJ0')}
           </button>
           {onPin && (
             <button
@@ -501,15 +521,15 @@ const CampaignTimeline: React.FC<Props> = ({ config, playground, onPin }) => {
                 onPin(drifted);
                 setPinned(true);
               }}
-              title="Reporte les positions actuelles des candidats dans le playground comme nouvel état de départ. C'est la seule action qui modifie le playground."
+              title={tr('timeline.pinTitle')}
             >
-              📌 Épingler dans le playground
+              {tr('timeline.pin')}
             </button>
           )}
         </div>
         {pinned && (
           <p className="text-[0.7rem] text-emerald-700 dark:text-emerald-400" aria-live="polite">
-            ✓ Positions reportées dans le playground (J{current.day}).
+            {tr('timeline.pinned', { day: current.day })}
           </p>
         )}
       </div>

@@ -56,6 +56,61 @@ const pgEn: PlaygroundKeys = {
     parties: 'parties',
     voters: 'voters',
   },
+  timeline: {
+    thesisAt: 'On',
+    thesisWins: 'wins. During a campaign, the result can',
+    thesisMove: 'move',
+    subtitle: 'Pick a scenario, then advance time to see whether the winner holds.',
+    scenarioLabel: 'Scenario',
+    scenarioAria: 'Campaign scenario',
+    scenarios: {
+      derive: {
+        label: 'Drift (Hotelling)',
+        blurb: 'Candidates converge toward the median voter.',
+      },
+      sondages: {
+        label: 'Polls',
+        blurb: 'Convergence perturbed by poll volatility (peak at mid-campaign).',
+      },
+      durcissement: {
+        label: 'Hardening',
+        blurb: 'Candidates radicalise their positions (move away from the median).',
+      },
+    },
+    method: 'Method',
+    intensity: 'Intensity',
+    intensityTitle: 'Distance travelled by the candidates by the end of the campaign.',
+    rounds: 'Rounds',
+    mapLabel: 'Ideology — drift',
+    trajLabel: 'Trajectory — value of the result',
+    centrality: 'centrality',
+    optimality: 'optimality',
+    trajAria: 'Trajectory of the value of the result over the campaign',
+    caption:
+      'Bottom ribbon = winner; a colour change (vertical line) is a flip. Optimality = 1 − regret.',
+    winnerAt: 'Winner (J{{day}})',
+    flip: 'flipped since J0',
+    condorcetNone: 'No Condorcet winner (cycle)',
+    condorcetHeld: '✓ Condorcet winner respected',
+    condorcetBroken: '✗ Condorcet broken (CW: {{cw}})',
+    regret: 'Regret',
+    centralityMeter: 'Centrality',
+    day: 'Day',
+    round: 'Round',
+    betweenRounds: 'between two rounds',
+    scrubberAria: 'Campaign progress',
+    roundTitle: 'Round {{n}}',
+    pause: '⏸ Pause',
+    play: '▶ Play the campaign',
+    prevRound: '◀ Prev. round',
+    nextRound: 'Next round ▶',
+    resetJ0: '↺ J0',
+    pinTitle:
+      'Carries the candidates’ current positions back into the playground as the new starting state. This is the only action that modifies the playground.',
+    pin: '📌 Pin into the playground',
+    pinned: '✓ Positions carried into the playground (J{{day}}).',
+    mapAria: 'Ideology map — candidates drift over the campaign',
+  },
   anchorBody: {
     mechanisms: {
       intro:
@@ -116,6 +171,25 @@ const pgEn: PlaygroundKeys = {
       backsliding: '📉 Democratic backsliding (Levitsky-Ziblatt)',
       intergen: '⏳ Intergenerational representation',
       polis: '🗣️ Pol.is (deliberative clustering)',
+    },
+    breal: {
+      intro:
+        'The playground result assumes ideal voters. Here, real behaviour distorts a single election — order bias, shy voters, choice overload, differential turnout, affective polarisation. Each module computes on demand.',
+      biases: '📊 Voting biases (order, anchoring)',
+      shyvoter: '🤐 Shy voter (Bradley effect)',
+      overload: '🤯 Choice overload',
+      compulsory: '🗳️ Compulsory voting',
+      demographic: '👥 Turnout by demographics',
+      affective: '🔥 Affective polarisation',
+    },
+    tdyn: {
+      intro:
+        'Phenomena that unfold over time — across several rounds or through sequence effects. Each starts from the same electorate (state J0) and computes on demand.',
+      adaptive: '⚙️ Adaptive voting (tactics over time)',
+      replay: '🕰️ Historical replay',
+      primary: '🥇 Primaries',
+      cascade: '🌊 Information cascade',
+      fatigue: '😮‍💨 Voter fatigue',
     },
   },
   canvas: {

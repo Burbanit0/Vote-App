@@ -60,6 +60,61 @@ const pgFr = {
     parties: 'partis',
     voters: 'électeurs',
   },
+  timeline: {
+    thesisAt: 'Au',
+    thesisWins: 'l’emporte. En campagne, le résultat peut',
+    thesisMove: 'bouger',
+    subtitle: 'Choisissez un scénario, puis avancez le temps pour voir si le vainqueur tient.',
+    scenarioLabel: 'Scénario',
+    scenarioAria: 'Scénario de campagne',
+    scenarios: {
+      derive: {
+        label: 'Dérive (Hotelling)',
+        blurb: 'Les candidats convergent vers l’électeur médian.',
+      },
+      sondages: {
+        label: 'Sondages',
+        blurb: 'Convergence perturbée par la volatilité des sondages (pic à mi-campagne).',
+      },
+      durcissement: {
+        label: 'Durcissement',
+        blurb: 'Les candidats radicalisent leurs positions (s’éloignent du médian).',
+      },
+    },
+    method: 'Méthode',
+    intensity: 'Intensité',
+    intensityTitle: 'Distance parcourue par les candidats d’ici la fin de campagne.',
+    rounds: 'Tours',
+    mapLabel: 'Idéologie — dérive',
+    trajLabel: 'Trajectoire — valeur du résultat',
+    centrality: 'centralité',
+    optimality: 'optimalité',
+    trajAria: 'Trajectoire de la valeur du résultat au cours de la campagne',
+    caption:
+      'Ruban du bas = vainqueur ; un changement de couleur (trait vertical) est une bascule. Optimalité = 1 − regret.',
+    winnerAt: 'Vainqueur (J{{day}})',
+    flip: 'bascule depuis J0',
+    condorcetNone: 'Pas de vainqueur de Condorcet (cycle)',
+    condorcetHeld: '✓ Vainqueur de Condorcet respecté',
+    condorcetBroken: '✗ Condorcet non respecté (CW : {{cw}})',
+    regret: 'Regret',
+    centralityMeter: 'Centralité',
+    day: 'Jour',
+    round: 'Tour',
+    betweenRounds: 'entre deux tours',
+    scrubberAria: 'Avancement de campagne',
+    roundTitle: 'Tour {{n}}',
+    pause: '⏸ Pause',
+    play: '▶ Jouer la campagne',
+    prevRound: '◀ Tour préc.',
+    nextRound: 'Tour suiv. ▶',
+    resetJ0: '↺ J0',
+    pinTitle:
+      'Reporte les positions actuelles des candidats dans le playground comme nouvel état de départ. C’est la seule action qui modifie le playground.',
+    pin: '📌 Épingler dans le playground',
+    pinned: '✓ Positions reportées dans le playground (J{{day}}).',
+    mapAria: 'Carte idéologique — les candidats dérivent au cours de la campagne',
+  },
   anchorBody: {
     mechanisms: {
       intro:
@@ -120,6 +175,25 @@ const pgFr = {
       backsliding: '📉 Recul démocratique (Levitsky-Ziblatt)',
       intergen: '⏳ Représentation intergénérationnelle',
       polis: '🗣️ Pol.is (clustering délibératif)',
+    },
+    breal: {
+      intro:
+        'Le résultat du playground suppose des électeurs idéaux. Ici, le comportement réel déforme un même scrutin — biais d’ordre, vote timide, surcharge de choix, participation différentielle, polarisation affective. Chaque module se calcule à la demande.',
+      biases: '📊 Biais de vote (ordre, ancrage)',
+      shyvoter: '🤐 Électeur timide (effet Bradley)',
+      overload: '🤯 Surcharge de choix',
+      compulsory: '🗳️ Vote obligatoire',
+      demographic: '👥 Participation par démographie',
+      affective: '🔥 Polarisation affective',
+    },
+    tdyn: {
+      intro:
+        'Les phénomènes qui se déploient dans le temps — sur plusieurs tours ou par effet de séquence. Chacun part du même électorat (état J0) et se calcule à la demande.',
+      adaptive: '⚙️ Vote adaptatif (tactique sur durée)',
+      replay: '🕰️ Rejeu historique',
+      primary: '🥇 Primaires',
+      cascade: '🌊 Cascade d’information',
+      fatigue: '😮‍💨 Fatigue électorale',
     },
   },
   canvas: {

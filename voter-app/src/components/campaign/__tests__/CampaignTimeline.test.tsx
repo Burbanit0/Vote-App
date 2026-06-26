@@ -91,7 +91,7 @@ describe('CampaignTimeline (C2)', () => {
     );
     expect(pinned[0].x).toBeCloseTo(DEFAULT_CONFIG.candidates[0].x);
     // Confirmation appears.
-    expect(screen.getByText(/Positions reportées/)).toBeInTheDocument();
+    expect(screen.getByText(/Positions carried into the playground/)).toBeInTheDocument();
   });
 
   it('pins drifted (moved) positions after scrubbing to the end', () => {
