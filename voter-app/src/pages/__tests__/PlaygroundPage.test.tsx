@@ -294,10 +294,10 @@ describe('PlaygroundPage (P0 shell)', () => {
     renderPage();
     fireEvent.click(screen.getByTestId('moment-strategy'));
     expect(screen.getByTestId('manip-hardness')).toHaveTextContent('Gibbard–Satterthwaite');
-    expect(screen.getByTestId('manip-hardness')).toHaveTextContent('P (calcul trivial)');
+    expect(screen.getByTestId('manip-hardness')).toHaveTextContent('P (trivial)');
     // Switch to IRV → the NP-hardness flag and its citation appear.
     fireEvent.change(screen.getByTestId('rule-select'), { target: { value: 'irv' } });
-    expect(screen.getByTestId('manip-hardness')).toHaveTextContent('NP-difficile');
+    expect(screen.getByTestId('manip-hardness')).toHaveTextContent('NP-hard');
     expect(screen.getByTestId('manip-hardness')).toHaveTextContent('Bartholdi–Orlin');
     // The worked example compares plurality vs IRV on this electorate.
     expect(screen.getByTestId('manip-hardness')).toHaveTextContent('Example');

@@ -197,6 +197,126 @@ const pgFr = {
     issuesTitle: '🗳 Enjeux & groupage (Ostrogorski)',
     structuralTitle: '⚖ Équités structurelles',
   },
+  rules: {
+    plurality: 'Pluralité (1 tour)',
+    two_round: 'Deux tours',
+    irv: 'Vote alternatif (IRV)',
+    borda: 'Borda',
+    approval: 'Approbation',
+    condorcet: 'Condorcet (Copeland)',
+    minimax: 'Condorcet (minimax)',
+    schulze: 'Condorcet (Schulze)',
+    bucklin: 'Bucklin',
+    coombs: 'Coombs',
+    nanson: 'Nanson',
+    baldwin: 'Baldwin',
+    ranked_pairs: 'Condorcet (paires ordonnées)',
+    random_ballot: 'Vote au sort (loterie)',
+    star: 'STAR',
+    majority_judgment: 'Jugement majoritaire',
+    score: 'Note (score)',
+  },
+  structures: {
+    pr: 'Proportionnelle (listes)',
+    fptp: 'Circonscriptions (FPTP)',
+    mmp: 'Mixte (MMP)',
+  },
+  axes: {
+    condorcet_efficiency: {
+      label: 'Efficacité Condorcet',
+      hint: "Part des ré-échantillonnages (avec vainqueur de Condorcet) où la règle l'élit.",
+    },
+    strategic_resistance: {
+      label: 'Résistance stratégique',
+      hint: 'Le vainqueur survit-il à une compression stratégique vers les deux favoris ? (heuristique documentée)',
+    },
+    welfare: {
+      label: 'Bien-être (regret)',
+      hint: '1 − regret bayésien normalisé du vainqueur (utilité = −distance).',
+    },
+    majority_satisfaction: {
+      label: 'Satisfaction majoritaire',
+      hint: 'Part des électeurs pour qui le vainqueur vaut au moins leur candidat médian.',
+    },
+    simplicity: {
+      label: 'Simplicité',
+      hint: 'Convention déclarée : complexité du bulletin et du dépouillement (sans bande).',
+    },
+    stability: {
+      label: 'Stabilité',
+      hint: 'Part des ré-échantillonnages élisant le vainqueur modal.',
+    },
+    proportionality: {
+      label: 'Proportionnalité',
+      hint: '1 − indice de Gallagher (normalisé).',
+    },
+    pluralism: {
+      label: 'Pluralisme (diversité)',
+      hint: 'Part de la diversité des voix (NEP) qui survit en sièges.',
+    },
+    effective_votes: {
+      label: 'Voix utiles',
+      hint: '1 − part des voix gaspillées.',
+    },
+    minority_representation: {
+      label: 'Représentation des minorités',
+      hint: 'Partis ≥ 3 % des voix détenant au moins un siège.',
+    },
+    governability: {
+      label: 'Gouvernabilité',
+      hint: '1 / taille de la plus petite coalition majoritaire.',
+    },
+    gerrymander_resistance: {
+      label: 'Résistance au charcutage',
+      hint: 'Stabilité des sièges quand la carte des circonscriptions change (re-découpage x→y).',
+    },
+  },
+  presets: {
+    two_party: {
+      label: 'Bipartisme',
+      desc: 'Deux camps sur un axe gauche–droite — le terrain du votant médian.',
+    },
+    fragmented: {
+      label: 'Multipartisme fragmenté',
+      desc: 'Six partis en 2D — proportionnelle, seuils et coalitions.',
+    },
+    single_issue: {
+      label: 'Enjeu unique',
+      desc: 'Trois options sur un seul axe — la clarté du votant médian.',
+    },
+    france2002_like: {
+      label: 'France 2002 (synthétique)',
+      desc: 'Gauche fragmentée, extrêmes polarisés — le terrain du spoiler.',
+    },
+  },
+  manip: {
+    plurality: { label: 'P (calcul trivial)', ref: 'compromission directe' },
+    approval: { label: 'P (calcul trivial)', ref: 'approuver le challenger' },
+    score: { label: 'P (calcul trivial)', ref: 'note maximale au challenger' },
+    star: { label: 'P (note + finale)', ref: 'STAR — note puis duel' },
+    majority_judgment: { label: 'P (médiane)', ref: 'Balinski–Laraki 2010' },
+    borda: {
+      label: 'P pour un manipulateur · NP-difficile en coalition',
+      ref: 'Bartholdi–Tovey–Trick 1989 ; Betzler et al. / Davies et al. 2011',
+    },
+    two_round: { label: 'P (un manipulateur)', ref: 'Conitzer–Sandholm–Lang 2007' },
+    condorcet: { label: 'P (Copeland)', ref: 'Bartholdi–Tovey–Trick 1989' },
+    minimax: { label: 'P (paires)', ref: 'minimax — calcul polynomial' },
+    schulze: { label: 'P (chemin le plus fort)', ref: 'Schulze 2011' },
+    bucklin: { label: 'P (calcul direct)', ref: 'Xia et al. 2009' },
+    coombs: { label: 'P (élimination par derniers)', ref: 'élimination, cf. IRV' },
+    nanson: { label: 'NP-difficile à manipuler', ref: 'Narodytska–Walsh–Xia 2011' },
+    baldwin: { label: 'NP-difficile à manipuler', ref: 'Narodytska–Walsh–Xia 2011' },
+    irv: {
+      label: 'NP-difficile, même pour un seul manipulateur',
+      ref: 'Bartholdi–Orlin 1991 (STV/IRV)',
+    },
+    ranked_pairs: { label: 'P (paires ordonnées)', ref: 'Tideman 1987 — calcul polynomial' },
+    random_ballot: {
+      label: 'Inmanipulable — la stratégie n’apporte rien',
+      ref: 'Gibbard 1977 (seule règle non-manipulable, au prix du hasard)',
+    },
+  },
 };
 
 export type PlaygroundKeys = typeof pgFr;

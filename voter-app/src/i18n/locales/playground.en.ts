@@ -189,6 +189,126 @@ const pgEn: PlaygroundKeys = {
     issuesTitle: '🗳 Issues & bundling (Ostrogorski)',
     structuralTitle: '⚖ Structural fairness',
   },
+  rules: {
+    plurality: 'Plurality (1 round)',
+    two_round: 'Two-round runoff',
+    irv: 'Instant-runoff (IRV)',
+    borda: 'Borda',
+    approval: 'Approval',
+    condorcet: 'Condorcet (Copeland)',
+    minimax: 'Condorcet (minimax)',
+    schulze: 'Condorcet (Schulze)',
+    bucklin: 'Bucklin',
+    coombs: 'Coombs',
+    nanson: 'Nanson',
+    baldwin: 'Baldwin',
+    ranked_pairs: 'Condorcet (ranked pairs)',
+    random_ballot: 'Random ballot (lottery)',
+    star: 'STAR',
+    majority_judgment: 'Majority judgment',
+    score: 'Score',
+  },
+  structures: {
+    pr: 'Proportional (lists)',
+    fptp: 'Single-member districts (FPTP)',
+    mmp: 'Mixed (MMP)',
+  },
+  axes: {
+    condorcet_efficiency: {
+      label: 'Condorcet efficiency',
+      hint: 'Share of resamples (with a Condorcet winner) where the rule elects it.',
+    },
+    strategic_resistance: {
+      label: 'Strategic resistance',
+      hint: 'Does the winner survive a strategic compression toward the top two? (documented heuristic)',
+    },
+    welfare: {
+      label: 'Welfare (regret)',
+      hint: '1 − normalised Bayesian regret of the winner (utility = −distance).',
+    },
+    majority_satisfaction: {
+      label: 'Majority satisfaction',
+      hint: 'Share of voters for whom the winner is worth at least their median candidate.',
+    },
+    simplicity: {
+      label: 'Simplicity',
+      hint: 'Stated convention: complexity of the ballot and the tally (no band).',
+    },
+    stability: {
+      label: 'Stability',
+      hint: 'Share of resamples electing the modal winner.',
+    },
+    proportionality: {
+      label: 'Proportionality',
+      hint: '1 − Gallagher index (normalised).',
+    },
+    pluralism: {
+      label: 'Pluralism (diversity)',
+      hint: 'Share of vote diversity (ENP) that survives into seats.',
+    },
+    effective_votes: {
+      label: 'Effective votes',
+      hint: '1 − share of wasted votes.',
+    },
+    minority_representation: {
+      label: 'Minority representation',
+      hint: 'Parties ≥ 3 % of votes holding at least one seat.',
+    },
+    governability: {
+      label: 'Governability',
+      hint: '1 / size of the smallest majority coalition.',
+    },
+    gerrymander_resistance: {
+      label: 'Gerrymander resistance',
+      hint: 'Seat stability when the district map changes (re-districting x→y).',
+    },
+  },
+  presets: {
+    two_party: {
+      label: 'Two-party',
+      desc: 'Two camps on a left–right axis — the median-voter terrain.',
+    },
+    fragmented: {
+      label: 'Fragmented multi-party',
+      desc: 'Six parties in 2D — proportional, thresholds and coalitions.',
+    },
+    single_issue: {
+      label: 'Single issue',
+      desc: 'Three options on a single axis — median-voter clarity.',
+    },
+    france2002_like: {
+      label: 'France 2002 (synthetic)',
+      desc: 'Fragmented left, polarised extremes — spoiler terrain.',
+    },
+  },
+  manip: {
+    plurality: { label: 'P (trivial)', ref: 'direct compromise' },
+    approval: { label: 'P (trivial)', ref: 'approve the challenger' },
+    score: { label: 'P (trivial)', ref: 'max score to the challenger' },
+    star: { label: 'P (score + runoff)', ref: 'STAR — score then duel' },
+    majority_judgment: { label: 'P (median)', ref: 'Balinski–Laraki 2010' },
+    borda: {
+      label: 'P for one manipulator · NP-hard in coalition',
+      ref: 'Bartholdi–Tovey–Trick 1989 ; Betzler et al. / Davies et al. 2011',
+    },
+    two_round: { label: 'P (one manipulator)', ref: 'Conitzer–Sandholm–Lang 2007' },
+    condorcet: { label: 'P (Copeland)', ref: 'Bartholdi–Tovey–Trick 1989' },
+    minimax: { label: 'P (pairs)', ref: 'minimax — polynomial' },
+    schulze: { label: 'P (strongest path)', ref: 'Schulze 2011' },
+    bucklin: { label: 'P (direct)', ref: 'Xia et al. 2009' },
+    coombs: { label: 'P (eliminate by lasts)', ref: 'elimination, cf. IRV' },
+    nanson: { label: 'NP-hard to manipulate', ref: 'Narodytska–Walsh–Xia 2011' },
+    baldwin: { label: 'NP-hard to manipulate', ref: 'Narodytska–Walsh–Xia 2011' },
+    irv: {
+      label: 'NP-hard, even for a single manipulator',
+      ref: 'Bartholdi–Orlin 1991 (STV/IRV)',
+    },
+    ranked_pairs: { label: 'P (ranked pairs)', ref: 'Tideman 1987 — polynomial' },
+    random_ballot: {
+      label: 'Strategyproof — strategy gains nothing',
+      ref: 'Gibbard 1977 (only strategyproof rule, at the cost of chance)',
+    },
+  },
 };
 
 export default pgEn;

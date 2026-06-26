@@ -4,14 +4,15 @@ import { usePlaygroundCtx } from '../PlaygroundController';
 import Scorecard from '../Scorecard';
 import MethodInfo from '../MethodInfo';
 import ValuesPanel from '../ValuesPanel';
-import { RULE_LABELS } from '../../../lib/playgroundVoting';
+import { useVotingLabels } from '../../../hooks/useVotingLabels';
 import { dialWeights, LEADER_AXES_KEYS } from '../../../lib/scorecard';
-import { STRUCTURE_LABELS, PARLIAMENT_AXES_KEYS } from '../../../lib/playgroundMeta';
+import { PARLIAMENT_AXES_KEYS } from '../../../lib/playgroundMeta';
 
 // Moment ⑤ Bilan — the verdict. What does the current method/structure score, and
 // what is it worth according to YOUR values? The synthesis the journey builds up to.
 const BilanMoment: React.FC = () => {
   const { t } = useTranslation('playground');
+  const { ruleLabels, structureLabels } = useVotingLabels();
   const {
     mode,
     leaderRule,
@@ -35,7 +36,7 @@ const BilanMoment: React.FC = () => {
       <div className="flex items-center gap-1 text-sm font-medium">
         <span className="text-muted-foreground">{t('bilan.evaluatedFor')}</span>
         <span>
-          {mode === 'leader' ? RULE_LABELS[leaderRule] : STRUCTURE_LABELS[assembly.structure]}
+          {mode === 'leader' ? ruleLabels[leaderRule] : structureLabels[assembly.structure]}
         </span>
         {mode === 'leader' ? (
           <MethodInfo
@@ -105,7 +106,7 @@ const BilanMoment: React.FC = () => {
         items={lensItems}
         axisKeys={mode === 'leader' ? [...LEADER_AXES_KEYS] : PARLIAMENT_AXES_KEYS}
         axisLabels={Object.fromEntries(axisMeta.map((a) => [a.key, a.label]))}
-        itemLabels={mode === 'leader' ? RULE_LABELS : STRUCTURE_LABELS}
+        itemLabels={mode === 'leader' ? ruleLabels : structureLabels}
         weights={effectiveWeights}
         granular={lensMode === 'granular'}
         onWeightChange={(k, v) => {

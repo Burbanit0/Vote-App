@@ -55,9 +55,9 @@ const ElectorateMoment: React.FC = () => {
                 className={cn(
                   'flex-1 rounded-md border border-border px-2.5 py-1.5 text-left text-sm transition-colors hover:bg-accent hover:text-accent-foreground'
                 )}
-                title={p.description}
+                title={t(`presets.${p.id}.desc`, { defaultValue: p.description })}
               >
-                {p.label}
+                {t(`presets.${p.id}.label`, { defaultValue: p.label })}
               </button>
               <ScenarioInfo scenario={p.id} />
             </div>

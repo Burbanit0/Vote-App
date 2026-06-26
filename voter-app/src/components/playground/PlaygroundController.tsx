@@ -18,13 +18,8 @@ import {
   type LensItem,
 } from '../../lib/scorecard';
 import { composeElectorate, COMMUNITY_PALETTE } from '../../lib/playgroundElectorate';
-import {
-  LEADER_AXIS_META,
-  PARLIAMENT_AXIS_META,
-  PARLIAMENT_AXES_KEYS,
-  STRUCTURE_LABELS,
-  defaultWeights,
-} from '../../lib/playgroundMeta';
+import { PARLIAMENT_AXES_KEYS, defaultWeights } from '../../lib/playgroundMeta';
+import { useVotingLabels } from '../../hooks/useVotingLabels';
 
 // PlaygroundController — the single source of truth for the instrument. All state,
 // derivations and effects live here and are exposed through one context, so the
@@ -43,6 +38,7 @@ function useController() {
     playground,
     mode === 'parliament'
   );
+  const { leaderAxisMeta, parliamentAxisMeta, structureLabels } = useVotingLabels();
 
   // The active "moment" — the station on the instrument's journey. Drives the
   // left control panel and the instrument's lens; the others stay one click away.
@@ -280,13 +276,13 @@ function useController() {
   const democracyEntries = React.useMemo(
     () =>
       parlSc
-        ? Object.keys(STRUCTURE_LABELS).map((s) => ({
+        ? Object.keys(structureLabels).map((s) => ({
             structure: s,
-            label: STRUCTURE_LABELS[s].split(' ')[0],
+            label: structureLabels[s].split(' ')[0],
             index: consensusIndex(parlSc.structures[s]),
           }))
         : [],
-    [parlSc]
+    [parlSc, structureLabels]
   );
 
   // FC-1 — manipulation hardness: the empirical compromise probe on THIS
@@ -300,7 +296,7 @@ function useController() {
     };
   }, [mode, votingVoters, leaderCandidates, leaderRule]);
 
-  const axisMeta = mode === 'leader' ? LEADER_AXIS_META : PARLIAMENT_AXIS_META;
+  const axisMeta = mode === 'leader' ? leaderAxisMeta : parliamentAxisMeta;
   const currentAxes: ScorecardAxis[] = axisMeta.map(({ key, label, hint }) => ({
     key,
     label,
@@ -316,7 +312,7 @@ function useController() {
         ? LEADER_RULES.map((r) => ({ id: r, axes: leaderSc[r] }))
         : []
       : parlSc
-        ? Object.keys(STRUCTURE_LABELS).map((s) => ({ id: s, axes: parlSc.structures[s] }))
+        ? Object.keys(structureLabels).map((s) => ({ id: s, axes: parlSc.structures[s] }))
         : [];
 
   return {

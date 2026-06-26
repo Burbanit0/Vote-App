@@ -4,12 +4,13 @@ import { usePlaygroundCtx } from '../PlaygroundController';
 import Collapsible from '../Collapsible';
 import StrategicModule from '../StrategicModule';
 import SincerityModule from '../SincerityModule';
-import { MANIP_COMPLEXITY } from '../../../lib/scorecard';
+import { useVotingLabels } from '../../../hooks/useVotingLabels';
 
 // Moment ③ Stratégie & vote blanc — sincere vs tactical voting, manipulation,
 // strategic desertion. The manipulation lens is foregrounded on the instrument.
 const StrategyMoment: React.FC = () => {
   const { t } = useTranslation('playground');
+  const { manipComplexity } = useVotingLabels();
   const {
     config,
     playground,
@@ -81,14 +82,14 @@ const StrategyMoment: React.FC = () => {
             {t('strategy.manipPrinciple')}{' '}
             <strong
               className={
-                MANIP_COMPLEXITY[leaderRule].hard
+                manipComplexity[leaderRule].hard
                   ? 'text-green-700 dark:text-green-400'
                   : 'text-amber-600 dark:text-amber-400'
               }
             >
-              {MANIP_COMPLEXITY[leaderRule].label}
+              {manipComplexity[leaderRule].label}
             </strong>{' '}
-            <span className="text-muted-foreground">({MANIP_COMPLEXITY[leaderRule].ref})</span>
+            <span className="text-muted-foreground">({manipComplexity[leaderRule].ref})</span>
           </p>
           <p className="mt-0.5 text-muted-foreground">
             {t('strategy.probeIntro')}{' '}
