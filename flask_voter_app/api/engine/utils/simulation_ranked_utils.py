@@ -199,7 +199,9 @@ def get_irv_winner(votes: list[Any], blank_candidate_name: str = "") -> Optional
         candidates.update(_get_ranking(vote, is_dict))
 
     while len(candidates) > 1:
-        votes_count: "Counter[Any]" = Counter()
+        # Seed every surviving candidate at 0 so a candidate with no first-prefs
+        # this round is still eliminable (not silently protected).
+        votes_count: "Counter[Any]" = Counter({c: 0 for c in candidates})
         for vote in votes:
             ranking = _get_ranking(vote, is_dict)
             for candidate in ranking:
@@ -213,10 +215,13 @@ def get_irv_winner(votes: list[Any], blank_candidate_name: str = "") -> Optional
             if count > majority:
                 return str(candidate)
 
-        if not votes_count:
-            break
+        # Eliminate ALL candidates tied for the fewest first-prefs (neutral,
+        # candidate-order-independent). If that is everyone, it's a dead tie.
         min_votes = min(votes_count.values())
-        for candidate in [c for c, v in votes_count.items() if v == min_votes]:
+        eliminated = [c for c, v in votes_count.items() if v == min_votes]
+        if len(eliminated) >= len(candidates):
+            return None
+        for candidate in eliminated:
             candidates.remove(candidate)
 
     return candidates.pop() if candidates else None
@@ -236,18 +241,33 @@ def get_coombs_winner(votes: list[Any], blank_candidate_name: str = "") -> Optio
         candidates.update(_get_ranking(vote, is_dict))
 
     while len(candidates) > 1:
+        first_choices: "Counter[Any]" = Counter()
         last_choices: "Counter[Any]" = Counter()
         for vote in votes:
             ranking = _get_ranking(vote, is_dict)
+            for candidate in ranking:
+                if candidate in candidates:
+                    first_choices[candidate] += 1
+                    break
             for candidate in reversed(ranking):
                 if candidate in candidates:
                     last_choices[candidate] += 1
                     break
 
+        # Standard Coombs stops as soon as a candidate holds a first-pref majority.
+        majority = sum(first_choices.values()) / 2
+        for candidate, count in first_choices.items():
+            if count > majority:
+                return str(candidate)
+
         if not last_choices:
             break
+        # Eliminate ALL candidates tied for the most last-place votes (neutral).
         max_last = max(last_choices.values())
-        for candidate in [c for c, v in last_choices.items() if v == max_last]:
+        eliminated = [c for c, v in last_choices.items() if v == max_last]
+        if len(eliminated) >= len(candidates):
+            return None
+        for candidate in eliminated:
             candidates.remove(candidate)
 
     return candidates.pop() if candidates else None

@@ -136,13 +136,18 @@ function winIRV(ranks: number[][], m: number): number {
     const total = counts.reduce((s, c) => s + c, 0);
     const leader = argmax(counts);
     if (counts[leader] > total / 2) return leader;
-    // eliminate the alive candidate with the fewest first-prefs
-    let worst = -1;
-    for (let i = 0; i < m; i++) {
-      if (alive[i] && (worst === -1 || counts[i] < counts[worst])) worst = i;
+    // Eliminate ALL alive candidates tied for the fewest first-prefs (including
+    // any with zero) — a neutral, candidate-order-independent tie-break that
+    // matches the backend engine (see playgroundVoting.parity.test.ts).
+    let min = Infinity;
+    for (let i = 0; i < m; i++) if (alive[i] && counts[i] < min) min = counts[i];
+    const doomed: number[] = [];
+    for (let i = 0; i < m; i++) if (alive[i] && counts[i] === min) doomed.push(i);
+    if (doomed.length >= remaining) return -1; // every survivor tied → no winner
+    for (const i of doomed) {
+      alive[i] = false;
+      remaining--;
     }
-    alive[worst] = false;
-    remaining--;
   }
   return alive.findIndex((a) => a);
 }
@@ -286,10 +291,17 @@ function winCoombs(ranks: number[][], m: number): number {
     const total = first.reduce((s, x) => s + x, 0);
     const leader = argmax(first);
     if (first[leader] > total / 2) return leader;
-    let worst = -1;
-    for (let i = 0; i < m; i++) if (alive[i] && (worst === -1 || last[i] > last[worst])) worst = i;
-    alive[worst] = false;
-    remaining--;
+    // Eliminate ALL alive candidates tied for the most last-place votes — neutral
+    // (candidate-order-independent), matching the backend engine.
+    let max = -1;
+    for (let i = 0; i < m; i++) if (alive[i] && last[i] > max) max = last[i];
+    const doomed: number[] = [];
+    for (let i = 0; i < m; i++) if (alive[i] && last[i] === max) doomed.push(i);
+    if (doomed.length >= remaining) return -1; // every survivor tied → no winner
+    for (const i of doomed) {
+      alive[i] = false;
+      remaining--;
+    }
   }
   return alive.findIndex((a) => a);
 }
