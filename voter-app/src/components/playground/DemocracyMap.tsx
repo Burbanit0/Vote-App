@@ -132,7 +132,7 @@ const DemocracyMap: React.FC<DemocracyMapProps> = ({ entries, current }) => {
           })}
         </g>
       </svg>
-      <p className="text-[0.65rem] text-muted-foreground/70">{t('democracy.footer')}</p>
+      <p className="text-[0.65rem] text-muted-foreground">{t('democracy.footer')}</p>
     </div>
   );
 };

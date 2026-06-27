@@ -80,7 +80,7 @@ const ValuesPanel: React.FC<ValuesPanelProps> = ({
               data-testid={`lens-item-${it.id}`}
               className={cn(
                 'rounded-md border px-2.5 py-1.5 text-sm transition-colors',
-                isDominated && 'border-border/60 text-muted-foreground/60 line-through',
+                isDominated && 'border-border/60 text-muted-foreground line-through',
                 !isDominated && !isLit && 'border-border',
                 isLit && 'border-primary ring-1 ring-primary'
               )}
@@ -107,7 +107,7 @@ const ValuesPanel: React.FC<ValuesPanelProps> = ({
         })}
       </div>
 
-      <p className="text-[0.7rem] text-muted-foreground/70">{t('values.footer')}</p>
+      <p className="text-[0.7rem] text-muted-foreground">{t('values.footer')}</p>
     </div>
   );
 };

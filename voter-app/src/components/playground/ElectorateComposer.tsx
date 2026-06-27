@@ -438,7 +438,7 @@ const ElectorateComposer: React.FC = () => {
             </div>
           </details>
 
-          <p className="text-[0.68rem] text-muted-foreground/70">{t('composer.footer')}</p>
+          <p className="text-[0.68rem] text-muted-foreground">{t('composer.footer')}</p>
         </>
       )}
     </div>

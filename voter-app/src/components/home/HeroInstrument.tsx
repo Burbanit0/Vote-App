@@ -139,7 +139,7 @@ const HeroInstrument: React.FC = () => {
           viewBox="0 0 100 100"
           className="w-full rounded bg-background"
           role="img"
-          aria-label={t('home.heroInstrLabel')}
+          aria-label={`${t('home.heroInstrLabel')} — ${win.name}`}
         >
           {/* faint grid */}
           {[20, 40, 60, 80].map((p) => (
@@ -252,7 +252,7 @@ const HeroInstrument: React.FC = () => {
               {t('home.heroWinner')}
             </span>
             {flipped && (
-              <span className="rounded bg-[var(--color-stamp)]/15 px-1.5 py-0.5 font-mono text-[0.6rem] font-semibold uppercase tracking-wide text-[var(--color-stamp)]">
+              <span className="rounded bg-[var(--color-stamp)]/15 px-1.5 py-0.5 font-mono text-[0.6rem] font-semibold uppercase tracking-wide text-[#9a4513]">
                 {t('home.heroFlip')}
               </span>
             )}

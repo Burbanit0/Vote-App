@@ -81,7 +81,7 @@ const HomePage: React.FC = () => {
                   {t('home.ctaGuided')}
                 </Button>
               </div>
-              <p className="mt-4 font-mono text-[0.68rem] uppercase tracking-[0.12em] text-muted-foreground/70">
+              <p className="mt-4 font-mono text-[0.68rem] uppercase tracking-[0.12em] text-muted-foreground">
                 {t('home.reassure')}
               </p>
             </div>

@@ -108,7 +108,7 @@ const TemporalPanel: React.FC<TemporalPanelProps> = ({ config, playground }) => 
           </Button>
         </div>
       </div>
-      <p className="text-[0.68rem] text-muted-foreground/70">
+      <p className="text-[0.68rem] text-muted-foreground">
         Modèle déclaré : à chaque cycle les partis font un pas vers les voix (ressources ∝ votes
         reçus) et les électeurs dérivent vers le parti qu’ils ont voté. Même graine = même
         trajectoire.

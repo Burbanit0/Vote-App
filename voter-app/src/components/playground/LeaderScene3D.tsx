@@ -94,7 +94,11 @@ const LeaderScene3D: React.FC<LeaderScene3DProps> = ({
   const svgRef = useRef<SVGSVGElement>(null);
   const [yaw, setYaw] = useState(0.6);
   const [pitch, setPitch] = useState(0.35);
-  const [spin, setSpin] = useState(true);
+  // Don't auto-rotate for users who asked for less motion (the orbit is an
+  // infinite animation); they can still start it from the toggle.
+  const [spin, setSpin] = useState(
+    () => !window.matchMedia?.('(prefers-reduced-motion: reduce)').matches
+  );
   const drag = useRef<{ x: number; y: number } | null>(null);
 
   // Auto-rotate until the user grabs it.

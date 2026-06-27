@@ -753,7 +753,7 @@ const LeaderCanvas: React.FC<LeaderCanvasProps> = ({
           {t('canvas.entrantZone')}
         </span>
       </div>
-      <p className="text-xs text-muted-foreground/70">
+      <p className="text-xs text-muted-foreground">
         {lens === 'manipulation' && t('canvas.capManip')}
         {lens === 'criteria' && t('canvas.capCriteria')}
         {lens === 'probability' && t('canvas.capProbability')}

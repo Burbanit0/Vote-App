@@ -132,7 +132,7 @@ const MethodMoment: React.FC = () => {
           </p>
         )}
         {result && result.incompatible_methods.length > 0 && (
-          <p className="text-[0.65rem] text-muted-foreground/70">
+          <p className="text-[0.65rem] text-muted-foreground">
             {t('method.incompatible', { count: result.incompatible_methods.length })}
           </p>
         )}

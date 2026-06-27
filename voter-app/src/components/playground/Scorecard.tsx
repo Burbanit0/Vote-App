@@ -73,7 +73,7 @@ const Scorecard: React.FC<ScorecardProps> = ({ axes, loading = false, bandNote, 
         </div>
       ))}
       {bandNote && (
-        <p className="text-[0.7rem] text-muted-foreground/70">
+        <p className="text-[0.7rem] text-muted-foreground">
           {t('scorecard.bandFooter', { note: bandNote })}
         </p>
       )}

@@ -115,7 +115,7 @@ const SincerityModule: React.FC<{
         <p className="text-[0.7rem] text-muted-foreground">
           {t('sincerity.sincereOrder')} <strong>{report.ranking.join(' ＞ ')}</strong>
         </p>
-        <p className="text-[0.65rem] text-muted-foreground/70">
+        <p className="text-[0.65rem] text-muted-foreground">
           {t('sincerity.tip')} <strong>{t('sincerity.tipMarker')}</strong> {t('sincerity.tipEnd')}
         </p>
       </div>
@@ -229,12 +229,12 @@ const SincerityModule: React.FC<{
                 </span>
               </div>
             ))}
-            <p className="text-[0.65rem] text-muted-foreground/70">{t('sincerity.scanFooter')}</p>
+            <p className="text-[0.65rem] text-muted-foreground">{t('sincerity.scanFooter')}</p>
           </div>
         )}
       </div>
 
-      <p className="text-[0.65rem] text-muted-foreground/70">{t('sincerity.note')}</p>
+      <p className="text-[0.65rem] text-muted-foreground">{t('sincerity.note')}</p>
     </div>
   );
 };

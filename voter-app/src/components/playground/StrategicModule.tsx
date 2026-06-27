@@ -77,7 +77,7 @@ const StrategicModule: React.FC<{ config: ElectionConfig; playground: Playground
               </span>
             </div>
           ))}
-          <p className="text-[0.65rem] text-muted-foreground/70">{t('strategy.svFooter')}</p>
+          <p className="text-[0.65rem] text-muted-foreground">{t('strategy.svFooter')}</p>
         </div>
       )}
     </div>

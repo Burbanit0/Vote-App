@@ -172,7 +172,7 @@ const ElectorateMoment: React.FC = () => {
             )}
           </>
         )}
-        <p className="text-[0.65rem] text-muted-foreground/70">{t('electorate.downsNote')}</p>
+        <p className="text-[0.65rem] text-muted-foreground">{t('electorate.downsNote')}</p>
         <Collapsible
           title={t('electorate.abstentionAnchorTitle')}
           subtitle={t('electorate.abstentionAnchorSub')}

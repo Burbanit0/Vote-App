@@ -54,7 +54,7 @@ const MomentRail: React.FC<MomentRailProps> = ({ active, onSelect }) => {
                 'flex h-7 w-7 shrink-0 items-center justify-center rounded-md font-mono text-sm font-semibold tabular-nums transition-colors',
                 on
                   ? 'bg-primary text-primary-foreground'
-                  : 'bg-background text-muted-foreground/70 group-hover:text-foreground'
+                  : 'bg-background text-muted-foreground group-hover:text-foreground'
               )}
             >
               {m.n}

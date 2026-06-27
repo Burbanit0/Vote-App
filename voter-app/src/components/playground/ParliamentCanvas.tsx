@@ -466,7 +466,7 @@ const ParliamentCanvas: React.FC<ParliamentCanvasProps> = ({
               </div>
             );
           })}
-          <p className="text-[0.7rem] text-muted-foreground/70">{t('parliament.votesSeatsNote')}</p>
+          <p className="text-[0.7rem] text-muted-foreground">{t('parliament.votesSeatsNote')}</p>
         </div>
       )}
 
@@ -529,7 +529,7 @@ const ParliamentCanvas: React.FC<ParliamentCanvasProps> = ({
                 </div>
               ))}
             </div>
-            <p className="mt-1 text-[0.65rem] text-muted-foreground/70">
+            <p className="mt-1 text-[0.65rem] text-muted-foreground">
               {t('parliament.mirrorNote')}
             </p>
           </div>

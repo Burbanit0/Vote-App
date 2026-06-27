@@ -75,7 +75,7 @@ const StructuralPanel: React.FC<{
           </Button>
         </div>
       </div>
-      <p className="text-[0.68rem] text-muted-foreground/70">{t('structural.intro')}</p>
+      <p className="text-[0.68rem] text-muted-foreground">{t('structural.intro')}</p>
 
       {data && (
         <div className="grid grid-cols-1 gap-2 xl:grid-cols-2">

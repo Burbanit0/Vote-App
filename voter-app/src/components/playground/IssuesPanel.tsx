@@ -82,7 +82,7 @@ const IssuesPanel: React.FC<{ config: ElectionConfig; playground?: PlaygroundSta
           </Button>
         </div>
       </div>
-      <p className="text-[0.68rem] text-muted-foreground/70">{t('issues.intro')}</p>
+      <p className="text-[0.68rem] text-muted-foreground">{t('issues.intro')}</p>
 
       {data && (
         <>
