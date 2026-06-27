@@ -37,6 +37,10 @@ from api.engine.utils.simulation_ranked_utils import (  # noqa: E402
     get_schulze_winner,
     get_two_round_winner,
 )
+from api.engine.utils.simulation_score_utils import (  # noqa: E402
+    get_simple_score_winner,
+    get_star_voting_winner,
+)
 
 # Client Rule id → backend winner fn. Only the purely ordinal rules both engines
 # share (score/approval/STAR/MJ take cardinal ballots; random_ballot is a lottery).
@@ -53,6 +57,16 @@ RULES = {
     "nanson": get_nanson_winner,
     "baldwin": get_baldwin_winner,
     "ranked_pairs": get_ranked_pairs_winner,
+}
+
+# Cardinal rules that take the SAME per-voter score vector on both engines (so a
+# shared score matrix is a fair comparison). Approval is excluded — the two engines
+# derive the approval ballot differently (rankings/utility-threshold vs scores), a
+# modelling choice, not an algorithm. Majority judgment is excluded — its grade
+# quantisation differs (client round(s·5) vs backend threshold buckets).
+CARDINAL = {
+    "score": lambda b: get_simple_score_winner(b)["winner"],
+    "star": lambda b: get_star_voting_winner(b)["winner"],
 }
 
 NAMES = ["A", "B", "C", "D", "E"]
@@ -84,6 +98,26 @@ def strict_winner(fn, ballots, cands, rng):
     return base
 
 
+def strict_winner_cardinal(fn, ballots, cands, rng):
+    """As strict_winner, for score ballots (per-voter {candidate: score} dicts):
+    keep the winner only if it survives relabeling the candidates and shuffling
+    the voters, so it isn't a tie-break artefact."""
+    base = fn(ballots)
+    if base is None:
+        return None
+    for _ in range(200):
+        shuffled = cands[:]
+        rng.shuffle(shuffled)
+        relabel = dict(zip(cands, shuffled))
+        inv = {v: k for k, v in relabel.items()}
+        rows = [{relabel[c]: v for c, v in b.items()} for b in ballots]
+        rng.shuffle(rows)
+        w = fn(rows)
+        if w is None or inv[w] != base:
+            return None
+    return base
+
+
 def main() -> None:
     rng = random.Random(SEED)
     scenarios = []
@@ -95,17 +129,33 @@ def main() -> None:
                 winners = {rule: strict_winner(fn, ballots, cands, rng) for rule, fn in RULES.items()}
                 scenarios.append({"candidates": cands, "ballots": ballots, "winners": winners})
 
+    cardinal_scenarios = []
+    for m in (3, 4, 5):
+        cands = NAMES[:m]
+        for n in (21, 31, 41, 51, 61):
+            for _ in range(4):
+                score_ballots = [{c: rng.randint(0, 5) for c in cands} for _ in range(n)]
+                winners = {
+                    rule: strict_winner_cardinal(fn, score_ballots, cands, rng)
+                    for rule, fn in CARDINAL.items()
+                }
+                matrix = [[b[c] for c in cands] for b in score_ballots]
+                cardinal_scenarios.append(
+                    {"candidates": cands, "scores": matrix, "winners": winners}
+                )
+
     payload = {
         "_generatedBy": "flask_voter_app/scripts/gen_engine_parity.py",
         "_seed": SEED,
         "_note": "Authoritative winners from the Python backend. Asserted by playgroundVoting.parity.test.ts.",
         "scenarios": scenarios,
+        "cardinalScenarios": cardinal_scenarios,
     }
     os.makedirs(os.path.dirname(OUT), exist_ok=True)
     with open(OUT, "w", encoding="utf-8") as f:
         json.dump(payload, f, indent=0)
         f.write("\n")
-    print(f"wrote {len(scenarios)} scenarios -> {OUT}")
+    print(f"wrote {len(scenarios)} ordinal + {len(cardinal_scenarios)} cardinal scenarios -> {OUT}")
 
 
 if __name__ == "__main__":

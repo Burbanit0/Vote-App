@@ -73,3 +73,37 @@ describe('engine parity — client ruleWinnerFromRanks == backend golden winners
     );
   }
 });
+
+// ── Cardinal rules (score / STAR) — same per-voter score matrix on both engines.
+// Approval (different ballot model) and MJ (different grade quantisation) are out
+// of scope for an input-identical comparison; see gen_engine_parity.py.
+interface CardinalScenario {
+  candidates: string[];
+  scores: number[][];
+  winners: Record<string, string | null>;
+}
+const cardinal = (fixtureJson as { cardinalScenarios: CardinalScenario[] }).cardinalScenarios;
+
+const preparedCardinal = cardinal.map((sc) => ({
+  m: sc.candidates.length,
+  candidates: sc.candidates,
+  scores: sc.scores,
+  // Ranks (best→worst) only satisfy ruleWinnerFromRanks' shape; cardinal rules read `scores`.
+  ranks: sc.scores.map((row) => row.map((_, i) => i).sort((a, b) => row[b] - row[a])),
+  winners: sc.winners,
+}));
+
+const CARDINAL_RULES = Object.keys(cardinal[0].winners) as Rule[];
+
+describe('engine parity — cardinal rules over a shared score matrix', () => {
+  it.each(CARDINAL_RULES)('%s matches the backend on every strict scenario', (rule) => {
+    const mismatches: string[] = [];
+    preparedCardinal.forEach((s, i) => {
+      const expected = s.winners[rule];
+      if (expected == null) return;
+      const got = s.candidates[ruleWinnerFromRanks(s.ranks, s.m, rule, s.scores)];
+      if (got !== expected) mismatches.push(`#${i}: client=${got} backend=${expected}`);
+    });
+    expect(mismatches).toEqual([]);
+  });
+});
