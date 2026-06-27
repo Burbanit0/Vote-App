@@ -131,51 +131,6 @@ export const METHOD_DESCRIPTIONS: Record<string, string> = {
     'while allowing voters to express intensity. Proposed by Lalley & Weyl (2018) and popularised in "Radical Markets" (Posner & Weyl, 2018).',
 };
 
-// Keep static pros/cons as English fallbacks for non-React contexts
-export const METHOD_PROS: Record<string, string> = {
-  plurality: 'Simple and universally understood — one voter, one vote.',
-  two_round: 'Ensures the winner faces a direct opponent in the runoff.',
-  borda: 'Rewards broadly appreciated candidates, not just first choices.',
-  approval: 'Eliminates the spoiler effect — approving multiple candidates penalises nobody.',
-  irv: 'Guarantees a winner with majority support after successive eliminations.',
-  coombs: 'Elects more centrist candidates than IRV by eliminating the most-rejected first.',
-  bucklin: 'Ranking/approval hybrid that quickly converges to a majority winner.',
-  minimax: 'The winner is the candidate whose worst pairwise defeat is the least bad.',
-  schulze: 'Satisfies Condorcet, monotonicity and many other criteria — very robust.',
-  kemeny_young: 'Theoretically optimal: maximises global consensus on the complete ranking.',
-  condorcet: 'Elects the candidate who beats each other in a direct duel, if one exists.',
-  positional_score: 'Assigns points by rank position — simple and expressive.',
-  simple_score: 'Very expressive — voters nuance their support with numeric ratings.',
-  star_voting: 'Combines score expressivity with resistance to polarisation via automatic runoff.',
-  median_voting: 'Resistant to exaggeration — one extreme voter cannot shift the median as easily.',
-  mean_median_hybrid: 'Balances the expressivity of the mean and robustness of the median (50/50).',
-  variance_based: 'Penalises polarising candidates — favours broad and consistent support.',
-  quadratic:
-    'Expresses preference intensity — voters allocate more credits to their strongly-felt choices, reducing majority tyranny.',
-};
-
-export const METHOD_CONS: Record<string, string> = {
-  plurality: 'Creates the spoiler effect: a similar candidate can make your favourite lose.',
-  two_round: 'Incentivises strategic voting in round 1 to "qualify".',
-  borda: 'Vulnerable to "burial": deliberately ranking a rival last to minimise their score.',
-  approval: 'The result depends on the approval threshold each voter sets for themselves.',
-  irv: 'Non-monotone: promoting a candidate can paradoxically make them lose.',
-  coombs: 'Sensitive to Condorcet cycles and counter-intuitive outcomes.',
-  bucklin: 'Rarely used in practice and little studied empirically.',
-  minimax: 'Does not always satisfy the Condorcet winner criterion.',
-  schulze: 'Complex to explain to voters and hard to audit manually.',
-  kemeny_young: 'Exponential O(n!) computation — unusable with 6 or more candidates.',
-  condorcet: 'Does not always have a winner — cycles make the decision impossible.',
-  positional_score: 'Result depends on the number of candidates (adding one shifts all scores).',
-  simple_score: 'Dominant strategy is exaggeration: 5 to your favourite, 0 to everyone else.',
-  star_voting: 'Less intuitive than classic voting — two steps to explain to voters.',
-  median_voting: 'Can elect a candidate with a high median but few enthusiastic supporters.',
-  mean_median_hybrid: 'The 50/50 weighting is arbitrary and hard to justify democratically.',
-  variance_based: 'Counter-intuitive: a passionately loved candidate can be penalised.',
-  quadratic:
-    'If credits can be purchased with money, wealthy voters gain disproportionate influence — equal budgets are essential.',
-};
-
 export const IDEOLOGY_OPTIONS = [
   { value: 'random', labelKey: 'ideology.random' },
   { value: 'centrist', labelKey: 'ideology.centrist' },

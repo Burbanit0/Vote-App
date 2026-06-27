@@ -4,7 +4,6 @@
  * Tests the unified drag hook via the makeDragHandlers helper, since the
  * hook itself uses ref-based SVG element access that requires a real DOM.
  */
-import { renderHook, act } from '@testing-library/react';
 
 // ── useDragTouch helpers ──────────────────────────────────────────────────────
 
