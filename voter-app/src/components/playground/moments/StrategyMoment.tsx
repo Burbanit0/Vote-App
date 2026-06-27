@@ -4,6 +4,7 @@ import { usePlaygroundCtx } from '../PlaygroundController';
 import Collapsible from '../Collapsible';
 import StrategicModule from '../StrategicModule';
 import SincerityModule from '../SincerityModule';
+import EquilibriumModule from '../EquilibriumModule';
 import { useVotingLabels } from '../../../hooks/useVotingLabels';
 
 // Moment ③ Stratégie & vote blanc — sincere vs tactical voting, manipulation,
@@ -68,6 +69,14 @@ const StrategyMoment: React.FC = () => {
         testid="module-strategic"
       >
         <StrategicModule config={config} playground={playground} />
+      </Collapsible>
+
+      <Collapsible
+        title={t('strategy.equilibriumTitle')}
+        subtitle={t('strategy.equilibriumSub')}
+        testid="module-equilibrium"
+      >
+        <EquilibriumModule voters={votingVoters} candidates={leaderCandidates} />
       </Collapsible>
 
       {manipDetail && (
