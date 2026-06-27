@@ -403,6 +403,13 @@ const pgEn: PlaygroundKeys = {
     consensualist: 'Consensualist (inclusive)',
     bandNote: '{{count}} resamples',
   },
+  realElection: {
+    title: '🗳 Reality check: a real election',
+    sub: 'same ballots, different methods',
+    headlinePre: 'On the very same ballots,',
+    headlineEnd: 'different winners by method alone.',
+    note: 'Genuine ranked ballots (PrefLib). We tabulate only the methods that are unambiguous on truncated ballots (plurality, two-round, IRV, the Condorcet family); Borda and score-family rules need a convention the ballots don’t supply. Details: pairwise duels won (Condorcet), worst defeat margin (minimax).',
+  },
   scorecard: {
     drillTitle: 'Dig deeper in the Lab',
     drillAria: 'Dig into “{{label}}” in the Lab',
