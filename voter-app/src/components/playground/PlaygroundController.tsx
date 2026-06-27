@@ -152,6 +152,33 @@ function useController() {
     [voters, leaderCandidates, turnout.model, turnout.intensity]
   );
   const votingVoters = turnoutResult.voters;
+
+  // Re-draw the SAME electorate composition on an arbitrary seed (post-turnout),
+  // so the verdict's robustness can be measured across resamples.
+  const sampleAtSeed = React.useCallback(
+    (seed: number): Pt[] => {
+      const raw = electorateSampler
+        ? composeElectorate(
+            electorateSampler.communities,
+            electorateSampler.correlation,
+            config.num_voters,
+            seed,
+            dims,
+            electorateSampler.noise
+          ).voters
+        : sampleVoters(config.num_voters, seed, config.ideology, dims);
+      return applyTurnout(raw, leaderCandidates, turnout.model, turnout.intensity).voters;
+    },
+    [
+      electorateSampler,
+      config.num_voters,
+      config.ideology,
+      dims,
+      leaderCandidates,
+      turnout.model,
+      turnout.intensity,
+    ]
+  );
   const voterColors = React.useMemo(
     () =>
       composed
@@ -355,6 +382,8 @@ function useController() {
     voterColors,
     leaderCandidates,
     votingVoters,
+    sampleAtSeed,
+    baseSeed: config.seed,
     moveCandidate,
     pinToPlayground,
     // shake

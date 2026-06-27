@@ -15,6 +15,7 @@ import {
 } from '../../lib/playgroundVoting';
 import { useVotingLabels } from '../../hooks/useVotingLabels';
 import LeaderScene3D from './LeaderScene3D';
+import WinnerRobustness from './WinnerRobustness';
 import { manipulationField, type ManipKind } from '../../lib/playgroundSincerity';
 import { condorcetFromRanks } from '../../lib/scorecard';
 import { criteriaMatrix, CRITERIA, type CriteriaRow } from '../../lib/playgroundCriteria';
@@ -99,6 +100,9 @@ export interface LeaderCanvasProps {
   onMoveYou?: (x: number, y: number) => void;
   onRuleChange: (rule: Rule) => void;
   onMoveCandidate: (index: number, x: number, y: number, z?: number) => void;
+  /** Re-draw the electorate on a seed (post-turnout) — drives the robustness strip. */
+  sampleAtSeed?: (seed: number) => Pt[];
+  baseSeed?: number;
 }
 
 const LeaderCanvas: React.FC<LeaderCanvasProps> = ({
@@ -113,6 +117,8 @@ const LeaderCanvas: React.FC<LeaderCanvasProps> = ({
   onMoveYou,
   onRuleChange,
   onMoveCandidate,
+  sampleAtSeed,
+  baseSeed,
 }) => {
   const { t, i18n } = useTranslation('playground');
   const { ruleLabels } = useVotingLabels();
@@ -249,6 +255,16 @@ const LeaderCanvas: React.FC<LeaderCanvasProps> = ({
           {t('canvas.winnerLabel')} <strong>{winner ?? '—'}</strong>
         </span>
       </div>
+      {sampleAtSeed && baseSeed != null && (
+        <WinnerRobustness
+          sampleAtSeed={sampleAtSeed}
+          candidates={candidates}
+          rule={rule}
+          baseSeed={baseSeed}
+          colors={candidates.map((_, i) => PALETTE[i % PALETTE.length])}
+          winner={winner}
+        />
+      )}
 
       {/* Lens switch — overlays rendered in place on the same map. */}
       <div

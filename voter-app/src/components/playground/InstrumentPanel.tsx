@@ -40,6 +40,8 @@ const InstrumentPanel: React.FC = () => {
     voterColors,
     leaderCandidates,
     votingVoters,
+    sampleAtSeed,
+    baseSeed,
     moveCandidate,
     assembly,
     shakeOn,
@@ -76,6 +78,8 @@ const InstrumentPanel: React.FC = () => {
                 voters={votingVoters}
                 rule={leaderRule}
                 dims={dims}
+                sampleAtSeed={sampleAtSeed}
+                baseSeed={baseSeed}
                 voterColors={voterColors}
                 youMarker={showYou ? youPos : null}
                 lens={lens}
