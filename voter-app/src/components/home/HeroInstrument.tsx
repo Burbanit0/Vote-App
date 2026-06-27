@@ -233,7 +233,7 @@ const HeroInstrument: React.FC = () => {
                 data-testid={`hero-rule-${r}`}
                 onClick={() => setRule(r)}
                 className={cn(
-                  'truncate rounded-md px-2 py-1.5 text-xs font-medium transition-colors',
+                  'flex min-h-11 items-center justify-center truncate rounded-md px-2 text-xs font-medium transition-colors',
                   rule === r
                     ? 'bg-primary text-primary-foreground shadow-sm'
                     : 'text-muted-foreground hover:text-foreground'

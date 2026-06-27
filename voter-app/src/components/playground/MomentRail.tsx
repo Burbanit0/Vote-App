@@ -1,5 +1,6 @@
 import * as React from 'react';
 import { useTranslation } from 'react-i18next';
+import { Users, Vote, Swords, TrendingUp, Scale, type LucideIcon } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
 // MomentRail — the spine of the single-instrument journey. Five "moments" from
@@ -10,12 +11,12 @@ import { cn } from '@/lib/utils';
 
 export type MomentId = 'electorate' | 'method' | 'strategy' | 'campaign' | 'bilan';
 
-export const MOMENTS: { id: MomentId; n: string; icon: string }[] = [
-  { id: 'electorate', n: '1', icon: '👥' },
-  { id: 'method', n: '2', icon: '🗳' },
-  { id: 'strategy', n: '3', icon: '♟' },
-  { id: 'campaign', n: '4', icon: '📈' },
-  { id: 'bilan', n: '5', icon: '⚖' },
+export const MOMENTS: { id: MomentId; n: string; Icon: LucideIcon }[] = [
+  { id: 'electorate', n: '1', Icon: Users },
+  { id: 'method', n: '2', Icon: Vote },
+  { id: 'strategy', n: '3', Icon: Swords },
+  { id: 'campaign', n: '4', Icon: TrendingUp },
+  { id: 'bilan', n: '5', Icon: Scale },
 ];
 
 interface MomentRailProps {

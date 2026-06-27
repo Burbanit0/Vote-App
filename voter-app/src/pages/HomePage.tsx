@@ -1,6 +1,7 @@
 import React, { useCallback, useEffect, useState } from 'react';
 import { Link, useNavigate } from 'react-router';
 import { useTranslation } from 'react-i18next';
+import { SlidersHorizontal } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { useMetaTags } from '../hooks/useMetaTags';
 import { useElection } from '../stores/useElectionStore';
@@ -75,7 +76,8 @@ const HomePage: React.FC = () => {
               </p>
               <div className="mt-7 flex flex-wrap items-center gap-3">
                 <Button size="lg" variant="primary" className="px-5" onClick={openInstrument}>
-                  🎛 {t('home.ctaOpen')} →
+                  <SlidersHorizontal aria-hidden className="h-4 w-4" />
+                  {t('home.ctaOpen')} →
                 </Button>
                 <Button size="lg" variant="outline" onClick={startTour}>
                   {t('home.ctaGuided')}
@@ -114,9 +116,10 @@ const HomePage: React.FC = () => {
                   <span className="font-mono text-sm font-semibold tabular-nums text-primary">
                     {m.n}
                   </span>
-                  <span aria-hidden className="text-lg">
-                    {m.icon}
-                  </span>
+                  <m.Icon
+                    aria-hidden
+                    className="h-5 w-5 text-muted-foreground transition-colors group-hover:text-primary"
+                  />
                 </div>
                 <span className="font-display text-base font-semibold leading-tight">
                   {tp(`moments.${m.id}.label`)}
