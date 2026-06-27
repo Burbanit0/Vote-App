@@ -4,6 +4,8 @@ import { usePlaygroundCtx } from '../PlaygroundController';
 import Scorecard from '../Scorecard';
 import MethodInfo from '../MethodInfo';
 import ValuesPanel from '../ValuesPanel';
+import Collapsible from '../Collapsible';
+import RealElectionPanel from '../RealElectionPanel';
 import { useVotingLabels } from '../../../hooks/useVotingLabels';
 import { dialWeights, LEADER_AXES_KEYS } from '../../../lib/scorecard';
 import { PARLIAMENT_AXES_KEYS } from '../../../lib/playgroundMeta';
@@ -115,6 +117,14 @@ const BilanMoment: React.FC = () => {
           else setParlWeights((w) => ({ ...w, [k]: v }));
         }}
       />
+
+      <Collapsible
+        title={t('realElection.title')}
+        subtitle={t('realElection.sub')}
+        testid="module-real-election"
+      >
+        <RealElectionPanel />
+      </Collapsible>
     </div>
   );
 };

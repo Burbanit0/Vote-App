@@ -405,6 +405,13 @@ const pgFr = {
     consensualist: 'Consensualiste (inclusif)',
     bandNote: '{{count}} ré-échantillonnages',
   },
+  realElection: {
+    title: '🗳 Épreuve du réel : un vrai scrutin',
+    sub: 'mêmes bulletins, méthodes différentes',
+    headlinePre: 'Sur les mêmes bulletins,',
+    headlineEnd: 'vainqueurs différents selon la seule méthode.',
+    note: 'Bulletins classés authentiques (PrefLib). On ne tabule que les méthodes sans ambiguïté sur des bulletins tronqués (pluralité, deux tours, IRV, famille de Condorcet) ; Borda et les méthodes par note exigent une convention que les bulletins ne fournissent pas. Détails : duels gagnés (Condorcet), pire marge de défaite (minimax).',
+  },
   scorecard: {
     drillTitle: 'Approfondir dans le Lab',
     drillAria: 'Approfondir « {{label}} » dans le Lab',
