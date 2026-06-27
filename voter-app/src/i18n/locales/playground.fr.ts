@@ -60,6 +60,11 @@ const pgFr = {
     parties: 'partis',
     voters: 'électeurs',
   },
+  robustness: {
+    summary: '{{name}} l’emporte dans {{pct}} % des {{n}} tirages',
+    aria: 'Robustesse : {{name}} gagne dans {{pct}} % de {{n}} ré-échantillons de l’électorat',
+    fragile: '— verdict fragile',
+  },
   scene: {
     drag: 'Glissez pour pivoter',
     pauseSpin: '⏸ rotation',

@@ -56,6 +56,11 @@ const pgEn: PlaygroundKeys = {
     parties: 'parties',
     voters: 'voters',
   },
+  robustness: {
+    summary: '{{name}} wins in {{pct}}% of {{n}} resamples',
+    aria: 'Robustness: {{name}} wins in {{pct}}% of {{n}} electorate resamples',
+    fragile: '— fragile verdict',
+  },
   scene: {
     drag: 'Drag to rotate',
     pauseSpin: '⏸ rotation',
