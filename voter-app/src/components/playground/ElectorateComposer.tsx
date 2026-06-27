@@ -252,136 +252,61 @@ const ElectorateComposer: React.FC = () => {
             />
           </label>
 
-          {/* Communities table */}
+          {/* Communities — one card per bloc, sliders stacked vertically */}
           <div data-testid="community-list" className="flex flex-col gap-2">
-            <div className="grid grid-cols-[1.6rem_8rem_1fr_1fr_1fr_1fr_1.4rem] items-center gap-1 text-[0.62rem] uppercase tracking-wide text-muted-foreground">
-              <span />
-              <span>{t('composer.colCommunity')}</span>
-              <span>{t('composer.colEcon')}</span>
-              <span>{t('composer.colSocial')}</span>
-              <span>{t('composer.colSpread')}</span>
-              <span>{t('composer.colSize')}</span>
-              <span />
-            </div>
             {e.communities.map((c, i) => (
               <div
                 key={c.id}
                 data-testid={`community-${c.id}`}
-                className="grid grid-cols-[1.6rem_8rem_1fr_1fr_1fr_1fr_1.4rem] items-center gap-1 text-xs"
+                className="flex flex-col gap-1.5 rounded-md border border-border p-2"
               >
-                <span
-                  className="inline-block h-3 w-3 rounded-full"
-                  style={{ background: COMMUNITY_PALETTE[i % COMMUNITY_PALETTE.length] }}
-                />
-                <input
-                  className="rounded border border-input bg-background px-1 py-0.5"
-                  value={c.label}
-                  onChange={(ev) => updateCommunity(c.id, { label: ev.target.value })}
-                />
-                <input
-                  type="range"
-                  min={-1}
-                  max={1}
-                  step={0.05}
-                  value={c.x}
-                  onChange={(ev) => updateCommunity(c.id, { x: num(ev.target.value) })}
-                />
-                <input
-                  type="range"
-                  min={-1}
-                  max={1}
-                  step={0.05}
-                  value={c.y}
-                  onChange={(ev) => updateCommunity(c.id, { y: num(ev.target.value) })}
-                />
-                <input
-                  type="range"
-                  min={0.05}
-                  max={0.6}
-                  step={0.01}
-                  value={c.spread}
-                  onChange={(ev) => updateCommunity(c.id, { spread: num(ev.target.value) })}
-                />
-                <input
-                  type="range"
-                  min={0}
-                  max={5}
-                  step={0.1}
-                  value={c.weight}
-                  onChange={(ev) => updateCommunity(c.id, { weight: num(ev.target.value) })}
-                />
-                <button
-                  type="button"
-                  data-testid={`community-remove-${c.id}`}
-                  className="rounded text-muted-foreground hover:text-[#dc3545]"
-                  title={t('composer.removeTitle')}
-                  onClick={() => removeCommunity(c.id)}
-                >
-                  ✕
-                </button>
-              </div>
-            ))}
-            {/* Per-community turnout on its own row to stay readable */}
-            <div className="flex flex-col gap-1">
-              {e.communities.map((c, i) => (
-                <label
-                  key={c.id}
-                  className="flex items-center gap-2 text-[0.7rem] text-muted-foreground"
-                >
+                <div className="flex items-center gap-2">
                   <span
-                    className="inline-block h-2 w-2 rounded-full"
+                    className="inline-block h-3 w-3 shrink-0 rounded-full"
                     style={{ background: COMMUNITY_PALETTE[i % COMMUNITY_PALETTE.length] }}
                   />
-                  <span className="w-32 shrink-0 truncate">
-                    {t('composer.turnoutRow', { label: c.label })}
-                  </span>
                   <input
-                    data-testid={`community-turnout-${c.id}`}
-                    type="range"
-                    className="min-w-0 flex-1"
-                    min={0}
-                    max={1}
-                    step={0.05}
-                    value={c.turnout}
-                    onChange={(ev) => updateCommunity(c.id, { turnout: num(ev.target.value) })}
+                    className="min-w-0 flex-1 rounded border border-input bg-background px-1 py-0.5 text-xs"
+                    value={c.label}
+                    onChange={(ev) => updateCommunity(c.id, { label: ev.target.value })}
                   />
-                  <span className="w-9 text-right tabular-nums">
-                    {Math.round(c.turnout * 100)} %
-                  </span>
-                </label>
-              ))}
-            </div>
-
-            {/* 3rd-axis (z) centres — only meaningful when the map is in 3D */}
-            {dims >= 3 && (
-              <div data-testid="community-z-list" className="flex flex-col gap-1">
-                {e.communities.map((c, i) => (
-                  <label
-                    key={c.id}
-                    className="flex items-center gap-2 text-[0.7rem] text-muted-foreground"
+                  <button
+                    type="button"
+                    data-testid={`community-remove-${c.id}`}
+                    className="rounded text-muted-foreground hover:text-[#dc3545]"
+                    title={t('composer.removeTitle')}
+                    onClick={() => removeCommunity(c.id)}
                   >
-                    <span
-                      className="inline-block h-2 w-2 rounded-full"
-                      style={{ background: COMMUNITY_PALETTE[i % COMMUNITY_PALETTE.length] }}
-                    />
-                    <span className="w-32 shrink-0 truncate">
-                      {t('composer.zRow', { label: c.label })}
-                    </span>
+                    ✕
+                  </button>
+                </div>
+                {([
+                  { label: t('composer.colEcon'), key: 'x' as const, min: -1, max: 1, step: 0.05, fmt: (v: number) => v.toFixed(2) },
+                  { label: t('composer.colSocial'), key: 'y' as const, min: -1, max: 1, step: 0.05, fmt: (v: number) => v.toFixed(2) },
+                  ...(dims >= 3 ? [{ label: t('composer.colZ', { defaultValue: 'Axe 3' }), key: 'z' as const, min: -1, max: 1, step: 0.05, fmt: (v: number) => v.toFixed(2) }] : []),
+                  { label: t('composer.colSpread'), key: 'spread' as const, min: 0.05, max: 0.6, step: 0.01, fmt: (v: number) => v.toFixed(2) },
+                  { label: t('composer.colSize'), key: 'weight' as const, min: 0, max: 5, step: 0.1, fmt: (v: number) => v.toFixed(1) },
+                  { label: t('composer.colTurnout', { defaultValue: 'Participation' }), key: 'turnout' as const, min: 0, max: 1, step: 0.05, fmt: (v: number) => `${Math.round(v * 100)} %` },
+                ] as const).map((s) => (
+                  <label key={s.key} className="flex items-center gap-2 text-[0.7rem] text-muted-foreground">
+                    <span className="w-20 shrink-0 truncate">{s.label}</span>
                     <input
-                      data-testid={`community-z-${c.id}`}
+                      data-testid={`community-${s.key}-${c.id}`}
                       type="range"
                       className="min-w-0 flex-1"
-                      min={-1}
-                      max={1}
-                      step={0.05}
-                      value={c.z ?? 0}
-                      onChange={(ev) => updateCommunity(c.id, { z: num(ev.target.value) })}
+                      min={s.min}
+                      max={s.max}
+                      step={s.step}
+                      value={(c as unknown as Record<string, number>)[s.key] ?? 0}
+                      onChange={(ev) => updateCommunity(c.id, { [s.key]: num(ev.target.value) })}
                     />
-                    <span className="w-9 text-right tabular-nums">{(c.z ?? 0).toFixed(2)}</span>
+                    <span className="w-10 text-right tabular-nums">
+                      {s.fmt((c as unknown as Record<string, number>)[s.key] ?? 0)}
+                    </span>
                   </label>
                 ))}
               </div>
-            )}
+            ))}
 
             <button
               type="button"
