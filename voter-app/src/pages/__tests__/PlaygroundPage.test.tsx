@@ -216,9 +216,9 @@ describe('PlaygroundPage (P0 shell)', () => {
       timeout: 5000,
     });
     const text = screen.getByTestId('shake-bands').textContent ?? '';
-    const pcts = [...text.matchAll(/(\d+)\s?%/g)].map((m) => Number(m[1]));
-    // headline % + one per candidate; the per-candidate rates sum to ~100.
-    const perCandidate = pcts.slice(1);
+    // Each candidate row renders its win rate with a Wilson margin as "rate±half%".
+    const perCandidate = [...text.matchAll(/(\d+)±\d+%/g)].map((m) => Number(m[1]));
+    expect(perCandidate.length).toBeGreaterThanOrEqual(2);
     const sum = perCandidate.reduce((s, p) => s + p, 0);
     expect(sum).toBeGreaterThanOrEqual(97);
     expect(sum).toBeLessThanOrEqual(103);

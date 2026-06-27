@@ -564,6 +564,10 @@ const pgEn: PlaygroundKeys = {
     shakeHint: 'Full Monte-Carlo in the advanced explorations (Analysis)',
     shakeHoldsMid: 'holds',
     shakeHoldsEnd: 'of the {{count}} resamples.',
+    shakeCI: '95% CI: {{lo}}–{{hi}}%',
+    shakeCITitle: '95% confidence interval (Wilson): {{lo}}–{{hi}}%',
+    shakeCIFooter:
+      'Solid bar = estimate; the faint overlay is the 95% confidence interval (Wilson, n = {{n}}). More draws = tighter interval.',
     democracyTitle: '🗺 Map of democracies (Lijphart)',
     democracySub: 'majoritarian ↔ consensus',
     democracyComputing: 'Computing…',
