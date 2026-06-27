@@ -47,7 +47,7 @@ function mismatchesFor(rule: Rule): string[] {
 // on strict profiles — a real divergence this harness surfaced. Tracked debt:
 // reconcile each (fix the client engine to the tested backend), then delete it
 // from this set. See gen_engine_parity.py to regenerate the golden winners.
-const KNOWN_DIVERGENT = new Set<Rule>(['irv', 'coombs', 'schulze', 'bucklin']);
+const KNOWN_DIVERGENT = new Set<Rule>(['irv', 'coombs', 'schulze']);
 
 describe('engine parity — client ruleWinnerFromRanks == backend golden winners', () => {
   it('has a non-trivial fixture', () => {

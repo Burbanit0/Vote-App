@@ -359,26 +359,30 @@ def get_kemeny_young_winner(votes: list[Any], **kwargs: Any) -> Optional[str]:
 def get_bucklin_winner(votes: list[Any], blank_candidate_name: str = "") -> Optional[str]:
     """
     Determine the Bucklin voting winner from a set of rankings.
+
+    Bucklin is CUMULATIVE: at round k, tally every candidate that appears in a
+    voter's top-k choices (counts carry over between rounds). The first round in
+    which a candidate exceeds a majority decides it — the highest tally among
+    those over the threshold wins.
     :param votes: A list of rankings (see get_condorcet_winner for format)
     :return: The name of the Bucklin winner
     """
     if not votes:
         return None
     is_dict = _is_dict_format(votes)
-    max_rank = max(len(_get_ranking(vote, is_dict)) for vote in votes)
+    rankings = [_get_ranking(vote, is_dict) for vote in votes]
+    max_rank = max(len(ranking) for ranking in rankings)
     majority = len(votes) / 2
     votes_count: "Counter[Any]" = Counter()
 
     for rank in range(1, max_rank + 1):
-        votes_count = Counter()
-        for vote in votes:
-            ranking = _get_ranking(vote, is_dict)
+        for ranking in rankings:
             if len(ranking) >= rank:
                 votes_count[ranking[rank - 1]] += 1
 
-        winners = [c for c, v in votes_count.items() if v > majority]
-        if winners:
-            return str(winners[0])
+        over_majority = [(c, v) for c, v in votes_count.items() if v > majority]
+        if over_majority:
+            return str(max(over_majority, key=lambda cv: cv[1])[0])
 
     return str(max(votes_count.items(), key=lambda x: x[1])[0]) if votes_count else None
 
