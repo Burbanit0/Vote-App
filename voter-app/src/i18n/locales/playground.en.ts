@@ -266,6 +266,8 @@ const pgEn: PlaygroundKeys = {
     behaviorStrategic: 'Strategic',
     behaviorMixed: 'Mixed',
     valence: 'Valence (non-ideological quality)',
+    valenceHint:
+      'Per-candidate non-ideological quality (competence, name recognition…): utility = −distance + valence. Enough valence can let a non-central candidate win.',
     participationTitle: 'Turnout (abstention)',
     abstentionModelLabel: 'Abstention model',
     abstentionFull: 'Full turnout',

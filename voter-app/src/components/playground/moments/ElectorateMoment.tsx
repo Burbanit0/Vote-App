@@ -14,6 +14,7 @@ const ElectorateMoment: React.FC = () => {
   const { t } = useTranslation('playground');
   const {
     config,
+    setConfig,
     setPlayground,
     setPlaygroundDeep,
     applyPreset,
@@ -115,14 +116,51 @@ const ElectorateMoment: React.FC = () => {
         </select>
       </Field>
 
-      <label className="flex items-center gap-2 text-sm">
-        <input
-          type="checkbox"
-          checked={space.valenceEnabled}
-          onChange={(e) => setPlaygroundDeep('space.valenceEnabled', e.target.checked)}
-        />
-        {t('electorate.valence')}
-      </label>
+      <div className="flex flex-col gap-2">
+        <label className="flex items-center gap-2 text-sm">
+          <input
+            type="checkbox"
+            checked={space.valenceEnabled}
+            onChange={(e) => setPlaygroundDeep('space.valenceEnabled', e.target.checked)}
+          />
+          {t('electorate.valence')}
+        </label>
+
+        {/* Per-candidate non-spatial quality — the Stokes lever that lets a
+            non-central candidate win. Only meaningful in leader mode. */}
+        {space.valenceEnabled && mode === 'leader' && (
+          <div
+            data-testid="valence-editor"
+            className="flex flex-col gap-1.5 rounded-md border border-border p-2.5"
+          >
+            <p className="text-[0.7rem] text-muted-foreground">{t('electorate.valenceHint')}</p>
+            {config.candidates.map((c, i) => (
+              <label key={c.name} className="flex items-center gap-2 text-xs">
+                <span className="w-20 shrink-0 truncate text-muted-foreground">{c.name}</span>
+                <input
+                  data-testid={`valence-${i}`}
+                  type="range"
+                  className="min-w-0 flex-1"
+                  min={-1}
+                  max={1}
+                  step={0.05}
+                  value={c.valence ?? 0}
+                  onChange={(e) =>
+                    setConfig({
+                      candidates: config.candidates.map((cc, j) =>
+                        j === i ? { ...cc, valence: Number(e.target.value) } : cc
+                      ),
+                    })
+                  }
+                />
+                <span className="w-9 text-right tabular-nums text-muted-foreground">
+                  {(c.valence ?? 0).toFixed(2)}
+                </span>
+              </label>
+            ))}
+          </div>
+        )}
+      </div>
 
       {/* ── Participation / abstention (réalisme électoral) ── */}
       <div className="flex flex-col gap-2 rounded-md border border-border p-3">

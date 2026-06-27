@@ -32,6 +32,9 @@ export interface ElectionCandidate {
   y: number;
   /** Optional 3rd ideological axis (playground dims=3). Defaults to 0. */
   z?: number;
+  /** Stokes valence: non-spatial quality in [-1,1], applied only when
+   *  space.valenceEnabled. Lifts utility for every voter (−distance + valence). */
+  valence?: number;
 }
 
 export interface ElectionConfig {
