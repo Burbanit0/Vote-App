@@ -466,10 +466,10 @@ describe('PlaygroundPage (P0 shell)', () => {
     renderPage();
     fireEvent.click(screen.getByTestId('module-electorate-toggle'));
     fireEvent.click(screen.getByTestId('electorate-mode-composed'));
-    // 2-D by default: no z sub-list.
-    expect(screen.queryByTestId('community-z-list')).not.toBeInTheDocument();
+    // 2-D by default: no z sliders.
+    expect(screen.queryByTestId('community-z-g')).not.toBeInTheDocument();
     fireEvent.change(screen.getByLabelText('Dimensions of the space'), { target: { value: '3' } });
-    expect(screen.getByTestId('community-z-list')).toBeInTheDocument();
+    expect(screen.getByTestId('community-z-g')).toBeInTheDocument();
   });
 
   it('importing a JSON composition replaces the electorate (données d’entrée)', () => {
