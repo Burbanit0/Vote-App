@@ -313,6 +313,8 @@ const pgEn: PlaygroundKeys = {
     sincereHint: 'Your conviction, method by method — drag the “You” diamond on the map.',
     vulnTitle: '⚡ Strategic vulnerability (Gibbard–Satterthwaite)',
     vulnSub: 'on demand · slow',
+    equilibriumTitle: '♟ Strategic equilibrium (iterated game)',
+    equilibriumSub: 'on demand · every camp plays',
     manipTitle: 'Manipulation: principle vs practice',
     manipPrinciple: 'Gameable in principle (Gibbard–Satterthwaite) · computing the right lie:',
     probeIntro: 'Probe on this electorate:',
@@ -471,6 +473,23 @@ const pgEn: PlaygroundKeys = {
     scanFooter:
       'Bar = share of voters tempted to betray their conviction (shorter = more sincere method on this electorate).',
     note: 'The project’s central constraint: vote by conviction, never by elimination. We test the classic strategies (compromise “tactical vote” and burying a rival); the absence of temptation here does not prove infallibility, but signals a robust method for this electorate.',
+  },
+  equilibrium: {
+    intro:
+      'What if EVERY camp voted tactically? We replay the deviations in turn (each bloc best-responds to the situation) until the ballots settle. Does the sincere winner survive strategic play, or does the method tip onto someone else?',
+    runTitle:
+      'Plays iterated better-response from a sincere electorate, per method, until an equilibrium (or a cycle).',
+    run: '▶ Simulate strategic play (all methods)',
+    rerun: '↻ Replay',
+    headlinePre: 'Under strategic play,',
+    headlineEnd: 'methods change winner ({{groups}} preference blocs).',
+    shiftedHead: '⚠ Strategy moves the winner',
+    afterPasses: '(after {{n}} rounds)',
+    cycleHead: '∞ No equilibrium (the game cycles)',
+    cycleTitle: 'Ballots never settle: no pure equilibrium under these dynamics.',
+    stableHead: '✓ The sincere winner holds',
+    elects: 'Elects {{winner}}, before and after strategy',
+    note: 'Iterated better-response (“iterative voting”, Meir et al.), same strategies as above (compromise, burying). A winner that moves, or a cycle, signals a method fragile to strategic play on this electorate; a convention, not a theorem.',
   },
   structural: {
     title: '⚖ Structural fairness',

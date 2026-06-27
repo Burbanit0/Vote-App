@@ -321,6 +321,8 @@ const pgFr = {
       'Votre conviction, méthode par méthode — glissez le losange « Vous » sur la carte.',
     vulnTitle: '⚡ Vulnérabilité stratégique (Gibbard–Satterthwaite)',
     vulnSub: 'à la demande · lent',
+    equilibriumTitle: '♟ Équilibre stratégique (jeu itéré)',
+    equilibriumSub: 'à la demande · tous les camps jouent',
     manipTitle: 'Manipulation : principe vs pratique',
     manipPrinciple: 'Jouable en principe (Gibbard–Satterthwaite) · calcul du bon mensonge :',
     probeIntro: 'Sonde sur cet électorat :',
@@ -480,6 +482,23 @@ const pgFr = {
     scanFooter:
       'Barre = part d’électeurs tentés de trahir leur conviction (plus court = méthode plus sincère sur cet électorat).',
     note: 'Contrainte centrale du projet : voter par conviction, jamais par élimination. On teste les stratégies classiques (compromis « vote utile » et enterrement d’un rival) ; l’absence de tentation ici ne prouve pas l’infaillibilité, mais signale une méthode robuste pour cet électorat.',
+  },
+  equilibrium: {
+    intro:
+      'Et si TOUS les camps votaient stratégiquement ? On rejoue les déviations en chaîne (chaque bloc répond à la situation) jusqu’à ce que les bulletins se stabilisent. Le vainqueur sincère survit-il au jeu stratégique, ou la méthode bascule-t-elle sur un autre ?',
+    runTitle:
+      'Joue la meilleure réponse itérée depuis un électorat sincère, pour chaque méthode, jusqu’à un équilibre (ou un cycle).',
+    run: '▶ Simuler le jeu stratégique (toutes méthodes)',
+    rerun: '↻ Rejouer',
+    headlinePre: 'Sous jeu stratégique,',
+    headlineEnd: 'méthodes changent de vainqueur ({{groups}} blocs de préférence).',
+    shiftedHead: '⚠ La stratégie déplace le vainqueur',
+    afterPasses: '(après {{n}} tours)',
+    cycleHead: '∞ Aucun équilibre (le jeu cycle)',
+    cycleTitle: 'Les bulletins ne se stabilisent pas : pas d’équilibre pur sous ces dynamiques.',
+    stableHead: '✓ Le vainqueur sincère résiste',
+    elects: 'Élit {{winner}}, avant comme après stratégie',
+    note: 'Meilleure réponse itérée (« iterative voting », Meir et al.), mêmes stratégies que ci-dessus (compromis, enterrement). Un vainqueur qui se déplace ou un cycle signale une méthode fragile au jeu stratégique sur cet électorat ; convention, pas théorème.',
   },
   structural: {
     title: '⚖ Équités structurelles',
