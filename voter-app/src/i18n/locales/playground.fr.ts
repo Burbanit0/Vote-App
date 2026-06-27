@@ -606,6 +606,10 @@ const pgFr = {
     shakeHint: 'Monte-Carlo complet dans les Explorations avancées (Analyse)',
     shakeHoldsMid: 'tient',
     shakeHoldsEnd: 'des {{count}} ré-échantillonnages.',
+    shakeCI: 'IC 95 % : {{lo}}–{{hi}} %',
+    shakeCITitle: 'Intervalle de confiance à 95 % (Wilson) : {{lo}}–{{hi}} %',
+    shakeCIFooter:
+      'Barre pleine = estimation ; voile = intervalle de confiance à 95 % (Wilson, n = {{n}}). Plus de tirages = intervalle plus serré.',
     democracyTitle: '🗺 Carte des démocraties (Lijphart)',
     democracySub: 'majoritaire ↔ consensus',
     democracyComputing: 'Calcul en cours…',

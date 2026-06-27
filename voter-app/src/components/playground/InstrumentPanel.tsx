@@ -11,6 +11,7 @@ import DemocracyMap from './DemocracyMap';
 import IssuesPanel from './IssuesPanel';
 import StructuralPanel from './StructuralPanel';
 import { COMMUNITY_PALETTE } from '../../lib/playgroundElectorate';
+import { wilsonFromRate } from '../../lib/ci';
 
 // InstrumentPanel — the live screen. The spatial map sits inside the signature
 // instrument frame (corner ticks + a mono label/readout strip); the headline
@@ -128,29 +129,59 @@ const InstrumentPanel: React.FC = () => {
                         <>
                           <strong>{shake.top}</strong> {t('instrument.shakeHoldsMid')}{' '}
                           <strong>{Math.round((shake.rates[shake.top] ?? 0) * 100)} %</strong>{' '}
-                          {t('instrument.shakeHoldsEnd', { count: shake.replications })}
+                          {t('instrument.shakeHoldsEnd', { count: shake.replications })}{' '}
+                          {(() => {
+                            const iv = wilsonFromRate(
+                              shake.rates[shake.top] ?? 0,
+                              shake.replications
+                            );
+                            return (
+                              <span className="text-muted-foreground">
+                                {t('instrument.shakeCI', {
+                                  lo: Math.round(iv.lo * 100),
+                                  hi: Math.round(iv.hi * 100),
+                                })}
+                              </span>
+                            );
+                          })()}
                         </>
                       ) : (
                         '—'
                       )}
                     </p>
-                    {config.candidates.map((c) => (
-                      <div key={c.name} className="flex items-center gap-2 text-xs">
-                        <span className="w-24 truncate text-muted-foreground">{c.name}</span>
-                        <div className="h-2.5 flex-1 overflow-hidden rounded bg-muted/50">
-                          <div
-                            className="h-full animate-pulse rounded bg-primary/70"
-                            style={{
-                              width: `${(shake.rates[c.name] ?? 0) * 100}%`,
-                              transition: 'width 400ms ease',
-                            }}
-                          />
+                    {config.candidates.map((c) => {
+                      const rate = shake.rates[c.name] ?? 0;
+                      const iv = wilsonFromRate(rate, shake.replications);
+                      return (
+                        <div key={c.name} className="flex items-center gap-2 text-xs">
+                          <span className="w-24 truncate text-muted-foreground">{c.name}</span>
+                          {/* Bar = point estimate; the faint overlay spans the 95% CI. */}
+                          <div className="relative h-2.5 flex-1 overflow-hidden rounded bg-muted/50">
+                            <div
+                              className="absolute inset-y-0 bg-primary/20"
+                              style={{
+                                left: `${iv.lo * 100}%`,
+                                width: `${(iv.hi - iv.lo) * 100}%`,
+                              }}
+                              title={t('instrument.shakeCITitle', {
+                                lo: Math.round(iv.lo * 100),
+                                hi: Math.round(iv.hi * 100),
+                              })}
+                            />
+                            <div
+                              className="absolute inset-y-0 left-0 rounded bg-primary/70"
+                              style={{ width: `${rate * 100}%`, transition: 'width 400ms ease' }}
+                            />
+                          </div>
+                          <span className="w-16 text-right font-mono tabular-nums text-muted-foreground">
+                            {Math.round(rate * 100)}±{Math.round(iv.half * 100)}%
+                          </span>
                         </div>
-                        <span className="w-10 text-right font-mono tabular-nums text-muted-foreground">
-                          {Math.round((shake.rates[c.name] ?? 0) * 100)} %
-                        </span>
-                      </div>
-                    ))}
+                      );
+                    })}
+                    <p className="text-[0.65rem] text-muted-foreground">
+                      {t('instrument.shakeCIFooter', { n: shake.replications })}
+                    </p>
                   </div>
                 )}
               </div>
