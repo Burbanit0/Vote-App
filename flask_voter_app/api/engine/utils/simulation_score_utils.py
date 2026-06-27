@@ -85,7 +85,9 @@ def get_star_voting_winner(all_scores: Any) -> Dict[str, Any]:
         else:
             tied += 1
 
-    runoff_winner = candidate1 if votes1 > votes2 else candidate2
+    # On a tied runoff, STAR breaks it by score — candidate1 is the higher-scored
+    # finalist, so it must win the tie (>=, not >).
+    runoff_winner = candidate1 if votes1 >= votes2 else candidate2
 
     return {
         "method": "STAR Voting",
