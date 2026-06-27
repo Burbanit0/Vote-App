@@ -138,14 +138,18 @@ function useController() {
 
   // Project candidates onto the active dimension count so the math, the map and
   // the re-rolls all agree (1-D zeroes y,z; 2-D zeroes z; 3-D keeps all).
+  const valenceOn = space.valenceEnabled;
   const leaderCandidates = React.useMemo(
     () =>
       config.candidates.map((c) => ({
         ...c,
         y: dims >= 2 ? c.y : 0,
         z: dims >= 3 ? (c.z ?? 0) : 0,
+        // Stokes valence only bites when enabled; otherwise the model is purely
+        // positional (keeps every existing readout identical when off).
+        valence: valenceOn ? (c.valence ?? 0) : 0,
       })),
-    [config.candidates, dims]
+    [config.candidates, dims, valenceOn]
   );
   const turnoutResult = React.useMemo(
     () => applyTurnout(voters, leaderCandidates, turnout.model, turnout.intensity),

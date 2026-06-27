@@ -265,6 +265,8 @@ const pgFr = {
     behaviorStrategic: 'Stratégique',
     behaviorMixed: 'Mixte',
     valence: 'Valence (qualité hors-idéologie)',
+    valenceHint:
+      'Qualité non-idéologique par candidat (compétence, notoriété…) : utilité = −distance + valence. Une valence forte peut faire gagner un candidat non central.',
     participationTitle: 'Participation (abstention)',
     abstentionModelLabel: 'Modèle d’abstention',
     abstentionFull: 'Participation totale',

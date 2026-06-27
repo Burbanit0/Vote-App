@@ -13,11 +13,17 @@ export interface NamedPt {
   x: number;
   y: number;
   z?: number;
+  /** Stokes valence (see Pt.valence): non-spatial quality bonus on a candidate. */
+  valence?: number;
 }
 export interface Pt {
   x: number;
   y: number;
   z?: number;
+  /** Stokes valence: a non-spatial quality bonus on a CANDIDATE that lifts its
+   *  utility for every voter (utility = -distance + valence). Optional and 0 by
+   *  default, so positional-only callers are unchanged. Ignored on voter points. */
+  valence?: number;
 }
 
 export type Dims = 1 | 2 | 3;
@@ -71,11 +77,15 @@ export const CARDINAL_RULES: ReadonlySet<Rule> = new Set<Rule>([
 
 const dist = (a: Pt, b: Pt): number => Math.hypot(a.x - b.x, a.y - b.y, (a.z ?? 0) - (b.z ?? 0));
 
-/** Per-voter candidate-index ranking, best→worst (nearest first). */
+// Voter utility for a candidate: closer is better, lifted by the candidate's
+// valence. Higher utility = preferred. Valence defaults to 0 (positional model).
+const utility = (v: Pt, c: Pt): number => -dist(v, c) + (c.valence ?? 0);
+
+/** Per-voter candidate-index ranking, best→worst (highest utility first). */
 export function computeRanks(voters: Pt[], cands: Pt[]): number[][] {
   return voters.map((v) => {
     const idx = cands.map((_, i) => i);
-    idx.sort((a, b) => dist(v, cands[a]) - dist(v, cands[b]));
+    idx.sort((a, b) => utility(v, cands[b]) - utility(v, cands[a]));
     return idx;
   });
 }
@@ -160,7 +170,7 @@ function winBorda(ranks: number[][], m: number): number {
 /** Cardinal score in [0,1] per voter via min-max of -distance. */
 export function computeScores(voters: Pt[], cands: Pt[]): number[][] {
   return voters.map((v) => {
-    const u = cands.map((c) => -dist(v, c));
+    const u = cands.map((c) => utility(v, c));
     const lo = Math.min(...u);
     const hi = Math.max(...u);
     const span = hi - lo || 1;
