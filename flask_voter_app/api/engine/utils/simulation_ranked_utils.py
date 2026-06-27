@@ -452,39 +452,51 @@ def get_schulze_winner(votes: list[Any], blank_candidate_name: str = "") -> Opti
     if not votes:
         return None
     is_dict = _is_dict_format(votes)
-    candidates = set()
+    candidates: list[Any] = []
+    seen: set[Any] = set()
     for vote in votes:
-        candidates.update(_get_ranking(vote, is_dict))
+        for c in _get_ranking(vote, is_dict):
+            if c not in seen:
+                seen.add(c)
+                candidates.append(c)
+    if not candidates:
+        return None
 
-    pref: "defaultdict[Any, defaultdict[Any, int]]" = defaultdict(lambda: defaultdict(int))
+    # Pairwise preference counts d[a][b] = # voters ranking a above b.
+    d = {a: {b: 0 for b in candidates} for a in candidates}
     for c1, c2 in combinations(candidates, 2):
         for vote in votes:
             ranking = _get_ranking(vote, is_dict)
             pos1 = ranking.index(c1) if c1 in ranking else float("inf")
             pos2 = ranking.index(c2) if c2 in ranking else float("inf")
             if pos1 < pos2:
-                pref[c1][c2] += 1
+                d[c1][c2] += 1
             elif pos2 < pos1:
-                pref[c2][c1] += 1
+                d[c2][c1] += 1
 
-    strength: "defaultdict[Any, defaultdict[Any, int]]" = defaultdict(lambda: defaultdict(int))
+    # Strongest paths: keep only the winning direction, then widest-path
+    # Floyd–Warshall with the intermediate node `i` as the OUTERMOST loop.
+    p = {a: {b: 0 for b in candidates} for a in candidates}
     for c1, c2 in combinations(candidates, 2):
-        strength[c1][c2] = pref[c1][c2]
-        strength[c2][c1] = pref[c2][c1]
+        if d[c1][c2] > d[c2][c1]:
+            p[c1][c2] = d[c1][c2]
+        elif d[c2][c1] > d[c1][c2]:
+            p[c2][c1] = d[c2][c1]
 
-    for c1, c2, c3 in permutations(candidates, 3):
-        strength[c1][c2] = max(strength[c1][c2], min(strength[c1][c3], strength[c3][c2]))
+    for i in candidates:
+        for j in candidates:
+            if j == i:
+                continue
+            for k in candidates:
+                if k != i and k != j:
+                    p[j][k] = max(p[j][k], min(p[j][i], p[i][k]))
 
-    wins: "defaultdict[Any, int]" = defaultdict(int)
-    for c1, c2 in combinations(candidates, 2):
-        if strength[c1][c2] > strength[c2][c1]:
-            wins[c1] += 1
-        elif strength[c2][c1] > strength[c1][c2]:
-            wins[c2] += 1
-
-    if not wins:
-        return next(iter(candidates), None)
-    return str(max(wins.items(), key=lambda x: x[1])[0])
+    # The Schulze winner's strongest path to every other candidate is at least as
+    # strong as the reverse (at least one such candidate always exists).
+    for cand in candidates:
+        if all(p[cand][other] >= p[other][cand] for other in candidates if other != cand):
+            return str(cand)
+    return str(candidates[0])
 
 
 # ── New methods ────────────────────────────────────────────────────────────────

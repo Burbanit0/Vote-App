@@ -47,7 +47,7 @@ function mismatchesFor(rule: Rule): string[] {
 // on strict profiles — a real divergence this harness surfaced. Tracked debt:
 // reconcile each (fix the client engine to the tested backend), then delete it
 // from this set. See gen_engine_parity.py to regenerate the golden winners.
-const KNOWN_DIVERGENT = new Set<Rule>(['schulze']);
+const KNOWN_DIVERGENT = new Set<Rule>([]);
 
 describe('engine parity — client ruleWinnerFromRanks == backend golden winners', () => {
   it('has a non-trivial fixture', () => {
@@ -64,10 +64,12 @@ describe('engine parity — client ruleWinnerFromRanks == backend golden winners
   // Keep the debt honest: if a known-divergent method now agrees (0 mismatches),
   // this fails so the method gets promoted out of KNOWN_DIVERGENT; if a NEW method
   // starts diverging, its locked test above fails — neither slips by silently.
-  it.each([...KNOWN_DIVERGENT])(
-    '%s is still a tracked divergence (reconcile, then unlist)',
-    (rule) => {
-      expect(mismatchesFor(rule).length).toBeGreaterThan(0);
-    }
-  );
+  if (KNOWN_DIVERGENT.size > 0) {
+    it.each([...KNOWN_DIVERGENT])(
+      '%s is still a tracked divergence (reconcile, then unlist)',
+      (rule) => {
+        expect(mismatchesFor(rule).length).toBeGreaterThan(0);
+      }
+    );
+  }
 });
