@@ -1,4 +1,5 @@
 import React from 'react';
+import { useTranslation } from 'react-i18next';
 import Leaf from './Leaf';
 import { lazyWithPreload } from '../../../lib/lazyWithPreload';
 import { useElection } from '../../../stores/useElectionStore';
@@ -21,6 +22,7 @@ const AssumptionTesterPanel = lazyWithPreload(() => import('../../shared/Assumpt
 const CombinedEffectsMatrix = lazyWithPreload(() => import('../../shared/CombinedEffectsMatrix'));
 
 const AnalysisAnchor: React.FC = () => {
+  const { t } = useTranslation('playground');
   const { config } = useElection();
   const baseParams = {
     num_candidates: config.candidates.length,
@@ -38,47 +40,44 @@ const AnalysisAnchor: React.FC = () => {
   };
   return (
     <div className="flex flex-col gap-2">
-      <p className="text-[0.7rem] text-muted-foreground/80">
-        Mesures comparatives approfondies sur le même électorat — distributions, regret,
-        manipulabilité, volonté collective. Chaque module se calcule à la demande.
-      </p>
+      <p className="text-[0.7rem] text-muted-foreground/80">{t('anchorBody.analysis.intro')}</p>
       <Leaf
-        title="🎲 Monte-Carlo (distributions)"
+        title={t('anchorBody.analysis.montecarlo')}
         testid="ana-montecarlo"
         prefetch={MonteCarloResults.preload}
       >
         <MonteCarloResults baseParams={baseParams} />
       </Leaf>
       <Leaf
-        title="🕵 Manipulabilité (par méthode)"
+        title={t('anchorBody.analysis.manipulability')}
         testid="ana-manipulability"
         prefetch={ManipulabilityChart.preload}
       >
         <ManipulabilityChart baseParams={baseParams} />
       </Leaf>
       <Leaf
-        title="🎯 Analyse de manipulation"
+        title={t('anchorBody.analysis.manipulation')}
         testid="ana-manipulation"
         prefetch={ManipulationAnalysisPanel.preload}
       >
         <ManipulationAnalysisPanel />
       </Leaf>
       <Leaf
-        title="🤝 Volonté collective"
+        title={t('anchorBody.analysis.collective')}
         testid="ana-collective"
         prefetch={CollectiveWillPanel.preload}
       >
         <CollectiveWillPanel {...lab} />
       </Leaf>
       <Leaf
-        title="🧪 Test des hypothèses"
+        title={t('anchorBody.analysis.assumptions')}
         testid="ana-assumptions"
         prefetch={AssumptionTesterPanel.preload}
       >
         <AssumptionTesterPanel {...lab} />
       </Leaf>
       <Leaf
-        title="🧮 Effets combinés (factoriel)"
+        title={t('anchorBody.analysis.combined')}
         testid="ana-combined"
         prefetch={CombinedEffectsMatrix.preload}
       >

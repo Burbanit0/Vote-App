@@ -1,4 +1,5 @@
 import React from 'react';
+import { useTranslation } from 'react-i18next';
 import { cn } from '@/lib/utils';
 import { usePlayground, useElection } from '../../stores/useElectionStore';
 import { ELECTORATE_PRESETS } from '../../stores/useElectionStore';
@@ -45,6 +46,7 @@ function parseDump(text: string): ElectorateDump | null {
 }
 
 const ElectorateComposer: React.FC = () => {
+  const { t } = useTranslation('playground');
   const {
     playground,
     setElectorate,
@@ -59,9 +61,9 @@ const ElectorateComposer: React.FC = () => {
   const dims = playground.space.dims;
 
   const IDEOLOGIES: { value: string; label: string }[] = [
-    { value: 'random', label: 'Aléatoire (large)' },
-    { value: 'centrist', label: 'Centriste (resserré)' },
-    { value: 'polarized', label: 'Polarisé (deux camps)' },
+    { value: 'random', label: t('composer.ideoRandom') },
+    { value: 'centrist', label: t('composer.ideoCentrist') },
+    { value: 'polarized', label: t('composer.ideoPolarized') },
   ];
 
   const [imp, setImp] = React.useState('');
@@ -107,16 +109,16 @@ const ElectorateComposer: React.FC = () => {
       {/* Sample size, seed, ideology — apply to BOTH modes (shared with the Lab). */}
       <div className="flex flex-col gap-2 rounded-md border border-border p-3">
         <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-          Échantillon
+          {t('composer.sample')}
         </p>
         <label className="flex items-center gap-2 text-xs">
           <span className="w-44 shrink-0 text-muted-foreground">
-            Nombre d’électeurs : {config.num_voters}
+            {t('composer.numVoters', { n: config.num_voters })}
           </span>
           <input
             data-testid="electorate-num-voters"
             type="range"
-            className="flex-1"
+            className="min-w-0 flex-1"
             min={10}
             max={1000}
             step={10}
@@ -125,7 +127,9 @@ const ElectorateComposer: React.FC = () => {
           />
         </label>
         <div className="flex flex-wrap items-center gap-2 text-xs">
-          <span className="w-44 shrink-0 text-muted-foreground">Graine : {config.seed}</span>
+          <span className="w-44 shrink-0 text-muted-foreground">
+            {t('composer.seed', { seed: config.seed })}
+          </span>
           <input
             data-testid="electorate-seed"
             type="number"
@@ -141,18 +145,15 @@ const ElectorateComposer: React.FC = () => {
             data-testid="electorate-seed-reroll"
             onClick={() => setConfig({ seed: Math.floor(Math.random() * 100000) })}
             className="rounded border border-border px-2 py-0.5 hover:bg-accent"
-            title="Tire un nouvel électorat (mêmes réglages, autre échantillon)."
+            title={t('composer.rerollTitle')}
           >
-            🎲 Re-tirer
+            {t('composer.reroll')}
           </button>
         </div>
         {!composed && (
           <label className="flex items-center gap-2 text-xs">
-            <span
-              className="w-44 shrink-0 text-muted-foreground"
-              title="Forme du nuage gaussien en mode simple (le mode composé la remplace par les communautés)."
-            >
-              Idéologie (mode simple)
+            <span className="w-44 shrink-0 text-muted-foreground" title={t('composer.ideoTitle')}>
+              {t('composer.ideoLabel')}
             </span>
             <select
               data-testid="electorate-ideology"
@@ -179,7 +180,7 @@ const ElectorateComposer: React.FC = () => {
             className={cn('px-3 py-1', !composed && 'bg-primary text-primary-foreground')}
             onClick={() => setElectorate({ mode: 'simple' })}
           >
-            Simple (gaussien)
+            {t('composer.modeSimple')}
           </button>
           <button
             type="button"
@@ -187,13 +188,11 @@ const ElectorateComposer: React.FC = () => {
             className={cn('px-3 py-1', composed && 'bg-primary text-primary-foreground')}
             onClick={() => setElectorate({ mode: 'composed' })}
           >
-            Composé (communautés)
+            {t('composer.modeComposed')}
           </button>
         </div>
         <span className="text-xs text-muted-foreground">
-          {composed
-            ? 'Mélange de blocs — édite chaque communauté ci-dessous.'
-            : 'Nuage idéologique unique (réglage « idéologie »).'}
+          {composed ? t('composer.hintComposed') : t('composer.hintSimple')}
         </span>
       </div>
 
@@ -201,7 +200,9 @@ const ElectorateComposer: React.FC = () => {
         <>
           {/* Presets */}
           <div className="flex flex-wrap items-center gap-1.5">
-            <span className="text-xs font-medium text-muted-foreground">Modèles :</span>
+            <span className="text-xs font-medium text-muted-foreground">
+              {t('composer.models')}
+            </span>
             {Object.entries(ELECTORATE_PRESETS).map(([id, p]) => (
               <span key={id} className="inline-flex items-center gap-0.5">
                 <button
@@ -219,16 +220,13 @@ const ElectorateComposer: React.FC = () => {
 
           {/* Axis correlation */}
           <label className="flex items-center gap-2 text-xs">
-            <span
-              className="w-44 shrink-0 text-muted-foreground"
-              title="Couple l'axe sociétal à l'axe économique."
-            >
-              Corrélation des axes : {e.correlation.toFixed(2)}
+            <span className="w-44 shrink-0 text-muted-foreground" title={t('composer.corrTitle')}>
+              {t('composer.corr', { val: e.correlation.toFixed(2) })}
             </span>
             <input
               data-testid="electorate-correlation"
               type="range"
-              className="flex-1"
+              className="min-w-0 flex-1"
               min={-1}
               max={1}
               step={0.05}
@@ -239,16 +237,13 @@ const ElectorateComposer: React.FC = () => {
 
           {/* Measurement noise (polling uncertainty) */}
           <label className="flex items-center gap-2 text-xs">
-            <span
-              className="w-44 shrink-0 text-muted-foreground"
-              title="Flou de mesure global ajouté à toutes les positions — l'incertitude d'un sondage, distincte de la dispersion réelle des blocs."
-            >
-              Bruit de mesure (sondage) : {Math.round(e.noise * 100)} %
+            <span className="w-44 shrink-0 text-muted-foreground" title={t('composer.noiseTitle')}>
+              {t('composer.noise', { pct: Math.round(e.noise * 100) })}
             </span>
             <input
               data-testid="electorate-noise"
               type="range"
-              className="flex-1"
+              className="min-w-0 flex-1"
               min={0}
               max={1}
               step={0.05}
@@ -257,132 +252,112 @@ const ElectorateComposer: React.FC = () => {
             />
           </label>
 
-          {/* Communities table */}
+          {/* Communities — one card per bloc, sliders stacked vertically */}
           <div data-testid="community-list" className="flex flex-col gap-2">
-            <div className="grid grid-cols-[1.6rem_8rem_1fr_1fr_1fr_1fr_1.4rem] items-center gap-1 text-[0.62rem] uppercase tracking-wide text-muted-foreground">
-              <span />
-              <span>Communauté</span>
-              <span>Écon. (x)</span>
-              <span>Sociétal (y)</span>
-              <span>Dispersion</span>
-              <span>Taille</span>
-              <span />
-            </div>
             {e.communities.map((c, i) => (
               <div
                 key={c.id}
                 data-testid={`community-${c.id}`}
-                className="grid grid-cols-[1.6rem_8rem_1fr_1fr_1fr_1fr_1.4rem] items-center gap-1 text-xs"
+                className="flex flex-col gap-1.5 rounded-md border border-border p-2"
               >
-                <span
-                  className="inline-block h-3 w-3 rounded-full"
-                  style={{ background: COMMUNITY_PALETTE[i % COMMUNITY_PALETTE.length] }}
-                />
-                <input
-                  className="rounded border border-input bg-background px-1 py-0.5"
-                  value={c.label}
-                  onChange={(ev) => updateCommunity(c.id, { label: ev.target.value })}
-                />
-                <input
-                  type="range"
-                  min={-1}
-                  max={1}
-                  step={0.05}
-                  value={c.x}
-                  onChange={(ev) => updateCommunity(c.id, { x: num(ev.target.value) })}
-                />
-                <input
-                  type="range"
-                  min={-1}
-                  max={1}
-                  step={0.05}
-                  value={c.y}
-                  onChange={(ev) => updateCommunity(c.id, { y: num(ev.target.value) })}
-                />
-                <input
-                  type="range"
-                  min={0.05}
-                  max={0.6}
-                  step={0.01}
-                  value={c.spread}
-                  onChange={(ev) => updateCommunity(c.id, { spread: num(ev.target.value) })}
-                />
-                <input
-                  type="range"
-                  min={0}
-                  max={5}
-                  step={0.1}
-                  value={c.weight}
-                  onChange={(ev) => updateCommunity(c.id, { weight: num(ev.target.value) })}
-                />
-                <button
-                  type="button"
-                  data-testid={`community-remove-${c.id}`}
-                  className="rounded text-muted-foreground hover:text-[#dc3545]"
-                  title="Retirer"
-                  onClick={() => removeCommunity(c.id)}
-                >
-                  ✕
-                </button>
-              </div>
-            ))}
-            {/* Per-community turnout on its own row to stay readable */}
-            <div className="flex flex-col gap-1">
-              {e.communities.map((c, i) => (
-                <label
-                  key={c.id}
-                  className="flex items-center gap-2 text-[0.7rem] text-muted-foreground"
-                >
+                <div className="flex items-center gap-2">
                   <span
-                    className="inline-block h-2 w-2 rounded-full"
+                    className="inline-block h-3 w-3 shrink-0 rounded-full"
                     style={{ background: COMMUNITY_PALETTE[i % COMMUNITY_PALETTE.length] }}
                   />
-                  <span className="w-32 shrink-0 truncate">{c.label} · participation</span>
                   <input
-                    data-testid={`community-turnout-${c.id}`}
-                    type="range"
-                    className="flex-1"
-                    min={0}
-                    max={1}
-                    step={0.05}
-                    value={c.turnout}
-                    onChange={(ev) => updateCommunity(c.id, { turnout: num(ev.target.value) })}
+                    className="min-w-0 flex-1 rounded border border-input bg-background px-1 py-0.5 text-xs"
+                    value={c.label}
+                    onChange={(ev) => updateCommunity(c.id, { label: ev.target.value })}
                   />
-                  <span className="w-9 text-right tabular-nums">
-                    {Math.round(c.turnout * 100)} %
-                  </span>
-                </label>
-              ))}
-            </div>
-
-            {/* 3rd-axis (z) centres — only meaningful when the map is in 3D */}
-            {dims >= 3 && (
-              <div data-testid="community-z-list" className="flex flex-col gap-1">
-                {e.communities.map((c, i) => (
+                  <button
+                    type="button"
+                    data-testid={`community-remove-${c.id}`}
+                    className="rounded text-muted-foreground hover:text-[#dc3545]"
+                    title={t('composer.removeTitle')}
+                    onClick={() => removeCommunity(c.id)}
+                  >
+                    ✕
+                  </button>
+                </div>
+                {(
+                  [
+                    {
+                      label: t('composer.colEcon'),
+                      key: 'x' as const,
+                      min: -1,
+                      max: 1,
+                      step: 0.05,
+                      fmt: (v: number) => v.toFixed(2),
+                    },
+                    {
+                      label: t('composer.colSocial'),
+                      key: 'y' as const,
+                      min: -1,
+                      max: 1,
+                      step: 0.05,
+                      fmt: (v: number) => v.toFixed(2),
+                    },
+                    ...(dims >= 3
+                      ? [
+                          {
+                            label: t('composer.colZ', { defaultValue: 'Axe 3' }),
+                            key: 'z' as const,
+                            min: -1,
+                            max: 1,
+                            step: 0.05,
+                            fmt: (v: number) => v.toFixed(2),
+                          },
+                        ]
+                      : []),
+                    {
+                      label: t('composer.colSpread'),
+                      key: 'spread' as const,
+                      min: 0.05,
+                      max: 0.6,
+                      step: 0.01,
+                      fmt: (v: number) => v.toFixed(2),
+                    },
+                    {
+                      label: t('composer.colSize'),
+                      key: 'weight' as const,
+                      min: 0,
+                      max: 5,
+                      step: 0.1,
+                      fmt: (v: number) => v.toFixed(1),
+                    },
+                    {
+                      label: t('composer.colTurnout', { defaultValue: 'Participation' }),
+                      key: 'turnout' as const,
+                      min: 0,
+                      max: 1,
+                      step: 0.05,
+                      fmt: (v: number) => `${Math.round(v * 100)} %`,
+                    },
+                  ] as const
+                ).map((s) => (
                   <label
-                    key={c.id}
+                    key={s.key}
                     className="flex items-center gap-2 text-[0.7rem] text-muted-foreground"
                   >
-                    <span
-                      className="inline-block h-2 w-2 rounded-full"
-                      style={{ background: COMMUNITY_PALETTE[i % COMMUNITY_PALETTE.length] }}
-                    />
-                    <span className="w-32 shrink-0 truncate">{c.label} · 3ᵉ axe (z)</span>
+                    <span className="w-20 shrink-0 truncate">{s.label}</span>
                     <input
-                      data-testid={`community-z-${c.id}`}
+                      data-testid={`community-${s.key}-${c.id}`}
                       type="range"
-                      className="flex-1"
-                      min={-1}
-                      max={1}
-                      step={0.05}
-                      value={c.z ?? 0}
-                      onChange={(ev) => updateCommunity(c.id, { z: num(ev.target.value) })}
+                      className="min-w-0 flex-1"
+                      min={s.min}
+                      max={s.max}
+                      step={s.step}
+                      value={(c as unknown as Record<string, number>)[s.key] ?? 0}
+                      onChange={(ev) => updateCommunity(c.id, { [s.key]: num(ev.target.value) })}
                     />
-                    <span className="w-9 text-right tabular-nums">{(c.z ?? 0).toFixed(2)}</span>
+                    <span className="w-10 text-right tabular-nums">
+                      {s.fmt((c as unknown as Record<string, number>)[s.key] ?? 0)}
+                    </span>
                   </label>
                 ))}
               </div>
-            )}
+            ))}
 
             <button
               type="button"
@@ -390,14 +365,14 @@ const ElectorateComposer: React.FC = () => {
               onClick={addCommunity}
               className="self-start rounded border border-dashed border-border px-2 py-1 text-xs text-muted-foreground hover:bg-accent"
             >
-              + Ajouter une communauté
+              {t('composer.addCommunity')}
             </button>
           </div>
 
           {/* Input data: import / export the composition as JSON */}
           <details data-testid="electorate-io" className="rounded-md border border-border">
             <summary className="cursor-pointer px-2.5 py-1.5 text-xs font-medium text-muted-foreground">
-              Données d’entrée — importer / exporter (JSON)
+              {t('composer.ioSummary')}
             </summary>
             <div className="flex flex-col gap-2 p-2.5 pt-0">
               <textarea
@@ -417,7 +392,7 @@ const ElectorateComposer: React.FC = () => {
                   onClick={doImport}
                   className="rounded border border-border px-2 py-0.5 text-xs hover:bg-accent"
                 >
-                  Importer
+                  {t('composer.import')}
                 </button>
                 <button
                   type="button"
@@ -425,26 +400,21 @@ const ElectorateComposer: React.FC = () => {
                   onClick={doExport}
                   className="rounded border border-border px-2 py-0.5 text-xs hover:bg-accent"
                 >
-                  {copied ? 'Copié ✓' : 'Exporter (copier)'}
+                  {copied ? t('composer.copied') : t('composer.export')}
                 </button>
                 {impErr && (
                   <span
                     data-testid="electorate-json-error"
                     className="text-[0.7rem] text-[#dc3545]"
                   >
-                    JSON invalide (il faut un tableau « communities » non vide).
+                    {t('composer.jsonError')}
                   </span>
                 )}
               </div>
             </div>
           </details>
 
-          <p className="text-[0.68rem] text-muted-foreground/70">
-            L’électorat composé alimente la vue dirigeant (carte, zones, bilan, coloré par
-            communauté), le parlement (sièges, bilan d’assemblée) et le taux de paradoxe (vrai taux
-            de cycle spatial, ré-échantillonné). Le 3ᵉ axe n’agit qu’en mode carte 3D ; le bruit de
-            mesure simule l’incertitude d’un sondage.
-          </p>
+          <p className="text-[0.68rem] text-muted-foreground">{t('composer.footer')}</p>
         </>
       )}
     </div>

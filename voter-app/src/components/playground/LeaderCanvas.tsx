@@ -1,11 +1,11 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import {
   fieldWinnerName,
   winRegionGrid,
   randomBallotProbGrid,
   randomBallotShares,
   computeRanks,
-  RULE_LABELS,
   type Dims,
   type NamedPt,
   type Pt,
@@ -13,7 +13,9 @@ import {
   type Rule,
   type WinRegion,
 } from '../../lib/playgroundVoting';
+import { useVotingLabels } from '../../hooks/useVotingLabels';
 import LeaderScene3D from './LeaderScene3D';
+import WinnerRobustness from './WinnerRobustness';
 import { manipulationField, type ManipKind } from '../../lib/playgroundSincerity';
 import { condorcetFromRanks } from '../../lib/scorecard';
 import { criteriaMatrix, CRITERIA, type CriteriaRow } from '../../lib/playgroundCriteria';
@@ -26,12 +28,7 @@ import NoShowParadox from './NoShowParadox';
 // implemented lenses appear in the switch.
 export type Lens = 'winner' | 'manipulation' | 'probability' | 'criteria';
 
-const AVAILABLE_LENSES: { id: Lens; label: string }[] = [
-  { id: 'winner', label: 'Vainqueur' },
-  { id: 'manipulation', label: 'Manipulation' },
-  { id: 'probability', label: 'Probabilité' },
-  { id: 'criteria', label: 'Critères' },
-];
+const LENS_IDS: Lens[] = ['winner', 'manipulation', 'probability', 'criteria'];
 
 const PROB_HUE = '#4f46e5';
 
@@ -103,6 +100,9 @@ export interface LeaderCanvasProps {
   onMoveYou?: (x: number, y: number) => void;
   onRuleChange: (rule: Rule) => void;
   onMoveCandidate: (index: number, x: number, y: number, z?: number) => void;
+  /** Re-draw the electorate on a seed (post-turnout) — drives the robustness strip. */
+  sampleAtSeed?: (seed: number) => Pt[];
+  baseSeed?: number;
 }
 
 const LeaderCanvas: React.FC<LeaderCanvasProps> = ({
@@ -117,7 +117,12 @@ const LeaderCanvas: React.FC<LeaderCanvasProps> = ({
   onMoveYou,
   onRuleChange,
   onMoveCandidate,
+  sampleAtSeed,
+  baseSeed,
 }) => {
+  const { t, i18n } = useTranslation('playground');
+  const { ruleLabels } = useVotingLabels();
+  const critLang = i18n.language.startsWith('fr') ? 'fr' : 'en';
   const svgRef = useRef<SVGSVGElement>(null);
   const draggingIdx = useRef<number | null>(null);
   const draggingYou = useRef<boolean>(false);
@@ -146,7 +151,7 @@ const LeaderCanvas: React.FC<LeaderCanvasProps> = ({
   // lottery; the win-region lens reads the current rule.
   useEffect(() => {
     let alive = true;
-    const t = setTimeout(() => {
+    const timer = setTimeout(() => {
       if (!alive) return;
       if (lens === 'probability') {
         setProbRegion(randomBallotProbGrid(gridVoters, candidates, GRID_N, dims));
@@ -160,7 +165,7 @@ const LeaderCanvas: React.FC<LeaderCanvasProps> = ({
     }, 120);
     return () => {
       alive = false;
-      clearTimeout(t);
+      clearTimeout(timer);
     };
   }, [gridVoters, candidates, rule, dims, lens]);
 
@@ -232,34 +237,44 @@ const LeaderCanvas: React.FC<LeaderCanvasProps> = ({
     <div data-testid="leader-canvas" data-dims={dims} className="flex flex-col gap-2">
       <div className="flex flex-wrap items-center justify-between gap-2">
         <label className="flex items-center gap-2 text-sm">
-          <span className="text-muted-foreground">Règle</span>
+          <span className="text-muted-foreground">{t('canvas.ruleLabel')}</span>
           <select
             data-testid="rule-select"
             className="rounded-md border border-input bg-background px-2 py-1 text-sm"
             value={rule}
             onChange={(e) => onRuleChange(e.target.value as Rule)}
           >
-            {(Object.keys(RULE_LABELS) as Rule[]).map((r) => (
+            {(Object.keys(ruleLabels) as Rule[]).map((r) => (
               <option key={r} value={r}>
-                {RULE_LABELS[r]}
+                {ruleLabels[r]}
               </option>
             ))}
           </select>
         </label>
         <span data-testid="field-winner" className="text-sm">
-          Vainqueur : <strong>{winner ?? '—'}</strong>
+          {t('canvas.winnerLabel')} <strong>{winner ?? '—'}</strong>
         </span>
       </div>
+      {sampleAtSeed && baseSeed != null && (
+        <WinnerRobustness
+          sampleAtSeed={sampleAtSeed}
+          candidates={candidates}
+          rule={rule}
+          baseSeed={baseSeed}
+          colors={candidates.map((_, i) => PALETTE[i % PALETTE.length])}
+          winner={winner}
+        />
+      )}
 
       {/* Lens switch — overlays rendered in place on the same map. */}
       <div
         data-testid="lens-switch"
         role="radiogroup"
-        aria-label="Vue de la carte"
+        aria-label={t('canvas.viewLabel')}
         className="flex items-center gap-1 text-xs"
       >
-        <span className="text-muted-foreground">Vue</span>
-        {AVAILABLE_LENSES.map(({ id, label }) => (
+        <span className="text-muted-foreground">{t('canvas.viewLabel')}</span>
+        {LENS_IDS.map((id) => (
           <button
             key={id}
             type="button"
@@ -271,7 +286,7 @@ const LeaderCanvas: React.FC<LeaderCanvasProps> = ({
             }`}
             onClick={() => onLensChange?.(id)}
           >
-            {label}
+            {t(`canvas.lens${id.charAt(0).toUpperCase()}${id.slice(1)}`)}
           </button>
         ))}
       </div>
@@ -285,7 +300,7 @@ const LeaderCanvas: React.FC<LeaderCanvasProps> = ({
             className={`rounded border px-2 py-0.5 ${scene3d ? 'border-primary text-primary' : 'border-border'}`}
             onClick={() => setScene3d(true)}
           >
-            🧊 Vue 3D
+            {t('canvas.view3d')}
           </button>
           <button
             type="button"
@@ -293,19 +308,21 @@ const LeaderCanvas: React.FC<LeaderCanvasProps> = ({
             className={`rounded border px-2 py-0.5 ${!scene3d ? 'border-primary text-primary' : 'border-border'}`}
             onClick={() => setScene3d(false)}
           >
-            ▦ Plan x–y (édition)
+            {t('canvas.viewPlane')}
           </button>
         </div>
       )}
 
-      {show3d && <LeaderScene3D voters={voters} candidates={candidates} palette={PALETTE} />}
+      {show3d && (
+        <LeaderScene3D voters={voters} candidates={candidates} palette={PALETTE} you={youMarker} />
+      )}
 
       <svg
         ref={svgRef}
         viewBox={`0 0 ${SVG} ${SVG}`}
         width="100%"
         role="img"
-        aria-label="Carte idéologique — élire un dirigeant"
+        aria-label={t('canvas.svgAria')}
         className="touch-none select-none rounded-lg bg-card"
         style={{ maxHeight: '70vh', display: show3d ? 'none' : undefined }}
       >
@@ -524,7 +541,7 @@ const LeaderCanvas: React.FC<LeaderCanvasProps> = ({
               fontWeight={700}
               fill="#0f766e"
             >
-              Condorcet
+              {t('canvas.condorcetMarker')}
             </text>
           </g>
         )}
@@ -565,7 +582,7 @@ const LeaderCanvas: React.FC<LeaderCanvasProps> = ({
                     fontWeight={700}
                     fill="currentColor"
                   >
-                    Vous
+                    {t('canvas.youMarker')}
                   </text>
                 </>
               );
@@ -587,30 +604,32 @@ const LeaderCanvas: React.FC<LeaderCanvasProps> = ({
                 className="inline-block h-2.5 w-2.5 rounded-full"
                 style={{ background: MANIP_COLORS.compromise }}
               />
-              Compromis (vote utile)
+              {t('canvas.manipCompromise')}
             </span>
             <span className="flex items-center gap-1">
               <span
                 className="inline-block h-2.5 w-2.5 rounded-full"
                 style={{ background: MANIP_COLORS.burying }}
               />
-              Enterrement
+              {t('canvas.manipBurying')}
             </span>
             <span className="flex items-center gap-1">
               <span
                 className="inline-block h-2.5 w-2.5 rounded-full"
                 style={{ background: MANIP_SAFE }}
               />
-              Conviction récompensée
+              {t('canvas.manipSafe')}
             </span>
           </div>
           <p className="text-muted-foreground">
-            Sous <strong>{RULE_LABELS[rule]}</strong> :{' '}
-            <strong>{Math.round(manipSummary.rate * 100)}%</strong> des électeurs tentés de voter
-            stratégiquement ({manipSummary.compromise} compromis · {manipSummary.burying}{' '}
-            enterrement). Vote au sort : <strong>0 %</strong> — la seule règle inmanipulable
-            (Gibbard 1977). Toute règle ordinale déterministe est manipulable : c’est la frontière
-            de Gibbard-Satterthwaite.
+            {t('canvas.manipUnder')} <strong>{ruleLabels[rule]}</strong>
+            {t('canvas.manipMid', {
+              pct: Math.round(manipSummary.rate * 100),
+              compromise: manipSummary.compromise,
+              burying: manipSummary.burying,
+            })}{' '}
+            <strong>0 %</strong>
+            {t('canvas.manipEnd')}
           </p>
         </div>
       )}
@@ -624,12 +643,12 @@ const LeaderCanvas: React.FC<LeaderCanvasProps> = ({
           <table className="w-full border-collapse">
             <thead>
               <tr className="text-muted-foreground">
-                <th className="pr-2 text-left font-medium">Méthode</th>
+                <th className="pr-2 text-left font-medium">{t('canvas.methodHeader')}</th>
                 {CRITERIA.map((c) => (
                   <th
                     key={c.id}
                     className="px-1 font-medium"
-                    title={`${c.fr.label} — ${c.fr.desc}`}
+                    title={`${c[critLang].label} — ${c[critLang].desc}`}
                   >
                     {c.short}
                   </th>
@@ -639,7 +658,7 @@ const LeaderCanvas: React.FC<LeaderCanvasProps> = ({
             <tbody>
               {criteriaRows.map((row) => (
                 <tr key={row.rule} className={row.rule === rule ? 'bg-primary/10 font-medium' : ''}>
-                  <td className="whitespace-nowrap pr-2">{RULE_LABELS[row.rule]}</td>
+                  <td className="whitespace-nowrap pr-2">{ruleLabels[row.rule]}</td>
                   {CRITERIA.map((c) => {
                     const v = row.results[c.id];
                     return (
@@ -654,11 +673,7 @@ const LeaderCanvas: React.FC<LeaderCanvasProps> = ({
               ))}
             </tbody>
           </table>
-          <p className="mt-1 text-muted-foreground">
-            ✓ satisfait · ✗ violé · – non déclenché sur cet électorat. Mesuré en direct — glissez un
-            candidat pour provoquer une violation. Le vainqueur de Condorcet est cerclé sur la
-            carte.
-          </p>
+          <p className="mt-1 text-muted-foreground">{t('canvas.criteriaLegend')}</p>
           {/* The participation (no-show) paradox is too rare to surface live on a
               spatial cloud — a constructed example makes it reliably visible. */}
           <NoShowParadox />
@@ -672,7 +687,7 @@ const LeaderCanvas: React.FC<LeaderCanvasProps> = ({
           className="flex flex-col gap-1 rounded-md border border-border p-2"
         >
           <span className="text-[0.7rem] font-medium text-muted-foreground">
-            Loterie du vote au sort — probabilité de victoire (= part des premières voix)
+            {t('canvas.lotteryTitle')}
           </span>
           {candidates.map((c, i) => (
             <div key={i} className="flex items-center gap-2 text-xs">
@@ -707,7 +722,7 @@ const LeaderCanvas: React.FC<LeaderCanvasProps> = ({
           className="flex flex-col gap-1 rounded-md border border-border p-2"
         >
           <span className="text-[0.7rem] font-medium text-muted-foreground">
-            Axe z (profondeur) — réglé par curseur
+            {t('canvas.zAxis')}
           </span>
           {candidates.map((cand, i) => (
             <label key={i} className="flex items-center gap-2 text-xs">
@@ -751,26 +766,17 @@ const LeaderCanvas: React.FC<LeaderCanvasProps> = ({
             className="inline-block h-2.5 w-2.5 rounded-sm"
             style={{ background: ENTRY_COLOR }}
           />
-          Zone d’un nouvel entrant
+          {t('canvas.entrantZone')}
         </span>
       </div>
-      <p className="text-xs text-muted-foreground/70">
-        {lens === 'manipulation' &&
-          'Lentille Manipulation : chaque électeur est traité comme un bloc de conviction ; sa couleur dit si la règle le pousse à voter utile. Glissez un candidat ou changez de règle — les tentations se redessinent. '}
-        {lens === 'criteria' &&
-          'Lentille Critères : matrice axiomatique mesurée sur CET électorat. Le vainqueur de Condorcet (s’il existe) est cerclé sur la carte — comparez-le au vainqueur de la règle choisie. '}
-        {lens === 'probability' &&
-          'Lentille Probabilité : sous le vote au sort, un bulletin est tiré au hasard — l’intensité montre la chance de victoire d’un nouvel entrant, et chaque bassin devient une probabilité (et non une frontière nette). '}
-        {dims === 1 &&
-          'Espace à 1 dimension : tout se joue sur un axe — le terrain du théorème de l’électeur médian.'}
-        {dims === 2 &&
-          'Glissez les candidats. Les zones colorées montrent qui gagnerait si un candidat était placé là — les frontières révèlent les régions vulnérables au vote stratégique.'}
-        {dims === 3 &&
-          show3d &&
-          'Vue 3D orbitale : glissez pour pivoter, les électeurs sont colorés par candidat le plus proche (en 3-D). Basculez en « Plan x–y » pour éditer et voir l’overlay.'}
-        {dims === 3 &&
-          !show3d &&
-          'Plan x–y (réglez z au curseur) ; le calcul du vainqueur est bien en 3-D, mais l’overlay n’est qu’une tranche z=0.'}
+      <p className="text-xs text-muted-foreground">
+        {lens === 'manipulation' && t('canvas.capManip')}
+        {lens === 'criteria' && t('canvas.capCriteria')}
+        {lens === 'probability' && t('canvas.capProbability')}
+        {dims === 1 && t('canvas.capDims1')}
+        {dims === 2 && t('canvas.capDims2')}
+        {dims === 3 && show3d && t('canvas.capDims3Scene')}
+        {dims === 3 && !show3d && t('canvas.capDims3Plane')}
       </p>
     </div>
   );

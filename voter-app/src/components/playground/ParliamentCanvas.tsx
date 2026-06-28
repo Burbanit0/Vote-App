@@ -1,4 +1,5 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import { buildVoronoiPaths } from '../../utils/voronoiRegions';
 import { cn } from '@/lib/utils';
 import type { NamedPt, Pt } from '../../lib/playgroundVoting';
@@ -27,13 +28,6 @@ export const PARTY_PALETTE = [
   '#ca8a04',
   '#db2777',
 ];
-
-const MIRROR_LABELS: Record<string, string> = {
-  left_lib: 'Gauche · libéral',
-  left_cons: 'Gauche · conservateur',
-  right_lib: 'Droite · libéral',
-  right_cons: 'Droite · conservateur',
-};
 
 const toSvg = (v: number, axis: 'x' | 'y'): number =>
   axis === 'x' ? MARGIN + ((v + 1) / 2) * PLOT : MARGIN + ((1 - v) / 2) * PLOT;
@@ -129,6 +123,7 @@ const ParliamentCanvas: React.FC<ParliamentCanvasProps> = ({
   nominalSeats = 100,
   onMoveParty,
 }) => {
+  const { t } = useTranslation('playground');
   const svgRef = useRef<SVGSVGElement>(null);
   const draggingIdx = useRef<number | null>(null);
   const [coalition, setCoalition] = useState<Set<string>>(new Set());
@@ -231,9 +226,7 @@ const ParliamentCanvas: React.FC<ParliamentCanvasProps> = ({
           data-testid="assembly-unavailable"
           className="rounded-md border border-amber-500/50 bg-amber-500/10 px-3 py-2 text-xs text-amber-700 dark:text-amber-400"
         >
-          ⚠ Hémicycle indisponible : le calcul de l’assemblée n’a pas abouti. Si vous venez de
-          mettre à jour, redémarrez le serveur backend (uvicorn) pour qu’il prenne le nouveau
-          schéma.
+          {t('parliament.unavailable')}
         </div>
       )}
       <div className="grid grid-cols-1 gap-3 xl:grid-cols-2">
@@ -243,7 +236,7 @@ const ParliamentCanvas: React.FC<ParliamentCanvasProps> = ({
           viewBox={`0 0 ${SVG} ${SVG}`}
           width="100%"
           role="img"
-          aria-label="Carte idéologique — partis et territoires"
+          aria-label={t('parliament.mapAria')}
           className="touch-none select-none rounded-lg bg-card"
           style={{ maxHeight: '60vh' }}
         >
@@ -352,7 +345,7 @@ const ParliamentCanvas: React.FC<ParliamentCanvasProps> = ({
             viewBox={`0 0 ${SVG} 272`}
             width="100%"
             role="img"
-            aria-label="Hémicycle — sièges par parti"
+            aria-label={t('parliament.hemicycleAria')}
             className="rounded-lg bg-card"
           >
             <g data-testid="hemicycle">
@@ -376,10 +369,13 @@ const ParliamentCanvas: React.FC<ParliamentCanvasProps> = ({
               opacity={result ? 1 : 0.6}
             >
               {result
-                ? `${result.assembly_size} sièges · majorité ${result.majority}${loading ? ' · …' : ''}`
+                ? `${t('parliament.seatsLine', {
+                    seats: result.assembly_size,
+                    majority: result.majority,
+                  })}${loading ? ' · …' : ''}`
                 : loading
-                  ? 'Calcul de l’assemblée…'
-                  : `${Math.max(10, nominalSeats)} sièges — en attente de la répartition`}
+                  ? t('parliament.computing')
+                  : t('parliament.awaiting', { seats: Math.max(10, nominalSeats) })}
             </text>
           </svg>
 
@@ -391,30 +387,30 @@ const ParliamentCanvas: React.FC<ParliamentCanvasProps> = ({
             >
               <div
                 className="rounded-md border border-border px-1 py-1.5"
-                title="Indice de Gallagher — 0 = parfaitement proportionnel"
+                title={t('parliament.gallagherTitle')}
               >
                 <div className="font-semibold tabular-nums">
                   {result.gallagher_index?.toFixed(1) ?? '—'}
                 </div>
-                <div className="text-muted-foreground">Disproportion</div>
+                <div className="text-muted-foreground">{t('parliament.disproportion')}</div>
               </div>
               <div
                 className="rounded-md border border-border px-1 py-1.5"
-                title="Nombre effectif de partis (sièges)"
+                title={t('parliament.effPartiesTitle')}
               >
                 <div className="font-semibold tabular-nums">
                   {result.effective_parties_seats?.toFixed(1) ?? '—'}
                 </div>
-                <div className="text-muted-foreground">Partis effectifs</div>
+                <div className="text-muted-foreground">{t('parliament.effParties')}</div>
               </div>
               <div
                 className="rounded-md border border-border px-1 py-1.5"
-                title="Part des voix sans représentation"
+                title={t('parliament.wastedTitle')}
               >
                 <div className="font-semibold tabular-nums">
                   {Math.round(result.wasted_vote_share * 100)} %
                 </div>
-                <div className="text-muted-foreground">Voix gaspillées</div>
+                <div className="text-muted-foreground">{t('parliament.wasted')}</div>
               </div>
             </div>
           )}
@@ -439,7 +435,7 @@ const ParliamentCanvas: React.FC<ParliamentCanvasProps> = ({
                       : 'border-border hover:bg-accent'
                   )}
                   style={coalition.has(p.name) ? { background: colorOf(idx) } : undefined}
-                  title="Cliquer pour ajouter/retirer de la coalition"
+                  title={t('parliament.coalitionToggleTitle')}
                 >
                   {p.name}
                 </button>
@@ -470,9 +466,7 @@ const ParliamentCanvas: React.FC<ParliamentCanvasProps> = ({
               </div>
             );
           })}
-          <p className="text-[0.7rem] text-muted-foreground/70">
-            Barre claire = voix, barre pleine = sièges. ✕ = exclu par le seuil.
-          </p>
+          <p className="text-[0.7rem] text-muted-foreground">{t('parliament.votesSeatsNote')}</p>
         </div>
       )}
 
@@ -482,16 +476,17 @@ const ParliamentCanvas: React.FC<ParliamentCanvasProps> = ({
           <div
             data-testid="congruence-readout"
             className="rounded-md border border-border px-3 py-2 text-xs"
-            title="Distance entre la position du corps élu (pondérée par sièges) et l'électeur médian — sur la carte : ✚ médiane, ● assemblée, ◆ coalition gouvernante."
+            title={t('parliament.congruenceTitle')}
           >
             <p className="font-semibold uppercase tracking-wide text-muted-foreground">
-              Congruence (✚ médiane · ● assemblée · ◆ gouvernement)
+              {t('parliament.congruenceHead')}
             </p>
             <p className="mt-1 tabular-nums">
-              Écart assemblée–médiane : <strong>{result.congruence.assembly_gap.toFixed(2)}</strong>
+              {t('parliament.gapLine')} <strong>{result.congruence.assembly_gap.toFixed(2)}</strong>
               {result.congruence.governing_gap !== null && (
                 <>
-                  {' · '}coalition gouvernante :{' '}
+                  {' · '}
+                  {t('parliament.governingCoalition')}{' '}
                   <strong>{result.congruence.governing_gap.toFixed(2)}</strong>
                 </>
               )}
@@ -501,15 +496,15 @@ const ParliamentCanvas: React.FC<ParliamentCanvasProps> = ({
           <div data-testid="mirror-bars" className="rounded-md border border-border px-3 py-2">
             <p
               className="text-xs font-semibold uppercase tracking-wide text-muted-foreground"
-              title="L'assemblée ressemble-t-elle à l'électorat, région idéologique par région ? (Représentation descriptive sur l'espace modélisé — aucune démographie n'est inventée.)"
+              title={t('parliament.mirrorTitle')}
             >
-              Miroir descriptif (régions idéologiques)
+              {t('parliament.mirrorHead')}
             </p>
             <div className="mt-1 flex flex-col gap-1">
               {result.mirror.map((m) => (
                 <div key={m.region} className="flex items-center gap-2 text-[0.7rem]">
                   <span className="w-28 shrink-0 truncate text-muted-foreground">
-                    {MIRROR_LABELS[m.region] ?? m.region}
+                    {t(`parliament.mirror.${m.region}`, { defaultValue: m.region })}
                   </span>
                   <div className="relative h-3.5 flex-1 overflow-hidden rounded bg-muted/50">
                     <div
@@ -534,8 +529,8 @@ const ParliamentCanvas: React.FC<ParliamentCanvasProps> = ({
                 </div>
               ))}
             </div>
-            <p className="mt-1 text-[0.65rem] text-muted-foreground/70">
-              Barre grise = électorat, barre pleine = sièges.
+            <p className="mt-1 text-[0.65rem] text-muted-foreground">
+              {t('parliament.mirrorNote')}
             </p>
           </div>
         </div>
@@ -555,15 +550,15 @@ const ParliamentCanvas: React.FC<ParliamentCanvasProps> = ({
           )}
         >
           {coalition.size === 0 ? (
-            <>
-              Cliquez sur des partis pour assembler une coalition majoritaire ({result.majority}{' '}
-              sièges).
-            </>
+            <>{t('parliament.coalitionEmpty', { majority: result.majority })}</>
           ) : (
             <>
-              Coalition : <strong>{coalitionSeats}</strong> / {result.majority} sièges
-              {coalitionSeats >= result.majority ? ' — majorité ✔' : ' — pas de majorité'}
-              {' · '}étendue idéologique {coalitionSpan.toFixed(2)}
+              {t('parliament.coalitionLabel')} <strong>{coalitionSeats}</strong> / {result.majority}{' '}
+              {t('parliament.seatsWord')}
+              {coalitionSeats >= result.majority
+                ? t('parliament.coalitionMajority')
+                : t('parliament.coalitionNoMajority')}
+              {t('parliament.coalitionSpan', { span: coalitionSpan.toFixed(2) })}
             </>
           )}
         </div>

@@ -37,15 +37,15 @@ function setup(weights = { ax1: 0.5, ax2: 0.5 }) {
 describe('ValuesPanel', () => {
   it('visibly removes dominated options and never ranks', () => {
     setup();
-    expect(screen.getByTestId('lens-item-gamma')).toHaveTextContent('écarté (dominé)');
+    expect(screen.getByTestId('lens-item-gamma')).toHaveTextContent('dropped (dominated)');
     // No rank numbers anywhere.
     expect(screen.getByTestId('values-panel').textContent).not.toMatch(/#\d|1er|N°/);
   });
 
   it('weights move the spotlight along the frontier (not onto dominated items)', () => {
     const { rerender, onWeightChange } = setup({ ax1: 1, ax2: 0 });
-    expect(screen.getByTestId('lens-item-alpha')).toHaveTextContent('selon vos pondérations');
-    expect(screen.getByTestId('lens-item-beta')).toHaveTextContent('sur la frontière');
+    expect(screen.getByTestId('lens-item-alpha')).toHaveTextContent('by your weights');
+    expect(screen.getByTestId('lens-item-beta')).toHaveTextContent('on the frontier');
 
     rerender(
       <ValuesPanel
@@ -57,8 +57,8 @@ describe('ValuesPanel', () => {
         onWeightChange={onWeightChange}
       />
     );
-    expect(screen.getByTestId('lens-item-beta')).toHaveTextContent('selon vos pondérations');
-    expect(screen.getByTestId('lens-item-gamma')).toHaveTextContent('écarté (dominé)');
+    expect(screen.getByTestId('lens-item-beta')).toHaveTextContent('by your weights');
+    expect(screen.getByTestId('lens-item-gamma')).toHaveTextContent('dropped (dominated)');
   });
 
   it('slider changes call back with the axis key', () => {

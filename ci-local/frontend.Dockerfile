@@ -29,10 +29,9 @@ RUN npm ci
 # Source layer — busts on any source change (so each run reflects current code).
 COPY voter-app/ ./
 
-# Mirror the workflow steps in order. Lint is `continue-on-error` upstream, so it
-# is non-blocking here too; audit/coverage/build are gating.
+# Mirror the workflow steps in order. All steps are GATING (matches GitHub CI).
 CMD ["bash","-euo","pipefail","-c","\
-echo '=== Lint (non-blocking) ===';        npm run lint || echo '(lint failed — non-blocking, matches continue-on-error)'; \
+echo '=== Lint (gating — 0 errors) ===';   npm run lint; \
 echo '=== npm audit (high blocks) ===';    npm audit --audit-level=high; \
 echo '=== Tests + coverage ===';           npm run test:coverage; \
 echo '=== Build ===';                       npm run build; \

@@ -1,4 +1,4 @@
-<#
+﻿<#
 .SYNOPSIS
   Run the GitHub CI jobs locally in a faithful Docker mirror (Ubuntu 24.04 / Node 20
   for the frontend, Python 3.11 for the backend) before opening a PR.
@@ -30,7 +30,7 @@ param(
   [switch]$NoCache
 )
 
-$ErrorActionPreference = 'Stop'
+$ErrorActionPreference = 'Continue'
 $env:DOCKER_BUILDKIT = '1'
 
 # Always operate from the repo root (this script's parent), so the build context
@@ -53,7 +53,8 @@ if ($stray) {
   exit 1
 }
 
-$cacheArg = if ($NoCache) { '--no-cache' } else { $null }
+$cacheArg = $null
+if ($NoCache) { $cacheArg = '--no-cache' }
 $results = [ordered]@{}
 
 function Invoke-CiJob([string]$Name, [string]$Dockerfile, [string]$Tag) {
@@ -66,7 +67,7 @@ function Invoke-CiJob([string]$Name, [string]$Dockerfile, [string]$Tag) {
 
   Write-Host "`n========== $Name : run (CI checks) ==========" -ForegroundColor Cyan
   & docker run --rm --cpus=4 $Tag
-  $script:results[$Name] = if ($LASTEXITCODE -eq 0) { 'PASS' } else { 'FAIL' }
+  if ($LASTEXITCODE -eq 0) { $script:results[$Name] = 'PASS' } else { $script:results[$Name] = 'FAIL' }
 }
 
 try {
@@ -82,7 +83,7 @@ Write-Host "`n==================== SUMMARY ====================" -ForegroundColo
 $failed = $false
 foreach ($k in $results.Keys) {
   $v = $results[$k]
-  $color = if ($v -eq 'PASS') { 'Green' } else { 'Red'; }
+  $color = 'Red'; if ($v -eq 'PASS') { $color = 'Green' }
   if ($v -ne 'PASS') { $failed = $true }
   Write-Host ("{0,-14} {1}" -f $k, $v) -ForegroundColor $color
 }

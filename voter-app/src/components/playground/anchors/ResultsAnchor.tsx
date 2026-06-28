@@ -1,4 +1,5 @@
 import React from 'react';
+import { useTranslation } from 'react-i18next';
 import Leaf from './Leaf';
 import { lazyWithPreload } from '../../../lib/lazyWithPreload';
 import { useElection } from '../../../stores/useElectionStore';
@@ -15,22 +16,20 @@ const FullResultsModule = lazyWithPreload(() => import('../FullResultsModule'));
 const VoteStepAnimator = lazyWithPreload(() => import('../../Simulation/VoteStepAnimator'));
 
 const ResultsAnchor: React.FC = () => {
+  const { t } = useTranslation('playground');
   const { config } = useElection();
   return (
     <div className="flex flex-col gap-2">
-      <p className="text-[0.7rem] text-muted-foreground/80">
-        Le résultat « brut » de l’élection sur l’électorat partagé : la table de toutes les méthodes
-        et le dépouillement animé.
-      </p>
+      <p className="text-[0.7rem] text-muted-foreground/80">{t('anchorBody.results.intro')}</p>
       <Leaf
-        title="📋 Résultats complets (toutes méthodes)"
+        title={t('anchorBody.results.table')}
         testid="res-table"
         prefetch={FullResultsModule.preload}
       >
         <FullResultsModule />
       </Leaf>
       <Leaf
-        title="🎬 Dépouillement animé"
+        title={t('anchorBody.results.animation')}
         testid="res-animation"
         prefetch={VoteStepAnimator.preload}
       >

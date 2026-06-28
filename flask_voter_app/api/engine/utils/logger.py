@@ -45,7 +45,7 @@ def configure_logging(level: str | None = None) -> None:
     if _CONFIGURED:
         return
 
-    log_level = (level or os.environ.get("LOG_LEVEL", "INFO")).upper()
+    log_level = (level or os.environ.get("LOG_LEVEL") or "INFO").upper()
     is_prod = (os.environ.get("APP_ENV") or os.environ.get("FLASK_ENV")) == "production"
 
     # Route stdlib logging through structlog so Flask/SQLAlchemy/etc.

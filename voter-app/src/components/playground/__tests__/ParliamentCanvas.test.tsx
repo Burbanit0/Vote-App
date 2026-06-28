@@ -135,13 +135,13 @@ describe('ParliamentCanvas', () => {
     setup();
     fireEvent.click(screen.getByTestId('coalition-toggle-Gauche'));
     expect(screen.getByTestId('coalition-status')).toHaveTextContent('35');
-    expect(screen.getByTestId('coalition-status')).toHaveTextContent('pas de majorité');
+    expect(screen.getByTestId('coalition-status')).toHaveTextContent('no majority');
     fireEvent.click(screen.getByTestId('coalition-toggle-Centre'));
     expect(screen.getByTestId('coalition-status')).toHaveTextContent('76');
-    expect(screen.getByTestId('coalition-status')).toHaveTextContent('majorité ✔');
+    expect(screen.getByTestId('coalition-status')).toHaveTextContent('majority ✔');
     // Toggle off again.
     fireEvent.click(screen.getByTestId('coalition-toggle-Centre'));
-    expect(screen.getByTestId('coalition-status')).toHaveTextContent('pas de majorité');
+    expect(screen.getByTestId('coalition-status')).toHaveTextContent('no majority');
   });
 
   it('dragging a party reports its new position', () => {
@@ -188,7 +188,7 @@ describe('ParliamentCanvas', () => {
   it('the descriptive mirror shows electorate vs assembly per ideological region', () => {
     setup();
     const mirror = screen.getByTestId('mirror-bars');
-    expect(mirror).toHaveTextContent('Gauche · conservateur');
+    expect(mirror).toHaveTextContent('Left · conservative');
     expect(mirror).toHaveTextContent('20 % → 0 %'); // the unrepresented region
     expect(mirror).toHaveTextContent('25 % → 41 %');
   });

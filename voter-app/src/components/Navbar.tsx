@@ -157,7 +157,7 @@ const Navbar: React.FC = () => {
           {/* ── Brand ── */}
           <BootstrapNavbar.Brand
             href="/"
-            className="flex items-center gap-2 font-bold me-4"
+            className="font-display flex items-center gap-2 font-bold tracking-tight me-4"
             style={{ fontSize: '1.1rem' }}
             onClick={() => setNavExpanded(false)}
           >
@@ -191,23 +191,6 @@ const Navbar: React.FC = () => {
                 }}
               >
                 🎛 {t('nav.playground')}
-              </Nav.Link>
-
-              {/* Campagne & dynamique — page 2 of the journey (temporal) */}
-              <Nav.Link
-                href="/campagne"
-                className="font-semibold px-3 py-1 rounded"
-                active={currentPath === '/campagne'}
-                onClick={() => setNavExpanded(false)}
-                style={{
-                  background: currentPath === '/campagne' ? 'var(--bs-primary)' : 'transparent',
-                  color: currentPath === '/campagne' ? '#fff' : 'var(--bs-primary)',
-                  border: '1.5px solid var(--bs-primary)',
-                  fontSize: '0.88rem',
-                  transition: 'all 0.15s',
-                }}
-              >
-                📈 {t('nav.campaign')}
               </Nav.Link>
 
               {/* Apprendre dropdown */}

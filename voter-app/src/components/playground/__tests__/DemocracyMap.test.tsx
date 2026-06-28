@@ -41,7 +41,7 @@ describe('DemocracyMap (FA-2)', () => {
 
   it('states the convention (no hidden second dimension)', () => {
     render(<DemocracyMap entries={ENTRIES} current="pr" />);
-    expect(screen.getByTestId('democracy-map')).toHaveTextContent('convention déclarée');
-    expect(screen.getByTestId('democracy-map')).toHaveTextContent('fédéralisme');
+    expect(screen.getByTestId('democracy-map')).toHaveTextContent('stated convention');
+    expect(screen.getByTestId('democracy-map')).toHaveTextContent('federalism');
   });
 });

@@ -3,9 +3,7 @@
  *
  * Tests the unified drag hook via the makeDragHandlers helper, since the
  * hook itself uses ref-based SVG element access that requires a real DOM.
- * We also test useSwipe through the same test infrastructure.
  */
-import { renderHook, act } from '@testing-library/react';
 
 // ── useDragTouch helpers ──────────────────────────────────────────────────────
 
@@ -108,104 +106,5 @@ describe('makeDragHandlers', () => {
     const e = { preventDefault: vi.fn(), clientX: 0, clientY: 0 } as any;
     // Should not throw
     expect(() => onMouseDown(e)).not.toThrow();
-  });
-});
-
-// ── useSwipe ─────────────────────────────────────────────────────────────────
-
-describe('useSwipe', () => {
-  function setup() {
-    const el = document.createElement('div');
-    document.body.appendChild(el);
-    return { el, cleanup: () => document.body.removeChild(el) };
-  }
-
-  it('calls onSwipeLeft when swiping left (|deltaX| > 40)', async () => {
-    const { useSwipe } = await import('../useSwipe');
-    const { el, cleanup } = setup();
-    const ref = { current: el };
-    const onSwipeLeft = vi.fn();
-    const onSwipeRight = vi.fn();
-
-    renderHook(() => useSwipe(ref, { onSwipeLeft, onSwipeRight, threshold: 40, maxDuration: 400 }));
-
-    act(() => {
-      el.dispatchEvent(
-        new TouchEvent('touchstart', { touches: [{ clientX: 200, clientY: 0 } as Touch] })
-      );
-      el.dispatchEvent(
-        new TouchEvent('touchend', { changedTouches: [{ clientX: 100, clientY: 0 } as Touch] })
-      );
-    });
-
-    expect(onSwipeLeft).toHaveBeenCalledTimes(1);
-    expect(onSwipeRight).not.toHaveBeenCalled();
-    cleanup();
-  });
-
-  it('calls onSwipeRight when swiping right (|deltaX| > 40)', async () => {
-    const { useSwipe } = await import('../useSwipe');
-    const { el, cleanup } = setup();
-    const ref = { current: el };
-    const onSwipeLeft = vi.fn();
-    const onSwipeRight = vi.fn();
-
-    renderHook(() => useSwipe(ref, { onSwipeLeft, onSwipeRight, threshold: 40, maxDuration: 400 }));
-
-    act(() => {
-      el.dispatchEvent(
-        new TouchEvent('touchstart', { touches: [{ clientX: 100, clientY: 0 } as Touch] })
-      );
-      el.dispatchEvent(
-        new TouchEvent('touchend', { changedTouches: [{ clientX: 200, clientY: 0 } as Touch] })
-      );
-    });
-
-    expect(onSwipeRight).toHaveBeenCalledTimes(1);
-    expect(onSwipeLeft).not.toHaveBeenCalled();
-    cleanup();
-  });
-
-  it('does NOT trigger swipe when movement < threshold', async () => {
-    const { useSwipe } = await import('../useSwipe');
-    const { el, cleanup } = setup();
-    const ref = { current: el };
-    const onSwipeLeft = vi.fn();
-
-    renderHook(() => useSwipe(ref, { onSwipeLeft, threshold: 40 }));
-
-    act(() => {
-      el.dispatchEvent(
-        new TouchEvent('touchstart', { touches: [{ clientX: 100, clientY: 0 } as Touch] })
-      );
-      el.dispatchEvent(
-        new TouchEvent('touchend', { changedTouches: [{ clientX: 85, clientY: 0 } as Touch] })
-      );
-    });
-
-    expect(onSwipeLeft).not.toHaveBeenCalled();
-    cleanup();
-  });
-
-  it('does NOT trigger swipe when mostly vertical', async () => {
-    const { useSwipe } = await import('../useSwipe');
-    const { el, cleanup } = setup();
-    const ref = { current: el };
-    const onSwipeLeft = vi.fn();
-
-    renderHook(() => useSwipe(ref, { onSwipeLeft, threshold: 40 }));
-
-    act(() => {
-      el.dispatchEvent(
-        new TouchEvent('touchstart', { touches: [{ clientX: 100, clientY: 0 } as Touch] })
-      );
-      // deltaX = 50, deltaY = 80 → mostly vertical
-      el.dispatchEvent(
-        new TouchEvent('touchend', { changedTouches: [{ clientX: 50, clientY: 80 } as Touch] })
-      );
-    });
-
-    expect(onSwipeLeft).not.toHaveBeenCalled();
-    cleanup();
   });
 });

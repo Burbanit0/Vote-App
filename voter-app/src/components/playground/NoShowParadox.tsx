@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import { ruleWinnerFromRanks } from '../../lib/playgroundVoting';
 
 // NoShowParadox — a constructed, interactive demonstration of the participation
@@ -49,6 +50,7 @@ function firstPrefs(abstain: number): number[] {
 const COLORS = ['#2563eb', '#dc2626', '#16a34a'];
 
 const NoShowParadox: React.FC = () => {
+  const { t } = useTranslation('playground');
   const [abstain, setAbstain] = useState(0);
   const winner = noShowWinner(abstain);
   const baseWinner = noShowWinner(0);
@@ -64,16 +66,11 @@ const NoShowParadox: React.FC = () => {
       data-testid="noshow-demo"
       className="mt-2 rounded-md border border-border p-2 text-[0.7rem]"
     >
-      <div className="mb-1 font-medium">
-        🚷 Paradoxe du non-votant (exemple — scrutin à deux tours)
-      </div>
-      <p className="mb-2 text-muted-foreground">
-        34 électeurs, 3 candidats. Les partisans de C les classent C ▸ A ▸ B. Faites-en abstenir
-        quelques-uns : observez le vainqueur.
-      </p>
+      <div className="mb-1 font-medium">{t('noshow.title')}</div>
+      <p className="mb-2 text-muted-foreground">{t('noshow.intro')}</p>
 
       <label className="mb-1 flex items-center gap-2">
-        <span className="whitespace-nowrap">Partisans de C qui s’abstiennent : {abstain}</span>
+        <span className="whitespace-nowrap">{t('noshow.abstainers', { n: abstain })}</span>
         <input
           data-testid="noshow-abstain"
           type="range"
@@ -109,20 +106,18 @@ const NoShowParadox: React.FC = () => {
       </div>
 
       <div data-testid="noshow-verdict">
-        Vainqueur : <strong style={{ color: COLORS[winner] }}>{NAMES[winner]}</strong>
+        {t('noshow.winner')} <strong style={{ color: COLORS[winner] }}>{NAMES[winner]}</strong>
         {flipped ? (
           <span className="text-[#16a34a]">
-            {' '}
-            — Paradoxe ! En s’abstenant, les partisans de C font élire {NAMES[winner]} (leur{' '}
-            {cRankOfWinner + 1}
-            <sup>e</sup> choix), qu’ils préfèrent à {NAMES[baseWinner]} (leur {cRankOfBase + 1}
-            <sup>e</sup>/dernier). Leur participation leur nuisait.
+            {t('noshow.paradox', {
+              winner: NAMES[winner],
+              rank: cRankOfWinner + 1,
+              base: NAMES[baseWinner],
+              baseRank: cRankOfBase + 1,
+            })}
           </span>
         ) : (
-          <span className="text-muted-foreground">
-            {' '}
-            — avec tous les votants, c’est le 3<sup>e</sup> choix des partisans de C qui l’emporte.
-          </span>
+          <span className="text-muted-foreground">{t('noshow.noFlip')}</span>
         )}
       </div>
     </div>

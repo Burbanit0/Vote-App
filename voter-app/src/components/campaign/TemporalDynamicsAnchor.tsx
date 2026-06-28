@@ -1,4 +1,5 @@
 import React from 'react';
+import { useTranslation } from 'react-i18next';
 import Leaf from '../playground/anchors/Leaf';
 import { lazyWithPreload } from '../../lib/lazyWithPreload';
 
@@ -20,36 +21,48 @@ const PrimarySimulator = lazyWithPreload(() => import('../shared/PrimarySimulato
 const CascadePanel = lazyWithPreload(() => import('../shared/CascadePanel'));
 const ElectoralFatiguePanel = lazyWithPreload(() => import('../shared/ElectoralFatiguePanel'));
 
-const TemporalDynamicsAnchor: React.FC = () => (
-  <div className="flex flex-col gap-2">
-    <p className="text-[0.7rem] text-muted-foreground/80">
-      Les phénomènes qui se déploient <strong>dans le temps</strong> — sur plusieurs tours ou par
-      effet de séquence. Chacun part du même électorat (état J0) et se calcule à la demande.
-    </p>
-    <Leaf
-      title="⚙️ Vote adaptatif (tactique sur durée)"
-      testid="tdyn-adaptive"
-      prefetch={AdaptiveVotingPanel.preload}
-    >
-      <AdaptiveVotingPanel />
-    </Leaf>
-    <Leaf title="🕰️ Rejeu historique" testid="tdyn-replay" prefetch={HistoricalReplay.preload}>
-      <HistoricalReplay />
-    </Leaf>
-    <Leaf title="🥇 Primaires" testid="tdyn-primary" prefetch={PrimarySimulator.preload}>
-      <PrimarySimulator />
-    </Leaf>
-    <Leaf title="🌊 Cascade d’information" testid="tdyn-cascade" prefetch={CascadePanel.preload}>
-      <CascadePanel />
-    </Leaf>
-    <Leaf
-      title="😮‍💨 Fatigue électorale"
-      testid="tdyn-fatigue"
-      prefetch={ElectoralFatiguePanel.preload}
-    >
-      <ElectoralFatiguePanel />
-    </Leaf>
-  </div>
-);
+const TemporalDynamicsAnchor: React.FC = () => {
+  const { t } = useTranslation('playground');
+  return (
+    <div className="flex flex-col gap-2">
+      <p className="text-[0.7rem] text-muted-foreground/80">{t('anchorBody.tdyn.intro')}</p>
+      <Leaf
+        title={t('anchorBody.tdyn.adaptive')}
+        testid="tdyn-adaptive"
+        prefetch={AdaptiveVotingPanel.preload}
+      >
+        <AdaptiveVotingPanel />
+      </Leaf>
+      <Leaf
+        title={t('anchorBody.tdyn.replay')}
+        testid="tdyn-replay"
+        prefetch={HistoricalReplay.preload}
+      >
+        <HistoricalReplay />
+      </Leaf>
+      <Leaf
+        title={t('anchorBody.tdyn.primary')}
+        testid="tdyn-primary"
+        prefetch={PrimarySimulator.preload}
+      >
+        <PrimarySimulator />
+      </Leaf>
+      <Leaf
+        title={t('anchorBody.tdyn.cascade')}
+        testid="tdyn-cascade"
+        prefetch={CascadePanel.preload}
+      >
+        <CascadePanel />
+      </Leaf>
+      <Leaf
+        title={t('anchorBody.tdyn.fatigue')}
+        testid="tdyn-fatigue"
+        prefetch={ElectoralFatiguePanel.preload}
+      >
+        <ElectoralFatiguePanel />
+      </Leaf>
+    </div>
+  );
+};
 
 export default TemporalDynamicsAnchor;

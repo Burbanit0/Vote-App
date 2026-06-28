@@ -1,4 +1,5 @@
 import React from 'react';
+import { useTranslation } from 'react-i18next';
 import { cn } from '@/lib/utils';
 import { paretoSplit, spotlight, type LensItem } from '../../lib/scorecard';
 import MethodInfo from './MethodInfo';
@@ -29,6 +30,7 @@ const ValuesPanel: React.FC<ValuesPanelProps> = ({
   onWeightChange,
   granular = true,
 }) => {
+  const { t } = useTranslation('playground');
   const { frontier, dominated } = React.useMemo(
     () => paretoSplit(items, axisKeys),
     [items, axisKeys]
@@ -45,7 +47,7 @@ const ValuesPanel: React.FC<ValuesPanelProps> = ({
       {granular && (
         <div className="flex flex-col gap-1.5">
           <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-            Vos pondérations
+            {t('values.weightsTitle')}
           </p>
           {axisKeys.map((k) => (
             <label key={k} className="flex items-center gap-2 text-xs">
@@ -78,7 +80,7 @@ const ValuesPanel: React.FC<ValuesPanelProps> = ({
               data-testid={`lens-item-${it.id}`}
               className={cn(
                 'rounded-md border px-2.5 py-1.5 text-sm transition-colors',
-                isDominated && 'border-border/60 text-muted-foreground/60 line-through',
+                isDominated && 'border-border/60 text-muted-foreground line-through',
                 !isDominated && !isLit && 'border-border',
                 isLit && 'border-primary ring-1 ring-primary'
               )}
@@ -89,13 +91,15 @@ const ValuesPanel: React.FC<ValuesPanelProps> = ({
                   <MethodInfo method={it.id} placement="left" />
                 </span>
                 {isDominated ? (
-                  <span className="text-[0.68rem] no-underline">écarté (dominé)</span>
+                  <span className="text-[0.68rem] no-underline">{t('values.dominated')}</span>
                 ) : isLit ? (
                   <span className="text-[0.68rem] font-semibold text-primary">
-                    ★ selon vos pondérations
+                    ★ {t('values.spotlight')}
                   </span>
                 ) : (
-                  <span className="text-[0.68rem] text-muted-foreground">sur la frontière</span>
+                  <span className="text-[0.68rem] text-muted-foreground">
+                    {t('values.onFrontier')}
+                  </span>
                 )}
               </span>
             </div>
@@ -103,11 +107,7 @@ const ValuesPanel: React.FC<ValuesPanelProps> = ({
         })}
       </div>
 
-      <p className="text-[0.7rem] text-muted-foreground/70">
-        Les options dominées sont écartées — un fait objectif. Entre celles qui restent, il n’existe
-        pas de « meilleur » système : vos curseurs ne font qu’éclairer un point de la frontière, et
-        pondérer est déjà un choix de valeurs.
-      </p>
+      <p className="text-[0.7rem] text-muted-foreground">{t('values.footer')}</p>
     </div>
   );
 };

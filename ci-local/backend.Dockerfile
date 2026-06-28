@@ -25,15 +25,15 @@ RUN pip install -r flask_voter_app/requirements.txt \
 # Source layer.
 COPY flask_voter_app/ flask_voter_app/
 
-# Mirror the workflow steps in order. flake8/bandit/pip-audit are non-blocking
-# upstream (continue-on-error / --exit-zero); mypy + pytest(--cov-fail-under=30) gate.
+# Mirror the workflow steps in order (matches GitHub CI gating).
+# flake8 + bandit = GATING. pip-audit = informational (continue-on-error upstream).
 # JWT_SECRET_KEY here is a documented TEST DUMMY (matches the CI env), baked only
 # into this local-only test image; it grants no real access.
 #trivy:ignore:AVD-DS-0031
 ENV FLASK_ENV=testing JWT_SECRET_KEY=ci-test-secret
 CMD ["bash","-euo","pipefail","-c","\
-echo '=== Flake8 (non-blocking) ===';   flake8 --config=flask_voter_app/.flake8 flask_voter_app || echo '(flake8 failed — non-blocking)'; \
-echo '=== Bandit (non-blocking) ===';   bandit -r flask_voter_app/api -ll --skip B104,B311 --exit-zero; \
+echo '=== Flake8 (gating) ===';         flake8 --config=flask_voter_app/.flake8 flask_voter_app; \
+echo '=== Bandit (gating) ===';         bandit -r flask_voter_app/api -ll --skip B104,B311; \
 echo '=== pip-audit (non-blocking) ==='; pip-audit --requirement flask_voter_app/requirements.txt || echo '(pip-audit failed — non-blocking)'; \
 cd flask_voter_app; \
 echo '=== Mypy (gating) ===';           python -m mypy api/ --config-file mypy.ini; \

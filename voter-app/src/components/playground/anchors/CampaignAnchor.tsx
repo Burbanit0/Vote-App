@@ -1,4 +1,5 @@
 import React from 'react';
+import { useTranslation } from 'react-i18next';
 import Leaf from './Leaf';
 import { lazyWithPreload } from '../../../lib/lazyWithPreload';
 
@@ -21,43 +22,41 @@ const CampaignSensitivityPanel = lazyWithPreload(
 const PolarizationPanel = lazyWithPreload(() => import('../../shared/PolarizationPanel'));
 const PartyDynamicsPanel = lazyWithPreload(() => import('../../shared/PartyDynamicsPanel'));
 
-const CampaignAnchor: React.FC = () => (
-  <div className="flex flex-col gap-2">
-    <p className="text-[0.7rem] text-muted-foreground/80">
-      Le scrubber ci-dessus montre <strong>une</strong> trajectoire (les candidats dérivent vers
-      l’électeur médian). Ces quatre étapes l’approfondissent : l’équilibre visé, l’effet des
-      sondages, l’impact de la polarisation, puis l’évolution du système de partis sur plusieurs
-      élections.
-    </p>
-    <Leaf
-      title="① 📐 Vers quel équilibre ? (Hotelling-Downs)"
-      testid="dyn-hotelling"
-      prefetch={HotellingPanel.preload}
-    >
-      <HotellingPanel />
-    </Leaf>
-    <Leaf
-      title="② 📣 Effet des sondages (sensibilité de campagne)"
-      testid="dyn-campaign"
-      prefetch={CampaignSensitivityPanel.preload}
-    >
-      <CampaignSensitivityPanel />
-    </Leaf>
-    <Leaf
-      title="③ ↔️ Électorat polarisé (qualité du résultat)"
-      testid="dyn-polarization"
-      prefetch={PolarizationPanel.preload}
-    >
-      <PolarizationPanel />
-    </Leaf>
-    <Leaf
-      title="④ 🏳️ Évolution des partis (Duverger sur la durée)"
-      testid="dyn-party"
-      prefetch={PartyDynamicsPanel.preload}
-    >
-      <PartyDynamicsPanel />
-    </Leaf>
-  </div>
-);
+const CampaignAnchor: React.FC = () => {
+  const { t } = useTranslation('playground');
+  return (
+    <div className="flex flex-col gap-2">
+      <p className="text-[0.7rem] text-muted-foreground/80">{t('anchorBody.campaign.intro')}</p>
+      <Leaf
+        title={t('anchorBody.campaign.hotelling')}
+        testid="dyn-hotelling"
+        prefetch={HotellingPanel.preload}
+      >
+        <HotellingPanel />
+      </Leaf>
+      <Leaf
+        title={t('anchorBody.campaign.campaign')}
+        testid="dyn-campaign"
+        prefetch={CampaignSensitivityPanel.preload}
+      >
+        <CampaignSensitivityPanel />
+      </Leaf>
+      <Leaf
+        title={t('anchorBody.campaign.polarization')}
+        testid="dyn-polarization"
+        prefetch={PolarizationPanel.preload}
+      >
+        <PolarizationPanel />
+      </Leaf>
+      <Leaf
+        title={t('anchorBody.campaign.party')}
+        testid="dyn-party"
+        prefetch={PartyDynamicsPanel.preload}
+      >
+        <PartyDynamicsPanel />
+      </Leaf>
+    </div>
+  );
+};
 
 export default CampaignAnchor;

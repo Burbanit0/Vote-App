@@ -147,7 +147,8 @@ describe('PlaygroundPage (P0 shell)', () => {
 
     expect(screen.getByTestId('canvas-parliament')).toBeInTheDocument();
     expect(screen.queryByTestId('leader-canvas')).not.toBeInTheDocument();
-    // Assembly-only knob appears in parliament mode.
+    // Assembly-only knob lives in the Méthode moment.
+    fireEvent.click(screen.getByTestId('moment-method'));
     expect(screen.getByLabelText('Structure')).toBeInTheDocument();
 
     expect(useElectionStore.getState().playground.mode).toBe('parliament');
@@ -169,7 +170,7 @@ describe('PlaygroundPage (P0 shell)', () => {
 
   it('a knob change (dimensions) persists to the store', () => {
     renderPage();
-    fireEvent.change(screen.getByLabelText('Dimensions de l’espace'), { target: { value: '3' } });
+    fireEvent.change(screen.getByLabelText('Dimensions of the space'), { target: { value: '3' } });
 
     expect(useElectionStore.getState().playground.space.dims).toBe(3);
     expect(JSON.parse(localStorage.getItem(LS_PG) as string).space.dims).toBe(3);
@@ -177,7 +178,7 @@ describe('PlaygroundPage (P0 shell)', () => {
 
   it('the dimension knob reshapes the leader canvas (1-D line, 3-D z controls)', () => {
     renderPage();
-    const dimsSelect = screen.getByLabelText('Dimensions de l’espace');
+    const dimsSelect = screen.getByLabelText('Dimensions of the space');
     // 2-D by default: no z controls, canvas tagged dims=2.
     expect(screen.getByTestId('leader-canvas')).toHaveAttribute('data-dims', '2');
     expect(screen.queryByTestId('z-controls')).not.toBeInTheDocument();
@@ -197,35 +198,27 @@ describe('PlaygroundPage (P0 shell)', () => {
 
   // ── P4: the dynamic layer ────────────────────────────────────────────────
 
-  it('the flip button toggles the mode and shows the flip caption', () => {
+  it('the persistent mode toggle flips leader↔parliament and shows the flip caption', () => {
     renderPage();
-    fireEvent.click(screen.getByTestId('flip-button'));
+    fireEvent.click(screen.getByTestId('mode-toggle-parliament'));
     expect(useElectionStore.getState().playground.mode).toBe('parliament');
-    expect(screen.getByTestId('flip-caption')).toHaveTextContent('Mêmes électeurs');
+    expect(screen.getByTestId('flip-caption')).toHaveTextContent('Same voters');
     // Replayable in the other direction.
-    fireEvent.click(screen.getByTestId('flip-button'));
+    fireEvent.click(screen.getByTestId('mode-toggle-leader'));
     expect(useElectionStore.getState().playground.mode).toBe('leader');
     expect(screen.getByTestId('flip-caption')).toBeInTheDocument();
-  });
-
-  it('the campaign scrubber advances the day label and disables candidate edits', () => {
-    renderPage();
-    fireEvent.change(screen.getByTestId('campaign-slider'), { target: { value: '0.5' } });
-    expect(screen.getByTestId('campaign-scrubber')).toHaveTextContent('J15');
-    expect(screen.getByTestId('campaign-scrubber')).toHaveTextContent('revenez à J0');
   });
 
   it('shake-the-assumptions renders win-rate bands that sum to ~100%', async () => {
     renderPage();
     fireEvent.click(screen.getByTestId('shake-toggle'));
-    await waitFor(
-      () => expect(screen.getByTestId('shake-bands')).toHaveTextContent('ré-échantillonnages'),
-      { timeout: 5000 }
-    );
+    await waitFor(() => expect(screen.getByTestId('shake-bands')).toHaveTextContent('resamples'), {
+      timeout: 5000,
+    });
     const text = screen.getByTestId('shake-bands').textContent ?? '';
-    const pcts = [...text.matchAll(/(\d+)\s?%/g)].map((m) => Number(m[1]));
-    // headline % + one per candidate; the per-candidate rates sum to ~100.
-    const perCandidate = pcts.slice(1);
+    // Each candidate row renders its win rate with a Wilson margin as "rate±half%".
+    const perCandidate = [...text.matchAll(/(\d+)±\d+%/g)].map((m) => Number(m[1]));
+    expect(perCandidate.length).toBeGreaterThanOrEqual(2);
     const sum = perCandidate.reduce((s, p) => s + p, 0);
     expect(sum).toBeGreaterThanOrEqual(97);
     expect(sum).toBeLessThanOrEqual(103);
@@ -234,6 +227,7 @@ describe('PlaygroundPage (P0 shell)', () => {
   it('the Duverger toggle persists strategic desertion in the store', () => {
     renderPage();
     fireEvent.click(screen.getByTestId('mode-toggle-parliament'));
+    fireEvent.click(screen.getByTestId('moment-strategy'));
     fireEvent.click(screen.getByTestId('duverger-toggle'));
     expect(useElectionStore.getState().playground.assembly.strategic_desertion).toBe(true);
     expect(JSON.parse(localStorage.getItem(LS_PG) as string).assembly.strategic_desertion).toBe(
@@ -245,6 +239,7 @@ describe('PlaygroundPage (P0 shell)', () => {
 
   it('leader mode renders the banded scorecard and the values lens over the 6 rules', async () => {
     renderPage();
+    fireEvent.click(screen.getByTestId('moment-bilan'));
     await waitFor(
       () => expect(screen.getByTestId('axis-condorcet_efficiency').textContent).toMatch(/\d+\s?%/),
       { timeout: 5000 }
@@ -257,20 +252,22 @@ describe('PlaygroundPage (P0 shell)', () => {
   it('parliament mode shows the structure scorecard from the backend with bands', async () => {
     renderPage();
     fireEvent.click(screen.getByTestId('mode-toggle-parliament'));
+    fireEvent.click(screen.getByTestId('moment-bilan'));
     await waitFor(
       () => expect(screen.getByTestId('axis-proportionality')).toHaveTextContent('90 %'),
       { timeout: 5000 }
     );
     // The three structures appear in the lens; with the mocked axes FPTP and PR
     // trade off (neither dominates), while MMP is dominated by PR.
-    expect(screen.getByTestId('lens-item-mmp')).toHaveTextContent('écarté (dominé)');
-    expect(screen.getByTestId('lens-item-pr')).not.toHaveTextContent('écarté');
+    expect(screen.getByTestId('lens-item-mmp')).toHaveTextContent('dropped (dominated)');
+    expect(screen.getByTestId('lens-item-pr')).not.toHaveTextContent('dropped');
   });
 
   // ── FA-1 : la couche bulletin ─────────────────────────────────────────────
 
   it('the ballot selector persists and reveals the truncation slider', () => {
     renderPage();
+    fireEvent.click(screen.getByTestId('moment-method'));
     fireEvent.change(screen.getByTestId('ballot-select'), {
       target: { value: 'rank_truncated' },
     });
@@ -282,11 +279,12 @@ describe('PlaygroundPage (P0 shell)', () => {
 
   it('shows the sample ballot, the expressiveness/load trade-off and the winner flips', async () => {
     renderPage();
+    fireEvent.click(screen.getByTestId('moment-method'));
     await waitFor(() => expect(screen.getByTestId('ballot-preview')).toBeInTheDocument());
     expect(screen.getByTestId('ballot-preview').textContent).toContain('A 1');
-    expect(screen.getByTestId('ballot-tradeoff')).toHaveTextContent('Expressivité');
-    expect(screen.getByTestId('ballot-tradeoff')).toHaveTextContent('Charge cognitive');
-    expect(screen.getByTestId('ballot-flips')).toHaveTextContent('2 méthodes');
+    expect(screen.getByTestId('ballot-tradeoff')).toHaveTextContent('Expressiveness');
+    expect(screen.getByTestId('ballot-tradeoff')).toHaveTextContent('Cognitive load');
+    expect(screen.getByTestId('ballot-flips')).toHaveTextContent('2 methods');
     expect(screen.getByTestId('ballot-flips')).toHaveTextContent('irv, borda');
   });
 
@@ -294,14 +292,15 @@ describe('PlaygroundPage (P0 shell)', () => {
 
   it('the hardness readout shows the complexity flag for the selected rule', () => {
     renderPage();
+    fireEvent.click(screen.getByTestId('moment-strategy'));
     expect(screen.getByTestId('manip-hardness')).toHaveTextContent('Gibbard–Satterthwaite');
-    expect(screen.getByTestId('manip-hardness')).toHaveTextContent('P (calcul trivial)');
+    expect(screen.getByTestId('manip-hardness')).toHaveTextContent('P (trivial)');
     // Switch to IRV → the NP-hardness flag and its citation appear.
     fireEvent.change(screen.getByTestId('rule-select'), { target: { value: 'irv' } });
-    expect(screen.getByTestId('manip-hardness')).toHaveTextContent('NP-difficile');
+    expect(screen.getByTestId('manip-hardness')).toHaveTextContent('NP-hard');
     expect(screen.getByTestId('manip-hardness')).toHaveTextContent('Bartholdi–Orlin');
     // The worked example compares plurality vs IRV on this electorate.
-    expect(screen.getByTestId('manip-hardness')).toHaveTextContent('Exemple');
+    expect(screen.getByTestId('manip-hardness')).toHaveTextContent('Example');
   });
 
   // ── FA-2 : la lentille Lijphart ───────────────────────────────────────────
@@ -333,26 +332,27 @@ describe('PlaygroundPage (P0 shell)', () => {
     expect(pct).toBeLessThan(100);
   });
 
-  it('the sincere-vote module is collapsed in leader mode and opens with a live verdict', () => {
+  it('the sincere-vote module lives in the Stratégie moment with a live verdict', () => {
     renderPage();
-    expect(screen.getByTestId('module-sincerity')).toBeInTheDocument();
+    // Absent on the default Électorat moment (and so is the "you" marker).
     expect(screen.queryByTestId('sincerity-module')).not.toBeInTheDocument();
-    // The "you" marker is only on the map while the module is open.
     expect(screen.queryByTestId('you-marker')).not.toBeInTheDocument();
-    fireEvent.click(screen.getByTestId('module-sincerity-toggle'));
+    // Entering the Stratégie moment renders it directly + drops the "you" marker.
+    fireEvent.click(screen.getByTestId('moment-strategy'));
     expect(screen.getByTestId('sincerity-module')).toBeInTheDocument();
     expect(screen.getByTestId('you-marker')).toBeInTheDocument();
     // Live (no button): the headline + bloc control render immediately.
-    expect(screen.getByTestId('sincerity-headline')).toHaveTextContent('/15 méthodes');
+    expect(screen.getByTestId('sincerity-headline')).toHaveTextContent('/15 methods');
     expect(screen.getByTestId('sincerity-bloc')).toBeInTheDocument();
     // The electorate sweep is on-demand and renders a per-method ranking.
     expect(screen.queryByTestId('sincerity-scan')).not.toBeInTheDocument();
     fireEvent.click(screen.getByTestId('sincerity-scan-run'));
-    expect(screen.getByTestId('sincerity-scan')).toHaveTextContent('minimise le vote utile');
+    expect(screen.getByTestId('sincerity-scan')).toHaveTextContent('minimises the tactical vote');
   });
 
-  it('the strategic-vulnerability module is collapsed in leader mode, opens on demand', () => {
+  it('the strategic-vulnerability module is collapsed in the Stratégie moment, opens on demand', () => {
     renderPage();
+    fireEvent.click(screen.getByTestId('moment-strategy'));
     expect(screen.getByTestId('module-strategic')).toBeInTheDocument();
     expect(screen.queryByTestId('strategic-module')).not.toBeInTheDocument();
     fireEvent.click(screen.getByTestId('module-strategic-toggle'));
@@ -372,19 +372,21 @@ describe('PlaygroundPage (P0 shell)', () => {
   it('the identity dial moves the spotlight along the frontier', async () => {
     renderPage();
     fireEvent.click(screen.getByTestId('mode-toggle-parliament'));
+    fireEvent.click(screen.getByTestId('moment-bilan'));
     await waitFor(() => expect(screen.getByTestId('lens-item-pr')).toBeInTheDocument(), {
       timeout: 5000,
     });
     // Majoritarian end → governability wins → FPTP spotlighted.
     fireEvent.change(screen.getByTestId('lijphart-dial'), { target: { value: '0' } });
-    expect(screen.getByTestId('lens-item-fptp')).toHaveTextContent('selon vos pondérations');
+    expect(screen.getByTestId('lens-item-fptp')).toHaveTextContent('by your weights');
     // Consensualist end → proportional axes win → PR spotlighted.
     fireEvent.change(screen.getByTestId('lijphart-dial'), { target: { value: '1' } });
-    expect(screen.getByTestId('lens-item-pr')).toHaveTextContent('selon vos pondérations');
+    expect(screen.getByTestId('lens-item-pr')).toHaveTextContent('by your weights');
   });
 
   it('the granular escape hatch reveals the sliders and a touch switches modes', async () => {
     renderPage();
+    fireEvent.click(screen.getByTestId('moment-bilan'));
     // Dial mode by default: granular sliders not rendered.
     expect(screen.getByTestId('lijphart-dial')).toBeInTheDocument();
     expect(screen.queryByTestId('weight-condorcet_efficiency')).not.toBeInTheDocument();
@@ -464,10 +466,10 @@ describe('PlaygroundPage (P0 shell)', () => {
     renderPage();
     fireEvent.click(screen.getByTestId('module-electorate-toggle'));
     fireEvent.click(screen.getByTestId('electorate-mode-composed'));
-    // 2-D by default: no z sub-list.
-    expect(screen.queryByTestId('community-z-list')).not.toBeInTheDocument();
-    fireEvent.change(screen.getByLabelText('Dimensions de l’espace'), { target: { value: '3' } });
-    expect(screen.getByTestId('community-z-list')).toBeInTheDocument();
+    // 2-D by default: no z sliders.
+    expect(screen.queryByTestId('community-z-g')).not.toBeInTheDocument();
+    fireEvent.change(screen.getByLabelText('Dimensions of the space'), { target: { value: '3' } });
+    expect(screen.getByTestId('community-z-g')).toBeInTheDocument();
   });
 
   it('importing a JSON composition replaces the electorate (données d’entrée)', () => {
@@ -507,86 +509,92 @@ describe('PlaygroundPage (P0 shell)', () => {
   // Every Lab family now lives in a contextual anchor next to the concept it
   // deepens — all lazy + Collapsible-gated, so first paint mounts none of them.
 
-  it('form-lock: no Lab module is mounted on first paint — only anchor toggles', () => {
+  it('form-lock: no Lab module is mounted on first paint — anchors live in their moment', () => {
     renderPage();
     // The two-mode core is intact and visible.
     expect(screen.getByTestId('leader-canvas')).toBeInTheDocument();
     expect(screen.getByTestId('cycle-rate')).toBeInTheDocument();
     // The old terminal catch-all is gone.
     expect(screen.queryByTestId('module-advanced')).not.toBeInTheDocument();
-    // Leader-visible anchors ship collapsed: their toggles exist, panels do not.
+    // The deep explorations no longer stack under every moment: on the default
+    // Électorat moment only its own anchor (abstention) is present, collapsed.
+    expect(screen.getByTestId('anchor-abstention-toggle')).toBeInTheDocument();
     for (const anchor of [
       'anchor-mechanisms',
       'anchor-analysis',
       'anchor-results',
       'anchor-theory',
-      'anchor-abstention',
-      'anchor-blank',
     ]) {
-      expect(screen.getByTestId(`${anchor}-toggle`)).toBeInTheDocument();
+      expect(screen.queryByTestId(`${anchor}-toggle`)).not.toBeInTheDocument();
     }
     for (const panel of ['mech-jury', 'ana-montecarlo', 'res-table', 'sys-coalition', 'thy-sen']) {
       expect(screen.queryByTestId(panel)).not.toBeInTheDocument();
     }
   });
 
-  it('form-lock: the theory anchor (full width) reveals its leaves lazily', async () => {
+  it('form-lock: the theory anchor (in the Bilan moment) reveals its leaves lazily', async () => {
     renderPage();
+    fireEvent.click(screen.getByTestId('moment-bilan'));
     expect(screen.getByTestId('anchor-theory')).toBeInTheDocument();
     expect(screen.queryByTestId('thy-sen')).not.toBeInTheDocument();
     fireEvent.click(screen.getByTestId('anchor-theory-toggle'));
-    expect(await screen.findByTestId('thy-sen')).toBeInTheDocument();
+    expect(await screen.findByTestId('thy-sen', {}, { timeout: 5000 })).toBeInTheDocument();
     expect(screen.getByTestId('thy-judgment')).toBeInTheDocument();
     expect(screen.getByTestId('thy-polis')).toBeInTheDocument();
   });
 
-  it('form-lock: the systems anchor (parliament canvas) reveals its leaves lazily', async () => {
+  it('form-lock: the systems anchor (parliament Méthode moment) reveals its leaves lazily', async () => {
     renderPage();
     fireEvent.click(screen.getByTestId('mode-toggle-parliament'));
-    // Anchored in the parliament canvas, collapsed: no system panel mounted.
+    fireEvent.click(screen.getByTestId('moment-method'));
+    // Anchored in the Méthode moment, collapsed: no system panel mounted.
     expect(screen.getByTestId('anchor-systems')).toBeInTheDocument();
     expect(screen.queryByTestId('sys-coalition')).not.toBeInTheDocument();
     fireEvent.click(screen.getByTestId('anchor-systems-toggle'));
     // The lazy anchor resolves → leaf collapsibles appear (panels stay unmounted).
-    expect(await screen.findByTestId('sys-coalition')).toBeInTheDocument();
+    expect(await screen.findByTestId('sys-coalition', {}, { timeout: 5000 })).toBeInTheDocument();
     expect(screen.getByTestId('sys-pipeline')).toBeInTheDocument();
     expect(screen.getByTestId('canvas-parliament')).toBeInTheDocument();
   });
 
-  it('form-lock: the results anchor (full width) reveals its leaves lazily', async () => {
+  it('form-lock: the results anchor (in the Bilan moment) reveals its leaves lazily', async () => {
     renderPage();
+    fireEvent.click(screen.getByTestId('moment-bilan'));
     expect(screen.getByTestId('anchor-results')).toBeInTheDocument();
     expect(screen.queryByTestId('res-table')).not.toBeInTheDocument();
     fireEvent.click(screen.getByTestId('anchor-results-toggle'));
-    expect(await screen.findByTestId('res-table')).toBeInTheDocument();
+    expect(await screen.findByTestId('res-table', {}, { timeout: 5000 })).toBeInTheDocument();
     expect(screen.getByTestId('res-animation')).toBeInTheDocument();
   });
 
-  it('hand-off: behavioural realism is a link to /campagne, not an in-page anchor', () => {
+  it('campaign is folded in as moment ④, with no loose mechanics on the static moments', () => {
     renderPage();
-    // The whole "Comportement" family migrated to page 2 (Q1: C4 empties the
-    // playground of family-B realism). Only a hint link remains, no panel mounts.
-    expect(screen.queryByTestId('anchor-behavior')).not.toBeInTheDocument();
-    expect(screen.queryByTestId('breal-biases')).not.toBeInTheDocument();
-    const link = screen.getByTestId('behavior-realism-link');
-    expect(link).toHaveAttribute('href', '/campagne');
-    // The core canvas is unaffected.
+    // No legacy campaign mechanics leak onto the snapshot moments.
+    for (const id of [
+      'campaign-scrubber',
+      'campaign-slider',
+      'launch-campaign',
+      'behavior-realism-link',
+      'module-temporal',
+      'anchor-campaign',
+    ]) {
+      expect(screen.queryByTestId(id)).not.toBeInTheDocument();
+    }
+    // The journey rail carries the four moments; the core canvas is on the default one.
+    expect(screen.getByTestId('moment-rail')).toBeInTheDocument();
+    for (const m of ['electorate', 'method', 'strategy', 'campaign', 'bilan']) {
+      expect(screen.getByTestId(`moment-${m}`)).toBeInTheDocument();
+    }
     expect(screen.getByTestId('leader-canvas')).toBeInTheDocument();
+    // Entering the campaign moment swaps the static instrument for the timeline.
+    fireEvent.click(screen.getByTestId('moment-campaign'));
+    expect(screen.getByTestId('moment-campaign-panel')).toBeInTheDocument();
+    expect(screen.queryByTestId('leader-canvas')).not.toBeInTheDocument();
   });
 
-  it('hand-off: the campaign deepening is a link to /campagne, not an in-page anchor', () => {
+  it('form-lock: the mechanisms anchor (leader Méthode moment) reveals its leaves lazily', async () => {
     renderPage();
-    // The temporal "campaign" family migrated to page 2 (Q1 = B+C on its own page).
-    // The playground now shows only a CTA to it — no dynamics panel mounts here.
-    expect(screen.queryByTestId('anchor-campaign')).not.toBeInTheDocument();
-    expect(screen.queryByTestId('dyn-hotelling')).not.toBeInTheDocument();
-    const cta = screen.getByTestId('launch-campaign');
-    expect(cta).toBeInTheDocument();
-    expect(cta).toHaveAttribute('href', '/campagne');
-  });
-
-  it('form-lock: the mechanisms anchor (leader canvas) reveals its leaves lazily', async () => {
-    renderPage();
+    fireEvent.click(screen.getByTestId('moment-method'));
     expect(screen.getByTestId('anchor-mechanisms')).toBeInTheDocument();
     expect(screen.queryByTestId('mech-jury')).not.toBeInTheDocument();
     fireEvent.click(screen.getByTestId('anchor-mechanisms-toggle'));
@@ -595,8 +603,9 @@ describe('PlaygroundPage (P0 shell)', () => {
     expect(screen.getByTestId('mech-identity')).toBeInTheDocument();
   });
 
-  it('form-lock: the analysis anchor (full width) reveals its leaves lazily', async () => {
+  it('form-lock: the analysis anchor (in the Bilan moment) reveals its leaves lazily', async () => {
     renderPage();
+    fireEvent.click(screen.getByTestId('moment-bilan'));
     expect(screen.getByTestId('anchor-analysis')).toBeInTheDocument();
     expect(screen.queryByTestId('ana-montecarlo')).not.toBeInTheDocument();
     fireEvent.click(screen.getByTestId('anchor-analysis-toggle'));

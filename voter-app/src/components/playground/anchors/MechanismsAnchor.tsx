@@ -1,4 +1,5 @@
 import React from 'react';
+import { useTranslation } from 'react-i18next';
 import Leaf from './Leaf';
 import { lazyWithPreload } from '../../../lib/lazyWithPreload';
 import { useElection } from '../../../stores/useElectionStore';
@@ -21,6 +22,7 @@ const EpistocracyPanel = lazyWithPreload(() => import('../../shared/EpistocracyP
 const IdentityVotingPanel = lazyWithPreload(() => import('../../shared/IdentityVotingPanel'));
 
 const MechanismsAnchor: React.FC = () => {
+  const { t } = useTranslation('playground');
   // Epistocracy + Identity read the shared electorate (labMode), like the Lab did.
   const { config } = useElection();
   const lab = {
@@ -31,61 +33,54 @@ const MechanismsAnchor: React.FC = () => {
   };
   return (
     <div className="flex flex-col gap-2">
-      <p className="text-[0.7rem] text-muted-foreground/80">
-        D’autres <strong>mécanismes</strong> de décision collective que l’élection classique —
-        chacun sur le même électorat, calculé à la demande.
-      </p>
+      <p className="text-[0.7rem] text-muted-foreground/80">{t('anchorBody.mechanisms.intro')}</p>
       <Leaf
-        title="⚖️ Théorème du jury (Condorcet)"
+        title={t('anchorBody.mechanisms.jury')}
         testid="mech-jury"
         prefetch={JuryTheoremPanel.preload}
       >
         <JuryTheoremPanel />
       </Leaf>
-      <Leaf
-        title="🚫 Vote NOTA (aucun des candidats)"
-        testid="mech-nota"
-        prefetch={NOTAPanel.preload}
-      >
+      <Leaf title={t('anchorBody.mechanisms.nota')} testid="mech-nota" prefetch={NOTAPanel.preload}>
         <NOTAPanel />
       </Leaf>
       <Leaf
-        title="💧 Démocratie liquide (délégation)"
+        title={t('anchorBody.mechanisms.liquid')}
         testid="mech-liquid"
         prefetch={LiquidDemocracyPanel.preload}
       >
         <LiquidDemocracyPanel />
       </Leaf>
       <Leaf
-        title="🎲 Sortition (tirage au sort)"
+        title={t('anchorBody.mechanisms.sortition')}
         testid="mech-sortition"
         prefetch={SortitionPanel.preload}
       >
         <SortitionPanel />
       </Leaf>
       <Leaf
-        title="🗣️ Délibération puis vote"
+        title={t('anchorBody.mechanisms.deliberation')}
         testid="mech-deliberation"
         prefetch={DeliberationPanel.preload}
       >
         <DeliberationPanel />
       </Leaf>
       <Leaf
-        title="🪙 Vote par conviction"
+        title={t('anchorBody.mechanisms.conviction')}
         testid="mech-conviction"
         prefetch={ConvictionVotingPanel.preload}
       >
         <ConvictionVotingPanel />
       </Leaf>
       <Leaf
-        title="🎓 Épistocratie (vote pondéré par compétence)"
+        title={t('anchorBody.mechanisms.epistocracy')}
         testid="mech-epistocracy"
         prefetch={EpistocracyPanel.preload}
       >
         <EpistocracyPanel {...lab} />
       </Leaf>
       <Leaf
-        title="🪪 Vote identitaire"
+        title={t('anchorBody.mechanisms.identity')}
         testid="mech-identity"
         prefetch={IdentityVotingPanel.preload}
       >

@@ -36,6 +36,27 @@ const fr = {
   },
 
   home: {
+    eyebrow: 'Vote Lab · laboratoire de théorie du vote',
+    h1Line1: 'La méthode décide,',
+    h1Line2: 'pas seulement les électeurs.',
+    heroLede:
+      'Mêmes bulletins, autre règle, autre gagnant. Changez la règle ci-contre — le vainqueur bascule sous vos yeux.',
+    ctaOpen: 'Ouvrir l’instrument',
+    ctaGuided: 'Parcours guidé',
+    reassure: 'Gratuit · sans compte · 15 méthodes · FR / EN',
+    heroInstrLabel: 'Carte idéologique — démo',
+    rulePick: 'Choisissez la règle',
+    heroWinner: 'Vainqueur',
+    heroFlip: '↔ bascule',
+    heroCapPlurality: 'La gauche se divise : Bob gagne avec une minorité.',
+    heroCapRunoff: 'Au second tour, la gauche se reporte sur Alice.',
+    heroCapApproval: 'Largement approuvée, Carol fait consensus.',
+    journeyKicker: 'Le parcours',
+    journeyTitle: 'Un instrument, cinq temps.',
+    journeyLede:
+      'Du plus simple au plus complexe — chaque temps allume un réglage de plus sur le même appareil.',
+    journeyCta: 'Commencer par l’électorat',
+    footMore: 'Aller plus loin',
     heroBadge: 'Laboratoire civique de la démocratie',
     heroTitle: 'Testez comment votre bulletin de vote change tout',
     heroParagraph:

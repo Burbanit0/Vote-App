@@ -67,7 +67,7 @@ describe('StructuralPanel (FC-2)', () => {
     fireEvent.click(screen.getByTestId('structural-run'));
     await waitFor(() => expect(screen.getByTestId('efficiency-gap-out')).toBeInTheDocument());
     expect(screen.getByTestId('efficiency-gap-out')).toHaveTextContent('12.0 %');
-    expect(screen.getByTestId('efficiency-gap-out')).toHaveTextContent('défavorise Gauche');
+    expect(screen.getByTestId('efficiency-gap-out')).toHaveTextContent('disfavours Gauche');
   });
 
   it('Penrose equalises citizen power across the three schemes', async () => {

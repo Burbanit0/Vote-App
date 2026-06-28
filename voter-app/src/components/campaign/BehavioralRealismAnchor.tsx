@@ -1,4 +1,5 @@
 import React from 'react';
+import { useTranslation } from 'react-i18next';
 import Leaf from '../playground/anchors/Leaf';
 import { lazyWithPreload } from '../../lib/lazyWithPreload';
 
@@ -21,56 +22,55 @@ const AffectivePolarizationPanel = lazyWithPreload(
   () => import('../shared/AffectivePolarizationPanel')
 );
 
-const BehavioralRealismAnchor: React.FC = () => (
-  <div className="flex flex-col gap-2">
-    <p className="text-[0.7rem] text-muted-foreground/80">
-      Le résultat du playground suppose des électeurs idéaux. Ici, le <strong>comportement</strong>{' '}
-      réel déforme <em>un même scrutin</em> — biais d’ordre, vote timide, surcharge de choix,
-      participation différentielle, polarisation affective. Chaque module se calcule à la demande.
-    </p>
-    <Leaf
-      title="📊 Biais de vote (ordre, ancrage)"
-      testid="breal-biases"
-      prefetch={BehavioralBiasPanel.preload}
-    >
-      <BehavioralBiasPanel />
-    </Leaf>
-    <Leaf
-      title="🤐 Électeur timide (effet Bradley)"
-      testid="breal-shyvoter"
-      prefetch={ShyVoterPanel.preload}
-    >
-      <ShyVoterPanel />
-    </Leaf>
-    <Leaf
-      title="🤯 Surcharge de choix"
-      testid="breal-overload"
-      prefetch={ChoiceOverloadPanel.preload}
-    >
-      <ChoiceOverloadPanel />
-    </Leaf>
-    <Leaf
-      title="🗳️ Vote obligatoire"
-      testid="breal-compulsory"
-      prefetch={CompulsoryVotingPanel.preload}
-    >
-      <CompulsoryVotingPanel />
-    </Leaf>
-    <Leaf
-      title="👥 Participation par démographie"
-      testid="breal-demographic"
-      prefetch={DemographicTurnoutPanel.preload}
-    >
-      <DemographicTurnoutPanel />
-    </Leaf>
-    <Leaf
-      title="🔥 Polarisation affective"
-      testid="breal-affective"
-      prefetch={AffectivePolarizationPanel.preload}
-    >
-      <AffectivePolarizationPanel />
-    </Leaf>
-  </div>
-);
+const BehavioralRealismAnchor: React.FC = () => {
+  const { t } = useTranslation('playground');
+  return (
+    <div className="flex flex-col gap-2">
+      <p className="text-[0.7rem] text-muted-foreground/80">{t('anchorBody.breal.intro')}</p>
+      <Leaf
+        title={t('anchorBody.breal.biases')}
+        testid="breal-biases"
+        prefetch={BehavioralBiasPanel.preload}
+      >
+        <BehavioralBiasPanel />
+      </Leaf>
+      <Leaf
+        title={t('anchorBody.breal.shyvoter')}
+        testid="breal-shyvoter"
+        prefetch={ShyVoterPanel.preload}
+      >
+        <ShyVoterPanel />
+      </Leaf>
+      <Leaf
+        title={t('anchorBody.breal.overload')}
+        testid="breal-overload"
+        prefetch={ChoiceOverloadPanel.preload}
+      >
+        <ChoiceOverloadPanel />
+      </Leaf>
+      <Leaf
+        title={t('anchorBody.breal.compulsory')}
+        testid="breal-compulsory"
+        prefetch={CompulsoryVotingPanel.preload}
+      >
+        <CompulsoryVotingPanel />
+      </Leaf>
+      <Leaf
+        title={t('anchorBody.breal.demographic')}
+        testid="breal-demographic"
+        prefetch={DemographicTurnoutPanel.preload}
+      >
+        <DemographicTurnoutPanel />
+      </Leaf>
+      <Leaf
+        title={t('anchorBody.breal.affective')}
+        testid="breal-affective"
+        prefetch={AffectivePolarizationPanel.preload}
+      >
+        <AffectivePolarizationPanel />
+      </Leaf>
+    </div>
+  );
+};
 
 export default BehavioralRealismAnchor;

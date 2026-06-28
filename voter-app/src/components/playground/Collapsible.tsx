@@ -60,7 +60,7 @@ const Collapsible: React.FC<CollapsibleProps> = ({
           {title}
         </span>
         {subtitle && !open && (
-          <span className="truncate text-xs font-normal text-muted-foreground/70">{subtitle}</span>
+          <span className="truncate text-xs font-normal text-muted-foreground">{subtitle}</span>
         )}
       </button>
       {open && <div className="border-t border-border p-3">{children}</div>}

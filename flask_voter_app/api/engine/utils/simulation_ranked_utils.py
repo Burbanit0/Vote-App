@@ -199,7 +199,9 @@ def get_irv_winner(votes: list[Any], blank_candidate_name: str = "") -> Optional
         candidates.update(_get_ranking(vote, is_dict))
 
     while len(candidates) > 1:
-        votes_count: "Counter[Any]" = Counter()
+        # Seed every surviving candidate at 0 so a candidate with no first-prefs
+        # this round is still eliminable (not silently protected).
+        votes_count: "Counter[Any]" = Counter({c: 0 for c in candidates})
         for vote in votes:
             ranking = _get_ranking(vote, is_dict)
             for candidate in ranking:
@@ -213,10 +215,13 @@ def get_irv_winner(votes: list[Any], blank_candidate_name: str = "") -> Optional
             if count > majority:
                 return str(candidate)
 
-        if not votes_count:
-            break
+        # Eliminate ALL candidates tied for the fewest first-prefs (neutral,
+        # candidate-order-independent). If that is everyone, it's a dead tie.
         min_votes = min(votes_count.values())
-        for candidate in [c for c, v in votes_count.items() if v == min_votes]:
+        eliminated = [c for c, v in votes_count.items() if v == min_votes]
+        if len(eliminated) >= len(candidates):
+            return None
+        for candidate in eliminated:
             candidates.remove(candidate)
 
     return candidates.pop() if candidates else None
@@ -236,18 +241,33 @@ def get_coombs_winner(votes: list[Any], blank_candidate_name: str = "") -> Optio
         candidates.update(_get_ranking(vote, is_dict))
 
     while len(candidates) > 1:
+        first_choices: "Counter[Any]" = Counter()
         last_choices: "Counter[Any]" = Counter()
         for vote in votes:
             ranking = _get_ranking(vote, is_dict)
+            for candidate in ranking:
+                if candidate in candidates:
+                    first_choices[candidate] += 1
+                    break
             for candidate in reversed(ranking):
                 if candidate in candidates:
                     last_choices[candidate] += 1
                     break
 
+        # Standard Coombs stops as soon as a candidate holds a first-pref majority.
+        majority = sum(first_choices.values()) / 2
+        for candidate, count in first_choices.items():
+            if count > majority:
+                return str(candidate)
+
         if not last_choices:
             break
+        # Eliminate ALL candidates tied for the most last-place votes (neutral).
         max_last = max(last_choices.values())
-        for candidate in [c for c, v in last_choices.items() if v == max_last]:
+        eliminated = [c for c, v in last_choices.items() if v == max_last]
+        if len(eliminated) >= len(candidates):
+            return None
+        for candidate in eliminated:
             candidates.remove(candidate)
 
     return candidates.pop() if candidates else None
@@ -359,26 +379,30 @@ def get_kemeny_young_winner(votes: list[Any], **kwargs: Any) -> Optional[str]:
 def get_bucklin_winner(votes: list[Any], blank_candidate_name: str = "") -> Optional[str]:
     """
     Determine the Bucklin voting winner from a set of rankings.
+
+    Bucklin is CUMULATIVE: at round k, tally every candidate that appears in a
+    voter's top-k choices (counts carry over between rounds). The first round in
+    which a candidate exceeds a majority decides it — the highest tally among
+    those over the threshold wins.
     :param votes: A list of rankings (see get_condorcet_winner for format)
     :return: The name of the Bucklin winner
     """
     if not votes:
         return None
     is_dict = _is_dict_format(votes)
-    max_rank = max(len(_get_ranking(vote, is_dict)) for vote in votes)
+    rankings = [_get_ranking(vote, is_dict) for vote in votes]
+    max_rank = max(len(ranking) for ranking in rankings)
     majority = len(votes) / 2
     votes_count: "Counter[Any]" = Counter()
 
     for rank in range(1, max_rank + 1):
-        votes_count = Counter()
-        for vote in votes:
-            ranking = _get_ranking(vote, is_dict)
+        for ranking in rankings:
             if len(ranking) >= rank:
                 votes_count[ranking[rank - 1]] += 1
 
-        winners = [c for c, v in votes_count.items() if v > majority]
-        if winners:
-            return str(winners[0])
+        over_majority = [(c, v) for c, v in votes_count.items() if v > majority]
+        if over_majority:
+            return str(max(over_majority, key=lambda cv: cv[1])[0])
 
     return str(max(votes_count.items(), key=lambda x: x[1])[0]) if votes_count else None
 
@@ -428,39 +452,51 @@ def get_schulze_winner(votes: list[Any], blank_candidate_name: str = "") -> Opti
     if not votes:
         return None
     is_dict = _is_dict_format(votes)
-    candidates = set()
+    candidates: list[Any] = []
+    seen: set[Any] = set()
     for vote in votes:
-        candidates.update(_get_ranking(vote, is_dict))
+        for c in _get_ranking(vote, is_dict):
+            if c not in seen:
+                seen.add(c)
+                candidates.append(c)
+    if not candidates:
+        return None
 
-    pref: "defaultdict[Any, defaultdict[Any, int]]" = defaultdict(lambda: defaultdict(int))
+    # Pairwise preference counts d[a][b] = # voters ranking a above b.
+    d = {a: {b: 0 for b in candidates} for a in candidates}
     for c1, c2 in combinations(candidates, 2):
         for vote in votes:
             ranking = _get_ranking(vote, is_dict)
             pos1 = ranking.index(c1) if c1 in ranking else float("inf")
             pos2 = ranking.index(c2) if c2 in ranking else float("inf")
             if pos1 < pos2:
-                pref[c1][c2] += 1
+                d[c1][c2] += 1
             elif pos2 < pos1:
-                pref[c2][c1] += 1
+                d[c2][c1] += 1
 
-    strength: "defaultdict[Any, defaultdict[Any, int]]" = defaultdict(lambda: defaultdict(int))
+    # Strongest paths: keep only the winning direction, then widest-path
+    # Floyd–Warshall with the intermediate node `i` as the OUTERMOST loop.
+    p = {a: {b: 0 for b in candidates} for a in candidates}
     for c1, c2 in combinations(candidates, 2):
-        strength[c1][c2] = pref[c1][c2]
-        strength[c2][c1] = pref[c2][c1]
+        if d[c1][c2] > d[c2][c1]:
+            p[c1][c2] = d[c1][c2]
+        elif d[c2][c1] > d[c1][c2]:
+            p[c2][c1] = d[c2][c1]
 
-    for c1, c2, c3 in permutations(candidates, 3):
-        strength[c1][c2] = max(strength[c1][c2], min(strength[c1][c3], strength[c3][c2]))
+    for i in candidates:
+        for j in candidates:
+            if j == i:
+                continue
+            for k in candidates:
+                if k != i and k != j:
+                    p[j][k] = max(p[j][k], min(p[j][i], p[i][k]))
 
-    wins: "defaultdict[Any, int]" = defaultdict(int)
-    for c1, c2 in combinations(candidates, 2):
-        if strength[c1][c2] > strength[c2][c1]:
-            wins[c1] += 1
-        elif strength[c2][c1] > strength[c1][c2]:
-            wins[c2] += 1
-
-    if not wins:
-        return next(iter(candidates), None)
-    return str(max(wins.items(), key=lambda x: x[1])[0])
+    # The Schulze winner's strongest path to every other candidate is at least as
+    # strong as the reverse (at least one such candidate always exists).
+    for cand in candidates:
+        if all(p[cand][other] >= p[other][cand] for other in candidates if other != cand):
+            return str(cand)
+    return str(candidates[0])
 
 
 # ── New methods ────────────────────────────────────────────────────────────────

@@ -18,9 +18,9 @@ describe('NoShowParadox', () => {
     render(<NoShowParadox />);
     expect(screen.getByTestId('noshow-demo')).toBeInTheDocument();
     // At rest (nobody abstains) there is no paradox highlighted.
-    expect(screen.getByTestId('noshow-verdict')).not.toHaveTextContent(/Paradoxe/);
+    expect(screen.getByTestId('noshow-verdict')).not.toHaveTextContent(/Paradox/);
     // Move the slider to make C-supporters abstain → the paradox appears.
     fireEvent.change(screen.getByTestId('noshow-abstain'), { target: { value: '3' } });
-    expect(screen.getByTestId('noshow-verdict')).toHaveTextContent(/Paradoxe/);
+    expect(screen.getByTestId('noshow-verdict')).toHaveTextContent(/Paradox/);
   });
 });
