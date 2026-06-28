@@ -280,15 +280,66 @@ const ElectorateComposer: React.FC = () => {
                     ✕
                   </button>
                 </div>
-                {([
-                  { label: t('composer.colEcon'), key: 'x' as const, min: -1, max: 1, step: 0.05, fmt: (v: number) => v.toFixed(2) },
-                  { label: t('composer.colSocial'), key: 'y' as const, min: -1, max: 1, step: 0.05, fmt: (v: number) => v.toFixed(2) },
-                  ...(dims >= 3 ? [{ label: t('composer.colZ', { defaultValue: 'Axe 3' }), key: 'z' as const, min: -1, max: 1, step: 0.05, fmt: (v: number) => v.toFixed(2) }] : []),
-                  { label: t('composer.colSpread'), key: 'spread' as const, min: 0.05, max: 0.6, step: 0.01, fmt: (v: number) => v.toFixed(2) },
-                  { label: t('composer.colSize'), key: 'weight' as const, min: 0, max: 5, step: 0.1, fmt: (v: number) => v.toFixed(1) },
-                  { label: t('composer.colTurnout', { defaultValue: 'Participation' }), key: 'turnout' as const, min: 0, max: 1, step: 0.05, fmt: (v: number) => `${Math.round(v * 100)} %` },
-                ] as const).map((s) => (
-                  <label key={s.key} className="flex items-center gap-2 text-[0.7rem] text-muted-foreground">
+                {(
+                  [
+                    {
+                      label: t('composer.colEcon'),
+                      key: 'x' as const,
+                      min: -1,
+                      max: 1,
+                      step: 0.05,
+                      fmt: (v: number) => v.toFixed(2),
+                    },
+                    {
+                      label: t('composer.colSocial'),
+                      key: 'y' as const,
+                      min: -1,
+                      max: 1,
+                      step: 0.05,
+                      fmt: (v: number) => v.toFixed(2),
+                    },
+                    ...(dims >= 3
+                      ? [
+                          {
+                            label: t('composer.colZ', { defaultValue: 'Axe 3' }),
+                            key: 'z' as const,
+                            min: -1,
+                            max: 1,
+                            step: 0.05,
+                            fmt: (v: number) => v.toFixed(2),
+                          },
+                        ]
+                      : []),
+                    {
+                      label: t('composer.colSpread'),
+                      key: 'spread' as const,
+                      min: 0.05,
+                      max: 0.6,
+                      step: 0.01,
+                      fmt: (v: number) => v.toFixed(2),
+                    },
+                    {
+                      label: t('composer.colSize'),
+                      key: 'weight' as const,
+                      min: 0,
+                      max: 5,
+                      step: 0.1,
+                      fmt: (v: number) => v.toFixed(1),
+                    },
+                    {
+                      label: t('composer.colTurnout', { defaultValue: 'Participation' }),
+                      key: 'turnout' as const,
+                      min: 0,
+                      max: 1,
+                      step: 0.05,
+                      fmt: (v: number) => `${Math.round(v * 100)} %`,
+                    },
+                  ] as const
+                ).map((s) => (
+                  <label
+                    key={s.key}
+                    className="flex items-center gap-2 text-[0.7rem] text-muted-foreground"
+                  >
                     <span className="w-20 shrink-0 truncate">{s.label}</span>
                     <input
                       data-testid={`community-${s.key}-${c.id}`}
