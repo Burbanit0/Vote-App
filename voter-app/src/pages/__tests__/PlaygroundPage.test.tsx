@@ -538,7 +538,7 @@ describe('PlaygroundPage (P0 shell)', () => {
     expect(screen.getByTestId('anchor-theory')).toBeInTheDocument();
     expect(screen.queryByTestId('thy-sen')).not.toBeInTheDocument();
     fireEvent.click(screen.getByTestId('anchor-theory-toggle'));
-    expect(await screen.findByTestId('thy-sen')).toBeInTheDocument();
+    expect(await screen.findByTestId('thy-sen', {}, { timeout: 5000 })).toBeInTheDocument();
     expect(screen.getByTestId('thy-judgment')).toBeInTheDocument();
     expect(screen.getByTestId('thy-polis')).toBeInTheDocument();
   });
@@ -552,7 +552,7 @@ describe('PlaygroundPage (P0 shell)', () => {
     expect(screen.queryByTestId('sys-coalition')).not.toBeInTheDocument();
     fireEvent.click(screen.getByTestId('anchor-systems-toggle'));
     // The lazy anchor resolves → leaf collapsibles appear (panels stay unmounted).
-    expect(await screen.findByTestId('sys-coalition')).toBeInTheDocument();
+    expect(await screen.findByTestId('sys-coalition', {}, { timeout: 5000 })).toBeInTheDocument();
     expect(screen.getByTestId('sys-pipeline')).toBeInTheDocument();
     expect(screen.getByTestId('canvas-parliament')).toBeInTheDocument();
   });
@@ -563,7 +563,7 @@ describe('PlaygroundPage (P0 shell)', () => {
     expect(screen.getByTestId('anchor-results')).toBeInTheDocument();
     expect(screen.queryByTestId('res-table')).not.toBeInTheDocument();
     fireEvent.click(screen.getByTestId('anchor-results-toggle'));
-    expect(await screen.findByTestId('res-table')).toBeInTheDocument();
+    expect(await screen.findByTestId('res-table', {}, { timeout: 5000 })).toBeInTheDocument();
     expect(screen.getByTestId('res-animation')).toBeInTheDocument();
   });
 

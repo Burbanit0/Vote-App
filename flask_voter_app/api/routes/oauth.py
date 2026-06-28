@@ -148,7 +148,7 @@ async def google_login(
 
     try:
         info = google_id_token.verify_oauth2_token(  # type: ignore[no-untyped-call]
-            body.token, google_requests.Request(), settings.google_client_id,
+            body.token, google_requests.Request(), settings.google_client_id,  # type: ignore[no-untyped-call]
         )
     except ValueError as exc:
         raise HTTPException(
