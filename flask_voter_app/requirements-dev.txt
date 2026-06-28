@@ -18,6 +18,6 @@ pip-audit==2.9.0     # Dependency CVE scan
 
 # Code quality
 flake8==7.2.0
-mypy==1.16.0         # Static type checking
+mypy==2.1.0          # Static type checking
 types-redis==4.6.0.20241004  # Redis type stubs
 types-requests==2.32.0.20250328  # Requests type stubs
