@@ -285,6 +285,17 @@ const pgEn: PlaygroundKeys = {
   },
   method: {
     note: 'The counting rule and the view are chosen directly on the instrument →. Here, set what the voter is allowed to express.',
+    multiSelectNote:
+      'Check the methods to compare. Only checked methods appear in the verdict and the values chart.',
+    family: {
+      majoritarian: 'Majoritarian',
+      positional: 'Positional',
+      condorcet: 'Condorcet',
+      cardinal: 'Cardinal',
+      other: 'Other',
+    },
+    selectAll: 'Select all',
+    enabledCount: '{{count}} / {{total}} methods active',
     ballotTitle: 'Ballot (expression)',
     ballotTypeLabel: 'Ballot type',
     ballot: {
@@ -768,6 +779,10 @@ const pgEn: PlaygroundKeys = {
     results: {
       title: '📋 Full results',
       subtitle: 'detailed tally, animated count',
+    },
+    ballot: {
+      title: '🗳️ Ballot configuration (expression)',
+      subtitle: 'ballot type, expressiveness, cognitive load, blank-vote divergence',
     },
   },
 };

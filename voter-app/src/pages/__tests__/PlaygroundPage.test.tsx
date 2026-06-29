@@ -265,29 +265,18 @@ describe('PlaygroundPage (P0 shell)', () => {
     expect(screen.getByTestId('lens-item-pr')).not.toHaveTextContent('dropped');
   });
 
-  // ── FA-1 : la couche bulletin ─────────────────────────────────────────────
+  // ── Method moment: multi-select rule checkboxes ──────────────────────────
 
-  it('the ballot selector persists and reveals the truncation slider', () => {
+  it('the method moment shows rule checkboxes and toggling updates the set', () => {
     renderPage();
     fireEvent.click(screen.getByTestId('moment-method'));
-    fireEvent.change(screen.getByTestId('ballot-select'), {
-      target: { value: 'rank_truncated' },
-    });
-    expect(useElectionStore.getState().playground.ballot.type).toBe('rank_truncated');
-    expect(JSON.parse(localStorage.getItem(LS_PG) as string).ballot.type).toBe('rank_truncated');
-    fireEvent.change(screen.getByTestId('ballot-truncate'), { target: { value: '2' } });
-    expect(useElectionStore.getState().playground.ballot.truncate_at).toBe(2);
-  });
-
-  it('shows the sample ballot, the expressiveness/load trade-off and the winner flips', async () => {
-    renderPage();
-    fireEvent.click(screen.getByTestId('moment-method'));
-    await waitFor(() => expect(screen.getByTestId('ballot-preview')).toBeInTheDocument());
-    expect(screen.getByTestId('ballot-preview').textContent).toContain('A 1');
-    expect(screen.getByTestId('ballot-tradeoff')).toHaveTextContent('Expressiveness');
-    expect(screen.getByTestId('ballot-tradeoff')).toHaveTextContent('Cognitive load');
-    expect(screen.getByTestId('ballot-flips')).toHaveTextContent('2 methods');
-    expect(screen.getByTestId('ballot-flips')).toHaveTextContent('irv, borda');
+    const pluralityCheck = screen.getByTestId('rule-check-plurality').querySelector('input')!;
+    expect(pluralityCheck.checked).toBe(true);
+    fireEvent.click(pluralityCheck);
+    expect(pluralityCheck.checked).toBe(false);
+    // Select-all restores it
+    fireEvent.click(screen.getByTestId('rules-select-all'));
+    expect(pluralityCheck.checked).toBe(true);
   });
 
   // ── FC-1 : manipulation, principe vs pratique ────────────────────────────
@@ -429,7 +418,9 @@ describe('PlaygroundPage (P0 shell)', () => {
     renderPage();
     fireEvent.click(screen.getByTestId('module-electorate-toggle'));
     fireEvent.click(screen.getByTestId('electorate-mode-composed'));
-    fireEvent.change(screen.getByTestId('electorate-preset-select'), { target: { value: 'fragmented' } });
+    fireEvent.change(screen.getByTestId('electorate-preset-select'), {
+      target: { value: 'fragmented' },
+    });
 
     const e1 = useElectionStore.getState().playground.electorate;
     expect(e1.mode).toBe('composed');

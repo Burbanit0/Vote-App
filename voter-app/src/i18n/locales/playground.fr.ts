@@ -289,6 +289,17 @@ const pgFr = {
   },
   method: {
     note: 'La règle de décompte et la vue se choisissent directement sur l’instrument →. Ici, réglez ce que l’électeur peut exprimer.',
+    multiSelectNote:
+      'Cochez les méthodes à comparer. Seules les méthodes cochées apparaissent dans le bilan et la carte des valeurs.',
+    family: {
+      majoritarian: 'Majoritaires',
+      positional: 'Positionnelles',
+      condorcet: 'Condorcet',
+      cardinal: 'Cardinales',
+      other: 'Autres',
+    },
+    selectAll: 'Tout cocher',
+    enabledCount: '{{count}} / {{total}} méthodes actives',
     ballotTitle: 'Bulletin (expression)',
     ballotTypeLabel: 'Type de bulletin',
     ballot: {
@@ -777,6 +788,10 @@ const pgFr = {
     results: {
       title: '📋 Résultats complets',
       subtitle: 'dépouillement détaillé, animation du comptage',
+    },
+    ballot: {
+      title: '🗳️ Bulletin de vote (expression)',
+      subtitle: 'type de bulletin, expressivité, charge cognitive, divergence du vote blanc',
     },
   },
 };
