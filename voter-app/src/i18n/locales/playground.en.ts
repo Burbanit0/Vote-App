@@ -393,6 +393,8 @@ const pgEn: PlaygroundKeys = {
     majoritarian: 'Majoritarian (decisive)',
     consensualist: 'Consensualist (inclusive)',
     bandNote: '{{count}} resamples',
+    labCtaNote: 'Paradoxes, theory, mechanisms, temporal dynamics…',
+    labCta: '→ Explore further in the Lab',
   },
   realElection: {
     title: '🗳 Reality check: a real election',

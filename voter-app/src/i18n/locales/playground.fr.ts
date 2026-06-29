@@ -402,6 +402,8 @@ const pgFr = {
     majoritarian: 'Majoritaire (décisif)',
     consensualist: 'Consensualiste (inclusif)',
     bandNote: '{{count}} ré-échantillonnages',
+    labCtaNote: 'Paradoxes, théorie, mécanismes, dynamiques temporelles…',
+    labCta: '→ Approfondir dans le Laboratoire',
   },
   realElection: {
     title: '🗳 Épreuve du réel : un vrai scrutin',

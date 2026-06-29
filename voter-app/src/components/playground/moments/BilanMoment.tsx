@@ -1,5 +1,6 @@
 import React from 'react';
 import { useTranslation } from 'react-i18next';
+import { Link } from 'react-router';
 import { usePlaygroundCtx } from '../PlaygroundController';
 import Scorecard from '../Scorecard';
 import MethodInfo from '../MethodInfo';
@@ -54,6 +55,19 @@ const BilanMoment: React.FC = () => {
       <hr className="border-border" />
 
       <FullResultsModule />
+
+      <hr className="border-border" />
+
+      <div className="text-center">
+        <p className="text-xs text-muted-foreground">{t('bilan.labCtaNote')}</p>
+        <Link
+          to="/laboratoire"
+          data-testid="bilan-lab-link"
+          className="mt-1 inline-block text-sm text-primary hover:underline"
+        >
+          {t('bilan.labCta')}
+        </Link>
+      </div>
     </div>
   );
 };
