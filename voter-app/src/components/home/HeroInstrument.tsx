@@ -133,11 +133,11 @@ const HeroInstrument: React.FC = () => {
       readout={<span className="text-[0.62rem]">158 · 3 · {VOTERS.length > 0 ? '2D' : ''}</span>}
       className="w-full"
     >
-      <div className="flex flex-col gap-3">
+      <div className="flex flex-col gap-2">
         {/* The screen: ideology map */}
         <svg
           viewBox="0 0 100 100"
-          className="w-full rounded bg-background"
+          className="w-full max-h-[27vh] rounded bg-background"
           role="img"
           aria-label={`${t('home.heroInstrLabel')} — ${win.name}`}
         >
@@ -215,7 +215,7 @@ const HeroInstrument: React.FC = () => {
         </svg>
 
         {/* Rule selector */}
-        <div className="flex flex-col gap-1.5">
+        <div className="flex flex-col gap-1">
           <span className="font-mono text-[0.62rem] uppercase tracking-[0.14em] text-muted-foreground">
             {t('home.rulePick')}
           </span>
@@ -233,7 +233,7 @@ const HeroInstrument: React.FC = () => {
                 data-testid={`hero-rule-${r}`}
                 onClick={() => setRule(r)}
                 className={cn(
-                  'flex min-h-11 items-center justify-center truncate rounded-md px-2 text-xs font-medium transition-colors',
+                  'flex min-h-8 items-center justify-center truncate rounded-md px-2 text-xs font-medium transition-colors',
                   rule === r
                     ? 'bg-primary text-primary-foreground shadow-sm'
                     : 'text-muted-foreground hover:text-foreground'
@@ -246,7 +246,7 @@ const HeroInstrument: React.FC = () => {
         </div>
 
         {/* Winner readout + per-candidate tally */}
-        <div className="rounded-lg border border-border bg-card p-2.5">
+        <div className="rounded-lg border border-border bg-card p-2">
           <div className="flex items-baseline justify-between">
             <span className="font-mono text-[0.62rem] uppercase tracking-[0.16em] text-muted-foreground">
               {t('home.heroWinner')}
@@ -257,22 +257,18 @@ const HeroInstrument: React.FC = () => {
               </span>
             )}
           </div>
-          <div
-            key={win.name}
-            aria-live="polite"
-            className="hero-pop mt-0.5 flex items-center gap-2"
-          >
+          <div key={win.name} aria-live="polite" className="hero-pop flex items-center gap-2">
             <span className="inline-block h-3 w-3 rounded-full" style={{ background: win.color }} />
             <span
               data-testid="hero-winner"
-              className="font-display text-2xl font-bold leading-none"
+              className="font-display text-xl font-bold leading-none"
               style={{ color: win.color }}
             >
               {win.name}
             </span>
           </div>
 
-          <div className="mt-2.5 flex flex-col gap-1">
+          <div className="mt-1.5 flex flex-col gap-0.5">
             {CANDIDATES.map((c, i) => (
               <div key={c.name} className="flex items-center gap-2 text-[0.7rem]">
                 <span className="w-10 shrink-0 text-muted-foreground">{c.name}</span>
@@ -294,7 +290,7 @@ const HeroInstrument: React.FC = () => {
             ))}
           </div>
 
-          <p className="mt-2 text-[0.72rem] leading-snug text-muted-foreground">
+          <p className="mt-1 text-[0.72rem] leading-snug text-muted-foreground">
             {t(CAP_KEY[rule])}
           </p>
         </div>
