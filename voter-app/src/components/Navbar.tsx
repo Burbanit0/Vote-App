@@ -22,6 +22,7 @@ const NAV_LEARN = [
 ];
 
 const NAV_EXPLORE = [
+  { href: '/laboratoire', icon: '🔬', key: 'nav.laboratoire' },
   { href: '/what-if', icon: '🔮', key: 'nav.whatIf' },
   { href: '/quadratic-funding', icon: '💰', key: 'nav.quadraticFunding' },
   { href: '/tech-democracy', icon: '💻', key: 'nav.techDemocracy' },

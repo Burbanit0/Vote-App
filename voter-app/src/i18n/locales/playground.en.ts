@@ -25,31 +25,6 @@ const pgEn: PlaygroundKeys = {
     moment: 'Moment {{n}} / {{total}}',
     next: '{{label}} →',
   },
-  explore: {
-    heading: 'Go further',
-  },
-  anchors: {
-    mechanisms: {
-      title: '⚙️ Other decision procedures',
-      subtitle: '11 mechanisms (jury, sortition, delegation…)',
-    },
-    systems: {
-      title: '🔬 Systems & districts',
-      subtitle: '7 views (coalitions, districts, gerrymander…)',
-    },
-    results: {
-      title: '📋 Full results (tally)',
-      subtitle: 'every method · animation',
-    },
-    analysis: {
-      title: '🔬 Deep analysis of the current result',
-      subtitle: 'distributions · regret · manipulability',
-    },
-    theory: {
-      title: '🔬 Social-choice theory & paradoxes',
-      subtitle: 'Sen · judgment · McKelvey · power · democratic backsliding…',
-    },
-  },
   common: {
     loading: 'Loading…',
     candidates: 'candidates',
@@ -249,8 +224,10 @@ const pgEn: PlaygroundKeys = {
     composeTitle: '🧭 Compose the electorate',
     composeSubComposed: '{{count}} communities · mixture',
     composeSubSimple: 'simple gaussian',
-    startLabel: 'Starting point (synthetic)',
+    startLabel: 'Starting point',
     summary: '{{points}} {{pointWord}} · {{voters}} voters · {{ideology}}',
+    advancedTitle: '⚙ Advanced settings',
+    advancedSubtitle: 'dimensions, source, valence, behavior, participation',
     dimsLabel: 'Dimensions of the space',
     dims1: '1D — a single axis',
     dims2: '2D — two axes',
@@ -283,6 +260,17 @@ const pgEn: PlaygroundKeys = {
   },
   method: {
     note: 'The counting rule and the view are chosen directly on the instrument →. Here, set what the voter is allowed to express.',
+    multiSelectNote:
+      'Check the methods to compare. Only checked methods appear in the verdict and the values chart.',
+    family: {
+      majoritarian: 'Majoritarian',
+      positional: 'Positional',
+      condorcet: 'Condorcet',
+      cardinal: 'Cardinal',
+      other: 'Other',
+    },
+    selectAll: 'Select all',
+    enabledCount: '{{count}} / {{total}} methods active',
     ballotTitle: 'Ballot (expression)',
     ballotTypeLabel: 'Ballot type',
     ballot: {
@@ -316,6 +304,7 @@ const pgEn: PlaygroundKeys = {
     sainteLague: 'Sainte-Laguë',
   },
   strategy: {
+    leaderOnly: 'Detailed strategic analysis is available in Leader mode.',
     sincereTitle: '🗳️ Sincere or tactical vote?',
     sincereHint: 'Your conviction, method by method — drag the “You” diamond on the map.',
     vulnTitle: '⚡ Strategic vulnerability (Gibbard–Satterthwaite)',
@@ -404,6 +393,8 @@ const pgEn: PlaygroundKeys = {
     majoritarian: 'Majoritarian (decisive)',
     consensualist: 'Consensualist (inclusive)',
     bandNote: '{{count}} resamples',
+    labCtaNote: 'Paradoxes, theory, mechanisms, temporal dynamics…',
+    labCta: '→ Explore further in the Lab',
   },
   realElection: {
     title: '🗳 Reality check: a real election',
@@ -433,7 +424,8 @@ const pgEn: PlaygroundKeys = {
     modeComposed: 'Composed (communities)',
     hintComposed: 'A mixture of blocs — edit each community below.',
     hintSimple: 'A single ideological cloud (the “ideology” setting).',
-    models: 'Templates:',
+    models: 'Template',
+    modelsPlaceholder: '— Pick a template —',
     corrTitle: 'Couples the social axis to the economic axis.',
     corr: 'Axis correlation: {{val}}',
     noiseTitle:
@@ -575,11 +567,6 @@ const pgEn: PlaygroundKeys = {
   campaign: {
     emptyPrompt:
       'First compose an electorate in moment ① Electorate, then come back to run a campaign.',
-    deepTitle: '🔬 In-depth explorations',
-    deepSub: 'trajectory · temporal mechanisms · behavioural realism',
-    deepTrajectory: '🎬 Dig into the trajectory',
-    deepMechanisms: '🔁 Mechanisms & behaviour over time',
-    deepRealism: '🧠 Behavioural realism (one election)',
   },
   instrument: {
     labelLeader: 'Ideology map — leader',
@@ -725,6 +712,58 @@ const pgEn: PlaygroundKeys = {
     random_ballot: {
       label: 'Strategyproof — strategy gains nothing',
       ref: 'Gibbard 1977 (only strategyproof rule, at the cost of chance)',
+    },
+  },
+
+  lab: {
+    eyebrow: 'VOTE LAB · ADVANCED ANALYSIS',
+    title: 'Lab',
+    intro:
+      'Deep-dive tools — paradoxes, social choice theory, alternative mechanisms, temporal dynamics. Set up an election in the Playground first, then explore here.',
+    backToPlayground: 'Back to Playground',
+    mechanisms: {
+      title: '⚙️ Alternative decision procedures',
+      subtitle: 'jury theorem, NOTA, liquid democracy, sortition…',
+    },
+    systems: {
+      title: '🏛 Electoral systems & districts',
+      subtitle: 'coalitions, STV, gerrymandering, pipeline…',
+    },
+    campaign: {
+      title: '🎬 Campaign trajectories',
+      subtitle: 'Hotelling, polls, polarization, party dynamics',
+    },
+    temporal: {
+      title: '🔁 Temporal mechanisms',
+      subtitle: 'adaptive voting, historical replay, primaries, cascade, fatigue',
+    },
+    behavioral: {
+      title: '🧠 Behavioral realism',
+      subtitle: 'biases, shy voter, choice overload, compulsory voting, affective polarization',
+    },
+    analysis: {
+      title: '🔬 Deep analysis',
+      subtitle: 'Monte Carlo, manipulability, collective will, combined effects',
+    },
+    theory: {
+      title: '📚 Social choice theory & paradoxes',
+      subtitle: 'Sen, judgment, agenda, tyranny, apportionment, Pol.is',
+    },
+    results: {
+      title: '📋 Full results',
+      subtitle: 'detailed tally, animated count',
+    },
+    ballot: {
+      title: '🗳️ Ballot configuration (expression)',
+      subtitle: 'ballot type, expressiveness, cognitive load, blank-vote divergence',
+    },
+    strategy: {
+      title: '🎯 Deep strategic analysis',
+      subtitle: 'sincerity, Gibbard–Satterthwaite vulnerability, iterated equilibrium',
+    },
+    values: {
+      title: '⚖️ Values & sensitivity',
+      subtitle: 'Lijphart dial, Pareto frontier',
     },
   },
 };

@@ -4,7 +4,6 @@ import { cn } from '@/lib/utils';
 import { usePlayground, useElection } from '../../stores/useElectionStore';
 import { ELECTORATE_PRESETS } from '../../stores/useElectionStore';
 import { COMMUNITY_PALETTE, type Community } from '../../lib/playgroundElectorate';
-import ScenarioInfo from './ScenarioInfo';
 
 // ElectorateComposer (electorate engine) — build a varied electorate as a
 // mixture of communities, from textbook shapes to near-real compositions.
@@ -198,25 +197,25 @@ const ElectorateComposer: React.FC = () => {
 
       {composed && (
         <>
-          {/* Presets */}
-          <div className="flex flex-wrap items-center gap-1.5">
-            <span className="text-xs font-medium text-muted-foreground">
-              {t('composer.models')}
-            </span>
-            {Object.entries(ELECTORATE_PRESETS).map(([id, p]) => (
-              <span key={id} className="inline-flex items-center gap-0.5">
-                <button
-                  type="button"
-                  data-testid={`electorate-preset-${id}`}
-                  onClick={() => applyElectoratePreset(id)}
-                  className="rounded border border-border px-2 py-0.5 text-xs hover:bg-accent"
-                >
+          {/* Presets — dropdown instead of button row */}
+          <label className="flex items-center gap-2 text-xs">
+            <span className="w-44 shrink-0 text-muted-foreground">{t('composer.models')}</span>
+            <select
+              data-testid="electorate-preset-select"
+              className="min-w-0 flex-1 rounded-md border border-border bg-background px-2 py-1 text-xs"
+              value=""
+              onChange={(ev) => {
+                if (ev.target.value) applyElectoratePreset(ev.target.value);
+              }}
+            >
+              <option value="">{t('composer.modelsPlaceholder')}</option>
+              {Object.entries(ELECTORATE_PRESETS).map(([id, p]) => (
+                <option key={id} value={id}>
                   {p.label}
-                </button>
-                <ScenarioInfo scenario={id} kind="electorate" placement="bottom" />
-              </span>
-            ))}
-          </div>
+                </option>
+              ))}
+            </select>
+          </label>
 
           {/* Axis correlation */}
           <label className="flex items-center gap-2 text-xs">

@@ -46,6 +46,7 @@ function useController() {
 
   const dims = space.dims;
   const [leaderRule, setLeaderRule] = React.useState<Rule>('plurality');
+  const [enabledRules, setEnabledRules] = React.useState<Set<Rule>>(() => new Set(LEADER_RULES));
   // Central-map lens: the moment sets a sensible default (Méthode → critères,
   // Stratégie → manipulation, sinon vainqueur). The user can still override it on
   // the instrument within the current moment.
@@ -340,7 +341,7 @@ function useController() {
   const lensItems: LensItem[] =
     mode === 'leader'
       ? leaderSc
-        ? LEADER_RULES.map((r) => ({ id: r, axes: leaderSc[r] }))
+        ? LEADER_RULES.filter((r) => enabledRules.has(r)).map((r) => ({ id: r, axes: leaderSc[r] }))
         : []
       : parlSc
         ? Object.keys(structureLabels).map((s) => ({ id: s, axes: parlSc.structures[s] }))
@@ -375,6 +376,8 @@ function useController() {
     dims,
     leaderRule,
     setLeaderRule,
+    enabledRules,
+    setEnabledRules,
     lens,
     setLens,
     youPos,

@@ -29,31 +29,6 @@ const pgFr = {
     moment: 'Moment {{n}} / {{total}}',
     next: '{{label}} →',
   },
-  explore: {
-    heading: 'Pour aller plus loin',
-  },
-  anchors: {
-    mechanisms: {
-      title: '⚙️ Autres procédures de décision',
-      subtitle: '11 mécanismes (jury, sortition, délégation…)',
-    },
-    systems: {
-      title: '🔬 Systèmes & circonscriptions',
-      subtitle: '7 vues (coalitions, districts, gerrymander…)',
-    },
-    results: {
-      title: '📋 Résultats complets (dépouillement)',
-      subtitle: 'toutes les méthodes · animation',
-    },
-    analysis: {
-      title: '🔬 Analyse approfondie du résultat courant',
-      subtitle: 'distributions · regret · manipulabilité',
-    },
-    theory: {
-      title: '🔬 Théorie & paradoxes du choix social',
-      subtitle: 'Sen · jugements · McKelvey · pouvoir · recul démocratique…',
-    },
-  },
   common: {
     loading: 'Chargement…',
     candidates: 'candidats',
@@ -253,8 +228,10 @@ const pgFr = {
     composeTitle: '🧭 Composer l’électorat',
     composeSubComposed: '{{count}} communautés · mélange',
     composeSubSimple: 'gaussien simple',
-    startLabel: 'Point de départ (synthétique)',
+    startLabel: 'Point de départ',
     summary: '{{points}} {{pointWord}} · {{voters}} électeurs · {{ideology}}',
+    advancedTitle: '⚙ Réglages avancés',
+    advancedSubtitle: 'dimensions, source, valence, comportement, participation',
     dimsLabel: 'Dimensions de l’espace',
     dims1: '1D — un seul axe',
     dims2: '2D — deux axes',
@@ -287,6 +264,17 @@ const pgFr = {
   },
   method: {
     note: 'La règle de décompte et la vue se choisissent directement sur l’instrument →. Ici, réglez ce que l’électeur peut exprimer.',
+    multiSelectNote:
+      'Cochez les méthodes à comparer. Seules les méthodes cochées apparaissent dans le bilan et la carte des valeurs.',
+    family: {
+      majoritarian: 'Majoritaires',
+      positional: 'Positionnelles',
+      condorcet: 'Condorcet',
+      cardinal: 'Cardinales',
+      other: 'Autres',
+    },
+    selectAll: 'Tout cocher',
+    enabledCount: '{{count}} / {{total}} méthodes actives',
     ballotTitle: 'Bulletin (expression)',
     ballotTypeLabel: 'Type de bulletin',
     ballot: {
@@ -323,6 +311,7 @@ const pgFr = {
     sainteLague: 'Sainte-Laguë',
   },
   strategy: {
+    leaderOnly: 'L’analyse stratégique détaillée est disponible en mode Dirigeant.',
     sincereTitle: '🗳️ Vote sincère ou vote utile ?',
     sincereHint:
       'Votre conviction, méthode par méthode — glissez le losange « Vous » sur la carte.',
@@ -413,6 +402,8 @@ const pgFr = {
     majoritarian: 'Majoritaire (décisif)',
     consensualist: 'Consensualiste (inclusif)',
     bandNote: '{{count}} ré-échantillonnages',
+    labCtaNote: 'Paradoxes, théorie, mécanismes, dynamiques temporelles…',
+    labCta: '→ Approfondir dans le Laboratoire',
   },
   realElection: {
     title: '🗳 Épreuve du réel : un vrai scrutin',
@@ -442,7 +433,8 @@ const pgFr = {
     modeComposed: 'Composé (communautés)',
     hintComposed: 'Mélange de blocs — édite chaque communauté ci-dessous.',
     hintSimple: 'Nuage idéologique unique (réglage « idéologie »).',
-    models: 'Modèles :',
+    models: 'Modèle',
+    modelsPlaceholder: '— Choisir un modèle —',
     corrTitle: 'Couple l’axe sociétal à l’axe économique.',
     corr: 'Corrélation des axes : {{val}}',
     noiseTitle:
@@ -584,11 +576,6 @@ const pgFr = {
   campaign: {
     emptyPrompt:
       'Composez d’abord un électorat dans le moment ① Électorat, puis revenez lancer une campagne.',
-    deepTitle: '🔬 Explorations approfondies',
-    deepSub: 'trajectoire · mécanismes temporels · réalisme comportemental',
-    deepTrajectory: '🎬 Approfondir la trajectoire',
-    deepMechanisms: '🔁 Mécanismes & comportements dans le temps',
-    deepRealism: '🧠 Réalisme comportemental (un scrutin)',
   },
   instrument: {
     labelLeader: 'Carte idéologique — dirigeant',
@@ -734,6 +721,58 @@ const pgFr = {
     random_ballot: {
       label: 'Inmanipulable — la stratégie n’apporte rien',
       ref: 'Gibbard 1977 (seule règle non-manipulable, au prix du hasard)',
+    },
+  },
+
+  lab: {
+    eyebrow: 'VOTE LAB · ANALYSES AVANCÉES',
+    title: 'Laboratoire',
+    intro:
+      "Outils d'exploration approfondie — paradoxes, théorie du choix social, mécanismes alternatifs, dynamiques temporelles. Configurez d'abord une élection dans le Playground, puis explorez ici.",
+    backToPlayground: 'Retour au Playground',
+    mechanisms: {
+      title: '⚙️ Procédures de décision alternatives',
+      subtitle: 'jury, NOTA, démocratie liquide, sortition…',
+    },
+    systems: {
+      title: '🏛 Systèmes électoraux & circonscriptions',
+      subtitle: 'coalitions, STV, charcutage, pipeline…',
+    },
+    campaign: {
+      title: '🎬 Trajectoires de campagne',
+      subtitle: 'Hotelling, sondages, polarisation, dynamique des partis',
+    },
+    temporal: {
+      title: '🔁 Mécanismes temporels',
+      subtitle: 'vote adaptatif, replay historique, primaires, cascade, fatigue',
+    },
+    behavioral: {
+      title: '🧠 Réalisme comportemental',
+      subtitle: 'biais, électeur timide, surcharge, vote obligatoire, polarisation affective',
+    },
+    analysis: {
+      title: '🔬 Analyse approfondie',
+      subtitle: 'Monte-Carlo, manipulabilité, volonté collective, effets combinés',
+    },
+    theory: {
+      title: '📚 Théorie & paradoxes du choix social',
+      subtitle: 'Sen, jugement, agenda, tyrannie, apportionnement, Pol.is',
+    },
+    results: {
+      title: '📋 Résultats complets',
+      subtitle: 'dépouillement détaillé, animation du comptage',
+    },
+    ballot: {
+      title: '🗳️ Bulletin de vote (expression)',
+      subtitle: 'type de bulletin, expressivité, charge cognitive, divergence du vote blanc',
+    },
+    strategy: {
+      title: '🎯 Analyse stratégique approfondie',
+      subtitle: 'sincérité, vulnérabilité Gibbard–Satterthwaite, équilibre itéré',
+    },
+    values: {
+      title: '⚖️ Valeurs & sensibilité',
+      subtitle: 'cadran Lijphart, frontière de Pareto',
     },
   },
 };
