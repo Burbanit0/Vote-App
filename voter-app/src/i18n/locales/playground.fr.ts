@@ -599,11 +599,6 @@ const pgFr = {
   campaign: {
     emptyPrompt:
       'Composez d’abord un électorat dans le moment ① Électorat, puis revenez lancer une campagne.',
-    deepTitle: '🔬 Explorations approfondies',
-    deepSub: 'trajectoire · mécanismes temporels · réalisme comportemental',
-    deepTrajectory: '🎬 Approfondir la trajectoire',
-    deepMechanisms: '🔁 Mécanismes & comportements dans le temps',
-    deepRealism: '🧠 Réalisme comportemental (un scrutin)',
   },
   instrument: {
     labelLeader: 'Carte idéologique — dirigeant',

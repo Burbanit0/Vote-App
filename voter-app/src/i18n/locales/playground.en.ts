@@ -590,11 +590,6 @@ const pgEn: PlaygroundKeys = {
   campaign: {
     emptyPrompt:
       'First compose an electorate in moment ① Electorate, then come back to run a campaign.',
-    deepTitle: '🔬 In-depth explorations',
-    deepSub: 'trajectory · temporal mechanisms · behavioural realism',
-    deepTrajectory: '🎬 Dig into the trajectory',
-    deepMechanisms: '🔁 Mechanisms & behaviour over time',
-    deepRealism: '🧠 Behavioural realism (one election)',
   },
   instrument: {
     labelLeader: 'Ideology map — leader',
