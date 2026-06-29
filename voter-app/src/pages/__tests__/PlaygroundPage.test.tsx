@@ -170,6 +170,7 @@ describe('PlaygroundPage (P0 shell)', () => {
 
   it('a knob change (dimensions) persists to the store', () => {
     renderPage();
+    fireEvent.click(screen.getByTestId('electorate-advanced-toggle'));
     fireEvent.change(screen.getByLabelText('Dimensions of the space'), { target: { value: '3' } });
 
     expect(useElectionStore.getState().playground.space.dims).toBe(3);
@@ -178,6 +179,7 @@ describe('PlaygroundPage (P0 shell)', () => {
 
   it('the dimension knob reshapes the leader canvas (1-D line, 3-D z controls)', () => {
     renderPage();
+    fireEvent.click(screen.getByTestId('electorate-advanced-toggle'));
     const dimsSelect = screen.getByLabelText('Dimensions of the space');
     // 2-D by default: no z controls, canvas tagged dims=2.
     expect(screen.getByTestId('leader-canvas')).toHaveAttribute('data-dims', '2');
@@ -322,6 +324,7 @@ describe('PlaygroundPage (P0 shell)', () => {
 
   it('the turnout control persists and the live rate drops under abstention', () => {
     renderPage();
+    fireEvent.click(screen.getByTestId('electorate-advanced-toggle'));
     fireEvent.change(screen.getByTestId('turnout-select'), { target: { value: 'alienation' } });
     expect(useElectionStore.getState().playground.turnout.model).toBe('alienation');
     expect(JSON.parse(localStorage.getItem(LS_PG) as string).turnout.model).toBe('alienation');
@@ -426,7 +429,7 @@ describe('PlaygroundPage (P0 shell)', () => {
     renderPage();
     fireEvent.click(screen.getByTestId('module-electorate-toggle'));
     fireEvent.click(screen.getByTestId('electorate-mode-composed'));
-    fireEvent.click(screen.getByTestId('electorate-preset-fragmented'));
+    fireEvent.change(screen.getByTestId('electorate-preset-select'), { target: { value: 'fragmented' } });
 
     const e1 = useElectionStore.getState().playground.electorate;
     expect(e1.mode).toBe('composed');
@@ -468,6 +471,7 @@ describe('PlaygroundPage (P0 shell)', () => {
     fireEvent.click(screen.getByTestId('electorate-mode-composed'));
     // 2-D by default: no z sliders.
     expect(screen.queryByTestId('community-z-g')).not.toBeInTheDocument();
+    fireEvent.click(screen.getByTestId('electorate-advanced-toggle'));
     fireEvent.change(screen.getByLabelText('Dimensions of the space'), { target: { value: '3' } });
     expect(screen.getByTestId('community-z-g')).toBeInTheDocument();
   });
@@ -517,7 +521,8 @@ describe('PlaygroundPage (P0 shell)', () => {
     // The old terminal catch-all is gone.
     expect(screen.queryByTestId('module-advanced')).not.toBeInTheDocument();
     // The deep explorations no longer stack under every moment: on the default
-    // Électorat moment only its own anchor (abstention) is present, collapsed.
+    // Électorat moment the abstention anchor lives inside the advanced collapsible.
+    fireEvent.click(screen.getByTestId('electorate-advanced-toggle'));
     expect(screen.getByTestId('anchor-abstention-toggle')).toBeInTheDocument();
     for (const anchor of [
       'anchor-mechanisms',
