@@ -17,6 +17,7 @@ const fr = {
     gallery: 'Galerie',
     electionLab: 'Election Lab',
     playground: 'Playground',
+    laboratoire: 'Laboratoire',
     learn: 'Apprendre',
     explore: 'Explorer',
     settings: 'Préférences',

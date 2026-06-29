@@ -736,6 +736,46 @@ const pgFr = {
       ref: 'Gibbard 1977 (seule règle non-manipulable, au prix du hasard)',
     },
   },
+
+  lab: {
+    eyebrow: 'VOTE LAB · ANALYSES AVANCÉES',
+    title: 'Laboratoire',
+    intro:
+      "Outils d'exploration approfondie — paradoxes, théorie du choix social, mécanismes alternatifs, dynamiques temporelles. Configurez d'abord une élection dans le Playground, puis explorez ici.",
+    backToPlayground: 'Retour au Playground',
+    mechanisms: {
+      title: '⚙️ Procédures de décision alternatives',
+      subtitle: 'jury, NOTA, démocratie liquide, sortition…',
+    },
+    systems: {
+      title: '🏛 Systèmes électoraux & circonscriptions',
+      subtitle: 'coalitions, STV, charcutage, pipeline…',
+    },
+    campaign: {
+      title: '🎬 Trajectoires de campagne',
+      subtitle: 'Hotelling, sondages, polarisation, dynamique des partis',
+    },
+    temporal: {
+      title: '🔁 Mécanismes temporels',
+      subtitle: 'vote adaptatif, replay historique, primaires, cascade, fatigue',
+    },
+    behavioral: {
+      title: '🧠 Réalisme comportemental',
+      subtitle: 'biais, électeur timide, surcharge, vote obligatoire, polarisation affective',
+    },
+    analysis: {
+      title: '🔬 Analyse approfondie',
+      subtitle: 'Monte-Carlo, manipulabilité, volonté collective, effets combinés',
+    },
+    theory: {
+      title: '📚 Théorie & paradoxes du choix social',
+      subtitle: 'Sen, jugement, agenda, tyrannie, apportionnement, Pol.is',
+    },
+    results: {
+      title: '📋 Résultats complets',
+      subtitle: 'dépouillement détaillé, animation du comptage',
+    },
+  },
 };
 
 export type PlaygroundKeys = typeof pgFr;

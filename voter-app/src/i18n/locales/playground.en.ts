@@ -727,6 +727,46 @@ const pgEn: PlaygroundKeys = {
       ref: 'Gibbard 1977 (only strategyproof rule, at the cost of chance)',
     },
   },
+
+  lab: {
+    eyebrow: 'VOTE LAB · ADVANCED ANALYSIS',
+    title: 'Lab',
+    intro:
+      'Deep-dive tools — paradoxes, social choice theory, alternative mechanisms, temporal dynamics. Set up an election in the Playground first, then explore here.',
+    backToPlayground: 'Back to Playground',
+    mechanisms: {
+      title: '⚙️ Alternative decision procedures',
+      subtitle: 'jury theorem, NOTA, liquid democracy, sortition…',
+    },
+    systems: {
+      title: '🏛 Electoral systems & districts',
+      subtitle: 'coalitions, STV, gerrymandering, pipeline…',
+    },
+    campaign: {
+      title: '🎬 Campaign trajectories',
+      subtitle: 'Hotelling, polls, polarization, party dynamics',
+    },
+    temporal: {
+      title: '🔁 Temporal mechanisms',
+      subtitle: 'adaptive voting, historical replay, primaries, cascade, fatigue',
+    },
+    behavioral: {
+      title: '🧠 Behavioral realism',
+      subtitle: 'biases, shy voter, choice overload, compulsory voting, affective polarization',
+    },
+    analysis: {
+      title: '🔬 Deep analysis',
+      subtitle: 'Monte Carlo, manipulability, collective will, combined effects',
+    },
+    theory: {
+      title: '📚 Social choice theory & paradoxes',
+      subtitle: 'Sen, judgment, agenda, tyranny, apportionment, Pol.is',
+    },
+    results: {
+      title: '📋 Full results',
+      subtitle: 'detailed tally, animated count',
+    },
+  },
 };
 
 export default pgEn;
