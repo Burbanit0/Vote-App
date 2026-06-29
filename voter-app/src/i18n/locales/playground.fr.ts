@@ -29,31 +29,6 @@ const pgFr = {
     moment: 'Moment {{n}} / {{total}}',
     next: '{{label}} →',
   },
-  explore: {
-    heading: 'Pour aller plus loin',
-  },
-  anchors: {
-    mechanisms: {
-      title: '⚙️ Autres procédures de décision',
-      subtitle: '11 mécanismes (jury, sortition, délégation…)',
-    },
-    systems: {
-      title: '🔬 Systèmes & circonscriptions',
-      subtitle: '7 vues (coalitions, districts, gerrymander…)',
-    },
-    results: {
-      title: '📋 Résultats complets (dépouillement)',
-      subtitle: 'toutes les méthodes · animation',
-    },
-    analysis: {
-      title: '🔬 Analyse approfondie du résultat courant',
-      subtitle: 'distributions · regret · manipulabilité',
-    },
-    theory: {
-      title: '🔬 Théorie & paradoxes du choix social',
-      subtitle: 'Sen · jugements · McKelvey · pouvoir · recul démocratique…',
-    },
-  },
   common: {
     loading: 'Chargement…',
     candidates: 'candidats',
@@ -792,6 +767,10 @@ const pgFr = {
     strategy: {
       title: '🎯 Analyse stratégique approfondie',
       subtitle: 'sincérité, vulnérabilité Gibbard–Satterthwaite, équilibre itéré',
+    },
+    values: {
+      title: '⚖️ Valeurs & sensibilité',
+      subtitle: 'cadran Lijphart, frontière de Pareto',
     },
   },
 };

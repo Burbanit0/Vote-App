@@ -25,31 +25,6 @@ const pgEn: PlaygroundKeys = {
     moment: 'Moment {{n}} / {{total}}',
     next: '{{label}} →',
   },
-  explore: {
-    heading: 'Go further',
-  },
-  anchors: {
-    mechanisms: {
-      title: '⚙️ Other decision procedures',
-      subtitle: '11 mechanisms (jury, sortition, delegation…)',
-    },
-    systems: {
-      title: '🔬 Systems & districts',
-      subtitle: '7 views (coalitions, districts, gerrymander…)',
-    },
-    results: {
-      title: '📋 Full results (tally)',
-      subtitle: 'every method · animation',
-    },
-    analysis: {
-      title: '🔬 Deep analysis of the current result',
-      subtitle: 'distributions · regret · manipulability',
-    },
-    theory: {
-      title: '🔬 Social-choice theory & paradoxes',
-      subtitle: 'Sen · judgment · McKelvey · power · democratic backsliding…',
-    },
-  },
   common: {
     loading: 'Loading…',
     candidates: 'candidates',
@@ -783,6 +758,10 @@ const pgEn: PlaygroundKeys = {
     strategy: {
       title: '🎯 Deep strategic analysis',
       subtitle: 'sincerity, Gibbard–Satterthwaite vulnerability, iterated equilibrium',
+    },
+    values: {
+      title: '⚖️ Values & sensitivity',
+      subtitle: 'Lijphart dial, Pareto frontier',
     },
   },
 };
