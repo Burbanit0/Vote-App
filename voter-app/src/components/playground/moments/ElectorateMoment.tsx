@@ -2,12 +2,10 @@ import React from 'react';
 import { useTranslation } from 'react-i18next';
 import { cn } from '@/lib/utils';
 import { usePlaygroundCtx } from '../PlaygroundController';
-import { Field, selectCls, AnchorFallback } from '../playgroundFields';
+import { Field, selectCls } from '../playgroundFields';
 import Collapsible from '../Collapsible';
 import ScenarioInfo from '../ScenarioInfo';
 import ElectorateComposer from '../ElectorateComposer';
-
-const AbstentionPanel = React.lazy(() => import('../../shared/AbstentionPanel'));
 
 const ElectorateMoment: React.FC = () => {
   const { t } = useTranslation('playground');
@@ -20,13 +18,9 @@ const ElectorateMoment: React.FC = () => {
     presets,
     mode,
     space,
-    behavior,
     prefSource,
-    turnout,
     composed,
     electorate,
-    voters,
-    votingVoters,
   } = usePlaygroundCtx();
   const pointWord = mode === 'leader' ? t('common.candidates') : t('common.parties');
 
@@ -77,7 +71,7 @@ const ElectorateMoment: React.FC = () => {
         <ElectorateComposer />
       </Collapsible>
 
-      {/* ── Advanced settings ── */}
+      {/* ── Advanced settings (dims, source, valence only) ── */}
       <Collapsible
         title={t('electorate.advancedTitle')}
         subtitle={t('electorate.advancedSubtitle')}
@@ -153,79 +147,6 @@ const ElectorateMoment: React.FC = () => {
                 ))}
               </div>
             )}
-          </div>
-
-          <Field label={t('electorate.behaviorLabel')} htmlFor="pg-behavior">
-            <select
-              id="pg-behavior"
-              className={selectCls}
-              value={behavior}
-              onChange={(e) => setPlayground({ behavior: e.target.value as typeof behavior })}
-            >
-              <option value="sincere">{t('electorate.behaviorSincere')}</option>
-              <option value="strategic">{t('electorate.behaviorStrategic')}</option>
-              <option value="mixed">{t('electorate.behaviorMixed')}</option>
-            </select>
-          </Field>
-
-          {/* ── Participation / abstention ── */}
-          <div className="flex flex-col gap-2 rounded-md border border-border p-3">
-            <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-              {t('electorate.participationTitle')}
-            </p>
-            <Field label={t('electorate.abstentionModelLabel')} htmlFor="pg-turnout">
-              <select
-                id="pg-turnout"
-                data-testid="turnout-select"
-                className={selectCls}
-                value={turnout.model}
-                onChange={(e) => setPlaygroundDeep('turnout.model', e.target.value)}
-              >
-                <option value="full">{t('electorate.abstentionFull')}</option>
-                <option value="alienation">{t('electorate.abstentionAlienation')}</option>
-                <option value="indifference">{t('electorate.abstentionIndifference')}</option>
-              </select>
-            </Field>
-            {turnout.model !== 'full' && (
-              <>
-                <Field
-                  label={t('electorate.intensity', { pct: Math.round(turnout.intensity * 100) })}
-                  htmlFor="pg-turnout-int"
-                >
-                  <input
-                    id="pg-turnout-int"
-                    data-testid="turnout-intensity"
-                    type="range"
-                    min={0}
-                    max={1}
-                    step={0.05}
-                    value={turnout.intensity}
-                    onChange={(e) => setPlaygroundDeep('turnout.intensity', Number(e.target.value))}
-                  />
-                </Field>
-                {mode === 'leader' && (
-                  <p data-testid="turnout-rate" className="text-[0.7rem] text-muted-foreground">
-                    {t('electorate.turnoutLabel')}{' '}
-                    <strong>
-                      {Math.round((votingVoters.length / Math.max(1, voters.length)) * 100)} %
-                    </strong>{' '}
-                    {t('electorate.turnoutAbstentions', {
-                      count: voters.length - votingVoters.length,
-                    })}
-                  </p>
-                )}
-              </>
-            )}
-            <p className="text-[0.65rem] text-muted-foreground">{t('electorate.downsNote')}</p>
-            <Collapsible
-              title={t('electorate.abstentionAnchorTitle')}
-              subtitle={t('electorate.abstentionAnchorSub')}
-              testid="anchor-abstention"
-            >
-              <React.Suspense fallback={<AnchorFallback />}>
-                <AbstentionPanel />
-              </React.Suspense>
-            </Collapsible>
           </div>
         </div>
       </Collapsible>

@@ -24,6 +24,7 @@ const BehavioralRealismAnchor = React.lazy(
   () => import('../components/campaign/BehavioralRealismAnchor')
 );
 const BallotConfigPanel = React.lazy(() => import('../components/playground/BallotConfigPanel'));
+const StrategyLabPanel = React.lazy(() => import('../components/playground/StrategyLabPanel'));
 
 const SECTIONS = [
   {
@@ -31,6 +32,12 @@ const SECTIONS = [
     titleKey: 'lab.ballot.title',
     subtitleKey: 'lab.ballot.subtitle',
     Component: BallotConfigPanel,
+  },
+  {
+    key: 'strategy',
+    titleKey: 'lab.strategy.title',
+    subtitleKey: 'lab.strategy.subtitle',
+    Component: StrategyLabPanel,
   },
   {
     key: 'mechanisms',

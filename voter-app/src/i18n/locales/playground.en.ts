@@ -329,6 +329,7 @@ const pgEn: PlaygroundKeys = {
     sainteLague: 'Sainte-Laguë',
   },
   strategy: {
+    leaderOnly: 'Detailed strategic analysis is available in Leader mode.',
     sincereTitle: '🗳️ Sincere or tactical vote?',
     sincereHint: 'Your conviction, method by method — drag the “You” diamond on the map.',
     vulnTitle: '⚡ Strategic vulnerability (Gibbard–Satterthwaite)',
@@ -783,6 +784,10 @@ const pgEn: PlaygroundKeys = {
     ballot: {
       title: '🗳️ Ballot configuration (expression)',
       subtitle: 'ballot type, expressiveness, cognitive load, blank-vote divergence',
+    },
+    strategy: {
+      title: '🎯 Deep strategic analysis',
+      subtitle: 'sincerity, Gibbard–Satterthwaite vulnerability, iterated equilibrium',
     },
   },
 };

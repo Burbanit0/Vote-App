@@ -336,6 +336,7 @@ const pgFr = {
     sainteLague: 'Sainte-Laguë',
   },
   strategy: {
+    leaderOnly: 'L’analyse stratégique détaillée est disponible en mode Dirigeant.',
     sincereTitle: '🗳️ Vote sincère ou vote utile ?',
     sincereHint:
       'Votre conviction, méthode par méthode — glissez le losange « Vous » sur la carte.',
@@ -792,6 +793,10 @@ const pgFr = {
     ballot: {
       title: '🗳️ Bulletin de vote (expression)',
       subtitle: 'type de bulletin, expressivité, charge cognitive, divergence du vote blanc',
+    },
+    strategy: {
+      title: '🎯 Analyse stratégique approfondie',
+      subtitle: 'sincérité, vulnérabilité Gibbard–Satterthwaite, équilibre itéré',
     },
   },
 };

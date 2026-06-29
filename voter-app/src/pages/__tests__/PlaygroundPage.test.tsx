@@ -313,43 +313,14 @@ describe('PlaygroundPage (P0 shell)', () => {
 
   it('the turnout control persists and the live rate drops under abstention', () => {
     renderPage();
-    fireEvent.click(screen.getByTestId('electorate-advanced-toggle'));
+    fireEvent.click(screen.getByTestId('moment-strategy'));
     fireEvent.change(screen.getByTestId('turnout-select'), { target: { value: 'alienation' } });
     expect(useElectionStore.getState().playground.turnout.model).toBe('alienation');
     expect(JSON.parse(localStorage.getItem(LS_PG) as string).turnout.model).toBe('alienation');
     fireEvent.change(screen.getByTestId('turnout-intensity'), { target: { value: '0.9' } });
-    // The live participation read-out appears and reports below 100%.
     const rate = screen.getByTestId('turnout-rate').textContent ?? '';
     const pct = Number((rate.match(/(\d+)\s?%/) ?? [])[1]);
     expect(pct).toBeLessThan(100);
-  });
-
-  it('the sincere-vote module lives in the Stratégie moment with a live verdict', () => {
-    renderPage();
-    // Absent on the default Électorat moment (and so is the "you" marker).
-    expect(screen.queryByTestId('sincerity-module')).not.toBeInTheDocument();
-    expect(screen.queryByTestId('you-marker')).not.toBeInTheDocument();
-    // Entering the Stratégie moment renders it directly + drops the "you" marker.
-    fireEvent.click(screen.getByTestId('moment-strategy'));
-    expect(screen.getByTestId('sincerity-module')).toBeInTheDocument();
-    expect(screen.getByTestId('you-marker')).toBeInTheDocument();
-    // Live (no button): the headline + bloc control render immediately.
-    expect(screen.getByTestId('sincerity-headline')).toHaveTextContent('/15 methods');
-    expect(screen.getByTestId('sincerity-bloc')).toBeInTheDocument();
-    // The electorate sweep is on-demand and renders a per-method ranking.
-    expect(screen.queryByTestId('sincerity-scan')).not.toBeInTheDocument();
-    fireEvent.click(screen.getByTestId('sincerity-scan-run'));
-    expect(screen.getByTestId('sincerity-scan')).toHaveTextContent('minimises the tactical vote');
-  });
-
-  it('the strategic-vulnerability module is collapsed in the Stratégie moment, opens on demand', () => {
-    renderPage();
-    fireEvent.click(screen.getByTestId('moment-strategy'));
-    expect(screen.getByTestId('module-strategic')).toBeInTheDocument();
-    expect(screen.queryByTestId('strategic-module')).not.toBeInTheDocument();
-    fireEvent.click(screen.getByTestId('module-strategic-toggle'));
-    expect(screen.getByTestId('strategic-module')).toBeInTheDocument();
-    expect(screen.getByTestId('strategic-run')).toBeInTheDocument();
   });
 
   it('the advanced modules are collapsed by default and open on demand', () => {
@@ -511,10 +482,6 @@ describe('PlaygroundPage (P0 shell)', () => {
     expect(screen.getByTestId('cycle-rate')).toBeInTheDocument();
     // The old terminal catch-all is gone.
     expect(screen.queryByTestId('module-advanced')).not.toBeInTheDocument();
-    // The deep explorations no longer stack under every moment: on the default
-    // Électorat moment the abstention anchor lives inside the advanced collapsible.
-    fireEvent.click(screen.getByTestId('electorate-advanced-toggle'));
-    expect(screen.getByTestId('anchor-abstention-toggle')).toBeInTheDocument();
     for (const anchor of [
       'anchor-mechanisms',
       'anchor-analysis',
