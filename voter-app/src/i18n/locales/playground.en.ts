@@ -721,6 +721,8 @@ const pgEn: PlaygroundKeys = {
     intro:
       'Deep-dive tools — paradoxes, social choice theory, alternative mechanisms, temporal dynamics. Set up an election in the Playground first, then explore here.',
     backToPlayground: 'Back to Playground',
+    instrumentHint:
+      'This map stays the same for every section alongside it — change the rule, the electorate, or the lens here, and the analyses update.',
     mechanisms: {
       title: '⚙️ Alternative decision procedures',
       subtitle: 'jury theorem, NOTA, liquid democracy, sortition…',
@@ -764,6 +766,30 @@ const pgEn: PlaygroundKeys = {
     values: {
       title: '⚖️ Values & sensitivity',
       subtitle: 'Lijphart dial, Pareto frontier',
+    },
+    groups: {
+      rules: 'Rules & strategy',
+      systems: 'Systems & mechanisms',
+      dynamics: 'Dynamics',
+      theory: 'Theory & analysis',
+    },
+    matrix: {
+      title: 'Method comparison',
+      liveRow: 'Winner with your current electorate',
+      familyMajoritarian: 'Majoritarian',
+      familyOrdinal: 'Ordinal',
+      familyCondorcet: 'Condorcet',
+      familyCardinal: 'Cardinal',
+      criteria: {
+        condorcet_winner: 'Elects Condorcet winner',
+        condorcet_loser: 'Eliminates Condorcet loser',
+        majority: 'Majority criterion',
+        monotonicity: 'Monotonicity',
+        iia: 'IIA',
+        strategy_proof: 'Strategy resistance',
+        participation: 'Participation',
+        reversal: 'Reversal symmetry',
+      },
     },
   },
 };

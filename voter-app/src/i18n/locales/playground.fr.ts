@@ -730,6 +730,8 @@ const pgFr = {
     intro:
       "Outils d'exploration approfondie — paradoxes, théorie du choix social, mécanismes alternatifs, dynamiques temporelles. Configurez d'abord une élection dans le Playground, puis explorez ici.",
     backToPlayground: 'Retour au Playground',
+    instrumentHint:
+      'Cette carte reste la même pour toutes les sections ci-contre — changez la règle, l’électorat ou la lentille ici, les analyses se mettent à jour.',
     mechanisms: {
       title: '⚙️ Procédures de décision alternatives',
       subtitle: 'jury, NOTA, démocratie liquide, sortition…',
@@ -773,6 +775,30 @@ const pgFr = {
     values: {
       title: '⚖️ Valeurs & sensibilité',
       subtitle: 'cadran Lijphart, frontière de Pareto',
+    },
+    groups: {
+      rules: 'Règles & stratégie',
+      systems: 'Systèmes & mécanismes',
+      dynamics: 'Dynamiques',
+      theory: 'Théorie & analyse',
+    },
+    matrix: {
+      title: 'Comparaison des méthodes',
+      liveRow: 'Vainqueur avec votre électorat actuel',
+      familyMajoritarian: 'Majorité',
+      familyOrdinal: 'Ordinal',
+      familyCondorcet: 'Condorcet',
+      familyCardinal: 'Cardinal',
+      criteria: {
+        condorcet_winner: 'Élit le gagnant Condorcet',
+        condorcet_loser: 'Élimine le perdant Condorcet',
+        majority: 'Critère majoritaire',
+        monotonicity: 'Monotonie',
+        iia: 'IIA',
+        strategy_proof: 'Résistance à la stratégie',
+        participation: 'Participation',
+        reversal: 'Symétrie de révocation',
+      },
     },
   },
 };
