@@ -127,7 +127,9 @@ describe('PlaygroundPage (P0 shell)', () => {
     fireEvent.click(screen.getByTestId('lens-probability'));
     expect(screen.getByTestId('lottery-bars')).toBeInTheDocument();
     expect(screen.queryByTestId('winregion')).not.toBeInTheDocument();
-    await waitFor(() => expect(screen.getByTestId('problens')).toBeInTheDocument());
+    await waitFor(() => expect(screen.getByTestId('problens')).toBeInTheDocument(), {
+      timeout: 5000,
+    });
   });
 
   it('switching to the manipulation lens tints voters and states the G-S boundary', async () => {
@@ -135,7 +137,9 @@ describe('PlaygroundPage (P0 shell)', () => {
     fireEvent.click(screen.getByTestId('moment-method'));
     fireEvent.click(screen.getByTestId('lens-manipulation'));
     expect(screen.queryByTestId('winregion')).not.toBeInTheDocument();
-    await waitFor(() => expect(screen.getByTestId('manip-voters')).toBeInTheDocument());
+    await waitFor(() => expect(screen.getByTestId('manip-voters')).toBeInTheDocument(), {
+      timeout: 5000,
+    });
     expect(screen.getByTestId('manip-summary')).toHaveTextContent(/Gibbard/);
   });
 
@@ -144,7 +148,9 @@ describe('PlaygroundPage (P0 shell)', () => {
     fireEvent.click(screen.getByTestId('moment-method'));
     fireEvent.click(screen.getByTestId('lens-criteria'));
     expect(screen.queryByTestId('winregion')).not.toBeInTheDocument();
-    await waitFor(() => expect(screen.getByTestId('criteria-matrix')).toBeInTheDocument());
+    await waitFor(() => expect(screen.getByTestId('criteria-matrix')).toBeInTheDocument(), {
+      timeout: 5000,
+    });
   });
 
   it('mode toggle swaps the canvas, reveals assembly knobs, and persists', () => {

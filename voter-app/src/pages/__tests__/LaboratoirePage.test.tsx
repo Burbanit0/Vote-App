@@ -114,13 +114,16 @@ describe('LaboratoirePage', () => {
     expect(screen.queryByTestId('mech-jury')).not.toBeInTheDocument();
   });
 
+  // First lazy section clicked in the file → pays the cold dynamic-import cost,
+  // which under Docker + v8 coverage can exceed the default 5 s test timeout. Give
+  // both the test and the wait a generous budget (the sibling tests run warm).
   it('the mechanisms section reveals its leaves lazily', async () => {
     renderLab();
     fireEvent.click(screen.getByTestId('lab-mechanisms-toggle'));
-    expect(await screen.findByTestId('mech-jury')).toBeInTheDocument();
+    expect(await screen.findByTestId('mech-jury', {}, { timeout: 15000 })).toBeInTheDocument();
     expect(screen.getByTestId('mech-sortition')).toBeInTheDocument();
     expect(screen.getByTestId('mech-identity')).toBeInTheDocument();
-  });
+  }, 20000);
 
   it('the systems section reveals its leaves lazily', async () => {
     renderLab();
