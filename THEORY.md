@@ -4,14 +4,14 @@
 > mathématiques ou économie souhaitant comprendre les fondements formels
 > de chaque simulation proposée par Vote Lab.
 >
-> **Comment citer :** voir `METHODOLOGY.md` pour la bibliographie complète.
+> **Comment citer :** voir la bibliographie complète en [§10](#10-références).
 
 ---
 
 ## Table des matières
 
 1. [Fondements : la théorie du choix social](#1-fondements--la-théorie-du-choix-social)
-2. [Les 17 méthodes de vote](#2-les-17-méthodes-de-vote)
+2. [Les méthodes de vote (29)](#2-les-méthodes-de-vote-17-playground--12-laboratoire--29)
 3. [Les théorèmes d'impossibilité](#3-les-théorèmes-dimpossibilité)
 4. [Les paradoxes démocratiques](#4-les-paradoxes-démocratiques)
 5. [Modèles de comportement électoral](#5-modèles-de-comportement-électoral)
@@ -65,9 +65,49 @@ point idéal de chaque électeur. Cette hypothèse est suffisante pour
 garantir l'existence d'un vainqueur de Condorcet en dimension 1
 (Black, 1948) mais PAS en dimension ≥ 2 (Plott, 1967).
 
+### 1.3 Deux modèles d'électorat
+
+Vote Lab utilise **deux** générateurs d'électorat qui partagent le même moteur de
+*règles* (parité verrouillée, §9.1) mais pas la même génération d'*utilités* :
+
+**Modèle playground (client, 2D, temps réel)** — celui de §1.2 : chaque électeur
+et candidat est un point dans un plan idéologique, l'utilité est `−distance + valence`
+(valence optionnelle, 0 par défaut). Rapide, spatial, manipulable à la souris.
+
+**Modèle backend (recherche, 20 enjeux)** — chaque électeur et candidat est
+positionné sur **20 enjeux politiques** (économie, environnement, santé, fiscalité,
+immigration, etc.), chacun sur `[0, 1]`. L'utilité est une combinaison pondérée :
+
+```
+utility(v, c) = 0.60·issue_score + 0.20·loyalty_bonus + 0.15·charisma
+              + scandal_penalty + mood_effect
+
+issue_score = Σ_k  priorité_v[k] · (1 − |position_v[k] − policy_c[k]|)
+```
+
+où `k` parcourt les enjeux prioritaires de l'électeur, `loyalty_bonus` récompense
+l'alignement partisan, et `scandal_penalty = −0.3·scandales` (×1.5 si charisme < 0.5).
+La condition `will_vote` requiert `utility > 0.3`.
+
+**Vote blanc comme candidat implicite** — dans le modèle backend, le blanc est
+inséré dans le classement de chaque électeur à la position égale au nombre de
+candidats dont l'utilité dépasse son `blank_threshold ~ Beta(3, 5)` (moyenne ≈ 0.375).
+Quatre règles constitutionnelles du blanc sont modélisées :
+
+| Règle | Description |
+|---|---|
+| `symbolic` | Droit français actuel : compté mais non électif |
+| `competitive` | Le blanc peut gagner s'il obtient le plus de premiers choix |
+| `threshold_30` | Blanc ≥ 30 % → élection invalidée |
+| `majority_required` | Le vainqueur doit battre le blanc en duel pairwise |
+
+**Distributions idéologiques** disponibles : `random` (démographie française INSEE,
+Beta(2,3)), `centrist` (Normal(0.5, 0.1)), `polarized` (bimodale 50/50),
+`left_skewed` (Beta(2,5)), `right_skewed` (Beta(5,2)).
+
 ---
 
-## 2. Les 17 méthodes de vote
+## 2. Les méthodes de vote (17 playground + 12 laboratoire = 29)
 
 ### 2.1 Méthodes de classement (Ranked)
 
@@ -392,6 +432,46 @@ maximale parmi les électeurs soutenant les élus.
 
 **Propriété** : équité maximin — maximise le minimum d'utilité par groupes
 d'électeurs. Redécouverte par la littérature contemporaine (Brill et al., 2017).
+
+---
+
+### 2.4 Méthodes supplémentaires du laboratoire
+
+Le playground expose les 17 méthodes ci-dessus. Le **laboratoire** (`/laboratoire`)
+ajoute 12 méthodes plus spécialisées, essentiellement des variantes Condorcet et
+des règles à propriété particulière. Elles partagent le même moteur de règles que
+le playground (parité client⇄backend, voir §9.1).
+
+- **Ranked Pairs (Tideman, 1987)** — verrouille les duels pairwise du plus fort au
+  plus faible en sautant ceux qui créeraient un cycle ; élit la source du graphe
+  obtenu. Méthode de Condorcet, monotone, indépendante des clones.
+- **River (Heitzig, 2004)** — variante de Ranked Pairs n'autorisant qu'une arête
+  entrante par candidat ; plus rapide, mêmes garanties Condorcet.
+- **Split Cycle (Holliday & Pacuit, 2020)** — élimine, dans chaque cycle, l'arête
+  de défaite la plus faible ; élit les candidats sans défaite restante. Résiste au
+  spoiler (independence of clones + immunité aux « pertes » de section).
+- **Smith/IRV (Smith-then-IRV)** — restreint d'abord à l'ensemble de Smith (plus
+  petit ensemble battant tout le reste), puis applique IRV. Rend IRV cohérent avec
+  Condorcet.
+- **Benham** — IRV où, à chaque round, on élit immédiatement un éventuel vainqueur
+  de Condorcet des candidats restants. Méthode de Condorcet.
+- **Black (1958)** — élit le vainqueur de Condorcet s'il existe, sinon le vainqueur
+  Borda. Combine cohérence Condorcet et robustesse Borda.
+- **Raynaud** — élimine répétitivement le candidat qui subit la défaite pairwise la
+  plus forte. Méthode de Condorcet.
+- **Anti-plurality (veto)** — chaque électeur vote *contre* un candidat ; le moins
+  rejeté gagne. Utile pour illustrer l'opposé structurel de la pluralité.
+- **Dowdall (Nauru)** — Borda pondéré harmonique : le rang `k` rapporte `1/k`.
+  Favorise fortement les premiers choix par rapport au Borda linéaire.
+- **Cumulative voting** — chaque électeur répartit un budget de points sur les
+  candidats (concentration possible). Classique pour la représentation des
+  minorités.
+- **Nash (produit d'utilités)** — élit le candidat maximisant le *produit* des
+  utilités (bien-être nashien) plutôt que la somme ; pénalise les résultats très
+  inégalitaires.
+- **Random ballot (dictature aléatoire)** — tire un bulletin au hasard et élit son
+  premier choix. Seule règle **non manipulable** (strategyproof) et proportionnelle
+  en espérance ; sert de témoin théorique (Gibbard, 1977).
 
 ---
 
@@ -956,6 +1036,25 @@ Arrow l'a démontré mathématiquement.
 Mais cela ne signifie pas que la démocratie est inutile — cela signifie que
 la légitimité démocratique vient de la **procédure acceptée collectivement**,
 pas d'un résultat "vrai" indépendant.
+
+### 9.3 Parité du moteur (client ⇄ backend)
+
+Les règles de vote existent en **deux implémentations** — un moteur client rapide
+(`voter-app/src/lib/playgroundVoting.ts`) et un moteur backend faisant autorité
+(`fast_api_voter/api/engine/utils/`). Un harnais de fixtures « golden » génère les
+vainqueurs de référence côté backend et un test de parité vérifie que le client
+produit exactement les mêmes vainqueurs. Toute divergence est un bug jusqu'à preuve
+du contraire — le harnais a effectivement débusqué des bugs des deux côtés.
+
+### 9.4 Sources de données
+
+- **Démographie** — distribution d'âge dérivée du Recensement INSEE 2019 (RP2019).
+- **Élections réelles** convertibles en bulletins classés synthétiques (par
+  proximité idéologique) : France 2002 & 2022 (1er tour, Conseil constitutionnel /
+  Ministère de l'Intérieur), USA 1992 (FEC), UK 2015 (Electoral Commission).
+- **Limite de la conversion** — les scores de premier tour → bulletins classés
+  supposent des préférences purement idéologiques ; les électeurs réels ont des
+  motivations non-idéologiques que ce modèle ignore.
 
 ---
 
