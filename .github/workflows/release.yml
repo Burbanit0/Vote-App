@@ -113,7 +113,7 @@ jobs:
 
             ---
             **Liens**
-            - 📖 [Méthodologie de recherche](research/METHODOLOGY.md)
+            - 📖 [Référence théorique](THEORY.md)
             - 🐛 [Signaler un bug](../../issues/new)
           generate_release_notes: true   # GitHub auto-generates changelog from commits
           make_latest: true
