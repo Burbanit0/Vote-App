@@ -1,5 +1,6 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
+import { Play } from 'lucide-react';
 import {
   fieldWinnerName,
   winRegionGrid,
@@ -16,8 +17,14 @@ import {
 import { useVotingLabels } from '../../hooks/useVotingLabels';
 import LeaderScene3D from './LeaderScene3D';
 import WinnerRobustness from './WinnerRobustness';
-import { manipulationField, type ManipKind } from '../../lib/playgroundSincerity';
-import { condorcetFromRanks } from '../../lib/scorecard';
+import MethodReplayModal from './MethodReplayModal';
+import {
+  manipulationField,
+  type ManipKind,
+  type Behavior,
+  type StrategicOutcome,
+} from '../../lib/playgroundSincerity';
+import { condorcetFromRanks, LEADER_RULES } from '../../lib/scorecard';
 import { criteriaMatrix, CRITERIA, type CriteriaRow } from '../../lib/playgroundCriteria';
 import NoShowParadox from './NoShowParadox';
 
@@ -33,12 +40,12 @@ const LENS_IDS: Lens[] = ['winner', 'manipulation', 'probability', 'criteria'];
 const PROB_HUE = '#4f46e5';
 
 // Manipulation lens — each voter as a conviction bloc; colour by temptation.
-const MANIP_BLOC_SHARE = 0.12;
+const MANIP_BLOC_SHARE = 0.2;
 const MANIP_COLORS: Record<'compromise' | 'burying', string> = {
   compromise: '#f59e0b', // amber — "vote utile"
   burying: '#dc2626', // red — bury the sincere winner
 };
-const MANIP_SAFE = '#16a34a'; // green — sincere voting is best (conviction wins)
+const MANIP_SAFE = '#94a3b8'; // slate — the untempted electorate (sincere voting is best)
 
 // LeaderCanvas (Lab reshape P2 · dims FA-2bis) — the live single-office viz over
 // a 1/2/3-D ideological space. Candidates are draggable; the plane is shaded by
@@ -103,6 +110,18 @@ export interface LeaderCanvasProps {
   /** Re-draw the electorate on a seed (post-turnout) — drives the robustness strip. */
   sampleAtSeed?: (seed: number) => Pt[];
   baseSeed?: number;
+  /** False during the Électorat moment: no method has been chosen yet, so hide
+   * the rule picker, winner readout, lens switch, and win-region overlay —
+   * just the points. Defaults true for every other moment/page. */
+  showRuleUi?: boolean;
+  /** Voter behaviour; when not 'sincere', the winner readout shows the strategic
+   * outcome (sincere → strategic). Defaults to sincere. */
+  behavior?: Behavior;
+  strategicOutcome?: StrategicOutcome | null;
+  /** Which tactic the manipulation lens probes, and the bloc size — kept in sync
+   * with the Strategy moment's selector. Default: auto (any beneficial lie), 0.2. */
+  manipTactic?: 'auto' | 'compromise' | 'burying';
+  manipShare?: number;
 }
 
 const LeaderCanvas: React.FC<LeaderCanvasProps> = ({
@@ -119,6 +138,11 @@ const LeaderCanvas: React.FC<LeaderCanvasProps> = ({
   onMoveCandidate,
   sampleAtSeed,
   baseSeed,
+  showRuleUi = true,
+  behavior = 'sincere',
+  strategicOutcome,
+  manipTactic = 'auto',
+  manipShare = MANIP_BLOC_SHARE,
 }) => {
   const { t, i18n } = useTranslation('playground');
   const { ruleLabels } = useVotingLabels();
@@ -133,6 +157,7 @@ const LeaderCanvas: React.FC<LeaderCanvasProps> = ({
   // In 3-D, default to the orbital scene (what the dimension is *for*); the
   // x–y plane stays available for editing + the win-region overlay.
   const [scene3d, setScene3d] = useState(true);
+  const [replayOpen, setReplayOpen] = useState(false);
   const show3d = dims === 3 && scene3d;
 
   // y maps to the plane in 2/3-D, to the centre line in 1-D.
@@ -156,7 +181,7 @@ const LeaderCanvas: React.FC<LeaderCanvasProps> = ({
       if (lens === 'probability') {
         setProbRegion(randomBallotProbGrid(gridVoters, candidates, GRID_N, dims));
       } else if (lens === 'manipulation') {
-        setManipField(manipulationField(gridVoters, candidates, rule, MANIP_BLOC_SHARE));
+        setManipField(manipulationField(gridVoters, candidates, rule, manipShare, manipTactic));
       } else if (lens === 'criteria') {
         setCriteriaRows(criteriaMatrix(gridVoters, candidates));
       } else {
@@ -167,7 +192,7 @@ const LeaderCanvas: React.FC<LeaderCanvasProps> = ({
       alive = false;
       clearTimeout(timer);
     };
-  }, [gridVoters, candidates, rule, dims, lens]);
+  }, [gridVoters, candidates, rule, dims, lens, manipShare, manipTactic]);
 
   // Manipulation summary (the Gibbard-Satterthwaite boundary, inline): how many
   // voters this rule tempts vs random ballot's guaranteed zero.
@@ -226,6 +251,15 @@ const LeaderCanvas: React.FC<LeaderCanvasProps> = ({
   }, [onMoveCandidate, onMoveYou, dims]);
 
   const winner = fieldWinnerName(voters, candidates, rule);
+  // When voters act strategically, surface the (possibly flipped) winner.
+  const strat =
+    behavior !== 'sincere' && strategicOutcome
+      ? {
+          sincereName: candidates[strategicOutcome.sincereWinner]?.name ?? '—',
+          stratName: candidates[strategicOutcome.strategicWinner]?.name ?? '—',
+          flipped: strategicOutcome.strategicWinner !== strategicOutcome.sincereWinner,
+        }
+      : null;
   const mx = median(voters.map((v) => v.x));
   const my = median(voters.map((v) => v.y));
   const cellW = PLOT / GRID_N;
@@ -235,61 +269,101 @@ const LeaderCanvas: React.FC<LeaderCanvasProps> = ({
 
   return (
     <div data-testid="leader-canvas" data-dims={dims} className="flex flex-col gap-2">
-      <div className="flex flex-wrap items-center justify-between gap-2">
-        <label className="flex items-center gap-2 text-sm">
-          <span className="text-muted-foreground">{t('canvas.ruleLabel')}</span>
-          <select
-            data-testid="rule-select"
-            className="rounded-md border border-input bg-background px-2 py-1 text-sm"
-            value={rule}
-            onChange={(e) => onRuleChange(e.target.value as Rule)}
-          >
-            {(Object.keys(ruleLabels) as Rule[]).map((r) => (
-              <option key={r} value={r}>
-                {ruleLabels[r]}
-              </option>
-            ))}
-          </select>
-        </label>
-        <span data-testid="field-winner" className="text-sm">
-          {t('canvas.winnerLabel')} <strong>{winner ?? '—'}</strong>
-        </span>
-      </div>
-      {sampleAtSeed && baseSeed != null && (
-        <WinnerRobustness
-          sampleAtSeed={sampleAtSeed}
-          candidates={candidates}
-          rule={rule}
-          baseSeed={baseSeed}
-          colors={candidates.map((_, i) => PALETTE[i % PALETTE.length])}
-          winner={winner}
-        />
-      )}
+      <MethodReplayModal
+        show={replayOpen}
+        onHide={() => setReplayOpen(false)}
+        voters={voters}
+        candidates={candidates}
+        initialRule={rule}
+      />
+      {showRuleUi && (
+        <>
+          <div className="flex flex-wrap items-center justify-between gap-2">
+            <label className="flex items-center gap-2 text-sm">
+              <span className="text-muted-foreground">{t('canvas.ruleLabel')}</span>
+              <select
+                data-testid="rule-select"
+                className="rounded-md border border-input bg-background px-2 py-1 text-sm"
+                value={rule}
+                onChange={(e) => onRuleChange(e.target.value as Rule)}
+              >
+                {LEADER_RULES.map((r) => (
+                  <option key={r} value={r}>
+                    {ruleLabels[r]}
+                  </option>
+                ))}
+              </select>
+            </label>
+            <div className="flex items-center gap-2">
+              {strat ? (
+                <span data-testid="field-winner" className="flex items-center gap-1 text-sm">
+                  {t('canvas.winnerLabel')}
+                  {strat.flipped ? (
+                    <>
+                      <s className="text-muted-foreground">{strat.sincereName}</s>
+                      <span aria-hidden>→</span>
+                      <strong className="text-amber-600 dark:text-amber-400">
+                        {strat.stratName}
+                      </strong>
+                    </>
+                  ) : (
+                    <strong>{strat.stratName ?? winner ?? '—'}</strong>
+                  )}
+                </span>
+              ) : (
+                <span data-testid="field-winner" className="text-sm">
+                  {t('canvas.winnerLabel')} <strong>{winner ?? '—'}</strong>
+                </span>
+              )}
+              <button
+                type="button"
+                data-testid="replay-open"
+                onClick={() => setReplayOpen(true)}
+                className="flex items-center gap-1 rounded-md border border-primary px-2 py-0.5 text-xs text-primary hover:bg-primary/10"
+              >
+                <Play className="h-3 w-3" /> {t('canvas.replayCta')}
+              </button>
+            </div>
+          </div>
+          {sampleAtSeed && baseSeed != null && (
+            <WinnerRobustness
+              sampleAtSeed={sampleAtSeed}
+              candidates={candidates}
+              rule={rule}
+              baseSeed={baseSeed}
+              colors={candidates.map((_, i) => PALETTE[i % PALETTE.length])}
+              winner={winner}
+            />
+          )}
 
-      {/* Lens switch — overlays rendered in place on the same map. */}
-      <div
-        data-testid="lens-switch"
-        role="radiogroup"
-        aria-label={t('canvas.viewLabel')}
-        className="flex items-center gap-1 text-xs"
-      >
-        <span className="text-muted-foreground">{t('canvas.viewLabel')}</span>
-        {LENS_IDS.map((id) => (
-          <button
-            key={id}
-            type="button"
-            role="radio"
-            aria-checked={lens === id}
-            data-testid={`lens-${id}`}
-            className={`rounded border px-2 py-0.5 ${
-              lens === id ? 'border-primary text-primary' : 'border-border text-muted-foreground'
-            }`}
-            onClick={() => onLensChange?.(id)}
+          {/* Lens switch — overlays rendered in place on the same map. */}
+          <div
+            data-testid="lens-switch"
+            role="radiogroup"
+            aria-label={t('canvas.viewLabel')}
+            className="flex items-center gap-1 text-xs"
           >
-            {t(`canvas.lens${id.charAt(0).toUpperCase()}${id.slice(1)}`)}
-          </button>
-        ))}
-      </div>
+            <span className="text-muted-foreground">{t('canvas.viewLabel')}</span>
+            {LENS_IDS.map((id) => (
+              <button
+                key={id}
+                type="button"
+                role="radio"
+                aria-checked={lens === id}
+                data-testid={`lens-${id}`}
+                className={`rounded border px-2 py-0.5 ${
+                  lens === id
+                    ? 'border-primary text-primary'
+                    : 'border-border text-muted-foreground'
+                }`}
+                onClick={() => onLensChange?.(id)}
+              >
+                {t(`canvas.lens${id.charAt(0).toUpperCase()}${id.slice(1)}`)}
+              </button>
+            ))}
+          </div>
+        </>
+      )}
 
       {/* 3-D view toggle: orbital scene vs the editable x–y plane. */}
       {dims === 3 && (
@@ -320,14 +394,13 @@ const LeaderCanvas: React.FC<LeaderCanvasProps> = ({
       <svg
         ref={svgRef}
         viewBox={`0 0 ${SVG} ${SVG}`}
-        width="100%"
         role="img"
         aria-label={t('canvas.svgAria')}
-        className="touch-none select-none rounded-lg bg-card"
-        style={{ maxHeight: '70vh', display: show3d ? 'none' : undefined }}
+        className="mx-auto block w-full touch-none select-none rounded-lg bg-card"
+        style={{ maxWidth: 460, maxHeight: '52vh', display: show3d ? 'none' : undefined }}
       >
         {/* Win/entry-region overlay (full-height columns in 1-D) */}
-        {lens === 'winner' && (
+        {showRuleUi && lens === 'winner' && (
           <g data-testid="winregion" opacity={0.28}>
             {region &&
               region.cells.map((widx, k) => {
@@ -406,19 +479,30 @@ const LeaderCanvas: React.FC<LeaderCanvasProps> = ({
             voter's strategic temptation; otherwise by community (or neutral). */}
         {lens === 'manipulation' && manipField ? (
           <g data-testid="manip-voters">
-            {gridVoters.map((v, i) => {
-              const kind = manipField[i];
-              return (
+            {/* The whole electorate, faint — so the point density matches every
+                other lens; the tempted subset is then highlighted on top. */}
+            {voters.map((v, i) => (
+              <circle
+                key={`all-${i}`}
+                cx={toSvg(v.x, 'x')}
+                cy={cyOf(v)}
+                r={1.6}
+                fill={MANIP_SAFE}
+                opacity={0.4}
+              />
+            ))}
+            {gridVoters.map((v, i) =>
+              manipField[i] ? (
                 <circle
-                  key={i}
+                  key={`t-${i}`}
                   cx={toSvg(v.x, 'x')}
                   cy={cyOf(v)}
-                  r={2.6}
-                  fill={kind ? MANIP_COLORS[kind] : MANIP_SAFE}
-                  opacity={kind ? 0.9 : 0.55}
+                  r={3}
+                  fill={MANIP_COLORS[manipField[i]!]}
+                  opacity={0.95}
                 />
-              );
-            })}
+              ) : null
+            )}
           </g>
         ) : (
           <g>

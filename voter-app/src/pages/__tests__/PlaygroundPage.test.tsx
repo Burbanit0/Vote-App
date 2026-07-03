@@ -108,10 +108,13 @@ describe('PlaygroundPage (P0 shell)', () => {
     expect(screen.queryByTestId('canvas-parliament')).not.toBeInTheDocument();
   });
 
-  it('the lens switch is present on first paint with no heavy overlay mounted', () => {
+  it('the lens switch is present once a moment past Électorat is active, with no heavy overlay mounted', () => {
     renderPage();
-    // The cheap lens control is always there; the default 'winner' lens means the
-    // probability overlay (and its compute) stays unmounted until selected.
+    // Électorat hides the rule UI — no method has been chosen yet.
+    expect(screen.queryByTestId('lens-switch')).not.toBeInTheDocument();
+    fireEvent.click(screen.getByTestId('moment-bilan'));
+    // The cheap lens control is there from here on; the default 'winner' lens means
+    // the probability overlay (and its compute) stays unmounted until selected.
     expect(screen.getByTestId('lens-switch')).toBeInTheDocument();
     expect(screen.getByTestId('lens-winner')).toHaveAttribute('aria-checked', 'true');
     expect(screen.queryByTestId('problens')).not.toBeInTheDocument();
@@ -120,25 +123,34 @@ describe('PlaygroundPage (P0 shell)', () => {
 
   it('switching to the probability lens renders the lottery on the central map', async () => {
     renderPage();
+    fireEvent.click(screen.getByTestId('moment-method'));
     fireEvent.click(screen.getByTestId('lens-probability'));
     expect(screen.getByTestId('lottery-bars')).toBeInTheDocument();
     expect(screen.queryByTestId('winregion')).not.toBeInTheDocument();
-    await waitFor(() => expect(screen.getByTestId('problens')).toBeInTheDocument());
+    await waitFor(() => expect(screen.getByTestId('problens')).toBeInTheDocument(), {
+      timeout: 5000,
+    });
   });
 
   it('switching to the manipulation lens tints voters and states the G-S boundary', async () => {
     renderPage();
+    fireEvent.click(screen.getByTestId('moment-method'));
     fireEvent.click(screen.getByTestId('lens-manipulation'));
     expect(screen.queryByTestId('winregion')).not.toBeInTheDocument();
-    await waitFor(() => expect(screen.getByTestId('manip-voters')).toBeInTheDocument());
+    await waitFor(() => expect(screen.getByTestId('manip-voters')).toBeInTheDocument(), {
+      timeout: 5000,
+    });
     expect(screen.getByTestId('manip-summary')).toHaveTextContent(/Gibbard/);
   });
 
   it('switching to the criteria lens renders the empirical methods × criteria matrix', async () => {
     renderPage();
+    fireEvent.click(screen.getByTestId('moment-method'));
     fireEvent.click(screen.getByTestId('lens-criteria'));
     expect(screen.queryByTestId('winregion')).not.toBeInTheDocument();
-    await waitFor(() => expect(screen.getByTestId('criteria-matrix')).toBeInTheDocument());
+    await waitFor(() => expect(screen.getByTestId('criteria-matrix')).toBeInTheDocument(), {
+      timeout: 5000,
+    });
   });
 
   it('mode toggle swaps the canvas, reveals assembly knobs, and persists', () => {
@@ -239,13 +251,15 @@ describe('PlaygroundPage (P0 shell)', () => {
 
   // ── P5: scorecard + values lens ──────────────────────────────────────────
 
-  it('leader mode renders the banded scorecard in the Bilan moment', async () => {
+  it('leader mode summarises winners and opens the per-method robustness table', () => {
     renderPage();
     fireEvent.click(screen.getByTestId('moment-bilan'));
-    await waitFor(
-      () => expect(screen.getByTestId('axis-condorcet_efficiency').textContent).toMatch(/\d+\s?%/),
-      { timeout: 5000 }
-    );
+    // The verdict synthesis is always visible…
+    expect(screen.getByTestId('bilan-verdict')).toBeInTheDocument();
+    // …the detailed per-method table lives behind the robustness disclosure.
+    expect(screen.queryByTestId('bilan-method-table')).not.toBeInTheDocument();
+    fireEvent.click(screen.getByTestId('module-robustness-toggle'));
+    expect(screen.getByTestId('bilan-method-table')).toBeInTheDocument();
   });
 
   it('parliament mode shows the structure scorecard from the backend with bands', async () => {

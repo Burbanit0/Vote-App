@@ -62,9 +62,14 @@ export function useAssembly(
 ): { assembly: AssemblyResult | null; loading: boolean } {
   const [assembly, setAssembly] = React.useState<AssemblyResult | null>(null);
   const [loading, setLoading] = React.useState(false);
+  // Key on every input the /assembly payload actually depends on, so a change to
+  // the electorate mixture, turnout, assembly knobs or parties triggers a refetch.
+  // The old key dropped electorate + turnout → the hemicycle went stale.
   const key = JSON.stringify({
     enabled,
     a: playground.assembly,
+    turnout: playground.turnout,
+    electorate: playground.electorate,
     num_voters: config.num_voters,
     ideology: config.ideology,
     seed: config.seed,

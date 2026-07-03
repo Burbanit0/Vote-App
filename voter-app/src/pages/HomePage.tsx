@@ -139,6 +139,26 @@ const HomePage: React.FC = () => {
         </div>
       </section>
 
+      {/* ── Lab bridge ── */}
+      <section className="border-t border-border bg-accent/20">
+        <div className="container mx-auto max-w-6xl px-4 py-4 sm:py-5">
+          <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+            <div>
+              <p className="font-mono text-[0.7rem] uppercase tracking-[0.22em] text-primary">
+                {t('home.labKicker')}
+              </p>
+              <h2 className="mt-1 font-display text-xl font-bold tracking-tight">
+                {t('home.labTitle')}
+              </h2>
+              <p className="mt-1 max-w-md text-sm text-muted-foreground">{t('home.labLede')}</p>
+            </div>
+            <Button variant="outline" asChild className="shrink-0">
+              <Link to="/laboratoire">{t('home.ctaLab')}</Link>
+            </Button>
+          </div>
+        </div>
+      </section>
+
       {/* ── Footer: go further ── */}
       <footer className="border-t border-border bg-muted/30">
         <div className="container mx-auto max-w-6xl px-4 py-3">

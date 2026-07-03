@@ -45,7 +45,22 @@ export type Rule =
   | 'random_ballot'
   | 'star'
   | 'majority_judgment'
-  | 'score';
+  | 'score'
+  // ── Tier B: "explained, not compared" — client-only extras. Available in the
+  // method gallery + replay animation, but excluded from the comparison surfaces
+  // (Bilan table, map picker, scorecard). No backend twin, no parity fixture. ──
+  | 'anti_plurality'
+  | 'dowdall'
+  | 'black'
+  | 'smith_irv'
+  | 'split_cycle'
+  | 'kemeny'
+  | 'cumulative'
+  | 'maximin'
+  | 'benham'
+  | 'river'
+  | 'nash'
+  | 'raynaud';
 
 export const RULE_LABELS: Record<Rule, string> = {
   plurality: 'Pluralité (1 tour)',
@@ -65,6 +80,18 @@ export const RULE_LABELS: Record<Rule, string> = {
   star: 'STAR',
   majority_judgment: 'Jugement majoritaire',
   score: 'Note (score)',
+  anti_plurality: 'Anti-pluralité (véto)',
+  dowdall: 'Dowdall (Nauru)',
+  black: 'Black (Condorcet-Borda)',
+  smith_irv: 'Smith-IRV (Tideman)',
+  split_cycle: 'Split Cycle',
+  kemeny: 'Kemeny-Young',
+  cumulative: 'Vote cumulatif',
+  maximin: 'Maximin (utilité)',
+  benham: 'Benham (Condorcet-IRV)',
+  river: 'River',
+  nash: 'Nash (produit d’utilités)',
+  raynaud: 'Raynaud',
 };
 
 /** Cardinal rules need the per-voter score matrix, not just rankings. */
@@ -73,6 +100,9 @@ export const CARDINAL_RULES: ReadonlySet<Rule> = new Set<Rule>([
   'star',
   'majority_judgment',
   'score',
+  'cumulative',
+  'maximin',
+  'nash',
 ]);
 
 const dist = (a: Pt, b: Pt): number => Math.hypot(a.x - b.x, a.y - b.y, (a.z ?? 0) - (b.z ?? 0));
@@ -455,6 +485,307 @@ function winScore(scores: number[][], m: number): number {
   return argmax(total);
 }
 
+// ── Tier B rules (client-only) ────────────────────────────────────────────────
+
+/** Anti-plurality (veto): elect whoever is ranked LAST the fewest times. */
+function winAntiPlurality(ranks: number[][], m: number): number {
+  const last = new Array(m).fill(0);
+  for (const r of ranks) last[r[r.length - 1]] += 1;
+  let best = 0;
+  for (let i = 1; i < m; i++) if (last[i] < last[best]) best = i;
+  return best;
+}
+
+/** Dowdall (Nauru): harmonic positional weights — rank k scores 1/(k+1). */
+function winDowdall(ranks: number[][], m: number): number {
+  const s = new Array(m).fill(0);
+  for (const r of ranks) r.forEach((c, rank) => (s[c] += 1 / (rank + 1)));
+  return argmax(s);
+}
+
+/** The Condorcet winner (beats every rival head-to-head), or -1 if none exists.
+ *  Restrict to `alive` to look only among the remaining candidates. Exported for
+ *  the Benham replay (which shows the per-round Condorcet check). */
+export function condorcetWinnerIdx(ranks: number[][], m: number, alive?: boolean[]): number {
+  const b = pairwise(ranks, m);
+  const live = alive ?? new Array(m).fill(true);
+  for (let i = 0; i < m; i++) {
+    if (!live[i]) continue;
+    let beatsAll = true;
+    for (let j = 0; j < m; j++)
+      if (i !== j && live[j] && !(b[i][j] > b[j][i])) {
+        beatsAll = false;
+        break;
+      }
+    if (beatsAll) return i;
+  }
+  return -1;
+}
+
+/** Black: the Condorcet winner when one exists, otherwise the Borda winner. */
+function winBlack(ranks: number[][], m: number): number {
+  const cw = condorcetWinnerIdx(ranks, m);
+  return cw >= 0 ? cw : winBorda(ranks, m);
+}
+
+/**
+ * The Smith set (GETCHA): the smallest non-empty set of candidates that each
+ * beat-or-tie everyone outside it. Restrict to `alive` to compute it on a
+ * subprofile. Pairwise margins are ballot-fixed, so the same tally serves any
+ * subset. Returns member indices ascending. Exported for the replay animation.
+ */
+export function smithSet(ranks: number[][], m: number, alive?: boolean[]): number[] {
+  const live = alive ?? new Array(m).fill(true);
+  const members: number[] = [];
+  for (let i = 0; i < m; i++) if (live[i]) members.push(i);
+  if (members.length <= 1) return members;
+  const b = pairwise(ranks, m);
+  const copeland = new Map<number, number>();
+  for (const i of members) {
+    let s = 0;
+    for (const j of members) {
+      if (i === j) continue;
+      if (b[i][j] > b[j][i]) s += 1;
+      else if (b[i][j] < b[j][i]) s -= 1;
+    }
+    copeland.set(i, s);
+  }
+  // Grow the smallest Copeland-ordered prefix until it dominates everyone below.
+  const order = [...members].sort((x, y) => copeland.get(y)! - copeland.get(x)!);
+  for (let k = 1; k <= order.length; k++) {
+    const S = new Set(order.slice(0, k));
+    let dominant = true;
+    for (const i of S) {
+      for (const j of members)
+        if (!S.has(j) && b[j][i] > b[i][j]) {
+          dominant = false;
+          break;
+        }
+      if (!dominant) break;
+    }
+    if (dominant) return order.slice(0, k).sort((a, c) => a - c);
+  }
+  return members;
+}
+
+/**
+ * Smith-IRV (Tideman's Alternative): restrict to the Smith set, eliminate the
+ * plurality loser, repeat. Condorcet-consistent and clone-independent.
+ */
+function winSmithIRV(ranks: number[][], m: number): number {
+  const alive = new Array(m).fill(true);
+  let remaining = m;
+  while (remaining > 1) {
+    const S = smithSet(ranks, m, alive);
+    if (S.length === 1) return S[0];
+    const inS = new Set(S);
+    for (let i = 0; i < m; i++)
+      if (alive[i] && !inS.has(i)) {
+        alive[i] = false;
+        remaining -= 1;
+      }
+    if (remaining === 1) return alive.findIndex((a) => a);
+    // IRV step: eliminate ALL alive candidates tied for the fewest first-prefs.
+    const fp = pluralityCounts(ranks, alive, m);
+    let min = Infinity;
+    for (let i = 0; i < m; i++) if (alive[i] && fp[i] < min) min = fp[i];
+    const doomed: number[] = [];
+    for (let i = 0; i < m; i++) if (alive[i] && fp[i] === min) doomed.push(i);
+    if (doomed.length >= remaining) return -1;
+    for (const i of doomed) {
+      alive[i] = false;
+      remaining -= 1;
+    }
+  }
+  return alive.findIndex((a) => a);
+}
+
+/**
+ * Split Cycle (Holliday & Pacuit, 2021): a defeat is discarded when it is the
+ * weakest in a majority cycle. x wins if no retained defeat lands on it — i.e.
+ * every defeat a→x is beaten by the strongest majority path from x back to a.
+ * Borda breaks a multi-winner Split-Cycle set.
+ */
+function winSplitCycle(ranks: number[][], m: number): number {
+  const b = pairwise(ranks, m);
+  const margin = (i: number, j: number): number => b[i][j] - b[j][i];
+  // Strongest-path strengths over positive-margin edges (Floyd–Warshall).
+  const s = Array.from({ length: m }, () => new Array(m).fill(0));
+  for (let i = 0; i < m; i++)
+    for (let j = 0; j < m; j++) if (i !== j && margin(i, j) > 0) s[i][j] = margin(i, j);
+  for (let k = 0; k < m; k++)
+    for (let i = 0; i < m; i++)
+      for (let j = 0; j < m; j++)
+        if (i !== j && i !== k && j !== k) s[i][j] = Math.max(s[i][j], Math.min(s[i][k], s[k][j]));
+
+  const winners: number[] = [];
+  for (let x = 0; x < m; x++) {
+    let defeated = false;
+    for (let a = 0; a < m; a++)
+      if (a !== x && margin(a, x) > 0 && margin(a, x) > s[x][a]) {
+        defeated = true;
+        break;
+      }
+    if (!defeated) winners.push(x);
+  }
+  if (winners.length === 1) return winners[0];
+  if (winners.length === 0) return winBorda(ranks, m);
+  // Borda tie-break within the Split-Cycle set.
+  const bordaScore = new Array(m).fill(0);
+  for (const r of ranks) r.forEach((c, rank) => (bordaScore[c] += m - 1 - rank));
+  return winners.reduce((best, x) => (bordaScore[x] > bordaScore[best] ? x : best), winners[0]);
+}
+
+/**
+ * Kemeny-Young: the consensus ranking that most agrees with every ballot (fewest
+ * pairwise disagreements). Brute-forces the m! orderings — fine for a handful of
+ * candidates; falls back to Borda beyond 8 to avoid factorial blow-up.
+ */
+function winKemeny(ranks: number[][], m: number): number {
+  if (m > 8) return winBorda(ranks, m);
+  const b = pairwise(ranks, m);
+  let bestFirst = 0;
+  let bestScore = -Infinity;
+  const perm = Array.from({ length: m }, (_, i) => i);
+  const permute = (k: number): void => {
+    if (k === m) {
+      // Kemeny score of this ordering = agreements over all ordered pairs.
+      let score = 0;
+      for (let i = 0; i < m; i++) for (let j = i + 1; j < m; j++) score += b[perm[i]][perm[j]];
+      if (score > bestScore) {
+        bestScore = score;
+        bestFirst = perm[0];
+      }
+      return;
+    }
+    for (let i = k; i < m; i++) {
+      [perm[k], perm[i]] = [perm[i], perm[k]];
+      permute(k + 1);
+      [perm[k], perm[i]] = [perm[i], perm[k]];
+    }
+  };
+  permute(0);
+  return bestFirst;
+}
+
+/** Cumulative voting: each voter splits ONE point across candidates in proportion
+ *  to their scores (favourites get more, but the budget is shared). Most points wins. */
+function winCumulative(scores: number[][], m: number): number {
+  const tally = new Array(m).fill(0);
+  for (const s of scores) {
+    const sum = s.reduce((a, x) => a + x, 0);
+    if (sum > 0) for (let i = 0; i < m; i++) tally[i] += s[i] / sum;
+  }
+  return argmax(tally);
+}
+
+/** Maximin (Rawlsian): elect the candidate whose WORST rating across voters is
+ *  highest — the least-bad option for the most disadvantaged voter. */
+function winMaximin(scores: number[][], m: number): number {
+  const worst = new Array(m).fill(Infinity);
+  for (const s of scores) for (let i = 0; i < m; i++) worst[i] = Math.min(worst[i], s[i]);
+  return argmax(worst);
+}
+
+/**
+ * Benham (Condorcet-IRV): run IRV, but at the start of each round elect the
+ * Condorcet winner among the remaining candidates if one exists. A Condorcet
+ * method with IRV's clone-resistance.
+ */
+function winBenham(ranks: number[][], m: number): number {
+  const alive = new Array(m).fill(true);
+  let remaining = m;
+  while (remaining > 1) {
+    const cw = condorcetWinnerIdx(ranks, m, alive);
+    if (cw >= 0) return cw;
+    const fp = pluralityCounts(ranks, alive, m);
+    let min = Infinity;
+    for (let i = 0; i < m; i++) if (alive[i] && fp[i] < min) min = fp[i];
+    const doomed: number[] = [];
+    for (let i = 0; i < m; i++) if (alive[i] && fp[i] === min) doomed.push(i);
+    if (doomed.length >= remaining) return -1;
+    for (const i of doomed) {
+      alive[i] = false;
+      remaining -= 1;
+    }
+  }
+  return alive.findIndex((a) => a);
+}
+
+/**
+ * River (Heitzig): like Ranked Pairs, lock the strongest majorities first — but
+ * each candidate accepts at most ONE incoming lock, so the result is a tree.
+ * Its root (no incoming lock) wins. Elects the Condorcet winner when one exists.
+ */
+function winRiver(ranks: number[][], m: number): number {
+  const beats = pairwise(ranks, m);
+  const majorities: { margin: number; support: number; w: number; l: number }[] = [];
+  for (let i = 0; i < m; i++)
+    for (let j = i + 1; j < m; j++) {
+      const ij = beats[i][j];
+      const ji = beats[j][i];
+      if (ij > ji) majorities.push({ margin: ij - ji, support: ij, w: i, l: j });
+      else if (ji > ij) majorities.push({ margin: ji - ij, support: ji, w: j, l: i });
+    }
+  majorities.sort((a, b) => b.margin - a.margin || b.support - a.support || a.w - b.w || a.l - b.l);
+
+  const locked: boolean[][] = Array.from({ length: m }, () => new Array(m).fill(false));
+  const inLock = new Array(m).fill(false); // does l already have an incoming lock?
+  const reaches = (src: number, dst: number): boolean => {
+    const stack = [src];
+    const seen = new Array(m).fill(false);
+    while (stack.length) {
+      const node = stack.pop();
+      if (node === undefined) break;
+      if (node === dst) return true;
+      if (seen[node]) continue;
+      seen[node] = true;
+      for (let k = 0; k < m; k++) if (locked[node][k]) stack.push(k);
+    }
+    return false;
+  };
+  for (const { w, l } of majorities) {
+    if (inLock[l]) continue; // one parent per candidate
+    if (reaches(l, w)) continue; // would close a cycle
+    locked[w][l] = true;
+    inLock[l] = true;
+  }
+  const root = inLock.findIndex((v) => !v);
+  return root >= 0 ? root : winCondorcet(ranks, m);
+}
+
+/** Nash (proportional welfare): maximise the PRODUCT of voter utilities — summed
+ *  in log-space to stay numerically stable. Rating a candidate 0 crushes it, so
+ *  Nash sits between the utilitarian sum (score) and the Rawlsian min (maximin). */
+function winNash(scores: number[][], m: number): number {
+  const EPS = 1e-6;
+  const acc = new Array(m).fill(0);
+  for (const s of scores) for (let i = 0; i < m; i++) acc[i] += Math.log(Math.max(s[i], EPS));
+  return argmax(acc);
+}
+
+/** Raynaud: repeatedly eliminate the candidate on the losing end of the single
+ *  largest pairwise defeat, until one remains. Condorcet-consistent. */
+function winRaynaud(ranks: number[][], m: number): number {
+  const b = pairwise(ranks, m);
+  const alive = new Array(m).fill(true);
+  let remaining = m;
+  while (remaining > 1) {
+    let worstMargin = -Infinity;
+    let loser = -1;
+    for (let i = 0; i < m; i++)
+      for (let j = 0; j < m; j++)
+        if (i !== j && alive[i] && alive[j] && b[i][j] - b[j][i] > worstMargin) {
+          worstMargin = b[i][j] - b[j][i];
+          loser = j;
+        }
+    if (loser < 0) break;
+    alive[loser] = false;
+    remaining -= 1;
+  }
+  return alive.findIndex((a) => a);
+}
+
 // ── Public API ────────────────────────────────────────────────────────────────
 
 /**
@@ -509,6 +840,31 @@ export function ruleWinnerFromRanks(
     // (i.e. the plurality winner). The full distribution drives the probability lens.
     case 'random_ballot':
       return winPlurality(ranks, m);
+    // Tier B extras (client-only; no backend parity).
+    case 'anti_plurality':
+      return winAntiPlurality(ranks, m);
+    case 'dowdall':
+      return winDowdall(ranks, m);
+    case 'black':
+      return winBlack(ranks, m);
+    case 'smith_irv':
+      return winSmithIRV(ranks, m);
+    case 'split_cycle':
+      return winSplitCycle(ranks, m);
+    case 'kemeny':
+      return winKemeny(ranks, m);
+    case 'cumulative':
+      return scores ? winCumulative(scores, m) : winPlurality(ranks, m);
+    case 'maximin':
+      return scores ? winMaximin(scores, m) : winPlurality(ranks, m);
+    case 'benham':
+      return winBenham(ranks, m);
+    case 'river':
+      return winRiver(ranks, m);
+    case 'nash':
+      return scores ? winNash(scores, m) : winPlurality(ranks, m);
+    case 'raynaud':
+      return winRaynaud(ranks, m);
     default:
       return winPlurality(ranks, m);
   }

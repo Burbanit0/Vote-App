@@ -8,6 +8,10 @@ import {
 } from '../components/playground/PlaygroundController';
 import Collapsible from '../components/playground/Collapsible';
 import { AnchorFallback } from '../components/playground/playgroundFields';
+import InstrumentPanel from '../components/playground/InstrumentPanel';
+
+const MethodsMatrix = React.lazy(() => import('../components/lab/MethodsMatrix'));
+const MethodGallery = React.lazy(() => import('../components/lab/MethodGallery'));
 
 const MechanismsAnchor = React.lazy(
   () => import('../components/playground/anchors/MechanismsAnchor')
@@ -27,82 +31,73 @@ const BallotConfigPanel = React.lazy(() => import('../components/playground/Ball
 const StrategyLabPanel = React.lazy(() => import('../components/playground/StrategyLabPanel'));
 const ValuesLabPanel = React.lazy(() => import('../components/playground/ValuesLabPanel'));
 
-const SECTIONS = [
+type SectionKey =
+  | 'ballot'
+  | 'strategy'
+  | 'values'
+  | 'mechanisms'
+  | 'systems'
+  | 'campaign'
+  | 'temporal'
+  | 'behavioral'
+  | 'analysis'
+  | 'theory'
+  | 'results';
+
+const SECTION_COMPONENTS: Record<SectionKey, React.LazyExoticComponent<React.FC>> = {
+  ballot: BallotConfigPanel,
+  strategy: StrategyLabPanel,
+  values: ValuesLabPanel,
+  mechanisms: MechanismsAnchor,
+  systems: SystemsAnchor,
+  campaign: CampaignAnchor,
+  temporal: TemporalDynamicsAnchor,
+  behavioral: BehavioralRealismAnchor,
+  analysis: AnalysisAnchor,
+  theory: TheoryAnchor,
+  results: ResultsAnchor,
+};
+
+const GROUPS: {
+  key: string;
+  labelKey: string;
+  kicker: string;
+  sections: SectionKey[];
+}[] = [
   {
-    key: 'ballot',
-    titleKey: 'lab.ballot.title',
-    subtitleKey: 'lab.ballot.subtitle',
-    Component: BallotConfigPanel,
-  },
-  {
-    key: 'strategy',
-    titleKey: 'lab.strategy.title',
-    subtitleKey: 'lab.strategy.subtitle',
-    Component: StrategyLabPanel,
-  },
-  {
-    key: 'values',
-    titleKey: 'lab.values.title',
-    subtitleKey: 'lab.values.subtitle',
-    Component: ValuesLabPanel,
-  },
-  {
-    key: 'mechanisms',
-    titleKey: 'lab.mechanisms.title',
-    subtitleKey: 'lab.mechanisms.subtitle',
-    Component: MechanismsAnchor,
+    key: 'rules',
+    labelKey: 'lab.groups.rules',
+    kicker: '① ',
+    sections: ['ballot', 'strategy', 'values'],
   },
   {
     key: 'systems',
-    titleKey: 'lab.systems.title',
-    subtitleKey: 'lab.systems.subtitle',
-    Component: SystemsAnchor,
+    labelKey: 'lab.groups.systems',
+    kicker: '② ',
+    sections: ['mechanisms', 'systems'],
   },
   {
-    key: 'campaign',
-    titleKey: 'lab.campaign.title',
-    subtitleKey: 'lab.campaign.subtitle',
-    Component: CampaignAnchor,
-  },
-  {
-    key: 'temporal',
-    titleKey: 'lab.temporal.title',
-    subtitleKey: 'lab.temporal.subtitle',
-    Component: TemporalDynamicsAnchor,
-  },
-  {
-    key: 'behavioral',
-    titleKey: 'lab.behavioral.title',
-    subtitleKey: 'lab.behavioral.subtitle',
-    Component: BehavioralRealismAnchor,
-  },
-  {
-    key: 'analysis',
-    titleKey: 'lab.analysis.title',
-    subtitleKey: 'lab.analysis.subtitle',
-    Component: AnalysisAnchor,
+    key: 'dynamics',
+    labelKey: 'lab.groups.dynamics',
+    kicker: '③ ',
+    sections: ['campaign', 'temporal', 'behavioral'],
   },
   {
     key: 'theory',
-    titleKey: 'lab.theory.title',
-    subtitleKey: 'lab.theory.subtitle',
-    Component: TheoryAnchor,
+    labelKey: 'lab.groups.theory',
+    kicker: '④ ',
+    sections: ['theory', 'analysis', 'results'],
   },
-  {
-    key: 'results',
-    titleKey: 'lab.results.title',
-    subtitleKey: 'lab.results.subtitle',
-    Component: ResultsAnchor,
-  },
-] as const;
+];
 
 const LaboratoireContent: React.FC = () => {
   const { t } = useTranslation('playground');
   usePlaygroundCtx();
 
   return (
-    <div className="container mx-auto max-w-5xl px-4 py-6">
-      <div className="mb-6">
+    <div className="container mx-auto max-w-6xl px-4 py-6">
+      {/* ── Page header ── */}
+      <div className="mb-5">
         <p className="font-mono text-[0.7rem] uppercase tracking-[0.22em] text-primary">
           {t('lab.eyebrow')}
         </p>
@@ -117,19 +112,65 @@ const LaboratoireContent: React.FC = () => {
         </Link>
       </div>
 
-      <div className="flex flex-col gap-3">
-        {SECTIONS.map(({ key, titleKey, subtitleKey, Component }) => (
-          <Collapsible
-            key={key}
-            title={t(titleKey)}
-            subtitle={t(subtitleKey)}
-            testid={`lab-${key}`}
-          >
-            <React.Suspense fallback={<AnchorFallback />}>
-              <Component />
-            </React.Suspense>
-          </Collapsible>
-        ))}
+      {/* The instrument stays docked in this rail while you scroll the sections on the
+          right — every effect below reads off this same live map, instead of each
+          section floating with no shared visual. */}
+      <div className="lg:grid lg:grid-cols-[22rem_1fr] lg:items-start lg:gap-6">
+        <div className="mb-8 lg:sticky lg:top-4 lg:mb-0">
+          <InstrumentPanel forceShowRuleUi />
+          <p className="mt-2 text-[0.7rem] leading-snug text-muted-foreground">
+            {t('lab.instrumentHint')}
+          </p>
+        </div>
+
+        <div className="flex flex-col gap-8">
+          {/* ── Methods matrix ── */}
+          <React.Suspense fallback={<AnchorFallback />}>
+            <MethodsMatrix />
+          </React.Suspense>
+
+          {/* ── Method gallery (Tier B: explained, not compared) ── */}
+          <React.Suspense fallback={<AnchorFallback />}>
+            <MethodGallery />
+          </React.Suspense>
+
+          {/* ── Grouped sections ── */}
+          <div className="flex flex-col gap-8">
+            {GROUPS.map(({ key, labelKey, kicker, sections }) => (
+              <div key={key} id={`lab-group-${key}`}>
+                {/* Group header */}
+                <div className="mb-3 flex items-center gap-2">
+                  <span className="font-mono text-[0.68rem] uppercase tracking-[0.2em] text-muted-foreground">
+                    {kicker}
+                  </span>
+                  <h2 className="font-display text-base font-semibold tracking-tight">
+                    {t(labelKey)}
+                  </h2>
+                  <div className="flex-1 border-t border-border" />
+                </div>
+
+                {/* Sections in this group */}
+                <div className="flex flex-col gap-2.5">
+                  {sections.map((sectionKey) => {
+                    const Component = SECTION_COMPONENTS[sectionKey];
+                    return (
+                      <Collapsible
+                        key={sectionKey}
+                        title={t(`lab.${sectionKey}.title`)}
+                        subtitle={t(`lab.${sectionKey}.subtitle`)}
+                        testid={`lab-${sectionKey}`}
+                      >
+                        <React.Suspense fallback={<AnchorFallback />}>
+                          <Component />
+                        </React.Suspense>
+                      </Collapsible>
+                    );
+                  })}
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
       </div>
     </div>
   );

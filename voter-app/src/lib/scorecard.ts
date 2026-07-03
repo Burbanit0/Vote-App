@@ -104,6 +104,23 @@ export const LEADER_RULES: Rule[] = [
   'random_ballot',
 ];
 
+/** Tier B: "explained, not compared" — surfaced only in the method gallery and
+ * the replay animation, never in the comparison table / scorecard / map picker. */
+export const EXTRA_RULES: Rule[] = [
+  'anti_plurality',
+  'dowdall',
+  'black',
+  'smith_irv',
+  'split_cycle',
+  'kemeny',
+  'cumulative',
+  'maximin',
+  'benham',
+  'river',
+  'nash',
+  'raynaud',
+];
+
 /** Stated convention: ballot expressiveness + tally complexity, 1 = simplest. */
 const SIMPLICITY: Record<Rule, number> = {
   plurality: 1.0,
@@ -123,6 +140,18 @@ const SIMPLICITY: Record<Rule, number> = {
   schulze: 0.3,
   ranked_pairs: 0.32,
   random_ballot: 0.95, // choose-one ballot, trivial tally — only the outcome is random
+  anti_plurality: 0.85,
+  dowdall: 0.55,
+  black: 0.35,
+  smith_irv: 0.25,
+  split_cycle: 0.28,
+  kemeny: 0.2,
+  cumulative: 0.6,
+  maximin: 0.5,
+  benham: 0.28,
+  river: 0.3,
+  nash: 0.45,
+  raynaud: 0.3,
 };
 
 const mean = (xs: number[]): number => (xs.length ? xs.reduce((s, x) => s + x, 0) / xs.length : 0);
@@ -326,6 +355,20 @@ export const MANIP_COMPLEXITY: Record<Rule, { hard: boolean; label: string; ref:
     label: 'Inmanipulable — la stratégie n’apporte rien',
     ref: 'Gibbard 1977 (seule règle non-manipulable, au prix du hasard)',
   },
+  // Tier B extras — .hard only is read (label/ref come from i18n); never shown as
+  // a compared method, so these strings are placeholders.
+  anti_plurality: { hard: false, label: '', ref: '' },
+  dowdall: { hard: false, label: '', ref: '' },
+  black: { hard: false, label: '', ref: '' },
+  smith_irv: { hard: true, label: '', ref: '' },
+  split_cycle: { hard: false, label: '', ref: '' },
+  kemeny: { hard: true, label: '', ref: '' },
+  cumulative: { hard: false, label: '', ref: '' },
+  maximin: { hard: false, label: '', ref: '' },
+  benham: { hard: true, label: '', ref: '' },
+  river: { hard: false, label: '', ref: '' },
+  nash: { hard: false, label: '', ref: '' },
+  raynaud: { hard: false, label: '', ref: '' },
 };
 
 const COALITION_STEPS = [0.02, 0.05, 0.1, 0.15, 0.2, 0.3, 0.4];

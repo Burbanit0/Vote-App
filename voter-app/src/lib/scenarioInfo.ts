@@ -83,6 +83,42 @@ export const SCENARIO_INFO: Record<string, ScenarioEntry> = {
         'Compare plurality and Condorcet: a centrist knocked out in round 1 may win every duel.',
     },
   },
+  usa2000_like: {
+    fr: {
+      name: 'USA 2000 (synthétique)',
+      what: 'Trois candidats sur un axe 1D : Nader (gauche) spoile Gore (centre-gauche) face à Bush (droite).',
+      demonstrates:
+        "L'effet spoiler : Nader prend des voix à Gore, Bush gagne en pluralité alors que Gore est le vainqueur de Condorcet.",
+      watch:
+        "Comparez Pluralité et Condorcet / IRV — le résultat s'inverse. Nader a-t-il « coûté » l'élection à Gore ?",
+    },
+    en: {
+      name: 'USA 2000 (synthetic)',
+      what: 'Three candidates on a 1D axis: Nader (left) spoils Gore (centre-left) against Bush (right).',
+      demonstrates:
+        'The spoiler effect: Nader draws votes from Gore, Bush wins plurality even though Gore is the Condorcet winner.',
+      watch:
+        'Compare Plurality vs Condorcet / IRV — the result flips. Did Nader "cost" Gore the election?',
+    },
+  },
+  weimar1932_like: {
+    fr: {
+      name: 'Weimar 1932 (synthétique)',
+      what: 'Cinq partis en 2D (économique × autoritaire) : deux extrêmes dominants (KPD, NSDAP) et un centre fragmenté (SPD, Zentrum, DNVP).',
+      demonstrates:
+        'Une PR sans seuil produit une assemblée où les extrêmes — qui ne peuvent pas gouverner ensemble — représentent la majorité.',
+      watch:
+        "Passez en mode Parlement, seuil à 0 % : aucune coalition stable sans l'un des extrêmes. Ajoutez un seuil à 5 % : le paysage change.",
+    },
+    en: {
+      name: 'Weimar 1932 (synthetic)',
+      what: 'Five parties in 2D (economic × authoritarian): two dominant extremes (KPD, NSDAP) and a fragmented centre (SPD, Zentrum, DNVP).',
+      demonstrates:
+        'A PR system with no threshold produces an assembly where the extremes — who cannot govern together — hold a majority.',
+      watch:
+        'Switch to Parliament mode, threshold at 0%: no stable coalition without an extreme. Add a 5% threshold: the landscape shifts.',
+    },
+  },
 };
 
 // Electorate-mixture presets (the "Modèles" in the Electorate Composer). Keyed

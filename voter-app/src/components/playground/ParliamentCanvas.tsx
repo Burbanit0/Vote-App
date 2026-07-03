@@ -234,11 +234,10 @@ const ParliamentCanvas: React.FC<ParliamentCanvasProps> = ({
         <svg
           ref={svgRef}
           viewBox={`0 0 ${SVG} ${SVG}`}
-          width="100%"
           role="img"
           aria-label={t('parliament.mapAria')}
-          className="touch-none select-none rounded-lg bg-card"
-          style={{ maxHeight: '60vh' }}
+          className="mx-auto block w-full touch-none select-none rounded-lg bg-card"
+          style={{ maxWidth: 460, maxHeight: '52vh' }}
         >
           <g data-testid="party-territories" opacity={0.16}>
             {territories.map((t, i) => (
