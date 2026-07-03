@@ -4,9 +4,9 @@ voter-app/dist/
 voter-app/build/
 voter-app/.vite/
 voter-app/coverage/
-flask_voter_app/.venv/
-flask_voter_app/venv/
-flask_voter_app/htmlcov/
+fast_api_voter/.venv/
+fast_api_voter/venv/
+fast_api_voter/htmlcov/
 **/__pycache__/
 **/*.min.js
 *.lock

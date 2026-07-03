@@ -2,7 +2,7 @@ import { test, expect } from '@playwright/test';
 
 // These tests require the Flask backend to be running on :4433.
 // The backend is started by the e2e.yml workflow in CI.
-// Locally, run: cd flask_voter_app && FLASK_ENV=testing JWT_SECRET_KEY=dev flask run --port 4433
+// Locally, run: cd fast_api_voter && FLASK_ENV=testing JWT_SECRET_KEY=dev flask run --port 4433
 
 const METHODS_FR = ['Pluralité', 'Deux tours', 'Borda', 'Approbation', 'IRV'];
 const METHODS_EN = ['Plurality', 'Two-Round', 'Borda', 'Approval', 'IRV'];

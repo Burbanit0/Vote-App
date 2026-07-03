@@ -19,14 +19,14 @@ jobs:
         with:
           python-version: '3.11'
           cache: 'pip'
-          cache-dependency-path: flask_voter_app/requirements.txt
+          cache-dependency-path: fast_api_voter/requirements.txt
 
       - name: Install Python dependencies
-        run: pip install -r flask_voter_app/requirements.txt
+        run: pip install -r fast_api_voter/requirements.txt
 
       - name: Start FastAPI backend (testing mode — SQLite, no Redis)
         run: |
-          cd flask_voter_app
+          cd fast_api_voter
           FLASK_ENV=testing \
           JWT_SECRET_KEY=ci-e2e-secret-key \
           uvicorn api.main:app --host 0.0.0.0 --port 4434 &

@@ -24,8 +24,8 @@ set -uo pipefail
 # ---------- config (override via env) ----------
 REPORT_DIR="audit-reports"
 SUMMARY="$REPORT_DIR/SUMMARY.md"
-PY_DIRS="${PY_DIRS:-flask_voter_app}"            # FastAPI backend (name is historical)
-PY_PKG="${PY_PKG:-flask_voter_app/api}"          # the typed/tested package
+PY_DIRS="${PY_DIRS:-fast_api_voter}"            # FastAPI backend (name is historical)
+PY_PKG="${PY_PKG:-fast_api_voter/api}"          # the typed/tested package
 TS_DIR="${TS_DIR:-voter-app}"                    # React/Vite frontend (holds package.json)
 BASE_BRANCH="${BASE_BRANCH:-develop}"            # this repo integrates on develop
 MODE="full"

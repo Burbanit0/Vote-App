@@ -7,7 +7,7 @@
 // is left orphaned.
 //
 // Backend → uvicorn api.main:app on :4434 (the socket.io ASGI wrapper), with
-//           --reload, run from flask_voter_app/.
+//           --reload, run from fast_api_voter/.
 // Frontend → vite (npm start) from voter-app/, which defaults its API to :4434.
 
 import { spawn } from 'node:child_process';
@@ -23,7 +23,7 @@ const procs = [
     name: 'backend',
     color: '\x1b[36m', // cyan
     command: 'python -m uvicorn api.main:app --port 4434 --reload',
-    cwd: 'flask_voter_app',
+    cwd: 'fast_api_voter',
   },
   {
     name: 'frontend',

@@ -2,7 +2,7 @@
  * voter-app/src/api/ — generated API contract.
  *
  * `types.gen.ts` is produced by `npm run gen:api` from the FastAPI backend's
- * OpenAPI schema (dumped offline by flask_voter_app/scripts/gen_openapi.py from
+ * OpenAPI schema (dumped offline by fast_api_voter/scripts/gen_openapi.py from
  * the Pydantic models, then fed to openapi-typescript). DO NOT edit it by hand.
  *
  * Convenience re-exports below give human-friendly aliases so panels
@@ -11,7 +11,7 @@
  * declares a `response_model`; passthrough-Dict routes have no response schema.)
  *
  * Workflow when the backend contract changes:
- *   cd flask_voter_app && python scripts/gen_openapi.py
+ *   cd fast_api_voter && python scripts/gen_openapi.py
  *   cd ../voter-app    && npm run gen:api
  *   git diff src/api/types.gen.ts   # review what changed
  *   # TypeScript compiler will surface every mismatch in the rest of the codebase

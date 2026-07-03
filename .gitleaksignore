@@ -6,7 +6,7 @@
 #   not secrets. They grant no access.
 8551b2234a7a67dc50328ce6e305c51251becad2:voter-app/src/api/types.gen.ts:jwt:7951
 bb6de4c765b062f032ec612bbe293459561fe6b7:voter-app/src/api/types.gen.ts:jwt:6357
-bb6de4c765b062f032ec612bbe293459561fe6b7:flask_voter_app/openapi.gen.json:jwt:8177
+bb6de4c765b062f032ec612bbe293459561fe6b7:fast_api_voter/openapi.gen.json:jwt:8177
 #
 # generic-api-key in methodReferences.ts — a BIBLIOGRAPHY data file; the matches are
 #   citation identifiers (DOIs / keys), not API keys.

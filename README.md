@@ -65,13 +65,13 @@ Run just one side with `npm run dev:backend` or `npm run dev:frontend`.
 ```bash
 git clone https://github.com/Burbanit0/Vote-App.git
 cd Vote-App
-cp flask_voter_app/.env.example flask_voter_app/.env   # default values work locally
+cp fast_api_voter/.env.example fast_api_voter/.env   # default values work locally
 ```
 
 ### 2. Start the backend
 
 ```bash
-cd flask_voter_app
+cd fast_api_voter
 docker-compose up --build
 ```
 
@@ -97,7 +97,7 @@ npm start      # Vite dev server → http://localhost:3000
 
 ```bash
 # Run tests (SQLite in-memory, no Docker needed)
-cd flask_voter_app
+cd fast_api_voter
 FLASK_ENV=testing python -m pytest api/tests -v
 
 # Type checking
@@ -262,7 +262,7 @@ GET  /api/openapi.json         # OpenAPI 3.0 spec
 ## Architecture
 
 ```
-flask_voter_app/api/        # FastAPI backend (Flask retired in Phase 4.5.b)
+fast_api_voter/api/        # FastAPI backend (Flask retired in Phase 4.5.b)
 ├── main.py                 # FastAPI app + CORS + slowapi + Socket.IO ASGI wrap
 ├── routes/                 # thin HTTP adapters (validate → worker → return)
 │   ├── election.py theory.py simulations.py tech.py export.py gallery.py
