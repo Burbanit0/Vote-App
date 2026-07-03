@@ -15,6 +15,10 @@ from api.engine.utils.profile_engine import (
     handcrafted_profile,
     build_profile,
     community_voters,
+    iac_profile,
+    plackett_luce_profile,
+    didi_profile,
+    stratification_profile,
 )
 from api.engine.utils.simulation_metrics import compare_all_methods
 
@@ -86,6 +90,91 @@ def test_gallagher_index_known_value():
     assert gallagher_index([0.5, 0.3, 0.2], [0.6, 0.3, 0.1]) == 10.0
     # Perfect proportionality → zero.
     assert gallagher_index([0.5, 0.5], [0.5, 0.5]) == 0.0
+
+
+# ── Statistical-culture samplers (non-spatial profiles) ───────────────────────
+
+_CULT_NAMES = ["A", "B", "C", "D"]
+
+
+def _valid_profile(matrix, n, names):
+    """Every voter has a full utility vector over exactly `names`, values in [0,1]."""
+    assert len(matrix) == n
+    for utils in matrix.values():
+        assert set(utils) == set(names)
+        assert all(0.0 <= v <= 1.0 for v in utils.values())
+
+
+@pytest.mark.parametrize(
+    "sampler",
+    [
+        lambda: iac_profile(_CULT_NAMES, 200, 7),
+        lambda: plackett_luce_profile(_CULT_NAMES, 200, 1.0, 7),
+        lambda: didi_profile(_CULT_NAMES, 200, 1.0, 7),
+        lambda: stratification_profile(_CULT_NAMES, 200, 0.5, 7),
+    ],
+)
+def test_culture_samplers_are_well_formed(sampler):
+    _valid_profile(sampler(), 200, _CULT_NAMES)
+
+
+def test_plackett_luce_quality_gradient_favours_first_candidate():
+    """A steep quality gradient makes candidate A the runaway Condorcet winner."""
+    matrix = plackett_luce_profile(_CULT_NAMES, 400, 4.0, 3)
+    assert condorcet_winner(matrix, _CULT_NAMES) == "A"
+
+
+def test_stratification_upper_tier_beats_lower_tier():
+    """With a 50% upper tier, every upper candidate pairwise-beats every lower one."""
+    names = ["A", "B", "C", "D"]
+    matrix = stratification_profile(names, 300, 0.5, 1)
+    voters = list(matrix.values())
+    for hi in ("A", "B"):
+        for lo in ("C", "D"):
+            assert sum(1 for u in voters if u[hi] > u[lo]) == len(voters)
+
+
+def test_single_peaked_has_no_cycles_but_impartial_does():
+    """Single-peaked (1D spatial) always yields a Condorcet winner (rate 0); IC on
+    4 candidates produces a non-trivial paradox rate."""
+    cands = [{"name": n, "x": x} for n, x in zip(_CULT_NAMES, (-0.6, -0.2, 0.2, 0.6))]
+    sp = build_profile("single_peaked", cands, 300, 2, False, "sincere", {}, 5)
+    assert condorcet_winner(sp["matrix"], sp["names"]) is not None
+    assert sp["candidate_points"] is not None  # spatial → draggable positions
+    assert cycle_rate("impartial", _CULT_NAMES, 200, {}, 5) > 0.0
+
+
+def test_no_show_flag_present_only_on_strategic_path():
+    """compute_strategic=True adds a boolean `no_show` (live participation check)
+    to every method; the default fast path omits it."""
+    from api.domain.election.workers_playground import _profile_simulate_worker
+
+    payload = {
+        "source": "impartial",
+        "candidates": [{"name": n} for n in ("A", "B", "C", "D")],
+        "num_voters": 60,
+        "dims": 2,
+        "seed": 3,
+    }
+    fast, s1 = _profile_simulate_worker({**payload, "compute_strategic": False})
+    assert s1 == 200
+    assert all("no_show" not in md for md in fast["methods"].values())
+
+    slow, s2 = _profile_simulate_worker({**payload, "compute_strategic": True})
+    assert s2 == 200
+    assert slow["methods"] and all(
+        isinstance(md.get("no_show"), bool) for md in slow["methods"].values()
+    )
+
+
+def test_nonspatial_build_returns_biplot_candidate_points():
+    """A non-spatial source has no given geometry, yet build_profile still returns a
+    same-frame candidate point per candidate (biplot centroid) for the map."""
+    cands = [{"name": n} for n in _CULT_NAMES]
+    built = build_profile("impartial", cands, 200, 2, False, "sincere", {}, 9)
+    assert built["candidate_points"] is not None
+    assert len(built["candidate_points"]) == len(_CULT_NAMES)
+    assert all(len(p) == 2 for p in built["candidate_points"])
 
 
 # ── Paradox rate rises with disorder ──────────────────────────────────────────

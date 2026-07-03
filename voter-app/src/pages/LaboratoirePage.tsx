@@ -11,6 +11,7 @@ import { AnchorFallback } from '../components/playground/playgroundFields';
 import InstrumentPanel from '../components/playground/InstrumentPanel';
 
 const MethodsMatrix = React.lazy(() => import('../components/lab/MethodsMatrix'));
+const MethodGallery = React.lazy(() => import('../components/lab/MethodGallery'));
 
 const MechanismsAnchor = React.lazy(
   () => import('../components/playground/anchors/MechanismsAnchor')
@@ -116,7 +117,7 @@ const LaboratoireContent: React.FC = () => {
           section floating with no shared visual. */}
       <div className="lg:grid lg:grid-cols-[22rem_1fr] lg:items-start lg:gap-6">
         <div className="mb-8 lg:sticky lg:top-4 lg:mb-0">
-          <InstrumentPanel />
+          <InstrumentPanel forceShowRuleUi />
           <p className="mt-2 text-[0.7rem] leading-snug text-muted-foreground">
             {t('lab.instrumentHint')}
           </p>
@@ -126,6 +127,11 @@ const LaboratoireContent: React.FC = () => {
           {/* ── Methods matrix ── */}
           <React.Suspense fallback={<AnchorFallback />}>
             <MethodsMatrix />
+          </React.Suspense>
+
+          {/* ── Method gallery (Tier B: explained, not compared) ── */}
+          <React.Suspense fallback={<AnchorFallback />}>
+            <MethodGallery />
           </React.Suspense>
 
           {/* ── Grouped sections ── */}

@@ -6,7 +6,10 @@ import { ElectionConfig, PlaygroundState } from '../stores/useElectionStore';
 // paradox read-out that exposes how conclusions depend on the assumptions.
 
 export interface ProfileSimulateResult {
-  methods: Record<string, { winner: string | null; strategic_vulnerability?: number | null }>;
+  methods: Record<
+    string,
+    { winner: string | null; strategic_vulnerability?: number | null; no_show?: boolean | null }
+  >;
   condorcet_winner: string | null;
   inter_method_agreement: number;
   cycle_rate: number;

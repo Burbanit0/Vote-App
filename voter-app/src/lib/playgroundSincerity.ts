@@ -219,6 +219,73 @@ export function sincerityScan(
 
 export type ManipKind = 'compromise' | 'burying' | null;
 
+interface VoterProbe {
+  kind: ManipKind;
+  /** The strategic ballot to cast when kind != null (else the sincere ranking). */
+  rank: number[];
+  /** Cardinal strategic score, or null for ordinal rules. */
+  score: number[] | null;
+}
+
+// Probe ONE voter, treated as a conviction bloc of `blocSize`, against the sincere
+// winner of (base electorate + that bloc). Returns the cheapest beneficial
+// canonical lie's ballot, or { kind: null } when conviction is the best response.
+// The single source of the strategic model — shared by the manipulation lens
+// (which reads .kind) and strategicVote (which also casts .rank/.score).
+function probeVoter(
+  you: Pt,
+  cands: NamedPt[],
+  rule: Rule,
+  m: number,
+  baseRanks: number[][],
+  baseScores: number[][] | undefined,
+  blocSize: number,
+  tactic: 'auto' | 'compromise' | 'burying' = 'auto'
+): VoterProbe {
+  const cardinal = baseScores !== undefined;
+  const util = cands.map((c) => -dist(you, c));
+  const ranking = cands.map((_, i) => i).sort((a, b) => util[b] - util[a]);
+  const youScore = cardinal ? computeScores([you], cands)[0] : null;
+
+  const sincereRanks = baseRanks.concat(Array.from({ length: blocSize }, () => ranking));
+  const sincereScores =
+    cardinal && youScore
+      ? baseScores.concat(Array.from({ length: blocSize }, () => youScore))
+      : undefined;
+  const blocStart = baseRanks.length;
+  const w0 = ruleWinnerFromRanks(sincereRanks, m, rule, sincereScores);
+  if (w0 < 0) return { kind: null, rank: ranking, score: null };
+
+  const winnerWith = (stratRank: number[], stratScore: number[] | null): number => {
+    const ranks = sincereRanks.map((r, v) => (v >= blocStart ? stratRank : r));
+    const scores =
+      cardinal && sincereScores
+        ? sincereScores.map((s, v) => (v >= blocStart && stratScore ? stratScore : s))
+        : sincereScores;
+    return ruleWinnerFromRanks(ranks, m, rule, scores);
+  };
+
+  // Compromise ("vote utile"): a preferred candidate first, w0 buried last.
+  if (tactic === 'auto' || tactic === 'compromise') {
+    const better = ranking.filter((c) => c !== w0 && util[c] > util[w0] + EPS);
+    for (const c of better) {
+      const rank = [c, ...ranking.filter((x) => x !== c && x !== w0), w0];
+      const score = cands.map((_, i) => (i === c ? 1 : 0));
+      if (util[winnerWith(rank, score)] > util[w0] + EPS)
+        return { kind: 'compromise', rank, score: cardinal ? score : null };
+    }
+  }
+  // Burying: keep the favourite first, push the sincere winner last.
+  if ((tactic === 'auto' || tactic === 'burying') && ranking[0] !== w0) {
+    const fav = ranking[0];
+    const rank = [fav, ...ranking.filter((x) => x !== fav && x !== w0), w0];
+    const score = cands.map((_, i) => (i === w0 ? 0 : Math.max(0, util[i] - util[w0])));
+    if (util[winnerWith(rank, score)] > util[w0] + EPS)
+      return { kind: 'burying', rank, score: cardinal ? score : null };
+  }
+  return { kind: null, rank: ranking, score: null };
+}
+
 /**
  * Per-voter strategic-temptation field under ONE rule — the spatial face of the
  * sincerity question, for the central-map "Manipulation" lens. Each voter is
@@ -234,7 +301,8 @@ export function manipulationField(
   voters: Pt[],
   cands: NamedPt[],
   rule: Rule,
-  blocShare: number
+  blocShare: number,
+  tactic: 'auto' | 'compromise' | 'burying' = 'auto'
 ): ManipKind[] {
   const m = cands.length;
   if (m < 3 || voters.length === 0 || rule === 'random_ballot') {
@@ -242,47 +310,83 @@ export function manipulationField(
   }
   const cardinal = CARDINAL_RULES.has(rule);
   const baseRanks = computeRanks(voters, cands);
-  const baseScores = cardinal ? computeScores(voters, cands) : [];
+  const baseScores = cardinal ? computeScores(voters, cands) : undefined;
   const blocSize = Math.max(1, Math.round(Math.max(0, Math.min(1, blocShare)) * voters.length));
-  const blocStart = voters.length;
+  return voters.map(
+    (you) => probeVoter(you, cands, rule, m, baseRanks, baseScores, blocSize, tactic).kind
+  );
+}
 
-  return voters.map((you) => {
-    const util = cands.map((c) => -dist(you, c));
-    const ranking = cands.map((_, i) => i).sort((a, b) => util[b] - util[a]);
-    const youScore = cardinal ? computeScores([you], cands)[0] : null;
+export type Behavior = 'sincere' | 'strategic' | 'mixed';
 
-    const sincereRanks = baseRanks.concat(Array.from({ length: blocSize }, () => ranking));
-    const sincereScores =
-      cardinal && youScore
-        ? baseScores.concat(Array.from({ length: blocSize }, () => youScore))
-        : undefined;
+/** Which insincere ballot a tempted bloc casts. The client (permutation) engine
+ *  faithfully represents the two *reordering* tactics; truncation (later-no-harm)
+ *  and abstention (no-show) need real partial ballots and live in the backend. */
+export type Tactic = 'compromise' | 'burying';
 
-    const w0 = ruleWinnerFromRanks(sincereRanks, m, rule, sincereScores);
-    if (w0 < 0) return null;
+export interface StrategicOutcome {
+  /** Winner index when everyone votes their true preference. */
+  sincereWinner: number;
+  /** Winner index once tempted voters cast their strategic ballot. */
+  strategicWinner: number;
+  /** Per sampled voter: did they actually defect from sincere voting? */
+  defectors: boolean[];
+  /** Share of the sample that defected, [0,1]. */
+  defectRate: number;
+  sampled: number;
+}
 
-    const winnerWith = (stratRank: number[], stratScore: number[] | null): number => {
-      const ranks = sincereRanks.map((r, v) => (v >= blocStart ? stratRank : r));
-      const scores =
-        cardinal && sincereScores
-          ? sincereScores.map((s, v) => (v >= blocStart && stratScore ? stratScore : s))
-          : sincereScores;
-      return ruleWinnerFromRanks(ranks, m, rule, scores);
-    };
+// A voter defects if their conviction bloc (this share of the electorate) would
+// gain — same threshold as the manipulation lens, so colour and outcome agree.
+const STRAT_BLOC_SHARE = 0.2;
+// Cap the electorate for the O(n²) probe so it stays snappy on drag-settle.
+const STRAT_CAP = 240;
 
-    // Compromise ("vote utile"): a preferred candidate first, w0 buried last.
-    const better = ranking.filter((c) => c !== w0 && util[c] > util[w0] + EPS);
-    for (const c of better) {
-      const stratRank = [c, ...ranking.filter((x) => x !== c && x !== w0), w0];
-      const stratScore = cands.map((_, i) => (i === c ? 1 : 0));
-      if (util[winnerWith(stratRank, stratScore)] > util[w0] + EPS) return 'compromise';
-    }
-    // Burying: keep the favourite first, push the sincere winner last.
-    if (ranking[0] !== w0) {
-      const fav = ranking[0];
-      const stratRank = [fav, ...ranking.filter((x) => x !== fav && x !== w0), w0];
-      const stratScore = cands.map((_, i) => (i === w0 ? 0 : Math.max(0, util[i] - util[w0])));
-      if (util[winnerWith(stratRank, stratScore)] > util[w0] + EPS) return 'burying';
-    }
-    return null;
-  });
+/**
+ * One-shot best response to sincere voting: every voter the method tempts casts
+ * the canonical lie (compromise or burying), then the winner is recomputed once.
+ * 'mixed' = every other tempted voter acts; 'sincere' = nobody (winner unchanged).
+ * A stated behavioural convention (the same model as the manipulation lens), not
+ * an equilibrium solver. Pure + deterministic.
+ */
+export function strategicVote(
+  voters: Pt[],
+  cands: NamedPt[],
+  rule: Rule,
+  behavior: Behavior,
+  opts: { tactic?: Tactic | 'auto'; blocShare?: number } = {}
+): StrategicOutcome | null {
+  const { tactic = 'auto', blocShare = STRAT_BLOC_SHARE } = opts;
+  const m = cands.length;
+  if (m < 2 || voters.length === 0) return null;
+  const step = Math.max(1, Math.ceil(voters.length / STRAT_CAP));
+  const sample = voters.filter((_, i) => i % step === 0);
+  const n = sample.length;
+  const cardinal = CARDINAL_RULES.has(rule);
+  const baseRanks = computeRanks(sample, cands);
+  const baseScores = cardinal ? computeScores(sample, cands) : undefined;
+  const sincereWinner = ruleWinnerFromRanks(baseRanks, m, rule, baseScores);
+
+  const defectors = new Array<boolean>(n).fill(false);
+  // No dilemma when sincere, strategyproof, decisive winner missing, or < 3 cands.
+  if (behavior === 'sincere' || m < 3 || rule === 'random_ballot' || sincereWinner < 0)
+    return { sincereWinner, strategicWinner: sincereWinner, defectors, defectRate: 0, sampled: n };
+
+  const blocSize = Math.max(1, Math.round(Math.max(0.01, Math.min(1, blocShare)) * n));
+  const stratRanks = baseRanks.map((r) => r.slice());
+  const stratScores = baseScores ? baseScores.map((s) => s.slice()) : undefined;
+
+  let tempted = 0;
+  for (let v = 0; v < n; v++) {
+    const probe = probeVoter(sample[v], cands, rule, m, baseRanks, baseScores, blocSize, tactic);
+    if (probe.kind === null) continue;
+    const order = tempted++;
+    if (behavior === 'mixed' && order % 2 === 1) continue; // only half act
+    defectors[v] = true;
+    stratRanks[v] = probe.rank;
+    if (stratScores && probe.score) stratScores[v] = probe.score;
+  }
+  const strategicWinner = ruleWinnerFromRanks(stratRanks, m, rule, stratScores);
+  const acted = defectors.reduce((s, d) => s + (d ? 1 : 0), 0);
+  return { sincereWinner, strategicWinner, defectors, defectRate: acted / n, sampled: n };
 }

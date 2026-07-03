@@ -1,5 +1,10 @@
 import { describe, it, expect } from 'vitest';
-import { sincerityProbe, sincerityScan, manipulationField } from './playgroundSincerity';
+import {
+  sincerityProbe,
+  sincerityScan,
+  manipulationField,
+  strategicVote,
+} from './playgroundSincerity';
 import type { NamedPt, Pt } from './playgroundVoting';
 
 // A textbook spoiler on a 1-D line: A (your favourite, left), B (centre), C (right).
@@ -138,5 +143,65 @@ describe('manipulationField (per-voter lens)', () => {
     ];
     const field = manipulationField(voters, two, 'plurality', 0.2);
     expect(field.every((k) => k === null)).toBe(true);
+  });
+});
+
+describe('strategicVote (behaviour drives the winner)', () => {
+  // Same spoiler electorate: sincere plurality elects C; the squeezed left
+  // compromises on B, flipping the winner.
+  const cands: NamedPt[] = [
+    { name: 'A', x: -0.8, y: 0 },
+    { name: 'B', x: 0.0, y: 0 },
+    { name: 'C', x: 0.75, y: 0 },
+  ];
+  const voters: Pt[] = [
+    ...Array.from({ length: 15 }, () => ({ x: -0.85, y: 0 })),
+    ...Array.from({ length: 25 }, () => ({ x: 0.05, y: 0 })),
+    ...Array.from({ length: 35 }, () => ({ x: 0.78, y: 0 })),
+  ];
+
+  it('sincere behaviour leaves the winner unchanged', () => {
+    const out = strategicVote(voters, cands, 'plurality', 'sincere')!;
+    expect(out.strategicWinner).toBe(out.sincereWinner);
+    expect(out.defectRate).toBe(0);
+  });
+
+  it('strategic behaviour flips plurality from C to B (vote utile)', () => {
+    const out = strategicVote(voters, cands, 'plurality', 'strategic')!;
+    expect(cands[out.sincereWinner].name).toBe('C');
+    expect(cands[out.strategicWinner].name).toBe('B');
+    expect(out.defectRate).toBeGreaterThan(0);
+  });
+
+  it('is deterministic and defectors align with the sample', () => {
+    const a = strategicVote(voters, cands, 'plurality', 'strategic')!;
+    const b = strategicVote(voters, cands, 'plurality', 'strategic')!;
+    expect(a).toEqual(b);
+    expect(a.defectors).toHaveLength(a.sampled);
+  });
+
+  it('random ballot is strategyproof — no defection, no flip', () => {
+    const out = strategicVote(voters, cands, 'random_ballot', 'strategic')!;
+    expect(out.strategicWinner).toBe(out.sincereWinner);
+    expect(out.defectRate).toBe(0);
+  });
+
+  it('mixed defects fewer voters than fully strategic', () => {
+    const mixed = strategicVote(voters, cands, 'plurality', 'mixed')!;
+    const strat = strategicVote(voters, cands, 'plurality', 'strategic')!;
+    expect(mixed.defectRate).toBeLessThanOrEqual(strat.defectRate);
+    expect(mixed.defectRate).toBeGreaterThan(0);
+  });
+
+  it('the compromise tactic reproduces the vote-utile flip C→B', () => {
+    const out = strategicVote(voters, cands, 'plurality', 'strategic', { tactic: 'compromise' })!;
+    expect(cands[out.strategicWinner].name).toBe('B');
+    expect(out.defectRate).toBeGreaterThan(0);
+  });
+
+  it('a smaller coalition share tempts no more voters than a larger one', () => {
+    const small = strategicVote(voters, cands, 'plurality', 'strategic', { blocShare: 0.05 })!;
+    const large = strategicVote(voters, cands, 'plurality', 'strategic', { blocShare: 0.5 })!;
+    expect(small.defectRate).toBeLessThanOrEqual(large.defectRate);
   });
 });

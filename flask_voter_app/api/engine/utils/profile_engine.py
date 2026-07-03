@@ -15,6 +15,7 @@ override_utilities=matrix)`, which is the existing profile-as-interface hook.
 from __future__ import annotations
 
 import math
+from itertools import permutations
 from typing import Any, Dict, List, Optional, Tuple
 
 import numpy as np
@@ -207,6 +208,83 @@ def polya_urn_profile(
             fresh = list(rng.permutation(names))
             drawn.append(fresh)
             rankings.append(fresh)
+    return _utils_from_rankings(rankings, names)
+
+
+def iac_profile(names: List[str], num_voters: int, seed: int) -> UtilityMatrix:
+    """Impartial Anonymous Culture: uniform over *anonymous* profiles. Sampled by
+    drawing the ranking distribution itself from Dirichlet(1,…,1) over the m!
+    rankings, then num_voters draws from it (exact for m ≤ 6; IC fallback above,
+    where enumerating m! is wasteful and IC is statistically close)."""
+    m = len(names)
+    if m > 6:
+        return impartial_culture_profile(names, num_voters, seed)
+    rng = np.random.default_rng(seed)
+    perms = list(permutations(names))
+    probs = rng.dirichlet(np.ones(len(perms)))
+    idx = rng.choice(len(perms), size=num_voters, p=probs)
+    rankings = [list(perms[i]) for i in idx]
+    return _utils_from_rankings(rankings, names)
+
+
+def _pl_rankings(
+    names: List[str], num_voters: int, weights: np.ndarray, rng: np.random.Generator
+) -> List[List[str]]:
+    """Plackett-Luce sampler: each voter builds a ranking by repeatedly drawing the
+    next candidate among those remaining with probability ∝ its quality weight."""
+    w = np.maximum(weights, 1e-12)
+    rankings: List[List[str]] = []
+    for _ in range(num_voters):
+        remaining = list(range(len(names)))
+        order: List[str] = []
+        while remaining:
+            ww = w[remaining]
+            pick = int(rng.choice(remaining, p=ww / ww.sum()))
+            order.append(names[pick])
+            remaining.remove(pick)
+        rankings.append(order)
+    return rankings
+
+
+def plackett_luce_profile(
+    names: List[str], num_voters: int, quality: float, seed: int
+) -> UtilityMatrix:
+    """Plackett-Luce: candidates have fixed 'qualities' and voters rank them noisily
+    in proportion. `quality` ≥ 0 is the gradient: 0 → all equal (≈ IC), larger →
+    the first-listed candidates dominate. Quality of candidate i = (m−i)^quality."""
+    m = len(names)
+    w = np.arange(m, 0, -1, dtype=float) ** max(quality, 0.0)
+    rng = np.random.default_rng(seed)
+    return _utils_from_rankings(_pl_rankings(names, num_voters, w, rng), names)
+
+
+def didi_profile(
+    names: List[str], num_voters: int, concentration: float, seed: int
+) -> UtilityMatrix:
+    """Dirichlet (DiDi): like Plackett-Luce, but the candidate qualities are
+    themselves drawn once from a Dirichlet distribution — higher `concentration`
+    correlates voters (a shared, sharper quality vector)."""
+    m = len(names)
+    rng = np.random.default_rng(seed)
+    base = np.linspace(2.0, 1.0, m) * max(concentration, 1e-6)
+    q = np.maximum(rng.dirichlet(base), 1e-12)
+    return _utils_from_rankings(_pl_rankings(names, num_voters, q, rng), names)
+
+
+def stratification_profile(
+    names: List[str], num_voters: int, weight: float, seed: int
+) -> UtilityMatrix:
+    """Stratification: candidates split into an upper tier (preferred by everyone)
+    and a lower tier; each voter ranks randomly *within* each tier. `weight` ∈ (0,1)
+    is the upper-tier share."""
+    m = len(names)
+    k = max(1, min(m - 1, round(weight * m)))
+    upper, lower = names[:k], names[k:]
+    rng = np.random.default_rng(seed)
+    rankings = [
+        list(rng.permutation(upper)) + list(rng.permutation(lower))
+        for _ in range(num_voters)
+    ]
     return _utils_from_rankings(rankings, names)
 
 
@@ -475,10 +553,18 @@ def cycle_rate(
         s = seed + r * 7919
         if source == "impartial":
             m = impartial_culture_profile(names, num_voters, s)
+        elif source == "iac":
+            m = iac_profile(names, num_voters, s)
         elif source == "mallows":
             m = mallows_profile(names, num_voters, source_params.get("phi", 0.6), s)
         elif source == "urn":
             m = polya_urn_profile(names, num_voters, source_params.get("alpha", 1.0), s)
+        elif source == "plackett_luce":
+            m = plackett_luce_profile(names, num_voters, source_params.get("quality", 1.0), s)
+        elif source == "didi":
+            m = didi_profile(names, num_voters, source_params.get("concentration", 1.0), s)
+        elif source == "stratification":
+            m = stratification_profile(names, num_voters, source_params.get("weight", 0.5), s)
         else:
             return 0.0
         if condorcet_winner(m, names) is None:
@@ -554,6 +640,22 @@ def pca_embed_2d(matrix: UtilityMatrix, num_points: int) -> np.ndarray:
     return np.asarray(coords / span)
 
 
+def candidate_centroids(
+    matrix: UtilityMatrix, names: List[str], voter_xy: List[List[float]]
+) -> List[List[float]]:
+    """Biplot markers for a non-spatial profile: place each candidate at the
+    utility-weighted centroid of the voters in the display plane, so candidates and
+    voters share one coordinate frame even though no candidate geometry was given."""
+    pts = np.asarray(voter_xy, dtype=float)
+    n = pts.shape[0]
+    out: List[List[float]] = []
+    for name in names:
+        w = np.array([max(0.0, matrix[i][name]) for i in range(n)], dtype=float)
+        s = float(w.sum())
+        out.append((w @ pts / s).tolist() if s > 1e-9 and n else [0.0, 0.0])
+    return out
+
+
 def gallagher_index(vote_shares: List[float], seat_shares: List[float]) -> float:
     """Gallagher (least-squares) disproportionality index, in percent:
     sqrt( 0.5 * Σ (vᵢ − sᵢ)² ). Shares are fractions in [0, 1]. Pure math, reused by
@@ -590,7 +692,12 @@ def build_profile(
     """
     candidate_points: Optional[List[List[float]]] = None
 
-    if source == "spatial":
+    # Single-peaked = the spatial model collapsed to one axis (Black's theorem:
+    # a Condorcet winner always exists), so candidates keep a position.
+    if source == "single_peaked":
+        dims = 1
+
+    if source in ("spatial", "single_peaked"):
         matrix, voter_pts, cand_pts, names = spatial_profile(
             candidates, num_voters, dims, valence, seed,
             turnout_model, turnout_intensity, electorate,
@@ -608,10 +715,18 @@ def build_profile(
         names = [str(c["name"]) for c in candidates]
         if source == "impartial":
             matrix = impartial_culture_profile(names, num_voters, seed)
+        elif source == "iac":
+            matrix = iac_profile(names, num_voters, seed)
         elif source == "mallows":
             matrix = mallows_profile(names, num_voters, source_params.get("phi", 0.6), seed)
         elif source == "urn":
             matrix = polya_urn_profile(names, num_voters, source_params.get("alpha", 1.0), seed)
+        elif source == "plackett_luce":
+            matrix = plackett_luce_profile(names, num_voters, source_params.get("quality", 1.0), seed)
+        elif source == "didi":
+            matrix = didi_profile(names, num_voters, source_params.get("concentration", 1.0), seed)
+        elif source == "stratification":
+            matrix = stratification_profile(names, num_voters, source_params.get("weight", 0.5), seed)
         elif source == "handcrafted":
             if not handcrafted_matrix:
                 raise ValueError("handcrafted source requires a non-empty matrix")
@@ -620,6 +735,9 @@ def build_profile(
         else:
             raise ValueError(f"unknown preference source: {source}")
         display = pca_embed_2d(matrix, num_voters)
+        # Biplot: a same-frame position for each candidate (non-spatial profiles
+        # have no given geometry, so the map shows the emergent structure).
+        candidate_points = candidate_centroids(matrix, names, display.tolist())
 
     matrix = apply_behavior(matrix, names, behavior, seed)
 

@@ -2,6 +2,7 @@ import React, { useMemo } from 'react';
 import { useTranslation } from 'react-i18next';
 import { usePlaygroundCtx } from '../playground/PlaygroundController';
 import { ruleWinner, RULE_LABELS, type Rule } from '../../lib/playgroundVoting';
+import { LEADER_RULES } from '../../lib/scorecard';
 import {
   METHOD_CRITERIA,
   METHOD_FAMILY,
@@ -13,11 +14,11 @@ import {
 } from '../../data/methodCriteria';
 import { CANDIDATE_COLORS_LIGHT } from '../../constants/chartColors';
 
-// Ordered list of all rules, grouped by family
+// Only the compared methods (Tier A) — Tier B extras live in the method gallery.
 const RULES_BY_FAMILY: Record<MethodFamily, Rule[]> = FAMILY_ORDER.reduce(
   (acc, fam) => ({
     ...acc,
-    [fam]: (Object.keys(METHOD_CRITERIA) as Rule[]).filter((r) => METHOD_FAMILY[r] === fam),
+    [fam]: LEADER_RULES.filter((r) => METHOD_FAMILY[r] === fam),
   }),
   {} as Record<MethodFamily, Rule[]>
 );
@@ -52,7 +53,7 @@ const MethodsMatrix: React.FC = () => {
   // Live winners — one ruleWinner() call per rule on the current electorate
   const liveWinners = useMemo<Record<Rule, number>>(() => {
     if (!voters.length || !leaderCandidates.length) return {} as Record<Rule, number>;
-    return (Object.keys(METHOD_CRITERIA) as Rule[]).reduce(
+    return LEADER_RULES.reduce(
       (acc, rule) => {
         acc[rule] = ruleWinner(voters, leaderCandidates, rule);
         return acc;

@@ -8,11 +8,19 @@ import {
   randomBallotProbGrid,
   sampleVoters,
   applyTurnout,
+  smithSet,
   RULE_LABELS,
   type NamedPt,
   type Pt,
   type Rule,
 } from './playgroundVoting';
+
+/** Expand grouped ballots ([count, ranking]) into a flat ranks array. */
+function ranksOf(groups: [number, number[]][]): number[][] {
+  const out: number[][] = [];
+  for (const [n, r] of groups) for (let i = 0; i < n; i++) out.push(r.slice());
+  return out;
+}
 
 // Build a spatial electorate whose 1-D layout reproduces the textbook
 // plurality-vs-IRV split: a large bloc nearest A, two smaller blocs whose
@@ -73,6 +81,98 @@ describe('playgroundVoting rules', () => {
     expect(grid.cells).toHaveLength(64);
     expect(grid.cells.every((w) => w >= 0 && w <= cands.length)).toBe(true);
     expect(grid.cells.some((w) => w === cands.length)).toBe(true);
+  });
+});
+
+describe('Tier B extras (client-only)', () => {
+  // B (index 1) is the Condorcet winner: beats A 5–4 and C 7–2.
+  const cw = ranksOf([
+    [4, [0, 1, 2]],
+    [3, [1, 2, 0]],
+    [2, [2, 1, 0]],
+  ]);
+  // A perfect Condorcet cycle A>B>C>A, no Condorcet winner.
+  const cycle = ranksOf([
+    [1, [0, 1, 2]],
+    [1, [1, 2, 0]],
+    [1, [2, 0, 1]],
+  ]);
+
+  it('smithSet is the singleton {Condorcet winner} when one exists', () => {
+    expect(smithSet(cw, 3)).toEqual([1]);
+  });
+
+  it('smithSet is the whole cycle when there is no Condorcet winner', () => {
+    expect(smithSet(cycle, 3)).toEqual([0, 1, 2]);
+  });
+
+  it('Condorcet-consistent extras elect the Condorcet winner', () => {
+    for (const rule of [
+      'black',
+      'smith_irv',
+      'split_cycle',
+      'kemeny',
+      'benham',
+      'river',
+      'raynaud',
+    ] as Rule[])
+      expect(ruleWinnerFromRanks(cw, 3, rule)).toBe(1);
+  });
+
+  it('maximin elects the least-bad option for the unhappiest voter (Rawlsian)', () => {
+    // A and B are each loved by a bloc but rated 0 by the other; C is everyone's
+    // decent second choice. C has the highest minimum rating → maximin winner.
+    const scores = [
+      [1, 0, 0.6],
+      [1, 0, 0.6],
+      [1, 0, 0.6],
+      [0, 1, 0.6],
+      [0, 1, 0.6],
+    ];
+    const ranks = scores.map((s) => [0, 1, 2].sort((a, b) => s[b] - s[a]));
+    expect(ruleWinnerFromRanks(ranks, 3, 'maximin', scores)).toBe(2);
+    // Score voting (utilitarian sum) instead rewards a loved-by-many candidate.
+    expect(ruleWinnerFromRanks(ranks, 3, 'score', scores)).not.toBe(2);
+  });
+
+  it('Nash punishes zero ratings (proportional welfare, between sum and min)', () => {
+    // A: sum-leader (3.0) but rated 0 by one voter → product collapses. C: 0.5 for all.
+    const scores = [
+      [1, 0, 0.5],
+      [1, 0, 0.5],
+      [0, 1, 0.5],
+      [1, 1, 0.5],
+    ];
+    const ranks = scores.map((s) => [0, 1, 2].sort((a, b) => s[b] - s[a]));
+    expect(ruleWinnerFromRanks(ranks, 3, 'score', scores)).toBe(0); // sum: A=3, B=2, C=2
+    expect(ruleWinnerFromRanks(ranks, 3, 'nash', scores)).toBe(2); // product: only C avoids a 0
+  });
+
+  it('extras still return a valid candidate on a Condorcet cycle', () => {
+    for (const rule of ['black', 'split_cycle'] as Rule[]) {
+      const w = ruleWinnerFromRanks(cycle, 3, rule);
+      expect(w).toBeGreaterThanOrEqual(0);
+      expect(w).toBeLessThan(3);
+    }
+  });
+
+  it('anti-plurality elects the candidate ranked last by no one', () => {
+    // C (index 2) is the middle choice of everyone → never last → veto winner,
+    // even though it is nobody's first choice.
+    const ballots = ranksOf([
+      [3, [0, 2, 1]],
+      [3, [1, 2, 0]],
+    ]);
+    expect(ruleWinnerFromRanks(ballots, 3, 'anti_plurality')).toBe(2);
+  });
+
+  it('dowdall follows the first-preference leader (harmonic weights)', () => {
+    // A leads on first prefs; 1st place (1.0) outweighs lower ranks (½, ⅓).
+    const ballots = ranksOf([
+      [3, [0, 1, 2]],
+      [2, [1, 2, 0]],
+    ]);
+    expect(ruleWinnerFromRanks(ballots, 3, 'dowdall')).toBe(0);
   });
 });
 
