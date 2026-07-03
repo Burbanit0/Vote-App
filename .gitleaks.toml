@@ -22,6 +22,6 @@ useDefault = true
 description = "Triaged false positives — generated OpenAPI files + bibliography data"
 paths = [
   '''voter-app/src/api/types\.gen\.ts''',
-  '''flask_voter_app/openapi\.gen\.json''',
+  '''fast_api_voter/openapi\.gen\.json''',
   '''voter-app/src/data/methodReferences\.ts''',
 ]

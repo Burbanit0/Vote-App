@@ -69,7 +69,7 @@ change you want to validate from scratch).
 GitHub checks out only git-**tracked** files; the images COPY the working tree. A
 source file on disk that git doesn't track (untracked or gitignored) is absent on
 CI → "passes locally, fails on PR". Both runners run a preflight that **fails loudly**
-if any `.ts/.tsx/.js/.jsx/.py` under `voter-app/src` or `flask_voter_app/api` is
+if any `.ts/.tsx/.js/.jsx/.py` under `voter-app/src` or `fast_api_voter/api` is
 untracked/ignored. (This caught nothing in the end only because it was *added after*
 the `src/lib/utils.ts` gitignore bug it was designed to prevent — commit before you
 validate, or it can't help.)

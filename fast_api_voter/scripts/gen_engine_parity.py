@@ -5,7 +5,7 @@ this repo's authoritative engine is the (tested) Python backend. To guarantee th
 two agree, we run the backend rules on a set of seeded ranking profiles and dump
 the winners; a Vitest test then asserts the TS client returns the same winner.
 
-Run from anywhere:  python flask_voter_app/scripts/gen_engine_parity.py
+Run from anywhere:  python fast_api_voter/scripts/gen_engine_parity.py
 Re-run whenever a ranked rule changes on either side.
 
 Voter counts are ODD so every pairwise majority is strict — that removes the
@@ -145,7 +145,7 @@ def main() -> None:
                 )
 
     payload = {
-        "_generatedBy": "flask_voter_app/scripts/gen_engine_parity.py",
+        "_generatedBy": "fast_api_voter/scripts/gen_engine_parity.py",
         "_seed": SEED,
         "_note": "Authoritative winners from the Python backend. Asserted by playgroundVoting.parity.test.ts.",
         "scenarios": scenarios,

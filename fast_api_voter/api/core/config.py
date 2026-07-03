@@ -6,7 +6,7 @@ runtime configuration lives here; no `os.environ.get(...)` scattered
 around the codebase.
 
 Shares env var names with the existing Flask app so a single .env file
-works for both — see flask_voter_app/.env.example.
+works for both — see fast_api_voter/.env.example.
 """
 from __future__ import annotations
 

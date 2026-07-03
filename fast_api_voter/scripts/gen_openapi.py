@@ -7,8 +7,8 @@ The frontend turns this into TypeScript types via `npm run gen:api`
 source of truth shared backend ↔ frontend.
 
 Usage:
-    cd flask_voter_app
-    python scripts/gen_openapi.py            # -> flask_voter_app/openapi.gen.json
+    cd fast_api_voter
+    python scripts/gen_openapi.py            # -> fast_api_voter/openapi.gen.json
     cd ../voter-app && npm run gen:api       # -> src/api/types.gen.ts
 """
 from __future__ import annotations
@@ -17,7 +17,7 @@ import json
 import os
 import sys
 
-# Make `import api.*` work when run from flask_voter_app/ or scripts/.
+# Make `import api.*` work when run from fast_api_voter/ or scripts/.
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
 
 # A secret must be set or the production-guard in main's lifespan is irrelevant

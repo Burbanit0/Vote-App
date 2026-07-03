@@ -1,5 +1,5 @@
 {
-"_generatedBy": "flask_voter_app/scripts/gen_engine_parity.py",
+"_generatedBy": "fast_api_voter/scripts/gen_engine_parity.py",
 "_seed": 20260628,
 "_note": "Authoritative winners from the Python backend. Asserted by playgroundVoting.parity.test.ts.",
 "scenarios": [

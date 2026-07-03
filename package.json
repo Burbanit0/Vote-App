@@ -6,8 +6,8 @@
   "description": "Dev orchestrator — run the FastAPI backend and the Vite frontend together.",
   "scripts": {
     "dev": "node scripts/dev.mjs",
-    "dev:backend": "python -m uvicorn api.main:app --port 4434 --reload --app-dir flask_voter_app --reload-dir flask_voter_app",
+    "dev:backend": "python -m uvicorn api.main:app --port 4434 --reload --app-dir fast_api_voter --reload-dir fast_api_voter",
     "dev:frontend": "npm --prefix voter-app start",
-    "setup": "npm --prefix voter-app install && python -m pip install -r flask_voter_app/requirements.txt"
+    "setup": "npm --prefix voter-app install && python -m pip install -r fast_api_voter/requirements.txt"
   }
 }

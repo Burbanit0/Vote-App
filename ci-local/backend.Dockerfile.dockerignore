@@ -6,10 +6,10 @@ voter-app
 **/node_modules
 **/__pycache__
 **/*.pyc
-flask_voter_app/.pytest_cache
-flask_voter_app/.mypy_cache
-flask_voter_app/htmlcov
-flask_voter_app/coverage.xml
-flask_voter_app/.coverage
+fast_api_voter/.pytest_cache
+fast_api_voter/.mypy_cache
+fast_api_voter/htmlcov
+fast_api_voter/coverage.xml
+fast_api_voter/.coverage
 **/*.db
 **/*.sqlite3

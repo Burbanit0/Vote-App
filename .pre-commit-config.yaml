@@ -34,7 +34,7 @@ repos:
     rev: 1.8.3
     hooks:
       - id: bandit
-        args: ['-r', 'flask_voter_app/api', '-ll', '--skip', 'B104,B311']
+        args: ['-r', 'fast_api_voter/api', '-ll', '--skip', 'B104,B311']
         # B104: binding 0.0.0.0 (expected in Docker), B311: random (not crypto use)
         pass_filenames: false
 
@@ -43,8 +43,8 @@ repos:
     rev: 7.2.0
     hooks:
       - id: flake8
-        args: ['--config=flask_voter_app/.flake8']
-        files: flask_voter_app/.*\.py$
+        args: ['--config=fast_api_voter/.flake8']
+        files: fast_api_voter/.*\.py$
 
   # ── Python type checking ───────────────────────────────────────────────────
   - repo: local
@@ -52,8 +52,8 @@ repos:
       - id: mypy
         name: mypy (type checking)
         language: system
-        entry: bash -c 'cd flask_voter_app && python -m mypy api/ --config-file mypy.ini'
-        files: flask_voter_app/.*\.py$
+        entry: bash -c 'cd fast_api_voter && python -m mypy api/ --config-file mypy.ini'
+        files: fast_api_voter/.*\.py$
         pass_filenames: false
 
   # ── Frontend linting ───────────────────────────────────────────────────────
@@ -89,7 +89,7 @@ repos:
       - id: backend-tests-coverage
         name: Backend tests + coverage
         language: system
-        entry: bash -c 'cd flask_voter_app && python -m pytest tests -v --cov=app --cov-fail-under=30'
+        entry: bash -c 'cd fast_api_voter && python -m pytest tests -v --cov=app --cov-fail-under=30'
         pass_filenames: false
         stages: [pre-push]
         env:

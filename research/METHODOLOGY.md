@@ -294,7 +294,7 @@ Après cette allocation initiale, les crédits restants sont redistribués par u
 
 ### 6.3 Implémentation dans Vote Lab
 
-Le fichier `flask_voter_app/app/utils/quadratic_voting.py` implémente `apply_quadratic_voting(utilities, budget=100)` :
+Le fichier `fast_api_voter/app/utils/quadratic_voting.py` implémente `apply_quadratic_voting(utilities, budget=100)` :
 
 1. **Entrée** : `utilities` — liste de dicts `{candidate_name: float}` — les utilités sincères de chaque électeur issues du modèle spatial.
 2. **Allocation par électeur** : allocation initiale par la formule optimale, puis redistribution gloutonne des crédits restants.

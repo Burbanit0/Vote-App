@@ -10,7 +10,7 @@ the default mount point.
 
 Run locally (development):
 
-    cd flask_voter_app
+    cd fast_api_voter
     uvicorn api.main:app --reload --port 4434
 
 Run alongside Flask via docker-compose: see docker-compose.yml (the

@@ -16,7 +16,7 @@ Please report security issues **privately** — do not open a public issue.
   *Report a vulnerability*), which opens a private advisory thread.
 - Alternative: email the maintainer at **gaultier.burban@gmail.com**.
 
-Include enough to reproduce: affected component (backend `flask_voter_app/` or
+Include enough to reproduce: affected component (backend `fast_api_voter/` or
 frontend `voter-app/`), version/commit, steps, and impact. As a hobby project,
 responses are best-effort — expect an acknowledgement within a week or two.
 
