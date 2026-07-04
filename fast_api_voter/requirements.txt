@@ -7,7 +7,7 @@ python-socketio==5.16.2        # WebSocket streaming (AsyncServer mounted on Fas
 slowapi==0.1.9                 # per-IP rate limiting for the public /api/v1 surface
 httpx==0.28.1                  # FastAPI TestClient + httpx-oauth
 pydantic==2.13.4
-pydantic-settings==2.12.0      # 12-factor env config for api/core/config.py
+pydantic-settings==2.14.2      # 12-factor env config for api/core/config.py (2.14.2: secrets_dir symlink-follow fix, Dependabot #119)
 
 # ── Auth ─────────────────────────────────────────────────────────────────────
 fastapi-users[sqlalchemy]==15.0.5   # JWT issuance + password hashing (pwdlib)
