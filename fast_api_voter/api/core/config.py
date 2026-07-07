@@ -37,23 +37,10 @@ class Settings(BaseSettings):
     # Comma-separated allowed origins, matches the Flask CORS_ORIGINS var.
     cors_origins: str = Field(default="http://localhost:3000")
 
-    # ── Database / cache ────────────────────────────────────────────────────
-    database_url: str = Field(default="postgresql://myuser:mypassword@db:5432/mydatabase")
-    redis_url:    str = Field(default="redis://redis:6379")
-
-    # ── Secrets (validated in production via main.py startup) ──────────────
-    secret_key:     str = Field(default="dev-secret-CHANGE-IN-PROD")
-    jwt_secret_key: str = Field(default="dev-jwt-secret-CHANGE-IN-PROD")
-
-    # ── OAuth (Phase 4.3.d) ────────────────────────────────────────────────
-    # Same env vars Flask reads (see config.py). Either empty → 501 on the
-    # corresponding /auth/{provider} route, so dev environments without
-    # OAuth credentials degrade gracefully instead of 500-ing.
-    google_client_id:     str = Field(default="")
-    github_client_id:     str = Field(default="")
-    github_client_secret: str = Field(default="")
-    base_url:             str = Field(default="http://localhost:4433")
-    frontend_url:         str = Field(default="http://localhost:3000")
+    # ── Cache ───────────────────────────────────────────────────────────────
+    # The app is stateless (no SQL DB, no auth); Redis is only a compute cache
+    # for the voting engine and degrades gracefully to no-cache if unavailable.
+    redis_url: str = Field(default="redis://redis:6379")
 
     # ── Logging ─────────────────────────────────────────────────────────────
     log_level: str = Field(default="INFO")
