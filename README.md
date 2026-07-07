@@ -38,9 +38,8 @@ Playground — configure once, explore in depth.
 
 | Layer | Technology |
 |---|---|
-| Backend | FastAPI (uvicorn) · SQLAlchemy 2.0 async · PostgreSQL · Redis |
+| Backend | FastAPI (uvicorn) — **stateless**, no SQL DB, no auth · Redis (compute cache only) |
 | WebSockets | python-socketio (ASGI, Monte Carlo streaming) |
-| Auth | JWT + bcrypt + OAuth (Google / GitHub) |
 | Frontend | React 19 · TypeScript · React Router v7 · Vite |
 | Data/State | TanStack Query + openapi-fetch (typed) · Zustand stores |
 | UI | Tailwind v4 + shadcn/ui (hand-written primitives in `src/components/ui/`) |
@@ -62,21 +61,21 @@ npm run setup   # once — installs frontend deps + backend Python deps
 npm run dev     # backend (uvicorn :4434) + frontend (Vite :3000), colour-prefixed
 ```
 
-`npm run dev` runs the backend directly with uvicorn (no Postgres/Redis containers)
-— enough for the voting-compute work. Ctrl+C once stops both. Run a single side with
-`npm run dev:backend` or `npm run dev:frontend`.
+`npm run dev` runs the backend directly with uvicorn. The app is stateless — no
+database — so this is the full experience. Ctrl+C once stops both. Run a single side
+with `npm run dev:backend` or `npm run dev:frontend`.
 
 **Prerequisites:** [Node.js](https://nodejs.org/) 20+ and
-[Python](https://www.python.org/) 3.11+. [Docker](https://www.docker.com/) only for
-the full DB stack below.
+[Python](https://www.python.org/) 3.11+. [Docker](https://www.docker.com/) only if you
+want the containerised stack below.
 
-### Full DB stack (Docker)
+### Docker
 
 ```bash
 git clone https://github.com/Burbanit0/Vote-App.git
 cd Vote-App
 cp fast_api_voter/.env.example fast_api_voter/.env   # defaults work locally
-cd fast_api_voter && docker-compose up --build       # FastAPI :4434 · Postgres :5432 · Redis :6379
+cd fast_api_voter && docker-compose up --build       # FastAPI :4434 · Redis :6379 (cache only)
 cd ../voter-app && npm install && npm start           # Vite → :3000
 ```
 
@@ -109,21 +108,19 @@ PRs when in doubt.
 
 ## Routes
 
+The app is anonymous (no accounts) with two destinations:
+
 | Route | Description |
 |---|---|
 | `/` | Home — thesis landing, routes into the Playground |
 | `/playground` | **The instrument** — 5-moment rail, ideological map + lenses, Dirigeant/Assemblée |
-| `/laboratoire` | Advanced content by theme (theory, paradoxes, mechanisms, realism, +12 methods) |
-| `/theory` | Static theory pages (see also [THEORY.md](THEORY.md)) |
-| `/simulation/compare` | Legacy multi-tab comparison sandbox |
-| `/scenario-builder` · `/quiz` · `/what-if` | Pedagogical tools |
-| `/regimes-internationaux` | Comparative international blank-vote law |
-| `/quadratic-funding` · `/tech-democracy` | Alternative-mechanism explorers |
-| `/galerie` | Community scenario gallery |
-| `/api-docs` | Public API documentation |
+| `/laboratoire` | Everything deeper — theory, paradoxes, mechanisms, systems, behavioural realism, +12 methods (reads the same electorate state as the playground) |
+| `/teacher/presentation` | Teacher-mode slide capture/export |
 
-Legacy routes (`/election-lab`, `/campagne`, `/sortition`, `/party-dynamics`) redirect
-to `/playground`, which absorbed them.
+All retired routes (`/theory`, `/what-if`, `/quiz`, `/quadratic-funding`,
+`/tech-democracy`, `/regimes-internationaux`, `/election-lab`, `/campagne`,
+`/galerie`, `/scenario-builder`, `/simulation/compare`, old account routes) redirect
+to `/playground` or `/laboratoire` — their content was folded into those two.
 
 ---
 
@@ -172,9 +169,10 @@ The frontend consumes the OpenAPI schema via a typed `openapi-fetch` client
 ## Architecture
 
 ```
-fast_api_voter/api/          # FastAPI backend (Flask fully retired)
+fast_api_voter/api/          # FastAPI backend — stateless (no DB, no auth)
 ├── main.py                  # FastAPI app + CORS + slowapi + Socket.IO ASGI wrap
-├── routes/                  # thin HTTP adapters (validate → worker → return)
+├── routes/                  # thin HTTP adapters — election, simulations, theory,
+│                            #   tech, export, public (/api/v1), health
 ├── domain/                  # pure compute workers (0 import FastAPI)
 │   ├── election/  simulations/  theory/
 ├── engine/utils/            # the simulation engine (0 import FastAPI)
@@ -184,11 +182,11 @@ fast_api_voter/api/          # FastAPI backend (Flask fully retired)
 │   ├── simulation_metrics.py          # compare_all_methods(), Bayesian regret
 │   ├── campaign_dynamics.py  blank_contagion.py  information_model.py
 │   ├── gibbard_satterthwaite.py  quadratic_voting.py  arrow_criteria.py
-│   └── demographic_data.py  real_election_data.py
-├── db/  core/  schemas/  sockets/  tests/
+│   └── demographic_data.py  real_election_data.py  cache.py (Redis)
+├── core/ (config, ratelimit)  schemas/  sockets/  tests/
 
 voter-app/src/
-├── pages/                   # PlaygroundPage, LaboratoirePage, TheoryPage, …
+├── pages/                   # HomePage, PlaygroundPage, LaboratoirePage, …
 ├── components/playground/   # the instrument: PlaygroundController (state hub) +
 │                            #   moment panels, LeaderCanvas/ParliamentCanvas, lenses
 ├── lib/                     # pure analytical libs (playgroundVoting, scorecard,

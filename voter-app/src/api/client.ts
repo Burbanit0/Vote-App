@@ -6,45 +6,15 @@
  * and — where a route declares a response_model — response shapes are all checked
  * at compile time.
  *
- * An auth middleware attaches the Bearer token on every request, so panels never
- * deal with auth headers (the old per-service getAuthHeader() helpers go away).
- * The token currently lives in localStorage['user'].access_token; once the auth
- * Zustand store lands (Phase 5.4) this reads from there instead.
+ * The app is fully anonymous — no auth headers, no token. Every endpoint the
+ * frontend still calls is public.
  */
-import createClient, { type Middleware } from 'openapi-fetch';
+import createClient from 'openapi-fetch';
 import type { paths } from './types.gen';
-import { useAuthStore } from '../stores/useAuthStore';
 
 const API_BASE = process.env.VITE_API_URL || 'http://localhost:4434';
 
-/**
- * Current Bearer token, or null. Source of truth = useAuthStore; falls back to
- * localStorage['user'] (covers the brief window before the store hydrates, and
- * any non-React caller).
- */
-export function getAccessToken(): string | null {
-  const fromStore = useAuthStore.getState().user?.access_token;
-  if (fromStore) return fromStore;
-  try {
-    const raw = localStorage.getItem('user');
-    if (!raw) return null;
-    const token = (JSON.parse(raw) as { access_token?: string }).access_token;
-    return token ?? null;
-  } catch {
-    return null;
-  }
-}
-
-const authMiddleware: Middleware = {
-  async onRequest({ request }) {
-    const token = getAccessToken();
-    if (token) request.headers.set('Authorization', `Bearer ${token}`);
-    return request;
-  },
-};
-
 export const apiClient = createClient<paths>({ baseUrl: API_BASE });
-apiClient.use(authMiddleware);
 
 /**
  * Legacy service-layer helper — POST that resolves to the parsed body and

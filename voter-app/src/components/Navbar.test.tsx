@@ -2,13 +2,8 @@ import React from 'react';
 import { render, screen } from '@testing-library/react';
 import { MemoryRouter } from 'react-router-dom';
 import Navbar from './Navbar';
-import { useAuth } from '../stores/useAuthStore';
 import { useTheme, useExpertMode, useTeacherMode } from '../stores/useUIStore';
 
-vi.mock('../stores/useAuthStore', async () => ({
-  ...(await vi.importActual('../stores/useAuthStore')),
-  useAuth: vi.fn(),
-}));
 vi.mock('../stores/useUIStore', () => ({
   useTheme: vi.fn(),
   useExpertMode: vi.fn(),
@@ -19,8 +14,7 @@ vi.mock('../i18n', () => ({
   switchLanguage: vi.fn(),
 }));
 
-function renderNavbar(user: { username: string; role: string } | null = null) {
-  (useAuth as jest.Mock).mockReturnValue({ user, logout: vi.fn(), loading: false });
+function renderNavbar() {
   return render(
     <MemoryRouter>
       <Navbar />
@@ -45,49 +39,22 @@ describe('Navbar', () => {
     expect(screen.getByText('Vote Lab')).toBeInTheDocument();
   });
 
-  it('renders the Playground hero link (may include emoji)', () => {
+  it('renders the two destinations: Playground + Laboratoire', () => {
+    const { container } = renderNavbar();
+    expect(container.querySelector('a[href="/playground"]')).toBeInTheDocument();
+    expect(container.querySelector('a[href="/laboratoire"]')).toBeInTheDocument();
+  });
+
+  it('has no Learn/Explore dropdowns and no auth links', () => {
+    const { container } = renderNavbar();
+    expect(screen.queryByText(/^learn$/i)).not.toBeInTheDocument();
+    expect(screen.queryByText(/^explore$/i)).not.toBeInTheDocument();
+    expect(container.querySelector('a[href="/login"]')).not.toBeInTheDocument();
+    expect(container.querySelector('a[href="/profile"]')).not.toBeInTheDocument();
+  });
+
+  it('shows the settings dropdown toggle', () => {
     renderNavbar();
-    // The hero link may render as "🎛 Playground" — match by partial text
-    expect(screen.getByText(/Playground/i)).toBeInTheDocument();
-  });
-
-  it('renders Learn and Explore dropdown toggles', () => {
-    renderNavbar();
-    expect(screen.getByText(/learn|apprendre/i)).toBeInTheDocument();
-    expect(screen.getByText(/explore|explorer/i)).toBeInTheDocument();
-  });
-
-  it('shows settings toggle when not authenticated', () => {
-    renderNavbar();
-    // The user/settings dropdown toggle should be visible
-    expect(
-      screen.getByRole('button', { name: /user-settings-dropdown|settings|préférences/i }) ??
-        screen.getByText(/settings|préférences/i)
-    ).toBeTruthy();
-  });
-
-  it('shows username in toggle button when authenticated', () => {
-    renderNavbar({ username: 'alice', role: 'User' });
-    // Username appears in the dropdown toggle button
-    expect(screen.getByText('alice')).toBeInTheDocument();
-  });
-
-  it('renders dropdown toggle differently for logged-in vs guest', () => {
-    const { unmount } = renderNavbar({ username: 'bob', role: 'User' });
-    expect(screen.getByText('bob')).toBeInTheDocument();
-    unmount();
-
-    renderNavbar();
-    expect(screen.queryByText('bob')).not.toBeInTheDocument();
-  });
-
-  it('returns null while loading', () => {
-    (useAuth as jest.Mock).mockReturnValue({ user: null, logout: vi.fn(), loading: true });
-    const { container } = render(
-      <MemoryRouter>
-        <Navbar />
-      </MemoryRouter>
-    );
-    expect(container.innerHTML).toBe('');
+    expect(screen.getByText(/settings/i)).toBeInTheDocument();
   });
 });

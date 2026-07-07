@@ -5,20 +5,9 @@ fastapi==0.121.2
 uvicorn[standard]==0.40.0
 python-socketio==5.16.2        # WebSocket streaming (AsyncServer mounted on FastAPI)
 slowapi==0.1.9                 # per-IP rate limiting for the public /api/v1 surface
-httpx==0.28.1                  # FastAPI TestClient + httpx-oauth
+httpx==0.28.1                  # FastAPI TestClient
 pydantic==2.13.4
 pydantic-settings==2.14.2      # 12-factor env config for api/core/config.py (2.14.2: secrets_dir symlink-follow fix, Dependabot #119)
-
-# ── Auth ─────────────────────────────────────────────────────────────────────
-fastapi-users[sqlalchemy]==15.0.5   # JWT issuance + password hashing (pwdlib)
-httpx-oauth==0.17.0
-google-auth==2.38.0
-bcrypt==4.2.1                  # verify legacy $2b$ password hashes
-
-# ── Database (async) ─────────────────────────────────────────────────────────
-SQLAlchemy==2.0.41
-asyncpg==0.30.0                # Postgres driver (prod)
-aiosqlite==0.21.0             # SQLite driver (tests)
 
 # ── Cache ────────────────────────────────────────────────────────────────────
 redis==5.2.1
