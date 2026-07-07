@@ -1,6 +1,4 @@
 import React, { useCallback, useRef, useState } from 'react';
-import { useNavigate } from 'react-router';
-import { useAuth } from '../stores/useAuthStore';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Dropdown } from '@/components/ui/dropdown';
@@ -67,8 +65,6 @@ const SettingRow: React.FC<{
 // ── Main Navbar ───────────────────────────────────────────────────────────────
 
 const Navbar: React.FC = () => {
-  const { user, logout, loading } = useAuth();
-  const navigate = useNavigate();
   const { theme, toggleTheme } = useTheme();
   const { expertMode, setExpertMode } = useExpertMode();
   const { teacherMode, setTeacherMode, slides } = useTeacherMode();
@@ -120,15 +116,9 @@ const Navbar: React.FC = () => {
     }
   };
 
-  const handleLogout = () => {
-    logout();
-    navigate('/login');
-  };
   const toggleLang = () => switchLanguage(i18n.language === 'fr' ? 'en' : 'fr');
   const isPasswordSet = !!storedPass();
   const currentPath = typeof window !== 'undefined' ? window.location.pathname : '';
-
-  if (loading) return null;
 
   return (
     <>
@@ -229,40 +219,10 @@ const Navbar: React.FC = () => {
                   style={{ border: '1px solid var(--bs-border-color)' }}
                   id="user-settings-dropdown"
                 >
-                  {user ? (
-                    <>
-                      <span>👤</span>
-                      <span
-                        style={{
-                          maxWidth: 100,
-                          overflow: 'hidden',
-                          textOverflow: 'ellipsis',
-                          whiteSpace: 'nowrap',
-                          fontSize: '0.82rem',
-                        }}
-                      >
-                        {user.username}
-                      </span>
-                    </>
-                  ) : (
-                    <span style={{ fontSize: '0.82rem' }}>⚙ {t('nav.settings')}</span>
-                  )}
+                  <span style={{ fontSize: '0.82rem' }}>⚙ {t('nav.settings')}</span>
                 </Dropdown.Toggle>
 
                 <Dropdown.Menu style={{ minWidth: 240 }}>
-                  {/* Header when logged in */}
-                  {user && (
-                    <>
-                      <Dropdown.Header>
-                        <span className="font-semibold">{user.username}</span>
-                        <div className="text-muted-foreground" style={{ fontSize: '0.75rem' }}>
-                          {user.role}
-                        </div>
-                      </Dropdown.Header>
-                      <Dropdown.Divider />
-                    </>
-                  )}
-
                   {/* ── Settings section ── */}
                   <div className="px-1 pb-1">
                     <div
@@ -305,41 +265,6 @@ const Navbar: React.FC = () => {
                       badge={teacherMode && slides.length > 0 ? String(slides.length) : undefined}
                     />
                   </div>
-
-                  <Dropdown.Divider />
-
-                  {/* ── Auth section ── */}
-                  {user ? (
-                    <>
-                      <Dropdown.Item href="/profile">
-                        <span className="me-2">👤</span>
-                        {t('nav.profile')}
-                      </Dropdown.Item>
-                      <Dropdown.Item onClick={handleLogout} className="text-[#dc3545]">
-                        <span className="me-2">↩</span>
-                        {t('nav.logout')}
-                      </Dropdown.Item>
-                    </>
-                  ) : (
-                    <div className="flex gap-2 px-3 py-2">
-                      <Button
-                        variant="outline-primary"
-                        size="sm"
-                        className="grow"
-                        onClick={() => navigate('/login')}
-                      >
-                        {t('nav.login')}
-                      </Button>
-                      <Button
-                        variant="primary"
-                        size="sm"
-                        className="grow"
-                        onClick={() => navigate('/register')}
-                      >
-                        {t('nav.register')}
-                      </Button>
-                    </div>
-                  )}
                 </Dropdown.Menu>
               </Dropdown>
             </Nav>

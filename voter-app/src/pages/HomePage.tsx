@@ -14,11 +14,8 @@ import { MOMENTS } from '../components/playground/MomentRail';
 // live (HeroInstrument); everything below funnels to /playground.
 
 const FOOTER_LINKS = [
-  { href: '/quiz', key: 'nav.quiz' },
-  { href: '/theory', key: 'nav.theory' },
-  { href: '/regimes-internationaux', key: 'nav.regimesInternationaux' },
-  { href: '/galerie', key: 'nav.gallery' },
-  { href: '/api-docs', key: 'nav.apiDocs' },
+  { href: '/playground', key: 'nav.playground' },
+  { href: '/laboratoire', key: 'nav.laboratoire' },
 ];
 
 const HomePage: React.FC = () => {
@@ -176,14 +173,6 @@ const HomePage: React.FC = () => {
                   {t(l.key)}
                 </Link>
               ))}
-            </div>
-            <div className="flex items-center gap-4 text-sm text-muted-foreground">
-              <Link to="/login" className="transition-colors hover:text-foreground">
-                {t('nav.login')}
-              </Link>
-              <Link to="/register" className="transition-colors hover:text-foreground">
-                {t('nav.register')}
-              </Link>
             </div>
           </div>
         </div>
