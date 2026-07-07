@@ -18,15 +18,8 @@ import OAuthCallback from './pages/OAuthCallback';
 const SimulationPage = React.lazy(() => import('./pages/SimulationPage'));
 const SimulationComparePage = React.lazy(() => import('./pages/SimulationComparePage'));
 const ScenarioBuilderPage = React.lazy(() => import('./pages/ScenarioBuilderPage'));
-const QuizPage = React.lazy(() => import('./pages/QuizPage'));
-const WhatIfPage = React.lazy(() => import('./pages/WhatIfPage'));
-const InternationalRegimesPage = React.lazy(() => import('./pages/InternationalRegimesPage'));
-const ApiDocsPage = React.lazy(() => import('./pages/ApiDocsPage'));
 const TeacherPresentationPage = React.lazy(() => import('./pages/TeacherPresentationPage'));
 const PlaygroundPage = React.lazy(() => import('./pages/PlaygroundPage'));
-const QuadraticFundingPage = React.lazy(() => import('./pages/QuadraticFundingPage'));
-const TechDemocracyPage = React.lazy(() => import('./pages/TechDemocracyPage'));
-const TheoryPage = React.lazy(() => import('./pages/TheoryPage'));
 const ScenarioGalleryPage = React.lazy(() => import('./pages/ScenarioGalleryPage'));
 const LaboratoirePage = React.lazy(() => import('./pages/LaboratoirePage'));
 const NotFoundPage = React.lazy(() => import('./pages/NotFoundPage'));
@@ -87,24 +80,28 @@ const AppContent: React.FC = () => {
               path="/simulation/compare"
               element={<AuthGuard component={SimulationComparePage} requireAuth={false} />}
             />
-            <Route path="/quiz" element={<QuizPage />} />
-            <Route path="/what-if" element={<WhatIfPage />} />
-            <Route path="/regimes-internationaux" element={<InternationalRegimesPage />} />
-            <Route path="/api-docs" element={<ApiDocsPage />} />
             <Route path="/teacher/presentation" element={<TeacherPresentationPage />} />
             <Route path="/playground" element={<PlaygroundPage />} />
             <Route path="/laboratoire" element={<LaboratoirePage />} />
-            {/* Campagne folded into the playground as moment ④ — redirect old links. */}
+            <Route path="/galerie" element={<ScenarioGalleryPage />} />
+
+            {/* Retired standalone pages — their content now lives in the playground
+                (what-if variation) or the laboratoire's anchors (theory, mechanisms,
+                systems, régimes). Redirect old/bookmarked links instead of 404-ing. */}
+            <Route path="/what-if" element={<Navigate to="/playground" replace />} />
             <Route path="/campagne" element={<Navigate to="/playground" replace />} />
-            <Route path="/quadratic-funding" element={<QuadraticFundingPage />} />
-            <Route path="/tech-democracy" element={<TechDemocracyPage />} />
-            {/* Election Lab retired — fully absorbed into the playground. Redirect the
-                old route (and any ?tab= deep links) to the playground. */}
             <Route path="/election-lab" element={<Navigate to="/playground" replace />} />
             <Route path="/sortition" element={<Navigate to="/playground" replace />} />
             <Route path="/party-dynamics" element={<Navigate to="/playground" replace />} />
-            <Route path="/theory" element={<TheoryPage />} />
-            <Route path="/galerie" element={<ScenarioGalleryPage />} />
+            <Route path="/theory" element={<Navigate to="/laboratoire" replace />} />
+            <Route path="/quiz" element={<Navigate to="/laboratoire" replace />} />
+            <Route
+              path="/regimes-internationaux"
+              element={<Navigate to="/laboratoire" replace />}
+            />
+            <Route path="/quadratic-funding" element={<Navigate to="/laboratoire" replace />} />
+            <Route path="/tech-democracy" element={<Navigate to="/laboratoire" replace />} />
+            <Route path="/api-docs" element={<Navigate to="/laboratoire" replace />} />
 
             {/* Auth-protected routes */}
             <Route path="/profile" element={<AuthGuard component={ProfilePage} />} />
