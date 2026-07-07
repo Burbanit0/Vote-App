@@ -100,7 +100,11 @@ class ProfileSimulateRequest(BaseModel):
     """
     model_config = ConfigDict(extra="forbid")
 
-    source: Literal["spatial", "impartial", "mallows", "urn", "handcrafted"] = Field("spatial")
+    source: Literal[
+        "spatial", "single_peaked",
+        "impartial", "iac", "mallows", "urn", "plackett_luce", "didi", "stratification",
+        "handcrafted",
+    ] = Field("spatial")
     candidates: List[ProfileCandidateSpec] = Field(..., min_length=2, max_length=8)
     num_voters: int = Field(300, ge=10, le=1000)
     dims:       int = Field(2, ge=1, le=3)
@@ -108,7 +112,8 @@ class ProfileSimulateRequest(BaseModel):
     behavior: Literal["sincere", "strategic", "mixed"] = Field("sincere")
     source_params: Dict[str, float] = Field(
         default_factory=dict,
-        description="Source knobs: Mallows {phi}, Pólya urn {alpha}.",
+        description="Source knobs: Mallows {phi}, Pólya urn {alpha}, "
+                    "Plackett-Luce {quality}, DiDi {concentration}, stratification {weight}.",
     )
     handcrafted_matrix: Optional[List[List[float]]] = Field(
         None, description="Rows = voters, cols = candidates (aligned), for source=handcrafted."
@@ -139,7 +144,7 @@ class ProfileSimulateResponse(BaseModel):
                                                             description="Share of resampled profiles with no Condorcet winner.")
     candidate_names:        List[str]               = Field(...)
     display_points:         List[List[float]]       = Field(..., description="Per-voter 2D embedding for the map.")
-    candidate_points:       Optional[List[List[float]]] = Field(None, description="Candidate 2D points (spatial source only).")
+    candidate_points:       Optional[List[List[float]]] = Field(None, description="Candidate 2D points: true positions (spatial) or biplot centroids (non-spatial).")
     num_voters:             int                     = Field(..., ge=1)
     turnout_rate:           float                   = Field(1.0, ge=0.0, le=1.0,
                                                             description="Share of the electorate that voted (1 = full turnout).")

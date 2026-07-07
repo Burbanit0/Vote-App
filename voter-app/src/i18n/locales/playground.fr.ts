@@ -29,31 +29,6 @@ const pgFr = {
     moment: 'Moment {{n}} / {{total}}',
     next: '{{label}} →',
   },
-  explore: {
-    heading: 'Pour aller plus loin',
-  },
-  anchors: {
-    mechanisms: {
-      title: '⚙️ Autres procédures de décision',
-      subtitle: '11 mécanismes (jury, sortition, délégation…)',
-    },
-    systems: {
-      title: '🔬 Systèmes & circonscriptions',
-      subtitle: '7 vues (coalitions, districts, gerrymander…)',
-    },
-    results: {
-      title: '📋 Résultats complets (dépouillement)',
-      subtitle: 'toutes les méthodes · animation',
-    },
-    analysis: {
-      title: '🔬 Analyse approfondie du résultat courant',
-      subtitle: 'distributions · regret · manipulabilité',
-    },
-    theory: {
-      title: '🔬 Théorie & paradoxes du choix social',
-      subtitle: 'Sen · jugements · McKelvey · pouvoir · recul démocratique…',
-    },
-  },
   common: {
     loading: 'Chargement…',
     candidates: 'candidats',
@@ -210,6 +185,7 @@ const pgFr = {
   canvas: {
     ruleLabel: 'Règle',
     winnerLabel: 'Vainqueur :',
+    replayCta: '▶ Voir le déroulé',
     viewLabel: 'Vue',
     lensWinner: 'Vainqueur',
     lensManipulation: 'Manipulation',
@@ -218,9 +194,9 @@ const pgFr = {
     view3d: '🧊 Vue 3D',
     viewPlane: '▦ Plan x–y (édition)',
     svgAria: 'Carte idéologique — élire un dirigeant',
-    manipCompromise: 'Compromis (vote utile)',
-    manipBurying: 'Enterrement',
-    manipSafe: 'Conviction récompensée',
+    manipCompromise: 'Tenté par le vote utile (abandonne son favori)',
+    manipBurying: 'Tenté d’enterrer un rival (le classe trop bas)',
+    manipSafe: 'Reste sincère (rien à gagner à tricher)',
     manipUnder: 'Sous',
     manipMid:
       ' : {{pct}}% des électeurs tentés de voter stratégiquement ({{compromise}} compromis · {{burying}} enterrement). Vote au sort :',
@@ -253,18 +229,37 @@ const pgFr = {
     composeTitle: '🧭 Composer l’électorat',
     composeSubComposed: '{{count}} communautés · mélange',
     composeSubSimple: 'gaussien simple',
-    startLabel: 'Point de départ (synthétique)',
+    startLabel: 'Point de départ',
+    startModels: 'Modèles théoriques',
+    startElections: 'Inspirés d’élections',
     summary: '{{points}} {{pointWord}} · {{voters}} électeurs · {{ideology}}',
+    advancedTitle: '⚙ Réglages avancés',
+    advancedSubtitle: 'dimensions, source, valence, comportement, participation',
     dimsLabel: 'Dimensions de l’espace',
     dims1: '1D — un seul axe',
     dims2: '2D — deux axes',
     dims3: '3D — trois axes',
+    dimsLockedSingle:
+      'Verrouillé en 1D : le single-peaked suppose un axe unique (théorème de Black).',
     sourceLabel: 'Source des préférences',
-    sourceSpatial: 'Spatiale (carte)',
-    sourceImpartial: 'Culture impartiale',
-    sourceMallows: 'Mallows',
-    sourceUrn: 'Urne de Pólya',
-    sourceHandcrafted: 'Matrice sur mesure',
+    sourceGroupSpatial: 'Spatiales (candidats placés)',
+    sourceGroupCulture: 'Cultures statistiques (biplot)',
+    source_spatial: 'Spatiale (euclidienne)',
+    source_single_peaked: 'Single-peaked (1 axe)',
+    source_impartial: 'Culture impartiale (IC)',
+    source_iac: 'Culture impartiale anonyme (IAC)',
+    source_mallows: 'Mallows (consensus)',
+    source_urn: 'Urne de Pólya',
+    source_plackett_luce: 'Plackett–Luce (qualité)',
+    source_didi: 'Dirichlet (DiDi)',
+    source_stratification: 'Stratification (strates)',
+    param_mallows: 'Dispersion φ = {{value}} (0 = consensus, 1 = chaos)',
+    param_urn: 'Contagion α = {{value}} (petit = mimétisme fort)',
+    param_plackett_luce: 'Gradient de qualité = {{value}}',
+    param_didi: 'Concentration = {{value}} (haut = électeurs corrélés)',
+    param_stratification: 'Part de la strate supérieure = {{value}}',
+    nonSpatialNote:
+      'Cette culture n’a pas de géométrie de candidat : la carte devient un biplot en lecture seule (positions déduites des bulletins) et les candidats ne sont plus déplaçables. Le taux de paradoxe, lui, réagit.',
     behaviorLabel: 'Comportement des électeurs',
     behaviorSincere: 'Sincère',
     behaviorStrategic: 'Stratégique',
@@ -287,6 +282,17 @@ const pgFr = {
   },
   method: {
     note: 'La règle de décompte et la vue se choisissent directement sur l’instrument →. Ici, réglez ce que l’électeur peut exprimer.',
+    multiSelectNote:
+      'Cochez les méthodes à comparer. Seules les méthodes cochées apparaissent dans le bilan et la carte des valeurs.',
+    family: {
+      majoritarian: 'Majoritaires',
+      positional: 'Positionnelles',
+      condorcet: 'Condorcet',
+      cardinal: 'Cardinales',
+      other: 'Autres',
+    },
+    selectAll: 'Tout cocher',
+    enabledCount: '{{count}} / {{total}} méthodes actives',
     ballotTitle: 'Bulletin (expression)',
     ballotTypeLabel: 'Type de bulletin',
     ballot: {
@@ -323,6 +329,26 @@ const pgFr = {
     sainteLague: 'Sainte-Laguë',
   },
   strategy: {
+    intro:
+      'Un électeur « stratégique » ne vote pas pour son favori mais pour le candidat le mieux placé qui lui convient — le « vote utile ». Sur la carte, les points colorés sont les électeurs qui auraient intérêt à le faire ; les gris n’ont rien à y gagner. Moins il y a de couleur, plus la méthode résiste à la manipulation.',
+    behaviorHint:
+      'Sincère : chacun vote selon sa vraie préférence. Stratégique : les électeurs tentés désertent leur favori. Mixte : un mélange des deux.',
+    tacticTitle: 'Tactique du bloc',
+    tacticLabel: 'Comment le bloc ment',
+    tacticCompromise: 'Vote utile (compromis)',
+    tacticBurying: 'Enterrement',
+    tactic_compromise_desc:
+      'Le bloc classe en tête un candidat moins aimé mais mieux placé, pour éviter que sa voix soit « perdue ».',
+    tactic_burying_desc:
+      'Le bloc garde son favori en tête mais rejette le vainqueur sincère tout en bas, pour le faire perdre au profit d’un rival plus proche.',
+    coalitionLabel: 'Taille de la coalition : {{pct}} % de l’électorat',
+    coalitionHint:
+      'Un seul électeur pèse rarement. Plus le bloc coordonné est grand, plus le vote stratégique peut renverser le résultat — c’est le « coût » de la manipulation.',
+    outcomeFlipPre: 'Le vote stratégique fait basculer le vainqueur :',
+    outcomeHoldPre: 'Le vainqueur tient malgré le vote stratégique :',
+    outcomeHoldPost: 'reste élu.',
+    outcomeDefect: '{{pct}} % des électeurs abandonnent leur favori pour le vote utile.',
+    leaderOnly: 'L’analyse stratégique détaillée est disponible en mode Dirigeant.',
     sincereTitle: '🗳️ Vote sincère ou vote utile ?',
     sincereHint:
       'Votre conviction, méthode par méthode — glissez le losange « Vous » sur la carte.',
@@ -355,6 +381,15 @@ const pgFr = {
     svRun: '▶ Calculer la vulnérabilité stratégique',
     svError: 'Calcul indisponible (backend). Réessayez après redémarrage.',
     svFooter: 'Barre = part d’électeurs avec un mensonge profitable (0 % = aucun n’y gagne).',
+    svColManip: 'Manipulable',
+    svColNoShow: 'No-show',
+    svColLnh: 'LNH',
+    svNoShowYes: 'Paradoxe du non-vote détecté sur cet électorat',
+    svNoShowNo: 'Aucun paradoxe du non-vote sur cet électorat',
+    svLnhOk: 'Satisfait Later-No-Harm : cacher ses derniers choix ne nuit jamais',
+    svLnhFail: 'Viole Later-No-Harm : classer un candidat en bas peut le faire gagner',
+    svAxiomFooter:
+      'No-show = calculé en direct sur CET électorat (une coalition gagnerait à s’abstenir). LNH = propriété connue de la méthode, invariante.',
   },
   parliament: {
     mirror: {
@@ -413,10 +448,135 @@ const pgFr = {
     majoritarian: 'Majoritaire (décisif)',
     consensualist: 'Consensualiste (inclusif)',
     bandNote: '{{count}} ré-échantillonnages',
+    labCtaNote: 'Paradoxes, théorie, mécanismes, dynamiques temporelles…',
+    labCta: '→ Approfondir dans le Laboratoire',
+    tableTitle: 'Résultats par méthode',
+    colMethod: 'Méthode',
+    colWinner: 'Vainqueur',
+    colStability: 'Stabilité',
+    colStrategy: 'Stratégie',
+    colCondorcet: 'Condorcet',
+    verdictTitle: 'Le verdict',
+    verdictSplit: '{{count}} vainqueurs différents selon la méthode',
+    verdictSplitSub: 'Le choix de la règle change l’issue — c’est toute la question.',
+    verdictConsensus: '{{name}} l’emporte, quelle que soit la méthode',
+    verdictConsensusSub: 'Rare consensus : ici, le choix de la méthode ne change rien.',
+    condorcetIs: 'Vainqueur de Condorcet : {{name}} — il bat chaque rival en duel.',
+    condorcetNone: 'Aucun vainqueur de Condorcet : les duels forment un cycle.',
+    winnersTitle: 'Qui gagne, et avec quelles méthodes',
+    methodCountOne: '1 méthode',
+    methodCountMany: '{{count}} méthodes',
+    condorcetBadge: 'Condorcet',
+    robustnessTitle: 'Robustesse de chaque verdict',
+    robustnessSub: 'Trois axes de résistance, sur {{count}} ré-échantillons de l’électorat.',
+    robustnessLegend:
+      'Chaque score va de 0 à 100 (plus haut = plus robuste) ; la barre pâle = fourchette sur {{count}} ré-échantillons de l’électorat, le trait = valeur moyenne.',
+  },
+  replay: {
+    title: 'Comment ça marche : {{method}}',
+    methodLabel: 'Méthode',
+    groupCompared: 'Méthodes comparées',
+    groupExtra: 'À découvrir',
+    sampleNote: 'sur {{count}} électeurs tirés au hasard',
+    step: '{{i}} / {{n}}',
+    winner: 'Vainqueur :',
+    play: 'Lire',
+    pause: 'Pause',
+    restart: 'Rejouer',
+    reshuffle: 'Nouveau tirage',
+    speed: 'Vitesse',
+    speed_calm: 'Lent',
+    speed_normal: 'Normal',
+    speed_fast: 'Rapide',
+    tie: 'Égalité parfaite — aucun vainqueur départagé.',
+    family: {
+      count:
+        'On compte les bulletins un par un : chaque barre monte à mesure que les voix tombent.',
+      elim: 'Tour par tour, on élimine un candidat et on redistribue ses voix.',
+      pairwise: 'Duel par duel : chaque candidat en affronte un autre, on compte les duels gagnés.',
+      twophase:
+        'Deux temps : on additionne les notes, puis une finale départage les deux meilleurs.',
+      lottery: 'Un seul bulletin est tiré au sort : son premier choix l’emporte.',
+    },
+    unit: {
+      votes: 'voix',
+      points: 'points',
+      duels: 'duels gagnés',
+      grade: 'note médiane (0–5)',
+    },
+    count: {
+      start: 'Aucune voix comptée. Chaque électeur va déposer son bulletin.',
+      plurality: 'Électeur {{n}} vote pour son 1ᵉʳ choix : {{cand}}.',
+      borda:
+        'Électeur {{n}} classe les candidats (1ᵉʳ : {{cand}}) → des points à chacun selon le rang.',
+      approval: 'Électeur {{n}} approuve : {{cand}}.',
+      score: 'Électeur {{n}} attribue une note à chaque candidat (préféré : {{cand}}).',
+      antiPlurality:
+        'Électeur {{n}} vote contre son pire choix ({{cand}}) : tous les autres marquent 1.',
+      dowdall: 'Électeur {{n}} classe les candidats (1ᵉʳ : {{cand}}) → 1, ½, ⅓… selon le rang.',
+      cumulative: 'Électeur {{n}} répartit son point entre les candidats (surtout {{cand}}).',
+      maximin:
+        'Électeur {{n}} : on retient sa pire note ({{cand}}) — la barre ne peut que baisser.',
+      nash: 'Électeur {{n}} : on multiplie les notes (moyenne géométrique) — une note nulle écrase tout.',
+      done: '{{cand}} a le plus de voix : élu.',
+    },
+    elim: {
+      tr1: '1ᵉʳ tour : on compte les 1ᵉʳˢ choix de tout le monde.',
+      trRunoff: 'Personne n’a la majorité : 2ᵈ tour entre {{a}} et {{b}}.',
+      majority: 'Tour {{round}} : {{cand}} dépasse 50 % — élu.',
+      irvRound:
+        'Tour {{round}} : {{cand}} a le moins de 1ᵉʳˢ choix → éliminé, ses voix se reportent.',
+      coombsRound: 'Tour {{round}} : {{cand}} est le plus souvent classé dernier → éliminé.',
+      nansonRound: 'Tour {{round}} : score de Borda sous la moyenne → éliminé : {{cand}}.',
+      baldwinRound: 'Tour {{round}} : plus faible score de Borda → éliminé : {{cand}}.',
+      bucklinRound:
+        'Rang {{round}} : on ajoute les choix de rang {{round}}, personne n’a encore la majorité.',
+      bucklinMajority: 'Rang {{round}} : {{cand}} dépasse 50 % des mentions — élu.',
+      done: '{{cand}} est le dernier en lice : élu.',
+    },
+    pairwise: {
+      start: 'On fait s’affronter chaque paire de candidats en duel direct.',
+      duel: '{{a}} vs {{b}} : {{av}}–{{bv}} → {{cand}} gagne le duel.',
+      doneCopeland: '{{cand}} gagne le plus de duels (Copeland) : élu.',
+      doneMinimax: 'Minimax : {{cand}} a la plus petite pire défaite — élu.',
+      doneSchulze: 'Schulze : {{cand}} l’emporte par les plus forts chemins de battage — élu.',
+      doneRankedPairs:
+        'Paires ordonnées : on verrouille les duels les plus nets, {{cand}} est en tête — élu.',
+      doneBlack: 'Black : vainqueur de Condorcet s’il existe, sinon Borda tranche → {{cand}}.',
+      doneSplitCycle:
+        'Split Cycle : on écarte la défaite la plus faible de chaque cycle → {{cand}}.',
+      doneKemeny:
+        'Kemeny-Young : le classement le plus « d’accord » avec tous les bulletins place {{cand}} en tête.',
+      doneRiver:
+        'River : comme les paires ordonnées, mais un seul verrou entrant par candidat → {{cand}}.',
+    },
+    benham: {
+      cw: 'Tour {{round}} : {{cand}} bat tous les rivaux restants (Condorcet) — élu.',
+      round:
+        'Tour {{round}} : pas de vainqueur de Condorcet → on élimine le plus faible ({{cand}}).',
+    },
+    raynaud: {
+      round:
+        'Tour {{round}} : la pire défaite est {{a}} bat {{b}} ({{av}}–{{bv}}) → {{b}} éliminé.',
+    },
+    smith: {
+      set: 'On garde le « Smith set » — le plus petit groupe qui bat tous les autres : {{cand}}.',
+      irv: 'Tour {{round}} : dans ce groupe, on élimine le plus faible en 1ᵉʳˢ choix ({{cand}}).',
+    },
+    phase: {
+      starScores: 'Phase 1 — on additionne les notes de chaque candidat.',
+      starRunoff: 'Phase 2 — finale : {{a}} contre {{b}}, chaque électeur préfère l’un des deux.',
+      mjMedian: 'On classe chaque candidat par sa note médiane.',
+      done: '{{cand}} l’emporte.',
+    },
+    lottery: {
+      shares: 'Chaque candidat a une part proportionnelle à ses 1ᵉʳˢ choix.',
+      draw: 'Un bulletin est tiré au hasard → {{cand}} (résultat le plus probable).',
+    },
   },
   realElection: {
     title: '🗳 Épreuve du réel : un vrai scrutin',
-    sub: 'mêmes bulletins, méthodes différentes',
+    sub: 'mêmes bulletins, méthodes différentes — scrutin réel et figé (Burlington 2009), sans rapport avec l’électorat que vous configurez sur la carte',
     headlinePre: 'Sur les mêmes bulletins,',
     headlineEnd: 'vainqueurs différents selon la seule méthode.',
     note: 'Bulletins classés authentiques (PrefLib). On ne tabule que les méthodes sans ambiguïté sur des bulletins tronqués (pluralité, deux tours, IRV, famille de Condorcet) ; Borda et les méthodes par note exigent une convention que les bulletins ne fournissent pas. Détails : duels gagnés (Condorcet), pire marge de défaite (minimax).',
@@ -442,7 +602,8 @@ const pgFr = {
     modeComposed: 'Composé (communautés)',
     hintComposed: 'Mélange de blocs — édite chaque communauté ci-dessous.',
     hintSimple: 'Nuage idéologique unique (réglage « idéologie »).',
-    models: 'Modèles :',
+    models: 'Modèle',
+    modelsPlaceholder: '— Choisir un modèle —',
     corrTitle: 'Couple l’axe sociétal à l’axe économique.',
     corr: 'Corrélation des axes : {{val}}',
     noiseTitle:
@@ -584,11 +745,14 @@ const pgFr = {
   campaign: {
     emptyPrompt:
       'Composez d’abord un électorat dans le moment ① Électorat, puis revenez lancer une campagne.',
-    deepTitle: '🔬 Explorations approfondies',
-    deepSub: 'trajectoire · mécanismes temporels · réalisme comportemental',
-    deepTrajectory: '🎬 Approfondir la trajectoire',
-    deepMechanisms: '🔁 Mécanismes & comportements dans le temps',
-    deepRealism: '🧠 Réalisme comportemental (un scrutin)',
+  },
+  nonspatial: {
+    computing: 'Calcul du profil…',
+    aria: 'Biplot du profil non-spatial : électeurs et candidats projetés dans un plan.',
+    winnerPre: 'Vainqueur sur ce profil :',
+    noWinner: 'Aucun vainqueur départagé (cycle ou égalité).',
+    caption:
+      'Positions déduites des bulletins (projection PCA), non choisies : les candidats ne sont pas déplaçables. Chaque candidat est placé au barycentre des électeurs qui le soutiennent.',
   },
   instrument: {
     labelLeader: 'Carte idéologique — dirigeant',
@@ -634,6 +798,18 @@ const pgFr = {
     star: 'STAR',
     majority_judgment: 'Jugement majoritaire',
     score: 'Note (score)',
+    anti_plurality: 'Anti-pluralité (véto)',
+    dowdall: 'Dowdall (Nauru)',
+    black: 'Black (Condorcet-Borda)',
+    smith_irv: 'Smith-IRV (Tideman)',
+    split_cycle: 'Split Cycle',
+    kemeny: 'Kemeny-Young',
+    cumulative: 'Vote cumulatif',
+    maximin: 'Maximin (utilité)',
+    benham: 'Benham (Condorcet-IRV)',
+    river: 'River',
+    nash: 'Nash (produit d’utilités)',
+    raynaud: 'Raynaud',
   },
   structures: {
     pr: 'Proportionnelle (listes)',
@@ -707,6 +883,14 @@ const pgFr = {
       label: 'France 2002 (synthétique)',
       desc: 'Gauche fragmentée, extrêmes polarisés — le terrain du spoiler.',
     },
+    usa2000_like: {
+      label: 'USA 2000 (synthétique)',
+      desc: 'Nader spoile Gore — Bush gagne en pluralité malgré Gore vainqueur de Condorcet.',
+    },
+    weimar1932_like: {
+      label: 'Weimar 1932 (synthétique)',
+      desc: 'Cinq partis polarisés, PR sans seuil — aucune majorité sans les extrêmes.',
+    },
   },
   manip: {
     plurality: { label: 'P (calcul trivial)', ref: 'compromission directe' },
@@ -734,6 +918,104 @@ const pgFr = {
     random_ballot: {
       label: 'Inmanipulable — la stratégie n’apporte rien',
       ref: 'Gibbard 1977 (seule règle non-manipulable, au prix du hasard)',
+    },
+    anti_plurality: { label: 'P (véto)', ref: 'règle positionnelle' },
+    dowdall: { label: 'P (positionnel)', ref: 'règle positionnelle' },
+    black: { label: 'P (Condorcet/Borda)', ref: 'Black 1958' },
+    smith_irv: { label: 'NP-difficile (composante IRV)', ref: 'Tideman 1987' },
+    split_cycle: { label: 'P (chemins)', ref: 'Holliday–Pacuit 2021' },
+    kemeny: { label: 'NP-difficile', ref: 'Bartholdi–Tovey–Trick 1989' },
+    cumulative: { label: 'P (répartition)', ref: 'règle cardinale' },
+    maximin: { label: 'P (min d’utilité)', ref: 'règle cardinale' },
+    benham: { label: 'NP-difficile (composante IRV)', ref: 'Condorcet-IRV' },
+    river: { label: 'P (chemins)', ref: 'Heitzig 2004' },
+    nash: { label: 'P (produit)', ref: 'règle cardinale' },
+    raynaud: { label: 'P (paires)', ref: 'élimination par pire défaite' },
+  },
+
+  gallery: {
+    eyebrow: 'À DÉCOUVRIR',
+    title: 'Galerie des méthodes',
+    intro:
+      'D’autres méthodes de vote, expliquées mais pas comparées : trop spécifiques ou trop subtiles pour le tableau de bord, mais chacune a son animation pour comprendre son fonctionnement pas à pas — sur votre électorat actuel.',
+    watch: '▶ Voir le déroulé',
+    liveWinner: 'Vainqueur avec votre électorat actuel',
+  },
+  lab: {
+    eyebrow: 'VOTE LAB · ANALYSES AVANCÉES',
+    title: 'Laboratoire',
+    intro:
+      "Outils d'exploration approfondie — paradoxes, théorie du choix social, mécanismes alternatifs, dynamiques temporelles. Configurez d'abord une élection dans le Playground, puis explorez ici.",
+    backToPlayground: 'Retour au Playground',
+    instrumentHint:
+      'Cette carte reste la même pour toutes les sections ci-contre — changez la règle, l’électorat ou la lentille ici, les analyses se mettent à jour.',
+    mechanisms: {
+      title: '⚙️ Procédures de décision alternatives',
+      subtitle: 'jury, NOTA, démocratie liquide, sortition…',
+    },
+    systems: {
+      title: '🏛 Systèmes électoraux & circonscriptions',
+      subtitle: 'coalitions, STV, charcutage, pipeline…',
+    },
+    campaign: {
+      title: '🎬 Trajectoires de campagne',
+      subtitle: 'Hotelling, sondages, polarisation, dynamique des partis',
+    },
+    temporal: {
+      title: '🔁 Mécanismes temporels',
+      subtitle: 'vote adaptatif, replay historique, primaires, cascade, fatigue',
+    },
+    behavioral: {
+      title: '🧠 Réalisme comportemental',
+      subtitle: 'biais, électeur timide, surcharge, vote obligatoire, polarisation affective',
+    },
+    analysis: {
+      title: '🔬 Analyse approfondie',
+      subtitle: 'Monte-Carlo, manipulabilité, volonté collective, effets combinés',
+    },
+    theory: {
+      title: '📚 Théorie & paradoxes du choix social',
+      subtitle: 'Sen, jugement, agenda, tyrannie, apportionnement, Pol.is',
+    },
+    results: {
+      title: '📋 Résultats complets',
+      subtitle: 'dépouillement détaillé, animation du comptage',
+    },
+    ballot: {
+      title: '🗳️ Bulletin de vote (expression)',
+      subtitle: 'type de bulletin, expressivité, charge cognitive, divergence du vote blanc',
+    },
+    strategy: {
+      title: '🎯 Analyse stratégique approfondie',
+      subtitle: 'sincérité, vulnérabilité Gibbard–Satterthwaite, équilibre itéré',
+    },
+    values: {
+      title: '⚖️ Valeurs & sensibilité',
+      subtitle: 'cadran Lijphart, frontière de Pareto',
+    },
+    groups: {
+      rules: 'Règles & stratégie',
+      systems: 'Systèmes & mécanismes',
+      dynamics: 'Dynamiques',
+      theory: 'Théorie & analyse',
+    },
+    matrix: {
+      title: 'Comparaison des méthodes',
+      liveRow: 'Vainqueur avec votre électorat actuel',
+      familyMajoritarian: 'Majorité',
+      familyOrdinal: 'Ordinal',
+      familyCondorcet: 'Condorcet',
+      familyCardinal: 'Cardinal',
+      criteria: {
+        condorcet_winner: 'Élit le gagnant Condorcet',
+        condorcet_loser: 'Élimine le perdant Condorcet',
+        majority: 'Critère majoritaire',
+        monotonicity: 'Monotonie',
+        iia: 'IIA',
+        strategy_proof: 'Résistance à la stratégie',
+        participation: 'Participation',
+        reversal: 'Symétrie de révocation',
+      },
     },
   },
 };

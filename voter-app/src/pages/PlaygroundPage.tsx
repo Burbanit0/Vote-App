@@ -9,7 +9,6 @@ import {
 } from '../components/playground/PlaygroundController';
 import MomentRail, { MOMENTS } from '../components/playground/MomentRail';
 import InstrumentPanel from '../components/playground/InstrumentPanel';
-import MomentExplorations from '../components/playground/MomentExplorations';
 import GuidedFooter from '../components/playground/GuidedFooter';
 import ElectorateMoment from '../components/playground/moments/ElectorateMoment';
 import MethodMoment from '../components/playground/moments/MethodMoment';
@@ -80,14 +79,14 @@ const PlaygroundShell: React.FC = () => {
   const Panel = activeMoment !== 'campaign' ? MOMENT_PANELS[activeMoment] : null;
 
   return (
-    <div data-testid="playground-page" className="container mx-auto max-w-7xl px-4 py-5">
+    <div data-testid="playground-page" className="w-full px-4 py-4">
       {/* ── Masthead ── */}
-      <header className="mb-5 flex flex-wrap items-end justify-between gap-4 border-b border-border pb-4">
+      <header className="mb-3 flex flex-wrap items-end justify-between gap-3 border-b border-border pb-3">
         <div>
           <p className="font-mono text-[0.66rem] uppercase tracking-[0.22em] text-primary">
             {t('masthead.kicker')}
           </p>
-          <h1 className="mt-1 font-display text-3xl font-bold tracking-tight sm:text-4xl">
+          <h1 className="mt-0.5 font-display text-2xl font-bold tracking-tight sm:text-3xl">
             {t('masthead.title')}
           </h1>
           <p className="mt-1 max-w-xl text-sm text-muted-foreground">{t('masthead.subtitle')}</p>
@@ -98,11 +97,18 @@ const PlaygroundShell: React.FC = () => {
       {/* ── Moment console ── */}
       <MomentRail active={activeMoment} onSelect={setActiveMoment} />
 
-      <div className="mt-5">
+      <div className="mt-4">
         {activeMoment === 'campaign' ? (
           <CampaignMoment />
         ) : (
-          <div className="grid grid-cols-1 gap-5 lg:grid-cols-[21rem_1fr]">
+          <div
+            className={cn(
+              'grid grid-cols-1 gap-5',
+              // Bilan is a conclusion: give the synthesis/comparison the wide column
+              // and shrink the map to a companion. Other moments keep the map large.
+              activeMoment === 'bilan' ? 'lg:grid-cols-[1fr_20rem]' : 'lg:grid-cols-[21rem_1fr]'
+            )}
+          >
             <Card className="h-fit overflow-hidden" data-testid={`moment-${activeMoment}-panel`}>
               <div className="flex items-center gap-2.5 border-b border-border/60 px-4 py-3">
                 <span className="flex h-7 w-7 items-center justify-center rounded-md bg-primary/10 font-mono text-sm font-semibold text-primary">
@@ -125,7 +131,6 @@ const PlaygroundShell: React.FC = () => {
         )}
       </div>
 
-      <MomentExplorations />
       <GuidedFooter />
     </div>
   );

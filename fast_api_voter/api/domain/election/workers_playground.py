@@ -34,6 +34,50 @@ _PROFILE_DEFAULT_CANDS = [
 ]
 
 
+def _no_show_report(
+    candidates: List[Dict[str, Any]],
+    matrix: Dict[int, Dict[str, float]],
+    base_winners: Dict[str, Any],
+) -> Dict[str, bool]:
+    """Coalition no-show (participation) check on THIS profile.
+
+    Group voters by their favourite candidate; for each group, recompute every
+    method's winner with that group removed (they abstain). A method flags a
+    participation failure if the abstaining group would be *better off* — a strict
+    majority of them prefer the winner-without to the winner-with. A stated
+    operationalisation of the no-show paradox on the current electorate (not the
+    full existential axiom over every possible coalition). Reuses the method engine,
+    so it is only run on the on-demand (compute_strategic) path.
+    """
+    names = [str(c["name"]) for c in candidates]
+    ids = list(matrix.keys())
+    viol: Dict[str, bool] = {m: False for m in base_winners}
+    if len(ids) < 4 or len(names) < 3:
+        return viol
+    groups: Dict[str, List[int]] = {}
+    for vid in ids:
+        fav = max(names, key=lambda n: matrix[vid][n])
+        groups.setdefault(fav, []).append(vid)
+    for gids in groups.values():
+        if len(gids) >= len(ids):
+            continue
+        gset = set(gids)
+        sub = {i: matrix[vid] for i, vid in enumerate(v for v in ids if v not in gset)}
+        res = compare_all_methods(
+            [{"id": i} for i in sub], [{"name": n} for n in names], [],
+            override_utilities=sub,
+        )
+        for name, md in res.get("methods", {}).items():
+            if name not in viol or viol[name]:
+                continue
+            w_out, w_all = md.get("winner"), base_winners.get(name)
+            if w_out and w_all and w_out != w_all:
+                pref = sum(1 for vid in gids if matrix[vid][w_out] > matrix[vid][w_all])
+                if pref * 2 > len(gids):
+                    viol[name] = True
+    return viol
+
+
 def _profile_simulate_worker(data: Dict[str, Any]) -> tuple[Dict[str, Any], int]:
     """Pure worker for /profile-simulate (Lab reshape P1).
 
@@ -118,6 +162,14 @@ def _profile_simulate_worker(data: Dict[str, Any]) -> tuple[Dict[str, Any], int]
         if name in compat
     }
     incompatible = sorted(set(raw_methods) - compat)
+
+    # Live participation (no-show) check per method — only on the opt-in path, as it
+    # re-runs the method engine once per favourite-group.
+    if want_strategic:
+        base_winners = {name: md.get("winner") for name, md in methods_out.items()}
+        no_show = _no_show_report(candidates, projected, base_winners)
+        for name in methods_out:
+            methods_out[name]["no_show"] = no_show.get(name, False)
 
     # Headline demo: same counting rule, different ballot → different winner.
     winner_flips: List[str] = []

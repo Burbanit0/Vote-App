@@ -2,7 +2,7 @@
 # Patterns are relative to the build context root (the repo root).
 .git
 ci-local
-flask_voter_app
+fast_api_voter
 **/node_modules
 voter-app/build
 voter-app/coverage

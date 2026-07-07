@@ -5,8 +5,8 @@
 #
 # What it does:
 #   1. Verifies the toolchain (python, node, docker)
-#   2. Creates flask_voter_app/.env from .env.example if missing
-#   3. Installs Python deps in a venv (flask_voter_app/.venv)
+#   2. Creates fast_api_voter/.env from .env.example if missing
+#   3. Installs Python deps in a venv (fast_api_voter/.venv)
 #   4. Installs npm deps (voter-app/node_modules)
 #   5. Installs pre-commit hooks
 #   6. Builds the docker images (postgres + redis + backend)
@@ -41,24 +41,24 @@ ok "Python $PYTHON_VERSION, Node $NODE_VERSION, Docker installed"
 
 # ── 2. Backend .env ─────────────────────────────────────────────────────────
 say "Setting up backend env file"
-if [ ! -f flask_voter_app/.env ]; then
-    cp flask_voter_app/.env.example flask_voter_app/.env
-    ok "Created flask_voter_app/.env from template (defaults work for local dev)"
+if [ ! -f fast_api_voter/.env ]; then
+    cp fast_api_voter/.env.example fast_api_voter/.env
+    ok "Created fast_api_voter/.env from template (defaults work for local dev)"
 else
     ok ".env already exists, leaving alone"
 fi
 
 # ── 3. Backend deps ─────────────────────────────────────────────────────────
 say "Installing backend dependencies"
-if [ ! -d flask_voter_app/.venv ]; then
-    python3 -m venv flask_voter_app/.venv
-    ok "Created virtualenv at flask_voter_app/.venv"
+if [ ! -d fast_api_voter/.venv ]; then
+    python3 -m venv fast_api_voter/.venv
+    ok "Created virtualenv at fast_api_voter/.venv"
 fi
 # shellcheck disable=SC1091
-source flask_voter_app/.venv/bin/activate 2>/dev/null \
-    || source flask_voter_app/.venv/Scripts/activate    # Windows Git Bash
+source fast_api_voter/.venv/bin/activate 2>/dev/null \
+    || source fast_api_voter/.venv/Scripts/activate    # Windows Git Bash
 pip install --quiet --upgrade pip
-pip install --quiet -r flask_voter_app/requirements.txt
+pip install --quiet -r fast_api_voter/requirements.txt
 ok "Backend deps installed"
 deactivate
 
@@ -83,14 +83,14 @@ fi
 
 # ── 6. Docker images ────────────────────────────────────────────────────────
 say "Building docker images"
-(cd flask_voter_app && docker compose build --quiet) \
-    || (cd flask_voter_app && docker-compose build --quiet)
+(cd fast_api_voter && docker compose build --quiet) \
+    || (cd fast_api_voter && docker-compose build --quiet)
 ok "Images built"
 
 # ── 7. Boot stack and wait for healthcheck ──────────────────────────────────
 say "Booting stack (postgres + redis + backend)"
-(cd flask_voter_app && docker compose up -d) \
-    || (cd flask_voter_app && docker-compose up -d)
+(cd fast_api_voter && docker compose up -d) \
+    || (cd fast_api_voter && docker-compose up -d)
 
 printf "  Waiting for backend healthcheck"
 for i in $(seq 1 30); do
@@ -109,7 +109,7 @@ done
 
 # ── 8. Smoke test ───────────────────────────────────────────────────────────
 say "Running a quick backend smoke test"
-(cd flask_voter_app && docker compose exec -T backend python -m pytest tests/test_election_simulate.py -q --tb=line 2>&1 | tail -3) \
+(cd fast_api_voter && docker compose exec -T backend python -m pytest tests/test_election_simulate.py -q --tb=line 2>&1 | tail -3) \
     || warn "Smoke test failed — investigate with 'docker compose logs backend'"
 
 # ── Done ────────────────────────────────────────────────────────────────────
@@ -120,8 +120,8 @@ Next steps:
   ▸ Backend live:   http://localhost:4433
   ▸ Health check:   http://localhost:4433/api/health
   ▸ Start frontend: cd voter-app && npm start  (opens http://localhost:3000)
-  ▸ Run backend tests: cd flask_voter_app && docker compose exec backend pytest
-  ▸ Tear down:      cd flask_voter_app && docker compose down
+  ▸ Run backend tests: cd fast_api_voter && docker compose exec backend pytest
+  ▸ Tear down:      cd fast_api_voter && docker compose down
 
 Documentation:
   ▸ Project overview:    README.md

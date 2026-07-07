@@ -17,6 +17,7 @@ import {
   type LeaderScorecard,
   type LensItem,
 } from '../../lib/scorecard';
+import { strategicVote, type StrategicOutcome } from '../../lib/playgroundSincerity';
 import { composeElectorate, COMMUNITY_PALETTE } from '../../lib/playgroundElectorate';
 import { PARLIAMENT_AXES_KEYS, defaultWeights } from '../../lib/playgroundMeta';
 import { useVotingLabels } from '../../hooks/useVotingLabels';
@@ -30,7 +31,7 @@ function useController() {
   const { config, setConfig } = useElection();
   const { playground, setMode, setPlayground, setPlaygroundDeep, applyPreset, presets } =
     usePlayground();
-  const { mode, space, behavior, prefSource, assembly, turnout } = playground;
+  const { mode, space, behavior, prefSource, prefParams, assembly, turnout } = playground;
   const pointWord = mode === 'leader' ? 'candidats' : 'partis';
   const { result, loading } = useProfileDiagnostics(config, playground);
   const { assembly: assemblyResult, loading: assemblyLoading } = useAssembly(
@@ -46,6 +47,7 @@ function useController() {
 
   const dims = space.dims;
   const [leaderRule, setLeaderRule] = React.useState<Rule>('plurality');
+  const [enabledRules, setEnabledRules] = React.useState<Set<Rule>>(() => new Set(LEADER_RULES));
   // Central-map lens: the moment sets a sensible default (Méthode → critères,
   // Stratégie → manipulation, sinon vainqueur). The user can still override it on
   // the instrument within the current moment.
@@ -327,6 +329,36 @@ function useController() {
     };
   }, [mode, votingVoters, leaderCandidates, leaderRule]);
 
+  // FC-2 — strategic outcome: does tactical voting flip the winner on THIS map?
+  // O(n²) probe, so debounced off the drag frame (settles ~200 ms after a move).
+  const [strategicOutcome, setStrategicOutcome] = React.useState<StrategicOutcome | null>(null);
+  React.useEffect(() => {
+    if (mode !== 'leader') {
+      setStrategicOutcome(null);
+      return;
+    }
+    let alive = true;
+    const id = setTimeout(() => {
+      const out = strategicVote(votingVoters, leaderCandidates, leaderRule, behavior, {
+        tactic: playground.stratTactic,
+        blocShare: playground.stratShare,
+      });
+      if (alive) setStrategicOutcome(out);
+    }, 200);
+    return () => {
+      alive = false;
+      clearTimeout(id);
+    };
+  }, [
+    mode,
+    votingVoters,
+    leaderCandidates,
+    leaderRule,
+    behavior,
+    playground.stratTactic,
+    playground.stratShare,
+  ]);
+
   const axisMeta = mode === 'leader' ? leaderAxisMeta : parliamentAxisMeta;
   const currentAxes: ScorecardAxis[] = axisMeta.map(({ key, label, hint }) => ({
     key,
@@ -340,7 +372,7 @@ function useController() {
   const lensItems: LensItem[] =
     mode === 'leader'
       ? leaderSc
-        ? LEADER_RULES.map((r) => ({ id: r, axes: leaderSc[r] }))
+        ? LEADER_RULES.filter((r) => enabledRules.has(r)).map((r) => ({ id: r, axes: leaderSc[r] }))
         : []
       : parlSc
         ? Object.keys(structureLabels).map((s) => ({ id: s, axes: parlSc.structures[s] }))
@@ -360,6 +392,7 @@ function useController() {
     space,
     behavior,
     prefSource,
+    prefParams,
     assembly,
     turnout,
     pointWord,
@@ -375,6 +408,8 @@ function useController() {
     dims,
     leaderRule,
     setLeaderRule,
+    enabledRules,
+    setEnabledRules,
     lens,
     setLens,
     youPos,
@@ -406,6 +441,7 @@ function useController() {
     setParlWeights,
     democracyEntries,
     manipDetail,
+    strategicOutcome,
     axisMeta,
     currentAxes,
     lensItems,

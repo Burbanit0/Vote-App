@@ -264,7 +264,25 @@ export const SCENARIOS: Record<string, ElectionConfig> = {
 // These knobs are the user-configurable assumptions — nothing is smuggled in.
 
 export type PlaygroundMode = 'leader' | 'parliament';
-export type PrefSource = 'spatial' | 'impartial' | 'mallows' | 'urn' | 'handcrafted';
+export type PrefSource =
+  | 'spatial'
+  | 'single_peaked'
+  | 'impartial'
+  | 'iac'
+  | 'mallows'
+  | 'urn'
+  | 'plackett_luce'
+  | 'didi'
+  | 'stratification'
+  | 'handcrafted';
+
+/** Spatial sources place candidates in the ideological space (draggable map);
+ *  the rest are statistical cultures with no given geometry (biplot, read-only). */
+export const SPATIAL_SOURCES: ReadonlySet<PrefSource> = new Set<PrefSource>([
+  'spatial',
+  'single_peaked',
+]);
+export const isSpatialSource = (s: PrefSource): boolean => SPATIAL_SOURCES.has(s);
 export type Behavior = 'sincere' | 'strategic' | 'mixed';
 export type AssemblyStructure = 'pr' | 'fptp' | 'mmp';
 export type Apportionment = 'dhondt' | 'sainte_lague';
@@ -282,6 +300,10 @@ export interface PlaygroundState {
   mode: PlaygroundMode;
   space: { dims: 1 | 2 | 3; axisLabels: string[]; valenceEnabled: boolean };
   behavior: Behavior;
+  /** Which insincere ballot a tempted conviction bloc casts (leader map). */
+  stratTactic: 'compromise' | 'burying';
+  /** Size of the coordinating conviction bloc, as a share of the electorate. */
+  stratShare: number;
   prefSource: PrefSource;
   prefParams: Record<string, number>;
   /** FA-1: how voters may EXPRESS preferences — separate from the counting rule. */
@@ -406,6 +428,8 @@ export const DEFAULT_PLAYGROUND: PlaygroundState = {
   mode: 'leader',
   space: { dims: 2, axisLabels: ['Économique', 'Sociétal'], valenceEnabled: false },
   behavior: 'sincere',
+  stratTactic: 'compromise',
+  stratShare: 0.2,
   prefSource: 'spatial',
   prefParams: {},
   ballot: { type: 'full', truncate_at: 3, score_levels: 6 },
@@ -430,6 +454,9 @@ export interface PlaygroundPreset {
   id: string;
   label: string;
   description: string;
+  /** 'model' = abstract textbook scenario. 'election' = inspired by a real historical
+   *  election but positions are synthetic, not reconstructed from actual ballots. */
+  category: 'model' | 'election';
   playground: Partial<PlaygroundState>;
   electorate: Partial<ElectionConfig>;
 }
@@ -443,6 +470,7 @@ export const PLAYGROUND_PRESETS: PlaygroundPreset[] = [
     id: 'two_party',
     label: 'Bipartisme',
     description: 'Deux camps sur un axe gauche–droite — le terrain du votant médian.',
+    category: 'model',
     playground: {
       mode: 'leader',
       space: { dims: 1, axisLabels: ['Gauche–Droite'], valenceEnabled: false },
@@ -461,6 +489,7 @@ export const PLAYGROUND_PRESETS: PlaygroundPreset[] = [
     id: 'fragmented',
     label: 'Multipartisme fragmenté',
     description: 'Six partis en 2D — proportionnelle, seuils et coalitions.',
+    category: 'model',
     playground: {
       mode: 'parliament',
       space: { dims: 2, axisLabels: ['Économique', 'Sociétal'], valenceEnabled: false },
@@ -491,6 +520,7 @@ export const PLAYGROUND_PRESETS: PlaygroundPreset[] = [
     id: 'single_issue',
     label: 'Enjeu unique',
     description: 'Trois options sur un seul axe — la clarté du votant médian.',
+    category: 'model',
     playground: {
       mode: 'leader',
       space: { dims: 1, axisLabels: ['Pour ↔ Contre'], valenceEnabled: false },
@@ -510,6 +540,7 @@ export const PLAYGROUND_PRESETS: PlaygroundPreset[] = [
     id: 'france2002_like',
     label: 'France 2002 (synthétique)',
     description: 'Gauche fragmentée, extrêmes polarisés — le terrain du spoiler.',
+    category: 'election',
     playground: {
       mode: 'leader',
       space: { dims: 2, axisLabels: ['Économique', 'Sociétal'], valenceEnabled: false },
@@ -518,6 +549,56 @@ export const PLAYGROUND_PRESETS: PlaygroundPreset[] = [
     electorate: {
       candidates: SCENARIOS.france2002.candidates,
       num_voters: 500,
+      ideology: 'polarized',
+    },
+  },
+  {
+    id: 'usa2000_like',
+    label: 'USA 2000 (synthétique)',
+    description: 'Nader spoile Gore — Bush gagne en pluralité malgré Gore vainqueur de Condorcet.',
+    category: 'election',
+    playground: {
+      mode: 'leader',
+      space: { dims: 1, axisLabels: ['Gauche–Droite'], valenceEnabled: false },
+      prefSource: 'spatial',
+    },
+    electorate: {
+      candidates: [
+        { name: 'Nader', x: -0.7, y: 0 },
+        { name: 'Gore', x: -0.1, y: 0 },
+        { name: 'Bush', x: 0.6, y: 0 },
+      ],
+      num_voters: 400,
+      ideology: 'random',
+    },
+  },
+  {
+    id: 'weimar1932_like',
+    label: 'Weimar 1932 (synthétique)',
+    description: 'Cinq partis polarisés, PR sans seuil — aucune majorité sans les extrêmes.',
+    category: 'election',
+    playground: {
+      mode: 'parliament',
+      space: { dims: 2, axisLabels: ['Économique', 'Autoritaire'], valenceEnabled: false },
+      prefSource: 'spatial',
+      assembly: {
+        structure: 'pr',
+        seats: 100,
+        threshold: 0,
+        apportionment: 'dhondt',
+        num_districts: 1,
+        strategic_desertion: false,
+      },
+    },
+    electorate: {
+      candidates: [
+        { name: 'KPD', x: -0.85, y: 0.5 },
+        { name: 'SPD', x: -0.4, y: -0.1 },
+        { name: 'Zentrum', x: 0.0, y: 0.15 },
+        { name: 'DNVP', x: 0.55, y: 0.35 },
+        { name: 'NSDAP', x: 0.45, y: 0.85 },
+      ],
+      num_voters: 600,
       ideology: 'polarized',
     },
   },

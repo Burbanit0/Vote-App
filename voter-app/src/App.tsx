@@ -28,6 +28,7 @@ const QuadraticFundingPage = React.lazy(() => import('./pages/QuadraticFundingPa
 const TechDemocracyPage = React.lazy(() => import('./pages/TechDemocracyPage'));
 const TheoryPage = React.lazy(() => import('./pages/TheoryPage'));
 const ScenarioGalleryPage = React.lazy(() => import('./pages/ScenarioGalleryPage'));
+const LaboratoirePage = React.lazy(() => import('./pages/LaboratoirePage'));
 const NotFoundPage = React.lazy(() => import('./pages/NotFoundPage'));
 const ProfilePage = React.lazy(() => import('./pages/ProfilePage'));
 const UserProfilePage = React.lazy(() => import('./pages/UserProfilePage'));
@@ -92,6 +93,7 @@ const AppContent: React.FC = () => {
             <Route path="/api-docs" element={<ApiDocsPage />} />
             <Route path="/teacher/presentation" element={<TeacherPresentationPage />} />
             <Route path="/playground" element={<PlaygroundPage />} />
+            <Route path="/laboratoire" element={<LaboratoirePage />} />
             {/* Campagne folded into the playground as moment ④ — redirect old links. */}
             <Route path="/campagne" element={<Navigate to="/playground" replace />} />
             <Route path="/quadratic-funding" element={<QuadraticFundingPage />} />

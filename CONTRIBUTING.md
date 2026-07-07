@@ -84,7 +84,7 @@ Aucune PR vers `main` n'est acceptée depuis une branche autre que `develop`.
 
 ```bash
 # Dev tools
-pip install -r flask_voter_app/requirements-dev.txt
+pip install -r fast_api_voter/requirements-dev.txt
 cd voter-app && npm install
 
 # Hooks git (obligatoire)
@@ -140,6 +140,6 @@ Types valides : `feat`, `fix`, `refactor`, `docs`, `test`, `chore`, `ci`, `secur
 pre-commit run --all-files                              # lancer tous les hooks
 detect-secrets scan --update .secrets.baseline         # mettre a jour la baseline
 cd voter-app && npm test -- --coverage                 # coverage frontend
-cd flask_voter_app && python -m pytest tests --cov=app  # coverage backend
-pip-audit --requirement flask_voter_app/requirements.txt # CVE Python
+cd fast_api_voter && python -m pytest tests --cov=app  # coverage backend
+pip-audit --requirement fast_api_voter/requirements.txt # CVE Python
 ```

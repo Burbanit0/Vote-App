@@ -598,6 +598,264 @@ export const METHOD_INFO: Record<string, MethodEntry> = {
       example: 'Germany, New Zealand: the reference mixed model.',
     },
   },
+
+  // ── Tier B extras (gallery + replay only) ──────────────────────────────────
+  anti_plurality: {
+    family: 'ordinal',
+    fr: {
+      name: 'Anti-pluralité (véto)',
+      summary: 'Chacun vote CONTRE un candidat ; celui rejeté le moins souvent gagne.',
+      how: 'On compte les dernières places : le candidat le moins souvent classé dernier l’emporte.',
+      strength: 'Élit un « plus petit dénominateur commun » — le candidat que personne ne déteste.',
+      weakness:
+        'Ignore les premières préférences : un candidat fade sans ennemi peut battre un favori clivant.',
+      criterion:
+        'Échoue au critère de majorité et à Condorcet ; règle positionnelle, donc monotone.',
+      example:
+        'Le compromis mou l’emporte sur le champion d’un camp, faute d’adversaires acharnés.',
+    },
+    en: {
+      name: 'Anti-plurality (veto)',
+      summary: 'Everyone votes AGAINST one candidate; the least-rejected wins.',
+      how: 'Count last-place votes: the candidate ranked last the fewest times wins.',
+      strength: 'Elects a lowest-common-denominator — the candidate nobody hates.',
+      weakness:
+        'Ignores first preferences: a bland candidate with no enemies can beat a divisive favourite.',
+      criterion: 'Fails majority and Condorcet; a positional rule, so monotone.',
+      example: 'The mild compromise beats a camp’s champion for lack of committed opponents.',
+    },
+  },
+  dowdall: {
+    family: 'ordinal',
+    fr: {
+      name: 'Dowdall (Nauru)',
+      summary: 'Comme Borda, mais les rangs valent 1, ½, ⅓… — le 1ᵉʳ choix pèse bien plus.',
+      how: 'Chaque électeur classe tout le monde ; le rang k rapporte 1/(k+1) point. On somme.',
+      strength: 'Récompense fortement les premières places sans ignorer le reste du classement.',
+      weakness: 'Poids arbitraires (harmoniques) ; brise la symétrie de révocation de Borda.',
+      criterion: 'Positionnel comme Borda mais non linéaire ; échoue à Condorcet.',
+      example: 'Utilisé à Nauru : un 1ᵉʳ choix vaut deux 2ᵉˢ choix, trois 3ᵉˢ…',
+    },
+    en: {
+      name: 'Dowdall (Nauru)',
+      summary: 'Like Borda, but ranks score 1, ½, ⅓… — the 1st choice weighs far more.',
+      how: 'Each voter ranks everyone; rank k scores 1/(k+1) points. Sum them up.',
+      strength: 'Strongly rewards top places without ignoring the rest of the ranking.',
+      weakness: 'Arbitrary (harmonic) weights; breaks Borda’s reversal symmetry.',
+      criterion: 'Positional like Borda but non-linear; fails Condorcet.',
+      example: 'Used in Nauru: one 1st choice is worth two 2nd choices, three 3rd choices…',
+    },
+  },
+  black: {
+    family: 'condorcet',
+    condorcet: true,
+    fr: {
+      name: 'Black (Condorcet-Borda)',
+      summary: 'Le vainqueur de Condorcet s’il existe ; sinon, on bascule sur Borda.',
+      how: 'On cherche qui bat tout le monde en duel ; à défaut (cycle), le score de Borda tranche.',
+      strength: 'Le meilleur des deux mondes : Condorcet quand il existe, un repli robuste sinon.',
+      weakness: 'Hérite des failles de Borda en cas de cycle ; échoue à la participation.',
+      criterion: 'Condorcet-cohérent, monotone, respecte la majorité ; non strategy-proof.',
+      example: 'Duncan Black (1958) : la solution la plus simple au problème des cycles.',
+    },
+    en: {
+      name: 'Black (Condorcet-Borda)',
+      summary: 'The Condorcet winner if one exists; otherwise fall back to Borda.',
+      how: 'Look for who beats everyone head-to-head; if none (a cycle), the Borda score decides.',
+      strength: 'Best of both worlds: Condorcet when it exists, a robust fallback otherwise.',
+      weakness: 'Inherits Borda’s flaws on a cycle; fails participation.',
+      criterion: 'Condorcet-consistent, monotone, meets majority; not strategyproof.',
+      example: 'Duncan Black (1958): the simplest fix for the cycle problem.',
+    },
+  },
+  smith_irv: {
+    family: 'condorcet',
+    condorcet: true,
+    fr: {
+      name: 'Smith-IRV (Tideman)',
+      summary: 'On restreint au « Smith set », puis on élimine à la façon de l’IRV.',
+      how: 'On garde le plus petit groupe qui bat tous les autres, on élimine le plus faible en 1ᵉʳˢ choix, et on recommence.',
+      strength:
+        'Élit toujours le vainqueur de Condorcet et résiste aux clones — le meilleur des deux mondes.',
+      weakness: 'Non monotone (hérite de l’IRV) ; calcul plus lourd, moins lisible.',
+      criterion: 'Condorcet-cohérent, indépendant des clones ; échoue à la monotonie.',
+      example:
+        'Souvent proposée comme réforme : la robustesse de Condorcet avec la dynamique de l’IRV.',
+    },
+    en: {
+      name: 'Smith-IRV (Tideman)',
+      summary: 'Restrict to the Smith set, then eliminate IRV-style.',
+      how: 'Keep the smallest group that beats everyone else, eliminate the fewest first choices, repeat.',
+      strength: 'Always elects the Condorcet winner and resists clones — the best of both worlds.',
+      weakness: 'Non-monotone (inherits IRV); heavier to compute, less transparent.',
+      criterion: 'Condorcet-consistent, clone-independent; fails monotonicity.',
+      example: 'Often proposed as a reform: Condorcet robustness with IRV’s dynamics.',
+    },
+  },
+  split_cycle: {
+    family: 'condorcet',
+    condorcet: true,
+    fr: {
+      name: 'Split Cycle',
+      summary:
+        'En cas de cycle, on écarte la victoire la plus faible ; le reste désigne le vainqueur.',
+      how: 'Chaque défaite qui est le maillon faible d’un cycle est annulée ; gagne qui ne subit plus aucune défaite.',
+      strength: 'Résout les cycles sans arbitraire ; solides garanties (immunité aux spoilers).',
+      weakness: 'Peut désigner un ensemble (départage nécessaire) ; concept récent, peu connu.',
+      criterion: 'Condorcet-cohérent, monotone, symétrie de révocation ; méthode par marges.',
+      example:
+        'Holliday & Pacuit (2021) : une alternative moderne à Schulze et aux paires ordonnées.',
+    },
+    en: {
+      name: 'Split Cycle',
+      summary: 'On a cycle, discard the weakest win; what remains picks the winner.',
+      how: 'Any defeat that is the weakest link of a cycle is voided; whoever suffers no defeat wins.',
+      strength: 'Resolves cycles without arbitrariness; strong guarantees (spoiler immunity).',
+      weakness: 'Can return a set (needs a tie-break); recent, little-known concept.',
+      criterion: 'Condorcet-consistent, monotone, reversal symmetry; a margin-based method.',
+      example: 'Holliday & Pacuit (2021): a modern alternative to Schulze and ranked pairs.',
+    },
+  },
+  cumulative: {
+    family: 'cardinal',
+    fr: {
+      name: 'Vote cumulatif',
+      summary: 'Chaque électeur répartit un budget de points entre les candidats comme il veut.',
+      how: 'On distribue 1 point par électeur au prorata de ses préférences ; on somme les points.',
+      strength: 'Laisse exprimer l’intensité et concentre le pouvoir des minorités motivées.',
+      weakness: 'Fortement stratégique : tout mettre sur un seul candidat est souvent optimal.',
+      criterion: 'Cardinal ; échoue à Condorcet et au critère de majorité.',
+      example:
+        'Élections de conseils d’administration ; défendu pour la représentation des minorités.',
+    },
+    en: {
+      name: 'Cumulative voting',
+      summary: 'Each voter spreads a budget of points across candidates however they like.',
+      how: 'Give each voter 1 point split in proportion to their preferences; sum the points.',
+      strength: 'Lets voters express intensity and concentrates the power of motivated minorities.',
+      weakness: 'Highly strategic: piling everything on one candidate is often optimal.',
+      criterion: 'Cardinal; fails Condorcet and the majority criterion.',
+      example: 'Corporate board elections; advocated for minority representation.',
+    },
+  },
+  maximin: {
+    family: 'cardinal',
+    fr: {
+      name: 'Maximin (utilité)',
+      summary:
+        'On élit le candidat dont la PIRE note (chez l’électeur le plus déçu) est la moins mauvaise.',
+      how: 'Pour chaque candidat, on regarde sa note la plus basse ; gagne le plus haut de ces minimums.',
+      strength:
+        'Critère rawlsien : protège l’électeur le plus mal servi, évite les vainqueurs clivants.',
+      weakness: 'Ignore l’intensité moyenne ; un seul électeur très hostile peut tout décider.',
+      criterion: 'Cardinal, égalitariste ; à l’opposé du score (utilitariste, qui somme).',
+      example:
+        'La justice comme équité (Rawls) appliquée au vote : le sort du plus faible d’abord.',
+    },
+    en: {
+      name: 'Maximin (utility)',
+      summary:
+        'Elect the candidate whose WORST rating (from the unhappiest voter) is the least bad.',
+      how: 'For each candidate take their lowest rating; the highest of those minimums wins.',
+      strength: 'A Rawlsian criterion: protects the worst-served voter, avoids divisive winners.',
+      weakness: 'Ignores average intensity; a single very hostile voter can decide everything.',
+      criterion: 'Cardinal, egalitarian; the opposite of score voting (utilitarian sum).',
+      example: 'Justice as fairness (Rawls) applied to voting: the worst-off voter first.',
+    },
+  },
+  benham: {
+    family: 'condorcet',
+    condorcet: true,
+    fr: {
+      name: 'Benham (Condorcet-IRV)',
+      summary: 'On déroule l’IRV, mais on s’arrête dès qu’un vainqueur de Condorcet apparaît.',
+      how: 'À chaque tour : si un candidat bat tous les restants en duel, il est élu ; sinon on élimine le plus faible en 1ᵉʳˢ choix.',
+      strength: 'Condorcet-cohérent tout en gardant la résistance aux clones de l’IRV.',
+      weakness: 'Non monotone (hérite de l’IRV) ; très proche de Smith-IRV, moins connu.',
+      criterion: 'Condorcet-cohérent, indépendant des clones ; échoue à la monotonie.',
+      example: 'Une des façons les plus simples de « réparer » l’IRV pour respecter Condorcet.',
+    },
+    en: {
+      name: 'Benham (Condorcet-IRV)',
+      summary: 'Run IRV, but stop as soon as a Condorcet winner appears.',
+      how: 'Each round: if a candidate beats all the rest head-to-head, elect them; otherwise drop the fewest first choices.',
+      strength: 'Condorcet-consistent while keeping IRV’s clone resistance.',
+      weakness: 'Non-monotone (inherits IRV); very close to Smith-IRV, less known.',
+      criterion: 'Condorcet-consistent, clone-independent; fails monotonicity.',
+      example: 'One of the simplest ways to “fix” IRV so it respects Condorcet.',
+    },
+  },
+  river: {
+    family: 'condorcet',
+    condorcet: true,
+    fr: {
+      name: 'River',
+      summary:
+        'Comme les paires ordonnées, mais chaque candidat n’a qu’un seul « verrou » entrant.',
+      how: 'On verrouille les duels du plus net au plus serré, en sautant ceux qui bouclent un cycle ou visent un candidat déjà verrouillé ; la racine gagne.',
+      strength:
+        'Résultat en arbre, plus simple à auditer que Ranked Pairs, mêmes garanties Condorcet.',
+      weakness: 'Peut différer des paires ordonnées ; méthode confidentielle.',
+      criterion: 'Condorcet-cohérent, monotone, indépendant des clones ; par marges.',
+      example: 'Heitzig (2004) : une variante « en rivière » des paires ordonnées de Tideman.',
+    },
+    en: {
+      name: 'River',
+      summary: 'Like ranked pairs, but each candidate takes only one incoming lock.',
+      how: 'Lock duels from clearest to closest, skipping any that close a cycle or point at an already-locked candidate; the root wins.',
+      strength:
+        'A tree result, simpler to audit than ranked pairs, with the same Condorcet guarantees.',
+      weakness: 'Can differ from ranked pairs; a niche method.',
+      criterion: 'Condorcet-consistent, monotone, clone-independent; margin-based.',
+      example: 'Heitzig (2004): a “river” variant of Tideman’s ranked pairs.',
+    },
+  },
+  nash: {
+    family: 'cardinal',
+    fr: {
+      name: 'Nash (produit d’utilités)',
+      summary: 'On élit le candidat qui maximise le PRODUIT des notes, pas leur somme.',
+      how: 'On multiplie les notes de tous les électeurs (moyenne géométrique) ; le plus haut produit gagne.',
+      strength:
+        'Équité proportionnelle : entre l’utilitarisme (score) et le maximin, pénalise les notes nulles.',
+      weakness: 'Un seul électeur mettant 0 anéantit un candidat ; sensible à l’échelle des notes.',
+      criterion: 'Cardinal ; le « bargaining » de Nash appliqué au vote — compromis somme/minimum.',
+      example: 'Solution de Nash (1950) : le partage équitable qui multiplie les gains de chacun.',
+    },
+    en: {
+      name: 'Nash (product of utilities)',
+      summary: 'Elect the candidate maximising the PRODUCT of ratings, not their sum.',
+      how: 'Multiply every voter’s rating (geometric mean); the highest product wins.',
+      strength:
+        'Proportional fairness: between utilitarian (score) and maximin, it punishes zeros.',
+      weakness: 'A single 0 rating wipes out a candidate; sensitive to the rating scale.',
+      criterion: 'Cardinal; Nash bargaining applied to voting — a sum/minimum compromise.',
+      example: 'The Nash solution (1950): the fair split that multiplies everyone’s gains.',
+    },
+  },
+  raynaud: {
+    family: 'condorcet',
+    condorcet: true,
+    fr: {
+      name: 'Raynaud',
+      summary: 'On élimine à répétition le candidat qui subit la plus lourde défaite en duel.',
+      how: 'On cherche la défaite de plus grande marge, on élimine le perdant, et on recommence.',
+      strength:
+        'Condorcet-cohérent : le vainqueur de Condorcet ne perd aucun duel, il survit toujours.',
+      weakness: 'Non monotone ; se concentre sur les pires défaites plutôt que le bilan global.',
+      criterion: 'Condorcet-cohérent ; méthode par élimination selon la pire défaite.',
+      example: 'Une logique « à l’élimination directe » : le plus écrasé sort à chaque tour.',
+    },
+    en: {
+      name: 'Raynaud',
+      summary: 'Repeatedly eliminate the candidate on the losing end of the heaviest duel.',
+      how: 'Find the largest-margin defeat, drop its loser, and repeat until one remains.',
+      strength: 'Condorcet-consistent: the Condorcet winner loses no duel, so it always survives.',
+      weakness: 'Non-monotone; focuses on worst defeats rather than the overall record.',
+      criterion: 'Condorcet-consistent; elimination by the worst pairwise defeat.',
+      example: 'A “knockout” logic: the most crushed candidate leaves each round.',
+    },
+  },
 };
 
 export type Lang = 'fr' | 'en';

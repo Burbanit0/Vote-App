@@ -4,7 +4,7 @@ import fixtureJson from './__fixtures__/engineParity.json';
 
 // Engine parity: the Playground computes winners client-side, but the repo's
 // authoritative engine is the tested Python backend. These golden winners come
-// from it (flask_voter_app/scripts/gen_engine_parity.py); here we assert the TS
+// from it (fast_api_voter/scripts/gen_engine_parity.py); here we assert the TS
 // client returns the same winner on the same ranking profile — one source of
 // truth, not two that silently drift.
 //

@@ -3,7 +3,7 @@ api.main — FastAPI app entrypoint.
 
 Run locally:
 
-    cd flask_voter_app
+    cd fast_api_voter
     uvicorn api.main:app --reload --port 4434
 
 The app intentionally mounts everything under `/api/v2/...` so it can run
@@ -22,7 +22,7 @@ from fastapi.middleware.cors import CORSMiddleware
 
 # Re-use the project's existing structlog config so logs look identical
 # to the Flask side. Sys.path is already correct when api is invoked
-# from flask_voter_app/ as the cwd.
+# from fast_api_voter/ as the cwd.
 from slowapi import _rate_limit_exceeded_handler
 from slowapi.errors import RateLimitExceeded
 
