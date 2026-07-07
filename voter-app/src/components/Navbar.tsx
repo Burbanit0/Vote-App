@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router';
 import { useAuth } from '../stores/useAuthStore';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { Dropdown, NavDropdown } from '@/components/ui/dropdown';
+import { Dropdown } from '@/components/ui/dropdown';
 import { Modal } from '@/components/ui/modal';
 import { Control, Check } from '@/components/ui/form-controls';
 import { Navbar as BootstrapNavbar, Nav } from '@/components/ui/navbar';
@@ -14,22 +14,9 @@ import { useTeacherMode } from '../stores/useUIStore';
 import { useTranslation } from 'react-i18next';
 import i18n, { switchLanguage } from '../i18n';
 
-// ── Navigation groups ─────────────────────────────────────────────────────────
-
-const NAV_LEARN = [
-  { href: '/quiz', icon: '📝', key: 'nav.quiz' },
-  { href: '/regimes-internationaux', icon: '🌍', key: 'nav.regimesInternationaux' },
-];
-
-const NAV_EXPLORE = [
-  { href: '/laboratoire', icon: '🔬', key: 'nav.laboratoire' },
-  { href: '/what-if', icon: '🔮', key: 'nav.whatIf' },
-  { href: '/quadratic-funding', icon: '💰', key: 'nav.quadraticFunding' },
-  { href: '/tech-democracy', icon: '💻', key: 'nav.techDemocracy' },
-  { href: '/theory', icon: '🏛', key: 'nav.theory' },
-  { href: '/galerie', icon: '🗃️', key: 'nav.gallery' },
-  { href: '/api-docs', icon: '🔌', key: 'nav.apiDocs' },
-];
+// ── Navigation ────────────────────────────────────────────────────────────────
+// Two destinations only: Playground (do) → Laboratoire (go deeper). Everything
+// theory/mechanism/system lives inside the Laboratoire's anchors now.
 
 const LS_PASS = 'votelab_teacher_pass';
 
@@ -175,7 +162,7 @@ const Navbar: React.FC = () => {
           <BootstrapNavbar.Toggle aria-controls="votelab-nav" aria-expanded={navExpanded} />
 
           <BootstrapNavbar.Collapse id="votelab-nav">
-            {/* ── Main nav ── */}
+            {/* ── Main nav — two destinations: Playground → Laboratoire ── */}
             <Nav className="mr-auto lg:items-center gap-1">
               {/* Playground — hero link */}
               <Nav.Link
@@ -194,30 +181,20 @@ const Navbar: React.FC = () => {
                 🎛 {t('nav.playground')}
               </Nav.Link>
 
-              {/* Apprendre dropdown */}
-              <NavDropdown title={t('nav.learn')} id="nav-learn" renderMenuOnMount>
-                {NAV_LEARN.map(({ href, icon, key }) => (
-                  <NavDropdown.Item key={href} href={href}>
-                    <span className="me-2">{icon}</span>
-                    {t(key)}
-                  </NavDropdown.Item>
-                ))}
-                <NavDropdown.Divider />
-                <NavDropdown.Item href="/?tour=1">
-                  <span className="me-2">🎓</span>
-                  {t('nav.guidedTour')}
-                </NavDropdown.Item>
-              </NavDropdown>
-
-              {/* Explorer dropdown */}
-              <NavDropdown title={t('nav.explore')} id="nav-explore" renderMenuOnMount>
-                {NAV_EXPLORE.map(({ href, icon, key }) => (
-                  <NavDropdown.Item key={href} href={href}>
-                    <span className="me-2">{icon}</span>
-                    {t(key)}
-                  </NavDropdown.Item>
-                ))}
-              </NavDropdown>
+              {/* Laboratoire — the "go deeper" destination */}
+              <Nav.Link
+                href="/laboratoire"
+                className="font-semibold px-3 py-1 rounded"
+                active={currentPath === '/laboratoire'}
+                onClick={() => setNavExpanded(false)}
+                style={{
+                  color: currentPath === '/laboratoire' ? 'var(--bs-primary)' : 'inherit',
+                  fontSize: '0.88rem',
+                  transition: 'all 0.15s',
+                }}
+              >
+                🔬 {t('nav.laboratoire')}
+              </Nav.Link>
             </Nav>
 
             {/* ── Right side ── */}

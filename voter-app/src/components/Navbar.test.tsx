@@ -51,10 +51,12 @@ describe('Navbar', () => {
     expect(screen.getByText(/Playground/i)).toBeInTheDocument();
   });
 
-  it('renders Learn and Explore dropdown toggles', () => {
-    renderNavbar();
-    expect(screen.getByText(/learn|apprendre/i)).toBeInTheDocument();
-    expect(screen.getByText(/explore|explorer/i)).toBeInTheDocument();
+  it('renders the Laboratoire link and no Learn/Explore dropdowns', () => {
+    const { container } = renderNavbar();
+    expect(container.querySelector('a[href="/laboratoire"]')).toBeInTheDocument();
+    expect(container.querySelector('a[href="/playground"]')).toBeInTheDocument();
+    expect(screen.queryByText(/^learn$/i)).not.toBeInTheDocument();
+    expect(screen.queryByText(/^explore$/i)).not.toBeInTheDocument();
   });
 
   it('shows settings toggle when not authenticated', () => {
