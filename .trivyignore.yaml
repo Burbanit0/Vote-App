@@ -11,3 +11,14 @@ misconfigurations:
       write freely; the scanner image reads the COPYed .git). The PRODUCTION images
       (fast_api_voter/Dockerfile, voter-app/Dockerfile) ARE non-root, and this scope
       keeps DS-0002 gating for any future production Dockerfile.
+  - id: AVD-DS-0026 # "Add HEALTHCHECK instruction"
+    paths:
+      - "ci-local/audit.Dockerfile"
+      - "ci-local/backend.Dockerfile"
+      - "ci-local/frontend.Dockerfile"
+    statement: >-
+      Local-only CI/scanner images — throwaway build/test containers, never
+      deployed or orchestrated, so a container-level HEALTHCHECK is meaningless.
+      The PRODUCTION images (fast_api_voter/Dockerfile, voter-app/Dockerfile) now
+      DO declare HEALTHCHECK, and this scope keeps DS-0026 gating for any future
+      production Dockerfile.
