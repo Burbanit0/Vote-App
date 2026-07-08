@@ -28,8 +28,10 @@ def _check_redis() -> Dict[str, Any]:
         )
         client.ping()
         return {"ok": True, "latency_ms": round((time.perf_counter() - t0) * 1000, 2)}
-    except Exception as exc:
-        return {"ok": False, "error": str(exc).splitlines()[0][:200]}
+    except Exception:
+        # Don't surface the raw exception text to callers (info exposure); the
+        # health contract only needs ok/not-ok. Details stay in server logs.
+        return {"ok": False, "error": "unreachable"}
 
 
 @router.get("/health")

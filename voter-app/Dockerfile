@@ -31,4 +31,8 @@ COPY --from=build /app/build /usr/share/nginx/html
 USER nginx
 EXPOSE 8080
 
+# Liveness: nginx serves the SPA on 8080. busybox wget ships in the alpine image.
+HEALTHCHECK --interval=30s --timeout=5s --start-period=5s --retries=3 \
+  CMD wget -q --spider http://localhost:8080/ || exit 1
+
 CMD ["nginx", "-g", "daemon off;"]
