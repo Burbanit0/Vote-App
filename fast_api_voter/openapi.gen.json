@@ -99,7 +99,7 @@
           },
           "num_voters": {
             "default": 200,
-            "maximum": 500.0,
+            "maximum": 1000.0,
             "minimum": 10.0,
             "title": "Num Voters",
             "type": "integer"
@@ -334,7 +334,7 @@
             "items": {
               "$ref": "#/components/schemas/CandidateSpec"
             },
-            "maxItems": 6,
+            "maxItems": 8,
             "minItems": 2,
             "title": "Candidates",
             "type": "array"
@@ -581,7 +581,7 @@
             "items": {
               "$ref": "#/components/schemas/CandidateSpec"
             },
-            "maxItems": 6,
+            "maxItems": 8,
             "minItems": 2,
             "title": "Candidates",
             "type": "array"
@@ -600,7 +600,7 @@
           },
           "num_voters": {
             "default": 200,
-            "maximum": 500.0,
+            "maximum": 1000.0,
             "minimum": 50.0,
             "title": "Num Voters",
             "type": "integer"
@@ -1142,6 +1142,488 @@
         "title": "ArrowViolations",
         "type": "object"
       },
+      "AssemblyCoalition": {
+        "additionalProperties": false,
+        "properties": {
+          "parties": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Parties",
+            "type": "array"
+          },
+          "seats": {
+            "title": "Seats",
+            "type": "integer"
+          },
+          "span": {
+            "description": "Max pairwise ideological distance inside the coalition.",
+            "title": "Span",
+            "type": "number"
+          }
+        },
+        "required": [
+          "parties",
+          "seats",
+          "span"
+        ],
+        "title": "AssemblyCoalition",
+        "type": "object"
+      },
+      "AssemblyCongruence": {
+        "additionalProperties": false,
+        "description": "FB-1: how far the elected body sits from the electorate's median.",
+        "properties": {
+          "assembly_gap": {
+            "title": "Assembly Gap",
+            "type": "number"
+          },
+          "assembly_position": {
+            "description": "Seat-weighted mean party position.",
+            "items": {
+              "type": "number"
+            },
+            "title": "Assembly Position",
+            "type": "array"
+          },
+          "electorate_median": {
+            "items": {
+              "type": "number"
+            },
+            "title": "Electorate Median",
+            "type": "array"
+          },
+          "governing_gap": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Governing Gap"
+          },
+          "governing_position": {
+            "anyOf": [
+              {
+                "items": {
+                  "type": "number"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Most cohesive minimal winning coalition, seat-weighted.",
+            "title": "Governing Position"
+          }
+        },
+        "required": [
+          "electorate_median",
+          "assembly_position",
+          "assembly_gap"
+        ],
+        "title": "AssemblyCongruence",
+        "type": "object"
+      },
+      "AssemblyPartyResult": {
+        "additionalProperties": false,
+        "properties": {
+          "district_seats": {
+            "default": 0,
+            "description": "District wins (MMP only; 0 otherwise).",
+            "title": "District Seats",
+            "type": "integer"
+          },
+          "excluded_by_threshold": {
+            "title": "Excluded By Threshold",
+            "type": "boolean"
+          },
+          "name": {
+            "title": "Name",
+            "type": "string"
+          },
+          "seat_share": {
+            "maximum": 1.0,
+            "minimum": 0.0,
+            "title": "Seat Share",
+            "type": "number"
+          },
+          "seats": {
+            "title": "Seats",
+            "type": "integer"
+          },
+          "vote_share": {
+            "maximum": 1.0,
+            "minimum": 0.0,
+            "title": "Vote Share",
+            "type": "number"
+          },
+          "votes": {
+            "title": "Votes",
+            "type": "integer"
+          },
+          "x": {
+            "title": "X",
+            "type": "number"
+          },
+          "y": {
+            "title": "Y",
+            "type": "number"
+          }
+        },
+        "required": [
+          "name",
+          "x",
+          "y",
+          "votes",
+          "vote_share",
+          "seats",
+          "seat_share",
+          "excluded_by_threshold"
+        ],
+        "title": "AssemblyPartyResult",
+        "type": "object"
+      },
+      "AssemblyPartySpec": {
+        "additionalProperties": false,
+        "description": "A party placed on the ideological plane (the shared electorate's points\nin parliament mode).",
+        "properties": {
+          "name": {
+            "maxLength": 64,
+            "minLength": 1,
+            "title": "Name",
+            "type": "string"
+          },
+          "x": {
+            "default": 0.0,
+            "maximum": 1.0,
+            "minimum": -1.0,
+            "title": "X",
+            "type": "number"
+          },
+          "y": {
+            "default": 0.0,
+            "maximum": 1.0,
+            "minimum": -1.0,
+            "title": "Y",
+            "type": "number"
+          }
+        },
+        "required": [
+          "name"
+        ],
+        "title": "AssemblyPartySpec",
+        "type": "object"
+      },
+      "AssemblyRequest": {
+        "additionalProperties": false,
+        "description": "POST /api/v2/election/assembly — votes → seats under PR / FPTP / MMP.\n\nFPTP draws one single-member district per seat as equal-population bands\nalong the x axis (geography correlates with ideology). MMP allocates half\nthe seats in districts and tops up proportionally (overhang kept).",
+        "properties": {
+          "apportionment": {
+            "default": "dhondt",
+            "enum": [
+              "dhondt",
+              "sainte_lague"
+            ],
+            "title": "Apportionment",
+            "type": "string"
+          },
+          "electorate": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/ElectorateConfig"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Composed electorate (community mixture); overrides `ideology` when mode='composed'."
+          },
+          "ideology": {
+            "default": "random",
+            "title": "Ideology",
+            "type": "string"
+          },
+          "num_voters": {
+            "default": 400,
+            "maximum": 1000.0,
+            "minimum": 10.0,
+            "title": "Num Voters",
+            "type": "integer"
+          },
+          "parties": {
+            "items": {
+              "$ref": "#/components/schemas/AssemblyPartySpec"
+            },
+            "maxItems": 8,
+            "minItems": 2,
+            "title": "Parties",
+            "type": "array"
+          },
+          "seats": {
+            "default": 100,
+            "maximum": 500.0,
+            "minimum": 10.0,
+            "title": "Seats",
+            "type": "integer"
+          },
+          "seed": {
+            "default": 42,
+            "minimum": 0.0,
+            "title": "Seed",
+            "type": "integer"
+          },
+          "strategic_desertion": {
+            "default": false,
+            "description": "Duverger demo: voters iteratively desert non-viable parties (FPTP: outside the district top-2; PR/MMP: below the threshold) for their nearest viable party.",
+            "title": "Strategic Desertion",
+            "type": "boolean"
+          },
+          "structure": {
+            "default": "pr",
+            "enum": [
+              "pr",
+              "fptp",
+              "mmp"
+            ],
+            "title": "Structure",
+            "type": "string"
+          },
+          "threshold": {
+            "default": 0.05,
+            "description": "National vote-share threshold (PR/MMP lists).",
+            "maximum": 0.15,
+            "minimum": 0.0,
+            "title": "Threshold",
+            "type": "number"
+          },
+          "turnout": {
+            "$ref": "#/components/schemas/TurnoutConfig"
+          }
+        },
+        "required": [
+          "parties"
+        ],
+        "title": "AssemblyRequest",
+        "type": "object"
+      },
+      "AssemblyResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "assembly_size": {
+            "description": "Actual size (MMP overhang can exceed the nominal seats).",
+            "title": "Assembly Size",
+            "type": "integer"
+          },
+          "coalitions": {
+            "description": "Minimal winning coalitions, most cohesive first.",
+            "items": {
+              "$ref": "#/components/schemas/AssemblyCoalition"
+            },
+            "title": "Coalitions",
+            "type": "array"
+          },
+          "congruence": {
+            "$ref": "#/components/schemas/AssemblyCongruence"
+          },
+          "effective_parties_seats": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Effective Parties Seats"
+          },
+          "effective_parties_votes": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Effective Parties Votes"
+          },
+          "gallagher_index": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Gallagher Index"
+          },
+          "majority": {
+            "title": "Majority",
+            "type": "integer"
+          },
+          "mirror": {
+            "description": "Ideological-region composition: electorate vs assembly.",
+            "items": {
+              "$ref": "#/components/schemas/MirrorRegion"
+            },
+            "title": "Mirror",
+            "type": "array"
+          },
+          "parties": {
+            "items": {
+              "$ref": "#/components/schemas/AssemblyPartyResult"
+            },
+            "title": "Parties",
+            "type": "array"
+          },
+          "structure": {
+            "title": "Structure",
+            "type": "string"
+          },
+          "threshold_waived": {
+            "description": "True if no party passed the threshold and it was waived.",
+            "title": "Threshold Waived",
+            "type": "boolean"
+          },
+          "wasted_vote_share": {
+            "maximum": 1.0,
+            "minimum": 0.0,
+            "title": "Wasted Vote Share",
+            "type": "number"
+          }
+        },
+        "required": [
+          "structure",
+          "assembly_size",
+          "majority",
+          "threshold_waived",
+          "parties",
+          "wasted_vote_share",
+          "coalitions",
+          "congruence",
+          "mirror"
+        ],
+        "title": "AssemblyResponse",
+        "type": "object"
+      },
+      "AssemblyScorecardRequest": {
+        "additionalProperties": false,
+        "description": "POST /api/v2/election/assembly-scorecard — six axes × all three structures\nover `replications` re-rolled electorates. Axis orientations are stated in the\nendpoint docs; every number carries a band.",
+        "properties": {
+          "apportionment": {
+            "default": "dhondt",
+            "enum": [
+              "dhondt",
+              "sainte_lague"
+            ],
+            "title": "Apportionment",
+            "type": "string"
+          },
+          "electorate": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/ElectorateConfig"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Composed electorate (community mixture); overrides `ideology` when mode='composed'."
+          },
+          "ideology": {
+            "default": "random",
+            "title": "Ideology",
+            "type": "string"
+          },
+          "num_voters": {
+            "default": 400,
+            "maximum": 1000.0,
+            "minimum": 10.0,
+            "title": "Num Voters",
+            "type": "integer"
+          },
+          "parties": {
+            "items": {
+              "$ref": "#/components/schemas/AssemblyPartySpec"
+            },
+            "maxItems": 8,
+            "minItems": 2,
+            "title": "Parties",
+            "type": "array"
+          },
+          "replications": {
+            "default": 24,
+            "maximum": 40.0,
+            "minimum": 8.0,
+            "title": "Replications",
+            "type": "integer"
+          },
+          "seats": {
+            "default": 100,
+            "maximum": 500.0,
+            "minimum": 10.0,
+            "title": "Seats",
+            "type": "integer"
+          },
+          "seed": {
+            "default": 42,
+            "minimum": 0.0,
+            "title": "Seed",
+            "type": "integer"
+          },
+          "strategic_desertion": {
+            "default": false,
+            "title": "Strategic Desertion",
+            "type": "boolean"
+          },
+          "threshold": {
+            "default": 0.05,
+            "maximum": 0.15,
+            "minimum": 0.0,
+            "title": "Threshold",
+            "type": "number"
+          },
+          "turnout": {
+            "$ref": "#/components/schemas/TurnoutConfig"
+          }
+        },
+        "required": [
+          "parties"
+        ],
+        "title": "AssemblyScorecardRequest",
+        "type": "object"
+      },
+      "AssemblyScorecardResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "replications": {
+            "title": "Replications",
+            "type": "integer"
+          },
+          "structures": {
+            "additionalProperties": {
+              "additionalProperties": {
+                "$ref": "#/components/schemas/AxisBand"
+              },
+              "type": "object"
+            },
+            "description": "structure (pr|fptp|mmp) → axis → band.",
+            "title": "Structures",
+            "type": "object"
+          }
+        },
+        "required": [
+          "replications",
+          "structures"
+        ],
+        "title": "AssemblyScorecardResponse",
+        "type": "object"
+      },
       "AssumptionResult": {
         "properties": {
           "confidence_interval": {
@@ -1254,6 +1736,37 @@
           "pedagogical_note"
         ],
         "title": "AssumptionTestingResponse",
+        "type": "object"
+      },
+      "AxisBand": {
+        "additionalProperties": false,
+        "description": "A scorecard number with its Monte-Carlo band (mean, p10, p90), all in [0,1].",
+        "properties": {
+          "hi": {
+            "maximum": 1.0,
+            "minimum": 0.0,
+            "title": "Hi",
+            "type": "number"
+          },
+          "lo": {
+            "maximum": 1.0,
+            "minimum": 0.0,
+            "title": "Lo",
+            "type": "number"
+          },
+          "mean": {
+            "maximum": 1.0,
+            "minimum": 0.0,
+            "title": "Mean",
+            "type": "number"
+          }
+        },
+        "required": [
+          "mean",
+          "lo",
+          "hi"
+        ],
+        "title": "AxisBand",
         "type": "object"
       },
       "BacksliddingCandidate": {
@@ -1390,7 +1903,7 @@
           },
           "num_voters": {
             "default": 200,
-            "maximum": 500.0,
+            "maximum": 1000.0,
             "minimum": 50.0,
             "title": "Num Voters",
             "type": "integer"
@@ -1463,6 +1976,51 @@
           "pedagogical_note"
         ],
         "title": "BallotComplexityResponse",
+        "type": "object"
+      },
+      "BallotConfig": {
+        "additionalProperties": false,
+        "description": "How voters may EXPRESS their preference (frontier FA-1) — half the design\nspace, separate from the counting rule. Information is lost on purpose.",
+        "properties": {
+          "score_levels": {
+            "default": 6,
+            "description": "Levels for score ballots.",
+            "maximum": 10.0,
+            "minimum": 2.0,
+            "title": "Score Levels",
+            "type": "integer"
+          },
+          "truncate_at": {
+            "anyOf": [
+              {
+                "maximum": 8.0,
+                "minimum": 1.0,
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Top-k for rank_truncated.",
+            "title": "Truncate At"
+          },
+          "type": {
+            "default": "full",
+            "enum": [
+              "full",
+              "choose_one",
+              "approve",
+              "rank_full",
+              "rank_truncated",
+              "score",
+              "grade",
+              "cumulative"
+            ],
+            "title": "Type",
+            "type": "string"
+          }
+        },
+        "title": "BallotConfig",
         "type": "object"
       },
       "BandwagonRequest": {
@@ -1566,24 +2124,6 @@
         "title": "BaselineResult",
         "type": "object"
       },
-      "BearerResponse": {
-        "properties": {
-          "access_token": {
-            "title": "Access Token",
-            "type": "string"
-          },
-          "token_type": {
-            "title": "Token Type",
-            "type": "string"
-          }
-        },
-        "required": [
-          "access_token",
-          "token_type"
-        ],
-        "title": "BearerResponse",
-        "type": "object"
-      },
       "BehavioralBiasesRequest": {
         "additionalProperties": false,
         "description": "Expressive + bullet voting + primacy effect on approval/plurality outcomes.",
@@ -1615,7 +2155,7 @@
             "items": {
               "$ref": "#/components/schemas/CandidateSpec"
             },
-            "maxItems": 6,
+            "maxItems": 8,
             "minItems": 2,
             "title": "Candidates",
             "type": "array"
@@ -1640,7 +2180,7 @@
           },
           "num_voters": {
             "default": 200,
-            "maximum": 500.0,
+            "maximum": 1000.0,
             "minimum": 50.0,
             "title": "Num Voters",
             "type": "integer"
@@ -1869,65 +2409,6 @@
           }
         },
         "title": "BlankVoteConfig",
-        "type": "object"
-      },
-      "Body_auth_jwt_login_api_v2_auth_jwt_login_post": {
-        "properties": {
-          "client_id": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Client Id"
-          },
-          "client_secret": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "format": "password",
-            "title": "Client Secret"
-          },
-          "grant_type": {
-            "anyOf": [
-              {
-                "pattern": "^password$",
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Grant Type"
-          },
-          "password": {
-            "format": "password",
-            "title": "Password",
-            "type": "string"
-          },
-          "scope": {
-            "default": "",
-            "title": "Scope",
-            "type": "string"
-          },
-          "username": {
-            "title": "Username",
-            "type": "string"
-          }
-        },
-        "required": [
-          "username",
-          "password"
-        ],
-        "title": "Body_auth_jwt_login_api_v2_auth_jwt_login_post",
         "type": "object"
       },
       "CVProposal": {
@@ -2223,7 +2704,7 @@
             "items": {
               "$ref": "#/components/schemas/CandidateSpec"
             },
-            "maxItems": 6,
+            "maxItems": 8,
             "minItems": 2,
             "title": "Candidates",
             "type": "array"
@@ -2445,7 +2926,7 @@
             "items": {
               "$ref": "#/components/schemas/CandidateSpec"
             },
-            "maxItems": 6,
+            "maxItems": 8,
             "minItems": 2,
             "title": "Candidates",
             "type": "array"
@@ -2465,7 +2946,7 @@
           },
           "num_voters": {
             "default": 100,
-            "maximum": 500.0,
+            "maximum": 1000.0,
             "minimum": 20.0,
             "title": "Num Voters",
             "type": "integer"
@@ -2664,7 +3145,7 @@
           },
           "num_voters": {
             "default": 150,
-            "maximum": 300.0,
+            "maximum": 1000.0,
             "minimum": 50.0,
             "title": "Num Voters",
             "type": "integer"
@@ -2897,7 +3378,7 @@
             "items": {
               "$ref": "#/components/schemas/CandidateSpec"
             },
-            "maxItems": 6,
+            "maxItems": 8,
             "minItems": 2,
             "title": "Candidates",
             "type": "array"
@@ -3016,7 +3497,7 @@
             "items": {
               "$ref": "#/components/schemas/CWCandidate"
             },
-            "maxItems": 6,
+            "maxItems": 8,
             "minItems": 2,
             "title": "Candidates",
             "type": "array"
@@ -3049,7 +3530,7 @@
           },
           "num_voters": {
             "default": 100,
-            "maximum": 500.0,
+            "maximum": 1000.0,
             "minimum": 10.0,
             "title": "Num Voters",
             "type": "integer"
@@ -3219,7 +3700,7 @@
             "items": {
               "$ref": "#/components/schemas/CandidateSpec"
             },
-            "maxItems": 6,
+            "maxItems": 8,
             "minItems": 2,
             "title": "Candidates",
             "type": "array"
@@ -3303,6 +3784,75 @@
           "max_disruption_combination"
         ],
         "title": "CombinedEffectsResponse",
+        "type": "object"
+      },
+      "CommunitySpec": {
+        "additionalProperties": false,
+        "description": "One bloc of the composed electorate: a Gaussian community with its own\ncentre, dispersion, relative size and turnout propensity.",
+        "properties": {
+          "id": {
+            "maxLength": 64,
+            "minLength": 1,
+            "title": "Id",
+            "type": "string"
+          },
+          "label": {
+            "default": "",
+            "maxLength": 64,
+            "title": "Label",
+            "type": "string"
+          },
+          "spread": {
+            "default": 0.15,
+            "description": "Bloc standard deviation.",
+            "maximum": 1.0,
+            "minimum": 0.0,
+            "title": "Spread",
+            "type": "number"
+          },
+          "turnout": {
+            "default": 1.0,
+            "description": "Per-bloc participation propensity.",
+            "maximum": 1.0,
+            "minimum": 0.0,
+            "title": "Turnout",
+            "type": "number"
+          },
+          "weight": {
+            "default": 1.0,
+            "description": "Relative size (sampling weight).",
+            "maximum": 100.0,
+            "minimum": 0.0,
+            "title": "Weight",
+            "type": "number"
+          },
+          "x": {
+            "default": 0.0,
+            "maximum": 1.0,
+            "minimum": -1.0,
+            "title": "X",
+            "type": "number"
+          },
+          "y": {
+            "default": 0.0,
+            "maximum": 1.0,
+            "minimum": -1.0,
+            "title": "Y",
+            "type": "number"
+          },
+          "z": {
+            "default": 0.0,
+            "description": "3rd-axis centre (dims=3).",
+            "maximum": 1.0,
+            "minimum": -1.0,
+            "title": "Z",
+            "type": "number"
+          }
+        },
+        "required": [
+          "id"
+        ],
+        "title": "CommunitySpec",
         "type": "object"
       },
       "CompareMethodsRequest": {
@@ -3415,7 +3965,7 @@
             "items": {
               "$ref": "#/components/schemas/CandidateSpec"
             },
-            "maxItems": 6,
+            "maxItems": 8,
             "minItems": 2,
             "title": "Candidates",
             "type": "array"
@@ -3439,7 +3989,7 @@
           },
           "num_voters": {
             "default": 300,
-            "maximum": 500.0,
+            "maximum": 1000.0,
             "minimum": 50.0,
             "title": "Num Voters",
             "type": "integer"
@@ -3672,7 +4222,7 @@
           },
           "num_voters": {
             "default": 200,
-            "maximum": 500.0,
+            "maximum": 1000.0,
             "minimum": 20.0,
             "title": "Num Voters",
             "type": "integer"
@@ -3814,6 +4364,51 @@
         "title": "CrossPressured",
         "type": "object"
       },
+      "CumulativeOut": {
+        "additionalProperties": false,
+        "properties": {
+          "at_large_seats": {
+            "title": "At Large Seats",
+            "type": "integer"
+          },
+          "largest_party": {
+            "title": "Largest Party",
+            "type": "string"
+          },
+          "minority_seats_bloc": {
+            "title": "Minority Seats Bloc",
+            "type": "integer"
+          },
+          "minority_seats_cumulative": {
+            "title": "Minority Seats Cumulative",
+            "type": "integer"
+          },
+          "seats_bloc": {
+            "additionalProperties": {
+              "type": "integer"
+            },
+            "title": "Seats Bloc",
+            "type": "object"
+          },
+          "seats_cumulative": {
+            "additionalProperties": {
+              "type": "integer"
+            },
+            "title": "Seats Cumulative",
+            "type": "object"
+          }
+        },
+        "required": [
+          "at_large_seats",
+          "largest_party",
+          "seats_bloc",
+          "seats_cumulative",
+          "minority_seats_bloc",
+          "minority_seats_cumulative"
+        ],
+        "title": "CumulativeOut",
+        "type": "object"
+      },
       "DeliberationRequest": {
         "additionalProperties": false,
         "description": "DeGroot deliberation: voters update ideology toward a network-weighted mean.",
@@ -3830,7 +4425,7 @@
             "items": {
               "$ref": "#/components/schemas/CandidateSpec"
             },
-            "maxItems": 6,
+            "maxItems": 8,
             "minItems": 2,
             "title": "Candidates",
             "type": "array"
@@ -3875,7 +4470,7 @@
           },
           "num_voters": {
             "default": 200,
-            "maximum": 500.0,
+            "maximum": 1000.0,
             "minimum": 50.0,
             "title": "Num Voters",
             "type": "integer"
@@ -3989,7 +4584,7 @@
             "items": {
               "$ref": "#/components/schemas/BacksliddingCandidate"
             },
-            "maxItems": 6,
+            "maxItems": 8,
             "minItems": 2,
             "title": "Candidates",
             "type": "array"
@@ -4185,7 +4780,7 @@
             "items": {
               "$ref": "#/components/schemas/CandidateSpec"
             },
-            "maxItems": 6,
+            "maxItems": 8,
             "minItems": 2,
             "title": "Candidates",
             "type": "array"
@@ -4213,7 +4808,7 @@
           },
           "num_voters": {
             "default": 300,
-            "maximum": 500.0,
+            "maximum": 1000.0,
             "minimum": 50.0,
             "title": "Num Voters",
             "type": "integer"
@@ -4374,7 +4969,7 @@
             "items": {
               "$ref": "#/components/schemas/CandidateSpec"
             },
-            "maxItems": 6,
+            "maxItems": 8,
             "minItems": 2,
             "title": "Candidates",
             "type": "array"
@@ -4506,7 +5101,7 @@
             "items": {
               "$ref": "#/components/schemas/CandidateSpec"
             },
-            "maxItems": 6,
+            "maxItems": 8,
             "minItems": 2,
             "title": "Candidates",
             "type": "array"
@@ -4695,6 +5290,41 @@
         "title": "E2EDemoResponse",
         "type": "object"
       },
+      "EfficiencyGapOut": {
+        "additionalProperties": false,
+        "properties": {
+          "gap": {
+            "description": "(wasted_a − wasted_b)/two-party total; sign = disadvantage of a.",
+            "title": "Gap",
+            "type": "number"
+          },
+          "party_a": {
+            "title": "Party A",
+            "type": "string"
+          },
+          "party_b": {
+            "title": "Party B",
+            "type": "string"
+          },
+          "wasted_a": {
+            "title": "Wasted A",
+            "type": "integer"
+          },
+          "wasted_b": {
+            "title": "Wasted B",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "party_a",
+          "party_b",
+          "gap",
+          "wasted_a",
+          "wasted_b"
+        ],
+        "title": "EfficiencyGapOut",
+        "type": "object"
+      },
       "ElectionRecord": {
         "additionalProperties": true,
         "properties": {
@@ -4756,7 +5386,7 @@
             "items": {
               "$ref": "#/components/schemas/CandidateSpec"
             },
-            "maxItems": 6,
+            "maxItems": 8,
             "minItems": 2,
             "title": "Candidates",
             "type": "array"
@@ -4796,7 +5426,7 @@
           },
           "num_voters": {
             "default": 200,
-            "maximum": 500.0,
+            "maximum": 1000.0,
             "minimum": 50.0,
             "title": "Num Voters",
             "type": "integer"
@@ -4873,6 +5503,47 @@
         "title": "ElectoralFatigueResponse",
         "type": "object"
       },
+      "ElectorateConfig": {
+        "additionalProperties": false,
+        "description": "The composed electorate (community mixture). When present and mode is\n'composed', the worker samples voters from this mixture instead of the\nideology preset, so every view shares the same electorate.",
+        "properties": {
+          "communities": {
+            "items": {
+              "$ref": "#/components/schemas/CommunitySpec"
+            },
+            "maxItems": 12,
+            "title": "Communities",
+            "type": "array"
+          },
+          "correlation": {
+            "default": 0.0,
+            "description": "Couples the x↔y axes.",
+            "maximum": 1.0,
+            "minimum": -1.0,
+            "title": "Correlation",
+            "type": "number"
+          },
+          "mode": {
+            "default": "simple",
+            "enum": [
+              "simple",
+              "composed"
+            ],
+            "title": "Mode",
+            "type": "string"
+          },
+          "noise": {
+            "default": 0.0,
+            "description": "Global measurement jitter.",
+            "maximum": 1.0,
+            "minimum": 0.0,
+            "title": "Noise",
+            "type": "number"
+          }
+        },
+        "title": "ElectorateConfig",
+        "type": "object"
+      },
       "EpistCandidate": {
         "additionalProperties": false,
         "properties": {
@@ -4911,7 +5582,7 @@
             "items": {
               "$ref": "#/components/schemas/EpistCandidate"
             },
-            "maxItems": 6,
+            "maxItems": 8,
             "minItems": 2,
             "title": "Candidates",
             "type": "array"
@@ -5024,29 +5695,6 @@
         "title": "EpistocracySchemeResult",
         "type": "object"
       },
-      "ErrorModel": {
-        "properties": {
-          "detail": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "additionalProperties": {
-                  "type": "string"
-                },
-                "type": "object"
-              }
-            ],
-            "title": "Detail"
-          }
-        },
-        "required": [
-          "detail"
-        ],
-        "title": "ErrorModel",
-        "type": "object"
-      },
       "ExportDatasetJSON": {
         "description": "Body of the JSON export endpoint.",
         "properties": {
@@ -5155,205 +5803,6 @@
         "title": "ExportDatasetRequest",
         "type": "object"
       },
-      "GalleryCreateRequest": {
-        "additionalProperties": false,
-        "description": "Body for `POST /api/v2/scenarios/gallery`.",
-        "properties": {
-          "description": {
-            "minLength": 1,
-            "title": "Description",
-            "type": "string"
-          },
-          "params": {
-            "additionalProperties": true,
-            "title": "Params",
-            "type": "object"
-          },
-          "results_summary": {
-            "additionalProperties": true,
-            "title": "Results Summary",
-            "type": "object"
-          },
-          "tags": {
-            "items": {
-              "type": "string"
-            },
-            "maxItems": 10,
-            "title": "Tags",
-            "type": "array"
-          },
-          "title": {
-            "maxLength": 200,
-            "minLength": 1,
-            "title": "Title",
-            "type": "string"
-          }
-        },
-        "required": [
-          "title",
-          "description"
-        ],
-        "title": "GalleryCreateRequest",
-        "type": "object"
-      },
-      "GalleryDetail": {
-        "description": "Detail view — adds the raw `params` blob.",
-        "properties": {
-          "created_at": {
-            "anyOf": [
-              {
-                "format": "date-time",
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Created At"
-          },
-          "description": {
-            "title": "Description",
-            "type": "string"
-          },
-          "id": {
-            "title": "Id",
-            "type": "integer"
-          },
-          "is_featured": {
-            "title": "Is Featured",
-            "type": "boolean"
-          },
-          "params": {
-            "additionalProperties": true,
-            "title": "Params",
-            "type": "object"
-          },
-          "results_summary": {
-            "additionalProperties": true,
-            "title": "Results Summary",
-            "type": "object"
-          },
-          "tags": {
-            "items": {
-              "type": "string"
-            },
-            "title": "Tags",
-            "type": "array"
-          },
-          "title": {
-            "title": "Title",
-            "type": "string"
-          },
-          "views": {
-            "title": "Views",
-            "type": "integer"
-          }
-        },
-        "required": [
-          "id",
-          "title",
-          "description",
-          "views",
-          "is_featured"
-        ],
-        "title": "GalleryDetail",
-        "type": "object"
-      },
-      "GalleryItem": {
-        "description": "Summary view — what `/featured` and `/list` items look like.",
-        "properties": {
-          "created_at": {
-            "anyOf": [
-              {
-                "format": "date-time",
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Created At"
-          },
-          "description": {
-            "title": "Description",
-            "type": "string"
-          },
-          "id": {
-            "title": "Id",
-            "type": "integer"
-          },
-          "is_featured": {
-            "title": "Is Featured",
-            "type": "boolean"
-          },
-          "results_summary": {
-            "additionalProperties": true,
-            "title": "Results Summary",
-            "type": "object"
-          },
-          "tags": {
-            "items": {
-              "type": "string"
-            },
-            "title": "Tags",
-            "type": "array"
-          },
-          "title": {
-            "title": "Title",
-            "type": "string"
-          },
-          "views": {
-            "title": "Views",
-            "type": "integer"
-          }
-        },
-        "required": [
-          "id",
-          "title",
-          "description",
-          "views",
-          "is_featured"
-        ],
-        "title": "GalleryItem",
-        "type": "object"
-      },
-      "GalleryPage": {
-        "description": "Pagination envelope returned by `GET /api/v2/scenarios/gallery`.",
-        "properties": {
-          "items": {
-            "items": {
-              "$ref": "#/components/schemas/GalleryItem"
-            },
-            "title": "Items",
-            "type": "array"
-          },
-          "page": {
-            "title": "Page",
-            "type": "integer"
-          },
-          "pages": {
-            "title": "Pages",
-            "type": "integer"
-          },
-          "per_page": {
-            "title": "Per Page",
-            "type": "integer"
-          },
-          "total": {
-            "title": "Total",
-            "type": "integer"
-          }
-        },
-        "required": [
-          "items",
-          "total",
-          "page",
-          "per_page",
-          "pages"
-        ],
-        "title": "GalleryPage",
-        "type": "object"
-      },
       "GerrymanderRequest": {
         "additionalProperties": false,
         "description": "Voters assigned to user-drawn rectangular districts.",
@@ -5362,7 +5811,7 @@
             "items": {
               "$ref": "#/components/schemas/CandidateSpec"
             },
-            "maxItems": 6,
+            "maxItems": 8,
             "minItems": 2,
             "title": "Candidates",
             "type": "array"
@@ -5733,7 +6182,7 @@
             "items": {
               "$ref": "#/components/schemas/CandidateSpec"
             },
-            "maxItems": 6,
+            "maxItems": 8,
             "minItems": 2,
             "title": "Candidates",
             "type": "array"
@@ -5757,7 +6206,7 @@
           },
           "num_voters": {
             "default": 200,
-            "maximum": 500.0,
+            "maximum": 1000.0,
             "minimum": 50.0,
             "title": "Num Voters",
             "type": "integer"
@@ -6108,7 +6557,7 @@
             "items": {
               "$ref": "#/components/schemas/IDCandidate"
             },
-            "maxItems": 6,
+            "maxItems": 8,
             "minItems": 2,
             "title": "Candidates",
             "type": "array"
@@ -6637,6 +7086,249 @@
         "title": "InterpretResponse",
         "type": "object"
       },
+      "IssueOutcome": {
+        "additionalProperties": false,
+        "properties": {
+          "divergent": {
+            "title": "Divergent",
+            "type": "boolean"
+          },
+          "label": {
+            "title": "Label",
+            "type": "string"
+          },
+          "majority": {
+            "description": "+1 yes / −1 no, issue-by-issue referendum.",
+            "title": "Majority",
+            "type": "integer"
+          },
+          "winner_plank": {
+            "description": "The elected platform's position on this issue.",
+            "title": "Winner Plank",
+            "type": "integer"
+          },
+          "yes_share": {
+            "maximum": 1.0,
+            "minimum": 0.0,
+            "title": "Yes Share",
+            "type": "number"
+          }
+        },
+        "required": [
+          "label",
+          "yes_share",
+          "majority",
+          "winner_plank",
+          "divergent"
+        ],
+        "title": "IssueOutcome",
+        "type": "object"
+      },
+      "IssuePartyResult": {
+        "additionalProperties": false,
+        "properties": {
+          "name": {
+            "title": "Name",
+            "type": "string"
+          },
+          "platform": {
+            "items": {
+              "type": "integer"
+            },
+            "title": "Platform",
+            "type": "array"
+          },
+          "vote_share": {
+            "maximum": 1.0,
+            "minimum": 0.0,
+            "title": "Vote Share",
+            "type": "number"
+          },
+          "votes": {
+            "title": "Votes",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "name",
+          "platform",
+          "votes",
+          "vote_share"
+        ],
+        "title": "IssuePartyResult",
+        "type": "object"
+      },
+      "IssueVotingRequest": {
+        "additionalProperties": false,
+        "description": "POST /api/v2/election/issue-voting — issue-by-issue majorities vs the\nbundled platform vote (Ostrogorski / discursive dilemma).\n\nspatial: K issues are hyperplanes through the shared 2D electorate.\nhandcrafted: ±1 stance/platform matrices supplied directly (exact paradoxes).",
+        "properties": {
+          "electorate": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/ElectorateConfig"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Composed electorate (community mixture) for spatial mode; overrides `ideology` when mode='composed'."
+          },
+          "ideology": {
+            "default": "random",
+            "title": "Ideology",
+            "type": "string"
+          },
+          "mode": {
+            "default": "spatial",
+            "enum": [
+              "spatial",
+              "handcrafted"
+            ],
+            "title": "Mode",
+            "type": "string"
+          },
+          "num_issues": {
+            "default": 4,
+            "maximum": 7.0,
+            "minimum": 2.0,
+            "title": "Num Issues",
+            "type": "integer"
+          },
+          "num_voters": {
+            "default": 400,
+            "maximum": 1000.0,
+            "minimum": 10.0,
+            "title": "Num Voters",
+            "type": "integer"
+          },
+          "parties": {
+            "anyOf": [
+              {
+                "items": {
+                  "$ref": "#/components/schemas/AssemblyPartySpec"
+                },
+                "maxItems": 8,
+                "minItems": 2,
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Parties"
+          },
+          "party_names": {
+            "anyOf": [
+              {
+                "items": {
+                  "type": "string"
+                },
+                "maxItems": 8,
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Party Names"
+          },
+          "party_platforms": {
+            "anyOf": [
+              {
+                "items": {
+                  "items": {
+                    "type": "integer"
+                  },
+                  "type": "array"
+                },
+                "maxItems": 8,
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Party Platforms"
+          },
+          "seed": {
+            "default": 42,
+            "minimum": 0.0,
+            "title": "Seed",
+            "type": "integer"
+          },
+          "voter_stances": {
+            "anyOf": [
+              {
+                "items": {
+                  "items": {
+                    "type": "integer"
+                  },
+                  "type": "array"
+                },
+                "maxItems": 1000,
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Voter Stances"
+          }
+        },
+        "title": "IssueVotingRequest",
+        "type": "object"
+      },
+      "IssueVotingResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "bundled_winner": {
+            "title": "Bundled Winner",
+            "type": "string"
+          },
+          "divergent_count": {
+            "title": "Divergent Count",
+            "type": "integer"
+          },
+          "issues": {
+            "items": {
+              "$ref": "#/components/schemas/IssueOutcome"
+            },
+            "title": "Issues",
+            "type": "array"
+          },
+          "mode": {
+            "title": "Mode",
+            "type": "string"
+          },
+          "num_issues": {
+            "title": "Num Issues",
+            "type": "integer"
+          },
+          "ostrogorski_paradox": {
+            "description": "The elected platform loses the issue-wise majority on more than half the issues.",
+            "title": "Ostrogorski Paradox",
+            "type": "boolean"
+          },
+          "parties": {
+            "items": {
+              "$ref": "#/components/schemas/IssuePartyResult"
+            },
+            "title": "Parties",
+            "type": "array"
+          }
+        },
+        "required": [
+          "mode",
+          "parties",
+          "bundled_winner",
+          "issues",
+          "divergent_count",
+          "num_issues",
+          "ostrogorski_paradox"
+        ],
+        "title": "IssueVotingResponse",
+        "type": "object"
+      },
       "JAIncoherence": {
         "properties": {
           "conclusion": {
@@ -6855,7 +7547,7 @@
           },
           "num_voters": {
             "default": 100,
-            "maximum": 500.0,
+            "maximum": 1000.0,
             "minimum": 10.0,
             "title": "Num Voters",
             "type": "integer"
@@ -7014,7 +7706,7 @@
             "items": {
               "$ref": "#/components/schemas/CandidateSpec"
             },
-            "maxItems": 6,
+            "maxItems": 8,
             "minItems": 2,
             "title": "Candidates",
             "type": "array"
@@ -7046,7 +7738,7 @@
           },
           "num_voters": {
             "default": 100,
-            "maximum": 500.0,
+            "maximum": 1000.0,
             "minimum": 2.0,
             "title": "Num Voters",
             "type": "integer"
@@ -7196,7 +7888,7 @@
           },
           "num_voters": {
             "default": 100,
-            "maximum": 500.0,
+            "maximum": 1000.0,
             "minimum": 10.0,
             "title": "Num Voters",
             "type": "integer"
@@ -7286,6 +7978,56 @@
           "tyranny_index"
         ],
         "title": "MajorityTyrannyRuleResult",
+        "type": "object"
+      },
+      "MalapportionmentOut": {
+        "additionalProperties": false,
+        "properties": {
+          "gallagher_equal": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Gallagher Equal"
+          },
+          "gallagher_skewed": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Gallagher Skewed"
+          },
+          "min_share_majority_equal": {
+            "maximum": 1.0,
+            "minimum": 0.0,
+            "title": "Min Share Majority Equal",
+            "type": "number"
+          },
+          "min_share_majority_skewed": {
+            "maximum": 1.0,
+            "minimum": 0.0,
+            "title": "Min Share Majority Skewed",
+            "type": "number"
+          },
+          "pop_per_seat_ratio": {
+            "title": "Pop Per Seat Ratio",
+            "type": "number"
+          }
+        },
+        "required": [
+          "pop_per_seat_ratio",
+          "min_share_majority_equal",
+          "min_share_majority_skewed"
+        ],
+        "title": "MalapportionmentOut",
         "type": "object"
       },
       "ManipulabilityResponse": {
@@ -7610,6 +8352,35 @@
         "title": "MethodResult",
         "type": "object"
       },
+      "MirrorRegion": {
+        "additionalProperties": false,
+        "description": "FB-1: descriptive representation over the modelled attribute space.",
+        "properties": {
+          "assembly_share": {
+            "maximum": 1.0,
+            "minimum": 0.0,
+            "title": "Assembly Share",
+            "type": "number"
+          },
+          "electorate_share": {
+            "maximum": 1.0,
+            "minimum": 0.0,
+            "title": "Electorate Share",
+            "type": "number"
+          },
+          "region": {
+            "title": "Region",
+            "type": "string"
+          }
+        },
+        "required": [
+          "region",
+          "electorate_share",
+          "assembly_share"
+        ],
+        "title": "MirrorRegion",
+        "type": "object"
+      },
       "MonteCarloRequest": {
         "description": "POST /simulations/monte-carlo (synchronous aggregation variant).",
         "properties": {
@@ -7703,7 +8474,7 @@
           },
           "num_voters": {
             "default": 200,
-            "maximum": 500.0,
+            "maximum": 1000.0,
             "minimum": 50.0,
             "title": "Num Voters",
             "type": "integer"
@@ -7879,7 +8650,7 @@
             "items": {
               "$ref": "#/components/schemas/CandidateSpec"
             },
-            "maxItems": 6,
+            "maxItems": 8,
             "minItems": 2,
             "title": "Candidates",
             "type": "array"
@@ -7911,7 +8682,7 @@
           },
           "num_voters": {
             "default": 200,
-            "maximum": 500.0,
+            "maximum": 1000.0,
             "minimum": 50.0,
             "title": "Num Voters",
             "type": "integer"
@@ -8347,7 +9118,7 @@
             "items": {
               "$ref": "#/components/schemas/CandidateSpec"
             },
-            "maxItems": 4,
+            "maxItems": 8,
             "minItems": 2,
             "title": "Candidates",
             "type": "array"
@@ -8504,7 +9275,7 @@
             "items": {
               "$ref": "#/components/schemas/CandidateSpec"
             },
-            "maxItems": 6,
+            "maxItems": 8,
             "minItems": 2,
             "title": "Candidates",
             "type": "array"
@@ -8895,6 +9666,321 @@
         "title": "PrimaryResponse",
         "type": "object"
       },
+      "ProfileCandidateSpec": {
+        "additionalProperties": false,
+        "description": "A candidate/party for the profile engine. Adds an optional 3rd axis and a\nvalence (off-ideology quality) term over the plain 2D CandidateSpec.",
+        "properties": {
+          "name": {
+            "maxLength": 64,
+            "minLength": 1,
+            "title": "Name",
+            "type": "string"
+          },
+          "valence": {
+            "default": 0.0,
+            "description": "Off-ideology quality bonus.",
+            "maximum": 1.0,
+            "minimum": -1.0,
+            "title": "Valence",
+            "type": "number"
+          },
+          "x": {
+            "default": 0.0,
+            "description": "Axis 1 position.",
+            "maximum": 1.0,
+            "minimum": -1.0,
+            "title": "X",
+            "type": "number"
+          },
+          "y": {
+            "default": 0.0,
+            "description": "Axis 2 position.",
+            "maximum": 1.0,
+            "minimum": -1.0,
+            "title": "Y",
+            "type": "number"
+          },
+          "z": {
+            "default": 0.0,
+            "description": "Axis 3 position (dims=3).",
+            "maximum": 1.0,
+            "minimum": -1.0,
+            "title": "Z",
+            "type": "number"
+          }
+        },
+        "required": [
+          "name"
+        ],
+        "title": "ProfileCandidateSpec",
+        "type": "object"
+      },
+      "ProfileSimulateRequest": {
+        "additionalProperties": false,
+        "description": "POST /api/v2/election/profile-simulate — the profile-as-interface core.\n\nEvery assumption is an explicit knob: the preference source and its params, the\ndimensionality, valence, the voter behaviour, the ballot, and turnout. Nothing\nis smuggled in.",
+        "properties": {
+          "ballot": {
+            "$ref": "#/components/schemas/BallotConfig"
+          },
+          "behavior": {
+            "default": "sincere",
+            "enum": [
+              "sincere",
+              "strategic",
+              "mixed"
+            ],
+            "title": "Behavior",
+            "type": "string"
+          },
+          "candidates": {
+            "items": {
+              "$ref": "#/components/schemas/ProfileCandidateSpec"
+            },
+            "maxItems": 8,
+            "minItems": 2,
+            "title": "Candidates",
+            "type": "array"
+          },
+          "compute_strategic": {
+            "default": false,
+            "description": "Compute the per-method Gibbard–Satterthwaite individual manipulability rate (slow; opt-in). Off for the live read-out.",
+            "title": "Compute Strategic",
+            "type": "boolean"
+          },
+          "dims": {
+            "default": 2,
+            "maximum": 3.0,
+            "minimum": 1.0,
+            "title": "Dims",
+            "type": "integer"
+          },
+          "electorate": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/ElectorateConfig"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Composed electorate (community mixture); shapes the spatial voter cloud and the paradox rate when mode='composed'."
+          },
+          "handcrafted_matrix": {
+            "anyOf": [
+              {
+                "items": {
+                  "items": {
+                    "type": "number"
+                  },
+                  "type": "array"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Rows = voters, cols = candidates (aligned), for source=handcrafted.",
+            "title": "Handcrafted Matrix"
+          },
+          "num_voters": {
+            "default": 300,
+            "maximum": 1000.0,
+            "minimum": 10.0,
+            "title": "Num Voters",
+            "type": "integer"
+          },
+          "seed": {
+            "default": 42,
+            "minimum": 0.0,
+            "title": "Seed",
+            "type": "integer"
+          },
+          "source": {
+            "default": "spatial",
+            "enum": [
+              "spatial",
+              "single_peaked",
+              "impartial",
+              "iac",
+              "mallows",
+              "urn",
+              "plackett_luce",
+              "didi",
+              "stratification",
+              "handcrafted"
+            ],
+            "title": "Source",
+            "type": "string"
+          },
+          "source_params": {
+            "additionalProperties": {
+              "type": "number"
+            },
+            "description": "Source knobs: Mallows {phi}, Pólya urn {alpha}, Plackett-Luce {quality}, DiDi {concentration}, stratification {weight}.",
+            "title": "Source Params",
+            "type": "object"
+          },
+          "turnout": {
+            "$ref": "#/components/schemas/TurnoutConfig"
+          },
+          "valence": {
+            "default": false,
+            "title": "Valence",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "candidates"
+        ],
+        "title": "ProfileSimulateRequest",
+        "type": "object"
+      },
+      "ProfileSimulateResponse": {
+        "additionalProperties": false,
+        "description": "Per-method winners over the built profile + its 2D embedding + the\nparadox/cycle rate read-out.",
+        "properties": {
+          "ballot_cognitive_load": {
+            "description": "Decisions the ballot demands (normalised convention).",
+            "maximum": 1.0,
+            "minimum": 0.0,
+            "title": "Ballot Cognitive Load",
+            "type": "number"
+          },
+          "ballot_expressiveness": {
+            "description": "Bits the ballot can carry (normalised convention).",
+            "maximum": 1.0,
+            "minimum": 0.0,
+            "title": "Ballot Expressiveness",
+            "type": "number"
+          },
+          "ballot_type": {
+            "default": "full",
+            "title": "Ballot Type",
+            "type": "string"
+          },
+          "candidate_names": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Candidate Names",
+            "type": "array"
+          },
+          "candidate_points": {
+            "anyOf": [
+              {
+                "items": {
+                  "items": {
+                    "type": "number"
+                  },
+                  "type": "array"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Candidate 2D points: true positions (spatial) or biplot centroids (non-spatial).",
+            "title": "Candidate Points"
+          },
+          "condorcet_winner": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Condorcet Winner"
+          },
+          "cycle_rate": {
+            "description": "Share of resampled profiles with no Condorcet winner.",
+            "maximum": 1.0,
+            "minimum": 0.0,
+            "title": "Cycle Rate",
+            "type": "number"
+          },
+          "display_points": {
+            "description": "Per-voter 2D embedding for the map.",
+            "items": {
+              "items": {
+                "type": "number"
+              },
+              "type": "array"
+            },
+            "title": "Display Points",
+            "type": "array"
+          },
+          "incompatible_methods": {
+            "description": "Methods that cannot honestly run on this ballot (excluded).",
+            "items": {
+              "type": "string"
+            },
+            "title": "Incompatible Methods",
+            "type": "array"
+          },
+          "inter_method_agreement": {
+            "maximum": 1.0,
+            "minimum": 0.0,
+            "title": "Inter Method Agreement",
+            "type": "number"
+          },
+          "methods": {
+            "additionalProperties": {
+              "$ref": "#/components/schemas/MethodResult"
+            },
+            "description": "Keyed by method slug.",
+            "title": "Methods",
+            "type": "object"
+          },
+          "num_voters": {
+            "minimum": 1.0,
+            "title": "Num Voters",
+            "type": "integer"
+          },
+          "sample_ballot": {
+            "additionalProperties": {
+              "type": "number"
+            },
+            "description": "Voter #0's projected ballot.",
+            "title": "Sample Ballot",
+            "type": "object"
+          },
+          "turnout_rate": {
+            "default": 1.0,
+            "description": "Share of the electorate that voted (1 = full turnout).",
+            "maximum": 1.0,
+            "minimum": 0.0,
+            "title": "Turnout Rate",
+            "type": "number"
+          },
+          "winner_flips": {
+            "description": "Methods whose winner differs from the full-information ballot.",
+            "items": {
+              "type": "string"
+            },
+            "title": "Winner Flips",
+            "type": "array"
+          }
+        },
+        "required": [
+          "methods",
+          "inter_method_agreement",
+          "cycle_rate",
+          "candidate_names",
+          "display_points",
+          "num_voters",
+          "ballot_expressiveness",
+          "ballot_cognitive_load",
+          "sample_ballot",
+          "winner_flips",
+          "incompatible_methods"
+        ],
+        "title": "ProfileSimulateResponse",
+        "type": "object"
+      },
       "PublicCompareRequest": {
         "description": "POST /api/v1/compare.",
         "properties": {
@@ -9121,7 +10207,7 @@
           },
           "num_voters": {
             "default": 100,
-            "maximum": 500.0,
+            "maximum": 1000.0,
             "minimum": 20.0,
             "title": "Num Voters",
             "type": "integer"
@@ -9457,91 +10543,6 @@
         "title": "ReplayScenario",
         "type": "object"
       },
-      "ScenarioCreateRequest": {
-        "additionalProperties": false,
-        "description": "Body for POST /scenarios — name + config + optional results.",
-        "properties": {
-          "config": {
-            "additionalProperties": true,
-            "description": "Election config snapshot — candidates, num_voters, ideology, blank_vote, campaign, etc.",
-            "title": "Config",
-            "type": "object"
-          },
-          "name": {
-            "maxLength": 100,
-            "minLength": 1,
-            "title": "Name",
-            "type": "string"
-          },
-          "results": {
-            "anyOf": [
-              {
-                "additionalProperties": true,
-                "type": "object"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "description": "Optional cached results from the last simulation run on this config. Null means 'never simulated yet'.",
-            "title": "Results"
-          }
-        },
-        "required": [
-          "name"
-        ],
-        "title": "ScenarioCreateRequest",
-        "type": "object"
-      },
-      "ScenarioDetail": {
-        "description": "Single view — adds the results blob.",
-        "properties": {
-          "config": {
-            "additionalProperties": true,
-            "title": "Config",
-            "type": "object"
-          },
-          "created_at": {
-            "anyOf": [
-              {
-                "format": "date-time",
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Created At"
-          },
-          "id": {
-            "title": "Id",
-            "type": "integer"
-          },
-          "name": {
-            "title": "Name",
-            "type": "string"
-          },
-          "results": {
-            "anyOf": [
-              {
-                "additionalProperties": true,
-                "type": "object"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Results"
-          }
-        },
-        "required": [
-          "id",
-          "name",
-          "config"
-        ],
-        "title": "ScenarioDetail",
-        "type": "object"
-      },
       "ScenarioRequest": {
         "description": "POST /simulations/scenario.",
         "properties": {
@@ -9600,43 +10601,6 @@
           "with_blank"
         ],
         "title": "ScenarioResponse",
-        "type": "object"
-      },
-      "ScenarioSummary": {
-        "description": "List view — matches `SimulationScenario.to_summary()`.",
-        "properties": {
-          "config": {
-            "additionalProperties": true,
-            "title": "Config",
-            "type": "object"
-          },
-          "created_at": {
-            "anyOf": [
-              {
-                "format": "date-time",
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Created At"
-          },
-          "id": {
-            "title": "Id",
-            "type": "integer"
-          },
-          "name": {
-            "title": "Name",
-            "type": "string"
-          }
-        },
-        "required": [
-          "id",
-          "name",
-          "config"
-        ],
-        "title": "ScenarioSummary",
         "type": "object"
       },
       "SenExample": {
@@ -9862,7 +10826,7 @@
             "items": {
               "$ref": "#/components/schemas/CandidateSpec"
             },
-            "maxItems": 6,
+            "maxItems": 8,
             "minItems": 2,
             "title": "Candidates",
             "type": "array"
@@ -9881,7 +10845,7 @@
           },
           "num_voters": {
             "default": 300,
-            "maximum": 500.0,
+            "maximum": 1000.0,
             "minimum": 50.0,
             "title": "Num Voters",
             "type": "integer"
@@ -10099,7 +11063,7 @@
             "items": {
               "$ref": "#/components/schemas/CandidateSpec"
             },
-            "maxItems": 6,
+            "maxItems": 8,
             "minItems": 2,
             "title": "Candidates",
             "type": "array"
@@ -10406,7 +11370,7 @@
             "items": {
               "$ref": "#/components/schemas/CandidateSpec"
             },
-            "maxItems": 6,
+            "maxItems": 8,
             "minItems": 2,
             "title": "Candidates",
             "type": "array"
@@ -10430,7 +11394,7 @@
           },
           "num_voters": {
             "default": 300,
-            "maximum": 500.0,
+            "maximum": 1000.0,
             "minimum": 50.0,
             "title": "Num Voters",
             "type": "integer"
@@ -10583,6 +11547,112 @@
         "title": "StratificationConfig",
         "type": "object"
       },
+      "StructuralFairnessRequest": {
+        "additionalProperties": false,
+        "description": "POST /api/v2/election/structural-fairness — malapportionment, efficiency\ngap, Penrose square-root council, cumulative vs bloc at-large voting.",
+        "properties": {
+          "at_large_seats": {
+            "default": 5,
+            "maximum": 9.0,
+            "minimum": 3.0,
+            "title": "At Large Seats",
+            "type": "integer"
+          },
+          "districts": {
+            "default": 20,
+            "maximum": 60.0,
+            "minimum": 5.0,
+            "title": "Districts",
+            "type": "integer"
+          },
+          "electorate": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/ElectorateConfig"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Composed electorate (community mixture); overrides `ideology` when mode='composed'."
+          },
+          "ideology": {
+            "default": "random",
+            "title": "Ideology",
+            "type": "string"
+          },
+          "malapportionment": {
+            "default": 0.6,
+            "description": "0 = equal districts; 1 = strongly unequal (≈4:1).",
+            "maximum": 1.0,
+            "minimum": 0.0,
+            "title": "Malapportionment",
+            "type": "number"
+          },
+          "num_voters": {
+            "default": 400,
+            "maximum": 1000.0,
+            "minimum": 50.0,
+            "title": "Num Voters",
+            "type": "integer"
+          },
+          "parties": {
+            "items": {
+              "$ref": "#/components/schemas/AssemblyPartySpec"
+            },
+            "maxItems": 8,
+            "minItems": 2,
+            "title": "Parties",
+            "type": "array"
+          },
+          "seed": {
+            "default": 42,
+            "minimum": 0.0,
+            "title": "Seed",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "parties"
+        ],
+        "title": "StructuralFairnessRequest",
+        "type": "object"
+      },
+      "StructuralFairnessResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "cumulative": {
+            "$ref": "#/components/schemas/CumulativeOut"
+          },
+          "districts": {
+            "title": "Districts",
+            "type": "integer"
+          },
+          "efficiency_gap": {
+            "$ref": "#/components/schemas/EfficiencyGapOut"
+          },
+          "malapportionment": {
+            "$ref": "#/components/schemas/MalapportionmentOut"
+          },
+          "penrose": {
+            "additionalProperties": {
+              "type": "number"
+            },
+            "description": "Citizen-power max/min ratio per weighting scheme (equal/proportional/penrose).",
+            "title": "Penrose",
+            "type": "object"
+          }
+        },
+        "required": [
+          "districts",
+          "malapportionment",
+          "efficiency_gap",
+          "penrose",
+          "cumulative"
+        ],
+        "title": "StructuralFairnessResponse",
+        "type": "object"
+      },
       "StvRequest": {
         "additionalProperties": false,
         "description": "Single Transferable Vote + D'Hondt + FPTP comparison.",
@@ -10702,6 +11772,287 @@
         "title": "StvResponse",
         "type": "object"
       },
+      "TemporalPartyState": {
+        "additionalProperties": false,
+        "properties": {
+          "name": {
+            "title": "Name",
+            "type": "string"
+          },
+          "seats": {
+            "title": "Seats",
+            "type": "integer"
+          },
+          "vote_share": {
+            "maximum": 1.0,
+            "minimum": 0.0,
+            "title": "Vote Share",
+            "type": "number"
+          },
+          "x": {
+            "title": "X",
+            "type": "number"
+          },
+          "y": {
+            "title": "Y",
+            "type": "number"
+          }
+        },
+        "required": [
+          "name",
+          "x",
+          "y",
+          "vote_share",
+          "seats"
+        ],
+        "title": "TemporalPartyState",
+        "type": "object"
+      },
+      "TemporalRequest": {
+        "additionalProperties": false,
+        "description": "POST /api/v2/election/temporal — N sequential elections on one starting\nelectorate. Between rounds, parties local-search toward vote-maximising\npositions (`adaptation_step`) and voters drift toward the party they voted\nfor (`loyalty_drift`). Stated dynamics; reproducible by seed.",
+        "properties": {
+          "adaptation_step": {
+            "default": 0.06,
+            "description": "Party vote-seeking step per round.",
+            "maximum": 0.2,
+            "minimum": 0.0,
+            "title": "Adaptation Step",
+            "type": "number"
+          },
+          "apportionment": {
+            "default": "dhondt",
+            "enum": [
+              "dhondt",
+              "sainte_lague"
+            ],
+            "title": "Apportionment",
+            "type": "string"
+          },
+          "electorate": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/ElectorateConfig"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Composed electorate (community mixture); overrides `ideology` when mode='composed'."
+          },
+          "ideology": {
+            "default": "random",
+            "title": "Ideology",
+            "type": "string"
+          },
+          "loyalty_drift": {
+            "default": 0.05,
+            "description": "Voter drift toward their party per round.",
+            "maximum": 0.2,
+            "minimum": 0.0,
+            "title": "Loyalty Drift",
+            "type": "number"
+          },
+          "num_voters": {
+            "default": 400,
+            "maximum": 1000.0,
+            "minimum": 10.0,
+            "title": "Num Voters",
+            "type": "integer"
+          },
+          "parties": {
+            "items": {
+              "$ref": "#/components/schemas/AssemblyPartySpec"
+            },
+            "maxItems": 8,
+            "minItems": 2,
+            "title": "Parties",
+            "type": "array"
+          },
+          "rounds": {
+            "default": 20,
+            "maximum": 30.0,
+            "minimum": 2.0,
+            "title": "Rounds",
+            "type": "integer"
+          },
+          "seats": {
+            "default": 100,
+            "maximum": 500.0,
+            "minimum": 10.0,
+            "title": "Seats",
+            "type": "integer"
+          },
+          "seed": {
+            "default": 42,
+            "minimum": 0.0,
+            "title": "Seed",
+            "type": "integer"
+          },
+          "strategic_desertion": {
+            "default": false,
+            "title": "Strategic Desertion",
+            "type": "boolean"
+          },
+          "structure": {
+            "default": "pr",
+            "enum": [
+              "pr",
+              "fptp",
+              "mmp"
+            ],
+            "title": "Structure",
+            "type": "string"
+          },
+          "threshold": {
+            "default": 0.05,
+            "maximum": 0.15,
+            "minimum": 0.0,
+            "title": "Threshold",
+            "type": "number"
+          }
+        },
+        "required": [
+          "parties"
+        ],
+        "title": "TemporalRequest",
+        "type": "object"
+      },
+      "TemporalResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "alternation_rate": {
+            "maximum": 1.0,
+            "minimum": 0.0,
+            "title": "Alternation Rate",
+            "type": "number"
+          },
+          "enp_votes_final": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Enp Votes Final"
+          },
+          "enp_votes_initial": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Enp Votes Initial"
+          },
+          "polarization_final": {
+            "title": "Polarization Final",
+            "type": "number"
+          },
+          "polarization_initial": {
+            "title": "Polarization Initial",
+            "type": "number"
+          },
+          "rounds": {
+            "items": {
+              "$ref": "#/components/schemas/TemporalRound"
+            },
+            "title": "Rounds",
+            "type": "array"
+          }
+        },
+        "required": [
+          "rounds",
+          "alternation_rate",
+          "polarization_initial",
+          "polarization_final"
+        ],
+        "title": "TemporalResponse",
+        "type": "object"
+      },
+      "TemporalRound": {
+        "additionalProperties": false,
+        "properties": {
+          "alternation": {
+            "description": "Largest party changed vs the previous round.",
+            "title": "Alternation",
+            "type": "boolean"
+          },
+          "congruence_gap": {
+            "description": "Distance between the seat-weighted assembly position and the voter median.",
+            "title": "Congruence Gap",
+            "type": "number"
+          },
+          "enp_seats": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Enp Seats"
+          },
+          "enp_votes": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Enp Votes"
+          },
+          "gallagher": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Gallagher"
+          },
+          "parties": {
+            "items": {
+              "$ref": "#/components/schemas/TemporalPartyState"
+            },
+            "title": "Parties",
+            "type": "array"
+          },
+          "polarization": {
+            "description": "Vote-weighted dispersion of party positions.",
+            "title": "Polarization",
+            "type": "number"
+          },
+          "round": {
+            "title": "Round",
+            "type": "integer"
+          },
+          "winner": {
+            "description": "Largest party this round.",
+            "title": "Winner",
+            "type": "string"
+          }
+        },
+        "required": [
+          "round",
+          "parties",
+          "winner",
+          "polarization",
+          "alternation",
+          "congruence_gap"
+        ],
+        "title": "TemporalRound",
+        "type": "object"
+      },
       "TopCycle": {
         "properties": {
           "center": {
@@ -10723,6 +12074,31 @@
         "title": "TopCycle",
         "type": "object"
       },
+      "TurnoutConfig": {
+        "additionalProperties": false,
+        "description": "Electorate realism: differential turnout (Downsian abstention).",
+        "properties": {
+          "intensity": {
+            "default": 0.0,
+            "maximum": 1.0,
+            "minimum": 0.0,
+            "title": "Intensity",
+            "type": "number"
+          },
+          "model": {
+            "default": "full",
+            "enum": [
+              "full",
+              "alienation",
+              "indifference"
+            ],
+            "title": "Model",
+            "type": "string"
+          }
+        },
+        "title": "TurnoutConfig",
+        "type": "object"
+      },
       "TyrannyCurvePoint": {
         "properties": {
           "majority_pct": {
@@ -10742,312 +12118,6 @@
           "tyranny_by_rule"
         ],
         "title": "TyrannyCurvePoint",
-        "type": "object"
-      },
-      "UserCreate": {
-        "description": "Registration body. Email + password come from BaseUserCreate.",
-        "properties": {
-          "email": {
-            "format": "email",
-            "title": "Email",
-            "type": "string"
-          },
-          "first_name": {
-            "anyOf": [
-              {
-                "maxLength": 100,
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "First Name"
-          },
-          "is_active": {
-            "anyOf": [
-              {
-                "type": "boolean"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "default": true,
-            "title": "Is Active"
-          },
-          "is_superuser": {
-            "anyOf": [
-              {
-                "type": "boolean"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "default": false,
-            "title": "Is Superuser"
-          },
-          "is_verified": {
-            "anyOf": [
-              {
-                "type": "boolean"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "default": false,
-            "title": "Is Verified"
-          },
-          "last_name": {
-            "anyOf": [
-              {
-                "maxLength": 100,
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Last Name"
-          },
-          "password": {
-            "title": "Password",
-            "type": "string"
-          },
-          "role": {
-            "default": "User",
-            "description": "'User' or 'Admin' — admin creation gated server-side.",
-            "title": "Role",
-            "type": "string"
-          },
-          "username": {
-            "maxLength": 50,
-            "minLength": 1,
-            "title": "Username",
-            "type": "string"
-          }
-        },
-        "required": [
-          "email",
-          "password",
-          "username"
-        ],
-        "title": "UserCreate",
-        "type": "object"
-      },
-      "UserRead": {
-        "description": "Public view of a user (what /users/me and similar return).",
-        "properties": {
-          "bio": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Bio"
-          },
-          "email": {
-            "format": "email",
-            "title": "Email",
-            "type": "string"
-          },
-          "first_name": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "First Name"
-          },
-          "id": {
-            "title": "Id",
-            "type": "integer"
-          },
-          "is_active": {
-            "default": true,
-            "title": "Is Active",
-            "type": "boolean"
-          },
-          "is_superuser": {
-            "default": false,
-            "title": "Is Superuser",
-            "type": "boolean"
-          },
-          "is_verified": {
-            "default": false,
-            "title": "Is Verified",
-            "type": "boolean"
-          },
-          "last_name": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Last Name"
-          },
-          "profile_picture": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Profile Picture"
-          },
-          "role": {
-            "description": "Legacy 'Admin' | 'User' — shadowed by is_superuser.",
-            "title": "Role",
-            "type": "string"
-          },
-          "username": {
-            "title": "Username",
-            "type": "string"
-          }
-        },
-        "required": [
-          "id",
-          "email",
-          "username",
-          "role"
-        ],
-        "title": "UserRead",
-        "type": "object"
-      },
-      "UserUpdate": {
-        "description": "PATCH body for /users/me. Everything optional.",
-        "properties": {
-          "bio": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Bio"
-          },
-          "email": {
-            "anyOf": [
-              {
-                "format": "email",
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Email"
-          },
-          "first_name": {
-            "anyOf": [
-              {
-                "maxLength": 100,
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "First Name"
-          },
-          "is_active": {
-            "anyOf": [
-              {
-                "type": "boolean"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Is Active"
-          },
-          "is_superuser": {
-            "anyOf": [
-              {
-                "type": "boolean"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Is Superuser"
-          },
-          "is_verified": {
-            "anyOf": [
-              {
-                "type": "boolean"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Is Verified"
-          },
-          "last_name": {
-            "anyOf": [
-              {
-                "maxLength": 100,
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Last Name"
-          },
-          "password": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Password"
-          },
-          "profile_picture": {
-            "anyOf": [
-              {
-                "maxLength": 200,
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Profile Picture"
-          },
-          "username": {
-            "anyOf": [
-              {
-                "maxLength": 50,
-                "minLength": 1,
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Username"
-          }
-        },
-        "title": "UserUpdate",
         "type": "object"
       },
       "UtilityMatrixRequest": {
@@ -11350,37 +12420,6 @@
         ],
         "title": "WhatIfResponse",
         "type": "object"
-      },
-      "_GoogleTokenBody": {
-        "additionalProperties": false,
-        "properties": {
-          "token": {
-            "description": "Google ID token from the JS SDK.",
-            "minLength": 1,
-            "title": "Token",
-            "type": "string"
-          }
-        },
-        "required": [
-          "token"
-        ],
-        "title": "_GoogleTokenBody",
-        "type": "object"
-      }
-    },
-    "securitySchemes": {
-      "HTTPBearer": {
-        "scheme": "bearer",
-        "type": "http"
-      },
-      "OAuth2PasswordBearer": {
-        "flows": {
-          "password": {
-            "scopes": {},
-            "tokenUrl": "/api/v2/auth/jwt/login"
-          }
-        },
-        "type": "oauth2"
       }
     }
   },
@@ -11584,273 +12623,6 @@
         ]
       }
     },
-    "/api/v2/auth/github": {
-      "get": {
-        "operationId": "github_redirect_api_v2_auth_github_get",
-        "responses": {
-          "307": {
-            "description": "Successful Response"
-          }
-        },
-        "summary": "Redirect the user to the GitHub OAuth consent page",
-        "tags": [
-          "auth"
-        ]
-      }
-    },
-    "/api/v2/auth/github/callback": {
-      "get": {
-        "description": "Exchange the OAuth code for a GitHub access token, fetch the user\nprofile, find-or-create the local account, mint our own JWT, and\nredirect the browser to `<FRONTEND>/oauth/callback?token=...`.",
-        "operationId": "github_callback_api_v2_auth_github_callback_get",
-        "parameters": [
-          {
-            "description": "Authorization code from GitHub.",
-            "in": "query",
-            "name": "code",
-            "required": false,
-            "schema": {
-              "anyOf": [
-                {
-                  "type": "string"
-                },
-                {
-                  "type": "null"
-                }
-              ],
-              "description": "Authorization code from GitHub.",
-              "title": "Code"
-            }
-          }
-        ],
-        "responses": {
-          "307": {
-            "description": "Successful Response"
-          },
-          "422": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/HTTPValidationError"
-                }
-              }
-            },
-            "description": "Validation Error"
-          }
-        },
-        "summary": "Handle GitHub's OAuth callback and bounce to the frontend",
-        "tags": [
-          "auth"
-        ]
-      }
-    },
-    "/api/v2/auth/google": {
-      "post": {
-        "description": "The Google Sign-In SDK on the frontend produces a JWT-encoded ID\ntoken. We verify it against Google's public keys (via the official\ngoogle-auth library), trust the `sub`/`email` claims, then mint our\nown JWT.",
-        "operationId": "google_login_api_v2_auth_google_post",
-        "requestBody": {
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/_GoogleTokenBody"
-              }
-            }
-          },
-          "required": true
-        },
-        "responses": {
-          "200": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "additionalProperties": true,
-                  "title": "Response Google Login Api V2 Auth Google Post",
-                  "type": "object"
-                }
-              }
-            },
-            "description": "JWT access token + user summary, identical shape to the Flask route."
-          },
-          "422": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/HTTPValidationError"
-                }
-              }
-            },
-            "description": "Validation Error"
-          }
-        },
-        "summary": "Exchange a Google ID token for a Vote Lab JWT",
-        "tags": [
-          "auth"
-        ]
-      }
-    },
-    "/api/v2/auth/jwt/login": {
-      "post": {
-        "operationId": "auth_jwt_login_api_v2_auth_jwt_login_post",
-        "requestBody": {
-          "content": {
-            "application/x-www-form-urlencoded": {
-              "schema": {
-                "$ref": "#/components/schemas/Body_auth_jwt_login_api_v2_auth_jwt_login_post"
-              }
-            }
-          },
-          "required": true
-        },
-        "responses": {
-          "200": {
-            "content": {
-              "application/json": {
-                "example": {
-                  "access_token": "eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9.eyJ1c2VyX2lkIjoiOTIyMWZmYzktNjQwZi00MzcyLTg2ZDMtY2U2NDJjYmE1NjAzIiwiYXVkIjoiZmFzdGFwaS11c2VyczphdXRoIiwiZXhwIjoxNTcxNTA0MTkzfQ.M10bjOe45I5Ncu_uXvOmVV8QxnL-nZfcH96U90JaocI",
-                  "token_type": "bearer"
-                },
-                "schema": {
-                  "$ref": "#/components/schemas/BearerResponse"
-                }
-              }
-            },
-            "description": "Successful Response"
-          },
-          "400": {
-            "content": {
-              "application/json": {
-                "examples": {
-                  "LOGIN_BAD_CREDENTIALS": {
-                    "summary": "Bad credentials or the user is inactive.",
-                    "value": {
-                      "detail": "LOGIN_BAD_CREDENTIALS"
-                    }
-                  },
-                  "LOGIN_USER_NOT_VERIFIED": {
-                    "summary": "The user is not verified.",
-                    "value": {
-                      "detail": "LOGIN_USER_NOT_VERIFIED"
-                    }
-                  }
-                },
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorModel"
-                }
-              }
-            },
-            "description": "Bad Request"
-          },
-          "422": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/HTTPValidationError"
-                }
-              }
-            },
-            "description": "Validation Error"
-          }
-        },
-        "summary": "Auth:Jwt.Login",
-        "tags": [
-          "auth"
-        ]
-      }
-    },
-    "/api/v2/auth/jwt/logout": {
-      "post": {
-        "operationId": "auth_jwt_logout_api_v2_auth_jwt_logout_post",
-        "responses": {
-          "200": {
-            "content": {
-              "application/json": {
-                "schema": {}
-              }
-            },
-            "description": "Successful Response"
-          },
-          "401": {
-            "description": "Missing token or inactive user."
-          }
-        },
-        "security": [
-          {
-            "OAuth2PasswordBearer": []
-          }
-        ],
-        "summary": "Auth:Jwt.Logout",
-        "tags": [
-          "auth"
-        ]
-      }
-    },
-    "/api/v2/auth/register": {
-      "post": {
-        "operationId": "register_register_api_v2_auth_register_post",
-        "requestBody": {
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/UserCreate"
-              }
-            }
-          },
-          "required": true
-        },
-        "responses": {
-          "201": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/UserRead"
-                }
-              }
-            },
-            "description": "Successful Response"
-          },
-          "400": {
-            "content": {
-              "application/json": {
-                "examples": {
-                  "REGISTER_INVALID_PASSWORD": {
-                    "summary": "Password validation failed.",
-                    "value": {
-                      "detail": {
-                        "code": "REGISTER_INVALID_PASSWORD",
-                        "reason": "Password should beat least 3 characters"
-                      }
-                    }
-                  },
-                  "REGISTER_USER_ALREADY_EXISTS": {
-                    "summary": "A user with this email already exists.",
-                    "value": {
-                      "detail": "REGISTER_USER_ALREADY_EXISTS"
-                    }
-                  }
-                },
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorModel"
-                }
-              }
-            },
-            "description": "Bad Request"
-          },
-          "422": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/HTTPValidationError"
-                }
-              }
-            },
-            "description": "Validation Error"
-          }
-        },
-        "summary": "Register:Register",
-        "tags": [
-          "auth"
-        ]
-      }
-    },
     "/api/v2/election/abstention": {
       "post": {
         "description": "Round 0 is sincere. From round 1 onwards, voters whose preferred\ncandidate is trailing in the previous round's polls abstain with\nprobability ∝ demobilization_factor × poll_influence.",
@@ -11972,6 +12744,90 @@
           }
         },
         "summary": "Iyengar 2019: in/out-group hostility distorts voting",
+        "tags": [
+          "election"
+        ]
+      }
+    },
+    "/api/v2/election/assembly": {
+      "post": {
+        "description": "Party-level assembly over one shared electorate. The same voters under\nPR vs FPTP vs MMP expose the proportionality/governability trade-off; the\nthreshold knob shows small parties dropping off the cliff.",
+        "operationId": "assembly_endpoint_api_v2_election_assembly_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AssemblyRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AssemblyResponse"
+                }
+              }
+            },
+            "description": "Seats per party, proportionality (Gallagher), fragmentation (effective number of parties), wasted votes, and the minimal winning coalitions."
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Compose a parliament: votes → seats under PR / FPTP / MMP",
+        "tags": [
+          "election"
+        ]
+      }
+    },
+    "/api/v2/election/assembly-scorecard": {
+      "post": {
+        "description": "Feeds the playground's parliament scorecard + values lens. Axes are\noriented higher-is-better with stated conventions; the lens then removes\nPareto-dominated structures and lets user weights spotlight the frontier.",
+        "operationId": "assembly_scorecard_endpoint_api_v2_election_assembly_scorecard_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AssemblyScorecardRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AssemblyScorecardResponse"
+                }
+              }
+            },
+            "description": "Per-structure axis bands (mean/p10/p90 over re-rolled electorates): proportionality, pluralism, effective votes, minority representation, governability, gerrymander resistance."
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Monte-Carlo scorecard: six axes × pr/fptp/mmp, every number banded",
         "tags": [
           "election"
         ]
@@ -12733,6 +13589,48 @@
         ]
       }
     },
+    "/api/v2/election/issue-voting": {
+      "post": {
+        "description": "The bundling problem: a platform can win the election while the majority\ndisagrees with it issue by issue (Ostrogorski / discursive dilemma).\nSpatial mode derives K issues from the shared electorate; handcrafted mode\nbuilds exact paradoxes.",
+        "operationId": "issue_voting_endpoint_api_v2_election_issue_voting_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/IssueVotingRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/IssueVotingResponse"
+                }
+              }
+            },
+            "description": "Per-issue referendum majorities, the elected platform, divergences, and the Ostrogorski-paradox flag."
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Issue-by-issue majorities vs the bundled platform vote",
+        "tags": [
+          "election"
+        ]
+      }
+    },
     "/api/v2/election/jury": {
       "post": {
         "description": "Voters with individual competence p > 0.5 aggregate collectively\ntoward the 'correct' option. Runs `num_simulations` Monte Carlo\ntrials and compares plurality, IRV, Borda, Schulze, MJ on the same\njuries.",
@@ -13069,6 +13967,48 @@
         ]
       }
     },
+    "/api/v2/election/profile-simulate": {
+      "post": {
+        "description": "The profile-as-interface core: build a profile from the chosen source\n(spatial / impartial culture / Mallows / Pólya urn / handcrafted), apply the\nbehaviour transform, then run all methods. The cycle_rate read-out exposes how\nconclusions are conditional on the assumptions.",
+        "operationId": "profile_simulate_endpoint_api_v2_election_profile_simulate_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ProfileSimulateRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProfileSimulateResponse"
+                }
+              }
+            },
+            "description": "Per-method winners, the profile's 2D embedding, and the paradox/cycle rate, for a user-chosen preference source."
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Run every method over a configurable preference profile",
+        "tags": [
+          "election"
+        ]
+      }
+    },
     "/api/v2/election/quadratic-funding": {
       "post": {
         "description": "QF amplifies projects with many small donors over those with few\nlarge ones via matching(P) ∝ (Σᵢ √c_ip)². Compared against 1p1v\nand proportional allocations on the same matching pool.",
@@ -13279,6 +14219,48 @@
         ]
       }
     },
+    "/api/v2/election/structural-fairness": {
+      "post": {
+        "description": "The rules AROUND the rule: unequal district populations distort the\nseat-vote relationship, the efficiency gap quantifies gerrymanders, the\nPenrose √-law equalises citizen power in councils, and cumulative voting\nlets cohesive minorities win at-large seats that bloc voting denies them.",
+        "operationId": "structural_fairness_endpoint_api_v2_election_structural_fairness_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/StructuralFairnessRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/StructuralFairnessResponse"
+                }
+              }
+            },
+            "description": "Vote-weight distortion under unequal districts, the two-party efficiency gap, citizen-power ratios under three council weightings, and bloc-vs-cumulative at-large seats."
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Structural (un)fairness: malapportionment, efficiency gap, Penrose, cumulative",
+        "tags": [
+          "election"
+        ]
+      }
+    },
     "/api/v2/election/stv": {
       "post": {
         "description": "Multi-seat STV (Droop, Hare, or Imperiali quota) compared to\nD'Hondt and multi-seat FPTP on the same simulated ballots.",
@@ -13316,6 +14298,48 @@
           }
         },
         "summary": "Single Transferable Vote + D'Hondt + FPTP comparison",
+        "tags": [
+          "election"
+        ]
+      }
+    },
+    "/api/v2/election/temporal": {
+      "post": {
+        "description": "A system good ONCE can degrade over repeated play. Parties chase votes\n(Downsian local search), voters attach to their party — watch ENP,\npolarization and alternation evolve. Duverger's law shows up over time:\nFPTP with strategic desertion compresses the party system, PR sustains it.",
+        "operationId": "temporal_endpoint_api_v2_election_temporal_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/TemporalRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TemporalResponse"
+                }
+              }
+            },
+            "description": "Per-round positions, seats, winner, ENP, Gallagher, polarization, alternation and congruence over N rounds of party adaptation + voter attachment."
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Democracy as a repeated game: N sequential elections",
         "tags": [
           "election"
         ]
@@ -13421,389 +14445,6 @@
         "summary": "Health",
         "tags": [
           "meta"
-        ]
-      }
-    },
-    "/api/v2/scenarios": {
-      "get": {
-        "description": "Returns the user's saved scenarios, newest first. Empty list for new accounts.",
-        "operationId": "list_scenarios_api_v2_scenarios_get",
-        "responses": {
-          "200": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "items": {
-                    "$ref": "#/components/schemas/ScenarioSummary"
-                  },
-                  "title": "Response List Scenarios Api V2 Scenarios Get",
-                  "type": "array"
-                }
-              }
-            },
-            "description": "Most recently created first."
-          }
-        },
-        "security": [
-          {
-            "HTTPBearer": []
-          }
-        ],
-        "summary": "List the current user's saved scenarios",
-        "tags": [
-          "scenarios"
-        ]
-      },
-      "post": {
-        "description": "Persists a config snapshot (and optionally cached results) under the user's account.",
-        "operationId": "create_scenario_api_v2_scenarios_post",
-        "requestBody": {
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/ScenarioCreateRequest"
-              }
-            }
-          },
-          "required": true
-        },
-        "responses": {
-          "201": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ScenarioDetail"
-                }
-              }
-            },
-            "description": "The freshly created scenario including its server-assigned id."
-          },
-          "422": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/HTTPValidationError"
-                }
-              }
-            },
-            "description": "Validation Error"
-          }
-        },
-        "security": [
-          {
-            "HTTPBearer": []
-          }
-        ],
-        "summary": "Save a new scenario for the current user",
-        "tags": [
-          "scenarios"
-        ]
-      }
-    },
-    "/api/v2/scenarios/gallery": {
-      "get": {
-        "operationId": "list_gallery_api_v2_scenarios_gallery_get",
-        "parameters": [
-          {
-            "in": "query",
-            "name": "page",
-            "required": false,
-            "schema": {
-              "default": 1,
-              "minimum": 1,
-              "title": "Page",
-              "type": "integer"
-            }
-          },
-          {
-            "in": "query",
-            "name": "per_page",
-            "required": false,
-            "schema": {
-              "default": 20,
-              "maximum": 50,
-              "minimum": 1,
-              "title": "Per Page",
-              "type": "integer"
-            }
-          },
-          {
-            "description": "'recent' | 'popular' | 'featured'",
-            "in": "query",
-            "name": "sort",
-            "required": false,
-            "schema": {
-              "default": "recent",
-              "description": "'recent' | 'popular' | 'featured'",
-              "title": "Sort",
-              "type": "string"
-            }
-          },
-          {
-            "description": "Filter by exact tag (case-sensitive).",
-            "in": "query",
-            "name": "tag",
-            "required": false,
-            "schema": {
-              "default": "",
-              "description": "Filter by exact tag (case-sensitive).",
-              "title": "Tag",
-              "type": "string"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/GalleryPage"
-                }
-              }
-            },
-            "description": "Items + total + page metadata."
-          },
-          "422": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/HTTPValidationError"
-                }
-              }
-            },
-            "description": "Validation Error"
-          }
-        },
-        "summary": "Paginated gallery list",
-        "tags": [
-          "gallery"
-        ]
-      },
-      "post": {
-        "description": "No auth — the gallery is public. Featured flag stays False until an admin\npromotes the scenario directly in the database.",
-        "operationId": "create_gallery_scenario_api_v2_scenarios_gallery_post",
-        "requestBody": {
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/GalleryCreateRequest"
-              }
-            }
-          },
-          "required": true
-        },
-        "responses": {
-          "201": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/GalleryDetail"
-                }
-              }
-            },
-            "description": "The freshly created scenario including its id."
-          },
-          "422": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/HTTPValidationError"
-                }
-              }
-            },
-            "description": "Validation Error"
-          }
-        },
-        "summary": "Submit a scenario to the public gallery",
-        "tags": [
-          "gallery"
-        ]
-      }
-    },
-    "/api/v2/scenarios/gallery/featured": {
-      "get": {
-        "operationId": "get_featured_api_v2_scenarios_gallery_featured_get",
-        "parameters": [
-          {
-            "in": "query",
-            "name": "limit",
-            "required": false,
-            "schema": {
-              "default": 6,
-              "maximum": 20,
-              "minimum": 1,
-              "title": "Limit",
-              "type": "integer"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "items": {
-                    "$ref": "#/components/schemas/GalleryItem"
-                  },
-                  "title": "Response Get Featured Api V2 Scenarios Gallery Featured Get",
-                  "type": "array"
-                }
-              }
-            },
-            "description": "Successful Response"
-          },
-          "422": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/HTTPValidationError"
-                }
-              }
-            },
-            "description": "Validation Error"
-          }
-        },
-        "summary": "Top featured scenarios by view count",
-        "tags": [
-          "gallery"
-        ]
-      }
-    },
-    "/api/v2/scenarios/gallery/{scenario_id}": {
-      "get": {
-        "operationId": "get_scenario_api_v2_scenarios_gallery__scenario_id__get",
-        "parameters": [
-          {
-            "in": "path",
-            "name": "scenario_id",
-            "required": true,
-            "schema": {
-              "title": "Scenario Id",
-              "type": "integer"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/GalleryDetail"
-                }
-              }
-            },
-            "description": "Successful Response"
-          },
-          "422": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/HTTPValidationError"
-                }
-              }
-            },
-            "description": "Validation Error"
-          }
-        },
-        "summary": "Fetch a single scenario (increments the view counter)",
-        "tags": [
-          "gallery"
-        ]
-      }
-    },
-    "/api/v2/scenarios/{scenario_id}": {
-      "delete": {
-        "description": "Hard-deletes the row — same behaviour as the Flask side.",
-        "operationId": "delete_scenario_api_v2_scenarios__scenario_id__delete",
-        "parameters": [
-          {
-            "in": "path",
-            "name": "scenario_id",
-            "required": true,
-            "schema": {
-              "title": "Scenario Id",
-              "type": "integer"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "additionalProperties": true,
-                  "title": "Response Delete Scenario Api V2 Scenarios  Scenario Id  Delete",
-                  "type": "object"
-                }
-              }
-            },
-            "description": "`{message: 'Deleted'}` on success, 404 otherwise."
-          },
-          "422": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/HTTPValidationError"
-                }
-              }
-            },
-            "description": "Validation Error"
-          }
-        },
-        "security": [
-          {
-            "HTTPBearer": []
-          }
-        ],
-        "summary": "Delete one of the current user's scenarios",
-        "tags": [
-          "scenarios"
-        ]
-      },
-      "get": {
-        "description": "Per-user scoping is enforced in the WHERE clause — asking for someone\nelse's scenario gets 404, not 403, to avoid leaking foreign ids.",
-        "operationId": "get_scenario_api_v2_scenarios__scenario_id__get",
-        "parameters": [
-          {
-            "in": "path",
-            "name": "scenario_id",
-            "required": true,
-            "schema": {
-              "title": "Scenario Id",
-              "type": "integer"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ScenarioDetail"
-                }
-              }
-            },
-            "description": "404 if the scenario doesn't exist or belongs to another user."
-          },
-          "422": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/HTTPValidationError"
-                }
-              }
-            },
-            "description": "Validation Error"
-          }
-        },
-        "security": [
-          {
-            "HTTPBearer": []
-          }
-        ],
-        "summary": "Fetch a single scenario by id",
-        "tags": [
-          "scenarios"
         ]
       }
     },
@@ -15692,303 +16333,6 @@
         "summary": "Sen's Impossibility of a Paretian Liberal (1970)",
         "tags": [
           "theory"
-        ]
-      }
-    },
-    "/api/v2/users/me": {
-      "get": {
-        "operationId": "users_current_user_api_v2_users_me_get",
-        "responses": {
-          "200": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/UserRead"
-                }
-              }
-            },
-            "description": "Successful Response"
-          },
-          "401": {
-            "description": "Missing token or inactive user."
-          }
-        },
-        "security": [
-          {
-            "OAuth2PasswordBearer": []
-          }
-        ],
-        "summary": "Users:Current User",
-        "tags": [
-          "users"
-        ]
-      },
-      "patch": {
-        "operationId": "users_patch_current_user_api_v2_users_me_patch",
-        "requestBody": {
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/UserUpdate"
-              }
-            }
-          },
-          "required": true
-        },
-        "responses": {
-          "200": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/UserRead"
-                }
-              }
-            },
-            "description": "Successful Response"
-          },
-          "400": {
-            "content": {
-              "application/json": {
-                "examples": {
-                  "UPDATE_USER_EMAIL_ALREADY_EXISTS": {
-                    "summary": "A user with this email already exists.",
-                    "value": {
-                      "detail": "UPDATE_USER_EMAIL_ALREADY_EXISTS"
-                    }
-                  },
-                  "UPDATE_USER_INVALID_PASSWORD": {
-                    "summary": "Password validation failed.",
-                    "value": {
-                      "detail": {
-                        "code": "UPDATE_USER_INVALID_PASSWORD",
-                        "reason": "Password should beat least 3 characters"
-                      }
-                    }
-                  }
-                },
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorModel"
-                }
-              }
-            },
-            "description": "Bad Request"
-          },
-          "401": {
-            "description": "Missing token or inactive user."
-          },
-          "422": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/HTTPValidationError"
-                }
-              }
-            },
-            "description": "Validation Error"
-          }
-        },
-        "security": [
-          {
-            "OAuth2PasswordBearer": []
-          }
-        ],
-        "summary": "Users:Patch Current User",
-        "tags": [
-          "users"
-        ]
-      }
-    },
-    "/api/v2/users/{id}": {
-      "delete": {
-        "operationId": "users_delete_user_api_v2_users__id__delete",
-        "parameters": [
-          {
-            "in": "path",
-            "name": "id",
-            "required": true,
-            "schema": {
-              "title": "Id",
-              "type": "string"
-            }
-          }
-        ],
-        "responses": {
-          "204": {
-            "description": "Successful Response"
-          },
-          "401": {
-            "description": "Missing token or inactive user."
-          },
-          "403": {
-            "description": "Not a superuser."
-          },
-          "404": {
-            "description": "The user does not exist."
-          },
-          "422": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/HTTPValidationError"
-                }
-              }
-            },
-            "description": "Validation Error"
-          }
-        },
-        "security": [
-          {
-            "OAuth2PasswordBearer": []
-          }
-        ],
-        "summary": "Users:Delete User",
-        "tags": [
-          "users"
-        ]
-      },
-      "get": {
-        "operationId": "users_user_api_v2_users__id__get",
-        "parameters": [
-          {
-            "in": "path",
-            "name": "id",
-            "required": true,
-            "schema": {
-              "title": "Id",
-              "type": "string"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/UserRead"
-                }
-              }
-            },
-            "description": "Successful Response"
-          },
-          "401": {
-            "description": "Missing token or inactive user."
-          },
-          "403": {
-            "description": "Not a superuser."
-          },
-          "404": {
-            "description": "The user does not exist."
-          },
-          "422": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/HTTPValidationError"
-                }
-              }
-            },
-            "description": "Validation Error"
-          }
-        },
-        "security": [
-          {
-            "OAuth2PasswordBearer": []
-          }
-        ],
-        "summary": "Users:User",
-        "tags": [
-          "users"
-        ]
-      },
-      "patch": {
-        "operationId": "users_patch_user_api_v2_users__id__patch",
-        "parameters": [
-          {
-            "in": "path",
-            "name": "id",
-            "required": true,
-            "schema": {
-              "title": "Id",
-              "type": "string"
-            }
-          }
-        ],
-        "requestBody": {
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/UserUpdate"
-              }
-            }
-          },
-          "required": true
-        },
-        "responses": {
-          "200": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/UserRead"
-                }
-              }
-            },
-            "description": "Successful Response"
-          },
-          "400": {
-            "content": {
-              "application/json": {
-                "examples": {
-                  "UPDATE_USER_EMAIL_ALREADY_EXISTS": {
-                    "summary": "A user with this email already exists.",
-                    "value": {
-                      "detail": "UPDATE_USER_EMAIL_ALREADY_EXISTS"
-                    }
-                  },
-                  "UPDATE_USER_INVALID_PASSWORD": {
-                    "summary": "Password validation failed.",
-                    "value": {
-                      "detail": {
-                        "code": "UPDATE_USER_INVALID_PASSWORD",
-                        "reason": "Password should beat least 3 characters"
-                      }
-                    }
-                  }
-                },
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorModel"
-                }
-              }
-            },
-            "description": "Bad Request"
-          },
-          "401": {
-            "description": "Missing token or inactive user."
-          },
-          "403": {
-            "description": "Not a superuser."
-          },
-          "404": {
-            "description": "The user does not exist."
-          },
-          "422": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/HTTPValidationError"
-                }
-              }
-            },
-            "description": "Validation Error"
-          }
-        },
-        "security": [
-          {
-            "OAuth2PasswordBearer": []
-          }
-        ],
-        "summary": "Users:Patch User",
-        "tags": [
-          "users"
         ]
       }
     }
