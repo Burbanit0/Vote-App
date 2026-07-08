@@ -124,7 +124,7 @@ const ManipulabilityChart: React.FC<Props> = ({ baseParams }) => {
               methods: 'all',
             },
           },
-        } as Parameters<typeof apiClient.GET>[1]
+        }
       );
       if (apiErr || !resp) throw new Error("Erreur lors de l'analyse");
       const results = (resp as { results: ManipResult[] }).results;

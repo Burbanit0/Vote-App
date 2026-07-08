@@ -1,27 +1,10 @@
 version: '3.8'
 
 services:
-  db:
-    image: postgres:latest
-    container_name: postgres_db
-    environment:
-      POSTGRES_DB: mydatabase
-      POSTGRES_USER: myuser
-      POSTGRES_PASSWORD: mypassword
-    ports:
-      - "5432:5432"
-    volumes:
-      - postgres_data:/var/lib/postgresql
-    networks:
-      - mynetwork
-    healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U myuser -d mydatabase"]
-      interval: 5s
-      timeout: 5s
-      retries: 5
-
   # The backend — FastAPI served by uvicorn. It serves the whole API; the
-  # frontend reaches it via /api/* (proxied by Vite in dev).
+  # frontend reaches it via /api/* (proxied by Vite in dev). The app is
+  # stateless (no SQL DB, no auth) — Redis is the only backing service, used
+  # purely as a compute cache for the voting engine.
   api:
     restart: always
     build: .
@@ -29,7 +12,6 @@ services:
     command: ["uvicorn", "api.main:app", "--host", "0.0.0.0", "--port", "4434"]
     environment:
       - APP_ENV=development
-      - DATABASE_URL=postgresql://myuser:mypassword@db:5432/mydatabase
       - REDIS_URL=redis://redis:6379
       - CORS_ORIGINS=http://localhost:3000
     ports:
@@ -37,7 +19,6 @@ services:
     volumes:
       - .:/app
     depends_on:
-      - db
       - redis
     networks:
       - mynetwork
@@ -49,9 +30,6 @@ services:
       - "6379:6379"
     networks:
       - mynetwork
-
-volumes:
-  postgres_data:
 
 networks:
   mynetwork:

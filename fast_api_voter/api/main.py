@@ -12,7 +12,6 @@ URL collision during the strangler-fig migration.
 """
 from __future__ import annotations
 
-import sys
 import time
 from contextlib import asynccontextmanager
 from typing import Any, AsyncIterator, Awaitable, Callable
@@ -29,18 +28,13 @@ from slowapi.errors import RateLimitExceeded
 from api.engine.utils.logger import configure_logging, get_logger
 from api.core.config import get_settings
 from api.core.ratelimit import limiter
-from api.routes import auth as auth_routes
 from api.routes import election as election_routes
 from api.routes import export as export_routes
-from api.routes import gallery as gallery_routes
 from api.routes import health as health_routes
-from api.routes import oauth as oauth_routes
 from api.routes import public as public_routes
-from api.routes import scenarios as scenarios_routes
 from api.routes import simulations as simulations_routes
 from api.routes import tech as tech_routes
 from api.routes import theory as theory_routes
-from api.routes import users as users_routes
 from api.sockets import sio
 
 
@@ -51,18 +45,6 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
     settings = get_settings()
     configure_logging(level=settings.log_level)
     log = get_logger("api.main")
-
-    # Mirror the production validation Flask's create_app does, so the v2
-    # backend also refuses to boot with weak secrets in prod.
-    if settings.is_production:
-        weak = {
-            "secret_key":     "dev-secret-CHANGE-IN-PROD",
-            "jwt_secret_key": "dev-jwt-secret-CHANGE-IN-PROD",
-        }
-        bad = [k for k, v in weak.items() if getattr(settings, k) == v]
-        if bad:
-            log.error("startup.weak_secrets", vars=bad)
-            sys.exit(1)
 
     log.info(
         "api.startup",
@@ -102,9 +84,8 @@ _settings = get_settings()
 app.add_middleware(
     CORSMiddleware,
     allow_origins=_settings.allowed_origins,
-    allow_credentials=True,
     allow_methods=["GET", "POST", "PUT", "DELETE", "OPTIONS"],
-    allow_headers=["Content-Type", "Authorization"],
+    allow_headers=["Content-Type"],
 )
 
 
@@ -139,14 +120,6 @@ app.include_router(public_routes.router)
 app.include_router(simulations_routes.router)
 app.include_router(tech_routes.router)
 app.include_router(theory_routes.router)
-# Gallery MUST be registered before scenarios — otherwise GET /api/v2/scenarios/gallery
-# would match the scenarios detail route /api/v2/scenarios/{scenario_id} and 401 on
-# the Bearer dep before FastAPI tries the gallery prefix.
-app.include_router(gallery_routes.router)
-app.include_router(scenarios_routes.router)
-app.include_router(auth_routes.router)
-app.include_router(oauth_routes.router)
-app.include_router(users_routes.router)
 
 
 @app.get("/api/v2", tags=["meta"])

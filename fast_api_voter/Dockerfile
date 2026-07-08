@@ -26,5 +26,10 @@ EXPOSE 4434
 RUN useradd --create-home --uid 10001 appuser && chown -R appuser:appuser /app
 USER appuser
 
+# Liveness: /api/v2/health returns 200 healthy / 503 degraded (urlopen raises on
+# 503 → non-zero exit → unhealthy). Stdlib only, no curl needed.
+HEALTHCHECK --interval=30s --timeout=5s --start-period=10s --retries=3 \
+  CMD ["python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:4434/api/v2/health')"]
+
 # uvicorn serves the whole API (FastAPI app at api.main:app).
 CMD ["uvicorn", "api.main:app", "--host", "0.0.0.0", "--port", "4434"]

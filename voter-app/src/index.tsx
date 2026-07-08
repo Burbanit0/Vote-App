@@ -4,12 +4,9 @@ import ReactDOM from 'react-dom/client';
 import './index.css';
 import App from './App';
 import reportWebVitals from './reportWebVitals';
-import { GoogleOAuthProvider } from '@react-oauth/google';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { ReactQueryDevtools } from '@tanstack/react-query-devtools';
 import { initUITheme } from './stores/useUIStore';
-
-const googleClientId = process.env.VITE_GOOGLE_CLIENT_ID || '';
 
 // Apply the persisted theme to <html> at startup (was ThemeProvider's job).
 initUITheme();
@@ -35,9 +32,7 @@ i18nReady.finally(() => {
   root.render(
     <React.StrictMode>
       <QueryClientProvider client={queryClient}>
-        <GoogleOAuthProvider clientId={googleClientId}>
-          <App />
-        </GoogleOAuthProvider>
+        <App />
         {process.env.NODE_ENV !== 'production' && <ReactQueryDevtools initialIsOpen={false} />}
       </QueryClientProvider>
     </React.StrictMode>

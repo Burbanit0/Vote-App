@@ -85,12 +85,6 @@ from .export import (
     ExportDatasetMeta,
     ExportDatasetRequest,
 )
-from .gallery import (
-    GalleryCreateRequest,
-    GalleryDetail,
-    GalleryItem,
-    GalleryPage,
-)
 from .public_api import (
     PublicCompareRequest,
     PublicCompareResponse,
@@ -151,11 +145,6 @@ from .simulations import (
     VoterSegmentsResponse,
     WhatIfRequest,
     WhatIfResponse,
-)
-from .scenarios import (
-    ScenarioCreateRequest,
-    ScenarioDetail,
-    ScenarioSummary,
 )
 from .tech import (
     E2EDemoRequest,
@@ -275,10 +264,6 @@ __all__ = [
     "QuadraticFundingRequest",
     "ShyVoterRequest", "SimulatePipelineRequest",
     "SortitionRequest", "StvRequest",
-    # scenarios CRUD (Phase 4.2)
-    "ScenarioCreateRequest", "ScenarioDetail", "ScenarioSummary",
-    # gallery (Phase 4.5.a.1)
-    "GalleryCreateRequest", "GalleryDetail", "GalleryItem", "GalleryPage",
     # export (Phase 4.5.a.2)
     "ExportDatasetJSON", "ExportDatasetMeta", "ExportDatasetRequest",
     # tech demos (Phase 4.5.a.3)
