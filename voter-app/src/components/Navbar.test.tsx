@@ -2,12 +2,11 @@ import React from 'react';
 import { render, screen } from '@testing-library/react';
 import { MemoryRouter } from 'react-router-dom';
 import Navbar from './Navbar';
-import { useTheme, useExpertMode, useTeacherMode } from '../stores/useUIStore';
+import { useTheme, useExpertMode } from '../stores/useUIStore';
 
 vi.mock('../stores/useUIStore', () => ({
   useTheme: vi.fn(),
   useExpertMode: vi.fn(),
-  useTeacherMode: vi.fn(),
 }));
 vi.mock('../i18n', () => ({
   default: { language: 'en', changeLanguage: vi.fn() },
@@ -27,11 +26,6 @@ describe('Navbar', () => {
     vi.clearAllMocks();
     (useTheme as jest.Mock).mockReturnValue({ theme: 'light', toggleTheme: vi.fn() });
     (useExpertMode as jest.Mock).mockReturnValue({ expertMode: false, setExpertMode: vi.fn() });
-    (useTeacherMode as jest.Mock).mockReturnValue({
-      teacherMode: false,
-      setTeacherMode: vi.fn(),
-      slides: [],
-    });
   });
 
   it('renders the Vote Lab brand', () => {

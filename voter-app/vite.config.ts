@@ -94,7 +94,6 @@ export default defineConfig(({ mode }) => {
             if (id.includes('node_modules')) {
               if (id.includes('recharts')) return 'recharts';
               if (/[\\/]d3-(delaunay|hexbin|force)[\\/]/.test(id)) return 'd3';
-              if (id.includes('jspdf') || id.includes('html2canvas')) return 'pdf';
               if (id.includes('react-bootstrap') || /[\\/]bootstrap[\\/]/.test(id))
                 return 'bootstrap';
             }
