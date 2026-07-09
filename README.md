@@ -79,6 +79,28 @@ cd fast_api_voter && docker-compose up --build       # FastAPI :4434 · Redis :6
 cd ../voter-app && npm install && npm start           # Vite → :3000
 ```
 
+### Deploy (public — single container)
+
+The root `Dockerfile` builds the frontend and serves it **and** the API from one
+FastAPI process, so the whole app ships as a single stateless image (no Redis, no
+DB — Redis is an optional cache):
+
+```bash
+docker build -t votelab:prod .        # from repo root
+docker run -p 4434:4434 votelab:prod  # → http://localhost:4434  (app + API + websockets)
+```
+
+**Fly.io** (`fly.toml` included):
+
+```bash
+fly launch --no-deploy   # once — claims a unique app name, updates [app] in fly.toml
+fly deploy               # builds the Dockerfile and ships it
+```
+
+Public URL: `https://<app>.fly.dev`. No env vars are required. The container scales
+to zero when idle (free allowance); set `min_machines_running = 1` in `fly.toml` for
+an always-warm demo, or `REDIS_URL` if you later add a cache.
+
 ---
 
 ## Development

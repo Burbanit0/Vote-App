@@ -104,7 +104,15 @@ export default defineConfig(({ mode }) => {
     },
     envPrefix: 'VITE_',
     define: {
-      'process.env.VITE_API_URL': JSON.stringify(env.VITE_API_URL || 'http://localhost:4434'),
+      // Single-origin prod: default to '' (same-origin, relative /api + /socket.io)
+      // so the FastAPI container that serves this build also answers the API.
+      // Dev keeps the explicit localhost:4434 backend. An explicit env var wins.
+      'process.env.VITE_API_URL': JSON.stringify(
+        env.VITE_API_URL ?? (mode === 'production' ? '' : 'http://localhost:4434')
+      ),
+      'process.env.VITE_SOCKET_URL': JSON.stringify(
+        env.VITE_SOCKET_URL ?? (mode === 'production' ? '' : 'http://localhost:4434')
+      ),
     },
   };
 });

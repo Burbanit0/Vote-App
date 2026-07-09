@@ -12,9 +12,10 @@ def client() -> TestClient:
 
 class TestHealth:
     def test_health_returns_200_or_503(self, client):
-        """Healthcheck always responds — never crashes — even when Redis is down.
-        Locally the test environment usually has no Redis → 503 with status
-        'degraded'. In CI / a properly-booted compose stack → 200 'ok'.
+        """Healthcheck always responds — never crashes.
+        No REDIS_URL configured (stateless deploy / typical test env) → 200 'ok'
+        (Redis is an optional cache). REDIS_URL set but unreachable → 503
+        'degraded'. Assert on the union so both environments pass.
         """
         r = client.get("/api/v2/health")
         assert r.status_code in (200, 503)
