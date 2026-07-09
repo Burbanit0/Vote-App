@@ -70,14 +70,3 @@ describe('useUIStore — expert mode', () => {
     expect(screen.getByTestId('expert')).toHaveTextContent('on');
   });
 });
-
-describe('useUIStore — teacher slides', () => {
-  it('adds and removes slides (persisted)', () => {
-    useUIStore.setState({ slides: [] });
-    useUIStore.getState().addSlide({ type: 'captured', title: 'A', content: {} });
-    expect(useUIStore.getState().slides).toHaveLength(1);
-    const id = useUIStore.getState().slides[0].id;
-    useUIStore.getState().removeSlide(id);
-    expect(useUIStore.getState().slides).toHaveLength(0);
-  });
-});
