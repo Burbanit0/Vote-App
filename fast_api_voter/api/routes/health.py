@@ -20,12 +20,18 @@ _VERSION = os.environ.get("GIT_SHA", "dev")
 
 def _check_redis() -> Dict[str, Any]:
     """Lazy import so the route doesn't pay redis cost when uncalled."""
+    url = os.environ.get("REDIS_URL")
+    if not url:
+        # Redis is an OPTIONAL compute cache (see engine/utils/cache.py and
+        # core/ratelimit.py — both treat an unset REDIS_URL as "disabled", not an
+        # error). When it isn't configured the app runs fully stateless, so its
+        # absence must not fail liveness (would kill the container on hosts that
+        # gate on /health, e.g. Fly.io single-container deploys).
+        return {"ok": True, "configured": False}
     t0 = time.perf_counter()
     try:
         import redis
-        client = redis.StrictRedis.from_url(
-            os.environ.get("REDIS_URL", "redis://redis:6379")
-        )
+        client = redis.StrictRedis.from_url(url)
         client.ping()
         return {"ok": True, "latency_ms": round((time.perf_counter() - t0) * 1000, 2)}
     except Exception:
