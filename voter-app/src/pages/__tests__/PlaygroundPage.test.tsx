@@ -493,4 +493,21 @@ describe('PlaygroundPage (P0 shell)', () => {
     expect(screen.getByTestId('moment-campaign-panel')).toBeInTheDocument();
     expect(screen.queryByTestId('leader-canvas')).not.toBeInTheDocument();
   });
+
+  it('a story drives the real instrument: starting one rewrites the shared electorate', () => {
+    renderPage();
+    fireEvent.click(screen.getByTestId('story-launch'));
+    fireEvent.click(screen.getByTestId('story-pick-spoiler'));
+    // The story's first beat has really flowed through the live setters into the store.
+    const names = useElectionStore.getState().config.candidates.map((c) => c.name);
+    expect(names).toEqual(['Gore', 'Bush']);
+    expect(screen.getByTestId('story-beat')).toHaveTextContent('Gore beats Bush');
+    // Quitting restores the baseline electorate (Alice/Bob/Carol).
+    fireEvent.click(screen.getByTestId('story-quit'));
+    expect(useElectionStore.getState().config.candidates.map((c) => c.name)).toEqual([
+      'Alice',
+      'Bob',
+      'Carol',
+    ]);
+  });
 });
