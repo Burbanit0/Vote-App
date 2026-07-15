@@ -2,9 +2,10 @@ import { useCallback, useRef, useState } from 'react';
 import { io, Socket } from 'socket.io-client';
 
 // Phase 4.4: Monte Carlo streaming lives on the FastAPI ASGI app at
-// /api/v2/socket.io. Dev points at the local FastAPI port (4434); in prod the
-// value is '' (same origin) — the container serving the build answers the WS.
-const SOCKET_URL = process.env.VITE_SOCKET_URL ?? '';
+// /api/v2/socket.io. Dev/test point at the local FastAPI port (4434); the prod
+// build bakes '' (same origin) via vite define — `??` preserves that empty
+// string (unlike `||`), while an unset var (test env) falls back to localhost.
+const SOCKET_URL = process.env.VITE_SOCKET_URL ?? 'http://localhost:4434';
 const SOCKET_PATH = '/api/v2/socket.io';
 
 export interface MethodStreamStats {

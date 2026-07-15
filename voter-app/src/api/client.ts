@@ -12,10 +12,10 @@
 import createClient from 'openapi-fetch';
 import type { paths } from './types.gen';
 
-// Empty string in production = same origin (the container serving this build).
-// Vite's define bakes the value (localhost in dev, '' in prod); `?? ''` only
-// guards the type — it must not clobber the intentional empty string.
-const API_BASE = process.env.VITE_API_URL ?? '';
+// Same origin in production ('' → relative /api). The prod build bakes '' via
+// vite define; `??` preserves that empty string (unlike `||`, which would fall
+// back to localhost), while an unset var (test env) falls back to localhost.
+const API_BASE = process.env.VITE_API_URL ?? 'http://localhost:4434';
 
 export const apiClient = createClient<paths>({ baseUrl: API_BASE });
 
