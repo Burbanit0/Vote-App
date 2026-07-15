@@ -19,7 +19,9 @@ from typing import Any, AsyncIterator, Awaitable, Callable
 
 from fastapi import FastAPI, Request, Response
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import FileResponse
+from fastapi.staticfiles import StaticFiles
+from starlette.exceptions import HTTPException as StarletteHTTPException
+from starlette.types import Scope
 
 # Re-use the project's existing structlog config so logs look identical
 # to the Flask side. Sys.path is already correct when api is invoked
@@ -139,27 +141,29 @@ def root() -> dict[str, Any]:
 # ── Static frontend (single-container deploy) ───────────────────────────────
 # When FRONTEND_DIR points at a built Vite bundle, this same process serves the
 # SPA + its assets, so the API and the app share one origin (no CORS, same-origin
-# websockets). Unset (dev / tests) → API-only, unchanged. Registered LAST so every
-# /api route and the docs win over this catch-all.
+# websockets). Unset (dev / tests) → API-only, unchanged. Mounted LAST so every
+# /api route and the docs win over this catch-all mount.
 _frontend_dir = os.environ.get("FRONTEND_DIR", "")
 if _frontend_dir and os.path.isdir(_frontend_dir):
-    _frontend_dir = os.path.abspath(_frontend_dir)
-    _index_html = os.path.join(_frontend_dir, "index.html")
 
-    @app.get("/{full_path:path}", include_in_schema=False)
-    async def spa(full_path: str) -> FileResponse:
-        """Serve a real build file when it exists (assets, icons, manifest,
-        service worker); otherwise return index.html so the client-side router
-        owns the route (deep links / refresh on /playground, /laboratoire …)."""
-        candidate = os.path.abspath(os.path.join(_frontend_dir, full_path))
-        # Guard path traversal: never serve outside the build dir.
-        if (
-            full_path
-            and (candidate == _frontend_dir or candidate.startswith(_frontend_dir + os.sep))
-            and os.path.isfile(candidate)
-        ):
-            return FileResponse(candidate)
-        return FileResponse(_index_html)
+    class _SPAStaticFiles(StaticFiles):
+        """Serve the built bundle (assets, icons, manifest, service worker) and
+        fall back to index.html for client-side routes (deep links / refresh on
+        /playground, /laboratoire …). StaticFiles does its own path-traversal
+        containment, and the fallback path is a constant — no user-supplied value
+        is ever used to build a filesystem path."""
+
+        async def get_response(self, path: str, scope: Scope) -> Response:
+            try:
+                return await super().get_response(path, scope)
+            except StarletteHTTPException as exc:
+                # Missing file → hand back the SPA shell so the client router owns
+                # the route. Re-raise anything else (e.g. 405).
+                if exc.status_code == 404:
+                    return await super().get_response("index.html", scope)
+                raise
+
+    app.mount("/", _SPAStaticFiles(directory=_frontend_dir, html=True), name="spa")
 
 
 # ── Socket.IO (Phase 4.4) ─────────────────────────────────────────────────
