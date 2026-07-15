@@ -391,6 +391,23 @@ const pgFr = {
     svAxiomFooter:
       'No-show = calculé en direct sur CET électorat (une coalition gagnerait à s’abstenir). LNH = propriété connue de la méthode, invariante.',
   },
+  vse: {
+    title: 'Le coût du vote stratégique (VSE)',
+    subtitle:
+      'Combien de bien-être chaque méthode gaspille quand les électeurs cessent d’être sincères',
+    intro:
+      'Efficacité de satisfaction des électeurs (VSE, Quinn 2017, d’après Merrill 1984) : 1 = la méthode élit le candidat qui maximise le bien-être, 0 = elle ne fait pas mieux qu’un tirage au sort, négatif = elle fait pire. On fait varier la part d’électeurs qui votent « utile ».',
+    aria: 'Courbes de VSE par méthode selon la part d’électeurs stratégiques',
+    xAxis: 'Part d’électeurs stratégiques',
+    best: 'optimum',
+    random: 'hasard',
+    need2: 'Il faut au moins deux candidats pour mesurer le bien-être.',
+    readout:
+      'Chaque courbe = une méthode. Le chiffre dans la légende est le bien-être perdu entre un électorat sincère et un électorat entièrement stratégique. Survolez une méthode pour l’isoler.',
+    flat: 'Sur cet électorat, toutes les méthodes élisent déjà le même candidat — le meilleur — et la stratégie n’y change rien. C’est un vrai résultat, pas un bug : essayez un électorat polarisé (Électorat → Composer) ou un candidat centriste pris en étau pour voir la stratégie mordre.',
+    convention:
+      'Convention affichée : un électeur « stratégique » applique la compression de Duverger — il repère les deux favoris dans les premiers choix sincères (c’est le sondage), place celui qu’il préfère en tête et l’autre en dernier. L’utilité est toujours lue sur ses préférences RÉELLES : il ment sur son bulletin, jamais sur ce qu’il veut. Bandes = p10–p90 sur des ré-échantillons de l’électorat.',
+  },
   parliament: {
     mirror: {
       left_lib: 'Gauche · libéral',

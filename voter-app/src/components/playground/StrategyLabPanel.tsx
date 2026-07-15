@@ -4,6 +4,7 @@ import { usePlaygroundCtx } from './PlaygroundController';
 import SincerityModule from './SincerityModule';
 import StrategicModule from './StrategicModule';
 import EquilibriumModule from './EquilibriumModule';
+import VseModule from './VseModule';
 import Collapsible from './Collapsible';
 import { AnchorFallback } from './playgroundFields';
 
@@ -11,8 +12,18 @@ const AbstentionPanel = React.lazy(() => import('../shared/AbstentionPanel'));
 
 const StrategyLabPanel: React.FC = () => {
   const { t } = useTranslation('playground');
-  const { config, playground, mode, dims, votingVoters, leaderCandidates, youPos, setYouPos } =
-    usePlaygroundCtx();
+  const {
+    config,
+    playground,
+    mode,
+    dims,
+    votingVoters,
+    leaderCandidates,
+    youPos,
+    setYouPos,
+    sampleAtSeed,
+    baseSeed,
+  } = usePlaygroundCtx();
 
   if (mode !== 'leader') {
     return <p className="text-xs text-muted-foreground">{t('strategy.leaderOnly')}</p>;
@@ -46,6 +57,12 @@ const StrategyLabPanel: React.FC = () => {
         </p>
         <EquilibriumModule voters={votingVoters} candidates={leaderCandidates} />
       </div>
+
+      {/* The welfare cost of strategy (VSE). Collapsed: the sweep is a Monte-Carlo
+          over every method × strategic share, so it must not run until asked for. */}
+      <Collapsible title={t('vse.title')} subtitle={t('vse.subtitle')} testid="anchor-vse">
+        <VseModule sampleAtSeed={sampleAtSeed} baseSeed={baseSeed} candidates={leaderCandidates} />
+      </Collapsible>
 
       <Collapsible
         title={t('electorate.abstentionAnchorTitle')}
