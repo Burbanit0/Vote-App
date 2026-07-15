@@ -126,6 +126,11 @@
 @layer base {
   body {
     font-family: var(--font-sans);
+    /* Paint the page canvas from the active theme. Without this the body stays
+       browser-default white, so every section that doesn't set its own bg shows
+       through white in dark mode. */
+    background: var(--background);
+    color: var(--foreground);
   }
   h1,
   h2,

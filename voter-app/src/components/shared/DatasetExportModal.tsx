@@ -9,7 +9,7 @@ import { Spinner } from '@/components/ui/spinner';
 import { Table } from '@/components/ui/table';
 import { useTranslation } from 'react-i18next';
 
-const API_BASE = process.env.VITE_API_URL || 'http://localhost:4434';
+const API_BASE = process.env.VITE_API_URL ?? 'http://localhost:4434';
 
 // ── Column groups ─────────────────────────────────────────────────────────────
 

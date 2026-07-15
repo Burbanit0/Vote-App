@@ -81,7 +81,7 @@ const en: TranslationKeys = {
       'France 2002, USA 1992, Germany 2021 — see how different methods would have changed the outcome.',
     feature3Title: 'Teach voting theory',
     feature3Desc:
-      'Teacher mode with slides, guided tour and step-by-step vote counting animations.',
+      'A guided tour and step-by-step vote-counting animations make the mechanics visible.',
     widget: {
       title: 'Try it now in 30 seconds',
       subtitle: 'Change the scenario or method — the result updates automatically.',

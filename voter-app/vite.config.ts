@@ -94,7 +94,6 @@ export default defineConfig(({ mode }) => {
             if (id.includes('node_modules')) {
               if (id.includes('recharts')) return 'recharts';
               if (/[\\/]d3-(delaunay|hexbin|force)[\\/]/.test(id)) return 'd3';
-              if (id.includes('jspdf') || id.includes('html2canvas')) return 'pdf';
               if (id.includes('react-bootstrap') || /[\\/]bootstrap[\\/]/.test(id))
                 return 'bootstrap';
             }
@@ -105,7 +104,15 @@ export default defineConfig(({ mode }) => {
     },
     envPrefix: 'VITE_',
     define: {
-      'process.env.VITE_API_URL': JSON.stringify(env.VITE_API_URL || 'http://localhost:4434'),
+      // Single-origin prod: default to '' (same-origin, relative /api + /socket.io)
+      // so the FastAPI container that serves this build also answers the API.
+      // Dev keeps the explicit localhost:4434 backend. An explicit env var wins.
+      'process.env.VITE_API_URL': JSON.stringify(
+        env.VITE_API_URL ?? (mode === 'production' ? '' : 'http://localhost:4434')
+      ),
+      'process.env.VITE_SOCKET_URL': JSON.stringify(
+        env.VITE_SOCKET_URL ?? (mode === 'production' ? '' : 'http://localhost:4434')
+      ),
     },
   };
 });

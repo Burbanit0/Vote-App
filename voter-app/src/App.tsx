@@ -4,14 +4,12 @@ import { Spinner } from '@/components/ui/spinner';
 
 import Navbar from './components/Navbar';
 import ErrorBoundary from './components/Route/ErrorBoundary';
-import { TeacherBanner, TeacherCaptureButton } from './components/teacher/TeacherBanner';
 
 // ── Eager imports — small, on the critical first-paint path ─────────────────
 import HomePage from './pages/HomePage';
 
 // ── Lazy imports — heavier pages, code-split into separate chunks so the
 //    HomePage download doesn't drag in everything. Each becomes its own chunk.
-const TeacherPresentationPage = React.lazy(() => import('./pages/TeacherPresentationPage'));
 const PlaygroundPage = React.lazy(() => import('./pages/PlaygroundPage'));
 const LaboratoirePage = React.lazy(() => import('./pages/LaboratoirePage'));
 const NotFoundPage = React.lazy(() => import('./pages/NotFoundPage'));
@@ -35,18 +33,16 @@ const AppContent: React.FC = () => {
   const { theme } = useTheme();
 
   return (
-    <div id="teacher-capture-root" className="App" data-bs-theme={theme}>
+    <div className="App" data-bs-theme={theme}>
       <OfflineBanner />
-      <TeacherBanner />
       <Navbar />
       <ErrorBoundary>
         <Suspense fallback={<RouteFallback />}>
           <Routes>
-            {/* The whole app is anonymous — two destinations + a teacher view. */}
+            {/* The whole app is anonymous — two destinations. */}
             <Route path="/" element={<HomePage />} />
             <Route path="/playground" element={<PlaygroundPage />} />
             <Route path="/laboratoire" element={<LaboratoirePage />} />
-            <Route path="/teacher/presentation" element={<TeacherPresentationPage />} />
 
             {/* Retired routes — content folded into the playground (do) or the
                 laboratoire (go deeper). Redirect old/bookmarked links, no 404. */}
@@ -82,9 +78,6 @@ const AppContent: React.FC = () => {
           </Routes>
         </Suspense>
       </ErrorBoundary>
-
-      {/* Floating capture button — visible only when teacher mode is active */}
-      <TeacherCaptureButton />
 
       {/* PWA update toast */}
       <UpdatePrompt />

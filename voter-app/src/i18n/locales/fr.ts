@@ -78,7 +78,8 @@ const fr = {
     feature2Desc:
       'France 2002, USA 1992, Allemagne 2021 — comparez comment les méthodes auraient changé le résultat.',
     feature3Title: 'Enseigner la théorie du vote',
-    feature3Desc: 'Mode enseignant avec slides, tour guidé et animations pas-à-pas du décompte.',
+    feature3Desc:
+      'Un tour guidé et des animations pas-à-pas du décompte rendent les mécanismes visibles.',
     widget: {
       title: 'Essayez maintenant en 30 secondes',
       subtitle: 'Changez le scénario ou la méthode — le résultat se met à jour automatiquement.',

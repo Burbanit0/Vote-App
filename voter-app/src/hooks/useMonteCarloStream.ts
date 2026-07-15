@@ -2,10 +2,10 @@ import { useCallback, useRef, useState } from 'react';
 import { io, Socket } from 'socket.io-client';
 
 // Phase 4.4: Monte Carlo streaming lives on the FastAPI ASGI app at
-// /api/v2/socket.io. The default points at the local FastAPI dev port
-// (4434); VITE_SOCKET_URL overrides for prod where it'll be the Caddy
-// fronted origin.
-const SOCKET_URL = process.env.VITE_SOCKET_URL || 'http://localhost:4434';
+// /api/v2/socket.io. Dev/test point at the local FastAPI port (4434); the prod
+// build bakes '' (same origin) via vite define — `??` preserves that empty
+// string (unlike `||`), while an unset var (test env) falls back to localhost.
+const SOCKET_URL = process.env.VITE_SOCKET_URL ?? 'http://localhost:4434';
 const SOCKET_PATH = '/api/v2/socket.io';
 
 export interface MethodStreamStats {
@@ -92,7 +92,8 @@ export function useMonteCarloStream() {
 
     setState({ ...INITIAL, isRunning: true, total: params.num_iterations });
 
-    const socket = io(SOCKET_URL, {
+    // '' (prod, same origin) → pass undefined so socket.io targets window.location.
+    const socket = io(SOCKET_URL || undefined, {
       path: SOCKET_PATH,
       transports: ['websocket', 'polling'],
     });
