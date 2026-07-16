@@ -467,6 +467,22 @@ const pgEn: PlaygroundKeys = {
     svAxiomFooter:
       'No-show = computed live on THIS electorate (a coalition would gain by abstaining). LNH = known, profile-invariant property of the method.',
   },
+  vse: {
+    title: 'The welfare cost of strategic voting (VSE)',
+    subtitle: 'How much welfare each method throws away once voters stop being sincere',
+    intro:
+      'Voter Satisfaction Efficiency (VSE, Quinn 2017, after Merrill 1984): 1 = the method elects the welfare-maximising candidate, 0 = it does no better than drawing a name from a hat, negative = it does worse. We sweep the share of voters who vote tactically.',
+    aria: 'VSE curves per method against the share of strategic voters',
+    xAxis: 'Share of strategic voters',
+    best: 'best',
+    random: 'random',
+    need2: 'At least two candidates are needed to measure welfare.',
+    readout:
+      'Each curve is a method. The number in the legend is the welfare lost between a sincere electorate and a fully strategic one. Hover a method to isolate it.',
+    flat: 'On this electorate every method already elects the same candidate — the best one — and strategy changes nothing. That is a real finding, not a bug: try a polarised electorate (Electorate → Compose) or a squeezed centrist to see strategy bite.',
+    convention:
+      'Stated convention: a “strategic” voter applies Duverger compression — they read the two frontrunners off the sincere first preferences (that IS the poll), rank their preferred one top and the other last. Utility is always read from their REAL preferences: they lie on the ballot, never about what they want. Bands = p10–p90 over electorate resamples.',
+  },
   parliament: {
     mirror: {
       left_lib: 'Left · liberal',

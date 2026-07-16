@@ -163,7 +163,13 @@ const pct = (xs: number[], p: number): number => {
   return s[i];
 };
 
-const band = (xs: number[]): Band => ({ mean: mean(xs), lo: pct(xs, 0.1), hi: pct(xs, 0.9) });
+/** p10–p90 band around a sample. Exported so other analytical libs (VSE) report
+ *  their spread with the SAME convention as the scorecard rather than a second one. */
+export const band = (xs: number[]): Band => ({
+  mean: mean(xs),
+  lo: pct(xs, 0.1),
+  hi: pct(xs, 0.9),
+});
 
 /** Binomial-style band around a rate measured over n trials. */
 const rateBand = (p: number, n: number): Band => {
