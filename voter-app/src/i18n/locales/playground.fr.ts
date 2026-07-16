@@ -150,6 +150,11 @@ const pgFr = {
         label: 'Durcissement',
         blurb: 'Les candidats radicalisent leurs positions (s’éloignent du médian).',
       },
+      meilleure_reponse: {
+        label: 'Meilleure réponse (Downs)',
+        blurb:
+          'Chaque candidat se déplace là où il maximise son score — sous LA règle choisie. Changez de méthode : l’équilibre se déplace.',
+      },
     },
     method: 'Méthode',
     intensity: 'Intensité',

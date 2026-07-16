@@ -13,7 +13,7 @@ import {
   roundStops,
   type TimelineParams,
 } from '../../lib/campaignTimeline';
-import { CAMPAIGN_SCENARIOS, DEFAULT_SCENARIO } from '../../lib/campaignScenarios';
+import { CAMPAIGN_SCENARIOS, DEFAULT_SCENARIO, driftOf } from '../../lib/campaignScenarios';
 import CampaignMap from './CampaignMap';
 import Instrument from '../ui/instrument';
 import type { ElectionConfig, PlaygroundState } from '../../stores/useElectionStore';
@@ -61,6 +61,23 @@ const CampaignTimeline: React.FC<Props> = ({ config, playground, onPin }) => {
   const dims = playground.space.dims;
   const numDays = config.campaign?.num_days ?? 30;
 
+  const baseVoters = React.useMemo(() => buildBaseVoters(config, playground), [config, playground]);
+  const target = React.useMemo(() => medianPoint(baseVoters), [baseVoters]);
+
+  // Rule-dependent scenarios (best response) run their hill-climb HERE, once per
+  // (electorate, rule, strength) — never per frame. Static scripts pass through.
+  const drift = React.useMemo(
+    () =>
+      driftOf(scenario, {
+        voters: baseVoters,
+        candidates: config.candidates,
+        rule,
+        dims,
+        strength,
+      }),
+    [scenario, baseVoters, config.candidates, rule, dims, strength]
+  );
+
   const params: TimelineParams = React.useMemo(
     () => ({
       rule,
@@ -68,21 +85,10 @@ const CampaignTimeline: React.FC<Props> = ({ config, playground, onPin }) => {
       turnout: { model: playground.turnout.model, intensity: playground.turnout.intensity },
       strength,
       numDays,
-      drift: scenario.drift,
+      drift,
     }),
-    [
-      rule,
-      dims,
-      playground.turnout.model,
-      playground.turnout.intensity,
-      strength,
-      numDays,
-      scenario,
-    ]
+    [rule, dims, playground.turnout.model, playground.turnout.intensity, strength, numDays, drift]
   );
-
-  const baseVoters = React.useMemo(() => buildBaseVoters(config, playground), [config, playground]);
-  const target = React.useMemo(() => medianPoint(baseVoters), [baseVoters]);
 
   const traj = React.useMemo(
     () => trajectory(baseVoters, config.candidates, params, STEPS),
