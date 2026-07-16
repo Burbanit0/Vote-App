@@ -3,7 +3,7 @@ import { render, screen, fireEvent, waitFor } from '@testing-library/react';
 import { MemoryRouter } from 'react-router';
 import { QueryClientProvider } from '@tanstack/react-query';
 import MultiwinnerCompare from '../MultiwinnerCompare';
-import { ElectionProvider } from '../../../stores/useElectionStore';
+import { ElectionProvider, DEFAULT_CONFIG } from '../../../stores/useElectionStore';
 import { makeTestQueryClient } from '../../../test/queryWrapper';
 
 vi.mock('../../../api/client', () => ({
@@ -168,6 +168,25 @@ describe('MultiwinnerCompare', () => {
       expect(screen.getByTestId('jr-badge-Parts égales')).toHaveTextContent('EJR');
       expect(screen.getByTestId('jr-badge-FPTP')).toHaveTextContent('aucun');
     });
+    vi.runAllTimers();
+  });
+
+  it('never asks for more seats than the API allows (num_seats < candidates)', async () => {
+    // Regression: the API rejects num_seats >= number of candidates. The slider's
+    // max already respected that, but the initial state (4) did not — so on the
+    // default 3-candidate electorate the very first "Compare" returned 400 and the
+    // panel showed "Erreur lors de la simulation", making Method of Equal Shares
+    // and the JR readout unreachable out of the box. A mocked API always succeeds,
+    // so assert the REQUEST honours the constraint rather than the response.
+    apiClient.POST.mockResolvedValue(makeData());
+    renderPanel();
+    const n = DEFAULT_CONFIG.candidates.length; // 3 — the default electorate
+    fireEvent.click(screen.getByRole('button', { name: /comparer|compare/i }));
+    await waitFor(() => expect(apiClient.POST).toHaveBeenCalledTimes(1));
+    const body = (apiClient.POST.mock.calls[0][1] as { body: { num_seats: number } }).body;
+    expect(body.num_seats).toBeLessThan(n);
+    // …and the label agrees with what was sent.
+    expect(screen.getByTestId('mw-seats')).toHaveTextContent(String(body.num_seats));
     vi.runAllTimers();
   });
 
