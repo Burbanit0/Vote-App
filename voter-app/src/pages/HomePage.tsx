@@ -8,6 +8,7 @@ import { useElection } from '../stores/useElectionStore';
 import OnboardingTour from '../components/shared/OnboardingTour';
 import HeroInstrument from '../components/home/HeroInstrument';
 import { MOMENTS } from '../components/playground/MomentRail';
+import { STORIES } from '../lib/stories';
 
 // HomePage — the doorway. One job: land the thesis (the rule decides, not just the
 // voters) and drop the visitor into the instrument. The hero is that thesis made
@@ -133,6 +134,33 @@ const HomePage: React.FC = () => {
           <Button variant="primary" onClick={() => navigate('/playground')}>
             {t('home.journeyCta')} →
           </Button>
+        </div>
+      </section>
+
+      {/* ── Histoires: guided narratives ── */}
+      <section className="border-t border-border">
+        <div className="container mx-auto max-w-6xl px-4 py-4 sm:py-5">
+          <p className="font-mono text-[0.7rem] uppercase tracking-[0.22em] text-primary">
+            {tp('stories.launch')}
+          </p>
+          <p className="mt-1 max-w-md text-sm text-muted-foreground">{tp('stories.launchHint')}</p>
+          <ul className="mt-3 grid grid-cols-1 gap-2 sm:grid-cols-2 lg:grid-cols-3">
+            {STORIES.map((s) => (
+              <li key={s.id}>
+                <Link
+                  to={`/playground?story=${s.id}`}
+                  className="group flex h-full flex-col gap-1 rounded-xl border border-border bg-card p-3 transition-colors hover:border-primary/40 hover:bg-accent/40"
+                >
+                  <span className="font-display text-sm font-semibold leading-tight group-hover:text-primary">
+                    {tp(s.titleKey)}
+                  </span>
+                  <span className="text-[0.72rem] leading-snug text-muted-foreground">
+                    {tp(s.taglineKey)}
+                  </span>
+                </Link>
+              </li>
+            ))}
+          </ul>
         </div>
       </section>
 

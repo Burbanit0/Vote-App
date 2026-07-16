@@ -25,6 +25,91 @@ const pgEn: PlaygroundKeys = {
     moment: 'Moment {{n}} / {{total}}',
     next: '{{label}} →',
   },
+  stories: {
+    launch: 'Stories',
+    launchHint:
+      'Guided narratives that make a phenomenon surface in front of you, inside the instrument.',
+    pick: 'Pick a story',
+    close: 'Close',
+    quit: 'Quit',
+    step: 'Scene {{n}} / {{total}}',
+    next: 'Next →',
+    prev: '← Back',
+    restart: '↻ Replay',
+    replayHint: 'You have the controls back: the instrument stays on the last scene.',
+    spoiler: {
+      title: 'The spoiler effect',
+      tagline: 'A third candidate who cannot win can still decide who does.',
+      steps: {
+        duel: 'Two candidates on a left–right axis: under plurality, Gore beats Bush.',
+        enter:
+          'Nader enters on the left. He will not win — but he splits the left vote, and Bush moves ahead. That is the spoiler.',
+        irv: 'Same voters, different rule: under instant-runoff (IRV), Nader is eliminated, his votes flow back to Gore, who wins.',
+        condorcet:
+          'Under Condorcet too, Gore wins: he is the one the majority prefers head-to-head. The spoiler was only an artefact of plurality.',
+      },
+    },
+    squeeze: {
+      title: 'The centre squeeze',
+      tagline: 'The candidate everyone accepts can be the first one out.',
+      steps: {
+        field:
+          'Three candidates in a line — Left, Centre, Right — facing a polarised electorate. Few voters rank the Centre first.',
+        condorcet:
+          'Yet the Centre beats both Left AND Right head-to-head: the Condorcet winner, the compromise the majority prefers.',
+        irv: 'Under instant-runoff the Centre — weak on first choices — is eliminated at once, and an extreme wins. The centre has been squeezed out.',
+      },
+    },
+    paradox: {
+      title: 'It depends who counts',
+      tagline: 'One electorate, three methods, three winners — which one is the “real” one?',
+      steps: {
+        plurality:
+          'Three blocs whose preferences run in a circle (A ≻ B ≻ C ≻ A). Under plurality, Alice wins.',
+        irv: 'Switch to instant-runoff: Carol wins, with exactly the same ballots.',
+        approval: 'Switch to approval voting: this time it is Bob. Three methods, three winners.',
+        condorcet:
+          'Head-to-head, Alice beats both others — the Condorcet winner. And yet neither IRV nor approval picked her: the method alone changes the president.',
+      },
+    },
+    utile: {
+      title: 'The lesser-evil race',
+      tagline: 'When the rule pushes you to betray your favourite.',
+      steps: {
+        sincere:
+          'You are on the left. Your heart is with Écolo — but under plurality, voting Écolo risks handing it to the Right.',
+        tempt:
+          'The lesser-evil temptation: drop Écolo for the sturdier Gauche to block the Right. Plurality rewards that calculation.',
+        approval:
+          'Under approval voting you approve Écolo AND Gauche without splitting yourself: no need to betray your favourite.',
+        irv: 'Under instant-runoff, rank Écolo first at no risk: if she is eliminated, your vote slides to Gauche. Sincerity is safe again.',
+      },
+    },
+    valence: {
+      title: 'Majority versus welfare',
+      tagline: 'The best-placed candidate is not always the one who would serve people best.',
+      steps: {
+        position:
+          'Two candidates on the axis. The Incumbent, near the centre, wins on position alone — the geographic favourite.',
+        quality:
+          'Turn on valence (non-ideological quality): the Reformer, slightly off-centre but far more competent, becomes the welfare-maximising choice. Position is not the whole story.',
+      },
+    },
+    five: {
+      title: 'One electorate, several presidents',
+      tagline: 'France 2002: the same ballots, a different winner under each method.',
+      steps: {
+        plurality:
+          'Eight candidates, a polarised electorate. Under single-round plurality, Chirac comes first.',
+        irv: 'Under instant-runoff, the transfers change everything: Jospin wins.',
+        borda: 'Under the Borda method, which rewards consensus, Bayrou moves ahead.',
+        condorcet:
+          'Condorcet confirms Bayrou: he is the one who beats the most rivals head-to-head.',
+        approval:
+          'Approval voting crowns Bayrou too. Bottom line: several possible presidents for one electorate — the method is not neutral.',
+      },
+    },
+  },
   common: {
     loading: 'Loading…',
     candidates: 'candidates',
