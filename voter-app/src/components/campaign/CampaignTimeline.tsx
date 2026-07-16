@@ -5,6 +5,7 @@ import { type NamedPt, type Rule } from '../../lib/playgroundVoting';
 import { useVotingLabels } from '../../hooks/useVotingLabels';
 import { LEADER_RULES } from '../../lib/scorecard';
 import { medianPoint } from '../../lib/playgroundDynamics';
+import { candidateColorByName } from '../../lib/palette';
 import {
   buildBaseVoters,
   trajectory,
@@ -27,16 +28,10 @@ import type { ElectionConfig, PlaygroundState } from '../../stores/useElectionSt
 // Picking a scenario swaps the drift model fed to the shared metrics; scrubbing
 // (or ▶ playing) moves both graphs. Pure + client-side, instant, sandbox.
 
-const PALETTE = [
-  '#4e79a7',
-  '#f28e2b',
-  '#e15759',
-  '#76b7b2',
-  '#59a14f',
-  '#edc948',
-  '#b07aa1',
-  '#ff9da7',
-];
+// Candidate colours come from the shared identity palette (lib/palette.ts): a
+// candidate must be the same colour here as on the map you dragged it around.
+// This surface used to carry its own Tableau-10 set, so every candidate silently
+// changed colour when you entered the Campagne moment.
 
 interface Props {
   config: ElectionConfig;
@@ -108,11 +103,11 @@ const CampaignTimeline: React.FC<Props> = ({ config, playground, onPin }) => {
 
   const stops = React.useMemo(() => roundStops(rounds), [rounds]);
   const activeStop = stops.findIndex((s) => Math.abs(s - t) < 1e-6);
-  const colorFor = (name: string | null): string => {
-    if (!name) return '#9ca3af';
-    const i = config.candidates.findIndex((c) => c.name === name);
-    return i >= 0 ? PALETTE[i % PALETTE.length] : '#9ca3af';
-  };
+  const colorFor = (name: string | null): string =>
+    candidateColorByName(
+      name,
+      config.candidates.map((c) => c.name)
+    );
 
   const stepRound = (dir: -1 | 1) => {
     let idx = activeStop;
