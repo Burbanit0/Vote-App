@@ -193,6 +193,14 @@ const MultiwinnerCompare: React.FC = () => {
   const loading = sim.isPending;
   const error = sim.isError ? t('multiwinner.error') : null;
 
+  // The API requires num_seats < number of candidates. The slider's max already
+  // respected that, but the initial state did not — so on the default 3-candidate
+  // electorate the panel opened at 4 seats and the first "Compare" always 400'd.
+  // Clamp the VALUE we render and send (rather than resetting the state), so the
+  // seat count comes back on its own once the field is big enough again.
+  const maxSeats = Math.max(2, config.candidates.length - 1);
+  const seats = Math.min(numSeats, maxSeats);
+
   function run() {
     sim.mutate({
       body: {
@@ -200,13 +208,13 @@ const MultiwinnerCompare: React.FC = () => {
         num_voters: config.num_voters,
         ideology: config.ideology,
         seed: config.seed,
-        num_seats: numSeats,
+        num_seats: seats,
       },
     });
   }
 
   const names = data?.candidates ?? [];
-  const total = data?.num_seats ?? numSeats;
+  const total = data?.num_seats ?? seats;
 
   // Pedagogical message
   const pedagMsg = data
@@ -235,13 +243,13 @@ const MultiwinnerCompare: React.FC = () => {
       <Row className="g-2 mb-3 items-end">
         <Col xs={12} sm={4}>
           <label className="mb-1 inline-block text-sm mb-0">
-            {t('multiwinner.numSeats')}: <strong>{numSeats}</strong>
+            {t('multiwinner.numSeats')}: <strong data-testid="mw-seats">{seats}</strong>
           </label>
           <Range
             min={2}
-            max={Math.max(2, config.candidates.length - 1)}
+            max={maxSeats}
             step={1}
-            value={numSeats}
+            value={seats}
             onChange={(e) => setNumSeats(Number(e.target.value))}
           />
         </Col>
