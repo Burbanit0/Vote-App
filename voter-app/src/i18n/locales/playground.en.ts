@@ -662,11 +662,12 @@ const pgEn: PlaygroundKeys = {
     },
   },
   realElection: {
-    title: '🗳 Reality check: a real election',
-    sub: 'same ballots, different methods — a fixed real election (Burlington 2009), unrelated to the electorate you configure on the map',
+    title: '🗳 Reality check: real elections',
+    sub: 'same ballots, different methods — fixed real elections (Burlington 2009, Alaska 2022), unrelated to the electorate you configure on the map',
+    pick: 'Ballot box',
     headlinePre: 'On the very same ballots,',
     headlineEnd: 'different winners by method alone.',
-    note: 'Genuine ranked ballots (PrefLib). We tabulate only the methods that are unambiguous on truncated ballots (plurality, two-round, IRV, the Condorcet family); Borda and score-family rules need a convention the ballots don’t supply. Details: pairwise duels won (Condorcet), worst defeat margin (minimax).',
+    note: 'Genuine ranked ballots (Burlington: PrefLib 00005; Alaska: Graham-Squire & McCune, arXiv:2303.00108, tab. 4 — the published ballot-type breakdown of the state’s cast vote record). We tabulate only the methods that are unambiguous on truncated ballots (plurality, two-round, IRV, the Condorcet family); Borda and score-family rules need a convention the ballots don’t supply. Details: pairwise duels won (Condorcet), worst defeat margin (minimax).',
   },
   scorecard: {
     drillTitle: 'Dig deeper in the Lab',

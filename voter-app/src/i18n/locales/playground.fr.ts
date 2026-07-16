@@ -681,11 +681,12 @@ const pgFr = {
     },
   },
   realElection: {
-    title: '🗳 Épreuve du réel : un vrai scrutin',
-    sub: 'mêmes bulletins, méthodes différentes — scrutin réel et figé (Burlington 2009), sans rapport avec l’électorat que vous configurez sur la carte',
+    title: '🗳 Épreuve du réel : de vrais scrutins',
+    sub: 'mêmes bulletins, méthodes différentes — scrutins réels et figés (Burlington 2009, Alaska 2022), sans rapport avec l’électorat que vous configurez sur la carte',
+    pick: 'Scrutin',
     headlinePre: 'Sur les mêmes bulletins,',
     headlineEnd: 'vainqueurs différents selon la seule méthode.',
-    note: 'Bulletins classés authentiques (PrefLib). On ne tabule que les méthodes sans ambiguïté sur des bulletins tronqués (pluralité, deux tours, IRV, famille de Condorcet) ; Borda et les méthodes par note exigent une convention que les bulletins ne fournissent pas. Détails : duels gagnés (Condorcet), pire marge de défaite (minimax).',
+    note: 'Bulletins classés authentiques (Burlington : PrefLib 00005 ; Alaska : Graham-Squire & McCune, arXiv:2303.00108, tab. 4 — la répartition publiée des bulletins du cast vote record de l’État). On ne tabule que les méthodes sans ambiguïté sur des bulletins tronqués (pluralité, deux tours, IRV, famille de Condorcet) ; Borda et les méthodes par note exigent une convention que les bulletins ne fournissent pas. Détails : duels gagnés (Condorcet), pire marge de défaite (minimax).',
   },
   scorecard: {
     drillTitle: 'Approfondir dans le Lab',

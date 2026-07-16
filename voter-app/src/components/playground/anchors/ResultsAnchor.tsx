@@ -14,6 +14,7 @@ import { useElection } from '../../../stores/useElectionStore';
 
 const FullResultsModule = lazyWithPreload(() => import('../FullResultsModule'));
 const VoteStepAnimator = lazyWithPreload(() => import('../../Simulation/VoteStepAnimator'));
+const RealElectionPanel = lazyWithPreload(() => import('../RealElectionPanel'));
 
 const ResultsAnchor: React.FC = () => {
   const { t } = useTranslation('playground');
@@ -40,6 +41,15 @@ const ResultsAnchor: React.FC = () => {
           ideology={config.ideology}
           seed={config.seed}
         />
+      </Leaf>
+      {/* The thesis on REAL ballots. Unlike its siblings this one ignores the
+          configured electorate on purpose — it counts genuine cast ballots. */}
+      <Leaf
+        title={t('realElection.title')}
+        testid="res-real-election"
+        prefetch={RealElectionPanel.preload}
+      >
+        <RealElectionPanel />
       </Leaf>
     </div>
   );
