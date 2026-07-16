@@ -62,6 +62,11 @@ const pgEn: PlaygroundKeys = {
         label: 'Hardening',
         blurb: 'Candidates radicalise their positions (move away from the median).',
       },
+      meilleure_reponse: {
+        label: 'Best response (Downs)',
+        blurb:
+          'Each candidate moves to wherever it maximises its own score — under THE rule you picked. Change method: the equilibrium moves.',
+      },
     },
     method: 'Method',
     intensity: 'Intensity',
