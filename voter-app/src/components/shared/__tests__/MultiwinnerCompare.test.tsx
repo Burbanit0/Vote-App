@@ -3,7 +3,11 @@ import { render, screen, fireEvent, waitFor } from '@testing-library/react';
 import { MemoryRouter } from 'react-router';
 import { QueryClientProvider } from '@tanstack/react-query';
 import MultiwinnerCompare from '../MultiwinnerCompare';
-import { ElectionProvider, DEFAULT_CONFIG } from '../../../stores/useElectionStore';
+import {
+  ElectionProvider,
+  DEFAULT_CONFIG,
+  useElectionStore,
+} from '../../../stores/useElectionStore';
 import { makeTestQueryClient } from '../../../test/queryWrapper';
 
 vi.mock('../../../api/client', () => ({
@@ -80,6 +84,9 @@ function renderPanel() {
 beforeEach(() => {
   vi.clearAllMocks();
   localStorage.clear();
+  // The store is a module singleton — reset it so a test that swaps the
+  // electorate can't leak into the next one.
+  useElectionStore.setState({ config: { ...DEFAULT_CONFIG } });
   vi.useFakeTimers();
 });
 
@@ -188,6 +195,33 @@ describe('MultiwinnerCompare', () => {
     // …and the label agrees with what was sent.
     expect(screen.getByTestId('mw-seats')).toHaveTextContent(String(body.num_seats));
     vi.runAllTimers();
+  });
+
+  it('refuses to fire a doomed request when the field is too small', async () => {
+    // Found by smoke-testing the merged branches together: a story (or the
+    // Bipartisme preset) can leave a 2-candidate duel in the shared electorate.
+    // The seat floor is 2 and the API needs num_seats < candidates, so NO seat
+    // count is valid at 2 candidates — the panel must explain itself rather than
+    // fire a request that can only 400.
+    apiClient.POST.mockResolvedValue(makeData());
+    // ElectionProvider re-hydrates from localStorage on mount, so seed it there —
+    // the same path a story or a preset uses to persist the electorate.
+    localStorage.setItem(
+      'votelab_election_config',
+      JSON.stringify({
+        ...DEFAULT_CONFIG,
+        candidates: [
+          { name: 'Gore', x: -0.35, y: 0 },
+          { name: 'Bush', x: 0.55, y: 0 },
+        ],
+      })
+    );
+    renderPanel();
+    expect(screen.getByTestId('mw-need-candidates')).toBeInTheDocument();
+    const btn = screen.getByRole('button', { name: /comparer|compare/i });
+    expect(btn).toBeDisabled();
+    fireEvent.click(btn);
+    expect(apiClient.POST).not.toHaveBeenCalled();
   });
 
   it('shows error on API failure', async () => {
