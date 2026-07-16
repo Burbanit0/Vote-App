@@ -1635,6 +1635,8 @@ const fr = {
       'Simulez la même élection sous 5 méthodes multi-gagnantes et comparez la représentation proportionnelle obtenue.',
     run: 'Comparer',
     error: 'Erreur lors de la simulation.',
+    needCandidates:
+      'Il faut au moins 3 candidats pour comparer des méthodes multi-gagnantes (vous en avez {{n}}) : une assemblée se répartit entre au moins deux sièges, et il faut plus de candidats que de sièges. Ajoutez un candidat sur la carte, ou choisissez un préréglage multipartite.',
     numSeats: 'Nombre de sièges',
     method: 'Méthode',
     distortion: 'Distorsion',

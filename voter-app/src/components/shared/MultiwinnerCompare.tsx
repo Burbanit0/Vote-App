@@ -193,13 +193,15 @@ const MultiwinnerCompare: React.FC = () => {
   const loading = sim.isPending;
   const error = sim.isError ? t('multiwinner.error') : null;
 
-  // The API requires num_seats < number of candidates. The slider's max already
-  // respected that, but the initial state did not — so on the default 3-candidate
-  // electorate the panel opened at 4 seats and the first "Compare" always 400'd.
-  // Clamp the VALUE we render and send (rather than resetting the state), so the
-  // seat count comes back on its own once the field is big enough again.
+  // The API requires num_seats < number of candidates, and the slider floor is 2
+  // seats (a one-seat "committee" is just a single-winner election, which the rest
+  // of the app already covers). Both together mean this panel needs at least THREE
+  // candidates; with two — the Bipartisme preset, or a story that left a duel on
+  // the map — no seat count is valid, so we say so instead of firing a request
+  // that can only 400.
   const maxSeats = Math.max(2, config.candidates.length - 1);
   const seats = Math.min(numSeats, maxSeats);
+  const enoughCandidates = config.candidates.length >= 3;
 
   function run() {
     sim.mutate({
@@ -250,18 +252,31 @@ const MultiwinnerCompare: React.FC = () => {
             max={maxSeats}
             step={1}
             value={seats}
+            disabled={!enoughCandidates}
             onChange={(e) => setNumSeats(Number(e.target.value))}
           />
         </Col>
         <Col xs={12} sm={4} className="flex items-end">
-          <Button variant="primary" className="w-full" onClick={run} disabled={loading}>
+          <Button
+            variant="primary"
+            className="w-full"
+            onClick={run}
+            disabled={loading || !enoughCandidates}
+          >
             {loading ? <Spinner size="sm" /> : `🏛 ${t('multiwinner.run')}`}
           </Button>
         </Col>
       </Row>
 
+      {!enoughCandidates && (
+        <Alert variant="warning" data-testid="mw-need-candidates">
+          {t('multiwinner.needCandidates', { n: config.candidates.length })}
+        </Alert>
+      )}
       {error && <Alert variant="danger">{error}</Alert>}
-      {!data && !loading && <Alert variant="info">{t('multiwinner.prompt')}</Alert>}
+      {!data && !loading && enoughCandidates && (
+        <Alert variant="info">{t('multiwinner.prompt')}</Alert>
+      )}
 
       {data && (
         <>

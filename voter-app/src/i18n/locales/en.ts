@@ -1624,6 +1624,8 @@ const en: TranslationKeys = {
       'Simulate the same election under 5 multi-winner methods and compare the proportional representation obtained.',
     run: 'Compare',
     error: 'Simulation error.',
+    needCandidates:
+      'Comparing multi-winner methods needs at least 3 candidates (you have {{n}}): an assembly splits across at least two seats, and there must be more candidates than seats. Add a candidate on the map, or pick a multi-party preset.',
     numSeats: 'Number of seats',
     method: 'Method',
     distortion: 'Distortion',
