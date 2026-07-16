@@ -1,6 +1,7 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Play } from 'lucide-react';
+import { CANDIDATE_PALETTE, ENTRY_COLOR } from '../../lib/palette';
 import {
   fieldWinnerName,
   winRegionGrid,
@@ -61,17 +62,9 @@ const CENTER = SVG / 2;
 const GRID_N = 16;
 const VOTER_CAP = 160;
 
-const PALETTE = [
-  '#2563eb',
-  '#dc2626',
-  '#16a34a',
-  '#9333ea',
-  '#ea580c',
-  '#0891b2',
-  '#ca8a04',
-  '#db2777',
-];
-const ENTRY_COLOR = '#fbbf24';
+// The candidate identity palette now lives in lib/palette.ts so every surface
+// (map, campaign trajectory, bilan) colours the same candidate the same way.
+const PALETTE = CANDIDATE_PALETTE;
 
 const toSvg = (v: number, axis: 'x' | 'y'): number =>
   axis === 'x' ? MARGIN + ((v + 1) / 2) * PLOT : MARGIN + ((1 - v) / 2) * PLOT;
