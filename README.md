@@ -126,6 +126,12 @@ npm run lint             # eslint (0 errors is gating)
 `ci-local/` is a Dockerised harness that mirrors GitHub CI — run it before opening
 PRs when in doubt.
 
+### Analytics (optional)
+
+Anonymous, cookie-less usage measurement via self-hosted Umami — disabled unless
+both `VITE_UMAMI_*` vars are set in a production build. Setup, event vocabulary
+and privacy posture: [`analytics/README.md`](analytics/README.md).
+
 ---
 
 ## Routes

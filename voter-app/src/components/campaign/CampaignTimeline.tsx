@@ -6,6 +6,7 @@ import { useVotingLabels } from '../../hooks/useVotingLabels';
 import { LEADER_RULES } from '../../lib/scorecard';
 import { medianPoint } from '../../lib/playgroundDynamics';
 import { candidateColorByName } from '../../lib/palette';
+import { track } from '../../lib/analytics';
 import {
   buildBaseVoters,
   trajectory,
@@ -207,7 +208,10 @@ const CampaignTimeline: React.FC<Props> = ({ config, playground, onPin }) => {
                 role="radio"
                 aria-checked={sc.id === scenario.id}
                 data-testid={`scenario-${sc.id}`}
-                onClick={() => setScenario(sc)}
+                onClick={() => {
+                  track('campaign_scenario_selected', { scenario: sc.id });
+                  setScenario(sc);
+                }}
                 className={cn(
                   'rounded border px-2 py-1 text-left text-xs transition-colors',
                   sc.id === scenario.id

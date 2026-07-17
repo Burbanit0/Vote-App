@@ -1,0 +1,2 @@
+# Secrets for the Umami stack live only on the host.
+.env

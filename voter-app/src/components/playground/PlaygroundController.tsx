@@ -19,6 +19,7 @@ import {
 } from '../../lib/scorecard';
 import { strategicVote, type StrategicOutcome } from '../../lib/playgroundSincerity';
 import { composeElectorate, COMMUNITY_PALETTE } from '../../lib/playgroundElectorate';
+import { track } from '../../lib/analytics';
 import { PARLIAMENT_AXES_KEYS, defaultWeights } from '../../lib/playgroundMeta';
 import { useVotingLabels } from '../../hooks/useVotingLabels';
 
@@ -43,10 +44,20 @@ function useController() {
 
   // The active "moment" — the station on the instrument's journey. Drives the
   // left control panel and the instrument's lens; the others stay one click away.
-  const [activeMoment, setActiveMoment] = React.useState<MomentId>('electorate');
+  const [activeMoment, _setActiveMoment] = React.useState<MomentId>('electorate');
+  const setActiveMoment = React.useCallback((m: MomentId) => {
+    track('moment_changed', { moment: m });
+    _setActiveMoment(m);
+  }, []);
 
   const dims = space.dims;
-  const [leaderRule, setLeaderRule] = React.useState<Rule>('plurality');
+  const [leaderRule, _setLeaderRule] = React.useState<Rule>('plurality');
+  // Every rule selector in the app (Méthode moment, Lab strip, campaign) routes
+  // through this setter, so one track() covers them all.
+  const setLeaderRule = React.useCallback((r: Rule) => {
+    track('rule_changed', { rule: r });
+    _setLeaderRule(r);
+  }, []);
   const [enabledRules, setEnabledRules] = React.useState<Set<Rule>>(() => new Set(LEADER_RULES));
   // Central-map lens: the moment sets a sensible default (Méthode → critères,
   // Stratégie → manipulation, sinon vainqueur). The user can still override it on

@@ -1,0 +1,42 @@
+# Umami — self-hosted, cookie-less, anonymous web analytics for Vote Lab.
+# Runs NEXT TO the app (own compose, own network, own Postgres): the app itself
+# stays deliberately DB-free and stateless; this stack is a separate concern you
+# can start, stop or drop without touching it.
+#
+# Setup: see analytics/README.md. In short:
+#   1. cp .env.example .env   (in this directory)  and fill the two secrets
+#   2. docker compose up -d
+#   3. log into http://localhost:3100 (admin/umami), change the password,
+#      add the site → copy its Website ID into voter-app's VITE_UMAMI_* vars.
+
+services:
+  umami:
+    image: ghcr.io/umami-software/umami:postgresql-latest
+    restart: unless-stopped
+    ports:
+      - '3100:3000'
+    environment:
+      DATABASE_URL: postgresql://umami:${UMAMI_DB_PASSWORD:?set in analytics/.env}@umami-db:5432/umami
+      DATABASE_TYPE: postgresql
+      APP_SECRET: ${UMAMI_APP_SECRET:?set in analytics/.env}
+    depends_on:
+      umami-db:
+        condition: service_healthy
+
+  umami-db:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: umami
+      POSTGRES_USER: umami
+      POSTGRES_PASSWORD: ${UMAMI_DB_PASSWORD:?set in analytics/.env}
+    volumes:
+      - umami-db-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U umami -d umami']
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+volumes:
+  umami-db-data:
