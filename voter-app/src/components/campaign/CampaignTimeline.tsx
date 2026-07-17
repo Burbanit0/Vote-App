@@ -5,6 +5,7 @@ import { type NamedPt, type Rule } from '../../lib/playgroundVoting';
 import { useVotingLabels } from '../../hooks/useVotingLabels';
 import { LEADER_RULES } from '../../lib/scorecard';
 import { medianPoint } from '../../lib/playgroundDynamics';
+import { candidateColorByName } from '../../lib/palette';
 import {
   buildBaseVoters,
   trajectory,
@@ -13,7 +14,7 @@ import {
   roundStops,
   type TimelineParams,
 } from '../../lib/campaignTimeline';
-import { CAMPAIGN_SCENARIOS, DEFAULT_SCENARIO } from '../../lib/campaignScenarios';
+import { CAMPAIGN_SCENARIOS, DEFAULT_SCENARIO, driftOf } from '../../lib/campaignScenarios';
 import CampaignMap from './CampaignMap';
 import Instrument from '../ui/instrument';
 import type { ElectionConfig, PlaygroundState } from '../../stores/useElectionStore';
@@ -27,16 +28,10 @@ import type { ElectionConfig, PlaygroundState } from '../../stores/useElectionSt
 // Picking a scenario swaps the drift model fed to the shared metrics; scrubbing
 // (or ▶ playing) moves both graphs. Pure + client-side, instant, sandbox.
 
-const PALETTE = [
-  '#4e79a7',
-  '#f28e2b',
-  '#e15759',
-  '#76b7b2',
-  '#59a14f',
-  '#edc948',
-  '#b07aa1',
-  '#ff9da7',
-];
+// Candidate colours come from the shared identity palette (lib/palette.ts): a
+// candidate must be the same colour here as on the map you dragged it around.
+// This surface used to carry its own Tableau-10 set, so every candidate silently
+// changed colour when you entered the Campagne moment.
 
 interface Props {
   config: ElectionConfig;
@@ -61,6 +56,23 @@ const CampaignTimeline: React.FC<Props> = ({ config, playground, onPin }) => {
   const dims = playground.space.dims;
   const numDays = config.campaign?.num_days ?? 30;
 
+  const baseVoters = React.useMemo(() => buildBaseVoters(config, playground), [config, playground]);
+  const target = React.useMemo(() => medianPoint(baseVoters), [baseVoters]);
+
+  // Rule-dependent scenarios (best response) run their hill-climb HERE, once per
+  // (electorate, rule, strength) — never per frame. Static scripts pass through.
+  const drift = React.useMemo(
+    () =>
+      driftOf(scenario, {
+        voters: baseVoters,
+        candidates: config.candidates,
+        rule,
+        dims,
+        strength,
+      }),
+    [scenario, baseVoters, config.candidates, rule, dims, strength]
+  );
+
   const params: TimelineParams = React.useMemo(
     () => ({
       rule,
@@ -68,21 +80,10 @@ const CampaignTimeline: React.FC<Props> = ({ config, playground, onPin }) => {
       turnout: { model: playground.turnout.model, intensity: playground.turnout.intensity },
       strength,
       numDays,
-      drift: scenario.drift,
+      drift,
     }),
-    [
-      rule,
-      dims,
-      playground.turnout.model,
-      playground.turnout.intensity,
-      strength,
-      numDays,
-      scenario,
-    ]
+    [rule, dims, playground.turnout.model, playground.turnout.intensity, strength, numDays, drift]
   );
-
-  const baseVoters = React.useMemo(() => buildBaseVoters(config, playground), [config, playground]);
-  const target = React.useMemo(() => medianPoint(baseVoters), [baseVoters]);
 
   const traj = React.useMemo(
     () => trajectory(baseVoters, config.candidates, params, STEPS),
@@ -102,11 +103,11 @@ const CampaignTimeline: React.FC<Props> = ({ config, playground, onPin }) => {
 
   const stops = React.useMemo(() => roundStops(rounds), [rounds]);
   const activeStop = stops.findIndex((s) => Math.abs(s - t) < 1e-6);
-  const colorFor = (name: string | null): string => {
-    if (!name) return '#9ca3af';
-    const i = config.candidates.findIndex((c) => c.name === name);
-    return i >= 0 ? PALETTE[i % PALETTE.length] : '#9ca3af';
-  };
+  const colorFor = (name: string | null): string =>
+    candidateColorByName(
+      name,
+      config.candidates.map((c) => c.name)
+    );
 
   const stepRound = (dir: -1 | 1) => {
     let idx = activeStop;

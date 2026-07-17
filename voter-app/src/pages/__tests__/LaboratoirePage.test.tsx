@@ -69,15 +69,16 @@ vi.mock('../../services/profileApi', () => ({
 
 import { MemoryRouter, Routes, Route } from 'react-router';
 import LaboratoirePage from '../LaboratoirePage';
+import { LAB_FAMILIES } from '../../components/lab/labCatalog';
 import {
   useElectionStore,
   DEFAULT_PLAYGROUND,
   DEFAULT_CONFIG,
 } from '../../stores/useElectionStore';
 
-function renderLab() {
+function renderLab(url = '/laboratoire') {
   return render(
-    <MemoryRouter initialEntries={['/laboratoire']}>
+    <MemoryRouter initialEntries={[url]}>
       <Routes>
         <Route path="/laboratoire" element={<LaboratoirePage />} />
       </Routes>
@@ -93,77 +94,97 @@ beforeEach(() => {
   });
 });
 
-describe('LaboratoirePage', () => {
-  it('renders every themed section, collapsed, on first paint', () => {
+describe('LaboratoirePage — the bench', () => {
+  it('opens on the family rail, the methods catalogue and ONE bench (the matrix)', () => {
     renderLab();
-    for (const key of [
-      'ballot',
-      'strategy',
-      'values',
-      'mechanisms',
-      'systems',
-      'campaign',
-      'temporal',
-      'behavioral',
-      'analysis',
-      'theory',
-      'results',
-    ]) {
-      expect(screen.getByTestId(`lab-${key}-toggle`)).toBeInTheDocument();
+    for (const f of LAB_FAMILIES) {
+      expect(screen.getByTestId(`lab-family-${f.id}`)).toBeInTheDocument();
     }
-    expect(screen.queryByTestId('mech-jury')).not.toBeInTheDocument();
+    expect(screen.getByTestId('lab-family-methods')).toHaveAttribute('aria-checked', 'true');
+    expect(screen.getByTestId('lab-bench')).toBeInTheDocument();
+    expect(screen.queryByTestId('lab-bench-vs')).not.toBeInTheDocument();
+    expect(screen.getByTestId('chip-lab-matrix')).toHaveAttribute('aria-pressed', 'true');
   });
 
-  // First lazy section clicked in the file → pays the cold dynamic-import cost,
-  // which under Docker + v8 coverage can exceed the default 5 s test timeout. Give
-  // both the test and the wait a generous budget (the sibling tests run warm).
-  it('the mechanisms section reveals its leaves lazily', async () => {
+  it('mounts nothing beyond the picked fiche — no stacked accordions anywhere', () => {
     renderLab();
-    fireEvent.click(screen.getByTestId('lab-mechanisms-toggle'));
-    expect(await screen.findByTestId('mech-jury', {}, { timeout: 15000 })).toBeInTheDocument();
-    expect(screen.getByTestId('mech-sortition')).toBeInTheDocument();
-    expect(screen.getByTestId('mech-identity')).toBeInTheDocument();
+    // Former anchor leaves are neither mounted nor even offered as chips while
+    // another family's catalogue is open: content is data now, not 48 collapsed
+    // panels waiting in the page.
+    for (const id of ['mech-jury', 'sys-coalition', 'thy-sen', 'ana-montecarlo']) {
+      expect(screen.queryByTestId(id)).not.toBeInTheDocument();
+      expect(screen.queryByTestId(`chip-${id}`)).not.toBeInTheDocument();
+    }
+  });
+
+  it('switching family swaps the catalogue but keeps the bench', () => {
+    renderLab();
+    fireEvent.click(screen.getByTestId('lab-family-theory'));
+    expect(screen.getByTestId('chip-thy-sen')).toBeInTheDocument();
+    expect(screen.getByTestId('chip-ana-montecarlo')).toBeInTheDocument();
+    // The bench still shows the previously picked fiche.
+    expect(screen.getByTestId('lab-bench')).toBeInTheDocument();
+    expect(screen.queryByTestId('lab-bench-vs')).not.toBeInTheDocument();
+  });
+
+  // First lazy chunk clicked in the file → pays the cold dynamic-import cost,
+  // which under Docker + v8 coverage can exceed the default timeout (same note
+  // as the old accordion test carried).
+  it('picking a chip puts that experiment on the bench', async () => {
+    renderLab();
+    fireEvent.click(screen.getByTestId('lab-family-theory'));
+    fireEvent.click(screen.getByTestId('chip-thy-sen'));
+    expect(screen.getByTestId('chip-thy-sen')).toHaveAttribute('aria-pressed', 'true');
+    // The fiche header names the experiment; its panel loads into the bench.
+    await waitFor(() => expect(screen.getByTestId('lab-bench')).toHaveTextContent(/Sen/), {
+      timeout: 15000,
+    });
   }, 20000);
 
-  it('the systems section reveals its leaves lazily', async () => {
+  it('compare: arms the picker, opens a second fiche on the same electorate, closes it', () => {
     renderLab();
-    fireEvent.click(screen.getByTestId('lab-systems-toggle'));
-    expect(await screen.findByTestId('sys-coalition', {}, { timeout: 5000 })).toBeInTheDocument();
-    expect(screen.getByTestId('sys-pipeline')).toBeInTheDocument();
+    fireEvent.click(screen.getByTestId('lab-compare'));
+    expect(screen.getByTestId('lab-compare-hint')).toBeInTheDocument();
+    fireEvent.click(screen.getByTestId('chip-lab-gallery'));
+    expect(screen.getByTestId('lab-bench-vs')).toBeInTheDocument();
+    expect(screen.queryByTestId('lab-compare-hint')).not.toBeInTheDocument();
+    fireEvent.click(screen.getByTestId('lab-compare-close'));
+    expect(screen.queryByTestId('lab-bench-vs')).not.toBeInTheDocument();
   });
 
-  it('the results section reveals its leaves lazily', async () => {
-    renderLab();
-    fireEvent.click(screen.getByTestId('lab-results-toggle'));
-    expect(await screen.findByTestId('res-table', {}, { timeout: 5000 })).toBeInTheDocument();
-    expect(screen.getByTestId('res-animation')).toBeInTheDocument();
+  it('deep-links: ?exp= selects the fiche AND its family; &vs= restores a comparison', () => {
+    renderLab('/laboratoire?exp=thy-sen&vs=ana-montecarlo');
+    expect(screen.getByTestId('lab-family-theory')).toHaveAttribute('aria-checked', 'true');
+    expect(screen.getByTestId('chip-thy-sen')).toHaveAttribute('aria-pressed', 'true');
+    expect(screen.getByTestId('lab-bench-vs')).toBeInTheDocument();
   });
 
-  it('the theory section reveals its leaves lazily', async () => {
-    renderLab();
-    fireEvent.click(screen.getByTestId('lab-theory-toggle'));
-    expect(await screen.findByTestId('thy-sen', {}, { timeout: 5000 })).toBeInTheDocument();
-    expect(screen.getByTestId('thy-judgment')).toBeInTheDocument();
-    expect(screen.getByTestId('thy-polis')).toBeInTheDocument();
+  it('an unknown ?exp= falls back to the matrix instead of a blank bench', () => {
+    renderLab('/laboratoire?exp=does-not-exist');
+    expect(screen.getByTestId('lab-bench')).toBeInTheDocument();
+    expect(screen.getByTestId('lab-family-methods')).toHaveAttribute('aria-checked', 'true');
   });
 
-  it('the analysis section reveals its leaves lazily', async () => {
+  it('the électorat strip shows the shared candidates and the live rule select', () => {
     renderLab();
-    fireEvent.click(screen.getByTestId('lab-analysis-toggle'));
-    expect(await screen.findByTestId('ana-montecarlo', {}, { timeout: 5000 })).toBeInTheDocument();
-    expect(screen.getByTestId('ana-manipulability')).toBeInTheDocument();
-    expect(screen.getByTestId('ana-combined')).toBeInTheDocument();
+    const strip = screen.getByTestId('lab-electorate-strip');
+    expect(strip).toHaveTextContent('Alice');
+    expect(strip).toHaveTextContent('Carol');
+    expect(strip).toHaveTextContent('300 voters');
+    fireEvent.change(screen.getByTestId('lab-rule-select'), { target: { value: 'irv' } });
+    expect((screen.getByTestId('lab-rule-select') as HTMLSelectElement).value).toBe('irv');
   });
 
-  it('the values section moves the spotlight with the Lijphart dial and has a granular escape hatch', async () => {
+  // Ported from the old accordion suite: the values panel's Lijphart dial must
+  // survive the redesign (it now lives behind Règles & stratégie → Valeurs).
+  it('the values fiche keeps the Lijphart dial and its granular escape hatch', async () => {
     useElectionStore.setState({
       playground: { ...DEFAULT_PLAYGROUND, mode: 'parliament' },
       config: { ...DEFAULT_CONFIG },
     });
-    renderLab();
-    fireEvent.click(screen.getByTestId('lab-values-toggle'));
+    renderLab('/laboratoire?exp=lab-values');
     await waitFor(() => expect(screen.getByTestId('lens-item-pr')).toBeInTheDocument(), {
-      timeout: 5000,
+      timeout: 15000,
     });
     fireEvent.change(screen.getByTestId('lijphart-dial'), { target: { value: '0' } });
     expect(screen.getByTestId('lens-item-fptp')).toHaveTextContent('by your weights');
@@ -173,5 +194,5 @@ describe('LaboratoirePage', () => {
     fireEvent.click(screen.getByTestId('lens-granular-toggle'));
     expect(screen.queryByTestId('lijphart-dial')).not.toBeInTheDocument();
     expect(screen.getByTestId('weight-proportionality')).toBeInTheDocument();
-  });
+  }, 20000);
 });

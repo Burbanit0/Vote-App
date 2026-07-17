@@ -193,6 +193,16 @@ const MultiwinnerCompare: React.FC = () => {
   const loading = sim.isPending;
   const error = sim.isError ? t('multiwinner.error') : null;
 
+  // The API requires num_seats < number of candidates, and the slider floor is 2
+  // seats (a one-seat "committee" is just a single-winner election, which the rest
+  // of the app already covers). Both together mean this panel needs at least THREE
+  // candidates; with two — the Bipartisme preset, or a story that left a duel on
+  // the map — no seat count is valid, so we say so instead of firing a request
+  // that can only 400.
+  const maxSeats = Math.max(2, config.candidates.length - 1);
+  const seats = Math.min(numSeats, maxSeats);
+  const enoughCandidates = config.candidates.length >= 3;
+
   function run() {
     sim.mutate({
       body: {
@@ -200,13 +210,13 @@ const MultiwinnerCompare: React.FC = () => {
         num_voters: config.num_voters,
         ideology: config.ideology,
         seed: config.seed,
-        num_seats: numSeats,
+        num_seats: seats,
       },
     });
   }
 
   const names = data?.candidates ?? [];
-  const total = data?.num_seats ?? numSeats;
+  const total = data?.num_seats ?? seats;
 
   // Pedagogical message
   const pedagMsg = data
@@ -235,25 +245,38 @@ const MultiwinnerCompare: React.FC = () => {
       <Row className="g-2 mb-3 items-end">
         <Col xs={12} sm={4}>
           <label className="mb-1 inline-block text-sm mb-0">
-            {t('multiwinner.numSeats')}: <strong>{numSeats}</strong>
+            {t('multiwinner.numSeats')}: <strong data-testid="mw-seats">{seats}</strong>
           </label>
           <Range
             min={2}
-            max={Math.max(2, config.candidates.length - 1)}
+            max={maxSeats}
             step={1}
-            value={numSeats}
+            value={seats}
+            disabled={!enoughCandidates}
             onChange={(e) => setNumSeats(Number(e.target.value))}
           />
         </Col>
         <Col xs={12} sm={4} className="flex items-end">
-          <Button variant="primary" className="w-full" onClick={run} disabled={loading}>
+          <Button
+            variant="primary"
+            className="w-full"
+            onClick={run}
+            disabled={loading || !enoughCandidates}
+          >
             {loading ? <Spinner size="sm" /> : `🏛 ${t('multiwinner.run')}`}
           </Button>
         </Col>
       </Row>
 
+      {!enoughCandidates && (
+        <Alert variant="warning" data-testid="mw-need-candidates">
+          {t('multiwinner.needCandidates', { n: config.candidates.length })}
+        </Alert>
+      )}
       {error && <Alert variant="danger">{error}</Alert>}
-      {!data && !loading && <Alert variant="info">{t('multiwinner.prompt')}</Alert>}
+      {!data && !loading && enoughCandidates && (
+        <Alert variant="info">{t('multiwinner.prompt')}</Alert>
+      )}
 
       {data && (
         <>

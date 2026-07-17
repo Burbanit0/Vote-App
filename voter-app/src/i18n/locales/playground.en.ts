@@ -25,6 +25,91 @@ const pgEn: PlaygroundKeys = {
     moment: 'Moment {{n}} / {{total}}',
     next: '{{label}} →',
   },
+  stories: {
+    launch: 'Stories',
+    launchHint:
+      'Guided narratives that make a phenomenon surface in front of you, inside the instrument.',
+    pick: 'Pick a story',
+    close: 'Close',
+    quit: 'Quit',
+    step: 'Scene {{n}} / {{total}}',
+    next: 'Next →',
+    prev: '← Back',
+    restart: '↻ Replay',
+    replayHint: 'You have the controls back: the instrument stays on the last scene.',
+    spoiler: {
+      title: 'The spoiler effect',
+      tagline: 'A third candidate who cannot win can still decide who does.',
+      steps: {
+        duel: 'Two candidates on a left–right axis: under plurality, Gore beats Bush.',
+        enter:
+          'Nader enters on the left. He will not win — but he splits the left vote, and Bush moves ahead. That is the spoiler.',
+        irv: 'Same voters, different rule: under instant-runoff (IRV), Nader is eliminated, his votes flow back to Gore, who wins.',
+        condorcet:
+          'Under Condorcet too, Gore wins: he is the one the majority prefers head-to-head. The spoiler was only an artefact of plurality.',
+      },
+    },
+    squeeze: {
+      title: 'The centre squeeze',
+      tagline: 'The candidate everyone accepts can be the first one out.',
+      steps: {
+        field:
+          'Three candidates in a line — Left, Centre, Right — facing a polarised electorate. Few voters rank the Centre first.',
+        condorcet:
+          'Yet the Centre beats both Left AND Right head-to-head: the Condorcet winner, the compromise the majority prefers.',
+        irv: 'Under instant-runoff the Centre — weak on first choices — is eliminated at once, and an extreme wins. The centre has been squeezed out.',
+      },
+    },
+    paradox: {
+      title: 'It depends who counts',
+      tagline: 'One electorate, three methods, three winners — which one is the “real” one?',
+      steps: {
+        plurality:
+          'Three blocs whose preferences run in a circle (A ≻ B ≻ C ≻ A). Under plurality, Alice wins.',
+        irv: 'Switch to instant-runoff: Carol wins, with exactly the same ballots.',
+        approval: 'Switch to approval voting: this time it is Bob. Three methods, three winners.',
+        condorcet:
+          'Head-to-head, Alice beats both others — the Condorcet winner. And yet neither IRV nor approval picked her: the method alone changes the president.',
+      },
+    },
+    utile: {
+      title: 'The lesser-evil race',
+      tagline: 'When the rule pushes you to betray your favourite.',
+      steps: {
+        sincere:
+          'You are on the left. Your heart is with Écolo — but under plurality, voting Écolo risks handing it to the Right.',
+        tempt:
+          'The lesser-evil temptation: drop Écolo for the sturdier Gauche to block the Right. Plurality rewards that calculation.',
+        approval:
+          'Under approval voting you approve Écolo AND Gauche without splitting yourself: no need to betray your favourite.',
+        irv: 'Under instant-runoff, rank Écolo first at no risk: if she is eliminated, your vote slides to Gauche. Sincerity is safe again.',
+      },
+    },
+    valence: {
+      title: 'Majority versus welfare',
+      tagline: 'The best-placed candidate is not always the one who would serve people best.',
+      steps: {
+        position:
+          'Two candidates on the axis. The Incumbent, near the centre, wins on position alone — the geographic favourite.',
+        quality:
+          'Turn on valence (non-ideological quality): the Reformer, slightly off-centre but far more competent, becomes the welfare-maximising choice. Position is not the whole story.',
+      },
+    },
+    five: {
+      title: 'One electorate, several presidents',
+      tagline: 'France 2002: the same ballots, a different winner under each method.',
+      steps: {
+        plurality:
+          'Eight candidates, a polarised electorate. Under single-round plurality, Chirac comes first.',
+        irv: 'Under instant-runoff, the transfers change everything: Jospin wins.',
+        borda: 'Under the Borda method, which rewards consensus, Bayrou moves ahead.',
+        condorcet:
+          'Condorcet confirms Bayrou: he is the one who beats the most rivals head-to-head.',
+        approval:
+          'Approval voting crowns Bayrou too. Bottom line: several possible presidents for one electorate — the method is not neutral.',
+      },
+    },
+  },
   common: {
     loading: 'Loading…',
     candidates: 'candidates',
@@ -61,6 +146,11 @@ const pgEn: PlaygroundKeys = {
       durcissement: {
         label: 'Hardening',
         blurb: 'Candidates radicalise their positions (move away from the median).',
+      },
+      meilleure_reponse: {
+        label: 'Best response (Downs)',
+        blurb:
+          'Each candidate moves to wherever it maximises its own score — under THE rule you picked. Change method: the equilibrium moves.',
       },
     },
     method: 'Method',
@@ -382,6 +472,22 @@ const pgEn: PlaygroundKeys = {
     svAxiomFooter:
       'No-show = computed live on THIS electorate (a coalition would gain by abstaining). LNH = known, profile-invariant property of the method.',
   },
+  vse: {
+    title: 'The welfare cost of strategic voting (VSE)',
+    subtitle: 'How much welfare each method throws away once voters stop being sincere',
+    intro:
+      'Voter Satisfaction Efficiency (VSE, Quinn 2017, after Merrill 1984): 1 = the method elects the welfare-maximising candidate, 0 = it does no better than drawing a name from a hat, negative = it does worse. We sweep the share of voters who vote tactically.',
+    aria: 'VSE curves per method against the share of strategic voters',
+    xAxis: 'Share of strategic voters',
+    best: 'best',
+    random: 'random',
+    need2: 'At least two candidates are needed to measure welfare.',
+    readout:
+      'Each curve is a method. The number in the legend is the welfare lost between a sincere electorate and a fully strategic one. Hover a method to isolate it.',
+    flat: 'On this electorate every method already elects the same candidate — the best one — and strategy changes nothing. That is a real finding, not a bug: try a polarised electorate (Electorate → Compose) or a squeezed centrist to see strategy bite.',
+    convention:
+      'Stated convention: a “strategic” voter applies Duverger compression — they read the two frontrunners off the sincere first preferences (that IS the poll), rank their preferred one top and the other last. Utility is always read from their REAL preferences: they lie on the ballot, never about what they want. Bands = p10–p90 over electorate resamples.',
+  },
   parliament: {
     mirror: {
       left_lib: 'Left · liberal',
@@ -556,11 +662,12 @@ const pgEn: PlaygroundKeys = {
     },
   },
   realElection: {
-    title: '🗳 Reality check: a real election',
-    sub: 'same ballots, different methods — a fixed real election (Burlington 2009), unrelated to the electorate you configure on the map',
+    title: '🗳 Reality check: real elections',
+    sub: 'same ballots, different methods — fixed real elections (Burlington 2009, Alaska 2022), unrelated to the electorate you configure on the map',
+    pick: 'Ballot box',
     headlinePre: 'On the very same ballots,',
     headlineEnd: 'different winners by method alone.',
-    note: 'Genuine ranked ballots (PrefLib). We tabulate only the methods that are unambiguous on truncated ballots (plurality, two-round, IRV, the Condorcet family); Borda and score-family rules need a convention the ballots don’t supply. Details: pairwise duels won (Condorcet), worst defeat margin (minimax).',
+    note: 'Genuine ranked ballots (Burlington: PrefLib 00005; Alaska: Graham-Squire & McCune, arXiv:2303.00108, tab. 4 — the published ballot-type breakdown of the state’s cast vote record). We tabulate only the methods that are unambiguous on truncated ballots (plurality, two-round, IRV, the Condorcet family); Borda and score-family rules need a convention the ballots don’t supply. Details: pairwise duels won (Condorcet), worst defeat margin (minimax).',
   },
   scorecard: {
     drillTitle: 'Dig deeper in the Lab',
@@ -975,10 +1082,20 @@ const pgEn: PlaygroundKeys = {
       subtitle: 'Lijphart dial, Pareto frontier',
     },
     groups: {
+      methods: 'Methods',
       rules: 'Rules & strategy',
       systems: 'Systems & mechanisms',
       dynamics: 'Dynamics',
       theory: 'Theory & analysis',
+    },
+    compare: 'Compare',
+    comparePick:
+      'Pick the second experiment from the catalogue — it opens alongside, on the same electorate.',
+    compareStop: 'Close the comparison',
+    strip: {
+      voters: '{{n}} voters',
+      rule: 'Rule',
+      edit: 'Edit the electorate →',
     },
     matrix: {
       title: 'Method comparison',

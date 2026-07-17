@@ -29,6 +29,90 @@ const pgFr = {
     moment: 'Moment {{n}} / {{total}}',
     next: '{{label}} →',
   },
+  stories: {
+    launch: 'Histoires',
+    launchHint: 'Des récits guidés qui font surgir un phénomène sous vos yeux, dans l’instrument.',
+    pick: 'Choisir une histoire',
+    close: 'Fermer',
+    quit: 'Quitter',
+    step: 'Scène {{n}} / {{total}}',
+    next: 'Suivant →',
+    prev: '← Précédent',
+    restart: '↻ Rejouer',
+    replayHint: 'Vous reprenez la main : l’instrument reste sur la dernière scène.',
+    spoiler: {
+      title: 'L’effet spoiler',
+      tagline: 'Un troisième candidat qui ne peut pas gagner peut quand même décider du vainqueur.',
+      steps: {
+        duel: 'Deux candidats sur un axe gauche–droite : en scrutin majoritaire, Gore l’emporte face à Bush.',
+        enter:
+          'Nader entre à gauche. Il ne gagnera pas — mais il divise le vote de gauche, et Bush passe devant. C’est le spoiler.',
+        irv: 'Mêmes électeurs, autre règle : au vote alternatif (IRV), Nader est éliminé, ses voix reviennent à Gore, qui l’emporte.',
+        condorcet:
+          'En méthode de Condorcet aussi, Gore gagne : c’est lui que la majorité préfère en duel. Le spoiler n’était qu’un artefact du scrutin majoritaire.',
+      },
+    },
+    squeeze: {
+      title: 'L’étau du centre',
+      tagline: 'Le candidat que tout le monde accepte peut être éliminé le premier.',
+      steps: {
+        field:
+          'Trois candidats alignés — Gauche, Centre, Droite — face à un électorat polarisé. Peu d’électeurs placent le Centre en premier.',
+        condorcet:
+          'Pourtant le Centre bat la Gauche ET la Droite en duel : c’est le vainqueur de Condorcet, le compromis que la majorité préfère.',
+        irv: 'Au vote alternatif, le Centre — faible en premiers choix — est éliminé d’entrée, et c’est un extrême qui l’emporte. Le centre a été pris en étau.',
+      },
+    },
+    paradox: {
+      title: 'Ça dépend qui compte',
+      tagline: 'Un même électorat, trois méthodes, trois vainqueurs — lequel est le « vrai » ?',
+      steps: {
+        plurality:
+          'Trois blocs dont les préférences tournent en rond (A ≻ B ≻ C ≻ A). En scrutin majoritaire, Alice l’emporte.',
+        irv: 'Changez pour le vote alternatif : c’est Carol qui gagne, avec exactement les mêmes bulletins.',
+        approval:
+          'Passez au vote par approbation : cette fois, c’est Bob. Trois méthodes, trois vainqueurs.',
+        condorcet:
+          'En duel un-contre-un, Alice bat les deux autres — la vainqueure de Condorcet. Et pourtant ni l’IRV ni l’approbation ne l’ont désignée : la méthode, à elle seule, change le président.',
+      },
+    },
+    utile: {
+      title: 'La course au vote utile',
+      tagline: 'Quand la règle vous pousse à trahir votre favori.',
+      steps: {
+        sincere:
+          'Vous êtes à gauche. Votre cœur va à Écolo — mais en scrutin majoritaire, voter Écolo risque de faire gagner la Droite.',
+        tempt:
+          'La tentation du « vote utile » : abandonner Écolo pour Gauche, plus solide, afin de barrer la Droite. Le scrutin majoritaire récompense ce calcul.',
+        approval:
+          'Au vote par approbation, vous approuvez Écolo ET Gauche sans vous diviser : plus besoin de trahir votre favori.',
+        irv: 'Au vote alternatif, classez Écolo en premier sans risque : si elle est éliminée, votre voix glisse vers Gauche. La sincérité redevient sûre.',
+      },
+    },
+    valence: {
+      title: 'Majorité contre bien-être',
+      tagline: 'Le mieux placé n’est pas toujours celui qui rendrait le plus service.',
+      steps: {
+        position:
+          'Deux candidats sur l’axe. Le Sortant, proche du centre, l’emporte sur la seule position — le favori géographique.',
+        quality:
+          'Activez la valence (la qualité non idéologique) : le Réformateur, un peu excentré mais bien plus compétent, devient le choix qui maximise le bien-être. La position ne dit pas tout.',
+      },
+    },
+    five: {
+      title: 'Un électorat, plusieurs présidents',
+      tagline: 'France 2002 : les mêmes bulletins, un vainqueur différent selon la méthode.',
+      steps: {
+        plurality:
+          'Huit candidats, électorat polarisé. En scrutin majoritaire à un tour, Chirac arrive en tête.',
+        irv: 'Au vote alternatif, les reports changent tout : c’est Jospin qui l’emporte.',
+        borda: 'En méthode de Borda, qui récompense les consensus, Bayrou passe devant.',
+        condorcet: 'Condorcet confirme Bayrou : c’est lui qui bat le plus d’adversaires en duel.',
+        approval:
+          'Le vote par approbation couronne lui aussi Bayrou. Bilan : plusieurs présidents pour un seul électorat — la méthode n’est pas neutre.',
+      },
+    },
+  },
   common: {
     loading: 'Chargement…',
     candidates: 'candidats',
@@ -65,6 +149,11 @@ const pgFr = {
       durcissement: {
         label: 'Durcissement',
         blurb: 'Les candidats radicalisent leurs positions (s’éloignent du médian).',
+      },
+      meilleure_reponse: {
+        label: 'Meilleure réponse (Downs)',
+        blurb:
+          'Chaque candidat se déplace là où il maximise son score — sous LA règle choisie. Changez de méthode : l’équilibre se déplace.',
       },
     },
     method: 'Méthode',
@@ -391,6 +480,23 @@ const pgFr = {
     svAxiomFooter:
       'No-show = calculé en direct sur CET électorat (une coalition gagnerait à s’abstenir). LNH = propriété connue de la méthode, invariante.',
   },
+  vse: {
+    title: 'Le coût du vote stratégique (VSE)',
+    subtitle:
+      'Combien de bien-être chaque méthode gaspille quand les électeurs cessent d’être sincères',
+    intro:
+      'Efficacité de satisfaction des électeurs (VSE, Quinn 2017, d’après Merrill 1984) : 1 = la méthode élit le candidat qui maximise le bien-être, 0 = elle ne fait pas mieux qu’un tirage au sort, négatif = elle fait pire. On fait varier la part d’électeurs qui votent « utile ».',
+    aria: 'Courbes de VSE par méthode selon la part d’électeurs stratégiques',
+    xAxis: 'Part d’électeurs stratégiques',
+    best: 'optimum',
+    random: 'hasard',
+    need2: 'Il faut au moins deux candidats pour mesurer le bien-être.',
+    readout:
+      'Chaque courbe = une méthode. Le chiffre dans la légende est le bien-être perdu entre un électorat sincère et un électorat entièrement stratégique. Survolez une méthode pour l’isoler.',
+    flat: 'Sur cet électorat, toutes les méthodes élisent déjà le même candidat — le meilleur — et la stratégie n’y change rien. C’est un vrai résultat, pas un bug : essayez un électorat polarisé (Électorat → Composer) ou un candidat centriste pris en étau pour voir la stratégie mordre.',
+    convention:
+      'Convention affichée : un électeur « stratégique » applique la compression de Duverger — il repère les deux favoris dans les premiers choix sincères (c’est le sondage), place celui qu’il préfère en tête et l’autre en dernier. L’utilité est toujours lue sur ses préférences RÉELLES : il ment sur son bulletin, jamais sur ce qu’il veut. Bandes = p10–p90 sur des ré-échantillons de l’électorat.',
+  },
   parliament: {
     mirror: {
       left_lib: 'Gauche · libéral',
@@ -575,11 +681,12 @@ const pgFr = {
     },
   },
   realElection: {
-    title: '🗳 Épreuve du réel : un vrai scrutin',
-    sub: 'mêmes bulletins, méthodes différentes — scrutin réel et figé (Burlington 2009), sans rapport avec l’électorat que vous configurez sur la carte',
+    title: '🗳 Épreuve du réel : de vrais scrutins',
+    sub: 'mêmes bulletins, méthodes différentes — scrutins réels et figés (Burlington 2009, Alaska 2022), sans rapport avec l’électorat que vous configurez sur la carte',
+    pick: 'Scrutin',
     headlinePre: 'Sur les mêmes bulletins,',
     headlineEnd: 'vainqueurs différents selon la seule méthode.',
-    note: 'Bulletins classés authentiques (PrefLib). On ne tabule que les méthodes sans ambiguïté sur des bulletins tronqués (pluralité, deux tours, IRV, famille de Condorcet) ; Borda et les méthodes par note exigent une convention que les bulletins ne fournissent pas. Détails : duels gagnés (Condorcet), pire marge de défaite (minimax).',
+    note: 'Bulletins classés authentiques (Burlington : PrefLib 00005 ; Alaska : Graham-Squire & McCune, arXiv:2303.00108, tab. 4 — la répartition publiée des bulletins du cast vote record de l’État). On ne tabule que les méthodes sans ambiguïté sur des bulletins tronqués (pluralité, deux tours, IRV, famille de Condorcet) ; Borda et les méthodes par note exigent une convention que les bulletins ne fournissent pas. Détails : duels gagnés (Condorcet), pire marge de défaite (minimax).',
   },
   scorecard: {
     drillTitle: 'Approfondir dans le Lab',
@@ -994,10 +1101,20 @@ const pgFr = {
       subtitle: 'cadran Lijphart, frontière de Pareto',
     },
     groups: {
+      methods: 'Méthodes',
       rules: 'Règles & stratégie',
       systems: 'Systèmes & mécanismes',
       dynamics: 'Dynamiques',
       theory: 'Théorie & analyse',
+    },
+    compare: 'Comparer',
+    comparePick:
+      'Choisissez la seconde expérience dans le catalogue — elle s’ouvrira à côté, sur le même électorat.',
+    compareStop: 'Fermer la comparaison',
+    strip: {
+      voters: '{{n}} électeurs',
+      rule: 'Règle',
+      edit: 'Modifier l’électorat →',
     },
     matrix: {
       title: 'Comparaison des méthodes',

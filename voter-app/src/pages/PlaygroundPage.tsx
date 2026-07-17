@@ -10,6 +10,7 @@ import {
 import MomentRail, { MOMENTS } from '../components/playground/MomentRail';
 import InstrumentPanel from '../components/playground/InstrumentPanel';
 import GuidedFooter from '../components/playground/GuidedFooter';
+import StoryPlayer from '../components/playground/StoryPlayer';
 import ElectorateMoment from '../components/playground/moments/ElectorateMoment';
 import MethodMoment from '../components/playground/moments/MethodMoment';
 import StrategyMoment from '../components/playground/moments/StrategyMoment';
@@ -93,6 +94,9 @@ const PlaygroundShell: React.FC = () => {
         </div>
         <ModeSwitch />
       </header>
+
+      {/* ── Histoires: guided narratives over the same instrument ── */}
+      <StoryPlayer />
 
       {/* ── Moment console ── */}
       <MomentRail active={activeMoment} onSelect={setActiveMoment} />

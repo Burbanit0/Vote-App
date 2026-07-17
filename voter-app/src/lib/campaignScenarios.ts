@@ -9,6 +9,7 @@
 // graph-driving scenario is just one more entry here.
 
 import { driftCandidates } from './playgroundDynamics';
+import { makeBestResponseDrift, type BestResponseCtx } from './candidateDynamics';
 import type { DriftFn } from './campaignTimeline';
 import type { NamedPt, Pt } from './playgroundVoting';
 
@@ -43,7 +44,12 @@ export interface CampaignScenario {
   id: string;
   label: string;
   blurb: string;
-  drift: DriftFn;
+  /** A static, rule-independent script: position is a closed form of `t`. */
+  drift?: DriftFn;
+  /** Scenarios whose motion depends on the ELECTORATE and the RULE build their
+   *  DriftFn once per (electorate, rule, strength) — see makeBestResponseDrift.
+   *  Takes precedence over `drift`. */
+  makeDrift?: (ctx: BestResponseCtx) => DriftFn;
 }
 
 export const CAMPAIGN_SCENARIOS: CampaignScenario[] = [
@@ -65,7 +71,21 @@ export const CAMPAIGN_SCENARIOS: CampaignScenario[] = [
     blurb: 'Les candidats radicalisent leurs positions (s’éloignent du médian).',
     drift: harden,
   },
+  {
+    // The Downsian game rather than a script: each candidate hill-climbs to its
+    // own best position GIVEN the rule, so the equilibrium changes when the rule
+    // does. (Hotelling 1929, Downs 1957; Myerson–Weber 1993 for the rule effect.)
+    id: 'meilleure_reponse',
+    label: 'Meilleure réponse (Downs)',
+    blurb: 'Chaque candidat se déplace là où il maximise son score — sous LA règle choisie.',
+    makeDrift: makeBestResponseDrift,
+  },
 ];
+
+/** Resolve a scenario's drift, building the rule-dependent ones on demand. */
+export function driftOf(scenario: CampaignScenario, ctx: BestResponseCtx): DriftFn | undefined {
+  return scenario.makeDrift ? scenario.makeDrift(ctx) : scenario.drift;
+}
 
 export const DEFAULT_SCENARIO = CAMPAIGN_SCENARIOS[0];
 
@@ -75,9 +95,22 @@ export const DEFAULT_SCENARIO = CAMPAIGN_SCENARIOS[0];
 export function __selfCheck(): boolean {
   const base: NamedPt[] = [{ name: 'A', x: 0.8, y: 0 }];
   const target: Pt = { x: 0, y: 0, z: 0 };
-  const at0 = CAMPAIGN_SCENARIOS.every(
-    (sc) => Math.abs(sc.drift(base, target, 0, 0.6)[0].x - 0.8) < 1e-9
-  );
+  // Rule-dependent scenarios need a context to build; a two-voter stub is enough
+  // to assert the J0 identity that every scenario must honour.
+  const ctx: BestResponseCtx = {
+    voters: [
+      { x: 0, y: 0, z: 0 },
+      { x: 0.2, y: 0, z: 0 },
+    ],
+    candidates: base,
+    rule: 'plurality',
+    dims: 2,
+    strength: 0.6,
+  };
+  const at0 = CAMPAIGN_SCENARIOS.every((sc) => {
+    const d = driftOf(sc, ctx);
+    return !!d && Math.abs(d(base, target, 0, 0.6)[0].x - 0.8) < 1e-9;
+  });
   const inward = hotelling(base, target, 1, 0.6)[0].x < 0.8;
   const outward = harden(base, target, 1, 0.6)[0].x > 0.8;
   return at0 && inward && outward;

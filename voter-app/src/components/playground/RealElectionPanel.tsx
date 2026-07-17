@@ -1,12 +1,16 @@
 import React from 'react';
 import { useTranslation } from 'react-i18next';
+import { cn } from '@/lib/utils';
 import { backtest, type RealElection } from '../../lib/realElections';
 import fixture from '../../lib/__fixtures__/realElections.json';
 
-// RealElectionPanel — the thesis on a REAL ballot box, not a spatial model. On the
-// genuine 2009 Burlington ballots, plurality / IRV / Condorcet each crown a
-// different candidate. The strongest possible statement of "the method changes the
-// winner": no assumptions, just counted votes.
+// RealElectionPanel — the thesis on a REAL ballot box, not a spatial model. The
+// strongest possible statement of "the method changes the winner": no
+// assumptions, just counted votes. Two ballot boxes ship:
+//  · Burlington 2009 — plurality / IRV / Condorcet each crown a DIFFERENT person;
+//  · Alaska 2022 special — IRV elects Peltola while Begich beats both rivals
+//    head-to-head, the modern textbook Condorcet failure.
+// Every number is asserted against the published record in realElections.test.ts.
 
 const METHOD_LABEL: Record<string, { fr: string; en: string }> = {
   plurality: { fr: 'Pluralité (1 tour)', en: 'Plurality (1 round)' },
@@ -24,10 +28,13 @@ const WINNER_TINT = [
   'text-rose-700 dark:text-rose-300',
 ];
 
+const ELECTIONS = (fixture as { elections: RealElection[] }).elections;
+
 const RealElectionPanel: React.FC = () => {
   const { t, i18n } = useTranslation('playground');
   const fr = i18n.language.startsWith('fr');
-  const election = (fixture as { elections: RealElection[] }).elections[0];
+  const [id, setId] = React.useState(ELECTIONS[0].id);
+  const election = ELECTIONS.find((e) => e.id === id) ?? ELECTIONS[0];
   const bt = React.useMemo(() => backtest(election), [election]);
 
   // Assign each distinct winner a tint, in first-appearance order.
@@ -41,6 +48,35 @@ const RealElectionPanel: React.FC = () => {
 
   return (
     <div data-testid="real-election-panel" className="flex flex-col gap-2">
+      {/* Ballot-box picker — only worth showing once there is more than one. */}
+      {ELECTIONS.length > 1 && (
+        <div
+          role="radiogroup"
+          aria-label={t('realElection.pick')}
+          data-testid="real-election-pick"
+          className="flex flex-wrap gap-1"
+        >
+          {ELECTIONS.map((e) => (
+            <button
+              key={e.id}
+              type="button"
+              role="radio"
+              aria-checked={e.id === election.id}
+              data-testid={`real-election-${e.id}`}
+              onClick={() => setId(e.id)}
+              className={cn(
+                'rounded-md border px-2 py-0.5 text-[0.7rem] transition-colors',
+                e.id === election.id
+                  ? 'border-primary/50 bg-accent/50 font-medium'
+                  : 'border-border text-muted-foreground hover:bg-accent/30'
+              )}
+            >
+              {fr ? e.title : e.titleEn}
+            </button>
+          ))}
+        </div>
+      )}
+
       <div className="flex flex-col gap-0.5">
         <p className="text-sm font-medium">{fr ? election.title : election.titleEn}</p>
         <p className="text-[0.65rem] text-muted-foreground">{election.source}</p>
