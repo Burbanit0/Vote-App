@@ -1,176 +1,340 @@
 import React from 'react';
 import { useTranslation } from 'react-i18next';
-import { Link } from 'react-router';
+import { Link, useSearchParams } from 'react-router';
+import { Columns2, X } from 'lucide-react';
+import { cn } from '@/lib/utils';
+import { Button } from '@/components/ui/button';
 import { useMetaTags } from '../hooks/useMetaTags';
 import {
   PlaygroundProvider,
   usePlaygroundCtx,
 } from '../components/playground/PlaygroundController';
-import Collapsible from '../components/playground/Collapsible';
-import { AnchorFallback } from '../components/playground/playgroundFields';
-import InstrumentPanel from '../components/playground/InstrumentPanel';
+import { AnchorFallback, selectCls } from '../components/playground/playgroundFields';
+import { useVotingLabels } from '../hooks/useVotingLabels';
+import { LEADER_RULES } from '../lib/scorecard';
+import { candidateColor } from '../lib/palette';
+import {
+  LAB_FAMILIES,
+  DEFAULT_EXPERIMENT,
+  locateExperiment,
+  type FamilyId,
+  type Located,
+} from '../components/lab/labCatalog';
+import type { Rule } from '../lib/playgroundVoting';
 
-const MethodsMatrix = React.lazy(() => import('../components/lab/MethodsMatrix'));
-const MethodGallery = React.lazy(() => import('../components/lab/MethodGallery'));
+// LaboratoirePage — the specimen bench. The old page stacked 4 groups × 11
+// sections × ~5 sub-accordions next to a 22rem sticky sidebar: everything was
+// somewhere, nothing was anywhere. The redesign is the playground's own grammar
+// extended to a collection:
+//
+//   family rail  →  électorat strip  →  catalogue of fiches  →  ONE full-width
+//   bench (l'établi), with "Comparer" splitting it into two fiches that read the
+//   SAME shared electorate.
+//
+// All content lives in labCatalog.tsx as data (57 fiches — the integrity test
+// proves nothing was lost). The page only navigates: nothing mounts unpicked,
+// chips warm their chunk on hover, and ?exp=/&vs= deep-link any bench state.
 
-const MechanismsAnchor = React.lazy(
-  () => import('../components/playground/anchors/MechanismsAnchor')
-);
-const SystemsAnchor = React.lazy(() => import('../components/playground/anchors/SystemsAnchor'));
-const AnalysisAnchor = React.lazy(() => import('../components/playground/anchors/AnalysisAnchor'));
-const TheoryAnchor = React.lazy(() => import('../components/playground/anchors/TheoryAnchor'));
-const ResultsAnchor = React.lazy(() => import('../components/playground/anchors/ResultsAnchor'));
-const CampaignAnchor = React.lazy(() => import('../components/playground/anchors/CampaignAnchor'));
-const TemporalDynamicsAnchor = React.lazy(
-  () => import('../components/campaign/TemporalDynamicsAnchor')
-);
-const BehavioralRealismAnchor = React.lazy(
-  () => import('../components/campaign/BehavioralRealismAnchor')
-);
-const BallotConfigPanel = React.lazy(() => import('../components/playground/BallotConfigPanel'));
-const StrategyLabPanel = React.lazy(() => import('../components/playground/StrategyLabPanel'));
-const ValuesLabPanel = React.lazy(() => import('../components/playground/ValuesLabPanel'));
+// ── Électorat strip — the shared frame every fiche reads ────────────────────
 
-type SectionKey =
-  | 'ballot'
-  | 'strategy'
-  | 'values'
-  | 'mechanisms'
-  | 'systems'
-  | 'campaign'
-  | 'temporal'
-  | 'behavioral'
-  | 'analysis'
-  | 'theory'
-  | 'results';
+const ElectorateStrip: React.FC = () => {
+  const { t } = useTranslation('playground');
+  const { config, leaderRule, setLeaderRule } = usePlaygroundCtx();
+  const { ruleLabels } = useVotingLabels();
+  return (
+    <div
+      data-testid="lab-electorate-strip"
+      className="flex flex-wrap items-center gap-x-4 gap-y-2 rounded-xl border border-border bg-muted/20 px-3 py-2"
+    >
+      <div className="flex min-w-0 flex-wrap items-center gap-x-3 gap-y-1">
+        {config.candidates.map((c, i) => (
+          <span key={c.name} className="flex items-center gap-1.5 text-xs">
+            <span
+              aria-hidden
+              className="h-2.5 w-2.5 shrink-0 rounded-full"
+              style={{ background: candidateColor(i) }}
+            />
+            {c.name}
+          </span>
+        ))}
+        <span className="font-mono text-[0.7rem] text-muted-foreground">
+          {t('lab.strip.voters', { n: config.num_voters })}
+        </span>
+      </div>
 
-const SECTION_COMPONENTS: Record<SectionKey, React.LazyExoticComponent<React.FC>> = {
-  ballot: BallotConfigPanel,
-  strategy: StrategyLabPanel,
-  values: ValuesLabPanel,
-  mechanisms: MechanismsAnchor,
-  systems: SystemsAnchor,
-  campaign: CampaignAnchor,
-  temporal: TemporalDynamicsAnchor,
-  behavioral: BehavioralRealismAnchor,
-  analysis: AnalysisAnchor,
-  theory: TheoryAnchor,
-  results: ResultsAnchor,
+      <div className="ml-auto flex items-center gap-3">
+        <label className="flex items-center gap-1.5 text-xs text-muted-foreground">
+          {t('lab.strip.rule')}
+          <select
+            data-testid="lab-rule-select"
+            className={cn(selectCls, 'h-7 w-auto py-0 text-xs')}
+            value={leaderRule}
+            onChange={(e) => setLeaderRule(e.target.value as Rule)}
+          >
+            {LEADER_RULES.map((r) => (
+              <option key={r} value={r}>
+                {ruleLabels[r]}
+              </option>
+            ))}
+          </select>
+        </label>
+        <Link to="/playground" className="shrink-0 text-xs text-primary hover:underline">
+          {t('lab.strip.edit')}
+        </Link>
+      </div>
+    </div>
+  );
 };
 
-const GROUPS: {
-  key: string;
-  labelKey: string;
-  kicker: string;
-  sections: SectionKey[];
-}[] = [
-  {
-    key: 'rules',
-    labelKey: 'lab.groups.rules',
-    kicker: '① ',
-    sections: ['ballot', 'strategy', 'values'],
-  },
-  {
-    key: 'systems',
-    labelKey: 'lab.groups.systems',
-    kicker: '② ',
-    sections: ['mechanisms', 'systems'],
-  },
-  {
-    key: 'dynamics',
-    labelKey: 'lab.groups.dynamics',
-    kicker: '③ ',
-    sections: ['campaign', 'temporal', 'behavioral'],
-  },
-  {
-    key: 'theory',
-    labelKey: 'lab.groups.theory',
-    kicker: '④ ',
-    sections: ['theory', 'analysis', 'results'],
-  },
-];
+// ── One fiche on the bench ───────────────────────────────────────────────────
+
+const BenchFiche: React.FC<{
+  located: Located;
+  side?: 'primary' | 'vs';
+  onCompare?: () => void;
+  onClose?: () => void;
+}> = ({ located, side = 'primary', onCompare, onClose }) => {
+  const { t } = useTranslation('playground');
+  const { family, group, experiment } = located;
+  const Body = experiment.Body;
+  // Single-fiche groups repeat their group title as the experiment title, and
+  // the matrix/gallery paint their own full header — never say a name twice.
+  const kicker =
+    t(group.titleKey) === t(experiment.titleKey) ? t(family.labelKey) : t(group.titleKey);
+  return (
+    <section
+      data-testid={side === 'vs' ? 'lab-bench-vs' : 'lab-bench'}
+      className="min-w-0 rounded-xl border border-border bg-card"
+    >
+      <header className="flex items-start justify-between gap-3 border-b border-border/60 px-4 py-3">
+        <div className="min-w-0">
+          <p className="truncate font-mono text-[0.62rem] uppercase tracking-[0.18em] text-muted-foreground">
+            {kicker}
+          </p>
+          {!experiment.ownHeader && (
+            <h2 className="mt-0.5 font-display text-lg font-semibold leading-tight tracking-tight">
+              {t(experiment.titleKey)}
+            </h2>
+          )}
+        </div>
+        {onCompare && (
+          <Button
+            data-testid="lab-compare"
+            variant="outline"
+            size="sm"
+            className="shrink-0 gap-1.5"
+            onClick={onCompare}
+          >
+            <Columns2 aria-hidden className="h-3.5 w-3.5" />
+            {t('lab.compare')}
+          </Button>
+        )}
+        {onClose && (
+          <Button
+            data-testid="lab-compare-close"
+            variant="ghost"
+            size="sm"
+            className="shrink-0 gap-1 text-muted-foreground"
+            onClick={onClose}
+            aria-label={t('lab.compareStop')}
+          >
+            <X aria-hidden className="h-3.5 w-3.5" />
+          </Button>
+        )}
+      </header>
+      {group.introKey && (
+        <p className="border-b border-border/40 px-4 py-2 text-[0.7rem] leading-relaxed text-muted-foreground/80">
+          {t(group.introKey)}
+        </p>
+      )}
+      <div className="p-4">
+        <React.Suspense fallback={<AnchorFallback />}>
+          <Body />
+        </React.Suspense>
+      </div>
+    </section>
+  );
+};
+
+// ── The page ─────────────────────────────────────────────────────────────────
 
 const LaboratoireContent: React.FC = () => {
   const { t } = useTranslation('playground');
-  usePlaygroundCtx();
+  const [searchParams, setSearchParams] = useSearchParams();
+
+  const expId = searchParams.get('exp') ?? DEFAULT_EXPERIMENT;
+  const vsId = searchParams.get('vs');
+  const active = locateExperiment(expId) ?? locateExperiment(DEFAULT_EXPERIMENT)!;
+  const vs = vsId ? locateExperiment(vsId) : null;
+
+  // Which family's catalogue is open — follows the active fiche, but browsing
+  // another family must not clear the bench.
+  const [familyId, setFamilyId] = React.useState<FamilyId>(active.family.id);
+  // When armed, the next chip click fills the SECOND slot of the bench.
+  const [pickingVs, setPickingVs] = React.useState(false);
+
+  const family = LAB_FAMILIES.find((f) => f.id === familyId) ?? LAB_FAMILIES[0];
+
+  const setBench = (exp: string, vsNext: string | null) => {
+    const params: Record<string, string> = { exp };
+    if (vsNext) params.vs = vsNext;
+    setSearchParams(params, { replace: true });
+  };
+
+  const pick = (id: string) => {
+    if (pickingVs) {
+      if (id !== active.experiment.id) setBench(active.experiment.id, id);
+      setPickingVs(false);
+    } else {
+      setBench(id, vs && vs.experiment.id !== id ? vs.experiment.id : null);
+    }
+  };
 
   return (
-    <div className="container mx-auto max-w-6xl px-4 py-6">
-      {/* ── Page header ── */}
-      <div className="mb-5">
-        <p className="font-mono text-[0.7rem] uppercase tracking-[0.22em] text-primary">
-          {t('lab.eyebrow')}
-        </p>
-        <h1 className="mt-1 font-display text-2xl font-bold tracking-tight sm:text-3xl">
-          {t('lab.title')}
-        </h1>
-        <p className="mt-2 max-w-2xl text-sm leading-relaxed text-muted-foreground">
-          {t('lab.intro')}
-        </p>
-        <Link to="/playground" className="mt-2 inline-block text-sm text-primary hover:underline">
-          ← {t('lab.backToPlayground')}
-        </Link>
-      </div>
-
-      {/* The instrument stays docked in this rail while you scroll the sections on the
-          right — every effect below reads off this same live map, instead of each
-          section floating with no shared visual. */}
-      <div className="lg:grid lg:grid-cols-[22rem_1fr] lg:items-start lg:gap-6">
-        <div className="mb-8 lg:sticky lg:top-4 lg:mb-0">
-          <InstrumentPanel forceShowRuleUi />
-          <p className="mt-2 text-[0.7rem] leading-snug text-muted-foreground">
-            {t('lab.instrumentHint')}
+    <div className="container mx-auto max-w-6xl px-4 py-5">
+      {/* ── Masthead ── */}
+      <header className="mb-4 flex flex-wrap items-end justify-between gap-3">
+        <div>
+          <p className="font-mono text-[0.7rem] uppercase tracking-[0.22em] text-primary">
+            {t('lab.eyebrow')}
+          </p>
+          <h1 className="mt-1 font-display text-2xl font-bold tracking-tight sm:text-3xl">
+            {t('lab.title')}
+          </h1>
+          <p className="mt-1 max-w-2xl text-sm leading-relaxed text-muted-foreground">
+            {t('lab.intro')}
           </p>
         </div>
+        <Link to="/playground" className="text-sm text-primary hover:underline">
+          ← {t('lab.backToPlayground')}
+        </Link>
+      </header>
 
-        <div className="flex flex-col gap-8">
-          {/* ── Methods matrix ── */}
-          <React.Suspense fallback={<AnchorFallback />}>
-            <MethodsMatrix />
-          </React.Suspense>
+      {/* ── Family rail ── */}
+      <div
+        data-testid="lab-family-rail"
+        role="radiogroup"
+        aria-label={t('lab.title')}
+        className="grid grid-cols-2 gap-2 sm:grid-cols-3 lg:flex lg:items-stretch"
+      >
+        {LAB_FAMILIES.map((f) => {
+          const on = f.id === familyId;
+          return (
+            <button
+              key={f.id}
+              type="button"
+              role="radio"
+              aria-checked={on}
+              data-testid={`lab-family-${f.id}`}
+              onClick={() => setFamilyId(f.id)}
+              className={cn(
+                'group relative flex min-w-0 flex-1 items-center gap-2.5 rounded-xl border px-3 py-2 text-left transition-all',
+                on
+                  ? 'border-primary/40 bg-card shadow-sm'
+                  : 'border-border bg-muted/30 hover:bg-card'
+              )}
+            >
+              <span
+                className={cn(
+                  'flex h-6 w-6 shrink-0 items-center justify-center rounded-md font-mono text-xs font-semibold tabular-nums',
+                  on
+                    ? 'bg-primary text-primary-foreground'
+                    : 'bg-background text-muted-foreground group-hover:text-foreground'
+                )}
+              >
+                {f.n}
+              </span>
+              <span
+                className={cn(
+                  'min-w-0 truncate text-sm font-medium',
+                  on
+                    ? 'font-display text-foreground'
+                    : 'text-muted-foreground group-hover:text-foreground'
+                )}
+              >
+                {t(f.labelKey)}
+              </span>
+              {on && (
+                <span
+                  aria-hidden
+                  className="absolute inset-x-3 -bottom-px h-0.5 rounded-full bg-primary"
+                />
+              )}
+            </button>
+          );
+        })}
+      </div>
 
-          {/* ── Method gallery (Tier B: explained, not compared) ── */}
-          <React.Suspense fallback={<AnchorFallback />}>
-            <MethodGallery />
-          </React.Suspense>
-
-          {/* ── Grouped sections ── */}
-          <div className="flex flex-col gap-8">
-            {GROUPS.map(({ key, labelKey, kicker, sections }) => (
-              <div key={key} id={`lab-group-${key}`}>
-                {/* Group header */}
-                <div className="mb-3 flex items-center gap-2">
-                  <span className="font-mono text-[0.68rem] uppercase tracking-[0.2em] text-muted-foreground">
-                    {kicker}
+      {/* ── Catalogue of the active family ── */}
+      <div
+        data-testid="lab-catalogue"
+        className={cn(
+          'mt-3 rounded-xl border bg-card/60 px-3 py-2.5',
+          pickingVs ? 'border-primary/50' : 'border-border'
+        )}
+      >
+        {pickingVs && (
+          <p
+            data-testid="lab-compare-hint"
+            className="mb-2 rounded-md bg-primary/10 px-2 py-1 text-xs font-medium text-primary"
+          >
+            {t('lab.comparePick')}
+          </p>
+        )}
+        <div className="flex flex-col gap-2.5">
+          {family.groups.map((g) => (
+            <div key={g.key}>
+              <p className="mb-1.5 flex flex-wrap items-baseline gap-x-2 font-mono text-[0.62rem] uppercase tracking-[0.16em] text-muted-foreground">
+                {t(g.titleKey)}
+                {g.subtitleKey && (
+                  <span className="normal-case tracking-normal text-muted-foreground/60">
+                    {t(g.subtitleKey)}
                   </span>
-                  <h2 className="font-display text-base font-semibold tracking-tight">
-                    {t(labelKey)}
-                  </h2>
-                  <div className="flex-1 border-t border-border" />
-                </div>
-
-                {/* Sections in this group */}
-                <div className="flex flex-col gap-2.5">
-                  {sections.map((sectionKey) => {
-                    const Component = SECTION_COMPONENTS[sectionKey];
-                    return (
-                      <Collapsible
-                        key={sectionKey}
-                        title={t(`lab.${sectionKey}.title`)}
-                        subtitle={t(`lab.${sectionKey}.subtitle`)}
-                        testid={`lab-${sectionKey}`}
-                      >
-                        <React.Suspense fallback={<AnchorFallback />}>
-                          <Component />
-                        </React.Suspense>
-                      </Collapsible>
-                    );
-                  })}
-                </div>
+                )}
+              </p>
+              <div className="flex flex-wrap gap-1.5">
+                {g.experiments.map((e) => {
+                  const isActive = e.id === active.experiment.id;
+                  const isVs = vs?.experiment.id === e.id;
+                  return (
+                    <button
+                      key={e.id}
+                      type="button"
+                      data-testid={`chip-${e.id}`}
+                      aria-pressed={isActive || isVs}
+                      onMouseEnter={e.preload}
+                      onFocus={e.preload}
+                      onClick={() => pick(e.id)}
+                      className={cn(
+                        'rounded-md border px-2 py-1 text-xs transition-colors',
+                        isActive
+                          ? 'border-primary/60 bg-primary/10 font-medium text-foreground'
+                          : isVs
+                            ? 'border-primary/30 bg-accent/50 text-foreground'
+                            : 'border-border text-muted-foreground hover:bg-accent/40 hover:text-foreground'
+                      )}
+                    >
+                      {t(e.titleKey)}
+                    </button>
+                  );
+                })}
               </div>
-            ))}
-          </div>
+            </div>
+          ))}
         </div>
+      </div>
+
+      {/* ── Électorat strip — the shared frame ── */}
+      <div className="mt-3">
+        <ElectorateStrip />
+      </div>
+
+      {/* ── L'établi ── */}
+      <div className={cn('mt-3 grid grid-cols-1 gap-3', vs && 'xl:grid-cols-2')}>
+        <BenchFiche located={active} onCompare={!vs ? () => setPickingVs((p) => !p) : undefined} />
+        {vs && (
+          <BenchFiche located={vs} side="vs" onClose={() => setBench(active.experiment.id, null)} />
+        )}
       </div>
     </div>
   );
