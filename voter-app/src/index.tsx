@@ -7,9 +7,13 @@ import reportWebVitals from './reportWebVitals';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { ReactQueryDevtools } from '@tanstack/react-query-devtools';
 import { initUITheme } from './stores/useUIStore';
+import { initAnalytics } from './lib/analytics';
 
 // Apply the persisted theme to <html> at startup (was ThemeProvider's job).
 initUITheme();
+// Anonymous, cookie-less usage measurement (Umami). No-op unless the
+// VITE_UMAMI_* vars were set at build time AND this is a production build.
+initAnalytics();
 
 // Server-state cache. Simulations are deterministic for a given input, so a
 // generous staleTime avoids redundant refetches; one retry covers transient

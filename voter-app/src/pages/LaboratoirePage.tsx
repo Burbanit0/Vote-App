@@ -13,6 +13,7 @@ import { AnchorFallback, selectCls } from '../components/playground/playgroundFi
 import { useVotingLabels } from '../hooks/useVotingLabels';
 import { LEADER_RULES } from '../lib/scorecard';
 import { candidateColor } from '../lib/palette';
+import { track } from '../lib/analytics';
 import {
   LAB_FAMILIES,
   DEFAULT_EXPERIMENT,
@@ -183,9 +184,13 @@ const LaboratoireContent: React.FC = () => {
 
   const pick = (id: string) => {
     if (pickingVs) {
-      if (id !== active.experiment.id) setBench(active.experiment.id, id);
+      if (id !== active.experiment.id) {
+        track('lab_compare_opened', { fiche: active.experiment.id, vs: id });
+        setBench(active.experiment.id, id);
+      }
       setPickingVs(false);
     } else {
+      track('lab_fiche_opened', { fiche: id });
       setBench(id, vs && vs.experiment.id !== id ? vs.experiment.id : null);
     }
   };

@@ -11,6 +11,7 @@ import MomentRail, { MOMENTS } from '../components/playground/MomentRail';
 import InstrumentPanel from '../components/playground/InstrumentPanel';
 import GuidedFooter from '../components/playground/GuidedFooter';
 import StoryPlayer from '../components/playground/StoryPlayer';
+import { track } from '../lib/analytics';
 import ElectorateMoment from '../components/playground/moments/ElectorateMoment';
 import MethodMoment from '../components/playground/moments/MethodMoment';
 import StrategyMoment from '../components/playground/moments/StrategyMoment';
@@ -55,7 +56,10 @@ const ModeSwitch: React.FC = () => {
           role="radio"
           aria-checked={mode === id}
           data-testid={`mode-toggle-${id}`}
-          onClick={() => setMode(id)}
+          onClick={() => {
+            track('mode_toggled', { mode: id });
+            setMode(id);
+          }}
           className={cn(
             'rounded-full px-3.5 py-1.5 font-medium transition-all',
             mode === id

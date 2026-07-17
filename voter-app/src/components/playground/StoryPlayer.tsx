@@ -15,6 +15,7 @@ import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
 import { usePlaygroundCtx } from './PlaygroundController';
 import { STORIES, storyById, type Story, type StoryStep } from '../../lib/stories';
+import { track } from '../../lib/analytics';
 import type { ElectionConfig, PlaygroundState } from '../../stores/useElectionStore';
 import type { Rule } from '../../lib/playgroundVoting';
 import type { MomentId } from './MomentRail';
@@ -48,6 +49,8 @@ const StoryPlayer: React.FC = () => {
   const [active, setActive] = React.useState<Story | null>(null);
   const [stepIdx, setStepIdx] = React.useState(0);
   const snapshot = React.useRef<Snapshot | null>(null);
+  // One completion event per playthrough, however often the user scrubs the end.
+  const completed = React.useRef(false);
 
   // Apply one beat: patch only what the step declares, via the live setters.
   const applyStep = (step: StoryStep) => {
@@ -69,12 +72,18 @@ const StoryPlayer: React.FC = () => {
     setActive(story);
     setStepIdx(0);
     setPickerOpen(false);
+    completed.current = false;
+    track('story_started', { story: story.id });
     applyStep(story.steps[0]);
   };
 
   const goto = (idx: number) => {
     if (!active) return;
     const clamped = Math.max(0, Math.min(active.steps.length - 1, idx));
+    if (clamped === active.steps.length - 1 && !completed.current) {
+      completed.current = true;
+      track('story_completed', { story: active.id });
+    }
     setStepIdx(clamped);
     applyStep(active.steps[clamped]);
   };

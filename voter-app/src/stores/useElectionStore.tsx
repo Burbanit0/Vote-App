@@ -12,6 +12,7 @@
 import React, { useEffect } from 'react';
 import { create } from 'zustand';
 import type { Community } from '../lib/playgroundElectorate';
+import { track } from '../lib/analytics';
 
 export type { Community };
 
@@ -763,6 +764,7 @@ export const useElectionStore = create<ElectionState>((set) => ({
     set((s) => {
       const preset = PLAYGROUND_PRESETS.find((p) => p.id === id);
       if (!preset) return {};
+      track('preset_applied', { preset: id });
       const playground = { ...DEFAULT_PLAYGROUND, ...preset.playground };
       const config = { ...s.config, ...preset.electorate };
       savePlayground(playground);
