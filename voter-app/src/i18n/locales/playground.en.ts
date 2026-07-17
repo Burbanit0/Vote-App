@@ -1082,10 +1082,20 @@ const pgEn: PlaygroundKeys = {
       subtitle: 'Lijphart dial, Pareto frontier',
     },
     groups: {
+      methods: 'Methods',
       rules: 'Rules & strategy',
       systems: 'Systems & mechanisms',
       dynamics: 'Dynamics',
       theory: 'Theory & analysis',
+    },
+    compare: 'Compare',
+    comparePick:
+      'Pick the second experiment from the catalogue — it opens alongside, on the same electorate.',
+    compareStop: 'Close the comparison',
+    strip: {
+      voters: '{{n}} voters',
+      rule: 'Rule',
+      edit: 'Edit the electorate →',
     },
     matrix: {
       title: 'Method comparison',

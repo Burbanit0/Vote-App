@@ -1101,10 +1101,20 @@ const pgFr = {
       subtitle: 'cadran Lijphart, frontière de Pareto',
     },
     groups: {
+      methods: 'Méthodes',
       rules: 'Règles & stratégie',
       systems: 'Systèmes & mécanismes',
       dynamics: 'Dynamiques',
       theory: 'Théorie & analyse',
+    },
+    compare: 'Comparer',
+    comparePick:
+      'Choisissez la seconde expérience dans le catalogue — elle s’ouvrira à côté, sur le même électorat.',
+    compareStop: 'Fermer la comparaison',
+    strip: {
+      voters: '{{n}} électeurs',
+      rule: 'Règle',
+      edit: 'Modifier l’électorat →',
     },
     matrix: {
       title: 'Comparaison des méthodes',
