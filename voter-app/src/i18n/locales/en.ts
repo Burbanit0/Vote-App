@@ -36,6 +36,7 @@ const en: TranslationKeys = {
     logout: 'Log out',
     login: 'Log in',
     register: 'Create account',
+    reportBug: 'Report a bug',
   },
 
   home: {
