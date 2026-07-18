@@ -34,6 +34,7 @@ const fr = {
     logout: 'Déconnexion',
     login: 'Connexion',
     register: 'Créer un compte',
+    reportBug: 'Signaler un bug',
   },
 
   home: {
