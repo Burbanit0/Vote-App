@@ -125,6 +125,7 @@ const fr = {
     rulePick: 'Choisissez la règle',
     heroWinner: 'Vainqueur',
     heroFlip: '↔ bascule',
+    heroWhy: 'Comprendre pourquoi',
     heroCapPlurality: 'La gauche se divise : Bob gagne avec une minorité.',
     heroCapRunoff: 'Au second tour, la gauche se reporte sur Alice.',
     heroCapApproval: 'Largement approuvée, Carol fait consensus.',

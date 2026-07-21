@@ -126,6 +126,7 @@ const en: TranslationKeys = {
     rulePick: 'Pick the rule',
     heroWinner: 'Winner',
     heroFlip: '↔ flip',
+    heroWhy: 'Understand why',
     heroCapPlurality: 'The left splits: Bob wins with a minority.',
     heroCapRunoff: 'In the runoff, the left rallies to Alice.',
     heroCapApproval: 'Broadly approved, Carol is the consensus.',
