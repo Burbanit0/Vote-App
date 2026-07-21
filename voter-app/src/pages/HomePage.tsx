@@ -1,7 +1,7 @@
 import React, { useCallback, useEffect, useState } from 'react';
 import { Link, useNavigate } from 'react-router';
 import { useTranslation } from 'react-i18next';
-import { SlidersHorizontal } from 'lucide-react';
+import { SlidersHorizontal, Sparkles, ArrowRight } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { useMetaTags } from '../hooks/useMetaTags';
 import { useElection } from '../stores/useElectionStore';
@@ -50,16 +50,34 @@ const HomePage: React.FC = () => {
 
   return (
     // One screen, no scroll — but only where a screen actually has the room.
-    // The gate is width AND height: with the nine story cards on one panel the
-    // stack needs ~1020px of viewport, so shorter screens scroll normally rather
-    // than have content clipped off. Note the `_` in the arbitrary variant — a
-    // media query without spaces around `and` is invalid CSS and silently
-    // mis-matches.
+    // The gate is width AND height: with the nine story cards on one panel plus
+    // the newcomer banner (~37px), the stack needs ~1090px of viewport, so
+    // shorter screens scroll normally rather than have content clipped off. Note
+    // the `_` in the arbitrary variant — a media query without spaces around
+    // `and` is invalid CSS and silently mis-matches.
     <div
       data-style="tailwind"
-      className="flex min-h-[calc(100dvh-49px)] flex-col [@media(min-width:1024px)_and_(min-height:1020px)]:h-[calc(100dvh-49px)] [@media(min-width:1024px)_and_(min-height:1020px)]:min-h-0 [@media(min-width:1024px)_and_(min-height:1020px)]:overflow-hidden"
+      className="flex min-h-[calc(100dvh-49px)] flex-col [@media(min-width:1024px)_and_(min-height:1090px)]:h-[calc(100dvh-49px)] [@media(min-width:1024px)_and_(min-height:1090px)]:min-h-0 [@media(min-width:1024px)_and_(min-height:1090px)]:overflow-hidden"
     >
       <OnboardingTour run={tourRun} onFinish={() => setTourRun(false)} />
+
+      {/* ── Newcomer banner: the shortest path to /decouvrir, for the visitor who
+          doesn't yet know other voting methods exist. Thin (shrink-0) so it costs
+          the one-screen layout as little height as possible. */}
+      <Link
+        to="/decouvrir"
+        className="group flex shrink-0 items-center justify-center gap-2 border-b border-border bg-primary/10 px-4 py-2 text-center text-sm transition-colors hover:bg-primary/15"
+      >
+        <Sparkles aria-hidden className="h-4 w-4 shrink-0 text-primary" />
+        <span>
+          <span className="font-semibold">{t('home.discoverBannerLead')}</span>{' '}
+          <span className="text-muted-foreground">{t('home.discoverBannerText')}</span>
+        </span>
+        <ArrowRight
+          aria-hidden
+          className="h-4 w-4 shrink-0 text-primary transition-transform group-hover:translate-x-0.5"
+        />
+      </Link>
 
       {/* ── Hero: thesis ⟷ live instrument ──
           The hero takes NO leftover height (grow-0) — it is already the tallest
@@ -89,15 +107,22 @@ const HomePage: React.FC = () => {
                 </p>
               </div>
               <div>
+                {/* Découvrir leads (primary) — for a newcomer, learning the idea
+                    comes before the full instrument. The instrument is one click
+                    away as the secondary action. */}
                 <div className="flex flex-wrap items-center gap-3">
-                  <Button size="lg" variant="primary" className="px-5" onClick={openInstrument}>
+                  <Button size="lg" variant="primary" className="px-5" asChild>
+                    <Link to="/decouvrir">
+                      <Sparkles aria-hidden className="h-4 w-4" />
+                      {t('home.ctaDiscover')}
+                      <span className="ml-1.5 rounded bg-primary-foreground/20 px-1.5 py-0.5 text-[0.62rem] font-semibold">
+                        {t('home.discoverTag')}
+                      </span>
+                    </Link>
+                  </Button>
+                  <Button size="lg" variant="outline" onClick={openInstrument}>
                     <SlidersHorizontal aria-hidden className="h-4 w-4" />
                     {t('home.ctaOpen')} →
-                  </Button>
-                  {/* Newcomer on-ramp: /decouvrir teaches the concepts before the
-                      full instrument. The UI tour stays on the navbar "?" button. */}
-                  <Button size="lg" variant="outline" asChild>
-                    <Link to="/decouvrir">{t('home.ctaDiscover')}</Link>
                   </Button>
                 </div>
                 <p className="mt-2 font-mono text-[0.68rem] uppercase tracking-[0.12em] text-muted-foreground">
