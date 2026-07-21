@@ -43,6 +43,18 @@ describe('DecouvrirPage', () => {
     expect(winnerText()).toMatch(/Thaï/);
   });
 
+  it('the approval threshold slides the winner: favourite = Pizza, top two = Thaï, all = Tie', () => {
+    renderPage();
+    fireEvent.click(screen.getByRole('tab', { name: /Approval/i }));
+    expect(winnerText()).toMatch(/Thaï/); // default: approve top two
+
+    fireEvent.click(screen.getByRole('button', { name: 'their favourite' }));
+    expect(winnerText()).toMatch(/Pizza/); // approve one = plurality
+
+    fireEvent.click(screen.getByRole('button', { name: 'all of them' }));
+    expect(winnerText()).toMatch(/Tie/); // approve everyone = deadlock
+  });
+
   it('links onward to the first story and the instrument', () => {
     renderPage();
     expect(screen.getByRole('link', { name: /spoiler effect/i })).toHaveAttribute(

@@ -1,5 +1,13 @@
 import { describe, it, expect } from 'vitest';
-import { voteFrames, frameWinner, RANKS, SCORES, FOOD_COUNT, ELECTORATE } from './discoverVoteAnim';
+import {
+  voteFrames,
+  frameWinner,
+  approvalCountsForK,
+  RANKS,
+  SCORES,
+  FOOD_COUNT,
+  ELECTORATE,
+} from './discoverVoteAnim';
 import { ruleWinnerFromRanks, type Rule } from './playgroundVoting';
 
 const RULES: Rule[] = ['plurality', 'two_round', 'approval', 'condorcet'];
@@ -15,6 +23,16 @@ describe('discoverVoteAnim', () => {
       );
       expect(frameWinner(r), r).toBe(engine);
     }
+  });
+
+  it('the approval threshold slides the winner: favourite-only = plurality (Pizza), broader = Thaï', () => {
+    const c1 = approvalCountsForK(1); // approve only your first choice
+    expect(c1.indexOf(Math.max(...c1))).toBe(0); // Pizza — identical to plurality
+    const c2 = approvalCountsForK(2); // approve your two favourites
+    expect(c2.indexOf(Math.max(...c2))).toBe(2); // Thaï — the compromise
+    expect(c2[2]).toBe(ELECTORATE); // Thaï is in everyone's top two → all 12
+    const c3 = approvalCountsForK(3); // approve everyone → no discrimination
+    expect(new Set(c3).size).toBe(1); // a dead tie
   });
 
   it('the three methods do not all crown the same option (the whole point)', () => {

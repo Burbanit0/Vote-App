@@ -22,12 +22,14 @@ const prefersReducedMotion = () =>
   typeof window !== 'undefined' &&
   window.matchMedia?.('(prefers-reduced-motion: reduce)').matches === true;
 
-const DiscoverVoteAnimation: React.FC<{ rule: Rule; foods: readonly Food[] }> = ({
-  rule,
-  foods,
-}) => {
+const DiscoverVoteAnimation: React.FC<{
+  rule: Rule;
+  foods: readonly Food[];
+  /** Approval only: how many options each voter approves. Sliding it re-tallies. */
+  approvalK?: number;
+}> = ({ rule, foods, approvalK = 2 }) => {
   const { t } = useTranslation();
-  const frames = React.useMemo(() => voteFrames(rule), [rule]);
+  const frames = React.useMemo(() => voteFrames(rule, approvalK), [rule, approvalK]);
   const [idx, setIdx] = React.useState(0);
   const [grown, setGrown] = React.useState(false);
   // Bumping this replays the current method from the first frame.

@@ -2,10 +2,17 @@ import React from 'react';
 import { Link } from 'react-router';
 import { useTranslation } from 'react-i18next';
 import { ArrowRight, ListOrdered, Star, CheckSquare } from 'lucide-react';
+import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
 import { useMetaTags } from '../hooks/useMetaTags';
 import { ruleWinnerFromRanks, type Rule } from '../lib/playgroundVoting';
-import { GROUPS, RANKS, SCORES, FOOD_COUNT } from '../lib/discoverVoteAnim';
+import {
+  GROUPS,
+  RANKS,
+  FOOD_COUNT,
+  approvalScores,
+  approvalCountsForK,
+} from '../lib/discoverVoteAnim';
 import DiscoverVoteAnimation from '../components/home/DiscoverVoteAnimation';
 
 // DecouvrirPage — the on-ramp for someone who only knows the method their country
@@ -30,9 +37,15 @@ const DEMO_RULES: Rule[] = ['plurality', 'two_round', 'approval', 'condorcet'];
 const WHY_KEY: Record<string, string> = {
   plurality: 'discover.why.plurality',
   two_round: 'discover.why.two_round',
-  approval: 'discover.why.approval',
   condorcet: 'discover.why.condorcet',
 };
+// Approval cutoffs offered by the interactive threshold: approve your favourite
+// (= plurality), your two favourites (the compromise wins), or everyone (a tie).
+const APPROVAL_STOPS: { k: number; labelKey: string }[] = [
+  { k: 1, labelKey: 'discover.approve.k1' },
+  { k: 2, labelKey: 'discover.approve.k2' },
+  { k: 3, labelKey: 'discover.approve.k3' },
+];
 
 const FAMILIES = [
   { id: 'rank', Icon: ListOrdered },
@@ -44,15 +57,30 @@ const DecouvrirPage: React.FC = () => {
   const { t } = useTranslation();
   const { t: tp } = useTranslation('playground');
   const [rule, setRule] = React.useState<Rule>('plurality');
+  // Approval only: how many options each friend approves (the cutoff that decides).
+  const [approvalK, setApprovalK] = React.useState(2);
+  const activeIsApproval = rule === 'approval';
 
   useMetaTags({ title: `Vote Lab — ${t('discover.title')}`, description: t('discover.lede') });
 
+  // Under approval, everyone approving everyone is a dead tie — surface it as such
+  // rather than letting the argmax tie-break crown an arbitrary "winner".
+  const approvalTie = React.useMemo(
+    () => activeIsApproval && new Set(approvalCountsForK(approvalK)).size === 1,
+    [activeIsApproval, approvalK]
+  );
+
   const winner = React.useMemo(
-    () => ruleWinnerFromRanks(RANKS, FOOD_COUNT, rule, rule === 'approval' ? SCORES : undefined),
-    [rule]
+    () =>
+      ruleWinnerFromRanks(
+        RANKS,
+        FOOD_COUNT,
+        rule,
+        rule === 'approval' ? approvalScores(approvalK) : undefined
+      ),
+    [rule, approvalK]
   );
   const win = FOODS[winner] ?? FOODS[0];
-  const activeIsApproval = rule === 'approval';
 
   return (
     <div data-style="tailwind" className="min-h-[calc(100dvh-49px)]">
@@ -105,12 +133,27 @@ const DecouvrirPage: React.FC = () => {
                   {t('discover.friends', { n: g.n })}
                 </span>
                 <div className="flex items-center gap-1.5 text-lg">
-                  {g.rank.map((ci, pos) => (
-                    <React.Fragment key={ci}>
-                      {pos > 0 && <span className="text-xs text-muted-foreground">›</span>}
-                      <span title={FOODS[ci].name}>{FOODS[ci].emoji}</span>
-                    </React.Fragment>
-                  ))}
+                  {g.rank.map((ci, pos) => {
+                    // In approval mode, the top-k options are the ones this group
+                    // ticks — shown with a ✓ so the tally is visible, not asserted.
+                    const ticked = pos < approvalK;
+                    return (
+                      <React.Fragment key={ci}>
+                        {pos > 0 && <span className="text-xs text-muted-foreground">›</span>}
+                        <span
+                          title={FOODS[ci].name}
+                          className={cn('relative', activeIsApproval && !ticked && 'opacity-25')}
+                        >
+                          {FOODS[ci].emoji}
+                          {activeIsApproval && ticked && (
+                            <span className="absolute -right-1.5 -top-1 text-[0.6rem] font-bold text-primary">
+                              ✓
+                            </span>
+                          )}
+                        </span>
+                      </React.Fragment>
+                    );
+                  })}
                 </div>
               </li>
             ))}
@@ -157,19 +200,59 @@ const DecouvrirPage: React.FC = () => {
               {t('discover.winnerLabel')} · {tp(`rules.${rule}`)}
             </p>
             <p className="mt-1 flex items-center gap-3">
-              <span className="text-4xl leading-none">{win.emoji}</span>
+              <span className="text-4xl leading-none">{approvalTie ? '🤝' : win.emoji}</span>
               <span
                 data-testid="discover-winner"
                 className="font-display text-3xl font-bold text-primary"
               >
-                {win.name}
+                {approvalTie ? t('discover.approve.tie') : win.name}
               </span>
             </p>
 
-            {/* Key on the rule so switching methods restarts the animation. */}
-            <DiscoverVoteAnimation key={rule} rule={rule} foods={FOODS} />
+            {/* Approval's defining knob: how many each friend approves. Sliding it
+                slides the winner (favourite-only = plurality = Pizza). */}
+            {activeIsApproval && (
+              <div className="mt-3 flex flex-wrap items-center gap-2">
+                <span className="text-xs font-semibold text-muted-foreground">
+                  {t('discover.approve.threshold')}
+                </span>
+                <div
+                  className="flex flex-wrap gap-1.5"
+                  role="group"
+                  aria-label={t('discover.approve.threshold')}
+                >
+                  {APPROVAL_STOPS.map(({ k, labelKey }) => {
+                    const active = k === approvalK;
+                    return (
+                      <button
+                        key={k}
+                        type="button"
+                        aria-pressed={active}
+                        onClick={() => setApprovalK(k)}
+                        className={cn(
+                          'rounded-md border px-2.5 py-1 text-xs font-semibold transition-colors',
+                          active
+                            ? 'border-primary bg-primary text-primary-foreground'
+                            : 'border-border bg-card text-muted-foreground hover:border-primary/40 hover:text-foreground'
+                        )}
+                      >
+                        {t(labelKey)}
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
 
-            <p className="mt-3 text-sm leading-relaxed text-muted-foreground">{t(WHY_KEY[rule])}</p>
+            {/* Key on the rule so switching methods restarts the animation; the
+                approval threshold re-tallies in place (no remount). */}
+            <DiscoverVoteAnimation key={rule} rule={rule} foods={FOODS} approvalK={approvalK} />
+
+            {!activeIsApproval && (
+              <p className="mt-3 text-sm leading-relaxed text-muted-foreground">
+                {t(WHY_KEY[rule])}
+              </p>
+            )}
           </div>
         </div>
       </section>

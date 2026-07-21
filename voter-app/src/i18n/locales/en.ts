@@ -53,15 +53,25 @@ const en: TranslationKeys = {
       'Nobody changes their mind: these are the same twelve ballots throughout. Only the way of counting them changes — and the winner with it. Click a rule.',
     friends: '{{n}} friends',
     approveHint:
-      'Under approval, everyone ticks the restaurants that suit them (here, their two favourites).',
+      'Under approval, everyone ticks several restaurants (the ✓s), not just one. Set how many below and watch the winner move.',
     winnerLabel: 'Winner',
+    approve: {
+      threshold: 'Everyone approves:',
+      k1: 'their favourite',
+      k2: 'their top two',
+      k3: 'all of them',
+      tie: 'Tie',
+    },
     anim: {
       replay: 'Replay',
       plurality: 'Everyone puts their ballot on their single favourite. The most ballots wins.',
       tr1: 'First round: count first choices. Nobody has a majority (7 of 12).',
       tr2: 'Thaï, last, is eliminated — its 3 votes transfer to Sushi, which pulls ahead.',
-      ap1: 'Start again from the first choices…',
-      ap2: '…then everyone adds the other restaurants that suit them. Thaï, accepted by almost all, surges.',
+      ap_one:
+        'Everyone ticks only their favourite: that is exactly plurality. Pizza is back on top.',
+      ap_some:
+        'Everyone ticks the restaurants they accept. Thaï, in everyone’s top two, is approved by all 12.',
+      ap_all: 'If everyone ticks everything, nothing separates them: a tie.',
       cd1: 'Duel Thaï vs Pizza: 7 friends of 12 prefer Thaï. It wins.',
       cd2: 'Duel Thaï vs Sushi: 8 of 12 prefer Thaï. It wins both — the Condorcet winner.',
     },
@@ -69,7 +79,6 @@ const en: TranslationKeys = {
       plurality:
         'Pizza has the most first choices (5 of 12) — but a minority is enough, and nobody else wanted it.',
       two_round: 'Pizza and Sushi reach the runoff; the Thaï lovers prefer Sushi, which wins.',
-      approval: 'Almost everyone accepts Thaï, even without ranking it first: the consensus wins.',
       condorcet:
         'Thaï beats Pizza head-to-head, and beats Sushi too: the compromise a majority prefers to each rival.',
     },

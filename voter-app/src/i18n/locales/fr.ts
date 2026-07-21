@@ -50,15 +50,26 @@ const fr = {
     demoIntro:
       'Personne ne change d’avis : ce sont les mêmes douze bulletins tout du long. Seule la façon de les compter change — et le vainqueur avec elle. Cliquez une règle.',
     friends: '{{n}} amis',
-    approveHint: 'À l’approbation, chacun coche les restos qui lui vont (ici, ses deux préférés).',
+    approveHint:
+      'À l’approbation, chacun coche plusieurs restos (les ✓), pas un seul. Réglez combien ci-dessous et regardez le vainqueur bouger.',
     winnerLabel: 'Vainqueur',
+    approve: {
+      threshold: 'Chacun approuve :',
+      k1: 'son préféré',
+      k2: 'ses 2 préférés',
+      k3: 'tous',
+      tie: 'Égalité',
+    },
     anim: {
       replay: 'Rejouer',
       plurality: 'Chacun pose son bulletin sur son seul préféré. Le plus de bulletins l’emporte.',
       tr1: 'Premier tour : on compte les premiers choix. Personne n’a la majorité (7 sur 12).',
       tr2: 'Thaï, dernier, est éliminé — ses 3 voix se reportent sur Sushi, qui passe en tête.',
-      ap1: 'On repart des premiers choix…',
-      ap2: '…puis chacun ajoute les autres restos qui lui vont. Le Thaï, accepté par presque tous, s’envole.',
+      ap_one:
+        'Chacun ne coche que son préféré : c’est exactement la pluralité. Pizza repasse en tête.',
+      ap_some:
+        'Chacun coche ses restos acceptables. Le Thaï, dans le top 2 de tout le monde, est approuvé par les 12.',
+      ap_all: 'Si chacun coche tout, plus rien ne les départage : égalité.',
       cd1: 'Duel Thaï contre Pizza : 7 amis sur 12 préfèrent le Thaï. Il gagne.',
       cd2: 'Duel Thaï contre Sushi : 8 sur 12 préfèrent le Thaï. Il gagne les deux — c’est le vainqueur de Condorcet.',
     },
@@ -67,8 +78,6 @@ const fr = {
         'Pizza a le plus de premiers choix (5 sur 12) — mais une minorité suffit, et personne d’autre n’en voulait.',
       two_round:
         'Pizza et Sushi vont au second tour ; les amateurs de Thaï préfèrent Sushi, qui l’emporte.',
-      approval:
-        'Presque tout le monde accepte le Thaï, même sans le classer premier : le consensus gagne.',
       condorcet:
         'Le Thaï bat la Pizza en duel, et bat aussi le Sushi : c’est le compromis que la majorité préfère à chaque adversaire.',
     },
