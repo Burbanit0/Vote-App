@@ -54,24 +54,27 @@ const HomePage: React.FC = () => {
 
   return (
     // One screen, no scroll — but only where a screen actually has the room.
-    // The gate is width AND height: the sections need ~820px of viewport, and a
-    // short laptop or a phone must scroll rather than have content clipped off.
+    // The gate is width AND height: with the nine story cards on one panel the
+    // stack needs ~1020px of viewport, so shorter screens scroll normally rather
+    // than have content clipped off. Note the `_` in the arbitrary variant — a
+    // media query without spaces around `and` is invalid CSS and silently
+    // mis-matches.
     <div
       data-style="tailwind"
-      className="flex min-h-[calc(100dvh-49px)] flex-col [@media(min-width:1024px)and(min-height:820px)]:h-[calc(100dvh-49px)] [@media(min-width:1024px)and(min-height:820px)]:min-h-0 [@media(min-width:1024px)and(min-height:820px)]:overflow-hidden"
+      className="flex min-h-[calc(100dvh-49px)] flex-col [@media(min-width:1024px)_and_(min-height:1020px)]:h-[calc(100dvh-49px)] [@media(min-width:1024px)_and_(min-height:1020px)]:min-h-0 [@media(min-width:1024px)_and_(min-height:1020px)]:overflow-hidden"
     >
       <OnboardingTour run={tourRun} onFinish={() => setTourRun(false)} />
 
       {/* ── Hero: thesis ⟷ live instrument ──
-          Leftover vertical space is SHARED (hero 2 / journey 1 / stories 1)
-          instead of pooling in the hero: without this the hero floats in a void
-          and the two rails pile up at the bottom of the screen.
-          `grow-N` + `basis-auto`, never `flex-N` — the latter sets basis:0 and
-          sizes sections by ratio alone, which shrinks the hero under its own
-          instrument and clips it. */}
+          The hero takes NO leftover height (grow-0) — it is already the tallest
+          band; the slack goes to the two panels below (1 / 2) so the page reads
+          as three balanced blocks instead of one giant hero over two crammed
+          rails. `grow-N` + `basis-auto`, never `flex-N` — the latter sets
+          basis:0 and sizes sections by ratio alone, which shrinks the hero under
+          its own instrument and clips it. */}
       <section
         data-tour="hero"
-        className="flex flex-1 flex-col justify-center border-b border-border lg:grow lg:basis-auto"
+        className="flex flex-1 flex-col justify-center border-b border-border lg:grow-0 lg:basis-auto"
       >
         <div className="container mx-auto flex h-full max-w-6xl items-center px-4 py-4 sm:py-5">
           <div className="grid w-full items-center gap-6 lg:grid-cols-[1fr_minmax(0,26rem)]">
@@ -112,7 +115,7 @@ const HomePage: React.FC = () => {
 
       {/* ── The journey: five moments, one strip ── */}
       <section className="flex shrink-0 flex-col justify-center border-b border-border lg:grow lg:basis-auto">
-        <div className="container mx-auto w-full max-w-6xl px-4 py-3">
+        <div className="container mx-auto w-full max-w-6xl px-4 py-2.5">
           <div className="flex flex-wrap items-baseline justify-between gap-x-4 gap-y-1">
             <p className="font-mono text-[0.7rem] uppercase tracking-[0.22em] text-primary">
               {t('home.journeyKicker')}
@@ -144,25 +147,24 @@ const HomePage: React.FC = () => {
         </div>
       </section>
 
-      {/* ── Histoires: one horizontal rail, so nine stories cost one row ── */}
-      <section className="flex shrink-0 flex-col justify-center border-b border-border lg:grow lg:basis-auto">
-        <div className="container mx-auto w-full max-w-6xl px-4 py-3">
+      {/* ── Histoires: all nine on one panel, no rail to scroll ── */}
+      <section className="flex shrink-0 flex-col justify-center border-b border-border lg:grow-[2] lg:basis-auto">
+        <div className="container mx-auto w-full max-w-6xl px-4 py-2.5">
           <div className="flex flex-wrap items-baseline justify-between gap-x-4 gap-y-1">
             <p className="font-mono text-[0.7rem] uppercase tracking-[0.22em] text-primary">
               {tp('stories.launch')}
             </p>
             <p className="text-[0.72rem] text-muted-foreground">{tp('stories.launchHint')}</p>
           </div>
-          <ul className="mt-2 flex snap-x gap-2 overflow-x-auto pb-1">
+          <ul className="mt-2 grid grid-cols-1 gap-2 sm:grid-cols-2 lg:grid-cols-3">
             {STORIES.map((s) => (
-              <li key={s.id} className="shrink-0 snap-start">
+              <li key={s.id}>
                 <Link
                   to={`/playground?story=${s.id}`}
-                  title={tp(s.taglineKey)}
-                  className="group flex w-52 flex-col gap-0.5 rounded-lg border border-border bg-card px-2.5 py-1.5 transition-colors hover:border-primary/40 hover:bg-accent/40"
+                  className="group flex h-full flex-col gap-1 rounded-lg border border-border bg-card px-3 py-2 transition-colors hover:border-primary/40 hover:bg-accent/40"
                 >
                   <span className="flex items-baseline justify-between gap-2">
-                    <span className="truncate font-display text-[0.8rem] font-semibold leading-tight group-hover:text-primary">
+                    <span className="font-display text-sm font-semibold leading-tight group-hover:text-primary">
                       {tp(s.titleKey)}
                     </span>
                     {/* Which instrument the story opens — the two have separate story sets. */}
@@ -170,7 +172,7 @@ const HomePage: React.FC = () => {
                       {tp(s.mode === 'leader' ? 'mode.leader' : 'mode.assembly')}
                     </span>
                   </span>
-                  <span className="truncate text-[0.7rem] leading-snug text-muted-foreground">
+                  <span className="text-[0.75rem] leading-snug text-muted-foreground">
                     {tp(s.taglineKey)}
                   </span>
                 </Link>
