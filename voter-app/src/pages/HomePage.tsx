@@ -15,6 +15,7 @@ import { STORIES } from '../lib/stories';
 // live (HeroInstrument); everything below funnels to /playground.
 
 const FOOTER_LINKS = [
+  { href: '/decouvrir', key: 'home.ctaDiscover' },
   { href: '/playground', key: 'nav.playground' },
   { href: '/laboratoire', key: 'nav.laboratoire' },
 ];
@@ -31,12 +32,7 @@ const HomePage: React.FC = () => {
     description: t('home.heroLede'),
   });
 
-  // Preserve the guided onboarding tour + its ?tour=1 deep link from the navbar.
-  const startTour = useCallback(() => {
-    localStorage.removeItem('tour_completed');
-    setTourRun(false);
-    setTimeout(() => setTourRun(true), 100);
-  }, []);
+  // The onboarding tour is started from the navbar "?" (a ?tour=1 deep link).
   useEffect(() => {
     // Only the navbar's "?tour=1" deep link (or the button) starts the tour — the
     // landing page leads with the instrument, not a popup.
@@ -98,8 +94,10 @@ const HomePage: React.FC = () => {
                     <SlidersHorizontal aria-hidden className="h-4 w-4" />
                     {t('home.ctaOpen')} →
                   </Button>
-                  <Button size="lg" variant="outline" onClick={startTour}>
-                    {t('home.ctaGuided')}
+                  {/* Newcomer on-ramp: /decouvrir teaches the concepts before the
+                      full instrument. The UI tour stays on the navbar "?" button. */}
+                  <Button size="lg" variant="outline" asChild>
+                    <Link to="/decouvrir">{t('home.ctaDiscover')}</Link>
                   </Button>
                 </div>
                 <p className="mt-2 font-mono text-[0.68rem] uppercase tracking-[0.12em] text-muted-foreground">

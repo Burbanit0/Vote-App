@@ -39,6 +39,64 @@ const en: TranslationKeys = {
     reportBug: 'Report a bug',
   },
 
+  discover: {
+    eyebrow: 'Understand it in 3 minutes',
+    title: 'There is more than one way to vote — and they don’t pick the same winner.',
+    lede: 'Most of us know only one: the one our elections use. Here, without jargon, is what changes when you count the votes differently.',
+    s1Kicker: 'The starting point',
+    s1Title: 'You already know one method.',
+    s1Body:
+      'Many countries vote by plurality or a two-round runoff: everyone names one candidate, first choices are counted, and if nobody has a majority the top two face off in a second round. It is one rule among many — not a law of nature.',
+    demoKicker: 'The flip',
+    demoTitle: 'Twelve friends, one restaurant.',
+    demoIntro:
+      'Nobody changes their mind: these are the same twelve ballots throughout. Only the way of counting them changes — and the winner with it. Click a rule.',
+    friends: '{{n}} friends',
+    approveHint:
+      'Under approval, everyone ticks the restaurants that suit them (here, their two favourites).',
+    winnerLabel: 'Winner',
+    how: {
+      plurality: 'Plurality: everyone names only their favourite, the most-named wins.',
+      two_round:
+        'Two-round: the two most-named face off, and everyone backs whichever of the two they prefer.',
+      approval: 'Approval: instead of one name, everyone ticks every restaurant that suits them.',
+      condorcet: 'Condorcet: run every one-on-one duel; the winner is the one who wins them all.',
+    },
+    why: {
+      plurality:
+        'Pizza has the most first choices (5 of 12) — but a minority is enough, and nobody else wanted it.',
+      two_round: 'Pizza and Sushi reach the runoff; the Thaï lovers prefer Sushi, which wins.',
+      approval: 'Almost everyone accepts Thaï, even without ranking it first: the consensus wins.',
+      condorcet:
+        'Thaï beats Pizza head-to-head, and beats Sushi too: the compromise a majority prefers to each rival.',
+    },
+    famKicker: 'The map',
+    famTitle: 'Three broad ways to express a choice.',
+    fam: {
+      rank: {
+        title: 'Rank',
+        desc: 'You order the candidates, favourite to last. That lets us look at transfers and duels.',
+        ex: 'Two-round · Condorcet · Borda',
+      },
+      score: {
+        title: 'Score',
+        desc: 'You give each one a score or a grade. Felt quality counts, not just the order.',
+        ex: 'Score · Majority judgment · STAR',
+      },
+      approve: {
+        title: 'Approve',
+        desc: 'You tick everyone who suits you, without ranking them. Simple, and it rewards consensus.',
+        ex: 'Approval voting',
+      },
+    },
+    playKicker: 'Your turn',
+    playTitle: 'Now watch it on a real electorate.',
+    playBody:
+      'The restaurant was just a taste. In the instrument, drag the candidates, change the rule, and watch the winner flip across thousands of voters.',
+    playStory: 'Start with the spoiler effect',
+    playInstrument: 'Open the instrument',
+  },
+
   home: {
     eyebrow: 'Vote Lab · a laboratory of voting theory',
     h1Line1: 'The method decides,',
@@ -46,6 +104,7 @@ const en: TranslationKeys = {
     heroLede:
       'Same ballots, another rule, another winner. Change the rule on the right — the winner flips before your eyes.',
     ctaOpen: 'Open the instrument',
+    ctaDiscover: 'Discover',
     ctaGuided: 'Guided tour',
     reassure: 'Free · no account · 15 methods · FR / EN',
     heroInstrLabel: 'Ideology map — demo',

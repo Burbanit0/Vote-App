@@ -37,6 +37,67 @@ const fr = {
     reportBug: 'Signaler un bug',
   },
 
+  discover: {
+    eyebrow: 'Comprendre en 3 minutes',
+    title: 'Il existe plusieurs façons de voter — et elles ne donnent pas le même gagnant.',
+    lede: 'La plupart d’entre nous n’en connaissent qu’une : celle de nos élections. Voici, sans jargon, ce qui change quand on compte les voix autrement.',
+    s1Kicker: 'Le point de départ',
+    s1Title: 'Vous connaissez déjà une méthode.',
+    s1Body:
+      'En France, on vote au scrutin majoritaire à deux tours : chacun choisit un nom, on compte les premiers choix, et si personne n’a la majorité, les deux premiers s’affrontent au second tour. C’est une règle parmi beaucoup d’autres — pas une loi de la nature.',
+    demoKicker: 'La bascule',
+    demoTitle: 'Douze amis, un restaurant.',
+    demoIntro:
+      'Personne ne change d’avis : ce sont les mêmes douze bulletins tout du long. Seule la façon de les compter change — et le vainqueur avec elle. Cliquez une règle.',
+    friends: '{{n}} amis',
+    approveHint: 'À l’approbation, chacun coche les restos qui lui vont (ici, ses deux préférés).',
+    winnerLabel: 'Vainqueur',
+    how: {
+      plurality: 'Scrutin majoritaire : chacun ne cite que son préféré, le plus cité gagne.',
+      two_round:
+        'Deux tours : les deux plus cités s’affrontent, et chacun se reporte sur celui qu’il préfère des deux.',
+      approval:
+        'Approbation : au lieu d’un seul nom, chacun coche tous les restos qui lui conviennent.',
+      condorcet:
+        'Condorcet : on organise tous les duels un-contre-un ; gagne celui qui les remporte tous.',
+    },
+    why: {
+      plurality:
+        'Pizza a le plus de premiers choix (5 sur 12) — mais une minorité suffit, et personne d’autre n’en voulait.',
+      two_round:
+        'Pizza et Sushi vont au second tour ; les amateurs de Thaï préfèrent Sushi, qui l’emporte.',
+      approval:
+        'Presque tout le monde accepte le Thaï, même sans le classer premier : le consensus gagne.',
+      condorcet:
+        'Le Thaï bat la Pizza en duel, et bat aussi le Sushi : c’est le compromis que la majorité préfère à chaque adversaire.',
+    },
+    famKicker: 'La carte',
+    famTitle: 'Trois grandes façons d’exprimer un choix.',
+    fam: {
+      rank: {
+        title: 'Classer',
+        desc: 'Vous ordonnez les candidats, du préféré au dernier. On peut alors regarder les reports et les duels.',
+        ex: 'Deux tours · Condorcet · Borda',
+      },
+      score: {
+        title: 'Noter',
+        desc: 'Vous donnez une note ou une mention à chacun. La qualité ressentie compte, pas seulement l’ordre.',
+        ex: 'Note · Jugement majoritaire · STAR',
+      },
+      approve: {
+        title: 'Approuver',
+        desc: 'Vous cochez tous ceux qui vous conviennent, sans les départager. Simple, et ça favorise le consensus.',
+        ex: 'Vote par approbation',
+      },
+    },
+    playKicker: 'À vous',
+    playTitle: 'Maintenant, voyez-le sur un vrai électorat.',
+    playBody:
+      'Le restaurant n’était qu’un aperçu. Dans l’instrument, déplacez les candidats, changez la règle, et regardez le vainqueur basculer sur des milliers d’électeurs.',
+    playStory: 'Commencer par l’effet spoiler',
+    playInstrument: 'Ouvrir l’instrument',
+  },
+
   home: {
     eyebrow: 'Vote Lab · laboratoire de théorie du vote',
     h1Line1: 'La méthode décide,',
@@ -44,6 +105,7 @@ const fr = {
     heroLede:
       'Mêmes bulletins, autre règle, autre gagnant. Changez la règle ci-contre — le vainqueur bascule sous vos yeux.',
     ctaOpen: 'Ouvrir l’instrument',
+    ctaDiscover: 'Découvrir',
     ctaGuided: 'Parcours guidé',
     reassure: 'Gratuit · sans compte · 15 méthodes · FR / EN',
     heroInstrLabel: 'Carte idéologique — démo',
