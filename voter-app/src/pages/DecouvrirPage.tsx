@@ -5,46 +5,28 @@ import { ArrowRight, ListOrdered, Star, CheckSquare } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { useMetaTags } from '../hooks/useMetaTags';
 import { ruleWinnerFromRanks, type Rule } from '../lib/playgroundVoting';
+import { GROUPS, RANKS, SCORES, FOOD_COUNT } from '../lib/discoverVoteAnim';
+import DiscoverVoteAnimation from '../components/home/DiscoverVoteAnimation';
 
 // DecouvrirPage — the on-ramp for someone who only knows the method their country
 // uses. Four beats: Anchor (you already know one way to vote) → Rupture (same
-// ballots, a different winner) → Map (three families, plain words) → Play (go do
-// it on a real electorate). The rupture demo runs the SAME client engine the
-// Playground uses (ruleWinnerFromRanks over fixed ballots), so the "aha" is
+// ballots, a different winner, counted before your eyes) → Map (three families,
+// plain words) → Play (go do it on a real electorate). The rupture demo runs the
+// SAME client engine the Playground uses (ruleWinnerFromRanks over fixed ballots)
+// and its animation frames are computed from the same ballots, so the "aha" is
 // computed, never illustrated — if a rule changes, the demo changes with it.
 
-// ── The fixed profile: 12 friends, one restaurant ─────────────────────────────
-// A genuine centre-squeeze — Pizza has the most first choices but nobody else's
-// second; Thaï is the compromise everyone accepts. Verified winners:
-//   plurality → Pizza · two_round/irv → Sushi · approval/condorcet/borda → Thaï
+// The 12-friends / one-restaurant profile lives in lib/discoverVoteAnim (shared
+// with the animation). Here we only need the food faces (emoji + name); indices
+// line up with that profile: Pizza=0, Sushi=1, Thaï=2.
 const FOODS = [
   { emoji: '🍕', name: 'Pizza' },
   { emoji: '🍣', name: 'Sushi' },
   { emoji: '🍜', name: 'Thaï' },
 ] as const;
 
-const GROUPS = [
-  { n: 5, rank: [0, 2, 1], approve: [1, 0, 1] }, // 🍕 › 🍜 › 🍣  (approuve Pizza + Thaï)
-  { n: 4, rank: [1, 2, 0], approve: [0, 1, 1] }, // 🍣 › 🍜 › 🍕  (approuve Sushi + Thaï)
-  { n: 3, rank: [2, 1, 0], approve: [0, 1, 1] }, // 🍜 › 🍣 › 🍕  (approuve Thaï + Sushi)
-];
-
-const RANKS: number[][] = [];
-const SCORES: number[][] = [];
-for (const g of GROUPS)
-  for (let i = 0; i < g.n; i++) {
-    RANKS.push(g.rank);
-    SCORES.push(g.approve);
-  }
-
 // The four rules the demo flips between, in teaching order (familiar → surprising).
 const DEMO_RULES: Rule[] = ['plurality', 'two_round', 'approval', 'condorcet'];
-const HOW_KEY: Record<string, string> = {
-  plurality: 'discover.how.plurality',
-  two_round: 'discover.how.two_round',
-  approval: 'discover.how.approval',
-  condorcet: 'discover.how.condorcet',
-};
 const WHY_KEY: Record<string, string> = {
   plurality: 'discover.why.plurality',
   two_round: 'discover.why.two_round',
@@ -66,7 +48,7 @@ const DecouvrirPage: React.FC = () => {
   useMetaTags({ title: `Vote Lab — ${t('discover.title')}`, description: t('discover.lede') });
 
   const winner = React.useMemo(
-    () => ruleWinnerFromRanks(RANKS, FOODS.length, rule, rule === 'approval' ? SCORES : undefined),
+    () => ruleWinnerFromRanks(RANKS, FOOD_COUNT, rule, rule === 'approval' ? SCORES : undefined),
     [rule]
   );
   const win = FOODS[winner] ?? FOODS[0];
@@ -165,7 +147,8 @@ const DecouvrirPage: React.FC = () => {
             })}
           </div>
 
-          {/* Winner + why. aria-live so the flip is announced, not just seen. */}
+          {/* The count, played out — then the winner + why. aria-live so the
+              flip is announced to a screen reader, not only seen. */}
           <div
             aria-live="polite"
             className="mt-4 rounded-xl border border-primary/40 bg-card p-4 sm:p-5"
@@ -182,8 +165,11 @@ const DecouvrirPage: React.FC = () => {
                 {win.name}
               </span>
             </p>
-            <p className="mt-3 text-sm leading-relaxed text-foreground">{t(HOW_KEY[rule])}</p>
-            <p className="mt-1 text-sm leading-relaxed text-muted-foreground">{t(WHY_KEY[rule])}</p>
+
+            {/* Key on the rule so switching methods restarts the animation. */}
+            <DiscoverVoteAnimation key={rule} rule={rule} foods={FOODS} />
+
+            <p className="mt-3 text-sm leading-relaxed text-muted-foreground">{t(WHY_KEY[rule])}</p>
           </div>
         </div>
       </section>

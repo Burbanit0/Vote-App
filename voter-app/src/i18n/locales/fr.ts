@@ -52,14 +52,15 @@ const fr = {
     friends: '{{n}} amis',
     approveHint: 'À l’approbation, chacun coche les restos qui lui vont (ici, ses deux préférés).',
     winnerLabel: 'Vainqueur',
-    how: {
-      plurality: 'Scrutin majoritaire : chacun ne cite que son préféré, le plus cité gagne.',
-      two_round:
-        'Deux tours : les deux plus cités s’affrontent, et chacun se reporte sur celui qu’il préfère des deux.',
-      approval:
-        'Approbation : au lieu d’un seul nom, chacun coche tous les restos qui lui conviennent.',
-      condorcet:
-        'Condorcet : on organise tous les duels un-contre-un ; gagne celui qui les remporte tous.',
+    anim: {
+      replay: 'Rejouer',
+      plurality: 'Chacun pose son bulletin sur son seul préféré. Le plus de bulletins l’emporte.',
+      tr1: 'Premier tour : on compte les premiers choix. Personne n’a la majorité (7 sur 12).',
+      tr2: 'Thaï, dernier, est éliminé — ses 3 voix se reportent sur Sushi, qui passe en tête.',
+      ap1: 'On repart des premiers choix…',
+      ap2: '…puis chacun ajoute les autres restos qui lui vont. Le Thaï, accepté par presque tous, s’envole.',
+      cd1: 'Duel Thaï contre Pizza : 7 amis sur 12 préfèrent le Thaï. Il gagne.',
+      cd2: 'Duel Thaï contre Sushi : 8 sur 12 préfèrent le Thaï. Il gagne les deux — c’est le vainqueur de Condorcet.',
     },
     why: {
       plurality:

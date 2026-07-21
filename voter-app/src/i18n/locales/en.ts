@@ -55,12 +55,15 @@ const en: TranslationKeys = {
     approveHint:
       'Under approval, everyone ticks the restaurants that suit them (here, their two favourites).',
     winnerLabel: 'Winner',
-    how: {
-      plurality: 'Plurality: everyone names only their favourite, the most-named wins.',
-      two_round:
-        'Two-round: the two most-named face off, and everyone backs whichever of the two they prefer.',
-      approval: 'Approval: instead of one name, everyone ticks every restaurant that suits them.',
-      condorcet: 'Condorcet: run every one-on-one duel; the winner is the one who wins them all.',
+    anim: {
+      replay: 'Replay',
+      plurality: 'Everyone puts their ballot on their single favourite. The most ballots wins.',
+      tr1: 'First round: count first choices. Nobody has a majority (7 of 12).',
+      tr2: 'Thaï, last, is eliminated — its 3 votes transfer to Sushi, which pulls ahead.',
+      ap1: 'Start again from the first choices…',
+      ap2: '…then everyone adds the other restaurants that suit them. Thaï, accepted by almost all, surges.',
+      cd1: 'Duel Thaï vs Pizza: 7 friends of 12 prefer Thaï. It wins.',
+      cd2: 'Duel Thaï vs Sushi: 8 of 12 prefer Thaï. It wins both — the Condorcet winner.',
     },
     why: {
       plurality:
