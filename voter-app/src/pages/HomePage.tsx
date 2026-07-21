@@ -53,43 +53,56 @@ const HomePage: React.FC = () => {
   }, [applyScenario, navigate]);
 
   return (
-    // One screen, no scroll — but only where a screen actually has the room:
-    // below `lg` the page falls back to normal vertical scrolling rather than
-    // clipping content on a phone.
+    // One screen, no scroll — but only where a screen actually has the room.
+    // The gate is width AND height: the sections need ~820px of viewport, and a
+    // short laptop or a phone must scroll rather than have content clipped off.
     <div
       data-style="tailwind"
-      className="flex min-h-[calc(100dvh-49px)] flex-col lg:h-[calc(100dvh-49px)] lg:min-h-0 lg:overflow-hidden"
+      className="flex min-h-[calc(100dvh-49px)] flex-col [@media(min-width:1024px)and(min-height:820px)]:h-[calc(100dvh-49px)] [@media(min-width:1024px)and(min-height:820px)]:min-h-0 [@media(min-width:1024px)and(min-height:820px)]:overflow-hidden"
     >
       <OnboardingTour run={tourRun} onFinish={() => setTourRun(false)} />
 
-      {/* ── Hero: thesis ⟷ live instrument ── */}
-      <section data-tour="hero" className="flex-1 border-b border-border lg:min-h-0">
+      {/* ── Hero: thesis ⟷ live instrument ──
+          Leftover vertical space is SHARED (hero 2 / journey 1 / stories 1)
+          instead of pooling in the hero: without this the hero floats in a void
+          and the two rails pile up at the bottom of the screen.
+          `grow-N` + `basis-auto`, never `flex-N` — the latter sets basis:0 and
+          sizes sections by ratio alone, which shrinks the hero under its own
+          instrument and clips it. */}
+      <section
+        data-tour="hero"
+        className="flex flex-1 flex-col justify-center border-b border-border lg:grow lg:basis-auto"
+      >
         <div className="container mx-auto flex h-full max-w-6xl items-center px-4 py-4 sm:py-5">
           <div className="grid w-full items-center gap-6 lg:grid-cols-[1fr_minmax(0,26rem)]">
-            <div>
-              <p className="font-mono text-[0.7rem] uppercase tracking-[0.22em] text-primary">
-                {t('home.eyebrow')}
-              </p>
-              <h1 className="mt-2 font-display text-3xl font-bold leading-[1.08] tracking-tight sm:text-4xl">
-                {t('home.h1Line1')}
-                <br />
-                <span className="text-primary">{t('home.h1Line2')}</span>
-              </h1>
-              <p className="mt-3 max-w-md text-sm leading-relaxed text-muted-foreground">
-                {t('home.heroLede')}
-              </p>
-              <div className="mt-4 flex flex-wrap items-center gap-3">
-                <Button size="lg" variant="primary" className="px-5" onClick={openInstrument}>
-                  <SlidersHorizontal aria-hidden className="h-4 w-4" />
-                  {t('home.ctaOpen')} →
-                </Button>
-                <Button size="lg" variant="outline" onClick={startTour}>
-                  {t('home.ctaGuided')}
-                </Button>
+            <div className="flex flex-col justify-center gap-5">
+              <div>
+                <p className="font-mono text-[0.7rem] uppercase tracking-[0.22em] text-primary">
+                  {t('home.eyebrow')}
+                </p>
+                <h1 className="mt-2 font-display text-3xl font-bold leading-[1.08] tracking-tight sm:text-4xl xl:text-5xl">
+                  {t('home.h1Line1')}
+                  <br />
+                  <span className="text-primary">{t('home.h1Line2')}</span>
+                </h1>
+                <p className="mt-3 max-w-md text-sm leading-relaxed text-muted-foreground">
+                  {t('home.heroLede')}
+                </p>
               </div>
-              <p className="mt-2 font-mono text-[0.68rem] uppercase tracking-[0.12em] text-muted-foreground">
-                {t('home.reassure')}
-              </p>
+              <div>
+                <div className="flex flex-wrap items-center gap-3">
+                  <Button size="lg" variant="primary" className="px-5" onClick={openInstrument}>
+                    <SlidersHorizontal aria-hidden className="h-4 w-4" />
+                    {t('home.ctaOpen')} →
+                  </Button>
+                  <Button size="lg" variant="outline" onClick={startTour}>
+                    {t('home.ctaGuided')}
+                  </Button>
+                </div>
+                <p className="mt-2 font-mono text-[0.68rem] uppercase tracking-[0.12em] text-muted-foreground">
+                  {t('home.reassure')}
+                </p>
+              </div>
             </div>
 
             <HeroInstrument />
@@ -98,8 +111,8 @@ const HomePage: React.FC = () => {
       </section>
 
       {/* ── The journey: five moments, one strip ── */}
-      <section className="shrink-0 border-b border-border">
-        <div className="container mx-auto max-w-6xl px-4 py-3">
+      <section className="flex shrink-0 flex-col justify-center border-b border-border lg:grow lg:basis-auto">
+        <div className="container mx-auto w-full max-w-6xl px-4 py-3">
           <div className="flex flex-wrap items-baseline justify-between gap-x-4 gap-y-1">
             <p className="font-mono text-[0.7rem] uppercase tracking-[0.22em] text-primary">
               {t('home.journeyKicker')}
@@ -132,8 +145,8 @@ const HomePage: React.FC = () => {
       </section>
 
       {/* ── Histoires: one horizontal rail, so nine stories cost one row ── */}
-      <section className="shrink-0 border-b border-border">
-        <div className="container mx-auto max-w-6xl px-4 py-3">
+      <section className="flex shrink-0 flex-col justify-center border-b border-border lg:grow lg:basis-auto">
+        <div className="container mx-auto w-full max-w-6xl px-4 py-3">
           <div className="flex flex-wrap items-baseline justify-between gap-x-4 gap-y-1">
             <p className="font-mono text-[0.7rem] uppercase tracking-[0.22em] text-primary">
               {tp('stories.launch')}
