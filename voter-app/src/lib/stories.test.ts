@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { STORIES, storyById, type StoryStep } from './stories';
+import { STORIES, storiesForMode, storyById, type StoryStep } from './stories';
 import { sampleVoters, fieldWinnerName, type NamedPt, type Dims } from './playgroundVoting';
 import { composeElectorate } from './playgroundElectorate';
 import type { PlaygroundState } from '../stores/useElectionStore';
@@ -86,13 +86,39 @@ describe('stories — registry integrity', () => {
     for (const s of STORIES) expect(s.steps.length).toBeGreaterThan(0);
   });
 
-  it('the first step of every story sets mode, rule, a moment and a space', () => {
+  it('the first step of every story sets its mode, a moment and a space (+ a rule in leader mode)', () => {
     for (const s of STORIES) {
       const first: StoryStep = s.steps[0];
-      expect(first.mode, s.id).toBeTruthy();
-      expect(first.rule, s.id).toBeTruthy();
+      expect(first.mode, s.id).toBe(s.mode);
       expect(first.moment, s.id).toBeTruthy();
       expect(first.playground?.space, s.id).toBeTruthy();
+      if (s.mode === 'leader') expect(first.rule, s.id).toBeTruthy();
+    }
+  });
+
+  it('storiesForMode partitions the registry and both instruments have stories', () => {
+    const leader = storiesForMode('leader');
+    const parliament = storiesForMode('parliament');
+    expect(leader.length).toBeGreaterThan(0);
+    expect(parliament.length).toBeGreaterThan(0);
+    expect(leader.length + parliament.length).toBe(STORIES.length);
+  });
+
+  it('parliament stories patch a COMPLETE assembly object (setPlayground merges shallowly)', () => {
+    const keys = ['structure', 'seats', 'threshold', 'apportionment', 'strategic_desertion'];
+    for (const s of storiesForMode('parliament')) {
+      for (const step of s.steps) {
+        const asm = step.playground?.assembly;
+        if (!asm) continue;
+        for (const k of keys) expect(asm, `${s.id}/${step.id}`).toHaveProperty(k);
+      }
+    }
+    // …and at least one step per parliament story must actually move an assembly knob.
+    for (const s of storiesForMode('parliament')) {
+      expect(
+        s.steps.some((st) => st.playground?.assembly),
+        s.id
+      ).toBe(true);
     }
   });
 });

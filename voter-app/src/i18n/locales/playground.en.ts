@@ -109,6 +109,36 @@ const pgEn: PlaygroundKeys = {
           'Approval voting crowns Bayrou too. Bottom line: several possible presidents for one electorate — the method is not neutral.',
       },
     },
+    seuil: {
+      title: 'The threshold that erases',
+      tagline: 'A 5 % bar does not just remove seats: it moves votes.',
+      steps: {
+        pur: 'Pure proportional representation, 100 seats, no threshold. Five parties, and the Sovereignists — 3.4 % of the vote — take 3 seats. The assembly is a near-exact mirror of the electorate.',
+        barre:
+          'Switch the 5 % threshold on: the Sovereignists drop to zero seats. Their 3.4 % becomes wasted votes, and their seats are redistributed to the parties already represented.',
+        desertion:
+          'Now add strategic voting: knowing the threshold dooms their party, those voters defect to the Right, which climbs from 21 % to 25 %. The threshold did not merely erase a party — it manufactured a majority elsewhere.',
+      },
+    },
+    structures: {
+      title: 'One vote, three parliaments',
+      tagline: 'Same ballots, same parties: proportional, first-past-the-post, or mixed?',
+      steps: {
+        pr: 'National proportional representation: every party gets roughly its vote share. The Gallagher index (votes-to-seats distortion) is very low.',
+        fptp: 'Switch to single-member districts: the Centre, on 35 % of the vote, takes 41 % of the seats, while the Greens — on 19 % — fall to 9 %, having no district majority anywhere. Nearly a third of all votes now count for nothing.',
+        mmp: 'Under mixed-member proportional, local winners are kept but compensatory seats restore the proportions: the fidelity of PR without giving up territorial representation.',
+      },
+    },
+    diviseur: {
+      title: 'The divisor decides',
+      tagline: 'Two ways to round proportional representation — two assemblies.',
+      steps: {
+        dhondt:
+          'A 21-seat assembly, no threshold, D’Hondt method. The Centre takes 8 seats and the Sovereignists none: D’Hondt systematically rounds in favour of the large parties.',
+        sainteLague:
+          'Same electorate, Sainte-Laguë method: the Centre falls back to 7 seats and the Sovereignists gain 1. No voter changed their mind — only the rounding formula did.',
+      },
+    },
   },
   common: {
     loading: 'Loading…',

@@ -151,8 +151,14 @@ const HomePage: React.FC = () => {
                   to={`/playground?story=${s.id}`}
                   className="group flex h-full flex-col gap-1 rounded-xl border border-border bg-card p-3 transition-colors hover:border-primary/40 hover:bg-accent/40"
                 >
-                  <span className="font-display text-sm font-semibold leading-tight group-hover:text-primary">
-                    {tp(s.titleKey)}
+                  <span className="flex items-baseline justify-between gap-2">
+                    <span className="font-display text-sm font-semibold leading-tight group-hover:text-primary">
+                      {tp(s.titleKey)}
+                    </span>
+                    {/* Which instrument the story opens — the two have separate story sets. */}
+                    <span className="shrink-0 font-mono text-[0.6rem] uppercase tracking-[0.12em] text-muted-foreground">
+                      {tp(s.mode === 'leader' ? 'mode.leader' : 'mode.assembly')}
+                    </span>
                   </span>
                   <span className="text-[0.72rem] leading-snug text-muted-foreground">
                     {tp(s.taglineKey)}

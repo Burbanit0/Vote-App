@@ -13,11 +13,14 @@ const setLeaderRule = vi.fn();
 const setActiveMoment = vi.fn();
 const SNAP_CONFIG = { ...DEFAULT_CONFIG, seed: 999 };
 const SNAP_PLAYGROUND = { ...DEFAULT_PLAYGROUND, behavior: 'strategic' as const };
+// Mutable so a test can flip the Dirigeant/Assemblée toggle between renders.
+const ctxState = { mode: 'leader' as 'leader' | 'parliament' };
 
 vi.mock('../PlaygroundController', () => ({
   usePlaygroundCtx: () => ({
     config: SNAP_CONFIG,
     playground: SNAP_PLAYGROUND,
+    mode: ctxState.mode,
     leaderRule: 'borda',
     activeMoment: 'campaign',
     setConfig,
@@ -32,6 +35,7 @@ import StoryPlayer from '../StoryPlayer';
 
 beforeEach(() => {
   vi.clearAllMocks();
+  ctxState.mode = 'leader';
   window.history.replaceState({}, '', '/playground');
 });
 
@@ -81,6 +85,34 @@ describe('StoryPlayer', () => {
     // Back to the idle launcher.
     expect(screen.getByTestId('story-launch')).toBeInTheDocument();
     expect(screen.queryByTestId('story-bar')).not.toBeInTheDocument();
+  });
+
+  it('the picker only offers the stories of the current instrument', () => {
+    const { unmount } = render(<StoryPlayer />);
+    fireEvent.click(screen.getByTestId('story-launch'));
+    expect(screen.getByTestId('story-pick-spoiler')).toBeInTheDocument();
+    expect(screen.queryByTestId('story-pick-seuil')).not.toBeInTheDocument();
+    unmount();
+
+    ctxState.mode = 'parliament';
+    render(<StoryPlayer />);
+    fireEvent.click(screen.getByTestId('story-launch'));
+    expect(screen.getByTestId('story-pick-seuil')).toBeInTheDocument();
+    expect(screen.queryByTestId('story-pick-spoiler')).not.toBeInTheDocument();
+  });
+
+  it('switching instrument ends the running story and restores the sandbox on the new mode', () => {
+    const { rerender } = render(<StoryPlayer />);
+    fireEvent.click(screen.getByTestId('story-launch'));
+    fireEvent.click(screen.getByTestId('story-pick-spoiler'));
+    setPlayground.mockClear();
+
+    ctxState.mode = 'parliament';
+    rerender(<StoryPlayer />);
+
+    expect(screen.queryByTestId('story-bar')).not.toBeInTheDocument();
+    // Sandbox back, but on the mode the user just picked — not the story's.
+    expect(setPlayground).toHaveBeenCalledWith({ ...SNAP_PLAYGROUND, mode: 'parliament' });
   });
 
   it('auto-starts from the ?story= query param', () => {

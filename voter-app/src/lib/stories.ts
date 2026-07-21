@@ -40,6 +40,8 @@ export interface Story {
   taglineKey: string;
   /** lucide icon name resolved in the picker (kept as data so the lib stays UI-free). */
   icon: string;
+  /** Which instrument the story narrates — the picker only offers the current one. */
+  mode: PlaygroundMode;
   steps: StoryStep[];
 }
 
@@ -141,12 +143,41 @@ const FIVE = [
 ];
 const FIVE_ELECTORATE = { num_voters: 500, seed: 2002, ideology: 'polarized' };
 
+// ── Parliament stories (mode: 'parliament') ──────────────────────────────────
+// Seats are allocated by the BACKEND (/api/v2/election/assembly), so unlike the
+// leader stories these beats can't be locked by a client-side winner assertion.
+// They were written against real runs of that worker on this exact field/seed;
+// the figures quoted in each beat are recorded in the comments below so a future
+// engine change that invalidates them is at least visible in review.
+const PARL = [
+  { name: 'Gauche', x: -0.55, y: -0.2 },
+  { name: 'Verts', x: -0.35, y: 0.45 },
+  { name: 'Centre', x: 0.0, y: 0.0 },
+  { name: 'Droite', x: 0.5, y: 0.15 },
+  { name: 'Souverainistes', x: 0.85, y: 0.75 },
+];
+// Vote shares on this seed: Gauche .205 · Verts .194 · Centre .353 · Droite .214
+// · Souverainistes .034 (the one party the 5 % threshold bites).
+const PARL_ELECTORATE = { num_voters: 1000, seed: 17, ideology: 'random' };
+
+// setPlayground merges shallowly, so an `assembly` patch must be a full object.
+const ASM = (patch: Partial<PlaygroundState['assembly']>): PlaygroundState['assembly'] => ({
+  structure: 'pr',
+  seats: 100,
+  threshold: 0.05,
+  apportionment: 'dhondt',
+  num_districts: 1,
+  strategic_desertion: false,
+  ...patch,
+});
+
 export const STORIES: Story[] = [
   {
     id: 'spoiler',
     titleKey: 'stories.spoiler.title',
     taglineKey: 'stories.spoiler.tagline',
     icon: 'Ghost',
+    mode: 'leader',
     steps: [
       {
         id: 'duel',
@@ -182,6 +213,7 @@ export const STORIES: Story[] = [
     titleKey: 'stories.squeeze.title',
     taglineKey: 'stories.squeeze.tagline',
     icon: 'Minimize2',
+    mode: 'leader',
     steps: [
       {
         id: 'field',
@@ -211,6 +243,7 @@ export const STORIES: Story[] = [
     titleKey: 'stories.paradox.title',
     taglineKey: 'stories.paradox.tagline',
     icon: 'RefreshCw',
+    mode: 'leader',
     steps: [
       {
         id: 'plurality',
@@ -246,6 +279,7 @@ export const STORIES: Story[] = [
     titleKey: 'stories.utile.title',
     taglineKey: 'stories.utile.tagline',
     icon: 'Swords',
+    mode: 'leader',
     steps: [
       {
         id: 'sincere',
@@ -281,6 +315,7 @@ export const STORIES: Story[] = [
     titleKey: 'stories.valence.title',
     taglineKey: 'stories.valence.tagline',
     icon: 'Sparkles',
+    mode: 'leader',
     steps: [
       {
         id: 'position',
@@ -305,6 +340,7 @@ export const STORIES: Story[] = [
     titleKey: 'stories.five.title',
     taglineKey: 'stories.five.tagline',
     icon: 'Shuffle',
+    mode: 'leader',
     steps: [
       {
         id: 'plurality',
@@ -341,6 +377,103 @@ export const STORIES: Story[] = [
       },
     ],
   },
+
+  // ── Parliament 1 — the threshold ───────────────────────────────────────────
+  // thr 0 %: Souverainistes 3 seats, Gallagher .008 · thr 5 %: 0 seats, 3.4 % of
+  // votes wasted, Gallagher .028 · + desertion: their voters leave for Droite
+  // (.214 → .246), wasted back to 0.
+  {
+    id: 'seuil',
+    titleKey: 'stories.seuil.title',
+    taglineKey: 'stories.seuil.tagline',
+    icon: 'Scissors',
+    mode: 'parliament',
+    steps: [
+      {
+        id: 'pur',
+        beatKey: 'stories.seuil.steps.pur',
+        mode: 'parliament',
+        moment: 'method',
+        playground: { space: PLANE.space, assembly: ASM({ threshold: 0 }) },
+        config: { candidates: PARL, ...PARL_ELECTORATE },
+      },
+      {
+        id: 'barre',
+        beatKey: 'stories.seuil.steps.barre',
+        playground: { assembly: ASM({ threshold: 0.05 }) },
+      },
+      {
+        id: 'desertion',
+        beatKey: 'stories.seuil.steps.desertion',
+        playground: { assembly: ASM({ threshold: 0.05, strategic_desertion: true }) },
+      },
+    ],
+  },
+
+  // ── Parliament 2 — one vote, three parliaments ─────────────────────────────
+  // PR: Gallagher .028, 3.4 % wasted · FPTP: Centre 35 % of votes → 41 % of
+  // seats, Verts 19 % → 9 %, 30.5 % wasted, Gallagher .097 · MMP: top-up seats
+  // restore proportionality (Gallagher .028) while keeping local members.
+  {
+    id: 'structures',
+    titleKey: 'stories.structures.title',
+    taglineKey: 'stories.structures.tagline',
+    icon: 'Landmark',
+    mode: 'parliament',
+    steps: [
+      {
+        id: 'pr',
+        beatKey: 'stories.structures.steps.pr',
+        mode: 'parliament',
+        moment: 'method',
+        playground: { space: PLANE.space, assembly: ASM({ structure: 'pr' }) },
+        config: { candidates: PARL, ...PARL_ELECTORATE },
+      },
+      {
+        id: 'fptp',
+        beatKey: 'stories.structures.steps.fptp',
+        playground: { assembly: ASM({ structure: 'fptp' }) },
+      },
+      {
+        id: 'mmp',
+        beatKey: 'stories.structures.steps.mmp',
+        playground: { assembly: ASM({ structure: 'mmp' }) },
+      },
+    ],
+  },
+
+  // ── Parliament 3 — the divisor ─────────────────────────────────────────────
+  // 21 seats, no threshold. D'Hondt: Centre 8 / Souverainistes 0 (Gallagher .037)
+  // · Sainte-Laguë: Centre 7 / Souverainistes 1 (Gallagher .026).
+  {
+    id: 'diviseur',
+    titleKey: 'stories.diviseur.title',
+    taglineKey: 'stories.diviseur.tagline',
+    icon: 'Divide',
+    mode: 'parliament',
+    steps: [
+      {
+        id: 'dhondt',
+        beatKey: 'stories.diviseur.steps.dhondt',
+        mode: 'parliament',
+        moment: 'method',
+        playground: {
+          space: PLANE.space,
+          assembly: ASM({ seats: 21, threshold: 0, apportionment: 'dhondt' }),
+        },
+        config: { candidates: PARL, ...PARL_ELECTORATE },
+      },
+      {
+        id: 'sainteLague',
+        beatKey: 'stories.diviseur.steps.sainteLague',
+        playground: { assembly: ASM({ seats: 21, threshold: 0, apportionment: 'sainte_lague' }) },
+      },
+    ],
+  },
 ];
 
 export const storyById = (id: string): Story | undefined => STORIES.find((s) => s.id === id);
+
+/** The picker only offers the instrument you're actually looking at. */
+export const storiesForMode = (mode: PlaygroundMode): Story[] =>
+  STORIES.filter((s) => s.mode === mode);
