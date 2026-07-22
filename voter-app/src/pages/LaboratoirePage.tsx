@@ -1,7 +1,8 @@
 import React from 'react';
 import { useTranslation } from 'react-i18next';
 import { Link, useSearchParams } from 'react-router';
-import { Columns2, X } from 'lucide-react';
+import { Columns2, X, Scale, Swords, Landmark, Activity, FlaskConical } from 'lucide-react';
+import type { LucideIcon } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
 import { useMetaTags } from '../hooks/useMetaTags';
@@ -36,6 +37,40 @@ import type { Rule } from '../lib/playgroundVoting';
 // proves nothing was lost). The page only navigates: nothing mounts unpicked,
 // chips warm their chunk on hover, and ?exp=/&vs= deep-link any bench state.
 
+// The five families are a taxonomy (methods / rules / systems / dynamics /
+// theory), not a sequence — so they get a category icon, never an ordinal. A
+// "1 2 3 4 5" here would imply a progression the archive doesn't have.
+const FAMILY_ICON: Record<FamilyId, LucideIcon> = {
+  methods: Scale,
+  rules: Swords,
+  systems: Landmark,
+  dynamics: Activity,
+  theory: FlaskConical,
+};
+
+// Registration ticks — the instrument's corner marks, so a fiche reads as a
+// specimen on the lab bench (echoes the Playground's scope frame).
+const Corners: React.FC = () => (
+  <>
+    <span
+      aria-hidden
+      className="pointer-events-none absolute left-1.5 top-1.5 h-2.5 w-2.5 border-l border-t border-primary/55"
+    />
+    <span
+      aria-hidden
+      className="pointer-events-none absolute right-1.5 top-1.5 h-2.5 w-2.5 border-r border-t border-primary/55"
+    />
+    <span
+      aria-hidden
+      className="pointer-events-none absolute bottom-1.5 left-1.5 h-2.5 w-2.5 border-b border-l border-primary/55"
+    />
+    <span
+      aria-hidden
+      className="pointer-events-none absolute bottom-1.5 right-1.5 h-2.5 w-2.5 border-b border-r border-primary/55"
+    />
+  </>
+);
+
 // ── Électorat strip — the shared frame every fiche reads ────────────────────
 
 const ElectorateStrip: React.FC = () => {
@@ -43,9 +78,12 @@ const ElectorateStrip: React.FC = () => {
   const { config, leaderRule, setLeaderRule } = usePlaygroundCtx();
   const { ruleLabels } = useVotingLabels();
   return (
+    // Reads as the same instrument's telemetry as the Playground's scope status
+    // line (tinted mono strip), because it IS the same electorate — every fiche
+    // below is measured on it.
     <div
       data-testid="lab-electorate-strip"
-      className="flex flex-wrap items-center gap-x-4 gap-y-2 rounded-xl border border-border bg-muted/20 px-3 py-2"
+      className="flex flex-wrap items-center gap-x-4 gap-y-2 rounded-md border border-primary/15 bg-muted/30 px-3 py-2"
     >
       <div className="flex min-w-0 flex-wrap items-center gap-x-3 gap-y-1">
         {config.candidates.map((c, i) => (
@@ -58,17 +96,23 @@ const ElectorateStrip: React.FC = () => {
             {c.name}
           </span>
         ))}
-        <span className="font-mono text-[0.7rem] text-muted-foreground">
+        <span
+          aria-hidden
+          className="font-mono text-[0.6rem] uppercase tracking-[0.12em] text-border"
+        >
+          ·
+        </span>
+        <span className="font-mono text-[0.6rem] uppercase tracking-[0.12em] text-muted-foreground">
           {t('lab.strip.voters', { n: config.num_voters })}
         </span>
       </div>
 
       <div className="ml-auto flex items-center gap-3">
-        <label className="flex items-center gap-1.5 text-xs text-muted-foreground">
+        <label className="flex items-center gap-1.5 font-mono text-[0.6rem] uppercase tracking-[0.12em] text-muted-foreground">
           {t('lab.strip.rule')}
           <select
             data-testid="lab-rule-select"
-            className={cn(selectCls, 'h-7 w-auto py-0 text-xs')}
+            className={cn(selectCls, 'h-7 w-auto py-0 text-xs normal-case tracking-normal')}
             value={leaderRule}
             onChange={(e) => setLeaderRule(e.target.value as Rule)}
           >
@@ -105,9 +149,10 @@ const BenchFiche: React.FC<{
   return (
     <section
       data-testid={side === 'vs' ? 'lab-bench-vs' : 'lab-bench'}
-      className="min-w-0 rounded-xl border border-border bg-card"
+      className="relative min-w-0 rounded-md border border-primary/25 bg-card shadow-sm"
     >
-      <header className="flex items-start justify-between gap-3 border-b border-border/60 px-4 py-3">
+      <Corners />
+      <header className="flex items-start justify-between gap-3 border-b border-primary/15 bg-muted/30 px-4 py-2.5">
         <div className="min-w-0">
           <p className="truncate font-mono text-[0.62rem] uppercase tracking-[0.18em] text-muted-foreground">
             {kicker}
@@ -220,10 +265,11 @@ const LaboratoireContent: React.FC = () => {
         data-testid="lab-family-rail"
         role="radiogroup"
         aria-label={t('lab.title')}
-        className="grid grid-cols-2 gap-2 sm:grid-cols-3 lg:flex lg:items-stretch"
+        className="grid grid-cols-2 gap-1.5 sm:grid-cols-3 lg:flex lg:items-stretch"
       >
         {LAB_FAMILIES.map((f) => {
           const on = f.id === familyId;
+          const Icon = FAMILY_ICON[f.id];
           return (
             <button
               key={f.id}
@@ -233,38 +279,32 @@ const LaboratoireContent: React.FC = () => {
               data-testid={`lab-family-${f.id}`}
               onClick={() => setFamilyId(f.id)}
               className={cn(
-                'group relative flex min-w-0 flex-1 items-center gap-2.5 rounded-xl border px-3 py-2 text-left transition-all',
+                'group flex min-w-0 flex-1 items-center gap-2.5 rounded-lg px-3 py-2 text-left transition-all',
                 on
-                  ? 'border-primary/40 bg-card shadow-sm'
-                  : 'border-border bg-muted/30 hover:bg-card'
+                  ? 'border border-primary/30 bg-card shadow-sm'
+                  : 'border border-transparent hover:bg-muted/50'
               )}
             >
               <span
                 className={cn(
-                  'flex h-6 w-6 shrink-0 items-center justify-center rounded-md font-mono text-xs font-semibold tabular-nums',
+                  'flex h-7 w-7 shrink-0 items-center justify-center rounded-md transition-colors',
                   on
                     ? 'bg-primary text-primary-foreground'
                     : 'bg-background text-muted-foreground group-hover:text-foreground'
                 )}
               >
-                {f.n}
+                <Icon aria-hidden className="h-3.5 w-3.5" />
               </span>
               <span
                 className={cn(
-                  'min-w-0 truncate text-sm font-medium',
+                  'min-w-0 truncate text-sm transition-colors',
                   on
-                    ? 'font-display text-foreground'
-                    : 'text-muted-foreground group-hover:text-foreground'
+                    ? 'font-display font-semibold text-foreground'
+                    : 'font-medium text-muted-foreground group-hover:text-foreground'
                 )}
               >
                 {t(f.labelKey)}
               </span>
-              {on && (
-                <span
-                  aria-hidden
-                  className="absolute inset-x-3 -bottom-px h-0.5 rounded-full bg-primary"
-                />
-              )}
             </button>
           );
         })}
