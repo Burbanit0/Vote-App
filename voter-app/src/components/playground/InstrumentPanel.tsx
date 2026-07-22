@@ -63,26 +63,72 @@ const InstrumentPanel: React.FC<InstrumentPanelProps> = ({ forceShowRuleUi = fal
     democracyEntries,
   } = usePlaygroundCtx();
 
+  const paradox = (
+    <span data-testid="cycle-rate" title={t('instrument.paradoxTitle')}>
+      {loading || !result
+        ? t('instrument.paradoxLoading')
+        : t('instrument.paradox', { pct: Math.round(result.cycle_rate * 100) })}
+    </span>
+  );
+
+  // Telemetry (top strip): the instrument's live OUTPUTS — Condorcet winner and
+  // the paradox rate. Configuration (bottom strip): the standing INPUTS.
+  const point = mode === 'leader' ? t('common.candidates') : t('common.parties');
+  const telemetry = (
+    <span className="flex items-center gap-2">
+      {result?.condorcet_winner && (
+        <>
+          <span className="text-muted-foreground">
+            {t('instrument.condorcet', { name: result.condorcet_winner })}
+          </span>
+          <span aria-hidden className="text-border">
+            ·
+          </span>
+        </>
+      )}
+      {paradox}
+    </span>
+  );
+  const status = (
+    <>
+      <span className="text-primary">
+        {mode === 'leader' ? t('mode.leader') : t('mode.assembly')}
+      </span>
+      <span aria-hidden className="text-border">
+        ·
+      </span>
+      <span>
+        {config.candidates.length} {point}
+      </span>
+      <span aria-hidden className="text-border">
+        ·
+      </span>
+      <span>
+        {config.num_voters} {t('common.voters')}
+      </span>
+      {mode === 'leader' && (
+        <>
+          <span aria-hidden className="text-border">
+            ·
+          </span>
+          <span className="normal-case">{t(`rules.${leaderRule}`)}</span>
+        </>
+      )}
+      <span aria-hidden className="text-border">
+        ·
+      </span>
+      <span className="tabular-nums">seed {config.seed}</span>
+    </>
+  );
+
   return (
     <Instrument
+      variant="scope"
       label={mode === 'leader' ? t('instrument.labelLeader') : t('instrument.labelAssembly')}
-      readout={
-        <span data-testid="cycle-rate" title={t('instrument.paradoxTitle')}>
-          {loading || !result
-            ? t('instrument.paradoxLoading')
-            : t('instrument.paradox', { pct: Math.round(result.cycle_rate * 100) })}
-        </span>
-      }
+      readout={telemetry}
+      status={status}
     >
       <div className="flex flex-col gap-3">
-        {result && (
-          <p className="font-mono text-[0.68rem] tracking-tight text-muted-foreground">
-            {result.condorcet_winner
-              ? t('instrument.condorcet', { name: result.condorcet_winner })
-              : t('instrument.condorcetNone')}
-          </p>
-        )}
-
         <FlipReveal modeKey={mode} caption={t('instrument.flipCaption')}>
           {mode === 'leader' ? (
             <div className="flex flex-col gap-3">

@@ -117,9 +117,14 @@ const PlaygroundShell: React.FC = () => {
               activeMoment === 'bilan' ? 'lg:grid-cols-[1fr_20rem]' : 'lg:grid-cols-[21rem_1fr]'
             )}
           >
-            <Card className="h-fit overflow-hidden" data-testid={`moment-${activeMoment}-panel`}>
-              <div className="flex items-center gap-2.5 border-b border-border/60 px-4 py-3">
-                <span className="flex h-7 w-7 items-center justify-center rounded-md bg-primary/10 font-mono text-sm font-semibold text-primary">
+            <Card
+              className="h-fit overflow-hidden border-primary/25"
+              data-testid={`moment-${activeMoment}-panel`}
+            >
+              {/* Panel header = the instrument's chrome strip, tuned to match the
+                  scope's telemetry bars; the round step badge echoes the rail. */}
+              <div className="flex items-center gap-2.5 border-b border-primary/15 bg-muted/30 px-4 py-2.5">
+                <span className="flex h-7 w-7 items-center justify-center rounded-full bg-primary font-mono text-sm font-semibold text-primary-foreground ring-2 ring-primary/20">
                   {meta.n}
                 </span>
                 <div className="min-w-0">

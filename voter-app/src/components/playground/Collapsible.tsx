@@ -1,4 +1,6 @@
 import React, { useRef, useState } from 'react';
+import { ChevronRight } from 'lucide-react';
+import { cn } from '@/lib/utils';
 
 // Collapsible — the progressive-disclosure primitive that lets the playground
 // gain depth without clutter: advanced modules ship collapsed and open on
@@ -35,7 +37,13 @@ const Collapsible: React.FC<CollapsibleProps> = ({
     onPrefetch?.();
   };
   return (
-    <div data-testid={testid} className="rounded-md border border-border">
+    <div
+      data-testid={testid}
+      className={cn(
+        'overflow-hidden rounded-md border transition-colors',
+        open ? 'border-primary/25' : 'border-border'
+      )}
+    >
       <button
         type="button"
         data-testid={testid ? `${testid}-toggle` : undefined}
@@ -48,22 +56,26 @@ const Collapsible: React.FC<CollapsibleProps> = ({
             return !o;
           })
         }
-        className="flex w-full items-center justify-between gap-2 px-3 py-2 text-left text-sm font-medium hover:bg-accent/50"
+        className={cn(
+          'flex w-full items-center justify-between gap-2 px-3 py-2 text-left text-sm font-medium transition-colors',
+          open ? 'bg-muted/40' : 'hover:bg-accent/50'
+        )}
       >
         <span className="flex items-center gap-2">
-          <span
-            className="text-muted-foreground transition-transform"
-            style={{ transform: open ? 'rotate(90deg)' : 'none' }}
-          >
-            ▸
-          </span>
+          <ChevronRight
+            aria-hidden
+            className={cn(
+              'h-3.5 w-3.5 shrink-0 transition-transform',
+              open ? 'rotate-90 text-primary' : 'text-muted-foreground'
+            )}
+          />
           {title}
         </span>
         {subtitle && !open && (
           <span className="truncate text-xs font-normal text-muted-foreground">{subtitle}</span>
         )}
       </button>
-      {open && <div className="border-t border-border p-3">{children}</div>}
+      {open && <div className="border-t border-primary/15 p-3">{children}</div>}
     </div>
   );
 };

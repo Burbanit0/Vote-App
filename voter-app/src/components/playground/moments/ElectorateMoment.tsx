@@ -76,7 +76,7 @@ const ElectorateMoment: React.FC = () => {
                         type="button"
                         onClick={() => applyPreset(p.id)}
                         className={cn(
-                          'flex-1 rounded-md border border-border px-2 py-1.5 text-left text-xs transition-colors hover:bg-accent hover:text-accent-foreground'
+                          'flex-1 rounded-md border border-border bg-background px-2.5 py-1.5 text-left text-xs font-medium transition-colors hover:border-primary/40 hover:bg-primary/5 hover:text-foreground'
                         )}
                         title={t(`presets.${p.id}.desc`, { defaultValue: p.description })}
                       >

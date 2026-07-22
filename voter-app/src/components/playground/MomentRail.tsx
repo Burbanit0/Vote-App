@@ -26,57 +26,68 @@ interface MomentRailProps {
 
 const MomentRail: React.FC<MomentRailProps> = ({ active, onSelect }) => {
   const { t } = useTranslation('playground');
+  const activeIndex = MOMENTS.findIndex((m) => m.id === active);
   return (
+    // A control sequence, not loose tabs: the numbered steps are wired by a lit
+    // track that fills up to the step you're on — the simple→complex path made
+    // visible. On mobile it falls back to a plain two-column grid (no track).
     <div
       data-testid="moment-rail"
       role="radiogroup"
       aria-label={t('moments.electorate.label')}
-      className="grid grid-cols-2 gap-2 sm:flex sm:items-stretch"
+      className="grid grid-cols-2 gap-2 sm:flex sm:items-center sm:gap-0"
     >
-      {MOMENTS.map((m) => {
+      {MOMENTS.map((m, i) => {
         const on = m.id === active;
+        const done = i < activeIndex;
         return (
-          <button
-            key={m.id}
-            type="button"
-            role="radio"
-            aria-checked={on}
-            data-testid={`moment-${m.id}`}
-            onClick={() => onSelect(m.id)}
-            className={cn(
-              'group relative flex min-w-0 flex-1 items-center gap-2.5 rounded-xl border px-3 py-2.5 text-left transition-all',
-              on
-                ? 'border-primary/40 bg-card shadow-sm'
-                : 'border-border bg-muted/30 hover:border-border hover:bg-card'
-            )}
-          >
-            <span
-              className={cn(
-                'flex h-7 w-7 shrink-0 items-center justify-center rounded-md font-mono text-sm font-semibold tabular-nums transition-colors',
-                on
-                  ? 'bg-primary text-primary-foreground'
-                  : 'bg-background text-muted-foreground group-hover:text-foreground'
-              )}
-            >
-              {m.n}
-            </span>
-            <span
-              className={cn(
-                'min-w-0 truncate text-sm font-medium transition-colors',
-                on
-                  ? 'font-display text-foreground'
-                  : 'text-muted-foreground group-hover:text-foreground'
-              )}
-            >
-              {t(`moments.${m.id}.label`)}
-            </span>
-            {on && (
+          <React.Fragment key={m.id}>
+            {i > 0 && (
               <span
                 aria-hidden
-                className="absolute inset-x-3 -bottom-px h-0.5 rounded-full bg-primary"
+                className={cn(
+                  'hidden h-px w-3 shrink-0 sm:block lg:w-6',
+                  i <= activeIndex ? 'bg-primary/60' : 'bg-border'
+                )}
               />
             )}
-          </button>
+            <button
+              type="button"
+              role="radio"
+              aria-checked={on}
+              data-testid={`moment-${m.id}`}
+              onClick={() => onSelect(m.id)}
+              className={cn(
+                'group flex min-w-0 flex-1 items-center gap-2.5 rounded-lg px-3 py-2 text-left transition-all',
+                on
+                  ? 'border border-primary/30 bg-card shadow-sm'
+                  : 'border border-transparent hover:bg-muted/50'
+              )}
+            >
+              <span
+                className={cn(
+                  'flex h-7 w-7 shrink-0 items-center justify-center rounded-full font-mono text-sm font-semibold tabular-nums transition-colors',
+                  on
+                    ? 'bg-primary text-primary-foreground ring-2 ring-primary/20'
+                    : done
+                      ? 'bg-primary/15 text-primary'
+                      : 'border border-border bg-background text-muted-foreground group-hover:text-foreground'
+                )}
+              >
+                {m.n}
+              </span>
+              <span
+                className={cn(
+                  'min-w-0 truncate text-sm transition-colors',
+                  on
+                    ? 'font-display font-semibold text-foreground'
+                    : 'font-medium text-muted-foreground group-hover:text-foreground'
+                )}
+              >
+                {t(`moments.${m.id}.label`)}
+              </span>
+            </button>
+          </React.Fragment>
         );
       })}
     </div>
