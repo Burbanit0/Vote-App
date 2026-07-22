@@ -112,9 +112,12 @@ const PlaygroundShell: React.FC = () => {
           <div
             className={cn(
               'grid grid-cols-1 gap-5',
-              // Bilan is a conclusion: give the synthesis/comparison the wide column
-              // and shrink the map to a companion. Other moments keep the map large.
-              activeMoment === 'bilan' ? 'lg:grid-cols-[1fr_20rem]' : 'lg:grid-cols-[21rem_1fr]'
+              // Bilan is a conclusion: the synthesis leads (wide column), but the
+              // map still needs room to read — 20rem cramped its telemetry, lens
+              // tabs and Voronoi. Other moments keep the map as the wide column.
+              activeMoment === 'bilan'
+                ? 'lg:grid-cols-[minmax(0,1fr)_30rem]'
+                : 'lg:grid-cols-[21rem_1fr]'
             )}
           >
             <Card

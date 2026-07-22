@@ -156,7 +156,7 @@ const ElectorateComposer: React.FC = () => {
             </span>
             <select
               data-testid="electorate-ideology"
-              className="flex-1 rounded border border-input bg-background px-2 py-1"
+              className="min-w-0 flex-1 rounded border border-input bg-background px-2 py-1"
               value={config.ideology}
               onChange={(ev) => setConfig({ ideology: ev.target.value })}
             >
