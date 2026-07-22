@@ -64,8 +64,8 @@ const fr = {
     anim: {
       replay: 'Rejouer',
       plurality: 'Chacun pose son bulletin sur son seul préféré. Le plus de bulletins l’emporte.',
-      tr1: 'Premier tour : on compte les premiers choix. Personne n’a la majorité (7 sur 12).',
-      tr2: 'Thaï, dernier, est éliminé — ses 3 voix se reportent sur Sushi, qui passe en tête.',
+      tr1: 'Premier tour : on compte les premiers choix. Personne n’atteint la majorité (7 sur 12) — les deux premiers restent en lice.',
+      tr2: 'Second tour : le dernier est éliminé et ses bulletins rejoignent leur second choix (en orange). Le Sushi passe la majorité et l’emporte.',
       ap_one:
         'Chacun ne coche que son préféré : c’est exactement la pluralité. Pizza repasse en tête.',
       ap_some:

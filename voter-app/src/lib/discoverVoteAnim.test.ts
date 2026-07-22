@@ -50,6 +50,25 @@ describe('discoverVoteAnim', () => {
           }
   });
 
+  it('the runoff round-2 pile is own + transferred, tagged with the eliminated option', () => {
+    const frames = voteFrames('two_round');
+    const round1 = frames[0];
+    const round2 = frames[1];
+    if (round1.kind !== 'tally' || round2.kind !== 'tally') throw new Error('expected tallies');
+    for (const bar of round2.bars) {
+      const own = round1.bars.find((b) => b.food === bar.food)!.value;
+      if (bar.received) {
+        // A finalist keeps its own first-choicers; extras are transferred ballots.
+        expect(bar.received).toBe(bar.value - own); // exactly the redistributed pile
+        expect(bar.from).not.toBeUndefined(); // and it knows where they came from
+      }
+    }
+    // Exactly one pile receives ballots here (Thaï → Sushi), and it names Thaï.
+    const receivers = round2.bars.filter((b) => b.received);
+    expect(receivers).toHaveLength(1);
+    expect(receivers[0].from).toBe(2); // Thaï
+  });
+
   it('every duel splits the whole electorate between the two options', () => {
     for (const f of voteFrames('condorcet'))
       if (f.kind === 'duel')

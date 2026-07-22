@@ -64,6 +64,10 @@ export interface TallyBar {
   food: number;
   value: number;
   eliminated?: boolean;
+  /** Ballots transferred INTO this pile this round (runoff): value = own + received. */
+  received?: number;
+  /** The eliminated option those transferred ballots came from (for the marker). */
+  from?: number;
 }
 export interface TallyFrame {
   kind: 'tally';
@@ -103,9 +107,22 @@ export function voteFrames(rule: Rule, approvalK = 2): Frame[] {
   switch (rule) {
     case 'two_round': {
       const { counts, eliminated } = runoff();
+      // Round 2 carries provenance: a finalist keeps its own first-choicers and
+      // gains the eliminated pile's ballots, so received = final − own. The single
+      // eliminated option (top-two of three) is where every transfer comes from,
+      // so the animation can tag the moved strokes with its face.
+      const round2: TallyBar[] = counts.map((value, food) => {
+        const received = eliminated.includes(food) ? 0 : value - fc[food];
+        return {
+          food,
+          value,
+          eliminated: eliminated.includes(food),
+          ...(received > 0 && eliminated.length === 1 ? { received, from: eliminated[0] } : {}),
+        };
+      });
       return [
         { kind: 'tally', captionKey: 'discover.anim.tr1', bars: bars(fc) },
-        { kind: 'tally', captionKey: 'discover.anim.tr2', bars: bars(counts, eliminated) },
+        { kind: 'tally', captionKey: 'discover.anim.tr2', bars: round2 },
       ];
     }
     case 'approval': {

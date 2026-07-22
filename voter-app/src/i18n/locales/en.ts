@@ -66,8 +66,8 @@ const en: TranslationKeys = {
     anim: {
       replay: 'Replay',
       plurality: 'Everyone puts their ballot on their single favourite. The most ballots wins.',
-      tr1: 'First round: count first choices. Nobody has a majority (7 of 12).',
-      tr2: 'Thaï, last, is eliminated — its 3 votes transfer to Sushi, which pulls ahead.',
+      tr1: 'First round: count first choices. Nobody reaches a majority (7 of 12) — the top two stay in the race.',
+      tr2: 'Runoff: the last-placed is eliminated and its ballots join their second choice (in orange). Sushi crosses the majority and wins.',
       ap_one:
         'Everyone ticks only their favourite: that is exactly plurality. Pizza is back on top.',
       ap_some:

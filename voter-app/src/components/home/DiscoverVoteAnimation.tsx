@@ -1,6 +1,6 @@
 import React from 'react';
+import { RotateCcw, Check } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
-import { RotateCcw } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { voteFrames, type Frame, type TallyFrame } from '../../lib/discoverVoteAnim';
 import type { Rule } from '../../lib/playgroundVoting';
@@ -9,10 +9,15 @@ import type { Rule } from '../../lib/playgroundVoting';
 // method is counted by hand: votes are tally strokes (bâtons groupés par cinq,
 // le 5ᵉ en barre — how French ballots are actually counted). Fixed-width strokes
 // mean a row's length still compares magnitudes, so the tally IS the bar. Frames
-// come from discoverVoteAnim (computed from the same ballots); rows remount per
-// frame so each sweeps in as if freshly counted, and a runoff sends the
-// eliminated pile's strokes drifting up toward the survivor. Honours
-// prefers-reduced-motion (jumps to the final still, no strokes in flight).
+// come from discoverVoteAnim (computed from the same ballots).
+//
+// The move that carries the runoff: an eliminated pile does not blink to zero and
+// re-appear as an abstract number. Its ballots travel into the survivor's pile and
+// stay there marked in terracotta with the eliminated option's face — so the
+// winning pile reads as "our ballots + the ones that came over," which is exactly
+// what a redistribution is. The final frame flags the leading pile so "the biggest
+// pile wins" is shown, not asserted. Honours prefers-reduced-motion (jumps to the
+// final still, nothing in flight).
 
 interface Food {
   emoji: string;
@@ -57,19 +62,22 @@ const Gate: React.FC<{ k: number }> = ({ k }) => {
   );
 };
 
-const Tally: React.FC<{ n: number; className?: string; migrating?: boolean; delayMs?: number }> = ({
-  n,
-  className,
-  migrating,
-  delayMs = 0,
-}) => (
+// A run of strokes. Animated: sweeps in left-to-right (a hand laying them down);
+// migrating: drifts off as the pile empties; still: the reduced-motion fallback.
+const Strokes: React.FC<{
+  n: number;
+  animated: boolean;
+  migrating?: boolean;
+  delayMs?: number;
+  className?: string;
+}> = ({ n, animated, migrating, delayMs = 0, className }) => (
   <span
     className={cn(
       'flex items-center gap-1',
-      migrating ? 'tally-migrate-anim' : 'tally-sweep-anim',
+      animated && (migrating ? 'tally-migrate-anim' : 'tally-sweep-anim'),
       className
     )}
-    style={{ animationDelay: `${delayMs}ms` }}
+    style={animated ? { animationDelay: `${delayMs}ms` } : undefined}
   >
     {gatesOf(n).map((k, i) => (
       <Gate key={i} k={k} />
@@ -89,6 +97,7 @@ const DiscoverVoteAnimation: React.FC<{
   // Bumping this replays the current method from the first frame.
   const [playToken, setPlayToken] = React.useState(0);
   const noMotion = React.useRef(prefersReducedMotion());
+  const animate = !noMotion.current;
 
   React.useEffect(() => {
     if (noMotion.current) {
@@ -103,13 +112,23 @@ const DiscoverVoteAnimation: React.FC<{
   }, [rule, playToken, frames]);
 
   const frame: Frame = frames[Math.min(idx, frames.length - 1)];
+  const isLast = idx >= frames.length - 1;
   const prevFrame = idx > 0 ? frames[idx - 1] : null;
-  // How many strokes a food held in the previous frame — the pile that migrates
+  // How many strokes a food held in the previous frame — the pile that leaves
   // when it's eliminated at the runoff.
   const prevValue = (food: number): number => {
     if (!prevFrame || prevFrame.kind !== 'tally') return 0;
     return prevFrame.bars.find((b) => b.food === food)?.value ?? 0;
   };
+
+  // The leading pile of the final still — flagged so "the biggest pile wins" is
+  // shown. A tie (e.g. approve-everyone) has no unique lead and stays unflagged.
+  const leadFood = React.useMemo(() => {
+    if (!isLast || frame.kind !== 'tally') return -1;
+    const max = Math.max(...frame.bars.map((b) => b.value));
+    const leaders = frame.bars.filter((b) => b.value === max);
+    return leaders.length === 1 ? leaders[0].food : -1;
+  }, [isLast, frame]);
 
   return (
     <div className="mt-3">
@@ -120,69 +139,124 @@ const DiscoverVoteAnimation: React.FC<{
       {frame.kind === 'tally' ? (
         // Keyed by frame + play so every count sweeps in fresh (and a runoff's
         // transfer replays), rather than silently swapping strokes.
-        <div key={`${playToken}-${idx}`} className="mt-3 flex flex-col gap-2.5">
-          {(frame as TallyFrame).bars.map((b, row) => (
-            <div key={b.food} className="flex min-h-6 items-center gap-2.5">
-              <span
+        <div key={`${playToken}-${idx}`} className="mt-3 flex flex-col gap-1.5">
+          {(frame as TallyFrame).bars.map((b, row) => {
+            const own = b.value - (b.received ?? 0);
+            const wins = b.food === leadFood;
+            return (
+              <div
+                key={b.food}
                 className={cn(
-                  'flex w-16 shrink-0 items-center gap-1 text-sm',
-                  b.eliminated && 'text-muted-foreground line-through'
+                  '-mx-1.5 flex min-h-7 items-center gap-2.5 rounded-md px-1.5 transition-colors',
+                  wins && 'bg-primary/5'
                 )}
               >
-                <span aria-hidden>{foods[b.food].emoji}</span>
-                {foods[b.food].name}
-              </span>
-              <span className="relative flex h-6 flex-1 items-center overflow-visible text-primary">
-                {b.value > 0 && !noMotion.current && <Tally n={b.value} delayMs={row * 90} />}
-                {b.value > 0 && noMotion.current && (
-                  <span className="flex items-center gap-1">
-                    {gatesOf(b.value).map((k, i) => (
-                      <Gate key={i} k={k} />
-                    ))}
-                  </span>
-                )}
-                {/* The eliminated pile drifts up toward the survivor above it. */}
-                {b.eliminated && !noMotion.current && prevValue(b.food) > 0 && (
-                  <Tally
-                    n={prevValue(b.food)}
-                    migrating
-                    className="absolute left-0 text-muted-foreground"
-                  />
-                )}
-              </span>
-              <span className="w-6 text-right font-mono text-sm font-semibold tabular-nums text-foreground">
-                {b.value}
-              </span>
-            </div>
-          ))}
+                <span
+                  className={cn(
+                    'flex w-16 shrink-0 items-center gap-1 text-sm',
+                    b.eliminated && 'text-muted-foreground line-through',
+                    wins && 'font-semibold'
+                  )}
+                >
+                  <span aria-hidden>{foods[b.food].emoji}</span>
+                  {foods[b.food].name}
+                </span>
+
+                <span className="relative flex h-6 flex-1 items-center gap-1.5 overflow-visible">
+                  {own > 0 && (
+                    <Strokes
+                      n={own}
+                      animated={animate}
+                      delayMs={row * 90}
+                      className="text-primary"
+                    />
+                  )}
+                  {/* Ballots that came over from the eliminated option: terracotta,
+                      tagged with its face, laid down after the pile's own strokes. */}
+                  {b.received ? (
+                    <span
+                      className="flex items-center gap-1 text-[var(--color-stamp)]"
+                      title={b.from != null ? foods[b.from].name : undefined}
+                    >
+                      {b.from != null && (
+                        <span aria-hidden className="text-sm leading-none">
+                          {foods[b.from].emoji}
+                        </span>
+                      )}
+                      <Strokes n={b.received} animated={animate} delayMs={row * 90 + 560} />
+                    </span>
+                  ) : null}
+                  {/* The eliminated pile drifts off as its ballots move away. */}
+                  {b.eliminated && animate && prevValue(b.food) > 0 && (
+                    <Strokes
+                      n={prevValue(b.food)}
+                      animated
+                      migrating
+                      className="absolute left-0 text-muted-foreground"
+                    />
+                  )}
+                </span>
+
+                {wins && <Check aria-hidden className="h-4 w-4 shrink-0 text-primary" />}
+                <span
+                  className={cn(
+                    'w-6 text-right font-mono text-sm tabular-nums',
+                    wins ? 'font-bold text-primary' : 'font-semibold text-foreground'
+                  )}
+                >
+                  {b.value}
+                </span>
+              </div>
+            );
+          })}
         </div>
       ) : (
         // Condorcet: the two options face off across a centre rule; the longer
-        // tally wins. Keyed by frame so each newly revealed duel counts in.
+        // tally wins, and the winning side is checked. Keyed by frame so each
+        // newly revealed duel counts in.
         <div key={`${playToken}-${idx}`} className="mt-3 flex flex-col gap-3">
-          {frame.duels.map((d, row) => (
-            <div key={d.right} className="flex items-center gap-2">
-              <span className="flex flex-1 items-center justify-end gap-1.5 text-primary">
-                <span className="font-mono text-sm font-semibold tabular-nums">{d.leftVotes}</span>
-                <Tally n={d.leftVotes} delayMs={row * 120} />
-                <span aria-hidden className="text-base">
-                  {foods[d.left].emoji}
+          {frame.duels.map((d, row) => {
+            const leftWins = d.leftVotes > d.rightVotes;
+            return (
+              <div key={d.right} className="flex items-center gap-2">
+                <span
+                  className={cn(
+                    'flex flex-1 items-center justify-end gap-1.5',
+                    leftWins ? 'text-primary' : 'text-muted-foreground'
+                  )}
+                >
+                  {leftWins && <Check aria-hidden className="h-3.5 w-3.5 shrink-0" />}
+                  <span className="font-mono text-sm font-semibold tabular-nums">
+                    {d.leftVotes}
+                  </span>
+                  <Strokes n={d.leftVotes} animated={animate} delayMs={row * 120} />
+                  <span aria-hidden className="text-base">
+                    {foods[d.left].emoji}
+                  </span>
                 </span>
-              </span>
-              <span className="h-8 w-px shrink-0 bg-border" />
-              <span className="flex flex-1 items-center gap-1.5 text-muted-foreground">
-                <span aria-hidden className="text-base">
-                  {foods[d.right].emoji}
+                <span className="h-8 w-px shrink-0 bg-border" />
+                <span
+                  className={cn(
+                    'flex flex-1 items-center gap-1.5',
+                    leftWins ? 'text-muted-foreground' : 'text-primary'
+                  )}
+                >
+                  <span aria-hidden className="text-base">
+                    {foods[d.right].emoji}
+                  </span>
+                  <Strokes n={d.rightVotes} animated={animate} delayMs={row * 120} />
+                  <span className="font-mono text-sm font-semibold tabular-nums">
+                    {d.rightVotes}
+                  </span>
+                  {!leftWins && <Check aria-hidden className="h-3.5 w-3.5 shrink-0" />}
                 </span>
-                <Tally n={d.rightVotes} delayMs={row * 120} />
-                <span className="font-mono text-sm font-semibold tabular-nums">{d.rightVotes}</span>
-              </span>
-            </div>
-          ))}
+              </div>
+            );
+          })}
         </div>
       )}
 
-      {frames.length > 1 && !noMotion.current && (
+      {frames.length > 1 && animate && (
         <button
           type="button"
           onClick={() => setPlayToken((n) => n + 1)}
