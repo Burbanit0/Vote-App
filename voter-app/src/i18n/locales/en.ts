@@ -55,6 +55,7 @@ const en: TranslationKeys = {
     approveHint:
       'Under approval, everyone ticks several restaurants (the ✓s), not just one. Set how many below and watch the winner move.',
     winnerLabel: 'Winner',
+    stamp: 'Elected',
     approve: {
       threshold: 'Everyone approves:',
       k1: 'their favourite',

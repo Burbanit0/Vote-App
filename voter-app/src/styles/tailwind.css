@@ -161,3 +161,37 @@
     animation: none;
   }
 }
+
+/* /decouvrir "dépouillement" — the hand-count. Tally rows reveal left-to-right
+   as if being counted; a runoff sends the eliminated pile's strokes drifting up
+   toward the survivor. */
+@keyframes tally-sweep {
+  from {
+    clip-path: inset(0 100% 0 0);
+  }
+  to {
+    clip-path: inset(0 0 0 0);
+  }
+}
+@keyframes tally-migrate {
+  from {
+    transform: translate(0, 0);
+    opacity: 0.85;
+  }
+  to {
+    transform: translate(-6px, -26px);
+    opacity: 0;
+  }
+}
+.tally-sweep-anim {
+  animation: tally-sweep 0.52s ease-out both;
+}
+.tally-migrate-anim {
+  animation: tally-migrate 0.64s ease-in forwards;
+}
+@media (prefers-reduced-motion: reduce) {
+  .tally-sweep-anim,
+  .tally-migrate-anim {
+    animation: none;
+  }
+}

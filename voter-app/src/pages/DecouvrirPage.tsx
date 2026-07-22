@@ -207,6 +207,12 @@ const DecouvrirPage: React.FC = () => {
               >
                 {approvalTie ? t('discover.approve.tie') : win.name}
               </span>
+              {/* The result, stamped — the app's one "flip/result" accent. */}
+              {!approvalTie && (
+                <span className="-rotate-6 rounded border-2 border-[var(--color-stamp)] px-2 py-0.5 font-mono text-[0.7rem] font-bold uppercase tracking-[0.18em] text-[var(--color-stamp)]">
+                  {t('discover.stamp')}
+                </span>
+              )}
             </p>
 
             {/* Approval's defining knob: how many each friend approves. Sliding it

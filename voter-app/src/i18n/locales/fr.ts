@@ -53,6 +53,7 @@ const fr = {
     approveHint:
       'À l’approbation, chacun coche plusieurs restos (les ✓), pas un seul. Réglez combien ci-dessous et regardez le vainqueur bouger.',
     winnerLabel: 'Vainqueur',
+    stamp: 'Élu',
     approve: {
       threshold: 'Chacun approuve :',
       k1: 'son préféré',

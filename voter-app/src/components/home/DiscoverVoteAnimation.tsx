@@ -2,36 +2,90 @@ import React from 'react';
 import { useTranslation } from 'react-i18next';
 import { RotateCcw } from 'lucide-react';
 import { cn } from '@/lib/utils';
-import { voteFrames, ELECTORATE, type Frame } from '../../lib/discoverVoteAnim';
+import { voteFrames, type Frame, type TallyFrame } from '../../lib/discoverVoteAnim';
 import type { Rule } from '../../lib/playgroundVoting';
 
-// DiscoverVoteAnimation — plays out HOW a method counts, so the /decouvrir demo
-// shows the difference between rules instead of just flipping a winner. Frames
-// come from discoverVoteAnim (computed from the same ballots); this component
-// only tweens between them: bar widths grow, a two-round transfer slides Thaï's
-// voters onto Sushi, and Condorcet reveals the head-to-head duels one by one.
-// Honours prefers-reduced-motion by jumping straight to the final still.
+// DiscoverVoteAnimation — the /decouvrir "dépouillement". Instead of bars, each
+// method is counted by hand: votes are tally strokes (bâtons groupés par cinq,
+// le 5ᵉ en barre — how French ballots are actually counted). Fixed-width strokes
+// mean a row's length still compares magnitudes, so the tally IS the bar. Frames
+// come from discoverVoteAnim (computed from the same ballots); rows remount per
+// frame so each sweeps in as if freshly counted, and a runoff sends the
+// eliminated pile's strokes drifting up toward the survivor. Honours
+// prefers-reduced-motion (jumps to the final still, no strokes in flight).
 
 interface Food {
   emoji: string;
   name: string;
 }
-const STEP_MS = 1400;
+const STEP_MS = 1600;
 
 const prefersReducedMotion = () =>
   typeof window !== 'undefined' &&
   window.matchMedia?.('(prefers-reduced-motion: reduce)').matches === true;
 
+// A count as groups of five: 12 → [5,5,2].
+const gatesOf = (n: number): number[] => {
+  const g: number[] = [];
+  let r = n;
+  while (r >= 5) {
+    g.push(5);
+    r -= 5;
+  }
+  if (r > 0) g.push(r);
+  return g;
+};
+
+// One tally gate: up to four uprights, the fifth a diagonal slash across them.
+const Gate: React.FC<{ k: number }> = ({ k }) => {
+  const xs = [3, 8, 13, 18];
+  return (
+    <svg
+      viewBox="0 0 22 20"
+      className="h-5 w-[22px] shrink-0"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth={2}
+      strokeLinecap="round"
+      aria-hidden
+    >
+      {xs.slice(0, Math.min(k, 4)).map((x, i) => (
+        <line key={i} x1={x} y1={2.5} x2={x} y2={17.5} />
+      ))}
+      {k === 5 && <line x1={0.5} y1={17.5} x2={21} y2={2.5} />}
+    </svg>
+  );
+};
+
+const Tally: React.FC<{ n: number; className?: string; migrating?: boolean; delayMs?: number }> = ({
+  n,
+  className,
+  migrating,
+  delayMs = 0,
+}) => (
+  <span
+    className={cn(
+      'flex items-center gap-1',
+      migrating ? 'tally-migrate-anim' : 'tally-sweep-anim',
+      className
+    )}
+    style={{ animationDelay: `${delayMs}ms` }}
+  >
+    {gatesOf(n).map((k, i) => (
+      <Gate key={i} k={k} />
+    ))}
+  </span>
+);
+
 const DiscoverVoteAnimation: React.FC<{
   rule: Rule;
   foods: readonly Food[];
-  /** Approval only: how many options each voter approves. Sliding it re-tallies. */
+  /** Approval only: how many options each voter approves. Sliding it re-counts. */
   approvalK?: number;
 }> = ({ rule, foods, approvalK = 2 }) => {
   const { t } = useTranslation();
   const frames = React.useMemo(() => voteFrames(rule, approvalK), [rule, approvalK]);
   const [idx, setIdx] = React.useState(0);
-  const [grown, setGrown] = React.useState(false);
   // Bumping this replays the current method from the first frame.
   const [playToken, setPlayToken] = React.useState(0);
   const noMotion = React.useRef(prefersReducedMotion());
@@ -39,24 +93,23 @@ const DiscoverVoteAnimation: React.FC<{
   React.useEffect(() => {
     if (noMotion.current) {
       setIdx(frames.length - 1);
-      setGrown(true);
       return;
     }
     setIdx(0);
-    setGrown(false);
-    const raf = requestAnimationFrame(() => setGrown(true));
     const timers = frames
       .slice(1)
       .map((_, i) => window.setTimeout(() => setIdx(i + 1), (i + 1) * STEP_MS));
-    return () => {
-      cancelAnimationFrame(raf);
-      timers.forEach(clearTimeout);
-    };
+    return () => timers.forEach(clearTimeout);
   }, [rule, playToken, frames]);
 
   const frame: Frame = frames[Math.min(idx, frames.length - 1)];
-  const pct = (v: number) => (grown ? (v / ELECTORATE) * 100 : 0);
-  const transition = noMotion.current ? undefined : 'width 700ms ease-out';
+  const prevFrame = idx > 0 ? frames[idx - 1] : null;
+  // How many strokes a food held in the previous frame — the pile that migrates
+  // when it's eliminated at the runoff.
+  const prevValue = (food: number): number => {
+    if (!prevFrame || prevFrame.kind !== 'tally') return 0;
+    return prevFrame.bars.find((b) => b.food === food)?.value ?? 0;
+  };
 
   return (
     <div className="mt-3">
@@ -65,57 +118,65 @@ const DiscoverVoteAnimation: React.FC<{
       </p>
 
       {frame.kind === 'tally' ? (
-        // Rows persist across frames so a value change tweens (the transfer),
-        // rather than remounting as a fresh chart.
-        <div className="mt-2 flex flex-col gap-2">
-          {frame.bars.map((b) => (
-            <div key={b.food} className="flex items-center gap-2">
+        // Keyed by frame + play so every count sweeps in fresh (and a runoff's
+        // transfer replays), rather than silently swapping strokes.
+        <div key={`${playToken}-${idx}`} className="mt-3 flex flex-col gap-2.5">
+          {(frame as TallyFrame).bars.map((b, row) => (
+            <div key={b.food} className="flex min-h-6 items-center gap-2.5">
               <span
                 className={cn(
-                  'flex w-20 shrink-0 items-center gap-1 text-sm',
+                  'flex w-16 shrink-0 items-center gap-1 text-sm',
                   b.eliminated && 'text-muted-foreground line-through'
                 )}
               >
                 <span aria-hidden>{foods[b.food].emoji}</span>
                 {foods[b.food].name}
               </span>
-              <div className="relative h-6 flex-1 overflow-hidden rounded bg-muted/40">
-                <div
-                  className={cn(
-                    'h-full rounded',
-                    b.eliminated ? 'bg-muted-foreground/40' : 'bg-primary'
-                  )}
-                  style={{ width: `${pct(b.value)}%`, transition }}
-                />
-              </div>
-              <span className="w-6 text-right font-mono text-sm font-semibold tabular-nums">
+              <span className="relative flex h-6 flex-1 items-center overflow-visible text-primary">
+                {b.value > 0 && !noMotion.current && <Tally n={b.value} delayMs={row * 90} />}
+                {b.value > 0 && noMotion.current && (
+                  <span className="flex items-center gap-1">
+                    {gatesOf(b.value).map((k, i) => (
+                      <Gate key={i} k={k} />
+                    ))}
+                  </span>
+                )}
+                {/* The eliminated pile drifts up toward the survivor above it. */}
+                {b.eliminated && !noMotion.current && prevValue(b.food) > 0 && (
+                  <Tally
+                    n={prevValue(b.food)}
+                    migrating
+                    className="absolute left-0 text-muted-foreground"
+                  />
+                )}
+              </span>
+              <span className="w-6 text-right font-mono text-sm font-semibold tabular-nums text-foreground">
                 {b.value}
               </span>
             </div>
           ))}
         </div>
       ) : (
-        // Duels remount per frame so each newly revealed one grows from centre.
-        <div key={idx} className="mt-2 flex flex-col gap-2">
-          {frame.duels.map((d) => (
-            <div
-              key={d.right}
-              className="flex h-8 overflow-hidden rounded border border-border text-sm font-semibold"
-            >
-              <div
-                className="flex items-center justify-start gap-1 bg-primary px-2 text-primary-foreground"
-                style={{ width: `${pct(d.leftVotes)}%`, transition }}
-              >
-                <span aria-hidden>{foods[d.left].emoji}</span>
-                {d.leftVotes}
-              </div>
-              <div
-                className="flex flex-1 items-center justify-end gap-1 bg-muted/60 px-2 text-muted-foreground"
-                style={{ transition }}
-              >
-                {d.rightVotes}
-                <span aria-hidden>{foods[d.right].emoji}</span>
-              </div>
+        // Condorcet: the two options face off across a centre rule; the longer
+        // tally wins. Keyed by frame so each newly revealed duel counts in.
+        <div key={`${playToken}-${idx}`} className="mt-3 flex flex-col gap-3">
+          {frame.duels.map((d, row) => (
+            <div key={d.right} className="flex items-center gap-2">
+              <span className="flex flex-1 items-center justify-end gap-1.5 text-primary">
+                <span className="font-mono text-sm font-semibold tabular-nums">{d.leftVotes}</span>
+                <Tally n={d.leftVotes} delayMs={row * 120} />
+                <span aria-hidden className="text-base">
+                  {foods[d.left].emoji}
+                </span>
+              </span>
+              <span className="h-8 w-px shrink-0 bg-border" />
+              <span className="flex flex-1 items-center gap-1.5 text-muted-foreground">
+                <span aria-hidden className="text-base">
+                  {foods[d.right].emoji}
+                </span>
+                <Tally n={d.rightVotes} delayMs={row * 120} />
+                <span className="font-mono text-sm font-semibold tabular-nums">{d.rightVotes}</span>
+              </span>
             </div>
           ))}
         </div>
