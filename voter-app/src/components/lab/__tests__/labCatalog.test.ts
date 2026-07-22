@@ -69,6 +69,7 @@ const FORMER_LEAVES = [
 ];
 
 const EXTRAS = [
+  'lab-duel',
   'lab-matrix',
   'lab-gallery',
   'lab-ballot',
@@ -94,8 +95,8 @@ describe('labCatalog — nothing was lost in the redesign', () => {
     for (const id of EXTRAS) expect(ids.has(id), id).toBe(true);
   });
 
-  it('is exactly the old inventory — 57 fiches, unique ids, nothing smuggled in or out', () => {
-    expect(ALL_EXPERIMENTS).toHaveLength(FORMER_LEAVES.length + EXTRAS.length); // 57
+  it('is exactly the old inventory plus the tracked extras — unique ids, nothing smuggled in or out', () => {
+    expect(ALL_EXPERIMENTS).toHaveLength(FORMER_LEAVES.length + EXTRAS.length); // 48 + 10 = 58
     expect(new Set(ALL_EXPERIMENTS.map((e) => e.id)).size).toBe(ALL_EXPERIMENTS.length);
   });
 

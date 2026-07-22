@@ -1059,6 +1059,18 @@ const pgEn: PlaygroundKeys = {
     watch: '▶ Watch it unfold',
     liveWinner: 'Winner on your current electorate',
   },
+  duel: {
+    eyebrow: 'HEAD-TO-HEAD',
+    title: 'Compare two methods',
+    intro:
+      'Two methods, the same ballots, counted side by side. Pick a rule on each side and watch the tally: does the winner depend on the method?',
+    winner: 'Winner',
+    verdictSame: 'Same winner on both sides: {{name}}. Here the method changes nothing.',
+    verdictDiffer:
+      'Different winners: {{a}} on the left, {{b}} on the right. The method changes the result.',
+    replayBoth: 'Replay both',
+    needCandidates: 'Add at least two candidates in the Playground.',
+  },
   lab: {
     eyebrow: 'VOTE LAB · ADVANCED ANALYSIS',
     title: 'Lab',

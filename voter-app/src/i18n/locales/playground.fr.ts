@@ -1078,6 +1078,18 @@ const pgFr = {
     watch: '▶ Voir le déroulé',
     liveWinner: 'Vainqueur avec votre électorat actuel',
   },
+  duel: {
+    eyebrow: 'FACE-À-FACE',
+    title: 'Comparer deux méthodes',
+    intro:
+      'Deux méthodes, les mêmes bulletins, dépouillés côte à côte. Choisissez une règle de chaque côté et regardez le décompte : le vainqueur dépend-il de la méthode ?',
+    winner: 'Vainqueur',
+    verdictSame: 'Même vainqueur des deux côtés : {{name}}. Ici, la méthode ne change rien.',
+    verdictDiffer:
+      'Vainqueurs différents : {{a}} à gauche, {{b}} à droite. La méthode change le résultat.',
+    replayBoth: 'Rejouer les deux',
+    needCandidates: 'Ajoutez au moins deux candidats dans le Playground.',
+  },
   lab: {
     eyebrow: 'VOTE LAB · ANALYSES AVANCÉES',
     title: 'Laboratoire',

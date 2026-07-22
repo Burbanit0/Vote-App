@@ -20,6 +20,7 @@ import { useElection } from '../../stores/useElectionStore';
 // ── Lazy panels (formerly spread across 8 anchor files) ─────────────────────
 
 // Méthodes
+const MethodDuel = lazyWithPreload(() => import('./MethodDuel'));
 const MethodsMatrix = lazyWithPreload(() => import('./MethodsMatrix'));
 const MethodGallery = lazyWithPreload(() => import('./MethodGallery'));
 
@@ -231,6 +232,10 @@ export const LAB_FAMILIES: LabFamily[] = [
         key: 'methods',
         titleKey: 'lab.matrix.title',
         experiments: [
+          {
+            ...exp('lab-duel', 'duel.title', MethodDuel, MethodDuel.preload),
+            ownHeader: true,
+          },
           {
             ...exp('lab-matrix', 'lab.matrix.title', MethodsMatrix, MethodsMatrix.preload),
             ownHeader: true,
