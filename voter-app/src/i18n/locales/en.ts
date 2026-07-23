@@ -39,6 +39,77 @@ const en: TranslationKeys = {
     reportBug: 'Report a bug',
   },
 
+  discover: {
+    eyebrow: 'Understand it in 3 minutes',
+    title: 'There is more than one way to vote — and they don’t pick the same winner.',
+    lede: 'Most of us know only one: the one our elections use. Here, without jargon, is what changes when you count the votes differently.',
+    s1Kicker: 'The starting point',
+    s1Title: 'You already know one method.',
+    s1Body:
+      'Many countries vote by plurality or a two-round runoff: everyone names one candidate, first choices are counted, and if nobody has a majority the top two face off in a second round. It is one rule among many — not a law of nature.',
+    demoKicker: 'The flip',
+    demoTitle: 'Twelve friends, one restaurant.',
+    demoIntro:
+      'Nobody changes their mind: these are the same twelve ballots throughout. Only the way of counting them changes — and the winner with it. Click a rule.',
+    friends: '{{n}} friends',
+    approveHint:
+      'Under approval, everyone ticks several restaurants (the ✓s), not just one. Set how many below and watch the winner move.',
+    winnerLabel: 'Winner',
+    stamp: 'Elected',
+    approve: {
+      threshold: 'Everyone approves:',
+      k1: 'their favourite',
+      k2: 'their top two',
+      k3: 'all of them',
+      tie: 'Tie',
+    },
+    anim: {
+      replay: 'Replay',
+      plurality: 'Everyone puts their ballot on their single favourite. The most ballots wins.',
+      tr1: 'First round: count first choices. Nobody reaches a majority (7 of 12) — the top two stay in the race.',
+      tr2: 'Runoff: the last-placed is eliminated and its ballots join their second choice (in orange). Sushi crosses the majority and wins.',
+      ap_one:
+        'Everyone ticks only their favourite: that is exactly plurality. Pizza is back on top.',
+      ap_some:
+        'Everyone ticks the restaurants they accept. Thaï, in everyone’s top two, is approved by all 12.',
+      ap_all: 'If everyone ticks everything, nothing separates them: a tie.',
+      cd1: 'Duel Thaï vs Pizza: 7 friends of 12 prefer Thaï. It wins.',
+      cd2: 'Duel Thaï vs Sushi: 8 of 12 prefer Thaï. It wins both — the Condorcet winner.',
+    },
+    why: {
+      plurality:
+        'Pizza has the most first choices (5 of 12) — but a minority is enough, and nobody else wanted it.',
+      two_round: 'Pizza and Sushi reach the runoff; the Thaï lovers prefer Sushi, which wins.',
+      condorcet:
+        'Thaï beats Pizza head-to-head, and beats Sushi too: the compromise a majority prefers to each rival.',
+    },
+    famKicker: 'The map',
+    famTitle: 'Three broad ways to express a choice.',
+    fam: {
+      rank: {
+        title: 'Rank',
+        desc: 'You order the candidates, favourite to last. That lets us look at transfers and duels.',
+        ex: 'Two-round · Condorcet · Borda',
+      },
+      score: {
+        title: 'Score',
+        desc: 'You give each one a score or a grade. Felt quality counts, not just the order.',
+        ex: 'Score · Majority judgment · STAR',
+      },
+      approve: {
+        title: 'Approve',
+        desc: 'You tick everyone who suits you, without ranking them. Simple, and it rewards consensus.',
+        ex: 'Approval voting',
+      },
+    },
+    playKicker: 'Your turn',
+    playTitle: 'Now watch it on a real electorate.',
+    playBody:
+      'The restaurant was just a taste. In the instrument, drag the candidates, change the rule, and watch the winner flip across thousands of voters.',
+    playStory: 'Start with the spoiler effect',
+    playInstrument: 'Open the instrument',
+  },
+
   home: {
     eyebrow: 'Vote Lab · a laboratory of voting theory',
     h1Line1: 'The method decides,',
@@ -46,12 +117,17 @@ const en: TranslationKeys = {
     heroLede:
       'Same ballots, another rule, another winner. Change the rule on the right — the winner flips before your eyes.',
     ctaOpen: 'Open the instrument',
+    ctaDiscover: 'Discover',
+    discoverTag: '3 min',
+    discoverBannerLead: 'New here?',
+    discoverBannerText: 'Understand voting in 3 minutes.',
     ctaGuided: 'Guided tour',
     reassure: 'Free · no account · 15 methods · FR / EN',
     heroInstrLabel: 'Ideology map — demo',
     rulePick: 'Pick the rule',
     heroWinner: 'Winner',
     heroFlip: '↔ flip',
+    heroWhy: 'Understand why',
     heroCapPlurality: 'The left splits: Bob wins with a minority.',
     heroCapRunoff: 'In the runoff, the left rallies to Alice.',
     heroCapApproval: 'Broadly approved, Carol is the consensus.',

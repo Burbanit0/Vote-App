@@ -7,6 +7,9 @@ import {
   Swords,
   Sparkles,
   Shuffle,
+  Scissors,
+  Landmark,
+  Divide,
   BookOpen,
   X,
   type LucideIcon,
@@ -14,9 +17,13 @@ import {
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
 import { usePlaygroundCtx } from './PlaygroundController';
-import { STORIES, storyById, type Story, type StoryStep } from '../../lib/stories';
+import { storiesForMode, storyById, type Story, type StoryStep } from '../../lib/stories';
 import { track } from '../../lib/analytics';
-import type { ElectionConfig, PlaygroundState } from '../../stores/useElectionStore';
+import type {
+  ElectionConfig,
+  PlaygroundMode,
+  PlaygroundState,
+} from '../../stores/useElectionStore';
 import type { Rule } from '../../lib/playgroundVoting';
 import type { MomentId } from './MomentRail';
 
@@ -33,6 +40,9 @@ const ICONS: Record<string, LucideIcon> = {
   Swords,
   Sparkles,
   Shuffle,
+  Scissors,
+  Landmark,
+  Divide,
 };
 
 interface Snapshot {
@@ -88,17 +98,26 @@ const StoryPlayer: React.FC = () => {
     applyStep(active.steps[clamped]);
   };
 
-  const quit = () => {
+  // `mode` lives inside PlaygroundState, so restoring the snapshot restores the
+  // instrument too. `keepMode` overrides that for the one case where it would be
+  // wrong: the user flipped the Dirigeant/Assemblée toggle themselves.
+  const quit = (keepMode?: PlaygroundMode) => {
     const s = snapshot.current;
     if (s) {
       ctx.setConfig(s.config);
-      ctx.setPlayground(s.playground);
+      ctx.setPlayground(keepMode ? { ...s.playground, mode: keepMode } : s.playground);
       ctx.setLeaderRule(s.rule);
       ctx.setActiveMoment(s.moment);
     }
     snapshot.current = null;
     setActive(null);
   };
+
+  // Switching instrument abandons the story it was narrating — its beats describe
+  // the other mode. The sandbox comes back, but on the mode the user just picked.
+  React.useEffect(() => {
+    if (active && active.mode !== ctx.mode) quit(ctx.mode);
+  }, [ctx.mode]);
 
   // Homepage hand-off: "/playground?story=<id>" auto-starts that story on mount.
   // Mount-only — `start` captures the pre-story sandbox as the restore point.
@@ -131,7 +150,7 @@ const StoryPlayer: React.FC = () => {
             variant="ghost"
             size="sm"
             className="h-7 shrink-0 gap-1 px-2 text-muted-foreground"
-            onClick={quit}
+            onClick={() => quit()}
           >
             <X aria-hidden className="h-3.5 w-3.5" />
             {t('stories.quit')}
@@ -209,7 +228,7 @@ const StoryPlayer: React.FC = () => {
           data-testid="story-picker"
           className="mt-2 grid grid-cols-1 gap-2 rounded-xl border border-border bg-card p-3 sm:grid-cols-2 lg:grid-cols-3"
         >
-          {STORIES.map((story) => {
+          {storiesForMode(ctx.mode).map((story) => {
             const Icon = ICONS[story.icon] ?? BookOpen;
             return (
               <button

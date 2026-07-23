@@ -229,3 +229,67 @@ def test_scorecard_deterministic(client: TestClient):
     a = client.post("/api/v2/election/assembly-scorecard", json=_sc_payload()).json()
     b = client.post("/api/v2/election/assembly-scorecard", json=_sc_payload()).json()
     assert a == b
+
+
+# ── The parliament "histoires" ────────────────────────────────────────────────
+# voter-app/src/lib/stories.ts scripts three assembly stories whose beats quote
+# concrete figures ("3 seats become 0", "the Centre takes 41 % of the seats",
+# "Sainte-Laguë gives the small party 1 seat"). Those beats are text the visitor
+# reads as fact, and the frontend can't verify them (seats are allocated here),
+# so this is where they get locked. A change that breaks one of these means a
+# story is now lying — fix the beat or the engine, don't just re-baseline.
+
+STORY_PARTIES = [
+    {"name": "Gauche",         "x": -0.55, "y": -0.2},
+    {"name": "Verts",          "x": -0.35, "y":  0.45},
+    {"name": "Centre",         "x":  0.0,  "y":  0.0},
+    {"name": "Droite",         "x":  0.5,  "y":  0.15},
+    {"name": "Souverainistes", "x":  0.85, "y":  0.75},
+]
+
+
+def _story_payload(**overrides) -> dict:
+    return _payload(parties=STORY_PARTIES, num_voters=1000, seed=17, **overrides)
+
+
+def _seats(client: TestClient, **overrides) -> dict:
+    body = client.post("/api/v2/election/assembly", json=_story_payload(**overrides)).json()
+    return {p["name"]: p for p in body["parties"]} | {"_": body}
+
+
+def test_story_seuil(client: TestClient):
+    """'Le seuil qui efface': 3 seats → 0, then the deserted votes move right."""
+    no_bar = _seats(client, threshold=0.0)
+    assert no_bar["Souverainistes"]["seats"] == 3
+
+    bar = _seats(client, threshold=0.05)
+    assert bar["Souverainistes"]["seats"] == 0
+    assert bar["Souverainistes"]["excluded_by_threshold"] is True
+    assert bar["_"]["wasted_vote_share"] == pytest.approx(0.034, abs=0.002)
+
+    deserted = _seats(client, threshold=0.05, strategic_desertion=True)
+    assert deserted["Droite"]["vote_share"] > bar["Droite"]["vote_share"]
+    assert deserted["_"]["wasted_vote_share"] == 0.0
+
+
+def test_story_structures(client: TestClient):
+    """'Un vote, trois parlements': FPTP inflates the Centre and crushes the Verts."""
+    pr = _seats(client, structure="pr")
+    fptp = _seats(client, structure="fptp")
+    mmp = _seats(client, structure="mmp")
+
+    assert fptp["Centre"]["seat_share"] > fptp["Centre"]["vote_share"]  # winner's bonus
+    assert fptp["Verts"]["seat_share"] < fptp["Verts"]["vote_share"] / 1.5  # 19 % → 9 %
+    assert fptp["_"]["wasted_vote_share"] > 0.25
+    assert fptp["_"]["gallagher_index"] > pr["_"]["gallagher_index"]
+    assert mmp["_"]["gallagher_index"] < fptp["_"]["gallagher_index"]  # top-ups compensate
+
+
+def test_story_diviseur(client: TestClient):
+    """'Le diviseur décide': d'Hondt favours the big party, Sainte-Laguë the small one."""
+    small = dict(seats=21, threshold=0.0)
+    dh = _seats(client, apportionment="dhondt", **small)
+    sl = _seats(client, apportionment="sainte_lague", **small)
+
+    assert dh["Centre"]["seats"] == 8 and dh["Souverainistes"]["seats"] == 0
+    assert sl["Centre"]["seats"] == 7 and sl["Souverainistes"]["seats"] == 1

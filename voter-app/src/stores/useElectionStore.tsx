@@ -868,7 +868,36 @@ export const ElectionProvider: React.FC<{ children: React.ReactNode }> = ({ chil
   return <>{children}</>;
 };
 
+// ── Electorate override (read-only) ─────────────────────────────────────────
+//
+// A subtree can be pinned to a DIFFERENT electorate than the global store — the
+// Laboratoire's side-by-side comparison renders the SAME phenomenon on electorate
+// B here. Reads are overridden; writes are no-ops so the compared column cannot
+// mutate the real electorate. `useElection`/`usePlayground` are the only store
+// entry points (verified), so this reaches every one of the 57 fiches.
+interface ElectorateOverrideValue {
+  config: ElectionConfig;
+  playground: PlaygroundState;
+}
+const ElectorateOverrideContext = React.createContext<ElectorateOverrideValue | null>(null);
+
+export const ElectorateOverrideProvider: React.FC<{
+  config: ElectionConfig;
+  playground: PlaygroundState;
+  children: React.ReactNode;
+}> = ({ config, playground, children }) => {
+  const value = React.useMemo(() => ({ config, playground }), [config, playground]);
+  return (
+    <ElectorateOverrideContext.Provider value={value}>
+      {children}
+    </ElectorateOverrideContext.Provider>
+  );
+};
+
+const _noop = () => {};
+
 export function useElection(): ElectionContextValue {
+  const override = React.useContext(ElectorateOverrideContext);
   const config = useElectionStore((s) => s.config);
   const setConfig = useElectionStore((s) => s.setConfig);
   const setConfigDeep = useElectionStore((s) => s.setConfigDeep);
@@ -877,6 +906,19 @@ export function useElection(): ElectionContextValue {
   const applyScenario = useElectionStore((s) => s.applyScenario);
   const scenarioMeta = useElectionStore((s) => s.scenarioMeta);
   const clearScenarioMeta = useElectionStore((s) => s.clearScenarioMeta);
+  if (override) {
+    return {
+      config: override.config,
+      setConfig: _noop,
+      setConfigDeep: _noop,
+      replaceConfig: _noop,
+      resetConfig: _noop,
+      applyScenario: _noop,
+      scenarioNames: SCENARIO_NAMES,
+      scenarioMeta: null,
+      clearScenarioMeta: _noop,
+    };
+  }
   return {
     config,
     setConfig,
@@ -907,6 +949,7 @@ export interface PlaygroundContextValue {
 }
 
 export function usePlayground(): PlaygroundContextValue {
+  const override = React.useContext(ElectorateOverrideContext);
   const playground = useElectionStore((s) => s.playground);
   const setMode = useElectionStore((s) => s.setMode);
   const setPlayground = useElectionStore((s) => s.setPlayground);
@@ -917,6 +960,21 @@ export function usePlayground(): PlaygroundContextValue {
   const addCommunity = useElectionStore((s) => s.addCommunity);
   const removeCommunity = useElectionStore((s) => s.removeCommunity);
   const applyElectoratePreset = useElectionStore((s) => s.applyElectoratePreset);
+  if (override) {
+    return {
+      playground: override.playground,
+      setMode: _noop,
+      setPlayground: _noop,
+      setPlaygroundDeep: _noop,
+      applyPreset: _noop,
+      presets: PLAYGROUND_PRESETS,
+      setElectorate: _noop,
+      updateCommunity: _noop,
+      addCommunity: _noop,
+      removeCommunity: _noop,
+      applyElectoratePreset: _noop,
+    };
+  }
   return {
     playground,
     setMode,

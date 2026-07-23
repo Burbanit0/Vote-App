@@ -12,6 +12,7 @@ import HomePage from './pages/HomePage';
 //    HomePage download doesn't drag in everything. Each becomes its own chunk.
 const PlaygroundPage = React.lazy(() => import('./pages/PlaygroundPage'));
 const LaboratoirePage = React.lazy(() => import('./pages/LaboratoirePage'));
+const DecouvrirPage = React.lazy(() => import('./pages/DecouvrirPage'));
 const NotFoundPage = React.lazy(() => import('./pages/NotFoundPage'));
 
 import { useTheme } from './stores/useUIStore';
@@ -41,6 +42,7 @@ const AppContent: React.FC = () => {
           <Routes>
             {/* The whole app is anonymous — two destinations. */}
             <Route path="/" element={<HomePage />} />
+            <Route path="/decouvrir" element={<DecouvrirPage />} />
             <Route path="/playground" element={<PlaygroundPage />} />
             <Route path="/laboratoire" element={<LaboratoirePage />} />
 

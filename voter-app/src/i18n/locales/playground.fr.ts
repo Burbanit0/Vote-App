@@ -112,6 +112,36 @@ const pgFr = {
           'Le vote par approbation couronne lui aussi Bayrou. Bilan : plusieurs présidents pour un seul électorat — la méthode n’est pas neutre.',
       },
     },
+    seuil: {
+      title: 'Le seuil qui efface',
+      tagline: 'Une barre à 5 % ne retire pas que des sièges : elle déplace les voix.',
+      steps: {
+        pur: 'Proportionnelle intégrale, 100 sièges, aucun seuil. Cinq partis, et les Souverainistes — 3,4 % des voix — obtiennent 3 sièges. L’assemblée est un miroir presque exact de l’électorat.',
+        barre:
+          'Activez le seuil de 5 % : les Souverainistes tombent à zéro siège. Leurs 3,4 % deviennent des voix perdues, et leurs sièges sont redistribués aux partis déjà représentés.',
+        desertion:
+          'Ajoutez le vote stratégique : sachant leur parti condamné par le seuil, ces électeurs se reportent sur la Droite, qui passe de 21 % à 25 %. Le seuil n’a pas seulement effacé un parti — il a fabriqué une majorité ailleurs.',
+      },
+    },
+    structures: {
+      title: 'Un vote, trois parlements',
+      tagline: 'Mêmes bulletins, mêmes partis : proportionnelle, uninominal ou mixte ?',
+      steps: {
+        pr: 'Proportionnelle nationale : chaque parti reçoit à peu près sa part de voix. L’indice de Gallagher (la distorsion voix→sièges) est très bas.',
+        fptp: 'Passez au scrutin uninominal par circonscription : le Centre, 35 % des voix, rafle 41 % des sièges, tandis que les Verts — pourtant à 19 % — tombent à 9 %, faute d’être majoritaires quelque part. Près d’un tiers des voix ne pèse plus rien.',
+        mmp: 'En scrutin mixte compensatoire, les élus locaux sont conservés mais des sièges de compensation rétablissent les proportions : on retrouve la fidélité de la proportionnelle sans perdre l’ancrage territorial.',
+      },
+    },
+    diviseur: {
+      title: 'Le diviseur décide',
+      tagline: 'Deux façons d’arrondir la proportionnelle — deux assemblées.',
+      steps: {
+        dhondt:
+          'Assemblée de 21 sièges, sans seuil, méthode d’Hondt. Le Centre obtient 8 sièges, les Souverainistes aucun : d’Hondt arrondit systématiquement en faveur des grands.',
+        sainteLague:
+          'Même électorat, méthode Sainte-Laguë : le Centre redescend à 7 sièges et les Souverainistes en gagnent 1. Aucun électeur n’a changé d’avis — seule la formule d’arrondi a changé.',
+      },
+    },
   },
   common: {
     loading: 'Chargement…',
@@ -1048,6 +1078,18 @@ const pgFr = {
     watch: '▶ Voir le déroulé',
     liveWinner: 'Vainqueur avec votre électorat actuel',
   },
+  duel: {
+    eyebrow: 'FACE-À-FACE',
+    title: 'Comparer deux méthodes',
+    intro:
+      'Deux méthodes, les mêmes bulletins, dépouillés côte à côte. Choisissez une règle de chaque côté et regardez le décompte : le vainqueur dépend-il de la méthode ?',
+    winner: 'Vainqueur',
+    verdictSame: 'Même vainqueur des deux côtés : {{name}}. Ici, la méthode ne change rien.',
+    verdictDiffer:
+      'Vainqueurs différents : {{a}} à gauche, {{b}} à droite. La méthode change le résultat.',
+    replayBoth: 'Rejouer les deux',
+    needCandidates: 'Ajoutez au moins deux candidats dans le Playground.',
+  },
   lab: {
     eyebrow: 'VOTE LAB · ANALYSES AVANCÉES',
     title: 'Laboratoire',
@@ -1107,10 +1149,10 @@ const pgFr = {
       dynamics: 'Dynamiques',
       theory: 'Théorie & analyse',
     },
-    compare: 'Comparer',
-    comparePick:
-      'Choisissez la seconde expérience dans le catalogue — elle s’ouvrira à côté, sur le même électorat.',
+    compareElec: 'Comparer un électorat',
+    comparePick: 'Comparer la même fiche sur :',
     compareStop: 'Fermer la comparaison',
+    elecCurrent: 'Électorat actuel',
     strip: {
       voters: '{{n}} électeurs',
       rule: 'Règle',

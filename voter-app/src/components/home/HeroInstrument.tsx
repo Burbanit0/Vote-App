@@ -1,5 +1,7 @@
 import React from 'react';
+import { Link } from 'react-router';
 import { useTranslation } from 'react-i18next';
+import { ArrowRight } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Instrument } from '@/components/ui/instrument';
 
@@ -294,6 +296,20 @@ const HeroInstrument: React.FC = () => {
             {t(CAP_KEY[rule])}
           </p>
         </div>
+
+        {/* Doorway: this teaser is the hook; /decouvrir is where the mechanism is
+            explained step by step. A separate link (not the whole card) so the
+            rule buttons above stay independently clickable. */}
+        <Link
+          to="/decouvrir"
+          className="group flex items-center justify-between rounded-lg border border-primary/30 bg-primary/5 px-2.5 py-1.5 text-[0.72rem] font-semibold text-primary transition-colors hover:bg-primary/10"
+        >
+          {t('home.heroWhy')}
+          <ArrowRight
+            aria-hidden
+            className="h-3.5 w-3.5 transition-transform group-hover:translate-x-0.5"
+          />
+        </Link>
       </div>
     </Instrument>
   );
