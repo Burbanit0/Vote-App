@@ -1149,10 +1149,10 @@ const pgFr = {
       dynamics: 'Dynamiques',
       theory: 'Théorie & analyse',
     },
-    compare: 'Comparer',
-    comparePick:
-      'Choisissez la seconde expérience dans le catalogue — elle s’ouvrira à côté, sur le même électorat.',
+    compareElec: 'Comparer un électorat',
+    comparePick: 'Comparer la même fiche sur :',
     compareStop: 'Fermer la comparaison',
+    elecCurrent: 'Électorat actuel',
     strip: {
       voters: '{{n}} électeurs',
       rule: 'Règle',

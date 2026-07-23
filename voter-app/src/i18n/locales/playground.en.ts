@@ -1130,10 +1130,10 @@ const pgEn: PlaygroundKeys = {
       dynamics: 'Dynamics',
       theory: 'Theory & analysis',
     },
-    compare: 'Compare',
-    comparePick:
-      'Pick the second experiment from the catalogue — it opens alongside, on the same electorate.',
+    compareElec: 'Compare an electorate',
+    comparePick: 'Compare the same fiche on:',
     compareStop: 'Close the comparison',
+    elecCurrent: 'Current electorate',
     strip: {
       voters: '{{n}} voters',
       rule: 'Rule',
