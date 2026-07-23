@@ -1,7 +1,8 @@
 import React from 'react';
 import { useTranslation } from 'react-i18next';
 import { Link, useSearchParams } from 'react-router';
-import { Columns2, X } from 'lucide-react';
+import { Columns2, X, Users, Scale, Swords, Landmark, Activity, FlaskConical } from 'lucide-react';
+import type { LucideIcon } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
 import { useMetaTags } from '../hooks/useMetaTags';
@@ -9,10 +10,19 @@ import {
   PlaygroundProvider,
   usePlaygroundCtx,
 } from '../components/playground/PlaygroundController';
+import {
+  ElectorateOverrideProvider,
+  ELECTORATE_PRESETS,
+  useElection,
+  usePlayground,
+  type ElectionConfig,
+  type PlaygroundState,
+} from '../stores/useElectionStore';
 import { AnchorFallback, selectCls } from '../components/playground/playgroundFields';
 import { useVotingLabels } from '../hooks/useVotingLabels';
 import { LEADER_RULES } from '../lib/scorecard';
 import { candidateColor } from '../lib/palette';
+import { track } from '../lib/analytics';
 import {
   LAB_FAMILIES,
   DEFAULT_EXPERIMENT,
@@ -28,12 +38,47 @@ import type { Rule } from '../lib/playgroundVoting';
 // extended to a collection:
 //
 //   family rail  →  électorat strip  →  catalogue of fiches  →  ONE full-width
-//   bench (l'établi), with "Comparer" splitting it into two fiches that read the
-//   SAME shared electorate.
+//   bench (l'établi), with "Comparer un électorat" splitting it into the SAME
+//   fiche read on two electorates (the phenomenon held constant, the electorate
+//   varied) — a real comparison, not two unrelated panels side by side.
 //
 // All content lives in labCatalog.tsx as data (57 fiches — the integrity test
 // proves nothing was lost). The page only navigates: nothing mounts unpicked,
 // chips warm their chunk on hover, and ?exp=/&vs= deep-link any bench state.
+
+// The five families are a taxonomy (methods / rules / systems / dynamics /
+// theory), not a sequence — so they get a category icon, never an ordinal. A
+// "1 2 3 4 5" here would imply a progression the archive doesn't have.
+const FAMILY_ICON: Record<FamilyId, LucideIcon> = {
+  methods: Scale,
+  rules: Swords,
+  systems: Landmark,
+  dynamics: Activity,
+  theory: FlaskConical,
+};
+
+// Registration ticks — the instrument's corner marks, so a fiche reads as a
+// specimen on the lab bench (echoes the Playground's scope frame).
+const Corners: React.FC = () => (
+  <>
+    <span
+      aria-hidden
+      className="pointer-events-none absolute left-1.5 top-1.5 h-2.5 w-2.5 border-l border-t border-primary/55"
+    />
+    <span
+      aria-hidden
+      className="pointer-events-none absolute right-1.5 top-1.5 h-2.5 w-2.5 border-r border-t border-primary/55"
+    />
+    <span
+      aria-hidden
+      className="pointer-events-none absolute bottom-1.5 left-1.5 h-2.5 w-2.5 border-b border-l border-primary/55"
+    />
+    <span
+      aria-hidden
+      className="pointer-events-none absolute bottom-1.5 right-1.5 h-2.5 w-2.5 border-b border-r border-primary/55"
+    />
+  </>
+);
 
 // ── Électorat strip — the shared frame every fiche reads ────────────────────
 
@@ -42,9 +87,12 @@ const ElectorateStrip: React.FC = () => {
   const { config, leaderRule, setLeaderRule } = usePlaygroundCtx();
   const { ruleLabels } = useVotingLabels();
   return (
+    // Reads as the same instrument's telemetry as the Playground's scope status
+    // line (tinted mono strip), because it IS the same electorate — every fiche
+    // below is measured on it.
     <div
       data-testid="lab-electorate-strip"
-      className="flex flex-wrap items-center gap-x-4 gap-y-2 rounded-xl border border-border bg-muted/20 px-3 py-2"
+      className="flex flex-wrap items-center gap-x-4 gap-y-2 rounded-md border border-primary/15 bg-muted/30 px-3 py-2"
     >
       <div className="flex min-w-0 flex-wrap items-center gap-x-3 gap-y-1">
         {config.candidates.map((c, i) => (
@@ -57,17 +105,23 @@ const ElectorateStrip: React.FC = () => {
             {c.name}
           </span>
         ))}
-        <span className="font-mono text-[0.7rem] text-muted-foreground">
+        <span
+          aria-hidden
+          className="font-mono text-[0.6rem] uppercase tracking-[0.12em] text-border"
+        >
+          ·
+        </span>
+        <span className="font-mono text-[0.6rem] uppercase tracking-[0.12em] text-muted-foreground">
           {t('lab.strip.voters', { n: config.num_voters })}
         </span>
       </div>
 
       <div className="ml-auto flex items-center gap-3">
-        <label className="flex items-center gap-1.5 text-xs text-muted-foreground">
+        <label className="flex items-center gap-1.5 font-mono text-[0.6rem] uppercase tracking-[0.12em] text-muted-foreground">
           {t('lab.strip.rule')}
           <select
             data-testid="lab-rule-select"
-            className={cn(selectCls, 'h-7 w-auto py-0 text-xs')}
+            className={cn(selectCls, 'h-7 w-auto py-0 text-xs normal-case tracking-normal')}
             value={leaderRule}
             onChange={(e) => setLeaderRule(e.target.value as Rule)}
           >
@@ -91,9 +145,11 @@ const ElectorateStrip: React.FC = () => {
 const BenchFiche: React.FC<{
   located: Located;
   side?: 'primary' | 'vs';
+  /** Which electorate this column reads — the dimension the comparison varies. */
+  electorateLabel: string;
   onCompare?: () => void;
   onClose?: () => void;
-}> = ({ located, side = 'primary', onCompare, onClose }) => {
+}> = ({ located, side = 'primary', electorateLabel, onCompare, onClose }) => {
   const { t } = useTranslation('playground');
   const { family, group, experiment } = located;
   const Body = experiment.Body;
@@ -104,9 +160,10 @@ const BenchFiche: React.FC<{
   return (
     <section
       data-testid={side === 'vs' ? 'lab-bench-vs' : 'lab-bench'}
-      className="min-w-0 rounded-xl border border-border bg-card"
+      className="relative min-w-0 rounded-md border border-primary/25 bg-card shadow-sm"
     >
-      <header className="flex items-start justify-between gap-3 border-b border-border/60 px-4 py-3">
+      <Corners />
+      <header className="flex items-start justify-between gap-3 border-b border-primary/15 bg-muted/30 px-4 py-2.5">
         <div className="min-w-0">
           <p className="truncate font-mono text-[0.62rem] uppercase tracking-[0.18em] text-muted-foreground">
             {kicker}
@@ -116,6 +173,15 @@ const BenchFiche: React.FC<{
               {t(experiment.titleKey)}
             </h2>
           )}
+          {/* The electorate this column is measured on — the axis the face-à-face
+              holds one side against the other. */}
+          <span
+            data-testid={`lab-elec-label-${side}`}
+            className="mt-1 inline-flex max-w-full items-center gap-1 truncate rounded-full border border-primary/20 bg-primary/5 px-2 py-0.5 font-mono text-[0.6rem] uppercase tracking-[0.1em] text-primary"
+          >
+            <Users aria-hidden className="h-3 w-3 shrink-0" />
+            <span className="truncate">{electorateLabel}</span>
+          </span>
         </div>
         {onCompare && (
           <Button
@@ -126,7 +192,7 @@ const BenchFiche: React.FC<{
             onClick={onCompare}
           >
             <Columns2 aria-hidden className="h-3.5 w-3.5" />
-            {t('lab.compare')}
+            {t('lab.compareElec')}
           </Button>
         )}
         {onClose && (
@@ -161,34 +227,61 @@ const BenchFiche: React.FC<{
 const LaboratoireContent: React.FC = () => {
   const { t } = useTranslation('playground');
   const [searchParams, setSearchParams] = useSearchParams();
+  const { config } = useElection();
+  const { playground } = usePlayground();
 
   const expId = searchParams.get('exp') ?? DEFAULT_EXPERIMENT;
-  const vsId = searchParams.get('vs');
   const active = locateExperiment(expId) ?? locateExperiment(DEFAULT_EXPERIMENT)!;
-  const vs = vsId ? locateExperiment(vsId) : null;
+  // Comparison axis: the SAME fiche read on a second electorate (a preset), so the
+  // phenomenon is held constant and only the electorate varies. `vsElec` is the
+  // preset id; unknown ids fall back to no comparison.
+  const vsElecRaw = searchParams.get('vsElec');
+  const vsElec = vsElecRaw && ELECTORATE_PRESETS[vsElecRaw] ? vsElecRaw : null;
 
   // Which family's catalogue is open — follows the active fiche, but browsing
   // another family must not clear the bench.
   const [familyId, setFamilyId] = React.useState<FamilyId>(active.family.id);
-  // When armed, the next chip click fills the SECOND slot of the bench.
-  const [pickingVs, setPickingVs] = React.useState(false);
+  // Whether the "compare on another electorate" picker is showing.
+  const [pickingElec, setPickingElec] = React.useState(false);
 
   const family = LAB_FAMILIES.find((f) => f.id === familyId) ?? LAB_FAMILIES[0];
 
-  const setBench = (exp: string, vsNext: string | null) => {
+  const setBench = (exp: string, vsElecNext: string | null) => {
     const params: Record<string, string> = { exp };
-    if (vsNext) params.vs = vsNext;
+    if (vsElecNext) params.vsElec = vsElecNext;
     setSearchParams(params, { replace: true });
   };
 
+  // A chip switches the fiche; column B (if open) follows onto the new fiche, so
+  // the two columns always show the SAME phenomenon on their two electorates.
   const pick = (id: string) => {
-    if (pickingVs) {
-      if (id !== active.experiment.id) setBench(active.experiment.id, id);
-      setPickingVs(false);
-    } else {
-      setBench(id, vs && vs.experiment.id !== id ? vs.experiment.id : null);
-    }
+    track('lab_fiche_opened', { fiche: id });
+    setBench(id, vsElec);
   };
+
+  // Clicking a preset opens (or re-targets) column B; clicking the open one closes.
+  const pickElec = (id: string) => {
+    const next = id === vsElec ? null : id;
+    if (next) track('lab_compare_opened', { fiche: active.experiment.id, electorate: next });
+    setBench(active.experiment.id, next);
+    setPickingElec(false);
+  };
+
+  // Electorate B: the current candidates, but the voter distribution swapped for
+  // the chosen preset (a composed mixture). Read-only — the override freezes it.
+  const configB: ElectionConfig = config;
+  const presetB = vsElec ? ELECTORATE_PRESETS[vsElec] : null;
+  const playgroundB: PlaygroundState | null = presetB
+    ? {
+        ...playground,
+        electorate: {
+          mode: 'composed',
+          correlation: presetB.correlation,
+          noise: playground.electorate.noise,
+          communities: presetB.communities.map((c) => ({ ...c })),
+        },
+      }
+    : null;
 
   return (
     <div className="container mx-auto max-w-6xl px-4 py-5">
@@ -215,10 +308,11 @@ const LaboratoireContent: React.FC = () => {
         data-testid="lab-family-rail"
         role="radiogroup"
         aria-label={t('lab.title')}
-        className="grid grid-cols-2 gap-2 sm:grid-cols-3 lg:flex lg:items-stretch"
+        className="grid grid-cols-2 gap-1.5 sm:grid-cols-3 lg:flex lg:items-stretch"
       >
         {LAB_FAMILIES.map((f) => {
           const on = f.id === familyId;
+          const Icon = FAMILY_ICON[f.id];
           return (
             <button
               key={f.id}
@@ -228,38 +322,32 @@ const LaboratoireContent: React.FC = () => {
               data-testid={`lab-family-${f.id}`}
               onClick={() => setFamilyId(f.id)}
               className={cn(
-                'group relative flex min-w-0 flex-1 items-center gap-2.5 rounded-xl border px-3 py-2 text-left transition-all',
+                'group flex min-w-0 flex-1 items-center gap-2.5 rounded-lg px-3 py-2 text-left transition-all',
                 on
-                  ? 'border-primary/40 bg-card shadow-sm'
-                  : 'border-border bg-muted/30 hover:bg-card'
+                  ? 'border border-primary/30 bg-card shadow-sm'
+                  : 'border border-transparent hover:bg-muted/50'
               )}
             >
               <span
                 className={cn(
-                  'flex h-6 w-6 shrink-0 items-center justify-center rounded-md font-mono text-xs font-semibold tabular-nums',
+                  'flex h-7 w-7 shrink-0 items-center justify-center rounded-md transition-colors',
                   on
                     ? 'bg-primary text-primary-foreground'
                     : 'bg-background text-muted-foreground group-hover:text-foreground'
                 )}
               >
-                {f.n}
+                <Icon aria-hidden className="h-3.5 w-3.5" />
               </span>
               <span
                 className={cn(
-                  'min-w-0 truncate text-sm font-medium',
+                  'min-w-0 truncate text-sm transition-colors',
                   on
-                    ? 'font-display text-foreground'
-                    : 'text-muted-foreground group-hover:text-foreground'
+                    ? 'font-display font-semibold text-foreground'
+                    : 'font-medium text-muted-foreground group-hover:text-foreground'
                 )}
               >
                 {t(f.labelKey)}
               </span>
-              {on && (
-                <span
-                  aria-hidden
-                  className="absolute inset-x-3 -bottom-px h-0.5 rounded-full bg-primary"
-                />
-              )}
             </button>
           );
         })}
@@ -268,19 +356,8 @@ const LaboratoireContent: React.FC = () => {
       {/* ── Catalogue of the active family ── */}
       <div
         data-testid="lab-catalogue"
-        className={cn(
-          'mt-3 rounded-xl border bg-card/60 px-3 py-2.5',
-          pickingVs ? 'border-primary/50' : 'border-border'
-        )}
+        className="mt-3 rounded-xl border border-border bg-card/60 px-3 py-2.5"
       >
-        {pickingVs && (
-          <p
-            data-testid="lab-compare-hint"
-            className="mb-2 rounded-md bg-primary/10 px-2 py-1 text-xs font-medium text-primary"
-          >
-            {t('lab.comparePick')}
-          </p>
-        )}
         <div className="flex flex-col gap-2.5">
           {family.groups.map((g) => (
             <div key={g.key}>
@@ -295,13 +372,12 @@ const LaboratoireContent: React.FC = () => {
               <div className="flex flex-wrap gap-1.5">
                 {g.experiments.map((e) => {
                   const isActive = e.id === active.experiment.id;
-                  const isVs = vs?.experiment.id === e.id;
                   return (
                     <button
                       key={e.id}
                       type="button"
                       data-testid={`chip-${e.id}`}
-                      aria-pressed={isActive || isVs}
+                      aria-pressed={isActive}
                       onMouseEnter={e.preload}
                       onFocus={e.preload}
                       onClick={() => pick(e.id)}
@@ -309,9 +385,7 @@ const LaboratoireContent: React.FC = () => {
                         'rounded-md border px-2 py-1 text-xs transition-colors',
                         isActive
                           ? 'border-primary/60 bg-primary/10 font-medium text-foreground'
-                          : isVs
-                            ? 'border-primary/30 bg-accent/50 text-foreground'
-                            : 'border-border text-muted-foreground hover:bg-accent/40 hover:text-foreground'
+                          : 'border-border text-muted-foreground hover:bg-accent/40 hover:text-foreground'
                       )}
                     >
                       {t(e.titleKey)}
@@ -329,11 +403,53 @@ const LaboratoireContent: React.FC = () => {
         <ElectorateStrip />
       </div>
 
+      {/* ── Electorate comparison picker: the same fiche on a second electorate ── */}
+      {(pickingElec || vsElec) && (
+        <div
+          data-testid="lab-elec-picker"
+          className="mt-3 flex flex-wrap items-center gap-2 rounded-md border border-primary/40 bg-primary/5 px-3 py-2"
+        >
+          <span className="font-mono text-[0.62rem] uppercase tracking-[0.14em] text-primary">
+            {t('lab.comparePick')}
+          </span>
+          {Object.entries(ELECTORATE_PRESETS).map(([id, p]) => (
+            <button
+              key={id}
+              type="button"
+              data-testid={`lab-elec-${id}`}
+              aria-pressed={id === vsElec}
+              onClick={() => pickElec(id)}
+              className={cn(
+                'rounded-md border px-2 py-1 text-xs transition-colors',
+                id === vsElec
+                  ? 'border-primary bg-primary text-primary-foreground'
+                  : 'border-border bg-card text-muted-foreground hover:border-primary/40 hover:text-foreground'
+              )}
+            >
+              {p.label}
+            </button>
+          ))}
+        </div>
+      )}
+
       {/* ── L'établi ── */}
-      <div className={cn('mt-3 grid grid-cols-1 gap-3', vs && 'xl:grid-cols-2')}>
-        <BenchFiche located={active} onCompare={!vs ? () => setPickingVs((p) => !p) : undefined} />
-        {vs && (
-          <BenchFiche located={vs} side="vs" onClose={() => setBench(active.experiment.id, null)} />
+      <div className={cn('mt-3 grid grid-cols-1 gap-3', vsElec && 'xl:grid-cols-2')}>
+        <BenchFiche
+          located={active}
+          electorateLabel={t('lab.elecCurrent')}
+          onCompare={!vsElec ? () => setPickingElec((p) => !p) : undefined}
+        />
+        {vsElec && playgroundB && (
+          <ElectorateOverrideProvider config={configB} playground={playgroundB}>
+            <PlaygroundProvider>
+              <BenchFiche
+                located={active}
+                side="vs"
+                electorateLabel={presetB?.label ?? ''}
+                onClose={() => setBench(active.experiment.id, null)}
+              />
+            </PlaygroundProvider>
+          </ElectorateOverrideProvider>
         )}
       </div>
     </div>

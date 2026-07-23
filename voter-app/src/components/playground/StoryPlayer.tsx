@@ -7,6 +7,9 @@ import {
   Swords,
   Sparkles,
   Shuffle,
+  Scissors,
+  Landmark,
+  Divide,
   BookOpen,
   X,
   type LucideIcon,
@@ -14,8 +17,13 @@ import {
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
 import { usePlaygroundCtx } from './PlaygroundController';
-import { STORIES, storyById, type Story, type StoryStep } from '../../lib/stories';
-import type { ElectionConfig, PlaygroundState } from '../../stores/useElectionStore';
+import { storiesForMode, storyById, type Story, type StoryStep } from '../../lib/stories';
+import { track } from '../../lib/analytics';
+import type {
+  ElectionConfig,
+  PlaygroundMode,
+  PlaygroundState,
+} from '../../stores/useElectionStore';
 import type { Rule } from '../../lib/playgroundVoting';
 import type { MomentId } from './MomentRail';
 
@@ -32,6 +40,9 @@ const ICONS: Record<string, LucideIcon> = {
   Swords,
   Sparkles,
   Shuffle,
+  Scissors,
+  Landmark,
+  Divide,
 };
 
 interface Snapshot {
@@ -48,6 +59,8 @@ const StoryPlayer: React.FC = () => {
   const [active, setActive] = React.useState<Story | null>(null);
   const [stepIdx, setStepIdx] = React.useState(0);
   const snapshot = React.useRef<Snapshot | null>(null);
+  // One completion event per playthrough, however often the user scrubs the end.
+  const completed = React.useRef(false);
 
   // Apply one beat: patch only what the step declares, via the live setters.
   const applyStep = (step: StoryStep) => {
@@ -69,27 +82,42 @@ const StoryPlayer: React.FC = () => {
     setActive(story);
     setStepIdx(0);
     setPickerOpen(false);
+    completed.current = false;
+    track('story_started', { story: story.id });
     applyStep(story.steps[0]);
   };
 
   const goto = (idx: number) => {
     if (!active) return;
     const clamped = Math.max(0, Math.min(active.steps.length - 1, idx));
+    if (clamped === active.steps.length - 1 && !completed.current) {
+      completed.current = true;
+      track('story_completed', { story: active.id });
+    }
     setStepIdx(clamped);
     applyStep(active.steps[clamped]);
   };
 
-  const quit = () => {
+  // `mode` lives inside PlaygroundState, so restoring the snapshot restores the
+  // instrument too. `keepMode` overrides that for the one case where it would be
+  // wrong: the user flipped the Dirigeant/Assemblée toggle themselves.
+  const quit = (keepMode?: PlaygroundMode) => {
     const s = snapshot.current;
     if (s) {
       ctx.setConfig(s.config);
-      ctx.setPlayground(s.playground);
+      ctx.setPlayground(keepMode ? { ...s.playground, mode: keepMode } : s.playground);
       ctx.setLeaderRule(s.rule);
       ctx.setActiveMoment(s.moment);
     }
     snapshot.current = null;
     setActive(null);
   };
+
+  // Switching instrument abandons the story it was narrating — its beats describe
+  // the other mode. The sandbox comes back, but on the mode the user just picked.
+  React.useEffect(() => {
+    if (active && active.mode !== ctx.mode) quit(ctx.mode);
+  }, [ctx.mode]);
 
   // Homepage hand-off: "/playground?story=<id>" auto-starts that story on mount.
   // Mount-only — `start` captures the pre-story sandbox as the restore point.
@@ -122,7 +150,7 @@ const StoryPlayer: React.FC = () => {
             variant="ghost"
             size="sm"
             className="h-7 shrink-0 gap-1 px-2 text-muted-foreground"
-            onClick={quit}
+            onClick={() => quit()}
           >
             <X aria-hidden className="h-3.5 w-3.5" />
             {t('stories.quit')}
@@ -200,7 +228,7 @@ const StoryPlayer: React.FC = () => {
           data-testid="story-picker"
           className="mt-2 grid grid-cols-1 gap-2 rounded-xl border border-border bg-card p-3 sm:grid-cols-2 lg:grid-cols-3"
         >
-          {STORIES.map((story) => {
+          {storiesForMode(ctx.mode).map((story) => {
             const Icon = ICONS[story.icon] ?? BookOpen;
             return (
               <button

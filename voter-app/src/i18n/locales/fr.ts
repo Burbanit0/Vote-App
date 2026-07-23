@@ -34,6 +34,79 @@ const fr = {
     logout: 'Déconnexion',
     login: 'Connexion',
     register: 'Créer un compte',
+    reportBug: 'Signaler un bug',
+  },
+
+  discover: {
+    eyebrow: 'Comprendre en 3 minutes',
+    title: 'Il existe plusieurs façons de voter — et elles ne donnent pas le même gagnant.',
+    lede: 'La plupart d’entre nous n’en connaissent qu’une : celle de nos élections. Voici, sans jargon, ce qui change quand on compte les voix autrement.',
+    s1Kicker: 'Le point de départ',
+    s1Title: 'Vous connaissez déjà une méthode.',
+    s1Body:
+      'En France, on vote au scrutin majoritaire à deux tours : chacun choisit un nom, on compte les premiers choix, et si personne n’a la majorité, les deux premiers s’affrontent au second tour. C’est une règle parmi beaucoup d’autres — pas une loi de la nature.',
+    demoKicker: 'La bascule',
+    demoTitle: 'Douze amis, un restaurant.',
+    demoIntro:
+      'Personne ne change d’avis : ce sont les mêmes douze bulletins tout du long. Seule la façon de les compter change — et le vainqueur avec elle. Cliquez une règle.',
+    friends: '{{n}} amis',
+    approveHint:
+      'À l’approbation, chacun coche plusieurs restos (les ✓), pas un seul. Réglez combien ci-dessous et regardez le vainqueur bouger.',
+    winnerLabel: 'Vainqueur',
+    stamp: 'Élu',
+    approve: {
+      threshold: 'Chacun approuve :',
+      k1: 'son préféré',
+      k2: 'ses 2 préférés',
+      k3: 'tous',
+      tie: 'Égalité',
+    },
+    anim: {
+      replay: 'Rejouer',
+      plurality: 'Chacun pose son bulletin sur son seul préféré. Le plus de bulletins l’emporte.',
+      tr1: 'Premier tour : on compte les premiers choix. Personne n’atteint la majorité (7 sur 12) — les deux premiers restent en lice.',
+      tr2: 'Second tour : le dernier est éliminé et ses bulletins rejoignent leur second choix (en orange). Le Sushi passe la majorité et l’emporte.',
+      ap_one:
+        'Chacun ne coche que son préféré : c’est exactement la pluralité. Pizza repasse en tête.',
+      ap_some:
+        'Chacun coche ses restos acceptables. Le Thaï, dans le top 2 de tout le monde, est approuvé par les 12.',
+      ap_all: 'Si chacun coche tout, plus rien ne les départage : égalité.',
+      cd1: 'Duel Thaï contre Pizza : 7 amis sur 12 préfèrent le Thaï. Il gagne.',
+      cd2: 'Duel Thaï contre Sushi : 8 sur 12 préfèrent le Thaï. Il gagne les deux — c’est le vainqueur de Condorcet.',
+    },
+    why: {
+      plurality:
+        'Pizza a le plus de premiers choix (5 sur 12) — mais une minorité suffit, et personne d’autre n’en voulait.',
+      two_round:
+        'Pizza et Sushi vont au second tour ; les amateurs de Thaï préfèrent Sushi, qui l’emporte.',
+      condorcet:
+        'Le Thaï bat la Pizza en duel, et bat aussi le Sushi : c’est le compromis que la majorité préfère à chaque adversaire.',
+    },
+    famKicker: 'La carte',
+    famTitle: 'Trois grandes façons d’exprimer un choix.',
+    fam: {
+      rank: {
+        title: 'Classer',
+        desc: 'Vous ordonnez les candidats, du préféré au dernier. On peut alors regarder les reports et les duels.',
+        ex: 'Deux tours · Condorcet · Borda',
+      },
+      score: {
+        title: 'Noter',
+        desc: 'Vous donnez une note ou une mention à chacun. La qualité ressentie compte, pas seulement l’ordre.',
+        ex: 'Note · Jugement majoritaire · STAR',
+      },
+      approve: {
+        title: 'Approuver',
+        desc: 'Vous cochez tous ceux qui vous conviennent, sans les départager. Simple, et ça favorise le consensus.',
+        ex: 'Vote par approbation',
+      },
+    },
+    playKicker: 'À vous',
+    playTitle: 'Maintenant, voyez-le sur un vrai électorat.',
+    playBody:
+      'Le restaurant n’était qu’un aperçu. Dans l’instrument, déplacez les candidats, changez la règle, et regardez le vainqueur basculer sur des milliers d’électeurs.',
+    playStory: 'Commencer par l’effet spoiler',
+    playInstrument: 'Ouvrir l’instrument',
   },
 
   home: {
@@ -43,12 +116,17 @@ const fr = {
     heroLede:
       'Mêmes bulletins, autre règle, autre gagnant. Changez la règle ci-contre — le vainqueur bascule sous vos yeux.',
     ctaOpen: 'Ouvrir l’instrument',
+    ctaDiscover: 'Découvrir',
+    discoverTag: '3 min',
+    discoverBannerLead: 'Nouveau ici ?',
+    discoverBannerText: 'Comprenez le vote en 3 minutes.',
     ctaGuided: 'Parcours guidé',
     reassure: 'Gratuit · sans compte · 15 méthodes · FR / EN',
     heroInstrLabel: 'Carte idéologique — démo',
     rulePick: 'Choisissez la règle',
     heroWinner: 'Vainqueur',
     heroFlip: '↔ bascule',
+    heroWhy: 'Comprendre pourquoi',
     heroCapPlurality: 'La gauche se divise : Bob gagne avec une minorité.',
     heroCapRunoff: 'Au second tour, la gauche se reporte sur Alice.',
     heroCapApproval: 'Largement approuvée, Carol fait consensus.',

@@ -1,7 +1,7 @@
 import React, { useCallback, useEffect, useState } from 'react';
 import { Link, useNavigate } from 'react-router';
 import { useTranslation } from 'react-i18next';
-import { SlidersHorizontal } from 'lucide-react';
+import { SlidersHorizontal, Sparkles, ArrowRight } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { useMetaTags } from '../hooks/useMetaTags';
 import { useElection } from '../stores/useElectionStore';
@@ -15,6 +15,7 @@ import { STORIES } from '../lib/stories';
 // live (HeroInstrument); everything below funnels to /playground.
 
 const FOOTER_LINKS = [
+  { href: '/decouvrir', key: 'home.ctaDiscover' },
   { href: '/playground', key: 'nav.playground' },
   { href: '/laboratoire', key: 'nav.laboratoire' },
 ];
@@ -31,12 +32,7 @@ const HomePage: React.FC = () => {
     description: t('home.heroLede'),
   });
 
-  // Preserve the guided onboarding tour + its ?tour=1 deep link from the navbar.
-  const startTour = useCallback(() => {
-    localStorage.removeItem('tour_completed');
-    setTourRun(false);
-    setTimeout(() => setTourRun(true), 100);
-  }, []);
+  // The onboarding tour is started from the navbar "?" (a ?tour=1 deep link).
   useEffect(() => {
     // Only the navbar's "?tour=1" deep link (or the button) starts the tour — the
     // landing page leads with the instrument, not a popup.
@@ -53,37 +49,86 @@ const HomePage: React.FC = () => {
   }, [applyScenario, navigate]);
 
   return (
-    <div data-style="tailwind" className="flex min-h-[calc(100dvh-49px)] flex-col">
+    // One screen, no scroll — but only where a screen actually has the room.
+    // The gate is width AND height: with the nine story cards on one panel plus
+    // the newcomer banner (~37px), the stack needs ~1090px of viewport, so
+    // shorter screens scroll normally rather than have content clipped off. Note
+    // the `_` in the arbitrary variant — a media query without spaces around
+    // `and` is invalid CSS and silently mis-matches.
+    <div
+      data-style="tailwind"
+      className="flex min-h-[calc(100dvh-49px)] flex-col [@media(min-width:1024px)_and_(min-height:1090px)]:h-[calc(100dvh-49px)] [@media(min-width:1024px)_and_(min-height:1090px)]:min-h-0 [@media(min-width:1024px)_and_(min-height:1090px)]:overflow-hidden"
+    >
       <OnboardingTour run={tourRun} onFinish={() => setTourRun(false)} />
 
-      {/* ── Hero: thesis ⟷ live instrument ── */}
-      <section data-tour="hero" className="flex-1 border-b border-border">
+      {/* ── Newcomer banner: the shortest path to /decouvrir, for the visitor who
+          doesn't yet know other voting methods exist. Thin (shrink-0) so it costs
+          the one-screen layout as little height as possible. */}
+      <Link
+        to="/decouvrir"
+        className="group flex shrink-0 items-center justify-center gap-2 border-b border-border bg-primary/10 px-4 py-2 text-center text-sm transition-colors hover:bg-primary/15"
+      >
+        <Sparkles aria-hidden className="h-4 w-4 shrink-0 text-primary" />
+        <span>
+          <span className="font-semibold">{t('home.discoverBannerLead')}</span>{' '}
+          <span className="text-muted-foreground">{t('home.discoverBannerText')}</span>
+        </span>
+        <ArrowRight
+          aria-hidden
+          className="h-4 w-4 shrink-0 text-primary transition-transform group-hover:translate-x-0.5"
+        />
+      </Link>
+
+      {/* ── Hero: thesis ⟷ live instrument ──
+          The hero takes NO leftover height (grow-0) — it is already the tallest
+          band; the slack goes to the two panels below (1 / 2) so the page reads
+          as three balanced blocks instead of one giant hero over two crammed
+          rails. `grow-N` + `basis-auto`, never `flex-N` — the latter sets
+          basis:0 and sizes sections by ratio alone, which shrinks the hero under
+          its own instrument and clips it. */}
+      <section
+        data-tour="hero"
+        className="flex flex-1 flex-col justify-center border-b border-border lg:grow-0 lg:basis-auto"
+      >
         <div className="container mx-auto flex h-full max-w-6xl items-center px-4 py-4 sm:py-5">
           <div className="grid w-full items-center gap-6 lg:grid-cols-[1fr_minmax(0,26rem)]">
-            <div>
-              <p className="font-mono text-[0.7rem] uppercase tracking-[0.22em] text-primary">
-                {t('home.eyebrow')}
-              </p>
-              <h1 className="mt-2 font-display text-3xl font-bold leading-[1.08] tracking-tight sm:text-4xl">
-                {t('home.h1Line1')}
-                <br />
-                <span className="text-primary">{t('home.h1Line2')}</span>
-              </h1>
-              <p className="mt-3 max-w-md text-sm leading-relaxed text-muted-foreground">
-                {t('home.heroLede')}
-              </p>
-              <div className="mt-4 flex flex-wrap items-center gap-3">
-                <Button size="lg" variant="primary" className="px-5" onClick={openInstrument}>
-                  <SlidersHorizontal aria-hidden className="h-4 w-4" />
-                  {t('home.ctaOpen')} →
-                </Button>
-                <Button size="lg" variant="outline" onClick={startTour}>
-                  {t('home.ctaGuided')}
-                </Button>
+            <div className="flex flex-col justify-center gap-5">
+              <div>
+                <p className="font-mono text-[0.7rem] uppercase tracking-[0.22em] text-primary">
+                  {t('home.eyebrow')}
+                </p>
+                <h1 className="mt-2 font-display text-3xl font-bold leading-[1.08] tracking-tight sm:text-4xl xl:text-5xl">
+                  {t('home.h1Line1')}
+                  <br />
+                  <span className="text-primary">{t('home.h1Line2')}</span>
+                </h1>
+                <p className="mt-3 max-w-md text-sm leading-relaxed text-muted-foreground">
+                  {t('home.heroLede')}
+                </p>
               </div>
-              <p className="mt-2 font-mono text-[0.68rem] uppercase tracking-[0.12em] text-muted-foreground">
-                {t('home.reassure')}
-              </p>
+              <div>
+                {/* Découvrir leads (primary) — for a newcomer, learning the idea
+                    comes before the full instrument. The instrument is one click
+                    away as the secondary action. */}
+                <div className="flex flex-wrap items-center gap-3">
+                  <Button size="lg" variant="primary" className="px-5" asChild>
+                    <Link to="/decouvrir">
+                      <Sparkles aria-hidden className="h-4 w-4" />
+                      {t('home.ctaDiscover')}
+                      <span className="ml-1.5 rounded bg-primary-foreground/20 px-1.5 py-0.5 text-[0.62rem] font-semibold">
+                        {t('home.discoverTag')}
+                      </span>
+                    </Link>
+                  </Button>
+                  <Button size="lg" variant="outline" onClick={openInstrument}>
+                    <SlidersHorizontal aria-hidden className="h-4 w-4" />
+                    {t('home.ctaOpen')} →
+                  </Button>
+                </div>
+                <p className="mt-2 font-mono text-[0.68rem] uppercase tracking-[0.12em] text-muted-foreground">
+                  {t('home.reassure')}
+                </p>
+              </div>
             </div>
 
             <HeroInstrument />
@@ -91,70 +136,66 @@ const HomePage: React.FC = () => {
         </div>
       </section>
 
-      {/* ── The journey: five moments, one instrument ── */}
-      <section className="container mx-auto max-w-6xl px-4 py-4 sm:py-5">
-        <p className="font-mono text-[0.7rem] uppercase tracking-[0.22em] text-primary">
-          {t('home.journeyKicker')}
-        </p>
-        <div className="mt-1 flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-between">
-          <h2 className="font-display text-xl font-bold tracking-tight sm:text-2xl">
-            {t('home.journeyTitle')}
-          </h2>
-          <p className="max-w-md text-sm text-muted-foreground">{t('home.journeyLede')}</p>
-        </div>
-
-        <ol className="mt-3 grid grid-cols-1 gap-2 sm:grid-cols-2 lg:grid-cols-5">
-          {MOMENTS.map((m) => (
-            <li key={m.id}>
-              <Link
-                to="/playground"
-                className="group flex h-full flex-col gap-1 rounded-xl border border-border bg-card p-3 transition-colors hover:border-primary/40 hover:bg-accent/40"
-              >
-                <div className="flex items-center justify-between">
-                  <span className="font-mono text-sm font-semibold tabular-nums text-primary">
+      {/* ── The journey: five moments, one strip ── */}
+      <section className="flex shrink-0 flex-col justify-center border-b border-border lg:grow lg:basis-auto">
+        <div className="container mx-auto w-full max-w-6xl px-4 py-2.5">
+          <div className="flex flex-wrap items-baseline justify-between gap-x-4 gap-y-1">
+            <p className="font-mono text-[0.7rem] uppercase tracking-[0.22em] text-primary">
+              {t('home.journeyKicker')}
+            </p>
+            <p className="text-[0.72rem] text-muted-foreground">{t('home.journeyLede')}</p>
+          </div>
+          <ol className="mt-2 grid grid-cols-2 gap-2 sm:grid-cols-3 lg:grid-cols-5">
+            {MOMENTS.map((m) => (
+              <li key={m.id}>
+                <Link
+                  to="/playground"
+                  title={tp(`moments.${m.id}.hint`)}
+                  className="group flex items-center gap-2 rounded-lg border border-border bg-card px-2.5 py-1.5 transition-colors hover:border-primary/40 hover:bg-accent/40"
+                >
+                  <span className="font-mono text-xs font-semibold tabular-nums text-primary">
                     {m.n}
                   </span>
                   <m.Icon
                     aria-hidden
-                    className="h-4 w-4 text-muted-foreground transition-colors group-hover:text-primary"
+                    className="h-3.5 w-3.5 shrink-0 text-muted-foreground transition-colors group-hover:text-primary"
                   />
-                </div>
-                <span className="font-display text-sm font-semibold leading-tight">
-                  {tp(`moments.${m.id}.label`)}
-                </span>
-                <span className="text-[0.72rem] leading-snug text-muted-foreground">
-                  {tp(`moments.${m.id}.hint`)}
-                </span>
-              </Link>
-            </li>
-          ))}
-        </ol>
-
-        <div className="mt-3">
-          <Button variant="primary" onClick={() => navigate('/playground')}>
-            {t('home.journeyCta')} →
-          </Button>
+                  <span className="truncate font-display text-[0.8rem] font-semibold leading-tight">
+                    {tp(`moments.${m.id}.label`)}
+                  </span>
+                </Link>
+              </li>
+            ))}
+          </ol>
         </div>
       </section>
 
-      {/* ── Histoires: guided narratives ── */}
-      <section className="border-t border-border">
-        <div className="container mx-auto max-w-6xl px-4 py-4 sm:py-5">
-          <p className="font-mono text-[0.7rem] uppercase tracking-[0.22em] text-primary">
-            {tp('stories.launch')}
-          </p>
-          <p className="mt-1 max-w-md text-sm text-muted-foreground">{tp('stories.launchHint')}</p>
-          <ul className="mt-3 grid grid-cols-1 gap-2 sm:grid-cols-2 lg:grid-cols-3">
+      {/* ── Histoires: all nine on one panel, no rail to scroll ── */}
+      <section className="flex shrink-0 flex-col justify-center border-b border-border lg:grow-[2] lg:basis-auto">
+        <div className="container mx-auto w-full max-w-6xl px-4 py-2.5">
+          <div className="flex flex-wrap items-baseline justify-between gap-x-4 gap-y-1">
+            <p className="font-mono text-[0.7rem] uppercase tracking-[0.22em] text-primary">
+              {tp('stories.launch')}
+            </p>
+            <p className="text-[0.72rem] text-muted-foreground">{tp('stories.launchHint')}</p>
+          </div>
+          <ul className="mt-2 grid grid-cols-1 gap-2 sm:grid-cols-2 lg:grid-cols-3">
             {STORIES.map((s) => (
               <li key={s.id}>
                 <Link
                   to={`/playground?story=${s.id}`}
-                  className="group flex h-full flex-col gap-1 rounded-xl border border-border bg-card p-3 transition-colors hover:border-primary/40 hover:bg-accent/40"
+                  className="group flex h-full flex-col gap-1 rounded-lg border border-border bg-card px-3 py-2 transition-colors hover:border-primary/40 hover:bg-accent/40"
                 >
-                  <span className="font-display text-sm font-semibold leading-tight group-hover:text-primary">
-                    {tp(s.titleKey)}
+                  <span className="flex items-baseline justify-between gap-2">
+                    <span className="font-display text-sm font-semibold leading-tight group-hover:text-primary">
+                      {tp(s.titleKey)}
+                    </span>
+                    {/* Which instrument the story opens — the two have separate story sets. */}
+                    <span className="shrink-0 font-mono text-[0.58rem] uppercase tracking-[0.12em] text-muted-foreground">
+                      {tp(s.mode === 'leader' ? 'mode.leader' : 'mode.assembly')}
+                    </span>
                   </span>
-                  <span className="text-[0.72rem] leading-snug text-muted-foreground">
+                  <span className="text-[0.75rem] leading-snug text-muted-foreground">
                     {tp(s.taglineKey)}
                   </span>
                 </Link>
@@ -164,44 +205,30 @@ const HomePage: React.FC = () => {
         </div>
       </section>
 
-      {/* ── Lab bridge ── */}
-      <section className="border-t border-border bg-accent/20">
-        <div className="container mx-auto max-w-6xl px-4 py-4 sm:py-5">
-          <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-            <div>
-              <p className="font-mono text-[0.7rem] uppercase tracking-[0.22em] text-primary">
-                {t('home.labKicker')}
-              </p>
-              <h2 className="mt-1 font-display text-xl font-bold tracking-tight">
-                {t('home.labTitle')}
-              </h2>
-              <p className="mt-1 max-w-md text-sm text-muted-foreground">{t('home.labLede')}</p>
-            </div>
-            <Button variant="outline" asChild className="shrink-0">
+      {/* ── Footer: the Lab bridge + where to go next, on one line ── */}
+      <footer className="shrink-0 border-t border-border bg-muted/30">
+        <div className="container mx-auto flex max-w-6xl flex-wrap items-center justify-between gap-x-5 gap-y-2 px-4 py-2">
+          <div className="flex flex-wrap items-center gap-x-5 gap-y-1">
+            <span className="font-mono text-[0.7rem] uppercase tracking-[0.14em] text-muted-foreground">
+              {t('home.footMore')}
+            </span>
+            {FOOTER_LINKS.map((l) => (
+              <Link
+                key={l.href}
+                to={l.href}
+                className="text-sm text-muted-foreground transition-colors hover:text-foreground"
+              >
+                {t(l.key)}
+              </Link>
+            ))}
+          </div>
+          <div className="flex items-center gap-3">
+            <p className="hidden text-[0.72rem] text-muted-foreground sm:block">
+              {t('home.labLede')}
+            </p>
+            <Button variant="outline" size="sm" asChild className="shrink-0">
               <Link to="/laboratoire">{t('home.ctaLab')}</Link>
             </Button>
-          </div>
-        </div>
-      </section>
-
-      {/* ── Footer: go further ── */}
-      <footer className="border-t border-border bg-muted/30">
-        <div className="container mx-auto max-w-6xl px-4 py-3">
-          <div className="flex flex-wrap items-center justify-between gap-4">
-            <div className="flex flex-wrap items-center gap-x-5 gap-y-2">
-              <span className="font-mono text-[0.7rem] uppercase tracking-[0.14em] text-muted-foreground">
-                {t('home.footMore')}
-              </span>
-              {FOOTER_LINKS.map((l) => (
-                <Link
-                  key={l.href}
-                  to={l.href}
-                  className="text-sm text-muted-foreground transition-colors hover:text-foreground"
-                >
-                  {t(l.key)}
-                </Link>
-              ))}
-            </div>
           </div>
         </div>
       </footer>

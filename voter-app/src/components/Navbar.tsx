@@ -204,6 +204,18 @@ const Navbar: React.FC = () => {
                     onToggle={() => setExpertMode(!expertMode)}
                   />
                 </div>
+
+                <hr className="my-1" style={{ borderColor: 'var(--bs-border-color)' }} />
+
+                <a
+                  href="https://github.com/Burbanit0/Vote-App/issues/new"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="dropdown-item flex items-center gap-2 px-3 py-2"
+                  style={{ fontSize: '0.85rem', textDecoration: 'none' }}
+                >
+                  🐛 {t('nav.reportBug')}
+                </a>
               </Dropdown.Menu>
             </Dropdown>
           </Nav>

@@ -2,6 +2,7 @@ import React from 'react';
 import { useTranslation } from 'react-i18next';
 import { cn } from '@/lib/utils';
 import { backtest, type RealElection } from '../../lib/realElections';
+import { track } from '../../lib/analytics';
 import fixture from '../../lib/__fixtures__/realElections.json';
 
 // RealElectionPanel — the thesis on a REAL ballot box, not a spatial model. The
@@ -63,7 +64,10 @@ const RealElectionPanel: React.FC = () => {
               role="radio"
               aria-checked={e.id === election.id}
               data-testid={`real-election-${e.id}`}
-              onClick={() => setId(e.id)}
+              onClick={() => {
+                track('real_election_selected', { election: e.id });
+                setId(e.id);
+              }}
               className={cn(
                 'rounded-md border px-2 py-0.5 text-[0.7rem] transition-colors',
                 e.id === election.id

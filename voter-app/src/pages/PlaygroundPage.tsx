@@ -11,6 +11,7 @@ import MomentRail, { MOMENTS } from '../components/playground/MomentRail';
 import InstrumentPanel from '../components/playground/InstrumentPanel';
 import GuidedFooter from '../components/playground/GuidedFooter';
 import StoryPlayer from '../components/playground/StoryPlayer';
+import { track } from '../lib/analytics';
 import ElectorateMoment from '../components/playground/moments/ElectorateMoment';
 import MethodMoment from '../components/playground/moments/MethodMoment';
 import StrategyMoment from '../components/playground/moments/StrategyMoment';
@@ -55,7 +56,10 @@ const ModeSwitch: React.FC = () => {
           role="radio"
           aria-checked={mode === id}
           data-testid={`mode-toggle-${id}`}
-          onClick={() => setMode(id)}
+          onClick={() => {
+            track('mode_toggled', { mode: id });
+            setMode(id);
+          }}
           className={cn(
             'rounded-full px-3.5 py-1.5 font-medium transition-all',
             mode === id
@@ -108,14 +112,22 @@ const PlaygroundShell: React.FC = () => {
           <div
             className={cn(
               'grid grid-cols-1 gap-5',
-              // Bilan is a conclusion: give the synthesis/comparison the wide column
-              // and shrink the map to a companion. Other moments keep the map large.
-              activeMoment === 'bilan' ? 'lg:grid-cols-[1fr_20rem]' : 'lg:grid-cols-[21rem_1fr]'
+              // Bilan is a conclusion: the synthesis leads (wide column), but the
+              // map still needs room to read — 20rem cramped its telemetry, lens
+              // tabs and Voronoi. Other moments keep the map as the wide column.
+              activeMoment === 'bilan'
+                ? 'lg:grid-cols-[minmax(0,1fr)_30rem]'
+                : 'lg:grid-cols-[21rem_1fr]'
             )}
           >
-            <Card className="h-fit overflow-hidden" data-testid={`moment-${activeMoment}-panel`}>
-              <div className="flex items-center gap-2.5 border-b border-border/60 px-4 py-3">
-                <span className="flex h-7 w-7 items-center justify-center rounded-md bg-primary/10 font-mono text-sm font-semibold text-primary">
+            <Card
+              className="h-fit overflow-hidden border-primary/25"
+              data-testid={`moment-${activeMoment}-panel`}
+            >
+              {/* Panel header = the instrument's chrome strip, tuned to match the
+                  scope's telemetry bars; the round step badge echoes the rail. */}
+              <div className="flex items-center gap-2.5 border-b border-primary/15 bg-muted/30 px-4 py-2.5">
+                <span className="flex h-7 w-7 items-center justify-center rounded-full bg-primary font-mono text-sm font-semibold text-primary-foreground ring-2 ring-primary/20">
                   {meta.n}
                 </span>
                 <div className="min-w-0">

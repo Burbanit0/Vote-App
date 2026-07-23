@@ -141,19 +141,20 @@ describe('LaboratoirePage — the bench', () => {
     });
   }, 20000);
 
-  it('compare: arms the picker, opens a second fiche on the same electorate, closes it', () => {
+  it('compare: arms the electorate picker, opens the SAME fiche on a second electorate, closes it', () => {
     renderLab();
     fireEvent.click(screen.getByTestId('lab-compare'));
-    expect(screen.getByTestId('lab-compare-hint')).toBeInTheDocument();
-    fireEvent.click(screen.getByTestId('chip-lab-gallery'));
+    expect(screen.getByTestId('lab-elec-picker')).toBeInTheDocument();
+    fireEvent.click(screen.getByTestId('lab-elec-polarized'));
+    // The second column appears, labelled with the electorate it reads.
     expect(screen.getByTestId('lab-bench-vs')).toBeInTheDocument();
-    expect(screen.queryByTestId('lab-compare-hint')).not.toBeInTheDocument();
+    expect(screen.getByTestId('lab-elec-label-vs')).toHaveTextContent(/Polaris/);
     fireEvent.click(screen.getByTestId('lab-compare-close'));
     expect(screen.queryByTestId('lab-bench-vs')).not.toBeInTheDocument();
   });
 
-  it('deep-links: ?exp= selects the fiche AND its family; &vs= restores a comparison', () => {
-    renderLab('/laboratoire?exp=thy-sen&vs=ana-montecarlo');
+  it('deep-links: ?exp= selects the fiche AND its family; &vsElec= opens the electorate comparison', () => {
+    renderLab('/laboratoire?exp=thy-sen&vsElec=polarized');
     expect(screen.getByTestId('lab-family-theory')).toHaveAttribute('aria-checked', 'true');
     expect(screen.getByTestId('chip-thy-sen')).toHaveAttribute('aria-pressed', 'true');
     expect(screen.getByTestId('lab-bench-vs')).toBeInTheDocument();
