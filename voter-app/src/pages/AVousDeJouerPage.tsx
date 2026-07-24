@@ -44,6 +44,18 @@ const POINT_BUDGET = 10;
 
 const POSTURES: Posture[] = ['sincere', 'strategic', 'abstain'];
 
+// ── The weight of one voice, at real scale ──────────────────────────────────
+// A large electorate, so the "1 over n" belief is at its most intuitive — and at
+// its most wrong. Florida 2000 is the anchor: 537 certified votes out of 5 963 110
+// ballots cast, which is 0.009 % of the electorate, and 269 people changing their
+// mind. The margin is what decides an election, and the margin does not care how
+// big the electorate is.
+const BIG_N = 6_000_000;
+const FLORIDA = { margin: 537, total: 5_963_110 };
+// Log slider: 100 votes (razor-thin) → 1 000 000 (a landslide), 25 steps a decade.
+const marginAt = (v: number): number => Math.round(100 * Math.pow(10, v / 25));
+const sliderAt = (margin: number): number => Math.round(25 * Math.log10(margin / 100));
+
 // Each glyph is the mark that language actually leaves on paper.
 const GLYPH: Record<BallotLanguage, React.ReactNode> = {
   one: <span className="font-mono text-sm font-bold">✗</span>,
@@ -91,7 +103,7 @@ const Corners: React.FC = () => (
 );
 
 const AVousDeJouerPage: React.FC = () => {
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
   const { ruleLabels } = useVotingLabels();
 
   // Your opinion — the one thing that does NOT change when the paper does.
@@ -142,7 +154,21 @@ const AVousDeJouerPage: React.FC = () => {
   const row = perRule.find((r) => r.rule === activeRule) ?? perRule[0];
   const paysCount = perRule.filter((r) => r.pays).length;
 
-  // The two counters, for the selected method only — the scan is the expensive part.
+  // Margin of a large, real-scale election — the "weight" instrument at the foot.
+  // The margin itself is the state, not the slider index: a real election's margin
+  // must read back exactly (537, not the 525 the log scale would round it to).
+  const [margin, setMargin] = React.useState(FLORIDA.margin);
+  const num = React.useMemo(() => new Intl.NumberFormat(i18n.language), [i18n.language]);
+  const pct = React.useMemo(() => {
+    const coarse = new Intl.NumberFormat(i18n.language, { maximumFractionDigits: 1 });
+    const fine = new Intl.NumberFormat(i18n.language, { maximumFractionDigits: 4 });
+    return (x: number): string => {
+      const v = x * 100;
+      return `${(v < 0.1 ? fine : coarse).format(v)} %`;
+    };
+  }, [i18n.language]);
+
+  // The counters, for the selected method only — the scan is the expensive part.
   const { toFlip, toTempt } = React.useMemo(
     () => pivot(you, lang, activeRule, opt),
     [you, lang, activeRule, approveK, contrast, concentration]
@@ -699,6 +725,112 @@ const AVousDeJouerPage: React.FC = () => {
                   })}
             </p>
           </div>
+        </section>
+
+        {/* ── The weight: what actually decides an election is the margin ── */}
+        <section className="mt-7">
+          <p className="font-mono text-[0.62rem] uppercase tracking-[0.18em] text-muted-foreground">
+            {t('play.weight.kicker')}
+          </p>
+          <h2 className="mt-0.5 font-display text-xl font-bold tracking-tight">
+            {t('play.weight.title')}
+          </h2>
+          <p className="mt-1 max-w-2xl text-sm leading-relaxed text-muted-foreground">
+            {t('play.weight.lede', { n: num.format(BIG_N) })}
+          </p>
+
+          <div className="mt-4 rounded-xl border border-border bg-card p-4 sm:p-5">
+            <label className="flex flex-col gap-1.5">
+              <span className="flex flex-wrap items-baseline justify-between gap-x-4 gap-y-1">
+                <span className="text-xs text-muted-foreground">{t('play.weight.knob')}</span>
+                <span className="font-mono text-sm tabular-nums text-foreground">
+                  {t('play.weight.gap', { margin: num.format(margin) })}
+                </span>
+              </span>
+              <input
+                data-testid="play-margin"
+                type="range"
+                min={0}
+                max={100}
+                value={sliderAt(margin)}
+                aria-label={t('play.weight.knob')}
+                onChange={(e) => setMargin(marginAt(Number(e.target.value)))}
+              />
+            </label>
+
+            <div className="mt-4 grid grid-cols-1 gap-4 border-t border-border pt-4 sm:grid-cols-2">
+              <div>
+                <p
+                  data-testid="play-share"
+                  className="font-mono text-3xl font-bold tabular-nums leading-none text-primary"
+                >
+                  {pct(margin / BIG_N)}
+                </p>
+                <p className="mt-1.5 text-xs leading-snug text-muted-foreground">
+                  {t('play.weight.shareHint')}
+                </p>
+              </div>
+              <div>
+                <p
+                  data-testid="play-convince"
+                  className="font-mono text-3xl font-bold tabular-nums leading-none text-[var(--color-stamp)]"
+                >
+                  {num.format(Math.ceil(margin / 2))}
+                </p>
+                <p className="mt-1.5 text-xs leading-snug text-muted-foreground">
+                  {t('play.weight.convinceHint')}
+                </p>
+              </div>
+            </div>
+
+            {/* Back to the election you just played: the share is what travels. */}
+            {toFlip > 0 && (
+              <p
+                data-testid="play-bridge"
+                className="mt-4 border-t border-dashed border-border pt-3 text-xs leading-relaxed text-muted-foreground"
+              >
+                {t('play.weight.bridge', {
+                  method: ruleLabels[activeRule],
+                  k: toFlip,
+                  n: VOTER_COUNT + bloc,
+                  here: pct(toFlip / (VOTER_COUNT + bloc)),
+                  there: pct(margin / BIG_N),
+                })}
+              </p>
+            )}
+
+            {/* The anchor. Not an illustration — this actually happened. */}
+            <button
+              type="button"
+              data-testid="play-florida"
+              onClick={() => setMargin(FLORIDA.margin)}
+              className={cn(
+                'mt-4 flex w-full items-start gap-2.5 rounded-lg border p-3 text-left text-xs leading-relaxed transition-colors',
+                margin === FLORIDA.margin
+                  ? 'border-[var(--color-stamp)] bg-[var(--color-stamp)]/5 text-foreground'
+                  : 'border-dashed border-border text-muted-foreground hover:border-[var(--color-stamp)]/50 hover:text-foreground'
+              )}
+            >
+              <span aria-hidden className="mt-0.5 h-4 w-[2px] shrink-0 bg-[var(--color-stamp)]" />
+              <span>
+                {t('play.weight.florida', {
+                  margin: num.format(FLORIDA.margin),
+                  total: num.format(FLORIDA.total),
+                  share: pct(FLORIDA.margin / FLORIDA.total),
+                  convince: num.format(Math.ceil(FLORIDA.margin / 2)),
+                })}
+                {margin !== FLORIDA.margin && (
+                  <span className="ml-1 font-medium text-[var(--color-stamp)]">
+                    {t('play.weight.floridaBack')}
+                  </span>
+                )}
+              </span>
+            </button>
+          </div>
+
+          <p className="mt-4 max-w-3xl text-sm leading-relaxed text-muted-foreground">
+            {t('play.weight.oneOverN')}
+          </p>
         </section>
       </div>
     </div>

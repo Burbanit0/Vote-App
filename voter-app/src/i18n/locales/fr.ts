@@ -186,6 +186,24 @@ const fr = {
         'aucun nombre, jusqu’ici, ne rend le mensonge payant — cette méthode vous laisse sincère',
       already: 'cette méthode élit déjà votre 1ᵉʳ choix : il n’y a rien à faire basculer',
     },
+    weight: {
+      kicker: 'Le poids d’une voix',
+      title: 'Une voix ne pèse pas 1 sur n',
+      lede: 'La croyance : dans une élection à {{n}} électeurs, votre voix vaut une voix sur six millions — autant dire rien. Mais ce n’est pas ainsi qu’une élection bascule. Ce qui décide, c’est l’écart, et l’écart ne dépend pas de la taille de l’électorat.',
+      knob: 'Élection serrée ↔ élection large',
+      gap: '{{margin}} voix d’écart',
+      shareHint:
+        'de l’électorat sépare les deux premiers. C’est cette part, et non le nombre d’électeurs, qui dit si l’élection est à portée.',
+      convinceHint:
+        'personnes qui changent d’avis suffisent à inverser le résultat — la moitié de l’écart, puisqu’une voix qui change de camp en enlève une et en ajoute une.',
+      bridge:
+        'Ici, sous {{method}}, il vous fallait {{k}} personnes sur {{n}} — soit {{here}} de l’électorat. À six millions d’électeurs, avec l’écart réglé ci-dessus, il en faut {{there}}. La part qui fait basculer une élection ne dépend pas du nombre d’électeurs : elle dépend de l’écart.',
+      florida:
+        'Floride, 2000 : {{margin}} voix sur {{total}} bulletins, soit {{share}} de l’électorat. {{convince}} personnes qui changent d’avis, et la présidence des États-Unis change de main.',
+      floridaBack: 'Revenir à cette marge →',
+      oneOverN:
+        'D’où vient alors le 1/n ? C’est la probabilité que votre voix soit exactement celle qui départage. Dans le modèle où chacun voterait à pile ou face, elle décroît en 1/√n (Penrose, 1946) — pour un million d’électeurs, mille fois plus qu’un 1/n. Avec des électeurs corrélés, comme dans la vraie vie, les estimations empiriques retombent bien plus bas : de l’ordre de 10⁻⁷ à 10⁻⁸ pour une présidentielle américaine (Gelman, Silver et Edlin, 2012). Les deux modèles ne s’accordent pas, et c’est une raison de plus de regarder le nombre qui, lui, ne dépend d’aucun modèle : combien de personnes il faut. C’est celui que cette page compte.',
+    },
     tie: 'égalité — la règle ne tranche pas',
     chipPays: 'Sous cette méthode, un bulletin tactique vous sert mieux',
     paysSome:

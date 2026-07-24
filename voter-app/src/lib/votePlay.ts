@@ -151,6 +151,12 @@ export interface Pivot {
   toTempt: number;
 }
 
+// ponytail: no "how many to persuade" counter here on purpose. Converting the
+// leader's voters to your ballot flips this race after only 2 — straight to Bruno,
+// the candidate you rank LAST, because the runner-up is waiting. In a four-way race
+// "a switch counts double" is not a usable number. It is exactly right on a two-way
+// margin, which is where the page states it.
+
 /**
  * How many voters like you it takes, under one rule. Scanned from 1 upward rather
  * than bisected on purpose: turnout is NOT monotone under every rule (IRV and the

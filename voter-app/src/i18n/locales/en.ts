@@ -186,6 +186,24 @@ const en: TranslationKeys = {
       noTempt: 'no number so far makes lying pay — this method leaves you free to be sincere',
       already: 'this method already elects your 1st choice: there is nothing to flip',
     },
+    weight: {
+      kicker: 'The weight of one voice',
+      title: 'A vote is not worth 1 in n',
+      lede: 'The belief: in an election of {{n}} voters, your vote is one in six million — near enough to nothing. But that is not how an election turns. What decides it is the gap, and the gap does not care how big the electorate is.',
+      knob: 'Close race ↔ wide race',
+      gap: '{{margin}}-vote gap',
+      shareHint:
+        'of the electorate separates the top two. It is this share, not the number of voters, that says whether the election is within reach.',
+      convinceHint:
+        'people changing their minds is enough to reverse it — half the gap, since a vote that switches sides takes one away and adds one.',
+      bridge:
+        'Here, under {{method}}, it took {{k}} people out of {{n}} — {{here}} of the electorate. At six million voters, with the gap set above, it takes {{there}}. The share that turns an election does not depend on how many voters there are: it depends on the gap.',
+      florida:
+        'Florida, 2000: {{margin}} votes out of {{total}} ballots — {{share}} of the electorate. {{convince}} people changing their minds, and the US presidency changes hands.',
+      floridaBack: 'Back to that margin →',
+      oneOverN:
+        'So where does 1/n come from? It is the probability that your vote is the one that breaks the tie. In the model where everyone votes by coin flip it falls as 1/√n (Penrose, 1946) — for a million voters, a thousand times more than 1/n. With correlated voters, as in real life, empirical estimates land far lower: around 10⁻⁷ to 10⁻⁸ for a US presidential vote (Gelman, Silver and Edlin, 2012). The two models disagree, which is one more reason to look at the number that depends on no model at all: how many people it takes. That is the one this page counts.',
+    },
     tie: 'a dead heat — the rule cannot separate them',
     chipPays: 'Under this method a tactical ballot serves you better',
     paysSome:

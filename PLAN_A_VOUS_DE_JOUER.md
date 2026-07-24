@@ -142,10 +142,26 @@ curseur visible.
   élit Alice (votre 2ᵉ), un camp de 9 élit Bruno (votre dernier). D'où un balayage
   ascendant plutôt qu'une dichotomie.
 
-- **Tranche 3 — le poids.** Marge réelle, manette serré ↔ large. Ancrage sur des marges
-  véritables (Floride 2000 : 537 voix sur ~6 M). Et le fait rigoureux qui casse la
-  croyance du 1/n : la pivotalité décroît en **1/√n** (Penrose), pas en 1/n — pour
-  n = 10⁶, c'est mille fois plus.
+- **Tranche 3 — le poids.** ✅ Une manette **serré ↔ large** (l'écart, de 100 à 1 000 000
+  voix, échelle log) sur une élection de six millions d'électeurs, deux nombres en
+  regard — la **part de l'électorat** qui sépare les deux premiers, et **combien de
+  personnes doivent changer d'avis** (la moitié de l'écart : une voix qui change de camp
+  en enlève une et en ajoute une). Ancre : **Floride 2000**, 537 voix sur 5 963 110
+  bulletins, soit 0,009 % — 269 personnes. Un pont ramène à l'élection jouée plus haut :
+  ici 14 personnes sur 42, soit 33 % ; là-bas 0,009 %. **La part qui fait basculer ne
+  dépend pas du nombre d'électeurs, elle dépend de l'écart.**
+
+  *Deux corrections d'honnêteté.* (1) J'avais ajouté un compteur « combien de personnes
+  convaincre » sur l'élection jouée. Mesuré : **2** — parce que débaucher deux électeurs
+  d'Alice donne l'élection à **Bruno**, le candidat que vous classez dernier. Le nombre
+  est juste selon sa définition et trompeur selon son étiquette ; à quatre candidats,
+  « une voix qui change de camp compte double » n'est pas un nombre utilisable. Retiré,
+  et l'idée gardée là où elle est exacte : sur un écart à deux. (2) La ligne du plan sur
+  le 1/√n est **dépendante du modèle** : c'est le résultat de Penrose quand chacun vote
+  à pile ou face, et les estimations empiriques avec électeurs corrélés (Gelman, Silver
+  et Edlin, 2012) retombent bien plus bas, de l'ordre de 10⁻⁷–10⁻⁸. La page dit les deux
+  et conclut sur le nombre qui, lui, ne dépend d'aucun modèle : combien de personnes il
+  faut.
 
 ## Portes de qualité
 
