@@ -114,6 +114,30 @@ const fr = {
     eyebrow: 'Vote Lab · à vous de jouer',
     title: 'Votre avis ne change pas. Votre bulletin, si.',
     lede: 'Vous êtes le dernier électeur d’une élection serrée à {{n}} votants. Votre opinion restera la même tout du long — seule change la façon dont le bulletin vous autorise à la dire. Cela suffit à changer l’élu.',
+    vote: {
+      kicker: 'Une élection, une voix : la vôtre',
+      prompt:
+        'Quatre candidats, {{n}} autres électeurs, un résultat serré. Entrez dans l’isoloir, remplissez votre bulletin, et votez.',
+      open: 'Entrer dans l’isoloir',
+    },
+    booth: {
+      title: 'L’isoloir',
+      hint: 'Réglez votre avis, choisissez votre bulletin, remplissez-le. Une fois voté, il est scellé : pour le changer, il faudra revoter.',
+      cast: 'Voter',
+      cancel: 'Annuler',
+      strategicNote:
+        'Un bulletin tactique dépend de la méthode de dépouillement. L’aperçu est optimisé pour la première méthode ; en aval, il s’ajuste méthode par méthode.',
+    },
+    sealed: {
+      kicker: 'Votre vote',
+      stamp: 'Voté',
+      summary: 'Bulletin : {{lang}} · {{posture}}.',
+      strategicNote: 'Bulletin tactique — optimisé pour {{method}}.',
+      locked:
+        'Votre vote est scellé. Vous ne pouvez plus le modifier en regardant le résultat — c’est tout l’intérêt. Pour changer d’avis, de bulletin ou de tactique, revotez.',
+      revote: 'Revoter',
+    },
+    poidsKicker: 'Votre poids',
     opinionKicker: 'Votre avis',
     opinionTitle: 'Ce qu’ils valent pour vous',
     opinionHint:
