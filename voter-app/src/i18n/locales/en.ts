@@ -18,6 +18,7 @@ const en: TranslationKeys = {
     theory: 'Voting Theory',
     gallery: 'Gallery',
     electionLab: 'Election Lab',
+    play: 'Your turn',
     playground: 'Playground',
     laboratoire: 'Lab',
     learn: 'Learn',

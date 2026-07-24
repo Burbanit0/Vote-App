@@ -10,8 +10,10 @@ import { useTranslation } from 'react-i18next';
 import i18n, { switchLanguage } from '../i18n';
 
 // ── Navigation ────────────────────────────────────────────────────────────────
-// Two destinations only: Playground (do) → Laboratoire (go deeper). Everything
-// theory/mechanism/system lives inside the Laboratoire's anchors now.
+// Three destinations, in order of how much they ask of you: À vous de jouer (cast
+// one ballot) → Playground (drive the instrument) → Laboratoire (go deeper).
+// Playground keeps the hero treatment — it is still the centre of the app.
+// Everything theory/mechanism/system lives inside the Laboratoire's fiches now.
 
 // ── Settings row (used inside user dropdown) ──────────────────────────────────
 
@@ -99,8 +101,23 @@ const Navbar: React.FC = () => {
         <BootstrapNavbar.Toggle aria-controls="votelab-nav" aria-expanded={navExpanded} />
 
         <BootstrapNavbar.Collapse id="votelab-nav">
-          {/* ── Main nav — two destinations: Playground → Laboratoire ── */}
+          {/* ── Main nav — À vous de jouer → Playground → Laboratoire ── */}
           <Nav className="mr-auto lg:items-center gap-1">
+            {/* À vous de jouer — the softest way in: it asks only for an opinion */}
+            <Nav.Link
+              href="/a-vous-de-jouer"
+              className="font-semibold px-3 py-1 rounded"
+              active={currentPath === '/a-vous-de-jouer'}
+              onClick={() => setNavExpanded(false)}
+              style={{
+                color: currentPath === '/a-vous-de-jouer' ? 'var(--bs-primary)' : 'inherit',
+                fontSize: '0.88rem',
+                transition: 'all 0.15s',
+              }}
+            >
+              ✍️ {t('nav.play')}
+            </Nav.Link>
+
             {/* Playground — hero link */}
             <Nav.Link
               href="/playground"

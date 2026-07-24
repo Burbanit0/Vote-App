@@ -114,6 +114,9 @@ export interface NavLinkProps extends React.AnchorHTMLAttributes<HTMLAnchorEleme
 }
 const NavLink: React.FC<NavLinkProps> = ({ className, active, disabled, ...props }) => (
   <a
+    // The active page was signalled by weight and colour alone; `aria-current`
+    // is what actually tells assistive tech which destination you are on.
+    aria-current={active ? 'page' : undefined}
     className={cn(
       'block px-2 py-1 no-underline transition-colors',
       active ? 'font-semibold' : 'text-foreground/80 hover:text-foreground',
