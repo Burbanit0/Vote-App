@@ -1,0 +1,16 @@
+<svg viewBox="0 0 32 32" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="Vote Lab">
+  <!-- Vote Lab mark: a marked ballot — petrol tile, cream slip, the terracotta
+       check that is the app's "Élu" stamp accent. -->
+  <rect width="32" height="32" rx="7" fill="#0e7068" />
+  <g transform="rotate(-7 16 16)">
+    <rect x="8" y="6.5" width="16" height="19" rx="2.5" fill="#f6f7f4" />
+    <path
+      d="M11.4 16.6 l3.3 3.5 L21 11.4"
+      fill="none"
+      stroke="#e07a3f"
+      stroke-width="3"
+      stroke-linecap="round"
+      stroke-linejoin="round"
+    />
+  </g>
+</svg>
