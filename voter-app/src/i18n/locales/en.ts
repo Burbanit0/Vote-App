@@ -147,6 +147,56 @@ const en: TranslationKeys = {
     allowsTitle: 'Methods still possible',
     allowsHint:
       'A method can only count what the ballot wrote down. With a single name, looking for a Condorcet winner is meaningless: the information does not exist.',
+    posture: {
+      kicker: 'How you fill it in',
+      sincere: 'Sincere',
+      strategic: 'Best for you',
+      abstain: 'Abstain',
+    },
+    tactic: {
+      one: 'Vote {{names}}',
+      rank: 'Put {{names}} first',
+      approve: 'Approve {{names}} only',
+      score: 'Give top marks to {{names}} only',
+      points: 'Put every point on {{names}}',
+    },
+    bloc: {
+      label: 'There are {{n}} of you who think this way, out of {{total}} voters',
+    },
+    verdict: {
+      pays: '{{how}}: {{winner}} is elected, and you get {{rank}} instead of {{instead}}.',
+      payless:
+        'No ballot would serve you better. At this size, lying gains you nothing under this method.',
+      moved:
+        'At {{n}}, your camp changed the winner: {{winner}} overtakes {{was}}, who won without you.',
+      tied: 'At {{n}}, your camp ties the election outright: the rule can no longer separate anyone.',
+      alone:
+        'On your own, you do not change the result. It is not that your voice counts for nothing — it takes a certain number, and that number is written below.',
+      notYet:
+        'At {{n}}, the result does not move yet. It takes a certain number, and that number is written below.',
+      abstainSame:
+        'Abstaining changes nothing here: {{winner}} is elected with your {{n}} ballots and without them.',
+      abstainDiffer:
+        'Without your {{n}} ballots, {{winner}} is elected instead. Staying home changed the election.',
+    },
+    count: {
+      toFlip: 'voters like you are enough to change the winner — under {{method}}',
+      noFlip: 'even at {{max}}, your camp does not change the winner under this method',
+      toTempt: 'are enough for a tactical ballot to serve you better than an honest one',
+      noTempt: 'no number so far makes lying pay — this method leaves you free to be sincere',
+      already: 'this method already elects your 1st choice: there is nothing to flip',
+    },
+    tie: 'a dead heat — the rule cannot separate them',
+    chipPays: 'Under this method a tactical ballot serves you better',
+    paysSome:
+      'Lying pays under {{n}} of this ballot’s {{total}} methods. The incentive to cheat does not come from you — it comes from the rule.',
+    paysNone:
+      'Lying pays under none of this ballot’s {{total}} methods — here, sincerity is your best move.',
+    paysSoleYes:
+      'Lying pays under the only method this ballot allows. The incentive to cheat does not come from you — it comes from the rule.',
+    paysSoleNo:
+      'Lying does not pay under the only method this ballot allows — here, sincerity is your best move.',
+    vsSincere: 'sincerely, you got {{rank}}',
     electedWith: 'Elected · {{method}}',
     stamp: 'Elected',
     youGetKicker: 'You get',

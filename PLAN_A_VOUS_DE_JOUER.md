@@ -118,11 +118,34 @@ curseur visible.
 
 - **Tranche 1 — les langages.** Un avis → les 5 bulletins ; pour chacun : les méthodes
   autorisées, le vainqueur, **votre rang obtenu**. Porte l'objectif 1 et la moitié du 2.
-- **Tranche 2 — sincère / stratégique / abstention**, sous le langage choisi.
-- **Tranche 3 — le poids.** Marge réelle, « combien de gens comme vous », manette
-  serré ↔ large. Ancrage sur des marges véritables (Floride 2000 : 537 voix sur ~6 M).
-  Et le fait rigoureux qui casse la croyance du 1/n : la pivotalité décroît en **1/√n**
-  (Penrose), pas en 1/n — pour n = 10⁶, c'est mille fois plus.
+- **Tranche 2 — sincère / stratégique / abstention**, sous le langage choisi. ✅
+
+  *Correction apportée pendant l'exécution.* Le modèle « un seul bulletin » est **inerte** :
+  mesuré contre le moteur, aucun langage, aucune règle, aucun mensonge ne change quoi que
+  ce soit avec 41 électeurs sincères en face. C'est vrai, et le dire est honnête — mais
+  la posture « stratégique » n'aurait alors jamais rien fait. La manette **« vous, et
+  ceux qui pensent comme vous » (1 → 15)** est donc remontée de la tranche 3 : c'est le
+  mécanisme qui rend les trois postures mesurables, et c'est aussi le compteur que
+  l'utilisateur a explicitement demandé (« combien il faudrait pour faire basculer »).
+  Même convention que `sincerityProbe` du playground, où la pression stratégique est
+  déjà collective. La tranche 3 garde l'ancrage réel.
+
+  Deux compteurs, pour la méthode sélectionnée : **combien d'électeurs comme vous pour
+  changer l'élu** (14 en pluralité, 7 aux deux tours, 8 à l'IRV) et **combien pour que
+  mentir rapporte** (9 à l'IRV, jamais ailleurs). Le second est nul partout sauf à
+  l'IRV : l'intérêt de tricher vient de la règle, pas de l'électeur.
+
+  Deux pièges rencontrés, tous deux verrouillés par un test : à 7, l'IRV tombe sur une
+  **égalité parfaite** (le compteur exige donc un élu *décidé*, sinon il promet un élu
+  qui n'existe pas ; et « mentir paie » ne doit pas se déclencher juste parce qu'un
+  bulletin sort de l'indécision) ; et l'IRV est **non monotone ici même** — un camp de 8
+  élit Alice (votre 2ᵉ), un camp de 9 élit Bruno (votre dernier). D'où un balayage
+  ascendant plutôt qu'une dichotomie.
+
+- **Tranche 3 — le poids.** Marge réelle, manette serré ↔ large. Ancrage sur des marges
+  véritables (Floride 2000 : 537 voix sur ~6 M). Et le fait rigoureux qui casse la
+  croyance du 1/n : la pivotalité décroît en **1/√n** (Penrose), pas en 1/n — pour
+  n = 10⁶, c'est mille fois plus.
 
 ## Portes de qualité
 

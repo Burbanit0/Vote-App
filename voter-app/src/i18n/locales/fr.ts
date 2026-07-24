@@ -146,6 +146,57 @@ const fr = {
     allowsTitle: 'Méthodes encore possibles',
     allowsHint:
       'Une méthode ne peut compter que ce que le bulletin a écrit. Avec un seul nom, chercher un vainqueur de Condorcet n’a aucun sens : l’information n’existe pas.',
+    posture: {
+      kicker: 'Comment vous le remplissez',
+      sincere: 'Sincère',
+      strategic: 'Au mieux pour vous',
+      abstain: 'Abstention',
+    },
+    tactic: {
+      one: 'Votez {{names}}',
+      rank: 'Placez {{names}} en tête',
+      approve: 'N’approuvez que {{names}}',
+      score: 'Ne mettez la note maximale qu’à {{names}}',
+      points: 'Misez tous vos points sur {{names}}',
+    },
+    bloc: {
+      label: 'Vous êtes {{n}} à penser comme ça, sur {{total}} votants',
+    },
+    verdict: {
+      pays: '{{how}} : {{winner}} est élu·e, et vous obtenez {{rank}} au lieu de {{instead}}.',
+      payless:
+        'Aucun bulletin ne vous donnerait mieux. À ce nombre, mentir ne rapporte rien sous cette méthode.',
+      moved:
+        'À {{n}}, votre camp a changé l’élu : {{winner}} passe devant {{was}}, qui gagnait sans vous.',
+      tied: 'À {{n}}, votre camp met l’élection à égalité parfaite : la règle ne départage plus personne.',
+      alone:
+        'Seul, vous ne changez pas le résultat. Ce n’est pas que votre voix ne compte pas — c’est qu’il en faut un certain nombre, et ce nombre est écrit ci-dessous.',
+      notYet:
+        'À {{n}}, le résultat ne bouge pas encore. Il en faut un certain nombre, et ce nombre est écrit ci-dessous.',
+      abstainSame:
+        'Vous abstenir ne change rien ici : {{winner}} est élu·e avec vos {{n}} bulletins comme sans eux.',
+      abstainDiffer:
+        'Sans vos {{n}} bulletins, c’est {{winner}} qui est élu·e. Rester chez vous a changé l’élection.',
+    },
+    count: {
+      toFlip: 'électeurs comme vous suffisent à changer l’élu·e — sous {{method}}',
+      noFlip: 'même à {{max}}, votre camp ne change pas l’élu·e sous cette méthode',
+      toTempt: 'suffisent pour qu’un bulletin tactique vous serve mieux qu’un bulletin sincère',
+      noTempt:
+        'aucun nombre, jusqu’ici, ne rend le mensonge payant — cette méthode vous laisse sincère',
+      already: 'cette méthode élit déjà votre 1ᵉʳ choix : il n’y a rien à faire basculer',
+    },
+    tie: 'égalité — la règle ne tranche pas',
+    chipPays: 'Sous cette méthode, un bulletin tactique vous sert mieux',
+    paysSome:
+      'Le mensonge paie sous {{n}} des {{total}} méthodes de ce bulletin. L’intérêt de tricher ne vient pas de vous : il vient de la règle.',
+    paysNone:
+      'Le mensonge ne paie sous aucune des {{total}} méthodes de ce bulletin — ici, la sincérité est votre meilleur coup.',
+    paysSoleYes:
+      'Le mensonge paie sous la seule méthode que ce bulletin autorise. L’intérêt de tricher ne vient pas de vous : il vient de la règle.',
+    paysSoleNo:
+      'Le mensonge ne paie pas sous la seule méthode que ce bulletin autorise — ici, la sincérité est votre meilleur coup.',
+    vsSincere: 'sincèrement, vous obteniez {{rank}}',
     electedWith: 'Élu · {{method}}',
     stamp: 'Élu',
     youGetKicker: 'Vous obtenez',

@@ -21,7 +21,9 @@ import {
 } from './playgroundVoting';
 import {
   ballotFrom,
+  ballotSpace,
   electorateBallots,
+  type Ballot,
   type BallotLanguage,
   type BallotOptions,
 } from './ballotLanguages';
@@ -50,6 +52,44 @@ export const ELECTORATE: number[][] = computeScores(
  */
 export const DEFAULT_YOU: number[] = [0.72, 0.05, 0.95, 0.4];
 
+// The electorate's ballots depend only on the language, and the page recomputes on
+// every slider tick — translate each language once.
+const BASE = new Map<BallotLanguage, { ranks: number[][]; scores: number[][] }>();
+function base(lang: BallotLanguage): { ranks: number[][]; scores: number[][] } {
+  let b = BASE.get(lang);
+  if (!b) BASE.set(lang, (b = electorateBallots(ELECTORATE, lang)));
+  return b;
+}
+
+/**
+ * Winner under `rule` when `copies` voters cast `mine` — or nobody does (`null`, or
+ * `copies` of 0). `copies` is you plus everyone who shares your opinion: a single
+ * ballot is almost never pivotal in a 41-voter election, so the honest question is
+ * not "did my vote decide it" but "how many of us does it take". Same convention as
+ * the playground's sincerity probe, where strategic pressure is also collective.
+ */
+export function winnerWith(
+  mine: Ballot | null,
+  lang: BallotLanguage,
+  rule: Rule,
+  copies = 1
+): number {
+  const b = base(lang);
+  const ranks = b.ranks.slice();
+  const scores = b.scores.slice();
+  if (mine) {
+    const score = mine.score ?? mine.rank.map(() => 0);
+    for (let i = 0; i < copies; i++) {
+      ranks.push(mine.rank);
+      scores.push(score);
+    }
+  }
+  return ruleWinnerFromRanks(ranks, CANDIDATES.length, rule, scores);
+}
+
+/** How large your camp can get before it stops being a minority worth measuring. */
+export const MAX_BLOC = 15;
+
 /** Winner index per rule, with your ballot added to the electorate's. */
 export function winnersFor(
   you: number[],
@@ -57,13 +97,85 @@ export function winnersFor(
   rules: Rule[],
   opt: BallotOptions = {}
 ): Record<string, number> {
-  const base = electorateBallots(ELECTORATE, lang);
   const mine = ballotFrom(you, lang, opt);
-  const ranks = [...base.ranks, mine.rank];
-  const scores = [...base.scores, mine.score ?? you];
   const out: Record<string, number> = {};
-  for (const rule of rules) {
-    out[rule] = ruleWinnerFromRanks(ranks, CANDIDATES.length, rule, scores);
+  for (const rule of rules) out[rule] = winnerWith(mine, lang, rule);
+  return out;
+}
+
+export type Posture = 'sincere' | 'strategic' | 'abstain';
+
+export interface BestResponse {
+  /** The ballot that serves you best, everyone else voting sincerely. */
+  ballot: Ballot;
+  winner: number;
+  /** True when your sincere ballot already is the best you can do — the method
+   *  gives you no reason to lie, which is the whole point of measuring this. */
+  sincereIsBest: boolean;
+}
+
+/**
+ * Your best response under one rule: the ballot in this language that elects the
+ * candidate you like most, holding the rest of the electorate sincere. Exhaustive
+ * over `ballotSpace`, so the answer is exact, not a heuristic. Ties go to sincerity —
+ * a lie has to strictly pay before we call it a temptation.
+ */
+export function bestResponse(
+  you: number[],
+  lang: BallotLanguage,
+  rule: Rule,
+  opt: BallotOptions = {},
+  copies = 1
+): BestResponse {
+  const sincere = ballotFrom(you, lang, opt);
+  const util = (w: number): number => (w >= 0 ? you[w] : -Infinity);
+  let best: BestResponse = {
+    ballot: sincere,
+    winner: winnerWith(sincere, lang, rule, copies),
+    sincereIsBest: true,
+  };
+  // An undecided sincere outcome is not a temptation to escape: any ballot "beats"
+  // no-winner, which would flag a lie as paying when nothing was actually at stake.
+  if (best.winner < 0) return best;
+  for (const ballot of ballotSpace(you, lang)) {
+    const winner = winnerWith(ballot, lang, rule, copies);
+    if (util(winner) > util(best.winner) + 1e-9) best = { ballot, winner, sincereIsBest: false };
+  }
+  return best;
+}
+
+export interface Pivot {
+  /** Smallest camp that changes the winner just by turning out — 0 if none up to max. */
+  toFlip: number;
+  /** Smallest camp for which a tactical ballot beats an honest one — 0 if none. */
+  toTempt: number;
+}
+
+/**
+ * How many voters like you it takes, under one rule. Scanned from 1 upward rather
+ * than bisected on purpose: turnout is NOT monotone under every rule (IRV and the
+ * two-round can elect someone you like less as your camp grows — the no-show
+ * paradox), so the smallest camp that works is the only defensible answer.
+ */
+export function pivot(
+  you: number[],
+  lang: BallotLanguage,
+  rule: Rule,
+  opt: BallotOptions = {},
+  max = MAX_BLOC
+): Pivot {
+  const sincere = ballotFrom(you, lang, opt);
+  const none = winnerWith(null, lang, rule);
+  const out: Pivot = { toFlip: 0, toTempt: 0 };
+  for (let k = 1; k <= max; k++) {
+    // A camp that only turns the race into a dead heat has not changed the winner —
+    // the counter promises someone else elected, so it must deliver someone.
+    if (!out.toFlip) {
+      const w = winnerWith(sincere, lang, rule, k);
+      if (w >= 0 && w !== none) out.toFlip = k;
+    }
+    if (!out.toTempt && !bestResponse(you, lang, rule, opt, k).sincereIsBest) out.toTempt = k;
+    if (out.toFlip && out.toTempt) break;
   }
   return out;
 }

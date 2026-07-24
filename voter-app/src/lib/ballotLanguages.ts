@@ -124,8 +124,13 @@ export function gradesOf(affinity: number[], opt: BallotOptions = {}): number[] 
 
 /** Points actually written on a `points` ballot, out of `budget` — for display. */
 export function pointsOf(affinity: number[], budget = 10, opt: BallotOptions = {}): number[] {
-  const share = ballotFrom(affinity, 'points', opt).score ?? [];
-  const raw = share.map((s) => s * budget);
+  return pipsFrom(ballotFrom(affinity, 'points', opt).score ?? [], budget);
+}
+
+/** Largest-remainder split of `budget` following `share` — the pips drawn on paper. */
+export function pipsFrom(share: number[], budget = 10): number[] {
+  const total = share.reduce((a, x) => a + x, 0);
+  const raw = share.map((s) => (total > 0 ? s / total : 1 / share.length) * budget);
   // Largest-remainder so the displayed pips always sum to exactly `budget`.
   const floors = raw.map(Math.floor);
   let left = budget - floors.reduce((a, x) => a + x, 0);
@@ -139,6 +144,54 @@ export function pointsOf(affinity: number[], budget = 10, opt: BallotOptions = {
     left -= 1;
   }
   return out;
+}
+
+function permutations(arr: number[]): number[][] {
+  if (arr.length <= 1) return [arr.slice()];
+  const out: number[][] = [];
+  for (let i = 0; i < arr.length; i++) {
+    const rest = arr.slice(0, i).concat(arr.slice(i + 1));
+    for (const p of permutations(rest)) out.push([arr[i], ...p]);
+  }
+  return out;
+}
+
+/**
+ * Every ballot you could plausibly cast in this language — the search space for a
+ * best response. Finite by construction on ordinal papers, and theory-backed where
+ * the space would be infinite: on a `score` ballot the optimal single vote is always
+ * min/max (an approval ballot in disguise), and on a `points` ballot splitting your
+ * budget never beats going all in. The sincere ballot is not included; callers add
+ * it as the baseline so ties resolve in favour of honesty.
+ */
+export function ballotSpace(affinity: number[], lang: BallotLanguage): Ballot[] {
+  const m = affinity.length;
+  const sincere = orderOf(affinity);
+  const headed = (c: number): number[] => [c, ...sincere.filter((i) => i !== c)];
+  const each = <T>(f: (c: number) => T): T[] => Array.from({ length: m }, (_, c) => f(c));
+
+  switch (lang) {
+    // Only rank[0] is read; the tail keeps your sincere order.
+    case 'one':
+      return each((c) => ({ rank: headed(c) }));
+
+    case 'rank':
+      // ponytail: exhaustive up to 6 candidates (720 orders). Beyond that, only the
+      // "promote one candidate" ballots — the tactic anyone actually plays.
+      return (m <= 6 ? permutations(sincere) : each(headed)).map((rank) => ({ rank }));
+
+    case 'approve':
+    case 'score': {
+      const out: Ballot[] = [];
+      for (let mask = 0; mask < 1 << m; mask++) {
+        out.push({ rank: sincere, score: each((c) => ((mask >> c) & 1 ? 1 : 0)) });
+      }
+      return out;
+    }
+
+    case 'points':
+      return each((c) => ({ rank: headed(c), score: each((j) => (j === c ? 1 : 0)) }));
+  }
 }
 
 /**
