@@ -33,17 +33,16 @@ describe('Navbar', () => {
     expect(screen.getByText('Vote Lab')).toBeInTheDocument();
   });
 
-  it('renders the three destinations, in order of what they ask of you', () => {
+  it('renders the three destinations: Playground → Laboratoire → À vous de jouer', () => {
     const { container } = renderNavbar();
     const hrefs = Array.from(container.querySelectorAll('nav a[href^="/"]')).map((a) =>
       a.getAttribute('href')
     );
     expect(hrefs).toEqual(
-      expect.arrayContaining(['/a-vous-de-jouer', '/playground', '/laboratoire'])
+      expect.arrayContaining(['/playground', '/laboratoire', '/a-vous-de-jouer'])
     );
-    // À vous de jouer asks only for an opinion, so it comes first.
-    expect(hrefs.indexOf('/a-vous-de-jouer')).toBeLessThan(hrefs.indexOf('/playground'));
     expect(hrefs.indexOf('/playground')).toBeLessThan(hrefs.indexOf('/laboratoire'));
+    expect(hrefs.indexOf('/laboratoire')).toBeLessThan(hrefs.indexOf('/a-vous-de-jouer'));
   });
 
   it('tells assistive tech which destination is the current page', () => {

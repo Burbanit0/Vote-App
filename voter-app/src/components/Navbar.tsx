@@ -10,10 +10,9 @@ import { useTranslation } from 'react-i18next';
 import i18n, { switchLanguage } from '../i18n';
 
 // ── Navigation ────────────────────────────────────────────────────────────────
-// Three destinations, in order of how much they ask of you: À vous de jouer (cast
-// one ballot) → Playground (drive the instrument) → Laboratoire (go deeper).
-// Playground keeps the hero treatment — it is still the centre of the app.
-// Everything theory/mechanism/system lives inside the Laboratoire's fiches now.
+// Three destinations: Playground (the instrument, hero) → Laboratoire (go deeper)
+// → À vous de jouer (cast one ballot yourself). Everything theory/mechanism/system
+// lives inside the Laboratoire's fiches now.
 
 // ── Settings row (used inside user dropdown) ──────────────────────────────────
 
@@ -101,23 +100,8 @@ const Navbar: React.FC = () => {
         <BootstrapNavbar.Toggle aria-controls="votelab-nav" aria-expanded={navExpanded} />
 
         <BootstrapNavbar.Collapse id="votelab-nav">
-          {/* ── Main nav — À vous de jouer → Playground → Laboratoire ── */}
+          {/* ── Main nav — Playground → Laboratoire → À vous de jouer ── */}
           <Nav className="mr-auto lg:items-center gap-1">
-            {/* À vous de jouer — the softest way in: it asks only for an opinion */}
-            <Nav.Link
-              href="/a-vous-de-jouer"
-              className="font-semibold px-3 py-1 rounded"
-              active={currentPath === '/a-vous-de-jouer'}
-              onClick={() => setNavExpanded(false)}
-              style={{
-                color: currentPath === '/a-vous-de-jouer' ? 'var(--bs-primary)' : 'inherit',
-                fontSize: '0.88rem',
-                transition: 'all 0.15s',
-              }}
-            >
-              ✍️ {t('nav.play')}
-            </Nav.Link>
-
             {/* Playground — hero link */}
             <Nav.Link
               href="/playground"
@@ -148,6 +132,21 @@ const Navbar: React.FC = () => {
               }}
             >
               🔬 {t('nav.laboratoire')}
+            </Nav.Link>
+
+            {/* À vous de jouer — the hands-on detour, after the two main surfaces */}
+            <Nav.Link
+              href="/a-vous-de-jouer"
+              className="font-semibold px-3 py-1 rounded"
+              active={currentPath === '/a-vous-de-jouer'}
+              onClick={() => setNavExpanded(false)}
+              style={{
+                color: currentPath === '/a-vous-de-jouer' ? 'var(--bs-primary)' : 'inherit',
+                fontSize: '0.88rem',
+                transition: 'all 0.15s',
+              }}
+            >
+              ✍️ {t('nav.play')}
             </Nav.Link>
           </Nav>
 
