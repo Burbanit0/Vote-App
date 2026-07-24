@@ -12,6 +12,7 @@ import {
 import {
   CANDIDATES,
   ELECTORATE,
+  ELECTORATE_FIRST_CHOICE,
   DEFAULT_YOU,
   bestResponse,
   pivot,
@@ -94,6 +95,20 @@ describe('ballotLanguages — one opinion, five papers', () => {
 });
 
 describe('votePlay — the fixed election is the one the page promises', () => {
+  it('the first-choice tally is the centre-squeeze the crowd view draws', () => {
+    const counts = Object.fromEntries(
+      ELECTORATE_FIRST_CHOICE.map((n, i) => [CANDIDATES[i].name, n])
+    );
+    // The crowd view and its caption depend on these exact camps.
+    expect(counts).toEqual({ Alice: 16, Bruno: 15, Carla: 3, Diane: 7 });
+    expect(ELECTORATE_FIRST_CHOICE.reduce((a, x) => a + x, 0)).toBe(ELECTORATE.length);
+    // The compromise has the smallest first-choice camp yet wins richer methods —
+    // that gap is the whole point of showing where you stand.
+    const carla = CANDIDATES.findIndex((c) => c.name === 'Carla');
+    expect(Math.min(...ELECTORATE_FIRST_CHOICE)).toBe(ELECTORATE_FIRST_CHOICE[carla]);
+    expect(winnersFor(DEFAULT_YOU, 'rank', ['condorcet']).condorcet).toBe(carla);
+  });
+
   it('is a genuine centre-squeeze: the language moves the winner', () => {
     const names = (lang: Parameters<typeof winnersFor>[1]) => {
       const w = winnersFor(DEFAULT_YOU, lang, RULES_FOR[lang]);

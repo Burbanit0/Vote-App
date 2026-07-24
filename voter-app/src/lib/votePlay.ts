@@ -46,6 +46,22 @@ export const ELECTORATE: number[][] = computeScores(
 );
 
 /**
+ * Base electorate's first-choice tally (count per candidate) — the shape of the
+ * crowd you are joining. Reveals the centre-squeeze at a glance: the compromise
+ * has almost no first-choice support, yet wins the moment a second choice can be
+ * expressed. Alice 16 · Bruno 15 · Carla 3 · Diane 7.
+ */
+export const ELECTORATE_FIRST_CHOICE: number[] = (() => {
+  const counts = CANDIDATES.map(() => 0);
+  for (const a of ELECTORATE) {
+    let top = 0;
+    for (let i = 1; i < a.length; i++) if (a[i] > a[top]) top = i;
+    counts[top] += 1;
+  }
+  return counts;
+})();
+
+/**
  * Your starting opinion: a centre-left voter who finds Carla best and Bruno
  * unacceptable. Chosen so the lesson bites — under a single-name ballot your voice
  * cannot say most of this.
