@@ -109,6 +109,55 @@ const fr = {
     playInstrument: 'Ouvrir l’instrument',
   },
 
+  play: {
+    eyebrow: 'Vote Lab · à vous de jouer',
+    title: 'Votre avis ne change pas. Votre bulletin, si.',
+    lede: 'Vous êtes le dernier électeur d’une élection serrée à {{n}} votants. Votre opinion restera la même tout du long — seule change la façon dont le bulletin vous autorise à la dire. Cela suffit à changer l’élu.',
+    opinionKicker: 'Votre avis',
+    opinionTitle: 'Ce qu’ils valent pour vous',
+    opinionHint:
+      'Réglez ce que chacun vaut à vos yeux. Cet avis ne bougera plus : c’est le bulletin qui va changer.',
+    yourOrder: 'Votre ordre',
+    ballotKicker: 'Le bulletin qu’on vous donne',
+    ballotPaper: 'Bulletin de vote',
+    lang: {
+      one: 'Un seul nom',
+      rank: 'Un ordre',
+      approve: 'Plusieurs noms',
+      score: 'Une note',
+      points: 'Des points',
+    },
+    says: {
+      one: 'Ce bulletin ne retient qu’un nom. Vos seconds choix, vos rejets, l’intensité de vos préférences : tout est jeté avant même le décompte.',
+      rank: 'Ce bulletin garde l’ordre complet de vos préférences — mais pas leur intensité. On saura que vous préférez, jamais de combien.',
+      approve:
+        'Ce bulletin retient tous ceux qui vous conviennent, sans les départager. Reste à décider où vous coupez.',
+      score:
+        'Ce bulletin garde l’intensité : vous pouvez dire qu’un candidat vous convient un peu, ou énormément.',
+      points:
+        'Ce bulletin vous confie un budget. Tout miser sur un seul ou répartir : c’est vous qui tranchez.',
+    },
+    knob: {
+      approve: 'Vous cochez vos {{k}} premiers — où coupez-vous ? Ce choix est déjà tactique.',
+      score: 'Fidèle à votre avis ↔ contrasté. Ne mettre que des 5 et des 1 est déjà tactique.',
+      points: 'Réparti ↔ concentré sur votre favori. Ce choix est déjà tactique.',
+    },
+    allowsKicker: 'Les portes que ce bulletin ouvre',
+    allowsTitle: 'Méthodes encore possibles',
+    allowsHint:
+      'Une méthode ne peut compter que ce que le bulletin a écrit. Avec un seul nom, chercher un vainqueur de Condorcet n’a aucun sens : l’information n’existe pas.',
+    electedWith: 'Élu · {{method}}',
+    stamp: 'Élu',
+    youGetKicker: 'Vous obtenez',
+    youGetHint: 'selon votre propre classement',
+    ord: {
+      '1': 'votre 1ᵉʳ choix',
+      '2': 'votre 2ᵉ choix',
+      '3': 'votre 3ᵉ choix',
+      '4': 'votre 4ᵉ choix',
+    },
+  },
+
   home: {
     eyebrow: 'Vote Lab · laboratoire de théorie du vote',
     h1Line1: 'La méthode décide,',

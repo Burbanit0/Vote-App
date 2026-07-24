@@ -110,6 +110,55 @@ const en: TranslationKeys = {
     playInstrument: 'Open the instrument',
   },
 
+  play: {
+    eyebrow: 'Vote Lab · your turn',
+    title: 'Your opinion does not change. Your ballot does.',
+    lede: 'You are the last voter in a close election of {{n}}. Your opinion stays the same throughout — only the way the ballot lets you say it changes. That alone changes who wins.',
+    opinionKicker: 'Your opinion',
+    opinionTitle: 'What they are worth to you',
+    opinionHint:
+      'Set what each one is worth in your eyes. This opinion will not move again: it is the ballot that changes.',
+    yourOrder: 'Your order',
+    ballotKicker: 'The ballot you are handed',
+    ballotPaper: 'Ballot paper',
+    lang: {
+      one: 'One name',
+      rank: 'An order',
+      approve: 'Several names',
+      score: 'A grade',
+      points: 'Points',
+    },
+    says: {
+      one: 'This ballot keeps one name. Your second choices, your rejections, the intensity of your preferences — all discarded before the count even begins.',
+      rank: 'This ballot keeps the full order of your preferences, but not their intensity. It will know that you prefer, never by how much.',
+      approve:
+        'This ballot keeps everyone you find acceptable, without separating them. You still have to decide where to cut.',
+      score:
+        'This ballot keeps intensity: you can say a candidate suits you a little, or enormously.',
+      points:
+        'This ballot hands you a budget. Stake it all on one or spread it out — that call is yours.',
+    },
+    knob: {
+      approve: 'You tick your top {{k}} — where do you cut? That choice is already tactical.',
+      score: 'Faithful to your opinion ↔ contrasted. Giving only 5s and 1s is already tactical.',
+      points: 'Spread ↔ concentrated on your favourite. That choice is already tactical.',
+    },
+    allowsKicker: 'The doors this ballot opens',
+    allowsTitle: 'Methods still possible',
+    allowsHint:
+      'A method can only count what the ballot wrote down. With a single name, looking for a Condorcet winner is meaningless: the information does not exist.',
+    electedWith: 'Elected · {{method}}',
+    stamp: 'Elected',
+    youGetKicker: 'You get',
+    youGetHint: 'by your own ranking',
+    ord: {
+      '1': 'your 1st choice',
+      '2': 'your 2nd choice',
+      '3': 'your 3rd choice',
+      '4': 'your 4th choice',
+    },
+  },
+
   home: {
     eyebrow: 'Vote Lab · a laboratory of voting theory',
     h1Line1: 'The method decides,',
