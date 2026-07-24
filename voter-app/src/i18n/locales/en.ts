@@ -110,6 +110,123 @@ const en: TranslationKeys = {
     playInstrument: 'Open the instrument',
   },
 
+  play: {
+    eyebrow: 'Vote Lab · your turn',
+    title: 'Your opinion does not change. Your ballot does.',
+    lede: 'You are the last voter in a close election of {{n}}. Your opinion stays the same throughout — only the way the ballot lets you say it changes. That alone changes who wins.',
+    opinionKicker: 'Your opinion',
+    opinionTitle: 'What they are worth to you',
+    opinionHint:
+      'Set what each one is worth in your eyes. This opinion will not move again: it is the ballot that changes.',
+    yourOrder: 'Your order',
+    ballotKicker: 'The ballot you are handed',
+    ballotPaper: 'Ballot paper',
+    lang: {
+      one: 'One name',
+      rank: 'An order',
+      approve: 'Several names',
+      score: 'A grade',
+      points: 'Points',
+    },
+    says: {
+      one: 'This ballot keeps one name. Your second choices, your rejections, the intensity of your preferences — all discarded before the count even begins.',
+      rank: 'This ballot keeps the full order of your preferences, but not their intensity. It will know that you prefer, never by how much.',
+      approve:
+        'This ballot keeps everyone you find acceptable, without separating them. You still have to decide where to cut.',
+      score:
+        'This ballot keeps intensity: you can say a candidate suits you a little, or enormously.',
+      points:
+        'This ballot hands you a budget. Stake it all on one or spread it out — that call is yours.',
+    },
+    knob: {
+      approve: 'You tick your top {{k}} — where do you cut? That choice is already tactical.',
+      score: 'Faithful to your opinion ↔ contrasted. Giving only 5s and 1s is already tactical.',
+      points: 'Spread ↔ concentrated on your favourite. That choice is already tactical.',
+    },
+    allowsKicker: 'The doors this ballot opens',
+    allowsTitle: 'Methods still possible',
+    allowsHint:
+      'A method can only count what the ballot wrote down. With a single name, looking for a Condorcet winner is meaningless: the information does not exist.',
+    posture: {
+      kicker: 'How you fill it in',
+      sincere: 'Sincere',
+      strategic: 'Best for you',
+      abstain: 'Abstain',
+    },
+    tactic: {
+      one: 'Vote {{names}}',
+      rank: 'Put {{names}} first',
+      approve: 'Approve {{names}} only',
+      score: 'Give top marks to {{names}} only',
+      points: 'Put every point on {{names}}',
+    },
+    bloc: {
+      label: 'There are {{n}} of you who think this way, out of {{total}} voters',
+    },
+    verdict: {
+      pays: '{{how}}: {{winner}} is elected, and you get {{rank}} instead of {{instead}}.',
+      payless:
+        'No ballot would serve you better. At this size, lying gains you nothing under this method.',
+      moved:
+        'At {{n}}, your camp changed the winner: {{winner}} overtakes {{was}}, who won without you.',
+      tied: 'At {{n}}, your camp ties the election outright: the rule can no longer separate anyone.',
+      alone:
+        'On your own, you do not change the result. It is not that your voice counts for nothing — it takes a certain number, and that number is written below.',
+      notYet:
+        'At {{n}}, the result does not move yet. It takes a certain number, and that number is written below.',
+      abstainSame:
+        'Abstaining changes nothing here: {{winner}} is elected with your {{n}} ballots and without them.',
+      abstainDiffer:
+        'Without your {{n}} ballots, {{winner}} is elected instead. Staying home changed the election.',
+    },
+    count: {
+      toFlip: 'voters like you are enough to change the winner — under {{method}}',
+      noFlip: 'even at {{max}}, your camp does not change the winner under this method',
+      toTempt: 'are enough for a tactical ballot to serve you better than an honest one',
+      noTempt: 'no number so far makes lying pay — this method leaves you free to be sincere',
+      already: 'this method already elects your 1st choice: there is nothing to flip',
+    },
+    weight: {
+      kicker: 'The weight of one voice',
+      title: 'A vote is not worth 1 in n',
+      lede: 'The belief: in an election of {{n}} voters, your vote is one in six million — near enough to nothing. But that is not how an election turns. What decides it is the gap, and the gap does not care how big the electorate is.',
+      knob: 'Close race ↔ wide race',
+      gap: '{{margin}}-vote gap',
+      shareHint:
+        'of the electorate separates the top two. It is this share, not the number of voters, that says whether the election is within reach.',
+      convinceHint:
+        'people changing their minds is enough to reverse it — half the gap, since a vote that switches sides takes one away and adds one.',
+      bridge:
+        'Here, under {{method}}, it took {{k}} people out of {{n}} — {{here}} of the electorate. At six million voters, with the gap set above, it takes {{there}}. The share that turns an election does not depend on how many voters there are: it depends on the gap.',
+      florida:
+        'Florida, 2000: {{margin}} votes out of {{total}} ballots — {{share}} of the electorate. {{convince}} people changing their minds, and the US presidency changes hands.',
+      floridaBack: 'Back to that margin →',
+      oneOverN:
+        'So where does 1/n come from? It is the probability that your vote is the one that breaks the tie. In the model where everyone votes by coin flip it falls as 1/√n (Penrose, 1946) — for a million voters, a thousand times more than 1/n. With correlated voters, as in real life, empirical estimates land far lower: around 10⁻⁷ to 10⁻⁸ for a US presidential vote (Gelman, Silver and Edlin, 2012). The two models disagree, which is one more reason to look at the number that depends on no model at all: how many people it takes. That is the one this page counts.',
+    },
+    tie: 'a dead heat — the rule cannot separate them',
+    chipPays: 'Under this method a tactical ballot serves you better',
+    paysSome:
+      'Lying pays under {{n}} of this ballot’s {{total}} methods. The incentive to cheat does not come from you — it comes from the rule.',
+    paysNone:
+      'Lying pays under none of this ballot’s {{total}} methods — here, sincerity is your best move.',
+    paysSoleYes:
+      'Lying pays under the only method this ballot allows. The incentive to cheat does not come from you — it comes from the rule.',
+    paysSoleNo:
+      'Lying does not pay under the only method this ballot allows — here, sincerity is your best move.',
+    vsSincere: 'sincerely, you got {{rank}}',
+    electedWith: 'Elected · {{method}}',
+    stamp: 'Elected',
+    youGetKicker: 'You get',
+    youGetHint: 'by your own ranking',
+    ord: {
+      '1': 'your 1st choice',
+      '2': 'your 2nd choice',
+      '3': 'your 3rd choice',
+      '4': 'your 4th choice',
+    },
+  },
+
   home: {
     eyebrow: 'Vote Lab · a laboratory of voting theory',
     h1Line1: 'The method decides,',

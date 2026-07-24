@@ -109,6 +109,124 @@ const fr = {
     playInstrument: 'Ouvrir l’instrument',
   },
 
+  play: {
+    eyebrow: 'Vote Lab · à vous de jouer',
+    title: 'Votre avis ne change pas. Votre bulletin, si.',
+    lede: 'Vous êtes le dernier électeur d’une élection serrée à {{n}} votants. Votre opinion restera la même tout du long — seule change la façon dont le bulletin vous autorise à la dire. Cela suffit à changer l’élu.',
+    opinionKicker: 'Votre avis',
+    opinionTitle: 'Ce qu’ils valent pour vous',
+    opinionHint:
+      'Réglez ce que chacun vaut à vos yeux. Cet avis ne bougera plus : c’est le bulletin qui va changer.',
+    yourOrder: 'Votre ordre',
+    ballotKicker: 'Le bulletin qu’on vous donne',
+    ballotPaper: 'Bulletin de vote',
+    lang: {
+      one: 'Un seul nom',
+      rank: 'Un ordre',
+      approve: 'Plusieurs noms',
+      score: 'Une note',
+      points: 'Des points',
+    },
+    says: {
+      one: 'Ce bulletin ne retient qu’un nom. Vos seconds choix, vos rejets, l’intensité de vos préférences : tout est jeté avant même le décompte.',
+      rank: 'Ce bulletin garde l’ordre complet de vos préférences — mais pas leur intensité. On saura que vous préférez, jamais de combien.',
+      approve:
+        'Ce bulletin retient tous ceux qui vous conviennent, sans les départager. Reste à décider où vous coupez.',
+      score:
+        'Ce bulletin garde l’intensité : vous pouvez dire qu’un candidat vous convient un peu, ou énormément.',
+      points:
+        'Ce bulletin vous confie un budget. Tout miser sur un seul ou répartir : c’est vous qui tranchez.',
+    },
+    knob: {
+      approve: 'Vous cochez vos {{k}} premiers — où coupez-vous ? Ce choix est déjà tactique.',
+      score: 'Fidèle à votre avis ↔ contrasté. Ne mettre que des 5 et des 1 est déjà tactique.',
+      points: 'Réparti ↔ concentré sur votre favori. Ce choix est déjà tactique.',
+    },
+    allowsKicker: 'Les portes que ce bulletin ouvre',
+    allowsTitle: 'Méthodes encore possibles',
+    allowsHint:
+      'Une méthode ne peut compter que ce que le bulletin a écrit. Avec un seul nom, chercher un vainqueur de Condorcet n’a aucun sens : l’information n’existe pas.',
+    posture: {
+      kicker: 'Comment vous le remplissez',
+      sincere: 'Sincère',
+      strategic: 'Au mieux pour vous',
+      abstain: 'Abstention',
+    },
+    tactic: {
+      one: 'Votez {{names}}',
+      rank: 'Placez {{names}} en tête',
+      approve: 'N’approuvez que {{names}}',
+      score: 'Ne mettez la note maximale qu’à {{names}}',
+      points: 'Misez tous vos points sur {{names}}',
+    },
+    bloc: {
+      label: 'Vous êtes {{n}} à penser comme ça, sur {{total}} votants',
+    },
+    verdict: {
+      pays: '{{how}} : {{winner}} est élu·e, et vous obtenez {{rank}} au lieu de {{instead}}.',
+      payless:
+        'Aucun bulletin ne vous donnerait mieux. À ce nombre, mentir ne rapporte rien sous cette méthode.',
+      moved:
+        'À {{n}}, votre camp a changé l’élu : {{winner}} passe devant {{was}}, qui gagnait sans vous.',
+      tied: 'À {{n}}, votre camp met l’élection à égalité parfaite : la règle ne départage plus personne.',
+      alone:
+        'Seul, vous ne changez pas le résultat. Ce n’est pas que votre voix ne compte pas — c’est qu’il en faut un certain nombre, et ce nombre est écrit ci-dessous.',
+      notYet:
+        'À {{n}}, le résultat ne bouge pas encore. Il en faut un certain nombre, et ce nombre est écrit ci-dessous.',
+      abstainSame:
+        'Vous abstenir ne change rien ici : {{winner}} est élu·e avec vos {{n}} bulletins comme sans eux.',
+      abstainDiffer:
+        'Sans vos {{n}} bulletins, c’est {{winner}} qui est élu·e. Rester chez vous a changé l’élection.',
+    },
+    count: {
+      toFlip: 'électeurs comme vous suffisent à changer l’élu·e — sous {{method}}',
+      noFlip: 'même à {{max}}, votre camp ne change pas l’élu·e sous cette méthode',
+      toTempt: 'suffisent pour qu’un bulletin tactique vous serve mieux qu’un bulletin sincère',
+      noTempt:
+        'aucun nombre, jusqu’ici, ne rend le mensonge payant — cette méthode vous laisse sincère',
+      already: 'cette méthode élit déjà votre 1ᵉʳ choix : il n’y a rien à faire basculer',
+    },
+    weight: {
+      kicker: 'Le poids d’une voix',
+      title: 'Une voix ne pèse pas 1 sur n',
+      lede: 'La croyance : dans une élection à {{n}} électeurs, votre voix vaut une voix sur six millions — autant dire rien. Mais ce n’est pas ainsi qu’une élection bascule. Ce qui décide, c’est l’écart, et l’écart ne dépend pas de la taille de l’électorat.',
+      knob: 'Élection serrée ↔ élection large',
+      gap: '{{margin}} voix d’écart',
+      shareHint:
+        'de l’électorat sépare les deux premiers. C’est cette part, et non le nombre d’électeurs, qui dit si l’élection est à portée.',
+      convinceHint:
+        'personnes qui changent d’avis suffisent à inverser le résultat — la moitié de l’écart, puisqu’une voix qui change de camp en enlève une et en ajoute une.',
+      bridge:
+        'Ici, sous {{method}}, il vous fallait {{k}} personnes sur {{n}} — soit {{here}} de l’électorat. À six millions d’électeurs, avec l’écart réglé ci-dessus, il en faut {{there}}. La part qui fait basculer une élection ne dépend pas du nombre d’électeurs : elle dépend de l’écart.',
+      florida:
+        'Floride, 2000 : {{margin}} voix sur {{total}} bulletins, soit {{share}} de l’électorat. {{convince}} personnes qui changent d’avis, et la présidence des États-Unis change de main.',
+      floridaBack: 'Revenir à cette marge →',
+      oneOverN:
+        'D’où vient alors le 1/n ? C’est la probabilité que votre voix soit exactement celle qui départage. Dans le modèle où chacun voterait à pile ou face, elle décroît en 1/√n (Penrose, 1946) — pour un million d’électeurs, mille fois plus qu’un 1/n. Avec des électeurs corrélés, comme dans la vraie vie, les estimations empiriques retombent bien plus bas : de l’ordre de 10⁻⁷ à 10⁻⁸ pour une présidentielle américaine (Gelman, Silver et Edlin, 2012). Les deux modèles ne s’accordent pas, et c’est une raison de plus de regarder le nombre qui, lui, ne dépend d’aucun modèle : combien de personnes il faut. C’est celui que cette page compte.',
+    },
+    tie: 'égalité — la règle ne tranche pas',
+    chipPays: 'Sous cette méthode, un bulletin tactique vous sert mieux',
+    paysSome:
+      'Le mensonge paie sous {{n}} des {{total}} méthodes de ce bulletin. L’intérêt de tricher ne vient pas de vous : il vient de la règle.',
+    paysNone:
+      'Le mensonge ne paie sous aucune des {{total}} méthodes de ce bulletin — ici, la sincérité est votre meilleur coup.',
+    paysSoleYes:
+      'Le mensonge paie sous la seule méthode que ce bulletin autorise. L’intérêt de tricher ne vient pas de vous : il vient de la règle.',
+    paysSoleNo:
+      'Le mensonge ne paie pas sous la seule méthode que ce bulletin autorise — ici, la sincérité est votre meilleur coup.',
+    vsSincere: 'sincèrement, vous obteniez {{rank}}',
+    electedWith: 'Élu · {{method}}',
+    stamp: 'Élu',
+    youGetKicker: 'Vous obtenez',
+    youGetHint: 'selon votre propre classement',
+    ord: {
+      '1': 'votre 1ᵉʳ choix',
+      '2': 'votre 2ᵉ choix',
+      '3': 'votre 3ᵉ choix',
+      '4': 'votre 4ᵉ choix',
+    },
+  },
+
   home: {
     eyebrow: 'Vote Lab · laboratoire de théorie du vote',
     h1Line1: 'La méthode décide,',
