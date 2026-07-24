@@ -33,10 +33,35 @@ describe('Navbar', () => {
     expect(screen.getByText('Vote Lab')).toBeInTheDocument();
   });
 
-  it('renders the two destinations: Playground + Laboratoire', () => {
+  it('renders the three destinations, in order of what they ask of you', () => {
     const { container } = renderNavbar();
-    expect(container.querySelector('a[href="/playground"]')).toBeInTheDocument();
-    expect(container.querySelector('a[href="/laboratoire"]')).toBeInTheDocument();
+    const hrefs = Array.from(container.querySelectorAll('nav a[href^="/"]')).map((a) =>
+      a.getAttribute('href')
+    );
+    expect(hrefs).toEqual(
+      expect.arrayContaining(['/a-vous-de-jouer', '/playground', '/laboratoire'])
+    );
+    // À vous de jouer asks only for an opinion, so it comes first.
+    expect(hrefs.indexOf('/a-vous-de-jouer')).toBeLessThan(hrefs.indexOf('/playground'));
+    expect(hrefs.indexOf('/playground')).toBeLessThan(hrefs.indexOf('/laboratoire'));
+  });
+
+  it('tells assistive tech which destination is the current page', () => {
+    const original = window.location.pathname;
+    Object.defineProperty(window, 'location', {
+      value: { ...window.location, pathname: '/a-vous-de-jouer' },
+      writable: true,
+    });
+    const { container } = renderNavbar();
+    expect(container.querySelector('a[href="/a-vous-de-jouer"]')).toHaveAttribute(
+      'aria-current',
+      'page'
+    );
+    expect(container.querySelector('a[href="/playground"]')).not.toHaveAttribute('aria-current');
+    Object.defineProperty(window, 'location', {
+      value: { ...window.location, pathname: original },
+      writable: true,
+    });
   });
 
   it('has no Learn/Explore dropdowns and no auth links', () => {

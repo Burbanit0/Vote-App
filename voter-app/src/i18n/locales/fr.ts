@@ -16,6 +16,7 @@ const fr = {
     theory: 'Théorie du vote',
     gallery: 'Galerie',
     electionLab: 'Election Lab',
+    play: 'À vous de jouer',
     playground: 'Playground',
     laboratoire: 'Laboratoire',
     learn: 'Apprendre',
