@@ -19,6 +19,7 @@ import {
   VOTER_COUNT,
   DEFAULT_YOU,
   MAX_BLOC,
+  ELECTORATE_FIRST_CHOICE,
   bestResponse,
   pivot,
   winnerWith,
@@ -153,6 +154,18 @@ const AVousDeJouerPage: React.FC = () => {
 
   const row = perRule.find((r) => r.rule === activeRule) ?? perRule[0];
   const paysCount = perRule.filter((r) => r.pays).length;
+
+  // Where you stand in the crowd — revealed only once you have filled your ballot,
+  // so your opinion forms without being anchored by everyone else's first.
+  const [showCrowd, setShowCrowd] = React.useState(false);
+  const myFav = myOrder[0];
+  // First-choice camps: the base electorate, plus your camp (you + those like you).
+  const camps = React.useMemo(
+    () => ELECTORATE_FIRST_CHOICE.map((base, i) => base + (i === myFav ? bloc : 0)),
+    [myFav, bloc]
+  );
+  const leader = camps.reduce((best, n, i) => (n > camps[best] ? i : best), 0);
+  const totalVoters = VOTER_COUNT + bloc;
 
   // Margin of a large, real-scale election — the "weight" instrument at the foot.
   // The margin itself is the state, not the slider index: a real election's margin
@@ -605,6 +618,109 @@ const AVousDeJouerPage: React.FC = () => {
             </div>
           </section>
         </div>
+
+        {/* ── Where you stand in the crowd — hand-tally of first choices ── */}
+        <section className="mt-7">
+          <p className="font-mono text-[0.62rem] uppercase tracking-[0.18em] text-muted-foreground">
+            {t('play.crowd.kicker')}
+          </p>
+          <h2 className="mt-0.5 font-display text-xl font-bold tracking-tight">
+            {t('play.crowd.title')}
+          </h2>
+
+          {!showCrowd ? (
+            // Reveal gate: form your opinion first, then see where it sits.
+            <div className="mt-3 flex flex-col items-start gap-3 rounded-xl border border-dashed border-border bg-card p-5">
+              <p className="max-w-2xl text-sm leading-relaxed text-muted-foreground">
+                {t('play.crowd.revealWhy')}
+              </p>
+              <button
+                type="button"
+                data-testid="play-crowd-reveal"
+                onClick={() => setShowCrowd(true)}
+                className="rounded-md border border-primary bg-primary px-3 py-1.5 text-sm font-semibold text-primary-foreground transition-colors hover:bg-primary/90"
+              >
+                {t('play.crowd.reveal')}
+              </button>
+            </div>
+          ) : (
+            <div
+              data-testid="play-crowd"
+              className="mt-3 rounded-xl border border-border bg-card p-4 sm:p-5"
+            >
+              <div className="flex flex-col gap-2.5">
+                {CANDIDATES.map((c, i) => {
+                  const base = ELECTORATE_FIRST_CHOICE[i];
+                  const mine = i === myFav ? bloc : 0;
+                  const isLeader = i === leader;
+                  return (
+                    <div key={c.name} className="flex items-start gap-3">
+                      {/* Camp label — candidate, count, and who leads on first choices */}
+                      <div className="flex w-28 shrink-0 items-center gap-1.5 pt-0.5 sm:w-32">
+                        <span
+                          aria-hidden
+                          className="h-2.5 w-2.5 shrink-0 rounded-full"
+                          style={{ background: candidateColor(i) }}
+                        />
+                        <span className="truncate text-sm">{c.name}</span>
+                        <span
+                          className={cn(
+                            'ml-auto font-mono text-sm tabular-nums',
+                            isLeader ? 'font-bold text-foreground' : 'text-muted-foreground'
+                          )}
+                        >
+                          {base + mine}
+                        </span>
+                      </div>
+
+                      {/* The tally itself — one mark per voter, yours in stamp ink */}
+                      <div className="flex flex-1 flex-wrap content-start gap-1 pt-1">
+                        {Array.from({ length: base }, (_, k) => (
+                          <span
+                            key={`b${k}`}
+                            aria-hidden
+                            className="h-2.5 w-2.5 rounded-full opacity-45"
+                            style={{ background: candidateColor(i) }}
+                          />
+                        ))}
+                        {Array.from({ length: mine }, (_, k) => (
+                          <span
+                            key={`m${k}`}
+                            aria-hidden
+                            title={k === 0 ? t('play.crowd.you') : t('play.crowd.likeYou')}
+                            className={cn(
+                              'h-2.5 w-2.5 rounded-full bg-[var(--color-stamp)] ring-1 ring-[var(--color-stamp)]',
+                              k === 0 && 'ring-2'
+                            )}
+                          />
+                        ))}
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+
+              <p
+                data-testid="play-crowd-caption"
+                aria-live="polite"
+                className="mt-4 border-t border-border pt-3 text-sm leading-relaxed text-muted-foreground"
+              >
+                {t('play.crowd.stand', {
+                  fav: CANDIDATES[myFav]?.name ?? '—',
+                  camp: camps[myFav],
+                  total: totalVoters,
+                  leader: CANDIDATES[leader]?.name ?? '—',
+                  leaderN: camps[leader],
+                })}{' '}
+                {leader === myFav ? (
+                  <span className="font-medium text-primary">{t('play.crowd.youLead')}</span>
+                ) : (
+                  <span>{t('play.crowd.squeeze')}</span>
+                )}
+              </p>
+            </div>
+          )}
+        </section>
 
         {/* ── The doors this paper opens (and closes) ── */}
         <section className="mt-7">

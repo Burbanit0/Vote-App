@@ -205,6 +205,20 @@ const fr = {
       oneOverN:
         'D’où vient alors le 1/n ? C’est la probabilité que votre voix soit exactement celle qui départage. Dans le modèle où chacun voterait à pile ou face, elle décroît en 1/√n (Penrose, 1946) — pour un million d’électeurs, mille fois plus qu’un 1/n. Avec des électeurs corrélés, comme dans la vraie vie, les estimations empiriques retombent bien plus bas : de l’ordre de 10⁻⁷ à 10⁻⁸ pour une présidentielle américaine (Gelman, Silver et Edlin, 2012). Les deux modèles ne s’accordent pas, et c’est une raison de plus de regarder le nombre qui, lui, ne dépend d’aucun modèle : combien de personnes il faut. C’est celui que cette page compte.',
     },
+    crowd: {
+      kicker: 'Où vous vous situez',
+      title: 'Votre place dans l’électorat',
+      revealWhy:
+        'D’abord votre avis, sans regarder personne. Une fois votre bulletin rempli, découvrez la forme de l’électorat que vous rejoignez — et le poids réel de votre camp.',
+      reveal: 'Voir où je me situe →',
+      you: 'Vous',
+      likeYou: 'Un électeur comme vous',
+      stand:
+        'Votre camp (premier choix {{fav}}) : {{camp}} sur {{total}}. En tête sur les premiers choix : {{leader}} ({{leaderN}}).',
+      youLead: 'Votre camp est désormais le plus grand.',
+      squeeze:
+        'Remarquez que le compromis peut n’avoir presque aucun premier choix, et pourtant l’emporter dès qu’un second choix peut s’exprimer : c’est là que la méthode décide.',
+    },
     tie: 'égalité — la règle ne tranche pas',
     chipPays: 'Sous cette méthode, un bulletin tactique vous sert mieux',
     paysSome:

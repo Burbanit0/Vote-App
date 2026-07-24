@@ -205,6 +205,20 @@ const en: TranslationKeys = {
       oneOverN:
         'So where does 1/n come from? It is the probability that your vote is the one that breaks the tie. In the model where everyone votes by coin flip it falls as 1/√n (Penrose, 1946) — for a million voters, a thousand times more than 1/n. With correlated voters, as in real life, empirical estimates land far lower: around 10⁻⁷ to 10⁻⁸ for a US presidential vote (Gelman, Silver and Edlin, 2012). The two models disagree, which is one more reason to look at the number that depends on no model at all: how many people it takes. That is the one this page counts.',
     },
+    crowd: {
+      kicker: 'Where you stand',
+      title: 'Your place in the electorate',
+      revealWhy:
+        'Your opinion first, without looking at anyone else. Once your ballot is filled in, see the shape of the electorate you are joining — and the real weight of your camp.',
+      reveal: 'Show where I stand →',
+      you: 'You',
+      likeYou: 'A voter like you',
+      stand:
+        'Your camp (first choice {{fav}}): {{camp}} of {{total}}. Leading on first choices: {{leader}} ({{leaderN}}).',
+      youLead: 'Your camp is now the largest.',
+      squeeze:
+        'Notice the compromise can have almost no first-choice support and still win the moment a second choice can be expressed — that is where the method decides.',
+    },
     tie: 'a dead heat — the rule cannot separate them',
     chipPays: 'Under this method a tactical ballot serves you better',
     paysSome:
