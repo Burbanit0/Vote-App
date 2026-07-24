@@ -115,6 +115,30 @@ const en: TranslationKeys = {
     eyebrow: 'Vote Lab · your turn',
     title: 'Your opinion does not change. Your ballot does.',
     lede: 'You are the last voter in a close election of {{n}}. Your opinion stays the same throughout — only the way the ballot lets you say it changes. That alone changes who wins.',
+    vote: {
+      kicker: 'One election, one voice: yours',
+      prompt:
+        'Four candidates, {{n}} other voters, a close result. Step into the booth, fill in your ballot, and vote.',
+      open: 'Step into the booth',
+    },
+    booth: {
+      title: 'The voting booth',
+      hint: 'Set your opinion, choose your ballot, fill it in. Once you vote, it is sealed: to change it you will have to vote again.',
+      cast: 'Vote',
+      cancel: 'Cancel',
+      strategicNote:
+        'A tactical ballot depends on the counting method. The preview is optimised for the first method; downstream it adjusts method by method.',
+    },
+    sealed: {
+      kicker: 'Your vote',
+      stamp: 'Voted',
+      summary: 'Ballot: {{lang}} · {{posture}}.',
+      strategicNote: 'Tactical ballot — optimised for {{method}}.',
+      locked:
+        'Your vote is sealed. You cannot edit it while watching the result — that is the whole point. To change your mind, your ballot or your tactic, vote again.',
+      revote: 'Vote again',
+    },
+    poidsKicker: 'Your weight',
     opinionKicker: 'Your opinion',
     opinionTitle: 'What they are worth to you',
     opinionHint:
