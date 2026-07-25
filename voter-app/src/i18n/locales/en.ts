@@ -139,6 +139,15 @@ const en: TranslationKeys = {
       revote: 'Vote again',
     },
     poidsKicker: 'Your weight',
+    depouille: {
+      kicker: 'The count',
+      title: 'How {{method}} counts the ballots',
+      hint: 'Nothing is hidden: here is the count, ballot by ballot, round by round or duel by duel, all the way to the winner. Read it, or scrub through it at your own pace.',
+      replay: 'Replay the count',
+      play: 'Play',
+      pause: 'Pause',
+      step: 'Step {{n}} / {{total}}',
+    },
     opinionKicker: 'Your opinion',
     opinionTitle: 'What they are worth to you',
     opinionHint:

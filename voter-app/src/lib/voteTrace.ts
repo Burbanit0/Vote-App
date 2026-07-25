@@ -748,11 +748,27 @@ function traceLottery(cands: NamedPt[], ranks: number[][], m: number): TraceFram
 }
 
 // ── Public entry ──────────────────────────────────────────────────────────────
-/** Build the replay of `rule` over an already-sampled set of ballots. */
+/** Build the replay of `rule` over an already-sampled set of spatial voters. */
 export function buildTrace(sample: Pt[], cands: NamedPt[], rule: Rule): VoteTrace {
-  const m = cands.length;
   const ranks = computeRanks(sample, cands);
   const scores = computeScores(sample, cands);
+  return buildTraceFromBallots(cands, ranks, scores, rule, sample.length);
+}
+
+/**
+ * Build the replay of `rule` over ballots that already exist as ranks + scores —
+ * e.g. language-transformed ballots (a single-name ballot keeps only its top
+ * choice), so the dépouillement counts what was really cast, not full preferences.
+ * The authoritative winner still comes from the engine over these same ballots.
+ */
+export function buildTraceFromBallots(
+  cands: NamedPt[],
+  ranks: number[][],
+  scores: number[][],
+  rule: Rule,
+  sampleSize = ranks.length
+): VoteTrace {
+  const m = cands.length;
   const family = FAMILY_OF[rule];
   const winner = ruleWinnerFromRanks(ranks, m, rule, CARDINAL_RULES.has(rule) ? scores : undefined);
 
@@ -777,5 +793,5 @@ export function buildTrace(sample: Pt[], cands: NamedPt[], rule: Rule): VoteTrac
       ? { ...last, caption: { key: 'replay.tie' }, highlight: [] }
       : { ...last, highlight: [winner] };
 
-  return { family, rule, frames, winner, unitKey: UNIT_OF[rule], sampleSize: sample.length };
+  return { family, rule, frames, winner, unitKey: UNIT_OF[rule], sampleSize };
 }

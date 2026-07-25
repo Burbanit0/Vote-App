@@ -18,8 +18,10 @@ import {
   pivot,
   winnerWith,
   winnersFor,
+  tallyBallots,
   yourRankOf,
 } from './votePlay';
+import { buildTraceFromBallots } from './voteTrace';
 import { ruleWinnerFromRanks, computeRanks, sampleVoters, computeScores } from './playgroundVoting';
 
 const M = CANDIDATES.length;
@@ -131,6 +133,22 @@ describe('votePlay — the fixed election is the one the page promises', () => {
       for (const i of Object.values(w)) all.add(CANDIDATES[i]?.name ?? '?');
     }
     expect(all.size).toBeGreaterThanOrEqual(3);
+  });
+
+  it('the dépouillement replay names the same winner the result does', () => {
+    // Transparency is only honest if the animated count agrees with the engine.
+    for (const lang of BALLOT_LANGUAGES) {
+      const mine = ballotFrom(DEFAULT_YOU, lang);
+      for (const copies of [1, 9]) {
+        const { ranks, scores } = tallyBallots(mine, lang, copies);
+        for (const rule of RULES_FOR[lang]) {
+          const trace = buildTraceFromBallots(CANDIDATES, ranks, scores, rule);
+          expect(trace.winner, `${lang}/${rule}@${copies}`).toBe(
+            winnerWith(mine, lang, rule, copies)
+          );
+        }
+      }
+    }
   });
 
   it('winnersFor and winnerWith agree — one code path, two callers', () => {

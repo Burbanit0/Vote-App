@@ -78,6 +78,29 @@ function base(lang: BallotLanguage): { ranks: number[][]; scores: number[][] } {
 }
 
 /**
+ * The exact ballots being counted: the base electorate, plus `copies` of `mine`
+ * (you and everyone who shares your opinion). This is what a transparent
+ * dépouillement replays, so it must be the very same array the winner comes from.
+ */
+export function tallyBallots(
+  mine: Ballot | null,
+  lang: BallotLanguage,
+  copies = 1
+): { ranks: number[][]; scores: number[][] } {
+  const b = base(lang);
+  const ranks = b.ranks.slice();
+  const scores = b.scores.slice();
+  if (mine) {
+    const score = mine.score ?? mine.rank.map(() => 0);
+    for (let i = 0; i < copies; i++) {
+      ranks.push(mine.rank);
+      scores.push(score);
+    }
+  }
+  return { ranks, scores };
+}
+
+/**
  * Winner under `rule` when `copies` voters cast `mine` — or nobody does (`null`, or
  * `copies` of 0). `copies` is you plus everyone who shares your opinion: a single
  * ballot is almost never pivotal in a 41-voter election, so the honest question is
@@ -90,16 +113,7 @@ export function winnerWith(
   rule: Rule,
   copies = 1
 ): number {
-  const b = base(lang);
-  const ranks = b.ranks.slice();
-  const scores = b.scores.slice();
-  if (mine) {
-    const score = mine.score ?? mine.rank.map(() => 0);
-    for (let i = 0; i < copies; i++) {
-      ranks.push(mine.rank);
-      scores.push(score);
-    }
-  }
+  const { ranks, scores } = tallyBallots(mine, lang, copies);
   return ruleWinnerFromRanks(ranks, CANDIDATES.length, rule, scores);
 }
 

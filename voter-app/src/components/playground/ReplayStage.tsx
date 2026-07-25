@@ -9,7 +9,7 @@ import { CANDIDATE_COLORS_LIGHT } from '../../constants/chartColors';
 // Purely presentational (state lives in useVoteReplay), so the replay modal and
 // the side-by-side face-à-face render an identical count.
 
-const color = (i: number) => CANDIDATE_COLORS_LIGHT[i % CANDIDATE_COLORS_LIGHT.length];
+const defaultColor = (i: number) => CANDIDATE_COLORS_LIGHT[i % CANDIDATE_COLORS_LIGHT.length];
 
 const ReplayStage: React.FC<{
   trace: VoteTrace;
@@ -17,8 +17,11 @@ const ReplayStage: React.FC<{
   candidates: NamedPt[];
   /** Tighter type + no unit line, for the cramped two-column duel. */
   compact?: boolean;
-}> = ({ trace, frame, candidates, compact = false }) => {
+  /** Override the bar colours so a host page can match its own candidate palette. */
+  colorOf?: (i: number) => string;
+}> = ({ trace, frame, candidates, compact = false, colorOf }) => {
   const { t } = useTranslation('playground');
+  const color = colorOf ?? defaultColor;
   const cur = trace.frames[Math.min(frame, trace.frames.length - 1)];
   const scale = Math.max(1, ...trace.frames.flatMap((f) => f.bars));
 
