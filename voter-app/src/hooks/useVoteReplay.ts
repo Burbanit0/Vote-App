@@ -17,7 +17,7 @@ export const SPEEDS = [
 ] as const;
 
 // Base beat: counting drops one ballot per beat (fast); rounds/duels need reading.
-const STEP_MS: Record<string, number> = {
+export const STEP_MS: Record<string, number> = {
   count: 380,
   lottery: 900,
   elim: 950,

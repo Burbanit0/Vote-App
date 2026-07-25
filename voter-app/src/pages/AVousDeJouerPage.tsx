@@ -5,6 +5,8 @@ import { Modal } from '@/components/ui/modal';
 import { useMetaTags } from '../hooks/useMetaTags';
 import { candidateColor } from '../lib/palette';
 import { useVotingLabels } from '../hooks/useVotingLabels';
+import { buildTraceFromBallots } from '../lib/voteTrace';
+import DepouillementPanel from '../components/play/DepouillementPanel';
 import {
   BALLOT_LANGUAGES,
   RULES_FOR,
@@ -24,6 +26,7 @@ import {
   bestResponse,
   pivot,
   winnerWith,
+  tallyBallots,
   yourRankOf,
   type Posture,
 } from '../lib/votePlay';
@@ -343,6 +346,13 @@ const AVousDeJouerPage: React.FC = () => {
     -1;
   const myRank = yourRankOf(you, winner);
   const sincereRank = yourRankOf(you, row.sincere);
+
+  // The transparent count: the replay of the examined method over the exact ballots
+  // that produced the result (base electorate + your bloc, in the cast language).
+  const trace = React.useMemo(() => {
+    const { ranks, scores } = tallyBallots(ballot, lang, bloc);
+    return buildTraceFromBallots(CANDIDATES, ranks, scores, activeRule);
+  }, [ballot, lang, bloc, activeRule]);
 
   // First-choice camps: the base electorate, plus your camp (you + those like you).
   const myFav = myOrder[0];
@@ -924,6 +934,20 @@ const AVousDeJouerPage: React.FC = () => {
                     ? t('play.paysSome', { n: paysCount, total: rules.length })
                     : t('play.paysNone', { total: rules.length })}
               </p>
+            </section>
+
+            {/* ── The count itself, step by step — nothing hidden ── */}
+            <section className="mt-7">
+              <p className="font-mono text-[0.62rem] uppercase tracking-[0.18em] text-muted-foreground">
+                {t('play.depouille.kicker')}
+              </p>
+              <h2 className="mt-0.5 font-display text-xl font-bold tracking-tight">
+                {t('play.depouille.title', { method: ruleLabels[activeRule] })}
+              </h2>
+              <p className="mt-1 max-w-2xl text-sm text-muted-foreground">
+                {t('play.depouille.hint')}
+              </p>
+              <DepouillementPanel trace={trace} candidates={CANDIDATES} />
             </section>
 
             {/* ── The result, and what it means for YOU ── */}

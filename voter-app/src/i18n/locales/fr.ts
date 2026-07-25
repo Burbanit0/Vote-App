@@ -138,6 +138,15 @@ const fr = {
       revote: 'Revoter',
     },
     poidsKicker: 'Votre poids',
+    depouille: {
+      kicker: 'Le dépouillement',
+      title: 'Comment {{method}} compte les bulletins',
+      hint: 'Rien n’est caché : voici le décompte, bulletin par bulletin, tour par tour ou duel par duel, jusqu’au vainqueur. Lisez-le, ou faites-le défiler à votre rythme.',
+      replay: 'Rejouer le décompte',
+      play: 'Lire',
+      pause: 'Pause',
+      step: 'Étape {{n}} / {{total}}',
+    },
     opinionKicker: 'Votre avis',
     opinionTitle: 'Ce qu’ils valent pour vous',
     opinionHint:
