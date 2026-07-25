@@ -7,6 +7,7 @@ import { candidateColor } from '../lib/palette';
 import { useVotingLabels } from '../hooks/useVotingLabels';
 import { buildTraceFromBallots } from '../lib/voteTrace';
 import DepouillementPanel from '../components/play/DepouillementPanel';
+import BallotRegister from '../components/play/BallotRegister';
 import {
   BALLOT_LANGUAGES,
   RULES_FOR,
@@ -347,12 +348,15 @@ const AVousDeJouerPage: React.FC = () => {
   const myRank = yourRankOf(you, winner);
   const sincereRank = yourRankOf(you, row.sincere);
 
-  // The transparent count: the replay of the examined method over the exact ballots
-  // that produced the result (base electorate + your bloc, in the cast language).
-  const trace = React.useMemo(() => {
-    const { ranks, scores } = tallyBallots(ballot, lang, bloc);
-    return buildTraceFromBallots(CANDIDATES, ranks, scores, activeRule);
-  }, [ballot, lang, bloc, activeRule]);
+  // The exact ballots being counted (base electorate + your bloc, in the cast
+  // language) — the transparent count replays these, and the register lists them.
+  const tally = React.useMemo(() => tallyBallots(ballot, lang, bloc), [ballot, lang, bloc]);
+  const trace = React.useMemo(
+    () => buildTraceFromBallots(CANDIDATES, tally.ranks, tally.scores, activeRule),
+    [tally, activeRule]
+  );
+  // Your ballots sit last in the tally; none when you abstain.
+  const mineFrom = tally.ranks.length - (ballot ? bloc : 0);
 
   // First-choice camps: the base electorate, plus your camp (you + those like you).
   const myFav = myOrder[0];
@@ -948,6 +952,13 @@ const AVousDeJouerPage: React.FC = () => {
                 {t('play.depouille.hint')}
               </p>
               <DepouillementPanel trace={trace} candidates={CANDIDATES} />
+              <BallotRegister
+                ranks={tally.ranks}
+                scores={tally.scores}
+                lang={lang}
+                mineFrom={mineFrom}
+                candidates={CANDIDATES}
+              />
             </section>
 
             {/* ── The result, and what it means for YOU ── */}

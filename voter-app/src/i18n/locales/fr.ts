@@ -147,6 +147,15 @@ const fr = {
       pause: 'Pause',
       step: 'Étape {{n}} / {{total}}',
     },
+    register: {
+      show: 'Voir les {{n}} bulletins un par un',
+      hide: 'Masquer les bulletins',
+      note: 'Les {{n}} bulletins comptés, tels qu’ils ont été remplis. Les {{k}} derniers, en couleur, sont le vôtre et ceux qui pensent comme vous.',
+      noteAbstain:
+        'Les {{n}} bulletins comptés. Vous vous êtes abstenu — votre bulletin n’y figure pas.',
+      ballot: 'Bulletin',
+      you: 'vous',
+    },
     opinionKicker: 'Votre avis',
     opinionTitle: 'Ce qu’ils valent pour vous',
     opinionHint:

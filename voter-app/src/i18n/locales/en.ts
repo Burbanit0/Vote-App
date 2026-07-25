@@ -148,6 +148,14 @@ const en: TranslationKeys = {
       pause: 'Pause',
       step: 'Step {{n}} / {{total}}',
     },
+    register: {
+      show: 'See the {{n}} ballots one by one',
+      hide: 'Hide the ballots',
+      note: 'The {{n}} ballots counted, exactly as they were filled in. The last {{k}}, in colour, are yours and those who think like you.',
+      noteAbstain: 'The {{n}} ballots counted. You abstained — your ballot is not among them.',
+      ballot: 'Ballot',
+      you: 'you',
+    },
     opinionKicker: 'Your opinion',
     opinionTitle: 'What they are worth to you',
     opinionHint:
