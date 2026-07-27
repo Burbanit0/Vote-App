@@ -2,6 +2,7 @@ import React from 'react';
 import { useTranslation } from 'react-i18next';
 import { cn } from '@/lib/utils';
 import { backtest, type RealElection } from '../../lib/realElections';
+import { reordering } from '../../lib/voterAutrement2017';
 import { track } from '../../lib/analytics';
 import fixture from '../../lib/__fixtures__/realElections.json';
 
@@ -12,6 +13,11 @@ import fixture from '../../lib/__fixtures__/realElections.json';
 //  · Alaska 2022 special — IRV elects Peltola while Begich beats both rivals
 //    head-to-head, the modern textbook Condorcet failure.
 // Every number is asserted against the published record in realElections.test.ts.
+//
+// Appended below, a different KIND of real evidence: France 2017 under an approval
+// ballot ("Voter Autrement" experiment). It's aggregate rates, not re-tabulable
+// ballots, so it sits apart from the box picker — and it makes the subtler point
+// that the ballot FORMAT reshuffles the field even when the winner holds.
 
 const METHOD_LABEL: Record<string, { fr: string; en: string }> = {
   plurality: { fr: 'Pluralité (1 tour)', en: 'Plurality (1 round)' },
@@ -30,10 +36,16 @@ const WINNER_TINT = [
 ];
 
 const ELECTIONS = (fixture as { elections: RealElection[] }).elections;
+const APPROVAL_ROWS = reordering();
 
 const RealElectionPanel: React.FC = () => {
   const { t, i18n } = useTranslation('playground');
   const fr = i18n.language.startsWith('fr');
+  // Locale-aware percent: 46.1 → "46,1 %" (fr) / "46.1%" (en); keeps the 24.01
+  // official shares' second decimal without forcing it onto 46.1.
+  const pct = (n: number) =>
+    n.toLocaleString(i18n.language, { minimumFractionDigits: 1, maximumFractionDigits: 2 }) +
+    (fr ? ' %' : '%');
   const [id, setId] = React.useState(ELECTIONS[0].id);
   const election = ELECTIONS.find((e) => e.id === id) ?? ELECTIONS[0];
   const bt = React.useMemo(() => backtest(election), [election]);
@@ -110,6 +122,59 @@ const RealElectionPanel: React.FC = () => {
       </div>
 
       <p className="text-[0.65rem] text-muted-foreground">{t('realElection.note')}</p>
+
+      {/* Same election, a different ballot FORMAT — approval. Aggregate rates, not
+          re-tabulable ballots, so it lives apart from the box picker above. */}
+      <div
+        data-testid="approval-experiment"
+        className="mt-2 flex flex-col gap-1.5 border-t border-border pt-3"
+      >
+        <p className="text-sm font-medium">{t('approvalExperiment.title')}</p>
+        <p className="text-[0.7rem] leading-relaxed text-muted-foreground">
+          {t('approvalExperiment.sub')}
+        </p>
+
+        <table className="mt-1 w-full border-collapse text-xs">
+          <thead>
+            <tr className="text-[0.6rem] uppercase tracking-wide text-muted-foreground">
+              <th className="py-1 text-left font-medium" />
+              <th className="py-1 text-right font-medium">{t('approvalExperiment.colApproval')}</th>
+              <th className="py-1 text-right font-medium">{t('approvalExperiment.colOfficial')}</th>
+            </tr>
+          </thead>
+          <tbody>
+            {APPROVAL_ROWS.map((r) => (
+              <tr key={r.name} className="border-t border-border/40">
+                <td className="py-1 pr-2">
+                  <span className="tabular-nums text-muted-foreground">{r.approvalRank}.</span>{' '}
+                  <span className="font-medium">{r.name}</span>{' '}
+                  {r.delta !== 0 && (
+                    <span
+                      className={cn(
+                        'text-[0.65rem] tabular-nums',
+                        r.delta > 0
+                          ? 'text-emerald-600 dark:text-emerald-400'
+                          : 'text-rose-600 dark:text-rose-400'
+                      )}
+                    >
+                      {r.delta > 0 ? `▲${r.delta}` : `▼${-r.delta}`}
+                    </span>
+                  )}
+                </td>
+                <td className="py-1 text-right font-medium tabular-nums">{pct(r.approval)}</td>
+                <td className="py-1 text-right tabular-nums text-muted-foreground">
+                  #{r.pluralityRank} · {pct(r.plurality)}
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+
+        <p className="text-[0.65rem] leading-relaxed text-muted-foreground">
+          {t('approvalExperiment.caveat')}
+        </p>
+        <p className="text-[0.65rem] text-muted-foreground/80">{t('approvalExperiment.source')}</p>
+      </div>
     </div>
   );
 };
