@@ -5,6 +5,7 @@ import { ArrowRight, ListOrdered, Star, CheckSquare } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
 import { useMetaTags } from '../hooks/useMetaTags';
+import CuriosityQuestions from '../components/shared/CuriosityQuestions';
 import { ruleWinnerFromRanks, type Rule } from '../lib/playgroundVoting';
 import {
   GROUPS,
@@ -291,6 +292,13 @@ const DecouvrirPage: React.FC = () => {
               </li>
             ))}
           </ul>
+        </div>
+      </section>
+
+      {/* ── 3.5 · Follow your curiosity: questions → the story that answers ── */}
+      <section className="border-b border-border">
+        <div className="container mx-auto max-w-4xl px-4 py-8 sm:py-10">
+          <CuriosityQuestions />
         </div>
       </section>
 

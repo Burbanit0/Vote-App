@@ -736,6 +736,19 @@ const pgFr = {
     empty: 'Aucun terme ne correspond.',
     count: '{{n}} termes',
   },
+  curiosity: {
+    kicker: 'Par curiosité',
+    title: 'Par où commencer ? Suis ta question.',
+    sub: 'Chaque question ouvre l’histoire qui y répond, dans l’instrument.',
+    q: {
+      wasted: 'Pourquoi dit-on que mon vote « ne sert à rien » ?',
+      spoiler: 'Comment un candidat sans aucune chance peut-il faire perdre mon favori ?',
+      centre: 'Le candidat que presque tout le monde accepte peut-il être éliminé ?',
+      method: 'La méthode de dépouillement peut-elle changer le vainqueur ?',
+      best: 'Le mieux placé est-il vraiment le meilleur pour tous ?',
+      small: 'Un petit parti peut-il être effacé par une simple barre ?',
+    },
+  },
   explain: {
     kicker: 'Pourquoi ce gagnant ?',
     count:

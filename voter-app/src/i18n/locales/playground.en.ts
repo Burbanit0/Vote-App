@@ -717,6 +717,19 @@ const pgEn: PlaygroundKeys = {
     empty: 'No term matches.',
     count: '{{n}} terms',
   },
+  curiosity: {
+    kicker: 'Out of curiosity',
+    title: 'Where to start? Follow your question.',
+    sub: 'Each question opens the story that answers it, inside the instrument.',
+    q: {
+      wasted: 'Why do people say my vote is “wasted”?',
+      spoiler: 'How can a no-hope candidate make my favourite lose?',
+      centre: 'Can the candidate almost everyone accepts still be eliminated?',
+      method: 'Can the counting method change who wins?',
+      best: 'Is the front-runner really the best for everyone?',
+      small: 'Can a small party be wiped out by a single threshold?',
+    },
+  },
   explain: {
     kicker: 'Why this winner?',
     count: '{{winner}} wins on the highest total: {{winnerVal}} to {{runnerUp}}’s {{runnerUpVal}}.',
