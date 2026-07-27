@@ -709,6 +709,14 @@ const pgEn: PlaygroundKeys = {
     source:
       'Approval: Baujard et al. (rangevoting.org/France2017). Official: Ministère de l’Intérieur.',
   },
+  lexique: {
+    title: '📖 Glossary',
+    intro: 'Every notion in one plain sentence — and a link to see it at work.',
+    search: 'Search a term…',
+    seeInAction: 'See it in action',
+    empty: 'No term matches.',
+    count: '{{n}} terms',
+  },
   scorecard: {
     drillTitle: 'Dig deeper in the Lab',
     drillAria: 'Dig into “{{label}}” in the Lab',

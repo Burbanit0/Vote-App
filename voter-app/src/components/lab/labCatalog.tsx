@@ -108,6 +108,7 @@ const CombinedEffectsMatrix = lazyWithPreload(() => import('../shared/CombinedEf
 const FullResultsModule = lazyWithPreload(() => import('../playground/FullResultsModule'));
 const VoteStepAnimator = lazyWithPreload(() => import('../Simulation/VoteStepAnimator'));
 const RealElectionPanel = lazyWithPreload(() => import('../playground/RealElectionPanel'));
+const LexiquePanel = lazyWithPreload(() => import('./LexiquePanel'));
 
 // ── Wrappers for panels that read the shared electorate through props ───────
 // (Everything else takes no props and reads the shared state itself.)
@@ -508,6 +509,7 @@ export const LAB_FAMILIES: LabFamily[] = [
         subtitleKey: 'lab.theory.subtitle',
         introKey: 'anchorBody.theory.intro',
         experiments: [
+          exp('lexique', 'lexique.title', LexiquePanel, LexiquePanel.preload),
           exp('thy-sen', 'anchorBody.theory.sen', SenParadoxPanel, SenParadoxPanel.preload),
           exp(
             'thy-judgment',

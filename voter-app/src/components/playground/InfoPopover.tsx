@@ -12,6 +12,8 @@ interface Props {
   ariaLabel: string;
   placement?: 'top' | 'bottom' | 'left' | 'right';
   className?: string;
+  /** Fired when the popover opens (not on close) — e.g. for analytics. */
+  onOpen?: () => void;
   children: React.ReactNode;
 }
 
@@ -38,6 +40,7 @@ const InfoPopover: React.FC<Props> = ({
   ariaLabel,
   placement = 'top',
   className,
+  onOpen,
   children,
 }) => {
   const [show, setShow] = React.useState(false);
@@ -64,7 +67,10 @@ const InfoPopover: React.FC<Props> = ({
         aria-expanded={show}
         onClick={(e) => {
           e.stopPropagation();
-          setShow((s) => !s);
+          setShow((s) => {
+            if (!s) onOpen?.();
+            return !s;
+          });
         }}
         data-testid={`info-${testid}`}
       >

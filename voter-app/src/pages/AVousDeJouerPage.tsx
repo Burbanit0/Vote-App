@@ -9,6 +9,7 @@ import { useVotingLabels } from '../hooks/useVotingLabels';
 import { buildTraceFromBallots } from '../lib/voteTrace';
 import DepouillementPanel from '../components/play/DepouillementPanel';
 import BallotRegister from '../components/play/BallotRegister';
+import Term from '../components/playground/Term';
 import {
   BALLOT_LANGUAGES,
   RULES_FOR,
@@ -953,7 +954,7 @@ const AVousDeJouerPage: React.FC = () => {
             {/* ── The count itself, step by step — nothing hidden ── */}
             <section className="mt-7">
               <p className="font-mono text-[0.62rem] uppercase tracking-[0.18em] text-muted-foreground">
-                {t('play.depouille.kicker')}
+                <Term id="depouillement">{t('play.depouille.kicker')}</Term>
               </p>
               <h2 className="mt-0.5 font-display text-xl font-bold tracking-tight">
                 {t('play.depouille.title', { method: ruleLabels[activeRule] })}
@@ -1026,7 +1027,7 @@ const AVousDeJouerPage: React.FC = () => {
             {/* ── The weight: what actually decides an election is the margin ── */}
             <section className="mt-7">
               <p className="font-mono text-[0.62rem] uppercase tracking-[0.18em] text-muted-foreground">
-                {t('play.weight.kicker')}
+                <Term id="pivotality">{t('play.weight.kicker')}</Term>
               </p>
               <h2 className="mt-0.5 font-display text-xl font-bold tracking-tight">
                 {t('play.weight.title')}
