@@ -728,6 +728,14 @@ const pgFr = {
     source:
       'Approbation : Baujard et al. (rangevoting.org/France2017). Officiel : Ministère de l’Intérieur.',
   },
+  lexique: {
+    title: '📖 Lexique',
+    intro: 'Chaque notion en une phrase simple — et un lien pour la voir à l’œuvre.',
+    search: 'Chercher un terme…',
+    seeInAction: 'Voir en action',
+    empty: 'Aucun terme ne correspond.',
+    count: '{{n}} termes',
+  },
   scorecard: {
     drillTitle: 'Approfondir dans le Lab',
     drillAria: 'Approfondir « {{label}} » dans le Lab',
