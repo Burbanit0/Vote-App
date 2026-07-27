@@ -736,6 +736,18 @@ const pgFr = {
     empty: 'Aucun terme ne correspond.',
     count: '{{n}} termes',
   },
+  explain: {
+    kicker: 'Pourquoi ce gagnant ?',
+    count:
+      '{{winner}} l’emporte sur le plus haut total : {{winnerVal}} contre {{runnerUpVal}} pour {{runnerUp}}.',
+    elim: '{{winner}} gagne aux reports : à mesure que les moins bien placés sont éliminés, leurs voix se reportent, et {{winner}} finit devant {{runnerUp}} ({{winnerVal}} à {{runnerUpVal}}).',
+    pairwise:
+      '{{winner}} gagne tous ses duels : c’est le candidat que la majorité préfère face à chaque rival, un contre un.',
+    twophase:
+      '{{winner}} l’emporte au second tour : des deux finalistes, il devance {{runnerUp}} ({{winnerVal}} à {{runnerUpVal}}).',
+    lottery:
+      '{{winner}} est tiré au sort : la probabilité de chacun était proportionnelle à ses soutiens.',
+  },
   scorecard: {
     drillTitle: 'Approfondir dans le Lab',
     drillAria: 'Approfondir « {{label}} » dans le Lab',
