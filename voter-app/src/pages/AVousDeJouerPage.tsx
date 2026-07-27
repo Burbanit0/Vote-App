@@ -10,6 +10,7 @@ import { buildTraceFromBallots } from '../lib/voteTrace';
 import DepouillementPanel from '../components/play/DepouillementPanel';
 import BallotRegister from '../components/play/BallotRegister';
 import Term from '../components/playground/Term';
+import WinnerExplanation from '../components/playground/WinnerExplanation';
 import {
   BALLOT_LANGUAGES,
   RULES_FOR,
@@ -963,6 +964,7 @@ const AVousDeJouerPage: React.FC = () => {
                 {t('play.depouille.hint')}
               </p>
               <DepouillementPanel trace={trace} candidates={CANDIDATES} />
+              <WinnerExplanation trace={trace} candidates={CANDIDATES} className="mt-3" />
               <BallotRegister
                 ranks={tally.ranks}
                 scores={tally.scores}

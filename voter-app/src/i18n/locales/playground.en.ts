@@ -717,6 +717,17 @@ const pgEn: PlaygroundKeys = {
     empty: 'No term matches.',
     count: '{{n}} terms',
   },
+  explain: {
+    kicker: 'Why this winner?',
+    count: '{{winner}} wins on the highest total: {{winnerVal}} to {{runnerUp}}’s {{runnerUpVal}}.',
+    elim: '{{winner}} wins on transfers: as the lowest-placed are eliminated their votes flow on, and {{winner}} ends ahead of {{runnerUp}} ({{winnerVal}} to {{runnerUpVal}}).',
+    pairwise:
+      '{{winner}} wins every duel: the candidate the majority prefers against each rival, one-on-one.',
+    twophase:
+      '{{winner}} wins the runoff: of the two finalists, they edge out {{runnerUp}} ({{winnerVal}} to {{runnerUpVal}}).',
+    lottery:
+      '{{winner}} is drawn by lot: each candidate’s chance was proportional to their support.',
+  },
   scorecard: {
     drillTitle: 'Dig deeper in the Lab',
     drillAria: 'Dig into “{{label}}” in the Lab',
