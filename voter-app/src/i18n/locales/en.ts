@@ -129,6 +129,13 @@ const en: TranslationKeys = {
       strategicNote:
         'A tactical ballot depends on the counting method. The preview is optimised for the first method; downstream it adjusts method by method.',
     },
+    guess: {
+      kicker: 'Guess first (optional)',
+      prompt: 'Before you seal it — who do you think wins?',
+      resultKicker: 'Your bet',
+      hit: 'Nailed it — {{winner}} wins under {{method}}.',
+      miss: 'You bet {{guess}}; under {{method}}, it’s {{winner}}.',
+    },
     sealed: {
       kicker: 'Your vote',
       stamp: 'Voted',

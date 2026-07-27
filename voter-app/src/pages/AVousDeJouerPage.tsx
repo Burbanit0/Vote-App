@@ -9,6 +9,7 @@ import { useVotingLabels } from '../hooks/useVotingLabels';
 import { buildTraceFromBallots } from '../lib/voteTrace';
 import DepouillementPanel from '../components/play/DepouillementPanel';
 import BallotRegister from '../components/play/BallotRegister';
+import GuessPrompt from '../components/play/GuessPrompt';
 import Term from '../components/playground/Term';
 import WinnerExplanation from '../components/playground/WinnerExplanation';
 import {
@@ -69,6 +70,8 @@ interface Cast {
   lang: BallotLanguage;
   posture: Posture;
   opt: BallotOptions;
+  /** Optional pre-reveal prediction of the winner (candidate index), or null. */
+  guess: number | null;
 }
 
 // Each glyph is the mark that language actually leaves on paper.
@@ -274,6 +277,7 @@ const AVousDeJouerPage: React.FC = () => {
   const [approveK, setApproveK] = React.useState(2);
   const [contrast, setContrast] = React.useState(1);
   const [concentration, setConcentration] = React.useState(1);
+  const [draftGuess, setDraftGuess] = React.useState<number | null>(null);
   const [boothOpen, setBoothOpen] = React.useState(false);
 
   // ── The sealed vote, and the live analysis of it (not part of the vote). ──
@@ -293,6 +297,7 @@ const AVousDeJouerPage: React.FC = () => {
     lang: draftLang,
     posture: draftPosture,
     opt: draftOpt,
+    guess: null,
   };
   const { you, lang, posture } = eff;
   const opt = eff.opt;
@@ -387,11 +392,24 @@ const AVousDeJouerPage: React.FC = () => {
       lang: draftLang,
       posture: draftPosture,
       opt: { approveK, contrast, concentration, levels: 5 },
+      guess: draftGuess,
     });
     setRule(RULES_FOR[draftLang][0]);
     setBloc(1);
     setBoothOpen(false);
     track('play_ballot_cast', { lang: draftLang, posture: draftPosture });
+    if (draftGuess !== null) {
+      // Score the guess against the winner under the ballot's default method — the
+      // engine's answer, never re-derived here.
+      const target = winnerWith(
+        ballotFrom(draftYou, draftLang, draftOpt),
+        draftLang,
+        RULES_FOR[draftLang][0],
+        1
+      );
+      track('guess_made', { correct: draftGuess === target });
+    }
+    setDraftGuess(null);
   };
 
   // Funnel: did they reach & engage the weight section? Fire once, not per drag.
@@ -694,6 +712,9 @@ const AVousDeJouerPage: React.FC = () => {
                 </div>
               </section>
             </div>
+
+            {/* Optional prediction, captured before any result exists (unpeekable). */}
+            <GuessPrompt candidates={CANDIDATES} value={draftGuess} onChange={setDraftGuess} />
           </Modal.Body>
           <Modal.Footer>
             <button
@@ -964,6 +985,33 @@ const AVousDeJouerPage: React.FC = () => {
                 {t('play.depouille.hint')}
               </p>
               <DepouillementPanel trace={trace} candidates={CANDIDATES} />
+              {cast.guess !== null && (
+                <div
+                  data-testid="play-guess-result"
+                  className={cn(
+                    'mt-3 rounded-lg border-l-2 py-2 pl-3',
+                    cast.guess === trace.winner
+                      ? 'border-emerald-500 dark:border-emerald-400'
+                      : 'border-rose-500 dark:border-rose-400'
+                  )}
+                >
+                  <p className="font-mono text-[0.6rem] uppercase tracking-[0.16em] text-muted-foreground">
+                    {t('play.guess.resultKicker')}
+                  </p>
+                  <p className="mt-0.5 text-sm text-foreground">
+                    {cast.guess === trace.winner
+                      ? t('play.guess.hit', {
+                          winner: CANDIDATES[trace.winner].name,
+                          method: ruleLabels[activeRule],
+                        })
+                      : t('play.guess.miss', {
+                          guess: CANDIDATES[cast.guess].name,
+                          winner: CANDIDATES[trace.winner].name,
+                          method: ruleLabels[activeRule],
+                        })}
+                  </p>
+                </div>
+              )}
               <WinnerExplanation trace={trace} candidates={CANDIDATES} className="mt-3" />
               <BallotRegister
                 ranks={tally.ranks}

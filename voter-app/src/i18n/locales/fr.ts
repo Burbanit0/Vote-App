@@ -128,6 +128,13 @@ const fr = {
       strategicNote:
         'Un bulletin tactique dépend de la méthode de dépouillement. L’aperçu est optimisé pour la première méthode ; en aval, il s’ajuste méthode par méthode.',
     },
+    guess: {
+      kicker: 'Devine d’abord (facultatif)',
+      prompt: 'Avant de sceller — qui l’emporte, selon toi ?',
+      resultKicker: 'Ton pari',
+      hit: 'Bien vu — {{winner}} l’emporte sous {{method}}.',
+      miss: 'Tu avais parié {{guess}} ; sous {{method}}, c’est {{winner}}.',
+    },
     sealed: {
       kicker: 'Votre vote',
       stamp: 'Voté',
