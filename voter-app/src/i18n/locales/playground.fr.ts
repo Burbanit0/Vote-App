@@ -718,6 +718,16 @@ const pgFr = {
     headlineEnd: 'vainqueurs différents selon la seule méthode.',
     note: 'Bulletins classés authentiques (Burlington : PrefLib 00005 ; Alaska : Graham-Squire & McCune, arXiv:2303.00108, tab. 4 — la répartition publiée des bulletins du cast vote record de l’État). On ne tabule que les méthodes sans ambiguïté sur des bulletins tronqués (pluralité, deux tours, IRV, famille de Condorcet) ; Borda et les méthodes par note exigent une convention que les bulletins ne fournissent pas. Détails : duels gagnés (Condorcet), pire marge de défaite (minimax).',
   },
+  approvalExperiment: {
+    title: 'Et avec un autre bulletin ? Le vote par approbation (2017)',
+    sub: 'Même scrutin, même électorat — un bulletin d’approbation au lieu d’un seul nom. Le vainqueur tient (Macron), mais l’ordre s’effondre : Le Pen passe 2ᵉ → 5ᵉ, Mélenchon 4ᵉ → 2ᵉ. L’approbation aurait envoyé Macron au second tour face à Mélenchon, pas à Le Pen.',
+    colApproval: 'Approbation',
+    colOfficial: '1er tour',
+    caveat:
+      'Expérimentation « Voter Autrement » in situ, 1er tour 2017 : 3 894 bulletins d’approbation dans 5 communes, échantillon auto-sélectionné puis extrapolé à la France. Un taux d’approbation (on peut approuver plusieurs candidats — 2,48 en moyenne) n’est pas une part de voix : les deux colonnes se comparent par leur ordre, pas par leurs totaux.',
+    source:
+      'Approbation : Baujard et al. (rangevoting.org/France2017). Officiel : Ministère de l’Intérieur.',
+  },
   scorecard: {
     drillTitle: 'Approfondir dans le Lab',
     drillAria: 'Approfondir « {{label}} » dans le Lab',

@@ -9,27 +9,27 @@
 # wakes on the next request (a few seconds cold start) to stay within the free
 # allowance — set min_machines_running = 1 for an always-warm demo.
 
-app = "votelab"
-primary_region = "cdg"  # Paris
+app = 'votelab'
+primary_region = 'cdg'
 
 [build]
-  dockerfile = "Dockerfile"
+  dockerfile = 'Dockerfile'
 
 [http_service]
   internal_port = 4434
   force_https = true
-  auto_stop_machines = "stop"
+  auto_stop_machines = 'stop'
   auto_start_machines = true
   min_machines_running = 0
-  processes = ["app"]
+  processes = ['app']
 
   [[http_service.checks]]
-    interval = "30s"
-    timeout = "5s"
-    grace_period = "20s"
-    method = "get"
-    path = "/api/v2/health"
+    interval = '30s'
+    timeout = '5s'
+    grace_period = '20s'
+    method = 'get'
+    path = '/api/v2/health'
 
 [[vm]]
-  size = "shared-cpu-1x"
-  memory = "512mb"  # numpy + scipy import comfortably; 256mb is tight
+  size = 'shared-cpu-1x'
+  memory = '512mb'  # numpy + scipy import comfortably; 256mb is tight

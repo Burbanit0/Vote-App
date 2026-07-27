@@ -699,6 +699,16 @@ const pgEn: PlaygroundKeys = {
     headlineEnd: 'different winners by method alone.',
     note: 'Genuine ranked ballots (Burlington: PrefLib 00005; Alaska: Graham-Squire & McCune, arXiv:2303.00108, tab. 4 — the published ballot-type breakdown of the state’s cast vote record). We tabulate only the methods that are unambiguous on truncated ballots (plurality, two-round, IRV, the Condorcet family); Borda and score-family rules need a convention the ballots don’t supply. Details: pairwise duels won (Condorcet), worst defeat margin (minimax).',
   },
+  approvalExperiment: {
+    title: 'What if the ballot changed? Approval voting (2017)',
+    sub: 'Same election, same electorate — an approval ballot instead of one name. The winner holds (Macron), but the order collapses: Le Pen drops 2nd → 5th, Mélenchon climbs 4th → 2nd. Approval would have sent Macron into the runoff against Mélenchon, not Le Pen.',
+    colApproval: 'Approval',
+    colOfficial: 'Official 1st round',
+    caveat:
+      '“Voter Autrement” in-situ experiment, 2017 first round: 3,894 approval ballots across 5 municipalities, a self-selected sample extrapolated to France. An approval rate (a voter may approve several candidates — 2.48 on average) is not a vote share: compare the two columns by their order, not their totals.',
+    source:
+      'Approval: Baujard et al. (rangevoting.org/France2017). Official: Ministère de l’Intérieur.',
+  },
   scorecard: {
     drillTitle: 'Dig deeper in the Lab',
     drillAria: 'Dig into “{{label}}” in the Lab',
