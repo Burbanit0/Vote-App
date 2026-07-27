@@ -5,6 +5,7 @@ import type { NamedPt } from '../../lib/playgroundVoting';
 import type { VoteTrace } from '../../lib/voteTrace';
 import { STEP_MS } from '../../hooks/useVoteReplay';
 import { candidateColor } from '../../lib/palette';
+import { track } from '../../lib/analytics';
 import ReplayStage from '../playground/ReplayStage';
 
 // DepouillementPanel — the count made transparent: the same engine replay used in
@@ -41,6 +42,7 @@ const DepouillementPanel: React.FC<{ trace: VoteTrace; candidates: NamedPt[] }> 
   const replay = () => {
     setFrame(0);
     setPlaying(true);
+    track('play_depouille_played', { rule: trace.rule });
   };
 
   return (

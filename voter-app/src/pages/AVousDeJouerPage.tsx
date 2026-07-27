@@ -4,6 +4,7 @@ import { cn } from '@/lib/utils';
 import { Modal } from '@/components/ui/modal';
 import { useMetaTags } from '../hooks/useMetaTags';
 import { candidateColor } from '../lib/palette';
+import { track } from '../lib/analytics';
 import { useVotingLabels } from '../hooks/useVotingLabels';
 import { buildTraceFromBallots } from '../lib/voteTrace';
 import DepouillementPanel from '../components/play/DepouillementPanel';
@@ -388,6 +389,15 @@ const AVousDeJouerPage: React.FC = () => {
     setRule(RULES_FOR[draftLang][0]);
     setBloc(1);
     setBoothOpen(false);
+    track('play_ballot_cast', { lang: draftLang, posture: draftPosture });
+  };
+
+  // Funnel: did they reach & engage the weight section? Fire once, not per drag.
+  const weightExplored = React.useRef(false);
+  const markWeight = () => {
+    if (weightExplored.current) return;
+    weightExplored.current = true;
+    track('play_weight_explored');
   };
 
   return (
@@ -1040,7 +1050,10 @@ const AVousDeJouerPage: React.FC = () => {
                     max={100}
                     value={sliderAt(margin)}
                     aria-label={t('play.weight.knob')}
-                    onChange={(e) => setMargin(marginAt(Number(e.target.value)))}
+                    onChange={(e) => {
+                      markWeight();
+                      setMargin(marginAt(Number(e.target.value)));
+                    }}
                   />
                 </label>
 
@@ -1087,7 +1100,10 @@ const AVousDeJouerPage: React.FC = () => {
                 <button
                   type="button"
                   data-testid="play-florida"
-                  onClick={() => setMargin(FLORIDA.margin)}
+                  onClick={() => {
+                    markWeight();
+                    setMargin(FLORIDA.margin);
+                  }}
                   className={cn(
                     'mt-4 flex w-full items-start gap-2.5 rounded-lg border p-3 text-left text-xs leading-relaxed transition-colors',
                     margin === FLORIDA.margin
