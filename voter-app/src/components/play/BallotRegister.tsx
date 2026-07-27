@@ -2,6 +2,7 @@ import React from 'react';
 import { useTranslation } from 'react-i18next';
 import { cn } from '@/lib/utils';
 import { candidateColor } from '../../lib/palette';
+import { track } from '../../lib/analytics';
 import { pipsFrom, type BallotLanguage } from '../../lib/ballotLanguages';
 import type { NamedPt } from '../../lib/playgroundVoting';
 
@@ -53,7 +54,12 @@ const BallotRegister: React.FC<{
         type="button"
         data-testid="play-register-toggle"
         aria-expanded={open}
-        onClick={() => setOpen((o) => !o)}
+        onClick={() =>
+          setOpen((o) => {
+            if (!o) track('play_register_opened', { lang });
+            return !o;
+          })
+        }
         className="text-sm font-medium text-primary underline-offset-2 hover:underline"
       >
         {open ? t('play.register.hide') : t('play.register.show', { n })}
