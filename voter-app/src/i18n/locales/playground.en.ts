@@ -218,6 +218,10 @@ const pgEn: PlaygroundKeys = {
     mapAria: 'Ideology map — candidates drift over the campaign',
   },
   anchorBody: {
+    blank: {
+      intro:
+        'Not choosing is not nothing: abstention, the blank vote, "none of these candidates". A theme of its own — because what the rule makes of a refusal can change everything.',
+    },
     mechanisms: {
       intro:
         'Other collective-decision mechanisms than the classic election — each on the same electorate, computed on demand.',
@@ -1251,13 +1255,17 @@ const pgEn: PlaygroundKeys = {
       title: '📚 Social choice theory & paradoxes',
       subtitle: 'Sen, judgment, agenda, tyranny, apportionment, Pol.is',
     },
+    blank: {
+      title: '⬜ Blank vote & abstention',
+      subtitle: 'not choosing, rejecting the field — and what the rule makes of it',
+    },
     results: {
       title: '📋 Full results',
       subtitle: 'detailed tally, animated count',
     },
     ballot: {
       title: '🗳️ Ballot configuration (expression)',
-      subtitle: 'ballot type, expressiveness, cognitive load, blank-vote divergence',
+      subtitle: 'ballot type, expressiveness, cognitive load',
     },
     strategy: {
       title: '🎯 Deep strategic analysis',
@@ -1273,6 +1281,7 @@ const pgEn: PlaygroundKeys = {
       systems: 'Systems & mechanisms',
       dynamics: 'Dynamics',
       theory: 'Theory & analysis',
+      blank: 'Blank vote & abstention',
     },
     compareElec: 'Compare an electorate',
     comparePick: 'Compare the same fiche on:',

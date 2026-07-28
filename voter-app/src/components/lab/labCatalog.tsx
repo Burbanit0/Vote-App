@@ -110,6 +110,9 @@ const VoteStepAnimator = lazyWithPreload(() => import('../Simulation/VoteStepAni
 const RealElectionPanel = lazyWithPreload(() => import('../playground/RealElectionPanel'));
 const LexiquePanel = lazyWithPreload(() => import('./LexiquePanel'));
 const BlankVotePanel = lazyWithPreload(() => import('./BlankVotePanel'));
+const BlankVoteDivergencePanel = lazyWithPreload(
+  () => import('../shared/BlankVoteDivergencePanel')
+);
 
 // ── Wrappers for panels that read the shared electorate through props ───────
 // (Everything else takes no props and reads the shared state itself.)
@@ -185,7 +188,7 @@ const VseBody: React.FC = () => {
 
 // ── The catalog ──────────────────────────────────────────────────────────────
 
-export type FamilyId = 'methods' | 'rules' | 'systems' | 'dynamics' | 'theory';
+export type FamilyId = 'methods' | 'rules' | 'systems' | 'dynamics' | 'theory' | 'blank';
 
 export interface LabExperiment {
   /** Stable id — the former Leaf testid, kept verbatim. Also the ?exp= value. */
@@ -277,12 +280,6 @@ export const LAB_FAMILIES: LabFamily[] = [
             EquilibriumModule.preload
           ),
           exp('anchor-vse', 'vse.title', VseBody, VseModule.preload),
-          exp(
-            'anchor-abstention',
-            'electorate.abstentionAnchorTitle',
-            AbstentionPanel,
-            AbstentionPanel.preload
-          ),
         ],
       },
       {
@@ -312,7 +309,6 @@ export const LAB_FAMILIES: LabFamily[] = [
             JuryTheoremPanel,
             JuryTheoremPanel.preload
           ),
-          exp('mech-nota', 'anchorBody.mechanisms.nota', NOTAPanel, NOTAPanel.preload),
           exp(
             'mech-liquid',
             'anchorBody.mechanisms.liquid',
@@ -511,7 +507,6 @@ export const LAB_FAMILIES: LabFamily[] = [
         introKey: 'anchorBody.theory.intro',
         experiments: [
           exp('lexique', 'lexique.title', LexiquePanel, LexiquePanel.preload),
-          exp('thy-blank', 'blankVote.title', BlankVotePanel, BlankVotePanel.preload),
           exp('thy-sen', 'anchorBody.theory.sen', SenParadoxPanel, SenParadoxPanel.preload),
           exp(
             'thy-judgment',
@@ -620,6 +615,35 @@ export const LAB_FAMILIES: LabFamily[] = [
             'realElection.title',
             RealElectionPanel,
             RealElectionPanel.preload
+          ),
+        ],
+      },
+    ],
+  },
+  {
+    id: 'blank',
+    n: '6',
+    labelKey: 'lab.groups.blank',
+    groups: [
+      {
+        key: 'blank',
+        titleKey: 'lab.blank.title',
+        subtitleKey: 'lab.blank.subtitle',
+        introKey: 'anchorBody.blank.intro',
+        experiments: [
+          exp('thy-blank', 'blankVote.title', BlankVotePanel, BlankVotePanel.preload),
+          exp(
+            'blank-divergence',
+            'method.blankAnchorTitle',
+            BlankVoteDivergencePanel,
+            BlankVoteDivergencePanel.preload
+          ),
+          exp('mech-nota', 'anchorBody.mechanisms.nota', NOTAPanel, NOTAPanel.preload),
+          exp(
+            'anchor-abstention',
+            'electorate.abstentionAnchorTitle',
+            AbstentionPanel,
+            AbstentionPanel.preload
           ),
         ],
       },
