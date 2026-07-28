@@ -221,6 +221,10 @@ const pgFr = {
     mapAria: 'Carte idéologique — les candidats dérivent au cours de la campagne',
   },
   anchorBody: {
+    blank: {
+      intro:
+        'Ne pas choisir n’est pas rien : abstention, vote blanc, « aucun de ces candidats ». Un thème à part — parce que ce que la règle fait du refus peut tout changer.',
+    },
     mechanisms: {
       intro:
         'D’autres mécanismes de décision collective que l’élection classique — chacun sur le même électorat, calculé à la demande.',
@@ -1271,13 +1275,17 @@ const pgFr = {
       title: '📚 Théorie & paradoxes du choix social',
       subtitle: 'Sen, jugement, agenda, tyrannie, apportionnement, Pol.is',
     },
+    blank: {
+      title: '⬜ Vote blanc & abstention',
+      subtitle: 'ne pas choisir, refuser l’offre — et ce que la règle en fait',
+    },
     results: {
       title: '📋 Résultats complets',
       subtitle: 'dépouillement détaillé, animation du comptage',
     },
     ballot: {
       title: '🗳️ Bulletin de vote (expression)',
-      subtitle: 'type de bulletin, expressivité, charge cognitive, divergence du vote blanc',
+      subtitle: 'type de bulletin, expressivité, charge cognitive',
     },
     strategy: {
       title: '🎯 Analyse stratégique approfondie',
@@ -1293,6 +1301,7 @@ const pgFr = {
       systems: 'Systèmes & mécanismes',
       dynamics: 'Dynamiques',
       theory: 'Théorie & analyse',
+      blank: 'Vote blanc & abstention',
     },
     compareElec: 'Comparer un électorat',
     comparePick: 'Comparer la même fiche sur :',

@@ -1,7 +1,17 @@
 import React from 'react';
 import { useTranslation } from 'react-i18next';
 import { Link, useSearchParams } from 'react-router';
-import { Columns2, X, Users, Scale, Swords, Landmark, Activity, FlaskConical } from 'lucide-react';
+import {
+  Columns2,
+  X,
+  Users,
+  Scale,
+  Swords,
+  Landmark,
+  Activity,
+  FlaskConical,
+  Ban,
+} from 'lucide-react';
 import type { LucideIcon } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
@@ -48,6 +58,7 @@ const FAMILY_ICON: Record<FamilyId, LucideIcon> = {
   systems: Landmark,
   dynamics: Activity,
   theory: FlaskConical,
+  blank: Ban,
 };
 
 // Registration ticks — the instrument's corner marks, so a fiche reads as a

@@ -81,6 +81,7 @@ const EXTRAS = [
   'anchor-abstention',
   'lexique',
   'thy-blank',
+  'blank-divergence',
 ];
 
 const resolve = (bundle: Record<string, unknown>, dotted: string): unknown =>
@@ -98,7 +99,7 @@ describe('labCatalog — nothing was lost in the redesign', () => {
   });
 
   it('is exactly the old inventory plus the tracked extras — unique ids, nothing smuggled in or out', () => {
-    expect(ALL_EXPERIMENTS).toHaveLength(FORMER_LEAVES.length + EXTRAS.length); // 48 + 12 = 60
+    expect(ALL_EXPERIMENTS).toHaveLength(FORMER_LEAVES.length + EXTRAS.length); // 48 + 13 = 61
     expect(new Set(ALL_EXPERIMENTS.map((e) => e.id)).size).toBe(ALL_EXPERIMENTS.length);
   });
 
