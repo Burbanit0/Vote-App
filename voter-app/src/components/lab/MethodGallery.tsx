@@ -4,18 +4,20 @@ import { Play } from 'lucide-react';
 import { usePlaygroundCtx } from '../playground/PlaygroundController';
 import MethodReplayModal from '../playground/MethodReplayModal';
 import { useVotingLabels } from '../../hooks/useVotingLabels';
-import { EXTRA_RULES } from '../../lib/scorecard';
+import { LEADER_RULES, EXTRA_RULES } from '../../lib/scorecard';
 import { ruleWinner, type Rule } from '../../lib/playgroundVoting';
-import { getMethodInfo, type Lang } from '../../lib/methodInfo';
+import { getMethodInfo, methodAnalogy, type Lang } from '../../lib/methodInfo';
 import { CANDIDATE_COLORS_LIGHT } from '../../constants/chartColors';
 
-// MethodGallery — the home of the Tier B "explained, not compared" methods.
-// Each card shows the plain-language gist + the live winner on the current
+// MethodGallery — one browsable card per voting method. Common methods first
+// (the ones a newcomer recognises), then the Tier B "explained, not compared"
+// methods. Each card shows the plain-language gist, the everyday analogy
+// ("comme dans la vie") when one exists, the live winner on the current
 // electorate, and opens the step-by-step replay so anyone can see how it works.
-// These methods are deliberately absent from the comparison table/scorecard.
 const MethodGallery: React.FC = () => {
   const { t, i18n } = useTranslation('playground');
   const lang: Lang = i18n.language?.startsWith('en') ? 'en' : 'fr';
+  const analogyLabel = lang === 'en' ? 'Like real life:' : 'Comme dans la vie :';
   const { ruleLabels } = useVotingLabels();
   const { votingVoters, leaderCandidates } = usePlaygroundCtx();
   const [replayRule, setReplayRule] = useState<Rule | null>(null);
@@ -33,8 +35,9 @@ const MethodGallery: React.FC = () => {
       </div>
 
       <div className="grid gap-2.5 sm:grid-cols-2 lg:grid-cols-3">
-        {EXTRA_RULES.map((rule) => {
+        {[...LEADER_RULES, ...EXTRA_RULES].map((rule) => {
           const info = getMethodInfo(rule)?.[lang];
+          const analogy = methodAnalogy(rule, lang);
           const winIdx =
             votingVoters.length && leaderCandidates.length
               ? ruleWinner(votingVoters, leaderCandidates, rule)
@@ -64,6 +67,12 @@ const MethodGallery: React.FC = () => {
               </div>
               {info && (
                 <p className="text-xs leading-relaxed text-muted-foreground">{info.summary}</p>
+              )}
+              {analogy && (
+                <p className="text-xs leading-relaxed text-muted-foreground">
+                  <span className="font-semibold text-primary">{analogyLabel} </span>
+                  {analogy}
+                </p>
               )}
               <button
                 type="button"

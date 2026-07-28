@@ -1111,7 +1111,7 @@ const pgEn: PlaygroundKeys = {
     eyebrow: 'TO DISCOVER',
     title: 'Method gallery',
     intro:
-      'More voting methods, explained but not compared: too niche or too subtle for the dashboard, but each has its own animation to see how it works step by step — on your current electorate.',
+      'Every voting method on one page — the common ones first, then the more niche. Each with a real-life analogy, the winner on your current electorate, and a step-by-step animation of how it is counted.',
     watch: '▶ Watch it unfold',
     liveWinner: 'Winner on your current electorate',
   },

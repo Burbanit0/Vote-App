@@ -166,6 +166,15 @@ describe('LaboratoirePage — the bench', () => {
     expect(screen.getByTestId('lab-family-methods')).toHaveAttribute('aria-checked', 'true');
   });
 
+  it('the method gallery now covers common methods too, each with its everyday analogy', async () => {
+    renderLab('/laboratoire?exp=lab-gallery');
+    // A common method (IRV) — previously absent from the gallery — now has a card…
+    const card = await waitFor(() => screen.getByTestId('gallery-irv'), { timeout: 15000 });
+    // …carrying the "comme dans la vie" analogy line (tests run in English).
+    expect(card).toHaveTextContent('Like real life:');
+    expect(card).toHaveTextContent(/knockout game/);
+  }, 20000);
+
   // Ported from the old accordion suite: the values panel's Lijphart dial must
   // survive the redesign (it now lives behind Règles & stratégie → Valeurs).
   it('the values fiche keeps the Lijphart dial and its granular escape hatch', async () => {
