@@ -50,6 +50,59 @@ export function methodKey(id: string): string {
   return METHOD_ALIASES[id] ?? id;
 }
 
+// "Comme dans la vie" — one everyday analogy per method, the Phase-6 polish that
+// grounds an abstract rule in a situation anyone has lived. A parallel bilingual
+// map (like METHOD_ALIASES) rather than a field on every entry: bounded to the
+// methods a newcomer actually meets; MethodInfo shows it only when present. Keyed
+// by canonical id (via methodKey), so aliases resolve for free.
+export const METHOD_ANALOGY: Record<string, { fr: string; en: string }> = {
+  plurality: {
+    fr: 'Comme choisir un resto à plusieurs en criant chacun un seul nom : le plus crié gagne, même si personne d’autre ne l’aime.',
+    en: 'Like picking a restaurant by everyone shouting one name: the most-shouted wins, even if no one else likes it.',
+  },
+  two_round: {
+    fr: 'Comme une demi-finale puis une finale : on garde les deux favoris, puis on tranche entre eux.',
+    en: 'Like a semi-final then a final: keep the top two, then decide between them.',
+  },
+  irv: {
+    fr: 'Comme un jeu d’élimination : à chaque tour le dernier sort, et ses supporters reportent leur voix sur qui leur reste.',
+    en: 'Like a knockout game: each round the last-placed is out, and their fans move their vote to whoever’s left.',
+  },
+  coombs: {
+    fr: 'Comme éliminer d’abord le plat que le plus de gens refusent, jusqu’à ce qu’il n’en reste qu’un.',
+    en: 'Like removing the dish the most people reject first, until only one is left.',
+  },
+  borda: {
+    fr: 'Comme un podium qui donne des points : 3 pour un 1er, 2 pour un 2e, 1 pour un 3e — le plus grand total gagne.',
+    en: 'Like a podium awarding points: 3 for a 1st, 2 for a 2nd, 1 for a 3rd — the biggest total wins.',
+  },
+  condorcet: {
+    fr: 'Comme un championnat toutes-rondes : le vainqueur est celui qui bat chaque adversaire en match direct.',
+    en: 'Like a round-robin league: the winner is the one who beats every rival in a head-to-head match.',
+  },
+  approval: {
+    fr: 'Comme cocher tous les restos qui te vont : celui que le plus de gens acceptent l’emporte.',
+    en: 'Like ticking every restaurant that works for you: the one most people find acceptable wins.',
+  },
+  score: {
+    fr: 'Comme des notes de film en étoiles : chacun note tout le monde, la meilleure moyenne gagne.',
+    en: 'Like star-rating films: everyone rates everyone, the best average wins.',
+  },
+  star: {
+    fr: 'Comme noter en étoiles, puis départager les deux mieux notés par un duel direct.',
+    en: 'Like star-rating, then settling the top two with a direct head-to-head.',
+  },
+  cumulative: {
+    fr: 'Comme un budget de jetons à répartir : tout sur un candidat, ou étalé sur plusieurs.',
+    en: 'Like a budget of tokens to spread: all on one candidate, or split across several.',
+  },
+};
+
+/** Everyday analogy for a method in one language, or null if none. */
+export function methodAnalogy(id: string, lang: Lang): string | null {
+  return METHOD_ANALOGY[methodKey(id)]?.[lang] ?? null;
+}
+
 export const METHOD_INFO: Record<string, MethodEntry> = {
   plurality: {
     family: 'ordinal',

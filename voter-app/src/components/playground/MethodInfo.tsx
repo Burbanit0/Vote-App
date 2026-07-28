@@ -1,7 +1,13 @@
 import React from 'react';
 import { useTranslation } from 'react-i18next';
 import InfoPopover, { InfoLine } from './InfoPopover';
-import { getMethodInfo, methodContextNote, type Lang, type MethodContext } from '@/lib/methodInfo';
+import {
+  getMethodInfo,
+  methodAnalogy,
+  methodContextNote,
+  type Lang,
+  type MethodContext,
+} from '@/lib/methodInfo';
 
 // MethodInfo — a subtle ⓘ that reveals a voting method's explanation on click.
 // Renders nothing if the method id has no registry entry, so it's safe to drop
@@ -27,9 +33,11 @@ const MethodInfo: React.FC<Props> = ({ method, context = {}, placement = 'top', 
 
   const c = entry[lang];
   const note = methodContextNote(method, lang, context);
+  const analogy = methodAnalogy(method, lang);
   const labels =
     lang === 'en'
       ? {
+          analogy: 'Like real life:',
           how: 'How:',
           strength: 'Strength:',
           weakness: 'Weakness:',
@@ -37,6 +45,7 @@ const MethodInfo: React.FC<Props> = ({ method, context = {}, placement = 'top', 
           example: 'Example:',
         }
       : {
+          analogy: 'Comme dans la vie :',
           how: 'Principe :',
           strength: 'Force :',
           weakness: 'Faille :',
@@ -53,6 +62,7 @@ const MethodInfo: React.FC<Props> = ({ method, context = {}, placement = 'top', 
     >
       <p className="text-sm font-bold">{c.name}</p>
       <p className="mt-1 text-[0.74rem] leading-snug text-muted-foreground">{c.summary}</p>
+      {analogy && <InfoLine label={labels.analogy}>{analogy}</InfoLine>}
       <InfoLine label={labels.how}>{c.how}</InfoLine>
       <InfoLine label={labels.strength}>{c.strength}</InfoLine>
       <InfoLine label={labels.weakness}>{c.weakness}</InfoLine>

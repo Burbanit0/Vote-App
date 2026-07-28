@@ -18,6 +18,9 @@ describe('MethodInfo', () => {
     // The pedagogical fields are present.
     expect(pop).toHaveTextContent(/Principe|How/);
     expect(pop).toHaveTextContent(/Faille|Weakness/);
+    // Phase 6: the everyday analogy ("comme dans la vie").
+    expect(pop).toHaveTextContent(/Like real life|Comme dans la vie/);
+    expect(pop).toHaveTextContent(/knockout game|jeu d’élimination/);
   });
 
   it('resolves backend aliases (star_voting → STAR, copeland → Condorcet)', () => {
