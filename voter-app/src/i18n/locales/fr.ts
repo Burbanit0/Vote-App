@@ -19,6 +19,7 @@ const fr = {
     play: 'À vous de jouer',
     playground: 'Playground',
     laboratoire: 'Laboratoire',
+    lexique: 'Lexique',
     learn: 'Apprendre',
     explore: 'Explorer',
     settings: 'Préférences',
