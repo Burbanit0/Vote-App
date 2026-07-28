@@ -6,10 +6,7 @@ import type { LucideIcon } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
 import { useMetaTags } from '../hooks/useMetaTags';
-import {
-  PlaygroundProvider,
-  usePlaygroundCtx,
-} from '../components/playground/PlaygroundController';
+import { PlaygroundProvider } from '../components/playground/PlaygroundController';
 import {
   ElectorateOverrideProvider,
   ELECTORATE_PRESETS,
@@ -18,10 +15,7 @@ import {
   type ElectionConfig,
   type PlaygroundState,
 } from '../stores/useElectionStore';
-import { AnchorFallback, selectCls } from '../components/playground/playgroundFields';
-import { useVotingLabels } from '../hooks/useVotingLabels';
-import { LEADER_RULES } from '../lib/scorecard';
-import { candidateColor } from '../lib/palette';
+import { AnchorFallback } from '../components/playground/playgroundFields';
 import { track } from '../lib/analytics';
 import {
   LAB_FAMILIES,
@@ -30,14 +24,13 @@ import {
   type FamilyId,
   type Located,
 } from '../components/lab/labCatalog';
-import type { Rule } from '../lib/playgroundVoting';
 
 // LaboratoirePage — the specimen bench. The old page stacked 4 groups × 11
 // sections × ~5 sub-accordions next to a 22rem sticky sidebar: everything was
 // somewhere, nothing was anywhere. The redesign is the playground's own grammar
 // extended to a collection:
 //
-//   family rail  →  électorat strip  →  catalogue of fiches  →  ONE full-width
+//   family rail  →  catalogue of fiches  →  ONE full-width
 //   bench (l'établi), with "Comparer un électorat" splitting it into the SAME
 //   fiche read on two electorates (the phenomenon held constant, the electorate
 //   varied) — a real comparison, not two unrelated panels side by side.
@@ -79,66 +72,6 @@ const Corners: React.FC = () => (
     />
   </>
 );
-
-// ── Électorat strip — the shared frame every fiche reads ────────────────────
-
-const ElectorateStrip: React.FC = () => {
-  const { t } = useTranslation('playground');
-  const { config, leaderRule, setLeaderRule } = usePlaygroundCtx();
-  const { ruleLabels } = useVotingLabels();
-  return (
-    // Reads as the same instrument's telemetry as the Playground's scope status
-    // line (tinted mono strip), because it IS the same electorate — every fiche
-    // below is measured on it.
-    <div
-      data-testid="lab-electorate-strip"
-      className="flex flex-wrap items-center gap-x-4 gap-y-2 rounded-md border border-primary/15 bg-muted/30 px-3 py-2"
-    >
-      <div className="flex min-w-0 flex-wrap items-center gap-x-3 gap-y-1">
-        {config.candidates.map((c, i) => (
-          <span key={c.name} className="flex items-center gap-1.5 text-xs">
-            <span
-              aria-hidden
-              className="h-2.5 w-2.5 shrink-0 rounded-full"
-              style={{ background: candidateColor(i) }}
-            />
-            {c.name}
-          </span>
-        ))}
-        <span
-          aria-hidden
-          className="font-mono text-[0.6rem] uppercase tracking-[0.12em] text-border"
-        >
-          ·
-        </span>
-        <span className="font-mono text-[0.6rem] uppercase tracking-[0.12em] text-muted-foreground">
-          {t('lab.strip.voters', { n: config.num_voters })}
-        </span>
-      </div>
-
-      <div className="ml-auto flex items-center gap-3">
-        <label className="flex items-center gap-1.5 font-mono text-[0.6rem] uppercase tracking-[0.12em] text-muted-foreground">
-          {t('lab.strip.rule')}
-          <select
-            data-testid="lab-rule-select"
-            className={cn(selectCls, 'h-7 w-auto py-0 text-xs normal-case tracking-normal')}
-            value={leaderRule}
-            onChange={(e) => setLeaderRule(e.target.value as Rule)}
-          >
-            {LEADER_RULES.map((r) => (
-              <option key={r} value={r}>
-                {ruleLabels[r]}
-              </option>
-            ))}
-          </select>
-        </label>
-        <Link to="/playground" className="shrink-0 text-xs text-primary hover:underline">
-          {t('lab.strip.edit')}
-        </Link>
-      </div>
-    </div>
-  );
-};
 
 // ── One fiche on the bench ───────────────────────────────────────────────────
 
@@ -396,11 +329,6 @@ const LaboratoireContent: React.FC = () => {
             </div>
           ))}
         </div>
-      </div>
-
-      {/* ── Électorat strip — the shared frame ── */}
-      <div className="mt-3">
-        <ElectorateStrip />
       </div>
 
       {/* ── Electorate comparison picker: the same fiche on a second electorate ── */}

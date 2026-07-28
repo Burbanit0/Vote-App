@@ -1210,11 +1210,6 @@ const pgFr = {
     comparePick: 'Comparer la même fiche sur :',
     compareStop: 'Fermer la comparaison',
     elecCurrent: 'Électorat actuel',
-    strip: {
-      voters: '{{n}} électeurs',
-      rule: 'Règle',
-      edit: 'Modifier l’électorat →',
-    },
     matrix: {
       title: 'Comparaison des méthodes',
       liveRow: 'Vainqueur avec votre électorat actuel',

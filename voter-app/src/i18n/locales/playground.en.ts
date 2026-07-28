@@ -1190,11 +1190,6 @@ const pgEn: PlaygroundKeys = {
     comparePick: 'Compare the same fiche on:',
     compareStop: 'Close the comparison',
     elecCurrent: 'Current electorate',
-    strip: {
-      voters: '{{n}} voters',
-      rule: 'Rule',
-      edit: 'Edit the electorate →',
-    },
     matrix: {
       title: 'Method comparison',
       liveRow: 'Winner with your current electorate',

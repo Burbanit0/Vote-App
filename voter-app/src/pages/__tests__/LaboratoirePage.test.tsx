@@ -166,16 +166,6 @@ describe('LaboratoirePage — the bench', () => {
     expect(screen.getByTestId('lab-family-methods')).toHaveAttribute('aria-checked', 'true');
   });
 
-  it('the électorat strip shows the shared candidates and the live rule select', () => {
-    renderLab();
-    const strip = screen.getByTestId('lab-electorate-strip');
-    expect(strip).toHaveTextContent('Alice');
-    expect(strip).toHaveTextContent('Carol');
-    expect(strip).toHaveTextContent('300 voters');
-    fireEvent.change(screen.getByTestId('lab-rule-select'), { target: { value: 'irv' } });
-    expect((screen.getByTestId('lab-rule-select') as HTMLSelectElement).value).toBe('irv');
-  });
-
   // Ported from the old accordion suite: the values panel's Lijphart dial must
   // survive the redesign (it now lives behind Règles & stratégie → Valeurs).
   it('the values fiche keeps the Lijphart dial and its granular escape hatch', async () => {
