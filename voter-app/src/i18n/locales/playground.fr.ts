@@ -736,6 +736,94 @@ const pgFr = {
     empty: 'Aucun terme ne correspond.',
     count: '{{n}} termes',
   },
+  blankVote: {
+    title: '⬜ Vote blanc — et après ?',
+    act1Kicker: '1 — On peut voter blanc',
+    act1Title: 'Trois silences, pas un seul',
+    act1Lede:
+      'Ne pas choisir n’est pas une seule chose. Trois gestes très différents se cachent derrière « je n’ai pas voté pour un candidat ».',
+    silences: {
+      abstention: {
+        term: 'Abstention',
+        desc: 'On ne se déplace pas, on ne dépose rien. Le bulletin n’existe pas — il sort du décompte.',
+      },
+      blanc: {
+        term: 'Vote blanc',
+        desc: 'On se déplace et on dépose une enveloppe vide. Un choix exprimé : « aucun de ceux-là », mais je suis là.',
+      },
+      nul: {
+        term: 'Vote nul',
+        desc: 'Bulletin raturé, déchiré, non conforme. Souvent une erreur, parfois une colère — mais juridiquement invalide.',
+      },
+    },
+    act2Kicker: '2 — On en fait quoi ?',
+    act2Title: 'Le blanc l’emporte. Et maintenant ?',
+    act2Lede:
+      'Construis un résultat, pousse le blanc jusqu’à ce qu’il domine, et regarde : le même vote connaît quatre destins selon la règle de comptage. Aucun n’est « le bon » — c’est la question.',
+    mixerTitle: 'Compose le résultat',
+    presets: {
+      balanced: 'Équilibré',
+      blankLeads: 'Blanc en tête',
+      blankMajority: 'Blanc majoritaire',
+    },
+    blankLabel: 'Blanc',
+    redoBadge: 'On recommence',
+    electedBadge: 'Élu',
+    lens: {
+      france_today: {
+        label: 'Aujourd’hui en France (hors exprimés)',
+        mechanism:
+          'Depuis 2014, le blanc est compté et publié, mais retiré des suffrages exprimés : il ne pèse sur aucun seuil.',
+      },
+      in_exprimes: {
+        label: 'Si le blanc comptait (réforme)',
+        mechanism:
+          'On l’intègre aux exprimés : le dénominateur gonfle, et la barre des 50 % devient plus dure à franchir.',
+      },
+      competitive: {
+        label: 'Compétitif (Uruguay)',
+        mechanism:
+          'Le blanc est traité comme un candidat : s’il devance le premier, la candidature est rouverte.',
+      },
+      threshold: {
+        label: 'Seuil 50 % (Colombie)',
+        mechanism:
+          'Si le blanc dépasse la moitié des voix, l’élection est annulée et rejouée avec de nouveaux candidats.',
+      },
+    },
+    outcome: {
+      elected: '{{winner}} est élu — {{pct}} des exprimés.',
+      no_majority: '{{winner}} en tête à {{pct}}, mais sous la majorité : pas de mandat clair.',
+      blank_wins: 'Le blanc devance tout le monde ({{pct}}) : on rouvre la campagne.',
+      annulled: 'Blanc majoritaire ({{pct}}) : l’élection est annulée.',
+    },
+    reflectTitle: 'À toi de trancher',
+    reflectQ1:
+      'Un vote blanc massif, c’est un mandat pour recommencer, ou une abdication qui laisse les autres décider ?',
+    reflectQ2:
+      'Si le blanc pouvait bloquer une élection, jusqu’où : un second tour, une annulation, de nouveaux candidats ?',
+    reflectQ3: 'Et le risque de blocage sans fin — vaut-il la reconnaissance d’un refus légitime ?',
+    worldKicker: 'Ce qui existe déjà',
+    worldTitle: 'Comment le monde répond',
+    worldLede:
+      'Seize pays, seize réponses à la même question. Les deux marqués d’un point (Uruguay, Colombie) laissent réellement le blanc changer l’issue.',
+    col: {
+      country: 'Pays',
+      status: 'Statut du blanc',
+      rate: 'Taux moyen',
+      impact: 'Effet',
+    },
+    status: {
+      counted_separate: 'Compté à part',
+      symbolic: 'Symbolique',
+      competitive: 'Compétitif',
+      threshold: 'Seuil déclencheur',
+      merged_invalid: 'Fondu dans les nuls',
+    },
+    impactYes: 'Peut modifier ou annuler l’élection',
+    impactNo: 'Aucun effet sur le résultat',
+    source: 'Sources : législations électorales nationales (voir data/blankVoteRegimes).',
+  },
   curiosity: {
     kicker: 'Par curiosité',
     title: 'Par où commencer ? Suis ta question.',

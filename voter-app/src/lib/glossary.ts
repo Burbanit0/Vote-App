@@ -404,7 +404,22 @@ export const GLOSSARY: Record<string, GlossaryEntry> = {
       plain:
         'Abstaining removes your ballot from the count; a blank vote can instead count as an explicit refusal, depending on the rules. Two very different silences.',
     },
-    seeInAction: { kind: 'lab', ref: 'mech-nota' },
+    seeInAction: { kind: 'lab', ref: 'thy-blank' },
+  },
+  vote_blanc: {
+    fr: {
+      term: 'Vote blanc',
+      short: 'Un refus exprimé — mais compté comment ?',
+      plain:
+        'Une enveloppe vide déposée volontairement : « aucun de ceux-là ». Selon le pays, il est ignoré, intégré aux exprimés, ou peut même annuler l’élection. La règle de comptage décide de son poids.',
+    },
+    en: {
+      term: 'Blank vote',
+      short: 'An expressed refusal — but counted how?',
+      plain:
+        'An empty envelope cast on purpose: "none of these". Depending on the country it is ignored, folded into the expressed votes, or can even annul the election. The counting rule decides its weight.',
+    },
+    seeInAction: { kind: 'lab', ref: 'thy-blank' },
   },
   pivotality: {
     fr: {
