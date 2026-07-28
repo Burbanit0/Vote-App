@@ -1131,7 +1131,7 @@ const pgFr = {
     eyebrow: 'À DÉCOUVRIR',
     title: 'Galerie des méthodes',
     intro:
-      'D’autres méthodes de vote, expliquées mais pas comparées : trop spécifiques ou trop subtiles pour le tableau de bord, mais chacune a son animation pour comprendre son fonctionnement pas à pas — sur votre électorat actuel.',
+      'Toutes les méthodes de vote sur une même page — les plus courantes d’abord, puis les plus spécifiques. Chacune avec une analogie de la vie courante, le vainqueur sur votre électorat actuel, et une animation pas à pas de son dépouillement.',
     watch: '▶ Voir le déroulé',
     liveWinner: 'Vainqueur avec votre électorat actuel',
   },
