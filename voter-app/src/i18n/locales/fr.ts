@@ -26,6 +26,7 @@ const fr = {
     profile: 'Mon profil',
     expert: 'Expert',
     beginner: 'Débutant',
+    plain: 'Sans jargon',
     expertTip: 'Passer en mode débutant',
     beginnerTip: 'Passer en mode expert',
     lightModeTip: 'Mode clair',

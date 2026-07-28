@@ -28,6 +28,7 @@ const en: TranslationKeys = {
     profile: 'My profile',
     expert: 'Expert',
     beginner: 'Beginner',
+    plain: 'Plain language',
     expertTip: 'Switch to beginner mode',
     beginnerTip: 'Switch to expert mode',
     lightModeTip: 'Light mode',

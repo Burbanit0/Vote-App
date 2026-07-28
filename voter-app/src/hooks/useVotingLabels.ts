@@ -1,6 +1,7 @@
 import { useTranslation } from 'react-i18next';
 import { RULE_LABELS, type Rule } from '../lib/playgroundVoting';
 import { MANIP_COMPLEXITY } from '../lib/scorecard';
+import { usePlainLanguage } from '../stores/useUIStore';
 
 // useVotingLabels — translated versions of the shared label maps (rule names,
 // structure names, manipulation-complexity flags, scorecard axis meta). The raw
@@ -35,9 +36,15 @@ export interface AxisMeta {
 
 export function useVotingLabels() {
   const { t } = useTranslation('playground');
+  const { plainLanguage } = usePlainLanguage();
 
+  // Plain-language mode swaps the technical method name for a plain one, but only
+  // where a plain label exists (bounded set) — otherwise it keeps the real term.
   const ruleLabels = Object.fromEntries(
-    (Object.keys(RULE_LABELS) as Rule[]).map((r) => [r, t(`rules.${r}`)])
+    (Object.keys(RULE_LABELS) as Rule[]).map((r) => [
+      r,
+      plainLanguage ? t(`rulesPlain.${r}`, { defaultValue: t(`rules.${r}`) }) : t(`rules.${r}`),
+    ])
   ) as Record<Rule, string>;
 
   const structureLabels = Object.fromEntries(

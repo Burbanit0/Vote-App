@@ -971,6 +971,20 @@ const pgEn: PlaygroundKeys = {
     nash: 'Nash (product of utilities)',
     raynaud: 'Raynaud',
   },
+  // Plain-language method labels (plain-language mode). Bounded to the methods a
+  // newcomer actually meets; anything absent falls back to its technical name.
+  rulesPlain: {
+    plurality: 'Most votes',
+    two_round: 'Two rounds',
+    irv: 'Round-by-round',
+    coombs: 'Drop the most-rejected',
+    borda: 'Points by rank',
+    condorcet: 'Best in duels',
+    approval: 'Tick who’s OK',
+    score: 'Average ratings',
+    star: 'Rate, then duel',
+    cumulative: 'Points to spread',
+  },
   structures: {
     pr: 'Proportional (lists)',
     fptp: 'Single-member districts (FPTP)',

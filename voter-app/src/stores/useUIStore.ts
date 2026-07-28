@@ -20,6 +20,10 @@ interface UIState {
   // Expert mode
   expertMode: boolean;
   setExpertMode: (value: boolean) => void;
+  // Plain-language mode — swaps technical method labels for plain ones. Default
+  // off: the app teaches the real vocabulary; this is an on-demand assist.
+  plainLanguage: boolean;
+  setPlainLanguage: (value: boolean) => void;
 }
 
 // ── Storage helpers ─────────────────────────────────────────────────────────
@@ -34,6 +38,11 @@ function initialExpert(): boolean {
   return localStorage.getItem('votelab_expert') === 'true';
 }
 
+function initialPlain(): boolean {
+  if (typeof window === 'undefined') return false;
+  return localStorage.getItem('votelab_plain') === 'true';
+}
+
 function applyTheme(theme: Theme) {
   if (typeof document !== 'undefined') {
     document.documentElement.setAttribute('data-bs-theme', theme);
@@ -46,7 +55,7 @@ export const useUIStore = create<UIState>((set, get) => ({
   hydrate: () => {
     const theme = initialTheme();
     applyTheme(theme);
-    set({ theme, expertMode: initialExpert() });
+    set({ theme, expertMode: initialExpert(), plainLanguage: initialPlain() });
   },
 
   // ── Theme ──
@@ -63,6 +72,13 @@ export const useUIStore = create<UIState>((set, get) => ({
   setExpertMode: (value) => {
     localStorage.setItem('votelab_expert', String(value));
     set({ expertMode: value });
+  },
+
+  // ── Plain-language mode ──
+  plainLanguage: initialPlain(),
+  setPlainLanguage: (value) => {
+    localStorage.setItem('votelab_plain', String(value));
+    set({ plainLanguage: value });
   },
 }));
 
@@ -85,4 +101,13 @@ export function useExpertMode(): { expertMode: boolean; setExpertMode: (v: boole
   const expertMode = useUIStore((s) => s.expertMode);
   const setExpertMode = useUIStore((s) => s.setExpertMode);
   return { expertMode, setExpertMode };
+}
+
+export function usePlainLanguage(): {
+  plainLanguage: boolean;
+  setPlainLanguage: (v: boolean) => void;
+} {
+  const plainLanguage = useUIStore((s) => s.plainLanguage);
+  const setPlainLanguage = useUIStore((s) => s.setPlainLanguage);
+  return { plainLanguage, setPlainLanguage };
 }

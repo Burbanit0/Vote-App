@@ -6,6 +6,7 @@ import { Navbar as BootstrapNavbar, Nav } from '@/components/ui/navbar';
 import { Container } from '@/components/ui/grid';
 import { useTheme } from '../stores/useUIStore';
 import { useExpertMode } from '../stores/useUIStore';
+import { usePlainLanguage } from '../stores/useUIStore';
 import { useTranslation } from 'react-i18next';
 import i18n, { switchLanguage } from '../i18n';
 
@@ -63,6 +64,7 @@ const SettingRow: React.FC<{
 const Navbar: React.FC = () => {
   const { theme, toggleTheme } = useTheme();
   const { expertMode, setExpertMode } = useExpertMode();
+  const { plainLanguage, setPlainLanguage } = usePlainLanguage();
   const { t } = useTranslation();
   const [navExpanded, setNavExpanded] = useState(false);
 
@@ -218,6 +220,13 @@ const Navbar: React.FC = () => {
                     label={expertMode ? t('nav.expert') : t('nav.beginner')}
                     checked={expertMode}
                     onToggle={() => setExpertMode(!expertMode)}
+                  />
+
+                  <SettingRow
+                    icon="🔤"
+                    label={t('nav.plain')}
+                    checked={plainLanguage}
+                    onToggle={() => setPlainLanguage(!plainLanguage)}
                   />
                 </div>
 
