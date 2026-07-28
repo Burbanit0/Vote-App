@@ -166,6 +166,19 @@ describe('LaboratoirePage — the bench', () => {
     expect(screen.getByTestId('lab-family-methods')).toHaveAttribute('aria-checked', 'true');
   });
 
+  it('the blank-vote fiche opens the reflection: three silences + the four-regime verdicts', async () => {
+    renderLab('/laboratoire?exp=thy-blank');
+    await waitFor(() => expect(screen.getByTestId('blank-vote-panel')).toBeInTheDocument(), {
+      timeout: 15000,
+    });
+    // Act 1 — the three silences.
+    expect(screen.getByTestId('silence-blanc')).toBeInTheDocument();
+    // Act 2 — one verdict card per regime, and the "blank wins" preset flips
+    // the competitive regime to a re-run.
+    fireEvent.click(screen.getByTestId('blank-preset-blankLeads'));
+    expect(screen.getByTestId('lens-card-competitive')).toHaveTextContent(/reopens|Do it again/);
+  }, 20000);
+
   it('the method gallery now covers common methods too, each with its everyday analogy', async () => {
     renderLab('/laboratoire?exp=lab-gallery');
     // A common method (IRV) — previously absent from the gallery — now has a card…

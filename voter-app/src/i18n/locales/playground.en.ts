@@ -717,6 +717,94 @@ const pgEn: PlaygroundKeys = {
     empty: 'No term matches.',
     count: '{{n}} terms',
   },
+  blankVote: {
+    title: '⬜ Blank vote — then what?',
+    act1Kicker: '1 — You can vote blank',
+    act1Title: 'Three silences, not one',
+    act1Lede:
+      'Not choosing is not a single thing. Three very different gestures hide behind "I did not vote for a candidate".',
+    silences: {
+      abstention: {
+        term: 'Abstention',
+        desc: 'You stay home, you cast nothing. The ballot never exists — it drops out of the count.',
+      },
+      blanc: {
+        term: 'Blank vote',
+        desc: 'You show up and drop an empty envelope. An expressed choice: "none of these", but I am here.',
+      },
+      nul: {
+        term: 'Spoiled vote',
+        desc: 'A crossed-out, torn or non-compliant ballot. Often a mistake, sometimes anger — but legally invalid.',
+      },
+    },
+    act2Kicker: '2 — What do we do with it?',
+    act2Title: 'The blank wins. Now what?',
+    act2Lede:
+      'Build a result, push the blank until it dominates, and watch: the same vote meets four fates depending on the counting rule. None is "the right one" — that is the question.',
+    mixerTitle: 'Compose the result',
+    presets: {
+      balanced: 'Balanced',
+      blankLeads: 'Blank leads',
+      blankMajority: 'Blank majority',
+    },
+    blankLabel: 'Blank',
+    redoBadge: 'Do it again',
+    electedBadge: 'Elected',
+    lens: {
+      france_today: {
+        label: 'France today (outside the expressed votes)',
+        mechanism:
+          'Since 2014 the blank is counted and published, but removed from the expressed votes: it weighs on no threshold.',
+      },
+      in_exprimes: {
+        label: 'If the blank counted (reform)',
+        mechanism:
+          'Fold it into the expressed votes: the denominator grows, and the 50% majority bar gets harder to clear.',
+      },
+      competitive: {
+        label: 'Competitive (Uruguay)',
+        mechanism:
+          'The blank is treated as a candidate: if it beats the front-runner, the field reopens.',
+      },
+      threshold: {
+        label: '50% threshold (Colombia)',
+        mechanism:
+          'If the blank passes half the votes, the election is annulled and rerun with new candidates.',
+      },
+    },
+    outcome: {
+      elected: '{{winner}} is elected — {{pct}} of the expressed votes.',
+      no_majority: '{{winner}} leads at {{pct}}, but below a majority: no clear mandate.',
+      blank_wins: 'The blank beats everyone ({{pct}}): the campaign reopens.',
+      annulled: 'Blank majority ({{pct}}): the election is annulled.',
+    },
+    reflectTitle: 'Your call',
+    reflectQ1:
+      'A massive blank vote — is it a mandate to start over, or an abdication that lets others decide?',
+    reflectQ2:
+      'If the blank could block an election, how far: a runoff, an annulment, new candidates?',
+    reflectQ3: 'And the risk of endless deadlock — is it worth recognising a legitimate refusal?',
+    worldKicker: 'What already exists',
+    worldTitle: 'How the world answers',
+    worldLede:
+      'Sixteen countries, sixteen answers to the same question. The two marked with a dot (Uruguay, Colombia) actually let the blank change the outcome.',
+    col: {
+      country: 'Country',
+      status: 'Blank status',
+      rate: 'Typical rate',
+      impact: 'Effect',
+    },
+    status: {
+      counted_separate: 'Counted separately',
+      symbolic: 'Symbolic',
+      competitive: 'Competitive',
+      threshold: 'Trigger threshold',
+      merged_invalid: 'Merged with spoiled',
+    },
+    impactYes: 'Can change or annul the election',
+    impactNo: 'No effect on the result',
+    source: 'Sources: national electoral legislation (see data/blankVoteRegimes).',
+  },
   curiosity: {
     kicker: 'Out of curiosity',
     title: 'Where to start? Follow your question.',
