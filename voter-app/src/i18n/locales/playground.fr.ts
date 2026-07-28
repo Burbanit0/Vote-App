@@ -991,6 +991,20 @@ const pgFr = {
     nash: 'Nash (produit d’utilités)',
     raynaud: 'Raynaud',
   },
+  // Plain-language method labels (mode « sans jargon »). Bounded to the methods a
+  // newcomer actually meets; anything absent falls back to its technical name.
+  rulesPlain: {
+    plurality: 'Le plus de voix',
+    two_round: 'À deux tours',
+    irv: 'Élimination par tours',
+    coombs: 'Élimination du plus rejeté',
+    borda: 'Points par rang',
+    condorcet: 'Le préféré en duel',
+    approval: 'Cocher qui convient',
+    score: 'Notes moyennes',
+    star: 'Notes, puis duel',
+    cumulative: 'Points à répartir',
+  },
   structures: {
     pr: 'Proportionnelle (listes)',
     fptp: 'Circonscriptions (FPTP)',
