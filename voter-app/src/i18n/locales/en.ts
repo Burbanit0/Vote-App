@@ -21,6 +21,7 @@ const en: TranslationKeys = {
     play: 'Your turn',
     playground: 'Playground',
     laboratoire: 'Lab',
+    lexique: 'Glossary',
     learn: 'Learn',
     explore: 'Explore',
     settings: 'Settings',

@@ -18,6 +18,7 @@ const FOOTER_LINKS = [
   { href: '/decouvrir', key: 'home.ctaDiscover' },
   { href: '/playground', key: 'nav.playground' },
   { href: '/laboratoire', key: 'nav.laboratoire' },
+  { href: '/laboratoire?exp=lexique', key: 'nav.lexique' },
 ];
 
 const HomePage: React.FC = () => {
