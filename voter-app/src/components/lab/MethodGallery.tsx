@@ -17,7 +17,7 @@ import { CANDIDATE_COLORS_LIGHT } from '../../constants/chartColors';
 const MethodGallery: React.FC = () => {
   const { t, i18n } = useTranslation('playground');
   const lang: Lang = i18n.language?.startsWith('en') ? 'en' : 'fr';
-  const analogyLabel = lang === 'en' ? 'Like real life:' : 'Comme dans la vie :';
+  const analogyLabel = lang === 'en' ? 'Like real life:' : 'Au quotidien :';
   const { ruleLabels } = useVotingLabels();
   const { votingVoters, leaderCandidates } = usePlaygroundCtx();
   const [replayRule, setReplayRule] = useState<Rule | null>(null);
