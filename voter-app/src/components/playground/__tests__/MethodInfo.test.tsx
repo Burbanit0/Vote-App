@@ -19,7 +19,7 @@ describe('MethodInfo', () => {
     expect(pop).toHaveTextContent(/Principe|How/);
     expect(pop).toHaveTextContent(/Faille|Weakness/);
     // Phase 6: the everyday analogy ("comme dans la vie").
-    expect(pop).toHaveTextContent(/Like real life|Comme dans la vie/);
+    expect(pop).toHaveTextContent(/Like real life|Au quotidien/);
     expect(pop).toHaveTextContent(/knockout game|jeu d’élimination/);
   });
 

@@ -50,7 +50,7 @@ export function methodKey(id: string): string {
   return METHOD_ALIASES[id] ?? id;
 }
 
-// "Comme dans la vie" — one everyday analogy per method, the Phase-6 polish that
+// "Au quotidien" — one everyday analogy per method, the Phase-6 polish that
 // grounds an abstract rule in a situation anyone has lived. A parallel bilingual
 // map (like METHOD_ALIASES) rather than a field on every entry: bounded to the
 // methods a newcomer actually meets; MethodInfo shows it only when present. Keyed

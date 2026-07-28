@@ -45,7 +45,7 @@ const MethodInfo: React.FC<Props> = ({ method, context = {}, placement = 'top', 
           example: 'Example:',
         }
       : {
-          analogy: 'Comme dans la vie :',
+          analogy: 'Au quotidien :',
           how: 'Principe :',
           strength: 'Force :',
           weakness: 'Faille :',
