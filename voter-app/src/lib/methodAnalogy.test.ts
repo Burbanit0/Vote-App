@@ -21,6 +21,7 @@ describe('method analogies', () => {
   it('methodAnalogy resolves aliases and returns null for the unknown', () => {
     expect(methodAnalogy('copeland', 'fr')).toBe(METHOD_ANALOGY[methodKey('copeland')].fr);
     expect(methodAnalogy('star_voting', 'en')).toBe(METHOD_ANALOGY.star.en);
-    expect(methodAnalogy('kemeny_young', 'fr')).toBeNull(); // no analogy → null, safely hidden
+    expect(methodAnalogy('kemeny', 'fr')).toBe(METHOD_ANALOGY[methodKey('kemeny')].fr); // aliases to kemeny_young
+    expect(methodAnalogy('schulze', 'fr')).toBeNull(); // no analogy → null, safely hidden
   });
 });

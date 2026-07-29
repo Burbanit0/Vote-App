@@ -13,7 +13,7 @@ interface RuleFamily {
 const FAMILIES: RuleFamily[] = [
   { key: 'majoritarian', rules: ['plurality', 'two_round', 'irv', 'coombs'] },
   { key: 'positional', rules: ['borda', 'bucklin', 'nanson', 'baldwin'] },
-  { key: 'condorcet', rules: ['condorcet', 'minimax', 'schulze', 'ranked_pairs'] },
+  { key: 'condorcet', rules: ['condorcet', 'minimax', 'schulze', 'ranked_pairs', 'kemeny'] },
   { key: 'cardinal', rules: ['approval', 'score', 'star', 'majority_judgment'] },
   { key: 'other', rules: ['random_ballot'] },
 ];

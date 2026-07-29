@@ -30,6 +30,7 @@ from api.engine.utils.simulation_ranked_utils import (  # noqa: E402
     get_condorcet_winner,
     get_coombs_winner,
     get_irv_winner,
+    get_kemeny_young_winner,
     get_minimax_winner,
     get_nanson_winner,
     get_plurality_winner,
@@ -57,6 +58,7 @@ RULES = {
     "nanson": get_nanson_winner,
     "baldwin": get_baldwin_winner,
     "ranked_pairs": get_ranked_pairs_winner,
+    "kemeny": get_kemeny_young_winner,
 }
 
 # Cardinal rules that take the SAME per-voter score vector on both engines (so a
