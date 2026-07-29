@@ -1,7 +1,14 @@
 import React from 'react';
 import { useTranslation } from 'react-i18next';
-import { geoOrthographic, geoPath, geoGraticule, geoDistance } from 'd3';
+import {
+  geoOrthographic,
+  geoPath,
+  geoGraticule,
+  geoDistance,
+  type GeoPermissibleObjects,
+} from 'd3';
 import { cn } from '@/lib/utils';
+import landGeo from '../../data/land110m.geo.json';
 import ATLAS, {
   ATLAS_METHODS,
   METHOD_COLOR,
@@ -39,6 +46,8 @@ const prefersReducedMotion = () =>
   typeof window === 'undefined' ||
   typeof window.matchMedia !== 'function' ||
   window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+const LAND = landGeo as unknown as GeoPermissibleObjects;
 
 const colorFor = (e: AtlasEntry, lens: Lens): string =>
   lens === 'method'
@@ -156,12 +165,13 @@ const RegimeGlobe: React.FC = () => {
           onPointerUp={endDrag}
           onPointerLeave={endDrag}
         >
-          {/* Ocean sphere + graticule */}
-          <path d={path({ type: 'Sphere' }) ?? ''} fill="rgba(56,132,255,0.10)" stroke="none" />
+          {/* Ocean sphere → land → graticule → outline */}
+          <path d={path({ type: 'Sphere' }) ?? ''} fill="rgba(56,132,255,0.12)" stroke="none" />
+          <path d={path(LAND) ?? ''} fill="rgba(120,132,104,0.55)" stroke="none" />
           <path
             d={path(geoGraticule()()) ?? ''}
             fill="none"
-            stroke="rgba(120,120,120,0.28)"
+            stroke="rgba(120,120,120,0.22)"
             strokeWidth={0.5}
           />
           <path
