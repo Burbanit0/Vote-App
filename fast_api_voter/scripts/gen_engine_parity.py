@@ -25,6 +25,7 @@ sys.path.insert(0, ROOT)
 
 from api.engine.utils.simulation_ranked_utils import (  # noqa: E402
     get_baldwin_winner,
+    get_black_winner,
     get_borda_winner,
     get_bucklin_winner,
     get_condorcet_winner,
@@ -59,6 +60,7 @@ RULES = {
     "baldwin": get_baldwin_winner,
     "ranked_pairs": get_ranked_pairs_winner,
     "kemeny": get_kemeny_young_winner,
+    "black": get_black_winner,
 }
 
 # Cardinal rules that take the SAME per-voter score vector on both engines (so a

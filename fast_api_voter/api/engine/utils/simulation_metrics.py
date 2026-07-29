@@ -19,6 +19,7 @@ from .simulation_ranked_utils import (
     get_nanson_winner,
     get_baldwin_winner,
     get_ranked_pairs_winner,
+    get_black_winner,
     random_ballot_probabilities,
 )
 from .simulation_score_utils import (
@@ -304,6 +305,7 @@ def compare_all_methods(
         "nanson":       get_nanson_winner,
         "baldwin":      get_baldwin_winner,
         "ranked_pairs": get_ranked_pairs_winner,
+        "black":        get_black_winner,
     }
 
     score_methods: Dict[str, Callable[..., Any]] = {
