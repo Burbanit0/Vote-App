@@ -179,6 +179,19 @@ describe('LaboratoirePage — the bench', () => {
     expect(screen.getByTestId('lens-card-competitive')).toHaveTextContent(/reopens|Do it again/);
   }, 20000);
 
+  it('the regime atlas globe renders dots and toggles its colour lens', async () => {
+    renderLab('/laboratoire?exp=sys-atlas');
+    await waitFor(() => expect(screen.getByTestId('regime-globe')).toBeInTheDocument(), {
+      timeout: 15000,
+    });
+    // At least some regimes are plotted on the front hemisphere.
+    expect(screen.getAllByTestId(/^atlas-dot-/).length).toBeGreaterThan(0);
+    // The lens toggle flips from method to blank.
+    expect(screen.getByTestId('atlas-lens-method')).toHaveAttribute('aria-pressed', 'true');
+    fireEvent.click(screen.getByTestId('atlas-lens-blank'));
+    expect(screen.getByTestId('atlas-lens-blank')).toHaveAttribute('aria-pressed', 'true');
+  }, 20000);
+
   it('the method gallery now covers common methods too, each with its everyday analogy', async () => {
     renderLab('/laboratoire?exp=lab-gallery');
     // A common method (IRV) — previously absent from the gallery — now has a card…

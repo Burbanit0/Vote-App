@@ -113,6 +113,7 @@ const BlankVotePanel = lazyWithPreload(() => import('./BlankVotePanel'));
 const BlankVoteDivergencePanel = lazyWithPreload(
   () => import('../shared/BlankVoteDivergencePanel')
 );
+const RegimeGlobe = lazyWithPreload(() => import('./RegimeGlobe'));
 
 // ── Wrappers for panels that read the shared electorate through props ───────
 // (Everything else takes no props and reads the shared state itself.)
@@ -385,6 +386,7 @@ export const LAB_FAMILIES: LabFamily[] = [
             ElectionPipelineAnimator,
             ElectionPipelineAnimator.preload
           ),
+          exp('sys-atlas', 'atlas.title', RegimeGlobe, RegimeGlobe.preload),
         ],
       },
     ],
