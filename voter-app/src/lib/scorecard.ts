@@ -102,6 +102,7 @@ export const LEADER_RULES: Rule[] = [
   'baldwin',
   'ranked_pairs',
   'kemeny',
+  'black',
   'random_ballot',
 ];
 
@@ -110,7 +111,6 @@ export const LEADER_RULES: Rule[] = [
 export const EXTRA_RULES: Rule[] = [
   'anti_plurality',
   'dowdall',
-  'black',
   'smith_irv',
   'split_cycle',
   'cumulative',
@@ -366,11 +366,15 @@ export const MANIP_COMPLEXITY: Record<Rule, { hard: boolean; label: string; ref:
     label: 'NP-difficile, y compris pour calculer le vainqueur lui-même',
     ref: 'Bartholdi–Tovey–Trick 1989',
   },
+  black: {
+    hard: false,
+    label: 'P (hérite de Condorcet, sinon de Borda)',
+    ref: 'Bartholdi–Tovey–Trick 1989',
+  },
   // Tier B extras — .hard only is read (label/ref come from i18n); never shown as
   // a compared method, so these strings are placeholders.
   anti_plurality: { hard: false, label: '', ref: '' },
   dowdall: { hard: false, label: '', ref: '' },
-  black: { hard: false, label: '', ref: '' },
   smith_irv: { hard: true, label: '', ref: '' },
   split_cycle: { hard: false, label: '', ref: '' },
   cumulative: { hard: false, label: '', ref: '' },

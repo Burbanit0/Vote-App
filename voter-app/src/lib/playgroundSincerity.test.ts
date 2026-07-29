@@ -26,7 +26,7 @@ describe('sincerityProbe', () => {
     const r = sincerityProbe(YOU, BLOC_SHARE, OTHERS, CANDS);
     expect(r.ranking).toEqual(['A', 'B', 'C']);
     expect(r.blocSize).toBe(10);
-    expect(r.verdicts).toHaveLength(18);
+    expect(r.verdicts).toHaveLength(19);
   });
 
   it('is deterministic', () => {
@@ -80,7 +80,7 @@ describe('sincerityProbe', () => {
     ];
     const scan = sincerityScan(scanOthers, CANDS, BLOC_SHARE, 30);
     expect(scan.sampled).toBeGreaterThan(0);
-    expect(scan.rows).toHaveLength(18);
+    expect(scan.rows).toHaveLength(19);
     // Every rate is a probability.
     expect(scan.rows.every((r) => r.temptRate >= 0 && r.temptRate <= 1)).toBe(true);
     // Sorted ascending (lowest temptation = most conviction-friendly first).

@@ -107,6 +107,18 @@ def get_borda_winner(votes: list[Any], blank_candidate_name: str = "") -> Option
     return str(max(scores.items(), key=lambda x: x[1])[0])
 
 
+def get_black_winner(votes: list[Any], blank_candidate_name: str = "") -> Optional[str]:
+    """
+    Determine the winner under Black's method (Duncan Black, 1958): elect the
+    Condorcet winner if one exists, otherwise fall back to the Borda winner.
+
+    :param votes: A list of rankings (see get_condorcet_winner for format)
+    :return: The name of the Black winner
+    """
+    condorcet = get_condorcet_winner(votes, blank_candidate_name)
+    return condorcet if condorcet is not None else get_borda_winner(votes, blank_candidate_name)
+
+
 def get_plurality_winner(votes: list[Any], blank_candidate_name: str = "") -> Optional[str]:
     """
     Determine the plurality winner from a set of rankings.

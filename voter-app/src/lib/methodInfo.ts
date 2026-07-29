@@ -100,6 +100,10 @@ export const METHOD_ANALOGY: Record<string, { fr: string; en: string }> = {
     fr: 'Comme trancher un débat en essayant tous les classements possibles et en gardant celui qui contredit le moins de monde.',
     en: 'Like settling an argument by trying every possible ranking and keeping the one that contradicts the fewest people.',
   },
+  black: {
+    fr: 'Comme un tournoi toutes-rondes : s’il y a un champion qui bat tout le monde, il gagne ; sinon, on tranche au podium (Borda).',
+    en: 'Like a round-robin tournament: if someone beats everyone, they win; otherwise, the podium points (Borda) decide.',
+  },
 };
 
 /** Everyday analogy for a method in one language, or null if none. */
