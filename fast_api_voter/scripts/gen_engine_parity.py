@@ -24,6 +24,7 @@ ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
 sys.path.insert(0, ROOT)
 
 from api.engine.utils.simulation_ranked_utils import (  # noqa: E402
+    get_anti_plurality_winner,
     get_baldwin_winner,
     get_black_winner,
     get_borda_winner,
@@ -61,6 +62,7 @@ RULES = {
     "ranked_pairs": get_ranked_pairs_winner,
     "kemeny": get_kemeny_young_winner,
     "black": get_black_winner,
+    "anti_plurality": get_anti_plurality_winner,
 }
 
 # Cardinal rules that take the SAME per-voter score vector on both engines (so a

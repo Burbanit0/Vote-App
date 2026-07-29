@@ -104,6 +104,10 @@ export const METHOD_ANALOGY: Record<string, { fr: string; en: string }> = {
     fr: 'Comme un tournoi toutes-rondes : s’il y a un champion qui bat tout le monde, il gagne ; sinon, on tranche au podium (Borda).',
     en: 'Like a round-robin tournament: if someone beats everyone, they win; otherwise, the podium points (Borda) decide.',
   },
+  anti_plurality: {
+    fr: 'Comme choisir un film en demandant à chacun celui qu’il refuse de voir : celui rejeté par le moins de monde passe.',
+    en: 'Like picking a movie by asking everyone which one they refuse to watch: the least-rejected one plays.',
+  },
 };
 
 /** Everyday analogy for a method in one language, or null if none. */

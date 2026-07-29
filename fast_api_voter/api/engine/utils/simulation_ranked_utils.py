@@ -138,6 +138,34 @@ def get_plurality_winner(votes: list[Any], blank_candidate_name: str = "") -> Op
     return str(max(first_choice_votes.items(), key=lambda x: x[1])[0])
 
 
+def get_anti_plurality_winner(votes: list[Any], blank_candidate_name: str = "") -> Optional[str]:
+    """
+    Determine the anti-plurality (veto) winner from a set of rankings: each
+    ballot vetoes its last-ranked candidate, and the candidate vetoed the
+    FEWEST times wins.
+    :param votes: A list of rankings (see get_condorcet_winner for format)
+    :return: The name of the anti-plurality winner
+    """
+    if not votes:
+        return None
+    is_dict = _is_dict_format(votes)
+    candidates: list[Any] = []
+    seen: set[Any] = set()
+    last_choice_votes: "Counter[Any]" = Counter()
+    for vote in votes:
+        ranking = _get_ranking(vote, is_dict)
+        for c in ranking:
+            if c not in seen:
+                seen.add(c)
+                candidates.append(c)
+        if ranking:
+            last_choice_votes[ranking[-1]] += 1
+    if not candidates:
+        return None
+    # A candidate never ranked last has 0 vetoes — Counter.get defaults it in.
+    return str(min(candidates, key=lambda c: last_choice_votes.get(c, 0)))
+
+
 def get_approval_winner(
     votes: list[Any],
     approval_threshold: int = 2,
