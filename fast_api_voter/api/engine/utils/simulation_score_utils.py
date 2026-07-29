@@ -106,6 +106,70 @@ def get_star_voting_winner(all_scores: Any) -> Dict[str, Any]:
     }
 
 
+def _score_candidates(all_scores: Any) -> List[Any]:
+    """Candidates in first-encountered order (deterministic tie-break, matching
+    the client's argmax-over-index convention)."""
+    candidates: List[Any] = []
+    seen: set = set()
+    for vote in all_scores:
+        for c in vote:
+            if c not in seen:
+                seen.add(c)
+                candidates.append(c)
+    return candidates
+
+
+def get_cumulative_winner(all_scores: Any) -> Optional[str]:
+    """
+    Cumulative voting: each voter splits ONE point across candidates in
+    proportion to their scores (favourites get more, but the budget is
+    shared). Most points wins.
+    """
+    candidates = _score_candidates(all_scores)
+    if not candidates:
+        return None
+    tally: "defaultdict[Any, float]" = defaultdict(float)
+    for vote in all_scores:
+        total = sum(vote.values())
+        if total > 0:
+            for c, s in vote.items():
+                tally[c] += s / total
+    return str(max(candidates, key=lambda c: tally[c]))
+
+
+def get_maximin_score_winner(all_scores: Any) -> Optional[str]:
+    """
+    Maximin (Rawlsian): elect the candidate whose WORST rating across voters
+    is highest — the least-bad option for the most disadvantaged voter.
+    """
+    candidates = _score_candidates(all_scores)
+    if not candidates:
+        return None
+    worst = {c: math.inf for c in candidates}
+    for vote in all_scores:
+        for c, s in vote.items():
+            worst[c] = min(worst[c], s)
+    return str(max(candidates, key=lambda c: worst[c]))
+
+
+def get_nash_winner(all_scores: Any) -> Optional[str]:
+    """
+    Nash (proportional welfare): maximise the PRODUCT of voter utilities —
+    summed in log-space to stay numerically stable. Rating a candidate 0
+    crushes it, so Nash sits between the utilitarian sum (score) and the
+    Rawlsian min (maximin).
+    """
+    candidates = _score_candidates(all_scores)
+    if not candidates:
+        return None
+    eps = 1e-6
+    acc: "defaultdict[Any, float]" = defaultdict(float)
+    for vote in all_scores:
+        for c, s in vote.items():
+            acc[c] += math.log(max(s, eps))
+    return str(max(candidates, key=lambda c: acc[c]))
+
+
 def get_median_voting_winner(all_scores: Any) -> Dict[str, Any]:
     """
     Determine the winner using median score method.

@@ -32,6 +32,9 @@ from .simulation_score_utils import (
     get_variance_based_winner,
     get_majority_judgment_winner,
     get_evaluative_winner,
+    get_cumulative_winner,
+    get_maximin_score_winner,
+    get_nash_winner,
 )
 from .quadratic_voting import apply_quadratic_voting
 
@@ -318,6 +321,9 @@ def compare_all_methods(
         "median_voting": get_median_voting_winner,
         "mean_median_hybrid": get_mean_median_hybrid_winner,
         "variance_based": get_variance_based_winner,
+        "cumulative": get_cumulative_winner,
+        "maximin": get_maximin_score_winner,
+        "nash": get_nash_winner,
     }
 
     # ------------------------------------------------------------------

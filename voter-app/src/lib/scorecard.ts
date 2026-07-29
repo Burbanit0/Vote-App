@@ -93,6 +93,9 @@ export const LEADER_RULES: Rule[] = [
   'score',
   'star',
   'majority_judgment',
+  'cumulative',
+  'maximin',
+  'nash',
   'bucklin',
   'coombs',
   'condorcet',
@@ -110,16 +113,7 @@ export const LEADER_RULES: Rule[] = [
 
 /** Tier B: "explained, not compared" — surfaced only in the method gallery and
  * the replay animation, never in the comparison table / scorecard / map picker. */
-export const EXTRA_RULES: Rule[] = [
-  'smith_irv',
-  'split_cycle',
-  'cumulative',
-  'maximin',
-  'benham',
-  'river',
-  'nash',
-  'raynaud',
-];
+export const EXTRA_RULES: Rule[] = ['smith_irv', 'split_cycle', 'benham', 'river', 'raynaud'];
 
 /** Stated convention: ballot expressiveness + tally complexity, 1 = simplest. */
 const SIMPLICITY: Record<Rule, number> = {
@@ -375,13 +369,27 @@ export const MANIP_COMPLEXITY: Record<Rule, { hard: boolean; label: string; ref:
   dowdall: { hard: false, label: 'P (calcul trivial)', ref: 'favori en tête, rival en dernier' },
   // Tier B extras — .hard only is read (label/ref come from i18n); never shown as
   // a compared method, so these strings are placeholders.
+  cumulative: {
+    hard: false,
+    label: 'P (calcul trivial)',
+    ref: 'tout le budget sur le favori (bullet voting)',
+  },
+  maximin: {
+    hard: false,
+    label: 'P (calcul trivial)',
+    ref: 'extrémiser les notes (min/max), comme Score',
+  },
+  nash: {
+    hard: false,
+    label: 'P (calcul trivial)',
+    ref: 'noter zéro écarte un rival (produit nul)',
+  },
+  // Tier B extras — .hard only is read (label/ref come from i18n); never shown as
+  // a compared method, so these strings are placeholders.
   smith_irv: { hard: true, label: '', ref: '' },
   split_cycle: { hard: false, label: '', ref: '' },
-  cumulative: { hard: false, label: '', ref: '' },
-  maximin: { hard: false, label: '', ref: '' },
   benham: { hard: true, label: '', ref: '' },
   river: { hard: false, label: '', ref: '' },
-  nash: { hard: false, label: '', ref: '' },
   raynaud: { hard: false, label: '', ref: '' },
 };
 
