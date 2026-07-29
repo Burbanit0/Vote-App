@@ -55,4 +55,24 @@ describe('blankVote — one result, four regimes', () => {
     expect(v.winner).toBeNull();
     expect(Number.isFinite(v.winnerShareOfExprimes)).toBe(true);
   });
+
+  it('knownWinner overrides the plurality-of-shares reading — "blank vs. what the RULE elected"', () => {
+    // B has fewer first-preference votes than A, but a Condorcet/IRV-style rule
+    // elected B anyway. Without the override, blankVerdict would (wrongly) treat
+    // A as the winner for the live playground's purposes.
+    const byArgmax = blankVerdict(shares, blank, 'france_today');
+    expect(byArgmax.winner).toBe(0); // A, plurality leader
+
+    const byRule = blankVerdict(shares, blank, 'france_today', 1); // rule elected B
+    expect(byRule.winner).toBe(1);
+    expect(byRule.winnerShareOfExprimes).toBeCloseTo(0.32 / 0.8);
+  });
+
+  it('knownWinner still drives the competitive/threshold comparison against the RULE winner', () => {
+    // Blank (0.45) beats B's share (0.32) but not A's (0.38) — the verdict must
+    // react to whichever candidate the rule actually elected.
+    const v = blankVerdict([0.38, 0.32, 0.1], 0.45, 'competitive', 1);
+    expect(v.outcome).toBe('blank_wins');
+    expect(v.redo).toBe(true);
+  });
 });

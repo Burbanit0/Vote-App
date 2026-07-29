@@ -1,10 +1,14 @@
 import React from 'react';
 import { useTranslation } from 'react-i18next';
+import { cn } from '@/lib/utils';
 import { usePlaygroundCtx } from '../PlaygroundController';
 import { Field, selectCls } from '../playgroundFields';
 import { useVotingLabels } from '../../../hooks/useVotingLabels';
+import { BLANK_LENSES } from '../../../lib/blankVote';
 import Collapsible from '../Collapsible';
 import StrategicModule from '../StrategicModule';
+
+const pct = (x: number) => `${Math.round(x * 100)}%`;
 
 const StrategyMoment: React.FC = () => {
   const { t } = useTranslation('playground');
@@ -20,6 +24,9 @@ const StrategyMoment: React.FC = () => {
     voters,
     votingVoters,
     turnout,
+    blank,
+    blankSplit,
+    blankVerdictLive,
     behavior,
     manipDetail,
     strategicOutcome,
@@ -180,6 +187,92 @@ const StrategyMoment: React.FC = () => {
           </>
         )}
       </div>
+
+      {/* ── Vote blanc (en direct) — a live lever, not just the Lab's abstract fiche ── */}
+      {mode === 'leader' && (
+        <div className="flex flex-col gap-2 rounded-md border border-border p-3">
+          <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+            {t('strategy.blankTitle')}
+          </p>
+          <label className="flex items-center gap-2 text-sm">
+            <input
+              data-testid="blank-toggle"
+              type="checkbox"
+              checked={blank.enabled}
+              onChange={(e) => setPlaygroundDeep('blank.enabled', e.target.checked)}
+            />
+            {t('strategy.blankToggle')}
+          </label>
+          <p className="-mt-1 text-[0.7rem] text-muted-foreground/80">{t('strategy.blankHint')}</p>
+          {blank.enabled && (
+            <>
+              <Field
+                label={t('electorate.intensity', { pct: Math.round(blank.intensity * 100) })}
+                htmlFor="pg-blank-int"
+              >
+                <input
+                  id="pg-blank-int"
+                  data-testid="blank-intensity"
+                  type="range"
+                  min={0}
+                  max={1}
+                  step={0.05}
+                  value={blank.intensity}
+                  onChange={(e) => setPlaygroundDeep('blank.intensity', Number(e.target.value))}
+                />
+              </Field>
+              <Field label={t('strategy.blankLensLabel')} htmlFor="pg-blank-lens">
+                <select
+                  id="pg-blank-lens"
+                  data-testid="blank-lens-select"
+                  className={selectCls}
+                  value={blank.lens}
+                  onChange={(e) => setPlaygroundDeep('blank.lens', e.target.value)}
+                >
+                  {BLANK_LENSES.map((l) => (
+                    <option key={l} value={l}>
+                      {t(`blankVote.lens.${l}.label`)}
+                    </option>
+                  ))}
+                </select>
+              </Field>
+              {blankSplit.blankCount > 0 && (
+                <p data-testid="blank-rate" className="text-[0.7rem] text-muted-foreground">
+                  {t('strategy.blankRate', {
+                    count: blankSplit.blankCount,
+                    pct: Math.round(blankSplit.blankShare * 100),
+                  })}
+                </p>
+              )}
+              {blankVerdictLive && (
+                <div
+                  data-testid="blank-verdict"
+                  className={cn(
+                    'rounded-md border px-2.5 py-2 text-xs',
+                    blankVerdictLive.redo
+                      ? 'border-amber-400 bg-amber-50 dark:border-amber-500/60 dark:bg-amber-950/30'
+                      : 'border-border bg-muted/20'
+                  )}
+                >
+                  <p className="text-muted-foreground">
+                    {t(`blankVote.lens.${blank.lens}.mechanism`)}
+                  </p>
+                  <p className="mt-1 font-medium text-foreground">
+                    {t(`blankVote.outcome.${blankVerdictLive.outcome}`, {
+                      winner:
+                        blankVerdictLive.winner !== null
+                          ? (leaderCandidates[blankVerdictLive.winner]?.name ?? '')
+                          : '',
+                      pct: pct(blankVerdictLive.winnerShareOfExprimes),
+                    })}
+                  </p>
+                </div>
+              )}
+              <p className="text-[0.7rem] text-muted-foreground/80">{t('strategy.blankLabNote')}</p>
+            </>
+          )}
+        </div>
+      )}
 
       {/* ── Assembly strategic desertion (parliament mode) ── */}
       {mode === 'parliament' && (

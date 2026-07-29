@@ -3,7 +3,17 @@ import { useElection, usePlayground } from '../../stores/useElectionStore';
 import { useProfileDiagnostics, useAssembly } from '../../hooks/usePlaygroundData';
 import { type Lens } from './LeaderCanvas';
 import { type MomentId } from './MomentRail';
-import { sampleVoters, applyTurnout, type Rule, type Pt } from '../../lib/playgroundVoting';
+import {
+  sampleVoters,
+  applyTurnout,
+  applyBlankVote,
+  computeRanks,
+  computeScores,
+  ruleWinnerFromRanks,
+  type Rule,
+  type Pt,
+} from '../../lib/playgroundVoting';
+import { blankVerdict, type BlankVerdict } from '../../lib/blankVote';
 import { shakeWinRates, type ShakeResult } from '../../lib/playgroundDynamics';
 import { runAssemblyScorecard, type AssemblyScorecardResult } from '../../services/assemblyApi';
 import { type ScorecardAxis } from './Scorecard';
@@ -32,7 +42,7 @@ function useController() {
   const { config, setConfig } = useElection();
   const { playground, setMode, setPlayground, setPlaygroundDeep, applyPreset, presets } =
     usePlayground();
-  const { mode, space, behavior, prefSource, prefParams, assembly, turnout } = playground;
+  const { mode, space, behavior, prefSource, prefParams, assembly, turnout, blank } = playground;
   const pointWord = mode === 'leader' ? 'candidats' : 'partis';
   const { result, loading } = useProfileDiagnostics(config, playground);
   const { assembly: assemblyResult, loading: assemblyLoading } = useAssembly(
@@ -169,6 +179,37 @@ function useController() {
     [voters, leaderCandidates, turnout.model, turnout.intensity]
   );
   const votingVoters = turnoutResult.voters;
+
+  // Blank vote (leader mode): voters who show up but reject every candidate.
+  // A layer ON TOP of turnout (turnout's no-shows never reach this check), so
+  // it's additive and off by default — every other derivation below keeps
+  // reading `votingVoters` unchanged; only the live winner + its verdict read
+  // the post-blank set.
+  const blankSplit = React.useMemo(
+    () => applyBlankVote(votingVoters, leaderCandidates, blank.enabled, blank.intensity),
+    [votingVoters, leaderCandidates, blank.enabled, blank.intensity]
+  );
+  const expressedVoters = blank.enabled ? blankSplit.expressed : votingVoters;
+  const blankVerdictLive: BlankVerdict | null = React.useMemo(() => {
+    if (mode !== 'leader' || !blank.enabled || blankSplit.blankCount === 0) return null;
+    const m = leaderCandidates.length;
+    const ranks = computeRanks(expressedVoters, leaderCandidates);
+    const scores = computeScores(expressedVoters, leaderCandidates);
+    const winnerIdx = ruleWinnerFromRanks(ranks, m, leaderRule, scores);
+    const firstPrefCounts = new Array(m).fill(0);
+    for (const r of ranks) firstPrefCounts[r[0]] += 1;
+    const total = expressedVoters.length + blankSplit.blankCount;
+    const shares = firstPrefCounts.map((c) => c / total);
+    return blankVerdict(shares, blankSplit.blankCount / total, blank.lens, winnerIdx);
+  }, [
+    mode,
+    blank.enabled,
+    blank.lens,
+    blankSplit.blankCount,
+    expressedVoters,
+    leaderCandidates,
+    leaderRule,
+  ]);
 
   // Re-draw the SAME electorate composition on an arbitrary seed (post-turnout),
   // so the verdict's robustness can be measured across resamples.
@@ -406,6 +447,7 @@ function useController() {
     prefParams,
     assembly,
     turnout,
+    blank,
     pointWord,
     // diagnostics
     result,
@@ -432,6 +474,9 @@ function useController() {
     voterColors,
     leaderCandidates,
     votingVoters,
+    expressedVoters,
+    blankSplit,
+    blankVerdictLive,
     sampleAtSeed,
     baseSeed: config.seed,
     moveCandidate,

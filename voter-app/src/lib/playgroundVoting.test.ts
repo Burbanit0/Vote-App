@@ -8,6 +8,7 @@ import {
   randomBallotProbGrid,
   sampleVoters,
   applyTurnout,
+  applyBlankVote,
   smithSet,
   RULE_LABELS,
   type NamedPt,
@@ -403,6 +404,51 @@ describe('applyTurnout (electorate realism)', () => {
     const withAbstention = fieldWinnerName(filtered, c, 'plurality');
     expect(full).toBe('A');
     expect(withAbstention).toBe('M');
+  });
+});
+
+describe('applyBlankVote (live blank-vote lever)', () => {
+  const cands: NamedPt[] = [
+    { name: 'L', x: -0.6, y: 0 },
+    { name: 'R', x: 0.6, y: 0 },
+  ];
+
+  it('disabled or zero intensity is a no-op passthrough', () => {
+    const voters = sampleVoters(100, 3, 'random');
+    const off = applyBlankVote(voters, cands, false, 0.8);
+    expect(off.blankCount).toBe(0);
+    expect(off.blankShare).toBe(0);
+    expect(off.expressed).toBe(voters);
+    const zero = applyBlankVote(voters, cands, true, 0);
+    expect(zero.blankCount).toBe(0);
+    expect(zero.expressed).toBe(voters);
+  });
+
+  it('blanks out voters far from every candidate, more as intensity rises', () => {
+    const voters = sampleVoters(400, 5, 'random');
+    const mild = applyBlankVote(voters, cands, true, 0.3).blankShare;
+    const harsh = applyBlankVote(voters, cands, true, 0.9).blankShare;
+    expect(harsh).toBeGreaterThan(mild);
+  });
+
+  it('never blanks out the whole electorate (falls back to no-op)', () => {
+    const voters = sampleVoters(50, 1, 'random');
+    const out = applyBlankVote(voters, cands, true, 1);
+    expect(out.expressed.length).toBeGreaterThanOrEqual(2);
+  });
+
+  it('a large blank bloc can flip the winner among the expressed ballots', () => {
+    // R leads on raw plurality, but its voters are far from both candidates
+    // (protest bloc) and go blank at high intensity, handing it to L.
+    const voters: Pt[] = [
+      ...Array.from({ length: 45 }, () => ({ x: 0.95, y: 0.9 })), // far from both → blank
+      ...Array.from({ length: 40 }, () => ({ x: -0.55, y: 0 })), // close to L
+    ];
+    const full = fieldWinnerName(voters, cands, 'plurality');
+    const { expressed } = applyBlankVote(voters, cands, true, 0.95);
+    const withBlank = fieldWinnerName(expressed, cands, 'plurality');
+    expect(full).toBe('R');
+    expect(withBlank).toBe('L');
   });
 });
 
