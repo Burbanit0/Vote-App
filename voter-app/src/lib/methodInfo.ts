@@ -96,6 +96,10 @@ export const METHOD_ANALOGY: Record<string, { fr: string; en: string }> = {
     fr: 'Comme un budget de jetons à répartir : tout sur un candidat, ou étalé sur plusieurs.',
     en: 'Like a budget of tokens to spread: all on one candidate, or split across several.',
   },
+  kemeny_young: {
+    fr: 'Comme trancher un débat en essayant tous les classements possibles et en gardant celui qui contredit le moins de monde.',
+    en: 'Like settling an argument by trying every possible ranking and keeping the one that contradicts the fewest people.',
+  },
 };
 
 /** Everyday analogy for a method in one language, or null if none. */
@@ -509,7 +513,8 @@ export const METHOD_INFO: Record<string, MethodEntry> = {
       strength: 'Respecte Condorcet et donne un classement complet, pas seulement un gagnant.',
       weakness: 'Coût combinatoire (O(n!)) : exact seulement jusqu’à ~6 candidats, sinon approché.',
       criterion: 'Respecte Condorcet et la réversibilité ; optimum de « consensus médian ».',
-      example: 'Le playground bascule en approximation (KwikSort) au-delà de 6 candidats.',
+      example:
+        'Au-delà de 8 candidats, le playground bascule sur Borda (une approximation) plutôt que la recherche exhaustive.',
     },
     en: {
       name: 'Kemeny-Young',
@@ -518,7 +523,8 @@ export const METHOD_INFO: Record<string, MethodEntry> = {
       strength: 'Satisfies Condorcet and yields a full ranking, not just a winner.',
       weakness: 'Combinatorial cost (O(n!)): exact only up to ~6 candidates, else approximated.',
       criterion: 'Satisfies Condorcet and reversal symmetry; a “median consensus” optimum.',
-      example: 'The playground switches to a KwikSort approximation beyond 6 candidates.',
+      example:
+        'Beyond 8 candidates, the playground falls back to Borda (an approximation) instead of the exhaustive search.',
     },
   },
   median_voting: {

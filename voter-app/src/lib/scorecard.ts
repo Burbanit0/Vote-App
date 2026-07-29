@@ -101,6 +101,7 @@ export const LEADER_RULES: Rule[] = [
   'nanson',
   'baldwin',
   'ranked_pairs',
+  'kemeny',
   'random_ballot',
 ];
 
@@ -112,7 +113,6 @@ export const EXTRA_RULES: Rule[] = [
   'black',
   'smith_irv',
   'split_cycle',
-  'kemeny',
   'cumulative',
   'maximin',
   'benham',
@@ -361,6 +361,11 @@ export const MANIP_COMPLEXITY: Record<Rule, { hard: boolean; label: string; ref:
     label: 'Inmanipulable — la stratégie n’apporte rien',
     ref: 'Gibbard 1977 (seule règle non-manipulable, au prix du hasard)',
   },
+  kemeny: {
+    hard: true,
+    label: 'NP-difficile, y compris pour calculer le vainqueur lui-même',
+    ref: 'Bartholdi–Tovey–Trick 1989',
+  },
   // Tier B extras — .hard only is read (label/ref come from i18n); never shown as
   // a compared method, so these strings are placeholders.
   anti_plurality: { hard: false, label: '', ref: '' },
@@ -368,7 +373,6 @@ export const MANIP_COMPLEXITY: Record<Rule, { hard: boolean; label: string; ref:
   black: { hard: false, label: '', ref: '' },
   smith_irv: { hard: true, label: '', ref: '' },
   split_cycle: { hard: false, label: '', ref: '' },
-  kemeny: { hard: true, label: '', ref: '' },
   cumulative: { hard: false, label: '', ref: '' },
   maximin: { hard: false, label: '', ref: '' },
   benham: { hard: true, label: '', ref: '' },
