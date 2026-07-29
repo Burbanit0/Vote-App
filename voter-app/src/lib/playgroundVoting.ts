@@ -43,6 +43,8 @@ export type Rule =
   | 'baldwin'
   | 'ranked_pairs'
   | 'kemeny'
+  | 'black'
+  | 'anti_plurality'
   | 'random_ballot'
   | 'star'
   | 'majority_judgment'
@@ -50,9 +52,7 @@ export type Rule =
   // ── Tier B: "explained, not compared" — client-only extras. Available in the
   // method gallery + replay animation, but excluded from the comparison surfaces
   // (Bilan table, map picker, scorecard). No backend twin, no parity fixture. ──
-  | 'anti_plurality'
   | 'dowdall'
-  | 'black'
   | 'smith_irv'
   | 'split_cycle'
   | 'cumulative'
@@ -840,13 +840,13 @@ export function ruleWinnerFromRanks(
     // (i.e. the plurality winner). The full distribution drives the probability lens.
     case 'random_ballot':
       return winPlurality(ranks, m);
-    // Tier B extras (client-only; no backend parity).
-    case 'anti_plurality':
-      return winAntiPlurality(ranks, m);
-    case 'dowdall':
-      return winDowdall(ranks, m);
     case 'black':
       return winBlack(ranks, m);
+    case 'anti_plurality':
+      return winAntiPlurality(ranks, m);
+    // Tier B extras (client-only; no backend parity).
+    case 'dowdall':
+      return winDowdall(ranks, m);
     case 'smith_irv':
       return winSmithIRV(ranks, m);
     case 'split_cycle':

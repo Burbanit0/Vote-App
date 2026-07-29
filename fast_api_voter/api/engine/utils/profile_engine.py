@@ -324,9 +324,9 @@ _CARDINAL_METHODS = {
     "quadratic", "simple_score", "star_voting", "variance_based",
 }
 _ORDINAL_METHODS = {
-    "baldwin", "black", "borda", "bucklin", "coombs", "copeland", "irv",
-    "kemeny_young", "minimax", "nanson", "plurality", "ranked_pairs",
-    "random_ballot", "schulze", "two_round",
+    "anti_plurality", "baldwin", "black", "borda", "bucklin", "coombs",
+    "copeland", "irv", "kemeny_young", "minimax", "nanson", "plurality",
+    "ranked_pairs", "random_ballot", "schulze", "two_round",
 }
 _ALL_METHODS = _CARDINAL_METHODS | _ORDINAL_METHODS | {"approval"}
 

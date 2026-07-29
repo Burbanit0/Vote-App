@@ -103,13 +103,13 @@ export const LEADER_RULES: Rule[] = [
   'ranked_pairs',
   'kemeny',
   'black',
+  'anti_plurality',
   'random_ballot',
 ];
 
 /** Tier B: "explained, not compared" — surfaced only in the method gallery and
  * the replay animation, never in the comparison table / scorecard / map picker. */
 export const EXTRA_RULES: Rule[] = [
-  'anti_plurality',
   'dowdall',
   'smith_irv',
   'split_cycle',
@@ -371,9 +371,9 @@ export const MANIP_COMPLEXITY: Record<Rule, { hard: boolean; label: string; ref:
     label: 'P (hérite de Condorcet, sinon de Borda)',
     ref: 'Bartholdi–Tovey–Trick 1989',
   },
+  anti_plurality: { hard: false, label: 'P (calcul trivial)', ref: 'enterrement du rival' },
   // Tier B extras — .hard only is read (label/ref come from i18n); never shown as
   // a compared method, so these strings are placeholders.
-  anti_plurality: { hard: false, label: '', ref: '' },
   dowdall: { hard: false, label: '', ref: '' },
   smith_irv: { hard: true, label: '', ref: '' },
   split_cycle: { hard: false, label: '', ref: '' },

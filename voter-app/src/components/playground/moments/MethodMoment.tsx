@@ -11,7 +11,7 @@ interface RuleFamily {
 }
 
 const FAMILIES: RuleFamily[] = [
-  { key: 'majoritarian', rules: ['plurality', 'two_round', 'irv', 'coombs'] },
+  { key: 'majoritarian', rules: ['plurality', 'two_round', 'irv', 'coombs', 'anti_plurality'] },
   { key: 'positional', rules: ['borda', 'bucklin', 'nanson', 'baldwin'] },
   {
     key: 'condorcet',
