@@ -109,6 +109,19 @@ const pgEn: PlaygroundKeys = {
           'Approval voting crowns Bayrou too. Bottom line: several possible presidents for one electorate — the method is not neutral.',
       },
     },
+    clones: {
+      title: 'The clone strategy',
+      tagline:
+        'A candidate can get elected by fielding an ally almost identical to themself — but not under just any method.',
+      steps: {
+        duel: 'Two candidates on the left–right axis. Under the Borda method, B gathers 54% of the electorate and wins comfortably.',
+        clone:
+          'A’s camp fields a second candidate, A2, almost identical to A but a little further left. No voter changed their mind — yet under Borda, A now wins.',
+        condorcet:
+          'Under Condorcet, cloning is pointless: B still beats both A AND A2 head-to-head, so B stays the winner. The flaw was specific to Borda.',
+        irv: 'Under instant-runoff (IRV) too: B, still preferred by the majority, wins no matter how many clones the other camp lines up.',
+      },
+    },
     seuil: {
       title: 'The threshold that erases',
       tagline: 'A 5 % bar does not just remove seats: it moves votes.',

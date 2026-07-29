@@ -10,6 +10,7 @@ import {
   Scissors,
   Landmark,
   Divide,
+  Copy,
   BookOpen,
   X,
   type LucideIcon,
@@ -43,6 +44,7 @@ const ICONS: Record<string, LucideIcon> = {
   Scissors,
   Landmark,
   Divide,
+  Copy,
 };
 
 interface Snapshot {

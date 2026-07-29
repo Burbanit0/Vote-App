@@ -165,4 +165,11 @@ describe('stories — load-bearing outcomes hold on the seeded electorate', () =
     const winners = new Set(rules.map((r) => winnerWithRule('five', 'plurality', r)));
     expect(winners.size).toBeGreaterThanOrEqual(3);
   });
+
+  it('clones: B wins the duel; a clone of A flips Borda to A; Condorcet and IRV resist the trick', () => {
+    expect(winnerAt('clones', 'duel')).toBe('B');
+    expect(winnerAt('clones', 'clone')).toBe('A');
+    expect(winnerAt('clones', 'condorcet')).toBe('B');
+    expect(winnerAt('clones', 'irv')).toBe('B');
+  });
 });
