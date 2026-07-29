@@ -170,6 +170,42 @@ const CLONES_COMPOSED: PlaygroundState['electorate'] = {
   communities: [clonesBloc('P', CLONE_A.x, 0.46), clonesBloc('Q', CLONE_B.x, 0.54)],
 };
 
+// ── Story 7 — the blank vote: same result, four fates ──────────────────────
+// Camille wins comfortably among those who picked someone — but most of the
+// electorate is far from BOTH candidates and rejects the whole field. Three
+// constitutional regimes read the identical result three different ways:
+// today's law elects Camille anyway (blank excluded from the count); count
+// the blank and the mandate evaporates; treat it as a candidate and it wins
+// outright. Same voters, same ballots — the regime alone decides.
+const REJET_CANDS = [
+  { name: 'Camille', x: -0.15, y: 0 },
+  { name: 'Farid', x: 0.15, y: 0 },
+];
+const REJET_ELECTORATE = { num_voters: 300, seed: 42, ideology: 'random' };
+const rejetBloc = (
+  id: string,
+  label: string,
+  x: number,
+  y: number,
+  spread: number,
+  weight: number
+): Community => ({ id, label, x, y, z: 0, spread, weight, turnout: 1 });
+const REJET_COMPOSED: PlaygroundState['electorate'] = {
+  mode: 'composed',
+  correlation: 0,
+  noise: 0,
+  communities: [
+    rejetBloc('main', 'Grand public', -0.25, 0, 0.08, 0.35),
+    rejetBloc('rejet', 'Rejettent tout le monde', 0, -0.9, 0.12, 0.65),
+  ],
+};
+// setPlayground merges shallowly, so `blank` must be a full object each time.
+const BLANK = (lens: 'france_today' | 'in_exprimes' | 'competitive'): PlaygroundState['blank'] => ({
+  enabled: true,
+  intensity: 0.7,
+  lens,
+});
+
 // ── Parliament stories (mode: 'parliament') ──────────────────────────────────
 // Seats are allocated by the BACKEND (/api/v2/election/assembly), so unlike the
 // leader stories these beats can't be locked by a client-side winner assertion.
@@ -438,6 +474,41 @@ export const STORIES: Story[] = [
         beatKey: 'stories.clones.steps.irv',
         rule: 'irv',
         config: { candidates: [CLONE_A, CLONE_A2, CLONE_B], ...CLONES_ELECTORATE },
+      },
+    ],
+  },
+
+  {
+    id: 'blank',
+    titleKey: 'stories.blank.title',
+    taglineKey: 'stories.blank.tagline',
+    icon: 'Ban',
+    mode: 'leader',
+    steps: [
+      {
+        id: 'clean',
+        beatKey: 'stories.blank.steps.clean',
+        mode: 'leader',
+        rule: 'plurality',
+        moment: 'method',
+        playground: { space: PLANE.space, electorate: REJET_COMPOSED },
+        config: { candidates: REJET_CANDS, ...REJET_ELECTORATE },
+      },
+      {
+        id: 'todayLaw',
+        beatKey: 'stories.blank.steps.todayLaw',
+        moment: 'strategy',
+        playground: { blank: BLANK('france_today') },
+      },
+      {
+        id: 'ifCounted',
+        beatKey: 'stories.blank.steps.ifCounted',
+        playground: { blank: BLANK('in_exprimes') },
+      },
+      {
+        id: 'competitive',
+        beatKey: 'stories.blank.steps.competitive',
+        playground: { blank: BLANK('competitive') },
       },
     ],
   },
