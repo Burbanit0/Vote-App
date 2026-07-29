@@ -125,6 +125,21 @@ const pgFr = {
         irv: 'Au vote alternatif (IRV) non plus : B, toujours préféré par la majorité, l’emporte quel que soit le nombre de clones alignés en face.',
       },
     },
+    blank: {
+      title: 'Le vote blanc, quatre destins',
+      tagline:
+        'Les mêmes électeurs, le même bulletin — la règle qui compte le blanc décide de tout.',
+      steps: {
+        clean:
+          'Camille l’emporte avec 67 % des voix face à Farid, à 33 %. Une victoire nette — parmi ceux qui ont choisi quelqu’un.',
+        todayLaw:
+          'Activez le vote blanc : 62 % de l’électorat est trop loin des deux candidats et rejette le choix. La loi française actuelle l’exclut du décompte — Camille reste élue, à 96 % des rares voix exprimées.',
+        ifCounted:
+          'Comptez le blanc dans les exprimés : la part de Camille retombe à 36 % de l’ensemble des votants. Sous la barre des 50 %, plus de mandat clair.',
+        competitive:
+          'Traitez le blanc comme un candidat, régime uruguayen : à 62 %, il devance Camille et Farid réunis. La candidature est rouverte.',
+      },
+    },
     seuil: {
       title: 'Le seuil qui efface',
       tagline: 'Une barre à 5 % ne retire pas que des sièges : elle déplace les voix.',

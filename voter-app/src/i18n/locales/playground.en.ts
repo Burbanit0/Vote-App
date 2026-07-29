@@ -122,6 +122,21 @@ const pgEn: PlaygroundKeys = {
         irv: 'Under instant-runoff (IRV) too: B, still preferred by the majority, wins no matter how many clones the other camp lines up.',
       },
     },
+    blank: {
+      title: 'The blank vote, four fates',
+      tagline:
+        'The same voters, the same ballot — the rule that counts the blank decides everything.',
+      steps: {
+        clean:
+          'Camille wins with 67% of the vote against Farid’s 33%. A clean win — among those who picked someone.',
+        todayLaw:
+          'Enable the blank vote: 62% of the electorate is too far from both candidates and rejects the choice. Current French law excludes it from the count — Camille stays elected, on 96% of the few expressed votes.',
+        ifCounted:
+          'Count the blank among the expressed votes: Camille’s share drops to 36% of all voters. Below the 50% mark, there’s no clear mandate anymore.',
+        competitive:
+          'Treat the blank as a candidate, Uruguayan-style: at 62%, it outpolls Camille and Farid combined. The race reopens.',
+      },
+    },
     seuil: {
       title: 'The threshold that erases',
       tagline: 'A 5 % bar does not just remove seats: it moves votes.',
