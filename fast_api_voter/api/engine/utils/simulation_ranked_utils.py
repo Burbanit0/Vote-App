@@ -107,6 +107,27 @@ def get_borda_winner(votes: list[Any], blank_candidate_name: str = "") -> Option
     return str(max(scores.items(), key=lambda x: x[1])[0])
 
 
+def get_dowdall_winner(votes: list[Any], blank_candidate_name: str = "") -> Optional[str]:
+    """
+    Determine the Dowdall (Nauru) winner: a positional rule using HARMONIC
+    weights — rank k (0-indexed) scores 1/(k+1), so a strong first choice
+    counts for much more than Borda's linear n-1, n-2, ... weights.
+    :param votes: A list of rankings (see get_condorcet_winner for format)
+    :return: The name of the Dowdall winner
+    """
+    if not votes:
+        return None
+    is_dict = _is_dict_format(votes)
+    scores: "defaultdict[Any, float]" = defaultdict(float)
+    for vote in votes:
+        ranking = _get_ranking(vote, is_dict)
+        for position, candidate in enumerate(ranking):
+            scores[candidate] += 1 / (position + 1)
+    if not scores:
+        return None
+    return str(max(scores.items(), key=lambda x: x[1])[0])
+
+
 def get_black_winner(votes: list[Any], blank_candidate_name: str = "") -> Optional[str]:
     """
     Determine the winner under Black's method (Duncan Black, 1958): elect the

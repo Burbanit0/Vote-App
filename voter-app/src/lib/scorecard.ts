@@ -104,13 +104,13 @@ export const LEADER_RULES: Rule[] = [
   'kemeny',
   'black',
   'anti_plurality',
+  'dowdall',
   'random_ballot',
 ];
 
 /** Tier B: "explained, not compared" — surfaced only in the method gallery and
  * the replay animation, never in the comparison table / scorecard / map picker. */
 export const EXTRA_RULES: Rule[] = [
-  'dowdall',
   'smith_irv',
   'split_cycle',
   'cumulative',
@@ -372,9 +372,9 @@ export const MANIP_COMPLEXITY: Record<Rule, { hard: boolean; label: string; ref:
     ref: 'Bartholdi–Tovey–Trick 1989',
   },
   anti_plurality: { hard: false, label: 'P (calcul trivial)', ref: 'enterrement du rival' },
+  dowdall: { hard: false, label: 'P (calcul trivial)', ref: 'favori en tête, rival en dernier' },
   // Tier B extras — .hard only is read (label/ref come from i18n); never shown as
   // a compared method, so these strings are placeholders.
-  dowdall: { hard: false, label: '', ref: '' },
   smith_irv: { hard: true, label: '', ref: '' },
   split_cycle: { hard: false, label: '', ref: '' },
   cumulative: { hard: false, label: '', ref: '' },

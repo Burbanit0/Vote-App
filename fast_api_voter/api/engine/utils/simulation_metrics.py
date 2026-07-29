@@ -21,6 +21,7 @@ from .simulation_ranked_utils import (
     get_ranked_pairs_winner,
     get_black_winner,
     get_anti_plurality_winner,
+    get_dowdall_winner,
     random_ballot_probabilities,
 )
 from .simulation_score_utils import (
@@ -308,6 +309,7 @@ def compare_all_methods(
         "ranked_pairs": get_ranked_pairs_winner,
         "black":        get_black_winner,
         "anti_plurality": get_anti_plurality_winner,
+        "dowdall":      get_dowdall_winner,
     }
 
     score_methods: Dict[str, Callable[..., Any]] = {

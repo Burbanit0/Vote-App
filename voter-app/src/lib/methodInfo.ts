@@ -108,6 +108,10 @@ export const METHOD_ANALOGY: Record<string, { fr: string; en: string }> = {
     fr: 'Comme choisir un film en demandant à chacun celui qu’il refuse de voir : celui rejeté par le moins de monde passe.',
     en: 'Like picking a movie by asking everyone which one they refuse to watch: the least-rejected one plays.',
   },
+  dowdall: {
+    fr: 'Comme un podium où le 1er vaut deux 2e et trois 3e : un vrai favori pèse bien plus qu’avec Borda.',
+    en: 'Like a podium where 1st is worth two 2nds and three 3rds: a real favourite counts for much more than under Borda.',
+  },
 };
 
 /** Everyday analogy for a method in one language, or null if none. */
