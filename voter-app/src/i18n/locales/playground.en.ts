@@ -503,6 +503,14 @@ const pgEn: PlaygroundKeys = {
       'Voters desert non-viable parties (FPTP: outside their district’s top 2; PR: below the threshold) for their nearest viable party — Duverger’s law as mechanics.',
     duvergerNote:
       'Desertion squeezes non-viable parties toward their viable neighbour: Duverger, as mechanics. The effect reads live on the assembly’s composition →.',
+    blankTitle: 'Blank vote (live)',
+    blankToggle: 'Enable the blank vote',
+    blankHint:
+      'Voters too far from every candidate spoil their ballot instead of voting for one of them.',
+    blankLensLabel: 'Constitutional regime',
+    blankRate: '{{count}} voters out of the total cast a blank ballot ({{pct}} %).',
+    blankLabNote:
+      'To hand-compose a result and compare all four regimes → the Blank Vote sheet in the Lab.',
     svIntro:
       'Share of voters who could improve their outcome by voting insincerely (Gibbard–Satterthwaite, brute force). The lower, the more resistant the method. Heavy compute — on demand, outside the real-time read-out.',
     svComputing: 'Computing… (a few seconds)',

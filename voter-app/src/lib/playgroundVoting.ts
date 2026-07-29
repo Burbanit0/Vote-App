@@ -1035,6 +1035,41 @@ export function applyTurnout(
   return { voters: votes, rate: votes.length / voters.length };
 }
 
+// ── Blank vote (leader mode only) ────────────────────────────────────────────
+//
+// Distinct from turnout: a blank voter still shows up (counts toward the
+// electorate's headcount) but rejects every candidate outright, so their
+// ballot carries no preference at all. Modelled the same way as alienation
+// turnout — beyond a shrinking radius of every candidate — the same Downsian
+// trigger with a different behavioural response (spoil the ballot rather than
+// stay home). `intensity` ∈ [0,1] dials how readily voters reach for blank.
+
+export interface BlankSplit {
+  /** Voters whose ballot counts toward a candidate. */
+  expressed: Pt[];
+  blankCount: number;
+  /** Blank share of ALL participating voters (expressed + blank). */
+  blankShare: number;
+}
+
+export function applyBlankVote(
+  voters: Pt[],
+  cands: NamedPt[],
+  enabled: boolean,
+  intensity: number
+): BlankSplit {
+  if (!enabled || intensity <= 0 || cands.length === 0 || !voters.length) {
+    return { expressed: voters, blankCount: 0, blankShare: 0 };
+  }
+  const k = Math.max(0, Math.min(1, intensity));
+  const radius = (1 - k) * 1.5 + 0.2;
+  const expressed = voters.filter((v) => Math.min(...cands.map((c) => dist(v, c))) <= radius);
+  const blankCount = voters.length - expressed.length;
+  // Keep the demo sane: never blank out the whole electorate.
+  if (expressed.length < 2) return { expressed: voters, blankCount: 0, blankShare: 0 };
+  return { expressed, blankCount, blankShare: blankCount / voters.length };
+}
+
 // ── Seeded spatial electorate (deterministic from seed/ideology) ──────────────
 
 function mulberry32(seed: number): () => number {

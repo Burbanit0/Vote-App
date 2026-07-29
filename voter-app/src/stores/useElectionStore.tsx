@@ -12,6 +12,7 @@
 import React, { useEffect } from 'react';
 import { create } from 'zustand';
 import type { Community } from '../lib/playgroundElectorate';
+import type { BlankLens } from '../lib/blankVote';
 import { track } from '../lib/analytics';
 
 export type { Community };
@@ -311,6 +312,10 @@ export interface PlaygroundState {
   ballot: { type: BallotType; truncate_at: number; score_levels: number };
   /** Electorate realism: differential turnout (Downsian abstention). */
   turnout: { model: 'full' | 'alienation' | 'indifference'; intensity: number };
+  /** Live blank-vote lever (leader mode): voters too far from every candidate
+   *  spoil their ballot instead of voting; `lens` picks the constitutional
+   *  regime (lib/blankVote.ts) that decides what that does to the result. */
+  blank: { enabled: boolean; intensity: number; lens: BlankLens };
   /** Composable electorate (community mixture); 'simple' = the ideology Gaussian. */
   electorate: ElectorateComposition;
   assembly: {
@@ -435,6 +440,7 @@ export const DEFAULT_PLAYGROUND: PlaygroundState = {
   prefParams: {},
   ballot: { type: 'full', truncate_at: 3, score_levels: 6 },
   turnout: { model: 'full', intensity: 0.5 },
+  blank: { enabled: false, intensity: 0.5, lens: 'france_today' },
   electorate: {
     mode: 'simple',
     correlation: ELECTORATE_PRESETS.three_poles.correlation,
@@ -648,6 +654,7 @@ function loadPlayground(): PlaygroundState {
       space: { ...DEFAULT_PLAYGROUND.space, ...(parsed.space ?? {}) },
       ballot: { ...DEFAULT_PLAYGROUND.ballot, ...(parsed.ballot ?? {}) },
       turnout: { ...DEFAULT_PLAYGROUND.turnout, ...(parsed.turnout ?? {}) },
+      blank: { ...DEFAULT_PLAYGROUND.blank, ...(parsed.blank ?? {}) },
       electorate: { ...DEFAULT_PLAYGROUND.electorate, ...(parsed.electorate ?? {}) },
       assembly: { ...DEFAULT_PLAYGROUND.assembly, ...(parsed.assembly ?? {}) },
     };

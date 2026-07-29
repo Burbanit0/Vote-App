@@ -57,10 +57,20 @@ function argmax(xs: number[]): number | null {
 /**
  * @param shares candidate shares as fractions of ALL ballots (need not sum to 1)
  * @param blank  blank share as a fraction of ALL ballots
+ * @param knownWinner override the plurality-leader-of-`shares` winner with one
+ *   already decided by an actual counting rule (Borda/IRV/Condorcet…), so the
+ *   verdict is "blank vs. what THIS rule elected", not "blank vs. first place" —
+ *   the app's whole thesis applied to the blank question. Omit to fall back to
+ *   the abstract mixer's own plurality-of-shares reading (unchanged behaviour).
  */
-export function blankVerdict(shares: number[], blank: number, lens: BlankLens): BlankVerdict {
+export function blankVerdict(
+  shares: number[],
+  blank: number,
+  lens: BlankLens,
+  knownWinner?: number | null
+): BlankVerdict {
   const candTotal = shares.reduce((a, b) => a + b, 0);
-  const w = argmax(shares);
+  const w = knownWinner !== undefined ? knownWinner : argmax(shares);
   const top = w === null ? 0 : shares[w];
 
   switch (lens) {

@@ -511,6 +511,14 @@ const pgFr = {
       'Les électeurs désertent les partis non viables (FPTP : hors du top-2 de leur circonscription ; proportionnelle : sous le seuil) pour leur parti viable le plus proche — la loi de Duverger en mécanique.',
     duvergerNote:
       'La désertion comprime les partis non viables vers leur voisin viable : Duverger, en mécanique. L’effet se lit en direct sur la composition de l’assemblée →.',
+    blankTitle: 'Vote blanc (en direct)',
+    blankToggle: 'Activer le vote blanc',
+    blankHint:
+      'Les électeurs trop loin de tous les candidats déposent un bulletin vide au lieu de voter pour l’un d’eux.',
+    blankLensLabel: 'Régime constitutionnel',
+    blankRate: '{{count}} électeurs sur le total ont voté blanc ({{pct}} %).',
+    blankLabNote:
+      'Pour composer un résultat à la main et comparer les quatre régimes → fiche Vote blanc du Laboratoire.',
     svIntro:
       'Part des électeurs qui pourraient améliorer leur résultat en votant insincèrement (Gibbard–Satterthwaite, par force brute). Plus c’est bas, plus la méthode résiste. Calcul lourd — à la demande, hors lecture temps-réel.',
     svComputing: 'Calcul… (quelques secondes)',

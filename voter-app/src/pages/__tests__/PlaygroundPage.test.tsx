@@ -330,6 +330,28 @@ describe('PlaygroundPage (P0 shell)', () => {
     expect(pct).toBeLessThan(100);
   });
 
+  // ── Vote blanc en direct : un levier vivant, pas seulement la fiche du Lab ──
+
+  it('the blank-vote control persists, reports a live rate, and states a constitutional verdict', () => {
+    renderPage();
+    fireEvent.click(screen.getByTestId('moment-strategy'));
+    fireEvent.click(screen.getByTestId('blank-toggle'));
+    expect(useElectionStore.getState().playground.blank.enabled).toBe(true);
+    expect(JSON.parse(localStorage.getItem(LS_PG) as string).blank.enabled).toBe(true);
+
+    fireEvent.change(screen.getByTestId('blank-intensity'), { target: { value: '0.9' } });
+    const rate = screen.getByTestId('blank-rate').textContent ?? '';
+    const pct = Number((rate.match(/(\d+)\s?%/) ?? [])[1]);
+    expect(pct).toBeGreaterThan(0);
+
+    // france_today (the default lens) always elects someone — a verdict renders.
+    expect(screen.getByTestId('blank-verdict')).toBeInTheDocument();
+
+    // Switching regime is a real state change, not decorative.
+    fireEvent.change(screen.getByTestId('blank-lens-select'), { target: { value: 'competitive' } });
+    expect(useElectionStore.getState().playground.blank.lens).toBe('competitive');
+  });
+
   it('the advanced modules are collapsed by default and open on demand', () => {
     renderPage();
     fireEvent.click(screen.getByTestId('mode-toggle-parliament'));

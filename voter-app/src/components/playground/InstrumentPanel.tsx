@@ -52,7 +52,7 @@ const InstrumentPanel: React.FC<InstrumentPanelProps> = ({ forceShowRuleUi = fal
     voters,
     voterColors,
     leaderCandidates,
-    votingVoters,
+    expressedVoters,
     sampleAtSeed,
     baseSeed,
     moveCandidate,
@@ -135,7 +135,7 @@ const InstrumentPanel: React.FC<InstrumentPanelProps> = ({ forceShowRuleUi = fal
               {isSpatialSource(prefSource) ? (
                 <LeaderCanvas
                   candidates={leaderCandidates}
-                  voters={votingVoters}
+                  voters={expressedVoters}
                   rule={leaderRule}
                   dims={dims}
                   sampleAtSeed={sampleAtSeed}
