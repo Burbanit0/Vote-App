@@ -143,6 +143,33 @@ const FIVE = [
 ];
 const FIVE_ELECTORATE = { num_voters: 500, seed: 2002, ideology: 'polarized' };
 
+// ── Story 7 — the clone strategy (Borda's Achilles heel) ────────────────────
+// A camp can steal an election by fielding a near-identical ally. Borda hands
+// out partial credit for being someone's second choice; the clone siphons that
+// credit away from the true majority winner. Condorcet (pairwise) and IRV
+// (first-choice transfers) never look at "second choice" that way, so the same
+// trick does nothing to them — a clean demonstration of independence of clones.
+const CLONE_A = { name: 'A', x: -0.5, y: 0 };
+const CLONE_A2 = { name: 'A2', x: -0.65, y: 0 };
+const CLONE_B = { name: 'B', x: 0.5, y: 0 };
+const clonesBloc = (id: string, x: number, weight: number): Community => ({
+  id,
+  label: id,
+  x,
+  y: 0,
+  z: 0,
+  spread: 0.12,
+  weight,
+  turnout: 1,
+});
+const CLONES_ELECTORATE = { num_voters: 500, seed: 42, ideology: 'random' };
+const CLONES_COMPOSED: PlaygroundState['electorate'] = {
+  mode: 'composed',
+  correlation: 0,
+  noise: 0,
+  communities: [clonesBloc('P', CLONE_A.x, 0.46), clonesBloc('Q', CLONE_B.x, 0.54)],
+};
+
 // ── Parliament stories (mode: 'parliament') ──────────────────────────────────
 // Seats are allocated by the BACKEND (/api/v2/election/assembly), so unlike the
 // leader stories these beats can't be locked by a client-side winner assertion.
@@ -374,6 +401,43 @@ export const STORIES: Story[] = [
         beatKey: 'stories.five.steps.approval',
         rule: 'approval',
         config: { candidates: FIVE, ...FIVE_ELECTORATE },
+      },
+    ],
+  },
+
+  {
+    id: 'clones',
+    titleKey: 'stories.clones.title',
+    taglineKey: 'stories.clones.tagline',
+    icon: 'Copy',
+    mode: 'leader',
+    steps: [
+      {
+        id: 'duel',
+        beatKey: 'stories.clones.steps.duel',
+        mode: 'leader',
+        rule: 'borda',
+        moment: 'method',
+        playground: { ...LINE('Gauche–Droite'), electorate: CLONES_COMPOSED },
+        config: { candidates: [CLONE_A, CLONE_B], ...CLONES_ELECTORATE },
+      },
+      {
+        id: 'clone',
+        beatKey: 'stories.clones.steps.clone',
+        rule: 'borda',
+        config: { candidates: [CLONE_A, CLONE_A2, CLONE_B], ...CLONES_ELECTORATE },
+      },
+      {
+        id: 'condorcet',
+        beatKey: 'stories.clones.steps.condorcet',
+        rule: 'condorcet',
+        config: { candidates: [CLONE_A, CLONE_A2, CLONE_B], ...CLONES_ELECTORATE },
+      },
+      {
+        id: 'irv',
+        beatKey: 'stories.clones.steps.irv',
+        rule: 'irv',
+        config: { candidates: [CLONE_A, CLONE_A2, CLONE_B], ...CLONES_ELECTORATE },
       },
     ],
   },

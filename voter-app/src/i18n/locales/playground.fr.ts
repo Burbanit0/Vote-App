@@ -112,6 +112,19 @@ const pgFr = {
           'Le vote par approbation couronne lui aussi Bayrou. Bilan : plusieurs présidents pour un seul électorat — la méthode n’est pas neutre.',
       },
     },
+    clones: {
+      title: 'La stratégie du clone',
+      tagline:
+        'Un candidat peut se faire élire en alignant un allié presque identique à lui — mais pas avec n’importe quelle méthode.',
+      steps: {
+        duel: 'Deux candidats sur l’axe gauche–droite. En méthode de Borda, B rassemble 54 % de l’électorat et l’emporte largement.',
+        clone:
+          'Le camp de A aligne un second candidat, A2, presque identique à A mais un peu plus à gauche. Aucun électeur n’a changé d’avis — et pourtant, en Borda, c’est désormais A qui gagne.',
+        condorcet:
+          'Avec Condorcet, le clonage ne sert à rien : B bat toujours A ET A2 en duel, donc B reste vainqueur. La faille était propre à Borda.',
+        irv: 'Au vote alternatif (IRV) non plus : B, toujours préféré par la majorité, l’emporte quel que soit le nombre de clones alignés en face.',
+      },
+    },
     seuil: {
       title: 'Le seuil qui efface',
       tagline: 'Une barre à 5 % ne retire pas que des sièges : elle déplace les voix.',
