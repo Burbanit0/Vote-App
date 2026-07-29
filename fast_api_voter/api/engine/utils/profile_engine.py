@@ -320,8 +320,9 @@ BALLOT_TYPES = (
 
 # Method slugs (compare_all_methods keys) that need CARDINAL intensity.
 _CARDINAL_METHODS = {
-    "evaluative", "majority_judgment", "mean_median_hybrid", "median_voting",
-    "quadratic", "simple_score", "star_voting", "variance_based",
+    "cumulative", "evaluative", "majority_judgment", "maximin",
+    "mean_median_hybrid", "median_voting", "nash", "quadratic",
+    "simple_score", "star_voting", "variance_based",
 }
 _ORDINAL_METHODS = {
     "anti_plurality", "baldwin", "black", "borda", "bucklin", "coombs",

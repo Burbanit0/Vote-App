@@ -177,7 +177,7 @@ describe('Tier B extras (client-only)', () => {
   });
 });
 
-describe('extended method set (21 rules)', () => {
+describe('extended method set (24 rules)', () => {
   it('every rule has a label and resolves to a winner', () => {
     const cands: NamedPt[] = [
       { name: 'A', x: -0.5, y: 0 },

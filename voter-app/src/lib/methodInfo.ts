@@ -112,6 +112,14 @@ export const METHOD_ANALOGY: Record<string, { fr: string; en: string }> = {
     fr: 'Comme un podium où le 1er vaut deux 2e et trois 3e : un vrai favori pèse bien plus qu’avec Borda.',
     en: 'Like a podium where 1st is worth two 2nds and three 3rds: a real favourite counts for much more than under Borda.',
   },
+  maximin: {
+    fr: 'Comme choisir le resto où même la personne la moins servie n’est pas malheureuse, plutôt que la moyenne la plus haute.',
+    en: 'Like picking the restaurant where even the least-happy person isn’t miserable, rather than the highest average.',
+  },
+  nash: {
+    fr: 'Comme un budget partagé où mettre zéro sur un candidat l’élimine d’office — impossible de compenser un seul avis à zéro.',
+    en: 'Like a shared budget where rating one option zero rules it out entirely — no other score can make up for a single zero.',
+  },
 };
 
 /** Everyday analogy for a method in one language, or null if none. */

@@ -44,6 +44,9 @@ from api.engine.utils.simulation_ranked_utils import (  # noqa: E402
 from api.engine.utils.simulation_score_utils import (  # noqa: E402
     get_simple_score_winner,
     get_star_voting_winner,
+    get_cumulative_winner,
+    get_maximin_score_winner,
+    get_nash_winner,
 )
 
 # Client Rule id → backend winner fn. Only the purely ordinal rules both engines
@@ -75,6 +78,9 @@ RULES = {
 CARDINAL = {
     "score": lambda b: get_simple_score_winner(b)["winner"],
     "star": lambda b: get_star_voting_winner(b)["winner"],
+    "cumulative": get_cumulative_winner,
+    "maximin": get_maximin_score_winner,
+    "nash": get_nash_winner,
 }
 
 NAMES = ["A", "B", "C", "D", "E"]

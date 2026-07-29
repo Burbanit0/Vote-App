@@ -17,7 +17,10 @@ const FAMILIES: RuleFamily[] = [
     key: 'condorcet',
     rules: ['condorcet', 'minimax', 'schulze', 'ranked_pairs', 'kemeny', 'black'],
   },
-  { key: 'cardinal', rules: ['approval', 'score', 'star', 'majority_judgment'] },
+  {
+    key: 'cardinal',
+    rules: ['approval', 'score', 'star', 'majority_judgment', 'cumulative', 'maximin', 'nash'],
+  },
   { key: 'other', rules: ['random_ballot'] },
 ];
 
