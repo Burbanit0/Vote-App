@@ -116,8 +116,8 @@ describe('LeaderCanvas', () => {
     expect(screen.getByTestId('lens-criteria')).toHaveAttribute('aria-checked', 'true');
     expect(screen.queryByTestId('winregion')).not.toBeInTheDocument();
     await waitFor(() => expect(screen.getByTestId('criteria-matrix')).toBeInTheDocument());
-    // One row per rule (20 leader rules) and a Condorcet ring on the map.
-    expect(screen.getByTestId('criteria-matrix').querySelectorAll('tbody tr').length).toBe(20);
+    // One row per rule (21 leader rules) and a Condorcet ring on the map.
+    expect(screen.getByTestId('criteria-matrix').querySelectorAll('tbody tr').length).toBe(21);
     expect(screen.getByTestId('condorcet-marker')).toBeInTheDocument();
     // The constructed no-show paradox demo accompanies the criteria matrix.
     expect(screen.getByTestId('noshow-demo')).toBeInTheDocument();

@@ -45,6 +45,7 @@ export type Rule =
   | 'kemeny'
   | 'black'
   | 'anti_plurality'
+  | 'dowdall'
   | 'random_ballot'
   | 'star'
   | 'majority_judgment'
@@ -52,7 +53,6 @@ export type Rule =
   // ── Tier B: "explained, not compared" — client-only extras. Available in the
   // method gallery + replay animation, but excluded from the comparison surfaces
   // (Bilan table, map picker, scorecard). No backend twin, no parity fixture. ──
-  | 'dowdall'
   | 'smith_irv'
   | 'split_cycle'
   | 'cumulative'
@@ -844,15 +844,15 @@ export function ruleWinnerFromRanks(
       return winBlack(ranks, m);
     case 'anti_plurality':
       return winAntiPlurality(ranks, m);
-    // Tier B extras (client-only; no backend parity).
     case 'dowdall':
       return winDowdall(ranks, m);
+    case 'kemeny':
+      return winKemeny(ranks, m);
+    // Tier B extras (client-only; no backend parity).
     case 'smith_irv':
       return winSmithIRV(ranks, m);
     case 'split_cycle':
       return winSplitCycle(ranks, m);
-    case 'kemeny':
-      return winKemeny(ranks, m);
     case 'cumulative':
       return scores ? winCumulative(scores, m) : winPlurality(ranks, m);
     case 'maximin':

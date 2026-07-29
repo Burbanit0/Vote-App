@@ -31,6 +31,7 @@ from api.engine.utils.simulation_ranked_utils import (  # noqa: E402
     get_bucklin_winner,
     get_condorcet_winner,
     get_coombs_winner,
+    get_dowdall_winner,
     get_irv_winner,
     get_kemeny_young_winner,
     get_minimax_winner,
@@ -63,6 +64,7 @@ RULES = {
     "kemeny": get_kemeny_young_winner,
     "black": get_black_winner,
     "anti_plurality": get_anti_plurality_winner,
+    "dowdall": get_dowdall_winner,
 }
 
 # Cardinal rules that take the SAME per-voter score vector on both engines (so a
