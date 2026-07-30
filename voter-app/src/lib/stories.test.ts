@@ -228,4 +228,24 @@ describe('stories — load-bearing outcomes hold on the seeded electorate', () =
     expect(v?.winner).toBeNull();
     expect(v?.redo).toBe(true);
   });
+
+  it('monotonie: Nora wins IRV; once the swing bloc promotes her to 1st choice, Yanis wins instead', () => {
+    expect(winnerAt('monotonie', 'avant')).toBe('Nora');
+    expect(winnerAt('monotonie', 'apres')).toBe('Yanis');
+  });
+
+  it('monotonie: Nora truly gains first-preference support between the two beats', () => {
+    const firstPrefShare = (stepId: string, name: string) => {
+      const { voters, cands } = stateAt('monotonie', stepId);
+      const ranks = computeRanks(voters, cands);
+      const idx = cands.findIndex((c) => c.name === name);
+      return ranks.filter((r) => r[0] === idx).length / ranks.length;
+    };
+    expect(firstPrefShare('apres', 'Nora')).toBeGreaterThan(firstPrefShare('avant', 'Nora'));
+  });
+
+  it('renversement: Malik wins plurality both as cast and with every ballot reversed', () => {
+    expect(winnerAt('renversement', 'avant')).toBe('Malik');
+    expect(winnerAt('renversement', 'inverse')).toBe('Malik');
+  });
 });
