@@ -47,6 +47,7 @@ export type Rule =
   | 'anti_plurality'
   | 'dowdall'
   | 'raynaud'
+  | 'benham'
   | 'random_ballot'
   | 'star'
   | 'majority_judgment'
@@ -59,7 +60,6 @@ export type Rule =
   // (Bilan table, map picker, scorecard). No backend twin, no parity fixture. ──
   | 'smith_irv'
   | 'split_cycle'
-  | 'benham'
   | 'river';
 
 export const RULE_LABELS: Record<Rule, string> = {
@@ -850,6 +850,8 @@ export function ruleWinnerFromRanks(
       return winKemeny(ranks, m);
     case 'raynaud':
       return winRaynaud(ranks, m);
+    case 'benham':
+      return winBenham(ranks, m);
     case 'cumulative':
       return scores ? winCumulative(scores, m) : winPlurality(ranks, m);
     case 'maximin':
@@ -861,8 +863,6 @@ export function ruleWinnerFromRanks(
       return winSmithIRV(ranks, m);
     case 'split_cycle':
       return winSplitCycle(ranks, m);
-    case 'benham':
-      return winBenham(ranks, m);
     case 'river':
       return winRiver(ranks, m);
     default:

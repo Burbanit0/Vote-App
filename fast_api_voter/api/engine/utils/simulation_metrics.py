@@ -23,6 +23,7 @@ from .simulation_ranked_utils import (
     get_anti_plurality_winner,
     get_dowdall_winner,
     get_raynaud_winner,
+    get_benham_winner,
     random_ballot_probabilities,
 )
 from .simulation_score_utils import (
@@ -315,6 +316,7 @@ def compare_all_methods(
         "anti_plurality": get_anti_plurality_winner,
         "dowdall":      get_dowdall_winner,
         "raynaud":      get_raynaud_winner,
+        "benham":       get_benham_winner,
     }
 
     score_methods: Dict[str, Callable[..., Any]] = {

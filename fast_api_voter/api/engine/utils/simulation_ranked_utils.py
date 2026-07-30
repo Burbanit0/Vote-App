@@ -140,6 +140,52 @@ def get_black_winner(votes: list[Any], blank_candidate_name: str = "") -> Option
     return condorcet if condorcet is not None else get_borda_winner(votes, blank_candidate_name)
 
 
+def get_benham_winner(votes: list[Any], blank_candidate_name: str = "") -> Optional[str]:
+    """
+    Benham's method (Condorcet-IRV): at the start of each round, elect the
+    Condorcet winner among the REMAINING candidates if one exists; otherwise
+    eliminate every candidate tied for fewest first-preferences (as IRV does)
+    and repeat. Condorcet-consistent while keeping IRV's clone-resistance.
+    Tie-break if no majority winner emerges: alphabetical.
+
+    :param votes: A list of rankings (see get_condorcet_winner for format)
+    :return: The name of the Benham winner
+    """
+    if not votes:
+        return None
+    is_dict = _is_dict_format(votes)
+    ballots = [_get_ranking(v, is_dict) for v in votes]
+    all_cands: list[Any] = []
+    seen: set[Any] = set()
+    for ranking in ballots:
+        for c in ranking:
+            if c not in seen:
+                seen.add(c)
+                all_cands.append(c)
+    if not all_cands:
+        return None
+
+    active = set(all_cands)
+    while len(active) > 1:
+        filtered = [[c for c in r if c in active] for r in ballots]
+        # Condorcet check restricted to the active candidates: every ballot
+        # here only ranks active candidates, so get_condorcet_winner already
+        # computes the sub-election's Condorcet winner unmodified.
+        condorcet = get_condorcet_winner(filtered)
+        if condorcet is not None:
+            return condorcet
+
+        first_choice: "Counter[Any]" = Counter(r[0] for r in filtered if r)
+        counts = {c: first_choice.get(c, 0) for c in active}
+        min_count = min(counts.values())
+        doomed = {c for c in active if counts[c] == min_count}
+        if len(doomed) >= len(active):
+            break
+        active -= doomed
+
+    return min(active) if active else None
+
+
 def get_plurality_winner(votes: list[Any], blank_candidate_name: str = "") -> Optional[str]:
     """
     Determine the plurality winner from a set of rankings.
