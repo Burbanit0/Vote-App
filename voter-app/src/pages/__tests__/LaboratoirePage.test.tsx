@@ -179,6 +179,31 @@ describe('LaboratoirePage — the bench', () => {
     expect(screen.getByTestId('lens-card-competitive')).toHaveTextContent(/reopens|Do it again/);
   }, 20000);
 
+  it('the blank-vote fiche can switch to the real Playground electorate instead of the hand-set mixer', async () => {
+    renderLab('/laboratoire?exp=thy-blank');
+    await waitFor(() => expect(screen.getByTestId('blank-vote-panel')).toBeInTheDocument(), {
+      timeout: 15000,
+    });
+    // Manual mode: abstract A/B/C sliders, editable.
+    expect(screen.getByTestId('blank-cand-0')).toBeInTheDocument();
+    expect(screen.queryByText(DEFAULT_CONFIG.candidates[0].name)).not.toBeInTheDocument();
+
+    fireEvent.click(screen.getByTestId('blank-real-toggle'));
+
+    // Real mode: the actual Playground candidates, read-only (no more sliders),
+    // plus a computed blank share for whoever's too far from all of them.
+    expect(screen.getByTestId('blank-real-toggle')).toHaveAttribute('aria-pressed', 'true');
+    expect(screen.queryByTestId('blank-cand-0')).not.toBeInTheDocument();
+    for (const c of DEFAULT_CONFIG.candidates) {
+      expect(screen.getByText(c.name)).toBeInTheDocument();
+    }
+    expect(screen.getByTestId('blank-real-share')).toHaveTextContent(/%$/);
+
+    // Toggling back restores the hand-set mixer untouched.
+    fireEvent.click(screen.getByTestId('blank-real-toggle'));
+    expect(screen.getByTestId('blank-cand-0')).toBeInTheDocument();
+  }, 20000);
+
   it('the regime atlas globe renders dots and toggles its colour lens', async () => {
     renderLab('/laboratoire?exp=sys-atlas');
     await waitFor(() => expect(screen.getByTestId('regime-globe')).toBeInTheDocument(), {

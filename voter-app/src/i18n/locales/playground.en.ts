@@ -814,6 +814,9 @@ const pgEn: PlaygroundKeys = {
     act2Lede:
       'Build a result, push the blank until it dominates, and watch: the same vote meets four fates depending on the counting rule. None is "the right one" — that is the question.',
     mixerTitle: 'Compose the result',
+    realToggle: 'Use my electorate',
+    realHint:
+      'These shares come from the electorate currently configured in the Playground (candidates, voters) — including those too far from all of them to pick one, counted as blank at the same radius as the Strategy moment’s own slider.',
     presets: {
       balanced: 'Balanced',
       blankLeads: 'Blank leads',
