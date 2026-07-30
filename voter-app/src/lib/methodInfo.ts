@@ -132,6 +132,10 @@ export const METHOD_ANALOGY: Record<string, { fr: string; en: string }> = {
     fr: 'Comme les paires ordonnées, mais chaque candidat n’accepte qu’un seul patron — un arbre généalogique plutôt qu’un réseau de dettes.',
     en: 'Like ranked pairs, but each candidate only answers to one boss — a family tree rather than a web of debts.',
   },
+  smith_irv: {
+    fr: 'Comme un tournoi à élimination, mais restreint d’abord au petit groupe de tête qui bat tout le reste — les autres ne jouent même pas.',
+    en: 'Like a knockout tournament, but first narrowed to the small top group that beats everyone else — the rest never even play.',
+  },
 };
 
 /** Everyday analogy for a method in one language, or null if none. */

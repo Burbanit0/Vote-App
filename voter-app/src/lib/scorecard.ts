@@ -111,12 +111,13 @@ export const LEADER_RULES: Rule[] = [
   'raynaud',
   'benham',
   'river',
+  'smith_irv',
   'random_ballot',
 ];
 
 /** Tier B: "explained, not compared" — surfaced only in the method gallery and
  * the replay animation, never in the comparison table / scorecard / map picker. */
-export const EXTRA_RULES: Rule[] = ['smith_irv', 'split_cycle'];
+export const EXTRA_RULES: Rule[] = ['split_cycle'];
 
 /** Stated convention: ballot expressiveness + tally complexity, 1 = simplest. */
 const SIMPLICITY: Record<Rule, number> = {
@@ -402,9 +403,13 @@ export const MANIP_COMPLEXITY: Record<Rule, { hard: boolean; label: string; ref:
     label: 'P (paires ordonnées)',
     ref: 'Heitzig — variante arborescente des paires ordonnées',
   },
+  smith_irv: {
+    hard: true,
+    label: 'NP-difficile (hérite de l’IRV)',
+    ref: 'Bartholdi–Orlin 1991 (STV/IRV)',
+  },
   // Tier B extras — .hard only is read (label/ref come from i18n); never shown as
   // a compared method, so these strings are placeholders.
-  smith_irv: { hard: true, label: '', ref: '' },
   split_cycle: { hard: false, label: '', ref: '' },
 };
 

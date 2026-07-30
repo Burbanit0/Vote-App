@@ -913,6 +913,86 @@ def get_river_winner(votes: list[Any], blank_candidate_name: str = "") -> Option
     return roots[0] if roots else get_condorcet_winner(votes, blank_candidate_name)
 
 
+def _smith_set(pw: dict[str, dict[str, int]], members: list[str]) -> list[str]:
+    """
+    The Smith set (GETCHA) restricted to `members`: the smallest non-empty
+    set that each beat-or-tie every member outside it, from an already-
+    computed pairwise matrix `pw`. `members` must be pre-sorted
+    (alphabetical) so a Copeland-score tie breaks deterministically.
+    """
+    if len(members) <= 1:
+        return list(members)
+    copeland: dict[str, int] = {}
+    for i in members:
+        score = 0
+        for j in members:
+            if i == j:
+                continue
+            if pw[i][j] > pw[j][i]:
+                score += 1
+            elif pw[i][j] < pw[j][i]:
+                score -= 1
+        copeland[i] = score
+    order = sorted(members, key=lambda c: -copeland[c])
+    for k in range(1, len(order) + 1):
+        top = set(order[:k])
+        dominant = True
+        for i in top:
+            for j in members:
+                if j not in top and pw[j][i] > pw[i][j]:
+                    dominant = False
+                    break
+            if not dominant:
+                break
+        if dominant:
+            return sorted(top)
+    return list(members)
+
+
+def get_smith_irv_winner(votes: list[Any], blank_candidate_name: str = "") -> Optional[str]:
+    """
+    Smith-IRV (Tideman's Alternative): restrict to the Smith set, eliminate
+    the candidate(s) tied for fewest first-preferences among the survivors,
+    and repeat. Condorcet-consistent and clone-independent.
+    """
+    if not votes:
+        return None
+    is_dict = _is_dict_format(votes)
+    ballots = [_get_ranking(v, is_dict) for v in votes]
+    all_cands: list[Any] = []
+    seen: set[Any] = set()
+    for ranking in ballots:
+        for c in ranking:
+            if c not in seen:
+                seen.add(c)
+                all_cands.append(c)
+    if not all_cands:
+        return None
+
+    # Pairwise counts between two surviving candidates never change as OTHER
+    # candidates are eliminated, so compute this once, not per round.
+    pw = _pairwise_wins(votes)
+    active = set(all_cands)
+    while len(active) > 1:
+        smith = _smith_set(pw, sorted(active))
+        if len(smith) == 1:
+            return smith[0]
+        active = set(smith)
+        if len(active) == 1:
+            return str(next(iter(active)))
+
+        filtered = [[c for c in r if c in active] for r in ballots]
+        first_choice: "Counter[Any]" = Counter(r[0] for r in filtered if r)
+        counts = {c: first_choice.get(c, 0) for c in active}
+        min_count = min(counts.values())
+        doomed = {c for c in active if counts[c] == min_count}
+        if len(doomed) >= len(active):
+            break
+        active -= doomed
+
+    return min(active) if active else None
+
+
 def random_ballot_probabilities(votes: list[Any]) -> dict[str, float]:
     """
     Win probabilities under the random-ballot rule (Gibbard, 1977).

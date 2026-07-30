@@ -49,6 +49,7 @@ export type Rule =
   | 'raynaud'
   | 'benham'
   | 'river'
+  | 'smith_irv'
   | 'random_ballot'
   | 'star'
   | 'majority_judgment'
@@ -59,7 +60,6 @@ export type Rule =
   // ── Tier B: "explained, not compared" — client-only extras. Available in the
   // method gallery + replay animation, but excluded from the comparison surfaces
   // (Bilan table, map picker, scorecard). No backend twin, no parity fixture. ──
-  | 'smith_irv'
   | 'split_cycle';
 
 export const RULE_LABELS: Record<Rule, string> = {
@@ -854,6 +854,8 @@ export function ruleWinnerFromRanks(
       return winBenham(ranks, m);
     case 'river':
       return winRiver(ranks, m);
+    case 'smith_irv':
+      return winSmithIRV(ranks, m);
     case 'cumulative':
       return scores ? winCumulative(scores, m) : winPlurality(ranks, m);
     case 'maximin':
@@ -861,8 +863,6 @@ export function ruleWinnerFromRanks(
     case 'nash':
       return scores ? winNash(scores, m) : winPlurality(ranks, m);
     // Tier B extras (client-only; no backend parity).
-    case 'smith_irv':
-      return winSmithIRV(ranks, m);
     case 'split_cycle':
       return winSplitCycle(ranks, m);
     default:
