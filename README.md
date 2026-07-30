@@ -14,23 +14,23 @@ on the same electorate.
 Vote Lab is built around **one instrument** — the Playground — where you configure a
 complete election and watch it through several lenses at once:
 
-- Run the same ballots through **29 voting methods** (17 in the Playground, 12 more
-  in the Laboratoire) and compare who wins
+- Run the same ballots through **29 voting methods** and compare who wins
 - A **5-moment rail** — Électorat → Méthode → Stratégie → Campagne → Bilan — walks a
   full election from population to verdict, with a **Dirigeant ↔ Assemblée** toggle
   (single-winner vs proportional parliament)
-- **Drag candidates** on the 2D ideological map and watch voter win-zones (Voronoi)
-  redraw in real time; toggle analytical **lenses** (manipulability, criteria,
-  win-regions…) over the map
-- Stream **Monte Carlo** robustness runs with live convergence charts
-- Study **strategic voting, blank-vote contagion, campaign trajectories, valence,
-  and real-election backtests** as pure analytical panels
-- Explore historical elections (France 2002, USA 1992, Germany 2021…) as presets
+- **Drag candidates** on the ideological map and watch win-zones redraw live; switch
+  analytical **lenses** (winner, manipulation, probability, criteria) over the map
+- **14 guided stories** replay a specific paradox step by step on the live instrument
+  (spoiler effect, monotonicity failure, later-no-harm, blank-vote regimes…)
+- Study strategic voting, blank-vote contagion, campaign trajectories, valence, and
+  real-election backtests (France 2002, USA 1992, Germany 2021…) as analytical panels
+- **Vote yourself** in a real 41-voter election under 5 ballot languages at
+  `/a-vous-de-jouer`
 
-The **Laboratoire** (`/laboratoire`) gathers the advanced, on-demand content
+The **Laboratoire** (`/laboratoire`) gathers 62 fiches of deeper, on-demand content
 (paradoxes, impossibility theorems, alternative governance systems, behavioural
-realism, exotic Condorcet methods) reading the **same election state** as the
-Playground — configure once, explore in depth.
+realism) reading the **same election state** as the Playground — configure once,
+explore in depth.
 
 ---
 
@@ -136,35 +136,31 @@ and privacy posture: [`analytics/README.md`](analytics/README.md).
 
 ## Routes
 
-The app is anonymous (no accounts) with two destinations:
+The app is anonymous (no accounts), with three real destinations:
 
 | Route | Description |
 |---|---|
 | `/` | Home — thesis landing, routes into the Playground |
+| `/decouvrir` | Two-minute on-ramp for visitors who only know one voting method |
 | `/playground` | **The instrument** — 5-moment rail, ideological map + lenses, Dirigeant/Assemblée |
-| `/laboratoire` | Everything deeper — theory, paradoxes, mechanisms, systems, behavioural realism, +12 methods (reads the same electorate state as the playground) |
-| `/teacher/presentation` | Teacher-mode slide capture/export |
+| `/laboratoire` | Everything deeper — theory, paradoxes, mechanisms, systems, behavioural realism (reads the same electorate state as the Playground) |
+| `/a-vous-de-jouer` | Vote yourself in a real election under 5 ballot languages |
 
 All retired routes (`/theory`, `/what-if`, `/quiz`, `/quadratic-funding`,
 `/tech-democracy`, `/regimes-internationaux`, `/election-lab`, `/campagne`,
 `/galerie`, `/scenario-builder`, `/simulation/compare`, old account routes) redirect
-to `/playground` or `/laboratoire` — their content was folded into those two.
+to `/playground` or `/laboratoire` — their content was folded into those two. The
+former teacher-mode slide export was removed outright (no route, no redirect).
 
 ---
 
 ## Voting Methods (29)
 
-**Playground (17):** Plurality, Two-Round, IRV, Borda, Approval, Condorcet, Minimax,
-Schulze, Bucklin, Coombs, Nanson, Baldwin, Ranked Pairs, Random Ballot, STAR,
-Majority Judgment, Score.
-
-**Laboratoire (+12):** Anti-plurality, Dowdall, Black, Smith/IRV, Split Cycle,
-Kemeny-Young, Cumulative, Maximin, Benham, River, Nash, Raynaud.
-
-Every method is defined in [THEORY.md §2](THEORY.md). The rules exist in **two
-implementations** — a fast client engine (`voter-app/src/lib/playgroundVoting.ts`)
-and the authoritative backend engine (`fast_api_voter/api/engine/utils/`) — kept
-identical by a golden-fixture parity test.
+All 29 rules — majoritarian, positional, 11 Condorcet variants, and cardinal — are
+selectable in the Playground and defined in [THEORY.md §2](THEORY.md). Each rule
+exists in **two implementations** — a fast client engine
+(`voter-app/src/lib/playgroundVoting.ts`) and the authoritative backend engine
+(`fast_api_voter/api/engine/utils/`) — kept identical by a golden-fixture parity test.
 
 ---
 
@@ -185,8 +181,8 @@ Rate-limited (60 req/min), no authentication.
 
 ```
 GET  /api/v1/methods           # method list with descriptions
-GET  /api/openapi.json         # OpenAPI 3.0 spec
-POST /api/v2/elections/...     # authoritative election + simulation endpoints
+GET  /api/v2/openapi.json      # OpenAPI 3.0 spec
+POST /api/v2/election/...      # authoritative election + simulation endpoints
 ```
 
 The frontend consumes the OpenAPI schema via a typed `openapi-fetch` client
