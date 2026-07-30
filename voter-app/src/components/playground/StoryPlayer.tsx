@@ -14,6 +14,7 @@ import {
   Ban,
   TrendingUp,
   Repeat,
+  ThumbsUp,
   BookOpen,
   X,
   type LucideIcon,
@@ -51,6 +52,7 @@ const ICONS: Record<string, LucideIcon> = {
   Ban,
   TrendingUp,
   Repeat,
+  ThumbsUp,
 };
 
 interface Snapshot {

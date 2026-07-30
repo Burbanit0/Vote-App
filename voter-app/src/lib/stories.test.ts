@@ -248,4 +248,19 @@ describe('stories — load-bearing outcomes hold on the seeded electorate', () =
     expect(winnerAt('renversement', 'avant')).toBe('Malik');
     expect(winnerAt('renversement', 'inverse')).toBe('Malik');
   });
+
+  it('soutien: Léa wins approval; once the swing bloc sincerely also approves Hugo, he overtakes her', () => {
+    expect(winnerAt('soutien', 'avant')).toBe('Léa');
+    expect(winnerAt('soutien', 'apres')).toBe('Hugo');
+  });
+
+  it('soutien: the swing bloc’s favourite (first preference) never changes across the two beats', () => {
+    const firstPrefShare = (stepId: string, name: string) => {
+      const { voters, cands } = stateAt('soutien', stepId);
+      const ranks = computeRanks(voters, cands);
+      const idx = cands.findIndex((c) => c.name === name);
+      return ranks.filter((r) => r[0] === idx).length / ranks.length;
+    };
+    expect(firstPrefShare('apres', 'Léa')).toBeCloseTo(firstPrefShare('avant', 'Léa'), 1);
+  });
 });
