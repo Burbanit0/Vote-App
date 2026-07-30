@@ -12,7 +12,7 @@
 // than silently lying to the visitor.
 
 import type { ElectionConfig, PlaygroundMode, PlaygroundState } from '../stores/useElectionStore';
-import type { Rule } from './playgroundVoting';
+import type { NamedPt, Rule } from './playgroundVoting';
 import type { Community } from './playgroundElectorate';
 import type { MomentId } from '../components/playground/MomentRail';
 
@@ -205,6 +205,152 @@ const BLANK = (lens: 'france_today' | 'in_exprimes' | 'competitive'): Playground
   intensity: 0.7,
   lens,
 });
+
+// ── Story 8 — non-monotonicity: winning support, losing the election ────────
+// A phenomenon internal to a SINGLE rule (unlike every story above, which
+// compares rules on one electorate): under IRV, a swing bloc that promotes a
+// candidate from their 2nd choice to their 1st can cause that SAME candidate
+// to lose. Built from exact permutation blocs (an "anchor" point per full
+// ranking, tight spread) rather than a free-form spatial field, so first-
+// preference counts are exact and hand-verifiable:
+//   base (34): Nora>Yanis>Karim · yanisBase (27): Yanis>Nora>Karim
+//   karimBase (20): Karim>Yanis>Nora · swing (10): Karim>Nora>Yanis → Nora>Karim>Yanis
+// Before: Yanis fewest (29%) is eliminated, transfers to Nora (61% vs Karim's
+// 30%) → Nora wins. After the swing bloc promotes Nora to 1st (her first-place
+// share rises 38%→49%), Karim becomes fewest instead and HIS transfer goes to
+// Yanis (his 2nd choice) → Yanis wins. Nora gained votes and lost the election.
+const MONO_NORA: NamedPt = { name: 'Nora', x: 0.0, y: 0.8 };
+const MONO_KARIM: NamedPt = { name: 'Karim', x: 0.7, y: -0.5 };
+const MONO_YANIS: NamedPt = { name: 'Yanis', x: -0.7, y: -0.5 };
+const MONO_CANDS = [MONO_NORA, MONO_KARIM, MONO_YANIS];
+// Anchor a bloc so its ballot is exactly X≻Y≻Z (closest to X, then Y, then Z).
+const permAnchor = (X: NamedPt, Y: NamedPt, Z: NamedPt) => ({
+  x: 0.75 * X.x + 0.2 * Y.x + 0.05 * Z.x,
+  y: 0.75 * X.y + 0.2 * Y.y + 0.05 * Z.y,
+});
+const permBloc = (
+  id: string,
+  label: string,
+  pos: { x: number; y: number },
+  weight: number
+): Community => ({
+  id,
+  label,
+  x: pos.x,
+  y: pos.y,
+  z: 0,
+  spread: 0.02,
+  weight,
+  turnout: 1,
+});
+const MONO_ELECTORATE = { num_voters: 6000, seed: 123, ideology: 'random' };
+const MONO_BASE = permBloc(
+  'base',
+  'Base de Nora (Nora≻Yanis≻Karim)',
+  permAnchor(MONO_NORA, MONO_YANIS, MONO_KARIM),
+  34
+);
+const MONO_YANIS_BASE = permBloc(
+  'yanisBase',
+  'Base de Yanis (Yanis≻Nora≻Karim)',
+  permAnchor(MONO_YANIS, MONO_NORA, MONO_KARIM),
+  27
+);
+const MONO_KARIM_BASE = permBloc(
+  'karimBase',
+  'Base de Karim (Karim≻Yanis≻Nora)',
+  permAnchor(MONO_KARIM, MONO_YANIS, MONO_NORA),
+  20
+);
+const MONO_SWING_BEFORE = permBloc(
+  'swing',
+  'Indécis (Karim≻Nora≻Yanis)',
+  permAnchor(MONO_KARIM, MONO_NORA, MONO_YANIS),
+  10
+);
+const MONO_SWING_AFTER = permBloc(
+  'swing',
+  'Indécis, convaincus (Nora≻Karim≻Yanis)',
+  permAnchor(MONO_NORA, MONO_KARIM, MONO_YANIS),
+  10
+);
+const MONO_BEFORE: PlaygroundState['electorate'] = {
+  mode: 'composed',
+  correlation: 0,
+  noise: 0,
+  communities: [MONO_BASE, MONO_YANIS_BASE, MONO_KARIM_BASE, MONO_SWING_BEFORE],
+};
+const MONO_AFTER: PlaygroundState['electorate'] = {
+  mode: 'composed',
+  correlation: 0,
+  noise: 0,
+  communities: [MONO_BASE, MONO_YANIS_BASE, MONO_KARIM_BASE, MONO_SWING_AFTER],
+};
+
+// ── Story 9 — reversal symmetry: the same winner, upside down ───────────────
+// A candidate adored by a large loyal base but ranked LAST by everyone else
+// wins plurality both ways: as cast, and with EVERY ballot flipped end to end.
+// Reversing a ballot turns each voter's last choice into their first, so a
+// candidate who was already the most-rejected elsewhere becomes the new
+// front-runner of the reversed field too — plurality only ever looks at
+// whoever is "first", so it cannot tell "beloved" from "despised" apart.
+//   avant:   Malik≻Sami≻Inès (40) · Inès≻Sami≻Malik (32) · Sami≻Inès≻Malik (28)
+//   inverse: Inès≻Sami≻Malik (40) · Malik≻Sami≻Inès (32) · Malik≻Inès≻Sami (28)
+// (the "inverse" blocs are literally each "avant" bloc's ranking reversed)
+const REV_MALIK: NamedPt = { name: 'Malik', x: 0.0, y: 0.75 };
+const REV_INES: NamedPt = { name: 'Inès', x: 0.65, y: -0.45 };
+const REV_SAMI: NamedPt = { name: 'Sami', x: -0.65, y: -0.45 };
+const REV_CANDS = [REV_MALIK, REV_INES, REV_SAMI];
+const REV_AVANT: PlaygroundState['electorate'] = {
+  mode: 'composed',
+  correlation: 0,
+  noise: 0,
+  communities: [
+    permBloc(
+      'base',
+      'Base de Malik (Malik≻Sami≻Inès)',
+      permAnchor(REV_MALIK, REV_SAMI, REV_INES),
+      40
+    ),
+    permBloc(
+      'centreInes',
+      'Centre (Inès≻Sami≻Malik)',
+      permAnchor(REV_INES, REV_SAMI, REV_MALIK),
+      32
+    ),
+    permBloc(
+      'centreSami',
+      'Centre (Sami≻Inès≻Malik)',
+      permAnchor(REV_SAMI, REV_INES, REV_MALIK),
+      28
+    ),
+  ],
+};
+const REV_INVERSE: PlaygroundState['electorate'] = {
+  mode: 'composed',
+  correlation: 0,
+  noise: 0,
+  communities: [
+    permBloc(
+      'base-rev',
+      'Base de Malik, bulletin renversé',
+      permAnchor(REV_INES, REV_SAMI, REV_MALIK),
+      40
+    ),
+    permBloc(
+      'centreInes-rev',
+      'Centre, bulletin renversé',
+      permAnchor(REV_MALIK, REV_SAMI, REV_INES),
+      32
+    ),
+    permBloc(
+      'centreSami-rev',
+      'Centre, bulletin renversé',
+      permAnchor(REV_MALIK, REV_INES, REV_SAMI),
+      28
+    ),
+  ],
+};
 
 // ── Parliament stories (mode: 'parliament') ──────────────────────────────────
 // Seats are allocated by the BACKEND (/api/v2/election/assembly), so unlike the
@@ -509,6 +655,58 @@ export const STORIES: Story[] = [
         id: 'competitive',
         beatKey: 'stories.blank.steps.competitive',
         playground: { blank: BLANK('competitive') },
+      },
+    ],
+  },
+
+  {
+    id: 'monotonie',
+    titleKey: 'stories.monotonie.title',
+    taglineKey: 'stories.monotonie.tagline',
+    icon: 'TrendingUp',
+    mode: 'leader',
+    steps: [
+      {
+        id: 'avant',
+        beatKey: 'stories.monotonie.steps.avant',
+        mode: 'leader',
+        rule: 'irv',
+        moment: 'method',
+        playground: { space: PLANE.space, electorate: MONO_BEFORE },
+        config: { candidates: MONO_CANDS, ...MONO_ELECTORATE },
+      },
+      {
+        id: 'apres',
+        beatKey: 'stories.monotonie.steps.apres',
+        rule: 'irv',
+        playground: { electorate: MONO_AFTER },
+        config: { candidates: MONO_CANDS, ...MONO_ELECTORATE },
+      },
+    ],
+  },
+
+  {
+    id: 'renversement',
+    titleKey: 'stories.renversement.title',
+    taglineKey: 'stories.renversement.tagline',
+    icon: 'Repeat',
+    mode: 'leader',
+    steps: [
+      {
+        id: 'avant',
+        beatKey: 'stories.renversement.steps.avant',
+        mode: 'leader',
+        rule: 'plurality',
+        moment: 'bilan',
+        playground: { space: PLANE.space, electorate: REV_AVANT },
+        config: { candidates: REV_CANDS, num_voters: 6000, seed: 55, ideology: 'random' },
+      },
+      {
+        id: 'inverse',
+        beatKey: 'stories.renversement.steps.inverse',
+        rule: 'plurality',
+        playground: { electorate: REV_INVERSE },
+        config: { candidates: REV_CANDS, num_voters: 6000, seed: 55, ideology: 'random' },
       },
     ],
   },

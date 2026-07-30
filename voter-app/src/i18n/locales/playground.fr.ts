@@ -140,6 +140,28 @@ const pgFr = {
           'Traitez le blanc comme un candidat, régime uruguayen : à 62 %, il devance Camille et Farid réunis. La candidature est rouverte.',
       },
     },
+    monotonie: {
+      title: 'Gagner des voix, perdre l’élection',
+      tagline:
+        'Sous le vote alternatif, convaincre de nouveaux électeurs peut, dans certains cas, vous faire perdre.',
+      steps: {
+        avant:
+          'Vote alternatif (IRV), trois candidats. Premiers choix : Nora 38 %, Karim 32 %, Yanis 29 %. Yanis, le moins soutenu, est éliminé — ses voix se reportent sur Nora, qui l’emporte.',
+        apres:
+          'Un groupe d’indécis, qui plaçait Karim en tête et Nora juste derrière, se laisse convaincre par Nora et la place désormais en tête. Son score de premier choix grimpe à 49 %. Et pourtant : c’est Karim qui est maintenant le moins soutenu, il est éliminé, et son report élit Yanis. Nora a gagné des voix — et perdu l’élection.',
+      },
+    },
+    renversement: {
+      title: 'Le vote à l’envers',
+      tagline:
+        'Inversez tous les bulletins : le scrutin majoritaire peut réélire le même vainqueur.',
+      steps: {
+        avant:
+          'Malik réunit une base fidèle (39 %) ; Inès (33 %) et Sami (28 %) se partagent le reste. Au scrutin majoritaire à un tour, Malik l’emporte.',
+        inverse:
+          'Retournez chaque bulletin — le premier choix de chacun devient son dernier, et inversement. Résultat : Malik l’emporte à nouveau, cette fois avec 61 % des voix. Il était déjà le candidat le plus rejeté par le reste de l’électorat : le scrutin majoritaire ne distingue pas le plus aimé du plus détesté, il ne regarde que qui arrive en tête.',
+      },
+    },
     seuil: {
       title: 'Le seuil qui efface',
       tagline: 'Une barre à 5 % ne retire pas que des sièges : elle déplace les voix.',

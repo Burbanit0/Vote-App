@@ -137,6 +137,27 @@ const pgEn: PlaygroundKeys = {
           'Treat the blank as a candidate, Uruguayan-style: at 62%, it outpolls Camille and Farid combined. The race reopens.',
       },
     },
+    monotonie: {
+      title: 'Winning votes, losing the election',
+      tagline:
+        'Under the alternative vote, winning new voters over can, in some cases, make you lose.',
+      steps: {
+        avant:
+          'Alternative vote (IRV), three candidates. First choices: Nora 38%, Karim 32%, Yanis 29%. Yanis, the least supported, is eliminated — his votes transfer to Nora, who wins.',
+        apres:
+          'A group of undecided voters, who ranked Karim first and Nora right behind, are won over by Nora and now rank her first. Her first-choice share climbs to 49%. And yet: it’s now Karim who is least supported, he is eliminated, and his transfer elects Yanis. Nora gained votes — and lost the election.',
+      },
+    },
+    renversement: {
+      title: 'The vote upside down',
+      tagline: 'Reverse every ballot: plurality can re-elect the very same winner.',
+      steps: {
+        avant:
+          'Malik holds a loyal base (39%); Inès (33%) and Sami (28%) split the rest. Under first-past-the-post, Malik wins.',
+        inverse:
+          'Flip every ballot — each voter’s first choice becomes their last, and vice versa. Result: Malik wins again, this time with 61% of the vote. He was already the candidate most rejected by everyone else: plurality can’t tell beloved from despised, it only ever looks at who comes first.',
+      },
+    },
     seuil: {
       title: 'The threshold that erases',
       tagline: 'A 5 % bar does not just remove seats: it moves votes.',

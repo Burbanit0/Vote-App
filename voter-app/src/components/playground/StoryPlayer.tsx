@@ -11,6 +11,9 @@ import {
   Landmark,
   Divide,
   Copy,
+  Ban,
+  TrendingUp,
+  Repeat,
   BookOpen,
   X,
   type LucideIcon,
@@ -45,6 +48,9 @@ const ICONS: Record<string, LucideIcon> = {
   Landmark,
   Divide,
   Copy,
+  Ban,
+  TrendingUp,
+  Repeat,
 };
 
 interface Snapshot {
