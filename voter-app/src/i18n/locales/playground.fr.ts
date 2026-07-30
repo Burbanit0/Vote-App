@@ -834,6 +834,9 @@ const pgFr = {
     act2Lede:
       'Construis un résultat, pousse le blanc jusqu’à ce qu’il domine, et regarde : le même vote connaît quatre destins selon la règle de comptage. Aucun n’est « le bon » — c’est la question.',
     mixerTitle: 'Compose le résultat',
+    realToggle: 'Sur mon électorat',
+    realHint:
+      'Les parts viennent de l’électorat actuellement configuré dans le Playground (candidats, votants) — y compris ceux trop loin de tous pour choisir, comptés en blanc au même rayon que le curseur du moment Stratégie.',
     presets: {
       balanced: 'Équilibré',
       blankLeads: 'Blanc en tête',

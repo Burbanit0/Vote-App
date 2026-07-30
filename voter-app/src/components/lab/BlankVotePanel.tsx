@@ -4,6 +4,8 @@ import { cn } from '@/lib/utils';
 import { candidateColor } from '../../lib/palette';
 import regimes, { type BlankVoteStatus } from '../../data/blankVoteRegimes';
 import { allBlankVerdicts, type BlankLens, type BlankOutcome } from '../../lib/blankVote';
+import { usePlaygroundCtx } from '../playground/PlaygroundController';
+import { applyBlankVote, computeRanks } from '../../lib/playgroundVoting';
 
 // BlankVotePanel — a reflection space, not an answer key. Two acts:
 //   1) you CAN vote blank (three silences: abstention ≠ blanc ≠ nul);
@@ -39,10 +41,36 @@ const STATUS_ORDER: BlankVoteStatus[] = [
 const BlankVotePanel: React.FC = () => {
   const { t } = useTranslation('playground');
   const [w, setW] = React.useState<Weights>(PRESETS.balanced);
+  const [useReal, setUseReal] = React.useState(false);
+  const { leaderCandidates, votingVoters, blank: liveBlank } = usePlaygroundCtx();
 
-  const total = w.cands.reduce((a, b) => a + b, 0) + w.blank || 1;
-  const shares = w.cands.map((c) => c / total);
-  const blank = w.blank / total;
+  // Real electorate: first-preference shares of the candidates actually
+  // configured in the Playground, plus whoever's too far from all of them to
+  // pick one (same alienation-radius mechanism as the Stratégie moment's own
+  // blank-vote toggle, applied here regardless of whether that toggle is on —
+  // this fiche's whole premise is that the blank exists).
+  const real = React.useMemo(() => {
+    if (leaderCandidates.length < 2 || !votingVoters.length) return null;
+    const { expressed, blankCount } = applyBlankVote(
+      votingVoters,
+      leaderCandidates,
+      true,
+      liveBlank.intensity
+    );
+    const counts = new Array(leaderCandidates.length).fill(0);
+    for (const r of computeRanks(expressed, leaderCandidates)) counts[r[0]]++;
+    const total = votingVoters.length || 1;
+    return {
+      shares: counts.map((c) => c / total),
+      blank: blankCount / total,
+      names: leaderCandidates.map((c) => c.name),
+    };
+  }, [leaderCandidates, votingVoters, liveBlank.intensity]);
+
+  const manualTotal = w.cands.reduce((a, b) => a + b, 0) + w.blank || 1;
+  const shares = useReal && real ? real.shares : w.cands.map((c) => c / manualTotal);
+  const blank = useReal && real ? real.blank : w.blank / manualTotal;
+  const names = useReal && real ? real.names : CAND_LETTERS;
   const verdicts = allBlankVerdicts(shares, blank);
 
   const setCand = (i: number, v: number) =>
@@ -101,65 +129,125 @@ const BlankVotePanel: React.FC = () => {
             <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
               {t('blankVote.mixerTitle')}
             </p>
-            <div className="flex flex-wrap gap-1.5">
-              {Object.keys(PRESETS).map((p) => (
-                <button
-                  key={p}
-                  type="button"
-                  data-testid={`blank-preset-${p}`}
-                  onClick={() => setW(PRESETS[p])}
-                  className="rounded-md border border-border px-2 py-0.5 text-[0.7rem] text-muted-foreground hover:border-primary/40 hover:text-foreground"
-                >
-                  {t(`blankVote.presets.${p}`)}
-                </button>
-              ))}
+            <div className="flex flex-wrap items-center gap-1.5">
+              <button
+                type="button"
+                data-testid="blank-real-toggle"
+                aria-pressed={useReal}
+                onClick={() => setUseReal((v) => !v)}
+                className={cn(
+                  'rounded-md border px-2 py-0.5 text-[0.7rem]',
+                  useReal
+                    ? 'border-primary/50 bg-primary/10 text-primary'
+                    : 'border-border text-muted-foreground hover:border-primary/40 hover:text-foreground'
+                )}
+              >
+                {t('blankVote.realToggle')}
+              </button>
+              {!useReal &&
+                Object.keys(PRESETS).map((p) => (
+                  <button
+                    key={p}
+                    type="button"
+                    data-testid={`blank-preset-${p}`}
+                    onClick={() => setW(PRESETS[p])}
+                    className="rounded-md border border-border px-2 py-0.5 text-[0.7rem] text-muted-foreground hover:border-primary/40 hover:text-foreground"
+                  >
+                    {t(`blankVote.presets.${p}`)}
+                  </button>
+                ))}
             </div>
           </div>
 
-          <div className="mt-3 flex flex-col gap-2">
-            {w.cands.map((c, i) => (
-              <label key={i} className="flex items-center gap-2 text-xs">
-                <span className="flex w-16 shrink-0 items-center gap-1.5">
-                  <span
-                    aria-hidden
-                    className="h-2.5 w-2.5 rounded-full"
-                    style={{ background: candidateColor(i) }}
-                  />
-                  {CAND_LETTERS[i]}
-                </span>
-                <input
-                  type="range"
-                  data-testid={`blank-cand-${i}`}
-                  className="flex-1"
-                  min={0}
-                  max={100}
-                  value={c}
-                  onChange={(e) => setCand(i, Number(e.target.value))}
-                />
-                <span className="w-10 text-right tabular-nums text-muted-foreground">
-                  {pct(shares[i])}
-                </span>
-              </label>
-            ))}
-            <label className="flex items-center gap-2 text-xs">
-              <span className="flex w-16 shrink-0 items-center gap-1.5">
+          {useReal && (
+            <p className="mt-2 text-[0.7rem] text-muted-foreground">{t('blankVote.realHint')}</p>
+          )}
+
+          <div className="mt-3 flex flex-col gap-2" data-testid="blank-mixer-rows">
+            {useReal
+              ? names.map((name, i) => (
+                  <div key={i} className="flex items-center gap-2 text-xs">
+                    <span className="flex w-28 shrink-0 items-center gap-1.5 truncate">
+                      <span
+                        aria-hidden
+                        className="h-2.5 w-2.5 shrink-0 rounded-full"
+                        style={{ background: candidateColor(i) }}
+                      />
+                      {name}
+                    </span>
+                    <div className="h-1.5 flex-1 overflow-hidden rounded-full bg-muted">
+                      <div
+                        className="h-1.5 rounded-full"
+                        style={{ width: pct(shares[i]), background: candidateColor(i) }}
+                      />
+                    </div>
+                    <span className="w-10 text-right tabular-nums text-muted-foreground">
+                      {pct(shares[i])}
+                    </span>
+                  </div>
+                ))
+              : w.cands.map((c, i) => (
+                  <label key={i} className="flex items-center gap-2 text-xs">
+                    <span className="flex w-16 shrink-0 items-center gap-1.5">
+                      <span
+                        aria-hidden
+                        className="h-2.5 w-2.5 rounded-full"
+                        style={{ background: candidateColor(i) }}
+                      />
+                      {CAND_LETTERS[i]}
+                    </span>
+                    <input
+                      type="range"
+                      data-testid={`blank-cand-${i}`}
+                      className="flex-1"
+                      min={0}
+                      max={100}
+                      value={c}
+                      onChange={(e) => setCand(i, Number(e.target.value))}
+                    />
+                    <span className="w-10 text-right tabular-nums text-muted-foreground">
+                      {pct(shares[i])}
+                    </span>
+                  </label>
+                ))}
+            <div className="flex items-center gap-2 text-xs">
+              <span className={cn('flex shrink-0 items-center gap-1.5', useReal ? 'w-28' : 'w-16')}>
                 <span
                   aria-hidden
                   className="h-2.5 w-2.5 rounded-full border border-dashed border-muted-foreground"
                 />
                 {t('blankVote.blankLabel')}
               </span>
-              <input
-                type="range"
-                data-testid="blank-share"
-                className="flex-1 accent-[color:var(--muted-foreground)]"
-                min={0}
-                max={100}
-                value={w.blank}
-                onChange={(e) => setW((prev) => ({ ...prev, blank: Number(e.target.value) }))}
-              />
-              <span className="w-10 text-right font-semibold tabular-nums">{pct(blank)}</span>
-            </label>
+              {useReal ? (
+                <>
+                  <div className="h-1.5 flex-1 overflow-hidden rounded-full bg-muted">
+                    <div
+                      className="h-1.5 rounded-full bg-muted-foreground"
+                      style={{ width: pct(blank) }}
+                    />
+                  </div>
+                  <span
+                    className="w-10 text-right font-semibold tabular-nums"
+                    data-testid="blank-real-share"
+                  >
+                    {pct(blank)}
+                  </span>
+                </>
+              ) : (
+                <>
+                  <input
+                    type="range"
+                    data-testid="blank-share"
+                    className="flex-1 accent-[color:var(--muted-foreground)]"
+                    min={0}
+                    max={100}
+                    value={w.blank}
+                    onChange={(e) => setW((prev) => ({ ...prev, blank: Number(e.target.value) }))}
+                  />
+                  <span className="w-10 text-right font-semibold tabular-nums">{pct(blank)}</span>
+                </>
+              )}
+            </div>
           </div>
 
           {/* Composition bar */}
@@ -183,7 +271,7 @@ const BlankVotePanel: React.FC = () => {
         {/* Four fates for the same ballots */}
         <div className="grid gap-2.5 sm:grid-cols-2">
           {verdicts.map((v) => {
-            const winnerName = v.winner === null ? null : CAND_LETTERS[v.winner];
+            const winnerName = v.winner === null ? null : names[v.winner];
             return (
               <div
                 key={v.lens}
