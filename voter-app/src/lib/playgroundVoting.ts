@@ -46,21 +46,21 @@ export type Rule =
   | 'black'
   | 'anti_plurality'
   | 'dowdall'
+  | 'raynaud'
   | 'random_ballot'
   | 'star'
   | 'majority_judgment'
   | 'score'
+  | 'cumulative'
+  | 'maximin'
+  | 'nash'
   // ── Tier B: "explained, not compared" — client-only extras. Available in the
   // method gallery + replay animation, but excluded from the comparison surfaces
   // (Bilan table, map picker, scorecard). No backend twin, no parity fixture. ──
   | 'smith_irv'
   | 'split_cycle'
-  | 'cumulative'
-  | 'maximin'
   | 'benham'
-  | 'river'
-  | 'nash'
-  | 'raynaud';
+  | 'river';
 
 export const RULE_LABELS: Record<Rule, string> = {
   plurality: 'Pluralité (1 tour)',
@@ -848,23 +848,23 @@ export function ruleWinnerFromRanks(
       return winDowdall(ranks, m);
     case 'kemeny':
       return winKemeny(ranks, m);
+    case 'raynaud':
+      return winRaynaud(ranks, m);
+    case 'cumulative':
+      return scores ? winCumulative(scores, m) : winPlurality(ranks, m);
+    case 'maximin':
+      return scores ? winMaximin(scores, m) : winPlurality(ranks, m);
+    case 'nash':
+      return scores ? winNash(scores, m) : winPlurality(ranks, m);
     // Tier B extras (client-only; no backend parity).
     case 'smith_irv':
       return winSmithIRV(ranks, m);
     case 'split_cycle':
       return winSplitCycle(ranks, m);
-    case 'cumulative':
-      return scores ? winCumulative(scores, m) : winPlurality(ranks, m);
-    case 'maximin':
-      return scores ? winMaximin(scores, m) : winPlurality(ranks, m);
     case 'benham':
       return winBenham(ranks, m);
     case 'river':
       return winRiver(ranks, m);
-    case 'nash':
-      return scores ? winNash(scores, m) : winPlurality(ranks, m);
-    case 'raynaud':
-      return winRaynaud(ranks, m);
     default:
       return winPlurality(ranks, m);
   }

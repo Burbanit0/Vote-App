@@ -120,6 +120,10 @@ export const METHOD_ANALOGY: Record<string, { fr: string; en: string }> = {
     fr: 'Comme un budget partagé où mettre zéro sur un candidat l’élimine d’office — impossible de compenser un seul avis à zéro.',
     en: 'Like a shared budget where rating one option zero rules it out entirely — no other score can make up for a single zero.',
   },
+  raynaud: {
+    fr: 'Comme un tournoi à élimination directe entre équipes : celle qui perd le plus large est éliminée à chaque tour.',
+    en: 'Like a knockout tournament between teams: whoever loses by the widest margin is eliminated each round.',
+  },
 };
 
 /** Everyday analogy for a method in one language, or null if none. */
