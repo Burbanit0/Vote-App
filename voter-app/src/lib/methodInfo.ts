@@ -136,6 +136,10 @@ export const METHOD_ANALOGY: Record<string, { fr: string; en: string }> = {
     fr: 'Comme un tournoi à élimination, mais restreint d’abord au petit groupe de tête qui bat tout le reste — les autres ne jouent même pas.',
     en: 'Like a knockout tournament, but first narrowed to the small top group that beats everyone else — the rest never even play.',
   },
+  split_cycle: {
+    fr: 'Comme effacer la dette la plus faible d’une chaîne de dettes circulaire — une fois la plus petite annulée, il reste toujours quelqu’un à qui personne ne doit rien.',
+    en: 'Like erasing the smallest debt in a circular chain of debts — once the weakest link is cancelled, someone always ends up owing nothing to anyone.',
+  },
 };
 
 /** Everyday analogy for a method in one language, or null if none. */

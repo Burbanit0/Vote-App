@@ -26,6 +26,7 @@ const FAMILIES: RuleFamily[] = [
       'benham',
       'river',
       'smith_irv',
+      'split_cycle',
     ],
   },
   {
