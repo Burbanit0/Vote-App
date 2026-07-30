@@ -619,6 +619,35 @@ def get_copeland_winner(votes: list[Any], blank_candidate_name: str = "") -> Opt
     return ranked[0]
 
 
+def get_raynaud_winner(votes: list[Any], blank_candidate_name: str = "") -> Optional[str]:
+    """
+    Raynaud's method: repeatedly eliminate the candidate on the losing end of
+    the single largest pairwise defeat, until one remains. Condorcet-
+    consistent. Tie-break (equal largest-defeat margin): alphabetical.
+    """
+    if not votes:
+        return None
+    pw = _pairwise_wins(votes)
+    active = set(pw.keys())
+    if not active:
+        return None
+    while len(active) > 1:
+        best_margin: Optional[int] = None
+        loser: Optional[str] = None
+        for i in sorted(active):
+            for j in sorted(active):
+                if i == j:
+                    continue
+                margin = pw[i][j] - pw[j][i]
+                if best_margin is None or margin > best_margin:
+                    best_margin = margin
+                    loser = j
+        if loser is None:
+            break
+        active.discard(loser)
+    return min(active) if active else None
+
+
 def get_nanson_winner(votes: list[Any], blank_candidate_name: str = "") -> Optional[str]:
     """
     Nanson's method: iteratively eliminate all candidates whose Borda score

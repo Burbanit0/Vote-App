@@ -108,12 +108,13 @@ export const LEADER_RULES: Rule[] = [
   'black',
   'anti_plurality',
   'dowdall',
+  'raynaud',
   'random_ballot',
 ];
 
 /** Tier B: "explained, not compared" — surfaced only in the method gallery and
  * the replay animation, never in the comparison table / scorecard / map picker. */
-export const EXTRA_RULES: Rule[] = ['smith_irv', 'split_cycle', 'benham', 'river', 'raynaud'];
+export const EXTRA_RULES: Rule[] = ['smith_irv', 'split_cycle', 'benham', 'river'];
 
 /** Stated convention: ballot expressiveness + tally complexity, 1 = simplest. */
 const SIMPLICITY: Record<Rule, number> = {
@@ -384,13 +385,17 @@ export const MANIP_COMPLEXITY: Record<Rule, { hard: boolean; label: string; ref:
     label: 'P (calcul trivial)',
     ref: 'noter zéro écarte un rival (produit nul)',
   },
+  raynaud: {
+    hard: false,
+    label: 'P (élimination de paires)',
+    ref: 'gonfler la défaite d’un rival pour l’éliminer tôt',
+  },
   // Tier B extras — .hard only is read (label/ref come from i18n); never shown as
   // a compared method, so these strings are placeholders.
   smith_irv: { hard: true, label: '', ref: '' },
   split_cycle: { hard: false, label: '', ref: '' },
   benham: { hard: true, label: '', ref: '' },
   river: { hard: false, label: '', ref: '' },
-  raynaud: { hard: false, label: '', ref: '' },
 };
 
 const COALITION_STEPS = [0.02, 0.05, 0.1, 0.15, 0.2, 0.3, 0.4];
