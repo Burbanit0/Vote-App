@@ -57,9 +57,6 @@ export type Rule =
   | 'cumulative'
   | 'maximin'
   | 'nash'
-  // ── Tier B: "explained, not compared" — client-only extras. Available in the
-  // method gallery + replay animation, but excluded from the comparison surfaces
-  // (Bilan table, map picker, scorecard). No backend twin, no parity fixture. ──
   | 'split_cycle';
 
 export const RULE_LABELS: Record<Rule, string> = {
@@ -485,8 +482,6 @@ function winScore(scores: number[][], m: number): number {
   return argmax(total);
 }
 
-// ── Tier B rules (client-only) ────────────────────────────────────────────────
-
 /** Anti-plurality (veto): elect whoever is ranked LAST the fewest times. */
 function winAntiPlurality(ranks: number[][], m: number): number {
   const last = new Array(m).fill(0);
@@ -862,7 +857,6 @@ export function ruleWinnerFromRanks(
       return scores ? winMaximin(scores, m) : winPlurality(ranks, m);
     case 'nash':
       return scores ? winNash(scores, m) : winPlurality(ranks, m);
-    // Tier B extras (client-only; no backend parity).
     case 'split_cycle':
       return winSplitCycle(ranks, m);
     default:

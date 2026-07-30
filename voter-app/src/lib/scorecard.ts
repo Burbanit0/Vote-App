@@ -112,12 +112,13 @@ export const LEADER_RULES: Rule[] = [
   'benham',
   'river',
   'smith_irv',
+  'split_cycle',
   'random_ballot',
 ];
 
 /** Tier B: "explained, not compared" — surfaced only in the method gallery and
  * the replay animation, never in the comparison table / scorecard / map picker. */
-export const EXTRA_RULES: Rule[] = ['split_cycle'];
+export const EXTRA_RULES: Rule[] = [];
 
 /** Stated convention: ballot expressiveness + tally complexity, 1 = simplest. */
 const SIMPLICITY: Record<Rule, number> = {
@@ -371,8 +372,6 @@ export const MANIP_COMPLEXITY: Record<Rule, { hard: boolean; label: string; ref:
   },
   anti_plurality: { hard: false, label: 'P (calcul trivial)', ref: 'enterrement du rival' },
   dowdall: { hard: false, label: 'P (calcul trivial)', ref: 'favori en tête, rival en dernier' },
-  // Tier B extras — .hard only is read (label/ref come from i18n); never shown as
-  // a compared method, so these strings are placeholders.
   cumulative: {
     hard: false,
     label: 'P (calcul trivial)',
@@ -408,9 +407,11 @@ export const MANIP_COMPLEXITY: Record<Rule, { hard: boolean; label: string; ref:
     label: 'NP-difficile (hérite de l’IRV)',
     ref: 'Bartholdi–Orlin 1991 (STV/IRV)',
   },
-  // Tier B extras — .hard only is read (label/ref come from i18n); never shown as
-  // a compared method, so these strings are placeholders.
-  split_cycle: { hard: false, label: '', ref: '' },
+  split_cycle: {
+    hard: false,
+    label: 'P (chemin le plus fort)',
+    ref: 'Holliday–Pacuit 2021 — calcul polynomial',
+  },
 };
 
 const COALITION_STEPS = [0.02, 0.05, 0.1, 0.15, 0.2, 0.3, 0.4];

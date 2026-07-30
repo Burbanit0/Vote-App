@@ -26,6 +26,7 @@ from .simulation_ranked_utils import (
     get_benham_winner,
     get_river_winner,
     get_smith_irv_winner,
+    get_split_cycle_winner,
     random_ballot_probabilities,
 )
 from .simulation_score_utils import (
@@ -321,6 +322,7 @@ def compare_all_methods(
         "benham":       get_benham_winner,
         "river":        get_river_winner,
         "smith_irv":    get_smith_irv_winner,
+        "split_cycle":  get_split_cycle_winner,
     }
 
     score_methods: Dict[str, Callable[..., Any]] = {

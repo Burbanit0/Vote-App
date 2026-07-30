@@ -993,6 +993,65 @@ def get_smith_irv_winner(votes: list[Any], blank_candidate_name: str = "") -> Op
     return min(active) if active else None
 
 
+def get_split_cycle_winner(votes: list[Any], blank_candidate_name: str = "") -> Optional[str]:
+    """
+    Split Cycle (Holliday & Pacuit, 2021): a majority defeat is discarded
+    when it is the weakest link of a majority cycle -- a candidate wins iff
+    no surviving (non-discarded) defeat lands on it. Borda breaks a multi-
+    winner Split-Cycle set. Falls back to the Borda winner outright if the
+    set is somehow empty -- Split Cycle's own theorem guarantees a non-empty
+    winner set, so this is a defensive fallback that should never trigger.
+    """
+    if not votes:
+        return None
+    pw = _pairwise_wins(votes)
+    candidates = sorted(pw.keys())
+    if not candidates:
+        return None
+    if len(candidates) == 1:
+        return candidates[0]
+
+    def margin(i: str, j: str) -> int:
+        return pw[i][j] - pw[j][i]
+
+    # Strongest ("widest") path using only positive-margin edges.
+    s: dict[str, dict[str, int]] = {i: {j: 0 for j in candidates} for i in candidates}
+    for i in candidates:
+        for j in candidates:
+            if i != j and margin(i, j) > 0:
+                s[i][j] = margin(i, j)
+    for k in candidates:
+        for i in candidates:
+            if i == k:
+                continue
+            for j in candidates:
+                if j == i or j == k:
+                    continue
+                s[i][j] = max(s[i][j], min(s[i][k], s[k][j]))
+
+    # x loses iff some a>x defeat is STRONGER than the best path back from x
+    # to a -- i.e. that defeat is not the weakest link of an a-b-...-x-a cycle.
+    winners = [
+        x
+        for x in candidates
+        if not any(a != x and margin(a, x) > 0 and margin(a, x) > s[x][a] for a in candidates)
+    ]
+    if len(winners) == 1:
+        return winners[0]
+    if not winners:
+        return get_borda_winner(votes, blank_candidate_name)
+
+    is_dict = _is_dict_format(votes)
+    borda_scores: dict[str, int] = {c: 0 for c in candidates}
+    for vote in votes:
+        ranking = _get_ranking(vote, is_dict)
+        n = len(ranking)
+        for pos, c in enumerate(ranking):
+            if c in borda_scores:
+                borda_scores[c] += n - 1 - pos
+    return max(winners, key=lambda c: borda_scores[c])
+
+
 def random_ballot_probabilities(votes: list[Any]) -> dict[str, float]:
     """
     Win probabilities under the random-ballot rule (Gibbard, 1977).
