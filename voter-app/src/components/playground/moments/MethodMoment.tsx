@@ -15,7 +15,16 @@ const FAMILIES: RuleFamily[] = [
   { key: 'positional', rules: ['borda', 'bucklin', 'nanson', 'baldwin', 'dowdall'] },
   {
     key: 'condorcet',
-    rules: ['condorcet', 'minimax', 'schulze', 'ranked_pairs', 'kemeny', 'black', 'raynaud'],
+    rules: [
+      'condorcet',
+      'minimax',
+      'schulze',
+      'ranked_pairs',
+      'kemeny',
+      'black',
+      'raynaud',
+      'benham',
+    ],
   },
   {
     key: 'cardinal',

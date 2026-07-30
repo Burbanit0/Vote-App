@@ -26,6 +26,7 @@ sys.path.insert(0, ROOT)
 from api.engine.utils.simulation_ranked_utils import (  # noqa: E402
     get_anti_plurality_winner,
     get_baldwin_winner,
+    get_benham_winner,
     get_black_winner,
     get_borda_winner,
     get_bucklin_winner,
@@ -70,6 +71,7 @@ RULES = {
     "anti_plurality": get_anti_plurality_winner,
     "dowdall": get_dowdall_winner,
     "raynaud": get_raynaud_winner,
+    "benham": get_benham_winner,
 }
 
 # Cardinal rules that take the SAME per-voter score vector on both engines (so a

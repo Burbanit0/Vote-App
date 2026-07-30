@@ -124,6 +124,10 @@ export const METHOD_ANALOGY: Record<string, { fr: string; en: string }> = {
     fr: 'Comme un tournoi à élimination directe entre équipes : celle qui perd le plus large est éliminée à chaque tour.',
     en: 'Like a knockout tournament between teams: whoever loses by the widest margin is eliminated each round.',
   },
+  benham: {
+    fr: 'Comme un tournoi à élimination, sauf qu’on vérifie d’abord si quelqu’un a déjà battu tout le monde — il gagne alors sans attendre la suite.',
+    en: 'Like a knockout tournament, except first checking if someone has already beaten everyone — if so, they win without playing out the rest.',
+  },
 };
 
 /** Everyday analogy for a method in one language, or null if none. */
