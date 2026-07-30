@@ -48,6 +48,7 @@ export type Rule =
   | 'dowdall'
   | 'raynaud'
   | 'benham'
+  | 'river'
   | 'random_ballot'
   | 'star'
   | 'majority_judgment'
@@ -59,8 +60,7 @@ export type Rule =
   // method gallery + replay animation, but excluded from the comparison surfaces
   // (Bilan table, map picker, scorecard). No backend twin, no parity fixture. ──
   | 'smith_irv'
-  | 'split_cycle'
-  | 'river';
+  | 'split_cycle';
 
 export const RULE_LABELS: Record<Rule, string> = {
   plurality: 'Pluralité (1 tour)',
@@ -852,6 +852,8 @@ export function ruleWinnerFromRanks(
       return winRaynaud(ranks, m);
     case 'benham':
       return winBenham(ranks, m);
+    case 'river':
+      return winRiver(ranks, m);
     case 'cumulative':
       return scores ? winCumulative(scores, m) : winPlurality(ranks, m);
     case 'maximin':
@@ -863,8 +865,6 @@ export function ruleWinnerFromRanks(
       return winSmithIRV(ranks, m);
     case 'split_cycle':
       return winSplitCycle(ranks, m);
-    case 'river':
-      return winRiver(ranks, m);
     default:
       return winPlurality(ranks, m);
   }

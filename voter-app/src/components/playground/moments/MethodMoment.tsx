@@ -24,6 +24,7 @@ const FAMILIES: RuleFamily[] = [
       'black',
       'raynaud',
       'benham',
+      'river',
     ],
   },
   {

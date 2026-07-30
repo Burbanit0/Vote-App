@@ -853,6 +853,66 @@ def get_ranked_pairs_winner(votes: list[Any], blank_candidate_name: str = "") ->
     return sources[0] if sources else None
 
 
+def get_river_winner(votes: list[Any], blank_candidate_name: str = "") -> Optional[str]:
+    """
+    River (Heitzig): like Ranked Pairs, lock the strongest pairwise majorities
+    first, skipping any that would create a cycle -- but each candidate
+    accepts at most ONE incoming lock, so the result is a tree (a "river")
+    rather than a general acyclic tournament. The tree's root (no incoming
+    lock) wins. Elects the Condorcet winner whenever one exists.
+
+    Tie-break for equal margins: stronger winner support first, then
+    alphabetical on (winner, loser) -- same convention as Ranked Pairs. If
+    several disjoint roots remain (ties left some pairs unlocked), the
+    alphabetically first root wins.
+    """
+    if not votes:
+        return None
+
+    pw = _pairwise_wins(votes)
+    candidates = sorted(pw.keys())
+    if not candidates:
+        return None
+    if len(candidates) == 1:
+        return candidates[0]
+
+    majorities: list[tuple[int, int, str, str]] = []
+    for a, b in combinations(candidates, 2):
+        ab, ba = pw[a][b], pw[b][a]
+        if ab > ba:
+            majorities.append((ab - ba, ab, a, b))
+        elif ba > ab:
+            majorities.append((ba - ab, ba, b, a))
+    majorities.sort(key=lambda m: (-m[0], -m[1], m[2], m[3]))
+
+    locked: dict[str, set[str]] = {c: set() for c in candidates}
+    has_parent: dict[str, bool] = {c: False for c in candidates}
+
+    def _reaches(src: str, dst: str) -> bool:
+        stack = [src]
+        seen: set[str] = set()
+        while stack:
+            node = stack.pop()
+            if node == dst:
+                return True
+            if node in seen:
+                continue
+            seen.add(node)
+            stack.extend(locked[node])
+        return False
+
+    for _margin, _support, winner, loser in majorities:
+        if has_parent[loser]:
+            continue  # one incoming lock per candidate -- a tree, not a DAG
+        if _reaches(loser, winner):
+            continue  # would close a cycle
+        locked[winner].add(loser)
+        has_parent[loser] = True
+
+    roots = sorted(c for c in candidates if not has_parent[c])
+    return roots[0] if roots else get_condorcet_winner(votes, blank_candidate_name)
+
+
 def random_ballot_probabilities(votes: list[Any]) -> dict[str, float]:
     """
     Win probabilities under the random-ballot rule (Gibbard, 1977).

@@ -128,6 +128,10 @@ export const METHOD_ANALOGY: Record<string, { fr: string; en: string }> = {
     fr: 'Comme un tournoi à élimination, sauf qu’on vérifie d’abord si quelqu’un a déjà battu tout le monde — il gagne alors sans attendre la suite.',
     en: 'Like a knockout tournament, except first checking if someone has already beaten everyone — if so, they win without playing out the rest.',
   },
+  river: {
+    fr: 'Comme les paires ordonnées, mais chaque candidat n’accepte qu’un seul patron — un arbre généalogique plutôt qu’un réseau de dettes.',
+    en: 'Like ranked pairs, but each candidate only answers to one boss — a family tree rather than a web of debts.',
+  },
 };
 
 /** Everyday analogy for a method in one language, or null if none. */
