@@ -42,6 +42,7 @@ from api.engine.utils.simulation_ranked_utils import (  # noqa: E402
     get_raynaud_winner,
     get_river_winner,
     get_schulze_winner,
+    get_smith_irv_winner,
     get_two_round_winner,
 )
 from api.engine.utils.simulation_score_utils import (  # noqa: E402
@@ -74,6 +75,7 @@ RULES = {
     "raynaud": get_raynaud_winner,
     "benham": get_benham_winner,
     "river": get_river_winner,
+    "smith_irv": get_smith_irv_winner,
 }
 
 # Cardinal rules that take the SAME per-voter score vector on both engines (so a

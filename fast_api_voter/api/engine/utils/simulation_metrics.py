@@ -25,6 +25,7 @@ from .simulation_ranked_utils import (
     get_raynaud_winner,
     get_benham_winner,
     get_river_winner,
+    get_smith_irv_winner,
     random_ballot_probabilities,
 )
 from .simulation_score_utils import (
@@ -319,6 +320,7 @@ def compare_all_methods(
         "raynaud":      get_raynaud_winner,
         "benham":       get_benham_winner,
         "river":        get_river_winner,
+        "smith_irv":    get_smith_irv_winner,
     }
 
     score_methods: Dict[str, Callable[..., Any]] = {

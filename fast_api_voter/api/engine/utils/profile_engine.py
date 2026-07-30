@@ -328,7 +328,7 @@ _ORDINAL_METHODS = {
     "anti_plurality", "baldwin", "benham", "black", "borda", "bucklin",
     "coombs", "copeland", "dowdall", "irv", "kemeny_young", "minimax",
     "nanson", "plurality", "ranked_pairs", "random_ballot", "raynaud",
-    "river", "schulze", "two_round",
+    "river", "schulze", "smith_irv", "two_round",
 }
 _ALL_METHODS = _CARDINAL_METHODS | _ORDINAL_METHODS | {"approval"}
 
