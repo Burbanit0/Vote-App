@@ -352,6 +352,57 @@ const REV_INVERSE: PlaygroundState['electorate'] = {
   ],
 };
 
+// ── Story 10 — later-no-harm: the approval that costs you your favourite ────
+// Under approval voting, a bloc's TRUE favourite never changes — but sincerely
+// approving of an acceptable second choice, on top of their favourite (never
+// instead of), can hand the win to that second choice. Later-no-harm says
+// ranking/approving a later preference should never hurt an earlier one;
+// approval voting is one of the well-known methods that fails it (unlike IRV,
+// which is later-no-harm-safe by construction — see `monotonie`'s IRV twist
+// for a different single-rule self-contradiction).
+//   Léa -0.6 · Hugo 0.3 · Zoé 0.9 (a line). Fixed blocs: K -0.85 (25, only
+//   ever approves Léa) · H 0.4 (35, only ever approves Hugo/Zoé). Swing bloc
+//   G moves -0.7 → -0.3 (still strictly closer to Léa than to Hugo both
+//   times — their FIRST preference never moves) but crosses the 50 %
+//   normalised-utility approval line for Hugo on the way: 0 %→100 % of G
+//   approves Hugo too. Léa's own approval share never changes (61 %); Hugo's
+//   rises 39 %→72 % on G's extra approvals alone and overtakes her.
+const LNH_LEA: NamedPt = { name: 'Léa', x: -0.6, y: 0 };
+const LNH_HUGO: NamedPt = { name: 'Hugo', x: 0.3, y: 0 };
+const LNH_ZOE: NamedPt = { name: 'Zoé', x: 0.9, y: 0 };
+const LNH_CANDS = [LNH_LEA, LNH_HUGO, LNH_ZOE];
+const lnhBloc = (
+  id: string,
+  label: string,
+  x: number,
+  spread: number,
+  weight: number
+): Community => ({
+  id,
+  label,
+  x,
+  y: 0,
+  z: 0,
+  spread,
+  weight,
+  turnout: 1,
+});
+const LNH_ELECTORATE = { num_voters: 6000, seed: 88, ideology: 'random' };
+const LNH_K = lnhBloc('K', 'Base de Léa', -0.85, 0.06, 25);
+const LNH_H = lnhBloc('H', 'Sympathisants de Hugo et Zoé', 0.4, 0.15, 35);
+const LNH_AVANT: PlaygroundState['electorate'] = {
+  mode: 'composed',
+  correlation: 0,
+  noise: 0,
+  communities: [LNH_K, LNH_H, lnhBloc('G', 'Indécis, n’approuvent que Léa', -0.7, 0.04, 30)],
+};
+const LNH_APRES: PlaygroundState['electorate'] = {
+  mode: 'composed',
+  correlation: 0,
+  noise: 0,
+  communities: [LNH_K, LNH_H, lnhBloc('G', 'Les mêmes, approuvent aussi Hugo', -0.3, 0.04, 30)],
+};
+
 // ── Parliament stories (mode: 'parliament') ──────────────────────────────────
 // Seats are allocated by the BACKEND (/api/v2/election/assembly), so unlike the
 // leader stories these beats can't be locked by a client-side winner assertion.
@@ -707,6 +758,32 @@ export const STORIES: Story[] = [
         rule: 'plurality',
         playground: { electorate: REV_INVERSE },
         config: { candidates: REV_CANDS, num_voters: 6000, seed: 55, ideology: 'random' },
+      },
+    ],
+  },
+
+  {
+    id: 'soutien',
+    titleKey: 'stories.soutien.title',
+    taglineKey: 'stories.soutien.tagline',
+    icon: 'ThumbsUp',
+    mode: 'leader',
+    steps: [
+      {
+        id: 'avant',
+        beatKey: 'stories.soutien.steps.avant',
+        mode: 'leader',
+        rule: 'approval',
+        moment: 'method',
+        playground: { space: LINE('Gauche–Droite').space, electorate: LNH_AVANT },
+        config: { candidates: LNH_CANDS, ...LNH_ELECTORATE },
+      },
+      {
+        id: 'apres',
+        beatKey: 'stories.soutien.steps.apres',
+        rule: 'approval',
+        playground: { electorate: LNH_APRES },
+        config: { candidates: LNH_CANDS, ...LNH_ELECTORATE },
       },
     ],
   },

@@ -162,6 +162,17 @@ const pgFr = {
           'Retournez chaque bulletin — le premier choix de chacun devient son dernier, et inversement. Résultat : Malik l’emporte à nouveau, cette fois avec 61 % des voix. Il était déjà le candidat le plus rejeté par le reste de l’électorat : le scrutin majoritaire ne distingue pas le plus aimé du plus détesté, il ne regarde que qui arrive en tête.',
       },
     },
+    soutien: {
+      title: 'Le soutien de trop',
+      tagline:
+        'Au vote par approbation, dire sincèrement du bien d’un second choix peut faire perdre votre favorite.',
+      steps: {
+        avant:
+          'Vote par approbation, trois candidats. Un bloc d’électeurs n’approuve que Léa, leur préférée — trop loin de Hugo pour l’approuver aussi. Au dépouillement : Léa 61 %, Hugo 39 %. Léa l’emporte.',
+        apres:
+          'Rien n’a changé dans leurs préférences : Léa reste leur favorite, toujours en tête de leurs choix. Mais ils trouvent désormais Hugo assez acceptable pour l’approuver aussi, sincèrement, en plus de Léa. Résultat : le score de Hugo grimpe à 72 % et il devance Léa — restée à 61 %. Approuver un choix de plus, sincèrement, a fait perdre leur favorite.',
+      },
+    },
     seuil: {
       title: 'Le seuil qui efface',
       tagline: 'Une barre à 5 % ne retire pas que des sièges : elle déplace les voix.',

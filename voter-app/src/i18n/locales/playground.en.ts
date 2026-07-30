@@ -158,6 +158,17 @@ const pgEn: PlaygroundKeys = {
           'Flip every ballot — each voter’s first choice becomes their last, and vice versa. Result: Malik wins again, this time with 61% of the vote. He was already the candidate most rejected by everyone else: plurality can’t tell beloved from despised, it only ever looks at who comes first.',
       },
     },
+    soutien: {
+      title: 'One approval too many',
+      tagline:
+        'Under approval voting, sincerely endorsing a second choice can defeat your favourite.',
+      steps: {
+        avant:
+          'Approval voting, three candidates. A bloc of voters approves only Léa, their favourite — Hugo is too far off for them to approve him too. Tally: Léa 61%, Hugo 39%. Léa wins.',
+        apres:
+          'Nothing changed in their preferences: Léa is still their favourite, still their top choice. But they now find Hugo acceptable enough to approve him too, sincerely, alongside Léa. Result: Hugo’s score climbs to 72% and overtakes Léa — still at 61%. Sincerely approving one more choice cost them their favourite.',
+      },
+    },
     seuil: {
       title: 'The threshold that erases',
       tagline: 'A 5 % bar does not just remove seats: it moves votes.',
