@@ -1,0 +1,348 @@
+"""
+api.domain.polity.config — typed loader for polity_config.yaml (Lot 1).
+
+Single source of truth for every polity institutional parameter (D9 of
+audit-precision-plan.md): nothing here is hardcoded elsewhere. Sections that
+only activate at a later palier ([v1]..[v8]) are still parsed and structurally
+validated so a typo in them fails loudly now rather than silently at the
+palier that turns them on — but v0 code only reads the typed sections below.
+
+A malformed file (missing key, wrong type, unknown enum value) raises
+PolityConfigError with a message naming the offending path — never a bare
+KeyError/TypeError from a caller three frames away.
+"""
+from __future__ import annotations
+
+from dataclasses import dataclass
+from pathlib import Path
+from typing import Any
+
+import yaml
+
+_DEFAULT_CONFIG_PATH = Path(__file__).parent / "polity_config.yaml"
+
+_PRESIDENTIAL_METHODS = {
+    "plurality", "two_round", "borda", "irv", "coombs", "bucklin",
+    "minimax", "schulze", "kemeny_young", "copeland", "nanson", "baldwin",
+    "approval", "simple_score", "star", "median", "majority_judgment",
+}
+_SEAT_ALLOCATIONS = {"dhondt", "sainte_lague", "largest_remainder"}
+_ASSEMBLY_MODES = {"party_list", "candidate_multiwinner"}
+_COALITION_INITIATORS = {"largest_seats", "largest_votes"}
+_COALITION_TIEBREAK_KEYS = {"seats", "votes", "party_id"}
+_PARTY_INIT_STRATEGIES = {"kmeans_on_citizens", "random", "manual"}
+
+
+class PolityConfigError(ValueError):
+    """Raised when polity_config.yaml is missing, malformed, or invalid."""
+
+
+def _section(raw: dict[str, Any], name: str) -> dict[str, Any]:
+    value = raw.get(name)
+    if not isinstance(value, dict):
+        raise PolityConfigError(f"'{name}': expected a mapping, got {type(value).__name__}")
+    return value
+
+
+def _get(section: dict[str, Any], path: str, key: str, expected: type | tuple[type, ...]) -> Any:
+    if key not in section:
+        raise PolityConfigError(f"'{path}.{key}': missing required field")
+    value = section[key]
+    # bool is a subclass of int — reject bool where an int/float was requested.
+    if expected in (int, float) and isinstance(value, bool):
+        raise PolityConfigError(f"'{path}.{key}': expected {expected.__name__}, got bool")
+    if not isinstance(value, expected):
+        expected_name = (
+            expected.__name__ if isinstance(expected, type) else " or ".join(t.__name__ for t in expected)
+        )
+        raise PolityConfigError(f"'{path}.{key}': expected {expected_name}, got {type(value).__name__}")
+    return value
+
+
+def _get_enum(section: dict[str, Any], path: str, key: str, allowed: set[str]) -> str:
+    value = str(_get(section, path, key, str))
+    if value not in allowed:
+        raise PolityConfigError(f"'{path}.{key}': '{value}' is not one of {sorted(allowed)}")
+    return value
+
+
+def _get_optional_int(section: dict[str, Any], path: str, key: str) -> int | None:
+    if key not in section:
+        raise PolityConfigError(f"'{path}.{key}': missing required field")
+    value = section[key]
+    if value is None:
+        return None
+    if isinstance(value, bool) or not isinstance(value, int):
+        raise PolityConfigError(f"'{path}.{key}': expected int or null, got {type(value).__name__}")
+    return value
+
+
+def _get_ratio(section: dict[str, Any], path: str, key: str) -> float:
+    """A float or int expected to live in [0, 1] (a threshold or ratio)."""
+    value = _get(section, path, key, (int, float))
+    ratio = float(value)
+    if not 0.0 <= ratio <= 1.0:
+        raise PolityConfigError(f"'{path}.{key}': {ratio} is outside the valid range [0, 1]")
+    return ratio
+
+
+def _get_positive_int(section: dict[str, Any], path: str, key: str) -> int:
+    value = int(_get(section, path, key, int))
+    if value <= 0:
+        raise PolityConfigError(f"'{path}.{key}': must be a positive integer, got {value}")
+    return value
+
+
+@dataclass(frozen=True)
+class RunConfig:
+    seed: int
+    ticks_per_year: int
+    duration_years: int
+    population_size: int
+    run_label: str
+
+    @property
+    def total_ticks(self) -> int:
+        return self.ticks_per_year * self.duration_years
+
+
+@dataclass(frozen=True)
+class InstitutionsConfig:
+    president_term_years: int
+    assembly_term_years: int
+    assembly_offset_years: int
+    president_term_limit: int | None
+    assembly_term_limit: int | None
+    presidential_method: str
+    assembly_seats: int
+    assembly_mode: str
+    seat_allocation: str
+    electoral_threshold: float
+    blank_vote_enabled: bool
+    blank_vote_competitive: bool
+    blank_invalidation_threshold: float
+    reelection_delay_ticks: int
+    reelection_max_attempts: int
+    barred_from_immediate_rerun: bool
+
+
+@dataclass(frozen=True)
+class PartiesConfig:
+    initial_count: int
+    init_strategy: str
+    manual_platforms: list[Any]
+    birth_enabled: bool
+    death_enabled: bool
+    split_enabled: bool
+    coalition_initiator: str
+    coalition_tiebreak: tuple[str, ...]
+    coalition_majority_ratio: float
+
+
+@dataclass(frozen=True)
+class CitizensConfig:
+    issue_count: int
+    position_dist: str
+    priority_dist: str
+    blank_threshold_dist: str
+    ambition_dist: str
+    static_population: bool
+    memory_window_terms: int
+
+
+@dataclass(frozen=True)
+class CandidacyConfig:
+    ambition_threshold: float
+    independent_signature_ratio: float
+    rupture_path_enabled: bool
+    rupture_base_probability: float
+    rupture_signature_ratio: float
+    max_candidates_hard_cap: int
+
+
+@dataclass(frozen=True)
+class LegitimacyConfig:
+    enabled: bool
+    decay: float
+    recall_floor: float
+
+
+@dataclass(frozen=True)
+class JournalConfig:
+    enabled: bool
+    format: str
+    output_dir: str
+    snapshot_every_ticks: int
+    log_non_events: bool
+    index_after_run: bool
+
+
+@dataclass(frozen=True)
+class MetricsConfig:
+    compute_every_ticks: int
+    effective_parties: bool
+    cohabitation_rate: bool
+    coalition_lifespan: bool
+
+
+@dataclass(frozen=True)
+class PolityConfig:
+    """The typed v0 view of polity_config.yaml, plus the full raw mapping
+    (`raw`) so a later palier can read its own not-yet-typed section without
+    a schema change here."""
+
+    run: RunConfig
+    institutions: InstitutionsConfig
+    parties: PartiesConfig
+    citizens: CitizensConfig
+    candidacy: CandidacyConfig
+    legitimacy: LegitimacyConfig
+    journal: JournalConfig
+    metrics: MetricsConfig
+    raw: dict[str, Any]
+
+
+def _parse_run(raw: dict[str, Any]) -> RunConfig:
+    s = _section(raw, "run")
+    return RunConfig(
+        seed=_get(s, "run", "seed", int),
+        ticks_per_year=_get_positive_int(s, "run", "ticks_per_year"),
+        duration_years=_get_positive_int(s, "run", "duration_years"),
+        population_size=_get_positive_int(s, "run", "population_size"),
+        run_label=_get(s, "run", "run_label", str),
+    )
+
+
+def _parse_institutions(raw: dict[str, Any]) -> InstitutionsConfig:
+    s = _section(raw, "institutions")
+    return InstitutionsConfig(
+        president_term_years=_get_positive_int(s, "institutions", "president_term_years"),
+        assembly_term_years=_get_positive_int(s, "institutions", "assembly_term_years"),
+        assembly_offset_years=_get(s, "institutions", "assembly_offset_years", int),
+        president_term_limit=_get_optional_int(s, "institutions", "president_term_limit"),
+        assembly_term_limit=_get_optional_int(s, "institutions", "assembly_term_limit"),
+        presidential_method=_get_enum(s, "institutions", "presidential_method", _PRESIDENTIAL_METHODS),
+        assembly_seats=_get_positive_int(s, "institutions", "assembly_seats"),
+        assembly_mode=_get_enum(s, "institutions", "assembly_mode", _ASSEMBLY_MODES),
+        seat_allocation=_get_enum(s, "institutions", "seat_allocation", _SEAT_ALLOCATIONS),
+        electoral_threshold=_get_ratio(s, "institutions", "electoral_threshold"),
+        blank_vote_enabled=_get(s, "institutions", "blank_vote_enabled", bool),
+        blank_vote_competitive=_get(s, "institutions", "blank_vote_competitive", bool),
+        blank_invalidation_threshold=_get_ratio(s, "institutions", "blank_invalidation_threshold"),
+        reelection_delay_ticks=_get(s, "institutions", "reelection_delay_ticks", int),
+        reelection_max_attempts=_get_positive_int(s, "institutions", "reelection_max_attempts"),
+        barred_from_immediate_rerun=_get(s, "institutions", "barred_from_immediate_rerun", bool),
+    )
+
+
+def _parse_parties(raw: dict[str, Any]) -> PartiesConfig:
+    s = _section(raw, "parties")
+    tiebreak = _get(s, "parties", "coalition_tiebreak", list)
+    if not tiebreak or not all(isinstance(k, str) for k in tiebreak):
+        raise PolityConfigError("'parties.coalition_tiebreak': must be a non-empty list of strings")
+    unknown = set(tiebreak) - _COALITION_TIEBREAK_KEYS
+    if unknown:
+        raise PolityConfigError(f"'parties.coalition_tiebreak': unknown key(s) {sorted(unknown)}")
+    if len(set(tiebreak)) != len(tiebreak):
+        raise PolityConfigError("'parties.coalition_tiebreak': duplicate keys")
+    return PartiesConfig(
+        initial_count=_get_positive_int(s, "parties", "initial_count"),
+        init_strategy=_get_enum(s, "parties", "init_strategy", _PARTY_INIT_STRATEGIES),
+        manual_platforms=_get(s, "parties", "manual_platforms", list),
+        birth_enabled=_get(s, "parties", "birth_enabled", bool),
+        death_enabled=_get(s, "parties", "death_enabled", bool),
+        split_enabled=_get(s, "parties", "split_enabled", bool),
+        coalition_initiator=_get_enum(s, "parties", "coalition_initiator", _COALITION_INITIATORS),
+        coalition_tiebreak=tuple(tiebreak),
+        coalition_majority_ratio=_get_ratio(s, "parties", "coalition_majority_ratio"),
+    )
+
+
+def _parse_citizens(raw: dict[str, Any]) -> CitizensConfig:
+    s = _section(raw, "citizens")
+    return CitizensConfig(
+        issue_count=_get_positive_int(s, "citizens", "issue_count"),
+        position_dist=_get(s, "citizens", "position_dist", str),
+        priority_dist=_get(s, "citizens", "priority_dist", str),
+        blank_threshold_dist=_get(s, "citizens", "blank_threshold_dist", str),
+        ambition_dist=_get(s, "citizens", "ambition_dist", str),
+        static_population=_get(s, "citizens", "static_population", bool),
+        memory_window_terms=_get(s, "citizens", "memory_window_terms", int),
+    )
+
+
+def _parse_candidacy(raw: dict[str, Any]) -> CandidacyConfig:
+    s = _section(raw, "candidacy")
+    return CandidacyConfig(
+        ambition_threshold=_get_ratio(s, "candidacy", "ambition_threshold"),
+        independent_signature_ratio=_get_ratio(s, "candidacy", "independent_signature_ratio"),
+        rupture_path_enabled=_get(s, "candidacy", "rupture_path_enabled", bool),
+        rupture_base_probability=_get_ratio(s, "candidacy", "rupture_base_probability"),
+        rupture_signature_ratio=_get_ratio(s, "candidacy", "rupture_signature_ratio"),
+        max_candidates_hard_cap=_get_positive_int(s, "candidacy", "max_candidates_hard_cap"),
+    )
+
+
+def _parse_legitimacy(raw: dict[str, Any]) -> LegitimacyConfig:
+    s = _section(raw, "legitimacy")
+    return LegitimacyConfig(
+        enabled=_get(s, "legitimacy", "enabled", bool),
+        decay=_get_ratio(s, "legitimacy", "decay"),
+        recall_floor=_get_ratio(s, "legitimacy", "recall_floor"),
+    )
+
+
+def _parse_journal(raw: dict[str, Any]) -> JournalConfig:
+    s = _section(raw, "journal")
+    return JournalConfig(
+        enabled=_get(s, "journal", "enabled", bool),
+        format=_get_enum(s, "journal", "format", {"jsonl", "parquet"}),
+        output_dir=_get(s, "journal", "output_dir", str),
+        snapshot_every_ticks=_get_positive_int(s, "journal", "snapshot_every_ticks"),
+        log_non_events=_get(s, "journal", "log_non_events", bool),
+        index_after_run=_get(s, "journal", "index_after_run", bool),
+    )
+
+
+def _parse_metrics(raw: dict[str, Any]) -> MetricsConfig:
+    s = _section(raw, "metrics")
+    return MetricsConfig(
+        compute_every_ticks=_get_positive_int(s, "metrics", "compute_every_ticks"),
+        effective_parties=_get(s, "metrics", "effective_parties", bool),
+        cohabitation_rate=_get(s, "metrics", "cohabitation_rate", bool),
+        coalition_lifespan=_get(s, "metrics", "coalition_lifespan", bool),
+    )
+
+
+def load_config(path: Path | str | None = None) -> PolityConfig:
+    """Load and validate polity_config.yaml. Raises PolityConfigError on any
+    structural problem — never lets a malformed file fail silently or with a
+    bare stdlib exception several frames away from the offending key."""
+    config_path = Path(path) if path is not None else _DEFAULT_CONFIG_PATH
+    if not config_path.is_file():
+        raise PolityConfigError(f"config file not found: {config_path}")
+
+    try:
+        text = config_path.read_text(encoding="utf-8")
+    except OSError as exc:
+        raise PolityConfigError(f"could not read {config_path}: {exc}") from exc
+
+    try:
+        raw = yaml.safe_load(text)
+    except yaml.YAMLError as exc:
+        raise PolityConfigError(f"invalid YAML in {config_path}: {exc}") from exc
+
+    if not isinstance(raw, dict):
+        raise PolityConfigError(f"{config_path}: top level must be a mapping, got {type(raw).__name__}")
+
+    return PolityConfig(
+        run=_parse_run(raw),
+        institutions=_parse_institutions(raw),
+        parties=_parse_parties(raw),
+        citizens=_parse_citizens(raw),
+        candidacy=_parse_candidacy(raw),
+        legitimacy=_parse_legitimacy(raw),
+        journal=_parse_journal(raw),
+        metrics=_parse_metrics(raw),
+        raw=raw,
+    )
