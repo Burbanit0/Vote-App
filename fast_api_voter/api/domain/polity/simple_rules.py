@@ -96,6 +96,20 @@ def assign_party_affiliation(citizen: Citizen, parties: list[Party]) -> int:
     ).party_id
 
 
+def choose_party(voter: Citizen, parties: list[Party]) -> int | None:
+    """Party-list analogue of build_ranking's vote rule (A5), for the
+    legislative election (assembly_mode: party_list): nearest party
+    platform by issue-priority-weighted distance, or blank (None) if even
+    the nearest party is farther than the voter's own tolerance. Ties
+    broken by the lowest party_id."""
+    nearest = min(
+        parties, key=lambda p: (_weighted_distance(voter, p.platform), p.party_id)
+    )
+    if _weighted_distance(voter, nearest.platform) > voter.blank_threshold:
+        return None
+    return nearest.party_id
+
+
 # ── 2. Candidacy rule ─────────────────────────────────────────────────────
 
 def decide_candidacy(citizen: Citizen, config: CandidacyConfig) -> bool:

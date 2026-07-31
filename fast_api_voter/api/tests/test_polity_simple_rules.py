@@ -13,6 +13,7 @@ from api.domain.polity.simple_rules import (
     assign_party_affiliation,
     build_ranking,
     candidate_label,
+    choose_party,
     citizen_id_from_label,
     decide_candidacy,
     declare_candidacy,
@@ -65,6 +66,26 @@ def test_assign_party_affiliation_ties_break_on_lowest_party_id():
     parties = [Party(5, (1.0, 0.0)), Party(2, (0.0, 1.0))]
     equidistant = _citizen(1, (0.5, 0.5))
     assert assign_party_affiliation(equidistant, parties) == 2
+
+
+# ── choose_party ──────────────────────────────────────────────────────────
+
+def test_choose_party_picks_the_nearest_platform():
+    parties = [Party(0, (0.0,)), Party(1, (1.0,))]
+    voter = _citizen(1, (0.1,), priorities=(1.0,), blank_threshold=1.0)
+    assert choose_party(voter, parties) == 0
+
+
+def test_choose_party_returns_none_when_nearest_exceeds_tolerance():
+    parties = [Party(0, (0.0,)), Party(1, (1.0,))]
+    voter = _citizen(1, (0.5,), priorities=(1.0,), blank_threshold=0.1)
+    assert choose_party(voter, parties) is None
+
+
+def test_choose_party_ties_break_on_lowest_party_id():
+    parties = [Party(5, (1.0,)), Party(2, (0.0,))]
+    voter = _citizen(1, (0.5,), priorities=(1.0,), blank_threshold=1.0)
+    assert choose_party(voter, parties) == 2
 
 
 # ── decide_candidacy ──────────────────────────────────────────────────────
