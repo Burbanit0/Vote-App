@@ -53,7 +53,7 @@ class Citizen:
     role: Role = Role.ELECTOR
     office: Office = Office.NONE
     term_end_tick: int | None = None
-    party_affiliation: str | None = None
+    party_affiliation: int | None = None
     # DEMARRAGE-polity-v0.md §3.1: unused in v0 (deviation is zero by
     # construction without an LLM) but added now to avoid a schema
     # migration when mandate limits (§6bis.1) and mandate deviation
