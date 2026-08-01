@@ -49,7 +49,7 @@ def _get(section: dict[str, Any], path: str, key: str, expected: type | tuple[ty
         raise PolityConfigError(f"'{path}.{key}': missing required field")
     value = section[key]
     # bool is a subclass of int — reject bool where an int/float was requested.
-    if expected in (int, float) and isinstance(value, bool):
+    if isinstance(expected, type) and expected in (int, float) and isinstance(value, bool):
         raise PolityConfigError(f"'{path}.{key}': expected {expected.__name__}, got bool")
     if not isinstance(value, expected):
         expected_name = (
@@ -74,7 +74,7 @@ def _get_optional_int(section: dict[str, Any], path: str, key: str) -> int | Non
         return None
     if isinstance(value, bool) or not isinstance(value, int):
         raise PolityConfigError(f"'{path}.{key}': expected int or null, got {type(value).__name__}")
-    return value
+    return int(value)
 
 
 def _get_ratio(section: dict[str, Any], path: str, key: str) -> float:
