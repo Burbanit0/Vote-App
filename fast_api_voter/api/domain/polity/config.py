@@ -31,6 +31,10 @@ _ASSEMBLY_MODES = {"party_list", "candidate_multiwinner"}
 _COALITION_INITIATORS = {"largest_seats", "largest_votes"}
 _COALITION_TIEBREAK_KEYS = {"seats", "votes", "party_id"}
 _PARTY_INIT_STRATEGIES = {"kmeans_on_citizens", "random", "manual"}
+_LLM_PROVIDERS = {"ollama", "vllm", "api"}
+_LLM_SHARDINGS = {"static", "dynamic"}
+_LLM_CACHE_BACKENDS = {"redis", "sqlite", "none"}
+_LLM_RATIONALE_MODES = {"codes", "free_text", "hybrid"}
 
 
 class PolityConfigError(ValueError):
@@ -186,6 +190,33 @@ class MetricsConfig:
 
 
 @dataclass(frozen=True)
+class LlmConfig:
+    """§3/§12 — inactive (enabled=false) until v2's vote_cast increment.
+    Typed in full even though most fields are still unused (cache_backend,
+    personas_count) — config.py's own contract is that a typo in a
+    not-yet-active section fails loudly now, not silently at activation."""
+
+    enabled: bool
+    provider: str
+    base_url: str
+    model: str
+    temperature: float
+    max_batch_size: int
+    batch_sharding: str
+    cache_backend: str
+    cache_url: str
+    rationale_mode: str
+    codebook_version: str
+    personas_count: int
+
+
+@dataclass(frozen=True)
+class ParallelConfig:
+    runs_in_parallel: int
+    intra_run_workers: int
+
+
+@dataclass(frozen=True)
 class PolityConfig:
     """The typed v0 view of polity_config.yaml, plus the full raw mapping
     (`raw`) so a later palier can read its own not-yet-typed section without
@@ -199,6 +230,8 @@ class PolityConfig:
     legitimacy: LegitimacyConfig
     journal: JournalConfig
     metrics: MetricsConfig
+    llm: LlmConfig
+    parallel: ParallelConfig
     raw: dict[str, Any]
 
 
@@ -314,6 +347,52 @@ def _parse_metrics(raw: dict[str, Any]) -> MetricsConfig:
     )
 
 
+def _parse_llm(raw: dict[str, Any]) -> LlmConfig:
+    s = _section(raw, "llm")
+    enabled = _get(s, "llm", "enabled", bool)
+
+    base_url = _get(s, "llm", "base_url", str)
+    if not base_url or not (base_url.startswith("http://") or base_url.startswith("https://")):
+        raise PolityConfigError(f"'llm.base_url': must start with http:// or https://, got {base_url!r}")
+    base_url = base_url.rstrip("/")
+
+    model = _get(s, "llm", "model", str)
+    if ":" not in model or model.endswith(":latest"):
+        raise PolityConfigError(
+            f"'llm.model': must be pinned to a specific, non-'latest' tag (e.g. 'qwen3:8b'), got {model!r}"
+        )
+
+    # Design doc §4.2 (B2): temperature=0 is a hard determinism requirement
+    # once the LLM path is actually enabled — reject rather than silently
+    # accept a config that would produce irreproducible runs.
+    temperature = float(_get(s, "llm", "temperature", (int, float)))
+    if enabled and temperature != 0.0:
+        raise PolityConfigError(f"'llm.temperature': must be 0.0 when llm.enabled is true, got {temperature}")
+
+    return LlmConfig(
+        enabled=enabled,
+        provider=_get_enum(s, "llm", "provider", _LLM_PROVIDERS),
+        base_url=base_url,
+        model=model,
+        temperature=temperature,
+        max_batch_size=_get_positive_int(s, "llm", "max_batch_size"),
+        batch_sharding=_get_enum(s, "llm", "batch_sharding", _LLM_SHARDINGS),
+        cache_backend=_get_enum(s, "llm", "cache_backend", _LLM_CACHE_BACKENDS),
+        cache_url=_get(s, "llm", "cache_url", str),
+        rationale_mode=_get_enum(s, "llm", "rationale_mode", _LLM_RATIONALE_MODES),
+        codebook_version=_get(s, "llm", "codebook_version", str),
+        personas_count=_get_positive_int(s, "llm", "personas_count"),
+    )
+
+
+def _parse_parallel(raw: dict[str, Any]) -> ParallelConfig:
+    s = _section(raw, "parallel")
+    return ParallelConfig(
+        runs_in_parallel=_get_positive_int(s, "parallel", "runs_in_parallel"),
+        intra_run_workers=_get_positive_int(s, "parallel", "intra_run_workers"),
+    )
+
+
 def load_config(path: Path | str | None = None) -> PolityConfig:
     """Load and validate polity_config.yaml. Raises PolityConfigError on any
     structural problem — never lets a malformed file fail silently or with a
@@ -344,5 +423,7 @@ def load_config(path: Path | str | None = None) -> PolityConfig:
         legitimacy=_parse_legitimacy(raw),
         journal=_parse_journal(raw),
         metrics=_parse_metrics(raw),
+        llm=_parse_llm(raw),
+        parallel=_parse_parallel(raw),
         raw=raw,
     )
