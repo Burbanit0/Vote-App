@@ -11,6 +11,8 @@ from __future__ import annotations
 
 from pathlib import Path
 
+import numpy as np
+
 from api.domain.polity.ballot_and_aggregation import RANKED_METHODS, allocate_seats, get_presidential_winner
 from api.domain.polity.citizen import Citizen, Office, Role, generate_population
 from api.domain.polity.config import PolityConfig
@@ -20,6 +22,7 @@ from api.domain.polity.parties import Party, initialize_parties
 from api.domain.polity.simple_rules import (
     BLANK_LABEL,
     assign_party_affiliation,
+    attempt_rupture_candidacy,
     build_ranking,
     choose_party,
     citizen_id_from_label,
@@ -50,9 +53,14 @@ def run_simulation(config: PolityConfig, run_id: str | None = None) -> Path:
         citizen.party_affiliation = assign_party_affiliation(citizen, parties)
 
     clock = InstitutionalClock.from_config(config.institutions, config.run)
+    # Independent stream from population/party generation (same pattern as
+    # Lot 2/3): a fresh default_rng per concern, so enabling rupture draws
+    # never perturbs the citizens/parties already generated above.
+    rupture_rng = np.random.default_rng(config.run.seed)
 
     with Journal.from_config(config.journal, run_id) as journal:
         for tick in range(clock.total_ticks + 1):
+            _attempt_rupture_candidacies(citizens, config, journal, tick, rupture_rng)
             election = clock.election_at(tick)
             if election in (ElectionType.PRESIDENTIAL, ElectionType.BOTH):
                 _hold_presidential_election(citizens, parties, config, journal, tick)
@@ -61,6 +69,28 @@ def run_simulation(config: PolityConfig, run_id: str | None = None) -> Path:
                 _form_and_journal_coalition(parties, seats, votes, config, journal, tick)
 
     return Path(config.journal.output_dir) / run_id / "events.jsonl"
+
+
+def _attempt_rupture_candidacies(
+    citizens: list[Citizen], config: PolityConfig, journal: Journal, tick: int, rng: np.random.Generator
+) -> None:
+    """Design doc §2.4 rare path: evaluated every tick (not just election
+    ticks — rupture_base_probability is a per-tick draw), for every citizen
+    currently an elector. A successful attempt declares immediately and the
+    citizen sits as Role.CANDIDATE until the next presidential election
+    picks them up (_hold_presidential_election), mirroring how a party
+    nominee's declaration already works within a single election tick."""
+    for citizen in citizens:
+        if citizen.role != Role.ELECTOR:
+            continue
+        if attempt_rupture_candidacy(citizen, citizens, config.candidacy, rng):
+            declare_candidacy(citizen)
+            journal.write(
+                tick=tick,
+                event_type="candidacy_declared",
+                payload={"path": "rupture"},
+                citizen_id=citizen.citizen_id,
+            )
 
 
 def _declare_nominees(
@@ -75,7 +105,7 @@ def _declare_nominees(
         journal.write(
             tick=tick,
             event_type="candidacy_declared",
-            payload={"party_id": party.party_id},
+            payload={"party_id": party.party_id, "path": "dominant"},
             citizen_id=nominee.citizen_id,
         )
         nominees.append(nominee)
@@ -86,6 +116,12 @@ def _hold_presidential_election(
     citizens: list[Citizen], parties: list[Party], config: PolityConfig, journal: Journal, tick: int
 ) -> None:
     nominees = _declare_nominees(citizens, parties, config, journal, tick)
+    nominee_ids = {c.citizen_id for c in nominees}
+    standing_rupture_candidates = sorted(
+        (c for c in citizens if c.role == Role.CANDIDATE and c.citizen_id not in nominee_ids),
+        key=lambda c: c.citizen_id,
+    )
+    nominees = nominees + standing_rupture_candidates
 
     winner: Citizen | None = None
     if nominees:

@@ -1,8 +1,10 @@
 """Lot 6 — simple_rules.py: the v0 deterministic vote/candidacy/coalition rules.
+Rupture-candidacy tests (v1) added when §2.4's rare path was implemented.
 
 Contract (dev-plan-v0-worktree.md §3, Lot 6): each rule tested in isolation
 on hand-constructed cases.
 """
+import numpy as np
 import pytest
 
 from api.domain.polity.citizen import Citizen, Role
@@ -11,6 +13,7 @@ from api.domain.polity.parties import Party
 from api.domain.polity.simple_rules import (
     BLANK_LABEL,
     assign_party_affiliation,
+    attempt_rupture_candidacy,
     build_ranking,
     candidate_label,
     choose_party,
@@ -99,10 +102,69 @@ def test_decide_candidacy_threshold():
     assert decide_candidacy(below, _CANDIDACY_CONFIG) is False
 
 
-def test_decide_candidacy_raises_if_rupture_path_enabled():
+def test_decide_candidacy_ignores_the_rupture_path_flag():
+    # decide_candidacy is the dominant path only; rupture_path_enabled is
+    # attempt_rupture_candidacy's concern, not this function's.
     config = CandidacyConfig(**{**_CANDIDACY_CONFIG.__dict__, "rupture_path_enabled": True})
-    with pytest.raises(NotImplementedError, match="rupture"):
-        decide_candidacy(_citizen(1, (0.5,), ambition=0.9), config)
+    assert decide_candidacy(_citizen(1, (0.5,), ambition=0.9), config) is True
+    assert decide_candidacy(_citizen(2, (0.5,), ambition=0.1), config) is False
+
+
+# ── attempt_rupture_candidacy ─────────────────────────────────────────────
+
+def test_attempt_rupture_candidacy_disabled_never_triggers_and_never_draws():
+    config = CandidacyConfig(**{**_CANDIDACY_CONFIG.__dict__, "rupture_path_enabled": False})
+    citizen = _citizen(1, (0.5,), priorities=(1.0,), blank_threshold=1.0)
+    population = [citizen]
+    rng = np.random.default_rng(0)
+    for _ in range(5):
+        assert attempt_rupture_candidacy(citizen, population, config, rng) is False
+    # No draw consumed: an untouched rng of the same seed gives the same
+    # first value as this one, which was never advanced.
+    assert rng.random() == np.random.default_rng(0).random()
+
+
+def test_attempt_rupture_candidacy_never_triggers_when_probability_is_zero():
+    config = CandidacyConfig(
+        **{**_CANDIDACY_CONFIG.__dict__, "rupture_path_enabled": True, "rupture_base_probability": 0.0}
+    )
+    citizen = _citizen(1, (0.5,), priorities=(1.0,), blank_threshold=1.0)
+    population = [citizen]
+    rng = np.random.default_rng(0)
+    assert attempt_rupture_candidacy(citizen, population, config, rng) is False
+
+
+def test_attempt_rupture_candidacy_requires_the_signature_bar():
+    config = CandidacyConfig(
+        **{
+            **_CANDIDACY_CONFIG.__dict__,
+            "rupture_path_enabled": True,
+            "rupture_base_probability": 1.0,  # always wins the coin flip
+            "rupture_signature_ratio": 0.5,
+        }
+    )
+    citizen = _citizen(1, (0.0,), priorities=(1.0,), blank_threshold=0.01)
+    # Only the citizen themself is a sympathizer (distance 0); everyone
+    # else is far outside their own tolerance of citizen's position.
+    population = [citizen] + [_citizen(i, (1.0,), priorities=(1.0,), blank_threshold=0.01) for i in range(2, 6)]
+    rng = np.random.default_rng(0)
+    assert attempt_rupture_candidacy(citizen, population, config, rng) is False
+
+
+def test_attempt_rupture_candidacy_succeeds_when_probability_and_signature_bar_clear():
+    config = CandidacyConfig(
+        **{
+            **_CANDIDACY_CONFIG.__dict__,
+            "rupture_path_enabled": True,
+            "rupture_base_probability": 1.0,
+            "rupture_signature_ratio": 0.5,
+        }
+    )
+    citizen = _citizen(1, (0.5,), priorities=(1.0,), blank_threshold=1.0)
+    # Everyone tolerates everyone (blank_threshold=1.0 spans the whole space).
+    population = [citizen] + [_citizen(i, (0.0,), priorities=(1.0,), blank_threshold=1.0) for i in range(2, 6)]
+    rng = np.random.default_rng(0)
+    assert attempt_rupture_candidacy(citizen, population, config, rng) is True
 
 
 # ── select_party_nominee ──────────────────────────────────────────────────

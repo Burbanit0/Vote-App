@@ -1,16 +1,17 @@
 """
 api.domain.polity.simple_rules — the v0/v1 deterministic decision baseline
-(Lot 6, resolves audit blocker A5).
+(Lot 6, resolves audit blocker A5; rupture path added for v1).
 
 Three rules, each isolated and independently testable, matching
 DEMARRAGE-polity-v0.md §2 and audit-precision-plan.md A5:
 
 1. Vote: nearest candidate by issue-priority-weighted distance; blank if
    even the nearest candidate is farther than the voter's own tolerance.
-2. Candidacy: an ambition-score threshold (v0 only implements the dominant
-   path of design doc §2.4 — the rare "candidature de rupture" path is
-   disabled in v0's config and raises if ever turned on without v1's
-   implementation).
+2. Candidacy: `decide_candidacy` is design doc §2.4's dominant path
+   (ambition-score threshold), used to filter party nominees. The rare
+   "candidature de rupture" path (§2.4) is a separate function,
+   `attempt_rupture_candidacy` — independent of perceived support by
+   design, so it does not reuse `decide_candidacy` at all.
 3. Coalition: nearest-ideological-neighbour aggregation until a majority of
    seats is reached, with every tiebreak explicit (DEMARRAGE §4) — a bare
    max()/min() on insertion order would make the byte-for-byte
@@ -25,6 +26,8 @@ their pledged_platform.
 from __future__ import annotations
 
 import math
+
+import numpy as np
 
 from api.domain.polity.citizen import Citizen, Role
 from api.domain.polity.config import CandidacyConfig
@@ -113,13 +116,52 @@ def choose_party(voter: Citizen, parties: list[Party]) -> int | None:
 # ── 2. Candidacy rule ─────────────────────────────────────────────────────
 
 def decide_candidacy(citizen: Citizen, config: CandidacyConfig) -> bool:
-    """Design doc §2.4 dominant path only: ambition_score crosses a fixed
-    threshold. The rare rupture path is a v1 feature (config.
-    rupture_path_enabled is false in v0); this raises rather than silently
-    no-op if it is ever turned on before it is implemented."""
-    if config.rupture_path_enabled:
-        raise NotImplementedError("candidacy rupture path (design doc §2.4) is not implemented before v1")
+    """Design doc §2.4 dominant path: ambition_score crosses a fixed
+    threshold. The rare rupture path (attempt_rupture_candidacy, below) is
+    entirely separate — it is independent of perceived support by design,
+    so it never calls this function."""
     return citizen.ambition_score >= config.ambition_threshold
+
+
+def _sympathizer_ratio(citizen: Citizen, population: list[Citizen]) -> float:
+    """Proxy for "parrainages simulés" (§2.3): the fraction of the
+    population who would sincerely consider `citizen` an acceptable choice
+    (within their own blank_threshold), reusing the same tolerance concept
+    already used for voting rather than inventing a new one. v0/v1 have no
+    social graph or LLM to ground "simulated signatures" more directly."""
+    sympathizers = sum(
+        1 for other in population
+        if _weighted_distance(other, citizen.issue_positions) <= other.blank_threshold
+    )
+    return sympathizers / len(population)
+
+
+def attempt_rupture_candidacy(
+    citizen: Citizen,
+    population: list[Citizen],
+    config: CandidacyConfig,
+    rng: np.random.Generator,
+) -> bool:
+    """Design doc §2.4 rare path: a citizen may declare independently of
+    perceived support, gated only by a flat per-tick draw
+    (rupture_base_probability) and a reduced signature bar
+    (rupture_signature_ratio) — never by ambition_score or by
+    decide_candidacy. The RNG is always drawn from when the path is
+    enabled (win or lose the coin flip) so draw order — and therefore
+    reproducibility — never depends on the outcome.
+
+    The "quelle fonction de l'écart idéologique" question left open in the
+    design doc (§2.4, Points ouverts #1) is deliberately NOT answered here:
+    eligibility does not depend on ideological distance to any incumbent
+    or party — only on the flat probability already pinned in config. v1
+    ships the literal, minimal reading of the config; a distance-weighted
+    eligibility function is left to a later palier.
+    """
+    if not config.rupture_path_enabled:
+        return False
+    if rng.random() >= config.rupture_base_probability:
+        return False
+    return _sympathizer_ratio(citizen, population) >= config.rupture_signature_ratio
 
 
 def select_party_nominee(
