@@ -230,12 +230,24 @@ llm:
                               #      dynamic CASSE la reproductibilité
                               #      (§15bis.4a) — ne pas changer
   cache_backend: redis        # [v2] redis | sqlite | none
-  cache_url: "redis://localhost:6379/0"
+                              #      ⚠ PAS ENCORE IMPLÉMENTÉ (v2.1) — v2
+                              #      incrément 1 appelle le LLM sans cache ;
+                              #      la justesse vient de temperature=0 +
+                              #      modèle épinglé + appels sérialisés
+                              #      (§15bis.5), le cache n'est qu'une
+                              #      optimisation de replay (§4.2)
+  cache_url: "redis://localhost:6379/0"  # ⚠ PAS ENCORE IMPLÉMENTÉ (v2.1)
   rationale_mode: codes       # [v2] codes | free_text | hybrid (§16.5)
                               #      TRANCHÉ : codes partout + texte libre
                               #      borné aux événements pivots (§3.6.9)
   codebook_version: "1.0"     # [v2] artefact figé, archivé avec le run (§3.7)
   personas_count: 30          # [v2] 20-50 archétypes (§9)
+                              #      ⚠ PAS ENCORE IMPLÉMENTÉ (v2.1) — v2
+                              #      incrément 1 décrit les citoyens par
+                              #      leurs champs bruts, pas une persona ;
+                              #      le lotissement (§3.5) retombe sur des
+                              #      lots contigus de max_batch_size, pas
+                              #      un groupement par archetype_id
 
 # =============================================================================
 # JOURNAL ET DONNÉES (§16)

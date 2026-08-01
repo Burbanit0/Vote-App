@@ -28,6 +28,17 @@ def test_loads_the_real_polity_config_with_expected_v0_values():
     assert config.legitimacy.enabled is False
     assert config.journal.enabled is True
     assert config.metrics.effective_parties is True
+    assert config.llm.enabled is False
+    assert config.llm.provider == "ollama"
+    assert config.llm.base_url == "http://localhost:11434/v1"
+    assert config.llm.model == "qwen3:8b"
+    assert config.llm.temperature == 0.0
+    assert config.llm.max_batch_size == 25
+    assert config.llm.batch_sharding == "static"
+    assert config.llm.codebook_version == "1.0"
+    assert config.llm.personas_count == 30
+    assert config.parallel.runs_in_parallel == 1
+    assert config.parallel.intra_run_workers == 1
 
 
 def test_missing_file_raises_explicitly(tmp_path):
@@ -118,4 +129,71 @@ def test_coalition_tiebreak_rejects_duplicates(tmp_path):
 def test_coalition_tiebreak_rejects_empty(tmp_path):
     path = _write(tmp_path, lambda d: d["parties"].__setitem__("coalition_tiebreak", []))
     with pytest.raises(PolityConfigError, match="coalition_tiebreak"):
+        load_config(path)
+
+
+# ── llm / parallel (v2 increment 1) ──────────────────────────────────────
+
+def test_llm_model_without_a_tag_raises(tmp_path):
+    path = _write(tmp_path, lambda d: d["llm"].__setitem__("model", "qwen3"))
+    with pytest.raises(PolityConfigError, match="llm.model"):
+        load_config(path)
+
+
+def test_llm_model_pinned_to_latest_raises(tmp_path):
+    path = _write(tmp_path, lambda d: d["llm"].__setitem__("model", "qwen3:latest"))
+    with pytest.raises(PolityConfigError, match="llm.model"):
+        load_config(path)
+
+
+def test_llm_provider_unknown_raises(tmp_path):
+    path = _write(tmp_path, lambda d: d["llm"].__setitem__("provider", "openai"))
+    with pytest.raises(PolityConfigError, match="provider"):
+        load_config(path)
+
+
+def test_llm_batch_sharding_unknown_raises(tmp_path):
+    path = _write(tmp_path, lambda d: d["llm"].__setitem__("batch_sharding", "round_robin"))
+    with pytest.raises(PolityConfigError, match="batch_sharding"):
+        load_config(path)
+
+
+def test_llm_max_batch_size_must_be_positive(tmp_path):
+    path = _write(tmp_path, lambda d: d["llm"].__setitem__("max_batch_size", 0))
+    with pytest.raises(PolityConfigError, match="max_batch_size"):
+        load_config(path)
+
+
+def test_llm_enabled_with_nonzero_temperature_raises(tmp_path):
+    def mutate(d):
+        d["llm"]["enabled"] = True
+        d["llm"]["temperature"] = 0.7
+
+    path = _write(tmp_path, mutate)
+    with pytest.raises(PolityConfigError, match="temperature"):
+        load_config(path)
+
+
+def test_llm_disabled_with_nonzero_temperature_is_allowed(tmp_path):
+    path = _write(tmp_path, lambda d: d["llm"].__setitem__("temperature", 0.7))
+    config = load_config(path)
+    assert config.llm.temperature == 0.7
+    assert config.llm.enabled is False
+
+
+def test_llm_base_url_without_scheme_raises(tmp_path):
+    path = _write(tmp_path, lambda d: d["llm"].__setitem__("base_url", "localhost:11434/v1"))
+    with pytest.raises(PolityConfigError, match="base_url"):
+        load_config(path)
+
+
+def test_llm_base_url_trailing_slash_is_stripped(tmp_path):
+    path = _write(tmp_path, lambda d: d["llm"].__setitem__("base_url", "http://localhost:11434/v1/"))
+    config = load_config(path)
+    assert config.llm.base_url == "http://localhost:11434/v1"
+
+
+def test_parallel_intra_run_workers_must_be_positive(tmp_path):
+    path = _write(tmp_path, lambda d: d["parallel"].__setitem__("intra_run_workers", 0))
+    with pytest.raises(PolityConfigError, match="intra_run_workers"):
         load_config(path)
