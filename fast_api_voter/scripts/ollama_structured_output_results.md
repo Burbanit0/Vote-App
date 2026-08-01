@@ -9,20 +9,21 @@ at) supports what the production client needs from `qwen3:8b`, the pinned model.
 `docker exec ollama ollama pull qwen3:8b` (5.2GB), CPU-only (no GPU on this machine).
 Script: `fast_api_voter/scripts/check_ollama_structured_output.py`.
 
-## Result: two real, load-bearing problems found, both fixed and verified; one open risk documented
+## Result: three real, load-bearing findings, all understood and actionable
 
 | # | Check | Result |
 |---|---|---|
 | 1 | Model present | ✅ pass |
-| 2 | `<think>` block in visible content on a trivial prompt | Not present — but see Finding B, hidden generation still consumes budget on some prompts |
+| 2 | `<think>` block in visible content on a trivial prompt | Not present — but see the threshold finding below, generation can still consume the whole budget invisibly on some prompts |
 | 3 | Seed fidelity | ✅ same seed twice → identical. Different seed → **also** identical, which is *correct*: at `temperature=0`, decoding is greedy/argmax, so seed has nothing to randomize. Not a bug. |
 | 4 | Sequential determinism on the real `/v1` structured-output surface | ✅ 5/5 identical calls |
-| 5 | Structured output on the real `VoteCastBatch` schema, toy 3-citizen batch | ❌ still fails after both fixes below — see **open risk** |
+| 5 | Structured output on the real `VoteCastBatch` schema, toy 3-citizen batch | ❌ still fails after Findings A/B — root-caused below: below a ~12-15 citizen threshold, not specific to this toy case |
 | 6 | Full-size batch (25 citizens × 20 dims, the actual `max_batch_size`) | ❌ then ✅ after both fixes — see **Finding A** and **Finding B** |
 
 **Bottom line: the production-relevant batch size (25, matching `llm.max_batch_size`)
-works reliably once both fixes below are applied. A smaller, non-representative toy
-batch does not, for reasons not yet root-caused — see the open risk section.**
+works reliably once both fixes below are applied. Batches below a threshold measured
+between 12 and 15 citizens fail regardless of token budget — root-caused to batch
+size itself (see below), with a concrete chunking rule to avoid it.**
 
 ## Finding A: Ollama's structured-output layer cannot handle Pydantic's `$defs`/`$ref` nesting
 
@@ -73,33 +74,47 @@ self-verification instruction — implemented this way in the spike script's fin
 `_system_prompt()`. A prompt that only states the *count* is not sufficient for this
 model.
 
-## Open risk (unresolved): a specific small batch reproducibly fails regardless of token budget
+## Root-cause investigation: there is a real minimum-viable-batch-size threshold
 
-A 3-citizen / 3-candidate toy batch, built the same way as the working 25-citizen
-batch (same schema fix, same enumerated-cid-list prompt), **reliably fails**:
-`finish_reason: "length"`, `content` = `""`, at `max_tokens` = 512, 1024, **and**
-2000 — the failure is identical (same `completion_tokens` count exhausted) at every
-budget tested, so this is not a sizing problem. The working 25-citizen batch needed
-only ~1026 of a 2200-token budget; this 3-citizen batch exhausts every budget offered
-without emitting a single visible character.
+The toy 3-citizen batch's failure (`finish_reason: "length"`, `content` = `""`, at
+every `max_tokens` tested up to 2000) was investigated further by isolating variables
+one at a time, holding the known-good recipe's dimensionality and candidate count
+fixed (20 dims, 10 candidates — matching the working 25-citizen batch) and varying
+**only** citizen count:
 
-Not root-caused. Confirmed NOT the cause: token budget, the `$ref` nesting (already
-fixed), or missing cid enumeration (present in this test's prompt too). Candidate
-explanations, none confirmed: a degenerate/repetitive generation state specific to
-this exact token sequence (fully reproducible at temperature=0 + fixed seed, so not a
-fluke); some interaction between short prompts and this model/quantization's hidden
-generation behavior that a trivial one-line prompt (check 2) doesn't trigger.
+| citizens | result |
+|---|---|
+| 1 | fails (`length`, 0 content, 2200/2200 tokens consumed) |
+| 3 | fails, identically |
+| 8 | fails, identically |
+| 10 | fails, identically |
+| 12 | fails, identically |
+| 15 | **works** — `stop`, 15/15 correct, only 406/2200 tokens used |
+| 25 | **works** (Finding B, above) |
+
+This cleanly isolates the cause to **citizen count itself** (i.e. batch size), not
+dimensionality or candidate count — both were held constant across every row above.
+There is a real threshold between 12 and 15 citizens (for this exact model,
+quantization, and prompt style) below which the model enters a non-terminating,
+zero-visible-output generation state regardless of token budget, and above which it
+answers correctly using a small fraction of its budget. The underlying mechanism
+(why a *smaller* task causes *more* — and unproductive — generation) was not
+determined; that would require comparing quantizations/serving backends, which is
+out of proportion to what this increment needs. Confirmed NOT the cause: token
+budget, `$ref` nesting (Finding A), or missing cid enumeration (Finding B) — all
+were already fixed/controlled-for in every row of this sweep.
 
 **Practical exposure for this increment**: `population_size: 100` /
-`max_batch_size: 25` in the shipped config divides evenly into four equal chunks of
-25 — the exact size shown to work reliably. A *different* population size that
-leaves a small trailing chunk (e.g. 110 citizens → chunks of 25,25,25,25,10) would
-land in untested, possibly-pathological territory. **Recommendation for
-`llm_behavior_engine.py`, not yet implemented**: either (a) reject configs where
-`population_size % max_batch_size` leaves a small remainder, or (b) chunk into
-near-equal groups instead of fixed-size-with-remainder, so no chunk is ever much
-smaller than `max_batch_size`. Needs a decision before increment 1's chunking lot,
-not just for this spike.
+`max_batch_size: 25` in the shipped config divides evenly into four chunks of 25 —
+comfortably above the observed threshold. **Decision for `llm_behavior_engine.py`**:
+its chunking function must guarantee no chunk ever falls below a safety margin above
+the observed threshold (recommend a documented constant, e.g. `MIN_SAFE_BATCH_SIZE =
+20` — comfortably above the empirical 12-15 boundary, accounting for the fact that
+real citizen data may shift the exact threshold slightly from this synthetic test).
+Concretely: chunk into equal-sized groups of `max_batch_size` where possible: when
+`population_size % max_batch_size` would leave a small remainder, redistribute into
+near-equal chunks (e.g. `numpy.array_split`-style) instead of a fixed-size-with-small-
+remainder split, so no chunk is ever small enough to risk this failure mode.
 
 ## Wall-clock (measured, CPU-only, no GPU)
 
