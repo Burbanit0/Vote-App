@@ -65,6 +65,34 @@ def test_different_seed_produces_a_different_journal(tmp_path):
     assert path_a.read_bytes() != path_b.read_bytes()
 
 
+def _config_with_rupture_enabled(output_dir) -> PolityConfig:
+    config = _config_with_output_dir(output_dir)
+    return dataclasses.replace(
+        config,
+        candidacy=dataclasses.replace(
+            config.candidacy,
+            rupture_path_enabled=True,
+            rupture_base_probability=0.05,
+            rupture_signature_ratio=0.01,
+        ),
+    )
+
+
+def test_rupture_path_produces_a_rupture_candidacy_event(tmp_path):
+    journal_path = run_simulation(_config_with_rupture_enabled(tmp_path), run_id="rupture")
+    events = _events(journal_path)
+    rupture_events = [
+        e for e in events if e["event_type"] == "candidacy_declared" and e["payload"].get("path") == "rupture"
+    ]
+    assert len(rupture_events) > 0
+
+
+def test_two_runs_with_rupture_enabled_produce_byte_identical_journals(tmp_path):
+    path_a = run_simulation(_config_with_rupture_enabled(tmp_path / "a"), run_id="same-run-id")
+    path_b = run_simulation(_config_with_rupture_enabled(tmp_path / "b"), run_id="same-run-id")
+    assert path_a.read_bytes() == path_b.read_bytes()
+
+
 def test_unsupported_presidential_method_raises_before_any_work(tmp_path):
     config = _config_with_output_dir(tmp_path)
     config = dataclasses.replace(
