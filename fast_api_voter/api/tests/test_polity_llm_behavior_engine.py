@@ -17,6 +17,7 @@ from api.domain.polity.llm_behavior_engine import (
     build_user_prompt,
     cast_votes,
     chunk_voters,
+    compute_max_tokens,
     truncation_limit,
     validate_decision,
 )
@@ -96,19 +97,48 @@ def test_truncation_limit_five_above_six():
     assert truncation_limit(20) == 5
 
 
+# ── compute_max_tokens ────────────────────────────────────────────────────
+
+def test_compute_max_tokens_has_flat_reasoning_headroom():
+    # A live consolidation run hit finish_reason='length' on a 20-citizen
+    # batch under the old chunk_size*60+256 formula (1456 tokens) --
+    # Qwen3's invisible <think> reasoning shares the same budget as the
+    # visible answer. Pin real headroom above that failure point.
+    assert compute_max_tokens(20) >= 20 * 60 + 1024
+
+
+def test_compute_max_tokens_has_a_floor_for_tiny_chunks():
+    assert compute_max_tokens(0) == 1536
+
+
 # ── build_system_prompt / build_user_prompt ──────────────────────────────
 
 def test_system_prompt_enumerates_every_expected_cid():
     citizens = _population(3)
-    prompt = build_system_prompt(citizens, candidate_count=2)
+    candidates = [_candidate(10, (0.1,)), _candidate(11, (0.9,))]
+    prompt = build_system_prompt(citizens, candidates)
     assert "[0,1,2]" in prompt
     assert "EXACTEMENT ces 3" in prompt
 
 
+def test_system_prompt_describes_candidates_by_position_not_cid():
+    # Positions (1..N), never raw candidate cids -- a live consolidation
+    # run found the model conflates candidate cids with the voter cid list
+    # above, since a candidate is also a citizen and the two number spaces
+    # can collide. See build_system_prompt's docstring.
+    citizens = _population(2)
+    candidates = [_candidate(11, (0.9,)), _candidate(10, (0.1,))]
+    prompt = build_system_prompt(citizens, candidates)
+    assert "(1 a 2)" in prompt
+    assert "position" in prompt
+
+
 def test_system_prompt_notes_truncation_above_six_candidates():
     citizens = _population(2)
-    assert "5 meilleurs" in build_system_prompt(citizens, candidate_count=7)
-    assert "5 meilleurs" not in build_system_prompt(citizens, candidate_count=6)
+    seven = [_candidate(i, (0.1,)) for i in range(7)]
+    six = [_candidate(i, (0.1,)) for i in range(6)]
+    assert "5 meilleurs" in build_system_prompt(citizens, seven)
+    assert "5 meilleurs" not in build_system_prompt(citizens, six)
 
 
 def test_user_prompt_is_deterministic_for_the_same_inputs():
@@ -127,27 +157,27 @@ def test_user_prompt_is_independent_of_candidate_iteration_order():
 # ── validate_decision ─────────────────────────────────────────────────────
 
 def _decision(**overrides):
-    base = {"cid": 1, "blank": 0, "ranking": [10, 11], "motif": VoteMotif.NO_MATCHING_PRIORITY.value}
+    base = {"cid": 1, "blank": 0, "ranking": [1, 2], "motif": VoteMotif.NO_MATCHING_PRIORITY.value}
     base.update(overrides)
     return VoteCastDecision.model_validate(base)
 
 
-def test_validate_decision_accepts_known_candidates_within_limit():
-    validate_decision(_decision(), candidate_ids={10, 11, 12}, truncate_at=None)  # must not raise
+def test_validate_decision_accepts_positions_within_count():
+    validate_decision(_decision(), candidate_count=3, truncate_at=None)  # must not raise
 
 
-def test_validate_decision_rejects_unknown_candidate_cid():
-    with pytest.raises(LlmResponseError, match="unknown"):
-        validate_decision(_decision(ranking=[10, 99]), candidate_ids={10, 11}, truncate_at=None)
+def test_validate_decision_rejects_out_of_range_position():
+    with pytest.raises(LlmResponseError, match="out-of-range"):
+        validate_decision(_decision(ranking=[1, 99]), candidate_count=2, truncate_at=None)
 
 
 def test_validate_decision_rejects_exceeding_truncation_limit():
     with pytest.raises(LlmResponseError, match="truncation"):
-        validate_decision(_decision(ranking=[1, 2, 3, 4, 5, 6]), candidate_ids=set(range(1, 7)), truncate_at=5)
+        validate_decision(_decision(ranking=[1, 2, 3, 4, 5, 6]), candidate_count=6, truncate_at=5)
 
 
 def test_validate_decision_allows_up_to_the_truncation_limit():
-    validate_decision(_decision(ranking=[1, 2, 3, 4, 5]), candidate_ids=set(range(1, 7)), truncate_at=5)
+    validate_decision(_decision(ranking=[1, 2, 3, 4, 5]), candidate_count=6, truncate_at=5)
 
 
 # ── cast_votes (FakeLlmClient, mirrors build_ranking's own ordering) ─────
@@ -156,11 +186,21 @@ class FakeLlmClient:
     """Computes the same nearest-candidate ranking build_ranking would,
     returning it in VoteCastBatch's wire shape -- lets a test prove
     cast_votes' output is interchangeable with the deterministic baseline's,
-    the 'zero changes needed downstream' contract."""
+    the 'zero changes needed downstream' contract.
+
+    Returns `ranking` as 1-indexed positions into the candidate list
+    sorted by citizen_id, exactly the convention cast_votes/build_user_prompt
+    use (see llm_behavior_engine.sorted_candidates) -- a real model reads
+    `position` off the candidate blocks in the user prompt; this fake
+    computes the same mapping directly since it never actually parses the
+    candidate blocks."""
 
     def __init__(self, voters_by_id, candidates):
         self._voters_by_id = voters_by_id
         self._candidates = candidates
+        self._cid_to_position = {
+            c.citizen_id: i for i, c in enumerate(sorted(candidates, key=lambda c: c.citizen_id), start=1)
+        }
         self.calls: list[list[int]] = []
 
     def _distance(self, voter, platform):
@@ -181,7 +221,12 @@ class FakeLlmClient:
                 decisions.append({"cid": cid, "blank": 1, "ranking": [], "motif": 101})
             else:
                 decisions.append(
-                    {"cid": cid, "blank": 0, "ranking": [c.citizen_id for c in within], "motif": 101}
+                    {
+                        "cid": cid,
+                        "blank": 0,
+                        "ranking": [self._cid_to_position[c.citizen_id] for c in within],
+                        "motif": 101,
+                    }
                 )
         return json.dumps({"decisions": decisions})
 
