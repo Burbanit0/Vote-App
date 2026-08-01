@@ -9,7 +9,9 @@ once per tick, and journals what happened.
 """
 from __future__ import annotations
 
+from contextlib import contextmanager
 from pathlib import Path
+from typing import Iterator
 
 import numpy as np
 
@@ -18,6 +20,8 @@ from api.domain.polity.citizen import Citizen, Office, Role, generate_population
 from api.domain.polity.config import PolityConfig
 from api.domain.polity.institutional_clock import ElectionType, InstitutionalClock
 from api.domain.polity.journal import Journal
+from api.domain.polity.llm_behavior_engine import cast_votes
+from api.domain.polity.llm_client import LlmClientProtocol, OllamaJsonClient
 from api.domain.polity.parties import Party, initialize_parties
 from api.domain.polity.simple_rules import (
     BLANK_LABEL,
@@ -32,13 +36,21 @@ from api.domain.polity.simple_rules import (
 )
 
 
-def run_simulation(config: PolityConfig, run_id: str | None = None) -> Path:
-    """Run a full v0 simulation and return the path to its journal.
+def run_simulation(
+    config: PolityConfig, run_id: str | None = None, llm_client: LlmClientProtocol | None = None
+) -> Path:
+    """Run a full simulation and return the path to its journal.
 
     president_term_limit/assembly_term_limit are both null in v0's shipped
     config and are themselves tagged [v4] there — v0 tracks
     Citizen.mandates_served (§3.1) but does not gate candidacy on it; that
     gate activates in v4 alongside the limits it reads.
+
+    `llm_client` is additive (default None) so every pre-v2 caller and test
+    is unaffected. When `config.llm.enabled` is true and no client was
+    injected, a real OllamaJsonClient is constructed for the run's
+    lifetime and closed here; an injected client (tests) is never closed —
+    it belongs to the caller.
     """
     if config.institutions.presidential_method not in RANKED_METHODS:
         raise NotImplementedError(
@@ -58,17 +70,29 @@ def run_simulation(config: PolityConfig, run_id: str | None = None) -> Path:
     # never perturbs the citizens/parties already generated above.
     rupture_rng = np.random.default_rng(config.run.seed)
 
-    with Journal.from_config(config.journal, run_id) as journal:
+    with Journal.from_config(config.journal, run_id) as journal, _llm_client_scope(config, llm_client) as client:
         for tick in range(clock.total_ticks + 1):
             _attempt_rupture_candidacies(citizens, config, journal, tick, rupture_rng)
             election = clock.election_at(tick)
             if election in (ElectionType.PRESIDENTIAL, ElectionType.BOTH):
-                _hold_presidential_election(citizens, parties, config, journal, tick)
+                _hold_presidential_election(citizens, parties, config, journal, tick, client)
             if election in (ElectionType.LEGISLATIVE, ElectionType.BOTH):
                 seats, votes = _hold_legislative_election(citizens, parties, config, journal, tick)
                 _form_and_journal_coalition(parties, seats, votes, config, journal, tick)
 
     return Path(config.journal.output_dir) / run_id / "events.jsonl"
+
+
+@contextmanager
+def _llm_client_scope(config: PolityConfig, llm_client: LlmClientProtocol | None) -> Iterator[LlmClientProtocol | None]:
+    if llm_client is not None:
+        yield llm_client
+        return
+    if not config.llm.enabled:
+        yield None
+        return
+    with OllamaJsonClient.from_config(config.llm, seed=config.run.seed) as owned_client:
+        yield owned_client
 
 
 def _attempt_rupture_candidacies(
@@ -113,7 +137,12 @@ def _declare_nominees(
 
 
 def _hold_presidential_election(
-    citizens: list[Citizen], parties: list[Party], config: PolityConfig, journal: Journal, tick: int
+    citizens: list[Citizen],
+    parties: list[Party],
+    config: PolityConfig,
+    journal: Journal,
+    tick: int,
+    llm_client: LlmClientProtocol | None,
 ) -> None:
     nominees = _declare_nominees(citizens, parties, config, journal, tick)
     nominee_ids = {c.citizen_id for c in nominees}
@@ -125,7 +154,21 @@ def _hold_presidential_election(
 
     winner: Citizen | None = None
     if nominees:
-        ballots = [build_ranking(voter, nominees) for voter in citizens]
+        if config.llm.enabled:
+            assert llm_client is not None  # guaranteed by _llm_client_scope when llm.enabled
+            outcome = cast_votes(citizens, nominees, config, llm_client)
+            ballots = outcome.ballots
+            for decision in outcome.decisions:
+                journal.write(
+                    tick=tick,
+                    event_type="vote_cast",
+                    payload={"blank": decision.blank, "ranking": decision.ranking},
+                    citizen_id=decision.cid,
+                    motif=str(decision.motif),
+                    codebook_version=config.llm.codebook_version,
+                )
+        else:
+            ballots = [build_ranking(voter, nominees) for voter in citizens]
         winner_label = get_presidential_winner(ballots, config.institutions.presidential_method)
         if winner_label is not None and winner_label != BLANK_LABEL:
             winner_id = citizen_id_from_label(winner_label)
