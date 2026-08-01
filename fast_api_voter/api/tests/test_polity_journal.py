@@ -42,6 +42,14 @@ def test_written_events_round_trip_through_json(tmp_path):
     }
 
 
+def test_codebook_version_kwarg_is_written_through(tmp_path):
+    path = tmp_path / "run.jsonl"
+    with Journal(path, run_id="r1") as journal:
+        journal.write(tick=0, event_type="vote_cast", payload={}, codebook_version="1.0")
+    event = json.loads(path.read_text(encoding="utf-8").splitlines()[0])
+    assert event["codebook_version"] == "1.0"
+
+
 def test_events_before_an_abrupt_interruption_remain_readable(tmp_path):
     path = tmp_path / "run.jsonl"
     journal = Journal(path, run_id="r1")

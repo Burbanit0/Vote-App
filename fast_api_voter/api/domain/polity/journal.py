@@ -59,6 +59,7 @@ class Journal:
         citizen_id: int | None = None,
         motif: str | None = None,
         rationale: str | None = None,
+        codebook_version: str = "",
     ) -> int:
         event = JournalEvent(
             run_id=self._run_id,
@@ -69,6 +70,7 @@ class Journal:
             citizen_id=citizen_id,
             motif=motif,
             rationale=rationale,
+            codebook_version=codebook_version,
         )
         # sort_keys: byte-for-byte reproducibility must not depend on
         # `payload`'s own construction order across two otherwise-identical

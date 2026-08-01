@@ -12,6 +12,7 @@ import json
 import pytest
 
 from api.domain.polity.config import PolityConfig, load_config
+from api.domain.polity.llm_client import LlmResponseError
 from api.domain.polity.run_polity_simulation import run_simulation
 
 
@@ -91,6 +92,60 @@ def test_two_runs_with_rupture_enabled_produce_byte_identical_journals(tmp_path)
     path_a = run_simulation(_config_with_rupture_enabled(tmp_path / "a"), run_id="same-run-id")
     path_b = run_simulation(_config_with_rupture_enabled(tmp_path / "b"), run_id="same-run-id")
     assert path_a.read_bytes() == path_b.read_bytes()
+
+
+# ── LLM-enabled path (v2 increment 1) ────────────────────────────────────
+
+class _AlwaysBlankLlmClient:
+    """Deterministic fake: every citizen votes blank. Enough to exercise
+    the integration plumbing (journal writes, reproducibility, error
+    propagation) without needing real vote-quality logic."""
+
+    def complete_json(self, *, system_prompt, user_prompt, json_schema, max_tokens):
+        payload = json.loads(user_prompt)
+        decisions = [{"cid": v["cid"], "blank": 1, "ranking": [], "motif": 101} for v in payload["voters"]]
+        return json.dumps({"decisions": decisions})
+
+
+def _config_with_llm_enabled(output_dir) -> PolityConfig:
+    # The shipped ambition_threshold (0.7) against ambition_dist beta(2,8)
+    # (mean 0.2) means no citizen ever qualifies as a nominee -- confirmed
+    # true of the deterministic baseline too, not something this path
+    # introduces. Lowered here so elections actually have nominees to vote
+    # on, exercising the LLM path this test means to cover.
+    config = _config_with_output_dir(output_dir)
+    config = dataclasses.replace(config, candidacy=dataclasses.replace(config.candidacy, ambition_threshold=0.1))
+    return dataclasses.replace(config, llm=dataclasses.replace(config.llm, enabled=True))
+
+
+def test_llm_path_completes_and_journals_vote_cast_events(tmp_path):
+    config = _config_with_llm_enabled(tmp_path)
+    journal_path = run_simulation(config, run_id="llm", llm_client=_AlwaysBlankLlmClient())
+    events = _events(journal_path)
+    vote_events = [e for e in events if e["event_type"] == "vote_cast"]
+    assert len(vote_events) == config.run.population_size * 8
+    assert all(e["motif"] == "101" for e in vote_events)
+    assert all(e["codebook_version"] == config.llm.codebook_version for e in vote_events)
+
+
+def test_two_llm_runs_with_the_same_seed_produce_byte_identical_journals(tmp_path):
+    config_a = _config_with_llm_enabled(tmp_path / "a")
+    config_b = _config_with_llm_enabled(tmp_path / "b")
+    path_a = run_simulation(config_a, run_id="same-run-id", llm_client=_AlwaysBlankLlmClient())
+    path_b = run_simulation(config_b, run_id="same-run-id", llm_client=_AlwaysBlankLlmClient())
+    assert path_a.read_bytes() == path_b.read_bytes()
+
+
+def test_llm_batch_misalignment_aborts_the_run_with_no_partial_journal(tmp_path):
+    class _ShortClient:
+        def complete_json(self, *, system_prompt, user_prompt, json_schema, max_tokens):
+            payload = json.loads(user_prompt)
+            first = payload["voters"][0]
+            return json.dumps({"decisions": [{"cid": first["cid"], "blank": 1, "ranking": [], "motif": 101}]})
+
+    config = _config_with_llm_enabled(tmp_path)
+    with pytest.raises(LlmResponseError, match="misaligned"):
+        run_simulation(config, run_id="r", llm_client=_ShortClient())
 
 
 def test_unsupported_presidential_method_raises_before_any_work(tmp_path):
