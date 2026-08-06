@@ -77,35 +77,37 @@ alone; the full file (4 tests) runs ~35-40 min.
   byte-identity — see `llm_client.py`'s module docstring for what this means for
   reproducibility (the deferred response cache's job, not a live-model guarantee).
 
-## Open question (why this branch is paused)
+## Open question: RESOLVED — no batch-size boundary found (2026-08-06)
 
-`test_sequential_calls_each_produce_a_valid_response` still fails — but not for
-the reason it was written to catch. Twice now, at a **20-citizen** batch (exactly
-`MIN_SAFE_BATCH_SIZE`), the model corrupted the *same* citizens (index 0, 4, 8, 12,
-16 — every 4th of 20) with a self-contradictory `blank=0`/empty-`ranking` decision.
-This happened identically with 2 candidates and with 5 candidates, ruling out
-candidate count as the cause. The common factor is the batch size itself: 20 was
-chosen as "a safety margin above the boundary" after the original Lot 0 sweep
-(which tested 12 and 15, not 20 itself) — that margin looks insufficient.
+Original symptom: twice, at a **20-citizen** batch (exactly
+`MIN_SAFE_BATCH_SIZE`), the model corrupted the *same* citizens (index 0, 4, 8,
+12, 16 — every 4th of 20) with a self-contradictory `blank=0`/empty-`ranking`
+decision, with both 2 and 5 candidates (ruling out candidate count as the
+cause). 20 was suspected as an insufficient safety margin above the Lot 0
+zero-output boundary (12-15).
 
-**Practical exposure today: none.** The shipped default config (`population_size:
-100`, `llm.max_batch_size: 25`) always chunks into groups of 25, never 20 — every
-live test at 25 has passed, every time. This only matters for other
-population/batch-size combinations that could legitimately produce a 20-citizen
-chunk (`chunk_voters()` explicitly permits exactly `MIN_SAFE_BATCH_SIZE`).
+**Investigated (the "thorough" option)**: `scripts/check_batch_size_boundary.py`
+sweeps citizen counts through the real production code path
+(`build_system_prompt`/`build_user_prompt`/`OllamaJsonClient`/
+`decode_vote_batch`, not a standalone toy prompt), 2 candidates (the frequency-
+maximizing case per the original notes), 2 repeats per size. Full log:
+`scripts/batch_size_boundary_results.md`.
 
-Three ways to close this out (discussed but not yet decided when the laptop move
-interrupted):
+**Result: 12/12 live calls passed, sizes 20/21/22/23/24/25, zero failures.**
+The original corruption did not reproduce even at exactly 20, the size where
+it was twice observed. This is evidence *against* a batch-size-dependent
+boundary in this range — the working theory is now that the corruption was a
+rare instance of the already-documented Finding D (non-deterministic
+floating-point reduction order in multi-threaded CPU inference,
+`ollama_structured_output_results.md`), not a function of batch size at all.
+20 just happened to be the size most exercised during increment-1 development
+(`chunk_voters`'s lower bound), not a uniquely dangerous one.
 
-1. **Cheap**: bump `MIN_SAFE_BATCH_SIZE` above 20 and fix the test to use 25
-   citizens like everything else that's passed. No more live-test time, but the
-   new threshold is asserted, not verified.
-2. **Thorough**: spend a live cycle actually probing where the real safe boundary
-   is (a citizen-count sweep at 20/22/25, mirroring the original Lot 0
-   methodology) before touching the constant.
-3. **Leave it**: `MIN_SAFE_BATCH_SIZE=20` stays as documented, since the shipped
-   default never exercises it; just fix the test's batch size to stop it from
-   being a false-negative signal.
+**Decision**: `MIN_SAFE_BATCH_SIZE=20` stays unchanged — nothing here shows
+it's unsafe. `test_sequential_calls_each_produce_a_valid_response` is left as
+written: it can still fail occasionally on a real Ollama run, but that's
+Finding D's known live-model flakiness surfacing, not a signal about batch
+size, and not worth building retry tolerance into the test for.
 
 ## Uncommitted-work note
 
@@ -114,3 +116,8 @@ the corrected/renamed test) with this handoff doc. It builds on top of the
 already-merged `feat/polity-v2-vote-llm-client` (PR #122) tip, so it's a few
 commits behind the current `develop` tip by the time you read this — rebase or
 merge `develop` in before continuing if it's diverged meaningfully.
+
+**2026-08-06**: the open question above is now resolved (see that section) —
+`scripts/check_batch_size_boundary.py` + `scripts/batch_size_boundary_results.md`
+are new, uncommitted at the time of writing. This branch is no longer paused;
+increment 1 is fully consolidated pending a final commit + merge to develop.
