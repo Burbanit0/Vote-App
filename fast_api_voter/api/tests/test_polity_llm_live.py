@@ -1,4 +1,4 @@
-"""Live smoke test against a real local Ollama instance — v2 increment 1.
+"""Live smoke test against a real local Ollama instance — v2 increments 1-2.
 
 Opt-in only, never runs in CI: set POLITY_LLM_LIVE=1. Everything else about
 this feature (config parsing, schema validation, chunking, ballot
@@ -14,7 +14,9 @@ Setup:
 
 Wall-clock warning: each 25-citizen batch takes ~3.5-4 minutes on CPU
 (ollama_structured_output_results.md) -- this file is slow by nature, not
-by accident.
+by accident. Since increment 2, test_a_short_live_run_produces_a_valid_journal
+also exercises a full candidacy batch pass per presidential election on top
+of the existing vote batch pass, roughly doubling that test's cost.
 """
 import dataclasses
 import json
@@ -23,18 +25,21 @@ import os
 import pytest
 
 from api.domain.polity.citizen import Citizen
-from api.domain.polity.codebook import VoteMotif
+from api.domain.polity.codebook import CandidacyMotif, VoteMotif
 from api.domain.polity.config import load_config
 from api.domain.polity.llm_behavior_engine import (
+    build_candidacy_system_prompt,
+    build_candidacy_user_prompt,
     build_system_prompt,
     build_user_prompt,
     cast_votes,
     compute_max_tokens,
+    decide_candidacies,
 )
-from api.domain.polity.llm_client import OllamaJsonClient, decode_vote_batch
-from api.domain.polity.llm_schemas import VOTE_CAST_JSON_SCHEMA, VoteCastBatch
+from api.domain.polity.llm_client import OllamaJsonClient, decode_candidacy_batch, decode_vote_batch
+from api.domain.polity.llm_schemas import CANDIDACY_JSON_SCHEMA, VOTE_CAST_JSON_SCHEMA, CandidacyBatch, VoteCastBatch
 from api.domain.polity.run_polity_simulation import run_simulation
-from api.domain.polity.simple_rules import declare_candidacy
+from api.domain.polity.simple_rules import declare_candidacy, sympathizer_ratio
 
 pytestmark = pytest.mark.skipif(
     os.getenv("POLITY_LLM_LIVE") != "1",
@@ -133,6 +138,70 @@ def test_cast_votes_against_the_real_client(client):
 
     assert len(outcome.ballots) == len(voters)
     assert len(outcome.decisions) == len(voters)
+
+
+# ── candidacy_considered (v2 increment 2) ─────────────────────────────────
+
+def test_full_size_candidacy_batch_produces_a_valid_reliable_response(client):
+    """The candidacy analog of test_full_size_batch_produces_a_valid_reliable_response
+    -- max_batch_size citizens, the real prompt builders, the real schema. A
+    boolean+motif decision is a different, shorter prompt shape than a
+    ranking decision; nothing here assumes it's immune to the failure modes
+    that shape did (ollama_structured_output_results.md) without live
+    evidence to that effect."""
+    config = load_config()
+    dims = config.citizens.issue_count
+    citizens = [_citizen(i, dims) for i in range(config.llm.max_batch_size)]
+    support = {c.citizen_id: sympathizer_ratio(c, citizens) for c in citizens}
+
+    raw = client.complete_json(
+        system_prompt=build_candidacy_system_prompt(citizens),
+        user_prompt=build_candidacy_user_prompt(citizens, support),
+        json_schema=CANDIDACY_JSON_SCHEMA,
+        max_tokens=compute_max_tokens(config.llm.max_batch_size),
+        think=False,
+    )
+    batch = CandidacyBatch.model_validate_json(raw)
+    assert [d.cid for d in batch.decisions] == [c.citizen_id for c in citizens]
+    assert all(d.motif in {m.value for m in CandidacyMotif} for d in batch.decisions)
+
+
+def test_candidacy_sequential_calls_each_produce_a_valid_response(client):
+    """The candidacy analog of test_sequential_calls_each_produce_a_valid_response
+    -- 20 citizens, exactly MIN_SAFE_BATCH_SIZE, the size where the vote_cast
+    task's own small-batch corruption was twice observed (see
+    scripts/batch_size_boundary_results.md: a follow-up sweep found no
+    batch-size-dependent boundary for vote_cast in 20-25, evidence the
+    corruption was Finding D's known non-determinism rather than a size
+    threshold -- this test checks the same isn't uniquely worse for this
+    differently-shaped decision)."""
+    config = load_config()
+    dims = config.citizens.issue_count
+    citizens = [_citizen(i, dims) for i in range(20)]
+    support = {c.citizen_id: sympathizer_ratio(c, citizens) for c in citizens}
+    kwargs = dict(
+        system_prompt=build_candidacy_system_prompt(citizens),
+        user_prompt=build_candidacy_user_prompt(citizens, support),
+        json_schema=CANDIDACY_JSON_SCHEMA,
+        max_tokens=compute_max_tokens(20),
+        think=False,
+    )
+    expected_cids = [c.citizen_id for c in citizens]
+    for raw in (client.complete_json(**kwargs), client.complete_json(**kwargs)):
+        decisions = decode_candidacy_batch(raw, expected_cids)
+        assert [d.cid for d in decisions] == expected_cids
+
+
+def test_decide_candidacies_against_the_real_client(client):
+    config = load_config()
+    dims = config.citizens.issue_count
+    citizens = [_citizen(i, dims) for i in range(config.llm.max_batch_size)]
+    config = dataclasses.replace(config, llm=dataclasses.replace(config.llm, enabled=True))
+
+    outcome = decide_candidacies(citizens, config, client)
+
+    assert len(outcome.decisions) == len(citizens)
+    assert all(d.outcome in (0, 1) for d in outcome.decisions)
 
 
 def test_a_short_live_run_produces_a_valid_journal(tmp_path):
