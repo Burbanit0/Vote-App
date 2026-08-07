@@ -123,12 +123,17 @@ def decide_candidacy(citizen: Citizen, config: CandidacyConfig) -> bool:
     return citizen.ambition_score >= config.ambition_threshold
 
 
-def _sympathizer_ratio(citizen: Citizen, population: list[Citizen]) -> float:
+def sympathizer_ratio(citizen: Citizen, population: list[Citizen]) -> float:
     """Proxy for "parrainages simulés" (§2.3): the fraction of the
     population who would sincerely consider `citizen` an acceptable choice
     (within their own blank_threshold), reusing the same tolerance concept
-    already used for voting rather than inventing a new one. v0/v1 have no
-    social graph or LLM to ground "simulated signatures" more directly."""
+    already used for voting rather than inventing a new one. No social graph
+    to ground "simulated signatures"/"perceived support" more directly.
+
+    Public (not module-private) since v2 increment 2: also the "perceived
+    support" input signal llm_behavior_engine.decide_candidacies gives the
+    LLM for the dominant candidacy path, alongside its existing use as the
+    rupture path's signature-ratio gate below."""
     sympathizers = sum(
         1 for other in population
         if _weighted_distance(other, citizen.issue_positions) <= other.blank_threshold
@@ -161,7 +166,7 @@ def attempt_rupture_candidacy(
         return False
     if rng.random() >= config.rupture_base_probability:
         return False
-    return _sympathizer_ratio(citizen, population) >= config.rupture_signature_ratio
+    return sympathizer_ratio(citizen, population) >= config.rupture_signature_ratio
 
 
 def select_party_nominee(
@@ -175,6 +180,23 @@ def select_party_nominee(
     eligible = [
         c for c in citizens if c.party_affiliation == party_id and decide_candidacy(c, config)
     ]
+    if not eligible:
+        return None
+    return max(eligible, key=lambda c: (c.ambition_score, -c.citizen_id))
+
+
+def select_party_nominee_from_declared(
+    party_id: int, citizens: list[Citizen], declared_cids: set[int]
+) -> Citizen | None:
+    """v2 increment 2's LLM-path counterpart to select_party_nominee: same
+    filter shape (party match) and same tiebreak (highest ambition_score,
+    lowest citizen_id), but eligibility comes from decide_candidacies'
+    outcome=1 set instead of decide_candidacy's bare threshold —
+    party_nomination_choice itself (design doc dt=4, arbitrating among
+    several eligible members) stays this increment's deterministic tiebreak,
+    out of scope for the LLM. select_party_nominee/decide_candidacy stay
+    untouched, still the baseline for §11.4's comparison."""
+    eligible = [c for c in citizens if c.party_affiliation == party_id and c.citizen_id in declared_cids]
     if not eligible:
         return None
     return max(eligible, key=lambda c: (c.ambition_score, -c.citizen_id))

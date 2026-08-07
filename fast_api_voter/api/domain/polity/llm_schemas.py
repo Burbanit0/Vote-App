@@ -1,6 +1,7 @@
 """
 api.domain.polity.llm_schemas — Pydantic wire schemas for the LLM's
-`vote_cast` decision (design doc §3.6.1), v2 increment 1.
+`vote_cast` (design doc §3.6.1) and `candidacy_considered` (§3.6.2) decisions,
+v2 increments 1-2.
 
 Lives in api/domain/polity/, not api/schemas/ — that package is the public
 HTTP/OpenAPI surface (see voter-api skill); these are internal LLM wire
@@ -72,3 +73,34 @@ class VoteCastBatch(BaseModel):
 
 
 VOTE_CAST_JSON_SCHEMA = VoteCastBatch.model_json_schema()
+
+
+class CandidacyDecision(BaseModel):
+    """One citizen's dominant-path candidacy judgment, design doc §3.6.2 /
+    §3.7.1. No `path` field: every citizen sent through this batch is by
+    construction on the dominant path (the rupture path,
+    attempt_rupture_candidacy in simple_rules.py, stays fully deterministic
+    and never reaches the LLM), so it would be redundant context rather than
+    a real distinction.
+
+    No cross-field model_validator, unlike VoteCastDecision — `outcome` and
+    `motif` are independent fields with nothing to keep consistent."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    cid: int = Field(..., ge=0, description="citizen_id of the citizen this decision belongs to.")
+    outcome: Literal[0, 1] = Field(..., description="0 = decline, 1 = declare (§3.7.1).")
+    motif: Literal[201, 203, 204, 205] = Field(
+        ..., description="Code court obligatoire (§3.7.2) — voir CandidacyMotif. 202 est réservé au chemin de rupture."
+    )
+
+
+class CandidacyBatch(BaseModel):
+    """§3.6.0's batch envelope, specialized to candidacy_considered."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    decisions: list[CandidacyDecision] = Field(..., min_length=1)
+
+
+CANDIDACY_JSON_SCHEMA = CandidacyBatch.model_json_schema()

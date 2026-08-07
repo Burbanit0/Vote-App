@@ -1,11 +1,19 @@
-"""llm_schemas.py — Pydantic wire validation for the LLM's vote_cast decision
-(design doc §3.6.1). Offline, no network — pure schema validation.
+"""llm_schemas.py — Pydantic wire validation for the LLM's vote_cast (design
+doc §3.6.1) and candidacy_considered (§3.6.2) decisions. Offline, no
+network — pure schema validation.
 """
 import pytest
 from pydantic import ValidationError
 
-from api.domain.polity.codebook import VoteMotif
-from api.domain.polity.llm_schemas import VOTE_CAST_JSON_SCHEMA, VoteCastBatch, VoteCastDecision
+from api.domain.polity.codebook import CandidacyMotif, VoteMotif
+from api.domain.polity.llm_schemas import (
+    CANDIDACY_JSON_SCHEMA,
+    VOTE_CAST_JSON_SCHEMA,
+    CandidacyBatch,
+    CandidacyDecision,
+    VoteCastBatch,
+    VoteCastDecision,
+)
 
 
 def _decision(**overrides):
@@ -83,3 +91,59 @@ def test_json_schema_marks_ranking_as_required():
 
 def test_json_schema_batch_forbids_additional_properties():
     assert VOTE_CAST_JSON_SCHEMA.get("additionalProperties") is False
+
+
+def _candidacy_decision(**overrides):
+    base = {"cid": 1, "outcome": 1, "motif": 203}
+    base.update(overrides)
+    return base
+
+
+def test_valid_candidacy_decision_round_trips():
+    decision = CandidacyDecision.model_validate(_candidacy_decision())
+    assert decision.cid == 1
+    assert decision.outcome == 1
+
+
+def test_candidacy_unknown_motif_raises():
+    with pytest.raises(ValidationError):
+        CandidacyDecision.model_validate(_candidacy_decision(motif=105))
+
+
+def test_candidacy_motif_202_is_rejected():
+    # 202 (IDEOLOGICAL_RUPTURE) is reserved for the rupture path, which
+    # never reaches the LLM — pinned so a future accidental reuse is visible.
+    with pytest.raises(ValidationError):
+        CandidacyDecision.model_validate(_candidacy_decision(motif=202))
+
+
+def test_candidacy_unknown_extra_key_raises():
+    with pytest.raises(ValidationError):
+        CandidacyDecision.model_validate({**_candidacy_decision(), "extra_field": True})
+
+
+def test_candidacy_empty_decisions_list_raises():
+    with pytest.raises(ValidationError):
+        CandidacyBatch.model_validate({"decisions": []})
+
+
+def test_candidacy_batch_round_trips_multiple_decisions():
+    batch = CandidacyBatch.model_validate(
+        {"decisions": [_candidacy_decision(cid=1), _candidacy_decision(cid=2, outcome=0, motif=201)]}
+    )
+    assert [d.cid for d in batch.decisions] == [1, 2]
+
+
+def test_candidacy_motif_literal_matches_candidacy_motif_enum_exactly():
+    literal_values = set(CandidacyDecision.model_fields["motif"].annotation.__args__)  # type: ignore[union-attr]
+    assert literal_values == {member.value for member in CandidacyMotif}
+
+
+def test_candidacy_json_schema_marks_outcome_as_required():
+    decision_schema = CANDIDACY_JSON_SCHEMA["$defs"]["CandidacyDecision"]
+    assert "outcome" in decision_schema["required"]
+    assert decision_schema.get("additionalProperties") is False
+
+
+def test_candidacy_json_schema_batch_forbids_additional_properties():
+    assert CANDIDACY_JSON_SCHEMA.get("additionalProperties") is False

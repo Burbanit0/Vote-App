@@ -13,17 +13,20 @@ from api.domain.polity.codebook import VoteMotif
 from api.domain.polity.config import load_config
 from api.domain.polity.llm_behavior_engine import (
     MIN_SAFE_BATCH_SIZE,
+    build_candidacy_system_prompt,
+    build_candidacy_user_prompt,
     build_system_prompt,
     build_user_prompt,
     cast_votes,
     chunk_voters,
     compute_max_tokens,
+    decide_candidacies,
     truncation_limit,
     validate_decision,
 )
 from api.domain.polity.llm_client import LlmResponseError
 from api.domain.polity.llm_schemas import VoteCastDecision
-from api.domain.polity.simple_rules import BLANK_LABEL, build_ranking, declare_candidacy
+from api.domain.polity.simple_rules import BLANK_LABEL, build_ranking, declare_candidacy, sympathizer_ratio
 
 
 def _citizen(cid, positions, priorities=None, blank_threshold=1.0):
@@ -330,3 +333,134 @@ def test_cast_votes_propagates_llm_response_error_on_count_mismatch():
 
     with pytest.raises(LlmResponseError, match="misaligned"):
         cast_votes(voters, candidates, config, ShortClient())
+
+
+# ── build_candidacy_system_prompt / build_candidacy_user_prompt ─────────────
+
+def test_candidacy_system_prompt_enumerates_every_expected_cid():
+    citizens = _population(3)
+    prompt = build_candidacy_system_prompt(citizens)
+    assert "[0,1,2]" in prompt
+    assert "EXACTEMENT ces 3" in prompt
+
+
+def test_candidacy_user_prompt_carries_the_precomputed_support_signal():
+    citizens = _population(3)
+    support = {0: 0.1, 1: 0.5, 2: 0.9}
+    payload = json.loads(build_candidacy_user_prompt(citizens, support))
+    by_cid = {c["cid"]: c for c in payload["citizens"]}
+    assert by_cid[0]["perceived_support"] == 0.1
+    assert by_cid[2]["perceived_support"] == 0.9
+
+
+# ── decide_candidacies (FakeCandidacyLlmClient) ──────────────────────────────
+
+class FakeCandidacyLlmClient:
+    """Declares whenever ambition_score >= 0.5, mirroring how a real model
+    would use the two signals build_candidacy_user_prompt actually sends --
+    lets tests assert on chunking/order/support-signal behavior without a
+    live model."""
+
+    def __init__(self):
+        self.calls: list[list[int]] = []
+        self.received_support: dict[int, float] = {}
+
+    def complete_json(self, *, system_prompt, user_prompt, json_schema, max_tokens, think=True):
+        payload = json.loads(user_prompt)
+        cids = [c["cid"] for c in payload["citizens"]]
+        self.calls.append(cids)
+        for c in payload["citizens"]:
+            self.received_support[c["cid"]] = c["perceived_support"]
+        decisions = [
+            {"cid": c["cid"], "outcome": 1, "motif": 203}
+            if c["ambition_score"] >= 0.5
+            else {"cid": c["cid"], "outcome": 0, "motif": 201}
+            for c in payload["citizens"]
+        ]
+        return json.dumps({"decisions": decisions})
+
+
+def _citizen_with_ambition(cid, ambition_score):
+    c = _citizen(cid, (0.5,))
+    return dataclasses.replace(c, ambition_score=ambition_score)
+
+
+def test_decide_candidacies_preserves_order_across_chunk_boundaries():
+    citizens = _population(50, dims=1)
+    config = _config_with_llm_enabled(max_batch_size=25)
+    client = FakeCandidacyLlmClient()
+
+    outcome = decide_candidacies(citizens, config, client)
+
+    assert client.calls == [list(range(25)), list(range(25, 50))]
+    assert [d.cid for d in outcome.decisions] == list(range(50))
+
+
+def test_decide_candidacies_outcome_reflects_ambition_threshold():
+    citizens = [_citizen_with_ambition(i, ambition_score) for i, ambition_score in enumerate([0.9] * 20 + [0.1] * 20)]
+    config = _config_with_llm_enabled(max_batch_size=40)
+    client = FakeCandidacyLlmClient()
+
+    outcome = decide_candidacies(citizens, config, client)
+
+    assert [d.outcome for d in outcome.decisions[:20]] == [1] * 20
+    assert [d.outcome for d in outcome.decisions[20:]] == [0] * 20
+
+
+def test_decide_candidacies_support_signal_is_population_wide_not_chunk_scoped():
+    # sympathizer_ratio's denominator is len(population) -- if
+    # decide_candidacies recomputed it per-chunk instead of once against the
+    # full population before chunking, every citizen's ratio would be
+    # inflated (smaller denominator) relative to the population-wide truth.
+    citizens = _population(40, dims=1)
+    config = _config_with_llm_enabled(max_batch_size=20)
+    client = FakeCandidacyLlmClient()
+    full_population_support = {c.citizen_id: round(sympathizer_ratio(c, citizens), 4) for c in citizens}
+
+    decide_candidacies(citizens, config, client)
+
+    assert client.received_support == full_population_support
+
+
+def test_decide_candidacies_raises_notimplementederror_for_unsupported_provider():
+    citizens = _population(20)
+    config = _config_with_llm_enabled()
+    config = dataclasses.replace(config, llm=dataclasses.replace(config.llm, provider="vllm"))
+    with pytest.raises(NotImplementedError, match="provider"):
+        decide_candidacies(citizens, config, FakeCandidacyLlmClient())
+
+
+def test_decide_candidacies_raises_for_dynamic_batch_sharding():
+    citizens = _population(20)
+    config = _config_with_llm_enabled()
+    config = dataclasses.replace(config, llm=dataclasses.replace(config.llm, batch_sharding="dynamic"))
+    with pytest.raises(NotImplementedError, match="batch_sharding"):
+        decide_candidacies(citizens, config, FakeCandidacyLlmClient())
+
+
+def test_decide_candidacies_raises_for_intra_run_workers_above_one():
+    citizens = _population(20)
+    config = _config_with_llm_enabled()
+    config = dataclasses.replace(config, parallel=dataclasses.replace(config.parallel, intra_run_workers=2))
+    with pytest.raises(NotImplementedError, match="intra_run_workers"):
+        decide_candidacies(citizens, config, FakeCandidacyLlmClient())
+
+
+def test_decide_candidacies_raises_for_codebook_version_mismatch():
+    citizens = _population(20)
+    config = _config_with_llm_enabled()
+    config = dataclasses.replace(config, llm=dataclasses.replace(config.llm, codebook_version="0.9"))
+    with pytest.raises(Exception, match="codebook_version"):
+        decide_candidacies(citizens, config, FakeCandidacyLlmClient())
+
+
+def test_decide_candidacies_propagates_llm_response_error_on_count_mismatch():
+    citizens = _population(20)
+    config = _config_with_llm_enabled()
+
+    class ShortClient:
+        def complete_json(self, **kwargs):
+            return json.dumps({"decisions": [{"cid": 0, "outcome": 0, "motif": 201}]})
+
+    with pytest.raises(LlmResponseError, match="misaligned"):
+        decide_candidacies(citizens, config, ShortClient())
