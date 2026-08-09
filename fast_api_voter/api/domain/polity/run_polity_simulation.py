@@ -288,6 +288,24 @@ def _hold_presidential_election(
     tick: int,
     llm_client: LlmClientProtocol | None,
 ) -> None:
+    # The outgoing president's term always ends exactly at this tick
+    # (InstitutionalClock schedules the next presidential election at
+    # term_end_tick by construction -- president_term_years*ticks_per_year
+    # after the winning tick, same arithmetic as the term_end_tick assignment
+    # below), regardless of whether this election produces a new winner.
+    # Without this reset a past president keeps role=ELECTED/office=PRESIDENT
+    # forever once not immediately re-nominated, so a later election leaves
+    # two citizens simultaneously holding Office.PRESIDENT -- nothing reads
+    # this state today, but "who currently holds office" must be a real
+    # invariant for any future increment that does (representative_response,
+    # term limits, legitimacy). A re-elected incumbent is simply reset here
+    # and re-promoted below, same as any other winner.
+    for outgoing in citizens:
+        if outgoing.office == Office.PRESIDENT:
+            outgoing.role = Role.ELECTOR
+            outgoing.office = Office.NONE
+            outgoing.term_end_tick = None
+
     nominees = _declare_nominees(citizens, parties, config, journal, tick, llm_client)
     nominee_ids = {c.citizen_id for c in nominees}
     standing_rupture_candidates = sorted(
