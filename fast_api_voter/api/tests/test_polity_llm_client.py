@@ -12,6 +12,7 @@ from api.domain.polity.llm_client import (
     LlmTransportError,
     OllamaJsonClient,
     decode_candidacy_batch,
+    decode_coalition_batch,
     decode_party_nomination_batch,
     decode_positioning_batch,
     decode_vote_batch,
@@ -320,3 +321,46 @@ def test_decode_positioning_batch_strips_think_tags():
     raw = "<think>reasoning here</think>" + json.dumps({"decisions": [_positioning_decision(cid=1)]})
     decisions = decode_positioning_batch(raw, expected_cids=[1])
     assert decisions[0].cid == 1
+
+
+# ── decode_coalition_batch ────────────────────────────────────────────────
+
+def _coalition_decision(**overrides):
+    base = {"party_id": 0, "action": 1, "motif": 501}
+    base.update(overrides)
+    return base
+
+
+def test_decode_coalition_batch_round_trips():
+    raw = json.dumps({"decisions": [_coalition_decision(party_id=0), _coalition_decision(party_id=1)]})
+    decisions = decode_coalition_batch(raw, expected_party_ids=[0, 1])
+    assert [d.party_id for d in decisions] == [0, 1]
+
+
+def test_decode_coalition_batch_rejects_non_json():
+    with pytest.raises(LlmResponseError, match="not valid JSON"):
+        decode_coalition_batch("not json", expected_party_ids=[0])
+
+
+def test_decode_coalition_batch_rejects_schema_invalid_content():
+    raw = json.dumps({"decisions": [{"party_id": 0, "action": 1, "motif": 504}]})  # join with a decline motif
+    with pytest.raises(LlmResponseError, match="schema validation"):
+        decode_coalition_batch(raw, expected_party_ids=[0])
+
+
+def test_decode_coalition_batch_rejects_count_mismatch():
+    raw = json.dumps({"decisions": [_coalition_decision(party_id=0)]})
+    with pytest.raises(LlmResponseError, match="misaligned"):
+        decode_coalition_batch(raw, expected_party_ids=[0, 1])
+
+
+def test_decode_coalition_batch_rejects_order_mismatch():
+    raw = json.dumps({"decisions": [_coalition_decision(party_id=1), _coalition_decision(party_id=0)]})
+    with pytest.raises(LlmResponseError, match="misaligned"):
+        decode_coalition_batch(raw, expected_party_ids=[0, 1])
+
+
+def test_decode_coalition_batch_strips_think_tags():
+    raw = "<think>reasoning here</think>" + json.dumps({"decisions": [_coalition_decision(party_id=0)]})
+    decisions = decode_coalition_batch(raw, expected_party_ids=[0])
+    assert decisions[0].party_id == 0

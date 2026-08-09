@@ -214,9 +214,13 @@ def declare_candidacy(citizen: Citizen) -> None:
 
 # ── 3. Coalition rule ─────────────────────────────────────────────────────
 
-def _tiebreak_key(
+def tiebreak_key(
     party_id: int, seats: dict[int, int], votes: dict[int, float], tiebreak: tuple[str, ...]
 ) -> tuple[float, ...]:
+    """Public since v2 increment 5: also the initiator-designation rule
+    llm_behavior_engine.decide_coalition reuses, so the LLM path and the
+    deterministic baseline designate the same formateur (§3.7.1's `action=4
+    propose` stays reserved-but-unused — see CoalitionAction, codebook.py)."""
     key: list[float] = []
     for criterion in tiebreak:
         if criterion == "seats":
@@ -257,7 +261,7 @@ def form_coalition(
     total_seats = sum(seats.values())
     majority_threshold = majority_ratio * total_seats
 
-    initiator = min(governing, key=lambda pid: _tiebreak_key(pid, seats, votes, tiebreak))
+    initiator = min(governing, key=lambda pid: tiebreak_key(pid, seats, votes, tiebreak))
     coalition = [initiator]
     coalition_seats = seats[initiator]
     if coalition_seats > majority_threshold:

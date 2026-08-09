@@ -14,8 +14,11 @@ from api.domain.polity.config import load_config
 from api.domain.polity.llm_behavior_engine import (
     MIN_SAFE_BATCH_SIZE,
     apply_shifts,
+    assemble_coalition,
     build_candidacy_system_prompt,
     build_candidacy_user_prompt,
+    build_coalition_system_prompt,
+    build_coalition_user_prompt,
     build_party_nomination_system_prompt,
     build_party_nomination_user_prompt,
     build_positioning_system_prompt,
@@ -27,16 +30,24 @@ from api.domain.polity.llm_behavior_engine import (
     compute_max_tokens,
     decide_campaign_positioning,
     decide_candidacies,
+    decide_coalition,
     decide_party_nominations,
     resolve_party_nomination_cid,
     truncation_limit,
+    validate_coalition_decision,
     validate_decision,
     validate_positioning_decision,
 )
 from api.domain.polity.llm_client import LlmResponseError
-from api.domain.polity.llm_schemas import PartyNominationDecision, PositioningDecision, PositionShift, VoteCastDecision
+from api.domain.polity.llm_schemas import (
+    CoalitionDecision,
+    PartyNominationDecision,
+    PositioningDecision,
+    PositionShift,
+    VoteCastDecision,
+)
 from api.domain.polity.parties import Party
-from api.domain.polity.simple_rules import BLANK_LABEL, build_ranking, declare_candidacy, sympathizer_ratio
+from api.domain.polity.simple_rules import BLANK_LABEL, build_ranking, declare_candidacy, form_coalition, sympathizer_ratio
 
 
 def _citizen(cid, positions, priorities=None, blank_threshold=1.0):
@@ -872,3 +883,372 @@ def test_decide_campaign_positioning_propagates_llm_response_error_on_count_mism
 
     with pytest.raises(LlmResponseError, match="misaligned"):
         decide_campaign_positioning(citizens, citizens, {}, config, ShortClient())
+
+
+# ── assemble_coalition ────────────────────────────────────────────────────
+
+_TIEBREAK = ("seats", "votes", "party_id")
+
+
+def _coalition_decision(party_id, action=1, motif=501):
+    return CoalitionDecision(party_id=party_id, action=action, motif=motif)
+
+
+def test_assemble_coalition_unanimous_join_matches_form_coalition():
+    # Same fixture as test_polity_simple_rules.py's
+    # test_form_coalition_adds_nearest_neighbours_until_majority: initiator
+    # 0 needs a partner, party 1 is nearest. Unanimous join should isolate
+    # the LLM's contribution to nothing -- byte-identical to the baseline.
+    platforms = {0: (0.0, 0.0), 1: (0.1, 0.0), 2: (0.5, 0.5), 3: (1.0, 1.0)}
+    seats = {0: 30, 1: 25, 2: 20, 3: 25}
+    votes = {0: 30.0, 1: 25.0, 2: 25.0, 3: 20.0}
+    baseline = form_coalition(platforms, seats, votes, _TIEBREAK, majority_ratio=0.5)
+    decisions = [_coalition_decision(pid) for pid in (1, 2, 3)]  # all join
+
+    result = assemble_coalition(decisions, initiator=0, party_platforms=platforms, seats=seats, majority_ratio=0.5)
+
+    assert result == baseline == [0, 1]
+
+
+def test_assemble_coalition_adds_joiners_in_ascending_distance():
+    platforms = {0: (0.0,), 1: (0.9,), 2: (0.2,), 3: (0.5,)}
+    seats = {0: 10, 1: 30, 2: 30, 3: 30}
+    decisions = [_coalition_decision(pid) for pid in (1, 2, 3)]
+    result = assemble_coalition(decisions, initiator=0, party_platforms=platforms, seats=seats, majority_ratio=0.5)
+    assert result == [0, 2, 3]  # nearest (2) then next (3); 10+30+30=70 > 50
+
+
+def test_assemble_coalition_distance_tie_breaks_on_seats_descending_then_party_id():
+    platforms = {0: (0.0,), 1: (0.3,), 2: (0.3,), 3: (0.5,)}
+    seats = {0: 40, 1: 20, 2: 15, 3: 25}
+    decisions = [_coalition_decision(pid) for pid in (1, 2, 3)]
+    result = assemble_coalition(decisions, initiator=0, party_platforms=platforms, seats=seats, majority_ratio=0.5)
+    assert result == [0, 1]  # 1/2 equidistant, 1 has more seats, 40+20=60 > 50
+
+
+def test_assemble_coalition_a_leave_from_the_nearest_party_pushes_the_next_nearest_in():
+    platforms = {0: (0.0,), 1: (0.1,), 2: (0.9,)}
+    seats = {0: 30, 1: 25, 2: 45}
+    decisions = [_coalition_decision(1, action=2, motif=504), _coalition_decision(2)]
+    result = assemble_coalition(decisions, initiator=0, party_platforms=platforms, seats=seats, majority_ratio=0.5)
+    assert result == [0, 2]  # 1 declined; 2 (the only joiner) is added: 30+45=75 > 50
+
+
+def test_assemble_coalition_all_decline_with_a_minority_initiator_returns_none():
+    platforms = {0: (0.0,), 1: (0.1,), 2: (0.9,)}
+    seats = {0: 30, 1: 25, 2: 45}
+    decisions = [_coalition_decision(1, action=2, motif=504), _coalition_decision(2, action=2, motif=504)]
+    result = assemble_coalition(decisions, initiator=0, party_platforms=platforms, seats=seats, majority_ratio=0.5)
+    assert result is None
+
+
+def test_assemble_coalition_initiator_alone_above_threshold_ignores_decisions():
+    platforms = {0: (0.0,), 1: (0.1,)}
+    seats = {0: 60, 1: 40}
+    # Even a `leave`-only decision list must not matter -- the initiator
+    # already clears the majority alone.
+    decisions = [_coalition_decision(1, action=2, motif=504)]
+    result = assemble_coalition(decisions, initiator=0, party_platforms=platforms, seats=seats, majority_ratio=0.5)
+    assert result == [0]
+
+
+def test_assemble_coalition_returns_none_when_joiners_are_insufficient():
+    platforms = {0: (0.0,), 1: (0.1,), 2: (0.9,)}
+    seats = {0: 20, 1: 15, 2: 65}
+    decisions = [_coalition_decision(1), _coalition_decision(2, action=2, motif=504)]
+    result = assemble_coalition(decisions, initiator=0, party_platforms=platforms, seats=seats, majority_ratio=0.5)
+    assert result is None  # 20 + 15 = 35, never exceeds 50% of 100
+
+
+def test_assemble_coalition_boundary_exactly_at_threshold_is_not_a_majority():
+    platforms = {0: (0.0,), 1: (0.1,)}
+    seats = {0: 50, 1: 50}
+    decisions = [_coalition_decision(1)]
+    result = assemble_coalition(decisions, initiator=0, party_platforms=platforms, seats=seats, majority_ratio=0.5)
+    assert result == [0, 1]  # exactly 50 alone is not >50% of 100; needs both
+
+
+# ── validate_coalition_decision ──────────────────────────────────────────
+
+def test_validate_coalition_decision_accepts_a_seated_non_initiator():
+    seats = {0: 30, 1: 25}
+    validate_coalition_decision(_coalition_decision(1), seats, initiator=0)  # must not raise
+
+
+def test_validate_coalition_decision_rejects_a_zero_seat_party():
+    seats = {0: 30, 1: 0}
+    with pytest.raises(LlmResponseError, match="does not hold a seat"):
+        validate_coalition_decision(_coalition_decision(1), seats, initiator=0)
+
+
+def test_validate_coalition_decision_rejects_the_initiator():
+    seats = {0: 30, 1: 25}
+    with pytest.raises(LlmResponseError, match="is the initiator"):
+        validate_coalition_decision(_coalition_decision(0), seats, initiator=0)
+
+
+# ── build_coalition_system_prompt / build_coalition_user_prompt ─────────
+
+def test_coalition_system_prompt_enumerates_every_expected_party_id():
+    prompt = build_coalition_system_prompt([1, 2, 3], initiator=0, initiator_seats=30, total_seats=100, majority_seats_threshold=50.0)
+    assert "[1,2,3]" in prompt
+    assert "EXACTEMENT ces 3 party_id" in prompt
+
+
+def test_coalition_system_prompt_states_the_actual_institutional_numbers():
+    prompt = build_coalition_system_prompt([1], initiator=0, initiator_seats=30, total_seats=100, majority_seats_threshold=50.0)
+    assert "100" in prompt
+    assert "50.0" in prompt
+    assert "30" in prompt
+
+
+def test_coalition_system_prompt_contains_action_and_motif_tables():
+    prompt = build_coalition_system_prompt([1], initiator=0, initiator_seats=30, total_seats=100, majority_seats_threshold=50.0)
+    assert "1 = JOIN" in prompt
+    assert "2 = LEAVE" in prompt
+    assert "501 = IDEOLOGICAL_PROXIMITY" in prompt
+    assert "504 = IDEOLOGICAL_DISTANCE_TOO_HIGH" in prompt
+
+
+def test_coalition_system_prompt_states_the_action_motif_coherence_rule():
+    prompt = build_coalition_system_prompt([1], initiator=0, initiator_seats=30, total_seats=100, majority_seats_threshold=50.0)
+    assert "501" in prompt and "502" in prompt and "504" in prompt and "505" in prompt
+
+
+def test_coalition_system_prompt_contains_no_coalition_theory_framing():
+    # §3.3: the LLM gets the rules of the game and raw data, never a
+    # steering heuristic ("prefer a minimal winning coalition" etc.) --
+    # strategic behavior (or its absence) must be genuinely emergent.
+    prompt = build_coalition_system_prompt([1, 2], initiator=0, initiator_seats=30, total_seats=100, majority_seats_threshold=50.0)
+    forbidden = ["minimal", "minimale", "stable", "small coalition", "petite coalition", "prefer", "privilegie"]
+    lowered = prompt.lower()
+    for term in forbidden:
+        assert term not in lowered
+
+
+def test_coalition_user_prompt_carries_distance_seats_and_votes_per_responder():
+    platforms = {0: (0.0,), 1: (0.3,)}
+    seats = {0: 30, 1: 25}
+    votes = {0: 300.0, 1: 250.0}
+    payload = json.loads(
+        build_coalition_user_prompt([1], initiator=0, party_platforms=platforms, seats=seats, votes=votes,
+                                     total_seats=100, majority_seats_threshold=50.0)
+    )
+    responder = payload["responders"][0]
+    assert responder["party_id"] == 1
+    assert responder["seats"] == 25
+    assert responder["votes"] == 250.0
+    assert responder["distance_to_initiator"] == pytest.approx(0.3)
+    assert payload["initiator"]["party_id"] == 0
+    assert payload["assembly"]["total_seats"] == 100
+
+
+def test_coalition_user_prompt_distance_is_zero_at_the_initiators_platform():
+    platforms = {0: (0.5, 0.5), 1: (0.5, 0.5)}
+    seats = {0: 30, 1: 25}
+    votes = {0: 30.0, 1: 25.0}
+    payload = json.loads(
+        build_coalition_user_prompt([1], initiator=0, party_platforms=platforms, seats=seats, votes=votes,
+                                     total_seats=100, majority_seats_threshold=50.0)
+    )
+    assert payload["responders"][0]["distance_to_initiator"] == 0.0
+
+
+def test_coalition_user_prompt_is_deterministic_for_the_same_inputs():
+    platforms = {0: (0.0,), 1: (0.3,)}
+    seats = {0: 30, 1: 25}
+    votes = {0: 30.0, 1: 25.0}
+    args = ([1], 0, platforms, seats, votes, 100, 50.0)
+    assert build_coalition_user_prompt(*args) == build_coalition_user_prompt(*args)
+
+
+def test_coalition_user_prompt_is_independent_of_dict_iteration_order():
+    platforms_a = {0: (0.0,), 1: (0.3,), 2: (0.6,)}
+    platforms_b = {2: (0.6,), 0: (0.0,), 1: (0.3,)}
+    seats = {0: 30, 1: 25, 2: 20}
+    votes = {0: 30.0, 1: 25.0, 2: 20.0}
+    a = build_coalition_user_prompt([1, 2], 0, platforms_a, seats, votes, 100, 50.0)
+    b = build_coalition_user_prompt([1, 2], 0, platforms_b, seats, votes, 100, 50.0)
+    assert a == b
+
+
+def test_coalition_user_prompt_top_level_key_is_responders():
+    payload = json.loads(
+        build_coalition_user_prompt([1], initiator=0, party_platforms={0: (0.0,), 1: (0.1,)}, seats={0: 30, 1: 25},
+                                     votes={0: 30.0, 1: 25.0}, total_seats=100, majority_seats_threshold=50.0)
+    )
+    assert "responders" in payload
+    assert "citizens" not in payload
+    assert "parties" not in payload
+    assert "nominees" not in payload
+
+
+# ── decide_coalition (FakeCoalitionLlmClient) ────────────────────────────
+
+class FakeCoalitionLlmClient:
+    """Always answers `join` with motif=IDEOLOGICAL_PROXIMITY -- lets tests
+    assert on skip-the-client / order / resolution behavior without a live
+    model asserting anything about actual willingness content."""
+
+    def __init__(self):
+        self.calls: list[list[int]] = []
+
+    def complete_json(self, *, system_prompt, user_prompt, json_schema, max_tokens, think=True):
+        payload = json.loads(user_prompt)
+        party_ids = [r["party_id"] for r in payload["responders"]]
+        self.calls.append(party_ids)
+        decisions = [{"party_id": pid, "action": 1, "motif": 501} for pid in party_ids]
+        return json.dumps({"decisions": decisions})
+
+
+def _parties_from_seats(seats):
+    return [Party(party_id=pid, platform=(round(pid * 0.1, 4),)) for pid in seats]
+
+
+def test_decide_coalition_skips_the_client_when_no_party_is_seated():
+    seats = {0: 0, 1: 0}
+    votes = {0: 0.0, 1: 0.0}
+    config = _config_with_llm_enabled()
+    client = FakeCoalitionLlmClient()
+
+    outcome = decide_coalition(_parties_from_seats(seats), seats, votes, config, client)
+
+    assert outcome.decisions == []
+    assert outcome.initiator is None
+    assert outcome.coalition is None
+    assert client.calls == []
+
+
+def test_decide_coalition_skips_the_client_when_the_initiator_alone_has_a_majority():
+    seats = {0: 60, 1: 40}
+    votes = {0: 60.0, 1: 40.0}
+    config = _config_with_llm_enabled()
+    client = FakeCoalitionLlmClient()
+
+    outcome = decide_coalition(_parties_from_seats(seats), seats, votes, config, client)
+
+    assert outcome.initiator == 0
+    assert outcome.coalition == [0]
+    assert outcome.decisions == []
+    assert client.calls == []
+
+
+def test_decide_coalition_skips_the_client_when_there_is_exactly_one_seated_party():
+    # majority_ratio=1.0 forces this: a lone party's 100% share equals the
+    # threshold exactly (strict `>` never satisfied), so there ARE no
+    # responders to ask, unlike with the shipped default of 0.5 where a
+    # lone seated party always exceeds the threshold and hits the
+    # already-a-majority short-circuit instead (see the test above).
+    seats = {0: 30}
+    votes = {0: 30.0}
+    config = _config_with_llm_enabled()
+    config = dataclasses.replace(config, parties=dataclasses.replace(config.parties, coalition_majority_ratio=1.0))
+    client = FakeCoalitionLlmClient()
+
+    outcome = decide_coalition(_parties_from_seats(seats), seats, votes, config, client)
+
+    assert outcome.initiator == 0
+    assert outcome.coalition is None
+    assert client.calls == []
+
+
+def test_decide_coalition_sorts_responders_by_party_id_regardless_of_input_order():
+    seats = {3: 10, 0: 30, 1: 25, 2: 20}
+    votes = {3: 10.0, 0: 30.0, 1: 25.0, 2: 20.0}
+    parties = [Party(party_id=pid, platform=(round(pid * 0.1, 4),)) for pid in (3, 1, 0, 2)]  # deliberately out of order
+    config = _config_with_llm_enabled()
+    client = FakeCoalitionLlmClient()
+
+    decide_coalition(parties, seats, votes, config, client)
+
+    assert client.calls == [[1, 2, 3]]  # initiator 0 excluded, rest ascending
+
+
+def test_decide_coalition_resolves_a_mixed_join_leave_batch_into_the_right_coalition():
+    seats = {0: 45, 1: 25, 2: 30}  # party 0 has the most seats -- it is the initiator
+    votes = {0: 45.0, 1: 25.0, 2: 30.0}
+    parties = [Party(party_id=0, platform=(0.0,)), Party(party_id=1, platform=(0.1,)), Party(party_id=2, platform=(0.9,))]
+    config = _config_with_llm_enabled()
+
+    class MixedClient:
+        def complete_json(self, *, system_prompt, user_prompt, json_schema, max_tokens, think=True):
+            payload = json.loads(user_prompt)
+            decisions = [
+                {"party_id": r["party_id"], "action": 2, "motif": 504} if r["party_id"] == 1
+                else {"party_id": r["party_id"], "action": 1, "motif": 501}
+                for r in payload["responders"]
+            ]
+            return json.dumps({"decisions": decisions})
+
+    outcome = decide_coalition(parties, seats, votes, config, MixedClient())
+
+    assert outcome.initiator == 0
+    assert outcome.coalition == [0, 2]  # party 1 declined; party 2 (the only joiner) reaches majority
+    assert {d.party_id: d.action for d in outcome.decisions} == {1: 2, 2: 1}
+
+
+def test_decide_coalition_all_decline_returns_none_coalition():
+    seats = {0: 45, 1: 25, 2: 30}  # party 0 has the most seats -- it is the initiator, and 45 alone is a minority
+    votes = {0: 45.0, 1: 25.0, 2: 30.0}
+    parties = [Party(party_id=0, platform=(0.0,)), Party(party_id=1, platform=(0.1,)), Party(party_id=2, platform=(0.9,))]
+    config = _config_with_llm_enabled()
+
+    class AllDeclineClient:
+        def complete_json(self, *, system_prompt, user_prompt, json_schema, max_tokens, think=True):
+            payload = json.loads(user_prompt)
+            decisions = [{"party_id": r["party_id"], "action": 2, "motif": 504} for r in payload["responders"]]
+            return json.dumps({"decisions": decisions})
+
+    outcome = decide_coalition(parties, seats, votes, config, AllDeclineClient())
+
+    assert outcome.coalition is None
+
+
+def test_decide_coalition_raises_notimplementederror_for_unsupported_provider():
+    seats = {0: 30, 1: 25}
+    votes = {0: 30.0, 1: 25.0}
+    config = _config_with_llm_enabled()
+    config = dataclasses.replace(config, llm=dataclasses.replace(config.llm, provider="vllm"))
+    with pytest.raises(NotImplementedError, match="provider"):
+        decide_coalition(_parties_from_seats(seats), seats, votes, config, FakeCoalitionLlmClient())
+
+
+def test_decide_coalition_raises_for_dynamic_batch_sharding():
+    seats = {0: 30, 1: 25}
+    votes = {0: 30.0, 1: 25.0}
+    config = _config_with_llm_enabled()
+    config = dataclasses.replace(config, llm=dataclasses.replace(config.llm, batch_sharding="dynamic"))
+    with pytest.raises(NotImplementedError, match="batch_sharding"):
+        decide_coalition(_parties_from_seats(seats), seats, votes, config, FakeCoalitionLlmClient())
+
+
+def test_decide_coalition_raises_for_intra_run_workers_above_one():
+    seats = {0: 30, 1: 25}
+    votes = {0: 30.0, 1: 25.0}
+    config = _config_with_llm_enabled()
+    config = dataclasses.replace(config, parallel=dataclasses.replace(config.parallel, intra_run_workers=2))
+    with pytest.raises(NotImplementedError, match="intra_run_workers"):
+        decide_coalition(_parties_from_seats(seats), seats, votes, config, FakeCoalitionLlmClient())
+
+
+def test_decide_coalition_raises_for_codebook_version_mismatch():
+    seats = {0: 30, 1: 25}
+    votes = {0: 30.0, 1: 25.0}
+    config = _config_with_llm_enabled()
+    config = dataclasses.replace(config, llm=dataclasses.replace(config.llm, codebook_version="0.9"))
+    with pytest.raises(Exception, match="codebook_version"):
+        decide_coalition(_parties_from_seats(seats), seats, votes, config, FakeCoalitionLlmClient())
+
+
+def test_decide_coalition_propagates_llm_response_error_on_count_mismatch():
+    seats = {0: 30, 1: 25, 2: 20}
+    votes = {0: 30.0, 1: 25.0, 2: 20.0}
+    parties = _parties_from_seats(seats)
+    config = _config_with_llm_enabled()
+
+    class ShortClient:
+        def complete_json(self, **kwargs):
+            return json.dumps({"decisions": [{"party_id": 1, "action": 1, "motif": 501}]})
+
+    with pytest.raises(LlmResponseError, match="misaligned"):
+        decide_coalition(parties, seats, votes, config, ShortClient())

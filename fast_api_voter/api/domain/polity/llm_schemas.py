@@ -1,8 +1,9 @@
 """
 api.domain.polity.llm_schemas — Pydantic wire schemas for the LLM's
 `vote_cast` (design doc §3.6.1), `candidacy_considered` (§3.6.2),
-`party_nomination_choice` (§3.6.2->3.6.8, dt=4), and `campaign_positioning`
-(§3.6.2->3.6.8, dt=5) decisions, v2 increments 1-4.
+`party_nomination_choice` (§3.6.2->3.6.8, dt=4), `campaign_positioning`
+(§3.6.2->3.6.8, dt=5), and `coalition_decision` (§3.6.2->3.6.8, dt=9)
+decisions, v2 increments 1-5.
 
 Lives in api/domain/polity/, not api/schemas/ — that package is the public
 HTTP/OpenAPI surface (see voter-api skill); these are internal LLM wire
@@ -199,3 +200,52 @@ class PositioningBatch(BaseModel):
 
 
 POSITIONING_JSON_SCHEMA = PositioningBatch.model_json_schema()
+
+
+class CoalitionDecision(BaseModel):
+    """One seated, non-initiator party's answer to the designated
+    formateur's coalition, design doc §3.7.1 / dt=9. Party-keyed like
+    PartyNominationDecision, not citizen-keyed — `party_id` is the
+    alignment key decode_coalition_batch checks.
+
+    `action` is restricted to JOIN/LEAVE (1/2): 3 (maintain) belongs to the
+    deferred maintenance-across-ticks palier, 4 (propose) to the initiator,
+    which stays a deterministic institutional designation and is never
+    asked (see CoalitionAction, codebook.py).
+
+    Unlike CandidacyDecision/PartyNominationDecision, `motif` is NOT
+    independent of `action` here: 501/502 are join-reasons, 504/505 are
+    decline-reasons (CoalitionMotif, codebook.py). Pairing them the other
+    way would describe a different decision than the one actually recorded,
+    silently corrupting the motif distribution that's the whole
+    observability point of §3.7 — so the coherence is enforced here,
+    context-independently, the same way VoteCastDecision enforces its own
+    blank/ranking rule."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    party_id: int = Field(..., ge=0, description="party_id this coalition answer belongs to.")
+    action: Literal[1, 2] = Field(..., description="1 = join, 2 = leave (§3.7.1) — voir CoalitionAction.")
+    motif: Literal[501, 502, 504, 505] = Field(
+        ..., description="Code court obligatoire (§3.7.2) — voir CoalitionMotif."
+    )
+
+    @model_validator(mode="after")
+    def _check_action_motif_coherence(self) -> CoalitionDecision:
+        if self.action == 1 and self.motif not in (501, 502):
+            raise ValueError("action=1 (join) requires motif 501 or 502")
+        if self.action == 2 and self.motif not in (504, 505):
+            raise ValueError("action=2 (leave) requires motif 504 or 505")
+        return self
+
+
+class CoalitionBatch(BaseModel):
+    """§3.6.0's batch envelope, specialized to coalition_decision — one
+    decision per seated, non-initiator party."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    decisions: list[CoalitionDecision] = Field(..., min_length=1)
+
+
+COALITION_JSON_SCHEMA = CoalitionBatch.model_json_schema()

@@ -6,9 +6,10 @@ Pure sequencing, no decision logic of its own (design doc §1): every choice
 simple_rules.py or, when config.llm.enabled, llm_behavior_engine.py's LLM
 replacements (voting since increment 1, the dominant candidacy path since
 increment 2, contested-party arbitration since increment 3, campaign
-positioning since increment 4); every count (a winner, a seat allocation)
-comes from ballot_and_aggregation.py. This module only calls them in the
-right order, once per tick, and journals what happened.
+positioning since increment 4, coalition willingness since increment 5);
+every count (a winner, a seat allocation) comes from
+ballot_and_aggregation.py. This module only calls them in the right order,
+once per tick, and journals what happened.
 
 _declare_nominees_llm journals candidacy_considered for every evaluated
 citizen (increment 2) -- including declines, which the deterministic
@@ -23,6 +24,15 @@ their pledged_platform/revealed_position with the resolved (possibly
 shifted) position, and journals campaign_positioning per nominee --
 including sincere ones (empty shifts), so "chose not to strategize" is as
 visible as any other outcome.
+
+_form_and_journal_coalition_llm (increment 5) journals one coalition_decision
+event per seated, non-initiator party (dt=9), then the aggregate
+coalition_formed/coalition_failed event in its existing, unchanged shape --
+the deterministic path's journal bytes do not change at all. Unlike every
+other decision type, the deterministic path (_form_and_journal_coalition)
+was previously called unconditionally, with no config.llm.enabled gate at
+all; this increment adds that gate, mirroring _declare_nominees's existing
+if/else split.
 """
 from __future__ import annotations
 
@@ -41,6 +51,7 @@ from api.domain.polity.llm_behavior_engine import (
     cast_votes,
     decide_campaign_positioning,
     decide_candidacies,
+    decide_coalition,
     decide_party_nominations,
     resolve_ranking_cids,
 )
@@ -102,7 +113,7 @@ def run_simulation(
                 _hold_presidential_election(citizens, parties, config, journal, tick, client)
             if election in (ElectionType.LEGISLATIVE, ElectionType.BOTH):
                 seats, votes = _hold_legislative_election(citizens, parties, config, journal, tick)
-                _form_and_journal_coalition(parties, seats, votes, config, journal, tick)
+                _form_and_journal_coalition(parties, seats, votes, config, journal, tick, client)
 
     return Path(config.journal.output_dir) / run_id / "events.jsonl"
 
@@ -361,7 +372,11 @@ def _form_and_journal_coalition(
     config: PolityConfig,
     journal: Journal,
     tick: int,
+    llm_client: LlmClientProtocol | None,
 ) -> None:
+    if config.llm.enabled:
+        _form_and_journal_coalition_llm(parties, seats, votes, config, journal, tick, llm_client)
+        return
     platforms = {party.party_id: party.platform for party in parties}
     coalition = form_coalition(
         platforms, seats, votes, config.parties.coalition_tiebreak, config.parties.coalition_majority_ratio
@@ -370,4 +385,38 @@ def _form_and_journal_coalition(
         tick=tick,
         event_type="coalition_formed" if coalition is not None else "coalition_failed",
         payload={"coalition": coalition, "seats": seats},
+    )
+
+
+def _form_and_journal_coalition_llm(
+    parties: list[Party],
+    seats: dict[int, int],
+    votes: dict[int, float],
+    config: PolityConfig,
+    journal: Journal,
+    tick: int,
+    llm_client: LlmClientProtocol | None,
+) -> None:
+    """v2 increment 5's LLM path: decide_coalition replaces form_coalition's
+    nearest-neighbour greedy aggregation with one join/leave decision per
+    seated, non-initiator party. The initiator designation, the majority
+    rule, and the ordering in which willing partners are added stay
+    deterministic (see assemble_coalition) -- the LLM contributes
+    willingness and nothing else. Journals one coalition_decision per
+    responder, then the aggregate coalition_formed/coalition_failed event in
+    its existing, unchanged shape, so metrics.py needs no changes."""
+    assert llm_client is not None  # guaranteed by _llm_client_scope when llm.enabled
+    outcome = decide_coalition(parties, seats, votes, config, llm_client)
+    for decision in outcome.decisions:
+        journal.write(
+            tick=tick,
+            event_type="coalition_decision",
+            payload={"party_id": decision.party_id, "action": decision.action, "initiator": outcome.initiator},
+            motif=str(decision.motif),
+            codebook_version=config.llm.codebook_version,
+        )
+    journal.write(
+        tick=tick,
+        event_type="coalition_formed" if outcome.coalition is not None else "coalition_failed",
+        payload={"coalition": outcome.coalition, "seats": seats},
     )

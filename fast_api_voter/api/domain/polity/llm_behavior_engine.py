@@ -1,10 +1,13 @@
 """
-api.domain.polity.llm_behavior_engine — v2 increments 1-4: the LLM
+api.domain.polity.llm_behavior_engine — v2 increments 1-5: the LLM
 replacement for build_ranking (voting), decide_candidacy (dominant-path
 candidacy eligibility only), select_party_nominee_from_declared's tiebreak
-when a party is contested (2+ declared candidates), and declare_candidacy's
-sincere-platform pin for dominant nominees (campaign_positioning). The
-rupture candidacy path and coalition formation stay on simple_rules.py.
+when a party is contested (2+ declared candidates), declare_candidacy's
+sincere-platform pin for dominant nominees (campaign_positioning), and
+form_coalition's willingness-to-join step (coalition_decision). The rupture
+candidacy path, the coalition initiator designation, and coalition
+maintenance/rupture across ticks all stay on simple_rules.py / out of
+scope — see decide_coalition's own docstring.
 
 Design doc §11.4's baseline-vs-LLM comparison depends on simple_rules.py
 staying untouched and always available -- this module is additive, never a
@@ -36,6 +39,16 @@ where the LLM's choice can change who wins. Also deliberately NOT
 chunk_voters-shaped, same reasoning as decide_party_nominations: it batches
 this tick's *nominees* (a handful), not citizens.
 
+decide_coalition (increment 5) only asks each seated, non-initiator party
+whether it joins the designated formateur's coalition -- the initiator
+itself is a deterministic institutional designation (tiebreak_key,
+simple_rules.py), never an LLM output, and assemble_coalition resolves the
+willing subset into a coalition using form_coalition's own distance-based
+ordering, so the LLM's causal contribution is isolated to willingness only.
+Formation only: coalition maintenance/rupture across subsequent ticks
+(design doc §3.1's "maintien et rupture") is out of scope for this
+increment -- see decide_coalition's own docstring for why.
+
 Deliberate simplifications versus the full design doc, documented rather
 than silently made:
 - No persona library (§9) yet: citizens are described to the LLM by their
@@ -65,8 +78,11 @@ from api.domain.polity.citizen import Citizen
 from api.domain.polity.codebook import (
     CAMPAIGN_MOTIF_PROMPT_TABLE,
     CANDIDACY_MOTIF_PROMPT_TABLE,
+    COALITION_ACTION_PROMPT_TABLE,
+    COALITION_MOTIF_PROMPT_TABLE,
     PARTY_NOMINATION_MOTIF_PROMPT_TABLE,
     VOTE_MOTIF_PROMPT_TABLE,
+    CoalitionAction,
     check_codebook_version,
 )
 from api.domain.polity.config import PolityConfig
@@ -74,23 +90,26 @@ from api.domain.polity.llm_client import (
     LlmClientProtocol,
     LlmResponseError,
     decode_candidacy_batch,
+    decode_coalition_batch,
     decode_party_nomination_batch,
     decode_positioning_batch,
     decode_vote_batch,
 )
 from api.domain.polity.llm_schemas import (
     CANDIDACY_JSON_SCHEMA,
+    COALITION_JSON_SCHEMA,
     PARTY_NOMINATION_JSON_SCHEMA,
     POSITIONING_JSON_SCHEMA,
     VOTE_CAST_JSON_SCHEMA,
     CandidacyDecision,
+    CoalitionDecision,
     PartyNominationDecision,
     PositioningDecision,
     PositionShift,
     VoteCastDecision,
 )
 from api.domain.polity.parties import Party
-from api.domain.polity.simple_rules import BLANK_LABEL, candidate_label, sympathizer_ratio
+from api.domain.polity.simple_rules import BLANK_LABEL, candidate_label, sympathizer_ratio, tiebreak_key
 
 # Empirical threshold from ollama_structured_output_results.md's root-cause
 # investigation: batches of <=12 citizens (holding dims/candidates fixed at
@@ -751,3 +770,246 @@ def decide_campaign_positioning(
         platforms[decision.cid] = apply_shifts(nominees_by_id[decision.cid].issue_positions, decision.shifts)
 
     return PositioningBatchOutcome(decisions=decisions, platforms=platforms)
+
+
+@dataclass(frozen=True)
+class CoalitionBatchOutcome:
+    decisions: list[CoalitionDecision]
+    initiator: int | None
+    coalition: list[int] | None
+    """Already assembled into form_coalition's exact return shape
+    (list[int] | None) -- only this module has the platform/seat context the
+    assembly needs, mirroring how cast_votes resolves positions into ballots
+    internally rather than exposing raw wire values. metrics.py consumes
+    this unchanged."""
+
+
+def build_coalition_system_prompt(
+    responder_party_ids: Sequence[int],
+    initiator: int,
+    initiator_seats: int,
+    total_seats: int,
+    majority_seats_threshold: float,
+) -> str:
+    """Mirrors build_party_nomination_system_prompt's "enumerate the full
+    expected id list verbatim + self-check" discipline (Finding B), keyed on
+    party_id -- the decision unit here is a seated party, not a citizen.
+    States the ACTUAL institutional numbers (total_seats,
+    majority_seats_threshold, the initiator's own party_id/seats), not just
+    the word "majorite" -- the increment 4 lesson (a prompt/validator bound
+    mismatch shipped as a real bug) applies here too: every number the code
+    later compares against is stated explicitly. States the action<->motif
+    coherence rule explicitly, since CoalitionDecision's model_validator
+    enforces it strictly. No coalition-theory framing anywhere in this
+    prompt (§3.3 -- no "prefer a minimal winning coalition", no strategy
+    hint of any kind): only the rules of the game and the closed code
+    tables."""
+    party_id_list = ",".join(str(pid) for pid in responder_party_ids)
+    return (
+        f"Tu es un moteur de simulation. Le parti {initiator} (avec "
+        f"{initiator_seats} sieges) vient d'etre designe formateur et "
+        "cherche a former une coalition gouvernementale. Pour chaque parti "
+        "recu, decide s'il rejoint cette coalition (action=1) ou refuse "
+        "(action=2), a partir de sa propre position, de sa proximite avec "
+        "le formateur, de son nombre de sieges, et de ce qu'il manque au "
+        f"formateur pour la majorite.\nL'assemblee compte {total_seats} "
+        "sieges au total ; la coalition doit depasser strictement "
+        f"{majority_seats_threshold} sieges pour atteindre la majorite.\n"
+        f"Actions valides :\n{COALITION_ACTION_PROMPT_TABLE}\nMotifs "
+        f"valides (code court obligatoire) :\n{COALITION_MOTIF_PROMPT_TABLE}\n"
+        "CONTRAINTE STRICTE : le motif doit correspondre a l'action -- 501 "
+        "ou 502 si action=1, 504 ou 505 si action=2. Toute autre "
+        "combinaison sera rejetee.\nIMPORTANT : la liste decisions doit "
+        f"contenir EXACTEMENT ces {len(responder_party_ids)} party_id, "
+        f"chacun une seule fois, dans cet ordre : [{party_id_list}]. "
+        "Verifie ta reponse avant de la finaliser : chaque party_id de "
+        "cette liste doit apparaitre exactement une fois.\nReponds "
+        "UNIQUEMENT avec un objet JSON conforme au schema fourni."
+    )
+
+
+def build_coalition_user_prompt(
+    responder_party_ids: Sequence[int],
+    initiator: int,
+    party_platforms: dict[int, tuple[float, ...]],
+    seats: dict[int, int],
+    votes: dict[int, float],
+    total_seats: int,
+    majority_seats_threshold: float,
+) -> str:
+    """Canonical JSON (sort_keys, compact separators, rounded floats), same
+    reproducibility discipline as every prior prompt builder.
+    `responder_party_ids` is expected already sorted by the caller (D-5
+    precedent) -- this function does not re-sort, so the system prompt's
+    verbatim id list and this user prompt describe one order, not two.
+    `distance_to_initiator` reuses form_coalition's own unweighted
+    math.dist convention, not the voter-tolerance-specific
+    _weighted_distance. Deliberately does NOT include a roster of the other
+    responders' own context (§3.3 -- a single-shot call cannot express "I
+    join iff party X joins"; that conditional-coalition reasoning is what
+    the deferred v7 multi-turn negotiation palier, §3.4 Cas 2, exists
+    for)."""
+    initiator_shortfall = max(0.0, majority_seats_threshold - seats[initiator])
+    responder_blocks = [
+        {
+            "party_id": pid,
+            "seats": seats[pid],
+            "votes": round(votes.get(pid, 0.0), 4),
+            "distance_to_initiator": round(math.dist(party_platforms[pid], party_platforms[initiator]), 4),
+        }
+        for pid in responder_party_ids
+    ]
+    return json.dumps(
+        {
+            "assembly": {
+                "total_seats": total_seats,
+                "majority_seats_threshold": round(majority_seats_threshold, 4),
+                "initiator_shortfall": round(initiator_shortfall, 4),
+            },
+            "initiator": {
+                "party_id": initiator,
+                "platform": [round(x, 4) for x in party_platforms[initiator]],
+                "seats": seats[initiator],
+                "votes": round(votes.get(initiator, 0.0), 4),
+            },
+            "responders": responder_blocks,
+        },
+        sort_keys=True,
+        separators=(",", ":"),
+    )
+
+
+def validate_coalition_decision(decision: CoalitionDecision, seats: dict[int, int], initiator: int) -> None:
+    """Context-dependent checks llm_schemas.py's Pydantic validators can't
+    do without the caller's seats/initiator state. coalition_decision emits
+    a closed enum, so unlike validate_positioning_decision there is no
+    config-driven numeric bound to enforce here -- what remains are the two
+    preconditions assemble_coalition relies on that the wire cannot know on
+    its own: the deciding party actually holds a seat, and it isn't the
+    initiator (whose own action is never asked -- see decide_coalition)."""
+    if decision.party_id == initiator:
+        raise LlmResponseError(
+            f"decision for party_id={decision.party_id} is the initiator -- its own action is never asked"
+        )
+    if seats.get(decision.party_id, 0) <= 0:
+        raise LlmResponseError(f"decision for party_id={decision.party_id} does not hold a seat in this assembly")
+
+
+def assemble_coalition(
+    decisions: Sequence[CoalitionDecision],
+    initiator: int,
+    party_platforms: dict[int, tuple[float, ...]],
+    seats: dict[int, int],
+    majority_ratio: float,
+) -> list[int] | None:
+    """Turns a validated batch of join/leave decisions into the exact
+    `list[int] | None` shape simple_rules.form_coalition already returns,
+    so metrics.py needs zero changes. Deliberately reuses form_coalition's
+    OWN ordering (ascending distance from the initiator, tie-broken by seats
+    descending then party_id) over just the `join`-voting subset -- this
+    isolates the LLM's causal contribution to willingness only, and buys a
+    directly testable invariant: unanimous join produces byte-identical
+    output to what form_coalition would return on the same inputs (see
+    test_polity_llm_behavior_engine.py's parity test)."""
+    total_seats = sum(seats.values())
+    threshold = majority_ratio * total_seats
+
+    coalition = [initiator]
+    coalition_seats = seats[initiator]
+    if coalition_seats > threshold:
+        return coalition
+
+    joiners = [d.party_id for d in decisions if d.action == CoalitionAction.JOIN.value]
+    joiners.sort(
+        key=lambda pid: (
+            math.dist(party_platforms[pid], party_platforms[initiator]),
+            -seats[pid],
+            pid,
+        )
+    )
+    for pid in joiners:
+        coalition.append(pid)
+        coalition_seats += seats[pid]
+        if coalition_seats > threshold:
+            return coalition
+
+    return None
+
+
+def decide_coalition(
+    parties: Sequence[Party],
+    seats: dict[int, int],
+    votes: dict[int, float],
+    config: PolityConfig,
+    client: LlmClientProtocol,
+) -> CoalitionBatchOutcome:
+    """v2 increment 5's replacement for form_coalition's nearest-neighbour
+    greedy aggregation -- the initiator designation, the majority rule, and
+    the ordering in which willing partners are added all stay deterministic
+    (see assemble_coalition); the LLM contributes only each seated,
+    non-initiator party's willingness to join. Pure aside from the injected
+    client -- no journal writes here, matching every prior decide_*
+    function's convention; run_polity_simulation.py owns every journal
+    write.
+
+    Formation only: design doc §3.1's "maintien et rupture" of a coalition
+    across subsequent ticks is out of scope for this increment. Reasons: no
+    tick hook exists for it today (this module only touches coalitions
+    inside `election in (LEGISLATIVE, BOTH)`); it would need new cross-tick
+    state (a standing `current_coalition`) this increment deliberately
+    doesn't introduce; the design doc gives it no consequence model (what
+    happens when a coalition ruptures mid-term has no mechanic anywhere);
+    and a mid-term rupture would break metrics.coalition_lifespans' "until
+    the next legislative election" assumption -- exactly the metrics
+    compatibility this increment promises to preserve.
+
+    Deliberately does NOT use chunk_voters/MIN_SAFE_BATCH_SIZE, same
+    reasoning as decide_party_nominations/decide_campaign_positioning: this
+    batches seated parties (a handful at most, parties.initial_count in the
+    shipped config), not citizens.
+
+    Skips the client entirely (no network call) when no party holds a seat,
+    when the initiator alone already clears the majority, or when there are
+    no non-initiator seated parties to ask -- mirrors form_coalition's own
+    short-circuits and avoids violating CoalitionBatch's min_length=1.
+
+    Calls the client with think=False, the same guess as increments 3/4's
+    comparative-judgment prompt shape ("do you join THIS coalition"),
+    flagged for live verification rather than assumed -- see
+    test_polity_llm_live.py."""
+    _check_supported(config)
+
+    party_platforms = {party.party_id: party.platform for party in parties}
+    seated = sorted(pid for pid, s in seats.items() if s > 0)
+    if not seated:
+        return CoalitionBatchOutcome(decisions=[], initiator=None, coalition=None)
+
+    total_seats = sum(seats.values())
+    majority_ratio = config.parties.coalition_majority_ratio
+    threshold = majority_ratio * total_seats
+
+    initiator = min(seated, key=lambda pid: tiebreak_key(pid, seats, votes, config.parties.coalition_tiebreak))
+    if seats[initiator] > threshold:
+        return CoalitionBatchOutcome(decisions=[], initiator=initiator, coalition=[initiator])
+
+    responders = [pid for pid in seated if pid != initiator]
+    if not responders:
+        return CoalitionBatchOutcome(decisions=[], initiator=initiator, coalition=None)
+
+    raw = client.complete_json(
+        system_prompt=build_coalition_system_prompt(
+            responders, initiator, seats[initiator], total_seats, threshold
+        ),
+        user_prompt=build_coalition_user_prompt(
+            responders, initiator, party_platforms, seats, votes, total_seats, threshold
+        ),
+        json_schema=COALITION_JSON_SCHEMA,
+        max_tokens=compute_max_tokens(len(responders)),
+        think=False,
+    )
+    decisions = decode_coalition_batch(raw, responders)
+    for decision in decisions:
+        validate_coalition_decision(decision, seats, initiator)
+
+    coalition = assemble_coalition(decisions, initiator, party_platforms, seats, majority_ratio)
+    return CoalitionBatchOutcome(decisions=decisions, initiator=initiator, coalition=coalition)

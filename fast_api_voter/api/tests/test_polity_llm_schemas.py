@@ -5,14 +5,24 @@ network — pure schema validation.
 import pytest
 from pydantic import ValidationError
 
-from api.domain.polity.codebook import CampaignMotif, CandidacyMotif, PartyNominationMotif, VoteMotif
+from api.domain.polity.codebook import (
+    CampaignMotif,
+    CandidacyMotif,
+    CoalitionAction,
+    CoalitionMotif,
+    PartyNominationMotif,
+    VoteMotif,
+)
 from api.domain.polity.llm_schemas import (
     CANDIDACY_JSON_SCHEMA,
+    COALITION_JSON_SCHEMA,
     PARTY_NOMINATION_JSON_SCHEMA,
     POSITIONING_JSON_SCHEMA,
     VOTE_CAST_JSON_SCHEMA,
     CandidacyBatch,
     CandidacyDecision,
+    CoalitionBatch,
+    CoalitionDecision,
     PartyNominationBatch,
     PartyNominationDecision,
     PositioningBatch,
@@ -277,3 +287,101 @@ def test_positioning_json_schema_marks_shifts_as_required():
 
 def test_positioning_json_schema_batch_forbids_additional_properties():
     assert POSITIONING_JSON_SCHEMA.get("additionalProperties") is False
+
+
+def _coalition_decision(**overrides):
+    base = {"party_id": 0, "action": 1, "motif": 501}
+    base.update(overrides)
+    return base
+
+
+def test_valid_coalition_decision_round_trips_join():
+    decision = CoalitionDecision.model_validate(_coalition_decision())
+    assert decision.party_id == 0
+    assert decision.action == 1
+    assert decision.motif == 501
+
+
+def test_valid_coalition_decision_round_trips_leave():
+    decision = CoalitionDecision.model_validate(_coalition_decision(action=2, motif=504))
+    assert decision.action == 2
+    assert decision.motif == 504
+
+
+def test_coalition_action_outside_join_leave_is_rejected():
+    with pytest.raises(ValidationError):
+        CoalitionDecision.model_validate(_coalition_decision(action=3))
+    with pytest.raises(ValidationError):
+        CoalitionDecision.model_validate(_coalition_decision(action=4))
+
+
+def test_coalition_unknown_motif_raises():
+    with pytest.raises(ValidationError):
+        CoalitionDecision.model_validate(_coalition_decision(motif=999))
+
+
+def test_coalition_motif_503_is_rejected():
+    # 503 (COALITION_RUPTURE_DISAGREEMENT) is reserved for the deferred
+    # maintenance/rupture palier, never a formation-time decline — pinned
+    # so a future accidental reuse is visible.
+    with pytest.raises(ValidationError):
+        CoalitionDecision.model_validate(_coalition_decision(action=2, motif=503))
+
+
+def test_coalition_join_with_decline_motif_raises():
+    with pytest.raises(ValidationError, match="action=1"):
+        CoalitionDecision.model_validate(_coalition_decision(action=1, motif=504))
+    with pytest.raises(ValidationError, match="action=1"):
+        CoalitionDecision.model_validate(_coalition_decision(action=1, motif=505))
+
+
+def test_coalition_leave_with_join_motif_raises():
+    with pytest.raises(ValidationError, match="action=2"):
+        CoalitionDecision.model_validate(_coalition_decision(action=2, motif=501))
+    with pytest.raises(ValidationError, match="action=2"):
+        CoalitionDecision.model_validate(_coalition_decision(action=2, motif=502))
+
+
+def test_coalition_both_valid_action_motif_pairings_accepted():
+    CoalitionDecision.model_validate(_coalition_decision(action=1, motif=501))
+    CoalitionDecision.model_validate(_coalition_decision(action=1, motif=502))
+    CoalitionDecision.model_validate(_coalition_decision(action=2, motif=504))
+    CoalitionDecision.model_validate(_coalition_decision(action=2, motif=505))
+
+
+def test_coalition_unknown_extra_key_raises():
+    with pytest.raises(ValidationError):
+        CoalitionDecision.model_validate({**_coalition_decision(), "extra_field": True})
+
+
+def test_coalition_empty_decisions_list_raises():
+    with pytest.raises(ValidationError):
+        CoalitionBatch.model_validate({"decisions": []})
+
+
+def test_coalition_batch_round_trips_multiple_decisions():
+    batch = CoalitionBatch.model_validate(
+        {"decisions": [_coalition_decision(party_id=0), _coalition_decision(party_id=1, action=2, motif=504)]}
+    )
+    assert [d.party_id for d in batch.decisions] == [0, 1]
+
+
+def test_coalition_action_literal_matches_coalition_action_enum_exactly():
+    literal_values = set(CoalitionDecision.model_fields["action"].annotation.__args__)  # type: ignore[union-attr]
+    assert literal_values == {member.value for member in CoalitionAction}
+
+
+def test_coalition_motif_literal_matches_coalition_motif_enum_exactly():
+    literal_values = set(CoalitionDecision.model_fields["motif"].annotation.__args__)  # type: ignore[union-attr]
+    assert literal_values == {member.value for member in CoalitionMotif}
+
+
+def test_coalition_json_schema_marks_action_and_motif_as_required():
+    decision_schema = COALITION_JSON_SCHEMA["$defs"]["CoalitionDecision"]
+    assert "action" in decision_schema["required"]
+    assert "motif" in decision_schema["required"]
+    assert decision_schema.get("additionalProperties") is False
+
+
+def test_coalition_json_schema_batch_forbids_additional_properties():
+    assert COALITION_JSON_SCHEMA.get("additionalProperties") is False

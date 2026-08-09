@@ -100,8 +100,8 @@ class _FakeLlmClient:
     """Deterministic fake dispatching on user_prompt shape, since one client
     instance now serves decide_candidacies ("citizens" key),
     decide_party_nominations ("parties" key), decide_campaign_positioning
-    ("nominees" key), and cast_votes ("voters"/"candidates" keys) within the
-    same run.
+    ("nominees" key), decide_coalition ("responders" key), and cast_votes
+    ("voters"/"candidates" keys) within the same run.
     Candidacy: declares (outcome=1) whenever ambition_score >= 0.1 --
     config.candidacy.ambition_threshold is NOT consulted by the LLM path at
     all (decide_candidacies never reads it; only the deterministic
@@ -111,8 +111,12 @@ class _FakeLlmClient:
     nominee shifts dimension 0 by +0.1 (motif 602) -- always non-empty, so
     tests can assert a real pledged_platform change, well within the
     default config.campaign bounds (max_positioning_delta=0.3,
-    max_positioning_shifts=3). Voting: every citizen votes blank -- enough
-    to exercise the integration plumbing (journal writes, reproducibility,
+    max_positioning_shifts=3). Coalition: every responder joins (motif 501)
+    -- the assemble_coalition parity invariant (unanimous join ==
+    form_coalition's own output) means this fake's coalitions match the
+    deterministic baseline exactly, useful for the byte-identical
+    reproducibility test. Voting: every citizen votes blank -- enough to
+    exercise the integration plumbing (journal writes, reproducibility,
     error propagation) without needing real vote-quality logic."""
 
     def complete_json(self, *, system_prompt, user_prompt, json_schema, max_tokens, think=True):
@@ -140,6 +144,9 @@ class _FakeLlmClient:
                 {"cid": n["cid"], "shifts": [{"dimension": 0, "delta": 0.1}], "motif": 602}
                 for n in payload["nominees"]
             ]
+            return json.dumps({"decisions": decisions})
+        if "responders" in payload:
+            decisions = [{"party_id": r["party_id"], "action": 1, "motif": 501} for r in payload["responders"]]
             return json.dumps({"decisions": decisions})
         decisions = [{"cid": v["cid"], "blank": 1, "ranking": [], "motif": 101} for v in payload["voters"]]
         return json.dumps({"decisions": decisions})
@@ -310,6 +317,105 @@ def test_llm_path_journals_campaign_positioning_once_per_dominant_nominee(tmp_pa
     declared_ticks_and_cids = {(e["tick"], e["citizen_id"]) for e in declared_dominant}
     positioning_ticks_and_cids = {(e["tick"], e["citizen_id"]) for e in positioning_events}
     assert positioning_ticks_and_cids == declared_ticks_and_cids
+
+
+# ── LLM coalition path (v2 increment 5) ──────────────────────────────────
+
+def test_llm_path_journals_coalition_decision_per_seated_non_initiator_party(tmp_path):
+    config = _config_with_llm_enabled(tmp_path)
+    journal_path = run_simulation(config, run_id="llm-coalition", llm_client=_FakeLlmClient())
+    events = _events(journal_path)
+    decision_events = [e for e in events if e["event_type"] == "coalition_decision"]
+    aggregate_events = [e for e in events if e["event_type"] in ("coalition_formed", "coalition_failed")]
+
+    assert len(aggregate_events) == 8  # one per legislative election, same as the deterministic baseline
+    assert len(decision_events) > 0  # default 5-party config produces contested legislative ticks
+
+    for event in decision_events:
+        assert event["codebook_version"] == config.llm.codebook_version
+        assert event["motif"] == "501"
+        assert event["payload"]["action"] == 1
+        assert "initiator" in event["payload"]
+        assert "party_id" in event["payload"]
+
+
+def test_llm_path_aggregate_coalition_payload_shape_is_unchanged(tmp_path):
+    # metrics.py's is_cohabitation/coalition_lifespans read payload["coalition"]
+    # as a plain list[int] | None -- this must never change shape, on either
+    # path, or those consumers break silently.
+    config = _config_with_llm_enabled(tmp_path)
+    journal_path = run_simulation(config, run_id="llm-coalition-shape", llm_client=_FakeLlmClient())
+    events = _events(journal_path)
+    aggregate_events = [e for e in events if e["event_type"] in ("coalition_formed", "coalition_failed")]
+    assert aggregate_events
+    for event in aggregate_events:
+        assert set(event["payload"].keys()) == {"coalition", "seats"}
+        assert event["payload"]["coalition"] is None or isinstance(event["payload"]["coalition"], list)
+
+
+def test_deterministic_path_emits_no_coalition_decision_events(tmp_path):
+    journal_path = run_simulation(_config_with_output_dir(tmp_path), run_id="baseline-coalition")
+    events = _events(journal_path)
+    assert [e for e in events if e["event_type"] == "coalition_decision"] == []
+    aggregate_events = [e for e in events if e["event_type"] in ("coalition_formed", "coalition_failed")]
+    assert len(aggregate_events) == 8
+    for event in aggregate_events:
+        assert set(event["payload"].keys()) == {"coalition", "seats"}
+
+
+def test_llm_path_all_decline_produces_coalition_failed(tmp_path):
+    class _AllDeclineClient:
+        """Same dispatch as _FakeLlmClient for every decision type except
+        coalition, where every responder refuses -- isolates
+        assemble_coalition's all-decline None contract inside a full run."""
+
+        def complete_json(self, *, system_prompt, user_prompt, json_schema, max_tokens, think=True):
+            payload = json.loads(user_prompt)
+            if "citizens" in payload:
+                decisions = [
+                    {"cid": c["cid"], "outcome": 1, "motif": 203}
+                    if c["ambition_score"] >= 0.1
+                    else {"cid": c["cid"], "outcome": 0, "motif": 201}
+                    for c in payload["citizens"]
+                ]
+                return json.dumps({"decisions": decisions})
+            if "parties" in payload:
+                decisions = [
+                    {
+                        "party_id": p["party_id"],
+                        "winner_position": max(p["candidates"], key=lambda c: c["ambition_score"])["position"],
+                        "motif": 206,
+                    }
+                    for p in payload["parties"]
+                ]
+                return json.dumps({"decisions": decisions})
+            if "nominees" in payload:
+                decisions = [{"cid": n["cid"], "shifts": [], "motif": 601} for n in payload["nominees"]]
+                return json.dumps({"decisions": decisions})
+            if "responders" in payload:
+                decisions = [{"party_id": r["party_id"], "action": 2, "motif": 504} for r in payload["responders"]]
+                return json.dumps({"decisions": decisions})
+            decisions = [{"cid": v["cid"], "blank": 1, "ranking": [], "motif": 101} for v in payload["voters"]]
+            return json.dumps({"decisions": decisions})
+
+    config = _config_with_llm_enabled(tmp_path)
+    journal_path = run_simulation(config, run_id="llm-coalition-all-decline", llm_client=_AllDeclineClient())
+    events = _events(journal_path)
+    decision_events = [e for e in events if e["event_type"] == "coalition_decision"]
+    assert decision_events  # confirms responders were actually asked at least once
+    assert all(e["payload"]["action"] == 2 for e in decision_events)
+    failed_events = [e for e in events if e["event_type"] == "coalition_failed"]
+    assert len(failed_events) > 0
+    for event in failed_events:
+        assert event["payload"]["coalition"] is None
+
+
+def test_two_llm_coalition_runs_with_the_same_seed_produce_byte_identical_journals(tmp_path):
+    config_a = _config_with_llm_enabled(tmp_path / "a")
+    config_b = _config_with_llm_enabled(tmp_path / "b")
+    path_a = run_simulation(config_a, run_id="same-run-id", llm_client=_FakeLlmClient())
+    path_b = run_simulation(config_b, run_id="same-run-id", llm_client=_FakeLlmClient())
+    assert path_a.read_bytes() == path_b.read_bytes()
 
 
 def test_unsupported_presidential_method_raises_before_any_work(tmp_path):
