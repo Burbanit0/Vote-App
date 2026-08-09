@@ -22,6 +22,7 @@ from api.domain.polity.simple_rules import (
     declare_candidacy,
     form_coalition,
     select_party_nominee,
+    select_party_nominee_from_declared,
 )
 
 
@@ -194,6 +195,40 @@ def test_select_party_nominee_ties_break_on_lowest_citizen_id():
 def test_select_party_nominee_returns_none_if_nobody_qualifies():
     citizens = [_citizen(1, (0.5,), ambition=0.1, party_affiliation=0)]
     assert select_party_nominee(0, citizens, _CANDIDACY_CONFIG) is None
+
+
+# ── select_party_nominee_from_declared ────────────────────────────────────
+
+def test_select_party_nominee_from_declared_picks_highest_ambition():
+    citizens = [
+        _citizen(1, (0.5,), ambition=0.9, party_affiliation=0),
+        _citizen(2, (0.5,), ambition=0.75, party_affiliation=0),
+        _citizen(3, (0.5,), ambition=0.6, party_affiliation=0),  # not in declared_cids
+        _citizen(4, (0.5,), ambition=0.95, party_affiliation=1),  # different party
+    ]
+    nominee = select_party_nominee_from_declared(0, citizens, declared_cids={1, 2})
+    assert nominee is not None
+    assert nominee.citizen_id == 1
+
+
+def test_select_party_nominee_from_declared_ties_break_on_lowest_citizen_id():
+    citizens = [
+        _citizen(7, (0.5,), ambition=0.9, party_affiliation=0),
+        _citizen(3, (0.5,), ambition=0.9, party_affiliation=0),
+    ]
+    nominee = select_party_nominee_from_declared(0, citizens, declared_cids={7, 3})
+    assert nominee is not None
+    assert nominee.citizen_id == 3
+
+
+def test_select_party_nominee_from_declared_returns_none_if_nobody_declared():
+    citizens = [_citizen(1, (0.5,), ambition=0.9, party_affiliation=0)]
+    assert select_party_nominee_from_declared(0, citizens, declared_cids=set()) is None
+
+
+def test_select_party_nominee_from_declared_ignores_declared_cids_from_other_parties():
+    citizens = [_citizen(1, (0.5,), ambition=0.9, party_affiliation=1)]
+    assert select_party_nominee_from_declared(0, citizens, declared_cids={1}) is None
 
 
 # ── declare_candidacy ─────────────────────────────────────────────────────

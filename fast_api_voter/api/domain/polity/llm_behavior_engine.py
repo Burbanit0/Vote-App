@@ -1,11 +1,22 @@
 """
-api.domain.polity.llm_behavior_engine — v2 increment 1: the LLM replacement
-for build_ranking (simple_rules.py), voting only. Every other decision
-(candidacy, party nomination, coalition) stays on simple_rules.py.
+api.domain.polity.llm_behavior_engine — v2 increments 1-2: the LLM
+replacement for build_ranking (voting) and decide_candidacy (dominant-path
+candidacy eligibility only), both in simple_rules.py. Every other decision
+(the rupture candidacy path, party nomination, coalition) stays on
+simple_rules.py.
 
 Design doc §11.4's baseline-vs-LLM comparison depends on simple_rules.py
 staying untouched and always available -- this module is additive, never a
 modification of it. See simple_rules.py's own module docstring.
+
+decide_candidacies (increment 2) only ever evaluates party-affiliated
+citizens along the dominant path -- the rupture path
+(attempt_rupture_candidacy, simple_rules.py) is explicitly "independent of
+perceived support by design" (a probability mechanic, not a judgment call)
+and never reaches the LLM; the intra-party nominee tiebreak among
+LLM-approved considerers (party_nomination_choice, design doc dt=4) also
+stays deterministic, out of scope here -- only the eligibility filter's
+source changes, not who wins among the eligible.
 
 Deliberate simplifications versus the full design doc, documented rather
 than silently made:
@@ -30,11 +41,21 @@ from dataclasses import dataclass
 from typing import Sequence
 
 from api.domain.polity.citizen import Citizen
-from api.domain.polity.codebook import VOTE_MOTIF_PROMPT_TABLE, check_codebook_version
+from api.domain.polity.codebook import CANDIDACY_MOTIF_PROMPT_TABLE, VOTE_MOTIF_PROMPT_TABLE, check_codebook_version
 from api.domain.polity.config import PolityConfig
-from api.domain.polity.llm_client import LlmClientProtocol, LlmResponseError, decode_vote_batch
-from api.domain.polity.llm_schemas import VOTE_CAST_JSON_SCHEMA, VoteCastDecision
-from api.domain.polity.simple_rules import BLANK_LABEL, candidate_label
+from api.domain.polity.llm_client import (
+    LlmClientProtocol,
+    LlmResponseError,
+    decode_candidacy_batch,
+    decode_vote_batch,
+)
+from api.domain.polity.llm_schemas import (
+    CANDIDACY_JSON_SCHEMA,
+    VOTE_CAST_JSON_SCHEMA,
+    CandidacyDecision,
+    VoteCastDecision,
+)
+from api.domain.polity.simple_rules import BLANK_LABEL, candidate_label, sympathizer_ratio
 
 # Empirical threshold from ollama_structured_output_results.md's root-cause
 # investigation: batches of <=12 citizens (holding dims/candidates fixed at
@@ -296,3 +317,94 @@ def cast_votes(
         decisions.extend(chunk_decisions)
 
     return VoteBatchOutcome(ballots=ballots, decisions=decisions)
+
+
+@dataclass(frozen=True)
+class CandidacyBatchOutcome:
+    decisions: list[CandidacyDecision]
+
+
+def build_candidacy_system_prompt(citizens: Sequence[Citizen]) -> str:
+    """Mirrors build_system_prompt's "enumerate the full expected cid list
+    verbatim" fix (Finding B, ollama_structured_output_results.md) -- a bare
+    'return exactly N decisions' instruction was empirically insufficient
+    for vote_cast, and there's no reason to assume a shorter boolean+motif
+    decision is immune to the same failure mode without live evidence to the
+    contrary (see this module's own docstring on live-verifying increment
+    2)."""
+    cid_list = ",".join(str(c.citizen_id) for c in citizens)
+    return (
+        "Tu es un moteur de simulation. Pour chaque citoyen recu, decide "
+        "s'il se presente comme candidat (outcome=1) ou renonce "
+        "(outcome=0), a partir de son ambition et du soutien qu'il "
+        "percoit.\nMotifs valides (code court obligatoire) :\n"
+        f"{CANDIDACY_MOTIF_PROMPT_TABLE}\nIMPORTANT : la liste decisions "
+        f"doit contenir EXACTEMENT ces {len(citizens)} cid, chacun une "
+        f"seule fois, dans cet ordre : [{cid_list}]. Verifie ta reponse "
+        "avant de la finaliser : chaque cid de cette liste doit apparaitre "
+        "exactement une fois.\nReponds UNIQUEMENT avec un objet JSON "
+        "conforme au schema fourni."
+    )
+
+
+def build_candidacy_user_prompt(chunk: Sequence[Citizen], support: dict[int, float]) -> str:
+    """`support` is precomputed once against the full population, before
+    chunking (see decide_candidacies) -- never recomputed per-chunk, or the
+    "perceived support" signal would become an artifact of
+    llm.max_batch_size/chunk boundaries instead of a stable, population-wide
+    value. Canonical JSON (sort_keys, compact separators, rounded floats),
+    same reproducibility discipline as build_user_prompt."""
+    citizen_blocks = [
+        {
+            "cid": c.citizen_id,
+            "ambition_score": round(c.ambition_score, 4),
+            "perceived_support": round(support[c.citizen_id], 4),
+        }
+        for c in chunk
+    ]
+    return json.dumps({"citizens": citizen_blocks}, sort_keys=True, separators=(",", ":"))
+
+
+def decide_candidacies(
+    citizens: Sequence[Citizen],
+    config: PolityConfig,
+    client: LlmClientProtocol,
+) -> CandidacyBatchOutcome:
+    """v2 increment 2's replacement for `decide_candidacy`'s bare
+    ambition_score threshold, dominant path only (see this module's
+    docstring for what stays out of scope). Pure aside from the injected
+    client -- no journal writes here, matching cast_votes's convention;
+    run_polity_simulation.py owns every journal write.
+
+    `citizens` is expected to already be filtered to party-affiliated
+    citizens by the caller (mirrors select_party_nominee's existing filter,
+    unchanged) -- this function itself doesn't re-filter by party, it just
+    batches whatever population it's given.
+
+    Calls the client with think=False: a live investigation found this
+    task's shorter, more subjective prompt ("should this citizen run?")
+    makes qwen3:8b burn its entire completion budget on invisible <think>
+    reasoning with zero visible output, regardless of budget size --
+    unrelated to vote_cast's own reasoning-budget accounting
+    (compute_max_tokens's flat allowance), which stays unaffected since
+    cast_votes never sets this flag. See OllamaJsonClient's class docstring
+    for why this needs an entirely different transport, not just a body
+    flag."""
+    _check_supported(config)
+
+    population = list(citizens)
+    support = {c.citizen_id: sympathizer_ratio(c, population) for c in population}
+
+    decisions: list[CandidacyDecision] = []
+    for chunk in chunk_voters(citizens, config.llm.max_batch_size):
+        expected_cids = [c.citizen_id for c in chunk]
+        raw = client.complete_json(
+            system_prompt=build_candidacy_system_prompt(chunk),
+            user_prompt=build_candidacy_user_prompt(chunk, support),
+            json_schema=CANDIDACY_JSON_SCHEMA,
+            max_tokens=compute_max_tokens(len(chunk)),
+            think=False,
+        )
+        decisions.extend(decode_candidacy_batch(raw, expected_cids))
+
+    return CandidacyBatchOutcome(decisions=decisions)

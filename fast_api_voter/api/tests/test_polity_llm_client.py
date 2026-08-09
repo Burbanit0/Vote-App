@@ -11,6 +11,7 @@ from api.domain.polity.llm_client import (
     LlmResponseError,
     LlmTransportError,
     OllamaJsonClient,
+    decode_candidacy_batch,
     decode_vote_batch,
 )
 
@@ -185,4 +186,47 @@ def test_decode_vote_batch_rejects_order_mismatch():
 def test_decode_vote_batch_strips_think_tags():
     raw = "<think>reasoning here</think>" + json.dumps({"decisions": [_decision(cid=1)]})
     decisions = decode_vote_batch(raw, expected_cids=[1])
+    assert decisions[0].cid == 1
+
+
+# ── decode_candidacy_batch ────────────────────────────────────────────────
+
+def _candidacy_decision(**overrides):
+    base = {"cid": 1, "outcome": 1, "motif": 203}
+    base.update(overrides)
+    return base
+
+
+def test_decode_candidacy_batch_round_trips():
+    raw = json.dumps({"decisions": [_candidacy_decision(cid=1), _candidacy_decision(cid=2)]})
+    decisions = decode_candidacy_batch(raw, expected_cids=[1, 2])
+    assert [d.cid for d in decisions] == [1, 2]
+
+
+def test_decode_candidacy_batch_rejects_non_json():
+    with pytest.raises(LlmResponseError, match="not valid JSON"):
+        decode_candidacy_batch("not json", expected_cids=[1])
+
+
+def test_decode_candidacy_batch_rejects_schema_invalid_content():
+    raw = json.dumps({"decisions": [{"cid": 1, "outcome": 1, "motif": 202}]})  # 202 reserved for rupture
+    with pytest.raises(LlmResponseError, match="schema validation"):
+        decode_candidacy_batch(raw, expected_cids=[1])
+
+
+def test_decode_candidacy_batch_rejects_count_mismatch():
+    raw = json.dumps({"decisions": [_candidacy_decision(cid=1)]})
+    with pytest.raises(LlmResponseError, match="misaligned"):
+        decode_candidacy_batch(raw, expected_cids=[1, 2])
+
+
+def test_decode_candidacy_batch_rejects_order_mismatch():
+    raw = json.dumps({"decisions": [_candidacy_decision(cid=2), _candidacy_decision(cid=1)]})
+    with pytest.raises(LlmResponseError, match="misaligned"):
+        decode_candidacy_batch(raw, expected_cids=[1, 2])
+
+
+def test_decode_candidacy_batch_strips_think_tags():
+    raw = "<think>reasoning here</think>" + json.dumps({"decisions": [_candidacy_decision(cid=1)]})
+    decisions = decode_candidacy_batch(raw, expected_cids=[1])
     assert decisions[0].cid == 1

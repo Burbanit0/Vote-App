@@ -7,9 +7,12 @@ reassigned.
 import pytest
 
 from api.domain.polity.codebook import (
+    CANDIDACY_MOTIF_PROMPT_TABLE,
     CODEBOOK_VERSION,
     VOTE_MOTIF_PROMPT_TABLE,
     BallotFormat,
+    CandidacyMotif,
+    CandidacyOutcome,
     DecisionType,
     PolityCodebookError,
     VoteMotif,
@@ -34,6 +37,14 @@ def test_vote_cast_is_decision_type_1():
     assert DecisionType.VOTE_CAST == 1
 
 
+def test_candidacy_considered_is_decision_type_2():
+    assert DecisionType.CANDIDACY_CONSIDERED == 2
+
+
+def test_decision_type_does_not_yet_define_candidacy_declared():
+    assert 3 not in {member.value for member in DecisionType}
+
+
 def test_ranking_is_ballot_format_1():
     assert BallotFormat.RANKING == 1
 
@@ -46,3 +57,21 @@ def test_vote_motif_prompt_table_is_derived_from_the_enum_not_hand_typed():
     for motif in VoteMotif:
         assert f"{motif.value} = {motif.name}" in VOTE_MOTIF_PROMPT_TABLE
     assert VOTE_MOTIF_PROMPT_TABLE.count("\n") == len(VoteMotif) - 1
+
+
+def test_candidacy_outcome_has_exactly_the_two_documented_codes():
+    assert {member.value for member in CandidacyOutcome} == {0, 1}
+
+
+def test_candidacy_motif_never_reuses_the_rupture_paths_code_202():
+    assert 202 not in {member.value for member in CandidacyMotif}
+
+
+def test_candidacy_motif_has_exactly_the_four_documented_codes():
+    assert {member.value for member in CandidacyMotif} == {201, 203, 204, 205}
+
+
+def test_candidacy_motif_prompt_table_is_derived_from_the_enum_not_hand_typed():
+    for motif in CandidacyMotif:
+        assert f"{motif.value} = {motif.name}" in CANDIDACY_MOTIF_PROMPT_TABLE
+    assert CANDIDACY_MOTIF_PROMPT_TABLE.count("\n") == len(CandidacyMotif) - 1

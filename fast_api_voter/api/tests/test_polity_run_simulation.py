@@ -94,33 +94,42 @@ def test_two_runs_with_rupture_enabled_produce_byte_identical_journals(tmp_path)
     assert path_a.read_bytes() == path_b.read_bytes()
 
 
-# ── LLM-enabled path (v2 increment 1) ────────────────────────────────────
+# ── LLM-enabled path (v2 increments 1-2) ─────────────────────────────────
 
-class _AlwaysBlankLlmClient:
-    """Deterministic fake: every citizen votes blank. Enough to exercise
-    the integration plumbing (journal writes, reproducibility, error
-    propagation) without needing real vote-quality logic."""
+class _FakeLlmClient:
+    """Deterministic fake dispatching on user_prompt shape, since one client
+    instance now serves both decide_candidacies ("citizens" key) and
+    cast_votes ("voters"/"candidates" keys) within the same run.
+    Candidacy: declares (outcome=1) whenever ambition_score >= 0.1 --
+    config.candidacy.ambition_threshold is NOT consulted by the LLM path at
+    all (decide_candidacies never reads it; only the deterministic
+    decide_candidacy does), so this fake owns its own threshold rather than
+    reading one from config. Voting: every citizen votes blank -- enough to
+    exercise the integration plumbing (journal writes, reproducibility,
+    error propagation) without needing real vote-quality logic."""
 
-    def complete_json(self, *, system_prompt, user_prompt, json_schema, max_tokens):
+    def complete_json(self, *, system_prompt, user_prompt, json_schema, max_tokens, think=True):
         payload = json.loads(user_prompt)
+        if "citizens" in payload:
+            decisions = [
+                {"cid": c["cid"], "outcome": 1, "motif": 203}
+                if c["ambition_score"] >= 0.1
+                else {"cid": c["cid"], "outcome": 0, "motif": 201}
+                for c in payload["citizens"]
+            ]
+            return json.dumps({"decisions": decisions})
         decisions = [{"cid": v["cid"], "blank": 1, "ranking": [], "motif": 101} for v in payload["voters"]]
         return json.dumps({"decisions": decisions})
 
 
 def _config_with_llm_enabled(output_dir) -> PolityConfig:
-    # The shipped ambition_threshold (0.7) against ambition_dist beta(2,8)
-    # (mean 0.2) means no citizen ever qualifies as a nominee -- confirmed
-    # true of the deterministic baseline too, not something this path
-    # introduces. Lowered here so elections actually have nominees to vote
-    # on, exercising the LLM path this test means to cover.
     config = _config_with_output_dir(output_dir)
-    config = dataclasses.replace(config, candidacy=dataclasses.replace(config.candidacy, ambition_threshold=0.1))
     return dataclasses.replace(config, llm=dataclasses.replace(config.llm, enabled=True))
 
 
 def test_llm_path_completes_and_journals_vote_cast_events(tmp_path):
     config = _config_with_llm_enabled(tmp_path)
-    journal_path = run_simulation(config, run_id="llm", llm_client=_AlwaysBlankLlmClient())
+    journal_path = run_simulation(config, run_id="llm", llm_client=_FakeLlmClient())
     events = _events(journal_path)
     vote_events = [e for e in events if e["event_type"] == "vote_cast"]
     assert len(vote_events) == config.run.population_size * 8
@@ -131,21 +140,82 @@ def test_llm_path_completes_and_journals_vote_cast_events(tmp_path):
 def test_two_llm_runs_with_the_same_seed_produce_byte_identical_journals(tmp_path):
     config_a = _config_with_llm_enabled(tmp_path / "a")
     config_b = _config_with_llm_enabled(tmp_path / "b")
-    path_a = run_simulation(config_a, run_id="same-run-id", llm_client=_AlwaysBlankLlmClient())
-    path_b = run_simulation(config_b, run_id="same-run-id", llm_client=_AlwaysBlankLlmClient())
+    path_a = run_simulation(config_a, run_id="same-run-id", llm_client=_FakeLlmClient())
+    path_b = run_simulation(config_b, run_id="same-run-id", llm_client=_FakeLlmClient())
     assert path_a.read_bytes() == path_b.read_bytes()
 
 
 def test_llm_batch_misalignment_aborts_the_run_with_no_partial_journal(tmp_path):
     class _ShortClient:
-        def complete_json(self, *, system_prompt, user_prompt, json_schema, max_tokens):
+        """Answers candidacy calls in full (so nominees exist to vote on),
+        but drops every decision but the first on a vote call -- isolates
+        the misalignment failure to cast_votes specifically."""
+
+        def complete_json(self, *, system_prompt, user_prompt, json_schema, max_tokens, think=True):
             payload = json.loads(user_prompt)
+            if "citizens" in payload:
+                decisions = [
+                    {"cid": c["cid"], "outcome": 1, "motif": 203}
+                    if c["ambition_score"] >= 0.1
+                    else {"cid": c["cid"], "outcome": 0, "motif": 201}
+                    for c in payload["citizens"]
+                ]
+                return json.dumps({"decisions": decisions})
             first = payload["voters"][0]
             return json.dumps({"decisions": [{"cid": first["cid"], "blank": 1, "ranking": [], "motif": 101}]})
 
     config = _config_with_llm_enabled(tmp_path)
     with pytest.raises(LlmResponseError, match="misaligned"):
         run_simulation(config, run_id="r", llm_client=_ShortClient())
+
+
+# ── LLM candidacy path (v2 increment 2) ──────────────────────────────────
+
+def test_llm_path_journals_candidacy_considered_for_every_evaluated_citizen(tmp_path):
+    config = _config_with_llm_enabled(tmp_path)
+    journal_path = run_simulation(config, run_id="llm-candidacy", llm_client=_FakeLlmClient())
+    events = _events(journal_path)
+    considered_events = [e for e in events if e["event_type"] == "candidacy_considered"]
+    # One candidacy_considered event per citizen per presidential election
+    # (8 in the default calendar) -- including the citizens who declined,
+    # which the deterministic baseline never journals at all.
+    assert len(considered_events) == config.run.population_size * 8
+    assert all(e["payload"]["path"] == "dominant" for e in considered_events)
+    assert all(e["codebook_version"] == config.llm.codebook_version for e in considered_events)
+    assert {e["payload"]["outcome"] for e in considered_events} == {0, 1}
+
+
+def test_llm_path_journals_candidacy_declared_only_for_outcome_one(tmp_path):
+    config = _config_with_llm_enabled(tmp_path)
+    journal_path = run_simulation(config, run_id="llm-candidacy-declared", llm_client=_FakeLlmClient())
+    events = _events(journal_path)
+    declared_cids = {
+        e["citizen_id"] for e in events if e["event_type"] == "candidacy_declared" and e["payload"].get("path") == "dominant"
+    }
+    considered_declared_cids = {
+        e["citizen_id"] for e in events if e["event_type"] == "candidacy_considered" and e["payload"]["outcome"] == 1
+    }
+    assert declared_cids.issubset(considered_declared_cids)
+
+
+def test_llm_path_journals_nomination_lost_for_declared_but_unpicked_citizens(tmp_path):
+    config = _config_with_llm_enabled(tmp_path)
+    journal_path = run_simulation(config, run_id="llm-nomination-lost", llm_client=_FakeLlmClient())
+    events = _events(journal_path)
+    lost_events = [e for e in events if e["event_type"] == "nomination_lost"]
+    assert len(lost_events) > 0  # default config has multiple ambitious members per party most ticks
+    considered_declared_cids = {
+        e["citizen_id"] for e in events if e["event_type"] == "candidacy_considered" and e["payload"]["outcome"] == 1
+    }
+    # Every lost citizen was genuinely LLM-approved (outcome=1) at some
+    # point, and never also the party's chosen nominee in that same tick.
+    assert set(e["citizen_id"] for e in lost_events).issubset(considered_declared_cids)
+    for event in lost_events:
+        assert event["citizen_id"] not in {
+            e["citizen_id"]
+            for e in events
+            if e["event_type"] == "candidacy_declared" and e["tick"] == event["tick"]
+        }
 
 
 def test_unsupported_presidential_method_raises_before_any_work(tmp_path):

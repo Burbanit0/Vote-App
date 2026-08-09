@@ -47,7 +47,7 @@ import httpx
 from pydantic import ValidationError
 
 from api.domain.polity.config import LlmConfig
-from api.domain.polity.llm_schemas import VoteCastBatch, VoteCastDecision
+from api.domain.polity.llm_schemas import CandidacyBatch, CandidacyDecision, VoteCastBatch, VoteCastDecision
 
 _THINK_TAG_RE = re.compile(r"<think>.*?</think>", re.DOTALL)
 _TRANSPORT_RETRY_ATTEMPTS = 3  # 1 initial + 2 retries -- see module docstring on why
@@ -77,7 +77,13 @@ class LlmResponseError(LlmError):
 
 class LlmClientProtocol(Protocol):
     def complete_json(
-        self, *, system_prompt: str, user_prompt: str, json_schema: dict[str, Any], max_tokens: int
+        self,
+        *,
+        system_prompt: str,
+        user_prompt: str,
+        json_schema: dict[str, Any],
+        max_tokens: int,
+        think: bool = True,
     ) -> str: ...
 
 
@@ -103,7 +109,21 @@ def _inline_refs(schema: dict[str, Any]) -> dict[str, Any]:
 
 class OllamaJsonClient:
     """Ollama's OpenAI-compatible endpoint (`llm.base_url`, already ending
-    in `/v1`). One instance per run, reused across every batch call."""
+    in `/v1`). One instance per run, reused across every batch call.
+
+    `think=False` (v2 increment 2) switches to Ollama's *native* `/api/chat`
+    endpoint entirely, not just a body flag on the OpenAI-compat one --
+    empirically required. A live investigation (increment 2's candidacy
+    task) found that `think: false` on `/v1/chat/completions` combined with
+    `response_format` (structured/strict JSON) is silently ignored: the
+    model still burns the *entire* token budget on invisible `<think>`
+    reasoning, `finish_reason='length'`, zero visible content, regardless of
+    budget size (confirmed up to 6144 tokens). The native endpoint's own
+    `think`+`format` combination has no such bug and is dramatically faster
+    (~35s vs 4+ min for a 20-citizen batch) since no reasoning tokens are
+    spent at all. `think=True` (vote_cast, unchanged since increment 1)
+    keeps using the OpenAI-compat path exactly as shipped -- this is a
+    per-call transport choice, not a behavior change to the vote path."""
 
     def __init__(
         self,
@@ -130,12 +150,29 @@ class OllamaJsonClient:
         return cls(llm.base_url, llm.model, llm.temperature, seed, timeout)
 
     def complete_json(
-        self, *, system_prompt: str, user_prompt: str, json_schema: dict[str, Any], max_tokens: int
+        self,
+        *,
+        system_prompt: str,
+        user_prompt: str,
+        json_schema: dict[str, Any],
+        max_tokens: int,
+        think: bool = True,
     ) -> str:
         """Retries only a transport failure, up to _TRANSPORT_RETRY_ATTEMPTS
         total attempts, no backoff (no concurrency to jitter against -- see
         module docstring). A response-level failure (bad schema, truncated
-        generation) propagates immediately, unretried -- see LlmResponseError."""
+        generation) propagates immediately, unretried -- see LlmResponseError.
+
+        `think` defaults to True (vote_cast's existing, unchanged behavior)
+        -- see the class docstring for why `think=False` needs an entirely
+        different endpoint/request shape, not just one extra body field."""
+        if think:
+            return self._complete_json_openai_compat(system_prompt, user_prompt, json_schema, max_tokens)
+        return self._complete_json_native_no_think(system_prompt, user_prompt, json_schema, max_tokens)
+
+    def _complete_json_openai_compat(
+        self, system_prompt: str, user_prompt: str, json_schema: dict[str, Any], max_tokens: int
+    ) -> str:
         body = {
             "model": self._model,
             "messages": [
@@ -170,6 +207,47 @@ class OllamaJsonClient:
                 )
                 continue
             return _extract_content(response)
+
+        assert last_transport_error is not None  # loop runs at least once
+        raise last_transport_error
+
+    def _complete_json_native_no_think(
+        self, system_prompt: str, user_prompt: str, json_schema: dict[str, Any], max_tokens: int
+    ) -> str:
+        # `self._base_url` is documented as ending in `/v1` (the
+        # OpenAI-compat convention) -- the native endpoint lives one level
+        # up, at plain `/api/chat`, not `/v1/api/chat`.
+        native_base = self._base_url.removesuffix("/v1")
+        body = {
+            "model": self._model,
+            "messages": [
+                {"role": "system", "content": system_prompt},
+                {"role": "user", "content": user_prompt},
+            ],
+            "stream": False,
+            "think": False,
+            "format": _inline_refs(json_schema),
+            "options": {"temperature": self._temperature, "seed": self._seed, "num_predict": max_tokens},
+        }
+        payload = json.dumps(body, sort_keys=True, separators=(",", ":"))
+
+        last_transport_error: LlmTransportError | None = None
+        for _ in range(_TRANSPORT_RETRY_ATTEMPTS):
+            try:
+                response = self._client.post(
+                    f"{native_base}/api/chat",
+                    content=payload,
+                    headers={"Content-Type": "application/json"},
+                )
+            except httpx.HTTPError as exc:
+                last_transport_error = LlmTransportError(f"request to {native_base} failed: {exc}")
+                continue
+            if response.status_code != 200:
+                last_transport_error = LlmTransportError(
+                    f"HTTP {response.status_code} from {native_base}: {response.text[:500]}"
+                )
+                continue
+            return _extract_native_content(response)
 
         assert last_transport_error is not None  # loop runs at least once
         raise last_transport_error
@@ -215,6 +293,30 @@ def _extract_content(response: httpx.Response) -> str:
     return str(message["content"])
 
 
+def _extract_native_content(response: httpx.Response) -> str:
+    """Ollama's native /api/chat response shape -- no `choices` list, a
+    single top-level `message` object, and `done_reason` instead of
+    `finish_reason`. See OllamaJsonClient's class docstring for why
+    think=False needs this entirely separate endpoint/shape."""
+    try:
+        body = response.json()
+    except ValueError as exc:
+        raise LlmResponseError(f"response was not valid JSON: {exc}") from exc
+
+    if not isinstance(body, dict):
+        raise LlmResponseError(f"expected a JSON object, got {type(body).__name__}")
+
+    done_reason = body.get("done_reason")
+    if done_reason != "stop":
+        raise LlmResponseError(f"generation did not finish cleanly: done_reason={done_reason!r}")
+
+    message = body.get("message")
+    if not isinstance(message, dict) or not isinstance(message.get("content"), str):
+        raise LlmResponseError(f"expected message.content to be a string, got {message!r}")
+
+    return str(message["content"])
+
+
 def decode_vote_batch(raw: str, expected_cids: Sequence[int]) -> list[VoteCastDecision]:
     """Enforces design doc §3.6.0's hard rule: response contains exactly
     one element per cid sent, in the same order. A count or order mismatch
@@ -231,6 +333,34 @@ def decode_vote_batch(raw: str, expected_cids: Sequence[int]) -> list[VoteCastDe
 
     try:
         batch = VoteCastBatch.model_validate(parsed)
+    except ValidationError as exc:
+        raise LlmResponseError(f"batch failed schema validation: {exc}") from exc
+
+    got_cids = [decision.cid for decision in batch.decisions]
+    if got_cids != list(expected_cids):
+        raise LlmResponseError(
+            f"batch misaligned with the request: expected cids {list(expected_cids)}, got {got_cids}"
+        )
+
+    return batch.decisions
+
+
+def decode_candidacy_batch(raw: str, expected_cids: Sequence[int]) -> list[CandidacyDecision]:
+    """Same contract as decode_vote_batch, specialized to CandidacyBatch —
+    the second decision type this project actually builds. Deliberately
+    duplicated rather than generalized: decode_vote_batch's own comment
+    anticipated this moment, but a prior generic `type[T]` attempt didn't
+    type-check cleanly (return type conflated batch vs. decision types).
+    Revisit genericizing both only if a third decision type makes the
+    duplication cost clearly worth paying."""
+    stripped = _THINK_TAG_RE.sub("", raw).strip()
+    try:
+        parsed = json.loads(stripped)
+    except json.JSONDecodeError as exc:
+        raise LlmResponseError(f"response is not valid JSON after stripping reasoning tags: {exc}") from exc
+
+    try:
+        batch = CandidacyBatch.model_validate(parsed)
     except ValidationError as exc:
         raise LlmResponseError(f"batch failed schema validation: {exc}") from exc
 
