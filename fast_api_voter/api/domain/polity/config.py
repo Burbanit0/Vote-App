@@ -150,6 +150,7 @@ class CitizensConfig:
     priority_dist: str
     blank_threshold_dist: str
     ambition_dist: str
+    base_threshold_dist: str
     static_population: bool
     memory_window_terms: int
 
@@ -180,9 +181,99 @@ class CampaignConfig:
 
 @dataclass(frozen=True)
 class LegitimacyConfig:
+    """§7 — inactive until v4. `recall_floor_indexed_on_L0` is TRANCHÉ false
+    in the design doc (§7.2: a moving floor destroys the external legibility
+    the mechanism exists for) — _parse_legitimacy rejects `true` outright,
+    the same "parse it so a typo fails loudly, but the feature itself is a
+    rejected design, not a pending one" precedent as rupture_path_enabled
+    before v1. `recall_cooldown_ticks` is a DIFFERENT cooldown from
+    petition.cooldown_ticks (this one gates repeat recalls of the same
+    office; that one gates repeat petitions against the same target)."""
+
     enabled: bool
     decay: float
     recall_floor: float
+    recall_floor_indexed_on_l0: bool
+    recall_cooldown_ticks: int
+    passive_erosion_weight: float
+
+
+@dataclass(frozen=True)
+class PressureMenuConfig:
+    """§7bis.2 — the constitutional menu of pressure levers available to
+    citizens between elections. §7bis.8: a single 4-modality experimental
+    variable (electoral_only / petition-only / mobilization-only / both),
+    not two independent booleans -- validated as such in _parse_pressure_menu
+    (electoral_only=true forces both levers off)."""
+
+    petition_enabled: bool
+    mobilization_enabled: bool
+    electoral_only: bool
+
+
+@dataclass(frozen=True)
+class MandateConfig:
+    """§7bis.5 — mandate deviation: information, never itself a lever.
+    `max_response_delta`/`max_response_shifts` bound representative_response's
+    (dt=6) position delta -- deliberately separate fields from
+    campaign.max_positioning_delta/max_positioning_shifts: mid-term drift and
+    campaign-time strategy are different effects and must stay analytically
+    separable, even though the shipped defaults happen to match."""
+
+    enabled: bool
+    pledge_scope: str
+    pledge_top_k: int
+    deviation_metric: str
+    deviation_log_threshold: float
+    max_response_delta: float
+    max_response_shifts: int
+
+
+@dataclass(frozen=True)
+class PetitionConfig:
+    """§7bis.4a. `concurrent_allowed` is TRANCHÉ false in v4 (single open
+    petition per target -- also removes a wire-schema ambiguity: `act=1
+    sign` needs no petition_id field) -- _parse_petition rejects `true`."""
+
+    enabled: bool
+    signature_threshold: float
+    cooldown_ticks: int
+    petition_lifespan_ticks: int
+    confidence_vote_format: str
+    concurrent_allowed: bool
+    weight_in_ecart: float
+
+
+@dataclass(frozen=True)
+class StreetPressureConfig:
+    """§7bis.4b. `weight_in_ecart` + petition.weight_in_ecart must sum to
+    1.0 -- validated in load_config, since it's a cross-section rule."""
+
+    enabled: bool
+    decay: float
+    weight_in_ecart: float
+    visible_to_representative: bool
+
+
+@dataclass(frozen=True)
+class AwakeningContextModulation:
+    mandate_deviation: bool
+    ticks_to_election: bool
+    neighbors_acting: bool
+
+
+@dataclass(frozen=True)
+class AwakeningConfig:
+    """§7bis.9d — the awakening threshold: a sampling GATE (who gets
+    consulted), never itself a decision. `no_consultation_cap` is TRANCHÉ
+    true in v4 (§15bis.1: no cap, self-hosted inference means a spike costs
+    time, not money) -- _parse_awakening rejects `false`."""
+
+    enabled: bool
+    source: str
+    context_modulation: AwakeningContextModulation
+    modulation_amplitude: float
+    no_consultation_cap: bool
 
 
 @dataclass(frozen=True)
@@ -243,6 +334,11 @@ class PolityConfig:
     candidacy: CandidacyConfig
     campaign: CampaignConfig
     legitimacy: LegitimacyConfig
+    pressure_menu: PressureMenuConfig
+    mandate: MandateConfig
+    petition: PetitionConfig
+    street_pressure: StreetPressureConfig
+    awakening: AwakeningConfig
     journal: JournalConfig
     metrics: MetricsConfig
     llm: LlmConfig
@@ -314,6 +410,7 @@ def _parse_citizens(raw: dict[str, Any]) -> CitizensConfig:
         priority_dist=_get(s, "citizens", "priority_dist", str),
         blank_threshold_dist=_get(s, "citizens", "blank_threshold_dist", str),
         ambition_dist=_get(s, "citizens", "ambition_dist", str),
+        base_threshold_dist=_get(s, "citizens", "base_threshold_dist", str),
         static_population=_get(s, "citizens", "static_population", bool),
         memory_window_terms=_get(s, "citizens", "memory_window_terms", int),
     )
@@ -341,10 +438,108 @@ def _parse_campaign(raw: dict[str, Any]) -> CampaignConfig:
 
 def _parse_legitimacy(raw: dict[str, Any]) -> LegitimacyConfig:
     s = _section(raw, "legitimacy")
+    if _get(s, "legitimacy", "recall_floor_indexed_on_L0", bool):
+        raise PolityConfigError(
+            "'legitimacy.recall_floor_indexed_on_L0': true is not supported -- §7.2 is TRANCHÉ, "
+            "the recall floor is fixed by design (a moving floor destroys external legibility)"
+        )
     return LegitimacyConfig(
         enabled=_get(s, "legitimacy", "enabled", bool),
         decay=_get_ratio(s, "legitimacy", "decay"),
         recall_floor=_get_ratio(s, "legitimacy", "recall_floor"),
+        recall_floor_indexed_on_l0=False,
+        recall_cooldown_ticks=_get_positive_int(s, "legitimacy", "recall_cooldown_ticks"),
+        passive_erosion_weight=_get_ratio(s, "legitimacy", "passive_erosion_weight"),
+    )
+
+
+def _parse_pressure_menu(raw: dict[str, Any]) -> PressureMenuConfig:
+    s = _section(raw, "pressure_menu")
+    petition_enabled = _get(s, "pressure_menu", "petition_enabled", bool)
+    mobilization_enabled = _get(s, "pressure_menu", "mobilization_enabled", bool)
+    electoral_only = _get(s, "pressure_menu", "electoral_only", bool)
+    if electoral_only and (petition_enabled or mobilization_enabled):
+        raise PolityConfigError(
+            "'pressure_menu.electoral_only': true requires both petition_enabled and "
+            "mobilization_enabled to be false (§7bis.8 -- one 4-modality variable, not two "
+            "independent booleans)"
+        )
+    return PressureMenuConfig(
+        petition_enabled=petition_enabled,
+        mobilization_enabled=mobilization_enabled,
+        electoral_only=electoral_only,
+    )
+
+
+_MANDATE_PLEDGE_SCOPES = {"top_k_priorities", "full_platform"}
+_MANDATE_DEVIATION_METRICS = {"weighted_euclidean"}
+
+
+def _parse_mandate(raw: dict[str, Any]) -> MandateConfig:
+    s = _section(raw, "mandate")
+    return MandateConfig(
+        enabled=_get(s, "mandate", "enabled", bool),
+        pledge_scope=_get_enum(s, "mandate", "pledge_scope", _MANDATE_PLEDGE_SCOPES),
+        pledge_top_k=_get_positive_int(s, "mandate", "pledge_top_k"),
+        deviation_metric=_get_enum(s, "mandate", "deviation_metric", _MANDATE_DEVIATION_METRICS),
+        deviation_log_threshold=_get_ratio(s, "mandate", "deviation_log_threshold"),
+        max_response_delta=_get_ratio(s, "mandate", "max_response_delta"),
+        max_response_shifts=_get_positive_int(s, "mandate", "max_response_shifts"),
+    )
+
+
+_CONFIDENCE_VOTE_FORMATS = {"binary"}
+
+
+def _parse_petition(raw: dict[str, Any]) -> PetitionConfig:
+    s = _section(raw, "petition")
+    if _get(s, "petition", "concurrent_allowed", bool):
+        raise PolityConfigError(
+            "'petition.concurrent_allowed': true is not supported in v4 -- single open petition "
+            "per target only (also keeps act=1 sign unambiguous with no petition_id on the wire)"
+        )
+    return PetitionConfig(
+        enabled=_get(s, "petition", "enabled", bool),
+        signature_threshold=_get_ratio(s, "petition", "signature_threshold"),
+        cooldown_ticks=_get_positive_int(s, "petition", "cooldown_ticks"),
+        petition_lifespan_ticks=_get_positive_int(s, "petition", "petition_lifespan_ticks"),
+        confidence_vote_format=_get_enum(s, "petition", "confidence_vote_format", _CONFIDENCE_VOTE_FORMATS),
+        concurrent_allowed=False,
+        weight_in_ecart=_get_ratio(s, "petition", "weight_in_ecart"),
+    )
+
+
+def _parse_street_pressure(raw: dict[str, Any]) -> StreetPressureConfig:
+    s = _section(raw, "street_pressure")
+    return StreetPressureConfig(
+        enabled=_get(s, "street_pressure", "enabled", bool),
+        decay=_get_ratio(s, "street_pressure", "decay"),
+        weight_in_ecart=_get_ratio(s, "street_pressure", "weight_in_ecart"),
+        visible_to_representative=_get(s, "street_pressure", "visible_to_representative", bool),
+    )
+
+
+_AWAKENING_SOURCES = {"persona_base_threshold"}
+
+
+def _parse_awakening(raw: dict[str, Any]) -> AwakeningConfig:
+    s = _section(raw, "awakening")
+    modulation = _section(s, "context_modulation")
+    if not _get(s, "awakening", "no_consultation_cap", bool):
+        raise PolityConfigError(
+            "'awakening.no_consultation_cap': false is not supported -- §15bis.1 is TRANCHÉ, no "
+            "cap on consultations per tick (self-hosted inference: a spike costs time, not money)"
+        )
+    return AwakeningConfig(
+        enabled=_get(s, "awakening", "enabled", bool),
+        source=_get_enum(s, "awakening", "source", _AWAKENING_SOURCES),
+        context_modulation=AwakeningContextModulation(
+            mandate_deviation=_get(modulation, "awakening.context_modulation", "mandate_deviation", bool),
+            ticks_to_election=_get(modulation, "awakening.context_modulation", "ticks_to_election", bool),
+            neighbors_acting=_get(modulation, "awakening.context_modulation", "neighbors_acting", bool),
+        ),
+        modulation_amplitude=_get_ratio(s, "awakening", "modulation_amplitude"),
+        no_consultation_cap=True,
     )
 
 
@@ -437,6 +632,37 @@ def load_config(path: Path | str | None = None) -> PolityConfig:
     if not isinstance(raw, dict):
         raise PolityConfigError(f"{config_path}: top level must be a mapping, got {type(raw).__name__}")
 
+    legitimacy = _parse_legitimacy(raw)
+    pressure_menu = _parse_pressure_menu(raw)
+    petition = _parse_petition(raw)
+    street_pressure = _parse_street_pressure(raw)
+
+    # Cross-section rules (§7bis.2/§7bis.6) -- each section parses in
+    # isolation above; these are the invariants that only make sense once
+    # more than one section is known, so they live here rather than in any
+    # single _parse_* function.
+    if pressure_menu.petition_enabled != petition.enabled:
+        raise PolityConfigError(
+            "'pressure_menu.petition_enabled' and 'petition.enabled' disagree -- these two keys "
+            "describe the same fact (§7bis.2) and must not drift apart"
+        )
+    if pressure_menu.mobilization_enabled != street_pressure.enabled:
+        raise PolityConfigError(
+            "'pressure_menu.mobilization_enabled' and 'street_pressure.enabled' disagree -- "
+            "these two keys describe the same fact (§7bis.2) and must not drift apart"
+        )
+    weight_sum = petition.weight_in_ecart + street_pressure.weight_in_ecart
+    if abs(weight_sum - 1.0) > 1e-9:
+        raise PolityConfigError(
+            f"'petition.weight_in_ecart' + 'street_pressure.weight_in_ecart' must sum to 1.0 "
+            f"(w_pet + w_mob, §7bis.6), got {weight_sum}"
+        )
+    if (petition.enabled or street_pressure.enabled) and not legitimacy.enabled:
+        raise PolityConfigError(
+            "'legitimacy.enabled' must be true when 'petition.enabled' or 'street_pressure.enabled' "
+            "is true -- écart(t) from either lever has nowhere to go without L(t) tracked (§7bis.6)"
+        )
+
     return PolityConfig(
         run=_parse_run(raw),
         institutions=_parse_institutions(raw),
@@ -444,7 +670,12 @@ def load_config(path: Path | str | None = None) -> PolityConfig:
         citizens=_parse_citizens(raw),
         candidacy=_parse_candidacy(raw),
         campaign=_parse_campaign(raw),
-        legitimacy=_parse_legitimacy(raw),
+        legitimacy=legitimacy,
+        pressure_menu=pressure_menu,
+        mandate=_parse_mandate(raw),
+        petition=petition,
+        street_pressure=street_pressure,
+        awakening=_parse_awakening(raw),
         journal=_parse_journal(raw),
         metrics=_parse_metrics(raw),
         llm=_parse_llm(raw),

@@ -13,6 +13,8 @@ from api.domain.polity.codebook import (
     COALITION_MOTIF_PROMPT_TABLE,
     CODEBOOK_VERSION,
     PARTY_NOMINATION_MOTIF_PROMPT_TABLE,
+    PRESSURE_MOTIF_PROMPT_TABLE,
+    RESPONSE_MOTIF_PROMPT_TABLE,
     VOTE_MOTIF_PROMPT_TABLE,
     BallotFormat,
     CampaignMotif,
@@ -23,6 +25,10 @@ from api.domain.polity.codebook import (
     DecisionType,
     PartyNominationMotif,
     PolityCodebookError,
+    PressureAct,
+    PressureMotif,
+    ResponseMotif,
+    Stance,
     VoteMotif,
     check_codebook_version,
 )
@@ -33,7 +39,7 @@ def test_check_codebook_version_accepts_the_matching_version():
 
 
 def test_check_codebook_version_rejects_a_mismatch():
-    with pytest.raises(PolityCodebookError, match="1.1"):
+    with pytest.raises(PolityCodebookError, match="1.2"):
         check_codebook_version("0.9")
 
 
@@ -161,3 +167,71 @@ def test_codebook_version_matches_the_shipped_config():
     from api.domain.polity.config import load_config
 
     assert load_config().llm.codebook_version == CODEBOOK_VERSION
+
+
+# ── v4 Lot 1: dt=6/dt=10 reservation, BallotFormat.BINARY, 300-range motifs ──
+
+def test_representative_response_is_decision_type_6():
+    assert DecisionType.REPRESENTATIVE_RESPONSE == 6
+
+
+def test_pressure_action_is_decision_type_10():
+    assert DecisionType.PRESSURE_ACTION == 10
+
+
+def test_decision_type_does_not_yet_define_reaction_to_event_8():
+    assert 8 not in {member.value for member in DecisionType}
+
+
+def test_binary_is_ballot_format_4():
+    assert BallotFormat.BINARY == 4
+
+
+def test_stance_has_exactly_the_four_documented_codes():
+    assert {member.value for member in Stance} == {1, 2, 3, 4}
+
+
+def test_pressure_act_has_exactly_the_five_documented_codes():
+    assert {member.value for member in PressureAct} == {0, 1, 2, 3, 4}
+
+
+def test_response_motif_lives_entirely_inside_the_300s_range():
+    assert all(300 <= member.value <= 399 for member in ResponseMotif)
+
+
+def test_response_motif_never_reuses_the_citizen_only_codes():
+    # 304 (no leverage) and 305 (deferred to election) describe a citizen's
+    # inaction, not a sitting representative's -- 306 needs the v6 social
+    # graph, which has no analogue for a single office-holder.
+    assert {304, 305, 306}.isdisjoint({member.value for member in ResponseMotif})
+
+
+def test_response_motif_prompt_table_is_derived_from_the_enum_not_hand_typed():
+    for motif in ResponseMotif:
+        assert f"{motif.value} = {motif.name}" in RESPONSE_MOTIF_PROMPT_TABLE
+    assert RESPONSE_MOTIF_PROMPT_TABLE.count("\n") == len(ResponseMotif) - 1
+
+
+def test_pressure_motif_lives_entirely_inside_the_300s_range():
+    assert all(300 <= member.value <= 399 for member in PressureMotif)
+
+
+def test_pressure_motif_never_reuses_the_representative_only_or_v6_codes():
+    # 302 (street pressure) would leak the aggregate mobilization signal into
+    # a citizen's own decision, breaking §7bis.9f's atomized regime; 306
+    # needs the v6 social graph.
+    assert {302, 306}.isdisjoint({member.value for member in PressureMotif})
+
+
+def test_pressure_motif_prompt_table_is_derived_from_the_enum_not_hand_typed():
+    for motif in PressureMotif:
+        assert f"{motif.value} = {motif.name}" in PRESSURE_MOTIF_PROMPT_TABLE
+    assert PRESSURE_MOTIF_PROMPT_TABLE.count("\n") == len(PressureMotif) - 1
+
+
+def test_response_and_pressure_motif_share_the_mandate_deviation_code():
+    # Deliberate overlap at 301: a representative's own awareness of their
+    # deviation and a citizen's perception of that same fact are two
+    # legitimately distinct readings, not a collision -- two separate enum
+    # classes, so there's no value conflict either.
+    assert ResponseMotif.MANDATE_DEVIATION_HIGH.value == PressureMotif.MANDATE_DEVIATION_HIGH.value == 301
