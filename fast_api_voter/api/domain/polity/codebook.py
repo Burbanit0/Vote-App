@@ -1,6 +1,6 @@
 """
 api.domain.polity.codebook — the compression tables of design doc §3.7,
-vote + candidacy-consideration slices (v2 increments 1-2).
+vote + candidacy-consideration + party-nomination slices (v2 increments 1-3).
 
 Single source of truth: the `Literal[...]` types used for wire validation
 (llm_schemas.py) and the human-readable table injected into the LLM's system
@@ -8,13 +8,14 @@ prompt (llm_behavior_engine.py) both derive from these enums, so the two
 cannot silently drift apart — exactly the failure mode §3.7.0 calls out
 ("jamais une édition silencieuse de la version en cours").
 
-`DecisionType` defines VOTE_CAST (1) and CANDIDACY_CONSIDERED (2).
-CANDIDACY_DECLARED (3) is deliberately NOT a member yet: `candidacy_declared`
-already exists as a journal `event_type` string (run_polity_simulation.py)
-marking the institutional outcome (a party's chosen nominee) — it is not
-itself a second LLM decision this increment, since a single
-`candidacy_considered` call's `outcome=1` case is what produces it. Per
-§3.7.1, codes 4-6 and 8-10 exist for other decision types not yet
+`DecisionType` defines VOTE_CAST (1), CANDIDACY_CONSIDERED (2), and
+PARTY_NOMINATION_CHOICE (4). CANDIDACY_DECLARED (3) is deliberately NOT a
+member yet: `candidacy_declared` already exists as a journal `event_type`
+string (run_polity_simulation.py) marking the institutional outcome (a
+party's chosen nominee) — it is not itself a second LLM decision, since a
+single `candidacy_considered` call's `outcome=1` case (or, when a party is
+contested, `party_nomination_choice`'s winner) is what produces it. Per
+§3.7.1, codes 5-6 and 8-10 exist for other decision types not yet
 implemented; code 7 (`petition_signature_decision`) is retired and must
 never be reassigned — recorded here as a comment, not a member, so nothing
 can accidentally reuse it.
@@ -34,13 +35,14 @@ CODEBOOK_VERSION = "1.0"
 
 class DecisionType(IntEnum):
     """§3.7.1 `decision_type` (`dt`). Only the codes this increment writes
-    are defined: 4=party_nomination_choice, 5=campaign_positioning,
-    6=representative_response, 8=reaction_to_event, 9=coalition_decision,
-    10=pressure_action are reserved for later increments. 7 is retired
-    (formerly petition_signature_decision) and must never be reused."""
+    are defined: 5=campaign_positioning, 6=representative_response,
+    8=reaction_to_event, 9=coalition_decision, 10=pressure_action are
+    reserved for later increments. 7 is retired (formerly
+    petition_signature_decision) and must never be reused."""
 
     VOTE_CAST = 1
     CANDIDACY_CONSIDERED = 2
+    PARTY_NOMINATION_CHOICE = 4
 
 
 class BallotFormat(IntEnum):
@@ -93,6 +95,29 @@ class CandidacyMotif(IntEnum):
 
 
 CANDIDACY_MOTIF_PROMPT_TABLE = "\n".join(f"{motif.value} = {motif.name}" for motif in CandidacyMotif)
+
+
+class PartyNominationMotif(IntEnum):
+    """§3.7.2 motif range 200-299 (Candidature) — extended, not a new range.
+    The design doc's §3.7.2 table never allocated a range to
+    party_nomination_choice (dt=4) at all; reusing 200-299 (rather than
+    inventing an unallocated block) follows the same precedent as
+    CandidacyMotif's own 204/205 additions, and keeps "why did this citizen
+    become a candidate" and "why THIS one among several" in one place. Codes
+    206-209 map directly to the three signals build_party_nomination_user_prompt
+    actually sends (ambition_score, perceived_support, platform_distance),
+    plus one holistic catch-all — closed-enum per project convention, never
+    free text."""
+
+    HIGHEST_AMBITION = 206
+    BROADEST_PERCEIVED_SUPPORT = 207
+    CLOSEST_TO_PARTY_PLATFORM = 208
+    STRATEGIC_ELECTABILITY = 209
+
+
+PARTY_NOMINATION_MOTIF_PROMPT_TABLE = "\n".join(
+    f"{motif.value} = {motif.name}" for motif in PartyNominationMotif
+)
 
 
 def check_codebook_version(config_version: str) -> None:

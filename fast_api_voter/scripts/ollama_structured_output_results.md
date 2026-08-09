@@ -208,6 +208,35 @@ The live test was renamed to `test_sequential_calls_each_produce_a_valid_respons
 and no longer asserts byte-identity — it proves each call independently produces a
 valid, correctly-aligned response, which is what's actually guaranteed.
 
+## Finding E: the reasoning-budget bug tracks prompt framing, not batch size (v2 increment 3)
+
+`party_nomination_choice` (arbitrating among a party's declared candidates) batches
+*contested parties* per tick, not citizens — a handful at most (`parties.initial_count`
+is 5 in the shipped config), nowhere near `candidacy_considered`'s 20-25-citizen
+batches. The working hypothesis going in was that `think=True` (vote_cast's setting)
+would be safe here specifically *because* the batch is so small — candidacy's
+zero-output bug was assumed to be a function of processing many items in one call.
+
+Live-verified against `qwen3:8b`, that hypothesis was wrong: `think=True` failed
+identically to candidacy's original bug — `finish_reason='length'`, zero visible
+content — on batches of 2-3 contested parties, at `max_tokens` up to
+`compute_max_tokens`'s normal allowance. Batch size was not the variable; the model's
+`<think>` reasoning still consumed the entire completion budget.
+
+**Revised understanding**: the bug tracks the prompt's *subjective, comparative*
+framing ("which of these candidates is the better choice?") rather than how many
+items are in the batch. `vote_cast`'s prompt ("rank these by your own preference," a
+per-voter task with no cross-item comparison) doesn't trigger it at any batch size
+tested; both `candidacy_considered` ("should this citizen run?") and
+`party_nomination_choice` ("which of these citizens should this party pick?") do,
+regardless of batch size.
+
+**Fix**: `decide_party_nominations` uses `think=False` (the native `/api/chat`
+endpoint, same as `decide_candidacies`) — confirmed working on the same 2-3-contested-party
+fixtures that failed under `think=True`.
+`test_full_size_party_nomination_batch_produces_a_valid_reliable_response`/
+`test_party_nomination_sequential_calls_each_produce_a_valid_response` pin this.
+
 ## Reproducing this check
 
 ```bash

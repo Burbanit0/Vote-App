@@ -1,7 +1,7 @@
 """
 api.domain.polity.llm_schemas — Pydantic wire schemas for the LLM's
-`vote_cast` (design doc §3.6.1) and `candidacy_considered` (§3.6.2) decisions,
-v2 increments 1-2.
+`vote_cast` (design doc §3.6.1), `candidacy_considered` (§3.6.2), and
+`party_nomination_choice` (§3.6.2->3.6.8, dt=4) decisions, v2 increments 1-3.
 
 Lives in api/domain/polity/, not api/schemas/ — that package is the public
 HTTP/OpenAPI surface (see voter-api skill); these are internal LLM wire
@@ -104,3 +104,42 @@ class CandidacyBatch(BaseModel):
 
 
 CANDIDACY_JSON_SCHEMA = CandidacyBatch.model_json_schema()
+
+
+class PartyNominationDecision(BaseModel):
+    """One party's arbitration among its own declared/eligible members,
+    design doc §2.3 / dt=4. Unlike VoteCastDecision/CandidacyDecision, the
+    decision unit here is a *party*, not a citizen -- `party_id` is the
+    alignment key decode_party_nomination_batch checks, not `cid`.
+
+    `winner_position` is a 1-indexed position into THAT party's own
+    candidate sub-list (as sent in build_party_nomination_user_prompt),
+    never a raw cid -- same collision reasoning as VoteCastDecision.ranking
+    (a candidate is also a citizen; cids are not a safe wire reference).
+    Position numbering restarts at 1 for each party in the batch.
+
+    No cross-field model_validator, mirroring CandidacyDecision: `motif` is
+    an independent field, nothing to keep consistent with `winner_position`."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    party_id: int = Field(..., ge=0, description="party_id this arbitration decision belongs to.")
+    winner_position: int = Field(
+        ..., ge=1, description="1-indexed position (PAS un cid) into this party's own candidate list."
+    )
+    motif: Literal[206, 207, 208, 209] = Field(
+        ..., description="Code court obligatoire (§3.7.2) — voir PartyNominationMotif."
+    )
+
+
+class PartyNominationBatch(BaseModel):
+    """§3.6.0's batch envelope, specialized to party_nomination_choice —
+    one decision per *contested* party (2+ declared candidates), never one
+    per citizen."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    decisions: list[PartyNominationDecision] = Field(..., min_length=1)
+
+
+PARTY_NOMINATION_JSON_SCHEMA = PartyNominationBatch.model_json_schema()

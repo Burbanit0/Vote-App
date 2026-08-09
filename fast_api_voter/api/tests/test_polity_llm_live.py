@@ -1,4 +1,4 @@
-"""Live smoke test against a real local Ollama instance — v2 increments 1-2.
+"""Live smoke test against a real local Ollama instance — v2 increments 1-3.
 
 Opt-in only, never runs in CI: set POLITY_LLM_LIVE=1. Everything else about
 this feature (config parsing, schema validation, chunking, ballot
@@ -16,7 +16,12 @@ Wall-clock warning: each 25-citizen batch takes ~3.5-4 minutes on CPU
 (ollama_structured_output_results.md) -- this file is slow by nature, not
 by accident. Since increment 2, test_a_short_live_run_produces_a_valid_journal
 also exercises a full candidacy batch pass per presidential election on top
-of the existing vote batch pass, roughly doubling that test's cost.
+of the existing vote batch pass, roughly doubling that test's cost. Increment
+3's party-nomination batches are small (a handful of contested parties, not
+citizens) and add comparatively little wall-clock time -- but decide_party_
+nominations' think=True default (unlike candidacy's think=False) is itself
+an unverified assumption this file exists to check, not something to skip
+testing live just because the batch is small.
 """
 import dataclasses
 import json
@@ -25,19 +30,35 @@ import os
 import pytest
 
 from api.domain.polity.citizen import Citizen
-from api.domain.polity.codebook import CandidacyMotif, VoteMotif
+from api.domain.polity.codebook import CandidacyMotif, PartyNominationMotif, VoteMotif
 from api.domain.polity.config import load_config
 from api.domain.polity.llm_behavior_engine import (
     build_candidacy_system_prompt,
     build_candidacy_user_prompt,
+    build_party_nomination_system_prompt,
+    build_party_nomination_user_prompt,
     build_system_prompt,
     build_user_prompt,
     cast_votes,
     compute_max_tokens,
     decide_candidacies,
+    decide_party_nominations,
 )
-from api.domain.polity.llm_client import OllamaJsonClient, decode_candidacy_batch, decode_vote_batch
-from api.domain.polity.llm_schemas import CANDIDACY_JSON_SCHEMA, VOTE_CAST_JSON_SCHEMA, CandidacyBatch, VoteCastBatch
+from api.domain.polity.llm_client import (
+    OllamaJsonClient,
+    decode_candidacy_batch,
+    decode_party_nomination_batch,
+    decode_vote_batch,
+)
+from api.domain.polity.llm_schemas import (
+    CANDIDACY_JSON_SCHEMA,
+    PARTY_NOMINATION_JSON_SCHEMA,
+    VOTE_CAST_JSON_SCHEMA,
+    CandidacyBatch,
+    PartyNominationBatch,
+    VoteCastBatch,
+)
+from api.domain.polity.parties import Party
 from api.domain.polity.run_polity_simulation import run_simulation
 from api.domain.polity.simple_rules import declare_candidacy, sympathizer_ratio
 
@@ -202,6 +223,103 @@ def test_decide_candidacies_against_the_real_client(client):
 
     assert len(outcome.decisions) == len(citizens)
     assert all(d.outcome in (0, 1) for d in outcome.decisions)
+
+
+# ── party_nomination_choice (v2 increment 3) ──────────────────────────────
+
+def _nomination_party(party_id, dims):
+    platform = tuple((party_id * 0.091 + i * 0.013) % 1.0 for i in range(dims))
+    return Party(party_id=party_id, platform=platform)
+
+
+def _contested_fixture(dims, num_parties, per_party):
+    """A handful of contested parties (2+ candidates each), real
+    dimensionality, ambition_score varied per member so a real model has a
+    non-degenerate choice to make."""
+    parties = [_nomination_party(pid, dims) for pid in range(num_parties)]
+    contested: dict[int, list[Citizen]] = {}
+    cid = 0
+    for party in parties:
+        members = []
+        for m in range(per_party):
+            c = _citizen(cid, dims)
+            c.party_affiliation = party.party_id
+            c.ambition_score = 0.2 + 0.2 * m
+            members.append(c)
+            cid += 1
+        contested[party.party_id] = members
+    return parties, contested
+
+
+def test_full_size_party_nomination_batch_produces_a_valid_reliable_response(client):
+    """The party-nomination analog of test_full_size_batch_produces_a_valid_reliable_response
+    -- a handful of contested parties, the real prompt builders, the real
+    schema, think=False. A live run originally tried think=True on the
+    theory that small batches would dodge candidacy's reasoning-budget bug
+    -- disproved: it hit the identical finish_reason='length' failure
+    regardless of batch size (ollama_structured_output_results.md Finding
+    E). This test pins the fix, not the original hypothesis."""
+    config = load_config()
+    dims = config.citizens.issue_count
+    parties, contested = _contested_fixture(dims, num_parties=3, per_party=3)
+    parties_by_id = {p.party_id: p for p in parties}
+    support = {c.citizen_id: 0.5 for members in contested.values() for c in members}
+
+    raw = client.complete_json(
+        system_prompt=build_party_nomination_system_prompt(contested),
+        user_prompt=build_party_nomination_user_prompt(contested, parties_by_id, support),
+        json_schema=PARTY_NOMINATION_JSON_SCHEMA,
+        max_tokens=compute_max_tokens(len(contested)),
+        think=False,
+    )
+    batch = PartyNominationBatch.model_validate_json(raw)
+    assert [d.party_id for d in batch.decisions] == list(contested.keys())
+    assert all(d.motif in {m.value for m in PartyNominationMotif} for d in batch.decisions)
+    for decision in batch.decisions:
+        member_count = len(contested[decision.party_id])
+        assert 1 <= decision.winner_position <= member_count, (
+            f"decision for party_id={decision.party_id} picked out-of-range position "
+            f"{decision.winner_position} (expected 1..{member_count})"
+        )
+
+
+def test_party_nomination_sequential_calls_each_produce_a_valid_response(client):
+    """The party-nomination analog of test_sequential_calls_each_produce_a_valid_response
+    -- two textually identical requests, checked independently rather than
+    for byte-identity (Finding D applies here too until proven otherwise).
+    think=False -- see test_full_size_party_nomination_batch_produces_a_valid_reliable_response
+    and Finding E."""
+    config = load_config()
+    dims = config.citizens.issue_count
+    parties, contested = _contested_fixture(dims, num_parties=2, per_party=4)
+    parties_by_id = {p.party_id: p for p in parties}
+    support = {c.citizen_id: 0.5 for members in contested.values() for c in members}
+    kwargs = dict(
+        system_prompt=build_party_nomination_system_prompt(contested),
+        user_prompt=build_party_nomination_user_prompt(contested, parties_by_id, support),
+        json_schema=PARTY_NOMINATION_JSON_SCHEMA,
+        max_tokens=compute_max_tokens(len(contested)),
+        think=False,
+    )
+    expected_party_ids = list(contested.keys())
+    for raw in (client.complete_json(**kwargs), client.complete_json(**kwargs)):
+        decisions = decode_party_nomination_batch(raw, expected_party_ids)
+        assert [d.party_id for d in decisions] == expected_party_ids
+
+
+def test_decide_party_nominations_against_the_real_client(client):
+    config = load_config()
+    dims = config.citizens.issue_count
+    parties, contested = _contested_fixture(dims, num_parties=2, per_party=3)
+    citizens = [c for members in contested.values() for c in members]
+    declared_cids = {c.citizen_id for c in citizens}
+    config = dataclasses.replace(config, llm=dataclasses.replace(config.llm, enabled=True))
+
+    outcome = decide_party_nominations(citizens, parties, declared_cids, config, client)
+
+    assert set(outcome.winners.keys()) == {p.party_id for p in parties}
+    for party_id, winner_cid in outcome.winners.items():
+        assert winner_cid in {c.citizen_id for c in contested[party_id]}
 
 
 def test_a_short_live_run_produces_a_valid_journal(tmp_path):

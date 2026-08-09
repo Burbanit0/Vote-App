@@ -1,8 +1,9 @@
 """
-api.domain.polity.llm_behavior_engine — v2 increments 1-2: the LLM
-replacement for build_ranking (voting) and decide_candidacy (dominant-path
-candidacy eligibility only), both in simple_rules.py. Every other decision
-(the rupture candidacy path, party nomination, coalition) stays on
+api.domain.polity.llm_behavior_engine — v2 increments 1-3: the LLM
+replacement for build_ranking (voting), decide_candidacy (dominant-path
+candidacy eligibility only), and select_party_nominee_from_declared's
+tiebreak when a party is contested (2+ declared candidates), all in
+simple_rules.py. The rupture candidacy path and coalition formation stay on
 simple_rules.py.
 
 Design doc §11.4's baseline-vs-LLM comparison depends on simple_rules.py
@@ -13,10 +14,16 @@ decide_candidacies (increment 2) only ever evaluates party-affiliated
 citizens along the dominant path -- the rupture path
 (attempt_rupture_candidacy, simple_rules.py) is explicitly "independent of
 perceived support by design" (a probability mechanic, not a judgment call)
-and never reaches the LLM; the intra-party nominee tiebreak among
-LLM-approved considerers (party_nomination_choice, design doc dt=4) also
-stays deterministic, out of scope here -- only the eligibility filter's
-source changes, not who wins among the eligible.
+and never reaches the LLM.
+
+decide_party_nominations (increment 3) only arbitrates parties with 2+
+declared candidates this tick -- a party with 0 or 1 never needs a judgment
+call, and select_party_nominee_from_declared keeps handling those trivially
+(and remains the full baseline when llm.enabled=False). Its batching is
+deliberately NOT chunk_voters/MIN_SAFE_BATCH_SIZE-shaped: it batches
+*contested parties* (a handful at most, most ticks zero), not citizens --
+forcing it through the citizen-batch guard would make the feature
+permanently unreachable. See its own docstring.
 
 Deliberate simplifications versus the full design doc, documented rather
 than silently made:
@@ -37,24 +44,34 @@ than silently made:
 from __future__ import annotations
 
 import json
+import math
 from dataclasses import dataclass
 from typing import Sequence
 
 from api.domain.polity.citizen import Citizen
-from api.domain.polity.codebook import CANDIDACY_MOTIF_PROMPT_TABLE, VOTE_MOTIF_PROMPT_TABLE, check_codebook_version
+from api.domain.polity.codebook import (
+    CANDIDACY_MOTIF_PROMPT_TABLE,
+    PARTY_NOMINATION_MOTIF_PROMPT_TABLE,
+    VOTE_MOTIF_PROMPT_TABLE,
+    check_codebook_version,
+)
 from api.domain.polity.config import PolityConfig
 from api.domain.polity.llm_client import (
     LlmClientProtocol,
     LlmResponseError,
     decode_candidacy_batch,
+    decode_party_nomination_batch,
     decode_vote_batch,
 )
 from api.domain.polity.llm_schemas import (
     CANDIDACY_JSON_SCHEMA,
+    PARTY_NOMINATION_JSON_SCHEMA,
     VOTE_CAST_JSON_SCHEMA,
     CandidacyDecision,
+    PartyNominationDecision,
     VoteCastDecision,
 )
+from api.domain.polity.parties import Party
 from api.domain.polity.simple_rules import BLANK_LABEL, candidate_label, sympathizer_ratio
 
 # Empirical threshold from ollama_structured_output_results.md's root-cause
@@ -408,3 +425,135 @@ def decide_candidacies(
         decisions.extend(decode_candidacy_batch(raw, expected_cids))
 
     return CandidacyBatchOutcome(decisions=decisions)
+
+
+@dataclass(frozen=True)
+class PartyNominationBatchOutcome:
+    decisions: list[PartyNominationDecision]
+    winners: dict[int, int]
+    """party_id -> winning citizen_id, already resolved from winner_position
+    -- only this module has the position<->candidate mapping (contested's
+    per-party sub-list order), so resolution happens here, not in the
+    caller, mirroring how cast_votes resolves positions into ballots
+    internally rather than exposing raw positions."""
+
+
+def build_party_nomination_system_prompt(contested: dict[int, list[Citizen]]) -> str:
+    """Mirrors build_candidacy_system_prompt's "enumerate the full expected
+    id list verbatim + self-check" fix (Finding B) -- keyed on party_id,
+    since the decision unit here is a contested party, not a citizen."""
+    party_id_list = ",".join(str(party_id) for party_id in contested)
+    return (
+        "Tu es un moteur de simulation. Pour chaque parti recu, plusieurs "
+        "de ses membres veulent se presenter mais le parti ne peut "
+        "designer qu'un seul candidat officiel. Choisis lequel, a partir "
+        "de son ambition, du soutien qu'il percoit, et de sa proximite "
+        "avec la plateforme du parti. Chaque candidat est identifie par "
+        "son champ 'position' (1 a N) dans la liste 'candidates' de CE "
+        "parti -- PAS par son cid.\nMotifs valides (code court "
+        f"obligatoire) :\n{PARTY_NOMINATION_MOTIF_PROMPT_TABLE}\nIMPORTANT "
+        f": la liste decisions doit contenir EXACTEMENT ces {len(contested)} "
+        f"party_id, chacun une seule fois, dans cet ordre : [{party_id_list}]. "
+        "Verifie ta reponse avant de la finaliser : chaque party_id de "
+        "cette liste doit apparaitre exactement une fois, et chaque "
+        "winner_position doit etre une position valide (jamais un cid) "
+        "parmi les candidats de ce parti.\nReponds UNIQUEMENT avec un "
+        "objet JSON conforme au schema fourni."
+    )
+
+
+def build_party_nomination_user_prompt(
+    contested: dict[int, list[Citizen]], parties_by_id: dict[int, Party], support: dict[int, float]
+) -> str:
+    """Canonical JSON (sort_keys, compact separators, rounded floats), same
+    reproducibility discipline as build_user_prompt/build_candidacy_user_prompt.
+    `support` is precomputed once by the caller against the full population
+    (decide_party_nominations), same discipline as decide_candidacies'
+    `support` -- never recomputed here. `platform_distance` reuses
+    assign_party_affiliation's unweighted math.dist convention (simple_rules.py),
+    not the voter-tolerance-specific _weighted_distance."""
+    party_blocks = [
+        {
+            "party_id": party_id,
+            "candidates": [
+                {
+                    "position": i,
+                    "cid": c.citizen_id,
+                    "ambition_score": round(c.ambition_score, 4),
+                    "perceived_support": round(support[c.citizen_id], 4),
+                    "platform_distance": round(math.dist(c.issue_positions, parties_by_id[party_id].platform), 4),
+                }
+                for i, c in enumerate(sorted_candidates(members), start=1)
+            ],
+        }
+        for party_id, members in contested.items()
+    ]
+    return json.dumps({"parties": party_blocks}, sort_keys=True, separators=(",", ":"))
+
+
+def resolve_party_nomination_cid(decision: PartyNominationDecision, members: Sequence[Citizen]) -> int:
+    """Translates decision.winner_position (1-indexed position into
+    `members`, sorted by citizen_id) back to a real cid -- same purpose as
+    resolve_ranking_cids, scoped to one contested party's own candidate
+    sub-list instead of the full candidate list."""
+    ordered = sorted_candidates(members)
+    return ordered[decision.winner_position - 1].citizen_id
+
+
+def decide_party_nominations(
+    citizens: Sequence[Citizen],
+    parties: Sequence[Party],
+    declared_cids: set[int],
+    config: PolityConfig,
+    client: LlmClientProtocol,
+) -> PartyNominationBatchOutcome:
+    """v2 increment 3's replacement for select_party_nominee_from_declared's
+    deterministic tiebreak, contested parties only (design doc §2.3, dt=4).
+    Pure aside from the injected client -- no journal writes here, matching
+    cast_votes/decide_candidacies's convention.
+
+    Deliberately does NOT use chunk_voters/MIN_SAFE_BATCH_SIZE: those guard
+    *citizen* batches (tens to hundreds per call); this batches *contested
+    parties* (a handful at most, `parties.initial_count` in the shipped
+    config is 5, and most ticks have zero). One call for the whole tick,
+    skipped entirely if no party is contested -- calling the client with an
+    empty batch would violate PartyNominationBatch's own min_length=1 and is
+    wasted work regardless.
+
+    Calls the client with think=False, same as decide_candidacies. A live
+    run initially tried think=True (the hypothesis was that this call's
+    small batches -- a handful of parties, not tens of citizens -- would
+    dodge candidacy_considered's reasoning-budget bug even without the
+    flag). That hypothesis was wrong: think=True reliably hit the identical
+    failure (finish_reason='length', zero visible content) regardless of
+    batch size -- the bug tracks the *subjective, comparative-judgment*
+    prompt shape ("which of these is best"), not batch size. See
+    ollama_structured_output_results.md's Finding E."""
+    _check_supported(config)
+
+    parties_by_id = {party.party_id: party for party in parties}
+    contested: dict[int, list[Citizen]] = {}
+    for party in sorted(parties, key=lambda p: p.party_id):
+        members = [c for c in citizens if c.party_affiliation == party.party_id and c.citizen_id in declared_cids]
+        if len(members) >= 2:
+            contested[party.party_id] = members
+
+    if not contested:
+        return PartyNominationBatchOutcome(decisions=[], winners={})
+
+    all_contenders = [c for members in contested.values() for c in members]
+    support = {c.citizen_id: sympathizer_ratio(c, list(citizens)) for c in all_contenders}
+
+    expected_party_ids = list(contested.keys())
+    raw = client.complete_json(
+        system_prompt=build_party_nomination_system_prompt(contested),
+        user_prompt=build_party_nomination_user_prompt(contested, parties_by_id, support),
+        json_schema=PARTY_NOMINATION_JSON_SCHEMA,
+        max_tokens=compute_max_tokens(len(contested)),
+        think=False,
+    )
+    decisions = decode_party_nomination_batch(raw, expected_party_ids)
+    winners = {decision.party_id: resolve_party_nomination_cid(decision, contested[decision.party_id])
+               for decision in decisions}
+
+    return PartyNominationBatchOutcome(decisions=decisions, winners=winners)

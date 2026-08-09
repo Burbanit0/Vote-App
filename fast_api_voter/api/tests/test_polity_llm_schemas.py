@@ -5,12 +5,15 @@ network — pure schema validation.
 import pytest
 from pydantic import ValidationError
 
-from api.domain.polity.codebook import CandidacyMotif, VoteMotif
+from api.domain.polity.codebook import CandidacyMotif, PartyNominationMotif, VoteMotif
 from api.domain.polity.llm_schemas import (
     CANDIDACY_JSON_SCHEMA,
+    PARTY_NOMINATION_JSON_SCHEMA,
     VOTE_CAST_JSON_SCHEMA,
     CandidacyBatch,
     CandidacyDecision,
+    PartyNominationBatch,
+    PartyNominationDecision,
     VoteCastBatch,
     VoteCastDecision,
 )
@@ -147,3 +150,57 @@ def test_candidacy_json_schema_marks_outcome_as_required():
 
 def test_candidacy_json_schema_batch_forbids_additional_properties():
     assert CANDIDACY_JSON_SCHEMA.get("additionalProperties") is False
+
+
+def _nomination_decision(**overrides):
+    base = {"party_id": 0, "winner_position": 1, "motif": 206}
+    base.update(overrides)
+    return base
+
+
+def test_valid_party_nomination_decision_round_trips():
+    decision = PartyNominationDecision.model_validate(_nomination_decision())
+    assert decision.party_id == 0
+    assert decision.winner_position == 1
+
+
+def test_party_nomination_winner_position_must_be_at_least_one():
+    with pytest.raises(ValidationError):
+        PartyNominationDecision.model_validate(_nomination_decision(winner_position=0))
+
+
+def test_party_nomination_unknown_motif_raises():
+    with pytest.raises(ValidationError):
+        PartyNominationDecision.model_validate(_nomination_decision(motif=205))  # a CandidacyMotif code, not ours
+
+
+def test_party_nomination_unknown_extra_key_raises():
+    with pytest.raises(ValidationError):
+        PartyNominationDecision.model_validate({**_nomination_decision(), "extra_field": True})
+
+
+def test_party_nomination_empty_decisions_list_raises():
+    with pytest.raises(ValidationError):
+        PartyNominationBatch.model_validate({"decisions": []})
+
+
+def test_party_nomination_batch_round_trips_multiple_decisions():
+    batch = PartyNominationBatch.model_validate(
+        {"decisions": [_nomination_decision(party_id=0), _nomination_decision(party_id=1, motif=207)]}
+    )
+    assert [d.party_id for d in batch.decisions] == [0, 1]
+
+
+def test_party_nomination_motif_literal_matches_party_nomination_motif_enum_exactly():
+    literal_values = set(PartyNominationDecision.model_fields["motif"].annotation.__args__)  # type: ignore[union-attr]
+    assert literal_values == {member.value for member in PartyNominationMotif}
+
+
+def test_party_nomination_json_schema_marks_winner_position_as_required():
+    decision_schema = PARTY_NOMINATION_JSON_SCHEMA["$defs"]["PartyNominationDecision"]
+    assert "winner_position" in decision_schema["required"]
+    assert decision_schema.get("additionalProperties") is False
+
+
+def test_party_nomination_json_schema_batch_forbids_additional_properties():
+    assert PARTY_NOMINATION_JSON_SCHEMA.get("additionalProperties") is False
