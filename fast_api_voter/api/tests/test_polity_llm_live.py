@@ -1,4 +1,4 @@
-"""Live smoke test against a real local Ollama instance — v2 increments 1-4.
+"""Live smoke test against a real local Ollama instance — v2 increments 1-5.
 
 Opt-in only, never runs in CI: set POLITY_LLM_LIVE=1. Everything else about
 this feature (config parsing, schema validation, chunking, ballot
@@ -22,7 +22,12 @@ citizens) and add comparatively little wall-clock time. Increment 4's
 campaign-positioning batches are the same small size (a handful of
 nominees) -- but its schema (a bounded list of sub-objects per decision, not
 flat scalar fields) is genuinely new; this file is what actually verifies it
-survives structured output, not an assumption.
+survives structured output, not an assumption. Increment 5's coalition
+batches are the same small size (a handful of seated parties) -- its schema
+(a closed 2-value action enum with a CROSS-FIELD motif coherence rule) is
+also genuinely new; this file verifies the model actually respects that
+coherence rule live, not just that CoalitionDecision's own model_validator
+would catch a violation offline.
 """
 import dataclasses
 import json
@@ -31,11 +36,13 @@ import os
 import pytest
 
 from api.domain.polity.citizen import Citizen
-from api.domain.polity.codebook import CampaignMotif, CandidacyMotif, PartyNominationMotif, VoteMotif
+from api.domain.polity.codebook import CampaignMotif, CandidacyMotif, CoalitionMotif, PartyNominationMotif, VoteMotif
 from api.domain.polity.config import load_config
 from api.domain.polity.llm_behavior_engine import (
     build_candidacy_system_prompt,
     build_candidacy_user_prompt,
+    build_coalition_system_prompt,
+    build_coalition_user_prompt,
     build_party_nomination_system_prompt,
     build_party_nomination_user_prompt,
     build_positioning_system_prompt,
@@ -46,21 +53,25 @@ from api.domain.polity.llm_behavior_engine import (
     compute_max_tokens,
     decide_campaign_positioning,
     decide_candidacies,
+    decide_coalition,
     decide_party_nominations,
 )
 from api.domain.polity.llm_client import (
     OllamaJsonClient,
     decode_candidacy_batch,
+    decode_coalition_batch,
     decode_party_nomination_batch,
     decode_positioning_batch,
     decode_vote_batch,
 )
 from api.domain.polity.llm_schemas import (
     CANDIDACY_JSON_SCHEMA,
+    COALITION_JSON_SCHEMA,
     PARTY_NOMINATION_JSON_SCHEMA,
     POSITIONING_JSON_SCHEMA,
     VOTE_CAST_JSON_SCHEMA,
     CandidacyBatch,
+    CoalitionBatch,
     PartyNominationBatch,
     PositioningBatch,
     VoteCastBatch,
@@ -421,6 +432,90 @@ def test_decide_campaign_positioning_against_the_real_client(client):
     assert set(outcome.platforms.keys()) == {n.citizen_id for n in nominees}
     for nominee in nominees:
         assert len(outcome.platforms[nominee.citizen_id]) == dims
+
+
+# ── coalition_decision (v2 increment 5) ───────────────────────────────────
+
+def _coalition_fixture(dims, seats_by_party):
+    """seats_by_party is an ordered list of (party_id, seats) pairs; votes
+    mirror seats as floats for simplicity. Platforms spread out via the same
+    deterministic formula as _nomination_party so a real model has a
+    non-degenerate distance signal to react to."""
+    parties = [_nomination_party(pid, dims) for pid, _ in seats_by_party]
+    seats = {pid: s for pid, s in seats_by_party}
+    votes = {pid: float(s) for pid, s in seats_by_party}
+    return parties, seats, votes
+
+
+def test_full_size_coalition_batch_produces_a_valid_reliable_response(client):
+    """The coalition analog of test_full_size_party_nomination_batch_produces_a_valid_reliable_response
+    -- a handful of seated, non-initiator parties, the real prompt builders,
+    the real schema, think=False (same guess as increments 3/4's
+    comparative-judgment shape). Also the live check that the prose-stated
+    action<->motif coherence rule is actually respected by the model, not
+    just declared in the prompt -- CoalitionDecision's own model_validator
+    would already reject a violation at model_validate_json time below, so
+    a passing test here is the real evidence, not an assumption."""
+    config = load_config()
+    dims = config.citizens.issue_count
+    parties, seats, votes = _coalition_fixture(dims, [(0, 30), (1, 25), (2, 25), (3, 20)])
+    platforms = {p.party_id: p.platform for p in parties}
+    initiator = 0
+    responders = [1, 2, 3]
+    total_seats = sum(seats.values())
+    threshold = config.parties.coalition_majority_ratio * total_seats
+
+    raw = client.complete_json(
+        system_prompt=build_coalition_system_prompt(responders, initiator, seats[initiator], total_seats, threshold),
+        user_prompt=build_coalition_user_prompt(
+            responders, initiator, platforms, seats, votes, total_seats, threshold
+        ),
+        json_schema=COALITION_JSON_SCHEMA,
+        max_tokens=compute_max_tokens(len(responders)),
+        think=False,
+    )
+    batch = CoalitionBatch.model_validate_json(raw)
+    assert [d.party_id for d in batch.decisions] == responders
+    assert all(d.action in (1, 2) for d in batch.decisions)
+    assert all(d.motif in {m.value for m in CoalitionMotif} for d in batch.decisions)
+
+
+def test_coalition_sequential_calls_each_produce_a_valid_response(client):
+    """The coalition analog of test_party_nomination_sequential_calls_each_produce_a_valid_response
+    -- two textually identical requests, checked independently rather than
+    for byte-identity (Finding D applies here too until proven otherwise)."""
+    config = load_config()
+    dims = config.citizens.issue_count
+    parties, seats, votes = _coalition_fixture(dims, [(0, 40), (1, 35), (2, 25)])
+    platforms = {p.party_id: p.platform for p in parties}
+    initiator = 0
+    responders = [1, 2]
+    total_seats = sum(seats.values())
+    threshold = config.parties.coalition_majority_ratio * total_seats
+    kwargs = dict(
+        system_prompt=build_coalition_system_prompt(responders, initiator, seats[initiator], total_seats, threshold),
+        user_prompt=build_coalition_user_prompt(
+            responders, initiator, platforms, seats, votes, total_seats, threshold
+        ),
+        json_schema=COALITION_JSON_SCHEMA,
+        max_tokens=compute_max_tokens(len(responders)),
+        think=False,
+    )
+    for raw in (client.complete_json(**kwargs), client.complete_json(**kwargs)):
+        decisions = decode_coalition_batch(raw, responders)
+        assert [d.party_id for d in decisions] == responders
+
+
+def test_decide_coalition_against_the_real_client(client):
+    config = load_config()
+    dims = config.citizens.issue_count
+    parties, seats, votes = _coalition_fixture(dims, [(0, 30), (1, 25), (2, 25), (3, 20)])
+    config = dataclasses.replace(config, llm=dataclasses.replace(config.llm, enabled=True))
+
+    outcome = decide_coalition(parties, seats, votes, config, client)
+
+    assert outcome.initiator == 0
+    assert outcome.coalition is None or (isinstance(outcome.coalition, list) and outcome.coalition[0] == 0)
 
 
 def test_a_short_live_run_produces_a_valid_journal(tmp_path):

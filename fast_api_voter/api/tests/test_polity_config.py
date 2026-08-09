@@ -35,7 +35,7 @@ def test_loads_the_real_polity_config_with_expected_v0_values():
     assert config.llm.temperature == 0.0
     assert config.llm.max_batch_size == 25
     assert config.llm.batch_sharding == "static"
-    assert config.llm.codebook_version == "1.0"
+    assert config.llm.codebook_version == "1.1"
     assert config.llm.personas_count == 30
     assert config.campaign.max_positioning_delta == 0.3
     assert config.campaign.max_positioning_shifts == 3

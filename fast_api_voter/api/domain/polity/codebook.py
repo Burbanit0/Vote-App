@@ -1,6 +1,7 @@
 """
 api.domain.polity.codebook — the compression tables of design doc §3.7,
-vote + candidacy-consideration + party-nomination slices (v2 increments 1-3).
+vote + candidacy-consideration + party-nomination + campaign-positioning +
+coalition-decision slices (v2 increments 1-5).
 
 Single source of truth: the `Literal[...]` types used for wire validation
 (llm_schemas.py) and the human-readable table injected into the LLM's system
@@ -9,16 +10,16 @@ cannot silently drift apart — exactly the failure mode §3.7.0 calls out
 ("jamais une édition silencieuse de la version en cours").
 
 `DecisionType` defines VOTE_CAST (1), CANDIDACY_CONSIDERED (2),
-PARTY_NOMINATION_CHOICE (4), and CAMPAIGN_POSITIONING (5). CANDIDACY_DECLARED
-(3) is deliberately NOT a member yet: `candidacy_declared` already exists as
-a journal `event_type` string (run_polity_simulation.py) marking the
-institutional outcome (a party's chosen nominee) — it is not itself a second
-LLM decision, since a single `candidacy_considered` call's `outcome=1` case
-(or, when a party is contested, `party_nomination_choice`'s winner) is what
-produces it. Per §3.7.1, codes 6 and 8-10 exist for other decision types not
-yet implemented; code 7 (`petition_signature_decision`) is retired and must
-never be reassigned — recorded here as a comment, not a member, so nothing
-can accidentally reuse it.
+PARTY_NOMINATION_CHOICE (4), CAMPAIGN_POSITIONING (5), and COALITION_DECISION
+(9). CANDIDACY_DECLARED (3) is deliberately NOT a member yet: `candidacy_declared`
+already exists as a journal `event_type` string (run_polity_simulation.py)
+marking the institutional outcome (a party's chosen nominee) — it is not
+itself a second LLM decision, since a single `candidacy_considered` call's
+`outcome=1` case (or, when a party is contested, `party_nomination_choice`'s
+winner) is what produces it. Per §3.7.1, codes 6, 8, 10 exist for other
+decision types not yet implemented; code 7 (`petition_signature_decision`)
+is retired and must never be reassigned — recorded here as a comment, not a
+member, so nothing can accidentally reuse it.
 """
 from __future__ import annotations
 
@@ -30,20 +31,21 @@ class PolityCodebookError(ValueError):
     one this code was written against — §3.7.0's frozen-artifact contract."""
 
 
-CODEBOOK_VERSION = "1.0"
+CODEBOOK_VERSION = "1.1"  # bumped from "1.0" — v2 increment 5 adds a new
+                           # DecisionType member (dt=9), not just a motif.
 
 
 class DecisionType(IntEnum):
     """§3.7.1 `decision_type` (`dt`). Only the codes this increment writes
     are defined: 6=representative_response, 8=reaction_to_event,
-    9=coalition_decision, 10=pressure_action are reserved for later
-    increments. 7 is retired (formerly petition_signature_decision) and
-    must never be reused."""
+    10=pressure_action are reserved for later increments. 7 is retired
+    (formerly petition_signature_decision) and must never be reused."""
 
     VOTE_CAST = 1
     CANDIDACY_CONSIDERED = 2
     PARTY_NOMINATION_CHOICE = 4
     CAMPAIGN_POSITIONING = 5
+    COALITION_DECISION = 9
 
 
 class BallotFormat(IntEnum):
@@ -138,6 +140,45 @@ class CampaignMotif(IntEnum):
 
 
 CAMPAIGN_MOTIF_PROMPT_TABLE = "\n".join(f"{motif.value} = {motif.name}" for motif in CampaignMotif)
+
+
+class CoalitionAction(IntEnum):
+    """§3.7.1 `action` (coalition), dt=9. Only JOIN/LEAVE are members: 3
+    (maintain) is reserved for a later increment that re-evaluates a
+    *standing* coalition across ticks (§3.1's "maintien et rupture", out of
+    scope here — see llm_behavior_engine.decide_coalition's docstring); 4
+    (propose) is reserved for the initiator role, which stays a
+    deterministic institutional designation (simple_rules.tiebreak_key +
+    parties.coalition_tiebreak) rather than an LLM output, the same
+    procedural-gate precedent candidacy/nomination already set. Mirrors
+    BallotFormat's "define only the exercised code" shape."""
+
+    JOIN = 1
+    LEAVE = 2
+
+
+COALITION_ACTION_PROMPT_TABLE = "\n".join(f"{action.value} = {action.name}" for action in CoalitionAction)
+
+
+class CoalitionMotif(IntEnum):
+    """§3.7.2 motif range 500-599 (Coalition), explicitly "non figée". 501/502
+    are the design doc's own codes, kept verbatim, for a `join`. 503
+    COALITION_RUPTURE_DISAGREEMENT is deliberately NOT a member: it names
+    leaving an *existing* coalition, and this increment only forms them —
+    reusing it for a formation-time decline would misattribute rupture
+    semantics to a party that was never in a government (the same argument
+    CandidacyMotif uses to exclude 202). 504/505 are new codes in the same
+    range for a `leave`, each mapped to a signal build_coalition_user_prompt
+    actually sends (distance_to_initiator; own seats vs. the initiator's
+    shortfall)."""
+
+    IDEOLOGICAL_PROXIMITY = 501
+    OFFICE_SEEKING = 502
+    IDEOLOGICAL_DISTANCE_TOO_HIGH = 504
+    NO_LEVERAGE_IN_GOVERNMENT = 505
+
+
+COALITION_MOTIF_PROMPT_TABLE = "\n".join(f"{motif.value} = {motif.name}" for motif in CoalitionMotif)
 
 
 def check_codebook_version(config_version: str) -> None:

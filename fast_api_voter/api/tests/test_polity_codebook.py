@@ -9,6 +9,8 @@ import pytest
 from api.domain.polity.codebook import (
     CAMPAIGN_MOTIF_PROMPT_TABLE,
     CANDIDACY_MOTIF_PROMPT_TABLE,
+    COALITION_ACTION_PROMPT_TABLE,
+    COALITION_MOTIF_PROMPT_TABLE,
     CODEBOOK_VERSION,
     PARTY_NOMINATION_MOTIF_PROMPT_TABLE,
     VOTE_MOTIF_PROMPT_TABLE,
@@ -16,6 +18,8 @@ from api.domain.polity.codebook import (
     CampaignMotif,
     CandidacyMotif,
     CandidacyOutcome,
+    CoalitionAction,
+    CoalitionMotif,
     DecisionType,
     PartyNominationMotif,
     PolityCodebookError,
@@ -29,7 +33,7 @@ def test_check_codebook_version_accepts_the_matching_version():
 
 
 def test_check_codebook_version_rejects_a_mismatch():
-    with pytest.raises(PolityCodebookError, match="1.0"):
+    with pytest.raises(PolityCodebookError, match="1.1"):
         check_codebook_version("0.9")
 
 
@@ -119,3 +123,41 @@ def test_campaign_motif_prompt_table_is_derived_from_the_enum_not_hand_typed():
     for motif in CampaignMotif:
         assert f"{motif.value} = {motif.name}" in CAMPAIGN_MOTIF_PROMPT_TABLE
     assert CAMPAIGN_MOTIF_PROMPT_TABLE.count("\n") == len(CampaignMotif) - 1
+
+
+def test_coalition_decision_is_decision_type_9():
+    assert DecisionType.COALITION_DECISION == 9
+
+
+def test_coalition_action_has_exactly_join_and_leave():
+    assert {member.value for member in CoalitionAction} == {1, 2}
+
+
+def test_coalition_action_prompt_table_is_derived_from_the_enum_not_hand_typed():
+    for action in CoalitionAction:
+        assert f"{action.value} = {action.name}" in COALITION_ACTION_PROMPT_TABLE
+    assert COALITION_ACTION_PROMPT_TABLE.count("\n") == len(CoalitionAction) - 1
+
+
+def test_coalition_motif_never_reuses_the_rupture_disagreement_code_503():
+    assert 503 not in {member.value for member in CoalitionMotif}
+
+
+def test_coalition_motif_lives_entirely_inside_the_500s_range():
+    assert all(500 <= member.value <= 599 for member in CoalitionMotif)
+
+
+def test_coalition_motif_has_exactly_the_four_documented_codes():
+    assert {member.value for member in CoalitionMotif} == {501, 502, 504, 505}
+
+
+def test_coalition_motif_prompt_table_is_derived_from_the_enum_not_hand_typed():
+    for motif in CoalitionMotif:
+        assert f"{motif.value} = {motif.name}" in COALITION_MOTIF_PROMPT_TABLE
+    assert COALITION_MOTIF_PROMPT_TABLE.count("\n") == len(CoalitionMotif) - 1
+
+
+def test_codebook_version_matches_the_shipped_config():
+    from api.domain.polity.config import load_config
+
+    assert load_config().llm.codebook_version == CODEBOOK_VERSION

@@ -250,7 +250,10 @@ llm:
   rationale_mode: codes       # [v2] codes | free_text | hybrid (§16.5)
                               #      TRANCHÉ : codes partout + texte libre
                               #      borné aux événements pivots (§3.6.9)
-  codebook_version: "1.0"     # [v2] artefact figé, archivé avec le run (§3.7)
+  codebook_version: "1.1"     # [v2] artefact figé, archivé avec le run (§3.7)
+                              #      bump 1.0->1.1 à l'incrément 5 : premier
+                              #      ajout d'un DecisionType (dt=9), pas
+                              #      seulement un motif
   personas_count: 30          # [v2] 20-50 archétypes (§9)
                               #      ⚠ PAS ENCORE IMPLÉMENTÉ (v2.1) — v2
                               #      incrément 1 décrit les citoyens par

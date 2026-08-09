@@ -50,6 +50,8 @@ from api.domain.polity.config import LlmConfig
 from api.domain.polity.llm_schemas import (
     CandidacyBatch,
     CandidacyDecision,
+    CoalitionBatch,
+    CoalitionDecision,
     PartyNominationBatch,
     PartyNominationDecision,
     PositioningBatch,
@@ -414,6 +416,33 @@ def decode_positioning_batch(raw: str, expected_cids: Sequence[int]) -> list[Pos
     if got_cids != list(expected_cids):
         raise LlmResponseError(
             f"batch misaligned with the request: expected cids {list(expected_cids)}, got {got_cids}"
+        )
+
+    return batch.decisions
+
+
+def decode_coalition_batch(raw: str, expected_party_ids: Sequence[int]) -> list[CoalitionDecision]:
+    """Same contract as decode_party_nomination_batch — keyed on `party_id`,
+    not `cid`. A fifth near-identical decode function, kept duplicated for
+    the same reason as the third and fourth: the prior generic `type[T]`
+    attempt concretely failed mypy-strict typing, and nothing about that has
+    changed."""
+    stripped = _THINK_TAG_RE.sub("", raw).strip()
+    try:
+        parsed = json.loads(stripped)
+    except json.JSONDecodeError as exc:
+        raise LlmResponseError(f"response is not valid JSON after stripping reasoning tags: {exc}") from exc
+
+    try:
+        batch = CoalitionBatch.model_validate(parsed)
+    except ValidationError as exc:
+        raise LlmResponseError(f"batch failed schema validation: {exc}") from exc
+
+    got_party_ids = [decision.party_id for decision in batch.decisions]
+    if got_party_ids != list(expected_party_ids):
+        raise LlmResponseError(
+            f"batch misaligned with the request: expected party_ids {list(expected_party_ids)}, "
+            f"got {got_party_ids}"
         )
 
     return batch.decisions
