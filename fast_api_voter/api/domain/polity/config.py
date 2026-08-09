@@ -165,6 +165,20 @@ class CandidacyConfig:
 
 
 @dataclass(frozen=True)
+class CampaignConfig:
+    """v2 increment 4 (campaign_positioning, dt=5) tunables — a nominee's
+    LLM-chosen shift away from their sincere position is bounded on both
+    axes: how many dimensions it can touch (max_positioning_shifts) and how
+    far on each (max_positioning_delta). Enforced in llm_behavior_engine.py's
+    validate_positioning_decision, not here -- Pydantic's own schema bound
+    is intentionally looser (a structural ceiling), since the real,
+    config-driven cap can't be baked into a schema defined at import time."""
+
+    max_positioning_delta: float
+    max_positioning_shifts: int
+
+
+@dataclass(frozen=True)
 class LegitimacyConfig:
     enabled: bool
     decay: float
@@ -227,6 +241,7 @@ class PolityConfig:
     parties: PartiesConfig
     citizens: CitizensConfig
     candidacy: CandidacyConfig
+    campaign: CampaignConfig
     legitimacy: LegitimacyConfig
     journal: JournalConfig
     metrics: MetricsConfig
@@ -313,6 +328,14 @@ def _parse_candidacy(raw: dict[str, Any]) -> CandidacyConfig:
         rupture_base_probability=_get_ratio(s, "candidacy", "rupture_base_probability"),
         rupture_signature_ratio=_get_ratio(s, "candidacy", "rupture_signature_ratio"),
         max_candidates_hard_cap=_get_positive_int(s, "candidacy", "max_candidates_hard_cap"),
+    )
+
+
+def _parse_campaign(raw: dict[str, Any]) -> CampaignConfig:
+    s = _section(raw, "campaign")
+    return CampaignConfig(
+        max_positioning_delta=_get_ratio(s, "campaign", "max_positioning_delta"),
+        max_positioning_shifts=_get_positive_int(s, "campaign", "max_positioning_shifts"),
     )
 
 
@@ -420,6 +443,7 @@ def load_config(path: Path | str | None = None) -> PolityConfig:
         parties=_parse_parties(raw),
         citizens=_parse_citizens(raw),
         candidacy=_parse_candidacy(raw),
+        campaign=_parse_campaign(raw),
         legitimacy=_parse_legitimacy(raw),
         journal=_parse_journal(raw),
         metrics=_parse_metrics(raw),

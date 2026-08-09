@@ -237,6 +237,32 @@ fixtures that failed under `think=True`.
 `test_full_size_party_nomination_batch_produces_a_valid_reliable_response`/
 `test_party_nomination_sequential_calls_each_produce_a_valid_response` pin this.
 
+## Campaign positioning (v2 increment 4) — new schema shape, verified clean
+
+`campaign_positioning`'s `PositioningDecision.shifts` is the first schema in this
+project shaped as a *bounded list of sub-objects per decision* (`list[PositionShift]`,
+each `{dimension, delta}`) rather than flat scalar fields — the strict-mode-compatible
+stand-in for a sparse delta dict (`dict[str, float]` isn't usable under Ollama's
+`"strict": true`, since strict JSON-schema mode requires a closed, fixed schema).
+Two things needed live confirmation before trusting this design, both clean on the
+first properly-configured attempt (`think=False`, learned from Finding E rather than
+re-guessing `think=True`):
+
+1. **The nested list-of-objects shape itself** decodes and validates reliably —
+   `test_full_size_positioning_batch_produces_a_valid_reliable_response` (3 nominees)
+   and `test_positioning_sequential_calls_each_produce_a_valid_response` (4 nominees,
+   twice) both pass.
+2. **The model respects bounds stated only in prose, not enforced by the schema.**
+   The JSON schema itself only has a loose structural ceiling (`max_length=5` on
+   `shifts`, `delta` in `[-1, 1]`) — the real, tighter, config-driven caps
+   (`campaign.max_positioning_shifts=3`, `campaign.max_positioning_delta=0.3`) exist
+   only in `build_positioning_system_prompt`'s prose ("CONTRAINTES STRICTES : au plus
+   3 ajustements... entre -0.3 et 0.3"). An earlier draft of this prompt said "borné"
+   without ever stating the actual numbers — caught before any live run, since a model
+   can't respect a bound it was never told. With the numbers stated explicitly, every
+   live decision across both tests stayed within them — not schema-enforced, but
+   prompt-compliant in every observed case so far.
+
 ## Reproducing this check
 
 ```bash

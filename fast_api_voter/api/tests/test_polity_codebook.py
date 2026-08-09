@@ -7,11 +7,13 @@ reassigned.
 import pytest
 
 from api.domain.polity.codebook import (
+    CAMPAIGN_MOTIF_PROMPT_TABLE,
     CANDIDACY_MOTIF_PROMPT_TABLE,
     CODEBOOK_VERSION,
     PARTY_NOMINATION_MOTIF_PROMPT_TABLE,
     VOTE_MOTIF_PROMPT_TABLE,
     BallotFormat,
+    CampaignMotif,
     CandidacyMotif,
     CandidacyOutcome,
     DecisionType,
@@ -97,3 +99,23 @@ def test_party_nomination_motif_prompt_table_is_derived_from_the_enum_not_hand_t
     for motif in PartyNominationMotif:
         assert f"{motif.value} = {motif.name}" in PARTY_NOMINATION_MOTIF_PROMPT_TABLE
     assert PARTY_NOMINATION_MOTIF_PROMPT_TABLE.count("\n") == len(PartyNominationMotif) - 1
+
+
+def test_campaign_positioning_is_decision_type_5():
+    assert DecisionType.CAMPAIGN_POSITIONING == 5
+
+
+def test_campaign_motif_occupies_its_own_range_not_the_candidature_block():
+    assert {member.value for member in CampaignMotif}.isdisjoint(
+        {member.value for member in CandidacyMotif} | {member.value for member in PartyNominationMotif}
+    )
+
+
+def test_campaign_motif_has_exactly_the_four_documented_codes():
+    assert {member.value for member in CampaignMotif} == {601, 602, 603, 604}
+
+
+def test_campaign_motif_prompt_table_is_derived_from_the_enum_not_hand_typed():
+    for motif in CampaignMotif:
+        assert f"{motif.value} = {motif.name}" in CAMPAIGN_MOTIF_PROMPT_TABLE
+    assert CAMPAIGN_MOTIF_PROMPT_TABLE.count("\n") == len(CampaignMotif) - 1

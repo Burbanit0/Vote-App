@@ -37,6 +37,8 @@ def test_loads_the_real_polity_config_with_expected_v0_values():
     assert config.llm.batch_sharding == "static"
     assert config.llm.codebook_version == "1.0"
     assert config.llm.personas_count == 30
+    assert config.campaign.max_positioning_delta == 0.3
+    assert config.campaign.max_positioning_shifts == 3
     assert config.parallel.runs_in_parallel == 1
     assert config.parallel.intra_run_workers == 1
 
@@ -196,4 +198,18 @@ def test_llm_base_url_trailing_slash_is_stripped(tmp_path):
 def test_parallel_intra_run_workers_must_be_positive(tmp_path):
     path = _write(tmp_path, lambda d: d["parallel"].__setitem__("intra_run_workers", 0))
     with pytest.raises(PolityConfigError, match="intra_run_workers"):
+        load_config(path)
+
+
+# ── campaign (v2 increment 4) ─────────────────────────────────────────────
+
+def test_campaign_max_positioning_delta_out_of_range_raises(tmp_path):
+    path = _write(tmp_path, lambda d: d["campaign"].__setitem__("max_positioning_delta", 1.5))
+    with pytest.raises(PolityConfigError, match="max_positioning_delta"):
+        load_config(path)
+
+
+def test_campaign_max_positioning_shifts_must_be_positive(tmp_path):
+    path = _write(tmp_path, lambda d: d["campaign"].__setitem__("max_positioning_shifts", 0))
+    with pytest.raises(PolityConfigError, match="max_positioning_shifts"):
         load_config(path)

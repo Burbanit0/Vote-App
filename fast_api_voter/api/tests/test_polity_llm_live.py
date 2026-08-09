@@ -1,4 +1,4 @@
-"""Live smoke test against a real local Ollama instance — v2 increments 1-3.
+"""Live smoke test against a real local Ollama instance — v2 increments 1-4.
 
 Opt-in only, never runs in CI: set POLITY_LLM_LIVE=1. Everything else about
 this feature (config parsing, schema validation, chunking, ballot
@@ -18,10 +18,11 @@ by accident. Since increment 2, test_a_short_live_run_produces_a_valid_journal
 also exercises a full candidacy batch pass per presidential election on top
 of the existing vote batch pass, roughly doubling that test's cost. Increment
 3's party-nomination batches are small (a handful of contested parties, not
-citizens) and add comparatively little wall-clock time -- but decide_party_
-nominations' think=True default (unlike candidacy's think=False) is itself
-an unverified assumption this file exists to check, not something to skip
-testing live just because the batch is small.
+citizens) and add comparatively little wall-clock time. Increment 4's
+campaign-positioning batches are the same small size (a handful of
+nominees) -- but its schema (a bounded list of sub-objects per decision, not
+flat scalar fields) is genuinely new; this file is what actually verifies it
+survives structured output, not an assumption.
 """
 import dataclasses
 import json
@@ -30,17 +31,20 @@ import os
 import pytest
 
 from api.domain.polity.citizen import Citizen
-from api.domain.polity.codebook import CandidacyMotif, PartyNominationMotif, VoteMotif
+from api.domain.polity.codebook import CampaignMotif, CandidacyMotif, PartyNominationMotif, VoteMotif
 from api.domain.polity.config import load_config
 from api.domain.polity.llm_behavior_engine import (
     build_candidacy_system_prompt,
     build_candidacy_user_prompt,
     build_party_nomination_system_prompt,
     build_party_nomination_user_prompt,
+    build_positioning_system_prompt,
+    build_positioning_user_prompt,
     build_system_prompt,
     build_user_prompt,
     cast_votes,
     compute_max_tokens,
+    decide_campaign_positioning,
     decide_candidacies,
     decide_party_nominations,
 )
@@ -48,14 +52,17 @@ from api.domain.polity.llm_client import (
     OllamaJsonClient,
     decode_candidacy_batch,
     decode_party_nomination_batch,
+    decode_positioning_batch,
     decode_vote_batch,
 )
 from api.domain.polity.llm_schemas import (
     CANDIDACY_JSON_SCHEMA,
     PARTY_NOMINATION_JSON_SCHEMA,
+    POSITIONING_JSON_SCHEMA,
     VOTE_CAST_JSON_SCHEMA,
     CandidacyBatch,
     PartyNominationBatch,
+    PositioningBatch,
     VoteCastBatch,
 )
 from api.domain.polity.parties import Party
@@ -320,6 +327,100 @@ def test_decide_party_nominations_against_the_real_client(client):
     assert set(outcome.winners.keys()) == {p.party_id for p in parties}
     for party_id, winner_cid in outcome.winners.items():
         assert winner_cid in {c.citizen_id for c in contested[party_id]}
+
+
+# ── campaign_positioning (v2 increment 4) ─────────────────────────────────
+
+def _positioning_nominee(cid, dims, party_id, ambition_score):
+    c = _citizen(cid, dims)
+    c.party_affiliation = party_id
+    c.ambition_score = ambition_score
+    return c
+
+
+def _nominee_fixture(dims, num_nominees):
+    parties = [_nomination_party(pid, dims) for pid in range(num_nominees)]
+    nominees = [
+        _positioning_nominee(i, dims, parties[i].party_id, 0.3 + 0.1 * i) for i in range(num_nominees)
+    ]
+    return nominees, {p.party_id: p for p in parties}
+
+
+def test_full_size_positioning_batch_produces_a_valid_reliable_response(client):
+    """The campaign-positioning analog of
+    test_full_size_party_nomination_batch_produces_a_valid_reliable_response
+    -- a handful of nominees, the real prompt builders, the real schema,
+    think=False (same guess as party nomination, and the same reasoning --
+    see decide_campaign_positioning's own docstring). Also the first live
+    check of a genuinely new schema shape: a bounded list of sub-objects
+    per decision, not flat scalar fields."""
+    config = load_config()
+    dims = config.citizens.issue_count
+    nominees, parties_by_id = _nominee_fixture(dims, num_nominees=3)
+    electorate_mean = tuple(0.5 for _ in range(dims))
+
+    raw = client.complete_json(
+        system_prompt=build_positioning_system_prompt(nominees, config),
+        user_prompt=build_positioning_user_prompt(nominees, parties_by_id, electorate_mean),
+        json_schema=POSITIONING_JSON_SCHEMA,
+        max_tokens=compute_max_tokens(len(nominees)),
+        think=False,
+    )
+    batch = PositioningBatch.model_validate_json(raw)
+    assert [d.cid for d in batch.decisions] == [n.citizen_id for n in nominees]
+    assert all(d.motif in {m.value for m in CampaignMotif} for d in batch.decisions)
+    for decision in batch.decisions:
+        # The schema itself only enforces a loose structural ceiling (see
+        # PositioningDecision) -- this checks the model actually respects
+        # the REAL bounds stated in the system prompt, not just the
+        # structural one.
+        assert len(decision.shifts) <= config.campaign.max_positioning_shifts, (
+            f"decision for cid={decision.cid} used {len(decision.shifts)} shifts, "
+            f"exceeding the stated max_positioning_shifts={config.campaign.max_positioning_shifts}"
+        )
+        for shift in decision.shifts:
+            assert 0 <= shift.dimension < dims
+            assert abs(shift.delta) <= config.campaign.max_positioning_delta, (
+                f"decision for cid={decision.cid} shifted dimension {shift.dimension} by "
+                f"{shift.delta}, exceeding the stated max_positioning_delta="
+                f"{config.campaign.max_positioning_delta}"
+            )
+
+
+def test_positioning_sequential_calls_each_produce_a_valid_response(client):
+    """The campaign-positioning analog of
+    test_sequential_calls_each_produce_a_valid_response -- two textually
+    identical requests, checked independently rather than for byte-identity
+    (Finding D applies here too until proven otherwise)."""
+    config = load_config()
+    dims = config.citizens.issue_count
+    nominees, parties_by_id = _nominee_fixture(dims, num_nominees=4)
+    electorate_mean = tuple(0.5 for _ in range(dims))
+    kwargs = dict(
+        system_prompt=build_positioning_system_prompt(nominees, config),
+        user_prompt=build_positioning_user_prompt(nominees, parties_by_id, electorate_mean),
+        json_schema=POSITIONING_JSON_SCHEMA,
+        max_tokens=compute_max_tokens(len(nominees)),
+        think=False,
+    )
+    expected_cids = [n.citizen_id for n in nominees]
+    for raw in (client.complete_json(**kwargs), client.complete_json(**kwargs)):
+        decisions = decode_positioning_batch(raw, expected_cids)
+        assert [d.cid for d in decisions] == expected_cids
+
+
+def test_decide_campaign_positioning_against_the_real_client(client):
+    config = load_config()
+    dims = config.citizens.issue_count
+    nominees, parties_by_id = _nominee_fixture(dims, num_nominees=3)
+    citizens = list(nominees)
+    config = dataclasses.replace(config, llm=dataclasses.replace(config.llm, enabled=True))
+
+    outcome = decide_campaign_positioning(nominees, citizens, parties_by_id, config, client)
+
+    assert set(outcome.platforms.keys()) == {n.citizen_id for n in nominees}
+    for nominee in nominees:
+        assert len(outcome.platforms[nominee.citizen_id]) == dims
 
 
 def test_a_short_live_run_produces_a_valid_journal(tmp_path):

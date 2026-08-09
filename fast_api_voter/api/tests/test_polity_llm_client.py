@@ -13,6 +13,7 @@ from api.domain.polity.llm_client import (
     OllamaJsonClient,
     decode_candidacy_batch,
     decode_party_nomination_batch,
+    decode_positioning_batch,
     decode_vote_batch,
 )
 
@@ -274,3 +275,48 @@ def test_decode_party_nomination_batch_strips_think_tags():
     raw = "<think>reasoning here</think>" + json.dumps({"decisions": [_nomination_decision(party_id=0)]})
     decisions = decode_party_nomination_batch(raw, expected_party_ids=[0])
     assert decisions[0].party_id == 0
+
+
+# ── decode_positioning_batch ──────────────────────────────────────────────
+
+def _positioning_decision(**overrides):
+    base = {"cid": 1, "shifts": [{"dimension": 0, "delta": 0.1}], "motif": 602}
+    base.update(overrides)
+    return base
+
+
+def test_decode_positioning_batch_round_trips():
+    raw = json.dumps({"decisions": [_positioning_decision(cid=1), _positioning_decision(cid=2, shifts=[])]})
+    decisions = decode_positioning_batch(raw, expected_cids=[1, 2])
+    assert [d.cid for d in decisions] == [1, 2]
+
+
+def test_decode_positioning_batch_rejects_non_json():
+    with pytest.raises(LlmResponseError, match="not valid JSON"):
+        decode_positioning_batch("not json", expected_cids=[1])
+
+
+def test_decode_positioning_batch_rejects_schema_invalid_content():
+    raw = json.dumps(
+        {"decisions": [{"cid": 1, "shifts": [{"dimension": 0, "delta": 0.1}, {"dimension": 0, "delta": -0.1}], "motif": 602}]}
+    )  # duplicate dimension
+    with pytest.raises(LlmResponseError, match="schema validation"):
+        decode_positioning_batch(raw, expected_cids=[1])
+
+
+def test_decode_positioning_batch_rejects_count_mismatch():
+    raw = json.dumps({"decisions": [_positioning_decision(cid=1)]})
+    with pytest.raises(LlmResponseError, match="misaligned"):
+        decode_positioning_batch(raw, expected_cids=[1, 2])
+
+
+def test_decode_positioning_batch_rejects_order_mismatch():
+    raw = json.dumps({"decisions": [_positioning_decision(cid=2), _positioning_decision(cid=1)]})
+    with pytest.raises(LlmResponseError, match="misaligned"):
+        decode_positioning_batch(raw, expected_cids=[1, 2])
+
+
+def test_decode_positioning_batch_strips_think_tags():
+    raw = "<think>reasoning here</think>" + json.dumps({"decisions": [_positioning_decision(cid=1)]})
+    decisions = decode_positioning_batch(raw, expected_cids=[1])
+    assert decisions[0].cid == 1

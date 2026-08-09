@@ -13,23 +13,28 @@ from api.domain.polity.codebook import VoteMotif
 from api.domain.polity.config import load_config
 from api.domain.polity.llm_behavior_engine import (
     MIN_SAFE_BATCH_SIZE,
+    apply_shifts,
     build_candidacy_system_prompt,
     build_candidacy_user_prompt,
     build_party_nomination_system_prompt,
     build_party_nomination_user_prompt,
+    build_positioning_system_prompt,
+    build_positioning_user_prompt,
     build_system_prompt,
     build_user_prompt,
     cast_votes,
     chunk_voters,
     compute_max_tokens,
+    decide_campaign_positioning,
     decide_candidacies,
     decide_party_nominations,
     resolve_party_nomination_cid,
     truncation_limit,
     validate_decision,
+    validate_positioning_decision,
 )
 from api.domain.polity.llm_client import LlmResponseError
-from api.domain.polity.llm_schemas import PartyNominationDecision, VoteCastDecision
+from api.domain.polity.llm_schemas import PartyNominationDecision, PositioningDecision, PositionShift, VoteCastDecision
 from api.domain.polity.parties import Party
 from api.domain.polity.simple_rules import BLANK_LABEL, build_ranking, declare_candidacy, sympathizer_ratio
 
@@ -663,3 +668,207 @@ def test_decide_party_nominations_propagates_llm_response_error_on_count_mismatc
 
     with pytest.raises(LlmResponseError, match="misaligned"):
         decide_party_nominations(citizens, parties, declared_cids, config, ShortClient())
+
+
+# ── apply_shifts ──────────────────────────────────────────────────────────
+
+def test_apply_shifts_moves_only_the_targeted_dimension():
+    sincere = (0.5, 0.5, 0.5)
+    shifted = apply_shifts(sincere, [PositionShift(dimension=1, delta=0.2)])
+    assert shifted == (0.5, 0.7, 0.5)
+
+
+def test_apply_shifts_clamps_at_the_upper_bound():
+    shifted = apply_shifts((0.9,), [PositionShift(dimension=0, delta=0.5)])
+    assert shifted == (1.0,)
+
+
+def test_apply_shifts_clamps_at_the_lower_bound():
+    shifted = apply_shifts((0.1,), [PositionShift(dimension=0, delta=-0.5)])
+    assert shifted == (0.0,)
+
+
+def test_apply_shifts_with_no_shifts_returns_the_sincere_position_unchanged():
+    sincere = (0.3, 0.7)
+    assert apply_shifts(sincere, []) == sincere
+
+
+# ── validate_positioning_decision ────────────────────────────────────────
+
+def _positioning_decision(**overrides):
+    base = {"cid": 1, "shifts": [{"dimension": 0, "delta": 0.1}], "motif": 602}
+    base.update(overrides)
+    return PositioningDecision.model_validate(base)
+
+
+def test_validate_positioning_decision_accepts_within_bounds():
+    config = _config_with_llm_enabled()
+    validate_positioning_decision(_positioning_decision(), config)  # must not raise
+
+
+def test_validate_positioning_decision_rejects_too_many_shifts():
+    config = _config_with_llm_enabled()  # default campaign.max_positioning_shifts=3
+    decision = _positioning_decision(shifts=[{"dimension": i, "delta": 0.1} for i in range(4)])
+    with pytest.raises(LlmResponseError, match="max_positioning_shifts"):
+        validate_positioning_decision(decision, config)
+
+
+def test_validate_positioning_decision_rejects_delta_exceeding_the_cap():
+    config = _config_with_llm_enabled()  # default campaign.max_positioning_delta=0.3
+    decision = _positioning_decision(shifts=[{"dimension": 0, "delta": 0.9}])
+    with pytest.raises(LlmResponseError, match="max_positioning_delta"):
+        validate_positioning_decision(decision, config)
+
+
+def test_validate_positioning_decision_rejects_out_of_range_dimension():
+    config = _config_with_llm_enabled()  # default citizens.issue_count=20
+    decision = _positioning_decision(shifts=[{"dimension": 999, "delta": 0.1}])
+    with pytest.raises(LlmResponseError, match="out of range"):
+        validate_positioning_decision(decision, config)
+
+
+# ── build_positioning_system_prompt / build_positioning_user_prompt ────────
+
+def test_positioning_system_prompt_enumerates_every_expected_cid():
+    nominees = [_citizen(0, (0.5,)), _citizen(1, (0.5,)), _citizen(2, (0.5,))]
+    config = _config_with_llm_enabled()
+    prompt = build_positioning_system_prompt(nominees, config)
+    assert "[0,1,2]" in prompt
+    assert "EXACTEMENT ces 3" in prompt
+
+
+def test_positioning_system_prompt_states_the_actual_numeric_bounds():
+    # The JSON schema only enforces a loose structural ceiling (max 5
+    # shifts, delta in [-1,1]) -- the model needs the REAL, tighter,
+    # config-driven bound stated explicitly or it has no way to comply.
+    nominees = [_citizen(0, (0.5,))]
+    config = _config_with_llm_enabled()  # default max_positioning_shifts=3, max_positioning_delta=0.3
+    prompt = build_positioning_system_prompt(nominees, config)
+    assert "3 ajustements" in prompt
+    assert "0.3" in prompt
+
+
+def test_positioning_user_prompt_carries_rivals_and_electorate_mean():
+    a = _citizen(0, (0.2, 0.2))
+    b = _citizen(1, (0.8, 0.8))
+    payload = json.loads(build_positioning_user_prompt([a, b], {}, electorate_mean=(0.5, 0.5)))
+    assert payload["electorate_mean"] == [0.5, 0.5]
+    by_cid = {n["cid"]: n for n in payload["nominees"]}
+    assert by_cid[0]["rivals"] == [{"cid": 1, "position": [0.8, 0.8]}]
+    assert by_cid[1]["rivals"] == [{"cid": 0, "position": [0.2, 0.2]}]
+    assert by_cid[0]["party_platform"] is None  # party_affiliation is None by default
+
+
+def test_positioning_user_prompt_includes_party_platform_when_affiliated():
+    a = _citizen(0, (0.2,))
+    a.party_affiliation = 7
+    parties_by_id = {7: _party(7, (0.6,))}
+    payload = json.loads(build_positioning_user_prompt([a], parties_by_id, electorate_mean=(0.5,)))
+    assert payload["nominees"][0]["party_platform"] == [0.6]
+
+
+def test_positioning_user_prompt_is_deterministic_for_the_same_inputs():
+    nominees = [_citizen(0, (0.5,)), _citizen(1, (0.5,))]
+    assert build_positioning_user_prompt(nominees, {}, (0.5,)) == build_positioning_user_prompt(nominees, {}, (0.5,))
+
+
+# ── decide_campaign_positioning (FakePositioningLlmClient) ──────────────────
+
+class FakePositioningLlmClient:
+    """Always answers sincere (empty shifts, motif=SINCERE_CONVICTION) --
+    lets tests assert on order/skip-when-empty/resolution behavior without
+    a live model asserting anything about actual shift content."""
+
+    def __init__(self):
+        self.calls: list[list[int]] = []
+
+    def complete_json(self, *, system_prompt, user_prompt, json_schema, max_tokens, think=True):
+        payload = json.loads(user_prompt)
+        cids = [n["cid"] for n in payload["nominees"]]
+        self.calls.append(cids)
+        decisions = [{"cid": cid, "shifts": [], "motif": 601} for cid in cids]
+        return json.dumps({"decisions": decisions})
+
+
+def test_decide_campaign_positioning_returns_empty_and_skips_the_client_when_no_nominees():
+    config = _config_with_llm_enabled()
+    client = FakePositioningLlmClient()
+    citizens = _population(5, dims=1)
+
+    outcome = decide_campaign_positioning([], citizens, {}, config, client)
+
+    assert outcome.decisions == []
+    assert outcome.platforms == {}
+    assert client.calls == []
+
+
+def test_decide_campaign_positioning_sorts_nominees_by_citizen_id_regardless_of_input_order():
+    citizens = _population(5, dims=1)
+    nominees = [citizens[3], citizens[0], citizens[4]]  # deliberately out of order
+    config = _config_with_llm_enabled()
+    client = FakePositioningLlmClient()
+
+    decide_campaign_positioning(nominees, citizens, {}, config, client)
+
+    assert client.calls == [[0, 3, 4]]
+
+
+def test_decide_campaign_positioning_resolves_platforms_from_shifts():
+    citizens = _population(3, dims=2)
+    nominees = [citizens[0]]
+    config = _config_with_llm_enabled()
+
+    class ShiftingClient:
+        def complete_json(self, **kwargs):
+            payload = json.loads(kwargs["user_prompt"])
+            cid = payload["nominees"][0]["cid"]
+            return json.dumps({"decisions": [{"cid": cid, "shifts": [{"dimension": 0, "delta": 0.1}], "motif": 602}]})
+
+    outcome = decide_campaign_positioning(nominees, citizens, {}, config, ShiftingClient())
+
+    expected = apply_shifts(citizens[0].issue_positions, [PositionShift(dimension=0, delta=0.1)])
+    assert outcome.platforms[citizens[0].citizen_id] == expected
+
+
+def test_decide_campaign_positioning_raises_notimplementederror_for_unsupported_provider():
+    citizens = _population(2)
+    config = _config_with_llm_enabled()
+    config = dataclasses.replace(config, llm=dataclasses.replace(config.llm, provider="vllm"))
+    with pytest.raises(NotImplementedError, match="provider"):
+        decide_campaign_positioning(citizens, citizens, {}, config, FakePositioningLlmClient())
+
+
+def test_decide_campaign_positioning_raises_for_dynamic_batch_sharding():
+    citizens = _population(2)
+    config = _config_with_llm_enabled()
+    config = dataclasses.replace(config, llm=dataclasses.replace(config.llm, batch_sharding="dynamic"))
+    with pytest.raises(NotImplementedError, match="batch_sharding"):
+        decide_campaign_positioning(citizens, citizens, {}, config, FakePositioningLlmClient())
+
+
+def test_decide_campaign_positioning_raises_for_intra_run_workers_above_one():
+    citizens = _population(2)
+    config = _config_with_llm_enabled()
+    config = dataclasses.replace(config, parallel=dataclasses.replace(config.parallel, intra_run_workers=2))
+    with pytest.raises(NotImplementedError, match="intra_run_workers"):
+        decide_campaign_positioning(citizens, citizens, {}, config, FakePositioningLlmClient())
+
+
+def test_decide_campaign_positioning_raises_for_codebook_version_mismatch():
+    citizens = _population(2)
+    config = _config_with_llm_enabled()
+    config = dataclasses.replace(config, llm=dataclasses.replace(config.llm, codebook_version="0.9"))
+    with pytest.raises(Exception, match="codebook_version"):
+        decide_campaign_positioning(citizens, citizens, {}, config, FakePositioningLlmClient())
+
+
+def test_decide_campaign_positioning_propagates_llm_response_error_on_count_mismatch():
+    citizens = _population(2)
+    config = _config_with_llm_enabled()
+
+    class ShortClient:
+        def complete_json(self, **kwargs):
+            return json.dumps({"decisions": [{"cid": 0, "shifts": [], "motif": 601}]})
+
+    with pytest.raises(LlmResponseError, match="misaligned"):
+        decide_campaign_positioning(citizens, citizens, {}, config, ShortClient())

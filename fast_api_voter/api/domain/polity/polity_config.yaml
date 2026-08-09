@@ -109,6 +109,16 @@ candidacy:
   max_candidates_hard_cap: 20         # [v0] garde-fou de dernier recours
 
 # =============================================================================
+# CAMPAGNE (§3.1, §3.6.2->3.6.8) — positionnement stratégique du candidat
+# =============================================================================
+campaign:
+  max_positioning_delta: 0.3   # [v2] amplitude max d'un déplacement, par
+                                #      dimension déplacée (positions dans [0,1])
+  max_positioning_shifts: 3    # [v2] nombre max de dimensions déplacées par
+                                #      décision — "delta borné", pas un vecteur
+                                #      complet à issue_count dimensions
+
+# =============================================================================
 # LÉGITIMITÉ ET RAPPEL (§7)
 # =============================================================================
 legitimacy:

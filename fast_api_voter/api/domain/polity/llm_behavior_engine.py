@@ -1,10 +1,10 @@
 """
-api.domain.polity.llm_behavior_engine — v2 increments 1-3: the LLM
+api.domain.polity.llm_behavior_engine — v2 increments 1-4: the LLM
 replacement for build_ranking (voting), decide_candidacy (dominant-path
-candidacy eligibility only), and select_party_nominee_from_declared's
-tiebreak when a party is contested (2+ declared candidates), all in
-simple_rules.py. The rupture candidacy path and coalition formation stay on
-simple_rules.py.
+candidacy eligibility only), select_party_nominee_from_declared's tiebreak
+when a party is contested (2+ declared candidates), and declare_candidacy's
+sincere-platform pin for dominant nominees (campaign_positioning). The
+rupture candidacy path and coalition formation stay on simple_rules.py.
 
 Design doc §11.4's baseline-vs-LLM comparison depends on simple_rules.py
 staying untouched and always available -- this module is additive, never a
@@ -24,6 +24,17 @@ deliberately NOT chunk_voters/MIN_SAFE_BATCH_SIZE-shaped: it batches
 *contested parties* (a handful at most, most ticks zero), not citizens --
 forcing it through the citizen-batch guard would make the feature
 permanently unreachable. See its own docstring.
+
+decide_campaign_positioning (increment 4) only ever positions dominant
+nominees, the same set decide_party_nominations/select_party_nominee(_from_declared)
+already resolves -- rupture candidates keep running on their sincere
+position (attempt_rupture_candidacy's whole point is an unstrategized
+protest candidacy) and never reach this function. Unlike every prior
+decision type, this one changes an actual vote input (pledged_platform),
+not just who's eligible or how a ballot is cast -- the first increment
+where the LLM's choice can change who wins. Also deliberately NOT
+chunk_voters-shaped, same reasoning as decide_party_nominations: it batches
+this tick's *nominees* (a handful), not citizens.
 
 Deliberate simplifications versus the full design doc, documented rather
 than silently made:
@@ -48,8 +59,11 @@ import math
 from dataclasses import dataclass
 from typing import Sequence
 
+import numpy as np
+
 from api.domain.polity.citizen import Citizen
 from api.domain.polity.codebook import (
+    CAMPAIGN_MOTIF_PROMPT_TABLE,
     CANDIDACY_MOTIF_PROMPT_TABLE,
     PARTY_NOMINATION_MOTIF_PROMPT_TABLE,
     VOTE_MOTIF_PROMPT_TABLE,
@@ -61,14 +75,18 @@ from api.domain.polity.llm_client import (
     LlmResponseError,
     decode_candidacy_batch,
     decode_party_nomination_batch,
+    decode_positioning_batch,
     decode_vote_batch,
 )
 from api.domain.polity.llm_schemas import (
     CANDIDACY_JSON_SCHEMA,
     PARTY_NOMINATION_JSON_SCHEMA,
+    POSITIONING_JSON_SCHEMA,
     VOTE_CAST_JSON_SCHEMA,
     CandidacyDecision,
     PartyNominationDecision,
+    PositioningDecision,
+    PositionShift,
     VoteCastDecision,
 )
 from api.domain.polity.parties import Party
@@ -557,3 +575,179 @@ def decide_party_nominations(
                for decision in decisions}
 
     return PartyNominationBatchOutcome(decisions=decisions, winners=winners)
+
+
+@dataclass(frozen=True)
+class PositioningBatchOutcome:
+    decisions: list[PositioningDecision]
+    platforms: dict[int, tuple[float, ...]]
+    """cid -> resolved new pledged_platform (sincere position with validated
+    shifts applied), ready to assign directly -- only this function has the
+    sincere-position context needed to resolve a decision's sparse shifts
+    into a full position tuple, mirroring how cast_votes resolves positions
+    into ballots internally rather than exposing raw wire values."""
+
+
+def apply_shifts(sincere: tuple[float, ...], shifts: Sequence[PositionShift]) -> tuple[float, ...]:
+    """Applies a sparse set of validated shifts to a sincere position,
+    clamping each shifted dimension to [0, 1] (positions must stay valid);
+    dimensions with no shift are untouched. Pure -- bounds are already
+    enforced by validate_positioning_decision before this is called."""
+    positions = list(sincere)
+    for shift in shifts:
+        positions[shift.dimension] = min(1.0, max(0.0, positions[shift.dimension] + shift.delta))
+    return tuple(positions)
+
+
+def validate_positioning_decision(decision: PositioningDecision, config: PolityConfig) -> None:
+    """Context-dependent checks llm_schemas.py's Pydantic validators can't
+    do without the caller's config: the real shift-count and per-shift
+    delta-magnitude caps (campaign.max_positioning_shifts/max_positioning_delta
+    -- tighter than PositioningDecision's own structural ceiling), and that
+    a targeted dimension actually exists in this run's issue space."""
+    if len(decision.shifts) > config.campaign.max_positioning_shifts:
+        raise LlmResponseError(
+            f"decision for cid={decision.cid} shifts {len(decision.shifts)} dimension(s), "
+            f"exceeding campaign.max_positioning_shifts={config.campaign.max_positioning_shifts}"
+        )
+    issue_count = config.citizens.issue_count
+    for shift in decision.shifts:
+        if shift.dimension >= issue_count:
+            raise LlmResponseError(
+                f"decision for cid={decision.cid} targets dimension {shift.dimension}, "
+                f"out of range for issue_count={issue_count}"
+            )
+        if abs(shift.delta) > config.campaign.max_positioning_delta:
+            raise LlmResponseError(
+                f"decision for cid={decision.cid} shifts dimension {shift.dimension} by "
+                f"{shift.delta}, exceeding campaign.max_positioning_delta="
+                f"{config.campaign.max_positioning_delta}"
+            )
+
+
+def build_positioning_system_prompt(nominees: Sequence[Citizen], config: PolityConfig) -> str:
+    """Same "enumerate the full expected cid list verbatim + self-check"
+    discipline as every prior decision type (Finding B precedent). Also
+    states the ACTUAL numeric bounds (campaign.max_positioning_shifts/
+    max_positioning_delta), not just the word "borne" -- the JSON schema
+    itself only enforces a loose structural ceiling (max 5 shifts, delta in
+    [-1,1]; see PositionShift/PositioningDecision), since the real,
+    tighter, config-driven bound can't be baked into a schema defined at
+    import time. Without stating the real numbers here, the model has no
+    way to know what it's actually being validated against in
+    validate_positioning_decision -- an omission that would make rejections
+    common rather than a validated guardrail against rare cases."""
+    cid_list = ",".join(str(n.citizen_id) for n in nominees)
+    return (
+        "Tu es un moteur de simulation. Pour chaque candidat nomme, decide "
+        "s'il ajuste sa position affichee par rapport a sa position "
+        "sincere (strategie de campagne), a partir de sa propre position, "
+        "son ambition, la plateforme de son parti, les positions des "
+        "autres candidats de ce scrutin, et la position moyenne de "
+        "l'electorat.\nChaque ajustement (shifts) cible une dimension "
+        "precise (0-indexee) avec un delta signe ; une liste vide signifie "
+        "que le candidat reste sur sa position sincere.\nCONTRAINTES "
+        f"STRICTES : au plus {config.campaign.max_positioning_shifts} "
+        f"ajustements par decision, chaque delta strictement compris entre "
+        f"-{config.campaign.max_positioning_delta} et "
+        f"{config.campaign.max_positioning_delta} inclus. Toute decision "
+        "hors de ces bornes sera rejetee.\n"
+        f"Motifs valides (code court obligatoire) :\n{CAMPAIGN_MOTIF_PROMPT_TABLE}\n"
+        f"IMPORTANT : la liste decisions doit contenir EXACTEMENT ces "
+        f"{len(nominees)} cid, chacun une seule fois, dans cet ordre : "
+        f"[{cid_list}]. Verifie ta reponse avant de la finaliser : chaque "
+        "cid de cette liste doit apparaitre exactement une fois.\n"
+        "Reponds UNIQUEMENT avec un objet JSON conforme au schema fourni."
+    )
+
+
+def build_positioning_user_prompt(
+    nominees: Sequence[Citizen],
+    parties_by_id: dict[int, Party],
+    electorate_mean: tuple[float, ...],
+) -> str:
+    """Canonical JSON (sort_keys, compact separators, rounded floats), same
+    reproducibility discipline as every prior prompt builder. `nominees` is
+    expected to already be in the canonical order the caller (decide_
+    campaign_positioning) enforces (sorted by citizen_id) -- this function
+    doesn't re-sort, since the system prompt's verbatim expected-cid list
+    must describe the exact same order shown here, not a second one. `rivals`
+    is only the OTHER dominant nominees standing this tick -- rupture
+    candidates (a separate, rare, deliberately unstrategized path) are not
+    part of the rival-context signal, consistent with this function never
+    being called for them. `electorate_mean` is computed once by the
+    caller against the full population, not per-nominee."""
+    nominee_blocks = []
+    for nominee in nominees:
+        party = parties_by_id.get(nominee.party_affiliation) if nominee.party_affiliation is not None else None
+        rivals = [
+            {"cid": other.citizen_id, "position": [round(x, 4) for x in other.issue_positions]}
+            for other in nominees
+            if other.citizen_id != nominee.citizen_id
+        ]
+        nominee_blocks.append(
+            {
+                "cid": nominee.citizen_id,
+                "position": [round(x, 4) for x in nominee.issue_positions],
+                "priorities": [round(x, 4) for x in nominee.issue_priorities],
+                "ambition_score": round(nominee.ambition_score, 4),
+                "party_platform": [round(x, 4) for x in party.platform] if party is not None else None,
+                "rivals": rivals,
+            }
+        )
+    return json.dumps(
+        {"nominees": nominee_blocks, "electorate_mean": [round(x, 4) for x in electorate_mean]},
+        sort_keys=True,
+        separators=(",", ":"),
+    )
+
+
+def decide_campaign_positioning(
+    nominees: Sequence[Citizen],
+    citizens: Sequence[Citizen],
+    parties_by_id: dict[int, Party],
+    config: PolityConfig,
+    client: LlmClientProtocol,
+) -> PositioningBatchOutcome:
+    """v2 increment 4's replacement for declare_candidacy's sincere-platform
+    pin, dominant nominees only (see this module's docstring for what stays
+    out of scope). Pure aside from the injected client -- no journal writes
+    here, matching every prior decide_* function's convention.
+
+    Deliberately does NOT use chunk_voters/MIN_SAFE_BATCH_SIZE, same
+    reasoning as decide_party_nominations: this batches this tick's
+    *nominees* (a handful, `parties.initial_count` in the shipped config),
+    not citizens.
+
+    Calls the client with think=False, same guess as decide_party_nominations
+    and the same reasoning: this is a comparative/strategic judgment against
+    rivals and the electorate, closer to that decision's failure-prone shape
+    than vote_cast's. Flagged for live verification, not assumed --
+    see test_polity_llm_live.py."""
+    _check_supported(config)
+
+    if not nominees:
+        return PositioningBatchOutcome(decisions=[], platforms={})
+
+    # Sorted once, here, so system prompt / user prompt / expected_cids all
+    # agree on the same order regardless of the caller's (party-iteration)
+    # order -- never rely on an incidental insertion order (D-5 precedent).
+    nominees = sorted(nominees, key=lambda n: n.citizen_id)
+    electorate_mean = tuple(float(x) for x in np.mean([c.issue_positions for c in citizens], axis=0))
+    expected_cids = [n.citizen_id for n in nominees]
+    raw = client.complete_json(
+        system_prompt=build_positioning_system_prompt(nominees, config),
+        user_prompt=build_positioning_user_prompt(nominees, parties_by_id, electorate_mean),
+        json_schema=POSITIONING_JSON_SCHEMA,
+        max_tokens=compute_max_tokens(len(nominees)),
+        think=False,
+    )
+    decisions = decode_positioning_batch(raw, expected_cids)
+
+    nominees_by_id = {n.citizen_id: n for n in nominees}
+    platforms: dict[int, tuple[float, ...]] = {}
+    for decision in decisions:
+        validate_positioning_decision(decision, config)
+        platforms[decision.cid] = apply_shifts(nominees_by_id[decision.cid].issue_positions, decision.shifts)
+
+    return PositioningBatchOutcome(decisions=decisions, platforms=platforms)
