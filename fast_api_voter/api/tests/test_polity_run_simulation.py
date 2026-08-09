@@ -11,9 +11,13 @@ import json
 
 import pytest
 
+from api.domain.polity.citizen import Citizen, Office, Role
 from api.domain.polity.config import PolityConfig, load_config
+from api.domain.polity.journal import Journal
 from api.domain.polity.llm_client import LlmResponseError
-from api.domain.polity.run_polity_simulation import run_simulation
+from api.domain.polity.parties import Party
+from api.domain.polity.run_polity_simulation import _hold_presidential_election, run_simulation
+from api.domain.polity.simple_rules import declare_candidacy
 
 
 def _config_with_output_dir(output_dir) -> PolityConfig:
@@ -64,6 +68,85 @@ def test_different_seed_produces_a_different_journal(tmp_path):
     path_a = run_simulation(config_a, run_id="r")
     path_b = run_simulation(config_b, run_id="r")
     assert path_a.read_bytes() != path_b.read_bytes()
+
+
+# ── outgoing president's stale office/role reset ─────────────────────────
+
+def _office_test_citizen(cid, position):
+    return Citizen(
+        citizen_id=cid,
+        issue_positions=(position,),
+        issue_priorities=(1.0,),
+        blank_threshold=1.0,
+        ambition_score=0.5,
+    )
+
+
+def test_outgoing_president_is_reset_when_the_next_presidential_election_runs(tmp_path):
+    # Regression test: without the fix, a president who isn't immediately
+    # re-nominated keeps role=ELECTED/office=PRESIDENT forever, so a second
+    # election leaves two citizens simultaneously holding Office.PRESIDENT.
+    config = load_config()
+    term_ticks = config.institutions.president_term_years * config.run.ticks_per_year
+
+    citizen_a = _office_test_citizen(0, 0.1)
+    citizen_b = _office_test_citizen(1, 0.9)
+    electors = [_office_test_citizen(i, 0.5) for i in range(2, 7)]
+    declare_candidacy(citizen_a)
+
+    with Journal(tmp_path / "run.jsonl", run_id="r") as journal:
+        # Tick 0: A stands uncontested and wins.
+        _hold_presidential_election([citizen_a] + electors, [], config, journal, tick=0, llm_client=None)
+        assert citizen_a.role == Role.ELECTED
+        assert citizen_a.office == Office.PRESIDENT
+        assert citizen_a.term_end_tick == term_ticks
+
+        # Tick term_ticks: A's term has ended. A is not re-nominated -- only
+        # B declares -- so B stands uncontested and wins.
+        declare_candidacy(citizen_b)
+        _hold_presidential_election(
+            [citizen_a, citizen_b] + electors, [], config, journal, tick=term_ticks, llm_client=None
+        )
+
+    assert citizen_b.role == Role.ELECTED
+    assert citizen_b.office == Office.PRESIDENT
+    assert citizen_b.term_end_tick == 2 * term_ticks
+
+    assert citizen_a.role == Role.ELECTOR
+    assert citizen_a.office == Office.NONE
+    assert citizen_a.term_end_tick is None
+
+
+def test_a_reelected_president_keeps_office_and_accumulates_mandates(tmp_path):
+    # A's own party re-nominates them each cycle (select_party_nominee has
+    # no role filter, so this works whether A is currently ELECTOR or
+    # ELECTED) -- the realistic path an incumbent's re-election takes,
+    # unlike manually pre-declaring candidacy between calls: the reset at
+    # the top of _hold_presidential_election runs before nominees are
+    # (re)declared each time it's called, so a role set before the call
+    # would just be overwritten by it.
+    config = load_config()
+    term_ticks = config.institutions.president_term_years * config.run.ticks_per_year
+
+    citizen_a = _office_test_citizen(0, 0.1)
+    citizen_a.ambition_score = 1.0
+    citizen_a.party_affiliation = 0
+    party = Party(party_id=0, platform=(0.1,))
+    electors = [_office_test_citizen(i, 0.5) for i in range(1, 6)]
+
+    with Journal(tmp_path / "run.jsonl", run_id="r") as journal:
+        _hold_presidential_election([citizen_a] + electors, [party], config, journal, tick=0, llm_client=None)
+        assert citizen_a.mandates_served == 1
+        assert citizen_a.office == Office.PRESIDENT
+
+        _hold_presidential_election(
+            [citizen_a] + electors, [party], config, journal, tick=term_ticks, llm_client=None
+        )
+
+    assert citizen_a.role == Role.ELECTED
+    assert citizen_a.office == Office.PRESIDENT
+    assert citizen_a.term_end_tick == 2 * term_ticks
+    assert citizen_a.mandates_served == 2
 
 
 def _config_with_rupture_enabled(output_dir) -> PolityConfig:
