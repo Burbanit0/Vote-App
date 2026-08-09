@@ -15,17 +15,22 @@ from api.domain.polity.llm_behavior_engine import (
     MIN_SAFE_BATCH_SIZE,
     build_candidacy_system_prompt,
     build_candidacy_user_prompt,
+    build_party_nomination_system_prompt,
+    build_party_nomination_user_prompt,
     build_system_prompt,
     build_user_prompt,
     cast_votes,
     chunk_voters,
     compute_max_tokens,
     decide_candidacies,
+    decide_party_nominations,
+    resolve_party_nomination_cid,
     truncation_limit,
     validate_decision,
 )
 from api.domain.polity.llm_client import LlmResponseError
-from api.domain.polity.llm_schemas import VoteCastDecision
+from api.domain.polity.llm_schemas import PartyNominationDecision, VoteCastDecision
+from api.domain.polity.parties import Party
 from api.domain.polity.simple_rules import BLANK_LABEL, build_ranking, declare_candidacy, sympathizer_ratio
 
 
@@ -464,3 +469,197 @@ def test_decide_candidacies_propagates_llm_response_error_on_count_mismatch():
 
     with pytest.raises(LlmResponseError, match="misaligned"):
         decide_candidacies(citizens, config, ShortClient())
+
+
+# ── build_party_nomination_system_prompt / build_party_nomination_user_prompt ──
+
+def _party(party_id, platform):
+    return Party(party_id=party_id, platform=tuple(platform))
+
+
+def test_party_nomination_system_prompt_enumerates_every_expected_party_id():
+    contested = {
+        0: [_citizen(0, (0.5,)), _citizen(1, (0.5,))],
+        2: [_citizen(2, (0.5,)), _citizen(3, (0.5,))],
+    }
+    prompt = build_party_nomination_system_prompt(contested)
+    assert "[0,2]" in prompt
+    assert "EXACTEMENT ces 2 party_id" in prompt
+
+
+def test_party_nomination_system_prompt_describes_candidates_by_position_not_cid():
+    contested = {0: [_citizen(11, (0.5,)), _citizen(10, (0.5,))]}
+    prompt = build_party_nomination_system_prompt(contested)
+    assert "position" in prompt
+    assert "cid" in prompt
+
+
+def test_party_nomination_user_prompt_carries_signals_per_candidate():
+    citizens = [_citizen_with_ambition(0, 0.8), _citizen_with_ambition(1, 0.2)]
+    contested = {0: citizens}
+    parties_by_id = {0: _party(0, (0.5,))}
+    support = {0: 0.3, 1: 0.7}
+
+    payload = json.loads(build_party_nomination_user_prompt(contested, parties_by_id, support))
+
+    party_block = payload["parties"][0]
+    assert party_block["party_id"] == 0
+    by_cid = {c["cid"]: c for c in party_block["candidates"]}
+    assert by_cid[0]["ambition_score"] == 0.8
+    assert by_cid[0]["perceived_support"] == 0.3
+    assert by_cid[1]["perceived_support"] == 0.7
+    assert by_cid[0]["position"] == 1  # sorted by citizen_id ascending, not input order
+    assert by_cid[1]["position"] == 2
+
+
+def test_party_nomination_user_prompt_platform_distance_is_zero_at_the_platform():
+    citizen = _citizen(0, (0.5, 0.5))
+    contested = {0: [citizen]}
+    parties_by_id = {0: _party(0, (0.5, 0.5))}
+    payload = json.loads(build_party_nomination_user_prompt(contested, parties_by_id, {0: 0.0}))
+    assert payload["parties"][0]["candidates"][0]["platform_distance"] == 0.0
+
+
+def test_party_nomination_user_prompt_is_deterministic_for_the_same_inputs():
+    citizens = [_citizen_with_ambition(0, 0.8), _citizen_with_ambition(1, 0.2)]
+    contested = {0: citizens}
+    parties_by_id = {0: _party(0, (0.5,))}
+    support = {0: 0.3, 1: 0.7}
+    assert build_party_nomination_user_prompt(contested, parties_by_id, support) == build_party_nomination_user_prompt(
+        contested, parties_by_id, support
+    )
+
+
+# ── resolve_party_nomination_cid ──────────────────────────────────────────
+
+def test_resolve_party_nomination_cid_maps_position_back_to_the_right_citizen():
+    members = [_citizen(5, (0.5,)), _citizen(2, (0.5,)), _citizen(9, (0.5,))]  # sorted by cid: 2, 5, 9
+    decision = PartyNominationDecision(party_id=0, winner_position=2, motif=206)
+    assert resolve_party_nomination_cid(decision, members) == 5
+
+
+# ── decide_party_nominations (FakePartyNominationLlmClient) ─────────────────
+
+class FakePartyNominationLlmClient:
+    """Picks the highest-ambition candidate per party, mirroring one of the
+    signals build_party_nomination_user_prompt actually sends -- lets tests
+    assert on order/resolution/skip-when-uncontested behavior without a live
+    model."""
+
+    def __init__(self):
+        self.calls: list[list[int]] = []
+
+    def complete_json(self, *, system_prompt, user_prompt, json_schema, max_tokens, think=True):
+        payload = json.loads(user_prompt)
+        party_ids = [p["party_id"] for p in payload["parties"]]
+        self.calls.append(party_ids)
+        decisions = [
+            {
+                "party_id": p["party_id"],
+                "winner_position": max(p["candidates"], key=lambda c: c["ambition_score"])["position"],
+                "motif": 206,
+            }
+            for p in payload["parties"]
+        ]
+        return json.dumps({"decisions": decisions})
+
+
+def test_decide_party_nominations_returns_empty_and_skips_the_client_when_nothing_is_contested():
+    citizens = _population(3, dims=1)
+    for c in citizens:
+        c.party_affiliation = 0
+    parties = [_party(0, (0.5,))]
+    config = _config_with_llm_enabled()
+    client = FakePartyNominationLlmClient()
+
+    # Only citizen 0 is "declared" -- a single declared member needs no
+    # arbitration at all.
+    outcome = decide_party_nominations(citizens, parties, {0}, config, client)
+
+    assert outcome.decisions == []
+    assert outcome.winners == {}
+    assert client.calls == []
+
+
+def test_decide_party_nominations_preserves_party_id_order_regardless_of_input_order():
+    citizens = _population(6, dims=1)
+    for i, c in enumerate(citizens):
+        c.party_affiliation = i // 3  # cids 0,1,2 -> party 0; cids 3,4,5 -> party 1
+    parties = [_party(1, (0.5,)), _party(0, (0.5,))]  # deliberately out of order
+    config = _config_with_llm_enabled()
+    client = FakePartyNominationLlmClient()
+    declared_cids = {c.citizen_id for c in citizens}
+
+    outcome = decide_party_nominations(citizens, parties, declared_cids, config, client)
+
+    assert client.calls == [[0, 1]]  # sorted ascending, never the input `parties` order
+    assert set(outcome.winners.keys()) == {0, 1}
+
+
+def test_decide_party_nominations_resolves_winner_position_back_to_the_right_cid():
+    citizens = [_citizen_with_ambition(0, 0.9), _citizen_with_ambition(1, 0.1)]
+    for c in citizens:
+        c.party_affiliation = 0
+    parties = [_party(0, (0.5,))]
+    config = _config_with_llm_enabled()
+    client = FakePartyNominationLlmClient()
+
+    outcome = decide_party_nominations(citizens, parties, {0, 1}, config, client)
+
+    assert outcome.winners[0] == 0  # citizen 0 has the higher ambition_score
+    assert outcome.decisions[0].motif == 206
+
+
+def test_decide_party_nominations_raises_notimplementederror_for_unsupported_provider():
+    citizens = _population(2)
+    config = _config_with_llm_enabled()
+    config = dataclasses.replace(config, llm=dataclasses.replace(config.llm, provider="vllm"))
+    with pytest.raises(NotImplementedError, match="provider"):
+        decide_party_nominations(citizens, [], set(), config, FakePartyNominationLlmClient())
+
+
+def test_decide_party_nominations_raises_for_dynamic_batch_sharding():
+    citizens = _population(2)
+    config = _config_with_llm_enabled()
+    config = dataclasses.replace(config, llm=dataclasses.replace(config.llm, batch_sharding="dynamic"))
+    with pytest.raises(NotImplementedError, match="batch_sharding"):
+        decide_party_nominations(citizens, [], set(), config, FakePartyNominationLlmClient())
+
+
+def test_decide_party_nominations_raises_for_intra_run_workers_above_one():
+    citizens = _population(2)
+    config = _config_with_llm_enabled()
+    config = dataclasses.replace(config, parallel=dataclasses.replace(config.parallel, intra_run_workers=2))
+    with pytest.raises(NotImplementedError, match="intra_run_workers"):
+        decide_party_nominations(citizens, [], set(), config, FakePartyNominationLlmClient())
+
+
+def test_decide_party_nominations_raises_for_codebook_version_mismatch():
+    citizens = _population(2)
+    config = _config_with_llm_enabled()
+    config = dataclasses.replace(config, llm=dataclasses.replace(config.llm, codebook_version="0.9"))
+    with pytest.raises(Exception, match="codebook_version"):
+        decide_party_nominations(citizens, [], set(), config, FakePartyNominationLlmClient())
+
+
+def test_decide_party_nominations_propagates_llm_response_error_on_count_mismatch():
+    citizens = [
+        _citizen_with_ambition(0, 0.9),
+        _citizen_with_ambition(1, 0.1),
+        _citizen_with_ambition(2, 0.9),
+        _citizen_with_ambition(3, 0.1),
+    ]
+    citizens[0].party_affiliation = 0
+    citizens[1].party_affiliation = 0
+    citizens[2].party_affiliation = 1
+    citizens[3].party_affiliation = 1
+    parties = [_party(0, (0.5,)), _party(1, (0.5,))]
+    config = _config_with_llm_enabled()
+    declared_cids = {0, 1, 2, 3}
+
+    class ShortClient:
+        def complete_json(self, **kwargs):
+            return json.dumps({"decisions": [{"party_id": 0, "winner_position": 1, "motif": 206}]})
+
+    with pytest.raises(LlmResponseError, match="misaligned"):
+        decide_party_nominations(citizens, parties, declared_cids, config, ShortClient())

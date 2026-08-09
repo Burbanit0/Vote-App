@@ -12,6 +12,7 @@ from api.domain.polity.llm_client import (
     LlmTransportError,
     OllamaJsonClient,
     decode_candidacy_batch,
+    decode_party_nomination_batch,
     decode_vote_batch,
 )
 
@@ -230,3 +231,46 @@ def test_decode_candidacy_batch_strips_think_tags():
     raw = "<think>reasoning here</think>" + json.dumps({"decisions": [_candidacy_decision(cid=1)]})
     decisions = decode_candidacy_batch(raw, expected_cids=[1])
     assert decisions[0].cid == 1
+
+
+# ── decode_party_nomination_batch ─────────────────────────────────────────
+
+def _nomination_decision(**overrides):
+    base = {"party_id": 0, "winner_position": 1, "motif": 206}
+    base.update(overrides)
+    return base
+
+
+def test_decode_party_nomination_batch_round_trips():
+    raw = json.dumps({"decisions": [_nomination_decision(party_id=0), _nomination_decision(party_id=1)]})
+    decisions = decode_party_nomination_batch(raw, expected_party_ids=[0, 1])
+    assert [d.party_id for d in decisions] == [0, 1]
+
+
+def test_decode_party_nomination_batch_rejects_non_json():
+    with pytest.raises(LlmResponseError, match="not valid JSON"):
+        decode_party_nomination_batch("not json", expected_party_ids=[0])
+
+
+def test_decode_party_nomination_batch_rejects_schema_invalid_content():
+    raw = json.dumps({"decisions": [{"party_id": 0, "winner_position": 0, "motif": 206}]})  # position must be >=1
+    with pytest.raises(LlmResponseError, match="schema validation"):
+        decode_party_nomination_batch(raw, expected_party_ids=[0])
+
+
+def test_decode_party_nomination_batch_rejects_count_mismatch():
+    raw = json.dumps({"decisions": [_nomination_decision(party_id=0)]})
+    with pytest.raises(LlmResponseError, match="misaligned"):
+        decode_party_nomination_batch(raw, expected_party_ids=[0, 1])
+
+
+def test_decode_party_nomination_batch_rejects_order_mismatch():
+    raw = json.dumps({"decisions": [_nomination_decision(party_id=1), _nomination_decision(party_id=0)]})
+    with pytest.raises(LlmResponseError, match="misaligned"):
+        decode_party_nomination_batch(raw, expected_party_ids=[0, 1])
+
+
+def test_decode_party_nomination_batch_strips_think_tags():
+    raw = "<think>reasoning here</think>" + json.dumps({"decisions": [_nomination_decision(party_id=0)]})
+    decisions = decode_party_nomination_batch(raw, expected_party_ids=[0])
+    assert decisions[0].party_id == 0

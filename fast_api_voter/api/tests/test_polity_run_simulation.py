@@ -98,15 +98,18 @@ def test_two_runs_with_rupture_enabled_produce_byte_identical_journals(tmp_path)
 
 class _FakeLlmClient:
     """Deterministic fake dispatching on user_prompt shape, since one client
-    instance now serves both decide_candidacies ("citizens" key) and
-    cast_votes ("voters"/"candidates" keys) within the same run.
+    instance now serves decide_candidacies ("citizens" key),
+    decide_party_nominations ("parties" key), and cast_votes
+    ("voters"/"candidates" keys) within the same run.
     Candidacy: declares (outcome=1) whenever ambition_score >= 0.1 --
     config.candidacy.ambition_threshold is NOT consulted by the LLM path at
     all (decide_candidacies never reads it; only the deterministic
     decide_candidacy does), so this fake owns its own threshold rather than
-    reading one from config. Voting: every citizen votes blank -- enough to
-    exercise the integration plumbing (journal writes, reproducibility,
-    error propagation) without needing real vote-quality logic."""
+    reading one from config. Party nomination: picks the highest-ambition
+    candidate per contested party (motif 206). Voting: every citizen votes
+    blank -- enough to exercise the integration plumbing (journal writes,
+    reproducibility, error propagation) without needing real vote-quality
+    logic."""
 
     def complete_json(self, *, system_prompt, user_prompt, json_schema, max_tokens, think=True):
         payload = json.loads(user_prompt)
@@ -116,6 +119,16 @@ class _FakeLlmClient:
                 if c["ambition_score"] >= 0.1
                 else {"cid": c["cid"], "outcome": 0, "motif": 201}
                 for c in payload["citizens"]
+            ]
+            return json.dumps({"decisions": decisions})
+        if "parties" in payload:
+            decisions = [
+                {
+                    "party_id": p["party_id"],
+                    "winner_position": max(p["candidates"], key=lambda c: c["ambition_score"])["position"],
+                    "motif": 206,
+                }
+                for p in payload["parties"]
             ]
             return json.dumps({"decisions": decisions})
         decisions = [{"cid": v["cid"], "blank": 1, "ranking": [], "motif": 101} for v in payload["voters"]]
@@ -159,6 +172,16 @@ def test_llm_batch_misalignment_aborts_the_run_with_no_partial_journal(tmp_path)
                     if c["ambition_score"] >= 0.1
                     else {"cid": c["cid"], "outcome": 0, "motif": 201}
                     for c in payload["citizens"]
+                ]
+                return json.dumps({"decisions": decisions})
+            if "parties" in payload:
+                decisions = [
+                    {
+                        "party_id": p["party_id"],
+                        "winner_position": max(p["candidates"], key=lambda c: c["ambition_score"])["position"],
+                        "motif": 206,
+                    }
+                    for p in payload["parties"]
                 ]
                 return json.dumps({"decisions": decisions})
             first = payload["voters"][0]
@@ -216,6 +239,35 @@ def test_llm_path_journals_nomination_lost_for_declared_but_unpicked_citizens(tm
             for e in events
             if e["event_type"] == "candidacy_declared" and e["tick"] == event["tick"]
         }
+
+
+# ── LLM party-nomination path (v2 increment 3) ───────────────────────────
+
+def test_llm_path_journals_party_nomination_choice_only_for_contested_parties(tmp_path):
+    config = _config_with_llm_enabled(tmp_path)
+    journal_path = run_simulation(config, run_id="llm-party-nomination", llm_client=_FakeLlmClient())
+    events = _events(journal_path)
+    nomination_events = [e for e in events if e["event_type"] == "party_nomination_choice"]
+    # Default config + _FakeLlmClient's 0.1 ambition cutoff already produces
+    # nomination_lost events (see the test above) -- proof some party is
+    # contested most ticks, so this event must appear too.
+    assert len(nomination_events) > 0
+    for event in nomination_events:
+        assert event["codebook_version"] == config.llm.codebook_version
+        assert event["motif"] == "206"
+        assert len(event["payload"]["contenders"]) >= 2
+        assert event["citizen_id"] in event["payload"]["contenders"]
+
+    declared = {
+        (e["tick"], e["citizen_id"])
+        for e in events
+        if e["event_type"] == "candidacy_declared" and e["payload"].get("path") == "dominant"
+    }
+    for event in nomination_events:
+        # Every contested party's LLM-chosen winner is also the tick's
+        # candidacy_declared nominee -- decide_party_nominations' output
+        # actually drives who runs, not just an unused side record.
+        assert (event["tick"], event["citizen_id"]) in declared
 
 
 def test_unsupported_presidential_method_raises_before_any_work(tmp_path):

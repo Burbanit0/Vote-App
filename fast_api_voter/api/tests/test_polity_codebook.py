@@ -9,11 +9,13 @@ import pytest
 from api.domain.polity.codebook import (
     CANDIDACY_MOTIF_PROMPT_TABLE,
     CODEBOOK_VERSION,
+    PARTY_NOMINATION_MOTIF_PROMPT_TABLE,
     VOTE_MOTIF_PROMPT_TABLE,
     BallotFormat,
     CandidacyMotif,
     CandidacyOutcome,
     DecisionType,
+    PartyNominationMotif,
     PolityCodebookError,
     VoteMotif,
     check_codebook_version,
@@ -75,3 +77,23 @@ def test_candidacy_motif_prompt_table_is_derived_from_the_enum_not_hand_typed():
     for motif in CandidacyMotif:
         assert f"{motif.value} = {motif.name}" in CANDIDACY_MOTIF_PROMPT_TABLE
     assert CANDIDACY_MOTIF_PROMPT_TABLE.count("\n") == len(CandidacyMotif) - 1
+
+
+def test_party_nomination_choice_is_decision_type_4():
+    assert DecisionType.PARTY_NOMINATION_CHOICE == 4
+
+
+def test_party_nomination_motif_never_reuses_a_candidacy_motif_code():
+    assert {member.value for member in PartyNominationMotif}.isdisjoint(
+        {member.value for member in CandidacyMotif}
+    )
+
+
+def test_party_nomination_motif_has_exactly_the_four_documented_codes():
+    assert {member.value for member in PartyNominationMotif} == {206, 207, 208, 209}
+
+
+def test_party_nomination_motif_prompt_table_is_derived_from_the_enum_not_hand_typed():
+    for motif in PartyNominationMotif:
+        assert f"{motif.value} = {motif.name}" in PARTY_NOMINATION_MOTIF_PROMPT_TABLE
+    assert PARTY_NOMINATION_MOTIF_PROMPT_TABLE.count("\n") == len(PartyNominationMotif) - 1

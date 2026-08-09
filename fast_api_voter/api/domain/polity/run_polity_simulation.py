@@ -5,16 +5,19 @@ Pure sequencing, no decision logic of its own (design doc §1): every choice
 (who to nominate, who a citizen votes for, who forms a coalition) comes from
 simple_rules.py or, when config.llm.enabled, llm_behavior_engine.py's LLM
 replacements (voting since increment 1, the dominant candidacy path since
-increment 2); every count (a winner, a seat allocation) comes from
-ballot_and_aggregation.py. This module only calls them in the right order,
-once per tick, and journals what happened.
+increment 2, contested-party arbitration since increment 3); every count (a
+winner, a seat allocation) comes from ballot_and_aggregation.py. This module
+only calls them in the right order, once per tick, and journals what
+happened.
 
-_declare_nominees_llm (increment 2) journals candidacy_considered for every
-evaluated citizen -- including declines, which the deterministic
-_declare_nominees never records at all -- plus nomination_lost for any
-LLM-approved citizen who doesn't win their party's (still deterministic)
-tiebreak, so their story isn't silently absent from the journal (design doc
-§16.3).
+_declare_nominees_llm journals candidacy_considered for every evaluated
+citizen (increment 2) -- including declines, which the deterministic
+_declare_nominees never records at all -- plus party_nomination_choice for
+every *contested* party (increment 3, 2+ declared candidates) and
+nomination_lost for any LLM-approved citizen who doesn't win their party's
+nomination (contested: the LLM's choice; uncontested: still the
+deterministic tiebreak), so their story isn't silently absent from the
+journal (design doc §16.3).
 """
 from __future__ import annotations
 
@@ -29,7 +32,12 @@ from api.domain.polity.citizen import Citizen, Office, Role, generate_population
 from api.domain.polity.config import PolityConfig
 from api.domain.polity.institutional_clock import ElectionType, InstitutionalClock
 from api.domain.polity.journal import Journal
-from api.domain.polity.llm_behavior_engine import cast_votes, decide_candidacies, resolve_ranking_cids
+from api.domain.polity.llm_behavior_engine import (
+    cast_votes,
+    decide_candidacies,
+    decide_party_nominations,
+    resolve_ranking_cids,
+)
 from api.domain.polity.llm_client import LlmClientProtocol, OllamaJsonClient
 from api.domain.polity.parties import Party, initialize_parties
 from api.domain.polity.simple_rules import (
@@ -161,18 +169,20 @@ def _declare_nominees_llm(
     tick: int,
     llm_client: LlmClientProtocol | None,
 ) -> list[Citizen]:
-    """v2 increment 2's LLM path: decide_candidacies replaces
+    """v2 increment 2/3's LLM path: decide_candidacies replaces
     decide_candidacy's bare threshold for the dominant-path eligibility
-    filter only -- select_party_nominee_from_declared's tiebreak among the
-    LLM-approved considerers stays the same deterministic
-    (ambition_score, -citizen_id) rule select_party_nominee already uses
-    (party_nomination_choice, design doc dt=4, stays out of scope).
+    filter; decide_party_nominations replaces select_party_nominee_from_declared's
+    deterministic tiebreak, but only for *contested* parties (2+ declared
+    candidates this tick) -- a party with 0 or 1 declared candidate has
+    nothing to arbitrate, so it keeps using the deterministic tiebreak
+    exactly as before (also the only path when llm.enabled=False).
 
     Journals candidacy_considered for every evaluated citizen (declared or
-    not) -- new in this increment; the deterministic path above never
-    records non-candidacies at all. Also journals nomination_lost for every
-    LLM-approved citizen who doesn't win their party's tiebreak, so their
-    story isn't silently absent from the journal (design doc §16.3)."""
+    not) -- the deterministic path above never records non-candidacies at
+    all. Journals party_nomination_choice for every contested party.
+    Journals nomination_lost for every LLM-approved citizen who doesn't win
+    their party's nomination, so their story isn't silently absent from the
+    journal (design doc §16.3)."""
     assert llm_client is not None  # guaranteed by _llm_client_scope when llm.enabled
     outcome = decide_candidacies(citizens, config, llm_client)
     for decision in outcome.decisions:
@@ -186,13 +196,29 @@ def _declare_nominees_llm(
         )
     declared_cids = {decision.cid for decision in outcome.decisions if decision.outcome == 1}
 
+    nomination_outcome = decide_party_nominations(citizens, parties, declared_cids, config, llm_client)
+    motif_by_party = {decision.party_id: decision.motif for decision in nomination_outcome.decisions}
+    citizens_by_id = {c.citizen_id: c for c in citizens}
+
     nominees = []
     for party in parties:
         party_declared_cids = {
             c.citizen_id for c in citizens
             if c.party_affiliation == party.party_id and c.citizen_id in declared_cids
         }
-        nominee = select_party_nominee_from_declared(party.party_id, citizens, declared_cids)
+        nominee: Citizen | None
+        if party.party_id in nomination_outcome.winners:
+            nominee = citizens_by_id[nomination_outcome.winners[party.party_id]]
+            journal.write(
+                tick=tick,
+                event_type="party_nomination_choice",
+                payload={"party_id": party.party_id, "contenders": sorted(party_declared_cids)},
+                citizen_id=nominee.citizen_id,
+                motif=str(motif_by_party[party.party_id]),
+                codebook_version=config.llm.codebook_version,
+            )
+        else:
+            nominee = select_party_nominee_from_declared(party.party_id, citizens, declared_cids)
         lost_cids = party_declared_cids - ({nominee.citizen_id} if nominee is not None else set())
         for cid in lost_cids:
             journal.write(
