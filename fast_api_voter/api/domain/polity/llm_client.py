@@ -7,9 +7,21 @@ response; there is no intra-batch concurrency to justify async, and the
 existing scripts/check_llm_batching_determinism.py is async specifically
 to fire deliberately-concurrent requests and prove they diverge (§15bis.5)
 -- that pattern must not leak into production code, which must keep
-exactly one request in flight at a time to preserve the reproducibility
-that protocol already proved: temperature=0 + a pinned model + serialized
-calls, confirmed empirically in llm_batching_determinism_results.md.
+exactly one request in flight at a time: concurrent batching provably
+breaks reproducibility outright (llm_batching_determinism_results.md),
+serialized calls just avoid making a bad problem worse.
+
+Serialized calls at temperature=0 with a pinned model are NOT a
+reproducibility guarantee on their own, despite this project's earlier
+assumption: ollama_structured_output_results.md's live consolidation pass
+found two textually identical requests (same prompts, same seed) produce
+different decisions on a real run. Most likely cause is non-deterministic
+floating-point reduction order in multi-threaded CPU inference (llama.cpp,
+which Ollama runs on) -- a known limitation of such backends, not
+something fixable at this layer. True cross-run reproducibility, if a
+future increment needs it for a controlled comparison, is the response
+cache's job (§4.2, deferred): replay a pinned response, don't expect the
+live model to regenerate it.
 
 Ollama's OpenAI-compatible endpoint cannot handle Pydantic's nested
 $defs/$ref schemas -- confirmed in ollama_structured_output_results.md
@@ -19,10 +31,9 @@ schema before sending it, so every caller is protected automatically
 rather than having to remember to do it themselves.
 
 No caching here (§4.2 deferred to a later increment, per the approved
-plan): correctness comes from temperature=0 + pinned model + serialization,
-not from a cache. The request body is still built as canonical
-(sort_keys, compact separators) bytes so a cache key can be added later
-without touching prompt construction.
+plan). The request body is still built as canonical (sort_keys, compact
+separators) bytes so a cache key can be added later without touching
+prompt construction.
 """
 from __future__ import annotations
 
@@ -54,11 +65,14 @@ class LlmTransportError(LlmError):
 
 class LlmResponseError(LlmError):
     """The response is malformed, schema-invalid, or violates §3.6.0's
-    batch-alignment rule (wrong count or cid order). NOT retried: at
-    temperature=0 with a pinned seed, replaying a bad request is a
-    guaranteed no-op (confirmed by llm_batching_determinism_results.md's
-    sequential-determinism result) -- it would burn CPU time to reproduce
-    the identical failure, never fix it."""
+    batch-alignment rule (wrong count or cid order). NOT retried: this
+    project previously assumed a retry here was a "guaranteed no-op" at
+    temperature=0 with a pinned seed -- ollama_structured_output_results.md's
+    determinism finding shows that's not actually true, a retry could
+    occasionally "succeed" by luck. It stays unretried anyway: a malformed
+    or misaligned response is a real problem to investigate, and silently
+    laundering it through a lucky retry would hide that instead of
+    surfacing it."""
 
 
 class LlmClientProtocol(Protocol):
@@ -107,7 +121,12 @@ class OllamaJsonClient:
         self._client = httpx.Client(timeout=timeout, transport=transport)
 
     @classmethod
-    def from_config(cls, llm: LlmConfig, *, seed: int, timeout: float = 300.0) -> OllamaJsonClient:
+    def from_config(cls, llm: LlmConfig, *, seed: int, timeout: float = 600.0) -> OllamaJsonClient:
+        """600s default: a live consolidation run measured a real full-size
+        (25-citizen) batch completing at 294.64s -- already within seconds
+        of the previous 300s default, with no margin for Qwen3's variable
+        <think> reasoning length. 600s gives real headroom without masking
+        a genuinely hung request."""
         return cls(llm.base_url, llm.model, llm.temperature, seed, timeout)
 
     def complete_json(

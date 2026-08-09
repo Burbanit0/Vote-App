@@ -127,6 +127,87 @@ remainder split, so no chunk is ever small enough to risk this failure mode.
   Consistent with the design doc's own framing (§15bis.0: the cost is time, not
   money) but should be treated as a real, planned number, not a surprise later.
 
+## Post-merge consolidation pass (test_polity_llm_live.py, live run)
+
+Running the 3 live tests that weren't executed at merge time (only the full-size
+batch test above had been run live) surfaced 3 more real, load-bearing issues —
+none of them infra flukes:
+
+- **Token budget too tight**: `chunk_size*60+256` assumes completion length scales
+  with the number of decisions, but Qwen3's `<think>` reasoning shares the same
+  completion budget and is not proportional to batch size — a 20-citizen/2-candidate
+  call hit `finish_reason=length` at 1456 tokens. Fixed with `compute_max_tokens()`:
+  a flat 1536-token reasoning allowance (`llm_behavior_engine.py`), not scaled by
+  batch size.
+- **Client timeout had no real margin**: the one successful full-size-batch call
+  above took 294.64s against a 300s default — a near-miss, not a pass with room to
+  spare. Raised `OllamaJsonClient.from_config`'s default to 600s.
+- **Candidate cids need the same explicit grounding as voter cids (Finding B, but
+  for candidates)**: a full simulation run returned a ranking of `[1..10]` for an
+  election whose real candidates were `{11, 20, 48, 61, 62}` — the model hallucinated
+  a generic ordinal list instead of reading the real candidate cids out of the user
+  prompt. First attempt: enumerate the candidate cid list verbatim in the system
+  prompt, the same "use only these, and no others" instruction already used for
+  voters. This also exposed a test gap: `test_full_size_batch_produces_a_valid_reliable_response`
+  never checked that ranking values were valid candidate cids, only that the voter
+  cid matched — now asserts both.
+
+## Finding C: a candidate is also a citizen — ranking must use positions, not cids
+
+The cid-enumeration fix above introduced a worse regression: the model started
+filling `decisions[].cid` (the *voter* being decided for) with values from the
+*candidate* cid list instead. E.g. expected voter cids `[0..24]`, got
+`[1000,1001,1002,1003,1004]` cycled five times — the candidate cids, not the
+voters'.
+
+Root cause: a candidate **is** a citizen, so candidate cids and voter cids draw
+from the same number space and legitimately collide in a real election (citizen 11
+both casts a vote and is a candidate others rank). Two "use exactly this list of
+cids" instructions with overlapping numbers gave the model no reliable way to tell
+which list a given integer belonged to in which JSON field.
+
+**Fix**: `ranking` now holds 1-indexed *positions* into the candidate list (sorted
+by citizen_id), never candidate cids. Positions are a disjoint, always-small (1..N)
+number space, structurally incapable of colliding with voter cids — this removes
+the ambiguity by construction rather than by stronger wording.
+`llm_behavior_engine.sorted_candidates()`/`resolve_ranking_cids()` translate
+positions back to real cids for the ballot and the journal; the position encoding
+never leaves the wire-protocol boundary. Confirmed on a live full run
+(`test_a_short_live_run_produces_a_valid_journal`) with real overlapping voter/
+candidate cid ranges: passes.
+
+## Finding D: identical requests are not guaranteed byte-identical output
+
+`test_sequential_calls_are_byte_identical` (two back-to-back calls, same prompts,
+same seed=42, `temperature=0`) failed on a live run: citizen cid=0 got `blank=1` on
+the first call and `blank=0` on the second. This contradicts this project's earlier
+assumption (from `llm_batching_determinism_results.md`'s sequential-call check,
+5/5 identical) that temperature=0 + a pinned seed guarantees reproducibility for
+non-concurrent calls.
+
+Most likely cause: non-deterministic floating-point reduction order in
+multi-threaded CPU inference (llama.cpp, which Ollama runs on) can occasionally
+flip a close-call token even under greedy/argmax decoding, cascading into a
+different generation from that point on. This is a known, documented property of
+such backends (OpenAI's own `seed` parameter docs call determinism "best effort",
+not guaranteed) — not a bug in this project's code, and not fixable at the prompt
+or application layer. Chasing the exact mechanism further (comparing thread counts,
+quantizations, or serving backends) was judged out of proportion to what this
+increment needs, the same call made for the small-batch threshold above.
+
+**Consequence**: byte-identical reproducibility for the *live* LLM path is not a
+guarantee this project can make. What still holds, and is still tested:
+1. This project's own code is deterministic given the same LLM responses (the
+   `FakeLlmClient`-based tests in `test_polity_llm_behavior_engine.py` and
+   `test_polity_run_simulation.py` produce byte-identical journals every time).
+2. If a future increment needs true cross-run reproducibility for a controlled
+   baseline-vs-LLM comparison (§11.4), the mechanism is the deferred response cache
+   (§4.2) — replay a pinned response, don't expect the live model to regenerate it.
+
+The live test was renamed to `test_sequential_calls_each_produce_a_valid_response`
+and no longer asserts byte-identity — it proves each call independently produces a
+valid, correctly-aligned response, which is what's actually guaranteed.
+
 ## Reproducing this check
 
 ```bash

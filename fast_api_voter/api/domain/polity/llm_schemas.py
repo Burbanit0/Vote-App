@@ -10,14 +10,14 @@ validation idiom as api/schemas/*.py (`extra="forbid"`, `Field(...)`,
 this package's `X | None` style rather than `Optional[X]`.
 
 Context-independent validation only (blank/ranking consistency, duplicate
-cids) lives here, on the model itself. Context-dependent validation (is a
-ranked cid actually one of the candidates sent in this batch? is the
+positions) lives here, on the model itself. Context-dependent validation
+(is a ranked position actually within this batch's candidate count? is the
 ranking within this batch's truncation limit?) needs the caller's state and
 belongs in llm_behavior_engine.py as plain functions, not here.
 """
 from __future__ import annotations
 
-from typing import Literal
+from typing import Annotated, Literal
 
 from pydantic import BaseModel, ConfigDict, Field, model_validator
 
@@ -27,16 +27,26 @@ class VoteCastDecision(BaseModel):
     default) so JSON-Schema `strict` mode keeps it in `required` — an
     optional field with a default is silently dropped from `required` by
     Pydantic's schema generation, which would let a constrained-decoding
-    grammar omit it entirely."""
+    grammar omit it entirely.
+
+    `ranking` holds candidate *positions* (1..N, this batch's candidate
+    list order), never candidate cids. A live consolidation run found the
+    model conflates a cid-based ranking with `cid` above: a candidate is
+    also a citizen, so candidate cids and voter cids draw from the same
+    number space and can collide (e.g. citizen 11 both votes and is a
+    candidate) -- the model started filling `cid` with candidate cids
+    instead of the voter's own cid. Positions are a disjoint, always-small
+    (1..N) number space, structurally incapable of that collision."""
 
     model_config = ConfigDict(extra="forbid")
 
-    cid: int = Field(..., ge=0, description="citizen_id this decision belongs to.")
+    cid: int = Field(..., ge=0, description="citizen_id of the voter this decision belongs to.")
     blank: Literal[0, 1] = Field(
         ..., description="1 = bulletin blanc. Si 1, ranking doit être vide (§3.6.1)."
     )
-    ranking: list[int] = Field(
-        ..., description="cids classés, meilleur d'abord. Vide si blank=1."
+    ranking: list[Annotated[int, Field(ge=1)]] = Field(
+        ...,
+        description="Positions (1..N, PAS des cid) des candidats classés, meilleur d'abord. Vide si blank=1.",
     )
     motif: Literal[101, 102, 103, 104] = Field(
         ..., description="Code court obligatoire (§3.6.9) — voir VoteMotif."
@@ -49,7 +59,7 @@ class VoteCastDecision(BaseModel):
         if self.blank == 0 and not self.ranking:
             raise ValueError("blank=0 requires a non-empty ranking")
         if len(set(self.ranking)) != len(self.ranking):
-            raise ValueError("ranking must not contain duplicate cids")
+            raise ValueError("ranking must not contain duplicate positions")
         return self
 
 

@@ -231,6 +231,10 @@ Thumbs.db
 .claude/
 # .vscode/ already ignored above
 
+# Synced Claude Code session/memory data from another machine (Windows path
+# C:\Users\burba\Vote-App), landed inside the repo root via OneDrive sync.
+/c--Users-burba-Vote-App/
+
 # ── graphify knowledge-graph (regeneratable via `graphify update .`) ─────────
 graphify-out/
 .graphifyignore

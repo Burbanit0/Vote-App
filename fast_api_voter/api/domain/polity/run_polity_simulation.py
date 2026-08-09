@@ -20,7 +20,7 @@ from api.domain.polity.citizen import Citizen, Office, Role, generate_population
 from api.domain.polity.config import PolityConfig
 from api.domain.polity.institutional_clock import ElectionType, InstitutionalClock
 from api.domain.polity.journal import Journal
-from api.domain.polity.llm_behavior_engine import cast_votes
+from api.domain.polity.llm_behavior_engine import cast_votes, resolve_ranking_cids
 from api.domain.polity.llm_client import LlmClientProtocol, OllamaJsonClient
 from api.domain.polity.parties import Party, initialize_parties
 from api.domain.polity.simple_rules import (
@@ -162,7 +162,7 @@ def _hold_presidential_election(
                 journal.write(
                     tick=tick,
                     event_type="vote_cast",
-                    payload={"blank": decision.blank, "ranking": decision.ranking},
+                    payload={"blank": decision.blank, "ranking": resolve_ranking_cids(decision, nominees)},
                     citizen_id=decision.cid,
                     motif=str(decision.motif),
                     codebook_version=config.llm.codebook_version,
