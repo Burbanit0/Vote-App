@@ -93,6 +93,9 @@ citizens:
   priority_dist: dirichlet    # [v0] distribution des poids d'enjeux
   blank_threshold_dist: "beta(3,5)"   # [v0] §1.3 THEORY.md
   ambition_dist: "beta(2,8)"  # [v0] la plupart des citoyens sont peu ambitieux
+  base_threshold_dist: "beta(3,5)"    # [v4] seuil d'éveil (§7bis.9d) — bare
+                              #      scalaire par citoyen, pas encore un
+                              #      persona (§9 différé, voir Lot 1 v4)
   static_population: true     # [v0] pas de mortalité/natalité (D1 de l'audit)
   memory_window_terms: 2      # [v1] mémoire rétrospective (mandat courant + 1)
 
@@ -152,6 +155,11 @@ mandate:
   pledge_top_k: 5             # [v4]
   deviation_metric: weighted_euclidean   # [v4]
   deviation_log_threshold: 0.1     # [v4] en deçà, non journalisé (§16.3)
+  max_response_delta: 0.3     # [v4] borne dt=6 (§3.6.5) — distincte de
+                              #      campaign.max_positioning_delta : dérive
+                              #      de mandat et stratégie de campagne
+                              #      doivent rester analytiquement séparables
+  max_response_shifts: 3      # [v4] idem, nombre de dimensions déplacées
 
 petition:
   enabled: false              # [v4]
@@ -182,6 +190,9 @@ awakening:
                               #      false en v4 => pression atomisée,
                               #      cascade impossible par construction
                               #      (§7bis.9f)
+  modulation_amplitude: 0.5   # [v4] f(contexte) borné à [1-amp, 1+amp]
+                              #      (§7bis.9c) — amp=0 réduit f à 1 (bras
+                              #      de contrôle pour l'analyse de sensibilité)
   no_consultation_cap: true   # [v4] TRANCHÉ : aucun plafonnement du nombre
                               #      de consultations par tick (§15bis.1) —
                               #      en auto-hébergement un pic coûte du
@@ -250,10 +261,11 @@ llm:
   rationale_mode: codes       # [v2] codes | free_text | hybrid (§16.5)
                               #      TRANCHÉ : codes partout + texte libre
                               #      borné aux événements pivots (§3.6.9)
-  codebook_version: "1.1"     # [v2] artefact figé, archivé avec le run (§3.7)
-                              #      bump 1.0->1.1 à l'incrément 5 : premier
-                              #      ajout d'un DecisionType (dt=9), pas
-                              #      seulement un motif
+  codebook_version: "1.2"     # [v2/v4] artefact figé, archivé avec le run (§3.7)
+                              #      bump 1.1->1.2 en v4 Lot 1 : réservation
+                              #      de dt=6/dt=10, BallotFormat.BINARY, et
+                              #      des motifs 300-399 (encore inactifs tant
+                              #      que legitimacy.enabled=false)
   personas_count: 30          # [v2] 20-50 archétypes (§9)
                               #      ⚠ PAS ENCORE IMPLÉMENTÉ (v2.1) — v2
                               #      incrément 1 décrit les citoyens par

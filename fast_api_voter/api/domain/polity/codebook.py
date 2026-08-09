@@ -1,7 +1,10 @@
 """
 api.domain.polity.codebook — the compression tables of design doc §3.7,
 vote + candidacy-consideration + party-nomination + campaign-positioning +
-coalition-decision slices (v2 increments 1-5).
+coalition-decision slices (v2 increments 1-5), plus v4 Lot 1's upfront
+reservation of the legitimacy/pressure palier's wire surface (representative
+_response dt=6, pressure_action dt=10, and the binary confidence-vote ballot
+format).
 
 Single source of truth: the `Literal[...]` types used for wire validation
 (llm_schemas.py) and the human-readable table injected into the LLM's system
@@ -10,16 +13,27 @@ cannot silently drift apart — exactly the failure mode §3.7.0 calls out
 ("jamais une édition silencieuse de la version en cours").
 
 `DecisionType` defines VOTE_CAST (1), CANDIDACY_CONSIDERED (2),
-PARTY_NOMINATION_CHOICE (4), CAMPAIGN_POSITIONING (5), and COALITION_DECISION
-(9). CANDIDACY_DECLARED (3) is deliberately NOT a member yet: `candidacy_declared`
-already exists as a journal `event_type` string (run_polity_simulation.py)
-marking the institutional outcome (a party's chosen nominee) — it is not
-itself a second LLM decision, since a single `candidacy_considered` call's
-`outcome=1` case (or, when a party is contested, `party_nomination_choice`'s
-winner) is what produces it. Per §3.7.1, codes 6, 8, 10 exist for other
-decision types not yet implemented; code 7 (`petition_signature_decision`)
-is retired and must never be reassigned — recorded here as a comment, not a
-member, so nothing can accidentally reuse it.
+PARTY_NOMINATION_CHOICE (4), CAMPAIGN_POSITIONING (5), REPRESENTATIVE_RESPONSE
+(6), COALITION_DECISION (9), and PRESSURE_ACTION (10). CANDIDACY_DECLARED (3)
+is deliberately NOT a member: `candidacy_declared` already exists as a journal
+`event_type` string (run_polity_simulation.py) marking the institutional
+outcome (a party's chosen nominee) — it is not itself a second LLM decision,
+since a single `candidacy_considered` call's `outcome=1` case (or, when a
+party is contested, `party_nomination_choice`'s winner) is what produces it.
+Code 7 (`petition_signature_decision`) is retired and must never be
+reassigned — recorded here as a comment, not a member, so nothing can
+accidentally reuse it. Code 8 (`reaction_to_event`) remains reserved-but-
+undefined: v5 scope, no worked schema exists anywhere in the design doc yet.
+
+6 and 10 are reserved here (v4 Lot 1) ahead of their actual `decide_*`
+functions (v4 Lots 6-7) — unlike every prior increment's "the code only gains
+a member when the code that writes it exists" discipline. This is a
+deliberate exception: Lot 1's whole purpose is standing up v4's full wire
+surface (motifs, action/stance enums, the codebook version) in one place
+before any of the palier's 7 subsequent lots build behavior on top of it. In
+practice neither code is ever written to a journal yet — `legitimacy.enabled`
+and every `pressure_menu` lever default to `false`, and no `decide_*`
+function exists until Lot 6/7 — so this is inert reservation, not activation.
 """
 from __future__ import annotations
 
@@ -31,29 +45,37 @@ class PolityCodebookError(ValueError):
     one this code was written against — §3.7.0's frozen-artifact contract."""
 
 
-CODEBOOK_VERSION = "1.1"  # bumped from "1.0" — v2 increment 5 adds a new
-                           # DecisionType member (dt=9), not just a motif.
+CODEBOOK_VERSION = "1.2"  # bumped from "1.1" — v4 Lot 1 reserves dt=6/dt=10,
+                           # BallotFormat.BINARY, and the 300-399 motif range.
 
 
 class DecisionType(IntEnum):
-    """§3.7.1 `decision_type` (`dt`). Only the codes this increment writes
-    are defined: 6=representative_response, 8=reaction_to_event,
-    10=pressure_action are reserved for later increments. 7 is retired
-    (formerly petition_signature_decision) and must never be reused."""
+    """§3.7.1 `decision_type` (`dt`). 8=reaction_to_event remains reserved
+    for v5 (no schema exists anywhere in the design doc yet). 7 is retired
+    (formerly petition_signature_decision) and must never be reused. 6 and
+    10 are reserved by v4 Lot 1 ahead of their own decide_* functions (Lots
+    6-7) — see this module's docstring for why that's a deliberate exception
+    to every prior code's "member only once the code exists" discipline."""
 
     VOTE_CAST = 1
     CANDIDACY_CONSIDERED = 2
     PARTY_NOMINATION_CHOICE = 4
     CAMPAIGN_POSITIONING = 5
+    REPRESENTATIVE_RESPONSE = 6
     COALITION_DECISION = 9
+    PRESSURE_ACTION = 10
 
 
 class BallotFormat(IntEnum):
-    """§3.7.1 `ballot_format` (`bf`). 2=approval, 3=scores, 4=binary are
-    reserved for methods not exercised by this increment's default
-    (two_round, a ranking-family method)."""
+    """§3.7.1 `ballot_format` (`bf`). 2=approval, 3=scores remain reserved
+    for methods no increment's default exercises (two_round, a ranking-
+    family method). 4=binary is v4's confidence-vote mechanic (§7bis.4a) —
+    resolved deterministically in ballot_and_aggregation.py (v4 Lot 5), never
+    its own LLM decision type: §3.7.1 models a confidence vote as bf=4 on
+    the EXISTING vote_cast dt=1, not a sixth decision shape."""
 
     RANKING = 1
+    BINARY = 4
 
 
 class VoteMotif(IntEnum):
@@ -179,6 +201,91 @@ class CoalitionMotif(IntEnum):
 
 
 COALITION_MOTIF_PROMPT_TABLE = "\n".join(f"{motif.value} = {motif.name}" for motif in CoalitionMotif)
+
+
+class Stance(IntEnum):
+    """§3.6.5 / §3.7.1 `stance` (representative_response, dt=6). A closed
+    enum, not free text, so §7bis.4b's central behavioral question --
+    premature concession to a weak signal vs. indifference until real
+    institutional sanction -- is observable directly from the journal,
+    without qualitative re-reading. COUNTER_MOBILIZATION is a valid, LLM-
+    reachable value with no pro-incumbent citizen lever to pair it with in
+    v4 (no "rally the base" action exists in PressureAct below) -- it is
+    observable but mechanically inert until a later palier adds one."""
+
+    CONCESSION = 1
+    DEFIANCE = 2
+    SILENCE = 3
+    COUNTER_MOBILIZATION = 4
+
+
+class PressureAct(IntEnum):
+    """§3.6.6 / §3.7.1 `action` (pressure_action, dt=10). 0 and 4 are always
+    legal regardless of the active pressure_menu (§3.6.6's hard constraint);
+    1/2/3 are gated by petition_enabled/petition_enabled/mobilization_enabled
+    respectively -- enforced in llm_behavior_engine.py against the actual
+    config, not here (the same "context-dependent, not Pydantic's job" split
+    every prior decision type's validate_* function already uses)."""
+
+    NOTHING = 0
+    SIGN_PETITION = 1
+    LAUNCH_PETITION = 2
+    MOBILIZE = 3
+    WAIT_FOR_ELECTION = 4
+
+
+class ResponseMotif(IntEnum):
+    """§3.7.2 motif range 300-399 (Pression) — representative_response's
+    (dt=6) slice. 301/302/303 are the design doc's own codes, kept verbatim:
+    each grounds a CONCESSION specifically, the representative yielding to a
+    legible signal directly present in dt=6's own ctx (their own mandate
+    deviation, visible street pressure, or an approaching legitimacy floor).
+    304 RESIGNATION_NO_LEVERAGE and 305 DEFERRED_TO_ELECTION are deliberately
+    NOT members here: both describe a CITIZEN's reasoning for inaction (see
+    PressureMotif below), not a sitting representative's -- a citizen who
+    feels they have no leverage is not the same fact as a representative who
+    concedes nothing. 306 FOLLOWING_NEIGHBORS needs the v6 social graph and
+    has no analogue for a single office-holder. 307-309 are new codes
+    (§3.7.2's list is explicitly "non figée") for the three stances the
+    design doc's own three codes cannot ground at all: defiance, silence,
+    and counter-mobilization each need their own signal, not a borrowed
+    concession-reason -- reusing a concession motif for the opposite
+    reaction would make the motif distribution describe nothing."""
+
+    MANDATE_DEVIATION_HIGH = 301
+    STREET_PRESSURE_RESPONSE = 302
+    LEGITIMACY_FLOOR_APPROACHING = 303
+    IDEOLOGICAL_CONVICTION = 307
+    STRATEGIC_AMBIGUITY = 308
+    BASE_MOBILIZATION_APPEAL = 309
+
+
+RESPONSE_MOTIF_PROMPT_TABLE = "\n".join(f"{motif.value} = {motif.name}" for motif in ResponseMotif)
+
+
+class PressureMotif(IntEnum):
+    """§3.7.2 motif range 300-399 (Pression) — pressure_action's (dt=10)
+    slice. Overlaps ResponseMotif at 301 deliberately: a representative's
+    self-awareness of their own deviation and a citizen's perception of that
+    same deviation are two legitimately distinct readings of one underlying
+    fact, not a collision (two separate enum classes, so there is no value
+    conflict). 302 STREET_PRESSURE_RESPONSE and 306 FOLLOWING_NEIGHBORS are
+    deliberately NOT members: dt=10's own ctx (§3.6.6's worked example)
+    never includes the street_pressure aggregate at all -- §7bis.9f requires
+    each citizen to decide alone, without seeing what others are doing, and
+    leaking that aggregate into a citizen's own motif choice would
+    contradict the atomized-regime baseline v4 exists partly to establish
+    (v6's contagion regime is the comparison point). neighbors_acting is
+    null before v6 for the same reason. 304/305 are the design doc's own
+    codes, grounding act=0 (no leverage) and act=4 (deferred to election)
+    respectively."""
+
+    MANDATE_DEVIATION_HIGH = 301
+    RESIGNATION_NO_LEVERAGE = 304
+    DEFERRED_TO_ELECTION = 305
+
+
+PRESSURE_MOTIF_PROMPT_TABLE = "\n".join(f"{motif.value} = {motif.name}" for motif in PressureMotif)
 
 
 def check_codebook_version(config_version: str) -> None:

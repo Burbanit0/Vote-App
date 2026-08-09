@@ -35,7 +35,7 @@ def test_loads_the_real_polity_config_with_expected_v0_values():
     assert config.llm.temperature == 0.0
     assert config.llm.max_batch_size == 25
     assert config.llm.batch_sharding == "static"
-    assert config.llm.codebook_version == "1.1"
+    assert config.llm.codebook_version == "1.2"
     assert config.llm.personas_count == 30
     assert config.campaign.max_positioning_delta == 0.3
     assert config.campaign.max_positioning_shifts == 3
@@ -213,3 +213,152 @@ def test_campaign_max_positioning_shifts_must_be_positive(tmp_path):
     path = _write(tmp_path, lambda d: d["campaign"].__setitem__("max_positioning_shifts", 0))
     with pytest.raises(PolityConfigError, match="max_positioning_shifts"):
         load_config(path)
+
+
+# ── v4 Lot 1: legitimacy/pressure/mandate/petition/street_pressure/awakening ──
+
+def test_loads_the_real_config_with_expected_v4_lot1_values():
+    config = load_config()
+    assert config.citizens.base_threshold_dist == "beta(3,5)"
+    assert config.legitimacy.recall_floor_indexed_on_l0 is False
+    assert config.legitimacy.recall_cooldown_ticks == 4
+    assert config.legitimacy.passive_erosion_weight == 0.0
+    assert config.pressure_menu.petition_enabled is False
+    assert config.pressure_menu.mobilization_enabled is False
+    assert config.pressure_menu.electoral_only is True
+    assert config.mandate.pledge_scope == "top_k_priorities"
+    assert config.mandate.pledge_top_k == 5
+    assert config.mandate.max_response_delta == 0.3
+    assert config.mandate.max_response_shifts == 3
+    assert config.petition.signature_threshold == 0.25
+    assert config.petition.concurrent_allowed is False
+    assert config.petition.weight_in_ecart == 0.5
+    assert config.street_pressure.decay == 0.85
+    assert config.street_pressure.weight_in_ecart == 0.5
+    assert config.awakening.source == "persona_base_threshold"
+    assert config.awakening.context_modulation.mandate_deviation is True
+    assert config.awakening.context_modulation.neighbors_acting is False
+    assert config.awakening.modulation_amplitude == 0.5
+    assert config.awakening.no_consultation_cap is True
+
+
+def test_legitimacy_recall_floor_indexed_on_l0_true_raises(tmp_path):
+    path = _write(tmp_path, lambda d: d["legitimacy"].__setitem__("recall_floor_indexed_on_L0", True))
+    with pytest.raises(PolityConfigError, match="recall_floor_indexed_on_L0"):
+        load_config(path)
+
+
+def test_awakening_no_consultation_cap_false_raises(tmp_path):
+    path = _write(tmp_path, lambda d: d["awakening"].__setitem__("no_consultation_cap", False))
+    with pytest.raises(PolityConfigError, match="no_consultation_cap"):
+        load_config(path)
+
+
+def test_petition_concurrent_allowed_true_raises(tmp_path):
+    path = _write(tmp_path, lambda d: d["petition"].__setitem__("concurrent_allowed", True))
+    with pytest.raises(PolityConfigError, match="concurrent_allowed"):
+        load_config(path)
+
+
+def test_mandate_unknown_pledge_scope_raises(tmp_path):
+    path = _write(tmp_path, lambda d: d["mandate"].__setitem__("pledge_scope", "everything"))
+    with pytest.raises(PolityConfigError, match="pledge_scope"):
+        load_config(path)
+
+
+def test_awakening_unknown_source_raises(tmp_path):
+    path = _write(tmp_path, lambda d: d["awakening"].__setitem__("source", "random"))
+    with pytest.raises(PolityConfigError, match="source"):
+        load_config(path)
+
+
+def test_electoral_only_with_petition_enabled_raises(tmp_path):
+    def mutate(d):
+        d["pressure_menu"]["electoral_only"] = True
+        d["pressure_menu"]["petition_enabled"] = True
+        d["petition"]["enabled"] = True
+        d["legitimacy"]["enabled"] = True
+
+    path = _write(tmp_path, mutate)
+    with pytest.raises(PolityConfigError, match="electoral_only"):
+        load_config(path)
+
+
+def test_electoral_only_with_mobilization_enabled_raises(tmp_path):
+    def mutate(d):
+        d["pressure_menu"]["electoral_only"] = True
+        d["pressure_menu"]["mobilization_enabled"] = True
+        d["street_pressure"]["enabled"] = True
+        d["legitimacy"]["enabled"] = True
+
+    path = _write(tmp_path, mutate)
+    with pytest.raises(PolityConfigError, match="electoral_only"):
+        load_config(path)
+
+
+def test_pressure_menu_petition_enabled_disagreeing_with_petition_enabled_raises(tmp_path):
+    def mutate(d):
+        d["pressure_menu"]["electoral_only"] = False
+        d["pressure_menu"]["petition_enabled"] = True
+        # petition.enabled deliberately left False -- the drift this rule catches.
+
+    path = _write(tmp_path, mutate)
+    with pytest.raises(PolityConfigError, match="petition_enabled"):
+        load_config(path)
+
+
+def test_pressure_menu_mobilization_enabled_disagreeing_with_street_pressure_enabled_raises(tmp_path):
+    def mutate(d):
+        d["pressure_menu"]["electoral_only"] = False
+        d["pressure_menu"]["mobilization_enabled"] = True
+        # street_pressure.enabled deliberately left False -- the drift this rule catches.
+
+    path = _write(tmp_path, mutate)
+    with pytest.raises(PolityConfigError, match="mobilization_enabled"):
+        load_config(path)
+
+
+def test_petition_and_street_pressure_weights_must_sum_to_one(tmp_path):
+    path = _write(tmp_path, lambda d: d["petition"].__setitem__("weight_in_ecart", 0.6))
+    with pytest.raises(PolityConfigError, match="weight_in_ecart"):
+        load_config(path)
+
+
+def test_petition_enabled_without_legitimacy_enabled_raises(tmp_path):
+    def mutate(d):
+        d["pressure_menu"]["electoral_only"] = False
+        d["pressure_menu"]["petition_enabled"] = True
+        d["petition"]["enabled"] = True
+        # legitimacy.enabled deliberately left False.
+
+    path = _write(tmp_path, mutate)
+    with pytest.raises(PolityConfigError, match="legitimacy.enabled"):
+        load_config(path)
+
+
+def test_street_pressure_enabled_without_legitimacy_enabled_raises(tmp_path):
+    def mutate(d):
+        d["pressure_menu"]["electoral_only"] = False
+        d["pressure_menu"]["mobilization_enabled"] = True
+        d["street_pressure"]["enabled"] = True
+        # legitimacy.enabled deliberately left False.
+
+    path = _write(tmp_path, mutate)
+    with pytest.raises(PolityConfigError, match="legitimacy.enabled"):
+        load_config(path)
+
+
+def test_petition_and_mobilization_enabled_with_legitimacy_enabled_is_allowed(tmp_path):
+    def mutate(d):
+        d["pressure_menu"]["electoral_only"] = False
+        d["pressure_menu"]["petition_enabled"] = True
+        d["pressure_menu"]["mobilization_enabled"] = True
+        d["petition"]["enabled"] = True
+        d["street_pressure"]["enabled"] = True
+        d["legitimacy"]["enabled"] = True
+
+    path = _write(tmp_path, mutate)
+    config = load_config(path)
+    assert config.pressure_menu.petition_enabled is True
+    assert config.pressure_menu.mobilization_enabled is True
+    assert config.legitimacy.enabled is True
