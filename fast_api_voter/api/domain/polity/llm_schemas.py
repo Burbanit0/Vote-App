@@ -1,7 +1,8 @@
 """
 api.domain.polity.llm_schemas — Pydantic wire schemas for the LLM's
-`vote_cast` (design doc §3.6.1), `candidacy_considered` (§3.6.2), and
-`party_nomination_choice` (§3.6.2->3.6.8, dt=4) decisions, v2 increments 1-3.
+`vote_cast` (design doc §3.6.1), `candidacy_considered` (§3.6.2),
+`party_nomination_choice` (§3.6.2->3.6.8, dt=4), and `campaign_positioning`
+(§3.6.2->3.6.8, dt=5) decisions, v2 increments 1-4.
 
 Lives in api/domain/polity/, not api/schemas/ — that package is the public
 HTTP/OpenAPI surface (see voter-api skill); these are internal LLM wire
@@ -143,3 +144,58 @@ class PartyNominationBatch(BaseModel):
 
 
 PARTY_NOMINATION_JSON_SCHEMA = PartyNominationBatch.model_json_schema()
+
+
+class PositionShift(BaseModel):
+    """One sparse move along a single issue dimension, design doc
+    §3.6.2->3.6.8's "delta borné" (never a full issue_count-length vector —
+    §3.6.5's own example represents a delta the same sparse way,
+    `{"7": -0.15}`). `delta`'s Field bound here is a loose structural
+    ceiling only, NOT the real cap — Ollama's structured-output "strict"
+    mode requires a closed schema (no dynamic dict keys), so a Pydantic
+    `dict[str, float]` isn't an option; a bounded list of this fixed
+    sub-model is the strict-mode-compatible equivalent. The actual
+    campaign.max_positioning_delta bound is enforced in
+    llm_behavior_engine.validate_positioning_decision, which has the config
+    this schema (defined at import time) can't see."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    dimension: int = Field(..., ge=0, description="0-indexed issue dimension this shift applies to.")
+    delta: float = Field(..., ge=-1.0, le=1.0, description="Signed shift; the real bound is campaign.max_positioning_delta.")
+
+
+class PositioningDecision(BaseModel):
+    """One nominee's campaign-positioning judgment, design doc §3.6.2->3.6.8
+    / dt=5. `shifts` is capped at a generous structural ceiling here
+    (max_length=5) — campaign.max_positioning_shifts is the real, tighter
+    cap, enforced in llm_behavior_engine.py alongside per-shift delta
+    magnitude. An empty list means the nominee runs on their sincere
+    position (motif=SINCERE_CONVICTION)."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    cid: int = Field(..., ge=0, description="citizen_id of the nominee this decision belongs to.")
+    shifts: list[PositionShift] = Field(..., max_length=5)
+    motif: Literal[601, 602, 603, 604] = Field(
+        ..., description="Code court obligatoire (§3.7.2) — voir CampaignMotif."
+    )
+
+    @model_validator(mode="after")
+    def _check_no_duplicate_dimensions(self) -> PositioningDecision:
+        dimensions = [shift.dimension for shift in self.shifts]
+        if len(set(dimensions)) != len(dimensions):
+            raise ValueError("shifts must not target the same dimension twice")
+        return self
+
+
+class PositioningBatch(BaseModel):
+    """§3.6.0's batch envelope, specialized to campaign_positioning — one
+    decision per nominee standing in this tick's presidential election."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    decisions: list[PositioningDecision] = Field(..., min_length=1)
+
+
+POSITIONING_JSON_SCHEMA = PositioningBatch.model_json_schema()

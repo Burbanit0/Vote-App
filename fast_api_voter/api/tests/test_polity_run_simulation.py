@@ -99,17 +99,21 @@ def test_two_runs_with_rupture_enabled_produce_byte_identical_journals(tmp_path)
 class _FakeLlmClient:
     """Deterministic fake dispatching on user_prompt shape, since one client
     instance now serves decide_candidacies ("citizens" key),
-    decide_party_nominations ("parties" key), and cast_votes
-    ("voters"/"candidates" keys) within the same run.
+    decide_party_nominations ("parties" key), decide_campaign_positioning
+    ("nominees" key), and cast_votes ("voters"/"candidates" keys) within the
+    same run.
     Candidacy: declares (outcome=1) whenever ambition_score >= 0.1 --
     config.candidacy.ambition_threshold is NOT consulted by the LLM path at
     all (decide_candidacies never reads it; only the deterministic
     decide_candidacy does), so this fake owns its own threshold rather than
     reading one from config. Party nomination: picks the highest-ambition
-    candidate per contested party (motif 206). Voting: every citizen votes
-    blank -- enough to exercise the integration plumbing (journal writes,
-    reproducibility, error propagation) without needing real vote-quality
-    logic."""
+    candidate per contested party (motif 206). Campaign positioning: every
+    nominee shifts dimension 0 by +0.1 (motif 602) -- always non-empty, so
+    tests can assert a real pledged_platform change, well within the
+    default config.campaign bounds (max_positioning_delta=0.3,
+    max_positioning_shifts=3). Voting: every citizen votes blank -- enough
+    to exercise the integration plumbing (journal writes, reproducibility,
+    error propagation) without needing real vote-quality logic."""
 
     def complete_json(self, *, system_prompt, user_prompt, json_schema, max_tokens, think=True):
         payload = json.loads(user_prompt)
@@ -129,6 +133,12 @@ class _FakeLlmClient:
                     "motif": 206,
                 }
                 for p in payload["parties"]
+            ]
+            return json.dumps({"decisions": decisions})
+        if "nominees" in payload:
+            decisions = [
+                {"cid": n["cid"], "shifts": [{"dimension": 0, "delta": 0.1}], "motif": 602}
+                for n in payload["nominees"]
             ]
             return json.dumps({"decisions": decisions})
         decisions = [{"cid": v["cid"], "blank": 1, "ranking": [], "motif": 101} for v in payload["voters"]]
@@ -183,6 +193,9 @@ def test_llm_batch_misalignment_aborts_the_run_with_no_partial_journal(tmp_path)
                     }
                     for p in payload["parties"]
                 ]
+                return json.dumps({"decisions": decisions})
+            if "nominees" in payload:
+                decisions = [{"cid": n["cid"], "shifts": [], "motif": 601} for n in payload["nominees"]]
                 return json.dumps({"decisions": decisions})
             first = payload["voters"][0]
             return json.dumps({"decisions": [{"cid": first["cid"], "blank": 1, "ranking": [], "motif": 101}]})
@@ -268,6 +281,35 @@ def test_llm_path_journals_party_nomination_choice_only_for_contested_parties(tm
         # candidacy_declared nominee -- decide_party_nominations' output
         # actually drives who runs, not just an unused side record.
         assert (event["tick"], event["citizen_id"]) in declared
+
+
+# ── LLM campaign-positioning path (v2 increment 4) ───────────────────────
+
+def test_llm_path_journals_campaign_positioning_once_per_dominant_nominee(tmp_path):
+    config = _config_with_llm_enabled(tmp_path)
+    journal_path = run_simulation(config, run_id="llm-campaign-positioning", llm_client=_FakeLlmClient())
+    events = _events(journal_path)
+    positioning_events = [e for e in events if e["event_type"] == "campaign_positioning"]
+    declared_dominant = [
+        e for e in events if e["event_type"] == "candidacy_declared" and e["payload"].get("path") == "dominant"
+    ]
+    assert len(positioning_events) > 0
+    assert len(positioning_events) == len(declared_dominant)
+    for event in positioning_events:
+        assert event["codebook_version"] == config.llm.codebook_version
+        assert event["motif"] == "602"
+        # Non-empty shifts (the fake always shifts dimension 0 by +0.1) is
+        # the observable proxy for a real pledged_platform change -- the
+        # actual position math (apply_shifts) is unit-tested separately.
+        assert event["payload"]["shifts"] == [{"dimension": 0, "delta": 0.1}]
+
+    # Positioning fires for exactly the same (tick, nominee) pairs that get
+    # declared dominant -- confirms rupture candidates are excluded (they're
+    # never part of `nominees` when this runs) and every dominant nominee is
+    # covered, not just a subset.
+    declared_ticks_and_cids = {(e["tick"], e["citizen_id"]) for e in declared_dominant}
+    positioning_ticks_and_cids = {(e["tick"], e["citizen_id"]) for e in positioning_events}
+    assert positioning_ticks_and_cids == declared_ticks_and_cids
 
 
 def test_unsupported_presidential_method_raises_before_any_work(tmp_path):

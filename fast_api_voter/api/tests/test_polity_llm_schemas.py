@@ -5,15 +5,18 @@ network — pure schema validation.
 import pytest
 from pydantic import ValidationError
 
-from api.domain.polity.codebook import CandidacyMotif, PartyNominationMotif, VoteMotif
+from api.domain.polity.codebook import CampaignMotif, CandidacyMotif, PartyNominationMotif, VoteMotif
 from api.domain.polity.llm_schemas import (
     CANDIDACY_JSON_SCHEMA,
     PARTY_NOMINATION_JSON_SCHEMA,
+    POSITIONING_JSON_SCHEMA,
     VOTE_CAST_JSON_SCHEMA,
     CandidacyBatch,
     CandidacyDecision,
     PartyNominationBatch,
     PartyNominationDecision,
+    PositioningBatch,
+    PositioningDecision,
     VoteCastBatch,
     VoteCastDecision,
 )
@@ -204,3 +207,73 @@ def test_party_nomination_json_schema_marks_winner_position_as_required():
 
 def test_party_nomination_json_schema_batch_forbids_additional_properties():
     assert PARTY_NOMINATION_JSON_SCHEMA.get("additionalProperties") is False
+
+
+def _positioning_decision(**overrides):
+    base = {"cid": 1, "shifts": [{"dimension": 0, "delta": 0.1}], "motif": 602}
+    base.update(overrides)
+    return base
+
+
+def test_valid_positioning_decision_round_trips():
+    decision = PositioningDecision.model_validate(_positioning_decision())
+    assert decision.cid == 1
+    assert len(decision.shifts) == 1
+    assert decision.shifts[0].dimension == 0
+    assert decision.shifts[0].delta == 0.1
+
+
+def test_positioning_decision_with_empty_shifts_is_valid():
+    decision = PositioningDecision.model_validate(_positioning_decision(shifts=[]))
+    assert decision.shifts == []
+
+
+def test_positioning_decision_rejects_duplicate_dimensions():
+    with pytest.raises(ValidationError, match="same dimension"):
+        PositioningDecision.model_validate(
+            _positioning_decision(shifts=[{"dimension": 0, "delta": 0.1}, {"dimension": 0, "delta": -0.2}])
+        )
+
+
+def test_positioning_decision_rejects_more_than_five_shifts():
+    with pytest.raises(ValidationError):
+        PositioningDecision.model_validate(
+            _positioning_decision(shifts=[{"dimension": i, "delta": 0.1} for i in range(6)])
+        )
+
+
+def test_positioning_unknown_motif_raises():
+    with pytest.raises(ValidationError):
+        PositioningDecision.model_validate(_positioning_decision(motif=605))
+
+
+def test_positioning_unknown_extra_key_raises():
+    with pytest.raises(ValidationError):
+        PositioningDecision.model_validate({**_positioning_decision(), "extra_field": True})
+
+
+def test_positioning_empty_decisions_list_raises():
+    with pytest.raises(ValidationError):
+        PositioningBatch.model_validate({"decisions": []})
+
+
+def test_positioning_batch_round_trips_multiple_decisions():
+    batch = PositioningBatch.model_validate(
+        {"decisions": [_positioning_decision(cid=1), _positioning_decision(cid=2, shifts=[])]}
+    )
+    assert [d.cid for d in batch.decisions] == [1, 2]
+
+
+def test_positioning_motif_literal_matches_campaign_motif_enum_exactly():
+    literal_values = set(PositioningDecision.model_fields["motif"].annotation.__args__)  # type: ignore[union-attr]
+    assert literal_values == {member.value for member in CampaignMotif}
+
+
+def test_positioning_json_schema_marks_shifts_as_required():
+    decision_schema = POSITIONING_JSON_SCHEMA["$defs"]["PositioningDecision"]
+    assert "shifts" in decision_schema["required"]
+    assert decision_schema.get("additionalProperties") is False
+
+
+def test_positioning_json_schema_batch_forbids_additional_properties():
+    assert POSITIONING_JSON_SCHEMA.get("additionalProperties") is False

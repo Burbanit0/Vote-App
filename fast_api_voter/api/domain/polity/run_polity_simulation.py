@@ -5,10 +5,10 @@ Pure sequencing, no decision logic of its own (design doc §1): every choice
 (who to nominate, who a citizen votes for, who forms a coalition) comes from
 simple_rules.py or, when config.llm.enabled, llm_behavior_engine.py's LLM
 replacements (voting since increment 1, the dominant candidacy path since
-increment 2, contested-party arbitration since increment 3); every count (a
-winner, a seat allocation) comes from ballot_and_aggregation.py. This module
-only calls them in the right order, once per tick, and journals what
-happened.
+increment 2, contested-party arbitration since increment 3, campaign
+positioning since increment 4); every count (a winner, a seat allocation)
+comes from ballot_and_aggregation.py. This module only calls them in the
+right order, once per tick, and journals what happened.
 
 _declare_nominees_llm journals candidacy_considered for every evaluated
 citizen (increment 2) -- including declines, which the deterministic
@@ -17,7 +17,12 @@ every *contested* party (increment 3, 2+ declared candidates) and
 nomination_lost for any LLM-approved citizen who doesn't win their party's
 nomination (contested: the LLM's choice; uncontested: still the
 deterministic tiebreak), so their story isn't silently absent from the
-journal (design doc §16.3).
+journal (design doc §16.3). Since increment 4, it also runs
+decide_campaign_positioning on the tick's finalized nominee list, overwrites
+their pledged_platform/revealed_position with the resolved (possibly
+shifted) position, and journals campaign_positioning per nominee --
+including sincere ones (empty shifts), so "chose not to strategize" is as
+visible as any other outcome.
 """
 from __future__ import annotations
 
@@ -34,6 +39,7 @@ from api.domain.polity.institutional_clock import ElectionType, InstitutionalClo
 from api.domain.polity.journal import Journal
 from api.domain.polity.llm_behavior_engine import (
     cast_votes,
+    decide_campaign_positioning,
     decide_candidacies,
     decide_party_nominations,
     resolve_ranking_cids,
@@ -237,6 +243,29 @@ def _declare_nominees_llm(
             citizen_id=nominee.citizen_id,
         )
         nominees.append(nominee)
+
+    parties_by_id = {party.party_id: party for party in parties}
+    positioning_outcome = decide_campaign_positioning(nominees, citizens, parties_by_id, config, llm_client)
+    positioning_by_cid = {decision.cid: decision for decision in positioning_outcome.decisions}
+    for nominee in nominees:
+        new_platform = positioning_outcome.platforms.get(nominee.citizen_id)
+        if new_platform is None:
+            continue
+        nominee.pledged_platform = new_platform
+        nominee.revealed_position = new_platform
+        positioning_decision = positioning_by_cid[nominee.citizen_id]
+        journal.write(
+            tick=tick,
+            event_type="campaign_positioning",
+            payload={
+                "shifts": [
+                    {"dimension": shift.dimension, "delta": shift.delta} for shift in positioning_decision.shifts
+                ]
+            },
+            citizen_id=nominee.citizen_id,
+            motif=str(positioning_decision.motif),
+            codebook_version=config.llm.codebook_version,
+        )
     return nominees
 
 

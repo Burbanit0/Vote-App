@@ -8,15 +8,15 @@ prompt (llm_behavior_engine.py) both derive from these enums, so the two
 cannot silently drift apart — exactly the failure mode §3.7.0 calls out
 ("jamais une édition silencieuse de la version en cours").
 
-`DecisionType` defines VOTE_CAST (1), CANDIDACY_CONSIDERED (2), and
-PARTY_NOMINATION_CHOICE (4). CANDIDACY_DECLARED (3) is deliberately NOT a
-member yet: `candidacy_declared` already exists as a journal `event_type`
-string (run_polity_simulation.py) marking the institutional outcome (a
-party's chosen nominee) — it is not itself a second LLM decision, since a
-single `candidacy_considered` call's `outcome=1` case (or, when a party is
-contested, `party_nomination_choice`'s winner) is what produces it. Per
-§3.7.1, codes 5-6 and 8-10 exist for other decision types not yet
-implemented; code 7 (`petition_signature_decision`) is retired and must
+`DecisionType` defines VOTE_CAST (1), CANDIDACY_CONSIDERED (2),
+PARTY_NOMINATION_CHOICE (4), and CAMPAIGN_POSITIONING (5). CANDIDACY_DECLARED
+(3) is deliberately NOT a member yet: `candidacy_declared` already exists as
+a journal `event_type` string (run_polity_simulation.py) marking the
+institutional outcome (a party's chosen nominee) — it is not itself a second
+LLM decision, since a single `candidacy_considered` call's `outcome=1` case
+(or, when a party is contested, `party_nomination_choice`'s winner) is what
+produces it. Per §3.7.1, codes 6 and 8-10 exist for other decision types not
+yet implemented; code 7 (`petition_signature_decision`) is retired and must
 never be reassigned — recorded here as a comment, not a member, so nothing
 can accidentally reuse it.
 """
@@ -35,14 +35,15 @@ CODEBOOK_VERSION = "1.0"
 
 class DecisionType(IntEnum):
     """§3.7.1 `decision_type` (`dt`). Only the codes this increment writes
-    are defined: 5=campaign_positioning, 6=representative_response,
-    8=reaction_to_event, 9=coalition_decision, 10=pressure_action are
-    reserved for later increments. 7 is retired (formerly
-    petition_signature_decision) and must never be reused."""
+    are defined: 6=representative_response, 8=reaction_to_event,
+    9=coalition_decision, 10=pressure_action are reserved for later
+    increments. 7 is retired (formerly petition_signature_decision) and
+    must never be reused."""
 
     VOTE_CAST = 1
     CANDIDACY_CONSIDERED = 2
     PARTY_NOMINATION_CHOICE = 4
+    CAMPAIGN_POSITIONING = 5
 
 
 class BallotFormat(IntEnum):
@@ -118,6 +119,25 @@ class PartyNominationMotif(IntEnum):
 PARTY_NOMINATION_MOTIF_PROMPT_TABLE = "\n".join(
     f"{motif.value} = {motif.name}" for motif in PartyNominationMotif
 )
+
+
+class CampaignMotif(IntEnum):
+    """§3.7.2 motif range 600-699 (Campagne) — a NEW range, unlike
+    party_nomination_choice's reuse of 200-299. Positioning strategy is a
+    distinct concept from candidature itself (whether/who becomes a
+    candidate): it's about how a already-confirmed nominee presents
+    themselves. Each code maps directly to a signal
+    build_positioning_user_prompt actually sends (own position, rival
+    nominees, electorate mean) so the observed motif distribution is a real
+    read on emergent strategy, not an arbitrary label."""
+
+    SINCERE_CONVICTION = 601
+    MEDIAN_VOTER_APPEAL = 602
+    BASE_CONSOLIDATION = 603
+    DIFFERENTIATION_FROM_RIVALS = 604
+
+
+CAMPAIGN_MOTIF_PROMPT_TABLE = "\n".join(f"{motif.value} = {motif.name}" for motif in CampaignMotif)
 
 
 def check_codebook_version(config_version: str) -> None:
