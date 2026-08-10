@@ -62,6 +62,14 @@ class Citizen:
     mandates_served: int = 0
     pledged_platform: tuple[float, ...] | None = None
     revealed_position: tuple[float, ...] | None = None
+    # v4 Lot 2: same "add now to avoid a schema migration later" precedent as the
+    # fields above. base_threshold is always set to a real drawn value by
+    # generate_population; the 0.0 default only exists because five call sites
+    # outside this module construct Citizen without it (Lot 4's awakening gate
+    # tests must set it explicitly -- 0.0 means "always awake"). legitimacy_capital
+    # stays unread until Lot 3's initial_legitimacy/update_legitimacy.
+    base_threshold: float = 0.0
+    legitimacy_capital: float = 0.0
 
 
 def generate_population(config: CitizensConfig, population_size: int, seed: int) -> list[Citizen]:
@@ -84,6 +92,10 @@ def generate_population(config: CitizensConfig, population_size: int, seed: int)
     blank_thresholds = rng.beta(blank_a, blank_b, size=n)
     ambition_a, ambition_b = _parse_beta_params(config.ambition_dist)
     ambitions = rng.beta(ambition_a, ambition_b, size=n)
+    # v4 Lot 2: appended LAST -- draw order before this point is unchanged, so
+    # every pre-existing field stays field-for-field identical at a fixed seed.
+    base_a, base_b = _parse_beta_params(config.base_threshold_dist)
+    base_thresholds = rng.beta(base_a, base_b, size=n)
 
     return [
         Citizen(
@@ -92,6 +104,7 @@ def generate_population(config: CitizensConfig, population_size: int, seed: int)
             issue_priorities=tuple(float(x) for x in priorities[i]),
             blank_threshold=float(blank_thresholds[i]),
             ambition_score=float(ambitions[i]),
+            base_threshold=float(base_thresholds[i]),
         )
         for i in range(n)
     ]

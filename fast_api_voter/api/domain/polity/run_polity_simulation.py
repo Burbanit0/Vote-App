@@ -42,6 +42,7 @@ from typing import Iterator
 
 import numpy as np
 
+from api.domain.polity.accountability import current_office_holders, is_term_limited, mandate_deviation
 from api.domain.polity.ballot_and_aggregation import RANKED_METHODS, allocate_seats, get_presidential_winner
 from api.domain.polity.citizen import Citizen, Office, Role, generate_population
 from api.domain.polity.config import PolityConfig
@@ -68,6 +69,7 @@ from api.domain.polity.simple_rules import (
     form_coalition,
     select_party_nominee,
     select_party_nominee_from_declared,
+    vacate_office,
 )
 
 
@@ -76,10 +78,12 @@ def run_simulation(
 ) -> Path:
     """Run a full simulation and return the path to its journal.
 
-    president_term_limit/assembly_term_limit are both null in v0's shipped
-    config and are themselves tagged [v4] there — v0 tracks
-    Citizen.mandates_served (§3.1) but does not gate candidacy on it; that
-    gate activates in v4 alongside the limits it reads.
+    president_term_limit is null in the shipped config (illimité), but is
+    now enforced when set (v4 Lot 2, §6bis.1): a citizen with
+    mandates_served >= term_limit cannot be nominated again on the
+    deterministic candidacy path (assembly_term_limit stays unread —
+    legislative elections are party-list, no per-citizen candidacy check
+    exists to gate).
 
     `llm_client` is additive (default None) so every pre-v2 caller and test
     is unaffected. When `config.llm.enabled` is true and no client was
@@ -114,6 +118,7 @@ def run_simulation(
             if election in (ElectionType.LEGISLATIVE, ElectionType.BOTH):
                 seats, votes = _hold_legislative_election(citizens, parties, config, journal, tick)
                 _form_and_journal_coalition(parties, seats, votes, config, journal, tick, client)
+            _run_accountability_phase(citizens, config, journal, tick)
 
     return Path(config.journal.output_dir) / run_id / "events.jsonl"
 
@@ -142,7 +147,12 @@ def _attempt_rupture_candidacies(
     for citizen in citizens:
         if citizen.role != Role.ELECTOR:
             continue
-        if attempt_rupture_candidacy(citizen, citizens, config.candidacy, rng):
+        # is_term_limited is checked AFTER the draw, never before: skipping
+        # the call for term-limited citizens would shift the RNG stream and
+        # break byte-for-byte reproducibility for any non-null
+        # president_term_limit (v4 Lot 2, §6bis.1).
+        declared = attempt_rupture_candidacy(citizen, citizens, config.candidacy, rng)
+        if declared and not is_term_limited(citizen, config.institutions.president_term_limit):
             declare_candidacy(citizen)
             journal.write(
                 tick=tick,
@@ -162,9 +172,18 @@ def _declare_nominees(
 ) -> list[Citizen]:
     if config.llm.enabled:
         return _declare_nominees_llm(citizens, parties, config, journal, tick, llm_client)
+    # Term limits (v4 Lot 2, §6bis.1) are enforced only on this deterministic
+    # branch. _declare_nominees_llm reuses `citizens` unfiltered to compute
+    # decide_campaign_positioning's electorate_mean over the FULL population
+    # -- pre-filtering it here would silently change that already-shipped
+    # LLM path's context. Closed in Lot 6/7, when lame_duck enters dt=6's
+    # ctx and llm_behavior_engine.py is back in scope anyway.
+    eligible = [
+        c for c in citizens if not is_term_limited(c, config.institutions.president_term_limit)
+    ]
     nominees = []
     for party in parties:
-        nominee = select_party_nominee(party.party_id, citizens, config.candidacy)
+        nominee = select_party_nominee(party.party_id, eligible, config.candidacy)
         if nominee is None:
             continue
         declare_candidacy(nominee)
@@ -302,9 +321,7 @@ def _hold_presidential_election(
     # and re-promoted below, same as any other winner.
     for outgoing in citizens:
         if outgoing.office == Office.PRESIDENT:
-            outgoing.role = Role.ELECTOR
-            outgoing.office = Office.NONE
-            outgoing.term_end_tick = None
+            vacate_office(outgoing)
 
     nominees = _declare_nominees(citizens, parties, config, journal, tick, llm_client)
     nominee_ids = {c.citizen_id for c in nominees}
@@ -353,6 +370,24 @@ def _hold_presidential_election(
         payload={"office": Office.PRESIDENT.value},
         citizen_id=winner.citizen_id if winner is not None else None,
     )
+    if winner is not None and config.mandate.enabled:
+        # §7bis.5: journaled at election, separately from the per-tick
+        # accountability phase's mandate_deviation_recorded. lame_duck is
+        # written here (not just derivable at Lot 6 prompt time) so a
+        # journal-only analyst can compute §6bis.1's lame_duck_deviation_delta
+        # without needing president_term_limit from the run's config file.
+        assert winner.pledged_platform is not None  # declare_candidacy always sets it
+        journal.write(
+            tick=tick,
+            event_type="mandate_pledge_declared",
+            payload={
+                "office": Office.PRESIDENT.value,
+                "pledged_platform": list(winner.pledged_platform),
+                "mandates_served": winner.mandates_served,
+                "lame_duck": is_term_limited(winner, config.institutions.president_term_limit),
+            },
+            citizen_id=winner.citizen_id,
+        )
 
 
 def _hold_legislative_election(
@@ -438,3 +473,33 @@ def _form_and_journal_coalition_llm(
         event_type="coalition_formed" if outcome.coalition is not None else "coalition_failed",
         payload={"coalition": outcome.coalition, "seats": seats},
     )
+
+
+def _run_accountability_phase(citizens: list[Citizen], config: PolityConfig, journal: Journal, tick: int) -> None:
+    """v4 Lot 2 -- §7bis.7 step 1 only ("measure, never mutate"): steps 2-7
+    (awakening, pressure aggregation, écart, L(t), petition/floor checks)
+    land in Lots 3-5. Called last in the tick body, after both election
+    blocks, so a same-tick newly-elected president's mandate_pledge_declared
+    is already on record before this phase measures their (zero, by
+    construction) deviation -- this ordering becomes frozen journal-byte
+    contract once Lot 3 appends steps 2-7 after it.
+
+    Gated entirely on config.mandate.enabled: zero journal bytes under the
+    shipped default. mandate_deviation is provably 0 throughout Lots 2-5 (no
+    representative_response exists yet to diverge revealed_position from
+    pledged_platform), so this never actually writes a line in practice
+    until Lot 6 -- exercised directly by a unit test with a synthetic
+    perturbed citizen instead."""
+    if not config.mandate.enabled:
+        return
+    for holder in current_office_holders(citizens, Office.PRESIDENT):
+        if holder.pledged_platform is None or holder.revealed_position is None:
+            continue
+        deviation = mandate_deviation(holder, config.mandate)
+        if deviation > config.mandate.deviation_log_threshold:
+            journal.write(
+                tick=tick,
+                event_type="mandate_deviation_recorded",
+                payload={"office": Office.PRESIDENT.value, "deviation": deviation},
+                citizen_id=holder.citizen_id,
+            )

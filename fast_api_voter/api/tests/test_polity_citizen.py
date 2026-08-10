@@ -3,6 +3,7 @@
 Contract (dev-plan-v0-worktree.md §3, Lot 2): two generations with the same
 seed are identical field-for-field.
 """
+import numpy as np
 import pytest
 
 from api.domain.polity.citizen import (
@@ -51,6 +52,32 @@ def test_population_shape_and_invariants():
         assert c.mandates_served == 0
         assert c.pledged_platform is None
         assert c.revealed_position is None
+        assert 0.0 <= c.base_threshold <= 1.0
+        assert c.legitimacy_capital == 0.0
+    assert any(c.base_threshold != 0.0 for c in pop)
+
+
+def test_appended_base_threshold_draw_does_not_perturb_pre_existing_fields():
+    """v4 Lot 2 DoD: base_threshold is drawn LAST, so every field that
+    existed before Lot 2 must stay field-for-field identical at a fixed
+    seed. Replicates the pre-Lot-2 draw sequence inline rather than trusting
+    generate_population's own internals."""
+    config = _citizens_config()
+    n, k = 50, config.issue_count
+    rng = np.random.default_rng(42)
+    positions = rng.uniform(0.0, 1.0, size=(n, k))
+    priorities = rng.dirichlet(np.ones(k), size=n)
+    blank_a, blank_b = _parse_beta_params(config.blank_threshold_dist)
+    blank_thresholds = rng.beta(blank_a, blank_b, size=n)
+    ambition_a, ambition_b = _parse_beta_params(config.ambition_dist)
+    ambitions = rng.beta(ambition_a, ambition_b, size=n)
+
+    pop = generate_population(config, population_size=n, seed=42)
+    for i, citizen in enumerate(pop):
+        assert citizen.issue_positions == tuple(float(x) for x in positions[i])
+        assert citizen.issue_priorities == tuple(float(x) for x in priorities[i])
+        assert citizen.blank_threshold == pytest.approx(float(blank_thresholds[i]))
+        assert citizen.ambition_score == pytest.approx(float(ambitions[i]))
 
 
 def test_unsupported_position_dist_raises():

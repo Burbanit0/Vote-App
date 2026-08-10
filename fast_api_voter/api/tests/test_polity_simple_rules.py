@@ -7,7 +7,7 @@ on hand-constructed cases.
 import numpy as np
 import pytest
 
-from api.domain.polity.citizen import Citizen, Role
+from api.domain.polity.citizen import Citizen, Office, Role
 from api.domain.polity.config import CandidacyConfig
 from api.domain.polity.parties import Party
 from api.domain.polity.simple_rules import (
@@ -23,6 +23,7 @@ from api.domain.polity.simple_rules import (
     form_coalition,
     select_party_nominee,
     select_party_nominee_from_declared,
+    vacate_office,
 )
 
 
@@ -239,6 +240,30 @@ def test_declare_candidacy_pins_revealed_position_to_pledged_platform():
     assert citizen.role == Role.CANDIDATE
     assert citizen.pledged_platform == (0.2, 0.8)
     assert citizen.revealed_position == citizen.pledged_platform
+
+
+# ── vacate_office ─────────────────────────────────────────────────────────
+
+def test_vacate_office_resets_role_office_and_term_end_tick():
+    citizen = _citizen(
+        1, (0.5,), role=Role.ELECTED, office=Office.PRESIDENT, term_end_tick=120, mandates_served=2,
+        pledged_platform=(0.4,), revealed_position=(0.3,),
+    )
+    vacate_office(citizen)
+    assert citizen.role == Role.ELECTOR
+    assert citizen.office == Office.NONE
+    assert citizen.term_end_tick is None
+
+
+def test_vacate_office_leaves_pledged_platform_and_mandates_served_untouched():
+    citizen = _citizen(
+        1, (0.5,), role=Role.ELECTED, office=Office.PRESIDENT, term_end_tick=120, mandates_served=2,
+        pledged_platform=(0.4,), revealed_position=(0.3,),
+    )
+    vacate_office(citizen)
+    assert citizen.mandates_served == 2
+    assert citizen.pledged_platform == (0.4,)
+    assert citizen.revealed_position == (0.3,)
 
 
 # ── build_ranking ─────────────────────────────────────────────────────────
