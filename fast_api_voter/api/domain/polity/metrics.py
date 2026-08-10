@@ -1,11 +1,15 @@
 """
 api.domain.polity.metrics — the v0 subset of output metrics (Lot 9, design
-doc §10).
+doc §10), plus two v4 Lot 4 ratio helpers.
 
-Only the three metrics computable without an LLM or legitimacy (both off in
-v0): effective number of parties, cohabitation rate, coalition lifespans.
-Every other row of §10's table depends on mandate_deviation, L(t), or
-pressure_action — all v4+.
+Effective number of parties, cohabitation rate, coalition lifespans are
+computable without an LLM or legitimacy (both off in v0). Most other rows
+of §10's table (mean L trajectory, recall frequency, etc.) still need
+indexer.py, which doesn't exist yet -- deferred, same reasoning Lot 3 used
+to leave this module untouched. mobilization_rate/consultation_rate are the
+one exception: both run_polity_simulation.py (real-time, per tick) and
+scripts/calibrate_awakening.py (post-hoc, from a journal) need the exact
+same ratio, so it belongs here rather than being duplicated.
 
 Pure functions over caller-assembled observations, not journal readers: an
 indexer that replays the raw journal into these shapes is indexer.py's job,
@@ -56,3 +60,21 @@ def coalition_lifespans(events: list[tuple[int, list[int] | None]], total_ticks:
         next_tick = events[i + 1][0] if i + 1 < len(events) else total_ticks
         lifespans.append(next_tick - tick)
     return lifespans
+
+
+def mobilization_rate(participants: int, population_size: int) -> float:
+    """§7bis.4b: participants(t) / population_size -- the count of act=3
+    (MOBILIZE) decisions this tick, over the full population, not just the
+    consulted cohort (mobilization_rate is capped by the consultation rate,
+    it is not measured against it)."""
+    if population_size == 0:
+        return 0.0
+    return participants / population_size
+
+
+def consultation_rate(consulted: int, population_size: int) -> float:
+    """§7bis.9c: fraction of the population past the awakening gate this
+    tick -- the calibration gate's headline number."""
+    if population_size == 0:
+        return 0.0
+    return consulted / population_size

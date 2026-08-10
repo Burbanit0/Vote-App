@@ -42,9 +42,16 @@ from typing import Iterator
 
 import numpy as np
 
-from api.domain.polity.accountability import current_office_holders, is_term_limited, mandate_deviation
+from api.domain.polity.accountability import (
+    current_office_holders,
+    is_term_limited,
+    mandate_deviation,
+    select_consulted,
+    update_street_pressure,
+)
 from api.domain.polity.ballot_and_aggregation import RANKED_METHODS, allocate_seats, get_presidential_winner
 from api.domain.polity.citizen import Citizen, Office, Role, generate_population
+from api.domain.polity.codebook import PressureAct
 from api.domain.polity.config import PolityConfig
 from api.domain.polity.institutional_clock import ElectionType, InstitutionalClock
 from api.domain.polity.journal import Journal
@@ -64,6 +71,7 @@ from api.domain.polity.llm_behavior_engine import (
     resolve_ranking_cids,
 )
 from api.domain.polity.llm_client import LlmClientProtocol, OllamaJsonClient
+from api.domain.polity.metrics import mobilization_rate
 from api.domain.polity.parties import Party, initialize_parties
 from api.domain.polity.simple_rules import (
     BLANK_LABEL,
@@ -73,6 +81,7 @@ from api.domain.polity.simple_rules import (
     choose_party,
     citizen_id_from_label,
     declare_candidacy,
+    deterministic_pressure_action,
     form_coalition,
     select_party_nominee,
     select_party_nominee_from_declared,
@@ -372,6 +381,10 @@ def _hold_presidential_election(
                 # it, including mandate_strength in its own payload.
                 winner.mandate_strength = mandate_strength(ballots, winner_label)
                 winner.legitimacy_capital = initial_legitimacy(winner.mandate_strength)
+            if config.street_pressure.enabled:
+                # A re-elected incumbent must not carry over a previous
+                # term's accumulated street pressure (v4 Lot 4, §7bis.4b).
+                winner.street_pressure = 0.0
 
     for nominee in nominees:
         if nominee is not winner:
@@ -491,18 +504,23 @@ def _form_and_journal_coalition_llm(
 
 
 def _run_accountability_phase(citizens: list[Citizen], config: PolityConfig, journal: Journal, tick: int) -> None:
-    """v4 Lots 2-3 -- §7bis.7 steps 1, 4 and 6 ("measure, then update L(t),
-    then check the hard floor"). Steps 2/3/5/7 (awakening, pressure
-    aggregation, petition threshold, next-tick street_pressure context) land
-    in Lots 4-6. Called last in the tick body, after both election blocks,
-    so a same-tick newly-elected president's mandate_pledge_declared/L0 are
+    """v4 Lots 2-4 -- §7bis.7 steps 1, 2, 3, 4 and 6 (measure -> awaken ->
+    aggregate pressure -> update L(t) -> check the hard floor). Steps 5/7
+    (petition threshold, next-tick street_pressure context) land in Lots
+    5-6. Called last in the tick body, after both election blocks, so a
+    same-tick newly-elected president's mandate_pledge_declared/L0 are
     already on record before this phase runs for them -- frozen journal-byte
-    ordering: mandate_deviation_recorded (if any) -> legitimacy_updated ->
-    recalled (if any); Lot 5 inserts its petition check between the last two.
+    ordering: mandate_deviation_recorded (if any) -> pressure_action x N
+    (ascending citizen_id) -> legitimacy_updated -> recalled (if any). Lot 5
+    inserts its petition check between the last two. street_pressure(t)
+    computed at step 3 feeds écart(t) at the SAME tick; only the
+    representative's own reading of it is deferred a tick (Lot 6's
+    ctx.street) -- the aggregate itself is not delayed.
 
-    config.mandate.enabled and config.legitimacy.enabled are independent
-    toggles (Lot 1's cross-field rules only require the reverse: any
-    pressure lever on implies legitimacy.enabled) -- gated separately below.
+    config.mandate.enabled, config.legitimacy.enabled and
+    config.awakening.enabled are independent toggles (Lot 1's cross-field
+    rules only require pressure levers to imply legitimacy.enabled AND, as
+    of this lot, awakening.enabled) -- gated separately below.
     mandate_deviation is measured whenever either mandate.enabled OR a
     nonzero passive_erosion_weight could consume it, even if mandate.enabled
     alone is false: only the mandate_deviation_recorded *journal write*
@@ -514,8 +532,9 @@ def _run_accountability_phase(citizens: list[Citizen], config: PolityConfig, jou
     recall isn't representable until a new president exists at the next
     scheduled election -- far longer than the cooldown, so it cannot bind
     here regardless."""
-    if not (config.mandate.enabled or config.legitimacy.enabled):
+    if not (config.mandate.enabled or config.legitimacy.enabled or config.awakening.enabled):
         return
+    term_ticks = config.institutions.president_term_years * config.run.ticks_per_year
     for holder in current_office_holders(citizens, Office.PRESIDENT):
         deviation: float | None = None
         if (
@@ -532,11 +551,38 @@ def _run_accountability_phase(citizens: list[Citizen], config: PolityConfig, jou
                 citizen_id=holder.citizen_id,
             )
 
+        if config.awakening.enabled:
+            consulted = select_consulted(
+                citizens,
+                holder,
+                tick=tick,
+                term_ticks=term_ticks,
+                mandate_dev=deviation or 0.0,
+                awakening=config.awakening,
+            )
+            participants = 0
+            for citizen, gap in consulted:
+                act = deterministic_pressure_action(citizen, gap, config.pressure_menu)
+                if act is PressureAct.MOBILIZE:
+                    participants += 1
+                journal.write(
+                    tick=tick,
+                    event_type="pressure_action",
+                    payload={"target": holder.citizen_id, "act": int(act)},
+                    citizen_id=citizen.citizen_id,
+                )
+            if config.street_pressure.enabled:
+                holder.street_pressure = update_street_pressure(
+                    holder.street_pressure,
+                    mobilization_rate(participants, config.run.population_size),
+                    config.street_pressure,
+                )
+
         if not config.legitimacy.enabled:
             continue
         ecart = compose_ecart(
             0.0,  # petition_pressure -- Lot 5
-            0.0,  # street_pressure -- Lot 4
+            holder.street_pressure,
             deviation or 0.0,
             petition_weight=config.petition.weight_in_ecart,
             street_weight=config.street_pressure.weight_in_ecart,

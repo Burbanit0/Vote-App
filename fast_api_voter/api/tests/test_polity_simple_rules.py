@@ -8,7 +8,8 @@ import numpy as np
 import pytest
 
 from api.domain.polity.citizen import Citizen, Office, Role
-from api.domain.polity.config import CandidacyConfig
+from api.domain.polity.codebook import PressureAct
+from api.domain.polity.config import CandidacyConfig, PressureMenuConfig
 from api.domain.polity.parties import Party
 from api.domain.polity.simple_rules import (
     BLANK_LABEL,
@@ -21,6 +22,7 @@ from api.domain.polity.simple_rules import (
     citizen_id_from_label,
     decide_candidacy,
     declare_candidacy,
+    deterministic_pressure_action,
     form_coalition,
     select_party_nominee,
     select_party_nominee_from_declared,
@@ -390,3 +392,52 @@ def test_form_coalition_returns_none_when_majority_is_unreachable():
 
 def test_form_coalition_returns_none_when_no_party_has_seats():
     assert form_coalition({0: (0.0,)}, {0: 0}, {0: 0.0}, _TIEBREAK, majority_ratio=0.5) is None
+
+
+# ── deterministic_pressure_action (v4 Lot 4) ─────────────────────────────
+
+_ELECTORAL_ONLY_MENU = PressureMenuConfig(petition_enabled=False, mobilization_enabled=False, electoral_only=True)
+_MOBILIZATION_MENU = PressureMenuConfig(petition_enabled=False, mobilization_enabled=True, electoral_only=False)
+
+
+def test_electoral_only_below_blank_threshold_is_nothing():
+    citizen = _citizen(1, (0.5,), blank_threshold=0.3)
+    assert deterministic_pressure_action(citizen, gap=0.1, menu=_ELECTORAL_ONLY_MENU) == PressureAct.NOTHING
+
+
+def test_electoral_only_at_or_above_blank_threshold_is_wait_for_election():
+    citizen = _citizen(1, (0.5,), blank_threshold=0.3)
+    assert deterministic_pressure_action(citizen, gap=0.3, menu=_ELECTORAL_ONLY_MENU) == PressureAct.WAIT_FOR_ELECTION
+    assert deterministic_pressure_action(citizen, gap=0.9, menu=_ELECTORAL_ONLY_MENU) == PressureAct.WAIT_FOR_ELECTION
+
+
+def test_electoral_only_never_returns_a_petition_or_mobilize_act():
+    for gap in (0.0, 0.1, 0.3, 0.5, 0.9, 1.0):
+        citizen = _citizen(1, (0.5,), blank_threshold=0.3)
+        act = deterministic_pressure_action(citizen, gap=gap, menu=_ELECTORAL_ONLY_MENU)
+        assert act in (PressureAct.NOTHING, PressureAct.WAIT_FOR_ELECTION)
+
+
+def test_mobilization_below_blank_threshold_is_nothing():
+    citizen = _citizen(1, (0.5,), blank_threshold=0.3)
+    assert deterministic_pressure_action(citizen, gap=0.1, menu=_MOBILIZATION_MENU) == PressureAct.NOTHING
+
+
+def test_mobilization_at_or_above_blank_threshold_mobilizes():
+    citizen = _citizen(1, (0.5,), blank_threshold=0.3)
+    assert deterministic_pressure_action(citizen, gap=0.3, menu=_MOBILIZATION_MENU) == PressureAct.MOBILIZE
+    assert deterministic_pressure_action(citizen, gap=0.9, menu=_MOBILIZATION_MENU) == PressureAct.MOBILIZE
+
+
+def test_petition_enabled_raises_not_implemented():
+    citizen = _citizen(1, (0.5,), blank_threshold=0.3)
+    menu = PressureMenuConfig(petition_enabled=True, mobilization_enabled=False, electoral_only=False)
+    with pytest.raises(NotImplementedError, match="petition_enabled"):
+        deterministic_pressure_action(citizen, gap=0.9, menu=menu)
+
+
+def test_deterministic_pressure_action_mutates_nothing():
+    citizen = _citizen(1, (0.5,), blank_threshold=0.3)
+    before = (citizen.role, citizen.office, citizen.blank_threshold)
+    deterministic_pressure_action(citizen, gap=0.9, menu=_MOBILIZATION_MENU)
+    assert (citizen.role, citizen.office, citizen.blank_threshold) == before

@@ -636,6 +636,7 @@ def load_config(path: Path | str | None = None) -> PolityConfig:
     pressure_menu = _parse_pressure_menu(raw)
     petition = _parse_petition(raw)
     street_pressure = _parse_street_pressure(raw)
+    awakening = _parse_awakening(raw)
 
     # Cross-section rules (§7bis.2/§7bis.6) -- each section parses in
     # isolation above; these are the invariants that only make sense once
@@ -662,6 +663,12 @@ def load_config(path: Path | str | None = None) -> PolityConfig:
             "'legitimacy.enabled' must be true when 'petition.enabled' or 'street_pressure.enabled' "
             "is true -- écart(t) from either lever has nowhere to go without L(t) tracked (§7bis.6)"
         )
+    if (petition.enabled or street_pressure.enabled) and not awakening.enabled:
+        raise PolityConfigError(
+            "'awakening.enabled' must be true when 'petition.enabled' or 'street_pressure.enabled' "
+            "is true -- a citizen lever with nobody ever consulted (§7bis.9d) is a silently dead "
+            "experiment, indistinguishable from 'pressure_menu.electoral_only'"
+        )
 
     return PolityConfig(
         run=_parse_run(raw),
@@ -675,7 +682,7 @@ def load_config(path: Path | str | None = None) -> PolityConfig:
         mandate=_parse_mandate(raw),
         petition=petition,
         street_pressure=street_pressure,
-        awakening=_parse_awakening(raw),
+        awakening=awakening,
         journal=_parse_journal(raw),
         metrics=_parse_metrics(raw),
         llm=_parse_llm(raw),
