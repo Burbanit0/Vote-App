@@ -1,19 +1,30 @@
-"""v4 Lot 2 — accountability.py: mandate_deviation, self_gap, term limits,
-current_office_holders. Measurement-only primitives (§7bis.5/§6bis.1) — none
-of this decides anything; Lots 3-7 are the first real callers of most of it.
+"""v4 Lots 2-4 — accountability.py: mandate_deviation, self_gap, term limits,
+current_office_holders, the awakening gate, mobilization. Measurement/gating
+only (§7bis.5/§6bis.1/§7bis.9) — none of this decides anything; Lots 6-7 are
+the first real callers of most of it, deterministic_pressure_action
+(simple_rules.py) is the first real caller of select_consulted's output.
 """
 import pytest
 
 from api.domain.polity.accountability import (
+    awakening_threshold,
     current_office_holders,
+    election_proximity,
     is_term_limited,
     mandate_deviation,
     pledge_weights,
+    select_consulted,
     self_gap,
+    update_street_pressure,
     weighted_euclidean,
 )
 from api.domain.polity.citizen import Citizen, Office, Role
-from api.domain.polity.config import MandateConfig
+from api.domain.polity.config import (
+    AwakeningConfig,
+    AwakeningContextModulation,
+    MandateConfig,
+    StreetPressureConfig,
+)
 from api.domain.polity.simple_rules import _weighted_distance
 
 
@@ -196,3 +207,182 @@ def test_current_office_holders_is_sorted_by_citizen_id():
     lower = _citizen(2, (0.5,), role=Role.ELECTED, office=Office.PRESIDENT)
     result = current_office_holders([higher, lower], Office.PRESIDENT)
     assert [c.citizen_id for c in result] == [2, 5]
+
+
+# ── election_proximity ───────────────────────────────────────────────────
+
+def test_election_proximity_is_zero_with_no_office_holder():
+    assert election_proximity(tick=10, term_end_tick=None, term_ticks=16) == 0.0
+
+
+def test_election_proximity_is_zero_just_after_an_election():
+    # tick == term_end_tick - term_ticks -> ticks_to_election == term_ticks
+    assert election_proximity(tick=0, term_end_tick=16, term_ticks=16) == 0.0
+
+
+def test_election_proximity_is_near_one_just_before_the_next_election():
+    assert election_proximity(tick=15, term_end_tick=16, term_ticks=16) == pytest.approx(15 / 16)
+
+
+def test_election_proximity_clamps_to_one_when_ticks_to_election_is_negative():
+    assert election_proximity(tick=20, term_end_tick=16, term_ticks=16) == 1.0
+
+
+# ── awakening_threshold ──────────────────────────────────────────────────
+
+_MODULATION_ALL_ON = AwakeningContextModulation(
+    mandate_deviation=True, ticks_to_election=True, neighbors_acting=False
+)
+
+_AWAKENING_CONFIG = AwakeningConfig(
+    enabled=True,
+    source="persona_base_threshold",
+    context_modulation=_MODULATION_ALL_ON,
+    modulation_amplitude=0.5,
+    no_consultation_cap=True,
+)
+
+
+def test_awakening_threshold_with_zero_amplitude_returns_base_threshold_exactly():
+    config = AwakeningConfig(**{**_AWAKENING_CONFIG.__dict__, "modulation_amplitude": 0.0})
+    citizen = _citizen(1, (0.5,), base_threshold=0.4)
+    for dev, prox in [(0.0, 0.0), (1.0, 0.0), (0.0, 1.0), (1.0, 1.0)]:
+        assert awakening_threshold(citizen, mandate_dev=dev, proximity=prox, config=config) == pytest.approx(0.4)
+
+
+def test_awakening_threshold_stays_within_the_amplitude_bounds():
+    citizen = _citizen(1, (0.5,), base_threshold=0.4)
+    amp = _AWAKENING_CONFIG.modulation_amplitude
+    lo = 0.4 * (1 - amp)
+    hi = 0.4 * (1 + amp)
+    for dev, prox in [(0.0, 0.0), (1.0, 0.0), (0.0, 1.0), (1.0, 1.0)]:
+        result = awakening_threshold(citizen, mandate_dev=dev, proximity=prox, config=_AWAKENING_CONFIG)
+        assert lo - 1e-9 <= result <= hi + 1e-9
+
+
+def test_awakening_threshold_higher_deviation_strictly_lowers_it():
+    citizen = _citizen(1, (0.5,), base_threshold=0.4)
+    low_dev = awakening_threshold(citizen, mandate_dev=0.1, proximity=0.5, config=_AWAKENING_CONFIG)
+    high_dev = awakening_threshold(citizen, mandate_dev=0.9, proximity=0.5, config=_AWAKENING_CONFIG)
+    assert high_dev < low_dev
+
+
+def test_awakening_threshold_higher_proximity_strictly_raises_it():
+    citizen = _citizen(1, (0.5,), base_threshold=0.4)
+    far = awakening_threshold(citizen, mandate_dev=0.5, proximity=0.1, config=_AWAKENING_CONFIG)
+    near = awakening_threshold(citizen, mandate_dev=0.5, proximity=0.9, config=_AWAKENING_CONFIG)
+    assert near > far
+
+
+def test_awakening_threshold_ignores_deviation_when_its_modulation_flag_is_off():
+    modulation = AwakeningContextModulation(mandate_deviation=False, ticks_to_election=True, neighbors_acting=False)
+    config = AwakeningConfig(**{**_AWAKENING_CONFIG.__dict__, "context_modulation": modulation})
+    citizen = _citizen(1, (0.5,), base_threshold=0.4)
+    low = awakening_threshold(citizen, mandate_dev=0.1, proximity=0.5, config=config)
+    high = awakening_threshold(citizen, mandate_dev=0.9, proximity=0.5, config=config)
+    assert low == pytest.approx(high)
+
+
+def test_awakening_threshold_ignores_proximity_when_its_modulation_flag_is_off():
+    modulation = AwakeningContextModulation(mandate_deviation=True, ticks_to_election=False, neighbors_acting=False)
+    config = AwakeningConfig(**{**_AWAKENING_CONFIG.__dict__, "context_modulation": modulation})
+    citizen = _citizen(1, (0.5,), base_threshold=0.4)
+    far = awakening_threshold(citizen, mandate_dev=0.5, proximity=0.1, config=config)
+    near = awakening_threshold(citizen, mandate_dev=0.5, proximity=0.9, config=config)
+    assert far == pytest.approx(near)
+
+
+def test_awakening_threshold_raises_when_neighbors_acting_is_enabled():
+    modulation = AwakeningContextModulation(mandate_deviation=True, ticks_to_election=True, neighbors_acting=True)
+    config = AwakeningConfig(**{**_AWAKENING_CONFIG.__dict__, "context_modulation": modulation})
+    citizen = _citizen(1, (0.5,), base_threshold=0.4)
+    with pytest.raises(NotImplementedError, match="neighbors_acting"):
+        awakening_threshold(citizen, mandate_dev=0.0, proximity=0.0, config=config)
+
+
+# ── select_consulted ──────────────────────────────────────────────────────
+
+def test_select_consulted_returns_citizens_above_their_own_threshold_ascending():
+    holder = _citizen(0, (0.5,), role=Role.ELECTED, office=Office.PRESIDENT, revealed_position=(0.5,))
+    far = _citizen(9, (0.0,), base_threshold=0.1)   # large self_gap, low threshold -> consulted
+    near = _citizen(2, (0.49,), base_threshold=0.1)  # tiny self_gap -> not consulted
+    result = select_consulted(
+        [holder, far, near], holder, tick=0, term_ticks=16, mandate_dev=0.0, awakening=_AWAKENING_CONFIG
+    )
+    assert [c.citizen_id for c, _gap in result] == [9]
+
+
+def test_select_consulted_base_threshold_zero_consults_everyone_with_nonzero_gap():
+    holder = _citizen(0, (0.5,), role=Role.ELECTED, office=Office.PRESIDENT, revealed_position=(0.5,))
+    citizens = [holder] + [_citizen(i, (0.0,), base_threshold=0.0) for i in range(1, 4)]
+    result = select_consulted(
+        citizens, holder, tick=0, term_ticks=16, mandate_dev=0.0, awakening=_AWAKENING_CONFIG
+    )
+    assert [c.citizen_id for c, _gap in result] == [1, 2, 3]
+
+
+def test_select_consulted_base_threshold_one_consults_nobody():
+    holder = _citizen(0, (0.5,), role=Role.ELECTED, office=Office.PRESIDENT, revealed_position=(0.5,))
+    citizens = [holder] + [_citizen(i, (0.0,), base_threshold=1.0) for i in range(1, 4)]
+    result = select_consulted(
+        citizens, holder, tick=0, term_ticks=16, mandate_dev=0.0, awakening=_AWAKENING_CONFIG
+    )
+    assert result == []
+
+
+def test_select_consulted_never_includes_the_holder_even_with_a_nonzero_self_gap():
+    holder = _citizen(
+        0, (0.0,), role=Role.ELECTED, office=Office.PRESIDENT, revealed_position=(1.0,), base_threshold=0.0
+    )
+    result = select_consulted(
+        [holder], holder, tick=0, term_ticks=16, mandate_dev=0.0, awakening=_AWAKENING_CONFIG
+    )
+    assert result == []
+
+
+def test_select_consulted_is_a_pure_query_and_mutates_nothing():
+    holder = _citizen(0, (0.5,), role=Role.ELECTED, office=Office.PRESIDENT, revealed_position=(0.5,))
+    citizen = _citizen(1, (0.0,), base_threshold=0.0)
+    before = (citizen.role, citizen.office, citizen.base_threshold)
+    result_a = select_consulted(
+        [holder, citizen], holder, tick=0, term_ticks=16, mandate_dev=0.0, awakening=_AWAKENING_CONFIG
+    )
+    result_b = select_consulted(
+        [holder, citizen], holder, tick=0, term_ticks=16, mandate_dev=0.0, awakening=_AWAKENING_CONFIG
+    )
+    assert [c.citizen_id for c, _ in result_a] == [c.citizen_id for c, _ in result_b]
+    assert (citizen.role, citizen.office, citizen.base_threshold) == before
+
+
+def test_select_consulted_returns_empty_without_a_revealed_position():
+    holder = _citizen(0, (0.5,), role=Role.ELECTED, office=Office.PRESIDENT)
+    citizen = _citizen(1, (0.0,), base_threshold=0.0)
+    assert select_consulted(
+        [holder, citizen], holder, tick=0, term_ticks=16, mandate_dev=0.0, awakening=_AWAKENING_CONFIG
+    ) == []
+
+
+# ── update_street_pressure ───────────────────────────────────────────────
+
+_STREET_PRESSURE_CONFIG = StreetPressureConfig(
+    enabled=True, decay=0.85, weight_in_ecart=0.5, visible_to_representative=True
+)
+
+
+def test_update_street_pressure_hand_computed_one_step():
+    result = update_street_pressure(0.2, 0.1, _STREET_PRESSURE_CONFIG)
+    assert result == pytest.approx(0.85 * 0.2 + 0.1)
+
+
+def test_update_street_pressure_converges_toward_rate_over_1_minus_decay():
+    sp = 0.0
+    for _ in range(300):
+        sp = update_street_pressure(sp, 0.05, _STREET_PRESSURE_CONFIG)
+    assert sp == pytest.approx(0.05 / (1 - 0.85), abs=1e-3)
+
+
+def test_update_street_pressure_decays_toward_zero_with_no_rate():
+    sp = 1.0
+    for _ in range(300):
+        sp = update_street_pressure(sp, 0.0, _STREET_PRESSURE_CONFIG)
+    assert sp == pytest.approx(0.0, abs=1e-3)

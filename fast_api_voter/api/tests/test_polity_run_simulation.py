@@ -468,6 +468,143 @@ def test_passive_erosion_applies_without_mandate_tracking_enabled(tmp_path):
     assert not [e for e in events if e["event_type"] == "mandate_deviation_recorded"]
 
 
+# ── awakening / mobilization (v4 Lot 4) ──────────────────────────────────
+
+def _config_with_awakening_enabled(output_dir, **overrides) -> PolityConfig:
+    config = _config_with_legitimacy_enabled(output_dir)
+    return dataclasses.replace(config, awakening=dataclasses.replace(config.awakening, enabled=True, **overrides))
+
+
+def _config_with_awakening_enabled_and_guaranteed_winners(output_dir, **overrides) -> PolityConfig:
+    config = _config_with_awakening_enabled(output_dir, **overrides)
+    return dataclasses.replace(config, candidacy=dataclasses.replace(config.candidacy, ambition_threshold=0.0))
+
+
+def _config_with_mobilization_enabled(output_dir, base_threshold_dist=None):
+    config = _config_with_awakening_enabled_and_guaranteed_winners(output_dir)
+    config = dataclasses.replace(
+        config,
+        pressure_menu=dataclasses.replace(config.pressure_menu, electoral_only=False, mobilization_enabled=True),
+        street_pressure=dataclasses.replace(config.street_pressure, enabled=True),
+    )
+    if base_threshold_dist is not None:
+        config = dataclasses.replace(config, citizens=dataclasses.replace(config.citizens, base_threshold_dist=base_threshold_dist))
+    return config
+
+
+def test_default_config_run_emits_no_pressure_action_events(tmp_path):
+    journal_path = run_simulation(_config_with_output_dir(tmp_path), run_id="baseline")
+    events = _events(journal_path)
+    assert not [e for e in events if e["event_type"] == "pressure_action"]
+
+
+def test_two_awakening_enabled_runs_produce_byte_identical_journals(tmp_path):
+    path_a = run_simulation(_config_with_awakening_enabled(tmp_path / "a"), run_id="same-run-id")
+    path_b = run_simulation(_config_with_awakening_enabled(tmp_path / "b"), run_id="same-run-id")
+    assert path_a.read_bytes() == path_b.read_bytes()
+
+
+def test_two_mobilization_enabled_runs_produce_byte_identical_journals(tmp_path):
+    path_a = run_simulation(_config_with_mobilization_enabled(tmp_path / "a"), run_id="same-run-id")
+    path_b = run_simulation(_config_with_mobilization_enabled(tmp_path / "b"), run_id="same-run-id")
+    assert path_a.read_bytes() == path_b.read_bytes()
+
+
+def test_electoral_only_control_arm_is_flat_legitimacy_and_only_nothing_or_wait(tmp_path):
+    # The control arm this whole palier compares against: awakening AND
+    # legitimacy both on, but electoral_only leaves no real lever to pull.
+    config = _config_with_awakening_enabled_and_guaranteed_winners(tmp_path)
+    journal_path = run_simulation(config, run_id="control-arm")
+    events = _events(journal_path)
+
+    pressure_events = [e for e in events if e["event_type"] == "pressure_action"]
+    assert pressure_events
+    acts = {e["payload"]["act"] for e in pressure_events}
+    assert acts == {0, 4}  # both members of the DoD's stated set actually occur
+
+    updates = [e for e in events if e["event_type"] == "legitimacy_updated"]
+    assert updates
+    for update in updates:
+        assert update["payload"]["legitimacy"] == pytest.approx(update["payload"]["mandate_strength"])
+    assert not [e for e in events if e["event_type"] == "recalled"]
+
+
+def test_mobilization_moves_and_recovers_legitimacy(tmp_path):
+    # A tuned (not shipped) base_threshold_dist so L dips without hitting
+    # the recall floor, so a "recovery" is actually observable -- the
+    # shipped beta(3,5) recalls on essentially the first tick of every term
+    # (see scripts/awakening_calibration_results.md).
+    config = _config_with_mobilization_enabled(tmp_path, base_threshold_dist="beta(7,3)")
+    journal_path = run_simulation(config, run_id="mobilization")
+    events = _events(journal_path)
+    assert not [e for e in events if e["event_type"] == "recalled"]
+
+    term_ticks = config.institutions.president_term_years * config.run.ticks_per_year
+    updates = [e for e in events if e["event_type"] == "legitimacy_updated"]
+    first_term = [e for e in updates if e["tick"] < term_ticks]
+    legitimacies = [e["payload"]["legitimacy"] for e in first_term]
+
+    assert min(legitimacies) < legitimacies[0]  # L actually moves below m
+    min_index = legitimacies.index(min(legitimacies))
+    assert legitimacies[-1] > legitimacies[min_index]  # and recovers before the next election
+
+
+def test_pressure_action_journals_act_zero_when_it_occurs(tmp_path):
+    # §16.3: "y compris act=0 (inaction)" -- not just theoretically legal.
+    config = _config_with_awakening_enabled_and_guaranteed_winners(tmp_path)
+    journal_path = run_simulation(config, run_id="act-zero")
+    events = _events(journal_path)
+    assert any(e["event_type"] == "pressure_action" and e["payload"]["act"] == 0 for e in events)
+
+
+def test_pressure_action_events_precede_legitimacy_updated_and_are_ascending_within_a_tick(tmp_path):
+    config = _config_with_awakening_enabled_and_guaranteed_winners(tmp_path)
+    journal_path = run_simulation(config, run_id="ordering")
+    events = _events(journal_path)
+    for tick in {e["tick"] for e in events}:
+        tick_events = [e for e in events if e["tick"] == tick]
+        types = [e["event_type"] for e in tick_events]
+        pressure_indices = [i for i, t in enumerate(types) if t == "pressure_action"]
+        legitimacy_indices = [i for i, t in enumerate(types) if t == "legitimacy_updated"]
+        if pressure_indices and legitimacy_indices:
+            assert max(pressure_indices) < min(legitimacy_indices)
+        cids = [tick_events[i]["citizen_id"] for i in pressure_indices]
+        assert cids == sorted(cids)
+
+
+def test_no_pressure_action_events_while_the_presidency_is_vacant(tmp_path):
+    # Shipped ambition_threshold never produces a winner (Lot 2/3) -- the
+    # presidency stays vacant the entire run.
+    config = _config_with_awakening_enabled(tmp_path)
+    journal_path = run_simulation(config, run_id="vacant")
+    events = _events(journal_path)
+    assert not [e for e in events if e["event_type"] == "elected"]
+    assert not [e for e in events if e["event_type"] == "pressure_action"]
+
+
+def test_reelected_president_street_pressure_resets_at_the_new_term(tmp_path):
+    config = load_config()
+    config = dataclasses.replace(config, street_pressure=dataclasses.replace(config.street_pressure, enabled=True))
+    term_ticks = config.institutions.president_term_years * config.run.ticks_per_year
+
+    citizen_a = _office_test_citizen(0, 0.1)
+    citizen_a.ambition_score = 1.0
+    citizen_a.party_affiliation = 0
+    party = Party(party_id=0, platform=(0.1,))
+    electors = [_office_test_citizen(i, 0.5) for i in range(1, 6)]
+
+    with Journal(tmp_path / "run.jsonl", run_id="r") as journal:
+        _hold_presidential_election([citizen_a] + electors, [party], config, journal, tick=0, llm_client=None)
+        citizen_a.street_pressure = 0.75  # simulate pressure accumulated during the term
+
+        _hold_presidential_election(
+            [citizen_a] + electors, [party], config, journal, tick=term_ticks, llm_client=None
+        )
+
+    assert citizen_a.office == Office.PRESIDENT
+    assert citizen_a.street_pressure == 0.0
+
+
 # ── LLM-enabled path (v2 increments 1-2) ─────────────────────────────────
 
 class _FakeLlmClient:

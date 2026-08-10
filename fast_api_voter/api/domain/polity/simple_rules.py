@@ -16,6 +16,10 @@ DEMARRAGE-polity-v0.md §2 and audit-precision-plan.md A5:
    seats is reached, with every tiebreak explicit (DEMARRAGE §4) — a bare
    max()/min() on insertion order would make the byte-for-byte
    reproducibility test (Lot 8) depend on an implementation accident.
+4. Pressure action (v4 Lot 4): `deterministic_pressure_action` is dt=10's
+   §11.4 baseline, this module's first codebook.py consumer -- a simple,
+   mechanical rule (like every rule above), not an attempt at realism;
+   Lot 7's LLM is what replaces it behind config.llm.enabled.
 
 This module is deliberately what llm_behavior_engine.py replaces in v2 — it
 also stays on afterwards as the baseline against which the LLM's effect is
@@ -30,7 +34,8 @@ import math
 import numpy as np
 
 from api.domain.polity.citizen import Citizen, Office, Role
-from api.domain.polity.config import CandidacyConfig
+from api.domain.polity.codebook import PressureAct
+from api.domain.polity.config import CandidacyConfig, PressureMenuConfig
 from api.domain.polity.parties import Party
 
 CANDIDATE_LABEL_PREFIX = "citizen_"
@@ -316,3 +321,31 @@ def form_coalition(
             return coalition
 
     return None
+
+
+# ── 4. Pressure action rule ─────────────────────────────────────────────
+
+def deterministic_pressure_action(citizen: Citizen, gap: float, menu: PressureMenuConfig) -> PressureAct:
+    """v4 Lot 4, dt=10's §11.4 baseline for a citizen already past the
+    awakening gate (accountability.select_consulted) -- this function never
+    decides WHO is consulted, only what a consulted citizen does.
+
+    Gates MOBILIZE on the citizen's own blank_threshold (already the
+    "unacceptable to me" bar on the same weighted-distance scale as
+    self_gap, per build_ranking) rather than mobilizing unconditionally:
+    verified numerically that a sustained mobilization rate amplifies into
+    an L drop by ~33x at the shipped decay/weight_in_ecart values, so an
+    unconditional rule would crash L to its floor on the first tick of
+    every term and make "L moves and recovers" untestable. This also keeps
+    act=0 genuinely reachable under electoral_only, not just theoretically
+    legal (§16.3: "y compris act=0").
+
+    petition_enabled must stay false until Lot 5 builds the petition state
+    machine this function has nothing to compute against yet."""
+    if menu.petition_enabled:
+        raise NotImplementedError("pressure_menu.petition_enabled is Lot 5 scope")
+    if gap < citizen.blank_threshold:
+        return PressureAct.NOTHING
+    if menu.mobilization_enabled:
+        return PressureAct.MOBILIZE
+    return PressureAct.WAIT_FOR_ELECTION

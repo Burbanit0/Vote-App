@@ -6,8 +6,10 @@ hand on a known case (2 parties at 50/50 seats => N = 2.0).
 from api.domain.polity.metrics import (
     coalition_lifespans,
     cohabitation_rate,
+    consultation_rate,
     effective_number_of_parties,
     is_cohabitation,
+    mobilization_rate,
 )
 
 
@@ -85,3 +87,29 @@ def test_coalition_failed_produces_no_lifespan_entry():
 
 def test_no_events_gives_no_lifespans():
     assert coalition_lifespans([], total_ticks=120) == []
+
+
+# ── mobilization_rate / consultation_rate (v4 Lot 4) ─────────────────────
+
+def test_mobilization_rate_is_participants_over_population():
+    assert mobilization_rate(25, 100) == 0.25
+
+
+def test_mobilization_rate_with_zero_participants_is_zero():
+    assert mobilization_rate(0, 100) == 0.0
+
+
+def test_mobilization_rate_with_zero_population_is_zero():
+    assert mobilization_rate(0, 0) == 0.0
+
+
+def test_consultation_rate_is_consulted_over_population():
+    assert consultation_rate(40, 100) == 0.4
+
+
+def test_consultation_rate_with_zero_consulted_is_zero():
+    assert consultation_rate(0, 100) == 0.0
+
+
+def test_consultation_rate_with_zero_population_is_zero():
+    assert consultation_rate(0, 0) == 0.0

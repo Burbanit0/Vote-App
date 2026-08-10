@@ -356,9 +356,37 @@ def test_petition_and_mobilization_enabled_with_legitimacy_enabled_is_allowed(tm
         d["petition"]["enabled"] = True
         d["street_pressure"]["enabled"] = True
         d["legitimacy"]["enabled"] = True
+        d["awakening"]["enabled"] = True
 
     path = _write(tmp_path, mutate)
     config = load_config(path)
     assert config.pressure_menu.petition_enabled is True
     assert config.pressure_menu.mobilization_enabled is True
     assert config.legitimacy.enabled is True
+    assert config.awakening.enabled is True
+
+
+def test_street_pressure_enabled_without_awakening_enabled_raises(tmp_path):
+    def mutate(d):
+        d["pressure_menu"]["electoral_only"] = False
+        d["pressure_menu"]["mobilization_enabled"] = True
+        d["street_pressure"]["enabled"] = True
+        d["legitimacy"]["enabled"] = True
+        # awakening.enabled deliberately left False.
+
+    path = _write(tmp_path, mutate)
+    with pytest.raises(PolityConfigError, match="awakening.enabled"):
+        load_config(path)
+
+
+def test_petition_enabled_without_awakening_enabled_raises(tmp_path):
+    def mutate(d):
+        d["pressure_menu"]["electoral_only"] = False
+        d["pressure_menu"]["petition_enabled"] = True
+        d["petition"]["enabled"] = True
+        d["legitimacy"]["enabled"] = True
+        # awakening.enabled deliberately left False.
+
+    path = _write(tmp_path, mutate)
+    with pytest.raises(PolityConfigError, match="awakening.enabled"):
+        load_config(path)

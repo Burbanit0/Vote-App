@@ -76,6 +76,11 @@ class Citizen:
     # _hold_presidential_election, read every tick thereafter -- never
     # drawn by generate_population, so no RNG-order change.
     mandate_strength: float = 0.0
+    # v4 Lot 4 (§7bis.4b): officeholder-scoped, like legitimacy_capital/
+    # mandate_strength -- reset to 0.0 at election so a re-elected incumbent
+    # doesn't carry over a previous term's accumulated street pressure.
+    # Never drawn by generate_population, deliberately unclamped.
+    street_pressure: float = 0.0
 
 
 def generate_population(config: CitizensConfig, population_size: int, seed: int) -> list[Citizen]:
