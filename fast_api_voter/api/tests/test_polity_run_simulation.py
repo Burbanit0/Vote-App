@@ -16,7 +16,11 @@ from api.domain.polity.config import PolityConfig, load_config
 from api.domain.polity.journal import Journal
 from api.domain.polity.llm_client import LlmResponseError
 from api.domain.polity.parties import Party
-from api.domain.polity.run_polity_simulation import _hold_presidential_election, run_simulation
+from api.domain.polity.run_polity_simulation import (
+    _hold_presidential_election,
+    _run_accountability_phase,
+    run_simulation,
+)
 from api.domain.polity.simple_rules import declare_candidacy
 
 
@@ -175,6 +179,136 @@ def test_two_runs_with_rupture_enabled_produce_byte_identical_journals(tmp_path)
     path_a = run_simulation(_config_with_rupture_enabled(tmp_path / "a"), run_id="same-run-id")
     path_b = run_simulation(_config_with_rupture_enabled(tmp_path / "b"), run_id="same-run-id")
     assert path_a.read_bytes() == path_b.read_bytes()
+
+
+# ── mandate tracking (v4 Lot 2) ──────────────────────────────────────────
+
+def _config_with_mandate_enabled(output_dir) -> PolityConfig:
+    config = _config_with_output_dir(output_dir)
+    return dataclasses.replace(config, mandate=dataclasses.replace(config.mandate, enabled=True))
+
+
+def _config_with_mandate_enabled_and_guaranteed_winners(output_dir) -> PolityConfig:
+    # The shipped default ambition_threshold (0.7) never actually produces a
+    # presidential winner at seed=42 (every election_no_winner) -- lowering
+    # it to 0 guarantees nominees, and therefore `elected` events to assert
+    # mandate_pledge_declared against.
+    config = _config_with_mandate_enabled(output_dir)
+    return dataclasses.replace(config, candidacy=dataclasses.replace(config.candidacy, ambition_threshold=0.0))
+
+
+def test_default_config_run_emits_no_mandate_events(tmp_path):
+    # The accountability phase is wired into every tick (v4 Lot 2's
+    # structural change) but must stay inert under the shipped default
+    # (mandate.enabled: false) -- zero new journal bytes.
+    journal_path = run_simulation(_config_with_output_dir(tmp_path), run_id="baseline")
+    events = _events(journal_path)
+    assert not [e for e in events if e["event_type"] in ("mandate_pledge_declared", "mandate_deviation_recorded")]
+
+
+def test_mandate_enabled_run_declares_a_pledge_per_election_and_records_no_deviation(tmp_path):
+    # §7bis.5 control case: without representative_response (Lot 6),
+    # revealed_position never diverges from pledged_platform, so deviation
+    # is 0 everywhere through Lot 5 -- asserted here, not just claimed.
+    journal_path = run_simulation(_config_with_mandate_enabled_and_guaranteed_winners(tmp_path), run_id="mandate-on")
+    events = _events(journal_path)
+    elected = [e for e in events if e["event_type"] == "elected"]
+    pledges = [e for e in events if e["event_type"] == "mandate_pledge_declared"]
+    deviations = [e for e in events if e["event_type"] == "mandate_deviation_recorded"]
+    assert len(elected) > 0
+    assert len(pledges) == len(elected)
+    for pledge in pledges:
+        assert len(pledge["payload"]["pledged_platform"]) == load_config().citizens.issue_count
+        assert pledge["payload"]["lame_duck"] is False
+    assert deviations == []
+
+
+def test_two_mandate_enabled_runs_produce_byte_identical_journals(tmp_path):
+    path_a = run_simulation(_config_with_mandate_enabled(tmp_path / "a"), run_id="same-run-id")
+    path_b = run_simulation(_config_with_mandate_enabled(tmp_path / "b"), run_id="same-run-id")
+    assert path_a.read_bytes() == path_b.read_bytes()
+
+
+def test_accountability_phase_records_deviation_only_above_the_threshold(tmp_path):
+    # The only way to exercise mandate_deviation_recorded's write path before
+    # Lot 6 exists: nothing in the tick loop can produce a nonzero deviation
+    # on its own, so this perturbs revealed_position directly.
+    config = _config_with_mandate_enabled(tmp_path)
+    citizens = [
+        Citizen(
+            citizen_id=0,
+            issue_positions=tuple(0.5 for _ in range(config.citizens.issue_count)),
+            issue_priorities=tuple(1.0 / config.citizens.issue_count for _ in range(config.citizens.issue_count)),
+            blank_threshold=0.5,
+            ambition_score=0.5,
+            role=Role.ELECTED,
+            office=Office.PRESIDENT,
+        )
+    ]
+    top_dim = 0  # uniform priorities -- any dimension is "the" top one
+    pledged = tuple(0.5 for _ in range(config.citizens.issue_count))
+    below_threshold = list(pledged)
+    below_threshold[top_dim] += 0.05
+    above_threshold = list(pledged)
+    above_threshold[top_dim] += 0.9
+
+    below_path = tmp_path / "below.jsonl"
+    with Journal(below_path, run_id="below") as journal:
+        citizens[0].pledged_platform = pledged
+        citizens[0].revealed_position = tuple(below_threshold)
+        _run_accountability_phase(citizens, config, journal, tick=0)
+    assert _events(below_path) == []
+
+    above_path = tmp_path / "above.jsonl"
+    with Journal(above_path, run_id="above") as journal:
+        citizens[0].pledged_platform = pledged
+        citizens[0].revealed_position = tuple(above_threshold)
+        _run_accountability_phase(citizens, config, journal, tick=0)
+    above_events = _events(above_path)
+    assert len(above_events) == 1
+    assert above_events[0]["event_type"] == "mandate_deviation_recorded"
+    assert above_events[0]["citizen_id"] == 0
+    assert above_events[0]["payload"]["deviation"] > config.mandate.deviation_log_threshold
+
+
+# ── term limits (v4 Lot 2, §6bis.1) ──────────────────────────────────────
+
+def test_term_limited_incumbent_is_not_re_nominated(tmp_path):
+    config = dataclasses.replace(
+        load_config(), institutions=dataclasses.replace(load_config().institutions, president_term_limit=1)
+    )
+    term_ticks = config.institutions.president_term_years * config.run.ticks_per_year
+
+    citizen_a = _office_test_citizen(0, 0.1)
+    citizen_a.ambition_score = 1.0
+    citizen_a.party_affiliation = 0
+    citizen_b = _office_test_citizen(1, 0.9)
+    citizen_b.ambition_score = 1.0
+    citizen_b.party_affiliation = 1
+    party_a = Party(party_id=0, platform=(0.1,))
+    party_b = Party(party_id=1, platform=(0.9,))
+    # Electors sit next to A so A wins the first, contested election clearly.
+    electors = [_office_test_citizen(i, 0.1) for i in range(2, 7)]
+
+    with Journal(tmp_path / "run.jsonl", run_id="r") as journal:
+        _hold_presidential_election(
+            [citizen_a, citizen_b] + electors, [party_a, party_b], config, journal, tick=0, llm_client=None
+        )
+        assert citizen_a.office == Office.PRESIDENT
+        assert citizen_a.mandates_served == 1
+
+        # A has now served their one permitted mandate: excluded from the
+        # eligible pool, so B is the only nominee and wins uncontested even
+        # though the electorate still sits next to A's platform.
+        _hold_presidential_election(
+            [citizen_a, citizen_b] + electors, [party_a, party_b], config, journal, tick=term_ticks, llm_client=None
+        )
+
+    assert citizen_b.office == Office.PRESIDENT
+    assert citizen_b.role == Role.ELECTED
+    assert citizen_a.office == Office.NONE
+    assert citizen_a.role == Role.ELECTOR
+    assert citizen_a.mandates_served == 1
 
 
 # ── LLM-enabled path (v2 increments 1-2) ─────────────────────────────────

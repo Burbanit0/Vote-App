@@ -29,7 +29,7 @@ import math
 
 import numpy as np
 
-from api.domain.polity.citizen import Citizen, Role
+from api.domain.polity.citizen import Citizen, Office, Role
 from api.domain.polity.config import CandidacyConfig
 from api.domain.polity.parties import Party
 
@@ -200,6 +200,16 @@ def select_party_nominee_from_declared(
     if not eligible:
         return None
     return max(eligible, key=lambda c: (c.ambition_score, -c.citizen_id))
+
+
+def vacate_office(citizen: Citizen) -> None:
+    """v4 Lot 2: extracted from _hold_presidential_election's inline reset
+    (PR #130) -- needed at three call sites once Lot 3 (floor recall) and
+    Lot 5 (lost confidence vote) exist, and three divergent copies is
+    exactly how PR #130's bug came back the first time."""
+    citizen.role = Role.ELECTOR
+    citizen.office = Office.NONE
+    citizen.term_end_tick = None
 
 
 def declare_candidacy(citizen: Citizen) -> None:
