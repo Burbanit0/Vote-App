@@ -48,6 +48,13 @@ from api.domain.polity.citizen import Citizen, Office, Role, generate_population
 from api.domain.polity.config import PolityConfig
 from api.domain.polity.institutional_clock import ElectionType, InstitutionalClock
 from api.domain.polity.journal import Journal
+from api.domain.polity.legitimacy import (
+    compose_ecart,
+    crosses_floor,
+    initial_legitimacy,
+    mandate_strength,
+    update_legitimacy,
+)
 from api.domain.polity.llm_behavior_engine import (
     cast_votes,
     decide_campaign_positioning,
@@ -357,6 +364,14 @@ def _hold_presidential_election(
             term_ticks = config.institutions.president_term_years * config.run.ticks_per_year
             winner.term_end_tick = tick + term_ticks
             winner.mandates_served += 1
+            if config.legitimacy.enabled:
+                # Independent of config.mandate.enabled: m only needs
+                # ballots/winner_label, not pledge/deviation tracking. No
+                # new journal event here -- this same tick's
+                # legitimacy_updated (in _run_accountability_phase) records
+                # it, including mandate_strength in its own payload.
+                winner.mandate_strength = mandate_strength(ballots, winner_label)
+                winner.legitimacy_capital = initial_legitimacy(winner.mandate_strength)
 
     for nominee in nominees:
         if nominee is not winner:
@@ -476,30 +491,80 @@ def _form_and_journal_coalition_llm(
 
 
 def _run_accountability_phase(citizens: list[Citizen], config: PolityConfig, journal: Journal, tick: int) -> None:
-    """v4 Lot 2 -- §7bis.7 step 1 only ("measure, never mutate"): steps 2-7
-    (awakening, pressure aggregation, écart, L(t), petition/floor checks)
-    land in Lots 3-5. Called last in the tick body, after both election
-    blocks, so a same-tick newly-elected president's mandate_pledge_declared
-    is already on record before this phase measures their (zero, by
-    construction) deviation -- this ordering becomes frozen journal-byte
-    contract once Lot 3 appends steps 2-7 after it.
+    """v4 Lots 2-3 -- §7bis.7 steps 1, 4 and 6 ("measure, then update L(t),
+    then check the hard floor"). Steps 2/3/5/7 (awakening, pressure
+    aggregation, petition threshold, next-tick street_pressure context) land
+    in Lots 4-6. Called last in the tick body, after both election blocks,
+    so a same-tick newly-elected president's mandate_pledge_declared/L0 are
+    already on record before this phase runs for them -- frozen journal-byte
+    ordering: mandate_deviation_recorded (if any) -> legitimacy_updated ->
+    recalled (if any); Lot 5 inserts its petition check between the last two.
 
-    Gated entirely on config.mandate.enabled: zero journal bytes under the
-    shipped default. mandate_deviation is provably 0 throughout Lots 2-5 (no
-    representative_response exists yet to diverge revealed_position from
-    pledged_platform), so this never actually writes a line in practice
-    until Lot 6 -- exercised directly by a unit test with a synthetic
-    perturbed citizen instead."""
-    if not config.mandate.enabled:
+    config.mandate.enabled and config.legitimacy.enabled are independent
+    toggles (Lot 1's cross-field rules only require the reverse: any
+    pressure lever on implies legitimacy.enabled) -- gated separately below.
+    mandate_deviation is measured whenever either mandate.enabled OR a
+    nonzero passive_erosion_weight could consume it, even if mandate.enabled
+    alone is false: only the mandate_deviation_recorded *journal write*
+    stays gated on mandate.enabled, so a configured erosion term is never
+    silently zeroed just because pledge/deviation tracking itself is off.
+
+    recall_cooldown_ticks stays unconsumed this lot: after vacate_office,
+    current_office_holders returns nothing for that office, so a repeat
+    recall isn't representable until a new president exists at the next
+    scheduled election -- far longer than the cooldown, so it cannot bind
+    here regardless."""
+    if not (config.mandate.enabled or config.legitimacy.enabled):
         return
     for holder in current_office_holders(citizens, Office.PRESIDENT):
-        if holder.pledged_platform is None or holder.revealed_position is None:
-            continue
-        deviation = mandate_deviation(holder, config.mandate)
-        if deviation > config.mandate.deviation_log_threshold:
+        deviation: float | None = None
+        if (
+            (config.mandate.enabled or config.legitimacy.passive_erosion_weight > 0.0)
+            and holder.pledged_platform is not None
+            and holder.revealed_position is not None
+        ):
+            deviation = mandate_deviation(holder, config.mandate)
+        if config.mandate.enabled and deviation is not None and deviation > config.mandate.deviation_log_threshold:
             journal.write(
                 tick=tick,
                 event_type="mandate_deviation_recorded",
                 payload={"office": Office.PRESIDENT.value, "deviation": deviation},
                 citizen_id=holder.citizen_id,
             )
+
+        if not config.legitimacy.enabled:
+            continue
+        ecart = compose_ecart(
+            0.0,  # petition_pressure -- Lot 5
+            0.0,  # street_pressure -- Lot 4
+            deviation or 0.0,
+            petition_weight=config.petition.weight_in_ecart,
+            street_weight=config.street_pressure.weight_in_ecart,
+            passive_erosion_weight=config.legitimacy.passive_erosion_weight,
+        )
+        holder.legitimacy_capital = update_legitimacy(
+            holder.legitimacy_capital, holder.mandate_strength, ecart, config.legitimacy
+        )
+        journal.write(
+            tick=tick,
+            event_type="legitimacy_updated",
+            payload={
+                "office": Office.PRESIDENT.value,
+                "legitimacy": holder.legitimacy_capital,
+                "mandate_strength": holder.mandate_strength,
+                "ecart": ecart,
+            },
+            citizen_id=holder.citizen_id,
+        )
+        if crosses_floor(holder.legitimacy_capital, config.legitimacy):
+            journal.write(
+                tick=tick,
+                event_type="recalled",
+                payload={
+                    "office": Office.PRESIDENT.value,
+                    "legitimacy": holder.legitimacy_capital,
+                    "recall_floor": config.legitimacy.recall_floor,
+                },
+                citizen_id=holder.citizen_id,
+            )
+            vacate_office(holder)

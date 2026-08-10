@@ -70,6 +70,12 @@ class Citizen:
     # stays unread until Lot 3's initial_legitimacy/update_legitimacy.
     base_threshold: float = 0.0
     legitimacy_capital: float = 0.0
+    # v4 Lot 3: support(t) = (1-decay)*m needs m (mandate strength) to
+    # survive independently of legitimacy_capital, which update_legitimacy
+    # overwrites every tick. Set once at election by
+    # _hold_presidential_election, read every tick thereafter -- never
+    # drawn by generate_population, so no RNG-order change.
+    mandate_strength: float = 0.0
 
 
 def generate_population(config: CitizensConfig, population_size: int, seed: int) -> list[Citizen]:

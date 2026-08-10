@@ -54,6 +54,7 @@ def test_population_shape_and_invariants():
         assert c.revealed_position is None
         assert 0.0 <= c.base_threshold <= 1.0
         assert c.legitimacy_capital == 0.0
+        assert c.mandate_strength == 0.0
     assert any(c.base_threshold != 0.0 for c in pop)
 
 
