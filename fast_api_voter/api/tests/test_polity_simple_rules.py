@@ -14,6 +14,7 @@ from api.domain.polity.simple_rules import (
     BLANK_LABEL,
     assign_party_affiliation,
     attempt_rupture_candidacy,
+    ballot_ranks_above_blank,
     build_ranking,
     candidate_label,
     choose_party,
@@ -308,6 +309,36 @@ def test_build_ranking_raises_without_a_declared_candidacy():
     not_a_candidate = _citizen(2, (0.5,))
     with pytest.raises(ValueError, match="not declared a candidacy"):
         build_ranking(voter, [not_a_candidate])
+
+
+# ── ballot_ranks_above_blank ─────────────────────────────────────────────
+
+def test_ballot_ranks_above_blank_is_true_for_a_within_tolerance_build_ranking_output():
+    voter = _citizen(1, (0.0,), priorities=(1.0,), blank_threshold=0.9)
+    candidate = _candidate(10, (0.5,))
+    ballot = build_ranking(voter, [candidate])
+    assert ballot_ranks_above_blank(ballot, candidate_label(candidate)) is True
+
+
+def test_ballot_ranks_above_blank_is_false_for_a_beyond_tolerance_build_ranking_output():
+    voter = _citizen(1, (0.0,), priorities=(1.0,), blank_threshold=0.05)
+    candidate = _candidate(10, (0.5,))
+    ballot = build_ranking(voter, [candidate])
+    assert ballot_ranks_above_blank(ballot, candidate_label(candidate)) is False
+
+
+def test_ballot_ranks_above_blank_is_false_on_an_all_blank_ballot():
+    assert ballot_ranks_above_blank([BLANK_LABEL], "citizen_10") is False
+
+
+def test_ballot_ranks_above_blank_is_false_when_the_label_is_absent_from_a_truncated_ranking():
+    ballot = ["citizen_2", "citizen_3", BLANK_LABEL]
+    assert ballot_ranks_above_blank(ballot, "citizen_10") is False
+
+
+def test_ballot_ranks_above_blank_raises_when_blank_label_is_missing():
+    with pytest.raises(ValueError, match="does not contain blank_label"):
+        ballot_ranks_above_blank(["citizen_1", "citizen_2"], "citizen_1")
 
 
 # ── form_coalition ────────────────────────────────────────────────────────

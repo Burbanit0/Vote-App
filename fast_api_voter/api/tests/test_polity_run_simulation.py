@@ -11,17 +11,17 @@ import json
 
 import pytest
 
-from api.domain.polity.citizen import Citizen, Office, Role
+from api.domain.polity.citizen import Citizen, Office, Role, generate_population
 from api.domain.polity.config import PolityConfig, load_config
 from api.domain.polity.journal import Journal
 from api.domain.polity.llm_client import LlmResponseError
-from api.domain.polity.parties import Party
+from api.domain.polity.parties import Party, initialize_parties
 from api.domain.polity.run_polity_simulation import (
     _hold_presidential_election,
     _run_accountability_phase,
     run_simulation,
 )
-from api.domain.polity.simple_rules import declare_candidacy
+from api.domain.polity.simple_rules import assign_party_affiliation, declare_candidacy
 
 
 def _config_with_output_dir(output_dir) -> PolityConfig:
@@ -309,6 +309,163 @@ def test_term_limited_incumbent_is_not_re_nominated(tmp_path):
     assert citizen_a.office == Office.NONE
     assert citizen_a.role == Role.ELECTOR
     assert citizen_a.mandates_served == 1
+
+
+# ── legitimacy (v4 Lot 3) ─────────────────────────────────────────────────
+
+def _config_with_legitimacy_enabled(output_dir, **overrides) -> PolityConfig:
+    config = _config_with_output_dir(output_dir)
+    legitimacy = dataclasses.replace(config.legitimacy, enabled=True, **overrides)
+    return dataclasses.replace(config, legitimacy=legitimacy)
+
+
+def _config_with_legitimacy_enabled_and_guaranteed_winners(output_dir, **overrides) -> PolityConfig:
+    # Same rationale as mandate's own helper: ambition_threshold=0.7 never
+    # produces a presidential winner at seed=42.
+    config = _config_with_legitimacy_enabled(output_dir, **overrides)
+    return dataclasses.replace(config, candidacy=dataclasses.replace(config.candidacy, ambition_threshold=0.0))
+
+
+def test_default_config_run_emits_no_legitimacy_events(tmp_path):
+    journal_path = run_simulation(_config_with_output_dir(tmp_path), run_id="baseline")
+    events = _events(journal_path)
+    assert not [e for e in events if e["event_type"] in ("legitimacy_updated", "recalled")]
+
+
+def test_legitimacy_is_flat_at_mandate_strength_for_the_entire_run(tmp_path):
+    # §7bis.6's central claim, now a passing test: with no citizen pressure
+    # (Lots 4-5 not built yet) and recall_floor=0.0 isolating this from the
+    # recall mechanism, L(t) == m at every single tick, every term.
+    config = _config_with_legitimacy_enabled_and_guaranteed_winners(tmp_path, recall_floor=0.0)
+    journal_path = run_simulation(config, run_id="legitimacy-flat")
+    events = _events(journal_path)
+    updates = [e for e in events if e["event_type"] == "legitimacy_updated"]
+    assert not [e for e in events if e["event_type"] == "recalled"]
+    # Exactly one update per tick for the whole run -- elections hand off
+    # the office with zero vacancy gap, so there's no term-boundary
+    # double-count or undercount to account for (the last term is simply
+    # truncated by the run's own end, not by anything this test predicts).
+    assert len(updates) == config.run.duration_years * config.run.ticks_per_year + 1
+    for update in updates:
+        assert update["payload"]["mandate_strength"] == pytest.approx(0.51)
+        assert update["payload"]["legitimacy"] == pytest.approx(update["payload"]["mandate_strength"])
+
+
+@pytest.mark.parametrize(
+    "method,expected_winner_cid,expected_m",
+    [
+        ("two_round", 62, 0.51),
+        ("irv", 62, 0.51),
+        ("borda", 48, 0.56),
+        ("schulze", 48, 0.56),
+    ],
+)
+def test_mandate_strength_is_correct_and_method_agnostic(tmp_path, method, expected_winner_cid, expected_m):
+    config = _config_with_legitimacy_enabled_and_guaranteed_winners(tmp_path)
+    config = dataclasses.replace(config, institutions=dataclasses.replace(config.institutions, presidential_method=method))
+    citizens = generate_population(config.citizens, config.run.population_size, config.run.seed)
+    parties = initialize_parties(citizens, config.parties.initial_count, config.run.seed)
+    for citizen in citizens:
+        citizen.party_affiliation = assign_party_affiliation(citizen, parties)
+
+    with Journal(tmp_path / "run.jsonl", run_id="m") as journal:
+        _hold_presidential_election(citizens, parties, config, journal, tick=0, llm_client=None)
+
+    winner = next(c for c in citizens if c.office == Office.PRESIDENT)
+    assert winner.citizen_id == expected_winner_cid
+    assert winner.mandate_strength == pytest.approx(expected_m)
+    assert winner.legitimacy_capital == pytest.approx(expected_m)
+
+
+def test_two_legitimacy_enabled_runs_produce_byte_identical_journals(tmp_path):
+    path_a = run_simulation(_config_with_legitimacy_enabled(tmp_path / "a"), run_id="same-run-id")
+    path_b = run_simulation(_config_with_legitimacy_enabled(tmp_path / "b"), run_id="same-run-id")
+    assert path_a.read_bytes() == path_b.read_bytes()
+
+
+def test_legitimacy_enabled_without_mandate_enabled_emits_no_deviation_events(tmp_path):
+    # Independent toggles: legitimacy.enabled does not imply mandate.enabled.
+    config = _config_with_legitimacy_enabled_and_guaranteed_winners(tmp_path)
+    journal_path = run_simulation(config, run_id="legitimacy-only")
+    events = _events(journal_path)
+    assert [e for e in events if e["event_type"] == "legitimacy_updated"]
+    assert not [e for e in events if e["event_type"] == "mandate_deviation_recorded"]
+
+
+def _legitimacy_test_citizen(cid, legitimacy_capital, mandate_strength_value):
+    return Citizen(
+        citizen_id=cid,
+        issue_positions=(0.5,),
+        issue_priorities=(1.0,),
+        blank_threshold=0.5,
+        ambition_score=0.5,
+        role=Role.ELECTED,
+        office=Office.PRESIDENT,
+        legitimacy_capital=legitimacy_capital,
+        mandate_strength=mandate_strength_value,
+    )
+
+
+def test_recall_fires_when_legitimacy_crosses_the_floor_and_vacates_the_office(tmp_path):
+    # Fixed point at m=0.1, below the shipped recall_floor (0.2): stays
+    # below every tick, so the floor fires on the very first call.
+    config = _config_with_legitimacy_enabled(tmp_path)
+    citizens = [_legitimacy_test_citizen(0, legitimacy_capital=0.1, mandate_strength_value=0.1)]
+
+    journal_path = tmp_path / "recall.jsonl"
+    with Journal(journal_path, run_id="recall") as journal:
+        _run_accountability_phase(citizens, config, journal, tick=0)
+    events = _events(journal_path)
+    assert [e["event_type"] for e in events] == ["legitimacy_updated", "recalled"]
+    assert events[0]["payload"]["legitimacy"] == pytest.approx(0.1)
+    assert events[1]["payload"]["legitimacy"] == pytest.approx(0.1)
+    assert events[1]["payload"]["recall_floor"] == config.legitimacy.recall_floor
+
+    holder = citizens[0]
+    assert holder.role == Role.ELECTOR
+    assert holder.office == Office.NONE
+    assert holder.term_end_tick is None
+    # Not reset -- post-mortem legibility, same precedent as Lot 2's
+    # pledged_platform/revealed_position on a term-end vacate.
+    assert holder.legitimacy_capital == pytest.approx(0.1)
+    assert holder.mandate_strength == pytest.approx(0.1)
+
+    # Office is now vacant: a second call is a no-op.
+    with Journal(tmp_path / "recall2.jsonl", run_id="recall2") as journal:
+        _run_accountability_phase(citizens, config, journal, tick=1)
+    assert _events(tmp_path / "recall2.jsonl") == []
+
+
+def test_same_tick_election_recall_is_reachable(tmp_path):
+    # A fixed, externally-legible floor means exactly this can happen: a
+    # winner with m below the floor is recalled the tick they're elected.
+    config = _config_with_legitimacy_enabled_and_guaranteed_winners(tmp_path, recall_floor=0.99)
+    journal_path = run_simulation(config, run_id="same-tick-recall")
+    events = _events(journal_path)
+    elected_ticks = [e["tick"] for e in events if e["event_type"] == "elected"]
+    recalled_ticks = [e["tick"] for e in events if e["event_type"] == "recalled"]
+    assert elected_ticks
+    assert elected_ticks == recalled_ticks
+
+
+def test_passive_erosion_applies_without_mandate_tracking_enabled(tmp_path):
+    # Guards the gating design's own silent-zero gap: passive_erosion_weight
+    # must still erode L even when mandate.enabled is False, since
+    # measurement is free and only the mandate_deviation_recorded *write*
+    # is gated on mandate.enabled.
+    config = _config_with_legitimacy_enabled(tmp_path, passive_erosion_weight=0.5)
+    assert config.mandate.enabled is False
+    citizen = _legitimacy_test_citizen(0, legitimacy_capital=0.5, mandate_strength_value=0.5)
+    citizen.pledged_platform = (0.0,)
+    citizen.revealed_position = (1.0,)  # deviation = 1.0
+
+    journal_path = tmp_path / "passive.jsonl"
+    with Journal(journal_path, run_id="passive") as journal:
+        _run_accountability_phase([citizen], config, journal, tick=0)
+    events = _events(journal_path)
+    update = next(e for e in events if e["event_type"] == "legitimacy_updated")
+    assert update["payload"]["ecart"] == pytest.approx(0.5 * 1.0)
+    assert not [e for e in events if e["event_type"] == "mandate_deviation_recorded"]
 
 
 # ── LLM-enabled path (v2 increments 1-2) ─────────────────────────────────

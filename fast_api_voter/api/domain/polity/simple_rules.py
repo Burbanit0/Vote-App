@@ -90,6 +90,30 @@ def build_ranking(
     return names[:within_tolerance] + [blank_label] + names[within_tolerance:]
 
 
+def ballot_ranks_above_blank(ballot: list[str], label: str, blank_label: str = BLANK_LABEL) -> bool:
+    """v4 Lot 3 (§7.1's mandate_strength source): is `label` ranked above
+    blank on this one ballot? Format-agnostic across both ballot builders:
+    build_ranking always contains every candidate (a total partition around
+    blank_label), so `label` is always present for the deterministic path.
+    llm_behavior_engine.ballot_from_decision diverges -- an explicit blank
+    vote collapses to [blank_label] alone, and a non-blank vote's ranking is
+    truncated to the top 5 for fields >6 candidates, so `label` can be
+    absent from a non-blank LLM ballot too. Absence is read as "not above
+    blank" (never as "exclude this ballot") -- the only reading consistent
+    with mandate_strength being a fraction of *cast* ballots, at the cost of
+    a real, one-directional downward bias on the LLM path once a field
+    exceeds 6 candidates (never triggered by the 5 shipped parties alone).
+
+    Both builders guarantee blank_label is present; its absence is a
+    contract violation, not a possible input, so it raises with a clear
+    message rather than surfacing list.index's bare ValueError."""
+    if blank_label not in ballot:
+        raise ValueError(f"ballot {ballot!r} does not contain blank_label {blank_label!r}")
+    if label not in ballot:
+        return False
+    return ballot.index(label) < ballot.index(blank_label)
+
+
 # ── Party affiliation (the natural complement to Lot 3's k-means platforms:
 #    a citizen's initial party is whichever platform sits closest to them) ──
 
